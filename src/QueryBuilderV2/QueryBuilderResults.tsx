@@ -56,9 +56,11 @@ import {
 import { PREDEFINED_GRANULARITIES } from './values';
 import { formatCurrency, formatNumber } from './utils/formatters';
 import { useDeepMemo, useIntervalEffect } from './hooks';
+import { useColumnWidths } from './hooks/use-column-widths';
 import { OutdatedLabel } from './components/OutdatedLabel';
 import { CopyButton } from './components/CopyButton';
 import { ListMemberButton } from './components/ListMemberButton';
+import { ColumnResizeHandle } from './components/column-resize-handle';
 import { useQueryBuilderContext } from './context';
 import { formatDateByGranularity } from './utils/format-date-by-granularity';
 import { MemberBadge } from './components/Badge';
@@ -94,10 +96,10 @@ const TableFooter = tasty(Space, {
   qa: 'ResultsTableFooter',
   styles: {
     fill: '#white',
-    padding: '1x',
+    padding: '.75x 1x',
     width: '100%',
     placeContent: 'center space-between',
-    height: '5x',
+    height: '4x',
     border: 'top',
   },
 });
@@ -359,7 +361,7 @@ const GridTable = tasty(Grid, {
       textOverflow: 'ellipsis',
       overflow: 'hidden',
       whiteSpace: 'nowrap',
-      padding: '1x',
+      padding: '.5x .75x',
     },
 
     Cell: {
@@ -404,7 +406,7 @@ const ColumnHeader = tasty({
     placeItems: 'center',
     color: '#dark',
     preset: 't3m',
-    padding: '1x',
+    padding: '.75x 1x',
     fill: {
       '': '#missing-active',
       '[data-member="measure"]': '#measure-active',
@@ -700,6 +702,10 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   const dataRef = useRef<{ [k: string]: string | number }[] | undefined>(EMPTY_DATA);
   const tableRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
+  const { widths, setWidth, getColumnTemplate } = useColumnWidths(
+    'QueryBuilder:Results:columnWidths'
+  );
+  const [livePreviewWidths, setLivePreviewWidths] = useState<Record<string, number>>({});
 
   // @ts-ignore
   if (resultSet?.loadResponse?.results[0].data) {
@@ -720,6 +726,41 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   const timeDimensions = query?.timeDimensions?.filter((member) => !!member.granularity) || [];
   const totalColumns = measures.length + dimensions.length + grouping.getAll().length;
   const isColumnsSelected = !!totalColumns;
+
+  const orderedColumnNames = useMemo(
+    () => [
+      ...dimensions,
+      ...timeDimensions.map((td) => td.dimension),
+      ...measures,
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures)]
+  );
+  const gridColumnsTemplate = getColumnTemplate(orderedColumnNames, livePreviewWidths);
+
+  const cancelResize = useCallback(() => {
+    setLivePreviewWidths({});
+  }, []);
+  const commitResize = useCallback(
+    (name: string, w: number) => {
+      setWidth(name, w);
+      setLivePreviewWidths((prev) => {
+        if (!(name in prev)) return prev;
+        const { [name]: _unused, ...rest } = prev;
+        return rest;
+      });
+    },
+    [setWidth]
+  );
+  const previewResize = useCallback((name: string, w: number) => {
+    setLivePreviewWidths((prev) => ({ ...prev, [name]: w }));
+  }, []);
+  const measureHeaderWidth = useCallback((name: string) => {
+    const el = tableRef.current?.querySelector(
+      `[data-resize-anchor="${name}"]`
+    ) as HTMLElement | null;
+    return el?.getBoundingClientRect().width ?? 140;
+  }, []);
 
   // scroll table to the top when page is changed
   useEffect(() => {
@@ -956,6 +997,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
           <ColumnHeader
             key={dimension}
             data-member={member ? 'dimension' : undefined}
+            data-resize-anchor={dimension}
             mods={{ movable: dimensions.length > 1 }}
           >
             <MemberLabel
@@ -991,6 +1033,13 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                   : undefined
               }
               onMemberRemove={(name) => dimensionsUpdater?.remove(name)}
+            />
+            <ColumnResizeHandle
+              name={dimension}
+              getStartWidth={() => measureHeaderWidth(dimension)}
+              onResize={(w) => previewResize(dimension, w)}
+              onCommit={(w) => commitResize(dimension, w)}
+              onCancel={cancelResize}
             />
           </ColumnHeader>
         ),
@@ -1034,6 +1083,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
           <ColumnHeader
             key={measure}
             data-member={member ? 'measure' : undefined}
+            data-resize-anchor={measure}
             mods={{ movable: measures.length > 1 }}
           >
             <MemberLabel
@@ -1069,6 +1119,13 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                   : undefined
               }
               onMemberRemove={(name) => measuresUpdater?.remove(name)}
+            />
+            <ColumnResizeHandle
+              name={measure}
+              getStartWidth={() => measureHeaderWidth(measure)}
+              onResize={(w) => previewResize(measure, w)}
+              onCommit={(w) => commitResize(measure, w)}
+              onCancel={cancelResize}
             />
           </ColumnHeader>
         ),
@@ -1123,6 +1180,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
           <ColumnHeader
             key={`time-dimension.${timeDimension.dimension}`}
             data-member={member ? 'timeDimension' : undefined}
+            data-resize-anchor={timeDimension.dimension}
             mods={{ movable: timeDimensions.length > 1 }}
           >
             <MemberLabel
@@ -1171,6 +1229,13 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                   : undefined
               }
               onMemberRemove={(name) => grouping.remove(name)}
+            />
+            <ColumnResizeHandle
+              name={timeDimension.dimension}
+              getStartWidth={() => measureHeaderWidth(timeDimension.dimension)}
+              onResize={(w) => previewResize(timeDimension.dimension, w)}
+              onCommit={(w) => commitResize(timeDimension.dimension, w)}
+              onCancel={cancelResize}
             />
           </ColumnHeader>
         ),
@@ -1228,7 +1293,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
         <Panel gridRows="minmax(0, 1fr)">
           <TableContainer ref={tableRef} onClick={onTableClick} onTouchStart={onTableClick}>
             <GridTable
-              columns={`repeat(${totalColumns}, auto)`}
+              columns={gridColumnsTemplate}
               mods={{ inactive: !!(isLoading || error) }}
             >
               {dimensionColumns}

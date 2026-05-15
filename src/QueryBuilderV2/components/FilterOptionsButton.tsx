@@ -9,7 +9,8 @@ const OptionsButton = tasty(Button, {
   type: 'secondary',
   icon: <MoreIcon />,
   styles: {
-    width: '3x',
+    width: '3.5x',
+    padding: 0,
   },
 });
 

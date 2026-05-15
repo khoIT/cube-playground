@@ -11,9 +11,14 @@ const FilterMemberElement = tasty({
   styles: {
     padding: {
       '': '.75x 1x',
-      '[data-size="small"]': '.25x .5x',
+      '[data-size="small"]': '0 .75x',
+    },
+    height: {
+      '': 'auto',
+      '[data-size="small"]': '3.5x',
     },
     display: 'flex',
+    alignItems: 'center',
     justifyContent: 'space-between',
     position: 'relative',
     radius: true,

@@ -195,7 +195,6 @@ export function FilterMember(props: FilterMemberProps) {
       case 'boolean':
         return (
           <Switch
-            margin=".5x top"
             isSelected={filter.values?.[0] === 'true'}
             onChange={(value) => onValuesChange(value ? ['true'] : ['false'])}
           />
