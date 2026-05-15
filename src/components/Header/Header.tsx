@@ -1,33 +1,62 @@
 import { MenuOutlined } from '@ant-design/icons';
 import { Dropdown, Layout, Menu } from 'antd';
+import { Database, LayoutDashboard } from 'lucide-react';
 import { useMediaQuery } from 'react-responsive';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { StyledMenu, StyledMenuItem } from './Menu';
+import { BrandBlock } from './brand-block';
+import { NavPill } from './nav-pill';
 
 const StyledHeader = styled(Layout.Header)`
   && {
-    background-color: var(--dark-02-color);
-    color: white;
-    padding: 0 16px;
-    line-height: 44px;
-    height: 48px;
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-card);
+    padding: 0 24px;
+    line-height: 1;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 `;
 
-const Brand = styled.div`
-  float: left;
-  color: white;
-  font-weight: 600;
-  font-size: 16px;
-  margin-right: 28px;
-  letter-spacing: 0.3px;
+const PillRow = styled.nav`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const Spacer = styled.div`
+  flex: 1;
+`;
+
+const MobileTrigger = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--brand);
+    color: var(--brand);
+  }
 `;
 
 type Props = {
   selectedKeys: string[];
 };
+
+function isActive(selectedKeys: string[], to: string): boolean {
+  return selectedKeys.some((key) => key === to || key.startsWith(`${to}/`));
+}
 
 export default function Header({ selectedKeys }: Props) {
   const isDesktopOrLaptop = useMediaQuery({ query: '(min-width: 992px)' });
@@ -35,37 +64,46 @@ export default function Header({ selectedKeys }: Props) {
 
   return (
     <StyledHeader>
-      <Brand>GDS Cube</Brand>
+      <BrandBlock />
 
       {isDesktopOrLaptop && (
-        <StyledMenu theme="light" mode="horizontal" selectedKeys={selectedKeys}>
-          <StyledMenuItem key="/build">
-            <Link to="/build">Playground</Link>
-          </StyledMenuItem>
-
-          <StyledMenuItem key="/schema">
-            <Link to="/schema">Data Model</Link>
-          </StyledMenuItem>
-        </StyledMenu>
+        <PillRow>
+          <NavPill
+            to="/build"
+            icon={LayoutDashboard}
+            active={isActive(selectedKeys, '/build')}
+          >
+            Playground
+          </NavPill>
+          <NavPill
+            to="/schema"
+            icon={Database}
+            active={isActive(selectedKeys, '/schema')}
+          >
+            Models
+          </NavPill>
+        </PillRow>
       )}
 
+      <Spacer />
+
       {isMobileOrTable && (
-        <div style={{ float: 'right' }}>
-          <Dropdown
-            overlay={
-              <Menu>
-                <Menu.Item key="/build">
-                  <Link to="/build">Playground</Link>
-                </Menu.Item>
-                <Menu.Item key="/schema">
-                  <Link to="/schema">Data Model</Link>
-                </Menu.Item>
-              </Menu>
-            }
-          >
+        <Dropdown
+          overlay={
+            <Menu>
+              <Menu.Item key="/build">
+                <Link to="/build">Playground</Link>
+              </Menu.Item>
+              <Menu.Item key="/schema">
+                <Link to="/schema">Models</Link>
+              </Menu.Item>
+            </Menu>
+          }
+        >
+          <MobileTrigger aria-label="Open navigation">
             <MenuOutlined />
-          </Dropdown>
-        </div>
+          </MobileTrigger>
+        </Dropdown>
       )}
     </StyledHeader>
   );
