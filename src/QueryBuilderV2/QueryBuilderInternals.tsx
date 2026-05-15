@@ -16,6 +16,7 @@ import { QueryBuilderGraphQL } from './QueryBuilderGraphQL';
 import { QueryBuilderSidePanel } from './QueryBuilderSidePanel';
 import { QueryBuilderExtras } from './QueryBuilderExtras';
 import { QueryStatePillBar } from './QueryStatePillBar';
+import { AnalysisPanel } from './analysis/analysis-panel';
 
 // The minimum size of the area below the top edge of the chart
 // when we can show both results and the chart at the same time.
@@ -29,7 +30,7 @@ const Divider = tasty({
   },
 });
 
-type Tab = 'results' | 'generated-sql' | 'json' | 'graphql' | 'sql';
+type Tab = 'results' | 'analysis' | 'generated-sql' | 'json' | 'graphql' | 'sql';
 
 const QueryBuilderPanel = tasty(Panel, {
   isFlex: true,
@@ -67,6 +68,9 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
         >
           <Tab keepMounted id="results" title="Results">
             <QueryBuilderResults forceMinHeight={!isChartExpanded} />
+          </Tab>
+          <Tab id="analysis" title="Analysis">
+            <AnalysisPanel />
           </Tab>
           <Tab id="generated-sql" title="SQL">
             <QueryBuilderGeneratedSQL />
@@ -112,7 +116,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           []
         )}
 
-        <Panel gridRows="min-content min-content min-content min-content min-content minmax(0, 1fr)">
+        <Panel gridRows="min-content min-content min-content min-content min-content min-content minmax(0, 1fr)">
           {useMemo(
             () => (
               <>
