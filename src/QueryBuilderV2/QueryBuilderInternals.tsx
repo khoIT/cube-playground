@@ -1,14 +1,20 @@
-import { Flex, Flow, Panel, tasty } from '@cube-dev/ui-kit';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { Panel, tasty } from '@cube-dev/ui-kit';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import styled from 'styled-components';
+import { ChartType } from '@cubejs-client/core';
 
+import { AppPane, AppPaneGroup, AppResizeHandle, PaneShell } from '../components/AppPanes';
 import { QUERY_BUILDER_COLOR_TOKENS } from './color-tokens';
-import { useAutoSize, useEvent, useLocalStorage } from './hooks';
+import { useLocalStorage } from './hooks';
 import { useQueryBuilderContext } from './context';
 import { Tabs, Tab } from './components/Tabs';
 import { QueryBuilderFilters } from './QueryBuilderFilters';
 import { QueryBuilderChart } from './QueryBuilderChart';
 import { QueryBuilderResults } from './QueryBuilderResults';
-import { QueryBuilderToolBar } from './QueryBuilderToolBar';
+import {
+  QueryBuilderRunControl,
+  QueryBuilderToolBarAlerts,
+} from './QueryBuilderToolBar';
 import { QueryBuilderGeneratedSQL } from './QueryBuilderGeneratedSQL';
 import { QueryBuilderSQL } from './QueryBuilderSQL';
 import { QueryBuilderRest } from './QueryBuilderRest';
@@ -19,9 +25,7 @@ import { QueryStatePillBar } from './QueryStatePillBar';
 import { AnalysisPanel } from './analysis/analysis-panel';
 import { ChartSidePane } from './components/ChartSidePane';
 
-// The minimum size of the area below the top edge of the chart
-// when we can show both results and the chart at the same time.
-const CHART_THRESHOLD = 448;
+const FIXED_SIDEBAR_WIDTH = 315;
 
 const Divider = tasty({
   styles: {
@@ -44,17 +48,89 @@ const QueryBuilderPanel = tasty(Panel, {
   },
 });
 
+const FixedLayout = styled.div`
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: var(--pane-gap);
+  gap: var(--pane-gap);
+  background: var(--bg-app);
+  box-sizing: border-box;
+`;
+
+const FixedSidebarShell = styled(PaneShell)`
+  width: ${FIXED_SIDEBAR_WIDTH}px;
+  flex: 0 0 ${FIXED_SIDEBAR_WIDTH}px;
+`;
+
+const FixedCenterShell = styled(PaneShell)`
+  flex: 1 1 auto;
+  min-width: 0;
+`;
+
+const FixedChartShell = styled(PaneShell)`
+  flex: 0 0 420px;
+  min-width: 0;
+`;
+
+const FixedChartRailShell = styled(PaneShell)`
+  flex: 0 0 36px;
+  min-width: 0;
+`;
+
+const CenterColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  padding: var(--pane-gap);
+  gap: var(--pane-gap);
+  box-sizing: border-box;
+  overflow: hidden;
+`;
+
+const CenterScroll = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
 const QueryBuilderInternals = memo(function QueryBuilderInternals() {
-  const { error, resultSet, queryHash, dateRanges } = useQueryBuilderContext();
-  const [isChartExpanded, setIsChartExpanded] = useLocalStorage(
-    'QueryBuilder:Chart:expanded',
+  const {
+    disableSidebarResizing,
+    chartType,
+    setChartType,
+    pivotConfig,
+    updatePivotConfig,
+    VizardComponent,
+    apiToken,
+    apiUrl,
+    query,
+  } = useQueryBuilderContext();
+  const [chartCollapsed, setChartCollapsed] = useLocalStorage<boolean>(
+    'gds-cube:chart-pane-collapsed',
     false
   );
   const [tab, setTab] = useState<Tab>('results');
   const ref = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
-  const [chartSize, updateChartSize] = useAutoSize(chartRef, 0);
+
+  const onChartTypeChange = useCallback(
+    (value: ChartType) => {
+      setChartType(value);
+    },
+    [setChartType]
+  );
+  const onPivotMove = useCallback(
+    (arg: any) => updatePivotConfig.moveItem(arg),
+    [updatePivotConfig]
+  );
+  const onPivotUpdate = useCallback(
+    (arg: any) => updatePivotConfig.update(arg),
+    [updatePivotConfig]
+  );
 
   const ResultsAndSQL = useMemo(() => {
     return (
@@ -68,7 +144,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           onChange={(tab: string) => setTab(tab as Tab)}
         >
           <Tab keepMounted id="results" title="Results">
-            <QueryBuilderResults forceMinHeight={!isChartExpanded} />
+            <QueryBuilderResults forceMinHeight />
           </Tab>
           <Tab id="analysis" title="Analysis">
             <AnalysisPanel />
@@ -88,69 +164,78 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
         </Tabs>
       </>
     );
-  }, [tab, isChartExpanded]);
+  }, [tab]);
 
-  const onToggle = useEvent((isExpanded: boolean) => {
-    setIsFiltersExpanded(isExpanded);
-  });
+  const centerContent = (
+    <CenterColumn ref={ref}>
+      <QueryBuilderRunControl />
+      <QueryStatePillBar filterSlot={<QueryBuilderFilters inline />} />
+      <QueryBuilderToolBarAlerts />
+      <CenterScroll>{ResultsAndSQL}</CenterScroll>
+    </CenterColumn>
+  );
 
-  useEffect(() => {
-    updateChartSize();
+  const chartContent = (
+    <ChartSidePane
+      collapsed={chartCollapsed}
+      onToggleCollapsed={setChartCollapsed}
+      chartType={chartType}
+      onChartTypeChange={onChartTypeChange}
+      pivotConfig={pivotConfig}
+      onPivotMove={onPivotMove}
+      onPivotUpdate={onPivotUpdate}
+      VizardComponent={VizardComponent}
+      apiToken={apiToken}
+      apiUrl={apiUrl}
+      query={query}
+    >
+      <QueryBuilderChart />
+    </ChartSidePane>
+  );
 
-    setTimeout(() => {
-      updateChartSize();
-    }, 200);
-  }, [isChartExpanded, isFiltersExpanded, error, queryHash, dateRanges.list.length, resultSet]);
+  // disableSidebarResizing: fixed-width sidebar, no PanelGroup
+  if (disableSidebarResizing) {
+    return (
+      <QueryBuilderPanel>
+        <FixedLayout>
+          <FixedSidebarShell>
+            <QueryBuilderSidePanel />
+          </FixedSidebarShell>
+          <FixedCenterShell>{centerContent}</FixedCenterShell>
+          {chartCollapsed ? (
+            <FixedChartRailShell>{chartContent}</FixedChartRailShell>
+          ) : (
+            <FixedChartShell>{chartContent}</FixedChartShell>
+          )}
+        </FixedLayout>
+      </QueryBuilderPanel>
+    );
+  }
 
+  // Default: 3 resizable panes
   return (
     <QueryBuilderPanel>
-      <QueryBuilderSidePanel />
-
-      <Panel ref={ref} gridRows="min-content min-content minmax(0, 1fr)">
-        {useMemo(
-          () => (
-            <>
-              <QueryBuilderToolBar />
-              <Divider />
-            </>
-          ),
-          []
+      <AppPaneGroup autoSaveId="QueryBuilder:Panes" direction="horizontal">
+        <AppPane id="sidebar" order={1} defaultSize={22} minSize={18} maxSize={35}>
+          <QueryBuilderSidePanel />
+        </AppPane>
+        <AppResizeHandle />
+        <AppPane id="center" order={2} defaultSize={chartCollapsed ? 75 : 50} minSize={30}>
+          {centerContent}
+        </AppPane>
+        {chartCollapsed ? (
+          <AppPane id="chart-rail" order={3} defaultSize={3} minSize={2.5} maxSize={4}>
+            {chartContent}
+          </AppPane>
+        ) : (
+          <>
+            <AppResizeHandle />
+            <AppPane id="chart" order={3} defaultSize={28} minSize={18} maxSize={45}>
+              {chartContent}
+            </AppPane>
+          </>
         )}
-
-        <Panel gridRows="min-content min-content min-content minmax(0, 1fr)">
-          {useMemo(() => {
-            return (
-              <>
-                <QueryStatePillBar />
-                <QueryBuilderFilters onToggle={onToggle} />
-                <Divider />
-                <Flex flow="row" gap="0" height="100%" styles={{ minHeight: 0 }}>
-                  <Panel
-                    isFlex
-                    flow="column"
-                    flexGrow={1}
-                    styles={{ minWidth: 0, overflow: 'hidden' }}
-                  >
-                    <div ref={chartRef} />
-                    {ResultsAndSQL}
-                    {isChartExpanded && chartSize <= CHART_THRESHOLD ? (
-                      <Flow>
-                        <Divider />
-                        <Flex padding=".5x" placeContent="end">
-                          <QueryBuilderExtras />
-                        </Flex>
-                      </Flow>
-                    ) : null}
-                  </Panel>
-                  <ChartSidePane>
-                    <QueryBuilderChart onToggle={setIsChartExpanded} />
-                  </ChartSidePane>
-                </Flex>
-              </>
-            );
-          }, [isChartExpanded, chartSize, ResultsAndSQL])}
-        </Panel>
-      </Panel>
+      </AppPaneGroup>
     </QueryBuilderPanel>
   );
 });

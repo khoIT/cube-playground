@@ -12,7 +12,6 @@ import {
   Title,
   CloseIcon,
   TooltipProvider,
-  ResizablePanel,
   ClearIcon,
 } from '@cube-dev/ui-kit';
 import {
@@ -30,7 +29,6 @@ import {
   useDebouncedValue,
   useFilteredCubes,
   useEvent,
-  useLocalStorage,
   useSidebarDisplayConfig,
 } from './hooks';
 import { useQueryBuilderContext } from './context';
@@ -38,8 +36,6 @@ import { EditQueryDialogForm } from './components/EditQueryDialogForm';
 import { SidePanelCubeItem } from './components/SidePanelCubeItem';
 import { SidebarDisplayPanel } from './components/SidebarDisplayPanel';
 import { validateQuery } from './utils';
-
-const DEFAULT_SIDEBAR_SIZE = 315;
 
 const RadioButton = tasty(Radio.Button, {
   styles: { flexGrow: 1, placeItems: 'stretch' },
@@ -59,14 +55,12 @@ type Props = {
   defaultSelectedType?: 'cubes' | 'views';
   customTypeSwitcher?: ReactNode;
   showEditQueryButton?: boolean;
-  width?: string;
 };
 
 export function QueryBuilderSidePanel({
   defaultSelectedType = 'cubes',
   customTypeSwitcher = null,
   showEditQueryButton = true,
-  width,
 }: Props) {
   const {
     query,
@@ -87,7 +81,6 @@ export function QueryBuilderSidePanel({
     apiVersion,
     isMetaLoading,
     memberViewType,
-    disableSidebarResizing,
   } = useQueryBuilderContext();
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -99,11 +92,6 @@ export function QueryBuilderSidePanel({
   const [filterString, setFilterString] = useState('');
 
   const [selectedType, setSelectedType] = useState<'cubes' | 'views'>(defaultSelectedType);
-
-  const [sidebarSize, setSidebarSize] = useLocalStorage(
-    'QueryBuilder:Sidebar:size',
-    DEFAULT_SIDEBAR_SIZE
-  );
 
   const cubes = cubesAndViews.filter((item) => item.type === 'cube');
   const views = cubesAndViews.filter((item) => item.type === 'view');
@@ -516,43 +504,21 @@ export function QueryBuilderSidePanel({
     </>
   );
 
-  return disableSidebarResizing ? (
+  return (
     <Panel
-      key="disabled-siderbar-resizing"
       ref={containerRef}
       isFlex
       qa="QueryBuilderSidePanel"
       flow="column"
       padding="1x 1x 0 1x"
       gap="1x"
-      border="1ow right"
-      width={width ?? `max ${DEFAULT_SIDEBAR_SIZE}px`}
+      width="100%"
+      height="100%"
       innerStyles={{
         overflowX: 'clip',
       }}
     >
       {content}
     </Panel>
-  ) : (
-    <ResizablePanel
-      key="resizable-siderbar"
-      ref={containerRef}
-      isFlex
-      qa="QueryBuilderSidePanel"
-      flow="column"
-      direction="right"
-      size={disableSidebarResizing ? DEFAULT_SIDEBAR_SIZE : sidebarSize}
-      isDisabled={disableSidebarResizing}
-      minSize={DEFAULT_SIDEBAR_SIZE}
-      maxSize="35%"
-      padding="1x 1x 0 1x"
-      gap="1x"
-      innerStyles={{
-        overflowX: 'clip',
-      }}
-      onSizeChange={setSidebarSize}
-    >
-      {content}
-    </ResizablePanel>
   );
 }

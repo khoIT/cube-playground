@@ -90,14 +90,7 @@ export function DateRangeStrip() {
   }
 
   if (timeDimensions.length === 0) {
-    return (
-      <Wrap>
-        <Label>Date range</Label>
-        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-          Add a time dimension to enable date-range presets
-        </span>
-      </Wrap>
-    );
+    return null;
   }
 
   return (

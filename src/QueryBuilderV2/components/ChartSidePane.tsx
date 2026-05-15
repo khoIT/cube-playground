@@ -1,97 +1,116 @@
-import { ReactNode, useEffect } from 'react';
+import { FC, ReactNode, useState } from 'react';
+import styled from 'styled-components';
 import {
   Button,
-  Flex,
-  ResizablePanel,
-  Space,
-  tasty,
-  Text,
+  Dialog,
+  DialogTrigger,
+  Divider as UIDivider,
+  Header as UIHeader,
   TooltipProvider,
+  Title as UITitle,
 } from '@cube-dev/ui-kit';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CodeOutlined } from '@ant-design/icons';
+import { ChartType, PivotConfig, Query } from '@cubejs-client/core';
 
-import { useLocalStorage } from '../hooks';
+import { PaneHeader, PaneTitle } from '../../components/AppPanes';
+import { PivotAxes, PivotOptions } from '../Pivot';
+import { ChevronIcon } from '../icons/ChevronIcon';
+import { ChartTypeToggle } from './chart-type-toggle';
 
-const CHART_PANE_WIDTH_KEY = 'gds-cube:chart-pane-width';
-const CHART_PANE_COLLAPSED_KEY = 'gds-cube:chart-pane-collapsed';
+const ContainerCollapsed = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  padding: 8px 0;
+  gap: 8px;
+`;
 
-const MIN_WIDTH = 280;
-const DEFAULT_WIDTH = 420;
-const COLLAPSED_WIDTH = 36;
+const VerticalLabel = styled.span`
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  user-select: none;
+  padding: 8px 0;
+`;
 
-const ContainerCollapsed = tasty(Flex, {
-  qa: 'ChartSidePaneCollapsed',
-  styles: {
-    flow: 'column',
-    placeItems: 'center start',
-    placeContent: 'start',
-    width: `${COLLAPSED_WIDTH}px`,
-    minWidth: `${COLLAPSED_WIDTH}px`,
-    padding: '1x 0',
-    border: 'left #dark-05',
-    fill: '#white',
-    gap: '1x',
-  },
-});
+const ContainerExpanded = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+`;
 
-const VerticalLabel = tasty(Text, {
-  styles: {
-    writingMode: 'vertical-rl',
-    transform: 'rotate(180deg)',
-    fontSize: '12px',
-    color: '#dark-03',
-    userSelect: 'none',
-    padding: '1x 0',
-  },
-});
+const HeaderRight = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+`;
 
-const ContainerExpanded = tasty(Flex, {
-  qa: 'ChartSidePaneExpanded',
-  styles: {
-    flow: 'column',
-    height: '100%',
-    border: 'left #dark-05',
-    fill: '#white',
-    overflow: 'hidden',
-  },
-});
+const HeaderDivider = styled.span`
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--border-card);
+  margin: 0 6px;
+`;
 
-const PaneHeader = tasty(Space, {
-  styles: {
-    placeContent: 'space-between',
-    padding: '.5x 1x',
-    border: 'bottom #dark-05',
-  },
-});
+const ChartTypeSlot = styled.div`
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+`;
 
-const PaneBody = tasty(Flex, {
-  styles: {
-    flow: 'column',
-    height: '100%',
-    overflow: 'auto',
-  },
-});
+const PaneBody = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+`;
+
+type ToggleChartType = Extract<ChartType, 'line' | 'bar' | 'area' | 'table'>;
 
 type Props = {
   children: ReactNode;
+  collapsed: boolean;
+  onToggleCollapsed: (collapsed: boolean) => void;
+  /** Optional chart-type segmented toggle. When omitted, no toggle rendered. */
+  chartType?: ChartType;
+  onChartTypeChange?: (value: ToggleChartType) => void;
+  /** Pivot dialog wiring (mirrors QueryBuilderChart). */
+  pivotConfig?: PivotConfig | null;
+  onPivotMove?: (arg: any) => void;
+  onPivotUpdate?: (arg: any) => void;
+  /** Code (Vizard) dialog wiring. */
+  VizardComponent?: FC<any>;
+  apiToken?: string | null;
+  apiUrl?: string;
+  query?: Query;
 };
 
-export function ChartSidePane({ children }: Props) {
-  const [collapsed, setCollapsed] = useLocalStorage<boolean>(
-    CHART_PANE_COLLAPSED_KEY,
-    false
-  );
-  const [width, setWidth] = useLocalStorage<number>(
-    CHART_PANE_WIDTH_KEY,
-    DEFAULT_WIDTH
-  );
-
-  // Clamp width on mount if out of bounds
-  useEffect(() => {
-    if (typeof width === 'number' && width < MIN_WIDTH) {
-      setWidth(MIN_WIDTH);
-    }
-  }, []);
+export function ChartSidePane({
+  children,
+  collapsed,
+  onToggleCollapsed,
+  chartType,
+  onChartTypeChange,
+  pivotConfig,
+  onPivotMove,
+  onPivotUpdate,
+  VizardComponent,
+  apiToken,
+  apiUrl,
+  query,
+}: Props) {
+  const [isVizardLoaded, setIsVizardLoaded] = useState(false);
 
   if (collapsed) {
     return (
@@ -103,7 +122,7 @@ export function ChartSidePane({ children }: Props) {
             size="small"
             icon={<ChevronLeft size={14} strokeWidth={2.25} />}
             aria-label="Expand chart pane"
-            onPress={() => setCollapsed(false)}
+            onPress={() => onToggleCollapsed(false)}
           />
         </TooltipProvider>
         <VerticalLabel>Chart</VerticalLabel>
@@ -111,21 +130,63 @@ export function ChartSidePane({ children }: Props) {
     );
   }
 
+  const pivotTrigger =
+    pivotConfig && onPivotMove && onPivotUpdate ? (
+      <DialogTrigger type="popover">
+        <Button size="small" rightIcon={<ChevronIcon direction="bottom" />}>
+          Pivot
+        </Button>
+        <Dialog border overflow="hidden" width="40x max-content 80x">
+          <PivotAxes pivotConfig={pivotConfig} onMove={onPivotMove} />
+          <UIDivider />
+          <div style={{ padding: '8px' }}>
+            <PivotOptions pivotConfig={pivotConfig} onUpdate={onPivotUpdate} />
+          </div>
+        </Dialog>
+      </DialogTrigger>
+    ) : null;
+
+  const codeTrigger = VizardComponent ? (
+    <DialogTrigger isDismissable type="fullscreen">
+      <Button
+        type="primary"
+        size="small"
+        icon={<CodeOutlined />}
+        onPress={() => setIsVizardLoaded(true)}
+      >
+        Code
+      </Button>
+      <Dialog isDismissable>
+        <UIHeader>
+          <UITitle>Chart Prototyping</UITitle>
+        </UIHeader>
+        {isVizardLoaded ? (
+          <VizardComponent
+            apiToken={apiToken}
+            apiUrl={apiUrl}
+            query={query}
+            pivotConfig={pivotConfig}
+          />
+        ) : null}
+      </Dialog>
+    </DialogTrigger>
+  ) : null;
+
   return (
-    <ResizablePanel
-      qa="ChartSidePaneResizable"
-      direction="left"
-      size={Math.max(width || DEFAULT_WIDTH, MIN_WIDTH)}
-      minSize={MIN_WIDTH}
-      maxSize="60%"
-      onSizeChange={setWidth}
-      isFlex
-      flow="column"
-      innerStyles={{ height: '100%' }}
-    >
-      <ContainerExpanded>
-        <PaneHeader>
-          <Text preset="t4m">Chart</Text>
+    <ContainerExpanded>
+      <PaneHeader>
+        <PaneTitle>Chart</PaneTitle>
+        <HeaderRight>
+          {onChartTypeChange ? (
+            <>
+              <ChartTypeSlot>
+                <ChartTypeToggle value={chartType} onChange={onChartTypeChange} />
+              </ChartTypeSlot>
+              {(pivotTrigger || codeTrigger) && <HeaderDivider aria-hidden />}
+            </>
+          ) : null}
+          {pivotTrigger}
+          {codeTrigger}
           <TooltipProvider title="Collapse chart pane">
             <Button
               qa="ChartSidePaneCollapseBtn"
@@ -133,12 +194,12 @@ export function ChartSidePane({ children }: Props) {
               size="small"
               icon={<ChevronRight size={14} strokeWidth={2.25} />}
               aria-label="Collapse chart pane"
-              onPress={() => setCollapsed(true)}
+              onPress={() => onToggleCollapsed(true)}
             />
           </TooltipProvider>
-        </PaneHeader>
-        <PaneBody>{children}</PaneBody>
-      </ContainerExpanded>
-    </ResizablePanel>
+        </HeaderRight>
+      </PaneHeader>
+      <PaneBody>{children}</PaneBody>
+    </ContainerExpanded>
   );
 }

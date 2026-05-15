@@ -1,35 +1,54 @@
-import { useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 import styled from 'styled-components';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
+import { Card } from '../components/AppPanes';
 import { useQueryBuilderContext } from './context';
+import { useLocalStorage } from './hooks';
 import { DateRangeStrip } from './components/date-range-strip';
 import {
   MemberPillRow,
   PillItem,
 } from './components/member-pill-row';
 
-const Card = styled.section`
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-xs);
-  margin: 12px;
-  overflow: hidden;
-  font-family: var(--font-sans);
+const QueryCard = styled(Card)`
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
 `;
 
-const Header = styled.div`
+const Header = styled.div<{ $collapsed: boolean }>`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-card);
+  padding: 12px 16px;
+  border-bottom: ${(p) => (p.$collapsed ? '0' : '1px solid var(--border-card)')};
+  flex-shrink: 0;
 `;
 
 const HeaderLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+`;
+
+const ToggleButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-muted);
+    color: var(--text-primary);
+  }
 `;
 
 const Title = styled.h3`
@@ -40,22 +59,79 @@ const Title = styled.h3`
 `;
 
 const LiveBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
-  color: var(--success);
-  background: rgba(0, 150, 136, 0.1);
-  padding: 2px 8px;
+  color: var(--live-badge-text);
+  background: var(--live-badge-bg);
+  border: 1px solid var(--live-badge-border);
+  padding: 2px 8px 2px 7px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--live-badge-dot);
+    animation: live-dot-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes live-dot-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.55;
+      transform: scale(0.85);
+    }
+  }
 `;
 
 const Body = styled.div`
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 `;
 
-export function QueryStatePillBar() {
+const FilterRow = styled.div`
+  display: grid;
+  grid-template-columns: var(--qrow-label-width) 1fr;
+  align-items: start;
+  gap: var(--qrow-gap);
+  padding: var(--qrow-padding-y) 12px;
+  border-bottom: var(--qrow-divider);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+`;
+
+const FilterRowLabel = styled.span`
+  font-family: var(--font-sans);
+  font-size: var(--qrow-label-size);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--qrow-label-spacing);
+  line-height: var(--pill-height);
+  padding-top: 2px;
+`;
+
+type Props = {
+  filterSlot?: ReactNode;
+};
+
+export function QueryStatePillBar({ filterSlot }: Props) {
   const ctx = useQueryBuilderContext();
   const {
     query,
@@ -64,6 +140,11 @@ export function QueryStatePillBar() {
     grouping,
     filters,
   } = ctx;
+
+  const [collapsed, setCollapsed] = useLocalStorage<boolean>(
+    'QueryBuilder:Query:collapsed',
+    false
+  );
 
   const dimensionItems = useMemo<PillItem[]>(() => {
     return (query.dimensions ?? []).map((member) => ({
@@ -90,7 +171,7 @@ export function QueryStatePillBar() {
     }));
   }, [query.timeDimensions, grouping]);
 
-  const filterItems = useMemo<PillItem[]>(() => {
+  const fallbackFilterItems = useMemo<PillItem[]>(() => {
     return (query.filters ?? []).map((f, index) => {
       const memberName = 'member' in f && f.member ? f.member : 'filters';
       const op = (f as { operator?: string }).operator ?? '';
@@ -108,36 +189,57 @@ export function QueryStatePillBar() {
   }, [query.filters, filters]);
 
   return (
-    <Card>
-      <Header>
+    <QueryCard>
+      <Header $collapsed={collapsed}>
         <HeaderLeft>
+          <ToggleButton
+            type="button"
+            aria-label={collapsed ? 'Expand Query' : 'Collapse Query'}
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? (
+              <ChevronRight size={14} strokeWidth={2.5} />
+            ) : (
+              <ChevronDown size={14} strokeWidth={2.5} />
+            )}
+          </ToggleButton>
           <Title>Query</Title>
           <LiveBadge>Live</LiveBadge>
         </HeaderLeft>
       </Header>
-      <Body>
-        <MemberPillRow
-          kind="dimension"
-          items={dimensionItems}
-          emptyHint="No dimensions yet. Add from the sidebar."
-        />
-        <MemberPillRow
-          kind="measure"
-          items={measureItems}
-          emptyHint="No measures yet. Add from the sidebar."
-        />
-        <MemberPillRow
-          kind="time"
-          items={timeItems}
-          emptyHint="No time dimensions yet."
-        />
-        <MemberPillRow
-          kind="filter"
-          items={filterItems}
-          emptyHint="No filters."
-        />
-        <DateRangeStrip />
-      </Body>
-    </Card>
+      {!collapsed ? (
+        <Body>
+          <MemberPillRow
+            kind="dimension"
+            items={dimensionItems}
+            emptyHint="No dimensions yet. Add from the sidebar."
+          />
+          <MemberPillRow
+            kind="measure"
+            items={measureItems}
+            emptyHint="No measures yet. Add from the sidebar."
+          />
+          <MemberPillRow
+            kind="time"
+            items={timeItems}
+            emptyHint="No time dimensions yet."
+            addLabel="Add time"
+          />
+          {filterSlot ? (
+            <FilterRow>
+              <FilterRowLabel>Filters</FilterRowLabel>
+              <div>{filterSlot}</div>
+            </FilterRow>
+          ) : (
+            <MemberPillRow
+              kind="filter"
+              items={fallbackFilterItems}
+              emptyHint="No filters."
+            />
+          )}
+          <DateRangeStrip />
+        </Body>
+      ) : null}
+    </QueryCard>
   );
 }

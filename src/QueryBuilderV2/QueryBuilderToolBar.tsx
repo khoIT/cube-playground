@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
+import styled from 'styled-components';
 import { Play } from 'lucide-react';
 import { SerializedResult } from '@cubejs-client/core';
-import { Button, Flex, Space, tasty } from '@cube-dev/ui-kit';
+import { Button, Space, tasty } from '@cube-dev/ui-kit';
 
+import { Card } from '../components/AppPanes';
 import { QueryBuilderError } from './QueryBuilderError';
 import { useQueryBuilderContext } from './context';
 import { PreAggregationAlerts } from './components/PreAggregationAlerts';
@@ -26,7 +28,30 @@ const StopIcon = tasty({
   },
 });
 
-export function QueryBuilderToolBar() {
+const RunBandInner = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  flex-wrap: wrap;
+`;
+
+const RunBandRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+`;
+
+const AlertsStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--pane-gap);
+`;
+
+export function QueryBuilderRunControl() {
   const {
     isLoading,
     error,
@@ -53,20 +78,25 @@ export function QueryBuilderToolBar() {
     if (resultSet) {
       const { loadResponse } = resultSet?.serialize();
 
-      return loadResponse.results[0] || {};
+      return loadResponse.results[0] || ({} as any);
     }
 
-    return {} as SerializedResult['loadResponse'];
+    return {} as SerializedResult['loadResponse'] & {
+      requestId?: string;
+      external?: boolean;
+      dbType?: string;
+      extDbType?: string;
+      usedPreAggregations?: Record<string, unknown>;
+    };
   }, [resultSet]);
 
   // @ts-ignore
   const preAggregationType = Object.values(usedPreAggregations || {})[0]?.type;
-
   const isAggregated = Object.keys(usedPreAggregations).length > 0;
 
   return (
-    <Flex flow="column" padding="1x" gap="1x">
-      <Space height="min-content" placeContent="space-between">
+    <Card>
+      <RunBandInner>
         <Space gap="1x">
           <Button
             qa="RunQueryButton"
@@ -91,20 +121,39 @@ export function QueryBuilderToolBar() {
             </Button>
           ) : null}
         </Space>
-        {requestId && RequestStatusComponent ? (
-          <RequestStatusComponent
-            requestId={requestId}
-            isAggregated={isAggregated}
-            preAggregationType={preAggregationType}
-            external={external}
-            dbType={dbType}
-            extDbType={extDbType}
-            error={error ?? undefined}
-          />
-        ) : undefined}
-      </Space>
-      <PreAggregationAlerts />
+        <RunBandRight>
+          <PreAggregationAlerts inline />
+          {requestId && RequestStatusComponent ? (
+            <RequestStatusComponent
+              requestId={requestId}
+              isAggregated={isAggregated}
+              preAggregationType={preAggregationType}
+              external={external}
+              dbType={dbType}
+              extDbType={extDbType}
+              error={error ?? undefined}
+            />
+          ) : null}
+        </RunBandRight>
+      </RunBandInner>
+    </Card>
+  );
+}
+
+export function QueryBuilderToolBarAlerts() {
+  return (
+    <AlertsStack>
       <QueryBuilderError />
-    </Flex>
+    </AlertsStack>
+  );
+}
+
+// Back-compat default export so any stale references still work
+export function QueryBuilderToolBar() {
+  return (
+    <>
+      <QueryBuilderRunControl />
+      <QueryBuilderToolBarAlerts />
+    </>
   );
 }

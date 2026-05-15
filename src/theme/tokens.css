@@ -52,6 +52,12 @@
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 
+  /* Panes (outer rounded cards in the QueryBuilder layout) */
+  --pane-gap: 10px;
+  --radius-pane: 14px;
+  --shadow-pane: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --bg-pane-rail: var(--bg-app);
+
   /* Typography */
   --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -62,6 +68,46 @@
   --chart-3: #009688;
   --chart-4: #f59e0b;
   --chart-5: #a855f7;
+
+  /* v2 mid-panel tokens (Image #3 reference) */
+  --qrow-label-width: 88px;
+  --qrow-label-size: 10.5px;
+  --qrow-label-spacing: 0.08em;
+  --qrow-gap: 14px;
+  --qrow-padding-y: 10px;
+  --qrow-divider: 1px dashed var(--neutral-100);
+
+  --pill-height: 28px;
+  --pill-radius: 8px;
+  --pill-padding: 0 8px 0 6px;
+  --pill-accent-width: 3px;
+  --pill-text-size: 12.5px;
+  --pill-mono-size: 10.5px;
+  --pill-mono-bg: var(--neutral-100);
+  --pill-mono-radius: 4px;
+  --pill-mono-padding: 1px 5px;
+
+  --add-pill-height: 28px;
+  --add-pill-radius: 8px;
+  --add-pill-padding: 0 10px;
+  --add-pill-border: rgba(240, 90, 34, 0.4);
+  --add-pill-hover-bg: rgba(240, 90, 34, 0.05);
+  --add-pill-danger-color: var(--danger);
+  --add-pill-danger-border: rgba(220, 38, 38, 0.35);
+  --add-pill-danger-hover-bg: #fef2f2;
+
+  --preagg-banner-bg: rgba(240, 90, 34, 0.06);
+  --preagg-banner-bg-hover: rgba(240, 90, 34, 0.10);
+  --preagg-banner-border: rgba(240, 90, 34, 0.25);
+  --preagg-banner-text: #9a3412;
+
+  --live-badge-bg: #d1fae5;
+  --live-badge-border: #a7f3d0;
+  --live-badge-text: #047857;
+  --live-badge-dot: #10b981;
+
+  /* Table header tint (Phase 5 audit may revert to neutral) */
+  --table-header-bg: rgba(240, 90, 34, 0.06);
 }
 
 html,

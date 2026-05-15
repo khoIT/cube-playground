@@ -36,8 +36,7 @@ const DateRangeFilterWrapper = tasty(Space, {
       '': '#clear',
       ':has(>[data-qa="FilterOptionsButton"][data-is-hovered])': '#light',
     },
-    margin: '-.5x',
-    padding: '.5x',
+    padding: '.75x 1x',
     width: 'max-content',
   },
 });

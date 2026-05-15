@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react';
+import styled from 'styled-components';
+import { X } from 'lucide-react';
 import { Button, ClearIcon, Flex, Flow, Space, tasty } from '@cube-dev/ui-kit';
 import { TCubeDimension, TCubeMeasure } from '@cubejs-client/core';
 
+import { Card } from '../components/AppPanes';
 import { useQueryBuilderContext } from './context';
 import { useEvent, useLocalStorage } from './hooks';
 import { AccordionCard } from './components/AccordionCard';
@@ -11,6 +14,65 @@ import { FilterMember } from './components/FilterMember';
 import { SegmentFilter } from './components/SegmentFilter';
 import { LogicalFilter } from './components/LogicalFilter';
 import { AddFilterInput } from './components/AddFilterInput';
+
+const FiltersCard = styled(Card)`
+  /* AccordionCard already provides chrome; flatten the inner ui-kit card so
+     only the outer styled Card shows the radius/border/shadow. */
+  & [data-qa='AccordionCard'],
+  & .CubeCard {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+`;
+
+const InlineWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const InlineChipsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+
+  & > *:not(:first-child) {
+    border-top: 1px dashed var(--neutral-100);
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+`;
+
+const InlineFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const RemoveAllPill = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--add-pill-height);
+  padding: var(--add-pill-padding);
+  border-radius: var(--add-pill-radius);
+  background: transparent;
+  border: 1px dashed var(--add-pill-danger-border);
+  color: var(--add-pill-danger-color);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: var(--add-pill-danger-hover-bg);
+    border-color: var(--add-pill-danger-color);
+  }
+`;
 
 const BadgeContainer = tasty(Space, {
   styles: {
@@ -23,7 +85,16 @@ const BadgeContainer = tasty(Space, {
   },
 });
 
-export function QueryBuilderFilters({ onToggle }: { onToggle?: (isExpanded: boolean) => void }) {
+type QueryBuilderFiltersProps = {
+  onToggle?: (isExpanded: boolean) => void;
+  /**
+   * When true, renders the filter editor contents without the surrounding
+   * AccordionCard/FiltersCard chrome — for use inside QueryStatePillBar.
+   */
+  inline?: boolean;
+};
+
+export function QueryBuilderFilters({ onToggle, inline = false }: QueryBuilderFiltersProps) {
   const filtersRef = useRef<HTMLElement>(null);
   const {
     segments: segmentsUpdater,
@@ -84,44 +155,31 @@ export function QueryBuilderFilters({ onToggle }: { onToggle?: (isExpanded: bool
     segmentsUpdater?.clear();
   });
 
-  return (
-    <AccordionCard
-      noPadding
-      isExpanded={isExpanded}
-      title="Filters"
-      subtitle={
-        timeCounter || dimensionCounter || measureCounter || segmentsCounter ? (
-          <BadgeContainer mods={{ hidden: isExpanded }}>
-            {timeCounter ? (
-              <MemberBadge type="timeDimension">{timeCounter}</MemberBadge>
-            ) : undefined}
-            {dimensionCounter ? (
-              <MemberBadge type="dimension">{dimensionCounter}</MemberBadge>
-            ) : undefined}
-            {measureCounter ? (
-              <MemberBadge type="measure">{measureCounter}</MemberBadge>
-            ) : undefined}
-            {segmentsCounter ? (
-              <MemberBadge type="segment">{segmentsCounter}</MemberBadge>
-            ) : undefined}
-          </BadgeContainer>
-        ) : undefined
-      }
-      extra={
-        timeCounter || dimensionCounter || measureCounter || segmentsCounter ? (
-          <Button icon={<ClearIcon />} size="small" theme="danger" onPress={onClearAction}>
-            Remove All
-          </Button>
-        ) : null
-      }
-      contentStyles={{ border: 'top' }}
-      onToggle={(isExpanded) => {
-        setIsExpanded(isExpanded);
-        onToggle?.(isExpanded);
+  const hasAnyFilter =
+    !!(timeCounter || dimensionCounter || measureCounter || segmentsCounter);
+
+  const hasAnyChips = !!(
+    dateRanges.list.length + filters.length + segments.length
+  );
+
+  const addInput = (
+    <AddFilterInput
+      hasLabel
+      isCompact={isAddingCompact}
+      onAdd={(filter) => {
+        filtersUpdater.add(filter);
       }}
-    >
-      <Flow ref={filtersRef}>
-        <Flex flow="column" gap=".75x" padding="1x">
+      onSegmentAdd={(name) => {
+        segmentsUpdater.add(name);
+      }}
+      onDateRangeAdd={(name) => {
+        dateRanges.set(name);
+      }}
+    />
+  );
+
+  const chipsContent = (
+    <>
           {dateRanges.list.map((dimensionName, i) => {
             const timeDimension = timeDimensions.find(
               (timeDimension) => timeDimension.dimension === dimensionName
@@ -271,21 +329,77 @@ export function QueryBuilderFilters({ onToggle }: { onToggle?: (isExpanded: bool
               />
             );
           })}
-          <AddFilterInput
-            hasLabel
-            isCompact={isAddingCompact}
-            onAdd={(filter) => {
-              filtersUpdater.add(filter);
-            }}
-            onSegmentAdd={(name) => {
-              segmentsUpdater.add(name);
-            }}
-            onDateRangeAdd={(name) => {
-              dateRanges.set(name);
-            }}
-          />
-        </Flex>
-      </Flow>
-    </AccordionCard>
+      </>
+  );
+
+  const chipsColumn = (
+    <Flex flow="column" gap=".75x" padding="1x">
+      {chipsContent}
+    </Flex>
+  );
+
+  if (inline) {
+    return (
+      <InlineWrapper>
+        <Flow ref={filtersRef}>
+          {hasAnyChips ? (
+            <InlineChipsContainer>{chipsContent}</InlineChipsContainer>
+          ) : null}
+          <InlineFooter>
+            {addInput}
+            {hasAnyFilter ? (
+              <RemoveAllPill type="button" onClick={onClearAction}>
+                <X size={12} strokeWidth={2.5} /> Remove all
+              </RemoveAllPill>
+            ) : null}
+          </InlineFooter>
+        </Flow>
+      </InlineWrapper>
+    );
+  }
+
+  return (
+    <FiltersCard>
+      <AccordionCard
+        noPadding
+        isExpanded={isExpanded}
+        title="Filters"
+        subtitle={
+          hasAnyFilter ? (
+            <BadgeContainer mods={{ hidden: isExpanded }}>
+              {timeCounter ? (
+                <MemberBadge type="timeDimension">{timeCounter}</MemberBadge>
+              ) : undefined}
+              {dimensionCounter ? (
+                <MemberBadge type="dimension">{dimensionCounter}</MemberBadge>
+              ) : undefined}
+              {measureCounter ? (
+                <MemberBadge type="measure">{measureCounter}</MemberBadge>
+              ) : undefined}
+              {segmentsCounter ? (
+                <MemberBadge type="segment">{segmentsCounter}</MemberBadge>
+              ) : undefined}
+            </BadgeContainer>
+          ) : undefined
+        }
+        extra={
+          hasAnyFilter ? (
+            <Button icon={<ClearIcon />} size="small" theme="danger" onPress={onClearAction}>
+              Remove All
+            </Button>
+          ) : null
+        }
+        contentStyles={{ border: 'top' }}
+        onToggle={(isExpanded) => {
+          setIsExpanded(isExpanded);
+          onToggle?.(isExpanded);
+        }}
+      >
+        <Flow ref={filtersRef}>
+          {chipsColumn}
+          {addInput}
+        </Flow>
+      </AccordionCard>
+    </FiltersCard>
   );
 }

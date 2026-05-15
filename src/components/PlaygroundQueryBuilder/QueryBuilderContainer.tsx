@@ -31,6 +31,7 @@ import {
 } from '../../QueryBuilderV2/index';
 
 import { PreAggregationStatus } from './components/index';
+import { PlaygroundVizard } from './playground-vizard';
 
 const StyledCard = styled(Card)`
   border-radius: 0;
@@ -242,6 +243,7 @@ function QueryTabsRenderer({
             schemaVersion={props.schemaVersion}
             extra={props.extra ?? null}
             RequestStatusComponent={RequestStatusComponent}
+            VizardComponent={PlaygroundVizard}
             onSchemaChange={props.onSchemaChange}
             onQueryChange={(data) => {
               saveTab(data);
