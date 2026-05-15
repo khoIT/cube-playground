@@ -1,4 +1,3 @@
-import { Play } from 'lucide-react';
 import { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -51,33 +50,6 @@ const LiveBadge = styled.span`
   letter-spacing: 0.4px;
 `;
 
-const RunButton = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--brand);
-  color: var(--text-on-brand);
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  height: 30px;
-  padding: 0 14px;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--brand-hover);
-    border-color: var(--brand-hover);
-  }
-
-  &:disabled {
-    background: var(--neutral-300);
-    border-color: var(--neutral-300);
-    cursor: not-allowed;
-  }
-`;
-
 const Body = styled.div`
   display: flex;
   flex-direction: column;
@@ -87,8 +59,6 @@ export function QueryStatePillBar() {
   const ctx = useQueryBuilderContext();
   const {
     query,
-    runQuery,
-    isLoading,
     dimensions,
     measures,
     grouping,
@@ -137,9 +107,6 @@ export function QueryStatePillBar() {
     });
   }, [query.filters, filters]);
 
-  const hasMembers =
-    dimensionItems.length + measureItems.length + timeItems.length > 0;
-
   return (
     <Card>
       <Header>
@@ -147,14 +114,6 @@ export function QueryStatePillBar() {
           <Title>Query</Title>
           <LiveBadge>Live</LiveBadge>
         </HeaderLeft>
-        <RunButton
-          type="button"
-          onClick={() => runQuery()}
-          disabled={isLoading || !hasMembers}
-        >
-          <Play size={13} strokeWidth={2.5} />
-          {isLoading ? 'Running…' : 'Run query'}
-        </RunButton>
       </Header>
       <Body>
         <MemberPillRow

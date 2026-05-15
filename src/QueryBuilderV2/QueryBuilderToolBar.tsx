@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Play } from 'lucide-react';
 import { SerializedResult } from '@cubejs-client/core';
 import { Button, Flex, Space, tasty } from '@cube-dev/ui-kit';
 
@@ -30,9 +31,17 @@ export function QueryBuilderToolBar() {
     isLoading,
     error,
     resultSet,
+    query,
+    runQuery,
     stopQuery,
     RequestStatusComponent,
   } = useQueryBuilderContext();
+
+  const hasMembers =
+    (query.dimensions?.length ?? 0) +
+      (query.measures?.length ?? 0) +
+      (query.timeDimensions?.length ?? 0) >
+    0;
 
   const {
     requestId,
@@ -59,6 +68,17 @@ export function QueryBuilderToolBar() {
     <Flex flow="column" padding="1x" gap="1x">
       <Space height="min-content" placeContent="space-between">
         <Space gap="1x">
+          <Button
+            qa="RunQueryButton"
+            type="primary"
+            size="small"
+            icon={<Play size={13} strokeWidth={2.5} />}
+            isDisabled={isLoading || !hasMembers}
+            isLoading={isLoading}
+            onPress={() => runQuery()}
+          >
+            Run query
+          </Button>
           {isLoading ? (
             <Button
               qa="StopQueryButton"
