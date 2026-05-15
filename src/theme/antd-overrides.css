@@ -1,0 +1,168 @@
+/*
+ * antd 4 visual overrides — target rendered class names to avoid recompiling Less.
+ * Scope kept thin: only the surfaces we use in the playground chrome.
+ */
+
+/* Buttons */
+.ant-btn {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background-color: var(--bg-card);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.ant-btn:hover,
+.ant-btn:focus {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.ant-btn-primary {
+  background-color: var(--brand);
+  border-color: var(--brand);
+  color: var(--text-on-brand);
+}
+.ant-btn-primary:hover,
+.ant-btn-primary:focus {
+  background-color: var(--brand-hover);
+  border-color: var(--brand-hover);
+  color: var(--text-on-brand);
+}
+.ant-btn-danger {
+  background-color: var(--danger);
+  border-color: var(--danger);
+  color: var(--text-on-brand);
+}
+.ant-btn-link {
+  color: var(--brand);
+}
+.ant-btn-link:hover,
+.ant-btn-link:focus {
+  color: var(--brand-hover);
+}
+
+/* Inputs */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-input-number-input {
+  border-radius: var(--radius-input) !important;
+  font-family: var(--font-sans);
+  border-color: var(--border-strong) !important;
+}
+.ant-input:hover,
+.ant-input-affix-wrapper:hover,
+.ant-select-selector:hover {
+  border-color: var(--brand) !important;
+}
+.ant-input:focus,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 2px rgba(240, 90, 34, 0.12) !important;
+}
+
+/* Menu (horizontal nav strip used historically; new pill row supersedes it) */
+.ant-menu-horizontal {
+  border-bottom-color: var(--border-card);
+  font-family: var(--font-sans);
+}
+.ant-menu-horizontal > .ant-menu-item-selected,
+.ant-menu-horizontal > .ant-menu-item:hover,
+.ant-menu-horizontal > .ant-menu-submenu-selected,
+.ant-menu-horizontal > .ant-menu-submenu:hover {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+
+/* Tabs */
+.ant-tabs-tab {
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--brand) !important;
+}
+.ant-tabs-ink-bar {
+  background: var(--brand);
+}
+
+/* Modal */
+.ant-modal-content {
+  border-radius: var(--radius-card);
+  font-family: var(--font-sans);
+}
+.ant-modal-header {
+  border-top-left-radius: var(--radius-card);
+  border-top-right-radius: var(--radius-card);
+  border-bottom-color: var(--border-card);
+}
+.ant-modal-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Dropdown */
+.ant-dropdown-menu {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  box-shadow: var(--shadow-sm);
+}
+.ant-dropdown-menu-item:hover {
+  background-color: var(--bg-muted);
+}
+.ant-dropdown-menu-item-selected {
+  background-color: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* Table */
+.ant-table {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+.ant-table-thead > tr > th {
+  background-color: var(--bg-muted);
+  color: var(--text-secondary);
+  font-weight: 600;
+  border-bottom-color: var(--border-card);
+}
+.ant-table-tbody > tr > td {
+  border-bottom-color: var(--border-card);
+}
+.ant-table-tbody > tr:hover > td {
+  background-color: var(--bg-muted) !important;
+}
+
+/* Popover / Tooltip */
+.ant-popover-inner {
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+}
+.ant-popover-title {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+/* Layout */
+.ant-layout {
+  background-color: var(--bg-app);
+}
+.ant-layout-header {
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+  padding: 0 24px;
+  line-height: 1.2;
+}
+
+/* Card */
+.ant-card {
+  border-radius: var(--radius-card);
+  border-color: var(--border-card);
+  box-shadow: var(--shadow-xs);
+}
+.ant-card-head {
+  border-bottom-color: var(--border-card);
+  font-family: var(--font-sans);
+}
