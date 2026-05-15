@@ -15,6 +15,7 @@ import { QueryBuilderRest } from './QueryBuilderRest';
 import { QueryBuilderGraphQL } from './QueryBuilderGraphQL';
 import { QueryBuilderSidePanel } from './QueryBuilderSidePanel';
 import { QueryBuilderExtras } from './QueryBuilderExtras';
+import { QueryStatePillBar } from './QueryStatePillBar';
 
 // The minimum size of the area below the top edge of the chart
 // when we can show both results and the chart at the same time.
@@ -67,16 +68,16 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           <Tab keepMounted id="results" title="Results">
             <QueryBuilderResults forceMinHeight={!isChartExpanded} />
           </Tab>
-          <Tab id="generated-sql" title="Generated SQL">
+          <Tab id="generated-sql" title="SQL">
             <QueryBuilderGeneratedSQL />
           </Tab>
           <Tab id="sql" title="SQL API">
             <QueryBuilderSQL />
           </Tab>
-          <Tab id="json" title="REST API">
+          <Tab id="json" title="REST">
             <QueryBuilderRest />
           </Tab>
-          <Tab id="graphql" title="GraphQL API">
+          <Tab id="graphql" title="GraphQL">
             <QueryBuilderGraphQL />
           </Tab>
         </Tabs>
@@ -126,6 +127,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           {useMemo(() => {
             return (
               <>
+                <QueryStatePillBar />
                 <div ref={chartRef}>
                   <QueryBuilderChart onToggle={setIsChartExpanded} />
                 </div>

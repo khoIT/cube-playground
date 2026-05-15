@@ -2,6 +2,7 @@ import { Cube } from '@cubejs-client/core';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Block, Button, Space, tasty, Text, CubeIcon, ViewIcon } from '@cube-dev/ui-kit';
 
+import { useCubeAlias } from '../../hooks/use-cube-alias';
 import { TCubeHierarchy } from '../types';
 import { useQueryBuilderContext } from '../context';
 import { ChevronIcon } from '../icons/ChevronIcon';
@@ -16,6 +17,8 @@ import { ListMember } from './ListMember';
 import { TimeListMember } from './TimeListMember';
 import { FilteredLabel } from './FilteredLabel';
 import { InstanceTooltipProvider } from './InstanceTooltipProvider';
+import { CubeRowEditor } from './cube-row-editor';
+import { getLucideIcon } from './icon-picker';
 
 const CubeWrapper = tasty({
   styles: {
@@ -134,7 +137,11 @@ export function SidePanelCubeItem(props: CubeListItemProps) {
   const isPrivate = cube?.public === false;
   // const stats = queryStats[name];
   const isMissing = !cube;
-  const shownName = memberViewType === 'name' ? cubeName : (cube?.title ?? titleize(cubeName));
+  const { alias: cubeAlias } = useCubeAlias(cubeName);
+  const baseShownName = memberViewType === 'name' ? cubeName : (cube?.title ?? titleize(cubeName));
+  const shownName = cubeAlias.displayName?.trim() || baseShownName;
+  const showMonoRealName = Boolean(cubeAlias.displayName?.trim()) && cubeName !== shownName;
+  const AliasIcon = getLucideIcon(cubeAlias.icon);
 
   // @ts-ignore
   const { title, description } = cube || {};
@@ -811,7 +818,9 @@ export function SidePanelCubeItem(props: CubeListItemProps) {
     <CubeButton
       qaVal={cubeName}
       icon={
-        type === 'cube' ? (
+        AliasIcon ? (
+          <AliasIcon size={14} strokeWidth={2} color="var(--brand)" />
+        ) : type === 'cube' ? (
           <CubeIcon color={isMissing ? '#danger-text' : '#purple'} />
         ) : (
           <ViewIcon color={isMissing ? '#danger-text' : '#purple'} />
@@ -837,12 +846,33 @@ export function SidePanelCubeItem(props: CubeListItemProps) {
       placeContent="space-between"
       onPress={() => !isMissing && !isNonJoinable && !isLocked && onToggle?.(!isOpen)}
     >
-      <Text ref={textRef} ellipsis>
-        {filterString ? <FilteredLabel text={shownName} filter={filterString} /> : shownName}
-      </Text>
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+        <Text ref={textRef} ellipsis>
+          {filterString ? <FilteredLabel text={shownName} filter={filterString} /> : shownName}
+        </Text>
+        {showMonoRealName ? (
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              color: 'var(--text-muted)',
+              lineHeight: 1.2,
+              marginTop: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {cubeName}
+          </span>
+        ) : null}
+      </div>
       <Space padding=".5x right">
         {description ? <ItemInfoIcon description={description} /> : undefined}
         {isPrivate ? <NonPublicIcon type="cube" /> : undefined}
+        {!isMissing ? (
+          <CubeRowEditor name={cubeName} defaultDisplayName={baseShownName} />
+        ) : null}
       </Space>
     </CubeButton>
   );

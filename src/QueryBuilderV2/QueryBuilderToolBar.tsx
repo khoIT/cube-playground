@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { SerializedResult } from '@cubejs-client/core';
-import { Button, Flex, Space, tasty, TooltipProvider } from '@cube-dev/ui-kit';
-import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Flex, Space, tasty } from '@cube-dev/ui-kit';
 
 import { QueryBuilderError } from './QueryBuilderError';
 import { useQueryBuilderContext } from './context';
@@ -28,17 +27,10 @@ const StopIcon = tasty({
 
 export function QueryBuilderToolBar() {
   const {
-    runQuery,
-    isVerifying,
-    verificationError,
     isLoading,
     error,
     resultSet,
-    isResultOutdated,
-    isQueryEmpty,
-    isApiBlocked,
     stopQuery,
-    executedQuery,
     RequestStatusComponent,
   } = useQueryBuilderContext();
 
@@ -67,32 +59,6 @@ export function QueryBuilderToolBar() {
     <Flex flow="column" padding="1x" gap="1x">
       <Space height="min-content" placeContent="space-between">
         <Space gap="1x">
-          <TooltipProvider
-            title={
-              <>
-                <kbd>⌘</kbd> + <kbd>Enter</kbd> <span style={{ padding: '0 16px' }}>OR</span>{' '}
-                <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
-              </>
-            }
-          >
-            <Button
-              qa="RunQueryButton"
-              type="primary"
-              size="small"
-              isDisabled={isQueryEmpty || !!verificationError || isVerifying || isApiBlocked}
-              isLoading={isLoading}
-              icon={
-                !isQueryEmpty && executedQuery && !isResultOutdated ? (
-                  <ReloadOutlined />
-                ) : (
-                  <PlayCircleOutlined />
-                )
-              }
-              onPress={runQuery}
-            >
-              Run Query
-            </Button>
-          </TooltipProvider>
           {isLoading ? (
             <Button
               qa="StopQueryButton"

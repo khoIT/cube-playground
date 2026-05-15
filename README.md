@@ -2,7 +2,8 @@
 
 Vite + React + TypeScript frontend for a Cube backend on `http://localhost:4000`. Provides:
 
-- **Playground** — meta-driven query builder, results table, recharts bar/line, compiled-SQL preview, JSON preview, deep-linkable query state.
+- **Playground** — meta-driven query builder, results table, recharts bar/line, compiled-SQL preview, JSON preview, deep-linkable query state. Alias + icon picker for cubes/views (client-side, localStorage-persisted).
+- **Query State Pill Bar** — 4 inline rows (Dimensions, Measures, Time granularity, Filters) + global date range picker (7d/14d/30d/QTD/Custom) + Run button.
 - **Data Model** — read-only browser of cubes/views from `/cubejs-api/v1/meta` (members, joins, pre-aggregations, raw JSON).
 - **Settings** — current API URL + token status.
 
@@ -11,8 +12,9 @@ Vite + React + TypeScript frontend for a Cube backend on `http://localhost:4000`
 - Vite 5, React 18, TypeScript strict.
 - `@cubejs-client/core`, recharts ^2.12.
 - react-router-dom 6 (browser history).
-- antd 4.16.13 (deferred to future phases; current UI is plain CSS-in-JS).
+- antd 4.16.13 + design-token overrides (see `src/theme/`).
 - styled-components 6 (peer of `@cube-dev/ui-kit`).
+- lucide-react 1.16.0 (icon picker for cube aliases).
 
 ## Quick start
 
@@ -26,11 +28,12 @@ npm run test         # vitest
 npm run typecheck    # tsc --noEmit
 ```
 
-## Auth
+## Auth & Personalization
 
 - Bootstrap token comes from env (`VITE_CUBE_TOKEN`) or localStorage (`gds-cube:token`).
 - Use the **API Settings** button in the header to paste a JWT; it is validated against `/cubejs-api/v1/meta` before being persisted.
 - JWT is stored in localStorage at runtime. Acceptable for an internal dev tool; rotate tokens regularly and avoid pasting prod-tier credentials.
+- Cube/View aliases and icons (localStorage key `gds-cube:cube-aliases`) are per-browser, client-only; YAML model files never modified.
 
 ## Routes
 

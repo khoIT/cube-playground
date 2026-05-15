@@ -2,6 +2,7 @@ import { Grid, Title, Paragraph, tasty } from '@cube-dev/ui-kit';
 import { ChartType, PivotConfig, Query, ResultSet } from '@cubejs-client/core';
 import { RefObject } from 'react';
 
+import { ChartKpiCards } from './components/chart-kpi-cards';
 import { PlaygroundChartRenderer } from './components/ChartRenderer';
 
 interface QueryBuilderChartResultsProps {
@@ -54,22 +55,25 @@ export function QueryBuilderChartResults({
       );
     } else {
       return (
-        <ChartContainer
-          ref={containerRef}
-          style={{
-            maxHeight: MAX_HEIGHT,
-            height: MAX_HEIGHT,
-            overflow,
-          }}
-        >
-          <PlaygroundChartRenderer
-            query={query}
-            chartType={chartType}
-            resultSet={resultSet}
-            pivotConfig={pivotConfig}
-            chartHeight={MAX_HEIGHT - 20}
-          />
-        </ChartContainer>
+        <>
+          <ChartKpiCards resultSet={resultSet} isLoading={isLoading} />
+          <ChartContainer
+            ref={containerRef}
+            style={{
+              maxHeight: MAX_HEIGHT,
+              height: MAX_HEIGHT,
+              overflow,
+            }}
+          >
+            <PlaygroundChartRenderer
+              query={query}
+              chartType={chartType}
+              resultSet={resultSet}
+              pivotConfig={pivotConfig}
+              chartHeight={MAX_HEIGHT - 20}
+            />
+          </ChartContainer>
+        </>
       );
     }
   } else if (!isLoading && isExpanded) {

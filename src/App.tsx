@@ -1,5 +1,7 @@
 /* eslint-disable no-undef,react/jsx-no-target-blank */
 import '@ant-design/compatible/assets/index.css';
+import './theme/tokens.css';
+import './theme/antd-overrides.css';
 import { Alert, Layout } from 'antd';
 import { Component, PropsWithChildren, useEffect } from 'react';
 import { RouteComponentProps, withRouter } from 'react-router-dom';
@@ -19,6 +21,7 @@ import {
 } from './events';
 import { useAppContext } from './hooks';
 import { QUERY_BUILDER_COLOR_TOKENS } from './QueryBuilderV2';
+import { rootStyles } from './theme/ui-kit-theme';
 
 const StyledLayoutContent = styled(Layout.Content)`
   height: 100%;
@@ -32,9 +35,7 @@ type AppState = {
 };
 
 const ROOT_STYLES = {
-  height: 'min 100vh',
-  display: 'grid',
-  gridTemplateRows: 'min-content 1fr',
+  ...rootStyles,
   ...QUERY_BUILDER_COLOR_TOKENS,
 };
 
