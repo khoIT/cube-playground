@@ -1,4 +1,14 @@
-import { LockIcon, ThunderboltIcon, Panel, Space, Button } from '@cube-dev/ui-kit';
+import {
+  LockIcon,
+  ThunderboltIcon,
+  MoreIcon,
+  Panel,
+  Space,
+  Button,
+  Menu,
+  MenuTrigger,
+  tasty,
+} from '@cube-dev/ui-kit';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card } from 'antd';
 import { useLayoutEffect } from 'react';
@@ -32,6 +42,25 @@ const StyledCard = styled(Card)`
     padding: 0;
   }
 `;
+
+const SettingsButton = tasty(Button, {
+  styles: {
+    position: 'relative',
+  },
+});
+
+const ActiveDot = tasty({
+  styles: {
+    position: 'absolute',
+    top: '2px',
+    right: '2px',
+    width: '6px',
+    height: '6px',
+    radius: '50%',
+    fill: '#success',
+    boxShadow: '0 0 0 2px var(--purple-color, #fff)',
+  },
+});
 
 function RequestStatusComponent({
   isAggregated,
@@ -135,34 +164,68 @@ function QueryTabsRenderer({
   const params = new URLSearchParams(location.search);
   const query = JSON.parse(params.get('query') || 'null');
 
+  const rollupVisible =
+    isAddRollupButtonVisible == null || isAddRollupButtonVisible;
+
+  const settingsItems: {
+    key: string;
+    label: string;
+    icon: JSX.Element;
+    testId: string;
+  }[] = [
+    {
+      key: 'security-context',
+      label: `${securityContextToken ? 'Edit' : 'Add'} Security Context`,
+      icon: <LockIcon />,
+      testId: 'security-context-menuitem',
+    },
+  ];
+
+  if (rollupVisible) {
+    settingsItems.push({
+      key: 'add-rollup',
+      label: 'Add Rollup to Data Model',
+      icon: <ThunderboltIcon />,
+      testId: 'add-rollup-menuitem',
+    });
+  }
+
+  function handleSettingsAction(key: string | number) {
+    if (key === 'security-context') {
+      onSecurityContextModalOpen();
+    } else if (key === 'add-rollup') {
+      toggleModal();
+    }
+  }
+
   return (
     <QueryTabs
       query={query}
       sidebar={
-        <Space direction="horizontal">
-          <Button
-            data-testid="security-context-btn"
+        <MenuTrigger>
+          <SettingsButton
+            qa="SettingsDropdown"
+            data-testid="settings-dropdown-btn"
             isLoading={isLoading}
-            icon={<LockIcon />}
+            icon={<MoreIcon />}
             size="small"
             type={securityContextToken ? 'primary' : 'secondary'}
-            onPress={onSecurityContextModalOpen}
           >
-            {securityContextToken ? 'Edit' : 'Add'} Security Context
-          </Button>
-
-          {isAddRollupButtonVisible == null || isAddRollupButtonVisible ? (
-            <Button
-              data-testid="rd-btn"
-              isLoading={isLoading}
-              icon={<ThunderboltIcon />}
-              size="small"
-              onPress={() => toggleModal()}
-            >
-              Add Rollup to Data Model
-            </Button>
-          ) : null}
-        </Space>
+            Settings
+            {securityContextToken ? <ActiveDot aria-hidden="true" /> : null}
+          </SettingsButton>
+          <Menu onAction={(key) => handleSettingsAction(key as string)}>
+            {settingsItems.map((item) => (
+              <Menu.Item
+                key={item.key}
+                data-testid={item.testId}
+                icon={item.icon}
+              >
+                {item.label}
+              </Menu.Item>
+            ))}
+          </Menu>
+        </MenuTrigger>
       }
       onTabChange={(tab) => {
         props.onTabChange?.(tab);

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button, ClearIcon, Flex, Flow, Space, tasty } from '@cube-dev/ui-kit';
 import { TCubeDimension, TCubeMeasure } from '@cubejs-client/core';
 
 import { useQueryBuilderContext } from './context';
-import { useEvent } from './hooks';
+import { useEvent, useLocalStorage } from './hooks';
 import { AccordionCard } from './components/AccordionCard';
 import { DateRangeFilter } from './components/DateRangeFilter';
 import { MemberBadge } from './components/Badge';
@@ -52,13 +52,10 @@ export function QueryBuilderFilters({ onToggle }: { onToggle?: (isExpanded: bool
     (memberName) => members.dimensions[memberName]
   ).length;
 
-  const isFiltered = filters.length > 0 || segments.length > 0 || dateRanges.list.length > 0;
-
-  const [isExpanded, setIsExpanded] = useState(isFiltered);
-
-  useEffect(() => {
-    setIsExpanded(isFiltered);
-  }, [isFiltered]);
+  const [isExpanded, setIsExpanded] = useLocalStorage<boolean>(
+    'gds-cube:filter-strip-expanded',
+    true
+  );
 
   function getMemberType(member: TCubeMeasure | TCubeDimension) {
     if (!member?.name) {

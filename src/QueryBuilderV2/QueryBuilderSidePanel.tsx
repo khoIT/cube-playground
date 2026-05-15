@@ -26,10 +26,17 @@ import {
 } from 'react';
 import { EditOutlined, LoadingOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 
-import { useDebouncedValue, useFilteredCubes, useEvent, useLocalStorage } from './hooks';
+import {
+  useDebouncedValue,
+  useFilteredCubes,
+  useEvent,
+  useLocalStorage,
+  useSidebarDisplayConfig,
+} from './hooks';
 import { useQueryBuilderContext } from './context';
 import { EditQueryDialogForm } from './components/EditQueryDialogForm';
 import { SidePanelCubeItem } from './components/SidePanelCubeItem';
+import { SidebarDisplayPanel } from './components/SidebarDisplayPanel';
 import { validateQuery } from './utils';
 
 const DEFAULT_SIDEBAR_SIZE = 315;
@@ -101,11 +108,20 @@ export function QueryBuilderSidePanel({
   const cubes = cubesAndViews.filter((item) => item.type === 'cube');
   const views = cubesAndViews.filter((item) => item.type === 'view');
 
+  const allCubeNames = useMemo(
+    () => cubesAndViews.map((c) => c.name),
+    [cubesAndViews]
+  );
+  const displayConfig = useSidebarDisplayConfig(allCubeNames);
+
   const preparedFilterString = filterString.trim().toLowerCase();
   const debouncedFilterString = useDebouncedValue(preparedFilterString, 500);
   const appliedFilterString = preparedFilterString.length < 2 ? '' : debouncedFilterString;
 
-  const cubesOrViews = selectedType === 'cubes' ? cubes : views;
+  const cubesOrViewsAll = selectedType === 'cubes' ? cubes : views;
+  const cubesOrViews = cubesOrViewsAll.filter(
+    (cube) => displayConfig.isVisible(cube.name) || usedCubes.includes(cube.name)
+  );
   const allJoinableCubes =
     selectedType === 'views' && usedCubes.length
       ? cubesOrViews.filter((cube) => usedCubes[0] === cube.name)
@@ -464,6 +480,17 @@ export function QueryBuilderSidePanel({
       </DialogContainer>
 
       {!usedCubes.length ? <>{customTypeSwitcher ?? typeSwitcher}</> : topBar}
+
+      <SidebarDisplayPanel
+        cubes={cubesOrViewsAll.map((c) => ({
+          name: c.name,
+          title: c.title,
+          type: selectedType === 'cubes' ? 'cube' : 'view',
+        }))}
+        isVisible={displayConfig.isVisible}
+        onToggle={displayConfig.toggleCube}
+        onSetAll={displayConfig.setAll}
+      />
 
       {searchInput}
 

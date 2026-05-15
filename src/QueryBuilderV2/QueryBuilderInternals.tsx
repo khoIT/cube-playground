@@ -17,6 +17,7 @@ import { QueryBuilderSidePanel } from './QueryBuilderSidePanel';
 import { QueryBuilderExtras } from './QueryBuilderExtras';
 import { QueryStatePillBar } from './QueryStatePillBar';
 import { AnalysisPanel } from './analysis/analysis-panel';
+import { ChartSidePane } from './components/ChartSidePane';
 
 // The minimum size of the area below the top edge of the chart
 // when we can show both results and the chart at the same time.
@@ -116,35 +117,35 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           []
         )}
 
-        <Panel gridRows="min-content min-content min-content min-content min-content min-content minmax(0, 1fr)">
-          {useMemo(
-            () => (
-              <>
-                <QueryBuilderFilters onToggle={onToggle} />
-
-                <Divider />
-              </>
-            ),
-            []
-          )}
-
+        <Panel gridRows="min-content min-content min-content minmax(0, 1fr)">
           {useMemo(() => {
             return (
               <>
                 <QueryStatePillBar />
-                <div ref={chartRef}>
-                  <QueryBuilderChart onToggle={setIsChartExpanded} />
-                </div>
-                {!isChartExpanded || chartSize > CHART_THRESHOLD ? (
-                  ResultsAndSQL
-                ) : (
-                  <Flow>
-                    <Divider />
-                    <Flex padding=".5x" placeContent="end">
-                      <QueryBuilderExtras />
-                    </Flex>
-                  </Flow>
-                )}
+                <QueryBuilderFilters onToggle={onToggle} />
+                <Divider />
+                <Flex flow="row" gap="0" height="100%" styles={{ minHeight: 0 }}>
+                  <Panel
+                    isFlex
+                    flow="column"
+                    flexGrow={1}
+                    styles={{ minWidth: 0, overflow: 'hidden' }}
+                  >
+                    <div ref={chartRef} />
+                    {ResultsAndSQL}
+                    {isChartExpanded && chartSize <= CHART_THRESHOLD ? (
+                      <Flow>
+                        <Divider />
+                        <Flex padding=".5x" placeContent="end">
+                          <QueryBuilderExtras />
+                        </Flex>
+                      </Flow>
+                    ) : null}
+                  </Panel>
+                  <ChartSidePane>
+                    <QueryBuilderChart onToggle={setIsChartExpanded} />
+                  </ChartSidePane>
+                </Flex>
               </>
             );
           }, [isChartExpanded, chartSize, ResultsAndSQL])}
