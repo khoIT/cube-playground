@@ -17,16 +17,21 @@ const SEGMENTS: { value: ToggleChartType; label: string; Icon: any }[] = [
 ];
 
 const Group = styled.div`
-  display: inline-flex;
+  display: flex;
+  flex: 1 1 auto;
   padding: 1px;
   border-radius: 7px;
   background: var(--neutral-100);
   gap: 1px;
+  min-width: 0;
 `;
 
 const Segment = styled.button<{ $active: boolean }>`
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 0;
   gap: 4px;
   padding: 4px 8px;
   border: 0;
@@ -39,10 +44,16 @@ const Segment = styled.button<{ $active: boolean }>`
   letter-spacing: 0.01em;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
+  white-space: nowrap;
 
   &:hover {
     background: ${(p) => (p.$active ? 'var(--brand)' : 'var(--neutral-200)')};
     color: ${(p) => (p.$active ? 'var(--text-on-brand)' : 'var(--text-primary)')};
+  }
+
+  & > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 `;
 

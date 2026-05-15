@@ -28,6 +28,14 @@ const AddFilterButton = tasty(Button, {
     '': '3x',
     label: 'auto',
   },
+  height: 'var(--add-pill-height)',
+  styles: {
+    padding: {
+      '': 0,
+      label: '0 1x',
+    },
+    preset: 't4m',
+  },
 });
 
 interface AddFilterInputProps {

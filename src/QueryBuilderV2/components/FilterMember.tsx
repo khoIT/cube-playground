@@ -41,36 +41,36 @@ interface OperatorSelectorProps {
 const MemberFilterElement = tasty(Space, {
   qa: 'MemberFilter',
   styles: {
-    gap: '1x',
-    placeItems: 'start',
+    gap: '.5x',
+    placeItems: 'center',
     radius: true,
     fill: {
       '': '#clear',
       ':has([data-qa="FilterOptionsButton"][data-is-hovered])': '#light',
     },
-    padding: '.75x 1x',
+    padding: '.25x .5x',
     width: 'max-content',
 
     InnerContainer: {
       display: 'flex',
       flow: 'row',
-      gap: '1x',
-      placeItems: 'start',
+      gap: '.5x',
+      placeItems: 'center',
     },
 
     MemberContainer: {
       display: 'flex',
       flow: 'row',
       flexShrink: 0,
-      gap: '1x',
-      placeItems: 'center start',
+      gap: '.5x',
+      placeItems: 'center',
     },
   },
 });
 
 const ValueTag = tasty(Tag, {
   styles: {
-    padding: '.625x .75x',
+    padding: '.25x .5x',
     preset: 't3',
     fill: '#light',
   },
@@ -301,6 +301,7 @@ export function FilterMember(props: FilterMemberProps) {
             <MemberContainer>
               {'member' in filter && filter.member ? (
                 <FilterLabel
+                  size="small"
                   isCompact={isCompact}
                   isMissing={isMissing}
                   member={memberType}

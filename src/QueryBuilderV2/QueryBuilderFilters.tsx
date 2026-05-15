@@ -30,7 +30,7 @@ const FiltersCard = styled(Card)`
 const InlineWrapper = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 `;
 
 const InlineChipsContainer = styled.div`
@@ -39,8 +39,8 @@ const InlineChipsContainer = styled.div`
 
   & > *:not(:first-child) {
     border-top: 1px dashed var(--neutral-100);
-    margin-top: 8px;
-    padding-top: 8px;
+    margin-top: 4px;
+    padding-top: 4px;
   }
 `;
 

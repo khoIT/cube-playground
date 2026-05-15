@@ -56,18 +56,12 @@ const HeaderRight = styled.div`
   justify-content: flex-end;
 `;
 
-const HeaderDivider = styled.span`
-  display: inline-block;
-  width: 1px;
-  height: 18px;
-  background: var(--border-card);
-  margin: 0 6px;
-`;
-
-const ChartTypeSlot = styled.div`
-  display: inline-flex;
+const ChartTypeRow = styled.div`
+  display: flex;
   align-items: center;
-  margin-right: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-card);
+  flex-shrink: 0;
 `;
 
 const PaneBody = styled.div`
@@ -177,14 +171,6 @@ export function ChartSidePane({
       <PaneHeader>
         <PaneTitle>Chart</PaneTitle>
         <HeaderRight>
-          {onChartTypeChange ? (
-            <>
-              <ChartTypeSlot>
-                <ChartTypeToggle value={chartType} onChange={onChartTypeChange} />
-              </ChartTypeSlot>
-              {(pivotTrigger || codeTrigger) && <HeaderDivider aria-hidden />}
-            </>
-          ) : null}
           {pivotTrigger}
           {codeTrigger}
           <TooltipProvider title="Collapse chart pane">
@@ -199,6 +185,11 @@ export function ChartSidePane({
           </TooltipProvider>
         </HeaderRight>
       </PaneHeader>
+      {onChartTypeChange ? (
+        <ChartTypeRow>
+          <ChartTypeToggle value={chartType} onChange={onChartTypeChange} />
+        </ChartTypeRow>
+      ) : null}
       <PaneBody>{children}</PaneBody>
     </ContainerExpanded>
   );

@@ -4,10 +4,10 @@ import styled from 'styled-components';
 const Wrap = styled(Link)`
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
   color: var(--text-primary);
-  margin-right: 24px;
+  margin-right: 16px;
 
   &:hover,
   &:focus {
@@ -18,7 +18,7 @@ const Wrap = styled(Link)`
 const BrandMark = styled.span`
   font-family: var(--font-sans);
   font-weight: 600;
-  font-size: 18px;
+  font-size: 16px;
   letter-spacing: -0.2px;
   color: var(--text-primary);
 `;

@@ -4,7 +4,6 @@ import { Play } from 'lucide-react';
 import { SerializedResult } from '@cubejs-client/core';
 import { Button, Space, tasty } from '@cube-dev/ui-kit';
 
-import { Card } from '../components/AppPanes';
 import { QueryBuilderError } from './QueryBuilderError';
 import { useQueryBuilderContext } from './context';
 import { PreAggregationAlerts } from './components/PreAggregationAlerts';
@@ -28,15 +27,6 @@ const StopIcon = tasty({
   },
 });
 
-const RunBandInner = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  flex-wrap: wrap;
-`;
-
 const RunBandRight = styled.div`
   display: flex;
   align-items: center;
@@ -51,22 +41,49 @@ const AlertsStack = styled.div`
   gap: var(--pane-gap);
 `;
 
-export function QueryBuilderRunControl() {
-  const {
-    isLoading,
-    error,
-    resultSet,
-    query,
-    runQuery,
-    stopQuery,
-    RequestStatusComponent,
-  } = useQueryBuilderContext();
+export function QueryRunButton() {
+  const { isLoading, query, runQuery, stopQuery } = useQueryBuilderContext();
 
   const hasMembers =
     (query.dimensions?.length ?? 0) +
       (query.measures?.length ?? 0) +
       (query.timeDimensions?.length ?? 0) >
     0;
+
+  return (
+    <Space gap="1x">
+      <Button
+        qa="RunQueryButton"
+        type="primary"
+        size="small"
+        icon={<Play size={13} strokeWidth={2.5} />}
+        isDisabled={isLoading || !hasMembers}
+        isLoading={isLoading}
+        onPress={() => runQuery()}
+      >
+        Run query
+      </Button>
+      {isLoading ? (
+        <Button
+          qa="StopQueryButton"
+          theme="danger"
+          size="small"
+          icon={<StopIcon />}
+          onPress={stopQuery}
+        >
+          Stop
+        </Button>
+      ) : null}
+    </Space>
+  );
+}
+
+export function QueryRunStatus() {
+  const {
+    error,
+    resultSet,
+    RequestStatusComponent,
+  } = useQueryBuilderContext();
 
   const {
     requestId,
@@ -95,48 +112,31 @@ export function QueryBuilderRunControl() {
   const isAggregated = Object.keys(usedPreAggregations).length > 0;
 
   return (
-    <Card>
-      <RunBandInner>
-        <Space gap="1x">
-          <Button
-            qa="RunQueryButton"
-            type="primary"
-            size="small"
-            icon={<Play size={13} strokeWidth={2.5} />}
-            isDisabled={isLoading || !hasMembers}
-            isLoading={isLoading}
-            onPress={() => runQuery()}
-          >
-            Run query
-          </Button>
-          {isLoading ? (
-            <Button
-              qa="StopQueryButton"
-              theme="danger"
-              size="small"
-              icon={<StopIcon />}
-              onPress={stopQuery}
-            >
-              Stop
-            </Button>
-          ) : null}
-        </Space>
-        <RunBandRight>
-          <PreAggregationAlerts inline />
-          {requestId && RequestStatusComponent ? (
-            <RequestStatusComponent
-              requestId={requestId}
-              isAggregated={isAggregated}
-              preAggregationType={preAggregationType}
-              external={external}
-              dbType={dbType}
-              extDbType={extDbType}
-              error={error ?? undefined}
-            />
-          ) : null}
-        </RunBandRight>
-      </RunBandInner>
-    </Card>
+    <RunBandRight>
+      <PreAggregationAlerts inline />
+      {requestId && RequestStatusComponent ? (
+        <RequestStatusComponent
+          requestId={requestId}
+          isAggregated={isAggregated}
+          preAggregationType={preAggregationType}
+          external={external}
+          dbType={dbType}
+          extDbType={extDbType}
+          error={error ?? undefined}
+        />
+      ) : null}
+    </RunBandRight>
+  );
+}
+
+// Back-compat: still exported but now renders the two split pieces side-by-side.
+// Embedders should prefer importing QueryRunButton + QueryRunStatus directly.
+export function QueryBuilderRunControl() {
+  return (
+    <>
+      <QueryRunButton />
+      <QueryRunStatus />
+    </>
   );
 }
 

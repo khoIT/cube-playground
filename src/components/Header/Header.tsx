@@ -13,9 +13,9 @@ const StyledHeader = styled(Layout.Header)`
     background-color: var(--bg-card);
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-card);
-    padding: 0 24px;
+    padding: 0 16px;
     line-height: 1;
-    height: 56px;
+    height: 44px;
     display: flex;
     align-items: center;
     gap: 8px;

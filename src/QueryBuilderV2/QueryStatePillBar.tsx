@@ -10,6 +10,7 @@ import {
   MemberPillRow,
   PillItem,
 } from './components/member-pill-row';
+import { QueryRunButton, QueryRunStatus } from './QueryBuilderToolBar';
 
 const QueryCard = styled(Card)`
   display: flex;
@@ -22,7 +23,7 @@ const Header = styled.div<{ $collapsed: boolean }>`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 6px 12px;
   border-bottom: ${(p) => (p.$collapsed ? '0' : '1px solid var(--border-card)')};
   flex-shrink: 0;
 `;
@@ -31,6 +32,17 @@ const HeaderLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+`;
+
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  margin-left: auto;
 `;
 
 const ToggleButton = styled.button`
@@ -49,13 +61,6 @@ const ToggleButton = styled.button`
     background: var(--bg-muted);
     color: var(--text-primary);
   }
-`;
-
-const Title = styled.h3`
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
 `;
 
 const LiveBadge = styled.span`
@@ -192,6 +197,11 @@ export function QueryStatePillBar({ filterSlot }: Props) {
     <QueryCard>
       <Header $collapsed={collapsed}>
         <HeaderLeft>
+          <QueryRunButton />
+          <LiveBadge>Live</LiveBadge>
+        </HeaderLeft>
+        <HeaderRight>
+          <QueryRunStatus />
           <ToggleButton
             type="button"
             aria-label={collapsed ? 'Expand Query' : 'Collapse Query'}
@@ -203,9 +213,7 @@ export function QueryStatePillBar({ filterSlot }: Props) {
               <ChevronDown size={14} strokeWidth={2.5} />
             )}
           </ToggleButton>
-          <Title>Query</Title>
-          <LiveBadge>Live</LiveBadge>
-        </HeaderLeft>
+        </HeaderRight>
       </Header>
       {!collapsed ? (
         <Body>
@@ -219,12 +227,14 @@ export function QueryStatePillBar({ filterSlot }: Props) {
             items={measureItems}
             emptyHint="No measures yet. Add from the sidebar."
           />
-          <MemberPillRow
-            kind="time"
-            items={timeItems}
-            emptyHint="No time dimensions yet."
-            addLabel="Add time"
-          />
+          {timeItems.length > 0 ? (
+            <MemberPillRow
+              kind="time"
+              items={timeItems}
+              emptyHint="No time dimensions yet."
+              addLabel="Add time"
+            />
+          ) : null}
           {filterSlot ? (
             <FilterRow>
               <FilterRowLabel>Filters</FilterRowLabel>

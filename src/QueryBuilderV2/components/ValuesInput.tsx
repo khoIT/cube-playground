@@ -45,9 +45,9 @@ const AddButton = tasty(Button, {
 const StyledTag = tasty(Tag, {
   isClosable: true,
   styles: {
-    placeItems: 'baseline',
+    placeItems: 'center',
     preset: 't3',
-    padding: '.625x 2.75x .625x .75x',
+    padding: '.25x 2.25x .25x .5x',
     textOverflow: 'ellipsis',
     overflow: 'hidden',
     width: 'max 100%',
@@ -329,7 +329,7 @@ export function ValuesInput(props: ValuesInputProps) {
       }
 
       return (
-        <Space ref={ref} flow="row wrap" placeContent="baseline" gap="1x">
+        <Space ref={ref} flow="row wrap" placeItems="center" gap=".5x">
           {children}
         </Space>
       );

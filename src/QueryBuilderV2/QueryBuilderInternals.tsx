@@ -1,9 +1,10 @@
-import { Panel, tasty } from '@cube-dev/ui-kit';
+import { Panel as UIPanel, tasty } from '@cube-dev/ui-kit';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+import { Panel as ResizablePanel } from 'react-resizable-panels';
 import { ChartType } from '@cubejs-client/core';
 
-import { AppPane, AppPaneGroup, AppResizeHandle, PaneShell } from '../components/AppPanes';
+import { AppPane, AppPaneGroup, AppResizeHandle, Card, PaneShell } from '../components/AppPanes';
 import { QUERY_BUILDER_COLOR_TOKENS } from './color-tokens';
 import { useLocalStorage } from './hooks';
 import { useQueryBuilderContext } from './context';
@@ -11,10 +12,7 @@ import { Tabs, Tab } from './components/Tabs';
 import { QueryBuilderFilters } from './QueryBuilderFilters';
 import { QueryBuilderChart } from './QueryBuilderChart';
 import { QueryBuilderResults } from './QueryBuilderResults';
-import {
-  QueryBuilderRunControl,
-  QueryBuilderToolBarAlerts,
-} from './QueryBuilderToolBar';
+import { QueryBuilderToolBarAlerts } from './QueryBuilderToolBar';
 import { QueryBuilderGeneratedSQL } from './QueryBuilderGeneratedSQL';
 import { QueryBuilderSQL } from './QueryBuilderSQL';
 import { QueryBuilderRest } from './QueryBuilderRest';
@@ -37,7 +35,7 @@ const Divider = tasty({
 
 type Tab = 'results' | 'analysis' | 'generated-sql' | 'json' | 'graphql' | 'sql';
 
-const QueryBuilderPanel = tasty(Panel, {
+const QueryBuilderPanel = tasty(UIPanel, {
   isFlex: true,
   isStretched: true,
   qa: 'QueryBuilder',
@@ -63,9 +61,13 @@ const FixedSidebarShell = styled(PaneShell)`
   flex: 0 0 ${FIXED_SIDEBAR_WIDTH}px;
 `;
 
-const FixedCenterShell = styled(PaneShell)`
+// No chrome — Query/Results panes inside provide their own card chrome.
+const FixedCenterBare = styled.div`
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 `;
 
 const FixedChartShell = styled(PaneShell)`
@@ -84,10 +86,16 @@ const CenterColumn = styled.div`
   height: 100%;
   width: 100%;
   min-height: 0;
-  padding: var(--pane-gap);
   gap: var(--pane-gap);
   box-sizing: border-box;
   overflow: hidden;
+`;
+
+const ResultsCard = styled(Card)`
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 `;
 
 const CenterScroll = styled.div`
@@ -168,10 +176,11 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
 
   const centerContent = (
     <CenterColumn ref={ref}>
-      <QueryBuilderRunControl />
       <QueryStatePillBar filterSlot={<QueryBuilderFilters inline />} />
       <QueryBuilderToolBarAlerts />
-      <CenterScroll>{ResultsAndSQL}</CenterScroll>
+      <ResultsCard>
+        <CenterScroll>{ResultsAndSQL}</CenterScroll>
+      </ResultsCard>
     </CenterColumn>
   );
 
@@ -201,7 +210,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           <FixedSidebarShell>
             <QueryBuilderSidePanel />
           </FixedSidebarShell>
-          <FixedCenterShell>{centerContent}</FixedCenterShell>
+          <FixedCenterBare>{centerContent}</FixedCenterBare>
           {chartCollapsed ? (
             <FixedChartRailShell>{chartContent}</FixedChartRailShell>
           ) : (
@@ -212,7 +221,8 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
     );
   }
 
-  // Default: 3 resizable panes
+  // Default: 3 resizable panes. Center is a bare Panel (no PaneShell chrome) so the
+  // inner Query and Results cards each appear as their own pane.
   return (
     <QueryBuilderPanel>
       <AppPaneGroup autoSaveId="QueryBuilder:Panes" direction="horizontal">
@@ -220,9 +230,14 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           <QueryBuilderSidePanel />
         </AppPane>
         <AppResizeHandle />
-        <AppPane id="center" order={2} defaultSize={chartCollapsed ? 75 : 50} minSize={30}>
+        <ResizablePanel
+          id="center"
+          order={2}
+          defaultSize={chartCollapsed ? 75 : 50}
+          minSize={30}
+        >
           {centerContent}
-        </AppPane>
+        </ResizablePanel>
         {chartCollapsed ? (
           <AppPane id="chart-rail" order={3} defaultSize={3} minSize={2.5} maxSize={4}>
             {chartContent}

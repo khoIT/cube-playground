@@ -32,16 +32,18 @@ export const StyledTabs = styled(Tabs)`
   }
 
   & .ant-tabs-nav-wrap {
-    padding: 8px 8px 0;
+    padding: 4px 8px 0;
   }
 
   & .ant-tabs-extra-content {
-    padding: 8px;
+    padding: 4px 8px;
     place-self: start;
   }
 
   & .ant-tabs-tab {
-    margin: 0 24px 0 0;
+    margin: 0 16px 0 0;
+    padding: 4px 12px;
+    position: relative;
   }
 
   & .ant-tabs-content-holder {
@@ -51,6 +53,22 @@ export const StyledTabs = styled(Tabs)`
 
   & .ant-tabs-tab {
     border-radius: var(--radius) var(--radius) 0 0 !important;
+  }
+
+  & .ant-tabs-tab.ant-tabs-tab-active::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: -1px;
+    height: 2px;
+    background: var(--brand);
+    border-radius: 2px 2px 0 0;
+    pointer-events: none;
+  }
+
+  & .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+    color: var(--brand);
   }
 `;
 

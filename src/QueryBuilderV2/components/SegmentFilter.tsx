@@ -23,15 +23,15 @@ interface MemberFilterProps {
 const SegmentFilterWrapper = tasty(Space, {
   qa: 'SegmentFilter',
   styles: {
-    gap: '1x',
+    gap: '.5x',
     flow: 'row wrap',
-    placeItems: 'start',
+    placeItems: 'center',
     radius: true,
     fill: {
       '': '#clear',
       ':has(>[data-qa="FilterOptionsButton"][data-is-hovered])': '#light',
     },
-    padding: '.75x 1x',
+    padding: '.25x .5x',
     width: 'max-content',
   },
 });
@@ -65,6 +65,7 @@ export function SegmentFilter(props: MemberFilterProps) {
       <FilterOptionsButton type="dateRange" onAction={onAction} />
 
       <FilterLabel
+        size="small"
         isCompact={isCompact}
         isMissing={isMissing}
         memberName={memberName}
