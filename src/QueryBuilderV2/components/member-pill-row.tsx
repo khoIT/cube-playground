@@ -77,16 +77,6 @@ const PillCube = styled.span`
   font-weight: 400;
 `;
 
-const PillMono = styled.span`
-  font-family: var(--font-mono);
-  font-size: var(--pill-mono-size);
-  color: var(--text-secondary);
-  background: var(--pill-mono-bg);
-  border-radius: var(--pill-mono-radius);
-  padding: var(--pill-mono-padding);
-  margin-left: 4px;
-`;
-
 const Granularity = styled.span`
   background: var(--bg-card);
   color: var(--text-secondary);
@@ -179,7 +169,6 @@ function MemberPill({ item, accent }: MemberPillProps) {
           item.label
         )}
       </PillText>
-      <PillMono>{item.member}</PillMono>
       {item.granularity ? <Granularity>{item.granularity}</Granularity> : null}
       {item.extra}
       <RemoveButton type="button" aria-label="Remove" onClick={item.onRemove}>

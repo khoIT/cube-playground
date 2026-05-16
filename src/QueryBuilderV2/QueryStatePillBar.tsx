@@ -63,16 +63,22 @@ const ToggleButton = styled.button`
   }
 `;
 
-const LiveBadge = styled.span`
+type FreshnessState = 'live' | 'stale';
+
+const FreshnessBadge = styled.span<{ $state: FreshnessState }>`
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
-  color: var(--live-badge-text);
-  background: var(--live-badge-bg);
-  border: 1px solid var(--live-badge-border);
+  color: ${(p) =>
+    p.$state === 'live' ? 'var(--live-badge-text)' : 'var(--stale-badge-text)'};
+  background: ${(p) =>
+    p.$state === 'live' ? 'var(--live-badge-bg)' : 'var(--stale-badge-bg)'};
+  border: 1px solid
+    ${(p) =>
+      p.$state === 'live' ? 'var(--live-badge-border)' : 'var(--stale-badge-border)'};
   padding: 2px 8px 2px 7px;
   border-radius: 999px;
   text-transform: uppercase;
@@ -84,8 +90,10 @@ const LiveBadge = styled.span`
     width: 6px;
     height: 6px;
     border-radius: 999px;
-    background: var(--live-badge-dot);
-    animation: live-dot-pulse 1.8s ease-in-out infinite;
+    background: ${(p) =>
+      p.$state === 'live' ? 'var(--live-badge-dot)' : 'var(--stale-badge-dot)'};
+    animation: ${(p) =>
+      p.$state === 'live' ? 'live-dot-pulse 1.8s ease-in-out infinite' : 'none'};
   }
 
   @keyframes live-dot-pulse {
@@ -144,7 +152,23 @@ export function QueryStatePillBar({ filterSlot }: Props) {
     measures,
     grouping,
     filters,
+    isQueryTouched,
+    isLoading,
+    resultSet,
+    error,
   } = ctx;
+
+  // Show LIVE when displayed results match the current query state.
+  // Show STALE when the user has edited the query after running it (results
+  // on screen no longer reflect the builder state). Hide while loading or
+  // before the first run.
+  const freshness: FreshnessState | null = isLoading
+    ? null
+    : !isQueryTouched && resultSet
+      ? 'live'
+      : isQueryTouched && (resultSet || error)
+        ? 'stale'
+        : null;
 
   const [collapsed, setCollapsed] = useLocalStorage<boolean>(
     'QueryBuilder:Query:collapsed',
@@ -198,7 +222,18 @@ export function QueryStatePillBar({ filterSlot }: Props) {
       <Header $collapsed={collapsed}>
         <HeaderLeft>
           <QueryRunButton />
-          <LiveBadge>Live</LiveBadge>
+          {freshness ? (
+            <FreshnessBadge
+              $state={freshness}
+              title={
+                freshness === 'live'
+                  ? 'Results match the current query'
+                  : 'Query was modified — re-run to refresh results'
+              }
+            >
+              {freshness === 'live' ? 'Live' : 'Stale'}
+            </FreshnessBadge>
+          ) : null}
         </HeaderLeft>
         <HeaderRight>
           <QueryRunStatus />
