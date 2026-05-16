@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppContext } from '../../hooks';
+import { CUBE_TO_CDP_MAPPING } from './cdp-projection/cube-to-cdp-mapping';
 
 export type CatalogMeasure = {
   name: string;
@@ -36,7 +37,16 @@ export type CatalogCube = {
   dimensions: CatalogDimension[];
   joins?: CatalogJoin[];
   preAggregations?: Array<{ name: string; type?: string; granularity?: string; timeDimension?: string }>;
+  meta?: { game_id?: string; cdp_source?: string; [k: string]: unknown };
 };
+
+function mergeCdpMapping(cubes: CatalogCube[]): CatalogCube[] {
+  return cubes.map((cube) => {
+    const mapping = CUBE_TO_CDP_MAPPING[cube.name];
+    if (!mapping && !cube.meta) return cube;
+    return { ...cube, meta: { ...(cube.meta ?? {}), ...(mapping ?? {}) } };
+  });
+}
 
 interface UseCatalogMetaResult {
   cubes: CatalogCube[];
@@ -77,7 +87,7 @@ export function useCatalogMeta(): UseCatalogMetaResult {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = (await resp.json()) as { cubes: CatalogCube[] };
         if (!cancelled) {
-          setCubes(json.cubes ?? []);
+          setCubes(mergeCdpMapping(json.cubes ?? []));
           setLoading(false);
         }
       })

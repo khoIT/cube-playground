@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 import { useHistory } from 'react-router-dom';
 import { CatalogCube } from './use-catalog-meta';
+import { DetailPanelMeasures } from './detail-panel-measures';
 
 const Panel = styled.aside`
   width: 480px;
@@ -90,18 +91,6 @@ const Chip = styled.span`
   margin-left: 6px;
 `;
 
-const WizardChip = styled.span`
-  display: inline-flex;
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--brand-soft);
-  border: 1px solid var(--brand);
-  color: var(--brand);
-  font-size: 10px;
-  font-weight: 600;
-  margin-left: 6px;
-`;
-
 const Footer = styled.div`
   padding: 16px 24px;
   border-top: 1px solid var(--border-card);
@@ -166,19 +155,7 @@ export function DetailPanel({ cube, onClose }: DetailPanelProps) {
         </Section>
       )}
 
-      <Section>
-        <SectionTitle>Measures ({cube.measures.length})</SectionTitle>
-        {cube.measures.map((m) => (
-          <Row key={m.name}>
-            <span>
-              <Code>{m.name.split('.').slice(1).join('.') || m.name}</Code>
-              {m.aggType && <Chip>{m.aggType}</Chip>}
-              {m.format && <Chip>{m.format}</Chip>}
-              {m.meta?.source === 'wizard' && <WizardChip>Wizard</WizardChip>}
-            </span>
-          </Row>
-        ))}
-      </Section>
+      <DetailPanelMeasures cube={cube} />
 
       <Section>
         <SectionTitle>Dimensions ({cube.dimensions.length})</SectionTitle>

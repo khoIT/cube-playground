@@ -1,0 +1,82 @@
+{
+  "metrics": [
+    {
+      "game_id": "bal_vn",
+      "metric_name": "user_count",
+      "metric_codename": "user_count",
+      "source": "iceberg.ballistar_vn.mf_users",
+      "expression": "COUNT(*)",
+      "dimensions": ["country", "signup_source"],
+      "filter": "",
+      "materialize": false,
+      "schedule": "",
+      "created_at": "2026-05-17T17:15:00+07:00",
+      "updated_at": "2026-05-17T17:15:00+07:00"
+    },
+    {
+      "game_id": "bal_vn",
+      "metric_name": "total_revenue_vnd",
+      "metric_codename": "total_revenue_vnd",
+      "source": "iceberg.ballistar_vn.mf_users",
+      "expression": "SUM(revenue_vnd)",
+      "dimensions": ["country", "signup_source"],
+      "filter": "",
+      "materialize": false,
+      "schedule": "",
+      "created_at": "2026-05-17T17:15:00+07:00",
+      "updated_at": "2026-05-17T17:15:00+07:00"
+    },
+    {
+      "game_id": "bal_vn",
+      "metric_name": "distinct_country_count",
+      "metric_codename": "distinct_country_count",
+      "source": "iceberg.ballistar_vn.mf_users",
+      "expression": "COUNT(DISTINCT country)",
+      "dimensions": ["country", "signup_source"],
+      "filter": "",
+      "materialize": false,
+      "schedule": "",
+      "created_at": "2026-05-17T17:15:00+07:00",
+      "updated_at": "2026-05-17T17:15:00+07:00"
+    },
+    {
+      "game_id": "bal_vn",
+      "metric_name": "approx_distinct_user_count",
+      "metric_codename": "approx_distinct_user_count",
+      "source": "iceberg.ballistar_vn.mf_users",
+      "expression": "approx_distinct(user_id)",
+      "dimensions": ["country", "signup_source"],
+      "filter": "",
+      "materialize": false,
+      "schedule": "",
+      "created_at": "2026-05-17T17:15:00+07:00",
+      "updated_at": "2026-05-17T17:15:00+07:00"
+    },
+    {
+      "game_id": "bal_vn",
+      "metric_name": "paying_user_count",
+      "metric_codename": "paying_user_count",
+      "source": "iceberg.ballistar_vn.mf_users",
+      "expression": "COUNT(*)",
+      "dimensions": ["country", "signup_source"],
+      "filter": "(is_paying=true)",
+      "materialize": false,
+      "schedule": "",
+      "created_at": "2026-05-17T17:15:00+07:00",
+      "updated_at": "2026-05-17T17:15:00+07:00"
+    },
+    {
+      "game_id": "bal_vn",
+      "metric_name": "lifetime_recharge_amount_vnd",
+      "metric_codename": "lifetime_recharge_amount_vnd",
+      "source": "iceberg.ballistar_vn.mf_users",
+      "expression": "SUM(amount_usd)",
+      "dimensions": ["country", "signup_source"],
+      "filter": "",
+      "materialize": false,
+      "schedule": "",
+      "created_at": "2026-05-17T17:15:00+07:00",
+      "updated_at": "2026-05-17T17:15:00+07:00"
+    }
+  ]
+}
