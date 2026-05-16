@@ -79,7 +79,8 @@ YAML preview rail shows the rendered YAML against the primary cube; cross-cube r
 - [ ] `rg "OperationAccepts"` returns zero hits.
 - [ ] `rg "ofMember\b|ofMemberB\b"` returns zero hits outside the compat shim and the legacy `OfSection`/YAML emitter call paths (which already migrate inputs).
 - [ ] All three canonical flows pass component tests and a manual browser walkthrough.
-- [ ] `docs/codebase-summary.md`, `docs/project-changelog.md`, `docs/development-roadmap.md` updated.
+- [ ] Cross-cube ratio runs through Step 6 (Test Run) end-to-end and emits valid SQL referencing both cubes.
+- [ ] `docs/codebase-summary.md`, `docs/project-changelog.md`, `docs/development-roadmap.md` created with initial content.
 - [ ] `pnpm -s tsc --noEmit` clean. NewMetric unit + new component tests green.
 
 ## Risk Assessment

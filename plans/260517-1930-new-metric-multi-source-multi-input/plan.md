@@ -54,3 +54,39 @@ Blocks on: [`260517-1500-new-metric-fullpage-6step-rebuild`](../260517-1500-new-
 
 - Should the primary cube be user-pickable (radio inside the source grid) or auto-set to the first selected cube? Default in this plan: auto = first selected. Surface a "primary" badge so it's visible; revisit if the second cube ends up being the more natural home for the measure file.
 - Should disabled Ratio in Step 2 be clickable to scroll the user back to Step 1, or purely informational? Default: clickable, with `back()` invoked and a transient highlight on Step 1's source picker.
+
+## Validation Log
+
+### Session 1 — 2026-05-17
+
+**Verification Results (Full tier, 5 phases)**
+- Tier: Full
+- Claims checked: 22
+- Verified: 18 | Failed: 4 | Unverified: 0
+
+**Failures resolved via interview:**
+1. **[Fact Checker]** `docs/codebase-summary.md`, `docs/project-changelog.md`, `docs/development-roadmap.md` — none exist; only `docs/journals/` + `ordered-funnel-cube-template.md` present.
+   - Decision: Phase 5 creates all three files fresh with initial content per CLAUDE.md's documentation-management contract.
+2. **[Contract Verifier]** Plan said "update Step 4 filter dropdown caller" for `useEligibleColumns`. Actual callers: 4 (`operation-body.tsx:117`, `operation-detail-rail.tsx:63`, `column-body.tsx:92`, `filters-body.tsx:186`).
+   - Decision: Phase 4 `Related Code Files` expanded to enumerate every caller.
+3. **[Contract Verifier]** `useReachableMembers` has a caller at `use-dry-run-sql.ts:57` not mentioned in any phase.
+   - Decision: Phase 1 + Phase 4 file lists updated to include the dry-run hook.
+4. **[Flow Tracer]** Step 6 `test-run-body.tsx` reads `draft.sourceCube` at 6 sites and emits test SQL with a single `cubeName`. Cross-cube ratio would break at test-run time without explicit fix.
+   - Decision: Step 6 multi-source support is included in Phase 5 (primary cube as `cubeName`; YAML emitter's cross-cube ratio SQL flows through unchanged).
+
+**Additional behavioral surfaces enumerated** (verified via grep — 49+ `draft.sourceCube` references total):
+- `compute-auto-metric-name.ts` — ratio auto-name template stays `ratio_{primary}` per validation decision.
+- `use-active-step.ts` — navigation gate uses `sourceCubes.length >= 1`.
+- `use-metric-yaml.ts`, `yaml-preview-rail.tsx` — primary cube only.
+- `NewMetricDialog.tsx`, `step-define.tsx`, `step-preview.tsx`, `filter-section.tsx` — legacy dialog flow, covered via compat shim or direct migration.
+
+**Other corrections:**
+- `validateDraft` → `validate` (correct exported function name at `use-new-metric-draft.ts:62`).
+- `localStorage` persistence confirmed at `use-new-metric-draft.ts:214-305` — Phase 2 hydrate step migrates old `sourceCube`/`ofMember` keys.
+- `lucide-react@1.16.0` `Lock` icon verified present.
+
+### Whole-Plan Consistency Sweep
+- Files reread: plan.md, phase-01..phase-05
+- Decision deltas checked: 4 (docs scope, caller scope, auto-name template, Step 6 scope)
+- Reconciled stale references: phase-01 (caller list), phase-04 (caller list + bug note for NewMetricPage:348), phase-05 (Step 6 + docs creation), `validate` fn-name correction.
+- Unresolved contradictions: 0
