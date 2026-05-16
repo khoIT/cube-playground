@@ -18,7 +18,7 @@ export type OperationDef = {
  */
 export const OPERATIONS: OperationDef[] = [
   { id: 'sum', name: 'Sum', formula: 'SUM(x)', description: 'Total of a numeric column.', accepts: 'numeric', example: 'Total revenue', dontUseFor: 'Counting rows — use Count instead.' },
-  { id: 'count', name: 'Count', formula: 'COUNT(*)', description: 'Number of rows matching filters.', accepts: 'none', example: 'Active users / sessions' },
+  { id: 'count', name: 'Count', formula: 'COUNT(*)', description: 'Number of rows matching filters. Pick a column to count its non-null values, or skip to count rows.', accepts: 'all', example: 'Active users / sessions' },
   { id: 'countDistinct', name: 'Count distinct', formula: 'COUNT(DISTINCT x)', description: 'Unique values of a column.', accepts: 'all', example: 'Distinct users' },
   { id: 'avg', name: 'Average', formula: 'AVG(x)', description: 'Arithmetic mean of a numeric column.', accepts: 'numeric', example: 'Avg order value' },
   { id: 'min', name: 'Min', formula: 'MIN(x)', description: 'Smallest value of a numeric or date column.', accepts: 'numeric', example: 'Earliest signup date' },

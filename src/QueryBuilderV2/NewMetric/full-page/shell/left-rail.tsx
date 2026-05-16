@@ -64,17 +64,17 @@ const Row = styled.button<{ $active: boolean; $reachable: boolean }>`
   gap: 12px;
   align-items: center;
   width: 100%;
-  background: var(--bg-card);
-  border: 1.5px solid transparent;
+  background: transparent;
+  border: 1px solid transparent;
   padding: 10px 12px;
   border-radius: 12px;
   cursor: ${(p) => (p.$reachable ? 'pointer' : 'not-allowed')};
   opacity: ${(p) => (p.$reachable ? 1 : 0.55)};
   text-align: left;
-  transition: border-color 120ms, background-color 120ms;
+  transition: border-color 120ms, background-color 120ms, box-shadow 120ms;
 
   &:hover {
-    background: ${(p) => (p.$reachable ? 'var(--bg-muted)' : 'transparent')};
+    background: ${(p) => (p.$reachable ? 'var(--bg-card)' : 'transparent')};
   }
 
   ${(p) =>
@@ -82,7 +82,7 @@ const Row = styled.button<{ $active: boolean; $reachable: boolean }>`
     css`
       border-color: var(--orange-200);
       background: var(--bg-card);
-      box-shadow: 0 0 0 1px var(--orange-200) inset;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     `}
 `;
 
@@ -102,16 +102,18 @@ const Badge = styled.span<{ $tone: 'done' | 'active' | 'pending' }>`
       return css`
         background: var(--brand);
         color: #fff;
+        border: 1px solid var(--brand);
       `;
     }
     if (p.$tone === 'active') {
       return css`
-        background: var(--brand);
-        color: #fff;
+        background: var(--brand-soft);
+        color: var(--brand);
+        border: 1px solid var(--orange-200);
       `;
     }
     return css`
-      background: var(--bg-muted);
+      background: transparent;
       color: var(--text-muted);
       border: 1px solid var(--border-card);
     `;
@@ -137,22 +139,6 @@ const Sub = styled.div`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-`;
-
-const DoneChip = styled.span`
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 24px;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #047857;
-  font-size: 11.5px;
-  font-weight: 600;
 `;
 
 export type LeftRailProps = {
@@ -207,11 +193,6 @@ export function LeftRail({
                   <Name>{lbl.name}</Name>
                   <Sub>{subtext}</Sub>
                 </StepBody>
-                {done && (
-                  <DoneChip aria-label="Step complete">
-                    <Check size={13} strokeWidth={3} />
-                  </DoneChip>
-                )}
               </Row>
             </li>
           );

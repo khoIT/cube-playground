@@ -11,7 +11,10 @@ const Layout = styled.div<{ $rightW: number }>`
   display: grid;
   grid-template-rows: 56px 1fr;
   grid-template-columns: ${LEFT_W}px 1fr 6px ${(p) => p.$rightW}px;
-  height: 100vh;
+  /* App-shell <Header> above us is fixed at 44px (src/components/Header/Header.tsx).
+     Subtracting it keeps the wizard footer pinned to the viewport instead of
+     getting pushed below the fold when body content is tall. */
+  height: calc(100vh - 44px);
   background: var(--bg-app);
   font-family: var(--font-sans);
   color: var(--text-primary);
@@ -27,7 +30,7 @@ const TopRow = styled.div`
 `;
 
 const LeftCol = styled.aside`
-  background: var(--bg-card);
+  background: var(--bg-app);
   border-right: 1px solid var(--border-card);
   overflow-y: auto;
   padding: 16px;
@@ -67,10 +70,10 @@ const Divider = styled.div<{ $dragging: boolean }>`
 `;
 
 const RightCol = styled.aside`
-  background: var(--bg-card);
-  border-left: 1px solid var(--border-card);
-  overflow-y: auto;
-  padding: 16px;
+  background: var(--bg-app);
+  /* Divider owns the separator border (see Divider above) — adding one here
+     would render a second parallel line across the resize gap. */
+  overflow: hidden;
   min-width: 0;
 `;
 

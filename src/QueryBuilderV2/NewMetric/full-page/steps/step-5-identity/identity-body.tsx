@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 import type { Format, Grain, Visibility, NewMetricDraftV2 } from '../../../types';
 import { TagCombo } from '../../../components/tag-combo';
+import { computeAutoMetricName, computeAutoMetricTitle } from '../../hooks/compute-auto-metric-name';
 
 const SNAKE_CASE_RE = /^[a-z][a-z0-9_]*$/;
 
@@ -102,14 +103,10 @@ export function IdentityBody({ draft, onField, tagSuggestions }: IdentityBodyPro
   const fmt = FORMATS.find((f) => f.id === draft.format) ?? FORMATS[0];
 
   function autoName() {
-    if (draft.name && draft.title) return;
-    const col = draft.ofMember ? draft.ofMember.split('.').slice(-1)[0] : '';
-    const sig = draft.operation === 'count' ? 'count' : `${draft.operation}_${col}`;
-    if (!draft.name) onField('name', sig.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
-    if (!draft.title) {
-      const human = col ? col.replace(/_/g, ' ') : 'rows';
-      onField('title', `${capitalize(draft.operation)} of ${human}`);
-    }
+    const name = computeAutoMetricName(draft);
+    const title = computeAutoMetricTitle(draft);
+    if (name && name !== 'untitled_metric') onField('name', name);
+    if (title) onField('title', title);
   }
 
   return (

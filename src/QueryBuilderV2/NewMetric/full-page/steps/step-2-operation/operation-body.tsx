@@ -25,70 +25,76 @@ const SegBtn = styled.button<{ $active: boolean }>`
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 `;
 
 const Card = styled.button<{ $selected: boolean }>`
   text-align: left;
-  background: var(--bg-card);
+  background: ${(p) => (p.$selected ? 'var(--brand-soft)' : 'var(--bg-card)')};
   border: 1px solid ${(p) => (p.$selected ? 'var(--brand)' : 'var(--border-card)')};
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: 10px;
+  padding: 9px 11px;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
   &:hover { border-color: var(--brand); }
-  box-shadow: ${(p) => (p.$selected ? '0 0 0 3px var(--brand-soft)' : 'none')};
 `;
 const CardHead = styled.div`
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 6px;
+  min-width: 0;
 `;
 const Name = styled.div`
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: 13px;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
-const Formula = styled.div`
+const Formula = styled.span`
   display: inline-block;
-  margin-top: 4px;
-  padding: 2px 6px;
+  padding: 1px 5px;
   background: var(--bg-muted);
   border-radius: 4px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-secondary);
-`;
-const Desc = styled.div`
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  margin-top: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 `;
 const Foot = styled.div`
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  font-size: 11.5px;
+  gap: 6px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  margin-top: 10px;
 `;
 const ProBadge = styled.span`
   background: var(--brand-soft);
   color: var(--brand);
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  flex: none;
 `;
-const SelectedPill = styled.span`
-  background: var(--success);
-  color: white;
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
+const SelectedDot = styled.span`
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  margin-left: auto;
 `;
 
 export type OperationBodyProps = {
@@ -109,20 +115,23 @@ function OperationCard({
   onClick: () => void;
 }) {
   const { eligible } = useEligibleColumns(cube, def.accepts);
+  const eligibleLabel = def.accepts === 'none' ? 'rows only' : `${eligible.length} eligible`;
   return (
-    <Card $selected={selected} onClick={onClick} type="button">
+    <Card
+      $selected={selected}
+      onClick={onClick}
+      type="button"
+      title={def.description}
+      aria-label={`${def.name} — ${def.description}`}
+    >
       <CardHead>
         <Name>{def.name}</Name>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {def.pro && <ProBadge>Advanced</ProBadge>}
-          {selected && <SelectedPill>Selected</SelectedPill>}
-        </div>
+        {def.pro && <ProBadge>Pro</ProBadge>}
+        {selected && <SelectedDot aria-label="Selected" />}
       </CardHead>
       <Formula>{def.formula}</Formula>
-      <Desc>{def.description}</Desc>
       <Foot>
-        <span>{def.accepts === 'none' ? 'No column required' : `${eligible.length} eligible`}</span>
-        <span>{def.example}</span>
+        <span>{eligibleLabel}</span>
       </Foot>
     </Card>
   );

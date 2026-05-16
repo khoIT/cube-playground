@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Modal, notification } from 'antd';
 import { useNewMetricMeta } from '../hooks/use-new-metric-meta';
@@ -12,7 +12,7 @@ import { StepChrome } from './shell/step-chrome';
 import { SourceBody } from './steps/step-1-source/source-body';
 import { SourcePreviewRail } from './steps/step-1-source/source-preview-rail';
 import { OperationBody } from './steps/step-2-operation/operation-body';
-import { computeAutoMetricName } from './hooks/compute-auto-metric-name';
+import { computeAutoMetricName, computeAutoMetricTitle } from './hooks/compute-auto-metric-name';
 import { OperationDetailRail } from './steps/step-2-operation/operation-detail-rail';
 import { ColumnBody } from './steps/step-3-column/column-body';
 import { ColumnHealthRail } from './steps/step-3-column/column-health-rail';
@@ -64,6 +64,31 @@ export function NewMetricPage() {
   const draftState = useNewMetricDraft({ reachableNames });
   const { draft, setField, clearPersisted } = draftState;
   const { step, setStep, canGoTo, next, back } = useActiveStep(draft);
+
+  // Live auto-fill of name + title from operation/column picks. Each field
+  // stays "auto-controlled" while it's empty or still equals the last value
+  // this effect wrote; the first manual edit by the user breaks the link and
+  // we stop overwriting them.
+  const lastAutoNameRef = useRef('');
+  const lastAutoTitleRef = useRef('');
+  useEffect(() => {
+    if (!draft.sourceCube || !draft.operation) return;
+
+    const autoName = computeAutoMetricName(draft);
+    if (autoName && autoName !== 'untitled_metric') {
+      const nameIsAuto = !draft.name || draft.name === lastAutoNameRef.current;
+      if (nameIsAuto && draft.name !== autoName) setField('name', autoName);
+      lastAutoNameRef.current = autoName;
+    }
+
+    const autoTitle = computeAutoMetricTitle(draft);
+    if (autoTitle) {
+      const titleIsAuto = !draft.title || draft.title === lastAutoTitleRef.current;
+      if (titleIsAuto && draft.title !== autoTitle) setField('title', autoTitle);
+      lastAutoTitleRef.current = autoTitle;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.sourceCube, draft.operation, draft.ofMember, draft.ofMemberB]);
 
   // Apply ?cube= deep-link once meta is available, validating against meta.cubes.
   const [cubeParamApplied, setCubeParamApplied] = useState(false);
@@ -173,16 +198,48 @@ export function NewMetricPage() {
         />
       }
       main={renderStep({ step, draft, meta, loading, error, setField, next, back, selectedCube, tagSuggestions, cubejsApi })}
-      rightRail={<RightRail title={`Step ${step} preview`}>
-        {step === 1 && <SourcePreviewRail cube={selectedCube} />}
-        {step === 2 && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
-        {step === 3 && <ColumnHealthRail cube={selectedCube} column={draft.ofMember} operation={draft.operation} cubeApi={cubejsApi} />}
-        {step === 4 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cohort funnel arrives in a follow-up. The compiled SQL preview is in the main panel.</div>}
-        {step === 5 && <YamlPreviewRail draft={draft} sourceCube={selectedCube} />}
-        {step > 5 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Step {step} preview not implemented yet — coming in later phases.</div>}
-      </RightRail>}
+      rightRail={(() => {
+        const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: draft.ofMember });
+        return (
+          <RightRail title={rail.title} subtitle={rail.subtitle}>
+            {step === 1 && <SourcePreviewRail cube={selectedCube} />}
+            {step === 2 && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
+            {step === 3 && <ColumnHealthRail cube={selectedCube} column={draft.ofMember} operation={draft.operation} cubeApi={cubejsApi} />}
+            {step === 4 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cohort funnel arrives in a follow-up. The compiled SQL preview is in the main panel.</div>}
+            {step === 5 && <YamlPreviewRail draft={draft} sourceCube={selectedCube} />}
+            {step > 5 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Step {step} preview not implemented yet — coming in later phases.</div>}
+          </RightRail>
+        );
+      })()}
     />
   );
+}
+
+function rightRailMeta(args: {
+  step: StepIndex;
+  selectedCube: { name: string; title?: string } | null;
+  operation: string | null;
+  column: string | null;
+}): { title: string; subtitle?: string } {
+  const { step, selectedCube, operation, column } = args;
+  if (step === 1) {
+    return selectedCube
+      ? { title: 'Selected source', subtitle: selectedCube.name }
+      : { title: 'Source preview', subtitle: 'Pick a source to inspect its schema' };
+  }
+  if (step === 2) {
+    return operation
+      ? { title: 'Operation', subtitle: operation }
+      : { title: 'Operation preview', subtitle: 'Pick an aggregation to see its formula' };
+  }
+  if (step === 3) {
+    return column
+      ? { title: 'Column health', subtitle: column }
+      : { title: 'Column preview', subtitle: 'Pick a column to inspect distribution' };
+  }
+  if (step === 4) return { title: 'Filters preview', subtitle: 'Cohort impact' };
+  if (step === 5) return { title: 'YAML preview', subtitle: selectedCube?.name };
+  return { title: `Step ${step} preview` };
 }
 
 function renderStep(args: {

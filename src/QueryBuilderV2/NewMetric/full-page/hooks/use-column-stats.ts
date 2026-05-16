@@ -38,8 +38,14 @@ function rememberInCache(key: string, value: ColumnStats): void {
   }
 }
 
-function cubeHasCountMeasure(cube: WizardCube): boolean {
-  return (cube.measures ?? []).some((m) => m.name === `${cube.name}.count`);
+function resolveCountMeasure(cube: WizardCube): string | null {
+  const ms = cube.measures ?? [];
+  // Prefer canonical <cube>.count; otherwise any measure with aggType:'count'.
+  return (
+    ms.find((m) => m.name === `${cube.name}.count`)?.name ??
+    ms.find((m) => m.aggType === 'count')?.name ??
+    null
+  );
 }
 
 /**
@@ -72,7 +78,8 @@ export function useColumnStats(
       setResult({ status: 'unavailable', reason: 'no-cube-api' });
       return;
     }
-    if (!cubeHasCountMeasure(cube)) {
+    const countMeasure = resolveCountMeasure(cube);
+    if (!countMeasure) {
       setResult({ status: 'unavailable', reason: 'no-count-measure' });
       return;
     }
@@ -89,9 +96,9 @@ export function useColumnStats(
 
     (async () => {
       try {
-        const countQ = { measures: [`${cube.name}.count`] };
+        const countQ = { measures: [countMeasure] };
         const nullQ = {
-          measures: [`${cube.name}.count`],
+          measures: [countMeasure],
           filters: [{ member: column, operator: 'notSet' as const }],
         };
         const distinctQ = { dimensions: [column], limit: 1000 };
@@ -105,8 +112,8 @@ export function useColumnStats(
         ]);
         if (myRunId !== runIdRef.current) return; // stale — discard
 
-        const count = Number(countR.rawData()[0]?.[`${cube.name}.count`] ?? 0);
-        const nullCount = Number(nullR.rawData()[0]?.[`${cube.name}.count`] ?? 0);
+        const count = Number(countR.rawData()[0]?.[countMeasure] ?? 0);
+        const nullCount = Number(nullR.rawData()[0]?.[countMeasure] ?? 0);
         const distinct = distinctR.rawData().length;
         const samples = sampleR.rawData().map((r) => String(r[column] ?? '')).filter(Boolean);
 

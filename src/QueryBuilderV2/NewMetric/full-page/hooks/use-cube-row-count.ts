@@ -12,8 +12,15 @@ export type CubeRowCountResult =
 const CACHE = new Map<string, number>();
 
 function cubeCountMeasure(cube: WizardCube): string | null {
-  const direct = `${cube.name}.count`;
-  return (cube.measures ?? []).some((m) => m.name === direct) ? direct : null;
+  const ms = cube.measures ?? [];
+  // Prefer the canonical <cube>.count if it exists; otherwise fall back to any
+  // measure with aggType: 'count'. Cubes in this project commonly name their
+  // primary count measure something domain-specific (e.g. `user_count`).
+  return (
+    ms.find((m) => m.name === `${cube.name}.count`)?.name ??
+    ms.find((m) => m.aggType === 'count')?.name ??
+    null
+  );
 }
 
 /**
