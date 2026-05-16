@@ -2,6 +2,8 @@ import { Input, Select, Space, Text, TextArea } from '@cube-dev/ui-kit';
 import { Key } from 'react';
 import { NewMetricDraft, Format } from '../types';
 import { ValidationResult } from '../types';
+import { TagCombo } from '../components/tag-combo';
+import { useExistingTags } from '../hooks/use-existing-tags';
 
 interface IdentitySectionProps {
   draft: NewMetricDraft;
@@ -22,6 +24,8 @@ const FORMAT_OPTIONS: { value: Format; label: string }[] = [
 export function IdentitySection({ draft, setField, validation }: IdentitySectionProps) {
   const nameError = validation.errors.name;
   const titleError = validation.errors.title;
+  const tagsError = validation.errors.tags;
+  const existingTags = useExistingTags();
 
   return (
     <Space direction="vertical" gap="1.5x">
@@ -64,6 +68,17 @@ export function IdentitySection({ draft, setField, validation }: IdentitySection
           value={draft.description}
           onChange={(value: string) => setField('description', value)}
           rows={3}
+        />
+      </Space>
+
+      {/* Tags — free-form chip combo with suggestions from existing measures */}
+      <Space direction="vertical" gap=".5x">
+        <Text>Tags (optional)</Text>
+        <TagCombo
+          value={draft.tags}
+          onChange={(next) => setField('tags', next)}
+          suggestions={existingTags}
+          error={tagsError}
         />
       </Space>
 

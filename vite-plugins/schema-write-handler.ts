@@ -21,6 +21,7 @@ import {
   renameTmp,
   unlinkTmp,
   writeBak,
+  restoreBak,
   hasExternalChange,
   appendAudit,
 } from './schema-file-ops.js';
@@ -54,12 +55,16 @@ export async function handleWriteRequest(
     jsonError(res, 403, 'endpoint-disabled-in-production');
     return;
   }
-  if (req.method !== 'POST') {
-    jsonError(res, 405, 'method-not-allowed');
-    return;
-  }
   if (!deps.modelDir) {
     jsonError(res, 500, 'model-dir-not-configured');
+    return;
+  }
+  if (req.method === 'DELETE') {
+    await handleDeleteRequest(req, res, deps);
+    return;
+  }
+  if (req.method !== 'POST') {
+    jsonError(res, 405, 'method-not-allowed');
     return;
   }
 
@@ -165,4 +170,70 @@ export async function handleWriteRequest(
 
     jsonOk(res, { meta: null, warning: 'meta-not-acknowledged' });
   }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE handler — Discard flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Discard a wizard-written measure by restoring the `.bak` over the target.
+ * Body shape: `{ cubeName, measureName }` — `measureName` audited but not used
+ * for the rollback path.
+ */
+async function handleDeleteRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  deps: HandlerDeps,
+): Promise<void> {
+  const modelRoot = deps.modelDir!;
+
+  let body: WriteBody;
+  try {
+    const raw = await readBody(req);
+    body = JSON.parse(raw.toString('utf8')) as WriteBody;
+  } catch (err) {
+    jsonError(res, 400, `body-parse-error: ${String(err)}`);
+    return;
+  }
+
+  if (!body?.cubeName || typeof body.cubeName !== 'string') {
+    jsonError(res, 400, 'invalid-body: cubeName required');
+    return;
+  }
+  if (!body?.measureName || typeof body.measureName !== 'string') {
+    jsonError(res, 400, 'invalid-body: measureName required');
+    return;
+  }
+
+  let targetPath: string;
+  try {
+    targetPath = await resolveTargetPath(modelRoot, body.cubeName);
+  } catch (err) {
+    jsonError(res, 404, `cube-file-not-found: ${String(err)}`);
+    return;
+  }
+
+  try {
+    await restoreBak(targetPath);
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      jsonError(res, 404, 'no-backup-found');
+      return;
+    }
+    jsonError(res, 500, `restore-error: ${String(err)}`);
+    return;
+  }
+
+  const ts = new Date().toISOString();
+  const ua = req.headers['user-agent'] ?? '';
+  await appendAudit(modelRoot, {
+    ts,
+    ua,
+    cubeName: body.cubeName,
+    measureName: body.measureName,
+    event: 'delete-after-preview',
+  }).catch((err) => console.warn('[schema-write] delete audit append failed:', err));
+
+  jsonOk(res, { restored: true });
 }

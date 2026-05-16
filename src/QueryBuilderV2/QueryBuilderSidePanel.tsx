@@ -35,6 +35,7 @@ import { useQueryBuilderContext } from './context';
 import { EditQueryDialogForm } from './components/EditQueryDialogForm';
 import { SidePanelCubeItem } from './components/SidePanelCubeItem';
 import { SidebarDisplayPanel } from './components/SidebarDisplayPanel';
+import { TagFilterChips } from './components/tag-filter-chips';
 import { validateQuery } from './utils';
 
 const RadioButton = tasty(Radio.Button, {
@@ -497,6 +498,8 @@ export function QueryBuilderSidePanel({
           ) : null}
         </Space>
       ) : undefined}
+
+      <TagFilterChips />
 
       <Panel margin="0 -1x" border="top" flexGrow={1}>
         {cubeList}

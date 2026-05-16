@@ -41,6 +41,14 @@ interface UseQueryBuilderProps {
   defaultPivotConfig?: PivotConfig;
   schemaVersion?: number;
   cubeApi?: CubeApi;
+  /**
+   * Raw apiUrl + apiToken passed alongside the constructed `cubeApi` so that
+   * `loadMeta` can issue a direct `/v1/meta?extended=true` fetch (joins[] and
+   * connectedComponent are stripped by Cube unless `extended=true` is set, and
+   * `@cubejs-client/core`'s `cubeApi.meta()` doesn't accept that flag).
+   */
+  apiUrl?: string | null;
+  apiToken?: string | null;
   memberViewType?: MemberViewType;
   tracking?: {
     event: (name: string, props?: Record<string, any>) => void;
@@ -118,6 +126,8 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
 
   let {
     cubeApi,
+    apiUrl,
+    apiToken,
     schemaVersion,
     defaultChartType,
     defaultQuery,
@@ -328,8 +338,42 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
 
     setIsMetaLoading(true);
 
-    return cubeApi
-      .meta()
+    // Direct fetch with `?extended=true` so the response includes `joins[]`
+    // and `connectedComponent` per cube. The SDK's `cubeApi.meta()` strips
+    // both because it never sets the `extended` flag. We wrap the raw JSON
+    // in `new Meta(json)` to preserve the same instance shape downstream
+    // (`meta.cubes`, `meta.cubesMap`, `meta.meta.cubes`).
+    const fetchExtendedMeta = (): Promise<Meta> => {
+      if (!apiUrl || !apiToken) {
+        // Fallback to the SDK call when raw apiUrl/apiToken weren't passed
+        // through. Loses joins[] and connectedComponent but keeps existing
+        // behavior so we never regress callers that don't supply them.
+        return cubeApi.meta();
+      }
+      const baseUrl = apiUrl.endsWith('/v1') ? apiUrl : `${apiUrl}/v1`;
+      return fetch(`${baseUrl}/meta?extended=true`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: apiToken,
+        },
+      }).then(async (resp) => {
+        if (!resp.ok) {
+          let errorBody: any = `HTTP ${resp.status}`;
+          try {
+            errorBody = await resp.json();
+          } catch {
+            /* keep status string */
+          }
+          const err: any = new Error(`Meta fetch failed: ${resp.status}`);
+          err.response = { plainError: errorBody?.error ?? String(errorBody) };
+          throw err;
+        }
+        const json = (await resp.json()) as { cubes: any[] };
+        return new Meta(json);
+      });
+    };
+
+    return fetchExtendedMeta()
       .then((newMeta) => {
         if (currentRequest !== metaLoadingRef.current) {
           return;

@@ -1,47 +1,45 @@
 import { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { notification } from 'antd';
-import {
-  Button,
-  Dialog,
-  Divider,
-  Header as UIHeader,
-  Space,
-  Title as UITitle,
-} from '@cube-dev/ui-kit';
+import { Dialog, Header as UIHeader, Title as UITitle } from '@cube-dev/ui-kit';
 import { UseNewMetricDraftReturn, validate } from './hooks/use-new-metric-draft';
 import { useReachableMembers } from './hooks/use-reachable-members';
 import { useMetricYaml } from './hooks/use-metric-yaml';
-import { useDryRunSql } from './hooks/use-dry-run-sql';
+import {
+  useWizardNavigation,
+  WizardStep,
+} from './hooks/use-wizard-navigation';
 import { postSchemaWrite } from './api';
 import { useAppContext } from '../../hooks';
-import { SourceSection } from './sections/source-section';
-import { OperationSection } from './sections/operation-section';
-import { OfSection } from './sections/of-section';
-import { FilterSection } from './sections/filter-section';
-import { IdentitySection } from './sections/identity-section';
+import { Stepper, StepperItem } from './components/stepper';
+import { WizardFooter } from './components/wizard-footer';
+import { StepDefine } from './steps/step-define';
+import { StepIdentify } from './steps/step-identify';
+import { StepPreview } from './steps/step-preview';
 import { YamlPreview } from './preview/yaml-preview';
-import { DryRunSqlPreview } from './preview/dry-run-sql-preview';
 
 // ─── Styled layout ────────────────────────────────────────────────────────────
+
+const Shell = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-card);
+`;
 
 const Body = styled.div`
   display: flex;
   flex: 1;
   overflow: hidden;
-  height: 100%;
 `;
 
-const SectionsPane = styled.div`
+const MainPane = styled.div`
   flex: 1;
   overflow-y: auto;
   padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
 `;
 
-const PreviewPane = styled.div`
+const RightRail = styled.aside`
   width: 360px;
   flex-shrink: 0;
   border-left: 1px solid var(--border-card);
@@ -50,22 +48,16 @@ const PreviewPane = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: var(--bg-surface);
+  background: var(--bg-muted);
 `;
 
-const Footer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 24px;
-  border-top: 1px solid var(--border-card);
-  background: var(--bg-card);
-`;
+// ─── Steps definition ─────────────────────────────────────────────────────────
 
-const SectionDivider = styled(Divider)`
-  margin: 0;
-`;
+const STEPS: StepperItem[] = [
+  { id: 1, label: 'Define' },
+  { id: 2, label: 'Identify' },
+  { id: 3, label: 'Preview' },
+];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -78,16 +70,18 @@ interface NewMetricDialogProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Fullscreen wizard dialog — fully wired with live YAML preview, Validate
- * (dry-run SQL), and Define (schema write + meta refetch + toast).
+ * 3-step wizard modal: Define → Identify → Preview.
+ * Step shell rebuilt in Phase 3; Live Preview content arrives in Phase 5.
  */
 export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
-  const { draft, setField, reset, validation } = draftState;
+  const { draft, reset } = draftState;
   const { refreshMeta } = useAppContext();
   const [isSaving, setIsSaving] = useState(false);
 
   // ── Reachable members for the selected source cube ──────────────────────────
-  const { items: reachableMembers, reachableNames } = useReachableMembers(draft.sourceCube);
+  const { items: reachableMembers, reachableNames } = useReachableMembers(
+    draft.sourceCube,
+  );
 
   // ── Peer measure names on the source cube (for naming-convention inference) ─
   const peerMeasureNames = useMemo(
@@ -95,29 +89,32 @@ export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
       reachableMembers
         .filter((m) => m.kind === 'measure' && m.cubeName === draft.sourceCube)
         .map((m) => m.shortName),
-    [reachableMembers, draft.sourceCube]
+    [reachableMembers, draft.sourceCube],
   );
 
   const sourceCube = draft.sourceCube ?? '';
 
-  // ── Live YAML generation ────────────────────────────────────────────────────
-  const { yaml, fragment } = useMetricYaml(draft, {
+  // ── Live YAML generation (preview rail) ─────────────────────────────────────
+  const { fragment } = useMetricYaml(draft, {
     sourceCube,
     reachableMembers,
     peerMeasureNames,
   });
 
-  // ── Dry-run SQL (Validate) ──────────────────────────────────────────────────
-  const dryRun = useDryRunSql({
-    draft,
-    sourceCube: draft.sourceCube,
-    measureName: draft.name,
-    fragment,
-  });
-
-  // ── Validation (with reachability) ─────────────────────────────────────────
+  // ── Full validation (with reachability) ─────────────────────────────────────
   const fullValidation = validate(draft, { reachableNames });
   const isValid = fullValidation.isValid;
+
+  // ── Step state ──────────────────────────────────────────────────────────────
+  const {
+    currentStep,
+    canGoBack,
+    canGoNext,
+    goNext,
+    goBack,
+    gotoStep,
+    isStepValid,
+  } = useWizardNavigation(fullValidation);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -126,23 +123,11 @@ export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
     onClose();
   }
 
-  async function handleValidate() {
-    await dryRun.run();
-  }
-
   async function handleDefine() {
     if (!isValid || isSaving || !draft.sourceCube) return;
 
     setIsSaving(true);
     try {
-      // If the dry-run result is stale, run validate first as a guard.
-      if (dryRun.isStale) {
-        await dryRun.run();
-        // If the run produced an error, surface it and abort — the SQL pane
-        // already shows the error; we don't block save on it per POC spec.
-        // (Phase spec: only abort if dryRun.run() throws, not on a 400 result.)
-      }
-
       const result = await postSchemaWrite({
         cubeName: draft.sourceCube,
         measureName: draft.name,
@@ -150,7 +135,6 @@ export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
       });
 
       if (result.ok) {
-        // Trigger meta re-fetch so the QueryBuilder sidebar reflects the new measure.
         await refreshMeta();
 
         if (result.warning === 'meta-not-acknowledged') {
@@ -170,7 +154,6 @@ export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
         return;
       }
 
-      // result.ok === false — all error branches carry status + reason
       const { status, reason } = result as { ok: false; status: number; reason: string };
 
       if (status === 409) {
@@ -202,8 +185,8 @@ export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  const validateDisabled = !isValid || dryRun.isRunning;
-  const defineDisabled = !isValid || dryRun.isRunning || isSaving;
+  const defineDisabled = !isValid || isSaving;
+  const defineLabel = isSaving ? 'Saving…' : 'Define';
 
   return (
     <Dialog isDismissable>
@@ -211,49 +194,51 @@ export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
         <UITitle>New Metric</UITitle>
       </UIHeader>
 
-      <Body>
-        <SectionsPane>
-          <SourceSection draft={draft} setField={setField} />
-          <SectionDivider />
-          <OperationSection draft={draft} setField={setField} />
-          <SectionDivider />
-          <OfSection draft={draft} setField={setField} />
-          <SectionDivider />
-          <FilterSection draft={draft} setField={setField} />
-          <SectionDivider />
-          <IdentitySection draft={draft} setField={setField} validation={fullValidation} />
-        </SectionsPane>
+      <Shell>
+        <Stepper
+          steps={STEPS}
+          current={currentStep}
+          isStepValid={isStepValid}
+          onStepClick={(s: WizardStep) => gotoStep(s)}
+        />
 
-        <PreviewPane>
-          <YamlPreview
-            draft={draft}
-            sourceCube={sourceCube}
-            reachableMembers={reachableMembers}
-            peerMeasureNames={peerMeasureNames}
-          />
-          <DryRunSqlPreview isRunning={dryRun.isRunning} result={dryRun.result} />
-        </PreviewPane>
-      </Body>
+        <Body>
+          <MainPane>
+            {currentStep === 1 && <StepDefine draftState={draftState} />}
+            {currentStep === 2 && (
+              <StepIdentify draftState={draftState} validation={fullValidation} />
+            )}
+            {currentStep === 3 && (
+              <StepPreview
+                draftState={draftState}
+                yamlPatch={fragment}
+                enabled={currentStep === 3}
+              />
+            )}
+          </MainPane>
 
-      <Footer>
-        <Button type="secondary" onPress={handleCancel}>
-          Cancel
-        </Button>
-        <Button
-          type="secondary"
-          isDisabled={validateDisabled}
-          onPress={handleValidate}
-        >
-          {dryRun.isRunning ? 'Validating…' : 'Validate'}
-        </Button>
-        <Button
-          type="primary"
-          isDisabled={defineDisabled}
-          onPress={handleDefine}
-        >
-          {isSaving ? 'Saving…' : 'Define'}
-        </Button>
-      </Footer>
+          <RightRail>
+            <YamlPreview
+              draft={draft}
+              sourceCube={sourceCube}
+              reachableMembers={reachableMembers}
+              peerMeasureNames={peerMeasureNames}
+            />
+          </RightRail>
+        </Body>
+
+        <WizardFooter
+          currentStep={currentStep}
+          canGoBack={canGoBack}
+          canGoNext={canGoNext}
+          isDefineDisabled={defineDisabled}
+          defineLabel={defineLabel}
+          onCancel={handleCancel}
+          onBack={goBack}
+          onNext={goNext}
+          onDefine={handleDefine}
+        />
+      </Shell>
     </Dialog>
   );
 }

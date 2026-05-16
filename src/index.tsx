@@ -8,6 +8,7 @@ import {
   ExplorePage,
   SchemaPage,
   IndexPage,
+  CatalogPage,
 } from './pages';
 import { SecurityContextProvider } from './components/SecurityContext/SecurityContextProvider';
 import { AppContextProvider } from './components/AppContext';
@@ -62,6 +63,7 @@ ReactDOM.render(
           }}
         />
         <Route key="schema" path="/schema" component={SchemaPage} />
+        <Route key="catalog" path="/catalog" component={CatalogPage} />
       </App>
     </AppContextProvider>
   </Router>,

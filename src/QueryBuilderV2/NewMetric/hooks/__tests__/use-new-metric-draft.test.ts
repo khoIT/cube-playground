@@ -14,6 +14,9 @@ const VALID_DRAFT: NewMetricDraft = {
   title: 'Total Revenue',
   description: '',
   format: 'number',
+  tags: [],
+  previewTimeDimension: null,
+  previewRange: '7d',
 };
 
 // ─── validate() unit tests ────────────────────────────────────────────────────
@@ -245,5 +248,65 @@ describe('useNewMetricDraft()', () => {
     expect(validation.errors.ofMember).toBeDefined();
     expect(validation.errors.name).toBeDefined();
     expect(validation.errors.title).toBeDefined();
+  });
+
+  it('setField updates tags array', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => result.current.setField('tags', ['revenue', 'daily']));
+    expect(result.current.draft.tags).toEqual(['revenue', 'daily']);
+  });
+
+  it('setField updates previewTimeDimension', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => result.current.setField('previewTimeDimension', 'orders.created_at'));
+    expect(result.current.draft.previewTimeDimension).toBe('orders.created_at');
+  });
+
+  it('setField updates previewRange', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => result.current.setField('previewRange', '30d'));
+    expect(result.current.draft.previewRange).toBe('30d');
+  });
+
+  it('reset clears tags and preview fields', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => {
+      result.current.setField('tags', ['x']);
+      result.current.setField('previewTimeDimension', 'orders.created_at');
+      result.current.setField('previewRange', '30d');
+    });
+    act(() => result.current.reset());
+    expect(result.current.draft.tags).toEqual([]);
+    expect(result.current.draft.previewTimeDimension).toBeNull();
+    expect(result.current.draft.previewRange).toBe('7d');
+  });
+});
+
+describe('validate() — tags', () => {
+  it('accepts an empty tags array', () => {
+    expect(validate({ ...VALID_DRAFT, tags: [] }).isValid).toBe(true);
+  });
+
+  it('accepts well-formed unique tags', () => {
+    const result = validate({ ...VALID_DRAFT, tags: ['revenue', 'daily', 'core'] });
+    expect(result.isValid).toBe(true);
+  });
+
+  it('rejects whitespace-only tag entries', () => {
+    const result = validate({ ...VALID_DRAFT, tags: ['revenue', '   '] });
+    expect(result.isValid).toBe(false);
+    expect(result.errors.tags).toMatch(/whitespace/i);
+  });
+
+  it('rejects case-sensitive duplicate tags', () => {
+    const result = validate({ ...VALID_DRAFT, tags: ['revenue', 'revenue'] });
+    expect(result.isValid).toBe(false);
+    expect(result.errors.tags).toMatch(/duplicate/i);
+  });
+
+  it('treats Revenue and revenue as DISTINCT (case-sensitive)', () => {
+    // Documented decision: canonicalisation is out of scope.
+    const result = validate({ ...VALID_DRAFT, tags: ['Revenue', 'revenue'] });
+    expect(result.isValid).toBe(true);
   });
 });

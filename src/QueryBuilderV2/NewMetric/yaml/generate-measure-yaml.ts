@@ -9,6 +9,13 @@ export type GenerateContext = {
   sourceCube: string;
   reachableMembers: ReachableMember[];
   peerMeasureNames: string[];
+  /**
+   * Wall-clock timestamp stamped into the emitted `meta.created_at` field.
+   * Injected by the caller so tests can pin it deterministically.
+   */
+  createdAt?: string;
+  /** Author hardcoded for the POC; kept overridable for future multi-user work. */
+  author?: string;
 };
 
 // Cube YAML type string for each operation
@@ -97,6 +104,8 @@ export function generate(
   ctx: GenerateContext
 ): { yaml: string; fragment: string } {
   const { sourceCube, reachableMembers, peerMeasureNames } = ctx;
+  const createdAt = ctx.createdAt ?? new Date().toISOString();
+  const author = ctx.author ?? 'khoitn';
 
   // Determine name casing
   const convention = inferConvention(peerMeasureNames);
@@ -142,6 +151,18 @@ export function generate(
   if (draft.description) entries.push(['description', draft.description]);
   if (draft.format && draft.format !== 'number') entries.push(['format', draft.format]);
   if (filtersValue) entries.push(['filters', filtersValue]);
+
+  // Provenance + tags block. Always emitted for wizard-authored measures
+  // (POC decision). `tags` key omitted when empty to keep the YAML diff small.
+  const metaBlock: Record<string, unknown> = {
+    source: 'wizard',
+    author,
+    created_at: createdAt,
+  };
+  if (draft.tags.length > 0) {
+    metaBlock.tags = draft.tags;
+  }
+  entries.push(['meta', metaBlock]);
 
   const mapping = Object.fromEntries(entries);
 

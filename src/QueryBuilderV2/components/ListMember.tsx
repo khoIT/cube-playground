@@ -13,6 +13,7 @@ import { ListMemberButton } from './ListMemberButton';
 import { FilterByMemberButton } from './FilterByMemberButton';
 import { FilteredLabel } from './FilteredLabel';
 import { InstanceTooltipProvider } from './InstanceTooltipProvider';
+import { useSelectedTags } from '../hooks/use-selected-tags';
 
 interface ListMemberProps {
   cube: Cube | { name: string };
@@ -54,6 +55,21 @@ export function ListMember(props: ListMemberProps) {
   const title = 'shortTitle' in member ? member.shortTitle : undefined;
   // @ts-ignore
   const description = member.description;
+  // @ts-ignore — meta is present on measures from /meta?extended=true
+  const memberMeta: { tags?: unknown } = (member as any).meta ?? {};
+  // @ts-ignore
+  const aggType: string | undefined = (member as any).aggType;
+  // @ts-ignore
+  const format: string | undefined = (member as any).format;
+
+  // Tag-filter gate (measures only). When ≥1 tag is selected via the sidebar's
+  // TagFilterChips, hide any measure whose meta.tags doesn't intersect.
+  const { selectedTags } = useSelectedTags();
+  if (category === 'measures' && selectedTags.size > 0) {
+    const tags = Array.isArray(memberMeta.tags) ? (memberMeta.tags as string[]) : [];
+    const hit = tags.some((t) => selectedTags.has(t));
+    if (!hit) return null;
+  }
   const { shownMemberName } = useShownMemberName({
     cubeName: cube.name,
     cubeTitle: 'title' in cube ? cube.title : undefined,
@@ -113,6 +129,9 @@ export function ListMember(props: ListMemberProps) {
       fullName={member.name}
       type={category.replace(/s$/, '') as 'measure' | 'dimension' | 'segment'}
       title={title}
+      description={category === 'measures' ? description : undefined}
+      aggType={category === 'measures' ? aggType : undefined}
+      format={category === 'measures' ? format : undefined}
       overflowRef={textRef}
     >
       <ListMemberButton

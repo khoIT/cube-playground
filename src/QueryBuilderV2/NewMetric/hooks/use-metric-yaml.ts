@@ -50,6 +50,7 @@ export function useMetricYaml(
     draft.title,
     draft.description,
     draft.format,
+    draft.tags,
     ctx.sourceCube,
     ctx.reachableMembers,
     ctx.peerMeasureNames,

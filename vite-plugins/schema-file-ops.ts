@@ -66,9 +66,44 @@ export async function unlinkTmp(targetPath: string): Promise<void> {
   await fs.unlink(`${targetPath}.tmp`).catch(() => undefined);
 }
 
-/** Writes a `.bak` copy of prior content alongside the target file. */
+/**
+ * Writes a `.bak` copy of prior content alongside the target file.
+ *
+ * First-write-wins semantics: if a `.bak` already exists, the existing copy is
+ * preserved. This protects the true pre-wizard original across the debounced
+ * live-preview re-writes (the Discard flow restores from `.bak`, so clobbering
+ * it on every preview iteration would lose the genuine starting state).
+ *
+ * Callers that need to start a fresh tracking session (e.g. after a successful
+ * Define keep) should delete `.bak` explicitly via `clearBak`.
+ */
 export async function writeBak(targetPath: string, priorContent: string): Promise<void> {
-  await fs.writeFile(`${targetPath}.bak`, priorContent, 'utf8');
+  const bakPath = `${targetPath}.bak`;
+  try {
+    await fs.access(bakPath);
+    return; // .bak already exists — preserve the original
+  } catch {
+    /* .bak missing — safe to write */
+  }
+  await fs.writeFile(bakPath, priorContent, 'utf8');
+}
+
+/**
+ * Restores `<targetPath>.bak` over `targetPath` atomically and removes the
+ * backup. Throws if `.bak` is missing (caller maps that to HTTP 404).
+ */
+export async function restoreBak(targetPath: string): Promise<void> {
+  const bakPath = `${targetPath}.bak`;
+  await fs.access(bakPath); // throws ENOENT if missing — caller catches
+  const bakContent = await fs.readFile(bakPath, 'utf8');
+  await fs.writeFile(`${targetPath}.tmp`, bakContent, 'utf8');
+  await fs.rename(`${targetPath}.tmp`, targetPath);
+  await fs.unlink(bakPath).catch(() => undefined);
+}
+
+/** Removes the `.bak` file silently (used after a successful Define keep). */
+export async function clearBak(targetPath: string): Promise<void> {
+  await fs.unlink(`${targetPath}.bak`).catch(() => undefined);
 }
 
 // ---------------------------------------------------------------------------

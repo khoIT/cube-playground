@@ -42,13 +42,25 @@ const BASE_DRAFT: NewMetricDraft = {
   title: 'Total Revenue',
   description: '',
   format: 'number',
+  tags: [],
+  previewTimeDimension: null,
+  previewRange: '7d',
 };
+
+// Frozen timestamp so meta.created_at is deterministic in tests.
+const FIXED_TS = '2026-05-16T19:40:00.000Z';
 
 function ctx(
   members: ReachableMember[] = ORDERS_MEMBERS,
   peers: string[] = ['order_count', 'total_revenue']
 ): GenerateContext {
-  return { sourceCube: 'orders', reachableMembers: members, peerMeasureNames: peers };
+  return {
+    sourceCube: 'orders',
+    reachableMembers: members,
+    peerMeasureNames: peers,
+    createdAt: FIXED_TS,
+    author: 'khoitn',
+  };
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -224,4 +236,78 @@ describe('generate() — all operation types', () => {
       expect(fragment).toContain(`type: ${expectedType}`);
     });
   }
+});
+
+describe('generate() — meta block (provenance + tags)', () => {
+  it('always emits source, author, created_at', () => {
+    const { fragment } = generate(BASE_DRAFT, ctx());
+    expect(fragment).toContain('meta:');
+    expect(fragment).toContain('source: wizard');
+    expect(fragment).toContain('author: khoitn');
+    expect(fragment).toContain(`created_at: '${FIXED_TS}'`);
+  });
+
+  it('omits tags key when tags array is empty', () => {
+    const { fragment } = generate(BASE_DRAFT, ctx());
+    expect(fragment).not.toContain('tags:');
+  });
+
+  it('emits tags as a YAML sequence when non-empty', () => {
+    const draft: NewMetricDraft = { ...BASE_DRAFT, tags: ['revenue', 'daily'] };
+    const { fragment } = generate(draft, ctx());
+    expect(fragment).toContain('tags:');
+    expect(fragment).toContain('revenue');
+    expect(fragment).toContain('daily');
+  });
+
+  it('emits all four tag entries as a block sequence', () => {
+    const draft: NewMetricDraft = {
+      ...BASE_DRAFT,
+      tags: ['revenue', 'daily', 'core', 'mart'],
+    };
+    const { fragment } = generate(draft, ctx());
+    expect(fragment).toContain('- revenue');
+    expect(fragment).toContain('- daily');
+    expect(fragment).toContain('- core');
+    expect(fragment).toContain('- mart');
+  });
+
+  it('meta block sits after the primary fields (name/type/sql/title)', () => {
+    const { fragment } = generate(BASE_DRAFT, ctx());
+    const titleIdx = fragment.indexOf('title:');
+    const metaIdx = fragment.indexOf('meta:');
+    expect(titleIdx).toBeLessThan(metaIdx);
+  });
+
+  it('round-trips through js-yaml without losing meta keys', async () => {
+    const yamlLib = await import('js-yaml');
+    const draft: NewMetricDraft = { ...BASE_DRAFT, tags: ['revenue'] };
+    const { fragment } = generate(draft, ctx());
+    const parsed = yamlLib.load(fragment) as Record<string, unknown>;
+    expect(parsed.meta).toEqual({
+      source: 'wizard',
+      author: 'khoitn',
+      created_at: FIXED_TS,
+      tags: ['revenue'],
+    });
+  });
+
+  it('honours overridden author', () => {
+    const customCtx: GenerateContext = { ...ctx(), author: 'someone_else' };
+    const { fragment } = generate(BASE_DRAFT, customCtx);
+    expect(fragment).toContain('author: someone_else');
+  });
+
+  it('defaults author to khoitn when omitted', () => {
+    const baseCtx = ctx();
+    const noAuthor: GenerateContext = {
+      sourceCube: baseCtx.sourceCube,
+      reachableMembers: baseCtx.reachableMembers,
+      peerMeasureNames: baseCtx.peerMeasureNames,
+      createdAt: baseCtx.createdAt,
+      // author intentionally omitted
+    };
+    const { fragment } = generate(BASE_DRAFT, noAuthor);
+    expect(fragment).toContain('author: khoitn');
+  });
 });

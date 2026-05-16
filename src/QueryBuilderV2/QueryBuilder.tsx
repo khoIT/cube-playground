@@ -73,6 +73,8 @@ export function QueryBuilder(
     ...otherProps
   } = useQueryBuilder({
     cubeApi,
+    apiUrl,
+    apiToken,
     defaultQuery,
     defaultChartType,
     defaultPivotConfig,
@@ -103,6 +105,24 @@ export function QueryBuilder(
     // No cleanup: the no-op default in AppContext is safe after unmount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadMeta]);
+
+  // Catalog deep-link: when arriving via "Open in Playground" from /catalog,
+  // the URL carries `?cube=<name>`. Once meta has loaded, select that cube and
+  // strip the param so refreshes don't re-trigger selection.
+  useEffect(() => {
+    if (!meta) return;
+    const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    const target = params.get('cube');
+    if (!target) return;
+    selectCube(target);
+    params.delete('cube');
+    const remaining = params.toString();
+    const cleanHash = remaining
+      ? `${window.location.hash.split('?')[0]}?${remaining}`
+      : window.location.hash.split('?')[0];
+    window.history.replaceState(null, '', cleanHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta]);
 
   if (!apiToken || !cubeApi || !apiUrl) {
     return null;

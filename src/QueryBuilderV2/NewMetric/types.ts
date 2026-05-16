@@ -24,6 +24,9 @@ export type NewMetricDraft = {
   title: string;
   description: string;
   format: Format;
+  tags: string[];                // free-form, case-sensitive; emitted as meta.tags
+  previewTimeDimension: string | null; // qualified, e.g. "orders.created_at"
+  previewRange: '7d' | '30d';
 };
 
 // Per-field validation errors; isValid is false when any field has an error

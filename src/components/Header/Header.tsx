@@ -1,6 +1,6 @@
 import { MenuOutlined } from '@ant-design/icons';
 import { Dropdown, Layout, Menu } from 'antd';
-import { Database, LayoutDashboard } from 'lucide-react';
+import { BookOpen, Database, LayoutDashboard } from 'lucide-react';
 import { useMediaQuery } from 'react-responsive';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -82,6 +82,13 @@ export default function Header({ selectedKeys }: Props) {
           >
             Models
           </NavPill>
+          <NavPill
+            to="/catalog"
+            icon={BookOpen}
+            active={isActive(selectedKeys, '/catalog')}
+          >
+            Catalog
+          </NavPill>
         </PillRow>
       )}
 
@@ -96,6 +103,9 @@ export default function Header({ selectedKeys }: Props) {
               </Menu.Item>
               <Menu.Item key="/schema">
                 <Link to="/schema">Models</Link>
+              </Menu.Item>
+              <Menu.Item key="/catalog">
+                <Link to="/catalog">Catalog</Link>
               </Menu.Item>
             </Menu>
           }

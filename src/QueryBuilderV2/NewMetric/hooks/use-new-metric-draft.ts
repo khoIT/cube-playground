@@ -14,6 +14,9 @@ const INITIAL_DRAFT: NewMetricDraft = {
   title: '',
   description: '',
   format: 'number',
+  tags: [],
+  previewTimeDimension: null,
+  previewRange: '7d',
 };
 
 // Discriminated union for reducer actions
@@ -107,6 +110,24 @@ export function validate(draft: NewMetricDraft, opts?: ValidateOptions): Validat
 
   if (!draft.title) {
     errors.title = 'Title is required.';
+  }
+
+  // Tag rules: reject whitespace-only entries and case-sensitive duplicates.
+  // Case-sensitive distinction is intentional (Revenue ≠ revenue) — keeps the
+  // YAGNI surface small; canonicalisation is out of scope for this plan.
+  if (draft.tags.length > 0) {
+    const trimmedSeen = new Set<string>();
+    for (const tag of draft.tags) {
+      if (tag.trim().length === 0) {
+        errors.tags = 'Tags cannot be whitespace-only.';
+        break;
+      }
+      if (trimmedSeen.has(tag)) {
+        errors.tags = 'Duplicate tag.';
+        break;
+      }
+      trimmedSeen.add(tag);
+    }
   }
 
   return { isValid: Object.keys(errors).length === 0, errors };
