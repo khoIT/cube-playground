@@ -1,18 +1,20 @@
-import { Button, DialogTrigger } from '@cube-dev/ui-kit';
+import { Button } from '@cube-dev/ui-kit';
 import { Sparkles } from 'lucide-react';
-import { useNewMetricDraft } from './hooks/use-new-metric-draft';
-import { NewMetricDialog } from './NewMetricDialog';
+import { Link } from 'react-router-dom';
 
 /**
- * Header CTA that opens the fullscreen New Metric wizard.
- * Owns the open/close toggle and the draft state lifecycle.
- * Rendered by Header.tsx on desktop only.
+ * Header CTA — opens the full-page New Metric wizard (v2).
+ *
+ * The legacy modal entry point lives behind the Settings dropdown ("New
+ * metric (classic modal)"), which dispatches a window event picked up by
+ * `LegacyNewMetricDialogMount` inside the QueryBuilder tree (where it has
+ * access to cubes / reachable members).
+ *
+ * RR5 only — no useNavigate.
  */
 export function NewMetricButton() {
-  const draftState = useNewMetricDraft();
-
   return (
-    <DialogTrigger type="fullscreen" isDismissable>
+    <Link to="/metrics/new?v=2" style={{ textDecoration: 'none' }}>
       <Button
         qa="NewMetricCTA"
         type="secondary"
@@ -21,10 +23,6 @@ export function NewMetricButton() {
       >
         New metric
       </Button>
-      <NewMetricDialog
-        onClose={() => draftState.reset()}
-        draftState={draftState}
-      />
-    </DialogTrigger>
+    </Link>
   );
 }

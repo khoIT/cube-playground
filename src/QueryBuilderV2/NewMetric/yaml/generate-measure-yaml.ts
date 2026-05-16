@@ -1,8 +1,9 @@
 import yaml from 'js-yaml';
 import { BinaryFilter, UnaryFilter } from '@cubejs-client/core';
-import { NewMetricDraft, Operation } from '../types';
+import { NewMetricDraft, NewMetricDraftV2, Operation } from '../types';
 import { ReachableMember } from '../hooks/use-reachable-members';
 import { inferConvention, adaptName } from './infer-naming-convention';
+import { flattenToSql, isEmpty as filterTreeIsEmpty } from '../filter-tree';
 
 // Context required to resolve cross-cube references and peer naming
 export type GenerateContext = {
@@ -18,8 +19,10 @@ export type GenerateContext = {
   author?: string;
 };
 
-// Cube YAML type string for each operation
-const OPERATION_TYPE: Record<Operation, string> = {
+// Cube YAML type string for each operation.
+// Partial map so that adding 'median' | 'percentile' in P3 does NOT TS-fail
+// the v1 emitter while both code paths coexist (red-team #20).
+const OPERATION_TYPE: Partial<Record<Operation, string>> = {
   sum: 'sum',
   count: 'count',
   countDistinct: 'count_distinct',
@@ -27,6 +30,10 @@ const OPERATION_TYPE: Record<Operation, string> = {
   min: 'min',
   max: 'max',
   ratio: 'number',
+  // Median + Percentile compile to plain `number` measures with a hand-written
+  // sql template (PERCENTILE_CONT). Mapping kept simple — handled below.
+  median: 'number',
+  percentile: 'number',
 };
 
 /**
@@ -182,4 +189,89 @@ export function generate(
   const fullYaml = `measures:\n${indented}`;
 
   return { yaml: fullYaml, fragment };
+}
+
+// ---------------------------------------------------------------------------
+// v2 emitter — filter-tree + meta.grain + meta.visibility
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate YAML for a v2 (full-page wizard) draft.
+ *
+ * Differences from `generate`:
+ *   - Reads `draft.filterTree` (FilterGroup) instead of the single BinaryFilter
+ *     and emits it as a single `sql:` entry under `filters: []`.
+ *   - Emits `meta.grain` and `meta.visibility`.
+ *   - No `operation === 'custom'` branch (intentionally dropped — red-team #24).
+ *   - Median / Percentile compile to `type: number` with a pre-written sql expr
+ *     (PERCENTILE_CONT(0.5) for median, PERCENTILE_CONT(<p>) for percentile).
+ */
+export function generateV2(
+  draft: NewMetricDraftV2,
+  ctx: GenerateContext
+): { yaml: string; fragment: string } {
+  const { sourceCube, reachableMembers, peerMeasureNames } = ctx;
+  const createdAt = ctx.createdAt ?? new Date().toISOString();
+  const author = ctx.author ?? 'khoitn';
+
+  const convention = inferConvention(peerMeasureNames);
+  const measureName = adaptName(draft.name, convention);
+  const type = OPERATION_TYPE[draft.operation] ?? 'number';
+
+  let sqlExpr: string;
+  if (draft.operation === 'ratio') {
+    const memberA = findMember(reachableMembers, draft.ofMember ?? '');
+    const memberB = findMember(reachableMembers, draft.ofMemberB ?? '');
+    const refA = memberA ? `{${sourceCube}}.${memberA.shortName}` : `{${sourceCube}}.${draft.ofMember ?? ''}`;
+    const refB = memberB ? `{${sourceCube}}.${memberB.shortName}` : `{${sourceCube}}.${draft.ofMemberB ?? ''}`;
+    sqlExpr = `${refA} / NULLIF(${refB}, 0)`;
+  } else if (draft.operation === 'median') {
+    const member = findMember(reachableMembers, draft.ofMember ?? '');
+    const ref = buildSqlRef(member, sourceCube, draft.ofMember ?? '');
+    sqlExpr = `PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ${ref})`;
+  } else if (draft.operation === 'percentile') {
+    const member = findMember(reachableMembers, draft.ofMember ?? '');
+    const ref = buildSqlRef(member, sourceCube, draft.ofMember ?? '');
+    // Default percentile is 0.95; expose configurable percentile in a later phase.
+    sqlExpr = `PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ${ref})`;
+  } else {
+    const member = findMember(reachableMembers, draft.ofMember ?? '');
+    sqlExpr = buildSqlRef(member, sourceCube, draft.ofMember ?? '');
+  }
+
+  // Filter tree → single sql fragment.
+  let filtersValue: Array<{ sql: string }> | undefined;
+  if (draft.filterTree && !filterTreeIsEmpty(draft.filterTree)) {
+    const sql = flattenToSql(draft.filterTree);
+    if (sql) filtersValue = [{ sql }];
+  }
+
+  const entries: Array<[string, unknown]> = [
+    ['name', measureName],
+    ['type', type],
+    ['sql', sqlExpr],
+  ];
+  if (draft.title) entries.push(['title', draft.title]);
+  if (draft.description) entries.push(['description', draft.description]);
+  if (draft.format && draft.format !== 'number') entries.push(['format', draft.format]);
+  if (filtersValue) entries.push(['filters', filtersValue]);
+
+  const metaBlock: Record<string, unknown> = {
+    source: 'wizard',
+    author,
+    created_at: createdAt,
+    grain: draft.grain,
+    visibility: draft.visibility,
+  };
+  if (draft.tags.length > 0) metaBlock.tags = draft.tags;
+  entries.push(['meta', metaBlock]);
+
+  const mapping = Object.fromEntries(entries);
+  const dumpOpts: yaml.DumpOptions = { indent: 2, lineWidth: -1, noRefs: true };
+  const fragment = yaml.dump(mapping, dumpOpts).trimEnd();
+  const fragmentLines = fragment.split('\n');
+  const indented = fragmentLines
+    .map((line, i) => (i === 0 ? `  - ${line}` : `    ${line}`))
+    .join('\n');
+  return { yaml: `measures:\n${indented}`, fragment };
 }

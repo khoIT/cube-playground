@@ -11,6 +11,8 @@ import {
   IndexPage,
   CatalogPage,
 } from './pages';
+import { NewMetricPage } from './QueryBuilderV2/NewMetric/full-page/NewMetricPage';
+import { NewMetricSuccess } from './QueryBuilderV2/NewMetric/full-page/steps/success/success-body';
 import { SecurityContextProvider } from './components/SecurityContext/SecurityContextProvider';
 import { AppContextProvider } from './components/AppContext';
 
@@ -89,6 +91,8 @@ ReactDOM.render(
         <KeepAliveRoute key="catalog" path="/catalog">
           <CatalogPage />
         </KeepAliveRoute>
+        <Route key="metrics-new-success" exact path="/metrics/new/success" component={NewMetricSuccess} />
+        <Route key="metrics-new" path="/metrics/new" component={NewMetricPage} />
       </App>
     </AppContextProvider>
   </Router>,

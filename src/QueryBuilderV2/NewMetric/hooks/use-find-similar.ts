@@ -8,7 +8,10 @@ import { Operation } from '../types';
  * compiler, not the YAML — so this is verified empirically against the dev
  * meta payload rather than spec-driven.
  */
-const OP_TO_AGG_TYPE: Record<Operation, string> = {
+// Partial map: v1 wizard never offered `median` / `percentile`. Those keys are
+// legal in the extended `Operation` type but absent from this lookup — callers
+// fall back to `undefined` (treated as "no match") rather than blowing up TS.
+const OP_TO_AGG_TYPE: Partial<Record<Operation, string>> = {
   sum: 'sum',
   count: 'count',
   countDistinct: 'countDistinctApprox',

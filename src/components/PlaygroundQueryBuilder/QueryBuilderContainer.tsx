@@ -9,6 +9,8 @@ import {
   MenuTrigger,
   tasty,
 } from '@cube-dev/ui-kit';
+import { Sparkles } from 'lucide-react';
+import { NewMetricButton, LEGACY_NEW_METRIC_EVENT } from '../../QueryBuilderV2/NewMetric';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card } from 'antd';
 import { useLayoutEffect } from 'react';
@@ -180,6 +182,12 @@ function QueryTabsRenderer({
       icon: <LockIcon />,
       testId: 'security-context-menuitem',
     },
+    {
+      key: 'legacy-new-metric',
+      label: 'New metric (classic modal)',
+      icon: <Sparkles size={14} />,
+      testId: 'legacy-new-metric-menuitem',
+    },
   ];
 
   if (rollupVisible) {
@@ -196,6 +204,8 @@ function QueryTabsRenderer({
       onSecurityContextModalOpen();
     } else if (key === 'add-rollup') {
       toggleModal();
+    } else if (key === 'legacy-new-metric') {
+      window.dispatchEvent(new Event(LEGACY_NEW_METRIC_EVENT));
     }
   }
 
@@ -203,30 +213,33 @@ function QueryTabsRenderer({
     <QueryTabs
       query={query}
       sidebar={
-        <MenuTrigger>
-          <SettingsButton
-            qa="SettingsDropdown"
-            data-testid="settings-dropdown-btn"
-            isLoading={isLoading}
-            icon={<MoreIcon />}
-            size="small"
-            type={securityContextToken ? 'primary' : 'secondary'}
-          >
-            Settings
-            {securityContextToken ? <ActiveDot aria-hidden="true" /> : null}
-          </SettingsButton>
-          <Menu onAction={(key) => handleSettingsAction(key as string)}>
-            {settingsItems.map((item) => (
-              <Menu.Item
-                key={item.key}
-                data-testid={item.testId}
-                icon={item.icon}
-              >
-                {item.label}
-              </Menu.Item>
-            ))}
-          </Menu>
-        </MenuTrigger>
+        <Space gap="1x">
+          <NewMetricButton />
+          <MenuTrigger>
+            <SettingsButton
+              qa="SettingsDropdown"
+              data-testid="settings-dropdown-btn"
+              isLoading={isLoading}
+              icon={<MoreIcon />}
+              size="small"
+              type={securityContextToken ? 'primary' : 'secondary'}
+            >
+              Settings
+              {securityContextToken ? <ActiveDot aria-hidden="true" /> : null}
+            </SettingsButton>
+            <Menu onAction={(key) => handleSettingsAction(key as string)}>
+              {settingsItems.map((item) => (
+                <Menu.Item
+                  key={item.key}
+                  data-testid={item.testId}
+                  icon={item.icon}
+                >
+                  {item.label}
+                </Menu.Item>
+              ))}
+            </Menu>
+          </MenuTrigger>
+        </Space>
       }
       onTabChange={(tab) => {
         props.onTabChange?.(tab);

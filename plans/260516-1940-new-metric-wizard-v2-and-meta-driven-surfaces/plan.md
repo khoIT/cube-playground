@@ -1,16 +1,20 @@
 ---
-title: "New Metric Wizard v2 + Meta-Driven Surfaces"
-description: "Redesign the New Metric wizard as a 3-step focused stepper modal with first-class tags + commit-then-preview live preview, and absorb the cancelled meta-driven product surfaces plan: extended /meta foundation, wizard provenance + find-similar, sidebar tooltip + cluster badge + tag chips, /catalog browse view, pre-aggregation badge."
-status: pending
+title: "New Metric Wizard v2 + Meta-Driven Surfaces — SUPERSEDED by 260517-1500"
+description: "SUPERSEDED 2026-05-17 by `260517-1500-new-metric-fullpage-6step-rebuild` (full-page 6-step rebuild replaces the 3-step modal). P1 (extended /meta) + P2 (YAML emitter + draft state) salvaged into that plan's Phase 1. Remaining phases (P3–P8) dropped or deferred to separate plans."
+status: cancelled
 priority: P2
 branch: "main"
-tags: [feature, wizard, tags, meta, catalog, sidebar, live-preview, poc]
-blockedBy: []
+tags: [feature, wizard, tags, meta, catalog, sidebar, live-preview, poc, superseded]
+blockedBy: [260517-1500-new-metric-fullpage-6step-rebuild]
 blocks: []
 created: "2026-05-16T12:12:54.438Z"
+cancelled: "2026-05-17T15:00:00.000Z"
+cancelledReason: "Direction changed to full-page 6-step flow per brainstorm-260517-new-metric-fullpage-6step-rebuild.md"
 createdBy: "ck:plan"
 source: skill
 ---
+
+> **⚠️ Cancelled 2026-05-17** — superseded by [`../260517-1500-new-metric-fullpage-6step-rebuild/plan.md`](../260517-1500-new-metric-fullpage-6step-rebuild/plan.md). P1 (extended meta) + P2 (YAML emitter + draft state) salvaged into the new plan's Phase 1. Original plan kept for history.
 
 # New Metric Wizard v2 + Meta-Driven Surfaces
 

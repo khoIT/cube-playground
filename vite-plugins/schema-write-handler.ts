@@ -45,6 +45,20 @@ export interface HandlerDeps {
 // Handler
 // ---------------------------------------------------------------------------
 
+/**
+ * Origin allowlist gate. Override via env `SCHEMA_WRITE_ALLOWED_ORIGINS=...`
+ * (comma-separated). Requests missing `Origin` header (typical for curl/tools)
+ * are NOT blocked here — that surface is non-browser and not the threat model.
+ */
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true; // not a browser CORS context
+  const raw =
+    process.env.SCHEMA_WRITE_ALLOWED_ORIGINS ??
+    'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173';
+  const allowed = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return allowed.includes(origin);
+}
+
 export async function handleWriteRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -53,6 +67,12 @@ export async function handleWriteRequest(
   // Belt-and-braces production guard (apply:'serve' is the primary gate).
   if (process.env.NODE_ENV !== 'development') {
     jsonError(res, 403, 'endpoint-disabled-in-production');
+    return;
+  }
+  // Origin allowlist — blocks cross-origin browser traffic (red-team #13).
+  const origin = req.headers.origin as string | undefined;
+  if (!isOriginAllowed(origin)) {
+    jsonError(res, 403, 'origin-not-allowed');
     return;
   }
   if (!deps.modelDir) {
