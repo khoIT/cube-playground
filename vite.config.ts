@@ -1,7 +1,16 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { schemaWriteMiddleware } from './vite-plugins/schema-write-middleware.js';
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // Vite plugins run in Node and don't get `import.meta.env`. Load .env files
+  // explicitly so server-side code can read VITE_CUBE_MODEL_DIR etc.
+  const env = loadEnv(mode, process.cwd(), '');
+  for (const key of ['VITE_CUBE_MODEL_DIR', 'VITE_CUBE_API_URL', 'VITE_CUBE_TOKEN']) {
+    if (env[key] && !process.env[key]) process.env[key] = env[key];
+  }
+
+  return {
   base: './',
   build: {
     outDir: 'dist',
@@ -15,7 +24,7 @@ export default defineConfig(({ mode }) => ({
       '^/cubejs-api/.*': 'http://localhost:4000',
     },
   },
-  plugins: [react()],
+  plugins: [react(), ...(mode === 'development' ? [schemaWriteMiddleware()] : [])],
   css: {
     preprocessorOptions: {
       less: {
@@ -28,4 +37,5 @@ export default defineConfig(({ mode }) => ({
     'process.env.SC_DISABLE_SPEEDY': JSON.stringify('false'),
     ...(mode === 'development' ? { global: {} } : {}),
   },
-}));
+  };
+});
