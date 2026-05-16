@@ -32,3 +32,16 @@ export function formatCurrency(amount: number, digits?: number, minDigits?: numb
     ? formatterCurrency.format(amount)
     : getCurrencyFixedFormatter(digits ?? 2, minDigits ?? digits ?? 2).format(amount);
 }
+
+export function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  if (ms < 60_000) {
+    return `${(ms / 1000).toFixed(2)}s`;
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s`;
+}

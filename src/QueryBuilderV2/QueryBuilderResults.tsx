@@ -54,7 +54,7 @@ import {
 } from 'react-stately';
 
 import { PREDEFINED_GRANULARITIES } from './values';
-import { formatCurrency, formatNumber } from './utils/formatters';
+import { formatCurrency, formatDuration, formatNumber } from './utils/formatters';
 import { useDeepMemo, useIntervalEffect } from './hooks';
 import { useColumnWidths } from './hooks/use-column-widths';
 import { OutdatedLabel } from './components/OutdatedLabel';
@@ -695,6 +695,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     totalRows,
     memberViewType,
     meta,
+    queryDurationMs,
   } = useQueryBuilderContext();
 
   const isCompact = usedCubes.length === 1;
@@ -1324,7 +1325,12 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                     }`
                   : 'No results'}
               </Text>
-              <Text preset="t3">received {timeDistance}</Text>
+              {queryDurationMs != null && (
+                <Text preset="t3" qa="QueryDuration">
+                  · took {formatDuration(queryDurationMs)}
+                </Text>
+              )}
+              <Text preset="t3">· received {timeDistance}</Text>
             </Space>
           )}
         </Space>

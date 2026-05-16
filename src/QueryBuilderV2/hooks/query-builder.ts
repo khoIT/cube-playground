@@ -180,6 +180,7 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
   const [resultSet, setResultSet] = useState<ResultSet | null>(null);
   const [sqlQuery, setSqlQuery] = useState<SqlQuery | null>(null);
   const [progress, setProgress] = useState<ProgressResult | null>(null);
+  const [queryDurationMs, setQueryDurationMs] = useState<number | null>(null);
 
   const metaLoadingRef = useRef(0);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
@@ -274,6 +275,9 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
     setIsLoading(true);
     setProgress(null);
     setError(null);
+    setQueryDurationMs(null);
+
+    const startedAt = performance.now();
 
     return Promise.all([
       cubeApi.load(query, {
@@ -295,6 +299,7 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
         setResultSet(resultSet);
         setSqlQuery(sqlQuery);
         setProgress(null);
+        setQueryDurationMs(performance.now() - startedAt);
 
         tracking?.event('load_request_success:frontend', {
           isNewPlayground: true,
@@ -308,6 +313,7 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
         setIsLoading(false);
         setProgress(null);
         setError(error);
+        setQueryDurationMs(performance.now() - startedAt);
       });
   }
 
@@ -327,6 +333,7 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
     selectCubeName(null);
     setError(null);
     setVerificationError(null);
+    setQueryDurationMs(null);
   }
 
   function loadMeta() {
@@ -1418,6 +1425,7 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
     resultSet,
     dryRunResponse,
     sqlQuery,
+    queryDurationMs,
     // utils
     getCubeByName,
     getMemberFormat,
