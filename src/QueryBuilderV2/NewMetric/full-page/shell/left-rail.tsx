@@ -1,31 +1,52 @@
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { Check } from 'lucide-react';
 import { StepIndex, STEP_LABELS } from '../hooks/use-active-step';
-import { ValidationCard, ValidationItem } from './validation-card';
 
 const Wrap = styled.div`
   display: flex;
   flex-direction: column;
+  gap: 18px;
   height: 100%;
 `;
 
-const Hero = styled.div`
-  padding: 12px;
-  background: linear-gradient(135deg, var(--brand-soft), var(--bg-card));
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  margin-bottom: 16px;
+const HeroBlock = styled.div`
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-card);
+`;
+
+const HeroLabel = styled.div`
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
 `;
 
 const HeroTitle = styled.div`
-  font-weight: 600;
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 18.5px;
+  font-weight: 700;
   color: var(--text-primary);
+  word-break: break-all;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 `;
+
 const HeroSub = styled.div`
+  font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  word-break: break-all;
+`;
+
+const StepsLabel = styled.div`
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 `;
 
 const Steps = styled.ol`
@@ -34,47 +55,104 @@ const Steps = styled.ol`
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 `;
 
 const Row = styled.button<{ $active: boolean; $reachable: boolean }>`
+  appearance: none;
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
+  gap: 12px;
+  align-items: center;
   width: 100%;
-  background: ${(p) => (p.$active ? 'var(--brand-soft)' : 'transparent')};
-  border: 1px solid ${(p) => (p.$active ? 'var(--brand)' : 'transparent')};
-  padding: 8px 10px;
-  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1.5px solid transparent;
+  padding: 10px 12px;
+  border-radius: 12px;
   cursor: ${(p) => (p.$reachable ? 'pointer' : 'not-allowed')};
-  opacity: ${(p) => (p.$reachable ? 1 : 0.5)};
+  opacity: ${(p) => (p.$reachable ? 1 : 0.55)};
   text-align: left;
-  &:hover { background: ${(p) => (p.$active ? 'var(--brand-soft)' : 'var(--bg-muted)')}; }
+  transition: border-color 120ms, background-color 120ms;
+
+  &:hover {
+    background: ${(p) => (p.$reachable ? 'var(--bg-muted)' : 'transparent')};
+  }
+
+  ${(p) =>
+    p.$active &&
+    css`
+      border-color: var(--orange-200);
+      background: var(--bg-card);
+      box-shadow: 0 0 0 1px var(--orange-200) inset;
+    `}
 `;
 
-const Badge = styled.span<{ $done: boolean }>`
-  width: 22px;
-  height: 22px;
+const Badge = styled.span<{ $tone: 'done' | 'active' | 'pending' }>`
+  flex: none;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: ${(p) => (p.$done ? 'var(--success)' : 'var(--bg-muted)')};
-  color: ${(p) => (p.$done ? 'white' : 'var(--text-secondary)')};
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 600;
-  flex-shrink: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+
+  ${(p) => {
+    if (p.$tone === 'done') {
+      return css`
+        background: var(--brand);
+        color: #fff;
+      `;
+    }
+    if (p.$tone === 'active') {
+      return css`
+        background: var(--brand);
+        color: #fff;
+      `;
+    }
+    return css`
+      background: var(--bg-muted);
+      color: var(--text-muted);
+      border: 1px solid var(--border-card);
+    `;
+  }}
+`;
+
+const StepBody = styled.div`
+  flex: 1;
+  min-width: 0;
 `;
 
 const Name = styled.div`
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text-primary);
 `;
+
 const Sub = styled.div`
+  font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text-muted);
-  margin-top: 1px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const DoneChip = styled.span`
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  font-size: 11.5px;
+  font-weight: 600;
 `;
 
 export type LeftRailProps = {
@@ -83,22 +161,39 @@ export type LeftRailProps = {
   canGoTo: (s: StepIndex) => boolean;
   summaries: Partial<Record<StepIndex, string>>;
   doneFlags: Record<StepIndex, boolean>;
-  validation: ValidationItem[];
+  metricName: string;
+  isAutoName: boolean;
 };
 
-export function LeftRail({ step, setStep, canGoTo, summaries, doneFlags, validation }: LeftRailProps) {
+export function LeftRail({
+  step,
+  setStep,
+  canGoTo,
+  summaries,
+  doneFlags,
+  metricName,
+  isAutoName,
+}: LeftRailProps) {
   return (
     <Wrap>
-      <Hero>
-        <HeroTitle>New metric</HeroTitle>
-        <HeroSub>6-step flow · auto-saved to this tab</HeroSub>
-      </Hero>
+      <HeroBlock>
+        <HeroLabel>Defining</HeroLabel>
+        <HeroTitle>{metricName}</HeroTitle>
+        <HeroSub>
+          {metricName}
+          {isAutoName ? ' (auto)' : ''}
+        </HeroSub>
+      </HeroBlock>
+
+      <StepsLabel>Steps</StepsLabel>
       <Steps>
         {([1, 2, 3, 4, 5, 6] as StepIndex[]).map((i) => {
           const lbl = STEP_LABELS[i];
           const active = i === step;
           const reachable = canGoTo(i);
           const done = doneFlags[i];
+          const tone: 'done' | 'active' | 'pending' = done ? 'done' : active ? 'active' : 'pending';
+          const subtext = summaries[i] ?? lbl.sub;
           return (
             <li key={i}>
               <Row
@@ -107,17 +202,21 @@ export function LeftRail({ step, setStep, canGoTo, summaries, doneFlags, validat
                 disabled={!reachable}
                 onClick={() => reachable && setStep(i)}
               >
-                <Badge $done={done}>{done ? <Check size={12} /> : i}</Badge>
-                <div>
+                <Badge $tone={tone}>{done ? <Check size={14} strokeWidth={3} /> : i}</Badge>
+                <StepBody>
                   <Name>{lbl.name}</Name>
-                  <Sub>{summaries[i] ?? lbl.sub}</Sub>
-                </div>
+                  <Sub>{subtext}</Sub>
+                </StepBody>
+                {done && (
+                  <DoneChip aria-label="Step complete">
+                    <Check size={13} strokeWidth={3} />
+                  </DoneChip>
+                )}
               </Row>
             </li>
           );
         })}
       </Steps>
-      <ValidationCard items={validation} />
     </Wrap>
   );
 }

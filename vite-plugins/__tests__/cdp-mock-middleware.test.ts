@@ -196,7 +196,7 @@ describe('cdp-mock-middleware router', () => {
       expect(seedRecord.source).toBe(projection.payload.source);
       expect(seedRecord.metric_codename).toBe(projection.payload.metric_codename);
       expect([...seedRecord.dimensions].sort()).toEqual([...projection.payload.dimensions].sort());
-      expect(projection.payload.dimensions).toEqual(['country', 'signup_source']);
+      expect(projection.payload.dimensions).toEqual(['user_id']);
     }
 
     const mismatchProjection = projectMeasure(cube, {

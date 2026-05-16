@@ -1,14 +1,62 @@
 import { useMemo, useState } from 'react';
-import styled from 'styled-components';
-import { Search } from 'lucide-react';
+import styled, { css } from 'styled-components';
+import { Search, Database, Layers, Grid2x2 } from 'lucide-react';
+import type { CubeApi } from '@cubejs-client/core';
 import type { WizardCube } from '../../../hooks/use-new-metric-meta';
 import { SourceCard } from './source-card';
 
-const FilterBar = styled.div`
+type TypeFilter = 'all' | 'cube' | 'view';
+
+const Toolbar = styled.div`
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   margin-bottom: 16px;
+`;
+
+const Segmented = styled.div`
+  display: inline-flex;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+`;
+
+const SegButton = styled.button<{ $active: boolean }>`
+  appearance: none;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+
+  &:hover { color: var(--text-primary); }
+
+  ${(p) =>
+    p.$active &&
+    css`
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-xs);
+    `}
+`;
+
+const SegCount = styled.span<{ $active: boolean }>`
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 0 5px;
+  border-radius: 5px;
+  background: ${(p) => (p.$active ? 'var(--bg-muted)' : 'transparent')};
+  color: var(--text-muted);
 `;
 
 const SearchWrap = styled.div`
@@ -52,25 +100,72 @@ export type SourceBodyProps = {
   cubes: WizardCube[];
   selectedName: string | null;
   onSelect: (cubeName: string) => void;
+  cubeApi: CubeApi | null;
 };
 
-export function SourceBody({ cubes, selectedName, onSelect }: SourceBodyProps) {
+export function SourceBody({ cubes, selectedName, onSelect, cubeApi }: SourceBodyProps) {
   const [q, setQ] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+
+  const counts = useMemo(() => {
+    let cube = 0;
+    let view = 0;
+    for (const c of cubes) (c.type === 'view' ? view++ : cube++);
+    return { all: cubes.length, cube, view };
+  }, [cubes]);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return cubes;
-    return cubes.filter(
-      (c) =>
+    return cubes.filter((c) => {
+      if (typeFilter === 'cube' && c.type === 'view') return false;
+      if (typeFilter === 'view' && c.type !== 'view') return false;
+      if (!needle) return true;
+      return (
         c.name.toLowerCase().includes(needle) ||
         (c.title ?? '').toLowerCase().includes(needle) ||
         (c.description ?? '').toLowerCase().includes(needle)
-    );
-  }, [cubes, q]);
+      );
+    });
+  }, [cubes, q, typeFilter]);
 
   return (
     <>
-      <FilterBar>
+      <Toolbar>
+        <Segmented role="tablist" aria-label="Filter by source type">
+          <SegButton
+            type="button"
+            role="tab"
+            aria-selected={typeFilter === 'all'}
+            $active={typeFilter === 'all'}
+            onClick={() => setTypeFilter('all')}
+          >
+            <Grid2x2 size={13} />
+            All
+            <SegCount $active={typeFilter === 'all'}>{counts.all}</SegCount>
+          </SegButton>
+          <SegButton
+            type="button"
+            role="tab"
+            aria-selected={typeFilter === 'cube'}
+            $active={typeFilter === 'cube'}
+            onClick={() => setTypeFilter('cube')}
+          >
+            <Database size={13} />
+            Cubes
+            <SegCount $active={typeFilter === 'cube'}>{counts.cube}</SegCount>
+          </SegButton>
+          <SegButton
+            type="button"
+            role="tab"
+            aria-selected={typeFilter === 'view'}
+            $active={typeFilter === 'view'}
+            onClick={() => setTypeFilter('view')}
+          >
+            <Layers size={13} />
+            Views
+            <SegCount $active={typeFilter === 'view'}>{counts.view}</SegCount>
+          </SegButton>
+        </Segmented>
         <SearchWrap>
           <SearchIcon size={14} />
           <SearchInput
@@ -79,9 +174,13 @@ export function SourceBody({ cubes, selectedName, onSelect }: SourceBodyProps) {
             onChange={(e) => setQ(e.target.value)}
           />
         </SearchWrap>
-      </FilterBar>
+      </Toolbar>
       {visible.length === 0 ? (
-        <Empty>No cubes match "{q}".</Empty>
+        <Empty>
+          {q
+            ? <>No {typeFilter === 'all' ? 'sources' : typeFilter === 'cube' ? 'cubes' : 'views'} match "{q}".</>
+            : <>No {typeFilter === 'cube' ? 'cubes' : 'views'} available.</>}
+        </Empty>
       ) : (
         <Grid>
           {visible.map((c) => (
@@ -90,6 +189,7 @@ export function SourceBody({ cubes, selectedName, onSelect }: SourceBodyProps) {
               cube={c}
               selected={selectedName === c.name}
               onSelect={() => onSelect(c.name)}
+              cubeApi={cubeApi}
             />
           ))}
         </Grid>

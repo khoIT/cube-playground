@@ -40,18 +40,24 @@ const Actions = styled.div`
 `;
 
 const Body = styled.div`
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 20px 24px;
 `;
 
 const FooterBar = styled.div`
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
   border-top: 1px solid var(--border-card);
   background: var(--bg-card);
+  /* Pinned to the bottom of MainCol; Body scrolls behind it. */
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
 `;
 
 const FootInfo = styled.div`

@@ -12,6 +12,7 @@ import { StepChrome } from './shell/step-chrome';
 import { SourceBody } from './steps/step-1-source/source-body';
 import { SourcePreviewRail } from './steps/step-1-source/source-preview-rail';
 import { OperationBody } from './steps/step-2-operation/operation-body';
+import { computeAutoMetricName } from './hooks/compute-auto-metric-name';
 import { OperationDetailRail } from './steps/step-2-operation/operation-detail-rail';
 import { ColumnBody } from './steps/step-3-column/column-body';
 import { ColumnHealthRail } from './steps/step-3-column/column-health-rail';
@@ -99,19 +100,43 @@ export function NewMetricPage() {
     ? meta.cubes.find((c) => c.name === draft.sourceCube) ?? null
     : null;
 
+  // doneFlags drive the LeftRail badges/chips. We mark a step done as soon as
+  // its choice has been recorded in the draft (mirrors the Stitch walkthrough,
+  // where prior steps stay ticked when the user navigates back). Step 4
+  // (Filters) is optional, so it stays untouched until the user moves past it.
   const doneFlags: Record<StepIndex, boolean> = {
     1: !!draft.sourceCube,
     2: !!draft.operation,
     3: draft.operation === 'count' || !!draft.ofMember,
-    4: true,
+    4: step > 4,
     5: !!draft.name && !!draft.title,
     6: false,
   };
+
+  const autoName = computeAutoMetricName(draft);
+  const isAutoName = !draft.name || draft.name === autoName;
+  const metricName = draft.name || autoName;
+
+  const opLabel = draft.operation
+    ? draft.operation === 'countDistinct'
+      ? 'Count distinct'
+      : draft.operation.charAt(0).toUpperCase() + draft.operation.slice(1)
+    : 'Aggregation type';
+  const columnLeaf = draft.ofMember
+    ? draft.ofMember.includes('.')
+      ? draft.ofMember.split('.').slice(-1)[0]
+      : draft.ofMember
+    : null;
+
   const summaries: Partial<Record<StepIndex, string>> = {
-    1: selectedCube ? selectedCube.title || selectedCube.name : 'Pick a cube or view',
-    2: draft.operation,
-    3: draft.ofMember ?? (draft.operation === 'count' ? 'skip · count is *' : 'Pick a column'),
-    5: draft.name || 'Name & format…',
+    // Subtext for Source is the cube/view identifier itself (e.g. `mf_users`),
+    // not the humanized title — matches the Stitch walkthrough.
+    1: draft.sourceCube ?? 'Pick a cube or view',
+    2: draft.operation ? opLabel : 'Aggregation type',
+    3: columnLeaf ?? (draft.operation === 'count' ? 'count is *' : 'Field to measure'),
+    4: 'Where clause',
+    5: draft.name || 'Name & format',
+    6: 'Verify shape',
   };
 
   function handleDiscard() {
@@ -143,15 +168,11 @@ export function NewMetricPage() {
           canGoTo={canGoTo}
           summaries={summaries}
           doneFlags={doneFlags}
-          validation={[
-            { label: 'Source selected', done: doneFlags[1] },
-            { label: 'Operation chosen', done: doneFlags[2] && step >= 2 },
-            { label: 'Identity set', done: doneFlags[5] },
-            { label: 'Test run passed', done: doneFlags[6] },
-          ]}
+          metricName={metricName}
+          isAutoName={isAutoName}
         />
       }
-      main={renderStep({ step, draft, meta, loading, error, setField, next, back, selectedCube, tagSuggestions })}
+      main={renderStep({ step, draft, meta, loading, error, setField, next, back, selectedCube, tagSuggestions, cubejsApi })}
       rightRail={<RightRail title={`Step ${step} preview`}>
         {step === 1 && <SourcePreviewRail cube={selectedCube} />}
         {step === 2 && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
@@ -177,8 +198,9 @@ function renderStep(args: {
     ? T extends { cubes: Array<infer C> } ? C | null : null
     : null;
   tagSuggestions: string[];
+  cubejsApi: ReturnType<typeof useNewMetricMeta>['cubejsApi'];
 }) {
-  const { step, draft, meta, loading, error, setField, next, back, selectedCube, tagSuggestions } = args;
+  const { step, draft, meta, loading, error, setField, next, back, selectedCube, tagSuggestions, cubejsApi } = args;
 
   if (step === 1) {
     return (
@@ -197,6 +219,7 @@ function renderStep(args: {
             cubes={meta.cubes}
             selectedName={draft.sourceCube}
             onSelect={(name) => setField('sourceCube', name)}
+            cubeApi={cubejsApi}
           />
         )}
       </StepChrome>

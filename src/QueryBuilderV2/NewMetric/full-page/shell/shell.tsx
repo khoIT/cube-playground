@@ -1,10 +1,16 @@
-import { ReactNode } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-const Layout = styled.div`
+const LEFT_W = 260;
+const RIGHT_DEFAULT = 340;
+const RIGHT_MIN = 240;
+const RIGHT_MAX_RATIO = 0.55; // never wider than 55% of the viewport
+const STORAGE_KEY = 'new-metric-page:right-rail-width';
+
+const Layout = styled.div<{ $rightW: number }>`
   display: grid;
   grid-template-rows: 56px 1fr;
-  grid-template-columns: 260px 1fr 420px;
+  grid-template-columns: ${LEFT_W}px 1fr 6px ${(p) => p.$rightW}px;
   height: 100vh;
   background: var(--bg-app);
   font-family: var(--font-sans);
@@ -32,6 +38,32 @@ const MainCol = styled.main`
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-app);
+  min-width: 0;
+`;
+
+const Divider = styled.div<{ $dragging: boolean }>`
+  cursor: col-resize;
+  background: ${(p) => (p.$dragging ? 'var(--brand-soft)' : 'transparent')};
+  border-left: 1px solid var(--border-card);
+  border-right: 1px solid transparent;
+  position: relative;
+  transition: background-color 120ms;
+
+  &:hover {
+    background: var(--brand-soft);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 32px;
+    border-radius: 2px;
+    background: var(--border-strong);
+  }
 `;
 
 const RightCol = styled.aside`
@@ -39,7 +71,21 @@ const RightCol = styled.aside`
   border-left: 1px solid var(--border-card);
   overflow-y: auto;
   padding: 16px;
+  min-width: 0;
 `;
+
+function clampRightWidth(w: number): number {
+  if (typeof window === 'undefined') return w;
+  const max = Math.max(RIGHT_MIN, Math.floor(window.innerWidth * RIGHT_MAX_RATIO));
+  return Math.min(Math.max(w, RIGHT_MIN), max);
+}
+
+function readPersistedWidth(): number {
+  if (typeof window === 'undefined') return RIGHT_DEFAULT;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  return clampRightWidth(Number.isFinite(n) ? n : RIGHT_DEFAULT);
+}
 
 export type ShellSlots = {
   topBar: ReactNode;
@@ -49,11 +95,69 @@ export type ShellSlots = {
 };
 
 export function Shell({ topBar, leftRail, main, rightRail }: ShellSlots) {
+  const [rightW, setRightW] = useState<number>(readPersistedWidth);
+  const [dragging, setDragging] = useState(false);
+  const draggingRef = useRef(false);
+
+  // Persist on commit (drag end) rather than on every move — keeps localStorage
+  // writes cheap and avoids spamming the page during a drag.
+  useEffect(() => {
+    if (!dragging) {
+      try { window.localStorage.setItem(STORAGE_KEY, String(rightW)); } catch { /* ignore */ }
+    }
+  }, [rightW, dragging]);
+
+  // Re-clamp on viewport resize so the right rail can't stay wider than the
+  // current max ratio after the user shrinks their window.
+  useEffect(() => {
+    const onResize = () => setRightW((w) => clampRightWidth(w));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    setDragging(true);
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      // Right edge of the page minus the cursor X = new right-rail width.
+      const next = clampRightWidth(window.innerWidth - ev.clientX);
+      setRightW(next);
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      setDragging(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const onDoubleClick = useCallback(() => {
+    setRightW(clampRightWidth(RIGHT_DEFAULT));
+  }, []);
+
   return (
-    <Layout>
+    <Layout $rightW={rightW}>
       <TopRow>{topBar}</TopRow>
       <LeftCol>{leftRail}</LeftCol>
       <MainCol>{main}</MainCol>
+      <Divider
+        $dragging={dragging}
+        onMouseDown={onMouseDown}
+        onDoubleClick={onDoubleClick}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize preview panel (double-click to reset)"
+        title="Drag to resize · double-click to reset"
+      />
       <RightCol>{rightRail}</RightCol>
     </Layout>
   );

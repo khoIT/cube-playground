@@ -4,7 +4,7 @@ import type { NewMetricDraftV2 } from '../../types';
 export type StepIndex = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const STEP_LABELS: Record<StepIndex, { name: string; sub: string }> = {
-  1: { name: 'Source', sub: 'Pick a cube or view' },
+  1: { name: 'Source' },
   2: { name: 'Operation', sub: 'Aggregation type' },
   3: { name: 'Column', sub: 'Field to measure' },
   4: { name: 'Filters', sub: 'Narrow rows (optional)' },

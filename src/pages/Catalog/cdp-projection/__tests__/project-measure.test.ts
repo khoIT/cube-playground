@@ -159,14 +159,29 @@ describe('projectMeasure()', () => {
     expect(result.reason).toBe('not-single-source');
   });
 
-  it('dimensions sorted + filtered to public !== false && !primaryKey', () => {
+  it('dimensions = grain key (primary-key dims only, public composites kept, synthetic PKs excluded)', () => {
     const result = projectMeasure(
       cube(),
       measure({ name: 'mf_users.user_count', aggType: 'count' }),
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.payload.dimensions).toEqual(['country', 'signup_source']);
+    expect(result.payload.dimensions).toEqual(['user_id']);
+  });
+
+  it('non-public primary key (synthetic composite PK) is excluded from dimensions', () => {
+    const result = projectMeasure(
+      cube({
+        dimensions: [
+          { name: 'mf_users.composite_pk', type: 'string', primaryKey: true, public: false },
+          { name: 'mf_users.country', type: 'string' },
+        ],
+      }),
+      measure({ name: 'mf_users.user_count', aggType: 'count' }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.payload.dimensions).toEqual([]);
   });
 
   it('unsupported agg type → unsupported-agg-type', () => {
@@ -189,16 +204,16 @@ describe('projectMeasure()', () => {
     expect(result.reason).toBe('unsupported-agg-type');
   });
 
-  it('dimensions deduped', () => {
+  it('dimensions deduped when multiple grain-key entries share a name', () => {
     const c = cube({
       dimensions: [
-        { name: 'mf_users.country', type: 'string' },
-        { name: 'mf_users.country', type: 'string' },
+        { name: 'mf_users.user_id', type: 'string', primaryKey: true },
+        { name: 'mf_users.user_id', type: 'string', primaryKey: true },
       ],
     });
     const result = projectMeasure(c, measure({ name: 'mf_users.user_count', aggType: 'count' }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.payload.dimensions).toEqual(['country']);
+    expect(result.payload.dimensions).toEqual(['user_id']);
   });
 });

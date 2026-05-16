@@ -83,9 +83,15 @@ function buildFilter(filters: ProjectableMeasure['filters']): string {
   return filters.map((f) => `(${f.sql})`).join(' AND ');
 }
 
+/**
+ * CDP `dimensions` = the grain at which the metric is computed (the source
+ * cube's primary-key columns). Synthetic composite PKs are marked
+ * `public: false` in cube meta and are excluded — they are SQL expressions,
+ * not real columns in the source table.
+ */
 function projectDimensions(dimensions: ProjectableDimension[]): string[] {
-  const visible = dimensions.filter((d) => d.public !== false && d.primaryKey !== true);
-  const stripped = visible.map((d) => stripCubePrefix(d.name));
+  const grain = dimensions.filter((d) => d.primaryKey === true && d.public !== false);
+  const stripped = grain.map((d) => stripCubePrefix(d.name));
   const deduped = Array.from(new Set(stripped));
   deduped.sort();
   return deduped;

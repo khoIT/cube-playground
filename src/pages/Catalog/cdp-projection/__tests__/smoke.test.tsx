@@ -39,7 +39,7 @@ const SEED_USER_COUNT = {
   metric_codename: 'user_count',
   source: 'iceberg.ballistar_vn.mf_users',
   expression: 'COUNT(*)',
-  dimensions: ['country', 'signup_source'],
+  dimensions: ['user_id'],
   filter: '',
   materialize: false,
   schedule: '',
