@@ -12,6 +12,7 @@ const ContainerElement = tasty({
     flexBasis: 0,
     minHeight: 0,
     width: '100%',
+    height: '100%',
 
     Toolbar: {
       display: 'flex',
