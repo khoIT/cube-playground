@@ -1,5 +1,6 @@
 import ReactDOM from 'react-dom';
-import { Router, Route } from 'react-router-dom';
+import { ReactNode, useRef } from 'react';
+import { Router, Route, withRouter } from 'react-router-dom';
 import { createHashHistory } from 'history';
 
 import App from './App';
@@ -12,6 +13,8 @@ import {
 } from './pages';
 import { SecurityContextProvider } from './components/SecurityContext/SecurityContextProvider';
 import { AppContextProvider } from './components/AppContext';
+
+const SchemaPageWithRouter = withRouter(SchemaPage);
 
 const history = createHashHistory();
 history.listen((location) => {
@@ -40,6 +43,32 @@ async function onTokenPayloadChange(_payload: Record<string, any>, token) {
   }
 }
 
+// Render-prop Routes keep these pages MOUNTED across navigation once visited so
+// their internal React state (query result set, executed query, sql, durations,
+// page selections) survives when the user switches to a sibling tab and back.
+// Pages are lazy-mounted on first match, then stay mounted with display:none
+// when inactive — only one wrapper is visible at a time.
+function KeepAliveRoute({
+  path,
+  children,
+}: {
+  path: string;
+  children: ReactNode;
+}) {
+  const mountedRef = useRef(false);
+  return (
+    <Route path={path}>
+      {({ match }) => {
+        if (match) mountedRef.current = true;
+        if (!mountedRef.current) return null;
+        return (
+          <div style={{ display: match ? 'contents' : 'none' }}>{children}</div>
+        );
+      }}
+    </Route>
+  );
+}
+
 ReactDOM.render(
   <Router history={history}>
     <AppContextProvider
@@ -49,21 +78,17 @@ ReactDOM.render(
     >
       <App>
         <Route key="index" exact path="/" component={IndexPage} />
-        <Route
-          key="build"
-          path="/build"
-          component={(props) => {
-            return (
-              <SecurityContextProvider
-                onTokenPayloadChange={onTokenPayloadChange}
-              >
-                <ExplorePage {...props} />
-              </SecurityContextProvider>
-            );
-          }}
-        />
-        <Route key="schema" path="/schema" component={SchemaPage} />
-        <Route key="catalog" path="/catalog" component={CatalogPage} />
+        <KeepAliveRoute key="build" path="/build">
+          <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
+            <ExplorePage />
+          </SecurityContextProvider>
+        </KeepAliveRoute>
+        <KeepAliveRoute key="schema" path="/schema">
+          <SchemaPageWithRouter />
+        </KeepAliveRoute>
+        <KeepAliveRoute key="catalog" path="/catalog">
+          <CatalogPage />
+        </KeepAliveRoute>
       </App>
     </AppContextProvider>
   </Router>,
