@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChartType,
   CubeApi,
@@ -390,6 +390,13 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
         // metaErrorStack = error.response?.stack?.replace(error.message || '', '') || '';
       });
   }
+
+  // Stable wrapper: holds a ref to the latest loadMeta closure so that
+  // callers (e.g. QueryBuilder.tsx useEffect) receive a referentially-stable
+  // function and do not re-fire on every render.
+  const loadMetaRef = useRef<() => void>(loadMeta);
+  loadMetaRef.current = loadMeta;
+  const stableLoadMeta = useCallback(() => loadMetaRef.current(), []);
 
   function dryRun() {
     const currentRequest = ++verificationRef.current;
@@ -1358,7 +1365,7 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
     isMetaLoading,
     metaError,
     richMetaError,
-    loadMeta,
+    loadMeta: stableLoadMeta,
     queryStats,
     // configuration
     pivotConfig,

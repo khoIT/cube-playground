@@ -39,6 +39,13 @@ export type ContextProps = {
   token: string | null;
   identifier?: string | null;
   setContext: (context: Partial<ContextProps> | null) => void;
+  /**
+   * Triggers a meta re-fetch on the active QueryBuilder.
+   * Registered via setContext({ refreshMeta: loadMeta }) when QueryBuilder mounts.
+   * Defaults to a no-op so consumers outside the QB tree can safely call it
+   * before the QB has initialised (e.g. wizard success handler in Phase 4).
+   */
+  refreshMeta: () => Promise<void> | void;
 };
 
 export type AppContextProps = {
@@ -72,6 +79,7 @@ export function AppContextProvider({
         apiUrl: null,
         schemaVersion: 0,
         ready: false,
+        refreshMeta: () => {},   // no-op until QueryBuilder registers via setContext
         ...context,
         token: context?.token || null,
         playgroundContext: context?.playgroundContext || {},

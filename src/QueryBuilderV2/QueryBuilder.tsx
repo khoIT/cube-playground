@@ -8,6 +8,7 @@ import { useQueryBuilder } from './hooks/query-builder';
 import { QueryBuilderInternals } from './QueryBuilderInternals';
 import { QueryBuilderProps } from './types';
 import { useCommitPress } from './utils/use-commit-press';
+import { useAppContext } from '../hooks';
 
 export function QueryBuilder(
   props: Omit<QueryBuilderProps, 'apiUrl'> & {
@@ -92,6 +93,16 @@ export function QueryBuilder(
   useCommitPress(() => {
     return runQuery();
   }, true);
+
+  // Expose loadMeta via AppContext so consumers outside the QB tree (e.g. the
+  // New Metric wizard success handler) can trigger a meta re-fetch without
+  // holding a direct reference to this hook's closure.
+  const { setContext } = useAppContext();
+  useEffect(() => {
+    setContext({ refreshMeta: loadMeta });
+    // No cleanup: the no-op default in AppContext is safe after unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadMeta]);
 
   if (!apiToken || !cubeApi || !apiUrl) {
     return null;
