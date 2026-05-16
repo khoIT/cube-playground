@@ -13,7 +13,7 @@ import { SourceBody } from './steps/step-1-source/source-body';
 import { SourcePreviewRail } from './steps/step-1-source/source-preview-rail';
 import { OperationBody } from './steps/step-2-operation/operation-body';
 import { computeAutoMetricName, computeAutoMetricTitle } from './hooks/compute-auto-metric-name';
-import { findOp } from './steps/step-2-operation/operations';
+import { findOp, primarySlotIdFor } from './steps/step-2-operation/operations';
 import { OperationDetailRail } from './steps/step-2-operation/operation-detail-rail';
 import { ColumnBody } from './steps/step-3-column/column-body';
 import { ColumnHealthRail } from './steps/step-3-column/column-health-rail';
@@ -98,7 +98,7 @@ export function NewMetricPage() {
       lastAutoTitleRef.current = autoTitle;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.sourceCubes, draft.operation, draft.ofMember, draft.ofMemberB]);
+  }, [draft.sourceCubes, draft.operation, draft.inputs]);
 
   // Apply ?cube= deep-link once meta is available, validating against meta.cubes.
   const [cubeParamApplied, setCubeParamApplied] = useState(false);
@@ -149,10 +149,16 @@ export function NewMetricPage() {
   // its choice has been recorded in the draft (mirrors the Stitch walkthrough,
   // where prior steps stay ticked when the user navigates back). Step 4
   // (Filters) is optional, so it stays untouched until the user moves past it.
+  // A step is "done" once every required slot for the active op is filled.
+  // `count` is the exception: its single slot is optional, so the step
+  // counts as done the moment the user moves past it.
+  const opDef = findOp(draft.operation);
+  const allRequiredSlotsFilled = !!opDef && opDef.inputs.every((s) => !s.required || !!draft.inputs[s.id]);
+
   const doneFlags: Record<StepIndex, boolean> = {
     1: draft.sourceCubes.length >= 1,
     2: !!draft.operation,
-    3: draft.operation === 'count' || !!draft.ofMember,
+    3: draft.operation === 'count' || allRequiredSlotsFilled,
     4: step > 4,
     5: !!draft.name && !!draft.title,
     6: false,
@@ -167,10 +173,14 @@ export function NewMetricPage() {
       ? 'Count distinct'
       : draft.operation.charAt(0).toUpperCase() + draft.operation.slice(1)
     : 'Aggregation type';
-  const columnLeaf = draft.ofMember
-    ? draft.ofMember.includes('.')
-      ? draft.ofMember.split('.').slice(-1)[0]
-      : draft.ofMember
+  // For the LeftRail summary line we show the primary slot's leaf (or for
+  // ratio the numerator's leaf), matching how the user thinks about the metric.
+  const primarySlotId = primarySlotIdFor(draft.operation);
+  const primarySlotValue = draft.inputs[primarySlotId] ?? null;
+  const columnLeaf = primarySlotValue
+    ? primarySlotValue.includes('.')
+      ? primarySlotValue.split('.').slice(-1)[0]
+      : primarySlotValue
     : null;
 
   // Source summary: single cube → just its name. Multi-source → "primary +N more".
@@ -224,12 +234,12 @@ export function NewMetricPage() {
       }
       main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack })}
       rightRail={(() => {
-        const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: draft.ofMember });
+        const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: primarySlotValue });
         return (
           <RightRail title={rail.title} subtitle={rail.subtitle}>
             {step === 1 && <SourcePreviewRail cube={selectedCube} />}
             {step === 2 && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
-            {step === 3 && <ColumnHealthRail cube={selectedCube} column={draft.ofMember} operation={draft.operation} cubeApi={cubejsApi} />}
+            {step === 3 && <ColumnHealthRail cube={selectedCube} column={primarySlotValue} operation={draft.operation} cubeApi={cubejsApi} />}
             {step === 4 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cohort funnel arrives in a follow-up. The compiled SQL preview is in the main panel.</div>}
             {step === 5 && <YamlPreviewRail draft={draft} sourceCube={selectedCube} />}
             {step > 5 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Step {step} preview not implemented yet — coming in later phases.</div>}
@@ -404,11 +414,10 @@ function renderStep(args: {
         continueLabel={continueLabel}
         onBack={back}
         onContinue={() => {
-          // When operation changes invalidate previously-picked column.
-          // Skip column step entirely for count.
+          // Count's slot is optional → skip Step 3 straight to filters.
           if (draft.operation === 'count') {
-            setField('ofMember', null);
-            next(); next(); // Step 4 (filters)
+            setField('inputs', {});
+            next(); next();
           } else {
             next();
           }
@@ -420,7 +429,9 @@ function renderStep(args: {
           sourceCount={draft.sourceCubes.length}
           onRequestBack={onRequestBackToSources}
           onSelect={(op) => {
-            if (op !== draft.operation) setField('ofMember', null);
+            // Operation switch clears the inputs map — the new op's slot
+            // ids may not match the previous selection.
+            if (op !== draft.operation) setField('inputs', {});
             setField('operation', op);
           }}
         />

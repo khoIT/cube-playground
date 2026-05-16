@@ -80,11 +80,16 @@ export function TestRunBody({ draft, sourceCube, onSubmitted }: TestRunBodyProps
   const [status, setStatus] = useState<Status>('idle');
   const [warning, setWarning] = useState<string | null>(null);
 
+  // Multi-source drafts always emit the measure under the primary cube
+  // (sourceCubes[0]). Cross-cube ratio's other operand resolves through the
+  // YAML emitter's `buildSqlRef` with its own cubeName.
+  const primaryCube = draft.sourceCubes[0] ?? null;
+
   const yamlFragment = useMemo(() => {
-    if (!draft.sourceCube) return '';
+    if (!primaryCube) return '';
     try {
       const { fragment } = generateV2(draft, {
-        sourceCube: draft.sourceCube,
+        sourceCube: primaryCube,
         reachableMembers: [],
         peerMeasureNames: (sourceCube?.measures ?? []).map((m) => m.name.split('.').slice(-1)[0]),
       });
@@ -95,13 +100,13 @@ export function TestRunBody({ draft, sourceCube, onSubmitted }: TestRunBodyProps
   }, [draft, sourceCube]);
 
   async function handleSubmit() {
-    if (!draft.sourceCube || !draft.name || !yamlFragment) {
+    if (!primaryCube || !draft.name || !yamlFragment) {
       notification.error({ message: 'Missing required fields' });
       return;
     }
     setStatus('submitting');
     setWarning(null);
-    const cubeName = draft.sourceCube;
+    const cubeName = primaryCube;
     const measureName = draft.name;
     const result = await postSchemaWrite({ cubeName, measureName, yamlPatch: yamlFragment });
 
@@ -145,9 +150,9 @@ export function TestRunBody({ draft, sourceCube, onSubmitted }: TestRunBodyProps
           <HeroTitle>Ready when you are</HeroTitle>
           <HeroSub>
             Submit will commit <code style={{ fontFamily: 'var(--font-mono)' }}>{draft.name || '—'}</code>{' '}
-            to <code style={{ fontFamily: 'var(--font-mono)' }}>{draft.sourceCube || '—'}</code> and reload Cube.
+            to <code style={{ fontFamily: 'var(--font-mono)' }}>{primaryCube || '—'}</code> and reload Cube.
           </HeroSub>
-          <Primary onClick={handleSubmit} disabled={!draft.name || !draft.sourceCube || !yamlFragment}>
+          <Primary onClick={handleSubmit} disabled={!draft.name || !primaryCube || !yamlFragment}>
             <Play size={14} /> Submit metric request
           </Primary>
           {warning && (
@@ -200,7 +205,7 @@ export function TestRunBody({ draft, sourceCube, onSubmitted }: TestRunBodyProps
         </StatusCard>
         <StatusCard>
           <StatusLabel>Cube</StatusLabel>
-          <StatusValue style={{ fontSize: 14, fontFamily: 'var(--font-mono)' }}>{draft.sourceCube}</StatusValue>
+          <StatusValue style={{ fontSize: 14, fontFamily: 'var(--font-mono)' }}>{primaryCube}</StatusValue>
         </StatusCard>
       </StatusGrid>
     </>

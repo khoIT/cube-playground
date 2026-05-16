@@ -80,10 +80,11 @@ export type YamlPreviewRailProps = {
 
 export function YamlPreviewRail({ draft, sourceCube }: YamlPreviewRailProps) {
   const yamlText = useMemo(() => {
-    if (!draft.sourceCube) return '# Pick a source cube to preview YAML.';
+    const primaryCube = draft.sourceCubes[0] ?? null;
+    if (!primaryCube) return '# Pick a source cube to preview YAML.';
     try {
       const { yaml } = generateV2(draft, {
-        sourceCube: draft.sourceCube,
+        sourceCube: primaryCube,
         reachableMembers: [],
         peerMeasureNames: (sourceCube?.measures ?? []).map((m) => m.name.split('.').slice(-1)[0]),
         createdAt: '2026-05-17T15:00:00.000Z',

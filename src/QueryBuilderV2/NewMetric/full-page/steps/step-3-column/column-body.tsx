@@ -15,7 +15,10 @@ const Empty = styled.div`
 `;
 const Grid = styled.div<{ $cols: number }>`
   display: grid;
-  grid-template-columns: ${(p) => (p.$cols >= 2 ? 'repeat(2, minmax(0, 1fr))' : '1fr')};
+  /* 1 slot → single column. 2 slots → side-by-side. 3+ slots → vertical
+     stack (single column) so each slot's eligibility grid keeps its full
+     width and the cube-grouping dividers stay readable. */
+  grid-template-columns: ${(p) => (p.$cols === 2 ? 'repeat(2, minmax(0, 1fr))' : '1fr')};
   gap: 16px;
   align-items: start;
 `;

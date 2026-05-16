@@ -34,6 +34,9 @@ const OPERATION_TYPE: Partial<Record<Operation, string>> = {
   // sql template (PERCENTILE_CONT). Mapping kept simple — handled below.
   median: 'number',
   percentile: 'number',
+  // Weighted average + formula compile to plain `number` with bespoke sql.
+  weightedAvg: 'number',
+  formula: 'number',
 };
 
 /**
@@ -236,6 +239,15 @@ export function generateV2(
     const ref = buildSqlRef(member, sourceCube, draft.ofMember ?? '');
     // Default percentile is 0.95; expose configurable percentile in a later phase.
     sqlExpr = `PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ${ref})`;
+  } else if (draft.operation === 'weightedAvg') {
+    const valueRef = buildSqlRef(findMember(reachableMembers, draft.inputs.value ?? ''), sourceCube, draft.inputs.value ?? '');
+    const weightRef = buildSqlRef(findMember(reachableMembers, draft.inputs.weight ?? ''), sourceCube, draft.inputs.weight ?? '');
+    sqlExpr = `SUM(${valueRef} * ${weightRef}) / NULLIF(SUM(${weightRef}), 0)`;
+  } else if (draft.operation === 'formula') {
+    const aRef = buildSqlRef(findMember(reachableMembers, draft.inputs.a ?? ''), sourceCube, draft.inputs.a ?? '');
+    const bRef = buildSqlRef(findMember(reachableMembers, draft.inputs.b ?? ''), sourceCube, draft.inputs.b ?? '');
+    const cRef = buildSqlRef(findMember(reachableMembers, draft.inputs.c ?? ''), sourceCube, draft.inputs.c ?? '');
+    sqlExpr = `SUM(${aRef}) + SUM(${bRef}) - SUM(${cRef})`;
   } else {
     const member = findMember(reachableMembers, draft.ofMember ?? '');
     sqlExpr = buildSqlRef(member, sourceCube, draft.ofMember ?? '');

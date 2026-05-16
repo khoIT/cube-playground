@@ -62,6 +62,33 @@ export const OPERATIONS: OperationDef[] = [
     ],
     example: 'Conversion rate',
   },
+  {
+    id: 'weightedAvg',
+    name: 'Weighted average',
+    formula: 'SUM(v * w) / NULLIF(SUM(w), 0)',
+    description: 'Average of a value column weighted by a weight column.',
+    minSources: 1,
+    inputs: [
+      { id: 'value', label: 'Value', accepts: 'numeric', required: true },
+      { id: 'weight', label: 'Weight', accepts: 'numeric', required: true },
+    ],
+    example: 'Weighted average rating',
+    pro: true,
+  },
+  {
+    id: 'formula',
+    name: 'Formula',
+    formula: 'SUM(a) + SUM(b) - SUM(c)',
+    description: 'Free-form aggregation across three numeric columns. Sources may span joined cubes.',
+    minSources: 1,
+    inputs: [
+      { id: 'a', label: 'Column A', accepts: 'numeric', required: true },
+      { id: 'b', label: 'Column B', accepts: 'numeric', required: true },
+      { id: 'c', label: 'Column C', accepts: 'numeric', required: true },
+    ],
+    example: 'Net contribution',
+    pro: true,
+  },
 ];
 
 export type OperationSegment = 'common' | 'all' | 'advanced';

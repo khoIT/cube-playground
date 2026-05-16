@@ -13,7 +13,9 @@ export type Operation =
   | 'max'
   | 'ratio'
   | 'median'
-  | 'percentile';
+  | 'percentile'
+  | 'weightedAvg'
+  | 'formula';
 
 // Display format for the new metric.
 // Extended in P6 to match the 5-option select (currency-vnd / currency-usd / duration).

@@ -135,6 +135,55 @@ describe('generateV2', () => {
     expect(fragment).not.toContain('filters:');
   });
 
+  it('weighted_avg emits SUM(v * w) / NULLIF(SUM(w), 0)', () => {
+    const members: ReachableMember[] = [
+      member('mf_users', 'score', 'measure'),
+      member('mf_users', 'weight', 'measure'),
+    ];
+    const d = baseDraft();
+    d.operation = 'weightedAvg';
+    d.inputs = { value: 'mf_users.score', weight: 'mf_users.weight' };
+    d.ofMember = 'mf_users.score';
+    d.name = 'weighted_score';
+    d.title = 'Weighted score';
+    const c: GenerateContext = {
+      sourceCube: 'mf_users',
+      reachableMembers: members,
+      peerMeasureNames: ['count'],
+      createdAt: FIXED_TS,
+      author: 'khoitn',
+    };
+    const { fragment } = generateV2(d, c);
+    expect(fragment).toContain('SUM({mf_users}.score * {mf_users}.weight) / NULLIF(SUM({mf_users}.weight), 0)');
+  });
+
+  it('formula emits SUM(a) + SUM(b) - SUM(c) across 3 slots', () => {
+    const members: ReachableMember[] = [
+      member('mf_users', 'revenue', 'measure'),
+      member('mf_users', 'bonus', 'measure'),
+      member('mf_users', 'refunds', 'measure'),
+    ];
+    const d = baseDraft();
+    d.operation = 'formula';
+    d.inputs = {
+      a: 'mf_users.revenue',
+      b: 'mf_users.bonus',
+      c: 'mf_users.refunds',
+    };
+    d.ofMember = 'mf_users.revenue';
+    d.name = 'net_revenue';
+    d.title = 'Net revenue';
+    const c: GenerateContext = {
+      sourceCube: 'mf_users',
+      reachableMembers: members,
+      peerMeasureNames: ['count'],
+      createdAt: FIXED_TS,
+      author: 'khoitn',
+    };
+    const { fragment } = generateV2(d, c);
+    expect(fragment).toContain('SUM({mf_users}.revenue) + SUM({mf_users}.bonus) - SUM({mf_users}.refunds)');
+  });
+
   it('cross-cube ratio emits {a}.x / NULLIF({b}.y, 0)', () => {
     const crossMembers: ReachableMember[] = [
       member('mf_users', 'ltv_30d', 'measure'),
