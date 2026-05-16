@@ -126,7 +126,7 @@ function OperationCard({
     >
       <CardHead>
         <Name>{def.name}</Name>
-        {def.pro && <ProBadge>Pro</ProBadge>}
+        {def.pro && <ProBadge>Advanced</ProBadge>}
         {selected && <SelectedDot aria-label="Selected" />}
       </CardHead>
       <Formula>{def.formula}</Formula>

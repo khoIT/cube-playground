@@ -105,7 +105,7 @@ export type SourceBodyProps = {
 
 export function SourceBody({ cubes, selectedName, onSelect, cubeApi }: SourceBodyProps) {
   const [q, setQ] = useState('');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('cube');
 
   const counts = useMemo(() => {
     let cube = 0;
