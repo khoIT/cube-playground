@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import styled, { css } from 'styled-components';
-import { Database, Layers, Hash, Columns3, RefreshCw, Check } from 'lucide-react';
+import { Database, Layers, Hash, Columns3, RefreshCw, Check, Calendar } from 'lucide-react';
 import type { CubeApi } from '@cubejs-client/core';
 import type { WizardCube } from '../../../hooks/use-new-metric-meta';
 import { formatRowCount, useCubeRowCount } from '../../hooks/use-cube-row-count';
+import { formatTimeRange, useCubeTimeRange } from '../../hooks/use-cube-time-range';
 
 const Card = styled.button<{ $selected: boolean }>`
   position: relative;
@@ -143,6 +144,16 @@ const Freshness = styled.span`
   color: var(--text-muted);
 `;
 
+const TimeRangeRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  svg { color: var(--text-muted); }
+`;
+
 const TagRow = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -207,10 +218,15 @@ export function SourceCard({ cube, selected, onSelect, cubeApi }: SourceCardProp
 
   const [expanded, setExpanded] = useState(false);
 
-  // Fetch row count only when this card becomes selected — keeps the grid fast
-  // and avoids one round-trip per cube on page mount. Views skip the query
-  // entirely (row count isn't well-defined for projections).
-  const rowCount = useCubeRowCount(selected ? cube : null, cubeApi);
+  // Fetch row count + time range lazily: triggered the first time this card is
+  // selected, then KEPT alive afterwards so the pills survive deselection. The
+  // module-level cache inside each hook means re-rendering with the same cube
+  // is free (no extra round-trip).
+  const wasSelectedRef = useRef(false);
+  if (selected) wasSelectedRef.current = true;
+  const liveCube = wasSelectedRef.current ? cube : null;
+  const rowCount = useCubeRowCount(liveCube, cubeApi);
+  const timeRange = useCubeTimeRange(liveCube, cubeApi);
   const isView = cube.type === 'view';
   const tags = cubeTags(cube);
 
@@ -304,6 +320,13 @@ export function SourceCard({ cube, selected, onSelect, cubeApi }: SourceCardProp
           </Freshness>
         )}
       </Stats>
+
+      {timeRange.status === 'ready' && (
+        <TimeRangeRow title={`First → last value of ${timeRange.dimension.split('.').slice(-1)[0]}`}>
+          <Calendar size={11} strokeWidth={2} />
+          {formatTimeRange(timeRange.minDate, timeRange.maxDate, timeRange.spanDays)}
+        </TimeRangeRow>
+      )}
 
       {tags.length > 0 && (
         <TagRow>

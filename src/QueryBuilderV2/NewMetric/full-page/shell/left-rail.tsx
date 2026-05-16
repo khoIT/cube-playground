@@ -25,20 +25,24 @@ const HeroLabel = styled.div`
 
 const HeroTitle = styled.div`
   font-family: var(--font-mono);
-  font-size: 18.5px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
-  word-break: break-all;
   letter-spacing: -0.01em;
   line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const HeroSub = styled.div`
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--text-muted);
   margin-top: 4px;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const StepsLabel = styled.div`
@@ -164,8 +168,8 @@ export function LeftRail({
     <Wrap>
       <HeroBlock>
         <HeroLabel>Defining</HeroLabel>
-        <HeroTitle>{metricName}</HeroTitle>
-        <HeroSub>
+        <HeroTitle title={metricName}>{metricName}</HeroTitle>
+        <HeroSub title={metricName}>
           {metricName}
           {isAutoName ? ' (auto)' : ''}
         </HeroSub>
