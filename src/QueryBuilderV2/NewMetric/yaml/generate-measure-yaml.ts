@@ -127,9 +127,11 @@ export function generate(
   if (draft.operation === 'ratio') {
     const memberA = findMember(reachableMembers, draft.ofMember ?? '');
     const memberB = findMember(reachableMembers, draft.ofMemberB ?? '');
-    // Both operands treated as same-cube (Phase 1 validation enforces this)
-    const refA = memberA ? `{${sourceCube}}.${memberA.shortName}` : `{${sourceCube}}.${draft.ofMember ?? ''}`;
-    const refB = memberB ? `{${sourceCube}}.${memberB.shortName}` : `{${sourceCube}}.${draft.ofMemberB ?? ''}`;
+    // Cross-cube ratio uses each member's own cube name when known; falls back
+    // to source-cube prefixing when the member isn't in reachableMembers
+    // (defensive — usually a sign of stale validator state).
+    const refA = buildSqlRef(memberA, sourceCube, draft.ofMember ?? '');
+    const refB = buildSqlRef(memberB, sourceCube, draft.ofMemberB ?? '');
     sqlExpr = `${refA} / NULLIF(${refB}, 0)`;
   } else {
     const member = findMember(reachableMembers, draft.ofMember ?? '');
@@ -222,8 +224,8 @@ export function generateV2(
   if (draft.operation === 'ratio') {
     const memberA = findMember(reachableMembers, draft.ofMember ?? '');
     const memberB = findMember(reachableMembers, draft.ofMemberB ?? '');
-    const refA = memberA ? `{${sourceCube}}.${memberA.shortName}` : `{${sourceCube}}.${draft.ofMember ?? ''}`;
-    const refB = memberB ? `{${sourceCube}}.${memberB.shortName}` : `{${sourceCube}}.${draft.ofMemberB ?? ''}`;
+    const refA = buildSqlRef(memberA, sourceCube, draft.ofMember ?? '');
+    const refB = buildSqlRef(memberB, sourceCube, draft.ofMemberB ?? '');
     sqlExpr = `${refA} / NULLIF(${refB}, 0)`;
   } else if (draft.operation === 'median') {
     const member = findMember(reachableMembers, draft.ofMember ?? '');

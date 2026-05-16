@@ -60,11 +60,15 @@ export type OperationDetailRailProps = {
 
 export function OperationDetailRail({ cube, operation }: OperationDetailRailProps) {
   const def = operation ? findOp(operation) : undefined;
-  const { eligible } = useEligibleColumns(cube, def?.accepts ?? 'all');
+  // For the eligibility preview we use the primary slot's accept type. Ops
+  // with no slots (none today) just show "no column needed".
+  const primarySlot = def?.inputs[0];
+  const { eligible } = useEligibleColumns(cube, primarySlot?.accepts ?? 'all');
 
   if (!def) {
     return <Mute>Pick an operation to see its formula + eligible columns.</Mute>;
   }
+  const noSlots = def.inputs.length === 0;
   return (
     <>
       <Card>
@@ -74,8 +78,8 @@ export function OperationDetailRail({ cube, operation }: OperationDetailRailProp
       {def.dontUseFor && <Callout>Don't use for: {def.dontUseFor}</Callout>}
       <Section>
         <SectionLabel>Eligible columns</SectionLabel>
-        {def.accepts === 'none' && <Mute>No column needed.</Mute>}
-        {def.accepts !== 'none' && eligible.length === 0 && (
+        {noSlots && <Mute>No column needed.</Mute>}
+        {!noSlots && eligible.length === 0 && (
           <Mute>No eligible columns on the current source.</Mute>
         )}
         {eligible.slice(0, 6).map((c) => (

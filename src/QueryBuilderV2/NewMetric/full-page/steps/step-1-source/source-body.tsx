@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import styled, { css } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { Search, Database, Layers, Grid2x2 } from 'lucide-react';
 import type { CubeApi } from '@cubejs-client/core';
 import type { WizardCube } from '../../../hooks/use-new-metric-meta';
@@ -7,11 +7,23 @@ import { SourceCard } from './source-card';
 
 type TypeFilter = 'all' | 'cube' | 'view';
 
-const Toolbar = styled.div`
+const pulse = keyframes`
+  0%   { box-shadow: 0 0 0 0   rgba(234, 88, 12, 0.45); }
+  60%  { box-shadow: 0 0 0 8px rgba(234, 88, 12, 0); }
+  100% { box-shadow: 0 0 0 0   rgba(234, 88, 12, 0); }
+`;
+
+const Toolbar = styled.div<{ $pulse: boolean }>`
   display: flex;
   gap: 10px;
   align-items: center;
   margin-bottom: 16px;
+  border-radius: 10px;
+  ${(p) =>
+    p.$pulse &&
+    css`
+      animation: ${pulse} 1.4s ease-out;
+    `}
 `;
 
 const Segmented = styled.div`
@@ -98,12 +110,18 @@ const Empty = styled.div`
 
 export type SourceBodyProps = {
   cubes: WizardCube[];
-  selectedName: string | null;
-  onSelect: (cubeName: string) => void;
+  /** Ordered list of selected cube names. `selectedNames[0]` is the primary. */
+  selectedNames: string[];
+  onToggle: (cubeName: string) => void;
+  onSetPrimary: (cubeName: string) => void;
   cubeApi: CubeApi | null;
+  /** Pulse the toolbar briefly when set — used when Step 2 sends the user back. */
+  highlight?: boolean;
 };
 
-export function SourceBody({ cubes, selectedName, onSelect, cubeApi }: SourceBodyProps) {
+export function SourceBody({ cubes, selectedNames, onToggle, onSetPrimary, cubeApi, highlight = false }: SourceBodyProps) {
+  const selectedSet = useMemo(() => new Set(selectedNames), [selectedNames]);
+  const primaryName = selectedNames[0] ?? null;
   const [q, setQ] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('cube');
 
@@ -130,7 +148,7 @@ export function SourceBody({ cubes, selectedName, onSelect, cubeApi }: SourceBod
 
   return (
     <>
-      <Toolbar>
+      <Toolbar $pulse={highlight}>
         <Segmented role="tablist" aria-label="Filter by source type">
           <SegButton
             type="button"
@@ -187,8 +205,10 @@ export function SourceBody({ cubes, selectedName, onSelect, cubeApi }: SourceBod
             <SourceCard
               key={c.name}
               cube={c}
-              selected={selectedName === c.name}
-              onSelect={() => onSelect(c.name)}
+              selected={selectedSet.has(c.name)}
+              primary={primaryName === c.name}
+              onSelect={() => onToggle(c.name)}
+              onSetPrimary={() => onSetPrimary(c.name)}
               cubeApi={cubeApi}
             />
           ))}

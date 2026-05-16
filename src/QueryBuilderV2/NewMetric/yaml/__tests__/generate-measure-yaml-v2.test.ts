@@ -38,8 +38,10 @@ function ctx(): GenerateContext {
 
 function baseDraft(): NewMetricDraftV2 {
   return {
+    sourceCubes: ['mf_users'],
     sourceCube: 'mf_users',
     operation: 'sum',
+    inputs: { value: 'mf_users.ltv_30d' },
     ofMember: 'mf_users.ltv_30d',
     ofMemberB: null,
     filter: null,
@@ -131,5 +133,36 @@ describe('generateV2', () => {
     d.filterTree = makeGroup('AND', [makeGroup('OR', [])]);
     const { fragment } = generateV2(d, ctx());
     expect(fragment).not.toContain('filters:');
+  });
+
+  it('cross-cube ratio emits {a}.x / NULLIF({b}.y, 0)', () => {
+    const crossMembers: ReachableMember[] = [
+      member('mf_users', 'ltv_30d', 'measure'),
+      {
+        cubeName: 'mf_sessions',
+        shortName: 'count',
+        memberName: 'mf_sessions.count',
+        kind: 'measure',
+        viaJoin: { fromCube: 'mf_users', sql: 'mf_users.id = mf_sessions.user_id' },
+      },
+    ];
+    const d = baseDraft();
+    d.operation = 'ratio';
+    d.sourceCubes = ['mf_users', 'mf_sessions'];
+    d.sourceCube = 'mf_users';
+    d.inputs = { numerator: 'mf_users.ltv_30d', denominator: 'mf_sessions.count' };
+    d.ofMember = 'mf_users.ltv_30d';
+    d.ofMemberB = 'mf_sessions.count';
+    d.name = 'ltv_per_session';
+    d.title = 'LTV per session';
+    const crossCtx: GenerateContext = {
+      sourceCube: 'mf_users',
+      reachableMembers: crossMembers,
+      peerMeasureNames: ['count'],
+      createdAt: FIXED_TS,
+      author: 'khoitn',
+    };
+    const { fragment } = generateV2(d, crossCtx);
+    expect(fragment).toContain('{mf_users}.ltv_30d / NULLIF({mf_sessions}.count, 0)');
   });
 });

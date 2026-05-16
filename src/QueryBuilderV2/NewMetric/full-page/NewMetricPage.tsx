@@ -13,6 +13,7 @@ import { SourceBody } from './steps/step-1-source/source-body';
 import { SourcePreviewRail } from './steps/step-1-source/source-preview-rail';
 import { OperationBody } from './steps/step-2-operation/operation-body';
 import { computeAutoMetricName, computeAutoMetricTitle } from './hooks/compute-auto-metric-name';
+import { findOp } from './steps/step-2-operation/operations';
 import { OperationDetailRail } from './steps/step-2-operation/operation-detail-rail';
 import { ColumnBody } from './steps/step-3-column/column-body';
 import { ColumnHealthRail } from './steps/step-3-column/column-health-rail';
@@ -62,8 +63,17 @@ export function NewMetricPage() {
   }, [meta]);
 
   const draftState = useNewMetricDraft({ reachableNames });
-  const { draft, setField, clearPersisted } = draftState;
+  const { draft, setField, setInput, toggleSource, setPrimarySource, clearPersisted } = draftState;
   const { step, setStep, canGoTo, next, back } = useActiveStep(draft);
+
+  // Transient pulse flag for Step 1's source picker, raised when the user
+  // clicks a source-gated op card in Step 2.
+  const [highlightSources, setHighlightSources] = useState(false);
+  function pulseSourcesAndBack() {
+    setHighlightSources(true);
+    back();
+    window.setTimeout(() => setHighlightSources(false), 1500);
+  }
 
   // Live auto-fill of name + title from operation/column picks. Each field
   // stays "auto-controlled" while it's empty or still equals the last value
@@ -72,7 +82,7 @@ export function NewMetricPage() {
   const lastAutoNameRef = useRef('');
   const lastAutoTitleRef = useRef('');
   useEffect(() => {
-    if (!draft.sourceCube || !draft.operation) return;
+    if (draft.sourceCubes.length === 0 || !draft.operation) return;
 
     const autoName = computeAutoMetricName(draft);
     if (autoName && autoName !== 'untitled_metric') {
@@ -88,7 +98,7 @@ export function NewMetricPage() {
       lastAutoTitleRef.current = autoTitle;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.sourceCube, draft.operation, draft.ofMember, draft.ofMemberB]);
+  }, [draft.sourceCubes, draft.operation, draft.ofMember, draft.ofMemberB]);
 
   // Apply ?cube= deep-link once meta is available, validating against meta.cubes.
   const [cubeParamApplied, setCubeParamApplied] = useState(false);
@@ -100,7 +110,7 @@ export function NewMetricPage() {
       return;
     }
     if (meta.cubes.some((c) => c.name === cubeParam)) {
-      if (!draft.sourceCube) setField('sourceCube', cubeParam);
+      if (draft.sourceCubes.length === 0) setField('sourceCubes', [cubeParam]);
     } else {
       // eslint-disable-next-line no-console
       console.warn(`[new-metric-page] ?cube=${cubeParam} not in meta — ignored.`);
@@ -121,16 +131,26 @@ export function NewMetricPage() {
     );
   }
 
-  const selectedCube = draft.sourceCube && meta
-    ? meta.cubes.find((c) => c.name === draft.sourceCube) ?? null
+  // `primaryCube` powers downstream step rails / summaries. Additional selected
+  // cubes (for cross-cube ratio) live in `selectedCubes`.
+  const primaryCubeName = draft.sourceCubes[0] ?? null;
+  const selectedCube = primaryCubeName && meta
+    ? meta.cubes.find((c) => c.name === primaryCubeName) ?? null
     : null;
+  const selectedCubes = useMemo(() => {
+    if (!meta) return [];
+    const byName = new Map(meta.cubes.map((c) => [c.name, c]));
+    return draft.sourceCubes
+      .map((n) => byName.get(n))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c));
+  }, [meta, draft.sourceCubes]);
 
   // doneFlags drive the LeftRail badges/chips. We mark a step done as soon as
   // its choice has been recorded in the draft (mirrors the Stitch walkthrough,
   // where prior steps stay ticked when the user navigates back). Step 4
   // (Filters) is optional, so it stays untouched until the user moves past it.
   const doneFlags: Record<StepIndex, boolean> = {
-    1: !!draft.sourceCube,
+    1: draft.sourceCubes.length >= 1,
     2: !!draft.operation,
     3: draft.operation === 'count' || !!draft.ofMember,
     4: step > 4,
@@ -153,10 +173,15 @@ export function NewMetricPage() {
       : draft.ofMember
     : null;
 
+  // Source summary: single cube → just its name. Multi-source → "primary +N more".
+  const sourceSummary = draft.sourceCubes.length === 0
+    ? 'Pick a cube or view'
+    : draft.sourceCubes.length === 1
+      ? draft.sourceCubes[0]
+      : `${draft.sourceCubes[0]} +${draft.sourceCubes.length - 1} more`;
+
   const summaries: Partial<Record<StepIndex, string>> = {
-    // Subtext for Source is the cube/view identifier itself (e.g. `mf_users`),
-    // not the humanized title — matches the Stitch walkthrough.
-    1: draft.sourceCube ?? 'Pick a cube or view',
+    1: sourceSummary,
     2: draft.operation ? opLabel : 'Aggregation type',
     3: columnLeaf ?? (draft.operation === 'count' ? 'count is *' : 'Field to measure'),
     4: 'Where clause',
@@ -197,7 +222,7 @@ export function NewMetricPage() {
           isAutoName={isAutoName}
         />
       }
-      main={renderStep({ step, draft, meta, loading, error, setField, next, back, selectedCube, tagSuggestions, cubejsApi })}
+      main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack })}
       rightRail={(() => {
         const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: draft.ofMember });
         return (
@@ -249,6 +274,9 @@ function renderStep(args: {
   loading: boolean;
   error: string | null;
   setField: ReturnType<typeof useNewMetricDraft>['setField'];
+  setInput: ReturnType<typeof useNewMetricDraft>['setInput'];
+  toggleSource: ReturnType<typeof useNewMetricDraft>['toggleSource'];
+  setPrimarySource: ReturnType<typeof useNewMetricDraft>['setPrimarySource'];
   next: () => void;
   back: () => void;
   selectedCube: ReturnType<typeof useNewMetricMeta>['meta'] extends infer T
@@ -256,15 +284,17 @@ function renderStep(args: {
     : null;
   tagSuggestions: string[];
   cubejsApi: ReturnType<typeof useNewMetricMeta>['cubejsApi'];
+  highlightSources: boolean;
+  onRequestBackToSources: () => void;
 }) {
-  const { step, draft, meta, loading, error, setField, next, back, selectedCube, tagSuggestions, cubejsApi } = args;
+  const { step, draft, meta, loading, error, setField, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources } = args;
 
   if (step === 1) {
     return (
       <StepChrome
         step={1}
         canBack={false}
-        canContinue={!!draft.sourceCube}
+        canContinue={draft.sourceCubes.length >= 1}
         continueLabel="Continue to operation"
         onBack={back}
         onContinue={next}
@@ -274,9 +304,11 @@ function renderStep(args: {
         {meta && (
           <SourceBody
             cubes={meta.cubes}
-            selectedName={draft.sourceCube}
-            onSelect={(name) => setField('sourceCube', name)}
+            selectedNames={draft.sourceCubes}
+            onToggle={toggleSource}
+            onSetPrimary={setPrimarySource}
             cubeApi={cubejsApi}
+            highlight={highlightSources}
           />
         )}
       </StepChrome>
@@ -342,19 +374,22 @@ function renderStep(args: {
   }
 
   if (step === 3) {
+    const op = findOp(draft.operation);
+    const allRequiredFilled = !op || op.inputs.every((slot) => !slot.required || !!draft.inputs[slot.id]);
+    const wizardCubes = (meta?.cubes ?? []).filter((c) => draft.sourceCubes.includes(c.name));
     return (
       <StepChrome
         step={3}
-        canContinue={!!draft.ofMember}
+        canContinue={allRequiredFilled}
         continueLabel="Continue to filters"
         onBack={back}
         onContinue={next}
       >
         <ColumnBody
-          cube={selectedCube as any}
+          cubes={wizardCubes as any}
           operation={draft.operation}
-          column={draft.ofMember}
-          onSelect={(col) => setField('ofMember', col)}
+          inputs={draft.inputs}
+          onSelect={(slotId, memberName) => args.setInput(slotId, memberName)}
         />
       </StepChrome>
     );
@@ -382,6 +417,8 @@ function renderStep(args: {
         <OperationBody
           cube={selectedCube as any}
           operation={draft.operation}
+          sourceCount={draft.sourceCubes.length}
+          onRequestBack={onRequestBackToSources}
           onSelect={(op) => {
             if (op !== draft.operation) setField('ofMember', null);
             setField('operation', op);

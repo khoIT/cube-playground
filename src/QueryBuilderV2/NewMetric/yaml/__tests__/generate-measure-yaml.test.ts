@@ -33,8 +33,10 @@ const CROSS_CUBE_MEMBERS: ReachableMember[] = [
 ];
 
 const BASE_DRAFT: NewMetricDraft = {
+  sourceCubes: ['orders'],
   sourceCube: 'orders',
   operation: 'sum',
+  inputs: { value: 'orders.amount' },
   ofMember: 'orders.amount',
   ofMemberB: null,
   filter: null,

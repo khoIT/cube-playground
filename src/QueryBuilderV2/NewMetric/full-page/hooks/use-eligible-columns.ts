@@ -1,8 +1,14 @@
 import { useMemo } from 'react';
 import type { WizardCube, WizardColumn } from '../../hooks/use-new-metric-meta';
-import type { OperationAccepts } from '../steps/step-2-operation/operations';
+import type { SlotAccepts } from '../steps/step-2-operation/operations';
 
-export type EligibleColumn = WizardColumn & { kind: 'dimension' | 'measure' };
+export type EligibilityFilter = SlotAccepts | 'all-dimensions';
+
+export type EligibleColumn = WizardColumn & {
+  kind: 'dimension' | 'measure';
+  /** Cube the column belongs to. Always populated so callers can group multi-cube results. */
+  cubeName: string;
+};
 export type EligibilityResult = {
   eligible: EligibleColumn[];
   rejected: Array<EligibleColumn & { reason: string }>;
@@ -15,27 +21,29 @@ function isNumericLike(type: string | undefined): boolean {
 }
 
 /**
- * Derive eligible columns for an operation given a source cube.
- * Used by Step 3 (column picker) and Step 4 (filter column dropdown).
+ * Derive eligible columns for one input slot given a set of source cubes.
  *
  * `accepts === 'all'` returns every column (string + numeric + boolean).
- * `accepts === 'numeric'` keeps numeric/integer.
- * `accepts === 'none'` (Count) returns empty — Step 3 is auto-skipped.
- * `accepts === '2-numeric'` returns numeric measures (Ratio).
+ * `accepts === 'numeric'` keeps numeric/integer columns (dims + measures).
  * `'all-dimensions'` sentinel returns ONLY dimensions (used by filter dropdown).
+ *
+ * Phase 1: accepts a single cube via the back-compat wrapper below.
+ * Phase 4: full migration to a `WizardCube[]` signature so multi-source flows
+ * can union eligible columns across selected cubes. This phase keeps a
+ * single-cube convenience caller alive so legacy reads keep compiling.
  */
 export function useEligibleColumns(
-  cube: WizardCube | null,
-  accepts: OperationAccepts | 'all-dimensions'
+  cubeOrCubes: WizardCube | WizardCube[] | null,
+  accepts: EligibilityFilter
 ): EligibilityResult {
   return useMemo<EligibilityResult>(() => {
-    if (!cube) return { eligible: [], rejected: [] };
-    const all: EligibleColumn[] = [
-      ...(cube.dimensions ?? []).map<EligibleColumn>((d) => ({ ...d, kind: 'dimension' })),
-      ...(cube.measures ?? []).map<EligibleColumn>((m) => ({
-        name: m.name, title: m.title, type: m.aggType, kind: 'measure',
-      })),
-    ];
+    const cubes: WizardCube[] = Array.isArray(cubeOrCubes)
+      ? cubeOrCubes
+      : cubeOrCubes
+        ? [cubeOrCubes]
+        : [];
+    if (cubes.length === 0) return { eligible: [], rejected: [] };
+
     const eligible: EligibleColumn[] = [];
     const rejected: Array<EligibleColumn & { reason: string }> = [];
 
@@ -44,28 +52,31 @@ export function useEligibleColumns(
       else rejected.push({ ...c, reason });
     }
 
-    for (const c of all) {
-      const t = c.type;
-      switch (accepts) {
-        case 'none':
-          rejected.push({ ...c, reason: 'Operation does not use a column.' });
-          break;
-        case 'all':
-          eligible.push(c);
-          break;
-        case 'all-dimensions':
-          add(c, c.kind === 'dimension', 'Filters only use dimensions.');
-          break;
-        case 'numeric':
-          add(c, isNumericLike(t), `Type "${t ?? 'unknown'}" is not numeric.`);
-          break;
-        case '2-numeric':
-          add(c, c.kind === 'measure' && isNumericLike(t), 'Ratio operands must be numeric measures.');
-          break;
-        default:
-          eligible.push(c);
+    for (const cube of cubes) {
+      const all: EligibleColumn[] = [
+        ...(cube.dimensions ?? []).map<EligibleColumn>((d) => ({ ...d, kind: 'dimension', cubeName: cube.name })),
+        ...(cube.measures ?? []).map<EligibleColumn>((m) => ({
+          name: m.name, title: m.title, type: m.aggType, kind: 'measure', cubeName: cube.name,
+        })),
+      ];
+
+      for (const c of all) {
+        const t = c.type;
+        switch (accepts) {
+          case 'all':
+            eligible.push(c);
+            break;
+          case 'all-dimensions':
+            add(c, c.kind === 'dimension', 'Filters only use dimensions.');
+            break;
+          case 'numeric':
+            add(c, isNumericLike(t), `Type "${t ?? 'unknown'}" is not numeric.`);
+            break;
+          default:
+            eligible.push(c);
+        }
       }
     }
     return { eligible, rejected };
-  }, [cube, accepts]);
+  }, [cubeOrCubes, accepts]);
 }

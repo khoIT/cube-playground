@@ -1,12 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useNewMetricDraft, validate } from '../use-new-metric-draft';
 import { NewMetricDraft } from '../../types';
 
-// A fully valid draft for use as a baseline in validation tests
+// A fully valid draft for use as a baseline in validation tests.
+// The new shape uses canonical `sourceCubes` + `inputs`; legacy
+// `sourceCube` / `ofMember` / `ofMemberB` are kept synced for the dialog flow.
 const VALID_DRAFT: NewMetricDraft = {
+  sourceCubes: ['orders'],
   sourceCube: 'orders',
   operation: 'sum',
+  inputs: { value: 'orders.amount' },
   ofMember: 'orders.amount',
   ofMemberB: null,
   filter: null,
@@ -26,16 +30,16 @@ describe('validate()', () => {
     expect(validate(VALID_DRAFT).isValid).toBe(true);
   });
 
-  it('errors when sourceCube is null', () => {
-    const result = validate({ ...VALID_DRAFT, sourceCube: null });
+  it('errors when no source cube is selected', () => {
+    const result = validate({ ...VALID_DRAFT, sourceCubes: [], sourceCube: null });
     expect(result.isValid).toBe(false);
-    expect(result.errors.sourceCube).toBeDefined();
+    expect(result.errors.sourceCubes).toBeDefined();
   });
 
-  it('errors when ofMember is null', () => {
-    const result = validate({ ...VALID_DRAFT, ofMember: null });
+  it('errors when required slot is empty', () => {
+    const result = validate({ ...VALID_DRAFT, inputs: {}, ofMember: null });
     expect(result.isValid).toBe(false);
-    expect(result.errors.ofMember).toBeDefined();
+    expect(result.errors['inputs.value']).toBeDefined();
   });
 
   it('errors when name is empty', () => {
@@ -74,75 +78,70 @@ describe('validate()', () => {
     expect(result.errors.title).toBeDefined();
   });
 
-  it('errors when operation is ratio and ofMemberB is null', () => {
-    const result = validate({ ...VALID_DRAFT, operation: 'ratio', ofMemberB: null });
-    expect(result.isValid).toBe(false);
-    expect(result.errors.ofMemberB).toBeDefined();
-  });
-
-  it('accepts ratio when both ofMember and ofMemberB are set', () => {
+  it('errors when ratio is missing its denominator slot', () => {
     const result = validate({
       ...VALID_DRAFT,
       operation: 'ratio',
+      sourceCubes: ['orders', 'users'],
+      inputs: { numerator: 'orders.amount' },
+      ofMember: 'orders.amount',
+      ofMemberB: null,
+    });
+    expect(result.isValid).toBe(false);
+    expect(result.errors['inputs.denominator']).toBeDefined();
+  });
+
+  it('errors on ratio when only one source cube is selected', () => {
+    const result = validate({
+      ...VALID_DRAFT,
+      operation: 'ratio',
+      sourceCubes: ['orders'],
+      inputs: { numerator: 'orders.revenue', denominator: 'orders.count' },
+    });
+    expect(result.isValid).toBe(false);
+    expect(result.errors.sourceCubes).toMatch(/at least 2/i);
+  });
+
+  it('accepts cross-cube ratio when both cubes are selected', () => {
+    const result = validate({
+      ...VALID_DRAFT,
+      operation: 'ratio',
+      sourceCubes: ['orders', 'users'],
+      inputs: { numerator: 'orders.revenue', denominator: 'users.count' },
+      ofMember: 'orders.revenue',
+      ofMemberB: 'users.count',
+    });
+    expect(result.isValid).toBe(true);
+  });
+
+  it('accepts ratio when both operands belong to the primary source cube', () => {
+    const result = validate({
+      ...VALID_DRAFT,
+      operation: 'ratio',
+      sourceCubes: ['orders', 'orders_detail'],
+      inputs: { numerator: 'orders.revenue', denominator: 'orders.count' },
       ofMember: 'orders.revenue',
       ofMemberB: 'orders.count',
     });
     expect(result.isValid).toBe(true);
   });
 
-  it('does NOT require ofMemberB for non-ratio operations', () => {
-    const ops = ['sum', 'count', 'countDistinct', 'avg', 'min', 'max'] as const;
-    ops.forEach((op) => {
-      const result = validate({ ...VALID_DRAFT, operation: op, ofMemberB: null });
-      expect(result.errors.ofMemberB).toBeUndefined();
-    });
-  });
-
-  // ─── Cross-cube ratio guard ─────────────────────────────────────────────────
-
-  it('errors on ofMember when ratio operand belongs to a different cube', () => {
+  it('count with optional value slot accepts an empty input', () => {
     const result = validate({
       ...VALID_DRAFT,
-      operation: 'ratio',
-      sourceCube: 'orders',
-      ofMember: 'users.count',    // cross-cube — belongs to "users", not "orders"
-      ofMemberB: 'orders.amount',
-    });
-    expect(result.isValid).toBe(false);
-    expect(result.errors.ofMember).toMatch(/cross-cube ratio is not supported/i);
-    expect(result.errors.ofMemberB).toBeUndefined();
-  });
-
-  it('errors on ofMemberB when denominator belongs to a different cube', () => {
-    const result = validate({
-      ...VALID_DRAFT,
-      operation: 'ratio',
-      sourceCube: 'orders',
-      ofMember: 'orders.revenue',
-      ofMemberB: 'products.cost',  // cross-cube — belongs to "products", not "orders"
-    });
-    expect(result.isValid).toBe(false);
-    expect(result.errors.ofMemberB).toMatch(/cross-cube ratio is not supported/i);
-    expect(result.errors.ofMember).toBeUndefined();
-  });
-
-  it('accepts ratio when both operands belong to the source cube', () => {
-    const result = validate({
-      ...VALID_DRAFT,
-      operation: 'ratio',
-      sourceCube: 'orders',
-      ofMember: 'orders.revenue',
-      ofMemberB: 'orders.count',
+      operation: 'count',
+      inputs: {},
+      ofMember: null,
     });
     expect(result.isValid).toBe(true);
-    expect(result.errors.ofMember).toBeUndefined();
-    expect(result.errors.ofMemberB).toBeUndefined();
   });
 
   it('accumulates multiple errors at once', () => {
     const result = validate({
       ...VALID_DRAFT,
+      sourceCubes: [],
       sourceCube: null,
+      inputs: {},
       ofMember: null,
       name: '',
       title: '',
@@ -157,8 +156,10 @@ describe('validate()', () => {
 describe('useNewMetricDraft()', () => {
   it('initialises with default draft values', () => {
     const { result } = renderHook(() => useNewMetricDraft());
+    expect(result.current.draft.sourceCubes).toEqual([]);
     expect(result.current.draft.sourceCube).toBeNull();
     expect(result.current.draft.operation).toBe('sum');
+    expect(result.current.draft.inputs).toEqual({});
     expect(result.current.draft.name).toBe('');
     expect(result.current.draft.format).toBe('number');
   });
@@ -169,9 +170,17 @@ describe('useNewMetricDraft()', () => {
     expect(result.current.draft.name).toBe('my_metric');
   });
 
-  it('setField updates sourceCube', () => {
+  it('setField on sourceCube also writes through to sourceCubes', () => {
     const { result } = renderHook(() => useNewMetricDraft());
     act(() => result.current.setField('sourceCube', 'orders'));
+    expect(result.current.draft.sourceCube).toBe('orders');
+    expect(result.current.draft.sourceCubes).toEqual(['orders']);
+  });
+
+  it('setField on sourceCubes syncs legacy sourceCube field', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => result.current.setField('sourceCubes', ['orders', 'users']));
+    expect(result.current.draft.sourceCubes).toEqual(['orders', 'users']);
     expect(result.current.draft.sourceCube).toBe('orders');
   });
 
@@ -181,16 +190,66 @@ describe('useNewMetricDraft()', () => {
     expect(result.current.draft.operation).toBe('countDistinct');
   });
 
-  it('setField updates ofMember', () => {
+  it('setField on ofMember also writes the primary slot in inputs', () => {
     const { result } = renderHook(() => useNewMetricDraft());
-    act(() => result.current.setField('ofMember', 'orders.id'));
+    act(() => {
+      result.current.setField('sourceCubes', ['orders']);
+      result.current.setField('ofMember', 'orders.id');
+    });
     expect(result.current.draft.ofMember).toBe('orders.id');
+    expect(result.current.draft.inputs.value).toBe('orders.id');
   });
 
-  it('setField updates ofMemberB', () => {
+  it('setField on ofMemberB writes inputs.denominator', () => {
     const { result } = renderHook(() => useNewMetricDraft());
-    act(() => result.current.setField('ofMemberB', 'orders.total'));
+    act(() => {
+      result.current.setField('sourceCubes', ['orders', 'users']);
+      result.current.setField('operation', 'ratio');
+      result.current.setField('ofMemberB', 'orders.total');
+    });
     expect(result.current.draft.ofMemberB).toBe('orders.total');
+    expect(result.current.draft.inputs.denominator).toBe('orders.total');
+  });
+
+  it('setInput writes a slot and syncs legacy ofMember', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => {
+      result.current.setField('sourceCubes', ['orders']);
+      result.current.setInput('value', 'orders.revenue');
+    });
+    expect(result.current.draft.inputs.value).toBe('orders.revenue');
+    expect(result.current.draft.ofMember).toBe('orders.revenue');
+  });
+
+  it('toggleSource adds and removes a cube', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => result.current.toggleSource('orders'));
+    expect(result.current.draft.sourceCubes).toEqual(['orders']);
+    act(() => result.current.toggleSource('users'));
+    expect(result.current.draft.sourceCubes).toEqual(['orders', 'users']);
+    act(() => result.current.toggleSource('orders'));
+    expect(result.current.draft.sourceCubes).toEqual(['users']);
+  });
+
+  it('setPrimarySource promotes a non-primary selected cube to index 0', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => result.current.setField('sourceCubes', ['orders', 'users', 'sessions']));
+    act(() => result.current.setPrimarySource('sessions'));
+    expect(result.current.draft.sourceCubes).toEqual(['sessions', 'orders', 'users']);
+  });
+
+  it('shrinking sources below current op.minSources resets the operation', () => {
+    const { result } = renderHook(() => useNewMetricDraft());
+    act(() => {
+      result.current.setField('sourceCubes', ['orders', 'users']);
+      result.current.setField('operation', 'ratio');
+      result.current.setInput('numerator', 'orders.revenue');
+      result.current.setInput('denominator', 'users.count');
+    });
+    expect(result.current.draft.operation).toBe('ratio');
+    act(() => result.current.setField('sourceCubes', ['orders']));
+    expect(result.current.draft.operation).toBe('sum');
+    expect(result.current.draft.inputs).toEqual({});
   });
 
   it('setField updates format', () => {
@@ -216,11 +275,12 @@ describe('useNewMetricDraft()', () => {
     const { result } = renderHook(() => useNewMetricDraft());
     act(() => {
       result.current.setField('name', 'active_users');
-      result.current.setField('sourceCube', 'users');
+      result.current.setField('sourceCubes', ['users']);
       result.current.setField('operation', 'avg');
     });
     act(() => result.current.reset());
     expect(result.current.draft.name).toBe('');
+    expect(result.current.draft.sourceCubes).toEqual([]);
     expect(result.current.draft.sourceCube).toBeNull();
     expect(result.current.draft.operation).toBe('sum');
   });
@@ -233,8 +293,8 @@ describe('useNewMetricDraft()', () => {
   it('exposes isValid=true once all required fields are set', () => {
     const { result } = renderHook(() => useNewMetricDraft());
     act(() => {
-      result.current.setField('sourceCube', 'orders');
-      result.current.setField('ofMember', 'orders.amount');
+      result.current.setField('sourceCubes', ['orders']);
+      result.current.setInput('value', 'orders.amount');
       result.current.setField('name', 'total_revenue');
       result.current.setField('title', 'Total Revenue');
     });
@@ -244,8 +304,8 @@ describe('useNewMetricDraft()', () => {
   it('validation object contains per-field errors', () => {
     const { result } = renderHook(() => useNewMetricDraft());
     const { validation } = result.current;
-    expect(validation.errors.sourceCube).toBeDefined();
-    expect(validation.errors.ofMember).toBeDefined();
+    expect(validation.errors.sourceCubes).toBeDefined();
+    expect(validation.errors['inputs.value']).toBeDefined();
     expect(validation.errors.name).toBeDefined();
     expect(validation.errors.title).toBeDefined();
   });
@@ -305,7 +365,6 @@ describe('validate() — tags', () => {
   });
 
   it('treats Revenue and revenue as DISTINCT (case-sensitive)', () => {
-    // Documented decision: canonicalisation is out of scope.
     const result = validate({ ...VALID_DRAFT, tags: ['Revenue', 'revenue'] });
     expect(result.isValid).toBe(true);
   });

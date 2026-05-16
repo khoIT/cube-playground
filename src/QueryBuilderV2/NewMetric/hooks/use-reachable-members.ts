@@ -74,47 +74,73 @@ function pairKey(a: string, b: string): string {
 }
 
 /**
- * Derive all members reachable from sourceCube in one hop.
- * Source-cube members have viaJoin === undefined.
- * Joined-cube members carry viaJoin.sql verbatim from meta.
+ * Derive all members reachable from one or more source cubes (one hop).
+ * Source-cube members have `viaJoin === undefined`. Joined-cube members carry
+ * `viaJoin.sql` verbatim from meta and `viaJoin.fromCube` set to the source
+ * cube that owns the join. When multiple sources are passed, the union of
+ * their reachable members is returned, de-duped by `memberName`.
  *
- * Memoised on (cubes reference, sourceCube).
+ * Accepts either a single cube name or an array. Single-cube callers stay
+ * unchanged; multi-source callers (Phase 4) pass the array.
+ *
+ * Memoised on (cubes reference, sources tuple).
  */
-export function useReachableMembers(sourceCube: string | null): {
+export function useReachableMembers(sources: string | string[] | null): {
   items: ReachableMember[];
   reachableNames: Set<string>;
   joinedCubeCount: number;
 } {
   const { cubes } = useQueryBuilderContext();
 
+  const sourceList = useMemo(() => {
+    if (sources == null) return [] as string[];
+    return Array.isArray(sources) ? sources : [sources];
+  }, [sources]);
+
   return useMemo(() => {
     const empty = { items: [], reachableNames: new Set<string>(), joinedCubeCount: 0 };
-    if (!sourceCube) return empty;
+    if (sourceList.length === 0) return empty;
 
     const graph = buildJoinGraph(cubes);
     const cubeMap = new Map<string, CubeWithJoins>(
       (cubes as CubeWithJoins[]).map((c) => [c.name, c])
     );
 
-    if (!cubeMap.has(sourceCube)) return empty;
+    // Track per-cube reachability with the source that reached it (used for
+    // viaJoin.fromCube). The primary source (sources[0]) wins ties.
+    const reachedByCube = new Map<string, string | null>();
+    for (const src of sourceList) {
+      if (!cubeMap.has(src)) continue;
+      if (!reachedByCube.has(src)) reachedByCube.set(src, null);
+      const neighbours = graph.adjacency.get(src) ?? new Set<string>();
+      for (const n of neighbours) {
+        if (!reachedByCube.has(n)) reachedByCube.set(n, src);
+      }
+    }
 
-    const neighbours = graph.adjacency.get(sourceCube) ?? new Set<string>();
-    const joinedCubeCount = neighbours.size;
+    const joinedCubeCount = Array.from(reachedByCube.entries())
+      .filter(([cubeName, viaSrc]) => viaSrc !== null && !sourceList.includes(cubeName))
+      .length;
 
-    const reachableCubes = [sourceCube, ...Array.from(neighbours).sort()];
     const items: ReachableMember[] = [];
+    const seen = new Set<string>();
+    const orderedCubes = Array.from(reachedByCube.keys()).sort((a, b) => {
+      const aIsSrc = sourceList.indexOf(a);
+      const bIsSrc = sourceList.indexOf(b);
+      if (aIsSrc >= 0 && bIsSrc >= 0) return aIsSrc - bIsSrc;
+      if (aIsSrc >= 0) return -1;
+      if (bIsSrc >= 0) return 1;
+      return a.localeCompare(b);
+    });
 
-    for (const cubeName of reachableCubes) {
+    for (const cubeName of orderedCubes) {
       const cube = cubeMap.get(cubeName);
       if (!cube) continue;
 
-      const isSource = cubeName === sourceCube;
-      const viaJoin = isSource
-        ? undefined
-        : {
-            fromCube: sourceCube,
-            sql: graph.joinSqlByPair.get(pairKey(sourceCube, cubeName)) ?? '',
-          };
+      const viaSrc = reachedByCube.get(cubeName) ?? null;
+      const viaJoin = viaSrc
+        ? { fromCube: viaSrc, sql: graph.joinSqlByPair.get(pairKey(viaSrc, cubeName)) ?? '' }
+        : undefined;
 
       const dimensions = cube.dimensions.map<ReachableMember>((d) => ({
         cubeName,
@@ -132,16 +158,18 @@ export function useReachableMembers(sourceCube: string | null): {
         viaJoin,
       }));
 
-      // Source cube: measures then dimensions (preserves existing stub order);
-      // joined cubes: alphabetical by member name within each cube
       const cubeItems = [...dimensions, ...measures].sort((a, b) =>
         a.memberName.localeCompare(b.memberName)
       );
 
-      items.push(...cubeItems);
+      for (const it of cubeItems) {
+        if (seen.has(it.memberName)) continue;
+        seen.add(it.memberName);
+        items.push(it);
+      }
     }
 
     const reachableNames = new Set(items.map((i) => i.memberName));
     return { items, reachableNames, joinedCubeCount };
-  }, [cubes, sourceCube]);
+  }, [cubes, sourceList]);
 }

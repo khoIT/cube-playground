@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import styled, { css } from 'styled-components';
-import { Database, Layers, Hash, Columns3, RefreshCw, Check, Calendar } from 'lucide-react';
+import { Database, Layers, Hash, Columns3, RefreshCw, Check, Calendar, Star } from 'lucide-react';
 import type { CubeApi } from '@cubejs-client/core';
 import type { WizardCube } from '../../../hooks/use-new-metric-meta';
 import { formatRowCount, useCubeRowCount } from '../../hooks/use-cube-row-count';
 import { formatTimeRange, useCubeTimeRange } from '../../hooks/use-cube-time-range';
 
-const Card = styled.button<{ $selected: boolean }>`
+const Card = styled.button<{ $selected: boolean; $primary: boolean }>`
   position: relative;
   display: block;
   width: 100%;
@@ -29,6 +29,13 @@ const Card = styled.button<{ $selected: boolean }>`
       background: var(--brand-soft);
       border-color: var(--orange-200);
       box-shadow: 0 0 0 1px var(--orange-200) inset;
+    `}
+
+  ${(p) =>
+    p.$primary &&
+    css`
+      border-color: var(--brand);
+      box-shadow: 0 0 0 1.5px var(--brand) inset;
     `}
 `;
 
@@ -98,6 +105,32 @@ const SelectedPill = styled.span`
   color: var(--brand);
   font-size: 11.5px;
   font-weight: 600;
+`;
+
+const PrimaryPill = styled.span`
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+`;
+
+const MakePrimaryLink = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--brand);
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
 `;
 
 const Desc = styled.div`
@@ -174,7 +207,9 @@ const Tag = styled.span<{ $selected: boolean }>`
 export type SourceCardProps = {
   cube: WizardCube;
   selected: boolean;
+  primary: boolean;
   onSelect: () => void;
+  onSetPrimary?: () => void;
   cubeApi: CubeApi | null;
 };
 
@@ -209,7 +244,7 @@ function firstSentence(text: string): { head: string; rest: string } {
   return { head, rest: rest.trim() };
 }
 
-export function SourceCard({ cube, selected, onSelect, cubeApi }: SourceCardProps) {
+export function SourceCard({ cube, selected, primary, onSelect, onSetPrimary, cubeApi }: SourceCardProps) {
   const Icon = cube.type === 'view' ? Layers : Database;
   const measures = cube.measures?.length ?? 0;
   const dims = cube.dimensions?.length ?? 0;
@@ -236,7 +271,13 @@ export function SourceCard({ cube, selected, onSelect, cubeApi }: SourceCardProp
   const { head, rest } = firstSentence(desc);
 
   return (
-    <Card $selected={selected} onClick={onSelect} type="button">
+    <Card
+      $selected={selected}
+      $primary={primary}
+      onClick={onSelect}
+      type="button"
+      aria-pressed={selected}
+    >
       <Head>
         <HeadLeft>
           <IconTile $selected={selected}>
@@ -247,12 +288,17 @@ export function SourceCard({ cube, selected, onSelect, cubeApi }: SourceCardProp
             <Sub>{sub}</Sub>
           </TitleCol>
         </HeadLeft>
-        {selected && (
+        {primary ? (
+          <PrimaryPill>
+            <Star size={12} strokeWidth={2.5} />
+            Primary
+          </PrimaryPill>
+        ) : selected ? (
           <SelectedPill>
             <Check size={12} strokeWidth={2.5} />
             Selected
           </SelectedPill>
-        )}
+        ) : null}
       </Head>
 
       {desc && (
@@ -334,6 +380,27 @@ export function SourceCard({ cube, selected, onSelect, cubeApi }: SourceCardProp
             <Tag key={t} $selected={selected}>#{t}</Tag>
           ))}
         </TagRow>
+      )}
+
+      {selected && !primary && onSetPrimary && (
+        <MakePrimaryLink
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSetPrimary();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              onSetPrimary();
+            }
+          }}
+        >
+          <Star size={11} strokeWidth={2} />
+          Make primary
+        </MakePrimaryLink>
       )}
     </Card>
   );

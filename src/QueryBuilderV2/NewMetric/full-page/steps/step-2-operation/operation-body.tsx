@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { Lock } from 'lucide-react';
 import type { Operation } from '../../../types';
 import type { WizardCube } from '../../../hooks/use-new-metric-meta';
 import { OPERATIONS, OperationSegment, filterBySegment, OperationDef } from './operations';
@@ -29,18 +30,22 @@ const Grid = styled.div`
   gap: 8px;
 `;
 
-const Card = styled.button<{ $selected: boolean }>`
+const Card = styled.button<{ $selected: boolean; $disabled: boolean }>`
   text-align: left;
-  background: ${(p) => (p.$selected ? 'var(--brand-soft)' : 'var(--bg-card)')};
+  background: ${(p) =>
+    p.$disabled ? 'var(--bg-muted)'
+    : p.$selected ? 'var(--brand-soft)'
+    : 'var(--bg-card)'};
   border: 1px solid ${(p) => (p.$selected ? 'var(--brand)' : 'var(--border-card)')};
   border-radius: 10px;
   padding: 9px 11px;
-  cursor: pointer;
+  cursor: ${(p) => (p.$disabled ? 'not-allowed' : 'pointer')};
+  opacity: ${(p) => (p.$disabled ? 0.6 : 1)};
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
-  &:hover { border-color: var(--brand); }
+  &:hover { border-color: ${(p) => (p.$disabled ? 'var(--border-card)' : 'var(--brand)')}; }
 `;
 const CardHead = styled.div`
   display: flex;
@@ -96,38 +101,63 @@ const SelectedDot = styled.span`
   background: var(--brand);
   margin-left: auto;
 `;
+const LockIcon = styled(Lock)`
+  color: var(--text-muted);
+  margin-left: auto;
+  flex: none;
+`;
 
 export type OperationBodyProps = {
   cube: WizardCube | null;
   operation: Operation | null;
+  /** Number of source cubes the user has selected. Drives source-count gating. */
+  sourceCount: number;
   onSelect: (op: Operation) => void;
+  /** Called when the user clicks a card disabled by source-count gating. */
+  onRequestBack?: () => void;
 };
+
+type Gate = { reason: 'source-count'; need: number } | null;
 
 function OperationCard({
   def,
   cube,
   selected,
+  gated,
   onClick,
 }: {
   def: OperationDef;
   cube: WizardCube | null;
   selected: boolean;
+  gated: Gate;
   onClick: () => void;
 }) {
-  const { eligible } = useEligibleColumns(cube, def.accepts);
-  const eligibleLabel = def.accepts === 'none' ? 'rows only' : `${eligible.length} eligible`;
+  const primarySlot = def.inputs[0];
+  const { eligible } = useEligibleColumns(cube, primarySlot?.accepts ?? 'all');
+  const isGated = !!gated;
+  const eligibleLabel = isGated
+    ? `Needs ${gated!.need} sources — go back`
+    : def.inputs.length === 0
+      ? 'rows only'
+      : `${eligible.length} eligible`;
+  const tooltip = isGated
+    ? `Pick at least ${gated!.need} source cubes first.`
+    : def.description;
   return (
     <Card
       $selected={selected}
+      $disabled={isGated}
       onClick={onClick}
       type="button"
-      title={def.description}
+      aria-disabled={isGated || undefined}
+      title={tooltip}
       aria-label={`${def.name} — ${def.description}`}
     >
       <CardHead>
         <Name>{def.name}</Name>
-        {def.pro && <ProBadge>Advanced</ProBadge>}
-        {selected && <SelectedDot aria-label="Selected" />}
+        {def.pro && !isGated && <ProBadge>Advanced</ProBadge>}
+        {isGated && <LockIcon size={12} strokeWidth={2} aria-label="Locked — needs more sources" />}
+        {!isGated && selected && <SelectedDot aria-label="Selected" />}
       </CardHead>
       <Formula>{def.formula}</Formula>
       <Foot>
@@ -137,7 +167,7 @@ function OperationCard({
   );
 }
 
-export function OperationBody({ cube, operation, onSelect }: OperationBodyProps) {
+export function OperationBody({ cube, operation, sourceCount, onSelect, onRequestBack }: OperationBodyProps) {
   const [segment, setSegment] = useState<OperationSegment>('all');
   const list = useMemo(() => filterBySegment(segment), [segment]);
   return (
@@ -150,15 +180,27 @@ export function OperationBody({ cube, operation, onSelect }: OperationBodyProps)
         ))}
       </SegRow>
       <Grid>
-        {list.map((d) => (
-          <OperationCard
-            key={d.id}
-            def={d}
-            cube={cube}
-            selected={operation === d.id}
-            onClick={() => onSelect(d.id)}
-          />
-        ))}
+        {list.map((d) => {
+          const gated: Gate = d.minSources > sourceCount
+            ? { reason: 'source-count', need: d.minSources }
+            : null;
+          return (
+            <OperationCard
+              key={d.id}
+              def={d}
+              cube={cube}
+              selected={operation === d.id}
+              gated={gated}
+              onClick={() => {
+                if (gated) {
+                  onRequestBack?.();
+                  return;
+                }
+                onSelect(d.id);
+              }}
+            />
+          );
+        })}
       </Grid>
     </>
   );

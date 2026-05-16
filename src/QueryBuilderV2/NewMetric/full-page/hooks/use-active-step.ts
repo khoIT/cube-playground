@@ -3,7 +3,7 @@ import type { NewMetricDraftV2 } from '../../types';
 
 export type StepIndex = 1 | 2 | 3 | 4 | 5 | 6;
 
-export const STEP_LABELS: Record<StepIndex, { name: string; sub: string }> = {
+export const STEP_LABELS: Record<StepIndex, { name: string; sub?: string }> = {
   1: { name: 'Source' },
   2: { name: 'Operation', sub: 'Aggregation type' },
   3: { name: 'Column', sub: 'Field to measure' },
@@ -30,7 +30,7 @@ export function useActiveStep(draft: NewMetricDraftV2): {
   const canGoTo = useMemo(() => {
     return (target: StepIndex) => {
       if (target === 1) return true;
-      if (target >= 2 && !draft.sourceCube) return false;
+      if (target >= 2 && draft.sourceCubes.length < 1) return false;
       if (target >= 3 && !draft.operation) return false;
       if (target >= 4 && draft.operation !== 'count' && !draft.ofMember) return false;
       if (target >= 6 && (!draft.name || !draft.title)) return false;
@@ -49,7 +49,7 @@ export function useActiveStep(draft: NewMetricDraftV2): {
 }
 
 function deriveInitialStep(draft: NewMetricDraftV2): StepIndex {
-  if (!draft.sourceCube) return 1;
+  if (draft.sourceCubes.length === 0) return 1;
   if (!draft.operation) return 2;
   if (draft.operation !== 'count' && !draft.ofMember) return 3;
   if (!draft.name || !draft.title) return 5;

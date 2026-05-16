@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { NewMetricDraft, NewMetricDraftV2, ValidationResult } from '../types';
 import { emptyTree } from '../filter-tree';
+import { findOp, primarySlotIdFor } from '../full-page/steps/step-2-operation/operations';
 
 // Snake_case pattern: starts with lowercase letter, followed by lowercase letters, digits, or underscores.
 const SNAKE_CASE_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -11,8 +12,10 @@ const DEBOUNCE_MS = 200;
 
 function makeInitialDraft(): NewMetricDraftV2 {
   return {
+    sourceCubes: [],
     sourceCube: null,
     operation: 'sum',
+    inputs: {},
     ofMember: null,
     ofMemberB: null,
     filter: null,
@@ -29,21 +32,85 @@ function makeInitialDraft(): NewMetricDraftV2 {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Parallel-sync helpers — keep legacy fields lock-stepped with the canonical
+// `sourceCubes` / `inputs` shape so the dialog flow keeps compiling untouched.
+// ---------------------------------------------------------------------------
+
+function syncFromCanonical(draft: NewMetricDraftV2): NewMetricDraftV2 {
+  const sourceCube = draft.sourceCubes[0] ?? null;
+  const primarySlot = primarySlotIdFor(draft.operation);
+  const ofMember = draft.inputs[primarySlot] ?? null;
+  const ofMemberB = draft.operation === 'ratio' ? (draft.inputs.denominator ?? null) : null;
+  if (
+    draft.sourceCube === sourceCube &&
+    draft.ofMember === ofMember &&
+    draft.ofMemberB === ofMemberB
+  ) {
+    return draft;
+  }
+  return { ...draft, sourceCube, ofMember, ofMemberB };
+}
+
+function applySetField<K extends keyof NewMetricDraftV2>(
+  state: NewMetricDraftV2,
+  field: K,
+  value: NewMetricDraftV2[K]
+): NewMetricDraftV2 {
+  let next: NewMetricDraftV2 = { ...state, [field]: value };
+
+  // Legacy → canonical
+  if (field === 'sourceCube') {
+    const v = value as string | null;
+    next.sourceCubes = v ? [v] : [];
+  } else if (field === 'ofMember') {
+    const v = value as string | null;
+    const slot = primarySlotIdFor(next.operation);
+    next.inputs = { ...next.inputs, [slot]: v };
+  } else if (field === 'ofMemberB') {
+    const v = value as string | null;
+    next.inputs = { ...next.inputs, denominator: v };
+  }
+
+  // Auto-invalidate operation when sourceCubes shrinks below the current op's
+  // minSources. Only fires on a `sourceCubes` (or legacy `sourceCube`) write,
+  // never when the user picks an op that requires more sources than they have
+  // — Step 2's UI gating handles that case.
+  if (field === 'sourceCubes' || field === 'sourceCube') {
+    const op = findOp(next.operation);
+    if (op && next.sourceCubes.length < op.minSources) {
+      next.operation = 'sum';
+      next.inputs = {};
+    }
+  }
+
+  return syncFromCanonical(next);
+}
+
 type SetFieldAction<K extends keyof NewMetricDraftV2> = {
   type: 'setField';
   field: K;
   value: NewMetricDraftV2[K];
 };
+type SetInputAction = { type: 'setInput'; slotId: string; value: string | null };
 type HydrateAction = { type: 'hydrate'; draft: NewMetricDraftV2 };
 type ResetAction = { type: 'reset' };
-type DraftAction = SetFieldAction<keyof NewMetricDraftV2> | HydrateAction | ResetAction;
+type DraftAction =
+  | SetFieldAction<keyof NewMetricDraftV2>
+  | SetInputAction
+  | HydrateAction
+  | ResetAction;
 
 function reducer(state: NewMetricDraftV2, action: DraftAction): NewMetricDraftV2 {
   switch (action.type) {
     case 'setField':
-      return { ...state, [action.field]: action.value };
+      return applySetField(state, action.field, action.value);
+    case 'setInput': {
+      const nextInputs = { ...state.inputs, [action.slotId]: action.value };
+      return applySetField(state, 'inputs', nextInputs);
+    }
     case 'hydrate':
-      return action.draft;
+      return syncFromCanonical(action.draft);
     case 'reset':
       return makeInitialDraft();
     default:
@@ -56,44 +123,31 @@ export type ValidateOptions = {
 };
 
 /**
- * Pure validation function. `reachableNames` is mandatory in v2.
+ * Pure validation function. Reads from the canonical `sourceCubes` + `inputs`
+ * shape. The legacy `ofMember`/`ofMemberB` fields are still synced but the
+ * validator no longer reads them.
  */
 export function validate(draft: NewMetricDraft, opts?: Partial<ValidateOptions>): ValidationResult {
   const errors: ValidationResult['errors'] = {};
+  const op = findOp(draft.operation);
 
-  if (!draft.sourceCube) errors.sourceCube = 'Source cube is required.';
+  if (draft.sourceCubes.length === 0) {
+    errors.sourceCubes = 'At least one source cube is required.';
+  } else if (op && draft.sourceCubes.length < op.minSources) {
+    errors.sourceCubes = `${op.name} needs at least ${op.minSources} source cubes.`;
+  }
+
   if (!draft.operation) errors.operation = 'Operation is required.';
 
-  // `count` doesn't require an of-member (it's the row count of the source cube).
-  if (draft.operation !== 'count' && !draft.ofMember) {
-    errors.ofMember = 'Member is required.';
-  } else if (
-    draft.ofMember &&
-    opts?.reachableNames &&
-    !opts.reachableNames.has(draft.ofMember)
-  ) {
-    errors.ofMember =
-      'Member is not joined to the source cube. Define the join in your schema repo first.';
-  }
-
-  if (draft.operation === 'ratio' && !draft.ofMemberB) {
-    errors.ofMemberB = 'Second member is required for ratio.';
-  } else if (
-    draft.operation === 'ratio' &&
-    draft.ofMemberB &&
-    opts?.reachableNames &&
-    !opts.reachableNames.has(draft.ofMemberB)
-  ) {
-    errors.ofMemberB = 'Member is not joined to the source cube.';
-  }
-
-  if (draft.operation === 'ratio' && draft.sourceCube) {
-    const prefix = `${draft.sourceCube}.`;
-    if (draft.ofMember && !draft.ofMember.startsWith(prefix)) {
-      errors.ofMember = 'Ratio operands must belong to the source cube. Cross-cube ratio is not supported yet.';
-    }
-    if (draft.ofMemberB && !draft.ofMemberB.startsWith(prefix)) {
-      errors.ofMemberB = 'Ratio operands must belong to the source cube. Cross-cube ratio is not supported yet.';
+  if (op) {
+    for (const slot of op.inputs) {
+      const val = draft.inputs[slot.id] ?? null;
+      const slotKey = `inputs.${slot.id}` as const;
+      if (slot.required && !val) {
+        errors[slotKey] = `${slot.label} is required.`;
+      } else if (val && opts?.reachableNames && !opts.reachableNames.has(val)) {
+        errors[slotKey] = `${slot.label} is not reachable from the selected source cubes.`;
+      }
     }
   }
 
@@ -145,24 +199,54 @@ function storageKeyFor(tabId: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Hydration sanitiser — drops out-of-meta members / filter-leaf columns.
+// Hydration — migrate pre-multi-source shape and sanitize unreachable members.
 // ---------------------------------------------------------------------------
+
+/**
+ * Bring a persisted draft up to the current shape:
+ *  - missing `sourceCubes` ← `[sourceCube]` if a legacy `sourceCube` exists
+ *  - missing `inputs`      ← seeded from legacy `ofMember` / `ofMemberB`
+ */
+function migrateLegacyShape(parsed: any): NewMetricDraftV2 {
+  const draft = { ...makeInitialDraft(), ...(parsed ?? {}) } as NewMetricDraftV2;
+
+  // If the persisted draft pre-dates `sourceCubes`, seed it from the legacy
+  // single-cube field. The spread above brought `sourceCube` over but left
+  // `sourceCubes` at the initial `[]` from `makeInitialDraft()`.
+  const hadNewSources = Array.isArray((parsed as any)?.sourceCubes);
+  if (!hadNewSources) {
+    const legacy = (parsed?.sourceCube ?? null) as string | null;
+    draft.sourceCubes = legacy ? [legacy] : [];
+  }
+
+  // Same for `inputs`: seed from legacy `ofMember` / `ofMemberB`.
+  const hadNewInputs = parsed?.inputs && typeof parsed.inputs === 'object';
+  if (!hadNewInputs) {
+    draft.inputs = {};
+    const legacyOf = (parsed?.ofMember ?? null) as string | null;
+    const legacyOfB = (parsed?.ofMemberB ?? null) as string | null;
+    const primarySlot = primarySlotIdFor(draft.operation);
+    if (legacyOf) draft.inputs[primarySlot] = legacyOf;
+    if (legacyOfB) draft.inputs.denominator = legacyOfB;
+  }
+
+  return draft;
+}
 
 function sanitizeDraft(
   draft: NewMetricDraftV2,
   reachableNames: Set<string>
 ): { draft: NewMetricDraftV2; dropped: string[] } {
   const dropped: string[] = [];
-  let next = draft;
-  if (next.ofMember && !reachableNames.has(next.ofMember)) {
-    dropped.push(next.ofMember);
-    next = { ...next, ofMember: null };
+  let nextInputs = draft.inputs;
+  for (const [slotId, val] of Object.entries(draft.inputs)) {
+    if (val && !reachableNames.has(val)) {
+      dropped.push(val);
+      nextInputs = { ...nextInputs, [slotId]: null };
+    }
   }
-  if (next.ofMemberB && !reachableNames.has(next.ofMemberB)) {
-    dropped.push(next.ofMemberB);
-    next = { ...next, ofMemberB: null };
-  }
-  // Filter tree: prune leaves whose column is not reachable.
+  let next = nextInputs === draft.inputs ? draft : { ...draft, inputs: nextInputs };
+
   function walk(node: typeof next.filterTree): typeof next.filterTree {
     return {
       ...node,
@@ -192,6 +276,11 @@ function sanitizeDraft(
 export type UseNewMetricDraftReturn = {
   draft: NewMetricDraftV2;
   setField: <K extends keyof NewMetricDraftV2>(field: K, value: NewMetricDraftV2[K]) => void;
+  setInput: (slotId: string, value: string | null) => void;
+  /** Toggle a cube's presence in `sourceCubes`. First selected becomes primary. */
+  toggleSource: (cubeName: string) => void;
+  /** Reorder `sourceCubes` so `cubeName` becomes the primary (index 0). */
+  setPrimarySource: (cubeName: string) => void;
   reset: () => void;
   isValid: boolean;
   validation: ValidationResult;
@@ -217,9 +306,9 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
     try {
       const raw = window.localStorage.getItem(storageKeyFor(tabIdRef.current));
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { version?: number; draft?: NewMetricDraftV2 };
+      const parsed = JSON.parse(raw) as { version?: number; draft?: any };
       if (parsed.version !== STORAGE_VERSION || !parsed.draft) return;
-      let next = parsed.draft;
+      let next = migrateLegacyShape(parsed.draft);
       if (args.reachableNames) {
         const sanitized = sanitizeDraft(next, args.reachableNames);
         next = sanitized.draft;
@@ -296,6 +385,20 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
     dispatch({ type: 'setField', field, value });
     channelRef.current?.postMessage({ type: 'editing', tabId: tabIdRef.current });
   }
+  function setInput(slotId: string, value: string | null) {
+    dispatch({ type: 'setInput', slotId, value });
+    channelRef.current?.postMessage({ type: 'editing', tabId: tabIdRef.current });
+  }
+  function toggleSource(cubeName: string) {
+    const has = draft.sourceCubes.includes(cubeName);
+    const next = has ? draft.sourceCubes.filter((n) => n !== cubeName) : [...draft.sourceCubes, cubeName];
+    setField('sourceCubes', next);
+  }
+  function setPrimarySource(cubeName: string) {
+    if (!draft.sourceCubes.includes(cubeName)) return;
+    const next = [cubeName, ...draft.sourceCubes.filter((n) => n !== cubeName)];
+    setField('sourceCubes', next);
+  }
   function reset() {
     dispatch({ type: 'reset' });
   }
@@ -313,6 +416,9 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
   return {
     draft,
     setField,
+    setInput,
+    toggleSource,
+    setPrimarySource,
     reset,
     isValid: validation.isValid,
     validation,
