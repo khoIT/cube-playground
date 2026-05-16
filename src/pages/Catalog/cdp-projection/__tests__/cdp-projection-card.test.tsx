@@ -94,6 +94,37 @@ describe('<CdpProjectionCard>', () => {
     expect(screen.getByText(/unsupported aggregation type/i)).toBeTruthy();
   });
 
+  it('copy json → writes JSON.stringify(payload) to clipboard + shows Copied! transient label', async () => {
+    fetchOk();
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    render(<CdpProjectionCard projection={ok} />);
+    const copyBtn = screen.getByTestId('copy-json');
+    expect(copyBtn.textContent).toMatch(/copy json/i);
+    fireEvent.click(copyBtn);
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const written = writeText.mock.calls[0][0] as string;
+    expect(JSON.parse(written)).toEqual(payload);
+    await waitFor(() => expect(screen.getByTestId('copy-json').textContent).toMatch(/copied!/i));
+  });
+
+  it('copy json fallback → uses document.execCommand when clipboard rejects', async () => {
+    fetchOk();
+    const writeText = vi.fn(async () => { throw new Error('denied'); });
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const execCommand = vi.fn(() => true);
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+    render(<CdpProjectionCard projection={ok} />);
+    fireEvent.click(screen.getByTestId('copy-json'));
+    await waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
+  });
+
   it('verify button disabled while checking', async () => {
     let resolve: (v: any) => void = () => {};
     globalThis.fetch = vi.fn(() => new Promise((r) => { resolve = r; })) as unknown as typeof fetch;

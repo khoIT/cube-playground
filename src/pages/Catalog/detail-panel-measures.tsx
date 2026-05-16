@@ -35,7 +35,7 @@ interface DetailPanelMeasuresProps {
 
 export function DetailPanelMeasures({ cube }: DetailPanelMeasuresProps) {
   const [expandedMeasureName, setExpandedMeasureName] = useState<string | null>(null);
-  const expandable = Boolean(cube.meta?.cdp_source);
+  const cubeHasCdpMapping = Boolean(cube.meta?.cdp_source);
 
   useEffect(() => {
     setExpandedMeasureName(null);
@@ -49,18 +49,19 @@ export function DetailPanelMeasures({ cube }: DetailPanelMeasuresProps) {
           cube as unknown as ProjectableCube,
           m as unknown as ProjectableMeasure,
         );
+        const rowExpandable = cubeHasCdpMapping && projection.ok;
         return (
           <MeasureRow
             key={m.name}
             measure={m}
             cube={cube}
-            expandable={expandable}
+            expandable={rowExpandable}
             expanded={expandedMeasureName === m.name}
             onToggle={() =>
               setExpandedMeasureName((prev) => (prev === m.name ? null : m.name))
             }
           >
-            <CdpProjectionCard projection={projection} />
+            {rowExpandable && <CdpProjectionCard projection={projection} />}
           </MeasureRow>
         );
       })}

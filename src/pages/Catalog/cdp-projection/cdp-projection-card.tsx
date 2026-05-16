@@ -6,8 +6,9 @@
  * disabled — locked per plan Validation Session 1).
  */
 
+import { useState } from 'react';
 import styled from 'styled-components';
-import type { ProjectionResult, VerifyState, VerifyDiffEntry } from './types';
+import type { CdpMetricPayload, ProjectionResult, VerifyState, VerifyDiffEntry } from './types';
 import { useCdpVerify } from './use-cdp-verify';
 
 const Card = styled.div<{ $disabled?: boolean }>`
@@ -61,6 +62,19 @@ const VerifyBtn = styled.button`
   font-size: 11.5px;
   font-weight: 600;
   &:disabled { opacity: 0.5; cursor: progress; }
+`;
+
+const CopyBtn = styled.button`
+  appearance: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  &:hover { background: var(--pill-mono-bg); }
 `;
 
 const Badge = styled.span<{ $tone: 'gray' | 'green' | 'amber' | 'red' }>`
@@ -135,8 +149,28 @@ export function CdpProjectionCard({ projection }: CdpProjectionCardProps) {
   return <ProjectableCard payload={projection.payload} />;
 }
 
-function ProjectableCard({ payload }: { payload: ProjectionResult & { ok: true } extends { payload: infer P } ? P : never }) {
+function ProjectableCard({ payload }: { payload: CdpMetricPayload }) {
   const { state, check } = useCdpVerify(payload);
+  const [copied, setCopied] = useState(false);
+
+  async function copyJson() {
+    const json = JSON.stringify(payload, null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = json;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'absolute';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } finally { document.body.removeChild(ta); }
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
     <Card data-testid="cdp-card">
       <FieldGrid>
@@ -152,6 +186,9 @@ function ProjectableCard({ payload }: { payload: ProjectionResult & { ok: true }
         <VerifyBtn type="button" onClick={check} disabled={state.kind === 'checking'}>
           {state.kind === 'error' ? 'Retry' : 'Verify on CDP'}
         </VerifyBtn>
+        <CopyBtn type="button" onClick={copyJson} data-testid="copy-json">
+          {copied ? 'Copied!' : 'Copy JSON'}
+        </CopyBtn>
         <StatusBadge state={state} />
       </ActionBar>
       {state.kind === 'mismatch' && <DiffList diff={state.diff} />}
