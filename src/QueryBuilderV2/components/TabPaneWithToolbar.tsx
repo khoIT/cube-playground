@@ -7,6 +7,11 @@ const ContainerElement = tasty({
     display: 'grid',
     gridTemplateRows: 'min-content 1fr',
     placeContent: 'stretch',
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 0,
+    width: '100%',
 
     Toolbar: {
       display: 'flex',
