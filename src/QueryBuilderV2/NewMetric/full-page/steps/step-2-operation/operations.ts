@@ -66,8 +66,8 @@ export const OPERATIONS: OperationDef[] = [
     id: 'weightedAvg',
     name: 'Weighted average',
     formula: 'SUM(v * w) / NULLIF(SUM(w), 0)',
-    description: 'Average of a value column weighted by a weight column.',
-    minSources: 1,
+    description: 'Average of a value column weighted by a weight column. Sources may span joined cubes.',
+    minSources: 2,
     inputs: [
       { id: 'value', label: 'Value', accepts: 'numeric', required: true },
       { id: 'weight', label: 'Weight', accepts: 'numeric', required: true },
@@ -80,7 +80,7 @@ export const OPERATIONS: OperationDef[] = [
     name: 'Formula',
     formula: 'SUM(a) + SUM(b) - SUM(c)',
     description: 'Free-form aggregation across three numeric columns. Sources may span joined cubes.',
-    minSources: 1,
+    minSources: 3,
     inputs: [
       { id: 'a', label: 'Column A', accepts: 'numeric', required: true },
       { id: 'b', label: 'Column B', accepts: 'numeric', required: true },
