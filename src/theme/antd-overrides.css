@@ -225,8 +225,34 @@
 [data-theme="dark"] .ant-tabs-tab {
   color: var(--text-secondary);
 }
-[data-theme="dark"] .ant-tabs-nav::before {
-  border-bottom-color: var(--border-card);
+/*
+ * antd 4 paints two white slivers on a dark surface that both need killing:
+ *   1. `.ant-tabs-nav::before` — the 1px `#f0f0f0` divider rendered above
+ *      the tab content. Shows under non-card tab rows like
+ *      "Results | Analysis | SQL …".
+ *   2. `.ant-tabs-card .ant-tabs-tab-active` — antd sets
+ *      `border-bottom-color: #fff` to merge the active card tab visually
+ *      with the white content area below. In dark mode this becomes a
+ *      bright sliver under "Query 1".
+ * Use `border: 0 !important` to nuke width + style + color in one shot,
+ * and bump specificity to beat antd's `.ant-tabs-card.ant-tabs-top>div>…`
+ * compound selector (0,4,0).
+ */
+[data-theme="dark"] .ant-tabs-nav::before,
+[data-theme="dark"] .ant-tabs-top > .ant-tabs-nav::before,
+[data-theme="dark"] .ant-tabs-bottom > .ant-tabs-nav::before,
+[data-theme="dark"] .ant-tabs-top > div > .ant-tabs-nav::before,
+[data-theme="dark"] .ant-tabs-bottom > div > .ant-tabs-nav::before {
+  border: 0 !important;
+}
+[data-theme="dark"].ant-tabs-card .ant-tabs-tab-active,
+[data-theme="dark"] .ant-tabs-card .ant-tabs-tab-active,
+[data-theme="dark"] .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active,
+[data-theme="dark"] .ant-tabs-card > div > .ant-tabs-nav .ant-tabs-tab-active,
+[data-theme="dark"] .ant-tabs-editable-card .ant-tabs-tab-active,
+[data-theme="dark"] .ant-tabs-editable-card > .ant-tabs-nav .ant-tabs-tab-active,
+[data-theme="dark"] .ant-tabs-editable-card > div > .ant-tabs-nav .ant-tabs-tab-active {
+  border-bottom-color: var(--bg-card) !important;
 }
 
 [data-theme="dark"] .ant-modal-content,
@@ -380,23 +406,98 @@
   border-color: var(--brand) !important;
 }
 
-/* Webkit scrollbar — match dark surface */
+/*
+ * Webkit scrollbar — match dark surface.
+ * @cube-dev/ui-kit's `styledScrollbar: true` emits class-scoped webkit-scrollbar
+ * rules with equal specificity and later source order, so it wins without
+ * !important. Force dark colors on every scroll surface here.
+ */
 [data-theme="dark"] ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-  background: var(--bg-app);
+  width: 10px !important;
+  height: 10px !important;
+  background: var(--bg-app) !important;
 }
 [data-theme="dark"] ::-webkit-scrollbar-track {
-  background: var(--bg-app);
+  background: var(--bg-app) !important;
 }
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 6px;
-  border: 2px solid var(--bg-app);
+  background: var(--border-strong) !important;
+  border-radius: 6px !important;
+  border: 2px solid var(--bg-app) !important;
 }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--text-muted) !important;
 }
 [data-theme="dark"] ::-webkit-scrollbar-corner {
-  background: var(--bg-app);
+  background: var(--bg-app) !important;
+}
+
+/*
+ * Sticky column header in the results table — dark mode only.
+ * `ColumnHeader` (QueryBuilderResults.tsx) sets `fill: '#measure-active'` etc.,
+ * which in dark mode resolves to a translucent rgba (~0.18-0.22 alpha). Two
+ * problems followed:
+ *   (1) scrolled rows showed through the translucency,
+ *   (2) on an empty results state the colored band reads as a stray "line"
+ *       under the Results / Analysis tab strip.
+ * Resolution: match the header background to `--bg-card` (same as data cells),
+ * which is fully opaque (no scroll bleed-through) AND visually identical to
+ * the table area (no colored band). Per-column-type identification still comes
+ * from the member icon + `--{member}-text-color` text tint inside the header.
+ * Light mode keeps the original soft-coloured band (not gated here).
+ */
+[data-theme="dark"] [data-resize-anchor] {
+  background-image: none !important;
+  background-color: var(--bg-card) !important;
+}
+
+/*
+ * Results grid cell-gap colour. GridTable (QueryBuilderResults.tsx) uses
+ * `gap: '1bw'` with `fill: '#dark-04.8'`, which renders the 1px gap between
+ * cells as a translucent grey strip. In dark mode this reads as a visible
+ * bright line — most notable between the sticky column header and the first
+ * data row. Hide the grid's own background behind `--bg-card` so the gap
+ * blends into the surrounding cells (cells themselves keep `fill: '#white'`,
+ * which already resolves to `--bg-card` in dark mode).
+ */
+[data-theme="dark"] [data-qa="ResultsTableContainer"] > div:first-child {
+  background-color: var(--bg-card) !important;
+}
+
+/*
+ * Custom Tabs (src/QueryBuilderV2/components/Tabs/Tabs.tsx) hardcode the
+ * bottom-divider colour as `--border-color: rgb(234,234,238)` on the tasty
+ * element. That value flows into `shadow: 'inset 0 -1bw 0 #border'` on both
+ * the parent strip and each TabElement, painting a light sliver under
+ * "Results | Analysis | SQL | ...". Re-point the local custom prop to the
+ * theme-aware `--border-card` in dark mode so the inset shadow blends.
+ *
+ * Tasty emits its static styles via a doubled-class selector for specificity
+ * (e.g. `.cjMKtP.cjMKtP { --border-color: rgb(234,234,238); }`, (0,2,0)),
+ * AND its stylesheet is injected at runtime — later in source order than
+ * this file. A plain `[data-theme="dark"] [data-qa="Tabs"]` (also (0,2,0))
+ * ties and loses on source order. Bump to (0,3,0) via `:root[data-theme]`
+ * AND `!important` so it wins unconditionally.
+ *
+ * IMPORTANT: ThemeContext.tsx sets `data-theme` on `document.documentElement`
+ * (the `<html>` element), NOT on `<body>`. Earlier `body[data-theme="dark"]`
+ * selectors never matched in production and the override silently lost.
+ * Use `:root[data-theme="dark"]` to bind to the actual carrier.
+ */
+:root[data-theme="dark"] [data-qa="Tabs"] {
+  --border-color: transparent !important;
+  /* Even with a transparent colour, some renderers leave a 1px sub-pixel
+     sliver from `inset 0 -1px 0 transparent`. Drop the whole declaration. */
+  box-shadow: none !important;
+}
+/* Each TabElement (button child of [data-qa="Tabs"]) gets its own bottom
+   shadow via tasty (.kYQmcH.kYQmcH:not([data-is-card]):not([data-is-active])
+   = specificity (0,4,0)). Beat that with `:root[]` + `!important`. */
+:root[data-theme="dark"] [data-qa="Tabs"] button {
+  box-shadow: none !important;
+}
+/* Restore the active-tab brand underline that lived in the same box-shadow.
+   Tasty marks the active TabElement with `data-is-active=""` (empty value). */
+:root[data-theme="dark"] [data-qa="Tabs"] button[data-is-active] {
+  box-shadow: inset 0 -3px 0 0 var(--brand) !important;
 }

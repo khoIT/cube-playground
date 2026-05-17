@@ -1,6 +1,6 @@
 {
   "brand": {
-    "platform": "vNGGAMES Data Platform"
+    "platformSuffix": "Data Platform"
   },
   "nav": {
     "playground": "Playground",
