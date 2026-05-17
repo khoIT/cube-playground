@@ -62,6 +62,53 @@
   --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /*
+   * Theme-token RGB triples (no rgba wrapper). Used by tasty rules like
+   * `rgba(var(--text-primary-rgb), 0.04)` so they follow the active theme.
+   */
+  --text-primary-rgb:   23, 23, 23;
+  --text-secondary-rgb: 64, 64, 64;
+  --text-muted-rgb:     115, 115, 115;
+  --bg-app-rgb:         250, 250, 250;
+  --bg-card-rgb:        255, 255, 255;
+  --bg-muted-rgb:       245, 245, 245;
+  --brand-rgb:          240, 90, 34;
+
+  /*
+   * QueryBuilderV2 member-type palette (LIGHT mode defaults). Referenced from
+   * `src/QueryBuilderV2/color-tokens.ts`. Dark-mode equivalents live in
+   * `:root[data-theme="dark"]` below.
+   */
+  --qb-time-strong:      rgb(23, 70, 13);
+  --qb-time-text:        rgb(65, 113, 57);
+  --qb-time-active:      rgb(199, 219, 195);
+  --qb-time-hover:       rgb(228, 244, 225);
+
+  --qb-measure-strong:   rgb(76, 55, 0);
+  --qb-measure-text:     rgb(126, 94, 7);
+  --qb-measure-active:   rgb(225, 210, 183);
+  --qb-measure-hover:    rgb(248, 241, 227);
+
+  --qb-dimension-strong: rgb(35, 54, 110);
+  --qb-dimension-text:   rgb(74, 96, 156);
+  --qb-dimension-active: rgb(200, 212, 239);
+  --qb-dimension-hover:  rgb(231, 238, 255);
+
+  --qb-segment-strong:   rgb(72, 41, 98);
+  --qb-segment-text:     rgb(114, 83, 144);
+  --qb-segment-active:   rgb(219, 206, 233);
+  --qb-segment-hover:    rgb(244, 234, 255);
+
+  --qb-filter-strong:    rgb(95, 31, 64);
+  --qb-filter-text:      rgb(142, 73, 106);
+  --qb-filter-active:    rgb(255, 191, 218);
+  --qb-filter-hover:     rgb(255, 231, 240);
+
+  --qb-missing-strong:   rgb(58, 58, 58);
+  --qb-missing-text:     rgb(99, 99, 99);
+  --qb-missing-active:   rgb(212, 212, 212);
+  --qb-missing-hover:    rgb(238, 238, 238);
+
   /* Chart palette */
   --chart-1: #f05a22;
   --chart-2: #3f8dff;
@@ -115,11 +162,185 @@
   --table-header-bg: rgba(240, 90, 34, 0.06);
 }
 
+:root[data-theme="dark"] {
+  --brand-soft:     rgba(240, 90, 34, 0.12);
+  --bg-app:         var(--neutral-950);
+  --bg-card:        var(--neutral-900);
+  --bg-muted:       var(--neutral-800);
+  --border-card:    var(--neutral-800);
+  --border-strong:  var(--neutral-700);
+  --text-primary:   var(--neutral-50);
+  --text-secondary: var(--neutral-300);
+  --text-muted:     var(--neutral-500);
+
+  --text-primary-rgb:   250, 250, 250;
+  --text-secondary-rgb: 212, 212, 212;
+  --text-muted-rgb:     115, 115, 115;
+  --bg-app-rgb:         10, 10, 10;
+  --bg-card-rgb:        23, 23, 23;
+  --bg-muted-rgb:       38, 38, 38;
+
+  /*
+   * Dark-mode QB member-type palette. Active = subtle brand-tinted dark for
+   * cell backgrounds; Text = a light hue for legibility on dark.
+   */
+  --qb-time-strong:      #6ee7b7;
+  --qb-time-text:        #6ee7b7;
+  --qb-time-active:      rgba(0, 150, 136, 0.22);
+  --qb-time-hover:       rgba(0, 150, 136, 0.12);
+
+  --qb-measure-strong:   #fdba74;
+  --qb-measure-text:     #fdba74;
+  --qb-measure-active:   rgba(240, 90, 34, 0.22);
+  --qb-measure-hover:    rgba(240, 90, 34, 0.12);
+
+  --qb-dimension-strong: #93c5fd;
+  --qb-dimension-text:   #93c5fd;
+  --qb-dimension-active: rgba(63, 141, 255, 0.22);
+  --qb-dimension-hover:  rgba(63, 141, 255, 0.12);
+
+  --qb-segment-strong:   #d8b4fe;
+  --qb-segment-text:     #d8b4fe;
+  --qb-segment-active:   rgba(168, 85, 247, 0.22);
+  --qb-segment-hover:    rgba(168, 85, 247, 0.12);
+
+  --qb-filter-strong:    #fca5a5;
+  --qb-filter-text:      #fca5a5;
+  --qb-filter-active:    rgba(220, 38, 38, 0.22);
+  --qb-filter-hover:     rgba(220, 38, 38, 0.12);
+
+  --qb-missing-strong:   rgba(200, 200, 210, 0.85);
+  --qb-missing-text:     rgba(200, 200, 210, 0.75);
+  --qb-missing-active:   rgba(255, 255, 255, 0.08);
+  --qb-missing-hover:    rgba(255, 255, 255, 0.05);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pane: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.4);
+
+  --bg-pane-rail: var(--bg-app);
+
+  --qrow-divider: 1px dashed var(--neutral-800);
+  --pill-mono-bg: var(--neutral-800);
+
+  --preagg-banner-bg: rgba(240, 90, 34, 0.10);
+  --preagg-banner-bg-hover: rgba(240, 90, 34, 0.16);
+  --preagg-banner-border: rgba(240, 90, 34, 0.35);
+  --preagg-banner-text: #fdba74;
+
+  --live-badge-bg: rgba(16, 185, 129, 0.15);
+  --live-badge-border: rgba(16, 185, 129, 0.4);
+  --live-badge-text: #6ee7b7;
+
+  --stale-badge-bg: rgba(217, 119, 6, 0.18);
+  --stale-badge-border: rgba(217, 119, 6, 0.45);
+  --stale-badge-text: #fcd34d;
+
+  --table-header-bg: rgba(240, 90, 34, 0.10);
+
+  /*
+   * Override legacy ui-kit / variables.ts color tokens so QueryBuilderV2 inherits
+   * dark-friendly hues. variables.ts injects light-mode hex defaults; these flip
+   * them for dark.
+   */
+  --dark-color:         rgba(245, 245, 245, 1);
+  --dark-01-color:      rgba(245, 245, 245, 1);
+  --dark-02-color:      rgba(210, 210, 220, 0.9);
+  --dark-03-color:      rgba(160, 160, 180, 0.85);
+  --dark-04-color:      rgba(120, 120, 140, 0.75);
+  --dark-05-color:      rgba(70, 70, 90, 0.6);
+  --light-color:        var(--bg-muted);
+  --gray-color:         var(--bg-muted);
+  --text-color:         var(--text-primary);
+  --heading-color:      var(--text-primary);
+  --menu-item-active-bg: var(--bg-muted);
+
+  /* Query Builder member-type fills (sticky column headers + member chips) */
+  --measure-active-color:        rgba(240, 90, 34, 0.18);
+  --measure-hover-color:         rgba(240, 90, 34, 0.10);
+  --dimension-active-color:      rgba(63, 141, 255, 0.18);
+  --dimension-hover-color:       rgba(63, 141, 255, 0.10);
+  --time-dimension-active-color: rgba(0, 150, 136, 0.20);
+  --time-dimension-hover-color:  rgba(0, 150, 136, 0.10);
+  --segment-active-color:        rgba(168, 85, 247, 0.18);
+  --segment-hover-color:         rgba(168, 85, 247, 0.10);
+  --filter-active-color:         rgba(220, 38, 38, 0.18);
+  --filter-hover-color:          rgba(220, 38, 38, 0.10);
+  --missing-active-color:        rgba(255, 255, 255, 0.06);
+  --missing-hover-color:         rgba(255, 255, 255, 0.04);
+
+  --measure-text-color:        #fdba74;
+  --dimension-text-color:      #93c5fd;
+  --time-dimension-text-color: #6ee7b7;
+  --segment-text-color:        #d8b4fe;
+  --filter-text-color:         #fca5a5;
+  --missing-text-color:        rgba(200, 200, 210, 0.85);
+}
+
 html,
 body {
   font-family: var(--font-sans);
   color: var(--text-primary);
   background-color: var(--bg-app);
+}
+
+/* @cube-dev/ui-kit injects `body { background-color: white !important; }`.
+   We need !important + higher source order to keep dark-mode body dark. */
+html body {
+  background-color: var(--bg-app) !important;
+  color: var(--text-primary) !important;
+}
+
+/*
+ * Re-apply dark-mode legacy/ui-kit color tokens at body scope AND inside any
+ * [data-theme="default"] container. ui-kit's tasty injects data-theme="default"
+ * on each Button/styled component which restates the light-mode tokens —
+ * those nodes win cascade unless we match the same specificity inside dark.
+ */
+[data-theme="dark"] body,
+[data-theme="dark"] [data-theme="default"] {
+  --dark-color:         rgba(245, 245, 245, 1);
+  --dark-color-rgb:     245, 245, 245;
+  --dark-01-color:      rgba(245, 245, 245, 1);
+  --dark-01-color-rgb:  245, 245, 245;
+  --dark-02-color:      rgba(210, 210, 220, 0.9);
+  --dark-02-color-rgb:  210, 210, 220;
+  --dark-03-color:      rgba(160, 160, 180, 0.85);
+  --dark-03-color-rgb:  160, 160, 180;
+  --dark-04-color:      rgba(120, 120, 140, 0.75);
+  --dark-04-color-rgb:  120, 120, 140;
+  --dark-05-color:      rgba(70, 70, 90, 0.6);
+  --dark-05-color-rgb:  70, 70, 90;
+  --light-color:        var(--bg-muted);
+  --gray-color:         var(--bg-muted);
+  --text-color:         var(--text-primary);
+  --heading-color:      var(--text-primary);
+  --white-color:        var(--bg-card);
+  --white-color-rgb:    23, 23, 23;
+  --layout-body-background: var(--bg-app);
+  --layout-header-background: var(--bg-card);
+  --menu-item-active-bg: var(--bg-muted);
+  --item-hover-bg:      var(--bg-muted);
+
+  --measure-active-color:        rgba(240, 90, 34, 0.18);
+  --measure-hover-color:         rgba(240, 90, 34, 0.10);
+  --dimension-active-color:      rgba(63, 141, 255, 0.18);
+  --dimension-hover-color:       rgba(63, 141, 255, 0.10);
+  --time-dimension-active-color: rgba(0, 150, 136, 0.20);
+  --time-dimension-hover-color:  rgba(0, 150, 136, 0.10);
+  --segment-active-color:        rgba(168, 85, 247, 0.18);
+  --segment-hover-color:         rgba(168, 85, 247, 0.10);
+  --filter-active-color:         rgba(220, 38, 38, 0.18);
+  --filter-hover-color:          rgba(220, 38, 38, 0.10);
+  --missing-active-color:        rgba(255, 255, 255, 0.06);
+  --missing-hover-color:         rgba(255, 255, 255, 0.04);
+
+  --measure-text-color:        #fdba74;
+  --dimension-text-color:      #93c5fd;
+  --time-dimension-text-color: #6ee7b7;
+  --segment-text-color:        #d8b4fe;
+  --filter-text-color:         #fca5a5;
+  --missing-text-color:        rgba(200, 200, 210, 0.85);
 }
 
 code,

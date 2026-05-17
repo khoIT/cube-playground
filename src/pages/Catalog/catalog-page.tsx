@@ -1,10 +1,15 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation, withRouter } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { SchemaPage } from '../Schema/SchemaPage';
+import { CatalogGrid } from './catalog-grid';
+import { CatalogTabs, resolveCatalogTab } from './catalog-tabs';
+import { CatalogToolbar } from './catalog-toolbar';
+import { DetailPanel } from './detail-panel';
 import { useCatalogMeta, CatalogCube } from './use-catalog-meta';
 import { useCubeClusters } from './use-cube-clusters';
-import { CatalogToolbar } from './catalog-toolbar';
-import { CatalogGrid } from './catalog-grid';
-import { DetailPanel } from './detail-panel';
 
 const Page = styled.div`
   display: flex;
@@ -44,18 +49,27 @@ const Main = styled.div`
   padding: 0 24px 32px;
 `;
 
+const ModelsHost = styled.div`
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+`;
+
 const StatusLine = styled.div<{ $kind: 'info' | 'error' }>`
   padding: 16px 32px;
   font-size: 13px;
   color: ${(p) => (p.$kind === 'error' ? 'var(--danger)' : 'var(--text-muted)')};
 `;
 
-/**
- * Catalog browse view — top-level page mounted at /catalog.
- * Reuses extended /meta directly (no QueryBuilder dependency).
- */
-export function CatalogPage() {
-  const { cubes, loading, error } = useCatalogMeta();
+const SchemaPageWithRouter = withRouter(SchemaPage);
+
+type CatalogBrowseBodyProps = {
+  cubes: CatalogCube[];
+  loading: boolean;
+  error: string | null;
+};
+
+function CatalogBrowseBody({ cubes, loading, error }: CatalogBrowseBodyProps) {
   const [search, setSearch] = useState('');
   const [hasPreAggOnly, setHasPreAggOnly] = useState(false);
   const [selectedCube, setSelectedCube] = useState<string | null>(null);
@@ -86,14 +100,7 @@ export function CatalogPage() {
   );
 
   return (
-    <Page>
-      <Header>
-        <Title>Catalog</Title>
-        <Count>
-          {loading ? '…' : `${cubes.length} cubes & views`}
-        </Count>
-      </Header>
-
+    <>
       {error && <StatusLine $kind="error">Failed to load meta: {error}</StatusLine>}
       {loading && <StatusLine $kind="info">Loading…</StatusLine>}
 
@@ -119,6 +126,34 @@ export function CatalogPage() {
           <DetailPanel cube={selected} onClose={() => setSelectedCube(null)} />
         )}
       </Body>
+    </>
+  );
+}
+
+export function CatalogPage() {
+  const { t } = useTranslation();
+  const location = useLocation();
+  const activeTab = resolveCatalogTab(location.pathname);
+  const { cubes, loading, error } = useCatalogMeta();
+
+  return (
+    <Page>
+      <Header>
+        <Title>{t('nav.catalog')}</Title>
+        {activeTab === 'catalog' && (
+          <Count>{loading ? '…' : `${cubes.length} cubes & views`}</Count>
+        )}
+      </Header>
+
+      <CatalogTabs />
+
+      {activeTab === 'models' ? (
+        <ModelsHost>
+          <SchemaPageWithRouter />
+        </ModelsHost>
+      ) : (
+        <CatalogBrowseBody cubes={cubes} loading={loading} error={error} />
+      )}
     </Page>
   );
 }

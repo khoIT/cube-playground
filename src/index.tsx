@@ -1,13 +1,12 @@
 import ReactDOM from 'react-dom';
 import { ReactNode, useRef } from 'react';
-import { Router, Route, withRouter } from 'react-router-dom';
+import { Router, Route, Redirect } from 'react-router-dom';
 import { createHashHistory } from 'history';
 
 import App from './App';
 import { page } from './events';
 import {
   ExplorePage,
-  SchemaPage,
   IndexPage,
   CatalogPage,
   MetricCardPage,
@@ -16,8 +15,8 @@ import { NewMetricPage } from './QueryBuilderV2/NewMetric/full-page/NewMetricPag
 import { NewMetricSuccess } from './QueryBuilderV2/NewMetric/full-page/steps/success/success-body';
 import { SecurityContextProvider } from './components/SecurityContext/SecurityContextProvider';
 import { AppContextProvider } from './components/AppContext';
-
-const SchemaPageWithRouter = withRouter(SchemaPage);
+import { ThemeProvider } from './theme/ThemeContext';
+import './i18n';
 
 const history = createHashHistory();
 history.listen((location) => {
@@ -79,25 +78,27 @@ ReactDOM.render(
         isCloud: false,
       }}
     >
-      <App>
-        <Route key="index" exact path="/" component={IndexPage} />
-        <KeepAliveRoute key="build" path="/build">
-          <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
-            <ExplorePage />
-          </SecurityContextProvider>
-        </KeepAliveRoute>
-        <KeepAliveRoute key="schema" path="/schema">
-          <SchemaPageWithRouter />
-        </KeepAliveRoute>
-        <KeepAliveRoute key="catalog" path="/catalog">
-          <CatalogPage />
-        </KeepAliveRoute>
-        <KeepAliveRoute key="metric" path="/metric/:cube/:member">
-          <MetricCardPage />
-        </KeepAliveRoute>
-        <Route key="metrics-new-success" exact path="/metrics/new/success" component={NewMetricSuccess} />
-        <Route key="metrics-new" path="/metrics/new" component={NewMetricPage} />
-      </App>
+      <ThemeProvider>
+        <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
+          <App>
+            <Route key="index" exact path="/" component={IndexPage} />
+            <KeepAliveRoute key="build" path="/build">
+              <ExplorePage />
+            </KeepAliveRoute>
+            <Route key="schema-redirect" exact path="/schema">
+              <Redirect to="/catalog/models" />
+            </Route>
+            <KeepAliveRoute key="catalog" path="/catalog">
+              <CatalogPage />
+            </KeepAliveRoute>
+            <KeepAliveRoute key="metric" path="/metric/:cube/:member">
+              <MetricCardPage />
+            </KeepAliveRoute>
+            <Route key="metrics-new-success" exact path="/metrics/new/success" component={NewMetricSuccess} />
+            <Route key="metrics-new" path="/metrics/new" component={NewMetricPage} />
+          </App>
+        </SecurityContextProvider>
+      </ThemeProvider>
     </AppContextProvider>
   </Router>,
   // eslint-disable-next-line no-undef

@@ -1,0 +1,44 @@
+{
+  "brand": {
+    "platform": "vNGGAMES Data Platform"
+  },
+  "nav": {
+    "playground": "Playground",
+    "newMetric": "New Metric",
+    "catalog": "Catalog"
+  },
+  "tabs": {
+    "models": "Models",
+    "catalog": "Catalog"
+  },
+  "user": {
+    "menuLabel": "User menu",
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "language": {
+      "label": "Language",
+      "en": "English",
+      "vi": "Tiếng Việt"
+    },
+    "settings": {
+      "securityContext": "Security Context",
+      "addRollup": "Add Rollup",
+      "legacyNewMetric": "Legacy New Metric"
+    },
+    "signOut": "Sign out"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications"
+  },
+  "search": {
+    "placeholder": "Search…",
+    "shortcut": "⌘K"
+  },
+  "help": {
+    "tooltip": "Help & docs"
+  }
+}

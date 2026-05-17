@@ -1,0 +1,44 @@
+{
+  "brand": {
+    "platform": "vNGGAMES Nền tảng Dữ liệu"
+  },
+  "nav": {
+    "playground": "Sân chơi",
+    "newMetric": "Chỉ số mới",
+    "catalog": "Danh mục"
+  },
+  "tabs": {
+    "models": "Mô hình",
+    "catalog": "Danh mục"
+  },
+  "user": {
+    "menuLabel": "Menu người dùng",
+    "theme": {
+      "label": "Giao diện",
+      "light": "Sáng",
+      "dark": "Tối"
+    },
+    "language": {
+      "label": "Ngôn ngữ",
+      "en": "English",
+      "vi": "Tiếng Việt"
+    },
+    "settings": {
+      "securityContext": "Bảo mật",
+      "addRollup": "Thêm Rollup",
+      "legacyNewMetric": "New Metric (cũ)"
+    },
+    "signOut": "Đăng xuất"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "empty": "Không có thông báo"
+  },
+  "search": {
+    "placeholder": "Tìm kiếm…",
+    "shortcut": "⌘K"
+  },
+  "help": {
+    "tooltip": "Trợ giúp & tài liệu"
+  }
+}

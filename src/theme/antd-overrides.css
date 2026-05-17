@@ -166,3 +166,237 @@
   border-bottom-color: var(--border-card);
   font-family: var(--font-sans);
 }
+
+/*
+ * Dark-mode overrides — selectors prefixed with [data-theme="dark"]. antd 4 has
+ * no algorithm prop, so each surface we use gets explicit dark hues here.
+ */
+[data-theme="dark"] .ant-btn {
+  background-color: var(--bg-card);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-btn:hover,
+[data-theme="dark"] .ant-btn:focus {
+  background-color: var(--bg-muted);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+[data-theme="dark"] .ant-btn-primary,
+[data-theme="dark"] .ant-btn-primary:hover,
+[data-theme="dark"] .ant-btn-primary:focus {
+  color: var(--text-on-brand);
+}
+
+[data-theme="dark"] .ant-input,
+[data-theme="dark"] .ant-input-affix-wrapper,
+[data-theme="dark"] .ant-select-selector,
+[data-theme="dark"] .ant-input-number-input {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong) !important;
+}
+[data-theme="dark"] .ant-input::placeholder,
+[data-theme="dark"] .ant-input-affix-wrapper input::placeholder {
+  color: var(--text-muted);
+}
+[data-theme="dark"] .ant-select-selection-placeholder,
+[data-theme="dark"] .ant-select-arrow {
+  color: var(--text-muted);
+}
+[data-theme="dark"] .ant-select-selection-item {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ant-menu,
+[data-theme="dark"] .ant-menu-horizontal {
+  background-color: var(--bg-card);
+  border-bottom-color: var(--border-card);
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .ant-menu-item,
+[data-theme="dark"] .ant-menu-submenu-title {
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .ant-tabs {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-tabs-tab {
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .ant-tabs-nav::before {
+  border-bottom-color: var(--border-card);
+}
+
+[data-theme="dark"] .ant-modal-content,
+[data-theme="dark"] .ant-modal-header {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-modal-header {
+  border-bottom-color: var(--border-card);
+}
+[data-theme="dark"] .ant-modal-title,
+[data-theme="dark"] .ant-modal-close-x {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-modal-mask {
+  background-color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="dark"] .ant-dropdown-menu {
+  background-color: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="dark"] .ant-dropdown-menu-item,
+[data-theme="dark"] .ant-dropdown-menu-item > a {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-dropdown-menu-item:hover {
+  background-color: var(--bg-muted);
+}
+
+[data-theme="dark"] .ant-table {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-table-thead > tr > th {
+  background-color: var(--bg-muted);
+  color: var(--text-secondary);
+  border-bottom-color: var(--border-card);
+}
+[data-theme="dark"] .ant-table-tbody > tr > td {
+  background-color: var(--bg-card);
+  border-bottom-color: var(--border-card);
+}
+[data-theme="dark"] .ant-table-tbody > tr:hover > td {
+  background-color: var(--bg-muted) !important;
+}
+
+[data-theme="dark"] .ant-popover-inner,
+[data-theme="dark"] .ant-popover-inner-content,
+[data-theme="dark"] .ant-popover-title {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-popover-title {
+  border-bottom-color: var(--border-card);
+}
+[data-theme="dark"] .ant-popover-arrow-content {
+  background-color: var(--bg-card);
+}
+
+[data-theme="dark"] .ant-tooltip-inner {
+  background-color: var(--neutral-700);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-tooltip-arrow-content {
+  background-color: var(--neutral-700);
+}
+
+[data-theme="dark"] .ant-layout {
+  background-color: var(--bg-app);
+}
+[data-theme="dark"] .ant-layout-header {
+  background-color: var(--bg-card);
+  border-bottom-color: var(--border-card);
+}
+
+[data-theme="dark"] .ant-card {
+  background-color: var(--bg-card);
+  border-color: var(--border-card);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-card-head {
+  border-bottom-color: var(--border-card);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ant-divider {
+  border-top-color: var(--border-card);
+}
+[data-theme="dark"] .ant-divider-horizontal.ant-divider-with-text {
+  color: var(--text-secondary);
+  border-top-color: var(--border-card);
+}
+
+/* antd editable-card tabs (used by Query 1/2/3 strip) */
+[data-theme="dark"] .ant-tabs-card .ant-tabs-tab,
+[data-theme="dark"] .ant-tabs-editable-card .ant-tabs-tab {
+  background-color: var(--bg-muted);
+  border-color: var(--border-card);
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .ant-tabs-card .ant-tabs-tab-active,
+[data-theme="dark"] .ant-tabs-editable-card .ant-tabs-tab-active {
+  background-color: var(--bg-card);
+  border-color: var(--border-card);
+  border-bottom-color: var(--bg-card);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-tabs-card .ant-tabs-tab .anticon-close,
+[data-theme="dark"] .ant-tabs-editable-card .ant-tabs-tab .anticon-close {
+  color: var(--text-muted);
+}
+[data-theme="dark"] .ant-tabs-card .ant-tabs-tab .anticon-close:hover {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ant-tabs-card-add-icon {
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .ant-tabs-nav-add {
+  background-color: var(--bg-muted) !important;
+  border-color: var(--border-card) !important;
+  color: var(--text-secondary) !important;
+}
+
+/*
+ * @cube-dev/ui-kit primary buttons resolve text-color via `var(--white-color)`.
+ * Our dark-mode mapping of `--white-color → --bg-card` (needed so big white
+ * surface fills go dark) flips primary-button text to near-black on orange.
+ * Force the text white on primary buttons specifically.
+ */
+[data-theme="dark"] [data-type="primary"]:not([disabled]),
+[data-theme="dark"] [data-type="primary"]:not([disabled]) > * {
+  color: #ffffff !important;
+}
+
+/* Disabled buttons in dark mode — antd hardcodes white bg + grey text */
+[data-theme="dark"] .ant-btn[disabled],
+[data-theme="dark"] .ant-btn[disabled]:hover,
+[data-theme="dark"] .ant-btn-primary[disabled],
+[data-theme="dark"] .ant-btn-primary[disabled]:hover,
+[data-theme="dark"] .ant-btn.disabled,
+[data-theme="dark"] .ant-btn.ant-btn-disabled {
+  background-color: var(--bg-muted) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border-card) !important;
+}
+[data-theme="dark"] .ant-tabs-nav-add:hover,
+[data-theme="dark"] .ant-tabs-nav-add:focus {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--brand) !important;
+}
+
+/* Webkit scrollbar — match dark surface */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: var(--bg-app);
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid var(--bg-app);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+[data-theme="dark"] ::-webkit-scrollbar-corner {
+  background: var(--bg-app);
+}

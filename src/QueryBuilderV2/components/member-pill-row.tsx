@@ -50,8 +50,8 @@ const PillBase = styled.span<{ $accent: string }>`
   align-items: center;
   gap: 6px;
   height: var(--pill-height);
-  background: #fff;
-  border: 1px solid var(--neutral-200);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-left: var(--pill-accent-width) solid ${(p) => p.$accent};
   border-radius: var(--pill-radius);
   padding: var(--pill-padding);
@@ -102,7 +102,7 @@ const RemoveButton = styled.button`
   cursor: pointer;
 
   &:hover {
-    background: var(--neutral-100);
+    background: var(--bg-muted);
     color: var(--text-primary);
   }
 `;

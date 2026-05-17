@@ -21,6 +21,23 @@
         height: 100%;
       }
     </style>
+    <script>
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('gds-cube:theme');
+          var theme = stored === 'dark' ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+        try {
+          var lang = window.localStorage.getItem('gds-cube:lang');
+          if (lang === 'vi' || lang === 'en') {
+            document.documentElement.setAttribute('lang', lang);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

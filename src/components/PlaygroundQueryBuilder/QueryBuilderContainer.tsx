@@ -1,26 +1,14 @@
-import {
-  LockIcon,
-  ThunderboltIcon,
-  MoreIcon,
-  Panel,
-  Space,
-  Button,
-  Menu,
-  MenuTrigger,
-  tasty,
-} from '@cube-dev/ui-kit';
-import { Sparkles } from 'lucide-react';
-import { NewMetricButton, LEGACY_NEW_METRIC_EVENT } from '../../QueryBuilderV2/NewMetric';
+import { Panel, Space } from '@cube-dev/ui-kit';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card } from 'antd';
-import { useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { CubeLoader } from '../../atoms';
-import { useCloud } from '../../cloud';
 import { useAppContext, useCubejsApi, useSecurityContext } from '../../hooks';
 import {
+  OPEN_ROLLUP_DESIGNER_EVENT,
   RollupDesignerContext,
   useRollupDesignerContext,
 } from '../../rollup-designer';
@@ -45,25 +33,6 @@ const StyledCard = styled(Card)`
     padding: 0;
   }
 `;
-
-const SettingsButton = tasty(Button, {
-  styles: {
-    position: 'relative',
-  },
-});
-
-const ActiveDot = tasty({
-  styles: {
-    position: 'absolute',
-    top: '2px',
-    right: '2px',
-    width: '6px',
-    height: '6px',
-    radius: '50%',
-    fill: '#success',
-    boxShadow: '0 0 0 2px var(--purple-color, #fff)',
-  },
-});
 
 function RequestStatusComponent({
   isAggregated,
@@ -96,11 +65,7 @@ type QueryBuilderContainerProps = Pick<
 
 export function QueryBuilderContainer(props: QueryBuilderContainerProps) {
   const { apiUrl } = useAppContext();
-  const {
-    currentToken,
-    token: securityContextToken,
-    setIsModalOpen,
-  } = useSecurityContext();
+  const { currentToken } = useSecurityContext();
 
   useLayoutEffect(() => {
     if (apiUrl && currentToken) {
@@ -126,13 +91,11 @@ export function QueryBuilderContainer(props: QueryBuilderContainerProps) {
             <QueryTabsRenderer
               apiUrl={apiUrl!}
               token={currentToken!}
-              securityContextToken={securityContextToken}
               extra={props.extra}
               schemaVersion={props.schemaVersion}
               onSchemaChange={props.onSchemaChange}
               onQueryChange={props.onQueryChange}
               onTabChange={props.onTabChange}
-              onSecurityContextModalOpen={() => setIsModalOpen(true)}
             />
           </StyledCard>
         </ChartRendererStateProvider>
@@ -144,8 +107,6 @@ export function QueryBuilderContainer(props: QueryBuilderContainerProps) {
 type QueryTabsRendererProps = {
   apiUrl: string;
   token: string;
-  securityContextToken: string | null;
-  onSecurityContextModalOpen: () => void;
 } & Pick<
   QueryBuilderProps,
   'schemaVersion' | 'onSchemaChange' | 'onQueryChange' | 'extra'
@@ -156,98 +117,31 @@ function QueryTabsRenderer({
   apiUrl,
   token,
   onQueryChange,
-  securityContextToken,
-  onSecurityContextModalOpen,
   ...props
 }: QueryTabsRendererProps) {
   const { location } = useHistory();
-  const { setQuery, toggleModal, isLoading } = useRollupDesignerContext();
-  const { isAddRollupButtonVisible } = useCloud();
+  const { setQuery, toggleModal } = useRollupDesignerContext();
+
+  useEffect(() => {
+    const handler = () => toggleModal();
+    window.addEventListener(OPEN_ROLLUP_DESIGNER_EVENT, handler);
+    return () => window.removeEventListener(OPEN_ROLLUP_DESIGNER_EVENT, handler);
+  }, [toggleModal]);
 
   const params = new URLSearchParams(location.search);
   const query = JSON.parse(params.get('query') || 'null');
 
-  const rollupVisible =
-    isAddRollupButtonVisible == null || isAddRollupButtonVisible;
-
-  const settingsItems: {
-    key: string;
-    label: string;
-    icon: JSX.Element;
-    testId: string;
-  }[] = [
-    {
-      key: 'security-context',
-      label: `${securityContextToken ? 'Edit' : 'Add'} Security Context`,
-      icon: <LockIcon />,
-      testId: 'security-context-menuitem',
-    },
-    {
-      key: 'legacy-new-metric',
-      label: 'New metric (classic modal)',
-      icon: <Sparkles size={14} />,
-      testId: 'legacy-new-metric-menuitem',
-    },
-  ];
-
-  if (rollupVisible) {
-    settingsItems.push({
-      key: 'add-rollup',
-      label: 'Add Rollup to Data Model',
-      icon: <ThunderboltIcon />,
-      testId: 'add-rollup-menuitem',
-    });
-  }
-
-  function handleSettingsAction(key: string | number) {
-    if (key === 'security-context') {
-      onSecurityContextModalOpen();
-    } else if (key === 'add-rollup') {
-      toggleModal();
-    } else if (key === 'legacy-new-metric') {
-      window.dispatchEvent(new Event(LEGACY_NEW_METRIC_EVENT));
-    }
-  }
-
   return (
     <QueryTabs
       query={query}
-      sidebar={
-        <Space gap="1x">
-          <NewMetricButton />
-          <MenuTrigger>
-            <SettingsButton
-              qa="SettingsDropdown"
-              data-testid="settings-dropdown-btn"
-              isLoading={isLoading}
-              icon={<MoreIcon />}
-              size="small"
-              type={securityContextToken ? 'primary' : 'secondary'}
-            >
-              Settings
-              {securityContextToken ? <ActiveDot aria-hidden="true" /> : null}
-            </SettingsButton>
-            <Menu onAction={(key) => handleSettingsAction(key as string)}>
-              {settingsItems.map((item) => (
-                <Menu.Item
-                  key={item.key}
-                  data-testid={item.testId}
-                  icon={item.icon}
-                >
-                  {item.label}
-                </Menu.Item>
-              ))}
-            </Menu>
-          </MenuTrigger>
-        </Space>
-      }
+      sidebar={null}
       onTabChange={(tab) => {
         props.onTabChange?.(tab);
         setQuery(tab.query);
       }}
     >
       {({ id, query, chartType }, saveTab) => (
-        <Panel key={id} height="(100vh - 12.5x) (100vh - 12.5x)" fill="#white">
+        <Panel key={id} height="(100vh - 12.5x) (100vh - 12.5x)" fill="#clear">
           <QueryBuilder
             apiUrl={apiUrl}
             apiToken={token}

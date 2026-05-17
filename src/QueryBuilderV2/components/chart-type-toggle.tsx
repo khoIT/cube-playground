@@ -21,7 +21,7 @@ const Group = styled.div`
   flex: 1 1 auto;
   padding: 1px;
   border-radius: 7px;
-  background: var(--neutral-100);
+  background: var(--bg-muted);
   gap: 1px;
   min-width: 0;
 `;
@@ -47,7 +47,7 @@ const Segment = styled.button<{ $active: boolean }>`
   white-space: nowrap;
 
   &:hover {
-    background: ${(p) => (p.$active ? 'var(--brand)' : 'var(--neutral-200)')};
+    background: ${(p) => (p.$active ? 'var(--brand)' : 'var(--border-card)')};
     color: ${(p) => (p.$active ? 'var(--text-on-brand)' : 'var(--text-primary)')};
   }
 

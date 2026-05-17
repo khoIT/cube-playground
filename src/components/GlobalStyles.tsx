@@ -113,8 +113,8 @@ const GlobalStyles = createGlobalStyle`
   }
 
   .schema-sidebar {
-    background: #fff;
-    border-right: 1px solid #eee;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-card);
     padding: 0;
   }
 

@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Layout, Modal, Empty, Typography } from 'antd';
+import { Modal, Empty, Typography } from 'antd';
 import { RouterProps } from 'react-router-dom';
 
 import PrismCode from '../../PrismCode';
@@ -10,8 +10,6 @@ import { playgroundFetch } from '../../shared/helpers';
 import { AppContext, AppContextConsumer } from '../../components/AppContext';
 import { ButtonDropdown } from '../../QueryBuilder/ButtonDropdown';
 import { SchemaFormat } from '../../types';
-
-const { Content, Sider } = Layout;
 
 const { TreeNode } = Tree;
 const { TabPane } = Tabs;
@@ -240,8 +238,23 @@ export class SchemaPage extends Component<SchemaPageProps, any> {
       );
 
     return (
-      <Layout style={{ height: '100%' }}>
-        <Sider width={340} className="schema-sidebar">
+      <div
+        style={{
+          display: 'flex',
+          height: '100%',
+          background: 'var(--bg-app)',
+        }}
+      >
+        <aside
+          style={{
+            width: 340,
+            flexShrink: 0,
+            borderRight: '1px solid var(--border-card)',
+            overflowY: 'auto',
+            background: 'var(--bg-card)',
+          }}
+          className="schema-sidebar"
+        >
           <Tabs
             activeKey={activeTab}
             onChange={(tab) => this.setState({ activeTab: tab })}
@@ -286,11 +299,12 @@ export class SchemaPage extends Component<SchemaPageProps, any> {
               {this.renderFilesMenu()}
             </TabPane>
           </Tabs>
-        </Sider>
+        </aside>
 
-        <Content
+        <section
           style={{
-            minHeight: 280,
+            flex: 1,
+            overflow: 'auto',
             padding: 24,
           }}
         >
@@ -339,8 +353,8 @@ export class SchemaPage extends Component<SchemaPageProps, any> {
               this.setState({ isDocker: playgroundContext?.isDocker })
             }
           />
-        </Content>
-      </Layout>
+        </section>
+      </div>
     );
   }
 }

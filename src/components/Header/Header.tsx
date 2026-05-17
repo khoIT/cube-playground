@@ -1,12 +1,14 @@
 import { MenuOutlined } from '@ant-design/icons';
 import { Dropdown, Layout, Menu } from 'antd';
-import { BookOpen, Database, LayoutDashboard } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from 'react-responsive';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { BrandBlock } from './brand-block';
 import { NavPill } from './nav-pill';
+import { RightCluster } from './right-cluster';
 
 const StyledHeader = styled(Layout.Header)`
   && {
@@ -30,6 +32,12 @@ const PillRow = styled.nav`
 
 const Spacer = styled.div`
   flex: 1;
+`;
+
+const RightClusterSlot = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 const MobileTrigger = styled.button`
@@ -59,12 +67,15 @@ function isActive(selectedKeys: string[], to: string): boolean {
 }
 
 export default function Header({ selectedKeys }: Props) {
+  const { t } = useTranslation();
   const isDesktopOrLaptop = useMediaQuery({ query: '(min-width: 992px)' });
   const isMobileOrTable = useMediaQuery({ query: '(max-width: 991px)' });
 
   return (
     <StyledHeader>
       <BrandBlock />
+
+      <Spacer />
 
       {isDesktopOrLaptop && (
         <PillRow>
@@ -73,39 +84,45 @@ export default function Header({ selectedKeys }: Props) {
             icon={LayoutDashboard}
             active={isActive(selectedKeys, '/build')}
           >
-            Playground
+            {t('nav.playground')}
           </NavPill>
           <NavPill
-            to="/schema"
-            icon={Database}
-            active={isActive(selectedKeys, '/schema')}
+            to="/metrics/new?v=2"
+            icon={Sparkles}
+            active={isActive(selectedKeys, '/metrics/new')}
           >
-            Models
+            {t('nav.newMetric')}
           </NavPill>
           <NavPill
             to="/catalog"
             icon={BookOpen}
             active={isActive(selectedKeys, '/catalog')}
           >
-            Catalog
+            {t('nav.catalog')}
           </NavPill>
         </PillRow>
       )}
 
       <Spacer />
 
+      {isDesktopOrLaptop && (
+        <RightClusterSlot>
+          <RightCluster />
+        </RightClusterSlot>
+      )}
+
       {isMobileOrTable && (
         <Dropdown
           overlay={
             <Menu>
               <Menu.Item key="/build">
-                <Link to="/build">Playground</Link>
+                <Link to="/build">{t('nav.playground')}</Link>
               </Menu.Item>
-              <Menu.Item key="/schema">
-                <Link to="/schema">Models</Link>
+              <Menu.Item key="/metrics/new">
+                <Link to="/metrics/new?v=2">{t('nav.newMetric')}</Link>
               </Menu.Item>
               <Menu.Item key="/catalog">
-                <Link to="/catalog">Catalog</Link>
+                <Link to="/catalog">{t('nav.catalog')}</Link>
               </Menu.Item>
             </Menu>
           }
