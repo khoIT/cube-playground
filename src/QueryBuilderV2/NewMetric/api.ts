@@ -3,6 +3,8 @@
  * POST /api/playground/schema/write
  */
 
+export type EntryKind = 'measure' | 'dimension' | 'segment';
+
 export type WriteResponse =
   | { ok: true; meta: unknown; warning?: string }
   | { ok: false; status: 409; reason: 'mtime-conflict' }
@@ -11,7 +13,12 @@ export type WriteResponse =
 
 type WriteBody = {
   cubeName: string;
-  measureName: string;
+  /** Canonical entry name (measure / dimension / segment). */
+  entryName?: string;
+  /** Legacy alias for `entryName`; backend accepts either. */
+  measureName?: string;
+  /** Defaults to 'measure' on the backend if omitted. */
+  kind?: EntryKind;
   yamlPatch: string;
 };
 
@@ -74,7 +81,11 @@ export type DeleteResponse =
 
 type DeleteBody = {
   cubeName: string;
-  measureName: string;
+  entryName?: string;
+  /** Legacy alias for `entryName`. */
+  measureName?: string;
+  /** Defaults to 'measure' on the backend if omitted. */
+  kind?: EntryKind;
 };
 
 /**

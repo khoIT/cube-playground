@@ -67,21 +67,46 @@ export async function unlinkTmp(targetPath: string): Promise<void> {
 }
 
 /**
+ * Compute the `.bak` filename for a (target, entry, kind) tuple. When
+ * `entryName` + `kind` are omitted the legacy `<target>.bak` filename is used
+ * — kept for back-compat with measure-only callers that haven't migrated.
+ *
+ * Per-(entry, kind) `.bak` lets concurrent multi-kind writes coexist: a dim
+ * write's `.bak` and a segment write's `.bak` to the same cube YAML are
+ * different files, so DELETE for one kind doesn't clobber the other's rollback.
+ */
+export function bakPathFor(targetPath: string, entryName?: string, kind?: string): string {
+  if (entryName && kind) {
+    return `${targetPath}.${entryName}.${kind}.bak`;
+  }
+  return `${targetPath}.bak`;
+}
+
+/**
  * Writes a `.bak` copy of prior content alongside the target file.
  *
- * First-write-wins semantics: if a `.bak` already exists, the existing copy is
- * preserved. This protects the true pre-wizard original across the debounced
- * live-preview re-writes (the Discard flow restores from `.bak`, so clobbering
- * it on every preview iteration would lose the genuine starting state).
+ * First-write-wins semantics: if a `.bak` already exists for the same
+ * (entry, kind) tuple, the existing copy is preserved. This protects the true
+ * pre-wizard original across the debounced live-preview re-writes (the
+ * Discard flow restores from `.bak`, so clobbering it on every preview
+ * iteration would lose the genuine starting state).
  *
- * Callers that need to start a fresh tracking session (e.g. after a successful
- * Define keep) should delete `.bak` explicitly via `clearBak`.
+ * Callers that need to start a fresh tracking session (e.g. after a
+ * successful Define keep) should delete `.bak` explicitly via `clearBak`.
+ *
+ * Backward compatible signature: callers that don't pass `entryName` + `kind`
+ * fall back to the legacy `<target>.bak` filename.
  */
-export async function writeBak(targetPath: string, priorContent: string): Promise<void> {
-  const bakPath = `${targetPath}.bak`;
+export async function writeBak(
+  targetPath: string,
+  priorContent: string,
+  entryName?: string,
+  kind?: string,
+): Promise<void> {
+  const bakPath = bakPathFor(targetPath, entryName, kind);
   try {
     await fs.access(bakPath);
-    return; // .bak already exists — preserve the original
+    return; // .bak already exists for this (entry, kind) — preserve the original
   } catch {
     /* .bak missing — safe to write */
   }
@@ -89,11 +114,16 @@ export async function writeBak(targetPath: string, priorContent: string): Promis
 }
 
 /**
- * Restores `<targetPath>.bak` over `targetPath` atomically and removes the
- * backup. Throws if `.bak` is missing (caller maps that to HTTP 404).
+ * Restores `<targetPath>.<entry>.<kind>.bak` (or legacy `<targetPath>.bak`) over
+ * `targetPath` atomically and removes the backup. Throws if `.bak` is missing
+ * (caller maps that to HTTP 404).
  */
-export async function restoreBak(targetPath: string): Promise<void> {
-  const bakPath = `${targetPath}.bak`;
+export async function restoreBak(
+  targetPath: string,
+  entryName?: string,
+  kind?: string,
+): Promise<void> {
+  const bakPath = bakPathFor(targetPath, entryName, kind);
   await fs.access(bakPath); // throws ENOENT if missing — caller catches
   const bakContent = await fs.readFile(bakPath, 'utf8');
   await fs.writeFile(`${targetPath}.tmp`, bakContent, 'utf8');
@@ -102,8 +132,12 @@ export async function restoreBak(targetPath: string): Promise<void> {
 }
 
 /** Removes the `.bak` file silently (used after a successful Define keep). */
-export async function clearBak(targetPath: string): Promise<void> {
-  await fs.unlink(`${targetPath}.bak`).catch(() => undefined);
+export async function clearBak(
+  targetPath: string,
+  entryName?: string,
+  kind?: string,
+): Promise<void> {
+  await fs.unlink(bakPathFor(targetPath, entryName, kind)).catch(() => undefined);
 }
 
 // ---------------------------------------------------------------------------

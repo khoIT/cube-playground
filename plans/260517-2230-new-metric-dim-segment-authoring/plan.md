@@ -28,7 +28,7 @@ Mode: **TDD per phase.** Tests precede implementation for the YAML emitter (per-
 |-------|------|--------|
 | 1 | [Foundation draft V3 types and auto-name](./phase-01-foundation-draft-v3-types-and-auto-name.md) | Completed |
 | 2 | [YAML emitter dispatcher per-kind generators](./phase-02-yaml-emitter-dispatcher-per-kind-generators.md) | Completed |
-| 3 | [Backend schema-write kind extension splicer meta-poll](./phase-03-backend-schema-write-kind-extension-splicer-meta-poll.md) | Pending |
+| 3 | [Backend schema-write kind extension splicer meta-poll](./phase-03-backend-schema-write-kind-extension-splicer-meta-poll.md) | Completed |
 | 4 | [Step 0 artifact picker per-kind step graph](./phase-04-step-0-artifact-picker-per-kind-step-graph.md) | Pending |
 | 5 | [Dimension UI kind picker and four builders](./phase-05-dimension-ui-kind-picker-and-four-builders.md) | Pending |
 | 6 | [Segment UI filter tree reuse identity](./phase-06-segment-ui-filter-tree-reuse-identity.md) | Pending |

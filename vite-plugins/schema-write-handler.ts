@@ -13,7 +13,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import fs from 'node:fs/promises';
 import { jsonError, jsonOk } from './schema-write-response.js';
-import { readBody, validateWriteBody, type WriteBody } from './schema-write-validator.js';
+import {
+  readBody,
+  validateWriteBody,
+  type WriteBody,
+  type NormalizedWriteBody,
+  type EntryKind,
+} from './schema-write-validator.js';
 import {
   resolveTargetPath,
   atomicWrite,
@@ -98,9 +104,10 @@ export async function handleWriteRequest(
     return;
   }
 
-  if (!validateWriteBody(body, res)) return;
+  const normalized = validateWriteBody(body, res);
+  if (!normalized) return;
 
-  const { cubeName, measureName, yamlPatch } = body;
+  const { cubeName, entryName, kind, yamlPatch } = normalized;
   const modelRoot = deps.modelDir;
 
   // Resolve target file path.
@@ -127,10 +134,10 @@ export async function handleWriteRequest(
     return;
   }
 
-  // Splice the new measure into the YAML.
+  // Splice the new entry (measure / dimension / segment) into the YAML.
   let nextContent: string;
   try {
-    nextContent = splice(priorContent, cubeName, measureName, yamlPatch).next;
+    nextContent = splice(priorContent, cubeName, entryName, yamlPatch, kind).next;
   } catch (err) {
     jsonError(res, 400, `yaml-splice-error: ${String(err)}`);
     return;
@@ -157,7 +164,7 @@ export async function handleWriteRequest(
   }
 
   try {
-    await writeBak(targetPath, priorContent);
+    await writeBak(targetPath, priorContent, entryName, kind);
     await renameTmp(targetPath);
   } catch (err) {
     await unlinkTmp(targetPath);
@@ -168,23 +175,24 @@ export async function handleWriteRequest(
   // Audit the successful write.
   const ts = new Date().toISOString();
   const ua = req.headers['user-agent'] ?? '';
-  await appendAudit(modelRoot, { ts, ua, cubeName, measureName, yamlPatch, event: 'write' })
+  await appendAudit(modelRoot, { ts, ua, cubeName, entryName, kind, yamlPatch, event: 'write' })
     .catch((err) => console.warn('[schema-write] audit append failed:', err));
 
-  // Poll Cube /meta to confirm hot-reload picked up the new measure.
-  // POC policy: on poll timeout, KEEP the file (no rollback) and return 200 with
-  // a warning. Windows Docker bind-mount filewatcher events can be delayed; the
-  // change likely lands eventually. If the YAML is bad, recover via `git checkout`.
+  // Poll Cube /meta to confirm hot-reload picked up the new entry. POC policy:
+  // on poll timeout, KEEP the file (no rollback) and return 200 with a warning.
+  // Windows Docker bind-mount filewatcher events can be delayed; the change
+  // likely lands eventually. If the YAML is bad, recover via `git checkout`.
   try {
-    const meta = await waitForMember(deps.cubeApiUrl, cubeName, measureName, {
+    const meta = await waitForMember(deps.cubeApiUrl, cubeName, entryName, {
       timeoutMs: 15000,
       intervalMs: 250,
       token: deps.cubeToken || undefined,
+      kind,
     });
     jsonOk(res, { meta });
   } catch {
     await appendAudit(modelRoot, {
-      ts: new Date().toISOString(), ua, cubeName, measureName, yamlPatch,
+      ts: new Date().toISOString(), ua, cubeName, entryName, kind, yamlPatch,
       event: 'kept-after-timeout', reason: 'meta-poll-timeout',
     }).catch((err) => console.warn('[schema-write] timeout audit append failed:', err));
 
@@ -221,10 +229,12 @@ async function handleDeleteRequest(
     jsonError(res, 400, 'invalid-body: cubeName required');
     return;
   }
-  if (!body?.measureName || typeof body.measureName !== 'string') {
-    jsonError(res, 400, 'invalid-body: measureName required');
+  const entryName = body.entryName ?? body.measureName;
+  if (!entryName || typeof entryName !== 'string') {
+    jsonError(res, 400, 'invalid-body: entryName (or measureName) required');
     return;
   }
+  const kind: EntryKind = body.kind ?? 'measure';
 
   let targetPath: string;
   try {
@@ -235,7 +245,7 @@ async function handleDeleteRequest(
   }
 
   try {
-    await restoreBak(targetPath);
+    await restoreBak(targetPath, entryName, kind);
   } catch (err: any) {
     if (err?.code === 'ENOENT') {
       jsonError(res, 404, 'no-backup-found');
@@ -251,7 +261,8 @@ async function handleDeleteRequest(
     ts,
     ua,
     cubeName: body.cubeName,
-    measureName: body.measureName,
+    entryName,
+    kind,
     event: 'delete-after-preview',
   }).catch((err) => console.warn('[schema-write] delete audit append failed:', err));
 

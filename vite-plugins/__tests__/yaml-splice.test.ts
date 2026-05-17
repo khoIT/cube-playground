@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as yaml from 'js-yaml';
-import { splice } from '../yaml-splice.js';
+import { splice, type EntryKind } from '../yaml-splice.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures — flat single-cube shape (legacy / one-cube-per-file)
@@ -342,4 +342,220 @@ describe('splice — patch validation', () => {
       /mapping at the top level/,
     );
   });
+});
+
+// ---------------------------------------------------------------------------
+// Kind-aware splicing — dimensions + segments + cross-kind same name (P3)
+// ---------------------------------------------------------------------------
+
+const CUBES_WITH_ALL_SECTIONS = `\
+cubes:
+  - name: mf_users
+    sql_table: mf_users
+    measures:
+      - name: whales
+        sql: '{CUBE}.user_id'
+        type: count_distinct
+        filters:
+          - sql: "{CUBE}.ltv_vnd >= 10000000"
+    dimensions:
+      - name: country
+        sql: country
+        type: string
+    segments:
+      - name: vn_users
+        sql: "{country} = 'VN'"`;
+
+const DIM_PATCH_BANDING = `\
+name: payer_tier
+type: string
+case:
+  when:
+    - sql: "{CUBE}.ltv_vnd >= 10000000"
+      label: whale
+  else:
+    label: non_payer`;
+
+const DIM_PATCH_TIME_SINCE = `\
+name: days_since_install
+type: number
+sql: "DATE_DIFF('day', {CUBE}.install_date, CURRENT_DATE)"`;
+
+const DIM_PATCH_NO_SQL_OR_CASE = `\
+name: bad_dim
+type: string`;
+
+const SEGMENT_PATCH = `\
+name: vn_whales
+sql: "{country} = 'VN' AND {ltv_vnd} >= 10000000"`;
+
+const SEGMENT_PATCH_MISSING_SQL = `\
+name: bad_segment`;
+
+describe('splice — kind=dimension routes into cube.dimensions[]', () => {
+  it('appends new dim under cube.dimensions[]', () => {
+    const { next } = splice(
+      CUBES_WITH_ALL_SECTIONS,
+      'mf_users',
+      'payer_tier',
+      DIM_PATCH_BANDING,
+      'dimension'
+    );
+    const parsed = yaml.load(next) as any;
+    const cube = parsed.cubes[0];
+    expect(cube.dimensions).toHaveLength(2);
+    const added = cube.dimensions.find((d: any) => d.name === 'payer_tier');
+    expect(added.case.when[0].label).toBe('whale');
+    expect(cube.measures).toHaveLength(1);
+    expect(cube.segments).toHaveLength(1);
+  });
+
+  it('accepts time-since with sql, no case', () => {
+    const { next } = splice(
+      CUBES_WITH_ALL_SECTIONS,
+      'mf_users',
+      'days_since_install',
+      DIM_PATCH_TIME_SINCE,
+      'dimension'
+    );
+    const parsed = yaml.load(next) as any;
+    const added = parsed.cubes[0].dimensions.find((d: any) => d.name === 'days_since_install');
+    expect(added.sql).toContain('DATE_DIFF');
+  });
+
+  it('rejects dimension patch missing both sql and case', () => {
+    expect(() =>
+      splice(
+        CUBES_WITH_ALL_SECTIONS,
+        'mf_users',
+        'bad_dim',
+        DIM_PATCH_NO_SQL_OR_CASE,
+        'dimension'
+      )
+    ).toThrow(/sql.*case|case.*sql/i);
+  });
+
+  it('rejects within-kind duplicate (dim of same name)', () => {
+    expect(() =>
+      splice(
+        CUBES_WITH_ALL_SECTIONS,
+        'mf_users',
+        'country',
+        `name: country\ntype: string\nsql: x`,
+        'dimension'
+      )
+    ).toThrow(/already exists/);
+  });
+});
+
+describe('splice — kind=segment routes into cube.segments[]', () => {
+  it('appends new segment under cube.segments[]', () => {
+    const { next } = splice(
+      CUBES_WITH_ALL_SECTIONS,
+      'mf_users',
+      'vn_whales',
+      SEGMENT_PATCH,
+      'segment'
+    );
+    const parsed = yaml.load(next) as any;
+    const cube = parsed.cubes[0];
+    expect(cube.segments).toHaveLength(2);
+    expect(cube.segments[1].name).toBe('vn_whales');
+    expect(cube.measures).toHaveLength(1);
+    expect(cube.dimensions).toHaveLength(1);
+  });
+
+  it('rejects segment patch missing sql', () => {
+    expect(() =>
+      splice(
+        CUBES_WITH_ALL_SECTIONS,
+        'mf_users',
+        'bad_segment',
+        SEGMENT_PATCH_MISSING_SQL,
+        'segment'
+      )
+    ).toThrow(/sql/);
+  });
+
+  it('rejects within-kind duplicate (segment of same name)', () => {
+    expect(() =>
+      splice(
+        CUBES_WITH_ALL_SECTIONS,
+        'mf_users',
+        'vn_users',
+        `name: vn_users\nsql: "{country} = 'VN'"`,
+        'segment'
+      )
+    ).toThrow(/already exists/);
+  });
+});
+
+describe('splice — cross-kind same name allowed', () => {
+  it('segment named "whales" coexists with measure named "whales"', () => {
+    const { next } = splice(
+      CUBES_WITH_ALL_SECTIONS,
+      'mf_users',
+      'whales',
+      `name: whales\nsql: "{ltv_vnd} >= 10000000"`,
+      'segment'
+    );
+    const parsed = yaml.load(next) as any;
+    const cube = parsed.cubes[0];
+    expect(cube.measures.some((m: any) => m.name === 'whales')).toBe(true);
+    expect(cube.segments.some((s: any) => s.name === 'whales')).toBe(true);
+  });
+
+  it('measure named "vn_users" coexists with segment named "vn_users"', () => {
+    const { next } = splice(
+      CUBES_WITH_ALL_SECTIONS,
+      'mf_users',
+      'vn_users',
+      `name: vn_users\nsql: '{CUBE}.user_id'\ntype: count_distinct`,
+      'measure'
+    );
+    const parsed = yaml.load(next) as any;
+    const cube = parsed.cubes[0];
+    expect(cube.measures.some((m: any) => m.name === 'vn_users')).toBe(true);
+    expect(cube.segments.some((s: any) => s.name === 'vn_users')).toBe(true);
+  });
+
+  it('dimension named "whales" coexists with measure named "whales"', () => {
+    const { next } = splice(
+      CUBES_WITH_ALL_SECTIONS,
+      'mf_users',
+      'whales',
+      `name: whales\ntype: boolean\nsql: "CASE WHEN {CUBE}.ltv_vnd >= 10000000 THEN TRUE ELSE FALSE END"`,
+      'dimension'
+    );
+    const parsed = yaml.load(next) as any;
+    const cube = parsed.cubes[0];
+    expect(cube.measures.some((m: any) => m.name === 'whales')).toBe(true);
+    expect(cube.dimensions.some((d: any) => d.name === 'whales')).toBe(true);
+  });
+});
+
+describe('splice — measure required-keys regression', () => {
+  it('still requires name+sql+type for measures', () => {
+    const badMeasure = `name: x\nsql: y`;
+    expect(() =>
+      splice(CUBES_WITH_ALL_SECTIONS, 'mf_users', 'x', badMeasure, 'measure')
+    ).toThrow(/type/);
+  });
+});
+
+describe('splice — reserved names rejected across all kinds', () => {
+  const kinds: EntryKind[] = ['measure', 'dimension', 'segment'];
+  for (const kind of kinds) {
+    it(`rejects "dimensions" as ${kind} name`, () => {
+      const patch =
+        kind === 'segment'
+          ? `name: dimensions\nsql: "{country} = 'VN'"`
+          : kind === 'dimension'
+            ? `name: dimensions\ntype: string\nsql: x`
+            : `name: dimensions\nsql: y\ntype: count`;
+      expect(() =>
+        splice(CUBES_WITH_ALL_SECTIONS, 'mf_users', 'dimensions', patch, kind)
+      ).toThrow(/reserved/i);
+    });
+  }
 });

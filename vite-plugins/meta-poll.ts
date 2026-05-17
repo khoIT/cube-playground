@@ -1,8 +1,14 @@
 /**
  * meta-poll.ts
- * Polls the Cube /meta endpoint until the specified measure appears,
- * resolving with the full meta payload on success or rejecting on timeout.
+ * Polls the Cube /meta endpoint until the specified entry (measure, dimension,
+ * or segment) appears in its kind-specific section, resolving with the full
+ * meta payload on success or rejecting on timeout.
+ *
+ * Contract: this function THROWS on timeout (not returns null). Handler-level
+ * code catches the throw and translates it into `200 + warning: 'meta-not-acknowledged'`.
  */
+
+export type EntryKind = 'measure' | 'dimension' | 'segment';
 
 export interface PollOptions {
   /** Total time in ms before giving up. Default: 5000 */
@@ -11,6 +17,8 @@ export interface PollOptions {
   intervalMs?: number;
   /** Bearer token for Cube API auth; omit if not required. */
   token?: string;
+  /** Section of /meta to inspect. Default: 'measure' (back-compat). */
+  kind?: EntryKind;
 }
 
 export interface CubeMeta {
@@ -19,8 +27,9 @@ export interface CubeMeta {
 
 interface CubeDefinition {
   name: string;
-  measures: MemberDefinition[];
+  measures?: MemberDefinition[];
   dimensions?: MemberDefinition[];
+  segments?: MemberDefinition[];
 }
 
 interface MemberDefinition {
@@ -28,23 +37,31 @@ interface MemberDefinition {
   [key: string]: unknown;
 }
 
+const SECTION_FOR_KIND: Record<EntryKind, 'measures' | 'dimensions' | 'segments'> = {
+  measure: 'measures',
+  dimension: 'dimensions',
+  segment: 'segments',
+};
+
 /**
- * Polls `<cubeApiUrl>/meta` at `intervalMs` cadence until the measure
- * `<cubeName>.<measureName>` appears, or until `timeoutMs` elapses.
+ * Polls `<cubeApiUrl>/meta` at `intervalMs` cadence until the entry
+ * `<cubeName>.<entryName>` appears in the section keyed by `kind`, or until
+ * `timeoutMs` elapses.
  *
  * @param cubeApiUrl  Base Cube REST API URL, e.g. "http://localhost:4000/cubejs-api/v1"
  * @param cubeName    Cube name (matches the cube's `name` field in /meta)
- * @param measureName Bare measure name without cube prefix
- * @param options     Timing + auth options
- * @returns           The full CubeMeta payload once the measure is visible
+ * @param entryName   Bare entry name without cube prefix
+ * @param options     Timing + auth options + kind (defaults 'measure')
+ * @returns           The full CubeMeta payload once the entry is visible
  */
 export async function waitForMember(
   cubeApiUrl: string,
   cubeName: string,
-  measureName: string,
+  entryName: string,
   options: PollOptions = {},
 ): Promise<CubeMeta> {
-  const { timeoutMs = 5000, intervalMs = 200, token } = options;
+  const { timeoutMs = 5000, intervalMs = 200, token, kind = 'measure' } = options;
+  const sectionKey = SECTION_FOR_KIND[kind];
 
   const metaUrl = `${cubeApiUrl.replace(/\/$/, '')}/meta`;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -52,8 +69,8 @@ export async function waitForMember(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // The measure name in /meta responses is qualified: "CubeName.measureName"
-  const qualifiedName = `${cubeName}.${measureName}`;
+  // The entry name in /meta responses is qualified: "CubeName.entryName"
+  const qualifiedName = `${cubeName}.${entryName}`;
 
   const deadline = Date.now() + timeoutMs;
 
@@ -61,7 +78,7 @@ export async function waitForMember(
     const now = Date.now();
     if (now >= deadline) {
       throw new Error(
-        `meta-poll timeout after ${timeoutMs}ms: "${qualifiedName}" not found in /meta`,
+        `meta-poll timeout after ${timeoutMs}ms: "${qualifiedName}" (${kind}) not found in /meta`,
       );
     }
 
@@ -84,7 +101,12 @@ export async function waitForMember(
     }
 
     const cube = meta.cubes.find((c) => c.name === cubeName);
-    const found = cube?.measures.some((m) => m.name === qualifiedName) ?? false;
+    // Defensive: cubes without the relevant section (e.g. a dim-less cube)
+    // return undefined for that key — `?? []` keeps the `.some()` call safe.
+    const section = (cube as Record<string, unknown> | undefined)?.[sectionKey] as
+      | MemberDefinition[]
+      | undefined;
+    const found = (section ?? []).some((m) => m.name === qualifiedName);
 
     if (found) {
       return meta;
@@ -92,7 +114,7 @@ export async function waitForMember(
 
     if (Date.now() + intervalMs >= deadline) {
       throw new Error(
-        `meta-poll timeout after ${timeoutMs}ms: "${qualifiedName}" not yet in /meta`,
+        `meta-poll timeout after ${timeoutMs}ms: "${qualifiedName}" (${kind}) not yet in /meta`,
       );
     }
 

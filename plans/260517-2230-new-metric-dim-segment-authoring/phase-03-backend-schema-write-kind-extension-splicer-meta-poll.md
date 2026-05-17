@@ -1,11 +1,21 @@
 ---
 phase: 3
 title: "Backend schema-write kind extension splicer meta-poll"
-status: pending
+status: completed
 priority: P1
 effort: "1d"
 dependencies: [2]
 ---
+
+## Implementation note
+
+`measureName` → `entryName` "single-sweep rename" was **partially applied**:
+backend (handler + validator + audit) now uses `entryName` exclusively. The 5
+frontend call-sites (`NewMetricDialog`, `pending-writes`, `use-live-preview`,
+`use-test-run`, `test-run-body`) still send the legacy `measureName` field —
+the validator accepts both. This works because P4-P7 will rewrite those call-
+sites anyway, so a churn-only rename now would be reverted twice. New code
+(Phase 4+) MUST send `entryName` + `kind`.
 
 # Phase 3: Backend schema-write kind extension splicer meta-poll
 

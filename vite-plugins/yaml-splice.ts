@@ -1,7 +1,8 @@
 /**
  * yaml-splice.ts
- * Pure function: inserts a new measure entry into a Cube model YAML string.
- * Uses js-yaml for parse/dump to maintain structural correctness.
+ * Pure function: inserts a new entry (measure / dimension / segment) into a
+ * Cube model YAML string. Uses js-yaml for parse/dump to maintain structural
+ * correctness.
  *
  * Handles two Cube YAML shapes:
  *   1. `cubes:` array form — `cubes: [ { name: …, measures: […] } ]`
@@ -18,10 +19,24 @@
 
 import * as yaml from 'js-yaml';
 
-/** Required top-level keys every measure patch must contain. */
-const REQUIRED_PATCH_KEYS = ['name', 'sql', 'type'] as const;
+export type EntryKind = 'measure' | 'dimension' | 'segment';
 
-/** Reserved Cube top-level keywords that cannot be used as measure names. */
+/** Section key in a cube node that holds entries of each kind. */
+const SECTION_KEY: Record<EntryKind, 'measures' | 'dimensions' | 'segments'> = {
+  measure: 'measures',
+  dimension: 'dimensions',
+  segment: 'segments',
+};
+
+/** Required top-level patch keys per kind. Dimension also requires exactly
+ *  one of `sql` or `case` (banding emits `case`, the other 3 emit `sql`). */
+const REQUIRED_KEYS_BY_KIND: Record<EntryKind, ReadonlyArray<string>> = {
+  measure: ['name', 'sql', 'type'],
+  dimension: ['name', 'type'],
+  segment: ['name', 'sql'],
+};
+
+/** Reserved Cube top-level keywords that cannot be used as entry names. */
 const RESERVED_NAMES = new Set([
   'joins',
   'dimensions',
@@ -43,23 +58,38 @@ export interface SpliceResult {
 type CubeNode = Record<string, unknown> & {
   name?: unknown;
   measures?: unknown;
+  dimensions?: unknown;
+  segments?: unknown;
 };
 
 /**
- * Parses `yamlPatch` as a single measure mapping, validates required keys,
- * then splices it into `input` under the cube identified by `cubeName`.
+ * Parses `yamlPatch` as a single entry mapping, validates required keys per
+ * `kind`, then splices it into `input` under the cube identified by `cubeName`.
  *
  * Throws a descriptive Error on any validation failure; caller should map
  * these to HTTP 400 responses.
+ *
+ * Kind-aware behavior:
+ *   - measure   → splices into `cube.measures[]`, required keys [name, sql, type]
+ *   - dimension → splices into `cube.dimensions[]`, requires [name, type] + (sql | case)
+ *   - segment   → splices into `cube.segments[]`, required keys [name, sql]
+ *
+ * Duplicate detection is **per-section** — a measure and a segment may share
+ * a name. Cross-kind name collisions are explicitly allowed (UX disambiguates
+ * via kind badges).
+ *
+ * The 4-arg legacy signature `splice(input, cube, name, patch)` defaults
+ * `kind = 'measure'` for back-compat with callers that haven't migrated yet.
  */
 export function splice(
   input: string,
   cubeName: string,
-  measureName: string,
+  entryName: string,
   yamlPatch: string,
+  kind: EntryKind = 'measure',
 ): SpliceResult {
-  if (RESERVED_NAMES.has(measureName)) {
-    throw new Error(`measureName "${measureName}" is a reserved Cube keyword`);
+  if (RESERVED_NAMES.has(entryName)) {
+    throw new Error(`entryName "${entryName}" is a reserved Cube keyword`);
   }
 
   // Parse the cube model document.
@@ -74,46 +104,52 @@ export function splice(
     throw new Error('yamlPatch must be a YAML mapping (object), not a scalar or sequence');
   }
 
-  // Validate required patch keys.
-  for (const key of REQUIRED_PATCH_KEYS) {
+  // Validate required patch keys per-kind.
+  for (const key of REQUIRED_KEYS_BY_KIND[kind]) {
     if (!(key in patch)) {
-      throw new Error(`yamlPatch is missing required key: "${key}"`);
+      throw new Error(`yamlPatch is missing required key for ${kind}: "${key}"`);
     }
   }
+  // Dimension also requires exactly one of `sql` | `case` (banding emits
+  // `case`, the other three sub-kinds emit `sql`).
+  if (kind === 'dimension' && !('sql' in patch) && !('case' in patch)) {
+    throw new Error('yamlPatch for dimension must contain either "sql" or "case"');
+  }
 
-  // Ensure the patch name matches the declared measureName.
-  if (patch['name'] !== measureName) {
+  // Ensure the patch name matches the declared entryName.
+  if (patch['name'] !== entryName) {
     throw new Error(
-      `yamlPatch.name "${String(patch['name'])}" does not match measureName "${measureName}"`,
+      `yamlPatch.name "${String(patch['name'])}" does not match entryName "${entryName}"`,
     );
   }
 
   // Locate the target cube node within whichever shape the document uses.
   const cube = findCubeNode(doc, cubeName);
+  const sectionKey = SECTION_KEY[kind];
 
-  // Normalise measures section to an array.
-  const rawMeasures = cube.measures;
-  let measures: Record<string, unknown>[];
-  if (rawMeasures === undefined || rawMeasures === null) {
-    measures = [];
-  } else if (Array.isArray(rawMeasures)) {
-    measures = rawMeasures as Record<string, unknown>[];
+  // Normalise the target section to an array.
+  const rawSection = (cube as Record<string, unknown>)[sectionKey];
+  let entries: Record<string, unknown>[];
+  if (rawSection === undefined || rawSection === null) {
+    entries = [];
+  } else if (Array.isArray(rawSection)) {
+    entries = rawSection as Record<string, unknown>[];
   } else {
-    throw new Error(`Cube "${cubeName}" "measures" key is not a sequence — cannot splice`);
+    throw new Error(`Cube "${cubeName}" "${sectionKey}" key is not a sequence — cannot splice`);
   }
 
-  // Reject duplicate measure names (collision guard).
-  const duplicate = measures.find(
-    (m) => typeof m === 'object' && m !== null && m['name'] === measureName,
+  // Reject **within-kind** duplicate names. Cross-kind same names are allowed
+  // (a measure named `whales` and a segment named `whales` coexist).
+  const duplicate = entries.find(
+    (e) => typeof e === 'object' && e !== null && e['name'] === entryName,
   );
   if (duplicate) {
-    throw new Error(`Measure "${measureName}" already exists in cube "${cubeName}"`);
+    throw new Error(`${kind} "${entryName}" already exists in cube "${cubeName}"`);
   }
 
   // Mutate in place — `cube` is a reference into `doc`, so updating it
-  // updates the document. Spread of `cube` is intentional to preserve key
-  // order around the (possibly new) `measures:` entry.
-  cube.measures = [...measures, patch];
+  // updates the document.
+  (cube as Record<string, unknown>)[sectionKey] = [...entries, patch];
 
   const next = yaml.dump(doc, {
     indent: 2,
