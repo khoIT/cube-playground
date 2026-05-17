@@ -45,17 +45,29 @@ function quote(value: string, type: ColumnType): string {
   }
 }
 
-function cubeRef(qualifiedColumn: string): string {
+/**
+ * Emit a Cube member reference for `qualifiedColumn`.
+ * - Same-cube as `sourceCube` → `{member}` (Cube resolves through the member's own sql).
+ * - Cross-cube                → `{otherCube.member}` (cross-cube member ref).
+ * - No `sourceCube` provided  → defaults to `{cube.member}` form, which is still
+ *   valid Cube syntax (no raw-column assumption).
+ * The legacy `{cube}.col` form was a raw-column reference and silently broke for
+ * derived dimensions whose member name diverges from the underlying SQL column.
+ */
+function cubeRef(qualifiedColumn: string, sourceCube?: string): string {
   const dot = qualifiedColumn.indexOf('.');
   if (dot < 0) return qualifiedColumn;
-  return `{${qualifiedColumn.slice(0, dot)}}.${qualifiedColumn.slice(dot + 1)}`;
+  const cube = qualifiedColumn.slice(0, dot);
+  const col = qualifiedColumn.slice(dot + 1);
+  if (sourceCube && cube === sourceCube) return `{${col}}`;
+  return `{${cube}.${col}}`;
 }
 
-function leafToSql(leaf: FilterLeaf): string {
+function leafToSql(leaf: FilterLeaf, sourceCube?: string): string {
   if (!KNOWN_TYPES.includes(leaf.columnType)) {
     throw new Error(`flatten-to-sql: unknown column type "${leaf.columnType}"`);
   }
-  const ref = cubeRef(leaf.column);
+  const ref = cubeRef(leaf.column, sourceCube);
   const first = leaf.values[0] ?? '';
   switch (leaf.op) {
     case 'set':
@@ -103,14 +115,14 @@ function leafToSql(leaf: FilterLeaf): string {
   }
 }
 
-export function flattenToSql(node: FilterNode, _columnTypes?: ColumnTypeMap): string {
-  if (node.kind === 'leaf') return leafToSql(node);
+export function flattenToSql(node: FilterNode, sourceCube?: string, _columnTypes?: ColumnTypeMap): string {
+  if (node.kind === 'leaf') return leafToSql(node, sourceCube);
 
   // Group — drop empty groups, recurse non-empty children
   const parts: string[] = [];
   for (const c of node.children) {
     if (c.kind === 'group' && c.children.length === 0) continue;
-    parts.push(flattenToSql(c));
+    parts.push(flattenToSql(c, sourceCube));
   }
   if (parts.length === 0) return '';
   if (parts.length === 1) return parts[0];

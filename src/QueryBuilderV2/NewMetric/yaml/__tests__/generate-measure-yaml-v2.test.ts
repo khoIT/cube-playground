@@ -63,7 +63,7 @@ describe('generateV2', () => {
     const { fragment } = generateV2(baseDraft(), ctx());
     expect(fragment).toContain('name: total_ltv');
     expect(fragment).toContain('type: sum');
-    expect(fragment).toContain('{mf_users}.ltv_30d');
+    expect(fragment).toContain('{ltv_30d}');
     expect(fragment).toContain('format: currency-vnd');
     expect(fragment).toMatch(/grain:\s*daily/);
     expect(fragment).toMatch(/visibility:\s*team/);
@@ -84,7 +84,7 @@ describe('generateV2', () => {
     ]);
     const { fragment } = generateV2(d, ctx());
     expect(fragment).toContain('filters:');
-    expect(fragment).toContain("({mf_users}.tier = 'premium') AND ({mf_users}.country = 'VN')");
+    expect(fragment).toContain("({tier} = 'premium') AND ({country} = 'VN')");
   });
 
   it('emits a nested AND/OR as one parenthesised sql fragment', () => {
@@ -99,8 +99,8 @@ describe('generateV2', () => {
     ]);
     const { fragment } = generateV2(d, ctx());
     expect(fragment).toContain('filters:');
-    expect(fragment).toContain("({mf_users}.tier = 'premium')");
-    expect(fragment).toContain("({mf_users}.country = 'VN') OR ({mf_users}.country = 'TH')");
+    expect(fragment).toContain("({tier} = 'premium')");
+    expect(fragment).toContain("({country} = 'VN') OR ({country} = 'TH')");
   });
 
   it('median emits PERCENTILE_CONT(0.5) sql', () => {
@@ -109,7 +109,7 @@ describe('generateV2', () => {
     d.name = 'median_ltv';
     const { fragment } = generateV2(d, ctx());
     expect(fragment).toContain('type: number');
-    expect(fragment).toContain('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {mf_users}.ltv_30d)');
+    expect(fragment).toContain('PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {ltv_30d})');
   });
 
   it('percentile emits PERCENTILE_CONT(0.95) sql', () => {
@@ -118,7 +118,7 @@ describe('generateV2', () => {
     d.name = 'p95_ltv';
     const { fragment } = generateV2(d, ctx());
     expect(fragment).toContain('type: number');
-    expect(fragment).toContain('PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY {mf_users}.ltv_30d)');
+    expect(fragment).toContain('PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY {ltv_30d})');
   });
 
   it('emits meta.created_at, meta.author, meta.source = wizard', () => {
@@ -154,7 +154,7 @@ describe('generateV2', () => {
       author: 'khoitn',
     };
     const { fragment } = generateV2(d, c);
-    expect(fragment).toContain('SUM({mf_users}.score * {mf_users}.weight) / NULLIF(SUM({mf_users}.weight), 0)');
+    expect(fragment).toContain('SUM({score} * {weight}) / NULLIF(SUM({weight}), 0)');
   });
 
   it('formula emits SUM(a) + SUM(b) - SUM(c) across 3 slots', () => {
@@ -181,7 +181,7 @@ describe('generateV2', () => {
       author: 'khoitn',
     };
     const { fragment } = generateV2(d, c);
-    expect(fragment).toContain('SUM({mf_users}.revenue) + SUM({mf_users}.bonus) - SUM({mf_users}.refunds)');
+    expect(fragment).toContain('SUM({revenue}) + SUM({bonus}) - SUM({refunds})');
   });
 
   it('cross-cube ratio emits {a}.x / NULLIF({b}.y, 0)', () => {
@@ -212,6 +212,6 @@ describe('generateV2', () => {
       author: 'khoitn',
     };
     const { fragment } = generateV2(d, crossCtx);
-    expect(fragment).toContain('{mf_users}.ltv_30d / NULLIF({mf_sessions}.count, 0)');
+    expect(fragment).toContain('{ltv_30d} / NULLIF({mf_sessions.count}, 0)');
   });
 });

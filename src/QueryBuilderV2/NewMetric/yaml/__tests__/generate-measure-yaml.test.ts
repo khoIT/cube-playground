@@ -73,7 +73,7 @@ describe('generate() — sum, same-cube, no filter', () => {
     expect(yaml).toContain('measures:');
     expect(yaml).toContain('name: total_revenue');
     expect(yaml).toContain('type: sum');
-    expect(yaml).toContain('sql: \'{orders}.amount\'');
+    expect(yaml).toContain('sql: \'{amount}\'');
     expect(fragment).toContain('name: total_revenue');
     expect(fragment).not.toContain('measures:');
   });
@@ -117,7 +117,7 @@ describe('generate() — countDistinct, cross-cube via join', () => {
 
   it('emits cross-cube sql reference', () => {
     const { fragment } = generate(draft, ctx(CROSS_CUBE_MEMBERS));
-    expect(fragment).toContain('{users}.id');
+    expect(fragment).toContain('{users.id}');
   });
 });
 
@@ -138,9 +138,9 @@ describe('generate() — ratio, same-cube', () => {
 
   it('emits NULLIF division sql using source-cube references', () => {
     const { fragment } = generate(draft, ctx());
-    expect(fragment).toContain('{orders}.amount');
+    expect(fragment).toContain('{amount}');
     expect(fragment).toContain('NULLIF(');
-    expect(fragment).toContain('{orders}.id');
+    expect(fragment).toContain('{id}');
   });
 });
 
@@ -154,7 +154,7 @@ describe('generate() — with filters', () => {
     expect(fragment).toContain('filters:');
     // js-yaml serialises strings containing curly-braces in single-quote style,
     // escaping interior single quotes as ''. Verify the key parts are present.
-    expect(fragment).toContain('{orders}.status');
+    expect(fragment).toContain('{status}');
     expect(fragment).toContain('paid');
     expect(fragment).toMatch(/sql:/);
   });

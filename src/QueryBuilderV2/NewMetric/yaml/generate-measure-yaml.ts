@@ -43,13 +43,18 @@ const OPERATION_TYPE: Partial<Record<Operation, string>> = {
  * Convert a filter (BinaryFilter | UnaryFilter) to a Cube sql string.
  * Returns null if the filter shape is unrecognised (caller omits filters key).
  */
-function filterToSql(filter: BinaryFilter | UnaryFilter): string | null {
+function filterToSql(filter: BinaryFilter | UnaryFilter, sourceCube?: string): string | null {
   const member = filter.member ?? (filter as any).dimension ?? '';
-  // Convert "cube.col" → "{cube}.col" Cube reference syntax by splitting on first dot.
+  // Convert "cube.col" → member-reference form. See buildSqlRef for syntax rationale.
   const dotIdx = member.indexOf('.');
-  const cubeRef = dotIdx >= 0
-    ? `{${member.slice(0, dotIdx)}}.${member.slice(dotIdx + 1)}`
-    : member;
+  let cubeRef: string;
+  if (dotIdx < 0) {
+    cubeRef = member;
+  } else {
+    const cube = member.slice(0, dotIdx);
+    const col = member.slice(dotIdx + 1);
+    cubeRef = sourceCube && cube === sourceCube ? `{${col}}` : `{${cube}.${col}}`;
+  }
 
   const op = filter.operator;
 
@@ -84,22 +89,37 @@ function findMember(members: ReachableMember[], qualifiedName: string): Reachabl
 }
 
 /**
- * Build the sql expression for a non-ratio measure.
- * Cross-cube: "{remoteCube}.shortName", Same-cube: "{sourceCube}.shortName"
+ * Build the sql reference for a Cube member.
+ *
+ * Cube template syntax (must NOT be confused):
+ *   - `{CUBE}.column_name` → raw column reference on the underlying table.
+ *     Works only when the member's name literally matches a SQL column.
+ *   - `{member_name}`           → SAME-cube member reference. Cube resolves it
+ *     through the dimension/measure definition (its own `sql:` field).
+ *   - `{otherCube.member_name}` → CROSS-cube member reference, resolved via
+ *     the declared join.
+ *
+ * The wizard previously emitted the raw-column form, which silently broke for
+ * derived dimensions whose Cube member name differs from the underlying SQL
+ * column (e.g. `txn_count_30d` → column `ingame_total_recharge_transaction_id_30d`).
+ * Always use the member-reference form so Cube resolves through its own
+ * member system.
  */
 function buildSqlRef(member: ReachableMember | undefined, sourceCube: string, qualifiedName: string): string {
-  if (!member) {
-    // Fallback: derive from qualifiedName directly
-    const dot = qualifiedName.indexOf('.');
-    if (dot >= 0) {
-      const cube = qualifiedName.slice(0, dot);
-      const col = qualifiedName.slice(dot + 1);
-      return `{${cube}}.${col}`;
-    }
-    return `{${sourceCube}}.${qualifiedName}`;
+  if (member) {
+    return member.cubeName === sourceCube
+      ? `{${member.shortName}}`
+      : `{${member.cubeName}.${member.shortName}}`;
   }
-  const cube = member.cubeName;
-  return `{${cube}}.${member.shortName}`;
+  // Fallback: parse qualifiedName when the member wasn't in reachableMembers.
+  const dot = qualifiedName.indexOf('.');
+  if (dot >= 0) {
+    const cube = qualifiedName.slice(0, dot);
+    const col = qualifiedName.slice(dot + 1);
+    return cube === sourceCube ? `{${col}}` : `{${cube}.${col}}`;
+  }
+  // Bare name → assume same-cube member.
+  return `{${qualifiedName}}`;
 }
 
 /**
@@ -144,7 +164,7 @@ export function generate(
   // Build filters array (optional)
   let filtersValue: Array<{ sql: string }> | undefined;
   if (draft.filter) {
-    const filterSql = filterToSql(draft.filter);
+    const filterSql = filterToSql(draft.filter, sourceCube);
     if (filterSql) {
       filtersValue = [{ sql: filterSql }];
     }
@@ -256,7 +276,7 @@ export function generateV2(
   // Filter tree → single sql fragment.
   let filtersValue: Array<{ sql: string }> | undefined;
   if (draft.filterTree && !filterTreeIsEmpty(draft.filterTree)) {
-    const sql = flattenToSql(draft.filterTree);
+    const sql = flattenToSql(draft.filterTree, sourceCube);
     if (sql) filtersValue = [{ sql }];
   }
 

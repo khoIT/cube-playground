@@ -17,17 +17,17 @@ describe('flattenToSql', () => {
 
   it('quotes a single string equals', () => {
     expect(flattenToSql(strLeaf('mf_users.tier', '=', 'premium')))
-      .toBe("{mf_users}.tier = 'premium'");
+      .toBe("{mf_users.tier} = 'premium'");
   });
 
   it('escapes single quotes in string value (O\'Brien)', () => {
     expect(flattenToSql(strLeaf('mf_users.name', '=', "O'Brien")))
-      .toBe("{mf_users}.name = 'O''Brien'");
+      .toBe("{mf_users.name} = 'O''Brien'");
   });
 
   it('emits numeric value raw', () => {
     expect(flattenToSql(numLeaf('mf_users.age', '>', '21')))
-      .toBe('{mf_users}.age > 21');
+      .toBe('{mf_users.age} > 21');
   });
 
   it('rejects non-numeric value for numeric column', () => {
@@ -44,7 +44,7 @@ describe('flattenToSql', () => {
 
   it('parenthesises IN list', () => {
     expect(flattenToSql(strLeaf('mf_users.tier', 'IN', 'premium', 'whale')))
-      .toBe("{mf_users}.tier IN ('premium', 'whale')");
+      .toBe("{mf_users.tier} IN ('premium', 'whale')");
   });
 
   it('IN list throws when empty', () => {
@@ -52,8 +52,8 @@ describe('flattenToSql', () => {
   });
 
   it('emits IS NULL / IS NOT NULL for set/notSet', () => {
-    expect(flattenToSql(strLeaf('mf_users.email', 'set'))).toBe('{mf_users}.email IS NOT NULL');
-    expect(flattenToSql(strLeaf('mf_users.email', 'notSet'))).toBe('{mf_users}.email IS NULL');
+    expect(flattenToSql(strLeaf('mf_users.email', 'set'))).toBe('{mf_users.email} IS NOT NULL');
+    expect(flattenToSql(strLeaf('mf_users.email', 'notSet'))).toBe('{mf_users.email} IS NULL');
   });
 
   it('parenthesises AND with two leaves', () => {
@@ -62,7 +62,7 @@ describe('flattenToSql', () => {
       strLeaf('mf_users.country', '=', 'VN'),
     ]);
     expect(flattenToSql(root))
-      .toBe("({mf_users}.tier = 'premium') AND ({mf_users}.country = 'VN')");
+      .toBe("({mf_users.tier} = 'premium') AND ({mf_users.country} = 'VN')");
   });
 
   it('parenthesises nested AND/OR tree', () => {
@@ -75,7 +75,7 @@ describe('flattenToSql', () => {
       orGroup,
     ]);
     expect(flattenToSql(andRoot)).toBe(
-      "({mf_users}.tier = 'premium') AND (({mf_users}.country = 'VN') OR ({mf_users}.country = 'TH'))"
+      "({mf_users.tier} = 'premium') AND (({mf_users.country} = 'VN') OR ({mf_users.country} = 'TH'))"
     );
   });
 
@@ -96,12 +96,12 @@ describe('flattenToSql', () => {
       kind: 'leaf', id: 'x', column: 'mf_users.is_active',
       columnType: 'boolean', op: '=', values: ['True'],
     };
-    expect(flattenToSql(leaf)).toBe('{mf_users}.is_active = true');
+    expect(flattenToSql(leaf)).toBe('{mf_users.is_active} = true');
   });
 
   it('LIKE escapes percent and quote in contains', () => {
     const leaf = strLeaf('mf_users.name', 'contains', "O'%test");
-    expect(flattenToSql(leaf)).toBe("{mf_users}.name LIKE '%O''%%test%'");
+    expect(flattenToSql(leaf)).toBe("{mf_users.name} LIKE '%O''%%test%'");
   });
 
   it('omits empty inner group from output', () => {
@@ -109,7 +109,7 @@ describe('flattenToSql', () => {
       strLeaf('mf_users.tier', '=', 'premium'),
       makeGroup('OR', []),
     ]);
-    expect(flattenToSql(root)).toBe("{mf_users}.tier = 'premium'");
+    expect(flattenToSql(root)).toBe("{mf_users.tier} = 'premium'");
   });
 });
 
@@ -119,6 +119,6 @@ describe('builders integration', () => {
     const leaf = makeLeaf('mf_users.tier', 'string', '=', ['premium']);
     const next = addLeaf(root, root.id, leaf);
     expect(next.children).toHaveLength(1);
-    expect(flattenToSql(next)).toBe("{mf_users}.tier = 'premium'");
+    expect(flattenToSql(next)).toBe("{mf_users.tier} = 'premium'");
   });
 });
