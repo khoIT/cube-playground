@@ -21,6 +21,7 @@ import { FiltersBody } from './steps/step-4-filters/filters-body';
 import { IdentityBody } from './steps/step-5-identity/identity-body';
 import { YamlPreviewRail } from './steps/step-5-identity/yaml-preview-rail';
 import { TestRunBody } from './steps/step-6-test-run/test-run-body';
+import { discardAllPending, sweepStale } from './steps/step-6-test-run/pending-writes';
 
 /**
  * Route component for `/metrics/new`. Mounts the full-page 6-step wizard
@@ -99,6 +100,23 @@ export function NewMetricPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.sourceCubes, draft.operation, draft.inputs]);
+
+  // One-shot cleanup: when the wizard mounts (after meta + draft hydration),
+  // sweep any test-run YAML the previous session left orphaned on disk. The
+  // current draft's identity is preserved so an in-progress measure isn't
+  // wiped out on a tab refresh.
+  const sweepDoneRef = useRef(false);
+  useEffect(() => {
+    if (sweepDoneRef.current || !meta) return;
+    sweepDoneRef.current = true;
+    const primary = draft.sourceCubes[0];
+    const keep =
+      primary && draft.name
+        ? { cubeName: primary, measureName: draft.name }
+        : null;
+    void sweepStale(keep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta]);
 
   // Apply ?cube= deep-link once meta is available, validating against meta.cubes.
   const [cubeParamApplied, setCubeParamApplied] = useState(false);
@@ -202,11 +220,15 @@ export function NewMetricPage() {
   function handleDiscard() {
     Modal.confirm({
       title: 'Discard new metric?',
-      content: 'Your in-progress draft will be cleared.',
+      content: 'Your draft will be cleared and any test-run YAML on disk will be removed.',
       okText: 'Discard',
       okType: 'danger',
       cancelText: 'Keep editing',
-      onOk: () => {
+      onOk: async () => {
+        // Delete any test-run YAML the live preview committed during this
+        // session before clearing local state. Best-effort — failures don't
+        // block the user-facing discard.
+        await discardAllPending();
         clearPersisted();
         draftState.reset();
         history.push('/build');

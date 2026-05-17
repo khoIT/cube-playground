@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CubeApi } from '@cubejs-client/core';
 import { postSchemaWrite, deleteSchemaWrite } from '../../../api';
+import { addPending, removePending } from './pending-writes';
 
 const DEBOUNCE_MS = 500;
 
@@ -72,8 +73,10 @@ export function useTestRun(args: UseTestRunArgs) {
   async function discard(): Promise<{ ok: boolean; reason?: string }> {
     const prior = lastWrittenRef.current;
     if (!prior) return { ok: true };
-    const result = await deleteSchemaWrite({ cubeName: prior.cubeName, measureName: prior.measureName });
+    const target = { cubeName: prior.cubeName, measureName: prior.measureName };
+    const result = await deleteSchemaWrite(target);
     if (result.ok) {
+      removePending(target);
       lastWrittenRef.current = null;
       setStatus('idle');
       setScalar(null);
@@ -106,7 +109,8 @@ export function useTestRun(args: UseTestRunArgs) {
 
       if (identityChanged) {
         setStatus('discarding-prior');
-        const deleted = await deleteSchemaWrite({ cubeName: prior!.cubeName, measureName: prior!.measureName });
+        const priorTarget = { cubeName: prior!.cubeName, measureName: prior!.measureName };
+        const deleted = await deleteSchemaWrite(priorTarget);
         if (myRunId !== runIdRef.current) return;
         const dStatus = (deleted as { status?: number }).status;
         if (!deleted.ok && dStatus !== 404) {
@@ -114,6 +118,7 @@ export function useTestRun(args: UseTestRunArgs) {
           setError(`Discard failed: ${(deleted as { reason?: string }).reason}`);
           return;
         }
+        removePending(priorTarget);
         lastWrittenRef.current = null;
       }
 
@@ -141,6 +146,7 @@ export function useTestRun(args: UseTestRunArgs) {
           // the wizard's draft.name is unique to this in-progress measure.
           if (/already exists/i.test(reason)) {
             lastWrittenRef.current = incoming;
+            addPending({ cubeName: incoming.cubeName, measureName: incoming.measureName });
           } else {
             setStatus('error');
             setError(`Schema write failed: ${reason || 'write failed'}`);
@@ -148,6 +154,7 @@ export function useTestRun(args: UseTestRunArgs) {
           }
         } else {
           lastWrittenRef.current = incoming;
+          addPending({ cubeName: incoming.cubeName, measureName: incoming.measureName });
         }
       }
 

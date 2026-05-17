@@ -10,6 +10,7 @@ import { generateV2 } from '../../../yaml/generate-measure-yaml';
 import { postSchemaWrite, deleteSchemaWrite } from '../../../api';
 import { useTestRun } from './use-test-run';
 import { TrendChart, DimensionTable } from './test-run-charts';
+import { removePending } from './pending-writes';
 
 const StatusPill = styled.span<{ $kind: 'pass' | 'pending' | 'error' }>`
   display: inline-flex;
@@ -245,6 +246,9 @@ export function TestRunBody({ draft, sourceCube, cubejsApi, onSubmitted }: TestR
       }
     }
 
+    // Promote the YAML from "pending" to permanent — the file stays on disk
+    // and should no longer be auto-discarded on next wizard mount or Discard.
+    removePending({ cubeName: primaryCube, measureName: draft.name });
     onSubmitted({ cubeName: primaryCube, measureName: draft.name });
     notification.success({ message: 'Metric submitted' });
     history.push(
