@@ -66,13 +66,13 @@ export function useTestRun(args: UseTestRunArgs) {
   const [error, setError] = useState<string | null>(null);
   const [queryMs, setQueryMs] = useState<number | null>(null);
 
-  const lastWrittenRef = useRef<{ cubeName: string; measureName: string } | null>(null);
+  const lastWrittenRef = useRef<{ cubeName: string; measureName: string; yamlPatch: string } | null>(null);
   const runIdRef = useRef(0);
 
   async function discard(): Promise<{ ok: boolean; reason?: string }> {
     const prior = lastWrittenRef.current;
     if (!prior) return { ok: true };
-    const result = await deleteSchemaWrite(prior);
+    const result = await deleteSchemaWrite({ cubeName: prior.cubeName, measureName: prior.measureName });
     if (result.ok) {
       lastWrittenRef.current = null;
       setStatus('idle');
@@ -94,13 +94,19 @@ export function useTestRun(args: UseTestRunArgs) {
     async function run() {
       if (myRunId !== runIdRef.current) return;
       const prior = lastWrittenRef.current;
-      const incoming = { cubeName: cubeName as string, measureName };
+      const incoming = { cubeName: cubeName as string, measureName, yamlPatch };
       const identityChanged =
         prior && (prior.cubeName !== incoming.cubeName || prior.measureName !== incoming.measureName);
+      const yamlChanged = !!prior && !identityChanged && prior.yamlPatch !== yamlPatch;
+      // Skip the schema write entirely when the exact identity + content is
+      // already on disk. The write endpoint rejects same-name re-writes with
+      // "already exists", so range/dimension toggles must reuse the prior
+      // commit and only re-run the /load.
+      const writeNeeded = !prior || identityChanged || yamlChanged;
 
       if (identityChanged) {
         setStatus('discarding-prior');
-        const deleted = await deleteSchemaWrite(prior);
+        const deleted = await deleteSchemaWrite({ cubeName: prior!.cubeName, measureName: prior!.measureName });
         if (myRunId !== runIdRef.current) return;
         const dStatus = (deleted as { status?: number }).status;
         if (!deleted.ok && dStatus !== 404) {
@@ -111,21 +117,30 @@ export function useTestRun(args: UseTestRunArgs) {
         lastWrittenRef.current = null;
       }
 
-      setStatus('writing');
-      setError(null);
-      const writeResult = await postSchemaWrite({
-        cubeName: incoming.cubeName,
-        measureName: incoming.measureName,
-        yamlPatch,
-      });
-      if (myRunId !== runIdRef.current) return;
-      if (!writeResult.ok) {
-        setStatus('error');
-        const reason = (writeResult as { reason?: string }).reason ?? 'write failed';
-        setError(`Schema write failed: ${reason}`);
-        return;
+      if (writeNeeded) {
+        // If only the YAML body changed, delete the prior body first since
+        // postSchemaWrite refuses to overwrite an existing measure of the
+        // same name.
+        if (yamlChanged) {
+          await deleteSchemaWrite({ cubeName: incoming.cubeName, measureName: incoming.measureName });
+          if (myRunId !== runIdRef.current) return;
+        }
+        setStatus('writing');
+        setError(null);
+        const writeResult = await postSchemaWrite({
+          cubeName: incoming.cubeName,
+          measureName: incoming.measureName,
+          yamlPatch,
+        });
+        if (myRunId !== runIdRef.current) return;
+        if (!writeResult.ok) {
+          setStatus('error');
+          const reason = (writeResult as { reason?: string }).reason ?? 'write failed';
+          setError(`Schema write failed: ${reason}`);
+          return;
+        }
+        lastWrittenRef.current = incoming;
       }
-      lastWrittenRef.current = incoming;
 
       setStatus('loading');
       const qualified = `${incoming.cubeName}.${incoming.measureName}`;
