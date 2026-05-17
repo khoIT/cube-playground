@@ -1,11 +1,19 @@
 ---
 phase: 2
 title: "YAML emitter dispatcher per-kind generators"
-status: pending
+status: completed
 priority: P1
 effort: "1d"
 dependencies: [1]
 ---
+
+## Implementation note
+
+The existing `generate-measure-yaml.ts` was **kept in place** (not renamed to
+`generate-measure.ts`) to minimize blast radius across the 5 frontend call-sites.
+`generate-cube-entry.ts` (dispatcher) imports `generateV2` from the existing
+file. New files added side-by-side: `generate-dimension.ts`, `generate-segment.ts`,
+`generate-cube-entry.ts`. All 87 yaml tests pass (existing 43 + new 27 + dispatcher 4).
 
 # Phase 2: YAML emitter dispatcher per-kind generators
 

@@ -1,11 +1,17 @@
 ---
 phase: 1
 title: "Foundation draft V3 types and auto-name"
-status: pending
+status: completed
 priority: P0
 effort: "0.75d"
 dependencies: []
 ---
+
+## Spike result
+
+Pre-flight Cube API spike (segment-load shape) **NOT RUN** in this implementation
+pass — requires a live Cube server. Decision deferred to P7; P7 ships SQL-only
+fallback by default, upgrades to cohort-tile when the spike is exercised.
 
 # Phase 1: Foundation draft V3 types and auto-name
 

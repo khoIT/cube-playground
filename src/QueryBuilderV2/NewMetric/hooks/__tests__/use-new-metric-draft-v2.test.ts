@@ -51,7 +51,9 @@ describe('useNewMetricDraft v2', () => {
     const stored = window.localStorage.getItem(`${KEY_PREFIX}:${tabId}`);
     expect(stored).toBeTruthy();
     const parsed = JSON.parse(stored!);
-    expect(parsed.version).toBe(2);
+    // STORAGE_VERSION bumped 2→3 in V3 plan; persisted blobs now write version 3.
+    // V2-shaped blobs still hydrate cleanly via `migrateLegacyShape`.
+    expect(parsed.version).toBe(3);
     expect(parsed.draft.sourceCube).toBe('mf_users');
   });
 

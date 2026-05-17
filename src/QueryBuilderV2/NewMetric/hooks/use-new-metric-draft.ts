@@ -1,16 +1,22 @@
 import { useEffect, useReducer, useRef } from 'react';
-import { NewMetricDraft, NewMetricDraftV2, ValidationResult } from '../types';
+import {
+  ArtifactKind,
+  NewMetricDraft,
+  NewMetricDraftV2,
+  NewMetricDraftV3,
+  ValidationResult,
+} from '../types';
 import { emptyTree } from '../filter-tree';
 import { findOp, primarySlotIdFor } from '../full-page/steps/step-2-operation/operations';
 
 // Snake_case pattern: starts with lowercase letter, followed by lowercase letters, digits, or underscores.
 const SNAKE_CASE_PATTERN = /^[a-z][a-z0-9_]*$/;
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 const STORAGE_KEY_PREFIX = 'gds-cube:new-metric-draft-v2';
 const TAB_ID_KEY = 'gds-cube:new-metric-tab-id';
 const DEBOUNCE_MS = 200;
 
-function makeInitialDraft(): NewMetricDraftV2 {
+function makeInitialDraft(): NewMetricDraftV3 {
   return {
     sourceCubes: [],
     sourceCube: null,
@@ -29,6 +35,7 @@ function makeInitialDraft(): NewMetricDraftV2 {
     filterTree: emptyTree(),
     grain: 'daily',
     visibility: 'team',
+    artifactKind: 'measure',
   };
 }
 
@@ -37,7 +44,7 @@ function makeInitialDraft(): NewMetricDraftV2 {
 // `sourceCubes` / `inputs` shape so the dialog flow keeps compiling untouched.
 // ---------------------------------------------------------------------------
 
-function syncFromCanonical(draft: NewMetricDraftV2): NewMetricDraftV2 {
+function syncFromCanonical(draft: NewMetricDraftV3): NewMetricDraftV3 {
   const sourceCube = draft.sourceCubes[0] ?? null;
   const primarySlot = primarySlotIdFor(draft.operation);
   const ofMember = draft.inputs[primarySlot] ?? null;
@@ -52,12 +59,12 @@ function syncFromCanonical(draft: NewMetricDraftV2): NewMetricDraftV2 {
   return { ...draft, sourceCube, ofMember, ofMemberB };
 }
 
-function applySetField<K extends keyof NewMetricDraftV2>(
-  state: NewMetricDraftV2,
+function applySetField<K extends keyof NewMetricDraftV3>(
+  state: NewMetricDraftV3,
   field: K,
-  value: NewMetricDraftV2[K]
-): NewMetricDraftV2 {
-  let next: NewMetricDraftV2 = { ...state, [field]: value };
+  value: NewMetricDraftV3[K]
+): NewMetricDraftV3 {
+  let next: NewMetricDraftV3 = { ...state, [field]: value };
 
   // Legacy → canonical
   if (field === 'sourceCube') {
@@ -87,21 +94,53 @@ function applySetField<K extends keyof NewMetricDraftV2>(
   return syncFromCanonical(next);
 }
 
-type SetFieldAction<K extends keyof NewMetricDraftV2> = {
+type SetFieldAction<K extends keyof NewMetricDraftV3> = {
   type: 'setField';
   field: K;
-  value: NewMetricDraftV2[K];
+  value: NewMetricDraftV3[K];
 };
 type SetInputAction = { type: 'setInput'; slotId: string; value: string | null };
-type HydrateAction = { type: 'hydrate'; draft: NewMetricDraftV2 };
+type HydrateAction = { type: 'hydrate'; draft: NewMetricDraftV3 };
+type SetArtifactKindAction = { type: 'setArtifactKind'; kind: ArtifactKind };
 type ResetAction = { type: 'reset' };
 type DraftAction =
-  | SetFieldAction<keyof NewMetricDraftV2>
+  | SetFieldAction<keyof NewMetricDraftV3>
   | SetInputAction
   | HydrateAction
+  | SetArtifactKindAction
   | ResetAction;
 
-function reducer(state: NewMetricDraftV2, action: DraftAction): NewMetricDraftV2 {
+function applySetArtifactKind(state: NewMetricDraftV3, nextKind: ArtifactKind): NewMetricDraftV3 {
+  if (state.artifactKind === nextKind) return state;
+  const prevKind = state.artifactKind;
+  const next: NewMetricDraftV3 = { ...state, artifactKind: nextKind };
+
+  // Drop measure sub-state when leaving measure-mode. Dim/segment have no use
+  // for op + inputs.
+  if (nextKind !== 'measure') {
+    next.operation = 'sum';
+    next.inputs = {};
+  }
+
+  // Drop dim sub-state on any kind change (dim builder only valid in dim mode).
+  if (nextKind !== 'dimension') {
+    delete next.dimKind;
+    delete next.dimBuilder;
+  }
+
+  // Segment authoring writes into `filterTree`. When the user leaves segment
+  // mode the cohort intent doesn't carry over to measure-filters or to a dim
+  // — so we wipe the tree. Switching INTO segment from a measure with filters
+  // intentionally inherits the tree (user may want to seed the cohort from
+  // existing filters).
+  if (prevKind === 'segment' && nextKind !== 'segment') {
+    next.filterTree = emptyTree();
+  }
+
+  return syncFromCanonical(next);
+}
+
+function reducer(state: NewMetricDraftV3, action: DraftAction): NewMetricDraftV3 {
   switch (action.type) {
     case 'setField':
       return applySetField(state, action.field, action.value);
@@ -109,6 +148,8 @@ function reducer(state: NewMetricDraftV2, action: DraftAction): NewMetricDraftV2
       const nextInputs = { ...state.inputs, [action.slotId]: action.value };
       return applySetField(state, 'inputs', nextInputs);
     }
+    case 'setArtifactKind':
+      return applySetArtifactKind(state, action.kind);
     case 'hydrate':
       return syncFromCanonical(action.draft);
     case 'reset':
@@ -206,9 +247,12 @@ function storageKeyFor(tabId: string): string {
  * Bring a persisted draft up to the current shape:
  *  - missing `sourceCubes` ← `[sourceCube]` if a legacy `sourceCube` exists
  *  - missing `inputs`      ← seeded from legacy `ofMember` / `ofMemberB`
+ *  - V2 (no `artifactKind`) → injects `artifactKind: 'measure'`. V3 hydrates
+ *    as-is. Persisted version is read by the caller (only `version === 2 || 3`
+ *    blobs reach this function).
  */
-function migrateLegacyShape(parsed: any): NewMetricDraftV2 {
-  const draft = { ...makeInitialDraft(), ...(parsed ?? {}) } as NewMetricDraftV2;
+function migrateLegacyShape(parsed: any): NewMetricDraftV3 {
+  const draft = { ...makeInitialDraft(), ...(parsed ?? {}) } as NewMetricDraftV3;
 
   // If the persisted draft pre-dates `sourceCubes`, seed it from the legacy
   // single-cube field. The spread above brought `sourceCube` over but left
@@ -230,13 +274,23 @@ function migrateLegacyShape(parsed: any): NewMetricDraftV2 {
     if (legacyOfB) draft.inputs.denominator = legacyOfB;
   }
 
+  // V2 → V3: blob has no `artifactKind` key. Default to 'measure' so legacy
+  // drafts hydrate as the existing measure flow with no behavioral change.
+  if (typeof (parsed as any)?.artifactKind !== 'string') {
+    draft.artifactKind = 'measure';
+    // Defensive: a V2 blob should never have dim sub-state, but if a future
+    // bug ever wrote those keys without a discriminator, strip them now.
+    delete draft.dimKind;
+    delete draft.dimBuilder;
+  }
+
   return draft;
 }
 
 function sanitizeDraft(
-  draft: NewMetricDraftV2,
+  draft: NewMetricDraftV3,
   reachableNames: Set<string>
-): { draft: NewMetricDraftV2; dropped: string[] } {
+): { draft: NewMetricDraftV3; dropped: string[] } {
   const dropped: string[] = [];
   let nextInputs = draft.inputs;
   for (const [slotId, val] of Object.entries(draft.inputs)) {
@@ -274,9 +328,12 @@ function sanitizeDraft(
 // ---------------------------------------------------------------------------
 
 export type UseNewMetricDraftReturn = {
-  draft: NewMetricDraftV2;
-  setField: <K extends keyof NewMetricDraftV2>(field: K, value: NewMetricDraftV2[K]) => void;
+  draft: NewMetricDraftV3;
+  setField: <K extends keyof NewMetricDraftV3>(field: K, value: NewMetricDraftV3[K]) => void;
   setInput: (slotId: string, value: string | null) => void;
+  /** Switch the artifact kind. Clears kind-specific sub-state per the reducer
+   *  rules in `applySetArtifactKind`. */
+  setArtifactKind: (kind: ArtifactKind) => void;
   /** Toggle a cube's presence in `sourceCubes`. First selected becomes primary. */
   toggleSource: (cubeName: string) => void;
   /** Reorder `sourceCubes` so `cubeName` becomes the primary (index 0). */
@@ -307,7 +364,10 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
       const raw = window.localStorage.getItem(storageKeyFor(tabIdRef.current));
       if (!raw) return;
       const parsed = JSON.parse(raw) as { version?: number; draft?: any };
-      if (parsed.version !== STORAGE_VERSION || !parsed.draft) return;
+      // Accept V2 + V3 blobs; older versions are dropped (back-compat budget
+      // is one major hop). Migration injects `artifactKind: 'measure'` for V2.
+      if (!parsed.draft) return;
+      if (parsed.version !== 2 && parsed.version !== STORAGE_VERSION) return;
       let next = migrateLegacyShape(parsed.draft);
       if (args.reachableNames) {
         const sanitized = sanitizeDraft(next, args.reachableNames);
@@ -381,12 +441,16 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
     };
   }, []);
 
-  function setField<K extends keyof NewMetricDraftV2>(field: K, value: NewMetricDraftV2[K]) {
+  function setField<K extends keyof NewMetricDraftV3>(field: K, value: NewMetricDraftV3[K]) {
     dispatch({ type: 'setField', field, value });
     channelRef.current?.postMessage({ type: 'editing', tabId: tabIdRef.current });
   }
   function setInput(slotId: string, value: string | null) {
     dispatch({ type: 'setInput', slotId, value });
+    channelRef.current?.postMessage({ type: 'editing', tabId: tabIdRef.current });
+  }
+  function setArtifactKind(kind: ArtifactKind) {
+    dispatch({ type: 'setArtifactKind', kind });
     channelRef.current?.postMessage({ type: 'editing', tabId: tabIdRef.current });
   }
   function toggleSource(cubeName: string) {
@@ -417,6 +481,7 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
     draft,
     setField,
     setInput,
+    setArtifactKind,
     toggleSource,
     setPrimarySource,
     reset,

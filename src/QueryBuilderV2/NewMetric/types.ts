@@ -1,5 +1,5 @@
 import { BinaryFilter, UnaryFilter } from '@cubejs-client/core';
-import type { FilterGroup } from './filter-tree';
+import type { FilterGroup, FilterLeaf } from './filter-tree';
 
 // Operation types supported by the wizard.
 // `median` + `percentile` are added in P3 (advanced segment).
@@ -70,6 +70,67 @@ export type NewMetricDraftV2 = NewMetricDraft & {
   filterTree: FilterGroup;
   grain: Grain;
   visibility: Visibility;
+};
+
+// ---------------------------------------------------------------------------
+// V3 — adds artifactKind discriminator + kind-specific sub-state.
+// ---------------------------------------------------------------------------
+//
+// The wizard authors three kinds of YAML entry: a Cube `measure`, a `dimension`,
+// or a `segment`. Dimensions further split into four sub-kinds. Segment authoring
+// reuses the existing `filterTree` from V2 (segment SQL = flattened filter tree).
+//
+// V2 callers stay typed-correctly: `artifactKind` defaults to `'measure'` in the
+// reducer + migration so existing code paths don't need updates.
+
+export type ArtifactKind = 'measure' | 'dimension' | 'segment';
+
+export type DimKind = 'banding' | 'time-since' | 'passthrough' | 'boolean';
+
+// One band row in a banding dimension. Used by `case.when[]` in the emitted YAML.
+export type BandingRow = {
+  /** Condition SQL; uses `{CUBE}.<column>` template form. */
+  sql: string;
+  /** Label this band resolves to (e.g. `whale`, `dolphin`). */
+  label: string;
+};
+
+export type DimBuilder =
+  | {
+      kind: 'banding';
+      /** Underlying column referenced by the band conditions. */
+      column: string | null;
+      /** Ordered band list — first match wins. */
+      bands: BandingRow[];
+      /** Fall-through label when no band matches. */
+      elseLabel: string;
+    }
+  | {
+      kind: 'time-since';
+      /** Time-typed column (e.g. `install_date`). */
+      timeColumn: string | null;
+      /** Diff unit in Cube's `DATE_DIFF`. */
+      unit: 'day' | 'hour' | 'month';
+    }
+  | {
+      kind: 'passthrough';
+      column: string | null;
+      /** Cube type emitted (`string` | `number` | `boolean` | `time`). */
+      outputType: 'string' | 'number' | 'boolean' | 'time';
+    }
+  | {
+      kind: 'boolean';
+      /** Single-leaf predicate; same shape as a filter-tree leaf. The generator
+       *  rejects raw SQL — only `FilterLeaf`-shaped values reach YAML. */
+      predicate: FilterLeaf | null;
+    };
+
+export type NewMetricDraftV3 = NewMetricDraftV2 & {
+  artifactKind: ArtifactKind;
+  /** Selected dim sub-kind. Only set when `artifactKind === 'dimension'`. */
+  dimKind?: DimKind;
+  /** Active dim builder state. Only set when `artifactKind === 'dimension'`. */
+  dimBuilder?: DimBuilder;
 };
 
 // Per-field validation errors; isValid is false when any field has an error.
