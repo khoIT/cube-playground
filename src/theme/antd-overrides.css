@@ -496,8 +496,22 @@
 :root[data-theme="dark"] [data-qa="Tabs"] button {
   box-shadow: none !important;
 }
-/* Restore the active-tab brand underline that lived in the same box-shadow.
-   Tasty marks the active TabElement with `data-is-active=""` (empty value). */
-:root[data-theme="dark"] [data-qa="Tabs"] button[data-is-active] {
-  box-shadow: inset 0 -3px 0 0 var(--brand) !important;
+/* Active-tab brand underline.
+   Tasty paints it as `inset 0 -3px 0 #brand` on the button itself. But the
+   Tabs container has `overflow: auto`, and each tab button (40px) overflows
+   that container (~36px) by ~4px at the bottom. The inset shadow paints in
+   that overflowing region → the orange underline is clipped invisible.
+   Use an absolutely-positioned ::after with `bottom: 4px` so it sits inside
+   the visible (non-clipped) portion of the button. Tasty's TabElement is
+   already `position: relative`, so the ::after anchors to it correctly. */
+:root[data-theme="dark"] [data-qa="Tabs"] button[data-is-active]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  height: 3px;
+  background: var(--brand);
+  pointer-events: none;
+  z-index: 1;
 }
