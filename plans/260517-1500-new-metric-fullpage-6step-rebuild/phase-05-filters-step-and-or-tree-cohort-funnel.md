@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Step 4 Filters — AND/OR group builder + Visual/SQL/Both + cohort funnel (runIdRef)"
-status: pending
+status: completed
 priority: P1
 effort: "2d"
 dependencies: [4]

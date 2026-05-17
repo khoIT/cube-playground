@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Shell + Source step + /metrics/new route (RR5) + meta bootstrap"
-status: pending
+status: completed
 priority: P1
 effort: "1.5d"
 dependencies: [1]

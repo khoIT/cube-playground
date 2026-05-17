@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Step 5 Identity — name/title/desc/format/grain/visibility/tags (reuse existing TagCombo)"
-status: pending
+status: completed
 priority: P2
 effort: "0.75d"
 dependencies: [5]

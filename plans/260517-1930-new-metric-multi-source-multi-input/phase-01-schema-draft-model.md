@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Schema & draft model"
-status: pending
+status: completed
 priority: P1
 effort: "1d"
 dependencies: []

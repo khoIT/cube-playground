@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "Step 6 Test run — write-then-load-then-discard + real stats + submit"
-status: pending
+status: completed
 priority: P2
 effort: "1.5d"
 dependencies: [6]

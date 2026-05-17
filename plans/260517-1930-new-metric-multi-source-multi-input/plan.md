@@ -31,11 +31,11 @@ The InputSlot[] schema is built for N now (only Ratio uses 2 today) so future op
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Schema & draft model](./phase-01-schema-draft-model.md) | Pending |
-| 2 | [Step 1 multi-source UI](./phase-02-step-1-multi-source-ui.md) | Pending |
-| 3 | [Step 2 source-count gating](./phase-03-step-2-source-count-gating.md) | Pending |
-| 4 | [Step 3 N-slot inputs](./phase-04-step-3-n-slot-inputs.md) | Pending |
-| 5 | [Polish tests docs](./phase-05-polish-tests-docs.md) | Pending |
+| 1 | [Schema & draft model](./phase-01-schema-draft-model.md) | Complete |
+| 2 | [Step 1 multi-source UI](./phase-02-step-1-multi-source-ui.md) | Complete |
+| 3 | [Step 2 source-count gating](./phase-03-step-2-source-count-gating.md) | Complete |
+| 4 | [Step 3 N-slot inputs](./phase-04-step-3-n-slot-inputs.md) | Complete |
+| 5 | [Polish tests docs](./phase-05-polish-tests-docs.md) | Complete |
 
 ## Locked Decisions
 

@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Foundation: state v2, YAML emitter v2, filter-tree, meta bootstrap, server hardening"
-status: pending
+status: completed
 priority: P0
 effort: "1.5d"
 dependencies: []

@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Step 2 source-count gating"
-status: pending
+status: completed
 priority: P1
 effort: "0.5d"
 dependencies: [1, 2]

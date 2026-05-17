@@ -26,14 +26,14 @@ Mode: **TDD per phase** — tests precede implementation for the foundation modu
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Foundation extended meta state yaml filter-tree](./phase-01-foundation-extended-meta-state-yaml-filter-tree.md) | Pending |
-| 2 | [Shell source route localstorage](./phase-02-shell-source-route-localstorage.md) | Pending |
-| 3 | [Operation step with custom sql](./phase-03-operation-step-with-custom-sql.md) | Pending |
-| 4 | [Column step stats hook](./phase-04-column-step-stats-hook.md) | Pending |
-| 5 | [Filters step and-or tree cohort funnel](./phase-05-filters-step-and-or-tree-cohort-funnel.md) | Pending |
-| 6 | [Identity step grain visibility tags](./phase-06-identity-step-grain-visibility-tags.md) | Pending |
-| 7 | [Test run step real execution](./phase-07-test-run-step-real-execution.md) | Pending |
-| 8 | [Success page flag flip v1 removal](./phase-08-success-page-flag-flip-v1-removal.md) | Pending |
+| 1 | [Foundation extended meta state yaml filter-tree](./phase-01-foundation-extended-meta-state-yaml-filter-tree.md) | Complete |
+| 2 | [Shell source route localstorage](./phase-02-shell-source-route-localstorage.md) | Complete |
+| 3 | [Operation step with custom sql](./phase-03-operation-step-with-custom-sql.md) | Complete |
+| 4 | [Column step stats hook](./phase-04-column-step-stats-hook.md) | Complete |
+| 5 | [Filters step and-or tree cohort funnel](./phase-05-filters-step-and-or-tree-cohort-funnel.md) | Complete |
+| 6 | [Identity step grain visibility tags](./phase-06-identity-step-grain-visibility-tags.md) | Complete |
+| 7 | [Test run step real execution](./phase-07-test-run-step-real-execution.md) | Complete |
+| 8 | [Success page flag flip v1 removal](./phase-08-success-page-flag-flip-v1-removal.md) | Complete |
 
 ## Sequence
 

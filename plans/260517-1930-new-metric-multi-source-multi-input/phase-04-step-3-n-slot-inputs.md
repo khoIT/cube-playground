@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Step 3 N-slot inputs"
-status: pending
+status: completed
 priority: P1
 effort: "1.5d"
 dependencies: [1, 2, 3]

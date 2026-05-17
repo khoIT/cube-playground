@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Step 1 multi-source UI"
-status: pending
+status: completed
 priority: P1
 effort: "1d"
 dependencies: [1]

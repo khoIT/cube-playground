@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Step 2 Operation — 9 operation cards (Custom SQL dropped)"
-status: pending
+status: completed
 priority: P1
 effort: "0.5d"
 dependencies: [2]

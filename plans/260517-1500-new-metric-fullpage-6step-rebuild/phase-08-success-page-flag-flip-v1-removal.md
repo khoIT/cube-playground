@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: "Success page + flag flip to v2 default + v1 dialog removal (RR5)"
-status: pending
+status: completed
 priority: P2
 effort: "0.5d"
 dependencies: [7]

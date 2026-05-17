@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Step 3 Column + use-column-stats hook (runIdRef stale-token concurrency)"
-status: pending
+status: completed
 priority: P1
 effort: "2d"
 dependencies: [3]
