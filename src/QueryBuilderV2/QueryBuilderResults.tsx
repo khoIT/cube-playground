@@ -112,10 +112,10 @@ const OptionsButtonElement = tasty(ListMemberButton, {
     gridColumns: 'auto',
     placeContent: 'center',
     padding: 0,
-    width: '3.5x',
-    height: '4x',
-    margin: '-.5x -.5x -.5x .5x',
-    ButtonIcon: { fontSize: '20px' },
+    width: '3x',
+    height: 'var(--row-height-tight)',
+    margin: '-.25x -.5x -.25x .5x',
+    ButtonIcon: { fontSize: '16px' },
   },
 });
 
@@ -406,7 +406,8 @@ const ColumnHeader = tasty({
     placeItems: 'center',
     color: '#dark',
     preset: 't3m',
-    padding: '.75x 1x',
+    height: 'var(--row-height-tight)',
+    padding: '0 1x',
     fill: {
       '': '#missing-active',
       '[data-member="measure"]': '#measure-active',

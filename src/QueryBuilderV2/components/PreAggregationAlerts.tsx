@@ -9,14 +9,15 @@ const InlineBanner = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  height: var(--row-height-tight);
+  padding: 0 var(--row-padding-x-tight);
   border-radius: 8px;
   background: var(--preagg-banner-bg);
   border: 1px solid var(--preagg-banner-border);
   color: var(--preagg-banner-text);
   font-family: var(--font-sans);
-  font-size: 12.5px;
-  line-height: 1.3;
+  font-size: 12px;
+  line-height: 1;
   text-align: left;
   text-decoration: underline;
   text-underline-offset: 3px;

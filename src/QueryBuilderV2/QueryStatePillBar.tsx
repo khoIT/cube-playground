@@ -24,7 +24,8 @@ const Header = styled.div<{ $collapsed: boolean }>`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
+  min-height: calc(var(--row-height-tight) + var(--band-padding-y) * 2);
+  padding: var(--band-padding-y) 12px;
   border-bottom: ${(p) => (p.$collapsed ? '0' : '1px solid var(--border-card)')};
   flex-shrink: 0;
 `;
@@ -70,6 +71,7 @@ const FreshnessBadge = styled.span<{ $state: FreshnessState }>`
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  height: 20px;
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 600;
@@ -80,7 +82,7 @@ const FreshnessBadge = styled.span<{ $state: FreshnessState }>`
   border: 1px solid
     ${(p) =>
       p.$state === 'live' ? 'var(--live-badge-border)' : 'var(--stale-badge-border)'};
-  padding: 2px 8px 2px 7px;
+  padding: 0 8px 0 7px;
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.4px;

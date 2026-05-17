@@ -200,6 +200,19 @@ export function QueryBuilderSidePanel({
     []
   );
 
+  const displayPanelTrigger = (
+    <SidebarDisplayPanel
+      cubes={cubesOrViewsAll.map((c) => ({
+        name: c.name,
+        title: c.title,
+        type: selectedType === 'cubes' ? 'cube' : 'view',
+      }))}
+      isVisible={displayConfig.isVisible}
+      onToggle={displayConfig.toggleCube}
+      onSetAll={displayConfig.setAll}
+    />
+  );
+
   const typeSwitcher = useMemo(() => {
     return (
       <Space qa="QueryBuilderSwitcher" gap="1x">
@@ -227,9 +240,17 @@ export function QueryBuilderSidePanel({
             Views <CountBadge radius="1r">{views.length}</CountBadge>
           </RadioButton>
         </Radio.ButtonGroup>
+        {displayPanelTrigger}
       </Space>
     );
-  }, [selectedType, meta, cubes.length, views.length]);
+  }, [
+    selectedType,
+    meta,
+    cubes.length,
+    views.length,
+    cubesOrViewsAll,
+    displayConfig.isVisible,
+  ]);
 
   const searchInput = useMemo(() => {
     const description = `Search ${selectedType === 'cubes' ? 'cubes' : 'views'} and members`;
@@ -452,10 +473,20 @@ export function QueryBuilderSidePanel({
               Reset
             </Button>
           </TooltipProvider>
+          {displayPanelTrigger}
         </Space>
       </Space>
     );
-  }, [viewMode, isQueryEmpty, isMetaLoading, usedMembers.length, appliedFilterString, isVerifying]);
+  }, [
+    viewMode,
+    isQueryEmpty,
+    isMetaLoading,
+    usedMembers.length,
+    appliedFilterString,
+    isVerifying,
+    cubesOrViewsAll,
+    displayConfig.isVisible,
+  ]);
 
   const content = (
     <>
@@ -469,17 +500,6 @@ export function QueryBuilderSidePanel({
       </DialogContainer>
 
       {!usedCubes.length ? <>{customTypeSwitcher ?? typeSwitcher}</> : topBar}
-
-      <SidebarDisplayPanel
-        cubes={cubesOrViewsAll.map((c) => ({
-          name: c.name,
-          title: c.title,
-          type: selectedType === 'cubes' ? 'cube' : 'view',
-        }))}
-        isVisible={displayConfig.isVisible}
-        onToggle={displayConfig.toggleCube}
-        onSetAll={displayConfig.setAll}
-      />
 
       {searchInput}
 

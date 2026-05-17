@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import Icon, { ThunderboltFilled } from '@ant-design/icons';
 import { Alert, Button, Space, Typography } from 'antd';
 import styled from 'styled-components';
@@ -5,6 +6,15 @@ import styled from 'styled-components';
 import { useServerCoreVersionGte } from '../../../hooks';
 import { useRollupDesignerContext } from '../../../rollup-designer';
 import { QueryStatus } from './PlaygroundQueryBuilder';
+
+const STATUS_PILL_STYLE: CSSProperties = {
+  height: 'var(--row-height-tight)',
+  padding: '0 var(--row-padding-x-tight)',
+  fontSize: 12,
+  lineHeight: 1,
+  display: 'inline-flex',
+  alignItems: 'center',
+};
 
 const Badge = styled.div`
   display: flex;
@@ -50,13 +60,15 @@ export function PreAggregationStatus({
         )}
 
         {isAggregated ? (
-          <Typography.Text>
+          <Typography.Text style={{ fontSize: 12, lineHeight: 1 }}>
             Query was accelerated with pre-aggregation
           </Typography.Text>
         ) : isVersionGte ? (
           <Button
             data-testid="not-pre-agg-query-btn"
             type="link"
+            size="small"
+            style={STATUS_PILL_STYLE}
             onClick={() => toggleModal()}
           >
             Query was not accelerated with pre-aggregation {'->'}

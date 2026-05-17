@@ -56,7 +56,8 @@ const CubeButton = tasty(Button, {
       pressed: '#purple.12',
       '!joinable | missing': '#dark.04',
     },
-    padding: '(.75x - 1bw) 1x (.75x - 1bw) (1x - 1bw)',
+    minHeight: 'var(--row-height-tight)',
+    padding: '(.5x - 1bw) 1x (.5x - 1bw) (1x - 1bw)',
     cursor: {
       joinable: 'pointer',
       disabled: 'default',

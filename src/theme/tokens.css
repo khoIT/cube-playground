@@ -160,6 +160,16 @@
 
   /* Table header tint (Phase 5 audit may revert to neutral) */
   --table-header-bg: rgba(240, 90, 34, 0.06);
+
+  /*
+   * Tight row heights used across the playground (query band, table column
+   * header, cube/member rows). Keeping these in one place so a single token
+   * change rebalances all three surfaces.
+   */
+  --row-height-tight: 28px;
+  --row-padding-y-tight: 4px;
+  --row-padding-x-tight: 10px;
+  --band-padding-y: 6px;
 }
 
 :root[data-theme="dark"] {
