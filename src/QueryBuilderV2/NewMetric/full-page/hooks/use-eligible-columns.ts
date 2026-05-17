@@ -62,6 +62,15 @@ export function useEligibleColumns(
 
       for (const c of all) {
         const t = c.type;
+        // Measures are themselves aggregations and cannot be wrapped in another
+        // SQL aggregate the wizard emits ({cube}.col → raw column reference).
+        // Allow them only for filter dropdowns when explicitly enabled later;
+        // today the picker stays column-only to avoid producing SQL that
+        // resolves to a non-existent column at run time.
+        if (c.kind === 'measure') {
+          rejected.push({ ...c, reason: 'Measures cannot be wrapped in another aggregation.' });
+          continue;
+        }
         switch (accepts) {
           case 'all':
             eligible.push(c);
