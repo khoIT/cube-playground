@@ -9,24 +9,18 @@ const STORAGE_KEY = 'new-metric-page:right-rail-width';
 
 const Layout = styled.div<{ $rightW: number }>`
   display: grid;
-  grid-template-rows: 56px 1fr;
   grid-template-columns: ${LEFT_W}px 1fr 6px ${(p) => p.$rightW}px;
   /* App-shell <Header> above us is fixed at 44px (src/components/Header/Header.tsx).
      Subtracting it keeps the wizard footer pinned to the viewport instead of
-     getting pushed below the fold when body content is tall. */
+     getting pushed below the fold when body content is tall. The wizard used
+     to render its own 56px breadcrumb bar on top of the app header — that bar
+     was decorative and stacked on top of the global header, so it has been
+     dropped. Save / Help / Discard actions moved into the LeftRail footer.
+  */
   height: calc(100vh - 44px);
   background: var(--bg-app);
   font-family: var(--font-sans);
   color: var(--text-primary);
-`;
-
-const TopRow = styled.div`
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-card);
-  padding: 0 16px;
 `;
 
 const LeftCol = styled.aside`
@@ -91,13 +85,12 @@ function readPersistedWidth(): number {
 }
 
 export type ShellSlots = {
-  topBar: ReactNode;
   leftRail: ReactNode;
   main: ReactNode;
   rightRail: ReactNode;
 };
 
-export function Shell({ topBar, leftRail, main, rightRail }: ShellSlots) {
+export function Shell({ leftRail, main, rightRail }: ShellSlots) {
   const [rightW, setRightW] = useState<number>(readPersistedWidth);
   const [dragging, setDragging] = useState(false);
   const draggingRef = useRef(false);
@@ -149,7 +142,6 @@ export function Shell({ topBar, leftRail, main, rightRail }: ShellSlots) {
 
   return (
     <Layout $rightW={rightW}>
-      <TopRow>{topBar}</TopRow>
       <LeftCol>{leftRail}</LeftCol>
       <MainCol>{main}</MainCol>
       <Divider

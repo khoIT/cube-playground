@@ -5,7 +5,6 @@ import { useNewMetricMeta } from '../hooks/use-new-metric-meta';
 import { useNewMetricDraft } from '../hooks/use-new-metric-draft';
 import { useActiveStep, StepIndex } from './hooks/use-active-step';
 import { Shell } from './shell/shell';
-import { TopBar } from './shell/top-bar';
 import { LeftRail } from './shell/left-rail';
 import { RightRail } from './shell/right-rail';
 import { StepChrome } from './shell/step-chrome';
@@ -237,7 +236,6 @@ export function NewMetricPage() {
   return (
     <PerfProbe id="NewMetricPage">
       <Shell
-        topBar={<TopBar onSaveDraft={handleSaveDraft} onDiscard={handleDiscard} />}
         leftRail={
           <LeftRail
             step={step}
@@ -247,6 +245,8 @@ export function NewMetricPage() {
             doneFlags={doneFlags}
             metricName={metricName}
             isAutoName={isAutoName}
+            onSaveDraft={handleSaveDraft}
+            onDiscard={handleDiscard}
           />
         }
         main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun })}

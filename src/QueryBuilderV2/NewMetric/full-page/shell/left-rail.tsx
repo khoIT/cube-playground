@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components';
-import { Check } from 'lucide-react';
+import { Check, HelpCircle, Save, X } from 'lucide-react';
 import { StepIndex, STEP_LABELS } from '../hooks/use-active-step';
 
 const Wrap = styled.div`
@@ -145,6 +145,47 @@ const Sub = styled.div`
   text-overflow: ellipsis;
 `;
 
+// Footer holds the wizard's top-level actions (save / help / discard).
+// Pushed to the bottom of the rail via `margin-top: auto` so the rail can
+// grow with the step list while keeping the destructive Discard action far
+// from the step nav.
+const Footer = styled.div`
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-card);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const FooterBtn = styled.button<{ $variant?: 'danger' }>`
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  transition: background-color 120ms, color 120ms, border-color 120ms;
+
+  &:hover {
+    background: var(--bg-muted);
+  }
+
+  ${(p) =>
+    p.$variant === 'danger' &&
+    css`
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.3);
+    `}
+`;
+
 export type LeftRailProps = {
   step: StepIndex;
   setStep: (s: StepIndex) => void;
@@ -153,6 +194,8 @@ export type LeftRailProps = {
   doneFlags: Record<StepIndex, boolean>;
   metricName: string;
   isAutoName: boolean;
+  onSaveDraft: () => void;
+  onDiscard: () => void;
 };
 
 export function LeftRail({
@@ -163,6 +206,8 @@ export function LeftRail({
   doneFlags,
   metricName,
   isAutoName,
+  onSaveDraft,
+  onDiscard,
 }: LeftRailProps) {
   return (
     <Wrap>
@@ -202,6 +247,18 @@ export function LeftRail({
           );
         })}
       </Steps>
+
+      <Footer>
+        <FooterBtn onClick={onSaveDraft} title="Save draft">
+          <Save size={14} /> Save draft
+        </FooterBtn>
+        <FooterBtn type="button" title="Help">
+          <HelpCircle size={14} /> Help
+        </FooterBtn>
+        <FooterBtn $variant="danger" onClick={onDiscard} title="Discard">
+          <X size={14} /> Discard
+        </FooterBtn>
+      </Footer>
     </Wrap>
   );
 }
