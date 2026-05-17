@@ -816,7 +816,6 @@ function SidePanelCubeItemImpl(props: CubeListItemProps) {
     }
   })();
 
-  const isLocked = isOpen && type === 'view' && !isQueryEmpty;
   const isCollapsable = isNonJoinable || !!filterString;
   const cubeButton = (
     <CubeButton
@@ -831,7 +830,7 @@ function SidePanelCubeItemImpl(props: CubeListItemProps) {
         )
       }
       rightIcon={
-        mode === 'all' && !isNonJoinable && !isLocked ? (
+        mode === 'all' ? (
           <ArrowIconWrapper>
             <ChevronIcon
               direction={!isCollapsable ? (isOpen ? 'top' : 'bottom') : 'right'}
@@ -848,7 +847,7 @@ function SidePanelCubeItemImpl(props: CubeListItemProps) {
       }}
       flow="column"
       placeContent="space-between"
-      onPress={() => !isMissing && !isNonJoinable && !isLocked && onToggle?.(!isOpen)}
+      onPress={() => !isMissing && !isNonJoinable && onToggle?.(!isOpen)}
     >
       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
         <Text ref={textRef} ellipsis>
