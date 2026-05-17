@@ -12,7 +12,8 @@ import { StepChrome } from './shell/step-chrome';
 import { SourceBody } from './steps/step-1-source/source-body';
 import { SourcePreviewRail } from './steps/step-1-source/source-preview-rail';
 import { OperationBody } from './steps/step-2-operation/operation-body';
-import { computeAutoMetricName, computeAutoMetricTitle } from './hooks/compute-auto-metric-name';
+import { useAutoMetricName } from './hooks/use-auto-metric-name';
+import { computeAutoMetricName } from './hooks/compute-auto-metric-name';
 import { findOp, primarySlotIdFor } from './steps/step-2-operation/operations';
 import { OperationDetailRail } from './steps/step-2-operation/operation-detail-rail';
 import { ColumnBody } from './steps/step-3-column/column-body';
@@ -22,6 +23,7 @@ import { IdentityBody } from './steps/step-5-identity/identity-body';
 import { YamlPreviewRail } from './steps/step-5-identity/yaml-preview-rail';
 import { TestRunBody, type TestRunControls } from './steps/step-6-test-run/test-run-body';
 import { discardAllPending, sweepStale } from './steps/step-6-test-run/pending-writes';
+import { PerfProbe } from '../../../dev/perf-probe';
 
 /**
  * Route component for `/metrics/new`. Mounts the full-page 6-step wizard
@@ -83,30 +85,9 @@ export function NewMetricPage() {
   const testRunCtrl = useRef<TestRunControls | null>(null);
   const [canSubmitTestRun, setCanSubmitTestRun] = useState(false);
 
-  // Live auto-fill of name + title from operation/column picks. Each field
-  // stays "auto-controlled" while it's empty or still equals the last value
-  // this effect wrote; the first manual edit by the user breaks the link and
-  // we stop overwriting them.
-  const lastAutoNameRef = useRef('');
-  const lastAutoTitleRef = useRef('');
-  useEffect(() => {
-    if (draft.sourceCubes.length === 0 || !draft.operation) return;
-
-    const autoName = computeAutoMetricName(draft);
-    if (autoName && autoName !== 'untitled_metric') {
-      const nameIsAuto = !draft.name || draft.name === lastAutoNameRef.current;
-      if (nameIsAuto && draft.name !== autoName) setField('name', autoName);
-      lastAutoNameRef.current = autoName;
-    }
-
-    const autoTitle = computeAutoMetricTitle(draft);
-    if (autoTitle) {
-      const titleIsAuto = !draft.title || draft.title === lastAutoTitleRef.current;
-      if (titleIsAuto && draft.title !== autoTitle) setField('title', autoTitle);
-      lastAutoTitleRef.current = autoTitle;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.sourceCubes, draft.operation, draft.inputs]);
+  // Live auto-fill of name + title from operation/column picks. The hook
+  // memoizes the pure compute and preserves the auto-controlled invariant.
+  useAutoMetricName(draft, setField);
 
   // One-shot cleanup: when the wizard mounts (after meta + draft hydration),
   // sweep any test-run YAML the previous session left orphaned on disk. The
@@ -254,34 +235,36 @@ export function NewMetricPage() {
   }
 
   return (
-    <Shell
-      topBar={<TopBar onSaveDraft={handleSaveDraft} onDiscard={handleDiscard} />}
-      leftRail={
-        <LeftRail
-          step={step}
-          setStep={setStep}
-          canGoTo={canGoTo}
-          summaries={summaries}
-          doneFlags={doneFlags}
-          metricName={metricName}
-          isAutoName={isAutoName}
-        />
-      }
-      main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun })}
-      rightRail={(() => {
-        const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: primarySlotValue });
-        return (
-          <RightRail title={rail.title} subtitle={rail.subtitle}>
-            {step === 1 && <SourcePreviewRail cube={selectedCube} />}
-            {step === 2 && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
-            {step === 3 && <ColumnHealthRail cube={selectedCube} column={primarySlotValue} operation={draft.operation} cubeApi={cubejsApi} />}
-            {step === 4 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cohort funnel arrives in a follow-up. The compiled SQL preview is in the main panel.</div>}
-            {step === 5 && <YamlPreviewRail draft={draft} sourceCube={selectedCube} />}
-            {step > 5 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Step {step} preview not implemented yet — coming in later phases.</div>}
-          </RightRail>
-        );
-      })()}
-    />
+    <PerfProbe id="NewMetricPage">
+      <Shell
+        topBar={<TopBar onSaveDraft={handleSaveDraft} onDiscard={handleDiscard} />}
+        leftRail={
+          <LeftRail
+            step={step}
+            setStep={setStep}
+            canGoTo={canGoTo}
+            summaries={summaries}
+            doneFlags={doneFlags}
+            metricName={metricName}
+            isAutoName={isAutoName}
+          />
+        }
+        main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun })}
+        rightRail={(() => {
+          const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: primarySlotValue });
+          return (
+            <RightRail title={rail.title} subtitle={rail.subtitle}>
+              {step === 1 && <SourcePreviewRail cube={selectedCube} />}
+              {step === 2 && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
+              {step === 3 && <ColumnHealthRail cube={selectedCube} column={primarySlotValue} operation={draft.operation} cubeApi={cubejsApi} />}
+              {step === 4 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cohort funnel arrives in a follow-up. The compiled SQL preview is in the main panel.</div>}
+              {step === 5 && <YamlPreviewRail draft={draft} sourceCube={selectedCube} />}
+              {step > 5 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Step {step} preview not implemented yet — coming in later phases.</div>}
+            </RightRail>
+          );
+        })()}
+      />
+    </PerfProbe>
   );
 }
 

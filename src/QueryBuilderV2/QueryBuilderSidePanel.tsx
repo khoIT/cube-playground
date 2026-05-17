@@ -32,6 +32,7 @@ import {
   useSidebarDisplayConfig,
 } from './hooks';
 import { useQueryBuilderContext } from './context';
+import { PerfProbe } from '../dev/perf-probe';
 import { EditQueryDialogForm } from './components/EditQueryDialogForm';
 import { SidePanelCubeItem } from './components/SidePanelCubeItem';
 import { SidebarDisplayPanel } from './components/SidebarDisplayPanel';
@@ -107,45 +108,77 @@ export function QueryBuilderSidePanel({
   const debouncedFilterString = useDebouncedValue(preparedFilterString, 500);
   const appliedFilterString = preparedFilterString.length < 2 ? '' : debouncedFilterString;
 
-  const cubesOrViewsAll = selectedType === 'cubes' ? cubes : views;
-  const cubesOrViews = cubesOrViewsAll.filter(
-    (cube) => displayConfig.isVisible(cube.name) || usedCubes.includes(cube.name)
+  // H1 (red team): stabilize upstream array identities BEFORE adding them
+  // to the cubeList memo deps. Without this, the deps thrash on every
+  // render and the memo is strictly worse than no-memo.
+  const cubesOrViewsAll = useMemo(
+    () => (selectedType === 'cubes' ? cubes : views),
+    [selectedType, cubes, views]
   );
-  const allJoinableCubes =
-    selectedType === 'views' && usedCubes.length
-      ? cubesOrViews.filter((cube) => usedCubes[0] === cube.name)
-      : cubesOrViews.filter((cube) => joinableCubes.includes(cube));
+  const cubesOrViewsFiltered = useMemo(
+    () =>
+      cubesOrViewsAll.filter(
+        (cube) => displayConfig.isVisible(cube.name) || usedCubes.includes(cube.name)
+      ),
+    [cubesOrViewsAll, displayConfig, usedCubes]
+  );
 
   const [openCubes, setOpenCubes] = useState<Set<string>>(new Set());
 
   useLayoutEffect(() => {
     if (isQueryEmpty) {
-      setOpenCubes(cubesOrViews.length === 1 ? new Set([cubesOrViews[0].name]) : new Set());
+      setOpenCubes(
+        cubesOrViewsFiltered.length === 1
+          ? new Set([cubesOrViewsFiltered[0].name])
+          : new Set()
+      );
     }
-  }, [cubesOrViews.length, selectedType]);
+  }, [cubesOrViewsFiltered.length, selectedType]);
 
-  const highlightedCubes = appliedFilterString ? usedCubes : [];
+  const highlightedCubes = useMemo(
+    () => (appliedFilterString ? usedCubes : []),
+    [appliedFilterString, usedCubes]
+  );
 
-  cubesOrViews.sort((a, b) => {
-    if (highlightedCubes.includes(a.name) && !highlightedCubes.includes(b.name)) {
-      return -1;
-    }
+  // Non-mutating sort: replaces `arr.sort(...)` which mutated the filtered
+  // array in-place every render. The copy is cheap; the contract win is
+  // that downstream identity now reflects "did the sort key change", not
+  // "did we re-render".
+  const cubesOrViews = useMemo(() => {
+    const copy = [...cubesOrViewsFiltered];
+    copy.sort((a, b) => {
+      if (highlightedCubes.includes(a.name) && !highlightedCubes.includes(b.name)) {
+        return -1;
+      }
+      if (!highlightedCubes.includes(a.name) && highlightedCubes.includes(b.name)) {
+        return 1;
+      }
+      return memberViewType === 'name'
+        ? a.name.localeCompare(b.name)
+        : a.title.localeCompare(b.title);
+    });
+    return copy;
+  }, [cubesOrViewsFiltered, highlightedCubes, memberViewType]);
 
-    if (!highlightedCubes.includes(a.name) && highlightedCubes.includes(b.name)) {
-      return 1;
-    }
+  const allJoinableCubes = useMemo(
+    () =>
+      selectedType === 'views' && usedCubes.length
+        ? cubesOrViews.filter((cube) => usedCubes[0] === cube.name)
+        : cubesOrViews.filter((cube) => joinableCubes.includes(cube)),
+    [selectedType, usedCubes, cubesOrViews, joinableCubes]
+  );
 
-    return memberViewType === 'name'
-      ? a.name.localeCompare(b.name)
-      : a.title.localeCompare(b.title);
-  });
-
-  // Filtered cubes
-  const filteredCubes = useFilteredCubes(
+  // Filtered cubes — useFilteredCubes already memoizes internally; only the
+  // trailing `.map(c => c.name)` was unmemoized.
+  const filteredCubesResult = useFilteredCubes(
     appliedFilterString,
     allJoinableCubes,
     memberViewType
-  ).cubes.map((cube) => cube.name);
+  );
+  const filteredCubes = useMemo(
+    () => filteredCubesResult.cubes.map((cube) => cube.name),
+    [filteredCubesResult]
+  );
 
   const resetScrollAndContentSize = useCallback(() => {
     if (contentRef?.current) {
@@ -302,7 +335,7 @@ export function QueryBuilderSidePanel({
     }
   }, [openCubes.size, missingCubes.length, allJoinableCubes.length]);
 
-  function resetState(cubeName?: string) {
+  const resetState = useEvent((cubeName?: string) => {
     setFilterString('');
     setViewMode('all');
 
@@ -310,12 +343,11 @@ export function QueryBuilderSidePanel({
       setOpenCubes(new Set([cubeName]));
       setScrollToCubeName(cubeName);
     }
-  }
+  });
 
-  function onCubeToggle(name: string, isOpen: boolean) {
+  const onCubeToggle = useEvent((name: string, isOpen: boolean) => {
     if (appliedFilterString || viewMode === 'query') {
       resetState(name);
-
       return;
     }
 
@@ -326,7 +358,7 @@ export function QueryBuilderSidePanel({
     }
 
     setOpenCubes(new Set(openCubes));
-  }
+  });
 
   const onMemberToggle = useEvent((cubeName: string, memberName: string) => {
     const isTimeDimension = members.dimensions[memberName]?.type === 'time';
@@ -343,6 +375,28 @@ export function QueryBuilderSidePanel({
     }
   });
 
+  // Stable per-cube callbacks: feeds React.memo'd <SidePanelCubeItem> so a
+  // member toggle in cube X does not invalidate cube Y's callback identity.
+  // The map is keyed by cube name; entries are recomputed only when the
+  // cube list itself changes (allCubeNames is memoized above).
+  const memberToggleHandlers = useMemo(() => {
+    const map = new Map<string, (memberName: string) => void>();
+    for (const cubeName of allCubeNames) {
+      map.set(cubeName, (memberName: string) =>
+        onMemberToggle(cubeName, memberName)
+      );
+    }
+    return map;
+  }, [allCubeNames, onMemberToggle]);
+
+  const cubeToggleHandlers = useMemo(() => {
+    const map = new Map<string, (isOpen: boolean) => void>();
+    for (const cubeName of allCubeNames) {
+      map.set(cubeName, (isOpen: boolean) => onCubeToggle(cubeName, isOpen));
+    }
+    return map;
+  }, [allCubeNames, onCubeToggle]);
+
   const cubeList = useMemo(() => {
     return (
       <Flex gap="1bw" flow="column" padding="0 0 2x 0">
@@ -357,9 +411,7 @@ export function QueryBuilderSidePanel({
               mode={viewMode}
               rightIcon="arrow"
               onHierarchyToggle={onHierarchyToggle}
-              onMemberToggle={(name) => {
-                onMemberToggle(cubeName, name);
-              }}
+              onMemberToggle={memberToggleHandlers.get(cubeName)!}
             />
           ))}
         {cubesOrViews
@@ -381,25 +433,32 @@ export function QueryBuilderSidePanel({
               cubeName={cube.name}
               mode={viewMode}
               rightIcon={isQueryEmpty ? 'arrow' : 'plus'}
-              onToggle={(isOpen) => {
-                onCubeToggle(cube.name, isOpen);
-              }}
-              onMemberToggle={(name) => {
-                onMemberToggle(cube.name, name);
-              }}
+              onToggle={cubeToggleHandlers.get(cube.name)!}
+              onMemberToggle={memberToggleHandlers.get(cube.name)!}
               onHierarchyToggle={onHierarchyToggle}
             />
           ))}
       </Flex>
     );
+    // H1: deps now fully cover the cubeList's reads. The upstream arrays
+    // (`missingCubes`, `cubesOrViews`, `filteredCubes`, `allJoinableCubes`,
+    // `usedCubes`) are stabilized above; the openCubes hash captures Set
+    // membership without leaking identity on every render.
   }, [
+    missingCubes,
+    cubesOrViews,
+    filteredCubes,
+    allJoinableCubes,
+    usedCubes,
     viewMode,
     queryStats,
-    [...openCubes.values()].join(),
+    Array.from(openCubes).sort().join('|'),
     appliedFilterString,
     memberViewType,
-    selectedType,
-    displayConfig.isVisible,
+    isQueryEmpty,
+    memberToggleHandlers,
+    cubeToggleHandlers,
+    onHierarchyToggle,
   ]);
 
   const onApplyQuery = useCallback(async (query) => {
@@ -529,20 +588,22 @@ export function QueryBuilderSidePanel({
   );
 
   return (
-    <Panel
-      ref={containerRef}
-      isFlex
-      qa="QueryBuilderSidePanel"
-      flow="column"
-      padding="1x 1x 0 1x"
-      gap="1x"
-      width="100%"
-      height="100%"
-      innerStyles={{
-        overflowX: 'clip',
-      }}
-    >
-      {content}
-    </Panel>
+    <PerfProbe id="QueryBuilderSidePanel">
+      <Panel
+        ref={containerRef}
+        isFlex
+        qa="QueryBuilderSidePanel"
+        flow="column"
+        padding="1x 1x 0 1x"
+        gap="1x"
+        width="100%"
+        height="100%"
+        innerStyles={{
+          overflowX: 'clip',
+        }}
+      >
+        {content}
+      </Panel>
+    </PerfProbe>
   );
 }

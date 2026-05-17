@@ -8,6 +8,7 @@ import {
   useLivePreviewContext,
   useSecurityContext,
 } from '../../hooks';
+import { PerfProbe } from '../../dev/perf-probe';
 
 export function buildApiUrl(
   apiUrl: string,
@@ -57,10 +58,12 @@ export function ExplorePage() {
   }
 
   return (
-    <QueryBuilderContainer
-      schemaVersion={schemaVersion}
-      onQueryChange={setQueryParam}
-      onTabChange={setQueryParam}
-    />
+    <PerfProbe id="ExplorePage">
+      <QueryBuilderContainer
+        schemaVersion={schemaVersion}
+        onQueryChange={setQueryParam}
+        onTabChange={setQueryParam}
+      />
+    </PerfProbe>
   );
 }

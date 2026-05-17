@@ -1,5 +1,5 @@
 import { Cube } from '@cubejs-client/core';
-import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Block, Button, Space, tasty, Text, CubeIcon, ViewIcon } from '@cube-dev/ui-kit';
 
 import { useCubeAlias } from '../../hooks/use-cube-alias';
@@ -97,7 +97,10 @@ interface CubeListItemProps {
   onHierarchyToggle?: (name?: string) => void;
 }
 
-export function SidePanelCubeItem(props: CubeListItemProps) {
+// Memo-wrapped: parent supplies per-cube stable callbacks via Map (see
+// QueryBuilderSidePanel.memberToggleHandlers / cubeToggleHandlers), so a
+// member toggle on cube X no longer re-renders cube Y's row.
+function SidePanelCubeItemImpl(props: CubeListItemProps) {
   const {
     isOpen,
     cubeName,
@@ -889,3 +892,6 @@ export function SidePanelCubeItem(props: CubeListItemProps) {
     </Space>
   );
 }
+
+export const SidePanelCubeItem = memo(SidePanelCubeItemImpl);
+
