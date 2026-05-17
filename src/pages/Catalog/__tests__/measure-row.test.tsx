@@ -1,7 +1,7 @@
 /**
  * measure-row.test.tsx
- * Covers the click-to-expand + keyboard semantics of `<MeasureRow>` plus
- * a regression guard on legacy non-mf_users rendering.
+ * Covers click + keyboard navigation semantics of `<MeasureRow>`. The legacy
+ * accordion behaviour was removed; every row is now a link target.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -27,9 +27,7 @@ function cube(overrides: Partial<CatalogCube> = {}): CatalogCube {
 
 describe('<MeasureRow>', () => {
   it('renders measure name + aggType + format chips', () => {
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable={false} onToggle={() => {}} />,
-    );
+    render(<MeasureRow measure={measure} cube={cube()} onClick={() => {}} />);
     expect(screen.getByText('user_count')).toBeTruthy();
     expect(screen.getByText('count')).toBeTruthy();
     expect(screen.getByText('number')).toBeTruthy();
@@ -37,86 +35,39 @@ describe('<MeasureRow>', () => {
 
   it('renders WizardChip when measure.meta.source === "wizard"', () => {
     const wm: CatalogMeasure = { ...measure, meta: { source: 'wizard' } };
-    render(<MeasureRow measure={wm} cube={cube()} expanded={false} expandable={false} onToggle={() => {}} />);
+    render(<MeasureRow measure={wm} cube={cube()} onClick={() => {}} />);
     expect(screen.getByText('Wizard')).toBeTruthy();
   });
 
-  it('expandable=false → no role=button + no aria-expanded', () => {
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable={false} onToggle={() => {}} />,
-    );
-    expect(screen.queryByRole('button')).toBeNull();
+  it('row has role="link" for navigation semantics', () => {
+    render(<MeasureRow measure={measure} cube={cube()} onClick={() => {}} />);
+    expect(screen.getByRole('link')).toBeTruthy();
   });
 
-  it('expandable=true, expanded=false → role=button + aria-expanded=false + children NOT in DOM', () => {
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable onToggle={() => {}}>
-        <div data-testid="kid">child</div>
-      </MeasureRow>,
-    );
-    const btn = screen.getByRole('button');
-    expect(btn.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByTestId('kid')).toBeNull();
+  it('click row → calls onClick once', () => {
+    const onClick = vi.fn();
+    render(<MeasureRow measure={measure} cube={cube()} onClick={onClick} />);
+    fireEvent.click(screen.getByRole('link'));
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  it('click row → calls onToggle once', () => {
-    const onToggle = vi.fn();
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable onToggle={onToggle} />,
-    );
-    fireEvent.click(screen.getByRole('button'));
-    expect(onToggle).toHaveBeenCalledTimes(1);
+  it('Enter key → calls onClick', () => {
+    const onClick = vi.fn();
+    render(<MeasureRow measure={measure} cube={cube()} onClick={onClick} />);
+    fireEvent.keyDown(screen.getByRole('link'), { key: 'Enter' });
+    expect(onClick).toHaveBeenCalled();
   });
 
-  it('Enter key → calls onToggle', () => {
-    const onToggle = vi.fn();
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable onToggle={onToggle} />,
-    );
-    fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' });
-    expect(onToggle).toHaveBeenCalled();
-  });
-
-  it('Space key → calls onToggle', () => {
-    const onToggle = vi.fn();
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable onToggle={onToggle} />,
-    );
-    fireEvent.keyDown(screen.getByRole('button'), { key: ' ' });
-    expect(onToggle).toHaveBeenCalled();
-  });
-
-  it('Escape while expanded → calls onToggle (collapse)', () => {
-    const onToggle = vi.fn();
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded expandable onToggle={onToggle} />,
-    );
-    fireEvent.keyDown(screen.getByRole('button'), { key: 'Escape' });
-    expect(onToggle).toHaveBeenCalled();
-  });
-
-  it('Escape while collapsed → does NOT call onToggle', () => {
-    const onToggle = vi.fn();
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable onToggle={onToggle} />,
-    );
-    fireEvent.keyDown(screen.getByRole('button'), { key: 'Escape' });
-    expect(onToggle).not.toHaveBeenCalled();
-  });
-
-  it('expanded=true → aria-expanded=true + children rendered', () => {
-    render(
-      <MeasureRow measure={measure} cube={cube()} expanded expandable onToggle={() => {}}>
-        <div data-testid="kid">child</div>
-      </MeasureRow>,
-    );
-    expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByTestId('kid')).toBeTruthy();
+  it('Space key → calls onClick', () => {
+    const onClick = vi.fn();
+    render(<MeasureRow measure={measure} cube={cube()} onClick={onClick} />);
+    fireEvent.keyDown(screen.getByRole('link'), { key: ' ' });
+    expect(onClick).toHaveBeenCalled();
   });
 
   it('root has data-testid + data-measure-name for selector stability', () => {
     const { container } = render(
-      <MeasureRow measure={measure} cube={cube()} expanded={false} expandable={false} onToggle={() => {}} />,
+      <MeasureRow measure={measure} cube={cube()} onClick={() => {}} />,
     );
     const root = container.querySelector('[data-testid="measure-row"]');
     expect(root).toBeTruthy();

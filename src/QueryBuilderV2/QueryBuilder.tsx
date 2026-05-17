@@ -70,6 +70,7 @@ export function QueryBuilder(
     richMetaError,
     selectCube,
     selectedCube,
+    setQuery,
     ...otherProps
   } = useQueryBuilder({
     cubeApi,
@@ -106,21 +107,69 @@ export function QueryBuilder(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadMeta]);
 
-  // Catalog deep-link: when arriving via "Open in Playground" from /catalog,
-  // the URL carries `?cube=<name>`. Once meta has loaded, select that cube and
-  // strip the param so refreshes don't re-trigger selection.
+  // Catalog deep-link: when arriving via "Open in Playground" or the Metric
+  // Card "Try it" button, the URL carries `?cube=`, optionally `?measure=`,
+  // `?time=<dim>.<granularity>`, and `?range=<cube native string>`. Captured
+  // and applied via a `hashchange` subscription so we catch direct URL pastes
+  // (which don't go through history.push and don't change location.key) as
+  // well as in-app navigations.
   useEffect(() => {
     if (!meta) return;
-    const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
-    const target = params.get('cube');
-    if (!target) return;
-    selectCube(target);
-    params.delete('cube');
-    const remaining = params.toString();
-    const cleanHash = remaining
-      ? `${window.location.hash.split('?')[0]}?${remaining}`
-      : window.location.hash.split('?')[0];
-    window.history.replaceState(null, '', cleanHash);
+
+    function applyFromHash() {
+      const params = new URLSearchParams(
+        window.location.hash.split('?')[1] ?? '',
+      );
+      const target = params.get('cube');
+      if (!target) return false;
+      selectCube(target);
+
+      const measureParam = params.get('measure');
+      const timeParam = params.get('time');
+      const rangeParam = params.get('range');
+      if (measureParam || timeParam) {
+        const nextQuery: Query = {};
+        if (measureParam) nextQuery.measures = [measureParam];
+        if (timeParam) {
+          const parts = timeParam.split('.');
+          const granularity = parts.length >= 3 ? parts.pop()! : 'day';
+          const dimension = parts.join('.');
+          nextQuery.timeDimensions = [
+            {
+              dimension,
+              granularity: granularity as any,
+              ...(rangeParam ? { dateRange: rangeParam } : {}),
+            },
+          ];
+        }
+        setQuery(nextQuery);
+      }
+
+      // Strip deep-link params from URL so onQueryChange's own push doesn't
+      // re-trigger on refresh and so the URL becomes shareable as `?query=...`.
+      params.delete('cube');
+      params.delete('measure');
+      params.delete('time');
+      params.delete('range');
+      const remaining = params.toString();
+      const cleanHash = remaining
+        ? `${window.location.hash.split('?')[0]}?${remaining}`
+        : window.location.hash.split('?')[0];
+      window.history.replaceState(null, '', cleanHash);
+      return true;
+    }
+
+    // Apply once on meta load (handles initial page load + address-bar paste).
+    applyFromHash();
+
+    // Subscribe to subsequent hash changes so Try-it / Open-in-Playground
+    // navigations apply too, even when QueryBuilder was already KeepAlive-
+    // mounted and `meta` doesn't change.
+    function onHashChange() {
+      applyFromHash();
+    }
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta]);
 
@@ -140,6 +189,7 @@ export function QueryBuilder(
         richMetaError,
         selectedCube,
         selectCube,
+        setQuery,
         usedCubes,
         getCubeByName,
         tracking,

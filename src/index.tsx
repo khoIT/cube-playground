@@ -10,6 +10,7 @@ import {
   SchemaPage,
   IndexPage,
   CatalogPage,
+  MetricCardPage,
 } from './pages';
 import { NewMetricPage } from './QueryBuilderV2/NewMetric/full-page/NewMetricPage';
 import { NewMetricSuccess } from './QueryBuilderV2/NewMetric/full-page/steps/success/success-body';
@@ -90,6 +91,9 @@ ReactDOM.render(
         </KeepAliveRoute>
         <KeepAliveRoute key="catalog" path="/catalog">
           <CatalogPage />
+        </KeepAliveRoute>
+        <KeepAliveRoute key="metric" path="/metric/:cube/:member">
+          <MetricCardPage />
         </KeepAliveRoute>
         <Route key="metrics-new-success" exact path="/metrics/new/success" component={NewMetricSuccess} />
         <Route key="metrics-new" path="/metrics/new" component={NewMetricPage} />

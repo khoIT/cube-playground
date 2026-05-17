@@ -1,25 +1,16 @@
 /**
- * MeasureRow — extracted from `detail-panel.tsx` so the parent stays under
- * the 200-line ceiling and the per-measure expand surface is testable in
- * isolation. The styling matches the legacy inline row exactly when
- * `expandable=false`; mf_users rows opt in via `expandable=true` and the
- * children slot is filled with `<CdpProjectionCard>` in Phase 5.
+ * MeasureRow — clickable navigation surface in the catalog DetailPanel.
+ *
+ * Each row is a link to the per-measure `/metric/:cube/:member` page. The
+ * inline accordion (CDP projection expand) was removed in P2 of the metric-
+ * card plan; CDP projection content now lives inside the card itself.
  */
 
-import { ReactNode, KeyboardEvent } from 'react';
+import { KeyboardEvent } from 'react';
 import styled from 'styled-components';
 import type { CatalogCube, CatalogMeasure } from './use-catalog-meta';
 
-const Row = styled.div`
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  padding: 4px 0;
-`;
-
-const ClickableRow = styled.div<{ $expanded: boolean }>`
+const ClickableRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -30,20 +21,14 @@ const ClickableRow = styled.div<{ $expanded: boolean }>`
   cursor: pointer;
   user-select: none;
   outline: none;
+  &:hover code {
+    color: var(--brand);
+  }
   &:focus-visible {
     outline: 2px solid var(--brand);
     outline-offset: 2px;
     border-radius: 2px;
   }
-`;
-
-const Chevron = styled.span<{ $expanded: boolean }>`
-  display: inline-block;
-  width: 12px;
-  margin-right: 4px;
-  color: var(--text-muted);
-  transition: transform 120ms;
-  transform: ${(p) => (p.$expanded ? 'rotate(90deg)' : 'rotate(0deg)')};
 `;
 
 const Code = styled.code`
@@ -74,66 +59,39 @@ const WizardChip = styled.span`
   margin-left: 6px;
 `;
 
-const ExpandedRegion = styled.div`
-  padding: 8px 0 12px 16px;
-`;
-
 interface MeasureRowProps {
   measure: CatalogMeasure;
   cube: CatalogCube;
-  expanded: boolean;
-  expandable: boolean;
-  onToggle: () => void;
-  children?: ReactNode;
+  onClick: () => void;
 }
 
-export function MeasureRow({ measure, cube, expanded, expandable, onToggle, children }: MeasureRowProps) {
+export function MeasureRow({ measure, cube, onClick }: MeasureRowProps) {
   const shortName = measure.name.split('.').slice(1).join('.') || measure.name;
   const isWizard = measure.meta?.source === 'wizard';
 
   function handleKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      onToggle();
-      return;
+      onClick();
     }
-    if (e.key === 'Escape' && expanded) {
-      e.preventDefault();
-      onToggle();
-    }
-  }
-
-  const content = (
-    <span>
-      {expandable && <Chevron $expanded={expanded} aria-hidden>▶</Chevron>}
-      <Code>{shortName}</Code>
-      {measure.aggType && <Chip>{measure.aggType}</Chip>}
-      {measure.format && <Chip>{measure.format}</Chip>}
-      {isWizard && <WizardChip>Wizard</WizardChip>}
-    </span>
-  );
-
-  if (!expandable) {
-    return (
-      <Row data-testid="measure-row" data-measure-name={measure.name} data-cube={cube.name}>
-        {content}
-      </Row>
-    );
   }
 
   return (
-    <div data-testid="measure-row" data-measure-name={measure.name} data-cube={cube.name}>
-      <ClickableRow
-        $expanded={expanded}
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        onClick={onToggle}
-        onKeyDown={handleKey}
-      >
-        {content}
-      </ClickableRow>
-      {expanded && <ExpandedRegion>{children}</ExpandedRegion>}
-    </div>
+    <ClickableRow
+      data-testid="measure-row"
+      data-measure-name={measure.name}
+      data-cube={cube.name}
+      role="link"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={handleKey}
+    >
+      <span>
+        <Code>{shortName}</Code>
+        {measure.aggType && <Chip>{measure.aggType}</Chip>}
+        {measure.format && <Chip>{measure.format}</Chip>}
+        {isWizard && <WizardChip>Wizard</WizardChip>}
+      </span>
+    </ClickableRow>
   );
 }

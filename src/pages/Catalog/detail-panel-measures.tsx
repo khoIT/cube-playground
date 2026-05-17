@@ -1,16 +1,15 @@
 /**
- * DetailPanelMeasures — measures section of `<DetailPanel>`, extracted to
- * keep the parent under the 200-line ceiling. Owns expanded-row state and
- * wires `<MeasureRow>` ↔ `<CdpProjectionCard>` per cube.
+ * DetailPanelMeasures — measures section of `<DetailPanel>`. Each row is a
+ * clickable navigation target that pushes the user to the per-measure card at
+ * `/metric/:cube/:member`. The previous inline CDP-projection accordion was
+ * removed; CDP projection now renders inside the MetricCard instead.
  */
 
-import { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useHistory } from 'react-router-dom';
 import type { CatalogCube } from './use-catalog-meta';
 import { MeasureRow } from './measure-row';
-import { CdpProjectionCard } from './cdp-projection/cdp-projection-card';
-import { projectMeasure } from './cdp-projection/project-measure';
-import type { ProjectableCube, ProjectableMeasure } from './cdp-projection/types';
+import { buildMetricUrl } from './try-it-url';
 
 const Section = styled.section`
   padding: 16px 24px;
@@ -34,37 +33,19 @@ interface DetailPanelMeasuresProps {
 }
 
 export function DetailPanelMeasures({ cube }: DetailPanelMeasuresProps) {
-  const [expandedMeasureName, setExpandedMeasureName] = useState<string | null>(null);
-  const cubeHasCdpMapping = Boolean(cube.meta?.cdp_source);
-
-  useEffect(() => {
-    setExpandedMeasureName(null);
-  }, [cube.name]);
+  const history = useHistory();
 
   return (
     <Section>
       <SectionTitle>Measures ({cube.measures.length})</SectionTitle>
-      {cube.measures.map((m) => {
-        const projection = projectMeasure(
-          cube as unknown as ProjectableCube,
-          m as unknown as ProjectableMeasure,
-        );
-        const rowExpandable = cubeHasCdpMapping && projection.ok;
-        return (
-          <MeasureRow
-            key={m.name}
-            measure={m}
-            cube={cube}
-            expandable={rowExpandable}
-            expanded={expandedMeasureName === m.name}
-            onToggle={() =>
-              setExpandedMeasureName((prev) => (prev === m.name ? null : m.name))
-            }
-          >
-            {rowExpandable && <CdpProjectionCard projection={projection} />}
-          </MeasureRow>
-        );
-      })}
+      {cube.measures.map((m) => (
+        <MeasureRow
+          key={m.name}
+          measure={m}
+          cube={cube}
+          onClick={() => history.push(buildMetricUrl(m.name))}
+        />
+      ))}
     </Section>
   );
 }
