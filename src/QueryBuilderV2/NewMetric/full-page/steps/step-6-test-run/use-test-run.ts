@@ -134,12 +134,21 @@ export function useTestRun(args: UseTestRunArgs) {
         });
         if (myRunId !== runIdRef.current) return;
         if (!writeResult.ok) {
-          setStatus('error');
-          const reason = (writeResult as { reason?: string }).reason ?? 'write failed';
-          setError(`Schema write failed: ${reason}`);
-          return;
+          const reason = (writeResult as { reason?: string }).reason ?? '';
+          // The hook re-mounts (e.g. user back-navigates to Step 5 and forward
+          // again) lose `lastWrittenRef`. The YAML is still on disk, so the
+          // re-write trips "already exists". Adopt it as ours and proceed —
+          // the wizard's draft.name is unique to this in-progress measure.
+          if (/already exists/i.test(reason)) {
+            lastWrittenRef.current = incoming;
+          } else {
+            setStatus('error');
+            setError(`Schema write failed: ${reason || 'write failed'}`);
+            return;
+          }
+        } else {
+          lastWrittenRef.current = incoming;
         }
-        lastWrittenRef.current = incoming;
       }
 
       setStatus('loading');
