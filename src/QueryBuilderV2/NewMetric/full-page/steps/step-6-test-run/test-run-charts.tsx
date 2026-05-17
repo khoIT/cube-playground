@@ -1,16 +1,14 @@
-import { Suspense, lazy } from 'react';
 import styled from 'styled-components';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
 import type { DimensionResult } from './use-test-run';
-
-const ResponsiveContainer = lazy(() =>
-  import('recharts').then((m) => ({ default: m.ResponsiveContainer })),
-);
-const AreaChart = lazy(() => import('recharts').then((m) => ({ default: m.AreaChart })));
-const Area = lazy(() => import('recharts').then((m) => ({ default: m.Area })));
-const XAxis = lazy(() => import('recharts').then((m) => ({ default: m.XAxis })));
-const YAxis = lazy(() => import('recharts').then((m) => ({ default: m.YAxis })));
-const Tooltip = lazy(() => import('recharts').then((m) => ({ default: m.Tooltip })));
-const CartesianGrid = lazy(() => import('recharts').then((m) => ({ default: m.CartesianGrid })));
 
 const Card = styled.div`
   background: var(--bg-card);
@@ -25,7 +23,20 @@ const CardHead = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 12px;
+`;
+const StackedHead = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+`;
+const StackedTitleRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 `;
 const CardTitle = styled.div`
   font-size: 13px;
@@ -133,45 +144,43 @@ export function TrendChart({ data, loading, rangeLabel }: TrendChartProps) {
         {!loading && (!data || data.length === 0) && <Empty>No data points returned.</Empty>}
         {!loading && data && data.length > 0 && (
           <ChartCanvas>
-            <Suspense fallback={<Empty>Loading chart…</Empty>}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f97316" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis
-                    dataKey="x"
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    tickFormatter={formatShort}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    tickFormatter={formatCompact}
-                    axisLine={false}
-                    tickLine={false}
-                    width={48}
-                  />
-                  <Tooltip
-                    formatter={(v: number) => formatCompact(v)}
-                    labelFormatter={(l: string) => formatShort(l)}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="y"
-                    stroke="#f97316"
-                    strokeWidth={2}
-                    fill="url(#trend-fill)"
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Suspense>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis
+                  dataKey="x"
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  tickFormatter={formatShort}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#6b7280' }}
+                  tickFormatter={formatCompact}
+                  axisLine={false}
+                  tickLine={false}
+                  width={48}
+                />
+                <Tooltip
+                  formatter={(v: number) => formatCompact(v)}
+                  labelFormatter={(l: string) => formatShort(l)}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="y"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  fill="url(#trend-fill)"
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </ChartCanvas>
         )}
       </ChartArea>
@@ -193,8 +202,15 @@ function leafOf(qualified: string): string {
 export function DimensionTable({ result, dimensions, activeDimension, onPick }: DimensionTableProps) {
   return (
     <Card>
-      <CardHead>
-        <CardTitle>By dimension</CardTitle>
+      <StackedHead>
+        <StackedTitleRow>
+          <CardTitle>By dimension</CardTitle>
+          {activeDimension && (
+            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+              top {Math.min(8, result.rows.length)} of {result.rows.length}
+            </span>
+          )}
+        </StackedTitleRow>
         <TabRow>
           {dimensions.slice(0, 3).map((d) => (
             <Tab key={d} $active={d === activeDimension} onClick={() => onPick(d)}>
@@ -202,7 +218,7 @@ export function DimensionTable({ result, dimensions, activeDimension, onPick }: 
             </Tab>
           ))}
         </TabRow>
-      </CardHead>
+      </StackedHead>
       {!activeDimension && <Empty>No dimensions available on this cube.</Empty>}
       {activeDimension && result.status === 'loading' && <Empty>Loading…</Empty>}
       {activeDimension && result.status === 'error' && (
