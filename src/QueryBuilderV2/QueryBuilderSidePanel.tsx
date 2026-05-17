@@ -399,6 +399,7 @@ export function QueryBuilderSidePanel({
     appliedFilterString,
     memberViewType,
     selectedType,
+    displayConfig.isVisible,
   ]);
 
   const onApplyQuery = useCallback(async (query) => {
