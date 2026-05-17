@@ -6,7 +6,7 @@ priority: P2
 branch: "new_metric"
 tags: [feature, wizard, full-page, 6-step, real-stats, and-or-filter, custom-sql, tdd]
 blockedBy: []
-blocks: [260516-1940-new-metric-wizard-v2-and-meta-driven-surfaces, 260517-1930-new-metric-multi-source-multi-input]
+blocks: [260516-1940-new-metric-wizard-v2-and-meta-driven-surfaces, 260517-1930-new-metric-multi-source-multi-input, 260517-2230-new-metric-dim-segment-authoring]
 created: "2026-05-17T15:00:00.000Z"
 createdBy: "ck:plan"
 source: skill
