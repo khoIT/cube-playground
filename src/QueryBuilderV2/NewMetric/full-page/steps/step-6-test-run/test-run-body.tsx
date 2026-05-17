@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MutableRefObject } from 'react';
 import styled from 'styled-components';
 import { notification } from 'antd';
-import { Play, Loader, RefreshCw, CheckCircle } from 'lucide-react';
+import { Loader, RefreshCw, CheckCircle } from 'lucide-react';
 import { useHistory } from 'react-router-dom';
 import type { CubeApi } from '@cubejs-client/core';
 import type { NewMetricDraftV2 } from '../../../types';
@@ -108,28 +108,13 @@ const ChartsGrid = styled.div`
   gap: 12px;
   margin-top: 14px;
 `;
-const SubmitBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+const SubmitHint = styled.div`
   margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-card);
-`;
-const Primary = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--brand);
-  color: white;
-  border: none;
-  padding: 9px 18px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  &:hover { background: var(--brand-hover); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 12.5px;
 `;
 
 function formatScalar(n: number | null): string {
@@ -141,14 +126,34 @@ function formatScalar(n: number | null): string {
   return n.toLocaleString();
 }
 
+export type TestRunControls = {
+  submit: () => Promise<void>;
+};
+
 export type TestRunBodyProps = {
   draft: NewMetricDraftV2;
   sourceCube: WizardCube | null;
   cubejsApi: CubeApi | null;
   onSubmitted: (info: { cubeName: string; measureName: string }) => void;
+  /**
+   * Imperative handle so the StepChrome footer's Continue button can drive the
+   * Submit. The body keeps the schema-write / preview state internally; the
+   * parent (NewMetricPage) just needs a way to fire submit when the user
+   * clicks Continue.
+   */
+  controlsRef?: MutableRefObject<TestRunControls | null>;
+  /** Mirrors readiness of the test run for the parent's `canContinue` flag. */
+  onReadyChange?: (ready: boolean) => void;
 };
 
-export function TestRunBody({ draft, sourceCube, cubejsApi, onSubmitted }: TestRunBodyProps) {
+export function TestRunBody({
+  draft,
+  sourceCube,
+  cubejsApi,
+  onSubmitted,
+  controlsRef,
+  onReadyChange,
+}: TestRunBodyProps) {
   const history = useHistory();
   const primaryCube = draft.sourceCubes[0] ?? null;
 
@@ -206,6 +211,22 @@ export function TestRunBody({ draft, sourceCube, cubejsApi, onSubmitted }: TestR
     run.previewStatus === 'loading' ||
     run.previewStatus === 'discarding-prior';
   const hasPreview = run.previewStatus === 'success';
+
+  // Surface readiness + the imperative submit handle to the parent so the
+  // StepChrome footer can drive Submit from its Continue button. The status
+  // must include `!submitting` so Continue can't be double-clicked mid-write.
+  const canSubmit = hasPreview && !submitting && !!primaryCube && !!draft.name;
+  useEffect(() => {
+    onReadyChange?.(canSubmit);
+  }, [canSubmit, onReadyChange]);
+  useEffect(() => {
+    if (!controlsRef) return;
+    controlsRef.current = { submit: handleSubmit };
+    return () => {
+      if (controlsRef.current?.submit === handleSubmit) controlsRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlsRef, primaryCube, draft.name, yamlFragment, run.lastWritten, run.previewStatus, submitting]);
 
   async function handleSubmit() {
     if (!primaryCube || !draft.name) {
@@ -334,16 +355,13 @@ export function TestRunBody({ draft, sourceCube, cubejsApi, onSubmitted }: TestR
         }}>{yamlFragment || '—'}</pre>
       </details>
 
-      <SubmitBar>
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-          {hasPreview
-            ? 'Test run passed — submit when you are ready.'
-            : 'Submit becomes available once the test run completes.'}
-        </div>
-        <Primary onClick={handleSubmit} disabled={submitting || !hasPreview || !draft.name || !primaryCube}>
-          <Play size={14} /> {submitting ? 'Submitting…' : 'Submit metric request'}
-        </Primary>
-      </SubmitBar>
+      <SubmitHint>
+        {submitting
+          ? 'Submitting metric request…'
+          : hasPreview
+          ? 'Test run passed — click Submit metric request below when you are ready.'
+          : 'Submit becomes available once the test run completes.'}
+      </SubmitHint>
     </>
   );
 }

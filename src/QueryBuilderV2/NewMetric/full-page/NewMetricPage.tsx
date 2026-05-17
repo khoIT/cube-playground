@@ -20,7 +20,7 @@ import { ColumnHealthRail } from './steps/step-3-column/column-health-rail';
 import { FiltersBody } from './steps/step-4-filters/filters-body';
 import { IdentityBody } from './steps/step-5-identity/identity-body';
 import { YamlPreviewRail } from './steps/step-5-identity/yaml-preview-rail';
-import { TestRunBody } from './steps/step-6-test-run/test-run-body';
+import { TestRunBody, type TestRunControls } from './steps/step-6-test-run/test-run-body';
 import { discardAllPending, sweepStale } from './steps/step-6-test-run/pending-writes';
 
 /**
@@ -75,6 +75,13 @@ export function NewMetricPage() {
     back();
     window.setTimeout(() => setHighlightSources(false), 1500);
   }
+
+  // Bridge between StepChrome's Continue button on Step 6 and TestRunBody's
+  // internal submit handler. The body owns the schema-write / preview state
+  // so we expose `submit` via an imperative ref and surface readiness via a
+  // boolean for `canContinue`.
+  const testRunCtrl = useRef<TestRunControls | null>(null);
+  const [canSubmitTestRun, setCanSubmitTestRun] = useState(false);
 
   // Live auto-fill of name + title from operation/column picks. Each field
   // stays "auto-controlled" while it's empty or still equals the last value
@@ -260,7 +267,7 @@ export function NewMetricPage() {
           isAutoName={isAutoName}
         />
       }
-      main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack })}
+      main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun })}
       rightRail={(() => {
         const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: primarySlotValue });
         return (
@@ -324,8 +331,11 @@ function renderStep(args: {
   cubejsApi: ReturnType<typeof useNewMetricMeta>['cubejsApi'];
   highlightSources: boolean;
   onRequestBackToSources: () => void;
+  testRunCtrl: React.MutableRefObject<TestRunControls | null>;
+  canSubmitTestRun: boolean;
+  setCanSubmitTestRun: (ready: boolean) => void;
 }) {
-  const { step, draft, meta, loading, error, setField, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources } = args;
+  const { step, draft, meta, loading, error, setField, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun } = args;
 
   if (step === 1) {
     return (
@@ -357,16 +367,19 @@ function renderStep(args: {
     return (
       <StepChrome
         step={6}
-        canContinue={false}
+        canContinue={canSubmitTestRun}
         backLabel="Back to identity"
+        continueLabel="Submit metric request"
         onBack={back}
-        onContinue={() => { /* handled inside TestRunBody */ }}
+        onContinue={() => void testRunCtrl.current?.submit()}
       >
         <TestRunBody
           draft={draft}
           sourceCube={selectedCube as any}
           cubejsApi={cubejsApi}
           onSubmitted={() => { /* navigation happens inside body */ }}
+          controlsRef={testRunCtrl}
+          onReadyChange={setCanSubmitTestRun}
         />
       </StepChrome>
     );
