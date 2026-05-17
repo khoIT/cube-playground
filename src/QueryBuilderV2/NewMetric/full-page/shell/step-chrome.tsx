@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import styled from 'styled-components';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { StepIndex, STEP_LABELS } from '../hooks/use-active-step';
 
 const HeaderBar = styled.div`
   display: flex;
@@ -88,7 +87,11 @@ const NavBtn = styled.button<{ $primary?: boolean; $disabled?: boolean }>`
 `;
 
 export type StepChromeProps = {
-  step: StepIndex;
+  /** Display-only step number, 1-based (e.g. "Step 1 of 7"). */
+  stepNumber: number;
+  /** Total steps in the active kind's graph. */
+  totalSteps: number;
+  title: string;
   subtitle?: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -102,20 +105,19 @@ export type StepChromeProps = {
 };
 
 export function StepChrome(p: StepChromeProps) {
-  const lbl = STEP_LABELS[p.step];
   return (
     <>
       <HeaderBar>
         <TitleGroup>
-          <StepNum>Step {p.step} of 6</StepNum>
-          <Title>{lbl.name}</Title>
-          <Sub>{p.subtitle ?? lbl.sub}</Sub>
+          <StepNum>Step {p.stepNumber} of {p.totalSteps}</StepNum>
+          <Title>{p.title}</Title>
+          {p.subtitle && <Sub>{p.subtitle}</Sub>}
         </TitleGroup>
         <Actions>{p.actions}</Actions>
       </HeaderBar>
       <Body>{p.children}</Body>
       <FooterBar>
-        <FootInfo>Step {p.step} of 6 · {lbl.name}</FootInfo>
+        <FootInfo>Step {p.stepNumber} of {p.totalSteps} · {p.title}</FootInfo>
         <NavGroup>
           {p.extraFooter}
           <NavBtn

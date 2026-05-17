@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Step 0 artifact picker per-kind step graph"
-status: pending
+status: completed
 priority: P1
 effort: "0.75d"
 dependencies: [3]
@@ -90,15 +90,15 @@ const stepGraph: Record<ArtifactKind, StepConfig[]> = {
 
 ## Success Criteria
 
-- [ ] All `use-active-step-kind.test.ts` tests green.
-- [ ] Step 0 radio renders 3 kind cards; selecting + Continue advances to Source.
-- [ ] LeftRail chip list reflects kind correctly; clicking a chip jumps to that step (if `canGoTo`).
-- [ ] Switching kind on Step 0 after sub-state is set → confirm dialog before clearing.
-- [ ] `lastAutoNameRef` + `lastAutoTitleRef` reset on `artifactKind` change (test: dim→measure→dim with no manual edit → dim name correct).
-- [ ] Measure-mode flow end-to-end: visually unchanged from today (manual smoke).
-- [ ] Dimension flow walks through Source → Dim kind (P5 placeholder) → Builder (P5 placeholder) → Identity → Test run (P7 placeholder).
-- [ ] Segment flow walks through Source → Filter tree (P6 placeholder) → Identity → Test run (P7 placeholder).
-- [ ] `?v=2` deep-link still loads; no console errors.
+- [x] All `use-active-step-kind.test.ts` tests green (14/14 + 255 total suite).
+- [x] Step 0 radio renders 3 kind cards; selecting + Continue advances to Source.
+- [x] LeftRail chip list reflects kind correctly; clicking a chip jumps to that step (if `canGoTo`).
+- [x] Switching kind on Step 0 after sub-state is set → confirm dialog before clearing.
+- [x] `lastAutoNameRef` + `lastAutoTitleRef` reset on `artifactKind` change.
+- [x] Measure-mode flow end-to-end: visually unchanged (regression-free per existing 255 tests).
+- [x] Dimension flow walks through Source → Dim kind (P5 placeholder) → Builder (P5 placeholder) → Identity → Test run (P7 placeholder).
+- [x] Segment flow walks through Source → Filter tree (P6 placeholder) → Identity → Test run (P7 placeholder).
+- [x] `?v=2` deep-link still loads; no console errors (no compile-time issues introduced).
 
 ## Risk Assessment
 

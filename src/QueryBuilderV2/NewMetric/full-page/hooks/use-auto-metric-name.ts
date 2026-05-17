@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import type { NewMetricDraftV2 } from '../../types';
+import type { NewMetricDraftV2, NewMetricDraftV3 } from '../../types';
 import {
   computeAutoMetricName,
   computeAutoMetricTitle,
@@ -21,6 +21,22 @@ export function useAutoMetricName(
 ): void {
   const lastAutoNameRef = useRef('');
   const lastAutoTitleRef = useRef('');
+
+  // Reset the auto-controlled refs whenever the artifact kind changes. Without
+  // this, switching kinds mid-flow would leave stale `lastAuto*Ref` values from
+  // the previous kind, so `nameIsAuto`/`titleIsAuto` would short-circuit and we
+  // would never overwrite the now-stale auto-name with the new kind's. Concrete
+  // repro: dim → measure → dim with no manual edits should land on the dim's
+  // auto-name, not the measure's.
+  const kind = (draft as NewMetricDraftV3).artifactKind;
+  const prevKindRef = useRef<string | undefined>(kind);
+  useEffect(() => {
+    if (prevKindRef.current !== kind) {
+      lastAutoNameRef.current = '';
+      lastAutoTitleRef.current = '';
+      prevKindRef.current = kind;
+    }
+  }, [kind]);
 
   // The compute is pure — memoize so we don't re-walk the draft on every
   // shell render. Identity-stable inputs (drafts come from useReducer-style

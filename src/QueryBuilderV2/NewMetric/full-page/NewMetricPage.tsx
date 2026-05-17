@@ -3,11 +3,12 @@ import { useHistory, useLocation } from 'react-router-dom';
 import { Modal, notification } from 'antd';
 import { useNewMetricMeta } from '../hooks/use-new-metric-meta';
 import { useNewMetricDraft } from '../hooks/use-new-metric-draft';
-import { useActiveStep, StepIndex } from './hooks/use-active-step';
+import { useActiveStep, type ArtifactStepId } from './hooks/use-active-step';
 import { Shell } from './shell/shell';
 import { LeftRail } from './shell/left-rail';
 import { RightRail } from './shell/right-rail';
 import { StepChrome } from './shell/step-chrome';
+import { ArtifactKindBody } from './steps/step-0-artifact-kind/artifact-kind-body';
 import { SourceBody } from './steps/step-1-source/source-body';
 import { SourcePreviewRail } from './steps/step-1-source/source-preview-rail';
 import { OperationBody } from './steps/step-2-operation/operation-body';
@@ -23,11 +24,17 @@ import { YamlPreviewRail } from './steps/step-5-identity/yaml-preview-rail';
 import { TestRunBody, type TestRunControls } from './steps/step-6-test-run/test-run-body';
 import { discardAllPending, sweepStale } from './steps/step-6-test-run/pending-writes';
 import { PerfProbe } from '../../../dev/perf-probe';
+import { isEmpty as isFilterTreeEmpty } from '../filter-tree';
+import type { ArtifactKind } from '../types';
 
 /**
- * Route component for `/metrics/new`. Mounts the full-page 6-step wizard
- * shell behind `?v=2`. When `?v=2` is absent we render a fallback message —
- * the legacy modal entry point stays accessible from the header button.
+ * Route component for `/metrics/new`. Mounts the full-page wizard shell
+ * behind `?v=2`. When `?v=2` is absent we render a fallback message — the
+ * legacy modal entry point stays accessible from the header button.
+ *
+ * The wizard now branches on `draft.artifactKind`: Step 0 picks the kind
+ * (measure / dimension / segment), then the remaining steps differ per kind
+ * via `useActiveStep`'s per-kind step graph.
  *
  * RR5 + HashRouter only — no useNavigate / useSearchParams / RR6 idioms.
  */
@@ -65,8 +72,9 @@ export function NewMetricPage() {
   }, [meta]);
 
   const draftState = useNewMetricDraft({ reachableNames });
-  const { draft, setField, setInput, toggleSource, setPrimarySource, clearPersisted } = draftState;
-  const { step, setStep, canGoTo, next, back } = useActiveStep(draft);
+  const { draft, setField, setInput, setArtifactKind, toggleSource, setPrimarySource, clearPersisted } = draftState;
+  const { step, setStep, canGoTo, next, back, totalSteps, doneFlags, graph, currentStep } =
+    useActiveStep(draft);
 
   // Transient pulse flag for Step 1's source picker, raised when the user
   // clicks a source-gated op card in Step 2.
@@ -77,15 +85,21 @@ export function NewMetricPage() {
     window.setTimeout(() => setHighlightSources(false), 1500);
   }
 
-  // Bridge between StepChrome's Continue button on Step 6 and TestRunBody's
-  // internal submit handler. The body owns the schema-write / preview state
-  // so we expose `submit` via an imperative ref and surface readiness via a
-  // boolean for `canContinue`.
+  // True while the confirm dialog for kind switching is open. Disables the
+  // radio cards on Step 0 so a quick double-click can't dispatch two switches
+  // (red-team F-W).
+  const [kindSwitchPending, setKindSwitchPending] = useState(false);
+
+  // Bridge between StepChrome's Continue button on the test-run step and
+  // TestRunBody's internal submit handler. The body owns the schema-write /
+  // preview state so we expose `submit` via an imperative ref and surface
+  // readiness via a boolean for `canContinue`.
   const testRunCtrl = useRef<TestRunControls | null>(null);
   const [canSubmitTestRun, setCanSubmitTestRun] = useState(false);
 
-  // Live auto-fill of name + title from operation/column picks. The hook
-  // memoizes the pure compute and preserves the auto-controlled invariant.
+  // Live auto-fill of name + title from the draft. The hook resets its
+  // auto-controlled refs internally when `artifactKind` changes (red-team
+  // F-12), so dim ↔ measure flips re-evaluate the auto-name cleanly.
   useAutoMetricName(draft, setField);
 
   // One-shot cleanup: when the wizard mounts (after meta + draft hydration),
@@ -156,25 +170,6 @@ export function NewMetricPage() {
     ? meta.cubes.find((c) => c.name === primaryCubeName) ?? null
     : null;
 
-  // doneFlags drive the LeftRail badges/chips. We mark a step done as soon as
-  // its choice has been recorded in the draft (mirrors the Stitch walkthrough,
-  // where prior steps stay ticked when the user navigates back). Step 4
-  // (Filters) is optional, so it stays untouched until the user moves past it.
-  // A step is "done" once every required slot for the active op is filled.
-  // `count` is the exception: its single slot is optional, so the step
-  // counts as done the moment the user moves past it.
-  const opDef = findOp(draft.operation);
-  const allRequiredSlotsFilled = !!opDef && opDef.inputs.every((s) => !s.required || !!draft.inputs[s.id]);
-
-  const doneFlags: Record<StepIndex, boolean> = {
-    1: draft.sourceCubes.length >= 1,
-    2: !!draft.operation,
-    3: draft.operation === 'count' || allRequiredSlotsFilled,
-    4: step > 4,
-    5: !!draft.name && !!draft.title,
-    6: false,
-  };
-
   const autoName = computeAutoMetricName(draft);
   const isAutoName = !draft.name || draft.name === autoName;
   const metricName = draft.name || autoName;
@@ -201,14 +196,30 @@ export function NewMetricPage() {
       ? draft.sourceCubes[0]
       : `${draft.sourceCubes[0]} +${draft.sourceCubes.length - 1} more`;
 
-  const summaries: Partial<Record<StepIndex, string>> = {
-    1: sourceSummary,
-    2: draft.operation ? opLabel : 'Aggregation type',
-    3: columnLeaf ?? (draft.operation === 'count' ? 'count is *' : 'Field to measure'),
-    4: 'Where clause',
-    5: draft.name || 'Name & format',
-    6: 'Verify shape',
+  const kindLabel: Record<ArtifactKind, string> = {
+    measure: 'Measure',
+    dimension: 'Dimension',
+    segment: 'Segment',
   };
+
+  // Per-step summary line for the LeftRail. Looked up by step id rather than
+  // numeric index so the same code works for all three kinds.
+  function summaryFor(id: ArtifactStepId): string | undefined {
+    switch (id) {
+      case 'kind': return kindLabel[draft.artifactKind];
+      case 'source': return sourceSummary;
+      case 'op': return draft.operation ? opLabel : 'Aggregation type';
+      case 'column': return columnLeaf ?? (draft.operation === 'count' ? 'count is *' : 'Field to measure');
+      case 'filters': return 'Where clause';
+      case 'identity': return draft.name || 'Name & format';
+      case 'test-run': return 'Verify shape';
+      case 'dim-kind': return draft.dimKind ?? 'Pick dim kind';
+      case 'builder': return draft.dimBuilder ? 'Configured' : 'Configure the dim';
+      case 'filter-tree': return isFilterTreeEmpty(draft.filterTree) ? 'No filters yet' : 'Cohort defined';
+      default: return undefined;
+    }
+  }
+  const summaries = graph.map((cfg) => summaryFor(cfg.id));
 
   function handleDiscard() {
     Modal.confirm({
@@ -233,11 +244,45 @@ export function NewMetricPage() {
     notification.info({ message: 'Draft saved' });
   }
 
+  function hasKindSpecificSubState(kind: ArtifactKind): boolean {
+    if (kind === 'dimension') return !!draft.dimBuilder || !!draft.dimKind;
+    if (kind === 'segment') return !isFilterTreeEmpty(draft.filterTree);
+    // measure: `operation` always has a default ('sum'), so it's not a real
+    // signal — only treat the measure as having sub-state if a slot is filled.
+    if (kind === 'measure') return Object.values(draft.inputs).some((v) => v);
+    return false;
+  }
+
+  function handleKindSelect(nextKind: ArtifactKind) {
+    if (nextKind === draft.artifactKind) return;
+    // Only prompt when switching AWAY from a kind whose sub-state would be
+    // wiped by the reducer. Switching INTO a kind never destroys sub-state
+    // (the previous kind's state is what gets wiped).
+    if (hasKindSpecificSubState(draft.artifactKind)) {
+      setKindSwitchPending(true);
+      Modal.confirm({
+        title: 'Switch artifact kind?',
+        content: `Your ${draft.artifactKind} progress will be cleared. Continue?`,
+        okText: `Switch to ${kindLabel[nextKind]}`,
+        okType: 'danger',
+        cancelText: 'Keep editing',
+        onOk: () => {
+          setArtifactKind(nextKind);
+          setKindSwitchPending(false);
+        },
+        onCancel: () => setKindSwitchPending(false),
+      });
+      return;
+    }
+    setArtifactKind(nextKind);
+  }
+
   return (
     <PerfProbe id="NewMetricPage">
       <Shell
         leftRail={
           <LeftRail
+            graph={graph}
             step={step}
             setStep={setStep}
             canGoTo={canGoTo}
@@ -249,17 +294,46 @@ export function NewMetricPage() {
             onDiscard={handleDiscard}
           />
         }
-        main={renderStep({ step, draft, meta, loading, error, setField, setInput, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources: pulseSourcesAndBack, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun })}
+        main={renderStep({
+          stepId: currentStep.id,
+          stepTitle: currentStep.name,
+          stepSubtitle: currentStep.sub,
+          stepNumber: step + 1,
+          totalSteps,
+          draft,
+          meta,
+          loading,
+          error,
+          setField,
+          setInput,
+          toggleSource,
+          setPrimarySource,
+          next,
+          back,
+          canBack: step > 0,
+          selectedCube,
+          tagSuggestions,
+          cubejsApi,
+          highlightSources,
+          onRequestBackToSources: pulseSourcesAndBack,
+          testRunCtrl,
+          canSubmitTestRun,
+          setCanSubmitTestRun,
+          kindSwitchPending,
+          onKindSelect: handleKindSelect,
+        })}
         rightRail={(() => {
-          const rail = rightRailMeta({ step, selectedCube, operation: draft.operation, column: primarySlotValue });
+          const rail = rightRailMeta({ stepId: currentStep.id, selectedCube, operation: draft.operation, column: primarySlotValue });
           return (
             <RightRail title={rail.title} subtitle={rail.subtitle}>
-              {step === 1 && <SourcePreviewRail cube={selectedCube} />}
-              {step === 2 && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
-              {step === 3 && <ColumnHealthRail cube={selectedCube} column={primarySlotValue} operation={draft.operation} cubeApi={cubejsApi} />}
-              {step === 4 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cohort funnel arrives in a follow-up. The compiled SQL preview is in the main panel.</div>}
-              {step === 5 && <YamlPreviewRail draft={draft} sourceCube={selectedCube} />}
-              {step > 5 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Step {step} preview not implemented yet — coming in later phases.</div>}
+              {currentStep.id === 'source' && <SourcePreviewRail cube={selectedCube} />}
+              {currentStep.id === 'op' && <OperationDetailRail cube={selectedCube} operation={draft.operation} />}
+              {currentStep.id === 'column' && <ColumnHealthRail cube={selectedCube} column={primarySlotValue} operation={draft.operation} cubeApi={cubejsApi} />}
+              {currentStep.id === 'filters' && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cohort funnel arrives in a follow-up. The compiled SQL preview is in the main panel.</div>}
+              {currentStep.id === 'identity' && <YamlPreviewRail draft={draft} sourceCube={selectedCube} />}
+              {(currentStep.id === 'kind' || currentStep.id === 'dim-kind' || currentStep.id === 'builder' || currentStep.id === 'filter-tree' || currentStep.id === 'test-run') && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Preview lands in a follow-up phase.</div>
+              )}
             </RightRail>
           );
         })()}
@@ -269,34 +343,42 @@ export function NewMetricPage() {
 }
 
 function rightRailMeta(args: {
-  step: StepIndex;
+  stepId: ArtifactStepId;
   selectedCube: { name: string; title?: string } | null;
   operation: string | null;
   column: string | null;
 }): { title: string; subtitle?: string } {
-  const { step, selectedCube, operation, column } = args;
-  if (step === 1) {
+  const { stepId, selectedCube, operation, column } = args;
+  if (stepId === 'kind') return { title: 'Artifact kind', subtitle: 'What you are authoring' };
+  if (stepId === 'source') {
     return selectedCube
       ? { title: 'Selected source', subtitle: selectedCube.name }
       : { title: 'Source preview', subtitle: 'Pick a source to inspect its schema' };
   }
-  if (step === 2) {
+  if (stepId === 'op') {
     return operation
       ? { title: 'Operation', subtitle: operation }
       : { title: 'Operation preview', subtitle: 'Pick an aggregation to see its formula' };
   }
-  if (step === 3) {
+  if (stepId === 'column') {
     return column
       ? { title: 'Column health', subtitle: column }
       : { title: 'Column preview', subtitle: 'Pick a column to inspect distribution' };
   }
-  if (step === 4) return { title: 'Filters preview', subtitle: 'Cohort impact' };
-  if (step === 5) return { title: 'YAML preview', subtitle: selectedCube?.name };
-  return { title: `Step ${step} preview` };
+  if (stepId === 'filters') return { title: 'Filters preview', subtitle: 'Cohort impact' };
+  if (stepId === 'identity') return { title: 'YAML preview', subtitle: selectedCube?.name };
+  if (stepId === 'dim-kind') return { title: 'Dimension kind', subtitle: 'Banding / time-since / passthrough / boolean' };
+  if (stepId === 'builder') return { title: 'Dimension builder', subtitle: 'Configure the SQL shape' };
+  if (stepId === 'filter-tree') return { title: 'Segment filter', subtitle: 'Define the cohort WHERE' };
+  return { title: 'Preview' };
 }
 
 function renderStep(args: {
-  step: StepIndex;
+  stepId: ArtifactStepId;
+  stepTitle: string;
+  stepSubtitle?: string;
+  stepNumber: number;
+  totalSteps: number;
   draft: ReturnType<typeof useNewMetricDraft>['draft'];
   meta: ReturnType<typeof useNewMetricMeta>['meta'];
   loading: boolean;
@@ -307,6 +389,7 @@ function renderStep(args: {
   setPrimarySource: ReturnType<typeof useNewMetricDraft>['setPrimarySource'];
   next: () => void;
   back: () => void;
+  canBack: boolean;
   selectedCube: ReturnType<typeof useNewMetricMeta>['meta'] extends infer T
     ? T extends { cubes: Array<infer C> } ? C | null : null
     : null;
@@ -317,18 +400,54 @@ function renderStep(args: {
   testRunCtrl: React.MutableRefObject<TestRunControls | null>;
   canSubmitTestRun: boolean;
   setCanSubmitTestRun: (ready: boolean) => void;
+  kindSwitchPending: boolean;
+  onKindSelect: (kind: ArtifactKind) => void;
 }) {
-  const { step, draft, meta, loading, error, setField, toggleSource, setPrimarySource, next, back, selectedCube, tagSuggestions, cubejsApi, highlightSources, onRequestBackToSources, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun } = args;
+  const {
+    stepId, stepTitle, stepSubtitle, stepNumber, totalSteps,
+    draft, meta, loading, error, setField, toggleSource, setPrimarySource,
+    next, back, canBack, selectedCube, tagSuggestions, cubejsApi,
+    highlightSources, onRequestBackToSources, testRunCtrl, canSubmitTestRun, setCanSubmitTestRun,
+    kindSwitchPending, onKindSelect,
+  } = args;
 
-  if (step === 1) {
+  const chromeBase = {
+    stepNumber,
+    totalSteps,
+    title: stepTitle,
+    subtitle: stepSubtitle,
+    canBack,
+    onBack: back,
+    onContinue: next,
+  };
+
+  if (stepId === 'kind') {
     return (
       <StepChrome
-        step={1}
+        {...chromeBase}
         canBack={false}
+        canContinue={true}
+        continueLabel="Continue to source"
+      >
+        <ArtifactKindBody
+          selected={draft.artifactKind}
+          onSelect={onKindSelect}
+          disabled={kindSwitchPending}
+        />
+      </StepChrome>
+    );
+  }
+
+  if (stepId === 'source') {
+    const continueLabel =
+      draft.artifactKind === 'measure' ? 'Continue to operation'
+      : draft.artifactKind === 'dimension' ? 'Continue to dim kind'
+      : 'Continue to filter';
+    return (
+      <StepChrome
+        {...chromeBase}
         canContinue={draft.sourceCubes.length >= 1}
-        continueLabel="Continue to operation"
-        onBack={back}
-        onContinue={next}
+        continueLabel={continueLabel}
       >
         {loading && <div style={{ color: 'var(--text-muted)' }}>Loading sources…</div>}
         {error && <div style={{ color: 'var(--danger)' }}>Failed to load meta: {error}</div>}
@@ -346,100 +465,15 @@ function renderStep(args: {
     );
   }
 
-  if (step === 6) {
-    return (
-      <StepChrome
-        step={6}
-        canContinue={canSubmitTestRun}
-        backLabel="Back to identity"
-        continueLabel="Submit metric request"
-        onBack={back}
-        onContinue={() => void testRunCtrl.current?.submit()}
-      >
-        <TestRunBody
-          draft={draft}
-          sourceCube={selectedCube as any}
-          cubejsApi={cubejsApi}
-          onSubmitted={() => { /* navigation happens inside body */ }}
-          controlsRef={testRunCtrl}
-          onReadyChange={setCanSubmitTestRun}
-        />
-      </StepChrome>
-    );
-  }
-
-  if (step === 5) {
-    const valid = !!draft.name && !!draft.title;
-    return (
-      <StepChrome
-        step={5}
-        canContinue={valid}
-        continueLabel="Continue to test run"
-        onBack={back}
-        onContinue={next}
-      >
-        <IdentityBody draft={draft} onField={setField} tagSuggestions={tagSuggestions} />
-      </StepChrome>
-    );
-  }
-
-  if (step === 4) {
-    return (
-      <StepChrome
-        step={4}
-        canContinue
-        continueLabel="Continue to identity"
-        onBack={back}
-        onContinue={next}
-        extraFooter={
-          <button
-            onClick={next}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}
-            type="button"
-          >Skip step</button>
-        }
-      >
-        <FiltersBody
-          cube={selectedCube as any}
-          tree={draft.filterTree}
-          onChange={(next) => setField('filterTree', next)}
-        />
-      </StepChrome>
-    );
-  }
-
-  if (step === 3) {
-    const op = findOp(draft.operation);
-    const allRequiredFilled = !op || op.inputs.every((slot) => !slot.required || !!draft.inputs[slot.id]);
-    const wizardCubes = (meta?.cubes ?? []).filter((c) => draft.sourceCubes.includes(c.name));
-    return (
-      <StepChrome
-        step={3}
-        canContinue={allRequiredFilled}
-        continueLabel="Continue to filters"
-        onBack={back}
-        onContinue={next}
-      >
-        <ColumnBody
-          cubes={wizardCubes as any}
-          operation={draft.operation}
-          inputs={draft.inputs}
-          onSelect={(slotId, memberName) => args.setInput(slotId, memberName)}
-        />
-      </StepChrome>
-    );
-  }
-
-  if (step === 2) {
+  if (stepId === 'op') {
     const continueLabel = draft.operation === 'count' ? 'Skip column — count is *' : 'Pick column';
     return (
       <StepChrome
-        step={2}
+        {...chromeBase}
         canContinue={!!draft.operation}
         continueLabel={continueLabel}
-        onBack={back}
         onContinue={() => {
-          // Count's slot is optional → skip Step 3 straight to filters.
+          // Count's slot is optional → skip Step "column" straight to filters.
           if (draft.operation === 'count') {
             setField('inputs', {});
             next(); next();
@@ -464,16 +498,127 @@ function renderStep(args: {
     );
   }
 
+  if (stepId === 'column') {
+    const op = findOp(draft.operation);
+    const allRequiredFilled = !op || op.inputs.every((slot) => !slot.required || !!draft.inputs[slot.id]);
+    const wizardCubes = (meta?.cubes ?? []).filter((c) => draft.sourceCubes.includes(c.name));
+    return (
+      <StepChrome
+        {...chromeBase}
+        canContinue={allRequiredFilled}
+        continueLabel="Continue to filters"
+      >
+        <ColumnBody
+          cubes={wizardCubes as any}
+          operation={draft.operation}
+          inputs={draft.inputs}
+          onSelect={(slotId, memberName) => args.setInput(slotId, memberName)}
+        />
+      </StepChrome>
+    );
+  }
+
+  if (stepId === 'filters') {
+    return (
+      <StepChrome
+        {...chromeBase}
+        canContinue
+        continueLabel="Continue to identity"
+        extraFooter={
+          <button
+            onClick={next}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}
+            type="button"
+          >Skip step</button>
+        }
+      >
+        <FiltersBody
+          cube={selectedCube as any}
+          tree={draft.filterTree}
+          onChange={(nextTree) => setField('filterTree', nextTree)}
+        />
+      </StepChrome>
+    );
+  }
+
+  if (stepId === 'identity') {
+    const valid = !!draft.name && !!draft.title;
+    return (
+      <StepChrome
+        {...chromeBase}
+        canContinue={valid}
+        continueLabel="Continue to test run"
+      >
+        <IdentityBody draft={draft} onField={setField} tagSuggestions={tagSuggestions} />
+      </StepChrome>
+    );
+  }
+
+  if (stepId === 'test-run') {
+    // P7 will wire dim + segment schema-write into the test-run flow. For
+    // now only the measure path runs the live TestRunBody; non-measure kinds
+    // get a placeholder so the chrome's footer still renders.
+    if (draft.artifactKind !== 'measure') {
+      return (
+        <StepChrome
+          {...chromeBase}
+          canContinue={false}
+          backLabel="Back to identity"
+          continueLabel="Submit (coming in P7)"
+        >
+          <div style={{ padding: 32, color: 'var(--text-muted)' }}>
+            Test-run for {draft.artifactKind} arrives in P7. Identity and naming are persisted; come back when the schema-write path is wired up.
+          </div>
+        </StepChrome>
+      );
+    }
+    return (
+      <StepChrome
+        {...chromeBase}
+        canContinue={canSubmitTestRun}
+        backLabel="Back to identity"
+        continueLabel="Submit metric request"
+        onContinue={() => void testRunCtrl.current?.submit()}
+      >
+        <TestRunBody
+          draft={draft}
+          sourceCube={selectedCube as any}
+          cubejsApi={cubejsApi}
+          onSubmitted={() => { /* navigation happens inside body */ }}
+          controlsRef={testRunCtrl}
+          onReadyChange={setCanSubmitTestRun}
+        />
+      </StepChrome>
+    );
+  }
+
+  // P5 placeholders — wired up in a later phase.
+  if (stepId === 'dim-kind' || stepId === 'builder' || stepId === 'filter-tree') {
+    const placeholderLabel =
+      stepId === 'dim-kind' ? 'Dimension kind picker'
+      : stepId === 'builder' ? 'Dimension builder'
+      : 'Segment filter tree';
+    return (
+      <StepChrome
+        {...chromeBase}
+        canContinue
+        continueLabel="Continue"
+      >
+        <div style={{ padding: 32, color: 'var(--text-muted)' }}>
+          {placeholderLabel} lands in the next phase. Continue to walk through the remaining steps.
+        </div>
+      </StepChrome>
+    );
+  }
+
   return (
     <StepChrome
-      step={step}
+      {...chromeBase}
       canContinue={false}
       continueLabel="Continue"
-      onBack={back}
-      onContinue={next}
     >
       <div style={{ padding: 32, color: 'var(--text-muted)' }}>
-        Step {step} body lands in a later phase.
+        Step {stepNumber} body lands in a later phase.
       </div>
     </StepChrome>
   );

@@ -1,6 +1,6 @@
 import styled, { css } from 'styled-components';
 import { Check, HelpCircle, Save, X } from 'lucide-react';
-import { StepIndex, STEP_LABELS } from '../hooks/use-active-step';
+import type { StepConfig } from '../hooks/use-active-step';
 
 const Wrap = styled.div`
   display: flex;
@@ -187,11 +187,16 @@ const FooterBtn = styled.button<{ $variant?: 'danger' }>`
 `;
 
 export type LeftRailProps = {
-  step: StepIndex;
-  setStep: (s: StepIndex) => void;
-  canGoTo: (s: StepIndex) => boolean;
-  summaries: Partial<Record<StepIndex, string>>;
-  doneFlags: Record<StepIndex, boolean>;
+  /** Per-kind step graph from `useActiveStep`. Drives the chip list. */
+  graph: StepConfig[];
+  /** Active step index (0-based). */
+  step: number;
+  setStep: (s: number) => void;
+  canGoTo: (s: number) => boolean;
+  /** Per-step summary line shown under each chip's name. Indexed by step number. */
+  summaries: (string | undefined)[];
+  /** Per-step doneness flag. Indexed by step number. */
+  doneFlags: boolean[];
   metricName: string;
   isAutoName: boolean;
   onSaveDraft: () => void;
@@ -199,6 +204,7 @@ export type LeftRailProps = {
 };
 
 export function LeftRail({
+  graph,
   step,
   setStep,
   canGoTo,
@@ -222,24 +228,23 @@ export function LeftRail({
 
       <StepsLabel>Steps</StepsLabel>
       <Steps>
-        {([1, 2, 3, 4, 5, 6] as StepIndex[]).map((i) => {
-          const lbl = STEP_LABELS[i];
+        {graph.map((cfg, i) => {
           const active = i === step;
           const reachable = canGoTo(i);
-          const done = doneFlags[i];
+          const done = !!doneFlags[i];
           const tone: 'done' | 'active' | 'pending' = done ? 'done' : active ? 'active' : 'pending';
-          const subtext = summaries[i] ?? lbl.sub;
+          const subtext = summaries[i] ?? cfg.sub;
           return (
-            <li key={i}>
+            <li key={cfg.id}>
               <Row
                 $active={active}
                 $reachable={reachable}
                 disabled={!reachable}
                 onClick={() => reachable && setStep(i)}
               >
-                <Badge $tone={tone}>{done ? <Check size={14} strokeWidth={3} /> : i}</Badge>
+                <Badge $tone={tone}>{done ? <Check size={14} strokeWidth={3} /> : i + 1}</Badge>
                 <StepBody>
-                  <Name>{lbl.name}</Name>
+                  <Name>{cfg.name}</Name>
                   <Sub>{subtext}</Sub>
                 </StepBody>
               </Row>
