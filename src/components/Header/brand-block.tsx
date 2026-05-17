@@ -2,9 +2,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import darkLogo from '../../assets/brand/cube-logo-dark.png';
-import lightLogo from '../../assets/brand/cube-logo-light.png';
 import { useTheme } from '../../theme/use-theme';
+
+const darkLogo = '/cube-core-logo-adapted_for_dark_bg.svg';
+const lightLogo = '/cube-logo.svg';
 
 const Wrap = styled(Link)`
   display: inline-flex;
