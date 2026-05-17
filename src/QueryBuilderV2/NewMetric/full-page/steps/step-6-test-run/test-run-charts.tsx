@@ -49,7 +49,11 @@ const Tab = styled.button<{ $active: boolean }>`
 `;
 const ChartArea = styled.div`
   flex: 1;
-  min-height: 200px;
+  min-height: 220px;
+`;
+const ChartCanvas = styled.div`
+  width: 100%;
+  height: 220px;
 `;
 const Empty = styled.div`
   color: var(--text-muted);
@@ -128,45 +132,47 @@ export function TrendChart({ data, loading, rangeLabel }: TrendChartProps) {
         {loading && <Empty>Loading…</Empty>}
         {!loading && (!data || data.length === 0) && <Empty>No data points returned.</Empty>}
         {!loading && data && data.length > 0 && (
-          <Suspense fallback={<Empty>Loading chart…</Empty>}>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-card)" vertical={false} />
-                <XAxis
-                  dataKey="x"
-                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                  tickFormatter={formatShort}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                  tickFormatter={formatCompact}
-                  axisLine={false}
-                  tickLine={false}
-                  width={48}
-                />
-                <Tooltip
-                  formatter={(v: number) => formatCompact(v)}
-                  labelFormatter={(l: string) => formatShort(l)}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="y"
-                  stroke="var(--brand)"
-                  strokeWidth={2}
-                  fill="url(#trend-fill)"
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Suspense>
+          <ChartCanvas>
+            <Suspense fallback={<Empty>Loading chart…</Empty>}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f97316" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis
+                    dataKey="x"
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    tickFormatter={formatShort}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                    tickFormatter={formatCompact}
+                    axisLine={false}
+                    tickLine={false}
+                    width={48}
+                  />
+                  <Tooltip
+                    formatter={(v: number) => formatCompact(v)}
+                    labelFormatter={(l: string) => formatShort(l)}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="y"
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    fill="url(#trend-fill)"
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Suspense>
+          </ChartCanvas>
         )}
       </ChartArea>
     </Card>
