@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Dimension UI kind picker and four builders"
-status: pending
+status: completed
 priority: P1
 effort: "2d"
 dependencies: [4]

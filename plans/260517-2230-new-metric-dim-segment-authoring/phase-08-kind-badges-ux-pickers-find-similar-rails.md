@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: "Kind badges UX pickers find-similar rails"
-status: pending
+status: completed
 priority: P2
 effort: "0.75d"
 dependencies: [7]

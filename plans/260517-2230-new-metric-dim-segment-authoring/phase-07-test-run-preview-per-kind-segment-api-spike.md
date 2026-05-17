@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "Test-run preview per kind segment API spike"
-status: pending
+status: completed
 priority: P2
 effort: "1d"
 dependencies: [5, 6]

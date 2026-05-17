@@ -22,10 +22,15 @@ import { FiltersBody } from './steps/step-4-filters/filters-body';
 import { IdentityBody } from './steps/step-5-identity/identity-body';
 import { YamlPreviewRail } from './steps/step-5-identity/yaml-preview-rail';
 import { TestRunBody, type TestRunControls } from './steps/step-6-test-run/test-run-body';
+import { TestRunDimensionView } from './steps/step-6-test-run/test-run-dimension-view';
+import { TestRunSegmentView } from './steps/step-6-test-run/test-run-segment-view';
 import { discardAllPending, sweepStale } from './steps/step-6-test-run/pending-writes';
+import { DimKindBody } from './steps/step-dim-kind/dim-kind-body';
+import { DimBuilderBody } from './steps/step-dim-builder/dim-builder-body';
+import { SegmentTreeBody } from './steps/step-segment-tree/segment-tree-body';
 import { PerfProbe } from '../../../dev/perf-probe';
 import { isEmpty as isFilterTreeEmpty } from '../filter-tree';
-import type { ArtifactKind } from '../types';
+import type { ArtifactKind, DimKind, DimBuilder } from '../types';
 
 /**
  * Route component for `/metrics/new`. Mounts the full-page wizard shell
@@ -555,58 +560,110 @@ function renderStep(args: {
   }
 
   if (stepId === 'test-run') {
-    // P7 will wire dim + segment schema-write into the test-run flow. For
-    // now only the measure path runs the live TestRunBody; non-measure kinds
-    // get a placeholder so the chrome's footer still renders.
-    if (draft.artifactKind !== 'measure') {
-      return (
-        <StepChrome
-          {...chromeBase}
-          canContinue={false}
-          backLabel="Back to identity"
-          continueLabel="Submit (coming in P7)"
-        >
-          <div style={{ padding: 32, color: 'var(--text-muted)' }}>
-            Test-run for {draft.artifactKind} arrives in P7. Identity and naming are persisted; come back when the schema-write path is wired up.
-          </div>
-        </StepChrome>
-      );
-    }
+    const submitLabel =
+      draft.artifactKind === 'measure' ? 'Submit metric request'
+      : draft.artifactKind === 'dimension' ? 'Submit dimension'
+      : 'Submit segment';
     return (
       <StepChrome
         {...chromeBase}
         canContinue={canSubmitTestRun}
         backLabel="Back to identity"
-        continueLabel="Submit metric request"
+        continueLabel={submitLabel}
         onContinue={() => void testRunCtrl.current?.submit()}
       >
-        <TestRunBody
-          draft={draft}
-          sourceCube={selectedCube as any}
-          cubejsApi={cubejsApi}
-          onSubmitted={() => { /* navigation happens inside body */ }}
-          controlsRef={testRunCtrl}
-          onReadyChange={setCanSubmitTestRun}
+        {draft.artifactKind === 'measure' && (
+          <TestRunBody
+            draft={draft}
+            sourceCube={selectedCube as any}
+            cubejsApi={cubejsApi}
+            onSubmitted={() => { /* navigation happens inside body */ }}
+            controlsRef={testRunCtrl}
+            onReadyChange={setCanSubmitTestRun}
+          />
+        )}
+        {draft.artifactKind === 'dimension' && (
+          <TestRunDimensionView
+            draft={draft}
+            sourceCube={selectedCube as any}
+            cubejsApi={cubejsApi}
+            controlsRef={testRunCtrl}
+            onReadyChange={setCanSubmitTestRun}
+            onSubmitted={() => { /* navigation happens inside view */ }}
+          />
+        )}
+        {draft.artifactKind === 'segment' && (
+          <TestRunSegmentView
+            draft={draft}
+            sourceCube={selectedCube as any}
+            cubejsApi={cubejsApi}
+            controlsRef={testRunCtrl}
+            onReadyChange={setCanSubmitTestRun}
+            onSubmitted={() => { /* navigation happens inside view */ }}
+          />
+        )}
+      </StepChrome>
+    );
+  }
+
+  if (stepId === 'dim-kind') {
+    return (
+      <StepChrome
+        {...chromeBase}
+        canContinue={!!draft.dimKind}
+        continueLabel="Continue to builder"
+      >
+        <DimKindBody
+          selected={draft.dimKind}
+          onSelect={(k) => {
+            // Switching dim-kind invalidates the prior builder shape.
+            if (draft.dimKind !== k) setField('dimBuilder', undefined as any);
+            setField('dimKind', k);
+          }}
         />
       </StepChrome>
     );
   }
 
-  // P5 placeholders — wired up in a later phase.
-  if (stepId === 'dim-kind' || stepId === 'builder' || stepId === 'filter-tree') {
-    const placeholderLabel =
-      stepId === 'dim-kind' ? 'Dimension kind picker'
-      : stepId === 'builder' ? 'Dimension builder'
-      : 'Segment filter tree';
+  if (stepId === 'builder') {
+    // Builder readiness is computed by use-active-step's dimBuilderLooksValid;
+    // we re-check the same shape here so Continue stays in sync without re-
+    // importing the helper.
+    const b = draft.dimBuilder;
+    const ready =
+      !!b &&
+      ((b.kind === 'banding' && !!b.column && b.bands.length > 0 && !!b.elseLabel) ||
+        (b.kind === 'time-since' && !!b.timeColumn) ||
+        (b.kind === 'passthrough' && !!b.column) ||
+        (b.kind === 'boolean' && !!b.predicate));
     return (
       <StepChrome
         {...chromeBase}
-        canContinue
-        continueLabel="Continue"
+        canContinue={ready}
+        continueLabel="Continue to identity"
       >
-        <div style={{ padding: 32, color: 'var(--text-muted)' }}>
-          {placeholderLabel} lands in the next phase. Continue to walk through the remaining steps.
-        </div>
+        <DimBuilderBody
+          cube={selectedCube as any}
+          dimKind={draft.dimKind}
+          value={draft.dimBuilder}
+          onChange={(next) => setField('dimBuilder', next)}
+        />
+      </StepChrome>
+    );
+  }
+
+  if (stepId === 'filter-tree') {
+    return (
+      <StepChrome
+        {...chromeBase}
+        canContinue={!isFilterTreeEmpty(draft.filterTree)}
+        continueLabel="Continue to identity"
+      >
+        <SegmentTreeBody
+          cube={selectedCube as any}
+          tree={draft.filterTree}
+          onChange={(nextTree) => setField('filterTree', nextTree)}
+        />
       </StepChrome>
     );
   }

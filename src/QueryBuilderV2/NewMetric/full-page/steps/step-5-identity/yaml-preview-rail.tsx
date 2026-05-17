@@ -1,9 +1,25 @@
 import { useMemo } from 'react';
 import styled from 'styled-components';
-import type { NewMetricDraftV2 } from '../../../types';
+import type { NewMetricDraftV3 } from '../../../types';
 import type { WizardCube } from '../../../hooks/use-new-metric-meta';
-import { generateV2 } from '../../../yaml/generate-measure-yaml';
+import { generateEntry } from '../../../yaml/generate-cube-entry';
+import { KindBadge } from '../../../components/kind-badge';
 
+const Wrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+const SectionHeader = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-muted);
+`;
 const Block = styled.pre`
   background: var(--bg-muted);
   border: 1px solid var(--border-card);
@@ -20,16 +36,12 @@ const Block = styled.pre`
   overflow-y: auto;
 `;
 
-const TOKEN_COLOR_KEY = '#9a3412';   // orange-800 — YAML key tokens
-const TOKEN_COLOR_STRING = '#047857'; // emerald-700
+const TOKEN_COLOR_KEY = '#9a3412';
+const TOKEN_COLOR_STRING = '#047857';
 const TOKEN_COLOR_PUNCT = 'var(--text-muted)';
 
 type Tok = { text: string; color?: string };
 
-/**
- * Tokenise a YAML preview into coloured spans without `dangerouslySetInnerHTML`.
- * The output renders as React text nodes inside coloured spans only.
- */
 function tokenizeLine(line: string): Tok[] {
   const tokens: Tok[] = [];
   const colonIdx = line.indexOf(':');
@@ -37,9 +49,6 @@ function tokenizeLine(line: string): Tok[] {
     const lead = line.slice(0, colonIdx);
     const rest = line.slice(colonIdx);
     tokens.push({ text: lead, color: TOKEN_COLOR_KEY });
-    tokens.push({ text: ':' + colourRest(rest.slice(1)).map((t) => t.text).join(''), color: TOKEN_COLOR_PUNCT });
-    // We instead push the colon punctuation then the rest as coloured tokens.
-    tokens.pop(); // remove the merged combo above
     tokens.push({ text: ':', color: TOKEN_COLOR_PUNCT });
     for (const t of colourRest(rest.slice(1))) tokens.push(t);
   } else {
@@ -50,7 +59,6 @@ function tokenizeLine(line: string): Tok[] {
 
 function colourRest(s: string): Tok[] {
   if (!s) return [];
-  // Strings in single or double quotes → emerald
   const out: Tok[] = [];
   let i = 0;
   while (i < s.length) {
@@ -74,36 +82,45 @@ function colourRest(s: string): Tok[] {
 }
 
 export type YamlPreviewRailProps = {
-  draft: NewMetricDraftV2;
+  draft: NewMetricDraftV3;
   sourceCube: WizardCube | null;
 };
 
 export function YamlPreviewRail({ draft, sourceCube }: YamlPreviewRailProps) {
-  const yamlText = useMemo(() => {
+  const emit = useMemo(() => {
     const primaryCube = draft.sourceCubes[0] ?? null;
-    if (!primaryCube) return '# Pick a source cube to preview YAML.';
+    if (!primaryCube) return null;
     try {
-      const { yaml } = generateV2(draft, {
+      return generateEntry(draft, {
         sourceCube: primaryCube,
         reachableMembers: [],
         peerMeasureNames: (sourceCube?.measures ?? []).map((m) => m.name.split('.').slice(-1)[0]),
         createdAt: '2026-05-17T15:00:00.000Z',
       });
-      return yaml;
     } catch (err) {
-      return `# emit error: ${err instanceof Error ? err.message : String(err)}`;
+      return { yaml: `# emit error: ${err instanceof Error ? err.message : String(err)}`, fragment: '', sectionKey: 'measures' as const };
     }
   }, [draft, sourceCube]);
 
+  if (!emit) {
+    return <Wrap><Block># Pick a source cube to preview YAML.</Block></Wrap>;
+  }
+
   return (
-    <Block>
-      {yamlText.split('\n').map((line, i) => (
-        <div key={i}>
-          {tokenizeLine(line).map((t, j) => (
-            <span key={j} style={{ color: t.color ?? 'inherit' }}>{t.text}</span>
-          ))}
-        </div>
-      ))}
-    </Block>
+    <Wrap>
+      <SectionHeader>
+        <KindBadge kind={draft.artifactKind} />
+        <span>{emit.sectionKey} preview</span>
+      </SectionHeader>
+      <Block>
+        {emit.yaml.split('\n').map((line, i) => (
+          <div key={i}>
+            {tokenizeLine(line).map((t, j) => (
+              <span key={j} style={{ color: t.color ?? 'inherit' }}>{t.text}</span>
+            ))}
+          </div>
+        ))}
+      </Block>
+    </Wrap>
   );
 }

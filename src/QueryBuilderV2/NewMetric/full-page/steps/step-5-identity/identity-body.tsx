@@ -1,6 +1,7 @@
 import styled from 'styled-components';
-import type { Format, Grain, Visibility, NewMetricDraftV2 } from '../../../types';
+import type { ArtifactKind, Format, Grain, Visibility, NewMetricDraftV2, NewMetricDraftV3 } from '../../../types';
 import { TagCombo } from '../../../components/tag-combo';
+import { KindBadge } from '../../../components/kind-badge';
 import { computeAutoMetricName, computeAutoMetricTitle } from '../../hooks/compute-auto-metric-name';
 
 const SNAKE_CASE_RE = /^[a-z][a-z0-9_]*$/;
@@ -101,6 +102,9 @@ export function IdentityBody({ draft, onField, tagSuggestions }: IdentityBodyPro
   const allTags = tagSuggestions;
   const nameOk = SNAKE_CASE_RE.test(draft.name);
   const fmt = FORMATS.find((f) => f.id === draft.format) ?? FORMATS[0];
+  // `draft` is typed V2 for back-compat but populated by NewMetricPage from V3.
+  // Read the discriminator defensively so the chip just hides for legacy callers.
+  const kind: ArtifactKind | undefined = (draft as NewMetricDraftV3).artifactKind;
 
   function autoName() {
     const name = computeAutoMetricName(draft);
@@ -113,7 +117,10 @@ export function IdentityBody({ draft, onField, tagSuggestions }: IdentityBodyPro
     <>
       <Grid>
         <Field>
-          Name
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            Name
+            {kind && <KindBadge kind={kind} compact />}
+          </span>
           {draft.name && <Pill $ok={nameOk}>{nameOk ? 'valid' : 'invalid'}</Pill>}
           <Input
             className="mono"

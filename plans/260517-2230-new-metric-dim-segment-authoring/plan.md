@@ -1,7 +1,7 @@
 ---
 title: "New Metric: Dimension and Segment Authoring"
 description: "Extend the full-page New Metric wizard to author dimensions (banding / time-since / passthrough / boolean) and segments alongside measures. Step 0 artifact-kind toggle, per-kind step graph, dispatcher emitter, /api/playground/schema/write extended with `kind`."
-status: pending
+status: completed
 priority: P2
 branch: "multi_metric"
 tags: [feature, wizard, dimensions, segments, tdd]
@@ -30,10 +30,10 @@ Mode: **TDD per phase.** Tests precede implementation for the YAML emitter (per-
 | 2 | [YAML emitter dispatcher per-kind generators](./phase-02-yaml-emitter-dispatcher-per-kind-generators.md) | Completed |
 | 3 | [Backend schema-write kind extension splicer meta-poll](./phase-03-backend-schema-write-kind-extension-splicer-meta-poll.md) | Completed |
 | 4 | [Step 0 artifact picker per-kind step graph](./phase-04-step-0-artifact-picker-per-kind-step-graph.md) | Completed |
-| 5 | [Dimension UI kind picker and four builders](./phase-05-dimension-ui-kind-picker-and-four-builders.md) | Pending |
-| 6 | [Segment UI filter tree reuse identity](./phase-06-segment-ui-filter-tree-reuse-identity.md) | Pending |
-| 7 | [Test-run preview per kind segment API spike](./phase-07-test-run-preview-per-kind-segment-api-spike.md) | Pending |
-| 8 | [Kind badges UX pickers find-similar rails](./phase-08-kind-badges-ux-pickers-find-similar-rails.md) | Pending |
+| 5 | [Dimension UI kind picker and four builders](./phase-05-dimension-ui-kind-picker-and-four-builders.md) | Completed |
+| 6 | [Segment UI filter tree reuse identity](./phase-06-segment-ui-filter-tree-reuse-identity.md) | Completed |
+| 7 | [Test-run preview per kind segment API spike](./phase-07-test-run-preview-per-kind-segment-api-spike.md) | Completed |
+| 8 | [Kind badges UX pickers find-similar rails](./phase-08-kind-badges-ux-pickers-find-similar-rails.md) | Completed |
 
 ## Sequence
 
