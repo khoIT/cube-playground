@@ -1,7 +1,7 @@
 ---
 title: "New Metric Multi-Source & N-Slot Inputs"
 description: "Extend the full-page New Metric wizard to accept multiple source cubes in Step 1 and generic N-slot inputs in Step 3 so Ratio (and future multi-input ops) gate visibly on source count."
-status: pending
+status: completed
 priority: P2
 branch: "new_metric"
 tags: [feature, wizard, full-page, ratio, multi-input, multi-source]

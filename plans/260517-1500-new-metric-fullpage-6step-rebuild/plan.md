@@ -1,7 +1,7 @@
 ---
 title: "New Metric Full-Page 6-Step Rebuild"
 description: "Replace the 3-step modal New Metric wizard with a routed full-page 6-step flow matching the reference walkthrough — left identity rail, center body, per-step contextual right rail, real per-column stats, AND/OR filter tree, dedicated test run."
-status: pending
+status: completed
 priority: P2
 branch: "new_metric"
 tags: [feature, wizard, full-page, 6-step, real-stats, and-or-filter, custom-sql, tdd]
