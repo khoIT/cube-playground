@@ -118,6 +118,19 @@ export function NewMetricPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta]);
 
+  // selectedCubes must live BEFORE the `if (!isV2)` early-return so the hook
+  // order stays stable. NewMetricPage's route (/metrics/new) matches as a
+  // prefix on /metrics/new/success too — when Submit pushes to the success
+  // URL the wizard re-renders with isV2=false, and any post-return hook
+  // would trigger React's "rendered fewer hooks" error.
+  const selectedCubes = useMemo(() => {
+    if (!meta) return [];
+    const byName = new Map(meta.cubes.map((c) => [c.name, c]));
+    return draft.sourceCubes
+      .map((n) => byName.get(n))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c));
+  }, [meta, draft.sourceCubes]);
+
   // Apply ?cube= deep-link once meta is available, validating against meta.cubes.
   const [cubeParamApplied, setCubeParamApplied] = useState(false);
   useEffect(() => {
@@ -150,18 +163,11 @@ export function NewMetricPage() {
   }
 
   // `primaryCube` powers downstream step rails / summaries. Additional selected
-  // cubes (for cross-cube ratio) live in `selectedCubes`.
+  // cubes (for cross-cube ratio) live in `selectedCubes` (computed above).
   const primaryCubeName = draft.sourceCubes[0] ?? null;
   const selectedCube = primaryCubeName && meta
     ? meta.cubes.find((c) => c.name === primaryCubeName) ?? null
     : null;
-  const selectedCubes = useMemo(() => {
-    if (!meta) return [];
-    const byName = new Map(meta.cubes.map((c) => [c.name, c]));
-    return draft.sourceCubes
-      .map((n) => byName.get(n))
-      .filter((c): c is NonNullable<typeof c> => Boolean(c));
-  }, [meta, draft.sourceCubes]);
 
   // doneFlags drive the LeftRail badges/chips. We mark a step done as soon as
   // its choice has been recorded in the draft (mirrors the Stitch walkthrough,
