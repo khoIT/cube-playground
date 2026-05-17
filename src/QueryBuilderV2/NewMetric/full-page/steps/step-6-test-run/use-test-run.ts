@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLivePreview, LivePreviewStatus } from '../../../hooks/use-live-preview';
-import { useQueryBuilderContext } from '../../../../context';
+import type { CubeApi } from '@cubejs-client/core';
+import { postSchemaWrite, deleteSchemaWrite } from '../../../api';
 
-export type DimensionRow = {
-  label: string;
-  value: number;
-  share: number;
-};
+const DEBOUNCE_MS = 500;
 
+export type TestRunStatus =
+  | 'idle'
+  | 'discarding-prior'
+  | 'writing'
+  | 'loading'
+  | 'success'
+  | 'error';
+
+export type DimensionRow = { label: string; value: number; share: number };
 export type DimensionResult = {
   status: 'idle' | 'loading' | 'success' | 'error';
   rows: DimensionRow[];
@@ -15,60 +20,157 @@ export type DimensionResult = {
   error: string | null;
 };
 
-type CtxLike = { apiUrl?: string | null; apiToken?: string | null };
-
 interface UseTestRunArgs {
+  cubejsApi: CubeApi | null;
   cubeName: string | null;
   measureName: string;
   yamlPatch: string;
   timeDimension: string | null;
   range: '7d' | '30d';
-  /** Qualified dimension name for the by-dimension breakdown, e.g. "mf_users.tier". */
   breakdownDimension: string | null;
   /** Bumped by the Re-run button to force a fresh fetch. */
   refreshKey: number;
 }
 
 /**
- * Composite hook for Step 6 (Test run).
+ * Step 6 (Test run) orchestrator hook. Owns the write-then-preview lifecycle
+ * for the full-page wizard, which is mounted OUTSIDE `QueryBuilderProvider`
+ * and therefore cannot use `useLivePreview` (that hook reads the QueryBuilder
+ * context). Uses the wizard's own `cubejsApi` instance built by
+ * `useNewMetricMeta` from `useAppContext`.
  *
- * Wraps `useLivePreview` (which writes the YAML to disk and loads scalar +
- * time-series) and adds a second `/v1/load` for a grouped-by-dimension
- * breakdown. The breakdown query runs only after the live preview has
- * committed the measure to disk — otherwise Cube has nothing to query.
- *
- * Re-run is implemented as a bumped `refreshKey` that re-triggers the
- * breakdown effect; the underlying live preview re-debounces on its own
- * inputs.
+ * Sequence on input change (debounced 500ms):
+ *   1. If a prior measure was committed under a different identity → DELETE
+ *      to restore the `.bak`.
+ *   2. POST the new YAML fragment to `/api/playground/schema/write`.
+ *   3. Run `cubejsApi.load({ measures, timeDimensions? })` to populate
+ *      scalar + series.
+ *   4. If a breakdown dimension is set, run a second `cubejsApi.load` with
+ *      a `dimensions` clause for the by-dimension table.
  */
 export function useTestRun(args: UseTestRunArgs) {
-  const { cubeName, measureName, yamlPatch, timeDimension, range, breakdownDimension, refreshKey } = args;
-  const ctx = useQueryBuilderContext() as unknown as CtxLike;
-
-  const preview = useLivePreview({
-    enabled: !!cubeName && !!measureName && !!yamlPatch,
+  const {
+    cubejsApi,
     cubeName,
     measureName,
     yamlPatch,
     timeDimension,
     range,
-  });
+    breakdownDimension,
+    refreshKey,
+  } = args;
 
-  const queryStartRef = useRef<number>(0);
+  const [status, setStatus] = useState<TestRunStatus>('idle');
+  const [scalar, setScalar] = useState<number | null>(null);
+  const [series, setSeries] = useState<Array<{ x: string; y: number }> | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [queryMs, setQueryMs] = useState<number | null>(null);
 
-  // Capture round-trip duration as a proxy for "compile time". We measure it
-  // around the preview's loading→success transition since useLivePreview does
-  // not surface its own timing.
-  useEffect(() => {
-    if (preview.status === 'loading') {
-      queryStartRef.current = Date.now();
-    } else if (preview.status === 'success' && queryStartRef.current > 0) {
-      setQueryMs(Date.now() - queryStartRef.current);
-      queryStartRef.current = 0;
-    }
-  }, [preview.status]);
+  const lastWrittenRef = useRef<{ cubeName: string; measureName: string } | null>(null);
+  const runIdRef = useRef(0);
 
+  async function discard(): Promise<{ ok: boolean; reason?: string }> {
+    const prior = lastWrittenRef.current;
+    if (!prior) return { ok: true };
+    const result = await deleteSchemaWrite(prior);
+    if (result.ok) {
+      lastWrittenRef.current = null;
+      setStatus('idle');
+      setScalar(null);
+      setSeries(null);
+      setError(null);
+      return { ok: true };
+    }
+    return { ok: false, reason: (result as { reason?: string }).reason };
+  }
+
+  // Main lifecycle: write → load scalar + series.
+  useEffect(() => {
+    if (!cubejsApi || !cubeName || !measureName || !yamlPatch) return;
+
+    const myRunId = ++runIdRef.current;
+    const timer = setTimeout(() => void run(), DEBOUNCE_MS);
+
+    async function run() {
+      if (myRunId !== runIdRef.current) return;
+      const prior = lastWrittenRef.current;
+      const incoming = { cubeName: cubeName as string, measureName };
+      const identityChanged =
+        prior && (prior.cubeName !== incoming.cubeName || prior.measureName !== incoming.measureName);
+
+      if (identityChanged) {
+        setStatus('discarding-prior');
+        const deleted = await deleteSchemaWrite(prior);
+        if (myRunId !== runIdRef.current) return;
+        const dStatus = (deleted as { status?: number }).status;
+        if (!deleted.ok && dStatus !== 404) {
+          setStatus('error');
+          setError(`Discard failed: ${(deleted as { reason?: string }).reason}`);
+          return;
+        }
+        lastWrittenRef.current = null;
+      }
+
+      setStatus('writing');
+      setError(null);
+      const writeResult = await postSchemaWrite({
+        cubeName: incoming.cubeName,
+        measureName: incoming.measureName,
+        yamlPatch,
+      });
+      if (myRunId !== runIdRef.current) return;
+      if (!writeResult.ok) {
+        setStatus('error');
+        const reason = (writeResult as { reason?: string }).reason ?? 'write failed';
+        setError(`Schema write failed: ${reason}`);
+        return;
+      }
+      lastWrittenRef.current = incoming;
+
+      setStatus('loading');
+      const qualified = `${incoming.cubeName}.${incoming.measureName}`;
+      const query: Record<string, unknown> = { measures: [qualified] };
+      if (timeDimension) {
+        query.timeDimensions = [
+          {
+            dimension: timeDimension,
+            granularity: 'day',
+            dateRange: range === '7d' ? 'last 7 days' : 'last 30 days',
+          },
+        ];
+      }
+
+      try {
+        const started = Date.now();
+        const result = await cubejsApi!.load(query as never);
+        if (myRunId !== runIdRef.current) return;
+        setQueryMs(Date.now() - started);
+        const data = result.rawData();
+
+        if (timeDimension) {
+          const rows = data.map((row: Record<string, unknown>) => ({
+            x: pickDateKey(row, qualified) ?? '',
+            y: Number(row[qualified] ?? 0),
+          }));
+          setSeries(rows);
+          setScalar(rows.reduce((acc, r) => acc + (Number.isFinite(r.y) ? r.y : 0), 0));
+        } else {
+          setSeries(null);
+          setScalar(data[0] ? Number(data[0][qualified] ?? 0) : 0);
+        }
+        setStatus('success');
+      } catch (err) {
+        if (myRunId !== runIdRef.current) return;
+        setStatus('error');
+        setError(`Preview load failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cubejsApi, cubeName, measureName, yamlPatch, timeDimension, range, refreshKey]);
+
+  // Dimension breakdown — runs only after main load succeeded.
   const [dimension, setDimension] = useState<DimensionResult>({
     status: 'idle',
     rows: [],
@@ -76,12 +178,8 @@ export function useTestRun(args: UseTestRunArgs) {
     error: null,
   });
 
-  // Dimension breakdown — runs after live preview commits and the user has
-  // chosen a breakdown dimension. Re-fires when `refreshKey` ticks.
   useEffect(() => {
-    if (preview.status !== 'success' || !cubeName || !measureName || !breakdownDimension) {
-      return;
-    }
+    if (status !== 'success' || !cubejsApi || !cubeName || !measureName || !breakdownDimension) return;
     let aborted = false;
     setDimension((s) => ({ ...s, status: 'loading', error: null }));
 
@@ -103,9 +201,10 @@ export function useTestRun(args: UseTestRunArgs) {
 
     (async () => {
       try {
-        const data = await runCubeLoad(ctx, query);
+        const result = await cubejsApi.load(query as never);
         if (aborted) return;
-        const rows = data.map((row) => ({
+        const data = result.rawData();
+        const rows = data.map((row: Record<string, unknown>) => ({
           label: String(row[breakdownDimension] ?? '—'),
           value: Number(row[qualified] ?? 0),
         }));
@@ -131,40 +230,34 @@ export function useTestRun(args: UseTestRunArgs) {
       aborted = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview.status, cubeName, measureName, breakdownDimension, timeDimension, range, refreshKey]);
+  }, [status, cubejsApi, cubeName, measureName, breakdownDimension, timeDimension, range, refreshKey]);
 
   const stats = useMemo(
-    () => ({
-      scalar: preview.scalar,
-      pointsReturned: preview.series?.length ?? 0,
-      queryMs,
-    }),
-    [preview.scalar, preview.series, queryMs],
+    () => ({ scalar, pointsReturned: series?.length ?? 0, queryMs }),
+    [scalar, series, queryMs],
   );
 
   return {
-    previewStatus: preview.status as LivePreviewStatus,
-    previewError: preview.error,
-    series: preview.series,
-    lastWritten: preview.lastWritten,
-    discard: preview.discard,
+    previewStatus: status,
+    previewError: error,
+    series,
+    lastWritten: lastWrittenRef.current,
+    discard,
     stats,
     dimension,
   };
 }
 
-async function runCubeLoad(
-  ctx: CtxLike,
-  query: Record<string, unknown>,
-): Promise<Array<Record<string, unknown>>> {
-  if (!ctx.apiUrl || !ctx.apiToken) throw new Error('cube api not configured');
-  const base = ctx.apiUrl.endsWith('/v1') ? ctx.apiUrl : `${ctx.apiUrl}/v1`;
-  const resp = await fetch(`${base}/load`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: ctx.apiToken },
-    body: JSON.stringify({ query }),
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const json = (await resp.json()) as { data?: Array<Record<string, unknown>> };
-  return json.data ?? [];
+function pickDateKey(row: Record<string, unknown>, qualifiedMeasure: string): string | null {
+  for (const key of Object.keys(row)) {
+    if (key === qualifiedMeasure) continue;
+    if (key.toLowerCase().includes('date') || key.toLowerCase().includes('time')) {
+      const v = row[key];
+      return v == null ? null : String(v);
+    }
+  }
+  for (const key of Object.keys(row)) {
+    if (key !== qualifiedMeasure) return String(row[key]);
+  }
+  return null;
 }

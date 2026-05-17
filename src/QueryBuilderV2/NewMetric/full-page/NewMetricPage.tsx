@@ -337,6 +337,7 @@ function renderStep(args: {
         <TestRunBody
           draft={draft}
           sourceCube={selectedCube as any}
+          cubejsApi={cubejsApi}
           onSubmitted={() => { /* navigation happens inside body */ }}
         />
       </StepChrome>

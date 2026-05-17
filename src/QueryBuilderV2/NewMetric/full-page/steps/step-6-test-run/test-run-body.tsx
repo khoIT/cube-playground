@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { notification } from 'antd';
 import { Play, Loader, RefreshCw, CheckCircle } from 'lucide-react';
 import { useHistory } from 'react-router-dom';
+import type { CubeApi } from '@cubejs-client/core';
 import type { NewMetricDraftV2 } from '../../../types';
 import type { WizardCube } from '../../../hooks/use-new-metric-meta';
 import { generateV2 } from '../../../yaml/generate-measure-yaml';
@@ -142,10 +143,11 @@ function formatScalar(n: number | null): string {
 export type TestRunBodyProps = {
   draft: NewMetricDraftV2;
   sourceCube: WizardCube | null;
+  cubejsApi: CubeApi | null;
   onSubmitted: (info: { cubeName: string; measureName: string }) => void;
 };
 
-export function TestRunBody({ draft, sourceCube, onSubmitted }: TestRunBodyProps) {
+export function TestRunBody({ draft, sourceCube, cubejsApi, onSubmitted }: TestRunBodyProps) {
   const history = useHistory();
   const primaryCube = draft.sourceCubes[0] ?? null;
 
@@ -188,6 +190,7 @@ export function TestRunBody({ draft, sourceCube, onSubmitted }: TestRunBodyProps
   }, [draft, sourceCube, primaryCube]);
 
   const run = useTestRun({
+    cubejsApi,
     cubeName: primaryCube,
     measureName: draft.name,
     yamlPatch: yamlFragment,
