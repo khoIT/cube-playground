@@ -2,9 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import darkLogo from '../../assets/brand/cube-logo-dark.png';
-import lightLogo from '../../assets/brand/cube-logo-light.png';
 import { useTheme } from '../../theme/use-theme';
+
+// Both themes currently use the same branded artwork. Swap either constant
+// when a theme-specific variant is added (e.g. /brand-logo-dark.png).
+const darkLogo = '/android-chrome-192x192.png';
+const lightLogo = '/android-chrome-192x192.png';
 
 const Wrap = styled(Link)`
   display: inline-flex;

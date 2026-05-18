@@ -89,6 +89,9 @@ assets/
 # Exception: use-mcp ships a persistent tool catalog at assets/tools.json
 !claude/skills/use-mcp/assets/
 !claude/skills/use-mcp/assets/**
+# Exception: app-source assets (logos, brand imports) must be tracked
+!src/assets/
+!src/assets/**
 
 # External repos for study/reference
 external/
