@@ -195,16 +195,34 @@ server/src/routes/
 
 ## Success Criteria
 
-- [ ] Mock tokens present in `src/theme/tokens.css`; build succeeds.
-- [ ] antd buttons / modals / tables visibly match mock styles in a manual eyeball pass.
-- [ ] `@cube-dev/ui-kit` components inside QueryBuilder (member pills, tooltips, dropdowns) consume the new palette.
-- [ ] All 14 segment visual primitives exist + have unit tests.
-- [ ] All 4 chart primitives exist + render with mock-matching styling.
-- [ ] Existing screens (`/`, `/build`, `/catalog`, `/metric/*`, `/metrics/new`, `/settings`) audited; regressions fixed; before/after captured in `design-tokens-migration.md`.
-- [ ] `tests/visual/baselines/` populated with PNGs for all 9+ screen states at both viewports.
-- [ ] `npm run test:visual` passes on a clean checkout.
-- [ ] CI gate enabled — opening a PR that breaks visual parity fails the check.
-- [ ] `docs/design-tokens-migration.md` published.
+- [x] Mock tokens present in `src/theme/tokens.css`; build succeeds. *(26 tokens added; migration log committed)*
+- [ ] antd buttons / modals / tables visibly match mock styles in a manual eyeball pass. *(deferred — needs manual QA pass)*
+- [ ] `@cube-dev/ui-kit` components inside QueryBuilder (member pills, tooltips, dropdowns) consume the new palette. *(token reconciliation deferred)*
+- [x] All 14 segment visual primitives exist + have unit tests. *(10 non-chart + 4 chart = 14 components; 32 tests passing)*
+- [x] All 4 chart primitives exist + render with mock-matching styling. *(LineChart / BarList / Donut / Sparkline)*
+- [ ] Existing screens (`/`, `/build`, `/catalog`, `/metric/*`, `/metrics/new`, `/settings`) audited; regressions fixed; before/after captured in `design-tokens-migration.md`. *(deferred — multi-day eyeball QA)*
+- [ ] `tests/visual/baselines/` populated with PNGs for all 9+ screen states at both viewports. *(scaffold ready; baseline capture not run — needs `npm run visual:capture-baselines` against vendored mock)*
+- [ ] `npm run test:visual` passes on a clean checkout. *(scripts wired; requires baselines first)*
+- [ ] CI gate enabled — opening a PR that breaks visual parity fails the check. *(deferred — needs CI workflow update)*
+- [x] `docs/design-tokens-migration.md` published.
+
+### Session 2026-05-19 delivery (partial — scaffolding only)
+
+**Delivered**
+- 26 design tokens added; `--radius-pill` corrected from `8px` → `9999px` (semantic fix).
+- 14 visual primitives + 4 chart wrappers under `src/pages/Segments/visuals/` with 32 passing Vitest tests.
+- Mock vendored to `tests/visual/mock-fork/` with `MOCK-REVISION.md` revision marker.
+- Playwright dev dep installed + `tests/visual/playwright.config.ts` + 3 spec files (`screens.spec.ts`, `playground-polish.spec.ts`, `capture-baselines.ts`) scaffolded.
+- npm scripts wired: `test:visual`, `test:visual:update`, `visual:capture-baselines`.
+- Dev-only fixtures endpoint `POST /api/__fixtures__/segments` added under `NODE_ENV !== 'production'` guard.
+- `docs/design-tokens-migration.md` decision log written.
+
+**Deferred (out of scope for this session)**
+- Existing-screen polish pass (multi-day manual QA).
+- antd theme override pass for buttons/modals/tables (separate token-driven CSS work).
+- `@cube-dev/ui-kit` `rootStyles` reconciliation with mock palette.
+- Initial baseline PNG capture + commit.
+- CI workflow update to gate PRs on `test:visual`.
 
 ## Risk Assessment
 

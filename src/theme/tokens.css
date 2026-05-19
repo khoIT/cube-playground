@@ -20,10 +20,13 @@
   --orange-50:  #fff7ed;
   --orange-100: #ffedd5;
   --orange-200: #fed7aa;
+  --orange-300: #fdba74;
   --orange-400: #fb923c;
   --orange-500: #f97316;
   --orange-600: #f05a22;
   --orange-700: #c2410c;
+  --orange-800: #9a3412;
+  --orange-900: #7c2d12;
 
   /* Semantic */
   --brand:          var(--orange-600);
@@ -46,11 +49,21 @@
   --info:    #3f8dff;
 
   /* Radii / shadows */
-  --radius-pill: 8px;
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-full: 9999px;
+  /* Legacy aliases kept for backward compat */
+  --radius-pill: 9999px;
   --radius-card: 12px;
   --radius-input: 8px;
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
 
   /* Panes (outer rounded cards in the QueryBuilder layout) */
   --pane-gap: 6px;
@@ -157,6 +170,28 @@
   --stale-badge-border: #fde68a;
   --stale-badge-text: #92400e;
   --stale-badge-dot: #d97706;
+
+  /* Static badge (segment not live) */
+  --static-badge-bg:     #f5f5f5;
+  --static-badge-border: #e5e5e5;
+  --static-badge-text:   #525252;
+
+  /* Member pill semantic tokens (derived from qb palette for segments context) */
+  --member-pill-measure-bg:     rgba(225, 210, 183, 0.55);
+  --member-pill-measure-text:   var(--qb-measure-text);
+  --member-pill-dimension-bg:   rgba(200, 212, 239, 0.45);
+  --member-pill-dimension-text: var(--qb-dimension-text);
+  --member-pill-segment-bg:     rgba(219, 206, 233, 0.55);
+  --member-pill-segment-text:   var(--qb-segment-text);
+  --member-pill-time-bg:        rgba(199, 219, 195, 0.55);
+  --member-pill-time-text:      var(--qb-time-text);
+
+  /* App shell */
+  --header-h: 44px;
+  --neutral-150: #ededed;
+
+  /* Additional font stack */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Table header tint (Phase 5 audit may revert to neutral) */
   --table-header-bg: rgba(240, 90, 34, 0.06);

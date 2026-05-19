@@ -118,15 +118,20 @@ Vite config (`vite.config.ts`) gains a dev proxy entry: `'/api': 'http://localho
 
 ## Success Criteria
 
-- [ ] `npm run server:dev` boots Fastify on :3001 with migrations applied.
-- [ ] `npm run dev:all` runs Vite (:3000) + server (:3001) concurrently.
-- [ ] `POST /api/segments` creates a row; `GET /api/segments/:id` returns it.
-- [ ] PATCH respects owner ownership; mismatched owner returns 403.
-- [ ] Translator round-trips a 3-level nested AND/OR predicate to Cube filters and back without loss.
-- [ ] `/api/meta/version` returns a stable hash; changes when Cube schema changes.
-- [ ] `/api/presets` returns at least `{ id: 'mf_users-hub' }` (preset body is FE-only).
-- [ ] All unit tests pass (`npm run server:test`).
-- [ ] FE type file (`src/types/segment-api.ts`) compiles against server zod schemas.
+- [x] `npm run server:dev` boots Fastify on :3001 with migrations applied. *(boots in ~20ms; verified locally)*
+- [x] `npm run dev:all` runs Vite (:3000) + server (:3001) concurrently. *(concurrently script wired)*
+- [x] `POST /api/segments` creates a row; `GET /api/segments/:id` returns it. *(covered by routes-crud.test.ts)*
+- [x] PATCH respects owner ownership; mismatched owner returns 403.
+- [x] Translator round-trips a 3-level nested AND/OR predicate to Cube filters and back without loss. *(11 translator tests including 3-level nesting)*
+- [x] `/api/meta/version` returns a stable hash; changes when Cube schema changes.
+- [x] `/api/presets` returns at least `{ id: 'mf_users-hub' }` (preset body is FE-only).
+- [x] All unit tests pass (`npm run server:test`). *(23/23 passing)*
+- [x] FE type file (`src/types/segment-api.ts`) compiles against server zod schemas.
+
+### Session 2026-05-19 delivery notes
+- Built with Node 24 + `better-sqlite3` from source (no prebuild for Node 24). Risk row already documented; pin Node 20 LTS in CI if prebuild required.
+- `vitest.config.ts` added under `server/` to isolate from root config.
+- Bonus: dev-only `POST /api/__fixtures__/segments` route added (gated by `NODE_ENV !== 'production'`) to support P0 visual regression fixtures.
 
 ## Risk Assessment
 

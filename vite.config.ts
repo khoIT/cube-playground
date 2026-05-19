@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
     proxy: {
       '^/playground/.*': 'http://localhost:4000',
       '^/cubejs-api/.*': 'http://localhost:4000',
+      '/api': { target: 'http://localhost:3001', changeOrigin: true },
     },
   },
   plugins: [

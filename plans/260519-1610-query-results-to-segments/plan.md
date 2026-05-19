@@ -34,8 +34,8 @@ This plan delivers **both** functional fidelity AND pixel-perfect parity to `~/D
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 0 | [Design-system port + global theme + visual regression infra](./phase-00-design-system-port.md) | Pending |
-| 1 | [Backend skeleton + schema + tree↔CubeQuery translator](./phase-01-backend-skeleton-schema-tree-cubequery-translator.md) | Pending |
+| 0 | [Design-system port + global theme + visual regression infra](./phase-00-design-system-port.md) | Partial (scaffold landed 2026-05-19; polish + baselines deferred) |
+| 1 | [Backend skeleton + schema + tree↔CubeQuery translator](./phase-01-backend-skeleton-schema-tree-cubequery-translator.md) | Done (2026-05-19) |
 | 2 | [FE row-select + push modal + Library + Sample Users](./phase-02-fe-row-select-push-modal-library-sample-users.md) | Pending |
 | 3 | [Settings identity mapping + auto-suggest + Import IDs](./phase-03-settings-identity-mapping-auto-suggest-import-ids.md) | Pending |
 | 4 | [Preset infrastructure + mf_users-hub preset tabs](./phase-04-preset-infrastructure-mf-users-hub-preset-tabs.md) | Pending |

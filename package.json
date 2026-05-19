@@ -8,7 +8,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "server:dev": "npm --prefix server run dev",
+    "server:build": "npm --prefix server run build",
+    "server:test": "npm --prefix server run test",
+    "dev:all": "concurrently -n vite,server -c blue,green \"npm run dev\" \"npm run server:dev\"",
+    "test:visual": "playwright test --config=tests/visual/playwright.config.ts",
+    "test:visual:update": "playwright test --config=tests/visual/playwright.config.ts --update-snapshots",
+    "visual:capture-baselines": "tsx tests/visual/capture-baselines.ts"
   },
   "dependencies": {
     "@ant-design/compatible": "^1.0.1",
@@ -60,6 +67,7 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
@@ -75,7 +83,9 @@
     "@types/throttle-debounce": "^5.0.2",
     "@types/uuid": "^8.3.1",
     "@vitejs/plugin-react": "^4.3.2",
+    "concurrently": "^9.2.1",
     "jsdom": "^25.0.1",
+    "tsx": "^4.22.3",
     "typescript": "~5.2.2",
     "vite": "^5.4.9",
     "vitest": "^2.1.3"

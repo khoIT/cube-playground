@@ -1,0 +1,57 @@
+/**
+ * Fastify server bootstrap.
+ * Registers plugins and all route handlers, then listens on PORT (default 3001).
+ */
+
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import ownerHeader from './middleware/owner-header.js';
+import segmentsRoutes from './routes/segments.js';
+import analysesRoutes from './routes/analyses.js';
+import identityMapRoutes from './routes/identity-map.js';
+import presetsRoutes from './routes/presets.js';
+import metaVersionRoutes from './routes/meta-version.js';
+import { getDb } from './db/sqlite.js';
+
+const PORT = parseInt(process.env.PORT ?? '3001', 10);
+
+export async function buildApp() {
+  const app = Fastify({ logger: true });
+
+  await app.register(cors, { origin: true });
+  await app.register(ownerHeader);
+
+  await app.register(segmentsRoutes);
+  await app.register(analysesRoutes);
+  await app.register(identityMapRoutes);
+  await app.register(presetsRoutes);
+  await app.register(metaVersionRoutes);
+
+  // Dev-only fixture seed endpoint for visual regression tests.
+  if (process.env.NODE_ENV !== 'production') {
+    const { default: fixturesRoutes } = await import('./routes/fixtures.js');
+    await app.register(fixturesRoutes);
+  }
+
+  // Health check
+  app.get('/api/health', async () => ({ ok: true }));
+
+  return app;
+}
+
+// Only start the server when this file is the entry point (not imported in tests)
+const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+
+if (isMain || process.env.START_SERVER === '1') {
+  const start = Date.now();
+  // Initialise DB (runs migrations) before accepting requests
+  getDb();
+
+  buildApp().then(async (app) => {
+    await app.listen({ port: PORT, host: '0.0.0.0' });
+    app.log.info(`Server ready in ${Date.now() - start}ms on :${PORT}`);
+  }).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

@@ -13,3 +13,9 @@ declare module 'react' {
 }
 
 declare type Nullable<T> = T | null | undefined;
+
+// CSS Modules — allows `import styles from './foo.module.css'`
+declare module '*.module.css' {
+  const classes: Record<string, string>;
+  export default classes;
+}

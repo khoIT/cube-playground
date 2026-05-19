@@ -4,6 +4,9 @@ High-level map of the cube-playground app, updated as features ship.
 
 ## Top-level layout
 
+- `server/` — **Fastify + better-sqlite3** backend on `:3001` (Vite proxy `/api → :3001`). Persists segments / analyses / identity-map / presets. Pretend-auth via `X-Owner` header. Translator service maps the canonical AND/OR predicate tree to Cube `Query.filters` and back. See `server/README.md`.
+- `src/pages/Segments/visuals/` — 14 bespoke visual primitives (LiveBadge, MemberPill, KpiTile, SelectionBar, …) + 4 chart wrappers (LineChart / BarList / Donut / Sparkline) used by the Segments workspace. Ported from the design mock at `tests/visual/mock-fork/`.
+- `tests/visual/` — Playwright visual-regression suite (`test:visual` script). Baselines live under `baselines/{1440x900,375x812}/`; mock-fork is the canonical source for capture (`capture-baselines.ts`). Currently scaffolded; baseline PNGs not yet committed.
 - `src/QueryBuilderV2/NewMetric/` — the New Metric wizard. Two entry points:
   - **Full-page wizard** at `/metrics/new?v=2` (`full-page/`). Six steps:
     Source → Operation → Column → Filters → Identity → Test run.
