@@ -67,6 +67,7 @@ import { MemberBadge } from './components/Badge';
 import { MemberLabel } from './components/MemberLabel';
 import { areQueriesRelated } from './utils/query-helpers';
 import { ORDER_LABEL_BY_TYPE } from './utils/labels';
+import { SegmentsSaveBar } from './segments-save-bar/segments-save-bar';
 
 const StyledTag = tasty(Tag, {
   styles: {
@@ -1341,6 +1342,12 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
           ) : null}
         </Space>
       </TableFooter>
+      {executedQuery && data && data.length > 0 && (
+        <SegmentsSaveBar
+          executedQuery={executedQuery as { dimensions?: string[]; measures?: string[]; filters?: unknown[] }}
+          rows={data as Record<string, unknown>[]}
+        />
+      )}
     </Panel>
   );
 }

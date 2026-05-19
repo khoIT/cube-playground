@@ -10,6 +10,7 @@ import {
   IndexPage,
   CatalogPage,
   MetricCardPage,
+  SegmentsPage,
 } from './pages';
 import { loadable } from './loadable';
 import { CubeLoader } from './atoms';
@@ -107,6 +108,9 @@ ReactDOM.render(
               </KeepAliveRoute>
               <KeepAliveRoute key="metric" path="/metric/:cube/:member">
                 <MetricCardPage />
+              </KeepAliveRoute>
+              <KeepAliveRoute key="segments" path="/segments">
+                <SegmentsPage />
               </KeepAliveRoute>
               <Route key="metrics-new-success" exact path="/metrics/new/success" component={NewMetricSuccess} />
               <Route key="metrics-new" path="/metrics/new" component={NewMetricPage} />

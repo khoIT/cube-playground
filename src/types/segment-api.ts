@@ -95,10 +95,12 @@ export interface SegmentAnalysis {
 
 export interface CubeIdentityMapping {
   cube: string;
-  identity_field: string;
-  source: 'manual' | 'auto';
+  identity_field: string | null;
+  source: 'manual' | 'auto' | 'auto-suggest';
   confidence: number | null;
-  updated_at: string;
+  updated_at: string | null;
+  is_suggested?: boolean;
+  matched_pattern?: string | null;
 }
 
 export interface PresetTab {

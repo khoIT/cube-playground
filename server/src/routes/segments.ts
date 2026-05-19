@@ -9,6 +9,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.js';
 import { treeToCubeFilters } from '../services/translator.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
+import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
+import { enqueueRefresh } from '../jobs/refresh-queue.js';
 
 const segmentInputSchema = z.object({
   name: z.string().min(1),
@@ -239,15 +241,105 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     return { uid_count: merged.length };
   });
 
-  // POST /api/segments/:id/refresh  (stub — cron worker executes the real refresh)
+  // POST /api/segments/import-ids — CSV → static segment
+  // Accepts JSON: { name, cube, csv, tags? } where csv is the raw CSV text.
+  // (Multipart upload deferred — FE reads the file client-side and posts text.)
+  app.post('/api/segments/import-ids', async (req, reply) => {
+    const body = req.body as {
+      name?: string;
+      cube?: string;
+      csv?: string;
+      tags?: string[];
+    };
+
+    if (!body?.name?.trim()) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'name required' } });
+    }
+    if (!body.cube?.trim()) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'cube required' } });
+    }
+    if (typeof body.csv !== 'string' || body.csv.length === 0) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'csv required' } });
+    }
+
+    const db = getDb();
+    const mapping = db
+      .prepare('SELECT identity_field FROM cube_identity_map WHERE cube = ?')
+      .get(body.cube) as { identity_field: string } | undefined;
+    if (!mapping) {
+      return reply.status(400).send({
+        error: {
+          code: 'IDENTITY_DIM_MISSING',
+          message: `cube "${body.cube}" has no identity-dim mapping. Set it in Settings.`,
+        },
+      });
+    }
+
+    const parsed = parseUidCsv(body.csv);
+    if (parsed.uids.length === 0) {
+      return reply.status(400).send({
+        error: {
+          code: 'EMPTY_CSV',
+          message: 'no valid uids found in csv',
+          details: parsed.errors,
+        },
+      });
+    }
+
+    const id = uuidv4();
+    const now = new Date().toISOString();
+    const owner = req.owner;
+
+    db.prepare(`
+      INSERT INTO segments
+        (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).run(
+      id,
+      body.name.trim(),
+      'manual',
+      owner,
+      'fresh',
+      body.cube,
+      null,
+      null,
+      parsed.uids.length,
+      JSON.stringify(parsed.uids),
+      null,
+      now,
+      now,
+    );
+
+    if (body.tags?.length) {
+      const insertTag = db.prepare('INSERT OR IGNORE INTO segment_tags (segment_id, tag) VALUES (?,?)');
+      for (const tag of body.tags) insertTag.run(id, tag);
+    }
+
+    return reply.status(201).send({
+      id,
+      uid_count: parsed.uids.length,
+      truncated: parsed.truncated,
+      max_rows: MAX_ROWS,
+      errors: parsed.errors,
+    });
+  });
+
+  // POST /api/segments/:id/refresh — enqueue manual refresh; cron worker drains.
   app.post('/api/segments/:id/refresh', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
-    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    const row = db.prepare('SELECT type FROM segments WHERE id = ?').get(id) as { type: string } | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    if (row.type !== 'predicate') {
+      return reply.status(400).send({ error: { code: 'NOT_LIVE', message: 'Only predicate (live) segments can be refreshed' } });
+    }
 
     db.prepare("UPDATE segments SET status = 'refreshing', updated_at = ? WHERE id = ?")
       .run(new Date().toISOString(), id);
+
+    // Fire-and-forget — queue runs in background.
+    void enqueueRefresh(id);
 
     return reply.status(202).send({ status: 'refreshing' });
   });

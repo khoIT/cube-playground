@@ -1,6 +1,6 @@
 import { MenuOutlined } from '@ant-design/icons';
 import { Dropdown, Layout, Menu } from 'antd';
-import { BookOpen, LayoutDashboard, Sparkles } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Sparkles, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from 'react-responsive';
 import { Link } from 'react-router-dom';
@@ -100,6 +100,13 @@ export default function Header({ selectedKeys }: Props) {
           >
             {t('nav.catalog')}
           </NavPill>
+          <NavPill
+            to="/segments"
+            icon={Users}
+            active={isActive(selectedKeys, '/segments')}
+          >
+            {t('nav.segments')}
+          </NavPill>
         </PillRow>
       )}
 
@@ -123,6 +130,9 @@ export default function Header({ selectedKeys }: Props) {
               </Menu.Item>
               <Menu.Item key="/catalog">
                 <Link to="/catalog">{t('nav.catalog')}</Link>
+              </Menu.Item>
+              <Menu.Item key="/segments">
+                <Link to="/segments">{t('nav.segments')}</Link>
               </Menu.Item>
             </Menu>
           }

@@ -29,3 +29,7 @@ export const MetricCardPage = loadable(() =>
     default: m.MetricCardPage,
   }))
 );
+
+export const SegmentsPage = loadable(() =>
+  import('./Segments/segments-page').then((m) => ({ default: m.SegmentsPage }))
+);

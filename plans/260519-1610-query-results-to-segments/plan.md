@@ -36,13 +36,13 @@ This plan delivers **both** functional fidelity AND pixel-perfect parity to `~/D
 |-------|------|--------|
 | 0 | [Design-system port + global theme + visual regression infra](./phase-00-design-system-port.md) | Partial (scaffold landed 2026-05-19; polish + baselines deferred) |
 | 1 | [Backend skeleton + schema + tree↔CubeQuery translator](./phase-01-backend-skeleton-schema-tree-cubequery-translator.md) | Done (2026-05-19) |
-| 2 | [FE row-select + push modal + Library + Sample Users](./phase-02-fe-row-select-push-modal-library-sample-users.md) | Pending |
-| 3 | [Settings identity mapping + auto-suggest + Import IDs](./phase-03-settings-identity-mapping-auto-suggest-import-ids.md) | Pending |
-| 4 | [Preset infrastructure + mf_users-hub preset tabs](./phase-04-preset-infrastructure-mf-users-hub-preset-tabs.md) | Pending |
-| 5 | [Visual predicate editor + live preview + SQL preview](./phase-05-visual-predicate-editor-live-preview-sql-preview.md) | Pending |
-| 6 | [Cron worker + live mode + FE polling + status transitions](./phase-06-cron-worker-live-mode-fe-polling-status-transitions.md) | Pending |
-| 7 | [Saved analyses + Copy as filter + Paste from query round-trip](./phase-07-saved-analyses-copy-as-filter-paste-from-query-round-trip.md) | Pending |
-| 8 | [Broken-status flow + drift detection + tests + docs](./phase-08-broken-status-flow-drift-detection-tests-docs.md) | Pending |
+| 2 | [FE row-select + push modal + Library + Sample Users](./phase-02-fe-row-select-push-modal-library-sample-users.md) | Done (2026-05-19) |
+| 3 | [Settings identity mapping + auto-suggest + Import IDs](./phase-03-settings-identity-mapping-auto-suggest-import-ids.md) | Done (2026-05-19) |
+| 4 | [Preset infrastructure + mf_users-hub preset tabs](./phase-04-preset-infrastructure-mf-users-hub-preset-tabs.md) | Done (2026-05-19; cards stubbed, queries against assumed mf_users measure names — replace once cube-dev YAML is verified) |
+| 5 | [Visual predicate editor + live preview + SQL preview](./phase-05-visual-predicate-editor-live-preview-sql-preview.md) | Done (2026-05-19; cube-browser rail + paste-from-query deferred) |
+| 6 | [Cron worker + live mode + FE polling + status transitions](./phase-06-cron-worker-live-mode-fe-polling-status-transitions.md) | Done (2026-05-19; setInterval used instead of node-cron, no new dep) |
+| 7 | [Saved analyses + Copy as filter + Paste from query round-trip](./phase-07-saved-analyses-copy-as-filter-paste-from-query-round-trip.md) | Done (2026-05-19; in-Playground `Pin to segment` button deferred to v1.5 — non-trivial QueryBuilderToolBar integration) |
+| 8 | [Broken-status flow + drift detection + tests + docs](./phase-08-broken-status-flow-drift-detection-tests-docs.md) | Done (2026-05-19; E2E suite + prod single-binary serve.ts + visual regression deferred to follow-up) |
 
 ## Dependency graph
 

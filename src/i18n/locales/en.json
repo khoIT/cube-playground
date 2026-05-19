@@ -5,7 +5,102 @@
   "nav": {
     "playground": "Playground",
     "newMetric": "New Metric",
-    "catalog": "Catalog"
+    "catalog": "Catalog",
+    "segments": "Segments"
+  },
+  "segments": {
+    "library": {
+      "title": "Segments",
+      "subtitle": "Persistent cohorts built from Playground results or predicates.",
+      "kpi": {
+        "live": "Live segments",
+        "static": "Static segments",
+        "totalUids": "Total uids",
+        "inUse": "In use"
+      },
+      "search": "Search segments…",
+      "filter": {
+        "all": "All",
+        "live": "Live",
+        "static": "Static"
+      },
+      "sort": {
+        "label": "Sort",
+        "recent": "Recently updated",
+        "name": "Name (A→Z)",
+        "size": "Size (largest)"
+      },
+      "import": "Import IDs",
+      "new": "New segment",
+      "empty": "No segments yet. Build one from Playground or import IDs.",
+      "columns": {
+        "segment": "Segment",
+        "type": "Type",
+        "lastRefresh": "Last refresh",
+        "size": "Size",
+        "trend": "Trend",
+        "owner": "Owner"
+      }
+    },
+    "detail": {
+      "backToLibrary": "Segments",
+      "actions": {
+        "exportIds": "Export IDs",
+        "copyAsFilter": "Copy as filter",
+        "editPredicate": "Edit predicate",
+        "more": "More"
+      },
+      "tabs": {
+        "overview": "Overview",
+        "engagement": "Engagement",
+        "monetization": "Monetization",
+        "retention": "Retention",
+        "sampleUsers": "Sample users",
+        "savedAnalyses": "Saved analyses",
+        "predicate": "Predicate"
+      },
+      "sampleUsers": {
+        "title": "Sample users",
+        "description": "A randomly-sampled subset of this segment for spot-checking.",
+        "exportAll": "Export all IDs",
+        "reshuffle": "Reshuffle",
+        "empty": "This segment has no member uids yet.",
+        "noColumn": "uid"
+      },
+      "pending": "Coming in {{phase}}."
+    },
+    "push": {
+      "title": "Save as segment",
+      "tabs": {
+        "create": "Create new",
+        "append": "Append to existing"
+      },
+      "name": "Segment name",
+      "namePlaceholder": "e.g. High-value retained players",
+      "typeLabel": "Refresh mode",
+      "typeStatic": "Static",
+      "typeStaticHint": "Snapshot of the selected uids. Never auto-refreshes.",
+      "typeLive": "Live",
+      "typeLiveHint": "Predicate-backed. Refreshes on cadence.",
+      "summary": "Selection",
+      "summaryCount": "{{count}} uids selected",
+      "appendTarget": "Append to",
+      "appendPlaceholder": "Select a static segment…",
+      "submitCreate": "Create segment",
+      "submitAppend": "Append uids",
+      "toastCreated": "Segment created.",
+      "toastAppended": "{{count}} uids appended.",
+      "viewSegment": "View segment →",
+      "errorNoIdentity": "Select rows first.",
+      "errorNoName": "Name is required."
+    },
+    "selectionBar": {
+      "selected": "{{count}} user_ids selected",
+      "clear": "Clear",
+      "copy": "Copy IDs",
+      "export": "Export",
+      "saveAs": "Save as segment ▾"
+    }
   },
   "tabs": {
     "models": "Models",

@@ -1,6 +1,6 @@
 /**
  * Fastify server bootstrap.
- * Registers plugins and all route handlers, then listens on PORT (default 3001).
+ * Registers plugins and all route handlers, then listens on PORT (default 3004).
  */
 
 import Fastify from 'fastify';
@@ -11,9 +11,11 @@ import analysesRoutes from './routes/analyses.js';
 import identityMapRoutes from './routes/identity-map.js';
 import presetsRoutes from './routes/presets.js';
 import metaVersionRoutes from './routes/meta-version.js';
+import previewRoutes from './routes/preview.js';
 import { getDb } from './db/sqlite.js';
+import { startCron } from './jobs/cron-runner.js';
 
-const PORT = parseInt(process.env.PORT ?? '3001', 10);
+const PORT = parseInt(process.env.PORT ?? '3004', 10);
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
@@ -26,6 +28,7 @@ export async function buildApp() {
   await app.register(identityMapRoutes);
   await app.register(presetsRoutes);
   await app.register(metaVersionRoutes);
+  await app.register(previewRoutes);
 
   // Dev-only fixture seed endpoint for visual regression tests.
   if (process.env.NODE_ENV !== 'production') {
@@ -49,6 +52,7 @@ if (isMain || process.env.START_SERVER === '1') {
 
   buildApp().then(async (app) => {
     await app.listen({ port: PORT, host: '0.0.0.0' });
+    if (process.env.NODE_ENV !== 'test') startCron();
     app.log.info(`Server ready in ${Date.now() - start}ms on :${PORT}`);
   }).catch((err) => {
     console.error(err);

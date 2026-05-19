@@ -5,7 +5,102 @@
   "nav": {
     "playground": "Sân chơi",
     "newMetric": "Chỉ số mới",
-    "catalog": "Danh mục"
+    "catalog": "Danh mục",
+    "segments": "Nhóm người dùng"
+  },
+  "segments": {
+    "library": {
+      "title": "Nhóm người dùng",
+      "subtitle": "Tập người dùng lưu trữ từ kết quả Playground hoặc điều kiện.",
+      "kpi": {
+        "live": "Nhóm Live",
+        "static": "Nhóm tĩnh",
+        "totalUids": "Tổng uid",
+        "inUse": "Đang dùng"
+      },
+      "search": "Tìm nhóm…",
+      "filter": {
+        "all": "Tất cả",
+        "live": "Live",
+        "static": "Tĩnh"
+      },
+      "sort": {
+        "label": "Sắp xếp",
+        "recent": "Cập nhật gần nhất",
+        "name": "Tên (A→Z)",
+        "size": "Kích thước (lớn nhất)"
+      },
+      "import": "Nhập IDs",
+      "new": "Nhóm mới",
+      "empty": "Chưa có nhóm. Tạo từ Playground hoặc nhập IDs.",
+      "columns": {
+        "segment": "Nhóm",
+        "type": "Loại",
+        "lastRefresh": "Cập nhật",
+        "size": "Kích thước",
+        "trend": "Xu hướng",
+        "owner": "Người tạo"
+      }
+    },
+    "detail": {
+      "backToLibrary": "Nhóm người dùng",
+      "actions": {
+        "exportIds": "Xuất IDs",
+        "copyAsFilter": "Copy as filter",
+        "editPredicate": "Sửa điều kiện",
+        "more": "Thêm"
+      },
+      "tabs": {
+        "overview": "Tổng quan",
+        "engagement": "Tương tác",
+        "monetization": "Doanh thu",
+        "retention": "Duy trì",
+        "sampleUsers": "User mẫu",
+        "savedAnalyses": "Phân tích đã lưu",
+        "predicate": "Điều kiện"
+      },
+      "sampleUsers": {
+        "title": "User mẫu",
+        "description": "Tập mẫu ngẫu nhiên để kiểm tra nhanh.",
+        "exportAll": "Xuất tất cả IDs",
+        "reshuffle": "Trộn lại",
+        "empty": "Nhóm này chưa có uid.",
+        "noColumn": "uid"
+      },
+      "pending": "Sẽ có ở {{phase}}."
+    },
+    "push": {
+      "title": "Lưu thành nhóm",
+      "tabs": {
+        "create": "Tạo mới",
+        "append": "Thêm vào nhóm có sẵn"
+      },
+      "name": "Tên nhóm",
+      "namePlaceholder": "vd: Người chơi giữ chân giá trị cao",
+      "typeLabel": "Chế độ refresh",
+      "typeStatic": "Tĩnh",
+      "typeStaticHint": "Ảnh chụp uid đã chọn. Không tự refresh.",
+      "typeLive": "Live",
+      "typeLiveHint": "Theo điều kiện. Refresh theo lịch.",
+      "summary": "Đã chọn",
+      "summaryCount": "{{count}} uid đã chọn",
+      "appendTarget": "Thêm vào",
+      "appendPlaceholder": "Chọn nhóm tĩnh…",
+      "submitCreate": "Tạo nhóm",
+      "submitAppend": "Thêm uid",
+      "toastCreated": "Đã tạo nhóm.",
+      "toastAppended": "Đã thêm {{count}} uid.",
+      "viewSegment": "Xem nhóm →",
+      "errorNoIdentity": "Hãy chọn dòng trước.",
+      "errorNoName": "Vui lòng nhập tên."
+    },
+    "selectionBar": {
+      "selected": "{{count}} user_ids đã chọn",
+      "clear": "Xoá",
+      "copy": "Copy IDs",
+      "export": "Xuất",
+      "saveAs": "Lưu thành nhóm ▾"
+    }
   },
   "tabs": {
     "models": "Mô hình",

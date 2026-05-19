@@ -6,20 +6,20 @@ Fastify + better-sqlite3 backend for the Segments feature.
 
 ```bash
 npm install
-npm run dev        # tsx watch on :3001
+npm run dev        # tsx watch on :3002
 ```
 
 From repo root:
 
 ```bash
-npm run dev:all    # Vite (:3000) + server (:3001) concurrently
+npm run dev:all    # Vite (:3000) + server (:3002) concurrently
 ```
 
 ## Environment variables
 
 | Variable       | Default                    | Description                          |
 |--------------- |--------------------------- |------------------------------------- |
-| `PORT`         | `3001`                     | Listening port                       |
+| `PORT`         | `3002`                     | Listening port (changed from 3001 to avoid collision with the hermes catalog-api running on the same dev box) |
 | `DB_PATH`      | `./data/segments.db`       | SQLite file path (`':memory:'` for tests) |
 | `CUBE_API_URL` | `http://localhost:4000`    | Base URL for the Cube instance       |
 | `CUBE_TOKEN`   | _(empty)_                  | Bearer token for Cube auth           |
