@@ -1,7 +1,7 @@
 # PRD — Cube Product Layer: Catalog + Exploration + Proactive/AI Surfaces
 
-**Status:** Draft for design handoff — revised 2026-05-19 10:18 (two-layer model: Metrics + Data Model)
-**Date:** 2026-05-19 19:30 (original) · 2026-05-19 10:18 (revision §1.1, §5.1, §5.2, §5.4, §6, §11, §13, Open Questions)
+**Status:** Draft for design handoff
+**Date:** 2026-05-19 19:30
 **Owner:** khoitn
 **For:** Enterprise UI design (Claude Design)
 **Source documents (read these first):**
@@ -23,36 +23,20 @@ This is **not** a new app. We are extending the existing Playground with new sur
 
 > **"From business word to trusted number, in three clicks or one sentence — without writing SQL."**
 
-A non-technical game-ops person opens the product, types "whales in VN" or speaks the question to a chat box, finds the right **metric** with its plain-English definition, compares to last week with one click, saves the view to a Slack digest, and gets a notification tomorrow when the number moves more than usual.
+A non-technical game-ops person opens the product, types "whales in VN" or speaks the question to a chat box, finds the right measure with its plain-English definition, compares to last week with one click, saves the view to a Slack digest, and gets a notification tomorrow when the number moves more than usual.
 
-The platform is the same one a data analyst uses to *author* new metrics (and the building blocks they're made from) and the same one Liveops/MCP/CDP read from. **One vocabulary, three audiences (consumer / author / system), tightly integrated surfaces.**
-
-### 1.1 Architecture: two layers, one product
-
-Compass is **a metric layer on top of a semantic layer**. Two tabs, one product:
-
-| Layer | Tab | Audience | What lives here | Source of truth |
-|---|---|---|---|---|
-| **Metric layer** | **Metrics** (default) | Liveops / Growth / Finance / PM (consumers) | Named business metrics (DAU, Revenue, ARPU, LTV(n), Paying Rate…). Each has a plain-English definition, unit, formula, owner, certified badge. Formula is a recipe that composes **other metrics** and/or **building blocks**. | A user-managed metric registry (Postgres or YAML side-file). Seeded from GDS-1.8 reference glossary; users curate per game/tenant. |
-| **Data Model layer** | **Data Model** | Authors / DAs / power users | Cube primitives: measures, dimensions, segments — the building blocks metrics are composed from. | The cubes published in `cube/model/cubes/*.yml`, exposed via `/cubejs-api/v1/meta`. |
-
-The **Metrics tab is the consumer surface.** Most non-tech users never leave it. They search by business name, open the metric, see the formula in plain English, run it in Explore.
-
-The **Data Model tab is the author/power-user surface.** It surfaces what's exposed via `/cubejs-api/v1/meta` and is where DAs maintain measure/dimension/segment vocabulary. This is roughly what the existing `/catalog` (concept-first grid + filter rail + tabs) already solves well — we extend it, we don't rebuild it.
-
-**Why this split:** Liveops thinks *"what's our DAU?"*, not *"give me the measure `active_daily.dau`."* A GDS metric like **PU(7)** isn't a single Cube member — it's a composition (`user_recharge_daily.paying_users` + 7-day filter). Without a metric layer, PU(7) doesn't appear in the catalog at all. With it, PU(7) is a first-class card whose formula references the underlying measure.
+The platform is the same one a data analyst uses to *author* new metrics (segments, dimensions, audiences) and the same one Liveops/MCP/CDP read from. **One vocabulary, three audiences (consumer / author / system), tightly integrated surfaces.**
 
 ### What we are building, named honestly
 
-A **metric registry + catalog** (industry term) integrated with an **exploration scaffold** (BI term) and a **proactive surface** (digest/anomaly), on top of the Cube semantic layer. Differentiators vs Atlan/Cube Cloud Catalog: (a) two-layer model — metric layer above semantic layer, not just a wrapper on warehouse tables, (b) authoring loop closes back to YAML (data model) *and* the metric registry (metric layer), (c) clicking a metric opens Explore in the same surface, not a side-car docs page.
+A **metric catalog** (industry term) integrated with an **exploration scaffold** (BI term) and a **proactive surface** (digest/anomaly). Differentiators vs Atlan/Cube Cloud Catalog: (a) scoped to semantic-layer concepts not warehouse tables, (b) authoring loop closes back to YAML via the wizard, (c) clicking a measure opens Explore in the same surface, not a side-car docs page.
 
 ### What we are NOT building
 
 - Not a new BI tool replacing Tableau/Looker.
 - Not a warehouse data catalog replacing Atlan/Collibra.
 - Not an autonomous AI analyst (that's a Phase 4 stretch goal).
-- Not a dashboard builder for marketing/exec users — we have one (Metric detail + saved views).
-- Not a static GDS-1.8 viewer. GDS-1.8 is a **seed reference**, not the source of truth — users manage their own metric configs per game/tenant.
+- Not a dashboard builder for marketing/exec users — we have one (Catalog detail + saved views).
 
 ---
 
@@ -111,96 +95,73 @@ Design system already in use:
 
 Surfaces are grouped by phase (P1 = ship in ~3 weeks, P2 = ~4 weeks, P3 = ~8-9 weeks, P4 = later). Designer should design all P1+P2 surfaces in this round; P3 in a follow-up round.
 
-### 5.1 [P1] Catalog — two-tab structure: Metrics + Data Model
+### 5.1 [P1] Extended Catalog — measures, dimensions, segments with rich metadata
 
 **Replaces:** Today's `/catalog`, which is cube-centric (browse by cube, click a measure) and shows only field name + type.
 
-The catalog has **two top-level tabs**, reflecting the two-layer architecture (§1.1):
-
-#### 5.1.A — Metrics tab (default; consumer surface; new)
-
-Default landing. A flat grid of **named business metrics** (DAU, MAU, Revenue, ARPU, ARPPU, PU(n), LTV(n), Paying Rate, …). Each card represents one curated metric in the registry, not a Cube primitive.
-
-- **Filter rail:** by domain (acquisition/engagement/revenue/retention/payments/concurrency/marketing/custom), certified status (certified/beta/draft/deprecated), owner, tier (POC / v0.5 / blocked-on-upstream-data — see metric-mapping doc), and "parameterised family" toggle (collapses A(n), PU(n), RR(n), LTV(n) groups into one card with a picker).
-- **Search bar:** synonym-aware substring search across label, description, synonyms[], formula_text. (See §5.3 for the grounded NL search box.)
-- **Metric card content (compact):**
-  - Business label (large, primary) — e.g. *"Revenue"*, *"Paying Users (PU)"*, *"LTV(n)"*
-  - Stand-for / short name — e.g. *"Total in-game item delivery value"*
-  - Domain chip
-  - Unit / format (`VND`, `%`, `count`, `users`)
-  - **Formula in plain English** (one line) — composed of other metric names and/or building blocks. E.g.: `ARPU = Revenue / DAU`, `PU(7) = unique users paying in last 7 days`, `LTV(n) = RevNRU(n) / NRU`
-  - For parameterised families (A(n), PU(n), RR(n), LTV(n), RevRPI(n), ROAS(n)): inline `n` picker on the card
-  - Certified badge (§5.5)
-  - Freshness chip — derived from the underlying cube's `refresh_key`
+**New behavior:**
+- **Concept-first browse.** Default landing is a flat grid of "concepts" — each card is one measure, dimension, or segment, with its business label, short description, certified badge, and freshness indicator.
+- **Filter rail:** by type (measure/dim/segment), domain (acquisition/engagement/revenue/retention/payments/concurrency/marketing/custom), certified status (certified/beta/draft/deprecated), and owner.
+- **Search bar:** synonym-aware substring search across label, description, synonyms[], formula_text. Returns ranked concept cards. (See §5.3 for the grounded NL search box that lives next to this.)
+- **Tab switch:** "By concept" (default, flat grid) | "By cube" (existing grouping) | "Schema" (existing schema view).
+- **Concept card content (compact):**
+  - Business label (large, primary)
+  - Type icon (measure / dim / segment) + domain chip
+  - One-line description
+  - Unit / format (e.g. `VND`, `%`, `count`)
+  - Certified badge (see §5.6 cross-surface pattern)
+  - Freshness chip (e.g. "Refreshed 12m ago" — derived from cube `refresh_key`)
   - Hover: surfaces sample-question if defined
-  - Click: opens Metric Detail (§5.2.A)
-
-#### 5.1.B — Data Model tab (existing surface, extended; author/power-user surface)
-
-The current `/catalog` (concept-first grid + filter rail + tabs) **solves this well**. We extend it; we don't rebuild it.
-
-- **Sub-tab switch:** "By concept" (default, flat grid of measures + dimensions + segments) | "By cube" | "Schema". Matches the current Compass prototype's three-tab pattern.
-- Source of cards: what `/cubejs-api/v1/meta` returns — Cube measures, dimensions, segments across the 4 cubes (currently 33 items).
-- **Filter rail:** by type (measure/dim/segment), domain, certified status, owner. Same as Compass prototype.
-- Card content: the existing `ConceptCard` design from the prototype — business label, type icon, description, formula text, certified badge, freshness, owner.
-- Click: opens Building Block Detail (§5.2.B).
-
-#### Shared across both tabs
-
-- **View toggle:** grid / list.
-- **Sort:** Most used, Recently edited, A → Z, Freshness.
-- **States to design:** loading, empty (no items match filter), error (registry / `/cubejs-api/v1/meta` fetch failed), "GDS-1.8 seed import in progress" banner (Metrics tab only), drift-warning ("this game's metric definition diverges from GDS-1.8 reference — review").
+  - Click: opens Metric Detail (5.2)
 
 **Existing components to extend:**
-- `catalog-page.tsx` — add top-level Metrics / Data Model tab
-- `catalog-grid.tsx` — already concept-grid capable; reuse for both metric cards and building-block cards (two card variants)
-- `cube-card.tsx` — keep for Data Model → "By cube" sub-tab
-- `catalog-toolbar.tsx` — add filter rail; same chrome, different filter fields per tab
-- `catalog-tabs.tsx` — Data Model sub-tabs ("By concept" / "By cube" / "Schema")
-- New: `metric-card.tsx` variant (currently shows Cube measures; needs metric-layer variant), `metric-registry.ts` data layer fetching from the metric registry endpoint.
+- `catalog-grid.tsx` — add concept-level grid mode
+- `cube-card.tsx` — keep for "By cube" tab
+- `catalog-toolbar.tsx` — add filter rail
+- `catalog-tabs.tsx` — add "By concept" as default tab
+
+**States to design:** loading, empty (no concepts match filter), error (catalog fetch failed), "GDS-1.8 import in progress" banner, drift-warning ("this game's definition of `revenue` differs from canonical — review").
 
 ---
 
-### 5.2 [P1] Detail pages — two shapes
+### 5.2 [P1] Metric Detail (extended)
 
-Two detail-page shapes, one per tab. Same six-panel skeleton, but the content of the Formula panel and the source of identity differs.
+**Replaces:** Today's `/metric/:cube/:member` — already has how-to-slice / joinable-with / similar-measures panels (good foundation).
 
-#### 5.2.A — Metric Detail (`/metric/:metricId`)
-
-**For metric-layer items (Metrics tab cards).**
-
+**New panels to add (alongside existing):**
 1. **Vocabulary panel**
-   - Business label, "stand for" short name, description (markdown), synonyms list, sample questions, domain
-   - All editable inline by authorized users
-2. **Formula panel** — the heart of the metric layer
-   - **Formula expression** in plain English, composable from:
-     - **Other metric references** — e.g. `ARPU = Revenue / DAU` where `Revenue` and `DAU` are clickable metric tokens
-     - **Building block references** — e.g. `PU(7) = unique({active_daily.user_id}) WHERE log_date BETWEEN today-6 AND today` references `active_daily.user_id` (a Cube measure/dim)
-     - **Parameters** — for parameterised families (A(n), PU(n), RR(n), LTV(n), RevRPI(n), ROAS(n)). Parameter picker inline.
-   - **Compiled Cube query payload** (read-only, collapsible) — the `{measures, dimensions, timeDimensions, filters, segments}` object the metric expands into. This is what Explore runs.
-   - **Tier badge** — Tier 1 (existing measure) / Tier 2 (measure + time/segment) / Tier 3 (cohort filter) / Tier 4 (cohort + offset, deferred) / Tier 5 (needs new YAML) / Tier 6 (needs new data source). Surfaces blocker status honestly. See metric-mapping doc for the taxonomy.
-3. **Lineage panel (P2)** — upstream chain: source table → cube → building block(s) → this metric → views/dashboards using it
-4. **Trust panel** — certified status, owner, last-edited-by, freshness SLA (inherited from underlying cube's `refresh_key`), usage count
-5. **Sliced-view panel** — common dimension/segment combos this metric works with; one-click into Explore with the cut pre-applied
-6. **Activity panel** — recent edits, feedback, saves-as-view
+   - Business label (editable inline by authorized users)
+   - Description (markdown, editable)
+   - Synonyms list (chip input)
+   - Sample questions (list, editable)
+   - Domain (single-select chip)
+2. **Formula panel**
+   - Formula text in business terms (markdown, editable)
+   - Cube YAML snippet (read-only, collapsible)
+   - For parameterised families: parameter picker (`n = [1, 3, 7, 14, 30, 60, 90, 120, 150, 180]`)
+3. **Lineage panel (P2)**
+   - Visual graph: source table → cube → measure → views referencing this measure
+   - Click any node to navigate
+4. **Trust panel**
+   - Certified status (badge + state machine: draft → proposed → approved → deprecated)
+   - Owner + last-edited-by + audit timestamps
+   - Freshness SLA (from cube `refresh_key`)
+   - "Used in N dashboards / N MCP tools / N CDP audiences" — usage tracker
+   - Feedback widget: 👍 / 👎 with optional comment (queues `metadata_feedback` for owner)
+5. **Sliced-view panel (existing how-to-slice, refined)**
+   - Common dimension/segment combos this measure works with
+   - Each is a one-click into Explore with the cut pre-applied
+6. **Activity panel**
+   - Recent edits (who changed what)
+   - Recent feedback
+   - Recent saves-as-view
 
-#### 5.2.B — Building Block Detail (`/data-model/:cube/:member`)
-
-**For data-model items (Data Model tab cards).** Replaces today's `/metric/:cube/:member` — already has how-to-slice / joinable-with / similar-measures panels (good foundation).
-
-Same six panels as 5.2.A with two differences:
-- **Formula panel** shows the Cube YAML snippet (the `sql:` expression) — building blocks have no metric-layer formula. They may show "Used in N metrics" (reverse reference into the metric layer).
-- **Vocabulary panel** is simpler — no parameterised picker (parameters live on metrics).
-
-Otherwise: panels 1, 3, 4, 5, 6 are identical to 5.2.A. The existing prototype's `page-metric-detail.jsx` is the right starting point for this shape.
-
-#### Shared authoring affordances
-
+**Authoring affordances:**
 - Inline edit (Notion / Linear style) for vocabulary, formula, sample questions
 - Permission-gated: anyone can `draft`, owner approves to `approved`
 - Save button per panel; draft-vs-approved indicator
 
-**States:** view mode, edit mode (inline per field), proposing-change mode (non-owner submits to owner), conflict mode (concurrent edit), drift-warning mode (game's metric definition differs from GDS-1.8 seed reference).
+**States:** view mode, edit mode (inline per field), proposing-change mode (non-owner submits to owner), conflict mode (concurrent edit), drift-warning mode (canonical GDS-1.8 differs from this game's overlay).
 
 ---
 
@@ -220,32 +181,22 @@ Otherwise: panels 1, 3, 4, 5, 6 are identical to 5.2.A. The existing prototype's
 
 ---
 
-### 5.4 [P1] Wizards — two shapes
+### 5.4 [P1] New Metric Wizard — extended
 
-Two wizards, one per layer. Same 6-step shape; different middle steps.
+**Replaces:** Today's `/metrics/new` 6-step wizard, which produces YAML only.
 
-#### 5.4.A — New Metric Wizard (`/metrics/new`)
+**New behavior:**
+- **Step 6 (final) adds metadata authoring** before publishing:
+  - Business label (required)
+  - Description (required, markdown)
+  - Synonyms (chip input, optional)
+  - Sample questions (list, optional but encouraged)
+  - Domain (select)
+- **On publish:** both the YAML *and* the metadata entry are written atomically.
+- **Branch the wizard** to also author **dimensions** and **segments** (currently measures only). Same 6-step shape but with type-specific fields in the middle steps.
+- **Pre-fill from GDS-1.8** if the author selects a known concept ("Are you authoring `paying_users`? Here's the canonical definition; edit if your game's version differs").
 
-**For authoring metric-layer items.** Writes to the metric registry, not to YAML.
-
-- Step 1: pick metric type — derived (formula references other metrics) | composed (formula references building blocks + filters + granularity) | parameterised family (n-grid)
-- Steps 2–5: type-specific
-  - **Derived** — formula editor with metric-token autocomplete (`Revenue / DAU` etc.); preview compiled Cube query
-  - **Composed** — building-block picker (measure + dimensions + segments from `/cubejs-api/v1/meta`) + time-grain + cohort filter
-  - **Parameterised** — base composition + `n` value list (`[1, 3, 7, 14, 30, 60, 90, 120, 150, 180]` defaults) + per-n override slots
-- Step 6 (metadata): business label (required), description (markdown, required), synonyms (chip input), sample questions, domain (select), unit/format
-- **On publish:** new row in metric registry. No YAML change. Atomic write.
-- **Pre-fill from GDS-1.8 seed** if author selects a known reference metric ("Are you authoring *Revenue*? Here's the GDS-1.8 reference; edit if your game's version differs")
-
-#### 5.4.B — New Building Block Wizard (`/data-model/new`)
-
-**For authoring data-model items.** Writes Cube YAML (today's wizard behavior).
-
-- Replaces today's `/metrics/new` 6-step wizard, which produces YAML only. (URL moves to `/data-model/new`; the existing wizard code at `NewMetricPage.tsx` stays, just under a new route.)
-- Step 6 adds metadata authoring (business label, description, synonyms, sample questions, domain) — same as before.
-- **Branches** to author measures, dimensions, or segments. Same 6-step shape, type-specific middle steps.
-
-**States (both wizards):** stepper navigation, mid-edit save-draft, publish-confirmation modal, drift-warning if metadata diverges from GDS-1.8 seed reference.
+**States:** stepper navigation, mid-edit save-draft, publish-confirmation modal, drift-warning if author's metadata diverges from GDS-1.8 canonical.
 
 ---
 
@@ -419,19 +370,15 @@ Out of scope for this design round. Mentioned so designer reserves visual space 
 
 ```
 /                                  Landing (minimal, links to Catalog + Build)
-/catalog                           Two-tab catalog (5.1)
-  ├── tab=metrics (default)        Metric layer — named business metrics
-  └── tab=data-model               Data Model layer — measures + dims + segments
-      ├── sub=concept (default)    Flat concept grid (existing prototype design)
-      ├── sub=cube                 Existing cube-centric view
-      └── sub=schema               Existing schema view
-/metric/:metricId                  Metric Detail (5.2.A) — vocabulary + formula (composes other metrics or building blocks) + lineage + trust + sliced views + activity
-/data-model/:cube/:member          Building Block Detail (5.2.B) — vocabulary + YAML formula + lineage + trust + sliced views + activity
+/catalog                           Concept-first browse (5.1)
+  ├── tab=concept (default)        Flat concept grid
+  ├── tab=cube                     Existing cube-centric view
+  └── tab=schema                   Existing schema view
+/metric/:cube/:member              Metric Detail (5.2) — vocabulary + formula + lineage + trust + sliced views + activity
 /build                             Explore / QueryBuilder (existing) + verb chips (5.7) + save-view (5.8)
 /build/views/:viewId               Re-run a saved view
-/metrics/new                       Metric Wizard (5.4.A) — write to metric registry
-/data-model/new                    Building Block Wizard (5.4.B) — write Cube YAML (today's wizard, re-routed)
-/metrics/new/success               Wizard confirmation (shared)
+/metrics/new                       Wizard (5.4) — measure | dimension | segment authoring
+/metrics/new/success               Wizard confirmation
 /workspaces                        (P3) User's workspaces index
 /workspaces/:id                    (P3) Workspace canvas (5.13)
 /digest/preferences                (P3) Subscriptions management (5.11)
@@ -526,13 +473,11 @@ Designer should resolve these in collaboration with PM + eng. Listed in priority
 
 For Phase 1 ship:
 
-- **Metric-layer POC coverage:** all **21 Tier 1–3 metrics** from `metric-mapping-260519-poc-gds-vs-cubes.md` are in the metric registry with label + description + formula + tier badge + sample-question, and each runs successfully against the 4 published cubes.
-- **Data-model coverage:** 100% of Cube `/cubejs-api/v1/meta` measures/dimensions/segments appear under the Data Model tab with at least label + description seeded.
-- **Discovery time:** Non-tech user opens Catalog (Metrics tab), types a business word, opens correct metric detail in <30 seconds (measured via test scenarios with 5 game-ops users).
-- **Trust signal:** 90%+ of metrics used in MCP/CDP/dashboards carry a `certified` badge (i.e., owner-approved metadata).
-- **Authoring activity:** 5+ unique authors (not just DEs) editing metric registry entries within 2 weeks of ship.
-- **Feedback loop:** at least 1 owner-actioned 👎 → metric definition edit cycle observed (validates the loop is real, not theatre).
-- **GDS-1.8 seed import:** seed-import job successfully populates the metric registry from GDS-1.8 reference for Tier 1–3 metrics; users can edit any seeded entry post-import.
+- **Vocabulary coverage:** 80%+ of GDS-1.8's 53 concepts have at least a label + description + formula + sample-question in the catalog within 1 week of ship.
+- **Discovery time:** Non-tech user opens Catalog, types a business word, opens correct measure detail in <30 seconds (measured via test scenarios with 5 game-ops users).
+- **Trust signal:** 90%+ of measures used in MCP/CDP/dashboards carry a `certified` badge (i.e., owner-approved metadata).
+- **Authoring activity:** 5+ unique authors (not just DEs) editing metadata within 2 weeks of ship.
+- **Feedback loop:** at least 1 owner-actioned 👎 → metadata edit cycle observed (validates the loop is real, not theatre).
 
 For Phase 2:
 
@@ -576,8 +521,8 @@ For each surface, deliver: hi-fi, all major states (loading, empty, error, edit-
 - `business-case-260518-cube-semantic-layer-tables.md` — 13 questions, business case
 - `research-260518-1841-product-gaps-non-tech-question-flow.md` — v2 product-gap analysis (the proposal)
 - `research-260519-1900-product-layer-sota-validation-and-feature-brainstorm.md` — SOTA validation, 12 missing surfaces
-- `metric-mapping-260519-poc-gds-vs-cubes.md` — POC coverage (21/53 GDS metrics in Tiers 1–3). **This is the v0 metric registry seed.**
-- `_GDS__-_1_8_Metrics_Definition.md` — 53-metric **reference glossary** (NOT the source of truth). Used to seed the metric registry on first import; users curate/override per game/tenant after that.
+- `metric-mapping-260519-poc-gds-vs-cubes.md` — POC coverage (21/53 GDS metrics)
+- `_GDS__-_1_8_Metrics_Definition.md` — 53-metric glossary, seed data
 
 ### Existing codebase pointers
 - `src/pages/Catalog/` — extend
@@ -598,11 +543,9 @@ For each surface, deliver: hi-fi, all major states (loading, empty, error, edit-
 
 ## Open Questions (for PM, not designer)
 
-1. **Metric registry storage substrate** — backend table (Postgres) vs YAML side-file in repo vs Cube views? Affects "anyone can author" reality, version control, and how the registry survives multi-tenant. Recommend Postgres for v1; YAML side-file as fallback for POC if Postgres is delayed.
-2. **Metric registry schema** — minimum: `{ id, label, stand_for, description, synonyms[], domain, unit, formula_expression, compiled_cube_query, parameters[], tier, owner, certified_status, gds_ref_id?, drift_status }`. Confirm fields before implementation.
-3. **Formula expression syntax** — DSL choice for the metric layer: simple-template (`{Revenue} / {DAU}`) vs MetricFlow-style YAML vs Cube views vs a small AST. POC can start with simple-template + a parser that resolves metric / building-block tokens.
-4. **OSI standard commitment** — make metric registry schema a superset of OSI from day one (vs adopt later)?
-5. **Cross-game permission model** — can a Game A author edit Game B's metric registry? Default: no.
-6. **Phase 4 timing for multi-step agent** — committed quarter, or only if Phase 1-3 evidence shows need?
-7. **Tenant scoping in catalog** — POC is single-tenant (Ballistar VN). When does multi-tenant land?
-8. **MCP/CDP auto-publish migration** — Q13 of the business case. Webhook from Cube + metric registry to MCP/CDP on definition change — owned by which team?
+1. **Storage substrate for metadata store** — backend table (Postgres) vs local-first with sync? Affects "anyone can author" reality.
+2. **OSI standard commitment** — make metadata schema a superset of OSI from day one (vs adopt later)?
+3. **Cross-game permission model** — can a Game A author edit Game B's metadata? Default: no.
+4. **Phase 4 timing for multi-step agent** — committed quarter, or only if Phase 1-3 evidence shows need?
+5. **Tenant scoping in catalog** — POC is single-tenant (Ballistar VN). When does multi-tenant land?
+6. **MCP/CDP auto-publish migration** — Q13 of the business case. Webhook from Cube to MCP/CDP on metadata change — owned by which team?

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Compass — Catalog + Explore + Proactive</title>
+
+  <link rel="stylesheet" href="compass/tokens.css" />
+  <link rel="stylesheet" href="compass/compass-tokens.css" />
+
+  <!-- Fonts: Inter (workhorse) + Geist (alt) + Geist Mono (numerals) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Lucide icons (web replacement) -->
+  <script src="https://unpkg.com/lucide@0.395.0/dist/umd/lucide.min.js"></script>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    body { font-family: var(--font-sans); }
+  </style>
+
+  <template id="__bundler_thumbnail">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect width="200" height="200" fill="#0a0a0a"/>
+      <circle cx="100" cy="100" r="54" fill="none" stroke="#fff" stroke-width="2" opacity="0.4"/>
+      <path d="M100 38 L118 100 L100 162 L82 100 Z" fill="#f05a22"/>
+      <path d="M38 100 L100 82 L162 100 L100 118 Z" fill="#fff" opacity="0.9"/>
+      <circle cx="100" cy="100" r="9" fill="#0a0a0a"/>
+    </svg>
+  </template>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="compass/primitives.jsx"></script>
+  <script type="text/babel" src="compass/patterns.jsx"></script>
+  <script type="text/babel" src="compass/data.jsx"></script>
+  <script type="text/babel" src="compass/app-shell.jsx"></script>
+  <script type="text/babel" src="compass/page-catalog.jsx"></script>
+  <script type="text/babel" src="compass/page-metric-detail.jsx"></script>
+  <script type="text/babel" src="compass/page-explore.jsx"></script>
+  <script type="text/babel" src="compass/page-wizard.jsx"></script>
+  <script type="text/babel" src="compass/page-extras.jsx"></script>
+  <script type="text/babel" src="compass/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="compass/app.jsx"></script>
+</body>
+</html>

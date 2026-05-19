@@ -1,0 +1,154 @@
+/* ==========================================================================
+   Compass — token extensions on top of VNGGames Player Hub
+   Adds tokens specific to a metrics catalog product:
+   trust states (certified/beta/draft/deprecated/orphaned), freshness states,
+   anomaly states, concept-type colors.
+   ========================================================================== */
+
+:root {
+  /* Trust state colors — used by certified badge */
+  --trust-certified:       #047857;   /* emerald-700 */
+  --trust-certified-bg:    #ecfdf5;   /* emerald-50 */
+  --trust-certified-border:#a7f3d0;   /* emerald-200 */
+
+  --trust-beta:            #b45309;   /* amber-700 */
+  --trust-beta-bg:         #fffbeb;   /* amber-50 */
+  --trust-beta-border:     #fde68a;   /* amber-200 */
+
+  --trust-draft:           #525252;   /* neutral-600 */
+  --trust-draft-bg:        #f5f5f5;   /* neutral-100 */
+  --trust-draft-border:    #e5e5e5;   /* neutral-200 */
+
+  --trust-deprecated:      #991b1b;   /* red-800 */
+  --trust-deprecated-bg:   #fef2f2;   /* red-50 */
+  --trust-deprecated-border:#fecaca;  /* red-200 */
+
+  --trust-orphaned:        #6b21a8;   /* purple-800 */
+  --trust-orphaned-bg:     #faf5ff;   /* purple-50 */
+  --trust-orphaned-border: #e9d5ff;   /* purple-200 */
+
+  /* Freshness — traffic light against SLA */
+  --fresh-ok:        #10b981;
+  --fresh-ok-bg:     #ecfdf5;
+  --fresh-warn:      #f59e0b;
+  --fresh-warn-bg:   #fffbeb;
+  --fresh-stale:     #ef4444;
+  --fresh-stale-bg:  #fef2f2;
+
+  /* Anomaly badge — 4 states */
+  --anomaly-none:    transparent;
+  --anomaly-low:     #f59e0b;
+  --anomaly-low-bg:  #fffbeb;
+  --anomaly-high:    #dc2626;
+  --anomaly-high-bg: #fef2f2;
+  --anomaly-trend:   #7c3aed;
+  --anomaly-trend-bg:#f5f3ff;
+
+  /* Concept type — measure / dimension / segment / view / metric */
+  --type-measure:    #f05a22;   /* orange-600 — brand, primary "value" concept */
+  --type-measure-bg: #fff7ed;
+  --type-dim:        #3f8dff;   /* blue-600 — "slice" */
+  --type-dim-bg:     #eff6ff;
+  --type-segment:    #7c3aed;   /* purple-600 — "filter" */
+  --type-segment-bg: #f5f3ff;
+  --type-view:       #525252;
+  --type-view-bg:    #f5f5f5;
+  --type-metric:     #0a0a0a;   /* near-black — metric layer "headline" concept */
+  --type-metric-bg:  #f5f5f5;
+
+  /* Tier badges (Tier 1–6, PRD §5.2.A) — used on Metric cards/detail.
+     T1–T3 ship today; T4–T6 are blocked work shown as "stretch" status. */
+  --tier-1:    #047857;  --tier-1-bg: #ecfdf5;   /* emerald — ships */
+  --tier-2:    #047857;  --tier-2-bg: #ecfdf5;
+  --tier-3:    #047857;  --tier-3-bg: #ecfdf5;
+  --tier-4:    #b45309;  --tier-4-bg: #fffbeb;   /* amber — query-template work */
+  --tier-5:    #b45309;  --tier-5-bg: #fffbeb;
+  --tier-6:    #991b1b;  --tier-6-bg: #fef2f2;   /* red — ingestion gap */
+
+  /* Layer (top-level tab) accents */
+  --layer-metric-accent:  #f05a22;
+  --layer-data-accent:    #3f8dff;
+
+  /* Domain colors — soft pastels */
+  --domain-revenue:    #d97706;
+  --domain-revenue-bg: #fef3c7;
+  --domain-engagement: #2563eb;
+  --domain-engagement-bg: #dbeafe;
+  --domain-acquisition: #db2777;
+  --domain-acquisition-bg: #fce7f3;
+  --domain-retention:  #059669;
+  --domain-retention-bg:#d1fae5;
+  --domain-payments:   #7c3aed;
+  --domain-payments-bg:#ede9fe;
+  --domain-concurrency:#0891b2;
+  --domain-concurrency-bg:#cffafe;
+  --domain-marketing:  #c026d3;
+  --domain-marketing-bg:#fae8ff;
+  --domain-custom:     #525252;
+  --domain-custom-bg:  #f5f5f5;
+
+  /* Compass-specific surface */
+  --app-bg:          #fafafa;
+  --rail-bg:         #ffffff;
+  --topbar-h:        56px;
+  --rail-w:          240px;
+  --filter-rail-w:   240px;
+
+  /* Mono numerals — important for a metrics product */
+  --num-font:        "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--app-bg); font-family: var(--font-sans); color: var(--neutral-950); }
+
+/* Override design-system display headers — Compass is a tool, not a brand surface */
+h1, h2, h3, h4, h5, h6,
+.text-h1, .text-h2, .text-h3, .text-h4, .text-h5, .text-h6 {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+h1, .text-h1 { font-size: 26px; }
+h2, .text-h2 { font-size: 20px; }
+h3, .text-h3 { font-size: 16px; }
+h4, .text-h4 { font-size: 14px; }
+
+/* Reset list defaults inside the app */
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+/* Scrollbars — subtle, shadcn-style */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.22); background-clip: padding-box; border: 2px solid transparent; }
+
+/* Tabular figures by default — numerals align */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Reusable kbd */
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--neutral-200);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--neutral-600);
+}
+
+/* Metric detail headline stats — collapse to 2 cols at narrow widths */
+@media (max-width: 1100px) {
+  .metric-stats-row { grid-template-columns: 1fr 1fr !important; }
+  .metric-stats-row > :nth-child(1) { grid-column: 1 / -1; }
+}
+
+/* Hide-only-on-print etc. */
+@media (max-width: 1100px) {
+  .compass-filter-rail { display: none !important; }
+}
+@media (max-width: 1200px) {
+  .metric-right-rail { display: none !important; }
+}
