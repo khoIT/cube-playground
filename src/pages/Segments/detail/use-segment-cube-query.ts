@@ -73,6 +73,10 @@ export interface UseSegmentCubeQueryOptions<T> {
   /** Pre-rendered rows from server cache. Skips initial loading flicker and lets
    *  the hook silently background-refetch (updating display only if rows differ). */
   initialRows?: T[];
+  /** When true AND initialRows is provided, skip the background Cube fetch
+   *  entirely. Use when the server cache is known fresh — saves ~30 parallel
+   *  Cube round-trips per tab open. */
+  skipBackgroundFetch?: boolean;
 }
 
 export function useSegmentCubeQuery<T = Record<string, unknown>>(
@@ -90,6 +94,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
   const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
 
   const hasInitial = options.initialRows !== undefined;
+  const skipBackground = hasInitial && options.skipBackgroundFetch === true;
   const [rows, setRows] = useState<T[]>(options.initialRows ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -97,6 +102,13 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
 
   useEffect(() => {
     if (!segment || !query) return;
+
+    // Fresh server cache → trust it. No Cube round-trip.
+    if (skipBackground) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     const scoped = scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
     const key = hashKey(segment.id, scoped);
@@ -148,7 +160,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     return () => {
       cancelled = true;
     };
-  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial]);
+  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground]);
 
   return { loading, error, rows };
 }

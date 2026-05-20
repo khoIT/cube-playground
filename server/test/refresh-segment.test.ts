@@ -83,10 +83,32 @@ describe('refreshSegment', () => {
     expect(row.broken_reason).toContain('cube down');
   });
 
-  it('marks status=broken when no identity-field mapping exists', async () => {
+  it('falls back to auto-suggester when manual identity-field mapping is missing', async () => {
     const id = seedSegment();
     const db = getDb();
     db.prepare('DELETE FROM cube_identity_map WHERE cube = ?').run('mf_users');
+    // Auto-suggester picks `mf_users.user_id` (confidence 0.95) → refresh proceeds.
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue({
+      cubes: [{ name: 'mf_users', dimensions: [{ name: 'mf_users.user_id' }] }],
+    } as never);
+    vi.spyOn(cubeClient, 'load').mockResolvedValue({
+      data: [{ 'mf_users.user_id': 'u1' }],
+    } as never);
+    await refreshSegment(id);
+    const row = getSegment(id);
+    expect(row.status).toBe('fresh');
+    expect(row.uid_count).toBe(1);
+  });
+
+  it('marks status=broken when no identity-field mapping exists and auto-suggest has no hit', async () => {
+    const id = seedSegment();
+    const db = getDb();
+    db.prepare('DELETE FROM cube_identity_map WHERE cube = ?').run('mf_users');
+    // Mock /meta to return a cube with no identifiable user dim, so the
+    // auto-suggest fallback in getIdentityField returns null.
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue({
+      cubes: [{ name: 'mf_users', dimensions: [{ name: 'mf_users.unrelated_dim' }] }],
+    } as never);
     await refreshSegment(id);
     const row = getSegment(id);
     expect(row.status).toBe('broken');

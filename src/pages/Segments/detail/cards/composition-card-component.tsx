@@ -5,7 +5,7 @@ import type { Query } from '@cubejs-client/core';
 import { CompositionCard as VisualCompositionCard } from '../../visuals';
 import { CardShell } from './card-shell';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
-import { getCachedRows } from './use-card-cache-lookup';
+import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { CompositionCardSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -25,8 +25,10 @@ export function CompositionDataCard({ spec, segment, preset, cacheKey }: Props):
   }), [spec]);
 
   const initialRows = cacheKey ? getCachedRows(segment, cacheKey) : undefined;
+  const skipBackgroundFetch = cacheKey ? isCacheFresh(segment, cacheKey) : false;
   const { rows, loading, error } = useSegmentCubeQuery(segment, query, preset.identityDim, {
     initialRows,
+    skipBackgroundFetch,
   });
 
   const data = useMemo(() => {

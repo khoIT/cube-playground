@@ -6,6 +6,11 @@
 
 import type { Segment } from '../../../../types/segment-api';
 
+/** Skip background refetch if the cache is younger than this. Long-ish because
+ *  cron + manual refresh already keep the cache moving — re-firing 30 Cube
+ *  queries on every tab open just to compare floods Cube and pegs the UI. */
+const FRESH_FOR_MS = 15 * 60 * 1000;
+
 export function getCachedRows(
   segment: Segment,
   cardKey: string,
@@ -13,9 +18,8 @@ export function getCachedRows(
   return segment.card_cache?.[cardKey]?.rows;
 }
 
-export function getCachedFetchedAt(
-  segment: Segment,
-  cardKey: string,
-): string | undefined {
-  return segment.card_cache?.[cardKey]?.fetched_at;
+export function isCacheFresh(segment: Segment, cardKey: string): boolean {
+  const fetchedAt = segment.card_cache?.[cardKey]?.fetched_at;
+  if (!fetchedAt) return false;
+  return Date.now() - new Date(fetchedAt).getTime() < FRESH_FOR_MS;
 }

@@ -5,7 +5,7 @@ import type { Query } from '@cubejs-client/core';
 import { Donut } from '../../visuals';
 import { CardShell } from './card-shell';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
-import { getCachedRows } from './use-card-cache-lookup';
+import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { DonutCardSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -25,8 +25,10 @@ export function DonutCard({ spec, segment, preset, cacheKey }: Props): ReactElem
   }), [spec]);
 
   const initialRows = cacheKey ? getCachedRows(segment, cacheKey) : undefined;
+  const skipBackgroundFetch = cacheKey ? isCacheFresh(segment, cacheKey) : false;
   const { rows, loading, error } = useSegmentCubeQuery(segment, query, preset.identityDim, {
     initialRows,
+    skipBackgroundFetch,
   });
 
   const slices = useMemo(() => rows.map((r) => ({
