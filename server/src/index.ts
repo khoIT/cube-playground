@@ -13,6 +13,7 @@ import presetsRoutes from './routes/presets.js';
 import metaVersionRoutes from './routes/meta-version.js';
 import previewRoutes from './routes/preview.js';
 import { getDb } from './db/sqlite.js';
+import { hydrateFromSnapshot } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
@@ -49,6 +50,13 @@ if (isMain || process.env.START_SERVER === '1') {
   const start = Date.now();
   // Initialise DB (runs migrations) before accepting requests
   getDb();
+
+  // Demo-seed: if the DB is empty, hydrate from the committed snapshot so
+  // a fresh `git pull` on another machine boots with the same data + charts.
+  const seed = hydrateFromSnapshot();
+  if (seed.hydrated) {
+    console.log('[snapshot] hydrated from seed:', seed.counts);
+  }
 
   buildApp().then(async (app) => {
     await app.listen({ port: PORT, host: '0.0.0.0' });

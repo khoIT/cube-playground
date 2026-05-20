@@ -11,6 +11,7 @@ import { treeToCubeFilters } from '../services/translator.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
 import { enqueueRefresh } from '../jobs/refresh-queue.js';
+import { getCardCache } from '../services/card-cache-store.js';
 
 const segmentInputSchema = z.object({
   name: z.string().min(1),
@@ -136,13 +137,13 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     return reply.status(201).send(hydrateSegment(row, db));
   });
 
-  // GET /api/segments/:id
+  // GET /api/segments/:id — includes prerendered card_cache for one-shot hydration
   app.get('/api/segments/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    return hydrateSegment(row, db);
+    return { ...hydrateSegment(row, db), card_cache: getCardCache(id) };
   });
 
   // PATCH /api/segments/:id

@@ -64,8 +64,13 @@
         "description": "A randomly-sampled subset of this segment for spot-checking.",
         "exportAll": "Export all IDs",
         "reshuffle": "Reshuffle",
-        "empty": "This segment has no member uids yet.",
+        "empty": "No member uids yet — predicate matched 0 users on last refresh, or refresh hasn't run.",
         "noColumn": "uid"
+      },
+      "predicate": {
+        "manual": "Manual segment — uids are imported directly. No predicate to display.",
+        "empty": "No predicate set.",
+        "editLink": "Edit predicate →"
       },
       "pending": "Coming in {{phase}}."
     },

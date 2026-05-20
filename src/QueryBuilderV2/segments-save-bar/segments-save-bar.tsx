@@ -1,69 +1,85 @@
 /**
- * Floating action bar shown beneath QueryBuilderResults when the executed query
- * contains a mapped identity dimension. Lets the user push the visible result
- * set into a segment without leaving Playground.
+ * Floating action bar shown beneath QueryBuilderResults once the user has
+ * checked one or more rows whose cube has a configured identity dimension.
+ * Drives Clear / Copy IDs / Export CSV / Save as segment.
  *
- * Additive: does not modify the existing table render path. Reads from the
- * QueryBuilder context that's already in scope of QueryBuilderResults.
+ * Selection state is owned by QueryBuilderResults and passed in via props so
+ * the checkbox column and this bar stay in sync.
  */
 
 import { ReactElement, useMemo, useState } from 'react';
-import { Button } from 'antd';
+import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useIdentityMap } from '../../hooks/use-identity-map';
 import { PushModal } from '../../pages/Segments/push-modal/push-modal';
+import type { ResultsSelectionApi } from './use-results-selection';
 
 interface Props {
-  /** Query that was actually executed (not the working query). */
-  executedQuery: {
-    dimensions?: string[];
-    measures?: string[];
-    filters?: unknown[];
-  } | null;
-  /** Result rows currently displayed. */
+  cube: string | null;
+  identityField: string | null;
   rows: Record<string, unknown>[];
+  selection: ResultsSelectionApi;
 }
 
-function inferCubeAndIdentity(
-  executedQuery: Props['executedQuery'],
-  hasIdentityFor: (cube: string) => boolean,
-  identityFieldFor: (cube: string) => string | null,
-): { cube: string | null; identityField: string | null } {
-  if (!executedQuery?.dimensions?.length) return { cube: null, identityField: null };
-  for (const dim of executedQuery.dimensions) {
-    const cube = dim.split('.')[0];
-    if (hasIdentityFor(cube) && identityFieldFor(cube) === dim) {
-      return { cube, identityField: dim };
-    }
-  }
-  return { cube: null, identityField: null };
+function toCsv(uids: string[], identityField: string): string {
+  const header = identityField;
+  const body = uids.map((u) => (u.includes(',') || u.includes('"') ? `"${u.replace(/"/g, '""')}"` : u)).join('\n');
+  return `${header}\n${body}\n`;
 }
 
-export function SegmentsSaveBar({ executedQuery, rows }: Props): ReactElement | null {
+function downloadCsv(filename: string, csv: string): void {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export function SegmentsSaveBar({
+  cube,
+  identityField,
+  rows,
+  selection,
+}: Props): ReactElement | null {
   const { t } = useTranslation();
-  const { hasIdentityFor, identityFieldFor } = useIdentityMap();
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { cube, identityField } = useMemo(
-    () => inferCubeAndIdentity(executedQuery, hasIdentityFor, identityFieldFor),
-    [executedQuery, hasIdentityFor, identityFieldFor],
-  );
+  const selectedUids = selection.selectedUids;
+  const selectedSet = useMemo(() => new Set(selectedUids), [selectedUids]);
 
-  const uids = useMemo(() => {
+  const selectedRows = useMemo(() => {
     if (!identityField) return [];
-    return rows
-      .map((r) => r[identityField])
-      .filter((v): v is string | number => v != null)
-      .map((v) => String(v));
-  }, [identityField, rows]);
+    return rows.filter((r) => {
+      const v = r[identityField];
+      return v != null && selectedSet.has(String(v));
+    });
+  }, [identityField, rows, selectedSet]);
 
-  if (!identityField || uids.length === 0) return null;
+  if (!identityField || selectedUids.length === 0) return null;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(selectedUids.join('\n'));
+      message.success(t('segments.selectionBar.copied', { count: selectedUids.length, defaultValue: '{{count}} IDs copied' }));
+    } catch {
+      message.error(t('segments.selectionBar.copyFailed', { defaultValue: 'Clipboard unavailable' }));
+    }
+  };
+
+  const handleExport = () => {
+    const csv = toCsv(selectedUids, identityField);
+    const safeCube = (cube ?? 'segment').replace(/[^a-z0-9_-]/gi, '_');
+    downloadCsv(`${safeCube}-uids-${selectedUids.length}.csv`, csv);
+  };
 
   return (
     <>
       <div
         role="region"
-        aria-label="Save as segment"
+        aria-label="Selection actions"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -75,8 +91,17 @@ export function SegmentsSaveBar({ executedQuery, rows }: Props): ReactElement | 
         }}
       >
         <span style={{ color: 'var(--text-secondary)' }}>
-          {t('segments.selectionBar.selected', { count: uids.length })}
+          {t('segments.selectionBar.selected', { count: selectedUids.length })}
         </span>
+        <Button size="small" onClick={selection.clear}>
+          {t('segments.selectionBar.clear')}
+        </Button>
+        <Button size="small" onClick={handleCopy}>
+          {t('segments.selectionBar.copy')}
+        </Button>
+        <Button size="small" onClick={handleExport}>
+          {t('segments.selectionBar.export')}
+        </Button>
         <span style={{ flex: 1 }} />
         <Button type="primary" onClick={() => setModalOpen(true)}>
           {t('segments.selectionBar.saveAs')}
@@ -84,8 +109,8 @@ export function SegmentsSaveBar({ executedQuery, rows }: Props): ReactElement | 
       </div>
       <PushModal
         open={modalOpen}
-        uids={uids}
-        rows={rows}
+        uids={selectedUids}
+        rows={selectedRows}
         cube={cube}
         onClose={() => setModalOpen(false)}
       />

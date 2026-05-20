@@ -64,8 +64,13 @@
         "description": "Tập mẫu ngẫu nhiên để kiểm tra nhanh.",
         "exportAll": "Xuất tất cả IDs",
         "reshuffle": "Trộn lại",
-        "empty": "Nhóm này chưa có uid.",
+        "empty": "Chưa có uid — predicate khớp 0 user ở lần refresh gần nhất, hoặc refresh chưa chạy.",
         "noColumn": "uid"
+      },
+      "predicate": {
+        "manual": "Segment thủ công — uid được import trực tiếp. Không có predicate để hiển thị.",
+        "empty": "Chưa đặt predicate.",
+        "editLink": "Sửa predicate →"
       },
       "pending": "Sẽ có ở {{phase}}."
     },

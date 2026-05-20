@@ -5,6 +5,7 @@ import type { Query } from '@cubejs-client/core';
 import { LineChart } from '../../visuals';
 import { CardShell } from './card-shell';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
+import { getCachedRows } from './use-card-cache-lookup';
 import type { LineCardSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -12,9 +13,10 @@ interface Props {
   spec: LineCardSpec;
   segment: Segment;
   preset: Preset;
+  cacheKey?: string;
 }
 
-export function LineChartCard({ spec, segment, preset }: Props): ReactElement {
+export function LineChartCard({ spec, segment, preset, cacheKey }: Props): ReactElement {
   const query = useMemo<Query>(() => ({
     measures: [spec.measure],
     timeDimensions: [
@@ -26,7 +28,10 @@ export function LineChartCard({ spec, segment, preset }: Props): ReactElement {
     ],
   }), [spec]);
 
-  const { rows, loading, error } = useSegmentCubeQuery(segment, query, preset.identityDim);
+  const initialRows = cacheKey ? getCachedRows(segment, cacheKey) : undefined;
+  const { rows, loading, error } = useSegmentCubeQuery(segment, query, preset.identityDim, {
+    initialRows,
+  });
 
   const data = useMemo(() => rows.map((r) => ({
     x: String((r as Record<string, unknown>)[`${spec.timeDimension}.day`] ?? (r as Record<string, unknown>)[spec.timeDimension] ?? ''),

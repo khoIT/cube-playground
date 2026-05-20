@@ -5,6 +5,7 @@ import type { Query } from '@cubejs-client/core';
 import { KpiTile } from '../../visuals';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
 import { formatValue } from './format-value';
+import { getCachedRows } from './use-card-cache-lookup';
 import type { KpiSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -12,9 +13,11 @@ interface Props {
   spec: KpiSpec;
   segment: Segment;
   preset: Preset;
+  /** Lookup key into segment.card_cache for synchronous hydration. */
+  cacheKey?: string;
 }
 
-export function KpiCard({ spec, segment, preset }: Props): ReactElement {
+export function KpiCard({ spec, segment, preset, cacheKey }: Props): ReactElement {
   const query = useMemo<Query>(() => ({
     measures: [spec.measure],
     ...(spec.timeDimension && spec.dateRange
@@ -22,7 +25,10 @@ export function KpiCard({ spec, segment, preset }: Props): ReactElement {
       : {}),
   }), [spec]);
 
-  const { rows, loading, error } = useSegmentCubeQuery(segment, query, preset.identityDim);
+  const initialRows = cacheKey ? getCachedRows(segment, cacheKey) : undefined;
+  const { rows, loading, error } = useSegmentCubeQuery(segment, query, preset.identityDim, {
+    initialRows,
+  });
   const value = loading ? '…' : error ? '—' : formatValue(rows[0]?.[spec.measure] ?? null, spec.format);
 
   return <KpiTile label={spec.label} value={value} footer={spec.unit} />;

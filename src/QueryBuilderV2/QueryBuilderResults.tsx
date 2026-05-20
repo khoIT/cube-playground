@@ -68,6 +68,12 @@ import { MemberLabel } from './components/MemberLabel';
 import { areQueriesRelated } from './utils/query-helpers';
 import { ORDER_LABEL_BY_TYPE } from './utils/labels';
 import { SegmentsSaveBar } from './segments-save-bar/segments-save-bar';
+import {
+  extractUid,
+  inferCubeAndIdentity,
+  useResultsSelection,
+} from './segments-save-bar/use-results-selection';
+import { useIdentityMap } from '../hooks/use-identity-map';
 
 const StyledTag = tasty(Tag, {
   styles: {
@@ -739,7 +745,21 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures)]
   );
-  const gridColumnsTemplate = getColumnTemplate(orderedColumnNames, livePreviewWidths);
+  const baseGridColumnsTemplate = getColumnTemplate(orderedColumnNames, livePreviewWidths);
+
+  // Identity-aware row selection: when the executed query exposes a configured
+  // identity dimension (e.g. mf_users.user_id) we render a leading checkbox
+  // column so the user can push a subset of rows into a Segment.
+  const { hasIdentityFor, identityFieldFor } = useIdentityMap();
+  const { cube: identityCube, identityField } = useMemo(
+    () => inferCubeAndIdentity(executedQuery as { dimensions?: string[] } | null, hasIdentityFor, identityFieldFor),
+    [executedQuery, hasIdentityFor, identityFieldFor],
+  );
+  const selection = useResultsSelection(executedQuery, identityField);
+  const showSelectionColumn = !!identityField;
+  const gridColumnsTemplate = showSelectionColumn
+    ? `40px ${baseGridColumnsTemplate}`
+    : baseGridColumnsTemplate;
 
   const cancelResize = useCallback(() => {
     setLivePreviewWidths({});
@@ -880,8 +900,28 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     return (
       <>
         {data?.slice((page - 1) * 100, (page - 1) * 100 + 100).map((row, rowId) => {
+          const rowUid = showSelectionColumn ? extractUid(row as Record<string, unknown>, identityField) : null;
+          const rowChecked = rowUid != null && selection.isSelected(rowUid);
           return (
             <div key={rowId} data-element="Row" data-qa={`QueryBuilderResult-row_${rowId}`}>
+              {showSelectionColumn ? (
+                <div
+                  data-element="Cell"
+                  data-row={rowId}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={`Select row ${rowId}`}
+                    disabled={rowUid == null}
+                    checked={rowChecked}
+                    onChange={() => {
+                      if (rowUid != null) selection.toggle(rowUid);
+                    }}
+                  />
+                </div>
+              ) : null}
               {dimensions.map((dimension) => {
                 const isSelected =
                   selectedCell && selectedCell[0] === rowId && selectedCell[1] === dimension;
@@ -977,6 +1017,9 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     selectedCell,
     data,
     meta,
+    showSelectionColumn,
+    identityField,
+    selection.selectedUids,
   ]);
 
   function addFilter(name: string) {
@@ -1284,6 +1327,42 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     </DisclaimerContainer>
   );
 
+  const pageRows = useMemo(
+    () => (data?.slice((page - 1) * 100, (page - 1) * 100 + 100) ?? []) as Record<string, unknown>[],
+    [data, page],
+  );
+  const pageSelectionState = showSelectionColumn ? selection.pageState(pageRows) : 'none';
+  const selectionHeaderRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectionHeaderRef.current) {
+      selectionHeaderRef.current.indeterminate = pageSelectionState === 'some';
+    }
+  }, [pageSelectionState]);
+  const selectionHeaderCell = showSelectionColumn ? (
+    <div
+      key="__selection-header"
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 2,
+        background: 'var(--bg-card, #fafafa)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 'var(--row-height-tight)',
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        ref={selectionHeaderRef}
+        type="checkbox"
+        aria-label="Select all rows on this page"
+        checked={pageSelectionState === 'all'}
+        onChange={() => selection.togglePage(pageRows)}
+      />
+    </div>
+  ) : null;
+
   return (
     <Panel
       qa="QueryBuilderResults"
@@ -1299,6 +1378,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
               columns={gridColumnsTemplate}
               mods={{ inactive: !!(isLoading || error) }}
             >
+              {selectionHeaderCell}
               {dimensionColumns}
               {timeDimensionsColumns}
               {measuresColumns}
@@ -1342,10 +1422,12 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
           ) : null}
         </Space>
       </TableFooter>
-      {executedQuery && data && data.length > 0 && (
+      {executedQuery && data && data.length > 0 && showSelectionColumn && (
         <SegmentsSaveBar
-          executedQuery={executedQuery as { dimensions?: string[]; measures?: string[]; filters?: unknown[] }}
+          cube={identityCube}
+          identityField={identityField}
           rows={data as Record<string, unknown>[]}
+          selection={selection}
         />
       )}
     </Panel>

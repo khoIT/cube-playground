@@ -27,8 +27,14 @@ function cacheKey(tree: PredicateNode, primaryCube: string): string {
 }
 
 function extractCount(loadResult: unknown, measure: string): number | null {
-  const r = loadResult as { results?: Array<{ data?: Array<Record<string, unknown>> }> };
-  const row = r.results?.[0]?.data?.[0];
+  // Cube /load returns { data: [...] } at top level; fall back to the
+  // batch shape { results: [{ data: [...] }] } in case it's ever called
+  // via the batch endpoint.
+  const r = loadResult as {
+    data?: Array<Record<string, unknown>>;
+    results?: Array<{ data?: Array<Record<string, unknown>> }>;
+  };
+  const row = r.data?.[0] ?? r.results?.[0]?.data?.[0];
   if (!row) return null;
   const v = row[measure];
   if (typeof v === 'number') return v;

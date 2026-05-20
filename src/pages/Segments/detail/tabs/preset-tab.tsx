@@ -32,7 +32,7 @@ export function PresetTab({ tab, segment, preset }: Props): ReactElement {
           }}
         >
           {tab.kpis.map((spec) => (
-            <KpiCard key={spec.id} spec={spec} segment={segment} preset={preset} />
+            <KpiCard key={spec.id} spec={spec} segment={segment} preset={preset} cacheKey={`kpi:${tab.id}:${spec.id}`} />
           ))}
         </div>
       )}
@@ -46,11 +46,12 @@ export function PresetTab({ tab, segment, preset }: Props): ReactElement {
           }}
         >
           {tab.cards.map((card) => {
+            const cacheKey = `card:${tab.id}:${card.id}`;
             switch (card.kind) {
-              case 'line':         return <LineChartCard       key={card.id} spec={card} segment={segment} preset={preset} />;
-              case 'bar':          return <BarListCard         key={card.id} spec={card} segment={segment} preset={preset} />;
-              case 'donut':        return <DonutCard           key={card.id} spec={card} segment={segment} preset={preset} />;
-              case 'composition':  return <CompositionDataCard key={card.id} spec={card} segment={segment} preset={preset} />;
+              case 'line':         return <LineChartCard       key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              case 'bar':          return <BarListCard         key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              case 'donut':        return <DonutCard           key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              case 'composition':  return <CompositionDataCard key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
               default:             return null;
             }
           })}

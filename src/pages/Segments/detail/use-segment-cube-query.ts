@@ -69,16 +69,28 @@ export function scopeQueryToSegment(
   return next;
 }
 
+export interface UseSegmentCubeQueryOptions<T> {
+  /** Pre-rendered rows from server cache. Skips initial loading flicker and lets
+   *  the hook silently background-refetch (updating display only if rows differ). */
+  initialRows?: T[];
+}
+
 export function useSegmentCubeQuery<T = Record<string, unknown>>(
   segment: Segment | null,
   query: Query | null,
   identityDim: string,
+  options: UseSegmentCubeQueryOptions<T> = {},
 ): UseSegmentCubeQueryResult<T> {
   const { apiUrl } = useAppContext();
-  const { token } = useSecurityContext();
-  const cubejsApi = useCubejsApi(apiUrl ?? null, token ?? null);
+  // `token` is the localStorage-only manual override (Security Context modal);
+  // `currentToken` falls back to AppContext's token, which is populated by
+  // useCubeApiBootstrap from /playground/context. Use currentToken so cards
+  // work without requiring the user to open the modal first.
+  const { currentToken } = useSecurityContext();
+  const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
 
-  const [rows, setRows] = useState<T[]>([]);
+  const hasInitial = options.initialRows !== undefined;
+  const [rows, setRows] = useState<T[]>(options.initialRows ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const lastKeyRef = useRef<string | null>(null);
@@ -99,15 +111,16 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     }
 
     if (!cubejsApi) {
-      // No API client available — leave rows empty without firing.
-      setRows([]);
+      // No API client. If we have pre-rendered rows, keep them; otherwise empty.
+      if (!hasInitial) setRows([]);
       setLoading(false);
       setError(null);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
+    // Only show the spinner if we have nothing to display yet.
+    setLoading(!hasInitial);
     setError(null);
 
     (async () => {
@@ -117,7 +130,11 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
         const raw = (resultSet as unknown as { rawData: () => unknown[] }).rawData();
         if (!cancelled) {
           cache.set(key, { result: raw, fetchedAt: Date.now() });
-          setRows(raw as T[]);
+          // Diff against current display state; skip setState when identical
+          // so background refetches don't trigger unnecessary re-renders.
+          setRows((prev) =>
+            JSON.stringify(prev) === JSON.stringify(raw) ? prev : (raw as T[]),
+          );
           lastKeyRef.current = key;
         }
       } catch (err) {
@@ -131,7 +148,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     return () => {
       cancelled = true;
     };
-  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi]);
+  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial]);
 
   return { loading, error, rows };
 }

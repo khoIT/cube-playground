@@ -43,6 +43,11 @@ export interface GroupNode {
 
 export type PredicateNode = GroupNode | LeafNode;
 
+export interface CardCacheEntry {
+  rows: Array<Record<string, unknown>>;
+  fetched_at: string;
+}
+
 export interface Segment {
   id: string;
   name: string;
@@ -61,6 +66,8 @@ export interface Segment {
   broken_reason: string | null;
   created_at: string;
   updated_at: string;
+  /** Pre-rendered preset card rows, keyed by `kpi:<id>` / `card:<tabId>:<id>`. Present on segment-by-id GET only. */
+  card_cache?: Record<string, CardCacheEntry>;
 }
 
 export interface SegmentInput {

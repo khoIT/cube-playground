@@ -57,7 +57,8 @@ build
 GoogleService-Info.plist
 
 repomix-output.xml
-server/data/
+server/data/*
+!server/data/seed/
 server/dist/
 server/node_modules/
 .serena/cache

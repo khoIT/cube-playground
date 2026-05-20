@@ -10,8 +10,13 @@ import { LibraryView } from './library/library-view';
 import { DetailView } from './detail/detail-view';
 import { IdentityMapSection } from './identity-map/identity-map-section';
 import { EditorView } from './editor/editor-view';
+import { useCubeApiBootstrap } from '../../hooks';
 
 export function SegmentsPage(): ReactElement {
+  // Push apiUrl + token into AppContext so preset cards can hit Cube
+  // directly even when the user lands on /segments without visiting /build.
+  useCubeApiBootstrap();
+
   return (
     <Switch>
       <Route exact path="/segments" component={LibraryView} />

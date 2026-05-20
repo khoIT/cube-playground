@@ -12,6 +12,7 @@ import { SegmentApiError } from '../../../api/api-client';
 import { SampleUsersTab } from './tabs/sample-users-tab';
 import { TabPending } from './tab-pending-placeholder';
 import { PresetTab } from './tabs/preset-tab';
+import { PredicateTab } from './tabs/predicate-tab';
 import { usePreset } from './use-preset';
 import { KpiCard } from './cards/kpi-card';
 import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
@@ -165,7 +166,7 @@ export function DetailView(): ReactElement {
       <div className={styles.detailKpiStrip}>
         {preset && preset.headlineKpis.length > 0
           ? preset.headlineKpis.map((spec) => (
-              <KpiCard key={spec.id} spec={spec} segment={segment} preset={preset} />
+              <KpiCard key={spec.id} spec={spec} segment={segment} preset={preset} cacheKey={`kpi:${spec.id}`} />
             ))
           : (
             <>
@@ -216,7 +217,7 @@ export function DetailView(): ReactElement {
         preset ? <PresetTab tab={preset.tabs.find((t) => t.id === 'retention')!} segment={segment} preset={preset} /> : <TabPending phase={4} />
       )}
       {activeTab === 'saved-analyses' && <SavedAnalysesTab segment={segment} />}
-      {activeTab === 'predicate' && <TabPending phase={5} />}
+      {activeTab === 'predicate' && <PredicateTab segment={segment} />}
     </main>
   );
 }

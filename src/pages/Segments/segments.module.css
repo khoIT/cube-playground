@@ -265,6 +265,58 @@
   padding: 16px 0 0;
 }
 
+.predicateToolbar {
+  margin-bottom: 12px;
+}
+
+.predicateGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--border-card);
+  background: var(--bg-card-subtle, transparent);
+  border-radius: 6px;
+}
+
+.predicateGroupHeader {
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.predicateLeaf {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.predicateLeaf code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--bg-card-subtle, transparent);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.predicateOp {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.predicateEmpty {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .sampleTable {
   width: 100%;
   border-collapse: collapse;

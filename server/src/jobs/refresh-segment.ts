@@ -9,6 +9,9 @@ import { getDb } from '../db/sqlite.js';
 import { load } from '../services/cube-client.js';
 import { setSegmentStatus, setSegmentUids } from '../services/segment-status.js';
 import { resolveDrift } from '../services/drift-resolver.js';
+import { runPresetCards } from '../services/card-runner.js';
+import { upsertCardCache } from '../services/card-cache-store.js';
+import { pickPresetForCube } from '../presets/mf-users-hub.js';
 
 const PER_SEGMENT_TIMEOUT_MS = 60_000;
 
@@ -97,7 +100,14 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       `refresh segment ${segmentId}`,
     );
 
-    const rows = ((result as { results?: Array<{ data?: Array<Record<string, unknown>> }> }).results?.[0]?.data ?? []);
+    // Cube /load returns { data: [...] } at top level (single-query form).
+    // The batch /load endpoint uses { results: [{ data: [...] }] } but the
+    // cube-client wraps a single query, so we read the top-level data array.
+    const typed = result as {
+      data?: Array<Record<string, unknown>>;
+      results?: Array<{ data?: Array<Record<string, unknown>> }>;
+    };
+    const rows = typed.data ?? typed.results?.[0]?.data ?? [];
     const seen = new Set<string>();
     const uids: string[] = [];
     for (const r of rows) {
@@ -110,6 +120,19 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     }
 
     setSegmentUids(segmentId, uids, 'fresh');
+
+    // Pre-render preset cards so the FE can hydrate synchronously.
+    // Failures here don't roll back the segment refresh — cards just fall
+    // back to live fetch when their entry is missing from the cache.
+    const preset = pickPresetForCube(row.cube);
+    if (preset) {
+      try {
+        const entries = await runPresetCards(preset, uids);
+        upsertCardCache(segmentId, entries);
+      } catch (err) {
+        console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);
+      }
+    }
   } catch (err) {
     setSegmentStatus(segmentId, 'broken', (err as Error).message);
   }
