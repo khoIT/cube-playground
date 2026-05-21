@@ -2,7 +2,7 @@
 
 import { ReactElement, useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
-import { Button } from 'antd';
+import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Breadcrumbs, KpiTile, LiveBadge } from '../visuals';
@@ -192,7 +192,25 @@ export function DetailView(): ReactElement {
       )}
       {tab === 'members' && <MembersTab segment={segment} />}
       {tab === 'definition' && <DefinitionTab segment={segment} preset={preset} />}
-      {tab === 'activation' && <ActivationTab segment={segment} onActivate={openActivateModal} />}
+      {tab === 'activation' && (
+        <ActivationTab
+          segment={segment}
+          onActivate={openActivateModal}
+          onDeactivate={async (activationId) => {
+            try {
+              const updated = await segmentsClient.removeActivation(segment.id, activationId);
+              setSegment(updated);
+              message.success(
+                t('segments.detail.activation.deactivated', { defaultValue: 'Activation removed' }),
+              );
+            } catch (err) {
+              const reason =
+                err instanceof SegmentApiError ? err.message : 'Failed to remove activation';
+              message.error(reason);
+            }
+          }}
+        />
+      )}
 
       <ActivateToCdpModal
         open={activateOpen}

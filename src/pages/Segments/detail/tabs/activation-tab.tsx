@@ -4,8 +4,8 @@
  * `+ Activate to CDP` CTA into the push-modal Activate tab.
  */
 
-import { ReactElement } from 'react';
-import { Button } from 'antd';
+import { ReactElement, useState } from 'react';
+import { Button, Modal } from 'antd';
 import { ArrowRight, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -15,6 +15,13 @@ import styles from '../../segments.module.css';
 interface Props {
   segment: Segment;
   onActivate?: () => void;
+  /**
+   * Removes an activation from the segment. Called with the activation id;
+   * implementations should invoke the segments-client DELETE endpoint and
+   * propagate the updated segment back up. Confirm UX is handled inside this
+   * tab — the parent just performs the network call.
+   */
+  onDeactivate?: (activationId: string) => Promise<void> | void;
 }
 
 function formatWhen(value: string | null): string {
@@ -32,9 +39,36 @@ function statusTone(s: Activation['status']): 'success' | 'destructive' | 'muted
   return 'muted';
 }
 
-export function ActivationTab({ segment, onActivate }: Props): ReactElement {
+export function ActivationTab({ segment, onActivate, onDeactivate }: Props): ReactElement {
   const { t } = useTranslation();
   const activations = segment.activations ?? [];
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  function confirmDeactivate(a: Activation) {
+    if (!onDeactivate) return;
+    Modal.confirm({
+      title: t('segments.detail.activation.deactivateTitle', {
+        defaultValue: 'Deactivate this destination?',
+      }),
+      content: t('segments.detail.activation.deactivateBody', {
+        defaultValue: 'This removes {{metric}} from {{dest}} · {{env}}. It does not delete the segment.',
+        metric: a.metric_name,
+        dest: a.destination.toUpperCase(),
+        env: a.env,
+      }),
+      okText: t('segments.detail.activation.deactivateOk', { defaultValue: 'Deactivate' }),
+      okType: 'danger',
+      cancelText: t('common.cancel', { defaultValue: 'Cancel' }),
+      onOk: async () => {
+        setPendingId(a.id);
+        try {
+          await onDeactivate(a.id);
+        } finally {
+          setPendingId(null);
+        }
+      },
+    });
+  }
 
   return (
     <section className={styles.activationTab}>
@@ -86,6 +120,20 @@ export function ActivationTab({ segment, onActivate }: Props): ReactElement {
               {a.last_error && (
                 <div className={styles.activationError}>
                   <AlertCircle size={12} aria-hidden /> {a.last_error}
+                </div>
+              )}
+              {onDeactivate && (
+                <div className={styles.activationCardFoot}>
+                  <button
+                    type="button"
+                    className={styles.activationDeactivateBtn}
+                    disabled={pendingId === a.id}
+                    onClick={() => confirmDeactivate(a)}
+                  >
+                    {pendingId === a.id
+                      ? t('segments.detail.activation.deactivating', { defaultValue: 'Deactivating…' })
+                      : t('segments.detail.activation.deactivate', { defaultValue: 'Deactivate' })}
+                  </button>
                 </div>
               )}
             </article>
