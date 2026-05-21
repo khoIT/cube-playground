@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fafafa;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;font-family:Inter,sans-serif;color:#171717;align-items:start}
+  .group{display:flex;flex-direction:column;gap:10px}
+  .h{font-family:Inter,sans-serif;font-size:10px;color:var(--neutral-500);letter-spacing:0.08em;text-transform:uppercase;font-weight:600}
+
+  /* Trigger (date picker input) */
+  .trigger{display:inline-flex;align-items:center;gap:8px;padding:0 12px;height:36px;border:1px solid #e5e5e5;border-radius:8px;background:#fff;font-size:13px;color:#171717;cursor:pointer;user-select:none;min-width:220px;box-sizing:border-box}
+  .trigger i{font-size:16px;color:#737373;line-height:1}
+  .trigger .ph{color:#a3a3a3}
+  .trigger .spacer{flex:1}
+  .trigger:hover{border-color:#d4d4d4}
+  .trigger.open{border-color:#a3a3a3;box-shadow:0 0 0 3px rgba(163,163,163,0.15)}
+
+  /* Calendar card */
+  .cal{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:14px;box-shadow:0 1px 2px -1px rgba(0,0,0,0.08),0 1px 3px 0 rgba(0,0,0,0.08);width:268px;box-sizing:border-box}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 10px}
+  .cal-title{font-weight:600;font-size:14px}
+  .nav{display:inline-flex;gap:2px}
+  .nav button{width:28px;height:28px;border:0;background:transparent;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#525252}
+  .nav button:hover{background:#f5f5f5}
+  .nav i{font-size:16px;line-height:1}
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .cal-grid .dow{font-size:11px;color:#737373;font-weight:500;text-align:center;padding:4px 0;text-transform:uppercase;letter-spacing:0.04em}
+  .day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12.5px;border-radius:8px;cursor:pointer;color:#171717;position:relative}
+  .day:hover{background:#f5f5f5}
+  .day.mute{color:#d4d4d4}
+  .day.today{font-weight:600}
+  .day.today::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:9999px;background:#f05a22}
+  .day.sel{background:#f05a22;color:#fff;font-weight:600}
+  .day.sel::after{background:#fff}
+  .day.sel:hover{background:#f05a22}
+  .day.in-range{background:#fff7ed;border-radius:0;color:#171717}
+  .day.range-start{background:#f05a22;color:#fff;font-weight:600;border-top-right-radius:0;border-bottom-right-radius:0}
+  .day.range-end{background:#f05a22;color:#fff;font-weight:600;border-top-left-radius:0;border-bottom-left-radius:0}
+  .day.disabled{color:#d4d4d4;cursor:not-allowed;text-decoration:line-through}
+
+  .cal-foot{display:flex;justify-content:space-between;align-items:center;padding-top:10px;margin-top:8px;border-top:1px solid #f5f5f5;gap:8px}
+  .chip{font-size:11px;color:#737373;font-weight:500}
+  .mini-btn{height:28px;padding:0 10px;border-radius:9999px;border:0;cursor:pointer;font-family:Inter,sans-serif;font-weight:500;font-size:12px}
+  .mini-btn.ghost{background:transparent;color:#525252}
+  .mini-btn.ghost:hover{background:#f5f5f5}
+  .mini-btn.primary{background:#f05a22;color:#fff}
+
+  /* Month-year picker panel */
+  .months{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px 0}
+  .months button{padding:10px 0;border:0;background:transparent;border-radius:8px;font-family:Inter,sans-serif;font-size:12px;font-weight:500;color:#171717;cursor:pointer}
+  .months button:hover{background:#f5f5f5}
+  .months button.on{background:#f05a22;color:#fff}
+
+  /* Presets sidebar */
+  .with-presets{display:grid;grid-template-columns:140px 268px;gap:12px}
+  .presets{display:flex;flex-direction:column;gap:2px;padding:8px 0}
+  .presets button{text-align:left;padding:7px 10px;border:0;background:transparent;border-radius:8px;font-family:Inter,sans-serif;font-size:12.5px;color:#171717;cursor:pointer}
+  .presets button:hover{background:#f5f5f5}
+  .presets button.on{background:#fff7ed;color:#9a3412;font-weight:600}
+
+  /* Time picker */
+  .time{display:flex;gap:6px;align-items:center;padding-top:10px;margin-top:8px;border-top:1px solid #f5f5f5}
+  .time .lbl{font-size:11px;color:#737373;font-weight:500;margin-right:4px}
+  .time .seg{display:inline-flex;align-items:center;padding:4px 8px;border:1px solid #e5e5e5;border-radius:6px;gap:4px;font-family:'Geist Mono',monospace;font-size:12px}
+  .ampm{display:inline-flex;border:1px solid #e5e5e5;border-radius:6px;overflow:hidden}
+  .ampm button{border:0;background:#fff;padding:4px 10px;font-family:Inter,sans-serif;font-size:11px;font-weight:500;cursor:pointer;color:#525252}
+  .ampm button.on{background:#171717;color:#fff}
+
+  /* Inline big calendar */
+  .inline-wide{grid-column:1 / -1}
+  .inline-wide .cal{width:auto;max-width:560px}
+  .inline-wide .day{font-size:13.5px}
+</style></head>
+<body>
+
+<!-- 1. Date picker triggers -->
+<div class="group">
+  <span class="h">Date Picker · Trigger</span>
+  <div class="trigger"><i class="ri-calendar-line"></i><span class="ph">Pick a date</span><div class="spacer"></div><i class="ri-arrow-down-s-line" style="font-size:14px"></i></div>
+  <div class="trigger"><i class="ri-calendar-line"></i><span>Apr 15, 2026</span><div class="spacer"></div><i class="ri-close-line" style="font-size:14px;color:#a3a3a3"></i></div>
+  <div class="trigger open"><i class="ri-calendar-line" style="color:#f05a22"></i><span>Apr 15 — Apr 22, 2026</span><div class="spacer"></div><i class="ri-arrow-up-s-line" style="font-size:14px"></i></div>
+</div>
+
+<!-- 2. Single date calendar -->
+<div class="group">
+  <span class="h">Calendar · Single Select</span>
+  <div class="cal">
+    <div class="cal-head">
+      <button class="mini-btn ghost" style="display:inline-flex;gap:4px;align-items:center">April 2026 <i class="ri-arrow-down-s-line"></i></button>
+      <div class="nav"><button><i class="ri-arrow-left-s-line"></i></button><button><i class="ri-arrow-right-s-line"></i></button></div>
+    </div>
+    <div class="cal-grid" id="g-single"></div>
+    <div class="cal-foot">
+      <span class="chip">Today: Apr 20</span>
+      <button class="mini-btn primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Range + presets -->
+<div class="group">
+  <span class="h">Date Range · with Presets</span>
+  <div class="cal with-presets">
+    <div class="presets">
+      <button>Today</button>
+      <button>Yesterday</button>
+      <button class="on">Last 7 days</button>
+      <button>Last 30 days</button>
+      <button>This month</button>
+      <button>Last quarter</button>
+      <button>Custom…</button>
+    </div>
+    <div>
+      <div class="cal-head">
+        <button class="mini-btn ghost" style="display:inline-flex;gap:4px;align-items:center">April 2026 <i class="ri-arrow-down-s-line"></i></button>
+        <div class="nav"><button><i class="ri-arrow-left-s-line"></i></button><button><i class="ri-arrow-right-s-line"></i></button></div>
+      </div>
+      <div class="cal-grid" id="g-range"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Month-year picker -->
+<div class="group">
+  <span class="h">Month · Year Picker</span>
+  <div class="cal">
+    <div class="cal-head">
+      <div class="cal-title">2026</div>
+      <div class="nav"><button><i class="ri-arrow-left-s-line"></i></button><button><i class="ri-arrow-right-s-line"></i></button></div>
+    </div>
+    <div class="months">
+      <button>Jan</button><button>Feb</button><button>Mar</button>
+      <button class="on">Apr</button><button>May</button><button>Jun</button>
+      <button>Jul</button><button>Aug</button><button>Sep</button>
+      <button>Oct</button><button>Nov</button><button>Dec</button>
+    </div>
+  </div>
+</div>
+
+<!-- 5. With time picker -->
+<div class="group">
+  <span class="h">Date + Time</span>
+  <div class="cal">
+    <div class="cal-head">
+      <button class="mini-btn ghost" style="display:inline-flex;gap:4px;align-items:center">April 2026 <i class="ri-arrow-down-s-line"></i></button>
+      <div class="nav"><button><i class="ri-arrow-left-s-line"></i></button><button><i class="ri-arrow-right-s-line"></i></button></div>
+    </div>
+    <div class="cal-grid" id="g-time"></div>
+    <div class="time">
+      <span class="lbl">Time</span>
+      <div class="seg"><i class="ri-time-line" style="font-size:12px;color:#737373"></i>09:30</div>
+      <div class="ampm"><button class="on">AM</button><button>PM</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 6. Disabled/locked dates -->
+<div class="group">
+  <span class="h">Restricted Dates</span>
+  <div class="cal">
+    <div class="cal-head">
+      <button class="mini-btn ghost" style="display:inline-flex;gap:4px;align-items:center">April 2026 <i class="ri-arrow-down-s-line"></i></button>
+      <div class="nav"><button><i class="ri-arrow-left-s-line"></i></button><button><i class="ri-arrow-right-s-line"></i></button></div>
+    </div>
+    <div class="cal-grid" id="g-disabled"></div>
+    <div class="cal-foot"><span class="chip">Weekends disabled · Past locked</span></div>
+  </div>
+</div>
+
+<script>
+const DOW = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+// April 2026 starts on Wednesday (day-of-week=3). 30 days.
+const MONTH_START_DOW = 3;
+const MONTH_DAYS = 30;
+const PREV_MONTH_DAYS = 31; // March
+
+function buildDays({ selected = null, range = null, today = 20, disabledDays = [] }) {
+  const cells = [];
+  for (const d of DOW) cells.push(`<div class="dow">${d}</div>`);
+  // Leading mute days
+  for (let i = 0; i < MONTH_START_DOW; i++) {
+    const day = PREV_MONTH_DAYS - MONTH_START_DOW + 1 + i;
+    cells.push(`<div class="day mute">${day}</div>`);
+  }
+  for (let d = 1; d <= MONTH_DAYS; d++) {
+    const cls = ['day'];
+    if (selected === d) cls.push('sel');
+    if (today === d) cls.push('today');
+    if (range) {
+      if (d === range[0]) cls.push('range-start');
+      else if (d === range[1]) cls.push('range-end');
+      else if (d > range[0] && d < range[1]) cls.push('in-range');
+    }
+    if (disabledDays.includes(d)) cls.push('disabled');
+    cells.push(`<div class="${cls.join(' ')}">${d}</div>`);
+  }
+  // Trailing mute days to fill 42 cells (6 rows)
+  const rendered = MONTH_START_DOW + MONTH_DAYS;
+  const trail = 42 - rendered;
+  for (let i = 1; i <= trail; i++) cells.push(`<div class="day mute">${i}</div>`);
+  return cells.join('');
+}
+
+document.getElementById('g-single').innerHTML = buildDays({ selected: 15, today: 20 });
+document.getElementById('g-range').innerHTML = buildDays({ range: [15, 22], today: 20 });
+document.getElementById('g-time').innerHTML = buildDays({ selected: 22, today: 20 });
+
+// Disabled: past days (1-19) and weekends (Saturdays/Sundays) based on MONTH_START_DOW=Wed
+function weekendDays(){
+  const out = [];
+  for (let d = 1; d <= MONTH_DAYS; d++){
+    const dow = (MONTH_START_DOW + (d - 1)) % 7; // 0=Su, 6=Sa
+    if (dow === 0 || dow === 6) out.push(d);
+  }
+  return out;
+}
+const pastDays = Array.from({ length: 19 }, (_, i) => i + 1);
+document.getElementById('g-disabled').innerHTML = buildDays({
+  selected: 24, today: 20,
+  disabledDays: Array.from(new Set([...pastDays, ...weekendDays()])),
+});
+</script>
+</body></html>

@@ -4,7 +4,8 @@
  */
 
 import type { Segment } from '../../../types/segment-api';
-import type { LibraryFilter, LibrarySort } from './library-toolbar';
+import type { LibraryFilter } from './library-filter-pills';
+import type { LibrarySort } from './library-toolbar';
 
 export interface LibraryQuery {
   query: string;
@@ -21,6 +22,7 @@ export function filterAndSortSegments(
   const filtered = segments.filter((s) => {
     if (q.filter === 'live' && s.type !== 'predicate') return false;
     if (q.filter === 'static' && s.type !== 'manual') return false;
+    if (q.filter === 'broken' && s.status !== 'broken') return false;
     if (needle.length > 0) {
       const hay = `${s.name} ${s.tags?.join(' ') ?? ''} ${s.cube ?? ''}`.toLowerCase();
       if (!hay.includes(needle)) return false;

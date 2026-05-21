@@ -21,6 +21,8 @@ function seg(over: Partial<Segment>): Segment {
     broken_reason: null,
     created_at: '2026-05-19T00:00:00Z',
     updated_at: '2026-05-19T00:00:00Z',
+    game_id: 'ptg',
+    activations: [],
     ...over,
   };
 }

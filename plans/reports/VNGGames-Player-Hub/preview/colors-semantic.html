@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fff;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .tok{border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;min-height:44px}
+  .sw{width:32px;height:32px;border-radius:6px;flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,0.06) inset}
+  .txt{display:flex;flex-direction:column;min-width:0}
+  .name{font-family:var(--font-mono);font-size:11px;color:var(--neutral-900);font-weight:500}
+  .val{font-family:var(--font-mono);font-size:10px;color:var(--neutral-500)}
+</style></head>
+<body>
+<script>
+const toks=[
+  ["--background","#fafafa"],["--foreground","#0a0a0a"],["--card","#ffffff"],["--muted","#f5f5f5"],
+  ["--primary","#171717"],["--brand","#f05a22"],["--secondary","#f5f5f5"],["--accent","#f5f5f5"],
+  ["--destructive","#dc2626"],["--success","#059669"],["--warning","#f59e0b"],["--info","#3f8dff"],
+  ["--border","#e5e5e5"],["--input","#e5e5e5"],["--ring","#a3a3a3"],["--muted-foreground","#737373"]
+];
+document.body.innerHTML=toks.map(([n,v])=>`<div class="tok"><div class="sw" style="background:${v}"></div><div class="txt"><div class="name">${n}</div><div class="val">${v.toUpperCase()}</div></div></div>`).join('');
+</script>
+</body></html>

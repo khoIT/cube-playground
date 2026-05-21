@@ -13,6 +13,9 @@ import type {
   CubeIdentityMapping,
   Preset,
   SegmentType,
+  GamesConfig,
+  RefreshLogRow,
+  ActivationInput,
 } from '../types/segment-api';
 
 export interface ListSegmentsParams {
@@ -20,6 +23,7 @@ export interface ListSegmentsParams {
   type?: SegmentType;
   q?: string;
   sort?: 'name' | 'recent' | 'size';
+  game_id?: string;
 }
 
 export const segmentsClient = {
@@ -59,6 +63,38 @@ export const segmentsClient = {
     });
   },
 
+  refreshLog(id: string, days = 7, limit = 200): Promise<RefreshLogRow[]> {
+    return apiFetch<RefreshLogRow[]>(
+      `/api/segments/${encodeURIComponent(id)}/refresh-log`,
+      { query: { days: String(days), limit: String(limit) } },
+    );
+  },
+
+  refreshLogs(ids: string[], days = 7): Promise<Record<string, RefreshLogRow[]>> {
+    return apiFetch<Record<string, RefreshLogRow[]>>('/api/segments/refresh-logs', {
+      method: 'POST',
+      body: { ids, days },
+    });
+  },
+
+  appendActivation(id: string, payload: ActivationInput): Promise<Segment> {
+    return apiFetch<Segment>(`/api/segments/${encodeURIComponent(id)}/activations`, {
+      method: 'POST',
+      body: payload,
+    });
+  },
+
+  removeActivation(id: string, activationId: string): Promise<Segment> {
+    return apiFetch<Segment>(
+      `/api/segments/${encodeURIComponent(id)}/activations/${encodeURIComponent(activationId)}`,
+      { method: 'DELETE' },
+    );
+  },
+
+  sqlFilter(id: string): Promise<{ filter: string }> {
+    return apiFetch<{ filter: string }>(`/api/segments/${encodeURIComponent(id)}/sql-filter`);
+  },
+
   // Analyses (subresource)
   listAnalyses(segmentId: string): Promise<SegmentAnalysis[]> {
     return apiFetch<SegmentAnalysis[]>(
@@ -96,5 +132,11 @@ export const identityMapClient = {
 export const presetsClient = {
   list(): Promise<Preset[]> {
     return apiFetch<Preset[]>('/api/presets');
+  },
+};
+
+export const gamesClient = {
+  list(): Promise<GamesConfig> {
+    return apiFetch<GamesConfig>('/api/playground/games');
   },
 };

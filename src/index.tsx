@@ -16,6 +16,7 @@ import { loadable } from './loadable';
 import { CubeLoader } from './atoms';
 import { SecurityContextProvider } from './components/SecurityContext/SecurityContextProvider';
 import { AppContextProvider } from './components/AppContext';
+import { GameContextProvider } from './components/Header/use-game-context';
 import { ThemeProvider } from './theme/ThemeContext';
 import './i18n';
 
@@ -92,6 +93,7 @@ ReactDOM.render(
         isCloud: false,
       }}
     >
+      <GameContextProvider>
       <ThemeProvider>
         <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
           <App>
@@ -118,6 +120,7 @@ ReactDOM.render(
           </App>
         </SecurityContextProvider>
       </ThemeProvider>
+      </GameContextProvider>
     </AppContextProvider>
   </Router>,
   // eslint-disable-next-line no-undef

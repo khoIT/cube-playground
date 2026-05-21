@@ -2,6 +2,12 @@
   "brand": {
     "platformSuffix": "Nền tảng Dữ liệu"
   },
+  "header": {
+    "gamePicker": {
+      "label": "Game đang xem",
+      "switchToast": "Đang hiển thị dữ liệu cho {{gameName}}"
+    }
+  },
   "nav": {
     "playground": "Sân chơi",
     "newMetric": "Chỉ số mới",
@@ -12,17 +18,12 @@
     "library": {
       "title": "Nhóm người dùng",
       "subtitle": "Tập người dùng lưu trữ từ kết quả Playground hoặc điều kiện.",
-      "kpi": {
-        "live": "Nhóm Live",
-        "static": "Nhóm tĩnh",
-        "totalUids": "Tổng uid",
-        "inUse": "Đang dùng"
-      },
       "search": "Tìm nhóm…",
       "filter": {
         "all": "Tất cả",
         "live": "Live",
-        "static": "Tĩnh"
+        "static": "Tĩnh",
+        "broken": "Lỗi"
       },
       "sort": {
         "label": "Sắp xếp",
@@ -31,7 +32,8 @@
         "size": "Kích thước (lớn nhất)"
       },
       "import": "Nhập IDs",
-      "new": "Nhóm mới",
+      "new": "+ Nhóm mới",
+      "identityMap": "Định danh",
       "empty": "Chưa có nhóm. Tạo từ Playground hoặc nhập IDs.",
       "columns": {
         "segment": "Nhóm",
@@ -39,7 +41,37 @@
         "lastRefresh": "Cập nhật",
         "size": "Kích thước",
         "trend": "Xu hướng",
+        "usedIn": "Đang dùng ở",
+        "health": "Sức khoẻ",
         "owner": "Người tạo"
+      },
+      "meta": {
+        "segments_one": "{{count}} nhóm",
+        "segments_other": "{{count}} nhóm",
+        "users": "{{formatted}} người dùng",
+        "lastRefresh": "cập nhật {{when}}",
+        "never": "chưa"
+      },
+      "health": {
+        "fresh": { "label": "Mới" },
+        "stale": {
+          "label": "Cũ",
+          "sub": "Live · {{cadence}}m · trễ làm mới",
+          "subNoCadence": "Trễ làm mới"
+        },
+        "broken": { "label": "Lỗi", "sub": "Làm mới thất bại" },
+        "static": { "label": "Tĩnh", "sub": "Tải lên thủ công" },
+        "live": {
+          "cadence": "Live · cứ {{cadence}}m",
+          "noCadence": "Live · theo yêu cầu"
+        }
+      },
+      "trend": {
+        "aria": "Xu hướng kích thước {{delta}}% qua {{points}} lần làm mới"
+      },
+      "usedIn": {
+        "empty": "—",
+        "overflow": "+{{n}} nữa"
       }
     },
     "detail": {
@@ -50,7 +82,57 @@
         "editPredicate": "Sửa điều kiện",
         "more": "Thêm"
       },
+      "monitor": {
+        "size": {
+          "title": "Xu hướng kích thước",
+          "empty": "Chưa đủ lịch sử làm mới."
+        },
+        "history": {
+          "title": "Lịch sử làm mới",
+          "empty": "Chưa có lần làm mới nào."
+        },
+        "activation": {
+          "title": "Kích hoạt",
+          "cta": "+ Kích hoạt CDP",
+          "empty": "Chưa kích hoạt. Đẩy lên CDP để dùng ở downstream.",
+          "viewAll": "Xem tất cả →"
+        }
+      },
+      "insights": {
+        "empty": {
+          "title": "Chưa có insights cho cube này",
+          "body": "Cài preset cho cube để bật Engagement, Monetization, Retention."
+        }
+      },
+      "members": { "title": "Thành viên" },
+      "definition": {
+        "identity": "Định danh",
+        "cube": "Cube",
+        "identityDim": "Trường định danh",
+        "cadence": "Chu kỳ làm mới",
+        "cadenceValue": "{{m}} phút",
+        "predicate": "Điều kiện"
+      },
+      "activation": {
+        "title": "Kích hoạt",
+        "description": "Đẩy nhóm này lên CDP để dùng ở downstream.",
+        "cta": "+ Kích hoạt CDP",
+        "empty": "Chưa có kích hoạt. Kích hoạt để dùng ở CDP.",
+        "registered": "Đăng ký",
+        "lastPush": "Lần đẩy gần nhất"
+      },
+      "kpi": {
+        "size": "Kích thước",
+        "lastRefresh": "Cập nhật",
+        "owner": "Người tạo",
+        "status": "Trạng thái"
+      },
       "tabs": {
+        "monitor": "Theo dõi",
+        "insights": "Phân tích",
+        "members": "Thành viên",
+        "definition": "Định nghĩa",
+        "activation": "Kích hoạt",
         "overview": "Tổng quan",
         "engagement": "Tương tác",
         "monetization": "Doanh thu",

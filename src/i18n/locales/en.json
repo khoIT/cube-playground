@@ -2,6 +2,12 @@
   "brand": {
     "platformSuffix": "Data Platform"
   },
+  "header": {
+    "gamePicker": {
+      "label": "Active game",
+      "switchToast": "Now showing data for {{gameName}}"
+    }
+  },
   "nav": {
     "playground": "Playground",
     "newMetric": "New Metric",
@@ -12,17 +18,12 @@
     "library": {
       "title": "Segments",
       "subtitle": "Persistent cohorts built from Playground results or predicates.",
-      "kpi": {
-        "live": "Live segments",
-        "static": "Static segments",
-        "totalUids": "Total uids",
-        "inUse": "In use"
-      },
       "search": "Search segments…",
       "filter": {
         "all": "All",
         "live": "Live",
-        "static": "Static"
+        "static": "Static",
+        "broken": "Broken"
       },
       "sort": {
         "label": "Sort",
@@ -31,7 +32,8 @@
         "size": "Size (largest)"
       },
       "import": "Import IDs",
-      "new": "New segment",
+      "new": "+ New segment",
+      "identityMap": "Identity mapping",
       "empty": "No segments yet. Build one from Playground or import IDs.",
       "columns": {
         "segment": "Segment",
@@ -39,7 +41,37 @@
         "lastRefresh": "Last refresh",
         "size": "Size",
         "trend": "Trend",
+        "usedIn": "Used in",
+        "health": "Health",
         "owner": "Owner"
+      },
+      "meta": {
+        "segments_one": "{{count}} segment",
+        "segments_other": "{{count}} segments",
+        "users": "{{formatted}} users",
+        "lastRefresh": "last refresh {{when}}",
+        "never": "never"
+      },
+      "health": {
+        "fresh": { "label": "Fresh" },
+        "stale": {
+          "label": "Stale",
+          "sub": "Live · {{cadence}}m · refresh overdue",
+          "subNoCadence": "Refresh overdue"
+        },
+        "broken": { "label": "Broken", "sub": "Refresh failed" },
+        "static": { "label": "Static", "sub": "Manual upload" },
+        "live": {
+          "cadence": "Live · {{cadence}}m cadence",
+          "noCadence": "Live · on demand"
+        }
+      },
+      "trend": {
+        "aria": "Size trend {{delta}}% over {{points}} refreshes"
+      },
+      "usedIn": {
+        "empty": "—",
+        "overflow": "+{{n}} more"
       }
     },
     "detail": {
@@ -51,13 +83,74 @@
         "more": "More"
       },
       "tabs": {
+        "monitor": "Monitor",
+        "insights": "Insights",
+        "members": "Members",
+        "definition": "Definition",
+        "activation": "Activation",
         "overview": "Overview",
         "engagement": "Engagement",
         "monetization": "Monetization",
         "retention": "Retention",
         "sampleUsers": "Sample users",
-        "savedAnalyses": "Saved analyses",
+        "savedAnalyses": "Pinned analyses",
         "predicate": "Predicate"
+      },
+      "monitor": {
+        "size": {
+          "title": "Size trend",
+          "empty": "Not enough refresh history yet.",
+          "aria": "Size trend chart over {{days}} days"
+        },
+        "history": {
+          "title": "Refresh history",
+          "empty": "No refreshes recorded yet.",
+          "col": {
+            "when": "When",
+            "status": "Status",
+            "size": "Size",
+            "delta": "Δ"
+          }
+        },
+        "activation": {
+          "title": "Activations",
+          "cta": "+ Activate to CDP",
+          "empty": "Not activated yet. Push to CDP to make this segment available downstream.",
+          "viewAll": "View all activations →"
+        }
+      },
+      "insights": {
+        "empty": {
+          "title": "No insights for this cube",
+          "body": "Install a preset for this cube to enable Engagement, Monetization, and Retention insights."
+        },
+        "subPills": "Insights sections",
+        "noContent": "No content for this section."
+      },
+      "members": {
+        "title": "Members"
+      },
+      "definition": {
+        "identity": "Identity",
+        "cube": "Cube",
+        "identityDim": "Identity dim",
+        "cadence": "Refresh cadence",
+        "cadenceValue": "{{m}} min",
+        "predicate": "Predicate"
+      },
+      "activation": {
+        "title": "Activation",
+        "description": "Push this segment to downstream tools as a CDP metric.",
+        "cta": "+ Activate to CDP",
+        "empty": "No activations yet. Activate this segment to make it available in CDP.",
+        "registered": "Registered",
+        "lastPush": "Last push"
+      },
+      "kpi": {
+        "size": "Size",
+        "lastRefresh": "Last refresh",
+        "owner": "Owner",
+        "status": "Status"
       },
       "sampleUsers": {
         "title": "Sample users",

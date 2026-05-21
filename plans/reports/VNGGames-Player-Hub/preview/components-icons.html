@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:20px;background:#fff}
+  h3{font-family:Inter,sans-serif;font-size:10px;color:var(--neutral-500);letter-spacing:0.08em;text-transform:uppercase;font-weight:600;margin:0 0 10px}
+  .grid{display:grid;grid-template-columns:repeat(14,1fr);gap:6px}
+  .ic{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:8px}
+  .ic:hover{background:var(--muted)}
+  .ic i{font-size:20px;color:#0a0a0a;line-height:1}
+  .n{font-family:Inter,sans-serif;font-size:9px;color:#737373;letter-spacing:0.01em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .src{font-family:var(--font-mono);font-size:10px;color:var(--neutral-500);margin-top:10px}
+</style></head>
+<body>
+<h3>Remix Icon · 20px · line style</h3>
+<div class="grid" id="g"></div>
+<div class="src">cdn.jsdelivr.net/npm/remixicon@4.5.0 — inherits currentColor, pair `-line` for default / `-fill` for active states</div>
+<script>
+const names=[
+  ["home-5-line","home"],["user-line","user"],["group-line","users"],["settings-3-line","settings"],
+  ["search-line","search"],["notification-3-line","bell"],["heart-line","heart"],["star-line","star"],
+  ["trophy-line","trophy"],["gamepad-line","gamepad"],["sword-line","sword"],["shield-line","shield"],
+  ["vip-crown-line","crown"],["gift-line","gift"],["coin-line","coins"],["wallet-3-line","wallet"],
+  ["bank-card-line","card"],["archive-line","inbox"],["chat-3-line","chat"],["calendar-line","calendar"],
+  ["time-line","clock"],["flashlight-line","zap"],["fire-line","flame"],["rocket-line","rocket"],
+  ["focus-3-line","target"],["line-chart-line","chart"],["bar-chart-2-line","bars"],["pulse-line","pulse"],
+  ["add-line","plus"],["subtract-line","minus"],["check-line","check"],["close-line","close"],
+  ["arrow-right-s-line","chev-r"],["arrow-down-s-line","chev-d"],["arrow-right-line","arrow-r"],["logout-box-r-line","logout"],
+  ["lock-line","lock"],["lock-unlock-line","unlock"],["eye-line","eye"],["eye-off-line","eye-off"],
+  ["information-line","info"],["alert-line","alert"],["checkbox-circle-line","check-c"],["download-line","download"],
+  ["upload-line","upload"],["share-forward-line","share"],["file-copy-line","copy"],["edit-line","edit"],
+  ["delete-bin-line","trash"],["more-line","more-h"],["more-2-line","more-v"],["filter-3-line","filter"],
+  ["sort-asc","sort"],["layout-grid-line","grid"],["list-unordered","list"],["moon-line","moon"],
+  ["sun-line","sun"],["sparkling-2-line","sparkles"],["game-line","joystick"],["headphone-line","headphones"],
+  ["mic-line","mic"],["volume-up-line","volume"],["wifi-line","wifi"],["global-line","globe"],
+  ["map-pin-line","pin"],["camera-line","camera"],["image-line","image"],["video-line","video"],
+  ["play-line","play"],["pause-line","pause"]
+];
+document.getElementById('g').innerHTML = names.map(([n,label])=>`<div class="ic" title="${n}"><i class="ri-${n}"></i><span class="n">${label}</span></div>`).join('');
+</script>
+</body></html>

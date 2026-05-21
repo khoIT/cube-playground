@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:20px;background:#fff;display:flex;flex-direction:column;gap:12px}
+  .row{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+  .k{font-family:Inter,sans-serif;font-size:10px;color:var(--neutral-500);width:84px;letter-spacing:0.04em;text-transform:uppercase;font-weight:600;flex-shrink:0}
+  .b{font-family:Inter,sans-serif;font-weight:600;font-size:12px;padding:2px 10px;border-radius:9999px;border:1px solid transparent;line-height:1.5;display:inline-flex;align-items:center;gap:4px}
+  .primary{background:#f05a22;color:#fff}
+  .neutral{background:#171717;color:#fafafa}
+  .secondary{background:#f5f5f5;color:#171717}
+  .outline{background:#fff;color:#171717;border-color:#e5e5e5}
+  .destructive{background:#dc2626;color:#fff}
+  .success{background:#d1fae5;color:#065f46}
+  .warning{background:#fef3c7;color:#92400e}
+  .info{background:#dbeafe;color:#1e40af}
+  .sq{border-radius:6px}
+  .dot{width:6px;height:6px;border-radius:9999px;background:currentColor;opacity:.7}
+  /* Accent — Tailwind 600 with white labels */
+  .ac{color:#fff}
+  .red     {background:#dc2626}
+  .orange  {background:#ea580c}
+  .amber   {background:#d97706}
+  .yellow  {background:#ca8a04}
+  .lime    {background:#65a30d}
+  .green   {background:#16a34a}
+  .emerald {background:#059669}
+  .teal    {background:#0d9488}
+  .cyan    {background:#0891b2}
+  .sky     {background:#0284c7}
+  .blue    {background:#2563eb}
+  .indigo  {background:#4f46e5}
+  .violet  {background:#7c3aed}
+  .purple  {background:#9333ea}
+  .fuchsia {background:#c026d3}
+  .pink    {background:#db2777}
+  .rose    {background:#e11d48}
+</style></head>
+<body>
+<div class="row"><span class="k">Default</span><span class="b primary">Primary</span><span class="b neutral">Neutral</span><span class="b secondary">Secondary</span><span class="b outline">Outline</span><span class="b destructive">Destructive</span></div>
+<div class="row"><span class="k">Status</span><span class="b success"><span class="dot"></span>Active</span><span class="b warning"><span class="dot"></span>Pending</span><span class="b destructive"><span class="dot"></span>Banned</span><span class="b info"><span class="dot"></span>Verified</span><span class="b secondary"><span class="dot"></span>Offline</span></div>
+<div class="row"><span class="k">Square</span><span class="b primary sq">New</span><span class="b neutral sq">VIP</span><span class="b secondary sq">12</span><span class="b outline sq">Beta</span></div>
+<div class="row" style="flex-wrap:wrap;gap:5px"><span class="k">Accent</span>
+  <span class="b ac red">Label</span>
+  <span class="b ac orange">Label</span>
+  <span class="b ac amber">Label</span>
+  <span class="b ac yellow">Label</span>
+  <span class="b ac lime">Label</span>
+  <span class="b ac green">Label</span>
+  <span class="b ac emerald">Label</span>
+  <span class="b ac teal">Label</span>
+  <span class="b ac cyan">Label</span>
+  <span class="b ac sky">Label</span>
+  <span class="b ac blue">Label</span>
+  <span class="b ac indigo">Label</span>
+  <span class="b ac violet">Label</span>
+  <span class="b ac purple">Label</span>
+  <span class="b ac fuchsia">Label</span>
+  <span class="b ac pink">Label</span>
+  <span class="b ac rose">Label</span>
+</div>
+</body></html>

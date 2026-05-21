@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segments — First-class redesign (VNGGames Player Hub)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+:root {
+  /* Neutrals */
+  --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-200:#e5e5e5; --neutral-300:#d4d4d4;
+  --neutral-400:#a3a3a3; --neutral-500:#737373; --neutral-600:#525252; --neutral-700:#404040;
+  --neutral-800:#262626; --neutral-900:#171717; --neutral-950:#0a0a0a;
+  /* Brand */
+  --orange-50:#fff7ed; --orange-100:#ffedd5; --orange-200:#fed7aa; --orange-300:#fdba74;
+  --orange-400:#fb923c; --orange-500:#f97316; --orange-600:#f05a22; --orange-700:#f54a00;
+  /* Status */
+  --success:#059669; --success-soft:#d1fae5; --success-ink:#065f46;
+  --warning:#f59e0b; --warning-soft:#fef3c7; --warning-ink:#92400e;
+  --destructive:#dc2626; --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+  --info:#3f8dff; --info-soft:#dbeafe; --info-ink:#1e40af;
+  /* Chart */
+  --chart-1:#f05a22; --chart-2:#3f8dff; --chart-3:#009689; --chart-4:#f59e0b; --chart-5:#a855f7;
+  /* Semantic */
+  --bg:var(--neutral-50); --card:#fff; --border:var(--neutral-200); --border-strong:var(--neutral-300);
+  --fg:var(--neutral-950); --fg-muted:var(--neutral-500); --fg-subtle:var(--neutral-400);
+  --primary:var(--orange-600); --primary-hover:var(--orange-700); --primary-fg:#fff;
+  --brand:var(--neutral-900); --brand-hover:var(--neutral-800); --brand-fg:var(--neutral-50);
+  /* Radii */
+  --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-2xl:16px; --pill:9999px;
+  /* Shadow */
+  --shadow-xs:0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-sm:0 1px 2px -1px rgba(0,0,0,0.1), 0 1px 3px 0 rgba(0,0,0,0.1);
+  --shadow-md:0 2px 4px -2px rgba(0,0,0,0.1), 0 4px 6px -1px rgba(0,0,0,0.1);
+  --shadow-lg:0 4px 6px -4px rgba(0,0,0,0.1), 0 10px 15px -3px rgba(0,0,0,0.1);
+  --shadow-xl:0 8px 10px -6px rgba(0,0,0,0.1), 0 20px 25px -5px rgba(0,0,0,0.1);
+  /* Font */
+  --font-sans:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --font-alt:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
+  --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--neutral-100);color:var(--fg);font-family:var(--font-sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:inherit;color:inherit}
+a{color:inherit}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+
+/* ── Mockup chrome (screen switcher) ─────────────────────────────── */
+.mockup-chrome{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:16px;font-family:var(--font-alt);box-shadow:var(--shadow-xs)}
+.mockup-title{font-size:13px;font-weight:600;color:var(--fg);letter-spacing:-0.005em}
+.mockup-sub{font-size:12px;color:var(--fg-muted)}
+.mockup-tabs{display:inline-flex;gap:4px;background:var(--neutral-100);padding:3px;border-radius:var(--pill);margin-left:auto}
+.mockup-tab{border:0;background:transparent;padding:6px 14px;font-size:12.5px;font-weight:500;color:var(--fg-muted);border-radius:var(--pill);cursor:pointer;transition:background .15s,color .15s}
+.mockup-tab:hover{color:var(--fg)}
+.mockup-tab[aria-selected="true"]{background:#fff;color:var(--fg);box-shadow:var(--shadow-xs)}
+.mockup-stage{padding:32px}
+.screen{display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-2xl);overflow:hidden;box-shadow:var(--shadow-lg)}
+.screen[data-active="true"]{display:block}
+
+/* ── App Header (44px) ───────────────────────────────────────────── */
+.app-header{height:44px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px}
+.brand-block{display:inline-flex;align-items:center;gap:10px;padding-right:14px;border-right:1px solid var(--border);height:28px}
+.brand-mark{display:inline-flex;align-items:center;gap:2px;font-family:var(--font-alt);font-weight:700;font-style:italic;font-size:15px;color:var(--neutral-950);letter-spacing:-0.02em}
+.brand-mark .vn{color:var(--primary);font-style:italic}
+.brand-mark .games{color:var(--neutral-950);font-style:italic;font-weight:700}
+.brand-product{font-family:var(--font-alt);font-size:12.5px;font-weight:600;color:var(--fg-muted);letter-spacing:-0.005em}
+.game-picker{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border:1px solid var(--border);border-radius:var(--pill);background:#fff;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--fg);height:28px;transition:background .15s,border-color .15s}
+.game-picker:hover{background:var(--neutral-50);border-color:var(--border-strong)}
+.game-mark{width:18px;height:18px;border-radius:var(--radius-sm);background:linear-gradient(135deg,#f05a22,#7c2d12);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;letter-spacing:-0.02em;font-family:var(--font-alt)}
+.spacer{flex:1}
+.pill-row{display:inline-flex;gap:4px}
+.nav-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--pill);font-size:12.5px;font-weight:500;color:var(--fg-muted);text-decoration:none;border:1px solid transparent;background:transparent;transition:background .15s,color .15s}
+.nav-pill:hover{background:var(--neutral-100);color:var(--fg)}
+.nav-pill[aria-current="page"]{background:var(--neutral-100);color:var(--fg);border-color:var(--border)}
+.nav-pill svg{width:14px;height:14px}
+.right-cluster{display:inline-flex;align-items:center;gap:8px;margin-left:8px;padding-left:8px;border-left:1px solid var(--border)}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--pill);border:0;background:transparent;color:var(--fg-muted);cursor:pointer;transition:background .15s,color .15s}
+.icon-btn:hover{background:var(--neutral-100);color:var(--fg)}
+.icon-btn svg{width:16px;height:16px}
+.avatar{width:28px;height:28px;border-radius:var(--pill);background:linear-gradient(135deg,#f05a22,#dc2626);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;font-family:var(--font-alt)}
+
+/* ── Buttons (pill, per DS) ──────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;height:36px;border-radius:var(--pill);font-size:14px;font-weight:500;font-family:var(--font-sans);border:1px solid transparent;cursor:pointer;transition:background .15s,border-color .15s,color .15s;white-space:nowrap}
+.btn svg{width:14px;height:14px}
+.btn--primary{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.btn--primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+.btn--neutral{background:var(--neutral-900);color:var(--neutral-50);border-color:var(--neutral-900)}
+.btn--neutral:hover{background:var(--neutral-800);border-color:var(--neutral-800)}
+.btn--outline{background:#fff;color:var(--neutral-900);border-color:var(--border)}
+.btn--outline:hover{background:var(--neutral-50)}
+.btn--ghost{background:transparent;color:var(--neutral-900);border-color:transparent}
+.btn--ghost:hover{background:var(--neutral-100)}
+.btn--destructive{background:var(--destructive);color:#fff;border-color:var(--destructive)}
+.btn--small{height:32px;padding:6px 12px;font-size:13px}
+.btn--mini{height:24px;padding:4px 8px;font-size:12px;gap:4px}
+.btn--mini svg{width:12px;height:12px}
+.btn--icon{width:36px;padding:0}
+.btn--icon.btn--small{width:32px}
+
+/* ── Badge ───────────────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-sm);font-size:11.5px;font-weight:500;font-family:var(--font-sans);height:22px;line-height:1}
+.badge--brand{background:var(--orange-600);color:#fff}
+.badge--neutral{background:var(--neutral-900);color:var(--neutral-50)}
+.badge--secondary{background:var(--neutral-100);color:var(--neutral-900)}
+.badge--outline{background:#fff;color:var(--neutral-900);border:1px solid var(--border)}
+.badge--success{background:var(--success-soft);color:var(--success-ink)}
+.badge--warning{background:var(--warning-soft);color:var(--warning-ink)}
+.badge--destructive{background:var(--destructive-soft);color:var(--destructive-ink)}
+.badge--info{background:var(--info-soft);color:var(--info-ink)}
+.badge--mono{font-family:var(--font-mono);font-size:11px;letter-spacing:-0.005em}
+.dot{display:inline-block;width:6px;height:6px;border-radius:var(--pill)}
+.dot--success{background:var(--success)}
+.dot--warning{background:var(--warning)}
+.dot--destructive{background:var(--destructive)}
+.dot--muted{background:var(--neutral-400)}
+.dot--info{background:var(--info)}
+
+/* ── Library page ────────────────────────────────────────────────── */
+.page{padding:24px 32px 48px;display:flex;flex-direction:column;gap:20px}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.page-title{font-size:24px;font-weight:600;letter-spacing:-0.02em;margin:0;color:var(--fg);font-family:var(--font-alt)}
+.page-meta{margin:6px 0 0;font-size:13px;color:var(--fg-muted)}
+.page-meta strong{color:var(--fg);font-weight:600}
+.page-actions{display:inline-flex;gap:8px;flex-shrink:0}
+
+.filter-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.filter-pills{display:inline-flex;gap:4px;padding:3px;background:var(--neutral-100);border-radius:var(--pill)}
+.filter-pill{border:0;background:transparent;padding:6px 14px;border-radius:var(--pill);font-size:13px;font-weight:500;color:var(--fg-muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s,color .15s}
+.filter-pill:hover{color:var(--fg)}
+.filter-pill[aria-pressed="true"]{background:#fff;color:var(--fg);box-shadow:var(--shadow-xs)}
+.filter-pill .count{font-family:var(--font-mono);font-size:11.5px;color:var(--fg-muted);font-weight:500}
+.filter-pill[aria-pressed="true"] .count{color:var(--fg-muted)}
+.filter-pill--destructive[aria-pressed="true"]{color:var(--destructive-ink)}
+.filter-bar-spacer{flex:1}
+.search{display:inline-flex;align-items:center;gap:8px;padding:0 12px;background:#fff;border:1px solid var(--border);border-radius:var(--pill);height:36px;min-width:280px}
+.search svg{width:14px;height:14px;color:var(--fg-muted);flex-shrink:0}
+.search input{border:0;background:transparent;outline:0;font:inherit;color:var(--fg);flex:1}
+.search input::placeholder{color:var(--fg-subtle)}
+.select{display:inline-flex;align-items:center;gap:6px;padding:0 12px;background:#fff;border:1px solid var(--border);border-radius:var(--pill);height:36px;font-size:13px;color:var(--fg);cursor:pointer}
+.select svg{width:14px;height:14px;color:var(--fg-muted)}
+
+/* Table */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+.table{}
+.table-head,.table-row{display:grid;grid-template-columns:minmax(280px,2.4fr) 130px 90px 110px 200px 120px 36px;align-items:center;gap:16px;padding:12px 20px}
+.table-head{background:var(--neutral-50);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-muted);font-family:var(--font-alt)}
+.table-row{border-bottom:1px solid var(--border);font-size:13px;transition:background .12s;cursor:pointer}
+.table-row:hover{background:var(--neutral-50)}
+.table-row:last-child{border-bottom:0}
+.cell-segment{min-width:0;display:flex;flex-direction:column;gap:3px}
+.segment-name{font-size:14px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.segment-cube{font-size:12px;color:var(--fg-muted);font-family:var(--font-mono)}
+.cell-health{display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+.cell-health-top{display:inline-flex;align-items:center;gap:6px;font-weight:500;color:var(--fg)}
+.cell-health-sub{font-size:11.5px;color:var(--fg-muted)}
+.cell-health-sub--danger{color:var(--destructive)}
+.cell-size{font-size:14px;font-weight:600;color:var(--fg);font-family:var(--font-mono)}
+.cell-size .delta{display:block;font-size:11px;font-weight:500;color:var(--success);font-family:var(--font-sans);margin-top:2px}
+.cell-size .delta--down{color:var(--destructive)}
+.cell-size .delta--muted{color:var(--fg-muted)}
+.cell-trend svg{display:block}
+.cell-dest{display:flex;flex-wrap:wrap;gap:4px}
+.dest-chip{display:inline-flex;align-items:center;gap:4px;padding:0 8px 0 6px;height:22px;border-radius:var(--pill);background:var(--neutral-100);font-size:11.5px;color:var(--fg);font-weight:500;line-height:1}
+.dest-chip svg{width:11px;height:11px;color:var(--fg-muted)}
+.dest-chip--active{background:var(--success-soft);color:var(--success-ink)}
+.dest-chip--failed{background:var(--destructive-soft);color:var(--destructive-ink)}
+.dest-chip--more{background:#fff;border:1px solid var(--border);color:var(--fg-muted);font-family:var(--font-mono)}
+.cell-owner{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg-muted)}
+.cell-owner .avatar{width:20px;height:20px;font-size:9px}
+.cell-chev{color:var(--fg-subtle);text-align:right}
+.cell-chev svg{width:16px;height:16px}
+.cell-empty{color:var(--fg-subtle);font-size:13px}
+
+/* ── Detail page ─────────────────────────────────────────────────── */
+.breadcrumbs{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg-muted);margin-bottom:8px}
+.breadcrumbs a{text-decoration:none;color:var(--fg-muted)}
+.breadcrumbs a:hover{color:var(--fg)}
+.breadcrumbs svg{width:12px;height:12px}
+.detail-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.detail-title{font-size:24px;font-weight:600;letter-spacing:-0.02em;margin:0;color:var(--fg);font-family:var(--font-alt)}
+.detail-actions{display:inline-flex;gap:6px;margin-left:auto}
+.live-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px 2px 6px;border-radius:var(--pill);background:var(--success-soft);color:var(--success-ink);font-size:11.5px;font-weight:500;height:22px}
+.live-badge .pulse{width:6px;height:6px;border-radius:var(--pill);background:var(--success);box-shadow:0 0 0 0 rgba(5,150,105,0.6);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(5,150,105,0.5)}70%{box-shadow:0 0 0 6px rgba(5,150,105,0)}100%{box-shadow:0 0 0 0 rgba(5,150,105,0)}}
+
+.kpi-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;height:72px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-muted);font-family:var(--font-alt)}
+.kpi-value{font-size:20px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.02em;line-height:1.1}
+.kpi-sub{font-size:11px;color:var(--fg-muted);font-weight:500}
+.kpi-sub--up{color:var(--success)}
+
+.tab-strip{display:flex;gap:2px;border-bottom:1px solid var(--border)}
+.tab{border:0;background:transparent;padding:10px 14px;font-size:13.5px;font-weight:500;color:var(--fg-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:var(--font-sans);display:inline-flex;align-items:center;gap:6px}
+.tab:hover{color:var(--fg)}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--primary)}
+.tab svg{width:14px;height:14px}
+
+.monitor-grid{display:grid;grid-template-columns:1fr;gap:16px}
+.section-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+.section-head{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.section-title{font-size:14px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.005em;display:flex;align-items:center;gap:8px}
+.section-title svg{width:14px;height:14px;color:var(--fg-muted)}
+.section-title .meta{font-size:12px;font-weight:500;color:var(--fg-muted);font-family:var(--font-sans)}
+.section-body{padding:20px}
+.section-actions{display:inline-flex;gap:6px;align-items:center}
+
+.chart-meta{padding:0 20px 12px;display:flex;align-items:baseline;gap:12px}
+.chart-meta .big{font-size:28px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.02em;line-height:1}
+.chart-meta .delta{font-size:13px;font-weight:500;color:var(--success);display:inline-flex;align-items:center;gap:4px}
+
+.refresh-row{display:grid;grid-template-columns:120px 90px 1fr 100px 90px;align-items:center;gap:12px;padding:10px 0;font-size:13px;border-bottom:1px solid var(--neutral-100)}
+.refresh-row:last-child{border-bottom:0}
+.refresh-time{color:var(--fg);font-family:var(--font-mono);font-size:12.5px}
+.refresh-status{display:inline-flex;align-items:center;gap:6px;color:var(--success);font-weight:500;font-size:12.5px}
+.refresh-status svg{width:13px;height:13px}
+.refresh-count{font-family:var(--font-mono);font-size:13px;color:var(--fg);font-weight:500;text-align:right}
+.refresh-delta{font-size:12px;color:var(--success);text-align:right;font-weight:500}
+.refresh-delta--down{color:var(--destructive)}
+.refresh-link{font-size:12px;color:var(--info);text-align:right;cursor:pointer}
+.refresh-link:hover{text-decoration:underline}
+
+.activation-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--neutral-100)}
+.activation-row:last-child{border-bottom:0}
+.activation-meta{display:flex;align-items:center;gap:10px}
+.activation-meta svg{width:14px;height:14px;color:var(--fg-muted)}
+.activation-target{font-size:13.5px;color:var(--fg);font-weight:500}
+.activation-name{font-family:var(--font-mono);font-size:12px;color:var(--fg-muted);margin-top:2px}
+.activation-status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--success)}
+.activation-age{font-size:12px;color:var(--fg-muted);font-family:var(--font-mono)}
+
+/* ── Modal ───────────────────────────────────────────────────────── */
+.modal-stage{padding:32px;background:linear-gradient(180deg,var(--bg) 0%,var(--neutral-100) 100%);min-height:680px;display:flex;align-items:center;justify-content:center;position:relative}
+.modal-scrim{position:absolute;inset:0;background:rgba(10,10,10,0.5);backdrop-filter:blur(2px)}
+.modal{position:relative;width:560px;background:#fff;border-radius:var(--radius-2xl);box-shadow:var(--shadow-xl);overflow:hidden}
+.modal-head{padding:18px 22px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.modal-title{font-size:16px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.01em;margin:0}
+.modal-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:14px}
+.modal-tabs{display:inline-flex;gap:2px;background:var(--neutral-100);padding:3px;border-radius:var(--radius-md);align-self:flex-start}
+.modal-tab{border:0;background:transparent;padding:6px 14px;font-size:12.5px;font-weight:500;color:var(--fg-muted);border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-sans)}
+.modal-tab[aria-selected="true"]{background:#fff;color:var(--fg);box-shadow:var(--shadow-xs)}
+.summary-card{background:var(--neutral-50);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;font-size:12.5px;color:var(--fg-muted)}
+.summary-card .heading{font-weight:600;color:var(--fg);font-size:13px;margin-bottom:4px;font-family:var(--font-alt)}
+.summary-card .stat{display:inline-flex;gap:4px;margin-right:14px}
+.summary-card .stat code{font-family:var(--font-mono);font-size:11.5px;color:var(--fg);background:var(--card);padding:1px 5px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+
+.field-group{display:flex;flex-direction:column;gap:6px}
+.field-label{font-size:12.5px;font-weight:500;color:var(--fg);font-family:var(--font-sans)}
+.field-help{font-size:11.5px;color:var(--fg-muted);margin-top:-2px}
+.input{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-md);padding:0 12px;height:36px;font-size:13.5px;color:var(--fg)}
+.input:focus-within{border-color:var(--neutral-400);box-shadow:0 0 0 2px rgba(163,163,163,0.2)}
+.input input{border:0;background:transparent;outline:0;font:inherit;color:inherit;flex:1;font-family:var(--font-mono);font-size:12.5px}
+.input--readonly{background:var(--neutral-50);border-color:var(--border);color:var(--fg)}
+.input--readonly .switch-link{font-size:11.5px;color:var(--info);text-decoration:none;font-weight:500;font-family:var(--font-sans)}
+.input--readonly .switch-link:hover{text-decoration:underline}
+
+.radio-group{display:inline-flex;gap:0;background:var(--neutral-100);padding:3px;border-radius:var(--radius-md);align-self:flex-start}
+.radio-pill{border:0;background:transparent;padding:6px 14px;font-size:12.5px;font-weight:500;color:var(--fg-muted);border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-sans)}
+.radio-pill[aria-checked="true"]{background:#fff;color:var(--fg);box-shadow:var(--shadow-xs)}
+
+.multiselect{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-md);min-height:36px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--neutral-100);color:var(--fg);font-size:12px;padding:3px 4px 3px 10px;border-radius:var(--pill);font-family:var(--font-mono)}
+.chip button{border:0;background:transparent;width:18px;height:18px;border-radius:var(--pill);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--fg-muted)}
+.chip button:hover{background:var(--neutral-200);color:var(--fg)}
+.chip svg{width:11px;height:11px}
+
+.checkbox-row{display:flex;align-items:flex-start;gap:10px;padding:2px 0}
+.checkbox{width:16px;height:16px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;background:#fff;flex-shrink:0;margin-top:1px}
+.checkbox--checked{background:var(--primary);border-color:var(--primary);color:#fff}
+.checkbox svg{width:11px;height:11px}
+.checkbox-label{font-size:13px;color:var(--fg);font-weight:500}
+.checkbox-help{font-size:11.5px;color:var(--fg-muted);margin-top:2px}
+
+.advanced-fold{border-top:1px dashed var(--border);padding-top:12px;margin-top:4px}
+.fold-trigger{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;font-size:12px;color:var(--fg-muted);cursor:pointer;font-family:var(--font-sans);padding:0}
+.fold-trigger svg{width:12px;height:12px}
+.fold-body{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.derived-block{background:var(--neutral-50);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 10px;font-family:var(--font-mono);font-size:11.5px;color:var(--fg);white-space:pre;overflow-x:auto}
+.derived-block .key{color:var(--fg-muted);user-select:none}
+
+.modal-foot{padding:14px 22px;border-top:1px solid var(--border);background:var(--neutral-50);display:flex;justify-content:flex-end;gap:8px}
+
+/* ── Editor workspace ────────────────────────────────────────────── */
+.workspace{display:grid;grid-template-columns:256px 1fr 288px;height:calc(100vh - 200px);min-height:600px;max-height:760px;background:var(--bg)}
+.workspace-rail{background:#fff;border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;gap:4px}
+.workspace-rail-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-muted);padding:0 8px;margin-bottom:8px;font-family:var(--font-alt)}
+.step{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--radius-md);cursor:pointer;transition:background .15s}
+.step:hover{background:var(--neutral-50)}
+.step[aria-current="step"]{background:var(--neutral-100)}
+.step-marker{flex-shrink:0;width:22px;height:22px;border-radius:var(--pill);border:1.5px solid var(--border-strong);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--fg-muted);font-family:var(--font-mono);background:#fff}
+.step[aria-current="step"] .step-marker{background:var(--primary);border-color:var(--primary);color:#fff}
+.step-done .step-marker{background:var(--success);border-color:var(--success);color:#fff}
+.step-done .step-marker svg{width:11px;height:11px}
+.step-body{min-width:0;flex:1}
+.step-title{font-size:13px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.005em}
+.step[aria-current="step"] .step-title{color:var(--fg)}
+.step-sub{font-size:11.5px;color:var(--fg-muted);margin-top:1px}
+
+.workspace-center{padding:32px 36px;overflow:auto;display:flex;flex-direction:column;gap:20px}
+.workspace-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.workspace-title{font-size:20px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.01em;margin:0}
+.workspace-sub{font-size:13px;color:var(--fg-muted);margin:4px 0 0}
+.workspace-form{display:flex;flex-direction:column;gap:18px;max-width:560px}
+.workspace-foot{display:flex;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--border);margin-top:auto}
+
+.workspace-preview{background:#fff;border-left:1px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:14px}
+.preview-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-muted);font-family:var(--font-alt)}
+.preview-card{background:var(--neutral-50);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.preview-label{font-size:11.5px;color:var(--fg-muted);font-weight:500}
+.preview-value{font-size:24px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.02em;margin-top:4px}
+.preview-spark{margin-top:12px}
+.preview-meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--fg-muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.preview-drift{color:var(--success);font-weight:500}
+
+.notice{background:var(--info-soft);border:1px solid #bfdbfe;color:var(--info-ink);padding:10px 12px;border-radius:var(--radius-md);font-size:12.5px;display:flex;align-items:flex-start;gap:8px}
+.notice svg{width:14px;height:14px;flex-shrink:0;margin-top:2px;color:var(--info)}
+
+/* ── App-shell screen "ghost page" ───────────────────────────────── */
+.shell-ghost{padding:80px 40px;text-align:center;color:var(--fg-muted)}
+.shell-ghost h2{font-size:18px;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.01em;margin:0 0 6px}
+.shell-ghost p{font-size:13.5px;margin:0 0 24px;color:var(--fg-muted)}
+.shell-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:880px;margin:0 auto;text-align:left}
+.shell-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow-sm)}
+.shell-card svg{width:18px;height:18px;color:var(--primary);margin-bottom:6px}
+.shell-card-title{font-size:13.5px;font-weight:600;color:var(--fg);font-family:var(--font-alt)}
+.shell-card-sub{font-size:12px;color:var(--fg-muted)}
+
+/* ── Misc ────────────────────────────────────────────────────────── */
+.toolbar-side{display:inline-flex;gap:8px;align-items:center}
+.cmd-mod{font-family:var(--font-mono);font-size:11px;color:var(--fg-muted);background:var(--neutral-100);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px 5px;line-height:1.4}
+</style>
+</head>
+<body>
+
+<!-- ── Mockup chrome (screen switcher) ──────────────────────────── -->
+<div class="mockup-chrome">
+  <div>
+    <div class="mockup-title">Segments — first-class redesign</div>
+    <div class="mockup-sub">VNGGames Player Hub · hi-fi mockup</div>
+  </div>
+  <div class="mockup-tabs" role="tablist" aria-label="Screen switcher">
+    <button class="mockup-tab" role="tab" aria-selected="true" data-screen="shell">App shell</button>
+    <button class="mockup-tab" role="tab" aria-selected="false" data-screen="library">Library</button>
+    <button class="mockup-tab" role="tab" aria-selected="false" data-screen="detail">Detail</button>
+    <button class="mockup-tab" role="tab" aria-selected="false" data-screen="modal">Push modal</button>
+    <button class="mockup-tab" role="tab" aria-selected="false" data-screen="editor">Editor</button>
+  </div>
+</div>
+
+<div class="mockup-stage">
+
+<!-- ═══════════════════════ Screen 1 · App shell ═════════════════════ -->
+<section class="screen" data-screen="shell" data-active="true">
+  <header class="app-header">
+    <div class="brand-block">
+      <span class="brand-mark"><span class="vn">vn</span><span class="games">G</span><span style="color:var(--neutral-950);font-weight:700;letter-spacing:0">GAMES</span></span>
+      <span class="brand-product">GDS Cube</span>
+    </div>
+    <button class="game-picker" aria-haspopup="listbox">
+      <span class="game-mark">PT</span>
+      <span>Playing Together</span>
+      <span style="color:var(--fg-muted);font-family:var(--font-mono);font-size:11px">· ptg</span>
+      <i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--fg-muted)"></i>
+    </button>
+    <div class="spacer"></div>
+    <nav class="pill-row" aria-label="Primary">
+      <a class="nav-pill" href="#"><i data-lucide="layout-dashboard"></i>Playground</a>
+      <a class="nav-pill" href="#"><i data-lucide="sparkles"></i>New metric</a>
+      <a class="nav-pill" href="#"><i data-lucide="book-open"></i>Catalog</a>
+      <a class="nav-pill" aria-current="page" href="#"><i data-lucide="users"></i>Segments</a>
+    </nav>
+    <div class="right-cluster">
+      <button class="icon-btn" aria-label="Search"><i data-lucide="search"></i></button>
+      <button class="icon-btn" aria-label="Help"><i data-lucide="help-circle"></i></button>
+      <button class="icon-btn" aria-label="Notifications"><i data-lucide="bell"></i></button>
+      <span class="avatar">KT</span>
+    </div>
+  </header>
+  <div class="shell-ghost">
+    <h2>App shell · game-aware chrome</h2>
+    <p>Header is 44 px tall. Brand block (left) is followed by the new <strong>game picker</strong> chip. Active game scopes every surface.</p>
+    <div class="shell-grid">
+      <div class="shell-card">
+        <i data-lucide="layout-dashboard"></i>
+        <span class="shell-card-title">Playground</span>
+        <span class="shell-card-sub">Explore cubes filtered to the active game's namespace.</span>
+      </div>
+      <div class="shell-card">
+        <i data-lucide="sparkles"></i>
+        <span class="shell-card-title">New metric</span>
+        <span class="shell-card-sub">Wizard prefills game_id; source-cube picker is game-scoped.</span>
+      </div>
+      <div class="shell-card">
+        <i data-lucide="book-open"></i>
+        <span class="shell-card-title">Catalog</span>
+        <span class="shell-card-sub">Cube and metric cards filtered to the active game.</span>
+      </div>
+      <div class="shell-card" style="border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)">
+        <i data-lucide="users"></i>
+        <span class="shell-card-title">Segments</span>
+        <span class="shell-card-sub">Library, detail, editor and activation — all game-scoped.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ Screen 2 · Library ═══════════════════════ -->
+<section class="screen" data-screen="library">
+  <header class="app-header">
+    <div class="brand-block">
+      <span class="brand-mark"><span class="vn">vn</span><span class="games">G</span><span style="color:var(--neutral-950);font-weight:700;letter-spacing:0">GAMES</span></span>
+      <span class="brand-product">GDS Cube</span>
+    </div>
+    <button class="game-picker"><span class="game-mark">PT</span><span>Playing Together</span><span style="color:var(--fg-muted);font-family:var(--font-mono);font-size:11px">· ptg</span><i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--fg-muted)"></i></button>
+    <div class="spacer"></div>
+    <nav class="pill-row"><a class="nav-pill" href="#"><i data-lucide="layout-dashboard"></i>Playground</a><a class="nav-pill" href="#"><i data-lucide="sparkles"></i>New metric</a><a class="nav-pill" href="#"><i data-lucide="book-open"></i>Catalog</a><a class="nav-pill" aria-current="page" href="#"><i data-lucide="users"></i>Segments</a></nav>
+    <div class="right-cluster"><button class="icon-btn"><i data-lucide="search"></i></button><button class="icon-btn"><i data-lucide="help-circle"></i></button><button class="icon-btn"><i data-lucide="bell"></i></button><span class="avatar">KT</span></div>
+  </header>
+
+  <div class="page">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Segments</h1>
+        <p class="page-meta"><strong>10 segments</strong> · 15.9k users · last refresh 12m ago</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn--outline btn--small"><i data-lucide="upload"></i>Import IDs</button>
+        <button class="btn btn--primary btn--small"><i data-lucide="plus"></i>New segment</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-pills" role="tablist" aria-label="Type filter">
+        <button class="filter-pill" role="tab" aria-pressed="true">All <span class="count">10</span></button>
+        <button class="filter-pill" role="tab" aria-pressed="false"><span class="dot dot--success"></span>Live <span class="count">7</span></button>
+        <button class="filter-pill" role="tab" aria-pressed="false"><span class="dot dot--muted"></span>Static <span class="count">3</span></button>
+        <button class="filter-pill filter-pill--destructive" role="tab" aria-pressed="false"><span class="dot dot--destructive"></span>Broken <span class="count">1</span></button>
+      </div>
+      <div class="filter-bar-spacer"></div>
+      <div class="search">
+        <i data-lucide="search"></i>
+        <input placeholder="Search segments by name, cube or tag" />
+        <span class="cmd-mod">⌘K</span>
+      </div>
+      <button class="select"><span>Recent</span><i data-lucide="chevron-down"></i></button>
+      <button class="icon-btn" aria-label="Identity mapping" title="Identity mapping"><i data-lucide="settings-2"></i></button>
+    </div>
+
+    <div class="card">
+      <div class="table-head" role="row">
+        <span>Segment / cube</span>
+        <span>Health</span>
+        <span>Size</span>
+        <span>Trend</span>
+        <span>Used in</span>
+        <span>Owner</span>
+        <span></span>
+      </div>
+
+      <!-- Row 1 -->
+      <div class="table-row" role="row">
+        <div class="cell-segment">
+          <span class="segment-name">High-LTV VN players</span>
+          <span class="segment-cube">monetization_summary</span>
+        </div>
+        <div class="cell-health">
+          <span class="cell-health-top"><span class="dot dot--success"></span>Fresh</span>
+          <span class="cell-health-sub">Live · 15m cadence</span>
+        </div>
+        <div class="cell-size">82.4k<span class="delta">↑ 2.1%</span></div>
+        <div class="cell-trend">
+          <svg width="80" height="28" viewBox="0 0 80 28" fill="none"><path d="M2 22 L12 18 L22 20 L32 12 L42 6 L52 10 L62 8 L72 14 L78 11" stroke="var(--chart-1)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 22 L12 18 L22 20 L32 12 L42 6 L52 10 L62 8 L72 14 L78 11 L78 28 L2 28 Z" fill="var(--chart-1)" fill-opacity="0.08"/></svg>
+        </div>
+        <div class="cell-dest">
+          <span class="dest-chip dest-chip--active"><i data-lucide="arrow-right"></i>CDP · prod</span>
+          <span class="dest-chip dest-chip--active"><i data-lucide="arrow-right"></i>CDP · stag</span>
+        </div>
+        <div class="cell-owner"><span class="avatar">KT</span>khoi</div>
+        <div class="cell-chev"><i data-lucide="chevron-right"></i></div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="table-row" role="row">
+        <div class="cell-segment">
+          <span class="segment-name">Whales Q2 2026</span>
+          <span class="segment-cube">monetization_summary</span>
+        </div>
+        <div class="cell-health">
+          <span class="cell-health-top"><span class="dot dot--muted"></span>Static</span>
+          <span class="cell-health-sub">Manual upload</span>
+        </div>
+        <div class="cell-size">12.0k<span class="delta delta--muted">—</span></div>
+        <div class="cell-trend"><span class="cell-empty">—</span></div>
+        <div class="cell-dest"><span class="cell-empty">—</span></div>
+        <div class="cell-owner"><span class="avatar">KT</span>khoi</div>
+        <div class="cell-chev"><i data-lucide="chevron-right"></i></div>
+      </div>
+
+      <!-- Row 3 (Broken) -->
+      <div class="table-row" role="row">
+        <div class="cell-segment">
+          <span class="segment-name">Reactivation 30d</span>
+          <span class="segment-cube">player_lifecycle</span>
+        </div>
+        <div class="cell-health">
+          <span class="cell-health-top"><span class="dot dot--destructive"></span>Broken</span>
+          <span class="cell-health-sub cell-health-sub--danger">Dimension removed</span>
+        </div>
+        <div class="cell-size" style="color:var(--fg-muted)">0<span class="delta delta--muted">last 18.2k</span></div>
+        <div class="cell-trend">
+          <svg width="80" height="28" viewBox="0 0 80 28" fill="none"><path d="M2 8 L12 10 L22 12 L32 14 L42 16 L52 22 L62 26 L72 28 L78 28" stroke="var(--destructive)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="cell-dest"><span class="dest-chip dest-chip--failed"><i data-lucide="arrow-right"></i>CDP · prod</span></div>
+        <div class="cell-owner"><span class="avatar" style="background:linear-gradient(135deg,#3f8dff,#1e40af)">LH</span>linh</div>
+        <div class="cell-chev"><i data-lucide="chevron-right"></i></div>
+      </div>
+
+      <!-- Row 4 -->
+      <div class="table-row" role="row">
+        <div class="cell-segment">
+          <span class="segment-name">VIP daily login streak ≥ 7</span>
+          <span class="segment-cube">engagement_daily</span>
+        </div>
+        <div class="cell-health">
+          <span class="cell-health-top"><span class="dot dot--success"></span>Fresh</span>
+          <span class="cell-health-sub">Live · 1h cadence</span>
+        </div>
+        <div class="cell-size">41.2k<span class="delta">↑ 0.8%</span></div>
+        <div class="cell-trend">
+          <svg width="80" height="28" viewBox="0 0 80 28" fill="none"><path d="M2 18 L12 16 L22 17 L32 14 L42 12 L52 9 L62 11 L72 8 L78 7" stroke="var(--chart-1)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 18 L12 16 L22 17 L32 14 L42 12 L52 9 L62 11 L72 8 L78 7 L78 28 L2 28 Z" fill="var(--chart-1)" fill-opacity="0.08"/></svg>
+        </div>
+        <div class="cell-dest">
+          <span class="dest-chip dest-chip--active"><i data-lucide="arrow-right"></i>CDP · prod</span>
+          <span class="dest-chip dest-chip--more">+2</span>
+        </div>
+        <div class="cell-owner"><span class="avatar" style="background:linear-gradient(135deg,#059669,#065f46)">MN</span>minh</div>
+        <div class="cell-chev"><i data-lucide="chevron-right"></i></div>
+      </div>
+
+      <!-- Row 5 -->
+      <div class="table-row" role="row">
+        <div class="cell-segment">
+          <span class="segment-name">Churn-risk SEA · 14d inactive</span>
+          <span class="segment-cube">player_lifecycle</span>
+        </div>
+        <div class="cell-health">
+          <span class="cell-health-top"><span class="dot dot--warning"></span>Stale</span>
+          <span class="cell-health-sub">Live · 6h cadence · refresh overdue</span>
+        </div>
+        <div class="cell-size">28.5k<span class="delta delta--down">↓ 1.4%</span></div>
+        <div class="cell-trend">
+          <svg width="80" height="28" viewBox="0 0 80 28" fill="none"><path d="M2 10 L12 13 L22 12 L32 16 L42 14 L52 18 L62 17 L72 21 L78 19" stroke="var(--chart-1)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10 L12 13 L22 12 L32 16 L42 14 L52 18 L62 17 L72 21 L78 19 L78 28 L2 28 Z" fill="var(--chart-1)" fill-opacity="0.08"/></svg>
+        </div>
+        <div class="cell-dest">
+          <span class="dest-chip dest-chip--active"><i data-lucide="arrow-right"></i>CDP · stag</span>
+        </div>
+        <div class="cell-owner"><span class="avatar" style="background:linear-gradient(135deg,#a855f7,#7c2d12)">QA</span>quan</div>
+        <div class="cell-chev"><i data-lucide="chevron-right"></i></div>
+      </div>
+
+      <!-- Row 6 -->
+      <div class="table-row" role="row">
+        <div class="cell-segment">
+          <span class="segment-name">Beta cohort · v2.3 testers</span>
+          <span class="segment-cube">monetization_summary</span>
+        </div>
+        <div class="cell-health">
+          <span class="cell-health-top"><span class="dot dot--muted"></span>Static</span>
+          <span class="cell-health-sub">From Playground · 3d ago</span>
+        </div>
+        <div class="cell-size">3.4k<span class="delta delta--muted">—</span></div>
+        <div class="cell-trend"><span class="cell-empty">—</span></div>
+        <div class="cell-dest"><span class="cell-empty">—</span></div>
+        <div class="cell-owner"><span class="avatar">KT</span>khoi</div>
+        <div class="cell-chev"><i data-lucide="chevron-right"></i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ Screen 3 · Detail ═══════════════════════ -->
+<section class="screen" data-screen="detail">
+  <header class="app-header">
+    <div class="brand-block"><span class="brand-mark"><span class="vn">vn</span><span class="games">G</span><span style="color:var(--neutral-950);font-weight:700;letter-spacing:0">GAMES</span></span><span class="brand-product">GDS Cube</span></div>
+    <button class="game-picker"><span class="game-mark">PT</span><span>Playing Together</span><span style="color:var(--fg-muted);font-family:var(--font-mono);font-size:11px">· ptg</span><i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--fg-muted)"></i></button>
+    <div class="spacer"></div>
+    <nav class="pill-row"><a class="nav-pill" href="#"><i data-lucide="layout-dashboard"></i>Playground</a><a class="nav-pill" href="#"><i data-lucide="sparkles"></i>New metric</a><a class="nav-pill" href="#"><i data-lucide="book-open"></i>Catalog</a><a class="nav-pill" aria-current="page" href="#"><i data-lucide="users"></i>Segments</a></nav>
+    <div class="right-cluster"><button class="icon-btn"><i data-lucide="search"></i></button><button class="icon-btn"><i data-lucide="help-circle"></i></button><button class="icon-btn"><i data-lucide="bell"></i></button><span class="avatar">KT</span></div>
+  </header>
+
+  <div class="page">
+    <div>
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href="#"><i data-lucide="chevron-left" style="margin-right:2px"></i>Back to library</a>
+        <i data-lucide="chevron-right"></i>
+        <span>High-LTV VN players</span>
+      </nav>
+      <div class="detail-title-row">
+        <h1 class="detail-title">High-LTV VN players</h1>
+        <span class="badge badge--mono badge--secondary">monetization_summary</span>
+        <span class="live-badge"><span class="pulse"></span>Live · 15m</span>
+        <span class="badge badge--success">Fresh</span>
+        <div class="detail-actions">
+          <button class="btn btn--outline btn--small"><i data-lucide="refresh-cw"></i>Refresh now</button>
+          <button class="btn btn--outline btn--small"><i data-lucide="download"></i>Export IDs</button>
+          <button class="btn btn--outline btn--small"><i data-lucide="filter"></i>Copy as filter</button>
+          <button class="btn btn--neutral btn--small"><i data-lucide="pencil"></i>Edit predicate</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-strip">
+      <div class="kpi"><span class="kpi-label">Size</span><span class="kpi-value">82,412</span><span class="kpi-sub kpi-sub--up">↑ 2.1% vs last week</span></div>
+      <div class="kpi"><span class="kpi-label">Avg ARPU 30d</span><span class="kpi-value">$28.40</span><span class="kpi-sub kpi-sub--up">↑ 4.2%</span></div>
+      <div class="kpi"><span class="kpi-label">Last refresh</span><span class="kpi-value">12m ago</span><span class="kpi-sub">next at 14:30</span></div>
+      <div class="kpi"><span class="kpi-label">Owner</span><span class="kpi-value" style="font-size:16px">khoi · liveops</span><span class="kpi-sub">created 18 Apr</span></div>
+    </div>
+
+    <div class="tab-strip" role="tablist">
+      <button class="tab" role="tab" aria-selected="true"><i data-lucide="activity"></i>Monitor</button>
+      <button class="tab" role="tab" aria-selected="false"><i data-lucide="chart-line"></i>Insights</button>
+      <button class="tab" role="tab" aria-selected="false"><i data-lucide="users"></i>Members</button>
+      <button class="tab" role="tab" aria-selected="false"><i data-lucide="code-2"></i>Definition</button>
+      <button class="tab" role="tab" aria-selected="false"><i data-lucide="send"></i>Activation</button>
+    </div>
+
+    <div class="monitor-grid">
+      <!-- Size trend -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-title"><i data-lucide="trending-up"></i>Size trend<span class="meta">last 7 days</span></div>
+          <div class="section-actions">
+            <button class="select btn--small"><span>7d</span><i data-lucide="chevron-down"></i></button>
+            <button class="btn btn--outline btn--small"><i data-lucide="download"></i>Export</button>
+          </div>
+        </div>
+        <div class="chart-meta">
+          <span class="big">82.4k</span>
+          <span class="delta"><i data-lucide="trending-up" style="width:14px;height:14px"></i>+2.1% vs last week</span>
+        </div>
+        <div class="section-body" style="padding-top:0">
+          <svg width="100%" height="160" viewBox="0 0 720 160" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--chart-1)" stop-opacity="0.22"/>
+                <stop offset="100%" stop-color="var(--chart-1)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- gridlines -->
+            <line x1="0" y1="40" x2="720" y2="40" stroke="var(--neutral-100)" stroke-width="1"/>
+            <line x1="0" y1="80" x2="720" y2="80" stroke="var(--neutral-100)" stroke-width="1"/>
+            <line x1="0" y1="120" x2="720" y2="120" stroke="var(--neutral-100)" stroke-width="1"/>
+            <!-- area -->
+            <path d="M0 120 L100 110 L200 95 L300 100 L400 70 L500 55 L600 50 L720 35 L720 160 L0 160 Z" fill="url(#trendGrad)"/>
+            <!-- line -->
+            <path d="M0 120 L100 110 L200 95 L300 100 L400 70 L500 55 L600 50 L720 35" stroke="var(--chart-1)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- last point -->
+            <circle cx="720" cy="35" r="4" fill="var(--chart-1)" stroke="#fff" stroke-width="2"/>
+            <!-- x-axis labels -->
+            <text x="0" y="155" font-family="var(--font-mono)" font-size="10" fill="var(--neutral-500)">May 14</text>
+            <text x="120" y="155" font-family="var(--font-mono)" font-size="10" fill="var(--neutral-500)">May 15</text>
+            <text x="240" y="155" font-family="var(--font-mono)" font-size="10" fill="var(--neutral-500)">May 16</text>
+            <text x="360" y="155" font-family="var(--font-mono)" font-size="10" fill="var(--neutral-500)">May 17</text>
+            <text x="480" y="155" font-family="var(--font-mono)" font-size="10" fill="var(--neutral-500)">May 18</text>
+            <text x="600" y="155" font-family="var(--font-mono)" font-size="10" fill="var(--neutral-500)">May 19</text>
+            <text x="685" y="155" font-family="var(--font-mono)" font-size="10" fill="var(--neutral-500)">today</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Refresh history -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-title"><i data-lucide="history"></i>Refresh history<span class="meta">last 50</span></div>
+          <div class="section-actions"><button class="btn btn--ghost btn--small">View all</button></div>
+        </div>
+        <div class="section-body" style="padding-top:8px">
+          <div class="refresh-row"><span class="refresh-time">12m ago</span><span class="refresh-status"><i data-lucide="check-circle-2"></i>Success</span><span style="font-size:12px;color:var(--fg-muted)">82,412 users</span><span class="refresh-delta">+1,711</span><span class="refresh-link">View diff</span></div>
+          <div class="refresh-row"><span class="refresh-time">1h 12m ago</span><span class="refresh-status"><i data-lucide="check-circle-2"></i>Success</span><span style="font-size:12px;color:var(--fg-muted)">80,701 users</span><span class="refresh-delta">+801</span><span class="refresh-link">View diff</span></div>
+          <div class="refresh-row"><span class="refresh-time">2h 12m ago</span><span class="refresh-status"><i data-lucide="check-circle-2"></i>Success</span><span style="font-size:12px;color:var(--fg-muted)">79,900 users</span><span class="refresh-delta refresh-delta--down">−120</span><span class="refresh-link">View diff</span></div>
+          <div class="refresh-row"><span class="refresh-time">3h 12m ago</span><span class="refresh-status"><i data-lucide="check-circle-2"></i>Success</span><span style="font-size:12px;color:var(--fg-muted)">80,020 users</span><span class="refresh-delta">+340</span><span class="refresh-link">View diff</span></div>
+          <div class="refresh-row"><span class="refresh-time">4h 12m ago</span><span class="refresh-status"><i data-lucide="check-circle-2"></i>Success</span><span style="font-size:12px;color:var(--fg-muted)">79,680 users</span><span class="refresh-delta">+1,002</span><span class="refresh-link">View diff</span></div>
+        </div>
+      </div>
+
+      <!-- Activation summary -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-title"><i data-lucide="send"></i>Activation summary<span class="meta">2 destinations</span></div>
+          <div class="section-actions">
+            <button class="btn btn--primary btn--small"><i data-lucide="plus"></i>Activate to CDP</button>
+          </div>
+        </div>
+        <div class="section-body" style="padding-top:8px">
+          <div class="activation-row">
+            <div class="activation-meta">
+              <i data-lucide="arrow-right"></i>
+              <div>
+                <div class="activation-target">CDP · ptg · prod</div>
+                <div class="activation-name">segment_high_ltv_vn_players_member</div>
+              </div>
+            </div>
+            <span class="activation-status"><span class="dot dot--success"></span>Active</span>
+            <span class="activation-age">last push 12m ago</span>
+          </div>
+          <div class="activation-row">
+            <div class="activation-meta">
+              <i data-lucide="arrow-right"></i>
+              <div>
+                <div class="activation-target">CDP · ptg · stag</div>
+                <div class="activation-name">segment_high_ltv_vn_players_member</div>
+              </div>
+            </div>
+            <span class="activation-status"><span class="dot dot--success"></span>Active</span>
+            <span class="activation-age">last push 12m ago</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ Screen 4 · Push modal ═══════════════════ -->
+<section class="screen" data-screen="modal">
+  <header class="app-header">
+    <div class="brand-block"><span class="brand-mark"><span class="vn">vn</span><span class="games">G</span><span style="color:var(--neutral-950);font-weight:700;letter-spacing:0">GAMES</span></span><span class="brand-product">GDS Cube</span></div>
+    <button class="game-picker"><span class="game-mark">PT</span><span>Playing Together</span><span style="color:var(--fg-muted);font-family:var(--font-mono);font-size:11px">· ptg</span><i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--fg-muted)"></i></button>
+    <div class="spacer"></div>
+    <nav class="pill-row"><a class="nav-pill" href="#"><i data-lucide="layout-dashboard"></i>Playground</a><a class="nav-pill" href="#"><i data-lucide="sparkles"></i>New metric</a><a class="nav-pill" href="#"><i data-lucide="book-open"></i>Catalog</a><a class="nav-pill" aria-current="page" href="#"><i data-lucide="users"></i>Segments</a></nav>
+    <div class="right-cluster"><button class="icon-btn"><i data-lucide="search"></i></button><button class="icon-btn"><i data-lucide="help-circle"></i></button><button class="icon-btn"><i data-lucide="bell"></i></button><span class="avatar">KT</span></div>
+  </header>
+
+  <div class="modal-stage">
+    <div class="modal-scrim"></div>
+    <div class="modal" role="dialog" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 class="modal-title" id="modal-title">Push to segment</h2>
+        <button class="icon-btn" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-tabs" role="tablist">
+          <button class="modal-tab" role="tab" aria-selected="false">Create new</button>
+          <button class="modal-tab" role="tab" aria-selected="false">Append to existing</button>
+          <button class="modal-tab" role="tab" aria-selected="true">Activate to CDP</button>
+        </div>
+
+        <div class="summary-card">
+          <div class="heading">Activating from segment</div>
+          <div>High-LTV VN players · 82,412 users</div>
+          <div style="margin-top:6px">
+            <span class="stat"><code>cube</code> monetization_summary</span>
+            <span class="stat"><code>identity</code> user_id</span>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Game</label>
+          <div class="input input--readonly">
+            <span class="game-mark" style="margin:0">PT</span>
+            <span style="flex:1">Playing Together <span style="color:var(--fg-muted);font-family:var(--font-mono);font-size:11.5px">· ptg</span></span>
+            <a class="switch-link" href="#">Switch game</a>
+          </div>
+          <span class="field-help">Derived from the active game in the header.</span>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="mname">Metric name</label>
+          <div class="input">
+            <input id="mname" value="segment_high_ltv_vn_players_member" />
+            <i data-lucide="copy" style="width:14px;height:14px;color:var(--fg-muted);cursor:pointer"></i>
+          </div>
+          <span class="field-help">Lowercase, [a-z0-9_], up to 64 characters. Derived from segment name.</span>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Environment</label>
+          <div class="radio-group" role="radiogroup">
+            <button class="radio-pill" role="radio" aria-checked="false">dev</button>
+            <button class="radio-pill" role="radio" aria-checked="false">stag</button>
+            <button class="radio-pill" role="radio" aria-checked="true">prod</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Dimensions</label>
+          <div class="multiselect">
+            <span class="chip">server_id<button aria-label="Remove"><i data-lucide="x"></i></button></span>
+            <span class="chip">platform<button aria-label="Remove"><i data-lucide="x"></i></button></span>
+            <span style="font-size:12px;color:var(--fg-subtle);padding:0 4px">Add…</span>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <span class="checkbox"></span>
+          <div>
+            <div class="checkbox-label">Materialize on schedule</div>
+            <div class="checkbox-help">Persists the segment to the User Stage Iceberg table. Requires a cron schedule.</div>
+          </div>
+        </div>
+
+        <div class="advanced-fold">
+          <button class="fold-trigger"><i data-lucide="chevron-down"></i>Advanced · expression and filter (derived)</button>
+          <div class="fold-body">
+            <div class="derived-block"><span class="key">expression  </span>COUNT(DISTINCT user_id)
+<span class="key">filter      </span>tier = 'high_ltv'
+            AND country = 'VN'
+            AND last_login_at &gt;= NOW() - INTERVAL '30 days'
+<span class="key">source      </span>game_integration.bi_ptg.etl_monetization_summary</div>
+            <div class="notice"><i data-lucide="info"></i><div>Server-side translator converts <code style="font-family:var(--font-mono);font-size:11.5px">predicate_tree</code> to SQL on submit. You don't need to edit these directly.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn--outline btn--small">Cancel</button>
+        <button class="btn btn--primary btn--small"><i data-lucide="send"></i>Activate</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ Screen 5 · Editor ═══════════════════════ -->
+<section class="screen" data-screen="editor">
+  <header class="app-header">
+    <div class="brand-block"><span class="brand-mark"><span class="vn">vn</span><span class="games">G</span><span style="color:var(--neutral-950);font-weight:700;letter-spacing:0">GAMES</span></span><span class="brand-product">GDS Cube</span></div>
+    <button class="game-picker"><span class="game-mark">PT</span><span>Playing Together</span><span style="color:var(--fg-muted);font-family:var(--font-mono);font-size:11px">· ptg</span><i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--fg-muted)"></i></button>
+    <div class="spacer"></div>
+    <nav class="pill-row"><a class="nav-pill" href="#"><i data-lucide="layout-dashboard"></i>Playground</a><a class="nav-pill" href="#"><i data-lucide="sparkles"></i>New metric</a><a class="nav-pill" href="#"><i data-lucide="book-open"></i>Catalog</a><a class="nav-pill" aria-current="page" href="#"><i data-lucide="users"></i>Segments</a></nav>
+    <div class="right-cluster"><button class="icon-btn"><i data-lucide="search"></i></button><button class="icon-btn"><i data-lucide="help-circle"></i></button><button class="icon-btn"><i data-lucide="bell"></i></button><span class="avatar">KT</span></div>
+  </header>
+
+  <div class="workspace">
+    <!-- Left rail · steps -->
+    <aside class="workspace-rail">
+      <div class="workspace-rail-title">New segment</div>
+      <div class="step" aria-current="step">
+        <span class="step-marker">1</span>
+        <div class="step-body">
+          <div class="step-title">Identity</div>
+          <div class="step-sub">Cube and identity field</div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-marker">2</span>
+        <div class="step-body">
+          <div class="step-title">Predicate</div>
+          <div class="step-sub">Define cohort rules</div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-marker">3</span>
+        <div class="step-body">
+          <div class="step-title">Refresh</div>
+          <div class="step-sub">Cadence and warm cache</div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-marker">4</span>
+        <div class="step-body">
+          <div class="step-title">Activate</div>
+          <div class="step-sub">Register destinations</div>
+        </div>
+      </div>
+      <div style="margin-top:auto;padding:12px 8px;border-top:1px solid var(--border)">
+        <a href="#" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg-muted);text-decoration:none">
+          <i data-lucide="settings-2" style="width:13px;height:13px"></i>Edit identity map →
+        </a>
+      </div>
+    </aside>
+
+    <!-- Center · Identity step -->
+    <main class="workspace-center">
+      <div class="workspace-head">
+        <div>
+          <nav class="breadcrumbs"><a href="#">Library</a><i data-lucide="chevron-right"></i><span>New segment</span></nav>
+          <h2 class="workspace-title">Identity</h2>
+          <p class="workspace-sub">Choose the cube and the column that uniquely identifies a user. This determines what the segment resolves to downstream.</p>
+        </div>
+        <button class="btn btn--ghost btn--small"><i data-lucide="x"></i>Cancel</button>
+      </div>
+
+      <div class="workspace-form">
+        <div class="field-group">
+          <label class="field-label">Cube</label>
+          <div class="input">
+            <i data-lucide="database" style="width:14px;height:14px;color:var(--fg-muted)"></i>
+            <input value="monetization_summary" />
+            <i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--fg-muted)"></i>
+          </div>
+          <span class="field-help">Game-scoped to <strong>ptg</strong>. Switch the active game in the header to pick from a different namespace.</span>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Identity field</label>
+          <div class="input">
+            <i data-lucide="key-round" style="width:14px;height:14px;color:var(--fg-muted)"></i>
+            <input value="user_id" />
+            <i data-lucide="chevron-down" style="width:14px;height:14px;color:var(--fg-muted)"></i>
+          </div>
+          <span class="field-help">The identity column the segment will resolve to. Maps via identity-map for cross-cube joins.</span>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Name</label>
+          <div class="input">
+            <input placeholder="e.g. High-LTV VN players" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Tags <span style="color:var(--fg-muted);font-weight:400">· optional</span></label>
+          <div class="multiselect">
+            <span class="chip">liveops<button><i data-lucide="x"></i></button></span>
+            <span class="chip">monetization<button><i data-lucide="x"></i></button></span>
+            <span style="font-size:12px;color:var(--fg-subtle);padding:0 4px">Add tag…</span>
+          </div>
+        </div>
+
+        <div class="notice"><i data-lucide="info"></i><div>The identity field cannot be changed after the first refresh. Choose carefully.</div></div>
+      </div>
+
+      <div class="workspace-foot">
+        <button class="btn btn--outline btn--small"><i data-lucide="chevron-left"></i>Back</button>
+        <button class="btn btn--primary btn--small">Continue<i data-lucide="chevron-right"></i></button>
+      </div>
+    </main>
+
+    <!-- Right rail · live preview -->
+    <aside class="workspace-preview">
+      <div class="preview-title">Live preview</div>
+      <div class="preview-card">
+        <div class="preview-label">Estimated size</div>
+        <div class="preview-value">~82,400</div>
+        <div style="font-size:11.5px;color:var(--fg-muted);margin-top:2px">users matching predicate today</div>
+        <div class="preview-spark">
+          <svg width="100%" height="50" viewBox="0 0 240 50" preserveAspectRatio="none">
+            <defs><linearGradient id="prevGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--chart-1)" stop-opacity="0.25"/><stop offset="100%" stop-color="var(--chart-1)" stop-opacity="0"/></linearGradient></defs>
+            <path d="M0 36 L34 32 L68 28 L102 30 L136 22 L170 18 L204 15 L240 12 L240 50 L0 50 Z" fill="url(#prevGrad)"/>
+            <path d="M0 36 L34 32 L68 28 L102 30 L136 22 L170 18 L204 15 L240 12" stroke="var(--chart-1)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="preview-meta">
+          <span>Drift vs saved</span>
+          <span class="preview-drift">+0.2%</span>
+        </div>
+      </div>
+
+      <div class="preview-card" style="background:#fff">
+        <div class="preview-label">Query cost</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
+          <span style="font-size:18px;font-weight:600;color:var(--fg);font-family:var(--font-alt);letter-spacing:-0.01em">128 ms</span>
+          <span style="font-size:11.5px;color:var(--fg-muted)">on 12.4M rows</span>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <span class="badge badge--success" style="font-size:10.5px;height:20px">cached</span>
+          <span class="badge badge--outline" style="font-size:10.5px;height:20px;font-family:var(--font-mono)">cube · 4 dims</span>
+        </div>
+      </div>
+
+      <div style="font-size:11.5px;color:var(--fg-muted);line-height:1.55">
+        Preview re-runs as you edit. Identity column changes invalidate the cache.
+      </div>
+    </aside>
+  </div>
+</section>
+
+</div><!-- /mockup-stage -->
+
+<script>
+// Screen switcher
+(function(){
+  const tabs = document.querySelectorAll('.mockup-tab');
+  const screens = document.querySelectorAll('.screen');
+  function setScreen(name){
+    tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.screen === name ? 'true' : 'false'));
+    screens.forEach(s => s.setAttribute('data-active', s.dataset.screen === name ? 'true' : 'false'));
+    window.scrollTo({top: 0, behavior: 'instant'});
+  }
+  tabs.forEach(t => t.addEventListener('click', () => setScreen(t.dataset.screen)));
+  // Keyboard: ←/→ switch screens
+  window.addEventListener('keydown', e => {
+    if (e.target.matches('input,textarea')) return;
+    const names = Array.from(tabs).map(t => t.dataset.screen);
+    const current = document.querySelector('.mockup-tab[aria-selected="true"]').dataset.screen;
+    const idx = names.indexOf(current);
+    if (e.key === 'ArrowRight') setScreen(names[(idx + 1) % names.length]);
+    if (e.key === 'ArrowLeft')  setScreen(names[(idx - 1 + names.length) % names.length]);
+  });
+})();
+
+// Hydrate Lucide icons. Re-run after switching screens to be safe.
+function renderIcons(){
+  if (window.lucide && window.lucide.createIcons) {
+    window.lucide.createIcons({ attrs: { 'stroke-width': 1.75 } });
+  }
+}
+renderIcons();
+document.querySelectorAll('.mockup-tab').forEach(t => t.addEventListener('click', () => setTimeout(renderIcons, 50)));
+
+// Filter pill toggle (visual only)
+document.querySelectorAll('.filter-pills').forEach(group => {
+  group.addEventListener('click', e => {
+    const pill = e.target.closest('.filter-pill');
+    if (!pill) return;
+    group.querySelectorAll('.filter-pill').forEach(p => p.setAttribute('aria-pressed', 'false'));
+    pill.setAttribute('aria-pressed', 'true');
+  });
+});
+
+// Detail tab toggle (visual only)
+document.querySelectorAll('.tab-strip').forEach(group => {
+  group.addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    group.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+    tab.setAttribute('aria-selected', 'true');
+  });
+});
+
+// Modal tab toggle
+document.querySelectorAll('.modal-tabs').forEach(group => {
+  group.addEventListener('click', e => {
+    const t = e.target.closest('.modal-tab');
+    if (!t) return;
+    group.querySelectorAll('.modal-tab').forEach(x => x.setAttribute('aria-selected','false'));
+    t.setAttribute('aria-selected','true');
+  });
+});
+
+// Radio pill (env)
+document.querySelectorAll('.radio-group').forEach(group => {
+  group.addEventListener('click', e => {
+    const r = e.target.closest('.radio-pill');
+    if (!r) return;
+    group.querySelectorAll('.radio-pill').forEach(x => x.setAttribute('aria-checked','false'));
+    r.setAttribute('aria-checked','true');
+  });
+});
+</script>
+
+</body>
+</html>

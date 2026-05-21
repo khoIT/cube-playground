@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fff;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .col h3{font-family:var(--font-ui);font-size:11px;color:var(--neutral-500);margin:0 0 8px;text-transform:uppercase;letter-spacing:0.08em;font-weight:600}
+  .stack{display:flex;flex-direction:column;gap:4px}
+  .sw{height:28px;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-family:var(--font-mono);font-size:10px}
+</style></head>
+<body>
+<div class="col"><h3>Destructive — Red</h3><div class="stack" id="red"></div></div>
+<div class="col"><h3>Success — Emerald</h3><div class="stack" id="em"></div></div>
+<div class="col"><h3>Warning — Amber</h3><div class="stack" id="am"></div></div>
+<div class="col"><h3>Info — Blue</h3><div class="stack" id="bl"></div></div>
+<script>
+const g=(steps,target)=>target.innerHTML=steps.map(([k,v,dark])=>`<div class="sw" style="background:${v};color:${dark?'#fff':'#0a0a0a'}"><span>${k}</span><span>${v.toUpperCase()}</span></div>`).join('');
+g([["100","#fee2e2",false],["300","#fca5a5",false],["500","#ef4444",true],["600","#dc2626",true],["700","#b91c1c",true]],red);
+g([["100","#d1fae5",false],["300","#6ee7b7",false],["500","#10b981",true],["600","#059669",true],["700","#047857",true]],em);
+g([["100","#fef3c7",false],["300","#fcd34d",false],["500","#f59e0b",true],["600","#d97706",true],["700","#b45309",true]],am);
+g([["100","#dbeafe",false],["300","#93c5fd",false],["500","#3b82f6",true],["600","#3f8dff",true],["700","#1d4ed8",true]],bl);
+</script>
+</body></html>

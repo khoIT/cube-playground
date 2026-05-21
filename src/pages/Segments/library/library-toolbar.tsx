@@ -1,39 +1,33 @@
-/** Library toolbar — search, type filter, sort select, Import/New buttons. */
+/**
+ * Library toolbar — search + sort + identity-settings icon-button.
+ * Filter pills moved to library-filter-pills.tsx; primary actions
+ * (Import / + New segment) live in the library title block.
+ */
 
 import { ReactElement } from 'react';
 import { Button, Input, Select } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import { Settings2 } from 'lucide-react';
 import { useHistory } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styles from '../segments.module.css';
 
-export type LibraryFilter = 'all' | 'live' | 'static';
 export type LibrarySort = 'recent' | 'name' | 'size';
 
 interface Props {
   query: string;
-  filter: LibraryFilter;
   sort: LibrarySort;
   onQueryChange: (q: string) => void;
-  onFilterChange: (f: LibraryFilter) => void;
   onSortChange: (s: LibrarySort) => void;
-  onImport?: () => void;
-  onNew?: () => void;
 }
 
 export function LibraryToolbar({
   query,
-  filter,
   sort,
   onQueryChange,
-  onFilterChange,
   onSortChange,
-  onImport,
-  onNew,
 }: Props): ReactElement {
   const { t } = useTranslation();
   const history = useHistory();
-  const filters: LibraryFilter[] = ['all', 'live', 'static'];
 
   return (
     <div className={styles.toolbar}>
@@ -44,23 +38,6 @@ export function LibraryToolbar({
         onChange={(e) => onQueryChange(e.target.value)}
         allowClear
       />
-      <div className={styles.filterTabs} role="tablist" aria-label="Type filter">
-        {filters.map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={filter === key}
-            className={[
-              styles.filterTab,
-              filter === key ? styles.filterTabActive : '',
-            ].filter(Boolean).join(' ')}
-            onClick={() => onFilterChange(key)}
-          >
-            {t(`segments.library.filter.${key}`)}
-          </button>
-        ))}
-      </div>
       <Select
         size="middle"
         style={{ width: 200 }}
@@ -74,14 +51,12 @@ export function LibraryToolbar({
       />
       <div style={{ flex: 1 }} />
       <Button
-        icon={<SettingOutlined />}
+        icon={<Settings2 size={14} />}
         onClick={() => history.push('/segments/identity-map')}
-        title="Identity mapping"
+        title={t('segments.library.identityMap', { defaultValue: 'Identity mapping' })}
       >
-        Identity mapping
+        {t('segments.library.identityMap', { defaultValue: 'Identity mapping' })}
       </Button>
-      <Button onClick={onImport}>{t('segments.library.import')}</Button>
-      <Button type="primary" onClick={onNew}>{t('segments.library.new')}</Button>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppContext } from '../../hooks';
+import { useActiveGameId } from '../../components/Header/use-game-context';
 import { CUBE_TO_CDP_MAPPING } from './cdp-projection/cube-to-cdp-mapping';
 
 export type CatalogMeasure = {
@@ -64,6 +65,7 @@ export function useCatalogMeta(): UseCatalogMetaResult {
     apiUrl: string | null;
     token: string | null;
   };
+  const gameId = useActiveGameId();
   const [cubes, setCubes] = useState<CatalogCube[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,11 @@ export function useCatalogMeta(): UseCatalogMetaResult {
     setError(null);
 
     const base = ctx.apiUrl.endsWith('/v1') ? ctx.apiUrl : `${ctx.apiUrl}/v1`;
-    fetch(`${base}/meta?extended=true`, {
+    // Server-side schema isn't game-namespaced today; this param is a hint for
+    // a future Cube proxy that filters by `cube.meta.game_id`. Client-side
+    // fallback below applies the filter against cube.meta.game_id.
+    const url = `${base}/meta?extended=true&game_id=${encodeURIComponent(gameId)}`;
+    fetch(url, {
       headers: { Authorization: ctx.token },
     })
       .then(async (resp) => {
@@ -101,7 +107,7 @@ export function useCatalogMeta(): UseCatalogMetaResult {
     return () => {
       cancelled = true;
     };
-  }, [ctx.apiUrl, ctx.token]);
+  }, [ctx.apiUrl, ctx.token, gameId]);
 
   return { cubes, loading, error };
 }

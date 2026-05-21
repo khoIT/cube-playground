@@ -2,17 +2,20 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { buildApp } from '../src/index.js';
 import { setDb, closeDb } from '../src/db/sqlite.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
 
 function makeMemDb() {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
-  const sql = readFileSync(join(__dirname, '../src/db/migrations/001-init.sql'), 'utf8');
-  db.exec(sql);
+  // Apply all migrations in order so new tables/columns don't break older tests.
+  for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
+    db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
+  }
   return db;
 }
 

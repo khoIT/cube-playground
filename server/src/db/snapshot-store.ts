@@ -80,14 +80,17 @@ export function hydrateFromSnapshot(): { hydrated: boolean; counts: Record<strin
 
   const snap: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
 
+  // Snapshot rows from before the game_id migration may not carry the field; default to 'ptg'.
+  // Snapshot rows may pre-date later migrations; defaults are applied per-row.
   const insertSegment = db.prepare(`
     INSERT INTO segments
       (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json, sql_preview,
        uid_count, uid_list_json, refresh_cadence_min, last_refreshed_at, broken_reason,
-       created_at, updated_at, predicate_meta_version)
+       created_at, updated_at, predicate_meta_version, game_id, activations_json)
     VALUES (@id, @name, @type, @owner, @status, @cube, @predicate_tree_json, @cube_query_json,
             @sql_preview, @uid_count, @uid_list_json, @refresh_cadence_min, @last_refreshed_at,
-            @broken_reason, @created_at, @updated_at, @predicate_meta_version)
+            @broken_reason, @created_at, @updated_at, @predicate_meta_version, @game_id,
+            @activations_json)
   `);
   const insertTag = db.prepare('INSERT OR IGNORE INTO segment_tags (segment_id, tag) VALUES (?, ?)');
   const insertCard = db.prepare(`
@@ -100,7 +103,7 @@ export function hydrateFromSnapshot(): { hydrated: boolean; counts: Record<strin
   `);
 
   const tx = db.transaction(() => {
-    for (const s of snap.segments) insertSegment.run(s);
+    for (const s of snap.segments) insertSegment.run({ game_id: 'ptg', activations_json: '[]', ...s });
     for (const t of snap.segment_tags) insertTag.run(t.segment_id, t.tag);
     for (const c of snap.segment_card_cache) {
       insertCard.run(c.segment_id, c.card_id, c.query_hash, c.rows_json, c.fetched_at);

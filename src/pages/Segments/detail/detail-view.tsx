@@ -1,7 +1,7 @@
-/** Segment detail — header, KPI strip, tab strip, tab bodies. */
+/** Segment detail — header, KPI strip, 5-tab strip (Monitor default), tab bodies. */
 
 import { ReactElement, useEffect, useState } from 'react';
-import { useParams, useHistory, Link } from 'react-router-dom';
+import { useParams, useHistory } from 'react-router-dom';
 import { Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -9,48 +9,23 @@ import { Breadcrumbs, KpiTile, LiveBadge } from '../visuals';
 import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
-import { SampleUsersTab } from './tabs/sample-users-tab';
-import { TabPending } from './tab-pending-placeholder';
-import { PresetTab } from './tabs/preset-tab';
-import { PredicateTab } from './tabs/predicate-tab';
+import { MonitorTab } from './tabs/monitor-tab';
+import { InsightsTab } from './tabs/insights-tab';
+import { MembersTab } from './tabs/members-tab';
+import { DefinitionTab } from './tabs/definition-tab';
+import { ActivationTab } from './tabs/activation-tab';
+import { ActivateToCdpModal } from '../push-modal/activate-to-cdp-modal';
 import { usePreset } from './use-preset';
+import { useActiveTab, DetailTabId } from './use-active-tab';
 import { KpiCard } from './cards/kpi-card';
 import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
 import { RefreshNowButton } from './components/refresh-now-button';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { StatusPill } from '../status/status-pill';
-import { SavedAnalysesTab } from './tabs/saved-analyses-tab';
 import { buildPlaygroundDeeplink } from '../../../utils/playground-deeplink';
 import styles from '../segments.module.css';
 
-type TabId =
-  | 'overview'
-  | 'engagement'
-  | 'monetization'
-  | 'retention'
-  | 'sample-users'
-  | 'saved-analyses'
-  | 'predicate';
-
-const TABS: TabId[] = [
-  'overview',
-  'engagement',
-  'monetization',
-  'retention',
-  'sample-users',
-  'saved-analyses',
-  'predicate',
-];
-
-const TAB_I18N_KEY: Record<TabId, string> = {
-  overview: 'overview',
-  engagement: 'engagement',
-  monetization: 'monetization',
-  retention: 'retention',
-  'sample-users': 'sampleUsers',
-  'saved-analyses': 'savedAnalyses',
-  predicate: 'predicate',
-};
+const TABS: DetailTabId[] = ['monitor', 'insights', 'members', 'definition', 'activation'];
 
 function formatCount(n: number): string {
   if (n < 1000) return String(n);
@@ -65,9 +40,8 @@ export function DetailView(): ReactElement {
   const [segment, setSegment] = useState<Segment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const preset = usePreset(segment);
-  const [activeTab, setActiveTab] = useState<TabId>(
-    preset ? 'overview' : 'sample-users',
-  );
+  const { tab, section, setTab, setSection } = useActiveTab();
+  const [activateOpen, setActivateOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +87,8 @@ export function DetailView(): ReactElement {
   }
 
   const lastRefresh = segment.last_refreshed_at ?? segment.updated_at;
+  const goActivation = () => setTab('activation');
+  const openActivateModal = () => setActivateOpen(true);
 
   return (
     <main className={styles.page}>
@@ -136,7 +112,6 @@ export function DetailView(): ReactElement {
           <div style={{ flex: 1 }} />
           <div className={styles.actions}>
             <RefreshNowButton segment={segment} />
-            <Button>{t('segments.detail.actions.exportIds')}</Button>
             <Button
               onClick={() => {
                 const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
@@ -170,54 +145,65 @@ export function DetailView(): ReactElement {
             ))
           : (
             <>
-              <KpiTile label="Size" value={formatCount(segment.uid_count)} />
+              <KpiTile label={t('segments.detail.kpi.size', { defaultValue: 'Size' })} value={formatCount(segment.uid_count)} />
               <KpiTile
-                label="Last refresh"
+                label={t('segments.detail.kpi.lastRefresh', { defaultValue: 'Last refresh' })}
                 value={
                   lastRefresh
                     ? formatDistanceToNowStrict(new Date(lastRefresh), { addSuffix: true })
                     : '—'
                 }
               />
-              <KpiTile label="Owner" value={segment.owner} />
-              <KpiTile label="Status" value={segment.status} />
+              <KpiTile label={t('segments.detail.kpi.owner', { defaultValue: 'Owner' })} value={segment.owner} />
+              <KpiTile label={t('segments.detail.kpi.status', { defaultValue: 'Status' })} value={segment.status} />
             </>
           )}
       </div>
 
       <div className={styles.tabStrip} role="tablist">
-        {TABS.map((id) => (
+        {TABS.map((tid) => (
           <button
-            key={id}
+            key={tid}
             type="button"
             role="tab"
-            aria-selected={activeTab === id}
-            className={[
-              styles.tab,
-              activeTab === id ? styles.tabActive : '',
-            ].filter(Boolean).join(' ')}
-            onClick={() => setActiveTab(id)}
+            aria-selected={tab === tid}
+            className={[styles.tab, tab === tid ? styles.tabActive : ''].filter(Boolean).join(' ')}
+            onClick={() => setTab(tid)}
           >
-            {t(`segments.detail.tabs.${TAB_I18N_KEY[id]}`)}
+            {t(`segments.detail.tabs.${tid}`, { defaultValue: tid })}
           </button>
         ))}
       </div>
 
-      {activeTab === 'sample-users' && <SampleUsersTab segment={segment} />}
-      {activeTab === 'overview' && (
-        preset ? <PresetTab tab={preset.tabs.find((t) => t.id === 'overview')!} segment={segment} preset={preset} /> : <TabPending phase={4} />
+      {tab === 'monitor' && (
+        <MonitorTab
+          segment={segment}
+          onActivate={openActivateModal}
+          onJumpToActivation={goActivation}
+        />
       )}
-      {activeTab === 'engagement' && (
-        preset ? <PresetTab tab={preset.tabs.find((t) => t.id === 'engagement')!} segment={segment} preset={preset} /> : <TabPending phase={4} />
+      {tab === 'insights' && (
+        <InsightsTab
+          segment={segment}
+          preset={preset}
+          section={section}
+          onSectionChange={setSection}
+        />
       )}
-      {activeTab === 'monetization' && (
-        preset ? <PresetTab tab={preset.tabs.find((t) => t.id === 'monetization')!} segment={segment} preset={preset} /> : <TabPending phase={4} />
-      )}
-      {activeTab === 'retention' && (
-        preset ? <PresetTab tab={preset.tabs.find((t) => t.id === 'retention')!} segment={segment} preset={preset} /> : <TabPending phase={4} />
-      )}
-      {activeTab === 'saved-analyses' && <SavedAnalysesTab segment={segment} />}
-      {activeTab === 'predicate' && <PredicateTab segment={segment} />}
+      {tab === 'members' && <MembersTab segment={segment} />}
+      {tab === 'definition' && <DefinitionTab segment={segment} preset={preset} />}
+      {tab === 'activation' && <ActivationTab segment={segment} onActivate={openActivateModal} />}
+
+      <ActivateToCdpModal
+        open={activateOpen}
+        segment={segment}
+        identityField={preset?.identityDim ?? null}
+        onClose={() => setActivateOpen(false)}
+        onActivated={(updated) => {
+          setSegment(updated);
+          setTab('activation');
+        }}
+      />
     </main>
   );
 }

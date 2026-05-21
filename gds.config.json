@@ -1,0 +1,30 @@
+{
+  "_comment": "GDS Cube playground configuration. Plain-text registry only — no secrets, tokens, or credentials.",
+  "defaultGameId": "ptg",
+  "games": [
+    {
+      "id": "ptg",
+      "name": "Play Together",
+      "mark": "PT",
+      "color": "#f05a22"
+    },
+    {
+      "id": "ballistar",
+      "name": "Ballistar",
+      "mark": "BS",
+      "color": "#3f8dff"
+    },
+    {
+      "id": "cfm_vn",
+      "name": "CrossFire Mobile VN",
+      "mark": "CF",
+      "color": "#009688"
+    },
+    {
+      "id": "jus_vn",
+      "name": "Justice VN",
+      "mark": "JS",
+      "color": "#a855f7"
+    }
+  ]
+}

@@ -3,6 +3,22 @@ import type { PredicateNode } from './predicate-tree.js';
 export type SegmentType = 'manual' | 'predicate';
 export type SegmentStatus = 'fresh' | 'refreshing' | 'broken' | 'stale';
 
+export type ActivationStatus = 'active' | 'failed' | 'pending';
+export type ActivationEnv = 'dev' | 'stag' | 'prod';
+export type ActivationDestination = 'cdp';
+
+export interface Activation {
+  id: string;
+  destination: ActivationDestination;
+  game_id: string;
+  env: ActivationEnv;
+  metric_name: string;
+  registered_at: string;
+  last_pushed_at: string | null;
+  status: ActivationStatus;
+  last_error?: string;
+}
+
 export interface Segment {
   id: string;
   name: string;
@@ -20,9 +36,12 @@ export interface Segment {
   broken_reason: string | null;
   created_at: string;
   updated_at: string;
+  game_id: string;
+  activations_json: string;
   // hydrated fields (not in DB columns directly)
   tags?: string[];
   predicate_tree?: PredicateNode | null;
+  activations?: Activation[];
 }
 
 export interface SegmentInput {
@@ -34,6 +53,7 @@ export interface SegmentInput {
   predicate_tree?: PredicateNode | null;
   uid_list?: string[];
   refresh_cadence_min?: number | null;
+  game_id?: string;
 }
 
 export interface SegmentPatch {

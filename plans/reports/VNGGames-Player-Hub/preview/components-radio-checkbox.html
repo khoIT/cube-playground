@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fff;display:grid;grid-template-columns:1fr 1fr;gap:28px;font-family:Inter,sans-serif;color:#171717}
+  .group{display:flex;flex-direction:column;gap:14px}
+  .h{font-family:Inter,sans-serif;font-size:10px;color:var(--neutral-500);letter-spacing:0.08em;text-transform:uppercase;font-weight:600}
+  .row{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;line-height:1.2}
+  .row.dis{color:#a3a3a3;cursor:not-allowed}
+  .row.dis .box, .row.dis .dot{opacity:.5}
+
+  /* Checkbox */
+  .cb{width:18px;height:18px;border-radius:5px;border:1.5px solid #a3a3a3;background:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,border-color .15s;color:#fff}
+  .cb i{font-size:14px;line-height:1;opacity:0}
+  .cb.on{background:#f05a22;border-color:#f05a22}
+  .cb.on i{opacity:1}
+  .cb.indet{background:#f05a22;border-color:#f05a22}
+  .cb.indet::after{content:'';width:10px;height:2px;background:#fff;border-radius:1px}
+  .cb.err{border-color:#dc2626}
+
+  /* Radio */
+  .rd{width:18px;height:18px;border-radius:9999px;border:1.5px solid #a3a3a3;background:#fff;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s}
+  .rd::after{content:'';width:8px;height:8px;border-radius:9999px;background:#f05a22;transform:scale(0);transition:transform .15s}
+  .rd.on{border-color:#f05a22}
+  .rd.on::after{transform:scale(1)}
+  .rd.err{border-color:#dc2626}
+
+  .card{border:1px solid #e5e5e5;border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+  .card.on{border-color:#f05a22;background:#fff7ed}
+  .card .t{font-weight:600;font-size:13px;margin:0 0 2px}
+  .card .d{font-weight:400;font-size:12px;color:#737373;margin:0;line-height:1.4}
+  .err-msg{font-size:11px;color:#dc2626;margin-top:-6px;margin-left:28px}
+</style></head>
+<body>
+
+<!-- Checkboxes -->
+<div class="group">
+  <span class="h">Checkbox</span>
+  <div class="row"><span class="cb"><i class="ri-check-line"></i></span>Unchecked</div>
+  <div class="row"><span class="cb on"><i class="ri-check-line"></i></span>Checked</div>
+  <div class="row"><span class="cb indet"></span>Indeterminate</div>
+  <div class="row dis"><span class="cb on"><i class="ri-check-line"></i></span>Checked · disabled</div>
+  <div class="row dis"><span class="cb"><i class="ri-check-line"></i></span>Unchecked · disabled</div>
+  <div class="row"><span class="cb on err"><i class="ri-check-line"></i></span>With error</div>
+  <span class="err-msg" style="margin:-8px 0 0 0">Please review before continuing.</span>
+</div>
+
+<!-- Radios -->
+<div class="group">
+  <span class="h">Radio</span>
+  <div class="row"><span class="rd"></span>Unselected</div>
+  <div class="row"><span class="rd on"></span>Selected</div>
+  <div class="row dis"><span class="rd on"></span>Selected · disabled</div>
+  <div class="row dis"><span class="rd"></span>Unselected · disabled</div>
+  <div class="row"><span class="rd err"></span>With error</div>
+  <span class="err-msg" style="margin:-8px 0 0 0">Choose one option.</span>
+</div>
+
+<!-- Checkbox group -->
+<div class="group" style="grid-column:1 / -1">
+  <span class="h">Checkbox group · vertical</span>
+  <div style="display:flex;flex-direction:column;gap:10px;max-width:360px">
+    <div class="row"><span class="cb on"><i class="ri-check-line"></i></span>Email notifications</div>
+    <div class="row"><span class="cb"><i class="ri-check-line"></i></span>Push notifications</div>
+    <div class="row"><span class="cb on"><i class="ri-check-line"></i></span>In-app messages</div>
+    <div class="row dis"><span class="cb"><i class="ri-check-line"></i></span>SMS (not available in your region)</div>
+  </div>
+</div>
+
+<!-- Radio group as cards -->
+<div class="group" style="grid-column:1 / -1">
+  <span class="h">Radio group · cards</span>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <label class="card"><span class="rd" style="margin-top:1px"></span><div><p class="t">Free</p><p class="d">Basic access to Player Hub features and community.</p></div></label>
+    <label class="card on"><span class="rd on" style="margin-top:1px"></span><div><p class="t">Plus · 59,000₫/mo</p><p class="d">Cross-platform save, priority queue, exclusive cosmetics.</p></div></label>
+    <label class="card"><span class="rd" style="margin-top:1px"></span><div><p class="t">Elite · 149,000₫/mo</p><p class="d">Everything in Plus plus early access and tournament invites.</p></div></label>
+  </div>
+</div>
+
+</body></html>

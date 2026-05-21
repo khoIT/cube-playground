@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fff;display:flex;flex-direction:column;gap:16px}
+  .row{display:flex;align-items:center;gap:14px}
+  .k{font-family:Inter,sans-serif;font-size:10px;color:var(--neutral-500);width:88px;letter-spacing:0.04em;text-transform:uppercase;font-weight:600}
+  .av{border-radius:9999px;display:inline-flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;font-weight:600;color:#fff;background:linear-gradient(135deg,#f05a22,#7c2d12);flex-shrink:0;position:relative}
+  .s24{width:24px;height:24px;font-size:10px}
+  .s32{width:32px;height:32px;font-size:12px}
+  .s40{width:40px;height:40px;font-size:14px}
+  .s56{width:56px;height:56px;font-size:18px}
+  .s72{width:72px;height:72px;font-size:22px}
+  .group{display:flex}
+  .group .av{border:2px solid #fff;margin-left:-8px}
+  .group .av:first-child{margin-left:0}
+  .stat{width:10px;height:10px;border-radius:9999px;position:absolute;bottom:0;right:0;border:2px solid #fff}
+  .online{background:#10b981}
+  .ingame{background:#f05a22}
+  .offline{background:#a3a3a3}
+</style></head>
+<body>
+<div class="row"><span class="k">Sizes</span>
+  <div class="av s24">J</div>
+  <div class="av s32" style="background:linear-gradient(135deg,#3f8dff,#1e40af)">N</div>
+  <div class="av s40" style="background:linear-gradient(135deg,#059669,#065f46)">T</div>
+  <div class="av s56" style="background:linear-gradient(135deg,#a855f7,#6b21a8)">H</div>
+  <div class="av s72">V</div>
+</div>
+<div class="row"><span class="k">Status</span>
+  <div class="av s40">J<span class="stat online"></span></div>
+  <div class="av s40" style="background:linear-gradient(135deg,#3f8dff,#1e40af)">N<span class="stat ingame"></span></div>
+  <div class="av s40" style="background:linear-gradient(135deg,#059669,#065f46)">T<span class="stat offline"></span></div>
+</div>
+<div class="row"><span class="k">Group</span>
+  <div class="group">
+    <div class="av s40">J</div>
+    <div class="av s40" style="background:linear-gradient(135deg,#3f8dff,#1e40af)">N</div>
+    <div class="av s40" style="background:linear-gradient(135deg,#059669,#065f46)">T</div>
+    <div class="av s40" style="background:linear-gradient(135deg,#a855f7,#6b21a8)">H</div>
+    <div class="av s40" style="background:#f5f5f5;color:#525252">+4</div>
+  </div>
+</div>
+</body></html>

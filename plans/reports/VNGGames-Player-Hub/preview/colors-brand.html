@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fff;display:flex;gap:20px;align-items:center}
+  .scale{display:grid;grid-template-columns:repeat(11,1fr);gap:8px;flex:1}
+  .sw{aspect-ratio:1;border-radius:8px;box-shadow:0 0 0 1px rgba(0,0,0,0.04) inset}
+  .lbl{font-family:var(--font-ui);font-size:10px;color:var(--neutral-500);margin-top:6px;text-align:center;letter-spacing:0.02em;font-weight:500}
+  .hex{font-family:var(--font-mono);font-size:9px;color:var(--neutral-400);text-align:center;margin-top:1px}
+  .cell{display:flex;flex-direction:column}
+  .brand{width:120px;padding:14px;border-radius:10px;background:#f05a22;color:#fff;flex-shrink:0}
+  .brand .k{font-family:var(--font-ui);font-size:10px;letter-spacing:0.08em;font-weight:600;opacity:.85;text-transform:uppercase}
+  .brand .h{font-family:'Geist',sans-serif;font-weight:700;font-size:22px;letter-spacing:-0.01em;margin-top:6px}
+  .brand .c{font-family:var(--font-mono);font-size:11px;opacity:.85;margin-top:4px}
+</style></head>
+<body>
+<div class="brand"><div class="k">Brand</div><div class="h">Orange 600</div><div class="c">#F05A22</div></div>
+<div class="scale" id="sc"></div>
+<script>
+const steps=[["50","#fff7ed"],["100","#ffedd5"],["200","#fed7aa"],["300","#fdba74"],["400","#fb923c"],["500","#f97316"],["600","#f05a22"],["700","#f54a00"],["800","#9a3412"],["900","#7c2d12"],["950","#431407"]];
+sc.innerHTML=steps.map(([k,v])=>`<div class="cell"><div class="sw" style="background:${v}"></div><div class="lbl">${k}</div><div class="hex">${v.toUpperCase()}</div></div>`).join('');
+</script>
+</body></html>

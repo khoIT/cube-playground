@@ -23,6 +23,7 @@ interface SegmentRow {
   predicate_tree_json: string | null;
   predicate_meta_version: string | null;
   type: string;
+  uid_list_json: string;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -135,7 +136,43 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       uids.push(key);
     }
 
+    // Observability: when the segment had pre-existing uids (warm cache from
+    // a push-to-segment Live save, or a prior refresh), log the delta so we
+    // can spot predicate↔warm-cache divergence after creation.
+    try {
+      const prevUids = JSON.parse(row.uid_list_json ?? '[]') as string[];
+      if (prevUids.length > 0) {
+        const prevSet = new Set(prevUids);
+        const nextSet = new Set(uids);
+        const added = uids.filter((u) => !prevSet.has(u)).length;
+        const removed = prevUids.filter((u) => !nextSet.has(u)).length;
+        const overlap = uids.length - added;
+        const overlapRatio = prevUids.length ? overlap / prevUids.length : 1;
+        console.log(
+          `[refresh-segment] ${segmentId} delta: prev=${prevUids.length} next=${uids.length} added=${added} removed=${removed} overlap=${overlap} (${(overlapRatio * 100).toFixed(1)}%)`,
+        );
+      }
+    } catch {
+      // Best-effort logging only — never block the refresh.
+    }
+
     setSegmentUids(segmentId, uids, 'fresh');
+
+    // Persist refresh-log row so Library sparkline + Detail Monitor history
+    // can render from a single source of truth. Retention capped at 90 days.
+    try {
+      db.prepare(
+        'INSERT INTO segment_refresh_log (segment_id, uid_count, status) VALUES (?, ?, ?)',
+      ).run(segmentId, uids.length, 'fresh');
+      db.prepare(
+        "DELETE FROM segment_refresh_log WHERE ts < datetime('now', '-90 days')",
+      ).run();
+    } catch (err) {
+      console.warn(
+        `[refresh-segment] failed to write refresh-log for ${segmentId}:`,
+        (err as Error).message,
+      );
+    }
 
     // Pre-render preset cards so the FE can hydrate synchronously.
     // Failures here don't roll back the segment refresh — cards just fall
@@ -151,5 +188,15 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     }
   } catch (err) {
     setSegmentStatus(segmentId, 'broken', (err as Error).message);
+    try {
+      const cur = db.prepare('SELECT uid_count FROM segments WHERE id = ?').get(segmentId) as
+        | { uid_count: number }
+        | undefined;
+      db.prepare(
+        'INSERT INTO segment_refresh_log (segment_id, uid_count, status) VALUES (?, ?, ?)',
+      ).run(segmentId, cur?.uid_count ?? 0, 'broken');
+    } catch {
+      // refresh-log write is best-effort; never mask the primary error.
+    }
   }
 }

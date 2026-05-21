@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fff;display:flex;flex-direction:column;gap:18px}
+  .tabs{display:inline-flex;background:rgba(10,10,10,0.05);border-radius:10px;padding:3px;gap:2px}
+  .tab{font-family:Geist;font-weight:500;font-size:13px;color:#0a0a0a;padding:5px 12px;border-radius:8px;cursor:pointer}
+  .tab.active{background:#fff;box-shadow:var(--shadow-sm)}
+  .sw{display:inline-flex;align-items:center;gap:8px}
+  .track{width:36px;height:20px;border-radius:9999px;background:#e5e5e5;position:relative;cursor:pointer;transition:background .15s}
+  .track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:9999px;background:#fff;box-shadow:var(--shadow-sm);transition:left .15s}
+  .track.on{background:#171717}
+  .track.on::after{left:18px}
+  .track.brand.on{background:#f05a22}
+  .cb{width:16px;height:16px;border-radius:4px;border:1.5px solid #d4d4d4;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10px}
+  .cb.on{background:#171717;border-color:#171717}
+  .r{display:flex;align-items:center;gap:12px}
+  .lbl{font-family:Geist;font-size:13px;color:#0a0a0a}
+  .k{font-family:var(--font-ui);font-size:10px;color:var(--neutral-500);width:80px;letter-spacing:0.04em;text-transform:uppercase;font-weight:600}
+</style></head>
+<body>
+<div class="r"><span class="k">Tabs</span><div class="tabs"><span class="tab active">Overview</span><span class="tab">Achievements</span><span class="tab">Inventory</span><span class="tab">Friends</span></div></div>
+<div class="r"><span class="k">Switch</span><div class="sw"><div class="track on"></div><span class="lbl">Two-factor auth</span></div><div class="sw"><div class="track"></div><span class="lbl">Marketing emails</span></div><div class="sw"><div class="track brand on"></div><span class="lbl">VIP alerts</span></div></div>
+<div class="r"><span class="k">Checkbox</span><div class="sw"><div class="cb on">✓</div><span class="lbl">Remember me</span></div><div class="sw"><div class="cb"></div><span class="lbl">Subscribe to newsletter</span></div></div>
+</body></html>

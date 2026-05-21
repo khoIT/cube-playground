@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:#fff;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start}
+  .field{display:flex;flex-direction:column;gap:6px}
+  label{font-family:Inter,sans-serif;font-weight:500;font-size:13px;color:#171717}
+  .inp{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #e5e5e5;border-radius:8px;background:#fff;height:36px;box-sizing:border-box}
+  .inp input{border:0;outline:0;flex:1;font-family:Inter,sans-serif;font-size:13px;color:#171717;background:transparent}
+  .inp input::placeholder{color:#a3a3a3}
+  .inp:focus-within{border-color:#a3a3a3;box-shadow:0 0 0 3px rgba(163,163,163,0.15)}
+  .err{border-color:#dc2626 !important}
+  .disabled{opacity:.5;background:#fafafa}
+  .h{font-family:Inter,sans-serif;font-size:10px;color:var(--neutral-500);letter-spacing:0.08em;text-transform:uppercase;font-weight:600;margin-bottom:2px}
+  .inp i{font-size:16px;color:#737373;line-height:1}
+</style></head>
+<body>
+<div class="field"><span class="h">Default</span><label>Email</label><div class="inp"><i class="ri-mail-line"></i><input placeholder="player@vng.com.vn"/></div></div>
+<div class="field"><span class="h">Focus</span><label>Username</label><div class="inp" style="border-color:#a3a3a3;box-shadow:0 0 0 3px rgba(163,163,163,0.15)"><i class="ri-user-line"></i><input value="jade_nguyen"/></div></div>
+<div class="field"><span class="h">Error</span><label>Password</label><div class="inp err"><i class="ri-lock-line" style="color:#dc2626"></i><input type="password" value="••••••"/></div><span style="font-family:Inter;font-size:11px;color:#dc2626">Must be 8+ characters</span></div>
+<div class="field"><span class="h">Disabled</span><label style="color:#737373">API key</label><div class="inp disabled"><i class="ri-key-2-line"></i><input value="sk_live_•••••" disabled/></div></div>
+<div class="field"><span class="h">Search</span><label>&nbsp;</label><div class="inp"><i class="ri-search-line"></i><input placeholder="Search players…"/></div></div>
+<div class="field"><span class="h">With Action</span><label>&nbsp;</label><div class="inp"><i class="ri-link"></i><input value="playerhub.vn/u/jade"/><i class="ri-file-copy-line" style="cursor:pointer"></i></div></div>
+</body></html>

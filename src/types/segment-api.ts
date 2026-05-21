@@ -66,8 +66,56 @@ export interface Segment {
   broken_reason: string | null;
   created_at: string;
   updated_at: string;
+  game_id: string;
+  /** Activation registry for CDP / future destinations. Server hydrates from
+   * `activations_json` column; always present (possibly empty) on responses. */
+  activations: Activation[];
   /** Pre-rendered preset card rows, keyed by `kpi:<id>` / `card:<tabId>:<id>`. Present on segment-by-id GET only. */
   card_cache?: Record<string, CardCacheEntry>;
+}
+
+export type ActivationStatus = 'active' | 'failed' | 'pending';
+export type ActivationEnv = 'dev' | 'stag' | 'prod';
+export type ActivationDestination = 'cdp';
+
+export interface Activation {
+  id: string;
+  destination: ActivationDestination;
+  game_id: string;
+  env: ActivationEnv;
+  metric_name: string;
+  registered_at: string;
+  last_pushed_at: string | null;
+  status: ActivationStatus;
+  last_error?: string;
+}
+
+export interface ActivationInput {
+  env: ActivationEnv;
+  metric_name: string;
+  game_id?: string;
+  destination?: ActivationDestination;
+  status?: ActivationStatus;
+}
+
+export interface RefreshLogRow {
+  id: number;
+  segment_id: string;
+  ts: string;
+  uid_count: number;
+  status: string;
+}
+
+export interface GameDef {
+  id: string;
+  name: string;
+  mark?: string;
+  color?: string;
+}
+
+export interface GamesConfig {
+  defaultGameId: string;
+  games: GameDef[];
 }
 
 export interface SegmentInput {
@@ -78,6 +126,7 @@ export interface SegmentInput {
   predicate_tree?: PredicateNode | null;
   uid_list?: string[];
   refresh_cadence_min?: number | null;
+  game_id?: string;
 }
 
 export interface SegmentPatch {

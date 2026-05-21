@@ -24,7 +24,7 @@
   --orange-400: #fb923c;
   --orange-500: #f97316;
   --orange-600: #f05a22;
-  --orange-700: #c2410c;
+  --orange-700: #f54a00;
   --orange-800: #9a3412;
   --orange-900: #7c2d12;
 
@@ -43,10 +43,22 @@
   --text-on-brand:  #ffffff;
 
   /* Status */
-  --success: #009688;
+  --success: #059669;
   --warning: #f59e0b;
   --danger:  #ef4444;
   --info:    #3f8dff;
+
+  /* Semantic soft/ink variants — Badge/Pill/Health-cell backgrounds + text. */
+  --success-soft: #d1fae5;
+  --success-ink:  #047857;
+  --warning-soft: #fef3c7;
+  --warning-ink:  #92400e;
+  --destructive-soft: #fee2e2;
+  --destructive-ink:  #991b1b;
+  --info-soft:    #dbeafe;
+  --info-ink:     #1d4ed8;
+  --muted-soft:   #f5f5f5;
+  --muted-ink:    #525252;
 
   /* Radii / shadows */
   --radius-xs:   4px;
@@ -71,8 +83,10 @@
   --shadow-pane: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
   --bg-pane-rail: var(--bg-app);
 
-  /* Typography */
-  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Typography
+   * Player Hub DS: Inter for body, Geist as alternate for headings/labels. */
+  --font-sans: 'Inter', 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-alt:  'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /*
@@ -280,6 +294,18 @@
   --stale-badge-bg: rgba(217, 119, 6, 0.18);
   --stale-badge-border: rgba(217, 119, 6, 0.45);
   --stale-badge-text: #fcd34d;
+
+  /* Dark-mode equivalents for Phase 1 semantic soft/ink tokens. */
+  --success-soft: rgba(16, 185, 129, 0.15);
+  --success-ink:  #6ee7b7;
+  --warning-soft: rgba(217, 119, 6, 0.18);
+  --warning-ink:  #fcd34d;
+  --destructive-soft: rgba(220, 38, 38, 0.18);
+  --destructive-ink:  #fca5a5;
+  --info-soft:    rgba(63, 141, 255, 0.18);
+  --info-ink:     #93c5fd;
+  --muted-soft:   var(--neutral-800);
+  --muted-ink:    var(--neutral-300);
 
   --table-header-bg: rgba(240, 90, 34, 0.10);
 

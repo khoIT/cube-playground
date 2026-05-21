@@ -1,0 +1,563 @@
+openapi: 3.0.3
+info:
+  title: Metrics Management API (metrics_mgm)
+  description: |
+    CRUD API for managing metric definitions used by the Segment Engine.
+    Each metric is uniquely identified by `(game_id, metric_name)`.
+
+    All endpoints require a JWT bearer token in the `Authorization` header.
+    All responses use a common envelope: `{ status, error?, data?, pagination? }`.
+  version: 1.0.0
+  contact:
+    name: CDP Platform
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+  - url: https://metrics-mgm.dev.cdp.vnggames.internal
+    description: Dev environment
+  - url: https://metrics-mgm.stag.cdp.vnggames.internal
+    description: Staging environment
+  - url: https://metrics-mgm.prod.cdp.vnggames.internal
+    description: Production environment
+
+tags:
+  - name: Metrics
+    description: CRUD operations on metric definitions
+
+security:
+  - bearerAuth: []
+
+paths:
+  /cdp/v1/metrics:
+    post:
+      tags: [Metrics]
+      summary: Create a new metric
+      operationId: createMetric
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMetricRequest'
+            examples:
+              default:
+                value:
+                  game_id: ptg
+                  metric_name: last_login_at
+                  metric_codename: last_login_at
+                  source: game_integration.bi_ptg.etl_ingame_login
+                  expression: MAX(login_datetime)
+                  dimensions: [server_id, platform]
+      responses:
+        '200':
+          description: Metric created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                default:
+                  value:
+                    status: SUCCESS
+                    error: null
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                game_not_found:
+                  value:
+                    status: ERROR
+                    error: { code: GAME_NOT_FOUND, message: "game_id 'ptg' is not registered" }
+        '409':
+          description: Metric already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                metric_existed:
+                  value:
+                    status: ERROR
+                    error: { code: METRIC_EXISTED, message: "metric 'last_login_at' already exists for game 'ptg'" }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /cdp/v1/metrics/{game_id}/total:
+    get:
+      tags: [Metrics]
+      summary: Get total metrics count for a game
+      operationId: countMetrics
+      parameters:
+        - $ref: '#/components/parameters/GameIdPath'
+      responses:
+        '200':
+          description: Total count returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CountResponse'
+              examples:
+                default:
+                  value:
+                    status: SUCCESS
+                    error: null
+                    data: { game_id: ptg, total_metrics: 12 }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/GameNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /cdp/v1/metrics/{game_id}:
+    get:
+      tags: [Metrics]
+      summary: List metrics for a game (paginated)
+      operationId: listMetrics
+      parameters:
+        - $ref: '#/components/parameters/GameIdPath'
+        - name: page
+          in: query
+          required: false
+          description: 1-indexed page number
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          required: false
+          description: Records per page (default 50, max 100)
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: metrics
+          in: query
+          required: false
+          description: Comma-separated list of metric_name values to filter by
+          schema: { type: string }
+          example: last_login_at,first_login_at
+      responses:
+        '200':
+          description: Page of metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMetricsResponse'
+              examples:
+                default:
+                  value:
+                    status: SUCCESS
+                    error: null
+                    data:
+                      - game_id: ptg
+                        metric_name: last_login_at
+                        metric_codename: last_login_at
+                        source: game_integration.bi_ptg.etl_ingame_login
+                        expression: MAX(login_datetime)
+                        dimensions: [server_id, platform]
+                        materialize: false
+                        schedule: ''
+                        filter: ''
+                        created_at: '2026-05-05T10:00:00+07:00'
+                        updated_at: '2026-05-05T10:00:00+07:00'
+                    pagination:
+                      page: 1
+                      page_size: 50
+                      total_pages: 1
+                      total_count: 1
+                      has_next: false
+                      has_prev: false
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/GameNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /cdp/v1/metrics/{game_id}/{metric_name}:
+    parameters:
+      - $ref: '#/components/parameters/GameIdPath'
+      - $ref: '#/components/parameters/MetricNamePath'
+    get:
+      tags: [Metrics]
+      summary: Retrieve a single metric
+      operationId: getMetric
+      responses:
+        '200':
+          description: Metric returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricResponse'
+              examples:
+                default:
+                  value:
+                    status: SUCCESS
+                    error: null
+                    data:
+                      game_id: ptg
+                      metric_name: last_login_at
+                      metric_codename: last_login_at
+                      source: game_integration.bi_ptg.etl_ingame_login
+                      expression: MAX(login_datetime)
+                      dimensions: [server_id, platform]
+                      materialize: false
+                      schedule: ''
+                      filter: ''
+                      created_at: '2026-05-05T10:00:00+07:00'
+                      updated_at: '2026-05-05T10:00:00+07:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Game or metric not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                game_not_found:
+                  value:
+                    status: ERROR
+                    error: { code: GAME_NOT_FOUND, message: "game_id 'ptg' is not registered" }
+                metric_not_found:
+                  value:
+                    status: ERROR
+                    error: { code: METRIC_NOT_FOUND, message: "metric 'last_login_at' not found for game 'ptg'" }
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Metrics]
+      summary: Update a metric (partial)
+      operationId: updateMetric
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMetricRequest'
+            examples:
+              default:
+                value:
+                  metric_codename: login_at_max
+                  expression: MAX(login_datetime)
+                  dimensions: [server_id]
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Game or metric not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Metrics]
+      summary: Delete a metric
+      operationId: deleteMetric
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Game or metric not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    GameIdPath:
+      name: game_id
+      in: path
+      required: true
+      description: Game identity, e.g. `ptg`
+      schema: { type: string, minLength: 1 }
+      example: ptg
+    MetricNamePath:
+      name: metric_name
+      in: path
+      required: true
+      description: Metric name registered for the game
+      schema: { type: string, minLength: 1 }
+      example: last_login_at
+
+  schemas:
+    Status:
+      type: string
+      enum: [SUCCESS, ERROR]
+
+    ErrorCode:
+      type: string
+      enum:
+        - INVALID_REQUEST
+        - INTERNAL_ERROR
+        - GAME_NOT_FOUND
+        - METRIC_NOT_FOUND
+        - METRIC_EXISTED
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { $ref: '#/components/schemas/ErrorCode' }
+        message:
+          type: string
+          description: Human-readable error detail
+
+    Metric:
+      type: object
+      required:
+        - game_id
+        - metric_name
+        - metric_codename
+        - source
+        - expression
+        - dimensions
+        - materialize
+        - schedule
+        - filter
+        - created_at
+        - updated_at
+      properties:
+        game_id: { type: string, example: ptg }
+        metric_name: { type: string, example: last_login_at }
+        metric_codename: { type: string, example: last_login_at }
+        source:
+          type: string
+          description: Fully-qualified Lakehouse object `<catalog>.<schema>.<table/view>`
+          example: game_integration.bi_ptg.etl_ingame_login
+        expression:
+          type: string
+          description: SQL scalar expression
+          example: MAX(login_datetime)
+        dimensions:
+          type: array
+          description: Columns the metric can be grouped by
+          items: { type: string }
+          example: [server_id, platform]
+        materialize:
+          type: boolean
+          default: false
+          description: |
+            When true, the metric workflow materializes this metric into the
+            User Stage Iceberg physical table on the configured `schedule`.
+          example: false
+        schedule:
+          type: string
+          description: |
+            Standard 5-field cron expression (minute, hour, day-of-month,
+            month, day-of-week). Required when `materialize=true`; must be
+            empty when `materialize=false`.
+          example: '*/15 * * * *'
+        filter:
+          type: string
+          description: Optional SQL predicate that narrows the records contributing to the metric value.
+          example: country = 'VN'
+        created_at:
+          type: string
+          format: date-time
+          description: ISO8601 with UTC+07 offset
+          example: '2026-05-05T10:00:00+07:00'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-05-05T10:00:00+07:00'
+
+    Pagination:
+      type: object
+      required: [page, page_size, total_pages, total_count, has_next, has_prev]
+      properties:
+        page: { type: integer, example: 1 }
+        page_size: { type: integer, example: 50 }
+        total_pages: { type: integer, example: 1 }
+        total_count: { type: integer, example: 1 }
+        has_next: { type: boolean, example: false }
+        has_prev: { type: boolean, example: false }
+
+    CreateMetricRequest:
+      type: object
+      required:
+        - game_id
+        - metric_name
+        - metric_codename
+        - source
+        - expression
+        - dimensions
+      properties:
+        game_id: { type: string, example: ptg }
+        metric_name: { type: string, example: last_login_at }
+        metric_codename: { type: string, example: last_login_at }
+        source: { type: string, example: game_integration.bi_ptg.etl_ingame_login }
+        expression: { type: string, example: MAX(login_datetime) }
+        dimensions:
+          type: array
+          items: { type: string }
+          example: [server_id, platform]
+        materialize:
+          type: boolean
+          default: false
+          description: When true, `schedule` is required; otherwise `schedule` must be empty.
+          example: false
+        schedule:
+          type: string
+          description: Standard 5-field cron expression. Required when `materialize=true`.
+          example: '*/15 * * * *'
+        filter:
+          type: string
+          description: Optional SQL predicate that narrows contributing records.
+          example: country = 'VN'
+
+    UpdateMetricRequest:
+      type: object
+      description: All fields optional; provided fields overwrite stored values.
+      properties:
+        metric_codename: { type: string, example: login_at_max }
+        source: { type: string, example: game_integration.bi_ptg.etl_ingame_login }
+        expression: { type: string, example: MAX(login_datetime) }
+        dimensions:
+          type: array
+          items: { type: string }
+          example: [server_id]
+        materialize:
+          type: boolean
+          example: true
+        schedule:
+          type: string
+          example: '0 */6 * * *'
+        filter:
+          type: string
+          example: country = 'VN'
+
+    SuccessResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/Status'
+        error:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Error' }]
+
+    ErrorResponse:
+      type: object
+      required: [status, error]
+      properties:
+        status:
+          type: string
+          enum: [ERROR]
+        error:
+          $ref: '#/components/schemas/Error'
+
+    MetricResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/Status' }
+        error:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Error' }]
+        data:
+          $ref: '#/components/schemas/Metric'
+
+    ListMetricsResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/Status' }
+        error:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Error' }]
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Metric' }
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CountResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/Status' }
+        error:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Error' }]
+        data:
+          type: object
+          required: [game_id, total_metrics]
+          properties:
+            game_id: { type: string, example: ptg }
+            total_metrics: { type: integer, example: 12 }
+
+  responses:
+    InvalidRequest:
+      description: Request body or parameters are invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            invalid_request:
+              value:
+                status: ERROR
+                error: { code: INVALID_REQUEST, message: "field 'metric_name' is required" }
+
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            unauthorized:
+              value:
+                status: ERROR
+                error: { code: INVALID_REQUEST, message: unauthorized }
+
+    GameNotFound:
+      description: Game not registered
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            game_not_found:
+              value:
+                status: ERROR
+                error: { code: GAME_NOT_FOUND, message: "game_id 'ptg' is not registered" }
+
+    InternalError:
+      description: Unexpected server-side failure
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            internal_error:
+              value:
+                status: ERROR
+                error: { code: INTERNAL_ERROR, message: internal server error }

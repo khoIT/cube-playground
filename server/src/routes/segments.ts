@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.js';
 import { treeToCubeFilters } from '../services/translator.js';
+import { predicateToSql } from '../services/predicate-to-sql.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
 import { enqueueRefresh } from '../jobs/refresh-queue.js';
@@ -21,6 +22,7 @@ const segmentInputSchema = z.object({
   predicate_tree: z.unknown().optional().nullable(),
   uid_list: z.array(z.string()).optional(),
   refresh_cadence_min: z.number().int().positive().nullable().optional(),
+  game_id: z.string().min(1).max(64).optional(),
 });
 
 const segmentPatchSchema = z.object({
@@ -41,6 +43,14 @@ function hydrateSegment(row: Record<string, unknown>, db: ReturnType<typeof getD
     db.prepare('SELECT tag FROM segment_tags WHERE segment_id = ?').all(row.id) as { tag: string }[]
   ).map((r) => r.tag);
 
+  let activations: unknown[] = [];
+  try {
+    activations = JSON.parse((row.activations_json as string) ?? '[]');
+    if (!Array.isArray(activations)) activations = [];
+  } catch {
+    activations = [];
+  }
+
   return {
     ...row,
     tags,
@@ -48,13 +58,17 @@ function hydrateSegment(row: Record<string, unknown>, db: ReturnType<typeof getD
       ? JSON.parse(row.predicate_tree_json as string)
       : null,
     uid_list: JSON.parse((row.uid_list_json as string) ?? '[]'),
+    activations,
   };
 }
+
+const VALID_ENVS = new Set(['dev', 'stag', 'prod']);
+const METRIC_NAME_RE = /^[a-z0-9_]{1,64}$/;
 
 export default async function segmentsRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/segments
   app.get('/api/segments', async (req, reply) => {
-    const { owner, type, q, sort } = req.query as Record<string, string | undefined>;
+    const { owner, type, q, sort, game_id } = req.query as Record<string, string | undefined>;
     const db = getDb();
 
     let sql = 'SELECT * FROM segments WHERE 1=1';
@@ -71,6 +85,10 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     if (q) {
       sql += ' AND name LIKE ?';
       params.push(`%${q}%`);
+    }
+    if (game_id) {
+      sql += ' AND game_id = ?';
+      params.push(game_id);
     }
 
     const orderCol = sort === 'name' ? 'name' : 'created_at';
@@ -110,8 +128,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       data.name,
@@ -126,6 +144,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       data.refresh_cadence_min ?? null,
       now,
       now,
+      data.game_id ?? 'ptg',
     );
 
     if (data.tags?.length) {
@@ -251,6 +270,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       cube?: string;
       csv?: string;
       tags?: string[];
+      game_id?: string;
     };
 
     if (!body?.name?.trim()) {
@@ -294,8 +314,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       body.name.trim(),
@@ -310,6 +330,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       null,
       now,
       now,
+      body.game_id ?? 'ptg',
     );
 
     if (body.tags?.length) {
@@ -324,6 +345,81 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       max_rows: MAX_ROWS,
       errors: parsed.errors,
     });
+  });
+
+  // GET /api/segments/:id/refresh-log — sparkline + history feed.
+  app.get('/api/segments/:id/refresh-log', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { days, limit } = req.query as Record<string, string | undefined>;
+    const db = getDb();
+    const exists = db.prepare('SELECT 1 FROM segments WHERE id = ?').get(id);
+    if (!exists) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+
+    const dayCount = Math.max(1, Math.min(parseInt(days ?? '7', 10) || 7, 90));
+    const rowLimit = Math.max(1, Math.min(parseInt(limit ?? '200', 10) || 200, 500));
+    const rows = db
+      .prepare(
+        `SELECT id, segment_id, ts, uid_count, status
+           FROM segment_refresh_log
+          WHERE segment_id = ? AND ts >= datetime('now', ? )
+          ORDER BY ts ASC
+          LIMIT ?`,
+      )
+      .all(id, `-${dayCount} days`, rowLimit);
+    return rows;
+  });
+
+  // POST /api/segments/refresh-logs — bulk fetch for library sparklines.
+  // Body: { ids: string[], days: number }. Returns Record<id, LogRow[]>.
+  app.post('/api/segments/refresh-logs', async (req, reply) => {
+    const body = req.body as { ids?: unknown; days?: unknown };
+    if (!Array.isArray(body?.ids)) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'ids must be an array' } });
+    }
+    const ids = (body.ids as unknown[])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0)
+      .slice(0, 100); // cap to prevent DoS
+    if (ids.length === 0) return {};
+
+    const days = Math.max(1, Math.min(parseInt(String(body.days ?? '7'), 10) || 7, 90));
+    const db = getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = db
+      .prepare(
+        `SELECT id, segment_id, ts, uid_count, status
+           FROM segment_refresh_log
+          WHERE segment_id IN (${placeholders}) AND ts >= datetime('now', ?)
+          ORDER BY ts ASC`,
+      )
+      .all(...ids, `-${days} days`) as Array<Record<string, unknown>>;
+
+    const grouped: Record<string, Array<Record<string, unknown>>> = {};
+    for (const id of ids) grouped[id] = [];
+    for (const r of rows) {
+      const sid = r.segment_id as string;
+      if (!grouped[sid]) grouped[sid] = [];
+      grouped[sid].push(r);
+    }
+    return grouped;
+  });
+
+  // GET /api/segments/:id/sql-filter — Advanced preview in Activate-to-CDP modal.
+  app.get('/api/segments/:id/sql-filter', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const db = getDb();
+    const row = db.prepare('SELECT predicate_tree_json FROM segments WHERE id = ?').get(id) as
+      | { predicate_tree_json: string | null }
+      | undefined;
+    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    if (!row.predicate_tree_json) return { filter: '1=1' };
+    try {
+      const tree = JSON.parse(row.predicate_tree_json) as PredicateNode;
+      return { filter: predicateToSql(tree) };
+    } catch (err) {
+      return reply.status(400).send({
+        error: { code: 'SQL_TRANSLATOR_ERROR', message: (err as Error).message },
+      });
+    }
   });
 
   // POST /api/segments/:id/refresh — enqueue manual refresh; cron worker drains.
@@ -343,5 +439,91 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     void enqueueRefresh(id);
 
     return reply.status(202).send({ status: 'refreshing' });
+  });
+
+  // POST /api/segments/:id/activations — append a new activation (stub).
+  // Real CDP wiring lands in Phase 7; this endpoint persists the registry entry.
+  app.post('/api/segments/:id/activations', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = (req.body ?? {}) as {
+      destination?: string;
+      game_id?: string;
+      env?: string;
+      metric_name?: string;
+      status?: string;
+      last_error?: string;
+    };
+    if (body.destination !== undefined && body.destination !== 'cdp') {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'destination must be "cdp"' } });
+    }
+    if (!body.env || !VALID_ENVS.has(body.env)) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'env must be dev|stag|prod' } });
+    }
+    if (!body.metric_name || !METRIC_NAME_RE.test(body.metric_name)) {
+      return reply.status(400).send({
+        error: { code: 'VALIDATION', message: 'metric_name must match /^[a-z0-9_]{1,64}$/' },
+      });
+    }
+
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your segment' } });
+
+    let list: Array<Record<string, unknown>> = [];
+    try {
+      list = JSON.parse((row.activations_json as string) ?? '[]');
+      if (!Array.isArray(list)) list = [];
+    } catch {
+      list = [];
+    }
+
+    const activation = {
+      id: uuidv4(),
+      destination: 'cdp' as const,
+      game_id: body.game_id ?? (row.game_id as string) ?? 'ptg',
+      env: body.env,
+      metric_name: body.metric_name,
+      registered_at: new Date().toISOString(),
+      last_pushed_at: null,
+      status: (body.status as string) || 'pending',
+      ...(body.last_error ? { last_error: body.last_error } : {}),
+    };
+    list.push(activation);
+
+    db.prepare('UPDATE segments SET activations_json = ?, updated_at = ? WHERE id = ?').run(
+      JSON.stringify(list),
+      new Date().toISOString(),
+      id,
+    );
+
+    const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
+    return reply.status(201).send(hydrateSegment(updated, db));
+  });
+
+  // DELETE /api/segments/:id/activations/:activationId — remove an activation.
+  app.delete('/api/segments/:id/activations/:activationId', async (req, reply) => {
+    const { id, activationId } = req.params as { id: string; activationId: string };
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your segment' } });
+
+    let list: Array<Record<string, unknown>> = [];
+    try {
+      list = JSON.parse((row.activations_json as string) ?? '[]');
+      if (!Array.isArray(list)) list = [];
+    } catch {
+      list = [];
+    }
+    const next = list.filter((a) => (a as { id?: string }).id !== activationId);
+    db.prepare('UPDATE segments SET activations_json = ?, updated_at = ? WHERE id = ?').run(
+      JSON.stringify(next),
+      new Date().toISOString(),
+      id,
+    );
+
+    const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
+    return hydrateSegment(updated, db);
   });
 }

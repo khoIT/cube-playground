@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { BrandBlock } from './brand-block';
+import { GamePicker } from './game-picker';
 import { NavPill } from './nav-pill';
 import { RightCluster } from './right-cluster';
 
@@ -74,6 +75,8 @@ export default function Header({ selectedKeys }: Props) {
   return (
     <StyledHeader>
       <BrandBlock />
+
+      {isDesktopOrLaptop && <GamePicker />}
 
       <Spacer />
 
