@@ -86,4 +86,27 @@ describe('generateEntry — dispatch by artifactKind', () => {
     const broken = { ...makeMeasureDraft(), artifactKind: 'whatever' as any };
     expect(() => generateEntry(broken, CTX)).toThrow(/unsupported|unknown/i);
   });
+
+  describe('meta.game_id stamping', () => {
+    it('emits meta.game_id on measure when draft.gameId is set', () => {
+      const draft = { ...makeMeasureDraft(), gameId: 'bal_vn' };
+      const out = generateEntry(draft, CTX);
+      const parsed = yaml.load(out.fragment) as any;
+      expect(parsed.meta.game_id).toBe('bal_vn');
+    });
+
+    it('omits meta.game_id when draft.gameId is null', () => {
+      const draft = { ...makeMeasureDraft(), gameId: null };
+      const out = generateEntry(draft, CTX);
+      const parsed = yaml.load(out.fragment) as any;
+      expect(parsed.meta.game_id).toBeUndefined();
+    });
+
+    it('stamps meta.game_id on dimensions and segments too', () => {
+      const dim = generateEntry({ ...makeDimDraft(), gameId: 'ptg' }, CTX);
+      expect((yaml.load(dim.fragment) as any).meta.game_id).toBe('ptg');
+      const seg = generateEntry({ ...makeSegmentDraft(), gameId: 'ptg' }, CTX);
+      expect((yaml.load(seg.fragment) as any).meta.game_id).toBe('ptg');
+    });
+  });
 });

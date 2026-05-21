@@ -3,6 +3,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import { Modal, notification } from 'antd';
 import { useNewMetricMeta } from '../hooks/use-new-metric-meta';
 import { useNewMetricDraft } from '../hooks/use-new-metric-draft';
+import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { useActiveStep, type ArtifactStepId } from './hooks/use-active-step';
 import { Shell } from './shell/shell';
 import { LeftRail } from './shell/left-rail';
@@ -76,7 +77,8 @@ export function NewMetricPage() {
     return Array.from(seen).sort((a, b) => a.localeCompare(b));
   }, [meta]);
 
-  const draftState = useNewMetricDraft({ reachableNames });
+  const initialGameId = useActiveGameId();
+  const draftState = useNewMetricDraft({ reachableNames, initialGameId });
   const { draft, setField, setInput, setArtifactKind, toggleSource, setPrimarySource, clearPersisted } = draftState;
   const { step, setStep, canGoTo, next, back, totalSteps, doneFlags, graph, currentStep } =
     useActiveStep(draft);
@@ -159,7 +161,7 @@ export function NewMetricPage() {
   if (!isV2) {
     return (
       <div style={{ padding: 32, fontFamily: 'var(--font-sans)' }}>
-        <h2>New Metric (full-page v2)</h2>
+        <h2>New metric (full-page v2)</h2>
         <p style={{ color: 'var(--text-muted)' }}>
           Append <code>?v=2</code> to this URL to open the full-page wizard.
           The legacy modal is still available from the header.

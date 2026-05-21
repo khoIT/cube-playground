@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import styled from 'styled-components';
+import { Check } from 'lucide-react';
 import { WizardStep } from '../hooks/use-wizard-navigation';
 
 export interface StepperItem {
@@ -90,7 +91,7 @@ export function Stepper({ steps, current, isStepValid, onStepClick }: StepperPro
               onClick={() => onStepClick(step.id)}
             >
               <Circle $active={isActive} $done={isDone}>
-                {isDone ? '✓' : step.id}
+                {isDone ? <Check size={14} strokeWidth={2.5} /> : step.id}
               </Circle>
               <Label>{step.label}</Label>
             </Item>

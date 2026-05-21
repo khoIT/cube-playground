@@ -131,6 +131,13 @@ export type NewMetricDraftV3 = NewMetricDraftV2 & {
   dimKind?: DimKind;
   /** Active dim builder state. Only set when `artifactKind === 'dimension'`. */
   dimBuilder?: DimBuilder;
+  /**
+   * Active game scope at draft creation time. Stamped into the emitted
+   * `meta.game_id` so liveops surfaces can filter by game. Null/undefined =
+   * unscoped (legacy drafts that pre-date the field, or contexts where the
+   * game-picker hasn't resolved yet).
+   */
+  gameId?: string | null;
 };
 
 // Per-field validation errors; isValid is false when any field has an error.

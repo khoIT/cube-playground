@@ -191,7 +191,7 @@ export function NewMetricDialog({ onClose, draftState }: NewMetricDialogProps) {
   return (
     <Dialog isDismissable>
       <UIHeader>
-        <UITitle>New Metric</UITitle>
+        <UITitle>New metric</UITitle>
       </UIHeader>
 
       <Shell>

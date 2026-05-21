@@ -35,6 +35,7 @@ function buildMetaBlock(
     grain: draft.grain,
     visibility: draft.visibility,
   };
+  if (draft.gameId) meta.game_id = draft.gameId;
   if (draft.tags.length > 0) meta.tags = draft.tags;
   return meta;
 }

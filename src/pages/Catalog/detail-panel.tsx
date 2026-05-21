@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import { useHistory } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { CatalogCube } from './use-catalog-meta';
 import { DetailPanelMeasures } from './detail-panel-measures';
 
@@ -132,7 +133,7 @@ export function DetailPanel({ cube, onClose }: DetailPanelProps) {
       <Header>
         <Title>{cube.name}</Title>
         <CloseBtn type="button" aria-label="Close details" onClick={onClose}>
-          ✕
+          <X size={16} strokeWidth={2} />
         </CloseBtn>
       </Header>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DialogContainer } from '@cube-dev/ui-kit';
 import { useNewMetricDraft } from './hooks/use-new-metric-draft';
+import { useActiveGameId } from '../../components/Header/use-game-context';
 import { NewMetricDialog } from './NewMetricDialog';
 
 export const LEGACY_NEW_METRIC_EVENT = 'open-legacy-new-metric-dialog';
@@ -15,7 +16,8 @@ export const LEGACY_NEW_METRIC_EVENT = 'open-legacy-new-metric-dialog';
  *     window.dispatchEvent(new Event('open-legacy-new-metric-dialog'))
  */
 export function LegacyNewMetricDialogMount() {
-  const draftState = useNewMetricDraft();
+  const initialGameId = useActiveGameId();
+  const draftState = useNewMetricDraft({ initialGameId });
   const [open, setOpen] = useState(false);
 
   useEffect(() => {

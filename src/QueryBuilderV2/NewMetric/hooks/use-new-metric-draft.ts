@@ -36,6 +36,7 @@ function makeInitialDraft(): NewMetricDraftV3 {
     grain: 'daily',
     visibility: 'team',
     artifactKind: 'measure',
+    gameId: null,
   };
 }
 
@@ -348,6 +349,12 @@ export type UseNewMetricDraftReturn = {
 
 export type UseNewMetricDraftArgs = {
   reachableNames?: Set<string>;
+  /**
+   * Active game scope at mount. Stamped onto the draft when no game has been
+   * explicitly set yet (initial mount + hydration of a legacy draft that
+   * pre-dates the field). User edits via setField('gameId', …) win over this.
+   */
+  initialGameId?: string | null;
 };
 
 export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetricDraftReturn {
@@ -384,6 +391,16 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Stamp the active game on the draft once it's known. Only writes when the
+  // draft is still unscoped — preserves a user's explicit pick (or a hydrated
+  // value) across game-context updates.
+  useEffect(() => {
+    if (!args.initialGameId) return;
+    if (draft.gameId) return;
+    dispatch({ type: 'setField', field: 'gameId', value: args.initialGameId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [args.initialGameId]);
 
   // Debounced + flush-on-unload persistence.
   useEffect(() => {

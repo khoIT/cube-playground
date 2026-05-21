@@ -191,6 +191,8 @@ export function generate(
     author,
     created_at: createdAt,
   };
+  const gameId = (draft as { gameId?: string | null }).gameId;
+  if (gameId) metaBlock.game_id = gameId;
   if (draft.tags.length > 0) {
     metaBlock.tags = draft.tags;
   }
@@ -297,6 +299,8 @@ export function generateV2(
     grain: draft.grain,
     visibility: draft.visibility,
   };
+  const gameId = (draft as { gameId?: string | null }).gameId;
+  if (gameId) metaBlock.game_id = gameId;
   if (draft.tags.length > 0) metaBlock.tags = draft.tags;
   entries.push(['meta', metaBlock]);
 
