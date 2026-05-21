@@ -13,6 +13,7 @@ import presetsRoutes from './routes/presets.js';
 import metaVersionRoutes from './routes/meta-version.js';
 import previewRoutes from './routes/preview.js';
 import gamesRoutes from './routes/games.js';
+import cdpMetricsRoutes from './routes/cdp-metrics.js';
 import { getDb } from './db/sqlite.js';
 import { hydrateFromSnapshot } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
@@ -32,6 +33,7 @@ export async function buildApp() {
   await app.register(metaVersionRoutes);
   await app.register(previewRoutes);
   await app.register(gamesRoutes);
+  await app.register(cdpMetricsRoutes);
 
   // Dev-only fixture seed endpoint for visual regression tests.
   if (process.env.NODE_ENV !== 'production') {
