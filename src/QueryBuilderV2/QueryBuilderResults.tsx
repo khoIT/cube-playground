@@ -29,7 +29,7 @@ import {
   MoreOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { QueryOrder, TimeDimensionGranularity } from '@cubejs-client/core';
+import { QueryOrder, TimeDimensionGranularity, Query } from '@cubejs-client/core';
 import {
   AriaOptionProps,
   DroppableCollectionReorderEvent,
@@ -71,6 +71,8 @@ import { SegmentsSaveBar } from './segments-save-bar/segments-save-bar';
 import {
   extractUid,
   inferCubeAndIdentity,
+  inferIdentityGap,
+  stableRowHash,
   useResultsSelection,
 } from './segments-save-bar/use-results-selection';
 import { useIdentityMap } from '../hooks/use-identity-map';
@@ -696,6 +698,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     resultSet,
     order,
     cubes,
+    cubeApi,
     error,
     usedCubes,
     updateQuery,
@@ -755,8 +758,36 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     () => inferCubeAndIdentity(executedQuery as { dimensions?: string[] } | null, hasIdentityFor, identityFieldFor),
     [executedQuery, hasIdentityFor, identityFieldFor],
   );
-  const selection = useResultsSelection(executedQuery, identityField);
-  const showSelectionColumn = !!identityField;
+  const identityGap = useMemo(
+    () => inferIdentityGap(executedQuery as { dimensions?: string[] } | null, hasIdentityFor, identityFieldFor),
+    [executedQuery, hasIdentityFor, identityFieldFor],
+  );
+  const saveBarMode: 'uid' | 'expansion' | null = identityField
+    ? 'uid'
+    : identityGap
+    ? 'expansion'
+    : null;
+  const effectiveIdentityField = identityField ?? identityGap?.identityField ?? null;
+  const effectiveCube = identityCube ?? identityGap?.cube ?? null;
+  // The dim set used to hash rows in expansion mode: every executed dimension
+  // except the (absent-from-result) identity field itself.
+  const expansionDimNames = useMemo(() => {
+    const dims = ((executedQuery as { dimensions?: string[] } | null)?.dimensions ?? []) as string[];
+    return effectiveIdentityField ? dims.filter((d) => d !== effectiveIdentityField) : dims;
+  }, [executedQuery, effectiveIdentityField]);
+  const getRowKey = useMemo(() => {
+    if (saveBarMode === 'uid' && effectiveIdentityField) {
+      const f = effectiveIdentityField;
+      return (row: Record<string, unknown>) => extractUid(row, f);
+    }
+    if (saveBarMode === 'expansion') {
+      const dims = expansionDimNames;
+      return (row: Record<string, unknown>) => stableRowHash(row, dims);
+    }
+    return () => null;
+  }, [saveBarMode, effectiveIdentityField, expansionDimNames]);
+  const selection = useResultsSelection(executedQuery, getRowKey);
+  const showSelectionColumn = saveBarMode !== null;
   const gridColumnsTemplate = showSelectionColumn
     ? `40px ${baseGridColumnsTemplate}`
     : baseGridColumnsTemplate;
@@ -900,24 +931,31 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     return (
       <>
         {data?.slice((page - 1) * 100, (page - 1) * 100 + 100).map((row, rowId) => {
-          const rowUid = showSelectionColumn ? extractUid(row as Record<string, unknown>, identityField) : null;
-          const rowChecked = rowUid != null && selection.isSelected(rowUid);
+          const rowKey = showSelectionColumn ? getRowKey(row as Record<string, unknown>) : null;
+          const rowChecked = rowKey != null && selection.isSelected(rowKey);
           return (
             <div key={rowId} data-element="Row" data-qa={`QueryBuilderResult-row_${rowId}`}>
               {showSelectionColumn ? (
                 <div
-                  data-element="Cell"
+                  data-element="SelectionCell"
                   data-row={rowId}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#ffffff',
+                    padding: 0,
+                    minWidth: 0,
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <input
                     type="checkbox"
                     aria-label={`Select row ${rowId}`}
-                    disabled={rowUid == null}
+                    disabled={rowKey == null}
                     checked={rowChecked}
                     onChange={() => {
-                      if (rowUid != null) selection.toggle(rowUid);
+                      if (rowKey != null) selection.toggle(rowKey);
                     }}
                   />
                 </div>
@@ -1367,7 +1405,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     <Panel
       qa="QueryBuilderResults"
       flow="column"
-      gridRows="minmax(0, 1fr) min-content"
+      gridRows="minmax(0, 1fr) min-content min-content"
       overflow="clip"
       height={forceMinHeight ? 'min 31x' : 'initial'}
     >
@@ -1422,12 +1460,16 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
           ) : null}
         </Space>
       </TableFooter>
-      {executedQuery && data && data.length > 0 && showSelectionColumn && (
+      {executedQuery && data && data.length > 0 && saveBarMode && (
         <SegmentsSaveBar
-          cube={identityCube}
-          identityField={identityField}
+          mode={saveBarMode}
+          cube={effectiveCube}
+          identityField={effectiveIdentityField}
           rows={data as Record<string, unknown>[]}
           selection={selection}
+          getRowKey={getRowKey}
+          executedQuery={executedQuery as unknown as Query | null}
+          cubeApi={cubeApi}
         />
       )}
     </Panel>

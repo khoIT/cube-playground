@@ -1,6 +1,12 @@
 /**
- * Row-selection state for the Playground Results table, keyed by the uid
- * value pulled from the configured identity dimension (e.g. mf_users.user_id).
+ * Row-selection state for the Playground Results table. Generic over the
+ * key extraction strategy:
+ *   - Identity-uid mode: rowKey = the uid value pulled from the configured
+ *     identity dimension (e.g. mf_users.user_id).
+ *   - Expansion mode: rowKey = a stable hash of the row's visible dimension
+ *     values (used when the executed query is aggregated and doesn't expose
+ *     individual uids; selected cohorts are later expanded via a follow-up
+ *     Cube Query at push time).
  *
  * Selection persists across pagination of the same result set and resets when
  * the executed query changes.
@@ -10,10 +16,14 @@ import { useEffect, useMemo, useState } from 'react';
 
 export type PageSelectionState = 'all' | 'none' | 'some';
 
+export type RowKey = string;
+export type GetRowKey = (row: Record<string, unknown>) => RowKey | null;
+
 export interface ResultsSelectionApi {
-  selectedUids: string[];
-  isSelected: (uid: string) => boolean;
-  toggle: (uid: string) => void;
+  /** Selected row keys (uids in identity mode, row hashes in expansion mode). */
+  selectedUids: RowKey[];
+  isSelected: (key: RowKey) => boolean;
+  toggle: (key: RowKey) => void;
   togglePage: (rows: Record<string, unknown>[]) => void;
   clear: () => void;
   pageState: (rows: Record<string, unknown>[]) => PageSelectionState;
@@ -26,6 +36,22 @@ export function extractUid(
   if (!identityField) return null;
   const v = row[identityField];
   return v == null ? null : String(v);
+}
+
+/**
+ * Deterministic, JSON-stable key for an aggregated row, derived from its
+ * visible dimension values. Used as the selection key in expansion mode.
+ */
+export function stableRowHash(
+  row: Record<string, unknown>,
+  dimNames: string[],
+): string | null {
+  if (dimNames.length === 0) return null;
+  const pairs = dimNames.map((d) => {
+    const raw = row[d];
+    return [d, raw == null ? null : String(raw)] as const;
+  });
+  return JSON.stringify(pairs);
 }
 
 export function inferCubeAndIdentity(
@@ -44,56 +70,81 @@ export function inferCubeAndIdentity(
 }
 
 /**
- * Returns a stable selection API keyed by uid. The reset effect fires whenever
- * the executed query payload changes — keeping the dependency on its JSON
- * serialization makes the change detection deterministic across renders.
+ * Detects the case where the query targets a cube that HAS a configured
+ * identity field, but the executed dimensions don't include that field —
+ * i.e. the result rows are aggregated and don't carry per-user ids. Returns
+ * the cube + missing identity field so the UI can offer the expansion path.
+ */
+export function inferIdentityGap(
+  executedQuery: { dimensions?: string[] } | null,
+  hasIdentityFor: (cube: string) => boolean,
+  identityFieldFor: (cube: string) => string | null,
+): { cube: string; identityField: string } | null {
+  const dims = executedQuery?.dimensions ?? [];
+  if (dims.length === 0) return null;
+  const matched = inferCubeAndIdentity(executedQuery, hasIdentityFor, identityFieldFor);
+  if (matched.identityField) return null;
+  for (const dim of dims) {
+    const cube = dim.split('.')[0];
+    const field = identityFieldFor(cube);
+    if (hasIdentityFor(cube) && field) {
+      return { cube, identityField: field };
+    }
+  }
+  return null;
+}
+
+/**
+ * Returns a stable selection API keyed by row key. The reset effect fires
+ * whenever the executed query payload changes — its JSON serialization makes
+ * change detection deterministic across renders.
  */
 export function useResultsSelection(
   executedQuery: unknown,
-  identityField: string | null,
+  getRowKey: GetRowKey,
 ): ResultsSelectionApi {
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [selected, setSelected] = useState<Set<RowKey>>(() => new Set());
 
   const queryKey = useMemo(() => JSON.stringify(executedQuery ?? null), [executedQuery]);
 
   useEffect(() => {
     setSelected(new Set());
-  }, [queryKey, identityField]);
+  }, [queryKey]);
 
   return {
     selectedUids: Array.from(selected),
-    isSelected: (uid) => selected.has(uid),
-    toggle: (uid) =>
+    isSelected: (key) => selected.has(key),
+    toggle: (key) =>
       setSelected((prev) => {
         const next = new Set(prev);
-        if (next.has(uid)) next.delete(uid);
-        else next.add(uid);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
         return next;
       }),
     togglePage: (rows) =>
       setSelected((prev) => {
-        const uids = rows
-          .map((r) => extractUid(r, identityField))
-          .filter((u): u is string => u != null);
-        if (uids.length === 0) return prev;
-        const allSelected = uids.every((u) => prev.has(u));
+        const keys = rows
+          .map((r) => getRowKey(r))
+          .filter((k): k is RowKey => k != null);
+        if (keys.length === 0) return prev;
+        const allSelected = keys.every((k) => prev.has(k));
         const next = new Set(prev);
         if (allSelected) {
-          uids.forEach((u) => next.delete(u));
+          keys.forEach((k) => next.delete(k));
         } else {
-          uids.forEach((u) => next.add(u));
+          keys.forEach((k) => next.add(k));
         }
         return next;
       }),
     clear: () => setSelected(new Set()),
     pageState: (rows) => {
-      const uids = rows
-        .map((r) => extractUid(r, identityField))
-        .filter((u): u is string => u != null);
-      if (uids.length === 0) return 'none';
-      const count = uids.filter((u) => selected.has(u)).length;
+      const keys = rows
+        .map((r) => getRowKey(r))
+        .filter((k): k is RowKey => k != null);
+      if (keys.length === 0) return 'none';
+      const count = keys.filter((k) => selected.has(k)).length;
       if (count === 0) return 'none';
-      if (count === uids.length) return 'all';
+      if (count === keys.length) return 'all';
       return 'some';
     },
   };
