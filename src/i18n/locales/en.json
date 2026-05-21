@@ -50,17 +50,26 @@
         "segments_other": "{{count}} segments",
         "users": "{{formatted}} users",
         "lastRefresh": "last refresh {{when}}",
-        "never": "never"
+        "never": "never",
+        "segments": "{{count}} segments"
       },
       "health": {
-        "fresh": { "label": "Fresh" },
+        "fresh": {
+          "label": "Fresh"
+        },
         "stale": {
           "label": "Stale",
           "sub": "Live · {{cadence}}m · refresh overdue",
           "subNoCadence": "Refresh overdue"
         },
-        "broken": { "label": "Broken", "sub": "Refresh failed" },
-        "static": { "label": "Static", "sub": "Manual upload" },
+        "broken": {
+          "label": "Broken",
+          "sub": "Refresh failed"
+        },
+        "static": {
+          "label": "Static",
+          "sub": "Manual upload"
+        },
         "live": {
           "cadence": "Live · {{cadence}}m cadence",
           "noCadence": "Live · on demand"
@@ -197,7 +206,63 @@
       "clear": "Clear",
       "copy": "Copy IDs",
       "export": "Export",
-      "saveAs": "Save as segment ▾"
+      "saveAs": "Save as segment ▾",
+      "copyFailed": "Clipboard unavailable"
+    },
+    "activate": {
+      "modalTitle": "Activate to CDP",
+      "loading": "Loading segment…",
+      "invalid": "Fix the form before submitting.",
+      "users": "users",
+      "metricName": "Metric name",
+      "env": "Environment",
+      "dimensions": "Dimensions",
+      "materialize": "Materialize on schedule",
+      "advanced": {
+        "hide": "Hide advanced",
+        "show": "Show advanced"
+      },
+      "cancel": "Cancel",
+      "submit": "Activate"
+    },
+    "editor": {
+      "steps": {
+        "identity": {
+          "label": "Identity",
+          "sub": "Cube + name + tags"
+        },
+        "predicate": {
+          "label": "Predicate",
+          "sub": "Who belongs to this cohort"
+        },
+        "refresh": {
+          "label": "Refresh",
+          "sub": "Live cadence or static"
+        },
+        "activate": {
+          "label": "Activate",
+          "sub": "Push to CDP (after save)"
+        }
+      },
+      "rail": {
+        "titleNew": "New segment",
+        "identityMap": "Edit identity map →"
+      },
+      "errors": {
+        "invalid": "Fix the predicate and name first."
+      },
+      "success": {
+        "updated": "Segment updated.",
+        "created": "Segment created."
+      },
+      "cancel": "Cancel",
+      "back": "Back",
+      "save": "Save changes",
+      "create": "Create segment",
+      "continue": "Continue →",
+      "preview": {
+        "title": "Live preview"
+      }
     }
   },
   "tabs": {

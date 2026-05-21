@@ -50,17 +50,26 @@
         "segments_other": "{{count}} nhóm",
         "users": "{{formatted}} người dùng",
         "lastRefresh": "cập nhật {{when}}",
-        "never": "chưa"
+        "never": "chưa",
+        "segments": "{{count}} segments"
       },
       "health": {
-        "fresh": { "label": "Mới" },
+        "fresh": {
+          "label": "Mới"
+        },
         "stale": {
           "label": "Cũ",
           "sub": "Live · {{cadence}}m · trễ làm mới",
           "subNoCadence": "Trễ làm mới"
         },
-        "broken": { "label": "Lỗi", "sub": "Làm mới thất bại" },
-        "static": { "label": "Tĩnh", "sub": "Tải lên thủ công" },
+        "broken": {
+          "label": "Lỗi",
+          "sub": "Làm mới thất bại"
+        },
+        "static": {
+          "label": "Tĩnh",
+          "sub": "Tải lên thủ công"
+        },
         "live": {
           "cadence": "Live · cứ {{cadence}}m",
           "noCadence": "Live · theo yêu cầu"
@@ -89,7 +98,13 @@
         },
         "history": {
           "title": "Lịch sử làm mới",
-          "empty": "Chưa có lần làm mới nào."
+          "empty": "Chưa có lần làm mới nào.",
+          "col": {
+            "when": "When",
+            "status": "Status",
+            "size": "Size",
+            "delta": "Δ"
+          }
         },
         "activation": {
           "title": "Kích hoạt",
@@ -102,9 +117,13 @@
         "empty": {
           "title": "Chưa có insights cho cube này",
           "body": "Cài preset cho cube để bật Engagement, Monetization, Retention."
-        }
+        },
+        "noContent": "No content for this section.",
+        "subPills": "Insights sections"
       },
-      "members": { "title": "Thành viên" },
+      "members": {
+        "title": "Thành viên"
+      },
       "definition": {
         "identity": "Định danh",
         "cube": "Cube",
@@ -186,7 +205,63 @@
       "clear": "Xoá",
       "copy": "Copy IDs",
       "export": "Xuất",
-      "saveAs": "Lưu thành nhóm ▾"
+      "saveAs": "Lưu thành nhóm ▾",
+      "copyFailed": "Clipboard unavailable"
+    },
+    "activate": {
+      "modalTitle": "Activate to CDP",
+      "loading": "Loading segment…",
+      "invalid": "Fix the form before submitting.",
+      "users": "users",
+      "metricName": "Metric name",
+      "env": "Environment",
+      "dimensions": "Dimensions",
+      "materialize": "Materialize on schedule",
+      "advanced": {
+        "hide": "Hide advanced",
+        "show": "Show advanced"
+      },
+      "cancel": "Cancel",
+      "submit": "Activate"
+    },
+    "editor": {
+      "steps": {
+        "identity": {
+          "label": "Identity",
+          "sub": "Cube + name + tags"
+        },
+        "predicate": {
+          "label": "Predicate",
+          "sub": "Who belongs to this cohort"
+        },
+        "refresh": {
+          "label": "Refresh",
+          "sub": "Live cadence or static"
+        },
+        "activate": {
+          "label": "Activate",
+          "sub": "Push to CDP (after save)"
+        }
+      },
+      "rail": {
+        "titleNew": "New segment",
+        "identityMap": "Edit identity map →"
+      },
+      "errors": {
+        "invalid": "Fix the predicate and name first."
+      },
+      "success": {
+        "updated": "Segment updated.",
+        "created": "Segment created."
+      },
+      "cancel": "Cancel",
+      "back": "Back",
+      "save": "Save changes",
+      "create": "Create segment",
+      "continue": "Continue →",
+      "preview": {
+        "title": "Live preview"
+      }
     }
   },
   "tabs": {
