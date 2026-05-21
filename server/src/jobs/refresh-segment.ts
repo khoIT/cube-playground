@@ -159,14 +159,12 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     setSegmentUids(segmentId, uids, 'fresh');
 
     // Persist refresh-log row so Library sparkline + Detail Monitor history
-    // can render from a single source of truth. Retention capped at 90 days.
+    // can render from a single source of truth. Retention is handled by the
+    // standalone pruner in `refresh-log-retention.ts` on a coarse cron tick.
     try {
       db.prepare(
         'INSERT INTO segment_refresh_log (segment_id, uid_count, status) VALUES (?, ?, ?)',
       ).run(segmentId, uids.length, 'fresh');
-      db.prepare(
-        "DELETE FROM segment_refresh_log WHERE ts < datetime('now', '-90 days')",
-      ).run();
     } catch (err) {
       console.warn(
         `[refresh-segment] failed to write refresh-log for ${segmentId}:`,
