@@ -6,6 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { expandRelativeDateRange } from './expand-relative-date-range.js';
 import type {
   PredicateNode,
   GroupNode,
@@ -58,7 +59,7 @@ const CUBE_TO_TREE_BASE: Record<string, LeafOperator> = {
   afterDate: 'afterDate',
 };
 
-function leafToCubeFilter(node: LeafNode): CubeLeafFilter {
+function leafToCubeFilter(node: LeafNode): CubeLeafFilter | null {
   const cubeOp = TREE_TO_CUBE[node.op];
   if (!cubeOp) throw new UnsupportedOperatorError(node.op, `member=${node.member}`);
 
@@ -72,26 +73,41 @@ function leafToCubeFilter(node: LeafNode): CubeLeafFilter {
     filter.values = node.values.map(String);
   }
 
+  // inDateRange requires exactly 2 ISO date strings. Authoring tools sometimes
+  // stash a relative-range string ("this month", "last 7 days") as the only
+  // value — Cube rejects those with "Invalid format: Invalid date". Expand the
+  // recognized ones here; drop the filter (return null) when unrecoverable so
+  // the rest of the query still runs.
+  if (node.op === 'inDateRange') {
+    const vals = filter.values ?? [];
+    if (vals.length !== 2) {
+      if (vals.length === 1) {
+        const expanded = expandRelativeDateRange(vals[0]);
+        if (expanded) {
+          filter.values = expanded;
+          return filter;
+        }
+      }
+      // Unrecognized → drop the filter so Cube doesn't 400.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[translator] Dropping malformed inDateRange filter for ${node.member}: ${JSON.stringify(vals)}`,
+      );
+      return null;
+    }
+  }
+
   return filter;
 }
 
-function groupToCubeFilters(node: GroupNode): CubeFilter[] {
-  const childFilters = node.children.map(nodeToCubeFilter);
-
-  if (node.op === 'AND') {
-    // Top-level AND: flatten children into a flat array.
-    // Nested AND: wrap with { and: [...] }.
-    return childFilters;
-  }
-
-  // OR group: emit { or: [...] }
-  return [{ or: childFilters }];
-}
-
-function nodeToCubeFilter(node: PredicateNode): CubeFilter {
+function nodeToCubeFilter(node: PredicateNode): CubeFilter | null {
   if (node.kind === 'leaf') return leafToCubeFilter(node);
 
-  const childFilters = node.children.map(nodeToCubeFilter);
+  const childFilters = node.children
+    .map(nodeToCubeFilter)
+    .filter((f): f is CubeFilter => f != null);
+  // If all children dropped (e.g. malformed date filters), drop this group too.
+  if (childFilters.length === 0) return null;
   if (node.op === 'AND') return { and: childFilters };
   return { or: childFilters };
 }
@@ -101,19 +117,28 @@ function nodeToCubeFilter(node: PredicateNode): CubeFilter {
  *
  * Root AND group is flattened to a top-level array (Cube implicit AND).
  * Nested OR/AND groups become { or: [...] } / { and: [...] } objects.
+ * Malformed leaf filters (e.g. inDateRange with an unparseable single value)
+ * are dropped with a warning so the rest of the query still runs.
  */
 export function treeToCubeFilters(tree: PredicateNode): CubeFilter[] {
   if (tree.kind === 'leaf') {
-    return [leafToCubeFilter(tree)];
+    const f = leafToCubeFilter(tree);
+    return f ? [f] : [];
   }
 
   if (tree.op === 'AND') {
     // Root AND: each child becomes a top-level filter entry
-    return tree.children.map(nodeToCubeFilter);
+    return tree.children
+      .map(nodeToCubeFilter)
+      .filter((f): f is CubeFilter => f != null);
   }
 
   // Root OR: wrap everything in { or: [...] }
-  return [{ or: tree.children.map(nodeToCubeFilter) }];
+  const orChildren = tree.children
+    .map(nodeToCubeFilter)
+    .filter((f): f is CubeFilter => f != null);
+  if (orChildren.length === 0) return [];
+  return [{ or: orChildren }];
 }
 
 // ---------------------------------------------------------------------------

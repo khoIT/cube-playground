@@ -17,13 +17,18 @@ export function ValueInput({ type, op, values, onChange }: Props): ReactElement 
   if (!def || !def.takesValue) return null;
 
   if (def.multiValue) {
+    const isDateRange = type === 'time' && op === 'inDateRange';
     return (
       <Select
         mode="tags"
-        style={{ minWidth: 200 }}
+        style={{ minWidth: 240 }}
         value={values.map(String)}
         onChange={(v) => onChange(v)}
-        placeholder="Press enter to add"
+        placeholder={
+          isDateRange
+            ? 'Two YYYY-MM-DD dates (or a range like "this month")'
+            : 'Press enter to add'
+        }
       />
     );
   }

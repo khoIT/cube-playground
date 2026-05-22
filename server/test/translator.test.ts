@@ -112,6 +112,37 @@ describe('treeToCubeFilters', () => {
     expect(aFilter).toEqual({ member: 'U.createdAt', operator: 'afterDate', values: ['2023-01-01'] });
   });
 
+  it('expands inDateRange single-value "this month" to a 2-date array', () => {
+    const tree = leaf({
+      member: 'U.last_active_date',
+      op: 'inDateRange',
+      values: ['this month'],
+      type: 'time',
+    });
+    const [f] = treeToCubeFilters(tree);
+    expect(f).toBeDefined();
+    expect((f as { values: string[] }).values).toHaveLength(2);
+    // Both values should be valid YYYY-MM-DD strings.
+    expect((f as { values: string[] }).values[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect((f as { values: string[] }).values[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('drops inDateRange filter when the single value is unrecognized', () => {
+    const tree = group('AND', [
+      leaf({ member: 'U.country', op: 'equals', values: ['US'] }),
+      leaf({
+        member: 'U.last_active_date',
+        op: 'inDateRange',
+        values: ['gibberish'],
+        type: 'time',
+      }),
+    ]);
+    const filters = treeToCubeFilters(tree);
+    // Bad filter dropped; the country filter remains.
+    expect(filters).toHaveLength(1);
+    expect((filters[0] as { member: string }).member).toBe('U.country');
+  });
+
   it('throws UnsupportedOperatorError for unknown op in tree', () => {
     // Force an invalid op via type cast to test runtime guard
     const badLeaf = leaf({ member: 'X.y', op: 'invalidOp' as never, values: [] });
