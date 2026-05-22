@@ -159,15 +159,30 @@ describe('buildExpansionQuery', () => {
       {
         member: 'active_daily.log_date',
         operator: 'inDateRange',
-        values: [['2026-05-04', '2026-05-10']],
+        values: ['2026-05-04', '2026-05-10'],
       },
       {
         member: 'mf_users.first_login_date',
         operator: 'inDateRange',
-        values: [['2026-03-02', '2026-03-08']],
+        values: ['2026-03-02', '2026-03-08'],
       },
     ]);
-    expect(orClause.or[1].and[1].values).toEqual([['2026-04-13', '2026-04-19']]);
+    expect(orClause.or[1].and[1].values).toEqual(['2026-04-13', '2026-04-19']);
+  });
+
+  it('emits inDateRange values as a flat [start, end] tuple (Cube schema)', () => {
+    const cohortQuery = {
+      timeDimensions: [
+        { dimension: 'active_daily.log_date', granularity: 'week' },
+      ] as any,
+    };
+    const rows = [{ 'active_daily.log_date.week': '2026-05-18' }];
+    const q = buildExpansionQuery(cohortQuery, rows, 'mf_users.user_id');
+    const orClause = (q.filters as any[]).find((f: any) => f.or);
+    const td = orClause.or[0].and[0];
+    expect(Array.isArray(td.values)).toBe(true);
+    expect(td.values).toHaveLength(2);
+    expect(td.values.every((v: unknown) => typeof v === 'string')).toBe(true);
   });
 
   it('combines plain-dim equals + time-bucket inDateRange in one AND clause', () => {
@@ -190,7 +205,7 @@ describe('buildExpansionQuery', () => {
       {
         member: 'mf_users.first_login_date',
         operator: 'inDateRange',
-        values: [['2026-03-01', '2026-03-31']],
+        values: ['2026-03-01', '2026-03-31'],
       },
     ]);
   });

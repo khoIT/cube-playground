@@ -37,10 +37,13 @@ interface OriginalQueryShape {
 }
 
 type EqualsClause = { member: string; operator: 'equals'; values: [string] };
+// Cube's inDateRange filter takes a FLAT two-element string array
+// (`[start, end]`), not a nested array. Mirrors the @cubejs-client/core
+// `BinaryFilter.values: string[]` contract.
 type InDateRangeClause = {
   member: string;
   operator: 'inDateRange';
-  values: [[string, string]];
+  values: [string, string];
 };
 type RowClause = EqualsClause | InDateRangeClause;
 
@@ -91,7 +94,7 @@ export function buildRowAndGroup(
       timeClauses.push({
         member: td.member,
         operator: 'inDateRange',
-        values: [range],
+        values: range,
       });
     }
   }
