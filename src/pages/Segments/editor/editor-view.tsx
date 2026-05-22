@@ -34,6 +34,8 @@ export function EditorView(): ReactElement {
   const [cadence, setCadence] = useState<number | null>(60);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(!id);
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [savedTrend, setSavedTrend] = useState<number[]>([]);
 
   const predicate = usePredicateState();
   const { step, setStep, goNext, goBack } = useStep(mode);
@@ -48,12 +50,35 @@ export function EditorView(): ReactElement {
         setType(seg.type);
         setCadence(seg.refresh_cadence_min ?? 60);
         if (seg.predicate_tree) predicate.replaceTree(seg.predicate_tree);
+        setSavedCount(seg.uid_count);
         setLoaded(true);
       })
       .catch((err: SegmentApiError) => {
         message.error(err.message);
         setLoaded(true);
       });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    segmentsClient
+      .refreshLog(id, 14, 200)
+      .then((rows) => {
+        if (cancelled) return;
+        // refreshLog comes newest-first; reverse so the sparkline reads left→right oldest→newest.
+        const trend = rows
+          .filter((r) => r.status !== 'broken' && typeof r.uid_count === 'number')
+          .map((r) => r.uid_count)
+          .reverse();
+        setSavedTrend(trend);
+      })
+      .catch(() => {
+        if (!cancelled) setSavedTrend([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const validIdentity = name.trim().length > 0 && cube != null;
@@ -123,10 +148,18 @@ export function EditorView(): ReactElement {
 
   return (
     <main className={styles.workspacePage}>
-      <Breadcrumbs items={[
-        { label: t('segments.detail.backToLibrary', { defaultValue: 'Segments' }), href: '#/segments' },
-        { label: id ? `Edit · ${name || 'segment'}` : t('segments.editor.rail.titleNew', { defaultValue: 'New segment' }) },
-      ]} />
+      <Breadcrumbs items={
+        id
+          ? [
+              { label: t('segments.detail.backToLibrary', { defaultValue: 'Segments' }), href: '#/segments' },
+              { label: name || t('segments.editor.rail.titleEdit', { defaultValue: 'Segment' }), href: `#/segments/${id}` },
+              { label: t('segments.editor.breadcrumb.edit', { defaultValue: 'Edit' }) },
+            ]
+          : [
+              { label: t('segments.detail.backToLibrary', { defaultValue: 'Segments' }), href: '#/segments' },
+              { label: t('segments.editor.rail.titleNew', { defaultValue: 'New segment' }) },
+            ]
+      } />
 
       <div className={styles.workspace}>
         <WorkspaceRail
@@ -139,9 +172,16 @@ export function EditorView(): ReactElement {
         <section className={styles.workspaceCenter}>
           <header className={styles.workspaceCenterHead}>
             <h2>{t(stepTitleKey, { defaultValue: centerTitleDefault[step] })}</h2>
-            <Button type="text" onClick={() => history.goBack()}>
-              {t('segments.editor.cancel', { defaultValue: 'Cancel' })}
-            </Button>
+            <div style={{ display: 'inline-flex', gap: 8 }}>
+              {id && (
+                <Button onClick={() => history.push(`/segments/${id}`)}>
+                  {t('segments.editor.viewSegment', { defaultValue: 'View segment' })}
+                </Button>
+              )}
+              <Button type="text" onClick={() => history.goBack()}>
+                {t('segments.editor.cancel', { defaultValue: 'Cancel' })}
+              </Button>
+            </div>
           </header>
 
           <div className={styles.workspaceStepBodyPane}>
@@ -209,7 +249,7 @@ export function EditorView(): ReactElement {
             )}
           </footer>
         </section>
-        <WorkspacePreview preview={preview} />
+        <WorkspacePreview preview={preview} savedCount={savedCount} savedTrend={savedTrend} />
       </div>
     </main>
   );

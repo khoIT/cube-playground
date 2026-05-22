@@ -76,6 +76,16 @@ export interface TabDef {
   gridCols?: 1 | 2 | 3;
 }
 
+export interface MemberColumnSpec {
+  id: string;
+  label: string;
+  /** Cube dimension name (e.g. `mf_users.ltv_total_vnd`). */
+  dimension: string;
+  format?: FormatId;
+  /** Optional max char width to truncate string-y values. */
+  truncate?: number;
+}
+
 export interface Preset {
   id: string;
   label: string;
@@ -84,4 +94,6 @@ export interface Preset {
   reachableCubes: string[];
   headlineKpis: KpiSpec[];
   tabs: TabDef[];
+  /** Optional per-member info shown alongside uid on the Members tab. */
+  memberColumns?: MemberColumnSpec[];
 }

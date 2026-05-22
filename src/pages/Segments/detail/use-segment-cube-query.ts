@@ -77,6 +77,10 @@ export interface UseSegmentCubeQueryOptions<T> {
    *  entirely. Use when the server cache is known fresh — saves ~30 parallel
    *  Cube round-trips per tab open. */
   skipBackgroundFetch?: boolean;
+  /** Override the uid list used for the identity-IN scoping filter. Useful when
+   *  scoping to a paginated subset of segment members (e.g. visible page only)
+   *  instead of the segment's full uid_list. */
+  uidsOverride?: string[];
 }
 
 export function useSegmentCubeQuery<T = Record<string, unknown>>(
@@ -110,7 +114,8 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
       return;
     }
 
-    const scoped = scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
+    const uidsForScope = options.uidsOverride ?? segment.uid_list ?? [];
+    const scoped = scopeQueryToSegment(query, identityDim, uidsForScope);
     const key = hashKey(segment.id, scoped);
 
     const cached = cache.get(key);
@@ -160,7 +165,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     return () => {
       cancelled = true;
     };
-  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground]);
+  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, JSON.stringify(options.uidsOverride)]);
 
   return { loading, error, rows };
 }

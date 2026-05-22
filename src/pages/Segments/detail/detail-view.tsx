@@ -20,6 +20,8 @@ import { usePreset } from './use-preset';
 import { useActiveTab, DetailTabId } from './use-active-tab';
 import { KpiCard } from './cards/kpi-card';
 import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
+import { useSegmentSizeDelta } from './hooks/use-segment-size-delta';
+import { format as formatDate, addMinutes } from 'date-fns';
 import { RefreshNowButton } from './components/refresh-now-button';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { StatusPill } from '../status/status-pill';
@@ -75,6 +77,8 @@ export function DetailView(): ReactElement {
     { enabled: segment?.type === 'predicate' },
   );
 
+  const sizeDelta = useSegmentSizeDelta(segment?.id ?? null, segment?.uid_count ?? null, 7);
+
   if (error) {
     return (
       <main className={styles.page}>
@@ -98,6 +102,33 @@ export function DetailView(): ReactElement {
   const lastRefresh = segment.last_refreshed_at ?? segment.updated_at;
   const goActivation = () => setTab('activation');
   const openActivateModal = () => setActivateOpen(true);
+
+  const sizeTone: 'positive' | 'negative' | null = sizeDelta.percent == null
+    ? null
+    : sizeDelta.percent >= 0
+      ? 'positive'
+      : 'negative';
+  const sizeComparison = sizeDelta.percent != null && sizeTone != null
+    ? {
+        text: `${sizeDelta.percent >= 0 ? '↑' : '↓'} ${Math.abs(sizeDelta.percent).toFixed(1)}% ${t('segments.detail.kpi.vsLastWeek', { defaultValue: 'vs last week' })}`,
+        tone: sizeTone,
+      }
+    : null;
+
+  const nextRefreshAt =
+    segment.type === 'predicate' && lastRefresh && segment.refresh_cadence_min
+      ? formatDate(addMinutes(new Date(lastRefresh), segment.refresh_cadence_min), 'HH:mm')
+      : null;
+  const lastRefreshFooter = nextRefreshAt
+    ? t('segments.detail.kpi.nextAt', { defaultValue: 'next at {{at}}', at: nextRefreshAt })
+    : null;
+
+  const ownerFooter = segment.created_at
+    ? t('segments.detail.kpi.createdOn', {
+        defaultValue: 'created {{date}}',
+        date: formatDate(new Date(segment.created_at), 'd MMM'),
+      })
+    : null;
 
   return (
     <main className={styles.page}>
@@ -150,11 +181,23 @@ export function DetailView(): ReactElement {
       <div className={styles.detailKpiStrip}>
         {preset && preset.headlineKpis.length > 0
           ? preset.headlineKpis.map((spec) => (
-              <KpiCard key={spec.id} spec={spec} segment={segment} preset={preset} cacheKey={`kpi:${spec.id}`} />
+              <KpiCard
+                key={spec.id}
+                spec={spec}
+                segment={segment}
+                preset={preset}
+                cacheKey={`kpi:${spec.id}`}
+                comparison={spec.id === 'size' ? sizeComparison : null}
+              />
             ))
           : (
             <>
-              <KpiTile label={t('segments.detail.kpi.size', { defaultValue: 'Size' })} value={formatCount(segment.uid_count)} />
+              <KpiTile
+                label={t('segments.detail.kpi.size', { defaultValue: 'Size' })}
+                value={formatCount(segment.uid_count)}
+                delta={sizeComparison?.text}
+                tone={sizeComparison?.tone ?? 'neutral'}
+              />
               <KpiTile
                 label={t('segments.detail.kpi.lastRefresh', { defaultValue: 'Last refresh' })}
                 value={
@@ -162,8 +205,13 @@ export function DetailView(): ReactElement {
                     ? formatDistanceToNowStrict(new Date(lastRefresh), { addSuffix: true })
                     : '—'
                 }
+                footer={lastRefreshFooter}
               />
-              <KpiTile label={t('segments.detail.kpi.owner', { defaultValue: 'Owner' })} value={segment.owner} />
+              <KpiTile
+                label={t('segments.detail.kpi.owner', { defaultValue: 'Owner' })}
+                value={segment.owner}
+                footer={ownerFooter}
+              />
               <KpiTile label={t('segments.detail.kpi.status', { defaultValue: 'Status' })} value={segment.status} />
             </>
           )}
@@ -200,7 +248,7 @@ export function DetailView(): ReactElement {
           onSectionChange={setSection}
         />
       )}
-      {tab === 'members' && <MembersTab segment={segment} />}
+      {tab === 'members' && <MembersTab segment={segment} preset={preset} />}
       {tab === 'definition' && <DefinitionTab segment={segment} preset={preset} />}
       {tab === 'activation' && (
         <ActivationTab

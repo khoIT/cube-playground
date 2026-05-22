@@ -9,15 +9,26 @@ import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { KpiSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
 
+interface Comparison {
+  /** Already-formatted delta text, e.g. "↑ 2.1% vs last week". */
+  text: string;
+  /** Tone for the delta colour. Defaults to 'neutral'. */
+  tone?: 'positive' | 'negative' | 'neutral';
+}
+
 interface Props {
   spec: KpiSpec;
   segment: Segment;
   preset: Preset;
   /** Lookup key into segment.card_cache for synchronous hydration. */
   cacheKey?: string;
+  /** Optional pre-computed comparison line (e.g. "↑ 2.1% vs last week"). */
+  comparison?: Comparison | null;
+  /** Optional static footer override (e.g. "next at 14:30"). */
+  footer?: string | null;
 }
 
-export function KpiCard({ spec, segment, preset, cacheKey }: Props): ReactElement {
+export function KpiCard({ spec, segment, preset, cacheKey, comparison, footer }: Props): ReactElement {
   const query = useMemo<Query>(() => ({
     measures: [spec.measure],
     ...(spec.timeDimension && spec.dateRange
@@ -33,5 +44,13 @@ export function KpiCard({ spec, segment, preset, cacheKey }: Props): ReactElemen
   });
   const value = loading ? '…' : error ? '—' : formatValue(rows[0]?.[spec.measure] ?? null, spec.format);
 
-  return <KpiTile label={spec.label} value={value} footer={spec.unit} />;
+  return (
+    <KpiTile
+      label={spec.label}
+      value={value}
+      delta={comparison?.text}
+      tone={comparison?.tone ?? 'neutral'}
+      footer={footer ?? spec.unit}
+    />
+  );
 }

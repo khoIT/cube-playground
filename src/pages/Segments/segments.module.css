@@ -1263,6 +1263,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.membersHeaderTitleBlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .membersTitle {
@@ -1270,6 +1278,33 @@
   font-family: var(--font-alt, var(--font-sans));
   font-size: 16px;
   font-weight: 600;
+}
+
+.membersIdentityChip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  background: var(--neutral-100, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--border-card);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+}
+
+.memberDimCell {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Definition tab ──────────────────────────────────────────── */

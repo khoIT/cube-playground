@@ -20,9 +20,13 @@ interface PreviewState {
 
 interface Props {
   preview: PreviewState;
+  /** Currently saved segment size, used for delta vs saved on the cohort card. */
+  savedCount?: number | null;
+  /** Historical uid_count series for the saved segment (oldest → newest). */
+  savedTrend?: number[];
 }
 
-export function WorkspacePreview({ preview }: Props): ReactElement {
+export function WorkspacePreview({ preview, savedCount, savedTrend }: Props): ReactElement {
   const { t } = useTranslation();
 
   return (
@@ -35,6 +39,8 @@ export function WorkspacePreview({ preview }: Props): ReactElement {
         loading={preview.loading}
         error={preview.error}
         ringBuffer={preview.ringBuffer}
+        savedCount={savedCount}
+        savedTrend={savedTrend}
       />
       <SqlPreviewCard sql={preview.sql} loading={preview.loading} />
       <p className={styles.workspacePreviewFoot}>

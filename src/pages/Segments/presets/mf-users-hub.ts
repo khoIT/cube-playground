@@ -23,6 +23,13 @@ export const mfUsersHubPreset: Preset = {
     { id: 'arpu',     label: 'ARPU',          measure: 'mf_users.arpu_vnd',         format: 'currency' },
   ],
 
+  memberColumns: [
+    { id: 'ltv',          label: 'LTV',         dimension: 'mf_users.ltv_total_vnd',    format: 'currency' },
+    { id: 'stage',        label: 'Stage',       dimension: 'mf_users.lifecycle_stage' },
+    { id: 'last-active',  label: 'Last active', dimension: 'mf_users.last_active_date' },
+    { id: 'joined',       label: 'Joined',      dimension: 'mf_users.install_date' },
+  ],
+
   tabs: [
     {
       id: 'overview',

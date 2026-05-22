@@ -1,20 +1,26 @@
-/** Sample Users tab — paginated random sample of the segment's uid_list. */
+/**
+ * Sample Users tab — paginated random sample of the segment's uid_list,
+ * enriched with preset.memberColumns (e.g. LTV, lifecycle, last active, joined).
+ */
 
 import { ReactElement, useMemo, useState } from 'react';
 import { Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { Segment } from '../../../../types/segment-api';
+import type { Preset } from '../../presets/types';
+import { useMemberDimRows } from './use-member-dim-rows';
+import { formatValue } from '../cards/format-value';
 import styles from '../../segments.module.css';
 
 interface Props {
   segment: Segment;
+  preset: Preset | null;
 }
 
 const PAGE_SIZE = 25;
 const SAMPLE_SIZE = 50;
 
 function shuffle<T>(arr: readonly T[], seed: number): T[] {
-  // Fisher-Yates with a seeded LCG so reshuffles are deterministic per click.
   const out = arr.slice();
   let s = seed;
   for (let i = out.length - 1; i > 0; i--) {
@@ -35,7 +41,16 @@ function downloadCsv(uids: string[], name: string) {
   URL.revokeObjectURL(url);
 }
 
-export function SampleUsersTab({ segment }: Props): ReactElement {
+/** Best-effort date formatter — strips time when the value is a YYYY-MM-DD. */
+function formatCell(value: unknown, format?: string): string {
+  if (value == null || value === '') return '—';
+  const s = String(value);
+  // Date-ish: 2024-05-22 or 2024-05-22T...
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return formatValue(value, format as never);
+}
+
+export function SampleUsersTab({ segment, preset }: Props): ReactElement {
   const { t } = useTranslation();
   const [seed, setSeed] = useState<number>(() => Date.now() % 233_280);
   const [page, setPage] = useState(0);
@@ -48,6 +63,9 @@ export function SampleUsersTab({ segment }: Props): ReactElement {
 
   const pageRows = sample.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const pageCount = Math.max(1, Math.ceil(sample.length / PAGE_SIZE));
+
+  const { byUid, loading: dimsLoading, columns } = useMemberDimRows(segment, preset, pageRows);
+  const hasDims = columns.length > 0;
 
   if (!segment.uid_list || segment.uid_list.length === 0) {
     return (
@@ -86,19 +104,30 @@ export function SampleUsersTab({ segment }: Props): ReactElement {
       <table className={styles.sampleTable}>
         <thead>
           <tr>
-            <th>#</th>
+            <th style={{ width: 56 }}>#</th>
             <th>{t('segments.detail.sampleUsers.noColumn')}</th>
+            {columns.map((c) => (
+              <th key={c.id}>{c.label}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {pageRows.map((uid, idx) => (
-            <tr key={`${uid}-${idx}`}>
-              <td style={{ width: 64, color: 'var(--text-tertiary)' }}>
-                {page * PAGE_SIZE + idx + 1}
-              </td>
-              <td style={{ fontFamily: 'var(--font-mono)' }}>{uid}</td>
-            </tr>
-          ))}
+          {pageRows.map((uid, idx) => {
+            const dimRow = byUid.get(uid);
+            return (
+              <tr key={`${uid}-${idx}`}>
+                <td style={{ width: 56, color: 'var(--text-tertiary)' }}>
+                  {page * PAGE_SIZE + idx + 1}
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>{uid}</td>
+                {columns.map((c) => (
+                  <td key={c.id} className={styles.memberDimCell}>
+                    {dimsLoading && !dimRow ? '…' : formatCell(dimRow?.[c.dimension], c.format)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -112,6 +141,17 @@ export function SampleUsersTab({ segment }: Props): ReactElement {
           disabled={page >= pageCount - 1}
           onClick={() => setPage((p) => p + 1)}
         >›</Button>
+        {hasDims && (
+          <span style={{ marginLeft: 12, color: 'var(--text-muted)', fontSize: 11 }}>
+            {dimsLoading
+              ? t('segments.detail.sampleUsers.dimsLoading', { defaultValue: 'Loading member info…' })
+              : t('segments.detail.sampleUsers.dimsCount', {
+                  defaultValue: '{{n}} columns from {{cube}}',
+                  n: columns.length,
+                  cube: preset?.hubCube ?? '',
+                })}
+          </span>
+        )}
       </div>
     </div>
   );
