@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Tag } from 'antd';
+import { Tag } from 'antd';
 import { Flow, Paragraph, Title, tasty } from '@cube-dev/ui-kit';
 
 import { useQueryBuilderContext } from '../context';
@@ -8,8 +8,6 @@ import { FunnelInputs } from './funnel-inputs';
 import { useFunnelQueries } from './use-funnel-queries';
 import { useOrderedFunnelQuery } from './use-ordered-funnel-query';
 import { detectOrderedFunnelCube } from './detect-ordered-funnel';
-import { EmptyState } from './empty-state';
-import { detectEventDim, detectSampleCube, fetchEventSamples } from './sample-detector';
 import { FunnelResults } from './funnel-results';
 
 const HeaderRow = tasty({
@@ -21,7 +19,7 @@ const HeaderRow = tasty({
 });
 
 export function FunnelMode() {
-  const { query, cubeApi, joinableMembers, meta, usedCubes } = useQueryBuilderContext();
+  const { query, cubeApi, joinableMembers, meta } = useQueryBuilderContext();
 
   const eventDimOptions = useMemo(
     () =>
@@ -35,39 +33,38 @@ export function FunnelMode() {
     [joinableMembers]
   );
 
+  // Pre-fill from the current query: prefer a dimension the user is already
+  // pivoting on if it looks event-shaped, else fall back to schema scan.
+  const queryEventDim = useMemo(
+    () =>
+      (query.dimensions ?? []).find((d) =>
+        eventDimOptions.some((opt: any) => opt.name === d) && /event|action/i.test(d)
+      ),
+    [query.dimensions, eventDimOptions]
+  );
+  const queryCountMeasure = useMemo(
+    () => (query.measures ?? []).find((m) => /\.count$/i.test(m) || /count_distinct/i.test(m)),
+    [query.measures]
+  );
+
   const [eventDim, setEventDim] = useState<string | undefined>(() => {
-    return eventDimOptions.find((d: any) => /event/i.test(d.name))?.name;
+    return (
+      queryEventDim ??
+      eventDimOptions.find((d: any) => /event|action/i.test(d.name))?.name
+    );
   });
   const [measure, setMeasure] = useState<string | undefined>(() => {
     return (
-      measureOptions.find((m: any) => /\.count$/i.test(m.name))?.name ?? measureOptions[0]?.name
+      queryCountMeasure ??
+      measureOptions.find((m: any) => /\.count$/i.test(m.name))?.name ??
+      measureOptions[0]?.name
     );
   });
   const [steps, setSteps] = useState<string[]>([]);
-  const [sampleError, setSampleError] = useState<string | null>(null);
 
-  const sampleCube = useMemo(() => detectSampleCube(meta, usedCubes), [meta, usedCubes]);
-  const sampleEventDim = useMemo(() => detectEventDim(sampleCube), [sampleCube]);
   const orderedCube = useMemo(() => detectOrderedFunnelCube(meta), [meta]);
 
   const cleanedSteps = steps.map((s) => s.trim()).filter(Boolean);
-
-  const handleTrySample = async () => {
-    if (!sampleEventDim || !cubeApi) return;
-    setSampleError(null);
-    try {
-      const samples = await fetchEventSamples(cubeApi, sampleEventDim, 3);
-
-      if (samples.length === 0) {
-        setSampleError('No event values found in the sample cube.');
-        return;
-      }
-      setEventDim(sampleEventDim);
-      setSteps(samples.length < 2 ? [...samples, ''] : samples);
-    } catch (err: any) {
-      setSampleError(err?.message ?? String(err));
-    }
-  };
 
   const multi = useFunnelQueries({
     cubeApi,
@@ -86,31 +83,6 @@ export function FunnelMode() {
 
   const { isLoading, error, failedStepIndex, results } = orderedCube ? ordered : multi;
 
-  const isEmpty = steps.length === 0 && !eventDim;
-
-  if (isEmpty) {
-    return (
-      <EmptyState
-        title="Funnel"
-        description={
-          orderedCube
-            ? 'Track drop-off across an ordered sequence of events (single-query ordered semantics).'
-            : 'Track drop-off across an ordered sequence of events. Measures unique users having all chosen events (multi-query).'
-        }
-        helpBullets={[
-          orderedCube
-            ? 'Ordered template cube detected — single-query path active.'
-            : 'Pick the event-type dimension and a count measure.',
-          'Add 2+ step values in the order users should pass through.',
-          'Try sample fills inputs from the first detected event cube.',
-        ]}
-        onTrySample={handleTrySample}
-        canTrySample={!!sampleEventDim && !!cubeApi}
-        disabledReason="No event-style dimension detected in the current schema."
-      />
-    );
-  }
-
   return (
     <Flow gap="1.5x">
       <HeaderRow>
@@ -127,7 +99,6 @@ export function FunnelMode() {
           </>
         )}
       </HeaderRow>
-      {sampleError && <Alert type="error" message={sampleError} closable onClose={() => setSampleError(null)} />}
       <FunnelInputs
         eventDim={eventDim}
         measure={measure}

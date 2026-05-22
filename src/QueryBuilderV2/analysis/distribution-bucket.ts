@@ -78,6 +78,83 @@ export function bucket(values: number[], binCount: number): Bin[] {
   return bins;
 }
 
+/**
+ * Bucket rows into N bins while preserving a per-group split. Returns recharts-
+ * friendly rows shaped `{ bucket, start, end, [groupValueA]: count, [groupValueB]: count, ... }`
+ * so a stacked BarChart can render one Bar per group with `stackId="1"`.
+ */
+export interface GroupedBin extends Bin {
+  /** Per-group counts keyed by the group dimension value (stringified). */
+  [groupKey: string]: number | string;
+}
+
+export interface GroupedBucketResult {
+  bins: GroupedBin[];
+  /** Sorted list of distinct group values (largest total first), capped to `groupLimit`. */
+  groups: string[];
+}
+
+export function bucketByGroup(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  valueKey: string,
+  groupKey: string,
+  binCount: number,
+  groupLimit = 8
+): GroupedBucketResult {
+  const pairs: { value: number; group: string }[] = [];
+  for (const row of rows) {
+    const raw = row?.[valueKey];
+    const v = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(v)) continue;
+    const g = row?.[groupKey];
+    const gs = g == null || g === '' ? '∅' : String(g);
+    pairs.push({ value: v, group: gs });
+  }
+
+  if (pairs.length === 0) {
+    return { bins: [], groups: [] };
+  }
+
+  // Cap group cardinality: keep top-N by row count, bucket the tail as "Other".
+  const totalsByGroup = new Map<string, number>();
+  for (const { group } of pairs) {
+    totalsByGroup.set(group, (totalsByGroup.get(group) ?? 0) + 1);
+  }
+  const ranked = [...totalsByGroup.entries()].sort((a, b) => b[1] - a[1]);
+  const topGroups = ranked.slice(0, groupLimit).map(([g]) => g);
+  const groupSet = new Set(topGroups);
+  const hasOther = ranked.length > groupLimit;
+  const groups = hasOther ? [...topGroups, 'Other'] : topGroups;
+
+  // Build flat value list to reuse the existing bin computation.
+  const flat = pairs.map((p) => p.value);
+  const baseBins = bucket(flat, binCount);
+
+  // Zero-init per-group counts on each bin.
+  const grouped: GroupedBin[] = baseBins.map((b) => {
+    const row: GroupedBin = { ...b, count: 0 };
+    for (const g of groups) row[g] = 0;
+    return row;
+  });
+  if (grouped.length === 0) return { bins: [], groups };
+
+  // Re-bucket pair-by-pair so each row lands in (bin, group).
+  const min = baseBins[0].start;
+  const max = baseBins[baseBins.length - 1].end;
+  const binWidth = (max - min) / baseBins.length;
+  for (const { value, group } of pairs) {
+    let idx = binWidth === 0 ? 0 : Math.floor((value - min) / binWidth);
+    if (idx >= baseBins.length) idx = baseBins.length - 1;
+    if (idx < 0) idx = 0;
+    const gkey = groupSet.has(group) ? group : 'Other';
+    const current = grouped[idx][gkey];
+    grouped[idx][gkey] = (typeof current === 'number' ? current : 0) + 1;
+    grouped[idx].count += 1;
+  }
+
+  return { bins: grouped, groups };
+}
+
 export function summarise(values: number[]): Summary | null {
   const cleaned = values
     .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))

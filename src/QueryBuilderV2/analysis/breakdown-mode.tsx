@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Table } from 'antd';
-import { Flow, Paragraph, Title } from '@cube-dev/ui-kit';
+import { Select, Table } from 'antd';
+import { Flow, Paragraph, Title, tasty } from '@cube-dev/ui-kit';
 
 import { useQueryBuilderContext } from '../context';
-
-import { EmptyState } from './empty-state';
-import { detectBreakdownInputs, detectSampleCube } from './sample-detector';
+import { formatShare, sumMeasure } from '../utils/share-of-total';
 
 type SortDir = 'ascend' | 'descend' | null;
 
@@ -16,52 +14,110 @@ interface SortState {
 
 function shortName(name: string): string {
   const parts = name.split('.');
-
   return parts[parts.length - 1] || name;
 }
 
+const PickerRow = tasty({
+  styles: {
+    display: 'grid',
+    gridColumns: '1fr 1fr',
+    gap: '1x',
+    placeItems: 'end stretch',
+  },
+});
+
 export function BreakdownMode() {
-  const { query, resultSet, isLoading, meta, usedCubes, updateQuery, runQuery } =
+  const { query, resultSet, isLoading, joinableMembers, updateQuery, runQuery } =
     useQueryBuilderContext();
   const dimensions = query.dimensions || [];
   const measures = query.measures || [];
+  const primaryDim = dimensions[0];
   const primaryMeasure = measures[0];
 
-  const sampleCube = useMemo(() => detectSampleCube(meta, usedCubes), [meta, usedCubes]);
-  const sample = useMemo(() => detectBreakdownInputs(sampleCube), [sampleCube]);
+  const dimOptions = useMemo(
+    () =>
+      Object.values(joinableMembers.dimensions).filter(
+        (d: any) => d?.type === 'string' || d?.type === 'number'
+      ) as any[],
+    [joinableMembers]
+  );
+  const measureOptions = useMemo(
+    () => Object.values(joinableMembers.measures) as any[],
+    [joinableMembers]
+  );
 
-  const handleTrySample = () => {
-    if (!sample) return;
-    updateQuery({ dimensions: sample.dimensions, measures: sample.measures });
+  // Auto-apply: editing a Select rewrites the query so the breakdown
+  // refreshes immediately. The pill bar above still mirrors the same state.
+  const applyChange = (next: { dim?: string; measure?: string }) => {
+    updateQuery({
+      dimensions: next.dim ? [next.dim] : dimensions,
+      measures: next.measure ? [next.measure] : measures,
+    });
     setTimeout(() => runQuery?.(), 0);
   };
 
   const [sort, setSort] = useState<SortState | null>(null);
 
+  // Prefer `rawData()` over `tablePivot()`: rawData guarantees flat rows with
+  // full-dotted member names as keys (e.g. `recharge.payment_channel`), while
+  // tablePivot can reshape keys depending on the inferred pivot config.
   const rows = useMemo(() => {
     try {
-      return resultSet?.tablePivot?.() ?? [];
+      return resultSet?.rawData?.() ?? [];
     } catch {
       return [];
     }
   }, [resultSet]);
 
-  const isConfigured = dimensions.length > 0 && !!primaryMeasure;
+  const total = useMemo(
+    () => (primaryMeasure ? sumMeasure(rows as any, primaryMeasure) : 0),
+    [rows, primaryMeasure]
+  );
+
+  const picker = (
+    <PickerRow>
+      <Flow>
+        <Paragraph preset="c1m">Dimension</Paragraph>
+        <Select
+          showSearch
+          placeholder="Pick a dimension"
+          style={{ width: '100%' }}
+          value={primaryDim}
+          options={dimOptions.map((d) => ({ value: d.name, label: shortName(d.name) }))}
+          onChange={(v) => applyChange({ dim: v })}
+        />
+      </Flow>
+      <Flow>
+        <Paragraph preset="c1m">Measure</Paragraph>
+        <Select
+          showSearch
+          placeholder="Pick a measure"
+          style={{ width: '100%' }}
+          value={primaryMeasure}
+          options={measureOptions.map((m) => ({ value: m.name, label: shortName(m.name) }))}
+          onChange={(v) => applyChange({ measure: v })}
+        />
+      </Flow>
+    </PickerRow>
+  );
+
+  const isConfigured = !!primaryDim && !!primaryMeasure;
 
   if (!isConfigured) {
     return (
-      <EmptyState
-        title="Breakdown"
-        description="Rank combinations of dimensions by a measure. Pick from the pill bar above, or load a sample."
-        helpBullets={[
-          'Pick ≥1 dimension and 1 measure in the pill bar.',
-          'Rows are sorted by the first measure descending.',
-          'Click any column header to flip sort order.',
-        ]}
-        onTrySample={handleTrySample}
-        canTrySample={!!sample}
-        disabledReason="No suitable cube found in the current schema."
-      />
+      <Flow gap="1x">
+        <Title level={5} preset="t3">
+          Breakdown
+        </Title>
+        <Paragraph color="#dark-03">
+          {primaryDim
+            ? 'Pick a measure to rank rows.'
+            : primaryMeasure
+            ? 'Pick a dimension to break down by.'
+            : 'Pick a dimension and a measure to populate the breakdown.'}
+        </Paragraph>
+        {picker}
+      </Flow>
     );
   }
 
@@ -94,22 +150,39 @@ export function BreakdownMode() {
     return copy;
   }, [rows, activeField, activeOrder]);
 
+  // Note: antd v4 splits a dotted `dataIndex` string into a nested path,
+  // which breaks for Cube member names like `recharge.payment_channel`.
+  // We bypass `dataIndex` and read flat keys via `render(_, record)`.
   const columns = [
     ...dimensions.map((dim) => ({
       title: shortName(dim),
-      dataIndex: dim,
       key: dim,
       sorter: true,
       sortOrder: activeField === dim ? activeOrder : null,
-      render: (value: unknown) => (value == null ? '—' : String(value)),
+      render: (_value: unknown, record: any) => {
+        const v = record?.[dim];
+        return v == null || v === '' ? '—' : String(v);
+      },
     })),
     {
       title: shortName(primaryMeasure),
-      dataIndex: primaryMeasure,
       key: primaryMeasure,
       sorter: true,
       sortOrder: activeField === primaryMeasure ? activeOrder : null,
-      render: (value: unknown) => (typeof value === 'number' ? value.toLocaleString() : value),
+      align: 'right' as const,
+      render: (_value: unknown, record: any) => {
+        const v = record?.[primaryMeasure];
+        if (v == null) return '—';
+        const n = typeof v === 'number' ? v : Number(v);
+        return Number.isFinite(n) ? n.toLocaleString() : String(v);
+      },
+    },
+    {
+      title: '% of total',
+      key: '__pct__',
+      align: 'right' as const,
+      render: (_value: unknown, record: any) =>
+        formatShare(record?.[primaryMeasure], total),
     },
   ];
 
@@ -121,6 +194,7 @@ export function BreakdownMode() {
       <Title level={5} preset="t3">
         Breakdown of <b>{measureLabel}</b> by <b>{dimLabel}</b>
       </Title>
+      {picker}
       <Table
         size="small"
         rowKey={(record: any, idx) =>

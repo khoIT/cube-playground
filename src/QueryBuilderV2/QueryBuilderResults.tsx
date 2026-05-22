@@ -27,6 +27,7 @@ import {
   LeftOutlined,
   LoadingOutlined,
   MoreOutlined,
+  PercentageOutlined,
   RightOutlined,
 } from '@ant-design/icons';
 import { QueryOrder, TimeDimensionGranularity, Query } from '@cubejs-client/core';
@@ -76,6 +77,7 @@ import {
   useResultsSelection,
 } from './segments-save-bar/use-results-selection';
 import { useIdentityMap } from '../hooks/use-identity-map';
+import { formatShare, shareColumnId, sumMeasure } from './utils/share-of-total';
 
 const StyledTag = tasty(Tag, {
   styles: {
@@ -243,12 +245,24 @@ interface OptionsButtonProps extends Omit<CubeButtonProps, 'order'> {
   onOrderChange?: (order?: QueryOrder) => void;
   onMemberRemove: (member: string) => void;
   onAddFilter?: (member: string) => void;
+  onToggleShare?: () => void;
+  isShareOn?: boolean;
   type: 'string' | 'number' | 'time' | 'boolean';
 }
 
 function OptionsButton(props: OptionsButtonProps) {
-  const { name, member, type, order, onAddFilter, onOrderChange, onMemberRemove, ...otherProps } =
-    props;
+  const {
+    name,
+    member,
+    type,
+    order,
+    onAddFilter,
+    onOrderChange,
+    onMemberRemove,
+    onToggleShare,
+    isShareOn,
+    ...otherProps
+  } = props;
 
   const onAction = useCallback(
     (key: Key) => {
@@ -264,9 +278,12 @@ function OptionsButton(props: OptionsButtonProps) {
         case 'filter':
           onAddFilter?.(name);
           break;
+        case 'share':
+          onToggleShare?.();
+          break;
       }
     },
-    [onOrderChange, onMemberRemove, onAddFilter, name]
+    [onOrderChange, onMemberRemove, onAddFilter, onToggleShare, name]
   );
 
   const disabledKeys = type === 'boolean' ? ['filter'] : [];
@@ -316,6 +333,15 @@ function OptionsButton(props: OptionsButtonProps) {
             {onAddFilter && (
               <Menu.Item key="filter" icon={<FilterOutlined style={{ fontSize: 16 }} />}>
                 Add filter
+              </Menu.Item>
+            )}
+            {onToggleShare && (
+              <Menu.Item
+                key="share"
+                icon={<PercentageOutlined style={{ fontSize: 16 }} />}
+                textValue={isShareOn ? 'Hide % of total' : 'Show % of total'}
+              >
+                {isShareOn ? 'Hide % of total' : 'Show % of total'}
               </Menu.Item>
             )}
             <Menu.Item
@@ -739,14 +765,47 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   const totalColumns = measures.length + dimensions.length + grouping.getAll().length;
   const isColumnsSelected = !!totalColumns;
 
+  const [shareOf, setShareOf] = useState<Set<string>>(() => new Set());
+  const toggleShare = useCallback((measure: string) => {
+    setShareOf((prev) => {
+      const next = new Set(prev);
+      if (next.has(measure)) next.delete(measure);
+      else next.add(measure);
+      return next;
+    });
+  }, []);
+  // Drop share columns for measures no longer in the query.
+  useEffect(() => {
+    setShareOf((prev) => {
+      if (prev.size === 0) return prev;
+      const allowed = new Set(measures);
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((m) => {
+        if (allowed.has(m)) next.add(m);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [JSON.stringify(measures)]);
+
+  const shareKey = useMemo(
+    () => [...shareOf].sort().join('|'),
+    [shareOf]
+  );
+
   const orderedColumnNames = useMemo(
-    () => [
-      ...dimensions,
-      ...timeDimensions.map((td) => td.dimension),
-      ...measures,
-    ],
+    () => {
+      const shares = measures.filter((m) => shareOf.has(m)).map(shareColumnId);
+      return [
+        ...dimensions,
+        ...timeDimensions.map((td) => td.dimension),
+        ...measures,
+        ...shares,
+      ];
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures)]
+    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures), shareKey]
   );
   const baseGridColumnsTemplate = getColumnTemplate(orderedColumnNames, livePreviewWidths);
 
@@ -851,6 +910,19 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   if (!data) {
     data = EMPTY_DATA;
   }
+
+  // Totals for measures with `% of total` enabled. Computed across the full
+  // result set (not just the visible page) so the share reflects each row's
+  // contribution to the whole query, not to the current page.
+  const measureTotals = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const m of measures) {
+      if (!shareOf.has(m)) continue;
+      out[m] = sumMeasure(data as Record<string, unknown>[], m);
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, JSON.stringify(measures), shareKey]);
 
   function formatCellData(
     dimensionName: string,
@@ -1053,6 +1125,22 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                   </div>
                 );
               })}
+              {measures.map((measure) => {
+                if (!shareOf.has(measure)) return null;
+                const total = measureTotals[measure] ?? 0;
+                const shareLabel = formatShare(row[measure], total);
+                const id = shareColumnId(measure);
+                return (
+                  <div
+                    key={id}
+                    data-row={rowId}
+                    data-name={id}
+                    data-element="NumberCell"
+                  >
+                    <div data-element="CellValue">{shareLabel}</div>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -1070,6 +1158,8 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     showSelectionColumn,
     identityField,
     selection.selectedUids,
+    shareKey,
+    measureTotals,
   ]);
 
   function addFilter(name: string) {
@@ -1215,6 +1305,8 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                   : undefined
               }
               onMemberRemove={(name) => measuresUpdater?.remove(name)}
+              onToggleShare={member ? () => toggleShare(measure) : undefined}
+              isShareOn={shareOf.has(measure)}
             />
             <ColumnResizeHandle
               name={measure}
@@ -1246,7 +1338,48 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
         {(item) => <Item textValue={item.textValue}>{item.rendered}</Item>}
       </ReorderableMemberList>
     );
-  }, [measures, JSON.stringify(query.order), meta, memberViewType, isCompact]);
+  }, [measures, JSON.stringify(query.order), meta, memberViewType, isCompact, shareKey]);
+
+  // Synthetic "% of total" headers — one per measure with the share toggle on.
+  // Placed after all real measure columns in row order so the grid template
+  // and body cells stay aligned without disturbing measure reordering.
+  const shareColumns = useDeepMemo(() => {
+    const sharedMeasures = measures.filter((m) => shareOf.has(m));
+    if (sharedMeasures.length === 0) return null;
+    return sharedMeasures.map((measure) => {
+      const id = shareColumnId(measure);
+      return (
+        <ColumnHeader key={id} data-member="measure" data-resize-anchor={id}>
+          <MemberLabel
+            isMissing={false}
+            name={`% ${measure.split('.').pop() ?? measure}`}
+            memberName={`% ${measure.split('.').pop() ?? measure}`}
+            cubeName={undefined}
+            memberTitle={`% of total`}
+            cubeTitle={undefined}
+            isCompact={isCompact}
+            memberViewType={memberViewType}
+            memberType="measure"
+            type="number"
+          />
+          <OptionsButton
+            name={id}
+            member="measure"
+            order="none"
+            type="number"
+            onMemberRemove={() => toggleShare(measure)}
+          />
+          <ColumnResizeHandle
+            name={id}
+            getStartWidth={() => measureHeaderWidth(id)}
+            onResize={(w) => previewResize(id, w)}
+            onCommit={(w) => commitResize(id, w)}
+            onCancel={cancelResize}
+          />
+        </ColumnHeader>
+      );
+    });
+  }, [measures, shareKey, memberViewType, isCompact]);
 
   const timeDimensionsColumns = useDeepMemo(() => {
     if (!timeDimensions.length) {
@@ -1432,6 +1565,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
               {dimensionColumns}
               {timeDimensionsColumns}
               {measuresColumns}
+              {shareColumns}
               {tableData}
             </GridTable>
             {!executedQuery ? noResultsDisclaimer : null}
