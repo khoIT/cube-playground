@@ -15,6 +15,17 @@
     "segments": "Segments"
   },
   "segments": {
+    "actions": {
+      "more": "More actions",
+      "delete": {
+        "menuItem": "Delete segment",
+        "title": "Delete segment?",
+        "body": "This permanently removes “{{name}}” along with its tags, activations, refresh log, and pinned analyses. This cannot be undone.",
+        "typePrompt": "Type {{name}} to confirm.",
+        "ok": "Delete segment",
+        "success": "Deleted “{{name}}”"
+      }
+    },
     "library": {
       "title": "Segments",
       "subtitle": "Persistent cohorts built from Playground results or predicates.",
@@ -84,6 +95,13 @@
       }
     },
     "detail": {
+      "autoPreset": {
+        "chip": "Auto preset",
+        "chipTooltip": "Insights and member columns are auto-generated from Cube metadata.",
+        "title": "Auto preset — best-effort defaults",
+        "body": "No curated preset is installed for {{cube}}. These charts and tables are synthesized from Cube metadata. Install a preset for richer insights.",
+        "membersBody": "No canonical per-user info is configured for {{cube}}. The members table shows identity only — install a curated preset to add columns like LTV, country, or last activity."
+      },
       "backToLibrary": "Segments",
       "actions": {
         "exportIds": "Export IDs",

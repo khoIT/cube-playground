@@ -16,6 +16,7 @@ import { MembersTab } from './tabs/members-tab';
 import { DefinitionTab } from './tabs/definition-tab';
 import { ActivationTab } from './tabs/activation-tab';
 import { ActivateToCdpModal } from '../push-modal/activate-to-cdp-modal';
+import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
 import { usePreset } from './use-preset';
 import { useActiveTab, DetailTabId } from './use-active-tab';
 import { KpiCard } from './cards/kpi-card';
@@ -53,6 +54,7 @@ export function DetailView(): ReactElement {
   const preset = usePreset(segment);
   const { tab, section, setTab, setSection } = useActiveTab();
   const [activateOpen, setActivateOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +147,16 @@ export function DetailView(): ReactElement {
           {segment.cube != null && (
             <span className={styles.cubeBadge}>{segment.cube}</span>
           )}
+          {preset?.auto && (
+            <span
+              className={styles.autoPresetChip}
+              title={t('segments.detail.autoPreset.chipTooltip', {
+                defaultValue: 'Insights and member columns are auto-generated from Cube metadata.',
+              })}
+            >
+              {t('segments.detail.autoPreset.chip', { defaultValue: 'Auto preset' })}
+            </span>
+          )}
           {segment.type === 'predicate' && (
             <LiveBadge intervalMin={segment.refresh_cadence_min ?? undefined} />
           )}
@@ -173,6 +185,9 @@ export function DetailView(): ReactElement {
               disabled={segment.type !== 'predicate'}
             >
               {t('segments.detail.actions.editPredicate')}
+            </Button>
+            <Button danger onClick={() => setDeleteOpen(true)}>
+              {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
             </Button>
           </div>
         </div>
@@ -279,6 +294,36 @@ export function DetailView(): ReactElement {
           setSegment(updated);
           setTab('activation');
         }}
+      />
+
+      <ConfirmDestructiveModal
+        open={deleteOpen}
+        title={t('segments.actions.delete.title', { defaultValue: 'Delete segment?' })}
+        body={t('segments.actions.delete.body', {
+          defaultValue:
+            'This permanently removes “{{name}}” along with its tags, activations, refresh log, and pinned analyses. This cannot be undone.',
+          name: segment.name,
+        })}
+        expectedText={segment.name}
+        okText={t('segments.actions.delete.ok', { defaultValue: 'Delete segment' })}
+        onConfirm={async () => {
+          try {
+            await segmentsClient.delete(segment.id);
+            message.success(
+              t('segments.actions.delete.success', {
+                defaultValue: 'Deleted “{{name}}”',
+                name: segment.name,
+              }),
+            );
+            setDeleteOpen(false);
+            history.push('/segments');
+          } catch (err) {
+            const reason =
+              err instanceof SegmentApiError ? err.message : 'Failed to delete segment';
+            message.error(reason);
+          }
+        }}
+        onCancel={() => setDeleteOpen(false)}
       />
     </main>
   );

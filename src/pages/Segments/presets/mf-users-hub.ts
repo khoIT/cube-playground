@@ -24,7 +24,8 @@ export const mfUsersHubPreset: Preset = {
   ],
 
   memberColumns: [
-    { id: 'ltv',          label: 'LTV',         dimension: 'mf_users.ltv_total_vnd',    format: 'currency' },
+    // ltv_total_vnd is a measure (per-user aggregate), not a flat dim.
+    { id: 'ltv',          label: 'LTV',         measure:   'mf_users.ltv_total_vnd',    format: 'currency' },
     { id: 'stage',        label: 'Stage',       dimension: 'mf_users.lifecycle_stage' },
     { id: 'last-active',  label: 'Last active', dimension: 'mf_users.last_active_date' },
     { id: 'joined',       label: 'Joined',      dimension: 'mf_users.install_date' },

@@ -8,7 +8,7 @@ import { Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
-import { useMemberDimRows } from './use-member-dim-rows';
+import { useMemberDimRows, memberColumnField } from './use-member-dim-rows';
 import { formatValue } from '../cards/format-value';
 import styles from '../../segments.module.css';
 
@@ -122,7 +122,9 @@ export function SampleUsersTab({ segment, preset }: Props): ReactElement {
                 <td style={{ fontFamily: 'var(--font-mono)' }}>{uid}</td>
                 {columns.map((c) => (
                   <td key={c.id} className={styles.memberDimCell}>
-                    {dimsLoading && !dimRow ? '…' : formatCell(dimRow?.[c.dimension], c.format)}
+                    {dimsLoading && !dimRow
+                      ? '…'
+                      : formatCell(dimRow?.[memberColumnField(c)], c.format)}
                   </td>
                 ))}
               </tr>

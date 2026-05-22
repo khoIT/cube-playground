@@ -1,10 +1,12 @@
-/** Preset id → Preset. v1 ships a single bundle for mf_users-hub. */
+/** Preset id → Preset. Curated bundles per hub cube. */
 
 import type { Preset } from './types';
 import { mfUsersHubPreset } from './mf-users-hub';
+import { rechargeEventsPreset } from './recharge-events';
 
 const PRESETS: Record<string, Preset> = {
   [mfUsersHubPreset.id]: mfUsersHubPreset,
+  [rechargeEventsPreset.id]: rechargeEventsPreset,
 };
 
 export function getPreset(id: string | null | undefined): Preset | null {

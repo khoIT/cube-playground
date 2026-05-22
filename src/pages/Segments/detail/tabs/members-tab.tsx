@@ -8,6 +8,7 @@ import { Button } from 'antd';
 import { Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SampleUsersTab } from './sample-users-tab';
+import { AutoPresetBanner } from '../../components/auto-preset-banner';
 import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
 import styles from '../../segments.module.css';
@@ -38,6 +39,13 @@ export function MembersTab({ segment, preset }: Props): ReactElement {
           {t('segments.detail.actions.exportIds', { defaultValue: 'Export IDs' })}
         </Button>
       </header>
+      {preset?.auto && (
+        <AutoPresetBanner
+          cube={preset.hubCube}
+          bodyKey="segments.detail.autoPreset.membersBody"
+          bodyDefault="No canonical per-user info is configured for {{cube}}. The members table shows identity only — install a curated preset to add columns like LTV, country, or last activity."
+        />
+      )}
       <SampleUsersTab segment={segment} preset={preset} />
     </div>
   );

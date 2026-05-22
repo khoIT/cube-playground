@@ -119,7 +119,12 @@ export function LibraryView(): ReactElement {
           <div className={styles.emptyState}>{t('segments.library.empty')}</div>
         )}
         {!error && filtered.map((s) => (
-          <LibrarySegmentRow key={s.id} segment={s} log={logs[s.id]} />
+          <LibrarySegmentRow
+            key={s.id}
+            segment={s}
+            log={logs[s.id]}
+            onDeleted={() => setReloadKey((k) => k + 1)}
+          />
         ))}
       </div>
 

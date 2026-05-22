@@ -76,11 +76,26 @@ export interface TabDef {
   gridCols?: 1 | 2 | 3;
 }
 
+/**
+ * One column rendered on the Members tab alongside the user identifier.
+ *
+ * Exactly one of `dimension` or `measure` must be set:
+ *   - `dimension` (e.g. `mf_users.lifecycle_stage`) — flat per-row field,
+ *     used when the hub cube is a per-user dimensional table.
+ *   - `measure` (e.g. `recharge.revenue_vnd`) — aggregated per user; required
+ *     for event cubes where there is no flat per-user denormalization.
+ *
+ * `use-member-dim-rows` collects dim columns into the query's `dimensions`
+ * and measure columns into `measures`, with the identity dim always included
+ * in `dimensions` so the aggregate is grouped per user.
+ */
 export interface MemberColumnSpec {
   id: string;
   label: string;
-  /** Cube dimension name (e.g. `mf_users.ltv_total_vnd`). */
-  dimension: string;
+  /** Cube dimension name. */
+  dimension?: string;
+  /** Cube measure name; rendered as an aggregate grouped by the identity dim. */
+  measure?: string;
   format?: FormatId;
   /** Optional max char width to truncate string-y values. */
   truncate?: number;
@@ -96,4 +111,8 @@ export interface Preset {
   tabs: TabDef[];
   /** Optional per-member info shown alongside uid on the Members tab. */
   memberColumns?: MemberColumnSpec[];
+  /** True when this preset was synthesized from Cube /meta (no curated bundle).
+   *  Consumers should surface a "best-effort" hint so users know the content
+   *  is auto-generated and not hand-tuned. */
+  auto?: boolean;
 }

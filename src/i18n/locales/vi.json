@@ -15,6 +15,17 @@
     "segments": "Nhóm người dùng"
   },
   "segments": {
+    "actions": {
+      "more": "Tác vụ khác",
+      "delete": {
+        "menuItem": "Xóa nhóm",
+        "title": "Xóa nhóm người dùng?",
+        "body": "Hành động này sẽ xóa vĩnh viễn “{{name}}” cùng với tag, activation, lịch sử refresh và saved analyses. Không thể hoàn tác.",
+        "typePrompt": "Nhập {{name}} để xác nhận.",
+        "ok": "Xóa nhóm",
+        "success": "Đã xóa “{{name}}”"
+      }
+    },
     "library": {
       "title": "Nhóm người dùng",
       "subtitle": "Tập người dùng lưu trữ từ kết quả Playground hoặc điều kiện.",
@@ -84,6 +95,13 @@
       }
     },
     "detail": {
+      "autoPreset": {
+        "chip": "Auto preset",
+        "chipTooltip": "Insights và member columns được tự động sinh từ Cube metadata.",
+        "title": "Auto preset — chỉ là cấu hình mặc định",
+        "body": "Chưa có preset chuyên cho {{cube}}. Các biểu đồ và bảng được sinh tự động từ Cube metadata. Cài preset để có insights chính xác hơn.",
+        "membersBody": "Cube {{cube}} chưa có canonical per-user info. Bảng members chỉ hiện identity — cài preset để thêm cột như LTV, country, last activity."
+      },
       "backToLibrary": "Nhóm người dùng",
       "actions": {
         "exportIds": "Xuất IDs",
