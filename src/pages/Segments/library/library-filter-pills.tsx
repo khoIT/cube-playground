@@ -16,11 +16,14 @@ interface Props {
   onChange: (f: LibraryFilter) => void;
 }
 
+type PillDotTone = 'success' | 'destructive' | 'muted';
+
 interface Pill {
   key: LibraryFilter;
   label: string;
   count: number;
   tone?: 'destructive';
+  dotTone?: PillDotTone;
 }
 
 export function LibraryFilterPills({ segments, filter, onChange }: Props): ReactElement {
@@ -40,9 +43,9 @@ export function LibraryFilterPills({ segments, filter, onChange }: Props): React
 
   const pills: Pill[] = [
     { key: 'all', label: t('segments.library.filter.all', { defaultValue: 'All' }), count: counts.all },
-    { key: 'live', label: t('segments.library.filter.live', { defaultValue: 'Live' }), count: counts.live },
-    { key: 'static', label: t('segments.library.filter.static', { defaultValue: 'Static' }), count: counts.static },
-    { key: 'broken', label: t('segments.library.filter.broken', { defaultValue: 'Broken' }), count: counts.broken, tone: 'destructive' },
+    { key: 'live', label: t('segments.library.filter.live', { defaultValue: 'Live' }), count: counts.live, dotTone: 'success' },
+    { key: 'static', label: t('segments.library.filter.static', { defaultValue: 'Static' }), count: counts.static, dotTone: 'muted' },
+    { key: 'broken', label: t('segments.library.filter.broken', { defaultValue: 'Broken' }), count: counts.broken, tone: 'destructive', dotTone: 'destructive' },
   ];
 
   return (
@@ -60,6 +63,9 @@ export function LibraryFilterPills({ segments, filter, onChange }: Props): React
           ].filter(Boolean).join(' ')}
           onClick={() => onChange(p.key)}
         >
+          {p.dotTone && (
+            <span className={styles.filterPillDot} data-tone={p.dotTone} aria-hidden />
+          )}
           {p.label}
           <span className={styles.filterPillCount}>{p.count}</span>
         </button>

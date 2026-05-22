@@ -32,7 +32,7 @@
         "size": "Kích thước (lớn nhất)"
       },
       "import": "Nhập IDs",
-      "new": "+ Nhóm mới",
+      "new": "Nhóm mới",
       "identityMap": "Định danh",
       "empty": "Chưa có nhóm. Tạo từ Playground hoặc nhập IDs.",
       "columns": {

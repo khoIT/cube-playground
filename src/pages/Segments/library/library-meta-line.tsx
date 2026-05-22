@@ -46,7 +46,9 @@ export function LibraryMetaLine({ segments }: Props): ReactElement {
 
   return (
     <p className={styles.libraryMeta}>
-      {t('segments.library.meta.segments', { defaultValue: '{{count}} segments', count: segCount })}
+      <strong className={styles.libraryMetaStrong}>
+        {t('segments.library.meta.segments', { defaultValue: '{{count}} segments', count: segCount })}
+      </strong>
       <span aria-hidden> · </span>
       {t('segments.library.meta.users', { defaultValue: '{{count}} users', count: userCount, formatted: formatCount(userCount) })}
       <span aria-hidden> · </span>

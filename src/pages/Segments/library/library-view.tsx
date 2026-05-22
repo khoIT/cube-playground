@@ -6,6 +6,7 @@
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from 'antd';
+import { Plus, Upload } from 'lucide-react';
 import { useHistory } from 'react-router-dom';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
@@ -67,25 +68,34 @@ export function LibraryView(): ReactElement {
             <LibraryMetaLine segments={segments ?? []} />
           </div>
           <div className={styles.libraryActions}>
-            <Button onClick={() => setImportOpen(true)}>{t('segments.library.import')}</Button>
-            <Button type="primary" onClick={() => history.push('/segments/new')}>
+            <Button icon={<Upload size={14} />} onClick={() => setImportOpen(true)}>
+              {t('segments.library.import')}
+            </Button>
+            <Button
+              type="primary"
+              icon={<Plus size={14} />}
+              onClick={() => history.push('/segments/new')}
+            >
               {t('segments.library.new')}
             </Button>
           </div>
         </div>
+      </header>
+
+      <div className={styles.filterBar}>
         <LibraryFilterPills
           segments={segments ?? []}
           filter={filter}
           onChange={setFilter}
         />
-      </header>
-
-      <LibraryToolbar
-        query={query}
-        sort={sort}
-        onQueryChange={setQuery}
-        onSortChange={setSort}
-      />
+        <div className={styles.filterBarSpacer} />
+        <LibraryToolbar
+          query={query}
+          sort={sort}
+          onQueryChange={setQuery}
+          onSortChange={setSort}
+        />
+      </div>
 
       <div className={styles.tableCard}>
         <div className={styles.tableHead} role="row">

@@ -32,7 +32,7 @@
         "size": "Size (largest)"
       },
       "import": "Import IDs",
-      "new": "+ New segment",
+      "new": "New segment",
       "identityMap": "Identity mapping",
       "empty": "No segments yet. Build one from Playground or import IDs.",
       "columns": {

@@ -3,8 +3,8 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px 20px 32px;
+  gap: 20px;
+  padding: 24px 32px 48px;
   background: var(--bg-app, var(--bg-page, #f7f8fa));
   min-height: 100%;
 }
@@ -95,14 +95,16 @@
   display: grid;
   grid-template-columns: minmax(280px, 2.4fr) 130px 90px 110px 200px 120px 36px;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  background: var(--bg-card-subtle, var(--bg-card));
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--neutral-50, #fafafa);
   border-bottom: 1px solid var(--border-card);
+  font-family: var(--font-alt, var(--font-sans));
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-tertiary, var(--text-secondary));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
 }
 
 .tableRow {
@@ -208,9 +210,10 @@
 }
 
 .detailTitle {
-  font-size: 22px;
+  font-family: var(--font-alt, var(--font-sans));
+  font-size: 24px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   margin: 0;
   color: var(--text-primary);
 }
@@ -240,28 +243,38 @@
 
 .tabStrip {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   border-bottom: 1px solid var(--border-card);
   margin-top: 8px;
   overflow-x: auto;
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
   background: transparent;
-  padding: 8px 14px;
-  font-size: 13px;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   white-space: nowrap;
+}
+
+.tab svg {
+  width: 14px;
+  height: 14px;
 }
 
 .tab:hover { color: var(--text-primary); }
 
 .tabActive {
-  color: var(--brand);
+  color: var(--text-primary);
   border-bottom-color: var(--brand);
 }
 
@@ -429,6 +442,49 @@
   margin-bottom: 4px;
 }
 
+.summaryRows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.summaryRow {
+  display: contents;
+}
+
+.summaryRowLabel {
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.summaryRowTag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  text-transform: lowercase;
+}
+
+.summaryRowValue {
+  margin: 0;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 .typeChoices {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -478,13 +534,12 @@
 .libraryHeader {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 0;
 }
 
 .libraryTitleRow {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
@@ -492,89 +547,206 @@
 .libraryTitleBlock {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
 .libraryTitle {
   margin: 0;
   font-family: var(--font-alt, var(--font-sans));
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   color: var(--text-primary);
 }
 
 .libraryMeta {
   margin: 0;
-  font-size: 12.5px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.libraryMetaStrong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .libraryActions {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-/* ── Filter pills (replaces filterTabs) ──────────────────────── */
+/* ── Filter bar (single row: pills + spacer + search + sort + identity) ── */
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filterBarSpacer {
+  flex: 1;
+}
+
+/* ── Filter pills — segmented control style ─────────────────── */
 .filterPills {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  background: var(--neutral-100, rgba(0, 0, 0, 0.04));
+  border-radius: var(--radius-pill, 999px);
 }
 
 .filterPill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  color: var(--text-secondary);
+  padding: 6px 14px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill, 999px);
+  color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+  transition: color 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
 
 .filterPill:hover {
-  border-color: var(--brand);
-  color: var(--brand);
+  color: var(--text-primary);
 }
 
 .filterPillActive {
-  background: var(--brand-soft);
-  border-color: var(--brand);
-  color: var(--brand);
-}
-
-.filterPillBroken {
-  border-color: var(--destructive-soft);
-  color: var(--destructive-ink);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .filterPillBroken.filterPillActive {
-  background: var(--destructive-soft);
-  border-color: var(--destructive-ink);
   color: var(--destructive-ink);
 }
 
 .filterPillCount {
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  background: rgba(var(--text-primary-rgb), 0.06);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .filterPillActive .filterPillCount {
-  background: rgba(var(--bg-card-rgb), 0.4);
+  color: var(--text-muted);
+}
+
+.filterPillDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill, 999px);
+  flex-shrink: 0;
+  background: var(--neutral-400, #a3a3a3);
+}
+
+.filterPillDot[data-tone='success'] { background: var(--success); }
+.filterPillDot[data-tone='destructive'] { background: var(--danger, var(--destructive-ink)); }
+.filterPillDot[data-tone='muted'] { background: var(--neutral-400, #a3a3a3); }
+
+/* ── Pill-shaped search / sort / icon-button ─────────────────── */
+.searchPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 36px;
+  min-width: 280px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-pill, 999px);
+  color: var(--text-muted);
+}
+
+.searchPill svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.searchPill :global(.ant-input-affix-wrapper),
+.searchPill :global(.ant-input) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-size: 13px;
+}
+
+.searchPill :global(.ant-input-affix-wrapper-focused),
+.searchPill :global(.ant-input:focus) {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.cmdMod {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--neutral-100, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--border-card);
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
+.sortPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-pill, 999px);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.sortPill :global(.ant-select-selector) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  height: 34px !important;
+}
+
+.sortPill :global(.ant-select-selection-item) {
+  line-height: 34px !important;
+  padding-right: 22px !important;
+}
+
+.identityIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+  padding: 0;
+}
+
+.identityIconBtn:hover {
+  background: var(--neutral-100, rgba(0, 0, 0, 0.04));
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 /* ── Health cell ─────────────────────────────────────────────── */

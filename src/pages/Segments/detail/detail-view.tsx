@@ -1,9 +1,10 @@
 /** Segment detail — header, KPI strip, 5-tab strip (Monitor default), tab bodies. */
 
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useState, ReactNode } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { Activity, Code2, LineChart, Send, Users } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Breadcrumbs, KpiTile, LiveBadge } from '../visuals';
 import type { Segment } from '../../../types/segment-api';
@@ -26,6 +27,14 @@ import { buildPlaygroundDeeplink } from '../../../utils/playground-deeplink';
 import styles from '../segments.module.css';
 
 const TABS: DetailTabId[] = ['monitor', 'insights', 'members', 'definition', 'activation'];
+
+const TAB_ICONS: Record<DetailTabId, ReactNode> = {
+  monitor: <Activity size={14} aria-hidden />,
+  insights: <LineChart size={14} aria-hidden />,
+  members: <Users size={14} aria-hidden />,
+  definition: <Code2 size={14} aria-hidden />,
+  activation: <Send size={14} aria-hidden />,
+};
 
 function formatCount(n: number): string {
   if (n < 1000) return String(n);
@@ -170,6 +179,7 @@ export function DetailView(): ReactElement {
             className={[styles.tab, tab === tid ? styles.tabActive : ''].filter(Boolean).join(' ')}
             onClick={() => setTab(tid)}
           >
+            {TAB_ICONS[tid]}
             {t(`segments.detail.tabs.${tid}`, { defaultValue: tid })}
           </button>
         ))}
