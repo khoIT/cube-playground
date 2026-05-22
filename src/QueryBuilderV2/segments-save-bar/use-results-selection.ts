@@ -54,8 +54,35 @@ export function stableRowHash(
   return JSON.stringify(pairs);
 }
 
+/**
+ * Query shape the inference helpers consume. We accept the executed Cube
+ * Query loosely (anything that may carry dimensions/measures/timeDimensions)
+ * because cohort-style queries can reference an identity cube via any of
+ * those three buckets, not just `dimensions`.
+ */
+export interface InferenceQueryShape {
+  dimensions?: string[];
+  measures?: string[];
+  timeDimensions?: Array<{ dimension: string }>;
+}
+
+/** Unique cube names referenced anywhere in the query (dims + measures + time dims). */
+export function referencedCubes(executedQuery: InferenceQueryShape | null): string[] {
+  if (!executedQuery) return [];
+  const out = new Set<string>();
+  const push = (member: string | undefined) => {
+    if (!member) return;
+    const cube = member.split('.')[0];
+    if (cube) out.add(cube);
+  };
+  (executedQuery.dimensions ?? []).forEach(push);
+  (executedQuery.measures ?? []).forEach(push);
+  (executedQuery.timeDimensions ?? []).forEach((td) => push(td.dimension));
+  return Array.from(out);
+}
+
 export function inferCubeAndIdentity(
-  executedQuery: { dimensions?: string[] } | null,
+  executedQuery: InferenceQueryShape | null,
   hasIdentityFor: (cube: string) => boolean,
   identityFieldFor: (cube: string) => string | null,
 ): { cube: string | null; identityField: string | null } {
@@ -74,18 +101,21 @@ export function inferCubeAndIdentity(
  * identity field, but the executed dimensions don't include that field —
  * i.e. the result rows are aggregated and don't carry per-user ids. Returns
  * the cube + missing identity field so the UI can offer the expansion path.
+ *
+ * The cube reference can come from any of `dimensions`, `measures`, or
+ * `timeDimensions` — cohort queries commonly bucket on a time dimension and
+ * surface metrics without listing any plain dimension at all.
  */
 export function inferIdentityGap(
-  executedQuery: { dimensions?: string[] } | null,
+  executedQuery: InferenceQueryShape | null,
   hasIdentityFor: (cube: string) => boolean,
   identityFieldFor: (cube: string) => string | null,
 ): { cube: string; identityField: string } | null {
-  const dims = executedQuery?.dimensions ?? [];
-  if (dims.length === 0) return null;
+  const cubes = referencedCubes(executedQuery);
+  if (cubes.length === 0) return null;
   const matched = inferCubeAndIdentity(executedQuery, hasIdentityFor, identityFieldFor);
   if (matched.identityField) return null;
-  for (const dim of dims) {
-    const cube = dim.split('.')[0];
+  for (const cube of cubes) {
     const field = identityFieldFor(cube);
     if (hasIdentityFor(cube) && field) {
       return { cube, identityField: field };

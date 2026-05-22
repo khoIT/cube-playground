@@ -1,19 +1,20 @@
 /**
- * Floating action bar shown beneath QueryBuilderResults once the user has
- * checked one or more rows whose cube has a configured identity dimension.
- * Drives Clear / Copy IDs / Export CSV / Save as segment.
+ * Floating action bar shown beneath QueryBuilderResults to drive segment
+ * push from the current query result.
  *
- * Two modes:
- *   - 'uid':       executed query already includes the identity dim. Each
- *                  selected row IS a user; selectedUids are the literal uids.
+ * Two modes — fundamentally different UX:
+ *
+ *   - 'uid':       executed query already includes the identity dim, so each
+ *                  row IS a user. No per-row selection — the WHOLE query is
+ *                  pushed as a Live (predicate-based) segment that refreshes
+ *                  against the query's filters + time range. Copy IDs and
+ *                  Export CSV operate on all rows in the result.
+ *
  *   - 'expansion': executed query targets a cube with identity configured,
- *                  but the identity dim isn't in the result columns. Selected
- *                  rows are cohorts; at push time a follow-up Cube Query
- *                  materializes the actual uids.
- *
- * Copy IDs / Export are only available in 'uid' mode (the uids exist
- * client-side already). In 'expansion' mode they're hidden — materialization
- * happens at save time inside PushModal.
+ *                  but the identity dim isn't in the result columns. Rows are
+ *                  cohorts; the user checkboxes a subset and a follow-up Cube
+ *                  Query materializes the actual uids at push time. Both
+ *                  Static (uid snapshot) and Live (predicate) are offered.
  */
 
 import { ReactElement, useMemo, useState } from 'react';
@@ -21,7 +22,11 @@ import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { CubeApi, Query } from '@cubejs-client/core';
 import { PushModal } from '../../pages/Segments/push-modal/push-modal';
-import type { ResultsSelectionApi, GetRowKey } from './use-results-selection';
+import {
+  extractUid,
+  type ResultsSelectionApi,
+  type GetRowKey,
+} from './use-results-selection';
 import { expandRowsToUids } from './expand-rows-to-uids';
 
 export type SaveBarMode = 'uid' | 'expansion';
@@ -33,7 +38,7 @@ interface Props {
   rows: Record<string, unknown>[];
   selection: ResultsSelectionApi;
   getRowKey: GetRowKey;
-  /** Original executed Cube Query — required for expansion mode. */
+  /** Original executed Cube Query — required for expansion mode + uid-Live. */
   executedQuery?: Query | null;
   /** Cube client used to run the expansion query at push time. */
   cubeApi?: CubeApi;
@@ -72,24 +77,42 @@ export function SegmentsSaveBar({
   const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
 
+  // uid-mode: pushed/exported set is ALL uids in the result (no row selection).
+  // expansion-mode: pushed set is only the user-checked cohort rows.
+  const allUids = useMemo(() => {
+    if (mode !== 'uid' || !identityField) return [];
+    return rows
+      .map((r) => extractUid(r, identityField))
+      .filter((u): u is string => u != null);
+  }, [mode, identityField, rows]);
+
   const selectedKeys = selection.selectedUids;
   const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
 
   const selectedRows = useMemo(() => {
+    if (mode !== 'expansion') return [];
     return rows.filter((r) => {
       const k = getRowKey(r);
       return k != null && selectedSet.has(k);
     });
-  }, [rows, getRowKey, selectedSet]);
+  }, [mode, rows, getRowKey, selectedSet]);
 
-  if (!identityField || selectedKeys.length === 0) return null;
+  if (!identityField) return null;
+
+  // uid: visible whenever the result has rows. expansion: visible only after
+  // the user has selected at least one cohort row.
+  const visible = mode === 'uid' ? rows.length > 0 : selectedKeys.length > 0;
+  if (!visible) return null;
+
+  // Drive Copy / Export from the mode-appropriate uid set.
+  const exportUids = mode === 'uid' ? allUids : selectedKeys;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(selectedKeys.join('\n'));
+      await navigator.clipboard.writeText(exportUids.join('\n'));
       message.success(
         t('segments.selectionBar.copied', {
-          count: selectedKeys.length,
+          count: exportUids.length,
           defaultValue: '{{count}} IDs copied',
         }),
       );
@@ -101,9 +124,9 @@ export function SegmentsSaveBar({
   };
 
   const handleExport = () => {
-    const csv = toCsv(selectedKeys, identityField);
+    const csv = toCsv(exportUids, identityField);
     const safeCube = (cube ?? 'segment').replace(/[^a-z0-9_-]/gi, '_');
-    downloadCsv(`${safeCube}-uids-${selectedKeys.length}.csv`, csv);
+    downloadCsv(`${safeCube}-uids-${exportUids.length}.csv`, csv);
   };
 
   const resolveUids = mode === 'expansion'
@@ -120,9 +143,17 @@ export function SegmentsSaveBar({
       }
     : undefined;
 
-  // In expansion mode the selectedKeys are row hashes, not real uids; pass an
-  // empty `uids` to PushModal and rely on `resolveUids` at submit time.
-  const uidsForModal = mode === 'uid' ? selectedKeys : [];
+  // For PushModal:
+  //   - uid-mode: uids = all result uids (warm cache); rows = all result rows.
+  //     allowStatic=false → only Live (predicate) creation. The predicate is
+  //     built from filters + time ranges (rows are dropped at predicate
+  //     build time to avoid `identity IN (uids)` degeneration).
+  //   - expansion-mode: uids=[] (materialized via resolveUids); rows =
+  //     selected cohort rows. Both Static and Live offered.
+  const uidsForModal = mode === 'uid' ? allUids : [];
+  const rowsForModal = mode === 'uid' ? rows : selectedRows;
+  const allowStatic = mode === 'expansion';
+  const allowLive = true;
 
   return (
     <>
@@ -140,16 +171,22 @@ export function SegmentsSaveBar({
         }}
       >
         <span style={{ color: 'var(--text-secondary)' }}>
-          {mode === 'expansion'
-            ? t('segments.selectionBar.cohortsSelected', {
+          {mode === 'uid'
+            ? t('segments.selectionBar.queryUids', {
+                count: allUids.length,
+                defaultValue:
+                  '{{count}} user_ids in result — push the whole query as a Live segment',
+              })
+            : t('segments.selectionBar.cohortsSelected', {
                 count: selectedKeys.length,
                 defaultValue: '{{count}} cohort(s) selected — user_ids expand at save',
-              })
-            : t('segments.selectionBar.selected', { count: selectedKeys.length })}
+              })}
         </span>
-        <Button size="small" onClick={selection.clear}>
-          {t('segments.selectionBar.clear')}
-        </Button>
+        {mode === 'expansion' && (
+          <Button size="small" onClick={selection.clear}>
+            {t('segments.selectionBar.clear')}
+          </Button>
+        )}
         {mode === 'uid' && (
           <>
             <Button size="small" onClick={handleCopy}>
@@ -168,17 +205,15 @@ export function SegmentsSaveBar({
       <PushModal
         open={modalOpen}
         uids={uidsForModal}
-        rows={selectedRows}
+        rows={rowsForModal}
         cube={cube}
         onClose={() => setModalOpen(false)}
         resolveUids={resolveUids}
         expansionPending={mode === 'expansion'}
         executedQuery={executedQuery ?? null}
         identityField={identityField}
-        // Only expansion-mode pushes carry meaningful cohort dimensions —
-        // uid-mode rows ARE the users, so a predicate would degenerate to
-        // `identity IN (uids)` and add no value over the warm uid_list.
-        allowLive={mode === 'expansion'}
+        allowStatic={allowStatic}
+        allowLive={allowLive}
       />
     </>
   );

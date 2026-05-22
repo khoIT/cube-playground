@@ -30,7 +30,11 @@ import type {
   LeafOperator,
   LeafValueType,
 } from '../../types/segment-api';
-import { getNonIdentityDimensions } from './build-expansion-query';
+import {
+  getCohortTimeDimensions,
+  getNonIdentityDimensions,
+} from './build-expansion-query';
+import { bucketDateRange } from './bucket-range';
 
 function genId(prefix: 'grp' | 'leaf'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -130,8 +134,9 @@ function timeDimensionToLeaf(td: TimeDimension): LeafNode | null {
 function rowToAndGroup(
   row: Record<string, unknown>,
   dims: string[],
+  cohortTimeDims: ReturnType<typeof getCohortTimeDimensions> = [],
 ): GroupNode | null {
-  const leaves: LeafNode[] = dims
+  const dimLeaves: LeafNode[] = dims
     .filter((d) => row[d] != null)
     .map((d) => ({
       kind: 'leaf',
@@ -141,6 +146,23 @@ function rowToAndGroup(
       op: 'equals',
       values: [row[d]],
     }));
+
+  const timeLeaves: LeafNode[] = [];
+  for (const td of cohortTimeDims) {
+    const range = bucketDateRange(row[td.rowKey], td.granularity);
+    if (range) {
+      timeLeaves.push({
+        kind: 'leaf',
+        id: genId('leaf'),
+        member: td.member,
+        type: 'time',
+        op: 'inDateRange',
+        values: [range],
+      });
+    }
+  }
+
+  const leaves = [...dimLeaves, ...timeLeaves];
   if (leaves.length === 0) return null;
   return { kind: 'group', id: genId('grp'), op: 'AND', children: leaves };
 }
@@ -164,10 +186,11 @@ export function buildPredicateFromRows(
     if (leaf) children.push(leaf);
   }
 
-  // 3) OR-of-AND across selected rows over non-identity dims
+  // 3) OR-of-AND across selected rows over non-identity dims + cohort time buckets
   const dimsToConstrain = getNonIdentityDimensions(executedQuery.dimensions, identityField);
+  const cohortTimeDims = getCohortTimeDimensions(executedQuery.timeDimensions, identityField);
   const orChildren = selectedRows
-    .map((r) => rowToAndGroup(r, dimsToConstrain))
+    .map((r) => rowToAndGroup(r, dimsToConstrain, cohortTimeDims))
     .filter((g): g is GroupNode => g != null);
   if (orChildren.length > 0) {
     children.push({ kind: 'group', id: genId('grp'), op: 'OR', children: orChildren });

@@ -95,6 +95,42 @@ describe('inferIdentityGap', () => {
     expect(inferIdentityGap({ dimensions: [] }, has, fieldFor)).toBeNull();
     expect(inferIdentityGap(null, has, fieldFor)).toBeNull();
   });
+
+  it('detects identity cube referenced only via measures', () => {
+    expect(
+      inferIdentityGap(
+        { measures: ['mf_users.arpu_vnd', 'mf_users.user_count'] },
+        has,
+        fieldFor,
+      ),
+    ).toEqual({ cube: 'mf_users', identityField: 'mf_users.user_id' });
+  });
+
+  it('detects identity cube referenced only via timeDimensions', () => {
+    expect(
+      inferIdentityGap(
+        { timeDimensions: [{ dimension: 'mf_users.first_login_date' }] },
+        has,
+        fieldFor,
+      ),
+    ).toEqual({ cube: 'mf_users', identityField: 'mf_users.user_id' });
+  });
+
+  it('detects identity cube for cohort-style query (time-dim buckets + measures only)', () => {
+    expect(
+      inferIdentityGap(
+        {
+          measures: ['mf_users.arpu_vnd', 'mf_users.user_count'],
+          timeDimensions: [
+            { dimension: 'active_daily.log_date' },
+            { dimension: 'mf_users.first_login_date' },
+          ],
+        },
+        has,
+        fieldFor,
+      ),
+    ).toEqual({ cube: 'mf_users', identityField: 'mf_users.user_id' });
+  });
 });
 
 describe('useResultsSelection (uid mode)', () => {

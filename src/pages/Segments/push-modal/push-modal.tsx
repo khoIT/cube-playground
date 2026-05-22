@@ -49,10 +49,18 @@ interface Props {
    */
   identityField?: string | null;
   /**
-   * When false, the Live (predicate) type option is hidden and create is
-   * forced to Static. Use in identity-uid mode where each row already IS a
-   * user — a predicate would degenerate to `identity IN (uids)`.
+   * Controls the Create-tab type buttons:
+   *   - allowStatic=true  → "Static" snapshot of uid_list is offered
+   *   - allowLive=true    → "Live" predicate-based segment is offered
+   *
+   * uid-mode (each result row IS a user) sets allowStatic=false to enforce
+   * "push the whole predicate" — the segment refreshes against the query
+   * filters instead of freezing the current uid snapshot.
+   *
+   * cohort/expansion-mode allows both: Static materializes the selected
+   * cohorts' uids; Live captures the cohort predicate for cron refresh.
    */
+  allowStatic?: boolean;
   allowLive?: boolean;
 }
 
@@ -67,12 +75,14 @@ export function PushModal({
   expansionPending,
   executedQuery,
   identityField,
+  allowStatic = true,
   allowLive = true,
 }: Props): ReactElement {
   const { t } = useTranslation();
   const [tab, setTab] = useState<ModeTab>('create');
   const [name, setName] = useState('');
-  const [type, setType] = useState<'manual' | 'predicate'>('manual');
+  const initialType: 'manual' | 'predicate' = allowStatic ? 'manual' : 'predicate';
+  const [type, setType] = useState<'manual' | 'predicate'>(initialType);
   const [targetId, setTargetId] = useState<string | null>(null);
   const [staticSegments, setStaticSegments] = useState<Segment[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -80,17 +90,19 @@ export function PushModal({
   useEffect(() => {
     if (!open) return;
     setName('');
-    setType('manual');
+    setType(initialType);
     setTargetId(null);
     setTab('create');
     segmentsClient.list({ owner: '*', type: 'manual' }).then(setStaticSegments).catch(() => {});
-  }, [open]);
+  }, [open, initialType]);
 
-  // Force manual when Live isn't allowed (e.g. identity-uid mode where the
-  // predicate degenerates to identity IN (uids) — see SegmentsSaveBar.
+  // Force the available type when the other isn't allowed. Both flags off
+  // is an invalid configuration callers must avoid — UI still defaults to
+  // Live (predicate) in that case to surface the bug visibly.
   useEffect(() => {
     if (!allowLive && type === 'predicate') setType('manual');
-  }, [allowLive, type]);
+    if (!allowStatic && type === 'manual') setType('predicate');
+  }, [allowLive, allowStatic, type]);
 
   const summary = useMemo(() => summarizeSelection(rows), [rows]);
 
@@ -134,7 +146,12 @@ export function PushModal({
           );
           return;
         }
-        predicateTree = buildPredicateFromRows(executedQuery, rows, identityField);
+        // uid-mode Live (allowStatic=false): the predicate IS the query —
+        // pass [] so we don't degenerate into `identity IN (uids)`.
+        // cohort-mode: pass selected rows so the predicate captures the
+        // chosen cohorts via OR-of-AND.
+        const predicateRows = allowStatic ? rows : [];
+        predicateTree = buildPredicateFromRows(executedQuery, predicateRows, identityField);
       }
 
       const input: SegmentInput = {
@@ -214,6 +231,12 @@ export function PushModal({
                   count: rows.length,
                   defaultValue: '{{count}} cohort(s) selected — user_ids will be materialized at save',
                 })
+              : !allowStatic
+              ? t('segments.push.summaryPredicate', {
+                  count: uids.length,
+                  defaultValue:
+                    '{{count}} user_ids in current result — segment refreshes against the query predicate',
+                })
               : t('segments.push.summaryCount', { count: uids.length })}
           </div>
           {summary.categoricals.length > 0 && (
@@ -250,17 +273,19 @@ export function PushModal({
             <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>{t('segments.push.typeLabel')}</label>
               <div className={styles.typeChoices}>
-                <button
-                  type="button"
-                  className={[
-                    styles.typeOption,
-                    type === 'manual' ? styles.typeOptionActive : '',
-                  ].filter(Boolean).join(' ')}
-                  onClick={() => setType('manual')}
-                >
-                  <div className={styles.typeOptionTitle}>{t('segments.push.typeStatic')}</div>
-                  <div className={styles.typeOptionHint}>{t('segments.push.typeStaticHint')}</div>
-                </button>
+                {allowStatic && (
+                  <button
+                    type="button"
+                    className={[
+                      styles.typeOption,
+                      type === 'manual' ? styles.typeOptionActive : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => setType('manual')}
+                  >
+                    <div className={styles.typeOptionTitle}>{t('segments.push.typeStatic')}</div>
+                    <div className={styles.typeOptionHint}>{t('segments.push.typeStaticHint')}</div>
+                  </button>
+                )}
                 {allowLive && (
                   <button
                     type="button"

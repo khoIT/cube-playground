@@ -176,4 +176,37 @@ describe('buildPredicateFromRows', () => {
     expect(tree.op).toBe('AND');
     expect(tree.children).toEqual([]);
   });
+
+  it('builds inDateRange leaves per cohort row for bucketed time dimensions', () => {
+    const cohortQuery: Query = {
+      measures: ['mf_users.arpu_vnd'],
+      timeDimensions: [
+        { dimension: 'active_daily.log_date', dateRange: 'this month', granularity: 'week' },
+        { dimension: 'mf_users.first_login_date', granularity: 'week' },
+      ],
+    };
+    const rows = [
+      {
+        'active_daily.log_date.week': '2026-05-04',
+        'mf_users.first_login_date.week': '2026-03-02',
+      },
+    ];
+    const tree = buildPredicateFromRows(cohortQuery, rows, 'mf_users.user_id');
+    const orGroup = tree.children.find(
+      (c) => isGroup(c) && c.op === 'OR',
+    ) as GroupNode | undefined;
+    expect(orGroup).toBeDefined();
+    const rowAnd = orGroup!.children[0] as GroupNode;
+    const leafMembers = rowAnd.children.map((c) => (c as LeafNode).member);
+    expect(leafMembers).toEqual([
+      'active_daily.log_date',
+      'mf_users.first_login_date',
+    ]);
+    const logDateLeaf = rowAnd.children[0] as LeafNode;
+    expect(logDateLeaf.op).toBe('inDateRange');
+    expect(logDateLeaf.type).toBe('time');
+    expect(logDateLeaf.values).toEqual([['2026-05-04', '2026-05-10']]);
+    const firstLoginLeaf = rowAnd.children[1] as LeafNode;
+    expect(firstLoginLeaf.values).toEqual([['2026-03-02', '2026-03-08']]);
+  });
 });

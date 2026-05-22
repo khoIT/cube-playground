@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildExpansionQuery,
   buildRowAndGroup,
+  getCohortTimeDimensions,
   getNonIdentityDimensions,
   UID_HARD_CAP,
 } from '../build-expansion-query';
@@ -131,5 +132,88 @@ describe('buildExpansionQuery', () => {
   it('honors a custom limit override', () => {
     const q = buildExpansionQuery(original, [], 'mf_users.user_id', 100);
     expect(q.limit).toBe(100);
+  });
+
+  it('constrains cohort rows by per-row time-bucket inDateRange (no plain dims)', () => {
+    const cohortQuery = {
+      measures: ['mf_users.arpu_vnd', 'mf_users.user_count'],
+      timeDimensions: [
+        { dimension: 'active_daily.log_date', dateRange: 'this month', granularity: 'week' },
+        { dimension: 'mf_users.first_login_date', granularity: 'week' },
+      ] as any,
+    };
+    const rows = [
+      {
+        'active_daily.log_date.week': '2026-05-04',
+        'mf_users.first_login_date.week': '2026-03-02',
+      },
+      {
+        'active_daily.log_date.week': '2026-05-04',
+        'mf_users.first_login_date.week': '2026-04-13',
+      },
+    ];
+    const q = buildExpansionQuery(cohortQuery, rows, 'mf_users.user_id');
+    const orClause = (q.filters as any[]).find((f: any) => f.or);
+    expect(orClause.or).toHaveLength(2);
+    expect(orClause.or[0].and).toEqual([
+      {
+        member: 'active_daily.log_date',
+        operator: 'inDateRange',
+        values: [['2026-05-04', '2026-05-10']],
+      },
+      {
+        member: 'mf_users.first_login_date',
+        operator: 'inDateRange',
+        values: [['2026-03-02', '2026-03-08']],
+      },
+    ]);
+    expect(orClause.or[1].and[1].values).toEqual([['2026-04-13', '2026-04-19']]);
+  });
+
+  it('combines plain-dim equals + time-bucket inDateRange in one AND clause', () => {
+    const mixed = {
+      dimensions: ['mf_users.country'],
+      timeDimensions: [
+        { dimension: 'mf_users.first_login_date', granularity: 'month' },
+      ] as any,
+    };
+    const rows = [
+      {
+        'mf_users.country': 'VN',
+        'mf_users.first_login_date.month': '2026-03-01',
+      },
+    ];
+    const q = buildExpansionQuery(mixed, rows, 'mf_users.user_id');
+    const orClause = (q.filters as any[]).find((f: any) => f.or);
+    expect(orClause.or[0].and).toEqual([
+      { member: 'mf_users.country', operator: 'equals', values: ['VN'] },
+      {
+        member: 'mf_users.first_login_date',
+        operator: 'inDateRange',
+        values: [['2026-03-01', '2026-03-31']],
+      },
+    ]);
+  });
+});
+
+describe('getCohortTimeDimensions', () => {
+  it('returns row-key + member for each bucketed time dim, excluding the identity field', () => {
+    const out = getCohortTimeDimensions(
+      [
+        { dimension: 'active_daily.log_date', granularity: 'week' },
+        { dimension: 'mf_users.first_login_date', granularity: 'month' },
+        { dimension: 'mf_users.user_id' as any, granularity: 'day' },
+        { dimension: 'mf_users.signup_at' } as any, // no granularity → skip
+      ],
+      'mf_users.user_id',
+    );
+    expect(out).toEqual([
+      { member: 'active_daily.log_date', rowKey: 'active_daily.log_date.week', granularity: 'week' },
+      {
+        member: 'mf_users.first_login_date',
+        rowKey: 'mf_users.first_login_date.month',
+        granularity: 'month',
+      },
+    ]);
   });
 });

@@ -203,10 +203,13 @@
     },
     "selectionBar": {
       "selected": "{{count}} user_ids selected",
+      "queryUids": "{{count}} user_ids in result — push the whole query as a Live segment",
+      "cohortsSelected": "{{count}} cohort(s) selected — user_ids expand at save",
       "clear": "Clear",
       "copy": "Copy IDs",
       "export": "Export",
       "saveAs": "Save as segment ▾",
+      "copied": "{{count}} IDs copied",
       "copyFailed": "Clipboard unavailable"
     },
     "activate": {

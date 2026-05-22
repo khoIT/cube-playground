@@ -202,10 +202,13 @@
     },
     "selectionBar": {
       "selected": "{{count}} user_ids đã chọn",
+      "queryUids": "{{count}} user_ids trong kết quả — lưu cả truy vấn thành Live segment",
+      "cohortsSelected": "Đã chọn {{count}} cohort — user_ids sẽ được tính khi lưu",
       "clear": "Xoá",
       "copy": "Copy IDs",
       "export": "Xuất",
       "saveAs": "Lưu thành nhóm ▾",
+      "copied": "Đã copy {{count}} IDs",
       "copyFailed": "Clipboard unavailable"
     },
     "activate": {

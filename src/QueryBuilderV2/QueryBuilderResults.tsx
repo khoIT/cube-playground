@@ -754,12 +754,17 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   // identity dimension (e.g. mf_users.user_id) we render a leading checkbox
   // column so the user can push a subset of rows into a Segment.
   const { hasIdentityFor, identityFieldFor } = useIdentityMap();
+  const inferenceQuery = executedQuery as {
+    dimensions?: string[];
+    measures?: string[];
+    timeDimensions?: Array<{ dimension: string; granularity?: string }>;
+  } | null;
   const { cube: identityCube, identityField } = useMemo(
-    () => inferCubeAndIdentity(executedQuery as { dimensions?: string[] } | null, hasIdentityFor, identityFieldFor),
+    () => inferCubeAndIdentity(inferenceQuery, hasIdentityFor, identityFieldFor),
     [executedQuery, hasIdentityFor, identityFieldFor],
   );
   const identityGap = useMemo(
-    () => inferIdentityGap(executedQuery as { dimensions?: string[] } | null, hasIdentityFor, identityFieldFor),
+    () => inferIdentityGap(inferenceQuery, hasIdentityFor, identityFieldFor),
     [executedQuery, hasIdentityFor, identityFieldFor],
   );
   const saveBarMode: 'uid' | 'expansion' | null = identityField
@@ -769,11 +774,15 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     : null;
   const effectiveIdentityField = identityField ?? identityGap?.identityField ?? null;
   const effectiveCube = identityCube ?? identityGap?.cube ?? null;
-  // The dim set used to hash rows in expansion mode: every executed dimension
-  // except the (absent-from-result) identity field itself.
+  // Row-hash key set for expansion mode. Every executed dimension (except the
+  // absent identity field) plus every bucketed time dimension — time-dim keys
+  // are `<member>.<granularity>` to match how Cube returns them in row data.
   const expansionDimNames = useMemo(() => {
-    const dims = ((executedQuery as { dimensions?: string[] } | null)?.dimensions ?? []) as string[];
-    return effectiveIdentityField ? dims.filter((d) => d !== effectiveIdentityField) : dims;
+    const dims = (inferenceQuery?.dimensions ?? []).filter((d) => d !== effectiveIdentityField);
+    const timeDimKeys = (inferenceQuery?.timeDimensions ?? [])
+      .filter((td) => !!td.granularity && td.dimension !== effectiveIdentityField)
+      .map((td) => `${td.dimension}.${td.granularity}`);
+    return [...dims, ...timeDimKeys];
   }, [executedQuery, effectiveIdentityField]);
   const getRowKey = useMemo(() => {
     if (saveBarMode === 'uid' && effectiveIdentityField) {
@@ -787,7 +796,10 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     return () => null;
   }, [saveBarMode, effectiveIdentityField, expansionDimNames]);
   const selection = useResultsSelection(executedQuery, getRowKey);
-  const showSelectionColumn = saveBarMode !== null;
+  // Checkbox column is only meaningful in expansion-mode (per-row cohort
+  // selection). In uid-mode the whole query is pushed as a Live segment —
+  // no row-level picking — so the column is hidden.
+  const showSelectionColumn = saveBarMode === 'expansion';
   const gridColumnsTemplate = showSelectionColumn
     ? `40px ${baseGridColumnsTemplate}`
     : baseGridColumnsTemplate;
