@@ -40,7 +40,7 @@ export function CompositionDataCard({ spec, segment, preset, cacheKey }: Props):
   }, [rows, spec]);
 
   return (
-    <CardShell title={spec.label} loading={loading} error={error}>
+    <CardShell title={spec.label} loading={loading} error={error} skeletonShape="donut">
       {data.length > 0 ? (
         <VisualCompositionCard title={spec.label} donutData={data} barData={data} />
       ) : (

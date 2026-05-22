@@ -41,7 +41,7 @@ export function LineChartCard({ spec, segment, preset, cacheKey }: Props): React
   })), [rows, spec]);
 
   return (
-    <CardShell title={spec.label} loading={loading} error={error}>
+    <CardShell title={spec.label} loading={loading} error={error} skeletonShape="lines">
       {data.length > 0 ? <LineChart data={data} height={spec.height ?? 140} /> : <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No data.</div>}
     </CardShell>
   );

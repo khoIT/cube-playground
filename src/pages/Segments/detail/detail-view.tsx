@@ -25,6 +25,8 @@ import { useSegmentSizeDelta } from './hooks/use-segment-size-delta';
 import { format as formatDate, addMinutes } from 'date-fns';
 import { RefreshNowButton } from './components/refresh-now-button';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
+import { ActivationChip } from './components/activation-chip';
+import { SizeKpiTile } from './components/size-kpi-tile';
 import { StatusPill } from '../status/status-pill';
 import { buildPlaygroundDeeplink } from '../../../utils/playground-deeplink';
 import styles from '../segments.module.css';
@@ -134,7 +136,7 @@ export function DetailView(): ReactElement {
 
   return (
     <main className={styles.page}>
-      <BrokenSegmentBanner segment={segment} />
+      <BrokenSegmentBanner segment={segment} onViewRefreshLog={() => setTab('monitor')} />
       <header className={styles.detailHeader}>
         <Breadcrumbs
           items={[
@@ -161,6 +163,7 @@ export function DetailView(): ReactElement {
             <LiveBadge intervalMin={segment.refresh_cadence_min ?? undefined} />
           )}
           <StatusPill status={segment.status} reason={segment.broken_reason} />
+          <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />
           <div className={styles.actions}>
             <RefreshNowButton segment={segment} />
@@ -207,11 +210,10 @@ export function DetailView(): ReactElement {
             ))
           : (
             <>
-              <KpiTile
-                label={t('segments.detail.kpi.size', { defaultValue: 'Size' })}
-                value={formatCount(segment.uid_count)}
-                delta={sizeComparison?.text}
-                tone={sizeComparison?.tone ?? 'neutral'}
+              <SizeKpiTile
+                segment={segment}
+                comparison={sizeComparison}
+                refreshLog={sizeDelta.rows}
               />
               <KpiTile
                 label={t('segments.detail.kpi.lastRefresh', { defaultValue: 'Last refresh' })}

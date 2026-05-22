@@ -24,6 +24,32 @@
         "typePrompt": "Type {{name}} to confirm.",
         "ok": "Delete segment",
         "success": "Deleted “{{name}}”"
+      },
+      "duplicate": {
+        "menuItem": "Duplicate segment",
+        "copyName": "{{name}} (copy)",
+        "success": "Duplicated as “{{name}}”"
+      },
+      "bulk": {
+        "selected": "{{count}} selected",
+        "clear": "Clear selection",
+        "refresh": "Refresh",
+        "tag": "Tag",
+        "export": "Export CSV",
+        "delete": "Delete",
+        "deleteOk": "Deleted {{count}} segment(s)",
+        "deletePartial": "Deleted {{ok}}, {{failed}} failed: {{reason}}",
+        "refreshOk": "Refresh queued for {{count}} segment(s){{skipNote}}",
+        "refreshPartial": "Refreshed {{ok}}, {{failed}} failed: {{reason}}",
+        "tagAdded": "Added tag “{{tag}}”",
+        "tagRemoved": "Removed tag “{{tag}}”",
+        "exportOk": "Exported uids from {{count}} segment(s)",
+        "confirmDeleteTitle": "Delete {{count}} segment(s)?",
+        "confirmDeleteBody": "This permanently removes {{count}} segment(s) and all their tags, activations, refresh log, and pinned analyses. This cannot be undone.",
+        "confirmDeleteOk": "Delete {{count}}",
+        "currentTags": "On all selected",
+        "addTag": "Add tag",
+        "suggestedTags": "Suggested"
       }
     },
     "library": {
@@ -87,7 +113,8 @@
         }
       },
       "trend": {
-        "aria": "Size trend {{delta}}% over {{points}} refreshes"
+        "aria": "Size trend {{delta}}% over {{points}} refreshes",
+        "tooltip": "Δ {{delta}}% over {{points}} refreshes — {{sample}}"
       },
       "usedIn": {
         "empty": "—",
@@ -155,7 +182,8 @@
         "noContent": "No content for this section."
       },
       "members": {
-        "title": "Members"
+        "title": "Members",
+        "identityChip": "Identity: {{dim}}"
       },
       "definition": {
         "identity": "Identity",
@@ -171,13 +199,34 @@
         "cta": "+ Activate to CDP",
         "empty": "No activations yet. Activate this segment to make it available in CDP.",
         "registered": "Registered",
-        "lastPush": "Last push"
+        "lastPush": "Last push",
+        "deactivate": "Deactivate",
+        "deactivating": "Deactivating…",
+        "deactivated": "Activation removed",
+        "deactivateTitle": "Deactivate this destination?",
+        "deactivateBody": "This removes {{metric}} from {{dest}} · {{env}}. It does not delete the segment.",
+        "deactivateOk": "Deactivate"
       },
       "kpi": {
         "size": "Size",
         "lastRefresh": "Last refresh",
         "owner": "Owner",
-        "status": "Status"
+        "status": "Status",
+        "refreshing": "Refreshing…",
+        "vsLastWeek": "vs last week",
+        "nextAt": "next at {{at}}",
+        "createdOn": "created {{date}}"
+      },
+      "broken": {
+        "title": "Refresh failed — this segment is broken",
+        "unknownReason": "unknown error — see refresh log for details",
+        "viewRefreshLog": "View refresh log",
+        "editPredicate": "Edit predicate"
+      },
+      "activationChip": {
+        "active": "Active in {{n}} destination(s)",
+        "failed": "{{failed}} of {{n}} activations failed",
+        "title": "View activations"
       },
       "sampleUsers": {
         "title": "Sample users",
@@ -185,7 +234,12 @@
         "exportAll": "Export all IDs",
         "reshuffle": "Reshuffle",
         "empty": "No member uids yet — predicate matched 0 users on last refresh, or refresh hasn't run.",
-        "noColumn": "uid"
+        "noColumn": "uid",
+        "searchPlaceholder": "Search uid…",
+        "matchedCount": "{{n}} matched of {{total}}",
+        "noMatches": "No uids match this search.",
+        "dimsLoading": "Loading member info…",
+        "dimsCount": "{{n}} columns from {{cube}}"
       },
       "predicate": {
         "manual": "Manual segment — uids are imported directly. No predicate to display.",
@@ -195,6 +249,9 @@
       "pending": "Coming in {{phase}}."
     },
     "push": {
+      "errorNoPredicateContext": "Live segments need the originating query — switch to Static or re-run the query.",
+      "summaryExpansion": "{{count}} cohort(s) selected — user_ids will be materialized at save",
+      "summaryPredicate": "{{count}} user_ids in current result — segment refreshes against the query predicate",
       "title": "Save as segment",
       "tabs": {
         "create": "Create new",
@@ -236,6 +293,9 @@
       "invalid": "Fix the form before submitting.",
       "users": "users",
       "metricName": "Metric name",
+      "metricNameHint": "Lowercase a-z 0-9 _, ≤ 64 chars.",
+      "mockBanner": "CDP wiring is in mock mode — submissions are simulated.",
+      "success": "Activated to CDP · {{env}}",
       "env": "Environment",
       "dimensions": "Dimensions",
       "materialize": "Materialize on schedule",
@@ -262,12 +322,22 @@
         },
         "activate": {
           "label": "Activate",
-          "sub": "Push to CDP (after save)"
+          "sub": "Push to CDP (after save)",
+          "body": "Activation lives in the segment Activation tab after save. Save first, then push to CDP."
         }
       },
       "rail": {
         "titleNew": "New segment",
+        "titleEdit": "Edit · {{name}}",
         "identityMap": "Edit identity map →"
+      },
+      "breadcrumb": {
+        "edit": "Edit"
+      },
+      "viewSegment": "View segment",
+      "preview": {
+        "title": "Live preview",
+        "footnote": "Preview re-runs as you edit. Identity column changes invalidate the cache."
       },
       "errors": {
         "invalid": "Fix the predicate and name first."
@@ -280,10 +350,7 @@
       "back": "Back",
       "save": "Save changes",
       "create": "Create segment",
-      "continue": "Continue →",
-      "preview": {
-        "title": "Live preview"
-      }
+      "continue": "Continue →"
     }
   },
   "tabs": {

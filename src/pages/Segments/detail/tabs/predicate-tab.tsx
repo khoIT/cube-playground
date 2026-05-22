@@ -1,12 +1,14 @@
 /**
  * Read-only viewer for a segment's predicate tree.
  * Renders the AND/OR group structure as a nested indent list with
- * member · operator · values per leaf. Manual segments show an info note.
+ * member · operator · values per leaf. Group nodes are collapsible.
+ * Manual segments show an info note.
  */
 
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type {
   Segment,
   PredicateNode,
@@ -43,8 +45,11 @@ function NodeTree({
   node: PredicateNode;
   depth?: number;
 }): ReactElement {
+  const [collapsed, setCollapsed] = useState(false);
   if (!isGroup(node)) return <LeafRow leaf={node} />;
-  if (node.children.length === 0) {
+  const childCount = node.children.length;
+
+  if (childCount === 0) {
     return (
       <div
         className={styles.predicateGroup}
@@ -60,8 +65,19 @@ function NodeTree({
       className={styles.predicateGroup}
       style={{ marginLeft: depth * 16 }}
     >
-      <span className={styles.predicateGroupHeader}>{node.op}</span>
-      {node.children.map((c, i) => (
+      <button
+        type="button"
+        className={styles.predicateGroupToggle}
+        onClick={() => setCollapsed((v) => !v)}
+        aria-expanded={!collapsed}
+      >
+        {collapsed ? <ChevronRight size={13} aria-hidden /> : <ChevronDown size={13} aria-hidden />}
+        <span className={styles.predicateGroupHeader}>{node.op}</span>
+        {collapsed && (
+          <span className={styles.predicateGroupCount}>· {childCount}</span>
+        )}
+      </button>
+      {!collapsed && node.children.map((c, i) => (
         <NodeTree key={isGroup(c) ? `g${i}` : c.id} node={c} depth={depth + 1} />
       ))}
     </div>

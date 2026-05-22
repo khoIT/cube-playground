@@ -17,6 +17,8 @@ export interface SegmentSizeDelta {
   percent: number | null;
   /** Days the comparison reaches back. Used for the "vs last week" label. */
   windowDays: number;
+  /** Raw refresh log rows used to compute the delta. Newest → oldest. */
+  rows: RefreshLogRow[];
 }
 
 export function useSegmentSizeDelta(
@@ -25,11 +27,13 @@ export function useSegmentSizeDelta(
   windowDays = 7,
 ): SegmentSizeDelta {
   const [previous, setPrevious] = useState<number | null>(null);
+  const [rows, setRows] = useState<RefreshLogRow[]>([]);
   const [loading, setLoading] = useState<boolean>(Boolean(segmentId));
 
   useEffect(() => {
     if (!segmentId) {
       setPrevious(null);
+      setRows([]);
       setLoading(false);
       return;
     }
@@ -37,9 +41,10 @@ export function useSegmentSizeDelta(
     setLoading(true);
     segmentsClient
       .refreshLog(segmentId, windowDays, 200)
-      .then((rows: RefreshLogRow[]) => {
+      .then((fetched: RefreshLogRow[]) => {
         if (cancelled) return;
-        const succeeded = rows.filter(
+        setRows(fetched);
+        const succeeded = fetched.filter(
           (r) => r.status !== 'broken' && typeof r.uid_count === 'number',
         );
         // Oldest successful refresh within the window — that's "what it was N days ago".
@@ -47,7 +52,9 @@ export function useSegmentSizeDelta(
         setPrevious(oldest ? oldest.uid_count : null);
       })
       .catch(() => {
-        if (!cancelled) setPrevious(null);
+        if (cancelled) return;
+        setPrevious(null);
+        setRows([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -58,7 +65,7 @@ export function useSegmentSizeDelta(
   }, [segmentId, windowDays]);
 
   const percent = computePercent(currentCount, previous);
-  return { loading, previous, percent, windowDays };
+  return { loading, previous, percent, windowDays, rows };
 }
 
 function computePercent(current: number | null, previous: number | null): number | null {

@@ -24,6 +24,32 @@
         "typePrompt": "Nhập {{name}} để xác nhận.",
         "ok": "Xóa nhóm",
         "success": "Đã xóa “{{name}}”"
+      },
+      "duplicate": {
+        "menuItem": "Nhân bản nhóm",
+        "copyName": "{{name}} (bản sao)",
+        "success": "Đã nhân bản thành “{{name}}”"
+      },
+      "bulk": {
+        "selected": "Đã chọn {{count}}",
+        "clear": "Bỏ chọn",
+        "refresh": "Làm mới",
+        "tag": "Tag",
+        "export": "Xuất CSV",
+        "delete": "Xóa",
+        "deleteOk": "Đã xóa {{count}} nhóm",
+        "deletePartial": "Đã xóa {{ok}}, {{failed}} lỗi: {{reason}}",
+        "refreshOk": "Đã đưa vào hàng đợi refresh {{count}} nhóm{{skipNote}}",
+        "refreshPartial": "Đã refresh {{ok}}, {{failed}} lỗi: {{reason}}",
+        "tagAdded": "Đã thêm tag “{{tag}}”",
+        "tagRemoved": "Đã xóa tag “{{tag}}”",
+        "exportOk": "Đã xuất uid từ {{count}} nhóm",
+        "confirmDeleteTitle": "Xóa {{count}} nhóm?",
+        "confirmDeleteBody": "Hành động này sẽ xóa vĩnh viễn {{count}} nhóm cùng tất cả tag, activation, lịch sử refresh và saved analyses. Không thể hoàn tác.",
+        "confirmDeleteOk": "Xóa {{count}}",
+        "currentTags": "Trên tất cả đã chọn",
+        "addTag": "Thêm tag",
+        "suggestedTags": "Gợi ý"
       }
     },
     "library": {
@@ -87,7 +113,8 @@
         }
       },
       "trend": {
-        "aria": "Xu hướng kích thước {{delta}}% qua {{points}} lần làm mới"
+        "aria": "Xu hướng kích thước {{delta}}% qua {{points}} lần làm mới",
+        "tooltip": "Δ {{delta}}% qua {{points}} lần làm mới — {{sample}}"
       },
       "usedIn": {
         "empty": "—",
@@ -112,7 +139,8 @@
       "monitor": {
         "size": {
           "title": "Xu hướng kích thước",
-          "empty": "Chưa đủ lịch sử làm mới."
+          "empty": "Chưa đủ lịch sử làm mới.",
+          "aria": "Biểu đồ xu hướng kích thước trong {{days}} ngày"
         },
         "history": {
           "title": "Lịch sử làm mới",
@@ -136,11 +164,12 @@
           "title": "Chưa có insights cho cube này",
           "body": "Cài preset cho cube để bật Engagement, Monetization, Retention."
         },
-        "noContent": "No content for this section.",
-        "subPills": "Insights sections"
+        "noContent": "Chưa có nội dung cho mục này.",
+        "subPills": "Các mục insights"
       },
       "members": {
-        "title": "Thành viên"
+        "title": "Thành viên",
+        "identityChip": "Định danh: {{dim}}"
       },
       "definition": {
         "identity": "Định danh",
@@ -156,13 +185,34 @@
         "cta": "+ Kích hoạt CDP",
         "empty": "Chưa có kích hoạt. Kích hoạt để dùng ở CDP.",
         "registered": "Đăng ký",
-        "lastPush": "Lần đẩy gần nhất"
+        "lastPush": "Lần đẩy gần nhất",
+        "deactivate": "Hủy kích hoạt",
+        "deactivating": "Đang hủy…",
+        "deactivated": "Đã gỡ activation",
+        "deactivateTitle": "Hủy kích hoạt điểm đến này?",
+        "deactivateBody": "Sẽ gỡ {{metric}} khỏi {{dest}} · {{env}}. Không xóa segment.",
+        "deactivateOk": "Hủy kích hoạt"
       },
       "kpi": {
         "size": "Kích thước",
         "lastRefresh": "Cập nhật",
         "owner": "Người tạo",
-        "status": "Trạng thái"
+        "status": "Trạng thái",
+        "refreshing": "Đang làm mới…",
+        "vsLastWeek": "so với tuần trước",
+        "nextAt": "kế tiếp lúc {{at}}",
+        "createdOn": "tạo ngày {{date}}"
+      },
+      "broken": {
+        "title": "Làm mới thất bại — nhóm này bị lỗi",
+        "unknownReason": "lỗi không xác định — xem lịch sử làm mới",
+        "viewRefreshLog": "Xem lịch sử làm mới",
+        "editPredicate": "Sửa điều kiện"
+      },
+      "activationChip": {
+        "active": "Đang dùng ở {{n}} điểm đến",
+        "failed": "{{failed}}/{{n}} activation thất bại",
+        "title": "Xem activation"
       },
       "tabs": {
         "monitor": "Theo dõi",
@@ -184,7 +234,12 @@
         "exportAll": "Xuất tất cả IDs",
         "reshuffle": "Trộn lại",
         "empty": "Chưa có uid — predicate khớp 0 user ở lần refresh gần nhất, hoặc refresh chưa chạy.",
-        "noColumn": "uid"
+        "noColumn": "uid",
+        "searchPlaceholder": "Tìm uid…",
+        "matchedCount": "Khớp {{n}}/{{total}}",
+        "noMatches": "Không có uid khớp tìm kiếm.",
+        "dimsLoading": "Đang tải thông tin thành viên…",
+        "dimsCount": "{{n}} cột từ {{cube}}"
       },
       "predicate": {
         "manual": "Segment thủ công — uid được import trực tiếp. Không có predicate để hiển thị.",
@@ -194,6 +249,9 @@
       "pending": "Sẽ có ở {{phase}}."
     },
     "push": {
+      "errorNoPredicateContext": "Live segment cần truy vấn nguồn — chuyển sang Tĩnh hoặc chạy lại truy vấn.",
+      "summaryExpansion": "Đã chọn {{count}} cohort — user_ids sẽ được materialize khi lưu",
+      "summaryPredicate": "{{count}} user_ids trong kết quả hiện tại — segment sẽ refresh theo predicate",
       "title": "Lưu thành nhóm",
       "tabs": {
         "create": "Tạo mới",
@@ -230,59 +288,69 @@
       "copyFailed": "Clipboard unavailable"
     },
     "activate": {
-      "modalTitle": "Activate to CDP",
-      "loading": "Loading segment…",
-      "invalid": "Fix the form before submitting.",
-      "users": "users",
-      "metricName": "Metric name",
-      "env": "Environment",
+      "modalTitle": "Kích hoạt vào CDP",
+      "loading": "Đang tải nhóm…",
+      "invalid": "Sửa form trước khi gửi.",
+      "users": "người dùng",
+      "metricName": "Tên metric",
+      "metricNameHint": "Chữ thường a-z 0-9 _, ≤ 64 ký tự.",
+      "mockBanner": "CDP đang ở chế độ mock — gửi đi được giả lập.",
+      "success": "Đã kích hoạt CDP · {{env}}",
+      "env": "Môi trường",
       "dimensions": "Dimensions",
-      "materialize": "Materialize on schedule",
+      "materialize": "Materialize theo lịch",
       "advanced": {
-        "hide": "Hide advanced",
-        "show": "Show advanced"
+        "hide": "Ẩn nâng cao",
+        "show": "Hiện nâng cao"
       },
-      "cancel": "Cancel",
-      "submit": "Activate"
+      "cancel": "Hủy",
+      "submit": "Kích hoạt"
     },
     "editor": {
       "steps": {
         "identity": {
-          "label": "Identity",
-          "sub": "Cube + name + tags"
+          "label": "Định danh",
+          "sub": "Cube + tên + tag"
         },
         "predicate": {
-          "label": "Predicate",
-          "sub": "Who belongs to this cohort"
+          "label": "Điều kiện",
+          "sub": "Ai thuộc cohort này"
         },
         "refresh": {
-          "label": "Refresh",
-          "sub": "Live cadence or static"
+          "label": "Làm mới",
+          "sub": "Live cadence hoặc tĩnh"
         },
         "activate": {
-          "label": "Activate",
-          "sub": "Push to CDP (after save)"
+          "label": "Kích hoạt",
+          "sub": "Đẩy lên CDP (sau khi lưu)",
+          "body": "Activation nằm trong tab Activation sau khi lưu. Lưu trước, rồi đẩy lên CDP."
         }
       },
       "rail": {
-        "titleNew": "New segment",
-        "identityMap": "Edit identity map →"
+        "titleNew": "Nhóm mới",
+        "titleEdit": "Sửa · {{name}}",
+        "identityMap": "Sửa identity map →"
+      },
+      "breadcrumb": {
+        "edit": "Sửa"
+      },
+      "viewSegment": "Xem nhóm",
+      "preview": {
+        "title": "Live preview",
+        "footnote": "Preview chạy lại khi bạn sửa. Đổi cột định danh sẽ invalidate cache."
       },
       "errors": {
-        "invalid": "Fix the predicate and name first."
+        "invalid": "Sửa predicate và tên trước."
       },
       "success": {
-        "updated": "Segment updated.",
-        "created": "Segment created."
+        "updated": "Đã cập nhật nhóm.",
+        "created": "Đã tạo nhóm."
       },
-      "cancel": "Cancel",
-      "back": "Back",
-      "save": "Save changes",
-      "create": "Create segment",
-      "continue": "Continue →",
-      "preview": {
-        "title": "Live preview"
-      }
+      "cancel": "Hủy",
+      "back": "Quay lại",
+      "save": "Lưu thay đổi",
+      "create": "Tạo nhóm",
+      "continue": "Tiếp tục →"
     }
   },
   "tabs": {

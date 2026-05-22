@@ -39,6 +39,12 @@ function buildPath(values: number[]): string {
   return d;
 }
 
+function formatCompact(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
+  return `${(n / 1_000_000).toFixed(2)}M`;
+}
+
 export function TrendCell({ log, isStatic }: Props): ReactElement {
   const { t } = useTranslation();
   const series = useMemo(() => (log ?? []).map((r) => r.uid_count), [log]);
@@ -56,6 +62,13 @@ export function TrendCell({ log, isStatic }: Props): ReactElement {
     delta,
     points: series.length,
   });
+  const sample = series.slice(-6).map(formatCompact).join(' → ');
+  const tooltip = t('segments.library.trend.tooltip', {
+    defaultValue: 'Δ {{delta}}% over {{points}} refreshes — {{sample}}',
+    delta,
+    points: series.length,
+    sample,
+  });
 
   return (
     <svg
@@ -66,6 +79,7 @@ export function TrendCell({ log, isStatic }: Props): ReactElement {
       role="img"
       aria-label={ariaLabel}
     >
+      <title>{tooltip}</title>
       <path d={path} fill="none" stroke="var(--chart-1)" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );

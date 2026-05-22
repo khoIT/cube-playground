@@ -1,15 +1,18 @@
 /** Shared wrapper that gives chart cards a consistent header + body + loading state. */
 
 import { ReactNode, ReactElement } from 'react';
+import styles from '../../segments.module.css';
 
 interface Props {
   title: string;
   loading?: boolean;
   error?: Error | null;
+  /** Optional visual hint for the skeleton shape ('chart' | 'bars' | 'donut' | 'lines'). */
+  skeletonShape?: 'chart' | 'bars' | 'donut' | 'lines';
   children: ReactNode;
 }
 
-export function CardShell({ title, loading, error, children }: Props): ReactElement {
+export function CardShell({ title, loading, error, skeletonShape = 'chart', children }: Props): ReactElement {
   return (
     <div
       style={{
@@ -26,12 +29,47 @@ export function CardShell({ title, loading, error, children }: Props): ReactElem
         {title}
       </h3>
       {loading ? (
-        <div style={{ height: 120, background: 'var(--neutral-100)', borderRadius: 6, opacity: 0.6 }} />
+        <CardSkeleton shape={skeletonShape} />
       ) : error ? (
         <div style={{ fontSize: 12, color: 'var(--text-danger, #c0392b)' }}>{error.message}</div>
       ) : (
         children
       )}
+    </div>
+  );
+}
+
+function CardSkeleton({ shape }: { shape: NonNullable<Props['skeletonShape']> }): ReactElement {
+  if (shape === 'bars') {
+    return (
+      <div className={styles.cardSkeleton}>
+        {[0.9, 0.7, 0.55, 0.4, 0.3].map((w, i) => (
+          <div
+            key={i}
+            className={styles.cardSkeletonBar}
+            style={{ width: `${w * 100}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (shape === 'donut') {
+    return (
+      <div className={styles.cardSkeleton}>
+        <div className={styles.cardSkeletonDonut} />
+      </div>
+    );
+  }
+  if (shape === 'lines') {
+    return (
+      <div className={styles.cardSkeleton}>
+        <div className={styles.cardSkeletonLine} />
+      </div>
+    );
+  }
+  return (
+    <div className={styles.cardSkeleton}>
+      <div className={styles.cardSkeletonBlock} />
     </div>
   );
 }
