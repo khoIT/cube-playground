@@ -46,4 +46,20 @@ describe('summarizeSelection', () => {
     const country = out.categoricals.find((c) => c.column === 'country')!;
     expect(country.topValues).toEqual([{ value: 'VN', count: 1 }]);
   });
+
+  it('honors excludeColumns to drop duplicate bare time-dim keys', () => {
+    const rows = [
+      {
+        'active_daily.log_date': '2026-05-18T00:00:00.000',
+        'active_daily.log_date.week': '2026-05-18T00:00:00.000',
+        'mf_users.country': 'VN',
+      },
+    ];
+    const out = summarizeSelection(rows, {
+      excludeColumns: ['active_daily.log_date'],
+    });
+    const cols = out.categoricals.map((c) => c.column);
+    expect(cols).toContain('active_daily.log_date.week');
+    expect(cols).not.toContain('active_daily.log_date');
+  });
 });

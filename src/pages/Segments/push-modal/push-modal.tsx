@@ -13,6 +13,11 @@ import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import { buildPredicateFromRows } from '../../../QueryBuilderV2/segments-save-bar/build-predicate-from-rows';
 import { summarizeSelection } from './selection-summary';
+import {
+  formatCategoricalValue,
+  formatNumericScalar,
+  parseColumnLabel,
+} from './format-selection-summary';
 import styles from '../segments.module.css';
 
 type ModeTab = 'create' | 'append';
@@ -104,7 +109,26 @@ export function PushModal({
     if (!allowStatic && type === 'manual') setType('predicate');
   }, [allowLive, allowStatic, type]);
 
-  const summary = useMemo(() => summarizeSelection(rows), [rows]);
+  // Time dims appear twice in the row data — once bare (`active_daily.log_date`)
+  // and once granularity-suffixed (`active_daily.log_date.week`) with identical
+  // values. Skip the bare key in the summary and remember the granularity for
+  // the suffixed key so we can render `2026-05-18 W21` instead of an ISO blob.
+  const { excludeColumns, granularityByCol } = useMemo(() => {
+    const exclude: string[] = [];
+    const granularity: Record<string, string | undefined> = {};
+    for (const td of executedQuery?.timeDimensions ?? []) {
+      if (td.granularity) {
+        exclude.push(td.dimension);
+        granularity[`${td.dimension}.${td.granularity}`] = td.granularity;
+      }
+    }
+    return { excludeColumns: exclude, granularityByCol: granularity };
+  }, [executedQuery]);
+  const summary = useMemo(
+    () => summarizeSelection(rows, { excludeColumns }),
+    [rows, excludeColumns],
+  );
+  const showValueCounts = summary.total > 1;
 
   /**
    * Resolves the uid list to use for create/append. In identity mode this is
@@ -239,20 +263,43 @@ export function PushModal({
                 })
               : t('segments.push.summaryCount', { count: uids.length })}
           </div>
-          {summary.categoricals.length > 0 && (
-            <div style={{ marginTop: 4, fontSize: 12 }}>
-              {summary.categoricals.map((c) => (
-                <span key={c.column} style={{ marginRight: 10 }}>
-                  <code>{c.column}</code>:{' '}
-                  {c.topValues.map((v) => `${v.value}(${v.count})`).join(', ')}
-                </span>
-              ))}
-            </div>
-          )}
-          {summary.numeric && (
-            <div style={{ marginTop: 4, fontSize: 12 }}>
-              avg <code>{summary.numeric.column}</code> = {summary.numeric.avg.toFixed(2)}
-            </div>
+          {(summary.categoricals.length > 0 || summary.numeric) && (
+            <dl className={styles.summaryRows}>
+              {summary.categoricals.map((c) => {
+                const label = parseColumnLabel(c.column, granularityByCol);
+                return (
+                  <div key={c.column} className={styles.summaryRow}>
+                    <dt className={styles.summaryRowLabel}>
+                      {label.member}
+                      {label.granularity && (
+                        <span className={styles.summaryRowTag}>{label.granularity}</span>
+                      )}
+                    </dt>
+                    <dd className={styles.summaryRowValue}>
+                      {c.topValues
+                        .map((v) => {
+                          const text = formatCategoricalValue(v.value, label.granularity);
+                          return showValueCounts ? `${text} (${v.count})` : text;
+                        })
+                        .join(', ')}
+                    </dd>
+                  </div>
+                );
+              })}
+              {summary.numeric && (() => {
+                const label = parseColumnLabel(summary.numeric.column, granularityByCol);
+                return (
+                  <div className={styles.summaryRow}>
+                    <dt className={styles.summaryRowLabel}>
+                      avg {label.member}
+                    </dt>
+                    <dd className={styles.summaryRowValue}>
+                      {formatNumericScalar(summary.numeric.avg)}
+                    </dd>
+                  </div>
+                );
+              })()}
+            </dl>
           )}
         </div>
 

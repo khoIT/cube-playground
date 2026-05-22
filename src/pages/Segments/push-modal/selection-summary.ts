@@ -24,10 +24,21 @@ export interface SelectionSummaryResult {
 
 export function summarizeSelection(
   rows: Record<string, unknown>[],
-  options: { maxCategoricals?: number; maxTopValues?: number } = {},
+  options: {
+    maxCategoricals?: number;
+    maxTopValues?: number;
+    /**
+     * Column keys to omit from the summary entirely. The push-modal uses this
+     * to drop the bare time-dim key (e.g. `active_daily.log_date`) when its
+     * granularity-suffixed counterpart (e.g. `active_daily.log_date.week`) is
+     * already in the row — Cube returns both and they hold the same value.
+     */
+    excludeColumns?: string[];
+  } = {},
 ): SelectionSummaryResult {
   const maxCategoricals = options.maxCategoricals ?? 3;
   const maxTopValues = options.maxTopValues ?? 3;
+  const exclude = new Set(options.excludeColumns ?? []);
 
   if (rows.length === 0) {
     return { total: 0, categoricals: [], numeric: null };
@@ -38,6 +49,7 @@ export function summarizeSelection(
   const numericCols: string[] = [];
 
   for (const [key, value] of Object.entries(sample)) {
+    if (exclude.has(key)) continue;
     if (typeof value === 'number') numericCols.push(key);
     else if (typeof value === 'string') stringCols.push(key);
   }
