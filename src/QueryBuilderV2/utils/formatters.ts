@@ -1,6 +1,7 @@
 const formatterCurrency = new Intl.NumberFormat('en-US', {
   style: 'currency',
-  currency: 'USD',
+  currency: 'VND',
+  maximumFractionDigits: 0,
 });
 
 export const getNumberFixedFormatter = (digits = 2, minDigits = 2) => {
@@ -11,10 +12,10 @@ export const getNumberFixedFormatter = (digits = 2, minDigits = 2) => {
   });
 };
 
-const getCurrencyFixedFormatter = (digits = 2, minDigits = 2) =>
+const getCurrencyFixedFormatter = (digits = 0, minDigits = 0) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'VND',
     minimumFractionDigits: minDigits,
     maximumFractionDigits: digits,
   });

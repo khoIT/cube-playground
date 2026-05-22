@@ -11,7 +11,7 @@ export function formatValue(value: unknown, format: FormatId | undefined): strin
     case 'percent':
       return `${(n * 100).toFixed(1)}%`;
     case 'currency':
-      return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+      return n.toLocaleString(undefined, { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
     case 'duration':
       return `${n.toFixed(0)}s`;
     case 'compact':
