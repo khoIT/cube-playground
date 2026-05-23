@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BookOpen, Users } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BookOpen, Users, Grid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -15,7 +15,6 @@ import { RecentItems } from './recent-items';
 import { WorkspacePill } from './workspace-pill';
 import { BottomRow } from './bottom-row';
 import { CollapseToggle } from './collapse-toggle';
-import { SidebarDataModelSection } from './sidebar-data-model-section';
 import { getCollapsed, onCollapsedChange } from './sidebar-collapsed-store';
 import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-store';
 
@@ -78,7 +77,14 @@ export function Sidebar() {
           flat
         />
 
-        <SidebarDataModelSection collapsed={collapsed} />
+        <SidebarSection
+          id="data-model"
+          icon={Grid}
+          label={t('nav.dataModel')}
+          to="/catalog/data-model"
+          collapsed={collapsed}
+          flat
+        />
 
         <SidebarSection
           id="metrics-catalog"

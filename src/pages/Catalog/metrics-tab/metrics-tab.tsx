@@ -5,7 +5,6 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useGameContext } from '../../../components/Header/use-game-context';
@@ -13,7 +12,7 @@ import { ChangeAnalysisModal } from '../../../shared/concept-shell/change-analys
 import { useCatalogMeta } from '../use-catalog-meta';
 import type { BusinessMetric } from './business-metric-types';
 import { MetricCard } from './metric-card';
-import { MetricsFilterRail } from './metrics-filter-rail';
+import { MetricsFilterBar } from './metrics-filter-rail';
 import { MetricsSearchRow } from './metrics-search-row';
 import { useBusinessMetrics } from './use-business-metrics';
 import {
@@ -26,12 +25,6 @@ const Wrap = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-`;
-
-const Body = styled.div`
-  flex: 1;
-  display: flex;
   overflow: hidden;
 `;
 
@@ -59,31 +52,6 @@ const Empty = styled.div`
   text-align: center;
   color: var(--text-muted, #737373);
   font-size: 13px;
-`;
-
-const HeaderBar = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px 0;
-`;
-
-const NewMetricLink = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 6px;
-  background: var(--brand, #f05a22);
-  color: white;
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: none;
-
-  &:hover {
-    background: var(--brand-pressed, #f54a00);
-  }
 `;
 
 export function MetricsTab() {
@@ -114,10 +82,6 @@ export function MetricsTab() {
 
   return (
     <Wrap>
-      <HeaderBar>
-        <span />
-        <NewMetricLink to="/catalog/metric/new">+ New metric</NewMetricLink>
-      </HeaderBar>
       <MetricsSearchRow
         query={query}
         onQueryChange={setQuery}
@@ -126,40 +90,38 @@ export function MetricsTab() {
         totalCount={result.totalCount}
         activeGameLabel={activeGameLabel}
       />
-      <Body>
-        <MetricsFilterRail
-          filters={filters}
-          ownersAvailable={ownersAvailable}
-          tiersAvailable={tiersAvailable}
-          onChange={setFilters}
-        />
-        <Main>
-          {error && <StatusLine $kind="error">Failed to load metrics: {error}</StatusLine>}
-          {loading && <StatusLine $kind="info">Loading metrics…</StatusLine>}
-          {!loading && !error && result.visible.length === 0 && (
-            <Empty>
-              No metrics match the current filters.
-              {result.hiddenByGame > 0 && (
-                <> {result.hiddenByGame} hidden by "Hide unavailable" for {activeGameLabel}.</>
-              )}
-            </Empty>
-          )}
-          {!loading && !error && result.visible.length > 0 && (
-            <Grid role="list">
-              {result.visible.map(({ metric, available, missingCubes }) => (
-                <MetricCard
-                  key={metric.id}
-                  metric={metric}
-                  disabled={!available}
-                  missingCubes={missingCubes}
-                  activeGameLabel={activeGameLabel}
-                  onAnomalyClick={setAnomalyMetric}
-                />
-              ))}
-            </Grid>
-          )}
-        </Main>
-      </Body>
+      <MetricsFilterBar
+        filters={filters}
+        ownersAvailable={ownersAvailable}
+        tiersAvailable={tiersAvailable}
+        onChange={setFilters}
+      />
+      <Main>
+        {error && <StatusLine $kind="error">Failed to load metrics: {error}</StatusLine>}
+        {loading && <StatusLine $kind="info">Loading metrics…</StatusLine>}
+        {!loading && !error && result.visible.length === 0 && (
+          <Empty>
+            No metrics match the current filters.
+            {result.hiddenByGame > 0 && (
+              <> {result.hiddenByGame} hidden by "Hide unavailable" for {activeGameLabel}.</>
+            )}
+          </Empty>
+        )}
+        {!loading && !error && result.visible.length > 0 && (
+          <Grid role="list">
+            {result.visible.map(({ metric, available, missingCubes }) => (
+              <MetricCard
+                key={metric.id}
+                metric={metric}
+                disabled={!available}
+                missingCubes={missingCubes}
+                activeGameLabel={activeGameLabel}
+                onAnomalyClick={setAnomalyMetric}
+              />
+            ))}
+          </Grid>
+        )}
+      </Main>
       {anomalyMetric && (
         <ChangeAnalysisModal
           open

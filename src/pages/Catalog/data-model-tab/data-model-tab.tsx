@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
-import { DataModelFilterRail } from './data-model-filter-rail';
+import { DataModelFilterBar } from './data-model-filter-rail';
 import { DataModelGrid } from './data-model-grid';
 import { DataModelSearchRow } from './data-model-search-row';
 import { useConcepts } from './use-concepts';
@@ -21,15 +21,10 @@ import {
 
 const Layout = styled.div`
   display: flex;
-  flex: 1;
-  min-height: 0;
-`;
-
-const Body = styled.div`
-  display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 `;
 
 const Status = styled.div`
@@ -86,25 +81,23 @@ export function DataModelTab() {
 
   return (
     <Layout>
-      <DataModelFilterRail
+      <ActionBar>
+        <NewDataModelLink to="/data-model/new?v=2">
+          New data model
+        </NewDataModelLink>
+      </ActionBar>
+      <DataModelSearchRow
+        query={query}
+        onQueryChange={setQuery}
+        visibleCount={visible.length}
+        totalCount={totalCount}
+      />
+      <DataModelFilterBar
         filters={filters}
         onChange={setFilters}
         availableCubes={availableCubes}
       />
-      <Body>
-        <ActionBar>
-          <NewDataModelLink to="/data-model/new?v=2">
-            New data model
-          </NewDataModelLink>
-        </ActionBar>
-        <DataModelSearchRow
-          query={query}
-          onQueryChange={setQuery}
-          visibleCount={visible.length}
-          totalCount={totalCount}
-        />
-        <DataModelGrid concepts={visible} usageMap={usageMap} />
-      </Body>
+      <DataModelGrid concepts={visible} usageMap={usageMap} />
     </Layout>
   );
 }

@@ -143,7 +143,7 @@ export function MetricsSearchRow({
       <Count>
         {visibleCount} shown · {availableCount} of {totalCount} available for {activeGameLabel}
       </Count>
-      <NewMetricLink to="/catalog/metric/new">
+      <NewMetricLink to="/data-model/new?v=2">
         <Plus size={13} />
         New metric
       </NewMetricLink>

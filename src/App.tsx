@@ -204,21 +204,8 @@ function CubeTokenBootstrap() {
 function RecentItemPusher() {
   const location = useLocation();
   useEffect(() => {
-    const dm = location.pathname.match(/^\/catalog\/data-model\/([^/]+)/);
-    if (dm) {
-      pushRecent('data-model', { id: dm[1], title: dm[1], updatedAt: new Date().toISOString() });
-    }
-    // Concepts (measures/dimensions/segments) live in the Data Model surface,
-    // so concept-detail visits feed the Data Model recents — not metrics catalog.
-    const concept = location.pathname.match(/^\/catalog\/concept\/[^/]+\/([^/]+)/);
-    if (concept) {
-      pushRecent('data-model', {
-        id: concept[1],
-        title: concept[1],
-        updatedAt: new Date().toISOString(),
-        href: location.pathname,
-      });
-    }
+    // Data-model + concept-detail visits intentionally skip recents — the
+    // sidebar's Data Model row is a flat link without a recents tray.
     const seg = location.pathname.match(/^\/segments\/([^/]+)/);
     if (seg && seg[1] !== 'identity-map' && seg[1] !== 'new') {
       pushRecent('segments', { id: seg[1], title: seg[1], updatedAt: new Date().toISOString() });

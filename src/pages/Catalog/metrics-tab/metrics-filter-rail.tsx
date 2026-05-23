@@ -1,10 +1,18 @@
 /**
- * MetricsFilterRail — six collapsible facet groups. State is lifted to the
- * MetricsTab; this component is purely presentational.
+ * MetricsFilterBar — horizontal dropdown-chip top bar for the metrics catalog.
+ * Replaces the legacy left rail. Each facet is its own chip with a popover.
+ *
+ * File name retained as `metrics-filter-rail.tsx` for git history continuity;
+ * the exported `MetricsFilterBar` reflects the new top-bar role.
  */
 
 import styled from 'styled-components';
 
+import {
+  FilterChipBar,
+  MultiSelectChip,
+  ToggleGroupChip,
+} from '../../../shared/filter-chip-bar/filter-chip-bar';
 import { DOMAINS, TRUST_TIERS } from './business-metric-constants';
 import type {
   BusinessMetricDomain,
@@ -12,155 +20,90 @@ import type {
 } from './business-metric-types';
 import type { MetricFilters } from './use-filtered-metrics';
 
-const Rail = styled.aside`
-  width: 220px;
-  padding: 16px 12px;
-  border-right: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
-  overflow-y: auto;
-`;
-
-const Group = styled.section`
-  margin-bottom: 18px;
-`;
-
-const GroupTitle = styled.h4`
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-muted, #737373);
-`;
-
-const Option = styled.label`
+const Container = styled.div`
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 4px 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text-secondary, #525252);
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.03);
-  }
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-card, #e5e5e5);
+  background: var(--bg-app, transparent);
 `;
 
-function toggleIn<T>(set: Set<T>, value: T): Set<T> {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
-}
-
-interface MetricsFilterRailProps {
+interface MetricsFilterBarProps {
   filters: MetricFilters;
   ownersAvailable: string[];
   tiersAvailable: number[];
   onChange: (next: MetricFilters) => void;
 }
 
-export function MetricsFilterRail({
+export function MetricsFilterBar({
   filters,
   ownersAvailable,
   tiersAvailable,
   onChange,
-}: MetricsFilterRailProps) {
+}: MetricsFilterBarProps) {
   function set<K extends keyof MetricFilters>(key: K, value: MetricFilters[K]) {
     onChange({ ...filters, [key]: value });
   }
 
+  const tierOptions = tiersAvailable.map((t) => ({ value: t, label: `Tier ${t}` }));
+
   return (
-    <Rail aria-label="Metric filters">
-      <Group>
-        <GroupTitle>Domain</GroupTitle>
-        {DOMAINS.map((d) => (
-          <Option key={d}>
-            <input
-              type="checkbox"
-              checked={filters.domains.has(d)}
-              onChange={() => set('domains', toggleIn(filters.domains, d as BusinessMetricDomain))}
-            />
-            {d}
-          </Option>
-        ))}
-      </Group>
-
-      <Group>
-        <GroupTitle>Trust</GroupTitle>
-        {TRUST_TIERS.map((t) => (
-          <Option key={t}>
-            <input
-              type="checkbox"
-              checked={filters.trusts.has(t)}
-              onChange={() => set('trusts', toggleIn(filters.trusts, t as BusinessMetricTrust))}
-            />
-            {t}
-          </Option>
-        ))}
-      </Group>
-
-      {tiersAvailable.length > 0 && (
-        <Group>
-          <GroupTitle>Tier</GroupTitle>
-          {tiersAvailable.map((tier) => (
-            <Option key={tier}>
-              <input
-                type="checkbox"
-                checked={filters.tiers.has(tier)}
-                onChange={() => set('tiers', toggleIn(filters.tiers, tier))}
-              />
-              Tier {tier}
-            </Option>
-          ))}
-        </Group>
-      )}
-
-      {ownersAvailable.length > 0 && (
-        <Group>
-          <GroupTitle>Owner</GroupTitle>
-          {ownersAvailable.map((owner) => (
-            <Option key={owner}>
-              <input
-                type="checkbox"
-                checked={filters.owners.has(owner)}
-                onChange={() => set('owners', toggleIn(filters.owners, owner))}
-              />
-              {owner}
-            </Option>
-          ))}
-        </Group>
-      )}
-
-      <Group>
-        <GroupTitle>Toggles</GroupTitle>
-        <Option>
-          <input
-            type="checkbox"
-            checked={filters.parameterisedOnly}
-            onChange={() => set('parameterisedOnly', !filters.parameterisedOnly)}
+    <Container aria-label="Metric filters">
+      <FilterChipBar>
+        <MultiSelectChip
+          label="Domain"
+          options={[...DOMAINS] as BusinessMetricDomain[]}
+          selected={filters.domains}
+          onChange={(next) => set('domains', next)}
+        />
+        <MultiSelectChip
+          label="Trust"
+          options={[...TRUST_TIERS] as BusinessMetricTrust[]}
+          selected={filters.trusts}
+          onChange={(next) => set('trusts', next)}
+        />
+        {tierOptions.length > 0 && (
+          <MultiSelectChip<number>
+            label="Tier"
+            options={tierOptions}
+            selected={filters.tiers}
+            onChange={(next) => set('tiers', next)}
           />
-          Parameterised only
-        </Option>
-        <Option>
-          <input
-            type="checkbox"
-            checked={filters.showDeprecated}
-            onChange={() => set('showDeprecated', !filters.showDeprecated)}
+        )}
+        {ownersAvailable.length > 0 && (
+          <MultiSelectChip
+            label="Owner"
+            options={ownersAvailable}
+            selected={filters.owners}
+            onChange={(next) => set('owners', next)}
           />
-          Show deprecated
-        </Option>
-        <Option>
-          <input
-            type="checkbox"
-            checked={filters.hideUnavailable}
-            onChange={() => set('hideUnavailable', !filters.hideUnavailable)}
-          />
-          Hide unavailable for this game
-        </Option>
-      </Group>
-    </Rail>
+        )}
+        <ToggleGroupChip
+          label="Options"
+          toggles={[
+            {
+              key: 'parameterisedOnly',
+              label: 'Parameterised only',
+              checked: filters.parameterisedOnly,
+              onChange: () => set('parameterisedOnly', !filters.parameterisedOnly),
+            },
+            {
+              key: 'showDeprecated',
+              label: 'Show deprecated',
+              checked: filters.showDeprecated,
+              onChange: () => set('showDeprecated', !filters.showDeprecated),
+            },
+            {
+              key: 'hideUnavailable',
+              label: 'Hide unavailable for this game',
+              checked: filters.hideUnavailable,
+              onChange: () => set('hideUnavailable', !filters.hideUnavailable),
+            },
+          ]}
+        />
+      </FilterChipBar>
+    </Container>
   );
 }
