@@ -6,6 +6,7 @@ import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
+import { invalidateSegmentIds } from '../use-segment-ids';
 import { Breadcrumbs } from '../visuals';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { IdentityCard } from './identity-card';
@@ -118,6 +119,7 @@ export function EditorView(): ReactElement {
         history.push(`/segments/${id}`);
       } else {
         const created = await segmentsClient.create(payload);
+        invalidateSegmentIds();
         message.success(t('segments.editor.success.created', { defaultValue: 'Segment created.' }));
         history.push(`/segments/${created.id}`);
       }

@@ -8,6 +8,7 @@ import { Activity, Code2, LineChart, Send, Users } from 'lucide-react';
 import { LiveBadge } from '../visuals';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { pushRecent, removeRecent } from '../../../shell/sidebar/recent-items-store';
+import { invalidateSegmentIds } from '../use-segment-ids';
 import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
@@ -288,6 +289,7 @@ export function DetailView(): ReactElement {
           try {
             await segmentsClient.delete(segment.id);
             removeRecent('segments', segment.id);
+            invalidateSegmentIds();
             message.success(
               t('segments.actions.delete.success', {
                 defaultValue: 'Deleted “{{name}}”',

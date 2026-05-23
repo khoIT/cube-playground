@@ -11,6 +11,7 @@ import type { Query } from '@cubejs-client/core';
 import type { Segment, SegmentInput } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
+import { invalidateSegmentIds } from '../use-segment-ids';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { buildPredicateFromRows } from '../../../QueryBuilderV2/segments-save-bar/build-predicate-from-rows';
 import { summarizeSelection } from './selection-summary';
@@ -193,6 +194,7 @@ export function PushModal({
         game_id: gameId,
       };
       const created = await segmentsClient.create(input);
+      invalidateSegmentIds();
       message.success(t('segments.push.toastCreated'));
       onCreated?.(created.id);
       onClose();

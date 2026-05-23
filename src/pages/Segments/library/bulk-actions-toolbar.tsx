@@ -16,6 +16,7 @@ import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
 import { removeRecent } from '../../../shell/sidebar/recent-items-store';
+import { invalidateSegmentIds } from '../use-segment-ids';
 import styles from '../segments.module.css';
 
 interface Props {
@@ -84,6 +85,7 @@ export function BulkActionsToolbar({ selected, onClear, onChanged, knownTags }: 
       await segmentsClient.delete(s.id);
       removeRecent('segments', s.id);
     });
+    invalidateSegmentIds();
     setBusy(null);
     setConfirmDelete(false);
     if (failed === 0) {

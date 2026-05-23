@@ -20,6 +20,7 @@ import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
 import { removeRecent } from '../../../shell/sidebar/recent-items-store';
+import { invalidateSegmentIds } from '../use-segment-ids';
 import styles from '../segments.module.css';
 
 interface Props {
@@ -79,6 +80,7 @@ export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
     try {
       await segmentsClient.delete(segment.id);
       removeRecent('segments', segment.id);
+      invalidateSegmentIds();
       message.success(
         t('segments.actions.delete.success', {
           defaultValue: 'Deleted “{{name}}”',
@@ -111,6 +113,7 @@ export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
       if (created.type === 'predicate') {
         try { await segmentsClient.refresh(created.id); } catch { /* best-effort */ }
       }
+      invalidateSegmentIds();
       message.success(
         t('segments.actions.duplicate.success', {
           defaultValue: 'Duplicated as “{{name}}”',

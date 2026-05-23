@@ -20,6 +20,7 @@ import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-
 import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
 import { useBusinessMetrics } from '../../pages/Catalog/metrics-tab/use-business-metrics';
 import { useConcepts } from '../../pages/Catalog/data-model-tab/use-concepts';
+import { useSegmentIds } from '../../pages/Segments/use-segment-ids';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -34,6 +35,7 @@ export function Sidebar() {
   // avoid flashing items out and back in on first paint.
   const { metrics, loading: metricsLoading } = useBusinessMetrics();
   const { concepts, loading: conceptsLoading } = useConcepts();
+  const { ids: segmentIds } = useSegmentIds();
   const metricIds = React.useMemo(
     () => (metricsLoading ? null : new Set(metrics.map((m) => m.id))),
     [metrics, metricsLoading],
@@ -154,9 +156,14 @@ export function Sidebar() {
               module="segments"
               seeAllTo="/segments"
               // Drop legacy entries that recorded the segment UUID as both id
-              // and title — those were written before the detail page pushed
-              // the real name. Re-visiting the segment refreshes the row.
-              filter={(item) => item.title !== item.id}
+              // and title (written before the detail page pushed the real
+              // name) AND any id no longer present in the server's segments
+              // list (deleted in another tab, by another user, or directly
+              // via API).
+              filter={(item) =>
+                item.title !== item.id &&
+                (segmentIds === null || segmentIds.has(item.id))
+              }
             />
           </SidebarSection>
         )}
