@@ -754,41 +754,23 @@
 
 .selectionBarHost > * { pointer-events: auto; }
 
-/* ── Library header (compact title + meta + actions) ─────────── */
+/* ── Library header — single row: meta line on the left, actions on the right.
+   The redundant H1 was removed (sidebar + breadcrumb already say "Segments");
+   the meta line carries the page identity. */
 .libraryHeader {
   display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.libraryTitleRow {
-  display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-}
-
-.libraryTitleBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.libraryTitle {
-  margin: 0;
-  font-family: var(--font-alt, var(--font-sans));
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  color: var(--text-primary);
+  flex-wrap: wrap;
+  min-height: 36px;
 }
 
 .libraryMeta {
   margin: 0;
   font-size: 13px;
   color: var(--text-muted);
+  min-width: 0;
 }
 
 .libraryMetaStrong {

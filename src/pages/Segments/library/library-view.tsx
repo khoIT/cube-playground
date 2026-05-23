@@ -10,9 +10,8 @@
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Checkbox } from 'antd';
-import { Plus, Upload } from 'lucide-react';
-import { useHistory, useRouteMatch } from 'react-router-dom';
-import { useTopbarTrailing } from '../../../shell/topbar/topbar-trailing-context';
+import { Upload } from 'lucide-react';
+import { useHistory } from 'react-router-dom';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
@@ -118,36 +117,21 @@ export function LibraryView(): ReactElement {
 
   const triggerReload = () => setReloadKey((k) => k + 1);
 
-  // Register Library actions in the topbar trailing slot — only while the
-  // library route is the active match, so KeepAliveRoute siblings don't
-  // overwrite each other.
-  const libraryActive = useRouteMatch({ path: '/segments', exact: true }) != null;
-  useTopbarTrailing(
-    <>
-      <Button size="small" icon={<Upload size={14} />} onClick={() => setImportOpen(true)}>
-        {t('segments.library.import')}
-      </Button>
-      <Button
-        size="small"
-        type="primary"
-        icon={<Plus size={14} />}
-        onClick={() => history.push('/segments/new')}
-      >
-        {t('segments.library.new')}
-      </Button>
-    </>,
-    [t, history],
-    libraryActive,
-  );
-
   return (
     <main className={styles.page}>
       <header className={styles.libraryHeader}>
-        <div className={styles.libraryTitleRow}>
-          <div className={styles.libraryTitleBlock}>
-            <h1 className={styles.libraryTitle}>{t('segments.library.title')}</h1>
-            <LibraryMetaLine segments={segments ?? []} />
-          </div>
+        <LibraryMetaLine segments={segments ?? []} />
+        <div className={styles.libraryActions}>
+          <Button size="small" icon={<Upload size={14} />} onClick={() => setImportOpen(true)}>
+            {t('segments.library.import')}
+          </Button>
+          <Button
+            size="small"
+            type="primary"
+            onClick={() => history.push('/segments/new')}
+          >
+            {t('segments.library.new')}
+          </Button>
         </div>
       </header>
 
@@ -214,7 +198,6 @@ export function LibraryView(): ReactElement {
               </Button>
               <Button
                 type="primary"
-                icon={<Plus size={14} />}
                 onClick={() => history.push('/segments/new')}
               >
                 {t('segments.library.new')}
