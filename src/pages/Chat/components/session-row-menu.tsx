@@ -9,6 +9,7 @@ import type { SessionSummary } from '../hooks/use-chat-sessions-list';
 import { SessionRowRenameInline } from './session-row-rename-inline';
 import { SessionRowDeleteConfirm } from './session-row-delete-confirm';
 import { SessionRowMenuDropdown } from './session-row-menu-dropdown';
+import { getOwnerId } from '../../../api/chat-owner-id';
 
 interface SessionRowMenuProps {
   session: SessionSummary;
@@ -59,7 +60,7 @@ export function SessionRowMenu({ session, onRenamed, onDeleted }: SessionRowMenu
     try {
       const res = await fetch(`/api/chat/sessions/${session.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Id': getOwnerId() },
         body: JSON.stringify({ title: trimmed }),
       });
       if (res.ok) onRenamed(trimmed);
@@ -73,7 +74,10 @@ export function SessionRowMenu({ session, onRenamed, onDeleted }: SessionRowMenu
     e.stopPropagation();
     setBusy(true);
     try {
-      const res = await fetch(`/api/chat/sessions/${session.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/chat/sessions/${session.id}`, {
+        method: 'DELETE',
+        headers: { 'X-Owner-Id': getOwnerId() },
+      });
       if (res.ok) onDeleted();
     } finally {
       setBusy(false);

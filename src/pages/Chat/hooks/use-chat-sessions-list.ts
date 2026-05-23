@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useReducer } from 'react';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { onChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
+import { getOwnerId } from '../../../api/chat-owner-id';
 
 export interface SessionSummary {
   id: string;
@@ -42,7 +43,7 @@ export function useChatSessionsList() {
     dispatch({ type: 'FETCH' });
     try {
       const res = await fetch(`/api/chat/sessions?game=${encodeURIComponent(gameId)}`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
         signal,
       });
       if (!res.ok) {

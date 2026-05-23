@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useReducer } from 'react';
 import type { ChartArtifact } from '../../../api/chat-sse-client';
+import { getOwnerId } from '../../../api/chat-owner-id';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,7 +80,7 @@ export function useChatSession(sessionId: string | null) {
     dispatch({ type: 'FETCH' });
     try {
       const res = await fetch(`/api/chat/sessions/${id}`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
         signal,
       });
       if (!res.ok) {

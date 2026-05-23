@@ -13,6 +13,7 @@
  */
 import { useCallback, useReducer, useRef } from 'react';
 import { openChatTurn } from '../../../api/chat-sse-client';
+import { getOwnerId } from '../../../api/chat-owner-id';
 import { pushRecent } from '../../../shell/sidebar/recent-items-store';
 import { notifyChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 import {
@@ -143,7 +144,9 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     const sid = sessionIdRef.current;
     if (!sid) return;
     try {
-      const res = await fetch(`/api/chat/sessions/${sid}`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`/api/chat/sessions/${sid}`, {
+        headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
+      });
       if (res.ok) notifyChatSessionChanged(sid);
     } catch { /* silently ignore — caller can retry */ }
     dispatch({ type: 'RESET' });

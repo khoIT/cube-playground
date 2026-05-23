@@ -133,16 +133,12 @@ export type SseEvent =
   | SseCompactWarning;
 
 // ---------------------------------------------------------------------------
-// Owner ID helper — read from localStorage (dev convention)
+// Owner ID helper — re-exported for tests; sourced from shared module so
+// non-SSE consumers (useChatSession, useChatSessionsList, rename/delete
+// menus) can stamp the same header without pulling in the SSE client.
 // ---------------------------------------------------------------------------
 
-function getOwnerId(): string {
-  try {
-    return window.localStorage.getItem('gds-cube:owner') ?? 'dev';
-  } catch {
-    return 'dev';
-  }
-}
+import { getOwnerId } from './chat-owner-id';
 
 // ---------------------------------------------------------------------------
 // SSE parser — splits raw text into (type, data) pairs
