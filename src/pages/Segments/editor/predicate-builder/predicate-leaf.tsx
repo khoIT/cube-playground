@@ -23,7 +23,9 @@ export function PredicateLeaf({ node, onMember, onOp, onValues, onRemove }: Prop
       style={{
         display: 'flex',
         alignItems: 'center',
+        flexWrap: 'wrap',
         gap: 8,
+        rowGap: 8,
         padding: '8px 10px',
         background: 'var(--bg-card)',
         border: '1px solid var(--border-card)',
@@ -48,8 +50,10 @@ export function PredicateLeaf({ node, onMember, onOp, onValues, onRemove }: Prop
         options={operatorsFor(node.type).map((o) => ({ value: o.id, label: o.label }))}
         style={{ minWidth: 140 }}
       />
-      <ValueInput type={node.type} op={node.op} values={node.values} onChange={onValues} />
-      <span style={{ flex: 1 }} />
+      {/* Flex-grow wrapper so multi-value pills (date range, in/notIn) fully reveal */}
+      <div style={{ flex: 1, minWidth: 240, display: 'flex', alignItems: 'center' }}>
+        <ValueInput type={node.type} op={node.op} values={node.values} onChange={onValues} />
+      </div>
       <Button type="text" icon={<CloseOutlined />} onClick={onRemove} aria-label="Remove condition" />
     </div>
   );

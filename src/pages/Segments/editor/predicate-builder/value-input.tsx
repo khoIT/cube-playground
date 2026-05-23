@@ -21,7 +21,7 @@ export function ValueInput({ type, op, values, onChange }: Props): ReactElement 
     return (
       <Select
         mode="tags"
-        style={{ minWidth: 240 }}
+        style={{ width: '100%', minWidth: 240 }}
         value={values.map(String)}
         onChange={(v) => onChange(v)}
         placeholder={
@@ -38,7 +38,7 @@ export function ValueInput({ type, op, values, onChange }: Props): ReactElement 
       <InputNumber
         value={typeof values[0] === 'number' ? values[0] : Number(values[0] ?? 0)}
         onChange={(v) => onChange([v ?? 0])}
-        style={{ minWidth: 140 }}
+        style={{ width: '100%', minWidth: 140 }}
       />
     );
   }
@@ -57,7 +57,7 @@ export function ValueInput({ type, op, values, onChange }: Props): ReactElement 
     <Input
       value={String(values[0] ?? '')}
       onChange={(e) => onChange([e.target.value])}
-      style={{ minWidth: 200 }}
+      style={{ width: '100%', minWidth: 200 }}
       placeholder={type === 'time' ? 'YYYY-MM-DD' : 'value'}
     />
   );
