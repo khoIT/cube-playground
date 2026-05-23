@@ -88,6 +88,10 @@ export function Sidebar() {
             module="data-model"
             seeAllTo="/catalog/data-model"
             hrefFor={(id) => `/catalog/data-model/${id}`}
+            // Drop legacy entries written before concept-only filtering — the
+            // sub-tab routes `/catalog/data-model/cubes` and `…/models` used to
+            // get pushed as literal id strings.
+            filter={(item) => item.id !== 'cubes' && item.id !== 'models'}
           />
         </SidebarSection>
 
@@ -108,7 +112,14 @@ export function Sidebar() {
           to="/segments"
           collapsed={collapsed}
         >
-          <RecentItems module="segments" seeAllTo="/segments" />
+          <RecentItems
+            module="segments"
+            seeAllTo="/segments"
+            // Drop legacy entries that recorded the segment UUID as both id
+            // and title — those were written before the detail page pushed
+            // the real name. Re-visiting the segment refreshes the row.
+            filter={(item) => item.title !== item.id}
+          />
         </SidebarSection>
       </nav>
 

@@ -99,15 +99,6 @@ export function MetricsTab() {
 
   const result = useFilteredMetrics(metrics, filters, query, availableCubeNames);
 
-  const ownersAvailable = useMemo(
-    () => Array.from(new Set(metrics.map((m) => m.owner))).sort(),
-    [metrics],
-  );
-  const tiersAvailable = useMemo(
-    () => Array.from(new Set(metrics.map((m) => m.tier))).sort((a, b) => a - b),
-    [metrics],
-  );
-
   const activeGameLabel = games.find((g) => g.id === gameId)?.name ?? gameId;
 
   const grouped = useMemo(() => groupByDomain(result.visible), [result.visible]);
@@ -146,12 +137,7 @@ export function MetricsTab() {
         totalCount={result.totalCount}
         activeGameLabel={activeGameLabel}
       />
-      <MetricsFilterBar
-        filters={filters}
-        ownersAvailable={ownersAvailable}
-        tiersAvailable={tiersAvailable}
-        onChange={setFilters}
-      />
+      <MetricsFilterBar filters={filters} onChange={setFilters} />
       <Main>
         {selected.size > 0 && (
           <SelectionBanner count={selected.size} onClear={() => setSelected(new Set())} />

@@ -204,16 +204,9 @@ function CubeTokenBootstrap() {
 function RecentItemPusher() {
   const location = useLocation();
   useEffect(() => {
-    const dm = location.pathname.match(/^\/catalog\/data-model\/([^/]+)/);
-    if (dm) {
-      pushRecent('data-model', {
-        id: dm[1],
-        title: dm[1],
-        updatedAt: new Date().toISOString(),
-      });
-    }
-    // Concept detail (measure/dimension/segment): href preserves the full path
-    // so the sidebar entry routes straight back to the concept, not the cube.
+    // Only concept detail visits (measure/dimension/segment) feed the Data
+    // Model recents — the cube/model sub-tab routes share the same prefix
+    // and would otherwise push literal "cubes" / "models" strings.
     const concept = location.pathname.match(/^\/catalog\/concept\/[^/]+\/([^/]+)/);
     if (concept) {
       pushRecent('data-model', {
@@ -223,11 +216,8 @@ function RecentItemPusher() {
         href: location.pathname,
       });
     }
-    const seg = location.pathname.match(/^\/segments\/([^/]+)/);
-    if (seg && seg[1] !== 'identity-map' && seg[1] !== 'new') {
-      pushRecent('segments', { id: seg[1], title: seg[1], updatedAt: new Date().toISOString() });
-    }
-    // Business-metric detail pages — those are Metrics Catalog entries.
+    // Segments + business-metric recents are pushed by their respective detail
+    // pages once data loads, so titles are real names (not raw UUIDs / ids).
     const metric = location.pathname.match(/^\/catalog\/metric\/([^/]+)/);
     if (metric && metric[1] !== 'new') {
       pushRecent('metrics-catalog', {

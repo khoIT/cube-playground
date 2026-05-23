@@ -233,3 +233,126 @@ export function FilterChipBar({ children, trailing }: FilterChipBarProps) {
     </Bar>
   );
 }
+
+// ── Inline pill primitives — used when filters must surface their options
+// without a dropdown click (e.g. catalog top bars where discoverability beats
+// compactness). Each `FilterPillRow` shows label + every option as a pill;
+// `TogglePill` covers standalone boolean filters.
+
+const PillRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+`;
+
+const PillRowLabel = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #737373);
+  margin-right: 4px;
+`;
+
+const Pill = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid
+    ${(p) =>
+      p.$active ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)'};
+  border-radius: 999px;
+  background: ${(p) =>
+    p.$active ? 'rgba(240, 90, 34, 0.10)' : 'var(--bg-card, #ffffff)'};
+  color: ${(p) =>
+    p.$active ? 'var(--brand, #f05a22)' : 'var(--text-secondary, #525252)'};
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--brand, #f05a22);
+    color: var(--brand, #f05a22);
+  }
+`;
+
+interface FilterPillRowProps<T extends string | number> {
+  label: string;
+  options: ReadonlyArray<T> | ReadonlyArray<OptionDef<T>>;
+  selected: Set<T>;
+  onChange: (next: Set<T>) => void;
+  /** When the option list is empty, render this hint instead of an empty row. */
+  emptyHint?: string;
+}
+
+export function FilterPillRow<T extends string | number>({
+  label,
+  options,
+  selected,
+  onChange,
+  emptyHint,
+}: FilterPillRowProps<T>) {
+  function toggle(v: T) {
+    const next = new Set(selected);
+    if (next.has(v)) next.delete(v);
+    else next.add(v);
+    onChange(next);
+  }
+  return (
+    <PillRow>
+      <PillRowLabel>{label}</PillRowLabel>
+      {options.length === 0 ? (
+        <EmptyHint>{emptyHint ?? 'No options'}</EmptyHint>
+      ) : (
+        options.map((opt) => {
+          const v = isOptionDef(opt) ? opt.value : opt;
+          const text = isOptionDef(opt) ? opt.label : String(opt);
+          const active = selected.has(v);
+          return (
+            <Pill
+              key={String(v)}
+              type="button"
+              $active={active}
+              onClick={() => toggle(v)}
+              aria-pressed={active}
+            >
+              {text}
+            </Pill>
+          );
+        })
+      )}
+    </PillRow>
+  );
+}
+
+interface TogglePillProps {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+}
+
+export function TogglePill({ label, checked, onChange }: TogglePillProps) {
+  return (
+    <Pill type="button" $active={checked} onClick={onChange} aria-pressed={checked}>
+      {label}
+    </Pill>
+  );
+}
+
+const Stack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+interface FilterPillStackProps {
+  children: React.ReactNode;
+}
+
+/** Vertical stack of `FilterPillRow` rows — typical container for catalog top bars. */
+export function FilterPillStack({ children }: FilterPillStackProps) {
+  return <Stack>{children}</Stack>;
+}

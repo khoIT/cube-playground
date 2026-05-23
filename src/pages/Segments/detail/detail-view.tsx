@@ -8,6 +8,7 @@ import { Activity, Code2, LineChart, Send, Users } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { KpiTile, LiveBadge } from '../visuals';
 import { useTopbarTrailing } from '../../../shell/topbar/topbar-trailing-context';
+import { pushRecent } from '../../../shell/sidebar/recent-items-store';
 import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
@@ -81,6 +82,18 @@ export function DetailView(): ReactElement {
     (next) => setSegment(next),
     { enabled: segment?.type === 'predicate' },
   );
+
+  // Once the segment loads, push it into the sidebar's "recently viewed" tray
+  // under Segments using the real display name. Routed here (not in
+  // App.tsx) because that path-level pusher only sees the UUID in the URL.
+  useEffect(() => {
+    if (!segment) return;
+    pushRecent('segments', {
+      id: segment.id,
+      title: segment.name,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [segment?.id, segment?.name]);
 
   const sizeDelta = useSegmentSizeDelta(segment?.id ?? null, segment?.uid_count ?? null, 7);
 

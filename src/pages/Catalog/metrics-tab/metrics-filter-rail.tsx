@@ -1,18 +1,27 @@
 /**
- * MetricsFilterBar — horizontal dropdown-chip top bar for the metrics catalog.
- * Replaces the legacy left rail. Each facet is its own chip with a popover.
+ * MetricsFilterBar — inline-visible facet rows for the metrics catalog.
+ * Every option for every facet renders as a clickable pill so users see at a
+ * glance what's filterable. Replaces the prior dropdown-chip iteration that
+ * hid options behind a click.
  *
  * File name retained as `metrics-filter-rail.tsx` for git history continuity;
- * the exported `MetricsFilterBar` reflects the new top-bar role.
+ * the exported `MetricsFilterBar` reflects the current top-bar role.
  */
 
+import React from 'react';
 import styled from 'styled-components';
+import { ChevronDown } from 'lucide-react';
 
 import {
-  FilterChipBar,
-  MultiSelectChip,
-  ToggleGroupChip,
+  FilterPillRow,
+  FilterPillStack,
+  TogglePill,
 } from '../../../shared/filter-chip-bar/filter-chip-bar';
+import {
+  getFilterBarCollapsed,
+  onFilterBarCollapsedChange,
+  setFilterBarCollapsed,
+} from '../../../shared/filter-chip-bar/filter-bar-collapsed-store';
 import { DOMAINS, TRUST_TIERS } from './business-metric-constants';
 import type {
   BusinessMetricDomain,
@@ -22,88 +31,149 @@ import type { MetricFilters } from './use-filtered-metrics';
 
 const Container = styled.div`
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 16px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 16px 10px;
   border-bottom: 1px solid var(--border-card, #e5e5e5);
   background: var(--bg-app, transparent);
 `;
 
+const HeaderRow = styled.button`
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #737373);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--brand, #f05a22);
+  }
+`;
+
+const Chevron = styled.span<{ $collapsed: boolean }>`
+  display: inline-flex;
+  transform: rotate(${(p) => (p.$collapsed ? '-90deg' : '0deg')});
+  transition: transform 0.15s ease;
+`;
+
+const ActiveCount = styled.span`
+  color: var(--brand, #f05a22);
+  font-weight: 600;
+`;
+
+const TogglesRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+`;
+
+const TogglesLabel = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #737373);
+  margin-right: 4px;
+`;
+
 interface MetricsFilterBarProps {
   filters: MetricFilters;
-  ownersAvailable: string[];
-  tiersAvailable: number[];
   onChange: (next: MetricFilters) => void;
 }
 
-export function MetricsFilterBar({
-  filters,
-  ownersAvailable,
-  tiersAvailable,
-  onChange,
-}: MetricsFilterBarProps) {
+function countActive(filters: MetricFilters): number {
+  // Tier + owner are deliberately not surfaced as facets right now, but their
+  // selected sets still get counted for accurate badge math.
+  return (
+    filters.domains.size +
+    filters.trusts.size +
+    filters.tiers.size +
+    filters.owners.size +
+    (filters.parameterisedOnly ? 1 : 0) +
+    (filters.showDeprecated ? 1 : 0) +
+    (filters.hideUnavailable ? 1 : 0)
+  );
+}
+
+export function MetricsFilterBar({ filters, onChange }: MetricsFilterBarProps) {
   function set<K extends keyof MetricFilters>(key: K, value: MetricFilters[K]) {
     onChange({ ...filters, [key]: value });
   }
 
-  const tierOptions = tiersAvailable.map((t) => ({ value: t, label: `Tier ${t}` }));
+  const [collapsed, setCollapsed] = React.useState<boolean>(() =>
+    getFilterBarCollapsed('metrics-catalog'),
+  );
+  React.useEffect(
+    () => onFilterBarCollapsedChange('metrics-catalog', setCollapsed),
+    [],
+  );
+
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    setFilterBarCollapsed('metrics-catalog', next);
+  }
+
+  const active = countActive(filters);
 
   return (
     <Container aria-label="Metric filters">
-      <FilterChipBar>
-        <MultiSelectChip
-          label="Domain"
-          options={[...DOMAINS] as BusinessMetricDomain[]}
-          selected={filters.domains}
-          onChange={(next) => set('domains', next)}
-        />
-        <MultiSelectChip
-          label="Trust"
-          options={[...TRUST_TIERS] as BusinessMetricTrust[]}
-          selected={filters.trusts}
-          onChange={(next) => set('trusts', next)}
-        />
-        {tierOptions.length > 0 && (
-          <MultiSelectChip<number>
-            label="Tier"
-            options={tierOptions}
-            selected={filters.tiers}
-            onChange={(next) => set('tiers', next)}
+      <HeaderRow
+        type="button"
+        onClick={toggleCollapsed}
+        aria-expanded={!collapsed}
+      >
+        <Chevron $collapsed={collapsed}>
+          <ChevronDown size={12} />
+        </Chevron>
+        Filters
+        {active > 0 && <ActiveCount>· {active} active</ActiveCount>}
+      </HeaderRow>
+      {!collapsed && (
+        <FilterPillStack>
+          <FilterPillRow
+            label="Domain"
+            options={[...DOMAINS] as BusinessMetricDomain[]}
+            selected={filters.domains}
+            onChange={(next) => set('domains', next)}
           />
-        )}
-        {ownersAvailable.length > 0 && (
-          <MultiSelectChip
-            label="Owner"
-            options={ownersAvailable}
-            selected={filters.owners}
-            onChange={(next) => set('owners', next)}
+          <FilterPillRow
+            label="Trust"
+            options={[...TRUST_TIERS] as BusinessMetricTrust[]}
+            selected={filters.trusts}
+            onChange={(next) => set('trusts', next)}
           />
-        )}
-        <ToggleGroupChip
-          label="Options"
-          toggles={[
-            {
-              key: 'parameterisedOnly',
-              label: 'Parameterised only',
-              checked: filters.parameterisedOnly,
-              onChange: () => set('parameterisedOnly', !filters.parameterisedOnly),
-            },
-            {
-              key: 'showDeprecated',
-              label: 'Show deprecated',
-              checked: filters.showDeprecated,
-              onChange: () => set('showDeprecated', !filters.showDeprecated),
-            },
-            {
-              key: 'hideUnavailable',
-              label: 'Hide unavailable for this game',
-              checked: filters.hideUnavailable,
-              onChange: () => set('hideUnavailable', !filters.hideUnavailable),
-            },
-          ]}
-        />
-      </FilterChipBar>
+          <TogglesRow>
+            <TogglesLabel>Options</TogglesLabel>
+            <TogglePill
+              label="Parameterised only"
+              checked={filters.parameterisedOnly}
+              onChange={() => set('parameterisedOnly', !filters.parameterisedOnly)}
+            />
+            <TogglePill
+              label="Show deprecated"
+              checked={filters.showDeprecated}
+              onChange={() => set('showDeprecated', !filters.showDeprecated)}
+            />
+            <TogglePill
+              label="Hide unavailable for this game"
+              checked={filters.hideUnavailable}
+              onChange={() => set('hideUnavailable', !filters.hideUnavailable)}
+            />
+          </TogglesRow>
+        </FilterPillStack>
+      )}
     </Container>
   );
 }
