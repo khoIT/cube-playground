@@ -6,7 +6,7 @@ import {
 } from '@cubejs-client/core';
 import { Input, Tabs } from 'antd';
 import equals from 'fast-deep-equal';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { event } from '../../events';
@@ -132,6 +132,7 @@ export function QueryTabs({
   });
 
   const [drilldownConfig, setDrilldownConfig] = useState<DrillDownConfig>({});
+  const lastAppliedQueryKey = useRef<string | null>(null);
 
   useEffect(() => {
     window['__cubejsPlayground'] = {
@@ -231,18 +232,22 @@ export function QueryTabs({
   }, []);
 
   useEffect(() => {
-    if (ready) {
-      return;
-    }
-
     const currentTab = queryTabs.tabs.find(
       (tab) => tab.id === queryTabs.activeId
     );
 
+    // Bind the URL query to a single "applied" key so deep-links from the
+    // Catalog (which can reuse the same KeepAlive instance) always open a
+    // fresh tab when the URL changes, and never re-trigger on re-renders
+    // of an already-applied query.
+    const queryKey = query ? JSON.stringify(validateQuery(query)) : null;
+
     if (
       query &&
+      queryKey !== lastAppliedQueryKey.current &&
       !equals(validateQuery(currentTab?.query), validateQuery(query))
     ) {
+      lastAppliedQueryKey.current = queryKey;
       const id = getNextId();
 
       saveTabs({
@@ -251,8 +256,8 @@ export function QueryTabs({
       });
     }
 
-    setReady(true);
-  }, [ready]);
+    if (!ready) setReady(true);
+  }, [ready, query]);
 
   useEffect(() => {
     if (ready && queryTabs.activeId) {

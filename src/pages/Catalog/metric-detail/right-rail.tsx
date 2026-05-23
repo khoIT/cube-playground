@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import { pushFromMetric } from '../../../shared/activation/push-from-metric';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
+import { buildExploreUrl } from './explore-query-builder';
 
 const Rail = styled.aside`
   width: 240px;
@@ -47,21 +48,11 @@ const Primary = styled(Button)`
   &:hover { background: var(--brand-pressed, #f54a00); }
 `;
 
-function exploreUrlFor(metric: BusinessMetric): string {
-  const measures: string[] = [];
-  const f = metric.formula;
-  if (f.type === 'measure') measures.push(f.ref);
-  if (f.type === 'ratio') measures.push(f.numerator, f.denominator);
-  if (f.type === 'expression' && f.inputs) measures.push(...f.inputs);
-  const query = { measures, timeDimensions: [], filters: [], order: {} };
-  return `/build?query=${encodeURIComponent(JSON.stringify(query))}`;
-}
-
 export function RightRail({ metric }: { metric: BusinessMetric }) {
   const history = useHistory();
   return (
     <Rail>
-      <Primary type="button" onClick={() => history.push(exploreUrlFor(metric))}>
+      <Primary type="button" onClick={() => history.push(buildExploreUrl(metric))}>
         Open in Explore →
       </Primary>
       <Button

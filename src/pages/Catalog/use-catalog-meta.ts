@@ -26,6 +26,12 @@ export type CatalogJoin = {
   sql: string;
 };
 
+export type CatalogSegment = {
+  name: string;
+  title?: string;
+  description?: string;
+};
+
 export type CatalogCube = {
   name: string;
   title?: string;
@@ -36,6 +42,7 @@ export type CatalogCube = {
   connectedComponent?: number;
   measures: CatalogMeasure[];
   dimensions: CatalogDimension[];
+  segments?: CatalogSegment[];
   joins?: CatalogJoin[];
   preAggregations?: Array<{ name: string; type?: string; granularity?: string; timeDimension?: string }>;
   meta?: { game_id?: string; cdp_source?: string; [k: string]: unknown };

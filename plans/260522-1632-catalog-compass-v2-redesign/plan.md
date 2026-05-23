@@ -39,7 +39,7 @@ A new `ConceptDetailPage` subsumes `MetricCardPage` and unifies all 4 concept ki
 | 2 | [Business metrics registry and backend wire](./phase-02-business-metrics-registry-and-backend-wire.md) | Done (2026-05-23) |
 | 3 | [Metrics tab and detail page](./phase-03-metrics-tab-and-detail-page.md) | Done (2026-05-23) |
 | 4 | [Demo value loop (activation + anomaly + lineage)](./phase-04-demo-value-loop-activation-anomaly-lineage.md) | Done (2026-05-23) |
-| 5 | [Data Model tab and concept detail](./phase-05-data-model-tab-and-concept-detail.md) | Pending |
+| 5 | [Data Model tab and concept detail](./phase-05-data-model-tab-and-concept-detail.md) | Done (2026-05-23) |
 | 6 | [Wizards rebrand and composition](./phase-06-wizards-rebrand-and-composition.md) | Pending |
 | 7 | [Smart search overlay](./phase-07-smart-search-overlay.md) | Pending |
 | 8 | [Signal upgrades (freshness + trust + anomaly)](./phase-08-signal-upgrades-freshness-trust-anomaly.md) | Pending |

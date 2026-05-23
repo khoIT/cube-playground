@@ -7,6 +7,7 @@ import { SchemaPage } from '../Schema/SchemaPage';
 import { CatalogGrid } from './catalog-grid';
 import { CatalogTabs, resolveCatalogTab } from './catalog-tabs';
 import { CatalogToolbar } from './catalog-toolbar';
+import { ConceptDetailPage } from './concept-detail/concept-detail-page';
 import { DataModelTab } from './data-model-tab/data-model-tab';
 import { DetailPanel } from './detail-panel';
 import { MetricDetailPage } from './metric-detail/metric-detail-page';
@@ -147,6 +148,19 @@ export function CatalogPage() {
       <Page>
         <Route path="/catalog/metric/:id">
           <MetricDetailPage />
+        </Route>
+      </Page>
+    );
+  }
+
+  const isConceptDetail = /^\/catalog\/concept\/[^/]+\/[^/]+/.test(
+    location.pathname,
+  );
+  if (isConceptDetail) {
+    return (
+      <Page>
+        <Route path="/catalog/concept/:type/:fqn">
+          <ConceptDetailPage />
         </Route>
       </Page>
     );

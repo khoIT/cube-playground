@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Data Model tab and concept detail"
-status: pending
+status: done
 priority: P2
 effort: "5d"
 dependencies: [1, 3]

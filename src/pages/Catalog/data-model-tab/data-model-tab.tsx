@@ -1,66 +1,80 @@
-import { Link } from 'react-router-dom';
+/**
+ * DataModelTab — author surface. Concept-first grid of measures /
+ * dimensions / segments derived from the active game's Cube /meta, with
+ * filter rail + free-text search + "Used by N metrics" cross-reference
+ * against the business-metrics registry.
+ */
+
+import { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-const Wrap = styled.div`
+import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
+import { DataModelFilterRail } from './data-model-filter-rail';
+import { DataModelGrid } from './data-model-grid';
+import { DataModelSearchRow } from './data-model-search-row';
+import { useConcepts } from './use-concepts';
+import {
+  emptyConceptFilters,
+  useFilteredConcepts,
+} from './use-filtered-concepts';
+
+const Layout = styled.div`
+  display: flex;
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 32px;
+  min-height: 0;
 `;
 
-const Card = styled.div`
-  max-width: 480px;
+const Body = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+`;
+
+const Status = styled.div`
+  padding: 60px 24px;
   text-align: center;
-  padding: 32px 28px;
-  border: 1px dashed var(--border-card);
-  border-radius: 12px;
-  background: var(--bg-card);
-`;
-
-const Title = styled.h2`
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-`;
-
-const Body = styled.p`
-  margin: 0 0 16px;
+  color: var(--text-muted, #737373);
   font-size: 13px;
-  line-height: 1.55;
-  color: var(--text-muted);
-`;
-
-const Actions = styled.div`
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  font-size: 13px;
-
-  a {
-    color: var(--brand);
-    text-decoration: none;
-  }
-  a:hover {
-    text-decoration: underline;
-  }
 `;
 
 export function DataModelTab() {
+  const { concepts, cubes, loading, error } = useConcepts();
+  const { metrics: businessMetrics } = useBusinessMetrics();
+  const [filters, setFilters] = useState(() => emptyConceptFilters());
+  const [query, setQuery] = useState('');
+
+  const availableCubes = useMemo(
+    () => cubes.map((c) => c.name).sort((a, b) => a.localeCompare(b)),
+    [cubes],
+  );
+
+  const { visible, totalCount, usageMap } = useFilteredConcepts(
+    concepts,
+    filters,
+    query,
+    businessMetrics,
+  );
+
+  if (loading) return <Status>Loading data model…</Status>;
+  if (error) return <Status>Failed to load /meta: {error}</Status>;
+
   return (
-    <Wrap>
-      <Card>
-        <Title>Data Model — coming in Phase 5</Title>
-        <Body>
-          Concept-first cards for measures, dimensions, and segments will live
-          here. For now, the cube-grouped browser is one tab over.
-        </Body>
-        <Actions>
-          <Link to="/catalog/cubes">Browse Cubes →</Link>
-          <Link to="/catalog/models">Browse Models →</Link>
-        </Actions>
-      </Card>
-    </Wrap>
+    <Layout>
+      <DataModelFilterRail
+        filters={filters}
+        onChange={setFilters}
+        availableCubes={availableCubes}
+      />
+      <Body>
+        <DataModelSearchRow
+          query={query}
+          onQueryChange={setQuery}
+          visibleCount={visible.length}
+          totalCount={totalCount}
+        />
+        <DataModelGrid concepts={visible} usageMap={usageMap} />
+      </Body>
+    </Layout>
   );
 }
