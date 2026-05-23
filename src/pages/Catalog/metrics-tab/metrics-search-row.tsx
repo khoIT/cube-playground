@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useSmartSearch } from '../../../shared/smart-search/smart-search-context';
+import { ViewModeToggle } from '../../../shared/view-mode/view-mode-toggle';
 
 const Row = styled.div`
   display: flex;
@@ -143,6 +144,7 @@ export function MetricsSearchRow({
       <Count>
         {visibleCount} shown · {availableCount} of {totalCount} available for {activeGameLabel}
       </Count>
+      <ViewModeToggle module="metrics-catalog" />
       <NewMetricLink to="/data-model/new?v=2">
         <Plus size={13} />
         New metric

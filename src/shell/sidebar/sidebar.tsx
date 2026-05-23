@@ -83,8 +83,13 @@ export function Sidebar() {
           label={t('nav.dataModel')}
           to="/catalog/data-model"
           collapsed={collapsed}
-          flat
-        />
+        >
+          <RecentItems
+            module="data-model"
+            seeAllTo="/catalog/data-model"
+            hrefFor={(id) => `/catalog/data-model/${id}`}
+          />
+        </SidebarSection>
 
         <SidebarSection
           id="metrics-catalog"

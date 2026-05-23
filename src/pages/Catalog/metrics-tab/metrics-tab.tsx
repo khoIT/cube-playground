@@ -1,23 +1,35 @@
 /**
- * MetricsTab — Catalog default tab. Renders the registry as a filterable grid
- * scoped to the active game's available cubes. The "Open in Explore"-style
- * deep links and per-card right-rail are in the MetricDetailPage (P3.5).
+ * MetricsTab — Catalog default tab. Renders the registry as a filterable list
+ * scoped to the active game's available cubes. Visible items are grouped by
+ * domain with collapsible section headers; each card can be selected for bulk
+ * action affordance (no bulk action wired yet — just selection state).
+ *
+ * Grid vs. list rendering is controlled by the shared view-mode store.
  */
 
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { useGameContext } from '../../../components/Header/use-game-context';
+import {
+  GroupHeader,
+  SelectionBanner,
+  toggleSetMember,
+} from '../../../shared/catalog-grouped-view/catalog-group-primitives';
 import { ChangeAnalysisModal } from '../../../shared/concept-shell/change-analysis-modal';
+import { useViewMode } from '../../../shared/view-mode/view-mode-toggle';
 import { useCatalogMeta } from '../use-catalog-meta';
-import type { BusinessMetric } from './business-metric-types';
+import type { BusinessMetric, BusinessMetricDomain } from './business-metric-types';
+import { DOMAINS } from './business-metric-constants';
 import { MetricCard } from './metric-card';
+import { MetricListRow } from './metric-list-row';
 import { MetricsFilterBar } from './metrics-filter-rail';
 import { MetricsSearchRow } from './metrics-search-row';
 import { useBusinessMetrics } from './use-business-metrics';
 import {
   emptyFilters,
   type MetricFilters,
+  type FilteredMetric,
   useFilteredMetrics,
 } from './use-filtered-metrics';
 
@@ -38,7 +50,12 @@ const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
-  padding: 16px 0;
+`;
+
+const List = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 `;
 
 const StatusLine = styled.div<{ $kind: 'info' | 'error' }>`
@@ -54,6 +71,16 @@ const Empty = styled.div`
   font-size: 13px;
 `;
 
+function groupByDomain(items: FilteredMetric[]): Map<BusinessMetricDomain, FilteredMetric[]> {
+  const out = new Map<BusinessMetricDomain, FilteredMetric[]>();
+  for (const it of items) {
+    const arr = out.get(it.metric.domain) ?? [];
+    arr.push(it);
+    out.set(it.metric.domain, arr);
+  }
+  return out;
+}
+
 export function MetricsTab() {
   const { metrics, loading, error } = useBusinessMetrics();
   const { cubes } = useCatalogMeta();
@@ -61,6 +88,9 @@ export function MetricsTab() {
   const [filters, setFilters] = useState<MetricFilters>(() => emptyFilters());
   const [query, setQuery] = useState('');
   const [anomalyMetric, setAnomalyMetric] = useState<BusinessMetric | null>(null);
+  const [collapsedDomains, setCollapsedDomains] = useState<Set<string>>(() => new Set());
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [viewMode] = useViewMode('metrics-catalog');
 
   const availableCubeNames = useMemo(
     () => new Set(cubes.map((c) => c.name)),
@@ -80,6 +110,32 @@ export function MetricsTab() {
 
   const activeGameLabel = games.find((g) => g.id === gameId)?.name ?? gameId;
 
+  const grouped = useMemo(() => groupByDomain(result.visible), [result.visible]);
+  // Preserve a stable domain order using the canonical DOMAINS list, then
+  // fall back to any unexpected domains alphabetically.
+  const orderedDomains = useMemo(() => {
+    const present = new Set(grouped.keys());
+    const known = (DOMAINS as readonly BusinessMetricDomain[]).filter((d) => present.has(d));
+    const extras = Array.from(present).filter((d) => !known.includes(d)).sort();
+    return [...known, ...extras];
+  }, [grouped]);
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => toggleSetMember(prev, id));
+  }
+
+  function selectAllInDomain(domain: BusinessMetricDomain, allSelected: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const items = grouped.get(domain) ?? [];
+      for (const it of items) {
+        if (allSelected) next.delete(it.metric.id);
+        else next.add(it.metric.id);
+      }
+      return next;
+    });
+  }
+
   return (
     <Wrap>
       <MetricsSearchRow
@@ -97,6 +153,9 @@ export function MetricsTab() {
         onChange={setFilters}
       />
       <Main>
+        {selected.size > 0 && (
+          <SelectionBanner count={selected.size} onClear={() => setSelected(new Set())} />
+        )}
         {error && <StatusLine $kind="error">Failed to load metrics: {error}</StatusLine>}
         {loading && <StatusLine $kind="info">Loading metrics…</StatusLine>}
         {!loading && !error && result.visible.length === 0 && (
@@ -107,20 +166,60 @@ export function MetricsTab() {
             )}
           </Empty>
         )}
-        {!loading && !error && result.visible.length > 0 && (
-          <Grid role="list">
-            {result.visible.map(({ metric, available, missingCubes }) => (
-              <MetricCard
-                key={metric.id}
-                metric={metric}
-                disabled={!available}
-                missingCubes={missingCubes}
-                activeGameLabel={activeGameLabel}
-                onAnomalyClick={setAnomalyMetric}
+        {!loading && !error && orderedDomains.map((domain) => {
+          const items = grouped.get(domain) ?? [];
+          const collapsed = collapsedDomains.has(domain);
+          const selectedInGroup = items.reduce(
+            (n, it) => n + (selected.has(it.metric.id) ? 1 : 0),
+            0,
+          );
+          const allSelected = items.length > 0 && selectedInGroup === items.length;
+          return (
+            <section key={domain}>
+              <GroupHeader
+                label={domain}
+                count={items.length}
+                collapsed={collapsed}
+                onToggle={() =>
+                  setCollapsedDomains((prev) => toggleSetMember(prev, domain))
+                }
+                selectedInGroup={selectedInGroup}
+                allSelectedInGroup={allSelected}
+                onSelectAll={(all) => selectAllInDomain(domain, all)}
               />
-            ))}
-          </Grid>
-        )}
+              {!collapsed && (
+                viewMode === 'grid' ? (
+                  <Grid role="list">
+                    {items.map(({ metric, available, missingCubes }) => (
+                      <MetricCard
+                        key={metric.id}
+                        metric={metric}
+                        disabled={!available}
+                        missingCubes={missingCubes}
+                        activeGameLabel={activeGameLabel}
+                        onAnomalyClick={setAnomalyMetric}
+                        selected={selected.has(metric.id)}
+                        onToggleSelected={toggleSelected}
+                      />
+                    ))}
+                  </Grid>
+                ) : (
+                  <List role="list">
+                    {items.map(({ metric, available }) => (
+                      <MetricListRow
+                        key={metric.id}
+                        metric={metric}
+                        disabled={!available}
+                        selected={selected.has(metric.id)}
+                        onToggleSelected={toggleSelected}
+                      />
+                    ))}
+                  </List>
+                )
+              )}
+            </section>
+          );
+        })}
       </Main>
       {anomalyMetric && (
         <ChangeAnalysisModal

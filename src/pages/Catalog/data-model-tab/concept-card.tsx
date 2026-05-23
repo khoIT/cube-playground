@@ -7,20 +7,24 @@
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { SelectionCheckbox } from '../../../shared/catalog-grouped-view/catalog-group-primitives';
 import { TypeIcon } from '../../../shared/concept-shell/type-icon';
 import type { Concept } from './concept-types';
 
-const Card = styled(Link)`
+const Card = styled(Link)<{ $selected: boolean }>`
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  padding: 12px 14px 12px 38px;
+  border: 1px solid
+    ${(p) => (p.$selected ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
   border-radius: 10px;
-  background: var(--bg-card, #ffffff);
+  background: ${(p) =>
+    p.$selected ? 'rgba(240, 90, 34, 0.04)' : 'var(--bg-card, #ffffff)'};
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.12s ease;
+  transition: border-color 0.12s ease, background 0.12s ease;
 
   &:hover {
     border-color: var(--brand, #f05a22);
@@ -92,15 +96,30 @@ const TypeTag = styled.span`
 interface ConceptCardProps {
   concept: Concept;
   usedByCount: number;
+  selected?: boolean;
+  onToggleSelected?: (id: string) => void;
 }
 
 function conceptUrl(concept: Concept): string {
   return `/catalog/concept/${concept.type}/${encodeURIComponent(concept.fqn)}`;
 }
 
-export function ConceptCard({ concept, usedByCount }: ConceptCardProps) {
+export function ConceptCard({
+  concept,
+  usedByCount,
+  selected = false,
+  onToggleSelected,
+}: ConceptCardProps) {
+  const id = `${concept.type}:${concept.fqn}`;
   return (
-    <Card to={conceptUrl(concept)}>
+    <Card to={conceptUrl(concept)} $selected={selected}>
+      {onToggleSelected && (
+        <SelectionCheckbox
+          checked={selected}
+          onToggle={() => onToggleSelected(id)}
+          ariaLabel={`Select ${concept.type} ${concept.fqn}`}
+        />
+      )}
       <HeadRow>
         <TypeIcon kind={concept.type} />
         <Fqn>{concept.fqn}</Fqn>
