@@ -57,9 +57,23 @@ const Status = styled.div`
 
 const VALID_TYPES: ConceptType[] = ['measure', 'dimension', 'segment'];
 
+// Historic links from before the conceptsFromCube fix produced fqns with the
+// cube name appearing twice (`mf_users.mf_users.dau`). Normalise so old
+// bookmarks / cached search results still resolve.
+function normaliseFqn(raw: string): string {
+  const parts = raw.split('.');
+  if (parts.length >= 3 && parts[0] === parts[1]) {
+    return parts.slice(1).join('.');
+  }
+  return raw;
+}
+
 export function ConceptDetailPage() {
   const { type, fqn } = useParams<{ type: string; fqn: string }>();
-  const decodedFqn = useMemo(() => decodeURIComponent(fqn ?? ''), [fqn]);
+  const decodedFqn = useMemo(
+    () => normaliseFqn(decodeURIComponent(fqn ?? '')),
+    [fqn],
+  );
   const { concepts, cubes, loading, error } = useConcepts();
   const { metrics: businessMetrics } = useBusinessMetrics();
   const [active, setActive] = useState<DetailTabKey>('overview');
