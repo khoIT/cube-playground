@@ -1,7 +1,7 @@
 import { Panel, Space } from '@cube-dev/ui-kit';
 import { CubeProvider } from '@cubejs-client/react';
-import { Card } from 'antd';
-import { useEffect, useLayoutEffect, useMemo } from 'react';
+import { Card, message } from 'antd';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -167,12 +167,63 @@ function QueryTabsRenderer({
   }, [cubejsApi]);
 
   const params = new URLSearchParams(location.search);
-  const rawQuery = JSON.parse(params.get('query') || 'null');
+
+  // --------------------------------------------------------------------------
+  // ?from-chat-artifact=<id> — consume CubeQuery payload from sessionStorage.
+  //
+  // On first render with a given artifactId:
+  //   - Key present  → parse, clear key, use as query (inline hydration).
+  //   - Key missing  → show stale-link toast (user refreshed after key expired).
+  // Does NOT affect existing ?query= or ?from-segment= flows.
+  // --------------------------------------------------------------------------
+  const chatArtifactId = params.get('from-chat-artifact');
+  // Ref tracks which artifactId we already processed so we don't re-run on
+  // every render while the URL still contains the param.
+  const processedArtifactRef = useRef<string | null>(null);
+  // Ref holds the parsed payload after the first successful read.
+  const chatPayloadRef = useRef<Record<string, unknown> | null>(null);
+
+  if (chatArtifactId && processedArtifactRef.current !== chatArtifactId) {
+    // Mark as processed immediately (synchronous, before any render side-effects).
+    processedArtifactRef.current = chatArtifactId;
+    chatPayloadRef.current = null;
+
+    const storageKey = `gds-cube:pending-chat-deeplink:${chatArtifactId}`;
+    const raw = typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem(storageKey)
+      : null;
+
+    if (raw) {
+      // Clear before parsing — prevents double-consume on strict-mode double render.
+      sessionStorage.removeItem(storageKey);
+      try {
+        chatPayloadRef.current = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        chatPayloadRef.current = null;
+      }
+    } else {
+      // Key absent: expired or was never written (e.g. user refreshed page).
+      // Show warning via antd message (non-blocking).
+      message.warning(
+        'This chat link has expired — return to the chat to re-open it.',
+        4,
+      );
+    }
+  }
+
+  // Resolve final query: chat-artifact payload > ?query= param > null.
+  const rawQuery =
+    (chatArtifactId && processedArtifactRef.current === chatArtifactId
+      ? chatPayloadRef.current
+      : null) ??
+    JSON.parse(params.get('query') || 'null');
+
   const query = applyGameFilter(rawQuery, gameId, cubeHasGameDim);
 
   return (
     <QueryTabs
       key={gameId}
+      gameId={gameId}
       query={query}
       sidebar={null}
       onTabChange={(tab) => {

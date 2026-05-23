@@ -115,6 +115,12 @@ export type QueryTabsProps = {
   ) => ReactNode;
   sidebar?: ReactNode | null;
   onTabChange?: (tab: QueryTab) => void;
+  /**
+   * Active game id. Scopes the localStorage tab list per game so each game
+   * keeps its own persistent tabs and a game switch swaps to a clean slate
+   * (or that game's saved tabs) without leaking state across tenants.
+   */
+  gameId?: string | null;
 };
 
 export function QueryTabs({
@@ -122,6 +128,7 @@ export function QueryTabs({
   children,
   sidebar = null,
   onTabChange,
+  gameId,
 }: QueryTabsProps) {
   const {
     setChartRendererReady,
@@ -138,7 +145,12 @@ export function QueryTabs({
   const [editableTabId, setEditableTabId] = useState<string>();
   const [editableTabValue, setEditableTabValue] = useState<string>('');
   const [ready, setReady] = useState<boolean>(false);
-  const [queryTabs, saveTabs] = useLocalStorage<QueryTabs>('queryTabs', {
+  // Scope tabs per game — empty/unknown gameId falls back to a stable bucket so
+  // pre-game-picker installs and tests don't collide. `key={gameId}` upstream
+  // already remounts on game switch, so the storage key swap is the source of
+  // truth for tab persistence.
+  const storageKey = `queryTabs:${gameId ?? '__default__'}`;
+  const [queryTabs, saveTabs] = useLocalStorage<QueryTabs>(storageKey, {
     activeId: '1',
     tabs: [
       {
