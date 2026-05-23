@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
   turn_count INTEGER NOT NULL DEFAULT 0,
   total_input_tokens INTEGER NOT NULL DEFAULT 0,
   total_output_tokens INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'active'
+  status TEXT NOT NULL DEFAULT 'active',
+  parent_session_id TEXT,
+  compacted_into TEXT
 );
 
 -- Index for listing sessions by owner+game ordered by recency

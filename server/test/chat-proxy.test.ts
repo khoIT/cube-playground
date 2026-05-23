@@ -61,6 +61,33 @@ beforeAll(async () => {
     return reply.send([{ id: 'a', game_id: 'ptg' }]);
   });
 
+  fakeUpstream.get('/sessions/:id', (req, reply) => {
+    const params = req.params as Record<string, string>;
+    return reply.send({ id: params['id'], status: 'active' });
+  });
+
+  fakeUpstream.patch('/sessions/:id', (req, reply) => {
+    const body = req.body as Record<string, unknown>;
+    const params = req.params as Record<string, string>;
+    return reply.send({ id: params['id'], title: body['title'], status: 'active' });
+  });
+
+  fakeUpstream.delete('/sessions/:id', (_req, reply) => {
+    return reply.status(204).send();
+  });
+
+  fakeUpstream.get('/stats', (req, reply) => {
+    const query = req.query as Record<string, string>;
+    return reply.send({
+      turns: 5,
+      input_tokens: 1000,
+      output_tokens: 2000,
+      cost_usd: 0.0015,
+      by_skill: { explore: { turns: 5, input_tokens: 1000, output_tokens: 2000 } },
+      _owner: query['owner'],
+    });
+  });
+
   await fakeUpstream.listen({ port: 0, host: '127.0.0.1' });
 
   const address = fakeUpstream.server.address();
@@ -220,5 +247,61 @@ describe('CHAT_FEATURE_ENABLED=false', () => {
 
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({ code: 'chat_disabled' });
+  });
+});
+
+describe('PATCH /api/chat/sessions/:id', () => {
+  it('proxies rename request and returns updated session', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/chat/sessions/sess-123',
+      headers: { 'x-owner-id': 'tester', 'content-type': 'application/json' },
+      payload: { title: 'New Title' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    expect(body.id).toBe('sess-123');
+    expect(body.title).toBe('New Title');
+  });
+
+  it('returns 401 when X-Owner-Id header is absent', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/chat/sessions/sess-123',
+      headers: { 'content-type': 'application/json' },
+      payload: { title: 'New Title' },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('GET /api/chat/stats', () => {
+  it('proxies stats request and returns aggregated data', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/chat/stats?owner=tester&from=2026-05-01T00:00:00Z&to=2026-05-23T23:59:59Z',
+      headers: { 'x-owner-id': 'tester' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Record<string, unknown>;
+    expect(body.turns).toBe(5);
+    expect(body.input_tokens).toBe(1000);
+    expect(body.output_tokens).toBe(2000);
+    expect(typeof body.cost_usd).toBe('number');
+    expect(body.by_skill).toBeDefined();
+    // Verify owner was forwarded in query string
+    expect((body as Record<string, unknown>)._owner).toBe('tester');
+  });
+
+  it('returns 401 when X-Owner-Id header is absent', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/chat/stats?owner=tester',
+    });
+
+    expect(res.statusCode).toBe(401);
   });
 });

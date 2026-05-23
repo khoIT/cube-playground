@@ -25,6 +25,9 @@ import { compose } from '../core/mode-prompts.js';
 import * as claudeRunner from '../core/claude-runner.js';
 import { buildSdkTools } from '../tools/registry.js';
 import { writeSseEvent } from '../core/sse-stream.js';
+import { shouldCompact, compactSession } from '../core/compact-service.js';
+import { summariseTitle } from '../core/title-summariser.js';
+import { config } from '../config.js';
 import type { SseEvent, QueryArtifact, ToolContext } from '../types.js';
 
 interface TurnRouteOptions {
@@ -77,6 +80,42 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
       if (existing.owner_id !== body.owner_id) {
         return reply.status(403).send({ error: 'Forbidden' });
+      }
+    }
+
+    // --- 2b. Auto-compact pre-check (before SSE headers so errors are JSON) ---
+    // If the session has used >80% of the context budget, compact it first.
+    let pendingCompactWarning: { from: string; to: string; summary: string } | null = null;
+    if (sessionId) {
+      const sessionForCompact = chatStore.getSession(opts.db, sessionId);
+      if (sessionForCompact) {
+        const decision = shouldCompact(sessionForCompact, config.contextBudgetTokens);
+        if (decision.shouldCompact) {
+          try {
+            const result = await compactSession({
+              sessionId,
+              db: opts.db,
+              summariserFn: async (turns) => {
+                // Build a plain-text compaction summary without calling the LLM in tests
+                // (the real call uses claudeRunner for one-shot prompts; injected via
+                // summariserFn for testability)
+                const lines = turns
+                  .filter((t) => t.role !== 'system_preamble')
+                  .slice(-10)
+                  .map((t) => {
+                    if (t.role === 'user') return `User: ${t.user_text ?? ''}`;
+                    return `Assistant: ${(t.assistant_text ?? '').slice(0, 200)}`;
+                  });
+                return `[Session summary]\n${lines.join('\n')}`;
+              },
+            });
+            pendingCompactWarning = { from: sessionId, to: result.newSessionId, summary: result.summary };
+            sessionId = result.newSessionId;
+          } catch (compactErr) {
+            // Compact failure is non-fatal — continue with the original session
+            fastify.log.error({ err: compactErr }, 'Auto-compact failed; continuing with original session');
+          }
+        }
       }
     }
 
@@ -133,6 +172,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
 
       emit({ type: 'session_created', data: { id: sessionId } });
+    }
+
+    // Emit compact_warning if auto-compact ran before the stream was opened
+    if (pendingCompactWarning) {
+      emit({ type: 'compact_warning', data: pendingCompactWarning });
     }
 
     const startedAt = Date.now();
@@ -225,6 +269,54 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       });
 
       chatStore.incrementTurnCount(opts.db, sessionId, inputTokens, outputTokens);
+
+      // Fire-and-forget title summariser after the 3rd assistant turn.
+      // Reads the session state after incrementTurnCount so turn_count is current.
+      const sessionAfterTurn = chatStore.getSession(opts.db, sessionId);
+      const autoPrefix = body.message.slice(0, 64);
+      if (
+        sessionAfterTurn &&
+        sessionAfterTurn.turn_count === 3 &&
+        (sessionAfterTurn.title === null || sessionAfterTurn.title === autoPrefix)
+      ) {
+        const allTurns = chatStore.listTurns(opts.db, sessionId);
+        queueMicrotask(() => {
+          summariseTitle({
+            turns: allTurns,
+            deps: {
+              callLlm: async (prompt) => {
+                // One-shot LLM call via the Anthropic SDK; no tools needed.
+                const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
+                let result = '';
+                for await (const msg of sdkQuery({
+                  prompt,
+                  options: {
+                    model: config.titleModel,
+                    env: {
+                      HOME: process.env['HOME'] ?? '/tmp',
+                      ANTHROPIC_API_KEY: config.anthropicApiKey,
+                      ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
+                    },
+                    permissionMode: 'dontAsk',
+                    disallowedTools: ['Read', 'Write', 'Bash', 'WebFetch', 'WebSearch', 'Edit', 'MultiEdit'],
+                  },
+                })) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const m = msg as any;
+                  if (m.type === 'result') result = m.result ?? '';
+                }
+                return result;
+              },
+            },
+          })
+            .then((title) => {
+              if (title) chatStore.updateSessionTitle(opts.db, sessionId, title);
+            })
+            .catch((err) => {
+              fastify.log.warn({ err }, 'Title summariser failed');
+            });
+        });
+      }
 
       emit({ type: 'done', data: {} });
     } catch (err) {

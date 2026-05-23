@@ -39,6 +39,18 @@ interface SessionsQuery {
   game?: string;
 }
 
+// Query string for GET /stats
+interface StatsQuery {
+  owner?: string;
+  from?: string;
+  to?: string;
+}
+
+// Body for PATCH /sessions/:id (rename)
+interface PatchSessionBody {
+  title?: string;
+}
+
 /**
  * Forwards a plain JSON request upstream and pipes the response back.
  * Passes X-Owner-Id header through for ownership checks in chat-service.
@@ -233,6 +245,50 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       const url = `${chatServiceUrl()}/sessions/${encodeURIComponent(request.params.id)}`;
       try {
         const { status, payload } = await proxyJson(url, 'DELETE', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- PATCH /api/chat/sessions/:id — rename session title ---
+  app.patch<{ Params: SessionParams; Body: PatchSessionBody }>(
+    '/api/chat/sessions/:id',
+    async (request: FastifyRequest<{ Params: SessionParams; Body: PatchSessionBody }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) {
+        return reply.status(401).send({ code: 'no_owner' });
+      }
+      const url = `${chatServiceUrl()}/sessions/${encodeURIComponent(request.params.id)}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'PATCH', owner, request.body);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- GET /api/chat/stats?owner=<id>&from=<iso>&to=<iso> ---
+  app.get<{ Querystring: StatsQuery }>(
+    '/api/chat/stats',
+    async (request: FastifyRequest<{ Querystring: StatsQuery }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) {
+        return reply.status(401).send({ code: 'no_owner' });
+      }
+
+      const { owner: qOwner, from, to } = request.query;
+
+      const params = new URLSearchParams();
+      if (qOwner) params.set('owner', qOwner);
+      if (from) params.set('from', from);
+      if (to) params.set('to', to);
+
+      const url = `${chatServiceUrl()}/stats?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });

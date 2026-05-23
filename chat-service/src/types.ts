@@ -65,7 +65,8 @@ export type SseEvent =
   | { type: 'query_artifact'; data: QueryArtifact }
   | { type: 'result'; data: { text: string; cost_usd?: number; input_tokens?: number; output_tokens?: number } }
   | { type: 'error'; data: { code: string; message: string } }
-  | { type: 'done'; data: Record<string, never> };
+  | { type: 'done'; data: Record<string, never> }
+  | { type: 'compact_warning'; data: { from: string; to: string; summary: string } };
 
 // ---------------------------------------------------------------------------
 // Tool execution context — injected per request
@@ -95,13 +96,15 @@ export interface ChatSessionRow {
   total_input_tokens: number;
   total_output_tokens: number;
   status: 'active' | 'compacted' | 'archived';
+  parent_session_id: string | null;
+  compacted_into: string | null;
 }
 
 export interface ChatTurnRow {
   id: string;
   session_id: string;
   turn_index: number;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system_preamble';
   user_text: string | null;
   assistant_text: string | null;
   reasoning_json: string | null;

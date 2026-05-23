@@ -62,6 +62,32 @@ export function updateSessionTitle(
   db.prepare('UPDATE chat_sessions SET title = ? WHERE id = ?').run(title, id);
 }
 
+/** Create a session that is a continuation of a compacted parent session. */
+export function createSessionWithParent(
+  db: Database.Database,
+  params: { ownerId: string; gameId: string; title?: string; parentSessionId: string },
+): ChatSessionRow {
+  const id = uuidv4();
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO chat_sessions
+       (id, owner_id, game_id, title, created_at, status, parent_session_id)
+     VALUES (?, ?, ?, ?, ?, 'active', ?)`,
+  ).run(id, params.ownerId, params.gameId, params.title ?? null, now, params.parentSessionId);
+  return getSession(db, id)!;
+}
+
+/** Mark an old session as compacted and record which new session it was folded into. */
+export function markSessionCompacted(
+  db: Database.Database,
+  oldSessionId: string,
+  newSessionId: string,
+): void {
+  db.prepare(
+    `UPDATE chat_sessions SET status = 'compacted', compacted_into = ? WHERE id = ?`,
+  ).run(newSessionId, oldSessionId);
+}
+
 export function incrementTurnCount(
   db: Database.Database,
   id: string,
@@ -85,7 +111,7 @@ export function incrementTurnCount(
 export interface AppendTurnParams {
   sessionId: string;
   turnIndex: number;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system_preamble';
   userText?: string;
   assistantText?: string;
   reasoningJson?: string;
@@ -142,6 +168,79 @@ export function listTurns(
       'SELECT * FROM chat_turns WHERE session_id = ? ORDER BY turn_index ASC',
     )
     .all(sessionId) as ChatTurnRow[];
+}
+
+/** Return the last N turns for a session, ordered ascending so they read naturally. */
+export function listTurnsRecent(
+  db: Database.Database,
+  sessionId: string,
+  limit: number,
+): ChatTurnRow[] {
+  const rows = db
+    .prepare(
+      `SELECT * FROM chat_turns
+       WHERE session_id = ?
+       ORDER BY turn_index DESC
+       LIMIT ?`,
+    )
+    .all(sessionId, limit) as ChatTurnRow[];
+  return rows.reverse();
+}
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+export interface StatsResult {
+  turns: number;
+  input_tokens: number;
+  output_tokens: number;
+  by_skill: Record<string, { turns: number; input_tokens: number; output_tokens: number }>;
+}
+
+export function queryStats(
+  db: Database.Database,
+  params: { ownerId: string; fromMs: number; toMs: number },
+): StatsResult {
+  const rows = db
+    .prepare(
+      `SELECT ct.skill,
+              COUNT(*) AS turns,
+              SUM(COALESCE(ct.input_tokens, 0)) AS input_tokens,
+              SUM(COALESCE(ct.output_tokens, 0)) AS output_tokens
+       FROM chat_turns ct
+       JOIN chat_sessions cs ON cs.id = ct.session_id
+       WHERE cs.owner_id = ?
+         AND ct.started_at >= ?
+         AND ct.started_at <= ?
+         AND ct.role = 'assistant'
+       GROUP BY ct.skill`,
+    )
+    .all(params.ownerId, params.fromMs, params.toMs) as Array<{
+      skill: string | null;
+      turns: number;
+      input_tokens: number;
+      output_tokens: number;
+    }>;
+
+  let totalTurns = 0;
+  let totalInput = 0;
+  let totalOutput = 0;
+  const bySkill: StatsResult['by_skill'] = {};
+
+  for (const row of rows) {
+    totalTurns += row.turns;
+    totalInput += row.input_tokens;
+    totalOutput += row.output_tokens;
+    const key = row.skill ?? 'unknown';
+    bySkill[key] = {
+      turns: row.turns,
+      input_tokens: row.input_tokens,
+      output_tokens: row.output_tokens,
+    };
+  }
+
+  return { turns: totalTurns, input_tokens: totalInput, output_tokens: totalOutput, by_skill: bySkill };
 }
 
 // ---------------------------------------------------------------------------

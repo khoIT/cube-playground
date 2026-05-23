@@ -11,10 +11,25 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** Run a single ALTER TABLE statement, silently ignoring "duplicate column" errors. */
+function addColumnIfMissing(db: Database.Database, stmt: string): void {
+  try {
+    db.exec(stmt);
+  } catch (err) {
+    // better-sqlite3 throws when the column already exists; we ignore that error.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes('duplicate column name')) throw err;
+  }
+}
+
 export function migrate(db: Database.Database): void {
   const schemaPath = resolve(__dirname, 'schema.sql');
   const sql = readFileSync(schemaPath, 'utf-8');
   db.exec(sql);
+
+  // Idempotent column additions for databases created before these columns existed.
+  addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN parent_session_id TEXT;');
+  addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN compacted_into TEXT;');
 }
 
 /**

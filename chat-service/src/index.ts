@@ -14,6 +14,8 @@ import { openDatabase } from './db/migrate.js';
 import healthRoutes from './api/health.js';
 import sessionsRoutes from './api/sessions.js';
 import turnRoutes from './api/turn.js';
+import statsRoutes from './api/stats.js';
+import { RateLimiter, buildRateLimitHook } from './middleware/rate-limit.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNTIME_DIR = resolve(__dirname, '../runtime');
@@ -32,9 +34,17 @@ async function buildApp(dbPath?: string) {
 
   const db = openDatabase(dbPath ?? config.chatDbPath);
 
+  // Rate limiter — applied only to POST /agent/turn via the hook
+  const limiter = new RateLimiter({
+    capacity: config.rateLimitPerOwnerPerMin,
+    refillPerMin: config.rateLimitPerOwnerPerMin,
+  });
+  fastify.addHook('onRequest', buildRateLimitHook(limiter));
+
   await fastify.register(healthRoutes, { db });
   await fastify.register(sessionsRoutes, { db });
   await fastify.register(turnRoutes, { db });
+  await fastify.register(statsRoutes, { db });
 
   return { fastify, db };
 }
