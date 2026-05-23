@@ -9,6 +9,11 @@ import { CatalogTabs, resolveCatalogTab } from './catalog-tabs';
 import { CatalogToolbar } from './catalog-toolbar';
 import { ConceptDetailPage } from './concept-detail/concept-detail-page';
 import { DataModelTab } from './data-model-tab/data-model-tab';
+import { DigestPage } from './digest/digest-page';
+import { MetricCompositionWizard } from './metric-composition-wizard/composition-wizard-page';
+import { NotificationsPage } from './notifications/notifications-page';
+import { SavedViewsPage } from './saved-views/saved-views-page';
+import { WorkspacesPage } from './workspaces/workspaces-page';
 import { DetailPanel } from './detail-panel';
 import { MetricDetailPage } from './metric-detail/metric-detail-page';
 import { MetricsTab } from './metrics-tab/metrics-tab';
@@ -139,6 +144,26 @@ export function CatalogPage() {
   const location = useLocation();
   const activeTab = resolveCatalogTab(location.pathname);
   const { cubes, loading, error } = useCatalogMeta();
+
+  // The composition wizard route is checked first because /catalog/metric/new
+  // would otherwise be swallowed by the /catalog/metric/:id detail pattern.
+  if (location.pathname === '/catalog/metric/new') {
+    return (
+      <Page>
+        <MetricCompositionWizard />
+      </Page>
+    );
+  }
+
+  const longTailMap: Record<string, JSX.Element> = {
+    '/catalog/digest': <DigestPage />,
+    '/catalog/notifications': <NotificationsPage />,
+    '/catalog/saved-views': <SavedViewsPage />,
+    '/catalog/workspaces': <WorkspacesPage />,
+  };
+  if (longTailMap[location.pathname]) {
+    return <Page>{longTailMap[location.pathname]}</Page>;
+  }
 
   // Detail routes get their own page chrome (header + tab-strip lives inside
   // the detail page itself), so they short-circuit the tab shell.

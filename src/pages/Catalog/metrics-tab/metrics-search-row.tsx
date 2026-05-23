@@ -1,10 +1,13 @@
 /**
  * MetricsSearchRow — substring search input + result count chip + smart-search
- * stub. The smart-search button is rendered disabled until P7.
+ * trigger. Smart-search opens the global ⌘K palette.
  */
 
-import { Search, Sparkles } from 'lucide-react';
+import { Search, Sparkles, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { useSmartSearch } from '../../../shared/smart-search/smart-search-context';
 
 const Row = styled.div`
   display: flex;
@@ -52,18 +55,49 @@ const SmartButton = styled.button`
   gap: 6px;
   height: 34px;
   padding: 0 12px;
-  border: 1px dashed var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card, #e5e5e5);
   border-radius: 6px;
   background: transparent;
-  color: var(--text-muted, #737373);
+  color: var(--text-secondary, #525252);
   font-size: 12px;
-  cursor: not-allowed;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--brand, #f05a22);
+    color: var(--brand, #f05a22);
+  }
+`;
+
+const Shortcut = styled.kbd`
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  border: 1px solid var(--border-card, #e5e5e5);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--text-muted, #737373);
 `;
 
 const Count = styled.span`
   font-size: 12px;
   color: var(--text-muted, #737373);
   margin-left: auto;
+`;
+
+const NewMetricLink = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--brand, #f05a22);
+  border-radius: 6px;
+  background: var(--brand, #f05a22);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover { background: var(--brand-pressed, #f54a00); }
 `;
 
 interface MetricsSearchRowProps {
@@ -83,6 +117,7 @@ export function MetricsSearchRow({
   totalCount,
   activeGameLabel,
 }: MetricsSearchRowProps) {
+  const { open } = useSmartSearch();
   return (
     <Row>
       <SearchBox>
@@ -96,13 +131,22 @@ export function MetricsSearchRow({
           onChange={(e) => onQueryChange(e.target.value)}
         />
       </SearchBox>
-      <SmartButton type="button" title="Smart search — coming in Phase 7" disabled>
+      <SmartButton
+        type="button"
+        title="Open smart search (⌘K)"
+        onClick={open}
+      >
         <Sparkles size={13} />
         Smart search
+        <Shortcut>⌘K</Shortcut>
       </SmartButton>
       <Count>
         {visibleCount} shown · {availableCount} of {totalCount} available for {activeGameLabel}
       </Count>
+      <NewMetricLink to="/catalog/metric/new">
+        <Plus size={13} />
+        New metric
+      </NewMetricLink>
     </Row>
   );
 }

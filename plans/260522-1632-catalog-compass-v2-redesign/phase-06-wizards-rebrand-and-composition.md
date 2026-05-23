@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Wizards rebrand and composition"
-status: pending
+status: done
 priority: P2
 effort: "4d"
 dependencies: [2, 5]

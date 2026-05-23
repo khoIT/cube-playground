@@ -3,10 +3,12 @@
  * other three buttons stub their delivery phase in the tooltip.
  */
 
+import { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { pushFromMetric } from '../../../shared/activation/push-from-metric';
+import { SubscribeModal } from '../digest/subscribe-modal';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
 import { buildExploreUrl } from './explore-query-builder';
 
@@ -50,6 +52,7 @@ const Primary = styled(Button)`
 
 export function RightRail({ metric }: { metric: BusinessMetric }) {
   const history = useHistory();
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
   return (
     <Rail>
       <Primary type="button" onClick={() => history.push(buildExploreUrl(metric))}>
@@ -62,12 +65,19 @@ export function RightRail({ metric }: { metric: BusinessMetric }) {
       >
         Push to activation →
       </Button>
-      <Button type="button" disabled title="Coming in Phase 9">
+      <Button
+        type="button"
+        onClick={() => setSubscribeOpen(true)}
+        title="Schedule Slack / email digest"
+      >
         Subscribe
       </Button>
-      <Button type="button" disabled title="Coming in Phase 6">
+      <Button type="button" disabled title="Coming in a later phase">
         Edit
       </Button>
+      {subscribeOpen && (
+        <SubscribeModal metric={metric} onClose={() => setSubscribeOpen(false)} />
+      )}
     </Rail>
   );
 }

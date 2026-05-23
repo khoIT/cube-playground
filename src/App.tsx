@@ -12,6 +12,8 @@ import { CubeLoader } from './atoms';
 import { AppContextConsumer, PlaygroundContext } from './components/AppContext';
 import GlobalStyles from './components/GlobalStyles';
 import Header from './components/Header/Header';
+import { SmartSearchOverlay } from './shared/smart-search/smart-search-overlay';
+import { SmartSearchProvider } from './shared/smart-search/smart-search-context';
 import {
   event,
   setAnonymousId,
@@ -148,19 +150,22 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
       <Root publicUrl="." styles={ROOT_STYLES}>
         <GlobalStyles />
 
-        <Header selectedKeys={[location.pathname]} />
+        <SmartSearchProvider>
+          <Header selectedKeys={[location.pathname]} />
 
-        <StyledLayoutContent>
-          {fatalError ? (
-            <Alert
-              message="Error occured while rendering"
-              description={fatalError.stack || ''}
-              type="error"
-            />
-          ) : (
-            children
-          )}
-        </StyledLayoutContent>
+          <StyledLayoutContent>
+            {fatalError ? (
+              <Alert
+                message="Error occured while rendering"
+                description={fatalError.stack || ''}
+                type="error"
+              />
+            ) : (
+              children
+            )}
+          </StyledLayoutContent>
+          <SmartSearchOverlay />
+        </SmartSearchProvider>
       </Root>
     );
   }

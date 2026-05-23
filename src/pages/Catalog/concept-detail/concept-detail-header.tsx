@@ -7,7 +7,9 @@
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { FreshnessChip } from '../../../shared/concept-shell/freshness-chip';
 import { TypeIcon } from '../../../shared/concept-shell/type-icon';
+import { useFreshness } from '../../../shared/concept-shell/use-freshness';
 import type { Concept } from '../data-model-tab/concept-types';
 
 const Header = styled.header`
@@ -57,6 +59,7 @@ const Description = styled.p`
 `;
 
 export function ConceptDetailHeader({ concept }: { concept: Concept }) {
+  const { state: freshness } = useFreshness(concept.cube);
   return (
     <Header>
       <Breadcrumb>
@@ -67,6 +70,7 @@ export function ConceptDetailHeader({ concept }: { concept: Concept }) {
         <TypeIcon kind={concept.type} />
         <Title>{concept.fqn}</Title>
         <TypeTag>{concept.type}</TypeTag>
+        <FreshnessChip state={freshness} />
       </TitleRow>
       {(concept.description || concept.title) && (
         <Description>{concept.description ?? concept.title}</Description>

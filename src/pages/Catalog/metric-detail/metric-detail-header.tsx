@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { AnomalyBadge } from '../../../shared/concept-shell/anomaly-badge';
+import { useMergedAnomaly } from '../../../shared/concept-shell/use-merged-anomaly';
 import { DomainChip } from '../../../shared/concept-shell/domain-chip';
 import { TierBadge } from '../../../shared/concept-shell/tier-badge';
 import { TrustBadge } from '../../../shared/concept-shell/trust-badge';
@@ -69,6 +70,7 @@ interface MetricDetailHeaderProps {
 }
 
 export function MetricDetailHeader({ metric, onAnomalyClick }: MetricDetailHeaderProps) {
+  const liveAnomaly = useMergedAnomaly(metric);
   return (
     <Header>
       <Breadcrumb>
@@ -87,7 +89,7 @@ export function MetricDetailHeader({ metric, onAnomalyClick }: MetricDetailHeade
       <BadgeRow>
         <DomainChip domain={metric.domain} />
         <TrustBadge trust={metric.trust} />
-        <AnomalyBadge anomaly={metric.anomaly} onClick={onAnomalyClick} />
+        <AnomalyBadge anomaly={liveAnomaly} onClick={onAnomalyClick} />
       </BadgeRow>
     </Header>
   );

@@ -104,6 +104,7 @@ export function MetricCard({
   activeGameLabel,
   onAnomalyClick,
 }: MetricCardProps) {
+  const liveAnomaly = useMergedAnomaly(metric);
   const inner = (
     <>
       <TopRow>
@@ -118,7 +119,7 @@ export function MetricCard({
       <BadgeRow>
         <DomainChip domain={metric.domain} />
         <TrustBadge trust={metric.trust} size="sm" />
-        <AnomalyBadge anomaly={metric.anomaly} onClick={() => onAnomalyClick?.(metric)} />
+        <AnomalyBadge anomaly={liveAnomaly} onClick={() => onAnomalyClick?.(metric)} />
       </BadgeRow>
       <Footer>
         <span>{metric.owner}</span>

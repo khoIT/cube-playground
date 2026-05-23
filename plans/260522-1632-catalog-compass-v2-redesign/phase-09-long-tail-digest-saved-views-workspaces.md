@@ -1,7 +1,7 @@
 ---
 phase: 9
 title: "Long tail (digest + saved views + workspaces)"
-status: pending
+status: done
 priority: P3
 effort: "5d"
 dependencies: [3, 5]

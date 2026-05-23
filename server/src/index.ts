@@ -15,6 +15,7 @@ import previewRoutes from './routes/preview.js';
 import gamesRoutes from './routes/games.js';
 import cdpMetricsRoutes from './routes/cdp-metrics.js';
 import businessMetricsRoutes from './routes/business-metrics.js';
+import anomalyStateRoutes from './routes/anomaly-state.js';
 import { getDb } from './db/sqlite.js';
 import { hydrateFromSnapshot } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
@@ -40,6 +41,7 @@ export async function buildApp() {
   await app.register(gamesRoutes);
   await app.register(cdpMetricsRoutes);
   await app.register(businessMetricsRoutes);
+  await app.register(anomalyStateRoutes);
 
   // Hydrate the business-metrics cache before serving the first request.
   const bm = await loadBusinessMetrics({ warn: app.log.warn.bind(app.log) });

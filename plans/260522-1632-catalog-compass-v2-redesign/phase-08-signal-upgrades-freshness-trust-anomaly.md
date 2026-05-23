@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: "Signal upgrades (freshness + trust + anomaly)"
-status: pending
+status: done
 priority: P3
 effort: "3d"
 dependencies: [3, 5]
