@@ -35,12 +35,6 @@ const DataModelWizardSuccess = loadable(() =>
   )
 );
 
-const ChatLandingPage = loadable(() =>
-  import('./pages/Chat/chat-landing-page').then((m) => ({
-    default: m.ChatLandingPage,
-  }))
-);
-
 const ChatThreadPage = loadable(() =>
   import('./pages/Chat/chat-thread-page').then((m) => ({
     default: m.ChatThreadPage,
@@ -127,8 +121,9 @@ ReactDOM.render(
               <Route key="index" exact path="/">
                 <Redirect to="/build" />
               </Route>
-              <Route key="chat" exact path="/chat" component={ChatLandingPage} />
-              <Route key="chat-thread" path="/chat/:id" component={ChatThreadPage} />
+              {/* Single mount across /chat and /chat/:id so state persists
+                  across the `new → session_created → /chat/<id>` transition. */}
+              <Route key="chat-thread" path="/chat/:id?" component={ChatThreadPage} />
               <KeepAliveRoute key="build" path="/build">
                 <ExplorePage />
               </KeepAliveRoute>
