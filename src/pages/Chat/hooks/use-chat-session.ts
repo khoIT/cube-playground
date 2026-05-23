@@ -1,0 +1,105 @@
+/**
+ * useChatSession — fetch and cache a full chat session (turns + artifacts).
+ *
+ * Returns { session, isLoading, error, refetch }.
+ * If sessionId is null or 'new', returns empty state immediately (no fetch).
+ */
+import { useCallback, useEffect, useReducer } from 'react';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface ChatTurn {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  createdAt: string;
+  toolCalls?: Array<{ id: string; name: string; ok: boolean; ms: number; summary: string }>;
+  artifacts?: Array<{ id: string; title: string; summary: string; deeplinkUrl: string; deeplinkVia: 'inline' | 'session-storage'; source: string; payload: unknown; query: unknown; sourceRef?: { id: string; name?: string } }>;
+}
+
+export interface ChatSession {
+  id: string;
+  gameId: string;
+  ownerId: string;
+  createdAt: string;
+  turns: ChatTurn[];
+}
+
+// ---------------------------------------------------------------------------
+// Reducer
+// ---------------------------------------------------------------------------
+
+type State =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'loaded'; session: ChatSession }
+  | { status: 'error'; error: string };
+
+type Action =
+  | { type: 'FETCH' }
+  | { type: 'SUCCESS'; session: ChatSession }
+  | { type: 'ERROR'; error: string }
+  | { type: 'RESET' };
+
+function reducer(_state: State, action: Action): State {
+  switch (action.type) {
+    case 'FETCH':  return { status: 'loading' };
+    case 'SUCCESS': return { status: 'loaded', session: action.session };
+    case 'ERROR':  return { status: 'error', error: action.error };
+    case 'RESET':  return { status: 'idle' };
+    default:       return _state;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
+export function useChatSession(sessionId: string | null) {
+  const [state, dispatch] = useReducer(reducer, { status: 'idle' });
+
+  const fetch_ = useCallback(async (id: string, signal: AbortSignal) => {
+    dispatch({ type: 'FETCH' });
+    try {
+      const res = await fetch(`/api/chat/sessions/${id}`, {
+        headers: { Accept: 'application/json' },
+        signal,
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => res.statusText);
+        dispatch({ type: 'ERROR', error: msg });
+        return;
+      }
+      const session = (await res.json()) as ChatSession;
+      dispatch({ type: 'SUCCESS', session });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      dispatch({ type: 'ERROR', error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId || sessionId === 'new') {
+      dispatch({ type: 'RESET' });
+      return;
+    }
+    const controller = new AbortController();
+    fetch_(sessionId, controller.signal);
+    return () => controller.abort();
+  }, [sessionId, fetch_]);
+
+  const refetch = useCallback(() => {
+    if (!sessionId || sessionId === 'new') return;
+    const controller = new AbortController();
+    fetch_(sessionId, controller.signal);
+  }, [sessionId, fetch_]);
+
+  return {
+    session: state.status === 'loaded' ? state.session : null,
+    isLoading: state.status === 'loading',
+    error: state.status === 'error' ? state.error : null,
+    refetch,
+  };
+}

@@ -41,6 +41,12 @@ const ChatPlaceholderPage = loadable(() =>
   }))
 );
 
+const ChatThreadPage = loadable(() =>
+  import('./pages/Chat/chat-thread-page').then((m) => ({
+    default: m.ChatThreadPage,
+  }))
+);
+
 
 const history = createHashHistory();
 history.listen((location) => {
@@ -122,6 +128,7 @@ ReactDOM.render(
                 <Redirect to="/build" />
               </Route>
               <Route key="chat" exact path="/chat" component={ChatPlaceholderPage} />
+              <Route key="chat-thread" path="/chat/:id" component={ChatThreadPage} />
               <KeepAliveRoute key="build" path="/build">
                 <ExplorePage />
               </KeepAliveRoute>

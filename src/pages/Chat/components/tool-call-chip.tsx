@@ -1,0 +1,102 @@
+/**
+ * ToolCallChip — compact pill showing a tool invocation + status.
+ * Click to expand and reveal the summary.
+ */
+import React, { useState } from 'react';
+import { CheckCircle, XCircle, Loader, ChevronDown, ChevronRight } from 'lucide-react';
+import { T, Icon } from '../../../shell/theme';
+
+interface ToolCallChipProps {
+  name: string;
+  status: 'pending' | 'ok' | 'error';
+  ms?: number;
+  summary?: string;
+}
+
+const STATUS_COLOR: Record<ToolCallChipProps['status'], string> = {
+  pending: T.n400,
+  ok: T.green600,
+  error: T.red500,
+};
+
+export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
+  const [expanded, setExpanded] = useState(false);
+  const color = STATUS_COLOR[status];
+
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        flexDirection: 'column',
+        maxWidth: '100%',
+        border: `1px solid ${T.n200}`,
+        borderRadius: 8,
+        overflow: 'hidden',
+        fontFamily: T.fMono,
+        fontSize: 12,
+      }}
+    >
+      {/* Pill row */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 10px',
+          background: T.surfaceSubtle,
+          border: 'none',
+          cursor: 'pointer',
+          fontFamily: T.fMono,
+          fontSize: 12,
+          color: T.n700,
+          textAlign: 'left',
+        }}
+        aria-expanded={expanded}
+      >
+        {status === 'pending' && (
+          <span style={{ color, animation: 'spin 1s linear infinite', display: 'inline-flex' }}>
+            <Icon icon={Loader} size={13} color={color} />
+          </span>
+        )}
+        {status === 'ok' && <Icon icon={CheckCircle} size={13} color={color} />}
+        {status === 'error' && <Icon icon={XCircle} size={13} color={color} />}
+
+        <span style={{ color: T.n800 }}>{name}</span>
+
+        {ms !== undefined && (
+          <span style={{ color: T.n400, fontSize: 11 }}>{ms}ms</span>
+        )}
+
+        {summary && (
+          <Icon
+            icon={expanded ? ChevronDown : ChevronRight}
+            size={12}
+            color={T.n400}
+            style={{ marginLeft: 'auto' }}
+          />
+        )}
+      </button>
+
+      {/* Expandable summary */}
+      {expanded && summary && (
+        <div
+          style={{
+            padding: '6px 10px',
+            background: T.surface,
+            borderTop: `1px solid ${T.n100}`,
+            color: T.n600,
+            fontFamily: T.fMono,
+            fontSize: 12,
+            lineHeight: 1.5,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {summary}
+        </div>
+      )}
+    </div>
+  );
+}
