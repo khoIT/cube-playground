@@ -10,6 +10,7 @@ import styled from 'styled-components';
 import { pushFromMetric } from '../../../shared/activation/push-from-metric';
 import { SubscribeModal } from '../digest/subscribe-modal';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
+import { useCatalogMeta } from '../use-catalog-meta';
 import { buildExploreUrl } from './explore-query-builder';
 
 const Rail = styled.aside`
@@ -52,10 +53,11 @@ const Primary = styled(Button)`
 
 export function RightRail({ metric }: { metric: BusinessMetric }) {
   const history = useHistory();
+  const { cubes } = useCatalogMeta();
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   return (
     <Rail>
-      <Primary type="button" onClick={() => history.push(buildExploreUrl(metric))}>
+      <Primary type="button" onClick={() => history.push(buildExploreUrl(metric, cubes))}>
         Open in Explore →
       </Primary>
       <Button

@@ -42,7 +42,9 @@ function MeasureSlices({
   cube,
   cubesByName,
 }: TabSlicesConceptProps & { cube: CatalogCube }) {
-  const measure = cube.measures.find((m) => m.name === concept.name);
+  // /meta returns measure.name as the full FQN — compare against concept.fqn
+  // so the lookup survives the local-name normalisation in conceptsFromCube.
+  const measure = cube.measures.find((m) => m.name === concept.fqn);
   return (
     <Wrap>
       <MetricCardHowToSlice cube={cube} />

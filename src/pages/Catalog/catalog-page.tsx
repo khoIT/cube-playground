@@ -29,6 +29,7 @@ import { MetricDetailPage } from './metric-detail/metric-detail-page';
 import { MetricsTab } from './metrics-tab/metrics-tab';
 import { useCatalogMeta, CatalogCube } from './use-catalog-meta';
 import { useCubeClusters } from './use-cube-clusters';
+import { useCubeApiBootstrap } from '../../hooks';
 
 const Page = styled.div`
   display: flex;
@@ -129,6 +130,10 @@ function CatalogBrowseBody({ cubes, loading, error }: CatalogBrowseBodyProps) {
 
 export function CatalogPage() {
   const location = useLocation();
+  // Without this, /catalog/metric/:id rendered before /build leaves apiUrl
+  // + token null; useCatalogMeta then bails and the "Open in Explore"
+  // right-rail can't pick a per-cube time dim from /meta.
+  useCubeApiBootstrap();
   const { cubes, loading, error } = useCatalogMeta();
 
   // Composition wizard short-circuit — /catalog/metric/new must run before

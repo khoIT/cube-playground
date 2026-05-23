@@ -2,7 +2,7 @@ import { Panel, Space } from '@cube-dev/ui-kit';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card } from 'antd';
 import { useEffect, useLayoutEffect, useMemo } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { CubeLoader } from '../../atoms';
@@ -130,7 +130,11 @@ function QueryTabsRenderer({
   onQueryChange,
   ...props
 }: QueryTabsRendererProps) {
-  const { location } = useHistory();
+  // useLocation subscribes to RouterContext, so SPA navigation back to
+  // /build (after KeepAlive hides + reshows ExplorePage) triggers a
+  // re-render — useHistory().location is a non-reactive snapshot and
+  // would leave QueryTabsRenderer stale on the new URL.
+  const location = useLocation();
   const { setQuery, toggleModal } = useRollupDesignerContext();
   const gameId = useActiveGameId();
 

@@ -17,17 +17,33 @@ function isQueryableDim(dim: CatalogCube['dimensions'][number]): boolean {
   return true;
 }
 
+// /meta returns member `name` as the full FQN (`active_daily.dau`), but our
+// fixtures and earlier callers sometimes pass just the local part (`dau`).
+// Resolve both shapes so the catalog stays stable across data sources and
+// the produced fqn never carries a doubled cube prefix.
+function resolveMemberNames(
+  cubeName: string,
+  raw: string,
+): { fqn: string; local: string } {
+  const prefix = `${cubeName}.`;
+  if (raw.startsWith(prefix)) {
+    return { fqn: raw, local: raw.slice(prefix.length) };
+  }
+  return { fqn: `${cubeName}.${raw}`, local: raw };
+}
+
 function conceptsFromCube(cube: CatalogCube): Concept[] {
   const out: Concept[] = [];
   const cubeKind: 'cube' | 'view' = cube.type === 'view' ? 'view' : 'cube';
 
   for (const m of cube.measures) {
+    const { fqn, local } = resolveMemberNames(cube.name, m.name);
     out.push({
       type: 'measure',
       cubeKind,
-      fqn: `${cube.name}.${m.name}`,
+      fqn,
       cube: cube.name,
-      name: m.name,
+      name: local,
       title: m.title,
       description: m.description,
       meta: {
@@ -41,12 +57,13 @@ function conceptsFromCube(cube: CatalogCube): Concept[] {
 
   for (const d of cube.dimensions) {
     if (!isQueryableDim(d)) continue;
+    const { fqn, local } = resolveMemberNames(cube.name, d.name);
     out.push({
       type: 'dimension',
       cubeKind,
-      fqn: `${cube.name}.${d.name}`,
+      fqn,
       cube: cube.name,
-      name: d.name,
+      name: local,
       title: d.title,
       meta: {
         dimensionType: d.type,
@@ -57,12 +74,13 @@ function conceptsFromCube(cube: CatalogCube): Concept[] {
   }
 
   for (const s of cube.segments ?? []) {
+    const { fqn, local } = resolveMemberNames(cube.name, s.name);
     out.push({
       type: 'segment',
       cubeKind,
-      fqn: `${cube.name}.${s.name}`,
+      fqn,
       cube: cube.name,
-      name: s.name,
+      name: local,
       title: s.title,
       description: s.description,
       meta: {

@@ -13,6 +13,8 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import type { Concept } from '../data-model-tab/concept-types';
+import { useCatalogMeta } from '../use-catalog-meta';
+import { buildConceptExploreUrl } from '../metric-detail/explore-query-builder';
 
 const Rail = styled.aside`
   width: 240px;
@@ -52,34 +54,15 @@ const Primary = styled(Button)`
   &:hover { background: var(--brand-pressed, #f54a00); }
 `;
 
-function exploreUrlForMeasure(fqn: string): string {
-  const dot = fqn.indexOf('.');
-  const cube = dot > 0 ? fqn.slice(0, dot) : '';
-  const timeDim = cube ? `${cube}.event_date` : '';
-  const query = {
-    measures: [fqn],
-    dimensions: [],
-    timeDimensions: timeDim
-      ? [{ dimension: timeDim, granularity: 'day', dateRange: 'last 30 days' }]
-      : [],
-    filters: [],
-    order: timeDim ? { [timeDim]: 'desc' } : {},
-    limit: 1000,
-  };
-  const params = new URLSearchParams();
-  params.set('query', JSON.stringify(query));
-  params.set('from', `catalog:${encodeURIComponent(fqn)}`);
-  return `/build?${params.toString()}`;
-}
-
 export function RightRailConcept({ concept }: { concept: Concept }) {
   const history = useHistory();
+  const { cubes } = useCatalogMeta();
   const isMeasure = concept.type === 'measure';
   const isSegment = concept.type === 'segment';
 
   const onExplore = () => {
     if (!isMeasure) return;
-    history.push(exploreUrlForMeasure(concept.fqn));
+    history.push(buildConceptExploreUrl(concept.fqn, cubes));
   };
 
   const onActivate = () => {

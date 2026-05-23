@@ -14,36 +14,27 @@ import type { CatalogCube } from '../../use-catalog-meta';
 import type { Concept } from '../concept-types';
 
 // Inline the same private helper to keep the test independent of React.
+function resolve(cubeName: string, raw: string) {
+  const prefix = `${cubeName}.`;
+  if (raw.startsWith(prefix)) return { fqn: raw, local: raw.slice(prefix.length) };
+  return { fqn: `${cubeName}.${raw}`, local: raw };
+}
+
 function conceptsFromCubeMirror(cube: CatalogCube): Concept[] {
   const out: Concept[] = [];
   const cubeKind: 'cube' | 'view' = cube.type === 'view' ? 'view' : 'cube';
   for (const m of cube.measures) {
-    out.push({
-      type: 'measure',
-      cubeKind,
-      fqn: `${cube.name}.${m.name}`,
-      cube: cube.name,
-      name: m.name,
-    });
+    const { fqn, local } = resolve(cube.name, m.name);
+    out.push({ type: 'measure', cubeKind, fqn, cube: cube.name, name: local });
   }
   for (const d of cube.dimensions) {
     if (d.public === false || d.primaryKey) continue;
-    out.push({
-      type: 'dimension',
-      cubeKind,
-      fqn: `${cube.name}.${d.name}`,
-      cube: cube.name,
-      name: d.name,
-    });
+    const { fqn, local } = resolve(cube.name, d.name);
+    out.push({ type: 'dimension', cubeKind, fqn, cube: cube.name, name: local });
   }
   for (const s of cube.segments ?? []) {
-    out.push({
-      type: 'segment',
-      cubeKind,
-      fqn: `${cube.name}.${s.name}`,
-      cube: cube.name,
-      name: s.name,
-    });
+    const { fqn, local } = resolve(cube.name, s.name);
+    out.push({ type: 'segment', cubeKind, fqn, cube: cube.name, name: local });
   }
   return out;
 }
