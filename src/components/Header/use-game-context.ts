@@ -107,6 +107,25 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
       setGameIdState(id);
       persistGameId(id);
       if (typeof window !== 'undefined') {
+        // Drop ?query= from the hash so the new tenant's QueryBuilder doesn't
+        // boot with cube/dim refs that may not exist in its yaml (Cube returns
+        // 400 on unknown members and the builder shows a stale-error toast).
+        // The picker remounts QueryTabs via key={gameId}; a clean URL means a
+        // clean initial state.
+        const hash = window.location.hash || '';
+        const qIdx = hash.indexOf('?');
+        if (qIdx >= 0) {
+          const path = hash.slice(0, qIdx);
+          const params = new URLSearchParams(hash.slice(qIdx + 1));
+          if (params.has('query')) {
+            params.delete('query');
+            const remaining = params.toString();
+            const nextHash = remaining ? `${path}?${remaining}` : path;
+            // replaceState avoids polluting browser history with a "switched
+            // game" entry; hashchange fires anyway so React Router updates.
+            window.history.replaceState(null, '', nextHash || '#/');
+          }
+        }
         window.dispatchEvent(new CustomEvent('gds-cube:game-change', { detail: { gameId: id } }));
       }
     },

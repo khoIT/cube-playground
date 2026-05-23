@@ -39,6 +39,31 @@ import { SidebarDisplayPanel } from './components/SidebarDisplayPanel';
 import { TagFilterChips } from './components/tag-filter-chips';
 import { validateQuery } from './utils';
 
+// Sticky preference for the All-members / Used-only toggle. QueryTabs remounts
+// via key={gameId} on game switch, which would otherwise reset this toggle to
+// its default every time the user picks a different game.
+const VIEW_MODE_STORAGE_KEY = 'gds-cube:qb-view-mode';
+type SidePanelViewMode = 'all' | 'query';
+
+function readPersistedViewMode(): SidePanelViewMode | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return v === 'all' || v === 'query' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistViewMode(v: SidePanelViewMode): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, v);
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 const RadioButton = tasty(Radio.Button, {
   styles: { flexGrow: 1, placeItems: 'stretch' },
   inputStyles: { textAlign: 'center' },
@@ -89,7 +114,18 @@ export function QueryBuilderSidePanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollToCubeName, setScrollToCubeName] = useState<string | null>(null);
 
-  const [viewMode, setViewMode] = useState<'all' | 'query'>(!usedCubes.length ? 'all' : 'query');
+  // Restore the user's last explicit toggle choice across remounts (e.g. game
+  // switch via QueryTabs key={gameId}). Falls back to the legacy heuristic
+  // (all-when-empty / query-when-non-empty) only if no preference is stored.
+  const [viewMode, setViewMode] = useState<SidePanelViewMode>(
+    () => readPersistedViewMode() ?? (!usedCubes.length ? 'all' : 'query'),
+  );
+  // The auto-reset effect below flips viewMode to 'all' when the query becomes
+  // empty so the user isn't left looking at a blank "Used only" panel. On the
+  // FIRST run after mount that would clobber a freshly restored 'query'
+  // preference (the new game starts with an empty query), so we suppress it
+  // exactly once per mount.
+  const skipFirstEmptyAutoResetRef = useRef(true);
   const [isPasteDialogOpen, setIsPasteDialogOpen] = useState(false);
   const [filterString, setFilterString] = useState('');
 
@@ -481,10 +517,11 @@ export function QueryBuilderSidePanel({
 
       setScrollToCubeName(usedCubes[0]);
 
-      if (isQueryEmpty) {
+      if (isQueryEmpty && !skipFirstEmptyAutoResetRef.current) {
         setViewMode('all');
       }
     }
+    skipFirstEmptyAutoResetRef.current = false;
   }, [viewMode, isQueryEmpty]);
 
   const topBar = useMemo(() => {
@@ -505,7 +542,11 @@ export function QueryBuilderSidePanel({
                 type={viewMode === 'all' ? 'outline' : 'primary'}
                 size="small"
                 icon={viewMode === 'all' ? <StarOutlined /> : <StarFilled />}
-                onPress={() => setViewMode(viewMode === 'all' ? 'query' : 'all')}
+                onPress={() => {
+                  const next: SidePanelViewMode = viewMode === 'all' ? 'query' : 'all';
+                  setViewMode(next);
+                  persistViewMode(next);
+                }}
               >
                 {viewMode === 'all' ? 'All members' : 'Used only'}
               </Button>

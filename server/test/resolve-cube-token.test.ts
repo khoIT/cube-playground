@@ -12,7 +12,16 @@ const KEYS = [
   'CUBE_TOKEN_BALLISTAR',
   'CUBE_TOKEN_CFM_VN',
   'CUBEJS_API_SECRET',
+  'CUBE_PLAYGROUND_USER_ID',
 ];
+
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const seg = token.split('.')[1];
+  // base64url → base64
+  const b64 = seg.replace(/-/g, '+').replace(/_/g, '/');
+  const json = Buffer.from(b64, 'base64').toString('utf8');
+  return JSON.parse(json);
+}
 
 const saved: Record<string, string | undefined> = {};
 
@@ -83,5 +92,43 @@ describe('resolveCubeTokenForGameDetailed', () => {
     process.env.CUBE_TOKEN_PTG = 'env-token';
     process.env.CUBEJS_API_SECRET = 'secret';
     expect(resolveCubeTokenForGameDetailed('ptg').source).toBe('env');
+  });
+
+  it('mints JWTs with distinct game claims per game (cross-tenant isolation)', () => {
+    process.env.CUBEJS_API_SECRET = 'shared-secret';
+    const ballistar = resolveCubeTokenForGameDetailed('ballistar');
+    const ptg = resolveCubeTokenForGameDetailed('ptg');
+    const cfm = resolveCubeTokenForGameDetailed('cfm_vn');
+
+    expect(ballistar.source).toBe('minted');
+    expect(ptg.source).toBe('minted');
+    expect(cfm.source).toBe('minted');
+
+    // Distinct tokens — same game would collide, which is what we're guarding
+    // against (the bug where the picker swaps but every game gets the same JWT).
+    expect(ballistar.token).not.toBe(ptg.token);
+    expect(ptg.token).not.toBe(cfm.token);
+
+    const ballistarClaim = decodeJwtPayload(ballistar.token!);
+    const ptgClaim = decodeJwtPayload(ptg.token!);
+    const cfmClaim = decodeJwtPayload(cfm.token!);
+
+    expect(ballistarClaim.game).toBe('ballistar');
+    expect(ptgClaim.game).toBe('ptg');
+    // Aliases pass through unchanged — Cube canonicalizes server-side.
+    expect(cfmClaim.game).toBe('cfm_vn');
+  });
+
+  it('minted JWT userId defaults to "playground"', () => {
+    process.env.CUBEJS_API_SECRET = 'shared-secret';
+    const res = resolveCubeTokenForGameDetailed('ptg');
+    expect(decodeJwtPayload(res.token!).userId).toBe('playground');
+  });
+
+  it('minted JWT userId honors CUBE_PLAYGROUND_USER_ID override', () => {
+    process.env.CUBEJS_API_SECRET = 'shared-secret';
+    process.env.CUBE_PLAYGROUND_USER_ID = '9001';
+    const res = resolveCubeTokenForGameDetailed('ptg');
+    expect(decodeJwtPayload(res.token!).userId).toBe('9001');
   });
 });

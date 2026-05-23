@@ -25,6 +25,18 @@
       "name": "Justice VN",
       "mark": "JS",
       "color": "#a855f7"
+    },
+    {
+      "id": "muaw",
+      "name": "Metal Slug: Awakening",
+      "mark": "MA",
+      "color": "#facc15"
+    },
+    {
+      "id": "pubg",
+      "name": "PUBG Mobile",
+      "mark": "PB",
+      "color": "#ef4444"
     }
   ]
 }

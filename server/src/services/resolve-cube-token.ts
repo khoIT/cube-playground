@@ -27,6 +27,13 @@ function envKeyFor(gameId: string): string {
   return `CUBE_TOKEN_${gameId.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
 }
 
+// Cube's checkAuth resolves the JWT's userId against the auth-users DB. The
+// playground is a single service-account principal — `playground` by default,
+// overridable for environments that seed a different id.
+function playgroundUserId(): string {
+  return process.env.CUBE_PLAYGROUND_USER_ID || 'playground';
+}
+
 /**
  * Extended resolver — returns both the token and how it was obtained, so
  * callers (and the route) can surface diagnostic info without exposing
@@ -43,7 +50,7 @@ export function resolveCubeTokenForGameDetailed(
   const secret = process.env.CUBEJS_API_SECRET;
   if (secret && secret.length > 0) {
     const token = signCubeToken(
-      { game: gameId, userId: 'playground' },
+      { game: gameId, userId: playgroundUserId() },
       secret,
     );
     return { token, source: 'minted' };

@@ -5,7 +5,8 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, parse } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export interface GameDef {
   id: string;
@@ -24,12 +25,35 @@ const FALLBACK: GamesConfig = {
   games: [{ id: 'ptg', name: 'Play Together', mark: 'PT' }],
 };
 
+const CONFIG_FILENAME = 'gds.config.json';
+
 let cached: GamesConfig | null = null;
+
+// Resolve `gds.config.json` regardless of where the server was started from
+// (cwd may be repo root, server/ via `npm --prefix server run dev`, or test
+// tmp dirs that chdir). Order: explicit env override → cwd (test compat) →
+// walk up from this module until found or filesystem root.
+function resolveConfigPath(): string | null {
+  const envPath = process.env.GDS_CONFIG_PATH;
+  if (envPath && existsSync(envPath)) return envPath;
+
+  const cwdPath = join(process.cwd(), CONFIG_FILENAME);
+  if (existsSync(cwdPath)) return cwdPath;
+
+  let dir = dirname(fileURLToPath(import.meta.url));
+  const { root } = parse(dir);
+  while (true) {
+    const candidate = join(dir, CONFIG_FILENAME);
+    if (existsSync(candidate)) return candidate;
+    if (dir === root) return null;
+    dir = dirname(dir);
+  }
+}
 
 export function loadGamesConfig(): GamesConfig {
   if (cached) return cached;
-  const path = join(process.cwd(), 'gds.config.json');
-  if (!existsSync(path)) {
+  const path = resolveConfigPath();
+  if (!path) {
     cached = FALLBACK;
     return cached;
   }
