@@ -2,11 +2,18 @@
  * Preview service — translate a predicate tree to a Cube query, fire both
  * /load (count) and /sql in parallel, return { estimated_count, cube_query,
  * sql_preview, took_ms }. Results are cached for 60s keyed by tree+cube hash.
+ *
+ * The /load query mirrors the refresh job's size-phase methodology
+ * (dimensions:[identity] + total:true → distinct UID count) so the live editor
+ * estimate matches the persisted segment size. When no identity mapping
+ * exists we fall back to `<primaryCube>.count` (typically COUNT(*)) so the
+ * preview still returns a number, even if approximate.
  */
 
 import { createHash } from 'node:crypto';
 import { load, sql } from './cube-client.js';
 import { treeToCubeFilters } from './translator.js';
+import { resolveIdentityField } from './resolve-identity-field.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
 
 export interface PreviewResult {
@@ -26,10 +33,16 @@ function cacheKey(tree: PredicateNode, primaryCube: string): string {
     .digest('hex');
 }
 
-function extractCount(loadResult: unknown, measure: string): number | null {
-  // Cube /load returns { data: [...] } at top level; fall back to the
-  // batch shape { results: [{ data: [...] }] } in case it's ever called
-  // via the batch endpoint.
+// Cube /load with `total: true` returns the true distinct-row count in the
+// `total` annotation (top-level on /load, nested under `results[]` on /batch).
+function extractTotal(loadResult: unknown): number | null {
+  const r = loadResult as { total?: number; results?: Array<{ total?: number }> };
+  const t = r.total ?? r.results?.[0]?.total;
+  return typeof t === 'number' ? t : null;
+}
+
+// Fallback path: read a measure value from the single returned row.
+function extractMeasure(loadResult: unknown, measure: string): number | null {
   const r = loadResult as {
     data?: Array<Record<string, unknown>>;
     results?: Array<{ data?: Array<Record<string, unknown>> }>;
@@ -61,17 +74,29 @@ export async function preview(
   }
 
   const t0 = Date.now();
-  const measure = `${primaryCube}.count`;
   const filters = treeToCubeFilters(tree);
-  const cubeQuery = { measures: [measure], filters, limit: 1 };
+  const identity = await resolveIdentityField(primaryCube);
+
+  // Identity-distinct path mirrors refresh-segment so the editor preview
+  // matches the persisted uid_count once the segment refreshes.
+  const cubeQuery = identity
+    ? { dimensions: [identity], filters, limit: 1, total: true }
+    : { measures: [`${primaryCube}.count`], filters, limit: 1 };
 
   const [loadRes, sqlRes] = await Promise.allSettled([
     load(cubeQuery),
     sql(cubeQuery),
   ]);
 
+  let estimated: number | null = null;
+  if (loadRes.status === 'fulfilled') {
+    estimated = identity
+      ? extractTotal(loadRes.value)
+      : extractMeasure(loadRes.value, `${primaryCube}.count`);
+  }
+
   const result: PreviewResult = {
-    estimated_count: loadRes.status === 'fulfilled' ? extractCount(loadRes.value, measure) : null,
+    estimated_count: estimated,
     cube_query: cubeQuery,
     sql_preview: sqlRes.status === 'fulfilled' ? extractSql(sqlRes.value) : null,
     took_ms: Date.now() - t0,

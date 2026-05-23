@@ -12,7 +12,7 @@ import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
 import { pickPresetForCube } from '../presets/mf-users-hub.js';
-import { suggestIdentities } from '../services/identity-suggester.js';
+import { resolveIdentityField } from '../services/resolve-identity-field.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 
 const PER_SEGMENT_TIMEOUT_MS = 60_000;
@@ -83,29 +83,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-const AUTO_SUGGEST_MIN_CONFIDENCE = 0.9;
-
-async function getIdentityField(cube: string): Promise<string | null> {
-  const db = getDb();
-  const row = db
-    .prepare('SELECT identity_field FROM cube_identity_map WHERE cube = ?')
-    .get(cube) as { identity_field: string } | undefined;
-  if (row?.identity_field) return row.identity_field;
-
-  // No manual override — fall back to the auto-suggester so a "revert to
-  // auto-suggest" click in Settings doesn't break every segment on this cube.
-  // Only accept high-confidence matches (`*.user_id`, `*.player_id`, etc.).
-  try {
-    const suggestions = await suggestIdentities();
-    const hit = suggestions.find(
-      (s) => s.cube === cube && s.identity_field && s.confidence >= AUTO_SUGGEST_MIN_CONFIDENCE,
-    );
-    return hit?.identity_field ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export async function refreshSegment(segmentId: string): Promise<void> {
   const db = getDb();
   const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(segmentId) as SegmentRow | undefined;
@@ -120,7 +97,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
   const token = row.game_id ? resolveCubeTokenForGame(row.game_id) ?? undefined : undefined;
 
   try {
-    const identity = await getIdentityField(row.cube);
+    const identity = await resolveIdentityField(row.cube);
     if (!identity) {
       setSegmentStatus(segmentId, 'broken', `no identity-field mapping for ${row.cube}`);
       return;
