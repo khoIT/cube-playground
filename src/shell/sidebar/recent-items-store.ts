@@ -30,7 +30,17 @@ export function getRecent(module: RecentModule): RecentItem[] {
     const raw = localStorage.getItem(key(module));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // Business-metric ids are slugs without dots. Historical residue from a
+    // redirect bug stamped cube-measure refs (e.g. `cube.cube.member`) into
+    // Metrics Catalog recents — strip those on read so the tray self-heals
+    // without users needing to clear localStorage.
+    if (module === 'metrics-catalog') {
+      return (parsed as RecentItem[]).filter(
+        (it) => it && typeof it.id === 'string' && !it.id.includes('.'),
+      );
+    }
+    return parsed as RecentItem[];
   } catch {
     return [];
   }

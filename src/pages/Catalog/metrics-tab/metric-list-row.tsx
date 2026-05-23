@@ -1,7 +1,11 @@
 /**
- * MetricListRow — compact one-line layout used when the user picks list view
+ * MetricListRow — compact two-line layout used when the user picks list view
  * via the search-row toggle. Same data as `MetricCard` but denser: id,
  * description, owner/tier badges, anomaly hint, "x of y available" status.
+ *
+ * The title (full metric name, no truncation) sits above a muted description
+ * subtitle. Frees the right side for owner/tier + trust chip without forcing
+ * the title to compete with description for horizontal space.
  */
 
 import { Link } from 'react-router-dom';
@@ -13,7 +17,11 @@ import type { BusinessMetric } from './business-metric-types';
 const Row = styled(Link)<{ $disabled: boolean }>`
   position: relative;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1.4fr) minmax(0, 2fr) 110px 96px;
+  /* SelectionCheckbox is position:absolute (top-left), so it does NOT take a
+     grid column — the left padding reserves the 38px slot visually instead.
+     Earlier versions wasted ~50px by reserving both a 38px column AND 38px
+     of padding for the same overlay. */
+  grid-template-columns: minmax(0, 1fr) 180px 96px;
   align-items: center;
   gap: 12px;
   padding: 10px 16px 10px 38px;
@@ -30,22 +38,38 @@ const Row = styled(Link)<{ $disabled: boolean }>`
   }
 `;
 
+const TitleBlock = styled.span`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+`;
+
 const Title = styled.span`
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary, #171717);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.005em;
+`;
+
+const TitleCodename = styled.span`
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted, #737373);
+  margin-left: 8px;
 `;
 
 const Desc = styled.span`
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--text-secondary, #525252);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
 `;
 
 const Meta = styled.span`
@@ -90,6 +114,8 @@ export function MetricListRow({
   selected,
   onToggleSelected,
 }: MetricListRowProps) {
+  const displayLabel = metric.label || metric.id;
+  const showCodename = Boolean(metric.label && metric.label !== metric.id);
   return (
     <Row to={`/catalog/metric/${metric.id}`} $disabled={disabled}>
       <SelectionCheckbox
@@ -97,8 +123,15 @@ export function MetricListRow({
         onToggle={() => onToggleSelected(metric.id)}
         ariaLabel={`Select metric ${metric.id}`}
       />
-      <Title>{metric.label || metric.id}</Title>
-      <Desc>{metric.description}</Desc>
+      <TitleBlock>
+        <Title title={displayLabel}>
+          {displayLabel}
+          {showCodename && <TitleCodename>{metric.id}</TitleCodename>}
+        </Title>
+        {metric.description && (
+          <Desc title={metric.description}>{metric.description}</Desc>
+        )}
+      </TitleBlock>
       <Meta>
         Tier {metric.tier} · {metric.owner}
       </Meta>

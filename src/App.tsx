@@ -223,9 +223,14 @@ function RecentItemPusher() {
     // pages once data loads, so titles are real names (not raw UUIDs / ids).
     const metric = location.pathname.match(/^\/catalog\/metric\/([^/]+)/);
     if (metric && metric[1] !== 'new') {
-      pushRecent('metrics-catalog', {
-        id: metric[1],
-        title: metric[1],
+      const metricId = metric[1];
+      // Business-metric ids are slugs (no dots). Anything dotted is a Cube
+      // measure / dimension ref that leaked through a redirect — route those
+      // to the Data Model recents tray instead of polluting Metrics Catalog.
+      const looksLikeCubeRef = metricId.includes('.');
+      pushRecent(looksLikeCubeRef ? 'data-model' : 'metrics-catalog', {
+        id: metricId,
+        title: metricId,
         updatedAt: new Date().toISOString(),
         href: location.pathname,
       });
