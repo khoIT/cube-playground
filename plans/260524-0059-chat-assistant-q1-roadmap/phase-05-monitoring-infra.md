@@ -14,6 +14,9 @@
 - All new tables in chat-service SQLite (decision Q7). Do NOT touch `segments.db`.
 - In-app notifications only Q1 (decision Q5). Email/Slack deferred to Q2. Keep driver interface narrow.
 - Audit log lives in chat-service `monitoring_audit` table — separate from existing `chat_audit` (different concern; cross-domain events).
+- Migration composition: single driver `chat-service/src/db/migrate.ts` imports each phase's `migrateXxx(db)` and runs in order (decision C1). Idempotent — safe to re-run.
+- Auth: chat-service → main-server HTTP calls use `Authorization: Bearer ${MAIN_SERVER_SERVICE_TOKEN}` (decision C2). Token in env, validated by main server.
+- Scheduler lib: **node-cron** locked (decision C4) — add to package.json.
 
 ## Requirements
 
@@ -86,12 +89,14 @@ UI bell ─► server proxy /api/chat/notifications ─► chat-service ─► r
 - `chat-service/src/services/in-app-notification-driver.ts`
 - `chat-service/src/services/scheduler.ts`
 - `chat-service/src/db/monitoring-migrate.ts`
+- `chat-service/src/db/migrate.ts` (single driver — imports each phase's `migrateXxx(db)` and runs in fixed order)
 - `chat-service/src/routes/notifications.ts`
 - `chat-service/src/routes/__tests__/notifications.test.ts`
 
 ### Modify
 - `chat-service/src/index.ts` (start scheduler on boot, register migrate, mount routes).
 - `server/src/routes/chat.ts` (add notification proxy passthrough — pattern matches existing chat proxy).
+- `server/src/middleware/` — add service-token validator middleware that checks `Authorization: Bearer ${MAIN_SERVER_SERVICE_TOKEN}` header on internal endpoints. Reused by phase-12 refresh calls.
 - Existing topbar bell component (wire data source to `/api/chat/notifications`).
 
 ### Delete
@@ -107,6 +112,8 @@ UI bell ─► server proxy /api/chat/notifications ─► chat-service ─► r
 7. Wire topbar bell to fetch via proxy.
 8. Expose helper `emitMonitoringEvent(event)` callable from chat-service modules.
 9. Tests: route returns unread; mark-read works; driver writes table; audit appended; scheduler ticks and invokes registered handlers.
+10. Implement migrate driver in `chat-service/src/db/migrate.ts` — single boot path; phases register `migrateXxx(db)` functions invoked in fixed order (notifications → monitoring_audit → glossary_overrides → chat_turns_fts triggers → monitored_segments + runs). Idempotent.
+11. Add `MAIN_SERVER_SERVICE_TOKEN` to chat-service `.env.example` and server `.env.example`. Implement main-server middleware that accepts the bearer token for internal endpoints (validates header equals env var; reads `X-Owner-Id` for audit attribution).
 
 ## Todo List
 - [ ] Add `node-cron` dependency to chat-service

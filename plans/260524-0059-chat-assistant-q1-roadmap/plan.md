@@ -83,3 +83,8 @@ F12 team glossary, F14 threshold alerts, F15 drift, F16 digest, F18 MCP, F19 per
 | Q8 | Field-chip token | `{{field:cube.member}}` LOCKED. | 02 |
 | Q9 | Monitored-segment storage | New `monitored_segments` table in chat-service DB. Links by `segment_id` foreign-ref-by-id (cross-DB; no FK). NOT extending `segments` table. New `monitored_segment_runs` history table in chat-service DB. | 12 |
 | Q10 | Starter click | Prefill composer (NO auto-submit). User edits then sends manually. | 01 |
+| C1 | Migration composition | Single migrate driver `chat-service/src/db/migrate.ts` imports + runs each phase's `migrateXxx(db)` in fixed order (notifications → monitoring_audit → glossary_overrides → chat_turns_fts triggers → monitored_segments + runs). Idempotent. | 05, 10, 11, 12 |
+| C2 | Auth chat-service → main-server HTTP | Shared service token via env `MAIN_SERVER_SERVICE_TOKEN`. chat-service sends `Authorization: Bearer <token>` + `X-Owner-Id` header for audit attribution. Main server validates via middleware. | 05, 12 |
+| C3 | Cross-DB ref drift on segment delete | Reactive cleanup on refresh tick: 404 from `POST /api/segments/:id/refresh` → set `monitored_segments.last_status='segment_deleted'`, emit one final deletion notification, future ticks filter row out via index. No webhook. | 12 |
+| C4 | Scheduler library | `node-cron` (LOCKED). Add to `chat-service/package.json` deps. | 05 |
+| C5 | Cold-start threshold for starter ranking | Config constant `STARTER_RANK_MIN_SESSIONS = 3` in `chat-service/src/config.ts`. Single source of truth — no env var, no DB row. | 01 |

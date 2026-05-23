@@ -15,6 +15,8 @@
 - Refresh: chat-service scheduler tick (phase-05) → calls main server `POST /api/segments/:id/refresh` over HTTP. Do NOT replicate refresh logic — reuse server endpoint.
 - Catalog-consistency rule: pinned segment MUST cite catalog ids (enforced via phase-06 plan output; server-side gate at pin time).
 - Notification dispatch goes through phase-05 driver (in-app only).
+- Auth on HTTP refresh call: `Authorization: Bearer ${MAIN_SERVER_SERVICE_TOKEN}` (decision C2). Main server validates via shared service-token middleware (defined in phase-05).
+- Ref drift policy: refresher detects 404 from main-server refresh → sets `last_status='segment_deleted'` + emits final notification; subsequent ticks filter out this row (decision C3). No webhook needed.
 
 ## Requirements
 
@@ -67,6 +69,8 @@ CREATE INDEX IF NOT EXISTS idx_runs_segment_at
 
 ### Services + routes
 - **Service:** `chat-service/src/services/monitored-segment-refresher.ts`.
+  - On 404 from `POST /api/segments/:id/refresh`: mark monitored row `last_status='segment_deleted'`, write `monitoring_audit` `action='monitor_orphaned'`, emit notification `kind='segment_deleted'`. Do NOT delete the `monitored_segments` row (preserves audit history).
+  - Scheduler's `listDueMonitored()` query filters `WHERE last_status IS NULL OR last_status NOT IN ('segment_deleted')` so deleted rows are skipped on future ticks.
 - **Scheduler hook:** register with phase-05's scheduler API (`register('monitored-segment-refresh', '* * * * *', handler)`).
 - **Tool:** `chat-service/src/tools/pin-segment.ts` — agent or UI calls.
 - **Routes (chat-service; exposed via server proxy):**
@@ -84,9 +88,9 @@ chat artifact "segment X" ─► user clicks "Pin" ─► POST /api/chat/segment
   ↘ chat-service: pin-segment tool validates catalog citation
   ↘ chat-service DB: insert monitored_segments row
 scheduler tick (chat-service, every 60s) ─► listDueMonitored() ─► refresher per id
-  ↘ HTTP POST main-server /api/segments/:id/refresh
-  ↘ insert monitored_segment_runs row (chat-service DB) + update last_run_at
-  ↘ emit notification via phase-05 driver
+  ↘ HTTP POST main-server /api/segments/:id/refresh with Authorization: Bearer ${MAIN_SERVER_SERVICE_TOKEN}
+  ↘ 200: insert monitored_segment_runs row + update last_run_at + emit success notification
+  ↘ 404: set last_status='segment_deleted' + emit one-time deletion notification + skip future ticks
 UI: monitored list polls /api/chat/segments?monitored=1
 UI: run history opens segment-run-history modal
 ```
@@ -133,6 +137,7 @@ UI: run history opens segment-run-history modal
 6. UI components (pin button, list, history) — unchanged paths.
 7. Citation gate: refuse pin if segment artifact lacks catalog citation (server-side check in chat-service route).
 8. E2E: chat → pin → wait 60s with sped clock → assert notification + run row.
+9. Refresher: on 404 from main-server, set `last_status='segment_deleted'` and emit deletion notification once.
 
 ## Todo List
 - [ ] Migrate (`monitored_segments` + `monitored_segment_runs` in chat-service DB)
@@ -158,7 +163,7 @@ UI: run history opens segment-run-history modal
 | Notification spam | Med | Med | Per-segment dedup key `(segmentId, day)`. |
 | Pin without citation slips through | Med | High | Server-side gate; e2e asserts catalog_ref present in artifact. |
 | Scheduler miss after restart | Low | Med | Catch-up logic: on chat-service boot, scan `monitored_segments` for rows with `last_run_at < now - cadence`; enqueue. |
-| Cross-DB ref drift (segment deleted in segments.db) | Med | Med | Refresher on 404 from server marks row inactive + emits audit; UI shows "segment no longer exists" badge. |
+| Segment deleted in segments.db | Med | Med | Handled reactively (404 catch): refresher sets `last_status='segment_deleted'`, emits single deletion notification, ticks skip thereafter via `listDueMonitored` filter. |
 
 ## Security Considerations
 - Pin / unpin requires session owner == segment owner; route enforces.

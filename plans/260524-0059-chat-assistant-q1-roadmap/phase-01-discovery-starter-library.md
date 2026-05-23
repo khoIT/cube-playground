@@ -67,6 +67,7 @@ user → chat-landing → click card → setComposerValue(text) → openChatTurn
 
 ## Implementation Steps
 1. Build `persona-histogram.ts` — reads last 20 sessions' intent_router categories (from `chat_audit.kind=intent_routed`), normalizes to vector.
+   - Cold-start threshold sourced from `chat-service/src/config.ts` constant `STARTER_RANK_MIN_SESSIONS = 3` (decision C5). Single source; no env var, no DB row.
 2. Each starter declares `categoryTags` (subset of intent-router categories: `explore|metric_explain|compare|diagnose`).
 3. Ranking: cosine of starter.categoryTags vector × user histogram. Cold-start (sessions<3) = uniform weights / unranked.
 4. Author `starter-questions.ts` with 16 entries; cross-check each `targetCatalogIds` exists via `use-catalog-meta`.
