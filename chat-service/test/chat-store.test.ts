@@ -134,6 +134,52 @@ describe('chatStore', () => {
       const parsed = JSON.parse(turns[0].artifacts_json!);
       expect(parsed[0].id).toBe('art1');
     });
+
+    it('serialises charts_json round-trip', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      const chart = {
+        id: 'chart-1',
+        truncated: false,
+        originalRowCount: 2,
+        spec: {
+          type: 'bar' as const,
+          title: 'Sales by region',
+          data: [
+            { region: 'NA', revenue: 100 },
+            { region: 'EU', revenue: 80 },
+          ],
+          encoding: { category: 'region', value: 'revenue' },
+        },
+      };
+
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        charts: [chart],
+        startedAt: Date.now(),
+      });
+
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].charts_json).toBeTruthy();
+      const parsed = JSON.parse(turns[0].charts_json!);
+      expect(parsed[0].id).toBe('chart-1');
+      expect(parsed[0].spec.type).toBe('bar');
+      expect(parsed[0].spec.data).toHaveLength(2);
+    });
+
+    it('charts_json is null when no charts provided', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'user',
+        userText: 'hi',
+        startedAt: Date.now(),
+      });
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].charts_json).toBeNull();
+    });
   });
 
   describe('index coverage', () => {

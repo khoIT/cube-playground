@@ -30,6 +30,7 @@ allowed_tools:
   - preview_cube_query
   - explain_cube_sql
   - emit_query_artifact
+  - emit_chart
 ---
 
 # Explore Skill
@@ -53,3 +54,26 @@ Translate a free-form analytics question into a clickable Cube query artifact. B
 - Never invent cube member names — confirm via `get_cube_meta`.
 - Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.
 - Refuse non-analytics asks; redirect to /build.
+
+## Charts
+
+When the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.
+
+Pick `type` by shape:
+
+| Data shape | `type` |
+|---|---|
+| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |
+| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |
+| 1 categorical + 1 metric (short labels) | `bar` |
+| 1 time dim + 1 metric | `line` (or `area` for cumulative) |
+| 1 time dim + 1 metric + 1 breakdown | `multi-line` |
+| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |
+| 2 numeric metrics | `scatter` |
+
+Rules:
+- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.
+- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.
+- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.
+- Server truncates > 30 rows into an "Other" lump automatically.
+- One chart per turn unless explicitly comparing.

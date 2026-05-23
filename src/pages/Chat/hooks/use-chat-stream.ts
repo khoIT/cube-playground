@@ -78,6 +78,9 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
             case 'query_artifact':
               dispatch({ type: 'ARTIFACT', artifact: event.data });
               break;
+            case 'chart':
+              dispatch({ type: 'CHART', artifact: event.data });
+              break;
             case 'compact_warning':
               sessionIdRef.current = event.data.to;
               dispatch({ type: 'COMPACT_WARNING', from: event.data.from, to: event.data.to, summary: event.data.summary });
@@ -152,6 +155,7 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     currentText: state.currentText,
     currentReasoning: state.currentReasoning,
     currentArtifacts: state.currentArtifacts,
+    currentCharts: state.currentCharts,
     currentToolCalls: state.currentToolCalls,
     error: state.error,
     lastCompactWarning: state.lastCompactWarning,

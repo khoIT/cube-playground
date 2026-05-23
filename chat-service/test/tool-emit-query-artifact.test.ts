@@ -228,6 +228,42 @@ describe('emit_query_artifact handler', () => {
     }
   });
 
+  it('attaches a built ChartArtifact when `chart` is provided', async () => {
+    const ctx = makeCtx();
+    const emitted: QueryArtifact[] = [];
+    ctx.sseEmitter.on('query_artifact', (a: QueryArtifact) => emitted.push(a));
+
+    await handler(
+      {
+        title: 'Daily revenue with chart',
+        summary: 'Revenue per day, last 7 days',
+        query: {
+          measures: ['Revenue.total'],
+          timeDimensions: [
+            { dimension: 'Revenue.createdAt', granularity: 'day', dateRange: 'last 7 days' },
+          ],
+        },
+        source: 'raw',
+        chart: {
+          type: 'line',
+          title: 'Daily revenue',
+          data: [
+            { day: '2026-05-20', revenue: 100 },
+            { day: '2026-05-21', revenue: 120 },
+          ],
+          encoding: { category: 'day', value: 'revenue' },
+        },
+      },
+      ctx,
+    );
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].chart).toBeDefined();
+    expect(emitted[0].chart?.spec.type).toBe('line');
+    expect(emitted[0].chart?.artifactRef).toBe(emitted[0].id);
+    expect(emitted[0].chart?.truncated).toBe(false);
+  });
+
   it('does NOT emit SSE event when validation fails', async () => {
     const ctx = makeCtx();
     const emitted: unknown[] = [];

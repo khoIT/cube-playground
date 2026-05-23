@@ -10,6 +10,49 @@ import type { FastifyPluginAsync } from 'fastify';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import * as chatStore from '../db/chat-store.js';
+import type { ChatTurnRow, QueryArtifact, ChartArtifact } from '../types.js';
+
+// ---------------------------------------------------------------------------
+// Row → FE-DTO transform
+//
+// The chat_turns table stores raw columns (user_text, assistant_text, _json
+// blobs, started_at as epoch ms). The FE consumer (useChatSession +
+// chat-thread-page.sessionTurnsToMessages) expects a flatter shape:
+//   { id, role, text, createdAt, toolCalls, artifacts, charts }
+// This mapper produces that shape so historical sessions hydrate correctly.
+// ---------------------------------------------------------------------------
+
+interface TurnDto {
+  id: string;
+  role: 'user' | 'assistant' | 'system_preamble';
+  text: string;
+  createdAt: string;
+  toolCalls: Array<{ id: string; name: string; ok: boolean; ms: number; summary: string }>;
+  artifacts: QueryArtifact[];
+  charts: ChartArtifact[];
+}
+
+function safeParseJson<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function rowToTurn(row: ChatTurnRow): TurnDto {
+  const text = row.role === 'user' ? row.user_text ?? '' : row.assistant_text ?? '';
+  return {
+    id: row.id,
+    role: row.role,
+    text,
+    createdAt: new Date(row.started_at).toISOString(),
+    toolCalls: safeParseJson(row.tool_calls_json, []),
+    artifacts: safeParseJson(row.artifacts_json, []),
+    charts: safeParseJson(row.charts_json, []),
+  };
+}
 
 const PatchBodySchema = z.object({
   title: z.string().min(1).max(64),
@@ -56,7 +99,7 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
-      const turns = chatStore.listTurns(opts.db, session.id);
+      const turns = chatStore.listTurns(opts.db, session.id).map(rowToTurn);
       return reply.send({ session, turns });
     },
   );

@@ -15,6 +15,10 @@ import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
+import {
+  ChartSpecSchema,
+  buildChartArtifact,
+} from '../services/chart-spec.js';
 import type { ToolContext, QueryArtifact } from '../types.js';
 
 export const name = 'emit_query_artifact';
@@ -34,6 +38,10 @@ export const inputSchema = {
       name: z.string().optional(),
     })
     .optional(),
+  chart: ChartSpecSchema.optional().describe(
+    'Optional inline chart suggesting how to visualise this query. ' +
+      'Use this instead of a separate emit_chart call when the chart shows the same data the artifact links to.',
+  ),
 };
 
 interface OkResult {
@@ -55,6 +63,7 @@ export async function handler(
     query: z.infer<typeof CubeQuerySchema>;
     source: 'business-metric' | 'segment' | 'raw';
     sourceRef?: { id: string; name?: string };
+    chart?: z.infer<typeof ChartSpecSchema>;
   },
   ctx: ToolContext,
 ): Promise<OkResult | ErrorResult> {
@@ -90,7 +99,21 @@ export async function handler(
   // 2. Build deeplink
   const deeplink = buildChatDeeplink(args.query);
 
-  // 3. Build the artifact object — id MUST equal the uuid embedded in the
+  // 3. Build optional embedded chart. Failures here are non-fatal — better to
+  // ship the artifact card without a chart than to stall the agent loop.
+  let chart: QueryArtifact['chart'] = undefined;
+  if (args.chart) {
+    try {
+      chart = buildChartArtifact(args.chart, { artifactRef: deeplink.artifactId });
+    } catch (err) {
+      console.warn(
+        '[emit_query_artifact] chart build failed; emitting artifact without chart',
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  // 4. Build the artifact object — id MUST equal the uuid embedded in the
   // deeplink URL so the FE can resolve sessionStorage-backed payloads by
   // reading the URL param.
   const artifact: QueryArtifact = {
@@ -104,9 +127,10 @@ export async function handler(
     deeplinkUrl: deeplink.url,
     deeplinkVia: deeplink.via,
     payload: deeplink.payload,
+    chart,
   };
 
-  // 4. Emit SSE side-effect — the turn handler listens and writes the event
+  // 5. Emit SSE side-effect — the turn handler listens and writes the event
   ctx.sseEmitter.emit('query_artifact', artifact);
 
   return { ok: true, id: artifact.id, deeplinkUrl: deeplink.url };

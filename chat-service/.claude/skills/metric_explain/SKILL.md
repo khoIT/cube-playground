@@ -17,6 +17,7 @@ allowed_tools:
   - list_business_metrics
   - get_business_metric
   - emit_query_artifact
+  - emit_chart
 ---
 
 # Explain Metric Skill
@@ -35,3 +36,12 @@ Explain what a business metric or raw cube member is. Do NOT execute a query unl
 - Do not call `preview_cube_query` here — execution belongs to /explore.
 - If the user follows up with "and show me last week" within the same session, emit a `query_artifact` for the metric's default query. Use `emit_query_artifact` with `source: 'business-metric'` and `sourceRef: { id }`.
 - Never invent metric ids.
+
+## Charts
+
+When the user follows up with "show me…" and you emit a query_artifact:
+- If the result shape is a single time series → add `chart: { type: 'line', encoding: { category: <time dim>, value: <metric> } }` to the `emit_query_artifact` call.
+- If it's a categorical breakdown → add `chart: { type: 'bar' }` (or `pie` if ≤ 8 categories).
+- Otherwise skip the chart and rely on the artifact card alone.
+
+Do not call `emit_chart` standalone in this skill — `metric_explain` is descriptive, not exploratory.

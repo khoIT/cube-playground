@@ -17,6 +17,7 @@ function makeTurn(overrides: Partial<ChatTurnRow>): ChatTurnRow {
     reasoning_json: null,
     tool_calls_json: null,
     artifacts_json: null,
+    charts_json: null,
     input_tokens: null,
     output_tokens: null,
     cost_usd: null,

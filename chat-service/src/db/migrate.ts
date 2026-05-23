@@ -30,6 +30,7 @@ export function migrate(db: Database.Database): void {
   // Idempotent column additions for databases created before these columns existed.
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN parent_session_id TEXT;');
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN compacted_into TEXT;');
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
 }
 
 /**

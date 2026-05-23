@@ -5,7 +5,12 @@
 
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import type { ChatSessionRow, ChatTurnRow, QueryArtifact } from '../types.js';
+import type {
+  ChatSessionRow,
+  ChatTurnRow,
+  QueryArtifact,
+  ChartArtifact,
+} from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Sessions
@@ -117,6 +122,7 @@ export interface AppendTurnParams {
   reasoningJson?: string;
   toolCallsJson?: string;
   artifacts?: QueryArtifact[];
+  charts?: ChartArtifact[];
   inputTokens?: number;
   outputTokens?: number;
   costUsd?: number;
@@ -131,13 +137,14 @@ export function appendTurn(
 ): ChatTurnRow {
   const id = uuidv4();
   const artifactsJson = params.artifacts ? JSON.stringify(params.artifacts) : null;
+  const chartsJson = params.charts ? JSON.stringify(params.charts) : null;
 
   db.prepare(
     `INSERT INTO chat_turns
        (id, session_id, turn_index, role, user_text, assistant_text,
-        reasoning_json, tool_calls_json, artifacts_json,
+        reasoning_json, tool_calls_json, artifacts_json, charts_json,
         input_tokens, output_tokens, cost_usd, skill, started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -148,6 +155,7 @@ export function appendTurn(
     params.reasoningJson ?? null,
     params.toolCallsJson ?? null,
     artifactsJson,
+    chartsJson,
     params.inputTokens ?? null,
     params.outputTokens ?? null,
     params.costUsd ?? null,

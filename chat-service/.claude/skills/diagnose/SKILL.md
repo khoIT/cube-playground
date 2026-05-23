@@ -23,6 +23,7 @@ allowed_tools:
   - preview_cube_query
   - explain_cube_sql
   - emit_query_artifact
+  - emit_chart
 ---
 
 # Diagnose Skill
@@ -49,3 +50,14 @@ Find the most likely cause of a metric drop or spike. Walk a hypothesis tree bre
 - Cap at 4 hypotheses per turn. Do not loop.
 - Reasoning trace: report counts + percentages only; never raw row dumps beyond 5 values.
 - Plain-English conclusion sentence is mandatory before emitting the artifact.
+
+## Charts
+
+Diagnose responses benefit from a contribution-by-dimension chart:
+
+- After identifying the winning branch, attach a `chart` to `emit_query_artifact` with:
+  - `type: 'horizontal-bar'` when the winning dimension has > 6 values (long labels)
+  - `type: 'bar'` for ≤ 6 short-labelled values
+  - `type: 'multi-line'` when contrasting affected window vs baseline across time
+
+Pass `encoding.value` = the symptom metric, `encoding.category` = the winning dimension. Skip the chart when only one or two rows survive (the artifact card alone is enough).

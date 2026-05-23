@@ -2,7 +2,7 @@
  * Chat stream reducer — state shape, action union, and pure reducer function.
  * Separated from the hook so the hook file stays under 200 lines.
  */
-import type { QueryArtifact } from '../../../api/chat-sse-client';
+import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
 
 export type StreamStatus =
   | 'idle'
@@ -34,6 +34,7 @@ export interface StreamState {
   currentText: string;
   currentReasoning: string;
   currentArtifacts: QueryArtifact[];
+  currentCharts: ChartArtifact[];
   currentToolCalls: ToolCallState[];
   error: string | null;
   lastCompactWarning: CompactWarning | null;
@@ -50,6 +51,7 @@ export type StreamAction =
   | { type: 'TOOL_CALL'; id: string; name: string; args: unknown }
   | { type: 'TOOL_RESULT'; id: string; ok: boolean; ms: number; summary: string }
   | { type: 'ARTIFACT'; artifact: QueryArtifact }
+  | { type: 'CHART'; artifact: ChartArtifact }
   | { type: 'COMPACT_WARNING'; from: string; to: string; summary: string }
   | { type: 'DONE' }
   | { type: 'ERROR'; message: string }
@@ -65,6 +67,7 @@ export function makeInitialStreamState(sessionId: string | null): StreamState {
     currentText: '',
     currentReasoning: '',
     currentArtifacts: [],
+    currentCharts: [],
     currentToolCalls: [],
     error: null,
     lastCompactWarning: null,
@@ -120,6 +123,9 @@ export function chatStreamReducer(state: StreamState, action: StreamAction): Str
     case 'ARTIFACT':
       return { ...state, currentArtifacts: [...state.currentArtifacts, action.artifact] };
 
+    case 'CHART':
+      return { ...state, currentCharts: [...state.currentCharts, action.artifact] };
+
     case 'COMPACT_WARNING':
       return {
         ...state,
@@ -148,6 +154,7 @@ export function chatStreamReducer(state: StreamState, action: StreamAction): Str
         currentText: '',
         currentReasoning: '',
         currentArtifacts: [],
+        currentCharts: [],
         currentToolCalls: [],
       };
 

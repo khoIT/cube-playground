@@ -5,6 +5,7 @@
  * If sessionId is null or 'new', returns empty state immediately (no fetch).
  */
 import { useCallback, useEffect, useReducer } from 'react';
+import type { ChartArtifact } from '../../../api/chat-sse-client';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,7 +17,21 @@ export interface ChatTurn {
   text: string;
   createdAt: string;
   toolCalls?: Array<{ id: string; name: string; ok: boolean; ms: number; summary: string }>;
-  artifacts?: Array<{ id: string; title: string; summary: string; deeplinkUrl: string; deeplinkVia: 'inline' | 'session-storage'; source: string; payload: unknown; query: unknown; sourceRef?: { id: string; name?: string } }>;
+  artifacts?: Array<{
+    id: string;
+    title: string;
+    summary: string;
+    deeplinkUrl: string;
+    deeplinkVia: 'inline' | 'session-storage';
+    source: string;
+    payload: unknown;
+    query: unknown;
+    sourceRef?: { id: string; name?: string };
+    /** Optional embedded chart from emit_query_artifact. */
+    chart?: ChartArtifact;
+  }>;
+  /** Standalone charts emitted via emit_chart in this turn. */
+  charts?: ChartArtifact[];
 }
 
 export interface ChatSession {

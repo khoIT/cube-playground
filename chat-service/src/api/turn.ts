@@ -28,7 +28,7 @@ import { writeSseEvent } from '../core/sse-stream.js';
 import { shouldCompact, compactSession } from '../core/compact-service.js';
 import { summariseTitle } from '../core/title-summariser.js';
 import { config } from '../config.js';
-import type { SseEvent, QueryArtifact, ToolContext } from '../types.js';
+import type { SseEvent, QueryArtifact, ChartArtifact, ToolContext } from '../types.js';
 
 interface TurnRouteOptions {
   db: Database.Database;
@@ -201,12 +201,17 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
     });
 
-    // SSE emitter for tool side-effects (query_artifact events)
+    // SSE emitter for tool side-effects (query_artifact + chart events)
     const sseEmitter = new EventEmitter();
     const collectedArtifacts: QueryArtifact[] = [];
+    const collectedCharts: ChartArtifact[] = [];
     sseEmitter.on('query_artifact', (artifact: QueryArtifact) => {
       collectedArtifacts.push(artifact);
       emit({ type: 'query_artifact', data: artifact });
+    });
+    sseEmitter.on('chart', (chart: ChartArtifact) => {
+      collectedCharts.push(chart);
+      emit({ type: 'chart', data: chart });
     });
 
     const turnId = sessionId + ':' + (userTurnIndex + 1);
@@ -245,8 +250,8 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           outputTokens = event.data.output_tokens ?? 0;
           costUsd = event.data.cost_usd;
         }
-        // query_artifact is already emitted by the tool handler via sseEmitter
-        if (event.type !== 'query_artifact') {
+        // query_artifact and chart are already emitted via sseEmitter
+        if (event.type !== 'query_artifact' && event.type !== 'chart') {
           emit(event);
         }
       }
@@ -260,6 +265,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         role: 'assistant',
         assistantText,
         artifacts: collectedArtifacts,
+        charts: collectedCharts,
         inputTokens,
         outputTokens,
         costUsd,

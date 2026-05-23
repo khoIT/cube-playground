@@ -39,6 +39,38 @@ export interface SseToken extends SseEventBase {
   data: { delta: string };
 }
 
+/** Chart spec — declarative shape produced by the LLM, compiled at render time. */
+export type ChartType =
+  | 'bar'
+  | 'horizontal-bar'
+  | 'stacked-bar'
+  | 'line'
+  | 'multi-line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter';
+
+export interface ChartSpec {
+  type: ChartType;
+  title: string;
+  caption?: string;
+  data: Array<Record<string, string | number>>;
+  encoding: { category: string; value: string; series?: string };
+}
+
+/** Compiled chart artifact emitted via SSE / embedded on a query artifact. */
+export interface ChartArtifact {
+  id: string;
+  spec: ChartSpec;
+  /** True if the server truncated rows into an "Other" lump. */
+  truncated: boolean;
+  /** Row count before truncation (informational). */
+  originalRowCount: number;
+  /** Pointer to a parent query_artifact when the chart was attached. */
+  artifactRef?: string;
+}
+
 /** QueryArtifact shape — mirrors chat-service/src/types.ts */
 export interface QueryArtifact {
   id: string;
@@ -50,11 +82,18 @@ export interface QueryArtifact {
   deeplinkUrl: string;
   deeplinkVia: 'inline' | 'session-storage';
   payload: unknown;
+  /** Optional inline chart suggested by the LLM at emit time. */
+  chart?: ChartArtifact;
 }
 
 export interface SseQueryArtifact extends SseEventBase {
   type: 'query_artifact';
   data: QueryArtifact;
+}
+
+export interface SseChart extends SseEventBase {
+  type: 'chart';
+  data: ChartArtifact;
 }
 export interface SseResult extends SseEventBase {
   type: 'result';
@@ -87,6 +126,7 @@ export type SseEvent =
   | SseToolResult
   | SseToken
   | SseQueryArtifact
+  | SseChart
   | SseResult
   | SseError
   | SseDone

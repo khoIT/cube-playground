@@ -16,7 +16,7 @@ import {
   makeInitialStreamState,
   type StreamState,
 } from '../use-chat-stream-reducer';
-import type { QueryArtifact } from '../../../../api/chat-sse-client';
+import type { QueryArtifact, ChartArtifact } from '../../../../api/chat-sse-client';
 
 function makeArtifact(id: string): QueryArtifact {
   return {
@@ -31,6 +31,23 @@ function makeArtifact(id: string): QueryArtifact {
   };
 }
 
+function makeChart(id: string): ChartArtifact {
+  return {
+    id,
+    truncated: false,
+    originalRowCount: 2,
+    spec: {
+      type: 'bar',
+      title: 't',
+      data: [
+        { k: 'a', v: 1 },
+        { k: 'b', v: 2 },
+      ],
+      encoding: { category: 'k', value: 'v' },
+    },
+  };
+}
+
 function streamToDone(state: StreamState): StreamState {
   let s = chatStreamReducer(state, { type: 'START', sessionId: state.sessionId });
   s = chatStreamReducer(s, { type: 'TOOL_CALL', id: 'tc-1', name: 'list_business_metrics', args: {} });
@@ -39,6 +56,7 @@ function streamToDone(state: StreamState): StreamState {
   s = chatStreamReducer(s, { type: 'TOKEN', delta: 'world' });
   s = chatStreamReducer(s, { type: 'THINKING', delta: 'reasoning…' });
   s = chatStreamReducer(s, { type: 'ARTIFACT', artifact: makeArtifact('a-1') });
+  s = chatStreamReducer(s, { type: 'CHART', artifact: makeChart('c-1') });
   s = chatStreamReducer(s, { type: 'DONE' });
   return s;
 }
@@ -53,6 +71,7 @@ describe('chatStreamReducer — duplication regression', () => {
     expect(done.currentReasoning).toBe('reasoning…');
     expect(done.currentToolCalls).toHaveLength(1);
     expect(done.currentArtifacts).toHaveLength(1);
+    expect(done.currentCharts).toHaveLength(1);
   });
 
   it('CLEAR_STREAM_BUFFERS zeroes streaming fields without touching status/session', () => {
@@ -66,6 +85,7 @@ describe('chatStreamReducer — duplication regression', () => {
     expect(cleared.currentReasoning).toBe('');
     expect(cleared.currentToolCalls).toEqual([]);
     expect(cleared.currentArtifacts).toEqual([]);
+    expect(cleared.currentCharts).toEqual([]);
 
     // Identity-bearing fields preserved.
     expect(cleared.status).toBe('done');
@@ -105,5 +125,14 @@ describe('chatStreamReducer — duplication regression', () => {
     expect(s.currentReasoning).toBe('');
     expect(s.currentToolCalls).toEqual([]);
     expect(s.currentArtifacts).toEqual([]);
+    expect(s.currentCharts).toEqual([]);
+  });
+
+  it('CHART action appends to currentCharts', () => {
+    let s = makeInitialStreamState('sess-1');
+    s = chatStreamReducer(s, { type: 'CHART', artifact: makeChart('c-1') });
+    s = chatStreamReducer(s, { type: 'CHART', artifact: makeChart('c-2') });
+    expect(s.currentCharts).toHaveLength(2);
+    expect(s.currentCharts.map((c) => c.id)).toEqual(['c-1', 'c-2']);
   });
 });

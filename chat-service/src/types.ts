@@ -4,6 +4,9 @@
  */
 
 import { EventEmitter } from 'node:events';
+import type { ChartArtifact } from './services/chart-spec.js';
+
+export type { ChartSpec, ChartType, ChartArtifact } from './services/chart-spec.js';
 
 // ---------------------------------------------------------------------------
 // Cube query shape (mirrors what /build consumes)
@@ -49,6 +52,8 @@ export interface QueryArtifact {
   deeplinkUrl: string;
   deeplinkVia: 'inline' | 'session-storage';
   payload?: CubeQuery; // only present when via === 'session-storage'
+  /** Optional inline chart suggested by the LLM at emit time. */
+  chart?: ChartArtifact;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,6 +68,7 @@ export type SseEvent =
   | { type: 'tool_result'; data: { id: string; ok: boolean; ms: number; summary: string } }
   | { type: 'token'; data: { delta: string } }
   | { type: 'query_artifact'; data: QueryArtifact }
+  | { type: 'chart'; data: ChartArtifact }
   | { type: 'result'; data: { text: string; cost_usd?: number; input_tokens?: number; output_tokens?: number } }
   | { type: 'error'; data: { code: string; message: string } }
   | { type: 'done'; data: Record<string, never> }
@@ -110,6 +116,7 @@ export interface ChatTurnRow {
   reasoning_json: string | null;
   tool_calls_json: string | null;
   artifacts_json: string | null;
+  charts_json: string | null;
   input_tokens: number | null;
   output_tokens: number | null;
   cost_usd: number | null;

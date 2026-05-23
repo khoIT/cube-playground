@@ -19,6 +19,7 @@ allowed_tools:
   - get_segment
   - preview_cube_query
   - emit_query_artifact
+  - emit_chart
 ---
 
 # Compare Skill
@@ -45,3 +46,13 @@ Compare two subjects on the same metric. Common patterns: segment A vs segment B
 - Never invent member names — confirm via `get_cube_meta`.
 - Never echo more than 5 raw row values; report counts + percentages.
 - If subjects are ambiguous (e.g. "compare revenue and cost"), ask one clarifying question and stop. Two-word adjacency without a connector is NOT a comparison.
+
+## Charts
+
+Comparisons are highly chartable. Recommended types:
+
+- `compareDateRange` path with a single time dim → `multi-line` (two series, one per period). Pass as `chart` on `emit_query_artifact`.
+- Two subjects across multiple categories → `stacked-bar` with `encoding.series` = the subject column.
+- Two subjects, single metric each → `emit_chart` standalone with `type: 'bar'` and rows `[{ subject: 'A', value: ... }, { subject: 'B', value: ... }]`.
+
+Always state the delta + ratio in the surrounding text — the chart shows magnitude, the text states the verdict.

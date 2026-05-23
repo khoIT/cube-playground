@@ -10,6 +10,7 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import { BarChart2, ExternalLink } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
+import { AssistantChartSection } from './assistant-chart-section';
 import type { QueryArtifact } from '../../../api/chat-sse-client';
 
 interface QueryArtifactCardProps {
@@ -122,6 +123,13 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
           }}
         >
           {artifact.summary}
+        </div>
+      )}
+
+      {/* Embedded chart — when emit_query_artifact was called with `chart`. */}
+      {artifact.chart && (
+        <div style={{ padding: '0 14px 4px' }}>
+          <AssistantChartSection artifact={artifact.chart} embedded />
         </div>
       )}
 

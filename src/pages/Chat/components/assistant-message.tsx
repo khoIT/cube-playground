@@ -14,7 +14,8 @@ import { T, Icon } from '../../../shell/theme';
 import { ReasoningTrace } from './reasoning-trace';
 import { ToolCallChip } from './tool-call-chip';
 import { QueryArtifactCard } from './query-artifact-card';
-import type { QueryArtifact } from '../../../api/chat-sse-client';
+import { AssistantChartSection } from './assistant-chart-section';
+import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
 
 // ---------------------------------------------------------------------------
 // Section types
@@ -52,12 +53,18 @@ export interface QueryArtifactSection {
   artifact: QueryArtifact;
 }
 
+export interface ChartSection {
+  type: 'chart';
+  artifact: ChartArtifact;
+}
+
 export type AssistantSection =
   | TextSection
   | ReasoningSection
   | ToolCallSection
   | ToolResultSection
-  | QueryArtifactSection;
+  | QueryArtifactSection
+  | ChartSection;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -193,6 +200,9 @@ function SectionRenderer({ section }: { section: AssistantSection }) {
 
     case 'query_artifact':
       return <QueryArtifactCard artifact={section.artifact} />;
+
+    case 'chart':
+      return <AssistantChartSection artifact={section.artifact} />;
 
     default:
       return null;

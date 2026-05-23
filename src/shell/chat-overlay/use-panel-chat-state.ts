@@ -22,7 +22,9 @@ function turnsToMessages(
     for (const tc of t.toolCalls ?? []) {
       sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.ok ? 'ok' : 'error', ms: tc.ms, summary: tc.summary });
     }
+    const embeddedChartIds = new Set<string>();
     for (const art of t.artifacts ?? []) {
+      if (art.chart?.id) embeddedChartIds.add(art.chart.id);
       sections.push({
         type: 'query_artifact',
         artifact: {
@@ -30,8 +32,13 @@ function turnsToMessages(
           deeplinkUrl: art.deeplinkUrl, deeplinkVia: art.deeplinkVia,
           source: art.source as 'business-metric' | 'segment' | 'raw',
           sourceRef: art.sourceRef, payload: art.payload, query: art.query,
+          chart: art.chart,
         },
       });
+    }
+    for (const ch of t.charts ?? []) {
+      if (embeddedChartIds.has(ch.id)) continue;
+      sections.push({ type: 'chart', artifact: ch });
     }
     return { role: 'assistant', id: t.id, sections };
   });
@@ -86,6 +93,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     currentText,
     currentReasoning,
     currentArtifacts,
+    currentCharts,
     currentToolCalls,
     sendTurn,
     cancel,
@@ -97,6 +105,14 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     if (currentReasoning) s.push({ type: 'reasoning', text: currentReasoning });
     for (const tc of currentToolCalls) s.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.status, ms: tc.ms, summary: tc.summary });
     for (const art of currentArtifacts) s.push({ type: 'query_artifact', artifact: art });
+    // Skip charts that are already embedded inside one of the emitted artifacts.
+    const embeddedChartIds = new Set(
+      currentArtifacts.map((a) => a.chart?.id).filter((x): x is string => !!x),
+    );
+    for (const ch of currentCharts) {
+      if (embeddedChartIds.has(ch.id)) continue;
+      s.push({ type: 'chart', artifact: ch });
+    }
     if (currentText) s.push({ type: 'text', text: currentText });
     return s;
   };
