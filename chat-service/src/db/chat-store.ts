@@ -42,9 +42,24 @@ export function getSession(
 
 export function listSessions(
   db: Database.Database,
-  params: { ownerId: string; gameId: string; limit?: number },
+  params: { ownerId: string; gameId: string; limit?: number; q?: string },
 ): ChatSessionRow[] {
   const limit = params.limit ?? 20;
+  const q = params.q?.trim();
+  if (q) {
+    // Title-only LIKE search. Escape % _ in the user input to keep them literal.
+    const safe = q.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const pattern = `%${safe}%`;
+    return db
+      .prepare(
+        `SELECT * FROM chat_sessions
+         WHERE owner_id = ? AND game_id = ? AND status != 'archived'
+           AND title LIKE ? ESCAPE '\\'
+         ORDER BY last_turn_at DESC, created_at DESC
+         LIMIT ?`,
+      )
+      .all(params.ownerId, params.gameId, pattern, limit) as ChatSessionRow[];
+  }
   return db
     .prepare(
       `SELECT * FROM chat_sessions

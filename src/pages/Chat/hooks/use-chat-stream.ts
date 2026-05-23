@@ -14,7 +14,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { openChatTurn } from '../../../api/chat-sse-client';
 import { getOwnerId } from '../../../api/chat-owner-id';
-import { pushRecent } from '../../../shell/sidebar/recent-items-store';
 import { notifyChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 import {
   chatStreamReducer,
@@ -37,7 +36,6 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
   sessionIdRef.current = state.sessionId ?? sessionId;
 
   const cancelRef = useRef<(() => void) | null>(null);
-  const userMessageRef = useRef<string>('');
 
   // Resync when the parent changes sessionId externally (e.g. "New chat"
   // sets prop to null, user navigates to a different stored session).
@@ -57,7 +55,6 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
   const sendTurn = useCallback(
     async (message: string) => {
       cancelRef.current?.();
-      userMessageRef.current = message;
       dispatch({ type: 'START', sessionId: sessionIdRef.current });
 
       const { stream, cancel } = openChatTurn({
@@ -119,11 +116,7 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
               receivedDone = true;
               dispatch({ type: 'DONE' });
               const sid = sessionIdRef.current;
-              if (sid) {
-                const title = (userMessageRef.current || 'Chat').slice(0, 64);
-                pushRecent('chat', { id: sid, title, updatedAt: new Date().toISOString(), href: `/chat/${sid}` });
-                notifyChatSessionChanged(sid);
-              }
+              if (sid) notifyChatSessionChanged(sid);
               break;
             }
           }

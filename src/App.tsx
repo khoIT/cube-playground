@@ -13,6 +13,7 @@ import GlobalStyles from './components/GlobalStyles';
 import { GamePicker } from './components/Header/game-picker';
 import { SmartSearchOverlay } from './shared/smart-search/smart-search-overlay';
 import { SmartSearchProvider, useSmartSearch } from './shared/smart-search/smart-search-context';
+import { ChatSearchOverlay } from './shared/chat-search/chat-search-overlay';
 // useTopbarTrailing is consumed by page components; importing here only to
 // keep TypeScript happy about the unused-export check is unnecessary.
 import {
@@ -168,6 +169,7 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
               <CubeTokenBootstrap />
               <ShellLayout fatalError={fatalError}>{children}</ShellLayout>
               <SmartSearchOverlay />
+              <ChatSearchOverlay />
               <RecentItemPusher />
             </TopbarBreadcrumbProvider>
           </TopbarTrailingProvider>

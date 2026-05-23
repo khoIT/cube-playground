@@ -12,6 +12,7 @@ import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
 import { SidebarItem } from './sidebar-item';
 import { RecentItems } from './recent-items';
+import { SidebarChatRecents } from './sidebar-chat-recents';
 import { WorkspacePill } from './workspace-pill';
 import { BottomRow } from './bottom-row';
 import { CollapseToggle } from './collapse-toggle';
@@ -86,11 +87,7 @@ export function Sidebar() {
             to="/chat"
             collapsed={collapsed}
           >
-            <RecentItems
-              module="chat"
-              seeAllTo="/chat"
-              hrefFor={(id) => `/chat/${id}`}
-            />
+            <SidebarChatRecents />
           </SidebarSection>
         )}
 

@@ -11,7 +11,6 @@ import { T } from '../theme';
 import { getWidth, setWidth } from './chat-panel-open-store';
 import { useActiveChatSession, setActiveChatSession } from './use-active-chat-session';
 import { notifyChatSessionChanged } from './chat-session-events';
-import { pushRecent } from '../sidebar/recent-items-store';
 import { ChatPanelHeader } from './chat-panel-header';
 import { ChatPanelEmptyState } from './chat-panel-empty-state';
 import { ChatThreadView } from '../../pages/Chat/components/chat-thread-view';
@@ -39,7 +38,6 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     resetChat,
     status,
     liveSessionId,
-    firstUserMessage,
   } = usePanelChatState(sessionId);
 
   // When stream creates a new session id, store it as the active session.
@@ -50,19 +48,17 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     }
   }, [liveSessionId, sessionId, setSessionId]);
 
-  // On turn done, push to recents and broadcast change event.
+  // On turn done, broadcast change so the sidebar + history rail refetch
+  // their server-truth session lists. (Sidebar chat tray no longer uses
+  // localStorage recents — see SidebarChatRecents.)
   const prevStatusRef = useRef(status);
   useEffect(() => {
     if (prevStatusRef.current !== 'done' && status === 'done') {
       const sid = liveSessionId ?? sessionId;
-      const title = (firstUserMessage ?? 'Chat').slice(0, 64);
-      if (sid) {
-        pushRecent('chat', { id: sid, title, updatedAt: new Date().toISOString(), href: `/chat/${sid}` });
-        notifyChatSessionChanged(sid);
-      }
+      if (sid) notifyChatSessionChanged(sid);
     }
     prevStatusRef.current = status;
-  }, [status, liveSessionId, sessionId, firstUserMessage]);
+  }, [status, liveSessionId, sessionId]);
 
   // ---------------------------------------------------------------------------
   // Drag-resize (pointer capture)

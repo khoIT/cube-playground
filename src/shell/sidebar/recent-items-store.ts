@@ -10,7 +10,7 @@ const VERSION = 'v1';
 const MAX = 8;
 const EVENT = 'gds-cube:recent-changed';
 
-export type RecentModule = 'chat' | 'data-model' | 'metrics-catalog' | 'segments';
+export type RecentModule = 'data-model' | 'metrics-catalog' | 'segments';
 
 export interface RecentItem {
   /** Stable id (route param). */

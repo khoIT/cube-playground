@@ -63,8 +63,8 @@ interface SessionsRouteOptions {
 }
 
 const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify, opts) => {
-  // GET /sessions?game=<id>
-  fastify.get<{ Querystring: { game?: string } }>(
+  // GET /sessions?game=<id>&q=<title-substring>
+  fastify.get<{ Querystring: { game?: string; q?: string } }>(
     '/sessions',
     async (req, reply) => {
       const ownerId = req.headers['x-owner-id'];
@@ -77,7 +77,12 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
         return reply.status(400).send({ error: 'Missing ?game= query param' });
       }
 
-      const sessions = chatStore.listSessions(opts.db, { ownerId, gameId, limit: 50 });
+      const sessions = chatStore.listSessions(opts.db, {
+        ownerId,
+        gameId,
+        limit: 50,
+        q: req.query.q,
+      });
       return reply.send(sessions);
     },
   );

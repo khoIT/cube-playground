@@ -1,6 +1,7 @@
 /**
  * useChatSessionsList — fetches the sessions index for a given game.
  * Refetches automatically on gds-cube:chat-session-changed events.
+ * Optional `query` param triggers a server-side title search.
  */
 import { useCallback, useEffect, useReducer } from 'react';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
@@ -11,8 +12,36 @@ export interface SessionSummary {
   id: string;
   gameId: string;
   title: string;
+  /** ISO timestamp string. */
   createdAt: string;
+  /** ISO timestamp string. Falls back to createdAt when missing. */
   updatedAt?: string;
+}
+
+// Server payload (chat-service snake_case + epoch ms).
+interface RawSessionSummary {
+  id: string;
+  owner_id?: string;
+  game_id: string;
+  title: string;
+  created_at: number;
+  last_turn_at?: number | null;
+}
+
+/**
+ * Map chat-service's raw payload (snake_case + epoch ms) to the FE shape
+ * (camelCase + ISO strings). Without this mapping, downstream relativeTime()
+ * calls received `undefined` for createdAt/updatedAt and rendered "NaNd ago".
+ */
+function normalizeSession(raw: RawSessionSummary): SessionSummary {
+  const updatedMs = raw.last_turn_at ?? raw.created_at;
+  return {
+    id: raw.id,
+    gameId: raw.game_id,
+    title: raw.title,
+    createdAt: new Date(raw.created_at).toISOString(),
+    updatedAt: new Date(updatedMs).toISOString(),
+  };
 }
 
 type State =
@@ -35,14 +64,17 @@ function reducer(_: State, action: Action): State {
   }
 }
 
-export function useChatSessionsList() {
+export function useChatSessionsList(query?: string) {
   const gameId = useActiveGameId();
   const [state, dispatch] = useReducer(reducer, { status: 'idle' });
+  const trimmed = (query ?? '').trim();
 
   const fetchSessions = useCallback(async (signal?: AbortSignal) => {
     dispatch({ type: 'FETCH' });
     try {
-      const res = await fetch(`/api/chat/sessions?game=${encodeURIComponent(gameId)}`, {
+      const params = new URLSearchParams({ game: gameId });
+      if (trimmed) params.set('q', trimmed);
+      const res = await fetch(`/api/chat/sessions?${params.toString()}`, {
         headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
         signal,
       });
@@ -52,14 +84,14 @@ export function useChatSessionsList() {
         return;
       }
       const data = await res.json();
-      // Server returns { sessions: [...] } or plain array.
-      const sessions: SessionSummary[] = Array.isArray(data) ? data : (data.sessions ?? []);
-      dispatch({ type: 'SUCCESS', sessions });
+      // Server returns { sessions: [...] } or plain array of raw rows.
+      const rawList: RawSessionSummary[] = Array.isArray(data) ? data : (data.sessions ?? []);
+      dispatch({ type: 'SUCCESS', sessions: rawList.map(normalizeSession) });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       dispatch({ type: 'ERROR', error: err instanceof Error ? err.message : 'Unknown error' });
     }
-  }, [gameId]);
+  }, [gameId, trimmed]);
 
   // Initial fetch.
   useEffect(() => {

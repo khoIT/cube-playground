@@ -37,6 +37,7 @@ interface SessionParams {
 // Query string for GET /sessions
 interface SessionsQuery {
   game?: string;
+  q?: string;
 }
 
 // Query string for GET /stats
@@ -212,8 +213,10 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     '/api/chat/sessions',
     async (request: FastifyRequest<{ Querystring: SessionsQuery }>, reply: FastifyReply) => {
       const owner = resolveOwner(request) ?? request.owner;
-      const game = request.query.game ?? '';
-      const url = `${chatServiceUrl()}/sessions?game=${encodeURIComponent(game)}`;
+      const params = new URLSearchParams();
+      params.set('game', request.query.game ?? '');
+      if (request.query.q) params.set('q', request.query.q);
+      const url = `${chatServiceUrl()}/sessions?${params.toString()}`;
       try {
         const { status, payload } = await proxyJson(url, 'GET', owner);
         return reply.status(status).send(payload);
