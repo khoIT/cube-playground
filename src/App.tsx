@@ -22,6 +22,7 @@ import {
   trackImpl,
 } from './events';
 import { useAppContext } from './hooks';
+import { useCubeTokenBootstrap } from './hooks/use-cube-token-bootstrap';
 import { QUERY_BUILDER_COLOR_TOKENS } from './QueryBuilderV2';
 import { rootStyles } from './theme/ui-kit-theme';
 
@@ -151,6 +152,7 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
         <GlobalStyles />
 
         <SmartSearchProvider>
+          <CubeTokenBootstrap />
           <Header selectedKeys={[location.pathname]} />
 
           <StyledLayoutContent>
@@ -174,6 +176,16 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
 type ContextSetterProps = {
   context: PlaygroundContext;
 };
+
+/**
+ * Side-effect-only component that keeps the Cube JWT in sync with the active
+ * game. Lives inside SmartSearchProvider (and below SecurityContextProvider
+ * mounted in src/index.tsx) so the hook sees both contexts.
+ */
+function CubeTokenBootstrap() {
+  useCubeTokenBootstrap();
+  return null;
+}
 
 function ContextSetter({ context }: ContextSetterProps) {
   const { setContext } = useAppContext();

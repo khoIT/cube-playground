@@ -13,6 +13,7 @@ import presetsRoutes from './routes/presets.js';
 import metaVersionRoutes from './routes/meta-version.js';
 import previewRoutes from './routes/preview.js';
 import gamesRoutes from './routes/games.js';
+import cubeTokenRoutes from './routes/cube-token.js';
 import cdpMetricsRoutes from './routes/cdp-metrics.js';
 import businessMetricsRoutes from './routes/business-metrics.js';
 import anomalyStateRoutes from './routes/anomaly-state.js';
@@ -39,6 +40,7 @@ export async function buildApp() {
   await app.register(metaVersionRoutes);
   await app.register(previewRoutes);
   await app.register(gamesRoutes);
+  await app.register(cubeTokenRoutes);
   await app.register(cdpMetricsRoutes);
   await app.register(businessMetricsRoutes);
   await app.register(anomalyStateRoutes);

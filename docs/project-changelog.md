@@ -2,6 +2,24 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-23 (later)
+
+### Fixed — server-side game scoping (PTG no longer loads ballistar yaml)
+
+- **Root cause.** `cube-dev/cube/cube.js` is multi-tenant via JWT `{ game }` claim, but `gameFor()` falls back to a hard-coded literal `'ballistar'` when the claim is missing. The playground sent the same static token (no `game` claim) for every UI game switch, so every game silently loaded ballistar's yaml.
+
+- **Server endpoint.** New `GET /api/playground/cube-token?game=<id>` mints a Cube-compatible HS256 JWT in-process using `CUBEJS_API_SECRET` (shared with Cube). Pre-minted `CUBE_TOKEN_<GAME>` env vars override. Returns `{ token, source: 'env' | 'minted' | 'fallback' | 'none' }`. No new npm dep — `node:crypto` does the signing.
+- Files: `server/src/services/{sign-cube-token.ts, resolve-cube-token.ts, games-config-loader.ts}`, `server/src/routes/cube-token.ts`.
+
+- **Frontend bootstrap.** New `useCubeTokenBootstrap()` hook (mounted from `App.tsx`) listens to `GameContext.gameId` and, on every change, calls the new endpoint and pushes the returned token into `SecurityContextContext.saveToken`. The existing `useCubejsApi` memo rebuilds, so the next `/meta` / `/load` carries the right `game` claim. `null` responses (no token strategy configured) leave the current token alone so manually-pasted JWTs survive.
+- Files: `src/api/cube-token-client.ts`, `src/hooks/use-cube-token-bootstrap.ts`.
+
+- **Cube game-id aliases.** `cube-dev/cube/cube.js` now carries a `GAME_ALIASES` map (`cfm_vn → cfm`, `jus_vn → jus`, `ballistar_vn → ballistar`) and a `canonicalGame()` helper applied in `checkAuth` and `gameFor`, so the frontend ids in `gds.config.json` align with Cube's canonical schema keys without a data migration.
+
+- **Setup.** `CUBEJS_API_SECRET` must be on the playground server's env (same value Cube uses). Without it, `/api/playground/cube-token` returns `source: 'none'` and the UI continues to use the existing single token.
+
+- Tests: 4 new server tests (`sign-cube-token`, `cube-token-route`, extended `resolve-cube-token`); 1 new frontend test (`cube-token-client`). 128/128 server + 688/688 frontend green.
+
 ## 2026-05-23
 
 ### Changed — main-flow redesign, metric split, end-to-end game picker

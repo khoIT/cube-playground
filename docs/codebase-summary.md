@@ -23,6 +23,20 @@ High-level map of the cube-playground app, updated as features ship.
   `{ <cube>.gameId equals activeGameId }` into a Cube `Query` for every
   referenced cube that exposes a `gameId` dim. Used by `QueryTabsRenderer`
   in Playground.
+- **Server-side game scoping** (2026-05-23):
+  - `server/src/routes/cube-token.ts` → `GET /api/playground/cube-token?game=<id>`
+    returns `{ token, source }`. Token strategy: env `CUBE_TOKEN_<GAME>`
+    overrides, otherwise mint HS256 with `CUBEJS_API_SECRET`, otherwise
+    `CUBE_TOKEN` fallback, otherwise `null`.
+  - `server/src/services/sign-cube-token.ts` — `node:crypto`-based HS256 signer
+    matching Cube's `checkAuth` contract.
+  - `src/hooks/use-cube-token-bootstrap.ts` — frontend orchestrator. On every
+    `GameContext.gameId` change it fetches a token and calls
+    `SecurityContextContext.saveToken`, so the next Cube request carries the
+    correct `game` claim and Cube's `repositoryFactory` loads the right yaml.
+  - `cube-dev/cube/cube.js` carries a `GAME_ALIASES` map
+    (`cfm_vn → cfm`, `jus_vn → jus`, `ballistar_vn → ballistar`) so the
+    frontend's `gds.config.json` ids align with Cube's canonical schema keys.
 
 ## New Metric draft model
 
