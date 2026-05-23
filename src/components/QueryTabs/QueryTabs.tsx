@@ -20,6 +20,9 @@ const { TabPane } = Tabs;
 export const StyledTabs = styled(Tabs)`
   margin-top: 0;
   display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   max-width: 100%;
   grid-template-rows: min-content 1fr;
   overflow: hidden;
@@ -49,6 +52,20 @@ export const StyledTabs = styled(Tabs)`
   & .ant-tabs-content-holder {
     position: relative;
     display: flex;
+    min-height: 0;
+  }
+
+  & .ant-tabs-content {
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+  }
+
+  & .ant-tabs-tabpane-active {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   & .ant-tabs-tab {

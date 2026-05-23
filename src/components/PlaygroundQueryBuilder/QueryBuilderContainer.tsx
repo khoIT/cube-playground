@@ -28,11 +28,17 @@ import { PlaygroundVizard } from './playground-vizard';
 const StyledCard = styled(Card)`
   border-radius: 0;
   border-bottom: 1px;
-  min-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--layout-body-background);
 
   & .ant-card-body {
     padding: 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 `;
 
@@ -171,7 +177,7 @@ function QueryTabsRenderer({
       }}
     >
       {({ id, query, chartType }, saveTab) => (
-        <Panel key={id} height="(100vh - 12.5x) (100vh - 12.5x)" fill="#clear">
+        <Panel key={id} height="100% 100%" fill="#clear">
           <QueryBuilder
             apiUrl={apiUrl}
             apiToken={token}
