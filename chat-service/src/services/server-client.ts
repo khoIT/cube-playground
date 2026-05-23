@@ -1,0 +1,79 @@
+/**
+ * Thin HTTP client for reaching the existing server/ service.
+ * Forwards authentication headers so the server can enforce owner scoping.
+ * Throws ServerClientError on non-2xx so callers can branch on status codes.
+ */
+
+import { config } from '../config.js';
+import type { ToolContext } from '../types.js';
+
+// ---------------------------------------------------------------------------
+// Typed error — callers catch this to distinguish 404 / 5xx / network failure
+// ---------------------------------------------------------------------------
+
+export class ServerClientError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+
+  constructor(status: number, body: unknown) {
+    super(`server-client: HTTP ${status}`);
+    this.name = 'ServerClientError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared header builder
+// ---------------------------------------------------------------------------
+
+function buildHeaders(ctx: ToolContext): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'X-Owner-Id': ctx.ownerId,
+    // cubeToken is used by the server proxy for game-scoped queries
+    'X-Cube-Token': ctx.cubeToken,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public helpers
+// ---------------------------------------------------------------------------
+
+export async function getJson<T>(path: string, ctx: ToolContext): Promise<T> {
+  const url = `${config.serverBaseUrl}${path}`;
+  const res = await fetch(url, { headers: buildHeaders(ctx) });
+
+  if (!res.ok) {
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      body = await res.text().catch(() => '');
+    }
+    throw new ServerClientError(res.status, body);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+export async function postJson<T>(path: string, body: unknown, ctx: ToolContext): Promise<T> {
+  const url = `${config.serverBaseUrl}${path}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: buildHeaders(ctx),
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    let errBody: unknown;
+    try {
+      errBody = await res.json();
+    } catch {
+      errBody = await res.text().catch(() => '');
+    }
+    throw new ServerClientError(res.status, errBody);
+  }
+
+  return res.json() as Promise<T>;
+}

@@ -18,13 +18,18 @@ trigger_keywords:
   - cohort
 allowed_tools:
   - get_cube_meta
+  - list_business_metrics
+  - get_business_metric
+  - list_segments
+  - get_segment
   - preview_cube_query
+  - explain_cube_sql
   - emit_query_artifact
 ---
 
-# Explore Skill (Phase 01 stub)
+# Explore Skill
 
-This is a stub. Full skill body lands in Phase 04. For now:
+Open-ended exploration. Translate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity:
 
 1. Call `get_cube_meta` once to learn the active game's cubes/dimensions/measures.
 2. Map the user's question to measures + dimensions + a time range. Prefer the simplest valid query.

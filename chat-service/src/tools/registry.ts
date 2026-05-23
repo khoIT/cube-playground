@@ -10,6 +10,11 @@ import type { ToolDefinition } from '../core/claude-runner.js';
 import * as getCubeMeta from './get-cube-meta.js';
 import * as previewCubeQuery from './preview-cube-query.js';
 import * as emitQueryArtifact from './emit-query-artifact.js';
+import * as listBusinessMetrics from './list-business-metrics.js';
+import * as getBusinessMetric from './get-business-metric.js';
+import * as listSegments from './list-segments.js';
+import * as getSegment from './get-segment.js';
+import * as explainCubeSql from './explain-cube-sql.js';
 
 // ---------------------------------------------------------------------------
 // Registry entry shape
@@ -46,6 +51,41 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: emitQueryArtifact.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: emitQueryArtifact.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: listBusinessMetrics.name,
+    description: listBusinessMetrics.description,
+    inputSchema: listBusinessMetrics.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: listBusinessMetrics.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: getBusinessMetric.name,
+    description: getBusinessMetric.description,
+    inputSchema: getBusinessMetric.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: getBusinessMetric.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: listSegments.name,
+    description: listSegments.description,
+    inputSchema: listSegments.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: listSegments.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: getSegment.name,
+    description: getSegment.description,
+    inputSchema: getSegment.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: getSegment.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: explainCubeSql.name,
+    description: explainCubeSql.description,
+    inputSchema: explainCubeSql.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: explainCubeSql.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
 ];
 
