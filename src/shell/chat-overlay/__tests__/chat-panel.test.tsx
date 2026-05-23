@@ -37,6 +37,7 @@ vi.mock('../use-panel-chat-state', () => ({
     setComposerValue: vi.fn(),
     handleSubmit: vi.fn(),
     cancel: vi.fn(),
+    resetChat: vi.fn(),
     status: 'idle',
     liveSessionId: null,
     firstUserMessage: null,

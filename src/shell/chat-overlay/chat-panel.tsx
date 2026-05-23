@@ -36,7 +36,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     composerValue,
     setComposerValue,
     handleSubmit,
-    cancel,
+    resetChat,
     status,
     liveSessionId,
     firstUserMessage,
@@ -99,10 +99,13 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
   // ---------------------------------------------------------------------------
 
   const handleNew = useCallback(() => {
-    cancel();
+    // resetChat does cancel() + wipes committedMessages/composer/firstUserMessage.
+    // Must run regardless of whether sessionId is already null (e.g. user
+    // submitted then clicked + before session_created arrived).
+    resetChat();
     setSessionId(null);
     setActiveChatSession(null);
-  }, [cancel, setSessionId]);
+  }, [resetChat, setSessionId]);
 
   const handleExpand = useCallback(() => {
     const target = sessionId ? `/chat/${sessionId}` : '/chat';

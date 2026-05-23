@@ -51,6 +51,8 @@ export interface PanelChatState {
   setComposerValue: (v: string) => void;
   handleSubmit: () => void;
   cancel: () => void;
+  /** Cancel + wipe committed messages and composer. Used by "New chat". */
+  resetChat: () => void;
   status: ReturnType<typeof useChatStream>['status'];
   /** Updated session id (may differ from input when a new session is created). */
   liveSessionId: string | null;
@@ -80,12 +82,17 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
 
   useEffect(() => {
     if (!session || hydratedRef.current) return;
+    // Guard the hydration race: useChatSession briefly retains the previous
+    // session's data after sessionId flips (its own RESET fires in a later
+    // effect tick). Without this check, "New chat" → null re-hydrates the
+    // just-cleared committedMessages from stale state.
+    if (session.id !== sessionId) return;
     hydratedRef.current = true;
     const msgs = turnsToMessages(session.turns);
     setCommittedMessages(msgs);
     const first = msgs.find((m) => m.role === 'user');
     if (first && first.role === 'user') setFirstUserMessage(first.text);
-  }, [session]);
+  }, [session, sessionId]);
 
   const {
     status,
@@ -150,6 +157,17 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     sendTurn(text);
   }, [composerValue, sendTurn, firstUserMessage]);
 
+  // Explicit reset for "New chat" — needed because clicking + when sessionId
+  // is already null is a no-op for the sessionId-change effect, leaving the
+  // locally-pushed user bubble visible until session_created arrives.
+  const resetChat = useCallback(() => {
+    cancel();
+    setCommittedMessages([]);
+    setFirstUserMessage(null);
+    setComposerValue('');
+    hydratedRef.current = false;
+  }, [cancel]);
+
   return {
     displayMessages,
     isStreaming,
@@ -157,6 +175,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     setComposerValue,
     handleSubmit,
     cancel,
+    resetChat,
     status,
     liveSessionId: streamSessionId,
     firstUserMessage,

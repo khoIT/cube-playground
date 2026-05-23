@@ -136,3 +136,30 @@ describe('chatStreamReducer — duplication regression', () => {
     expect(s.currentCharts.map((c) => c.id)).toEqual(['c-1', 'c-2']);
   });
 });
+
+describe('chatStreamReducer — New chat (EXTERNAL_RESET) regression', () => {
+  it('RESET preserves sessionId (cancel mid-turn case)', () => {
+    let s = makeInitialStreamState('sess-x');
+    s = chatStreamReducer(s, { type: 'TOKEN', delta: 'partial' });
+    const reset = chatStreamReducer(s, { type: 'RESET' });
+    expect(reset.sessionId).toBe('sess-x');
+    expect(reset.currentText).toBe('');
+  });
+
+  it('EXTERNAL_RESET clears sessionId so the next turn opens a new session', () => {
+    let s = makeInitialStreamState('sess-x');
+    s = chatStreamReducer(s, { type: 'TOKEN', delta: 'partial' });
+    const cleared = chatStreamReducer(s, { type: 'EXTERNAL_RESET', sessionId: null });
+    expect(cleared.sessionId).toBeNull();
+    expect(cleared.status).toBe('idle');
+    expect(cleared.currentText).toBe('');
+  });
+
+  it('EXTERNAL_RESET to a different session id swaps in the new id', () => {
+    let s = makeInitialStreamState('sess-x');
+    s = chatStreamReducer(s, { type: 'TOKEN', delta: 'partial' });
+    const swapped = chatStreamReducer(s, { type: 'EXTERNAL_RESET', sessionId: 'sess-y' });
+    expect(swapped.sessionId).toBe('sess-y');
+    expect(swapped.currentText).toBe('');
+  });
+});

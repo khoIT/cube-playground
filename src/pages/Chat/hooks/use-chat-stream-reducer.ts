@@ -58,6 +58,7 @@ export type StreamAction =
   | { type: 'DISCONNECTED' }
   | { type: 'RATE_LIMITED'; retryAfterMs: number }
   | { type: 'RESET' }
+  | { type: 'EXTERNAL_RESET'; sessionId: string | null }
   | { type: 'CLEAR_STREAM_BUFFERS' };
 
 export function makeInitialStreamState(sessionId: string | null): StreamState {
@@ -147,6 +148,11 @@ export function chatStreamReducer(state: StreamState, action: StreamAction): Str
 
     case 'RESET':
       return makeInitialStreamState(state.sessionId);
+
+    case 'EXTERNAL_RESET':
+      // Parent sessionId changed (New chat clears to null, or user switched
+      // sessions) — drop internal sessionId and buffers entirely.
+      return makeInitialStreamState(action.sessionId);
 
     case 'CLEAR_STREAM_BUFFERS':
       return {

@@ -11,7 +11,7 @@
  *   cancel()           — abort in-flight turn
  *   reconnect()        — re-fetch session to refresh after disconnect
  */
-import { useCallback, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { openChatTurn } from '../../../api/chat-sse-client';
 import { getOwnerId } from '../../../api/chat-owner-id';
 import { pushRecent } from '../../../shell/sidebar/recent-items-store';
@@ -38,6 +38,21 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
 
   const cancelRef = useRef<(() => void) | null>(null);
   const userMessageRef = useRef<string>('');
+
+  // Resync when the parent changes sessionId externally (e.g. "New chat"
+  // sets prop to null, user navigates to a different stored session).
+  // Without this, RESET preserves state.sessionId and the next turn would
+  // continue the previous session instead of starting a fresh one.
+  useEffect(() => {
+    if (state.sessionId !== sessionId) {
+      cancelRef.current?.();
+      cancelRef.current = null;
+      dispatch({ type: 'EXTERNAL_RESET', sessionId });
+    }
+    // Intentionally depend only on the prop — internal state changes
+    // (SESSION_CREATED bumping state.sessionId) shouldn't re-trigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   const sendTurn = useCallback(
     async (message: string) => {
