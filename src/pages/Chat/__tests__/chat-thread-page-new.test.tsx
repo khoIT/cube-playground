@@ -148,15 +148,16 @@ describe('ChatThreadPage — unified /chat → /chat/:id flow', () => {
 
   it('renders the empty hero on /chat (no id)', () => {
     renderAtChat();
-    expect(screen.getByText(/what do you want to ask/i)).toBeTruthy();
-    // History rail visible on wide screens for parity with retired landing page.
-    expect(screen.getByTestId('chat-history-rail')).toBeTruthy();
+    // Empty hero renders the cube wordmark + new "What do you want to know?" placeholder.
+    expect(screen.getByPlaceholderText(/what do you want to know/i)).toBeTruthy();
+    // History rail removed in favour of sidebar tray + ChatSearchOverlay.
+    expect(screen.queryByTestId('chat-history-rail')).toBeNull();
   });
 
   it('shows the user message bubble immediately on submit (the bug)', async () => {
     renderAtChat();
 
-    const textarea = screen.getByPlaceholderText(/ask anything about your data/i) as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(/what do you want to know/i) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'Total revenue this month' } });
     fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' });
 
@@ -170,7 +171,7 @@ describe('ChatThreadPage — unified /chat → /chat/:id flow', () => {
   it('replaces URL to /chat/<id> on session_created and preserves the user msg', async () => {
     const { onLoc } = renderAtChat();
 
-    const textarea = screen.getByPlaceholderText(/ask anything about your data/i) as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(/what do you want to know/i) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'Hello' } });
     fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' });
     await flush();
@@ -191,7 +192,7 @@ describe('ChatThreadPage — unified /chat → /chat/:id flow', () => {
   it('syncs route id to the active chat session store (cross-surface)', async () => {
     const { onLoc } = renderAtChat();
 
-    const textarea = screen.getByPlaceholderText(/ask anything about your data/i) as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(/what do you want to know/i) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'Sync test' } });
     fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter' });
     await flush();

@@ -24,7 +24,7 @@ import { useActiveGameId } from '../../components/Header/use-game-context';
 import { setActiveChatSession } from '../../shell/chat-overlay/use-active-chat-session';
 import { ChatThreadView } from './components/chat-thread-view';
 import { ChatComposer } from './components/chat-composer';
-import { ChatHistoryRail } from './components/chat-history-rail';
+import { ChatEmptyHero } from './components/chat-empty-hero';
 import {
   DisconnectBanner,
   RateLimitedBanner,
@@ -33,11 +33,9 @@ import {
 } from './components/chat-thread-status-banners';
 import { useChatSession } from './hooks/use-chat-session';
 import { useChatStream } from './hooks/use-chat-stream';
-import { useWindowWidth } from './hooks/use-window-width';
 import type { ChatMessage } from './components/chat-message-list';
 import type { AssistantSection } from './components/assistant-message';
 
-const MD_BREAKPOINT = 768;
 
 // ---------------------------------------------------------------------------
 // Helper — convert persisted session turns → ChatMessage[]
@@ -83,9 +81,6 @@ export function ChatThreadPage() {
   const history = useHistory();
   const gameId = useActiveGameId();
   const isNew = !id || id === 'new';
-  const windowWidth = useWindowWidth();
-  const isWide = windowWidth >= MD_BREAKPOINT;
-
   const [composerValue, setComposerValue] = useState('');
   const [committedMessages, setCommittedMessages] = useState<ChatMessage[]>([]);
   const hydratedRef = useRef(false);
@@ -215,10 +210,9 @@ export function ChatThreadPage() {
         overflow: 'hidden',
       }}
     >
-      {isWide && <ChatHistoryRail activeId={id} />}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {isEmptyNew ? (
-          <EmptyHero
+          <ChatEmptyHero
             composerValue={composerValue}
             onChange={setComposerValue}
             onSubmit={handleSubmit}
@@ -241,55 +235,3 @@ export function ChatThreadPage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// EmptyHero — centered "What do you want to ask?" + composer (ported from the
-// retired ChatLandingPage). Rendered only when isNew && no messages yet.
-// ---------------------------------------------------------------------------
-
-interface EmptyHeroProps {
-  composerValue: string;
-  onChange: (v: string) => void;
-  onSubmit: () => void;
-  disabled: boolean;
-}
-
-function EmptyHero({ composerValue, onChange, onSubmit, disabled }: EmptyHeroProps) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '0 24px 48px',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 760 }}>
-        <h1
-          style={{
-            fontFamily: T.fDisp,
-            fontSize: 40,
-            fontWeight: 400,
-            letterSpacing: '0.01em',
-            textTransform: 'uppercase',
-            color: T.n950,
-            margin: '0 0 32px',
-            textAlign: 'center',
-          }}
-        >
-          What do you want to ask?
-        </h1>
-        <ChatComposer
-          value={composerValue}
-          onChange={onChange}
-          onSubmit={onSubmit}
-          disabled={disabled}
-          compact={false}
-          placeholder="Ask anything about your data…"
-        />
-      </div>
-    </div>
-  );
-}
