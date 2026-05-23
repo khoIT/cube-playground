@@ -28,7 +28,7 @@ export async function getMeta(gameId: string, cubeToken: string): Promise<any> {
     return entry.meta;
   }
 
-  const url = `${config.serverBaseUrl}/cubejs-api/v1/meta`;
+  const url = `${config.cubeApiUrl}/cubejs-api/v1/meta`;
   const res = await fetch(url, {
     headers: {
       Authorization: cubeToken,

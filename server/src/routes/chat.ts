@@ -139,11 +139,12 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
         context: body.context,
       };
 
-      // AbortController ties upstream lifetime to client connection
+      // AbortController ties upstream lifetime to the client socket.
+      // We listen on reply.raw (not request.raw) because request.raw fires
+      // its 'close' event the moment Fastify hijacks the response, which
+      // would abort the upstream fetch before it even starts.
       const abort = new AbortController();
-
-      // Abort upstream when client disconnects
-      request.raw.on('close', () => {
+      reply.raw.on('close', () => {
         abort.abort();
       });
 

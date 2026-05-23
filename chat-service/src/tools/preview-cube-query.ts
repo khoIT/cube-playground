@@ -54,7 +54,7 @@ export async function handler(
   const limit = Math.min(args.limit ?? 10, MAX_LIMIT);
   const query = { ...args.query, limit };
 
-  const url = `${config.serverBaseUrl}/cubejs-api/v1/load`;
+  const url = `${config.cubeApiUrl}/cubejs-api/v1/load`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {

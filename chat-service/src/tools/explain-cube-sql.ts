@@ -72,7 +72,7 @@ export async function handler(
   }
 
   // Call Cube /sql directly — same auth pattern as preview_cube_query
-  const url = `${config.serverBaseUrl}/cubejs-api/v1/sql`;
+  const url = `${config.cubeApiUrl}/cubejs-api/v1/sql`;
   let res: Response;
   try {
     res = await fetch(url, {

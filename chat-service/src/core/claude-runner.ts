@@ -22,13 +22,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLAUDE_HOME = resolve(__dirname, '../../runtime/claude-home');
 const SETTINGS_PATH = resolve(CLAUDE_HOME, '.claude/settings.json');
 
-// Seed an isolated Claude home on first use — disable all hooks, no builtin tools.
+// Seed an isolated Claude home on first use — disable all hooks, pre-approve our MCP tools.
 let homeInitialised = false;
 async function ensureClaudeHome(): Promise<void> {
   if (homeInitialised) return;
   await mkdir(resolve(CLAUDE_HOME, '.claude'), { recursive: true });
   if (!existsSync(SETTINGS_PATH)) {
-    await writeFile(SETTINGS_PATH, JSON.stringify({ hooks: {} }, null, 2));
+    await writeFile(
+      SETTINGS_PATH,
+      JSON.stringify(
+        {
+          hooks: {},
+          permissions: {
+            allow: ['mcp__cube-playground-tools__*'],
+          },
+        },
+        null,
+        2,
+      ),
+    );
   }
   homeInitialised = true;
 }
@@ -97,18 +109,22 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
 
   const sdkAllowedTools = permittedTools.map((t) => t.name);
 
+  // sessionId is our internal uuid; the Claude SDK manages its own session ids
+  // separately. Until we persist the SDK's id and pass it back on subsequent
+  // turns, every turn opens a fresh SDK conversation.
+  void sessionId;
+
   const iter = query({
     prompt: message,
     options: {
       model: config.chatModel,
       systemPrompt,
-      resume: sessionId,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mcpServers: { 'cube-playground-tools': mcpServer as any },
       allowedTools: sdkAllowedTools,
       // Prevent the SDK subprocess from calling any builtin Claude Code tools
       disallowedTools: ['Read', 'Write', 'Bash', 'WebFetch', 'WebSearch', 'Edit', 'MultiEdit'],
-      permissionMode: 'dontAsk',
+      permissionMode: 'bypassPermissions',
       env: {
         HOME: CLAUDE_HOME,
         ANTHROPIC_API_KEY: config.anthropicApiKey,
