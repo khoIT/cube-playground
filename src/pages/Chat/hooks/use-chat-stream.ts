@@ -128,6 +128,13 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     dispatch({ type: 'RESET' });
   }, []);
 
+  // Called by consumers after they've committed the streaming buffers into
+  // their own persistent message list. Prevents the live preview from
+  // re-rendering alongside the committed turn.
+  const clearStreamBuffers = useCallback(() => {
+    dispatch({ type: 'CLEAR_STREAM_BUFFERS' });
+  }, []);
+
   // Re-fires session-changed event so useChatSession / rails refetch persisted history.
   const reconnect = useCallback(async () => {
     const sid = sessionIdRef.current;
@@ -152,5 +159,6 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     sendTurn,
     cancel,
     reconnect,
+    clearStreamBuffers,
   };
 }

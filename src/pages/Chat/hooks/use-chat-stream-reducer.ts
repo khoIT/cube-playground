@@ -55,7 +55,8 @@ export type StreamAction =
   | { type: 'ERROR'; message: string }
   | { type: 'DISCONNECTED' }
   | { type: 'RATE_LIMITED'; retryAfterMs: number }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'CLEAR_STREAM_BUFFERS' };
 
 export function makeInitialStreamState(sessionId: string | null): StreamState {
   return {
@@ -140,6 +141,15 @@ export function chatStreamReducer(state: StreamState, action: StreamAction): Str
 
     case 'RESET':
       return makeInitialStreamState(state.sessionId);
+
+    case 'CLEAR_STREAM_BUFFERS':
+      return {
+        ...state,
+        currentText: '',
+        currentReasoning: '',
+        currentArtifacts: [],
+        currentToolCalls: [],
+      };
 
     default:
       return state;

@@ -89,6 +89,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     currentToolCalls,
     sendTurn,
     cancel,
+    clearStreamBuffers,
   } = useChatStream({ sessionId, game: gameId });
 
   const buildStreamingSections = (): AssistantSection[] => {
@@ -103,7 +104,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   const isStreaming = status === 'loading' || status === 'streaming';
 
   const displayMessages: ChatMessage[] = [...committedMessages];
-  if (isStreaming || (status === 'done' && currentText)) {
+  if (isStreaming) {
     const sections = buildStreamingSections();
     if (sections.length > 0) {
       displayMessages.push({ role: 'assistant', id: '__streaming__', sections });
@@ -117,6 +118,9 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
       if (sections.length > 0) {
         setCommittedMessages((prev) => [...prev, { role: 'assistant', id: `${Date.now()}`, sections }]);
       }
+      // Clear stream buffers so the live preview doesn't render alongside the
+      // committed turn. React 18 batches this with setCommittedMessages above.
+      clearStreamBuffers();
     }
     prevStatusRef.current = status;
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
