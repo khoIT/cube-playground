@@ -27,7 +27,6 @@ interface SegmentRow {
 
 interface Snapshot {
   version: 1;
-  generated_at: string;
   segments: SegmentRow[];
   segment_tags: Array<{ segment_id: string; tag: string }>;
   segment_card_cache: Array<{
@@ -50,7 +49,6 @@ export function writeSnapshot(): string {
   const db = getDb();
   const snap: Snapshot = {
     version: 1,
-    generated_at: new Date().toISOString(),
     segments: db.prepare('SELECT * FROM segments ORDER BY id').all() as SegmentRow[],
     segment_tags: db
       .prepare('SELECT segment_id, tag FROM segment_tags ORDER BY segment_id, tag')
