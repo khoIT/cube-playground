@@ -1,9 +1,12 @@
 /**
  * Compose the system prompt for a turn by concatenating:
- *   1. Master command body (cube-playground.md)
- *   2. Active skill body (SKILL.md)
- *   3. Active game context line
+ *   1. Master command body (cube-playground.md) — cached at module level.
+ *   2. Active skill body (SKILL.md) via skill-loader cache.
+ *   3. Active game context line.
  *   4. Optional context preamble (page URL, selected blocks, etc.)
+ *
+ * Returns both the composed system prompt and the skill's allowed tool names
+ * so claude-runner can subset the tool registry accordingly.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -14,9 +17,15 @@ import { loadSkill } from './skill-loader.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MASTER_CMD_PATH = resolve(__dirname, '../../.claude/commands/cube-playground.md');
 
+// Read the master command once and cache it for the lifetime of the process.
+let masterCommandCache: string | null = null;
+
 function readMasterCommand(): string {
-  if (!existsSync(MASTER_CMD_PATH)) return '';
-  return readFileSync(MASTER_CMD_PATH, 'utf-8').trim();
+  if (masterCommandCache !== null) return masterCommandCache;
+  masterCommandCache = existsSync(MASTER_CMD_PATH)
+    ? readFileSync(MASTER_CMD_PATH, 'utf-8').trim()
+    : '';
+  return masterCommandCache;
 }
 
 export interface ComposeParams {
@@ -25,19 +34,36 @@ export interface ComposeParams {
   contextPreamble?: string;
 }
 
+export interface ComposeResult {
+  systemPrompt: string;
+  allowedToolNames: string[];
+}
+
+const FALLBACK_SKILL = 'explore';
+
 /**
- * Build the full system prompt for a turn.
- * Falls back gracefully if the master command or skill file is missing.
+ * Build the full system prompt for a turn and return the skill's allowed tool names.
+ * Falls back to 'explore' if the requested skill is unknown; logs a warning.
  */
-export function compose(params: ComposeParams): string {
+export function compose(params: ComposeParams): ComposeResult {
   const parts: string[] = [];
 
   const master = readMasterCommand();
   if (master) parts.push(master);
 
-  const skillMeta = loadSkill(params.skill);
+  // Resolve skill — fall back to explore if unknown.
+  let skillName = params.skill;
+  let skillMeta = loadSkill(skillName);
+  if (!skillMeta) {
+    if (skillName !== FALLBACK_SKILL) {
+      console.warn(`[mode-prompts] Unknown skill "${skillName}", falling back to "${FALLBACK_SKILL}".`);
+      skillName = FALLBACK_SKILL;
+      skillMeta = loadSkill(skillName);
+    }
+  }
+
   if (skillMeta?.body) {
-    parts.push(`## Active skill: ${skillMeta.displayName || params.skill}\n\n${skillMeta.body}`);
+    parts.push(`## Active skill: ${skillMeta.displayName || skillName}\n\n${skillMeta.body}`);
   }
 
   parts.push(`## Active game\n\n${params.game}`);
@@ -46,5 +72,13 @@ export function compose(params: ComposeParams): string {
     parts.push(`## Context\n\n${params.contextPreamble}`);
   }
 
-  return parts.join('\n\n---\n\n');
+  return {
+    systemPrompt: parts.join('\n\n---\n\n'),
+    allowedToolNames: skillMeta?.allowedTools ?? [],
+  };
+}
+
+/** Reset the master command cache (test helper — not for production use). */
+export function _resetMasterCache(): void {
+  masterCommandCache = null;
 }

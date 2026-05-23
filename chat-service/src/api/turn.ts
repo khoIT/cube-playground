@@ -151,7 +151,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
 
     // --- 6. Compose system prompt ---
     const intent = routeIntent(body.message);
-    const systemPrompt = compose({
+    const { systemPrompt, allowedToolNames } = compose({
       skill: intent.skill,
       game: body.game,
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
@@ -189,6 +189,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       for await (const event of claudeRunner.run({
         sessionId,
         systemPrompt,
+        allowedToolNames,
         message: body.message,
         tools,
         toolContext,

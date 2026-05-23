@@ -53,6 +53,8 @@ export interface ToolDefinition {
 export interface RunParams {
   sessionId: string;
   systemPrompt: string;
+  /** Tool names permitted for this turn (from skill frontmatter). Empty = allow all. */
+  allowedToolNames: string[];
   message: string;
   tools: ToolDefinition[];
   toolContext: ToolContext;
@@ -65,10 +67,17 @@ export interface RunParams {
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
 
-  const { sessionId, systemPrompt, message, tools, toolContext } = params;
+  const { sessionId, systemPrompt, allowedToolNames, message, tools, toolContext } = params;
+
+  // Filter tools to only those permitted by the active skill's frontmatter.
+  // An empty allowedToolNames list means no restriction (pass-through all tools).
+  const permittedTools =
+    allowedToolNames.length > 0
+      ? tools.filter((t) => allowedToolNames.includes(t.name))
+      : tools;
 
   // Bind tool context into handlers via closure
-  const sdkTools = tools.map((t) =>
+  const sdkTools = permittedTools.map((t) =>
     sdkTool(
       t.name,
       t.description,
@@ -86,7 +95,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     tools: sdkTools,
   });
 
-  const allowedToolNames = tools.map((t) => t.name);
+  const sdkAllowedTools = permittedTools.map((t) => t.name);
 
   const iter = query({
     prompt: message,
@@ -96,7 +105,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
       resume: sessionId,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mcpServers: { 'cube-playground-tools': mcpServer as any },
-      allowedTools: allowedToolNames,
+      allowedTools: sdkAllowedTools,
       // Prevent the SDK subprocess from calling any builtin Claude Code tools
       disallowedTools: ['Read', 'Write', 'Bash', 'WebFetch', 'WebSearch', 'Edit', 'MultiEdit'],
       permissionMode: 'dontAsk',

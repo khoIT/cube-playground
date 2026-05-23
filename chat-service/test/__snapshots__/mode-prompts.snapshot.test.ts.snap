@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`mode-prompts.compose — snapshots > explore skill with game "ptg" matches snapshot 1`] = `
+"# Cube Playground
+
+You are a data-analytics assistant for the Cube Playground platform.
+
+---
+
+## Active skill: Explore
+
+# Explore Skill
+
+Step 1: identify the metric.
+Step 2: emit the artifact.
+
+---
+
+## Active game
+
+ptg"
+`;
+
+exports[`mode-prompts.compose — snapshots > metric_explain skill with game "ptg" and contextPreamble matches snapshot 1`] = `
+"# Cube Playground
+
+You are a data-analytics assistant for the Cube Playground platform.
+
+---
+
+## Active skill: Explain Metric
+
+# Explain Metric Skill
+
+Step 1: search business metrics.
+Step 2: render description.
+
+---
+
+## Active game
+
+ptg
+
+---
+
+## Context
+
+User just asked about ROAS."
+`;

@@ -35,7 +35,11 @@ export interface Config {
   chatDbPath: string;
   chatMaxTurnsPerSession: number;
   chatMaxTokensPerTurn: number;
+  /** TTL in ms for the skill-loader LRU cache. Default: 5000 (dev) / 60000 (prod). */
+  skillLoaderTtlMs: number;
 }
+
+const DEFAULT_SKILL_LOADER_TTL = process.env['NODE_ENV'] === 'production' ? 60_000 : 5_000;
 
 export const config: Config = {
   port: optionalInt('PORT', 3005),
@@ -49,4 +53,5 @@ export const config: Config = {
   chatDbPath: optional('CHAT_DB_PATH', './runtime/chat.db'),
   chatMaxTurnsPerSession: optionalInt('CHAT_MAX_TURNS_PER_SESSION', 40),
   chatMaxTokensPerTurn: optionalInt('CHAT_MAX_TOKENS_PER_TURN', 8000),
+  skillLoaderTtlMs: optionalInt('SKILL_LOADER_TTL_MS', DEFAULT_SKILL_LOADER_TTL),
 };
