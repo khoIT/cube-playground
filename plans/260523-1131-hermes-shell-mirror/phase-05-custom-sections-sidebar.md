@@ -198,6 +198,15 @@ src/i18n/locales/
 
 - None — pure UI assembly.
 
+## Status as of 2026-05-23
+
+✅ DONE. All sidebar assembly complete:
+- 5 i18n keys added to `en.json` + `vi.json` (nav.chat, nav.dataModel, nav.metricsCatalog, nav.advanced, nav.dataModelNew).
+- `sidebar-data-model-section.tsx` created: mirrors Hermes Feature Store shape, recently-viewed items + "+ New data model" CTA.
+- `sidebar.tsx` created: 6-section IA (Chat / Playground / Data Model / Metrics Catalog / Segments / Advanced) with route-based auto-expand via longest-prefix matcher.
+
+All sections render in correct order with expand/collapse state persistence. Recent items populated via event listeners.
+
 ## Next Steps
 
 Phase 6 mounts `<Sidebar/>` in the rewritten `App.tsx`, adds route-listener hook to push recents, deletes old `Header/` dir.

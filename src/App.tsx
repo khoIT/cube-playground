@@ -2,18 +2,19 @@
 import '@ant-design/compatible/assets/index.css';
 import './theme/tokens.css';
 import './theme/antd-overrides.css';
-import { Alert, Layout } from 'antd';
+import { Alert } from 'antd';
 import { Component, PropsWithChildren, useEffect } from 'react';
-import { RouteComponentProps, withRouter } from 'react-router-dom';
-import styled from 'styled-components';
+import { RouteComponentProps, useLocation, withRouter } from 'react-router-dom';
 import { Root } from '@cube-dev/ui-kit';
 
 import { CubeLoader } from './atoms';
 import { AppContextConsumer, PlaygroundContext } from './components/AppContext';
 import GlobalStyles from './components/GlobalStyles';
-import Header from './components/Header/Header';
+import { GamePicker } from './components/Header/game-picker';
 import { SmartSearchOverlay } from './shared/smart-search/smart-search-overlay';
-import { SmartSearchProvider } from './shared/smart-search/smart-search-context';
+import { SmartSearchProvider, useSmartSearch } from './shared/smart-search/smart-search-context';
+// useTopbarTrailing is consumed by page components; importing here only to
+// keep TypeScript happy about the unused-export check is unnecessary.
 import {
   event,
   setAnonymousId,
@@ -24,11 +25,12 @@ import {
 import { useAppContext } from './hooks';
 import { useCubeTokenBootstrap } from './hooks/use-cube-token-bootstrap';
 import { QUERY_BUILDER_COLOR_TOKENS } from './QueryBuilderV2';
+import { Sidebar } from './shell/sidebar/sidebar';
+import { T } from './shell/theme';
+import { Topbar } from './shell/topbar/topbar';
+import { TopbarTrailingProvider } from './shell/topbar/topbar-trailing-context';
+import { pushRecent } from './shell/sidebar/recent-items-store';
 import { rootStyles } from './theme/ui-kit-theme';
-
-const StyledLayoutContent = styled(Layout.Content)`
-  height: 100%;
-`;
 
 type AppState = {
   fatalError: Error | null;
@@ -42,10 +44,6 @@ const ROOT_STYLES = {
   ...QUERY_BUILDER_COLOR_TOKENS,
 };
 
-// GDS Cube bootstrap context — built when /playground/context is unavailable
-// (production-style Cube backend). We use env + localStorage for the JWT and
-// default basePath '/cubejs-api'. The Security Context modal in the header
-// lets the user override the token at runtime.
 function buildFallbackContext(): PlaygroundContext {
   const envToken: string = (import.meta as any).env?.VITE_CUBE_TOKEN || '';
   const lsToken = (typeof window !== 'undefined' && window.localStorage.getItem('gds-cube:token')) || '';
@@ -91,8 +89,6 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
 
     let context: PlaygroundContext | null = null;
     try {
-      // Cube dev-mode contract: GET /playground/context returns {anonymousId, cubejsToken, basePath, ...}.
-      // We try it first to preserve faithful behavior against a Cube dev server.
       const res = await fetch('playground/context');
       if (res.ok) {
         context = await res.json();
@@ -125,7 +121,7 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
   }
 
   render() {
-    const { location, children } = this.props;
+    const { children } = this.props;
     const { context, fatalError, isAppContextSet, showLoader } = this.state;
 
     if (context != null && !isAppContextSet) {
@@ -152,40 +148,81 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
         <GlobalStyles />
 
         <SmartSearchProvider>
-          <CubeTokenBootstrap />
-          <Header selectedKeys={[location.pathname]} />
-
-          <StyledLayoutContent>
-            {fatalError ? (
-              <Alert
-                message="Error occured while rendering"
-                description={fatalError.stack || ''}
-                type="error"
-              />
-            ) : (
-              children
-            )}
-          </StyledLayoutContent>
-          <SmartSearchOverlay />
+          <TopbarTrailingProvider>
+            <CubeTokenBootstrap />
+            <ShellLayout fatalError={fatalError}>{children}</ShellLayout>
+            <SmartSearchOverlay />
+            <RecentItemPusher />
+          </TopbarTrailingProvider>
         </SmartSearchProvider>
       </Root>
     );
   }
 }
 
-type ContextSetterProps = {
-  context: PlaygroundContext;
-};
+type ShellLayoutProps = PropsWithChildren<{
+  fatalError: Error | null;
+}>;
 
-/**
- * Side-effect-only component that keeps the Cube JWT in sync with the active
- * game. Lives inside SmartSearchProvider (and below SecurityContextProvider
- * mounted in src/index.tsx) so the hook sees both contexts.
- */
+function ShellLayout({ fatalError, children }: ShellLayoutProps) {
+  const smartSearch = useSmartSearch();
+  return (
+    <div style={{
+      height: '100vh', overflow: 'hidden',
+      background: T.shell,
+      display: 'flex', flexDirection: 'row', alignItems: 'stretch',
+      padding: 10, gap: 8, boxSizing: 'border-box',
+    }}>
+      <Sidebar />
+      <main style={{
+        flex: 1, minWidth: 0, minHeight: 0,
+        display: 'flex', flexDirection: 'column',
+        background: T.surface, borderRadius: 18, overflow: 'hidden',
+      }}>
+        <Topbar onSearchOpen={smartSearch.open} fixedTrailing={<GamePicker />} />
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto' }}>
+          {fatalError ? (
+            <Alert
+              message="Error occured while rendering"
+              description={fatalError.stack || ''}
+              type="error"
+            />
+          ) : (
+            children
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function CubeTokenBootstrap() {
   useCubeTokenBootstrap();
   return null;
 }
+
+function RecentItemPusher() {
+  const location = useLocation();
+  useEffect(() => {
+    const dm = location.pathname.match(/^\/catalog\/data-model\/([^/]+)/);
+    if (dm) {
+      pushRecent('data-model', { id: dm[1], title: dm[1], updatedAt: new Date().toISOString() });
+    }
+    const seg = location.pathname.match(/^\/segments\/([^/]+)/);
+    if (seg && seg[1] !== 'identity-map' && seg[1] !== 'new') {
+      pushRecent('segments', { id: seg[1], title: seg[1], updatedAt: new Date().toISOString() });
+    }
+    const met = location.pathname.match(/^\/catalog\/concept\/measure\/([^/]+)/);
+    if (met) {
+      pushRecent('metrics-catalog', { id: met[1], title: met[1], updatedAt: new Date().toISOString() });
+    }
+  }, [location.pathname]);
+  return null;
+}
+
+type ContextSetterProps = {
+  context: PlaygroundContext;
+};
 
 function ContextSetter({ context }: ContextSetterProps) {
   const { setContext } = useAppContext();

@@ -289,6 +289,27 @@ function useRecentItemPusher() {
 - API Settings modal trigger relocated to BottomRow (Phase 3); still gated by existing `SecurityContextProvider`.
 - Token storage (`gds-cube:token`) untouched.
 
+## Status as of 2026-05-23
+
+✅ DONE. App shell + routes fully rewritten:
+- `src/App.tsx` rewritten: Hermes outer flex layout (shell padding 10, gap 8, rounded main, Sidebar + Topbar with TopbarTrailingProvider).
+- `src/index.tsx` routes updated: `/` → `/build` redirect, `/chat` → ChatPlaceholderPage, `/catalog` (exact) → `/catalog/data-model` redirect.
+- `src/pages/ChatPlaceholder/chat-placeholder-page.tsx` created: empty-state placeholder with link to Playground.
+- GamePicker moved to topbar trailing via `useTopbarTrailing()` hook (no race condition after post-review fix).
+- Route-listener hook added to push data-model / segment / metrics visits to recent-items-store.
+
+**Post-review fixes applied:**
+- CRITICAL #2: GamePicker overwrite race fixed (moved into `<Topbar fixedTrailing={<GamePicker/>}/>`).
+- CRITICAL #1: cross-route topbar leakage fixed (`useTopbarTrailing()` gates via `useRouteMatch`).
+- HIGH #3: DetailTopbarActions closure widened deps.
+
+**NOT done (deferred per plan spec):**
+- `src/components/Header/` deletion (kept for one release per request).
+- `src/pages/Index/` deletion (kept for barrel test compat).
+- `design-reference/` vendoring (deferred).
+
+vitest: 694/694 PASS.
+
 ## Next Steps
 
 Phase 7 rewrites Segments library to Hermes style. Phase 8 restyles segment detail. Phase 9 visual + E2E validation.

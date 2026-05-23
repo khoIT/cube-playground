@@ -212,6 +212,16 @@ src/pages/Segments/detail/
 
 - No permission changes. CDP activation still gated by existing auth.
 
+## Status as of 2026-05-23
+
+⏸️ SCOPE-TRIMMED. Partial completion:
+- `detail-view.tsx` rewritten: action bar (Refresh + Copy as filter + Edit + Delete) lifted into topbar trailing via `DetailTopbarActions` helper; in-page Breadcrumbs render removed (topbar covers).
+
+**NOT done (deferred per plan scope):**
+- KPI card / tab strip restyle — all 5 tab bodies preserved functionally; KPI visual polish and Hermes tab-strip styling can be a follow-up PRto avoid complexity creep.
+
+Detail page remains fully functional: all 5 tabs (Monitor/Insights/Members/Definition/Activation) render, live polling works, activate-to-CDP flow works, delete confirmation works. Tests pass.
+
 ## Next Steps
 
 Phase 9 validates the entire mirror via Playwright pixel diff + E2E smoke.

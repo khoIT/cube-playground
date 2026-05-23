@@ -12,7 +12,12 @@
     "playground": "Sân chơi",
     "newDataModel": "Mô hình dữ liệu mới",
     "catalog": "Danh mục",
-    "segments": "Nhóm người dùng"
+    "segments": "Nhóm người dùng",
+    "chat": "Trò chuyện",
+    "dataModel": "Mô hình dữ liệu",
+    "metricsCatalog": "Thư viện chỉ số",
+    "advanced": "Nâng cao",
+    "dataModelNew": "+ Mô hình mới"
   },
   "segments": {
     "actions": {

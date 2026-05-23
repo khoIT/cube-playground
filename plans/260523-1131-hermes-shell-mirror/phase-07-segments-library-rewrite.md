@@ -206,6 +206,18 @@ src/pages/Segments/library/
 - No new data fetched. `segmentsClient` and `useRefreshLogs` unchanged.
 - Bulk actions (delete, refresh) still gated by cube's existing permission checks.
 
+## Status as of 2026-05-23
+
+⏸️ SCOPE-TRIMMED. Partial completion:
+- `library-view.tsx` rewritten: actions (Import IDs + New) lifted into topbar trailing via `useTopbarTrailing()` hook; inline header buttons removed.
+- Topbar trailing registration: `useTopbarTrailing()` context registers buttons that appear in topbar for library page only.
+
+**NOT done (explicitly deferred per brainstorm phase 6):**
+- Filter-rail rewrite (left-side GROUP BY / STATUS filter UI) — cube Segment has no `goal` field, existing filter pills work fine. Brainstorm explicitly allows "skip on functions that is not available".
+- Goal-grouped row rendering — cube doesn't have goal concept; can group by tag if needed but not critical for MVP.
+
+Library page remains functionally complete with existing filter/sort behavior. URL state + bulk actions preserved. Tests pass.
+
 ## Next Steps
 
 Phase 8 restyles the segment detail page (Monitor / Insights / Members / Definition / Activation tabs).

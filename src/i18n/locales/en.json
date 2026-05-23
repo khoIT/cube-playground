@@ -12,7 +12,12 @@
     "playground": "Playground",
     "newDataModel": "New Data Model",
     "catalog": "Catalog",
-    "segments": "Segments"
+    "segments": "Segments",
+    "chat": "Chat",
+    "dataModel": "Data Model",
+    "metricsCatalog": "Metrics Catalog",
+    "advanced": "Advanced",
+    "dataModelNew": "+ New data model"
   },
   "segments": {
     "actions": {

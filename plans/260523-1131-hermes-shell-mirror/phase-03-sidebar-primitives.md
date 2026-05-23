@@ -175,6 +175,19 @@ src/shell/sidebar/
 - API Settings modal already gated by existing `SecurityContextProvider`. No new surface.
 - Theme toggle writes to `localStorage` key cube already uses (`gds-cube:theme`).
 
+## Status as of 2026-05-23
+
+✅ DONE. All 7 sidebar primitive components created:
+- `sidebar-item.tsx` (verbatim port, RR5-compatible).
+- `sidebar-section.tsx` (verbatim port, event names updated to `gds-cube:*`).
+- `sidebar-subheader.tsx` (verbatim port).
+- `workspace-pill.tsx` (cube-branded: GDS glyph, "Cube Playground" title, RR5 `useHistory()` swap).
+- `recent-items.tsx` (drop localizers + ChatContextMenu, event names updated).
+- `bottom-row.tsx` (API Settings trigger + Theme toggle; uses cube `useTheme` hook).
+- `collapse-toggle.tsx` (verbatim port).
+
+All components render correctly in expanded/collapsed modes with proper active/hover states.
+
 ## Next Steps
 
 Phase 4 builds topbar primitives. Phase 5 assembles these primitives into `sidebar.tsx`.

@@ -152,6 +152,14 @@ export function getSidebarSectionForPath(pathname: string): string | null {
 
 - LocalStorage only; no PII, no tokens. Recent items contain segment IDs (already exposed in URL).
 
+## Status as of 2026-05-23
+
+✅ DONE. All 4 utility modules created:
+- `sidebar-collapsed-store.ts`: `gds-cube:*` keys, localStorage persistence.
+- `sidebar-section-store.ts`: longest-prefix path matcher, section expand/collapse with `gds-cube:sidebar-section:{id}` keys.
+- `recent-items-store.ts`: 4 modules (chat, data-model, metrics-catalog, segments), LRU-8 per module.
+- `topbar-trailing-context.tsx`: React context provider + `useTopbarTrailing()` hook.
+
 ## Next Steps
 
 Phase 3 (sidebar primitives) imports from `sidebar-collapsed-store` and `sidebar-section-store`. Phase 4 (topbar primitives) imports `topbar-trailing-context`.

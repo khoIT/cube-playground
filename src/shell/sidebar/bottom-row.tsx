@@ -1,0 +1,37 @@
+/**
+ * BottomRow — sidebar footer with API Settings trigger + Theme toggle.
+ * Replaces Hermes' Data/Settings/Account rows with cube-specific actions.
+ */
+import React from 'react';
+import { Settings2, Sun, Moon } from 'lucide-react';
+import { SidebarItem } from './sidebar-item';
+import { useTheme } from '../../theme/use-theme';
+import { useSecurityContext } from '../../hooks/security-context';
+
+interface BottomRowProps {
+  collapsed?: boolean;
+}
+
+export function BottomRow({ collapsed }: BottomRowProps) {
+  const { theme, toggle } = useTheme();
+  const security = useSecurityContext();
+
+  const isDark = theme === 'dark';
+
+  return (
+    <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', padding: '6px 0 8px' }}>
+      <SidebarItem
+        icon={Settings2}
+        label="API Settings"
+        collapsed={collapsed}
+        onClick={() => security.setIsModalOpen(true)}
+      />
+      <SidebarItem
+        icon={isDark ? Sun : Moon}
+        label={isDark ? 'Light mode' : 'Dark mode'}
+        collapsed={collapsed}
+        onClick={toggle}
+      />
+    </div>
+  );
+}

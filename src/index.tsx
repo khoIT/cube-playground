@@ -7,7 +7,6 @@ import App from './App';
 import { page } from './events';
 import {
   ExplorePage,
-  IndexPage,
   CatalogPage,
   SegmentsPage,
   SettingsPage,
@@ -34,6 +33,12 @@ const DataModelWizardSuccess = loadable(() =>
   import('./QueryBuilderV2/NewMetric/full-page/steps/success/success-body').then(
     (m) => ({ default: m.NewMetricSuccess })
   )
+);
+
+const ChatPlaceholderPage = loadable(() =>
+  import('./pages/ChatPlaceholder/chat-placeholder-page').then((m) => ({
+    default: m.ChatPlaceholderPage,
+  }))
 );
 
 
@@ -113,12 +118,18 @@ ReactDOM.render(
         <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
           <App>
             <Suspense fallback={<CubeLoader />}>
-              <Route key="index" exact path="/" component={IndexPage} />
+              <Route key="index" exact path="/">
+                <Redirect to="/build" />
+              </Route>
+              <Route key="chat" exact path="/chat" component={ChatPlaceholderPage} />
               <KeepAliveRoute key="build" path="/build">
                 <ExplorePage />
               </KeepAliveRoute>
               <Route key="schema-redirect" exact path="/schema">
                 <Redirect to="/catalog/models" />
+              </Route>
+              <Route key="catalog-default" exact path="/catalog">
+                <Redirect to="/catalog/data-model" />
               </Route>
               <KeepAliveRoute key="catalog" path="/catalog">
                 <CatalogPage />

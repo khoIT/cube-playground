@@ -129,6 +129,13 @@ src/shell/theme.tsx                 ← NEW
 
 None — pure CSS + token export changes. No storage, no auth.
 
+## Status as of 2026-05-23
+
+✅ DONE. All items completed:
+- `index.html` updated: League Gothic added to Google Fonts link.
+- `src/theme/tokens.css` appended: light + dark `--hermes-*` blocks (selector `html[data-theme="dark"]`).
+- `src/shell/theme.tsx` created: `T` proxy, `Icon` component, `cx` export.
+
 ## Next Steps
 
 Phase 2 (stores & utils) consumes `T` from `src/shell/theme.tsx`.

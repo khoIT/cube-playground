@@ -1,12 +1,13 @@
 /** Segment detail — header, KPI strip, 5-tab strip (Monitor default), tab bodies. */
 
 import { ReactElement, useEffect, useState, ReactNode } from 'react';
-import { useParams, useHistory } from 'react-router-dom';
+import { useParams, useHistory, useRouteMatch } from 'react-router-dom';
 import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Activity, Code2, LineChart, Send, Users } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { Breadcrumbs, KpiTile, LiveBadge } from '../visuals';
+import { KpiTile, LiveBadge } from '../visuals';
+import { useTopbarTrailing } from '../../../shell/topbar/topbar-trailing-context';
 import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
@@ -134,16 +135,43 @@ export function DetailView(): ReactElement {
       })
     : null;
 
+  const trailingActions = (
+    <>
+      <RefreshNowButton segment={segment} />
+      <Button
+        size="small"
+        onClick={() => {
+          const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
+          const out = buildPlaygroundDeeplink({
+            segmentId: segment.id,
+            segmentName: segment.name,
+            identityDim,
+            primaryCube: segment.cube,
+            uids: segment.uid_list ?? [],
+          });
+          window.location.assign(out.url);
+        }}
+        disabled={(segment.uid_list ?? []).length === 0}
+      >
+        {t('segments.detail.actions.copyAsFilter')}
+      </Button>
+      <Button
+        size="small"
+        onClick={() => history.push(`/segments/${segment.id}/edit`)}
+        disabled={segment.type !== 'predicate'}
+      >
+        {t('segments.detail.actions.editPredicate')}
+      </Button>
+      <Button size="small" danger onClick={() => setDeleteOpen(true)}>
+        {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
+      </Button>
+    </>
+  );
+
   return (
     <main className={styles.page}>
       <BrokenSegmentBanner segment={segment} onViewRefreshLog={() => setTab('monitor')} />
       <header className={styles.detailHeader}>
-        <Breadcrumbs
-          items={[
-            { label: t('segments.detail.backToLibrary'), href: '#/segments' },
-            { label: segment.name },
-          ]}
-        />
         <div className={styles.detailTitleRow}>
           <h1 className={styles.detailTitle}>{segment.name}</h1>
           {segment.cube != null && (
@@ -165,36 +193,14 @@ export function DetailView(): ReactElement {
           <StatusPill status={segment.status} reason={segment.broken_reason} />
           <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />
-          <div className={styles.actions}>
-            <RefreshNowButton segment={segment} />
-            <Button
-              onClick={() => {
-                const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
-                const out = buildPlaygroundDeeplink({
-                  segmentId: segment.id,
-                  segmentName: segment.name,
-                  identityDim,
-                  primaryCube: segment.cube,
-                  uids: segment.uid_list ?? [],
-                });
-                window.location.assign(out.url);
-              }}
-              disabled={(segment.uid_list ?? []).length === 0}
-            >
-              {t('segments.detail.actions.copyAsFilter')}
-            </Button>
-            <Button
-              onClick={() => history.push(`/segments/${segment.id}/edit`)}
-              disabled={segment.type !== 'predicate'}
-            >
-              {t('segments.detail.actions.editPredicate')}
-            </Button>
-            <Button danger onClick={() => setDeleteOpen(true)}>
-              {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
-            </Button>
-          </div>
         </div>
       </header>
+      <DetailTopbarActions
+        node={trailingActions}
+        segmentId={segment.id}
+        uidCount={(segment.uid_list ?? []).length}
+        segmentType={segment.type}
+      />
 
       <div className={styles.detailKpiStrip}>
         {preset && preset.headlineKpis.length > 0
@@ -329,4 +335,19 @@ export function DetailView(): ReactElement {
       />
     </main>
   );
+}
+
+/** Side-effect wrapper that pushes the detail action bar into the topbar
+ *  trailing slot. Deps cover the fields the buttons read (uid_list length,
+ *  segment.type) so polling-driven segment refreshes propagate to the topbar.
+ *  Gated by useRouteMatch so KeepAliveRoute siblings don't overwrite. */
+function DetailTopbarActions({
+  node, segmentId, uidCount, segmentType,
+}: {
+  node: ReactNode; segmentId: string; uidCount: number; segmentType: string | null;
+}) {
+  const active = useRouteMatch({ path: '/segments/:id', exact: false }) != null
+    && segmentId !== undefined;
+  useTopbarTrailing(node, [segmentId, uidCount, segmentType], active);
+  return null;
 }

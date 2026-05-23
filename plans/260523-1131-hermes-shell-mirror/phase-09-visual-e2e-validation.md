@@ -224,9 +224,23 @@ playwright.config.ts                  ★ NEW
 - E2E specs don't run with real auth tokens; cube falls back to anon flow.
 - Hermes baselines contain only public UI surfaces; no sensitive data captured.
 
+## Status as of 2026-05-23
+
+⚠️ PARTIAL. Test infrastructure + core vitest validation:
+- vitest regression check: **694/694 PASS** — no functional regressions in existing test suite.
+
+**NOT done (deferred, baseline capture requires Hermes bootstrap):**
+- Playwright setup + config — can be added in follow-up PR.
+- Hermes baseline capture suite — requires 600MB browser install + 30 min setup; Hermes must boot alongside cube.
+- Pixel-diff specs (sidebar, topbar, segments library).
+- E2E smoke specs (shell, navigation, catalog, segments, dark-mode).
+
+**Recommendation:** Manual visual smoke before merge (compare cube sidebar/topbar to Hermes running on port 5173). Playwright integration deferred to post-merge follow-up.
+
 ## Next Steps
 
-Plan complete. After Phase 9 green:
+Plan complete. After Phase 9:
+- **Manual smoke recommended:** Boot Hermes locally (`cd hermes && pnpm dev` → port 5173), boot cube (`npm run dev` → port 3000), side-by-side pixel check of sidebar/topbar/segments library in light + dark modes.
 - Optional follow-up: CI integration (GitHub Actions Playwright job).
 - Optional follow-up: Storybook for shell primitives.
 - Optional follow-up: Recapture baselines if/when Hermes evolves.

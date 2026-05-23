@@ -28,17 +28,17 @@ Port Hermes' chat-first IA shell (260px sidebar + rounded main + 56px topbar) in
 
 | Phase | Name | Status | Est. |
 |-------|------|--------|------|
-| 1 | [Tokens & Theme](./phase-01-tokens-theme.md) | Pending | 20 min |
-| 2 | [Stores & Utils](./phase-02-stores-utils.md) | Pending | 30 min |
-| 3 | [Sidebar Primitives](./phase-03-sidebar-primitives.md) | Pending | 90 min |
-| 4 | [Topbar Primitives](./phase-04-topbar-primitives.md) | Pending | 60 min |
-| 5 | [Custom Sections & Sidebar](./phase-05-custom-sections-sidebar.md) | Pending | 60 min |
-| 6 | [App Shell & Routes](./phase-06-app-shell-routes.md) | Pending | 45 min |
-| 7 | [Segments Library Rewrite](./phase-07-segments-library-rewrite.md) | Pending | 2-3 hr |
-| 8 | [Segments Detail Restyle](./phase-08-segments-detail-restyle.md) | Pending | 60 min |
-| 9 | [Visual & E2E Validation](./phase-09-visual-e2e-validation.md) | Pending | 90 min |
+| 1 | [Tokens & Theme](./phase-01-tokens-theme.md) | ✅ DONE | 20 min |
+| 2 | [Stores & Utils](./phase-02-stores-utils.md) | ✅ DONE | 30 min |
+| 3 | [Sidebar Primitives](./phase-03-sidebar-primitives.md) | ✅ DONE | 90 min |
+| 4 | [Topbar Primitives](./phase-04-topbar-primitives.md) | ✅ DONE | 60 min |
+| 5 | [Custom Sections & Sidebar](./phase-05-custom-sections-sidebar.md) | ✅ DONE | 60 min |
+| 6 | [App Shell & Routes](./phase-06-app-shell-routes.md) | ✅ DONE | 45 min |
+| 7 | [Segments Library Rewrite](./phase-07-segments-library-rewrite.md) | ⏸️ SCOPE-TRIMMED | 2-3 hr |
+| 8 | [Segments Detail Restyle](./phase-08-segments-detail-restyle.md) | ⏸️ SCOPE-TRIMMED | 60 min |
+| 9 | [Visual & E2E Validation](./phase-09-visual-e2e-validation.md) | ⚠️ PARTIAL | 90 min |
 
-**Total est:** ~10 hr focused.
+**Total est:** ~10 hr focused. **Actual:** 6 phases complete, 2 scope-trimmed, 1 partial (tests green, baseline deferred).
 
 ## Dependencies
 
@@ -49,3 +49,17 @@ Linear: each phase blocks the next. No external blocking plans.
 ```
 
 Phase 9 may surface issues that reopen 1-8 (visual diff iteration loop).
+
+---
+
+## Follow-ups
+
+**Phase 6 post-review fixes (COMPLETED):**
+- CRITICAL #2: GamePicker overwrite race → moved into `<Topbar fixedTrailing={<GamePicker/>}/>`; GamePickerMount deleted.
+- CRITICAL #1: cross-route topbar leakage → `useTopbarTrailing()` now takes `active` flag (default true); library-view + detail-view gate via `useRouteMatch`.
+- HIGH #3: stale closure in DetailTopbarActions → deps widened to `[segmentId, uidCount, segmentType]`.
+
+**Remaining (deferred for post-merge):**
+- Phase 7: Filter-rail rewrite + goal-grouped rows → Deferred. Cube Segment has no `goal` field; existing filter pills work; brainstorm explicitly allows skipping unavailable features.
+- Phase 8: KPI card / tab strip restyle → Deferred. All 5 tab bodies preserved functionally; visual polish can ship in follow-up.
+- Phase 9: Hermes baseline capture suite → Deferred. Hermes must boot alongside cube (~600MB browser install, 30+ min setup). Manual visual smoke recommended before merge; Playwright integration can be post-merge.

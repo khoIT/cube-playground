@@ -145,6 +145,16 @@ const STATIC: Array<{ prefix: string; label: string; to?: string }> = [
 - AvatarMenu reuses cube's user-menu — no new auth path.
 - SearchTrigger opens existing SmartSearch — no new search scope.
 
+## Status as of 2026-05-23
+
+✅ DONE. All 4 topbar primitive components created:
+- `topbar.tsx` (verbatim port, 56px sticky chrome with blur backdrop).
+- `search-trigger.tsx` (verbatim port, input-styled button + ⌘K hint).
+- `breadcrumb.tsx` (cube-specific path resolver, RR5 NavLink, static map + dynamic segment/cube name).
+- `avatar-menu.tsx` (Hermes trigger wrapping cube's user-menu, 32px brand circle with initials).
+
+Breadcrumb resolves cube routes correctly; SearchTrigger opens SmartSearch overlay; AvatarMenu wraps cube user-menu. All ≤150 lines.
+
 ## Next Steps
 
 Phase 5 assembles sidebar.tsx + custom data-model section. Phase 6 mounts `<TopbarTrailingProvider>` + `<Topbar>` in App.tsx and moves GamePicker into trailing slot.
