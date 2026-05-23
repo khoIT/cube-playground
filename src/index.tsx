@@ -10,6 +10,7 @@ import {
   IndexPage,
   CatalogPage,
   SegmentsPage,
+  SettingsPage,
 } from './pages';
 import { loadable } from './loadable';
 import { CubeLoader } from './atoms';
@@ -128,6 +129,7 @@ ReactDOM.render(
               <KeepAliveRoute key="segments" path="/segments">
                 <SegmentsPage />
               </KeepAliveRoute>
+              <Route key="settings" exact path="/settings" component={SettingsPage} />
               <Route key="data-model-new-success" exact path="/data-model/new/success" component={DataModelWizardSuccess} />
               <Route key="data-model-new" path="/data-model/new" component={DataModelWizardPage} />
               <Route key="metrics-new-success-legacy" exact path="/metrics/new/success">

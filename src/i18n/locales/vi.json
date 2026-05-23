@@ -373,10 +373,20 @@
       "vi": "Tiếng Việt"
     },
     "settings": {
+      "settings": "Cài đặt",
       "securityContext": "Bảo mật",
       "addRollup": "Thêm Rollup"
     },
     "signOut": "Đăng xuất"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "back": "Quay lại",
+    "gameVisibility": {
+      "title": "Hiển thị game trong picker",
+      "hint": "Chọn các game hiển thị trong picker ở header. Game bị ẩn vẫn truy cập được qua URL — tuỳ chọn này chỉ ảnh hưởng dropdown.",
+      "showAll": "Hiện tất cả"
+    }
   },
   "notifications": {
     "title": "Thông báo",

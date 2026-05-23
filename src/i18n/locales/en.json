@@ -373,10 +373,20 @@
       "vi": "Tiếng Việt"
     },
     "settings": {
+      "settings": "Settings",
       "securityContext": "Security Context",
       "addRollup": "Add Rollup"
     },
     "signOut": "Sign out"
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "gameVisibility": {
+      "title": "Game picker visibility",
+      "hint": "Choose which games appear in the header picker. Hidden games stay accessible via direct URL — this only affects the dropdown.",
+      "showAll": "Show all"
+    }
   },
   "notifications": {
     "title": "Notifications",

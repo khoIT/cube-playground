@@ -1,7 +1,7 @@
 import { Dropdown } from 'antd';
-import { Lock, LogOut, Zap } from 'lucide-react';
+import { Lock, LogOut, Settings as SettingsIcon, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useCloud } from '../../cloud';
@@ -92,6 +92,7 @@ function deriveInitials(identifier: string | undefined | null): string {
 export function UserMenu() {
   const { t } = useTranslation();
   const location = useLocation();
+  const history = useHistory();
   const { identifier } = useAppContext();
   const { token: securityContextToken, setIsModalOpen } = useSecurityContext();
   const { isAddRollupButtonVisible } = useCloud();
@@ -110,11 +111,24 @@ export function UserMenu() {
     window.dispatchEvent(new Event(OPEN_ROLLUP_DESIGNER_EVENT));
   }
 
+  function openSettings() {
+    history.push('/settings');
+  }
+
   const overlay = (
     <MenuShell role="menu">
       <ThemeToggle />
       <LanguageToggle />
       <Divider />
+      <MenuItem
+        type="button"
+        role="menuitem"
+        data-testid="user-menu-settings"
+        onClick={openSettings}
+      >
+        <SettingsIcon size={14} strokeWidth={2} aria-hidden />
+        {t('user.settings.settings', { defaultValue: 'Settings' })}
+      </MenuItem>
       <MenuItem
         type="button"
         role="menuitem"

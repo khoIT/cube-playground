@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Game picker · dropdown polish · light + dark</title>
+<style>
+  /* ============================================================
+     ACTIVE-ROW TREATMENT (decision note for the manager review)
+     Picked: full-bleed brand-tint row with brand-color name text.
+     Why this beats the other 3 options the brief listed:
+       * full-bleed = the tint reaches BOTH edges, killing the "lop-sided
+         rounded blob" bug that the current peach-inset block creates.
+       * brand-color name + checkmark already carries the "active" signal
+         — adding a left bar accent doubles up and feels noisier next to
+         the colored game circle (the circle is already a strong left
+         landmark).
+       * Tinted bg + matching inset radius would work but re-introduces
+         the inset/outset radius math problem the current code suffers
+         from. Full-bleed bar sidesteps the geometry entirely.
+     The dropdown shell carries ONE radius. Rows are rectangular.
+     Hover uses bg-muted (no radius). The radius lives on the shell,
+     never on the row — that's the structural fix.
+     ============================================================ */
+
+  :root {
+    /* light theme tokens */
+    --bg-page: #f5f6f8;
+    --bg-card: #ffffff;
+    --bg-muted: #f4f5f8;
+    --bg-overlay: #ffffff;
+    --border-card: #e6e8ee;
+    --border-strong: #d3d6de;
+    --text-primary: #1a1f2b;
+    --text-secondary: #5a6171;
+    --text-muted: #8a92a3;
+    --brand: #f05a22;
+    --brand-tint: #fff1ea;
+    --text-on-brand: #ffffff;
+    --shadow-md: 0 8px 24px rgba(16, 20, 32, 0.10);
+
+    --radius-card: 10px;
+    --radius-pill: 999px;
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+  }
+
+  [data-theme="dark"] {
+    --bg-page: #0e1119;
+    --bg-card: #161a23;
+    --bg-muted: #1e2330;
+    --bg-overlay: #1a1f2b;
+    --border-card: #262b38;
+    --border-strong: #2f3545;
+    --text-primary: #e7e9ee;
+    --text-secondary: #a3abbb;
+    --text-muted: #737b8d;
+    --brand-tint: rgba(240, 90, 34, 0.14);
+    --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 48px 32px 80px;
+    background: #ecedef;
+    background-image:
+      linear-gradient(180deg, #ecedef 0%, #e1e3e7 100%);
+    color: #1a1f2b;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .page-head {
+    max-width: 1080px;
+    margin: 0 auto 32px;
+    padding: 0 8px;
+  }
+  .page-title {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #1a1f2b;
+  }
+  .page-sub {
+    margin: 0;
+    font-size: 13px;
+    color: #5a6171;
+    max-width: 720px;
+    line-height: 1.55;
+  }
+  .page-sub code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 1px 6px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 4px;
+  }
+
+  /* two side-by-side surfaces, each carrying its own --theme tokens */
+  .surfaces {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  @media (max-width: 880px) {
+    .surfaces { grid-template-columns: 1fr; }
+  }
+
+  .surface {
+    /* each surface wraps its scope — tokens cascade from data-theme */
+    background: var(--bg-page);
+    border-radius: 16px;
+    padding: 28px 28px 56px;
+    min-height: 540px;
+    position: relative;
+    color: var(--text-primary);
+    border: 1px solid var(--border-card);
+  }
+  .surface-tag {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .surface-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  /* ======== TRIGGER CHIP ======== */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px 0 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--brand);
+    border-radius: var(--radius-pill);
+    color: var(--brand);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .chip:hover { background: var(--brand-tint); }
+  .chip .chev {
+    width: 14px;
+    height: 14px;
+    color: var(--brand);
+    opacity: 0.85;
+  }
+  .chip .mark {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* ======== CIRCLE MARK (used in chip + rows) ======== */
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-pill);
+    color: var(--text-on-brand);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    font-family: var(--font-sans);
+    flex-shrink: 0;
+  }
+
+  /* ======== DROPDOWN SHELL ========
+     Single radius on the shell. overflow:hidden clips row backgrounds
+     so the active row's full-bleed tint follows the shell's curvature.
+     This is the structural fix for the "lop-sided rounded blob" bug. */
+  .dropdown {
+    width: 268px;
+    background: var(--bg-overlay);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-md);
+    padding: 4px 0;
+    overflow: hidden;
+  }
+
+  /* ======== ROW ======== */
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 100ms ease;
+    /* no radius on the row — radius lives on the shell only */
+  }
+  .row:hover { background: var(--bg-muted); }
+
+  .row-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+  }
+  .row-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row-id {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-top: 1px;
+  }
+
+  /* ======== ROW · ACTIVE (the design decision) ======== */
+  .row.is-active {
+    background: var(--brand-tint);
+  }
+  .row.is-active:hover {
+    /* same as base active — don't darken on hover, it's already the
+       focus state; hover-darkening makes the bar look broken */
+    background: var(--brand-tint);
+  }
+  .row.is-active .row-name { color: var(--brand); font-weight: 600; }
+  .row.is-active .row-id { color: var(--brand); opacity: 0.7; }
+
+  .row .check {
+    width: 16px;
+    height: 16px;
+    color: var(--brand);
+    flex-shrink: 0;
+    /* placeholder square slot for inactive rows so the right edge is stable */
+    visibility: hidden;
+  }
+  .row.is-active .check { visibility: visible; }
+
+  /* ======== Color stops per game ========
+     Brand circles. Hand-tuned to read clearly on both themes. */
+  .c-ptg       { background: #f05a22; }
+  .c-ballistar { background: #3f8dff; }
+  .c-cfm       { background: #00897b; }
+  .c-jus       { background: #a855f7; }
+  .c-muaw      { background: #facc15; color: #1a1f2b; }
+  .c-pubg      { background: #ef4444; }
+
+  /* ======== Small annotations next to each surface ======== */
+  .anno {
+    margin-top: 22px;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: 320px;
+  }
+  .anno strong { color: var(--text-primary); font-weight: 600; }
+  .anno code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 1px 5px;
+    background: var(--bg-muted);
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <h1 class="page-title">Game picker · dropdown polish</h1>
+  <p class="page-sub">
+    Structural fix: the dropdown shell carries the only border-radius and clips
+    its content with <code>overflow:hidden</code>. Rows are rectangular and
+    span edge-to-edge, so the active-row brand-tint follows the shell's
+    curvature naturally — no lop-sided blob, no inset-vs-outset radius math.
+  </p>
+</header>
+
+<div class="surfaces">
+
+  <!-- ============ LIGHT ============ -->
+  <section class="surface" data-theme="light">
+    <div class="surface-tag">Light</div>
+
+    <div class="surface-row">
+      <!-- trigger chip -->
+      <button class="chip" type="button" aria-label="Active game: Ballistar">
+        <span class="mark c-ballistar">BS</span>
+        <span>Ballistar</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+
+      <!-- expanded menu -->
+      <div class="dropdown" role="menu">
+        <div class="row" role="menuitem">
+          <span class="mark c-ptg">PT</span>
+          <span class="row-meta">
+            <span class="row-name">Play Together</span>
+            <span class="row-id">ptg</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row is-active" role="menuitem" aria-current="true">
+          <span class="mark c-ballistar">BS</span>
+          <span class="row-meta">
+            <span class="row-name">Ballistar</span>
+            <span class="row-id">ballistar</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-cfm">CF</span>
+          <span class="row-meta">
+            <span class="row-name">CrossFire Mobile VN</span>
+            <span class="row-id">cfm_vn</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-jus">JS</span>
+          <span class="row-meta">
+            <span class="row-name">Justice VN</span>
+            <span class="row-id">jus_vn</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-muaw">MA</span>
+          <span class="row-meta">
+            <span class="row-name">Metal Slug: Awakening</span>
+            <span class="row-id">muaw</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-pubg">PB</span>
+          <span class="row-meta">
+            <span class="row-name">PUBG Mobile</span>
+            <span class="row-id">pubg</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+      </div>
+
+      <div class="anno">
+        <strong>Active row:</strong> full-bleed <code>--brand-tint</code> bar +
+        brand-color name + checkmark. Tint reaches both edges, follows the
+        shell's <code>border-radius</code> via <code>overflow:hidden</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DARK ============ -->
+  <section class="surface" data-theme="dark" style="background:#0e1119; border-color:#262b38;">
+    <div class="surface-tag">Dark</div>
+
+    <div class="surface-row">
+      <button class="chip" type="button" aria-label="Active game: Ballistar">
+        <span class="mark c-ballistar">BS</span>
+        <span>Ballistar</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+
+      <div class="dropdown" role="menu">
+        <div class="row" role="menuitem">
+          <span class="mark c-ptg">PT</span>
+          <span class="row-meta">
+            <span class="row-name">Play Together</span>
+            <span class="row-id">ptg</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row is-active" role="menuitem" aria-current="true">
+          <span class="mark c-ballistar">BS</span>
+          <span class="row-meta">
+            <span class="row-name">Ballistar</span>
+            <span class="row-id">ballistar</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-cfm">CF</span>
+          <span class="row-meta">
+            <span class="row-name">CrossFire Mobile VN</span>
+            <span class="row-id">cfm_vn</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-jus">JS</span>
+          <span class="row-meta">
+            <span class="row-name">Justice VN</span>
+            <span class="row-id">jus_vn</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-muaw">MA</span>
+          <span class="row-meta">
+            <span class="row-name">Metal Slug: Awakening</span>
+            <span class="row-id">muaw</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+
+        <div class="row" role="menuitem">
+          <span class="mark c-pubg">PB</span>
+          <span class="row-meta">
+            <span class="row-name">PUBG Mobile</span>
+            <span class="row-id">pubg</span>
+          </span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+      </div>
+
+      <div class="anno">
+        <strong>Dark theme:</strong> <code>--brand-tint</code> at
+        <code>rgba(240,90,34,0.14)</code> gives just enough warmth without
+        glowing. The brand-color name still pops on the deep-navy shell.
+      </div>
+    </div>
+  </section>
+</div>
+
+</body>
+</html>
