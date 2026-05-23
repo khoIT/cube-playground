@@ -37,6 +37,10 @@ const InlineChipsContainer = styled.div`
   display: flex;
   flex-direction: column;
 
+  & > * {
+    zoom: 0.9;
+  }
+
   & > *:not(:first-child) {
     border-top: 1px dashed var(--neutral-100);
     margin-top: 4px;

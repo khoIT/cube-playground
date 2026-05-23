@@ -124,7 +124,6 @@ export function DateRangeFilter(props: TimeDimensionFilterProps) {
         aria-label="Date range preset"
         size="small"
         placeholder="Select range"
-        width="min 20x"
         validationState={!open && !member.dateRange ? 'invalid' : undefined}
         // @ts-ignore
         selectedKey={

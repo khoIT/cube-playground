@@ -178,12 +178,19 @@ export function QueryStatePillBar({ filterSlot }: Props) {
   );
 
   const dimensionItems = useMemo<PillItem[]>(() => {
-    return (query.dimensions ?? []).map((member) => ({
+    const regular = (query.dimensions ?? []).map((member) => ({
       key: `dim:${member}`,
       member,
       onRemove: () => dimensions.remove(member),
     }));
-  }, [query.dimensions, dimensions]);
+    const timeAsDim = (query.timeDimensions ?? []).map((td) => ({
+      key: `time:${td.dimension}`,
+      member: td.dimension,
+      granularity: td.granularity ?? undefined,
+      onRemove: () => grouping.remove(td.dimension),
+    }));
+    return [...regular, ...timeAsDim];
+  }, [query.dimensions, query.timeDimensions, dimensions, grouping]);
 
   const measureItems = useMemo<PillItem[]>(() => {
     return (query.measures ?? []).map((member) => ({
@@ -192,15 +199,6 @@ export function QueryStatePillBar({ filterSlot }: Props) {
       onRemove: () => measures.remove(member),
     }));
   }, [query.measures, measures]);
-
-  const timeItems = useMemo<PillItem[]>(() => {
-    return (query.timeDimensions ?? []).map((td) => ({
-      key: `time:${td.dimension}`,
-      member: td.dimension,
-      granularity: td.granularity ?? undefined,
-      onRemove: () => grouping.remove(td.dimension),
-    }));
-  }, [query.timeDimensions, grouping]);
 
   const fallbackFilterItems = useMemo<PillItem[]>(() => {
     return (query.filters ?? []).map((f, index) => {
@@ -264,14 +262,6 @@ export function QueryStatePillBar({ filterSlot }: Props) {
             items={measureItems}
             emptyHint="No measures yet. Add from the sidebar."
           />
-          {timeItems.length > 0 ? (
-            <MemberPillRow
-              kind="time"
-              items={timeItems}
-              emptyHint="No time dimensions yet."
-              addLabel="Add time"
-            />
-          ) : null}
           {filterSlot ? (
             <FilterRow>
               <FilterRowLabel>Filters</FilterRowLabel>

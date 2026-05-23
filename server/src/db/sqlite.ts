@@ -5,7 +5,7 @@
  */
 
 import Database from 'better-sqlite3';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +19,11 @@ let _db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (_db) return _db;
+
+  // better-sqlite3 fails if the parent directory is missing
+  if (DB_PATH !== ':memory:') {
+    mkdirSync(dirname(DB_PATH), { recursive: true });
+  }
 
   _db = new Database(DB_PATH);
 

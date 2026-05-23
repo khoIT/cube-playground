@@ -32,6 +32,7 @@ const StyledCard = styled(Card)`
   display: flex;
   flex-direction: column;
   background: var(--layout-body-background);
+  zoom: 0.88;
 
   & .ant-card-body {
     padding: 0;
