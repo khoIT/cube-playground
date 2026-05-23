@@ -7,6 +7,7 @@
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Modal, Input, Select, Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 import type { Query } from '@cubejs-client/core';
 import type { Segment, SegmentInput } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
@@ -86,6 +87,7 @@ export function PushModal({
   allowLive = true,
 }: Props): ReactElement {
   const { t } = useTranslation();
+  const history = useHistory();
   // Stamp new segments with the currently-picked game so they bind to the
   // tenant the user was looking at when they pushed — not the server-side
   // fallback (which would mis-attribute every push to the default game).
@@ -97,6 +99,28 @@ export function PushModal({
   const [targetId, setTargetId] = useState<string | null>(null);
   const [staticSegments, setStaticSegments] = useState<Segment[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const showSegmentToast = (segmentId: string, text: string): void => {
+    const key = `segment-toast-${segmentId}`;
+    message.open({
+      type: 'success',
+      key,
+      duration: 6,
+      content: (
+        <span>
+          {text}{' '}
+          <a
+            onClick={() => {
+              message.destroy(key);
+              history.push(`/segments/${segmentId}`);
+            }}
+          >
+            {t('segments.push.viewSegment', { defaultValue: 'View' })}
+          </a>
+        </span>
+      ),
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -195,7 +219,7 @@ export function PushModal({
       };
       const created = await segmentsClient.create(input);
       invalidateSegmentIds();
-      message.success(t('segments.push.toastCreated'));
+      showSegmentToast(created.id, t('segments.push.toastCreated'));
       onCreated?.(created.id);
       onClose();
     } catch (err) {
@@ -215,7 +239,7 @@ export function PushModal({
     try {
       const finalUids = await resolveUidList();
       const res = await segmentsClient.append(targetId, finalUids);
-      message.success(t('segments.push.toastAppended', { count: finalUids.length }));
+      showSegmentToast(targetId, t('segments.push.toastAppended', { count: finalUids.length }));
       onCreated?.(targetId);
       onClose();
       void res;
