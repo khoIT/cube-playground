@@ -19,6 +19,8 @@ const SLASH_ALIASES: Record<string, string> = {
   '/explore': 'explore',
   '/metric': 'metric_explain',
   '/metric_explain': 'metric_explain',
+  '/compare': 'compare',
+  '/diagnose': 'diagnose',
 };
 
 // Keywords per skill. Multi-word phrases score higher due to length weighting.
@@ -31,6 +33,15 @@ const KEYWORDS: Record<string, string[]> = {
   metric_explain: [
     'what is', 'define', 'formula', 'mean', 'meaning',
     'công thức', 'định nghĩa', 'là gì', 'giải thích',
+  ],
+  compare: [
+    'compare', 'vs', 'versus', 'against', 'between',
+    'so với', 'hơn', 'kém',
+  ],
+  diagnose: [
+    'why', 'drop', 'spike', 'anomaly', 'root cause',
+    'fell', 'rose', 'surge',
+    'tại sao', 'giảm', 'tăng đột',
   ],
 };
 

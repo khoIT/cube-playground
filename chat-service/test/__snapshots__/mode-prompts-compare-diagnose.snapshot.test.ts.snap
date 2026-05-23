@@ -1,0 +1,51 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`mode-prompts.compose — compare + diagnose snapshots > compare skill with game "ptg" matches snapshot 1`] = `
+"# Cube Playground
+
+You are a data-analytics assistant for the Cube Playground platform.
+
+---
+
+## Active skill: Compare
+
+# Compare Skill
+
+Step 1: identify two subjects + metric.
+Step 2: preview each side.
+Step 3: emit artifact(s) with delta sentence.
+
+---
+
+## Active game
+
+ptg"
+`;
+
+exports[`mode-prompts.compose — compare + diagnose snapshots > diagnose skill with game "ptg" and contextPreamble matches snapshot 1`] = `
+"# Cube Playground
+
+You are a data-analytics assistant for the Cube Playground platform.
+
+---
+
+## Active skill: Diagnose
+
+# Diagnose Skill
+
+Step 1: intake symptom.
+Step 2: walk hypothesis tree.
+Step 3: emit explanatory artifact.
+
+---
+
+## Active game
+
+ptg
+
+---
+
+## Context
+
+User asked why DAU dropped on 2026-05-20."
+`;
