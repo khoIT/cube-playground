@@ -45,11 +45,23 @@ interface Snapshot {
   }>;
 }
 
+// A segment caught mid-refresh would land in the snapshot with status
+// 'refreshing' — an in-flight value that's meaningless to persist and that
+// otherwise drifts byte-by-byte every snapshot run while the cron worker is
+// active. Coerce to 'stale' so hydrate produces stable output and Windows
+// re-refreshes the segment on the first cron tick after pull.
+function stabilizeSegmentRow(row: SegmentRow): SegmentRow {
+  if (row.status === 'refreshing') return { ...row, status: 'stale' };
+  return row;
+}
+
 export function writeSnapshot(): string {
   const db = getDb();
   const snap: Snapshot = {
     version: 1,
-    segments: db.prepare('SELECT * FROM segments ORDER BY id').all() as SegmentRow[],
+    segments: (db.prepare('SELECT * FROM segments ORDER BY id').all() as SegmentRow[]).map(
+      stabilizeSegmentRow,
+    ),
     segment_tags: db
       .prepare('SELECT segment_id, tag FROM segment_tags ORDER BY segment_id, tag')
       .all() as Snapshot['segment_tags'],
@@ -74,15 +86,18 @@ export function hydrateFromSnapshot(): { hydrated: boolean; counts: Record<strin
   if (!existsSync(SNAPSHOT_PATH)) return { hydrated: false, counts: {} };
 
   const db = getDb();
-  const existing = (db.prepare('SELECT COUNT(*) AS c FROM segments').get() as { c: number }).c;
-  if (existing > 0) return { hydrated: false, counts: {} };
 
   const snap: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
 
-  // Snapshot rows may pre-date the game_id migration; rows that lack the field
-  // fall back to the playground's configured default game (gds.config.json).
+  // Idempotent backfill: every insert is `OR IGNORE` keyed by the row's
+  // primary key, so re-hydrating a partially-populated DB only fills the gaps
+  // and never clobbers local edits. Lets `git pull` + restart fix Windows
+  // checkouts that have a stale segments.db with only a handful of rows.
+  //
+  // Snapshot rows may pre-date the game_id migration; rows that lack the
+  // field fall back to the playground's configured default game.
   const insertSegment = db.prepare(`
-    INSERT INTO segments
+    INSERT OR IGNORE INTO segments
       (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json, sql_preview,
        uid_count, uid_list_json, refresh_cadence_min, last_refreshed_at, broken_reason,
        created_at, updated_at, predicate_meta_version, game_id, activations_json)
@@ -93,34 +108,44 @@ export function hydrateFromSnapshot(): { hydrated: boolean; counts: Record<strin
   `);
   const insertTag = db.prepare('INSERT OR IGNORE INTO segment_tags (segment_id, tag) VALUES (?, ?)');
   const insertCard = db.prepare(`
-    INSERT INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at)
+    INSERT OR IGNORE INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at)
     VALUES (?, ?, ?, ?, ?)
   `);
   const insertIdentity = db.prepare(`
-    INSERT OR REPLACE INTO cube_identity_map (cube, identity_field, source, confidence, updated_at)
+    INSERT OR IGNORE INTO cube_identity_map (cube, identity_field, source, confidence, updated_at)
     VALUES (?, ?, ?, ?, ?)
   `);
 
   const defaultGameId = loadGamesConfig().defaultGameId;
+  let segmentsInserted = 0;
+  let tagsInserted = 0;
+  let cardsInserted = 0;
+  let identityInserted = 0;
   const tx = db.transaction(() => {
-    for (const s of snap.segments) insertSegment.run({ game_id: defaultGameId, activations_json: '[]', ...s });
-    for (const t of snap.segment_tags) insertTag.run(t.segment_id, t.tag);
+    for (const s of snap.segments) {
+      const r = insertSegment.run({ game_id: defaultGameId, activations_json: '[]', ...s });
+      segmentsInserted += r.changes;
+    }
+    for (const t of snap.segment_tags) {
+      tagsInserted += insertTag.run(t.segment_id, t.tag).changes;
+    }
     for (const c of snap.segment_card_cache) {
-      insertCard.run(c.segment_id, c.card_id, c.query_hash, c.rows_json, c.fetched_at);
+      cardsInserted += insertCard.run(c.segment_id, c.card_id, c.query_hash, c.rows_json, c.fetched_at).changes;
     }
     for (const im of snap.cube_identity_map) {
-      insertIdentity.run(im.cube, im.identity_field, im.source, im.confidence, im.updated_at);
+      identityInserted += insertIdentity.run(im.cube, im.identity_field, im.source, im.confidence, im.updated_at).changes;
     }
   });
   tx();
 
+  const totalInserted = segmentsInserted + tagsInserted + cardsInserted + identityInserted;
   return {
-    hydrated: true,
+    hydrated: totalInserted > 0,
     counts: {
-      segments: snap.segments.length,
-      tags: snap.segment_tags.length,
-      cards: snap.segment_card_cache.length,
-      identity_map: snap.cube_identity_map.length,
+      segments: segmentsInserted,
+      tags: tagsInserted,
+      cards: cardsInserted,
+      identity_map: identityInserted,
     },
   };
 }
