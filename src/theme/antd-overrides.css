@@ -135,10 +135,17 @@
   background-color: var(--bg-muted) !important;
 }
 
-/* Popover / Tooltip */
+/* Popover / Tooltip — use card radius. The previous --radius-pill (9999px)
+ * collapsed wide-but-short popovers into lozenges (see CubeRowEditor). */
 .ant-popover-inner {
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
+}
+
+/* CubeRowEditor: drop antd's default inner-content padding so the editor's
+ * own <Body> padding (16px 18px) controls spacing without doubling up. */
+.cube-row-editor-popover .ant-popover-inner-content {
+  padding: 0;
 }
 .ant-popover-title {
   font-family: var(--font-sans);

@@ -28,8 +28,9 @@ const Trigger = styled.button`
 const Body = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-width: 280px;
+  gap: 14px;
+  min-width: 300px;
+  padding: 16px 18px;
   font-family: var(--font-sans);
 `;
 
@@ -222,6 +223,7 @@ export function CubeRowEditor({ name, defaultDisplayName }: CubeRowEditorProps) 
       content={content}
       visible={open}
       onVisibleChange={handleOpenChange}
+      overlayClassName="cube-row-editor-popover"
       destroyTooltipOnHide
     >
       <Trigger
