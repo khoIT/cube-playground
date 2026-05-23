@@ -19,10 +19,12 @@ function isQueryableDim(dim: CatalogCube['dimensions'][number]): boolean {
 
 function conceptsFromCube(cube: CatalogCube): Concept[] {
   const out: Concept[] = [];
+  const cubeKind: 'cube' | 'view' = cube.type === 'view' ? 'view' : 'cube';
 
   for (const m of cube.measures) {
     out.push({
       type: 'measure',
+      cubeKind,
       fqn: `${cube.name}.${m.name}`,
       cube: cube.name,
       name: m.name,
@@ -41,6 +43,7 @@ function conceptsFromCube(cube: CatalogCube): Concept[] {
     if (!isQueryableDim(d)) continue;
     out.push({
       type: 'dimension',
+      cubeKind,
       fqn: `${cube.name}.${d.name}`,
       cube: cube.name,
       name: d.name,
@@ -56,6 +59,7 @@ function conceptsFromCube(cube: CatalogCube): Concept[] {
   for (const s of cube.segments ?? []) {
     out.push({
       type: 'segment',
+      cubeKind,
       fqn: `${cube.name}.${s.name}`,
       cube: cube.name,
       name: s.name,

@@ -1,7 +1,11 @@
 /**
- * DataModelFilterBar — inline-visible facet rows for the data-model catalog.
- * Every option (Type / Cube / boolean toggle) renders as a pill so users see
- * at a glance what's filterable.
+ * DataModelFilterBar — inline-visible facet rows for the data-model catalog
+ * (Type / Cube / View / Cross-reference toggles). Collapsible.
+ *
+ * `DataModelGroupByBar` is a sibling strip that lives outside this container:
+ * the Group-by control is rendered as an always-visible row below the filter
+ * rail so the active sectioning axis stays discoverable even when filters are
+ * collapsed (matches the Hermes Feature Store layout pattern).
  *
  * File name retained for git history continuity; exported component reflects
  * the current top-bar role.
@@ -22,6 +26,11 @@ import {
   setFilterBarCollapsed,
 } from '../../../shared/filter-chip-bar/filter-bar-collapsed-store';
 import type { ConceptType } from './concept-types';
+import {
+  GROUP_BY_KEYS,
+  GROUP_BY_LABEL,
+  type GroupByKey,
+} from './group-by-spec';
 import type { ConceptFilters } from './use-filtered-concepts';
 
 const Container = styled.div`
@@ -30,7 +39,7 @@ const Container = styled.div`
   gap: 6px;
   padding: 6px 16px 10px;
   border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-app, transparent);
+  background: var(--bg-card, #ffffff);
 `;
 
 const HeaderRow = styled.button`
@@ -88,14 +97,53 @@ interface DataModelFilterBarProps {
   filters: ConceptFilters;
   onChange: (next: ConceptFilters) => void;
   availableCubes: string[];
+  availableViews: string[];
 }
 
 function countActive(filters: ConceptFilters): number {
   return (
     filters.types.size +
     filters.cubes.size +
+    filters.views.size +
     (filters.cdpProjectedOnly ? 1 : 0) +
     (filters.unreferencedOnly ? 1 : 0)
+  );
+}
+
+// Standalone Group-by strip — rendered outside DataModelFilterBar so it stays
+// visible when the filter rail is collapsed. Single-select pills (TogglePill
+// supplies the same styling as the multi-select rows above for visual cohesion).
+const GroupByContainer = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 16px 10px;
+  border-bottom: 1px solid var(--border-card, #e5e5e5);
+  background: var(--bg-card, #ffffff);
+`;
+
+interface DataModelGroupByBarProps {
+  value: GroupByKey;
+  onChange: (next: GroupByKey) => void;
+}
+
+export function DataModelGroupByBar({
+  value,
+  onChange,
+}: DataModelGroupByBarProps) {
+  return (
+    <GroupByContainer aria-label="Group by">
+      <TogglesLabel>Group by</TogglesLabel>
+      {GROUP_BY_KEYS.map((k) => (
+        <TogglePill
+          key={k}
+          label={GROUP_BY_LABEL[k]}
+          checked={value === k}
+          onChange={() => onChange(k)}
+        />
+      ))}
+    </GroupByContainer>
   );
 }
 
@@ -103,6 +151,7 @@ export function DataModelFilterBar({
   filters,
   onChange,
   availableCubes,
+  availableViews,
 }: DataModelFilterBarProps) {
   const [collapsed, setCollapsed] = React.useState<boolean>(() =>
     getFilterBarCollapsed('data-model'),
@@ -144,6 +193,13 @@ export function DataModelFilterBar({
             selected={filters.cubes}
             onChange={(next) => onChange({ ...filters, cubes: next })}
             emptyHint="No cubes available"
+          />
+          <FilterPillRow
+            label="View"
+            options={availableViews}
+            selected={filters.views}
+            onChange={(next) => onChange({ ...filters, views: next })}
+            emptyHint="No views available"
           />
           <TogglesRow>
             <TogglesLabel>Cross-reference</TogglesLabel>

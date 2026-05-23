@@ -7,6 +7,7 @@ export type ConceptType = 'measure' | 'dimension' | 'segment';
 
 export interface Concept {
   type: ConceptType;
+  cubeKind: 'cube' | 'view';
   fqn: string;
   cube: string;
   name: string;

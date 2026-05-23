@@ -16,9 +16,11 @@ import type { Concept } from '../concept-types';
 // Inline the same private helper to keep the test independent of React.
 function conceptsFromCubeMirror(cube: CatalogCube): Concept[] {
   const out: Concept[] = [];
+  const cubeKind: 'cube' | 'view' = cube.type === 'view' ? 'view' : 'cube';
   for (const m of cube.measures) {
     out.push({
       type: 'measure',
+      cubeKind,
       fqn: `${cube.name}.${m.name}`,
       cube: cube.name,
       name: m.name,
@@ -28,6 +30,7 @@ function conceptsFromCubeMirror(cube: CatalogCube): Concept[] {
     if (d.public === false || d.primaryKey) continue;
     out.push({
       type: 'dimension',
+      cubeKind,
       fqn: `${cube.name}.${d.name}`,
       cube: cube.name,
       name: d.name,
@@ -36,6 +39,7 @@ function conceptsFromCubeMirror(cube: CatalogCube): Concept[] {
   for (const s of cube.segments ?? []) {
     out.push({
       type: 'segment',
+      cubeKind,
       fqn: `${cube.name}.${s.name}`,
       cube: cube.name,
       name: s.name,
@@ -66,5 +70,17 @@ describe('conceptsFromCube (mirror)', () => {
       'dimension:mf_users.country',
       'segment:mf_users.whales',
     ]);
+  });
+
+  it('propagates cubeKind=view when cube.type is "view"', () => {
+    const view: CatalogCube = {
+      name: 'arppu_daily',
+      type: 'view',
+      measures: [{ name: 'arppu' }],
+      dimensions: [{ name: 'event_date', type: 'time' }],
+      segments: [],
+    };
+    const flat = conceptsFromCubeMirror(view);
+    expect(flat.every((c) => c.cubeKind === 'view')).toBe(true);
   });
 });

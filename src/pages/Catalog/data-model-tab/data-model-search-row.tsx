@@ -17,7 +17,7 @@ const Row = styled.div`
   gap: 10px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-app, transparent);
+  background: var(--bg-card, #fafafa);
 `;
 
 const SearchBox = styled.div`
@@ -32,7 +32,7 @@ const Input = styled.input`
   padding: 0 12px 0 32px;
   border: 1px solid var(--border-card, #e5e5e5);
   border-radius: 6px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-muted, #f5f5f5);
   font-size: 13px;
   color: var(--text-primary, #171717);
 

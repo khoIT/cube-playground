@@ -11,20 +11,27 @@ import { useMemo } from 'react';
 
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
 import type { Concept, ConceptType } from './concept-types';
+import type { GroupByKey } from './group-by-spec';
 
 export interface ConceptFilters {
   types: Set<ConceptType>;
+  // Source-name filters split by kind. Empty set on either side means
+  // "no constraint for that kind"; a name in either set narrows to that name.
   cubes: Set<string>;
+  views: Set<string>;
   cdpProjectedOnly: boolean;
   unreferencedOnly: boolean;
+  groupBy: GroupByKey;
 }
 
 export function emptyConceptFilters(): ConceptFilters {
   return {
     types: new Set(),
     cubes: new Set(),
+    views: new Set(),
     cdpProjectedOnly: false,
     unreferencedOnly: false,
+    groupBy: 'type',
   };
 }
 
@@ -74,9 +81,18 @@ export function useFilteredConcepts(
   return useMemo(() => {
     const usageMap = buildUsageMap(businessMetrics);
 
+    // Cube/View source-name filters apply per kind. When at least one side has
+    // a selection, only concepts from a *selected* source on that side survive;
+    // the untouched side stays fully open. When both sides have selections,
+    // concepts pass if they match either side.
+    const cubeFilterActive = filters.cubes.size > 0 || filters.views.size > 0;
+
     const visible = concepts.filter((c) => {
       if (filters.types.size > 0 && !filters.types.has(c.type)) return false;
-      if (filters.cubes.size > 0 && !filters.cubes.has(c.cube)) return false;
+      if (cubeFilterActive) {
+        const target = c.cubeKind === 'view' ? filters.views : filters.cubes;
+        if (!target.has(c.cube)) return false;
+      }
       if (filters.cdpProjectedOnly && !c.meta?.cdpProjection) return false;
       if (filters.unreferencedOnly && (usageMap.get(c.fqn) ?? 0) > 0) return false;
       if (!matchesQuery(c, query)) return false;

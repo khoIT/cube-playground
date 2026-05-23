@@ -1,8 +1,9 @@
 /**
  * DataModelTab — author surface. Concept-first list of measures /
- * dimensions / segments derived from the active game's Cube /meta, grouped
- * by type with collapsible section headers. Each card / row can be selected
- * for bulk-action affordance (no bulk action wired yet — just selection state).
+ * dimensions / segments derived from the active game's Cube /meta. Sections
+ * are determined by the user's Group-by axis (default: Type) via
+ * `group-by-spec`. Each card / row can be selected for bulk-action
+ * affordance (no bulk action wired yet — just selection state).
  *
  * Grid vs. list rendering is controlled by the shared view-mode store.
  */
@@ -19,9 +20,13 @@ import { useViewMode } from '../../../shared/view-mode/view-mode-toggle';
 import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
 import { ConceptCard } from './concept-card';
 import { ConceptListRow } from './concept-list-row';
-import type { Concept, ConceptType } from './concept-types';
-import { DataModelFilterBar } from './data-model-filter-rail';
+import type { Concept } from './concept-types';
+import {
+  DataModelFilterBar,
+  DataModelGroupByBar,
+} from './data-model-filter-rail';
 import { DataModelSearchRow } from './data-model-search-row';
+import { groupConcepts } from './group-by-spec';
 import { useConcepts } from './use-concepts';
 import {
   emptyConceptFilters,
@@ -68,36 +73,29 @@ const Empty = styled.div`
   font-size: 13px;
 `;
 
-const TYPE_ORDER: ConceptType[] = ['measure', 'dimension', 'segment'];
-const TYPE_LABEL: Record<ConceptType, string> = {
-  measure: 'measures',
-  dimension: 'dimensions',
-  segment: 'segments',
-};
-
-function groupByType(items: Concept[]): Map<ConceptType, Concept[]> {
-  const out = new Map<ConceptType, Concept[]>();
-  for (const c of items) {
-    const arr = out.get(c.type) ?? [];
-    arr.push(c);
-    out.set(c.type, arr);
-  }
-  return out;
-}
-
 export function DataModelTab() {
   const { concepts, cubes, loading, error } = useConcepts();
   const { metrics: businessMetrics } = useBusinessMetrics();
   const [filters, setFilters] = useState(() => emptyConceptFilters());
   const [query, setQuery] = useState('');
-  const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(() => new Set());
+  // Group collapse keyed by the active group-by axis' bucket key (e.g.
+  // 'measure', 'orders', 'heavy', …). Persists across axis changes — if the
+  // user re-picks the same key under a different axis the collapse sticks,
+  // which is a quirk we accept rather than store per-axis state.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [viewMode] = useViewMode('data-model');
 
-  const availableCubes = useMemo(
-    () => cubes.map((c) => c.name).sort((a, b) => a.localeCompare(b)),
-    [cubes],
-  );
+  const { availableCubes, availableViews } = useMemo(() => {
+    const cubesOnly: string[] = [];
+    const viewsOnly: string[] = [];
+    for (const c of cubes) {
+      (c.type === 'view' ? viewsOnly : cubesOnly).push(c.name);
+    }
+    cubesOnly.sort((a, b) => a.localeCompare(b));
+    viewsOnly.sort((a, b) => a.localeCompare(b));
+    return { availableCubes: cubesOnly, availableViews: viewsOnly };
+  }, [cubes]);
 
   const { visible, totalCount, usageMap } = useFilteredConcepts(
     concepts,
@@ -106,11 +104,10 @@ export function DataModelTab() {
     businessMetrics,
   );
 
-  const grouped = useMemo(() => groupByType(visible), [visible]);
-  const orderedTypes = useMemo(() => {
-    const present = new Set(grouped.keys());
-    return TYPE_ORDER.filter((t) => present.has(t));
-  }, [grouped]);
+  const groups = useMemo(
+    () => groupConcepts(visible, filters.groupBy, usageMap),
+    [visible, filters.groupBy, usageMap],
+  );
 
   if (loading) return <Status>Loading data model…</Status>;
   if (error) return <Status>Failed to load /meta: {error}</Status>;
@@ -119,10 +116,9 @@ export function DataModelTab() {
     setSelected((prev) => toggleSetMember(prev, id));
   }
 
-  function selectAllInType(type: ConceptType, allSelected: boolean) {
+  function selectAllInGroup(items: Concept[], allSelected: boolean) {
     setSelected((prev) => {
       const next = new Set(prev);
-      const items = grouped.get(type) ?? [];
       for (const c of items) {
         const id = `${c.type}:${c.fqn}`;
         if (allSelected) next.delete(id);
@@ -144,32 +140,37 @@ export function DataModelTab() {
         filters={filters}
         onChange={setFilters}
         availableCubes={availableCubes}
+        availableViews={availableViews}
+      />
+      <DataModelGroupByBar
+        value={filters.groupBy}
+        onChange={(next) => setFilters({ ...filters, groupBy: next })}
       />
       <Main>
         {selected.size > 0 && (
           <SelectionBanner count={selected.size} onClear={() => setSelected(new Set())} />
         )}
         {visible.length === 0 && <Empty>No concepts match the current filters.</Empty>}
-        {orderedTypes.map((type) => {
-          const items = grouped.get(type) ?? [];
-          const collapsed = collapsedTypes.has(type);
+        {groups.map((group) => {
+          const { key, label, items } = group;
+          const collapsed = collapsedGroups.has(key);
           const selectedInGroup = items.reduce(
             (n, c) => n + (selected.has(`${c.type}:${c.fqn}`) ? 1 : 0),
             0,
           );
           const allSelected = items.length > 0 && selectedInGroup === items.length;
           return (
-            <section key={type}>
+            <section key={key}>
               <GroupHeader
-                label={TYPE_LABEL[type]}
+                label={label}
                 count={items.length}
                 collapsed={collapsed}
                 onToggle={() =>
-                  setCollapsedTypes((prev) => toggleSetMember(prev, type))
+                  setCollapsedGroups((prev) => toggleSetMember(prev, key))
                 }
                 selectedInGroup={selectedInGroup}
                 allSelectedInGroup={allSelected}
-                onSelectAll={(all) => selectAllInType(type, all)}
+                onSelectAll={(all) => selectAllInGroup(items, all)}
               />
               {!collapsed && (
                 viewMode === 'grid' ? (

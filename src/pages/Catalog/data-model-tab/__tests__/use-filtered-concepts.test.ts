@@ -12,6 +12,7 @@ import { renderHook } from '@testing-library/react';
 function concept(overrides: Partial<Concept>): Concept {
   return {
     type: 'measure',
+    cubeKind: 'cube',
     fqn: 'cube.thing',
     cube: 'cube',
     name: 'thing',
@@ -95,6 +96,49 @@ describe('useFilteredConcepts', () => {
       useFilteredConcepts(concepts, filters, '', metrics),
     );
     expect(result.current.visible.map((c) => c.fqn)).toEqual([
+      'recharge.revenue_vnd',
+    ]);
+  });
+
+  it('view filter narrows to view-kind concepts only, dropping cubes', () => {
+    const withView = concepts.concat(
+      concept({
+        type: 'measure',
+        cubeKind: 'view',
+        fqn: 'arppu_daily.arppu',
+        cube: 'arppu_daily',
+        name: 'arppu',
+      }),
+    );
+    const filters = { ...emptyConceptFilters(), views: new Set(['arppu_daily']) };
+    const { result } = renderHook(() =>
+      useFilteredConcepts(withView, filters, '', metrics),
+    );
+    expect(result.current.visible.map((c) => c.fqn)).toEqual([
+      'arppu_daily.arppu',
+    ]);
+  });
+
+  it('cubes + views filter unions across kinds', () => {
+    const withView = concepts.concat(
+      concept({
+        type: 'measure',
+        cubeKind: 'view',
+        fqn: 'arppu_daily.arppu',
+        cube: 'arppu_daily',
+        name: 'arppu',
+      }),
+    );
+    const filters = {
+      ...emptyConceptFilters(),
+      cubes: new Set(['recharge']),
+      views: new Set(['arppu_daily']),
+    };
+    const { result } = renderHook(() =>
+      useFilteredConcepts(withView, filters, '', metrics),
+    );
+    expect(result.current.visible.map((c) => c.fqn).sort()).toEqual([
+      'arppu_daily.arppu',
       'recharge.revenue_vnd',
     ]);
   });
