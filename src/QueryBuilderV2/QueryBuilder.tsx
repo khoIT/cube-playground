@@ -1,4 +1,4 @@
-import { Alert, Block, Card, PrismCode, Title } from '@cube-dev/ui-kit';
+import { Alert, Block, Card, PrismCode, Text, Title } from '@cube-dev/ui-kit';
 import cube, { Query } from '@cubejs-client/core';
 import { useEffect, useMemo, useRef, ReactNode } from 'react';
 
@@ -17,6 +17,78 @@ import { QueryBuilderInternals } from './QueryBuilderInternals';
 import { QueryBuilderProps } from './types';
 import { useCommitPress } from './utils/use-commit-press';
 import { useAppContext } from '../hooks';
+import { useGameContext } from '../components/Header/use-game-context';
+
+interface FriendlyMetaError {
+  title: string;
+  body: string;
+  raw?: string;
+}
+
+// Map known Cube checkAuth errors to user-readable copy. Falls back to the raw
+// string so unfamiliar errors aren't swallowed silently. Display name comes
+// from gds.config.json (via useGameContext) so the message stays in sync with
+// what the user sees in the picker.
+function friendlyMetaError(
+  raw: string,
+  gameDisplayName?: string,
+): FriendlyMetaError {
+  const notAllowed = /^User\s+(\S+)\s+not allowed for game\s+(\S+)/i.exec(raw);
+  if (notAllowed) {
+    const gameId = notAllowed[2];
+    const label = gameDisplayName ? `${gameDisplayName} (${gameId})` : gameId;
+    return {
+      title: `No access to ${label}`,
+      body:
+        `Your Cube user "${notAllowed[1]}" isn't in the allowedGames list for ` +
+        `this tenant. Ask an admin to add the canonical game id to ` +
+        `auth-users.json (note: aliases like "_vn" are folded to the canonical ` +
+        `id before the check — list the canonical form).`,
+      raw,
+    };
+  }
+
+  const unknownGame = /^Unknown game claim:\s*(\S+)/i.exec(raw);
+  if (unknownGame) {
+    return {
+      title: `Unknown game "${unknownGame[1]}"`,
+      body:
+        `Cube doesn't recognize this game id. Check that gds.config.json and ` +
+        `the Cube schemas (GAME_SCHEMA in cube.js) agree on the id.`,
+      raw,
+    };
+  }
+
+  if (/Authorization header missing|Missing game claim/i.test(raw)) {
+    return {
+      title: 'Cube authentication missing',
+      body:
+        `The request reached Cube without a valid token or without a "game" ` +
+        `claim. Reload the page; if it persists, check CUBEJS_API_SECRET and ` +
+        `the /api/playground/cube-token response.`,
+      raw,
+    };
+  }
+
+  return {
+    title: 'Unable to load meta data.',
+    body: '',
+    raw,
+  };
+}
+
+function MetaErrorAlert({ raw }: { raw: string }) {
+  const { gameId, games } = useGameContext();
+  const displayName = games.find((g) => g.id === gameId)?.name;
+  const { title, body, raw: rawText } = friendlyMetaError(raw, displayName);
+  return (
+    <Alert theme="danger">
+      <Title level={5}>{title}</Title>
+      {body ? <Text>{body}</Text> : null}
+      {rawText ? <PrismCode code={rawText} /> : null}
+    </Alert>
+  );
+}
 
 export function QueryBuilder(
   props: Omit<QueryBuilderProps, 'apiUrl'> & {
@@ -288,10 +360,7 @@ export function QueryBuilder(
               {!metaError ? (
                 <Card>Loading meta information...</Card>
               ) : (
-                <Alert theme="danger">
-                  <Title level={5}>Unable to load meta data.</Title>
-                  <PrismCode code={metaError} />
-                </Alert>
+                <MetaErrorAlert raw={metaError} />
               )}
             </Block>
           ) : props.children ? (
