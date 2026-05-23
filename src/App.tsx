@@ -28,6 +28,10 @@ import { QUERY_BUILDER_COLOR_TOKENS } from './QueryBuilderV2';
 import { Sidebar } from './shell/sidebar/sidebar';
 import { T } from './shell/theme';
 import { Topbar } from './shell/topbar/topbar';
+import { ChatOverlay } from './shell/chat-overlay/chat-overlay';
+import { ChatPanel } from './shell/chat-overlay/chat-panel';
+import { useChatSurfaces } from './shell/chat-overlay/use-chat-surfaces';
+import { setOpen } from './shell/chat-overlay/chat-panel-open-store';
 import { TopbarTrailingProvider } from './shell/topbar/topbar-trailing-context';
 import { TopbarBreadcrumbProvider } from './shell/topbar/topbar-breadcrumb-context';
 import { pushRecent } from './shell/sidebar/recent-items-store';
@@ -169,6 +173,8 @@ type ShellLayoutProps = PropsWithChildren<{
 
 function ShellLayout({ fatalError, children }: ShellLayoutProps) {
   const smartSearch = useSmartSearch();
+  const { panelVisible } = useChatSurfaces();
+
   return (
     <div style={{
       height: '100vh', overflow: 'hidden',
@@ -195,6 +201,10 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
           )}
         </div>
       </main>
+      {/* Chat panel is a flex sibling so it pushes main content (not an overlay). */}
+      {panelVisible && <ChatPanel onClose={() => setOpen(false)} />}
+      {/* FAB renders fixed-position inside ChatOverlay — not part of the flex row. */}
+      <ChatOverlay />
     </div>
   );
 }

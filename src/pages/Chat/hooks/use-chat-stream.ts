@@ -13,6 +13,8 @@
  */
 import { useCallback, useReducer, useRef } from 'react';
 import { openChatTurn, type QueryArtifact } from '../../../api/chat-sse-client';
+import { pushRecent } from '../../../shell/sidebar/recent-items-store';
+import { notifyChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -161,10 +163,14 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
   // Hold the cancel fn for the current turn so cancel() can reach it.
   const cancelRef = useRef<(() => void) | null>(null);
 
+  // Track the user message text so the done handler can build a session title.
+  const userMessageRef = useRef<string>('');
+
   const sendTurn = useCallback(
     async (message: string) => {
       // Cancel any in-flight turn.
       cancelRef.current?.();
+      userMessageRef.current = message;
 
       dispatch({ type: 'START', sessionId: sessionIdRef.current });
 
@@ -221,9 +227,21 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
             case 'error':
               dispatch({ type: 'ERROR', message: event.data.message });
               break;
-            case 'done':
+            case 'done': {
               dispatch({ type: 'DONE' });
+              const sid = sessionIdRef.current;
+              if (sid) {
+                const title = (userMessageRef.current || 'Chat').slice(0, 64);
+                pushRecent('chat', {
+                  id: sid,
+                  title,
+                  updatedAt: new Date().toISOString(),
+                  href: `/chat/${sid}`,
+                });
+                notifyChatSessionChanged(sid);
+              }
               break;
+            }
           }
         }
       } catch (err: unknown) {

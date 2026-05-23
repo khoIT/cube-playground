@@ -35,9 +35,9 @@ const DataModelWizardSuccess = loadable(() =>
   )
 );
 
-const ChatPlaceholderPage = loadable(() =>
-  import('./pages/ChatPlaceholder/chat-placeholder-page').then((m) => ({
-    default: m.ChatPlaceholderPage,
+const ChatLandingPage = loadable(() =>
+  import('./pages/Chat/chat-landing-page').then((m) => ({
+    default: m.ChatLandingPage,
   }))
 );
 
@@ -127,7 +127,7 @@ ReactDOM.render(
               <Route key="index" exact path="/">
                 <Redirect to="/build" />
               </Route>
-              <Route key="chat" exact path="/chat" component={ChatPlaceholderPage} />
+              <Route key="chat" exact path="/chat" component={ChatLandingPage} />
               <Route key="chat-thread" path="/chat/:id" component={ChatThreadPage} />
               <KeepAliveRoute key="build" path="/build">
                 <ExplorePage />

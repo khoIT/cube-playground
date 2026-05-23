@@ -86,7 +86,11 @@ export function Sidebar() {
             to="/chat"
             collapsed={collapsed}
           >
-            <SidebarItem label="No recent items" to="/chat" indent muted />
+            <RecentItems
+              module="chat"
+              seeAllTo="/chat"
+              hrefFor={(id) => `/chat/${id}`}
+            />
           </SidebarSection>
         )}
 
