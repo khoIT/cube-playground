@@ -1,152 +1,27 @@
 /**
  * useChatStream — drives a live SSE turn against the chat-service proxy.
  *
- * Accumulates SSE events into displayable state:
- *   currentText        — token deltas concatenated
- *   currentReasoning   — thinking deltas concatenated
- *   currentArtifacts   — query_artifact events collected
- *   currentToolCalls   — tool_call / tool_result events merged
- *   status             — 'idle' | 'loading' | 'streaming' | 'done' | 'error'
- *   sessionId          — updated on session_created (starts from prop value)
- *
- * sendTurn(message) starts a new turn; cancel() aborts in-flight.
+ * Exposes:
+ *   status             — idle | loading | streaming | done | error | disconnected | rate_limited
+ *   sessionId          — updated on session_created
+ *   currentText / currentReasoning / currentArtifacts / currentToolCalls
+ *   lastCompactWarning — set when compact_warning received; sessionId advances to 'to'
+ *   retryAfterMs       — ms to wait on rate_limited
+ *   sendTurn(msg)      — start a new turn
+ *   cancel()           — abort in-flight turn
+ *   reconnect()        — re-fetch session to refresh after disconnect
  */
 import { useCallback, useReducer, useRef } from 'react';
-import { openChatTurn, type QueryArtifact } from '../../../api/chat-sse-client';
+import { openChatTurn } from '../../../api/chat-sse-client';
 import { pushRecent } from '../../../shell/sidebar/recent-items-store';
 import { notifyChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
+import {
+  chatStreamReducer,
+  makeInitialStreamState,
+} from './use-chat-stream-reducer';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type StreamStatus = 'idle' | 'loading' | 'streaming' | 'done' | 'error';
-
-export interface ToolCallState {
-  id: string;
-  name: string;
-  args?: unknown;
-  status: 'pending' | 'ok' | 'error';
-  ms?: number;
-  summary?: string;
-}
-
-// ---------------------------------------------------------------------------
-// Reducer
-// ---------------------------------------------------------------------------
-
-interface StreamState {
-  status: StreamStatus;
-  sessionId: string | null;
-  currentText: string;
-  currentReasoning: string;
-  currentArtifacts: QueryArtifact[];
-  currentToolCalls: ToolCallState[];
-  error: string | null;
-}
-
-type StreamAction =
-  | { type: 'START'; sessionId: string | null }
-  | { type: 'SESSION_CREATED'; id: string }
-  | { type: 'LOADING' }
-  | { type: 'STREAMING' }
-  | { type: 'TOKEN'; delta: string }
-  | { type: 'THINKING'; delta: string }
-  | { type: 'TOOL_CALL'; id: string; name: string; args: unknown }
-  | { type: 'TOOL_RESULT'; id: string; ok: boolean; ms: number; summary: string }
-  | { type: 'ARTIFACT'; artifact: QueryArtifact }
-  | { type: 'DONE' }
-  | { type: 'ERROR'; message: string }
-  | { type: 'RESET' };
-
-function makeInitial(sessionId: string | null): StreamState {
-  return {
-    status: 'idle',
-    sessionId,
-    currentText: '',
-    currentReasoning: '',
-    currentArtifacts: [],
-    currentToolCalls: [],
-    error: null,
-  };
-}
-
-function reducer(state: StreamState, action: StreamAction): StreamState {
-  switch (action.type) {
-    case 'START':
-      return {
-        ...makeInitial(action.sessionId),
-        status: 'loading',
-      };
-
-    case 'SESSION_CREATED':
-      return { ...state, sessionId: action.id };
-
-    case 'LOADING':
-      return { ...state, status: 'loading' };
-
-    case 'STREAMING':
-      return { ...state, status: 'streaming' };
-
-    case 'TOKEN':
-      return {
-        ...state,
-        status: 'streaming',
-        currentText: state.currentText + action.delta,
-      };
-
-    case 'THINKING':
-      return {
-        ...state,
-        currentReasoning: state.currentReasoning + action.delta,
-      };
-
-    case 'TOOL_CALL': {
-      const existing = state.currentToolCalls.find((t) => t.id === action.id);
-      if (existing) return state;
-      return {
-        ...state,
-        currentToolCalls: [
-          ...state.currentToolCalls,
-          { id: action.id, name: action.name, args: action.args, status: 'pending' },
-        ],
-      };
-    }
-
-    case 'TOOL_RESULT': {
-      return {
-        ...state,
-        currentToolCalls: state.currentToolCalls.map((t) =>
-          t.id === action.id
-            ? { ...t, status: action.ok ? 'ok' : 'error', ms: action.ms, summary: action.summary }
-            : t,
-        ),
-      };
-    }
-
-    case 'ARTIFACT':
-      return {
-        ...state,
-        currentArtifacts: [...state.currentArtifacts, action.artifact],
-      };
-
-    case 'DONE':
-      return { ...state, status: 'done' };
-
-    case 'ERROR':
-      return { ...state, status: 'error', error: action.message };
-
-    case 'RESET':
-      return makeInitial(state.sessionId);
-
-    default:
-      return state;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+// Re-export types consumers depend on.
+export type { StreamStatus, ToolCallState, CompactWarning } from './use-chat-stream-reducer';
 
 interface UseChatStreamOptions {
   sessionId: string | null;
@@ -154,24 +29,19 @@ interface UseChatStreamOptions {
 }
 
 export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
-  const [state, dispatch] = useReducer(reducer, makeInitial(sessionId));
+  const [state, dispatch] = useReducer(chatStreamReducer, makeInitialStreamState(sessionId));
 
-  // Track mutable sessionId across renders without triggering re-render.
+  // Mutable sessionId — kept in sync without triggering re-renders.
   const sessionIdRef = useRef<string | null>(sessionId);
   sessionIdRef.current = state.sessionId ?? sessionId;
 
-  // Hold the cancel fn for the current turn so cancel() can reach it.
   const cancelRef = useRef<(() => void) | null>(null);
-
-  // Track the user message text so the done handler can build a session title.
   const userMessageRef = useRef<string>('');
 
   const sendTurn = useCallback(
     async (message: string) => {
-      // Cancel any in-flight turn.
       cancelRef.current?.();
       userMessageRef.current = message;
-
       dispatch({ type: 'START', sessionId: sessionIdRef.current });
 
       const { stream, cancel } = openChatTurn({
@@ -180,6 +50,8 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
         game,
       });
       cancelRef.current = cancel;
+
+      let receivedDone = false;
 
       try {
         for await (const event of stream) {
@@ -195,21 +67,10 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
               dispatch({ type: 'THINKING', delta: event.data.delta });
               break;
             case 'tool_call':
-              dispatch({
-                type: 'TOOL_CALL',
-                id: event.data.id,
-                name: event.data.name,
-                args: event.data.args,
-              });
+              dispatch({ type: 'TOOL_CALL', id: event.data.id, name: event.data.name, args: event.data.args });
               break;
             case 'tool_result':
-              dispatch({
-                type: 'TOOL_RESULT',
-                id: event.data.id,
-                ok: event.data.ok,
-                ms: event.data.ms,
-                summary: event.data.summary,
-              });
+              dispatch({ type: 'TOOL_RESULT', id: event.data.id, ok: event.data.ok, ms: event.data.ms, summary: event.data.summary });
               break;
             case 'token':
               dispatch({ type: 'TOKEN', delta: event.data.delta });
@@ -217,33 +78,39 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
             case 'query_artifact':
               dispatch({ type: 'ARTIFACT', artifact: event.data });
               break;
+            case 'compact_warning':
+              sessionIdRef.current = event.data.to;
+              dispatch({ type: 'COMPACT_WARNING', from: event.data.from, to: event.data.to, summary: event.data.summary });
+              break;
             case 'result':
-              // result carries final text; if currentText is empty (no token events),
-              // use result.text directly.
               if (event.data.text && !state.currentText) {
                 dispatch({ type: 'TOKEN', delta: event.data.text });
               }
               break;
-            case 'error':
-              dispatch({ type: 'ERROR', message: event.data.message });
+            case 'error': {
+              const errData = event.data as { code: string; retry_after_ms?: number; message: string };
+              if (errData.code === 'rate_limited' && errData.retry_after_ms != null) {
+                dispatch({ type: 'RATE_LIMITED', retryAfterMs: errData.retry_after_ms });
+              } else {
+                dispatch({ type: 'ERROR', message: errData.message });
+              }
               break;
+            }
             case 'done': {
+              receivedDone = true;
               dispatch({ type: 'DONE' });
               const sid = sessionIdRef.current;
               if (sid) {
                 const title = (userMessageRef.current || 'Chat').slice(0, 64);
-                pushRecent('chat', {
-                  id: sid,
-                  title,
-                  updatedAt: new Date().toISOString(),
-                  href: `/chat/${sid}`,
-                });
+                pushRecent('chat', { id: sid, title, updatedAt: new Date().toISOString(), href: `/chat/${sid}` });
                 notifyChatSessionChanged(sid);
               }
               break;
             }
           }
         }
+        // Stream ended without 'done' → connection dropped.
+        if (!receivedDone) dispatch({ type: 'DISCONNECTED' });
       } catch (err: unknown) {
         if (err instanceof Error && err.name !== 'AbortError') {
           dispatch({ type: 'ERROR', message: err.message });
@@ -261,6 +128,17 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     dispatch({ type: 'RESET' });
   }, []);
 
+  // Re-fires session-changed event so useChatSession / rails refetch persisted history.
+  const reconnect = useCallback(async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    try {
+      const res = await fetch(`/api/chat/sessions/${sid}`, { headers: { Accept: 'application/json' } });
+      if (res.ok) notifyChatSessionChanged(sid);
+    } catch { /* silently ignore — caller can retry */ }
+    dispatch({ type: 'RESET' });
+  }, []);
+
   return {
     status: state.status,
     sessionId: state.sessionId,
@@ -269,7 +147,10 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     currentArtifacts: state.currentArtifacts,
     currentToolCalls: state.currentToolCalls,
     error: state.error,
+    lastCompactWarning: state.lastCompactWarning,
+    retryAfterMs: state.retryAfterMs,
     sendTurn,
     cancel,
+    reconnect,
   };
 }

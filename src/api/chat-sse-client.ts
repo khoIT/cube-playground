@@ -74,6 +74,11 @@ export interface SseDone extends SseEventBase {
   data: Record<string, never>;
 }
 
+export interface SseCompactWarning extends SseEventBase {
+  type: 'compact_warning';
+  data: { from: string; to: string; summary: string };
+}
+
 export type SseEvent =
   | SseSessionCreated
   | SseLoading
@@ -84,7 +89,8 @@ export type SseEvent =
   | SseQueryArtifact
   | SseResult
   | SseError
-  | SseDone;
+  | SseDone
+  | SseCompactWarning;
 
 // ---------------------------------------------------------------------------
 // Owner ID helper — read from localStorage (dev convention)

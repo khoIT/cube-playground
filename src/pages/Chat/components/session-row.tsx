@@ -1,11 +1,13 @@
 /**
  * SessionRow — single line in the chat history rail or list.
  * Shows truncated title + relative timestamp. Highlights when active.
+ * Hover reveals kebab menu for rename/delete actions.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { T } from '../../../shell/theme';
 import type { SessionSummary } from '../hooks/use-chat-sessions-list';
+import { SessionRowMenu } from './session-row-menu';
 
 const TITLE_MAX = 48;
 
@@ -30,16 +32,30 @@ function relativeTime(iso: string): string {
 interface SessionRowProps {
   session: SessionSummary;
   active?: boolean;
+  onChange?: () => void;
 }
 
-export function SessionRow({ session, active = false }: SessionRowProps) {
+export function SessionRow({ session, active = false, onChange }: SessionRowProps) {
   const history = useHistory();
+  const [hovered, setHovered] = useState(false);
+  const [localTitle, setLocalTitle] = useState(session.title);
+
+  function handleRenamed(newTitle: string) {
+    setLocalTitle(newTitle);
+    onChange?.();
+  }
+
+  function handleDeleted() {
+    onChange?.();
+  }
 
   return (
     <button
       type="button"
       data-testid={`session-row-${session.id}`}
       onClick={() => history.push(`/chat/${session.id}`)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -48,17 +64,12 @@ export function SessionRow({ session, active = false }: SessionRowProps) {
         padding: '8px 12px',
         border: 'none',
         borderRadius: 8,
-        background: active ? T.brandSoft : 'none',
+        background: active ? T.brandSoft : hovered ? T.surfaceSubtle : 'none',
         cursor: 'pointer',
         textAlign: 'left',
         gap: 8,
         transition: 'background 0.12s',
-      }}
-      onMouseEnter={(e) => {
-        if (!active) (e.currentTarget as HTMLButtonElement).style.background = T.surfaceSubtle;
-      }}
-      onMouseLeave={(e) => {
-        if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'none';
+        position: 'relative',
       }}
     >
       <span
@@ -74,19 +85,28 @@ export function SessionRow({ session, active = false }: SessionRowProps) {
           whiteSpace: 'nowrap',
         }}
       >
-        {truncate(session.title || 'Untitled', TITLE_MAX)}
+        {truncate(localTitle || 'Untitled', TITLE_MAX)}
       </span>
-      <span
-        style={{
-          flexShrink: 0,
-          fontFamily: T.fSans,
-          fontSize: 11,
-          color: T.n400,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {relativeTime(session.updatedAt ?? session.createdAt)}
-      </span>
+
+      {hovered ? (
+        <SessionRowMenu
+          session={{ ...session, title: localTitle }}
+          onRenamed={handleRenamed}
+          onDeleted={handleDeleted}
+        />
+      ) : (
+        <span
+          style={{
+            flexShrink: 0,
+            fontFamily: T.fSans,
+            fontSize: 11,
+            color: T.n400,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {relativeTime(session.updatedAt ?? session.createdAt)}
+        </span>
+      )}
     </button>
   );
 }

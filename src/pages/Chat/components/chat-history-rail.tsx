@@ -12,7 +12,7 @@ interface ChatHistoryRailProps {
 }
 
 export function ChatHistoryRail({ activeId }: ChatHistoryRailProps) {
-  const { sessions, isLoading } = useChatSessionsList();
+  const { sessions, isLoading, refetch } = useChatSessionsList();
 
   return (
     <div
@@ -60,6 +60,7 @@ export function ChatHistoryRail({ activeId }: ChatHistoryRailProps) {
           key={session.id}
           session={session}
           active={session.id === activeId}
+          onChange={refetch}
         />
       ))}
     </div>

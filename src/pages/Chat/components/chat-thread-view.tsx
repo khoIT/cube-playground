@@ -14,6 +14,8 @@ interface ChatThreadViewProps {
   onComposerChange: (value: string) => void;
   onSubmit: () => void;
   compact?: boolean;
+  /** Optional banner rendered above the message list (e.g. disconnect notice). */
+  banner?: React.ReactNode;
 }
 
 export function ChatThreadView({
@@ -23,6 +25,7 @@ export function ChatThreadView({
   onComposerChange,
   onSubmit,
   compact,
+  banner,
 }: ChatThreadViewProps) {
   return (
     <div
@@ -33,6 +36,7 @@ export function ChatThreadView({
         overflow: 'hidden',
       }}
     >
+      {banner}
       <ChatMessageList messages={messages} streaming={streaming} />
 
       <ChatComposer
