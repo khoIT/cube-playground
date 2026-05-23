@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getDb } from './sqlite.js';
+import { loadGamesConfig } from '../services/games-config-loader.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SNAPSHOT_PATH = join(__dirname, '..', '..', 'data', 'seed', 'segments-snapshot.json');
@@ -80,8 +81,8 @@ export function hydrateFromSnapshot(): { hydrated: boolean; counts: Record<strin
 
   const snap: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
 
-  // Snapshot rows from before the game_id migration may not carry the field; default to 'ptg'.
-  // Snapshot rows may pre-date later migrations; defaults are applied per-row.
+  // Snapshot rows may pre-date the game_id migration; rows that lack the field
+  // fall back to the playground's configured default game (gds.config.json).
   const insertSegment = db.prepare(`
     INSERT INTO segments
       (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json, sql_preview,
@@ -102,8 +103,9 @@ export function hydrateFromSnapshot(): { hydrated: boolean; counts: Record<strin
     VALUES (?, ?, ?, ?, ?)
   `);
 
+  const defaultGameId = loadGamesConfig().defaultGameId;
   const tx = db.transaction(() => {
-    for (const s of snap.segments) insertSegment.run({ game_id: 'ptg', activations_json: '[]', ...s });
+    for (const s of snap.segments) insertSegment.run({ game_id: defaultGameId, activations_json: '[]', ...s });
     for (const t of snap.segment_tags) insertTag.run(t.segment_id, t.tag);
     for (const c of snap.segment_card_cache) {
       insertCard.run(c.segment_id, c.card_id, c.query_hash, c.rows_json, c.fetched_at);

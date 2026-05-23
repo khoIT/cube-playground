@@ -13,6 +13,7 @@ import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
 import { pickPresetForCube } from '../presets/mf-users-hub.js';
 import { suggestIdentities } from '../services/identity-suggester.js';
+import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 
 const PER_SEGMENT_TIMEOUT_MS = 60_000;
 
@@ -24,6 +25,7 @@ interface SegmentRow {
   predicate_meta_version: string | null;
   type: string;
   uid_list_json: string;
+  game_id: string | null;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -67,6 +69,11 @@ export async function refreshSegment(segmentId: string): Promise<void> {
 
   setSegmentStatus(segmentId, 'refreshing', null);
 
+  // Per-segment Cube token — the segment stores game_id, mint or look up the
+  // JWT for that tenant so /load and /meta hit the right yaml. Falls back to
+  // the global CUBE_TOKEN env when no game-scoped token resolves.
+  const token = row.game_id ? resolveCubeTokenForGame(row.game_id) ?? undefined : undefined;
+
   try {
     const identity = await getIdentityField(row.cube);
     if (!identity) {
@@ -77,10 +84,13 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // Drift check — re-translate predicate against current /meta if schema moved.
     let cubeQueryJson = row.cube_query_json;
     try {
-      const drift = await resolveDrift({
-        predicate_tree_json: row.predicate_tree_json,
-        predicate_meta_version: row.predicate_meta_version,
-      });
+      const drift = await resolveDrift(
+        {
+          predicate_tree_json: row.predicate_tree_json,
+          predicate_meta_version: row.predicate_meta_version,
+        },
+        token,
+      );
       if (drift.drifted) {
         if (drift.rehydrated) {
           cubeQueryJson = JSON.stringify(drift.newCubeQuery);
@@ -112,7 +122,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     };
 
     const result = await withTimeout(
-      load(fullQuery),
+      load(fullQuery, token),
       PER_SEGMENT_TIMEOUT_MS,
       `refresh segment ${segmentId}`,
     );
@@ -178,7 +188,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     const preset = pickPresetForCube(row.cube);
     if (preset) {
       try {
-        const entries = await runPresetCards(preset, uids);
+        const entries = await runPresetCards(preset, uids, token);
         upsertCardCache(segmentId, entries);
       } catch (err) {
         console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);

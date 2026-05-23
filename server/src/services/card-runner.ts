@@ -94,6 +94,7 @@ function extractRows(loadResult: unknown): Array<Record<string, unknown>> {
 export async function runPresetCards(
   preset: PresetSpec,
   uids: string[],
+  tokenOverride?: string,
 ): Promise<CardCacheEntry[]> {
   const allSpecs: Array<{ id: string; query: CubeQuery }> = [];
 
@@ -113,7 +114,7 @@ export async function runPresetCards(
   for (const { id, query } of allSpecs) {
     const scoped = scopeQuery(query, preset.identityDim, uids);
     try {
-      const raw = await load(scoped);
+      const raw = await load(scoped, tokenOverride);
       results.push({ cardId: id, queryHash: hashQuery(scoped), rows: extractRows(raw) });
     } catch (err) {
       // Card-level failure shouldn't kill the whole refresh — log and skip.

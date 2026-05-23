@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import { load, getMeta } from '../services/cube-client.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
+import { loadGamesConfig } from '../services/games-config-loader.js';
 import { getAll as getAllBusinessMetrics } from '../services/business-metrics-loader.js';
 import {
   planMetricQueries,
@@ -32,7 +33,9 @@ import type {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_STATE_FILE = resolve(__dirname, '..', '..', 'data', 'anomaly-state.json');
 const DEFAULT_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
-const DEFAULT_GAMES = ['ptg', 'ballistar', 'cfm_vn', 'jus_vn'];
+// No literal game-id list — when ANOMALY_DETECTOR_GAMES is unset we scan every
+// game in gds.config.json so adding a game in the registry never silently
+// excludes it from anomaly detection.
 
 let lastRunAt = 0;
 let stateFile = DEFAULT_STATE_FILE;
@@ -51,7 +54,7 @@ export function __resetAnomalyDetectorState(): void {
 function gamesToScan(): string[] {
   const raw = process.env.ANOMALY_DETECTOR_GAMES;
   if (raw && raw.trim()) return raw.split(',').map((s) => s.trim()).filter(Boolean);
-  return DEFAULT_GAMES;
+  return loadGamesConfig().games.map((g) => g.id);
 }
 
 interface CubeLoadResult {

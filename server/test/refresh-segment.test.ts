@@ -1,7 +1,27 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getDb } from '../src/db/sqlite.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import Database from 'better-sqlite3';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { getDb, setDb, closeDb } from '../src/db/sqlite.js';
 import { refreshSegment } from '../src/jobs/refresh-segment.js';
 import * as cubeClient from '../src/services/cube-client.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
+
+// Per-test in-memory DB so this suite never touches data/segments.db. Without
+// this guard, seedSegment() runs against the live dev DB and clobbers rows the
+// running server depends on (notably resets seg_test_refresh.game_id default).
+function makeMemDb() {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
+    db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
+  }
+  return db;
+}
 
 function seedSegment(): string {
   const db = getDb();
@@ -52,7 +72,12 @@ function getSegment(id: string) {
 
 describe('refreshSegment', () => {
   beforeEach(() => {
+    setDb(makeMemDb());
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    closeDb();
   });
 
   it('writes uids and marks status=fresh on happy path', async () => {
@@ -98,6 +123,21 @@ describe('refreshSegment', () => {
     const row = getSegment(id);
     expect(row.status).toBe('fresh');
     expect(row.uid_count).toBe(1);
+  });
+
+  it('marks status=broken when Cube responds with "Continue wait" (async precompute)', async () => {
+    // Cold pre-aggregate: Cube returns HTTP 200 with `{error: "Continue wait"}`.
+    // Without explicit handling, the refresh would read `data ?? []` → store
+    // uid_count=0 + status=fresh — a silent false positive that masks cold
+    // caches as "0 matches". The cube-client throws on the error field; the
+    // refresh job propagates the error into broken_reason.
+    const id = seedSegment();
+    vi.spyOn(cubeClient, 'load').mockRejectedValue(new Error('Cube /load: Continue wait'));
+    await refreshSegment(id);
+    const row = getSegment(id);
+    expect(row.status).toBe('broken');
+    expect(row.broken_reason).toContain('Continue wait');
+    expect(row.uid_count).toBe(0);
   });
 
   it('marks status=broken when no identity-field mapping exists and auto-suggest has no hit', async () => {

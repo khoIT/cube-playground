@@ -14,6 +14,8 @@
  *     → at least one referenced member no longer exists; cron marks broken.
  */
 
+import { createHash } from 'node:crypto';
+
 import { getMeta } from './cube-client.js';
 import { getVersion } from './meta-cache.js';
 import { treeToCubeFilters } from './translator.js';
@@ -73,9 +75,22 @@ export interface SegmentLike {
   predicate_meta_version: string | null;
 }
 
-export async function resolveDrift(segment: SegmentLike): Promise<DriftResult> {
-  const current = await getVersion();
-  const currentHash = current.hash;
+export async function resolveDrift(
+  segment: SegmentLike,
+  tokenOverride?: string,
+): Promise<DriftResult> {
+  // Per-game refreshes can't share the global meta-cache: the hash there is
+  // computed against whichever yaml the default CUBE_TOKEN resolves to, which
+  // is the wrong tenant. Fetch + hash inline when scoped to a specific token.
+  let currentHash: string | null;
+  let scopedMeta: MetaResponse | null = null;
+  if (tokenOverride) {
+    scopedMeta = (await getMeta(tokenOverride)) as MetaResponse;
+    currentHash = createHash('sha256').update(JSON.stringify(scopedMeta)).digest('hex');
+  } else {
+    const current = await getVersion();
+    currentHash = current.hash;
+  }
   if (!currentHash) {
     // No version cached — treat as not-drifted so refresh proceeds.
     return { drifted: false };
@@ -91,7 +106,7 @@ export async function resolveDrift(segment: SegmentLike): Promise<DriftResult> {
   const referenced = new Set<string>();
   collectMemberRefs(tree, referenced);
 
-  const meta = (await getMeta()) as MetaResponse;
+  const meta = (scopedMeta ?? ((await getMeta(tokenOverride)) as MetaResponse)) as MetaResponse;
   const known = collectKnownMembers(meta);
 
   const missing = [...referenced].filter((m) => !known.has(m));

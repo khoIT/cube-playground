@@ -11,6 +11,7 @@ import type { Query } from '@cubejs-client/core';
 import type { Segment, SegmentInput } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
+import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { buildPredicateFromRows } from '../../../QueryBuilderV2/segments-save-bar/build-predicate-from-rows';
 import { summarizeSelection } from './selection-summary';
 import {
@@ -84,6 +85,10 @@ export function PushModal({
   allowLive = true,
 }: Props): ReactElement {
   const { t } = useTranslation();
+  // Stamp new segments with the currently-picked game so they bind to the
+  // tenant the user was looking at when they pushed — not the server-side
+  // fallback (which would mis-attribute every push to the default game).
+  const gameId = useActiveGameId();
   const [tab, setTab] = useState<ModeTab>('create');
   const [name, setName] = useState('');
   const initialType: 'manual' | 'predicate' = allowStatic ? 'manual' : 'predicate';
@@ -185,6 +190,7 @@ export function PushModal({
         uid_list: finalUids,
         predicate_tree: predicateTree,
         refresh_cadence_min: type === 'predicate' ? 60 : null,
+        game_id: gameId,
       };
       const created = await segmentsClient.create(input);
       message.success(t('segments.push.toastCreated'));

@@ -33,7 +33,15 @@ async function cubePost(
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`Cube ${path} → ${res.status}: ${text}`);
   }
-  return res.json();
+  const json = (await res.json()) as { error?: string };
+  // Cube returns HTTP 200 with `{error: "Continue wait"}` while a query is
+  // being pre-aggregated asynchronously. Without this guard, callers that
+  // read `data ?? []` silently capture an empty result set — masking cold
+  // caches as "0 matches" and writing back false-positive `uid_count=0`.
+  if (json && typeof json === 'object' && typeof json.error === 'string') {
+    throw new Error(`Cube ${path}: ${json.error}`);
+  }
+  return json;
 }
 
 async function cubeGet(path: string, tokenOverride?: string): Promise<unknown> {

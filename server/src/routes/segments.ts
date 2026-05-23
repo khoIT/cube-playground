@@ -13,6 +13,7 @@ import type { PredicateNode } from '../types/predicate-tree.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
 import { enqueueRefresh } from '../jobs/refresh-queue.js';
 import { getCardCache } from '../services/card-cache-store.js';
+import { loadGamesConfig } from '../services/games-config-loader.js';
 
 const segmentInputSchema = z.object({
   name: z.string().min(1),
@@ -144,7 +145,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       data.refresh_cadence_min ?? null,
       now,
       now,
-      data.game_id ?? 'ptg',
+      data.game_id ?? loadGamesConfig().defaultGameId,
     );
 
     if (data.tags?.length) {
@@ -330,7 +331,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       null,
       now,
       now,
-      body.game_id ?? 'ptg',
+      body.game_id ?? loadGamesConfig().defaultGameId,
     );
 
     if (body.tags?.length) {
@@ -481,7 +482,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const activation = {
       id: uuidv4(),
       destination: 'cdp' as const,
-      game_id: body.game_id ?? (row.game_id as string) ?? 'ptg',
+      game_id: body.game_id ?? (row.game_id as string) ?? loadGamesConfig().defaultGameId,
       env: body.env,
       metric_name: body.metric_name,
       registered_at: new Date().toISOString(),
