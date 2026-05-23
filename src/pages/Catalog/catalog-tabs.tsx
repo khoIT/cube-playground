@@ -1,3 +1,11 @@
+/**
+ * DataModelSubtabs — sub-navigation within the Data Model surface.
+ * Splits the data-model content into three views: Concepts (default,
+ * concept-grid), Cubes (raw cube cards), Models (schema files).
+ *
+ * The top-level Data Model vs Metrics Catalog split lives in the sidebar
+ * now — there is no longer a catalog-wide tab strip above the page.
+ */
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled, { css } from 'styled-components';
@@ -48,45 +56,49 @@ const TabButton = styled.button<{ $active: boolean }>`
     `}
 `;
 
-export type TabKey = 'metrics' | 'data-model' | 'cubes' | 'models';
+export type DataModelSubtab = 'concepts' | 'cubes' | 'models';
 
-const TAB_PATHS: Record<TabKey, string> = {
-  metrics: '/catalog',
-  'data-model': '/catalog/data-model',
-  cubes: '/catalog/cubes',
-  models: '/catalog/models',
+const TAB_PATHS: Record<DataModelSubtab, string> = {
+  concepts: '/catalog/data-model',
+  cubes:    '/catalog/data-model/cubes',
+  models:   '/catalog/data-model/models',
 };
 
-function resolveActive(pathname: string): TabKey {
-  if (pathname.endsWith('/data-model') || pathname.includes('/data-model/')) return 'data-model';
-  if (pathname.endsWith('/cubes') || pathname.includes('/cubes/')) return 'cubes';
-  if (pathname.endsWith('/models') || pathname.includes('/models/')) return 'models';
-  return 'metrics';
+const TAB_LABELS: Record<DataModelSubtab, { i18n: string; fallback: string }> = {
+  concepts: { i18n: 'tabs.concepts',  fallback: 'Concepts' },
+  cubes:    { i18n: 'tabs.cubes',     fallback: 'Cubes' },
+  models:   { i18n: 'tabs.models',    fallback: 'Models' },
+};
+
+const TAB_ORDER: DataModelSubtab[] = ['concepts', 'cubes', 'models'];
+
+/**
+ * Resolve which subtab is active for a given pathname under /catalog/data-model.
+ * Returns null if the pathname is not under the Data Model surface.
+ */
+export function resolveDataModelSubtab(pathname: string): DataModelSubtab | null {
+  if (pathname === '/catalog/data-model' || pathname.startsWith('/catalog/data-model/')) {
+    if (pathname.includes('/data-model/cubes')) return 'cubes';
+    if (pathname.includes('/data-model/models')) return 'models';
+    return 'concepts';
+  }
+  return null;
 }
 
-const TAB_LABELS: Record<TabKey, string> = {
-  metrics: 'tabs.metrics',
-  'data-model': 'tabs.dataModel',
-  cubes: 'tabs.cubes',
-  models: 'tabs.models',
-};
-
-const TAB_ORDER: TabKey[] = ['metrics', 'data-model', 'cubes', 'models'];
-
-export function CatalogTabs() {
+export function DataModelSubtabs() {
   const { t } = useTranslation();
   const history = useHistory();
   const location = useLocation();
-  const active = resolveActive(location.pathname);
+  const active = resolveDataModelSubtab(location.pathname) ?? 'concepts';
 
-  function go(key: TabKey) {
+  function go(key: DataModelSubtab) {
     const target = TAB_PATHS[key];
     if (location.pathname === target) return;
     history.push(target);
   }
 
   return (
-    <Strip role="tablist" aria-label={t('nav.catalog')}>
+    <Strip role="tablist" aria-label="Data Model">
       {TAB_ORDER.map((key) => (
         <TabButton
           key={key}
@@ -96,11 +108,9 @@ export function CatalogTabs() {
           $active={active === key}
           onClick={() => go(key)}
         >
-          {t(TAB_LABELS[key])}
+          {t(TAB_LABELS[key].i18n, { defaultValue: TAB_LABELS[key].fallback })}
         </TabButton>
       ))}
     </Strip>
   );
 }
-
-export { resolveActive as resolveCatalogTab };

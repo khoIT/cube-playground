@@ -9,6 +9,7 @@ import { Breadcrumb } from './breadcrumb';
 import { SearchTrigger } from './search-trigger';
 import { AvatarMenu } from './avatar-menu';
 import { TopbarTrailingContext } from './topbar-trailing-context';
+import { NotificationBell } from '../../components/Header/notification-bell';
 
 interface TopbarProps {
   onSearchOpen: () => void;
@@ -44,6 +45,7 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
         </div>
       )}
       <SearchTrigger onOpen={onSearchOpen} />
+      <NotificationBell />
       <AvatarMenu />
     </header>
   );

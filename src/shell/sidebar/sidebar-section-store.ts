@@ -41,12 +41,7 @@ const PATH_TO_SECTION: Array<{ prefix: string; sectionId: string }> = [
   { prefix: '/catalog/data-model',     sectionId: 'data-model' },
   { prefix: '/data-model/new',         sectionId: 'data-model' },
   { prefix: '/catalog/metrics',        sectionId: 'metrics-catalog' },
-  { prefix: '/catalog/concept',        sectionId: 'metrics-catalog' },
-  { prefix: '/segments/identity-map',  sectionId: 'advanced' },
-  { prefix: '/catalog/digest',         sectionId: 'advanced' },
-  { prefix: '/catalog/notifications',  sectionId: 'advanced' },
-  { prefix: '/catalog/saved-views',    sectionId: 'advanced' },
-  { prefix: '/catalog/workspaces',     sectionId: 'advanced' },
+  { prefix: '/catalog/concept',        sectionId: 'data-model' },
   { prefix: '/segments',               sectionId: 'segments' },
 ];
 

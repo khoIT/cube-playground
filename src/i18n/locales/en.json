@@ -17,7 +17,7 @@
     "dataModel": "Data Model",
     "metricsCatalog": "Metrics Catalog",
     "advanced": "Advanced",
-    "dataModelNew": "+ New data model"
+    "dataModelNew": "New data model"
   },
   "segments": {
     "actions": {
@@ -363,7 +363,8 @@
     "catalog": "Catalog",
     "metrics": "Metrics",
     "dataModel": "Data Model",
-    "cubes": "Cubes"
+    "cubes": "Cubes",
+    "concepts": "Concepts"
   },
   "user": {
     "menuLabel": "User menu",

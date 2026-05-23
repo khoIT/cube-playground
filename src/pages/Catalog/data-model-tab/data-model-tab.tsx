@@ -94,7 +94,7 @@ export function DataModelTab() {
       <Body>
         <ActionBar>
           <NewDataModelLink to="/data-model/new?v=2">
-            + New data model
+            New data model
           </NewDataModelLink>
         </ActionBar>
         <DataModelSearchRow

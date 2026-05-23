@@ -1,13 +1,23 @@
+/**
+ * Catalog routing host. Since the Hermes shell port (260523) the top-level
+ * Data Model vs Metrics Catalog split lives in the sidebar — there is no
+ * catalog-wide page header here. Inside /catalog/data-model the user can
+ * subnav between Concepts / Cubes / Models. /catalog/metrics renders the
+ * business-metric registry directly.
+ *
+ * Long-tail surfaces (Digest / Notifications / Saved views / Workspaces)
+ * remain reachable via direct URL even though they no longer appear in the
+ * sidebar.
+ */
 import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Route, useLocation, withRouter } from 'react-router-dom';
+import { Redirect, Route, useLocation, withRouter } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { SchemaPage } from '../Schema/SchemaPage';
 import { CatalogGrid } from './catalog-grid';
-import { CatalogTabs, resolveCatalogTab } from './catalog-tabs';
 import { CatalogToolbar } from './catalog-toolbar';
 import { ConceptDetailPage } from './concept-detail/concept-detail-page';
+import { DataModelSubtabs, resolveDataModelSubtab } from './catalog-tabs';
 import { DataModelTab } from './data-model-tab/data-model-tab';
 import { DigestPage } from './digest/digest-page';
 import { MetricCompositionWizard } from './metric-composition-wizard/composition-wizard-page';
@@ -25,25 +35,6 @@ const Page = styled.div`
   flex-direction: column;
   height: 100%;
   background: var(--bg-app);
-`;
-
-const Header = styled.header`
-  padding: 24px 32px 12px;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-`;
-
-const Title = styled.h1`
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-`;
-
-const Count = styled.span`
-  font-size: 13px;
-  color: var(--text-muted);
 `;
 
 const Body = styled.div`
@@ -88,8 +79,7 @@ function CatalogBrowseBody({ cubes, loading, error }: CatalogBrowseBodyProps) {
     const q = search.trim().toLowerCase();
     const matches = (c: CatalogCube): boolean => {
       if (q) {
-        const hit = (s: string | undefined) =>
-          s?.toLowerCase().includes(q) ?? false;
+        const hit = (s: string | undefined) => s?.toLowerCase().includes(q) ?? false;
         if (!(hit(c.name) || hit(c.title) || hit(c.description))) return false;
       }
       if (hasPreAggOnly && (c.preAggregations?.length ?? 0) === 0) return false;
@@ -131,22 +121,18 @@ function CatalogBrowseBody({ cubes, loading, error }: CatalogBrowseBodyProps) {
           )}
         </Main>
 
-        {selected && (
-          <DetailPanel cube={selected} onClose={() => setSelectedCube(null)} />
-        )}
+        {selected && <DetailPanel cube={selected} onClose={() => setSelectedCube(null)} />}
       </Body>
     </>
   );
 }
 
 export function CatalogPage() {
-  const { t } = useTranslation();
   const location = useLocation();
-  const activeTab = resolveCatalogTab(location.pathname);
   const { cubes, loading, error } = useCatalogMeta();
 
-  // The composition wizard route is checked first because /catalog/metric/new
-  // would otherwise be swallowed by the /catalog/metric/:id detail pattern.
+  // Composition wizard short-circuit — /catalog/metric/new must run before
+  // the /catalog/metric/:id detail pattern below.
   if (location.pathname === '/catalog/metric/new') {
     return (
       <Page>
@@ -155,20 +141,20 @@ export function CatalogPage() {
     );
   }
 
+  // Long-tail surfaces — sidebar entries removed (260523-1347) but the routes
+  // remain reachable via direct URL.
   const longTailMap: Record<string, JSX.Element> = {
-    '/catalog/digest': <DigestPage />,
+    '/catalog/digest':        <DigestPage />,
     '/catalog/notifications': <NotificationsPage />,
-    '/catalog/saved-views': <SavedViewsPage />,
-    '/catalog/workspaces': <WorkspacesPage />,
+    '/catalog/saved-views':   <SavedViewsPage />,
+    '/catalog/workspaces':    <WorkspacesPage />,
   };
   if (longTailMap[location.pathname]) {
     return <Page>{longTailMap[location.pathname]}</Page>;
   }
 
-  // Detail routes get their own page chrome (header + tab-strip lives inside
-  // the detail page itself), so they short-circuit the tab shell.
-  const isMetricDetail = /^\/catalog\/metric\/[^/]+/.test(location.pathname);
-  if (isMetricDetail) {
+  // Detail pages own their chrome.
+  if (/^\/catalog\/metric\/[^/]+/.test(location.pathname)) {
     return (
       <Page>
         <Route path="/catalog/metric/:id">
@@ -177,11 +163,7 @@ export function CatalogPage() {
       </Page>
     );
   }
-
-  const isConceptDetail = /^\/catalog\/concept\/[^/]+\/[^/]+/.test(
-    location.pathname,
-  );
-  if (isConceptDetail) {
+  if (/^\/catalog\/concept\/[^/]+\/[^/]+/.test(location.pathname)) {
     return (
       <Page>
         <Route path="/catalog/concept/:type/:fqn">
@@ -191,23 +173,31 @@ export function CatalogPage() {
     );
   }
 
+  // Legacy top-level paths fold into the new IA: Data Model owns Cubes + Models
+  // as subtabs; /catalog (root) defers to the sidebar's default landing.
+  if (location.pathname === '/catalog/cubes') return <Redirect to="/catalog/data-model/cubes" />;
+  if (location.pathname === '/catalog/models') return <Redirect to="/catalog/data-model/models" />;
+  if (location.pathname === '/catalog') return <Redirect to="/catalog/data-model" />;
+
+  // Metrics Catalog — single surface, no subtabs.
+  if (location.pathname === '/catalog/metrics' || location.pathname.startsWith('/catalog/metrics/')) {
+    return (
+      <Page>
+        <MetricsTab />
+      </Page>
+    );
+  }
+
+  // Data Model surface with Concepts / Cubes / Models subtabs.
+  const subtab = resolveDataModelSubtab(location.pathname) ?? 'concepts';
   return (
     <Page>
-      <Header>
-        <Title>{t('nav.catalog')}</Title>
-        {activeTab === 'cubes' && (
-          <Count>{loading ? '…' : `${cubes.length} cubes & views`}</Count>
-        )}
-      </Header>
-
-      <CatalogTabs />
-
-      {activeTab === 'metrics' && <MetricsTab />}
-      {activeTab === 'data-model' && <DataModelTab />}
-      {activeTab === 'cubes' && (
+      <DataModelSubtabs />
+      {subtab === 'concepts' && <DataModelTab />}
+      {subtab === 'cubes' && (
         <CatalogBrowseBody cubes={cubes} loading={loading} error={error} />
       )}
-      {activeTab === 'models' && (
+      {subtab === 'models' && (
         <ModelsHost>
           <SchemaPageWithRouter />
         </ModelsHost>

@@ -47,6 +47,7 @@ High-level map of the cube-playground app, updated as features ship.
 - **GamePicker**: Sits in Topbar's `fixedTrailing` prop (not via context) so it cannot be overwritten by per-page registrations.
 - **App.tsx refactor**: `SmartSearchProvider > TopbarTrailingProvider > shell-flex(Sidebar + main(Topbar + scroll children))`. Routes: `/` → `/build` redirect, `/chat` → `ChatPlaceholderPage`, `/catalog` (exact) → `/catalog/data-model` redirect.
 - **Header.tsx deprecation**: Kept on disk one release for safety; App.tsx no longer renders it (tests-only). Delete after next release.
+- **Catalog IA (2026-05-23)**: Advanced sidebar section removed; Data Model & Metrics Catalog now distinct pages. Data Model subtabs (Concepts / Cubes / Models) at `/catalog/data-model{/cubes,/models}`, legacy routes 301-redirect. NotificationBell moved to Topbar (between SearchTrigger & AvatarMenu). Sidebar "New data model" label drops leading `+`. RecentItemPusher: concept-detail routes push to `data-model` module; business-metric detail to `metrics-catalog`. `catalog-tabs.tsx` refactored → `DataModelSubtabs` + `resolveDataModelSubtab`.
 
 ## New Metric draft model
 

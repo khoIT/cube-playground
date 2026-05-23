@@ -208,13 +208,30 @@ function RecentItemPusher() {
     if (dm) {
       pushRecent('data-model', { id: dm[1], title: dm[1], updatedAt: new Date().toISOString() });
     }
+    // Concepts (measures/dimensions/segments) live in the Data Model surface,
+    // so concept-detail visits feed the Data Model recents — not metrics catalog.
+    const concept = location.pathname.match(/^\/catalog\/concept\/[^/]+\/([^/]+)/);
+    if (concept) {
+      pushRecent('data-model', {
+        id: concept[1],
+        title: concept[1],
+        updatedAt: new Date().toISOString(),
+        href: location.pathname,
+      });
+    }
     const seg = location.pathname.match(/^\/segments\/([^/]+)/);
     if (seg && seg[1] !== 'identity-map' && seg[1] !== 'new') {
       pushRecent('segments', { id: seg[1], title: seg[1], updatedAt: new Date().toISOString() });
     }
-    const met = location.pathname.match(/^\/catalog\/concept\/measure\/([^/]+)/);
-    if (met) {
-      pushRecent('metrics-catalog', { id: met[1], title: met[1], updatedAt: new Date().toISOString() });
+    // Business-metric detail pages — those are Metrics Catalog entries.
+    const metric = location.pathname.match(/^\/catalog\/metric\/([^/]+)/);
+    if (metric && metric[1] !== 'new') {
+      pushRecent('metrics-catalog', {
+        id: metric[1],
+        title: metric[1],
+        updatedAt: new Date().toISOString(),
+        href: location.pathname,
+      });
     }
   }, [location.pathname]);
   return null;

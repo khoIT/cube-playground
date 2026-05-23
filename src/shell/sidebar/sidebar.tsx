@@ -6,10 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import {
-  MessageSquare, LayoutDashboard, BookOpen, Users, MoreHorizontal,
-  FileText, Bell, Bookmark, Building2, Network,
-} from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BookOpen, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -101,20 +98,6 @@ export function Sidebar() {
           collapsed={collapsed}
         >
           <RecentItems module="segments" seeAllTo="/segments" />
-        </SidebarSection>
-
-        <SidebarSection
-          id="advanced"
-          icon={MoreHorizontal}
-          label={t('nav.advanced')}
-          collapsed={collapsed}
-          hideLabelWhenExpanded
-        >
-          <SidebarItem icon={FileText}   label="Digest"         to="/catalog/digest"        indent />
-          <SidebarItem icon={Bell}       label="Notifications"  to="/catalog/notifications" indent />
-          <SidebarItem icon={Bookmark}   label="Saved views"    to="/catalog/saved-views"   indent />
-          <SidebarItem icon={Building2}  label="Workspaces"     to="/catalog/workspaces"    indent />
-          <SidebarItem icon={Network}    label="Identity Map"   to="/segments/identity-map" indent />
         </SidebarSection>
       </nav>
 
