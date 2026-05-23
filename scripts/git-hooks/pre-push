@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Refreshes server/data/seed/segments-snapshot.json from the local SQLite DB
+# before every push. Fails the push if the snapshot ends up drifted — author
+# must then `git add` + commit the refreshed file and push again.
+#
+# Skips silently when there's no local DB or server deps aren't installed
+# (fresh clones / contributors who don't run the server). This keeps the hook
+# safe for everyone while catching drift on machines that DO own segment state.
+
+set -eu
+
+ROOT="$(git rev-parse --show-toplevel)"
+DB="$ROOT/server/data/segments.db"
+SNAPSHOT="$ROOT/server/data/seed/segments-snapshot.json"
+
+# No local DB → contributor doesn't own segment state. Nothing to snapshot.
+[ -f "$DB" ] || exit 0
+
+# Server deps missing → can't run `npm run snapshot`. Skip rather than block push.
+[ -d "$ROOT/server/node_modules" ] || exit 0
+
+npm --prefix "$ROOT/server" run --silent snapshot >/dev/null
+
+# Snapshot unchanged → push proceeds.
+if git diff --quiet -- "$SNAPSHOT"; then
+  exit 0
+fi
+
+cat <<EOF
+
+[pre-push] segments snapshot is out of date — local DB has newer state than
+           the committed seed file. The snapshot has been refreshed for you:
+
+             $SNAPSHOT
+
+           Commit it and push again:
+
+             git add server/data/seed/segments-snapshot.json
+             git commit -m "chore(seed): refresh segments snapshot"
+             git push
+
+           To skip this hook for a single push: git push --no-verify
+
+EOF
+exit 1

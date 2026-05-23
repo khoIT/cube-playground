@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "prepare": "git config core.hooksPath scripts/git-hooks 2>/dev/null || true",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
