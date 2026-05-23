@@ -72,6 +72,11 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
             case 'session_created':
               sessionIdRef.current = event.data.id;
               dispatch({ type: 'SESSION_CREATED', id: event.data.id });
+              // Notify sidebar/history surfaces as soon as the server persists
+              // the session — not just on DONE. Otherwise a panel closed (or
+              // stream dropped) mid-turn leaves the new session invisible to
+              // the left-nav list until the next page load.
+              notifyChatSessionChanged(event.data.id);
               break;
             case 'loading':
               dispatch({ type: 'LOADING' });
