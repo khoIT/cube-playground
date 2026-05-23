@@ -2,10 +2,6 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import darkLogo from '../../assets/brand/cube-logo-dark.png';
-import lightLogo from '../../assets/brand/cube-logo-light.png';
-import { useTheme } from '../../theme/use-theme';
-
 const Wrap = styled(Link)`
   display: inline-flex;
   align-items: center;
@@ -73,13 +69,12 @@ const BadgeSuffix = styled.span`
 
 export function BrandBlock() {
   const { t } = useTranslation();
-  const { theme } = useTheme();
   const suffix = t('brand.platformSuffix');
   const ariaLabel = `VNGGAMES ${suffix}`;
 
   return (
     <Wrap to="/build" aria-label={ariaLabel}>
-      <Logo src={theme === 'dark' ? darkLogo : lightLogo} alt="" aria-hidden />
+      <Logo src="/apple-touch-icon.png" alt="" aria-hidden />
       <BrandMark>Cube</BrandMark>
       <Divider />
       <Badge>

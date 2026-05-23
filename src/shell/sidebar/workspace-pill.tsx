@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { Box, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { T, Icon } from '../theme';
 
 interface WorkspacePillProps {
@@ -28,12 +28,12 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
           borderRadius: 0,
         }}
       >
-        <div style={{
-          width: 24, height: 24, borderRadius: 5, background: T.brand,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Box size={14} strokeWidth={2.25} color="#fff" aria-hidden />
-        </div>
+        <img
+          src="/apple-touch-icon.png"
+          alt=""
+          aria-hidden
+          style={{ width: 24, height: 24, display: 'block' }}
+        />
       </button>
     );
   }
@@ -55,13 +55,12 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
     >
-      <div style={{
-        width: 24, height: 24, borderRadius: 5, background: T.brand,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-      }}>
-        <Box size={14} strokeWidth={2.25} color="#fff" aria-hidden />
-      </div>
+      <img
+        src="/apple-touch-icon.png"
+        alt=""
+        aria-hidden
+        style={{ width: 24, height: 24, display: 'block', flexShrink: 0 }}
+      />
       <span style={{
         flex: 1, minWidth: 0,
         display: 'flex', flexDirection: 'column', gap: 2,
