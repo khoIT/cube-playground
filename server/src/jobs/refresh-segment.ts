@@ -7,7 +7,7 @@
 
 import { getDb } from '../db/sqlite.js';
 import { load } from '../services/cube-client.js';
-import { setSegmentStatus, setSegmentUids } from '../services/segment-status.js';
+import { setSegmentStatus, setSegmentSizeAndUids } from '../services/segment-status.js';
 import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
@@ -16,6 +16,51 @@ import { suggestIdentities } from '../services/identity-suggester.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 
 const PER_SEGMENT_TIMEOUT_MS = 60_000;
+
+/** Cube core caps single-page responses (default 10,000). We page through to
+ *  materialize the full uid list, but never store more than MAX_UID_LIST
+ *  uids — anything beyond that is a sample. `uid_count` always reflects the
+ *  true total from the `total: true` size query. */
+const UID_PAGE_SIZE = 10_000;
+const MAX_UID_LIST = 100_000;
+
+const CONTINUE_WAIT_RE = /Continue wait/i;
+const CONTINUE_WAIT_POLL_MS = 700;
+
+/**
+ * Calls Cube `/load`, transparently polling when Cube returns
+ * `{error: "Continue wait"}` — the signal that an async pre-aggregation is
+ * warming. Other errors propagate immediately. Throws the last Continue-wait
+ * error if the budget is exhausted so the segment can be marked broken with
+ * a meaningful reason.
+ *
+ * Lives in refresh-segment (rather than cube-client) so that the
+ * `vi.spyOn(cubeClient, 'load')` mocks in tests intercept each retry attempt.
+ */
+async function loadWithContinueWait(
+  query: unknown,
+  tokenOverride: string | undefined,
+  timeoutMs: number,
+): Promise<unknown> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      return await load(query, tokenOverride);
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (!CONTINUE_WAIT_RE.test(msg)) throw err;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        throw new Error(
+          `${msg} — pre-aggregation still warming after ${timeoutMs}ms`,
+        );
+      }
+      await new Promise((r) =>
+        setTimeout(r, Math.min(CONTINUE_WAIT_POLL_MS, remaining)),
+      );
+    }
+  }
+}
 
 interface SegmentRow {
   id: string;
@@ -113,41 +158,75 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     }
 
     const baseQuery = JSON.parse(cubeQueryJson);
-    const fullQuery = {
+
+    // Two-phase fetch to avoid Cube's default 10k rowLimit truncating the
+    // cohort size. Phase 1 asks Cube for the TRUE distinct-row count via
+    // `total: true` (returned in the response annotations, separate from the
+    // capped `data` array). Phase 2 paginates `limit + offset` to materialize
+    // the uid list up to MAX_UID_LIST. Storing more than 100k uids inline
+    // would balloon the SQLite row; downstream consumers should treat the
+    // list as a sample once it exceeds the cap.
+    const identityOnlyBase = {
       ...baseQuery,
-      dimensions: Array.from(
-        new Set([...(baseQuery.dimensions ?? []), identity] as string[]),
+      // Replace any pre-existing dimensions with just the identity dim so
+      // Cube returns one row per unique user — adding extra dims would
+      // inflate row count via cartesian expansion and hit the page cap
+      // faster.
+      dimensions: [identity],
+    };
+
+    const sizeResult = await withTimeout(
+      loadWithContinueWait(
+        { ...identityOnlyBase, limit: 1, total: true },
+        token,
+        PER_SEGMENT_TIMEOUT_MS,
       ),
-    };
-
-    const result = await withTimeout(
-      load(fullQuery, token),
       PER_SEGMENT_TIMEOUT_MS,
-      `refresh segment ${segmentId}`,
+      `segment size ${segmentId}`,
     );
-
-    // Cube /load returns { data: [...] } at top level (single-query form).
-    // The batch /load endpoint uses { results: [{ data: [...] }] } but the
-    // cube-client wraps a single query, so we read the top-level data array.
-    const typed = result as {
-      data?: Array<Record<string, unknown>>;
-      results?: Array<{ data?: Array<Record<string, unknown>> }>;
+    const sizeTyped = sizeResult as {
+      total?: number;
+      results?: Array<{ total?: number }>;
     };
-    const rows = typed.data ?? typed.results?.[0]?.data ?? [];
+    const totalCount =
+      sizeTyped.total ?? sizeTyped.results?.[0]?.total ?? 0;
+
     const seen = new Set<string>();
     const uids: string[] = [];
-    for (const r of rows) {
-      const v = r[identity];
-      if (v == null) continue;
-      const key = String(v);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      uids.push(key);
+    let offset = 0;
+    while (uids.length < totalCount && uids.length < MAX_UID_LIST) {
+      const pageResult = await withTimeout(
+        loadWithContinueWait(
+          { ...identityOnlyBase, limit: UID_PAGE_SIZE, offset },
+          token,
+          PER_SEGMENT_TIMEOUT_MS,
+        ),
+        PER_SEGMENT_TIMEOUT_MS,
+        `segment page ${segmentId}@${offset}`,
+      );
+      const pageTyped = pageResult as {
+        data?: Array<Record<string, unknown>>;
+        results?: Array<{ data?: Array<Record<string, unknown>> }>;
+      };
+      const rows = pageTyped.data ?? pageTyped.results?.[0]?.data ?? [];
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        const v = r[identity];
+        if (v == null) continue;
+        const key = String(v);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        uids.push(key);
+        if (uids.length >= MAX_UID_LIST) break;
+      }
+      if (rows.length < UID_PAGE_SIZE) break;
+      offset += UID_PAGE_SIZE;
     }
 
     // Observability: when the segment had pre-existing uids (warm cache from
     // a push-to-segment Live save, or a prior refresh), log the delta so we
-    // can spot predicate↔warm-cache divergence after creation.
+    // can spot predicate↔warm-cache divergence after creation. Also flag when
+    // the materialized list is a truncated sample (count > MAX_UID_LIST).
     try {
       const prevUids = JSON.parse(row.uid_list_json ?? '[]') as string[];
       if (prevUids.length > 0) {
@@ -158,14 +237,19 @@ export async function refreshSegment(segmentId: string): Promise<void> {
         const overlap = uids.length - added;
         const overlapRatio = prevUids.length ? overlap / prevUids.length : 1;
         console.log(
-          `[refresh-segment] ${segmentId} delta: prev=${prevUids.length} next=${uids.length} added=${added} removed=${removed} overlap=${overlap} (${(overlapRatio * 100).toFixed(1)}%)`,
+          `[refresh-segment] ${segmentId} delta: prev=${prevUids.length} next=${uids.length}/${totalCount} added=${added} removed=${removed} overlap=${overlap} (${(overlapRatio * 100).toFixed(1)}%)`,
+        );
+      }
+      if (totalCount > MAX_UID_LIST) {
+        console.warn(
+          `[refresh-segment] ${segmentId} cohort size ${totalCount} exceeds MAX_UID_LIST=${MAX_UID_LIST}; uid_list stores a sample of ${uids.length}.`,
         );
       }
     } catch {
       // Best-effort logging only — never block the refresh.
     }
 
-    setSegmentUids(segmentId, uids, 'fresh');
+    setSegmentSizeAndUids(segmentId, totalCount, uids, 'fresh');
 
     // Persist refresh-log row so Library sparkline + Detail Monitor history
     // can render from a single source of truth. Retention is handled by the
@@ -173,7 +257,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     try {
       db.prepare(
         'INSERT INTO segment_refresh_log (segment_id, uid_count, status) VALUES (?, ?, ?)',
-      ).run(segmentId, uids.length, 'fresh');
+      ).run(segmentId, totalCount, 'fresh');
     } catch (err) {
       console.warn(
         `[refresh-segment] failed to write refresh-log for ${segmentId}:`,

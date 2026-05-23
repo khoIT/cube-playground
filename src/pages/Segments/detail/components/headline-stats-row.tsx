@@ -107,13 +107,21 @@ function InlineKpi({
   preset: Preset;
   sizeComparison: { text: string; tone: Tone } | null;
 }): ReactElement {
-  const item = useStatItemFromKpi(
-    spec,
-    segment,
-    preset,
-    `kpi:${spec.id}`,
-    spec.id === 'size' ? sizeComparison : null,
-  );
+  // Special-case the Size KPI: the segment object already carries the true
+  // cohort count from the server-side refresh (which uses Cube's `total:true`
+  // to defeat the 10k rowLimit). Running another measure query here would be
+  // both redundant and prone to drift — the IN-filter version can return
+  // stale FE-cached values when Cube is still warming a pre-aggregation.
+  if (spec.id === 'size') {
+    return (
+      <SizeStatCell
+        label={spec.label}
+        count={segment.uid_count}
+        comparison={sizeComparison}
+      />
+    );
+  }
+  const item = useStatItemFromKpi(spec, segment, preset, `kpi:${spec.id}`, null);
   return (
     <>
       <div className={styles.label}>{item.label}</div>
@@ -126,6 +134,34 @@ function InlineKpi({
         )}
       </div>
       {item.footer != null && <div className={styles.footer}>{item.footer}</div>}
+    </>
+  );
+}
+
+/** Size cell rendered from segment.uid_count — exact thousands-separated value
+ *  with the compact form ("82.4k") underneath for quick scanning. */
+function SizeStatCell({
+  label, count, comparison,
+}: {
+  label: string;
+  count: number;
+  comparison: { text: string; tone: Tone } | null;
+}): ReactElement {
+  const exact = count.toLocaleString('en-US');
+  const compact = formatCount(count);
+  const showCompact = compact !== exact;
+  return (
+    <>
+      <div className={styles.label}>{label}</div>
+      <div className={styles.valueRow}>
+        <span className={styles.value} title={`${exact} users`}>{exact}</span>
+        {comparison?.text != null && (
+          <span className={styles.delta} data-tone={comparison.tone}>
+            {comparison.text}
+          </span>
+        )}
+      </div>
+      {showCompact && <div className={styles.footer}>{compact}</div>}
     </>
   );
 }

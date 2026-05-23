@@ -82,8 +82,12 @@ describe('refreshSegment', () => {
 
   it('writes uids and marks status=fresh on happy path', async () => {
     const id = seedSegment();
+    // refresh-segment runs two loads: (1) size with total:true, (2) paginated
+    // uid fetch. Cube returns total + data in a single payload when total:true
+    // is set, so the same mock satisfies both phases.
     vi.spyOn(cubeClient, 'load').mockResolvedValue({
       results: [{
+        total: 2,
         data: [
           { 'mf_users.user_id': 'u1' },
           { 'mf_users.user_id': 'u2' },
@@ -117,6 +121,7 @@ describe('refreshSegment', () => {
       cubes: [{ name: 'mf_users', dimensions: [{ name: 'mf_users.user_id' }] }],
     } as never);
     vi.spyOn(cubeClient, 'load').mockResolvedValue({
+      total: 1,
       data: [{ 'mf_users.user_id': 'u1' }],
     } as never);
     await refreshSegment(id);
@@ -125,20 +130,59 @@ describe('refreshSegment', () => {
     expect(row.uid_count).toBe(1);
   });
 
-  it('marks status=broken when Cube responds with "Continue wait" (async precompute)', async () => {
-    // Cold pre-aggregate: Cube returns HTTP 200 with `{error: "Continue wait"}`.
-    // Without explicit handling, the refresh would read `data ?? []` → store
-    // uid_count=0 + status=fresh — a silent false positive that masks cold
-    // caches as "0 matches". The cube-client throws on the error field; the
-    // refresh job propagates the error into broken_reason.
+  it('records the true total count from total:true even when cohort exceeds Cube page cap', async () => {
     const id = seedSegment();
-    vi.spyOn(cubeClient, 'load').mockRejectedValue(new Error('Cube /load: Continue wait'));
+    // Simulate a cohort of 12,345 — bigger than Cube's default 10k rowLimit.
+    // Phase 1 (size): returns total=12345 with limit:1.
+    // Phase 2 (page 1): 10000 rows.
+    // Phase 3 (page 2): remaining 2345 rows.
+    const make = (start: number, n: number) =>
+      Array.from({ length: n }, (_, i) => ({ 'mf_users.user_id': `u${start + i}` }));
+    const loadMock = vi.spyOn(cubeClient, 'load');
+    loadMock.mockImplementation(async (query: unknown) => {
+      const q = query as { limit?: number; offset?: number; total?: boolean };
+      if (q.total) return { total: 12345, data: [] } as never;
+      const offset = q.offset ?? 0;
+      const remaining = Math.max(0, 12345 - offset);
+      const take = Math.min(q.limit ?? 0, remaining);
+      return { data: make(offset, take) } as never;
+    });
+
     await refreshSegment(id);
     const row = getSegment(id);
-    expect(row.status).toBe('broken');
-    expect(row.broken_reason).toContain('Continue wait');
-    expect(row.uid_count).toBe(0);
+    expect(row.status).toBe('fresh');
+    // True count from total:true, NOT capped at 10k.
+    expect(row.uid_count).toBe(12345);
+    // uid_list materialized in full because 12345 < MAX_UID_LIST (100k).
+    expect(JSON.parse(row.uid_list_json)).toHaveLength(12345);
   });
+
+  it('transparently retries when Cube responds with "Continue wait" (async precompute warming)', async () => {
+    const id = seedSegment();
+    // Simulate the warm-up handshake: Cube returns "Continue wait" twice,
+    // then succeeds. refresh-segment should poll through the retries instead
+    // of marking the segment broken on the first attempt.
+    let calls = 0;
+    vi.spyOn(cubeClient, 'load').mockImplementation(async (query: unknown) => {
+      calls += 1;
+      if (calls <= 2) throw new Error('Cube /load: Continue wait');
+      const q = query as { total?: boolean };
+      if (q.total) return { total: 3, data: [] } as never;
+      return {
+        data: [
+          { 'mf_users.user_id': 'a' },
+          { 'mf_users.user_id': 'b' },
+          { 'mf_users.user_id': 'c' },
+        ],
+      } as never;
+    });
+    await refreshSegment(id);
+    const row = getSegment(id);
+    expect(row.status).toBe('fresh');
+    expect(row.uid_count).toBe(3);
+    expect(calls).toBeGreaterThanOrEqual(3);
+  });
+
 
   it('marks status=broken when no identity-field mapping exists and auto-suggest has no hit', async () => {
     const id = seedSegment();
