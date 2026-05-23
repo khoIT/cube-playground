@@ -19,6 +19,7 @@ import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
+import { removeRecent } from '../../../shell/sidebar/recent-items-store';
 import styles from '../segments.module.css';
 
 interface Props {
@@ -77,6 +78,7 @@ export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
   async function handleDelete() {
     try {
       await segmentsClient.delete(segment.id);
+      removeRecent('segments', segment.id);
       message.success(
         t('segments.actions.delete.success', {
           defaultValue: 'Deleted “{{name}}”',

@@ -18,6 +18,8 @@ import { CollapseToggle } from './collapse-toggle';
 import { getCollapsed, onCollapsedChange } from './sidebar-collapsed-store';
 import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-store';
 import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
+import { useBusinessMetrics } from '../../pages/Catalog/metrics-tab/use-business-metrics';
+import { useConcepts } from '../../pages/Catalog/data-model-tab/use-concepts';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -26,6 +28,20 @@ export function Sidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsedState] = React.useState<boolean>(() => getCollapsed());
   const { isVisible } = useVisibleNavItems();
+
+  // Pull the live registries so recents that point at deleted artifacts are
+  // hidden from the tray. While loading we leave the filter pass-through to
+  // avoid flashing items out and back in on first paint.
+  const { metrics, loading: metricsLoading } = useBusinessMetrics();
+  const { concepts, loading: conceptsLoading } = useConcepts();
+  const metricIds = React.useMemo(
+    () => (metricsLoading ? null : new Set(metrics.map((m) => m.id))),
+    [metrics, metricsLoading],
+  );
+  const conceptFqns = React.useMemo(
+    () => (conceptsLoading ? null : new Set(concepts.map((c) => c.fqn))),
+    [concepts, conceptsLoading],
+  );
 
   React.useEffect(() => onCollapsedChange(setCollapsedState), []);
 
@@ -97,8 +113,13 @@ export function Sidebar() {
               hrefFor={(id) => `/catalog/data-model/${id}`}
               // Drop legacy entries written before concept-only filtering — the
               // sub-tab routes `/catalog/data-model/cubes` and `…/models` used to
-              // get pushed as literal id strings.
-              filter={(item) => item.id !== 'cubes' && item.id !== 'models'}
+              // get pushed as literal id strings. Also hide ids no longer present
+              // in /meta (concept removed from yaml).
+              filter={(item) =>
+                item.id !== 'cubes' &&
+                item.id !== 'models' &&
+                (conceptFqns === null || conceptFqns.has(item.id))
+              }
             />
           </SidebarSection>
         )}
@@ -111,7 +132,13 @@ export function Sidebar() {
             to="/catalog/metrics"
             collapsed={collapsed}
           >
-            <RecentItems module="metrics-catalog" seeAllTo="/catalog/metrics" />
+            <RecentItems
+              module="metrics-catalog"
+              seeAllTo="/catalog/metrics"
+              // Hide ids no longer in the business-metrics registry (metric
+              // removed/renamed in yaml or via API).
+              filter={(item) => metricIds === null || metricIds.has(item.id)}
+            />
           </SidebarSection>
         )}
 

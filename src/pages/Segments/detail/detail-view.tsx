@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Activity, Code2, LineChart, Send, Users } from 'lucide-react';
 import { LiveBadge } from '../visuals';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
-import { pushRecent } from '../../../shell/sidebar/recent-items-store';
+import { pushRecent, removeRecent } from '../../../shell/sidebar/recent-items-store';
 import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
@@ -287,6 +287,7 @@ export function DetailView(): ReactElement {
         onConfirm={async () => {
           try {
             await segmentsClient.delete(segment.id);
+            removeRecent('segments', segment.id);
             message.success(
               t('segments.actions.delete.success', {
                 defaultValue: 'Deleted “{{name}}”',

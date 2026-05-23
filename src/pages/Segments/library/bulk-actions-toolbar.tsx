@@ -15,6 +15,7 @@ import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
+import { removeRecent } from '../../../shell/sidebar/recent-items-store';
 import styles from '../segments.module.css';
 
 interface Props {
@@ -79,7 +80,10 @@ export function BulkActionsToolbar({ selected, onClear, onChanged, knownTags }: 
 
   async function handleDelete(): Promise<void> {
     setBusy('delete');
-    const { ok, failed, lastError } = await runBatch(selected, (s) => segmentsClient.delete(s.id));
+    const { ok, failed, lastError } = await runBatch(selected, async (s) => {
+      await segmentsClient.delete(s.id);
+      removeRecent('segments', s.id);
+    });
     setBusy(null);
     setConfirmDelete(false);
     if (failed === 0) {

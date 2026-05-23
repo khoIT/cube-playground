@@ -55,6 +55,16 @@ export function pushRecent(module: RecentModule, item: RecentItem): void {
   try { window.dispatchEvent(new Event(EVENT)); } catch { /* noop */ }
 }
 
+/** Evict a single recent entry by id. Used by delete flows so the sidebar
+ *  tray drops the row instantly without waiting for the page to remount. */
+export function removeRecent(module: RecentModule, id: string): void {
+  try {
+    const cur = getRecent(module).filter((i) => i.id !== id);
+    localStorage.setItem(key(module), JSON.stringify(cur));
+  } catch { /* noop */ }
+  try { window.dispatchEvent(new Event(EVENT)); } catch { /* noop */ }
+}
+
 export function clearRecent(module: RecentModule): void {
   try { localStorage.removeItem(key(module)); } catch { /* noop */ }
   try { window.dispatchEvent(new Event(EVENT)); } catch { /* noop */ }
