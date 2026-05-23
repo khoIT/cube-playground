@@ -388,9 +388,19 @@
   "settings": {
     "title": "Settings",
     "back": "Back",
+    "tabs": {
+      "sidebar": "Sidebar",
+      "games": "Games",
+      "identity": "Identity Map"
+    },
     "gameVisibility": {
       "title": "Game picker visibility",
       "hint": "Choose which games appear in the header picker. Hidden games stay accessible via direct URL — this only affects the dropdown.",
+      "showAll": "Show all"
+    },
+    "navVisibility": {
+      "title": "Sidebar visibility",
+      "hint": "Choose which sections appear in the left sidebar. Hidden sections stay reachable via direct URL — this only trims the rail.",
       "showAll": "Show all"
     }
   },

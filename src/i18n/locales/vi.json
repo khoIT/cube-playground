@@ -388,9 +388,19 @@
   "settings": {
     "title": "Cài đặt",
     "back": "Quay lại",
+    "tabs": {
+      "sidebar": "Sidebar",
+      "games": "Game",
+      "identity": "Identity Map"
+    },
     "gameVisibility": {
       "title": "Hiển thị game trong picker",
       "hint": "Chọn các game hiển thị trong picker ở header. Game bị ẩn vẫn truy cập được qua URL — tuỳ chọn này chỉ ảnh hưởng dropdown.",
+      "showAll": "Hiện tất cả"
+    },
+    "navVisibility": {
+      "title": "Hiển thị sidebar",
+      "hint": "Chọn các mục hiển thị trên sidebar bên trái. Mục bị ẩn vẫn truy cập được qua URL — tuỳ chọn này chỉ ảnh hưởng sidebar.",
       "showAll": "Hiện tất cả"
     }
   },

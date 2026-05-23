@@ -17,6 +17,7 @@ import { BottomRow } from './bottom-row';
 import { CollapseToggle } from './collapse-toggle';
 import { getCollapsed, onCollapsedChange } from './sidebar-collapsed-store';
 import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-store';
+import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -24,6 +25,7 @@ const SIDEBAR_WIDTH_COLLAPSED = 60;
 export function Sidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsedState] = React.useState<boolean>(() => getCollapsed());
+  const { isVisible } = useVisibleNavItems();
 
   React.useEffect(() => onCollapsedChange(setCollapsedState), []);
 
@@ -58,69 +60,79 @@ export function Sidebar() {
       <WorkspacePill collapsed={collapsed} />
 
       <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 0 12px' }}>
-        <SidebarSection
-          id="chats"
-          icon={MessageSquare}
-          label={t('nav.chat')}
-          to="/chat"
-          collapsed={collapsed}
-        >
-          <SidebarItem label="No recent items" to="/chat" indent muted />
-        </SidebarSection>
+        {isVisible('chats') && (
+          <SidebarSection
+            id="chats"
+            icon={MessageSquare}
+            label={t('nav.chat')}
+            to="/chat"
+            collapsed={collapsed}
+          >
+            <SidebarItem label="No recent items" to="/chat" indent muted />
+          </SidebarSection>
+        )}
 
-        <SidebarSection
-          id="playground"
-          icon={LayoutDashboard}
-          label={t('nav.playground')}
-          to="/build"
-          collapsed={collapsed}
-          flat
-        />
-
-        <SidebarSection
-          id="data-model"
-          icon={Grid}
-          label={t('nav.dataModel')}
-          to="/catalog/data-model"
-          collapsed={collapsed}
-        >
-          <RecentItems
-            module="data-model"
-            seeAllTo="/catalog/data-model"
-            hrefFor={(id) => `/catalog/data-model/${id}`}
-            // Drop legacy entries written before concept-only filtering — the
-            // sub-tab routes `/catalog/data-model/cubes` and `…/models` used to
-            // get pushed as literal id strings.
-            filter={(item) => item.id !== 'cubes' && item.id !== 'models'}
+        {isVisible('playground') && (
+          <SidebarSection
+            id="playground"
+            icon={LayoutDashboard}
+            label={t('nav.playground')}
+            to="/build"
+            collapsed={collapsed}
+            flat
           />
-        </SidebarSection>
+        )}
 
-        <SidebarSection
-          id="metrics-catalog"
-          icon={BookOpen}
-          label={t('nav.metricsCatalog')}
-          to="/catalog/metrics"
-          collapsed={collapsed}
-        >
-          <RecentItems module="metrics-catalog" seeAllTo="/catalog/metrics" />
-        </SidebarSection>
+        {isVisible('data-model') && (
+          <SidebarSection
+            id="data-model"
+            icon={Grid}
+            label={t('nav.dataModel')}
+            to="/catalog/data-model"
+            collapsed={collapsed}
+          >
+            <RecentItems
+              module="data-model"
+              seeAllTo="/catalog/data-model"
+              hrefFor={(id) => `/catalog/data-model/${id}`}
+              // Drop legacy entries written before concept-only filtering — the
+              // sub-tab routes `/catalog/data-model/cubes` and `…/models` used to
+              // get pushed as literal id strings.
+              filter={(item) => item.id !== 'cubes' && item.id !== 'models'}
+            />
+          </SidebarSection>
+        )}
 
-        <SidebarSection
-          id="segments"
-          icon={Users}
-          label={t('nav.segments')}
-          to="/segments"
-          collapsed={collapsed}
-        >
-          <RecentItems
-            module="segments"
-            seeAllTo="/segments"
-            // Drop legacy entries that recorded the segment UUID as both id
-            // and title — those were written before the detail page pushed
-            // the real name. Re-visiting the segment refreshes the row.
-            filter={(item) => item.title !== item.id}
-          />
-        </SidebarSection>
+        {isVisible('metrics-catalog') && (
+          <SidebarSection
+            id="metrics-catalog"
+            icon={BookOpen}
+            label={t('nav.metricsCatalog')}
+            to="/catalog/metrics"
+            collapsed={collapsed}
+          >
+            <RecentItems module="metrics-catalog" seeAllTo="/catalog/metrics" />
+          </SidebarSection>
+        )}
+
+        {isVisible('segments') && (
+          <SidebarSection
+            id="segments"
+            icon={Users}
+            label={t('nav.segments')}
+            to="/segments"
+            collapsed={collapsed}
+          >
+            <RecentItems
+              module="segments"
+              seeAllTo="/segments"
+              // Drop legacy entries that recorded the segment UUID as both id
+              // and title — those were written before the detail page pushed
+              // the real name. Re-visiting the segment refreshes the row.
+              filter={(item) => item.title !== item.id}
+            />
+          </SidebarSection>
+        )}
       </nav>
 
       <BottomRow collapsed={collapsed} />
