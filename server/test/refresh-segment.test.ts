@@ -112,6 +112,24 @@ describe('refreshSegment', () => {
     expect(row.broken_reason).toContain('cube down');
   });
 
+  it('preserves prior status + broken_reason on transient network errors', async () => {
+    const id = seedSegment();
+    // Pre-seed with a prior "broken" reason from a real schema error so we can
+    // verify a transient outage doesn't clobber it with a fresh ECONNREFUSED.
+    getDb().prepare(
+      "UPDATE segments SET status='broken', broken_reason='Schema drift — missing members: foo' WHERE id = ?",
+    ).run(id);
+
+    vi.spyOn(cubeClient, 'load').mockRejectedValue(
+      new Error('connect ECONNREFUSED 10.164.54.88:8080'),
+    );
+    await refreshSegment(id);
+
+    const row = getSegment(id);
+    expect(row.status).toBe('broken');
+    expect(row.broken_reason).toBe('Schema drift — missing members: foo');
+  });
+
   it('falls back to auto-suggester when manual identity-field mapping is missing', async () => {
     const id = seedSegment();
     const db = getDb();

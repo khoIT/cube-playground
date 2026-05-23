@@ -45,11 +45,23 @@ interface Snapshot {
   }>;
 }
 
+// A segment caught mid-refresh would land in the snapshot with status
+// 'refreshing' — an in-flight value that's meaningless to persist and that
+// otherwise drifts byte-by-byte every snapshot run while the cron worker is
+// active. Coerce to 'stale' so hydrate produces stable output and Windows
+// re-refreshes the segment on the first cron tick after pull.
+function stabilizeSegmentRow(row: SegmentRow): SegmentRow {
+  if (row.status === 'refreshing') return { ...row, status: 'stale' };
+  return row;
+}
+
 export function writeSnapshot(): string {
   const db = getDb();
   const snap: Snapshot = {
     version: 1,
-    segments: db.prepare('SELECT * FROM segments ORDER BY id').all() as SegmentRow[],
+    segments: (db.prepare('SELECT * FROM segments ORDER BY id').all() as SegmentRow[]).map(
+      stabilizeSegmentRow,
+    ),
     segment_tags: db
       .prepare('SELECT segment_id, tag FROM segment_tags ORDER BY segment_id, tag')
       .all() as Snapshot['segment_tags'],

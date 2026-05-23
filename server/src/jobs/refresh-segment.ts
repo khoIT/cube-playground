@@ -69,8 +69,23 @@ interface SegmentRow {
   predicate_tree_json: string | null;
   predicate_meta_version: string | null;
   type: string;
+  status: string;
+  broken_reason: string | null;
   uid_list_json: string;
   game_id: string | null;
+}
+
+// Transient infra errors (Cube/Trino unreachable, DNS, timeouts) shouldn't
+// mutate segment state — bumping status/broken_reason every minute while the
+// cluster is down generates pointless DB churn that noisily drifts the
+// segments seed snapshot. When detected, we restore the segment to its prior
+// status instead of marking it broken.
+const TRANSIENT_ERROR_RE =
+  /ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH|fetch failed|timed out after/i;
+
+function isTransientNetworkError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return TRANSIENT_ERROR_RE.test(msg);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -88,6 +103,11 @@ export async function refreshSegment(segmentId: string): Promise<void> {
   const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(segmentId) as SegmentRow | undefined;
   if (!row) return;
   if (row.type !== 'predicate' || !row.cube || !row.cube_query_json) return;
+
+  // Captured so a transient-network catch below can restore them instead of
+  // marking the segment broken with a fresh per-attempt error message.
+  const priorStatus = row.status as 'fresh' | 'refreshing' | 'broken' | 'stale';
+  const priorReason = row.broken_reason;
 
   setSegmentStatus(segmentId, 'refreshing', null);
 
@@ -255,6 +275,13 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       }
     }
   } catch (err) {
+    // Cube/Trino unreachable etc. — restore prior state instead of writing a
+    // fresh "broken" row. Prevents minute-by-minute churn during an outage.
+    if (isTransientNetworkError(err)) {
+      const fallback = priorStatus === 'refreshing' ? 'stale' : priorStatus;
+      setSegmentStatus(segmentId, fallback, priorReason);
+      return;
+    }
     setSegmentStatus(segmentId, 'broken', (err as Error).message);
     try {
       const cur = db.prepare('SELECT uid_count FROM segments WHERE id = ?').get(segmentId) as
