@@ -10,6 +10,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { T, Icon } from '../theme';
+import { TopbarBreadcrumbContext } from './topbar-breadcrumb-context';
 
 interface Crumb {
   label: string;
@@ -21,7 +22,8 @@ const STATIC: Array<{ prefix: string; label: string; to: string }> = [
   { prefix: '/catalog/data-model',    label: 'Data Model',        to: '/catalog/data-model' },
   { prefix: '/data-model/new',        label: 'New Data Model',    to: '/data-model/new?v=2' },
   { prefix: '/catalog/metrics',       label: 'Metrics Catalog',   to: '/catalog/metrics' },
-  { prefix: '/catalog/concept',       label: 'Metrics Catalog',   to: '/catalog/metrics' },
+  { prefix: '/catalog/metric',        label: 'Metrics Catalog',   to: '/catalog/metrics' },
+  { prefix: '/catalog/concept',       label: 'Data Model',        to: '/catalog/data-model' },
   { prefix: '/catalog/digest',        label: 'Digest',            to: '/catalog/digest' },
   { prefix: '/catalog/notifications', label: 'Notifications',     to: '/catalog/notifications' },
   { prefix: '/catalog/saved-views',   label: 'Saved Views',       to: '/catalog/saved-views' },
@@ -50,6 +52,8 @@ function resolveBreadcrumb(pathname: string): Crumb[] {
       crumbs.push({ label: decodeURIComponent(tail.split('/')[0]) });
     } else if (best.prefix === '/catalog/data-model') {
       crumbs.push({ label: decodeURIComponent(tail.split('/')[0]) });
+    } else if (best.prefix === '/catalog/metric' && tail !== 'new') {
+      crumbs.push({ label: decodeURIComponent(tail.split('/')[0]) });
     } else if (best.prefix === '/catalog/concept') {
       const parts = tail.split('/');
       if (parts.length >= 2) crumbs.push({ label: decodeURIComponent(parts[parts.length - 1]) });
@@ -60,8 +64,15 @@ function resolveBreadcrumb(pathname: string): Crumb[] {
 
 export function Breadcrumb() {
   const location = useLocation();
+  const { label: override } = React.useContext(TopbarBreadcrumbContext);
   const crumbs = resolveBreadcrumb(location.pathname);
   if (crumbs.length === 0) return <div style={{ flex: 1 }} />;
+
+  // If a detail page registered a friendly label (e.g. segment.name), swap
+  // the route-derived tail crumb for it.
+  if (override && crumbs.length > 1) {
+    crumbs[crumbs.length - 1] = { label: override };
+  }
 
   return (
     <nav style={{
@@ -70,12 +81,13 @@ export function Breadcrumb() {
     }}>
       {crumbs.map((c, i) => {
         const isLast = i === crumbs.length - 1;
+        const isLeaf = isLast && crumbs.length > 1;
         return (
           <React.Fragment key={`${c.label}-${i}`}>
             {i > 0 && <Icon icon={ChevronRight} size={12} color={T.n400} />}
             {isLast || !c.to ? (
               <span style={{
-                color: T.n950, fontWeight: 600, maxWidth: 320,
+                color: isLeaf ? T.brand : T.n950, fontWeight: 600, maxWidth: 520,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }} aria-current={isLast ? 'page' : undefined}>
                 {c.label}

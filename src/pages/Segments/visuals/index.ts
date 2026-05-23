@@ -40,3 +40,6 @@ export type { DonutProps, DonutSlice } from './donut';
 
 export { Sparkline } from './sparkline';
 export type { SparklineProps } from './sparkline';
+
+export { SegmentedBar } from './segmented-bar';
+export type { SegmentedBarItem, SegmentedBarProps } from './segmented-bar';

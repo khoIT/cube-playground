@@ -117,20 +117,34 @@ function pickTimeDim(cube: CubeMetaCube): CubeMetaField | null {
 
 function buildOverviewTab(cube: CubeMetaCube, sizeMeasure: string | null): TabDef {
   const cards: CardSpec[] = [];
-  const dims = pickCategoricalDims(cube, 3);
+  const dims = pickCategoricalDims(cube, 4);
   const groupingMeasure = sizeMeasure ?? cube.measures?.[0]?.name;
 
   if (groupingMeasure) {
-    for (const d of dims) {
-      cards.push({
-        kind: 'composition',
-        id: `auto-comp-${d.name.split('.').pop()}`,
+    // Mix chart kinds so the Overview reads like the Hermes composition tab:
+    // first two dims get segmented-bar strips (lifecycle / spend tier shape),
+    // third becomes a bar list (top items), fourth a donut (platform share).
+    const KINDS: CardSpec['kind'][] = ['segmented-bar', 'segmented-bar', 'bar', 'donut'];
+    dims.forEach((d, i) => {
+      const kind = KINDS[i] ?? 'composition';
+      const idSuffix = d.name.split('.').pop();
+      const common = {
+        id: `auto-${kind}-${idSuffix}`,
         label: shortLabel(d),
         measure: groupingMeasure,
         groupBy: d.name,
-        limit: 6,
-      });
-    }
+        limit: kind === 'bar' ? 10 : 5,
+      } as const;
+      if (kind === 'segmented-bar') {
+        cards.push({ kind: 'segmented-bar', ...common });
+      } else if (kind === 'donut') {
+        cards.push({ kind: 'donut', ...common });
+      } else if (kind === 'bar') {
+        cards.push({ kind: 'bar', ...common, format: 'compact' });
+      } else {
+        cards.push({ kind: 'composition', ...common });
+      }
+    });
   }
 
   const timeDim = pickTimeDim(cube);

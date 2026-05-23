@@ -1,13 +1,12 @@
 /** Segment detail — header, KPI strip, 5-tab strip (Monitor default), tab bodies. */
 
 import { ReactElement, useEffect, useState, ReactNode } from 'react';
-import { useParams, useHistory, useRouteMatch } from 'react-router-dom';
+import { useParams, useHistory } from 'react-router-dom';
 import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Activity, Code2, LineChart, Send, Users } from 'lucide-react';
-import { formatDistanceToNowStrict } from 'date-fns';
-import { KpiTile, LiveBadge } from '../visuals';
-import { useTopbarTrailing } from '../../../shell/topbar/topbar-trailing-context';
+import { LiveBadge } from '../visuals';
+import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { pushRecent } from '../../../shell/sidebar/recent-items-store';
 import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
@@ -21,14 +20,13 @@ import { ActivateToCdpModal } from '../push-modal/activate-to-cdp-modal';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
 import { usePreset } from './use-preset';
 import { useActiveTab, DetailTabId } from './use-active-tab';
-import { KpiCard } from './cards/kpi-card';
 import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
 import { useSegmentSizeDelta } from './hooks/use-segment-size-delta';
 import { format as formatDate, addMinutes } from 'date-fns';
 import { RefreshNowButton } from './components/refresh-now-button';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
-import { SizeKpiTile } from './components/size-kpi-tile';
+import { HeadlineStatsRow } from './components/headline-stats-row';
 import { StatusPill } from '../status/status-pill';
 import { buildPlaygroundDeeplink } from '../../../utils/playground-deeplink';
 import styles from '../segments.module.css';
@@ -42,12 +40,6 @@ const TAB_ICONS: Record<DetailTabId, ReactNode> = {
   definition: <Code2 size={14} aria-hidden />,
   activation: <Send size={14} aria-hidden />,
 };
-
-function formatCount(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
 
 export function DetailView(): ReactElement {
   const { t } = useTranslation();
@@ -95,6 +87,9 @@ export function DetailView(): ReactElement {
     });
   }, [segment?.id, segment?.name]);
 
+  // Swap the topbar breadcrumb tail (UUID → real segment name).
+  useTopbarBreadcrumbOverride(segment?.name ?? null, [segment?.id, segment?.name]);
+
   const sizeDelta = useSegmentSizeDelta(segment?.id ?? null, segment?.uid_count ?? null, 7);
 
   if (error) {
@@ -108,11 +103,7 @@ export function DetailView(): ReactElement {
     return (
       <main className={styles.page}>
         <div className={styles.skeletonRow} style={{ width: 240, height: 28 }} />
-        <div className={styles.detailKpiStrip}>
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className={styles.skeletonRow} style={{ height: 72 }} />
-          ))}
-        </div>
+        <div className={styles.skeletonRow} style={{ height: 48, marginTop: 8 }} />
       </main>
     );
   }
@@ -148,41 +139,9 @@ export function DetailView(): ReactElement {
       })
     : null;
 
-  const trailingActions = (
-    <>
-      <RefreshNowButton segment={segment} />
-      <Button
-        size="small"
-        onClick={() => {
-          const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
-          const out = buildPlaygroundDeeplink({
-            segmentId: segment.id,
-            segmentName: segment.name,
-            identityDim,
-            primaryCube: segment.cube,
-            uids: segment.uid_list ?? [],
-          });
-          window.location.assign(out.url);
-        }}
-        disabled={(segment.uid_list ?? []).length === 0}
-      >
-        {t('segments.detail.actions.copyAsFilter')}
-      </Button>
-      <Button
-        size="small"
-        onClick={() => history.push(`/segments/${segment.id}/edit`)}
-        disabled={segment.type !== 'predicate'}
-      >
-        {t('segments.detail.actions.editPredicate')}
-      </Button>
-      <Button size="small" danger onClick={() => setDeleteOpen(true)}>
-        {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
-      </Button>
-    </>
-  );
-
   return (
     <main className={styles.page}>
+      <div className={styles.detailStickyHeader}>
       <BrokenSegmentBanner segment={segment} onViewRefreshLog={() => setTab('monitor')} />
       <header className={styles.detailHeader}>
         <div className={styles.detailTitleRow}>
@@ -206,52 +165,49 @@ export function DetailView(): ReactElement {
           <StatusPill status={segment.status} reason={segment.broken_reason} />
           <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />
+          <div className={styles.detailActions}>
+            <RefreshNowButton segment={segment} />
+            <Button
+              size="small"
+              onClick={() => {
+                const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
+                const out = buildPlaygroundDeeplink({
+                  segmentId: segment.id,
+                  segmentName: segment.name,
+                  identityDim,
+                  primaryCube: segment.cube,
+                  uids: segment.uid_list ?? [],
+                });
+                window.location.assign(out.url);
+              }}
+              disabled={(segment.uid_list ?? []).length === 0}
+            >
+              {t('segments.detail.actions.copyAsFilter')}
+            </Button>
+            <Button
+              size="small"
+              type="primary"
+              onClick={() => history.push(`/segments/${segment.id}/edit`)}
+              disabled={segment.type !== 'predicate'}
+            >
+              {t('segments.detail.actions.editPredicate')}
+            </Button>
+            <Button size="small" danger onClick={() => setDeleteOpen(true)}>
+              {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
+            </Button>
+          </div>
         </div>
       </header>
-      <DetailTopbarActions
-        node={trailingActions}
-        segmentId={segment.id}
-        uidCount={(segment.uid_list ?? []).length}
-        segmentType={segment.type}
-      />
 
-      <div className={styles.detailKpiStrip}>
-        {preset && preset.headlineKpis.length > 0
-          ? preset.headlineKpis.map((spec) => (
-              <KpiCard
-                key={spec.id}
-                spec={spec}
-                segment={segment}
-                preset={preset}
-                cacheKey={`kpi:${spec.id}`}
-                comparison={spec.id === 'size' ? sizeComparison : null}
-              />
-            ))
-          : (
-            <>
-              <SizeKpiTile
-                segment={segment}
-                comparison={sizeComparison}
-                refreshLog={sizeDelta.rows}
-              />
-              <KpiTile
-                label={t('segments.detail.kpi.lastRefresh', { defaultValue: 'Last refresh' })}
-                value={
-                  lastRefresh
-                    ? formatDistanceToNowStrict(new Date(lastRefresh), { addSuffix: true })
-                    : '—'
-                }
-                footer={lastRefreshFooter}
-              />
-              <KpiTile
-                label={t('segments.detail.kpi.owner', { defaultValue: 'Owner' })}
-                value={segment.owner}
-                footer={ownerFooter}
-              />
-              <KpiTile label={t('segments.detail.kpi.status', { defaultValue: 'Status' })} value={segment.status} />
-            </>
-          )}
-      </div>
+      <HeadlineStatsRow
+        segment={segment}
+        preset={preset}
+        sizeComparison={sizeComparison}
+        refreshLog={sizeDelta.rows}
+        lastRefresh={lastRefresh}
+        lastRefreshFooter={lastRefreshFooter}
+        ownerFooter={ownerFooter}
+      />
 
       <div className={styles.tabStrip} role="tablist">
         {TABS.map((tid) => (
@@ -267,6 +223,7 @@ export function DetailView(): ReactElement {
             {t(`segments.detail.tabs.${tid}`, { defaultValue: tid })}
           </button>
         ))}
+      </div>
       </div>
 
       {tab === 'monitor' && (
@@ -348,19 +305,4 @@ export function DetailView(): ReactElement {
       />
     </main>
   );
-}
-
-/** Side-effect wrapper that pushes the detail action bar into the topbar
- *  trailing slot. Deps cover the fields the buttons read (uid_list length,
- *  segment.type) so polling-driven segment refreshes propagate to the topbar.
- *  Gated by useRouteMatch so KeepAliveRoute siblings don't overwrite. */
-function DetailTopbarActions({
-  node, segmentId, uidCount, segmentType,
-}: {
-  node: ReactNode; segmentId: string; uidCount: number; segmentType: string | null;
-}) {
-  const active = useRouteMatch({ path: '/segments/:id', exact: false }) != null
-    && segmentId !== undefined;
-  useTopbarTrailing(node, [segmentId, uidCount, segmentType], active);
-  return null;
 }

@@ -9,6 +9,7 @@ import { Link, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { ChangeAnalysisModal } from '../../../shared/concept-shell/change-analysis-modal';
+import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
 import { MetricDetailHeader } from './metric-detail-header';
 import {
@@ -59,10 +60,13 @@ export function MetricDetailPage() {
   const [active, setActive] = useState<DetailTabKey>('overview');
   const [anomalyOpen, setAnomalyOpen] = useState(false);
 
+  const metric = metrics.find((m) => m.id === id) ?? null;
+  // Swap the topbar breadcrumb tail (metric id → human label) once resolved.
+  useTopbarBreadcrumbOverride(metric?.label ?? null, [metric?.id, metric?.label]);
+
   if (loading) return <Status>Loading metric…</Status>;
   if (error) return <Status>Failed to load registry: {error}</Status>;
 
-  const metric = metrics.find((m) => m.id === id);
   if (!metric) {
     return (
       <Status>

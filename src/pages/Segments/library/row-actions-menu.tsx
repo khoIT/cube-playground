@@ -1,17 +1,20 @@
 /**
  * Kebab menu shown at the end of each library row.
  *
- * Actions: Duplicate, Delete. Built as a Dropdown so future actions can be
- * added without widening the table.
+ * Actions: Duplicate, Delete. Built as an antd Dropdown wrapping a styled
+ * Shell + Row primitives — mirrors the game-picker / user-menu pattern so the
+ * panel has a single owning border-radius (no lop-sided bleed at corners that
+ * antd's <Menu> produces inside Dropdown).
  *
  * Click handlers stop propagation + preventDefault so the wrapping <Link> on
  * the row does not navigate when the user opens the menu or picks an action.
  */
 
 import { ReactElement, useState, MouseEvent } from 'react';
-import { Dropdown, Menu, message } from 'antd';
+import { Dropdown, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal, Trash2, Copy } from 'lucide-react';
+import styled from 'styled-components';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
@@ -23,6 +26,44 @@ interface Props {
   /** Called after a successful mutation so the parent can reload its list. */
   onChanged: (id: string) => void;
 }
+
+const Shell = styled.div`
+  min-width: 200px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  padding: 4px 0;
+  overflow: hidden;
+  font-family: var(--font-sans);
+`;
+
+const Row = styled.button<{ $danger?: boolean }>`
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  color: ${(p) => (p.$danger ? 'var(--danger, #d4380d)' : 'var(--text-primary)')};
+  transition: background 100ms ease;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: ${(p) => (p.$danger ? 'var(--danger-soft, #fff1f0)' : 'var(--bg-muted)')};
+  }
+`;
+
+const Divider = styled.div`
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border-card);
+`;
 
 export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
   const { t } = useTranslation();
@@ -82,30 +123,32 @@ export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
   }
 
   const overlay = (
-    <Menu>
-      <Menu.Item
-        key="duplicate"
-        icon={<Copy size={14} aria-hidden />}
-        onClick={({ domEvent }) => {
-          stop(domEvent as unknown as MouseEvent);
+    <Shell role="menu" aria-label={t('segments.actions.more', { defaultValue: 'More actions' })}>
+      <Row
+        type="button"
+        role="menuitem"
+        onClick={(e) => {
+          stop(e);
           void handleDuplicate();
         }}
       >
+        <Copy size={14} aria-hidden />
         {t('segments.actions.duplicate.menuItem', { defaultValue: 'Duplicate segment' })}
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item
-        key="delete"
-        danger
-        icon={<Trash2 size={14} aria-hidden />}
-        onClick={({ domEvent }) => {
-          stop(domEvent as unknown as MouseEvent);
+      </Row>
+      <Divider aria-hidden />
+      <Row
+        type="button"
+        role="menuitem"
+        $danger
+        onClick={(e) => {
+          stop(e);
           setConfirmOpen(true);
         }}
       >
+        <Trash2 size={14} aria-hidden />
         {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
-      </Menu.Item>
-    </Menu>
+      </Row>
+    </Shell>
   );
 
   return (

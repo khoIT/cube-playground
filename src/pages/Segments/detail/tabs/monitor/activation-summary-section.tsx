@@ -5,10 +5,11 @@
 
 import { ReactElement } from 'react';
 import { Button } from 'antd';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import type { Segment } from '../../../../../types/segment-api';
+import { useCollapsiblePref } from '../../cards/use-collapsible-pref';
 import styles from '../../../segments.module.css';
 
 interface Props {
@@ -33,16 +34,27 @@ export function ActivationSummarySection({
 }: Props): ReactElement {
   const { t } = useTranslation();
   const activations = segment.activations ?? [];
+  const [collapsed, toggleCollapsed] = useCollapsiblePref(`monitor:activations:${segment.id}`);
 
   return (
     <section className={styles.monitorSection}>
       <header className={styles.monitorSectionHead}>
-        <h3>{t('segments.detail.monitor.activation.title', { defaultValue: 'Activations' })}</h3>
-        <Button type="primary" size="small" onClick={onActivate} disabled={!onActivate}>
-          {t('segments.detail.monitor.activation.cta', { defaultValue: '+ Activate to CDP' })}
-        </Button>
+        <button
+          type="button"
+          className={styles.cardCollapseBtn}
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          <h3>{t('segments.detail.monitor.activation.title', { defaultValue: 'Activations' })}</h3>
+        </button>
+        {!collapsed && (
+          <Button type="primary" size="small" onClick={onActivate} disabled={!onActivate}>
+            {t('segments.detail.monitor.activation.cta', { defaultValue: '+ Activate to CDP' })}
+          </Button>
+        )}
       </header>
-      {activations.length === 0 ? (
+      {collapsed ? null : activations.length === 0 ? (
         <div className={styles.monitorEmpty}>
           {t('segments.detail.monitor.activation.empty', {
             defaultValue: 'Not activated yet. Push to CDP to make this segment available downstream.',
@@ -64,7 +76,7 @@ export function ActivationSummarySection({
           ))}
         </ul>
       )}
-      {activations.length > 0 && onJumpToTab && (
+      {!collapsed && activations.length > 0 && onJumpToTab && (
         <button type="button" className={styles.monitorMoreLink} onClick={onJumpToTab}>
           {t('segments.detail.monitor.activation.viewAll', { defaultValue: 'View all activations →' })}
         </button>

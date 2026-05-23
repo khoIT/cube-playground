@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import {
   MetricDetailTabs,
   type DetailTabKey,
@@ -69,6 +70,16 @@ export function ConceptDetailPage() {
     return out;
   }, [cubes]);
 
+  const concept = useMemo(
+    () =>
+      concepts.find(
+        (c) => c.type === (type as ConceptType) && c.fqn === decodedFqn,
+      ) ?? null,
+    [concepts, type, decodedFqn],
+  );
+  // Swap the topbar breadcrumb tail (URL-encoded fqn → readable name).
+  useTopbarBreadcrumbOverride(concept?.fqn ?? null, [concept?.fqn]);
+
   if (loading) return <Status>Loading concept…</Status>;
   if (error) return <Status>Failed to load /meta: {error}</Status>;
 
@@ -80,10 +91,6 @@ export function ConceptDetailPage() {
       </Status>
     );
   }
-
-  const concept = concepts.find(
-    (c) => c.type === (type as ConceptType) && c.fqn === decodedFqn,
-  );
 
   if (!concept) {
     return (

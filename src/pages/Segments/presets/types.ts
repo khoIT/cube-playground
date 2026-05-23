@@ -61,11 +61,25 @@ export interface CompositionCardSpec {
   limit?: number;
 }
 
+/** Single horizontal stacked bar with % legend — used for lifecycle / spend
+ *  tier composition strips where a donut would waste space. */
+export interface SegmentedBarCardSpec {
+  kind: 'segmented-bar';
+  id: string;
+  label: string;
+  measure: string;
+  groupBy: string;
+  limit?: number;
+  /** Optional helper line below the legend, e.g. "Avg LTV: $50.44". */
+  footer?: string;
+}
+
 export type CardSpec =
   | LineCardSpec
   | BarListCardSpec
   | DonutCardSpec
-  | CompositionCardSpec;
+  | CompositionCardSpec
+  | SegmentedBarCardSpec;
 
 export interface TabDef {
   id: string;

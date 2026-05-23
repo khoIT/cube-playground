@@ -1,10 +1,9 @@
 /**
- * ConceptDetailHeader — title row + breadcrumb + type icon. Mirrors
- * MetricDetailHeader visually but takes a generic Concept instead of a
- * BusinessMetric.
+ * ConceptDetailHeader — title row + type icon. Mirrors MetricDetailHeader
+ * visually but takes a generic Concept instead of a BusinessMetric. Parent
+ * trail is rendered by the global topbar breadcrumb.
  */
 
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { FreshnessChip } from '../../../shared/concept-shell/freshness-chip';
@@ -16,18 +15,6 @@ const Header = styled.header`
   padding: 16px 24px 12px;
   border-bottom: 1px solid var(--border-card, #e5e5e5);
   background: var(--bg-app, transparent);
-`;
-
-const Breadcrumb = styled.div`
-  font-size: 12px;
-  color: var(--text-muted, #737373);
-  margin-bottom: 8px;
-
-  a {
-    color: var(--brand, #f05a22);
-    text-decoration: none;
-  }
-  a:hover { text-decoration: underline; }
 `;
 
 const TitleRow = styled.div`
@@ -62,10 +49,6 @@ export function ConceptDetailHeader({ concept }: { concept: Concept }) {
   const { state: freshness } = useFreshness(concept.cube);
   return (
     <Header>
-      <Breadcrumb>
-        <Link to="/catalog/data-model">Catalog</Link> · Data Model · {concept.cube} ·{' '}
-        <code>{concept.name}</code>
-      </Breadcrumb>
       <TitleRow>
         <TypeIcon kind={concept.type} />
         <Title>{concept.fqn}</Title>

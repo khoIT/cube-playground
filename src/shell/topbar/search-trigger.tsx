@@ -17,7 +17,7 @@ export function SearchTrigger({ onOpen }: SearchTriggerProps) {
       type="button"
       onClick={onOpen}
       style={{
-        flex: '0 1 420px',
+        flex: '0 1 240px',
         display: 'flex', alignItems: 'center', gap: 8,
         height: 36, padding: '0 12px',
         background: T.surface, border: `1px solid ${T.n200}`, borderRadius: 8,

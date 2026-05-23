@@ -26,8 +26,6 @@
 import type { Query, TimeDimension, TimeDimensionGranularity } from '@cubejs-client/core';
 import { bucketDateRange } from './bucket-range';
 
-export const UID_HARD_CAP = 5000;
-
 interface OriginalQueryShape {
   dimensions?: string[];
   measures?: string[];
@@ -108,7 +106,7 @@ export function buildExpansionQuery(
   originalQuery: OriginalQueryShape,
   selectedRows: Record<string, unknown>[],
   identityField: string,
-  uidLimit: number = UID_HARD_CAP,
+  uidLimit?: number,
 ): Query {
   const dimsToConstrain = getNonIdentityDimensions(originalQuery.dimensions, identityField);
   const cohortTimeDims = getCohortTimeDimensions(originalQuery.timeDimensions, identityField);
@@ -135,6 +133,6 @@ export function buildExpansionQuery(
     timeDimensions,
     filters: filters as Query['filters'],
     segments: originalQuery.segments,
-    limit: uidLimit,
+    ...(uidLimit != null ? { limit: uidLimit } : {}),
   };
 }

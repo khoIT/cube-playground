@@ -37,7 +37,13 @@ export function BarListCard({ spec, segment, preset, cacheKey }: Props): ReactEl
   })), [rows, spec]);
 
   return (
-    <CardShell title={spec.label} loading={loading} error={error} skeletonShape="bars">
+    <CardShell
+      title={spec.label}
+      loading={loading}
+      error={error}
+      skeletonShape="bars"
+      cardKey={cacheKey}
+    >
       {items.length > 0 ? <BarList items={items} /> : <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No data.</div>}
     </CardShell>
   );

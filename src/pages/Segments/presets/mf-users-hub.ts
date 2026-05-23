@@ -38,12 +38,12 @@ export const mfUsersHubPreset: Preset = {
       gridCols: 2,
       kpis: [],
       cards: [
-        { kind: 'composition', id: 'media-comp',    label: 'Media source',      measure: 'mf_users.user_count', groupBy: 'mf_users.media_source', limit: 6 },
-        { kind: 'composition', id: 'platform-comp', label: 'OS platform',       measure: 'mf_users.user_count', groupBy: 'mf_users.os_platform',  limit: 6 },
-        { kind: 'composition', id: 'country-comp',  label: 'Country',           measure: 'mf_users.user_count', groupBy: 'mf_users.country',      limit: 6 },
-        { kind: 'composition', id: 'lifecycle-comp',label: 'Lifecycle stage',   measure: 'mf_users.user_count', groupBy: 'mf_users.lifecycle_stage', limit: 6 },
-        { kind: 'line', id: 'installs-90d', label: 'Installs (last 90 days)', measure: 'mf_users.user_count', timeDimension: 'mf_users.install_date', dateRange: 'last 90 days', granularity: 'day', format: 'compact' },
-        { kind: 'bar',  id: 'top-campaigns', label: 'Top campaigns',          measure: 'mf_users.user_count', groupBy: 'mf_users.campaign_id', limit: 8, format: 'compact' },
+        { kind: 'segmented-bar', id: 'lifecycle-strip', label: 'Lifecycle stage', measure: 'mf_users.user_count', groupBy: 'mf_users.lifecycle_stage', limit: 5 },
+        { kind: 'segmented-bar', id: 'payer-tier-strip', label: 'Spend tier',     measure: 'mf_users.user_count', groupBy: 'mf_users.payer_tier',       limit: 5, footer: 'Avg LTV: see Monetization tab' },
+        { kind: 'bar',           id: 'top-countries',    label: 'Top countries',  measure: 'mf_users.user_count', groupBy: 'mf_users.country',           limit: 10, format: 'compact' },
+        { kind: 'donut',         id: 'platform-donut',   label: 'Device platform', measure: 'mf_users.user_count', groupBy: 'mf_users.os_platform',      limit: 5 },
+        { kind: 'line',          id: 'installs-90d',     label: 'Installs (last 90 days)', measure: 'mf_users.user_count', timeDimension: 'mf_users.install_date', dateRange: 'last 90 days', granularity: 'day', format: 'compact' },
+        { kind: 'bar',           id: 'top-campaigns',    label: 'Top campaigns',  measure: 'mf_users.user_count', groupBy: 'mf_users.campaign_id', limit: 8, format: 'compact' },
       ],
     },
     {

@@ -36,7 +36,7 @@ const meta = {
 };
 
 describe('synthesizeAutoPreset', () => {
-  it('picks identity dim, headline KPIs, and a composition-heavy overview tab', () => {
+  it('picks identity dim, headline KPIs, and a diverse-chart overview tab', () => {
     const preset = synthesizeAutoPreset(meta, 'recharge');
     expect(preset).not.toBeNull();
     expect(preset!.identityDim).toBe('recharge.user_id');
@@ -53,14 +53,23 @@ describe('synthesizeAutoPreset', () => {
     expect(kpiMeasures).toContain('recharge.revenue_vnd');
     expect(kpiMeasures).toContain('recharge.paying_users');
 
-    // Overview tab with composition cards over non-id categorical dims.
+    // Overview tab with a Hermes-style mix of chart kinds (segmented-bar,
+    // bar list, donut) over non-id categorical dims.
     expect(preset!.tabs).toHaveLength(1);
     const overview = preset!.tabs[0];
     expect(overview.id).toBe('overview');
-    const compositions = overview.cards.filter((c) => c.kind === 'composition');
-    expect(compositions.length).toBeGreaterThanOrEqual(3);
-    // user_id must NOT show up as a composition groupBy.
-    expect(compositions.find((c) => c.kind === 'composition' && c.groupBy === 'recharge.user_id')).toBeUndefined();
+
+    const groupedCards = overview.cards.filter((c) => c.kind !== 'line');
+    expect(groupedCards.length).toBeGreaterThanOrEqual(3);
+    // user_id must NOT show up as a groupBy on any composition-style card.
+    expect(
+      groupedCards.find((c) => 'groupBy' in c && c.groupBy === 'recharge.user_id'),
+    ).toBeUndefined();
+
+    // First categorical dim should render as a segmented-bar strip (Hermes
+    // composition tab's lifecycle/spend-tier shape).
+    const segmented = overview.cards.filter((c) => c.kind === 'segmented-bar');
+    expect(segmented.length).toBeGreaterThanOrEqual(1);
 
     // Should include a line card because there's a time dim.
     const lines = overview.cards.filter((c) => c.kind === 'line');

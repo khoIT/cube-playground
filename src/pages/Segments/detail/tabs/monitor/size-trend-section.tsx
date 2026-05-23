@@ -6,8 +6,10 @@
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Select } from 'antd';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { segmentsClient } from '../../../../../api/segments-client';
 import type { RefreshLogRow, Segment } from '../../../../../types/segment-api';
+import { useCollapsiblePref } from '../../cards/use-collapsible-pref';
 import styles from '../../../segments.module.css';
 
 interface Props {
@@ -49,6 +51,7 @@ export function SizeTrendSection({ segment }: Props): ReactElement {
   const { t } = useTranslation();
   const [days, setDays] = useState(7);
   const [log, setLog] = useState<RefreshLogRow[]>([]);
+  const [collapsed, toggleCollapsed] = useCollapsiblePref(`monitor:size-trend:${segment.id}`);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,29 +79,41 @@ export function SizeTrendSection({ segment }: Props): ReactElement {
   return (
     <section className={styles.monitorSection}>
       <header className={styles.monitorSectionHead}>
-        <div>
-          <h3>{t('segments.detail.monitor.size.title', { defaultValue: 'Size trend' })}</h3>
-          <div className={styles.monitorHeadline}>
-            <span className={styles.monitorCount}>{formatCount(last)}</span>
-            <span className={styles.monitorDelta} data-tone={delta >= 0 ? 'success' : 'destructive'}>
-              {deltaSign}
-              {delta}% vs {days}d ago
-            </span>
+        <button
+          type="button"
+          className={styles.cardCollapseBtn}
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          <div>
+            <h3>{t('segments.detail.monitor.size.title', { defaultValue: 'Size trend' })}</h3>
+            {!collapsed && (
+              <div className={styles.monitorHeadline}>
+                <span className={styles.monitorCount}>{formatCount(last)}</span>
+                <span className={styles.monitorDelta} data-tone={delta >= 0 ? 'success' : 'destructive'}>
+                  {deltaSign}
+                  {delta}% vs {days}d ago
+                </span>
+              </div>
+            )}
           </div>
-        </div>
-        <Select
-          size="small"
-          value={days}
-          onChange={(v) => setDays(v)}
-          options={[
-            { value: 7, label: '7 days' },
-            { value: 30, label: '30 days' },
-            { value: 90, label: '90 days' },
-          ]}
-          style={{ width: 120 }}
-        />
+        </button>
+        {!collapsed && (
+          <Select
+            size="small"
+            value={days}
+            onChange={(v) => setDays(v)}
+            options={[
+              { value: 7, label: '7 days' },
+              { value: 30, label: '30 days' },
+              { value: 90, label: '90 days' },
+            ]}
+            style={{ width: 120 }}
+          />
+        )}
       </header>
-      {paths.line ? (
+      {collapsed ? null : paths.line ? (
         <svg
           className={styles.monitorChart}
           width={W}

@@ -10,6 +10,7 @@ import { LineChartCard } from '../cards/line-chart-card';
 import { BarListCard } from '../cards/bar-list-card';
 import { DonutCard } from '../cards/donut-card';
 import { CompositionDataCard } from '../cards/composition-card-component';
+import { SegmentedBarCard } from '../cards/segmented-bar-card';
 import type { TabDef, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -48,11 +49,12 @@ export function PresetTab({ tab, segment, preset }: Props): ReactElement {
           {tab.cards.map((card) => {
             const cacheKey = `card:${tab.id}:${card.id}`;
             switch (card.kind) {
-              case 'line':         return <LineChartCard       key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
-              case 'bar':          return <BarListCard         key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
-              case 'donut':        return <DonutCard           key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
-              case 'composition':  return <CompositionDataCard key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
-              default:             return null;
+              case 'line':           return <LineChartCard       key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              case 'bar':            return <BarListCard         key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              case 'donut':          return <DonutCard           key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              case 'composition':    return <CompositionDataCard key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              case 'segmented-bar':  return <SegmentedBarCard    key={card.id} spec={card} segment={segment} preset={preset} cacheKey={cacheKey} />;
+              default:               return null;
             }
           })}
         </div>

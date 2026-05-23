@@ -29,6 +29,7 @@ import { Sidebar } from './shell/sidebar/sidebar';
 import { T } from './shell/theme';
 import { Topbar } from './shell/topbar/topbar';
 import { TopbarTrailingProvider } from './shell/topbar/topbar-trailing-context';
+import { TopbarBreadcrumbProvider } from './shell/topbar/topbar-breadcrumb-context';
 import { pushRecent } from './shell/sidebar/recent-items-store';
 import { rootStyles } from './theme/ui-kit-theme';
 
@@ -149,10 +150,12 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
 
         <SmartSearchProvider>
           <TopbarTrailingProvider>
-            <CubeTokenBootstrap />
-            <ShellLayout fatalError={fatalError}>{children}</ShellLayout>
-            <SmartSearchOverlay />
-            <RecentItemPusher />
+            <TopbarBreadcrumbProvider>
+              <CubeTokenBootstrap />
+              <ShellLayout fatalError={fatalError}>{children}</ShellLayout>
+              <SmartSearchOverlay />
+              <RecentItemPusher />
+            </TopbarBreadcrumbProvider>
           </TopbarTrailingProvider>
         </SmartSearchProvider>
       </Root>

@@ -118,7 +118,6 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       dimensions: Array.from(
         new Set([...(baseQuery.dimensions ?? []), identity] as string[]),
       ),
-      limit: 5000,
     };
 
     const result = await withTimeout(

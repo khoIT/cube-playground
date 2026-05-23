@@ -37,7 +37,13 @@ export function DonutCard({ spec, segment, preset, cacheKey }: Props): ReactElem
   })), [rows, spec]);
 
   return (
-    <CardShell title={spec.label} loading={loading} error={error} skeletonShape="donut">
+    <CardShell
+      title={spec.label}
+      loading={loading}
+      error={error}
+      skeletonShape="donut"
+      cardKey={cacheKey}
+    >
       {slices.length > 0 ? <Donut data={slices} /> : <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No data.</div>}
     </CardShell>
   );

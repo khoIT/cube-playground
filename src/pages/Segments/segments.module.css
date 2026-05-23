@@ -309,27 +309,6 @@
 }
 .activationChip:hover { filter: brightness(0.97); }
 
-.sizeKpiWrap {
-  position: relative;
-}
-.sizeKpiSparkline {
-  margin-top: 6px;
-  width: 100%;
-  height: 22px;
-  opacity: 0.7;
-}
-.sizeKpiOverlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(1px);
-  border-radius: inherit;
-  color: var(--text-secondary);
-}
-
 .errorState {
   padding: 32px 24px;
   text-align: center;
@@ -351,6 +330,22 @@
 }
 
 /* ── Detail view ─────────────────────────────────────────────── */
+/* Pinned chrome: title row + KPI strip + tab strip stay at the top
+   of the scroll viewport while the active-tab body scrolls. The wrapper
+   bleeds to the page padding so the background fully covers content
+   passing underneath. */
+.detailStickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-app, #f7f8fa);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: -24px -32px 0;
+  padding: 24px 32px 0;
+}
+
 .detailHeader {
   display: flex;
   flex-direction: column;
@@ -362,6 +357,13 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.detailActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .detailTitle {
@@ -385,22 +387,14 @@
   color: var(--text-secondary);
 }
 
-.detailKpiStrip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  min-height: 72px;
-}
-
-.detailKpiStrip > * {
-  min-height: 72px;
-}
-
 .tabStrip {
   display: flex;
   gap: 2px;
+  border-top: 1px solid var(--border-card);
   border-bottom: 1px solid var(--border-card);
-  margin-top: 8px;
+  margin: 8px -32px 0;
+  padding: 0 32px;
+  background: var(--hermes-sidebar, #f9f6f2);
   overflow-x: auto;
 }
 
@@ -416,7 +410,7 @@
   font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   margin-bottom: -1px;
   white-space: nowrap;
 }
@@ -430,6 +424,7 @@
 
 .tabActive {
   color: var(--text-primary);
+  font-weight: 600;
   border-bottom-color: var(--brand);
 }
 
@@ -515,6 +510,31 @@
 .sortableHeader > span { margin-right: 4px; }
 .sortableHeader[data-active] { color: var(--text-primary); }
 .sortableHeader:hover { color: var(--text-primary); }
+
+.cardCollapseBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+}
+.cardCollapseBtn:hover { color: var(--brand); }
+.cardCollapseBtn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.cardCollapseBtn svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.12s ease;
+}
+.cardCollapseBtn:hover svg { color: var(--brand); }
 
 .cardSkeleton {
   display: flex;

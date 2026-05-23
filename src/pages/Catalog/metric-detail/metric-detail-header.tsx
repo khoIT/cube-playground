@@ -1,8 +1,8 @@
 /**
- * MetricDetailHeader — title row + badge strip + back-to-catalog breadcrumb.
+ * MetricDetailHeader — title row + badge strip. Parent trail is rendered by
+ * the global topbar breadcrumb.
  */
 
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { AnomalyBadge } from '../../../shared/concept-shell/anomaly-badge';
@@ -17,18 +17,6 @@ const Header = styled.header`
   padding: 16px 24px 12px;
   border-bottom: 1px solid var(--border-card, #e5e5e5);
   background: var(--bg-app, transparent);
-`;
-
-const Breadcrumb = styled.div`
-  font-size: 12px;
-  color: var(--text-muted, #737373);
-  margin-bottom: 8px;
-
-  a {
-    color: var(--brand, #f05a22);
-    text-decoration: none;
-  }
-  a:hover { text-decoration: underline; }
 `;
 
 const TitleRow = styled.div`
@@ -73,10 +61,6 @@ export function MetricDetailHeader({ metric, onAnomalyClick }: MetricDetailHeade
   const liveAnomaly = useMergedAnomaly(metric);
   return (
     <Header>
-      <Breadcrumb>
-        <Link to="/catalog">Catalog</Link> · Metrics ·{' '}
-        <code>{metric.id}</code>
-      </Breadcrumb>
       <TitleRow>
         <TypeIcon kind="business-metric" />
         <TierBadge tier={metric.tier} />

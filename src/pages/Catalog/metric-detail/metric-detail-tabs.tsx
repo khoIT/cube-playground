@@ -9,38 +9,35 @@ export type DetailTabKey = 'overview' | 'formula' | 'lineage' | 'slices' | 'acti
 
 const Strip = styled.div`
   display: flex;
-  gap: 4px;
+  gap: 2px;
   padding: 0 24px;
+  border-top: 1px solid var(--border-card, #e5e5e5);
   border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-app, transparent);
+  background: var(--hermes-sidebar, #f9f6f2);
 `;
 
 const TabBtn = styled.button<{ $active: boolean }>`
   position: relative;
-  height: 38px;
-  padding: 0 14px;
-  border: none;
+  padding: 10px 14px;
+  border: 0;
   background: transparent;
-  font-size: 13px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
   font-weight: 500;
-  color: var(--text-secondary, #525252);
+  color: var(--text-muted, #737373);
   cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
 
   &:hover { color: var(--text-primary, #171717); }
 
   ${(p) =>
     p.$active &&
     css`
-      color: var(--brand, #f05a22);
-      &::after {
-        content: '';
-        position: absolute;
-        left: 14px;
-        right: 14px;
-        bottom: -1px;
-        height: 2px;
-        background: var(--brand, #f05a22);
-      }
+      color: var(--text-primary, #171717);
+      font-weight: 600;
+      border-bottom-color: var(--brand, #f05a22);
     `}
 `;
 

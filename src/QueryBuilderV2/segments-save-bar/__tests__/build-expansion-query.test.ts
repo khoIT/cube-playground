@@ -10,7 +10,6 @@ import {
   buildRowAndGroup,
   getCohortTimeDimensions,
   getNonIdentityDimensions,
-  UID_HARD_CAP,
 } from '../build-expansion-query';
 
 describe('getNonIdentityDimensions', () => {
@@ -124,9 +123,9 @@ describe('buildExpansionQuery', () => {
     expect(orClause.or[1].and).toHaveLength(2);
   });
 
-  it('caps result via limit (default UID_HARD_CAP)', () => {
+  it('omits limit when no uidLimit override is given', () => {
     const q = buildExpansionQuery(original, [], 'mf_users.user_id');
-    expect(q.limit).toBe(UID_HARD_CAP);
+    expect(q.limit).toBeUndefined();
   });
 
   it('honors a custom limit override', () => {

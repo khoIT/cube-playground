@@ -1,11 +1,11 @@
 /**
  * WorkspacePill — top-of-sidebar cube brand pill.
  * Click → /build (Playground as the workspace home).
- * Collapsed mode renders only the GDS glyph centered.
+ * Collapsed mode renders only the cube glyph centered.
  */
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { Box, ChevronDown } from 'lucide-react';
 import { T, Icon } from '../theme';
 
 interface WorkspacePillProps {
@@ -19,8 +19,8 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
     return (
       <button
         onClick={() => history.push('/build')}
-        title="GDS — Cube Playground"
-        aria-label="GDS — Cube Playground"
+        title="Cube Playground"
+        aria-label="Cube Playground"
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: '100%', height: 56, flexShrink: 0,
@@ -32,11 +32,7 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
           width: 24, height: 24, borderRadius: 5, background: T.brand,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <span style={{
-            fontFamily: T.fDisp, fontSize: 11, fontWeight: 400,
-            color: '#fff', textTransform: 'uppercase', letterSpacing: '0.02em',
-            lineHeight: 1,
-          }}>GDS</span>
+          <Box size={14} strokeWidth={2.25} color="#fff" aria-hidden />
         </div>
       </button>
     );
@@ -64,11 +60,7 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0,
       }}>
-        <span style={{
-          fontFamily: T.fDisp, fontSize: 11, fontWeight: 400,
-          color: '#fff', textTransform: 'uppercase', letterSpacing: '0.02em',
-          lineHeight: 1,
-        }}>GDS</span>
+        <Box size={14} strokeWidth={2.25} color="#fff" aria-hidden />
       </div>
       <span style={{
         flex: 1, minWidth: 0,

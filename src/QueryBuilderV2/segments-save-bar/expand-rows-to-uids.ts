@@ -1,17 +1,13 @@
 /**
  * Executes the expansion Cube Query that materializes actual user_ids from
- * a set of selected cohort rows. Returns a deduplicated list of uids, capped
- * at UID_HARD_CAP per plan (5,000).
+ * a set of selected cohort rows. Returns a deduplicated list of uids.
  *
  * Throws if Cube returns no rows for any cohort — callers should surface a
  * friendly toast in that case.
  */
 
 import type { CubeApi } from '@cubejs-client/core';
-import {
-  buildExpansionQuery,
-  UID_HARD_CAP,
-} from './build-expansion-query';
+import { buildExpansionQuery } from './build-expansion-query';
 
 interface ExpandOpts {
   cubeApi: CubeApi;
@@ -31,7 +27,6 @@ export async function expandRowsToUids(opts: ExpandOpts): Promise<string[]> {
     opts.originalQuery,
     opts.selectedRows,
     opts.identityField,
-    UID_HARD_CAP,
   );
   const rs = await opts.cubeApi.load(query);
   const rows = rs.tablePivot() as Record<string, unknown>[];

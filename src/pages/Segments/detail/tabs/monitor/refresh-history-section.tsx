@@ -5,8 +5,10 @@
 import { ReactElement, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { segmentsClient } from '../../../../../api/segments-client';
 import type { RefreshLogRow, Segment } from '../../../../../types/segment-api';
+import { useCollapsiblePref } from '../../cards/use-collapsible-pref';
 import styles from '../../../segments.module.css';
 
 interface Props {
@@ -31,6 +33,7 @@ function formatWhen(value: string | null): string {
 export function RefreshHistorySection({ segment }: Props): ReactElement {
   const { t } = useTranslation();
   const [rows, setRows] = useState<RefreshLogRow[]>([]);
+  const [collapsed, toggleCollapsed] = useCollapsiblePref(`monitor:refresh-history:${segment.id}`);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,9 +56,17 @@ export function RefreshHistorySection({ segment }: Props): ReactElement {
   return (
     <section className={styles.monitorSection}>
       <header className={styles.monitorSectionHead}>
-        <h3>{t('segments.detail.monitor.history.title', { defaultValue: 'Refresh history' })}</h3>
+        <button
+          type="button"
+          className={styles.cardCollapseBtn}
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          <h3>{t('segments.detail.monitor.history.title', { defaultValue: 'Refresh history' })}</h3>
+        </button>
       </header>
-      {rows.length === 0 ? (
+      {collapsed ? null : rows.length === 0 ? (
         <div className={styles.monitorEmpty}>
           {t('segments.detail.monitor.history.empty', {
             defaultValue: 'No refreshes recorded yet.',
