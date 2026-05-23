@@ -94,9 +94,19 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
 
     let context: PlaygroundContext | null = null;
     try {
-      const res = await fetch('playground/context');
-      if (res.ok) {
-        context = await res.json();
+      // 5 s timeout — a hung TCP connection (server accepts but never replies)
+      // would otherwise leave the splash up forever, because plain `await fetch`
+      // never throws on hang. AbortController turns the hang into a catchable
+      // error so we fall through to buildFallbackContext().
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        const res = await fetch('playground/context', { signal: controller.signal });
+        if (res.ok) {
+          context = await res.json();
+        }
+      } finally {
+        clearTimeout(timer);
       }
     } catch {
       // ignore — falls through to fallback
