@@ -1,4 +1,7 @@
 import path from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../src/index.js';
@@ -17,21 +20,26 @@ const FIXTURE_DIR = path.resolve(
 );
 
 let app: Awaited<ReturnType<typeof buildApp>>;
+let isolatedTmp: string;
 
 beforeAll(async () => {
   setRegistryDir(FIXTURE_DIR);
   await loadAll();
-  setAnomalyStateFile(null);
+  // Point the store at an isolated tmp path so a leftover detector file at
+  // the default location can't flip these tests from "yaml" to "detector".
+  isolatedTmp = mkdtempSync(join(tmpdir(), 'anomaly-state-route-'));
+  setAnomalyStateFile(join(isolatedTmp, 'no-such-file.json'));
   app = await buildApp();
   await app.ready();
 });
 
 afterAll(async () => {
   await app.close();
+  if (isolatedTmp) rmSync(isolatedTmp, { recursive: true, force: true });
 });
 
 beforeEach(() => {
-  setAnomalyStateFile(null);
+  setAnomalyStateFile(join(isolatedTmp, 'no-such-file.json'));
 });
 
 describe('GET /api/anomaly-state', () => {

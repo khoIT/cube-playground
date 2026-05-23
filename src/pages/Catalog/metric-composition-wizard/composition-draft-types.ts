@@ -4,7 +4,7 @@
  * the YAML registry shape — no translation layer.
  */
 
-import type { Domain } from '../metrics-tab/business-metric-types';
+import type { BusinessMetricDomain as Domain } from '../metrics-tab/business-metric-types';
 
 export type FormulaKind = 'measure' | 'ratio';
 

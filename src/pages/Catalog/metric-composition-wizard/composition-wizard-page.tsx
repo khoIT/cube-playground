@@ -7,15 +7,20 @@
  *   3. Invalidate the in-memory registry cache.
  *   4. Navigate to /catalog/metric/<id>.
  *
- * WizardShell extraction (per phase doc R4) is deferred — the existing
- * NewMetricPage chrome is a different aesthetic from Compass; merging
- * needs a separate UX pass. Until then both wizards live independently.
+ * Chrome (header + step pills + footer Cancel/Back/Next/Submit) is provided
+ * by `WizardShell` in `src/shared/wizard-shell/`. The legacy `NewMetricPage`
+ * keeps its richer rail-preview shell — see the WizardShell docstring for
+ * the picker rationale.
  */
 
 import { useMemo, useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
+import {
+  WizardShell,
+  type WizardStep,
+} from '../../../shared/wizard-shell/wizard-shell';
 import { useConcepts } from '../data-model-tab/use-concepts';
 import { __resetBusinessMetricsCache } from '../metrics-tab/use-business-metrics';
 import {
@@ -30,112 +35,12 @@ import {
 } from './composition-steps';
 import { useCompositionDraft } from './use-composition-draft';
 
-const Page = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--bg-app);
-`;
-
-const Header = styled.header`
-  padding: 18px 24px 12px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-`;
-
-const Title = styled.h1`
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--text-primary, #171717);
-`;
-
-const Breadcrumb = styled.span`
-  font-size: 12px;
-  color: var(--text-muted, #737373);
-
-  a {
-    color: var(--brand, #f05a22);
-    text-decoration: none;
-  }
-`;
-
-const Steps = styled.div`
-  display: flex;
-  gap: 8px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
-`;
-
-const Step = styled.span<{ $active: boolean; $complete: boolean }>`
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  background: ${(p) =>
-    p.$active
-      ? 'var(--brand, #f05a22)'
-      : p.$complete
-      ? 'rgba(240,90,34,0.10)'
-      : 'transparent'};
-  color: ${(p) =>
-    p.$active
-      ? 'white'
-      : p.$complete
-      ? 'var(--brand, #f05a22)'
-      : 'var(--text-muted, #737373)'};
-  border: 1px solid
-    ${(p) =>
-      p.$active
-        ? 'var(--brand, #f05a22)'
-        : 'var(--border-card, #e5e5e5)'};
-`;
-
-const Body = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  max-width: 720px;
-  width: 100%;
-  align-self: center;
-`;
-
-const Footer = styled.footer`
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 24px;
-  border-top: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
-`;
-
-const Btn = styled.button<{ $primary?: boolean }>`
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid
-    ${(p) => (p.$primary ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
-  border-radius: 6px;
-  background: ${(p) => (p.$primary ? 'var(--brand, #f05a22)' : 'transparent')};
-  color: ${(p) => (p.$primary ? 'white' : 'var(--text-primary, #171717)')};
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-`;
-
-const Status = styled.div<{ $kind: 'error' | 'info' }>`
+const ErrorStatus = styled.div`
   padding: 8px 12px;
   margin-top: 12px;
   border-radius: 6px;
-  background: ${(p) =>
-    p.$kind === 'error' ? 'rgba(239,68,68,0.10)' : 'rgba(16,185,129,0.10)'};
-  color: ${(p) => (p.$kind === 'error' ? '#b91c1c' : '#059669')};
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
   font-size: 12px;
 `;
 
@@ -166,7 +71,16 @@ export function MetricCompositionWizard() {
   const currentErrors = validation.byStep[currentStep] ?? [];
   const isLastStep = stepIndex === stepOrder.length - 1;
 
+  const wizardSteps: WizardStep[] = stepOrder.map((s) => ({
+    id: s,
+    label: STEP_LABEL[s],
+  }));
+
   const handleNext = () => {
+    if (isLastStep) {
+      void handleSubmit();
+      return;
+    }
     if (currentErrors.length > 0) return;
     setQuery('');
     setStepIndex((i) => Math.min(i + 1, stepOrder.length - 1));
@@ -201,76 +115,64 @@ export function MetricCompositionWizard() {
     }
   };
 
+  const nextDisabled = isLastStep
+    ? !validation.ok
+    : currentErrors.length > 0;
+  const nextDisabledHint = isLastStep && !validation.ok
+    ? validation.allErrors.join('; ')
+    : undefined;
+
   return (
-    <Page>
-      <Header>
-        <Breadcrumb>
+    <WizardShell
+      title="Compose a metric"
+      breadcrumb={
+        <>
           <Link to="/catalog">Catalog</Link> · Metrics · New
-        </Breadcrumb>
-        <Title>Compose a metric</Title>
-      </Header>
-      <Steps>
-        {stepOrder.map((s, i) => (
-          <Step key={s} $active={i === stepIndex} $complete={i < stepIndex}>
-            {i + 1}. {STEP_LABEL[s]}
-          </Step>
-        ))}
-      </Steps>
-      <Body>
-        {currentStep === 1 && (
-          <StepType draft={draft} setField={setField} errors={currentErrors} />
-        )}
-        {currentStep === 2 && (
-          <StepNumerator
-            draft={draft}
-            setField={setField}
-            errors={currentErrors}
-            concepts={concepts}
-            query={query}
-            onQueryChange={setQuery}
-          />
-        )}
-        {currentStep === 3 && (
-          <StepDenominator
-            draft={draft}
-            setField={setField}
-            errors={currentErrors}
-            concepts={concepts}
-            query={query}
-            onQueryChange={setQuery}
-          />
-        )}
-        {currentStep === 4 && (
-          <StepMetadata
-            draft={draft}
-            setField={setField}
-            errors={currentErrors}
-          />
-        )}
-        {serverError && <Status $kind="error">Submit failed: {serverError}</Status>}
-      </Body>
-      <Footer>
-        <Btn onClick={() => history.push('/catalog')}>Cancel</Btn>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Btn onClick={handleBack} disabled={stepIndex === 0}>
-            Back
-          </Btn>
-          {isLastStep ? (
-            <Btn
-              $primary
-              onClick={handleSubmit}
-              disabled={!validation.ok || submitting}
-              title={!validation.ok ? validation.allErrors.join('; ') : undefined}
-            >
-              {submitting ? 'Saving…' : 'Create metric'}
-            </Btn>
-          ) : (
-            <Btn $primary onClick={handleNext} disabled={currentErrors.length > 0}>
-              Next →
-            </Btn>
-          )}
-        </div>
-      </Footer>
-    </Page>
+        </>
+      }
+      steps={wizardSteps}
+      activeStepId={currentStep}
+      onCancel={() => history.push('/catalog')}
+      onBack={handleBack}
+      onNext={handleNext}
+      isLastStep={isLastStep}
+      backDisabled={stepIndex === 0}
+      nextDisabled={nextDisabled}
+      nextDisabledHint={nextDisabledHint}
+      submitLabel="Create metric"
+      submitting={submitting}
+      banner={serverError && <ErrorStatus>Submit failed: {serverError}</ErrorStatus>}
+    >
+      {currentStep === 1 && (
+        <StepType draft={draft} setField={setField} errors={currentErrors} />
+      )}
+      {currentStep === 2 && (
+        <StepNumerator
+          draft={draft}
+          setField={setField}
+          errors={currentErrors}
+          concepts={concepts}
+          query={query}
+          onQueryChange={setQuery}
+        />
+      )}
+      {currentStep === 3 && (
+        <StepDenominator
+          draft={draft}
+          setField={setField}
+          errors={currentErrors}
+          concepts={concepts}
+          query={query}
+          onQueryChange={setQuery}
+        />
+      )}
+      {currentStep === 4 && (
+        <StepMetadata
+          draft={draft}
+          setField={setField}
+          errors={currentErrors}
+        />
+      )}
+    </WizardShell>
   );
 }

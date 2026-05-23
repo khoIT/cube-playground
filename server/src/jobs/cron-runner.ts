@@ -10,6 +10,7 @@
 import { getDb } from '../db/sqlite.js';
 import { enqueueRefresh } from './refresh-queue.js';
 import { pruneRefreshLog, DEFAULT_PRUNE_INTERVAL_MS } from './refresh-log-retention.js';
+import { maybeRunAnomalyDetector } from './anomaly-detector.js';
 
 const TICK_INTERVAL_MS = 60_000;
 
@@ -73,6 +74,10 @@ export async function tick(): Promise<void> {
   for (const id of ids) {
     await enqueueRefresh(id);
   }
+  await maybeRunAnomalyDetector().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[anomaly-detector] tick failed:', (err as Error).message);
+  });
 }
 
 let interval: ReturnType<typeof setInterval> | null = null;

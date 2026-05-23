@@ -11,6 +11,7 @@ import { DomainChip } from '../../../shared/concept-shell/domain-chip';
 import { TierBadge } from '../../../shared/concept-shell/tier-badge';
 import { TrustBadge } from '../../../shared/concept-shell/trust-badge';
 import { TypeIcon } from '../../../shared/concept-shell/type-icon';
+import { useMergedAnomaly } from '../../../shared/concept-shell/use-merged-anomaly';
 import type { BusinessMetric } from './business-metric-types';
 
 const Wrap = styled.div<{ $disabled: boolean }>`

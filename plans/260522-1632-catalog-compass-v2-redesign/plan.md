@@ -40,9 +40,9 @@ A new `ConceptDetailPage` subsumes `MetricCardPage` and unifies all 4 concept ki
 | 3 | [Metrics tab and detail page](./phase-03-metrics-tab-and-detail-page.md) | Done (2026-05-23) |
 | 4 | [Demo value loop (activation + anomaly + lineage)](./phase-04-demo-value-loop-activation-anomaly-lineage.md) | Done (2026-05-23) |
 | 5 | [Data Model tab and concept detail](./phase-05-data-model-tab-and-concept-detail.md) | Done (2026-05-23) |
-| 6 | [Wizards rebrand and composition](./phase-06-wizards-rebrand-and-composition.md) | Done (2026-05-23) — composition wizard only; WizardShell extraction deferred |
+| 6 | [Wizards rebrand and composition](./phase-06-wizards-rebrand-and-composition.md) | Done (2026-05-23) — composition wizard ships on shared WizardShell; NewMetricPage keeps legacy rail-shell (separate UX) |
 | 7 | [Smart search overlay](./phase-07-smart-search-overlay.md) | Done (2026-05-23) |
-| 8 | [Signal upgrades (freshness + trust + anomaly)](./phase-08-signal-upgrades-freshness-trust-anomaly.md) | Done (2026-05-23) — endpoint + hooks shipped; scheduled detector deferred (needs Cube /load) |
+| 8 | [Signal upgrades (freshness + trust + anomaly)](./phase-08-signal-upgrades-freshness-trust-anomaly.md) | Done (2026-05-23) — endpoint + hooks + scheduled z-score detector (Cube /load per-game token + atomic JSON write) |
 | 9 | [Long tail (digest + saved views + workspaces)](./phase-09-long-tail-digest-saved-views-workspaces.md) | Done (2026-05-23) |
 
 ## Dependency graph
