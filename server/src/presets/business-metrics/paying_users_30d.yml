@@ -1,0 +1,14 @@
+id: paying_users_30d
+label: Paying users (30d)
+description: Unique users who paid in the trailing 30 days.
+synonyms: [pu_30d, mpu_trailing]
+tier: 2
+domain: payments
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.paying_users_30d
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

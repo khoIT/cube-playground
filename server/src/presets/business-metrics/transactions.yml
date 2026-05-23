@@ -1,0 +1,14 @@
+id: transactions
+label: Transactions
+description: Total number of unique successful payment transactions in period.
+synonyms: [txns, payment_count]
+tier: 2
+domain: payments
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: recharge.transactions
+format: compact
+game_compatibility:
+  required_cubes: [recharge]

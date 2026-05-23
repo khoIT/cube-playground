@@ -1,6 +1,6 @@
 import ReactDOM from 'react-dom';
 import { ReactNode, Suspense, useRef } from 'react';
-import { Router, Route, Redirect } from 'react-router-dom';
+import { Router, Route, Redirect, useLocation, useParams } from 'react-router-dom';
 import { createHashHistory } from 'history';
 
 import App from './App';
@@ -9,7 +9,6 @@ import {
   ExplorePage,
   IndexPage,
   CatalogPage,
-  MetricCardPage,
   SegmentsPage,
 } from './pages';
 import { loadable } from './loadable';
@@ -65,6 +64,16 @@ async function onTokenPayloadChange(_payload: Record<string, any>, token) {
 // Pages are lazy-mounted on first match, then stay mounted with display:none
 // when inactive — only one wrapper is visible at a time. Phase 5.E removes
 // this once cubeApi + mutexRef are promoted to the Zustand store.
+function LegacyMetricRedirect() {
+  const { cube, member } = useParams<{ cube: string; member: string }>();
+  const location = useLocation();
+  return (
+    <Redirect
+      to={`/catalog/concept/measure/${cube}.${member}${location.search}${location.hash}`}
+    />
+  );
+}
+
 function KeepAliveRoute({
   path,
   children,
@@ -108,9 +117,9 @@ ReactDOM.render(
               <KeepAliveRoute key="catalog" path="/catalog">
                 <CatalogPage />
               </KeepAliveRoute>
-              <KeepAliveRoute key="metric" path="/metric/:cube/:member">
-                <MetricCardPage />
-              </KeepAliveRoute>
+              <Route key="metric-redirect" path="/metric/:cube/:member">
+                <LegacyMetricRedirect />
+              </Route>
               <KeepAliveRoute key="segments" path="/segments">
                 <SegmentsPage />
               </KeepAliveRoute>

@@ -1,0 +1,17 @@
+id: cost
+label: Marketing cost
+description: >-
+  Total advertising spend in the selected period across third-party platforms
+  (Google, Facebook, TikTok, ASA) plus AppsFlyer-tracked sources.
+synonyms: [marketing_cost, ad_spend]
+tier: 2
+domain: marketing
+owner: marketing-ops@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.marketing_cost
+unit: USD
+format: currency
+game_compatibility:
+  required_cubes: [mf_users]

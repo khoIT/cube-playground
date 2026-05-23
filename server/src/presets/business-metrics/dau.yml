@@ -1,0 +1,14 @@
+id: dau
+label: DAU
+description: Daily Active Users — unique users active during the day.
+synonyms: [a1, daily_active_users]
+tier: 1
+domain: engagement
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.dau
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

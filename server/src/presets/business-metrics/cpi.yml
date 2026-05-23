@@ -1,0 +1,16 @@
+id: cpi
+label: CPI
+description: Cost per install — marketing cost divided by installs.
+synonyms: [cost_per_install]
+tier: 2
+domain: marketing
+owner: marketing-ops@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: mf_users.marketing_cost
+  denominator: mf_users.installs
+unit: USD
+format: currency
+game_compatibility:
+  required_cubes: [mf_users]

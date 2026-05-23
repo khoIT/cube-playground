@@ -1,0 +1,14 @@
+id: pcu
+label: PCU
+description: Peak concurrent users — maximum CCU observed in a given hour.
+synonyms: [peak_ccu, peak_concurrent_users]
+tier: 3
+domain: concurrency
+owner: data-platform@vng
+trust: draft
+formula:
+  type: measure
+  ref: mf_users.pcu
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

@@ -1,0 +1,15 @@
+id: rr07
+label: D7 retention
+description: Day-7 new-user retention rate — exact-day retention at D7.
+synonyms: [retention_d7, r7]
+tier: 1
+domain: retention
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: mf_users.retained_d7
+  denominator: mf_users.new_users
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]

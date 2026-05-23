@@ -1,7 +1,7 @@
 ---
 title: "Catalog — Compass v2 Redesign (Two-Layer Semantic Catalog)"
 description: "Replace 2-tab Catalog (cube-browser + Schema) with 4-tab Catalog: Metrics (default, new biz-KPI registry) + Data Model (new concept-first grid) + Cubes (preserved) + Models (preserved). New ConceptDetail subsumes MetricCardPage. Two wizards. Right-rail Activation hook closes research-file Flow 5. Signals (Trust / Freshness) mocked v1. Anomaly + Drift + NL search + Digest in later phases. Lead-with-leadership phasing."
-status: pending
+status: in-progress
 priority: P1
 branch: "main"
 tags: [catalog, compass, semantic-layer, metrics, business-metrics, activation, ui, ia]
@@ -35,10 +35,10 @@ A new `ConceptDetailPage` subsumes `MetricCardPage` and unifies all 4 concept ki
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Shell and routing](./phase-01-shell-and-routing.md) | Pending |
-| 2 | [Business metrics registry and backend wire](./phase-02-business-metrics-registry-and-backend-wire.md) | Pending |
-| 3 | [Metrics tab and detail page](./phase-03-metrics-tab-and-detail-page.md) | Pending |
-| 4 | [Demo value loop (activation + anomaly + lineage)](./phase-04-demo-value-loop-activation-anomaly-lineage.md) | Pending |
+| 1 | [Shell and routing](./phase-01-shell-and-routing.md) | Done (2026-05-23) |
+| 2 | [Business metrics registry and backend wire](./phase-02-business-metrics-registry-and-backend-wire.md) | Done (2026-05-23) |
+| 3 | [Metrics tab and detail page](./phase-03-metrics-tab-and-detail-page.md) | Done (2026-05-23) |
+| 4 | [Demo value loop (activation + anomaly + lineage)](./phase-04-demo-value-loop-activation-anomaly-lineage.md) | Done (2026-05-23) |
 | 5 | [Data Model tab and concept detail](./phase-05-data-model-tab-and-concept-detail.md) | Pending |
 | 6 | [Wizards rebrand and composition](./phase-06-wizards-rebrand-and-composition.md) | Pending |
 | 7 | [Smart search overlay](./phase-07-smart-search-overlay.md) | Pending |

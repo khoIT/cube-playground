@@ -27,31 +27,67 @@ function renderTabs(pathname: string) {
 }
 
 describe('<CatalogTabs>', () => {
-  it('marks Catalog active at /catalog', () => {
+  it('marks Metrics active at /catalog', () => {
     renderTabs('/catalog');
-    const catalog = screen.getByRole('tab', { name: 'Catalog' });
-    const models = screen.getByRole('tab', { name: 'Models' });
-    expect(catalog.getAttribute('aria-selected')).toBe('true');
-    expect(models.getAttribute('aria-selected')).toBe('false');
+    expect(
+      screen.getByRole('tab', { name: 'Metrics' }).getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(
+      screen.getByRole('tab', { name: 'Models' }).getAttribute('aria-selected'),
+    ).toBe('false');
+    expect(
+      screen.getByRole('tab', { name: 'Cubes' }).getAttribute('aria-selected'),
+    ).toBe('false');
+    expect(
+      screen.getByRole('tab', { name: 'Data Model' }).getAttribute('aria-selected'),
+    ).toBe('false');
+  });
+
+  it('marks Cubes active at /catalog/cubes', () => {
+    renderTabs('/catalog/cubes');
+    expect(
+      screen.getByRole('tab', { name: 'Cubes' }).getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(
+      screen.getByRole('tab', { name: 'Metrics' }).getAttribute('aria-selected'),
+    ).toBe('false');
+  });
+
+  it('marks Data Model active at /catalog/data-model', () => {
+    renderTabs('/catalog/data-model');
+    expect(
+      screen.getByRole('tab', { name: 'Data Model' }).getAttribute('aria-selected'),
+    ).toBe('true');
   });
 
   it('marks Models active at /catalog/models', () => {
     renderTabs('/catalog/models');
-    const catalog = screen.getByRole('tab', { name: 'Catalog' });
-    const models = screen.getByRole('tab', { name: 'Models' });
-    expect(models.getAttribute('aria-selected')).toBe('true');
-    expect(catalog.getAttribute('aria-selected')).toBe('false');
+    expect(
+      screen.getByRole('tab', { name: 'Models' }).getAttribute('aria-selected'),
+    ).toBe('true');
   });
 
-  it('navigates to /catalog/models when Models tab clicked from /catalog', () => {
+  it('renders tabs in order: Metrics, Data Model, Cubes, Models', () => {
+    renderTabs('/catalog');
+    const tabs = screen.getAllByRole('tab').map((el) => el.textContent);
+    expect(tabs).toEqual(['Metrics', 'Data Model', 'Cubes', 'Models']);
+  });
+
+  it('navigates to /catalog/data-model when Data Model clicked', () => {
     const { getPath } = renderTabs('/catalog');
-    fireEvent.click(screen.getByRole('tab', { name: 'Models' }));
-    expect(getPath()).toBe('/catalog/models');
+    fireEvent.click(screen.getByRole('tab', { name: 'Data Model' }));
+    expect(getPath()).toBe('/catalog/data-model');
   });
 
-  it('navigates back to /catalog when Catalog tab clicked', () => {
-    const { getPath } = renderTabs('/catalog/models');
-    fireEvent.click(screen.getByRole('tab', { name: 'Catalog' }));
+  it('navigates to /catalog/cubes when Cubes clicked', () => {
+    const { getPath } = renderTabs('/catalog');
+    fireEvent.click(screen.getByRole('tab', { name: 'Cubes' }));
+    expect(getPath()).toBe('/catalog/cubes');
+  });
+
+  it('navigates back to /catalog (Metrics) when Metrics clicked from /catalog/cubes', () => {
+    const { getPath } = renderTabs('/catalog/cubes');
+    fireEvent.click(screen.getByRole('tab', { name: 'Metrics' }));
     expect(getPath()).toBe('/catalog');
   });
 });

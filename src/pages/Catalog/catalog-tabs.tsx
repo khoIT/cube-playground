@@ -48,11 +48,30 @@ const TabButton = styled.button<{ $active: boolean }>`
     `}
 `;
 
-type TabKey = 'catalog' | 'models';
+export type TabKey = 'metrics' | 'data-model' | 'cubes' | 'models';
+
+const TAB_PATHS: Record<TabKey, string> = {
+  metrics: '/catalog',
+  'data-model': '/catalog/data-model',
+  cubes: '/catalog/cubes',
+  models: '/catalog/models',
+};
 
 function resolveActive(pathname: string): TabKey {
-  return pathname.endsWith('/models') ? 'models' : 'catalog';
+  if (pathname.endsWith('/data-model') || pathname.includes('/data-model/')) return 'data-model';
+  if (pathname.endsWith('/cubes') || pathname.includes('/cubes/')) return 'cubes';
+  if (pathname.endsWith('/models') || pathname.includes('/models/')) return 'models';
+  return 'metrics';
 }
+
+const TAB_LABELS: Record<TabKey, string> = {
+  metrics: 'tabs.metrics',
+  'data-model': 'tabs.dataModel',
+  cubes: 'tabs.cubes',
+  models: 'tabs.models',
+};
+
+const TAB_ORDER: TabKey[] = ['metrics', 'data-model', 'cubes', 'models'];
 
 export function CatalogTabs() {
   const { t } = useTranslation();
@@ -61,31 +80,25 @@ export function CatalogTabs() {
   const active = resolveActive(location.pathname);
 
   function go(key: TabKey) {
-    const target = key === 'models' ? '/catalog/models' : '/catalog';
+    const target = TAB_PATHS[key];
     if (location.pathname === target) return;
     history.push(target);
   }
 
   return (
     <Strip role="tablist" aria-label={t('nav.catalog')}>
-      <TabButton
-        type="button"
-        role="tab"
-        aria-selected={active === 'catalog'}
-        $active={active === 'catalog'}
-        onClick={() => go('catalog')}
-      >
-        {t('tabs.catalog')}
-      </TabButton>
-      <TabButton
-        type="button"
-        role="tab"
-        aria-selected={active === 'models'}
-        $active={active === 'models'}
-        onClick={() => go('models')}
-      >
-        {t('tabs.models')}
-      </TabButton>
+      {TAB_ORDER.map((key) => (
+        <TabButton
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={active === key}
+          $active={active === key}
+          onClick={() => go(key)}
+        >
+          {t(TAB_LABELS[key])}
+        </TabButton>
+      ))}
     </Strip>
   );
 }

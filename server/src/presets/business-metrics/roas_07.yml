@@ -1,0 +1,15 @@
+id: roas_07
+label: ROAS Day 7
+description: 7-day return on ad spend — D0-D7 cumulative revenue / marketing cost.
+synonyms: [roas7, return_on_ad_spend_d7]
+tier: 1
+domain: marketing
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.rev_per_install_d7
+  denominator: mf_users.marketing_cost
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]

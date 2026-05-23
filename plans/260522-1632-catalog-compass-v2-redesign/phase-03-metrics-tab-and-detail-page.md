@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Metrics tab and detail page"
-status: pending
+status: done
 priority: P1
 effort: "5d"
 dependencies: [1, 2]

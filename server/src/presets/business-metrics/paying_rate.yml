@@ -1,0 +1,22 @@
+id: paying_rate
+label: Paying rate
+description: >-
+  Ratio of paying users to active users in the same period
+  (daily / weekly / monthly).
+synonyms: [conversion_to_paying]
+tier: 2
+domain: payments
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: recharge.paying_users
+  denominator: mf_users.dau
+format: percent
+game_compatibility:
+  required_cubes: [recharge, mf_users]
+parameter:
+  name: window
+  label: Window
+  options: [daily, weekly, monthly]
+  default: daily

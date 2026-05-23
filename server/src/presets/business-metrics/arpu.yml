@@ -1,0 +1,15 @@
+id: arpu
+label: ARPU
+description: Average revenue per active user — revenue divided by DAU/WAU/MAU.
+synonyms: [average_revenue_per_user]
+tier: 1
+domain: revenue
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.arpu_vnd
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [mf_users]

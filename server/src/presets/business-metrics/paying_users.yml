@@ -1,0 +1,40 @@
+id: paying_users
+label: Paying users
+description: Total unique users paying in period (deduplicated by user_id).
+synonyms: [pu, payers]
+tier: 1
+domain: payments
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: recharge.paying_users
+format: compact
+game_compatibility:
+  required_cubes: [recharge]
+anomaly:
+  state: high
+  deltaPct: -18.4
+  period: vs prior 7d
+  breakdowns:
+    country:
+      - label: VN
+        deltaPct: -24.2
+      - label: TH
+        deltaPct: -12.1
+      - label: ID
+        deltaPct: -5.8
+    channel:
+      - label: organic
+        deltaPct: -22.0
+      - label: paid_meta
+        deltaPct: -14.6
+      - label: paid_google
+        deltaPct: -3.2
+    tier:
+      - label: whale
+        deltaPct: -31.7
+      - label: dolphin
+        deltaPct: -15.0
+      - label: minnow
+        deltaPct: -8.4

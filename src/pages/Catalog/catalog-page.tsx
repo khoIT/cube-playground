@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, withRouter } from 'react-router-dom';
+import { Route, useLocation, withRouter } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { SchemaPage } from '../Schema/SchemaPage';
 import { CatalogGrid } from './catalog-grid';
 import { CatalogTabs, resolveCatalogTab } from './catalog-tabs';
 import { CatalogToolbar } from './catalog-toolbar';
+import { DataModelTab } from './data-model-tab/data-model-tab';
 import { DetailPanel } from './detail-panel';
+import { MetricDetailPage } from './metric-detail/metric-detail-page';
+import { MetricsTab } from './metrics-tab/metrics-tab';
 import { useCatalogMeta, CatalogCube } from './use-catalog-meta';
 import { useCubeClusters } from './use-cube-clusters';
 
@@ -136,23 +139,39 @@ export function CatalogPage() {
   const activeTab = resolveCatalogTab(location.pathname);
   const { cubes, loading, error } = useCatalogMeta();
 
+  // Detail routes get their own page chrome (header + tab-strip lives inside
+  // the detail page itself), so they short-circuit the tab shell.
+  const isMetricDetail = /^\/catalog\/metric\/[^/]+/.test(location.pathname);
+  if (isMetricDetail) {
+    return (
+      <Page>
+        <Route path="/catalog/metric/:id">
+          <MetricDetailPage />
+        </Route>
+      </Page>
+    );
+  }
+
   return (
     <Page>
       <Header>
         <Title>{t('nav.catalog')}</Title>
-        {activeTab === 'catalog' && (
+        {activeTab === 'cubes' && (
           <Count>{loading ? '…' : `${cubes.length} cubes & views`}</Count>
         )}
       </Header>
 
       <CatalogTabs />
 
-      {activeTab === 'models' ? (
+      {activeTab === 'metrics' && <MetricsTab />}
+      {activeTab === 'data-model' && <DataModelTab />}
+      {activeTab === 'cubes' && (
+        <CatalogBrowseBody cubes={cubes} loading={loading} error={error} />
+      )}
+      {activeTab === 'models' && (
         <ModelsHost>
           <SchemaPageWithRouter />
         </ModelsHost>
-      ) : (
-        <CatalogBrowseBody cubes={cubes} loading={loading} error={error} />
       )}
     </Page>
   );

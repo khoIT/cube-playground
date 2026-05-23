@@ -1,0 +1,14 @@
+id: npu
+label: NPU
+description: New paying users — users who made their first ever payment in period.
+synonyms: [new_payers]
+tier: 2
+domain: payments
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.new_paying_users
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

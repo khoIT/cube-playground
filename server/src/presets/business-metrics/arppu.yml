@@ -1,0 +1,16 @@
+id: arppu
+label: ARPPU
+description: Average revenue per paying user — revenue divided by paying users.
+synonyms: [avg_revenue_per_payer]
+tier: 1
+domain: revenue
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: recharge.revenue_vnd
+  denominator: recharge.paying_users
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [recharge]

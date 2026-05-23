@@ -1,0 +1,15 @@
+id: rr30
+label: D30 retention
+description: Day-30 new-user retention rate — exact-day retention at D30.
+synonyms: [retention_d30, r30]
+tier: 2
+domain: retention
+owner: data-platform@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.retained_d30
+  denominator: mf_users.new_users
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]

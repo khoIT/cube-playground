@@ -1,0 +1,13 @@
+id: paying_rate_30d
+label: Paying rate (30d)
+description: Trailing-30d paying users divided by trailing-30d active users.
+tier: 3
+domain: payments
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.paying_rate_30d
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]

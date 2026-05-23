@@ -14,9 +14,14 @@ import metaVersionRoutes from './routes/meta-version.js';
 import previewRoutes from './routes/preview.js';
 import gamesRoutes from './routes/games.js';
 import cdpMetricsRoutes from './routes/cdp-metrics.js';
+import businessMetricsRoutes from './routes/business-metrics.js';
 import { getDb } from './db/sqlite.js';
 import { hydrateFromSnapshot } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
+import {
+  loadAll as loadBusinessMetrics,
+  startWatcher as startBusinessMetricsWatcher,
+} from './services/business-metrics-loader.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
 
@@ -34,6 +39,18 @@ export async function buildApp() {
   await app.register(previewRoutes);
   await app.register(gamesRoutes);
   await app.register(cdpMetricsRoutes);
+  await app.register(businessMetricsRoutes);
+
+  // Hydrate the business-metrics cache before serving the first request.
+  const bm = await loadBusinessMetrics({ warn: app.log.warn.bind(app.log) });
+  app.log.info(
+    `[business-metrics] loaded ${bm.loaded} metric(s); skipped ${bm.skipped.length}`,
+  );
+  if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
+    startBusinessMetricsWatcher((info) =>
+      app.log.info(`[business-metrics] reloaded: ${info.loaded} loaded, ${info.skipped} skipped`),
+    );
+  }
 
   // Dev-only fixture seed endpoint for visual regression tests.
   if (process.env.NODE_ENV !== 'production') {

@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Demo value loop (activation + anomaly + lineage)"
-status: pending
+status: done
 priority: P1
 effort: "3d"
 dependencies: [3]

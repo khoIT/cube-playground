@@ -1,0 +1,26 @@
+id: ccu
+label: CCU
+description: Concurrent users — distinct users online at a measurement timestamp.
+synonyms: [concurrent_users]
+tier: 2
+domain: concurrency
+owner: data-platform@vng
+trust: draft
+formula:
+  type: measure
+  ref: mf_users.ccu
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]
+anomaly:
+  state: low
+  deltaPct: -4.1
+  period: vs prior 24h
+  breakdowns:
+    country:
+      - label: VN
+        deltaPct: -6.0
+      - label: TH
+        deltaPct: -2.2
+      - label: ID
+        deltaPct: -1.0

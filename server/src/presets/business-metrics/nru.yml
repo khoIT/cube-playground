@@ -1,0 +1,16 @@
+id: nru
+label: NRU
+description: >-
+  New Registered Users — first-time-active users in the selected period
+  (combines register, login, logout, paying). Deduplicated by user_id.
+synonyms: [new_register_users, new_users]
+tier: 1
+domain: acquisition
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.new_users
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

@@ -355,7 +355,10 @@
   },
   "tabs": {
     "models": "Mô hình",
-    "catalog": "Danh mục"
+    "catalog": "Danh mục",
+    "metrics": "Chỉ số",
+    "dataModel": "Mô hình dữ liệu",
+    "cubes": "Cubes"
   },
   "user": {
     "menuLabel": "Menu người dùng",

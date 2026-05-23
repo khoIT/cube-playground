@@ -1,0 +1,14 @@
+id: mau
+label: MAU
+description: Monthly Active Users — unique users active in the calendar month.
+synonyms: [monthly_active_users]
+tier: 2
+domain: engagement
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: mf_users.mau
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

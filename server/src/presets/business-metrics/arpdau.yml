@@ -1,0 +1,21 @@
+id: arpdau
+label: ARPDAU
+description: Average revenue per daily active user (recharge revenue / DAU).
+synonyms: [arpu_daily, avg_rev_per_dau]
+tier: 1
+domain: revenue
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: recharge.revenue_vnd
+  denominator: mf_users.dau
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [recharge, mf_users]
+parameter:
+  name: cohort_window
+  label: Cohort window
+  options: [d1, d7, d30]
+  default: d7

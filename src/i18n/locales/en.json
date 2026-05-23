@@ -355,7 +355,10 @@
   },
   "tabs": {
     "models": "Models",
-    "catalog": "Catalog"
+    "catalog": "Catalog",
+    "metrics": "Metrics",
+    "dataModel": "Data Model",
+    "cubes": "Cubes"
   },
   "user": {
     "menuLabel": "User menu",

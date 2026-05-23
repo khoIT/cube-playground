@@ -1,0 +1,20 @@
+id: revenue
+label: Revenue
+description: >-
+  Total value of in-game items successfully delivered to users during the
+  selected period. Recognised by item delivery (consumption) date.
+synonyms: [in_game_revenue, rev]
+tier: 1
+domain: revenue
+owner: data-platform@vng
+trust: certified
+formula:
+  type: measure
+  ref: recharge.revenue_vnd
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [recharge]
+related_concepts:
+  - mf_users.country
+  - mf_users.media_source
