@@ -10,7 +10,7 @@
   },
   "nav": {
     "playground": "Playground",
-    "newMetric": "New Metric",
+    "newDataModel": "New Data Model",
     "catalog": "Catalog",
     "segments": "Segments"
   },
@@ -374,8 +374,7 @@
     },
     "settings": {
       "securityContext": "Security Context",
-      "addRollup": "Add Rollup",
-      "legacyNewMetric": "Legacy New Metric"
+      "addRollup": "Add Rollup"
     },
     "signOut": "Sign out"
   },

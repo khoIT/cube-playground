@@ -5,7 +5,6 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import i18n from '../../../i18n';
 import { AppContextProvider } from '../../AppContext';
 import { ThemeProvider } from '../../../theme/ThemeContext';
-import { LEGACY_NEW_METRIC_EVENT } from '../../../QueryBuilderV2/NewMetric';
 import { OPEN_ROLLUP_DESIGNER_EVENT } from '../../../rollup-designer';
 import { SecurityContextContext } from '../../SecurityContext/SecurityContextProvider';
 import { UserMenu } from '../user-menu';
@@ -56,15 +55,11 @@ describe('<UserMenu>', () => {
     expect(setIsModalOpen).toHaveBeenCalledWith(true);
   });
 
-  it('dispatches LEGACY_NEW_METRIC_EVENT', () => {
+  it('no longer renders the legacy new-metric menu item', () => {
     const setIsModalOpen = vi.fn();
-    const listener = vi.fn();
-    window.addEventListener(LEGACY_NEW_METRIC_EVENT, listener);
     renderUserMenu({ setIsModalOpen });
     openMenu();
-    fireEvent.click(screen.getByTestId('user-menu-legacy-new-metric'));
-    expect(listener).toHaveBeenCalledTimes(1);
-    window.removeEventListener(LEGACY_NEW_METRIC_EVENT, listener);
+    expect(screen.queryByTestId('user-menu-legacy-new-metric')).toBeNull();
   });
 
   it('shows the rollup item on /build and dispatches OPEN_ROLLUP_DESIGNER_EVENT', () => {

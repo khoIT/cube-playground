@@ -116,7 +116,7 @@ export function MetricsTab() {
     <Wrap>
       <HeaderBar>
         <span />
-        <NewMetricLink to="/metrics/new">+ New metric</NewMetricLink>
+        <NewMetricLink to="/catalog/metric/new">+ New metric</NewMetricLink>
       </HeaderBar>
       <MetricsSearchRow
         query={query}

@@ -144,7 +144,7 @@ export function TestRunDimensionView(p: TestRunDimensionViewProps) {
     p.onSubmitted({ cubeName: primaryCube, entryName: p.draft.name });
     notification.success({ message: 'Dimension submitted' });
     history.push(
-      `/metrics/new/success?name=${encodeURIComponent(p.draft.name)}&cubeName=${encodeURIComponent(primaryCube)}`,
+      `/data-model/new/success?name=${encodeURIComponent(p.draft.name)}&cubeName=${encodeURIComponent(primaryCube)}`,
     );
   }
   useEffect(() => {

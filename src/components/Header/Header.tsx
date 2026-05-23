@@ -90,11 +90,11 @@ export default function Header({ selectedKeys }: Props) {
             {t('nav.playground')}
           </NavPill>
           <NavPill
-            to="/metrics/new?v=2"
+            to="/data-model/new?v=2"
             icon={Sparkles}
-            active={isActive(selectedKeys, '/metrics/new')}
+            active={isActive(selectedKeys, '/data-model/new')}
           >
-            {t('nav.newMetric')}
+            {t('nav.newDataModel')}
           </NavPill>
           <NavPill
             to="/catalog"
@@ -128,8 +128,8 @@ export default function Header({ selectedKeys }: Props) {
               <Menu.Item key="/build">
                 <Link to="/build">{t('nav.playground')}</Link>
               </Menu.Item>
-              <Menu.Item key="/metrics/new">
-                <Link to="/metrics/new?v=2">{t('nav.newMetric')}</Link>
+              <Menu.Item key="/data-model/new">
+                <Link to="/data-model/new?v=2">{t('nav.newDataModel')}</Link>
               </Menu.Item>
               <Menu.Item key="/catalog">
                 <Link to="/catalog">{t('nav.catalog')}</Link>

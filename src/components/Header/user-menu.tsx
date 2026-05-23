@@ -1,12 +1,11 @@
 import { Dropdown } from 'antd';
-import { Lock, LogOut, Sparkles, Zap } from 'lucide-react';
+import { Lock, LogOut, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useCloud } from '../../cloud';
 import { useAppContext, useSecurityContext } from '../../hooks';
-import { LEGACY_NEW_METRIC_EVENT } from '../../QueryBuilderV2/NewMetric';
 import { OPEN_ROLLUP_DESIGNER_EVENT } from '../../rollup-designer';
 import { LanguageToggle } from './language-toggle';
 import { ThemeToggle } from './theme-toggle';
@@ -107,10 +106,6 @@ export function UserMenu() {
     setIsModalOpen(true);
   }
 
-  function openLegacyNewMetric() {
-    window.dispatchEvent(new Event(LEGACY_NEW_METRIC_EVENT));
-  }
-
   function openAddRollup() {
     window.dispatchEvent(new Event(OPEN_ROLLUP_DESIGNER_EVENT));
   }
@@ -140,15 +135,6 @@ export function UserMenu() {
           {t('user.settings.addRollup')}
         </MenuItem>
       ) : null}
-      <MenuItem
-        type="button"
-        role="menuitem"
-        data-testid="user-menu-legacy-new-metric"
-        onClick={openLegacyNewMetric}
-      >
-        <Sparkles size={14} strokeWidth={2} aria-hidden />
-        {t('user.settings.legacyNewMetric')}
-      </MenuItem>
       <Divider />
       <MenuItem type="button" role="menuitem" data-testid="user-menu-sign-out">
         <LogOut size={14} strokeWidth={2} aria-hidden />

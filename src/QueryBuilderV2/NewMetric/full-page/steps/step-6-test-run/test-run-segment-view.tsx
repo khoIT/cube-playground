@@ -141,7 +141,7 @@ export function TestRunSegmentView(p: TestRunSegmentViewProps) {
     p.onSubmitted({ cubeName: primaryCube, entryName: p.draft.name });
     notification.success({ message: 'Segment submitted' });
     history.push(
-      `/metrics/new/success?name=${encodeURIComponent(p.draft.name)}&cubeName=${encodeURIComponent(primaryCube)}`,
+      `/data-model/new/success?name=${encodeURIComponent(p.draft.name)}&cubeName=${encodeURIComponent(primaryCube)}`,
     );
   }
   useEffect(() => {

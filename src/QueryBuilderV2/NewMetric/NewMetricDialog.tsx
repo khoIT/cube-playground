@@ -1,3 +1,9 @@
+/**
+ * @deprecated v1 modal flow. Entry points removed in 2026-05-23 redesign.
+ * Use the full-page wizard at `/data-model/new?v=2` (NewMetricPage) for
+ * cube YAML editing, or `/catalog/metric/new` (MetricCompositionWizard)
+ * for business-metric registration. File kept for one release; delete after.
+ */
 import { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { notification } from 'antd';

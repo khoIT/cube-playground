@@ -11,7 +11,6 @@ import {
   PillItem,
 } from './components/member-pill-row';
 import { QueryRunButton, QueryRunStatus } from './QueryBuilderToolBar';
-import { LegacyNewMetricDialogMount } from './NewMetric';
 
 const QueryCard = styled(Card)`
   display: flex;
@@ -225,7 +224,6 @@ export function QueryStatePillBar({ filterSlot }: Props) {
       <Header $collapsed={collapsed}>
         <HeaderLeft>
           <QueryRunButton />
-          <LegacyNewMetricDialogMount />
           {freshness ? (
             <FreshnessBadge
               $state={freshness}

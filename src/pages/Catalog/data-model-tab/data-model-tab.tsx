@@ -6,6 +6,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
@@ -38,6 +39,30 @@ const Status = styled.div`
   font-size: 13px;
 `;
 
+const ActionBar = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px 0;
+`;
+
+const NewDataModelLink = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: var(--brand, #f05a22);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--brand-pressed, #f54a00);
+  }
+`;
+
 export function DataModelTab() {
   const { concepts, cubes, loading, error } = useConcepts();
   const { metrics: businessMetrics } = useBusinessMetrics();
@@ -67,6 +92,11 @@ export function DataModelTab() {
         availableCubes={availableCubes}
       />
       <Body>
+        <ActionBar>
+          <NewDataModelLink to="/data-model/new?v=2">
+            + New data model
+          </NewDataModelLink>
+        </ActionBar>
         <DataModelSearchRow
           query={query}
           onQueryChange={setQuery}

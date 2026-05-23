@@ -273,7 +273,7 @@ export function TestRunBody({
     onSubmitted({ cubeName: primaryCube, measureName: draft.name });
     notification.success({ message: 'Metric submitted' });
     history.push(
-      `/metrics/new/success?name=${encodeURIComponent(draft.name)}&cubeName=${encodeURIComponent(primaryCube)}`,
+      `/data-model/new/success?name=${encodeURIComponent(draft.name)}&cubeName=${encodeURIComponent(primaryCube)}`,
     );
   }
 

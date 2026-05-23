@@ -16,7 +16,7 @@ describe('i18n init', () => {
   it('switches to vietnamese on changeLanguage("vi")', async () => {
     await i18n.changeLanguage('vi');
     expect(i18n.t('nav.playground')).toBe('Sân chơi');
-    expect(i18n.t('nav.newMetric')).toBe('Chỉ số mới');
+    expect(i18n.t('nav.newDataModel')).toBe('Mô hình dữ liệu mới');
     expect(i18n.t('nav.catalog')).toBe('Danh mục');
   });
 

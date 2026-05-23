@@ -2,6 +2,31 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-23
+
+### Changed — main-flow redesign, metric split, end-to-end game picker
+
+- **Header / main flow**
+  - Removed the redundant header search box (`SearchBox`). ⌘K opens the real `SmartSearchOverlay` registered via `SmartSearchProvider` in `App.tsx` — no functional change for users.
+  - `IndexPage` now always pushes `/build` in fallback mode (production-style Cube backend where `/playground/files` 404s). Dev-mode connection wizard branch retained.
+
+- **Metric routes split** — the existing full-page wizard at `/metrics/new?v=2` actually edited cube YAML (artifactKind: measure / dimension / segment) so it is now correctly labelled and routed as the data-model builder.
+  - New canonical route: `/data-model/new?v=2` (renders `NewMetricPage`). Header pill relabelled "New Data Model".
+  - Legacy `/metrics/new` + `/metrics/new/success` 301 to the new paths so any external deep links keep working.
+  - The Catalog metrics-tab `+ New metric` CTA now targets `/catalog/metric/new` (already-built `MetricCompositionWizard`) — a lean 4-step form that POSTs to `/api/business-metrics`.
+  - `+ New data model` link added on the Catalog data-model tab.
+  - i18n: `nav.newMetric` → `nav.newDataModel`; legacy `user.settings.legacyNewMetric` removed.
+
+- **v1 NewMetric entry points unmounted** — files kept with `@deprecated` headers for one release cycle.
+  - Removed `<LegacyNewMetricDialogMount />` from `QueryStatePillBar`.
+  - Removed the "Legacy New Metric" item from the user-menu dropdown.
+
+- **End-to-end game picker**
+  - New `src/shared/game-scoping/apply-game-filter.ts`: merges `{ <cube>.gameId equals activeGameId }` into a Cube `Query` for every referenced cube that exposes a `gameId` dim. Idempotent. 7 unit tests.
+  - `QueryTabsRenderer` (Playground): injects the filter on `defaultQuery` and remounts `<QueryTabs>` via `key={gameId}` on game switch, so result state clears.
+  - Catalog (`use-catalog-meta`) and Segments (`library-view`, `editor-view`) were already game-aware; verified.
+  - **Known limitation**: game filter is client-side only. Backend scoping (Cube JWT / security context) is the next step.
+
 ## 2026-05-19 (later)
 
 ### Added — Segments workspace P2–P8 (FE shell, identity-map, presets, editor, cron, round-trip, drift)

@@ -10,7 +10,7 @@
   },
   "nav": {
     "playground": "Sân chơi",
-    "newMetric": "Chỉ số mới",
+    "newDataModel": "Mô hình dữ liệu mới",
     "catalog": "Danh mục",
     "segments": "Nhóm người dùng"
   },
@@ -374,8 +374,7 @@
     },
     "settings": {
       "securityContext": "Bảo mật",
-      "addRollup": "Thêm Rollup",
-      "legacyNewMetric": "New Metric (cũ)"
+      "addRollup": "Thêm Rollup"
     },
     "signOut": "Đăng xuất"
   },

@@ -1,3 +1,8 @@
+/**
+ * @deprecated Removed from the header. ⌘K now opens SmartSearchOverlay
+ * (mounted globally in App.tsx via SmartSearchProvider). File kept for one
+ * release cycle in case external embedders import it; delete after that.
+ */
 import { Search } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';

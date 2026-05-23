@@ -99,7 +99,7 @@ export function NewMetricSuccess() {
   function startAnother() {
     draftState.clearPersisted();
     draftState.reset();
-    history.push('/metrics/new?v=2');
+    history.push('/data-model/new?v=2');
   }
 
   return (
@@ -108,7 +108,7 @@ export function NewMetricSuccess() {
         <IconCircle>
           <CheckCircle size={48} color="var(--success)" />
         </IconCircle>
-        <Heading>Metric submitted</Heading>
+        <Heading>Data model updated</Heading>
         <Sub>
           <Mono>{name}</Mono> added to <Mono>{cubeName}</Mono>.
         </Sub>

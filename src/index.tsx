@@ -19,17 +19,22 @@ import { GameContextProvider } from './components/Header/use-game-context';
 import { ThemeProvider } from './theme/ThemeContext';
 import './i18n';
 
-const NewMetricPage = loadable(() =>
+// The wizard at `/data-model/new` is the YAML data-model builder
+// (artifactKind: measure | dimension | segment). Renamed from `/metrics/new`
+// to reflect what it actually does. Lightweight business-metric registration
+// lives at `/catalog/metric/new` (AddMetricPage).
+const DataModelWizardPage = loadable(() =>
   import('./QueryBuilderV2/NewMetric/full-page/NewMetricPage').then((m) => ({
     default: m.NewMetricPage,
   }))
 );
 
-const NewMetricSuccess = loadable(() =>
+const DataModelWizardSuccess = loadable(() =>
   import('./QueryBuilderV2/NewMetric/full-page/steps/success/success-body').then(
     (m) => ({ default: m.NewMetricSuccess })
   )
 );
+
 
 const history = createHashHistory();
 history.listen((location) => {
@@ -123,8 +128,14 @@ ReactDOM.render(
               <KeepAliveRoute key="segments" path="/segments">
                 <SegmentsPage />
               </KeepAliveRoute>
-              <Route key="metrics-new-success" exact path="/metrics/new/success" component={NewMetricSuccess} />
-              <Route key="metrics-new" path="/metrics/new" component={NewMetricPage} />
+              <Route key="data-model-new-success" exact path="/data-model/new/success" component={DataModelWizardSuccess} />
+              <Route key="data-model-new" path="/data-model/new" component={DataModelWizardPage} />
+              <Route key="metrics-new-success-legacy" exact path="/metrics/new/success">
+                <Redirect to="/data-model/new/success" />
+              </Route>
+              <Route key="metrics-new-legacy" path="/metrics/new">
+                <Redirect to="/data-model/new?v=2" />
+              </Route>
             </Suspense>
           </App>
         </SecurityContextProvider>

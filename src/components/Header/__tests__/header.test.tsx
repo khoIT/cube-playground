@@ -31,11 +31,11 @@ beforeAll(async () => {
 });
 
 describe('<Header>', () => {
-  it('renders three nav pills: Playground / New Metric / Catalog', () => {
+  it('renders nav pills: Playground / New Data Model / Catalog', () => {
     renderHeader('/build');
     const nav = screen.getByRole('navigation');
     expect(within(nav).getByText('Playground')).toBeTruthy();
-    expect(within(nav).getByText('New Metric')).toBeTruthy();
+    expect(within(nav).getByText('New Data Model')).toBeTruthy();
     expect(within(nav).getByText('Catalog')).toBeTruthy();
   });
 
@@ -47,11 +47,11 @@ describe('<Header>', () => {
     expect(link!.getAttribute('href')).toBe('/build');
   });
 
-  it('renders New Metric link pointing to /metrics/new?v=2', () => {
-    renderHeader('/metrics/new');
+  it('renders New Data Model link pointing to /data-model/new?v=2', () => {
+    renderHeader('/data-model/new');
     const nav = screen.getByRole('navigation');
-    const link = within(nav).getByText('New Metric').closest('a');
-    expect(link!.getAttribute('href')).toBe('/metrics/new?v=2');
+    const link = within(nav).getByText('New Data Model').closest('a');
+    expect(link!.getAttribute('href')).toBe('/data-model/new?v=2');
   });
 
   it('renders Catalog link pointing to /catalog', () => {

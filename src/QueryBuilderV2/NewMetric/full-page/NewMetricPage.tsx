@@ -34,13 +34,16 @@ import { isEmpty as isFilterTreeEmpty } from '../filter-tree';
 import type { ArtifactKind, DimKind, DimBuilder } from '../types';
 
 /**
- * Route component for `/metrics/new`. Mounts the full-page wizard shell
- * behind `?v=2`. When `?v=2` is absent we render a fallback message — the
- * legacy modal entry point stays accessible from the header button.
+ * Route component for `/data-model/new`. Mounts the full-page wizard shell
+ * behind `?v=2`. (Legacy route `/metrics/new` redirects here.)
  *
- * The wizard now branches on `draft.artifactKind`: Step 0 picks the kind
- * (measure / dimension / segment), then the remaining steps differ per kind
- * via `useActiveStep`'s per-kind step graph.
+ * Despite the file/class name, this wizard is the *data-model* builder —
+ * it edits cube YAML (artifactKind: measure | dimension | segment). The
+ * lightweight business-metric registration form lives at `/catalog/metric/new`
+ * (MetricCompositionWizard).
+ *
+ * Step 0 picks the kind; remaining steps branch via `useActiveStep`'s per-kind
+ * step graph.
  *
  * RR5 + HashRouter only — no useNavigate / useSearchParams / RR6 idioms.
  */
@@ -161,10 +164,9 @@ export function NewMetricPage() {
   if (!isV2) {
     return (
       <div style={{ padding: 32, fontFamily: 'var(--font-sans)' }}>
-        <h2>New metric (full-page v2)</h2>
+        <h2>New data model</h2>
         <p style={{ color: 'var(--text-muted)' }}>
           Append <code>?v=2</code> to this URL to open the full-page wizard.
-          The legacy modal is still available from the header.
         </p>
       </div>
     );

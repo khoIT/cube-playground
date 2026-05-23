@@ -7,12 +7,22 @@ High-level map of the cube-playground app, updated as features ship.
 - `server/` — **Fastify + better-sqlite3** backend on `:3001` (Vite proxy `/api → :3001`). Persists segments / analyses / identity-map / presets. Pretend-auth via `X-Owner` header. Translator service maps the canonical AND/OR predicate tree to Cube `Query.filters` and back. See `server/README.md`.
 - `src/pages/Segments/visuals/` — 14 bespoke visual primitives (LiveBadge, MemberPill, KpiTile, SelectionBar, …) + 4 chart wrappers (LineChart / BarList / Donut / Sparkline) used by the Segments workspace. Ported from the design mock at `tests/visual/mock-fork/`.
 - `tests/visual/` — Playwright visual-regression suite (`test:visual` script). Baselines live under `baselines/{1440x900,375x812}/`; mock-fork is the canonical source for capture (`capture-baselines.ts`). Currently scaffolded; baseline PNGs not yet committed.
-- `src/QueryBuilderV2/NewMetric/` — the New Metric wizard. Two entry points:
-  - **Full-page wizard** at `/metrics/new?v=2` (`full-page/`). Six steps:
-    Source → Operation → Column → Filters → Identity → Test run.
-  - **Legacy modal dialog** (`NewMetricDialog.tsx` + `sections/`). Single-cube
-    only. Kept alive during the full-page rollout via the parallel-sync
-    compat shim in `useNewMetricDraft`. Slated for retirement after GA.
+- `src/QueryBuilderV2/NewMetric/` — the **data-model wizard** (despite the dir
+  name; it actually edits cube YAML: artifactKind = measure | dimension | segment).
+  - **Full-page wizard** at `/data-model/new?v=2` (`full-page/NewMetricPage`).
+    Six steps: Source → Operation → Column → Filters → Identity → Test run.
+    Legacy `/metrics/new?v=2` 301s here.
+  - **Legacy modal** (`NewMetricDialog.tsx`, `legacy-new-metric-dialog-mount.tsx`)
+    is `@deprecated` — entry points removed from `QueryStatePillBar` and the
+    user-menu in the 2026-05-23 redesign. Files kept one release; delete after.
+- `src/pages/Catalog/metric-composition-wizard/` — `/catalog/metric/new`,
+  lean 4-step business-metric registration form. POSTs to
+  `/api/business-metrics`. This is the lightweight "Add Metric" CTA target on
+  the Catalog metrics tab.
+- `src/shared/game-scoping/apply-game-filter.ts` — pure util that merges
+  `{ <cube>.gameId equals activeGameId }` into a Cube `Query` for every
+  referenced cube that exposes a `gameId` dim. Used by `QueryTabsRenderer`
+  in Playground.
 
 ## New Metric draft model
 

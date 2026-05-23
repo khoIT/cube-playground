@@ -12,32 +12,38 @@ export function IndexPage() {
 
   useEffect(() => {
     async function loadFiles() {
-      const res = await fetch('playground/files');
-      const result = await res.json();
-
-      if (result.error?.includes('Model files not found')) {
-        setFiles([]);
-      } else if (result.error) {
-        throw result.error;
-      }
-
-      if (isMounted()) {
-        setFiles(result.files);
+      try {
+        const res = await fetch('playground/files');
+        if (!res.ok) {
+          // Production-style Cube backend: /playground/files does not exist.
+          if (isMounted()) setFiles([]);
+          return;
+        }
+        const result = await res.json();
+        if (result.error?.includes('Model files not found')) {
+          setFiles([]);
+        } else if (result.error) {
+          throw result.error;
+        }
+        if (isMounted()) {
+          setFiles(result.files ?? []);
+        }
+      } catch {
+        if (isMounted()) setFiles([]);
       }
     }
 
     loadFiles();
   }, []);
 
+  // Routing policy:
+  // - dev Cube server with model files (>1, or non-Orders.js stub) → /build
+  // - empty / 404 / stub-only → /build (Playground is the chosen landing)
+  // - connection wizard flag (Cube Cloud) → /connection
   useLayoutEffect(() => {
     if (context && files != null) {
       if (context.shouldStartConnectionWizardFlow) {
         push('/connection');
-      } else if (
-        !files.length ||
-        (files.length === 1 && files[0].fileName === 'Orders.js')
-      ) {
-        push('/schema');
       } else {
         push('/build');
       }

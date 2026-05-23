@@ -1,17 +1,19 @@
 import { Panel, Space } from '@cube-dev/ui-kit';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card } from 'antd';
-import { useEffect, useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { CubeLoader } from '../../atoms';
+import { useActiveGameId } from '../Header/use-game-context';
 import { useAppContext, useCubejsApi, useSecurityContext } from '../../hooks';
 import {
   OPEN_ROLLUP_DESIGNER_EVENT,
   RollupDesignerContext,
   useRollupDesignerContext,
 } from '../../rollup-designer';
+import { applyGameFilter } from '../../shared/game-scoping/apply-game-filter';
 import { ChartRendererStateProvider } from '../QueryTabs/ChartRendererStateProvider';
 import { QueryTabs, QueryTabsProps } from '../QueryTabs/QueryTabs';
 import {
@@ -89,6 +91,7 @@ export function QueryBuilderContainer(props: QueryBuilderContainerProps) {
         <ChartRendererStateProvider>
           <StyledCard bordered={false}>
             <QueryTabsRenderer
+              cubejsApi={cubejsApi}
               apiUrl={apiUrl!}
               token={currentToken!}
               extra={props.extra}
@@ -107,6 +110,7 @@ export function QueryBuilderContainer(props: QueryBuilderContainerProps) {
 type QueryTabsRendererProps = {
   apiUrl: string;
   token: string;
+  cubejsApi: ReturnType<typeof useCubejsApi>;
 } & Pick<
   QueryBuilderProps,
   'schemaVersion' | 'onSchemaChange' | 'onQueryChange' | 'extra'
@@ -116,11 +120,13 @@ type QueryTabsRendererProps = {
 function QueryTabsRenderer({
   apiUrl,
   token,
+  cubejsApi,
   onQueryChange,
   ...props
 }: QueryTabsRendererProps) {
   const { location } = useHistory();
   const { setQuery, toggleModal } = useRollupDesignerContext();
+  const gameId = useActiveGameId();
 
   useEffect(() => {
     const handler = () => toggleModal();
@@ -128,11 +134,35 @@ function QueryTabsRenderer({
     return () => window.removeEventListener(OPEN_ROLLUP_DESIGNER_EVENT, handler);
   }, [toggleModal]);
 
+  // Build a predicate from the active /meta — a cube exposes `gameId` if it
+  // lists a dimension named `<cube>.gameId`. We probe lazily so the call is
+  // a noop until /meta has resolved.
+  const cubeHasGameDim = useMemo(() => {
+    let cache: Set<string> | null = null;
+    return (cube: string): boolean => {
+      if (!cache) {
+        const meta = (cubejsApi as any)?.meta?.cubes ?? null;
+        if (!meta) return false;
+        cache = new Set<string>();
+        for (const c of meta) {
+          for (const d of c.dimensions ?? []) {
+            if (typeof d?.name === 'string' && d.name.endsWith('.gameId')) {
+              cache.add(d.name.split('.')[0]);
+            }
+          }
+        }
+      }
+      return cache.has(cube);
+    };
+  }, [cubejsApi]);
+
   const params = new URLSearchParams(location.search);
-  const query = JSON.parse(params.get('query') || 'null');
+  const rawQuery = JSON.parse(params.get('query') || 'null');
+  const query = applyGameFilter(rawQuery, gameId, cubeHasGameDim);
 
   return (
     <QueryTabs
+      key={gameId}
       query={query}
       sidebar={null}
       onTabChange={(tab) => {
@@ -145,7 +175,7 @@ function QueryTabsRenderer({
           <QueryBuilder
             apiUrl={apiUrl}
             apiToken={token}
-            defaultQuery={query}
+            defaultQuery={applyGameFilter(query, gameId, cubeHasGameDim)}
             defaultChartType={chartType}
             schemaVersion={props.schemaVersion}
             extra={props.extra ?? null}
