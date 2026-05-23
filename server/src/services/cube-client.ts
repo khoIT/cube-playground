@@ -10,11 +10,27 @@
  * `resolve-cube-token`.
  */
 
+import { loadGamesConfig } from './games-config-loader.js';
+import { resolveCubeTokenForGameDetailed } from './resolve-cube-token.js';
+
 const BASE_URL = () => process.env.CUBE_API_URL ?? 'http://localhost:4000';
-const TOKEN = () => process.env.CUBE_TOKEN ?? '';
+
+// Without this fallback, scope-less callers (identity-suggester, meta-cache)
+// drop the Authorization header on deployments that only set
+// CUBEJS_API_SECRET, and Cube /meta replies "Authorization header missing".
+function defaultToken(): string {
+  const direct = process.env.CUBE_TOKEN;
+  if (direct && direct.length > 0) return direct;
+  try {
+    const { defaultGameId } = loadGamesConfig();
+    return resolveCubeTokenForGameDetailed(defaultGameId).token ?? '';
+  } catch {
+    return '';
+  }
+}
 
 function authHeaders(tokenOverride?: string): Record<string, string> {
-  const token = tokenOverride ?? TOKEN();
+  const token = tokenOverride ?? defaultToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
