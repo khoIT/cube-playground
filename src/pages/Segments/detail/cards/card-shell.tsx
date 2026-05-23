@@ -10,6 +10,8 @@ import styles from '../../segments.module.css';
 
 interface Props {
   title: string;
+  /** One-line subtitle describing the measured quantity (e.g. "Transactions"). */
+  subtitle?: string;
   loading?: boolean;
   error?: Error | null;
   /** Optional visual hint for the skeleton shape ('chart' | 'bars' | 'donut' | 'lines'). */
@@ -24,7 +26,7 @@ interface Props {
 }
 
 export function CardShell({
-  title, loading, error, skeletonShape = 'chart', cardKey, defaultCollapsed,
+  title, subtitle, loading, error, skeletonShape = 'chart', cardKey, defaultCollapsed,
   trailing, children,
 }: Props): ReactElement {
   const collapsible = cardKey != null;
@@ -42,7 +44,7 @@ export function CardShell({
         gap: collapsed ? 0 : 10,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 22 }}>
         {collapsible ? (
           <button
             type="button"
@@ -55,14 +57,28 @@ export function CardShell({
             {collapsed
               ? <ChevronRight size={14} aria-hidden />
               : <ChevronDown size={14} aria-hidden />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left' }}>
+              <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                {title}
+              </h3>
+              {subtitle && (
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-secondary)' }}>
+                  {subtitle}
+                </span>
+              )}
+            </div>
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
               {title}
             </h3>
-          </button>
-        ) : (
-          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-            {title}
-          </h3>
+            {subtitle && (
+              <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-secondary)' }}>
+                {subtitle}
+              </span>
+            )}
+          </div>
         )}
         {trailing != null && (
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>

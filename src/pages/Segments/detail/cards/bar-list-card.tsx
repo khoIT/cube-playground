@@ -4,6 +4,7 @@ import { ReactElement, useMemo } from 'react';
 import type { Query } from '@cubejs-client/core';
 import { BarList } from '../../visuals';
 import { CardShell } from './card-shell';
+import { humanizeMeasure } from './humanize-measure';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
 import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { BarListCardSpec, Preset } from '../../presets/types';
@@ -39,6 +40,7 @@ export function BarListCard({ spec, segment, preset, cacheKey }: Props): ReactEl
   return (
     <CardShell
       title={spec.label}
+      subtitle={humanizeMeasure(spec.measure)}
       loading={loading}
       error={error}
       skeletonShape="bars"

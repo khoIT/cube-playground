@@ -4,6 +4,7 @@ import { ReactElement, useMemo } from 'react';
 import type { Query } from '@cubejs-client/core';
 import { Donut } from '../../visuals';
 import { CardShell } from './card-shell';
+import { humanizeMeasure } from './humanize-measure';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
 import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { DonutCardSpec, Preset } from '../../presets/types';
@@ -39,6 +40,7 @@ export function DonutCard({ spec, segment, preset, cacheKey }: Props): ReactElem
   return (
     <CardShell
       title={spec.label}
+      subtitle={humanizeMeasure(spec.measure)}
       loading={loading}
       error={error}
       skeletonShape="donut"

@@ -24,7 +24,7 @@ export interface CompositionCardProps {
 export function CompositionCard({ title, donutData, barData }: CompositionCardProps): ReactElement {
   return (
     <div className={styles.compositionCard}>
-      <h3 className={styles.compositionCardTitle}>{title}</h3>
+      {title && <h3 className={styles.compositionCardTitle}>{title}</h3>}
       <Donut data={donutData} size={120} legendPosition="right" />
       <BarList items={barData} />
     </div>

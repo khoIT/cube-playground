@@ -4,6 +4,7 @@ import { ReactElement, useMemo } from 'react';
 import type { Query } from '@cubejs-client/core';
 import { CompositionCard as VisualCompositionCard } from '../../visuals';
 import { CardShell } from './card-shell';
+import { humanizeMeasure } from './humanize-measure';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
 import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { CompositionCardSpec, Preset } from '../../presets/types';
@@ -42,13 +43,16 @@ export function CompositionDataCard({ spec, segment, preset, cacheKey }: Props):
   return (
     <CardShell
       title={spec.label}
+      subtitle={humanizeMeasure(spec.measure)}
       loading={loading}
       error={error}
       skeletonShape="donut"
       cardKey={cacheKey}
     >
       {data.length > 0 ? (
-        <VisualCompositionCard title={spec.label} donutData={data} barData={data} />
+        // Pass an empty title — CardShell already renders title + subtitle so
+        // the inner card would otherwise duplicate the heading.
+        <VisualCompositionCard title="" donutData={data} barData={data} />
       ) : (
         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No data.</div>
       )}
