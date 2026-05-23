@@ -76,7 +76,7 @@ chat answer (assistant-message) ─► parse field tokens ─► <FieldChip href
 3. Build cube-tree using clusters from `use-cube-clusters`; collapsible per cube.
 4. Build member detail panel: render `description`, `type`, `joinableCubes`, `sql` (collapsed).
 5. Wire URL state `?focus=<cube>.<member>` for deep links.
-6. Parse field-chip tokens in `assistant-message.tsx` (token format TBD — propose markdown extension `{{field:cube.member}}`).
+6. Parse field-chip tokens in `assistant-message.tsx` (token format LOCKED: `{{field:cube.member}}`).
 7. Update agent prompt (chat-service `core/`) to emit field tokens in answers. Phase-04 step also depends on this token format — confirm shared spec.
 8. Tests: search returns expected hits; deep link focuses correct member; assistant message renders chip.
 
@@ -87,7 +87,7 @@ chat answer (assistant-message) ─► parse field tokens ─► <FieldChip href
 - [ ] `member-detail-panel.tsx`
 - [ ] `cartographer-search.tsx`
 - [ ] `cartographer-page.tsx`
-- [ ] Field chip token spec + parser
+- [ ] Field chip parser (token: `{{field:cube.member}}`)
 - [ ] Agent prompt update to emit tokens
 - [ ] Tests
 
@@ -99,7 +99,7 @@ chat answer (assistant-message) ─► parse field tokens ─► <FieldChip href
 ## Risk Assessment
 | Risk | L | I | Mitigation |
 |---|---|---|---|
-| Token format collides with markdown | Med | Med | Use `{{field:…}}` pattern absent from any current message. |
+| Token format collides with markdown | Med | Med | Locked syntax `{{field:…}}` absent from markdown and current message corpus (audit confirmed). |
 | Large catalog perf (>500 members) | Low | Med | Lazy render tree; virtualised list if >100 visible nodes. |
 | Agent emits tokens for fields not in catalog | Med | Med | Parser validates against `catalogMeta`; falls back to plain text on miss. |
 

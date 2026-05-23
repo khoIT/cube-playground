@@ -13,7 +13,7 @@
 ## Key Insights (CRITICAL)
 - Override is a **lens** over catalog, NOT a replacement. Storage references `catalog_ref` always.
 - Catalog-consistency rule: when override active, UI shows "your definition differs from catalog default — [revert | edit | propose update]" badge on every related turn.
-- Scope: per-user × per-game. Team-level glossary deferred to Q2 (governance unresolved).
+- Scope: per-user × per-game ONLY in Q1 (decision Q3). NO cross-game transfer of any kind — not even opt-in stub. Deferred entirely to Q2. Team-level glossary deferred to Q2 (governance unresolved).
 
 ## Requirements
 

@@ -28,7 +28,7 @@ Every chat-emitted segment/metric reference cites a catalog id (`business_metric
 | 02 | [schema-cartographer](./phase-02-schema-cartographer.md) | A — UI | pending |
 | 03 | [concept-glossary](./phase-03-concept-glossary.md) | A — UI | pending |
 | 04 | [suggested-followups](./phase-04-suggested-followups.md) | A — UI | pending |
-| 05 | [monitoring-infra](./phase-05-monitoring-infra.md) | B — Backend | pending |
+| 05 | [monitoring-infra](./phase-05-monitoring-infra.md) | B — chat-service Backend | pending |
 
 ### M2 — Question Studio (~4w)
 | # | Phase | Status |
@@ -60,7 +60,7 @@ M1: 01,02,03,04 (Track A — parallel) ╮
 - 13 blocked by 10 (history) + 12 (saved segments).
 
 ## Deferred to Q2 (do NOT plan in Q1)
-F12 team glossary, F14 threshold alerts, F15 drift, F16 digest, F17 CDP publish, F18 MCP, F19 permalink/comments, F20–F22 UX polish.
+F12 team glossary, F14 threshold alerts, F15 drift, F16 digest, F18 MCP, F19 permalink/comments, F20–F22 UX polish. (F17 CDP publish removed; chat uses deeplink-only integration.)
 
 ## Success criteria (rollup)
 - Non-tech user runs all 16 business questions end-to-end without SQL.
@@ -69,9 +69,17 @@ F12 team glossary, F14 threshold alerts, F15 drift, F16 digest, F17 CDP publish,
 - Saved segments refresh on schedule with audit trail.
 - Audit query: zero parallel-truth segment definitions.
 
-## Open questions (resolve in M1 design)
-1. Scheduler location — chat-service vs main server (`server/src/jobs/cron-runner.ts` already exists; lean toward reuse).
-2. Persona detection — user-selected first-login vs behavior-inferred.
-3. Per-game memory scoping — opt-in transfer across games (recommend NO default).
-4. CDP API readiness for Q2 F17 — confirm with CDP team before Q2 commit.
-5. Notification dispatch surface in M3 — in-app toast only (recommended) vs also email.
+## Resolved decisions
+
+| # | Question | Decision | Affected phase(s) |
+|---|---|---|---|
+| Q1 | Scheduler location | New scheduler in chat-service (node-cron); refresh handlers HTTP-call main server's existing refresh endpoint. | 05, 12 |
+| Q2 | Persona detection | Behavior-inferred from topic histogram after ≥3 sessions; cold-start shows all 16 starters. No manual picker UI Q1. | 01 |
+| Q3 | Per-game memory transfer | NO cross-game transfer at all in Q1 (not even opt-in stub). Deferred entirely to Q2. | 11 |
+| Q4 | CDP API for F17 | F17 DROPPED from Q2 entirely. Chat uses deeplink-only for CDP integration. | plan.md (deferred list) |
+| Q5 | Notification surface | In-app toast only Q1. Email/Slack deferred to Q2. Driver interface stays narrow. | 05 |
+| Q6 | Embedding model | TF-IDF via SQLite FTS5 only. No vector table, no embedding worker. Semantic embeddings deferred to Q2. | 10 |
+| Q7 | DB location | All new tables in chat-service SQLite (notifications, monitoring_audit, glossary_overrides, starter_history, monitored_segments). NOT in server's segments.db. | 05, 10, 11, 12 |
+| Q8 | Field-chip token | `{{field:cube.member}}` LOCKED. | 02 |
+| Q9 | Monitored-segment storage | New `monitored_segments` table in chat-service DB. Links by `segment_id` foreign-ref-by-id (cross-DB; no FK). NOT extending `segments` table. New `monitored_segment_runs` history table in chat-service DB. | 12 |
+| Q10 | Starter click | Prefill composer (NO auto-submit). User edits then sends manually. | 01 |
