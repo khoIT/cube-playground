@@ -15,6 +15,8 @@ export interface LinkedSegment {
   kind: 'text' | 'term';
   text: string;
   termId?: string;
+  /** Carried so the renderer can resolve term → metric/glossary URL. */
+  primaryCatalogId?: string | null;
 }
 
 /**
@@ -29,19 +31,25 @@ function getGlossaryOnce(): Promise<GlossaryTerm[]> {
   return cachedTermsPromise;
 }
 
+interface AliasEntry {
+  alias: string;
+  termId: string;
+  primaryCatalogId: string | null;
+}
+
 interface AliasIndex {
   /** Aliases in priority order (longest first to avoid "DAU" eating "DAU/MAU"). */
-  aliases: Array<{ alias: string; termId: string }>;
+  aliases: AliasEntry[];
   /** Compiled global regex matching any alias on word boundaries. */
   regex: RegExp | null;
 }
 
 function buildIndex(terms: GlossaryTerm[]): AliasIndex {
-  const flat: Array<{ alias: string; termId: string }> = [];
+  const flat: AliasEntry[] = [];
   for (const term of terms) {
     for (const alias of term.aliases.length > 0 ? term.aliases : [term.label]) {
       if (alias.length < 2) continue;
-      flat.push({ alias, termId: term.id });
+      flat.push({ alias, termId: term.id, primaryCatalogId: term.primaryCatalogId });
     }
   }
   flat.sort((a, b) => b.alias.length - a.alias.length);
@@ -68,8 +76,8 @@ export function useGlossaryLinker() {
 
   const index = useMemo(() => buildIndex(terms), [terms]);
   const byAliasLower = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const a of index.aliases) map.set(a.alias.toLowerCase(), a.termId);
+    const map = new Map<string, AliasEntry>();
+    for (const a of index.aliases) map.set(a.alias.toLowerCase(), a);
     return map;
   }, [index]);
 
@@ -81,9 +89,14 @@ export function useGlossaryLinker() {
     index.regex.lastIndex = 0;
     while ((match = index.regex.exec(text)) !== null) {
       if (match.index > last) out.push({ kind: 'text', text: text.slice(last, match.index) });
-      const termId = byAliasLower.get(match[1].toLowerCase());
-      if (termId) {
-        out.push({ kind: 'term', text: match[1], termId });
+      const entry = byAliasLower.get(match[1].toLowerCase());
+      if (entry) {
+        out.push({
+          kind: 'term',
+          text: match[1],
+          termId: entry.termId,
+          primaryCatalogId: entry.primaryCatalogId,
+        });
       } else {
         out.push({ kind: 'text', text: match[1] });
       }

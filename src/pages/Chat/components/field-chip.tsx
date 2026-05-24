@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function FieldChip({ fqn, label }: Props) {
-  const href = `/catalog/schema?focus=${encodeURIComponent(fqn)}`;
+  const href = `/catalog/data-model?focus=${encodeURIComponent(fqn)}`;
   return (
     <Link
       to={href}

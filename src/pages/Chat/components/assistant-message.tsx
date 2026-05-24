@@ -18,6 +18,7 @@ import { QueryArtifactCard } from './query-artifact-card';
 import { AssistantChartSection } from './assistant-chart-section';
 import { FieldChip } from './field-chip';
 import { useGlossaryLinker, type LinkedSegment } from './use-glossary-linker';
+import { resolveGlossaryHref } from '../../Catalog/glossary/resolve-glossary-link';
 import { FollowupChips } from './followup-chips';
 import { suggestFollowups, type FollowupChip } from '../services/followup-suggester';
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
@@ -83,7 +84,10 @@ function renderWithGlossary(text: string, link: (text: string) => LinkedSegment[
     seg.kind === 'term' ? (
       <Link
         key={`g-${i}`}
-        to={`/catalog/concept/measure/business_metrics/${encodeURIComponent(seg.termId ?? '')}`}
+        to={resolveGlossaryHref({
+          id: seg.termId ?? '',
+          primaryCatalogId: seg.primaryCatalogId ?? null,
+        })}
         title={`Glossary: ${seg.termId}`}
         style={{ color: T.brand, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}
       >

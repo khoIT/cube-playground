@@ -6,6 +6,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import type { GlossaryTerm } from '../../../api/glossary-client';
+import { resolveGlossaryHref } from './resolve-glossary-link';
 
 interface Props {
   term: GlossaryTerm;
@@ -68,9 +69,9 @@ const CatalogChip = styled(Link)`
 `;
 
 export function GlossaryRow({ term }: Props) {
-  const conceptHref = term.primaryCatalogId
-    ? `/catalog/concept/measure/${encodeURIComponent(term.primaryCatalogId)}`
-    : null;
+  // Bound terms (e.g. dau, mau) link to /catalog/metric/<slug>; unbound terms
+  // (cohort, funnel, engagement) have no chip and stay as definition-only rows.
+  const href = term.primaryCatalogId ? resolveGlossaryHref(term) : null;
   return (
     <Row data-glossary-id={term.id}>
       <TopLine>
@@ -81,9 +82,7 @@ export function GlossaryRow({ term }: Props) {
       {term.aliases.length > 0 ? (
         <Aliases>aka: {term.aliases.join(', ')}</Aliases>
       ) : null}
-      {conceptHref ? (
-        <CatalogChip to={conceptHref}>{term.primaryCatalogId}</CatalogChip>
-      ) : null}
+      {href ? <CatalogChip to={href}>{term.primaryCatalogId}</CatalogChip> : null}
     </Row>
   );
 }

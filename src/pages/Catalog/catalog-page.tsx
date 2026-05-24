@@ -149,13 +149,19 @@ export function CatalogPage() {
   }
 
   // Long-tail surfaces — sidebar entries removed (260523-1347) but the routes
-  // remain reachable via direct URL.
+  // remain reachable via direct URL. Schema cartographer moved into the
+  // Data Model subtabs as the default landing; the old /catalog/schema URL
+  // (used by chat field-chips before the move) preserves its `?focus=` param
+  // through the redirect.
+  if (location.pathname === '/catalog/schema') {
+    const search = location.search ?? '';
+    return <Redirect to={`/catalog/data-model${search}`} />;
+  }
   const longTailMap: Record<string, JSX.Element> = {
     '/catalog/digest':        <DigestPage />,
     '/catalog/notifications': <NotificationsPage />,
     '/catalog/saved-views':   <SavedViewsPage />,
     '/catalog/workspaces':    <WorkspacesPage />,
-    '/catalog/schema':        <SchemaCartographerPage />,
     '/catalog/glossary':      <GlossaryIndexPage />,
   };
   if (longTailMap[location.pathname]) {
@@ -197,11 +203,14 @@ export function CatalogPage() {
     );
   }
 
-  // Data Model surface with Concepts / Cubes / Models subtabs.
-  const subtab = resolveDataModelSubtab(location.pathname) ?? 'concepts';
+  // Data Model surface with Schema / Concepts / Cubes / Models subtabs.
+  // Schema is the leftmost tab and the default landing (renders at the bare
+  // /catalog/data-model URL); other subtabs hang off /concepts /cubes /models.
+  const subtab = resolveDataModelSubtab(location.pathname) ?? 'schema';
   return (
     <Page>
       <DataModelSubtabs />
+      {subtab === 'schema' && <SchemaCartographerPage />}
       {subtab === 'concepts' && <DataModelTab />}
       {subtab === 'cubes' && (
         <CatalogBrowseBody cubes={cubes} loading={loading} error={error} />

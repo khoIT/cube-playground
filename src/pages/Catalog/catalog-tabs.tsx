@@ -56,21 +56,27 @@ const TabButton = styled.button<{ $active: boolean }>`
     `}
 `;
 
-export type DataModelSubtab = 'concepts' | 'cubes' | 'models';
+export type DataModelSubtab = 'schema' | 'concepts' | 'cubes' | 'models';
 
+/**
+ * Schema is the leftmost subtab and the default landing for /catalog/data-model,
+ * so it owns the root path. Concepts moves to an explicit /concepts URL.
+ */
 const TAB_PATHS: Record<DataModelSubtab, string> = {
-  concepts: '/catalog/data-model',
+  schema:   '/catalog/data-model',
+  concepts: '/catalog/data-model/concepts',
   cubes:    '/catalog/data-model/cubes',
   models:   '/catalog/data-model/models',
 };
 
 const TAB_LABELS: Record<DataModelSubtab, { i18n: string; fallback: string }> = {
+  schema:   { i18n: 'tabs.schema',    fallback: 'Schema' },
   concepts: { i18n: 'tabs.concepts',  fallback: 'Concepts' },
   cubes:    { i18n: 'tabs.cubes',     fallback: 'Cubes' },
   models:   { i18n: 'tabs.models',    fallback: 'Models' },
 };
 
-const TAB_ORDER: DataModelSubtab[] = ['concepts', 'cubes', 'models'];
+const TAB_ORDER: DataModelSubtab[] = ['schema', 'concepts', 'cubes', 'models'];
 
 /**
  * Resolve which subtab is active for a given pathname under /catalog/data-model.
@@ -78,9 +84,10 @@ const TAB_ORDER: DataModelSubtab[] = ['concepts', 'cubes', 'models'];
  */
 export function resolveDataModelSubtab(pathname: string): DataModelSubtab | null {
   if (pathname === '/catalog/data-model' || pathname.startsWith('/catalog/data-model/')) {
+    if (pathname.includes('/data-model/concepts')) return 'concepts';
     if (pathname.includes('/data-model/cubes')) return 'cubes';
     if (pathname.includes('/data-model/models')) return 'models';
-    return 'concepts';
+    return 'schema';
   }
   return null;
 }
@@ -89,7 +96,7 @@ export function DataModelSubtabs() {
   const { t } = useTranslation();
   const history = useHistory();
   const location = useLocation();
-  const active = resolveDataModelSubtab(location.pathname) ?? 'concepts';
+  const active = resolveDataModelSubtab(location.pathname) ?? 'schema';
 
   function go(key: DataModelSubtab) {
     const target = TAB_PATHS[key];

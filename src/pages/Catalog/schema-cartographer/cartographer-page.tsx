@@ -1,8 +1,9 @@
 /**
- * Schema Cartographer page — `/catalog/schema`.
+ * Schema Cartographer page — default tab at `/catalog/data-model`.
  *
  * Read-only browse + search over `useCatalogMeta`. Deep link with
- * `?focus=cube.member` selects the matching member.
+ * `?focus=cube.member` selects the matching member. The legacy
+ * `/catalog/schema` URL redirects here, preserving the focus param.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';

@@ -62,4 +62,13 @@ describe('useGlossaryLinker', () => {
     const out = result.current.link('nothing to link here');
     expect(out).toEqual([{ kind: 'text', text: 'nothing to link here' }]);
   });
+
+  it('carries primaryCatalogId on term segments so the renderer can route them', async () => {
+    const { result } = renderHook(() => useGlossaryLinker());
+    await waitFor(() => expect(result.current.terms.length).toBeGreaterThan(0));
+
+    const out = result.current.link('DAU is the metric');
+    const dauTerm = out.find((s) => s.kind === 'term' && s.text === 'DAU');
+    expect(dauTerm?.primaryCatalogId).toBe('business_metrics/dau');
+  });
 });

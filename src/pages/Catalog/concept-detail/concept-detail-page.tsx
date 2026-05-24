@@ -101,7 +101,7 @@ export function ConceptDetailPage() {
     return (
       <Status>
         <p>Unknown concept type <code>{type}</code>.</p>
-        <Link to="/catalog/data-model">← Back to Data Model</Link>
+        <Link to="/catalog/data-model/concepts">← Back to Concepts</Link>
       </Status>
     );
   }
@@ -112,7 +112,7 @@ export function ConceptDetailPage() {
         <p>
           No {type} <code>{decodedFqn}</code> in the active game's /meta.
         </p>
-        <Link to="/catalog/data-model">← Back to Data Model</Link>
+        <Link to="/catalog/data-model/concepts">← Back to Concepts</Link>
       </Status>
     );
   }

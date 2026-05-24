@@ -21,8 +21,8 @@ describe('AssistantMessage field-chip rendering', () => {
     const hrefs = links.map((a) => a.getAttribute('href'));
     expect(hrefs).toEqual(
       expect.arrayContaining([
-        '/catalog/schema?focus=players.dau',
-        '/catalog/schema?focus=players.mau',
+        '/catalog/data-model?focus=players.dau',
+        '/catalog/data-model?focus=players.mau',
       ]),
     );
     expect(container.textContent).toContain('DAU is computed from');
