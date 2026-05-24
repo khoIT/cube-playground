@@ -1,0 +1,5 @@
+# Pin Vitest snapshot files to LF in the index.
+# Vitest uses os.EOL when writing snapshots, so on Windows each test run
+# rewrites .snap files with CRLF and `git status` shows them as modified.
+# Forcing LF in the index keeps Windows + Mac in sync.
+*.snap text eol=lf
