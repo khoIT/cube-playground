@@ -82,6 +82,19 @@ export function writeSnapshot(): string {
   return SNAPSHOT_PATH;
 }
 
+/**
+ * Boot-time diagnostic — compares local segment count to the committed
+ * snapshot. Used by index.ts to log a one-line sync status next to "Server
+ * ready" so devs see at a glance whether their DB lines up with git.
+ */
+export function getSyncStatus(): { local: number; snapshot: number; ok: boolean } | null {
+  if (!existsSync(SNAPSHOT_PATH)) return null;
+  const snap: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
+  const snapshot = snap.segments.length;
+  const local = (getDb().prepare('SELECT COUNT(*) AS c FROM segments').get() as { c: number }).c;
+  return { local, snapshot, ok: local >= snapshot };
+}
+
 export function hydrateFromSnapshot(): { hydrated: boolean; counts: Record<string, number> } {
   if (!existsSync(SNAPSHOT_PATH)) return { hydrated: false, counts: {} };
 

@@ -19,7 +19,7 @@ import businessMetricsRoutes from './routes/business-metrics.js';
 import anomalyStateRoutes from './routes/anomaly-state.js';
 import chatRoutes from './routes/chat.js';
 import { getDb } from './db/sqlite.js';
-import { hydrateFromSnapshot } from './db/snapshot-store.js';
+import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
 import {
   loadAll as loadBusinessMetrics,
@@ -83,6 +83,13 @@ if (isMain || process.env.START_SERVER === '1') {
   const seed = hydrateFromSnapshot();
   if (seed.hydrated) {
     console.log('[snapshot] hydrated from seed:', seed.counts);
+  }
+
+  const sync = getSyncStatus();
+  if (sync) {
+    const tag = sync.ok ? 'OK' : 'BEHIND';
+    const note = sync.local > sync.snapshot ? ` (ahead by ${sync.local - sync.snapshot})` : '';
+    console.log(`[sync] segments local=${sync.local} snapshot=${sync.snapshot} ${tag}${note}`);
   }
 
   buildApp().then(async (app) => {

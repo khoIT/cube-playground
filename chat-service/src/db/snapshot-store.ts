@@ -30,6 +30,27 @@ interface Snapshot {
 /** Path the writeSnapshot CLI uses; also handy for tests. */
 export const CHAT_SNAPSHOT_PATH = SNAPSHOT_PATH;
 
+/**
+ * Boot-time diagnostic — compares local chat counts to the committed
+ * snapshot. Used by index.ts to log sync status next to "chat-service
+ * listening".
+ */
+export function getChatSyncStatus(db: Database.Database): {
+  sessions: { local: number; snapshot: number; ok: boolean };
+  turns: { local: number; snapshot: number; ok: boolean };
+} | null {
+  if (!existsSync(SNAPSHOT_PATH)) return null;
+  const snap: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'));
+  const sessionsSnap = snap.chat_sessions.length;
+  const turnsSnap = snap.chat_turns.length;
+  const sessionsLocal = (db.prepare('SELECT COUNT(*) AS c FROM chat_sessions').get() as { c: number }).c;
+  const turnsLocal = (db.prepare('SELECT COUNT(*) AS c FROM chat_turns').get() as { c: number }).c;
+  return {
+    sessions: { local: sessionsLocal, snapshot: sessionsSnap, ok: sessionsLocal >= sessionsSnap },
+    turns: { local: turnsLocal, snapshot: turnsSnap, ok: turnsLocal >= turnsSnap },
+  };
+}
+
 export function writeChatSnapshot(db: Database.Database): string {
   const snap: Snapshot = {
     version: 1,

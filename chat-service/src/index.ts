@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { config } from './config.js';
 import { openDatabase } from './db/migrate.js';
-import { hydrateChatFromSnapshot } from './db/snapshot-store.js';
+import { hydrateChatFromSnapshot, getChatSyncStatus } from './db/snapshot-store.js';
 import healthRoutes from './api/health.js';
 import sessionsRoutes from './api/sessions.js';
 import turnRoutes from './api/turn.js';
@@ -57,6 +57,17 @@ async function start(): Promise<void> {
   const seeded = hydrateChatFromSnapshot(db);
   if (seeded.hydrated) {
     fastify.log.info({ counts: seeded.counts }, '[chat-snapshot] hydrated from seed');
+  }
+
+  const sync = getChatSyncStatus(db);
+  if (sync) {
+    const fmt = (label: string, s: { local: number; snapshot: number; ok: boolean }) => {
+      const tag = s.ok ? 'OK' : 'BEHIND';
+      const note = s.local > s.snapshot ? ` (ahead by ${s.local - s.snapshot})` : '';
+      fastify.log.info(`[sync] ${label} local=${s.local} snapshot=${s.snapshot} ${tag}${note}`);
+    };
+    fmt('chat-sessions', sync.sessions);
+    fmt('chat-turns', sync.turns);
   }
 
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
