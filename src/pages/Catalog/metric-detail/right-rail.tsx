@@ -1,8 +1,9 @@
 /**
  * Right-rail action buttons. "Open in Explore" is gated by the metric
  * runnability check: when the metric's formula refs are unresolved against
- * the active game's /meta, an inline yellow warning is shown and the
- * Explore button is disabled until the user clicks "Run anyway".
+ * the active game's /meta, the button is disabled. The yellow warning
+ * strip itself is rendered at full content width by TabOverview, so the
+ * rail can stay slim and focused on actions.
  */
 
 import { useState } from 'react';
@@ -10,7 +11,6 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { pushFromMetric } from '../../../shared/activation/push-from-metric';
-import { MetricRunnabilityWarning } from '../../../shared/concept-shell/metric-runnability-warning';
 import { useMetricOverrideStore } from '../metrics-tab/metric-override-store';
 import { SubscribeModal } from '../digest/subscribe-modal';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
@@ -72,7 +72,6 @@ export function RightRail({ metric }: { metric: BusinessMetric }) {
 
   return (
     <Rail>
-      <MetricRunnabilityWarning metricId={metric.id} runnability={runnability} />
       <Primary
         type="button"
         disabled={exploreBlocked}
