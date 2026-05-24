@@ -27,14 +27,40 @@ function toYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * Extract `{ year, month, day }` (UTC, month 0-indexed) from any reasonable
+ * bucket-start representation, side-stepping JS `Date`-constructor parsing
+ * heuristics that flip the result by ±1 day depending on the runtime TZ.
+ *
+ * Cube returns weekly/monthly bucket labels as ISO datetimes without a `Z`
+ * suffix (e.g. `"2026-05-04T00:00:00.000"`). `new Date(...)` parses no-Z ISO
+ * strings as *local* time; when the runtime TZ is east of UTC (Asia/Saigon
+ * = +07:00), local midnight Mon-May-4 maps to UTC `2026-05-03T17:00:00Z` and
+ * `getUTCDate()` returns the wrong calendar day. Manual extraction via regex
+ * avoids the Date constructor entirely for strings, while Date/number inputs
+ * are read in UTC for symmetry.
+ */
+function extractUtcYmd(
+  raw: unknown,
+): { y: number; m: number; d: number } | null {
+  if (raw == null) return null;
+  if (typeof raw === 'string') {
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null;
+    return { y: Number(match[1]), m: Number(match[2]) - 1, d: Number(match[3]) };
+  }
+  const d = raw instanceof Date ? raw : new Date(raw as number);
+  if (Number.isNaN(d.getTime())) return null;
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate() };
+}
+
 export function bucketDateRange(
   rawBucketStart: unknown,
   granularity: TimeDimensionGranularity | string | undefined,
 ): BucketDateRange | null {
-  if (rawBucketStart == null) return null;
-  const start = new Date(rawBucketStart as string | number | Date);
-  if (Number.isNaN(start.getTime())) return null;
-
+  const parts = extractUtcYmd(rawBucketStart);
+  if (!parts) return null;
+  const start = new Date(Date.UTC(parts.y, parts.m, parts.d));
   const end = new Date(start.getTime());
 
   switch (granularity) {

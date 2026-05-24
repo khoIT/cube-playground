@@ -35,6 +35,22 @@ describe('bucketDateRange', () => {
     ]);
   });
 
+  it('treats no-Z ISO datetimes as UTC (Cube returns this shape)', () => {
+    // Regression: `new Date("2026-05-04T00:00:00.000")` parses as LOCAL time;
+    // in a +07:00 runtime that bumps the UTC date back to 2026-05-03 and
+    // produced ["2026-05-03", "2026-05-09"] instead of the W19 bucket.
+    expect(bucketDateRange('2026-05-04T00:00:00.000', 'week')).toEqual([
+      '2026-05-04',
+      '2026-05-10',
+    ]);
+  });
+
+  it('handles a Date object input', () => {
+    expect(
+      bucketDateRange(new Date(Date.UTC(2026, 4, 4)), 'week'),
+    ).toEqual(['2026-05-04', '2026-05-10']);
+  });
+
   it('returns null for nullish/invalid inputs', () => {
     expect(bucketDateRange(null, 'week')).toBeNull();
     expect(bucketDateRange(undefined, 'week')).toBeNull();
