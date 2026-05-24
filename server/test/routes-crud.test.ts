@@ -178,6 +178,52 @@ describe('segments CRUD routes', () => {
     expect(q.filters[0]).toMatchObject({ member: 'U.y', operator: 'contains', values: ['foo'] });
   });
 
+  it('POST predicate with a warm uid_list starts at uid_count=0, status=refreshing', async () => {
+    // The push-modal flow sends `uid_list` for predicate segments as a warm
+    // sample from the originating playground query (capped at Cube's default
+    // 10k rowLimit). Surfacing that length as the cohort size would display
+    // exactly "10,000" for every large cohort until the first refresh.
+    const warmSample = Array.from({ length: 10_000 }, (_, i) => `u${i}`);
+    const postRes = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      payload: {
+        name: 'PredicateWithWarmSample',
+        type: 'predicate',
+        predicate_tree: {
+          kind: 'group', id: 'r', op: 'AND',
+          children: [
+            { kind: 'leaf', id: 'l1', member: 'U.x', type: 'string', op: 'equals', values: ['a'] },
+          ],
+        },
+        uid_list: warmSample,
+      },
+      headers: { 'x-owner': 'ivy' },
+    });
+
+    expect(postRes.statusCode).toBe(201);
+    const created = postRes.json();
+    expect(created.uid_count).toBe(0);
+    expect(created.status).toBe('refreshing');
+    // Warm sample is still persisted (useful for members preview); only its
+    // length is no longer displayed as the cohort size.
+    expect(created.uid_list ?? created.uid_list_json).toBeTruthy();
+  });
+
+  it('POST manual segment still uses uid_list.length as uid_count', async () => {
+    const postRes = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      payload: { name: 'ManualSeg', type: 'manual', uid_list: ['u1', 'u2', 'u3'] },
+      headers: { 'x-owner': 'jane' },
+    });
+
+    expect(postRes.statusCode).toBe(201);
+    const created = postRes.json();
+    expect(created.uid_count).toBe(3);
+    expect(created.status).toBe('fresh');
+  });
+
   it('PATCH with predicate_tree preserves uid_count and flips status to refreshing', async () => {
     // Seed a predicate segment with a synthetic uid_count to simulate a
     // previously-refreshed cohort. Inserts directly so we control the size

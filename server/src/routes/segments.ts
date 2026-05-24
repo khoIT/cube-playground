@@ -126,6 +126,19 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     const uidList = data.uid_list ?? [];
 
+    // Predicate segments may receive a "warm" uid_list — a sample from the
+    // originating playground query, capped at Cube's default rowLimit (10k).
+    // Using its length as the displayed `uid_count` would lie about the true
+    // cohort size (every >10k cohort would display exactly 10,000 until the
+    // first refresh). Start at 0 and let the refresh job write the real
+    // total via Cube's `total: true`. Manual segments keep the old behavior:
+    // the uid_list IS the cohort.
+    const isPredicateWithQuery = data.type === 'predicate' && cubeQueryJson != null;
+    const initialUidCount = isPredicateWithQuery ? 0 : uidList.length;
+    // Flip status to 'refreshing' so the UI shows in-flight immediately
+    // rather than briefly displaying 'fresh' with the placeholder count.
+    const initialStatus = isPredicateWithQuery ? 'refreshing' : 'fresh';
+
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
@@ -136,11 +149,11 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       data.name,
       data.type,
       owner,
-      'fresh',
+      initialStatus,
       data.cube ?? null,
       data.predicate_tree ? JSON.stringify(data.predicate_tree) : null,
       cubeQueryJson,
-      uidList.length,
+      initialUidCount,
       JSON.stringify(uidList),
       data.refresh_cadence_min ?? null,
       now,
@@ -151,6 +164,13 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     if (data.tags?.length) {
       const insertTag = db.prepare('INSERT OR IGNORE INTO segment_tags (segment_id, tag) VALUES (?,?)');
       for (const tag of data.tags) insertTag.run(id, tag);
+    }
+
+    // Kick off the first refresh immediately so the displayed uid_count
+    // converges to the true total instead of waiting up to one cadence
+    // interval for the cron tick.
+    if (isPredicateWithQuery) {
+      void enqueueRefresh(id);
     }
 
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
