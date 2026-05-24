@@ -14,7 +14,6 @@ import { isAvailableForGame } from './business-metric-types';
 export interface MetricFilters {
   domains: Set<BusinessMetricDomain>;
   trusts: Set<BusinessMetricTrust>;
-  tiers: Set<number>;
   owners: Set<string>;
   parameterisedOnly: boolean;
   showDeprecated: boolean;
@@ -25,7 +24,6 @@ export function emptyFilters(): MetricFilters {
   return {
     domains: new Set(),
     trusts: new Set(),
-    tiers: new Set(),
     owners: new Set(),
     parameterisedOnly: false,
     showDeprecated: false,
@@ -82,7 +80,6 @@ export function useFilteredMetrics(
     if (filters.parameterisedOnly && !metric.parameter) return false;
     if (filters.domains.size && !filters.domains.has(metric.domain)) return false;
     if (filters.trusts.size && !filters.trusts.has(metric.trust)) return false;
-    if (filters.tiers.size && !filters.tiers.has(metric.tier)) return false;
     if (filters.owners.size && !filters.owners.has(metric.owner)) return false;
     if (!matchesQuery(metric, q)) return false;
     return true;

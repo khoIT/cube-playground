@@ -5,7 +5,7 @@ synonyms: [marketing_to_revenue_ratio, spend_ratio]
 tier: 2
 domain: marketing
 owner: marketing-ops@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.marketing_cost

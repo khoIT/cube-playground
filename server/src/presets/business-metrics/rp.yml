@@ -7,7 +7,7 @@ synonyms: [paying_retention_rate, rp_dn, payer_retention]
 tier: 2
 domain: retention
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.paying_retained_d7

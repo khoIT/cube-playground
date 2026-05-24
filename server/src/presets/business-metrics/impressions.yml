@@ -7,7 +7,7 @@ synonyms: [ad_impressions, ad_views]
 tier: 2
 domain: marketing
 owner: marketing-ops@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.impressions

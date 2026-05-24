@@ -7,7 +7,7 @@ synonyms: [tmau, mtd_active_users]
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.trailing_mau

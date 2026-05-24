@@ -7,7 +7,7 @@ synonyms: [non_paid_installs]
 tier: 2
 domain: acquisition
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.organic_installs

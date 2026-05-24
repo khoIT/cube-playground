@@ -1,7 +1,7 @@
 /**
  * Tool: list_business_metrics
  * Returns the trimmed business-metric registry, optionally filtered by a
- * free-text query (substring match on id/label/synonyms) and/or tier number.
+ * free-text query (substring match on id/label/synonyms).
  */
 
 import { z } from 'zod';
@@ -11,11 +11,10 @@ import type { ToolContext } from '../types.js';
 export const name = 'list_business_metrics';
 export const description =
   'List available business metrics. Optionally filter by a search query ' +
-  '(substring match on id, label, or synonyms) and/or by tier (1 or 2).';
+  '(substring match on id, label, or synonyms).';
 
 export const inputSchema = {
   query: z.string().optional().describe('Substring to match against id, label, or synonyms'),
-  tier: z.union([z.literal(1), z.literal(2)]).optional().describe('Filter to tier 1 or 2 only'),
 };
 
 // Shape returned by /api/business-metrics
@@ -23,7 +22,6 @@ interface MetricRaw {
   id: string;
   label: string;
   description: string;
-  tier: number;
   formula: unknown;
   unit?: string;
   synonyms?: string[];
@@ -35,7 +33,6 @@ interface TrimmedMetric {
   id: string;
   label: string;
   description: string;
-  tier: number;
   formula: unknown;
   unit?: string;
   game_compatibility?: unknown;
@@ -49,7 +46,6 @@ function trim(m: MetricRaw): TrimmedMetric {
     id: m.id,
     label: m.label,
     description: m.description,
-    tier: m.tier,
     formula: m.formula,
     ...(m.unit !== undefined ? { unit: m.unit } : {}),
     ...(m.game_compatibility !== undefined ? { game_compatibility: m.game_compatibility } : {}),
@@ -65,7 +61,7 @@ function matchesQuery(m: MetricRaw, q: string): boolean {
 }
 
 export async function handler(
-  args: { query?: string; tier?: 1 | 2 },
+  args: { query?: string },
   ctx: ToolContext,
 ): Promise<OkResult | ErrResult> {
   let raw: { metrics: MetricRaw[] };
@@ -82,9 +78,6 @@ export async function handler(
 
   if (args.query) {
     metrics = metrics.filter((m) => matchesQuery(m, args.query!));
-  }
-  if (args.tier !== undefined) {
-    metrics = metrics.filter((m) => m.tier === args.tier);
   }
 
   return { ok: true, metrics: metrics.map(trim) };

@@ -17,15 +17,25 @@ import {
   getById,
   writeMetric,
 } from '../services/business-metrics-loader.js';
+import { resolveTrustForGame } from '../services/metric-trust-resolver.js';
 
 export default async function businessMetricsRoutes(
   app: FastifyInstance,
 ): Promise<void> {
-  app.get('/api/business-metrics', async () => {
-    return { metrics: getAll() };
-  });
+  // Optional `?game=<id>` query param: when present, trust is downgraded to
+  // `draft` for any metric whose formula refs don't resolve against the
+  // game's /meta. Omit the param to get the registry with declared trust
+  // (kept for backwards-compat with callers that don't have a game context).
+  app.get<{ Querystring: { game?: string } }>(
+    '/api/business-metrics',
+    async (req) => {
+      const metrics = getAll();
+      const adjusted = await resolveTrustForGame(metrics, req.query.game ?? null);
+      return { metrics: adjusted };
+    },
+  );
 
-  app.get<{ Params: { id: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { game?: string } }>(
     '/api/business-metrics/:id',
     async (req, reply) => {
       const metric = getById(req.params.id);
@@ -34,7 +44,11 @@ export default async function businessMetricsRoutes(
           error: { code: 'NOT_FOUND', message: `metric "${req.params.id}" not found` },
         });
       }
-      return metric;
+      const [adjusted] = await resolveTrustForGame(
+        [metric],
+        req.query.game ?? null,
+      );
+      return adjusted ?? metric;
     },
   );
 

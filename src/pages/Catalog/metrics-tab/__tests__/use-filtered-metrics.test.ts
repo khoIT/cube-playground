@@ -49,7 +49,7 @@ describe('useFilteredMetrics', () => {
   it('filters by trust set', () => {
     const metrics = [
       make('a', { trust: 'certified' }),
-      make('b', { trust: 'beta' }),
+      make('b', { trust: 'draft' }),
       make('c', { trust: 'draft' }),
     ];
     const filters = emptyFilters();

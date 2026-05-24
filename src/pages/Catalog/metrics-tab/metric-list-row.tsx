@@ -132,9 +132,7 @@ export function MetricListRow({
           <Desc title={metric.description}>{metric.description}</Desc>
         )}
       </TitleBlock>
-      <Meta>
-        Tier {metric.tier} · {metric.owner}
-      </Meta>
+      <Meta>{metric.owner}</Meta>
       <TrustChip $trust={metric.trust}>{metric.trust}</TrustChip>
     </Row>
   );

@@ -108,30 +108,6 @@ describe('list_business_metrics handler', () => {
     expect(result.metrics[0].id).toBe('roas');
   });
 
-  it('filters by tier 1 returns only tier-1 metrics', async () => {
-    const result = await handler({ tier: 1 }, makeCtx());
-    expect(result).toMatchObject({ ok: true });
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.metrics).toHaveLength(2);
-    expect(result.metrics.map((m) => m.id)).toEqual(expect.arrayContaining(['roas', 'arpu']));
-  });
-
-  it('filters by tier 2 returns only tier-2 metrics', async () => {
-    const result = await handler({ tier: 2 }, makeCtx());
-    expect(result).toMatchObject({ ok: true });
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.metrics).toHaveLength(2);
-    expect(result.metrics.map((m) => m.id)).toEqual(expect.arrayContaining(['dau', 'ltv']));
-  });
-
-  it('combined filter: query + tier narrows results', async () => {
-    const result = await handler({ query: 'daily', tier: 2 }, makeCtx());
-    expect(result).toMatchObject({ ok: true });
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.metrics).toHaveLength(1);
-    expect(result.metrics[0].id).toBe('dau');
-  });
-
   it('returns empty array when no metrics match', async () => {
     const result = await handler({ query: 'zzz_no_match_xyz' }, makeCtx());
     expect(result).toMatchObject({ ok: true });
@@ -146,9 +122,9 @@ describe('list_business_metrics handler', () => {
     expect(metric).toHaveProperty('id');
     expect(metric).toHaveProperty('label');
     expect(metric).toHaveProperty('description');
-    expect(metric).toHaveProperty('tier');
     expect(metric).toHaveProperty('formula');
-    // synonyms must NOT be in trimmed output
+    // tier + synonyms must NOT be in trimmed output
+    expect(metric).not.toHaveProperty('tier');
     expect(metric).not.toHaveProperty('synonyms');
   });
 

@@ -18,10 +18,8 @@ export type BusinessMetricDomain =
 
 export type BusinessMetricTrust =
   | 'certified'
-  | 'beta'
   | 'draft'
-  | 'deprecated'
-  | 'orphaned';
+  | 'deprecated';
 
 export type BusinessMetricFormula =
   | { type: 'ratio'; numerator: string; denominator: string }

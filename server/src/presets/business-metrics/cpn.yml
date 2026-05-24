@@ -7,7 +7,7 @@ synonyms: [cost_per_nru, cost_per_new_user]
 tier: 2
 domain: marketing
 owner: marketing-ops@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.marketing_cost

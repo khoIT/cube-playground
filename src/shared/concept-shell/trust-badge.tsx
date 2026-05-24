@@ -1,9 +1,8 @@
 /**
- * TrustBadge — five canonical trust tiers used across business-metric,
+ * TrustBadge — three canonical trust tiers used across business-metric,
  * measure, dimension, and segment cards.
  *
- * Default prominence is medium (per plan open Q3). Pass `size="sm"` for
- * compact card variants.
+ * Default prominence is medium. Pass `size="sm"` for compact card variants.
  */
 
 import styled from 'styled-components';
@@ -20,12 +19,6 @@ const STYLES: Record<
     fg: '#059669',
     border: 'rgba(16, 185, 129, 0.32)',
   },
-  beta: {
-    label: 'Beta',
-    bg: 'rgba(63, 141, 255, 0.12)',
-    fg: '#1d4ed8',
-    border: 'rgba(63, 141, 255, 0.32)',
-  },
   draft: {
     label: 'Draft',
     bg: 'rgba(115, 115, 115, 0.10)',
@@ -38,52 +31,95 @@ const STYLES: Record<
     fg: '#b45309',
     border: 'rgba(245, 158, 11, 0.32)',
   },
-  orphaned: {
-    label: 'Orphaned',
-    bg: 'rgba(239, 68, 68, 0.10)',
-    fg: '#b91c1c',
-    border: 'rgba(239, 68, 68, 0.28)',
-  },
 };
 
-const Chip = styled.span<{
-  $bg: string;
-  $fg: string;
-  $border: string;
-  $size: 'sm' | 'md';
-}>`
+// Shared chip styling. Renders as a <span> by default (read-only badge) or
+// as a <button> when `onClick` is provided (interactive filter chip).
+const chipStyles = `
   display: inline-flex;
   align-items: center;
-  height: ${(p) => (p.$size === 'sm' ? '18px' : '22px')};
-  padding: 0 ${(p) => (p.$size === 'sm' ? '6px' : '8px')};
-  border: 1px solid ${(p) => p.$border};
   border-radius: 999px;
-  background: ${(p) => p.$bg};
-  color: ${(p) => p.$fg};
-  font-size: ${(p) => (p.$size === 'sm' ? '10px' : '11px')};
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   white-space: nowrap;
 `;
 
+const Chip = styled.span<{
+  $bg: string;
+  $fg: string;
+  $border: string;
+  $size: 'sm' | 'md';
+  $dim: boolean;
+}>`
+  ${chipStyles}
+  height: ${(p) => (p.$size === 'sm' ? '18px' : '22px')};
+  padding: 0 ${(p) => (p.$size === 'sm' ? '6px' : '8px')};
+  border: 1px solid ${(p) => p.$border};
+  background: ${(p) => p.$bg};
+  color: ${(p) => p.$fg};
+  font-size: ${(p) => (p.$size === 'sm' ? '10px' : '11px')};
+  opacity: ${(p) => (p.$dim ? 0.45 : 1)};
+`;
+
+const ChipButton = styled.button<{
+  $bg: string;
+  $fg: string;
+  $border: string;
+  $size: 'sm' | 'md';
+  $dim: boolean;
+}>`
+  ${chipStyles}
+  height: ${(p) => (p.$size === 'sm' ? '18px' : '22px')};
+  padding: 0 ${(p) => (p.$size === 'sm' ? '6px' : '8px')};
+  border: 1px solid ${(p) => p.$border};
+  background: ${(p) => p.$bg};
+  color: ${(p) => p.$fg};
+  font-size: ${(p) => (p.$size === 'sm' ? '10px' : '11px')};
+  opacity: ${(p) => (p.$dim ? 0.45 : 1)};
+  cursor: pointer;
+  font-family: inherit;
+  &:hover { opacity: ${(p) => (p.$dim ? 0.7 : 1)}; }
+  &:focus-visible { outline: 2px solid ${(p) => p.$border}; outline-offset: 2px; }
+`;
+
 interface TrustBadgeProps {
   trust: BusinessMetricTrust;
   size?: 'sm' | 'md';
+  /** When set, renders as an interactive button (filter chip). */
+  onClick?: () => void;
+  /** Visual state for filter use: false → dimmed unselected; true/undefined → full color. */
+  selected?: boolean;
 }
 
-export function TrustBadge({ trust, size = 'md' }: TrustBadgeProps) {
+export function TrustBadge({
+  trust,
+  size = 'md',
+  onClick,
+  selected,
+}: TrustBadgeProps) {
   const s = STYLES[trust];
-  return (
-    <Chip
-      $bg={s.bg}
-      $fg={s.fg}
-      $border={s.border}
-      $size={size}
-      title={`Trust: ${s.label}`}
-      data-trust={trust}
-    >
-      {s.label}
-    </Chip>
-  );
+  const dim = onClick !== undefined && selected === false;
+  const common = {
+    $bg: s.bg,
+    $fg: s.fg,
+    $border: s.border,
+    $size: size,
+    $dim: dim,
+    title: `Trust: ${s.label}`,
+    'data-trust': trust,
+  } as const;
+  if (onClick !== undefined) {
+    return (
+      <ChipButton
+        {...common}
+        type="button"
+        onClick={onClick}
+        aria-pressed={selected ?? true}
+      >
+        {s.label}
+      </ChipButton>
+    );
+  }
+  return <Chip {...common}>{s.label}</Chip>;
 }

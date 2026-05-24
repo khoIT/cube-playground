@@ -84,7 +84,7 @@ describe('POST /api/business-metrics', () => {
       tier: 2,
       domain: 'engagement',
       owner: 'data@vng',
-      trust: 'beta',
+      trust: 'draft',
       formula: { type: 'measure', ref: 'mf_users.wau' },
     };
     const res = await app.inject({
@@ -113,7 +113,7 @@ describe('POST /api/business-metrics', () => {
         tier: 1,
         domain: 'revenue',
         owner: 'team@vng',
-        trust: 'beta',
+        trust: 'draft',
         formula: { type: 'measure', ref: 'r.x' },
       },
     });

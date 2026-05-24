@@ -7,7 +7,7 @@ synonyms: [nru_per_install, install_to_register_rate]
 tier: 2
 domain: acquisition
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.new_users

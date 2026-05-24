@@ -5,7 +5,7 @@ synonyms: [lowest_concurrent_users, min_concurrent_users]
 tier: 3
 domain: concurrency
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.lcu

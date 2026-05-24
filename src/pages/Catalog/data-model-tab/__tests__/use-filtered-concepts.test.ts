@@ -28,7 +28,7 @@ function bm(id: string, refs: string[]): BusinessMetric {
     tier: 1,
     domain: 'engagement',
     owner: 'data@vng',
-    trust: 'beta',
+    trust: 'draft',
     formula:
       refs.length === 2
         ? { type: 'ratio', numerator: refs[0], denominator: refs[1] }

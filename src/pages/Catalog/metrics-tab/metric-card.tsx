@@ -9,7 +9,6 @@ import styled from 'styled-components';
 import { SelectionCheckbox } from '../../../shared/catalog-grouped-view/catalog-group-primitives';
 import { AnomalyBadge } from '../../../shared/concept-shell/anomaly-badge';
 import { DomainChip } from '../../../shared/concept-shell/domain-chip';
-import { TierBadge } from '../../../shared/concept-shell/tier-badge';
 import { TrustBadge } from '../../../shared/concept-shell/trust-badge';
 import { TypeIcon } from '../../../shared/concept-shell/type-icon';
 import { useMergedAnomaly } from '../../../shared/concept-shell/use-merged-anomaly';
@@ -125,7 +124,6 @@ export function MetricCard({
       )}
       <TopRow>
         <TypeIcon kind="business-metric" />
-        <TierBadge tier={metric.tier} />
         <Label>{metric.label}</Label>
         {metric.synonyms && metric.synonyms.length > 0 && (
           <Synonyms>{metric.synonyms.join(', ')}</Synonyms>

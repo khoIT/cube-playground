@@ -9,7 +9,7 @@ synonyms: [gross_bookings_vnd, billing_gross]
 tier: 2
 domain: revenue
 owner: billing@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: recharge.revenue_vnd

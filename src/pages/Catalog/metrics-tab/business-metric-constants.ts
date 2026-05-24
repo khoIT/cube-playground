@@ -12,8 +12,6 @@ export const DOMAINS = [
 
 export const TRUST_TIERS = [
   'certified',
-  'beta',
   'draft',
   'deprecated',
-  'orphaned',
 ] as const;

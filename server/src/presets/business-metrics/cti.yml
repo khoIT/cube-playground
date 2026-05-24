@@ -7,7 +7,7 @@ synonyms: [click_to_install_rate]
 tier: 2
 domain: marketing
 owner: marketing-ops@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.installs

@@ -7,7 +7,7 @@ synonyms: [new_paying_character]
 tier: 3
 domain: payments
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.new_paying_roles

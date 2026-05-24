@@ -5,7 +5,7 @@ synonyms: [avg_revenue_per_new_payer]
 tier: 2
 domain: revenue
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.rev_new_paying_users

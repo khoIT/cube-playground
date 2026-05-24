@@ -7,7 +7,7 @@ synonyms: [new_character, new_roles]
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.new_roles

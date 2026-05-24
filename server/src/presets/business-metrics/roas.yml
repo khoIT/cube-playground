@@ -8,7 +8,7 @@ synonyms: [return_on_ad_spend, roas_dn]
 tier: 1
 domain: marketing
 owner: marketing-ops@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.rev_per_install_d7

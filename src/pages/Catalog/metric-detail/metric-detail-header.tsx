@@ -8,7 +8,6 @@ import styled from 'styled-components';
 import { AnomalyBadge } from '../../../shared/concept-shell/anomaly-badge';
 import { useMergedAnomaly } from '../../../shared/concept-shell/use-merged-anomaly';
 import { DomainChip } from '../../../shared/concept-shell/domain-chip';
-import { TierBadge } from '../../../shared/concept-shell/tier-badge';
 import { TrustBadge } from '../../../shared/concept-shell/trust-badge';
 import { TypeIcon } from '../../../shared/concept-shell/type-icon';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
@@ -63,7 +62,6 @@ export function MetricDetailHeader({ metric, onAnomalyClick }: MetricDetailHeade
     <Header>
       <TitleRow>
         <TypeIcon kind="business-metric" />
-        <TierBadge tier={metric.tier} />
         <Title>{metric.label}</Title>
         {metric.synonyms && metric.synonyms.length > 0 && (
           <Synonyms>{metric.synonyms.join(', ')}</Synonyms>

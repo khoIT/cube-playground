@@ -286,6 +286,12 @@ interface FilterPillRowProps<T extends string | number> {
   onChange: (next: Set<T>) => void;
   /** When the option list is empty, render this hint instead of an empty row. */
   emptyHint?: string;
+  /**
+   * Optional per-option renderer. Used by surfaces that want to display
+   * their own chip style (e.g. trust filter using TrustBadge). The row
+   * chrome (label, layout, empty hint) is reused; only the chip changes.
+   */
+  renderOption?: (value: T, active: boolean, toggle: () => void) => React.ReactNode;
 }
 
 export function FilterPillRow<T extends string | number>({
@@ -294,6 +300,7 @@ export function FilterPillRow<T extends string | number>({
   selected,
   onChange,
   emptyHint,
+  renderOption,
 }: FilterPillRowProps<T>) {
   function toggle(v: T) {
     const next = new Set(selected);
@@ -311,6 +318,13 @@ export function FilterPillRow<T extends string | number>({
           const v = isOptionDef(opt) ? opt.value : opt;
           const text = isOptionDef(opt) ? opt.label : String(opt);
           const active = selected.has(v);
+          if (renderOption) {
+            return (
+              <React.Fragment key={String(v)}>
+                {renderOption(v, active, () => toggle(v))}
+              </React.Fragment>
+            );
+          }
           return (
             <Pill
               key={String(v)}

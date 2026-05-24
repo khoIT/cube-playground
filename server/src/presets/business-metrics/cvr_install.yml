@@ -8,7 +8,7 @@ synonyms: [funnel_install_cvr, install_conversion]
 tier: 2
 domain: acquisition
 owner: marketing-ops@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: funnel.users_completed_install

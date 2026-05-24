@@ -127,7 +127,7 @@ describe('business-metrics-loader', () => {
       tier: 4,
       domain: 'engagement',
       owner: 'team@vng',
-      trust: 'beta',
+      trust: 'draft',
       formula: { type: 'measure', ref: 'cube.member' },
     });
 
@@ -147,7 +147,7 @@ describe('business-metrics-loader', () => {
       tier: 3,
       domain: 'revenue',
       owner: 'owner@vng',
-      trust: 'beta',
+      trust: 'draft',
       formula: { type: 'measure', ref: 'recharge.revenue_vnd' },
     });
 

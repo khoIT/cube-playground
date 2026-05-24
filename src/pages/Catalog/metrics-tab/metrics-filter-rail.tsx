@@ -22,6 +22,7 @@ import {
   onFilterBarCollapsedChange,
   setFilterBarCollapsed,
 } from '../../../shared/filter-chip-bar/filter-bar-collapsed-store';
+import { TrustBadge } from '../../../shared/concept-shell/trust-badge';
 import { DOMAINS, TRUST_TIERS } from './business-metric-constants';
 import type {
   BusinessMetricDomain,
@@ -93,12 +94,11 @@ interface MetricsFilterBarProps {
 }
 
 function countActive(filters: MetricFilters): number {
-  // Tier + owner are deliberately not surfaced as facets right now, but their
-  // selected sets still get counted for accurate badge math.
+  // Owner is not surfaced as a facet right now, but its selected set still
+  // counts for accurate badge math.
   return (
     filters.domains.size +
     filters.trusts.size +
-    filters.tiers.size +
     filters.owners.size +
     (filters.parameterisedOnly ? 1 : 0) +
     (filters.showDeprecated ? 1 : 0) +
@@ -153,6 +153,14 @@ export function MetricsFilterBar({ filters, onChange }: MetricsFilterBarProps) {
             options={[...TRUST_TIERS] as BusinessMetricTrust[]}
             selected={filters.trusts}
             onChange={(next) => set('trusts', next)}
+            renderOption={(value, active, toggle) => (
+              <TrustBadge
+                trust={value as BusinessMetricTrust}
+                size="sm"
+                selected={active}
+                onClick={toggle}
+              />
+            )}
           />
           <TogglesRow>
             <TogglesLabel>Options</TogglesLabel>

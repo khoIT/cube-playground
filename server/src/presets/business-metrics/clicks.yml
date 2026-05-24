@@ -5,7 +5,7 @@ synonyms: [ad_clicks]
 tier: 2
 domain: marketing
 owner: marketing-ops@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.clicks

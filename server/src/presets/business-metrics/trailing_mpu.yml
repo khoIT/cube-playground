@@ -7,7 +7,7 @@ synonyms: [tmpu, mtd_paying_users]
 tier: 3
 domain: payments
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.trailing_mpu

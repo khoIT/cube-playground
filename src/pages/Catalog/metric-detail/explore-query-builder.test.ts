@@ -22,7 +22,7 @@ function make(
     tier: 1,
     domain: 'engagement',
     owner: 'data@vng',
-    trust: 'beta',
+    trust: 'draft',
     formula,
   };
 }

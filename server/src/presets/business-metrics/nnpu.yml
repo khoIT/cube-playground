@@ -7,7 +7,7 @@ synonyms: [new_register_new_paying_user]
 tier: 3
 domain: payments
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.new_register_and_paying_users

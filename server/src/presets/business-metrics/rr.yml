@@ -8,7 +8,7 @@ synonyms: [retention_rate, rr_dn, new_user_retention]
 tier: 1
 domain: retention
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.retained_d7

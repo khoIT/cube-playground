@@ -22,7 +22,7 @@ function metric(partial: Partial<BusinessMetric>): BusinessMetric {
     tier: 1,
     domain: 'engagement',
     owner: 'x@y',
-    trust: 'beta',
+    trust: 'draft',
     formula: { type: 'measure', ref: 'cube.member' },
     ...partial,
   } as BusinessMetric;

@@ -6,7 +6,7 @@ synonyms: [lifetime_value_d30]
 tier: 1
 domain: retention
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: ratio
   numerator: mf_users.ltv_total_vnd

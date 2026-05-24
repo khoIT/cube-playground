@@ -5,7 +5,7 @@ synonyms: [revenue_from_npu, new_payer_revenue]
 tier: 2
 domain: revenue
 owner: data-platform@vng
-trust: beta
+trust: draft
 formula:
   type: measure
   ref: mf_users.rev_new_paying_users

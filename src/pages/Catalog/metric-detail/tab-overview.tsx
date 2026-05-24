@@ -60,10 +60,6 @@ export function TabOverview({ metric }: { metric: BusinessMetric }) {
       </Body>
       <Side>
         <Row>
-          <Label>Tier</Label>
-          <span>T{metric.tier}</span>
-        </Row>
-        <Row>
           <Label>Domain</Label>
           <span>{metric.domain}</span>
         </Row>
