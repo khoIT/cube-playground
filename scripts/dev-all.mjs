@@ -16,10 +16,18 @@
  * window — close it manually if you want a fully clean stop.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { platform } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
 const isWindows = platform() === 'win32';
+const here = dirname(fileURLToPath(import.meta.url));
+
+// Boot guard for the external Cube backend. Synchronous so vite/server/chat
+// don't race a not-yet-ready cube_api. The guard self-times-out and exits 0
+// on any unrecoverable failure, so we never block dev startup.
+spawnSync(process.execPath, [resolve(here, 'ensure-cube-api.mjs')], { stdio: 'inherit' });
 
 function runConcurrently(args) {
   // shell:true is required on Windows so child_process can resolve the

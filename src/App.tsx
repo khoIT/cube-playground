@@ -33,6 +33,7 @@ import { ChatOverlay } from './shell/chat-overlay/chat-overlay';
 import { ChatPanel } from './shell/chat-overlay/chat-panel';
 import { useChatSurfaces } from './shell/chat-overlay/use-chat-surfaces';
 import { setOpen } from './shell/chat-overlay/chat-panel-open-store';
+import { CubeApiBanner } from './shell/cube-api-banner';
 import { TopbarTrailingProvider } from './shell/topbar/topbar-trailing-context';
 import { TopbarBreadcrumbProvider } from './shell/topbar/topbar-breadcrumb-context';
 import { pushRecent } from './shell/sidebar/recent-items-store';
@@ -201,6 +202,7 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
         background: T.surface, borderRadius: 18, overflow: 'hidden',
       }}>
         <Topbar onSearchOpen={smartSearch.open} fixedTrailing={<GamePicker />} />
+        <CubeApiBanner />
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto' }}>
           {fatalError ? (
             <Alert
