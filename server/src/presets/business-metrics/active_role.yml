@@ -1,0 +1,16 @@
+id: active_role
+label: Active role
+description: >-
+  Unique game characters/roles that were active during the period. Each role
+  counts once per reporting window regardless of activity volume.
+synonyms: [active_characters, active_roles]
+tier: 3
+domain: engagement
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.active_roles
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

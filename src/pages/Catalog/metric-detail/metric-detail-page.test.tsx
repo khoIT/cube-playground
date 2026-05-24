@@ -77,4 +77,13 @@ describe('MetricDetailPage', () => {
     await waitFor(() => screen.getByText(/No metric named/));
     expect(screen.getByText(/Back to Catalog/)).toBeTruthy();
   });
+
+  it('suggests similar metrics when id is a prefix match', async () => {
+    // ARPDAU id starts with "arp" — suggestion list should pick it up via
+    // prefix scoring.
+    harness('/catalog/metric/arp');
+    await waitFor(() => screen.getByText(/No metric named/));
+    expect(screen.getByText(/Did you mean/)).toBeTruthy();
+    expect(screen.getByText('ARPDAU')).toBeTruthy();
+  });
 });

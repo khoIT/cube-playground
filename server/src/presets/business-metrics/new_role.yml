@@ -1,0 +1,16 @@
+id: new_role
+label: New role
+description: >-
+  Unique game characters/roles created and first-time-active in the period.
+  Each role counts once at creation.
+synonyms: [new_character, new_roles]
+tier: 3
+domain: engagement
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.new_roles
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

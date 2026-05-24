@@ -1,0 +1,16 @@
+id: trailing_mau
+label: Trailing MAU
+description: >-
+  Trailing monthly active users — unique active users from the 1st of the
+  current month through the selected timestamp.
+synonyms: [tmau, mtd_active_users]
+tier: 3
+domain: engagement
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.trailing_mau
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

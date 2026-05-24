@@ -1,0 +1,18 @@
+id: cpn
+label: CPN
+description: >-
+  Cost per new registered user — marketing cost divided by NRU. The average
+  spend to acquire one first-time active user.
+synonyms: [cost_per_nru, cost_per_new_user]
+tier: 2
+domain: marketing
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.marketing_cost
+  denominator: mf_users.new_users
+unit: USD
+format: currency
+game_compatibility:
+  required_cubes: [mf_users]

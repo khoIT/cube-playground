@@ -1,0 +1,14 @@
+id: acu
+label: ACU
+description: Average concurrent users — mean of CCU samples within each hour.
+synonyms: [avg_concurrent_users]
+tier: 3
+domain: concurrency
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.acu
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

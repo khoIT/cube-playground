@@ -1,0 +1,16 @@
+id: nnpu
+label: NNPU
+description: >-
+  New register & new paying user — users who are both NRU and NPU on the same
+  report date. For weekly / monthly windows this is the sum of daily values.
+synonyms: [new_register_new_paying_user]
+tier: 3
+domain: payments
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.new_register_and_paying_users
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

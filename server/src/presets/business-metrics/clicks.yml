@@ -1,0 +1,14 @@
+id: clicks
+label: Clicks
+description: Total ad clicks in the period across paid acquisition channels.
+synonyms: [ad_clicks]
+tier: 2
+domain: marketing
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.clicks
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

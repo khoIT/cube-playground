@@ -1,0 +1,16 @@
+id: trailing_wau
+label: Trailing WAU
+description: >-
+  Trailing weekly active users — unique active users from the start of the
+  current ISO week (Monday) through the selected timestamp.
+synonyms: [twau, wtd_active_users]
+tier: 3
+domain: engagement
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.trailing_wau
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

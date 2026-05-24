@@ -1,0 +1,16 @@
+id: trailing_mpu
+label: Trailing MPU
+description: >-
+  Trailing monthly paying users — unique paying users from the 1st of the
+  current month through the selected timestamp.
+synonyms: [tmpu, mtd_paying_users]
+tier: 3
+domain: payments
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.trailing_mpu
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

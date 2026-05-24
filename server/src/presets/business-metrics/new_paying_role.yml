@@ -1,0 +1,16 @@
+id: new_paying_role
+label: New paying role
+description: >-
+  Unique game characters/roles that made their first ever payment during the
+  period. Each role counts once in its lifetime.
+synonyms: [new_paying_character]
+tier: 3
+domain: payments
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.new_paying_roles
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

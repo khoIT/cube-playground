@@ -1,0 +1,24 @@
+id: ltv
+label: LTV (cohort, day n)
+description: >-
+  Cumulative D0..Dn revenue from new registered users on the report date,
+  divided by NRU on D0. Canonical parameterized LTV — concrete day variants
+  (e.g. ltv_30) are equivalent fixed-parameter projections.
+synonyms: [lifetime_value, ltv_cohort, ltv_dn]
+tier: 1
+domain: retention
+owner: data-platform@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.ltv_total_vnd
+  denominator: mf_users.new_users
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [mf_users]
+parameter:
+  name: n
+  label: Day (n)
+  options: [0, 1, 3, 7, 14, 21, 30, 60, 90, 120, 150, 180]
+  default: 30

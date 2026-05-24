@@ -1,0 +1,16 @@
+id: impressions
+label: Impressions
+description: >-
+  Total ad impressions in the selected period — the number of times an ad is
+  shown on a user's screen, regardless of interaction.
+synonyms: [ad_impressions, ad_views]
+tier: 2
+domain: marketing
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.impressions
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

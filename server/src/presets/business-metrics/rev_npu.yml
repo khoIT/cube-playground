@@ -1,0 +1,15 @@
+id: rev_npu
+label: RevNPU
+description: Total revenue from new paying users (NPU) in the period.
+synonyms: [revenue_from_npu, new_payer_revenue]
+tier: 2
+domain: revenue
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.rev_new_paying_users
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [mf_users]

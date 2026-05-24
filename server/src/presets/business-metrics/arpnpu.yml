@@ -1,0 +1,16 @@
+id: arpnpu
+label: ARPNPU
+description: Average revenue per new paying user (RevNPU / NPU).
+synonyms: [avg_revenue_per_new_payer]
+tier: 2
+domain: revenue
+owner: data-platform@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.rev_new_paying_users
+  denominator: mf_users.new_paying_users
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [mf_users]

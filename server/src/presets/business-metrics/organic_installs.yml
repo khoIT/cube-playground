@@ -1,0 +1,16 @@
+id: organic_installs
+label: Organic installs
+description: >-
+  Installs attributed to an organic media source (first media_source for the
+  appsflyer_id is Organic).
+synonyms: [non_paid_installs]
+tier: 2
+domain: acquisition
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.organic_installs
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

@@ -1,0 +1,15 @@
+id: ctr
+label: CTR
+description: Click-through rate — ratio of ad clicks to ad impressions.
+synonyms: [click_through_rate]
+tier: 2
+domain: marketing
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.clicks
+  denominator: mf_users.impressions
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]

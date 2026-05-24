@@ -1,0 +1,17 @@
+id: nru_install_rate
+label: NRU / Install rate
+description: >-
+  Ratio of new registered users to installs — measures how many installs
+  convert into first-time active in-game users.
+synonyms: [nru_per_install, install_to_register_rate]
+tier: 2
+domain: acquisition
+owner: data-platform@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.new_users
+  denominator: mf_users.installs
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]

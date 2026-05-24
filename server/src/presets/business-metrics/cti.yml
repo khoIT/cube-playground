@@ -1,0 +1,17 @@
+id: cti
+label: CTI
+description: >-
+  Click-to-install rate — installs divided by clicks. Measures how efficiently
+  ad clicks convert into app installations.
+synonyms: [click_to_install_rate]
+tier: 2
+domain: marketing
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.installs
+  denominator: mf_users.clicks
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]

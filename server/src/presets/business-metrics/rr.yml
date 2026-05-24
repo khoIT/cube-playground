@@ -1,0 +1,23 @@
+id: rr
+label: New-user retention (day n)
+description: >-
+  Classic exact-day new-user retention rate — Ruser(n) / NRU on D0.
+  Canonical parameterized retention; concrete fixed variants (rr01, rr07, rr30)
+  are equivalent projections.
+synonyms: [retention_rate, rr_dn, new_user_retention]
+tier: 1
+domain: retention
+owner: data-platform@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: mf_users.retained_d7
+  denominator: mf_users.new_users
+format: percent
+game_compatibility:
+  required_cubes: [mf_users]
+parameter:
+  name: n
+  label: Day (n)
+  options: [1, 2, 3, 4, 5, 6, 7, 14, 21, 30, 60, 90]
+  default: 7

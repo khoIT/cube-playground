@@ -1,0 +1,14 @@
+id: lcu
+label: LCU
+description: Lowest concurrent users — min of CCU samples within each hour.
+synonyms: [lowest_concurrent_users, min_concurrent_users]
+tier: 3
+domain: concurrency
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.lcu
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]

@@ -1,0 +1,14 @@
+id: paying_role
+label: Paying role
+description: Unique game characters/roles that made a payment during the period.
+synonyms: [paying_characters, paying_roles]
+tier: 3
+domain: payments
+owner: data-platform@vng
+trust: beta
+formula:
+  type: measure
+  ref: mf_users.paying_roles
+format: compact
+game_compatibility:
+  required_cubes: [mf_users]
