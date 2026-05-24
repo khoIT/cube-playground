@@ -62,10 +62,9 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled }: C
   return (
     <div
       style={{
-        flex: 1, minWidth: 0,
+        minWidth: 0,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         padding: '48px 24px 48px',
-        overflowY: 'auto',
       }}
     >
       <div style={{ width: '100%', maxWidth: 760, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

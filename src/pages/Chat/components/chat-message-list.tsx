@@ -73,8 +73,9 @@ export function ChatMessageList({ messages, streaming, onFollowupPick, compact }
   return (
     <div
       style={{
-        flex: 1,
-        overflowY: 'auto',
+        // Side-panel (compact) owns its own scroll. Main route delegates scroll
+        // to the outer page wrapper so the scrollbar sits at the viewport edge.
+        ...(compact ? { flex: 1, overflowY: 'auto' as const } : null),
         paddingTop: 12,
         paddingBottom: 8,
       }}

@@ -238,8 +238,10 @@ export function ChatThreadPage() {
     >
       {/* Center the thread on wide viewports so long lines stay readable.
        *  Inner wrapper caps at 880px and inherits column layout from the
-       *  outer flex:1 box, which still spans full width for background. */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+       *  outer flex:1 box, which still spans full width for background.
+       *  The OUTER box owns the scroll so the scrollbar tracks the viewport's
+       *  right edge instead of the 880px column's edge (less visual noise). */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', overflowY: 'auto' }}>
         <div
           style={{
             width: '100%',
