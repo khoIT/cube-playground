@@ -7,6 +7,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { expandRelativeDateRange } from './expand-relative-date-range.js';
+import { normalizeInDateRangeValues } from './normalize-in-date-range-values.js';
 import type {
   PredicateNode,
   GroupNode,
@@ -70,7 +71,14 @@ function leafToCubeFilter(node: LeafNode): CubeLeafFilter | null {
 
   // set/notSet carry no values
   if (node.op !== 'set' && node.op !== 'notSet') {
-    filter.values = node.values.map(String);
+    // Authoring tools may wrap an inDateRange 2-tuple as `[[start, end]]`
+    // (each element treated as one logical value). Flatten before
+    // stringifying so the length-2 branch below accepts it.
+    const rawValues =
+      node.op === 'inDateRange'
+        ? normalizeInDateRangeValues(node.values)
+        : node.values;
+    filter.values = rawValues.map(String);
   }
 
   // inDateRange requires exactly 2 ISO date strings. Authoring tools sometimes

@@ -178,6 +178,94 @@ describe('segments CRUD routes', () => {
     expect(q.filters[0]).toMatchObject({ member: 'U.y', operator: 'contains', values: ['foo'] });
   });
 
+  it('PATCH with predicate_tree preserves uid_count and flips status to refreshing', async () => {
+    // Seed a predicate segment with a synthetic uid_count to simulate a
+    // previously-refreshed cohort. Inserts directly so we control the size
+    // independently of the (mock-less) refresh job.
+    const postRes = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      payload: {
+        name: 'WithCohort',
+        type: 'predicate',
+        predicate_tree: {
+          kind: 'group', id: 'r', op: 'AND',
+          children: [
+            { kind: 'leaf', id: 'l1', member: 'U.x', type: 'string', op: 'equals', values: ['a'] },
+          ],
+        },
+      },
+      headers: { 'x-owner': 'grace' },
+    });
+    const { id } = postRes.json();
+
+    // Simulate prior refresh state — true count 214_072, list capped at 100k.
+    const { getDb } = await import('../src/db/sqlite.js');
+    const sampleList = JSON.stringify(Array.from({ length: 100_000 }, (_, i) => `u${i}`));
+    getDb()
+      .prepare('UPDATE segments SET uid_count = ?, uid_list_json = ?, status = ? WHERE id = ?')
+      .run(214_072, sampleList, 'fresh', id);
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: {
+        predicate_tree: {
+          kind: 'group', id: 'r2', op: 'AND',
+          children: [
+            { kind: 'leaf', id: 'l2', member: 'U.y', type: 'string', op: 'equals', values: ['b'] },
+          ],
+        },
+      },
+      headers: { 'x-owner': 'grace' },
+    });
+
+    expect(patchRes.statusCode).toBe(200);
+    const patched = patchRes.json();
+    // uid_count is NOT silently overwritten with the truncated-list length.
+    expect(patched.uid_count).toBe(214_072);
+    // Status flips to refreshing so the UI shows in-flight; the queued
+    // refresh job will materialize the fresh count.
+    expect(patched.status).toBe('refreshing');
+  });
+
+  it('PATCH metadata-only (name) leaves uid_count and status untouched', async () => {
+    const postRes = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      payload: {
+        name: 'NameOnly',
+        type: 'predicate',
+        predicate_tree: {
+          kind: 'group', id: 'r', op: 'AND',
+          children: [
+            { kind: 'leaf', id: 'l1', member: 'U.x', type: 'string', op: 'equals', values: ['a'] },
+          ],
+        },
+      },
+      headers: { 'x-owner': 'henry' },
+    });
+    const { id } = postRes.json();
+
+    const { getDb } = await import('../src/db/sqlite.js');
+    getDb()
+      .prepare('UPDATE segments SET uid_count = ?, status = ? WHERE id = ?')
+      .run(42_000, 'fresh', id);
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { name: 'Renamed' },
+      headers: { 'x-owner': 'henry' },
+    });
+
+    expect(patchRes.statusCode).toBe(200);
+    const patched = patchRes.json();
+    expect(patched.name).toBe('Renamed');
+    expect(patched.uid_count).toBe(42_000);
+    expect(patched.status).toBe('fresh');
+  });
+
   it('POST /append de-duplicates uid list and updates uid_count', async () => {
     const postRes = await app.inject({
       method: 'POST',

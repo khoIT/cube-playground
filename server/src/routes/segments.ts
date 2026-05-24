@@ -198,23 +198,43 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       }
     }
 
-    const uidList = patch.uid_list !== undefined
-      ? patch.uid_list
-      : JSON.parse((row.uid_list_json as string) ?? '[]');
+    // When the caller didn't provide uid_list, preserve the existing row
+    // values. Recomputing `uid_count = uid_list.length` would silently
+    // overwrite the true cohort size with the cap of a previously-truncated
+    // sample (MAX_UID_LIST = 100k in refresh-segment.ts), making the post-save
+    // size display a lie until the next refresh.
+    const uidListProvided = patch.uid_list !== undefined;
+    const nextUidCount = uidListProvided
+      ? (patch.uid_list as unknown[]).length
+      : (row.uid_count as number);
+    const nextUidListJson = uidListProvided
+      ? JSON.stringify(patch.uid_list)
+      : (row.uid_list_json as string);
+
+    // Auto-refresh when the predicate changed on a predicate segment — the
+    // cube_query_json was just regenerated, so the stored uid_count/uid_list
+    // are stale by construction. Flip status to 'refreshing' so the UI
+    // surfaces in-flight state immediately.
+    const predicateChanged =
+      patch.predicate_tree !== undefined &&
+      patch.predicate_tree !== null &&
+      row.type === 'predicate';
+    const nextStatus = predicateChanged ? 'refreshing' : (row.status as string);
 
     db.prepare(`
       UPDATE segments SET
         name = ?, cube = ?, predicate_tree_json = ?, cube_query_json = ?,
-        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, updated_at = ?
+        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, status = ?, updated_at = ?
       WHERE id = ?
     `).run(
       patch.name ?? row.name,
       patch.cube !== undefined ? patch.cube : row.cube,
       patch.predicate_tree !== undefined ? (patch.predicate_tree ? JSON.stringify(patch.predicate_tree) : null) : row.predicate_tree_json,
       cubeQueryJson,
-      uidList.length,
-      JSON.stringify(uidList),
+      nextUidCount,
+      nextUidListJson,
       patch.refresh_cadence_min !== undefined ? patch.refresh_cadence_min : row.refresh_cadence_min,
+      nextStatus,
       now,
       id,
     );
@@ -223,6 +243,10 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       db.prepare('DELETE FROM segment_tags WHERE segment_id = ?').run(id);
       const insertTag = db.prepare('INSERT OR IGNORE INTO segment_tags (segment_id, tag) VALUES (?,?)');
       for (const tag of patch.tags) insertTag.run(id, tag);
+    }
+
+    if (predicateChanged) {
+      void enqueueRefresh(id);
     }
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;

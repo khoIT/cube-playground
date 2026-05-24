@@ -90,6 +90,12 @@ describe('predicate-to-sql', () => {
       ).toBe("events.ts BETWEEN '2026-01-01' AND '2026-12-31'");
     });
 
+    it('inDateRange accepts the nested `[[start, end]]` shape from the UI authoring path', () => {
+      expect(
+        predicateToSql(leaf('events.ts', 'inDateRange', [['2026-01-01', '2026-12-31']])),
+      ).toBe("events.ts BETWEEN '2026-01-01' AND '2026-12-31'");
+    });
+
     it('empty equals → guaranteed-false sentinel', () => {
       expect(predicateToSql(leaf('users.country', 'equals', []))).toBe('1=0');
     });

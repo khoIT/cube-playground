@@ -127,6 +127,54 @@ describe('treeToCubeFilters', () => {
     expect((f as { values: string[] }).values[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it('normalizes inDateRange values wrapped as `[[start, end]]` to a flat tuple', () => {
+    // Authoring path (segments-save-bar/build-predicate-from-rows) emits the
+    // nested shape because each `values[i]` is one logical value. Translator
+    // must accept it so deeply-nested predicates from cohort rows aren't
+    // silently dropped — which would make the segment match the surrounding
+    // date window instead of the intended bucket.
+    const tree = leaf({
+      member: 'mf_users.first_active_date',
+      op: 'inDateRange',
+      values: [['2026-05-03', '2026-05-09']],
+      type: 'time',
+    });
+    const [f] = treeToCubeFilters(tree);
+    expect(f).toEqual({
+      member: 'mf_users.first_active_date',
+      operator: 'inDateRange',
+      values: ['2026-05-03', '2026-05-09'],
+    });
+  });
+
+  it('preserves the nested-bucket filter when embedded inside AND > OR > AND', () => {
+    // Regression: replicates the production-broken predicate shape that was
+    // collapsing to "outer date range only" in `cube_query_json`.
+    const tree = group('AND', [
+      leaf({
+        member: 'mf_users.first_active_date',
+        op: 'inDateRange',
+        values: ['last 30 days'],
+        type: 'time',
+      }),
+      group('OR', [
+        group('AND', [
+          leaf({
+            member: 'mf_users.first_active_date',
+            op: 'inDateRange',
+            values: [['2026-05-03', '2026-05-09']],
+            type: 'time',
+          }),
+        ]),
+      ]),
+    ]);
+    const filters = treeToCubeFilters(tree);
+    // Both the outer 30-day filter and the inner bucket filter must survive.
+    expect(filters).toHaveLength(2);
+    const or = filters[1] as { or: Array<{ and: Array<{ values: string[] }> }> };
+    expect(or.or[0].and[0].values).toEqual(['2026-05-03', '2026-05-09']);
+  });
+
   it('drops inDateRange filter when the single value is unrecognized', () => {
     const tree = group('AND', [
       leaf({ member: 'U.country', op: 'equals', values: ['US'] }),
