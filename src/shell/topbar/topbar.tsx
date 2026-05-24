@@ -1,6 +1,7 @@
 /**
  * Topbar — sticky 56px chrome inside <main>.
- * Layout: Breadcrumb (flex 1) | trailing slot | Search input (420) | Avatar.
+ * Layout: Breadcrumb (flex 1) | trailing slot | fixedTrailing (GamePicker) |
+ *         AskCubeFab (when fabVisible) | Search input | NotificationBell | Avatar.
  * Backdrop blur w/ opaque fallback; sits below AntD modal portals (z 1000+).
  */
 import React from 'react';
@@ -10,6 +11,9 @@ import { SearchTrigger } from './search-trigger';
 import { AvatarMenu } from './avatar-menu';
 import { TopbarTrailingContext } from './topbar-trailing-context';
 import { NotificationBell } from '../../components/Header/notification-bell';
+import { AskCubeFab } from '../chat-overlay/ask-cube-fab';
+import { useChatSurfaces } from '../chat-overlay/use-chat-surfaces';
+import { setOpen } from '../chat-overlay/chat-panel-open-store';
 
 interface TopbarProps {
   onSearchOpen: () => void;
@@ -20,6 +24,7 @@ interface TopbarProps {
 
 export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
   const { node: trailing } = React.useContext(TopbarTrailingContext);
+  const { fabVisible, panelVisible } = useChatSurfaces();
   return (
     <header
       style={{
@@ -43,6 +48,9 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {fixedTrailing}
         </div>
+      )}
+      {fabVisible && (
+        <AskCubeFab onClick={() => setOpen(true)} panelVisible={panelVisible} />
       )}
       <SearchTrigger onOpen={onSearchOpen} />
       <NotificationBell />

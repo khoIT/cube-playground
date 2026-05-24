@@ -1,6 +1,9 @@
 /**
- * AskCubeFab — fixed bottom-right floating action button that opens the
- * chat panel. Rendered only when panelVisible=false and pageVisible=false.
+ * AskCubeFab — compact pill in the topbar that opens the chat panel.
+ * Renders only when fabVisible=true (panel closed, off /chat). Hides while
+ * the panel is open and reappears when the user closes it.
+ *
+ * Filename kept for git/test continuity; the surface is no longer floating.
  */
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
@@ -20,36 +23,31 @@ export function AskCubeFab({ onClick, panelVisible = false }: AskCubeFabProps) {
       aria-pressed={panelVisible}
       onClick={onClick}
       style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        zIndex: 900,
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
-        gap: 8,
-        height: 42,
-        padding: '0 18px',
+        gap: 6,
+        height: 36,
+        padding: '0 14px',
         borderRadius: 999,
         border: 'none',
-        background: T.n900,
+        background: T.brand,
         color: '#fff',
         fontFamily: T.fSans,
         fontWeight: 600,
-        fontSize: 14,
+        fontSize: 13,
         cursor: 'pointer',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-        transition: 'background 0.15s, transform 0.12s',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+        transition: 'background 120ms ease, transform 120ms ease',
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = T.brand;
-        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+        (e.currentTarget as HTMLButtonElement).style.background = T.brandHover;
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = T.n900;
-        (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+        (e.currentTarget as HTMLButtonElement).style.background = T.brand;
       }}
     >
-      <Icon icon={MessageCircle} size={16} color="#fff" />
+      <Icon icon={MessageCircle} size={14} color="#fff" />
       Ask Cube
     </button>
   );

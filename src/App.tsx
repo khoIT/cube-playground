@@ -215,7 +215,7 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
       </main>
       {/* Chat panel is a flex sibling so it pushes main content (not an overlay). */}
       {panelVisible && <ChatPanel onClose={() => setOpen(false)} />}
-      {/* FAB renders fixed-position inside ChatOverlay — not part of the flex row. */}
+      {/* Side-effect host: listens for game-change to close the panel. */}
       <ChatOverlay />
     </div>
   );
