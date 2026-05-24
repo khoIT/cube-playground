@@ -45,28 +45,33 @@ function normalizeSession(raw: RawSessionSummary): SessionSummary {
 }
 
 type State =
-  | { status: 'idle' }
-  | { status: 'loading' }
+  | { status: 'idle'; sessions: SessionSummary[] }
+  | { status: 'loading'; sessions: SessionSummary[] }
   | { status: 'loaded'; sessions: SessionSummary[] }
-  | { status: 'error'; error: string };
+  | { status: 'error'; error: string; sessions: SessionSummary[] };
 
 type Action =
   | { type: 'FETCH' }
   | { type: 'SUCCESS'; sessions: SessionSummary[] }
   | { type: 'ERROR'; error: string };
 
-function reducer(_: State, action: Action): State {
+// Keep the previous sessions during refetches so the sidebar tray doesn't
+// flash to "Loading…" between session-changed notifies. The list is also
+// what the user wants to see most of the time, so dropping it mid-refresh
+// produced the perceived bug "new chat doesn't show up" — the list was
+// briefly empty, then repainted after SUCCESS arrived.
+function reducer(prev: State, action: Action): State {
   switch (action.type) {
-    case 'FETCH':   return { status: 'loading' };
+    case 'FETCH':   return { status: 'loading', sessions: prev.sessions };
     case 'SUCCESS': return { status: 'loaded', sessions: action.sessions };
-    case 'ERROR':   return { status: 'error', error: action.error };
-    default:        return _;
+    case 'ERROR':   return { status: 'error', error: action.error, sessions: prev.sessions };
+    default:        return prev;
   }
 }
 
 export function useChatSessionsList(query?: string) {
   const gameId = useActiveGameId();
-  const [state, dispatch] = useReducer(reducer, { status: 'idle' });
+  const [state, dispatch] = useReducer(reducer, { status: 'idle', sessions: [] });
   const trimmed = (query ?? '').trim();
 
   const fetchSessions = useCallback(async (signal?: AbortSignal) => {
@@ -76,6 +81,9 @@ export function useChatSessionsList(query?: string) {
       if (trimmed) params.set('q', trimmed);
       const res = await fetch(`/api/chat/sessions?${params.toString()}`, {
         headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
+        // Defeat HTTP/heuristic caching — a freshly-created session must be
+        // visible in the next list response, not stale.
+        cache: 'no-store',
         signal,
       });
       if (!res.ok) {
@@ -107,7 +115,10 @@ export function useChatSessionsList(query?: string) {
   }, [fetchSessions]);
 
   return {
-    sessions: state.status === 'loaded' ? state.sessions : [],
+    // Always surface the latest known sessions; loading/error states are
+    // signalled via the separate flags so the UI can choose to overlay a
+    // spinner instead of clearing the list.
+    sessions: state.sessions,
     isLoading: state.status === 'loading',
     error: state.status === 'error' ? state.error : null,
     refetch: fetchSessions,

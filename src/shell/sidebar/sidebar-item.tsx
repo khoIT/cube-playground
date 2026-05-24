@@ -29,13 +29,16 @@ interface SidebarItemProps {
   muted?: boolean;
   /** Right-aligned trailing accessory (e.g. count badge). */
   trailing?: React.ReactNode;
+  /** Only render `trailing` while the row is hovered (or focus-within).
+   *  Used for hover-only kebab menus that should stay out of sight at rest. */
+  trailingShowOnHover?: boolean;
   /** Sidebar collapsed mode — render icon-only. */
   collapsed?: boolean;
 }
 
 export function SidebarItem({
   icon, label, to, matchPrefix, expandable, expanded,
-  primary, onClick, indent, muted, trailing, collapsed,
+  primary, onClick, indent, muted, trailing, trailingShowOnHover, collapsed,
 }: SidebarItemProps) {
   const location = useLocation();
   const prefix = matchPrefix ?? to;
@@ -46,6 +49,7 @@ export function SidebarItem({
   );
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = React.useState(false);
   React.useEffect(() => {
     if (isActive) {
       scrollRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -83,9 +87,11 @@ export function SidebarItem({
         transition: 'background .12s',
       }}
       onMouseEnter={e => {
+        setHovered(true);
         if (!(indent && isActive)) e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
       }}
       onMouseLeave={e => {
+        setHovered(false);
         e.currentTarget.style.background = indent && isActive ? 'rgba(0,0,0,0.05)' : 'transparent';
       }}
     >
@@ -112,7 +118,7 @@ export function SidebarItem({
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{label}</span>
 
-      {trailing}
+      {trailing && (trailingShowOnHover ? hovered : true) && trailing}
       {expandable && (
         <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} color={T.n400} />
       )}

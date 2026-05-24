@@ -7,14 +7,19 @@
  * /chat history rail shows, scoped to the active game.
  */
 import React from 'react';
+import { useHistory, useRouteMatch } from 'react-router-dom';
 import { SidebarItem } from './sidebar-item';
 import { useChatSessionsList } from '../../pages/Chat/hooks/use-chat-sessions-list';
 import { openChatSearch } from '../../shared/chat-search/chat-search-store';
+import { ChatRowKebabMenu } from '../../shared/chat-recents/chat-row-kebab-menu';
 
 const VISIBLE = 6;
 
 export function SidebarChatRecents() {
   const { sessions, isLoading, error } = useChatSessionsList();
+  const history = useHistory();
+  const match = useRouteMatch<{ id?: string }>('/chat/:id');
+  const activeChatId = match?.params?.id;
 
   if (error) {
     return <SidebarItem label="Couldn't load chats" to="/chat" indent muted />;
@@ -28,6 +33,14 @@ export function SidebarChatRecents() {
     return <SidebarItem label="No conversations yet" to="/chat" indent muted />;
   }
 
+  // If the user deletes the conversation they're currently viewing, bounce
+  // back to /chat so the route doesn't 404 on the next fetch.
+  function handleDeleted(deletedId: string) {
+    if (activeChatId === deletedId) {
+      history.push('/chat');
+    }
+  }
+
   const shown = sessions.slice(0, VISIBLE);
   return (
     <>
@@ -37,6 +50,14 @@ export function SidebarChatRecents() {
           label={s.title || 'Chat'}
           to={`/chat/${s.id}`}
           indent
+          trailingShowOnHover
+          trailing={
+            <ChatRowKebabMenu
+              sessionId={s.id}
+              sessionTitle={s.title}
+              onDeleted={handleDeleted}
+            />
+          }
         />
       ))}
       {/* Always-present search trigger so users can find older conversations

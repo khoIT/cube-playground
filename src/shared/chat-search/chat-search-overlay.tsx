@@ -17,6 +17,7 @@ import { T, Icon } from '../../shell/theme';
 import { useChatSessionsList } from '../../pages/Chat/hooks/use-chat-sessions-list';
 import { groupSessions, formatTimeAgoLong } from './group-sessions';
 import { closeChatSearch, useChatSearchOpen } from './chat-search-store';
+import { ChatRowKebabMenu } from '../chat-recents/chat-row-kebab-menu';
 
 const DEBOUNCE_MS = 200;
 
@@ -64,6 +65,15 @@ function OverlayBody() {
     if (!id) return;
     closeChatSearch();
     history.push(`/chat/${id}`);
+  }
+
+  // If the user deletes the conversation they're currently viewing, bounce
+  // back to /chat so the route doesn't 404 on the next render.
+  function handleDeleted(deletedId: string) {
+    const activeMatch = window.location.hash.match(/^#\/chat\/([^?]+)/);
+    if (activeMatch?.[1] === deletedId) {
+      history.push('/chat');
+    }
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -118,6 +128,7 @@ function OverlayBody() {
               selectedIndex={selectedIndex}
               onHoverIndex={setSelectedIndex}
               onPick={openSession}
+              onDeleted={handleDeleted}
               flatStartIndex={0}
             />
           )}
@@ -155,12 +166,13 @@ function SearchInput({
 }
 
 function GroupedList({
-  groups, selectedIndex, onHoverIndex, onPick, flatStartIndex,
+  groups, selectedIndex, onHoverIndex, onPick, onDeleted, flatStartIndex,
 }: {
   groups: ReturnType<typeof groupSessions>;
   selectedIndex: number;
   onHoverIndex: (i: number) => void;
   onPick: (id: string) => void;
+  onDeleted: (id: string) => void;
   flatStartIndex: number;
 }) {
   let cursor = flatStartIndex;
@@ -181,16 +193,24 @@ function GroupedList({
               const flatIndex = startIdx + i;
               const active = flatIndex === selectedIndex;
               return (
-                <button
+                <div
                   key={s.id}
-                  type="button"
+                  role="button"
+                  tabIndex={-1}
                   data-row-index={flatIndex}
                   data-testid={`chat-search-row-${s.id}`}
                   onMouseEnter={() => onHoverIndex(flatIndex)}
                   onClick={() => onPick(s.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onPick(s.id);
+                    }
+                  }}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    width: '100%', padding: '12px 20px', border: 'none', background: active ? T.surfaceSubtle : 'transparent',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '12px 20px',
+                    background: active ? T.surfaceSubtle : 'transparent',
                     cursor: 'pointer', textAlign: 'left',
                   }}
                 >
@@ -199,9 +219,16 @@ function GroupedList({
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{s.title || 'Untitled'}</span>
                   <span style={{
-                    flexShrink: 0, fontFamily: T.fSans, fontSize: 12, color: T.n500, marginLeft: 16,
+                    flexShrink: 0, fontFamily: T.fSans, fontSize: 12, color: T.n500,
                   }}>{formatTimeAgoLong(s.updatedAt ?? s.createdAt)}</span>
-                </button>
+                  {active && (
+                    <ChatRowKebabMenu
+                      sessionId={s.id}
+                      sessionTitle={s.title}
+                      onDeleted={onDeleted}
+                    />
+                  )}
+                </div>
               );
             })}
           </div>

@@ -31,7 +31,13 @@ export function RecentItems({
   React.useEffect(() => {
     const handler = () => setItems(getRecent(module));
     window.addEventListener('gds-cube:recent-changed', handler);
-    return () => window.removeEventListener('gds-cube:recent-changed', handler);
+    // Game switch swaps the underlying bucket key — re-read so the tray
+    // shows the new game's recents instead of the previous game's stale ones.
+    window.addEventListener('gds-cube:game-change', handler);
+    return () => {
+      window.removeEventListener('gds-cube:recent-changed', handler);
+      window.removeEventListener('gds-cube:game-change', handler);
+    };
   }, [module]);
 
   const items = filter ? rawItems.filter(i => filter({ id: i.id, title: i.title })) : rawItems;

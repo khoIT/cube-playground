@@ -1,14 +1,19 @@
 /**
  * Recent items LRU store, persisted in localStorage.
- * Used by sidebar Data Model / Metrics Catalog / Segments / Chat sections.
+ * Used by sidebar Data Model / Metrics Catalog / Segments sections.
  *
- * Key shape: gds-cube.recent.v1.{module}
- * Max items: 8 (oldest evicted on push).
+ * Key shape: gds-cube.recent.v2.{module}.{gameId}
+ * Max items per (module, gameId): 8 (oldest evicted on push).
+ *
+ * v2 added per-game scoping so switching game in the picker yields the right
+ * recents tray; v1 mixed all games into one bucket and showed stale items.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const MAX = 8;
 const EVENT = 'gds-cube:recent-changed';
+const GAME_STORAGE_KEY = 'gds-cube:active-game';
+const NO_GAME = '__default__';
 
 export type RecentModule = 'data-model' | 'metrics-catalog' | 'segments';
 
@@ -23,7 +28,16 @@ export interface RecentItem {
   href?: string;
 }
 
-const key = (m: RecentModule) => `gds-cube.recent.${VERSION}.${m}`;
+function activeGameId(): string {
+  try {
+    return localStorage.getItem(GAME_STORAGE_KEY) || NO_GAME;
+  } catch {
+    return NO_GAME;
+  }
+}
+
+const key = (m: RecentModule, gameId: string = activeGameId()) =>
+  `gds-cube.recent.${VERSION}.${m}.${gameId}`;
 
 export function getRecent(module: RecentModule): RecentItem[] {
   try {
