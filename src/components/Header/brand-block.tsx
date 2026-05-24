@@ -73,7 +73,7 @@ export function BrandBlock() {
   const ariaLabel = `VNGGAMES ${suffix}`;
 
   return (
-    <Wrap to="/build" aria-label={ariaLabel}>
+    <Wrap to="/chat" aria-label={ariaLabel}>
       <Logo src="/apple-touch-icon.png" alt="" aria-hidden />
       <BrandMark>Cube</BrandMark>
       <Divider />
