@@ -1,6 +1,6 @@
 {
   "_comment": "GDS Cube playground configuration. Plain-text registry only — no secrets, tokens, or credentials.",
-  "defaultGameId": "ptg",
+  "defaultGameId": "ballistar",
   "games": [
     {
       "id": "ptg",
