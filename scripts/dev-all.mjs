@@ -22,11 +22,13 @@ import { platform } from 'node:os';
 const isWindows = platform() === 'win32';
 
 function runConcurrently(args) {
-  // No shell: true — the shell would join args with spaces and re-tokenize,
-  // splitting each "npm run dev" command into three separate words.
-  // On Windows, npx is a .cmd file so we point at it directly.
-  const npxCmd = isWindows ? 'npx.cmd' : 'npx';
-  const cc = spawn(npxCmd, ['concurrently', ...args], { stdio: 'inherit' });
+  // shell:true is required on Windows so child_process can resolve the
+  // npx.cmd shim — Node 18.20+/20.12+/22 (CVE-2024-27980 hardening) refuses
+  // to spawn .cmd/.bat files without it. With shell:true the shell joins
+  // args with spaces and re-tokenizes, so multi-word commands like
+  // "npm run dev" must be quoted to survive as a single concurrently arg.
+  const quoted = args.map((a) => (a.includes(' ') ? `"${a}"` : a));
+  const cc = spawn('npx', ['concurrently', ...quoted], { stdio: 'inherit', shell: true });
   cc.on('exit', (code) => process.exit(code ?? 0));
 }
 
