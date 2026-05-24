@@ -15,7 +15,7 @@ import {
 } from '../metric-detail/metric-detail-tabs';
 import { TabActivity } from '../metric-detail/tab-activity';
 import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
-import { useConcepts } from '../data-model-tab/use-concepts';
+import { normaliseFqn, useConcepts } from '../data-model-tab/use-concepts';
 import { ConceptDetailHeader } from './concept-detail-header';
 import { RightRailConcept } from './right-rail-concept';
 import { TabFormulaConcept } from './tab-formula-concept';
@@ -56,17 +56,6 @@ const Status = styled.div`
 `;
 
 const VALID_TYPES: ConceptType[] = ['measure', 'dimension', 'segment'];
-
-// Historic links from before the conceptsFromCube fix produced fqns with the
-// cube name appearing twice (`mf_users.mf_users.dau`). Normalise so old
-// bookmarks / cached search results still resolve.
-function normaliseFqn(raw: string): string {
-  const parts = raw.split('.');
-  if (parts.length >= 3 && parts[0] === parts[1]) {
-    return parts.slice(1).join('.');
-  }
-  return raw;
-}
 
 export function ConceptDetailPage() {
   const { type, fqn } = useParams<{ type: string; fqn: string }>();

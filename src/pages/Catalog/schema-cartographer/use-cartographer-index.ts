@@ -2,9 +2,14 @@
  * Build a memoised, searchable index over `catalogMeta.cubes[*].members[*]`.
  * Each row keys back to its parent cube so the tree + detail panel can
  * follow `?focus=cube.member` deep links without re-querying meta.
+ *
+ * `/meta` ships member `name` as the full FQN (`mf_users.ltv_total_vnd`), so
+ * we normalise via `resolveMemberNames` — naively joining `cube.name + m.name`
+ * would double-prefix the key and silently break the focus deep link.
  */
 import { useMemo } from 'react';
 import type { CatalogCube } from '../use-catalog-meta';
+import { resolveMemberNames } from '../data-model-tab/use-concepts';
 
 export type MemberKind = 'measure' | 'dimension' | 'segment';
 
@@ -34,11 +39,11 @@ export function useCartographerIndex(cubes: ReadonlyArray<CatalogCube>): Cartogr
 
     for (const cube of cubes) {
       for (const m of cube.measures ?? []) {
-        const fqn = `${cube.name}.${m.name}`;
+        const { fqn, local } = resolveMemberNames(cube.name, m.name);
         const row: CartographerMember = {
           cubeName: cube.name,
           cubeTitle: cube.title,
-          memberName: m.name,
+          memberName: local,
           fqn,
           kind: 'measure',
           title: m.title,
@@ -49,11 +54,11 @@ export function useCartographerIndex(cubes: ReadonlyArray<CatalogCube>): Cartogr
         byFqn.set(fqn, row);
       }
       for (const d of cube.dimensions ?? []) {
-        const fqn = `${cube.name}.${d.name}`;
+        const { fqn, local } = resolveMemberNames(cube.name, d.name);
         const row: CartographerMember = {
           cubeName: cube.name,
           cubeTitle: cube.title,
-          memberName: d.name,
+          memberName: local,
           fqn,
           kind: 'dimension',
           title: d.title,
@@ -63,11 +68,11 @@ export function useCartographerIndex(cubes: ReadonlyArray<CatalogCube>): Cartogr
         byFqn.set(fqn, row);
       }
       for (const s of cube.segments ?? []) {
-        const fqn = `${cube.name}.${s.name}`;
+        const { fqn, local } = resolveMemberNames(cube.name, s.name);
         const row: CartographerMember = {
           cubeName: cube.name,
           cubeTitle: cube.title,
-          memberName: s.name,
+          memberName: local,
           fqn,
           kind: 'segment',
           title: s.title,

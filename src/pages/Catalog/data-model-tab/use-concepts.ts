@@ -21,7 +21,7 @@ function isQueryableDim(dim: CatalogCube['dimensions'][number]): boolean {
 // fixtures and earlier callers sometimes pass just the local part (`dau`).
 // Resolve both shapes so the catalog stays stable across data sources and
 // the produced fqn never carries a doubled cube prefix.
-function resolveMemberNames(
+export function resolveMemberNames(
   cubeName: string,
   raw: string,
 ): { fqn: string; local: string } {
@@ -30,6 +30,17 @@ function resolveMemberNames(
     return { fqn: raw, local: raw.slice(prefix.length) };
   }
   return { fqn: `${cubeName}.${raw}`, local: raw };
+}
+
+// Historic links produced fqns with the cube name appearing twice
+// (`mf_users.mf_users.dau`) before resolveMemberNames was in place. Strip the
+// duplicate prefix so old bookmarks / cached chat field-chips still resolve.
+export function normaliseFqn(raw: string): string {
+  const parts = raw.split('.');
+  if (parts.length >= 3 && parts[0] === parts[1]) {
+    return parts.slice(1).join('.');
+  }
+  return raw;
 }
 
 function conceptsFromCube(cube: CatalogCube): Concept[] {

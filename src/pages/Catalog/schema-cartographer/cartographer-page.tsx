@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { useCatalogMeta } from '../use-catalog-meta';
+import { normaliseFqn } from '../data-model-tab/use-concepts';
 import { CartographerSearch } from './cartographer-search';
 import { CubeTree } from './cube-tree';
 import { MemberDetailPanel } from './member-detail-panel';
@@ -67,7 +68,8 @@ function useFocusFromQuery(): [string | null, (next: string | null) => void] {
   const location = useLocation();
   const value = useMemo(() => {
     const params = new URLSearchParams(location.search);
-    return params.get('focus');
+    const raw = params.get('focus');
+    return raw ? normaliseFqn(raw) : null;
   }, [location.search]);
   const set = (next: string | null) => {
     const params = new URLSearchParams(location.search);
