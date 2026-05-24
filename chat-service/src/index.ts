@@ -1,8 +1,15 @@
 /**
  * chat-service entry point.
  * Boots Fastify on PORT, runs SQLite migrations, registers routes.
+ *
+ * `boot-guard` MUST be the first import — it installs synchronous-write
+ * crash handlers before any other module is evaluated, so failures in
+ * config.ts validation (e.g. missing ANTHROPIC_API_KEY) or app.listen()
+ * (e.g. EADDRINUSE) surface in the terminal instead of being lost in the
+ * concurrently/tsx-watch pipe on Windows.
  */
 
+import './boot-guard.js';
 import 'dotenv/config';
 import Fastify from 'fastify';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -77,8 +84,14 @@ async function start(): Promise<void> {
 // Allow other modules (tests) to import buildApp without starting the server
 export { buildApp };
 
-// Start when run directly
-start().catch((err) => {
-  console.error('Failed to start chat-service:', err);
-  process.exit(1);
-});
+// Start only when this file is the entry point. Tests import { buildApp }
+// from here and use fastify.inject() — they must NOT trigger a real listen,
+// because (a) a long-running chat-service may already hold :3005 in dev,
+// and (b) boot-guard's unhandledRejection handler would call process.exit
+// on the resulting EADDRINUSE, which vitest workers surface as a fatal.
+// Mirrors the gate used by server/src/index.ts.
+const isMain =
+  process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+if (isMain || process.env.START_SERVER === '1') {
+  start();
+}
