@@ -1,6 +1,8 @@
 /**
- * Right-rail action buttons. Only "Open in Explore" is functional in P3 — the
- * other three buttons stub their delivery phase in the tooltip.
+ * Right-rail action buttons. "Open in Explore" is gated by the metric
+ * runnability check: when the metric's formula refs are unresolved against
+ * the active game's /meta, an inline yellow warning is shown and the
+ * Explore button is disabled until the user clicks "Run anyway".
  */
 
 import { useState } from 'react';
@@ -8,10 +10,13 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { pushFromMetric } from '../../../shared/activation/push-from-metric';
+import { MetricRunnabilityWarning } from '../../../shared/concept-shell/metric-runnability-warning';
+import { useMetricOverrideStore } from '../metrics-tab/metric-override-store';
 import { SubscribeModal } from '../digest/subscribe-modal';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
 import { useCatalogMeta } from '../use-catalog-meta';
 import { buildExploreUrl } from './explore-query-builder';
+import { useMetricRunnability } from './use-metric-runnability';
 
 const Rail = styled.aside`
   width: 240px;
@@ -49,15 +54,38 @@ const Primary = styled(Button)`
   border-color: var(--brand, #f05a22);
 
   &:hover { background: var(--brand-pressed, #f54a00); }
+
+  &:disabled {
+    background: transparent;
+    color: var(--text-muted, #737373);
+    border-color: var(--border-card, #e5e5e5);
+  }
 `;
 
 export function RightRail({ metric }: { metric: BusinessMetric }) {
   const history = useHistory();
   const { cubes } = useCatalogMeta();
   const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const runnability = useMetricRunnability(metric);
+  const overridden = useMetricOverrideStore((s) => s.allowed.has(metric.id));
+  const exploreBlocked = runnability.status === 'broken' && !overridden;
+
   return (
     <Rail>
-      <Primary type="button" onClick={() => history.push(buildExploreUrl(metric, cubes))}>
+      <MetricRunnabilityWarning metricId={metric.id} runnability={runnability} />
+      <Primary
+        type="button"
+        disabled={exploreBlocked}
+        onClick={() => {
+          if (exploreBlocked) return;
+          history.push(buildExploreUrl(metric, cubes));
+        }}
+        title={
+          exploreBlocked
+            ? `Refs unresolved: ${runnability.missingRefs.join(', ')}`
+            : undefined
+        }
+      >
         Open in Explore →
       </Primary>
       <Button

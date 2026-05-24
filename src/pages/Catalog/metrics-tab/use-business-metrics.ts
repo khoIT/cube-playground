@@ -4,8 +4,10 @@
  * call in a session triggers the fetch; subsequent renders / hook mounts
  * wait on the in-flight promise rather than re-fetching.
  *
- * This mirrors the `useCatalogMeta` mutex pattern: one shared promise,
- * cached result, manual refresh via `mutate`.
+ * When `gameId` is passed, the hook calls `/api/business-metrics?game=<id>`
+ * so the server's trust resolver can downgrade metrics with broken refs to
+ * `'draft'`. Cache + single-flight are keyed by gameId so switching games
+ * triggers exactly one fresh fetch per game.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -14,28 +16,49 @@ import type { BusinessMetric } from './business-metric-types';
 
 type RegistryResponse = { metrics: BusinessMetric[] };
 
-let cache: BusinessMetric[] | null = null;
-let inflight: Promise<BusinessMetric[]> | null = null;
-const subscribers = new Set<(metrics: BusinessMetric[]) => void>();
+const NO_GAME = '__none__';
 
-async function fetchOnce(): Promise<BusinessMetric[]> {
-  if (cache) return cache;
-  if (inflight) return inflight;
-  inflight = (async () => {
+const cache = new Map<string, BusinessMetric[]>();
+const inflight = new Map<string, Promise<BusinessMetric[]>>();
+type Subscriber = (metrics: BusinessMetric[]) => void;
+const subscribers = new Map<string, Set<Subscriber>>();
+
+function keyFor(gameId: string | null | undefined): string {
+  return gameId ?? NO_GAME;
+}
+
+function urlFor(key: string): string {
+  return key === NO_GAME
+    ? '/api/business-metrics'
+    : `/api/business-metrics?game=${encodeURIComponent(key)}`;
+}
+
+function notify(key: string, metrics: BusinessMetric[]): void {
+  subscribers.get(key)?.forEach((cb) => cb(metrics));
+}
+
+async function fetchOnce(key: string): Promise<BusinessMetric[]> {
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const existing = inflight.get(key);
+  if (existing) return existing;
+  const promise = (async () => {
     try {
-      const resp = await fetch('/api/business-metrics', {
+      const resp = await fetch(urlFor(key), {
         headers: { Accept: 'application/json' },
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = (await resp.json()) as RegistryResponse;
-      cache = json.metrics ?? [];
-      subscribers.forEach((cb) => cb(cache!));
-      return cache;
+      const metrics = json.metrics ?? [];
+      cache.set(key, metrics);
+      notify(key, metrics);
+      return metrics;
     } finally {
-      inflight = null;
+      inflight.delete(key);
     }
   })();
-  return inflight;
+  inflight.set(key, promise);
+  return promise;
 }
 
 interface UseBusinessMetricsResult {
@@ -45,46 +68,57 @@ interface UseBusinessMetricsResult {
   refresh: () => void;
 }
 
-export function useBusinessMetrics(): UseBusinessMetricsResult {
-  const [metrics, setMetrics] = useState<BusinessMetric[]>(cache ?? []);
-  const [loading, setLoading] = useState<boolean>(cache === null);
+export function useBusinessMetrics(
+  gameId?: string | null,
+): UseBusinessMetricsResult {
+  const key = keyFor(gameId);
+  const [metrics, setMetrics] = useState<BusinessMetric[]>(
+    () => cache.get(key) ?? [],
+  );
+  const [loading, setLoading] = useState<boolean>(() => !cache.has(key));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    if (cache !== null) {
-      setMetrics(cache);
+    const cached = cache.get(key);
+    if (cached) {
+      setMetrics(cached);
       setLoading(false);
-      return;
+    } else {
+      setLoading(true);
+      fetchOnce(key)
+        .then((m) => {
+          if (cancelled) return;
+          setMetrics(m);
+          setLoading(false);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        });
     }
-    setLoading(true);
-    fetchOnce()
-      .then((m) => {
-        if (cancelled) return;
-        setMetrics(m);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : String(err));
-        setLoading(false);
-      });
-    const sub = (m: BusinessMetric[]) => {
+    const sub: Subscriber = (m) => {
       if (!cancelled) setMetrics(m);
     };
-    subscribers.add(sub);
+    let set = subscribers.get(key);
+    if (!set) {
+      set = new Set();
+      subscribers.set(key, set);
+    }
+    set.add(sub);
     return () => {
       cancelled = true;
-      subscribers.delete(sub);
+      set?.delete(sub);
     };
-  }, []);
+  }, [key]);
 
   const refresh = useCallback(() => {
-    cache = null;
-    inflight = null;
+    cache.delete(key);
+    inflight.delete(key);
     setLoading(true);
-    fetchOnce()
+    fetchOnce(key)
       .then((m) => {
         setMetrics(m);
         setLoading(false);
@@ -93,14 +127,14 @@ export function useBusinessMetrics(): UseBusinessMetricsResult {
         setError(err instanceof Error ? err.message : String(err));
         setLoading(false);
       });
-  }, []);
+  }, [key]);
 
   return { metrics, loading, error, refresh };
 }
 
 /** Test-only: reset module state between cases. */
 export function __resetBusinessMetricsCache(): void {
-  cache = null;
-  inflight = null;
+  cache.clear();
+  inflight.clear();
   subscribers.clear();
 }

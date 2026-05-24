@@ -65,8 +65,11 @@ export async function handler(
   ctx: ToolContext,
 ): Promise<OkResult | ErrResult> {
   let raw: { metrics: MetricRaw[] };
+  const path = ctx.gameId
+    ? `/api/business-metrics?game=${encodeURIComponent(ctx.gameId)}`
+    : '/api/business-metrics';
   try {
-    raw = await getJson<{ metrics: MetricRaw[] }>('/api/business-metrics', ctx);
+    raw = await getJson<{ metrics: MetricRaw[] }>(path, ctx);
   } catch (err) {
     if (err instanceof ServerClientError) {
       return { ok: false, error: 'server_error', detail: { status: err.status, body: err.body } };

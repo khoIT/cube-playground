@@ -95,31 +95,31 @@ describe('explain_cube_sql handler', () => {
     expect((opts as RequestInit & { headers: Record<string, string> }).headers['Authorization']).toBe('Bearer test-token');
   });
 
-  it('returns unknown_member for unknown measure', async () => {
+  it('returns metric_draft for unknown measure', async () => {
     const result = await handler(
       { query: { measures: ['Revenue.fake'] } },
       makeCtx(),
     );
 
-    expect(result).toMatchObject({ ok: false, error: 'unknown_member' });
+    expect(result).toMatchObject({ ok: false, error: 'metric_draft' });
     if (result.ok) throw new Error('expected error');
-    if (!('which' in result.detail)) throw new Error('expected unknown_member detail');
-    expect(result.detail).toMatchObject({ which: 'measure', value: 'Revenue.fake' });
+    if (result.error !== 'metric_draft') throw new Error('expected metric_draft');
+    expect(result.missingRefs).toContain('Revenue.fake');
   });
 
-  it('returns unknown_member for unknown dimension', async () => {
+  it('returns metric_draft for unknown dimension', async () => {
     const result = await handler(
       { query: { measures: ['Revenue.total'], dimensions: ['Revenue.badDim'] } },
       makeCtx(),
     );
 
-    expect(result).toMatchObject({ ok: false, error: 'unknown_member' });
+    expect(result).toMatchObject({ ok: false, error: 'metric_draft' });
     if (result.ok) throw new Error('expected error');
-    if (!('which' in result.detail)) throw new Error('expected unknown_member detail');
-    expect(result.detail).toMatchObject({ which: 'dimension', value: 'Revenue.badDim' });
+    if (result.error !== 'metric_draft') throw new Error('expected metric_draft');
+    expect(result.missingRefs).toContain('Revenue.badDim');
   });
 
-  it('returns unknown_member for unknown timeDimension', async () => {
+  it('returns metric_draft for unknown timeDimension', async () => {
     const result = await handler(
       {
         query: {
@@ -130,10 +130,19 @@ describe('explain_cube_sql handler', () => {
       makeCtx(),
     );
 
-    expect(result).toMatchObject({ ok: false, error: 'unknown_member' });
+    expect(result).toMatchObject({ ok: false, error: 'metric_draft' });
     if (result.ok) throw new Error('expected error');
-    if (!('which' in result.detail)) throw new Error('expected unknown_member detail');
-    expect(result.detail.which).toBe('dimension');
+    if (result.error !== 'metric_draft') throw new Error('expected metric_draft');
+    expect(result.missingRefs).toContain('Revenue.badDate');
+  });
+
+  it('bypasses the ref guard with force:true', async () => {
+    mockFetchOk(RAW_SQL);
+    const result = await handler(
+      { query: { measures: ['Revenue.fake'] }, force: true },
+      makeCtx(),
+    );
+    expect(result).toMatchObject({ ok: true });
   });
 
   it('returns cube_error on Cube 5xx', async () => {
@@ -146,7 +155,7 @@ describe('explain_cube_sql handler', () => {
 
     expect(result).toMatchObject({ ok: false, error: 'cube_error' });
     if (result.ok) throw new Error('expected error');
-    if (!('status' in result.detail)) throw new Error('expected cube_error detail');
+    if (result.error !== 'cube_error') throw new Error('expected cube_error');
     expect(result.detail.status).toBe(503);
   });
 

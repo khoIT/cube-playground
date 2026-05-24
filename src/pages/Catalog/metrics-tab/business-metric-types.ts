@@ -57,6 +57,22 @@ export interface BusinessMetricAnomaly {
   breakdowns?: BusinessMetricAnomalyBreakdowns;
 }
 
+export interface TrustHistoryEntry {
+  trust: BusinessMetricTrust;
+  /** ISO 8601 timestamp recorded when the trust was changed. */
+  at: string;
+  actor?: string;
+  note?: string;
+}
+
+export interface BusinessMetricMeta {
+  /** Primary game id used to validate refs when promoting to certified. */
+  game_id?: string;
+  /** Append-only audit trail of trust transitions. */
+  trust_history?: TrustHistoryEntry[];
+  [key: string]: unknown;
+}
+
 export interface BusinessMetric {
   id: string;
   label: string;
@@ -73,6 +89,7 @@ export interface BusinessMetric {
   unit?: string;
   format?: string;
   anomaly?: BusinessMetricAnomaly;
+  meta?: BusinessMetricMeta;
 }
 
 /**

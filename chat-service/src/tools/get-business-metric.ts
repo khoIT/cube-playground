@@ -24,9 +24,10 @@ export async function handler(
   args: { id: string },
   ctx: ToolContext,
 ): Promise<OkResult | NotFoundResult | ErrResult> {
+  const qs = ctx.gameId ? `?game=${encodeURIComponent(ctx.gameId)}` : '';
   try {
     const metric = await getJson<unknown>(
-      `/api/business-metrics/${encodeURIComponent(args.id)}`,
+      `/api/business-metrics/${encodeURIComponent(args.id)}${qs}`,
       ctx,
     );
     return { ok: true, metric };

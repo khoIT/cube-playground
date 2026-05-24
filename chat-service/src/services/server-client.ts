@@ -58,9 +58,22 @@ export async function getJson<T>(path: string, ctx: ToolContext): Promise<T> {
 }
 
 export async function postJson<T>(path: string, body: unknown, ctx: ToolContext): Promise<T> {
+  return bodyRequest<T>('POST', path, body, ctx);
+}
+
+export async function patchJson<T>(path: string, body: unknown, ctx: ToolContext): Promise<T> {
+  return bodyRequest<T>('PATCH', path, body, ctx);
+}
+
+async function bodyRequest<T>(
+  method: 'POST' | 'PATCH',
+  path: string,
+  body: unknown,
+  ctx: ToolContext,
+): Promise<T> {
   const url = `${config.serverBaseUrl}${path}`;
   const res = await fetch(url, {
-    method: 'POST',
+    method,
     headers: buildHeaders(ctx),
     body: JSON.stringify(body),
   });

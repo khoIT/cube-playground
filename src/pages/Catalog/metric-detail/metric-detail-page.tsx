@@ -10,6 +10,7 @@ import { Link, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { ChangeAnalysisModal } from '../../../shared/concept-shell/change-analysis-modal';
+import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
 import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
@@ -95,7 +96,8 @@ function suggestSimilar(id: string, metrics: BusinessMetric[]): BusinessMetric[]
 
 export function MetricDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { metrics, loading, error } = useBusinessMetrics();
+  const gameId = useActiveGameId();
+  const { metrics, loading, error } = useBusinessMetrics(gameId);
   const [active, setActive] = useState<DetailTabKey>('overview');
   const [anomalyOpen, setAnomalyOpen] = useState(false);
 

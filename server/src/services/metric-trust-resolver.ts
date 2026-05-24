@@ -24,8 +24,18 @@ import {
   snapshotFromMeta,
   validateRefs,
   type MetaResponse,
+  type UnresolvedRef,
 } from './metric-ref-validator.js';
 import type { BusinessMetric } from '../types/business-metric.js';
+
+export interface MetricDrift {
+  /** Total metrics inspected (input length). */
+  total: number;
+  /** Count of metrics whose refs all resolve against this game's /meta. */
+  resolvable: number;
+  /** Per-broken metric: id + the refs that didn't resolve. */
+  broken: Array<{ id: string; missingRefs: string[] }>;
+}
 
 const TTL_MS = 60_000;
 
@@ -120,6 +130,42 @@ export async function resolveTrustForGame(
     }
     return m;
   });
+}
+
+/**
+ * Drift summary for a game — for each metric, list any unresolved refs.
+ * Reuses the same /meta fetch + cache as `resolveTrustForGame` so calling
+ * both back-to-back fires exactly one `/meta` fetch per game.
+ *
+ * Throws when the game's token is missing or `/meta` fetch fails — callers
+ * decide whether to fail-open or surface the error.
+ */
+export async function getDrift(
+  metrics: BusinessMetric[],
+  gameId: string,
+): Promise<MetricDrift> {
+  const token = resolveCubeTokenForGame(gameId);
+  if (!token) {
+    throw new Error(`no Cube token for game "${gameId}"`);
+  }
+  const meta = (await getMeta(token)) as MetaResponse;
+  const snapshot = snapshotFromMeta(meta);
+  const unresolved = validateRefs(metrics, snapshot);
+  const byMetric = new Map<string, string[]>();
+  for (const u of unresolved as UnresolvedRef[]) {
+    const arr = byMetric.get(u.metricId) ?? [];
+    arr.push(u.ref);
+    byMetric.set(u.metricId, arr);
+  }
+  const broken = [...byMetric.entries()].map(([id, missingRefs]) => ({
+    id,
+    missingRefs,
+  }));
+  return {
+    total: metrics.length,
+    resolvable: metrics.length - broken.length,
+    broken,
+  };
 }
 
 /** Test-only: reset module cache. */

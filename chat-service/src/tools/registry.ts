@@ -16,6 +16,7 @@ import * as listSegments from './list-segments.js';
 import * as getSegment from './get-segment.js';
 import * as explainCubeSql from './explain-cube-sql.js';
 import * as emitChart from './emit-chart.js';
+import * as updateBusinessMetricTrust from './update-business-metric-trust.js';
 
 // ---------------------------------------------------------------------------
 // Registry entry shape
@@ -94,6 +95,13 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: emitChart.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: emitChart.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: updateBusinessMetricTrust.name,
+    description: updateBusinessMetricTrust.description,
+    inputSchema: updateBusinessMetricTrust.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: updateBusinessMetricTrust.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
 ];
 

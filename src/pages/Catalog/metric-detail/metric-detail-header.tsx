@@ -11,6 +11,7 @@ import { DomainChip } from '../../../shared/concept-shell/domain-chip';
 import { TrustBadge } from '../../../shared/concept-shell/trust-badge';
 import { TypeIcon } from '../../../shared/concept-shell/type-icon';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
+import { TrustControl } from './trust-control';
 
 const Header = styled.header`
   padding: 16px 24px 12px;
@@ -42,6 +43,7 @@ const BadgeRow = styled.div`
   gap: 8px;
   margin-top: 10px;
   align-items: center;
+  flex-wrap: wrap;
 `;
 
 const Description = styled.p`
@@ -72,6 +74,7 @@ export function MetricDetailHeader({ metric, onAnomalyClick }: MetricDetailHeade
         <DomainChip domain={metric.domain} />
         <TrustBadge trust={metric.trust} />
         <AnomalyBadge anomaly={liveAnomaly} onClick={onAnomalyClick} />
+        <TrustControl metric={metric} />
       </BadgeRow>
     </Header>
   );

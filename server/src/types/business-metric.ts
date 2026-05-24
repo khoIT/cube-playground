@@ -80,6 +80,20 @@ export const BusinessMetricAnomalySchema = z.object({
     .optional(),
 });
 
+export const TrustHistoryEntrySchema = z.object({
+  trust: z.enum(TRUST_TIERS),
+  at: z.string().datetime(),
+  actor: z.string().min(1).optional(),
+  note: z.string().max(280).optional(),
+});
+
+export const BusinessMetricMetaSchema = z
+  .object({
+    game_id: z.string().min(1).optional(),
+    trust_history: z.array(TrustHistoryEntrySchema).optional(),
+  })
+  .passthrough();
+
 export const BusinessMetricSchema = z.object({
   id: z.string().regex(ID_RE),
   label: z.string().min(1),
@@ -96,6 +110,7 @@ export const BusinessMetricSchema = z.object({
   unit: z.string().optional(),
   format: z.string().optional(),
   anomaly: BusinessMetricAnomalySchema.optional(),
+  meta: BusinessMetricMetaSchema.optional(),
 });
 
 export type BusinessMetric = z.infer<typeof BusinessMetricSchema>;
@@ -106,3 +121,5 @@ export type BusinessMetricParameter = z.infer<typeof BusinessMetricParameterSche
 export type BusinessMetricGameCompat = z.infer<typeof BusinessMetricGameCompatSchema>;
 export type BusinessMetricAnomalyState = (typeof ANOMALY_STATES)[number];
 export type BusinessMetricAnomaly = z.infer<typeof BusinessMetricAnomalySchema>;
+export type TrustHistoryEntry = z.infer<typeof TrustHistoryEntrySchema>;
+export type BusinessMetricMeta = z.infer<typeof BusinessMetricMetaSchema>;

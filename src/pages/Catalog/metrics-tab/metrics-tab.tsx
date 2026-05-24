@@ -23,6 +23,7 @@ import { MetricCard } from './metric-card';
 import { MetricListRow } from './metric-list-row';
 import { MetricsFilterBar } from './metrics-filter-rail';
 import { MetricsSearchRow } from './metrics-search-row';
+import { DriftSummaryStrip } from './drift-summary-strip';
 import { useBusinessMetrics } from './use-business-metrics';
 import {
   emptyFilters,
@@ -80,9 +81,9 @@ function groupByDomain(items: FilteredMetric[]): Map<BusinessMetricDomain, Filte
 }
 
 export function MetricsTab() {
-  const { metrics, loading, error } = useBusinessMetrics();
   const { cubes } = useCatalogMeta();
   const { gameId, games } = useGameContext();
+  const { metrics, loading, error } = useBusinessMetrics(gameId);
   const [filters, setFilters] = useState<MetricFilters>(() => emptyFilters());
   const [query, setQuery] = useState('');
   const [anomalyMetric, setAnomalyMetric] = useState<BusinessMetric | null>(null);
@@ -117,6 +118,16 @@ export function MetricsTab() {
         availableCount={result.availableCount}
         totalCount={result.totalCount}
         activeGameLabel={activeGameLabel}
+      />
+      <DriftSummaryStrip
+        gameId={gameId}
+        gameLabel={activeGameLabel}
+        onViewDrafts={() =>
+          setFilters((prev) => ({
+            ...prev,
+            trusts: new Set([...prev.trusts, 'draft' as const]),
+          }))
+        }
       />
       <MetricsFilterBar filters={filters} onChange={setFilters} />
       <Main>

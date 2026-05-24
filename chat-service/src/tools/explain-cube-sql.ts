@@ -19,6 +19,10 @@ export const description =
 
 export const inputSchema = {
   query: CubeQuerySchema,
+  force: z
+    .boolean()
+    .optional()
+    .describe('Set true to bypass the pre-flight ref guard and attempt SQL compilation anyway.'),
 };
 
 // Shape Cube returns for /sql
@@ -29,10 +33,11 @@ interface CubeSqlResponse {
 }
 
 type OkResult = { ok: true; sql: string };
-type UnknownMemberResult = {
+type MetricDraftResult = {
   ok: false;
-  error: 'unknown_member';
-  detail: { which: 'measure' | 'dimension'; value: string };
+  error: 'metric_draft';
+  missingRefs: string[];
+  hint: string;
 };
 type CubeErrorResult = { ok: false; error: 'cube_error'; detail: { status: number; body: unknown } };
 
@@ -44,29 +49,28 @@ function extractRawSql(response: CubeSqlResponse): string | null {
 }
 
 export async function handler(
-  args: { query: z.infer<typeof CubeQuerySchema> },
+  args: { query: z.infer<typeof CubeQuerySchema>; force?: boolean },
   ctx: ToolContext,
-): Promise<OkResult | UnknownMemberResult | CubeErrorResult> {
-  // Validate members against /meta to give an actionable error before calling Cube
-  const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.cubeToken);
-  const known = cubeMetaCache.extractMemberNames(meta);
-
-  for (const measure of args.query.measures ?? []) {
-    if (!known.has(measure)) {
-      return { ok: false, error: 'unknown_member', detail: { which: 'measure', value: measure } };
+): Promise<OkResult | MetricDraftResult | CubeErrorResult> {
+  if (!args.force) {
+    const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.cubeToken);
+    const known = cubeMetaCache.extractMemberNames(meta);
+    const missingRefs: string[] = [];
+    for (const measure of args.query.measures ?? []) {
+      if (!known.has(measure)) missingRefs.push(measure);
     }
-  }
-  for (const dim of args.query.dimensions ?? []) {
-    if (!known.has(dim)) {
-      return { ok: false, error: 'unknown_member', detail: { which: 'dimension', value: dim } };
+    for (const dim of args.query.dimensions ?? []) {
+      if (!known.has(dim)) missingRefs.push(dim);
     }
-  }
-  for (const td of args.query.timeDimensions ?? []) {
-    if (!known.has(td.dimension)) {
+    for (const td of args.query.timeDimensions ?? []) {
+      if (!known.has(td.dimension)) missingRefs.push(td.dimension);
+    }
+    if (missingRefs.length > 0) {
       return {
         ok: false,
-        error: 'unknown_member',
-        detail: { which: 'dimension', value: td.dimension },
+        error: 'metric_draft',
+        missingRefs,
+        hint: 'pass force:true to attempt SQL compilation anyway',
       };
     }
   }
