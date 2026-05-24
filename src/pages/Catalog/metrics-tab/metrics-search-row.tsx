@@ -1,13 +1,11 @@
 /**
- * MetricsSearchRow — substring search input + result count chip + smart-search
- * trigger. Smart-search opens the global ⌘K palette.
+ * MetricsSearchRow — substring search input + result count chip.
  */
 
-import { Search, Sparkles, Plus } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useSmartSearch } from '../../../shared/smart-search/smart-search-context';
 import { ViewModeToggle } from '../../../shared/view-mode/view-mode-toggle';
 
 const Row = styled.div`
@@ -47,34 +45,6 @@ const Icon = styled.span`
   top: 50%;
   transform: translateY(-50%);
   display: inline-flex;
-  color: var(--text-muted, #737373);
-`;
-
-const SmartButton = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary, #525252);
-  font-size: 12px;
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--brand, #f05a22);
-    color: var(--brand, #f05a22);
-  }
-`;
-
-const Shortcut = styled.kbd`
-  font-family: var(--font-mono, monospace);
-  font-size: 10px;
-  border: 1px solid var(--border-card, #e5e5e5);
-  border-radius: 3px;
-  padding: 0 4px;
   color: var(--text-muted, #737373);
 `;
 
@@ -118,7 +88,6 @@ export function MetricsSearchRow({
   totalCount,
   activeGameLabel,
 }: MetricsSearchRowProps) {
-  const { open } = useSmartSearch();
   return (
     <Row>
       <SearchBox>
@@ -132,15 +101,6 @@ export function MetricsSearchRow({
           onChange={(e) => onQueryChange(e.target.value)}
         />
       </SearchBox>
-      <SmartButton
-        type="button"
-        title="Open smart search (⌘K)"
-        onClick={open}
-      >
-        <Sparkles size={13} />
-        Smart search
-        <Shortcut>⌘K</Shortcut>
-      </SmartButton>
       <Count>
         {visibleCount} shown · {availableCount} of {totalCount} available for {activeGameLabel}
       </Count>
