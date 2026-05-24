@@ -1,45 +1,58 @@
 #!/usr/bin/env bash
-# Refreshes server/data/seed/segments-snapshot.json from the local SQLite DB
-# before every push. Fails the push if the snapshot ends up drifted — author
-# must then `git add` + commit the refreshed file and push again.
+# Refreshes the segments + chat seed snapshots from the local SQLite DBs
+# before every push. Fails the push if either snapshot drifts — author must
+# then `git add` + commit the refreshed file and push again.
 #
-# Skips silently when there's no local DB or server deps aren't installed
-# (fresh clones / contributors who don't run the server). This keeps the hook
-# safe for everyone while catching drift on machines that DO own segment state.
+# Skips a snapshot silently when its local DB or its package's node_modules
+# is missing (fresh clones / contributors who don't run that service). The
+# whole hook is safe to keep enabled everywhere.
 
 set -eu
 
 ROOT="$(git rev-parse --show-toplevel)"
-DB="$ROOT/server/data/segments.db"
-SNAPSHOT="$ROOT/server/data/seed/segments-snapshot.json"
 
-# No local DB → contributor doesn't own segment state. Nothing to snapshot.
-[ -f "$DB" ] || exit 0
+# (db_path, node_modules_path, npm_prefix, snapshot_path, label) tuples.
+# Each row drives one snapshot+drift cycle below.
+TARGETS=(
+  "$ROOT/server/data/segments.db|$ROOT/server/node_modules|$ROOT/server|$ROOT/server/data/seed/segments-snapshot.json|segments"
+  "$ROOT/chat-service/runtime/chat.db|$ROOT/chat-service/node_modules|$ROOT/chat-service|$ROOT/chat-service/runtime/seed/chat-snapshot.json|chat"
+)
 
-# Server deps missing → can't run `npm run snapshot`. Skip rather than block push.
-[ -d "$ROOT/server/node_modules" ] || exit 0
+DRIFTED=()
+DRIFTED_PATHS=()
 
-npm --prefix "$ROOT/server" run --silent snapshot >/dev/null
+for entry in "${TARGETS[@]}"; do
+  IFS='|' read -r db nm prefix snapshot label <<<"$entry"
 
-# Snapshot unchanged → push proceeds.
-if git diff --quiet -- "$SNAPSHOT"; then
+  [ -f "$db" ] || continue
+  [ -d "$nm" ] || continue
+
+  npm --prefix "$prefix" run --silent snapshot >/dev/null
+
+  if ! git diff --quiet -- "$snapshot"; then
+    DRIFTED+=("$label")
+    DRIFTED_PATHS+=("$snapshot")
+  fi
+done
+
+if [ ${#DRIFTED[@]} -eq 0 ]; then
   exit 0
 fi
 
-cat <<EOF
-
-[pre-push] segments snapshot is out of date — local DB has newer state than
-           the committed seed file. The snapshot has been refreshed for you:
-
-             $SNAPSHOT
-
-           Commit it and push again:
-
-             git add server/data/seed/segments-snapshot.json
-             git commit -m "chore(seed): refresh segments snapshot"
-             git push
-
-           To skip this hook for a single push: git push --no-verify
-
-EOF
+echo
+echo "[pre-push] seed snapshot(s) out of date — local DB has newer state than"
+echo "           the committed seed file(s). Refreshed for you:"
+echo
+for p in "${DRIFTED_PATHS[@]}"; do
+  echo "             $p"
+done
+echo
+echo "           Commit and push again:"
+echo
+echo "             git add ${DRIFTED_PATHS[*]}"
+echo "             git commit -m \"chore(seed): refresh ${DRIFTED[*]} snapshot\""
+echo "             git push"
+echo
+echo "           To skip this hook for a single push: git push --no-verify"
+echo
 exit 1

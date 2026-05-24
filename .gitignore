@@ -61,7 +61,8 @@ server/data/*
 !server/data/seed/
 server/dist/
 server/node_modules/
-chat-service/runtime/
+chat-service/runtime/*
+!chat-service/runtime/seed/
 chat-service/dist/
 chat-service/node_modules/
 .serena/cache

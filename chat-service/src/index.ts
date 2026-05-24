@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { config } from './config.js';
 import { openDatabase } from './db/migrate.js';
+import { hydrateChatFromSnapshot } from './db/snapshot-store.js';
 import healthRoutes from './api/health.js';
 import sessionsRoutes from './api/sessions.js';
 import turnRoutes from './api/turn.js';
@@ -52,7 +53,11 @@ async function buildApp(dbPath?: string) {
 async function start(): Promise<void> {
   await seedClaudeHome();
 
-  const { fastify } = await buildApp();
+  const { fastify, db } = await buildApp();
+  const seeded = hydrateChatFromSnapshot(db);
+  if (seeded.hydrated) {
+    fastify.log.info({ counts: seeded.counts }, '[chat-snapshot] hydrated from seed');
+  }
 
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
   fastify.log.info(`chat-service listening on port ${config.port}`);
