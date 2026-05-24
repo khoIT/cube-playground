@@ -1,0 +1,17 @@
+id: cvr_register
+label: CVR — Registration
+description: >-
+  Funnel-step conversion rate at the Registration step. AppsFlyer_ids that
+  completed registration divided by the total AppsFlyer_id pool.
+synonyms: [funnel_register_cvr, registration_conversion]
+tier: 2
+domain: acquisition
+owner: data-platform@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: funnel.users_completed_register
+  denominator: funnel.users_total
+format: percent
+game_compatibility:
+  required_cubes: [funnel]

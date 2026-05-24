@@ -11,10 +11,10 @@ trust: certified
 formula:
   type: ratio
   numerator: recharge.paying_users
-  denominator: mf_users.dau
+  denominator: active_daily.dau
 format: percent
 game_compatibility:
-  required_cubes: [recharge, mf_users]
+  required_cubes: [recharge, active_daily]
 parameter:
   name: window
   label: Window

@@ -9,11 +9,11 @@ trust: certified
 formula:
   type: ratio
   numerator: recharge.revenue_vnd
-  denominator: mf_users.dau
+  denominator: active_daily.dau
 unit: VND
 format: currency
 game_compatibility:
-  required_cubes: [recharge, mf_users]
+  required_cubes: [recharge, active_daily]
 parameter:
   name: cohort_window
   label: Cohort window

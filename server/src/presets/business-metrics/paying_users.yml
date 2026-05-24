@@ -1,7 +1,14 @@
 id: paying_users
 label: Paying users
 description: Total unique users paying in period (deduplicated by user_id).
-synonyms: [pu, payers]
+synonyms:
+  - pu
+  - pu1
+  - pu3
+  - pu5
+  - pu7
+  - payers
+  - paying_users_rolling
 tier: 1
 domain: payments
 owner: data-platform@vng

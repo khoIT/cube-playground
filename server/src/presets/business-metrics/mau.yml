@@ -8,7 +8,7 @@ owner: data-platform@vng
 trust: certified
 formula:
   type: measure
-  ref: mf_users.mau
+  ref: active_daily.mau
 format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [active_daily]

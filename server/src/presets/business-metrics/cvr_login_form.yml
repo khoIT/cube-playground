@@ -1,0 +1,17 @@
+id: cvr_login_form
+label: CVR — Show Login Form
+description: >-
+  Funnel-step conversion rate at the Show-Login-Form step. AppsFlyer_ids that
+  saw the login form divided by the total AppsFlyer_id pool.
+synonyms: [funnel_login_cvr, login_form_conversion]
+tier: 2
+domain: acquisition
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: funnel.users_completed_login_form
+  denominator: funnel.users_total
+format: percent
+game_compatibility:
+  required_cubes: [funnel]

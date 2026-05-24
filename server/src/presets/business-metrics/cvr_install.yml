@@ -1,0 +1,18 @@
+id: cvr_install
+label: CVR — Install
+description: >-
+  Funnel-step conversion rate at the Install step. AppsFlyer_ids that completed
+  Install divided by the total AppsFlyer_id pool — total-base CVR, not step-to-
+  step. Only successful actions contribute to the numerator.
+synonyms: [funnel_install_cvr, install_conversion]
+tier: 2
+domain: acquisition
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: funnel.users_completed_install
+  denominator: funnel.users_total
+format: percent
+game_compatibility:
+  required_cubes: [funnel]

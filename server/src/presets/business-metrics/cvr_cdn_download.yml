@@ -1,0 +1,17 @@
+id: cvr_cdn_download
+label: CVR — CDN Download
+description: >-
+  Funnel-step conversion rate at the CDN Download step. AppsFlyer_ids that
+  completed CDN Download divided by the total AppsFlyer_id pool.
+synonyms: [funnel_cdn_cvr, download_conversion]
+tier: 2
+domain: acquisition
+owner: marketing-ops@vng
+trust: beta
+formula:
+  type: ratio
+  numerator: funnel.users_completed_cdn_download
+  denominator: funnel.users_total
+format: percent
+game_compatibility:
+  required_cubes: [funnel]
