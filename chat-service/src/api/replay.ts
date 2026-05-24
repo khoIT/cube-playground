@@ -69,6 +69,15 @@ const replayRoutes: FastifyPluginAsync<ReplayRouteOptions> = async (fastify, opt
 
       // Write buffered events from `from` onward. Each entry.events index
       // corresponds to (startOffset + i) absolute offset.
+      //
+      // SAFETY: the replay loop + subscribe() below are race-free ONLY because
+      // both `writeSseEvent` and `registry.append` run synchronously on the
+      // same event loop tick. If `writeSseEvent` ever becomes async (e.g.
+      // backpressure-aware), an `append` could interleave between the loop
+      // and the subscribe — events appended in that window would be missed.
+      // Mitigation in that future world: snapshot `entry.events.slice()` +
+      // `entry.totalEmitted` BEFORE the loop, OR subscribe with a temporary
+      // buffer first then flush replay + buffered tail.
       const localStart = Math.max(0, from - entry.startOffset);
       for (let i = localStart; i < entry.events.length; i++) {
         writeSseEvent(stream, entry.events[i]!);

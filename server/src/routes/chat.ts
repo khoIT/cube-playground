@@ -229,6 +229,12 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!turnId) {
         return reply.status(400).send({ code: 'missing_turn_id' });
       }
+      // Shed obviously-malformed turnIds at the edge. The registry generates
+      // UUID v4 (36-char hex+dash) — accept a generous superset to allow for
+      // future formats, but reject anything that couldn't plausibly be one.
+      if (turnId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(turnId)) {
+        return reply.status(400).send({ code: 'invalid_turn_id' });
+      }
 
       const params = new URLSearchParams();
       if (request.query.from) params.set('from', request.query.from);

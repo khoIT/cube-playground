@@ -65,7 +65,12 @@ interface ChatStreamStore {
   subscribe: (sessionId: string | null) => void;
   unsubscribe: (sessionId: string | null) => void;
 
-  /** Returns the slice for the given sessionId, or an idle placeholder. */
+  /**
+   * Returns the slice for the given sessionId, or an idle placeholder.
+   * NOTE: do not call from inside a React selector — returns a fresh idle
+   * object on miss, which would force a re-render every snapshot. Use the
+   * inline selector pattern in `useChatStream` instead.
+   */
   getEntry: (sessionId: string | null) => StreamEntry;
 
   startTurn: (opts: StartTurnOptions) => Promise<void>;

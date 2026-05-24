@@ -119,8 +119,12 @@ export function createStreamRegistry(config: StreamRegistryConfig): StreamRegist
       entry.startOffset += dropped;
     }
     // Track sessionId changes from session_created / compact_warning so
-    // findRunning() can find the entry post-rename.
+    // findRunning() can find the entry post-rename. Always record an alias
+    // before mutating entry.sessionId — defense-in-depth in case any caller
+    // ever holds the pre-event sessionId (today register() is invoked after
+    // session_created, so this branch is mostly dead-code, but cheap).
     if (event.type === 'session_created' && event.data.id !== entry.sessionId) {
+      aliases.set(entry.sessionId, event.data.id);
       entry.sessionId = event.data.id;
     } else if (event.type === 'compact_warning' && event.data.to !== entry.sessionId) {
       aliases.set(entry.sessionId, event.data.to);
