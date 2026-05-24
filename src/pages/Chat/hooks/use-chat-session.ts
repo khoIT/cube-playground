@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useReducer } from 'react';
 import type { ChartArtifact } from '../../../api/chat-sse-client';
 import { getOwnerId } from '../../../api/chat-owner-id';
+import { onChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,6 +42,9 @@ export interface ChatSession {
   ownerId: string;
   createdAt: string;
   turns: ChatTurn[];
+  /** UUID of the turn currently running on the server, if any. Surfaced by
+   *  Phase 6 so the client can attach a replay stream on refresh. */
+  activeTurnId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +99,7 @@ export function useChatSession(sessionId: string | null) {
       const raw = (await res.json()) as {
         session: { id: string; owner_id: string; game_id: string; created_at: number | string };
         turns: ChatTurn[];
+        activeTurnId?: string | null;
       };
       const session: ChatSession = {
         id: raw.session.id,
@@ -104,6 +109,7 @@ export function useChatSession(sessionId: string | null) {
           ? new Date(raw.session.created_at).toISOString()
           : raw.session.created_at,
         turns: raw.turns,
+        activeTurnId: raw.activeTurnId ?? null,
       };
       dispatch({ type: 'SUCCESS', session });
     } catch (err: unknown) {
@@ -127,6 +133,16 @@ export function useChatSession(sessionId: string | null) {
     const controller = new AbortController();
     fetch_(sessionId, controller.signal);
   }, [sessionId, fetch_]);
+
+  // Reconcile DB-authoritative turns into this view whenever the chat-stream
+  // store notifies that a turn finished for our session. The store fires this
+  // window event in its dispatch loop finally block (see chat-stream-store.ts).
+  useEffect(() => {
+    if (!sessionId || sessionId === 'new') return;
+    return onChatSessionChanged((changedId) => {
+      if (changedId === sessionId) refetch();
+    });
+  }, [sessionId, refetch]);
 
   return {
     session: state.status === 'loaded' ? state.session : null,

@@ -33,6 +33,7 @@ import {
 } from './components/chat-thread-status-banners';
 import { useChatSession } from './hooks/use-chat-session';
 import { useChatStream } from './hooks/use-chat-stream';
+import { useAutoReplayAttach } from './hooks/use-auto-replay-attach';
 import type { ChatMessage } from './components/chat-message-list';
 import type { AssistantSection } from './components/assistant-message';
 
@@ -86,6 +87,13 @@ export function ChatThreadPage() {
   const hydratedRef = useRef(false);
 
   const { session, isLoading } = useChatSession(isNew ? null : id ?? null);
+
+  // Refresh-resume (Phase 7): if the session has an in-flight turn on the
+  // server, attach the replay stream so the view picks up partial output.
+  useAutoReplayAttach({
+    sessionId: isNew ? null : id ?? null,
+    activeTurnId: session?.activeTurnId ?? null,
+  });
 
   // Reset committed state when navigating between distinct sessions
   // (e.g. clicking a different history rail entry).

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useChatSession } from '../../pages/Chat/hooks/use-chat-session';
 import { useChatStream } from '../../pages/Chat/hooks/use-chat-stream';
+import { useAutoReplayAttach } from '../../pages/Chat/hooks/use-auto-replay-attach';
 import type { ChatMessage } from '../../pages/Chat/components/chat-message-list';
 import type { AssistantSection } from '../../pages/Chat/components/assistant-message';
 
@@ -79,6 +80,12 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   }, [sessionId]);
 
   const { session } = useChatSession(sessionId);
+
+  // Refresh-resume: pick up a server-side in-flight turn into the store.
+  useAutoReplayAttach({
+    sessionId,
+    activeTurnId: session?.activeTurnId ?? null,
+  });
 
   useEffect(() => {
     if (!session || hydratedRef.current) return;

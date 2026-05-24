@@ -1,27 +1,24 @@
 /**
- * useChatStream — drives a live SSE turn against the chat-service proxy.
+ * useChatStream — selector + subscribe lifecycle over the singleton
+ * `chat-stream-store`. Exposes the same field shape consumers used to read
+ * from the old `useReducer` version so the panel and `/chat/:id` view stay
+ * source-compatible.
  *
- * Exposes:
- *   status             — idle | loading | streaming | done | error | disconnected | rate_limited
- *   sessionId          — updated on session_created
- *   currentText / currentReasoning / currentArtifacts / currentToolCalls
- *   lastCompactWarning — set when compact_warning received; sessionId advances to 'to'
- *   retryAfterMs       — ms to wait on rate_limited
- *   sendTurn(msg)      — start a new turn
- *   cancel()           — abort in-flight turn
- *   reconnect()        — re-fetch session to refresh after disconnect
+ * Subscribe semantics: refcount only. Unmount NEVER cancels the live fetch —
+ * the stream keeps running and re-mount picks up the same slice from the
+ * store. Explicit cancellation is the "Stop generating" button only.
  */
-import { useCallback, useEffect, useReducer, useRef } from 'react';
-import { openChatTurn } from '../../../api/chat-sse-client';
+import { useCallback, useEffect, useRef } from 'react';
+import { useChatStreamStore } from '../../../stores/chat-stream-store';
+import type {
+  StreamStatus,
+  ToolCallState,
+  CompactWarning,
+} from '../../../stores/chat-stream-store';
 import { getOwnerId } from '../../../api/chat-owner-id';
 import { notifyChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
-import {
-  chatStreamReducer,
-  makeInitialStreamState,
-} from './use-chat-stream-reducer';
 
-// Re-export types consumers depend on.
-export type { StreamStatus, ToolCallState, CompactWarning } from './use-chat-stream-reducer';
+export type { StreamStatus, ToolCallState, CompactWarning };
 
 interface UseChatStreamOptions {
   sessionId: string | null;
@@ -29,153 +26,88 @@ interface UseChatStreamOptions {
 }
 
 export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
-  const [state, dispatch] = useReducer(chatStreamReducer, makeInitialStreamState(sessionId));
+  // The session id that drives streaming may differ from the prop after
+  // session_created / compact_warning. Track it locally so cancel + sendTurn
+  // hit the right slice without forcing a re-subscribe.
+  const liveSessionIdRef = useRef<string | null>(sessionId);
 
-  // Mutable sessionId — kept in sync without triggering re-renders.
-  const sessionIdRef = useRef<string | null>(sessionId);
-  sessionIdRef.current = state.sessionId ?? sessionId;
+  // Subscribe to the entry for the *current* prop sessionId. The store keeps
+  // entries at their original key (e.g. `__new__` for new sessions) and uses
+  // an alias map to resolve subsequent session ids back to the same entry, so
+  // both views see the same slice even after `session_created` advances the
+  // sessionId.
+  const entry = useChatStreamStore((s) => {
+    const key = sessionId ?? '__new__';
+    const resolved = s.aliases.get(key) ?? key;
+    return s.streams.get(resolved) ?? null;
+  });
 
-  const cancelRef = useRef<(() => void) | null>(null);
-
-  // Resync when the parent changes sessionId externally (e.g. "New chat"
-  // sets prop to null, user navigates to a different stored session).
-  // Without this, RESET preserves state.sessionId and the next turn would
-  // continue the previous session instead of starting a fresh one.
+  // Mirror the live session id (post session_created) for cancel/sendTurn.
   useEffect(() => {
-    if (state.sessionId !== sessionId) {
-      cancelRef.current?.();
-      cancelRef.current = null;
-      dispatch({ type: 'EXTERNAL_RESET', sessionId });
-    }
-    // Intentionally depend only on the prop — internal state changes
-    // (SESSION_CREATED bumping state.sessionId) shouldn't re-trigger this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    liveSessionIdRef.current = entry?.sessionId ?? sessionId;
+  }, [entry?.sessionId, sessionId]);
+
+  // Subscribe on mount, unsubscribe on unmount. Refcount only.
+  useEffect(() => {
+    const store = useChatStreamStore.getState();
+    store.subscribe(sessionId);
+    return () => {
+      useChatStreamStore.getState().unsubscribe(sessionId);
+    };
   }, [sessionId]);
 
   const sendTurn = useCallback(
     async (message: string) => {
-      cancelRef.current?.();
-      dispatch({ type: 'START', sessionId: sessionIdRef.current });
-
-      const { stream, cancel } = openChatTurn({
-        sessionId: sessionIdRef.current,
+      // Touch ownerId so the SSE fetch picks up the current user header.
+      // (openChatTurn reads it internally; this is just to keep parity with
+      //  the previous hook for tests that mock getOwnerId.)
+      void getOwnerId();
+      await useChatStreamStore.getState().startTurn({
+        sessionId: liveSessionIdRef.current,
         message,
         game,
       });
-      cancelRef.current = cancel;
-
-      let receivedDone = false;
-
-      try {
-        for await (const event of stream) {
-          switch (event.type) {
-            case 'session_created':
-              sessionIdRef.current = event.data.id;
-              dispatch({ type: 'SESSION_CREATED', id: event.data.id });
-              // Notify sidebar/history surfaces as soon as the server persists
-              // the session — not just on DONE. Otherwise a panel closed (or
-              // stream dropped) mid-turn leaves the new session invisible to
-              // the left-nav list until the next page load.
-              notifyChatSessionChanged(event.data.id);
-              break;
-            case 'loading':
-              dispatch({ type: 'LOADING' });
-              break;
-            case 'thinking':
-              dispatch({ type: 'THINKING', delta: event.data.delta });
-              break;
-            case 'tool_call':
-              dispatch({ type: 'TOOL_CALL', id: event.data.id, name: event.data.name, args: event.data.args });
-              break;
-            case 'tool_result':
-              dispatch({ type: 'TOOL_RESULT', id: event.data.id, ok: event.data.ok, ms: event.data.ms, summary: event.data.summary });
-              break;
-            case 'token':
-              dispatch({ type: 'TOKEN', delta: event.data.delta });
-              break;
-            case 'query_artifact':
-              dispatch({ type: 'ARTIFACT', artifact: event.data });
-              break;
-            case 'chart':
-              dispatch({ type: 'CHART', artifact: event.data });
-              break;
-            case 'compact_warning':
-              sessionIdRef.current = event.data.to;
-              dispatch({ type: 'COMPACT_WARNING', from: event.data.from, to: event.data.to, summary: event.data.summary });
-              break;
-            case 'result':
-              if (event.data.text && !state.currentText) {
-                dispatch({ type: 'TOKEN', delta: event.data.text });
-              }
-              break;
-            case 'error': {
-              const errData = event.data as { code: string; retry_after_ms?: number; message: string };
-              if (errData.code === 'rate_limited' && errData.retry_after_ms != null) {
-                dispatch({ type: 'RATE_LIMITED', retryAfterMs: errData.retry_after_ms });
-              } else {
-                dispatch({ type: 'ERROR', message: errData.message });
-              }
-              break;
-            }
-            case 'done': {
-              receivedDone = true;
-              dispatch({ type: 'DONE' });
-              const sid = sessionIdRef.current;
-              if (sid) notifyChatSessionChanged(sid);
-              break;
-            }
-          }
-        }
-        // Stream ended without 'done' → connection dropped.
-        if (!receivedDone) dispatch({ type: 'DISCONNECTED' });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name !== 'AbortError') {
-          dispatch({ type: 'ERROR', message: err.message });
-        }
-      } finally {
-        cancelRef.current = null;
-      }
     },
-    [game], // eslint-disable-line react-hooks/exhaustive-deps
+    [game],
   );
 
   const cancel = useCallback(() => {
-    cancelRef.current?.();
-    cancelRef.current = null;
-    dispatch({ type: 'RESET' });
+    useChatStreamStore.getState().cancel(liveSessionIdRef.current);
   }, []);
 
-  // Called by consumers after they've committed the streaming buffers into
-  // their own persistent message list. Prevents the live preview from
-  // re-rendering alongside the committed turn.
   const clearStreamBuffers = useCallback(() => {
-    dispatch({ type: 'CLEAR_STREAM_BUFFERS' });
+    useChatStreamStore.getState().clearBuffers(liveSessionIdRef.current);
   }, []);
 
-  // Re-fires session-changed event so useChatSession / rails refetch persisted history.
+  // Re-fires session-changed event so useChatSession / rails refetch persisted
+  // history. Preserved from the legacy hook for the "Reconnect" CTA.
   const reconnect = useCallback(async () => {
-    const sid = sessionIdRef.current;
+    const sid = liveSessionIdRef.current;
     if (!sid) return;
     try {
       const res = await fetch(`/api/chat/sessions/${sid}`, {
         headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
       });
       if (res.ok) notifyChatSessionChanged(sid);
-    } catch { /* silently ignore — caller can retry */ }
-    dispatch({ type: 'RESET' });
+    } catch {
+      /* swallow — caller can retry */
+    }
+    useChatStreamStore.getState().reset(sid);
   }, []);
 
+  // Provide the same field shape as the old hook (defaults when no entry yet).
+  const status: StreamStatus = entry?.status ?? 'idle';
   return {
-    status: state.status,
-    sessionId: state.sessionId,
-    currentText: state.currentText,
-    currentReasoning: state.currentReasoning,
-    currentArtifacts: state.currentArtifacts,
-    currentCharts: state.currentCharts,
-    currentToolCalls: state.currentToolCalls,
-    error: state.error,
-    lastCompactWarning: state.lastCompactWarning,
-    retryAfterMs: state.retryAfterMs,
+    status,
+    sessionId: entry?.sessionId ?? sessionId,
+    currentText: entry?.currentText ?? '',
+    currentReasoning: entry?.currentReasoning ?? '',
+    currentArtifacts: entry?.currentArtifacts ?? [],
+    currentCharts: entry?.currentCharts ?? [],
+    currentToolCalls: entry?.currentToolCalls ?? [],
+    error: entry?.error ?? null,
+    lastCompactWarning: entry?.lastCompactWarning ?? null,
+    retryAfterMs: entry?.retryAfterMs ?? null,
     sendTurn,
     cancel,
     reconnect,

@@ -196,6 +196,62 @@ export interface ChatTurnHandle {
 }
 
 /**
+ * Parse a fetch Response body as an SSE stream and yield typed events.
+ * Shared between `openChatTurn` (POST /turn) and `openChatTurnReplay`
+ * (GET /stream-replay). The caller owns the AbortController/signal — this
+ * helper just respects it.
+ */
+export async function* parseSseFromResponse(
+  response: Response,
+  signal: AbortSignal,
+): AsyncIterable<SseEvent> {
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    let errData: { code: string; message: string };
+    try {
+      errData = JSON.parse(body);
+    } catch {
+      errData = { code: `http_${response.status}`, message: body || response.statusText };
+    }
+    yield { type: 'error', data: errData } as SseError;
+    return;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    yield { type: 'error', data: { code: 'no_body', message: 'Response has no body' } } as SseError;
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (signal.aborted) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const { blocks, remainder } = parseSseBuffer(buffer);
+      buffer = remainder;
+
+      for (const block of blocks) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(block.data);
+        } catch {
+          continue;
+        }
+        yield { type: block.event, data: parsed } as SseEvent;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/**
  * Open a streaming chat turn against the server proxy.
  *
  * - sessionId: null or 'new' → server creates a new session.
@@ -222,7 +278,82 @@ export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
         signal: controller.signal,
       });
     } catch (err: unknown) {
-      // Abort is expected on cancel() — don't re-throw as an error event.
+      if (
+        err instanceof Error &&
+        (err.name === 'AbortError' || controller.signal.aborted)
+      ) {
+        return;
+      }
+      throw err;
+    }
+    yield* parseSseFromResponse(response, controller.signal);
+  }
+
+  return {
+    stream: generateEvents(),
+    cancel: () => controller.abort(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Replay (Phase 7) — attaches to an in-flight turn after a refresh.
+// ---------------------------------------------------------------------------
+
+export interface OpenChatTurnReplayOptions {
+  sessionId: string;
+  turnId: string;
+  fromOffset?: number;
+}
+
+/**
+ * 409 response body shape — server signals ring overflow with the latest
+ * contiguous frame available so the client can retry from that offset.
+ */
+export interface ReplayOverflow {
+  code: 'ring_overflow';
+  availableFromOffset: number;
+  totalEmitted: number;
+}
+
+export class ReplayOverflowError extends Error {
+  readonly availableFromOffset: number;
+  constructor(info: ReplayOverflow) {
+    super(`Replay overflow — earliest available offset is ${info.availableFromOffset}`);
+    this.name = 'ReplayOverflowError';
+    this.availableFromOffset = info.availableFromOffset;
+  }
+}
+
+/**
+ * Open a replay stream for an in-flight turn. The endpoint serves buffered
+ * events from `fromOffset` then tails the live registry until done/error.
+ *
+ * Throws `ReplayOverflowError` synchronously (before yielding any events)
+ * when the server returns 409 — caller is expected to retry from the
+ * `availableFromOffset` returned.
+ */
+export function openChatTurnReplay(
+  options: OpenChatTurnReplayOptions,
+): ChatTurnHandle {
+  const { sessionId, turnId, fromOffset = 0 } = options;
+  const controller = new AbortController();
+
+  const params = new URLSearchParams({ turnId });
+  if (fromOffset > 0) params.set('from', String(fromOffset));
+  const url = `/api/chat/sessions/${encodeURIComponent(sessionId)}/stream-replay?${params}`;
+
+  async function* generateEvents(): AsyncIterable<SseEvent> {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/event-stream',
+          'X-Owner-Id': getOwnerId(),
+        },
+        signal: controller.signal,
+      });
+    } catch (err: unknown) {
       if (
         err instanceof Error &&
         (err.name === 'AbortError' || controller.signal.aborted)
@@ -232,51 +363,20 @@ export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
       throw err;
     }
 
-    if (!response.ok) {
+    // 409 → ring overflow. Parse the JSON body before letting parseSseFromResponse
+    // swallow it as a generic SseError.
+    if (response.status === 409) {
       const body = await response.text().catch(() => '');
-      let errData: { code: string; message: string };
+      let info: ReplayOverflow;
       try {
-        errData = JSON.parse(body);
+        info = JSON.parse(body) as ReplayOverflow;
       } catch {
-        errData = { code: `http_${response.status}`, message: body || response.statusText };
+        info = { code: 'ring_overflow', availableFromOffset: 0, totalEmitted: 0 };
       }
-      yield { type: 'error', data: errData } as SseError;
-      return;
+      throw new ReplayOverflowError(info);
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-      yield { type: 'error', data: { code: 'no_body', message: 'Response has no body' } } as SseError;
-      return;
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (controller.signal.aborted) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const { blocks, remainder } = parseSseBuffer(buffer);
-        buffer = remainder;
-
-        for (const block of blocks) {
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(block.data);
-          } catch {
-            // Skip malformed JSON data fields.
-            continue;
-          }
-          yield { type: block.event, data: parsed } as SseEvent;
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    yield* parseSseFromResponse(response, controller.signal);
   }
 
   return {
