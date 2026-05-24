@@ -15,6 +15,29 @@ import { resolveCubeTokenForGameDetailed } from './resolve-cube-token.js';
 
 const BASE_URL = () => process.env.CUBE_API_URL ?? 'http://localhost:4000';
 
+// Cube can hang in a TCP-up / HTTP-stuck mode (container alive, queries
+// frozen). Without an AbortController, `fetch` sits forever and propagates
+// the hang into every route that calls into Cube — most visibly the metric
+// detail page, which 'Loading…'s indefinitely. 15s is enough for legit
+// /meta + /sql calls (well under Cube's own slow-query window) but bounds
+// the worst case.
+const CUBE_FETCH_TIMEOUT_MS = 15_000;
+
+async function cubeFetch(url: string, init: RequestInit): Promise<Response> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), CUBE_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: ctl.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Cube request timed out after ${CUBE_FETCH_TIMEOUT_MS / 1000}s: ${url}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 // Without this fallback, scope-less callers (identity-suggester, meta-cache)
 // drop the Authorization header on deployments that only set
 // CUBEJS_API_SECRET, and Cube /meta replies "Authorization header missing".
@@ -40,7 +63,7 @@ async function cubePost(
   tokenOverride?: string,
 ): Promise<unknown> {
   const url = `${BASE_URL()}/cubejs-api/v1${path}`;
-  const res = await fetch(url, {
+  const res = await cubeFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(tokenOverride) },
     body: JSON.stringify(body),
@@ -62,7 +85,7 @@ async function cubePost(
 
 async function cubeGet(path: string, tokenOverride?: string): Promise<unknown> {
   const url = `${BASE_URL()}/cubejs-api/v1${path}`;
-  const res = await fetch(url, {
+  const res = await cubeFetch(url, {
     headers: { ...authHeaders(tokenOverride) },
   });
   if (!res.ok) {

@@ -37,15 +37,23 @@ function notify(key: string, metrics: BusinessMetric[]): void {
   subscribers.get(key)?.forEach((cb) => cb(metrics));
 }
 
+// 20s — generous enough to outlast a healthy /api/business-metrics call (which
+// internally hits Cube /meta), but short enough that a hung cube_api surfaces
+// as a real error instead of an infinite "Loading metric…".
+const REGISTRY_FETCH_TIMEOUT_MS = 20_000;
+
 async function fetchOnce(key: string): Promise<BusinessMetric[]> {
   const cached = cache.get(key);
   if (cached) return cached;
   const existing = inflight.get(key);
   if (existing) return existing;
   const promise = (async () => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), REGISTRY_FETCH_TIMEOUT_MS);
     try {
       const resp = await fetch(urlFor(key), {
         headers: { Accept: 'application/json' },
+        signal: ctl.signal,
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = (await resp.json()) as RegistryResponse;
@@ -53,7 +61,13 @@ async function fetchOnce(key: string): Promise<BusinessMetric[]> {
       cache.set(key, metrics);
       notify(key, metrics);
       return metrics;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new Error('Metrics registry request timed out — Cube backend likely hung.');
+      }
+      throw err;
     } finally {
+      clearTimeout(timer);
       inflight.delete(key);
     }
   })();
