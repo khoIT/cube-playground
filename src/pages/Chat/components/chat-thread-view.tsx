@@ -16,6 +16,8 @@ interface ChatThreadViewProps {
   compact?: boolean;
   /** Optional banner rendered above the message list (e.g. disconnect notice). */
   banner?: React.ReactNode;
+  /** Phase-04: pre-fill + submit the given text (follow-up chip click). */
+  onFollowupPick?: (text: string) => void;
 }
 
 export function ChatThreadView({
@@ -26,6 +28,7 @@ export function ChatThreadView({
   onSubmit,
   compact,
   banner,
+  onFollowupPick,
 }: ChatThreadViewProps) {
   return (
     <div
@@ -37,7 +40,11 @@ export function ChatThreadView({
       }}
     >
       {banner}
-      <ChatMessageList messages={messages} streaming={streaming} />
+      <ChatMessageList
+        messages={messages}
+        streaming={streaming}
+        onFollowupPick={onFollowupPick}
+      />
 
       <ChatComposer
         value={composerValue}

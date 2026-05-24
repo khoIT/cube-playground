@@ -2,26 +2,31 @@
  * ChatEmptyHero — state-of-the-art landing for /chat (no session yet).
  *
  * Composition: cube logo + wordmark + subtitle + custom composer with
- * Deep Research pill toggle + circular send + suggested-question list.
+ * Deep Research pill toggle + circular send + starter library grid.
  *
- * Suggestion clicks prefill the composer (no auto-submit) — Q10 plan
- * decision. Deep Research is a mocked FE-only flag for now; the value is
+ * Starter clicks prefill the composer (no auto-submit) per decision Q10.
+ * Cold-start (intent observations < STARTER_RANK_MIN_SESSIONS) renders all
+ * 16 starters in source order; afterward persona-histogram ranks them.
+ * Deep Research is a mocked FE-only flag for now; the value is
  * passed through but the chat-service treats it as a no-op.
  */
-import React, { useState } from 'react';
-import { ArrowUp, CornerDownRight } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { ArrowUp } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
 import { useTheme } from '../../../theme/use-theme';
 import cubeLogoLight from '../../../assets/brand/cube-logo-light.png';
 import cubeLogoDark from '../../../assets/brand/cube-logo-dark.png';
-
-const SUGGESTIONS: ReadonlyArray<string> = [
-  'Show daily revenue last 7 days',
-  'Compare ARPDAU month-over-month',
-  'Top 10 campaigns by ROAS',
-  'Find at-risk whales who haven’t logged in this week',
-  'Compare retention curves across cohorts',
-] as const;
+import { StarterLibraryGrid } from './starter-library-grid';
+import {
+  StarterPersonaFilter,
+  type StarterPersonaFilterValue,
+} from './starter-persona-filter';
+import {
+  STARTER_RANK_MIN_SESSIONS,
+  type StarterQuestion,
+} from '../library/starter-questions';
+import { useStarterRanking } from '../library/use-starter-ranking';
+import { postChatAudit } from '../../../api/chat-audit-client';
 
 interface ChatEmptyHeroProps {
   composerValue: string;
@@ -32,10 +37,27 @@ interface ChatEmptyHeroProps {
 
 export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled }: ChatEmptyHeroProps) {
   const [deepResearch, setDeepResearch] = useState(false);
+  const [personaFilter, setPersonaFilter] = useState<StarterPersonaFilterValue>('all');
 
-  function handleSuggestion(text: string) {
-    onChange(text);
-  }
+  const filter = useCallback(
+    (s: StarterQuestion) => {
+      if (personaFilter === 'all') return true;
+      return s.personaTags.includes(personaFilter);
+    },
+    [personaFilter],
+  );
+  const { ranked } = useStarterRanking(STARTER_RANK_MIN_SESSIONS, filter);
+
+  const handlePick = useCallback(
+    (starter: StarterQuestion) => {
+      onChange(starter.text);
+      postChatAudit({
+        kind: 'starter_clicked',
+        detail: { starterId: starter.id, persona: personaFilter },
+      });
+    },
+    [onChange, personaFilter],
+  );
 
   return (
     <div
@@ -67,7 +89,10 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled }: C
           onToggleDeepResearch={() => setDeepResearch((v) => !v)}
         />
 
-        <SuggestionsList onPick={handleSuggestion} />
+        <div style={{ width: '100%', marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <StarterPersonaFilter value={personaFilter} onChange={setPersonaFilter} />
+          <StarterLibraryGrid starters={ranked} onPick={handlePick} />
+        </div>
       </div>
     </div>
   );
@@ -75,10 +100,6 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled }: C
 
 function CubeLogoBlock() {
   const { theme } = useTheme();
-  // Self-contained brand PNGs — each includes its own square background.
-  // cube-logo-dark.png is the black-bg variant (the "dark island" the design
-  // calls for on light pages). cube-logo-light.png is the white-bg variant
-  // used on dark pages. Switch on the inverse of the page theme.
   const logoSrc = theme === 'dark' ? cubeLogoLight : cubeLogoDark;
   return (
     <>
@@ -179,9 +200,6 @@ function HomeComposer({
 }
 
 function DeepResearchToggle({ active, onToggle }: { active: boolean; onToggle: () => void }) {
-  // macOS-style switch + label. ON: dark track with knob on the right.
-  // OFF: cream/n200 track with knob on the left. No brand-colour highlight
-  // on either state — the switch position carries all the signal.
   const TRACK_W = 38;
   const TRACK_H = 22;
   const KNOB = 18;
@@ -222,32 +240,5 @@ function DeepResearchToggle({ active, onToggle }: { active: boolean; onToggle: (
       </span>
       Deep Research
     </button>
-  );
-}
-
-function SuggestionsList({ onPick }: { onPick: (text: string) => void }) {
-  return (
-    <div style={{ width: '100%', marginTop: 24, display: 'flex', flexDirection: 'column' }}>
-      {SUGGESTIONS.map((text, idx) => (
-        <button
-          key={text}
-          type="button"
-          onClick={() => onPick(text)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '14px 4px', border: 'none', background: 'transparent',
-            cursor: 'pointer', textAlign: 'left',
-            borderTop: idx === 0 ? 'none' : `1px solid ${T.n200}`,
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = T.surfaceSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-        >
-          <Icon icon={CornerDownRight} size={14} color={T.n400} />
-          <span style={{
-            flex: 1, fontFamily: T.fSans, fontSize: 14, color: T.n800,
-          }}>{text}</span>
-        </button>
-      ))}
-    </div>
   );
 }

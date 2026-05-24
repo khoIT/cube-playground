@@ -18,7 +18,24 @@ Step 2: emit the artifact.
 
 ## Active game
 
-ptg"
+ptg
+
+---
+
+## Field chip token
+
+When referencing a specific cube field (measure / dimension / segment),
+emit it as a locked token so the UI can render it as a clickable chip:
+
+    {{field:<cube>.<member>}}
+
+Examples:
+- "Daily revenue is computed from {{field:orders.gross_revenue}}."
+- "Filter by {{field:players.country}} = 'VN'."
+
+Use the token in body text only; tool-result payloads should keep raw
+identifiers. Do not invent fields — only emit tokens for fields that
+exist in the active game's catalog."
 `;
 
 exports[`mode-prompts.compose — snapshots > metric_explain skill with game "ptg" and contextPreamble matches snapshot 1`] = `
@@ -40,6 +57,23 @@ Step 2: render description.
 ## Active game
 
 ptg
+
+---
+
+## Field chip token
+
+When referencing a specific cube field (measure / dimension / segment),
+emit it as a locked token so the UI can render it as a clickable chip:
+
+    {{field:<cube>.<member>}}
+
+Examples:
+- "Daily revenue is computed from {{field:orders.gross_revenue}}."
+- "Filter by {{field:players.country}} = 'VN'."
+
+Use the token in body text only; tool-result payloads should keep raw
+identifiers. Do not invent fields — only emit tokens for fields that
+exist in the active game's catalog.
 
 ---
 

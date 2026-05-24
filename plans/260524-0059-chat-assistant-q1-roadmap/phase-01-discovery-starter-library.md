@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P1 (M1)
-- **Status:** pending
+- **Status:** done
 - **Description:** Surface 16 business questions (from `cube-business-case.html` catalog) as clickable templates on chat landing page, persona-aware (PM / marketer / analyst).
 
 ## Key Insights (from brainstorm)

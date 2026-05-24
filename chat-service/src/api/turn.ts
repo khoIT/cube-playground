@@ -195,6 +195,16 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
 
     // --- 6. Compose system prompt ---
     const intent = routeIntent(body.message);
+    chatStore.insertAudit(opts.db, {
+      sessionId,
+      kind: 'intent_routed',
+      detail: {
+        skill: intent.skill,
+        confidence: intent.confidence,
+        autoRoute: intent.autoRoute,
+        owner_id: body.owner_id,
+      },
+    });
     const { systemPrompt, allowedToolNames } = compose({
       skill: intent.skill,
       game: body.game,

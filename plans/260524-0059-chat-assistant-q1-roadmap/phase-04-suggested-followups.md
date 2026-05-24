@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P2 (M1)
-- **Status:** pending
+- **Status:** done
 - **Description:** Every assistant answer ends with 3 "next-question" chips. Reduces re-prompt friction; keeps user in agent loop.
 
 ## Key Insights

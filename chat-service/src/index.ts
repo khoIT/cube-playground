@@ -23,6 +23,9 @@ import healthRoutes from './api/health.js';
 import sessionsRoutes from './api/sessions.js';
 import turnRoutes from './api/turn.js';
 import statsRoutes from './api/stats.js';
+import auditRoutes from './api/audit.js';
+import notificationsRoutes from './api/notifications.js';
+import { scheduler } from './services/scheduler.js';
 import { RateLimiter, buildRateLimitHook } from './middleware/rate-limit.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -53,6 +56,8 @@ async function buildApp(dbPath?: string) {
   await fastify.register(sessionsRoutes, { db });
   await fastify.register(turnRoutes, { db });
   await fastify.register(statsRoutes, { db });
+  await fastify.register(auditRoutes, { db });
+  await fastify.register(notificationsRoutes, { db });
 
   return { fastify, db };
 }
@@ -79,6 +84,16 @@ async function start(): Promise<void> {
 
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
   fastify.log.info(`chat-service listening on port ${config.port}`);
+
+  // Phase-05: start any registered cron jobs after the server is up so the
+  // health/notifications endpoints are reachable before first tick. Phases
+  // register handlers at module-import time (or via explicit register()
+  // calls) — this just flips the started flag.
+  scheduler.start();
+  fastify.log.info(
+    { jobs: scheduler.list().map((j) => j.name) },
+    '[scheduler] started',
+  );
 }
 
 // Allow other modules (tests) to import buildApp without starting the server

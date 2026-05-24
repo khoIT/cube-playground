@@ -35,9 +35,14 @@ interface ChatMessageListProps {
   messages: ChatMessage[];
   /** If true and last message is assistant, appends TypingDots after it. */
   streaming?: boolean;
+  /**
+   * Fired when the user clicks a follow-up chip (phase-04). The chip text
+   * is intended to be prefilled into the composer and submitted.
+   */
+  onFollowupPick?: (text: string) => void;
 }
 
-export function ChatMessageList({ messages, streaming }: ChatMessageListProps) {
+export function ChatMessageList({ messages, streaming, onFollowupPick }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom whenever messages grow.
@@ -72,13 +77,25 @@ export function ChatMessageList({ messages, streaming }: ChatMessageListProps) {
         paddingBottom: 8,
       }}
     >
-      {messages.map((msg) =>
-        msg.role === 'user' ? (
-          <UserMessage key={msg.id} text={msg.text} ts={msg.ts} />
-        ) : (
-          <AssistantMessage key={msg.id} sections={msg.sections} />
-        )
-      )}
+      {messages.map((msg, i) => {
+        if (msg.role === 'user') {
+          return <UserMessage key={msg.id} text={msg.text} ts={msg.ts} />;
+        }
+        // Follow-up chips only render on the *last* assistant message and
+        // only when nothing is still streaming after it (phase-04 reqs).
+        const isLastAssistant =
+          i === messages.length - 1 ||
+          messages.slice(i + 1).every((m) => m.role === 'assistant' && false);
+        const showFollowups = !streaming && isLastAssistant && !!onFollowupPick;
+        return (
+          <AssistantMessage
+            key={msg.id}
+            sections={msg.sections}
+            showFollowups={showFollowups}
+            onFollowupPick={onFollowupPick}
+          />
+        );
+      })}
 
       {/* Typing indicator when streaming and no assistant message yet (or mid-stream) */}
       {streaming && <TypingDots />}

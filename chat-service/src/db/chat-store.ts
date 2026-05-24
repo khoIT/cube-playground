@@ -270,12 +270,19 @@ export function queryStats(
 // Audit log
 // ---------------------------------------------------------------------------
 
+/**
+ * Append-only audit insert. `kind` accepts the original three core events
+ * plus any phase-introduced UI/event kinds (e.g. starter_clicked,
+ * intent_routed, field_chip_clicked, followup_clicked). Kept as `string`
+ * so phases don't have to thread through a union — query consumers filter
+ * on the literal at read time.
+ */
 export function insertAudit(
   db: Database.Database,
   params: {
     sessionId?: string;
     turnId?: string;
-    kind: 'llm_call' | 'tool_call' | 'error';
+    kind: string;
     detail: unknown;
   },
 ): void {
@@ -289,4 +296,42 @@ export function insertAudit(
     JSON.stringify(params.detail),
     Date.now(),
   );
+}
+
+/**
+ * Returns the last `limit` intent_routed events for an owner, newest first.
+ * Owner attribution lives inside `detail_json.owner_id` (audit table is
+ * append-only and not directly keyed by owner). For ~10s of users / dozens
+ * of intent rows this filter-in-JS is fine; revisit if it ever feeds a
+ * hot path.
+ */
+export function listRecentIntents(
+  db: Database.Database,
+  ownerId: string,
+  limit = 20,
+): Array<{ skill: string; at: number }> {
+  // Pull a bounded recent window of intent_routed rows, then filter by owner.
+  // `WHERE kind = ?` is index-friendly via SQLite's automatic index on small
+  // tables; an explicit index isn't worth the migration churn yet.
+  const rows = db
+    .prepare(
+      `SELECT detail_json, at FROM chat_audit
+       WHERE kind = 'intent_routed'
+       ORDER BY at DESC
+       LIMIT ?`,
+    )
+    .all(Math.max(limit * 4, limit)) as Array<{ detail_json: string; at: number }>;
+  const out: Array<{ skill: string; at: number }> = [];
+  for (const r of rows) {
+    try {
+      const d = JSON.parse(r.detail_json) as { skill?: string; owner_id?: string };
+      if (d.owner_id !== ownerId) continue;
+      if (!d.skill) continue;
+      out.push({ skill: d.skill, at: r.at });
+      if (out.length >= limit) break;
+    } catch {
+      // ignore malformed rows
+    }
+  }
+  return out;
 }

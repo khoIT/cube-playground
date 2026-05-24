@@ -8,6 +8,7 @@ import Database from 'better-sqlite3';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { migrateMonitoring } from './monitoring-migrate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -31,6 +32,10 @@ export function migrate(db: Database.Database): void {
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN parent_session_id TEXT;');
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN compacted_into TEXT;');
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
+
+  // Phase-driven migrations run in a fixed order per decision C1. Each helper
+  // is idempotent and safe to re-run.
+  migrateMonitoring(db);
 }
 
 /**

@@ -68,6 +68,8 @@ export function compose(params: ComposeParams): ComposeResult {
 
   parts.push(`## Active game\n\n${params.game}`);
 
+  parts.push(FIELD_CHIP_TOKEN_GUIDANCE);
+
   if (params.contextPreamble) {
     parts.push(`## Context\n\n${params.contextPreamble}`);
   }
@@ -77,6 +79,26 @@ export function compose(params: ComposeParams): ComposeResult {
     allowedToolNames: skillMeta?.allowedTools ?? [],
   };
 }
+
+/**
+ * Field-chip token spec (phase-02). Whenever the assistant references a
+ * concrete cube field, it should emit it as `{{field:<cube>.<member>}}`
+ * so the UI can render an inline chip linking to the schema cartographer.
+ */
+const FIELD_CHIP_TOKEN_GUIDANCE = `## Field chip token
+
+When referencing a specific cube field (measure / dimension / segment),
+emit it as a locked token so the UI can render it as a clickable chip:
+
+    {{field:<cube>.<member>}}
+
+Examples:
+- "Daily revenue is computed from {{field:orders.gross_revenue}}."
+- "Filter by {{field:players.country}} = 'VN'."
+
+Use the token in body text only; tool-result payloads should keep raw
+identifiers. Do not invent fields — only emit tokens for fields that
+exist in the active game's catalog.`;
 
 /** Reset the master command cache (test helper — not for production use). */
 export function _resetMasterCache(): void {

@@ -18,7 +18,9 @@ import cdpMetricsRoutes from './routes/cdp-metrics.js';
 import businessMetricsRoutes from './routes/business-metrics.js';
 import anomalyStateRoutes from './routes/anomaly-state.js';
 import chatRoutes from './routes/chat.js';
+import glossaryRoutes from './routes/glossary.js';
 import { getDb } from './db/sqlite.js';
+import { migrateGlossarySeed } from './db/glossary-migrate.js';
 import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
 import {
@@ -46,6 +48,15 @@ export async function buildApp() {
   await app.register(businessMetricsRoutes);
   await app.register(anomalyStateRoutes);
   await app.register(chatRoutes);
+  await app.register(glossaryRoutes);
+
+  // Phase-03: idempotent seed of the canonical glossary terms.
+  try {
+    const result = migrateGlossarySeed(getDb());
+    app.log.info(`[glossary] seeded ${result.upserted} term(s)`);
+  } catch (err) {
+    app.log.warn(`[glossary] seed failed: ${(err as Error).message}`);
+  }
 
   // Hydrate the business-metrics cache before serving the first request.
   const bm = await loadBusinessMetrics({ warn: app.log.warn.bind(app.log) });

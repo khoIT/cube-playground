@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P1 (M1)
-- **Status:** pending
+- **Status:** done
 - **Description:** Browsable map of cubes / dimensions / measures with plain-English labels, deep-linked from chat answers. Lets non-tech user explore "what data exists" without leaving chat surface.
 
 ## Key Insights

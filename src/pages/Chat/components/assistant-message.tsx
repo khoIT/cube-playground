@@ -10,12 +10,90 @@
  */
 import React from 'react';
 import { Bot } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { T, Icon } from '../../../shell/theme';
 import { ReasoningTrace } from './reasoning-trace';
 import { ToolCallChip } from './tool-call-chip';
 import { QueryArtifactCard } from './query-artifact-card';
 import { AssistantChartSection } from './assistant-chart-section';
+import { FieldChip } from './field-chip';
+import { useGlossaryLinker, type LinkedSegment } from './use-glossary-linker';
+import { FollowupChips } from './followup-chips';
+import { suggestFollowups, type FollowupChip } from '../services/followup-suggester';
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
+
+/**
+ * Field-chip token (phase-02). Format LOCKED:
+ *   {{field:<cube>.<member>}}
+ * Cube + member are dot-separated identifiers matching catalog meta names.
+ * Token is intentionally absent from markdown/HTML and current message
+ * corpus to avoid collision (verified during phase-02 design).
+ */
+const FIELD_TOKEN_REGEX = /\{\{field:([A-Za-z_][\w.]*\.[A-Za-z_][\w]*)\}\}/g;
+
+/**
+ * Renders an assistant text section: splits on `{{field:cube.member}}` tokens
+ * into <FieldChip/>s, then runs the remaining plain text through the
+ * glossary linker to wrap known business terms.
+ */
+function useRenderedText(text: string): React.ReactNode {
+  const { link } = useGlossaryLinker();
+  if (!text.includes('{{field:')) return renderWithGlossary(text, link);
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  FIELD_TOKEN_REGEX.lastIndex = 0;
+  while ((match = FIELD_TOKEN_REGEX.exec(text)) !== null) {
+    if (match.index > last) {
+      out.push(<React.Fragment key={`t-${last}`}>{renderWithGlossary(text.slice(last, match.index), link)}</React.Fragment>);
+    }
+    const fqn = match[1];
+    out.push(<FieldChip key={`${fqn}-${match.index}`} fqn={fqn} />);
+    last = FIELD_TOKEN_REGEX.lastIndex;
+  }
+  if (last < text.length) {
+    out.push(<React.Fragment key={`t-${last}`}>{renderWithGlossary(text.slice(last), link)}</React.Fragment>);
+  }
+  return out;
+}
+
+function TextParagraph({ text }: { text: string }) {
+  const rendered = useRenderedText(text);
+  return (
+    <p
+      style={{
+        margin: '0 0 8px',
+        fontFamily: T.fSans,
+        fontSize: 14,
+        color: T.n800,
+        lineHeight: 1.6,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}
+    >
+      {rendered}
+    </p>
+  );
+}
+
+function renderWithGlossary(text: string, link: (text: string) => LinkedSegment[]): React.ReactNode {
+  const segments = link(text);
+  if (segments.length === 0) return text;
+  return segments.map((seg, i) =>
+    seg.kind === 'term' ? (
+      <Link
+        key={`g-${i}`}
+        to={`/catalog/concept/measure/business_metrics/${encodeURIComponent(seg.termId ?? '')}`}
+        title={`Glossary: ${seg.termId}`}
+        style={{ color: T.brand, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}
+      >
+        {seg.text}
+      </Link>
+    ) : (
+      <React.Fragment key={`p-${i}`}>{seg.text}</React.Fragment>
+    ),
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Section types
@@ -72,11 +150,56 @@ export type AssistantSection =
 
 interface AssistantMessageProps {
   sections: AssistantSection[];
+  /**
+   * When true, render the suggested follow-up chip row below the message.
+   * Set only on the last settled assistant message (no streaming after).
+   */
+  showFollowups?: boolean;
+  /** Pick handler — chip text should be prefilled + sent (phase-04). */
+  onFollowupPick?: (text: string) => void;
 }
 
-export function AssistantMessage({ sections }: AssistantMessageProps) {
+function extractFollowupContext(sections: ReadonlyArray<AssistantSection>): {
+  cubes: string[];
+  tools: string[];
+} {
+  const cubes = new Set<string>();
+  const tools = new Set<string>();
+  for (const s of sections) {
+    if (s.type === 'tool_call') {
+      tools.add(s.name);
+    } else if (s.type === 'query_artifact') {
+      // sourceRef.id may itself be a cube prefix (e.g. `players.dau`) or a
+      // catalog metric id (`business_metrics/<slug>`). Both shapes are
+      // useful for rule firing — keep the segment before `.`.
+      const refId = s.artifact.sourceRef?.id;
+      if (typeof refId === 'string') {
+        const head = refId.includes('.') ? refId.split('.')[0] : refId;
+        if (head) cubes.add(head);
+      }
+      // Also harvest cubes from the embedded query shape when present —
+      // most query_artifacts carry `query.measures` / `query.dimensions`
+      // as `cube.field` strings.
+      const q = s.artifact.query as { measures?: unknown; dimensions?: unknown } | undefined;
+      for (const arr of [q?.measures, q?.dimensions]) {
+        if (Array.isArray(arr)) {
+          for (const m of arr) {
+            if (typeof m === 'string' && m.includes('.')) cubes.add(m.split('.')[0]);
+          }
+        }
+      }
+    }
+  }
+  return { cubes: Array.from(cubes), tools: Array.from(tools) };
+}
+
+export function AssistantMessage({ sections, showFollowups, onFollowupPick }: AssistantMessageProps) {
   // Merge tool_result into its matching tool_call so we render one chip per call.
   const merged = mergeToolSections(sections);
+
+  const followupChips: FollowupChip[] = showFollowups
+    ? suggestFollowups(extractFollowupContext(merged))
+    : [];
 
   return (
     <div style={{ padding: '4px 16px' }}>
@@ -122,6 +245,12 @@ export function AssistantMessage({ sections }: AssistantMessageProps) {
         {merged.map((section, i) => (
           <SectionRenderer key={i} section={section} />
         ))}
+        {showFollowups && followupChips.length > 0 ? (
+          <FollowupChips
+            chips={followupChips}
+            onPick={(chip) => onFollowupPick?.(chip.text)}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -167,21 +296,7 @@ function mergeToolSections(sections: AssistantSection[]): AssistantSection[] {
 function SectionRenderer({ section }: { section: AssistantSection }) {
   switch (section.type) {
     case 'text':
-      return (
-        <p
-          style={{
-            margin: '0 0 8px',
-            fontFamily: T.fSans,
-            fontSize: 14,
-            color: T.n800,
-            lineHeight: 1.6,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {section.text}
-        </p>
-      );
+      return <TextParagraph text={section.text} />;
 
     case 'reasoning':
       return <ReasoningTrace text={section.text} />;

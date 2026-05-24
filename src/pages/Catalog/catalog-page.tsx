@@ -29,6 +29,8 @@ import { MetricDetailPage } from './metric-detail/metric-detail-page';
 import { MetricsTab } from './metrics-tab/metrics-tab';
 import { useCatalogMeta, CatalogCube } from './use-catalog-meta';
 import { useCubeClusters } from './use-cube-clusters';
+import { SchemaCartographerPage } from './schema-cartographer/cartographer-page';
+import { GlossaryIndexPage } from './glossary/glossary-index-page';
 import { useCubeApiBootstrap } from '../../hooks';
 
 const Page = styled.div`
@@ -153,6 +155,8 @@ export function CatalogPage() {
     '/catalog/notifications': <NotificationsPage />,
     '/catalog/saved-views':   <SavedViewsPage />,
     '/catalog/workspaces':    <WorkspacesPage />,
+    '/catalog/schema':        <SchemaCartographerPage />,
+    '/catalog/glossary':      <GlossaryIndexPage />,
   };
   if (longTailMap[location.pathname]) {
     return <Page>{longTailMap[location.pathname]}</Page>;

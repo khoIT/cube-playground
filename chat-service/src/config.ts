@@ -57,6 +57,18 @@ export interface Config {
   costPer1kOutputUsd: number;
   /** Enable MCP exposure of chat-service tools (off by default). */
   mcpEnabled: boolean;
+  /**
+   * Minimum sessions before starter-question grid switches from cold-start
+   * (uniform) ranking to topic-histogram ranking. Single source of truth —
+   * no env var, no DB row.
+   */
+  starterRankMinSessions: number;
+  /**
+   * Shared service token used by chat-service when calling main-server
+   * internal endpoints (e.g. POST /api/segments/:id/refresh).
+   * Main server validates the bearer token against the same env var.
+   */
+  mainServerServiceToken: string;
 }
 
 const DEFAULT_SKILL_LOADER_TTL = process.env['NODE_ENV'] === 'production' ? 60_000 : 5_000;
@@ -80,4 +92,6 @@ export const config: Config = {
   costPer1kInputUsd: optionalFloat('CHAT_COST_PER_1K_INPUT_USD', 0.003),
   costPer1kOutputUsd: optionalFloat('CHAT_COST_PER_1K_OUTPUT_USD', 0.015),
   mcpEnabled: optional('CHAT_MCP_ENABLED', 'false') === 'true',
+  starterRankMinSessions: 3,
+  mainServerServiceToken: optional('MAIN_SERVER_SERVICE_TOKEN', ''),
 };

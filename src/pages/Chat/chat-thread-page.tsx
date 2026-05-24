@@ -182,6 +182,24 @@ export function ChatThreadPage() {
     sendTurn(text);
   }, [composerValue, sendTurn]);
 
+  /**
+   * Phase-04: follow-up chip click prefills + sends immediately. Bypasses
+   * composer state to avoid the user briefly seeing the chip text before
+   * the send fires.
+   */
+  const handleFollowupPick = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isStreaming) return;
+      setCommittedMessages((prev) => [
+        ...prev,
+        { role: 'user', id: `user-${Date.now()}`, text: trimmed, ts: new Date().toISOString() },
+      ]);
+      sendTurn(trimmed);
+    },
+    [isStreaming, sendTurn],
+  );
+
   // Loading splash for direct visits to an existing /chat/:id before the
   // session payload arrives. Skip for new threads (no fetch happening).
   if (!isNew && isLoading && committedMessages.length === 0) {
@@ -226,6 +244,7 @@ export function ChatThreadPage() {
             onComposerChange={setComposerValue}
             onSubmit={handleSubmit}
             banner={topBanner}
+            onFollowupPick={handleFollowupPick}
           />
         )}
         {lastCompactWarning && status === 'done' && <CompactWarningChip />}

@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P1 (M1)
-- **Status:** pending
+- **Status:** done
 - **Description:** User-facing glossary of business terms (whale, DAU, LTV, …) each mapped to one or more catalog field ids. Clickable from any chat answer to surface "what does this mean".
 
 ## Key Insights

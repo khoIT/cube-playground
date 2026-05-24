@@ -1,0 +1,247 @@
+{
+  "version": 1,
+  "terms": [
+    {
+      "id": "dau",
+      "label": "DAU",
+      "description": "Daily active users — distinct players who opened the game on a given day.",
+      "primary_catalog_id": "business_metrics/dau",
+      "aliases": ["dau", "daily active users", "daily active"],
+      "category": "engagement"
+    },
+    {
+      "id": "mau",
+      "label": "MAU",
+      "description": "Monthly active users — distinct players in a rolling 30-day window.",
+      "primary_catalog_id": "business_metrics/mau",
+      "aliases": ["mau", "monthly active users", "monthly active"],
+      "category": "engagement"
+    },
+    {
+      "id": "wau",
+      "label": "WAU",
+      "description": "Weekly active users — distinct players in a rolling 7-day window.",
+      "primary_catalog_id": "business_metrics/wau",
+      "aliases": ["wau", "weekly active users", "weekly active"],
+      "category": "engagement"
+    },
+    {
+      "id": "stickiness",
+      "label": "Stickiness",
+      "description": "DAU / MAU ratio — fraction of monthly players who play on any given day.",
+      "primary_catalog_id": "business_metrics/stickiness",
+      "secondary_catalog_ids": ["business_metrics/dau", "business_metrics/mau"],
+      "aliases": ["stickiness", "dau/mau"],
+      "category": "engagement"
+    },
+    {
+      "id": "d1_retention",
+      "label": "D1 retention",
+      "description": "Share of new players from day N who returned on day N+1.",
+      "primary_catalog_id": "business_metrics/d1_retention",
+      "aliases": ["d1 retention", "day-1 retention"],
+      "category": "retention"
+    },
+    {
+      "id": "d7_retention",
+      "label": "D7 retention",
+      "description": "Share of new players from day N who returned on day N+7.",
+      "primary_catalog_id": "business_metrics/d7_retention",
+      "aliases": ["d7 retention", "day-7 retention"],
+      "category": "retention"
+    },
+    {
+      "id": "d30_retention",
+      "label": "D30 retention",
+      "description": "Share of new players from day N who returned on day N+30.",
+      "primary_catalog_id": "business_metrics/d30_retention",
+      "aliases": ["d30 retention", "day-30 retention"],
+      "category": "retention"
+    },
+    {
+      "id": "churn_rate",
+      "label": "Churn rate",
+      "description": "Fraction of active players who did not return in the following window.",
+      "primary_catalog_id": "business_metrics/churn_rate",
+      "aliases": ["churn", "churn rate"],
+      "category": "retention"
+    },
+    {
+      "id": "ltv",
+      "label": "LTV",
+      "description": "Lifetime value — total revenue attributable to a single player or install cohort.",
+      "primary_catalog_id": "business_metrics/ltv",
+      "aliases": ["ltv", "lifetime value"],
+      "category": "monetisation"
+    },
+    {
+      "id": "arpu",
+      "label": "ARPU",
+      "description": "Average revenue per user across all active users in the period.",
+      "primary_catalog_id": "business_metrics/arpu",
+      "aliases": ["arpu"],
+      "category": "monetisation"
+    },
+    {
+      "id": "arppu",
+      "label": "ARPPU",
+      "description": "Average revenue per paying user — restricted to players who made ≥1 purchase.",
+      "primary_catalog_id": "business_metrics/arppu",
+      "aliases": ["arppu"],
+      "category": "monetisation"
+    },
+    {
+      "id": "arpdau",
+      "label": "ARPDAU",
+      "description": "Average revenue per daily active user — daily revenue divided by DAU.",
+      "primary_catalog_id": "business_metrics/arpdau",
+      "secondary_catalog_ids": ["business_metrics/dau", "business_metrics/gross_revenue"],
+      "aliases": ["arpdau"],
+      "category": "monetisation"
+    },
+    {
+      "id": "payer_conversion_rate",
+      "label": "Payer conversion",
+      "description": "Share of active players who became payers in the period.",
+      "primary_catalog_id": "business_metrics/payer_conversion_rate",
+      "aliases": ["payer conversion", "payer rate"],
+      "category": "monetisation"
+    },
+    {
+      "id": "whale",
+      "label": "Whale",
+      "description": "Top-spender player segment — typically the top 1% of payers by spend.",
+      "primary_catalog_id": "business_metrics/whale_payer",
+      "aliases": ["whale", "whales"],
+      "category": "segments"
+    },
+    {
+      "id": "dolphin",
+      "label": "Dolphin",
+      "description": "Mid-tier paying player segment — sits between minnow and whale spenders.",
+      "primary_catalog_id": "business_metrics/dolphin_payer",
+      "aliases": ["dolphin", "dolphins"],
+      "category": "segments"
+    },
+    {
+      "id": "minnow",
+      "label": "Minnow",
+      "description": "Low-spending paying player segment.",
+      "primary_catalog_id": "business_metrics/minnow_payer",
+      "aliases": ["minnow", "minnows"],
+      "category": "segments"
+    },
+    {
+      "id": "gross_revenue",
+      "label": "Gross revenue",
+      "description": "Total revenue collected before platform fees and refunds.",
+      "primary_catalog_id": "business_metrics/gross_revenue",
+      "aliases": ["gross revenue", "revenue"],
+      "category": "monetisation"
+    },
+    {
+      "id": "net_revenue",
+      "label": "Net revenue",
+      "description": "Revenue after platform fees, refunds, and taxes.",
+      "primary_catalog_id": "business_metrics/net_revenue",
+      "aliases": ["net revenue"],
+      "category": "monetisation"
+    },
+    {
+      "id": "roas",
+      "label": "ROAS",
+      "description": "Return on ad spend — revenue attributed to a cohort divided by acquisition cost.",
+      "primary_catalog_id": "business_metrics/roas",
+      "aliases": ["roas"],
+      "category": "acquisition"
+    },
+    {
+      "id": "cpi",
+      "label": "CPI",
+      "description": "Cost per install — total acquisition spend divided by installs in the period.",
+      "primary_catalog_id": "business_metrics/cpi",
+      "aliases": ["cpi", "cost per install"],
+      "category": "acquisition"
+    },
+    {
+      "id": "cac",
+      "label": "CAC",
+      "description": "Customer acquisition cost — spend per net-new paying user.",
+      "primary_catalog_id": "business_metrics/cac",
+      "aliases": ["cac"],
+      "category": "acquisition"
+    },
+    {
+      "id": "installs",
+      "label": "Installs",
+      "description": "Net new installs in the period (filtered to first-launch events).",
+      "primary_catalog_id": "business_metrics/installs",
+      "aliases": ["installs"],
+      "category": "acquisition"
+    },
+    {
+      "id": "session_length",
+      "label": "Session length",
+      "description": "Time between session start and session end for a single play.",
+      "primary_catalog_id": "business_metrics/avg_session_length",
+      "aliases": ["session length", "avg session length"],
+      "category": "engagement"
+    },
+    {
+      "id": "sessions_per_user",
+      "label": "Sessions per user",
+      "description": "Average number of sessions per active user in the period.",
+      "primary_catalog_id": "business_metrics/sessions_per_user",
+      "aliases": ["sessions per user"],
+      "category": "engagement"
+    },
+    {
+      "id": "first_purchase_rate",
+      "label": "First purchase rate",
+      "description": "Share of new players who made their first purchase within N days.",
+      "primary_catalog_id": "business_metrics/first_purchase_rate",
+      "aliases": ["first purchase rate", "ftp rate"],
+      "category": "monetisation"
+    },
+    {
+      "id": "engagement_index",
+      "label": "Engagement index",
+      "description": "Composite score blending sessions per user, session length, and stickiness.",
+      "primary_catalog_id": "business_metrics/engagement_index",
+      "aliases": ["engagement index"],
+      "category": "engagement"
+    },
+    {
+      "id": "cohort",
+      "label": "Cohort",
+      "description": "Group of players sharing an installation period (used for retention curves).",
+      "primary_catalog_id": null,
+      "aliases": ["cohort", "install cohort"],
+      "category": "concepts"
+    },
+    {
+      "id": "funnel",
+      "label": "Funnel",
+      "description": "Ordered sequence of player events used to measure step-by-step conversion.",
+      "primary_catalog_id": null,
+      "aliases": ["funnel"],
+      "category": "concepts"
+    },
+    {
+      "id": "at_risk",
+      "label": "At-risk player",
+      "description": "Active player whose engagement is trending toward churn in a defined window.",
+      "primary_catalog_id": "business_metrics/at_risk_players",
+      "aliases": ["at-risk", "at risk player", "at-risk player"],
+      "category": "segments"
+    },
+    {
+      "id": "engagement",
+      "label": "Engagement",
+      "description": "Umbrella term for repeat play (sessions, time, retention) — see specific metrics below.",
+      "primary_catalog_id": null,
+      "aliases": ["engagement"],
+      "category": "concepts"
+    }
+  ]
+}

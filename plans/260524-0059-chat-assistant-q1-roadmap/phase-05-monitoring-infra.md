@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P1 (M1) — UNBLOCKS M3-F13.
-- **Status:** pending
+- **Status:** done
 - **Description:** Backend foundation IN CHAT-SERVICE for scheduled refreshes of saved monitored segments and in-app notifications. Audit log for who-saved-what-when. Scope: in-app notifications only Q1.
 
 ## Key Insights

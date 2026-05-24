@@ -24,11 +24,11 @@ Every chat-emitted segment/metric reference cites a catalog id (`business_metric
 ### M1 — Discovery + Infra Foundation (~4w, parallel tracks)
 | # | Phase | Track | Status |
 |---|---|---|---|
-| 01 | [discovery-starter-library](./phase-01-discovery-starter-library.md) | A — UI | pending |
-| 02 | [schema-cartographer](./phase-02-schema-cartographer.md) | A — UI | pending |
-| 03 | [concept-glossary](./phase-03-concept-glossary.md) | A — UI | pending |
-| 04 | [suggested-followups](./phase-04-suggested-followups.md) | A — UI | pending |
-| 05 | [monitoring-infra](./phase-05-monitoring-infra.md) | B — chat-service Backend | pending |
+| 01 | [discovery-starter-library](./phase-01-discovery-starter-library.md) | A — UI | done |
+| 02 | [schema-cartographer](./phase-02-schema-cartographer.md) | A — UI | done |
+| 03 | [concept-glossary](./phase-03-concept-glossary.md) | A — UI | done |
+| 04 | [suggested-followups](./phase-04-suggested-followups.md) | A — UI | done |
+| 05 | [monitoring-infra](./phase-05-monitoring-infra.md) | B — chat-service Backend | done |
 
 ### M2 — Question Studio (~4w)
 | # | Phase | Status |
