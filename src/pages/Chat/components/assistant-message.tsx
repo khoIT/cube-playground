@@ -10,6 +10,8 @@
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { T } from '../../../shell/theme';
 import { useTheme } from '../../../theme/use-theme';
 import cubeLogoLight from '../../../assets/brand/cube-logo-light.png';
@@ -21,7 +23,6 @@ import { AssistantChartSection } from './assistant-chart-section';
 import { FieldChip } from './field-chip';
 import { useGlossaryLinker, type LinkedSegment } from './use-glossary-linker';
 import { resolveGlossaryHref } from '../../Catalog/glossary/resolve-glossary-link';
-import { tokenizeInlineMarkdown, type MarkdownSegment } from './render-inline-markdown';
 import { FollowupChips } from './followup-chips';
 import { suggestFollowups, type FollowupChip } from '../services/followup-suggester';
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
@@ -35,86 +36,6 @@ import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client'
  */
 const FIELD_TOKEN_REGEX = /\{\{field:([A-Za-z_][\w.]*\.[A-Za-z_][\w]*)\}\}/g;
 
-/**
- * Renders an assistant text section through three stacked transforms:
- *   1. Field tokens `{{field:cube.member}}` become FieldChips. Field tokens
- *      are syntactically distinct from markdown so they're matched FIRST
- *      and never re-tokenized as markdown.
- *   2. Each remaining plain-text chunk is parsed for inline markdown
- *      (`**bold**`, `*italic*`, `` `code` ``).
- *   3. Inside each markdown segment, glossary terms get linked so a bold
- *      term like `**DAU**` still routes to the metric catalog.
- */
-function useRenderedText(text: string): React.ReactNode {
-  const { link } = useGlossaryLinker();
-  if (!text.includes('{{field:')) return renderMarkdownAndGlossary(text, link);
-  const out: React.ReactNode[] = [];
-  let last = 0;
-  let match: RegExpExecArray | null;
-  FIELD_TOKEN_REGEX.lastIndex = 0;
-  while ((match = FIELD_TOKEN_REGEX.exec(text)) !== null) {
-    if (match.index > last) {
-      out.push(
-        <React.Fragment key={`t-${last}`}>
-          {renderMarkdownAndGlossary(text.slice(last, match.index), link)}
-        </React.Fragment>,
-      );
-    }
-    const fqn = match[1];
-    out.push(<FieldChip key={`${fqn}-${match.index}`} fqn={fqn} />);
-    last = FIELD_TOKEN_REGEX.lastIndex;
-  }
-  if (last < text.length) {
-    out.push(
-      <React.Fragment key={`t-${last}`}>
-        {renderMarkdownAndGlossary(text.slice(last), link)}
-      </React.Fragment>,
-    );
-  }
-  return out;
-}
-
-function TextParagraph({ text }: { text: string }) {
-  const rendered = useRenderedText(text);
-  return (
-    <p
-      style={{
-        margin: '0 0 8px',
-        fontFamily: T.fSans,
-        fontSize: 14,
-        color: T.n800,
-        lineHeight: 1.6,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}
-    >
-      {rendered}
-    </p>
-  );
-}
-
-function renderWithGlossary(text: string, link: (text: string) => LinkedSegment[]): React.ReactNode {
-  const segments = link(text);
-  if (segments.length === 0) return text;
-  return segments.map((seg, i) =>
-    seg.kind === 'term' ? (
-      <Link
-        key={`g-${i}`}
-        to={resolveGlossaryHref({
-          id: seg.termId ?? '',
-          primaryCatalogId: seg.primaryCatalogId ?? null,
-        })}
-        title={`Glossary: ${seg.termId}`}
-        style={{ color: T.brand, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}
-      >
-        {seg.text}
-      </Link>
-    ) : (
-      <React.Fragment key={`p-${i}`}>{seg.text}</React.Fragment>
-    ),
-  );
-}
-
 const INLINE_CODE_STYLE: React.CSSProperties = {
   fontFamily: T.fMono,
   fontSize: '0.92em',
@@ -124,35 +45,246 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
   color: T.n900,
 };
 
-function renderMarkdownAndGlossary(
+/**
+ * Splits a raw string into FieldChips + plain-text spans, and runs the
+ * glossary linker over each remaining text chunk. This is applied to every
+ * string leaf inside the markdown tree (paragraphs, list items, table cells,
+ * bold/italic spans, etc.), so chips and glossary links keep working
+ * regardless of which block-level element wraps them.
+ */
+function renderTextLeaf(
   text: string,
   link: (text: string) => LinkedSegment[],
-): React.ReactNode {
-  const segments = tokenizeInlineMarkdown(text);
-  return segments.map((seg, i) => wrapMarkdownSegment(seg, i, link));
+  keyPrefix: string,
+): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  FIELD_TOKEN_REGEX.lastIndex = 0;
+  while ((match = FIELD_TOKEN_REGEX.exec(text)) !== null) {
+    if (match.index > last) {
+      pushGlossaryChunks(out, text.slice(last, match.index), link, `${keyPrefix}-t-${last}`);
+    }
+    const fqn = match[1];
+    out.push(<FieldChip key={`${keyPrefix}-f-${match.index}`} fqn={fqn} />);
+    last = FIELD_TOKEN_REGEX.lastIndex;
+  }
+  if (last < text.length) {
+    pushGlossaryChunks(out, text.slice(last), link, `${keyPrefix}-t-${last}`);
+  }
+  return out;
 }
 
-function wrapMarkdownSegment(
-  seg: MarkdownSegment,
-  i: number,
+function pushGlossaryChunks(
+  out: React.ReactNode[],
+  text: string,
+  link: (text: string) => LinkedSegment[],
+  keyPrefix: string,
+): void {
+  const segments = link(text);
+  if (segments.length === 0) {
+    out.push(<React.Fragment key={keyPrefix}>{text}</React.Fragment>);
+    return;
+  }
+  segments.forEach((seg, i) => {
+    if (seg.kind === 'term') {
+      out.push(
+        <Link
+          key={`${keyPrefix}-g-${i}`}
+          to={resolveGlossaryHref({
+            id: seg.termId ?? '',
+            primaryCatalogId: seg.primaryCatalogId ?? null,
+          })}
+          title={`Glossary: ${seg.termId}`}
+          style={{ color: T.brand, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}
+        >
+          {seg.text}
+        </Link>,
+      );
+    } else {
+      out.push(<React.Fragment key={`${keyPrefix}-p-${i}`}>{seg.text}</React.Fragment>);
+    }
+  });
+}
+
+/**
+ * Walks react-markdown's `children` and rewrites string nodes through the
+ * field-chip + glossary pipeline. Non-string nodes (already-rendered React
+ * elements from nested markdown) pass through untouched.
+ */
+function transformLeaves(
+  children: React.ReactNode,
   link: (text: string) => LinkedSegment[],
 ): React.ReactNode {
-  const inner = renderWithGlossary(seg.text, link);
-  switch (seg.kind) {
-    case 'bold':
-      return <strong key={`b-${i}`}>{inner}</strong>;
-    case 'italic':
-      return <em key={`i-${i}`}>{inner}</em>;
-    case 'code':
-      return (
-        <code key={`c-${i}`} style={INLINE_CODE_STYLE}>
-          {inner}
-        </code>
-      );
-    default:
-      return <React.Fragment key={`m-${i}`}>{inner}</React.Fragment>;
-  }
+  const arr = React.Children.toArray(children);
+  return arr.flatMap((child, i) => {
+    if (typeof child === 'string') return renderTextLeaf(child, link, `c${i}`);
+    return [child];
+  });
 }
+
+function buildMarkdownComponents(
+  link: (text: string) => LinkedSegment[],
+): Components {
+  const wrap = (children: React.ReactNode) => transformLeaves(children, link);
+  return {
+    p: ({ children }) => <p style={P_STYLE}>{wrap(children)}</p>,
+    strong: ({ children }) => <strong>{wrap(children)}</strong>,
+    em: ({ children }) => <em>{wrap(children)}</em>,
+    code: ({ className, children }) => {
+      // react-markdown@9 maps fenced code → <pre><code class="language-…">
+      // and inline code → <code> with no className. Distinguish by className
+      // presence; fenced blocks render via the `pre` override so this branch
+      // covers only the inline case.
+      if (className) {
+        return <code className={className}>{children}</code>;
+      }
+      return <code style={INLINE_CODE_STYLE}>{wrap(children)}</code>;
+    },
+    pre: ({ children }) => <pre style={PRE_STYLE}>{children}</pre>,
+    ul: ({ children }) => <ul style={LIST_STYLE}>{children}</ul>,
+    ol: ({ children }) => <ol style={LIST_STYLE}>{children}</ol>,
+    li: ({ children }) => <li style={LI_STYLE}>{wrap(children)}</li>,
+    h1: ({ children }) => <h3 style={H_STYLE}>{wrap(children)}</h3>,
+    h2: ({ children }) => <h3 style={H_STYLE}>{wrap(children)}</h3>,
+    h3: ({ children }) => <h4 style={H_STYLE}>{wrap(children)}</h4>,
+    h4: ({ children }) => <h4 style={H_STYLE}>{wrap(children)}</h4>,
+    h5: ({ children }) => <h5 style={H_STYLE}>{wrap(children)}</h5>,
+    h6: ({ children }) => <h6 style={H_STYLE}>{wrap(children)}</h6>,
+    blockquote: ({ children }) => <blockquote style={BLOCKQUOTE_STYLE}>{children}</blockquote>,
+    hr: () => <hr style={HR_STYLE} />,
+    a: ({ href, children }) => (
+      <a href={href} target="_blank" rel="noopener noreferrer" style={A_STYLE}>
+        {wrap(children)}
+      </a>
+    ),
+    table: ({ children }) => (
+      <div style={TABLE_WRAPPER_STYLE}>
+        <table style={TABLE_STYLE}>{children}</table>
+      </div>
+    ),
+    thead: ({ children }) => <thead style={THEAD_STYLE}>{children}</thead>,
+    tbody: ({ children }) => <tbody>{children}</tbody>,
+    tr: ({ children }) => <tr>{children}</tr>,
+    th: ({ children }) => <th style={TH_STYLE}>{wrap(children)}</th>,
+    td: ({ children }) => <td style={TD_STYLE}>{wrap(children)}</td>,
+  };
+}
+
+const P_STYLE: React.CSSProperties = {
+  margin: '0 0 8px',
+  fontFamily: T.fSans,
+  fontSize: 14,
+  color: T.n800,
+  lineHeight: 1.6,
+  wordBreak: 'break-word',
+};
+
+const LIST_STYLE: React.CSSProperties = {
+  margin: '0 0 8px',
+  paddingLeft: 20,
+  fontFamily: T.fSans,
+  fontSize: 14,
+  color: T.n800,
+  lineHeight: 1.6,
+};
+
+const LI_STYLE: React.CSSProperties = { marginBottom: 2 };
+
+const H_STYLE: React.CSSProperties = {
+  margin: '12px 0 6px',
+  fontFamily: T.fSans,
+  fontWeight: 600,
+  color: T.n900,
+  lineHeight: 1.3,
+};
+
+const BLOCKQUOTE_STYLE: React.CSSProperties = {
+  margin: '0 0 8px',
+  padding: '4px 12px',
+  borderLeft: `3px solid ${T.brandSoft}`,
+  color: T.n700,
+  fontStyle: 'italic',
+};
+
+const HR_STYLE: React.CSSProperties = {
+  border: 'none',
+  borderTop: `1px solid ${T.n200}`,
+  margin: '12px 0',
+};
+
+const A_STYLE: React.CSSProperties = {
+  color: T.brand,
+  textDecoration: 'underline',
+  textUnderlineOffset: 2,
+};
+
+const PRE_STYLE: React.CSSProperties = {
+  margin: '0 0 8px',
+  padding: 10,
+  borderRadius: 6,
+  background: T.n100,
+  color: T.n900,
+  fontFamily: T.fMono,
+  fontSize: 12,
+  lineHeight: 1.5,
+  overflowX: 'auto',
+};
+
+const TABLE_WRAPPER_STYLE: React.CSSProperties = {
+  margin: '0 0 8px',
+  overflowX: 'auto',
+};
+
+const TABLE_STYLE: React.CSSProperties = {
+  borderCollapse: 'collapse',
+  fontFamily: T.fSans,
+  fontSize: 13,
+  color: T.n800,
+  minWidth: '100%',
+};
+
+const THEAD_STYLE: React.CSSProperties = {
+  background: T.n100,
+};
+
+const TH_STYLE: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '6px 10px',
+  border: `1px solid ${T.n200}`,
+  fontWeight: 600,
+  color: T.n900,
+  whiteSpace: 'nowrap',
+};
+
+const TD_STYLE: React.CSSProperties = {
+  padding: '6px 10px',
+  border: `1px solid ${T.n200}`,
+  verticalAlign: 'top',
+};
+
+const REMARK_PLUGINS = [remarkGfm];
+
+function TextParagraph({ text }: { text: string }) {
+  const { link } = useGlossaryLinker();
+  // `link` is rebuilt on glossary-fetch settle; memoize the components map
+  // against it so we don't churn react-markdown's renderer on every keystroke.
+  const components = React.useMemo(() => buildMarkdownComponents(link), [link]);
+  return (
+    <div style={MARKDOWN_ROOT_STYLE}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+const MARKDOWN_ROOT_STYLE: React.CSSProperties = {
+  fontFamily: T.fSans,
+  fontSize: 14,
+  color: T.n800,
+  lineHeight: 1.6,
+};
 
 // ---------------------------------------------------------------------------
 // Section types
