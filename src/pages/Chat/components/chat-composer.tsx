@@ -91,7 +91,7 @@ export function ChatComposer({
         width: '100%',
         border: `1px solid ${T.n300}`,
         borderRadius: radius,
-        background: disabled ? T.surfaceMuted : T.surface,
+        background: disabled ? T.surfaceMuted : compact ? T.sidebar : T.surface,
         padding: `${padBlock}px ${padInline}px`,
         display: 'flex',
         flexDirection: 'column',
