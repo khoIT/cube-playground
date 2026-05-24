@@ -16,6 +16,7 @@
     "chat:dev": "npm --prefix chat-service run dev",
     "chat:test": "npm --prefix chat-service run test",
     "chat:typecheck": "npm --prefix chat-service run typecheck",
+    "verify:sync": "node scripts/verify-sync.mjs",
     "dev:all": "concurrently -n vite,server,chat -c blue,green,magenta \"npm run dev\" \"npm run server:dev\" \"npm run chat:dev\"",
     "test:visual": "playwright test --config=tests/visual/playwright.config.ts",
     "test:visual:update": "playwright test --config=tests/visual/playwright.config.ts --update-snapshots",
