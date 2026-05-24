@@ -19,6 +19,7 @@ import { AssistantChartSection } from './assistant-chart-section';
 import { FieldChip } from './field-chip';
 import { useGlossaryLinker, type LinkedSegment } from './use-glossary-linker';
 import { resolveGlossaryHref } from '../../Catalog/glossary/resolve-glossary-link';
+import { tokenizeInlineMarkdown, type MarkdownSegment } from './render-inline-markdown';
 import { FollowupChips } from './followup-chips';
 import { suggestFollowups, type FollowupChip } from '../services/followup-suggester';
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
@@ -33,27 +34,40 @@ import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client'
 const FIELD_TOKEN_REGEX = /\{\{field:([A-Za-z_][\w.]*\.[A-Za-z_][\w]*)\}\}/g;
 
 /**
- * Renders an assistant text section: splits on `{{field:cube.member}}` tokens
- * into <FieldChip/>s, then runs the remaining plain text through the
- * glossary linker to wrap known business terms.
+ * Renders an assistant text section through three stacked transforms:
+ *   1. Field tokens `{{field:cube.member}}` become FieldChips. Field tokens
+ *      are syntactically distinct from markdown so they're matched FIRST
+ *      and never re-tokenized as markdown.
+ *   2. Each remaining plain-text chunk is parsed for inline markdown
+ *      (`**bold**`, `*italic*`, `` `code` ``).
+ *   3. Inside each markdown segment, glossary terms get linked so a bold
+ *      term like `**DAU**` still routes to the metric catalog.
  */
 function useRenderedText(text: string): React.ReactNode {
   const { link } = useGlossaryLinker();
-  if (!text.includes('{{field:')) return renderWithGlossary(text, link);
+  if (!text.includes('{{field:')) return renderMarkdownAndGlossary(text, link);
   const out: React.ReactNode[] = [];
   let last = 0;
   let match: RegExpExecArray | null;
   FIELD_TOKEN_REGEX.lastIndex = 0;
   while ((match = FIELD_TOKEN_REGEX.exec(text)) !== null) {
     if (match.index > last) {
-      out.push(<React.Fragment key={`t-${last}`}>{renderWithGlossary(text.slice(last, match.index), link)}</React.Fragment>);
+      out.push(
+        <React.Fragment key={`t-${last}`}>
+          {renderMarkdownAndGlossary(text.slice(last, match.index), link)}
+        </React.Fragment>,
+      );
     }
     const fqn = match[1];
     out.push(<FieldChip key={`${fqn}-${match.index}`} fqn={fqn} />);
     last = FIELD_TOKEN_REGEX.lastIndex;
   }
   if (last < text.length) {
-    out.push(<React.Fragment key={`t-${last}`}>{renderWithGlossary(text.slice(last), link)}</React.Fragment>);
+    out.push(
+      <React.Fragment key={`t-${last}`}>
+        {renderMarkdownAndGlossary(text.slice(last), link)}
+      </React.Fragment>,
+    );
   }
   return out;
 }
@@ -97,6 +111,45 @@ function renderWithGlossary(text: string, link: (text: string) => LinkedSegment[
       <React.Fragment key={`p-${i}`}>{seg.text}</React.Fragment>
     ),
   );
+}
+
+const INLINE_CODE_STYLE: React.CSSProperties = {
+  fontFamily: T.fMono,
+  fontSize: '0.92em',
+  padding: '0 4px',
+  borderRadius: 3,
+  background: T.brandSoft,
+  color: T.n900,
+};
+
+function renderMarkdownAndGlossary(
+  text: string,
+  link: (text: string) => LinkedSegment[],
+): React.ReactNode {
+  const segments = tokenizeInlineMarkdown(text);
+  return segments.map((seg, i) => wrapMarkdownSegment(seg, i, link));
+}
+
+function wrapMarkdownSegment(
+  seg: MarkdownSegment,
+  i: number,
+  link: (text: string) => LinkedSegment[],
+): React.ReactNode {
+  const inner = renderWithGlossary(seg.text, link);
+  switch (seg.kind) {
+    case 'bold':
+      return <strong key={`b-${i}`}>{inner}</strong>;
+    case 'italic':
+      return <em key={`i-${i}`}>{inner}</em>;
+    case 'code':
+      return (
+        <code key={`c-${i}`} style={INLINE_CODE_STYLE}>
+          {inner}
+        </code>
+      );
+    default:
+      return <React.Fragment key={`m-${i}`}>{inner}</React.Fragment>;
+  }
 }
 
 // ---------------------------------------------------------------------------
