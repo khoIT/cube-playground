@@ -101,6 +101,7 @@ vi.mock('../hooks/use-window-width', () => ({
 }));
 
 import { ChatThreadPage } from '../chat-thread-page';
+import { useChatStreamStore } from '../../../stores/chat-stream-store';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -143,6 +144,10 @@ describe('ChatThreadPage — unified /chat → /chat/:id flow', () => {
     sseDone = false;
     sseResolve = null;
     setActiveSpy.mockClear();
+    // Reset the singleton chat-stream store between tests so state from one
+    // test doesn't bleed into the next (e.g. a streaming entry from test 3
+    // would silently no-op test 4's startTurn).
+    useChatStreamStore.setState({ streams: new Map(), aliases: new Map() });
   });
   afterEach(() => { closeStream(); });
 
