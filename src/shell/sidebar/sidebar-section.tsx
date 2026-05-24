@@ -16,8 +16,9 @@ interface SidebarSectionProps {
   label: string;
   /** Click destination for the header. Omit for pure expand-only groups. */
   to?: string;
-  /** Active-route prefix; defaults to `to`. */
-  matchPrefix?: string;
+  /** Active-route prefix(es); defaults to `to`. Use an array when the section
+   *  covers multiple route roots (e.g. plural list + singular detail). */
+  matchPrefix?: string | string[];
   /** If provided, renders content under header when expanded. */
   children?: React.ReactNode;
   /** Render flat (no caret) — used for simple links. */

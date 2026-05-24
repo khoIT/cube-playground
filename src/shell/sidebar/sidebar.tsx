@@ -108,6 +108,9 @@ export function Sidebar() {
             icon={Grid}
             label={t('nav.dataModel')}
             to="/catalog/data-model"
+            // Concept detail pages live under /catalog/concept/:type/:fqn —
+            // include them so the parent stays highlighted from a child click.
+            matchPrefix={['/catalog/data-model', '/catalog/concept']}
             collapsed={collapsed}
           >
             <RecentItems
@@ -133,6 +136,9 @@ export function Sidebar() {
             icon={BarChart3}
             label={t('nav.metricsCatalog')}
             to="/catalog/metrics"
+            // Metric detail pages live at /catalog/metric/:id (singular) —
+            // include them so the parent stays highlighted from a child click.
+            matchPrefix={['/catalog/metrics', '/catalog/metric']}
             collapsed={collapsed}
           >
             <RecentItems

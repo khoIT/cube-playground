@@ -15,8 +15,10 @@ interface SidebarItemProps {
   label: string;
   /** Route to navigate to. Omit if it's an expand-only header (use onClick instead). */
   to?: string;
-  /** Match this prefix for active highlight; defaults to `to`. */
-  matchPrefix?: string;
+  /** Match these prefix(es) for active highlight; defaults to `to`. Pass an
+   *  array when one section spans multiple route roots (e.g. plural list page
+   *  + singular detail page). */
+  matchPrefix?: string | string[];
   /** If provided, renders caret + makes row a button. */
   expandable?: boolean;
   expanded?: boolean;
@@ -41,11 +43,13 @@ export function SidebarItem({
   primary, onClick, indent, muted, trailing, trailingShowOnHover, collapsed,
 }: SidebarItemProps) {
   const location = useLocation();
-  const prefix = matchPrefix ?? to;
-  const isActive = !!prefix && (
-    prefix === '/'
+  const prefixes: string[] = matchPrefix
+    ? Array.isArray(matchPrefix) ? matchPrefix : [matchPrefix]
+    : to ? [to] : [];
+  const isActive = prefixes.some(p =>
+    p === '/'
       ? location.pathname === '/'
-      : location.pathname === prefix || location.pathname.startsWith(prefix + '/')
+      : location.pathname === p || location.pathname.startsWith(p + '/')
   );
 
   const scrollRef = React.useRef<HTMLDivElement>(null);

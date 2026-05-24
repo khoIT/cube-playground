@@ -41,6 +41,7 @@ const PATH_TO_SECTION: Array<{ prefix: string; sectionId: string }> = [
   { prefix: '/catalog/data-model',     sectionId: 'data-model' },
   { prefix: '/data-model/new',         sectionId: 'data-model' },
   { prefix: '/catalog/metrics',        sectionId: 'metrics-catalog' },
+  { prefix: '/catalog/metric',         sectionId: 'metrics-catalog' },
   { prefix: '/catalog/concept',        sectionId: 'data-model' },
   { prefix: '/segments',               sectionId: 'segments' },
 ];
