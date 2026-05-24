@@ -6,7 +6,6 @@
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { SelectionCheckbox } from '../../../shared/catalog-grouped-view/catalog-group-primitives';
 import { AnomalyBadge } from '../../../shared/concept-shell/anomaly-badge';
 import { DomainChip } from '../../../shared/concept-shell/domain-chip';
 import { TrustBadge } from '../../../shared/concept-shell/trust-badge';
@@ -14,18 +13,15 @@ import { TypeIcon } from '../../../shared/concept-shell/type-icon';
 import { useMergedAnomaly } from '../../../shared/concept-shell/use-merged-anomaly';
 import type { BusinessMetric } from './business-metric-types';
 
-const Wrap = styled.div<{ $disabled: boolean; $selected: boolean }>`
+const Wrap = styled.div<{ $disabled: boolean }>`
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px 14px 38px;
-  border: 1px solid
-    ${(p) =>
-      p.$selected ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)'};
+  padding: 14px 16px;
+  border: 1px solid var(--border-card, #e5e5e5);
   border-radius: 10px;
-  background: ${(p) =>
-    p.$selected ? 'rgba(240, 90, 34, 0.04)' : 'var(--bg-card, #ffffff)'};
+  background: var(--bg-card, #ffffff);
   text-decoration: none;
   color: inherit;
   cursor: ${(p) => (p.$disabled ? 'not-allowed' : 'pointer')};
@@ -99,8 +95,6 @@ interface MetricCardProps {
   missingCubes?: string[];
   activeGameLabel?: string;
   onAnomalyClick?: (metric: BusinessMetric) => void;
-  selected?: boolean;
-  onToggleSelected?: (id: string) => void;
 }
 
 export function MetricCard({
@@ -109,19 +103,10 @@ export function MetricCard({
   missingCubes = [],
   activeGameLabel,
   onAnomalyClick,
-  selected = false,
-  onToggleSelected,
 }: MetricCardProps) {
   const liveAnomaly = useMergedAnomaly(metric);
   const inner = (
     <>
-      {onToggleSelected && (
-        <SelectionCheckbox
-          checked={selected}
-          onToggle={() => onToggleSelected(metric.id)}
-          ariaLabel={`Select metric ${metric.id}`}
-        />
-      )}
       <TopRow>
         <TypeIcon kind="business-metric" />
         <Label>{metric.label}</Label>
@@ -150,7 +135,6 @@ export function MetricCard({
     return (
       <Wrap
         $disabled
-        $selected={selected}
         as="div"
         role="article"
         aria-disabled="true"
@@ -163,7 +147,6 @@ export function MetricCard({
   return (
     <Wrap
       $disabled={false}
-      $selected={selected}
       as={Link}
       to={`/catalog/metric/${metric.id}`}
       role="article"

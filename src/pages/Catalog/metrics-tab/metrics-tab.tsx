@@ -1,8 +1,7 @@
 /**
  * MetricsTab — Catalog default tab. Renders the registry as a filterable list
  * scoped to the active game's available cubes. Visible items are grouped by
- * domain with collapsible section headers; each card can be selected for bulk
- * action affordance (no bulk action wired yet — just selection state).
+ * domain with collapsible section headers.
  *
  * Grid vs. list rendering is controlled by the shared view-mode store.
  */
@@ -13,7 +12,6 @@ import styled from 'styled-components';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import {
   GroupHeader,
-  SelectionBanner,
   toggleSetMember,
 } from '../../../shared/catalog-grouped-view/catalog-group-primitives';
 import { ChangeAnalysisModal } from '../../../shared/concept-shell/change-analysis-modal';
@@ -89,7 +87,6 @@ export function MetricsTab() {
   const [query, setQuery] = useState('');
   const [anomalyMetric, setAnomalyMetric] = useState<BusinessMetric | null>(null);
   const [collapsedDomains, setCollapsedDomains] = useState<Set<string>>(() => new Set());
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [viewMode] = useViewMode('metrics-catalog');
 
   const availableCubeNames = useMemo(
@@ -111,22 +108,6 @@ export function MetricsTab() {
     return [...known, ...extras];
   }, [grouped]);
 
-  function toggleSelected(id: string) {
-    setSelected((prev) => toggleSetMember(prev, id));
-  }
-
-  function selectAllInDomain(domain: BusinessMetricDomain, allSelected: boolean) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      const items = grouped.get(domain) ?? [];
-      for (const it of items) {
-        if (allSelected) next.delete(it.metric.id);
-        else next.add(it.metric.id);
-      }
-      return next;
-    });
-  }
-
   return (
     <Wrap>
       <MetricsSearchRow
@@ -139,9 +120,6 @@ export function MetricsTab() {
       />
       <MetricsFilterBar filters={filters} onChange={setFilters} />
       <Main>
-        {selected.size > 0 && (
-          <SelectionBanner count={selected.size} onClear={() => setSelected(new Set())} />
-        )}
         {error && <StatusLine $kind="error">Failed to load metrics: {error}</StatusLine>}
         {loading && <StatusLine $kind="info">Loading metrics…</StatusLine>}
         {!loading && !error && result.visible.length === 0 && (
@@ -155,11 +133,6 @@ export function MetricsTab() {
         {!loading && !error && orderedDomains.map((domain) => {
           const items = grouped.get(domain) ?? [];
           const collapsed = collapsedDomains.has(domain);
-          const selectedInGroup = items.reduce(
-            (n, it) => n + (selected.has(it.metric.id) ? 1 : 0),
-            0,
-          );
-          const allSelected = items.length > 0 && selectedInGroup === items.length;
           return (
             <section key={domain}>
               <GroupHeader
@@ -169,9 +142,6 @@ export function MetricsTab() {
                 onToggle={() =>
                   setCollapsedDomains((prev) => toggleSetMember(prev, domain))
                 }
-                selectedInGroup={selectedInGroup}
-                allSelectedInGroup={allSelected}
-                onSelectAll={(all) => selectAllInDomain(domain, all)}
               />
               {!collapsed && (
                 viewMode === 'grid' ? (
@@ -184,8 +154,6 @@ export function MetricsTab() {
                         missingCubes={missingCubes}
                         activeGameLabel={activeGameLabel}
                         onAnomalyClick={setAnomalyMetric}
-                        selected={selected.has(metric.id)}
-                        onToggleSelected={toggleSelected}
                       />
                     ))}
                   </Grid>
@@ -196,8 +164,6 @@ export function MetricsTab() {
                         key={metric.id}
                         metric={metric}
                         disabled={!available}
-                        selected={selected.has(metric.id)}
-                        onToggleSelected={toggleSelected}
                       />
                     ))}
                   </List>

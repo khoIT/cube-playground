@@ -11,20 +11,15 @@
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { SelectionCheckbox } from '../../../shared/catalog-grouped-view/catalog-group-primitives';
 import type { BusinessMetric } from './business-metric-types';
 
 const Row = styled(Link)<{ $disabled: boolean }>`
   position: relative;
   display: grid;
-  /* SelectionCheckbox is position:absolute (top-left), so it does NOT take a
-     grid column — the left padding reserves the 38px slot visually instead.
-     Earlier versions wasted ~50px by reserving both a 38px column AND 38px
-     of padding for the same overlay. */
   grid-template-columns: minmax(0, 1fr) 180px 96px;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px 10px 38px;
+  padding: 10px 16px;
   border: 1px solid var(--border-card, #e5e5e5);
   border-radius: 8px;
   background: var(--bg-card, #ffffff);
@@ -104,25 +99,16 @@ const TrustChip = styled.span<{ $trust: BusinessMetric['trust'] }>`
 interface MetricListRowProps {
   metric: BusinessMetric;
   disabled: boolean;
-  selected: boolean;
-  onToggleSelected: (id: string) => void;
 }
 
 export function MetricListRow({
   metric,
   disabled,
-  selected,
-  onToggleSelected,
 }: MetricListRowProps) {
   const displayLabel = metric.label || metric.id;
   const showCodename = Boolean(metric.label && metric.label !== metric.id);
   return (
     <Row to={`/catalog/metric/${metric.id}`} $disabled={disabled}>
-      <SelectionCheckbox
-        checked={selected}
-        onToggle={() => onToggleSelected(metric.id)}
-        ariaLabel={`Select metric ${metric.id}`}
-      />
       <TitleBlock>
         <Title title={displayLabel}>
           {displayLabel}
