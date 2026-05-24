@@ -22,7 +22,11 @@ import { platform } from 'node:os';
 const isWindows = platform() === 'win32';
 
 function runConcurrently(args) {
-  const cc = spawn('npx', ['concurrently', ...args], { stdio: 'inherit', shell: true });
+  // No shell: true — the shell would join args with spaces and re-tokenize,
+  // splitting each "npm run dev" command into three separate words.
+  // On Windows, npx is a .cmd file so we point at it directly.
+  const npxCmd = isWindows ? 'npx.cmd' : 'npx';
+  const cc = spawn(npxCmd, ['concurrently', ...args], { stdio: 'inherit' });
   cc.on('exit', (code) => process.exit(code ?? 0));
 }
 
