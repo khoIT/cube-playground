@@ -53,7 +53,9 @@ export async function buildApp() {
   // Phase-03: idempotent seed of the canonical glossary terms.
   try {
     const result = migrateGlossarySeed(getDb());
-    app.log.info(`[glossary] seeded ${result.upserted} term(s)`);
+    app.log.info(
+      `[glossary] seeded ${result.upserted} term(s); purged ${result.purged} orphan(s)`,
+    );
   } catch (err) {
     app.log.warn(`[glossary] seed failed: ${(err as Error).message}`);
   }

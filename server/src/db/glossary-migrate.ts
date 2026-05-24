@@ -43,7 +43,9 @@ function loadSeedFile(): SeedFile {
   );
 }
 
-export function migrateGlossarySeed(db: Database.Database): { upserted: number } {
+export function migrateGlossarySeed(
+  db: Database.Database,
+): { upserted: number; purged: number } {
   const seed = loadSeedFile();
   const stmt = db.prepare(
     `INSERT INTO glossary_terms
@@ -59,7 +61,12 @@ export function migrateGlossarySeed(db: Database.Database): { upserted: number }
        updated_at = excluded.updated_at`,
   );
   const now = Date.now();
-  let n = 0;
+  let upserted = 0;
+  let purged = 0;
+  // Orphan purge: the seed JSON is the source of truth. Without this, a
+  // renamed or deleted seed entry would leave a stale row in the DB and
+  // chat lookups would still resolve to the old (broken) primary_catalog_id.
+  const seedIds = new Set(seed.terms.map((t) => t.id));
   const tx = db.transaction((terms: SeedTerm[]) => {
     for (const t of terms) {
       stmt.run(
@@ -72,9 +79,17 @@ export function migrateGlossarySeed(db: Database.Database): { upserted: number }
         t.category ?? null,
         now,
       );
-      n += 1;
+      upserted += 1;
+    }
+    const existing = db.prepare('SELECT id FROM glossary_terms').all() as Array<{ id: string }>;
+    const deleteStmt = db.prepare('DELETE FROM glossary_terms WHERE id = ?');
+    for (const row of existing) {
+      if (!seedIds.has(row.id)) {
+        deleteStmt.run(row.id);
+        purged += 1;
+      }
     }
   });
   tx(seed.terms);
-  return { upserted: n };
+  return { upserted, purged };
 }

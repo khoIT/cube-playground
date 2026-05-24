@@ -95,7 +95,7 @@
       "label": "ARPDAU",
       "description": "Average revenue per daily active user — daily revenue divided by DAU.",
       "primary_catalog_id": "business_metrics/arpdau",
-      "secondary_catalog_ids": ["business_metrics/dau", "business_metrics/gross_revenue"],
+      "secondary_catalog_ids": ["business_metrics/dau", "business_metrics/revenue"],
       "aliases": ["arpdau"],
       "category": "monetisation"
     },
@@ -132,19 +132,11 @@
       "category": "segments"
     },
     {
-      "id": "gross_revenue",
-      "label": "Gross revenue",
-      "description": "Total revenue collected before platform fees and refunds.",
-      "primary_catalog_id": "business_metrics/gross_revenue",
-      "aliases": ["gross revenue", "revenue"],
-      "category": "monetisation"
-    },
-    {
-      "id": "net_revenue",
-      "label": "Net revenue",
-      "description": "Revenue after platform fees, refunds, and taxes.",
-      "primary_catalog_id": "business_metrics/net_revenue",
-      "aliases": ["net revenue"],
+      "id": "revenue",
+      "label": "Revenue",
+      "description": "Total value of in-game items successfully delivered to users during the selected period. Recognised by item delivery (consumption) date.",
+      "primary_catalog_id": "business_metrics/revenue",
+      "aliases": ["revenue", "gross revenue", "in-game revenue"],
       "category": "monetisation"
     },
     {

@@ -93,7 +93,7 @@ emit it as a locked token so the UI can render it as a clickable chip:
     {{field:<cube>.<member>}}
 
 Examples:
-- "Daily revenue is computed from {{field:orders.gross_revenue}}."
+- "Daily revenue is computed from {{field:recharge.revenue_vnd}}."
 - "Filter by {{field:players.country}} = 'VN'."
 
 Use the token in body text only; tool-result payloads should keep raw

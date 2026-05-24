@@ -80,7 +80,7 @@ export const STARTER_QUESTIONS: ReadonlyArray<StarterQuestion> = [
     text: 'Show daily revenue for the last 7 days',
     personaTags: ['marketer', 'analyst', 'pm'],
     categoryTags: ['explore'],
-    targetCatalogIds: ['business_metrics/gross_revenue'],
+    targetCatalogIds: ['business_metrics/revenue'],
   },
   {
     id: 'arpdau-mom',
@@ -108,7 +108,7 @@ export const STARTER_QUESTIONS: ReadonlyArray<StarterQuestion> = [
     text: 'Where is revenue concentrated by country?',
     personaTags: ['marketer', 'analyst'],
     categoryTags: ['explore', 'compare'],
-    targetCatalogIds: ['business_metrics/gross_revenue'],
+    targetCatalogIds: ['business_metrics/revenue'],
   },
   // ---- Analyst-leaning (conversion / funnels / diagnostics) ----
   {
@@ -144,7 +144,7 @@ export const STARTER_QUESTIONS: ReadonlyArray<StarterQuestion> = [
     text: 'Compare iOS vs Android revenue this month',
     personaTags: ['analyst', 'marketer', 'pm'],
     categoryTags: ['compare'],
-    targetCatalogIds: ['business_metrics/gross_revenue'],
+    targetCatalogIds: ['business_metrics/revenue'],
   },
   {
     id: 'arpu-by-country',
