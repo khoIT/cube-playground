@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 /**
- * Boot guard for the external Cube backend.
+ * Boot guard + watchdog for the external Cube backend.
  *
- * Probes http://localhost:4000/livez. If the API responds, exits silently.
- * If TCP accepts but HTTP hangs (observed mode: container "Up" but stuck),
- * `docker compose restart cube_api` clears it. If the container is down,
- * `docker compose up -d` starts it. Never blocks `npm run dev:all` — on any
- * unrecoverable failure (missing docker, missing repo, still-not-ready after
- * timeout) it prints a banner and exits 0 so vite/server/chat keep booting.
+ * One-shot mode (no flag): probes /livez once, recovers if needed, then exits.
+ * Wired into `dev:all` so vite/server/chat start with a live cube_api.
+ *
+ * Watch mode (--watch): keeps polling /livez every WATCH_INTERVAL_MS and
+ * triggers recovery on N consecutive failures. A cooldown prevents thrash if
+ * cube_api can't recover. Run alongside the dev processes via concurrently.
+ *
+ * Recovery strategy: if TCP accepts but HTTP hangs (observed mode: container
+ * "Up" but stuck), `docker compose restart cube_api` clears it. If the
+ * container is down, `docker compose up -d` starts it.
  *
  * Env overrides:
  *   CUBE_API_URL   default http://localhost:4000
@@ -24,6 +28,12 @@ const CUBE_DEV_PATH = process.env.CUBE_DEV_PATH ?? resolve(homedir(), 'Documents
 const PROBE_TIMEOUT_MS = 4000;
 const READY_TIMEOUT_MS = 90_000;
 const POLL_INTERVAL_MS = 2000;
+// Watch-mode tunables. Three consecutive misses (≈90s) before a restart so a
+// single slow query doesn't trigger a kick. Cooldown stops thrash if cube_api
+// can't recover on its own (e.g. bad config).
+const WATCH_INTERVAL_MS = 30_000;
+const WATCH_FAILURE_THRESHOLD = 3;
+const WATCH_COOLDOWN_MS = 5 * 60_000;
 
 const log = (msg) => process.stdout.write(`[cube-guard] ${msg}\n`);
 const warn = (msg) => process.stderr.write(`[cube-guard] ${msg}\n`);
@@ -63,18 +73,14 @@ function containerRunning() {
   return r.stdout.split('\n').some((s) => s.trim() === 'cube_api');
 }
 
-async function main() {
-  if (await probe()) return;
-
-  log(`cube_api unreachable at ${CUBE_API_URL} — attempting recovery`);
-
+async function recoverOnce() {
   if (!existsSync(CUBE_DEV_PATH)) {
-    warn(`cube-dev repo not found at ${CUBE_DEV_PATH}. Set CUBE_DEV_PATH or start cube manually. Continuing without it.`);
-    return;
+    warn(`cube-dev repo not found at ${CUBE_DEV_PATH}. Set CUBE_DEV_PATH or start cube manually.`);
+    return false;
   }
   if (spawnSync('docker', ['--version'], { stdio: 'ignore' }).status !== 0) {
-    warn('docker CLI not found. Continuing without cube_api.');
-    return;
+    warn('docker CLI not found.');
+    return false;
   }
 
   // Hung-but-running case (TCP accepts, HTTP timeouts) → restart clears it.
@@ -91,12 +97,54 @@ async function main() {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   if (await waitReady(deadline)) {
     log('cube_api is ready');
-    return;
+    return true;
   }
-
-  warn(`cube_api still not ready after ${READY_TIMEOUT_MS / 1000}s — check 'docker compose -f ${CUBE_DEV_PATH}/docker-compose.yml logs cube_api'. Continuing.`);
+  warn(`cube_api still not ready after ${READY_TIMEOUT_MS / 1000}s — check 'docker compose -f ${CUBE_DEV_PATH}/docker-compose.yml logs cube_api'.`);
+  return false;
 }
 
-main().catch((err) => {
+async function bootGuard() {
+  if (await probe()) return;
+  log(`cube_api unreachable at ${CUBE_API_URL} — attempting recovery`);
+  await recoverOnce();
+}
+
+async function watchLoop() {
+  log(`watchdog started — probing every ${WATCH_INTERVAL_MS / 1000}s, restarting after ${WATCH_FAILURE_THRESHOLD} consecutive misses`);
+  let consecutiveFailures = 0;
+  let cooldownUntil = 0;
+
+  // SIGINT/SIGTERM from concurrently land here so the loop exits cleanly.
+  let stopped = false;
+  const stop = () => { stopped = true; };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+
+  while (!stopped) {
+    await new Promise((r) => setTimeout(r, WATCH_INTERVAL_MS));
+    if (stopped) break;
+
+    if (await probe()) {
+      consecutiveFailures = 0;
+      continue;
+    }
+    consecutiveFailures += 1;
+    if (consecutiveFailures < WATCH_FAILURE_THRESHOLD) continue;
+    if (Date.now() < cooldownUntil) {
+      log(`cube_api still missing but in cooldown — skipping restart`);
+      continue;
+    }
+
+    log(`cube_api unreachable for ${consecutiveFailures} consecutive probes — triggering recovery`);
+    cooldownUntil = Date.now() + WATCH_COOLDOWN_MS;
+    await recoverOnce();
+    consecutiveFailures = 0;
+  }
+  log('watchdog stopped');
+}
+
+const isWatch = process.argv.includes('--watch');
+const entry = isWatch ? watchLoop : bootGuard;
+entry().catch((err) => {
   warn(`unexpected error: ${err?.message ?? err}. Continuing.`);
 });

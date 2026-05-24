@@ -40,6 +40,10 @@ function runConcurrently(args) {
   cc.on('exit', (code) => process.exit(code ?? 0));
 }
 
+// Long-running cube watchdog — keeps probing cube_api and restarts it on
+// repeated failures so the hung-but-up mode auto-recovers mid-session.
+const cubeWatch = `node ${JSON.stringify(resolve(here, 'ensure-cube-api.mjs'))} --watch`;
+
 if (isWindows) {
   // `start "title" cmd /k <command>` opens a new console window and keeps
   // it open after the command exits (so boot-guard's error output stays
@@ -54,17 +58,19 @@ if (isWindows) {
   );
 
   runConcurrently([
-    '-n', 'vite,server',
-    '-c', 'blue,green',
+    '-n', 'vite,server,cube',
+    '-c', 'blue,green,yellow',
     'npm run dev',
     'npm run server:dev',
+    cubeWatch,
   ]);
 } else {
   runConcurrently([
-    '-n', 'vite,server,chat',
-    '-c', 'blue,green,magenta',
+    '-n', 'vite,server,chat,cube',
+    '-c', 'blue,green,magenta,yellow',
     'npm run dev',
     'npm run server:dev',
     'npm run chat:dev',
+    cubeWatch,
   ]);
 }

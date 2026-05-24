@@ -93,8 +93,14 @@ export function useCatalogMeta(): UseCatalogMetaResult {
     // a future Cube proxy that filters by `cube.meta.game_id`. Client-side
     // fallback below applies the filter against cube.meta.game_id.
     const url = `${base}/meta?extended=true&game_id=${encodeURIComponent(gameId)}`;
+    // 10s timeout — Cube can hang (TCP-up, HTTP-stuck) and `fetch` without an
+    // AbortController would leave `loading=true` forever, surfacing as an
+    // infinite "Loading…" spinner across Catalog routes.
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 10_000);
     fetch(url, {
       headers: { Authorization: ctx.token },
+      signal: ctl.signal,
     })
       .then(async (resp) => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -106,13 +112,22 @@ export function useCatalogMeta(): UseCatalogMetaResult {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
+          const msg =
+            err instanceof DOMException && err.name === 'AbortError'
+              ? 'Cube backend timed out (10s). Reload after it recovers.'
+              : err instanceof Error
+              ? err.message
+              : String(err);
+          setError(msg);
           setLoading(false);
         }
-      });
+      })
+      .finally(() => clearTimeout(timer));
 
     return () => {
       cancelled = true;
+      ctl.abort();
+      clearTimeout(timer);
     };
   }, [ctx.apiUrl, ctx.token, gameId]);
 

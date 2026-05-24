@@ -6,10 +6,24 @@
  * token is wrong — still a backend-is-running signal). Only network failures
  * and timeouts flip the status to 'unreachable', which is the case the boot
  * guard couldn't recover from and the user needs to see.
+ *
+ * Also exposes `hadOutage` — a sticky bit set the first time we see
+ * 'unreachable'. The page's in-flight cube requests (e.g. cubejs-client meta)
+ * have no timeout, so after recovery they're effectively dead and the user
+ * needs to reload to refresh. The banner reads this to switch into a green
+ * "Backend recovered" recovery state.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type CubeApiHealth = 'unknown' | 'ok' | 'unreachable';
+
+export interface CubeApiHealthResult {
+  status: CubeApiHealth;
+  /** True once 'unreachable' has been observed during this mount. */
+  hadOutage: boolean;
+  /** Manually clear the outage flag (used by the recovery banner). */
+  acknowledgeRecovery: () => void;
+}
 
 const PROBE_PATH = '/cubejs-api/v1/meta';
 const PROBE_TIMEOUT_MS = 4000;
@@ -33,8 +47,12 @@ async function probeOnce(signal: AbortSignal): Promise<CubeApiHealth> {
   }
 }
 
-export function useCubeApiHealth(): CubeApiHealth {
+export function useCubeApiHealth(): CubeApiHealthResult {
   const [status, setStatus] = useState<CubeApiHealth>('unknown');
+  const [hadOutage, setHadOutage] = useState(false);
+  // Latest hadOutage in a ref so the polling closure doesn't need to be re-bound
+  // each render when the outage flag flips.
+  const hadOutageRef = useRef(false);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -42,7 +60,13 @@ export function useCubeApiHealth(): CubeApiHealth {
 
     const tick = async () => {
       const next = await probeOnce(ctl.signal);
-      if (!ctl.signal.aborted && next !== 'unknown') setStatus(next);
+      if (!ctl.signal.aborted && next !== 'unknown') {
+        setStatus(next);
+        if (next === 'unreachable' && !hadOutageRef.current) {
+          hadOutageRef.current = true;
+          setHadOutage(true);
+        }
+      }
       if (!ctl.signal.aborted) timer = setTimeout(tick, POLL_INTERVAL_MS);
     };
 
@@ -53,5 +77,10 @@ export function useCubeApiHealth(): CubeApiHealth {
     };
   }, []);
 
-  return status;
+  const acknowledgeRecovery = useCallback(() => {
+    hadOutageRef.current = false;
+    setHadOutage(false);
+  }, []);
+
+  return { status, hadOutage, acknowledgeRecovery };
 }
