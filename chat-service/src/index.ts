@@ -22,6 +22,7 @@ import { hydrateChatFromSnapshot, getChatSyncStatus } from './db/snapshot-store.
 import healthRoutes from './api/health.js';
 import sessionsRoutes from './api/sessions.js';
 import turnRoutes from './api/turn.js';
+import replayRoutes from './api/replay.js';
 import statsRoutes from './api/stats.js';
 import auditRoutes from './api/audit.js';
 import notificationsRoutes from './api/notifications.js';
@@ -55,6 +56,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(healthRoutes, { db });
   await fastify.register(sessionsRoutes, { db });
   await fastify.register(turnRoutes, { db });
+  await fastify.register(replayRoutes, { db });
   await fastify.register(statsRoutes, { db });
   await fastify.register(auditRoutes, { db });
   await fastify.register(notificationsRoutes, { db });

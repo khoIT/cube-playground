@@ -16,6 +16,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { EventEmitter } from 'node:events';
+import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import * as chatStore from '../db/chat-store.js';
@@ -28,6 +29,8 @@ import { writeSseEvent } from '../core/sse-stream.js';
 import { shouldCompact, compactSession } from '../core/compact-service.js';
 import { summariseTitle } from '../core/title-summariser.js';
 import { config } from '../config.js';
+import { getStreamRegistry } from '../core/stream-registry-instance.js';
+import { RegistryOverflowError } from '../core/stream-registry.js';
 import type { SseEvent, QueryArtifact, ChartArtifact, ToolContext } from '../types.js';
 
 interface TurnRouteOptions {
@@ -110,6 +113,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
               },
             });
             pendingCompactWarning = { from: sessionId, to: result.newSessionId, summary: result.summary };
+            // Compact-alias map: clients holding the pre-compact sessionId still
+            // need to find the active turn after the swap (Q1).
+            getStreamRegistry().aliasSession(sessionId, result.newSessionId);
             sessionId = result.newSessionId;
           } catch (compactErr) {
             // Compact failure is non-fatal — continue with the original session
@@ -145,8 +151,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
 
     const stream = reply.raw;
 
-    // Helper: write an SSE event and flush
+    // turnId — UUID v4 (unguessable; replaces the legacy sessionId:index).
+    const turnId = randomUUID();
+    const registry = getStreamRegistry();
+
+    // Helper: write an SSE event, mirror into the registry's ring buffer.
     function emit(event: SseEvent): void {
+      registry.append(turnId, event);
       writeSseEvent(stream, event);
     }
 
@@ -173,6 +184,25 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
 
       emit({ type: 'session_created', data: { id: sessionId } });
     }
+
+    // Register the turn with the stream registry now that sessionId is final.
+    try {
+      registry.register(turnId, sessionId);
+    } catch (err) {
+      if (err instanceof RegistryOverflowError) {
+        stream.write(
+          `event: error\ndata: ${JSON.stringify({ code: 'registry_full', message: err.message })}\n\n`,
+        );
+        stream.end();
+        if (release) release();
+        return;
+      }
+      throw err;
+    }
+
+    // Emit `turn_started` immediately so clients get a stable handle before
+    // any token arrives.
+    emit({ type: 'turn_started', data: { turnId } });
 
     // Emit compact_warning if auto-compact ran before the stream was opened
     if (pendingCompactWarning) {
@@ -224,7 +254,6 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       emit({ type: 'chart', data: chart });
     });
 
-    const turnId = sessionId + ':' + (userTurnIndex + 1);
     const toolContext: ToolContext = {
       ownerId: body.owner_id,
       gameId: body.game,
@@ -335,9 +364,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
 
       emit({ type: 'done', data: {} });
+      registry.finish(turnId, 'done');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       emit({ type: 'error', data: { code: 'agent_error', message } });
+      registry.finish(turnId, 'error');
 
       // Persist error in audit log
       chatStore.insertAudit(opts.db, {

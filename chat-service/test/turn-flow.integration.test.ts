@@ -198,9 +198,12 @@ describe('POST /agent/turn integration', () => {
     const events = parseSseEvents(response.body);
     const types = events.map((e) => e.type);
 
-    // Must start with session_created, then loading
+    // Must start with session_created, then turn_started, then loading.
+    // `turn_started` carries the unguessable UUID turnId so a refreshed
+    // client has a stable handle before any token arrives (Phase 5).
     expect(types[0]).toBe('session_created');
-    expect(types[1]).toBe('loading');
+    expect(types[1]).toBe('turn_started');
+    expect(types[2]).toBe('loading');
 
     // Must contain thinking, tool_call, tool_result, token
     expect(types).toContain('thinking');

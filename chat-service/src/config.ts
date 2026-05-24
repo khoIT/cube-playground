@@ -57,6 +57,14 @@ export interface Config {
   costPer1kOutputUsd: number;
   /** Enable MCP exposure of chat-service tools (off by default). */
   mcpEnabled: boolean;
+  /** Stream-registry per-turn ring buffer size (events kept for replay). */
+  streamRegistryRingSize: number;
+  /** Stream-registry global concurrent-turn cap. */
+  streamRegistryMaxTurns: number;
+  /** TTL (ms) entries linger after finish so a refreshed client can attach. */
+  streamRegistryTtlMs: number;
+  /** Background sweeper interval (ms) for evicting expired entries. */
+  streamRegistrySweepIntervalMs: number;
   /**
    * Minimum sessions before starter-question grid switches from cold-start
    * (uniform) ranking to topic-histogram ranking. Single source of truth —
@@ -94,4 +102,8 @@ export const config: Config = {
   mcpEnabled: optional('CHAT_MCP_ENABLED', 'false') === 'true',
   starterRankMinSessions: 3,
   mainServerServiceToken: optional('MAIN_SERVER_SERVICE_TOKEN', ''),
+  streamRegistryRingSize: optionalInt('STREAM_REGISTRY_RING_SIZE', 2000),
+  streamRegistryMaxTurns: optionalInt('STREAM_REGISTRY_MAX_TURNS', 100),
+  streamRegistryTtlMs: optionalInt('STREAM_REGISTRY_TTL_MS', 300_000),
+  streamRegistrySweepIntervalMs: optionalInt('STREAM_REGISTRY_SWEEP_INTERVAL_MS', 60_000),
 };

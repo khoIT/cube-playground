@@ -62,6 +62,7 @@ export interface QueryArtifact {
 
 export type SseEvent =
   | { type: 'session_created'; data: { id: string } }
+  | { type: 'turn_started'; data: { turnId: string } }
   | { type: 'loading'; data: Record<string, never> }
   | { type: 'thinking'; data: { delta: string } }
   | { type: 'tool_call'; data: { id: string; name: string; args: unknown } }

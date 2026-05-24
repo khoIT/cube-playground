@@ -11,6 +11,7 @@ import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import * as chatStore from '../db/chat-store.js';
 import { writeChatSnapshot } from '../db/snapshot-store.js';
+import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import type { ChatTurnRow, QueryArtifact, ChartArtifact } from '../types.js';
 
 // ---------------------------------------------------------------------------
@@ -106,7 +107,12 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
       }
 
       const turns = chatStore.listTurns(opts.db, session.id).map(rowToTurn);
-      return reply.send({ session, turns });
+      // Surface the active turnId so a refreshed client knows to attach to
+      // the live SSE replay endpoint instead of opening a fresh turn.
+      // findRunning() resolves through the compact-alias map, so requesting
+      // the pre-compact sessionId still locates the live turn.
+      const activeTurnId = getStreamRegistry().findRunning(session.id)?.turnId ?? null;
+      return reply.send({ session, turns, activeTurnId });
     },
   );
 
