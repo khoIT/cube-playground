@@ -2,7 +2,9 @@ id: gross_bookings
 label: Gross bookings
 description: >-
   Total amount charged to users across purchase orders, before deductions and
-  refunds. Equal to revenue when a game does not use a wallet.
+  refunds. Approximated by recharge.revenue_vnd today — exact for wallet-less
+  games, slight under-count for games where wallet top-ups defer item delivery.
+  Re-point to a dedicated billing cube measure when Billing exposes one.
 synonyms: [gross_bookings_vnd, billing_gross]
 tier: 2
 domain: revenue
@@ -10,7 +12,7 @@ owner: billing@vng
 trust: beta
 formula:
   type: measure
-  ref: recharge.gross_bookings_vnd
+  ref: recharge.revenue_vnd
 unit: VND
 format: currency
 game_compatibility:

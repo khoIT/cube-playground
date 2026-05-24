@@ -107,16 +107,16 @@ cubes:
       - name: users_completed_register
 ```
 
-## ❌ `recharge.gross_bookings_vnd`
+## ⚠️ `gross_bookings` — approximated by `recharge.revenue_vnd`
 
-`gross_bookings.yml` points at `recharge.gross_bookings_vnd` which doesn't
-exist. Per the metric doc, Gross Bookings = `sum(charged_value_before_refund)`
-from Billing, which is a different upstream than the existing
-`recharge.revenue_vnd` (post-refund, delivery-recognised).
+`gross_bookings.yml` previously pointed at `recharge.gross_bookings_vnd`
+which doesn't exist. Re-pointed to `recharge.revenue_vnd` as an
+approximation — exact for wallet-less games (per the metric doc), slight
+under-count where wallet top-ups defer item delivery. Trust stays `beta`
+and the description spells out the caveat.
 
-Options:
-1. Add a `billing` cube wrapping the billing event stream with `gross_bookings_vnd`.
-2. Accept `gross_bookings = revenue_vnd` for wallet-less games and document the divergence for games with wallets.
+Long-term: add a `billing` cube wrapping the billing event stream with a
+true `gross_bookings_vnd` measure and re-point this metric.
 
 ## How the registry tolerates this today
 
