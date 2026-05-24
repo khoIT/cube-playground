@@ -44,15 +44,18 @@ export function ChatThreadView({
         messages={messages}
         streaming={streaming}
         onFollowupPick={onFollowupPick}
-      />
-
-      <ChatComposer
-        value={composerValue}
-        onChange={onComposerChange}
-        onSubmit={onSubmit}
-        disabled={streaming}
         compact={compact}
       />
+
+      <div style={{ padding: compact ? '8px 12px 12px' : '12px 0 20px' }}>
+        <ChatComposer
+          value={composerValue}
+          onChange={onComposerChange}
+          onSubmit={onSubmit}
+          disabled={streaming}
+          compact={compact}
+        />
+      </div>
     </div>
   );
 }

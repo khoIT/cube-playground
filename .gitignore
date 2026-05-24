@@ -109,3 +109,7 @@ worktrees/
 
 # Schema-write audit log — may contain raw YAML payloads; not for git history.
 _audit.jsonl
+
+# Playwright artifacts
+test-results/
+playwright-report/

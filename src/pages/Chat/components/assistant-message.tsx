@@ -9,9 +9,11 @@
  *   query_artifact — QueryArtifactCard
  */
 import React from 'react';
-import { Bot } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { T, Icon } from '../../../shell/theme';
+import { T } from '../../../shell/theme';
+import { useTheme } from '../../../theme/use-theme';
+import cubeLogoLight from '../../../assets/brand/cube-logo-light.png';
+import cubeLogoDark from '../../../assets/brand/cube-logo-dark.png';
 import { ReasoningTrace } from './reasoning-trace';
 import { ToolCallChip } from './tool-call-chip';
 import { QueryArtifactCard } from './query-artifact-card';
@@ -253,6 +255,9 @@ function extractFollowupContext(sections: ReadonlyArray<AssistantSection>): {
 export function AssistantMessage({ sections, showFollowups, onFollowupPick }: AssistantMessageProps) {
   // Merge tool_result into its matching tool_call so we render one chip per call.
   const merged = mergeToolSections(sections);
+  const { theme } = useTheme();
+  // Dark theme → light logo (visible on dark bg), light theme → dark logo.
+  const logoSrc = theme === 'dark' ? cubeLogoLight : cubeLogoDark;
 
   const followupChips: FollowupChip[] = showFollowups
     ? suggestFollowups(extractFollowupContext(merged))
@@ -269,20 +274,18 @@ export function AssistantMessage({ sections, showFollowups, onFollowupPick }: As
           marginBottom: 6,
         }}
       >
-        <div
+        <img
+          src={logoSrc}
+          alt=""
+          aria-hidden
           style={{
             width: 24,
             height: 24,
-            borderRadius: '50%',
-            background: T.brandSoft,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            borderRadius: 6,
+            display: 'block',
             flexShrink: 0,
           }}
-        >
-          <Icon icon={Bot} size={14} color={T.brand} />
-        </div>
+        />
         <span
           style={{
             fontFamily: T.fSans,
@@ -293,7 +296,7 @@ export function AssistantMessage({ sections, showFollowups, onFollowupPick }: As
             textTransform: 'uppercase',
           }}
         >
-          Assistant
+          Cube
         </span>
       </div>
 

@@ -1,16 +1,12 @@
 /**
  * AssistantChartSection — renders a ChartArtifact with recharts.
  *
- * The component compiles the declarative spec into the appropriate recharts
- * subtree at render time. No echarts dep, no custom canvas — just JSX from
- * recharts primitives.
- *
- * Layout:
- *   Title (unless `embedded` — embedded charts inherit the artifact card's title)
- *   <ResponsiveContainer height={320}> …chart… </ResponsiveContainer>
- *   Caption + truncation footer
+ * Non-embedded mode spans the full container width with symmetric inner
+ * padding and a header row exposing a view-switcher menu (chart type,
+ * data table, CSV export). Embedded mode (inside QueryArtifactCard) stays
+ * minimal: just the chart body, no header, no menu.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -31,6 +27,8 @@ import {
   Legend,
 } from 'recharts';
 import { T, CHART } from '../../../shell/theme';
+import { ChartSectionMenu } from './chart-section-menu';
+import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
 const CHART_HEIGHT = 320;
@@ -39,58 +37,131 @@ interface AssistantChartSectionProps {
   artifact: ChartArtifact;
   /** When rendered inside a query-artifact card, suppress the chart's own title. */
   embedded?: boolean;
+  /**
+   * Optional controlled chart-type override. When set (e.g. from the
+   * QueryArtifactCard menu), wins over the spec's declared type. Used only in
+   * embedded mode; the standalone surface owns its own override state.
+   */
+  overrideType?: ChartSpec['type'];
 }
 
-export function AssistantChartSection({ artifact, embedded }: AssistantChartSectionProps) {
+export function AssistantChartSection({ artifact, embedded, overrideType: externalOverride }: AssistantChartSectionProps) {
   const { spec, truncated, originalRowCount } = artifact;
+  const [view, setView] = useState<'chart' | 'table'>('chart');
+  const [internalOverride, setInternalOverride] = useState<ChartSpec['type'] | null>(null);
+
+  const overrideType = externalOverride ?? internalOverride;
+  const activeType = overrideType ?? spec.type;
+  const activeSpec = overrideType ? ({ ...spec, type: overrideType } as ChartSpec) : spec;
+
+  // Embedded mode keeps the original minimal rendering — no header, no menu.
+  if (embedded) {
+    return (
+      <div style={{ marginTop: 12, marginBottom: 0, padding: 0 }}>
+        <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+          {renderChartBody(activeSpec)}
+        </ResponsiveContainer>
+        {(spec.caption || truncated) && (
+          <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
       style={{
-        marginTop: embedded ? 12 : 16,
-        marginBottom: embedded ? 0 : 16,
-        padding: embedded ? 0 : 16,
-        background: embedded ? 'transparent' : T.surface,
-        border: embedded ? 'none' : `1px solid ${T.n200}`,
-        borderRadius: embedded ? 0 : 8,
+        width: '100%',
+        marginBlock: 16,
+        background: T.surface,
+        border: `1px solid ${T.n200}`,
+        borderRadius: 12,
+        overflow: 'hidden',
       }}
     >
-      {!embedded && (
+      {/* Header: title left, view-switcher right */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 24px',
+          borderBottom: `1px solid ${T.n100}`,
+        }}
+      >
         <div
           style={{
+            flex: 1,
+            minWidth: 0,
             fontFamily: T.fSans,
             fontSize: 14,
             fontWeight: 600,
             color: T.n900,
-            marginBottom: 8,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
         >
           {spec.title}
         </div>
-      )}
-
-      <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-        {renderChartBody(spec)}
-      </ResponsiveContainer>
-
-      {(spec.caption || truncated) && (
-        <div
-          style={{
-            fontFamily: T.fSans,
-            fontSize: 12,
-            color: T.n500,
-            marginTop: 8,
-            lineHeight: 1.5,
+        <ChartSectionMenu
+          spec={spec}
+          view={view}
+          activeType={activeType}
+          rows={spec.data}
+          onShowChart={() => setView('chart')}
+          onShowTable={() => setView('table')}
+          onChangeType={(t) => {
+            setInternalOverride(t);
+            setView('chart');
           }}
-        >
-          {spec.caption}
-          {spec.caption && truncated ? ' · ' : null}
-          {truncated && (
-            <span>
-              Showing top {spec.data.length - 1} of {originalRowCount} — rest in “Other”.
-            </span>
-          )}
-        </div>
+        />
+      </div>
+
+      {/* Body: chart or table — symmetric horizontal padding so content reads centered */}
+      <div style={{ padding: '16px 24px' }}>
+        {view === 'chart' ? (
+          <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+            {renderChartBody(activeSpec)}
+          </ResponsiveContainer>
+        ) : (
+          <ChartSectionDataTable rows={spec.data} />
+        )}
+        {(spec.caption || truncated) && (
+          <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Caption + truncation footer
+// ---------------------------------------------------------------------------
+
+interface FooterProps {
+  spec: ChartSpec;
+  truncated: boolean;
+  originalRowCount: number;
+}
+
+function Footer({ spec, truncated, originalRowCount }: FooterProps) {
+  return (
+    <div
+      style={{
+        fontFamily: T.fSans,
+        fontSize: 12,
+        color: T.n500,
+        marginTop: 8,
+        lineHeight: 1.5,
+      }}
+    >
+      {spec.caption}
+      {spec.caption && truncated ? ' · ' : null}
+      {truncated && (
+        <span>
+          Showing top {spec.data.length - 1} of {originalRowCount} — rest in “Other”.
+        </span>
       )}
     </div>
   );
@@ -131,7 +202,6 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       );
 
     case 'stacked-bar': {
-      // Pivot wide: build one row per category with one column per series value.
       const wide = pivotForSeries(spec.data, spec.encoding);
       const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
       return (
@@ -260,8 +330,7 @@ function pivotForSeries(
   rows: Array<Record<string, string | number>>,
   encoding: { category: string; value: string; series?: string },
 ): Array<Record<string, string | number>> {
-  // Defensive fallback — Zod enforces series on stacked-bar/multi-line, but a
-  // bad payload shouldn't NPE the renderer.
+  // Zod enforces series on stacked-bar/multi-line, but a bad payload shouldn't NPE the renderer.
   const seriesCol = encoding.series ?? '__series__';
   const byCategory = new Map<string | number, Record<string, string | number>>();
   for (const row of rows) {

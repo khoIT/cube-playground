@@ -228,27 +228,41 @@ export function ChatThreadPage() {
         overflow: 'hidden',
       }}
     >
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {isEmptyNew ? (
-          <ChatEmptyHero
-            composerValue={composerValue}
-            onChange={setComposerValue}
-            onSubmit={handleSubmit}
-            disabled={isStreaming}
-          />
-        ) : (
-          <ChatThreadView
-            messages={displayMessages}
-            streaming={isStreaming}
-            composerValue={composerValue}
-            onComposerChange={setComposerValue}
-            onSubmit={handleSubmit}
-            banner={topBanner}
-            onFollowupPick={handleFollowupPick}
-          />
-        )}
-        {lastCompactWarning && status === 'done' && <CompactWarningChip />}
-        {status === 'error' && <ErrorBanner onDismiss={cancel} />}
+      {/* Center the thread on wide viewports so long lines stay readable.
+       *  Inner wrapper caps at 880px and inherits column layout from the
+       *  outer flex:1 box, which still spans full width for background. */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 880,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            paddingInline: 16,
+          }}
+        >
+          {isEmptyNew ? (
+            <ChatEmptyHero
+              composerValue={composerValue}
+              onChange={setComposerValue}
+              onSubmit={handleSubmit}
+              disabled={isStreaming}
+            />
+          ) : (
+            <ChatThreadView
+              messages={displayMessages}
+              streaming={isStreaming}
+              composerValue={composerValue}
+              onComposerChange={setComposerValue}
+              onSubmit={handleSubmit}
+              banner={topBanner}
+              onFollowupPick={handleFollowupPick}
+            />
+          )}
+          {lastCompactWarning && status === 'done' && <CompactWarningChip />}
+          {status === 'error' && <ErrorBanner onDismiss={cancel} />}
+        </div>
       </div>
     </div>
   );

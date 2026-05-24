@@ -40,9 +40,11 @@ interface ChatMessageListProps {
    * is intended to be prefilled into the composer and submitted.
    */
   onFollowupPick?: (text: string) => void;
+  /** Side-panel surface uses the smaller user-heading size. */
+  compact?: boolean;
 }
 
-export function ChatMessageList({ messages, streaming, onFollowupPick }: ChatMessageListProps) {
+export function ChatMessageList({ messages, streaming, onFollowupPick, compact }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom whenever messages grow.
@@ -79,7 +81,7 @@ export function ChatMessageList({ messages, streaming, onFollowupPick }: ChatMes
     >
       {messages.map((msg, i) => {
         if (msg.role === 'user') {
-          return <UserMessage key={msg.id} text={msg.text} ts={msg.ts} />;
+          return <UserMessage key={msg.id} text={msg.text} ts={msg.ts} compact={compact} />;
         }
         // Follow-up chips only render on the *last* assistant message and
         // only when nothing is still streaming after it (phase-04 reqs).

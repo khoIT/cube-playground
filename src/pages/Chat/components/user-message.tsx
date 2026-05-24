@@ -1,51 +1,69 @@
 /**
- * UserMessage — right-aligned bubble for user turns.
+ * UserMessage — left-aligned bold heading for user turns.
+ *
+ * Each user prompt acts as a section header that frames the assistant reply
+ * directly beneath it, rather than a chat bubble. `compact` switches between
+ * the side-panel size and the full-page size.
  */
 import React from 'react';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { T } from '../../../shell/theme';
+
+/**
+ * Format an ISO timestamp as a relative-then-absolute pair.
+ *   display: "5 minutes ago" (browser locale via date-fns)
+ *   tooltip: full localized date+time so the user can hover for the exact moment
+ */
+function formatLocalTimestamp(ts: string): { display: string; title: string } | null {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  return {
+    display: formatDistanceToNowStrict(d, { addSuffix: true }),
+    title: d.toLocaleString(),
+  };
+}
 
 interface UserMessageProps {
   text: string;
   ts?: string;
+  compact?: boolean;
 }
 
-export function UserMessage({ text, ts }: UserMessageProps) {
+export function UserMessage({ text, ts, compact }: UserMessageProps) {
+  const tsLabel = ts ? formatLocalTimestamp(ts) : null;
   return (
     <div
       style={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        padding: '4px 16px',
+        padding: compact ? '16px 16px 4px' : '24px 24px 8px',
       }}
     >
-      <div
+      <h2
         style={{
-          maxWidth: '72%',
-          background: T.brand,
-          color: '#fff',
-          borderRadius: '16px 16px 4px 16px',
-          padding: '10px 14px',
+          margin: 0,
           fontFamily: T.fSans,
-          fontSize: 14,
-          lineHeight: 1.5,
+          fontSize: compact ? 17 : 22,
+          fontWeight: 700,
+          lineHeight: 1.3,
+          color: T.n900,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
         }}
       >
         {text}
-        {ts && (
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: 11,
-              color: 'rgba(255,255,255,0.65)',
-              textAlign: 'right',
-            }}
-          >
-            {ts}
-          </div>
-        )}
-      </div>
+      </h2>
+      {tsLabel && (
+        <div
+          title={tsLabel.title}
+          style={{
+            marginTop: 4,
+            fontFamily: T.fSans,
+            fontSize: 11,
+            color: T.n500,
+          }}
+        >
+          {tsLabel.display}
+        </div>
+      )}
     </div>
   );
 }

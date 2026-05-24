@@ -1,35 +1,42 @@
 /**
- * ChatComposer — auto-sizing textarea input for chat turns.
+ * ChatComposer — auto-sizing chat input shared by the full-page thread, the
+ * side panel, and the chat home hero.
  *
- * Keyboard shortcuts:
- *   Enter          → submit (unless Shift held)
- *   Shift+Enter    → newline
- *   Cmd/Ctrl+Enter → submit
- *   Esc            → blur
+ * Layout:
+ *   ┌────────────────────────────────────┐
+ *   │ <textarea>                         │
+ *   │ [Deep Research]      [↑ send btn]  │
+ *   └────────────────────────────────────┘
  *
- * Props:
- *   value / onChange   — controlled value
- *   onSubmit           — called when user commits the message
- *   disabled           — grey-out during streaming
- *   compact            — tighter sizing for panel / rail mode
- *   placeholder        — defaults to "Ask anything about your data…"
+ * Keyboard:
+ *   Enter             → submit (unless Shift held)
+ *   Shift+Enter       → newline
+ *   Cmd/Ctrl+Enter    → submit
+ *   Esc               → blur
  */
-import React, { useCallback, useEffect, useRef } from 'react';
-import { Send } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowUp } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
+import { DeepResearchToggle } from './chat-deep-research-toggle';
 
 interface ChatComposerProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
   disabled?: boolean;
+  /** Tighter sizing for the side panel. */
   compact?: boolean;
   placeholder?: string;
+  /**
+   * Optional controlled deep-research state. If omitted, the composer manages
+   * its own local toggle. Currently FE-only; the chat-service ignores it.
+   */
+  deepResearch?: boolean;
+  onToggleDeepResearch?: () => void;
 }
 
-/** Minimum / maximum textarea heights (px). */
 const MIN_HEIGHT = 24;
-const MAX_HEIGHT = 240;
+const MAX_HEIGHT = 200;
 
 export function ChatComposer({
   value,
@@ -37,9 +44,14 @@ export function ChatComposer({
   onSubmit,
   disabled,
   compact,
-  placeholder = 'Ask anything about your data…',
+  placeholder = 'What do you want to know?',
+  deepResearch,
+  onToggleDeepResearch,
 }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [localDeepResearch, setLocalDeepResearch] = useState(false);
+  const dr = deepResearch ?? localDeepResearch;
+  const toggleDr = onToggleDeepResearch ?? (() => setLocalDeepResearch((v) => !v));
 
   // Auto-resize textarea to fit content, clamped to [MIN_HEIGHT, MAX_HEIGHT].
   useEffect(() => {
@@ -60,107 +72,73 @@ export function ChatComposer({
       const isEnterOnly = e.key === 'Enter' && !e.shiftKey;
       if (isSubmitCombo || isEnterOnly) {
         e.preventDefault();
-        if (value.trim() && !disabled) {
-          onSubmit();
-        }
+        if (value.trim() && !disabled) onSubmit();
       }
     },
     [value, disabled, onSubmit],
   );
 
   const canSubmit = value.trim().length > 0 && !disabled;
-  const fontSize = compact ? 13 : 14;
-  const paddingV = compact ? 6 : 10;
+  const fontSize = compact ? 14 : 15;
+  const radius = compact ? 12 : 14;
+  const padBlock = compact ? 12 : 18;
+  const padInline = compact ? 14 : 18;
+  const sendSize = compact ? 28 : 32;
 
   return (
     <div
       style={{
+        width: '100%',
+        border: `1px solid ${T.n300}`,
+        borderRadius: radius,
+        background: disabled ? T.surfaceMuted : T.surface,
+        padding: `${padBlock}px ${padInline}px`,
         display: 'flex',
         flexDirection: 'column',
-        gap: 0,
-        borderTop: `1px solid ${T.n200}`,
-        background: T.surface,
-        padding: compact ? '8px 12px' : '12px 16px',
+        gap: compact ? 10 : 14,
+        boxSizing: 'border-box',
       }}
     >
-      <div
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        placeholder={placeholder}
+        rows={1}
         style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          gap: 8,
-          border: `1px solid ${T.n300}`,
-          borderRadius: 10,
-          background: disabled ? T.surfaceMuted : T.surface,
-          padding: `${paddingV}px 12px`,
-          transition: 'border-color 0.15s',
+          width: '100%',
+          border: 'none', outline: 'none', resize: 'none',
+          background: 'transparent',
+          fontFamily: T.fSans, fontSize, color: T.n900,
+          lineHeight: 1.5, padding: 0,
+          minHeight: MIN_HEIGHT, maxHeight: MAX_HEIGHT,
+          overflowY: 'auto',
         }}
-        onFocus={() => {/* focus styling handled via CSS-in-style below */}}
-      >
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          placeholder={placeholder}
-          rows={1}
-          style={{
-            flex: 1,
-            resize: 'none',
-            border: 'none',
-            outline: 'none',
-            background: 'transparent',
-            fontFamily: T.fSans,
-            fontSize,
-            color: T.n900,
-            lineHeight: 1.5,
-            minHeight: MIN_HEIGHT,
-            maxHeight: MAX_HEIGHT,
-            overflowY: 'auto',
-            padding: 0,
-            /* placeholder color via ::placeholder — not directly settable in inline style */
-          }}
-          aria-label="Chat message"
-        />
+        aria-label="Ask Cube"
+      />
 
-        {/* Send button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <DeepResearchToggle active={dr} onToggle={toggleDr} compact={compact} />
+        <div style={{ flex: 1 }} />
         <button
           type="button"
           onClick={() => { if (canSubmit) onSubmit(); }}
           disabled={!canSubmit}
           aria-label="Send message"
           style={{
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: compact ? 28 : 32,
-            height: compact ? 28 : 32,
-            borderRadius: 8,
+            width: sendSize, height: sendSize, borderRadius: sendSize / 2,
             border: 'none',
+            background: canSubmit ? T.n900 : T.n300,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: canSubmit ? 'pointer' : 'default',
-            background: canSubmit ? T.brand : T.n200,
             transition: 'background 0.15s',
           }}
         >
-          <Icon icon={Send} size={compact ? 13 : 15} color={canSubmit ? '#fff' : T.n400} />
+          <Icon icon={ArrowUp} size={compact ? 14 : 16} color="#fff" />
         </button>
       </div>
-
-      {/* Keyboard hint */}
-      {!compact && (
-        <div
-          style={{
-            marginTop: 4,
-            fontFamily: T.fSans,
-            fontSize: 11,
-            color: T.n400,
-            textAlign: 'right',
-          }}
-        >
-          Enter to send · Shift+Enter for newline
-        </div>
-      )}
     </div>
   );
 }

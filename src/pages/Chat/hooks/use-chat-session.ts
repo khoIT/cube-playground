@@ -88,7 +88,23 @@ export function useChatSession(sessionId: string | null) {
         dispatch({ type: 'ERROR', error: msg });
         return;
       }
-      const session = (await res.json()) as ChatSession;
+      // Server returns `{ session: { id, owner_id, game_id, created_at, ... },
+      // turns: [...] }` with snake_case fields. Flatten + camelCase here so
+      // downstream code can rely on `session.id`/`session.turns` as the
+      // ChatSession type promises.
+      const raw = (await res.json()) as {
+        session: { id: string; owner_id: string; game_id: string; created_at: number | string };
+        turns: ChatTurn[];
+      };
+      const session: ChatSession = {
+        id: raw.session.id,
+        ownerId: raw.session.owner_id,
+        gameId: raw.session.game_id,
+        createdAt: typeof raw.session.created_at === 'number'
+          ? new Date(raw.session.created_at).toISOString()
+          : raw.session.created_at,
+        turns: raw.turns,
+      };
       dispatch({ type: 'SUCCESS', session });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
