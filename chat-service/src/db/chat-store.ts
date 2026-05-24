@@ -70,8 +70,20 @@ export function listSessions(
     .all(params.ownerId, params.gameId, limit) as ChatSessionRow[];
 }
 
-export function archiveSession(db: Database.Database, id: string): void {
-  db.prepare(`UPDATE chat_sessions SET status = 'archived' WHERE id = ?`).run(id);
+/**
+ * Hard-deletes a session and its turns, then records a tombstone so the
+ * deletion propagates through the committed snapshot to other dev machines.
+ * Idempotent: tombstone is INSERT OR REPLACE so callers don't need to check
+ * existence first. Turn rows cascade via the FK (PRAGMA foreign_keys = ON).
+ */
+export function deleteSession(db: Database.Database, id: string): void {
+  const tx = db.transaction((sessionId: string) => {
+    db.prepare('DELETE FROM chat_sessions WHERE id = ?').run(sessionId);
+    db.prepare(
+      'INSERT OR REPLACE INTO chat_tombstones (session_id, deleted_at) VALUES (?, ?)',
+    ).run(sessionId, Date.now());
+  });
+  tx(id);
 }
 
 export function updateSessionTitle(

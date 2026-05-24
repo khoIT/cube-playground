@@ -51,3 +51,10 @@ CREATE TABLE IF NOT EXISTS chat_audit (
   detail_json TEXT,
   at INTEGER NOT NULL
 );
+
+-- chat_tombstones: deleted session ids, propagated through chat-snapshot.json so
+-- a delete on one machine reconciles to other dev machines on the next hydrate.
+CREATE TABLE IF NOT EXISTS chat_tombstones (
+  session_id TEXT PRIMARY KEY,
+  deleted_at INTEGER NOT NULL
+);

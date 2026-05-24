@@ -53,16 +53,19 @@ describe('chatStore', () => {
       expect(list.every((s) => s.owner_id === 'owner1' && s.game_id === 'ptg')).toBe(true);
     });
 
-    it('archives a session — excluded from listSessions', () => {
+    it('deletes a session — gone from listSessions, getSession, and records a tombstone', () => {
       const session = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg' });
-      chatStore.archiveSession(db, session.id);
+      chatStore.deleteSession(db, session.id);
 
       const list = chatStore.listSessions(db, { ownerId: 'owner1', gameId: 'ptg' });
       expect(list).toHaveLength(0);
 
-      // Still retrievable by id
-      const fetched = chatStore.getSession(db, session.id);
-      expect(fetched!.status).toBe('archived');
+      expect(chatStore.getSession(db, session.id)).toBeNull();
+
+      const tombstone = db
+        .prepare('SELECT session_id FROM chat_tombstones WHERE session_id = ?')
+        .get(session.id) as { session_id: string } | undefined;
+      expect(tombstone?.session_id).toBe(session.id);
     });
 
     it('incrementTurnCount updates counters and last_turn_at', () => {

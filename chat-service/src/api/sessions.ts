@@ -3,13 +3,14 @@
  *   GET    /sessions?game=<id>  — list owner+game sessions
  *   GET    /sessions/:id        — full session with turns
  *   PATCH  /sessions/:id        — rename session title
- *   DELETE /sessions/:id        — soft-archive
+ *   DELETE /sessions/:id        — hard-delete + tombstone, refreshes snapshot
  */
 
 import type { FastifyPluginAsync } from 'fastify';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import * as chatStore from '../db/chat-store.js';
+import { writeChatSnapshot } from '../db/snapshot-store.js';
 import type { ChatTurnRow, QueryArtifact, ChartArtifact } from '../types.js';
 
 // ---------------------------------------------------------------------------
@@ -137,7 +138,8 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
     },
   );
 
-  // DELETE /sessions/:id
+  // DELETE /sessions/:id — hard-delete + tombstone, then refresh the committed
+  // snapshot so other dev machines reconcile on their next hydrate.
   fastify.delete<{ Params: { id: string } }>(
     '/sessions/:id',
     async (req, reply) => {
@@ -154,7 +156,19 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
-      chatStore.archiveSession(opts.db, req.params.id);
+      chatStore.deleteSession(opts.db, req.params.id);
+
+      // Snapshot write failures (e.g. read-only checkout) should not fail the
+      // delete — the DB state is already correct; the snapshot is dev-only sync.
+      try {
+        writeChatSnapshot(opts.db);
+      } catch (err) {
+        fastify.log.warn(
+          { err, sessionId: req.params.id },
+          '[chat-snapshot] post-delete snapshot write failed',
+        );
+      }
+
       return reply.status(204).send();
     },
   );
