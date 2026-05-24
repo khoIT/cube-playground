@@ -79,8 +79,11 @@ export function SidebarItem({
   // swaps the title's truncation for a soft right-edge fade so the kebab
   // doesn't push `...` into the visible title.
   const hoverTrailingActive = !!trailing && !!trailingShowOnHover && hovered;
+  // 64px fade width keeps the chat title clear of the 28px kebab button
+  // plus its 4px right gutter — title visibly stops before the kebab area
+  // instead of bleeding under it.
   const titleFade = hoverTrailingActive
-    ? 'linear-gradient(to right, black 0, black calc(100% - 40px), transparent 100%)'
+    ? 'linear-gradient(to right, black 0, black calc(100% - 64px), transparent 100%)'
     : undefined;
 
   const inner = (
