@@ -119,7 +119,7 @@ ReactDOM.render(
           <App>
             <Suspense fallback={<CubeLoader />}>
               <Route key="index" exact path="/">
-                <Redirect to="/build" />
+                <Redirect to="/chat" />
               </Route>
               {/* Single mount across /chat and /chat/:id so state persists
                   across the `new → session_created → /chat/<id>` transition. */}
