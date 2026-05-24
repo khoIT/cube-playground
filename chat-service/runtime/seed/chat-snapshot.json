@@ -109,7 +109,7 @@
       "turn_count": 1,
       "total_input_tokens": 7,
       "total_output_tokens": 2267,
-      "status": "active",
+      "status": "archived",
       "parent_session_id": null,
       "compacted_into": null
     },
@@ -165,7 +165,7 @@
       "turn_count": 1,
       "total_input_tokens": 7,
       "total_output_tokens": 1555,
-      "status": "active",
+      "status": "archived",
       "parent_session_id": null,
       "compacted_into": null
     },
