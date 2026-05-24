@@ -69,8 +69,11 @@ export function SidebarSection({
       />
       {showChildren && (
         <div style={{ position: 'relative' }}>
+          {/* Tree-guide sits inside the parent icon column so child rows
+              align vertically with the parent label rather than sitting
+              far to its right. */}
           <div style={{
-            position: 'absolute', left: 23, top: 4, bottom: 4, width: 1,
+            position: 'absolute', left: 19, top: 4, bottom: 4, width: 1,
             background: 'rgba(0,0,0,0.08)', pointerEvents: 'none',
           }} />
           {children}

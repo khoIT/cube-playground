@@ -74,11 +74,20 @@ export function SidebarItem({
 
   if (collapsed && indent) return null;
 
+  // Hover-trailing rows (chat recents kebab) overlay the trailing element
+  // instead of placing it in flex flow — this keeps row height fixed and
+  // swaps the title's truncation for a soft right-edge fade so the kebab
+  // doesn't push `...` into the visible title.
+  const hoverTrailingActive = !!trailing && !!trailingShowOnHover && hovered;
+  const titleFade = hoverTrailingActive
+    ? 'linear-gradient(to right, black 0, black calc(100% - 40px), transparent 100%)'
+    : undefined;
+
   const inner = (
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: indent ? '5px 12px 5px 28px' : '7px 12px',
+        padding: indent ? '5px 12px 5px 16px' : '7px 12px',
         position: 'relative',
         cursor: 'pointer',
         userSelect: 'none',
@@ -115,10 +124,24 @@ export function SidebarItem({
         fontSize: muted ? 12 : 13,
         fontWeight: isActive ? 600 : primary ? 600 : 500,
         color: muted ? T.n500 : isActive ? T.n950 : T.n800,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: hoverTrailingActive ? 'clip' : 'ellipsis',
+        whiteSpace: 'nowrap',
+        maskImage: titleFade,
+        WebkitMaskImage: titleFade,
       }}>{label}</span>
 
-      {trailing && (trailingShowOnHover ? hovered : true) && trailing}
+      {trailing && trailingShowOnHover ? (
+        hovered && (
+          <span style={{
+            position: 'absolute', top: 0, bottom: 0, right: 4,
+            display: 'flex', alignItems: 'center',
+            pointerEvents: 'auto',
+          }}>
+            {trailing}
+          </span>
+        )
+      ) : trailing}
       {expandable && (
         <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} color={T.n400} />
       )}
