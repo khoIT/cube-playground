@@ -208,6 +208,87 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- GET /api/chat/sessions/:sessionId/stream-replay?turnId=...&from=... ---
+  // SSE replay endpoint. Refreshed clients pull buffered + live tail of an
+  // in-flight turn via the chat-service stream-registry.
+  app.get<{ Params: { sessionId: string }; Querystring: { turnId?: string; from?: string } }>(
+    '/api/chat/sessions/:sessionId/stream-replay',
+    async (
+      request: FastifyRequest<{
+        Params: { sessionId: string };
+        Querystring: { turnId?: string; from?: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const owner = resolveOwner(request);
+      if (!owner) {
+        return reply.status(401).send({ code: 'no_owner' });
+      }
+
+      const turnId = request.query.turnId;
+      if (!turnId) {
+        return reply.status(400).send({ code: 'missing_turn_id' });
+      }
+
+      const params = new URLSearchParams();
+      if (request.query.from) params.set('from', request.query.from);
+      const upstream = `${chatServiceUrl()}/agent/turn/${encodeURIComponent(turnId)}/stream?${params.toString()}`;
+
+      const abort = new AbortController();
+      reply.raw.on('close', () => abort.abort());
+
+      let upstreamRes: Response;
+      try {
+        upstreamRes = await fetch(upstream, {
+          method: 'GET',
+          headers: { 'X-Owner-Id': owner },
+          signal: abort.signal,
+        });
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') {
+          reply.raw.end();
+          return;
+        }
+        return reply.status(502).send({
+          code: 'upstream_unreachable',
+          message: (err as Error).message,
+        });
+      }
+
+      // Non-2xx: forward the error body verbatim (e.g. 409 ring_overflow).
+      if (!upstreamRes.ok) {
+        const ct = upstreamRes.headers.get('content-type') ?? '';
+        if (ct.includes('application/json')) {
+          const errBody = await upstreamRes.json();
+          return reply.status(upstreamRes.status).send(errBody);
+        }
+        const errText = await upstreamRes.text();
+        return reply.status(upstreamRes.status).send({
+          code: 'upstream_error',
+          message: errText,
+        });
+      }
+
+      // 2xx: pipe SSE.
+      void reply.hijack();
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+      if (!upstreamRes.body) {
+        reply.raw.end();
+        return;
+      }
+      const nodeStream = Readable.fromWeb(
+        upstreamRes.body as import('stream/web').ReadableStream<Uint8Array>,
+      );
+      nodeStream.on('error', () => reply.raw.destroy());
+      nodeStream.pipe(reply.raw, { end: true });
+    },
+  );
+
   // --- GET /api/chat/sessions?game=<id> ---
   app.get<{ Querystring: SessionsQuery }>(
     '/api/chat/sessions',
