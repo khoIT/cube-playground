@@ -15,7 +15,7 @@ const EVENT = 'gds-cube:recent-changed';
 const GAME_STORAGE_KEY = 'gds-cube:active-game';
 const NO_GAME = '__default__';
 
-export type RecentModule = 'data-model' | 'metrics-catalog' | 'segments';
+export type RecentModule = 'data-model' | 'metrics-catalog' | 'segments' | 'playground';
 
 export interface RecentItem {
   /** Stable id (route param). */

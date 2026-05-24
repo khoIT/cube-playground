@@ -46,11 +46,15 @@ export function SidebarItem({
   const prefixes: string[] = matchPrefix
     ? Array.isArray(matchPrefix) ? matchPrefix : [matchPrefix]
     : to ? [to] : [];
-  const isActive = prefixes.some(p =>
-    p === '/'
-      ? location.pathname === '/'
-      : location.pathname === p || location.pathname.startsWith(p + '/')
-  );
+  const fullUrl = location.pathname + location.search;
+  const isActive = prefixes.some(p => {
+    // Hrefs that embed a query string (e.g. /build?query=...) need to match
+    // the search portion too — otherwise every playground recent would look
+    // active simultaneously because they all share the /build pathname.
+    if (p.includes('?')) return fullUrl === p;
+    if (p === '/') return location.pathname === '/';
+    return location.pathname === p || location.pathname.startsWith(p + '/');
+  });
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = React.useState(false);

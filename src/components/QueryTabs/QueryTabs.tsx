@@ -14,6 +14,8 @@ import { useLocalStorage } from '../../hooks';
 import { QueryLoadResult } from '../ChartRenderer/ChartRenderer';
 import { DrilldownModal } from '../DrilldownModal/DrilldownModal';
 import { useChartRendererStateMethods } from './ChartRendererStateProvider';
+import { pushRecent, removeRecent } from '../../shell/sidebar/recent-items-store';
+import { fingerprintQuery, summarizeQuery } from '../../shell/sidebar/query-summary';
 
 const { TabPane } = Tabs;
 
@@ -277,12 +279,27 @@ export function QueryTabs({
       !equals(validateQuery(currentTab?.query), validateQuery(query))
     ) {
       lastAppliedQueryKey.current = queryKey;
-      const id = getNextId();
 
-      saveTabs({
-        activeId: id,
-        tabs: [...queryTabs.tabs, { id, query }],
-      });
+      // If a tab already holds this exact query (e.g. user clicked a recent
+      // in the sidebar tray), re-activate it rather than spawning a duplicate.
+      // Otherwise the tab strip fills with copies of the same query every
+      // time the user clicks the same recent.
+      const normalized = validateQuery(query);
+      const existing = queryTabs.tabs.find((t) =>
+        equals(validateQuery(t.query), normalized)
+      );
+
+      if (existing) {
+        if (existing.id !== queryTabs.activeId) {
+          saveTabs({ ...queryTabs, activeId: existing.id });
+        }
+      } else {
+        const id = getNextId();
+        saveTabs({
+          activeId: id,
+          tabs: [...queryTabs.tabs, { id, query }],
+        });
+      }
     }
 
     if (!ready) setReady(true);
@@ -296,6 +313,36 @@ export function QueryTabs({
       activeTab && onTabChange?.(activeTab);
     }
   }, [ready, queryTabs.activeId]);
+
+  // Mirror the active tab into the sidebar Playground tray. Q-number IS the
+  // tab id so the in-page "Query 3" tab and the sidebar "Q3: …" row always
+  // refer to the same thing — independent counters would drift the moment a
+  // tab gets closed and its id slot is refilled.
+  const activeTabSerialized = JSON.stringify(
+    queryTabs.tabs.find((t) => t.id === queryTabs.activeId)?.query ?? null
+  );
+  useEffect(() => {
+    const activeTab = queryTabs.tabs.find((t) => t.id === queryTabs.activeId);
+    if (!activeTab?.query) return;
+    const num = parseInt(activeTab.id, 10);
+    if (!Number.isFinite(num)) return;
+    const title = summarizeQuery(activeTab.query as any, num);
+    if (!title) return;
+    const validated = validateQuery(activeTab.query);
+    const href = `/build?query=${JSON.stringify(validated)}`;
+    const id = fingerprintQuery(validated as any);
+    // Debounce so dragging chips around doesn't fill the tray with every
+    // intermediate state; only the query the user lands on sticks.
+    const timer = window.setTimeout(() => {
+      pushRecent('playground', {
+        id,
+        title,
+        updatedAt: new Date().toISOString(),
+        href,
+      });
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [queryTabs.activeId, activeTabSerialized]);
 
   const { activeId, tabs } = queryTabs;
 
@@ -364,12 +411,19 @@ export function QueryTabs({
       onEdit={(event) => {
         if (typeof event === 'string') {
           let closedIndex = Number.MAX_VALUE;
+          const closedTab = tabs.find(({ id }) => id === event);
           const nextTabs = tabs.filter(({ id }, index) => {
             if (id === event) {
               closedIndex = index;
             }
             return id !== event;
           });
+
+          // Mirror the close into the sidebar tray: closing a tab is the user
+          // saying "I'm done with this query", so the recent should go too.
+          if (closedTab?.query) {
+            try { removeRecent('playground', fingerprintQuery(closedTab.query as any)); } catch { /* noop */ }
+          }
 
           saveTabs({
             activeId: nextTabs[Math.min(closedIndex, nextTabs.length - 1)].id,

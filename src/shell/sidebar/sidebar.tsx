@@ -98,8 +98,13 @@ export function Sidebar() {
             label={t('nav.playground')}
             to="/build"
             collapsed={collapsed}
-            flat
-          />
+          >
+            <RecentItems
+              module="playground"
+              seeAllTo="/build"
+              emptyLabel="No recent queries"
+            />
+          </SidebarSection>
         )}
 
         {isVisible('data-model') && (

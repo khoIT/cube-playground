@@ -260,6 +260,11 @@ function RecentItemPusher() {
       });
     }
   }, [location.pathname]);
+
+  // Playground recents are pushed by QueryTabs (which owns the tab id used
+  // as the Q-number) — keeping the push there is the only way to guarantee
+  // the sidebar "Q3" and the in-page "Query 3" tab refer to the same query.
+
   return null;
 }
 
