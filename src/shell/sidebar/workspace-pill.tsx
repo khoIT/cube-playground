@@ -1,6 +1,6 @@
 /**
  * WorkspacePill — top-of-sidebar cube brand pill.
- * Click → /build (Playground as the workspace home).
+ * Click → /chat (workspace home).
  * Collapsed mode renders only the cube glyph centered.
  */
 import React from 'react';
@@ -18,7 +18,7 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
   if (collapsed) {
     return (
       <button
-        onClick={() => history.push('/build')}
+        onClick={() => history.push('/chat')}
         title="Cube Playground"
         aria-label="Cube Playground"
         style={{
@@ -40,7 +40,7 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
 
   return (
     <button
-      onClick={() => history.push('/build')}
+      onClick={() => history.push('/chat')}
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
         width: '100%',

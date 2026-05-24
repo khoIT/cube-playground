@@ -17,7 +17,8 @@
     "dataModel": "Data Model",
     "metricsCatalog": "Metrics Catalog",
     "advanced": "Advanced",
-    "dataModelNew": "New data model"
+    "dataModelNew": "New data model",
+    "glossary": "Glossary"
   },
   "segments": {
     "actions": {

@@ -1,9 +1,10 @@
 /**
- * BottomRow — sidebar footer with API Settings trigger + Theme toggle.
+ * BottomRow — sidebar footer with Glossary link + API Settings trigger + Theme toggle.
  * Replaces Hermes' Data/Settings/Account rows with cube-specific actions.
  */
 import React from 'react';
-import { Settings2, Sun, Moon } from 'lucide-react';
+import { BookOpen, Settings2, Sun, Moon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { SidebarItem } from './sidebar-item';
 import { useTheme } from '../../theme/use-theme';
 import { useSecurityContext } from '../../hooks/security-context';
@@ -13,6 +14,7 @@ interface BottomRowProps {
 }
 
 export function BottomRow({ collapsed }: BottomRowProps) {
+  const { t } = useTranslation();
   const { theme, toggle } = useTheme();
   const security = useSecurityContext();
 
@@ -20,6 +22,12 @@ export function BottomRow({ collapsed }: BottomRowProps) {
 
   return (
     <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', padding: '6px 0 8px' }}>
+      <SidebarItem
+        icon={BookOpen}
+        label={t('nav.glossary')}
+        to="/catalog/glossary"
+        collapsed={collapsed}
+      />
       <SidebarItem
         icon={Settings2}
         label="API Settings"

@@ -10,14 +10,14 @@ const STORAGE_KEY = 'new-metric-page:right-rail-width';
 const Layout = styled.div<{ $rightW: number }>`
   display: grid;
   grid-template-columns: ${LEFT_W}px 1fr 6px ${(p) => p.$rightW}px;
-  /* App-shell <Header> above us is fixed at 44px (src/components/Header/Header.tsx).
+  /* App-shell Topbar above us is fixed at 56px (src/shell/topbar/topbar.tsx).
      Subtracting it keeps the wizard footer pinned to the viewport instead of
      getting pushed below the fold when body content is tall. The wizard used
      to render its own 56px breadcrumb bar on top of the app header — that bar
      was decorative and stacked on top of the global header, so it has been
      dropped. Save / Help / Discard actions moved into the LeftRail footer.
   */
-  height: calc(100vh - 44px);
+  height: calc(100vh - 56px);
   background: var(--bg-app);
   font-family: var(--font-sans);
   color: var(--text-primary);

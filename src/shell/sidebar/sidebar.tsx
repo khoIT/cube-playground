@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BookOpen, Users, Grid } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -130,7 +130,7 @@ export function Sidebar() {
         {isVisible('metrics-catalog') && (
           <SidebarSection
             id="metrics-catalog"
-            icon={BookOpen}
+            icon={BarChart3}
             label={t('nav.metricsCatalog')}
             to="/catalog/metrics"
             collapsed={collapsed}

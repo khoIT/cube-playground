@@ -28,6 +28,7 @@ const STATIC: Array<{ prefix: string; label: string; to: string }> = [
   { prefix: '/catalog/notifications', label: 'Notifications',     to: '/catalog/notifications' },
   { prefix: '/catalog/saved-views',   label: 'Saved Views',       to: '/catalog/saved-views' },
   { prefix: '/catalog/workspaces',    label: 'Workspaces',        to: '/catalog/workspaces' },
+  { prefix: '/catalog/glossary',      label: 'Glossary',          to: '/catalog/glossary' },
   { prefix: '/segments/identity-map', label: 'Identity Map',      to: '/segments/identity-map' },
   { prefix: '/segments',              label: 'Segments',          to: '/segments' },
   { prefix: '/chat',                  label: 'Chat',              to: '/chat' },
