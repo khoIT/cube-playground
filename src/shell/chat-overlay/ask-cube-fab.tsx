@@ -26,15 +26,16 @@ export function AskCubeFab({ onClick, panelVisible = false }: AskCubeFabProps) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
-        height: 36,
-        padding: '0 14px',
+        height: 28,
+        padding: '0 10px',
         borderRadius: 999,
         border: 'none',
         background: T.brand,
         color: '#fff',
         fontFamily: T.fSans,
         fontWeight: 600,
-        fontSize: 13,
+        fontSize: 12.5,
+        lineHeight: 1,
         cursor: 'pointer',
         whiteSpace: 'nowrap',
         flexShrink: 0,
@@ -47,7 +48,7 @@ export function AskCubeFab({ onClick, panelVisible = false }: AskCubeFabProps) {
         (e.currentTarget as HTMLButtonElement).style.background = T.brand;
       }}
     >
-      <Icon icon={MessageCircle} size={14} color="#fff" />
+      <Icon icon={MessageCircle} size={13} color="#fff" />
       Ask Cube
     </button>
   );

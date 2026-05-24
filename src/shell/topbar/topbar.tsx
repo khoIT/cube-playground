@@ -30,7 +30,7 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
       style={{
         position: 'sticky', top: 0, zIndex: 20,
         height: 56, padding: '0 24px',
-        display: 'flex', alignItems: 'center', gap: 16,
+        display: 'flex', alignItems: 'center', gap: 10,
         background: T.topbar,
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
@@ -44,15 +44,15 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
           {trailing}
         </div>
       )}
-      {fixedTrailing && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {fixedTrailing}
-        </div>
-      )}
-      {fabVisible && (
-        <AskCubeFab onClick={() => setOpen(true)} panelVisible={panelVisible} />
-      )}
-      <SearchTrigger onOpen={onSearchOpen} />
+      {/* Pill cluster: GamePicker → Ask Cube → Search. Tight 6px gap so the
+       *  three controls read as one group, sitting next to the bell. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {fixedTrailing}
+        {fabVisible && (
+          <AskCubeFab onClick={() => setOpen(true)} panelVisible={panelVisible} />
+        )}
+        <SearchTrigger onOpen={onSearchOpen} />
+      </div>
       <NotificationBell />
       <AvatarMenu />
     </header>
