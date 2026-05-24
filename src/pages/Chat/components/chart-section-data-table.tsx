@@ -5,14 +5,27 @@
  * are right-aligned; everything else stays left-aligned. Long content scrolls
  * horizontally inside the table wrapper.
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { T } from '../../../shell/theme';
+import type { ChartSpec } from '../../../api/chat-sse-client';
+import {
+  detectColumnUnit,
+  formatReadableValue,
+  type ValueUnit,
+} from './format-chart-value';
 
 interface ChartSectionDataTableProps {
   rows: Array<Record<string, string | number>>;
+  /**
+   * Source chart spec (title + caption + encoding). When supplied, lets us
+   * pick a per-column unit so a "revenue" column reads as "315M VND" instead
+   * of "314982000". Optional — table still renders without it (just falls
+   * back to thousand-separated numbers).
+   */
+  spec?: ChartSpec;
 }
 
-export function ChartSectionDataTable({ rows }: ChartSectionDataTableProps) {
+export function ChartSectionDataTable({ rows, spec }: ChartSectionDataTableProps) {
   if (rows.length === 0) {
     return (
       <div
@@ -29,6 +42,13 @@ export function ChartSectionDataTable({ rows }: ChartSectionDataTableProps) {
   }
 
   const columns = Object.keys(rows[0]);
+  // Per-column unit detection memoised on the spec to avoid re-scanning the
+  // title/caption strings on every render.
+  const unitByColumn = useMemo<Record<string, ValueUnit>>(() => {
+    const map: Record<string, ValueUnit> = {};
+    for (const c of columns) map[c] = detectColumnUnit(c, spec);
+    return map;
+  }, [columns, spec]);
 
   return (
     <div style={{ overflowX: 'auto', width: '100%' }}>
@@ -77,7 +97,7 @@ export function ChartSectionDataTable({ rows }: ChartSectionDataTableProps) {
                       fontVariantNumeric: isNumeric ? 'tabular-nums' : undefined,
                     }}
                   >
-                    {String(v)}
+                    {isNumeric ? formatReadableValue(v, unitByColumn[c]) : String(v)}
                   </td>
                 );
               })}

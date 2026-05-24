@@ -30,6 +30,11 @@ import { T, CHART } from '../../../shell/theme';
 import { ChartSectionMenu } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
+import {
+  detectChartUnit,
+  formatAxisValue,
+  formatReadableValue,
+} from './format-chart-value';
 
 const CHART_HEIGHT = 320;
 
@@ -125,7 +130,7 @@ export function AssistantChartSection({ artifact, embedded, overrideType: extern
             {renderChartBody(activeSpec)}
           </ResponsiveContainer>
         ) : (
-          <ChartSectionDataTable rows={spec.data} />
+          <ChartSectionDataTable rows={spec.data} spec={spec} />
         )}
         {(spec.caption || truncated) && (
           <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
@@ -172,14 +177,26 @@ function Footer({ spec, truncated, originalRowCount }: FooterProps) {
 // ---------------------------------------------------------------------------
 
 function renderChartBody(spec: ChartSpec): React.ReactElement {
+  // Unit detection drives axis ticks, tooltips, pie labels. Done once per
+  // chart so detectUnit's regex work doesn't run per tick / per tooltip.
+  const unit = detectChartUnit(spec);
+  const axisTick = (v: number | string) => formatAxisValue(v, unit);
+  const readable = (v: number | string) => formatReadableValue(v, unit);
+  // Recharts tooltip formatter signature: (value, name) → [display, name].
+  // Returning the original `name` preserves the series label.
+  const tooltipFormatter = (value: number | string, name: string) =>
+    [readable(value), name] as [string, string];
+  const pieLabel = ({ name, value }: { name: string; value: number }) =>
+    `${name}: ${readable(value)}`;
+
   switch (spec.type) {
     case 'bar':
       return (
         <BarChart data={spec.data}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} />
-          <Tooltip />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <Tooltip formatter={tooltipFormatter} />
           <Bar dataKey={spec.encoding.value} fill={CHART[0]} />
         </BarChart>
       );
@@ -188,7 +205,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       return (
         <BarChart data={spec.data} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis type="number" stroke={T.n500} fontSize={11} />
+          <XAxis type="number" stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
           <YAxis
             dataKey={spec.encoding.category}
             type="category"
@@ -196,7 +213,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             fontSize={11}
             width={120}
           />
-          <Tooltip />
+          <Tooltip formatter={tooltipFormatter} />
           <Bar dataKey={spec.encoding.value} fill={CHART[0]} />
         </BarChart>
       );
@@ -208,8 +225,8 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
         <BarChart data={wide}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} />
-          <Tooltip />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <Tooltip formatter={tooltipFormatter} />
           <Legend />
           {seriesKeys.map((s, i) => (
             <Bar key={s} dataKey={s} stackId="a" fill={CHART[i % CHART.length]} />
@@ -223,8 +240,8 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
         <LineChart data={spec.data}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} />
-          <Tooltip />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <Tooltip formatter={tooltipFormatter} />
           <Line
             type="monotone"
             dataKey={spec.encoding.value}
@@ -242,8 +259,8 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
         <LineChart data={wide}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} />
-          <Tooltip />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <Tooltip formatter={tooltipFormatter} />
           <Legend />
           {seriesKeys.map((s, i) => (
             <Line
@@ -264,8 +281,8 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
         <AreaChart data={spec.data}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} />
-          <Tooltip />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <Tooltip formatter={tooltipFormatter} />
           <Area
             type="monotone"
             dataKey={spec.encoding.value}
@@ -288,13 +305,13 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             cy="50%"
             outerRadius={110}
             innerRadius={spec.type === 'donut' ? 60 : 0}
-            label
+            label={pieLabel}
           >
             {spec.data.map((_row, i) => (
               <Cell key={i} fill={CHART[i % CHART.length]} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip formatter={tooltipFormatter} />
           <Legend />
         </PieChart>
       );
@@ -308,14 +325,16 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             type="number"
             stroke={T.n500}
             fontSize={11}
+            tickFormatter={axisTick}
           />
           <YAxis
             dataKey={spec.encoding.value}
             type="number"
             stroke={T.n500}
             fontSize={11}
+            tickFormatter={axisTick}
           />
-          <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+          <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={tooltipFormatter} />
           <Scatter data={spec.data} fill={CHART[0]} />
         </ScatterChart>
       );

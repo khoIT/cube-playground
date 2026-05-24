@@ -156,7 +156,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
           {view === 'chart' ? (
             <AssistantChartSection artifact={chart} embedded overrideType={overrideType} />
           ) : (
-            <ChartSectionDataTable rows={chart.spec.data} />
+            <ChartSectionDataTable rows={chart.spec.data} spec={chart.spec} />
           )}
         </div>
       )}
