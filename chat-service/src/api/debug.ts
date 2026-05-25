@@ -16,6 +16,10 @@ import type Database from 'better-sqlite3';
 import * as chatStore from '../db/chat-store.js';
 import * as obsStore from '../db/observability-store.js';
 import * as annotationsStore from '../db/annotations-store.js';
+import {
+  getCachedTurnDetail,
+  putCachedTurnDetail,
+} from '../cache/turn-detail-cache-adapter.js';
 import type { ChatSessionRow, ChatTurnRow, QueryArtifact, ChartArtifact, PermissionDecisionRow } from '../types.js';
 // Shared owner-guard helpers — imported and re-exported for sub-plugins.
 import { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
@@ -212,10 +216,34 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
       if (turnOwner === null) return reply.status(404).send({ error: 'Turn not found' });
       if (turnOwner !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
 
-      const llmCalls = obsStore.listLlmCallsByTurn(db, req.params.turnId);
-      const toolInvocations = obsStore.listToolInvocationsByTurn(db, req.params.turnId);
-      const permissionDecisions: PermissionDecisionRow[] = obsStore.listPermissionDecisionsByTurn(db, req.params.turnId);
-      // Phase-04: include annotation (null when not starred/flagged yet).
+      // Cache fast-path: serve the immutable portion (llm_calls + tool_invocations
+      // + permission_decisions) from kv_cache when available. Annotations stay
+      // live since they're owner-keyed and mutable (star/flag/note).
+      let llmCalls: unknown[];
+      let toolInvocations: unknown[];
+      let permissionDecisions: PermissionDecisionRow[];
+      const cached = getCachedTurnDetail(db, req.params.turnId);
+      if (cached) {
+        llmCalls = cached.llmCalls;
+        toolInvocations = cached.toolInvocations;
+        permissionDecisions = cached.permissionDecisions as PermissionDecisionRow[];
+      } else {
+        llmCalls = obsStore.listLlmCallsByTurn(db, req.params.turnId);
+        toolInvocations = obsStore.listToolInvocationsByTurn(db, req.params.turnId);
+        permissionDecisions = obsStore.listPermissionDecisionsByTurn(db, req.params.turnId);
+
+        // Only cache once the turn is finalised; otherwise we'd memoize a
+        // partial in-flight payload that stays stale until eviction.
+        const turn = chatStore.getTurnById(db, req.params.turnId);
+        if (turn?.ended_at != null && turn.stop_reason != null) {
+          putCachedTurnDetail(db, req.params.turnId, {
+            llmCalls,
+            toolInvocations,
+            permissionDecisions,
+          });
+        }
+      }
+
       const annotationRow = annotationsStore.getAnnotation(db, req.params.turnId, ownerId);
       const annotation = annotationRow ? {
         turnId: annotationRow.turn_id,
