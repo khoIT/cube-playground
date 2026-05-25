@@ -1,27 +1,28 @@
 /**
- * Session-memory bridge for `disambiguate_query`.
+ * Memory bridge for `disambiguate_query`. Orchestrates two memory layers:
+ *   - Layer 2 (session, kv_cache, 24h TTL) — handled in this file.
+ *   - Layer 3 (cross-session, user_disambig_prefs) — handled in the sibling
+ *     `disambiguate-user-prefs-fill.ts` module.
  *
- * Splits two concerns out of the tool handler:
- *   1. Read prior slot resolutions, re-resolve the time phrase against the
- *      current clock, and fill gaps in the engine's slot output.
- *   2. Write every confidently-resolved slot back to memory BEFORE the action
- *      decision so that a clarify-only turn still persists what the user did
- *      confirm (e.g. user replied "ARPU" — memory captures metric=ARPU even
- *      if timeRange is still missing and the turn re-asks).
+ * Per turn: fill empty slots from Layer 2 then Layer 3, drop clarifications
+ * the fills resolved, then write every confident slot back to both layers
+ * BEFORE the action decision. That last point matters — a clarify-only turn
+ * still captures what the user did confirm (e.g. reply "ARPU" stores
+ * metric=ARPU even though timeRange is still missing and the turn re-asks).
  *
- * Resolution order per slot: explicit-in-message → session memory → ask.
- * Cross-session preferences (Layer 3) wire in later — see phase-02 plan.
+ * Resolution order per slot: explicit-in-message → Layer 2 → Layer 3 → ask.
  */
 
 import type Database from 'better-sqlite3';
 import {
-  getResolutions,
-  mergeResolution,
-  type DisambigResolutions,
-  type SlotMemory,
-  type TimeRangeValue,
+  getResolutions, mergeResolution,
+  type DisambigResolutions, type SlotMemory, type TimeRangeValue,
 } from '../cache/disambig-memory-adapter.js';
 import { resolveTimePhrase } from '../nl-to-query/phrase-resolver.js';
+import {
+  fillGapsFromUserPrefs,
+  writeConfidentSlotsToUserPrefs,
+} from './disambiguate-user-prefs-fill.js';
 import type { DisambiguationResult } from '../nl-to-query/index.js';
 
 const WRITE_CONFIDENCE_FLOOR = 0.7;
@@ -30,6 +31,7 @@ export interface MergeMemoryParams {
   db: Database.Database;
   sessionId: string;
   ownerId: string;
+  gameId: string;
   now: number;
 }
 
@@ -43,20 +45,21 @@ export function mergeMemoryIntoResult(
   result: DisambiguationResult,
   params: MergeMemoryParams,
 ): DisambiguationResult {
-  const { db, sessionId, ownerId, now } = params;
+  const { db, sessionId, ownerId, gameId, now } = params;
   const mem = getResolutions(db, sessionId);
+  const userPrefsCtx = { db, ownerId, gameId, now };
 
   fillGapsFromMemory(result, mem, now);
-  dropClarificationsCoveredByMemory(result, mem);
+  fillGapsFromUserPrefs(result, userPrefsCtx);
+  dropResolvedClarifications(result);
   upgradeActionIfNoClarsRemain(result);
   writeConfidentSlotsToMemory(result, mem, { db, sessionId, ownerId });
+  writeConfidentSlotsToUserPrefs(result, userPrefsCtx);
 
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Read path
-// ---------------------------------------------------------------------------
+// Read path ---------------------------------------------------------------
 
 function fillGapsFromMemory(
   result: DisambiguationResult,
@@ -96,14 +99,11 @@ function fillGapsFromMemory(
   }
 }
 
-function dropClarificationsCoveredByMemory(
-  result: DisambiguationResult,
-  mem: DisambigResolutions,
-): void {
+function dropResolvedClarifications(result: DisambiguationResult): void {
   result.clarifications = result.clarifications.filter((c) => {
-    if (c.slot === 'metric' && mem.metric) return false;
-    if (c.slot === 'dimension' && mem.dimension) return false;
-    if (c.slot === 'timeRange' && mem.timeRange) return false;
+    if (c.slot === 'metric' && result.slots.metric.value) return false;
+    if (c.slot === 'dimension' && result.slots.dimension?.value) return false;
+    if (c.slot === 'timeRange' && result.slots.timeRange?.value) return false;
     return true;
   });
 }
@@ -118,9 +118,7 @@ function upgradeActionIfNoClarsRemain(result: DisambiguationResult): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Write path
-// ---------------------------------------------------------------------------
+// Write path --------------------------------------------------------------
 
 interface WriteCtx {
   db: Database.Database;

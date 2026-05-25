@@ -52,6 +52,13 @@ const RULES: Rule[] = [
   { re: /\b(hôm qua|yesterday)\b/iu, resolve: (_, n) => ({ dateRange: [isoDate(shiftDays(n, -1)), isoDate(shiftDays(n, -1))], granularity: 'day' }) },
   { re: /\b(tuần trước|tuần qua|last week)\b/iu, resolve: (_, n) => ({ dateRange: lastNDays(n, 7), granularity: 'day' }) },
   { re: /\b(tháng trước|tháng qua|last month)\b/iu, resolve: (_, n) => ({ dateRange: lastNDays(n, 30), granularity: 'day' }) },
+  { re: /\b(tháng này|tháng nay|this month)\b/iu, resolve: (_, n) => {
+      const d = new Date(n);
+      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+      const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+      return { dateRange: [isoDate(start), isoDate(end)], granularity: 'day' };
+    } },
+  { re: /\b(tuần này|tuần nay|this week)\b/iu, resolve: (_, n) => ({ dateRange: lastNDays(n, 7), granularity: 'day' }) },
   { re: /\b(năm trước|năm qua|last year)\b/iu, resolve: (_, n) => ({ dateRange: lastNDays(n, 365), granularity: 'month' }) },
   { re: /\b(\d{1,3})\s*(ngày|day|days)\s*(qua|trước|ago|last|past)\b/iu, resolve: (m, n) => ({ dateRange: lastNDays(n, parseInt(m[1], 10)), granularity: 'day' }) },
   { re: /\b(\d{1,3})\s*(tuần|week|weeks)\s*(qua|trước|ago|last|past)\b/iu, resolve: (m, n) => ({ dateRange: lastNDays(n, parseInt(m[1], 10) * 7), granularity: 'week' }) },

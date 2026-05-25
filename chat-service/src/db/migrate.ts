@@ -13,6 +13,7 @@ import { migrateObservability } from './observability-migrate.js';
 import { migrateAnnotations } from './annotations-migrate.js';
 import { migrateResponseCache } from './response-cache-migrate.js';
 import { migrateKvCache } from './kv-cache-migrate.js';
+import { migrateUserDisambigPrefs } from './user-disambig-prefs-migrate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -61,6 +62,7 @@ export function migrate(db: Database.Database): void {
   migrateAnnotations(db);
   migrateResponseCache(db);
   migrateKvCache(db);
+  migrateUserDisambigPrefs(db);
 }
 
 /**

@@ -20,6 +20,7 @@ import type { DisambiguationResult } from '../../src/nl-to-query/index.js';
 const WED = Date.UTC(2026, 4, 27);
 const SID = 'sess-replay';
 const OWNER = 'owner-a';
+const GAME = 'game-x';
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');
@@ -61,7 +62,7 @@ describe('disambiguate-memory-merge', () => {
       { slot: 'metric', question_en: 'Which metric?', question_vi: 'Chỉ số nào?' },
     ];
 
-    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     expect(t0.action).toBe('clarify');
     expect(t0.clarifications).toHaveLength(1);
@@ -80,14 +81,14 @@ describe('disambiguate-memory-merge', () => {
       granularity: 'day',
     };
     t0.clarifications = [{ slot: 'metric', question_en: 'Which metric?', question_vi: 'Chỉ số nào?' }];
-    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     // T1: user replied "ARPU". Extractor resolves metric. timeRange absent
     // from this turn — must come from memory.
     const t1 = emptyResult();
     t1.slots.metric = { value: 'arpu', confidence: 0.95, alias: 'ARPU' };
 
-    mergeMemoryIntoResult(t1, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(t1, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     expect(t1.slots.metric.value).toBe('arpu');
     expect(t1.slots.timeRange?.value).toEqual(['2026-05-21', '2026-05-27']);
@@ -109,18 +110,18 @@ describe('disambiguate-memory-merge', () => {
       granularity: 'day',
     };
     t0.clarifications = [{ slot: 'metric', question_en: '?', question_vi: '?' }];
-    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     const t1 = emptyResult();
     t1.slots.metric = { value: 'arpu', confidence: 0.95, alias: 'ARPU' };
-    mergeMemoryIntoResult(t1, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(t1, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     // T2: "rank by country". Only dimension changes; the engine would not set
     // metric or timeRange on this turn.
     const t2 = emptyResult();
     t2.slots.dimension = { value: 'players.country', confidence: 0.95, alias: 'by country' };
 
-    mergeMemoryIntoResult(t2, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(t2, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     expect(t2.slots.metric.value).toBe('arpu');
     expect(t2.slots.dimension?.value).toBe('players.country');
@@ -140,14 +141,14 @@ describe('disambiguate-memory-merge', () => {
     };
     t0.slots.metric = { value: 'arpu', confidence: 0.95, alias: 'ARPU' };
     t0.action = 'auto';
-    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     // Next day. T1 has no timeRange. Memory must re-resolve "today" → Thu.
     const THU = Date.UTC(2026, 4, 28);
     const t1 = emptyResult();
     t1.slots.metric = { value: 'arpu', confidence: 0.95, alias: 'ARPU' };
 
-    mergeMemoryIntoResult(t1, { db, sessionId: SID, ownerId: OWNER, now: THU });
+    mergeMemoryIntoResult(t1, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: THU });
 
     expect(t1.slots.timeRange?.value).toEqual(['2026-05-28', '2026-05-28']);
   });
@@ -156,7 +157,7 @@ describe('disambiguate-memory-merge', () => {
     const r = emptyResult();
     r.slots.metric = { value: 'maybe.metric', confidence: 0.5, alias: 'something' };
 
-    mergeMemoryIntoResult(r, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(r, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     expect(getResolutions(db, SID).metric).toBeUndefined();
   });
@@ -166,13 +167,13 @@ describe('disambiguate-memory-merge', () => {
     const seed = emptyResult();
     seed.slots.metric = { value: 'arpu', confidence: 0.95, alias: 'ARPU' };
     seed.action = 'auto';
-    mergeMemoryIntoResult(seed, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(seed, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     // New turn explicitly picks a different metric.
     const r = emptyResult();
     r.slots.metric = { value: 'arpdau', confidence: 0.95, alias: 'ARPDAU' };
 
-    mergeMemoryIntoResult(r, { db, sessionId: SID, ownerId: OWNER, now: WED });
+    mergeMemoryIntoResult(r, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
 
     expect(r.slots.metric.value).toBe('arpdau');
     expect(getResolutions(db, SID).metric?.value).toBe('arpdau');

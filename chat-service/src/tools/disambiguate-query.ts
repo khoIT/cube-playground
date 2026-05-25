@@ -78,6 +78,7 @@ export async function handler(
       db: ctx.db,
       sessionId: ctx.sessionId,
       ownerId: ctx.ownerId,
+      gameId: ctx.gameId,
       now,
     });
   }
