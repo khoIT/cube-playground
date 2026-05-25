@@ -2,6 +2,19 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-25 — chat-audit v2: soft-delete + monitoring + response cache + settings tab
+
+Seven-phase upgrade to chat-service observability and runtime. Plan: `plans/260525-1410-chat-audit-v2-monitoring-cache/`. Tests: chat-service 427 (+~85 new); root 962 (no regressions).
+
+- **Soft-delete + 7d retention.** `DELETE /sessions/:id` now soft-deletes (sets `chat_sessions.deleted_at`), does NOT cascade. New `POST /sessions/:id/restore` clears the flag. Retention sweep (`chat-service/src/services/retention-sweep.ts`) hard-purges + tombstones rows older than 7d on a 1h cron. Chat UI hides deleted; `/dev/chat-audit` shows them with a Restore button. `POST /agent/turn` now 404s on deleted sessions (no silent resurrection).
+- **stop_reason + permission_decisions.** New `chat_turns.stop_reason` column + new `permission_decisions` table, both captured from the SDK `result` message via a new `onTurnFinalized` observer hook. Surfaced in chat-audit as a colored stop-reason pill + a dedicated decisions section.
+- **Cache % + I/O ratio on turn header.** New `cache_creation_tokens` + `cache_read_tokens` columns on `chat_turns`. `/dev/chat-audit` turn-header strip shows `cache 73% · io 0.42` alongside the existing `in/out/$/ms/model` group.
+- **Annotations + cross-turn search.** New `turn_annotations` table (star/flag/note) + routes `POST/DELETE /debug/turns/:turnId/annotation`. Cross-turn LIKE search via `GET /debug/search?q=&owner=&game=&starred=` over user/assistant text + tool args.
+- **Skill leaderboard.** `GET /debug/leaderboard/skills?game=&days=` returns per-skill `{ count, p50/p95 latency, avg/total cost, success rate }` (Node-side percentile). New page `/dev/chat-audit/leaderboard` with sortable table.
+- **Response cache (exact-match v1).** New `response_cache` table (per-game scope, shared across owners — known PII trade-off). Key = sha256 over normalized `(skill, gameId, userText, cubeMetaHash, model, systemPromptHash)`. Cube-meta hash derived lazily from sorted dim/measure/segment names. Cache hits replay through SSE byte-identically (loading + token chunks + result event). 24h TTL via existing sweep. Off by default behind `RESPONSE_CACHE_ENABLED=true`. New `CacheHitBadge` in chat-audit links back to the original turn.
+- **Chat Service settings tab.** `/settings → Chat Service` exposes: default model (allowlisted via `config.allowedModels`, sent as `X-Model` header), bypass cache (`X-Bypass-Cache: 1`), clear cache for current game (`DELETE /api/chat/debug/cache?game=<id>`), show debug links on chat page, raw SDK events default-expanded. Settings persist in localStorage; bypass-cache is symmetric (skips both read and write).
+- **Semantic cache deferred.** Internal LiteLLM proxy doesn't expose embedding models; revisit if exact-match hit-rate <10% in production.
+
 ## 2026-05-23 (later)
 
 ### Fixed — server-side game scoping (PTG no longer loads ballistar yaml)

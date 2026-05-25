@@ -13,7 +13,11 @@ vi.mock('../use-debug-api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../use-debug-api')>();
   return {
     ...actual,
-    useDebugTurn: vi.fn(() => ({ data: { llmCalls: [], toolInvocations: [] }, isLoading: false, error: null })),
+    useDebugTurn: vi.fn(() => ({
+      data: { llmCalls: [], toolInvocations: [], permissionDecisions: [] },
+      isLoading: false,
+      error: null,
+    })),
   };
 });
 
@@ -39,6 +43,12 @@ const baseTurn: DebugTurn = {
   model: 'claude-sonnet-4-6',
   skill: 'explore',
   durationMs: 4200,
+  stopReason: 'end_turn', // Phase-02 field
+  cacheCreationTokens: null, // Phase-03 field
+  cacheReadTokens: null,
+  cacheHit: false,
+  originalTurnId: null,
+  originalSessionId: null,
 };
 
 const legacyTurn: DebugTurn = { ...baseTurn, legacy: true, llmCallCount: 0, toolInvocationCount: 0 };

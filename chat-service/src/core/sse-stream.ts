@@ -62,6 +62,10 @@ interface SdkResultMessage {
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
+    /** Phase-03: Anthropic cache write tokens (prompt cache creation). */
+    cache_creation_input_tokens?: number;
+    /** Phase-03: Anthropic cache read tokens (prompt cache hit). */
+    cache_read_input_tokens?: number;
   };
   // The SDK calls this subtype
   subtype?: string;
@@ -131,6 +135,10 @@ export function mapSdkMessage(msg: SdkMessage): SseEvent[] {
           cost_usd: rm.total_cost_usd,
           input_tokens: rm.usage?.input_tokens,
           output_tokens: rm.usage?.output_tokens,
+          // Phase-03: Anthropic SDK uses `cache_creation_input_tokens` / `cache_read_input_tokens`
+          // in the usage block. Map to shorter names for the SSE payload.
+          cache_creation_tokens: rm.usage?.cache_creation_input_tokens,
+          cache_read_tokens: rm.usage?.cache_read_input_tokens,
         },
       },
     ];

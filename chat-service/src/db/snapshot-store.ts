@@ -22,11 +22,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SNAPSHOT_PATH = join(__dirname, '..', '..', 'runtime', 'seed', 'chat-snapshot.json');
 
 interface Snapshot {
-  /** v1: sessions + turns only. v2: adds chat_tombstones so deletions propagate. */
-  version: 1 | 2;
+  /** v1: sessions + turns. v2: + chat_tombstones. v3: + deleted_at on sessions. */
+  version: 1 | 2 | 3;
   chat_sessions: Record<string, unknown>[];
   chat_turns: Record<string, unknown>[];
-  /** Optional for v1 backwards compat; always written for v2. */
+  /** Optional for v1 backwards compat; always written for v2+. */
   chat_tombstones?: { session_id: string; deleted_at: number }[];
 }
 
@@ -60,7 +60,7 @@ export function getChatSyncStatus(db: Database.Database): {
 
 export function writeChatSnapshot(db: Database.Database): string {
   const snap: Snapshot = {
-    version: 2,
+    version: 3,
     chat_sessions: db
       .prepare('SELECT * FROM chat_sessions ORDER BY id')
       .all() as Snapshot['chat_sessions'],
@@ -99,9 +99,9 @@ export function hydrateChatFromSnapshot(db: Database.Database): {
   const insertSession = db.prepare(`
     INSERT OR IGNORE INTO chat_sessions
       (id, owner_id, game_id, title, created_at, last_turn_at, turn_count,
-       total_input_tokens, total_output_tokens, status, parent_session_id, compacted_into)
+       total_input_tokens, total_output_tokens, status, parent_session_id, compacted_into, deleted_at)
     VALUES (@id, @owner_id, @game_id, @title, @created_at, @last_turn_at, @turn_count,
-            @total_input_tokens, @total_output_tokens, @status, @parent_session_id, @compacted_into)
+            @total_input_tokens, @total_output_tokens, @status, @parent_session_id, @compacted_into, @deleted_at)
   `);
   const insertTurn = db.prepare(`
     INSERT OR IGNORE INTO chat_turns
@@ -127,6 +127,7 @@ export function hydrateChatFromSnapshot(db: Database.Database): {
       sessionsInserted += insertSession.run({
         parent_session_id: null,
         compacted_into: null,
+        deleted_at: null,
         ...s,
       }).changes;
     }

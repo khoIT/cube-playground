@@ -18,7 +18,7 @@
  * /chat route is showing.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useHistory, useParams } from 'react-router-dom';
+import { useHistory, useParams, Link } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { setActiveChatSession } from '../../shell/chat-overlay/use-active-chat-session';
@@ -36,6 +36,7 @@ import { useChatStream } from './hooks/use-chat-stream';
 import { useAutoReplayAttach } from './hooks/use-auto-replay-attach';
 import type { ChatMessage } from './components/chat-message-list';
 import type { AssistantSection } from './components/assistant-message';
+import { readChatServiceSettings } from '../Settings/ChatService/use-chat-service-settings';
 
 
 // ---------------------------------------------------------------------------
@@ -84,6 +85,8 @@ export function ChatThreadPage() {
   const isNew = !id || id === 'new';
   const [composerValue, setComposerValue] = useState('');
   const [committedMessages, setCommittedMessages] = useState<ChatMessage[]>([]);
+  /** Phase-06: bypass cache toggle — off by default; set per-send. */
+  const [bypassCache, setBypassCache] = useState(false);
   const hydratedRef = useRef(false);
 
   const { session, isLoading } = useChatSession(isNew ? null : id ?? null);
@@ -187,8 +190,10 @@ export function ChatThreadPage() {
     if (!text) return;
     setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() }]);
     setComposerValue('');
-    sendTurn(text);
-  }, [composerValue, sendTurn]);
+    sendTurn(text, bypassCache);
+    // Reset bypass cache after send so the next turn uses the cache by default.
+    if (bypassCache) setBypassCache(false);
+  }, [composerValue, sendTurn, bypassCache]);
 
   /**
    * Phase-04: follow-up chip click prefills + sends immediately. Bypasses
@@ -213,6 +218,10 @@ export function ChatThreadPage() {
   if (!isNew && isLoading && committedMessages.length === 0) {
     return <div style={{ padding: 32, fontFamily: T.fSans, fontSize: 13, color: T.n400 }}>Loading conversation…</div>;
   }
+
+  // Debug link: shown only when showDebugLinks setting is on and a real session id exists.
+  const activeSessionId = streamSessionId ?? (id && id !== 'new' ? id : null);
+  const showDebugLink = readChatServiceSettings().showDebugLinks && !!activeSessionId;
 
   const topBanner =
     status === 'disconnected' ? <DisconnectBanner onReconnect={reconnect} /> :
@@ -252,6 +261,16 @@ export function ChatThreadPage() {
             paddingInline: 16,
           }}
         >
+          {showDebugLink && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 0 2px' }}>
+              <Link
+                to={`/dev/chat-audit/${activeSessionId}`}
+                style={{ fontSize: 11, color: T.n400, textDecoration: 'none', fontFamily: T.fSans }}
+              >
+                Debug
+              </Link>
+            </div>
+          )}
           {isEmptyNew ? (
             <ChatEmptyHero
               composerValue={composerValue}
@@ -268,6 +287,8 @@ export function ChatThreadPage() {
               onSubmit={handleSubmit}
               banner={topBanner}
               onFollowupPick={handleFollowupPick}
+              bypassCache={bypassCache}
+              onToggleBypassCache={() => setBypassCache((v) => !v)}
             />
           )}
           {lastCompactWarning && status === 'done' && <CompactWarningChip />}

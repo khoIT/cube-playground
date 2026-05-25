@@ -23,7 +23,16 @@ export type {
   LlmCall,
   ToolInvocation,
   SdkEvent,
+  PermissionDecision,
+  TurnAnnotation,
+  AnnotationFlag,
+  SearchHit,
+  SearchPage,
 } from './use-debug-api-types';
+
+// Re-export phase-04 hooks.
+export { useTurnAnnotation, useSetTurnAnnotation, useDeleteTurnAnnotation } from './use-turn-annotation';
+export { useDebugSearch } from './use-debug-search';
 
 function authHeaders(): Record<string, string> {
   return { 'X-Owner-Id': getOwnerId() };
@@ -68,7 +77,11 @@ export function useDebugSessions({ game, q }: { game: string; q: string }): Asyn
 // useDebugSession — session detail + augmented turn list
 // ---------------------------------------------------------------------------
 
-export function useDebugSession(id: string | null): AsyncState<DebugSessionDetail> {
+/**
+ * Fetch a single debug session. Pass `refreshTick` to force a re-fetch after
+ * a restore operation without changing the session id.
+ */
+export function useDebugSession(id: string | null, refreshTick = 0): AsyncState<DebugSessionDetail> {
   const [state, setState] = useState<AsyncState<DebugSessionDetail>>({ data: null, error: null, isLoading: false });
 
   useEffect(() => {
@@ -91,9 +104,45 @@ export function useDebugSession(id: string | null): AsyncState<DebugSessionDetai
       });
 
     return () => controller.abort();
-  }, [id]);
+  }, [id, refreshTick]); // refreshTick forces re-fetch after restore
 
   return state;
+}
+
+// ---------------------------------------------------------------------------
+// useRestoreSession — POST /sessions/:id/restore, then signals refresh
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a mutator that POSTs to restore a soft-deleted session.
+ * `onSuccess` callback lets the parent refresh its session list.
+ */
+export function useRestoreSession(onSuccess?: () => void): {
+  restore: (id: string) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+} {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const restore = useCallback(async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(id)}/restore`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      onSuccess?.();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onSuccess]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { restore, isLoading, error };
 }
 
 // ---------------------------------------------------------------------------

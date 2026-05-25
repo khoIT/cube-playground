@@ -36,6 +36,11 @@ import { LlmTraceRecorder, BufferedLlmTraceRecorder } from '../observability/llm
 import { LangfuseTracer } from '../observability/langfuse-tracer.js';
 import { buildCompositeObserver } from '../observability/composite-observer.js';
 import type { ObserverHooks } from '../observability/observer-types.js';
+import { getMetaVersion } from '../core/cube-meta-cache.js';
+import { computeCacheKey, hashSystemPrompt, normalize } from '../cache/response-cache-key.js';
+import { getByKey, incrementHit } from '../db/response-cache-store.js';
+import { replayCachedTurn } from '../cache/replay-cached-turn.js';
+import { maybeWriteResponseCache } from '../cache/response-cache-write.js';
 
 interface TurnRouteOptions {
   db: Database.Database;
@@ -54,6 +59,18 @@ const TurnBodySchema = z.object({
     .optional(),
   mode: z.enum(['targeted', 'aggressive']).optional(),
 });
+
+/**
+ * Resolve the model to use for a turn.
+ * Honors the X-Model header when the value is in config.allowedModels;
+ * unknown values silently fall back to config.chatModel — never echoed raw.
+ */
+function resolveModel(xModelHeader: string | string[] | undefined): string {
+  const requested =
+    typeof xModelHeader === 'string' ? xModelHeader.trim() : undefined;
+  if (requested && config.allowedModels.includes(requested)) return requested;
+  return config.chatModel;
+}
 
 const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) => {
   fastify.post('/agent/turn', async (req, reply) => {
@@ -83,7 +100,10 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     let sessionId = body.session_id ?? null;
     if (sessionId) {
       const existing = chatStore.getSession(opts.db, sessionId);
-      if (!existing) {
+      // Treat soft-deleted sessions as not found — mirrors sessions.ts:104 pattern.
+      // Without this check a client retaining a deleted session_id can silently
+      // resurrect it by posting turns (turns appended while deleted_at stays set).
+      if (!existing || existing.deleted_at != null) {
         return reply.status(404).send({ error: 'Session not found' });
       }
       if (existing.owner_id !== body.owner_id) {
@@ -246,6 +266,71 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
     });
 
+    // --- 6b. Response-cache lookup (exact-match, per-game) ---
+    // Gate: RESPONSE_CACHE_ENABLED=true AND X-Bypass-Cache header not set to '1'.
+    const bypassCache = req.headers['x-bypass-cache'] === '1';
+    // Resolve model: X-Model header if allowlisted, else server default.
+    const resolvedModel = resolveModel(req.headers['x-model']);
+    let cacheKey: string | null = null;
+    if (config.responseCacheEnabled && !bypassCache) {
+      try {
+        const cubeMetaHash = await getMetaVersion(body.game, cubeToken);
+        const systemPromptHash = hashSystemPrompt(systemPrompt);
+        cacheKey = computeCacheKey({
+          skill: intent.skill,
+          gameId: body.game,
+          userText: body.message,
+          cubeMetaHash,
+          model: resolvedModel,
+          systemPromptHash,
+        });
+        const cached = getByKey(opts.db, cacheKey);
+        if (cached) {
+          // Cache hit — replay and persist a new turn row marked cache_hit=1.
+          // Pass `emit` so replay events go through the stream-registry ring buffer,
+          // enabling refresh-resume mid-replay (N1 fix). The emit closure also
+          // ensures `loading` and token events appear in registry.findRunning() output.
+          await replayCachedTurn(cached, stream, emit);
+          incrementHit(opts.db, cacheKey);
+
+          const hitAt = Date.now();
+          const assistantIdx = userTurnIndex + 1;
+          chatStore.appendTurn(opts.db, {
+            id: turnId,
+            sessionId,
+            turnIndex: assistantIdx,
+            role: 'assistant',
+            assistantText: JSON.parse(cached.value_json).text ?? '',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsd: 0,
+            cacheHit: 1,
+            originalTurnId: cached.original_turn_id,
+            skill: intent.skill,
+            model: resolvedModel,
+            // Cache hits are gated at write time on stop_reason='end_turn', so a
+            // replayed turn represents a successful end_turn outcome. Set explicitly
+            // because the observability stack is skipped on this path — without it
+            // stop_reason stays NULL and leaderboard inflates legacyCount.
+            stopReason: 'end_turn',
+            startedAt,
+            endedAt: hitAt,
+          });
+          chatStore.incrementTurnCount(opts.db, sessionId, 0, 0);
+
+          emit({ type: 'done', data: {} });
+          registry.finish(turnId, 'done');
+          if (release) release();
+          stream.end();
+          return;
+        }
+      } catch (cacheErr) {
+        // Cache lookup failure is non-fatal — fall through to live LLM call.
+        fastify.log.warn({ err: cacheErr }, '[turn] cache lookup failed, falling through to LLM');
+        cacheKey = null;
+      }
+    }
+
     // SSE emitter for tool side-effects (query_artifact + chart events)
     const sseEmitter = new EventEmitter();
     const collectedArtifacts: QueryArtifact[] = [];
@@ -278,6 +363,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     let inputTokens = 0;
     let outputTokens = 0;
     let costUsd: number | undefined;
+    // Phase-02: turn-level stop_reason from SDK result message.
+    let stopReason: string | undefined;
+    // Phase-03: cache token breakdown from SDK result usage block.
+    let cacheCreationTokens: number | undefined;
+    let cacheReadTokens: number | undefined;
 
     // Observability: construct observer inside the try block so a failing
     // constructor (bad config, missing dep) falls back to a no-op and never
@@ -324,6 +414,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           inputTokens = event.data.input_tokens ?? 0;
           outputTokens = event.data.output_tokens ?? 0;
           costUsd = event.data.cost_usd;
+          // Phase-03: cache token breakdown (undefined when not present in SDK response).
+          cacheCreationTokens = event.data.cache_creation_tokens;
+          cacheReadTokens = event.data.cache_read_tokens;
         }
         // query_artifact and chart are already emitted via sseEmitter
         if (event.type !== 'query_artifact' && event.type !== 'chart') {
@@ -355,9 +448,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         inputTokens,
         outputTokens,
         costUsd,
+        // Phase-03: cache token breakdown (undefined when SDK omits them).
+        cacheCreationTokens,
+        cacheReadTokens,
         skill: intent.skill,
         systemPromptText: systemPrompt,
-        model: config.chatModel,
+        model: resolvedModel,
         startedAt,
         endedAt,
       });
@@ -366,6 +462,37 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       // buffered observability events. Errors are swallowed by the inner
       // recorder's per-row try/catch so one bad row can't sink the rest.
       bufferedRecorder?.flush();
+
+      // --- Phase-06: write response-cache entry on eligible turns ---
+      // stop_reason is persisted by the buffered recorder's onTurnFinalized flush above.
+      // Read it from the DB row (single cheap SELECT) to gate the cache write.
+      if (cacheKey) {
+        try {
+          const turnRow = chatStore.getTurnById(opts.db, turnId);
+          const persistedStopReason = turnRow?.stop_reason ?? undefined;
+          maybeWriteResponseCache({
+            db: opts.db,
+            enabled: config.responseCacheEnabled,
+            key: cacheKey,
+            gameId: body.game,
+            skill: intent.skill,
+            model: resolvedModel,
+            userText: body.message,
+            assistantText,
+            inputTokens,
+            outputTokens,
+            costUsd: costUsd ?? 0,
+            stopReason: persistedStopReason,
+            collectedArtifacts,
+            collectedCharts,
+            hadError: false,
+            turnId,
+            sessionId,
+          });
+        } catch (writeErr) {
+          fastify.log.warn({ err: writeErr }, '[turn] cache write failed (non-fatal)');
+        }
+      }
 
       chatStore.incrementTurnCount(opts.db, sessionId, inputTokens, outputTokens);
 

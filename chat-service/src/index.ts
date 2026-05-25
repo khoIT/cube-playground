@@ -26,8 +26,14 @@ import replayRoutes from './api/replay.js';
 import statsRoutes from './api/stats.js';
 import auditRoutes from './api/audit.js';
 import debugRoutes from './api/debug.js';
+import debugAnnotationRoutes from './api/debug-annotations.js';
+import debugSearchRoutes from './api/debug-search.js';
+import debugLeaderboardRoutes from './api/debug-leaderboard.js';
+import debugCacheClearRoutes from './api/debug-cache-clear.js';
 import notificationsRoutes from './api/notifications.js';
 import { scheduler } from './services/scheduler.js';
+import { registerRetentionSweep } from './services/retention-sweep.js';
+import { registerResponseCacheSweep } from './services/response-cache-sweep.js';
 import { RateLimiter, buildRateLimitHook } from './middleware/rate-limit.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -61,6 +67,10 @@ async function buildApp(dbPath?: string) {
   await fastify.register(statsRoutes, { db });
   await fastify.register(auditRoutes, { db });
   await fastify.register(debugRoutes, { db });
+  await fastify.register(debugAnnotationRoutes, { db });
+  await fastify.register(debugSearchRoutes, { db });
+  await fastify.register(debugLeaderboardRoutes, { db });
+  await fastify.register(debugCacheClearRoutes, { db });
   await fastify.register(notificationsRoutes, { db });
 
   return { fastify, db };
@@ -89,10 +99,14 @@ async function start(): Promise<void> {
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
   fastify.log.info(`chat-service listening on port ${config.port}`);
 
+  // Register retention sweep before scheduler.start() so the catch-up sweep
+  // runs synchronously on boot (purges sessions that aged out while offline).
+  registerRetentionSweep(db);
+  // Phase-06: response cache 24h sweep — catch-up on boot, then hourly.
+  registerResponseCacheSweep(db);
+
   // Phase-05: start any registered cron jobs after the server is up so the
-  // health/notifications endpoints are reachable before first tick. Phases
-  // register handlers at module-import time (or via explicit register()
-  // calls) — this just flips the started flag.
+  // health/notifications endpoints are reachable before first tick.
   scheduler.start();
   fastify.log.info(
     { jobs: scheduler.list().map((j) => j.name) },

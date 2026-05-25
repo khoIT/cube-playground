@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { T } from '../../shell/theme';
 import { useDebugRawEvents } from './use-debug-api';
+import { readChatServiceSettings } from '../Settings/ChatService/use-chat-service-settings';
 
 interface RawEventsAccordionProps {
   turnId: string;
@@ -69,8 +70,10 @@ const styles = {
 };
 
 export function RawEventsAccordion({ turnId }: RawEventsAccordionProps) {
-  const [open, setOpen] = useState(false);
-  const [triggered, setTriggered] = useState(false);
+  // Read initial expanded state from settings (non-hook, avoids re-render overhead).
+  const defaultExpanded = readChatServiceSettings().rawEventsDefaultExpanded;
+  const [open, setOpen] = useState(defaultExpanded);
+  const [triggered, setTriggered] = useState(defaultExpanded);
   const { events, hasMore, isLoading, error, loadMore } = useDebugRawEvents(open ? turnId : null);
 
   function handleOpen() {

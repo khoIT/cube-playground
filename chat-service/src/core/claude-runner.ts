@@ -22,6 +22,7 @@ import {
   emitSdkEvent,
   emitLlmCall,
   emitToolInvocations,
+  emitTurnFinalized,
   flushPendingTools,
   type PendingTool,
 } from '../observability/sdk-event-extractor.js';
@@ -184,6 +185,14 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         emitToolInvocations(observer, turnId, msg as any, pendingTools);
       } catch (err) { console.warn('[observer] onToolInvocation threw:', err); }
+    }
+
+    // Phase-02: emit turn-level stop_reason + permission_denials on result message.
+    if (observer && msg.type === 'result') {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        emitTurnFinalized(observer, turnId, msg as any);
+      } catch (err) { console.warn('[observer] emitTurnFinalized threw:', err); }
     }
   }
 

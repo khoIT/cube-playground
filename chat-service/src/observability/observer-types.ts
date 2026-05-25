@@ -71,6 +71,43 @@ export interface SdkEventRecord {
 }
 
 // ---------------------------------------------------------------------------
+// Phase-02 event shapes: turn finalization + permission decisions
+// ---------------------------------------------------------------------------
+
+/**
+ * Emitted once per turn after the SDK result message is processed.
+ * Carries the turn-level stop_reason and aggregate token totals.
+ * Captured from `result` SDK message: msg.stop_reason, msg.usage.
+ */
+export interface TurnFinalizedEvent {
+  turnId: string;
+  /** e.g. "end_turn" | "tool_use" | "max_tokens" | "stop_sequence" | "refusal" */
+  stopReason: string | null;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  at: number;
+}
+
+/**
+ * One record per permission denial from the SDK result message
+ * `permission_denials[]` array. Empty in bypassPermissions mode.
+ *
+ * SDK shape (observed/inferred):
+ *   { toolName: string; decision: string; reason?: string }
+ * Graceful: unknown fields are ignored; missing fields default to unknown.
+ */
+export interface PermissionDecisionEvent {
+  turnId: string;
+  /** Unique id for idempotent INSERT (caller-generated UUID). */
+  id: string;
+  toolName: string;
+  /** e.g. "denied" | "allowed" */
+  decision: string;
+  reason: string | null;
+  at: number;
+}
+
+// ---------------------------------------------------------------------------
 // Observer contract
 // ---------------------------------------------------------------------------
 
@@ -78,9 +115,16 @@ export interface SdkEventRecord {
  * Sync callbacks; implementations may queue/batch internally.
  * All calls are wrapped in try/catch by the runner — a throwing observer
  * never breaks the user-facing turn.
+ *
+ * Phase-02 hooks are optional — implementations that don't declare them
+ * are silently skipped by the composite observer.
  */
 export interface ObserverHooks {
   onLlmCall(call: LlmCallEvent): void;
   onToolInvocation(inv: ToolInvocationEvent): void;
   onSdkEvent(ev: SdkEventRecord): void;
+  /** Called once per turn after the result SDK message is processed. */
+  onTurnFinalized?(ev: TurnFinalizedEvent): void;
+  /** Called once per permission denial entry from the result message. */
+  onPermissionDecision?(ev: PermissionDecisionEvent): void;
 }

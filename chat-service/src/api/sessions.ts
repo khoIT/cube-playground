@@ -1,9 +1,10 @@
 /**
  * Session management endpoints:
- *   GET    /sessions?game=<id>  — list owner+game sessions
- *   GET    /sessions/:id        — full session with turns
+ *   GET    /sessions?game=<id>  — list owner+game sessions (hides deleted)
+ *   GET    /sessions/:id        — full session with turns (404 if deleted)
  *   PATCH  /sessions/:id        — rename session title
- *   DELETE /sessions/:id        — hard-delete + tombstone, refreshes snapshot
+ *   DELETE /sessions/:id        — soft-delete (sets deleted_at, no cascade)
+ *   POST   /sessions/:id/restore — clear deleted_at (owner-scoped)
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -99,7 +100,8 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
       }
 
       const session = chatStore.getSession(opts.db, req.params.id);
-      if (!session) {
+      // Treat soft-deleted sessions as not found for the chat UI path.
+      if (!session || session.deleted_at != null) {
         return reply.status(404).send({ error: 'Session not found' });
       }
       if (session.owner_id !== ownerId) {
@@ -144,8 +146,8 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
     },
   );
 
-  // DELETE /sessions/:id — hard-delete + tombstone, then refresh the committed
-  // snapshot so other dev machines reconcile on their next hydrate.
+  // DELETE /sessions/:id — soft-delete: sets deleted_at, does NOT cascade.
+  // Session disappears from chat UI immediately; still visible in /dev/chat-audit.
   fastify.delete<{ Params: { id: string } }>(
     '/sessions/:id',
     async (req, reply) => {
@@ -162,20 +164,45 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
-      chatStore.deleteSession(opts.db, req.params.id);
+      chatStore.softDeleteSession(opts.db, req.params.id);
 
-      // Snapshot write failures (e.g. read-only checkout) should not fail the
-      // delete — the DB state is already correct; the snapshot is dev-only sync.
+      // Mirror soft-delete state to the committed snapshot so other dev machines
+      // see deleted_at when they hydrate. Best-effort — snapshot path may be
+      // read-only in CI.
       try {
         writeChatSnapshot(opts.db);
       } catch (err) {
         fastify.log.warn(
           { err, sessionId: req.params.id },
-          '[chat-snapshot] post-delete snapshot write failed',
+          '[chat-snapshot] post-soft-delete snapshot write failed',
         );
       }
 
       return reply.status(204).send();
+    },
+  );
+
+  // POST /sessions/:id/restore — clear deleted_at (owner-scoped).
+  fastify.post<{ Params: { id: string } }>(
+    '/sessions/:id/restore',
+    async (req, reply) => {
+      const ownerId = req.headers['x-owner-id'];
+      if (!ownerId || typeof ownerId !== 'string') {
+        return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
+      }
+
+      const session = chatStore.getSession(opts.db, req.params.id);
+      if (!session) {
+        return reply.status(404).send({ error: 'Session not found' });
+      }
+      if (session.owner_id !== ownerId) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
+
+      chatStore.restoreSession(opts.db, req.params.id);
+
+      const restored = chatStore.getSession(opts.db, req.params.id);
+      return reply.status(200).send(restored);
     },
   );
 };

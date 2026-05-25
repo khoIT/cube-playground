@@ -33,6 +33,12 @@ interface ChatComposerProps {
    */
   deepResearch?: boolean;
   onToggleDeepResearch?: () => void;
+  /**
+   * Phase-06: bypass cache toggle. When true, sends X-Bypass-Cache: 1 on the
+   * next turn to force a fresh LLM call. Off by default.
+   */
+  bypassCache?: boolean;
+  onToggleBypassCache?: () => void;
 }
 
 const MIN_HEIGHT = 24;
@@ -47,6 +53,8 @@ export function ChatComposer({
   placeholder = 'What do you want to know?',
   deepResearch,
   onToggleDeepResearch,
+  bypassCache,
+  onToggleBypassCache,
 }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [localDeepResearch, setLocalDeepResearch] = useState(false);
@@ -121,6 +129,25 @@ export function ChatComposer({
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <DeepResearchToggle active={dr} onToggle={toggleDr} compact={compact} />
+        {onToggleBypassCache != null && (
+          <button
+            type="button"
+            onClick={onToggleBypassCache}
+            title="Bypass response cache — forces a fresh LLM call even on cache hit"
+            style={{
+              fontSize: compact ? 10 : 11,
+              padding: '2px 8px',
+              border: `1px solid ${bypassCache ? T.brand : T.n300}`,
+              borderRadius: 4,
+              background: bypassCache ? T.brandSoft : 'transparent',
+              color: bypassCache ? T.brand : T.n500,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Bypass cache
+          </button>
+        )}
         <div style={{ flex: 1 }} />
         <button
           type="button"

@@ -1,10 +1,15 @@
 /**
- * Observability migration — `llm_calls`, `tool_invocations`, `sdk_events` tables.
+ * Observability migration — `llm_calls`, `tool_invocations`, `sdk_events`,
+ * and `permission_decisions` tables.
  *
  * Idempotent (CREATE TABLE IF NOT EXISTS). Owned by the observability phase;
  * called from `migrate.ts` in fixed order per decision C1.
  *
- * All three tables FK to chat_turns(id) ON DELETE CASCADE.
+ * All tables FK to chat_turns(id) ON DELETE CASCADE.
+ *
+ * Phase-02 additions:
+ *   - permission_decisions table (per-denial rows from SDK result message)
+ *   - chat_turns.stop_reason column added via addColumnIfMissing in migrate.ts
  */
 
 import type Database from 'better-sqlite3';
@@ -65,5 +70,19 @@ export function migrateObservability(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_sdk_events_turn_seq
       ON sdk_events(turn_id, seq);
+
+    -- Phase-02: permission denials captured from SDK result message permission_denials[].
+    -- One row per denial; INSERT OR IGNORE on id for idempotent replay.
+    CREATE TABLE IF NOT EXISTS permission_decisions (
+      id TEXT PRIMARY KEY,
+      turn_id TEXT NOT NULL REFERENCES chat_turns(id) ON DELETE CASCADE,
+      tool_name TEXT NOT NULL,
+      decision TEXT NOT NULL,
+      reason TEXT,
+      at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_permission_decisions_turn_id
+      ON permission_decisions(turn_id);
   `);
 }

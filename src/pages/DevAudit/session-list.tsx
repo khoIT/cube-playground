@@ -44,12 +44,13 @@ const S = {
     flex: 1,
     overflowY: 'auto' as const,
   } as React.CSSProperties,
-  row: (active: boolean): React.CSSProperties => ({
+  row: (active: boolean, deleted: boolean): React.CSSProperties => ({
     padding: '10px 14px',
     borderBottom: `1px solid ${T.n100}`,
     cursor: 'pointer',
-    background: active ? T.brandSoft : 'transparent',
-    borderLeft: active ? `3px solid ${T.brand}` : '3px solid transparent',
+    background: active ? T.brandSoft : deleted ? T.redSoft : 'transparent',
+    borderLeft: active ? `3px solid ${T.brand}` : deleted ? `3px solid ${T.red500}` : '3px solid transparent',
+    opacity: deleted ? 0.75 : 1,
   }),
   title: {
     fontSize: 12,
@@ -145,23 +146,45 @@ export function SessionList({ gameId, selectedId, onSelect }: SessionListProps) 
           </div>
         )}
 
-        {sessions.map((s: DebugSession) => (
-          <div
-            key={s.id}
-            style={S.row(s.id === selectedId)}
-            onClick={() => onSelect(s.id)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && onSelect(s.id)}
-          >
-            <div style={S.title}>{s.title || `Session ${s.id.slice(0, 8)}`}</div>
-            <div style={S.meta}>
-              <span>{s.turn_count} turn{s.turn_count !== 1 ? 's' : ''}</span>
-              <span>{relativeTime(s.last_turn_at ?? s.created_at)}</span>
-              {s.status !== 'active' && <span style={{ color: T.n400 }}>{s.status}</span>}
+        {sessions.map((s: DebugSession) => {
+          const isDeleted = s.deletedAt != null;
+          return (
+            <div
+              key={s.id}
+              style={S.row(s.id === selectedId, isDeleted)}
+              onClick={() => onSelect(s.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && onSelect(s.id)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={S.title}>{s.title || `Session ${s.id.slice(0, 8)}`}</div>
+                {isDeleted && (
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    textTransform: 'uppercase' as const,
+                    letterSpacing: '0.05em',
+                    color: T.red600,
+                    background: T.redSoft,
+                    border: `1px solid ${T.red500}`,
+                    borderRadius: 3,
+                    padding: '1px 4px',
+                    flexShrink: 0,
+                  }}>
+                    Deleted
+                  </span>
+                )}
+              </div>
+              <div style={S.meta}>
+                <span>{s.turn_count} turn{s.turn_count !== 1 ? 's' : ''}</span>
+                <span>{relativeTime(s.last_turn_at ?? s.created_at)}</span>
+                {s.status !== 'active' && !isDeleted && <span style={{ color: T.n400 }}>{s.status}</span>}
+                {isDeleted && <span style={{ color: T.red600 }}>deleted {relativeTime(s.deletedAt)}</span>}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

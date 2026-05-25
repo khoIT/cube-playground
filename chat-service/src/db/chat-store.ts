@@ -54,6 +54,7 @@ export function listSessions(
       .prepare(
         `SELECT * FROM chat_sessions
          WHERE owner_id = ? AND game_id = ? AND status != 'archived'
+           AND deleted_at IS NULL
            AND title LIKE ? ESCAPE '\\'
          ORDER BY last_turn_at DESC, created_at DESC
          LIMIT ?`,
@@ -64,6 +65,7 @@ export function listSessions(
     .prepare(
       `SELECT * FROM chat_sessions
        WHERE owner_id = ? AND game_id = ? AND status != 'archived'
+         AND deleted_at IS NULL
        ORDER BY last_turn_at DESC, created_at DESC
        LIMIT ?`,
     )
@@ -71,10 +73,57 @@ export function listSessions(
 }
 
 /**
- * Hard-deletes a session and its turns, then records a tombstone so the
- * deletion propagates through the committed snapshot to other dev machines.
- * Idempotent: tombstone is INSERT OR REPLACE so callers don't need to check
- * existence first. Turn rows cascade via the FK (PRAGMA foreign_keys = ON).
+ * Soft-deletes a session by setting deleted_at = now.
+ * Does NOT cascade (no DELETE fired — FK cascade is skipped).
+ * Does NOT write a tombstone — tombstones are only written at final hard-purge.
+ */
+export function softDeleteSession(db: Database.Database, id: string): void {
+  db.prepare('UPDATE chat_sessions SET deleted_at = ? WHERE id = ?').run(Date.now(), id);
+}
+
+/**
+ * Restores a soft-deleted session by clearing deleted_at.
+ */
+export function restoreSession(db: Database.Database, id: string): void {
+  db.prepare('UPDATE chat_sessions SET deleted_at = NULL WHERE id = ?').run(id);
+}
+
+/**
+ * Hard-deletes sessions whose deleted_at is before `cutoffMs` (LIMIT 200 per call).
+ * Writes a tombstone per purged session so deletions propagate via snapshot.
+ * Returns count of purged sessions.
+ */
+export function purgeSoftDeleted(db: Database.Database, cutoffMs: number): number {
+  const rows = db
+    .prepare(
+      'SELECT id FROM chat_sessions WHERE deleted_at IS NOT NULL AND deleted_at < ? LIMIT 200',
+    )
+    .all(cutoffMs) as Array<{ id: string }>;
+
+  if (rows.length === 0) return 0;
+
+  const hardDelete = db.prepare('DELETE FROM chat_sessions WHERE id = ?');
+  const insertTombstone = db.prepare(
+    'INSERT OR REPLACE INTO chat_tombstones (session_id, deleted_at) VALUES (?, ?)',
+  );
+  const now = Date.now();
+
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      hardDelete.run(row.id);
+      insertTombstone.run(row.id, now);
+    }
+  });
+  tx();
+
+  return rows.length;
+}
+
+/**
+ * Hard-deletes a session and its turns, then records a tombstone.
+ * Kept for the retention sweep's final hard-purge path and backward compat.
+ * Idempotent: tombstone is INSERT OR REPLACE.
+ * @deprecated Prefer softDeleteSession for user-facing deletes.
  */
 export function deleteSession(db: Database.Database, id: string): void {
   const tx = db.transaction((sessionId: string) => {
@@ -160,6 +209,21 @@ export interface AppendTurnParams {
   inputTokens?: number;
   outputTokens?: number;
   costUsd?: number;
+  /** Phase-03: Anthropic cache write tokens from SDK result usage block. */
+  cacheCreationTokens?: number | null;
+  /** Phase-03: Anthropic cache read tokens from SDK result usage block. */
+  cacheReadTokens?: number | null;
+  /** Phase-06: 1 when this turn was served from the response cache; 0 otherwise. */
+  cacheHit?: number;
+  /** Phase-06: turn id of the original cached turn this was replayed from. */
+  originalTurnId?: string | null;
+  /**
+   * Turn-level stop_reason (e.g. 'end_turn', 'max_tokens').
+   * Cache-hit turns must pass 'end_turn' explicitly because the observability
+   * stack is skipped on that path — without it stop_reason stays NULL and the
+   * leaderboard counts the turn as a legacy null (skews successRate denominator).
+   */
+  stopReason?: string | null;
   skill?: string;
   /** System prompt text persisted on the assistant turn row (phase 01 column). */
   systemPromptText?: string;
@@ -181,10 +245,13 @@ export function appendTurn(
     `INSERT INTO chat_turns
        (id, session_id, turn_index, role, user_text, assistant_text,
         reasoning_json, tool_calls_json, artifacts_json, charts_json,
-        input_tokens, output_tokens, cost_usd, skill,
-        system_prompt_text, model,
+        input_tokens, output_tokens, cost_usd,
+        cache_creation_tokens, cache_read_tokens,
+        cache_hit, original_turn_id,
+        skill, system_prompt_text, model,
+        stop_reason,
         started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -199,14 +266,29 @@ export function appendTurn(
     params.inputTokens ?? null,
     params.outputTokens ?? null,
     params.costUsd ?? null,
+    params.cacheCreationTokens ?? null,
+    params.cacheReadTokens ?? null,
+    params.cacheHit ?? 0,
+    params.originalTurnId ?? null,
     params.skill ?? null,
     params.systemPromptText ?? null,
     params.model ?? null,
+    params.stopReason ?? null,
     params.startedAt,
     params.endedAt ?? null,
   );
 
   return listTurns(db, params.sessionId).find((t) => t.id === id)!;
+}
+
+/**
+ * Return a single turn by its id, or null if not found.
+ * Used by the cache write gate to read the persisted stop_reason after flush.
+ */
+export function getTurnById(db: Database.Database, id: string): ChatTurnRow | null {
+  return (
+    (db.prepare('SELECT * FROM chat_turns WHERE id = ?').get(id) as ChatTurnRow | undefined) ?? null
+  );
 }
 
 export function listTurns(

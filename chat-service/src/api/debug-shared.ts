@@ -1,0 +1,30 @@
+/**
+ * Shared owner-guard helpers used across debug API plugins.
+ * Extracted so debug-annotations.ts and debug-search.ts can import without
+ * circular dependencies on the main debug.ts plugin.
+ */
+
+import type Database from 'better-sqlite3';
+
+/** Extracts and validates X-Owner-Id header; returns null if missing/invalid. */
+export function extractOwnerId(
+  headers: Record<string, string | string[] | undefined>,
+): string | null {
+  const h = headers['x-owner-id'];
+  return typeof h === 'string' && h.trim() ? h.trim() : null;
+}
+
+/**
+ * Resolves the owner_id of a turn's owning session via a JOIN.
+ * Returns null when the turn doesn't exist.
+ */
+export function getTurnOwnerId(db: Database.Database, turnId: string): string | null {
+  const row = db
+    .prepare(
+      `SELECT cs.owner_id FROM chat_sessions cs
+       JOIN chat_turns ct ON ct.session_id = cs.id
+       WHERE ct.id = ?`,
+    )
+    .get(turnId) as { owner_id: string } | undefined;
+  return row?.owner_id ?? null;
+}

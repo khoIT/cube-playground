@@ -19,6 +19,9 @@ interface ChatThreadViewProps {
   banner?: React.ReactNode;
   /** Phase-04: pre-fill + submit the given text (follow-up chip click). */
   onFollowupPick?: (text: string) => void;
+  /** Phase-06: bypass cache toggle state + handler. */
+  bypassCache?: boolean;
+  onToggleBypassCache?: () => void;
 }
 
 export function ChatThreadView({
@@ -30,6 +33,8 @@ export function ChatThreadView({
   compact,
   banner,
   onFollowupPick,
+  bypassCache,
+  onToggleBypassCache,
 }: ChatThreadViewProps) {
   // Compact (side panel) keeps its self-contained scroll + flex-pinned
   // composer. Main route delegates scroll to the page wrapper and uses a
@@ -65,6 +70,8 @@ export function ChatThreadView({
           onSubmit={onSubmit}
           disabled={streaming}
           compact={compact}
+          bypassCache={bypassCache}
+          onToggleBypassCache={onToggleBypassCache}
         />
       </div>
     </div>

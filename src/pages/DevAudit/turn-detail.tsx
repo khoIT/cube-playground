@@ -13,6 +13,8 @@ import { LegacyTurnBadge } from './legacy-turn-badge';
 import { RawEventsAccordion } from './raw-events-accordion';
 import { LlmCallsSection } from './turn-llm-calls-section';
 import { ToolInvocationsSection } from './turn-tool-invocations-section';
+import { PermissionDecisionsSection } from './turn-permission-decisions-section';
+import { TurnAnnotationToggle } from './turn-annotation-toggle';
 
 // Langfuse deep-link: VITE_LANGFUSE_HOST set at build time; undefined means hidden.
 const LANGFUSE_HOST = (import.meta as Record<string, any>).env?.VITE_LANGFUSE_HOST as string | undefined;
@@ -61,7 +63,8 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
   const stats = isAssistant ? formatTurnStats(turn) : null;
 
   return (
-    <div style={S.card}>
+    // id="turn-{id}" enables hash navigation from search results
+    <div id={`turn-${turn.id}`} style={S.card}>
       <div
         style={{ ...S.header, cursor: isAssistant ? 'pointer' : 'default' }}
         onClick={() => isAssistant && setExpanded((v) => !v)}
@@ -71,12 +74,20 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
           {turn.role === 'user' ? 'User' : 'Assistant'}
         </span>
         {turn.legacy && <LegacyTurnBadge />}
+        {turn.cacheHit && <CacheHitBadge originalTurnId={turn.originalTurnId} originalSessionId={turn.originalSessionId} />}
         {stats && (
-          <span style={{ color: T.n500, fontFamily: T.fMono, fontSize: 11 }} title="aggregate from final SDK result message">
+          <span
+            style={{ color: T.n500, fontFamily: T.fMono, fontSize: 11 }}
+            title="aggregate from final SDK result message · cache%: cache_read/(cache_read+cache_creation) · io: output/input ratio"
+          >
             {stats}
           </span>
         )}
         <span style={{ color: T.n400, fontSize: 11 }}>{new Date(turn.createdAt).toLocaleString()}</span>
+        {/* Phase-04: annotation toggle — available once turn detail is expanded */}
+        {isAssistant && data && (
+          <TurnAnnotationToggle turnId={turn.id} initial={data.annotation ?? null} />
+        )}
         {langfuseUrl && isAssistant && (
           <a
             href={langfuseUrl}
@@ -125,6 +136,15 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
 
                   <div style={S.sectionLabel}>Tool Invocations ({data.toolInvocations.length})</div>
                   <ToolInvocationsSection invocations={data.toolInvocations} />
+
+                  {data.permissionDecisions.length > 0 && (
+                    <>
+                      <div style={S.sectionLabel}>
+                        Permission Decisions ({data.permissionDecisions.length})
+                      </div>
+                      <PermissionDecisionsSection decisions={data.permissionDecisions} />
+                    </>
+                  )}
                 </>
               )}
 
@@ -138,6 +158,46 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Phase-06: Cache hit badge
+// ---------------------------------------------------------------------------
+
+interface CacheHitBadgeProps {
+  originalTurnId: string | null;
+  originalSessionId: string | null;
+}
+
+function CacheHitBadge({ originalTurnId, originalSessionId }: CacheHitBadgeProps) {
+  const badgeStyle: React.CSSProperties = {
+    fontSize: 10,
+    padding: '1px 6px',
+    border: `1px solid ${T.brand}`,
+    borderRadius: 4,
+    background: T.brandSoft,
+    color: T.brand,
+    fontWeight: 600,
+    letterSpacing: '0.04em',
+    whiteSpace: 'nowrap',
+    textDecoration: 'none',
+    display: 'inline-block',
+  };
+
+  if (originalTurnId && originalSessionId) {
+    const href = `/dev/chat-audit/${encodeURIComponent(originalSessionId)}#turn-${encodeURIComponent(originalTurnId)}`;
+    return (
+      <a href={href} style={badgeStyle} title={`Cache hit — replayed from turn ${originalTurnId}`} onClick={(e) => e.stopPropagation()}>
+        Cache hit
+      </a>
+    );
+  }
+
+  return (
+    <span style={badgeStyle} title="Cache hit — original turn unavailable">
+      Cache hit
+    </span>
+  );
+}
+
 function formatTokens(n: number | null): string | null {
   if (n == null) return null;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -145,8 +205,12 @@ function formatTokens(n: number | null): string | null {
 }
 
 /**
- * Compact header strip: "1.2k in · 480 out · $0.018 · 342ms · sonnet".
+ * Compact header strip: "1.2k in · 480 out · $0.018 · 342ms · sonnet · cache 73% · io 0.4x".
  * Returns null when there's nothing useful to show (e.g. user turn or legacy).
+ *
+ * Phase-03 additions:
+ *   cache N% = cache_read / (cache_read + cache_creation) * 100 — omitted when denominator is 0
+ *   io X.Xx  = output / input — omitted when input is 0 or null
  */
 function formatTurnStats(turn: DebugTurn): string | null {
   const parts: string[] = [];
@@ -157,5 +221,20 @@ function formatTurnStats(turn: DebugTurn): string | null {
   if (turn.costUsd != null) parts.push(`$${turn.costUsd.toFixed(4)}`);
   if (turn.durationMs != null) parts.push(`${turn.durationMs}ms`);
   if (turn.model) parts.push(turn.model.split('-').slice(-2, -1)[0] || turn.model);
+
+  // Phase-03: cache hit ratio — only when at least one cache column is non-null and denominator > 0
+  const cr = turn.cacheReadTokens;
+  const cc = turn.cacheCreationTokens;
+  if (cr != null && cc != null && (cr + cc) > 0) {
+    parts.push(`cache ${Math.round((cr / (cr + cc)) * 100)}%`);
+  }
+
+  // Phase-03: I/O token ratio — only when input is non-null and positive
+  const rawIn = turn.inputTokens;
+  const rawOut = turn.outputTokens;
+  if (rawIn != null && rawOut != null && rawIn > 0) {
+    parts.push(`io ${(rawOut / rawIn).toFixed(1)}x`);
+  }
+
   return parts.length > 0 ? parts.join(' · ') : null;
 }

@@ -3,9 +3,9 @@
  * Shows session header metadata and a vertical turn timeline.
  * Each assistant turn renders a TurnDetail (expandable).
  */
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { T } from '../../shell/theme';
-import { useDebugSession } from './use-debug-api';
+import { useDebugSession, useRestoreSession } from './use-debug-api';
 import { TurnDetail } from './turn-detail';
 
 interface SessionDetailProps {
@@ -81,7 +81,11 @@ const S = {
 };
 
 export function SessionDetail({ sessionId }: SessionDetailProps) {
-  const { data, isLoading, error } = useDebugSession(sessionId);
+  // refreshTick increments after a successful restore to force re-fetch.
+  const [refreshTick, setRefreshTick] = useState(0);
+  const onRestoreSuccess = useCallback(() => setRefreshTick((t) => t + 1), []);
+  const { restore, isLoading: isRestoring, error: restoreError } = useRestoreSession(onRestoreSuccess);
+  const { data, isLoading, error } = useDebugSession(sessionId, refreshTick);
 
   if (!sessionId) {
     return (
@@ -99,6 +103,44 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
       {data && (
         <>
           <div style={S.header}>
+            {data.session.deletedAt != null && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginBottom: 8,
+                padding: '6px 10px',
+                background: T.redSoft,
+                border: `1px solid ${T.red500}`,
+                borderRadius: 6,
+              }}>
+                <span style={{ fontSize: 11, color: T.red600, flex: 1 }}>
+                  This session was soft-deleted and is pending purge.
+                </span>
+                <button
+                  onClick={() => sessionId && restore(sessionId)}
+                  disabled={isRestoring}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: '3px 10px',
+                    borderRadius: 4,
+                    border: `1px solid ${T.brand}`,
+                    background: T.brandSoft,
+                    color: T.brand,
+                    cursor: isRestoring ? 'not-allowed' : 'pointer',
+                    opacity: isRestoring ? 0.6 : 1,
+                  }}
+                >
+                  {isRestoring ? 'Restoring…' : 'Restore'}
+                </button>
+              </div>
+            )}
+            {restoreError && (
+              <div style={{ fontSize: 11, color: T.red600, marginBottom: 6 }}>
+                Restore failed: {restoreError}
+              </div>
+            )}
             <div style={S.titleRow}>
               <div style={S.title}>
                 {data.session.title || `Session ${data.session.id.slice(0, 12)}…`}

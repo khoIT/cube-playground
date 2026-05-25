@@ -149,16 +149,25 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
         abort.abort();
       });
 
+      // Build forwarded headers — always include auth/routing headers, conditionally
+      // forward X-Bypass-Cache and X-Model when the client sent them. Without this,
+      // the FE bypass-cache toggle and per-message model selector are dead code.
+      const forwardedHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Cube-Token': token,
+        'X-Cube-Game': body.game,
+        'X-Owner-Id': owner,
+      };
+      const bypassCache = request.headers['x-bypass-cache'];
+      if (typeof bypassCache === 'string') forwardedHeaders['X-Bypass-Cache'] = bypassCache;
+      const xModel = request.headers['x-model'];
+      if (typeof xModel === 'string') forwardedHeaders['X-Model'] = xModel;
+
       let upstreamRes: Response;
       try {
         upstreamRes = await fetch(`${chatServiceUrl()}/agent/turn`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Cube-Token': token,
-            'X-Cube-Game': body.game,
-            'X-Owner-Id': owner,
-          },
+          headers: forwardedHeaders,
           body: JSON.stringify(upstreamBody),
           signal: abort.signal,
         });
@@ -438,6 +447,25 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- GET /api/chat/debug/leaderboard/skills?game=<id>&days=<n> ---
+  app.get<{ Querystring: { game?: string; days?: string } }>(
+    '/api/chat/debug/leaderboard/skills',
+    async (request: FastifyRequest<{ Querystring: { game?: string; days?: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      if (request.query.game) params.set('game', request.query.game);
+      if (request.query.days) params.set('days', request.query.days);
+      const url = `${chatServiceUrl()}/debug/leaderboard/skills?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- GET /api/chat/stats?owner=<id>&from=<iso>&to=<iso> ---
   app.get<{ Querystring: StatsQuery }>(
     '/api/chat/stats',
@@ -537,6 +565,26 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/raw?${params.toString()}`;
       try {
         const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- DELETE /api/chat/debug/cache?game=<id> ---
+  // Clears response_cache rows for the given game. Owner must have at least one session
+  // in the game (enforced in chat-service). Returns { deleted: <n> }.
+  app.delete<{ Querystring: { game?: string } }>(
+    '/api/chat/debug/cache',
+    async (request: FastifyRequest<{ Querystring: { game?: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      if (request.query.game) params.set('game', request.query.game);
+      const url = `${chatServiceUrl()}/debug/cache?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'DELETE', owner);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });

@@ -10,7 +10,14 @@
  *   // pass to claudeRunner.run({ ..., observer })
  */
 
-import type { ObserverHooks, LlmCallEvent, ToolInvocationEvent, SdkEventRecord } from './observer-types.js';
+import type {
+  ObserverHooks,
+  LlmCallEvent,
+  ToolInvocationEvent,
+  SdkEventRecord,
+  TurnFinalizedEvent,
+  PermissionDecisionEvent,
+} from './observer-types.js';
 
 /**
  * Wraps a single observer method call; logs and swallows any thrown error
@@ -47,6 +54,22 @@ export function buildCompositeObserver(observers: ObserverHooks[]): ObserverHook
     onSdkEvent(ev: SdkEventRecord): void {
       for (const o of observers) {
         safeCall(() => o.onSdkEvent(ev), 'onSdkEvent');
+      }
+    },
+
+    onTurnFinalized(ev: TurnFinalizedEvent): void {
+      for (const o of observers) {
+        if (o.onTurnFinalized) {
+          safeCall(() => o.onTurnFinalized!(ev), 'onTurnFinalized');
+        }
+      }
+    },
+
+    onPermissionDecision(ev: PermissionDecisionEvent): void {
+      for (const o of observers) {
+        if (o.onPermissionDecision) {
+          safeCall(() => o.onPermissionDecision!(ev), 'onPermissionDecision');
+        }
       }
     },
   };

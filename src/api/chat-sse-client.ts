@@ -139,6 +139,7 @@ export type SseEvent =
 // ---------------------------------------------------------------------------
 
 import { getOwnerId } from './chat-owner-id';
+import { readChatServiceSettings } from '../pages/Settings/ChatService/use-chat-service-settings';
 
 // ---------------------------------------------------------------------------
 // SSE parser — splits raw text into (type, data) pairs
@@ -190,6 +191,8 @@ export interface OpenChatTurnOptions {
   context?: unknown;
   /** Disambiguation mode forwarded to chat-service; defaults server-side. */
   mode?: 'targeted' | 'aggressive';
+  /** Phase-06: when true, sends X-Bypass-Cache: 1 to force a fresh LLM call. */
+  bypassCache?: boolean;
 }
 
 export interface ChatTurnHandle {
@@ -261,7 +264,7 @@ export async function* parseSseFromResponse(
  * - call cancel() to abort in-flight.
  */
 export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
-  const { sessionId, message, game, context, mode } = options;
+  const { sessionId, message, game, context, mode, bypassCache } = options;
   const controller = new AbortController();
 
   const pathId = sessionId && sessionId !== 'new' ? sessionId : 'new';
@@ -270,12 +273,18 @@ export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
   async function* generateEvents(): AsyncIterable<SseEvent> {
     let response: Response;
     try {
+      const globalSettings = readChatServiceSettings();
+      const reqHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Owner-Id': getOwnerId(),
+      };
+      // Per-message bypass (from chat composer quick toggle) OR settings-level bypass.
+      if (bypassCache || globalSettings.bypassCache) reqHeaders['X-Bypass-Cache'] = '1';
+      // Settings-level model override (allowlist checked server-side).
+      if (globalSettings.defaultModel) reqHeaders['X-Model'] = globalSettings.defaultModel;
       response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Owner-Id': getOwnerId(),
-        },
+        headers: reqHeaders,
         body: JSON.stringify({ message, game, context, mode }),
         signal: controller.signal,
       });

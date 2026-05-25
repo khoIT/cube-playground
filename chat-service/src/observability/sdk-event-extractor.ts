@@ -5,6 +5,7 @@
  * These functions have no side-effects and are fully testable in isolation.
  */
 
+import { v4 as uuidv4 } from 'uuid';
 import type { ObserverHooks } from './observer-types.js';
 
 // ---------------------------------------------------------------------------
@@ -135,6 +136,57 @@ export function flushPendingTools(
       startedAt: pending.startedAt,
       endedAt,
     });
+  }
+}
+
+/**
+ * On the SDK `result` message: emit onTurnFinalized (stop_reason + aggregate tokens)
+ * and onPermissionDecision for each entry in permission_denials[].
+ *
+ * Real SDK result shape (verified from runtime/chat.db):
+ *   { type: "result", stop_reason: string, permission_denials: Array<unknown>,
+ *     usage: { input_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+ *              output_tokens, ... } }
+ *
+ * permission_denials entry shape: inferred as { toolName, decision, reason? }.
+ * Both hooks are no-ops when observer doesn't implement them.
+ */
+export function emitTurnFinalized(
+  observer: ObserverHooks,
+  turnId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  msg: any,
+): void {
+  const stopReason: string | null = typeof msg.stop_reason === 'string' ? msg.stop_reason : null;
+  const usage = msg.usage ?? {};
+  const totalInputTokens: number =
+    (usage.input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0);
+  const totalOutputTokens: number = usage.output_tokens ?? 0;
+  const at = Date.now();
+
+  if (observer.onTurnFinalized) {
+    observer.onTurnFinalized({ turnId, stopReason, totalInputTokens, totalOutputTokens, at });
+  }
+
+  // permission_denials[] — empty in bypassPermissions mode; populated when denied.
+  const denials: unknown[] = Array.isArray(msg.permission_denials) ? msg.permission_denials : [];
+  if (denials.length > 0 && observer.onPermissionDecision) {
+    for (const denial of denials) {
+      const d = denial as Record<string, unknown>;
+      const toolName = typeof d['toolName'] === 'string' ? d['toolName'] : (typeof d['tool_name'] === 'string' ? d['tool_name'] : 'unknown');
+      const decision = typeof d['decision'] === 'string' ? d['decision'] : 'denied';
+      const reason = typeof d['reason'] === 'string' ? d['reason'] : null;
+      observer.onPermissionDecision({
+        id: uuidv4(),
+        turnId,
+        toolName,
+        decision,
+        reason,
+        at,
+      });
+    }
   }
 }
 

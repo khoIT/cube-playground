@@ -8,7 +8,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { LlmCallRow, ToolInvocationRow, SdkEventRow } from '../types.js';
+import type { LlmCallRow, ToolInvocationRow, SdkEventRow, PermissionDecisionRow } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Truncation util
@@ -105,6 +105,58 @@ export function insertSdkEvent(db: Database.Database, row: Omit<SdkEventRow, 'id
 }
 
 // ---------------------------------------------------------------------------
+// Phase-02: permission_decisions + chat_turns.stop_reason
+// ---------------------------------------------------------------------------
+
+/**
+ * INSERT OR IGNORE — idempotent on PRIMARY KEY `id`.
+ * Caller provides the UUID to allow replay-safe buffered recorder.
+ * Reason is truncated to 4 KB to mirror result_summary cap.
+ */
+export function insertPermissionDecision(
+  db: Database.Database,
+  row: PermissionDecisionRow,
+): void {
+  const CAP_4K = 4 * 1024;
+  db.prepare(
+    `INSERT OR IGNORE INTO permission_decisions (id, turn_id, tool_name, decision, reason, at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    row.id,
+    row.turn_id,
+    row.tool_name,
+    row.decision,
+    row.reason ? row.reason.slice(0, CAP_4K) : null,
+    row.at,
+  );
+}
+
+/**
+ * Returns all permission_decisions rows for a turn, ordered by `at` ascending.
+ */
+export function listPermissionDecisionsByTurn(
+  db: Database.Database,
+  turnId: string,
+): PermissionDecisionRow[] {
+  return db
+    .prepare('SELECT * FROM permission_decisions WHERE turn_id = ? ORDER BY at ASC')
+    .all(turnId) as PermissionDecisionRow[];
+}
+
+/**
+ * UPDATE chat_turns.stop_reason for an existing assistant turn row.
+ * No-op if the turn doesn't exist or stop_reason is null.
+ */
+export function updateTurnStopReason(
+  db: Database.Database,
+  turnId: string,
+  stopReason: string | null,
+): void {
+  if (stopReason === null) return;
+  db.prepare('UPDATE chat_turns SET stop_reason = ? WHERE id = ?').run(stopReason, turnId);
+}
+
+// ---------------------------------------------------------------------------
 // Read helpers (used by phase-06 debug API)
 // ---------------------------------------------------------------------------
 
@@ -188,8 +240,9 @@ export function countObservabilityRowsByTurn(
 
 /**
  * Lists chat sessions for a given owner (and optional game/query filter).
- * Unlike `listSessions` in chat-store.ts, this does NOT exclude archived
- * sessions so the debug UI can inspect all historical sessions.
+ * Unlike `listSessions` in chat-store.ts, this does NOT exclude archived or
+ * soft-deleted sessions so the debug UI can inspect all historical sessions
+ * including those pending hard-purge.
  */
 export function listSessionsForDebug(
   db: Database.Database,
@@ -214,6 +267,7 @@ export function listSessionsForDebug(
 
   bindings.push(limit);
 
+  // deleted_at IS intentionally NOT filtered here — debug UI shows all sessions.
   return db
     .prepare(
       `SELECT * FROM chat_sessions

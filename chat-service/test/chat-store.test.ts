@@ -68,6 +68,100 @@ describe('chatStore', () => {
       expect(tombstone?.session_id).toBe(session.id);
     });
 
+    it('softDeleteSession sets deleted_at without cascading turns', () => {
+      const session = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id, turnIndex: 0, role: 'user',
+        userText: 'hi', startedAt: Date.now(),
+      });
+
+      const before = Date.now();
+      chatStore.softDeleteSession(db, session.id);
+      const after = Date.now();
+
+      const row = chatStore.getSession(db, session.id);
+      expect(row).not.toBeNull();
+      expect(row!.deleted_at).toBeGreaterThanOrEqual(before);
+      expect(row!.deleted_at).toBeLessThanOrEqual(after);
+
+      // Turns must still exist (no cascade fired on soft-delete)
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns).toHaveLength(1);
+
+      // No tombstone written at soft-delete time
+      const tombstone = db
+        .prepare('SELECT session_id FROM chat_tombstones WHERE session_id = ?')
+        .get(session.id);
+      expect(tombstone).toBeUndefined();
+    });
+
+    it('listSessions hides soft-deleted sessions', () => {
+      const s1 = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg' });
+      chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg' });
+      chatStore.softDeleteSession(db, s1.id);
+
+      const list = chatStore.listSessions(db, { ownerId: 'owner1', gameId: 'ptg' });
+      expect(list).toHaveLength(1);
+      expect(list[0].id).not.toBe(s1.id);
+    });
+
+    it('getSession returns soft-deleted session (admin/debug path, no filter)', () => {
+      const session = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg' });
+      chatStore.softDeleteSession(db, session.id);
+
+      const row = chatStore.getSession(db, session.id);
+      expect(row).not.toBeNull();
+      expect(row!.deleted_at).not.toBeNull();
+    });
+
+    it('restoreSession clears deleted_at and session reappears in listSessions', () => {
+      const session = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg' });
+      chatStore.softDeleteSession(db, session.id);
+      chatStore.restoreSession(db, session.id);
+
+      const row = chatStore.getSession(db, session.id);
+      expect(row!.deleted_at).toBeNull();
+
+      const list = chatStore.listSessions(db, { ownerId: 'owner1', gameId: 'ptg' });
+      expect(list.some((s) => s.id === session.id)).toBe(true);
+    });
+
+    it('purgeSoftDeleted hard-deletes sessions older than cutoff and writes tombstones', () => {
+      const old = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      const recent = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+
+      const now = Date.now();
+      const eightDaysAgo = now - 8 * 24 * 60 * 60 * 1000;
+      const sixDaysAgo = now - 6 * 24 * 60 * 60 * 1000;
+
+      // Directly set deleted_at timestamps to bypass the 7d boundary.
+      db.prepare('UPDATE chat_sessions SET deleted_at = ? WHERE id = ?').run(eightDaysAgo, old.id);
+      db.prepare('UPDATE chat_sessions SET deleted_at = ? WHERE id = ?').run(sixDaysAgo, recent.id);
+
+      const cutoff = now - 7 * 24 * 60 * 60 * 1000;
+      const purged = chatStore.purgeSoftDeleted(db, cutoff);
+
+      expect(purged).toBe(1);
+      expect(chatStore.getSession(db, old.id)).toBeNull(); // hard-deleted
+      expect(chatStore.getSession(db, recent.id)).not.toBeNull(); // kept
+
+      const tombstone = db
+        .prepare('SELECT session_id FROM chat_tombstones WHERE session_id = ?')
+        .get(old.id) as { session_id: string } | undefined;
+      expect(tombstone?.session_id).toBe(old.id);
+    });
+
+    it('purgeSoftDeleted is idempotent — second call on empty set returns 0', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
+      db.prepare('UPDATE chat_sessions SET deleted_at = ? WHERE id = ?').run(eightDaysAgo, session.id);
+
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      chatStore.purgeSoftDeleted(db, cutoff);
+      const second = chatStore.purgeSoftDeleted(db, cutoff);
+      expect(second).toBe(0);
+    });
+
     it('incrementTurnCount updates counters and last_turn_at', () => {
       const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
       chatStore.incrementTurnCount(db, session.id, 100, 200);
@@ -201,6 +295,86 @@ describe('chatStore', () => {
       });
       const turns = chatStore.listTurns(db, session.id);
       expect(turns[0].charts_json).toBeNull();
+    });
+
+    // Phase-03: cache token columns
+    it('persists cache_creation_tokens and cache_read_tokens on assistant turn', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'cached response',
+        inputTokens: 1000,
+        outputTokens: 200,
+        cacheCreationTokens: 800,
+        cacheReadTokens: 600,
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].cache_creation_tokens).toBe(800);
+      expect(turns[0].cache_read_tokens).toBe(600);
+    });
+
+    it('stores null for cache columns when not provided', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'no cache',
+        inputTokens: 500,
+        outputTokens: 100,
+        startedAt: Date.now(),
+      });
+
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].cache_creation_tokens).toBeNull();
+      expect(turns[0].cache_read_tokens).toBeNull();
+    });
+
+    it('stores zero cache tokens explicitly (non-caching model response)', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'zero cache',
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        startedAt: Date.now(),
+      });
+
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].cache_creation_tokens).toBe(0);
+      expect(turns[0].cache_read_tokens).toBe(0);
+    });
+
+    it('queryStats round-trip: cache columns do not break aggregate query', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        inputTokens: 1000,
+        outputTokens: 300,
+        cacheCreationTokens: 500,
+        cacheReadTokens: 200,
+        skill: 'explore',
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+
+      const stats = chatStore.queryStats(db, {
+        ownerId: 'o',
+        fromMs: 0,
+        toMs: Date.now() + 1000,
+      });
+      expect(stats.turns).toBe(1);
+      expect(stats.input_tokens).toBe(1000);
+      expect(stats.output_tokens).toBe(300);
     });
   });
 

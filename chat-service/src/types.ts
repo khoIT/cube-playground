@@ -70,7 +70,7 @@ export type SseEvent =
   | { type: 'token'; data: { delta: string } }
   | { type: 'query_artifact'; data: QueryArtifact }
   | { type: 'chart'; data: ChartArtifact }
-  | { type: 'result'; data: { text: string; cost_usd?: number; input_tokens?: number; output_tokens?: number } }
+  | { type: 'result'; data: { text: string; cost_usd?: number; input_tokens?: number; output_tokens?: number; cache_creation_tokens?: number; cache_read_tokens?: number } }
   | { type: 'error'; data: { code: string; message: string } }
   | { type: 'done'; data: Record<string, never> }
   | { type: 'compact_warning'; data: { from: string; to: string; summary: string } };
@@ -112,6 +112,8 @@ export interface ChatSessionRow {
   status: 'active' | 'compacted' | 'archived';
   parent_session_id: string | null;
   compacted_into: string | null;
+  /** Epoch ms when soft-deleted; NULL = not deleted. Set by soft-delete, cleared by restore. */
+  deleted_at: number | null;
 }
 
 export interface ChatTurnRow {
@@ -134,6 +136,15 @@ export interface ChatTurnRow {
   // Observability columns — nullable for backfill compat with pre-feature turns.
   system_prompt_text: string | null;
   model: string | null;
+  /** Phase-02: turn-level stop_reason from SDK result message. Undefined for legacy installs missing the column. */
+  stop_reason?: string | null;
+  /** Phase-03: cache tokens from Anthropic SDK result usage block. Null for legacy turns. */
+  cache_creation_tokens?: number | null;
+  cache_read_tokens?: number | null;
+  /** Phase-06: 1 when turn was served from response cache; 0/null otherwise. */
+  cache_hit?: number | null;
+  /** Phase-06: original_turn_id when cache_hit=1; null otherwise. */
+  original_turn_id?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,5 +188,15 @@ export interface SdkEventRow {
   seq: number;
   type: string;
   payload_json: string | null;
+  at: number;
+}
+
+/** Phase-02: one row per permission denial from SDK result message. */
+export interface PermissionDecisionRow {
+  id: string;
+  turn_id: string;
+  tool_name: string;
+  decision: string;
+  reason: string | null;
   at: number;
 }

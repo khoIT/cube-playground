@@ -91,6 +91,17 @@ export interface Config {
   langfusePublicKey: string;
   langfuseSecretKey: string;
   langfuseBaseUrl: string;
+  /**
+   * Enable exact-match response cache (per-game shared cache).
+   * Off by default — PII pre-ship audit required before enabling in prod.
+   * Set RESPONSE_CACHE_ENABLED=true to activate.
+   */
+  responseCacheEnabled: boolean;
+  /**
+   * Allowlist of model IDs accepted via X-Model header in POST /agent/turn.
+   * Unknown values silently fall back to chatModel — never echoed to the SDK.
+   */
+  allowedModels: string[];
 }
 
 const DEFAULT_SKILL_LOADER_TTL = process.env['NODE_ENV'] === 'production' ? 60_000 : 5_000;
@@ -124,6 +135,14 @@ export const config: Config = {
   langfusePublicKey: optional('LANGFUSE_PUBLIC_KEY', ''),
   langfuseSecretKey: optional('LANGFUSE_SECRET_KEY', ''),
   langfuseBaseUrl: optional('LANGFUSE_HOST', 'https://cloud.langfuse.com'),
+  responseCacheEnabled: optional('RESPONSE_CACHE_ENABLED', 'false') === 'true',
+  allowedModels: optional(
+    'ALLOWED_MODELS',
+    'claude-sonnet-4-6,claude-haiku-4-5,claude-opus-4-6,claude-opus-4-7',
+  )
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
 };
 
 /** True only when both Langfuse credentials are present in the environment. */

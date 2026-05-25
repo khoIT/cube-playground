@@ -1,9 +1,11 @@
 /**
  * LlmCallsSection — table of LLM calls within a turn, with expandable content_json.
+ * Phase-02: Stop column now renders a colored StopReasonPill instead of plain text.
  */
 import React, { useState } from 'react';
 import { T } from '../../shell/theme';
 import type { LlmCall } from './use-debug-api';
+import { StopReasonPill } from './stop-reason-pill';
 
 const td: React.CSSProperties = { padding: '3px 6px', borderBottom: `1px solid ${T.n100}`, verticalAlign: 'top' };
 const th: React.CSSProperties = { textAlign: 'left', padding: '3px 6px', borderBottom: `1px solid ${T.n200}`, color: T.n500, fontWeight: 600 };
@@ -52,7 +54,7 @@ export function LlmCallsSection({ calls }: LlmCallsSectionProps) {
                 <td style={td}>{c.step_index}</td>
                 <td style={{ ...td, fontFamily: T.fMono }}>{c.model ?? '—'}</td>
                 <td style={td}>{c.latency_ms ?? '—'}</td>
-                <td style={td}>{c.stop_reason ?? '—'}</td>
+                <td style={td}><StopReasonPill value={c.stop_reason} /></td>
                 <td style={td}>
                   {c.content_json && (
                     <button style={toggleBtn} onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}>

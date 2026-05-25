@@ -8,13 +8,14 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle } from 'lucide-react';
+import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles } from 'lucide-react';
 
 import { SettingsTabs, type SettingsTabDescriptor } from './settings-tabs';
 import { NavVisibilitySection } from './nav-visibility-section';
 import { GameVisibilitySection } from './game-visibility-section';
 import { IdentityMapSection } from './identity-map-section';
 import { ChatPreferencesSection } from './chat-preferences-section';
+import { ChatServiceTab } from './ChatService/chat-service-tab';
 
 const Page = styled.div`
   max-width: 1040px;
@@ -73,13 +74,13 @@ const Panel = styled.div`
   min-width: 0;
 `;
 
-type TabId = 'sidebar' | 'games' | 'identity' | 'chat';
+type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service';
 
 const DEFAULT_TAB: TabId = 'sidebar';
 
 function readHashTab(hash: string): TabId | null {
   const id = hash.replace(/^#/, '');
-  if (id === 'sidebar' || id === 'games' || id === 'identity' || id === 'chat') return id;
+  if (id === 'sidebar' || id === 'games' || id === 'identity' || id === 'chat' || id === 'chat-service') return id;
   return null;
 }
 
@@ -127,6 +128,11 @@ export function SettingsPage(): ReactElement {
         label: t('settings.tabs.chat', { defaultValue: 'Chat' }),
         icon: MessageCircle,
       },
+      {
+        id: 'chat-service',
+        label: t('settings.tabs.chatService', { defaultValue: 'Chat Service' }),
+        icon: Sparkles,
+      },
     ],
     [t],
   );
@@ -146,6 +152,8 @@ export function SettingsPage(): ReactElement {
         return <IdentityMapSection />;
       case 'chat':
         return <ChatPreferencesSection />;
+      case 'chat-service':
+        return <ChatServiceTab />;
     }
   };
 

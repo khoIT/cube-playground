@@ -16,11 +16,20 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type Database from 'better-sqlite3';
-import type { ObserverHooks, LlmCallEvent, ToolInvocationEvent, SdkEventRecord } from './observer-types.js';
+import type {
+  ObserverHooks,
+  LlmCallEvent,
+  ToolInvocationEvent,
+  SdkEventRecord,
+  TurnFinalizedEvent,
+  PermissionDecisionEvent,
+} from './observer-types.js';
 import {
   insertLlmCall,
   insertToolInvocation,
   insertSdkEvent,
+  insertPermissionDecision,
+  updateTurnStopReason,
   truncate,
 } from '../db/observability-store.js';
 
@@ -120,6 +129,38 @@ export class LlmTraceRecorder implements ObserverHooks {
       console.warn('[LlmTraceRecorder] onSdkEvent insert failed:', err);
     }
   }
+
+  /**
+   * Phase-02: UPDATE chat_turns.stop_reason from the SDK result message.
+   * The chat_turns row must exist before this runs (buffered flush order
+   * guarantees that).
+   */
+  onTurnFinalized(ev: TurnFinalizedEvent): void {
+    try {
+      updateTurnStopReason(this.db, this.turnId, ev.stopReason);
+    } catch (err) {
+      console.warn('[LlmTraceRecorder] onTurnFinalized update failed:', err);
+    }
+  }
+
+  /**
+   * Phase-02: INSERT OR IGNORE one permission denial into permission_decisions.
+   * The id is caller-generated UUID for idempotent buffered replay.
+   */
+  onPermissionDecision(ev: PermissionDecisionEvent): void {
+    try {
+      insertPermissionDecision(this.db, {
+        id: ev.id,
+        turn_id: this.turnId,
+        tool_name: ev.toolName,
+        decision: ev.decision,
+        reason: ev.reason,
+        at: ev.at,
+      });
+    } catch (err) {
+      console.warn('[LlmTraceRecorder] onPermissionDecision insert failed:', err);
+    }
+  }
 }
 
 /**
@@ -136,6 +177,8 @@ export class BufferedLlmTraceRecorder implements ObserverHooks {
   private readonly llmCalls: LlmCallEvent[] = [];
   private readonly toolInvocations: ToolInvocationEvent[] = [];
   private readonly sdkEvents: SdkEventRecord[] = [];
+  private readonly turnFinalizedEvents: TurnFinalizedEvent[] = [];
+  private readonly permissionDecisions: PermissionDecisionEvent[] = [];
 
   constructor(inner: LlmTraceRecorder) {
     this.inner = inner;
@@ -153,13 +196,29 @@ export class BufferedLlmTraceRecorder implements ObserverHooks {
     this.sdkEvents.push(ev);
   }
 
-  /** Replay buffered events through the inner recorder in original order. */
+  onTurnFinalized(ev: TurnFinalizedEvent): void {
+    this.turnFinalizedEvents.push(ev);
+  }
+
+  onPermissionDecision(ev: PermissionDecisionEvent): void {
+    this.permissionDecisions.push(ev);
+  }
+
+  /**
+   * Replay buffered events through the inner recorder in original order.
+   * Flush order: sdk_events → llm_calls → tool_invocations → turn_finalized → permission_decisions.
+   * phase-02 events run last to ensure chat_turns row exists (FK satisfied).
+   */
   flush(): void {
     for (const ev of this.sdkEvents) this.inner.onSdkEvent(ev);
     for (const ev of this.llmCalls) this.inner.onLlmCall(ev);
     for (const inv of this.toolInvocations) this.inner.onToolInvocation(inv);
+    for (const ev of this.turnFinalizedEvents) this.inner.onTurnFinalized(ev);
+    for (const ev of this.permissionDecisions) this.inner.onPermissionDecision(ev);
     this.llmCalls.length = 0;
     this.toolInvocations.length = 0;
     this.sdkEvents.length = 0;
+    this.turnFinalizedEvents.length = 0;
+    this.permissionDecisions.length = 0;
   }
 }

@@ -10,6 +10,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrateMonitoring } from './monitoring-migrate.js';
 import { migrateObservability } from './observability-migrate.js';
+import { migrateAnnotations } from './annotations-migrate.js';
+import { migrateResponseCache } from './response-cache-migrate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -32,16 +34,28 @@ export function migrate(db: Database.Database): void {
   // Idempotent column additions for databases created before these columns existed.
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN parent_session_id TEXT;');
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN compacted_into TEXT;');
+  // Soft-delete: NULL = not deleted, epoch ms = soft-deleted, pending hard-purge after 7d.
+  addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN deleted_at INTEGER;');
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
 
   // Observability columns added to chat_turns for per-turn metadata capture.
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN system_prompt_text TEXT;');
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN model TEXT;');
+  // Phase-02: turn-level stop_reason captured from SDK result message.
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN stop_reason TEXT;');
+  // Phase-03: cache token breakdown from Anthropic SDK result usage block.
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN cache_creation_tokens INTEGER;');
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN cache_read_tokens INTEGER;');
+  // Phase-06: response-cache columns on chat_turns.
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN cache_hit INTEGER DEFAULT 0;');
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN original_turn_id TEXT;');
 
   // Phase-driven migrations run in a fixed order per decision C1. Each helper
   // is idempotent and safe to re-run.
   migrateMonitoring(db);
   migrateObservability(db);
+  migrateAnnotations(db);
+  migrateResponseCache(db);
 }
 
 /**

@@ -2,19 +2,37 @@
  * Debug API routes — triage UI for per-turn LLM observability data.
  *
  * All routes enforce X-Owner-Id ownership. Designed for dev/internal use only.
- * Sessions include archived ones (unlike /sessions which hides them).
+ * Sessions include archived AND soft-deleted ones (unlike /sessions).
  *
- *   GET /debug/sessions?game=&q=&limit=      — list all owner sessions (incl. archived)
- *   GET /debug/sessions/:id                  — session detail + augmented turn list
- *   GET /debug/turns/:turnId                 — llm_calls + tool_invocations for a turn
- *   GET /debug/turns/:turnId/raw?cursor=&limit= — paginated sdk_events
+ *   GET  /debug/sessions?game=&q=&limit=       — list all owner sessions (incl. archived + deleted)
+ *   GET  /debug/sessions/:id                   — session detail + augmented turn list (incl. deleted)
+ *   POST /debug/sessions/:id/restore           — delegates to POST /sessions/:id/restore (KISS)
+ *   GET  /debug/turns/:turnId                  — llm_calls + tool_invocations for a turn
+ *   GET  /debug/turns/:turnId/raw?cursor=&limit= — paginated sdk_events
  */
 
 import type { FastifyPluginAsync } from 'fastify';
 import type Database from 'better-sqlite3';
 import * as chatStore from '../db/chat-store.js';
 import * as obsStore from '../db/observability-store.js';
-import type { ChatTurnRow, QueryArtifact, ChartArtifact } from '../types.js';
+import * as annotationsStore from '../db/annotations-store.js';
+import type { ChatSessionRow, ChatTurnRow, QueryArtifact, ChartArtifact, PermissionDecisionRow } from '../types.js';
+// Shared owner-guard helpers — imported and re-exported for sub-plugins.
+import { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
+export { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
+
+// ---------------------------------------------------------------------------
+// Debug session DTO — extends the raw row with camelCase deletedAt field
+// so the FE can distinguish deleted sessions from live ones.
+// ---------------------------------------------------------------------------
+
+interface DebugSessionDto extends ChatSessionRow {
+  deletedAt: number | null;
+}
+
+function toDebugSessionDto(row: ChatSessionRow): DebugSessionDto {
+  return { ...row, deletedAt: row.deleted_at ?? null };
+}
 
 // ---------------------------------------------------------------------------
 // Turn row → DTO (duplicated from sessions.ts to keep file ownership clean)
@@ -39,6 +57,17 @@ interface DebugTurnDto {
   model: string | null;
   skill: string | null;
   durationMs: number | null;
+  /** Phase-02: turn-level stop_reason from SDK result message. */
+  stopReason: string | null;
+  /** Phase-03: Anthropic cache token breakdown. Null for legacy turns. */
+  cacheCreationTokens: number | null;
+  cacheReadTokens: number | null;
+  /** Phase-06: true when this turn was served from the response cache. */
+  cacheHit: boolean;
+  /** Phase-06: original turn id that seeded the cache entry; null when not a cache hit. */
+  originalTurnId: string | null;
+  /** Phase-06: session id of the original cached turn (for cross-session navigation). */
+  originalSessionId: string | null;
 }
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
@@ -46,10 +75,26 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
   try { return JSON.parse(raw) as T; } catch { return fallback; }
 }
 
-function rowToDebugTurn(row: ChatTurnRow, llmCallCount: number, toolInvocationCount: number, sdkCount: number): DebugTurnDto {
+function rowToDebugTurn(
+  db: Database.Database,
+  row: ChatTurnRow,
+  llmCallCount: number,
+  toolInvocationCount: number,
+  sdkCount: number,
+): DebugTurnDto {
   const text = row.role === 'user' ? row.user_text ?? '' : row.assistant_text ?? '';
   const legacy = llmCallCount === 0 && toolInvocationCount === 0 && sdkCount === 0;
   const durationMs = row.ended_at != null && row.started_at != null ? row.ended_at - row.started_at : null;
+
+  // Phase-06: resolve original session id for cache-hit turns.
+  // Look up the original turn row to find its session_id.
+  let originalSessionId: string | null = null;
+  const isCacheHit = (row.cache_hit ?? 0) === 1;
+  if (isCacheHit && row.original_turn_id) {
+    const orig = chatStore.getTurnById(db, row.original_turn_id);
+    originalSessionId = orig?.session_id ?? null;
+  }
+
   return {
     id: row.id,
     role: row.role,
@@ -69,32 +114,16 @@ function rowToDebugTurn(row: ChatTurnRow, llmCallCount: number, toolInvocationCo
     model: row.model,
     skill: row.skill,
     durationMs,
+    // Phase-02: turn-level stop_reason (null/undefined for legacy turns).
+    stopReason: row.stop_reason ?? null,
+    // Phase-03: cache token breakdown (null for legacy turns pre-migration).
+    cacheCreationTokens: row.cache_creation_tokens ?? null,
+    cacheReadTokens: row.cache_read_tokens ?? null,
+    // Phase-06: cache hit fields.
+    cacheHit: isCacheHit,
+    originalTurnId: row.original_turn_id ?? null,
+    originalSessionId,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Owner guard helpers
-// ---------------------------------------------------------------------------
-
-/** Extracts and validates X-Owner-Id header; returns null if missing/invalid. */
-function extractOwnerId(headers: Record<string, string | string[] | undefined>): string | null {
-  const h = headers['x-owner-id'];
-  return typeof h === 'string' && h.trim() ? h.trim() : null;
-}
-
-/**
- * Resolves the owner_id of a turn's owning session via a JOIN.
- * Returns null when the turn doesn't exist.
- */
-function getTurnOwnerId(db: Database.Database, turnId: string): string | null {
-  const row = db
-    .prepare(
-      `SELECT cs.owner_id FROM chat_sessions cs
-       JOIN chat_turns ct ON ct.session_id = cs.id
-       WHERE ct.id = ?`,
-    )
-    .get(turnId) as { owner_id: string } | undefined;
-  return row?.owner_id ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +138,7 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
   const { db } = opts;
 
   // GET /debug/sessions?game=<id>&q=<title-substring>&limit=<n>
+  // Includes archived AND soft-deleted sessions (debug UI shows all).
   fastify.get<{ Querystring: { game?: string; q?: string; limit?: string } }>(
     '/debug/sessions',
     async (req, reply) => {
@@ -122,11 +152,12 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
         q: req.query.q,
         limit,
       });
-      return reply.send(sessions);
+      return reply.send(sessions.map(toDebugSessionDto));
     },
   );
 
   // GET /debug/sessions/:id
+  // Includes soft-deleted sessions (no deleted_at filter) so the audit UI can inspect them.
   fastify.get<{ Params: { id: string } }>(
     '/debug/sessions/:id',
     async (req, reply) => {
@@ -141,10 +172,28 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
       const rawTurns = chatStore.listTurns(db, session.id);
       const turns: DebugTurnDto[] = rawTurns.map((row) => {
         const counts = obsStore.countObservabilityRowsByTurn(db, row.id);
-        return rowToDebugTurn(row, counts.llm, counts.tool, counts.sdk);
+        return rowToDebugTurn(db, row, counts.llm, counts.tool, counts.sdk);
       });
 
-      return reply.send({ session, turns });
+      return reply.send({ session: toDebugSessionDto(session), turns });
+    },
+  );
+
+  // POST /debug/sessions/:id/restore — delegates to the core restore logic.
+  // Owner-scoped: X-Owner-Id must match the session's owner.
+  fastify.post<{ Params: { id: string } }>(
+    '/debug/sessions/:id/restore',
+    async (req, reply) => {
+      const ownerId = extractOwnerId(req.headers as Record<string, string | string[] | undefined>);
+      if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
+
+      const session = chatStore.getSession(db, req.params.id);
+      if (!session) return reply.status(404).send({ error: 'Session not found' });
+      if (session.owner_id !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+
+      chatStore.restoreSession(db, req.params.id);
+      const restored = chatStore.getSession(db, req.params.id);
+      return reply.status(200).send(toDebugSessionDto(restored!));
     },
   );
 
@@ -161,7 +210,17 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
 
       const llmCalls = obsStore.listLlmCallsByTurn(db, req.params.turnId);
       const toolInvocations = obsStore.listToolInvocationsByTurn(db, req.params.turnId);
-      return reply.send({ llmCalls, toolInvocations });
+      const permissionDecisions: PermissionDecisionRow[] = obsStore.listPermissionDecisionsByTurn(db, req.params.turnId);
+      // Phase-04: include annotation (null when not starred/flagged yet).
+      const annotationRow = annotationsStore.getAnnotation(db, req.params.turnId, ownerId);
+      const annotation = annotationRow ? {
+        turnId: annotationRow.turn_id,
+        starred: annotationRow.starred === 1,
+        flag: annotationRow.flag,
+        note: annotationRow.note,
+        updatedAt: annotationRow.updated_at,
+      } : null;
+      return reply.send({ llmCalls, toolInvocations, permissionDecisions, annotation });
     },
   );
 

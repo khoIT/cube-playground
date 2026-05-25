@@ -30,6 +30,20 @@
       "compacted_into": null
     },
     {
+      "id": "2525f984-592f-40ef-b8ba-9cbef4bfcbd8",
+      "owner_id": "dev",
+      "game_id": "ballistar",
+      "title": "Show daily revenue for the last 7 days",
+      "created_at": 1779688645343,
+      "last_turn_at": 1779688679632,
+      "turn_count": 1,
+      "total_input_tokens": 6,
+      "total_output_tokens": 1059,
+      "status": "active",
+      "parent_session_id": null,
+      "compacted_into": null
+    },
+    {
       "id": "26a730e3-98b9-43ff-a017-281edfb598bd",
       "owner_id": "dev",
       "game_id": "ballistar",
@@ -198,6 +212,20 @@
       "compacted_into": null
     },
     {
+      "id": "b09d6e0a-4156-432c-b792-8230e239bc38",
+      "owner_id": "dev",
+      "game_id": "ballistar",
+      "title": "Top 10 campaigns by ROAS this quarter",
+      "created_at": 1779690609603,
+      "last_turn_at": 1779690727603,
+      "turn_count": 1,
+      "total_input_tokens": 11,
+      "total_output_tokens": 5138,
+      "status": "active",
+      "parent_session_id": null,
+      "compacted_into": null
+    },
+    {
       "id": "dc8d3959-0aa8-4e51-9a87-3586b5e7348e",
       "owner_id": "dev",
       "game_id": "ballistar",
@@ -207,6 +235,20 @@
       "turn_count": 1,
       "total_input_tokens": 23,
       "total_output_tokens": 3490,
+      "status": "active",
+      "parent_session_id": null,
+      "compacted_into": null
+    },
+    {
+      "id": "e5933b8b-517e-4c70-bc4f-fd88d8b99ee4",
+      "owner_id": "dev",
+      "game_id": "ballistar",
+      "title": "Top 10 campaigns by ROAS this quarter",
+      "created_at": 1779690869268,
+      "last_turn_at": 1779691566947,
+      "turn_count": 1,
+      "total_input_tokens": 11,
+      "total_output_tokens": 4754,
       "status": "active",
       "parent_session_id": null,
       "compacted_into": null
@@ -285,7 +327,9 @@
       "skill": null,
       "started_at": 1779601747286,
       "ended_at": 1779601747286,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "4bfc713b-bd9e-4962-811f-5e3dc91bbb91",
@@ -303,7 +347,9 @@
       "skill": "explore",
       "started_at": 1779601747286,
       "ended_at": 1779601764482,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "86823018-0b7e-45cc-a512-0ddf0b6e92b0",
@@ -321,7 +367,9 @@
       "skill": null,
       "started_at": 1779602746029,
       "ended_at": 1779602746029,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "8201be43-ddd9-43b8-8400-de96e7387c7b",
@@ -339,7 +387,9 @@
       "skill": null,
       "started_at": 1779602929647,
       "ended_at": 1779602929647,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "4eaef7b8-128b-475c-86bd-f90c3dfadf8a",
@@ -357,7 +407,9 @@
       "skill": "explore",
       "started_at": 1779602929647,
       "ended_at": 1779602992706,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "d49bf981-7f8d-4621-ac8b-04760d6f37c9",
@@ -375,7 +427,9 @@
       "skill": null,
       "started_at": 1779557453345,
       "ended_at": 1779557453345,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "bd82a38a-6e7a-4436-aeac-8d88c8775a9e",
@@ -393,7 +447,49 @@
       "skill": "explore",
       "started_at": 1779557453345,
       "ended_at": 1779557490822,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "aeb1c143-6cf4-4a69-8634-ba7dd5d7675a",
+      "session_id": "2525f984-592f-40ef-b8ba-9cbef4bfcbd8",
+      "turn_index": 0,
+      "role": "user",
+      "user_text": "Show daily revenue for the last 7 days",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779688645352,
+      "ended_at": 1779688645352,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "e11e5436-149c-4e8a-bd4a-916be673ceea",
+      "session_id": "2525f984-592f-40ef-b8ba-9cbef4bfcbd8",
+      "turn_index": 1,
+      "role": "assistant",
+      "user_text": null,
+      "assistant_text": "Revenue trended **upward** across the week, from **315M VND** on May 18 to a 7-day peak of **397M VND** on May 24. The lowest day was May 19 (204M VND). The metric uses {{field:recharge.revenue_vnd}}, recognized by item delivery date per the **Revenue** business metric definition.",
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": "[{\"id\":\"969a4cba-c2b9-416b-ac68-d7cce162fc23\",\"title\":\"Daily Revenue — Last 7 Days\",\"summary\":\"Total revenue (VND) per day over the last 7 days, sourced from recharge transactions.\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"recharge.revenue_vnd\"],\"timeDimensions\":[{\"dimension\":\"recharge.recharge_date\",\"granularity\":\"day\",\"dateRange\":\"last 7 days\"}],\"order\":{\"recharge.recharge_date\":\"asc\"}},\"source\":\"business-metric\",\"sourceRef\":{\"id\":\"revenue\"},\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22recharge.revenue_vnd%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22recharge.recharge_date%22%2C%22granularity%22%3A%22day%22%2C%22dateRange%22%3A%22last%207%20days%22%7D%5D%2C%22order%22%3A%7B%22recharge.recharge_date%22%3A%22asc%22%7D%7D\",\"deeplinkVia\":\"inline\",\"chart\":{\"id\":\"91596a2a-c3a2-41c1-83e2-922892dc08e1\",\"spec\":{\"title\":\"Daily Revenue (VND) — Last 7 Days\",\"data\":[{\"date\":\"2026-05-18\",\"revenue\":315085000},{\"date\":\"2026-05-19\",\"revenue\":204449000},{\"date\":\"2026-05-20\",\"revenue\":248274000},{\"date\":\"2026-05-21\",\"revenue\":265812000},{\"date\":\"2026-05-22\",\"revenue\":366503000},{\"date\":\"2026-05-23\",\"revenue\":329074000},{\"date\":\"2026-05-24\",\"revenue\":397052000}],\"type\":\"line\",\"encoding\":{\"category\":\"date\",\"value\":\"revenue\"}},\"truncated\":false,\"originalRowCount\":7,\"artifactRef\":\"969a4cba-c2b9-416b-ac68-d7cce162fc23\"}}]",
+      "input_tokens": 6,
+      "output_tokens": 1059,
+      "cost_usd": 0.2882148,
+      "skill": "explore",
+      "started_at": 1779688645352,
+      "ended_at": 1779688679631,
+      "charts_json": "[]",
+      "system_prompt_text": "# Cube Playground Master Command\n\nYou are the Cube Playground assistant for VNGGames data analysts. Your job: turn natural-language questions into clickable Cube-query artifacts that open in the Playground at `/build`.\n\n## Identity\n\n- You answer **only** analytics questions scoped to the active game.\n- You **never** invent cube member names. If a measure or dimension you need isn't in `/meta`, say so and ask the user to pick the closest one.\n- You always prefer existing **business-metric YAML** (`list_business_metrics`, `get_business_metric`) over composing a raw Cube query from scratch. Raw queries are only for questions that have no matching business metric.\n- You explain your reasoning briefly. The reasoning trace appears in the UI; keep it tight and focused on the decision (which tool, why, what you'll do next).\n\n## Output rules\n\n1. **Final answer must include a clickable query artifact.** Use `emit_query_artifact` with a precise title, a one-sentence summary, the validated Cube query, and `source: 'business-metric' | 'segment' | 'raw'` + `sourceRef` when applicable. The tool builds the deeplink — you do not synthesise URLs.\n2. **Validate before emitting.** Call `get_cube_meta` once at the start of a session to learn which cubes/members exist; cache it mentally. If a measure name looks plausible but you haven't seen it in `/meta`, do not emit — ask the user.\n3. **Preview before emitting** when the question is ambiguous about time range or grain. `preview_cube_query` with `limit: 10` to confirm the shape; if the result looks wrong, adjust before calling `emit_query_artifact`.\n4. **One artifact per turn.** If the user asks two questions, emit two artifacts in sequence.\n5. **Refuse politely** for non-analytics asks (general coding help, off-topic chat). Suggest the user try `/build` directly or another tool.\n\n## Tool allowlist\n\nOnly these tools are wired:\n\n- `get_cube_meta` — read the active game's `/meta`.\n- `preview_cube_query` — run a small (≤50 row) query against `/load`.\n- `emit_query_artifact` — emit a clickable card with a built deeplink.\n\n(Phase 02 adds business-metric + segment + explain-sql tools; the same rules apply.)\n\n## Tone\n\nConcise. Vietnamese or English, matching the user. Skip preamble — the user already clicked into a chat scoped to their game.\n\n---\n\n## Active skill: Explore\n\n# Explore Skill\n\nTranslate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.\n\n## Steps\n\n1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:\n   - Call `list_business_metrics({ query: <user's metric phrase> })` first.\n   - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.\n   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.\n2. **Identify dimensions, filters, time grain.** Default time range is \"last 7 days\" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: \"tuần qua\" → \"last 7 days\".\n3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.\n4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.\n5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.\n6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.\n\n## Guard rails\n\n- Never invent cube member names — confirm via `get_cube_meta`.\n- Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.\n- Refuse non-analytics asks; redirect to /build.\n\n## Charts\n\nWhen the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.\n\nPick `type` by shape:\n\n| Data shape | `type` |\n|---|---|\n| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |\n| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |\n| 1 categorical + 1 metric (short labels) | `bar` |\n| 1 time dim + 1 metric | `line` (or `area` for cumulative) |\n| 1 time dim + 1 metric + 1 breakdown | `multi-line` |\n| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |\n| 2 numeric metrics | `scatter` |\n\nRules:\n- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.\n- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.\n- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.\n- Server truncates > 30 rows into an \"Other\" lump automatically.\n- One chart per turn unless explicitly comparing.\n\n---\n\n## Active game\n\nballistar\n\n---\n\n## Field chip token\n\nWhen referencing a specific cube field (measure / dimension / segment),\nemit it as a locked token so the UI can render it as a clickable chip:\n\n    {{field:<cube>.<member>}}\n\nExamples:\n- \"Daily revenue is computed from {{field:recharge.revenue_vnd}}.\"\n- \"Filter by {{field:players.country}} = 'VN'.\"\n\nUse the token in body text only; tool-result payloads should keep raw\nidentifiers. Do not invent fields — only emit tokens for fields that\nexist in the active game's catalog.",
+      "model": "claude-sonnet-4-6"
     },
     {
       "id": "7cf3f15f-e847-4420-a638-c6219cca6f6e",
@@ -411,7 +507,9 @@
       "skill": null,
       "started_at": 1779561998331,
       "ended_at": 1779561998331,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "791db71c-526a-47b8-ab82-840444eeb3ec",
@@ -429,7 +527,9 @@
       "skill": "explore",
       "started_at": 1779561998331,
       "ended_at": 1779562046364,
-      "charts_json": "[{\"id\":\"056b915d-5e68-454a-8b19-44243729d7d4\",\"spec\":{\"title\":\"Revenue Split: IAP vs Web — May 2026\",\"caption\":\"IAP = appstore + playstore; Web = all numeric channel codes + userbalance\",\"data\":[{\"channel\":\"Web\",\"revenue_vnd\":3448320000},{\"channel\":\"IAP\",\"revenue_vnd\":1813707000}],\"type\":\"donut\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue_vnd\"}},\"truncated\":false,\"originalRowCount\":2}]"
+      "charts_json": "[{\"id\":\"056b915d-5e68-454a-8b19-44243729d7d4\",\"spec\":{\"title\":\"Revenue Split: IAP vs Web — May 2026\",\"caption\":\"IAP = appstore + playstore; Web = all numeric channel codes + userbalance\",\"data\":[{\"channel\":\"Web\",\"revenue_vnd\":3448320000},{\"channel\":\"IAP\",\"revenue_vnd\":1813707000}],\"type\":\"donut\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue_vnd\"}},\"truncated\":false,\"originalRowCount\":2}]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "6419ab54-0cff-4e4f-b020-486f4d423196",
@@ -447,7 +547,9 @@
       "skill": null,
       "started_at": 1779563256602,
       "ended_at": 1779563256602,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "5a807b64-c444-4515-8c10-3ecd1ae9e1b0",
@@ -465,7 +567,9 @@
       "skill": "compare",
       "started_at": 1779563256602,
       "ended_at": 1779563524492,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "4fc96880-3afc-4b1f-bc45-45acf5e8537d",
@@ -483,7 +587,9 @@
       "skill": null,
       "started_at": 1779632602249,
       "ended_at": 1779632602249,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "8963c6e1-50bf-4a08-98b0-eb0ac6b6b7e6",
@@ -501,7 +607,29 @@
       "skill": "explore",
       "started_at": 1779632602249,
       "ended_at": 1779632687722,
-      "charts_json": "[{\"id\":\"e267c2ee-0870-4573-b2f6-9ab245a283fe\",\"spec\":{\"title\":\"Install Cohort: Payers vs Non-Payers\",\"caption\":\"Each bar = one install cohort. Paying slice shows users who made at least one purchase.\",\"data\":[{\"month\":\"Mar 2026\",\"users\":143,\"segment\":\"Non-Payers\"},{\"month\":\"Mar 2026\",\"users\":0,\"segment\":\"Payers\"},{\"month\":\"Apr 2026\",\"users\":280215,\"segment\":\"Non-Payers\"},{\"month\":\"Apr 2026\",\"users\":2980,\"segment\":\"Payers\"},{\"month\":\"May 2026\",\"users\":25338,\"segment\":\"Non-Payers\"},{\"month\":\"May 2026\",\"users\":663,\"segment\":\"Payers\"}],\"type\":\"stacked-bar\",\"encoding\":{\"category\":\"month\",\"value\":\"users\",\"series\":\"segment\"}},\"truncated\":false,\"originalRowCount\":6,\"artifactRef\":\"cb525106-8586-4e44-8af1-f3823bfa6fac\"}]"
+      "charts_json": "[{\"id\":\"e267c2ee-0870-4573-b2f6-9ab245a283fe\",\"spec\":{\"title\":\"Install Cohort: Payers vs Non-Payers\",\"caption\":\"Each bar = one install cohort. Paying slice shows users who made at least one purchase.\",\"data\":[{\"month\":\"Mar 2026\",\"users\":143,\"segment\":\"Non-Payers\"},{\"month\":\"Mar 2026\",\"users\":0,\"segment\":\"Payers\"},{\"month\":\"Apr 2026\",\"users\":280215,\"segment\":\"Non-Payers\"},{\"month\":\"Apr 2026\",\"users\":2980,\"segment\":\"Payers\"},{\"month\":\"May 2026\",\"users\":25338,\"segment\":\"Non-Payers\"},{\"month\":\"May 2026\",\"users\":663,\"segment\":\"Payers\"}],\"type\":\"stacked-bar\",\"encoding\":{\"category\":\"month\",\"value\":\"users\",\"series\":\"segment\"}},\"truncated\":false,\"originalRowCount\":6,\"artifactRef\":\"cb525106-8586-4e44-8af1-f3823bfa6fac\"}]",
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "c263f5be-24c1-4c0f-9994-66f6c94dab7e",
+      "session_id": "27da23e5-de17-485f-a7a1-9c09e968e4e7",
+      "turn_index": 2,
+      "role": "user",
+      "user_text": "Break down DAU by platform",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779689927834,
+      "ended_at": 1779689927834,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "27ba2e48-2a33-4c5f-9bfd-b3573ffec4a7",
@@ -519,7 +647,9 @@
       "skill": null,
       "started_at": 1779557678960,
       "ended_at": 1779557678960,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "aa0514ee-773d-441f-aa24-6c23a492562e",
@@ -537,7 +667,9 @@
       "skill": "explore",
       "started_at": 1779557678960,
       "ended_at": 1779557703423,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "345733a5-a712-4be0-b284-778b1320ba93",
@@ -555,7 +687,9 @@
       "skill": null,
       "started_at": 1779557541244,
       "ended_at": 1779557541244,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "e967db2c-0d30-4d72-a8d3-696b9b417edf",
@@ -573,7 +707,9 @@
       "skill": "explore",
       "started_at": 1779557541244,
       "ended_at": 1779557604952,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "fee7b568-127f-4509-9f03-698742e48179",
@@ -591,7 +727,9 @@
       "skill": null,
       "started_at": 1779631734309,
       "ended_at": 1779631734309,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "7b823991-cfa4-4981-8592-9a125e226fef",
@@ -609,7 +747,9 @@
       "skill": "explore",
       "started_at": 1779631734309,
       "ended_at": 1779631780203,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "2310be2c-4bb9-4479-805f-1ab1d6093217",
@@ -627,7 +767,9 @@
       "skill": null,
       "started_at": 1779632204751,
       "ended_at": 1779632204751,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "8367293d-4cae-462a-90c4-a5ea32a40bb6",
@@ -645,7 +787,9 @@
       "skill": "explore",
       "started_at": 1779632204751,
       "ended_at": 1779632217567,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "2a40fe39-4158-4017-81d5-6956faa2ab2c",
@@ -663,7 +807,9 @@
       "skill": null,
       "started_at": 1779632522656,
       "ended_at": 1779632522656,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "5760901b-b3f1-457a-ac24-0cbdd5afead7",
@@ -681,7 +827,9 @@
       "skill": "metric_explain",
       "started_at": 1779632522656,
       "ended_at": 1779632554119,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "74fbb3ad-3482-4ab8-a872-08d58b8e1eb1",
@@ -699,7 +847,9 @@
       "skill": null,
       "started_at": 1779557314640,
       "ended_at": 1779557314640,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "1fcaf524-c46e-45e7-821e-a8efc2944482",
@@ -717,7 +867,9 @@
       "skill": null,
       "started_at": 1779601098086,
       "ended_at": 1779601098086,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "b871bbc2-2f8e-497e-b187-ec90dd034c18",
@@ -735,7 +887,9 @@
       "skill": "explore",
       "started_at": 1779601098086,
       "ended_at": 1779601155726,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "63b2f80a-0996-4f81-8915-c33ee02811dc",
@@ -753,7 +907,9 @@
       "skill": null,
       "started_at": 1779615657992,
       "ended_at": 1779615657992,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "4e92e91f-98ad-4924-8641-7536fd1058f5",
@@ -771,7 +927,9 @@
       "skill": "explore",
       "started_at": 1779615657992,
       "ended_at": 1779615695283,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "b09b3a64-7ab1-4dd0-8f77-4e5c859d5d5f",
@@ -789,7 +947,9 @@
       "skill": null,
       "started_at": 1779620185622,
       "ended_at": 1779620185622,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "20d0c4af-7f37-4e72-b703-efea9440db73",
@@ -807,7 +967,9 @@
       "skill": "explore",
       "started_at": 1779620185622,
       "ended_at": 1779620228398,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "eb02cc8c-1ab0-4ded-b069-75912138caab",
@@ -825,7 +987,9 @@
       "skill": null,
       "started_at": 1779643192549,
       "ended_at": 1779643192549,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "ce2481c3-33cf-4e58-ada0-d47914b6ba1a",
@@ -843,7 +1007,9 @@
       "skill": "metric_explain",
       "started_at": 1779643192549,
       "ended_at": 1779643217665,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "7ca6f1ec-9155-433a-aacc-779b33e97b10",
@@ -861,7 +1027,9 @@
       "skill": null,
       "started_at": 1779643253385,
       "ended_at": 1779643253385,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "443bdb68-5317-4cc3-b211-5d2d265e921a",
@@ -879,7 +1047,9 @@
       "skill": "explore",
       "started_at": 1779643253385,
       "ended_at": 1779643293664,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "d80cc449-8d08-4b38-b5b3-9b81031cd136",
@@ -897,7 +1067,9 @@
       "skill": null,
       "started_at": 1779643316994,
       "ended_at": 1779643316994,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "75568136-50af-46ad-87de-1f9e648947f6",
@@ -915,7 +1087,9 @@
       "skill": "explore",
       "started_at": 1779643316994,
       "ended_at": 1779643354861,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "60965451-0025-497b-9a1d-ccf0e433b476",
@@ -933,7 +1107,9 @@
       "skill": null,
       "started_at": 1779557375589,
       "ended_at": 1779557375589,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "658813d7-7336-4920-956e-16da9ce68cc6",
@@ -951,7 +1127,9 @@
       "skill": "explore",
       "started_at": 1779557375589,
       "ended_at": 1779557397043,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "bce47cbb-3c45-46a3-a7eb-46fda73ac141",
@@ -969,7 +1147,9 @@
       "skill": null,
       "started_at": 1779642241715,
       "ended_at": 1779642241715,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "c8f29251-ca24-48d4-a30e-77b33853b7db",
@@ -987,7 +1167,9 @@
       "skill": "explore",
       "started_at": 1779642241715,
       "ended_at": 1779642285986,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "30688eb5-6010-4bad-bd8d-f64ea20956c8",
@@ -1005,7 +1187,9 @@
       "skill": null,
       "started_at": 1779635711242,
       "ended_at": 1779635711242,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "22ea9683-f36c-4b20-8b6a-452f6128c6a6",
@@ -1023,7 +1207,9 @@
       "skill": "diagnose",
       "started_at": 1779635711242,
       "ended_at": 1779636016626,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "12e7a819-c148-4c59-94bd-e7d5eb993e98",
@@ -1041,7 +1227,9 @@
       "skill": null,
       "started_at": 1779562569167,
       "ended_at": 1779562569167,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "138e8ca1-525e-43dd-a709-90ebb370d237",
@@ -1059,7 +1247,49 @@
       "skill": "explore",
       "started_at": 1779562569167,
       "ended_at": 1779562625276,
-      "charts_json": "[{\"id\":\"5332c856-ebbb-4859-9a15-045c76d54a12\",\"spec\":{\"title\":\"Revenue This Month: IAP vs Web\",\"caption\":\"IAP = appstore + playstore · Web = all other channels (numeric codes + userbalance) · May 2026\",\"data\":[{\"channel\":\"Web\",\"revenue_vnd\":3448320000},{\"channel\":\"IAP\",\"revenue_vnd\":1813707000}],\"type\":\"donut\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue_vnd\"}},\"truncated\":false,\"originalRowCount\":2,\"artifactRef\":\"30d10ffc-8dbe-4d6b-93e8-8cb8cd3ff6ea\"}]"
+      "charts_json": "[{\"id\":\"5332c856-ebbb-4859-9a15-045c76d54a12\",\"spec\":{\"title\":\"Revenue This Month: IAP vs Web\",\"caption\":\"IAP = appstore + playstore · Web = all other channels (numeric codes + userbalance) · May 2026\",\"data\":[{\"channel\":\"Web\",\"revenue_vnd\":3448320000},{\"channel\":\"IAP\",\"revenue_vnd\":1813707000}],\"type\":\"donut\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue_vnd\"}},\"truncated\":false,\"originalRowCount\":2,\"artifactRef\":\"30d10ffc-8dbe-4d6b-93e8-8cb8cd3ff6ea\"}]",
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "fd5a2b62-9954-4354-8d26-9a7707f966f8",
+      "session_id": "b09d6e0a-4156-432c-b792-8230e239bc38",
+      "turn_index": 0,
+      "role": "user",
+      "user_text": "Top 10 campaigns by ROAS this quarter",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779690609606,
+      "ended_at": 1779690609606,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "64a6723a-486c-483f-8c17-5d81b9003545",
+      "session_id": "b09d6e0a-4156-432c-b792-8230e239bc38",
+      "turn_index": 1,
+      "role": "assistant",
+      "user_text": null,
+      "assistant_text": "Two things to flag:\n\n**⚠️ True ROAS unavailable** — The `roas` business metric ({{field:mf_users.rev_per_install_d7}} ÷ {{field:mf_users.marketing_cost}}) is `trust: draft` and its measures aren't wired in the live schema yet. Contact marketing-ops@vng to check when the cost pipeline will be ready.\n\n**⚠️ \"This quarter\" fell back to last 90 days** — Q2 2026 (Apr 1–Jun 30) install filter returned 0 rows, suggesting attributed installs in the current dataset predate April. The 90-day window covers the most recent paid install cohorts available.\n\n**What the artifact shows:** Top 10 campaigns ranked by {{field:mf_users.arpu_vnd}} (lifetime revenue per install = ROAS numerator). Leader campaign `52550451824331` stands out at **1.74M VND/install** but has only 6 users, while `52517294656531` shows the best scale with 534 installs at 160K VND each.",
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": "[{\"id\":\"b9e47aa4-1cc2-4a7f-b096-a1c3d3f5a29f\",\"title\":\"Top 10 Campaigns by Revenue per Install (ROAS Proxy, last 90d)\",\"summary\":\"Top 10 paid campaigns ranked by ARPU VND (lifetime revenue ÷ installs) over the last 90 days — the numerator of ROAS, used as a proxy since marketing cost data is not yet available in the schema.\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"mf_users.ltv_total_vnd\",\"mf_users.user_count\",\"mf_users.arpu_vnd\"],\"dimensions\":[\"mf_users.campaign_id\"],\"timeDimensions\":[{\"dimension\":\"mf_users.install_date\",\"dateRange\":\"last 90 days\"}],\"order\":{\"mf_users.arpu_vnd\":\"desc\"},\"limit\":10},\"source\":\"raw\",\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22mf_users.ltv_total_vnd%22%2C%22mf_users.user_count%22%2C%22mf_users.arpu_vnd%22%5D%2C%22dimensions%22%3A%5B%22mf_users.campaign_id%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22mf_users.install_date%22%2C%22dateRange%22%3A%22last%2090%20days%22%7D%5D%2C%22order%22%3A%7B%22mf_users.arpu_vnd%22%3A%22desc%22%7D%2C%22limit%22%3A10%7D\",\"deeplinkVia\":\"inline\",\"chart\":{\"id\":\"f0dd006f-283b-4e2c-b117-4d49472a00f2\",\"spec\":{\"title\":\"Top 10 Campaigns — Revenue per Install (VND)\",\"caption\":\"ARPU VND = total LTV ÷ installs. ROAS (÷ marketing cost) unavailable — metric is draft.\",\"data\":[{\"campaign\":\"52550451824331\",\"arpu_vnd\":1740000},{\"campaign\":\"120246034812390415\",\"arpu_vnd\":874884},{\"campaign\":\"1865320426401793\",\"arpu_vnd\":828889},{\"campaign\":\"120243357211200328\",\"arpu_vnd\":318750},{\"campaign\":\"1863681194928289\",\"arpu_vnd\":229333},{\"campaign\":\"52517294656531\",\"arpu_vnd\":160092},{\"campaign\":\"6968316659741\",\"arpu_vnd\":153333},{\"campaign\":\"1863229000838658\",\"arpu_vnd\":149259},{\"campaign\":\"1863050051978337\",\"arpu_vnd\":134167},{\"campaign\":\"120244156752610328\",\"arpu_vnd\":130286}],\"type\":\"horizontal-bar\",\"encoding\":{\"category\":\"campaign\",\"value\":\"arpu_vnd\"}},\"truncated\":false,\"originalRowCount\":10,\"artifactRef\":\"b9e47aa4-1cc2-4a7f-b096-a1c3d3f5a29f\"}}]",
+      "input_tokens": 11,
+      "output_tokens": 5138,
+      "cost_usd": 0.45884864999999997,
+      "skill": "explore",
+      "started_at": 1779690609606,
+      "ended_at": 1779690727589,
+      "charts_json": "[]",
+      "system_prompt_text": "# Cube Playground Master Command\n\nYou are the Cube Playground assistant for VNGGames data analysts. Your job: turn natural-language questions into clickable Cube-query artifacts that open in the Playground at `/build`.\n\n## Identity\n\n- You answer **only** analytics questions scoped to the active game.\n- You **never** invent cube member names. If a measure or dimension you need isn't in `/meta`, say so and ask the user to pick the closest one.\n- You always prefer existing **business-metric YAML** (`list_business_metrics`, `get_business_metric`) over composing a raw Cube query from scratch. Raw queries are only for questions that have no matching business metric.\n- You explain your reasoning briefly. The reasoning trace appears in the UI; keep it tight and focused on the decision (which tool, why, what you'll do next).\n\n## Output rules\n\n1. **Final answer must include a clickable query artifact.** Use `emit_query_artifact` with a precise title, a one-sentence summary, the validated Cube query, and `source: 'business-metric' | 'segment' | 'raw'` + `sourceRef` when applicable. The tool builds the deeplink — you do not synthesise URLs.\n2. **Validate before emitting.** Call `get_cube_meta` once at the start of a session to learn which cubes/members exist; cache it mentally. If a measure name looks plausible but you haven't seen it in `/meta`, do not emit — ask the user.\n3. **Preview before emitting** when the question is ambiguous about time range or grain. `preview_cube_query` with `limit: 10` to confirm the shape; if the result looks wrong, adjust before calling `emit_query_artifact`.\n4. **One artifact per turn.** If the user asks two questions, emit two artifacts in sequence.\n5. **Refuse politely** for non-analytics asks (general coding help, off-topic chat). Suggest the user try `/build` directly or another tool.\n\n## Tool allowlist\n\nOnly these tools are wired:\n\n- `get_cube_meta` — read the active game's `/meta`.\n- `preview_cube_query` — run a small (≤50 row) query against `/load`.\n- `emit_query_artifact` — emit a clickable card with a built deeplink.\n\n(Phase 02 adds business-metric + segment + explain-sql tools; the same rules apply.)\n\n## Tone\n\nConcise. Vietnamese or English, matching the user. Skip preamble — the user already clicked into a chat scoped to their game.\n\n---\n\n## Active skill: Explore\n\n# Explore Skill\n\nTranslate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.\n\n## Pre-flight disambiguation (REQUIRED)\n\nBefore any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers (\"10tr\" → 10000000) and dates (\"3 tháng qua\", \"Q1 2026\"), and tells you what to do next:\n\n- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of \"Identify the metric\" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.\n- `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**\n\nIf `warnings[]` contains a \"thousands separator\" note, mention the assumed interpretation in your final summary so the user can correct it.\n\n## Steps\n\n1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:\n   - Call `list_business_metrics({ query: <user's metric phrase> })` first.\n   - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.\n   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.\n2. **Identify dimensions, filters, time grain.** Default time range is \"last 7 days\" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: \"tuần qua\" → \"last 7 days\".\n3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.\n4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.\n5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.\n6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.\n\n## Guard rails\n\n- Never invent cube member names — confirm via `get_cube_meta`.\n- Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.\n- Refuse non-analytics asks; redirect to /build.\n\n## Charts\n\nWhen the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.\n\nPick `type` by shape:\n\n| Data shape | `type` |\n|---|---|\n| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |\n| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |\n| 1 categorical + 1 metric (short labels) | `bar` |\n| 1 time dim + 1 metric | `line` (or `area` for cumulative) |\n| 1 time dim + 1 metric + 1 breakdown | `multi-line` |\n| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |\n| 2 numeric metrics | `scatter` |\n\nRules:\n- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.\n- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.\n- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.\n- Server truncates > 30 rows into an \"Other\" lump automatically.\n- One chart per turn unless explicitly comparing.\n\n---\n\n## Active game\n\nballistar\n\n---\n\n## Field chip token\n\nWhen referencing a specific cube field (measure / dimension / segment),\nemit it as a locked token so the UI can render it as a clickable chip:\n\n    {{field:<cube>.<member>}}\n\nExamples:\n- \"Daily revenue is computed from {{field:recharge.revenue_vnd}}.\"\n- \"Filter by {{field:players.country}} = 'VN'.\"\n\nUse the token in body text only; tool-result payloads should keep raw\nidentifiers. Do not invent fields — only emit tokens for fields that\nexist in the active game's catalog.",
+      "model": "claude-sonnet-4-6"
     },
     {
       "id": "55b54303-f78c-4361-a017-adc8e9e0e19c",
@@ -1077,7 +1307,9 @@
       "skill": null,
       "started_at": 1779573962649,
       "ended_at": 1779573962649,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "e7d9117c-3c5b-48fe-9494-24ef63837bd2",
@@ -1095,7 +1327,69 @@
       "skill": "explore",
       "started_at": 1779573962649,
       "ended_at": 1779574091887,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "4786989f-66cc-42e2-9ce3-e1ad74ae69d7",
+      "session_id": "e5933b8b-517e-4c70-bc4f-fd88d8b99ee4",
+      "turn_index": 0,
+      "role": "user",
+      "user_text": "Top 10 campaigns by ROAS this quarter",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779690869270,
+      "ended_at": 1779690869270,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "9490721a-bc47-4366-b6f2-b6b8102bb594",
+      "session_id": "e5933b8b-517e-4c70-bc4f-fd88d8b99ee4",
+      "turn_index": 1,
+      "role": "user",
+      "user_text": "Doanh thu, số lượng paying user trên 10 triệu trong 3 tháng qua",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779691469758,
+      "ended_at": 1779691469758,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
+    },
+    {
+      "id": "c795c32d-2bf1-43dd-852f-b3c2d93f6cca",
+      "session_id": "e5933b8b-517e-4c70-bc4f-fd88d8b99ee4",
+      "turn_index": 2,
+      "role": "assistant",
+      "user_text": null,
+      "assistant_text": "Đây là 2 artifacts:\n\n---\n\n**① Doanh thu & Paying Users theo tháng**\nTrong khoảng 25/2 – 25/5/2026, chỉ có dữ liệu tháng 3 và tháng 5:\n- **Tháng 3/2026**: {{field:recharge.revenue_vnd}} = ~46.2M VND, {{field:recharge.paying_users}} = 13 users\n- **Tháng 5/2026**: {{field:recharge.revenue_vnd}} = ~6.35B VND, {{field:recharge.paying_users}} = 5,814 users\n\nTháng 4/2026 không có giao dịch trong dataset.\n\n---\n\n**② Paying users có LTV > 10 triệu VND**\nHiện có **113 users** với {{field:mf_users.ltv_vnd}} vượt 10,000,000 VND (lifetime — không giới hạn trong 3 tháng vì schema không lưu LTV theo kỳ). Đây là nhóm high-value payer / whale của game.\n\n> ⚠️ Lưu ý: `ltv_vnd` là **lifetime spend** toàn bộ lịch sử, không phải chỉ 3 tháng gần đây. Nếu muốn filter theo chi tiêu trong 3 tháng cụ thể, có thể dùng {{field:mf_users.ltv_30d_vnd}} (30 ngày) hoặc query từ `recharge` với group by user + HAVING sum > 10M.",
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": "[{\"id\":\"b0cba76c-4c3a-49dc-a6df-82f40731b26c\",\"title\":\"Doanh thu & Paying Users theo tháng (3 tháng qua)\",\"summary\":\"Monthly revenue (VND) and paying user count from Feb 25 – May 25 2026, grouped by month.\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"recharge.revenue_vnd\",\"recharge.paying_users\"],\"timeDimensions\":[{\"dimension\":\"recharge.recharge_date\",\"granularity\":\"month\",\"dateRange\":[\"2026-02-25\",\"2026-05-25\"]}]},\"source\":\"business-metric\",\"sourceRef\":{\"id\":\"paying_users\",\"name\":\"Paying users\"},\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22recharge.revenue_vnd%22%2C%22recharge.paying_users%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22recharge.recharge_date%22%2C%22granularity%22%3A%22month%22%2C%22dateRange%22%3A%5B%222026-02-25%22%2C%222026-05-25%22%5D%7D%5D%7D\",\"deeplinkVia\":\"inline\",\"chart\":{\"id\":\"0acdcc25-b42f-475c-bce3-23bb2885bfb8\",\"spec\":{\"title\":\"Doanh thu theo tháng (VND)\",\"caption\":\"Tháng 4/2026 không có giao dịch trong dataset\",\"data\":[{\"month\":\"Mar 2026\",\"revenue_vnd\":46166000},{\"month\":\"May 2026\",\"revenue_vnd\":6354656000}],\"type\":\"bar\",\"encoding\":{\"category\":\"month\",\"value\":\"revenue_vnd\"}},\"truncated\":false,\"originalRowCount\":2,\"artifactRef\":\"b0cba76c-4c3a-49dc-a6df-82f40731b26c\"}},{\"id\":\"cf9267a9-a6b5-4ca8-8439-d35aa2587b6e\",\"title\":\"Số lượng Paying Users có LTV > 10 triệu VND\",\"summary\":\"Count of unique users whose lifetime spend exceeds 10,000,000 VND (high-value payers / whales).\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"mf_users.user_count\"],\"filters\":[{\"member\":\"mf_users.ltv_vnd\",\"operator\":\"gt\",\"values\":[\"10000000\"]}]},\"source\":\"raw\",\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22mf_users.user_count%22%5D%2C%22filters%22%3A%5B%7B%22member%22%3A%22mf_users.ltv_vnd%22%2C%22operator%22%3A%22gt%22%2C%22values%22%3A%5B%2210000000%22%5D%7D%5D%7D\",\"deeplinkVia\":\"inline\"}]",
+      "input_tokens": 11,
+      "output_tokens": 4754,
+      "cost_usd": 0.40903275000000006,
+      "skill": "explore",
+      "started_at": 1779691469758,
+      "ended_at": 1779691566939,
+      "charts_json": "[]",
+      "system_prompt_text": "# Cube Playground Master Command\n\nYou are the Cube Playground assistant for VNGGames data analysts. Your job: turn natural-language questions into clickable Cube-query artifacts that open in the Playground at `/build`.\n\n## Identity\n\n- You answer **only** analytics questions scoped to the active game.\n- You **never** invent cube member names. If a measure or dimension you need isn't in `/meta`, say so and ask the user to pick the closest one.\n- You always prefer existing **business-metric YAML** (`list_business_metrics`, `get_business_metric`) over composing a raw Cube query from scratch. Raw queries are only for questions that have no matching business metric.\n- You explain your reasoning briefly. The reasoning trace appears in the UI; keep it tight and focused on the decision (which tool, why, what you'll do next).\n\n## Output rules\n\n1. **Final answer must include a clickable query artifact.** Use `emit_query_artifact` with a precise title, a one-sentence summary, the validated Cube query, and `source: 'business-metric' | 'segment' | 'raw'` + `sourceRef` when applicable. The tool builds the deeplink — you do not synthesise URLs.\n2. **Validate before emitting.** Call `get_cube_meta` once at the start of a session to learn which cubes/members exist; cache it mentally. If a measure name looks plausible but you haven't seen it in `/meta`, do not emit — ask the user.\n3. **Preview before emitting** when the question is ambiguous about time range or grain. `preview_cube_query` with `limit: 10` to confirm the shape; if the result looks wrong, adjust before calling `emit_query_artifact`.\n4. **One artifact per turn.** If the user asks two questions, emit two artifacts in sequence.\n5. **Refuse politely** for non-analytics asks (general coding help, off-topic chat). Suggest the user try `/build` directly or another tool.\n\n## Tool allowlist\n\nOnly these tools are wired:\n\n- `get_cube_meta` — read the active game's `/meta`.\n- `preview_cube_query` — run a small (≤50 row) query against `/load`.\n- `emit_query_artifact` — emit a clickable card with a built deeplink.\n\n(Phase 02 adds business-metric + segment + explain-sql tools; the same rules apply.)\n\n## Tone\n\nConcise. Vietnamese or English, matching the user. Skip preamble — the user already clicked into a chat scoped to their game.\n\n---\n\n## Active skill: Explore\n\n# Explore Skill\n\nTranslate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.\n\n## Pre-flight disambiguation (REQUIRED)\n\nBefore any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers (\"10tr\" → 10000000) and dates (\"3 tháng qua\", \"Q1 2026\"), and tells you what to do next:\n\n- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of \"Identify the metric\" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.\n- `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**\n\nIf `warnings[]` contains a \"thousands separator\" note, mention the assumed interpretation in your final summary so the user can correct it.\n\n## Steps\n\n1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:\n   - Call `list_business_metrics({ query: <user's metric phrase> })` first.\n   - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.\n   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.\n2. **Identify dimensions, filters, time grain.** Default time range is \"last 7 days\" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: \"tuần qua\" → \"last 7 days\".\n3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.\n4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.\n5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.\n6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.\n\n## Guard rails\n\n- Never invent cube member names — confirm via `get_cube_meta`.\n- Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.\n- Refuse non-analytics asks; redirect to /build.\n\n## Charts\n\nWhen the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.\n\nPick `type` by shape:\n\n| Data shape | `type` |\n|---|---|\n| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |\n| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |\n| 1 categorical + 1 metric (short labels) | `bar` |\n| 1 time dim + 1 metric | `line` (or `area` for cumulative) |\n| 1 time dim + 1 metric + 1 breakdown | `multi-line` |\n| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |\n| 2 numeric metrics | `scatter` |\n\nRules:\n- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.\n- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.\n- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.\n- Server truncates > 30 rows into an \"Other\" lump automatically.\n- One chart per turn unless explicitly comparing.\n\n---\n\n## Active game\n\nballistar\n\n---\n\n## Field chip token\n\nWhen referencing a specific cube field (measure / dimension / segment),\nemit it as a locked token so the UI can render it as a clickable chip:\n\n    {{field:<cube>.<member>}}\n\nExamples:\n- \"Daily revenue is computed from {{field:recharge.revenue_vnd}}.\"\n- \"Filter by {{field:players.country}} = 'VN'.\"\n\nUse the token in body text only; tool-result payloads should keep raw\nidentifiers. Do not invent fields — only emit tokens for fields that\nexist in the active game's catalog.",
+      "model": "claude-sonnet-4-6"
     },
     {
       "id": "bb2c7259-6b8a-4e5b-b9be-b452f42a6a80",
@@ -1113,7 +1407,9 @@
       "skill": null,
       "started_at": 1779603065435,
       "ended_at": 1779603065435,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "ab317c27-26c0-40c6-b673-cb0bc5a2c4b3",
@@ -1131,7 +1427,9 @@
       "skill": "explore",
       "started_at": 1779603065435,
       "ended_at": 1779603170495,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "50adb5e0-beba-45f2-bfac-a63cdf2f5dfc",
@@ -1149,7 +1447,9 @@
       "skill": null,
       "started_at": 1779557823927,
       "ended_at": 1779557823927,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "f7286180-6b6f-4f99-8020-6eb99594b5b6",
@@ -1167,7 +1467,9 @@
       "skill": "explore",
       "started_at": 1779557823927,
       "ended_at": 1779557859354,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "79d639fb-993f-49a8-b274-59b858843760",
@@ -1185,7 +1487,9 @@
       "skill": null,
       "started_at": 1779558388494,
       "ended_at": 1779558388494,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "b9e33db0-5a5f-4d80-a110-189f40f2b196",
@@ -1203,7 +1507,9 @@
       "skill": "explore",
       "started_at": 1779558388494,
       "ended_at": 1779558423612,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "144a1694-d374-4a3d-8114-25460781c35e",
@@ -1221,7 +1527,9 @@
       "skill": null,
       "started_at": 1779560310163,
       "ended_at": 1779560310163,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "77d2cbb4-d39c-427a-848d-baad37c37cc3",
@@ -1239,7 +1547,9 @@
       "skill": null,
       "started_at": 1779562529300,
       "ended_at": 1779562529300,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "57b6d096-0cdd-48ca-9407-681d9fe6a469",
@@ -1257,7 +1567,9 @@
       "skill": "explore",
       "started_at": 1779562529300,
       "ended_at": 1779562562454,
-      "charts_json": "[{\"id\":\"5ead23a7-2e98-4594-9c9f-55074dbba960\",\"spec\":{\"title\":\"May 2026 Revenue — IAP vs Web\",\"caption\":\"IAP = appstore + playstore; Web = all numeric codes + userbalance\",\"data\":[{\"channel\":\"Web\",\"revenue\":3448320000},{\"channel\":\"IAP\",\"revenue\":1813707000}],\"type\":\"donut\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue\"}},\"truncated\":false,\"originalRowCount\":2,\"artifactRef\":\"a1f66672-8dba-44ae-9d38-9c0db96e5a82\"}]"
+      "charts_json": "[{\"id\":\"5ead23a7-2e98-4594-9c9f-55074dbba960\",\"spec\":{\"title\":\"May 2026 Revenue — IAP vs Web\",\"caption\":\"IAP = appstore + playstore; Web = all numeric codes + userbalance\",\"data\":[{\"channel\":\"Web\",\"revenue\":3448320000},{\"channel\":\"IAP\",\"revenue\":1813707000}],\"type\":\"donut\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue\"}},\"truncated\":false,\"originalRowCount\":2,\"artifactRef\":\"a1f66672-8dba-44ae-9d38-9c0db96e5a82\"}]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "12a51f45-b856-427b-8d89-b9e37bff09ba",
@@ -1275,7 +1587,9 @@
       "skill": null,
       "started_at": 1779565055666,
       "ended_at": 1779565055666,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "83d6d89f-1e34-42d5-89bd-146cbb44358e",
@@ -1293,7 +1607,9 @@
       "skill": "explore",
       "started_at": 1779565055666,
       "ended_at": 1779565106815,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "e7dd6e29-3c70-43fa-b827-7e797da3858a",
@@ -1311,7 +1627,9 @@
       "skill": null,
       "started_at": 1779565269068,
       "ended_at": 1779565269068,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "71c82454-b952-4d95-aee7-73658e906f1d",
@@ -1329,7 +1647,9 @@
       "skill": "explore",
       "started_at": 1779565269068,
       "ended_at": 1779565323583,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "f483e281-b8c2-4933-a7ca-afd1260bc0e8",
@@ -1347,7 +1667,9 @@
       "skill": null,
       "started_at": 1779565409374,
       "ended_at": 1779565409374,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "d54c8af7-d784-4f0b-aae5-7c64244e0488",
@@ -1365,7 +1687,9 @@
       "skill": "explore",
       "started_at": 1779565409374,
       "ended_at": 1779565442874,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "72816dd3-7606-4f35-b143-ad2ddf758a8e",
@@ -1383,7 +1707,9 @@
       "skill": null,
       "started_at": 1779565500666,
       "ended_at": 1779565500666,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "9c3ff92f-7fa2-4d11-9a9b-371c08c1a688",
@@ -1401,7 +1727,9 @@
       "skill": "explore",
       "started_at": 1779565500666,
       "ended_at": 1779565574763,
-      "charts_json": "[]"
+      "charts_json": "[]",
+      "system_prompt_text": null,
+      "model": null
     },
     {
       "id": "7d32585f-c1df-4103-b7e5-af13122a2f8d",
@@ -1419,8 +1747,23 @@
       "skill": null,
       "started_at": 1779573763539,
       "ended_at": 1779573763539,
-      "charts_json": null
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null
     }
   ],
-  "chat_tombstones": []
+  "chat_tombstones": [
+    {
+      "session_id": "3dee2f73-dc59-4f75-b80f-8921a6ce2ee4",
+      "deleted_at": 1779689542978
+    },
+    {
+      "session_id": "a5237a81-05f5-4447-98d2-c1bdf8d0d4f8",
+      "deleted_at": 1779690604227
+    },
+    {
+      "session_id": "ef8c680a-ad54-4d52-a81b-f4f65b1a9076",
+      "deleted_at": 1779689549035
+    }
+  ]
 }
