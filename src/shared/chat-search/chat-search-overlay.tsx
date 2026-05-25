@@ -226,6 +226,7 @@ function GroupedList({
                       sessionId={s.id}
                       sessionTitle={s.title}
                       onDeleted={onDeleted}
+                      menuZIndex={10001}
                     />
                   )}
                 </div>

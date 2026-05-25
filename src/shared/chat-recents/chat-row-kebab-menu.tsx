@@ -27,7 +27,17 @@ interface Props {
   onDeleted?: (id: string) => void;
   /** Icon button size. Defaults to 16. */
   iconSize?: number;
+  /**
+   * z-index for the dropdown panel and confirm modal. Needed when the menu
+   * is rendered inside a high-z-index host (e.g. the chat search overlay at
+   * z-index 9999), otherwise antd's defaults (~1050 / ~1000) put the panel
+   * and the delete confirmation behind the host's backdrop and clicks land
+   * on the backdrop instead of the menu.
+   */
+  menuZIndex?: number;
 }
+
+const DEFAULT_MENU_Z = 1050;
 
 const Shell = styled.div`
   min-width: 220px;
@@ -104,6 +114,7 @@ export function ChatRowKebabMenu({
   sessionTitle,
   onDeleted,
   iconSize = 16,
+  menuZIndex = DEFAULT_MENU_Z,
 }: Props): ReactElement {
   const stop = (e: MouseEvent) => {
     e.preventDefault();
@@ -133,31 +144,36 @@ export function ChatRowKebabMenu({
       okButtonProps: { danger: true },
       cancelText: 'Cancel',
       onOk: performDelete,
+      zIndex: menuZIndex + 1,
     });
   }
 
+  // The overlay is portaled to <body> but its events still bubble through
+  // the React tree to the parent row (which calls openSession). Catch every
+  // click here so disabled rows and inert tooltips don't navigate the user
+  // away when they intended to interact with the menu.
   const overlay = (
-    <Shell role="menu" aria-label="Conversation actions">
+    <Shell role="menu" aria-label="Conversation actions" onClick={stop}>
       <Tooltip title={COMING_SOON} placement="left">
-        <Row type="button" role="menuitem" $disabled aria-disabled>
+        <Row type="button" role="menuitem" $disabled aria-disabled onClick={stop}>
           <Star size={15} aria-hidden />
           Star
         </Row>
       </Tooltip>
       <Tooltip title={COMING_SOON} placement="left">
-        <Row type="button" role="menuitem" $disabled aria-disabled>
+        <Row type="button" role="menuitem" $disabled aria-disabled onClick={stop}>
           <Pencil size={15} aria-hidden />
           Rename
         </Row>
       </Tooltip>
       <Tooltip title={COMING_SOON} placement="left">
-        <Row type="button" role="menuitem" $disabled aria-disabled>
+        <Row type="button" role="menuitem" $disabled aria-disabled onClick={stop}>
           <FolderInput size={15} aria-hidden />
           Change project
         </Row>
       </Tooltip>
       <Tooltip title={COMING_SOON} placement="left">
-        <Row type="button" role="menuitem" $disabled aria-disabled>
+        <Row type="button" role="menuitem" $disabled aria-disabled onClick={stop}>
           <FolderMinus size={15} aria-hidden />
           Remove from project
         </Row>
@@ -171,7 +187,12 @@ export function ChatRowKebabMenu({
   );
 
   return (
-    <Dropdown overlay={overlay} trigger={['click']} placement="bottomRight">
+    <Dropdown
+      overlay={overlay}
+      trigger={['click']}
+      placement="bottomRight"
+      overlayStyle={{ zIndex: menuZIndex }}
+    >
       <KebabButton
         type="button"
         aria-label="Conversation actions"
