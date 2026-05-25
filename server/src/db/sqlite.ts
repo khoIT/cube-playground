@@ -12,20 +12,30 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, 'migrations');
 
-// Resolved at startup — either the file path from env or an in-memory DB for tests
-const DB_PATH = process.env.DB_PATH ?? join(process.cwd(), 'data', 'segments.db');
-
 let _db: Database.Database | null = null;
+let _dbPath: string | null = null;
+
+function resolveDbPath(): string {
+  // Read process.env.DB_PATH at first getDb() rather than at module load. ES
+  // modules hoist imports, so test files that assign `process.env.DB_PATH = …`
+  // at top level would otherwise lose the race — the singleton would open the
+  // real dev DB and a later DELETE in the test wipes shared state.
+  if (_dbPath !== null) return _dbPath;
+  _dbPath = process.env.DB_PATH ?? join(process.cwd(), 'data', 'segments.db');
+  return _dbPath;
+}
 
 export function getDb(): Database.Database {
   if (_db) return _db;
 
+  const dbPath = resolveDbPath();
+
   // better-sqlite3 fails if the parent directory is missing
-  if (DB_PATH !== ':memory:') {
-    mkdirSync(dirname(DB_PATH), { recursive: true });
+  if (dbPath !== ':memory:') {
+    mkdirSync(dirname(dbPath), { recursive: true });
   }
 
-  _db = new Database(DB_PATH);
+  _db = new Database(dbPath);
 
   // WAL mode for better read concurrency
   _db.pragma('journal_mode = WAL');
@@ -63,6 +73,7 @@ export function closeDb(): void {
     _db.close();
     _db = null;
   }
+  _dbPath = null;
 }
 
 /** Replace singleton with a provided instance — used in tests for :memory: DBs. */
