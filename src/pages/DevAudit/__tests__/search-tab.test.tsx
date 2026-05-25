@@ -100,22 +100,22 @@ describe('SearchTab — render', () => {
 
   it('defaults to turns mode when no ?mode= param', () => {
     renderTab();
-    expect(screen.getByTestId('mode-chip-turns')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-turns').getAttribute('aria-checked')).toBe('true');
   });
 
   it('restores mode from URL ?mode=sessions', () => {
     renderTab('?mode=sessions');
-    expect(screen.getByTestId('mode-chip-sessions')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-sessions').getAttribute('aria-checked')).toBe('true');
   });
 
   it('restores mode from URL ?mode=cached', () => {
     renderTab('?mode=cached');
-    expect(screen.getByTestId('mode-chip-cached')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-cached').getAttribute('aria-checked')).toBe('true');
   });
 
   it('treats unknown ?mode= value as turns', () => {
     renderTab('?mode=evil');
-    expect(screen.getByTestId('mode-chip-turns')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-turns').getAttribute('aria-checked')).toBe('true');
   });
 });
 
@@ -143,7 +143,7 @@ describe('SearchTab — mode switch via chip click', () => {
   it('clicking Sessions chip switches mode', () => {
     renderTab();
     fireEvent.click(screen.getByTestId('mode-chip-sessions'));
-    expect(screen.getByTestId('mode-chip-sessions')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-sessions').getAttribute('aria-checked')).toBe('true');
   });
 
   it('mode chip click pushes ?mode= to URL', () => {

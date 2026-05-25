@@ -75,34 +75,34 @@ describe('SearchModeChips', () => {
     renderChips('turns');
     const turnsChip = screen.getByTestId('mode-chip-turns');
     fireEvent.keyDown(turnsChip, { key: 'ArrowRight' });
-    expect(screen.getByTestId('mode-chip-sessions')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-sessions').getAttribute('aria-checked')).toBe('true');
   });
 
   it('ArrowRight wraps from Cached to Turns', () => {
     renderChips('cached');
     const cachedChip = screen.getByTestId('mode-chip-cached');
     fireEvent.keyDown(cachedChip, { key: 'ArrowRight' });
-    expect(screen.getByTestId('mode-chip-turns')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-turns').getAttribute('aria-checked')).toBe('true');
   });
 
   it('ArrowLeft from Turns wraps to Cached', () => {
     renderChips('turns');
     const turnsChip = screen.getByTestId('mode-chip-turns');
     fireEvent.keyDown(turnsChip, { key: 'ArrowLeft' });
-    expect(screen.getByTestId('mode-chip-cached')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-cached').getAttribute('aria-checked')).toBe('true');
   });
 
   it('Home key jumps to first chip (Turns)', () => {
     renderChips('cached');
     const cachedChip = screen.getByTestId('mode-chip-cached');
     fireEvent.keyDown(cachedChip, { key: 'Home' });
-    expect(screen.getByTestId('mode-chip-turns')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-turns').getAttribute('aria-checked')).toBe('true');
   });
 
   it('End key jumps to last chip (Cached queries)', () => {
     renderChips('turns');
     const turnsChip = screen.getByTestId('mode-chip-turns');
     fireEvent.keyDown(turnsChip, { key: 'End' });
-    expect(screen.getByTestId('mode-chip-cached')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('mode-chip-cached').getAttribute('aria-checked')).toBe('true');
   });
 });
