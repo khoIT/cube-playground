@@ -96,11 +96,14 @@ export function ChatMessageList({ messages, streaming, onFollowupPick, onDisambi
           return <UserMessage key={msg.id} text={msg.text} ts={msg.ts} compact={compact} />;
         }
         // Follow-up chips only render on the *last* assistant message and
-        // only when nothing is still streaming after it (phase-04 reqs).
+        // only when nothing is still streaming after it. Suppressed entirely
+        // when the same turn carries disambig chips — two competing "what next"
+        // affordances at once confuses the user.
         const isLastAssistant =
           i === messages.length - 1 ||
           messages.slice(i + 1).every((m) => m.role === 'assistant' && false);
-        const showFollowups = !streaming && isLastAssistant && !!onFollowupPick;
+        const showFollowups =
+          !streaming && isLastAssistant && !!onFollowupPick && !msg.disambigOptions;
         return (
           <AssistantMessage
             key={msg.id}
