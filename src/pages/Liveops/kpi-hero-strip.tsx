@@ -59,23 +59,23 @@ class TileErrorBoundary extends Component<
 function SkeletonTile({ label }: { label: string }) {
   return (
     <div style={{
-      padding: '18px 16px 14px',
-      borderTop: '1px solid var(--rule-editorial, var(--border-card))',
+      padding: '16px 16px 14px',
+      borderTop: '1px solid var(--border-card)',
     }}>
       <p style={{
-        fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
-        fontSize: 13,
+        fontFamily: 'var(--font-sans)',
+        fontSize: 12,
+        fontWeight: 500,
         color: 'var(--text-muted)',
-        margin: '0 0 6px',
+        margin: '0 0 8px',
       }}>
         {label}
       </p>
       <div style={{
-        height: 28,
+        height: 24,
         width: '60%',
         borderRadius: 4,
-        background: 'var(--neutral-100)',
-        opacity: 0.6,
+        background: 'var(--bg-muted)',
       }} />
     </div>
   );
@@ -170,36 +170,35 @@ export function KpiHeroStrip({ gameId }: KpiHeroStripProps) {
   }
 
   return (
-    <div style={{ padding: '16px 20px 0' }}>
-      {/* Strip header — editorial section style */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
-        <h2 style={{
-          margin: 0,
-          fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
-          fontSize: 20,
+    <div style={{ marginTop: 8 }}>
+      {/* Section header — sentence case, sans-serif, refresh badge right-aligned */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+      }}>
+        <div style={{
+          fontSize: 11,
           fontWeight: 600,
-          letterSpacing: '-0.005em',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: 'var(--text-muted)',
         }}>
-          Daily standup
-        </h2>
+          Hero metrics
+        </div>
         <RefreshBadge lastRefresh={lastRefresh} />
       </div>
-      <p style={{
-        margin: '0 0 14px',
-        fontSize: 12,
-        color: 'var(--text-muted)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-      }}>
-        Five hero metrics · updated every cache tick
-      </p>
 
       {/* Tile row */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(5, 1fr)',
-        gap: 16,
-        borderBottom: '1px solid var(--rule-editorial, var(--border-card))',
+        gap: 12,
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '0 4px',
       }}>
         {showSkeletons
           ? SKELETON_LABELS.map((label) => <SkeletonTile key={label} label={label} />)

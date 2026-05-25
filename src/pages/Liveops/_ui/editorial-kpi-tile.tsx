@@ -1,10 +1,10 @@
 /**
- * Editorial direction KPI tile — Phase 1 redesign.
+ * KPI tile for the LiveOps hero strip.
  *
- * Serif numeric, sparse rule above, muted serif label, integrated sparkline
- * underneath. Designed to read like a column of newspaper figures rather
- * than a "card with chrome". Forks from <KpiTile> so changes don't regress
- * the Segments page.
+ * Sans-serif Inter via var(--font-sans); semantic color + spacing tokens
+ * shared with the rest of the app. Delta colours map to --positive /
+ * --negative / --text-muted so the strip stays consistent with cohort/
+ * dashboard surfaces.
  */
 
 import { type ReactNode } from 'react';
@@ -19,31 +19,31 @@ interface Props {
 }
 
 const wrapStyle: React.CSSProperties = {
-  padding: '18px 16px 14px',
-  borderTop: '1px solid var(--rule-editorial, var(--border-card))',
+  padding: '14px 14px 12px',
+  fontFamily: 'var(--font-sans)',
 };
 
 const labelStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
-  fontSize: 13,
+  fontSize: 12,
+  fontWeight: 500,
   color: 'var(--text-muted)',
   marginBottom: 6,
   letterSpacing: '0.005em',
 };
 
 const valueStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
-  fontSize: 28,
-  fontWeight: 600,
-  letterSpacing: '-0.01em',
-  lineHeight: 1.1,
+  fontSize: 24,
+  fontWeight: 700,
+  letterSpacing: '-0.015em',
+  lineHeight: 1.15,
   color: 'var(--text-primary)',
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const deltaBase: React.CSSProperties = {
   fontSize: 12,
   marginTop: 4,
-  fontFamily: 'var(--font-sans)',
+  fontWeight: 500,
   fontVariantNumeric: 'tabular-nums',
 };
 

@@ -25,23 +25,30 @@ export function AnomalyHighSeverityStrip({ gameId }: Props) {
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        margin: '12px 20px 0',
-        // calc subtracts the 20px left+right outer padding of the parent
-        width: 'calc(100% - 40px)',
-        padding: '8px 14px',
-        background: '#fee2e2',
-        border: '1px solid #fca5a5',
-        borderRadius: 8,
+        marginBottom: 12,
+        width: '100%',
+        padding: '10px 14px',
+        background: 'var(--destructive-soft)',
+        border: '1px solid var(--destructive-soft)',
+        borderRadius: 'var(--radius-md)',
         cursor: 'pointer',
         textAlign: 'left',
+        fontFamily: 'var(--font-sans)',
         fontSize: 13,
         fontWeight: 600,
-        color: '#dc2626',
+        color: 'var(--destructive-ink)',
         lineHeight: 1.4,
       }}
       aria-live="polite"
     >
-      🔴 {highCount} high-severity{' '}
+      <span aria-hidden style={{
+        display: 'inline-block',
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        background: 'var(--danger)',
+      }} />
+      {highCount} high-severity{' '}
       {highCount === 1 ? 'anomaly' : 'anomalies'} — review
     </button>
   );

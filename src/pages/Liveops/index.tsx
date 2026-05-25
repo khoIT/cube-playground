@@ -1,84 +1,100 @@
 /**
  * LiveopsPage — /liveops route.
  *
- * Phase 1 (editorial direction): newspaper-style page header with a "deck"
- * label, a serif headline, and a tight subhead. Anomalies + KPIs are framed
- * by the same editorial grid (hairlines, generous whitespace).
+ * Page header + KPI hero strip + anomaly entry-point + sub-page nav.
+ * Typography and spacing follow the shared cube-playground design tokens
+ * (Inter via var(--font-sans), --text-* + --border-* + --radius-*) so this
+ * surface reads like the rest of the app (Dashboards, Cohort, Segments).
  */
 
 import { type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
+import { Activity, ArrowRight } from 'lucide-react';
 import { useGameContext } from '../../components/Header/use-game-context';
 import { KpiHeroStrip } from './kpi-hero-strip';
 import { AnomalyHighSeverityStrip } from './anomaly-high-severity-strip';
 
-const deckStyle: CSSProperties = {
+const pageStyle: CSSProperties = {
+  padding: '24px 32px',
+  maxWidth: 1200,
+  margin: '0 auto',
+  fontFamily: 'var(--font-sans)',
+};
+
+const headStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  marginBottom: 4,
+};
+
+const titleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: 20,
+  fontWeight: 700,
+  color: 'var(--text-primary)',
+  letterSpacing: '-0.005em',
+};
+
+const eyebrowStyle: CSSProperties = {
   fontSize: 11,
-  letterSpacing: '0.1em',
+  fontWeight: 600,
+  letterSpacing: '0.06em',
   textTransform: 'uppercase',
   color: 'var(--text-muted)',
-  fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
+  marginBottom: 6,
 };
 
-const h1Style: CSSProperties = {
-  margin: '4px 0 6px',
-  fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
-  fontWeight: 600,
-  fontSize: 34,
-  letterSpacing: '-0.01em',
-  color: 'var(--text-primary)',
-};
-
-const ledeStyle: CSSProperties = {
-  margin: 0,
-  fontSize: 14,
+const subheadStyle: CSSProperties = {
+  margin: '4px 0 20px',
+  fontSize: 13,
   color: 'var(--text-muted)',
   maxWidth: '60ch',
+};
+
+const navRowStyle: CSSProperties = {
+  marginTop: 28,
+  paddingTop: 18,
+  borderTop: '1px solid var(--border-card)',
+  display: 'flex',
+  gap: 18,
+  flexWrap: 'wrap',
 };
 
 const navLinkStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
-  padding: '8px 0',
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 500,
   color: 'var(--text-secondary)',
   textDecoration: 'none',
-  fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
 };
 
 export function LiveopsPage() {
   const { gameId } = useGameContext();
 
   return (
-    <div style={{ padding: '24px 24px 32px' }}>
-      <header style={{ padding: '0 0 18px' }}>
-        <div style={deckStyle}>Live operations · {gameId}</div>
-        <h1 style={h1Style}>Daily standup, in detail.</h1>
-        <p style={ledeStyle}>
-          Five hero metrics with the gravitas of a print masthead. Anomalies
-          file as stories — severity above all.
-        </p>
-      </header>
+    <div style={pageStyle}>
+      <div style={eyebrowStyle}>Live operations · {gameId}</div>
+      <div style={headStyle}>
+        <Activity size={20} style={{ color: 'var(--brand)' }} />
+        <h1 style={titleStyle}>Daily standup</h1>
+      </div>
+      <p style={subheadStyle}>
+        Five hero metrics for {gameId}, refreshed on the cache cadence.
+        Open anomalies surface inline above the strip.
+      </p>
 
       <AnomalyHighSeverityStrip gameId={gameId} />
-
       <KpiHeroStrip gameId={gameId} />
 
-      <div
-        style={{
-          margin: '24px 20px 0',
-          display: 'flex',
-          gap: 24,
-          borderTop: '1px solid var(--rule-editorial, var(--border-card))',
-        }}
-      >
+      <div style={navRowStyle}>
         <Link to="/liveops/cohort" style={navLinkStyle}>
-          Cohort retention →
+          Cohort retention <ArrowRight size={14} />
         </Link>
         <Link to="/liveops/anomalies" style={navLinkStyle}>
-          Anomaly archive →
+          Anomaly archive <ArrowRight size={14} />
         </Link>
       </div>
     </div>
