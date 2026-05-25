@@ -37,6 +37,7 @@ import { useAutoReplayAttach } from './hooks/use-auto-replay-attach';
 import type { ChatMessage } from './components/chat-message-list';
 import type { AssistantSection } from './components/assistant-message';
 import { readChatServiceSettings } from '../Settings/ChatService/use-chat-service-settings';
+import { ChatModeChip } from '../../shell/chat-overlay/chat-mode-chip';
 
 
 // ---------------------------------------------------------------------------
@@ -312,16 +313,25 @@ export function ChatThreadPage() {
             paddingInline: 16,
           }}
         >
-          {showDebugLink && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 0 2px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 10,
+              padding: '6px 0 2px',
+            }}
+          >
+            <ChatModeChip sessionId={activeSessionId} />
+            {showDebugLink && (
               <Link
                 to={`/dev/chat-audit/sessions/${activeSessionId}`}
                 style={{ fontSize: 11, color: T.n400, textDecoration: 'none', fontFamily: T.fSans }}
               >
                 Debug
               </Link>
-            </div>
-          )}
+            )}
+          </div>
           {isEmptyNew ? (
             <ChatEmptyHero
               composerValue={composerValue}
