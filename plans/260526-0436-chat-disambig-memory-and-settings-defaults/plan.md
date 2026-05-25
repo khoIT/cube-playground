@@ -1,7 +1,7 @@
 ---
 title: "Chat disambig memory expansion + Settings remembered defaults"
 description: "Per-turn slot-memory writes, cross-session user prefs, Settings UI surface, suppress follow-up chips during disambig."
-status: pending
+status: completed
 priority: P2
 effort: 12h
 branch: main
@@ -23,10 +23,10 @@ Backed by brainstorm `plans/reports/brainstorm-260526-0436-chat-disambig-memory-
 
 | # | File | Status | Effort | Depends on |
 |---|------|--------|--------|------------|
-| 1 | [phase-01-wave-a-session-memory-expansion.md](./phase-01-wave-a-session-memory-expansion.md) | pending | 4h | — |
-| 2 | [phase-02-wave-b-cross-session-user-prefs.md](./phase-02-wave-b-cross-session-user-prefs.md) | pending | 3h | Phase 1 |
-| 3 | [phase-03-wave-b2-settings-remembered-defaults-ui.md](./phase-03-wave-b2-settings-remembered-defaults-ui.md) | pending | 4h | Phase 2 |
-| 4 | [phase-04-wave-c-suppress-followups-during-disambig.md](./phase-04-wave-c-suppress-followups-during-disambig.md) | pending | 1h | — (standalone) |
+| 1 | [phase-01-wave-a-session-memory-expansion.md](./phase-01-wave-a-session-memory-expansion.md) | completed | 4h | — |
+| 2 | [phase-02-wave-b-cross-session-user-prefs.md](./phase-02-wave-b-cross-session-user-prefs.md) | completed | 3h | Phase 1 |
+| 3 | [phase-03-wave-b2-settings-remembered-defaults-ui.md](./phase-03-wave-b2-settings-remembered-defaults-ui.md) | completed | 4h | Phase 2 |
+| 4 | [phase-04-wave-c-suppress-followups-during-disambig.md](./phase-04-wave-c-suppress-followups-during-disambig.md) | completed | 1h | — (standalone) |
 
 Phase 4 is independent and can land in parallel with phases 1–3 (different files).
 
@@ -64,3 +64,26 @@ Phase 4 is independent and can land in parallel with phases 1–3 (different fil
 - Chip dismissal affordance (composer covers it).
 - Multi-user owner partitioning beyond owner-scoped reads (same review gate as `response_cache` wave-2).
 - `hit_count` display in Settings (hidden by default; add later if asked).
+
+## Completion Summary
+
+All four phases delivered and tested. Single PR with four commits:
+
+| Phase | Commit | Notes |
+|-------|--------|-------|
+| Wave A (Session memory) | `1b5b994` | session memory expanded to all slots with phrase storage; `phrase-resolver.ts` util; `disambiguate-memory-merge.ts` module |
+| Wave B (Cross-session prefs) | `89a92f0` | `user_disambig_prefs` SQLite table + adapter; Layer 3 fallback wired |
+| Wave B2 (Settings UI) | `ab434d1` | `/api/chat/user-prefs` routes; Settings → Chat panel with remembered defaults; Design tokens used throughout |
+| Wave C (Followup suppression) | `e4e7dfd` | One-line condition fix in `chat-message-list.tsx:103` to hide followup chips during disambig |
+
+**Aggregate Test Results:**
+- chat-service: 566/566 pass (all phases)
+- FE Settings + chip-suppression: 24/24 pass
+- TypeScript: strict mode clean for all touched files
+- No cross-phase regressions; all existing test suites green
+
+**Delivery Outcome:**
+- T0 "top spenders this week" → T1 clarify metric → T2 "ARPU" → T3 auto-routes with metric + timeRange from memory. No clarify.
+- May session sets phrase `this month`; mock clock June 3, new session → auto-resolved range `[Jun 1, Jun 30]`.
+- Settings → Chat → Remembered defaults row × click → DELETE 204 → row gone.
+- Clarify turn renders only disambig chips, no FollowupChips.

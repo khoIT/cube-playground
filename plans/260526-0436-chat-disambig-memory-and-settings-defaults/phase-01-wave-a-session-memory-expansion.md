@@ -12,7 +12,7 @@
 ## Overview
 
 - **Priority:** P2 (high — unblocks waves B, B2; standalone behavioural fix)
-- **Status:** pending
+- **Status:** completed
 - **Description:** Extend session memory to cover timeRange + filters, store user's natural-language phrase alongside resolved values, and switch the write trigger from "only on auto-route" to "every confidently-resolved slot, before action check". This is the core ledger fix.
 
 ## Key Insights
@@ -116,15 +116,15 @@ Component split if `disambiguate-query.ts` exceeds 200 LOC:
 
 ## Todo List
 
-- [ ] Adapter shape change (`SlotMemory<T>`), preserve API
-- [ ] `phrase-resolver.ts` util + test fixture
-- [ ] Read-path rewrite (fill empty slots from memory; re-resolve timeRange phrase)
-- [ ] Write-path rewrite (every slot with conf ≥ 0.7, before action check, with phrase)
-- [ ] Re-evaluate action upgrade clarify → auto
-- [ ] Split into `disambiguate-memory-merge.ts` if > 200 LOC
-- [ ] T0→T2 replay test
-- [ ] Existing 8 disambig-memory tests still pass
-- [ ] Commit: `feat(chat-disambig): expand session memory to all slots with phrase storage`
+- [x] Adapter shape change (`SlotMemory<T>`), preserve API
+- [x] `phrase-resolver.ts` util + test fixture
+- [x] Read-path rewrite (fill empty slots from memory; re-resolve timeRange phrase)
+- [x] Write-path rewrite (every slot with conf ≥ 0.7, before action check, with phrase)
+- [x] Re-evaluate action upgrade clarify → auto
+- [x] Split into `disambiguate-memory-merge.ts` if > 200 LOC
+- [x] T0→T2 replay test
+- [x] Existing 8 disambig-memory tests still pass
+- [x] Commit: `feat(chat-disambig): expand session memory to all slots with phrase storage`
 
 ## Success Criteria
 
@@ -154,3 +154,11 @@ Component split if `disambiguate-query.ts` exceeds 200 LOC:
 
 - Phase 2 depends on `phrase-resolver.ts` (re-used as Layer 3 read util) and the `SlotMemory<T>` shape.
 - Phase 4 is independent and can land in parallel.
+
+## Completion Notes
+
+**Commit:** `1b5b994`
+
+**Test Results:** chat-service 566/566 pass. All 8 existing disambig-memory tests + new T0→T2 replay tests passing. phrase-resolver frozen-now fixtures green across day/week/month boundaries. Adapter shape change validated; legacy rows without `phrase` field read safely.
+
+**Implementation Notes:** `disambiguate-memory-merge.ts` created and kept under 200 LOC. `phrase-resolver.ts` pure function utility shared between slot-extractor and memory reader. `DisambigResolutions` shape now carries `SlotMemory<T>` wrappers; `mergeResolution` API preserved. All code comments describe *why* without referencing plan artifacts.

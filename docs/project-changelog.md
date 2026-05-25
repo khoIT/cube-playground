@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-26 — chat disambiguator memory layers + Settings UI
+
+Four-part ship consolidating session memory + cross-session user preferences + Settings UI panel. Plan: `plans/260526-xxxx-chat-disambig-memory-and-settings/` (internal working document).
+
+- **Session memory expansion (1b5b994).** `SlotMemory<T>` wrapper pairs each resolved value (metric, dimension, timeRange, filter) with the user's original phrasing. Write trigger flips from "only on auto-route" to "every slot above confidence floor" so ambiguous turns that prompt for clarification still capture confirmed values. Phrase storage enables relative date re-resolution: "this week" now re-anchors to the current week boundary when the next session opens, not frozen to the first session's calendar.
+- **Cross-session user_disambig_prefs layer (89a92f0).** New durable table `user_disambig_prefs` (owner_id, game_id, slot, value_json, hit_count, last_used_at, created_at, indexed by owner+last_used). CRUD adapter + layer-3 cascading reads (L1 session → L2 turn-memo → L3 user-prefs). Every confident slot lands in both L1 and L3 at write time so preferences accumulate across sessions. New phrase-resolver date rules: "this month" / "tháng này" / "this week" / "tuần này" with re-resolution at read time.
+- **Settings UI + API (ab434d1).** `Settings → Chat` tab surfaces a second card ("Remembered defaults") listing every user-learned preference from L3, with per-row clear and clear-all button. Three new HTTP routes: `GET /api/chat/user-prefs`, `DELETE /api/chat/user-prefs/:slot`, `DELETE /api/chat/user-prefs` (all owner-scoped). Server resolves cube member refs to readable labels via warm cube-meta cache, surfaces user's original phrase for timeRange (not computed dates).
+- **UX fix (e4e7dfd).** Disambig chips (pending slot resolution) now suppress follow-up chip suggestions on the same turn so users see one clear "what next" affordance.
+
 ## 2026-05-25 (later) — chat-audit redesign + cache effectiveness dashboard
 
 Six-phase IA + UX overhaul of `/dev/chat-audit` applying the `huashu-design` methodology. Plan: `plans/260525-1709-chat-audit-redesign-and-cache-dashboard/`. Hi-fi mockup at `plans/.../design/hifi-mockup.html` was the design contract. Tests: chat-service 478 (+51 new), FE 1265 (+~85 new); 2 pre-existing baseline failures unchanged.

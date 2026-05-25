@@ -10,7 +10,7 @@
 ## Overview
 
 - **Priority:** P3 (low effort, high UX clarity; standalone)
-- **Status:** pending
+- **Status:** completed
 - **Description:** One-line condition fix in `chat-message-list.tsx`: when an assistant message carries `disambigOptions`, do not render FollowupChips. Removes the duplicate "what next" UX on clarify turns.
 
 ## Key Insights
@@ -79,11 +79,11 @@ No data-flow change. Just an extra boolean term.
 
 ## Todo List
 
-- [ ] Edit `chat-message-list.tsx:103` condition
-- [ ] Confirm `data-testid` exists on both chip groups (add if missing)
-- [ ] RTL test: clarify turn with disambig — followups absent
-- [ ] RTL test: regular turn — followups still render
-- [ ] Commit: `fix(chat): hide follow-up chips on disambig clarify turns`
+- [x] Edit `chat-message-list.tsx:103` condition
+- [x] Confirm `data-testid` exists on both chip groups (add if missing)
+- [x] RTL test: clarify turn with disambig — followups absent
+- [x] RTL test: regular turn — followups still render
+- [x] Commit: `fix(chat): hide follow-up chips on disambig clarify turns`
 
 ## Success Criteria
 
@@ -108,3 +108,11 @@ No data-flow change. Just an extra boolean term.
 ## Next Steps
 
 - None. Lands independently; no follow-up phases gated on it.
+
+## Completion Notes
+
+**Commit:** `e4e7dfd`
+
+**Test Results:** FE Settings + chip-suppression 24/24 pass. RTL tests pass: clarify turn with `disambigOptions` set renders only disambig chips (followup chips absent); regular turn without `disambigOptions` still renders followup chips (regression check). Test file 56 LOC (well under 80).
+
+**Implementation Notes:** One-line condition change in `chat-message-list.tsx:103` adding `&& !msg.disambigOptions` to the `showFollowups` condition. Code comment explains the *why*: "Disambig chips own the 'what next' affordance on clarify turns; suppress follow-up chips to avoid double-prompting." Data-testid attributes (`data-testid="disambig-chips"` and `data-testid="followup-chips"`) already present in chip components; no additional edits needed. No cross-phase impact; all existing chat tests remain green.

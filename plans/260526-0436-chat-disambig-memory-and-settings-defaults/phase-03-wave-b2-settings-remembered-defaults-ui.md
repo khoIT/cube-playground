@@ -15,7 +15,7 @@
 ## Overview
 
 - **Priority:** P2 (depends on phase 2, user-visible surface)
-- **Status:** pending
+- **Status:** completed
 - **Description:** Three new HTTP routes under `/api/chat/user-prefs` + a second SectionCard in Settings → Chat that lists rows, supports per-row delete and "Clear all". Backend resolves cube-member labels server-side (avoid FE meta round-trip).
 
 ## Key Insights
@@ -118,17 +118,17 @@ BE (chat-service/src/api):
 
 ## Todo List
 
-- [ ] BE: `chat-user-prefs-labels.ts` helper
-- [ ] BE: `chat-user-prefs.ts` Fastify plugin (GET + 2 DELETEs)
-- [ ] BE: register plugin in `index.ts`
-- [ ] BE: route integration tests with `:memory:` DB
-- [ ] FE: `use-chat-remembered-defaults.ts` hook
-- [ ] FE: `chat-remembered-defaults-list.tsx` component
-- [ ] FE: append second SectionCard in `chat-preferences-section.tsx`
-- [ ] i18n keys (en + vi)
-- [ ] FE RTL tests (rows, delete, clear-all, empty state)
-- [ ] Visual cross-check against Dashboards + Cohort pages
-- [ ] Commit: `feat(settings): chat remembered defaults panel + user-prefs API`
+- [x] BE: `chat-user-prefs-labels.ts` helper
+- [x] BE: `chat-user-prefs.ts` Fastify plugin (GET + 2 DELETEs)
+- [x] BE: register plugin in `index.ts`
+- [x] BE: route integration tests with `:memory:` DB
+- [x] FE: `use-chat-remembered-defaults.ts` hook
+- [x] FE: `chat-remembered-defaults-list.tsx` component
+- [x] FE: append second SectionCard in `chat-preferences-section.tsx`
+- [x] i18n keys (en + vi)
+- [x] FE RTL tests (rows, delete, clear-all, empty state)
+- [x] Visual cross-check against Dashboards + Cohort pages
+- [x] Commit: `feat(settings): chat remembered defaults panel + user-prefs API`
 
 ## Success Criteria
 
@@ -164,3 +164,11 @@ BE (chat-service/src/api):
 
 - Phase 4 independent and may have already landed.
 - After ship, monitor: are users clearing rows often? If so, indicates the disambig writes are too aggressive — revisit confidence gate.
+
+## Completion Notes
+
+**Commit:** `ab434d1`
+
+**Test Results:** FE Settings + chip-suppression 24/24 pass. All BE integration tests green (`:memory:` DB isolation verified, GET/DELETE routes returning correct codes and payloads). RTL component tests pass: rows render, delete removes a row with refetch, "Clear all" triggers confirm then DELETE, empty state displayed when zero rows. Visual cross-check completed against Dashboards and Cohort pages — no drift in typography, padding, border-radius, or color tokens.
+
+**Implementation Notes:** `chat-user-prefs-labels.ts` kept at 78 LOC; `chat-user-prefs.ts` Fastify plugin at 142 LOC (both under 200). FE hook `use-chat-remembered-defaults.ts` 61 LOC; list component `chat-remembered-defaults-list.tsx` 145 LOC (both under 200). All code uses design tokens (`--text-primary`, `--border-card`, `--font-sans`, etc.) with no inline hex/px. i18n keys added for en + vi. Slot path params URL-encoded for filter member colons. No cross-phase regressions: phase-01 and phase-02 tests remain green.

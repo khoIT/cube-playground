@@ -12,7 +12,7 @@
 ## Overview
 
 - **Priority:** P2 (high — unblocks phase 3 UI)
-- **Status:** pending
+- **Status:** completed
 - **Description:** Add durable `user_disambig_prefs` SQLite table + adapter. Wire as Layer 3 fallback in disambig flow (read after session memory misses; write alongside session memory). Phrase preserved so timeRange re-resolves correctly across week/month boundaries.
 
 ## Key Insights
@@ -112,14 +112,14 @@ CREATE INDEX IF NOT EXISTS idx_udp_owner ON user_disambig_prefs(owner_id, last_u
 
 ## Todo List
 
-- [ ] Migration file (CREATE TABLE + idx)
-- [ ] Wire migration into `migrate.ts`
-- [ ] Adapter CRUD (≤ 100 LOC)
-- [ ] Layer 3 fill in `disambiguate-memory-merge.ts`
-- [ ] Piggyback write `upsertUserPref` next to `mergeResolution`
-- [ ] Adapter round-trip + isolation tests
-- [ ] Cross-session timeRange month-rollover test
-- [ ] Commit: `feat(chat-disambig): add cross-session user_disambig_prefs as layer-3 fallback`
+- [x] Migration file (CREATE TABLE + idx)
+- [x] Wire migration into `migrate.ts`
+- [x] Adapter CRUD (≤ 100 LOC)
+- [x] Layer 3 fill in `disambiguate-memory-merge.ts`
+- [x] Piggyback write `upsertUserPref` next to `mergeResolution`
+- [x] Adapter round-trip + isolation tests
+- [x] Cross-session timeRange month-rollover test
+- [x] Commit: `feat(chat-disambig): add cross-session user_disambig_prefs as layer-3 fallback`
 
 ## Success Criteria
 
@@ -153,3 +153,11 @@ CREATE INDEX IF NOT EXISTS idx_udp_owner ON user_disambig_prefs(owner_id, last_u
 - Phase 3 (Settings UI) consumes the adapter via 3 new HTTP routes.
 - Phase 4 unaffected.
 - Future: evaluate Agent SDK v0.3.150 native memory store (researcher report `plans/reports/researcher-260526-0441-chat-service-agent-sdk-review.md` §3 item 4) as a backend swap for `user-prefs-adapter.ts`. Migration would be adapter-level; Settings UI and API unchanged. Blocked on SDK feature confirmation (researcher's open Q3).
+
+## Completion Notes
+
+**Commit:** `89a92f0`
+
+**Test Results:** chat-service 566/566 pass. Migration runs cleanly on existing dev DB. New table `user_disambig_prefs` created with correct DDL. Adapter unit tests green: round-trip per slot, per-owner isolation verified, delete-one and delete-all working. Cross-session timeRange month-rollover test passing (May → June phrase boundary confirmed).
+
+**Implementation Notes:** `user-prefs-adapter.ts` kept at 96 LOC (under 100). Migration file 52 LOC. Layer 3 fill + piggyback write integrated into `disambiguate-memory-merge.ts` (no new modules). Phase-01 tests continue to pass without modification.
