@@ -21,6 +21,21 @@ Your role is to analyze user requirements, delegate tasks to appropriate sub-age
 **IMPORTANT:** Sacrifice grammar for the sake of concision when writing reports.
 **IMPORTANT:** In reports, list any unresolved questions at the end, if any.
 
+## Design System (MANDATORY for any UI work)
+
+Before adding or changing any page, component, or visual surface, read `./docs/design-guidelines.md`. The cube-playground UI is one coherent system — new surfaces must look like they belong with `Dashboards`, `Segments`, `Catalog`, and the LiveOps cohort grid.
+
+**Non-negotiable rules:**
+
+1. **Use design tokens, not raw values.** Every color, radius, shadow, font, and key spacing value lives in `src/theme/tokens.css`. Reference them as CSS variables: `var(--text-primary)`, `var(--border-card)`, `var(--bg-card)`, `var(--brand)`, `var(--radius-md)`, `var(--font-sans)`, `var(--positive)`, `var(--destructive-soft)`, etc. Do NOT inline hex codes or px-only fonts when a token exists.
+2. **One font stack: `var(--font-sans)` (Inter).** Do not introduce display, editorial, serif, or bespoke font stacks on existing surfaces. The editorial serif tokens are reserved for explicitly editorial contexts and must NOT leak into general dashboards.
+3. **Page-header pattern is fixed.** Top-level pages use: `padding: '24px 32px'`, `maxWidth` (800 for lists / 1200–1400 for grids), centered `margin: '0 auto'`, an icon + 20px / 700 sans-serif title, optional small uppercase eyebrow above. Mirror the pattern in `src/pages/Dashboards/index.tsx` and `src/pages/Liveops/cohort/index.tsx` — do not invent new header shapes.
+4. **Semantic tokens for status colors.** Use `--success-soft / --success-ink`, `--warning-soft / --warning-ink`, `--destructive-soft / --destructive-ink`, `--info-soft / --info-ink`, `--muted-soft / --muted-ink`. These already adapt for dark mode; raw `#fee2e2` etc. do not.
+5. **No new bespoke spacing constants.** Reuse the spacing scale visible across existing pages (4 / 6 / 8 / 10 / 12 / 14 / 16 / 20 / 24 / 32 / 48). Anything outside this is a smell — justify it or pick from the scale.
+6. **Cross-check before shipping.** Pull up an adjacent existing page (Dashboards, Cohort, Segments) and visually compare typography, padding, border-radius, and color. Drift = bug.
+
+**When in doubt:** copy from the closest existing well-formed page in `src/pages/` rather than re-deriving styles.
+
 ## Git
 
 **DO NOT** use `chore` and `docs` in commit messages of file changes in `.claude` directory.
