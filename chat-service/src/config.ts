@@ -98,6 +98,14 @@ export interface Config {
    */
   responseCacheEnabled: boolean;
   /**
+   * Enable the unified kv_cache service (cube /load row cache, turn-detail
+   * audit cache, etc.). On by default — these surfaces are PII-clean since
+   * they cache aggregate data or already-approved DB reads, not LLM output
+   * derived from user messages. Independent from `responseCacheEnabled`,
+   * which gates the higher-PII response cache.
+   */
+  cacheServiceEnabled: boolean;
+  /**
    * Enable Anthropic's automatic prompt prefix cache. On by default — the SDK
    * caches stable prefixes server-side at no storage cost on our infra (no PII
    * surface). Setting ANTHROPIC_PROMPT_CACHE_ENABLED=false appends a per-turn
@@ -144,6 +152,7 @@ export const config: Config = {
   langfuseSecretKey: optional('LANGFUSE_SECRET_KEY', ''),
   langfuseBaseUrl: optional('LANGFUSE_HOST', 'https://cloud.langfuse.com'),
   responseCacheEnabled: optional('RESPONSE_CACHE_ENABLED', 'false') === 'true',
+  cacheServiceEnabled: optional('CACHE_SERVICE_ENABLED', 'true') === 'true',
   anthropicPromptCacheEnabled: optional('ANTHROPIC_PROMPT_CACHE_ENABLED', 'true') === 'true',
   allowedModels: optional(
     'ALLOWED_MODELS',
