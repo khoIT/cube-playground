@@ -90,8 +90,10 @@ const S = {
   } as React.CSSProperties,
 };
 
-function relativeTime(ts: number): string {
+function relativeTime(ts: number | null | undefined): string {
+  if (typeof ts !== 'number' || !Number.isFinite(ts)) return '';
   const diff = Date.now() - ts;
+  if (diff < 0) return 'just now';
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;
@@ -155,7 +157,7 @@ export function SessionList({ gameId, selectedId, onSelect }: SessionListProps) 
             <div style={S.title}>{s.title || `Session ${s.id.slice(0, 8)}`}</div>
             <div style={S.meta}>
               <span>{s.turn_count} turn{s.turn_count !== 1 ? 's' : ''}</span>
-              <span>{relativeTime(s.updated_at)}</span>
+              <span>{relativeTime(s.last_turn_at ?? s.created_at)}</span>
               {s.status !== 'active' && <span style={{ color: T.n400 }}>{s.status}</span>}
             </div>
           </div>

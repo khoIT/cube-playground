@@ -35,7 +35,7 @@ afterEach(() => { vi.restoreAllMocks(); });
 // ---------------------------------------------------------------------------
 describe('useDebugSessions', () => {
   it('fetches sessions with correct URL and auth header', async () => {
-    const sessions = [{ id: 's1', title: 'Test', turn_count: 3, updated_at: Date.now(), status: 'active' }];
+    const sessions = [{ id: 's1', title: 'Test', turn_count: 3, created_at: Date.now(), last_turn_at: Date.now(), status: 'active' }];
     mockFetch(sessions);
 
     const { result } = renderHook(() => useDebugSessions({ game: 'ptg', q: '' }));

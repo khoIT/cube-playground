@@ -9,7 +9,7 @@ export interface DebugSession {
   owner_id: string;
   game_id: string;
   created_at: number;
-  updated_at: number;
+  last_turn_at: number | null;
   turn_count: number;
   status: string;
 }

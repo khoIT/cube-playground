@@ -21,10 +21,10 @@ const S = {
   banner: {
     flexShrink: 0,
     padding: '6px 16px',
-    background: T.amberSoft,
-    borderBottom: `1px solid ${T.amber500}`,
+    background: T.surfaceSubtle,
+    borderBottom: `1px solid ${T.n200}`,
     fontSize: 11,
-    color: T.n700,
+    color: T.n600,
     display: 'flex',
     alignItems: 'center',
     gap: 6,
@@ -45,7 +45,7 @@ export function DevAuditPage() {
   return (
     <div style={S.root}>
       <div style={S.banner}>
-        <span>Internal triage tool — sessions visible only to owner from X-Owner-Id.</span>
+        <span>Showing your own chat sessions for triage.</span>
         <span style={{ marginLeft: 'auto', color: T.n500, fontFamily: T.fMono }}>
           game: {gameId}
         </span>
