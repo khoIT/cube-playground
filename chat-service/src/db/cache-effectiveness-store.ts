@@ -20,6 +20,7 @@ import {
   querySparklineByDay,
   queryTopQueriesByHit,
   queryStaleRatio,
+  queryKvCacheByKind,
 } from './cache-effectiveness-queries.js';
 
 // ---------------------------------------------------------------------------
@@ -56,6 +57,14 @@ export interface StaleRatio {
   legacy: number;  // cube_meta_hash IS NULL
 }
 
+/** Per-kind row count + hit totals from the unified kv_cache table. */
+export interface KvCacheKindStat {
+  kind: string;
+  entries: number;
+  totalHits: number;
+  lastHitAt: number | null;
+}
+
 export interface CacheEffectivenessResult {
   summary: {
     hitRate: number;
@@ -70,6 +79,13 @@ export interface CacheEffectivenessResult {
   /** Fraction [0,1] of cache rows with no cube_meta_hash (legacy format). */
   legacyRatio: number;
   currentMetaHash: string | null;
+  /**
+   * Non-response_cache caches (cube /load rows, turn-detail audit) grouped
+   * by kind. Empty when no kv_cache rows exist yet. Each entry is a tiny
+   * stat strip — not the full hit-rate / saved-dollars panel since these
+   * surfaces don't have miss latency or LLM cost to compare against.
+   */
+  byKind: KvCacheKindStat[];
   computedAt: string;
 }
 
@@ -112,6 +128,7 @@ export function computeCacheEffectiveness(
   const { staleRatio: rawStale, currentMetaHash } = queryStaleRatio(db, {
     ownerId: params.ownerId, gameId: params.gameId,
   });
+  const byKind = queryKvCacheByKind(db);
 
   // Convert raw counts to [0,1] fractions. denom = typed + legacy = all non-null + null rows.
   const denom = rawStale.typed + rawStale.legacy;
@@ -125,6 +142,7 @@ export function computeCacheEffectiveness(
     staleRatio,
     legacyRatio,
     currentMetaHash,
+    byKind,
     computedAt: new Date().toISOString(),
   };
 }

@@ -36,6 +36,18 @@ export interface TopQueryRow {
   originalSessionId: string | null;
 }
 
+/**
+ * Per-kind row count + total hits from the unified kv_cache table.
+ * Surfaces non-response_cache caches (cube /load rows, turn-detail audit)
+ * alongside the headline response_cache totals.
+ */
+export interface KvCacheKindStat {
+  kind: string;
+  entries: number;
+  totalHits: number;
+  lastHitAt: number | null;
+}
+
 /** Raw BE stale-ratio counts (emitted by older BE before scalar conversion). */
 export interface StaleRatioCounts {
   stale: number;   // rows with outdated cube_meta_hash
@@ -55,6 +67,11 @@ export interface CacheEffectivenessResponse {
   staleRatio: number | StaleRatioCounts;
   /** Fraction [0,1] of cached entries using the legacy cache format (no hash). */
   legacyRatio?: number;
+  /**
+   * Optional kv_cache breakdown by kind (cube /load, turn-detail audit, etc.).
+   * Older BE releases omit this field — treat as [] when absent.
+   */
+  byKind?: KvCacheKindStat[];
 }
 
 /**

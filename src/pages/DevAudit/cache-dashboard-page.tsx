@@ -15,6 +15,7 @@ import { useCacheEffectiveness } from './use-cache-effectiveness';
 import { CacheDashboardHero } from './cache-dashboard-hero';
 import { CacheDashboardTopQueries } from './cache-dashboard-top-queries';
 import { CacheStaleBanner } from './cache-stale-banner';
+import { CacheByKindTable } from './cache-by-kind-table';
 
 const DAY_OPTIONS = [7, 30, 90] as const;
 const TOP_N_OPTIONS = [10, 20, 50] as const;
@@ -163,7 +164,8 @@ export function CacheDashboardPage() {
     !error &&
     data != null &&
     (data.summary.hitRate == null || data.summary.hitRate === 0) &&
-    data.topQueries.length === 0;
+    data.topQueries.length === 0 &&
+    (data.byKind == null || data.byKind.length === 0);
 
   return (
     <div style={S.root} data-testid="cache-dashboard-page">
@@ -230,6 +232,7 @@ export function CacheDashboardPage() {
           />
           <CacheDashboardHero data={data} days={days} />
           <CacheDashboardTopQueries rows={data.topQueries} topN={topN} />
+          <CacheByKindTable rows={data.byKind ?? []} />
         </>
       )}
     </div>

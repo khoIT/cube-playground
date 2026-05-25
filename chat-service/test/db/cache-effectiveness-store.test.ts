@@ -19,6 +19,7 @@ import Database from 'better-sqlite3';
 import { migrate } from '../../src/db/migrate.js';
 import { computeCacheEffectiveness } from '../../src/db/cache-effectiveness-store.js';
 import * as chatStore from '../../src/db/chat-store.js';
+import { kvPut } from '../../src/cache/kv-cache-store.js';
 
 vi.mock('../../src/config.js', () => ({
   config: {
@@ -481,6 +482,48 @@ describe('computeCacheEffectiveness', () => {
     // With gameId filter → currentMetaHash resolves to that game's hash
     const rG1 = computeCacheEffectiveness(db, { ownerId: 'owner-a', gameId: 'game-1', days: 30, topN: 20 });
     expect(rG1.currentMetaHash).toBe('hash-game1');
+  });
+
+  // -------------------------------------------------------------------------
+  // kv_cache byKind breakdown
+  // -------------------------------------------------------------------------
+
+  it('byKind is empty when kv_cache has no rows', () => {
+    const r = computeCacheEffectiveness(db, { ownerId: 'owner-a', days: 30, topN: 20 });
+    expect(r.byKind).toEqual([]);
+  });
+
+  it('byKind groups kv_cache rows by kind with entries + totalHits', () => {
+    kvPut(db, { kind: 'load', key: 'k1', valueJson: '{}', now: 1000 });
+    kvPut(db, { kind: 'load', key: 'k2', valueJson: '{}', now: 1100 });
+    kvPut(db, { kind: 'turn_detail', key: 'tA', valueJson: '{}', now: 1200 });
+
+    // Simulate hits on load/k1 by manually bumping (no kvGet API exposes
+    // bypass; use raw UPDATE to keep test pure-table-level).
+    db.prepare(`UPDATE kv_cache SET hit_count = 5, last_hit_at = 2000 WHERE kind = 'load' AND key = 'k1'`).run();
+    db.prepare(`UPDATE kv_cache SET hit_count = 2, last_hit_at = 1900 WHERE kind = 'turn_detail' AND key = 'tA'`).run();
+
+    const r = computeCacheEffectiveness(db, { ownerId: 'owner-a', days: 30, topN: 20 });
+    expect(r.byKind).toHaveLength(2);
+
+    const load = r.byKind.find((k) => k.kind === 'load')!;
+    expect(load.entries).toBe(2);
+    expect(load.totalHits).toBe(5);
+    expect(load.lastHitAt).toBe(2000);
+
+    const turnDetail = r.byKind.find((k) => k.kind === 'turn_detail')!;
+    expect(turnDetail.entries).toBe(1);
+    expect(turnDetail.totalHits).toBe(2);
+    expect(turnDetail.lastHitAt).toBe(1900);
+  });
+
+  it('byKind is sorted by kind ascending', () => {
+    kvPut(db, { kind: 'zzz', key: 'k', valueJson: '{}' });
+    kvPut(db, { kind: 'aaa', key: 'k', valueJson: '{}' });
+    kvPut(db, { kind: 'mmm', key: 'k', valueJson: '{}' });
+
+    const r = computeCacheEffectiveness(db, { ownerId: 'owner-a', days: 30, topN: 20 });
+    expect(r.byKind.map((k) => k.kind)).toEqual(['aaa', 'mmm', 'zzz']);
   });
 
   it('owner B with different game sees only their own data', () => {

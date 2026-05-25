@@ -8,7 +8,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { LatencyWin, SparklineDay, TopQuery, StaleRatio } from './cache-effectiveness-store.js';
+import type { LatencyWin, SparklineDay, TopQuery, StaleRatio, KvCacheKindStat } from './cache-effectiveness-store.js';
 
 // ---------------------------------------------------------------------------
 // Hit rate + latency
@@ -231,4 +231,34 @@ export function queryStaleRatio(
     }
   }
   return { staleRatio: { stale, typed, legacy }, currentMetaHash };
+}
+
+// ---------------------------------------------------------------------------
+// kv_cache breakdown by kind
+// ---------------------------------------------------------------------------
+
+/**
+ * Aggregate kv_cache rows grouped by kind. No owner filter today because
+ * current adapters (load, turn_detail) store with owner_id NULL — surfaces
+ * are shared per (game, schema). Once owner-scoped adapters land, this
+ * query will need an `(owner_id IS NULL OR owner_id = ?)` clause.
+ */
+export function queryKvCacheByKind(db: Database.Database): KvCacheKindStat[] {
+  type Row = { kind: string; entries: number; total_hits: number; last_hit_at: number | null };
+  const rows = db.prepare(
+    `SELECT kind,
+            COUNT(*) AS entries,
+            COALESCE(SUM(hit_count), 0) AS total_hits,
+            MAX(last_hit_at) AS last_hit_at
+     FROM kv_cache
+     GROUP BY kind
+     ORDER BY kind`,
+  ).all() as Row[];
+
+  return rows.map((r) => ({
+    kind: r.kind,
+    entries: r.entries,
+    totalHits: r.total_hits,
+    lastHitAt: r.last_hit_at,
+  }));
 }
