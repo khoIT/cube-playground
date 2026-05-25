@@ -23,12 +23,16 @@ type SortDir = 'asc' | 'desc';
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function truncate(s: string, max = 80): string {
+  if (!s) return '—';
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
-function fmtRelative(iso: string | null): string {
-  if (!iso) return '—';
-  const ms = Date.now() - new Date(iso).getTime();
+// BE emits ms-epoch numbers; accept ISO strings too in case a fixture/older payload feeds them.
+function fmtRelative(at: number | string | null): string {
+  if (at == null) return '—';
+  const ts = typeof at === 'number' ? at : new Date(at).getTime();
+  if (!Number.isFinite(ts)) return '—';
+  const ms = Date.now() - ts;
   const min = Math.floor(ms / 60_000);
   if (min < 60) return `${min}m ago`;
   const hr = Math.floor(min / 60);
@@ -38,12 +42,6 @@ function fmtRelative(iso: string | null): string {
 
 function fmtDollars(n: number): string {
   return `$${n.toFixed(2)}`;
-}
-
-/** $ saved per row: cost_usd × (hit_count - 1) */
-function rowDollarsSaved(row: TopQueryRow): number {
-  if (!row.costUsd || row.hitCount <= 1) return 0;
-  return row.costUsd * (row.hitCount - 1);
 }
 
 // ── styles ────────────────────────────────────────────────────────────────────
@@ -145,8 +143,8 @@ export function CacheDashboardTopQueries({ rows, topN }: Props) {
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
-      const aVal = sortCol === 'hits' ? a.hitCount : rowDollarsSaved(a);
-      const bVal = sortCol === 'hits' ? b.hitCount : rowDollarsSaved(b);
+      const aVal = sortCol === 'hits' ? a.hitCount : a.dollarsSaved;
+      const bVal = sortCol === 'hits' ? b.hitCount : b.dollarsSaved;
       return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
     });
   }, [rows, sortCol, sortDir]);
@@ -213,23 +211,23 @@ export function CacheDashboardTopQueries({ rows, topN }: Props) {
           ) : (
             sorted.map((row) => (
               <tr
-                key={row.cacheKey}
+                key={row.queryKey}
                 onClick={() => handleRowClick(row)}
                 style={{ cursor: row.originalSessionId ? 'pointer' : 'default' }}
                 data-testid="top-query-row"
               >
                 <td style={S.td}>
-                  <div style={S.snippet}>{truncate(row.normalizedQuery)}</div>
+                  <div style={S.snippet}>{truncate(row.snippet)}</div>
                   <div style={S.snippetMeta}>
-                    key: {row.cacheKey.slice(0, 4)}…{row.cacheKey.slice(-4)}
+                    key: {row.queryKey.slice(0, 4)}…{row.queryKey.slice(-4)}
                   </div>
                 </td>
-                <td style={{ ...S.td, ...S.tdMono }}>{row.skill ?? '—'}</td>
-                <td style={{ ...S.td, ...S.tdMono }}>{row.model ?? '—'}</td>
+                <td style={{ ...S.td, ...S.tdMono }}>{row.skill || '—'}</td>
+                <td style={{ ...S.td, ...S.tdMono }}>{row.model || '—'}</td>
                 <td style={{ ...S.td, ...S.tdMono, ...S.tdR }}>{row.hitCount}</td>
                 <td style={{ ...S.td, ...S.tdMono, ...S.tdR }}>{fmtRelative(row.lastHitAt)}</td>
                 <td style={{ ...S.td, ...S.tdMono, ...S.tdR, ...S.tdBrand }}>
-                  {fmtDollars(rowDollarsSaved(row))}
+                  {fmtDollars(row.dollarsSaved)}
                 </td>
               </tr>
             ))

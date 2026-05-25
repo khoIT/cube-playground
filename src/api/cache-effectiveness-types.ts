@@ -19,16 +19,21 @@ export interface CacheSparklineDay {
   misses: number;
 }
 
+/**
+ * Mirrors chat-service `TopQuery` (see chat-service/src/db/cache-effectiveness-store.ts).
+ * BE precomputes `dollarsSaved`; snippet is already truncated to 80 chars in SQL layer.
+ * `lastHitAt` is ms-epoch (number) on the wire — `new Date(n)` parses it.
+ */
 export interface TopQueryRow {
-  cacheKey: string;
-  normalizedQuery: string;
-  skill: string | null;
-  model: string | null;
+  queryKey: string;
+  snippet: string;
+  skill: string;
+  model: string;
   hitCount: number;
-  lastHitAt: string | null;   // ISO timestamp
-  costUsd: number | null;
-  originalSessionId: string | null;
+  lastHitAt: number | null;
+  dollarsSaved: number;
   originalTurnId: string | null;
+  originalSessionId: string | null;
 }
 
 /** Raw BE stale-ratio counts (emitted by older BE before scalar conversion). */

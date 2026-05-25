@@ -26,23 +26,24 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-function makeRow(overrides: Partial<TopQueryRow> & { cacheKey: string; normalizedQuery: string }): TopQueryRow {
+function makeRow(overrides: Partial<TopQueryRow> & { queryKey: string; snippet: string }): TopQueryRow {
   return {
     skill: 'metric-explorer',
     model: 'sonnet',
     hitCount: 1,
     lastHitAt: null,
-    costUsd: null,
+    dollarsSaved: 0,
     originalSessionId: null,
     originalTurnId: null,
     ...overrides,
   };
 }
 
+// dollarsSaved values mirror BE: cost_usd × (hit_count - 1)
 const THREE_ROWS: TopQueryRow[] = [
-  makeRow({ cacheKey: 'aaa111', normalizedQuery: 'show dau by platform', hitCount: 142, costUsd: 0.012, originalSessionId: 'ses_abc', originalTurnId: 'turn_1' }),
-  makeRow({ cacheKey: 'bbb222', normalizedQuery: 'what is d7 retention', hitCount: 47, costUsd: 0.008, originalSessionId: 'ses_def', originalTurnId: 'turn_2' }),
-  makeRow({ cacheKey: 'ccc333', normalizedQuery: 'cohort by acquisition', hitCount: 12, costUsd: 0.020, originalSessionId: null, originalTurnId: null }),
+  makeRow({ queryKey: 'aaa111', snippet: 'show dau by platform', hitCount: 142, dollarsSaved: 1.692, originalSessionId: 'ses_abc', originalTurnId: 'turn_1' }),
+  makeRow({ queryKey: 'bbb222', snippet: 'what is d7 retention', hitCount: 47, dollarsSaved: 0.368, originalSessionId: 'ses_def', originalTurnId: 'turn_2' }),
+  makeRow({ queryKey: 'ccc333', snippet: 'cohort by acquisition', hitCount: 12, dollarsSaved: 0.220, originalSessionId: null, originalTurnId: null }),
 ];
 
 function renderTable(rows: TopQueryRow[] = THREE_ROWS, topN = 20) {
@@ -104,10 +105,7 @@ describe('CacheDashboardTopQueries', () => {
     renderTable();
     fireEvent.click(screen.getByTestId('th-dollars'));
     const rows = screen.getAllByTestId('top-query-row');
-    // dollarsSaved = costUsd * (hitCount-1)
-    // aaa111: 0.012 * 141 = 1.692
-    // bbb222: 0.008 * 46  = 0.368
-    // ccc333: 0.020 * 11  = 0.220
+    // dollarsSaved: aaa111=1.692, bbb222=0.368, ccc333=0.220
     expect(rows[0].textContent).toContain('show dau by platform');
   });
 
@@ -127,7 +125,7 @@ describe('CacheDashboardTopQueries', () => {
 
   it('truncates long query snippets at 80 chars', () => {
     const longQuery = 'a'.repeat(100);
-    renderTable([makeRow({ cacheKey: 'xxx', normalizedQuery: longQuery })]);
+    renderTable([makeRow({ queryKey: 'xxx', snippet: longQuery })]);
     const row = screen.getByTestId('top-query-row');
     expect(row.textContent).toContain('a'.repeat(80) + '…');
   });

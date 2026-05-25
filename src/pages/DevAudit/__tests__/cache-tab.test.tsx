@@ -43,13 +43,13 @@ const FULL_DATA: CacheEffectivenessResponse = {
   ],
   topQueries: [
     {
-      cacheKey: 'abc123',
-      normalizedQuery: 'show dau by platform last 7d',
+      queryKey: 'abc123',
+      snippet: 'show dau by platform last 7d',
       skill: 'metric-explorer',
       model: 'sonnet',
       hitCount: 47,
-      lastHitAt: '2026-05-25T10:00:00Z',
-      costUsd: 0.012,
+      lastHitAt: Date.parse('2026-05-25T10:00:00Z'),
+      dollarsSaved: 0.012 * 46,
       originalSessionId: 'ses_abc',
       originalTurnId: 'turn_1',
     },
