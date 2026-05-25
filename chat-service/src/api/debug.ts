@@ -83,7 +83,11 @@ function rowToDebugTurn(
   sdkCount: number,
 ): DebugTurnDto {
   const text = row.role === 'user' ? row.user_text ?? '' : row.assistant_text ?? '';
-  const legacy = llmCallCount === 0 && toolInvocationCount === 0 && sdkCount === 0;
+  // Legacy only makes sense for assistant turns — user turns never produce LLM
+  // calls, tool invocations, or SDK rows, so the zero-count condition would
+  // tag every user turn as legacy.
+  const legacy =
+    row.role === 'assistant' && llmCallCount === 0 && toolInvocationCount === 0 && sdkCount === 0;
   const durationMs = row.ended_at != null && row.started_at != null ? row.ended_at - row.started_at : null;
 
   // Phase-06: resolve original session id for cache-hit turns.
