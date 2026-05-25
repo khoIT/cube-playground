@@ -32,7 +32,7 @@ import { config, isLangfuseEnabled } from '../config.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import { RegistryOverflowError } from '../core/stream-registry.js';
 import type { SseEvent, QueryArtifact, ChartArtifact, ToolContext } from '../types.js';
-import { LlmTraceRecorder } from '../observability/llm-trace-recorder.js';
+import { LlmTraceRecorder, BufferedLlmTraceRecorder } from '../observability/llm-trace-recorder.js';
 import { LangfuseTracer } from '../observability/langfuse-tracer.js';
 import { buildCompositeObserver } from '../observability/composite-observer.js';
 import type { ObserverHooks } from '../observability/observer-types.js';
@@ -282,10 +282,17 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // crashes the turn before SSE headers are sent.
     let observer: ObserverHooks | undefined;
     let tracer: LangfuseTracer | undefined;
+    let bufferedRecorder: BufferedLlmTraceRecorder | undefined;
     try {
-      const recorder = new LlmTraceRecorder({ db: opts.db, turnId });
+      // Recorder writes go through a buffer: chat_turns FK rejects inserts for
+      // the assistant turn until that row exists, and that INSERT happens
+      // *after* the runner loop. Buffered events are flushed once appendTurn
+      // has committed the assistant row below.
+      bufferedRecorder = new BufferedLlmTraceRecorder(
+        new LlmTraceRecorder({ db: opts.db, turnId }),
+      );
       tracer = new LangfuseTracer({ turnId, sessionId, ownerId: body.owner_id, skill: intent.skill });
-      observer = buildCompositeObserver([recorder, tracer]);
+      observer = buildCompositeObserver([bufferedRecorder, tracer]);
       chatStore.insertAudit(opts.db, {
         sessionId,
         turnId,
@@ -348,6 +355,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         startedAt,
         endedAt,
       });
+
+      // chat_turns now has the assistant row → FK is satisfied; drain the
+      // buffered observability events. Errors are swallowed by the inner
+      // recorder's per-row try/catch so one bad row can't sink the rest.
+      bufferedRecorder?.flush();
 
       chatStore.incrementTurnCount(opts.db, sessionId, inputTokens, outputTokens);
 

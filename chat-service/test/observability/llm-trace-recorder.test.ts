@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { LlmTraceRecorder } from '../../src/observability/llm-trace-recorder.js';
+import { LlmTraceRecorder, BufferedLlmTraceRecorder } from '../../src/observability/llm-trace-recorder.js';
 import { migrateObservability } from '../../src/db/observability-migrate.js';
 import type { LlmCallEvent, ToolInvocationEvent, SdkEventRecord } from '../../src/observability/observer-types.js';
 import { insertLlmCall, insertToolInvocation, insertSdkEvent } from '../../src/db/observability-store.js';
@@ -432,5 +432,62 @@ describe('LlmTraceRecorder', () => {
       expect(row.input_tokens).toBeNull();
       expect(row.output_tokens).toBeNull();
     });
+  });
+});
+
+describe('BufferedLlmTraceRecorder', () => {
+  let db: Database.Database;
+  const turnId = 'turn-buffered-1';
+
+  beforeEach(() => {
+    db = new Database(':memory:');
+    db.pragma('foreign_keys = ON');
+    db.exec(`
+      CREATE TABLE chat_turns (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL
+      );
+    `);
+    migrateObservability(db);
+  });
+
+  it('buffers events while chat_turns row is missing (FK would reject)', () => {
+    // Turn row does NOT exist yet — direct writes via inner recorder would
+    // hit FOREIGN KEY constraint failed.
+    const buffered = new BufferedLlmTraceRecorder(new LlmTraceRecorder({ db, turnId }));
+
+    buffered.onSdkEvent({ turnId, seq: 0, type: 'assistant', payload: {}, at: 1 });
+    buffered.onLlmCall({ turnId, stepIndex: 0, model: 'm', inputTokens: 0, outputTokens: 0, latencyMs: 1, startedAt: 0, endedAt: 1, content: [] });
+    buffered.onToolInvocation({ turnId, toolUseId: 'tu-1', name: 't', args: {}, resultSummary: 'ok', ok: true, latencyMs: 1, startedAt: 0, endedAt: 1 });
+
+    // No rows yet
+    expect(db.prepare('SELECT COUNT(*) AS n FROM llm_calls').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM tool_invocations').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM sdk_events').get()).toEqual({ n: 0 });
+
+    // Now satisfy the FK and flush
+    db.prepare('INSERT INTO chat_turns (id, session_id) VALUES (?, ?)').run(turnId, 's-1');
+    buffered.flush();
+
+    expect(db.prepare('SELECT COUNT(*) AS n FROM llm_calls').get()).toEqual({ n: 1 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM tool_invocations').get()).toEqual({ n: 1 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM sdk_events').get()).toEqual({ n: 1 });
+  });
+
+  it('without flush, no rows land even after FK is satisfied', () => {
+    const buffered = new BufferedLlmTraceRecorder(new LlmTraceRecorder({ db, turnId }));
+    buffered.onLlmCall({ turnId, stepIndex: 0, model: 'm', inputTokens: 0, outputTokens: 0, latencyMs: 1, startedAt: 0, endedAt: 1, content: [] });
+    db.prepare('INSERT INTO chat_turns (id, session_id) VALUES (?, ?)').run(turnId, 's-1');
+    // No flush call
+    expect(db.prepare('SELECT COUNT(*) AS n FROM llm_calls').get()).toEqual({ n: 0 });
+  });
+
+  it('flush is idempotent (second flush is a no-op)', () => {
+    const buffered = new BufferedLlmTraceRecorder(new LlmTraceRecorder({ db, turnId }));
+    buffered.onLlmCall({ turnId, stepIndex: 0, model: 'm', inputTokens: 0, outputTokens: 0, latencyMs: 1, startedAt: 0, endedAt: 1, content: [] });
+    db.prepare('INSERT INTO chat_turns (id, session_id) VALUES (?, ?)').run(turnId, 's-1');
+    buffered.flush();
+    buffered.flush();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM llm_calls').get()).toEqual({ n: 1 });
   });
 });

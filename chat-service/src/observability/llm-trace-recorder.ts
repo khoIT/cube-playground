@@ -50,6 +50,9 @@ export class LlmTraceRecorder implements ObserverHooks {
     this.turnId = turnId;
   }
 
+  /** No-op flush so callers can treat all recorders uniformly. */
+  flush(): void {}
+
   /**
    * Records one LLM assistant message as a row in `llm_calls`.
    * INSERT OR IGNORE — replay-safe on (turn_id, step_index).
@@ -116,5 +119,47 @@ export class LlmTraceRecorder implements ObserverHooks {
     } catch (err) {
       console.warn('[LlmTraceRecorder] onSdkEvent insert failed:', err);
     }
+  }
+}
+
+/**
+ * Buffers observer events in memory and replays them through an inner recorder
+ * on `flush()`. Needed because chat_turns FK constraints reject inserts for
+ * the assistant turn until that row is appended, which only happens after the
+ * runner loop completes — writes issued during the loop would all fail.
+ *
+ * The composite observer treats this identically to LlmTraceRecorder; the
+ * extra flush() call is the only difference at the call site.
+ */
+export class BufferedLlmTraceRecorder implements ObserverHooks {
+  private readonly inner: LlmTraceRecorder;
+  private readonly llmCalls: LlmCallEvent[] = [];
+  private readonly toolInvocations: ToolInvocationEvent[] = [];
+  private readonly sdkEvents: SdkEventRecord[] = [];
+
+  constructor(inner: LlmTraceRecorder) {
+    this.inner = inner;
+  }
+
+  onLlmCall(ev: LlmCallEvent): void {
+    this.llmCalls.push(ev);
+  }
+
+  onToolInvocation(inv: ToolInvocationEvent): void {
+    this.toolInvocations.push(inv);
+  }
+
+  onSdkEvent(ev: SdkEventRecord): void {
+    this.sdkEvents.push(ev);
+  }
+
+  /** Replay buffered events through the inner recorder in original order. */
+  flush(): void {
+    for (const ev of this.sdkEvents) this.inner.onSdkEvent(ev);
+    for (const ev of this.llmCalls) this.inner.onLlmCall(ev);
+    for (const inv of this.toolInvocations) this.inner.onToolInvocation(inv);
+    this.llmCalls.length = 0;
+    this.toolInvocations.length = 0;
+    this.sdkEvents.length = 0;
   }
 }
