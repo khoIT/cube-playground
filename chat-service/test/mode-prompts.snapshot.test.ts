@@ -133,6 +133,31 @@ describe('mode-prompts.compose — snapshots', () => {
     warnSpy.mockRestore();
   });
 
+  // Prefix-stability guarantee for Anthropic's automatic prefix cache: two
+  // compose() calls with identical inputs MUST produce byte-identical output.
+  // Any non-determinism here (Date.now, Math.random, Map iteration order)
+  // would invalidate the SDK's prompt cache every turn.
+  it('compose is byte-stable across calls with identical inputs', () => {
+    const a = compose({
+      skill: 'explore',
+      game: 'ptg',
+      contextPreamble: 'page=/dashboard',
+    });
+    const b = compose({
+      skill: 'explore',
+      game: 'ptg',
+      contextPreamble: 'page=/dashboard',
+    });
+    expect(b.systemPrompt).toBe(a.systemPrompt);
+    expect(b.allowedToolNames).toEqual(a.allowedToolNames);
+  });
+
+  it('compose is byte-stable across calls with no contextPreamble', () => {
+    const a = compose({ skill: 'metric_explain', game: 'ballistar' });
+    const b = compose({ skill: 'metric_explain', game: 'ballistar' });
+    expect(b.systemPrompt).toBe(a.systemPrompt);
+  });
+
   it('missing master command file is handled gracefully', async () => {
     // Temporarily reroute existsSync via vi.spyOn for this test only.
     const fs = await import('node:fs');

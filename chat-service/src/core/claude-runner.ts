@@ -132,11 +132,21 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   // turns, every turn opens a fresh SDK conversation.
   void sessionId;
 
+  // Anthropic's SDK does automatic prefix caching when the system prompt is
+  // byte-stable across turns. The kill-switch (ANTHROPIC_PROMPT_CACHE_ENABLED=
+  // false) appends a per-turn nonce as a non-semantic suffix to bust that
+  // cache, useful for a/b comparison or if caching ever produces unexpected
+  // model behavior in prod. The nonce sits in a comment so it can't be
+  // interpreted as instructions by the model.
+  const finalSystemPrompt = config.anthropicPromptCacheEnabled
+    ? systemPrompt
+    : `${systemPrompt}\n\n<!-- cache-bust:${turnId} -->`;
+
   const iter = query({
     prompt: message,
     options: {
       model: config.chatModel,
-      systemPrompt,
+      systemPrompt: finalSystemPrompt,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mcpServers: { 'cube-playground-tools': mcpServer as any },
       allowedTools: sdkAllowedTools,

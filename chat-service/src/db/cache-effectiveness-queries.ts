@@ -27,7 +27,8 @@ export function queryHitRateAndLatency(
     `SELECT ct.cache_hit, ct.started_at, ct.ended_at
      FROM chat_turns ct
      JOIN chat_sessions cs ON cs.id = ct.session_id
-     WHERE cs.owner_id = ? AND ct.role = 'assistant' AND ct.started_at >= ? ${gameFilter}`,
+     WHERE cs.owner_id = ? AND cs.deleted_at IS NULL
+       AND ct.role = 'assistant' AND ct.started_at >= ? ${gameFilter}`,
   ).all(...bindings) as Row[];
 
   if (rows.length === 0) {
@@ -68,7 +69,7 @@ export function querySavingsTotals(
      FROM response_cache rc
      JOIN chat_turns t ON t.id = rc.original_turn_id
      JOIN chat_sessions s ON s.id = t.session_id
-     WHERE s.owner_id = ? AND rc.hit_count > 0 ${gameFilter}`,
+     WHERE s.owner_id = ? AND s.deleted_at IS NULL AND rc.hit_count > 0 ${gameFilter}`,
   ).all(...bindings) as Row[];
 
   let dollarsSaved = 0, tokensSaved = 0;
@@ -100,7 +101,8 @@ export function querySparklineByDay(
             ct.cache_hit, COUNT(*) AS cnt
      FROM chat_turns ct
      JOIN chat_sessions cs ON cs.id = ct.session_id
-     WHERE cs.owner_id = ? AND ct.role = 'assistant' AND ct.started_at >= ? ${gameFilter}
+     WHERE cs.owner_id = ? AND cs.deleted_at IS NULL
+       AND ct.role = 'assistant' AND ct.started_at >= ? ${gameFilter}
      GROUP BY day, ct.cache_hit`,
   ).all(...bindings) as Row[];
 
@@ -131,7 +133,7 @@ export function queryTopQueriesByHit(
   db: Database.Database,
   { ownerId, gameId, topN, q }: { ownerId: string; gameId?: string; topN: number; q?: string },
 ): TopQuery[] {
-  const conditions: string[] = ['s.owner_id = ?'];
+  const conditions: string[] = ['s.owner_id = ?', 's.deleted_at IS NULL'];
   const bindings: unknown[] = [ownerId];
 
   if (gameId) { conditions.push('rc.game_id = ?'); bindings.push(gameId); }
@@ -195,15 +197,17 @@ export function queryStaleRatio(
      FROM response_cache rc
      JOIN chat_turns t ON t.id = rc.original_turn_id
      JOIN chat_sessions s ON s.id = t.session_id
-     WHERE s.owner_id = ? AND rc.cube_meta_hash IS NOT NULL ${gameFilter}
+     WHERE s.owner_id = ? AND s.deleted_at IS NULL
+       AND rc.cube_meta_hash IS NOT NULL ${gameFilter}
      GROUP BY rc.game_id
      HAVING rc.created_at = MAX(rc.created_at)`,
   ).all(...bindings) as HashRow[];
 
+  // currentMetaHash is only meaningful within a single game. At the all-games
+  // scope, picking the first row's hash would be an arbitrary cross-game pick
+  // (different games can be on different schema versions), so return null.
   const currentHashByGame = new Map(hashRows.map((r) => [r.game_id, r.cube_meta_hash]));
-  const currentMetaHash = gameId
-    ? (currentHashByGame.get(gameId) ?? null)
-    : (hashRows[0]?.cube_meta_hash ?? null);
+  const currentMetaHash = gameId ? (currentHashByGame.get(gameId) ?? null) : null;
 
   // Per-game, per-hash group counts
   type CountRow = { game_id: string; cube_meta_hash: string | null; cnt: number };
@@ -212,7 +216,7 @@ export function queryStaleRatio(
      FROM response_cache rc
      JOIN chat_turns t ON t.id = rc.original_turn_id
      JOIN chat_sessions s ON s.id = t.session_id
-     WHERE s.owner_id = ? ${gameFilter}
+     WHERE s.owner_id = ? AND s.deleted_at IS NULL ${gameFilter}
      GROUP BY rc.game_id, rc.cube_meta_hash`,
   ).all(...bindings) as CountRow[];
 

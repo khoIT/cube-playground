@@ -67,6 +67,11 @@ function seedSession(db: Database.Database, ownerId: string, gameId: string): st
   return s.id;
 }
 
+/** Mark a session soft-deleted by setting deleted_at to now. */
+function markSessionDeleted(db: Database.Database, sessionId: string): void {
+  db.prepare(`UPDATE chat_sessions SET deleted_at = ? WHERE id = ?`).run(Date.now(), sessionId);
+}
+
 interface TurnOpts {
   sessionId: string;
   cacheHit?: 0 | 1;
@@ -390,6 +395,92 @@ describe('computeCacheEffectiveness', () => {
     expect(r.topQueries).toHaveLength(0);
     expect(r.staleRatio).toBe(0);
     expect(r.legacyRatio).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Soft-delete exclusion
+  // -------------------------------------------------------------------------
+
+  it('soft-deleted sessions are excluded from hitRate, dollarsSaved, and topQueries', () => {
+    // Live session — should be counted
+    const liveSess = seedSession(db, 'owner-a', 'game-1');
+    const liveTurn = seedTurn(db, { sessionId: liveSess, cacheHit: 1, costUsd: 0.01 });
+    seedCacheRow(db, {
+      key: 'k-live', gameId: 'game-1',
+      originalTurnId: liveTurn, originalSessionId: liveSess,
+      costUsd: 0.01, hitCount: 2,
+    });
+
+    // Deleted session — should NOT be counted
+    const deletedSess = seedSession(db, 'owner-a', 'game-1');
+    const deletedTurn = seedTurn(db, { sessionId: deletedSess, cacheHit: 1, costUsd: 0.5 });
+    seedCacheRow(db, {
+      key: 'k-deleted', gameId: 'game-1',
+      originalTurnId: deletedTurn, originalSessionId: deletedSess,
+      costUsd: 0.5, hitCount: 10,
+    });
+    markSessionDeleted(db, deletedSess);
+
+    const r = computeCacheEffectiveness(db, { ownerId: 'owner-a', days: 30, topN: 20 });
+    // Only the live row contributes: 0.01 × (2-1) = 0.01
+    expect(r.summary.dollarsSaved).toBeCloseTo(0.01);
+    // Only the live turn counts toward hitRate
+    expect(r.topQueries).toHaveLength(1);
+    expect(r.topQueries[0].queryKey).toBe('k-live');
+  });
+
+  it('soft-deleted sessions excluded from staleRatio and currentMetaHash', () => {
+    const liveSess = seedSession(db, 'owner-a', 'game-1');
+    const liveTurn = seedTurn(db, { sessionId: liveSess });
+    seedCacheRow(db, {
+      key: 'k-live', gameId: 'game-1',
+      originalTurnId: liveTurn, originalSessionId: liveSess,
+      cubeMetaHash: 'hash-live',
+    });
+
+    const deletedSess = seedSession(db, 'owner-a', 'game-1');
+    const deletedTurn = seedTurn(db, { sessionId: deletedSess });
+    seedCacheRow(db, {
+      key: 'k-deleted', gameId: 'game-1',
+      originalTurnId: deletedTurn, originalSessionId: deletedSess,
+      cubeMetaHash: 'hash-old', createdAt: Date.now() - 10000,
+    });
+    markSessionDeleted(db, deletedSess);
+
+    const r = computeCacheEffectiveness(db, { ownerId: 'owner-a', gameId: 'game-1', days: 30, topN: 20 });
+    // Live row is the only typed row → stale=0, legacy=0
+    expect(r.staleRatio).toBe(0);
+    expect(r.legacyRatio).toBe(0);
+    expect(r.currentMetaHash).toBe('hash-live');
+  });
+
+  // -------------------------------------------------------------------------
+  // currentMetaHash at all-games scope
+  // -------------------------------------------------------------------------
+
+  it('currentMetaHash is null at all-games scope (cross-game pick is meaningless)', () => {
+    // Two games, different schema hashes — cross-game "current" is undefined
+    const s1 = seedSession(db, 'owner-a', 'game-1');
+    const t1 = seedTurn(db, { sessionId: s1 });
+    seedCacheRow(db, {
+      key: 'k1', gameId: 'game-1', originalTurnId: t1, originalSessionId: s1,
+      cubeMetaHash: 'hash-game1',
+    });
+
+    const s2 = seedSession(db, 'owner-a', 'game-2');
+    const t2 = seedTurn(db, { sessionId: s2 });
+    seedCacheRow(db, {
+      key: 'k2', gameId: 'game-2', originalTurnId: t2, originalSessionId: s2,
+      cubeMetaHash: 'hash-game2',
+    });
+
+    // No gameId filter → currentMetaHash must be null
+    const rAll = computeCacheEffectiveness(db, { ownerId: 'owner-a', days: 30, topN: 20 });
+    expect(rAll.currentMetaHash).toBeNull();
+
+    // With gameId filter → currentMetaHash resolves to that game's hash
+    const rG1 = computeCacheEffectiveness(db, { ownerId: 'owner-a', gameId: 'game-1', days: 30, topN: 20 });
+    expect(rG1.currentMetaHash).toBe('hash-game1');
   });
 
   it('owner B with different game sees only their own data', () => {

@@ -98,6 +98,14 @@ export interface Config {
    */
   responseCacheEnabled: boolean;
   /**
+   * Enable Anthropic's automatic prompt prefix cache. On by default — the SDK
+   * caches stable prefixes server-side at no storage cost on our infra (no PII
+   * surface). Setting ANTHROPIC_PROMPT_CACHE_ENABLED=false appends a per-turn
+   * nonce that forces every system prompt to differ, busting the cache.
+   * Kill-switch for production rollback if caching produces unexpected behavior.
+   */
+  anthropicPromptCacheEnabled: boolean;
+  /**
    * Allowlist of model IDs accepted via X-Model header in POST /agent/turn.
    * Unknown values silently fall back to chatModel — never echoed to the SDK.
    */
@@ -136,6 +144,7 @@ export const config: Config = {
   langfuseSecretKey: optional('LANGFUSE_SECRET_KEY', ''),
   langfuseBaseUrl: optional('LANGFUSE_HOST', 'https://cloud.langfuse.com'),
   responseCacheEnabled: optional('RESPONSE_CACHE_ENABLED', 'false') === 'true',
+  anthropicPromptCacheEnabled: optional('ANTHROPIC_PROMPT_CACHE_ENABLED', 'true') === 'true',
   allowedModels: optional(
     'ALLOWED_MODELS',
     'claude-sonnet-4-6,claude-haiku-4-5,claude-opus-4-6,claude-opus-4-7',
