@@ -99,7 +99,7 @@ async function fetchDerivedKpi(
 
   // Numerator query (recharge cube — timeDim inferred from numerator cube name)
   const numCube = numerator.split('.')[0];
-  const numTimeDim = `${numCube}.recharge_date`;
+  const numTimeDim = `${numCube}.log_date`;
   const numQuery = buildQuery(
     { ...kpi, timeDim: numTimeDim },
     [numerator],
@@ -119,7 +119,7 @@ async function fetchDerivedKpi(
   const numSeries = extractTimeSeries(
     numRs.rawData(),
     numerator,
-    `${numCube}.recharge_date.day`,
+    `${numCube}.log_date.day`,
   );
   const denSeries = extractTimeSeries(denRs.rawData(), denominator, `${kpi.timeDim}.day`);
 

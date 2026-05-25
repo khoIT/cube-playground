@@ -82,7 +82,7 @@ export function useLiveKpis(gameId: string): UseLiveKpisResult {
       if (signal.aborted) return;
       if (localGameId !== gameIdRef.current) return;
 
-      if (isCached<KpiStripPayload>(res)) {
+      if (isCached<KpiStripPayload>(res) && Array.isArray(res.payload?.tiles)) {
         const next = res.payload.tiles.map(toTile);
         writeCache(localGameId, next);
         setTiles(next);
@@ -91,7 +91,7 @@ export function useLiveKpis(gameId: string): UseLiveKpisResult {
         return;
       }
 
-      // 202 warming — retry with backoff while focused.
+      // 202 warming OR cached row with no tiles yet (placeholder) — retry with backoff.
       const delay = Math.min(WARMING_RETRY_BASE_MS * Math.pow(2, attempt), WARMING_RETRY_MAX_MS);
       setTimeout(() => {
         if (!signal.aborted && !document.hidden) {

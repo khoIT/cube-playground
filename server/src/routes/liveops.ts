@@ -114,6 +114,18 @@ async function serveCache(
     });
   }
 
+  // Empty-placeholder row (inserted by ensurePlaceholder on cache miss).
+  // `payload_hash === ''` is the unambiguous signal a real refresh has not
+  // landed yet — older clients would otherwise crash trying to read
+  // resource-shaped fields off `{}`.
+  if (cached.payloadHash === '') {
+    void refreshOneForTest(resource, cacheKey, game).catch(() => {});
+    return reply.status(202).send({
+      status: 'warming',
+      message: 'Cache is warming. Retry in a few seconds.',
+    });
+  }
+
   return reply.status(200).send(toView(cached));
 }
 

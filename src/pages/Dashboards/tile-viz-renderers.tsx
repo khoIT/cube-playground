@@ -14,14 +14,19 @@ export function extractKpiValue(rs: ResultSet): string {
   try {
     const data = rs.rawData();
     if (!data.length) return '–';
-    const first = data[0];
-    const key = Object.keys(first).find((k) => {
-      const v = first[k];
-      return typeof v === 'number' || (typeof v === 'string' && v !== '');
+    const latest = data[data.length - 1];
+    // Cube returns time dimensions and measures together; prefer the measure
+    // (numeric or numeric-string) over the time dim (ISO date string).
+    const key = Object.keys(latest).find((k) => {
+      const v = latest[k];
+      if (typeof v === 'number') return true;
+      if (typeof v === 'string' && v !== '' && !Number.isNaN(Number(v))) return true;
+      return false;
     });
     if (!key) return '–';
-    const v = first[key];
-    return typeof v === 'number' ? v.toLocaleString() : String(v ?? '–');
+    const v = latest[key];
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n.toLocaleString() : String(v ?? '–');
   } catch {
     return '–';
   }

@@ -20,8 +20,8 @@ export interface KpiSpec {
 export const KPI_CONFIG: KpiSpec[] = [
   { id: 'dau',     label: 'DAU',           measure: 'active_daily.dau',                       timeDim: 'active_daily.log_date',          deltaWindow: '1d' },
   { id: 'mau',     label: 'MAU',           measure: 'active_daily.mau',                       timeDim: 'active_daily.log_date',          deltaWindow: '7d' },
-  { id: 'revenue', label: 'Revenue (VND)', measure: 'user_recharge_daily.revenue_vnd_total',  timeDim: 'user_recharge_daily.recharge_date', deltaWindow: '1d', format: 'currency' },
-  { id: 'paying',  label: 'Paying users',  measure: 'user_recharge_daily.paying_users',       timeDim: 'user_recharge_daily.recharge_date', deltaWindow: '1d' },
+  { id: 'revenue', label: 'Revenue (VND)', measure: 'user_recharge_daily.revenue_vnd_total',  timeDim: 'user_recharge_daily.log_date', deltaWindow: '1d', format: 'currency' },
+  { id: 'paying',  label: 'Paying users',  measure: 'user_recharge_daily.paying_users',       timeDim: 'user_recharge_daily.log_date', deltaWindow: '1d' },
   {
     id: 'arpdau',
     label: 'ARPDAU',

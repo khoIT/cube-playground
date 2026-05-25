@@ -36,14 +36,14 @@ function buildDateRange(anchorTs: string): [string, string] {
 /**
  * Infers the time dimension from the metric name using known cube conventions:
  *   active_daily.*             → active_daily.log_date
- *   user_recharge_daily.*      → user_recharge_daily.recharge_date
+ *   user_recharge_daily.*      → user_recharge_daily.log_date
  * Falls back to <cubeName>.ts for unknown cubes.
  */
 function inferTimeDim(metric: string): string {
   const cube = metric.split('.')[0];
   const known: Record<string, string> = {
     active_daily: 'active_daily.log_date',
-    user_recharge_daily: 'user_recharge_daily.recharge_date',
+    user_recharge_daily: 'user_recharge_daily.log_date',
   };
   return known[cube] ?? `${cube}.ts`;
 }

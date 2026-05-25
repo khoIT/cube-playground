@@ -120,7 +120,7 @@ async function loadKpi(
     if (spec.derived) {
       const numCube = spec.derived.numerator.split('.')[0];
       const denCube = spec.derived.denominator.split('.')[0];
-      const numTimeDim = `${numCube}.recharge_date`;
+      const numTimeDim = `${numCube}.log_date`;
       const denTimeDim = spec.timeDim;
       const numQuery = {
         measures: [spec.derived.numerator],

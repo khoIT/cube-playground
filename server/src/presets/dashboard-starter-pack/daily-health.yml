@@ -30,7 +30,7 @@ tiles:
     query:
       measures: [user_recharge_daily.revenue_vnd_total]
       timeDimensions:
-        - dimension: user_recharge_daily.recharge_date
+        - dimension: user_recharge_daily.log_date
           granularity: day
           dateRange: last 14 days
       compare: prev
@@ -40,7 +40,7 @@ tiles:
     query:
       measures: [user_recharge_daily.paying_users]
       timeDimensions:
-        - dimension: user_recharge_daily.recharge_date
+        - dimension: user_recharge_daily.log_date
           granularity: day
           dateRange: last 14 days
       compare: prev
@@ -50,6 +50,6 @@ tiles:
     query:
       measures: [user_recharge_daily.revenue_vnd_total]
       timeDimensions:
-        - dimension: user_recharge_daily.recharge_date
+        - dimension: user_recharge_daily.log_date
           granularity: day
           dateRange: last 30 days

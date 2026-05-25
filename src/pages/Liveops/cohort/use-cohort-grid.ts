@@ -53,7 +53,7 @@ export function useCohortGrid(
         if (signal.aborted) return;
         if (g !== gameIdRef.current || w !== windowRef.current) return;
 
-        if (isCached<CohortGridPayload>(res)) {
+        if (isCached<CohortGridPayload>(res) && Array.isArray(res.payload?.rows)) {
           setDataPath(res.payload.dataPath === 'unavailable' ? 'client' : res.payload.dataPath);
           setRows(res.payload.rows);
           setStatus('success');

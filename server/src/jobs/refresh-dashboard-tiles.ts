@@ -55,12 +55,23 @@ function rowsFrom(res: unknown): unknown[] {
   return r.data ?? r.results?.[0]?.data ?? [];
 }
 
+const INTERNAL_TILE_QUERY_FIELDS = ['compare'] as const;
+
+function stripInternalQueryFields(query: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...query };
+  for (const field of INTERNAL_TILE_QUERY_FIELDS) {
+    delete out[field];
+  }
+  return out;
+}
+
 export async function refreshTile(tile: StaleTile): Promise<void> {
   setTileStatus(tile.tile_id, 'refreshing');
   try {
     const token = resolveCubeTokenForGame(tile.game) ?? undefined;
     const metaVersion = await getCubeMetaVersion(tile.game);
-    const query = JSON.parse(tile.query_json);
+    const rawQuery = JSON.parse(tile.query_json) as Record<string, unknown>;
+    const query = stripInternalQueryFields(rawQuery);
     const res = await loadWithContinueWait(query, token, activeConfig.perTileTimeoutMs);
     const rows = rowsFrom(res);
     // Per-dashboard override beats the global default. Settings UI tweaks the

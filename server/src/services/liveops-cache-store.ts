@@ -30,6 +30,7 @@ export interface CachedResult<T = unknown> {
   cacheKey: string;
   game: string;
   payload: T;
+  payloadHash: string;
   cubeMetaVersion: string;
   fetchedAt: string;
   expiresAt: string;
@@ -47,6 +48,7 @@ function hydrate<T>(row: CachedResultRow): CachedResult<T> {
     cacheKey: row.cache_key,
     game: row.game,
     payload: JSON.parse(row.payload_json) as T,
+    payloadHash: row.payload_hash,
     cubeMetaVersion: row.cube_meta_version,
     fetchedAt: row.fetched_at,
     expiresAt: row.expires_at,

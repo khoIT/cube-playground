@@ -44,7 +44,7 @@ const ACTIVE_DAILY_DAU: AnomalyMetricConfig = {
 
 const REVENUE: AnomalyMetricConfig = {
   metric: 'user_recharge_daily.revenue_vnd_total',
-  timeDim: 'user_recharge_daily.recharge_date',
+  timeDim: 'user_recharge_daily.log_date',
   threshold: BASE_THRESHOLDS,
 };
 

@@ -43,12 +43,12 @@ describe('buildPlaygroundUrl', () => {
     expect(query.timeDimensions[0].dimension).toBe('active_daily.log_date');
   });
 
-  it('infers user_recharge_daily.recharge_date for recharge cube', () => {
+  it('infers user_recharge_daily.log_date for recharge cube', () => {
     const url = buildPlaygroundUrl(
       makeAnomaly({ metric: 'user_recharge_daily.revenue_vnd_total' })
     );
     const query = JSON.parse(decodeURIComponent(url.split('?query=')[1]));
-    expect(query.timeDimensions[0].dimension).toBe('user_recharge_daily.recharge_date');
+    expect(query.timeDimensions[0].dimension).toBe('user_recharge_daily.log_date');
   });
 
   it('dateRange spans 14 days: 7 before and 6 after anchor', () => {

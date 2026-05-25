@@ -41,7 +41,7 @@ export const KPI_CONFIG: KpiSpec[] = [
     id: 'revenue',
     label: 'Revenue (VND)',
     measure: 'user_recharge_daily.revenue_vnd_total',
-    timeDim: 'user_recharge_daily.recharge_date',
+    timeDim: 'user_recharge_daily.log_date',
     deltaWindow: '1d',
     format: 'currency',
   },
@@ -49,7 +49,7 @@ export const KPI_CONFIG: KpiSpec[] = [
     id: 'paying',
     label: 'Paying users',
     measure: 'user_recharge_daily.paying_users',
-    timeDim: 'user_recharge_daily.recharge_date',
+    timeDim: 'user_recharge_daily.log_date',
     deltaWindow: '1d',
   },
   {
