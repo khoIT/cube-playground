@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'node:events';
+import type Database from 'better-sqlite3';
 import type { ChartArtifact } from './services/chart-spec.js';
 
 export type { ChartSpec, ChartType, ChartArtifact } from './services/chart-spec.js';
@@ -104,6 +105,12 @@ export interface ToolContext {
   sessionId: string;
   turnId: string;
   sseEmitter: EventEmitter;
+  /**
+   * Database handle for tools that read/write persistent state (e.g. cache
+   * adapters). Optional so unit tests don't have to construct a full DB; the
+   * tools that consume it must no-op when this is absent.
+   */
+  db?: Database.Database;
   /** Optional clock override for tests. Defaults to Date.now. */
   now?: () => number;
   /**

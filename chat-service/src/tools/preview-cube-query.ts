@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { config } from '../config.js';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
+import { getCachedLoad, putCachedLoad } from '../cache/load-cache-adapter.js';
 import type { ToolContext } from '../types.js';
 
 export const name = 'preview_cube_query';
@@ -96,6 +97,25 @@ export async function handler(
   const limit = Math.min(args.limit ?? 10, MAX_LIMIT);
   const query = { ...args.query, limit };
 
+  // Cache lookup. Key includes cube_meta_hash so schema changes invalidate
+  // entries naturally; TTL inside the adapter bounds staleness for in-place
+  // data changes. Skip silently when there's no db handle on ctx (unit tests).
+  const metaHash = await cubeMetaCache.getMetaVersion(ctx.gameId, ctx.cubeToken).catch(() => null);
+  if (ctx.db) {
+    const cached = getCachedLoad(ctx.db, {
+      query,
+      gameId: ctx.gameId,
+      metaHash,
+    });
+    if (cached) {
+      return {
+        rows: cached.slice(0, MAX_LIMIT),
+        rowCount: cached.length,
+        warnings: [],
+      };
+    }
+  }
+
   const url = `${config.cubeApiUrl}/cubejs-api/v1/load`;
   const res = await fetch(url, {
     method: 'POST',
@@ -111,8 +131,17 @@ export async function handler(
     throw new Error(`Cube /load failed: ${res.status} ${res.statusText} — ${body.slice(0, 200)}`);
   }
 
-  const data = await res.json() as { data?: unknown[] };
+  const data = await res.json() as { data?: Record<string, string | number>[] };
   const rows = data?.data ?? [];
+
+  if (ctx.db) {
+    putCachedLoad(ctx.db, {
+      query,
+      gameId: ctx.gameId,
+      metaHash,
+      rows,
+    });
+  }
 
   return {
     rows: rows.slice(0, MAX_LIMIT),

@@ -298,7 +298,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           // Refresh hook re-executes chart queries (those linked to a query
           // artifact via artifactRef) against live Cube. Query artifacts
           // themselves don't carry rows — the FE re-fetches on render.
-          const refresh = buildRefreshHook({ cubeToken });
+          const refresh = buildRefreshHook({
+            cubeToken,
+            db: opts.db,
+            gameId: body.game,
+            metaHash: resolvedCubeMetaHash,
+          });
           const outcome = await replayCachedTurn(cached, stream, emit, refresh);
           incrementHit(opts.db, cacheKey);
 
@@ -366,6 +371,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       sessionId,
       turnId,
       sseEmitter,
+      db: opts.db,
       disambiguationMode: body.mode ?? 'targeted',
     };
 

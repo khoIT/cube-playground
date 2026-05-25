@@ -14,10 +14,12 @@
  * so they pass through unchanged — the refresh applies only to chart data.
  */
 
+import type Database from 'better-sqlite3';
 import type { QueryArtifact, ChartArtifact, CubeQuery } from '../types.js';
 import type { ChartSpec } from '../services/chart-spec.js';
 import { truncateTopN } from '../services/chart-spec.js';
 import { config } from '../config.js';
+import { getCachedLoad, putCachedLoad } from './load-cache-adapter.js';
 import type { ReplayOutcome } from './replay-cached-turn.js';
 
 /** Re-run a Cube /load against the live API. Returns rows or throws. */
@@ -34,6 +36,27 @@ async function runCubeLoad(query: CubeQuery, cubeToken: string): Promise<Record<
   }
   const json = (await res.json()) as { data?: Record<string, string | number>[] };
   return json?.data ?? [];
+}
+
+/**
+ * Wrap runCubeLoad with the kv_cache load adapter. Hit returns cached rows;
+ * miss runs the live /load and writes back. Used by the chart-refresh path so
+ * the cache-hit replay benefits from the same row cache as preview_cube_query.
+ */
+async function runCubeLoadCached(
+  db: Database.Database | null,
+  gameId: string,
+  metaHash: string | null,
+  query: CubeQuery,
+  cubeToken: string,
+): Promise<Record<string, string | number>[]> {
+  if (db) {
+    const hit = getCachedLoad(db, { query, gameId, metaHash });
+    if (hit) return hit;
+  }
+  const rows = await runCubeLoad(query, cubeToken);
+  if (db) putCachedLoad(db, { query, gameId, metaHash, rows });
+  return rows;
 }
 
 /**
@@ -59,6 +82,13 @@ function rebuildChartWithRows(
 
 export interface RefreshDeps {
   cubeToken: string;
+  /**
+   * DB handle to enable the kv_cache load adapter. Omit (or pass null) to
+   * bypass the cache and always hit Cube live.
+   */
+  db?: Database.Database | null;
+  gameId?: string;
+  metaHash?: string | null;
   /** Override for tests. */
   cubeLoad?: (query: CubeQuery) => Promise<Record<string, string | number>[]>;
 }
@@ -67,11 +97,20 @@ export interface RefreshDeps {
  * Build a refresh hook bound to the current request's Cube token.
  *
  * Usage:
- *   const refresh = buildRefreshHook({ cubeToken });
+ *   const refresh = buildRefreshHook({ cubeToken, db, gameId, metaHash });
  *   const outcome = await replayCachedTurn(cached, stream, emit, refresh);
  */
 export function buildRefreshHook(deps: RefreshDeps) {
-  const load = deps.cubeLoad ?? ((q: CubeQuery) => runCubeLoad(q, deps.cubeToken));
+  const load =
+    deps.cubeLoad ??
+    ((q: CubeQuery) =>
+      runCubeLoadCached(
+        deps.db ?? null,
+        deps.gameId ?? '',
+        deps.metaHash ?? null,
+        q,
+        deps.cubeToken,
+      ));
 
   return async function refresh(
     artifacts: QueryArtifact[],
