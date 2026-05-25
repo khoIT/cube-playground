@@ -40,10 +40,15 @@ function parseUrlState(search: string): { q: string; mode: SearchMode } {
 // Placeholder text per mode
 // ---------------------------------------------------------------------------
 
+const isMac = typeof navigator !== 'undefined'
+  ? navigator.platform.toUpperCase().includes('MAC')
+  : false;
+const CMD_HINT = isMac ? ' (⌘K)' : ' (Ctrl+K)';
+
 const PLACEHOLDERS: Record<SearchMode, string> = {
-  turns:    'Search turn text…',
-  sessions: 'Search session titles…',
-  cached:   'Search cached queries…',
+  turns:    `Search turn text…${CMD_HINT}`,
+  sessions: `Search session titles…${CMD_HINT}`,
+  cached:   `Search cached queries…${CMD_HINT}`,
 };
 
 const EMPTY_HINTS: Record<SearchMode, string> = {
@@ -141,6 +146,16 @@ export function SearchTab() {
   // Auto-focus on mount
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  // Listen for the shell's cmd-K focus-search event
+  useEffect(() => {
+    function handleFocusSearch() {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+    window.addEventListener('dev-audit:focus-search', handleFocusSearch);
+    return () => window.removeEventListener('dev-audit:focus-search', handleFocusSearch);
   }, []);
 
   function pushUrl(q: string, mode: SearchMode) {

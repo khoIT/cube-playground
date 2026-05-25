@@ -55,6 +55,14 @@ const AnomalyInboxPage = loadable(() =>
   import('./pages/Liveops/anomaly-inbox').then((m) => ({ default: m.AnomalyInboxPage }))
 );
 
+const DashboardsListPage = loadable(() =>
+  import('./pages/Dashboards').then((m) => ({ default: m.DashboardsListPage }))
+);
+
+const DashboardDetailPage = loadable(() =>
+  import('./pages/Dashboards/dashboard-detail').then((m) => ({ default: m.DashboardDetailPage }))
+);
+
 
 const history = createHashHistory();
 history.listen((location) => {
@@ -160,6 +168,8 @@ ReactDOM.render(
               </KeepAliveRoute>
               <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
               <Route key="liveops" path="/liveops" component={LiveopsPage} />
+              <Route key="dashboards-detail" path="/dashboards/:slug" component={DashboardDetailPage} />
+              <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />
               <Route key="data-model-new-success" exact path="/data-model/new/success" component={DataModelWizardSuccess} />
               <Route key="data-model-new" path="/data-model/new" component={DataModelWizardPage} />

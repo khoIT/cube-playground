@@ -9,10 +9,13 @@
  */
 
 import React, { useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useSkillLeaderboard } from './use-skill-leaderboard';
 import { SkillLeaderboardTable } from './skill-leaderboard-table';
+import { SkelRow } from './skeleton-row';
+import { EmptyState } from './empty-state';
 
 const DAY_OPTIONS = [7, 30, 90] as const;
 type DayOption = (typeof DAY_OPTIONS)[number];
@@ -63,6 +66,7 @@ const S = {
 
 export function SkillLeaderboardPage() {
   const activeGameId = useActiveGameId();
+  const history = useHistory();
   // Default 30d — matches phase spec; game default is "All games" (activeGameId or undefined)
   const [days, setDays] = useState<DayOption>(30);
 
@@ -70,6 +74,11 @@ export function SkillLeaderboardPage() {
     gameId: activeGameId || undefined,
     days,
   });
+
+  /** Navigate to Sessions tab pre-filtered by skill name (cross-tab navigation). */
+  function handleSkillClick(skillName: string) {
+    history.push(`/dev/chat-audit/sessions?skill=${encodeURIComponent(skillName)}`);
+  }
 
   return (
     <div style={S.root}>
@@ -99,9 +108,23 @@ export function SkillLeaderboardPage() {
 
       {error && <div style={S.error}>Error: {error}</div>}
 
-      {isLoading && !error && <div style={S.spinner}>Loading…</div>}
+      {isLoading && !error && (
+        <div data-testid="leaderboard-loading">
+          {Array.from({ length: 6 }).map((_, i) => <SkelRow key={i} height={38} />)}
+        </div>
+      )}
 
-      {!isLoading && !error && <SkillLeaderboardTable rows={skills} />}
+      {!isLoading && !error && skills.length === 0 && (
+        <EmptyState
+          title="No assistant turns in window."
+          description="Switch to 90d or post a chat to populate the leaderboard."
+          testId="leaderboard-empty-state"
+        />
+      )}
+
+      {!isLoading && !error && skills.length > 0 && (
+        <SkillLeaderboardTable rows={skills} onSkillClick={handleSkillClick} />
+      )}
     </div>
   );
 }

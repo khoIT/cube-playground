@@ -4,13 +4,18 @@
  * Search is debounced 300ms to avoid hammering the backend.
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useDebugSessions, DebugSession } from './use-debug-api';
+import { SkelRow } from './skeleton-row';
+import { EmptyState } from './empty-state';
 
 interface SessionListProps {
   gameId: string;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Optional skill filter pre-populated from URL ?skill= param (from Leaderboard row click). */
+  skillFilter?: string;
 }
 
 const S = {
@@ -103,10 +108,27 @@ function relativeTime(ts: number | null | undefined): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export function SessionList({ gameId, selectedId, onSelect }: SessionListProps) {
-  const [rawQ, setRawQ] = useState('');
-  const [debouncedQ, setDebouncedQ] = useState('');
+export function SessionList({ gameId, selectedId, onSelect, skillFilter }: SessionListProps) {
+  const location = useLocation();
+
+  // Read ?skill= URL param — set by Leaderboard row clicks for cross-tab navigation
+  const urlSkill = new URLSearchParams(location.search).get('skill') ?? '';
+  // Merge: explicit prop > URL param (prop allows programmatic override)
+  const effectiveSkill = skillFilter ?? urlSkill;
+
+  const [rawQ, setRawQ] = useState(effectiveSkill);
+  const [debouncedQ, setDebouncedQ] = useState(effectiveSkill);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync input when URL skill param changes (e.g. navigating from Leaderboard)
+  useEffect(() => {
+    if (effectiveSkill && effectiveSkill !== rawQ) {
+      setRawQ(effectiveSkill);
+      setDebouncedQ(effectiveSkill);
+    }
+    // Only run on effectiveSkill change, not rawQ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveSkill]);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -133,17 +155,16 @@ export function SessionList({ gameId, selectedId, onSelect }: SessionListProps) 
 
       <div style={S.list}>
         {isLoading && Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} style={S.skeleton} />
+          <SkelRow key={i} height={58} />
         ))}
 
         {!isLoading && sessions.length === 0 && !error && (
-          <div style={S.emptyState}>
-            No sessions for this game yet.
-            <br />
-            <a href="#/build" style={{ color: T.brand, marginTop: 8, display: 'inline-block' }}>
-              Go to Build
-            </a>
-          </div>
+          <EmptyState
+            title="No chat sessions yet."
+            description="Start a chat to populate this view."
+            cta={{ label: 'Go to Build', href: '#/build' }}
+            testId="session-list-empty"
+          />
         )}
 
         {sessions.map((s: DebugSession) => {

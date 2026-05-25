@@ -22,6 +22,7 @@ import { QueryBuilderExtras } from './QueryBuilderExtras';
 import { QueryStatePillBar } from './QueryStatePillBar';
 import { AnalysisPanel } from './analysis/analysis-panel';
 import { ChartSidePane } from './components/ChartSidePane';
+import { PinToDashboardButton } from '../pages/Dashboards/pin-to-dashboard-button';
 
 const FIXED_SIDEBAR_WIDTH = 315;
 
@@ -147,7 +148,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
 
         <Tabs
           activeKey={tab}
-          extra={<QueryBuilderExtras />}
+          extra={<><QueryBuilderExtras /><PinToDashboardButton /></>}
           styles={{ padding: '0 1x' }}
           onChange={(tab: string) => setTab(tab as Tab)}
         >

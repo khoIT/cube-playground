@@ -20,6 +20,7 @@ import anomalyStateRoutes from './routes/anomaly-state.js';
 import anomaliesRoutes from './routes/anomalies.js';
 import chatRoutes from './routes/chat.js';
 import glossaryRoutes from './routes/glossary.js';
+import dashboardsRoutes from './routes/dashboards.js';
 import { getDb } from './db/sqlite.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
 import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
@@ -52,6 +53,7 @@ export async function buildApp() {
   await app.register(anomaliesRoutes);
   await app.register(chatRoutes);
   await app.register(glossaryRoutes);
+  await app.register(dashboardsRoutes);
 
   // Phase-03: idempotent seed of the canonical glossary terms.
   try {

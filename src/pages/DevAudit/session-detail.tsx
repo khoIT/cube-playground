@@ -7,6 +7,8 @@ import React, { useCallback, useState } from 'react';
 import { T } from '../../shell/theme';
 import { useDebugSession, useRestoreSession } from './use-debug-api';
 import { TurnDetail } from './turn-detail';
+import { SkelText } from './skeleton-row';
+import { EmptyState } from './empty-state';
 
 interface SessionDetailProps {
   sessionId: string | null;
@@ -97,7 +99,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
   return (
     <div style={S.root}>
-      {isLoading && <div style={S.loading}>Loading session…</div>}
+      {isLoading && <SkelText n={5} padding={20} />}
       {error && <div style={S.errorBanner}>Error: {error}</div>}
 
       {data && (
@@ -163,7 +165,11 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
 
           <div style={S.timeline}>
             {data.turns.length === 0 && (
-              <div style={{ color: T.n400, fontSize: 12 }}>No turns in this session.</div>
+              <EmptyState
+                title="No turns in this session."
+                description="Send a message to populate the turn timeline."
+                testId="session-detail-no-turns"
+              />
             )}
             {data.turns.map((turn, i) => (
               <TurnDetail key={turn.id} turn={turn} index={i} />

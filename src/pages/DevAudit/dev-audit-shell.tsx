@@ -11,8 +11,8 @@
  *
  * Shell does NOT remount on tab change — only the inner Switch content swaps.
  */
-import React from 'react';
-import { Switch, Route, Redirect, useRouteMatch } from 'react-router-dom';
+import React, { useCallback, useRef } from 'react';
+import { Switch, Route, Redirect, useHistory, useRouteMatch } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { AuditTabs } from './audit-tabs';
@@ -20,6 +20,7 @@ import { SessionsTab } from './sessions-tab';
 import { SearchTab } from './search-tab';
 import { CacheTab } from './cache-tab';
 import { SkillLeaderboardPage } from './skill-leaderboard-page';
+import { useDevAuditShortcuts } from './use-dev-audit-shortcuts';
 
 const S = {
   root: {
@@ -31,8 +32,17 @@ const S = {
     overflow: 'hidden',
   } as React.CSSProperties,
 
-  banner: {
+  /** Sticky header: banner + tab bar stay pinned at top during scroll. */
+  stickyHeader: {
+    position: 'sticky' as const,
+    top: 0,
+    zIndex: 10,
     flexShrink: 0,
+    background: T.surface,
+    borderBottom: `1px solid ${T.n200}`,
+  } as React.CSSProperties,
+
+  banner: {
     padding: '6px 16px',
     background: T.surfaceSubtle,
     borderBottom: `1px solid ${T.n200}`,
@@ -73,17 +83,39 @@ function LegacySessionRedirect() {
 
 export function DevAuditShell() {
   const gameId = useActiveGameId();
+  const history = useHistory();
+
+  /**
+   * searchInputRef: forwarded to SearchTab's input so cmd-K can focus it.
+   * We navigate to /search first, then dispatch a focus-search custom event.
+   * SearchTab listens on mount and when this event fires.
+   */
+  const handleCmdK = useCallback(() => {
+    // Navigate to search tab if not already there
+    const onSearch = history.location.pathname.startsWith('/dev/chat-audit/search');
+    if (!onSearch) {
+      history.push('/dev/chat-audit/search');
+    }
+    // Dispatch a custom event that SearchTab listens to for focusing its input.
+    // Using a custom event decouples shell from SearchTab's internal ref.
+    window.dispatchEvent(new CustomEvent('dev-audit:focus-search'));
+  }, [history]);
+
+  useDevAuditShortcuts({ onCmdK: handleCmdK });
 
   return (
     <div style={S.root}>
-      {/* Shared banner — stable across tab switches */}
-      <div style={S.banner}>
-        <span>Chat Audit — internal triage tool</span>
-        <span style={S.gameBadge}>game: {gameId}</span>
-      </div>
+      {/* Sticky header: banner + tabs pinned on scroll */}
+      <div style={S.stickyHeader}>
+        {/* Shared banner — stable across tab switches */}
+        <div style={S.banner}>
+          <span>Chat Audit — internal triage tool</span>
+          <span style={S.gameBadge}>game: {gameId}</span>
+        </div>
 
-      {/* Tab navigation */}
-      <AuditTabs />
+        {/* Tab navigation */}
+        <AuditTabs />
+      </div>
 
       {/* Tab content area */}
       <div style={S.content}>
@@ -95,22 +127,30 @@ export function DevAuditShell() {
 
           {/* Sessions tab: /dev/chat-audit/sessions/:sessionId? */}
           <Route path="/dev/chat-audit/sessions/:sessionId?">
-            <SessionsTab />
+            <div role="tabpanel" id="audit-panel-sessions" aria-labelledby="audit-tab-sessions" style={{ display: 'contents' }}>
+              <SessionsTab />
+            </div>
           </Route>
 
           {/* Search tab: /dev/chat-audit/search */}
           <Route path="/dev/chat-audit/search">
-            <SearchTab />
+            <div role="tabpanel" id="audit-panel-search" aria-labelledby="audit-tab-search" style={{ display: 'contents' }}>
+              <SearchTab />
+            </div>
           </Route>
 
           {/* Leaderboard tab: /dev/chat-audit/leaderboard */}
           <Route path="/dev/chat-audit/leaderboard">
-            <SkillLeaderboardPage />
+            <div role="tabpanel" id="audit-panel-leaderboard" aria-labelledby="audit-tab-leaderboard" style={{ display: 'contents' }}>
+              <SkillLeaderboardPage />
+            </div>
           </Route>
 
           {/* Cache tab: /dev/chat-audit/cache */}
           <Route path="/dev/chat-audit/cache">
-            <CacheTab />
+            <div role="tabpanel" id="audit-panel-cache" aria-labelledby="audit-tab-cache" style={{ display: 'contents' }}>
+              <CacheTab />
+            </div>
           </Route>
 
           {/* Legacy redirect: /dev/chat-audit/:sessionId → /dev/chat-audit/sessions/:sessionId */}

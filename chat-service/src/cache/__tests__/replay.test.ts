@@ -31,6 +31,7 @@ function makeCached(text: string): CachedResponse {
     last_hit_at: null,
     original_turn_id: 'orig-turn-id',
     original_session_id: 'orig-session-id',
+    cube_meta_hash: null,
   };
 }
 

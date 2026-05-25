@@ -91,6 +91,8 @@ const S = {
 
 interface Props {
   rows: SkillRow[];
+  /** Optional: called when user clicks a skill name cell. Navigates to Sessions tab filtered by skill. */
+  onSkillClick?: (skill: string) => void;
 }
 
 function fmtMs(v: number | null): string {
@@ -130,7 +132,7 @@ function makeComparator(key: SortKey, dir: 'asc' | 'desc'): Comparator {
   };
 }
 
-export function SkillLeaderboardTable({ rows }: Props) {
+export function SkillLeaderboardTable({ rows, onSkillClick }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('p95LatencyMs');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -184,7 +186,27 @@ export function SkillLeaderboardTable({ rows }: Props) {
         <tbody>
           {sorted.map((row) => (
             <tr key={row.skill} data-testid={`row-${row.skill}`}>
-              <td style={S.tdSkill}>{row.skill}</td>
+              <td style={S.tdSkill}>
+                {onSkillClick ? (
+                  <button
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      color: T.brand,
+                      fontFamily: T.fSans,
+                      fontWeight: 500,
+                      fontSize: 12.5,
+                      textDecoration: 'underline',
+                    }}
+                    onClick={() => onSkillClick(row.skill)}
+                    title={`Filter sessions by skill: ${row.skill}`}
+                  >
+                    {row.skill}
+                  </button>
+                ) : row.skill}
+              </td>
               <td style={S.td}>{row.count}</td>
               <td style={S.td}>{fmtMs(row.p50LatencyMs)}</td>
               <td style={S.td}>{fmtMs(row.p95LatencyMs)}</td>
