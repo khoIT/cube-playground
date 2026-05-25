@@ -47,6 +47,26 @@ Header badge changes from amber "Client-side compute (≤28d only)" to green "Se
 3. Restart the Cube backend so it picks up the new cube.
 4. Refresh the playground. Open **Liveops → Cohort retention**. The header badge should read **Server-side retention**.
 
+## ⚠️ Common pitfall: `install_date` must be TIMESTAMP, not DATE
+
+If `<date_col>` is a `DATE` (or any column whose `MIN()` yields a DATE), wrap the source aggregate with an explicit cast so `install_date` is **TIMESTAMP**. Cube emits both `<col> AT TIME ZONE 'UTC'` (for granularity) and `from_iso8601_timestamp(?)` comparisons (for `dateRange`) on every time dimension. Trino / Presto reject either operation against a DATE column with:
+
+```
+Cube /load → 400: "Type of value must be a time or timestamp with or without time zone (actual date)"
+```
+
+The fix is at the source CTE, not in the dimension `sql:` — Cube still wraps your dimension expression in `AT TIME ZONE`, so the *input* must already be TIMESTAMP:
+
+```sql
+-- ❌ install_date is DATE → Cube /load 400s on every cohort window
+SELECT user_id, MIN(<date_col>) AS install_date FROM <events_table> ...
+
+-- ✅ install_date is TIMESTAMP → Cube can apply timezone + dateRange filters
+SELECT user_id, CAST(MIN(<date_col>) AS TIMESTAMP) AS install_date FROM <events_table> ...
+```
+
+If the FE stays stuck on "Detecting data path…" after deploying the cube, this is the first thing to check (`sqlite3 server/data/segments.db "SELECT error_msg FROM liveops_result_cache WHERE resource='cohort_grid'"`).
+
 ## Canonical template (Postgres / Trino)
 
 ```yaml
@@ -56,7 +76,9 @@ cubes:
       WITH first_seen AS (
         SELECT
           <user_id_col>              AS user_id,
-          MIN(DATE_TRUNC('day', <date_col>)) AS install_date
+          -- CAST to TIMESTAMP — Cube wraps time dims with AT TIME ZONE 'UTC'
+          -- and from_iso8601_timestamp() filters, both of which reject DATE.
+          CAST(MIN(DATE_TRUNC('day', <date_col>)) AS TIMESTAMP) AS install_date
         FROM <schema><events_table>
         WHERE {FILTER_PARAMS.retention.install_date.filter(
                  'DATE_TRUNC(''day'', <date_col>)')}
