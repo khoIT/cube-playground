@@ -23,6 +23,12 @@ export interface AssistantChatMessage {
   role: 'assistant';
   id: string;
   sections: AssistantSection[];
+  /** ISO timestamp of the turn — surfaced in the header next to "Cube". */
+  ts?: string;
+  /** True when this turn was served from the response cache (vs live LLM). */
+  cacheHit?: boolean;
+  /** Freshness of cached payload — set only when cacheHit=true. */
+  cacheFreshness?: 'refreshed' | 'stale' | null;
 }
 
 export type ChatMessage = UserChatMessage | AssistantChatMessage;
@@ -94,6 +100,9 @@ export function ChatMessageList({ messages, streaming, onFollowupPick, compact }
           <AssistantMessage
             key={msg.id}
             sections={msg.sections}
+            ts={msg.ts}
+            cacheHit={msg.cacheHit}
+            cacheFreshness={msg.cacheFreshness}
             showFollowups={showFollowups}
             onFollowupPick={onFollowupPick}
           />

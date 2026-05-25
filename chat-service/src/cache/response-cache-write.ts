@@ -4,11 +4,16 @@
  *
  * Skip conditions (any one is sufficient to skip):
  *   - RESPONSE_CACHE_ENABLED !== 'true'
- *   - stop_reason !== 'end_turn'
- *   - collectedArtifacts.length > 0  (query artifacts embed live Cube data)
- *   - collectedCharts.length > 0     (same staleness risk)
+ *   - stop_reason explicitly not 'end_turn' (null/undefined still allowed)
  *   - error flag set (turn ended with an error)
  *   - assistantText is empty
+ *
+ * Artifact + chart turns are now cached. Query artifacts only carry the Cube
+ * query JSON — the FE re-fetches live rows when rendering. Chart artifacts
+ * embed snapshot rows; refresh happens at replay time (see
+ * refresh-cached-artifacts.ts). Semantic-layer drift is handled by the
+ * cubeMetaHash component of the cache key — a schema change rotates the key
+ * so stale entries are unreachable.
  */
 
 import type Database from 'better-sqlite3';
@@ -53,8 +58,6 @@ export function maybeWriteResponseCache(params: MaybeWriteParams): boolean {
   if (params.hadError) return false;
   // Explicit non-end_turn stop: don't cache. Null means not captured — allow.
   if (params.stopReason !== undefined && params.stopReason !== null && params.stopReason !== 'end_turn') return false;
-  if (params.collectedArtifacts.length > 0) return false;
-  if (params.collectedCharts.length > 0) return false;
   if (!params.assistantText) return false;
 
   insertCacheEntry(params.db, {
@@ -63,7 +66,12 @@ export function maybeWriteResponseCache(params: MaybeWriteParams): boolean {
     skill: params.skill,
     model: params.model,
     userTextNormalized: normalize(params.userText),
-    value: { text: params.assistantText, toolCalls: [] },
+    value: {
+      text: params.assistantText,
+      toolCalls: [],
+      artifacts: params.collectedArtifacts.length > 0 ? params.collectedArtifacts : undefined,
+      charts: params.collectedCharts.length > 0 ? params.collectedCharts : undefined,
+    },
     inputTokens: params.inputTokens,
     outputTokens: params.outputTokens,
     costUsd: params.costUsd,

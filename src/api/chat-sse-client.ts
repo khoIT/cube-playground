@@ -102,6 +102,10 @@ export interface SseResult extends SseEventBase {
     cost_usd?: number;
     input_tokens?: number;
     output_tokens?: number;
+    /** True when this turn was served from response_cache (vs live LLM). */
+    cache_hit?: boolean;
+    /** Freshness of cached payload — set only when cache_hit=true. */
+    cache_freshness?: 'refreshed' | 'stale';
   };
 }
 export interface SseError extends SseEventBase {

@@ -40,6 +40,7 @@ import { getMetaVersion } from '../core/cube-meta-cache.js';
 import { computeCacheKey, hashSystemPrompt, normalize } from '../cache/response-cache-key.js';
 import { getByKey, incrementHit } from '../db/response-cache-store.js';
 import { replayCachedTurn } from '../cache/replay-cached-turn.js';
+import { buildRefreshHook } from '../cache/refresh-cached-artifacts.js';
 import { maybeWriteResponseCache } from '../cache/response-cache-write.js';
 
 interface TurnRouteOptions {
@@ -293,22 +294,33 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           // Pass `emit` so replay events go through the stream-registry ring buffer,
           // enabling refresh-resume mid-replay (N1 fix). The emit closure also
           // ensures `loading` and token events appear in registry.findRunning() output.
-          await replayCachedTurn(cached, stream, emit);
+          //
+          // Refresh hook re-executes chart queries (those linked to a query
+          // artifact via artifactRef) against live Cube. Query artifacts
+          // themselves don't carry rows — the FE re-fetches on render.
+          const refresh = buildRefreshHook({ cubeToken });
+          const outcome = await replayCachedTurn(cached, stream, emit, refresh);
           incrementHit(opts.db, cacheKey);
 
           const hitAt = Date.now();
           const assistantIdx = userTurnIndex + 1;
+          const cachedValue = JSON.parse(cached.value_json);
           chatStore.appendTurn(opts.db, {
             id: turnId,
             sessionId,
             turnIndex: assistantIdx,
             role: 'assistant',
-            assistantText: JSON.parse(cached.value_json).text ?? '',
+            assistantText: cachedValue.text ?? '',
+            // Persist the (possibly refreshed) payload so hydrate/reload sees
+            // the same artifacts/charts the SSE stream emitted.
+            artifacts: outcome.artifacts.length > 0 ? outcome.artifacts : undefined,
+            charts: outcome.charts.length > 0 ? outcome.charts : undefined,
             inputTokens: 0,
             outputTokens: 0,
             costUsd: 0,
             cacheHit: 1,
             originalTurnId: cached.original_turn_id,
+            cacheFreshness: outcome.freshness,
             skill: intent.skill,
             model: resolvedModel,
             // Cache hits are gated at write time on stop_reason='end_turn', so a

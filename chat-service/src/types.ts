@@ -70,7 +70,25 @@ export type SseEvent =
   | { type: 'token'; data: { delta: string } }
   | { type: 'query_artifact'; data: QueryArtifact }
   | { type: 'chart'; data: ChartArtifact }
-  | { type: 'result'; data: { text: string; cost_usd?: number; input_tokens?: number; output_tokens?: number; cache_creation_tokens?: number; cache_read_tokens?: number } }
+  | {
+      type: 'result';
+      data: {
+        text: string;
+        cost_usd?: number;
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_tokens?: number;
+        cache_read_tokens?: number;
+        /** True when assistant response was served from response_cache (vs live LLM). */
+        cache_hit?: boolean;
+        /**
+         * Freshness of cached payload — set only when cache_hit=true.
+         *   'refreshed' — chart data re-executed live against Cube during replay.
+         *   'stale'     — payload served from cache as-is.
+         */
+        cache_freshness?: 'refreshed' | 'stale';
+      };
+    }
   | { type: 'error'; data: { code: string; message: string } }
   | { type: 'done'; data: Record<string, never> }
   | { type: 'compact_warning'; data: { from: string; to: string; summary: string } };
@@ -145,6 +163,13 @@ export interface ChatTurnRow {
   cache_hit?: number | null;
   /** Phase-06: original_turn_id when cache_hit=1; null otherwise. */
   original_turn_id?: string | null;
+  /**
+   * Freshness flag on cache-hit turns:
+   *   'refreshed' — chart data re-executed against live Cube on replay.
+   *   'stale'     — served from cache without re-execute.
+   * NULL for non-cache-hit turns.
+   */
+  cache_freshness?: 'refreshed' | 'stale' | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -11,15 +11,22 @@
  */
 
 import type Database from 'better-sqlite3';
+import type { QueryArtifact, ChartArtifact } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** Parsed value stored in response_cache.value_json. */
+/**
+ * Parsed value stored in response_cache.value_json.
+ * `artifacts` / `charts` are optional for backwards-compat with rows written
+ * before artifact-bearing turns were cacheable — older rows hydrate to undefined.
+ */
 export interface CachedValue {
   text: string;
   toolCalls: never[];
+  artifacts?: QueryArtifact[];
+  charts?: ChartArtifact[];
 }
 
 /** Full row as returned by the DB. */

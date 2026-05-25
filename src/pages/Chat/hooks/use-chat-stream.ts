@@ -112,6 +112,8 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     currentArtifacts: entry?.currentArtifacts ?? [],
     currentCharts: entry?.currentCharts ?? [],
     currentToolCalls: entry?.currentToolCalls ?? [],
+    cacheHit: entry?.cacheHit ?? false,
+    cacheFreshness: entry?.cacheFreshness ?? null,
     error: entry?.error ?? null,
     lastCompactWarning: entry?.lastCompactWarning ?? null,
     retryAfterMs: entry?.retryAfterMs ?? null,

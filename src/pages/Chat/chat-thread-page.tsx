@@ -70,7 +70,14 @@ function sessionTurnsToMessages(
       if (embeddedChartIds.has(ch.id)) continue;
       sections.push({ type: 'chart', artifact: ch });
     }
-    return { role: 'assistant', id: t.id, sections };
+    return {
+      role: 'assistant',
+      id: t.id,
+      sections,
+      ts: t.createdAt,
+      cacheHit: t.cacheHit ?? false,
+      cacheFreshness: t.cacheFreshness ?? null,
+    };
   });
 }
 
@@ -131,6 +138,7 @@ export function ChatThreadPage() {
   const {
     status, sessionId: streamSessionId,
     currentText, currentReasoning, currentArtifacts, currentCharts, currentToolCalls,
+    cacheHit: streamCacheHit, cacheFreshness: streamCacheFreshness,
     lastCompactWarning, retryAfterMs,
     sendTurn, cancel, reconnect, clearStreamBuffers,
   } = useChatStream({ sessionId: isNew ? null : id ?? null, game: gameId });
@@ -167,7 +175,13 @@ export function ChatThreadPage() {
   const displayMessages: ChatMessage[] = [...committedMessages];
   if (isStreaming) {
     const sections = buildStreamingSections();
-    if (sections.length > 0) displayMessages.push({ role: 'assistant', id: '__streaming__', sections });
+    if (sections.length > 0) displayMessages.push({
+      role: 'assistant',
+      id: '__streaming__',
+      sections,
+      cacheHit: streamCacheHit,
+      cacheFreshness: streamCacheFreshness,
+    });
   }
 
   const prevStatusRef = useRef(status);
@@ -175,7 +189,21 @@ export function ChatThreadPage() {
     if (prevStatusRef.current !== 'done' && status === 'done') {
       const sections = buildStreamingSections();
       if (sections.length > 0) {
-        setCommittedMessages((prev) => [...prev, { role: 'assistant', id: `${Date.now()}`, sections }]);
+        // Snapshot cache flags before clearStreamBuffers runs — once buffers
+        // clear, streamCacheHit flips back to false.
+        const committedCacheHit = streamCacheHit;
+        const committedCacheFreshness = streamCacheFreshness;
+        setCommittedMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            id: `${Date.now()}`,
+            sections,
+            ts: new Date().toISOString(),
+            cacheHit: committedCacheHit,
+            cacheFreshness: committedCacheFreshness,
+          },
+        ]);
       }
       // Clear stream buffers so the live preview doesn't render alongside the
       // committed turn. React 18 batches this with setCommittedMessages above,

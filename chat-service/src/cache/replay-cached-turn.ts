@@ -1,24 +1,38 @@
 /**
  * Replay a cached turn through the SSE stream.
  *
- * Emits the same event sequence a live assistant turn would produce:
- *   token (one chunk per ~80 chars of cached text)
- *   result (with input_tokens=0, output_tokens=0, cost_usd=0 — zero because
- *           no LLM was called; consumers must not bill these turns)
+ * Event sequence (matches live-turn wire shape):
+ *   loading
+ *   token         — one chunk per ~80 chars of cached text
+ *   query_artifact — one per cached artifact (FE re-fetches rows on render)
+ *   chart         — one per cached chart (data may be refreshed by refresh hook)
+ *   result        — tokens=0, cost=0; carries cache_hit + cache_freshness
  *
- * The FE must not be able to distinguish a replayed turn from a live one
- * by wire shape alone. The golden SSE test in cache/__tests__/replay.test.ts
- * enforces this contract.
- *
- * Tool calls are intentionally absent: the write-gate in response-cache-write.ts
- * guarantees we only cache turns with no tool calls / artifacts.
+ * The result event's cache flags let the FE render the indicator immediately
+ * without waiting for a turn-row refetch.
  */
 
 import { writeSseEvent } from '../core/sse-stream.js';
-import type { SseEvent } from '../types.js';
+import type { SseEvent, QueryArtifact, ChartArtifact } from '../types.js';
 import { chunkText } from './response-cache-key.js';
 import type { CachedResponse, CachedValue } from '../db/response-cache-store.js';
 import type { Writable } from 'node:stream';
+
+/** Outcome of a replay — caller persists `freshness` on the new turn row. */
+export interface ReplayOutcome {
+  artifacts: QueryArtifact[];
+  charts: ChartArtifact[];
+  freshness: 'refreshed' | 'stale';
+}
+
+/**
+ * Optional hook to re-execute cached charts against live Cube on hit.
+ * Returns the (possibly mutated) lists plus an overall freshness flag.
+ */
+export type RefreshHook = (
+  artifacts: QueryArtifact[],
+  charts: ChartArtifact[],
+) => Promise<ReplayOutcome>;
 
 /**
  * Replay a cached turn onto the given stream.
@@ -26,12 +40,14 @@ import type { Writable } from 'node:stream';
  * @param cached    Row from response_cache table.
  * @param stream    Node Writable (the SSE reply.raw stream).
  * @param emitFn    Optional override for emitting events (used in tests).
+ * @param refresh   Optional refresh hook; absent = freshness='stale'.
  */
 export async function replayCachedTurn(
   cached: CachedResponse,
   stream: Writable,
   emitFn?: (event: SseEvent) => void,
-): Promise<void> {
+  refresh?: RefreshHook,
+): Promise<ReplayOutcome> {
   const emit = emitFn ?? ((event: SseEvent) => writeSseEvent(stream, event));
 
   let value: CachedValue;
@@ -42,18 +58,36 @@ export async function replayCachedTurn(
   }
 
   const text = value.text ?? '';
+  const cachedArtifacts = value.artifacts ?? [];
+  const cachedCharts = value.charts ?? [];
 
-  // Emit loading first so the wire shape is byte-identical to a live turn.
-  // Live turns emit loading before any tokens (turn.ts:349). Without this
-  // future consumers keying off the `loading` event would drift on cache-hit paths.
+  // Best-effort refresh — failures fall through to the stale fallback.
+  let outcome: ReplayOutcome = {
+    artifacts: cachedArtifacts,
+    charts: cachedCharts,
+    freshness: 'stale',
+  };
+  if (refresh && (cachedArtifacts.length > 0 || cachedCharts.length > 0)) {
+    try {
+      outcome = await refresh(cachedArtifacts, cachedCharts);
+    } catch {
+      // swallow; stale fallback already prepared
+    }
+  }
+
   emit({ type: 'loading', data: {} });
 
-  // Emit token chunks — same visual streaming experience as a live turn.
   for (const chunk of chunkText(text, 80)) {
     emit({ type: 'token', data: { delta: chunk } });
   }
 
-  // Emit result event — tokens are 0 (no LLM call was made).
+  for (const artifact of outcome.artifacts) {
+    emit({ type: 'query_artifact', data: artifact });
+  }
+  for (const chart of outcome.charts) {
+    emit({ type: 'chart', data: chart });
+  }
+
   emit({
     type: 'result',
     data: {
@@ -61,6 +95,10 @@ export async function replayCachedTurn(
       input_tokens: 0,
       output_tokens: 0,
       cost_usd: 0,
+      cache_hit: true,
+      cache_freshness: outcome.freshness,
     },
   });
+
+  return outcome;
 }

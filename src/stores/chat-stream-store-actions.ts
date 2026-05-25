@@ -53,6 +53,10 @@ export interface StreamEntry {
   refCount: number;
   /** Cancel handle for the live SSE fetch. */
   cancel?: () => void;
+  /** True when the in-flight turn was served from the response cache. */
+  cacheHit?: boolean;
+  /** Freshness of the cached payload — set only when cacheHit=true. */
+  cacheFreshness?: 'refreshed' | 'stale' | null;
 }
 
 export function makeIdleEntry(sessionId: string | null): StreamEntry {
@@ -149,13 +153,22 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
         },
       };
 
-    case 'result':
-      // `result` carries the final text snapshot; only fill if we never saw
-      // streaming tokens (some skills emit a single result without tokens).
+    case 'result': {
+      // `result` carries the final text snapshot + cache metadata. Always
+      // capture cache flags so the live message can render the badge before
+      // hydration from the persisted turn row.
+      const next: StreamEntry = {
+        ...entry,
+        cacheHit: event.data.cache_hit ?? entry.cacheHit ?? false,
+        cacheFreshness: event.data.cache_hit
+          ? event.data.cache_freshness ?? null
+          : entry.cacheFreshness ?? null,
+      };
       if (event.data.text && !entry.currentText) {
-        return { ...entry, currentText: event.data.text };
+        next.currentText = event.data.text;
       }
-      return entry;
+      return next;
+    }
 
     case 'done':
       return { ...entry, status: 'done' };
@@ -188,5 +201,7 @@ export function clearStreamBuffers(entry: StreamEntry): StreamEntry {
     currentArtifacts: [],
     currentCharts: [],
     currentToolCalls: [],
+    cacheHit: false,
+    cacheFreshness: null,
   };
 }

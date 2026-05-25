@@ -33,6 +33,12 @@ interface TurnDto {
   toolCalls: Array<{ id: string; name: string; ok: boolean; ms: number; summary: string }>;
   artifacts: QueryArtifact[];
   charts: ChartArtifact[];
+  /** True when this turn was served from the response cache. */
+  cacheHit?: boolean;
+  /** Freshness of cached payload — set only when cacheHit=true. */
+  cacheFreshness?: 'refreshed' | 'stale' | null;
+  /** Turn id of the original cached turn this replayed from (provenance). */
+  originalTurnId?: string | null;
 }
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
@@ -46,6 +52,7 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
 
 function rowToTurn(row: ChatTurnRow): TurnDto {
   const text = row.role === 'user' ? row.user_text ?? '' : row.assistant_text ?? '';
+  const cacheHit = (row.cache_hit ?? 0) === 1;
   return {
     id: row.id,
     role: row.role,
@@ -54,6 +61,9 @@ function rowToTurn(row: ChatTurnRow): TurnDto {
     toolCalls: safeParseJson(row.tool_calls_json, []),
     artifacts: safeParseJson(row.artifacts_json, []),
     charts: safeParseJson(row.charts_json, []),
+    cacheHit,
+    cacheFreshness: cacheHit ? row.cache_freshness ?? null : null,
+    originalTurnId: cacheHit ? row.original_turn_id ?? null : null,
   };
 }
 

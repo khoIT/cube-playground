@@ -49,6 +49,9 @@ export function migrate(db: Database.Database): void {
   // Phase-06: response-cache columns on chat_turns.
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN cache_hit INTEGER DEFAULT 0;');
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN original_turn_id TEXT;');
+  // Freshness flag on cache-hit turns: 'refreshed' (chart data re-executed live)
+  // or 'stale' (served from cache without re-execute). NULL on non-cache-hit turns.
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN cache_freshness TEXT;');
 
   // Phase-driven migrations run in a fixed order per decision C1. Each helper
   // is idempotent and safe to re-run.

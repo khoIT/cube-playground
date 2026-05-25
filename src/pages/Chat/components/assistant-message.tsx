@@ -18,6 +18,7 @@ import cubeLogoLight from '../../../assets/brand/cube-logo-light.png';
 import cubeLogoDark from '../../../assets/brand/cube-logo-dark.png';
 import { ReasoningTrace } from './reasoning-trace';
 import { ToolCallChip } from './tool-call-chip';
+import { CachedResponseBadge } from './cached-response-badge';
 import { QueryArtifactCard } from './query-artifact-card';
 import { AssistantChartSection } from './assistant-chart-section';
 import { FieldChip } from './field-chip';
@@ -26,6 +27,14 @@ import { resolveGlossaryHref } from '../../Catalog/glossary/resolve-glossary-lin
 import { FollowupChips } from './followup-chips';
 import { suggestFollowups, type FollowupChip } from '../services/followup-suggester';
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
+
+// Short local-time formatter for the assistant header timestamp.
+// Mirrors user-message styling (HH:MM 24h, no seconds).
+function formatTurnTs(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+}
 
 /**
  * Field-chip token (phase-02). Format LOCKED:
@@ -341,6 +350,12 @@ export type AssistantSection =
 
 interface AssistantMessageProps {
   sections: AssistantSection[];
+  /** ISO timestamp of the turn — rendered next to "Cube" in the header. */
+  ts?: string;
+  /** True when this turn was served from the response cache (vs live LLM). */
+  cacheHit?: boolean;
+  /** Freshness of cached payload — set only when cacheHit=true. */
+  cacheFreshness?: 'refreshed' | 'stale' | null;
   /**
    * When true, render the suggested follow-up chip row below the message.
    * Set only on the last settled assistant message (no streaming after).
@@ -384,7 +399,14 @@ function extractFollowupContext(sections: ReadonlyArray<AssistantSection>): {
   return { cubes: Array.from(cubes), tools: Array.from(tools) };
 }
 
-export function AssistantMessage({ sections, showFollowups, onFollowupPick }: AssistantMessageProps) {
+export function AssistantMessage({
+  sections,
+  ts,
+  cacheHit,
+  cacheFreshness,
+  showFollowups,
+  onFollowupPick,
+}: AssistantMessageProps) {
   // Merge tool_result into its matching tool_call so we render one chip per call.
   const merged = mergeToolSections(sections);
   const { theme } = useTheme();
@@ -430,6 +452,20 @@ export function AssistantMessage({ sections, showFollowups, onFollowupPick }: As
         >
           Cube
         </span>
+        {cacheHit && <CachedResponseBadge freshness={cacheFreshness} />}
+        {ts && (
+          <span
+            style={{
+              fontFamily: T.fSans,
+              fontSize: 11,
+              color: T.n400,
+              marginLeft: cacheHit ? 0 : undefined,
+            }}
+            title={ts}
+          >
+            · {formatTurnTs(ts)}
+          </span>
+        )}
       </div>
 
       {/* Sections */}

@@ -218,6 +218,13 @@ export interface AppendTurnParams {
   /** Phase-06: turn id of the original cached turn this was replayed from. */
   originalTurnId?: string | null;
   /**
+   * Freshness flag for cache-hit turns:
+   *   'refreshed' — at least one cached chart had its data re-executed live on replay.
+   *   'stale'     — served from cache as-is (refresh skipped, failed, or n/a).
+   * Null/undefined on non-cache-hit turns.
+   */
+  cacheFreshness?: 'refreshed' | 'stale' | null;
+  /**
    * Turn-level stop_reason (e.g. 'end_turn', 'max_tokens').
    * Cache-hit turns must pass 'end_turn' explicitly because the observability
    * stack is skipped on that path — without it stop_reason stays NULL and the
@@ -247,11 +254,11 @@ export function appendTurn(
         reasoning_json, tool_calls_json, artifacts_json, charts_json,
         input_tokens, output_tokens, cost_usd,
         cache_creation_tokens, cache_read_tokens,
-        cache_hit, original_turn_id,
+        cache_hit, original_turn_id, cache_freshness,
         skill, system_prompt_text, model,
         stop_reason,
         started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -270,6 +277,7 @@ export function appendTurn(
     params.cacheReadTokens ?? null,
     params.cacheHit ?? 0,
     params.originalTurnId ?? null,
+    params.cacheFreshness ?? null,
     params.skill ?? null,
     params.systemPromptText ?? null,
     params.model ?? null,

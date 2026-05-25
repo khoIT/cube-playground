@@ -34,6 +34,16 @@ export interface ChatTurn {
   }>;
   /** Standalone charts emitted via emit_chart in this turn. */
   charts?: ChartArtifact[];
+  /** True when this turn was served from the response cache (vs live LLM). */
+  cacheHit?: boolean;
+  /**
+   * Freshness of cached payload — set only when cacheHit=true.
+   *   'refreshed' — server re-executed chart queries against live Cube on replay.
+   *   'stale'     — cached payload served as-is.
+   */
+  cacheFreshness?: 'refreshed' | 'stale' | null;
+  /** Turn id of the original cached turn this was replayed from (provenance). */
+  originalTurnId?: string | null;
 }
 
 export interface ChatSession {
