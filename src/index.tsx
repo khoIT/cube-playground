@@ -173,15 +173,15 @@ ReactDOM.render(
               <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
               <Route key="liveops-cohort" exact path="/liveops/cohort" component={CohortRetentionPage} />
               <Route key="liveops" exact path="/liveops" component={LiveopsPage} />
-              <Route key="dashboards-detail" path="/dashboards/:slug" component={DashboardDetailPage} />
+              <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
               <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />
               <Route key="data-model-new-success" exact path="/data-model/new/success" component={DataModelWizardSuccess} />
-              <Route key="data-model-new" path="/data-model/new" component={DataModelWizardPage} />
+              <Route key="data-model-new" exact path="/data-model/new" component={DataModelWizardPage} />
               <Route key="metrics-new-success-legacy" exact path="/metrics/new/success">
                 <Redirect to="/data-model/new/success" />
               </Route>
-              <Route key="metrics-new-legacy" path="/metrics/new">
+              <Route key="metrics-new-legacy" exact path="/metrics/new">
                 <Redirect to="/data-model/new?v=2" />
               </Route>
             </Suspense>

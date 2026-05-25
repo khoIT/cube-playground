@@ -20,6 +20,8 @@
     "dataModelNew": "Mô hình mới",
     "glossary": "Thuật ngữ",
     "liveops": "Liveops",
+    "cohortRetention": "Cohort retention",
+    "anomalyArchive": "Lưu trữ bất thường",
     "dashboards": "Bảng điều khiển"
   },
   "segments": {

@@ -20,6 +20,8 @@
     "dataModelNew": "New data model",
     "glossary": "Glossary",
     "liveops": "Liveops",
+    "cohortRetention": "Cohort retention",
+    "anomalyArchive": "Anomaly archive",
     "dashboards": "Dashboards"
   },
   "segments": {

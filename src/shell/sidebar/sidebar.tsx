@@ -162,9 +162,11 @@ export function Sidebar() {
             icon={Radio}
             label={t('nav.liveops')}
             to="/liveops"
-            flat
             collapsed={collapsed}
-          />
+          >
+            <SidebarItem label={t('nav.cohortRetention')} to="/liveops/cohort" indent />
+            <SidebarItem label={t('nav.anomalyArchive')} to="/liveops/anomalies" indent />
+          </SidebarSection>
         )}
 
         {isVisible('dashboards') && (
