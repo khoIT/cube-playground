@@ -22,5 +22,16 @@ export default defineConfig({
       // vite-plugins tests: pure Node — no DOM, no React setup
       ['vite-plugins/**', 'node'],
     ],
+    // Forks isolate jsdom DOMs per file — heap is reclaimed on file end,
+    // unlike threads which share a V8 isolate per worker and leak across files.
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        maxForks: 4,
+        minForks: 1,
+        execArgv: ['--max-old-space-size=4096'],
+      },
+    },
+    logHeapUsage: true,
   },
 });
