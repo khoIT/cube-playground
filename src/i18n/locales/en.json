@@ -18,7 +18,9 @@
     "metricsCatalog": "Metrics Catalog",
     "advanced": "Advanced",
     "dataModelNew": "New data model",
-    "glossary": "Glossary"
+    "glossary": "Glossary",
+    "liveops": "Liveops",
+    "dashboards": "Dashboards"
   },
   "segments": {
     "actions": {
@@ -407,6 +409,20 @@
         "aggressive": {
           "title": "Aggressive auto-resolve",
           "desc": "Auto-resolve confident interpretations; ask only on truly ambiguous queries."
+        }
+      },
+      "rememberedDefaults": {
+        "title": "Remembered defaults",
+        "subtitle": "Slots the chat assistant has learned from your past sessions. Clear any to be asked again next time.",
+        "empty": "No remembered defaults yet. The chat assistant will learn as you confirm choices in chat.",
+        "clearAll": "Clear all remembered defaults",
+        "clearAllConfirm": "Clear every remembered default for this game?",
+        "lastUsed": "last used {{when}}",
+        "slot": {
+          "metric": "Metric",
+          "dimension": "Dimension",
+          "timeRange": "Time range",
+          "filter": "Filter ({{member}})"
         }
       }
     },

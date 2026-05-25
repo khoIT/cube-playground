@@ -33,6 +33,7 @@ import debugLeaderboardRoutes from './api/debug-leaderboard.js';
 import debugCacheClearRoutes from './api/debug-cache-clear.js';
 import debugCacheEffectivenessRoutes from './api/debug-cache-effectiveness.js';
 import notificationsRoutes from './api/notifications.js';
+import chatUserPrefsRoutes from './api/chat-user-prefs.js';
 import { scheduler } from './services/scheduler.js';
 import { registerRetentionSweep } from './services/retention-sweep.js';
 import { registerResponseCacheSweep } from './services/response-cache-sweep.js';
@@ -76,6 +77,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(debugCacheClearRoutes, { db });
   await fastify.register(debugCacheEffectivenessRoutes, { db });
   await fastify.register(notificationsRoutes, { db });
+  await fastify.register(chatUserPrefsRoutes, { db });
 
   return { fastify, db };
 }

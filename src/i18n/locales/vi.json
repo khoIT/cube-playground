@@ -18,7 +18,9 @@
     "metricsCatalog": "Thư viện chỉ số",
     "advanced": "Nâng cao",
     "dataModelNew": "Mô hình mới",
-    "glossary": "Thuật ngữ"
+    "glossary": "Thuật ngữ",
+    "liveops": "Liveops",
+    "dashboards": "Bảng điều khiển"
   },
   "segments": {
     "actions": {
@@ -407,6 +409,20 @@
         "aggressive": {
           "title": "Tự suy luận quyết liệt",
           "desc": "Tự suy luận khi đủ tự tin; chỉ hỏi lại với câu thực sự mơ hồ."
+        }
+      },
+      "rememberedDefaults": {
+        "title": "Mặc định đã ghi nhớ",
+        "subtitle": "Các lựa chọn trợ lý đã học từ các phiên trước. Xoá để được hỏi lại lần sau.",
+        "empty": "Chưa có mặc định nào. Trợ lý sẽ ghi nhớ khi bạn xác nhận lựa chọn trong chat.",
+        "clearAll": "Xoá toàn bộ mặc định",
+        "clearAllConfirm": "Xoá toàn bộ mặc định cho game này?",
+        "lastUsed": "dùng lần cuối {{when}}",
+        "slot": {
+          "metric": "Chỉ số",
+          "dimension": "Chiều",
+          "timeRange": "Khoảng thời gian",
+          "filter": "Lọc ({{member}})"
         }
       }
     },
