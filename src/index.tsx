@@ -172,7 +172,7 @@ ReactDOM.render(
               </KeepAliveRoute>
               <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
               <Route key="liveops-cohort" exact path="/liveops/cohort" component={CohortRetentionPage} />
-              <Route key="liveops" path="/liveops" component={LiveopsPage} />
+              <Route key="liveops" exact path="/liveops" component={LiveopsPage} />
               <Route key="dashboards-detail" path="/dashboards/:slug" component={DashboardDetailPage} />
               <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />

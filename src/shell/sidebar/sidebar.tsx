@@ -156,23 +156,27 @@ export function Sidebar() {
           </SidebarSection>
         )}
 
-        <SidebarSection
-          id="liveops"
-          icon={Radio}
-          label="Liveops"
-          to="/liveops"
-          flat
-          collapsed={collapsed}
-        />
+        {isVisible('liveops') && (
+          <SidebarSection
+            id="liveops"
+            icon={Radio}
+            label={t('nav.liveops')}
+            to="/liveops"
+            flat
+            collapsed={collapsed}
+          />
+        )}
 
-        <SidebarSection
-          id="dashboards"
-          icon={LayoutGrid}
-          label="Dashboards"
-          to="/dashboards"
-          flat
-          collapsed={collapsed}
-        />
+        {isVisible('dashboards') && (
+          <SidebarSection
+            id="dashboards"
+            icon={LayoutGrid}
+            label={t('nav.dashboards')}
+            to="/dashboards"
+            flat
+            collapsed={collapsed}
+          />
+        )}
 
         {isVisible('segments') && (
           <SidebarSection

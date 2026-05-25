@@ -11,6 +11,8 @@ import {
   Check,
   MessageSquare,
   LayoutDashboard,
+  LayoutGrid,
+  Radio,
   Grid,
   BookOpen,
   Users,
@@ -87,6 +89,8 @@ const ICONS: Record<NavItemId, LucideIcon> = {
   playground: LayoutDashboard,
   'data-model': Grid,
   'metrics-catalog': BookOpen,
+  liveops: Radio,
+  dashboards: LayoutGrid,
   segments: Users,
 };
 

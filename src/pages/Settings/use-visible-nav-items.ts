@@ -18,6 +18,8 @@ export type NavItemId =
   | 'playground'
   | 'data-model'
   | 'metrics-catalog'
+  | 'liveops'
+  | 'dashboards'
   | 'segments';
 
 export interface NavItemDescriptor {
@@ -30,6 +32,8 @@ export const NAV_ITEMS: NavItemDescriptor[] = [
   { id: 'playground', labelKey: 'nav.playground' },
   { id: 'data-model', labelKey: 'nav.dataModel' },
   { id: 'metrics-catalog', labelKey: 'nav.metricsCatalog' },
+  { id: 'liveops', labelKey: 'nav.liveops' },
+  { id: 'dashboards', labelKey: 'nav.dashboards' },
   { id: 'segments', labelKey: 'nav.segments' },
 ];
 
