@@ -54,6 +54,14 @@ export function getRecent(module: RecentModule): RecentItem[] {
         (it) => it && typeof it.id === 'string' && !it.id.includes('.'),
       );
     }
+    // Playground recents key by tab id (small integers). An earlier revision
+    // keyed by query fingerprint, leaving non-numeric residue that would never
+    // dedupe against the new scheme — filter those out so the tray self-heals.
+    if (module === 'playground') {
+      return (parsed as RecentItem[]).filter(
+        (it) => it && typeof it.id === 'string' && /^\d+$/.test(it.id),
+      );
+    }
     return parsed as RecentItem[];
   } catch {
     return [];

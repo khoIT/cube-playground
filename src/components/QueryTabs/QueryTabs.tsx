@@ -15,7 +15,7 @@ import { QueryLoadResult } from '../ChartRenderer/ChartRenderer';
 import { DrilldownModal } from '../DrilldownModal/DrilldownModal';
 import { useChartRendererStateMethods } from './ChartRendererStateProvider';
 import { pushRecent, removeRecent } from '../../shell/sidebar/recent-items-store';
-import { fingerprintQuery, summarizeQuery } from '../../shell/sidebar/query-summary';
+import { summarizeQuery } from '../../shell/sidebar/query-summary';
 
 const { TabPane } = Tabs;
 
@@ -330,7 +330,10 @@ export function QueryTabs({
     if (!title) return;
     const validated = validateQuery(activeTab.query);
     const href = `/build?query=${JSON.stringify(validated)}`;
-    const id = fingerprintQuery(validated as any);
+    // Dedup key is the tab id, not the query fingerprint — editing a query
+    // mutates the content of the same slot, so the sidebar row should update
+    // in place rather than spawning a new entry per edit.
+    const id = activeTab.id;
     // Debounce so dragging chips around doesn't fill the tray with every
     // intermediate state; only the query the user lands on sticks.
     const timer = window.setTimeout(() => {
@@ -421,8 +424,8 @@ export function QueryTabs({
 
           // Mirror the close into the sidebar tray: closing a tab is the user
           // saying "I'm done with this query", so the recent should go too.
-          if (closedTab?.query) {
-            try { removeRecent('playground', fingerprintQuery(closedTab.query as any)); } catch { /* noop */ }
+          if (closedTab) {
+            try { removeRecent('playground', closedTab.id); } catch { /* noop */ }
           }
 
           saveTabs({
