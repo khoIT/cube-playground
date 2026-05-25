@@ -139,6 +139,7 @@ export function ChatThreadPage() {
     status, sessionId: streamSessionId,
     currentText, currentReasoning, currentArtifacts, currentCharts, currentToolCalls,
     cacheHit: streamCacheHit, cacheFreshness: streamCacheFreshness,
+    disambigOptions: streamDisambigOptions,
     lastCompactWarning, retryAfterMs,
     sendTurn, cancel, reconnect, clearStreamBuffers,
   } = useChatStream({ sessionId: isNew ? null : id ?? null, game: gameId });
@@ -181,6 +182,7 @@ export function ChatThreadPage() {
       sections,
       cacheHit: streamCacheHit,
       cacheFreshness: streamCacheFreshness,
+      disambigOptions: streamDisambigOptions,
     });
   }
 
@@ -189,10 +191,11 @@ export function ChatThreadPage() {
     if (prevStatusRef.current !== 'done' && status === 'done') {
       const sections = buildStreamingSections();
       if (sections.length > 0) {
-        // Snapshot cache flags before clearStreamBuffers runs — once buffers
-        // clear, streamCacheHit flips back to false.
+        // Snapshot cache + disambig flags before clearStreamBuffers runs —
+        // once buffers clear, streamCacheHit / streamDisambigOptions reset.
         const committedCacheHit = streamCacheHit;
         const committedCacheFreshness = streamCacheFreshness;
+        const committedDisambig = streamDisambigOptions;
         setCommittedMessages((prev) => [
           ...prev,
           {
@@ -202,6 +205,7 @@ export function ChatThreadPage() {
             ts: new Date().toISOString(),
             cacheHit: committedCacheHit,
             cacheFreshness: committedCacheFreshness,
+            disambigOptions: committedDisambig,
           },
         ]);
       }
@@ -231,6 +235,25 @@ export function ChatThreadPage() {
   const handleFollowupPick = useCallback(
     (text: string) => {
       const trimmed = text.trim();
+      if (!trimmed || isStreaming) return;
+      setCommittedMessages((prev) => [
+        ...prev,
+        { role: 'user', id: `user-${Date.now()}`, text: trimmed, ts: new Date().toISOString() },
+      ]);
+      sendTurn(trimmed);
+    },
+    [isStreaming, sendTurn],
+  );
+
+  /**
+   * Disambiguation chip click. Sends the chip's pinText as the next user
+   * message; the BE disambig tool then resolves the slot using its memory
+   * adapter (kv_cache(disambig_resolution)). Future turns of the same session
+   * skip clarify for this slot.
+   */
+  const handleDisambigPick = useCallback(
+    (pinText: string) => {
+      const trimmed = pinText.trim();
       if (!trimmed || isStreaming) return;
       setCommittedMessages((prev) => [
         ...prev,
@@ -315,6 +338,7 @@ export function ChatThreadPage() {
               onSubmit={handleSubmit}
               banner={topBanner}
               onFollowupPick={handleFollowupPick}
+              onDisambigPick={handleDisambigPick}
               bypassCache={bypassCache}
               onToggleBypassCache={() => setBypassCache((v) => !v)}
             />

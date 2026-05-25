@@ -10,7 +10,10 @@ import type {
   SseEvent,
   QueryArtifact,
   ChartArtifact,
+  SseDisambigOptions,
 } from '../api/chat-sse-client';
+
+export type DisambigOptionsPayload = SseDisambigOptions['data'];
 
 export type StreamStatus =
   | 'idle'
@@ -57,6 +60,11 @@ export interface StreamEntry {
   cacheHit?: boolean;
   /** Freshness of the cached payload — set only when cacheHit=true. */
   cacheFreshness?: 'refreshed' | 'stale' | null;
+  /**
+   * Most-recent disambiguation chip set the server asked us to render.
+   * Cleared on the next user submission. Null when no chips are pending.
+   */
+  disambigOptions?: DisambigOptionsPayload | null;
 }
 
 export function makeIdleEntry(sessionId: string | null): StreamEntry {
@@ -142,6 +150,11 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
     case 'chart':
       return { ...entry, currentCharts: [...entry.currentCharts, event.data] };
 
+    case 'disambig_options':
+      // Latest chip set replaces any prior one (LLM may re-disambiguate on
+      // narrowed slots). Cleared in clearStreamBuffers on the next turn.
+      return { ...entry, disambigOptions: event.data };
+
     case 'compact_warning':
       return {
         ...entry,
@@ -203,5 +216,6 @@ export function clearStreamBuffers(entry: StreamEntry): StreamEntry {
     currentToolCalls: [],
     cacheHit: false,
     cacheFreshness: null,
+    disambigOptions: null,
   };
 }

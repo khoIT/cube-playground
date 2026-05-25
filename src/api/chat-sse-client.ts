@@ -95,6 +95,24 @@ export interface SseChart extends SseEventBase {
   type: 'chart';
   data: ChartArtifact;
 }
+
+export interface DisambigOption {
+  /** Human label shown on the chip (e.g. "ARPDAU"). */
+  label: string;
+  /** Text sent on click — drives the next turn's disambiguator. */
+  pinText: string;
+  /** Optional confidence hint for ordering / a11y. */
+  confidence?: number;
+}
+
+export interface SseDisambigOptions extends SseEventBase {
+  type: 'disambig_options';
+  data: {
+    slot: 'metric' | 'dimension' | 'timeRange';
+    prompt: string;
+    options: DisambigOption[];
+  };
+}
 export interface SseResult extends SseEventBase {
   type: 'result';
   data: {
@@ -131,6 +149,7 @@ export type SseEvent =
   | SseToken
   | SseQueryArtifact
   | SseChart
+  | SseDisambigOptions
   | SseResult
   | SseError
   | SseDone

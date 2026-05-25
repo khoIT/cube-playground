@@ -72,6 +72,30 @@ export type SseEvent =
   | { type: 'query_artifact'; data: QueryArtifact }
   | { type: 'chart'; data: ChartArtifact }
   | {
+      type: 'disambig_options';
+      data: {
+        /**
+         * Slot the user is being asked to resolve. The chip click pins this
+         * slot in the next turn so the disambig tool routes auto.
+         */
+        slot: 'metric' | 'dimension' | 'timeRange';
+        /** Short prompt to display above the chip row. */
+        prompt: string;
+        /** Chip-friendly option list, ordered by candidate confidence. */
+        options: Array<{
+          /** Human label shown on the chip (e.g. "ARPDAU"). */
+          label: string;
+          /**
+           * Text to send when the chip is clicked — embeds the locked field
+           * token so the disambig tool resolves the slot without re-asking.
+           */
+          pinText: string;
+          /** Optional confidence hint for ordering / a11y. */
+          confidence?: number;
+        }>;
+      };
+    }
+  | {
       type: 'result';
       data: {
         text: string;

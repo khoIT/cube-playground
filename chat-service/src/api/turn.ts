@@ -363,6 +363,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       collectedCharts.push(chart);
       emit({ type: 'chart', data: chart });
     });
+    sseEmitter.on('disambig_options', (data: Extract<SseEvent, { type: 'disambig_options' }>['data']) => {
+      emit({ type: 'disambig_options', data });
+    });
 
     const toolContext: ToolContext = {
       ownerId: body.owner_id,

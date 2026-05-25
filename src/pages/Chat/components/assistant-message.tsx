@@ -25,6 +25,8 @@ import { FieldChip } from './field-chip';
 import { useGlossaryLinker, type LinkedSegment } from './use-glossary-linker';
 import { resolveGlossaryHref } from '../../Catalog/glossary/resolve-glossary-link';
 import { FollowupChips } from './followup-chips';
+import { DisambigChips } from './disambig-chips';
+import type { DisambigOptionsPayload } from '../../../stores/chat-stream-store-actions';
 import { suggestFollowups, type FollowupChip } from '../services/followup-suggester';
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
 
@@ -363,6 +365,14 @@ interface AssistantMessageProps {
   showFollowups?: boolean;
   /** Pick handler — chip text should be prefilled + sent (phase-04). */
   onFollowupPick?: (text: string) => void;
+  /**
+   * Server-side disambiguation options the agent surfaced for this turn.
+   * Rendered as clickable pills below the message; click resolves the slot
+   * for the rest of the session via kv_cache memory.
+   */
+  disambigOptions?: DisambigOptionsPayload | null;
+  /** Pick handler for a disambig chip — sends pinText as the next user turn. */
+  onDisambigPick?: (pinText: string) => void;
 }
 
 function extractFollowupContext(sections: ReadonlyArray<AssistantSection>): {
@@ -406,6 +416,8 @@ export function AssistantMessage({
   cacheFreshness,
   showFollowups,
   onFollowupPick,
+  disambigOptions,
+  onDisambigPick,
 }: AssistantMessageProps) {
   // Merge tool_result into its matching tool_call so we render one chip per call.
   const merged = mergeToolSections(sections);
@@ -473,6 +485,14 @@ export function AssistantMessage({
         {merged.map((section, i) => (
           <SectionRenderer key={i} section={section} />
         ))}
+        {disambigOptions && disambigOptions.options.length > 0 ? (
+          <DisambigChips
+            prompt={disambigOptions.prompt}
+            slot={disambigOptions.slot}
+            options={disambigOptions.options}
+            onPick={(pinText) => onDisambigPick?.(pinText)}
+          />
+        ) : null}
         {showFollowups && followupChips.length > 0 ? (
           <FollowupChips
             chips={followupChips}

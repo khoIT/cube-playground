@@ -19,6 +19,8 @@ interface ChatThreadViewProps {
   banner?: React.ReactNode;
   /** Phase-04: pre-fill + submit the given text (follow-up chip click). */
   onFollowupPick?: (text: string) => void;
+  /** Disambiguation chip click — sends pinText as the next user turn. */
+  onDisambigPick?: (pinText: string) => void;
   /** Phase-06: bypass cache toggle state + handler. */
   bypassCache?: boolean;
   onToggleBypassCache?: () => void;
@@ -33,6 +35,7 @@ export function ChatThreadView({
   compact,
   banner,
   onFollowupPick,
+  onDisambigPick,
   bypassCache,
   onToggleBypassCache,
 }: ChatThreadViewProps) {
@@ -60,6 +63,7 @@ export function ChatThreadView({
         messages={messages}
         streaming={streaming}
         onFollowupPick={onFollowupPick}
+        onDisambigPick={onDisambigPick}
         compact={compact}
       />
 

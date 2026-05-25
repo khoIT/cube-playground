@@ -13,7 +13,11 @@
 import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { disambiguate } from '../nl-to-query/index.js';
-import type { DisambiguationResult } from '../nl-to-query/index.js';
+import type { DisambiguationResult, Clarification } from '../nl-to-query/index.js';
+import {
+  getResolutions,
+  mergeResolution,
+} from '../cache/disambig-memory-adapter.js';
 import type { ToolContext } from '../types.js';
 
 export const name = 'disambiguate_query';
@@ -69,6 +73,31 @@ export async function handler(
     { now: ctx.now },
   );
 
+  // ── Session-scoped memory: fill missing slots from prior user choices.
+  // Once the user has resolved metric=ARPDAU once via a chip click, we don't
+  // re-ask in subsequent turns of the same session. Confidence is set high
+  // enough to clear auto-route gates.
+  const memory = ctx.db ? getResolutions(ctx.db, ctx.sessionId) : {};
+  const MEMORY_CONFIDENCE = 0.95;
+  if (!result.slots.metric.value && memory.metric) {
+    result.slots.metric = { value: memory.metric, confidence: MEMORY_CONFIDENCE };
+    result.warnings.push(`metric resolved from session memory: ${memory.metric}`);
+  }
+  if (!result.slots.dimension?.value && memory.dimension) {
+    result.slots.dimension = { value: memory.dimension, confidence: MEMORY_CONFIDENCE };
+    result.warnings.push(`dimension resolved from session memory: ${memory.dimension}`);
+  }
+  // Re-evaluate: if all clarifications were about slots memory just filled,
+  // drop those clarifications. If none remain, upgrade to auto-route.
+  result.clarifications = result.clarifications.filter((c) => {
+    if (c.slot === 'metric' && memory.metric) return false;
+    if (c.slot === 'dimension' && memory.dimension) return false;
+    return true;
+  });
+  if (result.action === 'clarify' && result.clarifications.length === 0 && result.slots.metric.value) {
+    result.action = 'auto';
+  }
+
   // Force a clarification if any resolved ref is unknown to Cube /meta —
   // we'd rather ask the user than send a query Cube will reject downstream.
   if (knownMembers) {
@@ -88,6 +117,37 @@ export async function handler(
     }
   }
 
+  // ── Persist newly-confirmed slots to session memory so future turns
+  // benefit. Only write on auto-route (high-confidence resolution).
+  if (result.action === 'auto' && ctx.db) {
+    mergeResolution(ctx.db, ctx.sessionId, ctx.ownerId, {
+      metric: result.slots.metric.value,
+      dimension: result.slots.dimension?.value,
+    });
+  }
+
+  // ── Emit structured chip data when we still need user input. The FE
+  // listens for 'disambig_options' and renders clickable pills below the
+  // assistant turn. We pick the first clarification (the most pressing slot)
+  // and translate its options into pin-text the next turn can resolve cleanly.
+  if (result.action === 'clarify' && ctx.sseEmitter) {
+    const clar = pickPrimaryClarification(result.clarifications);
+    if (clar && clar.options && clar.options.length > 0) {
+      ctx.sseEmitter.emit('disambig_options', {
+        slot: clar.slot === 'filters' || clar.slot === 'comparison' ? 'metric' : clar.slot,
+        prompt: clar.question_en,
+        options: clar.options.map((o, idx) => ({
+          label: o.label_en,
+          // The chip's pin-text is just the option label. The next disambig
+          // call will resolve it via slot-extractor AND simultaneously
+          // benefit from mergeResolution writing the value to memory.
+          pinText: o.label_en,
+          confidence: 1 - idx * 0.1,
+        })),
+      });
+    }
+  }
+
   return {
     action: result.action,
     query: result.query,
@@ -98,4 +158,15 @@ export async function handler(
     language: result.language,
     warnings: result.warnings,
   };
+}
+
+/** Pick the most actionable clarification (metric > dimension > timeRange). */
+function pickPrimaryClarification(clarifications: Clarification[]): Clarification | null {
+  if (clarifications.length === 0) return null;
+  const order: Clarification['slot'][] = ['metric', 'dimension', 'timeRange', 'filters', 'comparison'];
+  for (const slot of order) {
+    const found = clarifications.find((c) => c.slot === slot);
+    if (found) return found;
+  }
+  return clarifications[0];
 }

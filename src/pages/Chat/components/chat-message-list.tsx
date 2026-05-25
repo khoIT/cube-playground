@@ -6,6 +6,7 @@ import React, { useEffect, useRef } from 'react';
 import { T } from '../../../shell/theme';
 import { UserMessage } from './user-message';
 import { AssistantMessage, type AssistantSection } from './assistant-message';
+import type { DisambigOptionsPayload } from '../../../stores/chat-stream-store-actions';
 import { TypingDots } from './typing-dots';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,8 @@ export interface AssistantChatMessage {
   cacheHit?: boolean;
   /** Freshness of cached payload — set only when cacheHit=true. */
   cacheFreshness?: 'refreshed' | 'stale' | null;
+  /** Disambig chips to render below this message — set only on the live turn. */
+  disambigOptions?: DisambigOptionsPayload | null;
 }
 
 export type ChatMessage = UserChatMessage | AssistantChatMessage;
@@ -46,11 +49,13 @@ interface ChatMessageListProps {
    * is intended to be prefilled into the composer and submitted.
    */
   onFollowupPick?: (text: string) => void;
+  /** Fired when the user clicks a disambiguation chip on the live turn. */
+  onDisambigPick?: (pinText: string) => void;
   /** Side-panel surface uses the smaller user-heading size. */
   compact?: boolean;
 }
 
-export function ChatMessageList({ messages, streaming, onFollowupPick, compact }: ChatMessageListProps) {
+export function ChatMessageList({ messages, streaming, onFollowupPick, onDisambigPick, compact }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom whenever messages grow.
@@ -105,6 +110,8 @@ export function ChatMessageList({ messages, streaming, onFollowupPick, compact }
             cacheFreshness={msg.cacheFreshness}
             showFollowups={showFollowups}
             onFollowupPick={onFollowupPick}
+            disambigOptions={msg.disambigOptions}
+            onDisambigPick={onDisambigPick}
           />
         );
       })}
