@@ -148,6 +148,58 @@ describe('emit_query_artifact handler', () => {
     });
   });
 
+  it('refuses to emit a snapshot-cube measure when session memory has a timeRange', async () => {
+    // Add a snapshot cube to the meta fixture for this test only.
+    const metaWithSnapshot = {
+      cubes: [
+        ...FIXTURE_META.cubes,
+        {
+          name: 'mf_users',
+          measures: [{ name: 'mf_users.arpu_vnd', type: 'number' }],
+          dimensions: [{ name: 'mf_users.id', type: 'string' }],
+        },
+      ],
+    };
+    const knownWithSnapshot = new Set([
+      ...KNOWN_MEMBERS,
+      'mf_users.arpu_vnd',
+      'mf_users.id',
+    ]);
+    vi.mocked(cubeMetaCache.getMeta).mockResolvedValueOnce(metaWithSnapshot);
+    vi.mocked(cubeMetaCache.extractMemberNames).mockReturnValueOnce(knownWithSnapshot);
+
+    // Build a session-memory row carrying timeRange via the adapter.
+    const Database = (await import('better-sqlite3')).default;
+    const { migrate } = await import('../src/db/migrate.js');
+    const { mergeResolution } = await import('../src/cache/disambig-memory-adapter.js');
+    const db = new Database(':memory:');
+    db.pragma('foreign_keys = ON');
+    migrate(db);
+    mergeResolution(db, 'sess-snap', 'owner1', {
+      timeRange: {
+        value: { dateRange: ['2026-05-21', '2026-05-27'], granularity: 'day' },
+        phrase: 'this week',
+      },
+    });
+
+    const ctx = makeCtx({ db, sessionId: 'sess-snap' });
+    const result = await handler(
+      {
+        title: 'ARPU (lifetime)',
+        summary: 'Lifetime average revenue per user',
+        query: { measures: ['mf_users.arpu_vnd'] }, // no timeDimensions
+        source: 'raw',
+      },
+      ctx,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: 'time_dim_required',
+    });
+    expect('detail' in result && (result.detail as { cubeName: string }).cubeName).toBe('mf_users');
+  });
+
   it('falls back to session-storage deeplink when query JSON exceeds 8000 chars', async () => {
     const ctx = makeCtx();
 

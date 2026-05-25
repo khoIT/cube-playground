@@ -13,6 +13,8 @@
 
 import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
+import { cubeHasTimeDimension, cubeNameOf } from '../core/cube-meta-capability.js';
+import { getResolutions } from '../cache/disambig-memory-adapter.js';
 import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
 import {
@@ -50,11 +52,22 @@ interface OkResult {
   deeplinkUrl: string;
 }
 
-interface ErrorResult {
-  ok: false;
-  error: 'unknown_member';
-  detail: { which: 'measure' | 'dimension'; value: string };
-}
+type ErrorResult =
+  | {
+      ok: false;
+      error: 'unknown_member';
+      detail: { which: 'measure' | 'dimension'; value: string };
+    }
+  | {
+      ok: false;
+      error: 'time_dim_required';
+      detail: {
+        measure: string;
+        cubeName: string;
+        sessionTimeRange: unknown;
+        hint: string;
+      };
+    };
 
 export async function handler(
   args: {
@@ -93,6 +106,32 @@ export async function handler(
         error: 'unknown_member',
         detail: { which: 'dimension', value: td.dimension },
       };
+    }
+  }
+
+  // Refuse to emit a snapshot-cube measure when the user's session memory
+  // says they care about a time range. The model sometimes drops the
+  // timeRange to escape a Cube error rather than asking — produces a wrong
+  // lifetime aggregate. Force the model back to the clarification path.
+  const sessionTimeRange = ctx.db ? getResolutions(ctx.db, ctx.sessionId).timeRange : undefined;
+  if (sessionTimeRange && (args.query.timeDimensions?.length ?? 0) === 0) {
+    for (const measure of args.query.measures ?? []) {
+      const cubeName = cubeNameOf(measure);
+      if (cubeName && !cubeHasTimeDimension(meta, cubeName)) {
+        return {
+          ok: false,
+          error: 'time_dim_required',
+          detail: {
+            measure,
+            cubeName,
+            sessionTimeRange: sessionTimeRange.phrase ?? sessionTimeRange.value.dateRange,
+            hint:
+              `Session memory has timeRange='${sessionTimeRange.phrase ?? 'set'}', but ` +
+              `${measure} lives on snapshot cube ${cubeName} (no time dim). ` +
+              `Ask the user to pick a time-aware measure — do not silently drop the time scope.`,
+          },
+        };
+      }
     }
   }
 
