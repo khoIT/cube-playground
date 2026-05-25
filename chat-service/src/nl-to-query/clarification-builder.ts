@@ -50,22 +50,43 @@ function listSlots(slots: DisambiguationSlots): SlotInfo[] {
   return out;
 }
 
-function metricOptions(glossary: OfficialTerm[]): ClarificationOption[] {
-  // Top metrics by category — keeps the list short and avoids overwhelming
-  // the user. We pick the first 4 metric-classed terms ordered by category
-  // priority (revenue → engagement → retention → fallback).
-  const priority = ['revenue', 'monetisation', 'engagement', 'retention'];
-  const byCategory = new Map<string, OfficialTerm[]>();
-  for (const t of glossary) {
-    const cat = (t.category ?? 'other').toLowerCase();
-    if (!byCategory.has(cat)) byCategory.set(cat, []);
-    byCategory.get(cat)!.push(t);
-  }
-  const ordered: OfficialTerm[] = [];
-  for (const cat of priority) {
-    for (const t of byCategory.get(cat) ?? []) ordered.push(t);
-  }
-  return ordered.slice(0, 4).map((t) => ({
+// Hand-curated within-category ordering. Surfaces the fundamental metrics
+// (Revenue, ARPU, DAU, retention) ahead of derivative ones (ARPPU, NPU…) so
+// a 4–6 chip cap doesn't drop them. Unknown ids fall back to label order.
+const TERM_PRIORITY_AGGREGATE = [
+  'revenue', 'arpu', 'arpdau', 'arppu', 'ltv',
+  'dau', 'mau', 'wau', 'first_purchase_rate', 'payer_conversion_rate',
+  'd1_retention', 'd7_retention', 'd30_retention',
+];
+const TERM_PRIORITY_LEADERBOARD = [
+  // For "top X" questions raw per-user amounts beat aggregates.
+  'revenue', 'ltv', 'first_purchase_rate', 'arpu', 'arpdau', 'arppu',
+];
+
+const METRIC_OPTION_COUNT = 5;
+
+function metricOptions(
+  glossary: OfficialTerm[],
+  intent: 'leaderboard' | 'aggregate' | 'trend' | 'comparison',
+): ClarificationOption[] {
+  const categories = ['revenue', 'monetisation', 'engagement', 'retention'];
+  const inCategory = (t: OfficialTerm) =>
+    categories.includes((t.category ?? '').toLowerCase());
+  const candidates = glossary.filter(inCategory);
+
+  const priority = intent === 'leaderboard' ? TERM_PRIORITY_LEADERBOARD : TERM_PRIORITY_AGGREGATE;
+  const rank = (id: string): number => {
+    const idx = priority.indexOf(id);
+    return idx >= 0 ? idx : priority.length + 1;
+  };
+  candidates.sort((a, b) => {
+    const ra = rank(a.id);
+    const rb = rank(b.id);
+    if (ra !== rb) return ra - rb;
+    return a.label.localeCompare(b.label);
+  });
+
+  return candidates.slice(0, METRIC_OPTION_COUNT).map((t) => ({
     value: t.primaryCatalogId ?? t.id,
     label_en: t.label,
     label_vi: t.labelVi ?? t.label,
@@ -116,7 +137,8 @@ export function buildClarifications(input: ClarifyInput): Clarification[] {
   weak.sort((a, b) => a.confidence - b.confidence);
   const target = weak[0];
   const q = target.slot === 'dimension' ? dimensionQuestion(input.slots) : QUESTIONS[target.slot];
-  const options = target.slot === 'metric' ? metricOptions(input.glossary) : undefined;
+  const intent = input.slots.intent?.value ?? 'aggregate';
+  const options = target.slot === 'metric' ? metricOptions(input.glossary, intent) : undefined;
 
   return [
     {
