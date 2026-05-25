@@ -10,6 +10,7 @@ import { LibraryView } from './library/library-view';
 import { DetailView } from './detail/detail-view';
 import { IdentityMapSection } from './identity-map/identity-map-section';
 import { EditorView } from './editor/editor-view';
+import { FunnelBuilder } from './funnel-builder';
 import { useCubeApiBootstrap } from '../../hooks';
 
 export function SegmentsPage(): ReactElement {
@@ -21,6 +22,8 @@ export function SegmentsPage(): ReactElement {
     <Switch>
       <Route exact path="/segments" component={LibraryView} />
       <Route exact path="/segments/identity-map" component={IdentityMapSection} />
+      {/* /segments/new/funnel must come before /segments/new to avoid partial match */}
+      <Route exact path="/segments/new/funnel" component={FunnelBuilder} />
       <Route exact path="/segments/new" component={EditorView} />
       <Route exact path="/segments/:id/edit" component={EditorView} />
       <Route path="/segments/:id" component={DetailView} />

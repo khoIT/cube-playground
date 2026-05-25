@@ -4,7 +4,7 @@ import { ReactElement, useEffect, useState, ReactNode } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { Activity, Code2, LineChart, Send, Users } from 'lucide-react';
+import { Activity, Code2, GitBranch, LineChart, Send, Users } from 'lucide-react';
 import { LiveBadge } from '../visuals';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { pushRecent, removeRecent } from '../../../shell/sidebar/recent-items-store';
@@ -17,6 +17,7 @@ import { InsightsTab } from './tabs/insights-tab';
 import { MembersTab } from './tabs/members-tab';
 import { DefinitionTab } from './tabs/definition-tab';
 import { ActivationTab } from './tabs/activation-tab';
+import { FunnelDetailTab } from './tabs/funnel-detail-tab';
 import { ActivateToCdpModal } from '../push-modal/activate-to-cdp-modal';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
 import { usePreset } from './use-preset';
@@ -32,7 +33,7 @@ import { StatusPill } from '../status/status-pill';
 import { buildPlaygroundDeeplink } from '../../../utils/playground-deeplink';
 import styles from '../segments.module.css';
 
-const TABS: DetailTabId[] = ['monitor', 'insights', 'members', 'definition', 'activation'];
+const BASE_TABS: DetailTabId[] = ['monitor', 'insights', 'members', 'definition', 'activation'];
 
 const TAB_ICONS: Record<DetailTabId, ReactNode> = {
   monitor: <Activity size={14} aria-hidden />,
@@ -40,6 +41,7 @@ const TAB_ICONS: Record<DetailTabId, ReactNode> = {
   members: <Users size={14} aria-hidden />,
   definition: <Code2 size={14} aria-hidden />,
   activation: <Send size={14} aria-hidden />,
+  funnel: <GitBranch size={14} aria-hidden />,
 };
 
 export function DetailView(): ReactElement {
@@ -108,6 +110,11 @@ export function DetailView(): ReactElement {
       </main>
     );
   }
+
+  // Include the funnel tab when this segment was created via the funnel builder.
+  const tabs: DetailTabId[] = segment.funnel_json
+    ? [...BASE_TABS, 'funnel']
+    : BASE_TABS;
 
   const lastRefresh = segment.last_refreshed_at ?? segment.updated_at;
   const goActivation = () => setTab('activation');
@@ -211,7 +218,7 @@ export function DetailView(): ReactElement {
       />
 
       <div className={styles.tabStrip} role="tablist">
-        {TABS.map((tid) => (
+        {tabs.map((tid) => (
           <button
             key={tid}
             type="button"
@@ -244,6 +251,9 @@ export function DetailView(): ReactElement {
       )}
       {tab === 'members' && <MembersTab segment={segment} preset={preset} />}
       {tab === 'definition' && <DefinitionTab segment={segment} preset={preset} />}
+      {tab === 'funnel' && segment.funnel_json && (
+        <FunnelDetailTab funnelJson={segment.funnel_json} />
+      )}
       {tab === 'activation' && (
         <ActivationTab
           segment={segment}

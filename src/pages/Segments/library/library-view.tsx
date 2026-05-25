@@ -127,6 +127,12 @@ export function LibraryView(): ReactElement {
           </Button>
           <Button
             size="small"
+            onClick={() => history.push('/segments/new/funnel')}
+          >
+            {t('segments.library.newFunnel', { defaultValue: 'New funnel' })}
+          </Button>
+          <Button
+            size="small"
             type="primary"
             onClick={() => history.push('/segments/new')}
           >

@@ -72,6 +72,8 @@ export interface Segment {
   activations: Activation[];
   /** Pre-rendered preset card rows, keyed by `kpi:<id>` / `card:<tabId>:<id>`. Present on segment-by-id GET only. */
   card_cache?: Record<string, CardCacheEntry>;
+  /** Serialised FunnelDefinition. Non-null when segment was created via the funnel builder. */
+  funnel_json: string | null;
 }
 
 export type ActivationStatus = 'active' | 'failed' | 'pending';
@@ -127,6 +129,8 @@ export interface SegmentInput {
   uid_list?: string[];
   refresh_cadence_min?: number | null;
   game_id?: string;
+  /** Serialised FunnelDefinition when creating via the funnel builder. */
+  funnel_json?: string | null;
 }
 
 export interface SegmentPatch {

@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Funnel builder"
-status: pending
+status: completed
 priority: P2
 effort: "3-4d"
 dependencies: []

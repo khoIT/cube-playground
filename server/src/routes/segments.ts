@@ -24,6 +24,8 @@ const segmentInputSchema = z.object({
   uid_list: z.array(z.string()).optional(),
   refresh_cadence_min: z.number().int().positive().nullable().optional(),
   game_id: z.string().min(1).max(64).optional(),
+  /** Serialised FunnelDefinition — present when created via the funnel builder. */
+  funnel_json: z.string().nullable().optional(),
 });
 
 const segmentPatchSchema = z.object({
@@ -60,6 +62,7 @@ function hydrateSegment(row: Record<string, unknown>, db: ReturnType<typeof getD
       : null,
     uid_list: JSON.parse((row.uid_list_json as string) ?? '[]'),
     activations,
+    funnel_json: (row.funnel_json as string | null) ?? null,
   };
 }
 
@@ -142,8 +145,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       data.name,
@@ -159,6 +162,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       now,
       now,
       data.game_id ?? loadGamesConfig().defaultGameId,
+      data.funnel_json ?? null,
     );
 
     if (data.tags?.length) {
@@ -359,8 +363,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       body.name.trim(),
@@ -376,6 +380,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       now,
       now,
       body.game_id ?? loadGamesConfig().defaultGameId,
+      null,
     );
 
     if (body.tags?.length) {

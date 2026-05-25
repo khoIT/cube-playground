@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 
-export type DetailTabId = 'monitor' | 'insights' | 'members' | 'definition' | 'activation';
+export type DetailTabId = 'monitor' | 'insights' | 'members' | 'definition' | 'activation' | 'funnel';
 
 const VALID: ReadonlySet<DetailTabId> = new Set([
   'monitor',
@@ -15,6 +15,7 @@ const VALID: ReadonlySet<DetailTabId> = new Set([
   'members',
   'definition',
   'activation',
+  'funnel',
 ]);
 
 const LEGACY_MAP: Record<string, { tab: DetailTabId; section?: string }> = {

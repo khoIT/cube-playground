@@ -1,7 +1,7 @@
 ---
 title: "Liveops feature pack"
 description: "Six high-ROI liveops features layered on existing cube-playground primitives: KPI hero strip, anomaly inbox, saved dashboards, diff/compare, cohort grid, funnel builder."
-status: pending
+status: completed
 priority: P1
 branch: "main"
 tags: [liveops, demo, kpi, anomaly, dashboards, cohort, funnel]
@@ -46,7 +46,7 @@ Convert cube-playground from a query/data-model viewer into a liveops console. S
 | 3 | [Saved dashboards](./phase-03-saved-dashboards.md) | ✅ Completed |
 | 4 | [Diff compare mode](./phase-04-diff-compare-mode.md) | ✅ Completed |
 | 5 | [Cohort retention grid](./phase-05-cohort-retention-grid.md) | ✅ Completed |
-| 6 | [Funnel builder](./phase-06-funnel-builder.md) | Pending |
+| 6 | [Funnel builder](./phase-06-funnel-builder.md) | ✅ Completed |
 
 ## Cross-phase dependencies
 
