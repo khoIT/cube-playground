@@ -33,6 +33,12 @@ const baseTurn: DebugTurn = {
   legacy: false,
   llmCallCount: 2,
   toolInvocationCount: 1,
+  inputTokens: 1234,
+  outputTokens: 567,
+  costUsd: 0.0182,
+  model: 'claude-sonnet-4-6',
+  skill: 'explore',
+  durationMs: 4200,
 };
 
 const legacyTurn: DebugTurn = { ...baseTurn, legacy: true, llmCallCount: 0, toolInvocationCount: 0 };

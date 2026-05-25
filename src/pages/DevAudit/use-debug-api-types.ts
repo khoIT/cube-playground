@@ -23,6 +23,14 @@ export interface DebugTurn {
   legacy: boolean;
   llmCallCount: number;
   toolInvocationCount: number;
+  // Aggregate per-turn totals from chat_turns. Per-call usage is unavailable
+  // from the Agent SDK so the result-message aggregate lives at the turn level.
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costUsd: number | null;
+  model: string | null;
+  skill: string | null;
+  durationMs: number | null;
 }
 
 export interface LlmCall {

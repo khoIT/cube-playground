@@ -58,6 +58,7 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
 
   const isAssistant = turn.role === 'assistant';
   const langfuseUrl = LANGFUSE_HOST ? `${LANGFUSE_HOST}/trace/${turn.id}` : null;
+  const stats = isAssistant ? formatTurnStats(turn) : null;
 
   return (
     <div style={S.card}>
@@ -70,6 +71,11 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
           {turn.role === 'user' ? 'User' : 'Assistant'}
         </span>
         {turn.legacy && <LegacyTurnBadge />}
+        {stats && (
+          <span style={{ color: T.n500, fontFamily: T.fMono, fontSize: 11 }} title="aggregate from final SDK result message">
+            {stats}
+          </span>
+        )}
         <span style={{ color: T.n400, fontSize: 11 }}>{new Date(turn.createdAt).toLocaleString()}</span>
         {langfuseUrl && isAssistant && (
           <a
@@ -130,4 +136,26 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
       )}
     </div>
   );
+}
+
+function formatTokens(n: number | null): string | null {
+  if (n == null) return null;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+/**
+ * Compact header strip: "1.2k in · 480 out · $0.018 · 342ms · sonnet".
+ * Returns null when there's nothing useful to show (e.g. user turn or legacy).
+ */
+function formatTurnStats(turn: DebugTurn): string | null {
+  const parts: string[] = [];
+  const ti = formatTokens(turn.inputTokens);
+  const to = formatTokens(turn.outputTokens);
+  if (ti) parts.push(`${ti} in`);
+  if (to) parts.push(`${to} out`);
+  if (turn.costUsd != null) parts.push(`$${turn.costUsd.toFixed(4)}`);
+  if (turn.durationMs != null) parts.push(`${turn.durationMs}ms`);
+  if (turn.model) parts.push(turn.model.split('-').slice(-2, -1)[0] || turn.model);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }

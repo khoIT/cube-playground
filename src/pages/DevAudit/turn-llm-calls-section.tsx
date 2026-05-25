@@ -33,39 +33,41 @@ export function LlmCallsSection({ calls }: LlmCallsSectionProps) {
   }
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-      <thead>
-        <tr>
-          {['Step', 'Model', 'In tok', 'Out tok', 'Cost', 'ms', 'Stop', 'Content'].map((h) => (
-            <th key={h} style={th}>{h}</th>
+    <>
+      <div style={{ color: T.n400, fontSize: 10, marginBottom: 4 }}>
+        Per-call tokens / cost not exposed by the Agent SDK — see turn header for aggregate.
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+        <thead>
+          <tr>
+            {['Step', 'Model', 'ms', 'Stop', 'Content'].map((h) => (
+              <th key={h} style={th}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {calls.map((c) => (
+            <React.Fragment key={c.id}>
+              <tr>
+                <td style={td}>{c.step_index}</td>
+                <td style={{ ...td, fontFamily: T.fMono }}>{c.model ?? '—'}</td>
+                <td style={td}>{c.latency_ms ?? '—'}</td>
+                <td style={td}>{c.stop_reason ?? '—'}</td>
+                <td style={td}>
+                  {c.content_json && (
+                    <button style={toggleBtn} onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}>
+                      {expandedId === c.id ? 'Hide' : 'Show'}
+                    </button>
+                  )}
+                </td>
+              </tr>
+              {expandedId === c.id && c.content_json && (
+                <tr><td colSpan={5} style={td}><pre style={pre}>{prettyJson(c.content_json)}</pre></td></tr>
+              )}
+            </React.Fragment>
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {calls.map((c) => (
-          <React.Fragment key={c.id}>
-            <tr>
-              <td style={td}>{c.step_index}</td>
-              <td style={{ ...td, fontFamily: T.fMono }}>{c.model ?? '—'}</td>
-              <td style={td}>{c.input_tokens ?? '—'}</td>
-              <td style={td}>{c.output_tokens ?? '—'}</td>
-              <td style={td}>{c.cost_usd != null ? `$${c.cost_usd.toFixed(5)}` : '—'}</td>
-              <td style={td}>{c.latency_ms ?? '—'}</td>
-              <td style={td}>{c.stop_reason ?? '—'}</td>
-              <td style={td}>
-                {c.content_json && (
-                  <button style={toggleBtn} onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}>
-                    {expandedId === c.id ? 'Hide' : 'Show'}
-                  </button>
-                )}
-              </td>
-            </tr>
-            {expandedId === c.id && c.content_json && (
-              <tr><td colSpan={8} style={td}><pre style={pre}>{prettyJson(c.content_json)}</pre></td></tr>
-            )}
-          </React.Fragment>
-        ))}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </>
   );
 }

@@ -32,6 +32,13 @@ interface DebugTurnDto {
   legacy: boolean;
   llmCallCount: number;
   toolInvocationCount: number;
+  /** Aggregate from chat_turns — set on the assistant row after the SDK result message. */
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costUsd: number | null;
+  model: string | null;
+  skill: string | null;
+  durationMs: number | null;
 }
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
@@ -42,6 +49,7 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
 function rowToDebugTurn(row: ChatTurnRow, llmCallCount: number, toolInvocationCount: number, sdkCount: number): DebugTurnDto {
   const text = row.role === 'user' ? row.user_text ?? '' : row.assistant_text ?? '';
   const legacy = llmCallCount === 0 && toolInvocationCount === 0 && sdkCount === 0;
+  const durationMs = row.ended_at != null && row.started_at != null ? row.ended_at - row.started_at : null;
   return {
     id: row.id,
     role: row.role,
@@ -53,6 +61,14 @@ function rowToDebugTurn(row: ChatTurnRow, llmCallCount: number, toolInvocationCo
     legacy,
     llmCallCount,
     toolInvocationCount,
+    // Aggregate usage from chat_turns. Per-call usage is 0 (SDK limit) but the
+    // result-message totals land here, so we expose them at the turn level.
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
+    costUsd: row.cost_usd,
+    model: row.model,
+    skill: row.skill,
+    durationMs,
   };
 }
 
