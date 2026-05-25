@@ -363,7 +363,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       collectedCharts.push(chart);
       emit({ type: 'chart', data: chart });
     });
+    let clarifyEmitted = false;
     sseEmitter.on('disambig_options', (data: Extract<SseEvent, { type: 'disambig_options' }>['data']) => {
+      clarifyEmitted = true;
       emit({ type: 'disambig_options', data });
     });
 
@@ -513,6 +515,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
             turnId,
             sessionId,
             cubeMetaHash: resolvedCubeMetaHash,
+            clarifyEmitted,
           });
         } catch (writeErr) {
           fastify.log.warn({ err: writeErr }, '[turn] cache write failed (non-fatal)');

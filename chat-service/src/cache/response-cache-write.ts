@@ -7,6 +7,11 @@
  *   - stop_reason explicitly not 'end_turn' (null/undefined still allowed)
  *   - error flag set (turn ended with an error)
  *   - assistantText is empty
+ *   - turn ended in a disambiguation clarify (chips emitted). The clarification
+ *     depends on the asking user's session memory + cross-session prefs, so
+ *     caching it would freeze a question that the next user's memory might
+ *     auto-answer. Caching also strips the chip SSE event, leaving the cached
+ *     replay with text but no clickable options.
  *
  * Artifact + chart turns are now cached. Query artifacts only carry the Cube
  * query JSON — the FE re-fetches live rows when rendering. Chart artifacts
@@ -41,6 +46,8 @@ export interface MaybeWriteParams {
   sessionId: string;
   /** The cube meta version hash used when deriving the cache key; stored for stale-cache analysis. */
   cubeMetaHash?: string | null;
+  /** True when the turn emitted a disambig_options SSE event (clarify outcome). */
+  clarifyEmitted?: boolean;
 }
 
 /**
@@ -59,6 +66,7 @@ export function maybeWriteResponseCache(params: MaybeWriteParams): boolean {
   // Explicit non-end_turn stop: don't cache. Null means not captured — allow.
   if (params.stopReason !== undefined && params.stopReason !== null && params.stopReason !== 'end_turn') return false;
   if (!params.assistantText) return false;
+  if (params.clarifyEmitted) return false;
 
   insertCacheEntry(params.db, {
     key: params.key,
