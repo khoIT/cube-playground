@@ -264,7 +264,7 @@ export function ChatThreadPage() {
           {showDebugLink && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 0 2px' }}>
               <Link
-                to={`/dev/chat-audit/${activeSessionId}`}
+                to={`/dev/chat-audit/sessions/${activeSessionId}`}
                 style={{ fontSize: 11, color: T.n400, textDecoration: 'none', fontFamily: T.fSans }}
               >
                 Debug

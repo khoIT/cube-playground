@@ -41,16 +41,14 @@ const ChatThreadPage = loadable(() =>
   }))
 );
 
-const DevAuditPage = loadable(() =>
-  import('./pages/DevAudit/dev-audit-page').then((m) => ({
-    default: m.DevAuditPage,
+const DevAuditShell = loadable(() =>
+  import('./pages/DevAudit/dev-audit-shell').then((m) => ({
+    default: m.DevAuditShell,
   }))
 );
 
-const SkillLeaderboardPage = loadable(() =>
-  import('./pages/DevAudit/skill-leaderboard-page').then((m) => ({
-    default: m.SkillLeaderboardPage,
-  }))
+const LiveopsPage = loadable(() =>
+  import('./pages/Liveops').then((m) => ({ default: m.LiveopsPage }))
 );
 
 
@@ -136,8 +134,8 @@ ReactDOM.render(
               {/* Single mount across /chat and /chat/:id so state persists
                   across the `new → session_created → /chat/<id>` transition. */}
               <Route key="chat-thread" path="/chat/:id?" component={ChatThreadPage} />
-              <Route key="dev-audit-leaderboard" exact path="/dev/chat-audit/leaderboard" component={SkillLeaderboardPage} />
-              <Route key="dev-audit" path="/dev/chat-audit/:sessionId?" component={DevAuditPage} />
+              {/* DevAuditShell handles all /dev/chat-audit/* routes including legacy redirects */}
+              <Route key="dev-audit" path="/dev/chat-audit" component={DevAuditShell} />
               <KeepAliveRoute key="build" path="/build">
                 <ExplorePage />
               </KeepAliveRoute>
@@ -156,6 +154,7 @@ ReactDOM.render(
               <KeepAliveRoute key="segments" path="/segments">
                 <SegmentsPage />
               </KeepAliveRoute>
+              <Route key="liveops" path="/liveops" component={LiveopsPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />
               <Route key="data-model-new-success" exact path="/data-model/new/success" component={DataModelWizardSuccess} />
               <Route key="data-model-new" path="/data-model/new" component={DataModelWizardPage} />

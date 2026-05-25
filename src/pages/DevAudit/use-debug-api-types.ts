@@ -150,3 +150,18 @@ export interface SearchPage {
   results: SearchHit[];
   nextCursor: string | null;
 }
+
+/** One result from GET /debug/search/cached. */
+export interface CachedQueryHit {
+  key: string;
+  game_id: string;
+  skill: string;
+  model: string;
+  /** Snippet of the normalized user text (up to 256 chars). */
+  user_text_snippet: string;
+  hit_count: number;
+  cost_usd: number;
+  last_hit_at: number | null;
+  original_turn_id: string;
+  original_session_id: string;
+}

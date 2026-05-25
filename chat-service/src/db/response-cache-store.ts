@@ -138,3 +138,105 @@ export function clearForGame(db: Database.Database, gameId: string): number {
   const result = db.prepare('DELETE FROM response_cache WHERE game_id = ?').run(gameId);
   return result.changes;
 }
+
+// ---------------------------------------------------------------------------
+// Cached-query search
+// ---------------------------------------------------------------------------
+
+export interface CachedQuerySearchHit {
+  key: string;
+  game_id: string;
+  skill: string;
+  model: string;
+  /** Snippet of the normalized user text (up to 256 chars). */
+  user_text_snippet: string;
+  hit_count: number;
+  cost_usd: number;
+  last_hit_at: number | null;
+  original_turn_id: string;
+  original_session_id: string;
+}
+
+export interface CachedQuerySearchParams {
+  /** Owner must have at least one live session in the target game. */
+  ownerId: string;
+  /** LIKE search term (empty string = no filter, returns top rows by hit_count DESC). */
+  q: string;
+  gameId?: string;
+  limit?: number;
+}
+
+/**
+ * Search response_cache rows for an owner.
+ * Owner-scoping: a row is visible only if the owner has at least one chat_session
+ * in that game (same defense-in-depth pattern as debug-cache-clear.ts).
+ *
+ * Matches against `user_text_normalized` with LIKE. Results ordered by hit_count DESC.
+ */
+export function searchCachedQueries(
+  db: Database.Database,
+  params: CachedQuerySearchParams,
+): CachedQuerySearchHit[] {
+  const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
+
+  const conditions: string[] = [
+    // Owner must have at least one session in this game
+    `EXISTS (
+      SELECT 1 FROM chat_sessions cs
+      WHERE cs.owner_id = ? AND cs.game_id = rc.game_id AND cs.deleted_at IS NULL
+      LIMIT 1
+    )`,
+  ];
+  const bindings: unknown[] = [params.ownerId];
+
+  if (params.gameId) {
+    conditions.push('rc.game_id = ?');
+    bindings.push(params.gameId);
+  }
+
+  if (params.q.trim()) {
+    const safe = params.q.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+    conditions.push(`rc.user_text_normalized LIKE ? ESCAPE '\\'`);
+    bindings.push(`%${safe}%`);
+  }
+
+  bindings.push(limit);
+
+  type RawRow = {
+    key: string;
+    game_id: string;
+    skill: string;
+    model: string;
+    user_text_normalized: string;
+    hit_count: number;
+    cost_usd: number;
+    last_hit_at: number | null;
+    original_turn_id: string;
+    original_session_id: string;
+  };
+
+  const rows = db
+    .prepare(
+      `SELECT rc.key, rc.game_id, rc.skill, rc.model,
+              rc.user_text_normalized, rc.hit_count, rc.cost_usd, rc.last_hit_at,
+              rc.original_turn_id, rc.original_session_id
+       FROM response_cache rc
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY rc.hit_count DESC, rc.created_at DESC
+       LIMIT ?`,
+    )
+    .all(...bindings) as RawRow[];
+
+  return rows.map((row) => ({
+    key: row.key,
+    game_id: row.game_id,
+    skill: row.skill,
+    model: row.model,
+    user_text_snippet: row.user_text_normalized.slice(0, 256),
+    hit_count: row.hit_count,
+    cost_usd: row.cost_usd,
+    last_hit_at: row.last_hit_at,
+    original_turn_id: row.original_turn_id,
+    original_session_id: row.original_session_id,
+  }));
+}

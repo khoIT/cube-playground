@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -155,6 +155,15 @@ export function Sidebar() {
             />
           </SidebarSection>
         )}
+
+        <SidebarSection
+          id="liveops"
+          icon={Radio}
+          label="Liveops"
+          to="/liveops"
+          flat
+          collapsed={collapsed}
+        />
 
         {isVisible('segments') && (
           <SidebarSection

@@ -2,6 +2,13 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-25 — liveops Phase 1: live KPI hero strip + auto-refresh + game scoping
+
+- **New `/liveops` route** with a 5-tile KPI hero strip showing DAU, MAU, Revenue (VND), Paying users, and ARPDAU for the active game. Plan: `plans/260525-1540-liveops-feature-pack/phase-01-live-kpi-hero-strip.md`.
+- **KPI strip features:** sparklines (14d history) + delta % vs prior period + `LiveBadge` last-refresh indicator + auto-refresh every 45s (pauses when tab hidden) + error boundary per tile (one tile failing doesn't blank others). Derived KPI (ARPDAU = revenue / DAU) computed client-side.
+- **Game scoping:** respects active game via `GameContext`; cache key includes gameId; refetch on game switch; gap-handling for games missing `active_daily` or `user_recharge_daily` cubes (muaw, ptg).
+- **Implementation:** 10 new files (kpi-config, kpi-hero-strip, use-live-kpis hook, formatters, cache, fetch orchestration, meta probe, game-dim predicate) + 4 modified (App route, sidebar, bootstrap hook). 32/32 tests pass; 4 code-review findings (token race-guard, cache clarity, NaN handling, meta dedup) caught and fixed.
+
 ## 2026-05-25 — chat-audit v2: soft-delete + monitoring + response cache + settings tab
 
 Seven-phase upgrade to chat-service observability and runtime. Plan: `plans/260525-1410-chat-audit-v2-monitoring-cache/`. Tests: chat-service 427 (+~85 new); root 962 (no regressions).

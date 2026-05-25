@@ -18,16 +18,27 @@
  *     `saveToken` calls on re-renders.
  */
 
-import { useContext, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 
 import { cubeTokenClient } from '../api/cube-token-client';
 import { useGameContext } from '../components/Header/use-game-context';
 import { SecurityContextContext } from '../components/SecurityContext/SecurityContextProvider';
 
-export function useCubeTokenBootstrap(): void {
+export interface CubeTokenBootstrapResult {
+  /**
+   * The gameId for which the current token was minted, or null if no token
+   * has been applied yet. Consumers can compare this against their requested
+   * gameId to avoid issuing Cube requests with a stale token.
+   */
+  tokenGame: string | null;
+}
+
+export function useCubeTokenBootstrap(): CubeTokenBootstrapResult {
   const { gameId, ready } = useGameContext();
   const sec = useContext(SecurityContextContext);
   const lastAppliedRef = useRef<string | null>(null);
+  // Reactive state so consumers re-run effects when the token advances.
+  const [tokenGame, setTokenGame] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready || !gameId) return;
@@ -42,10 +53,12 @@ export function useCubeTokenBootstrap(): void {
       if (!resp || resp.token == null) return;
       if (resp.token === sec.currentToken) {
         lastAppliedRef.current = gameId;
+        setTokenGame(gameId);
         return;
       }
       await sec.saveToken(resp.token);
       lastAppliedRef.current = gameId;
+      setTokenGame(gameId);
     })();
 
     return () => {
@@ -54,4 +67,6 @@ export function useCubeTokenBootstrap(): void {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, ready]);
+
+  return { tokenGame };
 }

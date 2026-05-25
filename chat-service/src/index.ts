@@ -28,6 +28,7 @@ import auditRoutes from './api/audit.js';
 import debugRoutes from './api/debug.js';
 import debugAnnotationRoutes from './api/debug-annotations.js';
 import debugSearchRoutes from './api/debug-search.js';
+import debugSearchCachedRoutes from './api/debug-search-cached.js';
 import debugLeaderboardRoutes from './api/debug-leaderboard.js';
 import debugCacheClearRoutes from './api/debug-cache-clear.js';
 import notificationsRoutes from './api/notifications.js';
@@ -69,6 +70,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(debugRoutes, { db });
   await fastify.register(debugAnnotationRoutes, { db });
   await fastify.register(debugSearchRoutes, { db });
+  await fastify.register(debugSearchCachedRoutes, { db });
   await fastify.register(debugLeaderboardRoutes, { db });
   await fastify.register(debugCacheClearRoutes, { db });
   await fastify.register(notificationsRoutes, { db });

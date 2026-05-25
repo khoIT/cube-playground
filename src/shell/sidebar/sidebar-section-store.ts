@@ -44,6 +44,7 @@ const PATH_TO_SECTION: Array<{ prefix: string; sectionId: string }> = [
   { prefix: '/catalog/metric',         sectionId: 'metrics-catalog' },
   { prefix: '/catalog/concept',        sectionId: 'data-model' },
   { prefix: '/segments',               sectionId: 'segments' },
+  { prefix: '/liveops',                sectionId: 'liveops' },
 ];
 
 export function getSidebarSectionForPath(pathname: string): string | null {

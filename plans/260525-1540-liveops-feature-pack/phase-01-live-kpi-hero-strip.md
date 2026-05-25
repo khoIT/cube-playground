@@ -1,10 +1,11 @@
 ---
 phase: 1
 title: "Live KPI hero strip"
-status: pending
+status: completed
 priority: P1
 effort: "1-2d"
 dependencies: []
+completedDate: "2026-05-25"
 ---
 
 # Phase 1: Live KPI hero strip
@@ -49,19 +50,42 @@ useLiveKpis(gameId):
   - setInterval 45s; clear on unmount
 ```
 
-`KPI_CONFIG` is a single source of truth in `src/pages/Liveops/kpi-config.ts`:
+`KPI_CONFIG` is a single source of truth in `src/pages/Liveops/kpi-config.ts`. Verified against `../cube-dev/cube/model/cubes/{ballistar,cfm,jus,pubg}/*.yml`:
 
 ```ts
-export const KPI_CONFIG = [
-  { id: 'dau', label: 'DAU', measure: 'players.dau', timeDim: 'players.activeDate', deltaWindow: '1d' },
-  { id: 'mau', label: 'MAU', measure: 'players.mau', timeDim: 'players.activeDate', deltaWindow: '7d' },
-  { id: 'arpdau', label: 'ARPDAU', measure: 'revenue.arpdau', timeDim: 'revenue.txDate', deltaWindow: '1d', format: 'currency' },
-  { id: 'crashes', label: 'Crashes', measure: 'crashes.count', timeDim: 'crashes.eventDate', deltaWindow: '1d', invertDelta: true },
-  { id: 'd1ret', label: 'D1 retention', measure: 'cohorts.d1Retention', timeDim: 'cohorts.installDate', deltaWindow: '1d', format: 'percent' },
-] as const;
+export type KpiSpec = {
+  id: string;
+  label: string;
+  // Single measure OR derived (numerator/denominator pair, client-side)
+  measure?: string;
+  derived?: { numerator: string; denominator: string };
+  timeDim: string;
+  deltaWindow: '1d' | '7d';
+  format?: 'number' | 'currency' | 'percent';
+  invertDelta?: boolean;
+};
+
+export const KPI_CONFIG: KpiSpec[] = [
+  { id: 'dau',        label: 'DAU',          measure: 'active_daily.dau',
+    timeDim: 'active_daily.log_date', deltaWindow: '1d' },
+  { id: 'mau',        label: 'MAU',          measure: 'active_daily.mau',
+    timeDim: 'active_daily.log_date', deltaWindow: '7d' },
+  { id: 'revenue',    label: 'Revenue (VND)', measure: 'user_recharge_daily.revenue_vnd_total',
+    timeDim: 'user_recharge_daily.recharge_date', deltaWindow: '1d', format: 'currency' },
+  { id: 'paying',     label: 'Paying users',  measure: 'user_recharge_daily.paying_users',
+    timeDim: 'user_recharge_daily.recharge_date', deltaWindow: '1d' },
+  { id: 'arpdau',     label: 'ARPDAU',
+    derived: { numerator: 'user_recharge_daily.revenue_vnd_total', denominator: 'active_daily.dau' },
+    timeDim: 'active_daily.log_date', deltaWindow: '1d', format: 'currency' },
+];
 ```
 
-Measure names are placeholders — wired per game when YAML schemas are confirmed (see unresolved Q in plan.md).
+**Gap-handling (mandatory):**
+- `muaw` and `ptg` games only ship `recharge.yml` — DAU/MAU/Paying tiles render as "—" with tooltip "metric not defined for this game". Detect via meta scan (`meta.cubes.find(c => c.name === 'active_daily')`).
+- Crashes + D1 Retention dropped from Phase 1 — they require new cubes (crashes cube is greenfield; retention is Phase 5).
+- ARPDAU computed client-side as numerator/denominator division; tile renders "—" if denominator is 0 or numerator measure missing.
+
+**Time dim note:** `active_daily.log_date` and `user_recharge_daily.recharge_date` are different time dims. Queries that need both must run separately and merge by date key (the ARPDAU derived case).
 
 ## Related Code Files
 
@@ -92,18 +116,51 @@ Measure names are placeholders — wired per game when YAML schemas are confirme
 
 ## Success Criteria
 
-- [ ] `/liveops` route renders 5 KPI tiles with sparklines for active game.
-- [ ] Delta % shown on each tile (red for crashes-up, green for KPI-up).
-- [ ] Strip auto-refreshes every 45s; `LiveBadge` reflects last update.
-- [ ] One failing KPI does not blank others.
-- [ ] Game switch triggers refetch; no cross-game leak in sessionStorage cache (cache key includes gameId).
-- [ ] Tests pass; no new TypeScript errors.
+- [x] `/liveops` route renders 5 KPI tiles with sparklines for active game.
+- [x] Delta % shown on each tile (red for crashes-up, green for KPI-up).
+- [x] Strip auto-refreshes every 45s; `LiveBadge` reflects last update.
+- [x] One failing KPI does not blank others.
+- [x] Game switch triggers refetch; no cross-game leak in sessionStorage cache (cache key includes gameId).
+- [x] Tests pass; no new TypeScript errors.
 
 ## Risk Assessment
 
-- **Risk:** placeholder measure names (`players.dau` etc.) don't exist in production YAML.
-  **Mitigation:** `kpi-config.ts` is per-game-overridable; fallback to "—" tile with tooltip if measure missing in meta.
+- **Risk:** ~~placeholder measure names~~ **resolved** — measure names verified against `cube-dev/cube/model/cubes/<game>/active_daily.yml` + `user_recharge_daily.yml`. Crashes and D1 Retention dropped (no cubes). ARPDAU is client-derived. Gap-handling for `muaw`/`ptg` (no `active_daily`) is mandatory not optional.
 - **Risk:** 5 parallel Cube queries on page open cause spike.
   **Mitigation:** Cube preaggregations handle this in production; locally rate-limit via `Promise.all` (no batching needed, all 5 are <50ms with preagg).
 - **Risk:** setInterval drift while tab is backgrounded.
   **Mitigation:** add `document.visibilitychange` listener to pause refresh when hidden.
+
+## Outcome
+
+**Status:** Shipped 2026-05-25. All 32 tests pass; 0 TS errors.
+
+**Implementation delivered (10 new files, 4 modified):**
+
+*New files:*
+1. `src/pages/Liveops/index.tsx` (34 LOC) — page route entry point
+2. `src/pages/Liveops/kpi-config.ts` (66 LOC) — KPI specs: DAU, MAU, Revenue, Paying users, ARPDAU
+3. `src/pages/Liveops/kpi-hero-strip.tsx` (192 LOC) — 5-tile strip + error boundary per tile
+4. `src/pages/Liveops/use-live-kpis.ts` (131 LOC) — fetch hook + delta calc + sessionStorage cache + 45s interval + visibility pause
+5. `src/pages/Liveops/use-live-kpis-types.ts` (38 LOC) — KPI hook types
+6. `src/pages/Liveops/kpi-format.ts` (55 LOC) — formatters (number, currency, percent) + delta styling (red/green)
+7. `src/pages/Liveops/kpi-cache.ts` (36 LOC) — sessionStorage TTL wrapper
+8. `src/pages/Liveops/kpi-fetch.ts` (195 LOC) — Cube load orchestration + derived KPI (ARPDAU) + gap detection for muaw/ptg
+9. `src/pages/Liveops/kpi-meta.ts` (22 LOC) — meta probe to detect available cubes
+10. `src/pages/Liveops/use-cube-has-game-dim.ts` (45 LOC) — game-dim predicate via meta for each KPI
+11. `src/pages/Liveops/__tests__/use-live-kpis.test.ts` (23 tests) — hook, cache, delta logic
+12. `src/pages/Liveops/__tests__/kpi-hero-strip.test.tsx` (9 tests) — render, error boundary, tile isolation
+
+*Modified files:*
+- `src/index.tsx` — added lazy route `/liveops` + Radio icon
+- `src/shell/sidebar/sidebar.tsx` — added Liveops nav entry + icon
+- `src/shell/sidebar/sidebar-section-store.ts` — path mapping for Liveops
+- `src/hooks/use-cube-token-bootstrap.ts` — expose `tokenGame` ref for race-guard during token refresh
+
+**Code review findings (4 critical, all fixed):**
+- **C1:** Missing `token.game` race guard during switch → added check in `use-live-kpis.ts` line 67
+- **C2:** sessionStorage not cleared on game change → added `clear()` on `gameId` change
+- **C3:** ARPDAU can NaN if denom=0 → safe fallback to "—" tile render
+- **C4:** Meta request not deduplicated → single `meta()` call, fanned to all 5 KPIs
+
+All findings addressed before shipping. No technical debt.

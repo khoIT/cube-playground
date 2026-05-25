@@ -183,7 +183,7 @@ function CacheHitBadge({ originalTurnId, originalSessionId }: CacheHitBadgeProps
   };
 
   if (originalTurnId && originalSessionId) {
-    const href = `/dev/chat-audit/${encodeURIComponent(originalSessionId)}#turn-${encodeURIComponent(originalTurnId)}`;
+    const href = `/dev/chat-audit/sessions/${encodeURIComponent(originalSessionId)}#turn-${encodeURIComponent(originalTurnId)}`;
     return (
       <a href={href} style={badgeStyle} title={`Cache hit — replayed from turn ${originalTurnId}`} onClick={(e) => e.stopPropagation()}>
         Cache hit

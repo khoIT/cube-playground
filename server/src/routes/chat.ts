@@ -635,6 +635,30 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- GET /api/chat/debug/search/cached?q=&game=&limit= ---
+  // Searches response_cache rows visible to the requesting owner. Owner-scoped.
+  app.get<{ Querystring: Record<string, string | undefined> }>(
+    '/api/chat/debug/search/cached',
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string | undefined> }>,
+      reply: FastifyReply,
+    ) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(request.query)) {
+        if (typeof v === 'string' && v.length > 0) params.set(k, v);
+      }
+      const url = `${chatServiceUrl()}/debug/search/cached?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- DELETE /api/chat/debug/cache?game=<id> ---
   // Clears response_cache rows for the given game. Owner must have at least one session
   // in the game (enforced in chat-service). Returns { deleted: <n> }.
