@@ -24,6 +24,8 @@ function makeTurn(overrides: Partial<ChatTurnRow>): ChatTurnRow {
     skill: null,
     started_at: Date.now(),
     ended_at: null,
+    system_prompt_text: null,
+    model: null,
     ...overrides,
   };
 }

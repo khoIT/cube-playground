@@ -17,6 +17,14 @@ import { existsSync } from 'node:fs';
 import { config } from '../config.js';
 import { mapSdkMessage } from './sse-stream.js';
 import type { SseEvent, ToolContext } from '../types.js';
+import type { ObserverHooks } from '../observability/observer-types.js';
+import {
+  emitSdkEvent,
+  emitLlmCall,
+  emitToolInvocations,
+  flushPendingTools,
+  type PendingTool,
+} from '../observability/sdk-event-extractor.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLAUDE_HOME = resolve(__dirname, '../../runtime/claude-home');
@@ -64,12 +72,21 @@ export interface ToolDefinition {
 
 export interface RunParams {
   sessionId: string;
+  /** The persisted turn id for this request — required for observer correlation. */
+  turnId: string;
   systemPrompt: string;
   /** Tool names permitted for this turn (from skill frontmatter). Empty = allow all. */
   allowedToolNames: string[];
   message: string;
   tools: ToolDefinition[];
   toolContext: ToolContext;
+  /**
+   * Optional side-channel observer. Receives per-LLM-call, per-tool-invocation,
+   * and raw SDK event signals WITHOUT affecting the yielded SseEvent stream.
+   * All observer callbacks are try/catch guarded — a throwing observer cannot
+   * break the turn for the user.
+   */
+  observer?: ObserverHooks;
 }
 
 /**
@@ -79,7 +96,7 @@ export interface RunParams {
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
 
-  const { sessionId, systemPrompt, allowedToolNames, message, tools, toolContext } = params;
+  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer } = params;
 
   // Filter tools to only those permitted by the active skill's frontmatter.
   // An empty allowedToolNames list means no restriction (pass-through all tools).
@@ -133,11 +150,46 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     },
   });
 
+  // Observer per-turn state — counters always declared; helpers no-op when
+  // observer is undefined (guard at each call site).
+  let stepIndex = 0;
+  let seq = 0;
+  let lastBoundary = Date.now();
+  const pendingTools = new Map<string, PendingTool>();
+
   for await (const msg of iter) {
+    // Side channel: raw SDK event firehose (before SSE mapping, no yield).
+    if (observer) {
+      try { emitSdkEvent(observer, turnId, seq++, msg); }
+      catch (err) { console.warn('[observer] onSdkEvent threw:', err); }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const events = mapSdkMessage(msg as any);
     for (const event of events) {
       yield event;
     }
+
+    // Side channel: per-LLM-call signal on every assistant message.
+    if (observer && msg.type === 'assistant') {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        lastBoundary = emitLlmCall(observer, turnId, stepIndex++, config.chatModel, lastBoundary, msg as any, pendingTools);
+      } catch (err) { console.warn('[observer] onLlmCall threw:', err); }
+    }
+
+    // Side channel: per-tool-invocation signal on every user (tool_result) message.
+    if (observer && msg.type === 'user') {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        emitToolInvocations(observer, turnId, msg as any, pendingTools);
+      } catch (err) { console.warn('[observer] onToolInvocation threw:', err); }
+    }
+  }
+
+  // Flush tool_use entries that never received a tool_result (model abandoned).
+  if (observer && pendingTools.size > 0) {
+    try { flushPendingTools(observer, turnId, pendingTools); }
+    catch (err) { console.warn('[observer] flushPendingTools threw:', err); }
   }
 }

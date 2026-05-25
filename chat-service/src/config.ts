@@ -77,6 +77,14 @@ export interface Config {
    * Main server validates the bearer token against the same env var.
    */
   mainServerServiceToken: string;
+  /**
+   * Langfuse Cloud mirror — env-gated, all optional.
+   * When publicKey or secretKey is absent, the LangfuseTracer runs as a no-op.
+   * IMPORTANT: enabling mirrors turn inputs/outputs (PII) to Langfuse Cloud.
+   */
+  langfusePublicKey: string;
+  langfuseSecretKey: string;
+  langfuseBaseUrl: string;
 }
 
 const DEFAULT_SKILL_LOADER_TTL = process.env['NODE_ENV'] === 'production' ? 60_000 : 5_000;
@@ -106,4 +114,12 @@ export const config: Config = {
   streamRegistryMaxTurns: optionalInt('STREAM_REGISTRY_MAX_TURNS', 100),
   streamRegistryTtlMs: optionalInt('STREAM_REGISTRY_TTL_MS', 300_000),
   streamRegistrySweepIntervalMs: optionalInt('STREAM_REGISTRY_SWEEP_INTERVAL_MS', 60_000),
+  langfusePublicKey: optional('LANGFUSE_PUBLIC_KEY', ''),
+  langfuseSecretKey: optional('LANGFUSE_SECRET_KEY', ''),
+  langfuseBaseUrl: optional('LANGFUSE_HOST', 'https://cloud.langfuse.com'),
 };
+
+/** True only when both Langfuse credentials are present in the environment. */
+export function isLangfuseEnabled(): boolean {
+  return !!(config.langfusePublicKey && config.langfuseSecretKey);
+}

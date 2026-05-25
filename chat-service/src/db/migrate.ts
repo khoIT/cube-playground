@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrateMonitoring } from './monitoring-migrate.js';
+import { migrateObservability } from './observability-migrate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -33,9 +34,14 @@ export function migrate(db: Database.Database): void {
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN compacted_into TEXT;');
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
 
+  // Observability columns added to chat_turns for per-turn metadata capture.
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN system_prompt_text TEXT;');
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN model TEXT;');
+
   // Phase-driven migrations run in a fixed order per decision C1. Each helper
   // is idempotent and safe to re-run.
   migrateMonitoring(db);
+  migrateObservability(db);
 }
 
 /**

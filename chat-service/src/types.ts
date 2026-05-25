@@ -124,4 +124,51 @@ export interface ChatTurnRow {
   skill: string | null;
   started_at: number;
   ended_at: number | null;
+  // Observability columns — nullable for backfill compat with pre-feature turns.
+  system_prompt_text: string | null;
+  model: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Observability row shapes (llm_calls, tool_invocations, sdk_events tables)
+// ---------------------------------------------------------------------------
+
+export interface LlmCallRow {
+  id: string;
+  turn_id: string;
+  step_index: number;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_creation_tokens: number | null;
+  cache_read_tokens: number | null;
+  cost_usd: number | null;
+  latency_ms: number | null;
+  started_at: number | null;
+  ended_at: number | null;
+  content_json: string | null;
+  stop_reason: string | null;
+}
+
+export interface ToolInvocationRow {
+  id: string;
+  turn_id: string;
+  tool_use_id: string;
+  name: string;
+  args_json: string | null;
+  result_summary: string | null;
+  /** SQLite stores booleans as 0/1 integers. */
+  ok: number;
+  latency_ms: number | null;
+  started_at: number | null;
+  ended_at: number | null;
+}
+
+export interface SdkEventRow {
+  id: number;
+  turn_id: string;
+  seq: number;
+  type: string;
+  payload_json: string | null;
+  at: number;
 }

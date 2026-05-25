@@ -21,6 +21,7 @@
     "fastify": "^4.28.1",
     "gds-cube": "file:..",
     "gray-matter": "^4.0.3",
+    "langfuse": "^3.38.20",
     "lru-cache": "^11.0.2",
     "sql-formatter": "^15.8.0",
     "uuid": "^10.0.0",

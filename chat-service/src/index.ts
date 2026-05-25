@@ -25,6 +25,7 @@ import turnRoutes from './api/turn.js';
 import replayRoutes from './api/replay.js';
 import statsRoutes from './api/stats.js';
 import auditRoutes from './api/audit.js';
+import debugRoutes from './api/debug.js';
 import notificationsRoutes from './api/notifications.js';
 import { scheduler } from './services/scheduler.js';
 import { RateLimiter, buildRateLimitHook } from './middleware/rate-limit.js';
@@ -59,6 +60,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(replayRoutes, { db });
   await fastify.register(statsRoutes, { db });
   await fastify.register(auditRoutes, { db });
+  await fastify.register(debugRoutes, { db });
   await fastify.register(notificationsRoutes, { db });
 
   return { fastify, db };

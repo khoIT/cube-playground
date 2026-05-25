@@ -463,4 +463,84 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Debug / observability API proxy (phase-06)
+  // Forwards /api/chat/debug/* → chat-service /debug/*
+  // All routes enforce X-Owner-Id in chat-service; proxy passes it through.
+  // ---------------------------------------------------------------------------
+
+  // --- GET /api/chat/debug/sessions?game=&q=&limit= ---
+  app.get<{ Querystring: { game?: string; q?: string; limit?: string } }>(
+    '/api/chat/debug/sessions',
+    async (request: FastifyRequest<{ Querystring: { game?: string; q?: string; limit?: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      if (request.query.game) params.set('game', request.query.game);
+      if (request.query.q) params.set('q', request.query.q);
+      if (request.query.limit) params.set('limit', request.query.limit);
+      const url = `${chatServiceUrl()}/debug/sessions?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- GET /api/chat/debug/sessions/:id ---
+  app.get<{ Params: { id: string } }>(
+    '/api/chat/debug/sessions/:id',
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const url = `${chatServiceUrl()}/debug/sessions/${encodeURIComponent(request.params.id)}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- GET /api/chat/debug/turns/:turnId ---
+  app.get<{ Params: { turnId: string } }>(
+    '/api/chat/debug/turns/:turnId',
+    async (request: FastifyRequest<{ Params: { turnId: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- GET /api/chat/debug/turns/:turnId/raw?cursor=&limit= ---
+  app.get<{ Params: { turnId: string }; Querystring: { cursor?: string; limit?: string } }>(
+    '/api/chat/debug/turns/:turnId/raw',
+    async (
+      request: FastifyRequest<{ Params: { turnId: string }; Querystring: { cursor?: string; limit?: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      if (request.query.cursor) params.set('cursor', request.query.cursor);
+      if (request.query.limit) params.set('limit', request.query.limit);
+      const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/raw?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
 }

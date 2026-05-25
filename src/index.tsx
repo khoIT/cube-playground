@@ -41,6 +41,12 @@ const ChatThreadPage = loadable(() =>
   }))
 );
 
+const DevAuditPage = loadable(() =>
+  import('./pages/DevAudit/dev-audit-page').then((m) => ({
+    default: m.DevAuditPage,
+  }))
+);
+
 
 const history = createHashHistory();
 history.listen((location) => {
@@ -124,6 +130,7 @@ ReactDOM.render(
               {/* Single mount across /chat and /chat/:id so state persists
                   across the `new → session_created → /chat/<id>` transition. */}
               <Route key="chat-thread" path="/chat/:id?" component={ChatThreadPage} />
+              <Route key="dev-audit" path="/dev/chat-audit" component={DevAuditPage} />
               <KeepAliveRoute key="build" path="/build">
                 <ExplorePage />
               </KeepAliveRoute>

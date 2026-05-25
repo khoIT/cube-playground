@@ -28,10 +28,14 @@ import { buildSdkTools } from '../tools/registry.js';
 import { writeSseEvent } from '../core/sse-stream.js';
 import { shouldCompact, compactSession } from '../core/compact-service.js';
 import { summariseTitle } from '../core/title-summariser.js';
-import { config } from '../config.js';
+import { config, isLangfuseEnabled } from '../config.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import { RegistryOverflowError } from '../core/stream-registry.js';
 import type { SseEvent, QueryArtifact, ChartArtifact, ToolContext } from '../types.js';
+import { LlmTraceRecorder } from '../observability/llm-trace-recorder.js';
+import { LangfuseTracer } from '../observability/langfuse-tracer.js';
+import { buildCompositeObserver } from '../observability/composite-observer.js';
+import type { ObserverHooks } from '../observability/observer-types.js';
 
 interface TurnRouteOptions {
   db: Database.Database;
@@ -273,14 +277,37 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     let outputTokens = 0;
     let costUsd: number | undefined;
 
+    // Observability: construct observer inside the try block so a failing
+    // constructor (bad config, missing dep) falls back to a no-op and never
+    // crashes the turn before SSE headers are sent.
+    let observer: ObserverHooks | undefined;
+    let tracer: LangfuseTracer | undefined;
+    try {
+      const recorder = new LlmTraceRecorder({ db: opts.db, turnId });
+      tracer = new LangfuseTracer({ turnId, sessionId, ownerId: body.owner_id, skill: intent.skill });
+      observer = buildCompositeObserver([recorder, tracer]);
+      chatStore.insertAudit(opts.db, {
+        sessionId,
+        turnId,
+        kind: 'observability',
+        detail: { enabled_recorder: true, enabled_langfuse: isLangfuseEnabled(), owner_id: body.owner_id },
+      });
+    } catch (obsErr) {
+      fastify.log.warn({ err: obsErr }, '[turn] observer construction failed — continuing without observability');
+      observer = undefined;
+      tracer = undefined;
+    }
+
     try {
       for await (const event of claudeRunner.run({
         sessionId,
+        turnId,
         systemPrompt,
         allowedToolNames,
         message: body.message,
         tools,
         toolContext,
+        observer,
       })) {
         // Accumulate result metadata; other events are forwarded directly
         if (event.type === 'result') {
@@ -298,6 +325,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       // --- 8. Persist assistant turn ---
       const endedAt = Date.now();
       const assistantTurnIndex = userTurnIndex + 1;
+
+      // Finalize the Langfuse trace with aggregate token usage before persisting
+      // the turn row (so the tracer has the full picture before flush).
+      if (tracer) {
+        tracer.finalize({ inputTokens, outputTokens, totalCostUsd: costUsd });
+      }
+
       chatStore.appendTurn(opts.db, {
         sessionId,
         turnIndex: assistantTurnIndex,
@@ -309,6 +343,8 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         outputTokens,
         costUsd,
         skill: intent.skill,
+        systemPromptText: systemPrompt,
+        model: config.chatModel,
         startedAt,
         endedAt,
       });
@@ -378,6 +414,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         detail: { message, stack: err instanceof Error ? err.stack : undefined },
       });
     } finally {
+      // Fire-and-forget Langfuse flush — must not delay SSE close or throw.
+      // The Langfuse SDK queues internally; a missed flush is bounded loss.
+      if (tracer) {
+        void tracer.flush().catch((err) => fastify.log.warn({ err }, '[turn] langfuse flush failed'));
+      }
       if (release) release();
       stream.end();
     }

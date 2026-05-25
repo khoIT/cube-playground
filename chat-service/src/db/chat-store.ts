@@ -154,6 +154,10 @@ export interface AppendTurnParams {
   outputTokens?: number;
   costUsd?: number;
   skill?: string;
+  /** System prompt text persisted on the assistant turn row (phase 01 column). */
+  systemPromptText?: string;
+  /** Model string used for this turn, e.g. config.chatModel (phase 01 column). */
+  model?: string;
   startedAt: number;
   endedAt?: number;
 }
@@ -170,8 +174,10 @@ export function appendTurn(
     `INSERT INTO chat_turns
        (id, session_id, turn_index, role, user_text, assistant_text,
         reasoning_json, tool_calls_json, artifacts_json, charts_json,
-        input_tokens, output_tokens, cost_usd, skill, started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        input_tokens, output_tokens, cost_usd, skill,
+        system_prompt_text, model,
+        started_at, ended_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -187,6 +193,8 @@ export function appendTurn(
     params.outputTokens ?? null,
     params.costUsd ?? null,
     params.skill ?? null,
+    params.systemPromptText ?? null,
+    params.model ?? null,
     params.startedAt,
     params.endedAt ?? null,
   );
