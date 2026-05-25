@@ -3,12 +3,14 @@
  *
  * Covers:
  *   - getResolutions on empty session returns empty object
- *   - mergeResolution + getResolutions roundtrip preserves slots
+ *   - mergeResolution + getResolutions roundtrip preserves slots (SlotMemory shape)
  *   - subsequent merges accumulate across slots
  *   - filters object deep-merges (partial wins on conflict)
+ *   - timeRange roundtrip with phrase + dateRange + granularity
  *   - cacheServiceEnabled=false → all ops no-op
  *   - corrupt JSON returns empty
  *   - different sessions are isolated
+ *   - legacy bare-string rows (pre-SlotMemory) are tolerated and normalised
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -39,55 +41,72 @@ describe('disambig-memory-adapter', () => {
     expect(getResolutions(db, 'sess-1')).toEqual({});
   });
 
-  it('roundtrip preserves slot values', () => {
+  it('roundtrip preserves slot values with SlotMemory wrapper', () => {
     mergeResolution(db, 'sess-1', 'owner-a', {
-      metric: 'recharge.revenue_vnd',
-      dimension: 'recharge.payment_channel',
+      metric: { value: 'recharge.revenue_vnd', phrase: 'revenue' },
+      dimension: { value: 'recharge.payment_channel', phrase: 'by channel' },
     });
     const r = getResolutions(db, 'sess-1');
-    expect(r.metric).toBe('recharge.revenue_vnd');
-    expect(r.dimension).toBe('recharge.payment_channel');
+    expect(r.metric?.value).toBe('recharge.revenue_vnd');
+    expect(r.metric?.phrase).toBe('revenue');
+    expect(r.dimension?.value).toBe('recharge.payment_channel');
+    expect(r.dimension?.phrase).toBe('by channel');
     expect(r.updatedAt).toBeTypeOf('number');
   });
 
   it('merges accumulate across calls', () => {
-    mergeResolution(db, 'sess-1', 'owner-a', { metric: 'm1' });
-    mergeResolution(db, 'sess-1', 'owner-a', { dimension: 'd1' });
+    mergeResolution(db, 'sess-1', 'owner-a', { metric: { value: 'm1' } });
+    mergeResolution(db, 'sess-1', 'owner-a', { dimension: { value: 'd1' } });
     const r = getResolutions(db, 'sess-1');
-    expect(r.metric).toBe('m1');
-    expect(r.dimension).toBe('d1');
+    expect(r.metric?.value).toBe('m1');
+    expect(r.dimension?.value).toBe('d1');
   });
 
   it('partial slot replacements win on conflict', () => {
-    mergeResolution(db, 'sess-1', 'owner-a', { metric: 'arpdau' });
-    mergeResolution(db, 'sess-1', 'owner-a', { metric: 'arpu' });
-    expect(getResolutions(db, 'sess-1').metric).toBe('arpu');
+    mergeResolution(db, 'sess-1', 'owner-a', { metric: { value: 'arpdau' } });
+    mergeResolution(db, 'sess-1', 'owner-a', { metric: { value: 'arpu' } });
+    expect(getResolutions(db, 'sess-1').metric?.value).toBe('arpu');
   });
 
   it('filters object deep-merges and partial wins on conflict', () => {
     mergeResolution(db, 'sess-1', 'owner-a', {
-      filters: { 'players.country': 'VN', 'recharge.channel': 'iap' },
+      filters: {
+        'players.country': { value: 'VN' },
+        'recharge.channel': { value: 'iap' },
+      },
     });
     mergeResolution(db, 'sess-1', 'owner-a', {
-      filters: { 'recharge.channel': 'web' },
+      filters: { 'recharge.channel': { value: 'web' } },
     });
     const r = getResolutions(db, 'sess-1');
-    expect(r.filters?.['players.country']).toBe('VN');
-    expect(r.filters?.['recharge.channel']).toBe('web');
+    expect(r.filters?.['players.country']?.value).toBe('VN');
+    expect(r.filters?.['recharge.channel']?.value).toBe('web');
+  });
+
+  it('timeRange roundtrip preserves phrase + dateRange + granularity', () => {
+    mergeResolution(db, 'sess-1', 'owner-a', {
+      timeRange: {
+        value: { dateRange: 'this week', granularity: 'day' },
+        phrase: 'this week',
+      },
+    });
+    const r = getResolutions(db, 'sess-1');
+    expect(r.timeRange?.value.dateRange).toBe('this week');
+    expect(r.timeRange?.value.granularity).toBe('day');
+    expect(r.timeRange?.phrase).toBe('this week');
   });
 
   it('different sessions are isolated', () => {
-    mergeResolution(db, 'sess-A', 'owner-a', { metric: 'm-A' });
-    mergeResolution(db, 'sess-B', 'owner-a', { metric: 'm-B' });
-    expect(getResolutions(db, 'sess-A').metric).toBe('m-A');
-    expect(getResolutions(db, 'sess-B').metric).toBe('m-B');
+    mergeResolution(db, 'sess-A', 'owner-a', { metric: { value: 'm-A' } });
+    mergeResolution(db, 'sess-B', 'owner-a', { metric: { value: 'm-B' } });
+    expect(getResolutions(db, 'sess-A').metric?.value).toBe('m-A');
+    expect(getResolutions(db, 'sess-B').metric?.value).toBe('m-B');
   });
 
   it('cacheServiceEnabled=false → get returns empty + merge is a no-op', () => {
     (config as { cacheServiceEnabled: boolean }).cacheServiceEnabled = false;
-    mergeResolution(db, 'sess-1', 'owner-a', { metric: 'm1' });
+    mergeResolution(db, 'sess-1', 'owner-a', { metric: { value: 'm1' } });
     expect(getResolutions(db, 'sess-1')).toEqual({});
-    // Re-enable to confirm nothing landed
     (config as { cacheServiceEnabled: boolean }).cacheServiceEnabled = true;
     expect(getResolutions(db, 'sess-1')).toEqual({});
   });
@@ -99,5 +118,25 @@ describe('disambig-memory-adapter', () => {
       valueJson: '{not-json',
     });
     expect(getResolutions(db, 'sess-1')).toEqual({});
+  });
+
+  it('legacy bare-string rows normalise to SlotMemory<string>', () => {
+    // Simulate a row written before the SlotMemory shape change.
+    kvPut(db, {
+      kind: 'disambig_resolution',
+      key: 'session:legacy-1',
+      valueJson: JSON.stringify({
+        metric: 'recharge.revenue_vnd',
+        dimension: 'players.country',
+        filters: { 'players.platform': 'ios' },
+        updatedAt: 123,
+      }),
+    });
+    const r = getResolutions(db, 'legacy-1');
+    expect(r.metric?.value).toBe('recharge.revenue_vnd');
+    expect(r.metric?.phrase).toBeUndefined();
+    expect(r.dimension?.value).toBe('players.country');
+    expect(r.filters?.['players.platform']?.value).toBe('ios');
+    expect(r.updatedAt).toBe(123);
   });
 });

@@ -2,22 +2,18 @@
  * Tool: disambiguate_query
  *
  * Pre-flight for any free-form analytical question. Calls the nl-to-query
- * engine, validates resolved Cube refs against /meta, then surfaces either
- * a confident query the LLM can hand to preview_cube_query / emit_query_artifact
- * (action='auto') or a single bilingual clarification (action='clarify').
- *
- * The engine itself contains no LLM calls — this tool wraps it so the
- * Claude runner can compose with the existing tool registry.
+ * engine, validates resolved Cube refs against /meta, bridges through
+ * session memory (read prior slots + write what this turn confirmed), then
+ * surfaces either a confident query the LLM can hand to preview_cube_query /
+ * emit_query_artifact (action='auto') or a single bilingual clarification
+ * (action='clarify'). The engine itself contains no LLM calls.
  */
 
 import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { disambiguate } from '../nl-to-query/index.js';
 import type { DisambiguationResult, Clarification } from '../nl-to-query/index.js';
-import {
-  getResolutions,
-  mergeResolution,
-} from '../cache/disambig-memory-adapter.js';
+import { mergeMemoryIntoResult } from './disambiguate-memory-merge.js';
 import type { ToolContext } from '../types.js';
 
 export const name = 'disambiguate_query';
@@ -59,6 +55,7 @@ export async function handler(
   warnings: string[];
 }> {
   const mode = args.mode ?? ctx.disambiguationMode ?? 'targeted';
+  const now = ctx.now ? ctx.now() : Date.now();
 
   let knownMembers: Set<string> | undefined;
   try {
@@ -70,32 +67,19 @@ export async function handler(
 
   const result = await disambiguate(
     { message: args.message, mode, knownMembers },
-    { now: ctx.now },
+    { now: () => now },
   );
 
-  // ── Session-scoped memory: fill missing slots from prior user choices.
-  // Once the user has resolved metric=ARPDAU once via a chip click, we don't
-  // re-ask in subsequent turns of the same session. Confidence is set high
-  // enough to clear auto-route gates.
-  const memory = ctx.db ? getResolutions(ctx.db, ctx.sessionId) : {};
-  const MEMORY_CONFIDENCE = 0.95;
-  if (!result.slots.metric.value && memory.metric) {
-    result.slots.metric = { value: memory.metric, confidence: MEMORY_CONFIDENCE };
-    result.warnings.push(`metric resolved from session memory: ${memory.metric}`);
-  }
-  if (!result.slots.dimension?.value && memory.dimension) {
-    result.slots.dimension = { value: memory.dimension, confidence: MEMORY_CONFIDENCE };
-    result.warnings.push(`dimension resolved from session memory: ${memory.dimension}`);
-  }
-  // Re-evaluate: if all clarifications were about slots memory just filled,
-  // drop those clarifications. If none remain, upgrade to auto-route.
-  result.clarifications = result.clarifications.filter((c) => {
-    if (c.slot === 'metric' && memory.metric) return false;
-    if (c.slot === 'dimension' && memory.dimension) return false;
-    return true;
-  });
-  if (result.action === 'clarify' && result.clarifications.length === 0 && result.slots.metric.value) {
-    result.action = 'auto';
+  // Bridge through session memory: fills gaps from prior turns, then writes
+  // back every slot this turn resolved confidently — even if the turn still
+  // needs clarification on a different slot.
+  if (ctx.db) {
+    mergeMemoryIntoResult(result, {
+      db: ctx.db,
+      sessionId: ctx.sessionId,
+      ownerId: ctx.ownerId,
+      now,
+    });
   }
 
   // Force a clarification if any resolved ref is unknown to Cube /meta —
@@ -117,19 +101,10 @@ export async function handler(
     }
   }
 
-  // ── Persist newly-confirmed slots to session memory so future turns
-  // benefit. Only write on auto-route (high-confidence resolution).
-  if (result.action === 'auto' && ctx.db) {
-    mergeResolution(ctx.db, ctx.sessionId, ctx.ownerId, {
-      metric: result.slots.metric.value,
-      dimension: result.slots.dimension?.value,
-    });
-  }
-
-  // ── Emit structured chip data when we still need user input. The FE
-  // listens for 'disambig_options' and renders clickable pills below the
-  // assistant turn. We pick the first clarification (the most pressing slot)
-  // and translate its options into pin-text the next turn can resolve cleanly.
+  // Emit structured chip data when we still need user input. The FE listens
+  // for 'disambig_options' and renders clickable pills below the assistant
+  // turn. We pick the most pressing clarification and translate its options
+  // into pin-text the next turn can resolve cleanly.
   if (result.action === 'clarify' && ctx.sseEmitter) {
     const clar = pickPrimaryClarification(result.clarifications);
     if (clar && clar.options && clar.options.length > 0) {
@@ -138,9 +113,6 @@ export async function handler(
         prompt: clar.question_en,
         options: clar.options.map((o, idx) => ({
           label: o.label_en,
-          // The chip's pin-text is just the option label. The next disambig
-          // call will resolve it via slot-extractor AND simultaneously
-          // benefit from mergeResolution writing the value to memory.
           pinText: o.label_en,
           confidence: 1 - idx * 0.1,
         })),
