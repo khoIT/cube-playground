@@ -6,7 +6,6 @@
  */
 
 import { getDb } from '../db/sqlite.js';
-import { load } from '../services/cube-client.js';
 import { setSegmentStatus, setSegmentSizeAndUids } from '../services/segment-status.js';
 import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
@@ -14,6 +13,7 @@ import { upsertCardCache } from '../services/card-cache-store.js';
 import { pickPresetForCube } from '../presets/mf-users-hub.js';
 import { resolveIdentityField } from '../services/resolve-identity-field.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
+import { loadWithContinueWait } from '../services/load-with-continue-wait.js';
 
 const PER_SEGMENT_TIMEOUT_MS = 60_000;
 
@@ -23,44 +23,6 @@ const PER_SEGMENT_TIMEOUT_MS = 60_000;
  *  true total from the `total: true` size query. */
 const UID_PAGE_SIZE = 10_000;
 const MAX_UID_LIST = 100_000;
-
-const CONTINUE_WAIT_RE = /Continue wait/i;
-const CONTINUE_WAIT_POLL_MS = 700;
-
-/**
- * Calls Cube `/load`, transparently polling when Cube returns
- * `{error: "Continue wait"}` — the signal that an async pre-aggregation is
- * warming. Other errors propagate immediately. Throws the last Continue-wait
- * error if the budget is exhausted so the segment can be marked broken with
- * a meaningful reason.
- *
- * Lives in refresh-segment (rather than cube-client) so that the
- * `vi.spyOn(cubeClient, 'load')` mocks in tests intercept each retry attempt.
- */
-async function loadWithContinueWait(
-  query: unknown,
-  tokenOverride: string | undefined,
-  timeoutMs: number,
-): Promise<unknown> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    try {
-      return await load(query, tokenOverride);
-    } catch (err) {
-      const msg = (err as Error).message;
-      if (!CONTINUE_WAIT_RE.test(msg)) throw err;
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) {
-        throw new Error(
-          `${msg} — pre-aggregation still warming after ${timeoutMs}ms`,
-        );
-      }
-      await new Promise((r) =>
-        setTimeout(r, Math.min(CONTINUE_WAIT_POLL_MS, remaining)),
-      );
-    }
-  }
-}
 
 interface SegmentRow {
   id: string;

@@ -5,7 +5,7 @@ description: >-
   /liveops surfaces; server-side result cache for KPI/cohort/funnel mirroring
   the Segments card-cache pattern; Dashboard tile cache; funnel+retention
   follow-on improvements.
-status: pending
+status: completed
 priority: P1
 branch: main
 tags:
@@ -45,12 +45,12 @@ The 6-phase liveops pack landed. Three things now make the demo land harder:
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [UI redesign with huashu-design](./phase-01-ui-redesign-with-huashu-design.md) | Pending |
-| 2 | [Liveops result cache](./phase-02-liveops-result-cache.md) | Pending |
-| 3 | [Dashboard tile cache](./phase-03-dashboard-tile-cache.md) | Pending |
-| 4 | [Funnel + retention follow-on improvements](./phase-04-funnel-retention-follow-on-improvements.md) | Pending |
-| 5 | [Dashboard starter pack](./phase-05-dashboard-starter-pack.md) | Pending |
-| 6 | [Settings tabs for Liveops and Dashboards](./phase-06-settings-tabs-for-liveops-and-dashboards.md) | Pending |
+| 1 | [UI redesign with huashu-design](./phase-01-ui-redesign-with-huashu-design.md) | Editorial direction chosen + ported |
+| 2 | [Liveops result cache](./phase-02-liveops-result-cache.md) | Complete |
+| 3 | [Dashboard tile cache](./phase-03-dashboard-tile-cache.md) | Complete |
+| 4 | [Funnel + retention follow-on improvements](./phase-04-funnel-retention-follow-on-improvements.md) | Subset 4.1 + 4.2 + 4.3 (minimal) shipped; 4.4–4.8 deferred |
+| 5 | [Dashboard starter pack](./phase-05-dashboard-starter-pack.md) | Complete (3 starters; compare-in-tile rendering deferred) |
+| 6 | [Settings tabs for Liveops and Dashboards](./phase-06-settings-tabs-for-liveops-and-dashboards.md) | Complete |
 
 ## Reused primitives
 

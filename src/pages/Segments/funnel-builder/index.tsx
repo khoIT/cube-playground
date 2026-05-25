@@ -178,6 +178,9 @@ export function FunnelBuilder(): ReactElement {
               cubeName={detection.cubeName}
               events={definition.orderedEvents}
               onChange={(orderedEvents) => setDefinition((d) => ({ ...d, orderedEvents }))}
+              onApplyTemplate={(tmpl) =>
+                setDefinition((d) => ({ ...d, windowMs: tmpl.windowMs }))
+              }
             />
           )}
           {step === 2 && (

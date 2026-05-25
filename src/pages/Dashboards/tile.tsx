@@ -1,17 +1,17 @@
 /**
- * Dashboard tile shell — loads its Cube query via tile-fetch-queue (max 3 concurrent),
- * detects schema drift, and dispatches rendering to tile-viz-renderers.
+ * Dashboard tile shell — reads its data from the server-side tile cache.
+ *
+ * Phase-3 caching change: tiles no longer fire their own Cube query. The
+ * GET /api/dashboards/:slug response embeds a `cache` object per tile; this
+ * component renders straight from those rows. A kebab "Refresh now" path
+ * (handled by the parent) bypasses the cron interval when needed.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ResultSet } from '@cubejs-client/core';
-import { useAppContext } from '../../hooks';
-import { useSecurityContext } from '../../hooks/security-context';
-import { useCubejsApi } from '../../hooks/cubejs-api';
-import { enqueueTileFetch } from './tile-fetch-queue';
 import { TileVizBody } from './tile-viz-renderers';
 import { dashboardsClient } from '../../api/dashboards-client';
-import type { DashboardTile as TileModel } from '../../api/dashboards-client';
+import type { DashboardTile as TileModel, TileCacheView } from '../../api/dashboards-client';
 
 interface TileProps {
   tile: TileModel;
@@ -20,17 +20,6 @@ interface TileProps {
   onDelete?: (tileId: number) => void;
   onTitleChange?: (tileId: number, title: string) => void;
 }
-
-function safeParseQuery(json: string): Record<string, unknown> | null {
-  try {
-    const v = JSON.parse(json);
-    return typeof v === 'object' && v !== null ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-// ── Styles ─────────────────────────────────────────────────────────────────
 
 const tileStyle: React.CSSProperties = {
   background: 'var(--bg-card, #fff)',
@@ -63,61 +52,40 @@ const titleStyle: React.CSSProperties = {
   cursor: 'text',
 };
 
-// ── Component ───────────────────────────────────────────────────────────────
+/** Synthesize a minimal ResultSet-like object from cached rows. */
+function cacheToResultSet(rows: unknown[]): ResultSet {
+  return {
+    rawData: () => rows as Array<Record<string, unknown>>,
+    tablePivot: () => rows as Array<Record<string, string | number | boolean | null>>,
+  } as unknown as ResultSet;
+}
 
 export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps) {
-  const { apiUrl } = useAppContext();
-  const { currentToken } = useSecurityContext();
-  const cubeApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
-
-  const [resultSet, setResultSet] = useState<ResultSet | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [driftWarning, setDriftWarning] = useState<string | null>(null);
+  const [cache, setCache] = useState<TileCacheView | null>(tile.cache ?? null);
+  const [refreshing, setRefreshing] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(tile.title);
-  const abortRef = useRef<AbortController | null>(null);
 
-  const runLoad = useCallback(() => {
-    if (!cubeApi) return;
-    const query = safeParseQuery(tile.query_json);
-    if (!query) { setLoadError('Invalid query JSON stored in tile.'); return; }
+  // Re-sync when the parent re-fetches the dashboard.
+  useEffect(() => { setCache(tile.cache ?? null); }, [tile.cache]);
 
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    setLoading(true);
-    setLoadError(null);
-    setDriftWarning(null);
+  const resultSet = useMemo(
+    () => (cache ? cacheToResultSet(cache.rows) : null),
+    [cache],
+  );
 
-    type CubeApiCompat = {
-      load: (q: unknown) => Promise<ResultSet>;
-      meta: () => Promise<{ cubes: Array<{ measures: Array<{ name: string }>; dimensions: Array<{ name: string }> }> }>;
-    };
-
-    enqueueTileFetch(() => (cubeApi as unknown as CubeApiCompat).load(query))
-      .then((rs) => {
-        if (ctrl.signal.aborted) return;
-        setResultSet(rs);
-        // Schema-drift check: warn if any referenced member is absent from meta.
-        (cubeApi as unknown as CubeApiCompat).meta().then((meta) => {
-          if (ctrl.signal.aborted) return;
-          const available = new Set<string>();
-          meta.cubes.forEach((c) => {
-            c.measures.forEach((m) => available.add(m.name));
-            c.dimensions.forEach((d) => available.add(d.name));
-          });
-          const measures: string[] = (query.measures as string[] | undefined) ?? [];
-          const dimensions: string[] = (query.dimensions as string[] | undefined) ?? [];
-          const missing = [...measures, ...dimensions].filter((m) => !available.has(m));
-          if (missing.length) setDriftWarning(`Schema drift: ${missing.join(', ')} no longer in meta`);
-        }).catch(() => {/* meta unavailable — skip drift check */});
-      })
-      .catch((err: Error) => { if (!ctrl.signal.aborted) setLoadError(err.message); })
-      .finally(() => { if (!ctrl.signal.aborted) setLoading(false); });
-  }, [cubeApi, tile.query_json]);
-
-  useEffect(() => { runLoad(); return () => abortRef.current?.abort(); }, [runLoad]);
+  const refreshNow = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const next = await dashboardsClient.refreshTile(slug, gameId, tile.id);
+      setCache(next);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[tile] manual refresh failed:', (err as Error).message);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [slug, gameId, tile.id]);
 
   const handleTitleCommit = useCallback(() => {
     setEditingTitle(false);
@@ -128,6 +96,9 @@ export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps)
       dashboardsClient.patchTile(slug, gameId, tile.id, { title: trimmed }).catch(() => {});
     }
   }, [titleDraft, tile.title, tile.id, slug, gameId, onTitleChange]);
+
+  const isWarming = !cache || (cache.status === 'refreshing' && cache.rows.length === 0);
+  const isBroken = cache?.status === 'broken' && (!cache.rows || cache.rows.length === 0);
 
   return (
     <div style={tileStyle}>
@@ -149,6 +120,15 @@ export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps)
             {titleDraft}
           </span>
         )}
+        <button
+          aria-label="Refresh tile"
+          title="Refresh now"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, padding: '0 4px' }}
+          onClick={refreshNow}
+          disabled={refreshing}
+        >
+          ⟳
+        </button>
         {onDelete && (
           <button
             aria-label="Delete tile"
@@ -161,16 +141,20 @@ export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps)
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        {loading && <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading…</div>}
-        {!loading && loadError && <div style={{ color: 'var(--danger, #dc2626)', fontSize: 11 }}>{loadError}</div>}
-        {!loading && !loadError && resultSet && (
+        {isWarming && <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Refreshing…</div>}
+        {!isWarming && isBroken && (
+          <div style={{ color: 'var(--danger, #dc2626)', fontSize: 11 }}>
+            {cache?.error_msg ?? 'Tile data unavailable.'}
+          </div>
+        )}
+        {!isWarming && !isBroken && resultSet && (
           <TileVizBody vizType={tile.viz_type} title={titleDraft} resultSet={resultSet} />
         )}
       </div>
 
-      {driftWarning && (
-        <div style={{ fontSize: 11, color: 'var(--text-warning,#b45309)', background: 'var(--bg-warning,#fffbeb)', border: '1px solid var(--border-warning,#fde68a)', borderRadius: 6, padding: '4px 8px', marginTop: 4 }}>
-          {driftWarning}
+      {cache?.status === 'refreshing' && cache.rows.length > 0 && (
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+          Refreshing…
         </div>
       )}
     </div>

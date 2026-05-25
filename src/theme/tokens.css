@@ -88,6 +88,12 @@
   --font-sans: 'Inter', 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-alt:  'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Editorial direction — Liveops phase 1 redesign. Used for serif headlines
+     and KPI tile values on the /liveops surfaces. */
+  --font-editorial-serif: 'Source Serif Pro', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --rule-editorial: rgba(var(--text-muted-rgb, 115, 115, 115), 0.2);
+  --positive: #15803d;
+  --negative: #b91c1c;
 
   /*
    * Theme-token RGB triples (no rgba wrapper). Used by tasty rules like

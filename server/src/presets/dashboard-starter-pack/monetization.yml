@@ -1,0 +1,44 @@
+slug: monetization
+title: Monetization
+description: Revenue and paying-user trend lines for monetization owners.
+applies_when:
+  required_cubes: [user_recharge_daily]
+tiles:
+  - title: Paying users (30d)
+    viz_type: line
+    position: { x: 0, y: 0, w: 6, h: 3 }
+    query:
+      measures: [user_recharge_daily.paying_users]
+      timeDimensions:
+        - dimension: user_recharge_daily.recharge_date
+          granularity: day
+          dateRange: last 30 days
+  - title: Revenue (30d)
+    viz_type: bar
+    position: { x: 6, y: 0, w: 6, h: 3 }
+    query:
+      measures: [user_recharge_daily.revenue_vnd_total]
+      timeDimensions:
+        - dimension: user_recharge_daily.recharge_date
+          granularity: day
+          dateRange: last 30 days
+  - title: Revenue (last 14 days)
+    viz_type: kpi
+    position: { x: 0, y: 3, w: 4, h: 2 }
+    query:
+      measures: [user_recharge_daily.revenue_vnd_total]
+      timeDimensions:
+        - dimension: user_recharge_daily.recharge_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev
+  - title: Paying users (last 14 days)
+    viz_type: kpi
+    position: { x: 4, y: 3, w: 4, h: 2 }
+    query:
+      measures: [user_recharge_daily.paying_users]
+      timeDimensions:
+        - dimension: user_recharge_daily.recharge_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev

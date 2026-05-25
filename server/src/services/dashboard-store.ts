@@ -15,6 +15,8 @@ export interface DashboardRow {
   title: string;
   created_at: string;
   updated_at: string;
+  last_viewed_at?: string | null;
+  tile_ttl_seconds?: number;
 }
 
 export interface TileRow {
@@ -231,6 +233,45 @@ export function deleteTile(tileId: number): boolean {
     .prepare(`DELETE FROM dashboard_tiles WHERE id = ?`)
     .run(tileId);
   return result.changes > 0;
+}
+
+/** Mark a dashboard as viewed — drives the "recently active" cron filter. */
+export function markDashboardViewed(
+  owner: string,
+  game: string,
+  slug: string,
+): boolean {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const res = db
+    .prepare(
+      `UPDATE dashboards SET last_viewed_at = ? WHERE owner = ? AND game = ? AND slug = ?`,
+    )
+    .run(now, owner, game, slug);
+  return res.changes > 0;
+}
+
+export function setDashboardTileTtl(
+  owner: string,
+  game: string,
+  slug: string,
+  ttlSeconds: number,
+): boolean {
+  const db = getDb();
+  const res = db
+    .prepare(
+      `UPDATE dashboards SET tile_ttl_seconds = ? WHERE owner = ? AND game = ? AND slug = ?`,
+    )
+    .run(Math.max(30, Math.min(86_400, ttlSeconds)), owner, game, slug);
+  return res.changes > 0;
+}
+
+export function getDashboardById(id: number): DashboardRow | null {
+  const db = getDb();
+  const row = db.prepare(`SELECT * FROM dashboards WHERE id = ?`).get(id) as
+    | Record<string, unknown>
+    | undefined;
+  return row ? hydrateDashboard(row) : null;
 }
 
 /** Batch-update tile positions in a single transaction (layout save). */

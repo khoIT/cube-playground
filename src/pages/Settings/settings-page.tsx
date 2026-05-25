@@ -8,7 +8,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles, Activity, LayoutGrid } from 'lucide-react';
 
 import { SettingsTabs, type SettingsTabDescriptor } from './settings-tabs';
 import { NavVisibilitySection } from './nav-visibility-section';
@@ -16,6 +16,8 @@ import { GameVisibilitySection } from './game-visibility-section';
 import { IdentityMapSection } from './identity-map-section';
 import { ChatPreferencesSection } from './chat-preferences-section';
 import { ChatServiceTab } from './ChatService/chat-service-tab';
+import { LiveopsSettingsSection } from './liveops-settings-section';
+import { DashboardsSettingsSection } from './dashboards-settings-section';
 
 const Page = styled.div`
   max-width: 1040px;
@@ -74,14 +76,17 @@ const Panel = styled.div`
   min-width: 0;
 `;
 
-type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service';
+type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards';
 
 const DEFAULT_TAB: TabId = 'sidebar';
 
+const KNOWN_TABS = new Set<string>([
+  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards',
+]);
+
 function readHashTab(hash: string): TabId | null {
   const id = hash.replace(/^#/, '');
-  if (id === 'sidebar' || id === 'games' || id === 'identity' || id === 'chat' || id === 'chat-service') return id;
-  return null;
+  return KNOWN_TABS.has(id) ? (id as TabId) : null;
 }
 
 export function SettingsPage(): ReactElement {
@@ -133,6 +138,16 @@ export function SettingsPage(): ReactElement {
         label: t('settings.tabs.chatService', { defaultValue: 'Chat Service' }),
         icon: Sparkles,
       },
+      {
+        id: 'liveops',
+        label: t('settings.tabs.liveops', { defaultValue: 'Liveops' }),
+        icon: Activity,
+      },
+      {
+        id: 'dashboards',
+        label: t('settings.tabs.dashboards', { defaultValue: 'Dashboards' }),
+        icon: LayoutGrid,
+      },
     ],
     [t],
   );
@@ -154,6 +169,10 @@ export function SettingsPage(): ReactElement {
         return <ChatPreferencesSection />;
       case 'chat-service':
         return <ChatServiceTab />;
+      case 'liveops':
+        return <LiveopsSettingsSection />;
+      case 'dashboards':
+        return <DashboardsSettingsSection />;
     }
   };
 

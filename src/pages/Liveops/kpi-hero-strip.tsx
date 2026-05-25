@@ -7,14 +7,13 @@
  */
 
 import { Component, useState, useEffect, type ReactNode, type ErrorInfo } from 'react';
-import { KpiTile } from '../Segments/visuals/kpi-tile';
-import { Sparkline } from '../Segments/visuals/sparkline';
 import { LiveBadge } from '../Segments/visuals/live-badge';
 import { useLiveKpis } from './use-live-kpis';
 import type { KpiTileData } from './use-live-kpis';
 import { useAnomalies } from './anomaly-inbox/use-anomalies';
 import { AnomalyTileBadge } from './anomaly-tile-badge';
 import { KPI_CONFIG } from './kpi-config';
+import { EditorialKpiTile } from './_ui/editorial-kpi-tile';
 
 // ── Per-tile error boundary ───────────────────────────────────────────────
 
@@ -40,15 +39,14 @@ class TileErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <KpiTile
+        <EditorialKpiTile
           label={this.props.label}
-          value="—"
-          tone="neutral"
-          footer={
+          value={
             <span title={this.state.error?.message ?? 'Render error'} style={{ cursor: 'help' }}>
-              error
+              —
             </span>
           }
+          tone="neutral"
         />
       );
     }
@@ -61,20 +59,14 @@ class TileErrorBoundary extends Component<
 function SkeletonTile({ label }: { label: string }) {
   return (
     <div style={{
-      padding: '14px 16px',
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border-card)',
-      borderRadius: 'var(--radius-lg)',
-      minWidth: 140,
-      flex: '1 1 0',
+      padding: '18px 16px 14px',
+      borderTop: '1px solid var(--rule-editorial, var(--border-card))',
     }}>
       <p style={{
-        fontSize: 11.5,
-        textTransform: 'uppercase',
-        letterSpacing: '0.04em',
+        fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
+        fontSize: 13,
         color: 'var(--text-muted)',
         margin: '0 0 6px',
-        fontWeight: 500,
       }}>
         {label}
       </p>
@@ -121,22 +113,14 @@ function LiveKpiTile({ tile }: { tile: KpiTileData }) {
       tile.value
     );
 
-  // KpiTile wraps footer in <p> so block elements (Sparkline's div) can't go
-  // there. Render sparkline as a sibling below the tile instead.
   return (
-    <div>
-      <KpiTile
-        label={tile.label}
-        value={valueNode}
-        delta={tile.delta ?? undefined}
-        tone={tile.tone}
-      />
-      {tile.sparkline.length > 0 && (
-        <div style={{ padding: '0 16px 10px', marginTop: -4 }}>
-          <Sparkline data={tile.sparkline} height={28} />
-        </div>
-      )}
-    </div>
+    <EditorialKpiTile
+      label={tile.label}
+      value={valueNode}
+      delta={tile.delta ?? undefined}
+      tone={tile.tone}
+      sparkline={tile.sparkline}
+    />
   );
 }
 
@@ -187,24 +171,35 @@ export function KpiHeroStrip({ gameId }: KpiHeroStripProps) {
 
   return (
     <div style={{ padding: '16px 20px 0' }}>
-      {/* Strip header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span style={{
-          fontSize: 13,
+      {/* Strip header — editorial section style */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+        <h2 style={{
+          margin: 0,
+          fontFamily: 'var(--font-editorial-serif, Georgia, "Iowan Old Style", serif)',
+          fontSize: 20,
           fontWeight: 600,
-          color: 'var(--text-primary)',
           letterSpacing: '-0.005em',
         }}>
-          Live KPIs
-        </span>
+          Daily standup
+        </h2>
         <RefreshBadge lastRefresh={lastRefresh} />
       </div>
+      <p style={{
+        margin: '0 0 14px',
+        fontSize: 12,
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+      }}>
+        Five hero metrics · updated every cache tick
+      </p>
 
       {/* Tile row */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(5, 1fr)',
-        gap: 12,
+        gap: 16,
+        borderBottom: '1px solid var(--rule-editorial, var(--border-card))',
       }}>
         {showSkeletons
           ? SKELETON_LABELS.map((label) => <SkeletonTile key={label} label={label} />)

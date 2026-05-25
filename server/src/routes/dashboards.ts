@@ -16,8 +16,18 @@ import {
   updateTile,
   deleteTile,
   setLayout,
+  markDashboardViewed,
+  setDashboardTileTtl,
   TileCapError,
 } from '../services/dashboard-store.js';
+import {
+  readTileCache,
+  invalidateTile,
+} from '../services/dashboard-tile-cache-store.js';
+import { refreshTileById } from '../jobs/refresh-dashboard-tiles.js';
+import { seedStarterPack } from '../services/dashboard-starter-pack-seeder.js';
+import { getMeta } from '../services/cube-client.js';
+import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -29,6 +39,7 @@ const createDashboardSchema = z.object({
 
 const patchDashboardSchema = z.object({
   title: z.string().min(1).max(256).optional(),
+  tile_ttl_seconds: z.number().int().positive().max(86_400).optional(),
 });
 
 const addTileSchema = z.object({
@@ -57,16 +68,54 @@ const layoutSchema = z.array(
   }),
 );
 
+interface MetaCube { name: string }
+interface MetaShape { cubes?: MetaCube[]; cubesMap?: Record<string, MetaCube> }
+
+async function resolveAvailableCubes(game: string): Promise<Set<string>> {
+  try {
+    const token = resolveCubeTokenForGame(game) ?? undefined;
+    const meta = (await getMeta(token)) as MetaShape;
+    const cubes = Array.isArray(meta.cubes)
+      ? meta.cubes
+      : Object.values(meta.cubesMap ?? {});
+    return new Set(cubes.map((c) => c.name));
+  } catch {
+    return new Set();
+  }
+}
+
+async function seedStarterPackForGame(owner: string, game: string) {
+  const availableCubes = await resolveAvailableCubes(game);
+  return seedStarterPack({ owner, game, availableCubes });
+}
+
 // ── Route plugin ─────────────────────────────────────────────────────────────
 
 export default async function dashboardsRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/dashboards?game=<id>
+  // Phase 5: if the list is empty, fire-and-forget a starter-pack seed so the
+  // next FE poll sees the curated dashboards. Initial response is the empty
+  // list (FE shows a "Setting up…" skeleton and re-polls 1s later).
   app.get('/api/dashboards', async (req, reply) => {
     const { game } = req.query as Record<string, string | undefined>;
     if (!game) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
     }
-    return listDashboards(req.owner, game);
+    const dashboards = listDashboards(req.owner, game);
+    if (dashboards.length === 0) {
+      void seedStarterPackForGame(req.owner, game).catch(() => {});
+    }
+    return dashboards;
+  });
+
+  // POST /api/dashboards/reset-starter-pack?game=<id>
+  app.post('/api/dashboards/reset-starter-pack', async (req, reply) => {
+    const { game } = req.query as Record<string, string | undefined>;
+    if (!game) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
+    }
+    const result = await seedStarterPackForGame(req.owner, game);
+    return reply.status(200).send(result);
   });
 
   // POST /api/dashboards
@@ -89,6 +138,8 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
   });
 
   // GET /api/dashboards/:slug?game=<id>
+  // Extended: each tile now includes a `cache` field with cached rows + status,
+  // so the FE can render without firing a per-tile Cube query.
   app.get('/api/dashboards/:slug', async (req, reply) => {
     const { slug } = req.params as { slug: string };
     const { game } = req.query as Record<string, string | undefined>;
@@ -99,7 +150,22 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!dashboard) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Dashboard not found' } });
     }
-    return dashboard;
+    const tilesWithCache = dashboard.tiles.map((tile) => {
+      const cache = readTileCache(tile.id);
+      return {
+        ...tile,
+        cache: cache
+          ? {
+              rows: cache.rows,
+              fetched_at: cache.fetched_at,
+              expires_at: cache.expires_at,
+              status: cache.status,
+              error_msg: cache.error_msg,
+            }
+          : null,
+      };
+    });
+    return { ...dashboard, tiles: tilesWithCache };
   });
 
   // PATCH /api/dashboards/:slug?game=<id>
@@ -116,6 +182,9 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     const updated = updateDashboard(req.owner, game, slug, parsed.data);
     if (!updated) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Dashboard not found' } });
+    }
+    if (parsed.data.tile_ttl_seconds != null) {
+      setDashboardTileTtl(req.owner, game, slug, parsed.data.tile_ttl_seconds);
     }
     return updated;
   });
@@ -151,6 +220,9 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     }
     try {
       const tile = addTile(dashboard.id, parsed.data);
+      // Fire-and-forget inline refresh so the new tile renders with data on
+      // the next FE poll (cron tick may be up to 90s away).
+      void refreshTileById(tile.id).catch(() => {});
       return reply.status(201).send(tile);
     } catch (err: unknown) {
       if (err instanceof TileCapError) {
@@ -175,6 +247,12 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!updated) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Tile not found' } });
     }
+    // If the underlying query changed, the cache becomes wrong-shaped — bust
+    // the cache row and inline-refresh so the FE sees data quickly.
+    if (parsed.data.query_json) {
+      invalidateTile(tileId);
+      void refreshTileById(tileId).catch(() => {});
+    }
     return updated;
   });
 
@@ -190,6 +268,41 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Tile not found' } });
     }
     return reply.status(204).send();
+  });
+
+  // POST /api/dashboards/:slug/view-ping?game=<id>
+  // Best-effort: marks the dashboard as recently-viewed so cron refreshes its
+  // tiles. Fire-and-forget from the FE; we always return 204.
+  app.post('/api/dashboards/:slug/view-ping', async (req, reply) => {
+    const { slug } = req.params as { slug: string };
+    const { game } = req.query as Record<string, string | undefined>;
+    if (!game) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
+    }
+    markDashboardViewed(req.owner, game, slug);
+    return reply.status(204).send();
+  });
+
+  // POST /api/dashboards/:slug/tiles/:id/refresh?game=<id>
+  // Force refresh now for the tile. Returns updated cache view.
+  app.post('/api/dashboards/:slug/tiles/:id/refresh', async (req, reply) => {
+    const { id } = req.params as { slug: string; id: string };
+    const tileId = parseInt(id, 10);
+    if (isNaN(tileId)) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'Invalid tile id' } });
+    }
+    await refreshTileById(tileId);
+    const cache = readTileCache(tileId);
+    if (!cache) {
+      return reply.status(202).send({ status: 'warming' });
+    }
+    return reply.status(200).send({
+      rows: cache.rows,
+      fetched_at: cache.fetched_at,
+      expires_at: cache.expires_at,
+      status: cache.status,
+      error_msg: cache.error_msg,
+    });
   });
 
   // PUT /api/dashboards/:slug/layout?game=<id>

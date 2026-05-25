@@ -21,10 +21,14 @@ import anomaliesRoutes from './routes/anomalies.js';
 import chatRoutes from './routes/chat.js';
 import glossaryRoutes from './routes/glossary.js';
 import dashboardsRoutes from './routes/dashboards.js';
+import liveopsRoutes from './routes/liveops.js';
+import settingsRoutes from './routes/settings.js';
 import { getDb } from './db/sqlite.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
 import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
+import { startLiveopsCacheCron } from './jobs/refresh-liveops.js';
+import { startDashboardTileCacheCron } from './jobs/refresh-dashboard-tiles.js';
 import {
   loadAll as loadBusinessMetrics,
   startWatcher as startBusinessMetricsWatcher,
@@ -54,6 +58,8 @@ export async function buildApp() {
   await app.register(chatRoutes);
   await app.register(glossaryRoutes);
   await app.register(dashboardsRoutes);
+  await app.register(liveopsRoutes);
+  await app.register(settingsRoutes);
 
   // Phase-03: idempotent seed of the canonical glossary terms.
   try {
@@ -112,7 +118,11 @@ if (isMain || process.env.START_SERVER === '1') {
 
   buildApp().then(async (app) => {
     await app.listen({ port: PORT, host: '0.0.0.0' });
-    if (process.env.NODE_ENV !== 'test') startCron();
+    if (process.env.NODE_ENV !== 'test') {
+      startCron();
+      startLiveopsCacheCron();
+      startDashboardTileCacheCron();
+    }
     // Phase 2: SQLite anomaly detector — gated by ANOMALY_DETECTOR_ENABLED=true
     startAnomalyDetector((msg) => app.log.warn(msg));
     app.log.info(`Server ready in ${Date.now() - start}ms on :${PORT}`);

@@ -14,6 +14,14 @@ export interface TilePosition {
   h: number;
 }
 
+export interface TileCacheView {
+  rows: unknown[];
+  fetched_at: string;
+  expires_at: string;
+  status: 'fresh' | 'refreshing' | 'broken';
+  error_msg: string | null;
+}
+
 export interface DashboardTile {
   id: number;
   dashboard_id: number;
@@ -25,6 +33,8 @@ export interface DashboardTile {
   position_json: string;
   created_at: string;
   updated_at: string;
+  /** Cached query result populated by the server-side refresh cron. */
+  cache?: TileCacheView | null;
 }
 
 export interface Dashboard {
@@ -126,6 +136,29 @@ export const dashboardsClient = {
     return apiFetch<void>(
       `/api/dashboards/${encodeURIComponent(slug)}/layout`,
       { method: 'PUT', query: { game }, body: items },
+    );
+  },
+
+  /** Best-effort fire-and-forget; marks dashboard as recently viewed. */
+  pingView(slug: string, game: string): Promise<void> {
+    return apiFetch<void>(
+      `/api/dashboards/${encodeURIComponent(slug)}/view-ping`,
+      { method: 'POST', query: { game } },
+    );
+  },
+
+  refreshTile(slug: string, game: string, tileId: number): Promise<TileCacheView> {
+    return apiFetch<TileCacheView>(
+      `/api/dashboards/${encodeURIComponent(slug)}/tiles/${tileId}/refresh`,
+      { method: 'POST', query: { game } },
+    );
+  },
+
+  /** Idempotently install starter dashboards for this game. */
+  resetStarterPack(game: string): Promise<{ inserted: string[]; skipped: Array<{ slug: string; reason: string }> }> {
+    return apiFetch<{ inserted: string[]; skipped: Array<{ slug: string; reason: string }> }>(
+      '/api/dashboards/reset-starter-pack',
+      { method: 'POST', query: { game } },
     );
   },
 };

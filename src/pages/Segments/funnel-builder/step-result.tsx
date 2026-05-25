@@ -16,12 +16,13 @@ import { Button } from 'antd';
 import { useAppContext } from '../../../hooks';
 import { useSecurityContext } from '../../../hooks/security-context';
 import { useCubejsApi } from '../../../hooks/cubejs-api';
-import { useActiveGameId } from '../../../components/Header/use-game-context';
+import { useActiveGameId, useGameContext } from '../../../components/Header/use-game-context';
 import { segmentsClient } from '../../../api/segments-client';
 import { LineChart } from '../visuals/line-chart';
 import { FunnelBarList } from './funnel-bar-list';
 import { runFunnel, type FunnelResult, type CubejsLikeApi } from './run-funnel';
 import type { FunnelDefinition } from './index';
+import { CrossGameCompare } from './cross-game-compare';
 import styles from './funnel-builder.module.css';
 
 interface Props {
@@ -34,6 +35,7 @@ export function StepResult({ cubeName, definition }: Props): ReactElement {
   const { currentToken } = useSecurityContext();
   const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
   const gameId = useActiveGameId();
+  const { games } = useGameContext();
   const history = useHistory();
 
   const [result, setResult] = useState<FunnelResult | null>(null);
@@ -133,6 +135,16 @@ export function StepResult({ cubeName, definition }: Props): ReactElement {
             <p className={styles.resultSectionTitle}>Users per step</p>
             <LineChart data={trendData} height={140} areaFill />
           </div>
+
+          {/* Phase 4.2 — cross-game compare */}
+          <CrossGameCompare
+            cubeName={cubeName}
+            baseGameId={gameId}
+            candidateGames={games}
+            orderedEvents={definition.orderedEvents}
+            windowMs={definition.windowMs}
+            baseSteps={result.steps}
+          />
 
           {/* Save as segment */}
           <div className={styles.resultSection}>

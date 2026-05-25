@@ -1,0 +1,42 @@
+slug: retention-deep-dive
+title: Retention deep-dive
+description: Cohort retention curves — D1/D7/D30 trends for the active game.
+applies_when:
+  required_cubes: [retention]
+tiles:
+  - title: Cohort size (last 14 days)
+    viz_type: line
+    position: { x: 0, y: 0, w: 6, h: 3 }
+    query:
+      measures: [retention.cohort_size]
+      timeDimensions:
+        - dimension: retention.install_date
+          granularity: day
+          dateRange: last 14 days
+  - title: D1 retained
+    viz_type: line
+    position: { x: 6, y: 0, w: 6, h: 3 }
+    query:
+      measures: [retention.retained_d1]
+      timeDimensions:
+        - dimension: retention.install_date
+          granularity: day
+          dateRange: last 14 days
+  - title: D7 retained
+    viz_type: line
+    position: { x: 0, y: 3, w: 6, h: 3 }
+    query:
+      measures: [retention.retained_d7]
+      timeDimensions:
+        - dimension: retention.install_date
+          granularity: day
+          dateRange: last 30 days
+  - title: D30 retained
+    viz_type: line
+    position: { x: 6, y: 3, w: 6, h: 3 }
+    query:
+      measures: [retention.retained_d30]
+      timeDimensions:
+        - dimension: retention.install_date
+          granularity: day
+          dateRange: last 60 days

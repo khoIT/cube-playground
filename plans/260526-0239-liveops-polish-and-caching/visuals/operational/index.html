@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Liveops — Operational direction</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a21;
+    --grid: #1f2530;
+    --rule: #2a3140;
+    --ink: #e6edf3;
+    --ink-dim: #9aa4b2;
+    --accent: #10b981;
+    --green: #34d399;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --pos: #34d399;
+    --neg: #ef4444;
+    --mono: 'IBM Plex Mono', ui-monospace, 'JetBrains Mono', monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 28px;
+    font-family: var(--sans); color: var(--ink); background: var(--bg);
+    font-size: 12px;
+  }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .title { font-weight: 600; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .session { color: var(--ink-dim); font-family: var(--mono); font-size: 11px; }
+  .session::before { content: ''; display: inline-block; width: 8px; height: 8px; background: var(--green); border-radius: 50%; margin-right: 6px; box-shadow: 0 0 6px var(--green); }
+  .strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .tile { background: var(--panel); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .tile-label { color: var(--ink-dim); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .tile-value { font-family: var(--mono); font-size: 26px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1; }
+  .tile-delta { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .tile-delta.pos { color: var(--pos); }
+  .tile-delta.neg { color: var(--neg); }
+  .tile-spark { height: 24px; margin-top: 4px; }
+
+  .section { margin-top: 24px; background: var(--panel); border: 1px solid var(--rule); }
+  .section-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--rule); }
+  .section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-dim); }
+  .section-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); }
+
+  .anomaly-table { width: 100%; border-collapse: collapse; }
+  .anomaly-table th, .anomaly-table td { padding: 8px 12px; text-align: left; font-family: var(--mono); font-size: 11px; }
+  .anomaly-table thead { color: var(--ink-dim); }
+  .anomaly-table tbody tr { border-top: 1px solid var(--rule); }
+  .anomaly-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .sev { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.06em; font-weight: 600; }
+  .sev.high { color: var(--red); background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); }
+  .sev.med { color: var(--amber); background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); }
+  .sev.low { color: var(--green); background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); }
+  .action-btn { background: transparent; border: 1px solid var(--rule); color: var(--ink-dim); padding: 3px 9px; font-size: 10px; cursor: pointer; font-family: var(--mono); margin-right: 4px; }
+  .action-btn:hover { color: var(--ink); border-color: var(--ink-dim); }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="title">LIVEOPS / cfm</div>
+    </div>
+    <div class="session">CONNECTED · refreshed 12s ago · TTL 5m</div>
+  </div>
+
+  <div class="strip">
+    <div class="tile">
+      <div class="tile-label">DAU</div>
+      <div class="tile-value">142,381</div>
+      <div class="tile-delta pos">+3.4%</div>
+      <svg class="tile-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#34d399" stroke-width="1.2" points="0,18 10,16 20,17 30,14 40,15 50,13 60,12 70,11 80,9 90,8 100,6" />
+      </svg>
+    </div>
+    <div class="tile">
+      <div class="tile-label">MAU</div>
+      <div class="tile-value">1.84M</div>
+      <div class="tile-delta pos">+0.8%</div>
+      <svg class="tile-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#34d399" stroke-width="1.2" points="0,12 12,11 24,10 36,11 48,10 60,9 72,9 84,8 100,8" />
+      </svg>
+    </div>
+    <div class="tile">
+      <div class="tile-label">REV (VND)</div>
+      <div class="tile-value">₫412M</div>
+      <div class="tile-delta neg">−5.2%</div>
+      <svg class="tile-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#ef4444" stroke-width="1.2" points="0,8 12,10 24,9 36,12 48,11 60,14 72,13 84,15 100,17" />
+      </svg>
+    </div>
+    <div class="tile">
+      <div class="tile-label">PAYING</div>
+      <div class="tile-value">8,294</div>
+      <div class="tile-delta pos">+1.2%</div>
+      <svg class="tile-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#34d399" stroke-width="1.2" points="0,15 14,14 28,13 42,15 56,12 70,13 84,11 100,10" />
+      </svg>
+    </div>
+    <div class="tile">
+      <div class="tile-label">ARPDAU</div>
+      <div class="tile-value">₫2,893</div>
+      <div class="tile-delta neg">−2.9%</div>
+      <svg class="tile-spark" viewBox="0 0 100 24" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#ef4444" stroke-width="1.2" points="0,10 12,12 24,11 36,13 48,12 60,15 72,14 84,16 100,17" />
+      </svg>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">▸ Triage queue</div>
+      <div class="section-meta">3 open · 1 ack · z &gt; 2σ</div>
+    </div>
+    <table class="anomaly-table">
+      <thead><tr><th>SEV</th><th>METRIC</th><th>z</th><th>OBSERVED</th><th>EXPECTED</th><th>AGO</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="sev high">HIGH</span></td>
+          <td>user_recharge_daily.revenue_vnd_total</td>
+          <td class="num">−3.4σ</td>
+          <td class="num">412.4M</td>
+          <td class="num">435.2M</td>
+          <td>8m</td>
+          <td><button class="action-btn">ACK</button><button class="action-btn">SNZ</button><button class="action-btn">OPEN</button></td>
+        </tr>
+        <tr>
+          <td><span class="sev med">MED</span></td>
+          <td>derived.arpdau</td>
+          <td class="num">−2.1σ</td>
+          <td class="num">2,893</td>
+          <td class="num">2,981</td>
+          <td>1h</td>
+          <td><button class="action-btn">ACK</button><button class="action-btn">SNZ</button><button class="action-btn">OPEN</button></td>
+        </tr>
+        <tr>
+          <td><span class="sev low">LOW</span></td>
+          <td>retention.retained_d7</td>
+          <td class="num">−1.8σ</td>
+          <td class="num">42.1%</td>
+          <td class="num">44.0%</td>
+          <td>2h</td>
+          <td><button class="action-btn">ACK</button><button class="action-btn">SNZ</button><button class="action-btn">OPEN</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

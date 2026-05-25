@@ -1,10 +1,10 @@
 /**
  * /dashboards/:slug — grid view of a single dashboard.
- * Tiles load in parallel via the shared tile-fetch-queue (max 3 concurrent).
- * Inline title editing via PATCH.
+ * Tiles render from cache rows embedded in the dashboard payload
+ * (server-side refresh cron keeps them warm). Inline title editing via PATCH.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useLocation, useHistory } from 'react-router-dom';
 import { ArrowLeft, LayoutGrid } from 'lucide-react';
 import { useActiveGameId } from '../../components/Header/use-game-context';
@@ -58,6 +58,13 @@ export function DashboardDetailPage() {
   const gameId = gameFromQuery || activeGameId;
 
   const { dashboard, loading, error, refetch } = useDashboardDetail(slug, gameId);
+
+  // Phase-3: ping view so the server cron prioritizes this dashboard's tiles.
+  // Fire-and-forget; we never block render on this.
+  useEffect(() => {
+    if (!slug || !gameId) return;
+    void dashboardsClient.pingView(slug, gameId).catch(() => {});
+  }, [slug, gameId]);
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');

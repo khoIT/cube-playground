@@ -152,9 +152,20 @@ export function CohortGrid({ rows }: CohortGridProps) {
                   borderRight: '1px solid var(--border-card)',
                 }}
               >
-                <span style={{ fontSize: 12, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                {/* Phase 4.3 — link cohort row → funnel builder seeded with
+                    onboarding template. Full cohort-uid join is server-side
+                    work the cached grid doesn't materialize today; this is
+                    the most useful step we can ship without that pipeline. */}
+                <a
+                  href={`#/segments/new/funnel?cohort=${row.installDate}`}
+                  style={{
+                    fontSize: 12, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
+                    textDecoration: 'none', borderBottom: '1px dotted var(--text-muted)',
+                  }}
+                  title="Open onboarding funnel for this install date"
+                >
                   {row.installDate}
-                </span>
+                </a>
                 <span style={{
                   fontSize: 10,
                   background: 'var(--bg-muted)',

@@ -1,0 +1,55 @@
+slug: daily-health
+title: Daily health
+description: The morning standup view — DAU, MAU, Revenue, Paying users, ARPDAU.
+applies_when:
+  required_cubes: [active_daily, user_recharge_daily]
+tiles:
+  - title: DAU
+    viz_type: kpi
+    position: { x: 0, y: 0, w: 3, h: 2 }
+    query:
+      measures: [active_daily.dau]
+      timeDimensions:
+        - dimension: active_daily.log_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev
+  - title: MAU
+    viz_type: kpi
+    position: { x: 3, y: 0, w: 3, h: 2 }
+    query:
+      measures: [active_daily.mau]
+      timeDimensions:
+        - dimension: active_daily.log_date
+          granularity: day
+          dateRange: last 30 days
+      compare: prev
+  - title: Revenue (VND)
+    viz_type: kpi
+    position: { x: 6, y: 0, w: 3, h: 2 }
+    query:
+      measures: [user_recharge_daily.revenue_vnd_total]
+      timeDimensions:
+        - dimension: user_recharge_daily.recharge_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev
+  - title: Paying users
+    viz_type: kpi
+    position: { x: 9, y: 0, w: 3, h: 2 }
+    query:
+      measures: [user_recharge_daily.paying_users]
+      timeDimensions:
+        - dimension: user_recharge_daily.recharge_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev
+  - title: ARPDAU (Revenue / DAU)
+    viz_type: line
+    position: { x: 0, y: 2, w: 12, h: 3 }
+    query:
+      measures: [user_recharge_daily.revenue_vnd_total]
+      timeDimensions:
+        - dimension: user_recharge_daily.recharge_date
+          granularity: day
+          dateRange: last 30 days

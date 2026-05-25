@@ -159,12 +159,12 @@ describe('KpiHeroStrip', () => {
     expect(screen.getByText('1.2M')).toBeTruthy();
   });
 
-  it('shows strip header "Live KPIs"', () => {
+  it('shows editorial strip header "Daily standup"', () => {
     mockUseLiveKpis.mockReturnValue({ tiles: FIVE_TILES, loading: false, lastRefresh: new Date() });
 
     render(<KpiHeroStrip gameId="cfm" />);
 
-    expect(screen.getByText('Live KPIs')).toBeTruthy();
+    expect(screen.getByText('Daily standup')).toBeTruthy();
   });
 });
 

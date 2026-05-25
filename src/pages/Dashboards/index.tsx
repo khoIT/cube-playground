@@ -4,9 +4,9 @@
  * Create form is extracted to dashboard-create-inline-form.tsx.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { LayoutGrid, Plus, Trash2 } from 'lucide-react';
+import { LayoutGrid, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { dashboardsClient } from '../../api/dashboards-client';
 import { SegmentApiError } from '../../api/api-client';
@@ -63,6 +63,31 @@ export function DashboardsListPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  // Phase 5: when the list is empty on first load, the server fires a starter-pack
+  // seed in the background. Re-poll once after a short delay so seeded dashboards
+  // appear without manual refresh. Per-game so a fresh game re-arms the poll.
+  const polledGames = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (loading) return;
+    if (dashboards.length > 0) return;
+    if (polledGames.current.has(gameId)) return;
+    polledGames.current.add(gameId);
+    const timer = setTimeout(() => refetch(), 1200);
+    return () => clearTimeout(timer);
+  }, [loading, dashboards.length, gameId, refetch]);
+
+  async function handleResetPack() {
+    setResetting(true);
+    try {
+      await dashboardsClient.resetStarterPack(gameId);
+      refetch();
+    } catch {
+      /* non-critical */
+    } finally {
+      setResetting(false);
+    }
+  }
 
   async function handleCreate(title: string, slug: string) {
     if (!title.trim()) { setCreateError('Title is required'); return; }
@@ -113,10 +138,28 @@ export function DashboardsListPage() {
           <LayoutGrid size={22} />
           Dashboards
         </span>
-        <button style={btnPrimary} onClick={() => setCreating(true)}>
-          <Plus size={14} />
-          New dashboard
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            disabled={resetting}
+            onClick={handleResetPack}
+            title="Re-seed starter dashboards for this game (idempotent)."
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'transparent', color: 'var(--text-muted)',
+              border: '1px solid var(--border-card,#e5e7eb)', borderRadius: 6,
+              padding: '6px 12px', fontSize: 12, cursor: 'pointer',
+              opacity: resetting ? 0.5 : 1,
+            }}
+          >
+            <RefreshCw size={12} />
+            {resetting ? 'Re-seeding…' : 'Reset starter pack'}
+          </button>
+          <button style={btnPrimary} onClick={() => setCreating(true)}>
+            <Plus size={14} />
+            New dashboard
+          </button>
+        </div>
       </div>
 
       {creating && (
@@ -133,7 +176,9 @@ export function DashboardsListPage() {
 
       {!loading && dashboards.length === 0 && !creating && (
         <div style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', marginTop: 48 }}>
-          No dashboards yet. Create one and pin queries from the Playground.
+          {polledGames.current.has(gameId)
+            ? 'No dashboards yet. Create one, or click "Reset starter pack" to install the curated set.'
+            : 'Setting up starter dashboards…'}
         </div>
       )}
 

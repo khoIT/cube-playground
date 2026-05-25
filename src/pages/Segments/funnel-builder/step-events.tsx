@@ -17,10 +17,14 @@ import styles from './funnel-builder.module.css';
 export const MIN_EVENTS = 2;
 export const MAX_EVENTS = 6;
 
+import { FUNNEL_TEMPLATES, type FunnelTemplate } from './funnel-templates';
+
 interface Props {
   cubeName: string;
   events: string[];
   onChange: (events: string[]) => void;
+  /** Optional: applying a template autofills window via this callback. */
+  onApplyTemplate?: (template: FunnelTemplate) => void;
 }
 
 interface CubejsLike {
@@ -43,7 +47,7 @@ async function fetchStepNames(
   }
 }
 
-export function StepEvents({ cubeName, events, onChange }: Props): ReactElement {
+export function StepEvents({ cubeName, events, onChange, onApplyTemplate }: Props): ReactElement {
   const { apiUrl } = useAppContext();
   const { currentToken } = useSecurityContext();
   const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
@@ -144,6 +148,11 @@ export function StepEvents({ cubeName, events, onChange }: Props): ReactElement 
     }
   };
 
+  const applyTemplate = (tmpl: FunnelTemplate) => {
+    onChange(tmpl.orderedEvents);
+    onApplyTemplate?.(tmpl);
+  };
+
   return (
     <div className={styles.card}>
       <h3 className={styles.cardTitle}>Choose events in order</h3>
@@ -151,6 +160,46 @@ export function StepEvents({ cubeName, events, onChange }: Props): ReactElement 
         Add 2–6 events. Drag rows to reorder. The funnel measures users who
         completed all steps in the sequence you define.
       </p>
+
+      {/* Phase 4.1 — Starter templates */}
+      {events.length === 0 && (
+        <div
+          style={{
+            display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center', marginRight: 4 }}>
+            Start from template:
+          </span>
+          {FUNNEL_TEMPLATES.map((tmpl) => (
+            <button
+              key={tmpl.id}
+              type="button"
+              onClick={() => applyTemplate(tmpl)}
+              style={{
+                background: 'var(--brand-soft, #eef2ff)',
+                color: 'var(--brand, #6366f1)',
+                border: '1px solid var(--brand, #6366f1)',
+                borderRadius: 6,
+                padding: '6px 12px',
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 2,
+              }}
+              title={tmpl.description}
+            >
+              <span style={{ fontWeight: 600 }}>{tmpl.label}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400 }}>
+                {tmpl.description}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Ordered event list */}
       {events.length > 0 && (
