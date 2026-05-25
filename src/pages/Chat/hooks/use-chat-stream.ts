@@ -62,10 +62,16 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
       // (openChatTurn reads it internally; this is just to keep parity with
       //  the previous hook for tests that mock getOwnerId.)
       void getOwnerId();
+      // Lazy import keeps the panel-only mode override out of the bundle for
+      // routes that never mount the chat panel.
+      const { getEffectiveChatMode } = await import(
+        '../../../shell/chat-overlay/use-session-mode-override'
+      );
       await useChatStreamStore.getState().startTurn({
         sessionId: liveSessionIdRef.current,
         message,
         game,
+        mode: getEffectiveChatMode(liveSessionIdRef.current),
       });
     },
     [game],

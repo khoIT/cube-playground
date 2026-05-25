@@ -29,6 +29,9 @@ const KEYWORDS: Record<string, string[]> = {
     'show', 'plot', 'chart', 'count', 'sum', 'average', 'avg',
     'breakdown', 'top', 'list', 'by', 'last',
     'hôm', 'ngày', 'biểu đồ', 'hiển thị', 'theo', 'tuần qua',
+    'doanh thu', 'người dùng', 'paying user', 'trả phí',
+    'theo ngày', 'theo tuần', 'theo tháng', 'trong q', 'quý',
+    'tăng trưởng', 'số lượng', 'tổng',
   ],
   metric_explain: [
     'what is', 'define', 'formula', 'mean', 'meaning',
@@ -37,11 +40,13 @@ const KEYWORDS: Record<string, string[]> = {
   compare: [
     'compare', 'vs', 'versus', 'against', 'between',
     'so với', 'hơn', 'kém',
+    'so sánh', 'đối chiếu', 'chênh lệch',
   ],
   diagnose: [
     'why', 'drop', 'spike', 'anomaly', 'root cause',
     'fell', 'rose', 'surge',
     'tại sao', 'giảm', 'tăng đột',
+    'nguyên nhân', 'vì sao', 'vì lý do gì', 'sụt giảm', 'tăng vọt',
   ],
 };
 

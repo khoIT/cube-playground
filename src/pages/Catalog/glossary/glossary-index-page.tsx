@@ -1,13 +1,25 @@
 /**
- * Glossary index page — `/catalog/glossary`. Lists the ~30 canonical terms
- * with search + category filter. Links each term to the concept-detail
- * route when a `primaryCatalogId` exists.
+ * Glossary index page — `/catalog/glossary`. Lists canonical terms with
+ * search, category filter, status filter (All / Draft / Official), and an
+ * inline editor modal launched from either the toolbar "New" button or any
+ * row's edit icon. Terms refresh after each successful mutation; ETag on
+ * the list endpoint keeps the network cost minimal.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { listGlossary, type GlossaryTerm } from '../../../api/glossary-client';
+import { Plus } from 'lucide-react';
+import {
+  listGlossary,
+  type GlossaryStatus,
+  type GlossaryTerm,
+} from '../../../api/glossary-client';
 import { GlossaryRow } from './glossary-row';
 import { GlossarySearch } from './glossary-search';
+import { GlossaryStatusFilter } from './glossary-status-filter';
+import { GlossaryEditModal } from './glossary-edit-modal';
+import { useGlossaryMutations } from './use-glossary-mutations';
+import type { FormValues } from './glossary-edit-form';
 
 const Page = styled.div`
   display: flex;
@@ -21,6 +33,13 @@ const Header = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
+`;
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 `;
 
 const Title = styled.h1`
@@ -38,6 +57,28 @@ const Subtitle = styled.p`
   font-family: var(--font-sans);
 `;
 
+const FilterRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const NewBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: var(--brand-on, white);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill, 999px);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  &:hover { filter: brightness(0.95); }
+`;
+
 const List = styled.div`
   flex: 1;
   overflow-y: auto;
@@ -52,26 +93,33 @@ const Status = styled.div`
 `;
 
 export function GlossaryIndexPage() {
+  const { t } = useTranslation();
   const [terms, setTerms] = useState<GlossaryTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<GlossaryStatus | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<GlossaryTerm | undefined>(undefined);
+  const mutations = useGlossaryMutations();
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await listGlossary(undefined, statusFilter ? { status: statusFilter } : undefined);
+      setTerms(items);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    listGlossary(controller.signal)
-      .then((items) => {
-        setTerms(items);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if ((err as Error).name === 'AbortError') return;
-        setError((err as Error).message);
-        setLoading(false);
-      });
-    return () => controller.abort();
-  }, []);
+    void reload();
+  }, [reload]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -84,36 +132,134 @@ export function GlossaryIndexPage() {
     return terms.filter((t) => {
       if (category && t.category !== category) return false;
       if (!q) return true;
-      const hay = `${t.label} ${t.description} ${t.aliases.join(' ')}`.toLowerCase();
+      const hay = [
+        t.label,
+        t.description,
+        t.labelVi ?? '',
+        t.descriptionVi ?? '',
+        ...t.aliases,
+        ...t.aliasesVi,
+      ]
+        .join(' ')
+        .toLowerCase();
       return hay.includes(q);
     });
   }, [terms, query, category]);
 
+  function openCreate() {
+    setEditing(undefined);
+    mutations.resetError();
+    setModalOpen(true);
+  }
+
+  function openEdit(term: GlossaryTerm) {
+    setEditing(term);
+    mutations.resetError();
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    mutations.resetError();
+  }
+
+  async function onSave(values: FormValues) {
+    const editorName = values.editorName.trim() || undefined;
+    const payload = {
+      label: values.label,
+      description: values.description,
+      labelVi: values.labelVi.trim() || null,
+      descriptionVi: values.descriptionVi.trim() || null,
+      primaryCatalogId: values.primaryCatalogId.trim() || null,
+      category: values.category.trim() || null,
+      aliases: values.aliases,
+      aliasesVi: values.aliasesVi,
+      editorName,
+    };
+    const saved = editing
+      ? await mutations.update(editing.id, payload)
+      : await mutations.create(payload);
+    if (!saved) return;
+    // Status flips are a separate endpoint; apply if changed.
+    if (saved.status !== values.status) {
+      const promoted = await mutations.setStatus(saved.id, values.status, editorName);
+      if (!promoted) return;
+    }
+    closeModal();
+    await reload();
+  }
+
+  async function onDelete() {
+    if (!editing) return;
+    const ok = await mutations.remove(editing.id);
+    if (!ok) return;
+    closeModal();
+    await reload();
+  }
+
   return (
     <Page>
       <Header>
-        <Title>Glossary</Title>
-        <Subtitle>
-          Canonical business terms used across chat answers, catalog cards, and Question Studio.
-        </Subtitle>
-        <GlossarySearch
-          query={query}
-          onQueryChange={setQuery}
-          category={category}
-          onCategoryChange={setCategory}
-          categories={categories}
-        />
+        <TitleRow>
+          <div>
+            <Title>{t('glossary.title', { defaultValue: 'Glossary' })}</Title>
+            <Subtitle>
+              {t('glossary.subtitle', {
+                defaultValue:
+                  'Canonical business terms used across chat answers, catalog cards, and Question Studio.',
+              })}
+            </Subtitle>
+          </div>
+          <NewBtn type="button" onClick={openCreate}>
+            <Plus size={14} aria-hidden />
+            {t('glossary.actions.new', { defaultValue: 'New term' })}
+          </NewBtn>
+        </TitleRow>
+        <FilterRow>
+          <div style={{ flex: 1 }}>
+            <GlossarySearch
+              query={query}
+              onQueryChange={setQuery}
+              category={category}
+              onCategoryChange={setCategory}
+              categories={categories}
+            />
+          </div>
+          <GlossaryStatusFilter
+            value={statusFilter}
+            onChange={setStatusFilter}
+            labelAll={t('glossary.statusFilter.all', { defaultValue: 'All' })}
+            labelDraft={t('glossary.status.draft', { defaultValue: 'Draft' })}
+            labelOfficial={t('glossary.status.official', { defaultValue: 'Official' })}
+          />
+        </FilterRow>
       </Header>
       <List>
-        {loading ? <Status>Loading…</Status> : null}
-        {error ? <Status>Failed to load: {error}</Status> : null}
+        {loading ? <Status>{t('glossary.loading', { defaultValue: 'Loading…' })}</Status> : null}
+        {error ? <Status>{t('glossary.loadFailed', { defaultValue: 'Failed to load: {{msg}}', msg: error })}</Status> : null}
         {!loading && !error && filtered.length === 0 ? (
-          <Status>No terms match.</Status>
+          <Status>{t('glossary.empty', { defaultValue: 'No terms match.' })}</Status>
         ) : null}
-        {filtered.map((t) => (
-          <GlossaryRow key={t.id} term={t} />
+        {filtered.map((term) => (
+          <GlossaryRow
+            key={term.id}
+            term={term}
+            onEdit={openEdit}
+            editLabel={t('glossary.actions.edit', { defaultValue: 'Edit' })}
+            draftLabel={t('glossary.status.draft', { defaultValue: 'Draft' })}
+            officialLabel={t('glossary.status.official', { defaultValue: 'Official' })}
+          />
         ))}
       </List>
+      <GlossaryEditModal
+        open={modalOpen}
+        initial={editing}
+        onClose={closeModal}
+        onSave={onSave}
+        onDelete={editing && editing.source === 'user' ? onDelete : undefined}
+        saving={mutations.saving}
+        errorMessage={mutations.error}
+      />
     </Page>
   );
 }

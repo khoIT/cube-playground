@@ -54,6 +54,7 @@ interface StartTurnOptions {
   message: string;
   game: string;
   context?: unknown;
+  mode?: 'targeted' | 'aggressive';
 }
 
 interface ChatStreamStore {
@@ -125,7 +126,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
     return s.streams.get(resolveKey(s, sessionId)) ?? makeIdleEntry(sessionId);
   },
 
-  startTurn: async ({ sessionId, message, game, context }) => {
+  startTurn: async ({ sessionId, message, game, context, mode }) => {
     const key = resolveKey(get(), sessionId);
     const existing = get().streams.get(key);
     // Defense-in-depth: composer disables while streaming. Silent no-op if a
@@ -134,7 +135,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
       return;
     }
 
-    const { stream, cancel } = openChatTurn({ sessionId, message, game, context });
+    const { stream, cancel } = openChatTurn({ sessionId, message, game, context, mode });
 
     // Seed entry into 'loading' with cancel handle, preserve refcount.
     set((s) => {

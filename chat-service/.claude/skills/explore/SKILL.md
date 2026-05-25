@@ -23,6 +23,7 @@ trigger_keywords:
   - tuần qua
 allowed_tools:
   - get_cube_meta
+  - disambiguate_query
   - list_business_metrics
   - get_business_metric
   - list_segments
@@ -36,6 +37,15 @@ allowed_tools:
 # Explore Skill
 
 Translate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.
+
+## Pre-flight disambiguation (REQUIRED)
+
+Before any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers ("10tr" → 10000000) and dates ("3 tháng qua", "Q1 2026"), and tells you what to do next:
+
+- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of "Identify the metric" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.
+- `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**
+
+If `warnings[]` contains a "thousands separator" note, mention the assumed interpretation in your final summary so the user can correct it.
 
 ## Steps
 

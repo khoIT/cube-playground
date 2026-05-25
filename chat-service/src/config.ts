@@ -57,6 +57,12 @@ export interface Config {
   costPer1kOutputUsd: number;
   /** Enable MCP exposure of chat-service tools (off by default). */
   mcpEnabled: boolean;
+  /**
+   * Confidence threshold above which the NL→Cube engine auto-resolves the
+   * query in aggressive mode; otherwise it asks a clarification. Drives the
+   * threshold gate in chat-service/src/nl-to-query/mode-gate.ts.
+   */
+  disambigAutoThreshold: number;
   /** Stream-registry per-turn ring buffer size (events kept for replay). */
   streamRegistryRingSize: number;
   /** Stream-registry global concurrent-turn cap. */
@@ -109,6 +115,7 @@ export const config: Config = {
   costPer1kOutputUsd: optionalFloat('CHAT_COST_PER_1K_OUTPUT_USD', 0.015),
   mcpEnabled: optional('CHAT_MCP_ENABLED', 'false') === 'true',
   starterRankMinSessions: 3,
+  disambigAutoThreshold: optionalFloat('CHAT_DISAMBIG_AUTO_THRESHOLD', 0.75),
   mainServerServiceToken: optional('MAIN_SERVER_SERVICE_TOKEN', ''),
   streamRegistryRingSize: optionalInt('STREAM_REGISTRY_RING_SIZE', 2000),
   streamRegistryMaxTurns: optionalInt('STREAM_REGISTRY_MAX_TURNS', 100),

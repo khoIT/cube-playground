@@ -392,7 +392,23 @@
     "tabs": {
       "sidebar": "Sidebar",
       "games": "Games",
-      "identity": "Identity Map"
+      "identity": "Identity Map",
+      "chat": "Chat"
+    },
+    "chat": {
+      "title": "Chat assistant",
+      "subtitle": "How the chat assistant handles ambiguous analytical questions before opening a Cube query.",
+      "modeGroup": "Disambiguation mode",
+      "mode": {
+        "targeted": {
+          "title": "Targeted ask",
+          "desc": "Always ask one focused clarification when the query is ambiguous."
+        },
+        "aggressive": {
+          "title": "Aggressive auto-resolve",
+          "desc": "Auto-resolve confident interpretations; ask only on truly ambiguous queries."
+        }
+      }
     },
     "gameVisibility": {
       "title": "Game picker visibility",
@@ -415,5 +431,59 @@
   },
   "help": {
     "tooltip": "Help & docs"
+  },
+  "common": {
+    "close": "Close"
+  },
+  "chat": {
+    "mode": {
+      "chip": {
+        "targeted": "Targeted",
+        "aggressive": "Aggressive"
+      },
+      "resetToDefault": "Reset to default"
+    }
+  },
+  "glossary": {
+    "title": "Glossary",
+    "subtitle": "Canonical business terms used across chat answers, catalog cards, and Question Studio.",
+    "loading": "Loading…",
+    "empty": "No terms match.",
+    "loadFailed": "Failed to load: {{msg}}",
+    "status": {
+      "draft": "Draft",
+      "official": "Official"
+    },
+    "statusFilter": {
+      "all": "All"
+    },
+    "actions": {
+      "new": "New term",
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "confirmDelete": "Delete this term? This cannot be undone."
+    },
+    "modal": {
+      "createTitle": "New term",
+      "editTitle": "Edit term"
+    },
+    "fields": {
+      "label": "Label (EN)",
+      "labelVi": "Label (VI)",
+      "description": "Description (EN)",
+      "descriptionVi": "Description (VI)",
+      "aliases": "Aliases (EN)",
+      "aliasesVi": "Aliases (VI)",
+      "primaryCatalogId": "Primary catalog id",
+      "category": "Category",
+      "editorName": "Editor name"
+    },
+    "placeholders": {
+      "alias": "Add alias…",
+      "aliasVi": "Thêm bí danh…",
+      "vi": "Vietnamese translation"
+    }
   }
 }

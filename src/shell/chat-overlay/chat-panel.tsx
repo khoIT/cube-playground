@@ -16,6 +16,7 @@ import { ChatPanelEmptyState } from './chat-panel-empty-state';
 import { ChatThreadView } from '../../pages/Chat/components/chat-thread-view';
 import { ChatComposer } from '../../pages/Chat/components/chat-composer';
 import { usePanelChatState } from './use-panel-chat-state';
+import { clearSessionModeOverride } from './use-session-mode-override';
 
 const WIDTH_MIN = 360;
 const WIDTH_MAX = 720;
@@ -98,10 +99,11 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     // resetChat does cancel() + wipes committedMessages/composer/firstUserMessage.
     // Must run regardless of whether sessionId is already null (e.g. user
     // submitted then clicked + before session_created arrived).
+    clearSessionModeOverride(sessionId);
     resetChat();
     setSessionId(null);
     setActiveChatSession(null);
-  }, [resetChat, setSessionId]);
+  }, [resetChat, setSessionId, sessionId]);
 
   const handleExpand = useCallback(() => {
     const target = sessionId ? `/chat/${sessionId}` : '/chat';

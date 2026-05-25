@@ -392,7 +392,23 @@
     "tabs": {
       "sidebar": "Sidebar",
       "games": "Game",
-      "identity": "Identity Map"
+      "identity": "Identity Map",
+      "chat": "Trò chuyện"
+    },
+    "chat": {
+      "title": "Trợ lý chat",
+      "subtitle": "Cách trợ lý xử lý câu hỏi phân tích mơ hồ trước khi mở truy vấn Cube.",
+      "modeGroup": "Chế độ xử lý câu hỏi mơ hồ",
+      "mode": {
+        "targeted": {
+          "title": "Hỏi lại có trọng tâm",
+          "desc": "Luôn hỏi một câu xác nhận khi câu hỏi mơ hồ."
+        },
+        "aggressive": {
+          "title": "Tự suy luận quyết liệt",
+          "desc": "Tự suy luận khi đủ tự tin; chỉ hỏi lại với câu thực sự mơ hồ."
+        }
+      }
     },
     "gameVisibility": {
       "title": "Hiển thị game trong picker",
@@ -415,5 +431,59 @@
   },
   "help": {
     "tooltip": "Trợ giúp & tài liệu"
+  },
+  "common": {
+    "close": "Đóng"
+  },
+  "chat": {
+    "mode": {
+      "chip": {
+        "targeted": "Hỏi lại",
+        "aggressive": "Tự suy luận"
+      },
+      "resetToDefault": "Đặt lại mặc định"
+    }
+  },
+  "glossary": {
+    "title": "Thuật ngữ",
+    "subtitle": "Các thuật ngữ kinh doanh chuẩn dùng trong chat, danh mục và Question Studio.",
+    "loading": "Đang tải…",
+    "empty": "Không có thuật ngữ phù hợp.",
+    "loadFailed": "Tải thất bại: {{msg}}",
+    "status": {
+      "draft": "Nháp",
+      "official": "Chính thức"
+    },
+    "statusFilter": {
+      "all": "Tất cả"
+    },
+    "actions": {
+      "new": "Thuật ngữ mới",
+      "edit": "Sửa",
+      "save": "Lưu",
+      "cancel": "Hủy",
+      "delete": "Xóa",
+      "confirmDelete": "Xóa thuật ngữ này? Không thể hoàn tác."
+    },
+    "modal": {
+      "createTitle": "Thuật ngữ mới",
+      "editTitle": "Sửa thuật ngữ"
+    },
+    "fields": {
+      "label": "Nhãn (EN)",
+      "labelVi": "Nhãn (VI)",
+      "description": "Mô tả (EN)",
+      "descriptionVi": "Mô tả (VI)",
+      "aliases": "Bí danh (EN)",
+      "aliasesVi": "Bí danh (VI)",
+      "primaryCatalogId": "ID danh mục chính",
+      "category": "Phân loại",
+      "editorName": "Người chỉnh sửa"
+    },
+    "placeholders": {
+      "alias": "Add alias…",
+      "aliasVi": "Thêm bí danh tiếng Việt…",
+      "vi": "Bản dịch tiếng Việt"
+    }
   }
 }

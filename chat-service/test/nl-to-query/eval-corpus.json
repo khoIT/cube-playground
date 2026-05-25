@@ -1,0 +1,51 @@
+{
+  "_comment": "Eval cases for the nl-to-query engine. `expect` is the gold; mismatches fail the case. Synthetic now = 2026-05-25.",
+  "now": "2026-05-25T00:00:00Z",
+  "cases": [
+    {
+      "id": "vi-revenue-q1-by-paying-with-ltv",
+      "message": "Doanh thu, số lượng paying user trên 10 triệu trong 3 tháng qua",
+      "language": "vi", "mode": "targeted",
+      "expect": {
+        "action": "auto",
+        "metric": "business_metrics.revenue",
+        "filterMembers": ["mf_users.paying_users"],
+        "hasTimeRange": true
+      }
+    },
+    { "id": "en-dau-last-7d", "message": "show DAU last 7 days", "language": "en", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.dau", "hasTimeRange": true } },
+    { "id": "vi-dau-7-ngay", "message": "DAU 7 ngày qua", "language": "vi", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.dau", "hasTimeRange": true } },
+    { "id": "en-revenue-q1-2026", "message": "revenue Q1 2026 by country", "language": "en", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.revenue", "dimension": "mf_users.country", "hasTimeRange": true } },
+    { "id": "vi-arpu-tuan-targeted", "message": "ARPU theo tuần", "language": "vi", "mode": "targeted",
+      "expect": { "action": "clarify", "metric": "business_metrics.arpu" } },
+    { "id": "en-d7-retention", "message": "D7 retention last month", "language": "en", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.d7_retention", "hasTimeRange": true } },
+    { "id": "mixed-doanh-thu-paying-q1", "message": "doanh thu của paying user trong Q1 2026", "language": "vi", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.revenue", "filterMembers": ["mf_users.paying_users"], "hasTimeRange": true } },
+    { "id": "mixed-d7-by-quoc-gia", "message": "D7 retention by quốc gia", "language": "mixed", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.d7_retention", "dimension": "mf_users.country" } },
+    { "id": "amb-show-metric", "message": "show metric", "language": "en", "mode": "aggressive",
+      "expect": { "action": "clarify", "clarificationSlot": "metric" } },
+    { "id": "amb-by-country-only", "message": "by country", "language": "en", "mode": "aggressive",
+      "expect": { "action": "clarify", "clarificationSlot": "metric" } },
+    { "id": "amb-doanh-thu-no-time-targeted", "message": "doanh thu", "language": "vi", "mode": "targeted",
+      "expect": { "action": "clarify", "metric": "business_metrics.revenue" } },
+    { "id": "amb-doanh-thu-no-time-aggressive", "message": "doanh thu", "language": "vi", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.revenue" } },
+    { "id": "edge-ltv-vnd-filter-10tr", "message": "doanh thu, paying user trên 10tr 3 tháng qua", "language": "vi", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.revenue", "filterMembers": ["mf_users.paying_users"] } },
+    { "id": "edge-q5-invalid", "message": "doanh thu Q5 2026", "language": "vi", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.revenue" } },
+    { "id": "edge-unknown-only", "message": "xyz abc 123", "language": "en", "mode": "targeted",
+      "expect": { "action": "clarify" } },
+    { "id": "vi-mau-thang-3", "message": "MAU trong tháng 3", "language": "vi", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "business_metrics.mau", "hasTimeRange": true } },
+    { "id": "en-arpu-weekly-targeted", "message": "ARPU weekly", "language": "en", "mode": "targeted",
+      "expect": { "action": "clarify", "metric": "business_metrics.arpu" } },
+    { "id": "vi-ltv-total-q1", "message": "tổng ltv trong Q1 2026", "language": "vi", "mode": "aggressive",
+      "expect": { "action": "auto", "metric": "mf_users.ltv_total_vnd", "hasTimeRange": true } }
+  ]
+}

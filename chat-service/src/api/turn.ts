@@ -52,6 +52,7 @@ const TurnBodySchema = z.object({
       selected_blocks: z.array(z.unknown()).optional(),
     })
     .optional(),
+  mode: z.enum(['targeted', 'aggressive']).optional(),
 });
 
 const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) => {
@@ -265,6 +266,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       sessionId,
       turnId,
       sseEmitter,
+      disambiguationMode: body.mode ?? 'targeted',
     };
 
     const tools = buildSdkTools(toolContext);
@@ -340,6 +342,10 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
 
       chatStore.appendTurn(opts.db, {
+        // Use the SSE turnId as chat_turns.id so observability FKs (llm_calls,
+        // tool_invocations, sdk_events) which were buffered against turnId
+        // resolve to a real chat_turns row.
+        id: turnId,
         sessionId,
         turnIndex: assistantTurnIndex,
         role: 'assistant',

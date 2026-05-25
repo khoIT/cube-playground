@@ -86,6 +86,13 @@ export interface ToolContext {
   sessionId: string;
   turnId: string;
   sseEmitter: EventEmitter;
+  /** Optional clock override for tests. Defaults to Date.now. */
+  now?: () => number;
+  /**
+   * Per-request disambiguation mode set by the user via the chat panel chip.
+   * Defaults to 'targeted' server-side when the client omits it.
+   */
+  disambiguationMode?: 'targeted' | 'aggressive';
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "terms": [
     {
       "id": "dau",
@@ -7,7 +7,10 @@
       "description": "Daily active users — distinct players who opened the game on a given day.",
       "primary_catalog_id": "business_metrics/dau",
       "aliases": ["dau", "daily active users", "daily active"],
-      "category": "engagement"
+      "category": "engagement",
+      "label_vi": "DAU",
+      "description_vi": "Số người dùng hoạt động hàng ngày — số người chơi riêng biệt mở game trong một ngày.",
+      "aliases_vi": ["dau", "người dùng hoạt động ngày", "người chơi mỗi ngày"]
     },
     {
       "id": "mau",
@@ -15,7 +18,10 @@
       "description": "Monthly active users — distinct players in a rolling 30-day window.",
       "primary_catalog_id": "business_metrics/mau",
       "aliases": ["mau", "monthly active users", "monthly active"],
-      "category": "engagement"
+      "category": "engagement",
+      "label_vi": "MAU",
+      "description_vi": "Số người dùng hoạt động hàng tháng — số người chơi riêng biệt trong cửa sổ 30 ngày.",
+      "aliases_vi": ["mau", "người dùng hoạt động tháng", "người chơi mỗi tháng"]
     },
     {
       "id": "wau",
@@ -23,7 +29,10 @@
       "description": "Weekly active users — distinct players in a rolling 7-day window.",
       "primary_catalog_id": "business_metrics/wau",
       "aliases": ["wau", "weekly active users", "weekly active"],
-      "category": "engagement"
+      "category": "engagement",
+      "label_vi": "WAU",
+      "description_vi": "Số người dùng hoạt động hàng tuần — số người chơi riêng biệt trong cửa sổ 7 ngày.",
+      "aliases_vi": ["wau", "người dùng hoạt động tuần", "người chơi mỗi tuần"]
     },
     {
       "id": "stickiness",
@@ -32,7 +41,10 @@
       "primary_catalog_id": "business_metrics/stickiness",
       "secondary_catalog_ids": ["business_metrics/dau", "business_metrics/mau"],
       "aliases": ["stickiness", "dau/mau"],
-      "category": "engagement"
+      "category": "engagement",
+      "label_vi": "Độ gắn bó",
+      "description_vi": "Tỉ lệ DAU/MAU — phần người chơi tháng có quay lại trong một ngày bất kỳ.",
+      "aliases_vi": ["độ gắn bó", "tỉ lệ dau mau", "tỉ lệ gắn bó"]
     },
     {
       "id": "d1_retention",
@@ -40,7 +52,10 @@
       "description": "Share of new players from day N who returned on day N+1.",
       "primary_catalog_id": "business_metrics/d1_retention",
       "aliases": ["d1 retention", "day-1 retention"],
-      "category": "retention"
+      "category": "retention",
+      "label_vi": "Giữ chân D1",
+      "description_vi": "Tỉ lệ người chơi mới quay lại sau 1 ngày.",
+      "aliases_vi": ["giữ chân d1", "retention d1", "tỉ lệ quay lại ngày 1"]
     },
     {
       "id": "d7_retention",
@@ -48,7 +63,10 @@
       "description": "Share of new players from day N who returned on day N+7.",
       "primary_catalog_id": "business_metrics/d7_retention",
       "aliases": ["d7 retention", "day-7 retention"],
-      "category": "retention"
+      "category": "retention",
+      "label_vi": "Giữ chân D7",
+      "description_vi": "Tỉ lệ người chơi mới quay lại sau 7 ngày.",
+      "aliases_vi": ["giữ chân d7", "retention d7", "tỉ lệ quay lại ngày 7"]
     },
     {
       "id": "d30_retention",
@@ -56,7 +74,10 @@
       "description": "Share of new players from day N who returned on day N+30.",
       "primary_catalog_id": "business_metrics/d30_retention",
       "aliases": ["d30 retention", "day-30 retention"],
-      "category": "retention"
+      "category": "retention",
+      "label_vi": "Giữ chân D30",
+      "description_vi": "Tỉ lệ người chơi mới quay lại sau 30 ngày.",
+      "aliases_vi": ["giữ chân d30", "retention d30", "tỉ lệ quay lại ngày 30"]
     },
     {
       "id": "churn_rate",
@@ -64,7 +85,10 @@
       "description": "Fraction of active players who did not return in the following window.",
       "primary_catalog_id": "business_metrics/churn_rate",
       "aliases": ["churn", "churn rate"],
-      "category": "retention"
+      "category": "retention",
+      "label_vi": "Tỉ lệ rời bỏ",
+      "description_vi": "Phần người chơi đang hoạt động không quay lại trong kỳ kế tiếp.",
+      "aliases_vi": ["tỉ lệ rời bỏ", "rời bỏ", "churn", "tỉ lệ churn"]
     },
     {
       "id": "ltv",
@@ -72,7 +96,10 @@
       "description": "Lifetime value — total revenue attributable to a single player or install cohort.",
       "primary_catalog_id": "business_metrics/ltv",
       "aliases": ["ltv", "lifetime value"],
-      "category": "monetisation"
+      "category": "monetisation",
+      "label_vi": "LTV",
+      "description_vi": "Giá trị vòng đời — tổng doanh thu của một người chơi hoặc nhóm cài đặt.",
+      "aliases_vi": ["ltv", "giá trị vòng đời", "giá trị trọn đời"]
     },
     {
       "id": "arpu",
@@ -80,7 +107,10 @@
       "description": "Average revenue per user across all active users in the period.",
       "primary_catalog_id": "business_metrics/arpu",
       "aliases": ["arpu"],
-      "category": "monetisation"
+      "category": "monetisation",
+      "label_vi": "ARPU",
+      "description_vi": "Doanh thu trung bình trên mỗi người dùng hoạt động trong kỳ.",
+      "aliases_vi": ["arpu", "doanh thu trung bình mỗi người"]
     },
     {
       "id": "arppu",
@@ -88,7 +118,10 @@
       "description": "Average revenue per paying user — restricted to players who made ≥1 purchase.",
       "primary_catalog_id": "business_metrics/arppu",
       "aliases": ["arppu"],
-      "category": "monetisation"
+      "category": "monetisation",
+      "label_vi": "ARPPU",
+      "description_vi": "Doanh thu trung bình trên mỗi người dùng trả phí — chỉ tính người có ít nhất 1 lần mua.",
+      "aliases_vi": ["arppu", "doanh thu trung bình mỗi người trả phí"]
     },
     {
       "id": "arpdau",
@@ -97,7 +130,10 @@
       "primary_catalog_id": "business_metrics/arpdau",
       "secondary_catalog_ids": ["business_metrics/dau", "business_metrics/revenue"],
       "aliases": ["arpdau"],
-      "category": "monetisation"
+      "category": "monetisation",
+      "label_vi": "ARPDAU",
+      "description_vi": "Doanh thu trung bình mỗi người dùng hoạt động ngày — doanh thu ngày chia cho DAU.",
+      "aliases_vi": ["arpdau"]
     },
     {
       "id": "payer_conversion_rate",
@@ -105,7 +141,10 @@
       "description": "Share of active players who became payers in the period.",
       "primary_catalog_id": "business_metrics/payer_conversion_rate",
       "aliases": ["payer conversion", "payer rate"],
-      "category": "monetisation"
+      "category": "monetisation",
+      "label_vi": "Tỉ lệ chuyển đổi trả phí",
+      "description_vi": "Tỉ lệ người chơi hoạt động trở thành người trả phí trong kỳ.",
+      "aliases_vi": ["tỉ lệ chuyển đổi trả phí", "tỉ lệ trả phí", "tỉ lệ payer"]
     },
     {
       "id": "whale",
@@ -113,7 +152,10 @@
       "description": "Top-spender player segment — typically the top 1% of payers by spend.",
       "primary_catalog_id": "business_metrics/whale_payer",
       "aliases": ["whale", "whales"],
-      "category": "segments"
+      "category": "segments",
+      "label_vi": "Cá voi",
+      "description_vi": "Nhóm người chi tiêu cao nhất — thường là top 1% người trả phí theo mức chi.",
+      "aliases_vi": ["cá voi", "whale"]
     },
     {
       "id": "dolphin",
@@ -121,7 +163,10 @@
       "description": "Mid-tier paying player segment — sits between minnow and whale spenders.",
       "primary_catalog_id": "business_metrics/dolphin_payer",
       "aliases": ["dolphin", "dolphins"],
-      "category": "segments"
+      "category": "segments",
+      "label_vi": "Cá heo",
+      "description_vi": "Nhóm người trả phí mức trung — nằm giữa minnow và whale.",
+      "aliases_vi": ["cá heo", "dolphin"]
     },
     {
       "id": "minnow",
@@ -129,7 +174,10 @@
       "description": "Low-spending paying player segment.",
       "primary_catalog_id": "business_metrics/minnow_payer",
       "aliases": ["minnow", "minnows"],
-      "category": "segments"
+      "category": "segments",
+      "label_vi": "Cá nhỏ",
+      "description_vi": "Nhóm người trả phí mức thấp.",
+      "aliases_vi": ["cá nhỏ", "minnow"]
     },
     {
       "id": "revenue",
@@ -137,7 +185,10 @@
       "description": "Total value of in-game items successfully delivered to users during the selected period. Recognised by item delivery (consumption) date.",
       "primary_catalog_id": "business_metrics/revenue",
       "aliases": ["revenue", "gross revenue", "in-game revenue"],
-      "category": "monetisation"
+      "category": "monetisation",
+      "label_vi": "Doanh thu",
+      "description_vi": "Tổng giá trị vật phẩm trong game đã giao thành công cho người dùng trong kỳ, ghi nhận theo ngày giao (tiêu thụ).",
+      "aliases_vi": ["doanh thu", "doanh thu trong game", "tổng doanh thu"]
     },
     {
       "id": "roas",
@@ -145,7 +196,10 @@
       "description": "Return on ad spend — revenue attributed to a cohort divided by acquisition cost.",
       "primary_catalog_id": "business_metrics/roas",
       "aliases": ["roas"],
-      "category": "acquisition"
+      "category": "acquisition",
+      "label_vi": "ROAS",
+      "description_vi": "Lợi nhuận trên chi phí quảng cáo — doanh thu chia cho chi phí mua người dùng.",
+      "aliases_vi": ["roas", "lợi nhuận quảng cáo"]
     },
     {
       "id": "cpi",
@@ -153,7 +207,10 @@
       "description": "Cost per install — total acquisition spend divided by installs in the period.",
       "primary_catalog_id": "business_metrics/cpi",
       "aliases": ["cpi", "cost per install"],
-      "category": "acquisition"
+      "category": "acquisition",
+      "label_vi": "CPI",
+      "description_vi": "Chi phí trên mỗi lượt cài — tổng chi phí mua user chia cho số lượt cài trong kỳ.",
+      "aliases_vi": ["cpi", "chi phí mỗi cài", "chi phí cài đặt"]
     },
     {
       "id": "cac",
@@ -161,7 +218,10 @@
       "description": "Customer acquisition cost — spend per net-new paying user.",
       "primary_catalog_id": "business_metrics/cac",
       "aliases": ["cac"],
-      "category": "acquisition"
+      "category": "acquisition",
+      "label_vi": "CAC",
+      "description_vi": "Chi phí thu hút khách hàng — chi phí trên mỗi người trả phí mới.",
+      "aliases_vi": ["cac", "chi phí thu hút khách hàng"]
     },
     {
       "id": "installs",
@@ -169,7 +229,10 @@
       "description": "Net new installs in the period (filtered to first-launch events).",
       "primary_catalog_id": "business_metrics/installs",
       "aliases": ["installs"],
-      "category": "acquisition"
+      "category": "acquisition",
+      "label_vi": "Lượt cài",
+      "description_vi": "Số lượt cài mới trong kỳ (lọc theo sự kiện mở lần đầu).",
+      "aliases_vi": ["lượt cài", "cài đặt", "số cài đặt"]
     },
     {
       "id": "session_length",
@@ -177,7 +240,10 @@
       "description": "Time between session start and session end for a single play.",
       "primary_catalog_id": "business_metrics/avg_session_length",
       "aliases": ["session length", "avg session length"],
-      "category": "engagement"
+      "category": "engagement",
+      "label_vi": "Thời lượng phiên",
+      "description_vi": "Khoảng thời gian giữa lúc bắt đầu và kết thúc một phiên chơi.",
+      "aliases_vi": ["thời lượng phiên", "thời gian chơi", "thời gian phiên"]
     },
     {
       "id": "sessions_per_user",
@@ -185,7 +251,10 @@
       "description": "Average number of sessions per active user in the period.",
       "primary_catalog_id": "business_metrics/sessions_per_user",
       "aliases": ["sessions per user"],
-      "category": "engagement"
+      "category": "engagement",
+      "label_vi": "Số phiên mỗi người",
+      "description_vi": "Số phiên trung bình trên mỗi người chơi hoạt động trong kỳ.",
+      "aliases_vi": ["số phiên mỗi người", "lượt chơi mỗi người"]
     },
     {
       "id": "first_purchase_rate",
@@ -193,7 +262,10 @@
       "description": "Share of new players who made their first purchase within N days.",
       "primary_catalog_id": "business_metrics/first_purchase_rate",
       "aliases": ["first purchase rate", "ftp rate"],
-      "category": "monetisation"
+      "category": "monetisation",
+      "label_vi": "Tỉ lệ mua lần đầu",
+      "description_vi": "Tỉ lệ người chơi mới có lần mua đầu tiên trong N ngày.",
+      "aliases_vi": ["tỉ lệ mua lần đầu", "ftp"]
     },
     {
       "id": "engagement_index",
@@ -201,7 +273,10 @@
       "description": "Composite score blending sessions per user, session length, and stickiness.",
       "primary_catalog_id": "business_metrics/engagement_index",
       "aliases": ["engagement index"],
-      "category": "engagement"
+      "category": "engagement",
+      "label_vi": "Chỉ số gắn bó",
+      "description_vi": "Điểm tổng hợp từ số phiên/người, thời lượng phiên và độ gắn bó.",
+      "aliases_vi": ["chỉ số gắn bó", "engagement index"]
     },
     {
       "id": "cohort",
@@ -209,7 +284,10 @@
       "description": "Group of players sharing an installation period (used for retention curves).",
       "primary_catalog_id": null,
       "aliases": ["cohort", "install cohort"],
-      "category": "concepts"
+      "category": "concepts",
+      "label_vi": "Cohort",
+      "description_vi": "Nhóm người chơi cùng kỳ cài đặt (dùng để vẽ đường giữ chân).",
+      "aliases_vi": ["cohort", "nhóm cài đặt"]
     },
     {
       "id": "funnel",
@@ -217,7 +295,10 @@
       "description": "Ordered sequence of player events used to measure step-by-step conversion.",
       "primary_catalog_id": null,
       "aliases": ["funnel"],
-      "category": "concepts"
+      "category": "concepts",
+      "label_vi": "Phễu",
+      "description_vi": "Chuỗi sự kiện có thứ tự dùng để đo chuyển đổi từng bước.",
+      "aliases_vi": ["phễu", "phễu chuyển đổi", "funnel"]
     },
     {
       "id": "at_risk",
@@ -225,7 +306,10 @@
       "description": "Active player whose engagement is trending toward churn in a defined window.",
       "primary_catalog_id": "business_metrics/at_risk_players",
       "aliases": ["at-risk", "at risk player", "at-risk player"],
-      "category": "segments"
+      "category": "segments",
+      "label_vi": "Người chơi rủi ro rời bỏ",
+      "description_vi": "Người chơi hoạt động có xu hướng rời bỏ trong cửa sổ định sẵn.",
+      "aliases_vi": ["rủi ro rời bỏ", "người chơi sắp churn", "at-risk"]
     },
     {
       "id": "engagement",
@@ -233,7 +317,100 @@
       "description": "Umbrella term for repeat play (sessions, time, retention) — see specific metrics below.",
       "primary_catalog_id": null,
       "aliases": ["engagement"],
-      "category": "concepts"
+      "category": "concepts",
+      "label_vi": "Mức độ gắn bó",
+      "description_vi": "Thuật ngữ chung chỉ việc quay lại chơi (phiên, thời gian, giữ chân).",
+      "aliases_vi": ["gắn bó", "mức độ gắn bó", "engagement"]
+    },
+    {
+      "id": "paying_user",
+      "label": "Paying user",
+      "description": "Player who has completed at least one paid transaction in the selected period. Use as a filter on per-user spend or as a count for monetisation reports.",
+      "primary_catalog_id": "mf_users.paying_users",
+      "aliases": ["paying user", "paying users", "payer", "payers"],
+      "category": "user",
+      "label_vi": "Người dùng trả phí",
+      "description_vi": "Người chơi đã hoàn tất ít nhất một giao dịch trả phí trong kỳ. Dùng làm bộ lọc theo chi tiêu mỗi người hoặc đếm cho báo cáo kinh doanh.",
+      "aliases_vi": ["người dùng trả phí", "user trả phí", "khách trả phí", "người trả tiền", "payer"]
+    },
+    {
+      "id": "non_paying_user",
+      "label": "Non-paying user",
+      "description": "Active player who has made no paid transaction in the selected period.",
+      "primary_catalog_id": "mf_users.non_paying_users",
+      "aliases": ["non-paying user", "non paying user", "free user"],
+      "category": "user",
+      "label_vi": "Người dùng miễn phí",
+      "description_vi": "Người chơi hoạt động nhưng chưa có giao dịch trả phí nào trong kỳ.",
+      "aliases_vi": ["người dùng miễn phí", "user miễn phí", "không trả phí"]
+    },
+    {
+      "id": "ltv_vnd",
+      "label": "LTV (VND)",
+      "description": "Per-user lifetime value in Vietnamese Dong. Filter on this to slice by spend thresholds (e.g. paying users with LTV > 10M).",
+      "primary_catalog_id": "mf_users.ltv_vnd",
+      "secondary_catalog_ids": ["business_metrics/ltv"],
+      "aliases": ["ltv vnd", "per-user ltv", "user ltv"],
+      "category": "user",
+      "label_vi": "LTV theo VND",
+      "description_vi": "Giá trị vòng đời theo VND của mỗi người dùng. Dùng làm bộ lọc theo ngưỡng chi tiêu (ví dụ paying user có LTV > 10 triệu).",
+      "aliases_vi": ["ltv vnd", "ltv theo người", "tổng chi tiêu mỗi người"]
+    },
+    {
+      "id": "ltv_total_vnd",
+      "label": "Total LTV (VND)",
+      "description": "Sum of per-user LTV in VND across the selected cohort.",
+      "primary_catalog_id": "mf_users.ltv_total_vnd",
+      "secondary_catalog_ids": ["mf_users.ltv_vnd"],
+      "aliases": ["total ltv", "ltv total", "aggregate ltv"],
+      "category": "monetisation",
+      "label_vi": "Tổng LTV (VND)",
+      "description_vi": "Tổng giá trị vòng đời theo VND của nhóm được chọn.",
+      "aliases_vi": ["tổng ltv", "doanh thu lifetime", "tổng giá trị vòng đời"]
+    },
+    {
+      "id": "first_active_date",
+      "label": "First active date",
+      "description": "Date a player became active for the first time. Group by this to build install / acquisition cohorts.",
+      "primary_catalog_id": "mf_users.first_active_date",
+      "aliases": ["first active date", "first seen", "signup date"],
+      "category": "dimension",
+      "label_vi": "Ngày hoạt động đầu",
+      "description_vi": "Ngày người dùng hoạt động lần đầu. Nhóm theo trường này để dựng cohort cài đặt/thu hút.",
+      "aliases_vi": ["ngày đầu tiên", "ngày bắt đầu", "ngày kích hoạt đầu", "ngày đăng ký"]
+    },
+    {
+      "id": "last_login_date",
+      "label": "Last login date",
+      "description": "Most recent login timestamp per player. Group by this for recency analysis.",
+      "primary_catalog_id": "mf_users.last_login_date",
+      "aliases": ["last login", "last login date", "last seen"],
+      "category": "dimension",
+      "label_vi": "Ngày đăng nhập gần nhất",
+      "description_vi": "Thời điểm đăng nhập gần nhất của người dùng. Nhóm theo trường này để phân tích recency.",
+      "aliases_vi": ["lần đăng nhập cuối", "đăng nhập cuối", "ngày login cuối"]
+    },
+    {
+      "id": "country",
+      "label": "Country",
+      "description": "Player's country dimension. Use as a group-by or filter.",
+      "primary_catalog_id": "mf_users.country",
+      "aliases": ["country", "region"],
+      "category": "dimension",
+      "label_vi": "Quốc gia",
+      "description_vi": "Trường quốc gia của người chơi. Dùng để nhóm hoặc lọc.",
+      "aliases_vi": ["quốc gia", "nước", "vùng"]
+    },
+    {
+      "id": "platform",
+      "label": "Platform",
+      "description": "OS / device platform dimension (iOS, Android, web).",
+      "primary_catalog_id": "mf_users.platform",
+      "aliases": ["platform", "device platform", "os"],
+      "category": "dimension",
+      "label_vi": "Nền tảng",
+      "description_vi": "Trường nền tảng hệ điều hành / thiết bị (iOS, Android, web).",
+      "aliases_vi": ["nền tảng", "hệ điều hành", "thiết bị"]
     }
   ]
 }

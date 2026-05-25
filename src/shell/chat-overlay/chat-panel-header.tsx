@@ -5,6 +5,7 @@
 import React from 'react';
 import { Plus, X } from 'lucide-react';
 import { T, Icon } from '../theme';
+import { ChatModeChip } from './chat-mode-chip';
 
 interface ChatPanelHeaderProps {
   sessionId: string | null;
@@ -14,7 +15,7 @@ interface ChatPanelHeaderProps {
   onExpand: () => void;
 }
 
-const MAX_TITLE_CHARS = 32;
+const MAX_TITLE_CHARS = 24;
 
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
@@ -68,6 +69,9 @@ export function ChatPanelHeader({
       >
         {displayTitle}
       </button>
+
+      {/* Disambiguation mode chip — controls how the agent handles ambiguous questions. */}
+      <ChatModeChip sessionId={sessionId} hideLabel />
 
       {/* New chat button */}
       <button

@@ -1,7 +1,12 @@
 /**
  * Idempotent seed for `glossary_terms` from server/data/glossary.seed.json.
- * Runs at boot after SQL migrations. Upserts by id so future seed edits
- * propagate without a manual sync.
+ *
+ * Runs at boot after SQL migrations. The seed JSON is the source of truth
+ * for **untouched** seed rows: orphan purge and column overwrite are both
+ * scoped to `source='seed' AND editor_name IS NULL`. Once a human edits a
+ * seed row (sets `editor_name`), subsequent boots leave it alone so analyst
+ * tweaks survive across deploys. To revert a user-edited seed row, delete it
+ * — the next boot will re-upsert from the JSON.
  */
 
 import { readFileSync } from 'node:fs';
@@ -9,9 +14,7 @@ import { resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 
 const SEED_CANDIDATES = [
-  // From repo root (server/index.ts running with cwd = repo root).
   resolve(process.cwd(), 'server', 'data', 'glossary.seed.json'),
-  // From server/ cwd (vitest in server/).
   resolve(process.cwd(), 'data', 'glossary.seed.json'),
 ];
 
@@ -23,6 +26,9 @@ interface SeedTerm {
   secondary_catalog_ids?: string[];
   aliases?: string[];
   category?: string;
+  label_vi?: string | null;
+  description_vi?: string | null;
+  aliases_vi?: string[];
 }
 
 interface SeedFile {
@@ -38,51 +44,91 @@ function loadSeedFile(): SeedFile {
       continue;
     }
   }
-  throw new Error(
-    `glossary seed not found; looked at: ${SEED_CANDIDATES.join(', ')}`,
-  );
+  throw new Error(`glossary seed not found; looked at: ${SEED_CANDIDATES.join(', ')}`);
 }
 
 export function migrateGlossarySeed(
   db: Database.Database,
-): { upserted: number; purged: number } {
+): { upserted: number; purged: number; preserved: number } {
   const seed = loadSeedFile();
-  const stmt = db.prepare(
-    `INSERT INTO glossary_terms
-       (id, label, description, primary_catalog_id, secondary_catalog_ids, aliases, category, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       label = excluded.label,
-       description = excluded.description,
-       primary_catalog_id = excluded.primary_catalog_id,
-       secondary_catalog_ids = excluded.secondary_catalog_ids,
-       aliases = excluded.aliases,
-       category = excluded.category,
-       updated_at = excluded.updated_at`,
-  );
   const now = Date.now();
+
+  // Insert when missing. We always set source='seed' and status='official'
+  // so seed-provided terms are immediately usable by the chat agent.
+  const insertStmt = db.prepare(
+    `INSERT OR IGNORE INTO glossary_terms
+       (id, label, description, primary_catalog_id, secondary_catalog_ids, aliases, category,
+        updated_at, label_vi, description_vi, aliases_vi, status, source, editor_name)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  );
+
+  // Refresh only untouched seed rows (no human editor recorded). User-edited
+  // rows keep their content. Status is left alone too — a user may have
+  // demoted a row to draft on purpose.
+  const refreshStmt = db.prepare(
+    `UPDATE glossary_terms
+       SET label = ?, description = ?, primary_catalog_id = ?, secondary_catalog_ids = ?,
+           aliases = ?, category = ?, updated_at = ?, label_vi = ?, description_vi = ?,
+           aliases_vi = ?
+     WHERE id = ? AND source = 'seed' AND editor_name IS NULL`,
+  );
+
   let upserted = 0;
+  let preserved = 0;
   let purged = 0;
-  // Orphan purge: the seed JSON is the source of truth. Without this, a
-  // renamed or deleted seed entry would leave a stale row in the DB and
-  // chat lookups would still resolve to the old (broken) primary_catalog_id.
+
   const seedIds = new Set(seed.terms.map((t) => t.id));
-  const tx = db.transaction((terms: SeedTerm[]) => {
-    for (const t of terms) {
-      stmt.run(
+
+  const arr = (a?: string[]): string | null =>
+    a && a.length ? JSON.stringify(a) : null;
+
+  const tx = db.transaction(() => {
+    for (const t of seed.terms) {
+      const insertResult = insertStmt.run(
         t.id,
         t.label,
         t.description,
         t.primary_catalog_id ?? null,
-        t.secondary_catalog_ids ? JSON.stringify(t.secondary_catalog_ids) : null,
-        t.aliases ? JSON.stringify(t.aliases) : null,
+        arr(t.secondary_catalog_ids),
+        arr(t.aliases),
         t.category ?? null,
         now,
+        t.label_vi ?? null,
+        t.description_vi ?? null,
+        arr(t.aliases_vi),
+        'official',
+        'seed',
+        null,
       );
-      upserted += 1;
+
+      if (insertResult.changes === 1) {
+        upserted += 1;
+        continue;
+      }
+
+      const refreshResult = refreshStmt.run(
+        t.label,
+        t.description,
+        t.primary_catalog_id ?? null,
+        arr(t.secondary_catalog_ids),
+        arr(t.aliases),
+        t.category ?? null,
+        now,
+        t.label_vi ?? null,
+        t.description_vi ?? null,
+        arr(t.aliases_vi),
+        t.id,
+      );
+      if (refreshResult.changes === 1) upserted += 1;
+      else preserved += 1;
     }
-    const existing = db.prepare('SELECT id FROM glossary_terms').all() as Array<{ id: string }>;
-    const deleteStmt = db.prepare('DELETE FROM glossary_terms WHERE id = ?');
+
+    // Orphan purge: drop seed-managed rows no longer in the JSON, but never
+    // touch user-authored rows or seed rows a human has edited.
+    const existing = db
+      .prepare(`SELECT id FROM glossary_terms WHERE source = 'seed' AND editor_name IS NULL`)
+      .all() as Array<{ id: string }>;
+    const deleteStmt = db.prepare(`DELETE FROM glossary_terms WHERE id = ?`);
     for (const row of existing) {
       if (!seedIds.has(row.id)) {
         deleteStmt.run(row.id);
@@ -90,6 +136,7 @@ export function migrateGlossarySeed(
       }
     }
   });
-  tx(seed.terms);
-  return { upserted, purged };
+  tx();
+
+  return { upserted, purged, preserved };
 }

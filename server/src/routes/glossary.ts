@@ -1,73 +1,151 @@
 /**
- * Glossary endpoint:
- *   GET /api/glossary       — list all canonical terms (seeded at boot)
- *   GET /api/glossary/:id   — single term lookup
+ * Glossary endpoints.
+ *   GET    /api/glossary              — list (optional ?status=draft|official)
+ *   GET    /api/glossary/:id          — single term lookup
+ *   POST   /api/glossary              — create user draft
+ *   PUT    /api/glossary/:id          — full replace of editable fields
+ *   PATCH  /api/glossary/:id/status   — promote/demote draft<->official
+ *   DELETE /api/glossary/:id          — only allowed for source='user' rows
  *
- * Read-only over `glossary_terms`. Chat-side override storage (phase-11)
- * extends but does not replace this surface.
+ * List response carries a weak ETag built from MAX(updated_at) so the chat
+ * agent's synonym resolver can cheaply revalidate without re-downloading.
  */
 
 import type { FastifyInstance } from 'fastify';
 import { getDb } from '../db/sqlite.js';
+import {
+  rowToTerm,
+  termToWriteParams,
+  slugify,
+  type GlossaryRow,
+} from './glossary-row-mapper.js';
+import {
+  CreateTermSchema,
+  UpdateTermSchema,
+  StatusPatchSchema,
+  ListQuerySchema,
+} from './glossary-validators.js';
 
-interface GlossaryRow {
-  id: string;
-  label: string;
-  description: string;
-  primary_catalog_id: string | null;
-  secondary_catalog_ids: string | null;
-  aliases: string | null;
-  category: string | null;
-  updated_at: number;
+const SELECT_COLS = `id, label, description, primary_catalog_id, secondary_catalog_ids,
+  aliases, category, updated_at, label_vi, description_vi, aliases_vi, status, source, editor_name`;
+
+function listEtag(): string {
+  const row = getDb()
+    .prepare(`SELECT COALESCE(MAX(updated_at), 0) AS m FROM glossary_terms`)
+    .get() as { m: number };
+  return `W/"${row.m}"`;
 }
 
-export interface GlossaryTerm {
-  id: string;
-  label: string;
-  description: string;
-  primaryCatalogId: string | null;
-  secondaryCatalogIds: string[];
-  aliases: string[];
-  category: string | null;
-  updatedAt: string;
-}
-
-function rowToTerm(row: GlossaryRow): GlossaryTerm {
-  return {
-    id: row.id,
-    label: row.label,
-    description: row.description,
-    primaryCatalogId: row.primary_catalog_id,
-    secondaryCatalogIds: safeArray(row.secondary_catalog_ids),
-    aliases: safeArray(row.aliases),
-    category: row.category,
-    updatedAt: new Date(row.updated_at).toISOString(),
-  };
-}
-
-function safeArray(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : [];
-  } catch {
-    return [];
-  }
+function getRowById(id: string): GlossaryRow | undefined {
+  return getDb()
+    .prepare(`SELECT ${SELECT_COLS} FROM glossary_terms WHERE id = ?`)
+    .get(id) as GlossaryRow | undefined;
 }
 
 export default async function glossaryRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/api/glossary', async () => {
-    const rows = getDb()
-      .prepare(`SELECT * FROM glossary_terms ORDER BY label COLLATE NOCASE ASC`)
-      .all() as GlossaryRow[];
-    return { terms: rows.map(rowToTerm) };
+  app.get('/api/glossary', async (req, reply) => {
+    const parsed = ListQuerySchema.safeParse(req.query ?? {});
+    if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
+
+    const sql = parsed.data.status
+      ? `SELECT ${SELECT_COLS} FROM glossary_terms WHERE status = ? ORDER BY label COLLATE NOCASE ASC`
+      : `SELECT ${SELECT_COLS} FROM glossary_terms ORDER BY label COLLATE NOCASE ASC`;
+    const stmt = getDb().prepare(sql);
+    const rows = (parsed.data.status ? stmt.all(parsed.data.status) : stmt.all()) as GlossaryRow[];
+
+    const etag = listEtag();
+    if (req.headers['if-none-match'] === etag) {
+      return reply.status(304).header('etag', etag).send();
+    }
+    return reply.header('etag', etag).send({ terms: rows.map(rowToTerm) });
   });
 
   app.get<{ Params: { id: string } }>('/api/glossary/:id', async (req, reply) => {
-    const row = getDb()
-      .prepare(`SELECT * FROM glossary_terms WHERE id = ?`)
-      .get(req.params.id) as GlossaryRow | undefined;
+    const row = getRowById(req.params.id);
     if (!row) return reply.status(404).send({ code: 'not_found' });
     return rowToTerm(row);
   });
+
+  app.post('/api/glossary', async (req, reply) => {
+    const parsed = CreateTermSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
+
+    const input = parsed.data;
+    const id = input.id?.trim() || slugify(input.label);
+    if (!id) return reply.status(400).send({ code: 'bad_request', issues: [{ message: 'unable to derive id' }] });
+
+    if (getRowById(id)) return reply.status(409).send({ code: 'conflict', message: 'id exists' });
+
+    const now = Date.now();
+    getDb().prepare(`
+      INSERT INTO glossary_terms
+        (${SELECT_COLS})
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).run(...termToWriteParams({ ...input, id, status: 'draft', source: 'user', updatedAt: now }));
+
+    return reply.status(201).send(rowToTerm(getRowById(id) as GlossaryRow));
+  });
+
+  app.put<{ Params: { id: string } }>('/api/glossary/:id', async (req, reply) => {
+    const existing = getRowById(req.params.id);
+    if (!existing) return reply.status(404).send({ code: 'not_found' });
+
+    const parsed = UpdateTermSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
+
+    const now = Date.now();
+    getDb().prepare(`
+      UPDATE glossary_terms SET
+        label = ?, description = ?, primary_catalog_id = ?, secondary_catalog_ids = ?,
+        aliases = ?, category = ?, updated_at = ?, label_vi = ?, description_vi = ?,
+        aliases_vi = ?, editor_name = ?
+      WHERE id = ?
+    `).run(
+      parsed.data.label,
+      parsed.data.description,
+      parsed.data.primaryCatalogId ?? null,
+      parsed.data.secondaryCatalogIds && parsed.data.secondaryCatalogIds.length
+        ? JSON.stringify(parsed.data.secondaryCatalogIds) : null,
+      parsed.data.aliases && parsed.data.aliases.length ? JSON.stringify(parsed.data.aliases) : null,
+      parsed.data.category ?? null,
+      now,
+      parsed.data.labelVi ?? null,
+      parsed.data.descriptionVi ?? null,
+      parsed.data.aliasesVi && parsed.data.aliasesVi.length ? JSON.stringify(parsed.data.aliasesVi) : null,
+      parsed.data.editorName ?? null,
+      req.params.id,
+    );
+
+    return rowToTerm(getRowById(req.params.id) as GlossaryRow);
+  });
+
+  app.patch<{ Params: { id: string } }>('/api/glossary/:id/status', async (req, reply) => {
+    const existing = getRowById(req.params.id);
+    if (!existing) return reply.status(404).send({ code: 'not_found' });
+
+    const parsed = StatusPatchSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
+
+    getDb().prepare(`
+      UPDATE glossary_terms SET status = ?, editor_name = COALESCE(?, editor_name), updated_at = ?
+      WHERE id = ?
+    `).run(parsed.data.status, parsed.data.editorName ?? null, Date.now(), req.params.id);
+
+    return rowToTerm(getRowById(req.params.id) as GlossaryRow);
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/glossary/:id', async (req, reply) => {
+    const existing = getRowById(req.params.id);
+    if (!existing) return reply.status(404).send({ code: 'not_found' });
+    if (existing.source === 'seed') {
+      return reply.status(409).send({
+        code: 'seed_protected',
+        message: 'cannot delete seed row; demote to draft instead',
+      });
+    }
+    getDb().prepare(`DELETE FROM glossary_terms WHERE id = ?`).run(req.params.id);
+    return reply.status(204).send();
+  });
 }
+
+export type { GlossaryTerm } from './glossary-row-mapper.js';

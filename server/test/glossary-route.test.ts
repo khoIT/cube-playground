@@ -7,11 +7,11 @@ import { setDb, closeDb } from '../src/db/sqlite.js';
 import glossaryRoutes from '../src/routes/glossary.js';
 import { migrateGlossarySeed } from '../src/db/glossary-migrate.js';
 
-function readMigration(): string {
+function readMigration(filename: string): string {
   const cwd = process.cwd();
   const candidates = [
-    resolve(cwd, 'src/db/migrations/007-glossary.sql'),
-    resolve(cwd, 'server/src/db/migrations/007-glossary.sql'),
+    resolve(cwd, `src/db/migrations/${filename}`),
+    resolve(cwd, `server/src/db/migrations/${filename}`),
   ];
   for (const p of candidates) {
     try {
@@ -20,12 +20,13 @@ function readMigration(): string {
       continue;
     }
   }
-  throw new Error('007-glossary.sql migration not found');
+  throw new Error(`${filename} migration not found`);
 }
 
 function inMemoryDb(): Database.Database {
   const db = new Database(':memory:');
-  db.exec(readMigration());
+  db.exec(readMigration('007-glossary.sql'));
+  db.exec(readMigration('008-glossary-bilingual-and-status.sql'));
   return db;
 }
 

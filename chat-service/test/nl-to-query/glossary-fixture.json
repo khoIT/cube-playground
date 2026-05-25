@@ -1,0 +1,66 @@
+{
+  "_comment": "Snapshot subset of server/data/glossary.seed.json v2. Keep in sync when the seed bumps; eval references these ids.",
+  "version": 2,
+  "terms": [
+    {
+      "id": "dau", "label": "DAU", "labelVi": "DAU",
+      "description": "Daily active users.", "primaryCatalogId": "business_metrics.dau",
+      "aliases": ["dau", "daily active users"], "aliasesVi": ["dau", "người dùng hoạt động ngày"],
+      "category": "engagement"
+    },
+    {
+      "id": "mau", "label": "MAU", "labelVi": "MAU",
+      "description": "Monthly active users.", "primaryCatalogId": "business_metrics.mau",
+      "aliases": ["mau", "monthly active users"], "aliasesVi": ["mau", "người dùng hoạt động tháng"],
+      "category": "engagement"
+    },
+    {
+      "id": "revenue", "label": "Revenue", "labelVi": "Doanh thu",
+      "description": "In-game revenue.", "primaryCatalogId": "business_metrics.revenue",
+      "aliases": ["revenue", "gross revenue"], "aliasesVi": ["doanh thu", "tổng doanh thu"],
+      "category": "monetisation"
+    },
+    {
+      "id": "arpu", "label": "ARPU", "labelVi": "ARPU",
+      "description": "Average revenue per user.", "primaryCatalogId": "business_metrics.arpu",
+      "aliases": ["arpu"], "aliasesVi": ["arpu"],
+      "category": "monetisation"
+    },
+    {
+      "id": "d7_retention", "label": "D7 retention", "labelVi": "Giữ chân D7",
+      "description": "Day-7 retention.", "primaryCatalogId": "business_metrics.d7_retention",
+      "aliases": ["d7 retention", "day-7 retention"], "aliasesVi": ["giữ chân d7", "retention d7"],
+      "category": "retention"
+    },
+    {
+      "id": "paying_user", "label": "Paying user", "labelVi": "Người dùng trả phí",
+      "description": "Has at least one paid transaction.", "primaryCatalogId": "mf_users.paying_users",
+      "aliases": ["paying user", "paying users", "payer"], "aliasesVi": ["người dùng trả phí", "user trả phí", "payer"],
+      "category": "user"
+    },
+    {
+      "id": "ltv_vnd", "label": "LTV (VND)", "labelVi": "LTV theo VND",
+      "description": "Per-user LTV in VND.", "primaryCatalogId": "mf_users.ltv_vnd",
+      "aliases": ["ltv vnd", "user ltv"], "aliasesVi": ["ltv theo người", "ltv vnd"],
+      "category": "user"
+    },
+    {
+      "id": "ltv_total_vnd", "label": "Total LTV (VND)", "labelVi": "Tổng LTV (VND)",
+      "description": "Sum of LTV across cohort.", "primaryCatalogId": "mf_users.ltv_total_vnd",
+      "aliases": ["total ltv"], "aliasesVi": ["tổng ltv"],
+      "category": "monetisation"
+    },
+    {
+      "id": "first_active_date", "label": "First active date", "labelVi": "Ngày hoạt động đầu",
+      "description": "First-active cohort dimension.", "primaryCatalogId": "mf_users.first_active_date",
+      "aliases": ["first active date", "signup date"], "aliasesVi": ["ngày đầu tiên", "ngày đăng ký"],
+      "category": "dimension"
+    },
+    {
+      "id": "country", "label": "Country", "labelVi": "Quốc gia",
+      "description": "Country dimension.", "primaryCatalogId": "mf_users.country",
+      "aliases": ["country"], "aliasesVi": ["quốc gia"],
+      "category": "dimension"
+    }
+  ]
+}

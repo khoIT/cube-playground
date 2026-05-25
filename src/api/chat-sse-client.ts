@@ -188,6 +188,8 @@ export interface OpenChatTurnOptions {
   message: string;
   game: string;
   context?: unknown;
+  /** Disambiguation mode forwarded to chat-service; defaults server-side. */
+  mode?: 'targeted' | 'aggressive';
 }
 
 export interface ChatTurnHandle {
@@ -259,7 +261,7 @@ export async function* parseSseFromResponse(
  * - call cancel() to abort in-flight.
  */
 export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
-  const { sessionId, message, game, context } = options;
+  const { sessionId, message, game, context, mode } = options;
   const controller = new AbortController();
 
   const pathId = sessionId && sessionId !== 'new' ? sessionId : 'new';
@@ -274,7 +276,7 @@ export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
           'Content-Type': 'application/json',
           'X-Owner-Id': getOwnerId(),
         },
-        body: JSON.stringify({ message, game, context }),
+        body: JSON.stringify({ message, game, context, mode }),
         signal: controller.signal,
       });
     } catch (err: unknown) {
