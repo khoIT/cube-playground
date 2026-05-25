@@ -62,7 +62,10 @@ export async function disambiguate(
     // Engine never throws — surface as warning and return a low-confidence shell.
     return {
       query: {},
-      slots: { metric: { confidence: 0 } },
+      slots: {
+        metric: { confidence: 0 },
+        intent: { value: 'aggregate', confidence: 0 },
+      },
       unresolved: [input.message],
       clarifications: [],
       overallConfidence: 0,

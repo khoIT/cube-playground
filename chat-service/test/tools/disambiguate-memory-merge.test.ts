@@ -32,7 +32,7 @@ function makeDb(): Database.Database {
 function emptyResult(): DisambiguationResult {
   return {
     query: {},
-    slots: { metric: { confidence: 0 } },
+    slots: { metric: { confidence: 0 }, intent: { value: 'aggregate', confidence: 0.6 } },
     unresolved: [],
     clarifications: [],
     overallConfidence: 0,

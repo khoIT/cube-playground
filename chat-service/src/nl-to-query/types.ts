@@ -10,6 +10,14 @@ export type EngineLanguage = 'vi' | 'en' | 'mixed';
 export type ChatDisambiguationMode = 'targeted' | 'aggressive';
 export type EngineAction = 'auto' | 'clarify';
 
+/**
+ * Shape of the user's intent. The composer uses this to decide whether to
+ * emit a leaderboard query (order + limit + entity dim), a trend (time
+ * dimension granularity), a comparison (split-by-comparison member), or
+ * the default aggregate (single number / breakdown by dim).
+ */
+export type QueryIntent = 'aggregate' | 'leaderboard' | 'trend' | 'comparison';
+
 /** Confidence score in [0,1] attached to every slot the engine fills. */
 export interface ScoredSlot<V> {
   value?: V;
@@ -32,6 +40,18 @@ export interface DisambiguationSlots {
   timeRange?: ScoredSlot<string | [string, string]> & { granularity?: string };
   filters?: SlotFilter[];
   comparison?: ScoredSlot<string>;
+  /**
+   * Shape of the user's intent — derived per-turn from phrase patterns, not
+   * persisted across turns. Drives whether the composer adds order+limit
+   * (leaderboard), granularity (trend), comparison splits, or just an
+   * aggregate measure.
+   */
+  intent: ScoredSlot<QueryIntent>;
+  /**
+   * Parsed limit hint (from phrases like "top 5") — propagated to the
+   * composer when intent='leaderboard'. Optional; defaults to 10.
+   */
+  limit?: number;
 }
 
 export interface ClarificationOption {

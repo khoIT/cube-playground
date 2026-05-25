@@ -14,6 +14,7 @@ import type {
 import { resolveTerms, unresolvedSpans, type AliasHit } from './synonym-resolver.js';
 import { parseNumbers, type ParsedNumber } from './number-normaliser.js';
 import { resolveDateRanges, type ResolvedDate } from './date-resolver.js';
+import { classifyIntent } from './intent-classifier.js';
 
 export interface ExtractInput {
   message: string;
@@ -141,7 +142,15 @@ export function extractSlots(input: ExtractInput): ExtractResult {
   const warnings: string[] = [];
   for (const n of numbers) warnings.push(...n.warnings);
 
-  const slots: DisambiguationSlots = { metric, dimension, timeRange, filters };
+  const intentResult = classifyIntent(input.message);
+  const slots: DisambiguationSlots = {
+    metric,
+    dimension,
+    timeRange,
+    filters,
+    intent: intentResult.slot,
+    limit: intentResult.limit,
+  };
 
   return {
     slots,

@@ -1,16 +1,10 @@
 /**
- * Memory bridge for `disambiguate_query`. Orchestrates two memory layers:
- *   - Layer 2 (session, kv_cache, 24h TTL) — handled in this file.
- *   - Layer 3 (cross-session, user_disambig_prefs) — handled in the sibling
- *     `disambiguate-user-prefs-fill.ts` module.
- *
- * Per turn: fill empty slots from Layer 2 then Layer 3, drop clarifications
- * the fills resolved, then write every confident slot back to both layers
- * BEFORE the action decision. That last point matters — a clarify-only turn
- * still captures what the user did confirm (e.g. reply "ARPU" stores
- * metric=ARPU even though timeRange is still missing and the turn re-asks).
- *
- * Resolution order per slot: explicit-in-message → Layer 2 → Layer 3 → ask.
+ * Memory bridge for `disambiguate_query`. Two layers: session kv_cache (L2)
+ * and cross-session user_disambig_prefs (L3, in sibling module). Per turn:
+ * fill empty slots L2→L3, drop resolved clarifications, then write every
+ * confident slot back. Resolution order: explicit → L2 → L3 → ask.
+ * Splitting fill / validate / write across phases lets callers reject a
+ * slot (e.g. snapshot measure × timeRange) before it lands in memory.
  */
 
 import type Database from 'better-sqlite3';
@@ -35,31 +29,41 @@ export interface MergeMemoryParams {
   now: number;
 }
 
-/**
- * Fills `result.slots` from session memory where the extractor left a gap,
- * re-resolves timeRange phrase against `now`, then writes back every slot
- * that meets the confidence floor. Mutates `result` in place and returns it
- * for fluent composition.
- */
-export function mergeMemoryIntoResult(
+/** Phase 1 — fill empty slots from L2+L3 memory; no writes here. */
+export function fillResultFromMemory(
   result: DisambiguationResult,
   params: MergeMemoryParams,
 ): DisambiguationResult {
   const { db, sessionId, ownerId, gameId, now } = params;
   const mem = getResolutions(db, sessionId);
   const userPrefsCtx = { db, ownerId, gameId, now };
-
   fillGapsFromMemory(result, mem, now);
   fillGapsFromUserPrefs(result, userPrefsCtx);
   dropResolvedClarifications(result);
   upgradeActionIfNoClarsRemain(result);
-  writeConfidentSlotsToMemory(result, mem, { db, sessionId, ownerId });
-  writeConfidentSlotsToUserPrefs(result, userPrefsCtx);
-
   return result;
 }
 
-// Read path ---------------------------------------------------------------
+/** Phase 2 — write every still-confident slot back to L2+L3. Call after validation. */
+export function writeMemoryFromResult(
+  result: DisambiguationResult,
+  params: MergeMemoryParams,
+): void {
+  const { db, sessionId, ownerId, gameId, now } = params;
+  const mem = getResolutions(db, sessionId);
+  writeConfidentSlotsToMemory(result, mem, { db, sessionId, ownerId });
+  writeConfidentSlotsToUserPrefs(result, { db, ownerId, gameId, now });
+}
+
+/** Legacy single-call entry — fill then write, no validation between them. */
+export function mergeMemoryIntoResult(
+  result: DisambiguationResult,
+  params: MergeMemoryParams,
+): DisambiguationResult {
+  fillResultFromMemory(result, params);
+  writeMemoryFromResult(result, params);
+  return result;
+}
 
 function fillGapsFromMemory(
   result: DisambiguationResult,
@@ -117,8 +121,6 @@ function upgradeActionIfNoClarsRemain(result: DisambiguationResult): void {
     result.action = 'auto';
   }
 }
-
-// Write path --------------------------------------------------------------
 
 interface WriteCtx {
   db: Database.Database;

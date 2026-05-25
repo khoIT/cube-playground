@@ -59,6 +59,20 @@ export function composeQuery(input: ComposeInput): Partial<CubeQuery> {
     if (filters.length) out.filters = filters;
   }
 
+  // Leaderboard intent: rank rows of the per-entity dimension by the measure.
+  // Only emit order+limit when BOTH metric and dimension resolved — otherwise
+  // the clarification builder will collect the missing piece first.
+  if (
+    slots.intent?.value === 'leaderboard' &&
+    out.measures &&
+    out.measures.length > 0 &&
+    out.dimensions &&
+    out.dimensions.length > 0
+  ) {
+    out.order = { [out.measures[0]]: 'desc' };
+    out.limit = slots.limit && slots.limit > 0 ? slots.limit : 10;
+  }
+
   return out;
 }
 

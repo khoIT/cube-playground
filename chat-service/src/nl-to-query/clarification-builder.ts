@@ -31,6 +31,9 @@ function listSlots(slots: DisambiguationSlots): SlotInfo[] {
   out.push({ slot: 'metric', confidence: slots.metric.confidence });
   if (slots.dimension?.value || slots.dimension?.alias) {
     out.push({ slot: 'dimension', confidence: slots.dimension.confidence });
+  } else if (slots.intent?.value === 'leaderboard') {
+    // Leaderboard intent NEEDS an entity dimension — surface a forced clarification.
+    out.push({ slot: 'dimension', confidence: 0 });
   }
   // Treat timeRange as always-required when a metric is set — the user
   // almost certainly cares which window the metric covers, so prompt when
@@ -69,6 +72,19 @@ function metricOptions(glossary: OfficialTerm[]): ClarificationOption[] {
   }));
 }
 
+function dimensionQuestion(slots: DisambiguationSlots): { en: string; vi: string } {
+  if (slots.intent?.value === 'leaderboard') {
+    return {
+      en: 'Rank by which entity (e.g. by user, by country, by channel)?',
+      vi: 'Xếp hạng theo đối tượng nào (vd. theo user, theo quốc gia, theo kênh)?',
+    };
+  }
+  return {
+    en: 'How should I group the results?',
+    vi: 'Nhóm kết quả theo gì?',
+  };
+}
+
 const QUESTIONS: Record<Clarification['slot'], { en: string; vi: string }> = {
   metric: {
     en: 'Which metric should I show?',
@@ -99,7 +115,7 @@ export function buildClarifications(input: ClarifyInput): Clarification[] {
 
   weak.sort((a, b) => a.confidence - b.confidence);
   const target = weak[0];
-  const q = QUESTIONS[target.slot];
+  const q = target.slot === 'dimension' ? dimensionQuestion(input.slots) : QUESTIONS[target.slot];
   const options = target.slot === 'metric' ? metricOptions(input.glossary) : undefined;
 
   return [
