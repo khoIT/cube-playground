@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Cohort retention grid"
-status: pending
+status: completed
 priority: P2
 effort: "2-3d"
 dependencies: []

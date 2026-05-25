@@ -55,6 +55,10 @@ const AnomalyInboxPage = loadable(() =>
   import('./pages/Liveops/anomaly-inbox').then((m) => ({ default: m.AnomalyInboxPage }))
 );
 
+const CohortRetentionPage = loadable(() =>
+  import('./pages/Liveops/cohort').then((m) => ({ default: m.CohortRetentionPage }))
+);
+
 const DashboardsListPage = loadable(() =>
   import('./pages/Dashboards').then((m) => ({ default: m.DashboardsListPage }))
 );
@@ -167,6 +171,7 @@ ReactDOM.render(
                 <SegmentsPage />
               </KeepAliveRoute>
               <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
+              <Route key="liveops-cohort" exact path="/liveops/cohort" component={CohortRetentionPage} />
               <Route key="liveops" path="/liveops" component={LiveopsPage} />
               <Route key="dashboards-detail" path="/dashboards/:slug" component={DashboardDetailPage} />
               <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />

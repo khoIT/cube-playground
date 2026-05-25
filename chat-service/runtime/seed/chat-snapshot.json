@@ -92,6 +92,21 @@
       "deleted_at": null
     },
     {
+      "id": "3665a404-6fbe-4314-b522-b013215dd231",
+      "owner_id": "dev",
+      "game_id": "ballistar",
+      "title": "Total revenue this month, split by IAP vs Web payment channel",
+      "created_at": 1779711854248,
+      "last_turn_at": 1779711936381,
+      "turn_count": 1,
+      "total_input_tokens": 14,
+      "total_output_tokens": 2556,
+      "status": "active",
+      "parent_session_id": null,
+      "compacted_into": null,
+      "deleted_at": null
+    },
+    {
       "id": "44373151-0efa-40ed-bece-89256b9087b6",
       "owner_id": "dev",
       "game_id": "ptg",
@@ -212,6 +227,21 @@
       "deleted_at": null
     },
     {
+      "id": "927facfc-31ea-4c6f-b26b-4be2bcddbada",
+      "owner_id": "dev",
+      "game_id": "ballistar",
+      "title": "Total revenue this month, split by IAP vs Web payment channel",
+      "created_at": 1779711637819,
+      "last_turn_at": 1779711695293,
+      "turn_count": 1,
+      "total_input_tokens": 11,
+      "total_output_tokens": 2026,
+      "status": "active",
+      "parent_session_id": null,
+      "compacted_into": null,
+      "deleted_at": 1779714278337
+    },
+    {
       "id": "9662a686-e2f8-41f9-a961-5ee9bed60a6b",
       "owner_id": "dev",
       "game_id": "ballistar",
@@ -285,6 +315,21 @@
       "parent_session_id": null,
       "compacted_into": null,
       "deleted_at": null
+    },
+    {
+      "id": "dda21c0c-1dac-4cc4-aac9-e2e2ab69bccb",
+      "owner_id": "dev",
+      "game_id": "ballistar",
+      "title": "Total revenue this month, split by IAP vs Web payment channel",
+      "created_at": 1779707906319,
+      "last_turn_at": 1779708061626,
+      "turn_count": 2,
+      "total_input_tokens": 17,
+      "total_output_tokens": 4908,
+      "status": "active",
+      "parent_session_id": null,
+      "compacted_into": null,
+      "deleted_at": 1779714264884
     },
     {
       "id": "e5933b8b-517e-4c70-bc4f-fd88d8b99ee4",
@@ -401,7 +446,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "4bfc713b-bd9e-4962-811f-5e3dc91bbb91",
@@ -426,7 +472,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "86823018-0b7e-45cc-a512-0ddf0b6e92b0",
@@ -451,7 +498,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "8201be43-ddd9-43b8-8400-de96e7387c7b",
@@ -476,7 +524,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "4eaef7b8-128b-475c-86bd-f90c3dfadf8a",
@@ -501,7 +550,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "d49bf981-7f8d-4621-ac8b-04760d6f37c9",
@@ -526,7 +576,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "bd82a38a-6e7a-4436-aeac-8d88c8775a9e",
@@ -551,7 +602,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "aeb1c143-6cf4-4a69-8634-ba7dd5d7675a",
@@ -576,7 +628,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "e11e5436-149c-4e8a-bd4a-916be673ceea",
@@ -601,7 +654,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "7cf3f15f-e847-4420-a638-c6219cca6f6e",
@@ -626,7 +680,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "791db71c-526a-47b8-ab82-840444eeb3ec",
@@ -651,7 +706,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "6419ab54-0cff-4e4f-b020-486f4d423196",
@@ -676,7 +732,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "5a807b64-c444-4515-8c10-3ecd1ae9e1b0",
@@ -701,7 +758,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "4fc96880-3afc-4b1f-bc45-45acf5e8537d",
@@ -726,7 +784,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "8963c6e1-50bf-4a08-98b0-eb0ac6b6b7e6",
@@ -751,7 +810,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "c263f5be-24c1-4c0f-9994-66f6c94dab7e",
@@ -776,7 +836,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "27ba2e48-2a33-4c5f-9bfd-b3573ffec4a7",
@@ -801,7 +862,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "aa0514ee-773d-441f-aa24-6c23a492562e",
@@ -826,7 +888,60 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "b18db150-658c-45ea-ae0d-ebfafa0e0d81",
+      "session_id": "3665a404-6fbe-4314-b522-b013215dd231",
+      "turn_index": 0,
+      "role": "user",
+      "user_text": "Total revenue this month, split by IAP vs Web payment channel",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779711854249,
+      "ended_at": 1779711854249,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null,
+      "stop_reason": null,
+      "cache_creation_tokens": null,
+      "cache_read_tokens": null,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "6f24f2a2-1a2e-427e-9f33-01e4b59f048f",
+      "session_id": "3665a404-6fbe-4314-b522-b013215dd231",
+      "turn_index": 1,
+      "role": "assistant",
+      "user_text": null,
+      "assistant_text": "The artifact is ready. Here's what's wired up:\n\n- **Metric:** {{field:recharge.revenue_vnd}} (business metric: Revenue)\n- **Dimension:** {{field:recharge.payment_channel}} — splits rows by IAP vs Web\n- **Time filter:** `recharge_date` from 2026-05-01 → 2026-05-25\n\n⚠️ **No data returned** for ballistar across all preview attempts — the `recharge` cube appears empty in this environment (no transactions loaded yet). The query structure is correct; click the artifact to open it in `/build` and it will populate automatically once data is ingested.",
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": "[{\"id\":\"329ce27a-e49f-47dd-97bb-319fc08810f5\",\"title\":\"Revenue This Month by Payment Channel\",\"summary\":\"Total revenue (VND) for May 2026, grouped by payment channel (IAP vs Web), ordered highest first.\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"recharge.revenue_vnd\"],\"dimensions\":[\"recharge.payment_channel\"],\"timeDimensions\":[{\"dimension\":\"recharge.recharge_date\",\"dateRange\":[\"2026-05-01\",\"2026-05-25\"]}],\"order\":{\"recharge.revenue_vnd\":\"desc\"}},\"source\":\"business-metric\",\"sourceRef\":{\"id\":\"revenue\"},\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22recharge.revenue_vnd%22%5D%2C%22dimensions%22%3A%5B%22recharge.payment_channel%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22recharge.recharge_date%22%2C%22dateRange%22%3A%5B%222026-05-01%22%2C%222026-05-25%22%5D%7D%5D%2C%22order%22%3A%7B%22recharge.revenue_vnd%22%3A%22desc%22%7D%7D\",\"deeplinkVia\":\"inline\"}]",
+      "input_tokens": 14,
+      "output_tokens": 2556,
+      "cost_usd": 0.25752345,
+      "skill": "explore",
+      "started_at": 1779711854249,
+      "ended_at": 1779711936372,
+      "charts_json": "[]",
+      "system_prompt_text": "# Cube Playground Master Command\n\nYou are the Cube Playground assistant for VNGGames data analysts. Your job: turn natural-language questions into clickable Cube-query artifacts that open in the Playground at `/build`.\n\n## Identity\n\n- You answer **only** analytics questions scoped to the active game.\n- You **never** invent cube member names. If a measure or dimension you need isn't in `/meta`, say so and ask the user to pick the closest one.\n- You always prefer existing **business-metric YAML** (`list_business_metrics`, `get_business_metric`) over composing a raw Cube query from scratch. Raw queries are only for questions that have no matching business metric.\n- You explain your reasoning briefly. The reasoning trace appears in the UI; keep it tight and focused on the decision (which tool, why, what you'll do next).\n\n## Output rules\n\n1. **Final answer must include a clickable query artifact.** Use `emit_query_artifact` with a precise title, a one-sentence summary, the validated Cube query, and `source: 'business-metric' | 'segment' | 'raw'` + `sourceRef` when applicable. The tool builds the deeplink — you do not synthesise URLs.\n2. **Validate before emitting.** Call `get_cube_meta` once at the start of a session to learn which cubes/members exist; cache it mentally. If a measure name looks plausible but you haven't seen it in `/meta`, do not emit — ask the user.\n3. **Preview before emitting** when the question is ambiguous about time range or grain. `preview_cube_query` with `limit: 10` to confirm the shape; if the result looks wrong, adjust before calling `emit_query_artifact`.\n4. **One artifact per turn.** If the user asks two questions, emit two artifacts in sequence.\n5. **Refuse politely** for non-analytics asks (general coding help, off-topic chat). Suggest the user try `/build` directly or another tool.\n\n## Tool allowlist\n\nOnly these tools are wired:\n\n- `get_cube_meta` — read the active game's `/meta`.\n- `preview_cube_query` — run a small (≤50 row) query against `/load`.\n- `emit_query_artifact` — emit a clickable card with a built deeplink.\n\n(Phase 02 adds business-metric + segment + explain-sql tools; the same rules apply.)\n\n## Tone\n\nConcise. Vietnamese or English, matching the user. Skip preamble — the user already clicked into a chat scoped to their game.\n\n---\n\n## Active skill: Explore\n\n# Explore Skill\n\nTranslate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.\n\n## Pre-flight disambiguation (REQUIRED)\n\nBefore any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers (\"10tr\" → 10000000) and dates (\"3 tháng qua\", \"Q1 2026\"), and tells you what to do next:\n\n- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of \"Identify the metric\" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.\n- `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**\n\nIf `warnings[]` contains a \"thousands separator\" note, mention the assumed interpretation in your final summary so the user can correct it.\n\n## Steps\n\n1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:\n   - Call `list_business_metrics({ query: <user's metric phrase> })` first.\n   - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.\n   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.\n2. **Identify dimensions, filters, time grain.** Default time range is \"last 7 days\" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: \"tuần qua\" → \"last 7 days\".\n3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.\n4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.\n5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.\n6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.\n\n## Guard rails\n\n- Never invent cube member names — confirm via `get_cube_meta`.\n- Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.\n- Refuse non-analytics asks; redirect to /build.\n\n## Charts\n\nWhen the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.\n\nPick `type` by shape:\n\n| Data shape | `type` |\n|---|---|\n| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |\n| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |\n| 1 categorical + 1 metric (short labels) | `bar` |\n| 1 time dim + 1 metric | `line` (or `area` for cumulative) |\n| 1 time dim + 1 metric + 1 breakdown | `multi-line` |\n| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |\n| 2 numeric metrics | `scatter` |\n\nRules:\n- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.\n- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.\n- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.\n- Server truncates > 30 rows into an \"Other\" lump automatically.\n- One chart per turn unless explicitly comparing.\n\n---\n\n## Active game\n\nballistar\n\n---\n\n## Field chip token\n\nWhen referencing a specific cube field (measure / dimension / segment),\nemit it as a locked token so the UI can render it as a clickable chip:\n\n    {{field:<cube>.<member>}}\n\nExamples:\n- \"Daily revenue is computed from {{field:recharge.revenue_vnd}}.\"\n- \"Filter by {{field:players.country}} = 'VN'.\"\n\nUse the token in body text only; tool-result payloads should keep raw\nidentifiers. Do not invent fields — only emit tokens for fields that\nexist in the active game's catalog.",
+      "model": "claude-sonnet-4-6",
+      "stop_reason": "end_turn",
+      "cache_creation_tokens": 13205,
+      "cache_read_tokens": 560159,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "345733a5-a712-4be0-b284-778b1320ba93",
@@ -851,7 +966,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "e967db2c-0d30-4d72-a8d3-696b9b417edf",
@@ -876,7 +992,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "fee7b568-127f-4509-9f03-698742e48179",
@@ -901,7 +1018,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "7b823991-cfa4-4981-8592-9a125e226fef",
@@ -926,7 +1044,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "2310be2c-4bb9-4479-805f-1ab1d6093217",
@@ -951,7 +1070,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "8367293d-4cae-462a-90c4-a5ea32a40bb6",
@@ -976,7 +1096,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "2a40fe39-4158-4017-81d5-6956faa2ab2c",
@@ -1001,7 +1122,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "5760901b-b3f1-457a-ac24-0cbdd5afead7",
@@ -1026,7 +1148,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "74fbb3ad-3482-4ab8-a872-08d58b8e1eb1",
@@ -1051,7 +1174,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "1fcaf524-c46e-45e7-821e-a8efc2944482",
@@ -1076,7 +1200,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "b871bbc2-2f8e-497e-b187-ec90dd034c18",
@@ -1101,7 +1226,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "63b2f80a-0996-4f81-8915-c33ee02811dc",
@@ -1126,7 +1252,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "4e92e91f-98ad-4924-8641-7536fd1058f5",
@@ -1151,7 +1278,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "b09b3a64-7ab1-4dd0-8f77-4e5c859d5d5f",
@@ -1176,7 +1304,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "20d0c4af-7f37-4e72-b703-efea9440db73",
@@ -1201,7 +1330,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "eb02cc8c-1ab0-4ded-b069-75912138caab",
@@ -1226,7 +1356,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "ce2481c3-33cf-4e58-ada0-d47914b6ba1a",
@@ -1251,7 +1382,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "7ca6f1ec-9155-433a-aacc-779b33e97b10",
@@ -1276,7 +1408,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "443bdb68-5317-4cc3-b211-5d2d265e921a",
@@ -1301,7 +1434,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "d80cc449-8d08-4b38-b5b3-9b81031cd136",
@@ -1326,7 +1460,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "75568136-50af-46ad-87de-1f9e648947f6",
@@ -1351,7 +1486,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "60965451-0025-497b-9a1d-ccf0e433b476",
@@ -1376,7 +1512,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "658813d7-7336-4920-956e-16da9ce68cc6",
@@ -1401,7 +1538,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "a5b9a772-4645-4dd2-b280-69dd0853d27d",
@@ -1426,7 +1564,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "5ada7a62-4322-4a4d-8356-5f6a8ce80e57",
@@ -1451,7 +1590,8 @@
       "cache_creation_tokens": 50020,
       "cache_read_tokens": 146662,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "bce47cbb-3c45-46a3-a7eb-46fda73ac141",
@@ -1476,7 +1616,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "c8f29251-ca24-48d4-a30e-77b33853b7db",
@@ -1501,7 +1642,60 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "400e3475-c070-4b38-a77b-28cbdfa1da0d",
+      "session_id": "927facfc-31ea-4c6f-b26b-4be2bcddbada",
+      "turn_index": 0,
+      "role": "user",
+      "user_text": "Total revenue this month, split by IAP vs Web payment channel",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779711637821,
+      "ended_at": 1779711637821,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null,
+      "stop_reason": null,
+      "cache_creation_tokens": null,
+      "cache_read_tokens": null,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "0265500c-1bd4-4929-880e-2b3fe55fc140",
+      "session_id": "927facfc-31ea-4c6f-b26b-4be2bcddbada",
+      "turn_index": 1,
+      "role": "assistant",
+      "user_text": null,
+      "assistant_text": "Query uses {{field:recharge.revenue_vnd}} grouped by {{field:recharge.payment_channel}} for May 2026 (2026-05-01 → 2026-05-31), sourced from the **Revenue** business metric.\n\n**Note:** The data warehouse (`gio-gds-trino`) returned a connection error (`ECONNREFUSED`) during preview. The artifact is structurally valid — click it to run when the warehouse is reachable. If data still appears empty, double-check that `recharge_date` has records for May 2026 (the game may log transactions under a different month boundary).",
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": "[{\"id\":\"2c2cbbdc-410e-44de-b433-a9c3678cc07c\",\"title\":\"May 2026 Revenue by Payment Channel\",\"summary\":\"Total revenue (VND) for May 2026 grouped by payment channel (IAP vs Web), ordered highest first.\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"recharge.revenue_vnd\"],\"dimensions\":[\"recharge.payment_channel\"],\"timeDimensions\":[{\"dimension\":\"recharge.recharge_date\",\"dateRange\":[\"2026-05-01\",\"2026-05-31\"]}],\"order\":{\"recharge.revenue_vnd\":\"desc\"}},\"source\":\"business-metric\",\"sourceRef\":{\"id\":\"revenue\",\"name\":\"Revenue\"},\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22recharge.revenue_vnd%22%5D%2C%22dimensions%22%3A%5B%22recharge.payment_channel%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22recharge.recharge_date%22%2C%22dateRange%22%3A%5B%222026-05-01%22%2C%222026-05-31%22%5D%7D%5D%2C%22order%22%3A%7B%22recharge.revenue_vnd%22%3A%22desc%22%7D%7D\",\"deeplinkVia\":\"inline\"}]",
+      "input_tokens": 11,
+      "output_tokens": 2026,
+      "cost_usd": 0.35785680000000003,
+      "skill": "explore",
+      "started_at": 1779711637821,
+      "ended_at": 1779711695282,
+      "charts_json": "[]",
+      "system_prompt_text": "# Cube Playground Master Command\n\nYou are the Cube Playground assistant for VNGGames data analysts. Your job: turn natural-language questions into clickable Cube-query artifacts that open in the Playground at `/build`.\n\n## Identity\n\n- You answer **only** analytics questions scoped to the active game.\n- You **never** invent cube member names. If a measure or dimension you need isn't in `/meta`, say so and ask the user to pick the closest one.\n- You always prefer existing **business-metric YAML** (`list_business_metrics`, `get_business_metric`) over composing a raw Cube query from scratch. Raw queries are only for questions that have no matching business metric.\n- You explain your reasoning briefly. The reasoning trace appears in the UI; keep it tight and focused on the decision (which tool, why, what you'll do next).\n\n## Output rules\n\n1. **Final answer must include a clickable query artifact.** Use `emit_query_artifact` with a precise title, a one-sentence summary, the validated Cube query, and `source: 'business-metric' | 'segment' | 'raw'` + `sourceRef` when applicable. The tool builds the deeplink — you do not synthesise URLs.\n2. **Validate before emitting.** Call `get_cube_meta` once at the start of a session to learn which cubes/members exist; cache it mentally. If a measure name looks plausible but you haven't seen it in `/meta`, do not emit — ask the user.\n3. **Preview before emitting** when the question is ambiguous about time range or grain. `preview_cube_query` with `limit: 10` to confirm the shape; if the result looks wrong, adjust before calling `emit_query_artifact`.\n4. **One artifact per turn.** If the user asks two questions, emit two artifacts in sequence.\n5. **Refuse politely** for non-analytics asks (general coding help, off-topic chat). Suggest the user try `/build` directly or another tool.\n\n## Tool allowlist\n\nOnly these tools are wired:\n\n- `get_cube_meta` — read the active game's `/meta`.\n- `preview_cube_query` — run a small (≤50 row) query against `/load`.\n- `emit_query_artifact` — emit a clickable card with a built deeplink.\n\n(Phase 02 adds business-metric + segment + explain-sql tools; the same rules apply.)\n\n## Tone\n\nConcise. Vietnamese or English, matching the user. Skip preamble — the user already clicked into a chat scoped to their game.\n\n---\n\n## Active skill: Explore\n\n# Explore Skill\n\nTranslate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.\n\n## Pre-flight disambiguation (REQUIRED)\n\nBefore any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers (\"10tr\" → 10000000) and dates (\"3 tháng qua\", \"Q1 2026\"), and tells you what to do next:\n\n- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of \"Identify the metric\" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.\n- `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**\n\nIf `warnings[]` contains a \"thousands separator\" note, mention the assumed interpretation in your final summary so the user can correct it.\n\n## Steps\n\n1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:\n   - Call `list_business_metrics({ query: <user's metric phrase> })` first.\n   - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.\n   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.\n2. **Identify dimensions, filters, time grain.** Default time range is \"last 7 days\" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: \"tuần qua\" → \"last 7 days\".\n3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.\n4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.\n5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.\n6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.\n\n## Guard rails\n\n- Never invent cube member names — confirm via `get_cube_meta`.\n- Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.\n- Refuse non-analytics asks; redirect to /build.\n\n## Charts\n\nWhen the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.\n\nPick `type` by shape:\n\n| Data shape | `type` |\n|---|---|\n| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |\n| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |\n| 1 categorical + 1 metric (short labels) | `bar` |\n| 1 time dim + 1 metric | `line` (or `area` for cumulative) |\n| 1 time dim + 1 metric + 1 breakdown | `multi-line` |\n| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |\n| 2 numeric metrics | `scatter` |\n\nRules:\n- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.\n- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.\n- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.\n- Server truncates > 30 rows into an \"Other\" lump automatically.\n- One chart per turn unless explicitly comparing.\n\n---\n\n## Active game\n\nballistar\n\n---\n\n## Field chip token\n\nWhen referencing a specific cube field (measure / dimension / segment),\nemit it as a locked token so the UI can render it as a clickable chip:\n\n    {{field:<cube>.<member>}}\n\nExamples:\n- \"Daily revenue is computed from {{field:recharge.revenue_vnd}}.\"\n- \"Filter by {{field:players.country}} = 'VN'.\"\n\nUse the token in body text only; tool-result payloads should keep raw\nidentifiers. Do not invent fields — only emit tokens for fields that\nexist in the active game's catalog.",
+      "model": "claude-sonnet-4-6",
+      "stop_reason": "end_turn",
+      "cache_creation_tokens": 60370,
+      "cache_read_tokens": 331721,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "30688eb5-6010-4bad-bd8d-f64ea20956c8",
@@ -1526,7 +1720,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "22ea9683-f36c-4b20-8b6a-452f6128c6a6",
@@ -1551,7 +1746,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "12e7a819-c148-4c59-94bd-e7d5eb993e98",
@@ -1576,7 +1772,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "138e8ca1-525e-43dd-a709-90ebb370d237",
@@ -1601,7 +1798,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "fd5a2b62-9954-4354-8d26-9a7707f966f8",
@@ -1626,7 +1824,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "64a6723a-486c-483f-8c17-5d81b9003545",
@@ -1651,7 +1850,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "87e4a0d2-0be2-4877-89b4-22f4652f9668",
@@ -1676,7 +1876,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "55b54303-f78c-4361-a017-adc8e9e0e19c",
@@ -1701,7 +1902,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "e7d9117c-3c5b-48fe-9494-24ef63837bd2",
@@ -1726,7 +1928,112 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "351e6523-6fba-40ce-9a19-31a9a81fc9ed",
+      "session_id": "dda21c0c-1dac-4cc4-aac9-e2e2ab69bccb",
+      "turn_index": 0,
+      "role": "user",
+      "user_text": "Total revenue this month, split by IAP vs Web payment channel",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779707906324,
+      "ended_at": 1779707906324,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null,
+      "stop_reason": null,
+      "cache_creation_tokens": null,
+      "cache_read_tokens": null,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "de440982-0dee-4af6-9919-e6b5f5965417",
+      "session_id": "dda21c0c-1dac-4cc4-aac9-e2e2ab69bccb",
+      "turn_index": 1,
+      "role": "assistant",
+      "user_text": null,
+      "assistant_text": "Here's the May 2026 (1–25) revenue summary across channels:\n\n| Group | Channels | Revenue (VND) |\n|-------|----------|--------------|\n| **Web** | 72, 51, 38, 52, 71, 1 | **~4.13B** |\n| **IAP** | appstore + playstore | **~2.22B** |\n| Other | userbalance | ~3.2M |\n| **Total** | | **~6.35B** |\n\n**Key takeaways:**\n- **Web dominates at ~65%** of total revenue — channel `72` alone (~2.35B) is the single biggest gateway, larger than all IAP combined.\n- **IAP is ~35%** — split fairly evenly between App Store (~1.3B) and Play Store (~927M), with iOS slightly ahead.\n- `userbalance` is negligible (~0.05%).\n\nThe {{field:recharge.payment_channel}} dimension shows raw gateway codes for web channels (72, 51, 38, etc.) — if you need a cleaned IAP vs Web roll-up as a single filter, I can add a filter on `payment_channel in ('appstore','playstore')` vs the rest. Just say the word.",
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": "[{\"id\":\"5666d562-7c01-4b50-9aa0-10fc44490e74\",\"title\":\"May 2026 Revenue by Payment Channel\",\"summary\":\"Total revenue (VND) for May 1–25 2026, broken down by each payment channel — IAP (appstore, playstore) vs web gateway codes.\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"recharge.revenue_vnd\"],\"dimensions\":[\"recharge.payment_channel\"],\"timeDimensions\":[{\"dimension\":\"recharge.recharge_time\",\"dateRange\":[\"2026-05-01\",\"2026-05-25\"]}],\"order\":{\"recharge.revenue_vnd\":\"desc\"}},\"source\":\"business-metric\",\"sourceRef\":{\"id\":\"revenue\",\"name\":\"Revenue\"},\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22recharge.revenue_vnd%22%5D%2C%22dimensions%22%3A%5B%22recharge.payment_channel%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22recharge.recharge_time%22%2C%22dateRange%22%3A%5B%222026-05-01%22%2C%222026-05-25%22%5D%7D%5D%2C%22order%22%3A%7B%22recharge.revenue_vnd%22%3A%22desc%22%7D%7D\",\"deeplinkVia\":\"inline\",\"chart\":{\"id\":\"343c3b7e-4502-4648-9640-02e45bf01de8\",\"spec\":{\"title\":\"May 2026 Revenue by Payment Channel (VND)\",\"caption\":\"Ranked by revenue, May 1–25 2026\",\"data\":[{\"channel\":\"72 (web)\",\"revenue\":2352660000},{\"channel\":\"appstore (IAP)\",\"revenue\":1295676000},{\"channel\":\"playstore (IAP)\",\"revenue\":927260000},{\"channel\":\"51 (web)\",\"revenue\":645260000},{\"channel\":\"38 (web)\",\"revenue\":444160000},{\"channel\":\"52 (web)\",\"revenue\":273140000},{\"channel\":\"71 (web)\",\"revenue\":214320000},{\"channel\":\"1 (web)\",\"revenue\":198960000},{\"channel\":\"userbalance\",\"revenue\":3220000}],\"type\":\"horizontal-bar\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue\"}},\"truncated\":false,\"originalRowCount\":9,\"artifactRef\":\"5666d562-7c01-4b50-9aa0-10fc44490e74\"}}]",
+      "input_tokens": 10,
+      "output_tokens": 2364,
+      "cost_usd": 0.34620915,
+      "skill": "explore",
+      "started_at": 1779707906324,
+      "ended_at": 1779707963759,
+      "charts_json": "[]",
+      "system_prompt_text": "# Cube Playground Master Command\n\nYou are the Cube Playground assistant for VNGGames data analysts. Your job: turn natural-language questions into clickable Cube-query artifacts that open in the Playground at `/build`.\n\n## Identity\n\n- You answer **only** analytics questions scoped to the active game.\n- You **never** invent cube member names. If a measure or dimension you need isn't in `/meta`, say so and ask the user to pick the closest one.\n- You always prefer existing **business-metric YAML** (`list_business_metrics`, `get_business_metric`) over composing a raw Cube query from scratch. Raw queries are only for questions that have no matching business metric.\n- You explain your reasoning briefly. The reasoning trace appears in the UI; keep it tight and focused on the decision (which tool, why, what you'll do next).\n\n## Output rules\n\n1. **Final answer must include a clickable query artifact.** Use `emit_query_artifact` with a precise title, a one-sentence summary, the validated Cube query, and `source: 'business-metric' | 'segment' | 'raw'` + `sourceRef` when applicable. The tool builds the deeplink — you do not synthesise URLs.\n2. **Validate before emitting.** Call `get_cube_meta` once at the start of a session to learn which cubes/members exist; cache it mentally. If a measure name looks plausible but you haven't seen it in `/meta`, do not emit — ask the user.\n3. **Preview before emitting** when the question is ambiguous about time range or grain. `preview_cube_query` with `limit: 10` to confirm the shape; if the result looks wrong, adjust before calling `emit_query_artifact`.\n4. **One artifact per turn.** If the user asks two questions, emit two artifacts in sequence.\n5. **Refuse politely** for non-analytics asks (general coding help, off-topic chat). Suggest the user try `/build` directly or another tool.\n\n## Tool allowlist\n\nOnly these tools are wired:\n\n- `get_cube_meta` — read the active game's `/meta`.\n- `preview_cube_query` — run a small (≤50 row) query against `/load`.\n- `emit_query_artifact` — emit a clickable card with a built deeplink.\n\n(Phase 02 adds business-metric + segment + explain-sql tools; the same rules apply.)\n\n## Tone\n\nConcise. Vietnamese or English, matching the user. Skip preamble — the user already clicked into a chat scoped to their game.\n\n---\n\n## Active skill: Explore\n\n# Explore Skill\n\nTranslate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.\n\n## Pre-flight disambiguation (REQUIRED)\n\nBefore any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers (\"10tr\" → 10000000) and dates (\"3 tháng qua\", \"Q1 2026\"), and tells you what to do next:\n\n- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of \"Identify the metric\" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.\n- `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**\n\nIf `warnings[]` contains a \"thousands separator\" note, mention the assumed interpretation in your final summary so the user can correct it.\n\n## Steps\n\n1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:\n   - Call `list_business_metrics({ query: <user's metric phrase> })` first.\n   - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.\n   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.\n2. **Identify dimensions, filters, time grain.** Default time range is \"last 7 days\" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: \"tuần qua\" → \"last 7 days\".\n3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.\n4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.\n5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.\n6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.\n\n## Guard rails\n\n- Never invent cube member names — confirm via `get_cube_meta`.\n- Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.\n- Refuse non-analytics asks; redirect to /build.\n\n## Charts\n\nWhen the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.\n\nPick `type` by shape:\n\n| Data shape | `type` |\n|---|---|\n| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |\n| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |\n| 1 categorical + 1 metric (short labels) | `bar` |\n| 1 time dim + 1 metric | `line` (or `area` for cumulative) |\n| 1 time dim + 1 metric + 1 breakdown | `multi-line` |\n| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |\n| 2 numeric metrics | `scatter` |\n\nRules:\n- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.\n- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.\n- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.\n- Server truncates > 30 rows into an \"Other\" lump automatically.\n- One chart per turn unless explicitly comparing.\n\n---\n\n## Active game\n\nballistar\n\n---\n\n## Field chip token\n\nWhen referencing a specific cube field (measure / dimension / segment),\nemit it as a locked token so the UI can render it as a clickable chip:\n\n    {{field:<cube>.<member>}}\n\nExamples:\n- \"Daily revenue is computed from {{field:recharge.revenue_vnd}}.\"\n- \"Filter by {{field:players.country}} = 'VN'.\"\n\nUse the token in body text only; tool-result payloads should keep raw\nidentifiers. Do not invent fields — only emit tokens for fields that\nexist in the active game's catalog.",
+      "model": "claude-sonnet-4-6",
+      "stop_reason": "end_turn",
+      "cache_creation_tokens": 60643,
+      "cache_read_tokens": 272593,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "dae6f7e5-2da8-49a6-855b-d0a47287c39a",
+      "session_id": "dda21c0c-1dac-4cc4-aac9-e2e2ab69bccb",
+      "turn_index": 2,
+      "role": "user",
+      "user_text": "Total revenue this month, split by IAP vs Web payment channel",
+      "assistant_text": null,
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": null,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "skill": null,
+      "started_at": 1779708010203,
+      "ended_at": 1779708010203,
+      "charts_json": null,
+      "system_prompt_text": null,
+      "model": null,
+      "stop_reason": null,
+      "cache_creation_tokens": null,
+      "cache_read_tokens": null,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
+    },
+    {
+      "id": "255422ae-53e0-4484-a095-d44682a2a722",
+      "session_id": "dda21c0c-1dac-4cc4-aac9-e2e2ab69bccb",
+      "turn_index": 3,
+      "role": "assistant",
+      "user_text": null,
+      "assistant_text": "**May 2026 (1–25) Revenue by payment channel**, using {{field:recharge.revenue_vnd}} grouped by {{field:recharge.payment_channel}}:\n\n| Group | Channels | Revenue (VND) |\n|---|---|---|\n| **IAP** | appstore + playstore | **~2.22B** |\n| **Web** | 72, 51, 38, 52, 71, 1 | **~4.13B** |\n| Other | userbalance | ~3.2M |\n\n**Web dominates at ~65% of total revenue (~6.35B VND).** Channel `72` is the single biggest contributor at 2.35B — worth investigating what payment provider maps to that code. IAP (App Store + Play Store combined) contributes ~35%.\n\n> ⚠️ The numeric channel codes (72, 51, 38, …) are raw IDs from the recharge table — if you have a channel name mapping, filtering or aliasing them in the Playground will give a cleaner view.",
+      "reasoning_json": null,
+      "tool_calls_json": null,
+      "artifacts_json": "[{\"id\":\"ddc8cddb-6f73-4689-a9e0-dfa61cd6c692\",\"title\":\"May 2026 Revenue by Payment Channel\",\"summary\":\"Total revenue (VND) for May 1–25 2026 broken down by each payment channel — IAP (appstore, playstore) vs Web (numeric channel codes).\",\"game\":\"ballistar\",\"query\":{\"measures\":[\"recharge.revenue_vnd\"],\"dimensions\":[\"recharge.payment_channel\"],\"timeDimensions\":[{\"dimension\":\"recharge.recharge_date\",\"dateRange\":[\"2026-05-01\",\"2026-05-25\"]}],\"order\":{\"recharge.revenue_vnd\":\"desc\"}},\"source\":\"business-metric\",\"sourceRef\":{\"id\":\"revenue\",\"name\":\"Revenue\"},\"deeplinkUrl\":\"#/build?query=%7B%22measures%22%3A%5B%22recharge.revenue_vnd%22%5D%2C%22dimensions%22%3A%5B%22recharge.payment_channel%22%5D%2C%22timeDimensions%22%3A%5B%7B%22dimension%22%3A%22recharge.recharge_date%22%2C%22dateRange%22%3A%5B%222026-05-01%22%2C%222026-05-25%22%5D%7D%5D%2C%22order%22%3A%7B%22recharge.revenue_vnd%22%3A%22desc%22%7D%7D\",\"deeplinkVia\":\"inline\",\"chart\":{\"id\":\"6c56162a-f3c0-403f-9f0a-e8415b0610cb\",\"spec\":{\"title\":\"May 2026 Revenue by Payment Channel (VND)\",\"caption\":\"IAP = appstore + playstore ≈ 2.22B VND | Web (all numeric codes) ≈ 4.13B VND\",\"data\":[{\"channel\":\"72 (Web)\",\"revenue\":2352660000},{\"channel\":\"appstore (IAP)\",\"revenue\":1295676000},{\"channel\":\"playstore (IAP)\",\"revenue\":927260000},{\"channel\":\"51 (Web)\",\"revenue\":645260000},{\"channel\":\"38 (Web)\",\"revenue\":444160000},{\"channel\":\"52 (Web)\",\"revenue\":273140000},{\"channel\":\"71 (Web)\",\"revenue\":214320000},{\"channel\":\"1 (Web)\",\"revenue\":198960000},{\"channel\":\"userbalance\",\"revenue\":3220000}],\"type\":\"horizontal-bar\",\"encoding\":{\"category\":\"channel\",\"value\":\"revenue\"}},\"truncated\":false,\"originalRowCount\":9,\"artifactRef\":\"ddc8cddb-6f73-4689-a9e0-dfa61cd6c692\"}}]",
+      "input_tokens": 7,
+      "output_tokens": 2544,
+      "cost_usd": 0.16681305,
+      "skill": "explore",
+      "started_at": 1779708010203,
+      "ended_at": 1779708061608,
+      "charts_json": "[]",
+      "system_prompt_text": "# Cube Playground Master Command\n\nYou are the Cube Playground assistant for VNGGames data analysts. Your job: turn natural-language questions into clickable Cube-query artifacts that open in the Playground at `/build`.\n\n## Identity\n\n- You answer **only** analytics questions scoped to the active game.\n- You **never** invent cube member names. If a measure or dimension you need isn't in `/meta`, say so and ask the user to pick the closest one.\n- You always prefer existing **business-metric YAML** (`list_business_metrics`, `get_business_metric`) over composing a raw Cube query from scratch. Raw queries are only for questions that have no matching business metric.\n- You explain your reasoning briefly. The reasoning trace appears in the UI; keep it tight and focused on the decision (which tool, why, what you'll do next).\n\n## Output rules\n\n1. **Final answer must include a clickable query artifact.** Use `emit_query_artifact` with a precise title, a one-sentence summary, the validated Cube query, and `source: 'business-metric' | 'segment' | 'raw'` + `sourceRef` when applicable. The tool builds the deeplink — you do not synthesise URLs.\n2. **Validate before emitting.** Call `get_cube_meta` once at the start of a session to learn which cubes/members exist; cache it mentally. If a measure name looks plausible but you haven't seen it in `/meta`, do not emit — ask the user.\n3. **Preview before emitting** when the question is ambiguous about time range or grain. `preview_cube_query` with `limit: 10` to confirm the shape; if the result looks wrong, adjust before calling `emit_query_artifact`.\n4. **One artifact per turn.** If the user asks two questions, emit two artifacts in sequence.\n5. **Refuse politely** for non-analytics asks (general coding help, off-topic chat). Suggest the user try `/build` directly or another tool.\n\n## Tool allowlist\n\nOnly these tools are wired:\n\n- `get_cube_meta` — read the active game's `/meta`.\n- `preview_cube_query` — run a small (≤50 row) query against `/load`.\n- `emit_query_artifact` — emit a clickable card with a built deeplink.\n\n(Phase 02 adds business-metric + segment + explain-sql tools; the same rules apply.)\n\n## Tone\n\nConcise. Vietnamese or English, matching the user. Skip preamble — the user already clicked into a chat scoped to their game.\n\n---\n\n## Active skill: Explore\n\n# Explore Skill\n\nTranslate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.\n\n## Pre-flight disambiguation (REQUIRED)\n\nBefore any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers (\"10tr\" → 10000000) and dates (\"3 tháng qua\", \"Q1 2026\"), and tells you what to do next:\n\n- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of \"Identify the metric\" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.\n- `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**\n\nIf `warnings[]` contains a \"thousands separator\" note, mention the assumed interpretation in your final summary so the user can correct it.\n\n## Steps\n\n1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:\n   - Call `list_business_metrics({ query: <user's metric phrase> })` first.\n   - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.\n   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.\n2. **Identify dimensions, filters, time grain.** Default time range is \"last 7 days\" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: \"tuần qua\" → \"last 7 days\".\n3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.\n4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.\n5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.\n6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.\n\n## Guard rails\n\n- Never invent cube member names — confirm via `get_cube_meta`.\n- Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.\n- Refuse non-analytics asks; redirect to /build.\n\n## Charts\n\nWhen the preview returns ≥ 3 rows with a chartable shape, prefer a chart over a markdown table.\n\nPick `type` by shape:\n\n| Data shape | `type` |\n|---|---|\n| 1 categorical (≤ 8 values) + 1 metric, share-of-whole | `pie` or `donut` |\n| 1 categorical (> 8) + 1 metric, long labels | `horizontal-bar` |\n| 1 categorical + 1 metric (short labels) | `bar` |\n| 1 time dim + 1 metric | `line` (or `area` for cumulative) |\n| 1 time dim + 1 metric + 1 breakdown | `multi-line` |\n| 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |\n| 2 numeric metrics | `scatter` |\n\nRules:\n- If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.\n- If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.\n- `stacked-bar` and `multi-line` REQUIRE `encoding.series`.\n- Server truncates > 30 rows into an \"Other\" lump automatically.\n- One chart per turn unless explicitly comparing.\n\n---\n\n## Active game\n\nballistar\n\n---\n\n## Field chip token\n\nWhen referencing a specific cube field (measure / dimension / segment),\nemit it as a locked token so the UI can render it as a clickable chip:\n\n    {{field:<cube>.<member>}}\n\nExamples:\n- \"Daily revenue is computed from {{field:recharge.revenue_vnd}}.\"\n- \"Filter by {{field:players.country}} = 'VN'.\"\n\nUse the token in body text only; tool-result payloads should keep raw\nidentifiers. Do not invent fields — only emit tokens for fields that\nexist in the active game's catalog.",
+      "model": "claude-sonnet-4-6",
+      "stop_reason": "end_turn",
+      "cache_creation_tokens": 12979,
+      "cache_read_tokens": 261286,
+      "cache_hit": 0,
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "4786989f-66cc-42e2-9ce3-e1ad74ae69d7",
@@ -1751,7 +2058,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "9490721a-bc47-4366-b6f2-b6b8102bb594",
@@ -1776,7 +2084,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "c795c32d-2bf1-43dd-852f-b3c2d93f6cca",
@@ -1801,7 +2110,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "bb2c7259-6b8a-4e5b-b9be-b452f42a6a80",
@@ -1826,7 +2136,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "ab317c27-26c0-40c6-b673-cb0bc5a2c4b3",
@@ -1851,7 +2162,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "3e9e5b6e-af22-4ae9-b2b2-684c3b31062c",
@@ -1876,7 +2188,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "28d5e837-bc0d-4664-bc33-3aae916b2f84",
@@ -1901,7 +2214,8 @@
       "cache_creation_tokens": 61082,
       "cache_read_tokens": 714840,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "50adb5e0-beba-45f2-bfac-a63cdf2f5dfc",
@@ -1926,7 +2240,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "f7286180-6b6f-4f99-8020-6eb99594b5b6",
@@ -1951,7 +2266,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "79d639fb-993f-49a8-b274-59b858843760",
@@ -1976,7 +2292,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "b9e33db0-5a5f-4d80-a110-189f40f2b196",
@@ -2001,7 +2318,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "144a1694-d374-4a3d-8114-25460781c35e",
@@ -2026,7 +2344,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "77d2cbb4-d39c-427a-848d-baad37c37cc3",
@@ -2051,7 +2370,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "57b6d096-0cdd-48ca-9407-681d9fe6a469",
@@ -2076,7 +2396,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "12a51f45-b856-427b-8d89-b9e37bff09ba",
@@ -2101,7 +2422,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "83d6d89f-1e34-42d5-89bd-146cbb44358e",
@@ -2126,7 +2448,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "e7dd6e29-3c70-43fa-b827-7e797da3858a",
@@ -2151,7 +2474,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "71c82454-b952-4d95-aee7-73658e906f1d",
@@ -2176,7 +2500,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "f483e281-b8c2-4933-a7ca-afd1260bc0e8",
@@ -2201,7 +2526,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "d54c8af7-d784-4f0b-aae5-7c64244e0488",
@@ -2226,7 +2552,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "72816dd3-7606-4f35-b143-ad2ddf758a8e",
@@ -2251,7 +2578,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "9c3ff92f-7fa2-4d11-9a9b-371c08c1a688",
@@ -2276,7 +2604,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     },
     {
       "id": "7d32585f-c1df-4103-b7e5-af13122a2f8d",
@@ -2301,7 +2630,8 @@
       "cache_creation_tokens": null,
       "cache_read_tokens": null,
       "cache_hit": 0,
-      "original_turn_id": null
+      "original_turn_id": null,
+      "cache_freshness": null
     }
   ],
   "chat_tombstones": [

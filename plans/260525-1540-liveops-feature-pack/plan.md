@@ -45,7 +45,7 @@ Convert cube-playground from a query/data-model viewer into a liveops console. S
 | 2 | [Anomaly inbox](./phase-02-anomaly-inbox.md) | ✅ Completed |
 | 3 | [Saved dashboards](./phase-03-saved-dashboards.md) | ✅ Completed |
 | 4 | [Diff compare mode](./phase-04-diff-compare-mode.md) | ✅ Completed |
-| 5 | [Cohort retention grid](./phase-05-cohort-retention-grid.md) | Pending |
+| 5 | [Cohort retention grid](./phase-05-cohort-retention-grid.md) | ✅ Completed |
 | 6 | [Funnel builder](./phase-06-funnel-builder.md) | Pending |
 
 ## Cross-phase dependencies
