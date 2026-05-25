@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>chat-audit · hi-fi mockup (4 tabs)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  /* T.* tokens — pulled 1:1 from src/shell/theme.tsx */
+  --n50:  #fafafa;  --n100: #f4f4f5;  --n200: #e4e4e7;  --n300: #d4d4d8;
+  --n400: #a1a1aa;  --n500: #71717a;  --n600: #52525b;  --n700: #3f3f46;
+  --n800: #27272a;  --n900: #18181b;  --n950: #09090b;
+  --brand: #f05a22;       /* hermes-brand */
+  --brand-hover: #d94915;
+  --brand-soft: #fff1ec;
+  --brand-border: #fcd0bc;
+  --red500: #ef4444; --red-soft: #fef2f2;
+  --green600: #16a34a; --green-soft: #f0fdf4;
+  --amber500: #f59e0b; --amber-soft: #fffbeb;
+  --blue500: #3f8dff; --blue-soft: #eff6ff;
+  --surface: #ffffff;
+  --surface-muted: #fafafa;
+  --surface-subtle: #f4f4f5;
+  --f-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --f-mono: "Geist Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--surface); color: var(--n800); font-family: var(--f-sans); font-size: 13px; }
+
+/* --- mockup-only scaffold: stack 4 tab views vertically so reviewer sees all 4 --- */
+.mockup-banner { background: var(--n900); color: var(--n200); padding: 6px 16px; font-family: var(--f-mono); font-size: 11px; }
+.tab-section { border-bottom: 8px solid var(--n100); }
+.tab-section-label { background: var(--n800); color: var(--n100); padding: 4px 16px; font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* --- shared shell --- */
+.shell { display: flex; flex-direction: column; height: 720px; overflow: hidden; }
+.shell-banner {
+  flex-shrink: 0; padding: 6px 16px; background: var(--surface-subtle);
+  border-bottom: 1px solid var(--n200); font-size: 11px; color: var(--n600);
+  display: flex; align-items: center; gap: 12px;
+}
+.shell-banner .game-badge { margin-left: auto; color: var(--n500); font-family: var(--f-mono); }
+
+/* tab bar */
+.tabbar { display: flex; align-items: center; gap: 0; padding: 0 16px; background: var(--surface);
+  border-bottom: 1px solid var(--n200); flex-shrink: 0; }
+.tabbar a {
+  font-size: 12px; padding: 8px 14px; color: var(--n600); text-decoration: none;
+  border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tabbar a:hover { color: var(--n800); }
+.tabbar a.active { color: var(--n900); border-bottom-color: var(--brand); }
+.tabbar a .count { font-family: var(--f-mono); color: var(--n400); font-size: 10px; }
+
+/* --- SESSIONS tab (two-pane) --- */
+.body { flex: 1; display: flex; min-height: 0; }
+.left-pane { width: 340px; border-right: 1px solid var(--n200); display: flex; flex-direction: column; }
+.right-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.session-row {
+  padding: 8px 12px; border-bottom: 1px solid var(--n100); cursor: pointer;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.session-row:hover { background: var(--surface-subtle); }
+.session-row.selected { background: var(--brand-soft); border-left: 2px solid var(--brand); padding-left: 10px; }
+.session-row .title { font-size: 12.5px; color: var(--n800); font-weight: 500; }
+.session-row .meta { font-size: 10.5px; color: var(--n500); font-family: var(--f-mono); display: flex; gap: 8px; }
+.session-row .meta .deleted { color: var(--red500); }
+
+/* turn detail right pane */
+.session-header { padding: 12px 16px; border-bottom: 1px solid var(--n200); }
+.session-header h2 { font-size: 14px; color: var(--n900); font-weight: 600; }
+.session-header .subline { font-size: 11px; color: var(--n500); font-family: var(--f-mono); margin-top: 4px; display: flex; gap: 12px; }
+
+.turn-row { padding: 12px 16px; border-bottom: 1px solid var(--n100); display: flex; gap: 12px; }
+.turn-row .role-pill {
+  flex-shrink: 0; padding: 1px 6px; border-radius: 4px; font-size: 10px;
+  font-family: var(--f-mono); height: 16px; align-self: flex-start; margin-top: 2px;
+}
+.turn-row .role-pill.user { background: var(--blue-soft); color: var(--blue500); }
+.turn-row .role-pill.assistant { background: var(--brand-soft); color: var(--brand); }
+.turn-row .body-col { flex: 1; min-width: 0; }
+.turn-row .text { font-size: 12.5px; color: var(--n800); line-height: 1.5; }
+.turn-row .meta { font-size: 10.5px; color: var(--n500); font-family: var(--f-mono); margin-top: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
+.turn-row .meta .cache-hit { color: var(--green600); }
+
+/* --- SEARCH tab --- */
+.search-page { padding: 16px; flex: 1; overflow: auto; }
+.search-input-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.search-input {
+  width: 100%; padding: 8px 12px; border: 1px solid var(--n300); border-radius: 6px;
+  font-size: 13px; font-family: var(--f-sans); background: var(--surface); color: var(--n800);
+}
+.search-input:focus { outline: 2px solid var(--brand-border); border-color: var(--brand); }
+.chip-group { display: flex; gap: 4px; }
+.chip {
+  padding: 4px 10px; border-radius: 999px; font-size: 11px; font-family: var(--f-sans);
+  border: 1px solid var(--n200); background: var(--surface-subtle); color: var(--n700); cursor: pointer;
+}
+.chip.active { background: var(--n900); color: var(--n50); border-color: var(--n900); }
+.chip .count { font-family: var(--f-mono); margin-left: 6px; opacity: 0.7; }
+
+.search-mode-label { font-size: 10.5px; color: var(--n500); font-family: var(--f-mono); text-transform: uppercase; letter-spacing: 0.06em; margin: 12px 0 6px; }
+.search-table { width: 100%; border-collapse: collapse; }
+.search-table th { text-align: left; font-size: 10.5px; color: var(--n500); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--n200); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--f-mono); }
+.search-table td { padding: 8px; border-bottom: 1px solid var(--n100); font-size: 12px; color: var(--n800); vertical-align: top; }
+.search-table td.mono { font-family: var(--f-mono); color: var(--n600); font-size: 11.5px; white-space: nowrap; }
+.search-table td .snippet { color: var(--n800); }
+.search-table td .snippet mark { background: var(--brand-soft); color: var(--brand-hover); padding: 0 2px; border-radius: 2px; }
+.search-table td .snippet-meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--n500); margin-top: 2px; }
+.search-table tr:hover { background: var(--surface-subtle); cursor: pointer; }
+
+/* --- LEADERBOARD tab --- */
+.leaderboard-page { padding: 16px; flex: 1; overflow: auto; }
+.lb-filter { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; font-size: 11px; color: var(--n500); }
+.lb-filter select { padding: 3px 8px; border: 1px solid var(--n300); border-radius: 4px; font-size: 12px; font-family: var(--f-sans); background: var(--surface); color: var(--n800); }
+.lb-meta { font-size: 10.5px; color: var(--n500); font-family: var(--f-mono); margin-bottom: 12px; }
+.lb-table { width: 100%; border-collapse: collapse; }
+.lb-table th { text-align: left; font-size: 10.5px; color: var(--n500); font-weight: 500; padding: 8px; border-bottom: 1px solid var(--n200); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--f-mono); }
+.lb-table th.r, .lb-table td.r { text-align: right; }
+.lb-table td { padding: 8px; border-bottom: 1px solid var(--n100); font-size: 12.5px; color: var(--n800); }
+.lb-table td.mono { font-family: var(--f-mono); }
+.lb-table tr:hover { background: var(--surface-subtle); }
+.sparkline { display: inline-block; vertical-align: middle; }
+
+/* --- CACHE tab --- */
+.cache-page { padding: 20px 16px; flex: 1; overflow: auto; }
+.cache-filter { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; font-size: 11px; color: var(--n500); }
+.cache-filter select { padding: 3px 8px; border: 1px solid var(--n300); border-radius: 4px; font-size: 12px; background: var(--surface); color: var(--n800); }
+.cache-filter .refresh-btn { margin-left: auto; padding: 3px 10px; border: 1px solid var(--n300); background: var(--surface); border-radius: 4px; font-size: 11px; font-family: var(--f-mono); color: var(--n700); cursor: pointer; }
+.cache-filter .refresh-btn:hover { background: var(--surface-subtle); }
+
+.cache-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.cache-card { background: var(--surface); border: 1px solid var(--n200); border-radius: 8px; padding: 16px; }
+.cache-card .label { font-size: 10.5px; color: var(--n500); font-family: var(--f-mono); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.cache-card .value { font-family: var(--f-mono); font-size: 32px; font-weight: 500; color: var(--n900); line-height: 1.1; letter-spacing: -0.02em; }
+.cache-card .subtext { font-size: 11px; color: var(--n500); margin-top: 6px; font-family: var(--f-mono); }
+.cache-card .delta { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 3px; font-family: var(--f-mono); margin-left: 6px; }
+.cache-card .delta.up { background: var(--green-soft); color: var(--green600); }
+
+/* hero $ saved — ONLY place gradient is allowed */
+.cache-card.hero .value {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-hover) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 40px;
+}
+.cache-card.hero { border-color: var(--brand-border); }
+.cache-card.hero .help-link { font-size: 10.5px; color: var(--n500); cursor: help; text-decoration: underline dotted; text-decoration-thickness: 1px; }
+
+.cache-card .sparkline-row { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+
+.stale-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 4px; font-family: var(--f-mono); font-size: 11px;
+  background: var(--surface-subtle); color: var(--n700); border: 1px solid var(--n200);
+  margin-bottom: 16px;
+}
+.stale-pill.warn { background: var(--amber-soft); color: var(--amber500); border-color: var(--amber500); }
+.stale-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+.cache-section-title { font-size: 13px; color: var(--n900); font-weight: 600; margin: 16px 0 8px; display: flex; align-items: baseline; gap: 8px; }
+.cache-section-title .sub { font-size: 11px; color: var(--n500); font-weight: 400; font-family: var(--f-mono); }
+
+.cache-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--n200); border-radius: 8px; overflow: hidden; }
+.cache-table th { text-align: left; font-size: 10.5px; color: var(--n500); font-weight: 500; padding: 8px 12px; border-bottom: 1px solid var(--n200); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--f-mono); background: var(--surface-subtle); }
+.cache-table th.r, .cache-table td.r { text-align: right; }
+.cache-table td { padding: 8px 12px; border-bottom: 1px solid var(--n100); font-size: 12px; color: var(--n800); vertical-align: top; }
+.cache-table td.mono { font-family: var(--f-mono); white-space: nowrap; color: var(--n700); }
+.cache-table td.mono.brand { color: var(--brand); }
+.cache-table tr:last-child td { border-bottom: none; }
+.cache-table tr:hover { background: var(--surface-subtle); cursor: pointer; }
+.cache-table td .query-snippet { color: var(--n800); }
+.cache-table td .query-skill { font-family: var(--f-mono); font-size: 10.5px; color: var(--n500); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- =========================================================
+     mockup banner — explains this is one scrollable page
+     ========================================================= -->
+<div class="mockup-banner">
+  hi-fi mockup · /dev/chat-audit redesign · 4 tabs stacked vertically for review · evolved from src/shell/theme.tsx + src/pages/DevAudit/*
+</div>
+
+<!-- =========================================================
+     TAB 1 — SESSIONS (default)
+     ========================================================= -->
+<section class="tab-section">
+  <div class="tab-section-label">tab 1 · sessions · default route /dev/chat-audit/sessions</div>
+  <div class="shell">
+    <div class="shell-banner">
+      <span>Showing your own chat sessions for triage.</span>
+      <span class="game-badge">game: gam_2NfX8q3pL</span>
+    </div>
+    <nav class="tabbar" role="tablist" aria-label="Chat Audit sections">
+      <a role="tab" aria-selected="true" class="active">Sessions <span class="count">142</span></a>
+      <a role="tab" aria-selected="false">Search</a>
+      <a role="tab" aria-selected="false">Leaderboard</a>
+      <a role="tab" aria-selected="false">Cache</a>
+    </nav>
+    <div class="body">
+      <div class="left-pane">
+        <div class="session-row selected">
+          <div class="title">Q3 retention deep-dive</div>
+          <div class="meta"><span>14 turns</span><span>2h ago</span></div>
+        </div>
+        <div class="session-row">
+          <div class="title">DAU drop investigation · last week</div>
+          <div class="meta"><span>9 turns</span><span>4h ago</span></div>
+        </div>
+        <div class="session-row">
+          <div class="title">Skill: spec for new ARPDAU dashboard</div>
+          <div class="meta"><span>22 turns</span><span>yesterday</span></div>
+        </div>
+        <div class="session-row">
+          <div class="title">Untitled · 2026-05-24 14:02</div>
+          <div class="meta"><span>3 turns</span><span>1d ago</span><span class="deleted">deleted</span></div>
+        </div>
+        <div class="session-row">
+          <div class="title">Compact: cohort retention exploration</div>
+          <div class="meta"><span>1 turn</span><span>2d ago</span></div>
+        </div>
+        <div class="session-row">
+          <div class="title">Anomaly check: in-app purchases ANZ</div>
+          <div class="meta"><span>7 turns</span><span>3d ago</span></div>
+        </div>
+      </div>
+      <div class="right-pane">
+        <div class="session-header">
+          <h2>Q3 retention deep-dive</h2>
+          <div class="subline">
+            <span>id: ses_8h3p9qLkN2</span>
+            <span>14 turns · 0.842s avg latency</span>
+            <span>$1.84 total</span>
+            <span>claude-3-5-sonnet</span>
+          </div>
+        </div>
+        <div class="turn-row">
+          <span class="role-pill user">user</span>
+          <div class="body-col">
+            <div class="text">show me d7 retention by platform for the last 30 days</div>
+            <div class="meta">
+              <span>turn_4k9m</span>
+              <span>14:32:08</span>
+            </div>
+          </div>
+        </div>
+        <div class="turn-row">
+          <span class="role-pill assistant">asst</span>
+          <div class="body-col">
+            <div class="text">D7 retention for the last 30 days split by platform: iOS 24.3%, Android 19.1%, Web 12.8%. iOS leads consistently — gap widened by ~2.1pp over the window. Chart attached.</div>
+            <div class="meta">
+              <span>turn_4kAm</span>
+              <span>stop: end_turn</span>
+              <span>1.24s · $0.012</span>
+              <span class="cache-hit">cache hit · saved $0.011</span>
+              <span>metric-explorer</span>
+            </div>
+          </div>
+        </div>
+        <div class="turn-row">
+          <span class="role-pill user">user</span>
+          <div class="body-col">
+            <div class="text">narrow it to paying users only</div>
+            <div class="meta"><span>turn_4kBm</span><span>14:32:54</span></div>
+          </div>
+        </div>
+        <div class="turn-row">
+          <span class="role-pill assistant">asst</span>
+          <div class="body-col">
+            <div class="text">Paying-user D7: iOS 41.2%, Android 33.8%, Web 28.4%. Sample n=14,283 (iOS), 9,841 (Android), 2,103 (Web).</div>
+            <div class="meta">
+              <span>turn_4kCm</span>
+              <span>stop: end_turn</span>
+              <span>3.42s · $0.041</span>
+              <span>metric-explorer</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     TAB 2 — SEARCH
+     ========================================================= -->
+<section class="tab-section">
+  <div class="tab-section-label">tab 2 · search · /dev/chat-audit/search?q=&amp;mode=…</div>
+  <div class="shell">
+    <div class="shell-banner">
+      <span>Search across turns, sessions, or cached responses.</span>
+      <span class="game-badge">game: gam_2NfX8q3pL</span>
+    </div>
+    <nav class="tabbar" role="tablist">
+      <a role="tab" aria-selected="false">Sessions <span class="count">142</span></a>
+      <a role="tab" aria-selected="true" class="active">Search</a>
+      <a role="tab" aria-selected="false">Leaderboard</a>
+      <a role="tab" aria-selected="false">Cache</a>
+    </nav>
+    <div class="search-page">
+      <div class="search-input-wrap">
+        <input class="search-input" type="search" value="retention" placeholder="Search…" />
+        <div class="chip-group">
+          <button class="chip active">Turns <span class="count">38</span></button>
+          <button class="chip">Sessions <span class="count">6</span></button>
+          <button class="chip">Cached queries <span class="count">11</span></button>
+        </div>
+      </div>
+
+      <!-- mode = turns -->
+      <div class="search-mode-label">mode · turns (active)</div>
+      <table class="search-table">
+        <thead><tr>
+          <th>match</th><th>session</th><th>skill</th><th>when</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="snippet">show me d7 <mark>retention</mark> by platform for the last 30 days</div>
+              <div class="snippet-meta">turn_4k9m · user</div>
+            </td>
+            <td class="mono">Q3 retention deep-dive</td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">2h ago</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="snippet">D7 <mark>retention</mark> for the last 30 days split by platform: iOS 24.3%…</div>
+              <div class="snippet-meta">turn_4kAm · assistant</div>
+            </td>
+            <td class="mono">Q3 retention deep-dive</td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">2h ago</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="snippet">cohort <mark>retention</mark> by acquisition channel — last 90d</div>
+              <div class="snippet-meta">turn_3p2m · user</div>
+            </td>
+            <td class="mono">Compact: cohort retention…</td>
+            <td class="mono">cohort-analyst</td>
+            <td class="mono">2d ago</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- mode = sessions (preview) -->
+      <div class="search-mode-label" style="margin-top: 28px;">mode · sessions (preview)</div>
+      <table class="search-table">
+        <thead><tr>
+          <th>title</th><th>turns</th><th>created</th><th>last turn</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>Q3 <mark>retention</mark> deep-dive</td>
+            <td class="mono">14</td>
+            <td class="mono">2026-05-25 14:30</td>
+            <td class="mono">2h ago</td>
+          </tr>
+          <tr>
+            <td>Compact: cohort <mark>retention</mark> exploration</td>
+            <td class="mono">1</td>
+            <td class="mono">2026-05-23 09:14</td>
+            <td class="mono">2d ago</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- mode = cached queries (preview) -->
+      <div class="search-mode-label" style="margin-top: 28px;">mode · cached queries (preview)</div>
+      <table class="search-table">
+        <thead><tr>
+          <th>cached query</th><th>skill</th><th class="r">hits</th><th class="r">$ saved</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="snippet">d7 <mark>retention</mark> by platform last 30d</div>
+              <div class="snippet-meta">claude-3-5-sonnet</div>
+            </td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono r">47</td>
+            <td class="mono r">$0.51</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="snippet">cohort <mark>retention</mark> by acquisition channel</div>
+              <div class="snippet-meta">claude-3-5-sonnet</div>
+            </td>
+            <td class="mono">cohort-analyst</td>
+            <td class="mono r">12</td>
+            <td class="mono r">$0.16</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     TAB 3 — LEADERBOARD
+     ========================================================= -->
+<section class="tab-section">
+  <div class="tab-section-label">tab 3 · leaderboard · /dev/chat-audit/leaderboard</div>
+  <div class="shell">
+    <div class="shell-banner">
+      <span>Skill usage and quality, last 30 days.</span>
+      <span class="game-badge">game: gam_2NfX8q3pL</span>
+    </div>
+    <nav class="tabbar" role="tablist">
+      <a role="tab" aria-selected="false">Sessions <span class="count">142</span></a>
+      <a role="tab" aria-selected="false">Search</a>
+      <a role="tab" aria-selected="true" class="active">Leaderboard</a>
+      <a role="tab" aria-selected="false">Cache</a>
+    </nav>
+    <div class="leaderboard-page">
+      <div class="lb-filter">
+        <label>Window:</label>
+        <select><option>7d</option><option selected>30d</option><option>90d</option></select>
+      </div>
+      <div class="lb-meta">Computed at 16:42:11 · 8 skill(s)</div>
+      <table class="lb-table">
+        <thead><tr>
+          <th>skill</th>
+          <th class="r">invocations</th>
+          <th class="r">avg latency</th>
+          <th class="r">total cost</th>
+          <th>trend (7d)</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>metric-explorer</td>
+            <td class="mono r">412</td>
+            <td class="mono r">1.84s</td>
+            <td class="mono r">$3.41</td>
+            <td>
+              <svg class="sparkline" width="60" height="18" viewBox="0 0 60 18">
+                <polyline points="0,14 10,8 20,12 30,4 40,7 50,2 60,5" fill="none" stroke="#f05a22" stroke-width="1.5" />
+              </svg>
+            </td>
+          </tr>
+          <tr>
+            <td>cohort-analyst</td>
+            <td class="mono r">189</td>
+            <td class="mono r">3.21s</td>
+            <td class="mono r">$2.18</td>
+            <td>
+              <svg class="sparkline" width="60" height="18" viewBox="0 0 60 18">
+                <polyline points="0,9 10,11 20,7 30,8 40,10 50,6 60,7" fill="none" stroke="#f05a22" stroke-width="1.5" />
+              </svg>
+            </td>
+          </tr>
+          <tr>
+            <td>anomaly-detector</td>
+            <td class="mono r">84</td>
+            <td class="mono r">2.91s</td>
+            <td class="mono r">$0.94</td>
+            <td>
+              <svg class="sparkline" width="60" height="18" viewBox="0 0 60 18">
+                <polyline points="0,12 10,14 20,11 30,13 40,9 50,10 60,8" fill="none" stroke="#f05a22" stroke-width="1.5" />
+              </svg>
+            </td>
+          </tr>
+          <tr>
+            <td>schema-helper</td>
+            <td class="mono r">63</td>
+            <td class="mono r">0.71s</td>
+            <td class="mono r">$0.12</td>
+            <td>
+              <svg class="sparkline" width="60" height="18" viewBox="0 0 60 18">
+                <polyline points="0,8 10,9 20,8 30,7 40,8 50,9 60,7" fill="none" stroke="#f05a22" stroke-width="1.5" />
+              </svg>
+            </td>
+          </tr>
+          <tr>
+            <td>segment-builder</td>
+            <td class="mono r">41</td>
+            <td class="mono r">2.18s</td>
+            <td class="mono r">$0.36</td>
+            <td>
+              <svg class="sparkline" width="60" height="18" viewBox="0 0 60 18">
+                <polyline points="0,15 10,14 20,12 30,10 40,11 50,9 60,8" fill="none" stroke="#f05a22" stroke-width="1.5" />
+              </svg>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================
+     TAB 4 — CACHE
+     ========================================================= -->
+<section class="tab-section">
+  <div class="tab-section-label">tab 4 · cache · /dev/chat-audit/cache</div>
+  <div class="shell">
+    <div class="shell-banner">
+      <span>Response cache effectiveness, owner-scoped.</span>
+      <span class="game-badge">game: gam_2NfX8q3pL</span>
+    </div>
+    <nav class="tabbar" role="tablist">
+      <a role="tab" aria-selected="false">Sessions <span class="count">142</span></a>
+      <a role="tab" aria-selected="false">Search</a>
+      <a role="tab" aria-selected="false">Leaderboard</a>
+      <a role="tab" aria-selected="true" class="active">Cache</a>
+    </nav>
+    <div class="cache-page">
+      <div class="cache-filter">
+        <label>Window:</label>
+        <select><option>7d</option><option selected>30d</option><option>90d</option></select>
+        <label style="margin-left: 12px;">Top:</label>
+        <select><option>10</option><option selected>20</option><option>50</option></select>
+        <button class="refresh-btn">refresh</button>
+      </div>
+
+      <div class="stale-pill warn">
+        <span class="dot"></span>
+        <span>12% stale · 4 legacy · cube meta drifted</span>
+      </div>
+
+      <div class="cache-grid">
+        <div class="cache-card hero">
+          <div class="label">$ saved <span class="help-link" title="Estimate: original miss cost × repeat hits. Assumes hit cost ≈ miss cost.">?</span></div>
+          <div class="value">$42.18</div>
+          <div class="subtext">over 30 days <span class="delta up">+$5.24 ↑</span></div>
+        </div>
+        <div class="cache-card">
+          <div class="label">hit rate</div>
+          <div class="value">73%</div>
+          <div class="sparkline-row">
+            <svg class="sparkline" width="110" height="22" viewBox="0 0 110 22">
+              <polyline points="0,18 14,14 28,12 42,15 56,9 70,7 84,6 98,8 110,5" fill="none" stroke="#f05a22" stroke-width="1.5" />
+              <polygon points="0,18 14,14 28,12 42,15 56,9 70,7 84,6 98,8 110,5 110,22 0,22" fill="#fff1ec" opacity="0.6" />
+            </svg>
+            <span class="subtext">last 7d</span>
+          </div>
+        </div>
+        <div class="cache-card">
+          <div class="label">tokens saved</div>
+          <div class="value">1.4M</div>
+          <div class="subtext">in + out · 30d</div>
+        </div>
+        <div class="cache-card">
+          <div class="label">latency win</div>
+          <div class="value" style="font-size: 22px;">24× faster</div>
+          <div class="subtext">avg miss 4.3s · avg hit 0.18s</div>
+        </div>
+      </div>
+
+      <div class="cache-section-title">
+        Top cached queries
+        <span class="sub">ordered by hit count · top 20</span>
+      </div>
+      <table class="cache-table">
+        <thead><tr>
+          <th>query</th>
+          <th>skill</th>
+          <th>model</th>
+          <th class="r">hits</th>
+          <th class="r">last hit</th>
+          <th class="r">$ saved</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="query-snippet">show me dau split by platform last 7d</div>
+              <div class="query-skill">key: 7f2c…91a3</div>
+            </td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">142</td>
+            <td class="mono r">3m ago</td>
+            <td class="mono r brand">$12.50</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">what is d7 retention by platform for the last 30 days</div>
+              <div class="query-skill">key: 9c4b…2e10</div>
+            </td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">47</td>
+            <td class="mono r">18m ago</td>
+            <td class="mono r brand">$4.21</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">arpdau by country tier last week</div>
+              <div class="query-skill">key: 3a8e…7b5d</div>
+            </td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">38</td>
+            <td class="mono r">42m ago</td>
+            <td class="mono r brand">$3.84</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">cohort retention by acquisition channel</div>
+              <div class="query-skill">key: 5d1f…8c92</div>
+            </td>
+            <td class="mono">cohort-analyst</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">29</td>
+            <td class="mono r">1h ago</td>
+            <td class="mono r brand">$2.34</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">anomaly check on in-app purchases last 24h</div>
+              <div class="query-skill">key: ab47…1d6e</div>
+            </td>
+            <td class="mono">anomaly-detector</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">22</td>
+            <td class="mono r">2h ago</td>
+            <td class="mono r brand">$1.97</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">churn rate by country tier ANZ</div>
+              <div class="query-skill">key: 8b29…43a7</div>
+            </td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">18</td>
+            <td class="mono r">3h ago</td>
+            <td class="mono r brand">$1.42</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">top spending segments last month</div>
+              <div class="query-skill">key: 6f81…2c4d</div>
+            </td>
+            <td class="mono">segment-builder</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">12</td>
+            <td class="mono r">5h ago</td>
+            <td class="mono r brand">$0.96</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">conversion funnel for paid users last 14d</div>
+              <div class="query-skill">key: 2c19…8e7b</div>
+            </td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">9</td>
+            <td class="mono r">8h ago</td>
+            <td class="mono r brand">$0.71</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">crash rate last 24h by platform</div>
+              <div class="query-skill">key: 4e92…b71a</div>
+            </td>
+            <td class="mono">anomaly-detector</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">7</td>
+            <td class="mono r">12h ago</td>
+            <td class="mono r brand">$0.54</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="query-snippet">session length distribution by player tier</div>
+              <div class="query-skill">key: 1ab8…39c2</div>
+            </td>
+            <td class="mono">metric-explorer</td>
+            <td class="mono">sonnet</td>
+            <td class="mono r">4</td>
+            <td class="mono r">1d ago</td>
+            <td class="mono r brand">$0.31</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
