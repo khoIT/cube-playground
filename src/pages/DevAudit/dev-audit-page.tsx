@@ -3,7 +3,8 @@
  * Internal triage tool: session list (left) + session/turn detail (right).
  * Data is always scoped to the current owner via X-Owner-Id header.
  */
-import React, { useState } from 'react';
+import React from 'react';
+import { useHistory, useParams } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { SessionList } from './session-list';
@@ -40,7 +41,17 @@ const S = {
 
 export function DevAuditPage() {
   const gameId = useActiveGameId();
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  // Session id is part of the URL so the link is shareable / bookmarkable.
+  // /dev/chat-audit             → no selection
+  // /dev/chat-audit/:sessionId  → pre-select that session, also reflected
+  //                               in the URL when the user clicks a row.
+  const history = useHistory();
+  const { sessionId: routeSessionId } = useParams<{ sessionId?: string }>();
+  const selectedSessionId = routeSessionId ?? null;
+
+  function setSelectedSessionId(id: string | null): void {
+    history.replace(id ? `/dev/chat-audit/${id}` : '/dev/chat-audit');
+  }
 
   return (
     <div style={S.root}>

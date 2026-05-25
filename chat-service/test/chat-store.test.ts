@@ -81,6 +81,25 @@ describe('chatStore', () => {
   });
 
   describe('turns', () => {
+    it('uses caller-supplied id when provided (FK-link for observability)', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      const myId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+      chatStore.appendTurn(db, {
+        id: myId,
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'ok',
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns).toHaveLength(1);
+      expect(turns[0].id).toBe(myId);
+    });
+
     it('appends and lists turns in order', () => {
       const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
 

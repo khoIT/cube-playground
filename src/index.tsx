@@ -130,7 +130,7 @@ ReactDOM.render(
               {/* Single mount across /chat and /chat/:id so state persists
                   across the `new → session_created → /chat/<id>` transition. */}
               <Route key="chat-thread" path="/chat/:id?" component={ChatThreadPage} />
-              <Route key="dev-audit" path="/dev/chat-audit" component={DevAuditPage} />
+              <Route key="dev-audit" path="/dev/chat-audit/:sessionId?" component={DevAuditPage} />
               <KeepAliveRoute key="build" path="/build">
                 <ExplorePage />
               </KeepAliveRoute>

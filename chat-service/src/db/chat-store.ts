@@ -141,6 +141,13 @@ export function incrementTurnCount(
 // ---------------------------------------------------------------------------
 
 export interface AppendTurnParams {
+  /**
+   * Optional caller-supplied row id. When provided, used as `chat_turns.id`
+   * verbatim instead of generating a fresh uuid. Lets the SSE turnId double
+   * as the chat_turns row id so observability tables (which FK to chat_turns)
+   * can persist rows keyed by the same id the runner emits.
+   */
+  id?: string;
   sessionId: string;
   turnIndex: number;
   role: 'user' | 'assistant' | 'system_preamble';
@@ -166,7 +173,7 @@ export function appendTurn(
   db: Database.Database,
   params: AppendTurnParams,
 ): ChatTurnRow {
-  const id = uuidv4();
+  const id = params.id ?? uuidv4();
   const artifactsJson = params.artifacts ? JSON.stringify(params.artifacts) : null;
   const chartsJson = params.charts ? JSON.stringify(params.charts) : null;
 
