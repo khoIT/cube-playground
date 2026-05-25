@@ -572,6 +572,69 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- POST /api/chat/debug/turns/:turnId/annotation ---
+  // Upserts star/flag/note for a turn. Body: { starred?, flag?, note? }.
+  app.post<{ Params: { turnId: string }; Body: unknown }>(
+    '/api/chat/debug/turns/:turnId/annotation',
+    async (
+      request: FastifyRequest<{ Params: { turnId: string }; Body: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/annotation`;
+      try {
+        const { status, payload } = await proxyJson(url, 'POST', owner, request.body);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- DELETE /api/chat/debug/turns/:turnId/annotation ---
+  app.delete<{ Params: { turnId: string } }>(
+    '/api/chat/debug/turns/:turnId/annotation',
+    async (
+      request: FastifyRequest<{ Params: { turnId: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/annotation`;
+      try {
+        const { status, payload } = await proxyJson(url, 'DELETE', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- GET /api/chat/debug/search?q=&owner=&game=&starred=&cursor=&limit= ---
+  // Cross-turn LIKE search over user/assistant text + tool args. Owner-scoped.
+  app.get<{ Querystring: Record<string, string | undefined> }>(
+    '/api/chat/debug/search',
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string | undefined> }>,
+      reply: FastifyReply,
+    ) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(request.query)) {
+        if (typeof v === 'string' && v.length > 0) params.set(k, v);
+      }
+      const url = `${chatServiceUrl()}/debug/search?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- DELETE /api/chat/debug/cache?game=<id> ---
   // Clears response_cache rows for the given game. Owner must have at least one session
   // in the game (enforced in chat-service). Returns { deleted: <n> }.
