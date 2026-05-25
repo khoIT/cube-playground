@@ -22,6 +22,7 @@ function makeRow(overrides: Partial<SkillRow> & { skill: string }): SkillRow {
     totalCostUsd: 0,
     successRate: null,
     legacyCount: 0,
+    dailyCounts: [0, 0, 0, 0, 0, 0, 0],
     ...overrides,
   };
 }
@@ -119,5 +120,33 @@ describe('SkillLeaderboardTable', () => {
     ];
     render(<SkillLeaderboardTable rows={rows} />);
     expect(screen.getByText('75%')).toBeTruthy();
+  });
+
+  it('renders a Trend column header', () => {
+    render(<SkillLeaderboardTable rows={THREE_ROWS} />);
+    expect(screen.getByTestId('th-trend')).toBeTruthy();
+  });
+
+  it('renders a sparkline SVG in each data row', () => {
+    render(<SkillLeaderboardTable rows={THREE_ROWS} />);
+    for (const row of THREE_ROWS) {
+      const cell = screen.getByTestId(`trend-${row.skill}`);
+      expect(cell.querySelector('svg')).toBeTruthy();
+    }
+  });
+
+  it('sparkline renders a polyline when dailyCounts has non-zero values', () => {
+    const rows: SkillRow[] = [
+      makeRow({ skill: 'trendy', dailyCounts: [1, 2, 3, 4, 5, 6, 7] }),
+    ];
+    render(<SkillLeaderboardTable rows={rows} />);
+    const cell = screen.getByTestId('trend-trendy');
+    expect(cell.querySelector('polyline')).toBeTruthy();
+  });
+
+  it('Trend column header is not sortable (no aria-sort attribute)', () => {
+    render(<SkillLeaderboardTable rows={THREE_ROWS} />);
+    const trendTh = screen.getByTestId('th-trend');
+    expect(trendTh.getAttribute('aria-sort')).toBeNull();
   });
 });

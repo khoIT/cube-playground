@@ -1,15 +1,18 @@
 /**
- * Scheduled anomaly detector — wires the business-metrics registry to Cube
- * /load, computes z-score per `(game, metric)`, atomically writes
- * `server/data/anomaly-state.json` so the anomaly-state-store reads it as
- * the "detector" source instead of the YAML fallback.
+ * Anomaly detector — two modes in one file:
  *
- * Triggered by `cron-runner` (every 60s tick) but throttled internally to
- * `ANOMALY_DETECTOR_INTERVAL_MS` so we don't hammer Cube every minute.
+ *  1. Legacy JSON mode (maybeRunAnomalyDetector / runDetectorOnce):
+ *     Reads business-metric YAML, queries Cube, writes anomaly-state.json.
+ *     Kept for backward-compat with `cron-runner`.
  *
- * Feature-gated: when no per-game token resolves *and* no global CUBE_TOKEN
- * is set, the detector is a no-op and the UI falls back to the YAML seeds.
- * Tests can opt-out via `ANOMALY_DETECTOR_DISABLED=1`.
+ *  2. Phase-2 SQLite mode (startAnomalyDetector / runDetectorTick):
+ *     Iterates ANOMALY_METRICS per game, queries Cube, upserts rows into
+ *     the `anomalies` SQLite table. Gated by ANOMALY_DETECTOR_ENABLED=true.
+ *     Interval: 15 min (ANOMALY_DETECTOR_INTERVAL_MS override supported).
+ *
+ * Concurrency: per-game in-memory mutex — a second tick won't re-enter a
+ * game whose query is still in-flight.
+ * Budget cap: ANOMALY_QUERY_BUDGET_PER_TICK (default 20) Cube loads per tick.
  */
 
 import { mkdir, rename, writeFile } from 'node:fs/promises';
@@ -20,22 +23,19 @@ import { load, getMeta } from '../services/cube-client.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
 import { getAll as getAllBusinessMetrics } from '../services/business-metrics-loader.js';
-import {
-  planMetricQueries,
-  type CubeMeta,
-} from '../services/metric-query-planner.js';
+import { planMetricQueries, type CubeMeta } from '../services/metric-query-planner.js';
 import { classifySeries } from '../services/z-score.js';
-import type {
-  AnomalyStateFile,
-  AnomalyStateRecord,
-} from '../services/anomaly-state-store.js';
+import { ANOMALY_METRICS, classifySeverity } from '../services/anomaly-config.js';
+import { upsertAnomaly } from '../services/anomaly-state-store.js';
+import type { AnomalyStateFile, AnomalyStateRecord } from '../services/anomaly-state-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_STATE_FILE = resolve(__dirname, '..', '..', 'data', 'anomaly-state.json');
-const DEFAULT_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
-// No literal game-id list — when ANOMALY_DETECTOR_GAMES is unset we scan every
-// game in gds.config.json so adding a game in the registry never silently
-// excludes it from anomaly detection.
+const DEFAULT_LEGACY_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
+const DEFAULT_SQLITE_INTERVAL_MS = 15 * 60 * 1000; // 15 min
+const DEFAULT_QUERY_BUDGET = 20;
+
+// ─── Legacy JSON detector state ───────────────────────────────────────────────
 
 let lastRunAt = 0;
 let stateFile = DEFAULT_STATE_FILE;
@@ -49,6 +49,8 @@ export function __resetAnomalyDetectorState(): void {
   lastRunAt = 0;
   inflight = null;
   stateFile = DEFAULT_STATE_FILE;
+  sqliteIntervalId = null;
+  gameInflight.clear();
 }
 
 function gamesToScan(): string[] {
@@ -71,7 +73,6 @@ function asNumber(v: unknown): number | null {
   return null;
 }
 
-/** Project a Cube /load result to a chronologically-ordered number series. */
 function rowsToSeries(
   rows: Array<Record<string, unknown>>,
   measureField: string,
@@ -101,7 +102,7 @@ function divideSeries(num: number[], den: number[]): number[] {
   return out;
 }
 
-async function scanGame(
+async function scanGameLegacy(
   game: string,
   warn: (msg: string) => void,
 ): Promise<Record<string, AnomalyStateRecord>> {
@@ -110,7 +111,6 @@ async function scanGame(
     warn(`[anomaly-detector] no Cube token for game="${game}"; skipping`);
     return {};
   }
-
   let meta: CubeMeta;
   try {
     meta = (await getMeta(token)) as CubeMeta;
@@ -118,7 +118,6 @@ async function scanGame(
     warn(`[anomaly-detector] /meta failed for game="${game}": ${(err as Error).message}`);
     return {};
   }
-
   const out: Record<string, AnomalyStateRecord> = {};
   for (const metric of getAllBusinessMetrics()) {
     const plan = planMetricQueries(metric, meta);
@@ -128,23 +127,11 @@ async function scanGame(
       let series: number[];
       if (plan.denominator) {
         const denRes = (await load(plan.denominator, token)) as CubeLoadResult;
-        const numSeries = rowsToSeries(
-          numRes.data,
-          plan.numerator.measures[0],
-          plan.numerator.timeDimensions[0].dimension,
-        );
-        const denSeries = rowsToSeries(
-          denRes.data,
-          plan.denominator.measures[0],
-          plan.denominator.timeDimensions[0].dimension,
-        );
+        const numSeries = rowsToSeries(numRes.data, plan.numerator.measures[0], plan.numerator.timeDimensions[0].dimension);
+        const denSeries = rowsToSeries(denRes.data, plan.denominator.measures[0], plan.denominator.timeDimensions[0].dimension);
         series = divideSeries(numSeries, denSeries);
       } else {
-        series = rowsToSeries(
-          numRes.data,
-          plan.numerator.measures[0],
-          plan.numerator.timeDimensions[0].dimension,
-        );
+        series = rowsToSeries(numRes.data, plan.numerator.measures[0], plan.numerator.timeDimensions[0].dimension);
       }
       const cls = classifySeries(series);
       if (!cls) continue;
@@ -154,9 +141,7 @@ async function scanGame(
         period: `last day vs prior ${series.length - 1}d`,
       };
     } catch (err) {
-      warn(
-        `[anomaly-detector] /load failed for ${game}:${metric.id}: ${(err as Error).message}`,
-      );
+      warn(`[anomaly-detector] /load failed for ${game}:${metric.id}: ${(err as Error).message}`);
     }
   }
   return out;
@@ -169,16 +154,12 @@ async function atomicWrite(file: string, payload: AnomalyStateFile): Promise<voi
   await rename(tmp, file);
 }
 
-/**
- * Run one detector pass. Returns the (game, metric) entries written. Caller
- * decides whether to throttle subsequent invocations.
- */
 export async function runDetectorOnce(
   warn: (msg: string) => void = (m) => console.warn(m),
 ): Promise<{ states: AnomalyStateFile['states']; entries: number }> {
   const states: AnomalyStateFile['states'] = {};
   for (const game of gamesToScan()) {
-    const perGame = await scanGame(game, warn);
+    const perGame = await scanGameLegacy(game, warn);
     for (const [metricId, rec] of Object.entries(perGame)) {
       states[`${game}:${metricId}`] = rec;
     }
@@ -194,33 +175,177 @@ function detectorDisabled(): boolean {
   return false;
 }
 
-function intervalMs(): number {
+function legacyIntervalMs(): number {
   const raw = process.env.ANOMALY_DETECTOR_INTERVAL_MS;
-  if (!raw) return DEFAULT_INTERVAL_MS;
+  if (!raw) return DEFAULT_LEGACY_INTERVAL_MS;
   const n = parseInt(raw, 10);
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_INTERVAL_MS;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_LEGACY_INTERVAL_MS;
 }
 
-/**
- * Called from `cron-runner.tick()`. Self-throttles so it only fires once per
- * `intervalMs()`. Safe to call every minute.
- */
 export async function maybeRunAnomalyDetector(now: number = Date.now()): Promise<void> {
   if (detectorDisabled()) return;
   if (inflight) return;
-  if (now - lastRunAt < intervalMs()) return;
+  if (now - lastRunAt < legacyIntervalMs()) return;
   inflight = (async () => {
     try {
       const result = await runDetectorOnce();
       lastRunAt = Date.now();
-      // eslint-disable-next-line no-console
       console.log(`[anomaly-detector] wrote ${result.entries} state(s)`);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn('[anomaly-detector] run failed:', (err as Error).message);
     } finally {
       inflight = null;
     }
   })();
   await inflight;
+}
+
+// ─── Phase-2 SQLite detector ──────────────────────────────────────────────────
+
+/** Per-game in-memory mutex: prevents overlapping ticks for same game. */
+const gameInflight = new Map<string, boolean>();
+let sqliteIntervalId: ReturnType<typeof setInterval> | null = null;
+
+function sqliteIntervalMs(): number {
+  const raw = process.env.ANOMALY_DETECTOR_INTERVAL_MS;
+  if (!raw) return DEFAULT_SQLITE_INTERVAL_MS;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_SQLITE_INTERVAL_MS;
+}
+
+function queryBudget(): number {
+  const raw = process.env.ANOMALY_QUERY_BUDGET_PER_TICK;
+  if (!raw) return DEFAULT_QUERY_BUDGET;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_QUERY_BUDGET;
+}
+
+/**
+ * Runs a single SQLite-mode detector tick for all configured games + metrics.
+ * Exported for testing with synthetic data injection.
+ */
+export async function runDetectorTick(
+  warn: (msg: string) => void = (m) => console.warn(m),
+): Promise<{ checked: number; upserted: number; skipped: number }> {
+  const budget = queryBudget();
+  let queriesUsed = 0;
+  let checked = 0;
+  let upserted = 0;
+  let skipped = 0;
+
+  const games = loadGamesConfig().games.map((g) => g.id);
+
+  for (const game of games) {
+    if (gameInflight.get(game)) {
+      warn(`[anomaly-detector] tick still in-flight for game="${game}"; skipping`);
+      skipped++;
+      continue;
+    }
+
+    const metrics = ANOMALY_METRICS[game] ?? [];
+    if (metrics.length === 0) continue;
+
+    gameInflight.set(game, true);
+    try {
+      const token = resolveCubeTokenForGame(game);
+      if (!token) {
+        warn(`[anomaly-detector] no Cube token for game="${game}"; skipping`);
+        continue;
+      }
+
+      for (const cfg of metrics) {
+        if (queriesUsed >= budget) {
+          warn(`[anomaly-detector] query budget (${budget}) reached; skipping remaining metrics`);
+          skipped++;
+          continue;
+        }
+
+        try {
+          const endDate = new Date();
+          const startDate = new Date(endDate);
+          startDate.setDate(startDate.getDate() - 13); // last 14 days inclusive
+
+          const query = {
+            measures: [cfg.metric],
+            timeDimensions: [{
+              dimension: cfg.timeDim,
+              granularity: 'day',
+              dateRange: [
+                startDate.toISOString().slice(0, 10),
+                endDate.toISOString().slice(0, 10),
+              ],
+            }],
+            order: { [cfg.timeDim]: 'asc' },
+          };
+
+          const res = (await load(query, token)) as CubeLoadResult;
+          queriesUsed++;
+          checked++;
+
+          const timeDimDay = `${cfg.timeDim}.day`;
+          const series = rowsToSeries(res.data, cfg.metric, cfg.timeDim);
+
+          if (series.length < 6) {
+            // z-score needs at least MIN_BASELINE+1=6 points
+            continue;
+          }
+
+          const cls = classifySeries(series);
+          if (!cls || cls.state === 'none' || cls.state === 'trend') continue;
+
+          const severity = classifySeverity(Math.abs(cls.z), cfg);
+          if (!severity) continue;
+
+          // Latest data point's date for idempotent key
+          const lastRow = [...res.data].sort((a, b) =>
+            String(a[timeDimDay] ?? '').localeCompare(String(b[timeDimDay] ?? ''))
+          ).at(-1);
+          const tsRaw = String(lastRow?.[timeDimDay] ?? new Date().toISOString().slice(0, 10));
+          const ts = tsRaw.slice(0, 10); // normalize to YYYY-MM-DD
+
+          const baseline = series.slice(0, -1).reduce((s, v) => s + v, 0) / (series.length - 1);
+          const observed = series[series.length - 1];
+
+          upsertAnomaly({ game, metric: cfg.metric, severity, baseline, observed, ts });
+          upserted++;
+        } catch (err) {
+          warn(`[anomaly-detector] metric "${cfg.metric}" for game="${game}" failed: ${(err as Error).message}`);
+        }
+      }
+    } finally {
+      gameInflight.delete(game);
+    }
+  }
+
+  return { checked, upserted, skipped };
+}
+
+/**
+ * Start the SQLite-mode detector interval.
+ * Gated by `ANOMALY_DETECTOR_ENABLED=true`. Safe to call multiple times —
+ * only starts one interval.
+ */
+export function startAnomalyDetector(
+  warn: (msg: string) => void = (m) => console.warn(m),
+): void {
+  if (process.env.ANOMALY_DETECTOR_ENABLED !== 'true') {
+    console.info('[anomaly-detector] SQLite mode disabled (ANOMALY_DETECTOR_ENABLED != true)');
+    return;
+  }
+  if (sqliteIntervalId !== null) return; // already started
+
+  console.info(`[anomaly-detector] SQLite mode enabled; interval=${sqliteIntervalMs()}ms`);
+
+  // Run first tick on next event loop turn so startup is non-blocking
+  setImmediate(() => {
+    runDetectorTick(warn).catch((err) =>
+      warn(`[anomaly-detector] initial tick failed: ${(err as Error).message}`)
+    );
+  });
+
+  sqliteIntervalId = setInterval(() => {
+    runDetectorTick(warn).catch((err) =>
+      warn(`[anomaly-detector] tick failed: ${(err as Error).message}`)
+    );
+  }, sqliteIntervalMs());
 }

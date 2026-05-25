@@ -28,10 +28,21 @@ export function migrateResponseCache(db: Database.Database): void {
       created_at         INTEGER NOT NULL,
       last_hit_at        INTEGER,
       original_turn_id   TEXT    NOT NULL,
-      original_session_id TEXT   NOT NULL
+      original_session_id TEXT   NOT NULL,
+      cube_meta_hash     TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_response_cache_game_last_hit
       ON response_cache(game_id, last_hit_at);
   `);
+
+  // Idempotent ALTER for existing DBs that were created before cube_meta_hash was added.
+  // Legacy rows have cube_meta_hash = NULL → grouped under "legacy" bucket in stale math.
+  // better-sqlite3 is single-writer; migrate runs before the HTTP listener accepts requests.
+  try {
+    db.exec('ALTER TABLE response_cache ADD COLUMN cube_meta_hash TEXT;');
+  } catch (err) {
+    // SQLite error message for duplicate column is "duplicate column name: ..."
+    if (!/duplicate column/i.test(String(err))) throw err;
+  }
 }

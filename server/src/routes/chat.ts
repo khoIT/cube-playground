@@ -466,6 +466,31 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- GET /api/chat/debug/cache-effectiveness?game=<id>&days=<n>&topN=<n>&q=<str> ---
+  app.get<{ Querystring: { game?: string; days?: string; topN?: string; q?: string } }>(
+    '/api/chat/debug/cache-effectiveness',
+    async (
+      request: FastifyRequest<{ Querystring: { game?: string; days?: string; topN?: string; q?: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      const q = request.query;
+      if (q.game) params.set('game', q.game);
+      if (q.days) params.set('days', q.days);
+      if (q.topN) params.set('topN', q.topN);
+      if (q.q) params.set('q', q.q);
+      const url = `${chatServiceUrl()}/debug/cache-effectiveness?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- GET /api/chat/stats?owner=<id>&from=<iso>&to=<iso> ---
   app.get<{ Querystring: StatsQuery }>(
     '/api/chat/stats',

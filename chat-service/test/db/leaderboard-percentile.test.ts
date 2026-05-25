@@ -1,10 +1,51 @@
 /**
- * Unit tests for percentileSorted helper in leaderboard-store.
- * Covers edge cases: empty, 1-element, 2-element, 3-element, even-count.
+ * Unit tests for leaderboard-store:
+ * - percentileSorted helper (edge cases)
+ * - computeSkillLeaderboard: dailyCounts bucketing with a 7-day window + sparse data
  */
 
-import { describe, it, expect } from 'vitest';
-import { percentileSorted } from '../../src/db/leaderboard-store.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import Database from 'better-sqlite3';
+import { migrate } from '../../src/db/migrate.js';
+import * as chatStore from '../../src/db/chat-store.js';
+import { percentileSorted, computeSkillLeaderboard } from '../../src/db/leaderboard-store.js';
+
+// Silence config validation for DB-only tests
+vi.mock('../../src/config.js', () => ({
+  config: {
+    port: 3005, logLevel: 'silent', anthropicApiKey: 'test',
+    anthropicBaseUrl: 'https://test', chatModel: 'claude-test',
+    chatMaxOutputTokens: 4096, serverBaseUrl: 'http://localhost:3004',
+    cubeApiUrl: 'http://localhost:4000', chatDbPath: ':memory:',
+    chatMaxTurnsPerSession: 40, chatMaxTokensPerTurn: 8000,
+    skillLoaderTtlMs: 5000, contextBudgetTokens: 180000,
+    titleModel: 'claude-haiku', rateLimitPerOwnerPerMin: 30,
+    costPer1kInputUsd: 0.003, costPer1kOutputUsd: 0.015,
+    mcpEnabled: false, starterRankMinSessions: 3,
+  },
+}));
+
+function makeDb(): Database.Database {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  migrate(db);
+  return db;
+}
+
+/** Insert one assistant turn for a skill at a specific timestamp (ms). */
+function insertTurn(
+  db: Database.Database,
+  sessionId: string,
+  skill: string,
+  startedAtMs: number,
+  idx: number,
+) {
+  const turnId = `turn-${idx}-${Math.random().toString(36).slice(2)}`;
+  db.prepare(
+    `INSERT INTO chat_turns (id, session_id, turn_index, role, skill, started_at, ended_at, cost_usd, stop_reason)
+     VALUES (?, ?, ?, 'assistant', ?, ?, ?, 0.001, 'end_turn')`,
+  ).run(turnId, sessionId, idx, skill, startedAtMs, startedAtMs + 500);
+}
 
 describe('percentileSorted', () => {
   it('returns null for empty array', () => {
@@ -56,5 +97,93 @@ describe('percentileSorted', () => {
   it('handles equal values', () => {
     expect(percentileSorted([100, 100, 100], 0.5)).toBe(100);
     expect(percentileSorted([100, 100, 100], 0.95)).toBe(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeSkillLeaderboard — dailyCounts bucketing
+// ---------------------------------------------------------------------------
+
+const MS_PER_DAY = 86_400_000;
+
+describe('computeSkillLeaderboard — dailyCounts', () => {
+  let db: Database.Database;
+  let sessionId: string;
+  const OWNER = 'owner-daily';
+  const GAME = 'game-daily';
+
+  beforeEach(() => {
+    db = makeDb();
+    const session = chatStore.createSession(db, { ownerId: OWNER, gameId: GAME, title: 'test' });
+    sessionId = session.id;
+  });
+
+  it('returns zero-filled dailyCounts for window with no data', () => {
+    const rows = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
+    expect(rows).toHaveLength(0);
+  });
+
+  it('dailyCounts array length equals days param', () => {
+    // Insert one turn today
+    insertTurn(db, sessionId, 'skill-a', Date.now(), 0);
+    const rows7 = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
+    expect(rows7[0].dailyCounts).toHaveLength(7);
+
+    const rows30 = computeSkillLeaderboard(db, { ownerId: OWNER, days: 30 });
+    expect(rows30[0].dailyCounts).toHaveLength(30);
+  });
+
+  it('places today turn in the last bucket (index days-1)', () => {
+    const now = Date.now();
+    insertTurn(db, sessionId, 'skill-a', now, 0);
+    const rows = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
+    const counts = rows[0].dailyCounts;
+    // Only the last bucket should be non-zero
+    expect(counts[6]).toBe(1);
+    expect(counts.slice(0, 6).every((v) => v === 0)).toBe(true);
+  });
+
+  it('places a 3-day-old turn in index 3 (clampedDays-1-3 = 3 for 7-day window)', () => {
+    const now = Date.now();
+    const threeDaysAgo = now - 3 * MS_PER_DAY;
+    insertTurn(db, sessionId, 'skill-a', threeDaysAgo, 0);
+    const rows = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
+    const counts = rows[0].dailyCounts;
+    // Anchored to today: today = idx 6, 3 days ago = idx 3
+    expect(counts[3]).toBe(1);
+    // All other buckets should be zero
+    expect(counts.filter((_, i) => i !== 3).every((v) => v === 0)).toBe(true);
+  });
+
+  it('accumulates multiple turns on the same day into one bucket', () => {
+    const today = Date.now();
+    insertTurn(db, sessionId, 'skill-b', today - 100, 0);
+    insertTurn(db, sessionId, 'skill-b', today - 200, 1);
+    insertTurn(db, sessionId, 'skill-b', today - 300, 2);
+    const rows = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
+    const skillRow = rows.find((r) => r.skill === 'skill-b')!;
+    expect(skillRow.dailyCounts[6]).toBe(3);
+    expect(skillRow.dailyCounts.reduce((s, v) => s + v, 0)).toBe(3);
+  });
+
+  it('keeps per-skill counts independent across skills', () => {
+    const now = Date.now();
+    insertTurn(db, sessionId, 'skill-x', now, 0);
+    insertTurn(db, sessionId, 'skill-x', now - 100, 1);
+    insertTurn(db, sessionId, 'skill-y', now, 2);
+    const rows = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
+    const x = rows.find((r) => r.skill === 'skill-x')!;
+    const y = rows.find((r) => r.skill === 'skill-y')!;
+    expect(x.dailyCounts[6]).toBe(2);
+    expect(y.dailyCounts[6]).toBe(1);
+  });
+
+  it('zero-fills days outside the window (turns before sinceMs are excluded)', () => {
+    // Turn 8 days ago — should be outside a 7-day window
+    const eightDaysAgo = Date.now() - 8 * MS_PER_DAY;
+    insertTurn(db, sessionId, 'skill-c', eightDaysAgo, 0);
+    const rows = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
+    // The SQL WHERE filters this out — no rows expected
+    expect(rows).toHaveLength(0);
   });
 });

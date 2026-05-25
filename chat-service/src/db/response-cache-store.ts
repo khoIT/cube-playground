@@ -38,6 +38,8 @@ export interface CachedResponse {
   last_hit_at: number | null;
   original_turn_id: string;
   original_session_id: string;
+  /** Populated on writes after the cube_meta_hash migration. NULL for legacy rows. */
+  cube_meta_hash: string | null;
 }
 
 export interface InsertCacheParams {
@@ -52,6 +54,8 @@ export interface InsertCacheParams {
   costUsd: number;
   originalTurnId: string;
   originalSessionId: string;
+  /** The cube meta version hash that was mixed into the cache key. NULL allowed for backwards compat. */
+  cubeMetaHash?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,8 +89,8 @@ export function insertCacheEntry(db: Database.Database, params: InsertCacheParam
        (key, game_id, skill, model, user_text_normalized, value_json,
         input_tokens, output_tokens, cost_usd,
         hit_count, created_at, last_hit_at,
-        original_turn_id, original_session_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?, ?)`,
+        original_turn_id, original_session_id, cube_meta_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?, ?, ?)`,
   ).run(
     params.key,
     params.gameId,
@@ -100,6 +104,7 @@ export function insertCacheEntry(db: Database.Database, params: InsertCacheParam
     Date.now(),
     params.originalTurnId,
     params.originalSessionId,
+    params.cubeMetaHash ?? null,
   );
 }
 

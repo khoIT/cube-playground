@@ -15,6 +15,8 @@ export interface SkillRow {
   totalCostUsd: number;
   successRate: number | null;
   legacyCount: number;
+  /** Daily turn counts for the window, length = days param. Index 0 = oldest. */
+  dailyCounts: number[];
 }
 
 interface LeaderboardState {

@@ -9,6 +9,7 @@
 import React, { useState, useMemo } from 'react';
 import { T } from '../../shell/theme';
 import type { SkillRow } from './use-skill-leaderboard';
+import { SkillTrendSparkline } from './skill-trend-sparkline';
 
 type SortKey = keyof Pick<
   SkillRow,
@@ -32,21 +33,52 @@ const S = {
     cursor: 'pointer',
     userSelect: 'none' as const,
     whiteSpace: 'nowrap' as const,
+    fontFamily: T.fMono,
+    fontSize: 10.5,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+    fontWeight: 500,
+  },
+  /** Non-sortable header (e.g. Trend column) */
+  thStatic: {
+    padding: '6px 12px',
+    textAlign: 'left' as const,
+    background: T.surfaceSubtle,
+    borderBottom: `1px solid ${T.n200}`,
+    color: T.n600,
+    whiteSpace: 'nowrap' as const,
+    fontFamily: T.fMono,
+    fontSize: 10.5,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+    fontWeight: 500,
+  },
+  /** Active sort column header — brand accent */
+  thActive: {
+    color: T.brand,
   },
   td: {
-    padding: '5px 12px',
+    padding: '6px 12px',
     borderBottom: `1px solid ${T.n100}`,
-    color: T.n800,
+    color: T.n700,
     fontFamily: T.fMono,
     fontSize: 11,
+    textAlign: 'right' as const,
+    whiteSpace: 'nowrap' as const,
   },
   tdSkill: {
-    padding: '5px 12px',
+    padding: '6px 12px',
     borderBottom: `1px solid ${T.n100}`,
     color: T.n800,
     fontFamily: T.fSans,
     fontWeight: 500,
-    fontSize: 12,
+    fontSize: 12.5,
+    textAlign: 'left' as const,
+  },
+  tdTrend: {
+    padding: '4px 12px',
+    borderBottom: `1px solid ${T.n100}`,
+    textAlign: 'left' as const,
   },
   empty: {
     padding: 24,
@@ -117,12 +149,13 @@ export function SkillLeaderboardTable({ rows }: Props) {
   );
 
   function th(label: string, key: SortKey) {
+    const isActive = sortKey === key;
     return (
       <th
-        style={S.th}
+        style={isActive ? { ...S.th, ...S.thActive } : S.th}
         onClick={() => handleHeaderClick(key)}
         data-testid={`th-${key}`}
-        aria-sort={sortKey === key ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none'}
+        aria-sort={isActive ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none'}
       >
         {label}{sortIndicator(key, sortKey, sortDir)}
       </th>
@@ -145,6 +178,7 @@ export function SkillLeaderboardTable({ rows }: Props) {
             {th('Avg $', 'avgCostUsd')}
             {th('Total $', 'totalCostUsd')}
             {th('Success %', 'successRate')}
+            <th style={S.thStatic} data-testid="th-trend">Trend</th>
           </tr>
         </thead>
         <tbody>
@@ -166,6 +200,9 @@ export function SkillLeaderboardTable({ rows }: Props) {
                     ({row.legacyCount} legacy)
                   </span>
                 )}
+              </td>
+              <td style={S.tdTrend} data-testid={`trend-${row.skill}`}>
+                <SkillTrendSparkline data={row.dailyCounts} />
               </td>
             </tr>
           ))}

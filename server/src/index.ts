@@ -17,6 +17,7 @@ import cubeTokenRoutes from './routes/cube-token.js';
 import cdpMetricsRoutes from './routes/cdp-metrics.js';
 import businessMetricsRoutes from './routes/business-metrics.js';
 import anomalyStateRoutes from './routes/anomaly-state.js';
+import anomaliesRoutes from './routes/anomalies.js';
 import chatRoutes from './routes/chat.js';
 import glossaryRoutes from './routes/glossary.js';
 import { getDb } from './db/sqlite.js';
@@ -27,6 +28,7 @@ import {
   loadAll as loadBusinessMetrics,
   startWatcher as startBusinessMetricsWatcher,
 } from './services/business-metrics-loader.js';
+import { startAnomalyDetector } from './jobs/anomaly-detector.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
 
@@ -47,6 +49,7 @@ export async function buildApp() {
   await app.register(cdpMetricsRoutes);
   await app.register(businessMetricsRoutes);
   await app.register(anomalyStateRoutes);
+  await app.register(anomaliesRoutes);
   await app.register(chatRoutes);
   await app.register(glossaryRoutes);
 
@@ -108,6 +111,8 @@ if (isMain || process.env.START_SERVER === '1') {
   buildApp().then(async (app) => {
     await app.listen({ port: PORT, host: '0.0.0.0' });
     if (process.env.NODE_ENV !== 'test') startCron();
+    // Phase 2: SQLite anomaly detector — gated by ANOMALY_DETECTOR_ENABLED=true
+    startAnomalyDetector((msg) => app.log.warn(msg));
     app.log.info(`Server ready in ${Date.now() - start}ms on :${PORT}`);
   }).catch((err) => {
     console.error(err);

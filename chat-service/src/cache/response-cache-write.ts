@@ -34,6 +34,8 @@ export interface MaybeWriteParams {
   hadError: boolean;
   turnId: string;
   sessionId: string;
+  /** The cube meta version hash used when deriving the cache key; stored for stale-cache analysis. */
+  cubeMetaHash?: string | null;
 }
 
 /**
@@ -67,6 +69,7 @@ export function maybeWriteResponseCache(params: MaybeWriteParams): boolean {
     costUsd: params.costUsd,
     originalTurnId: params.turnId,
     originalSessionId: params.sessionId,
+    cubeMetaHash: params.cubeMetaHash ?? null,
   });
 
   return true;

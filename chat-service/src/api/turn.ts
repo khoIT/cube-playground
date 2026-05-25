@@ -272,9 +272,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // Resolve model: X-Model header if allowlisted, else server default.
     const resolvedModel = resolveModel(req.headers['x-model']);
     let cacheKey: string | null = null;
+    // Hoisted so the cache-write path can persist cubeMetaHash on the response_cache row.
+    let resolvedCubeMetaHash: string | null = null;
     if (config.responseCacheEnabled && !bypassCache) {
       try {
         const cubeMetaHash = await getMetaVersion(body.game, cubeToken);
+        resolvedCubeMetaHash = cubeMetaHash;
         const systemPromptHash = hashSystemPrompt(systemPrompt);
         cacheKey = computeCacheKey({
           skill: intent.skill,
@@ -488,6 +491,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
             hadError: false,
             turnId,
             sessionId,
+            cubeMetaHash: resolvedCubeMetaHash,
           });
         } catch (writeErr) {
           fastify.log.warn({ err: writeErr }, '[turn] cache write failed (non-fatal)');

@@ -1,12 +1,14 @@
 /**
- * SkillLeaderboardPage — /dev/chat-audit/leaderboard
+ * SkillLeaderboardPage — /dev/chat-audit/leaderboard tab content.
  *
- * Filter bar: gameId (default = active game), days window (7/30/90, default 30).
- * Renders SkillLeaderboardTable. Links back to /dev/chat-audit.
+ * Designed to mount inside DevAuditShell — no standalone back-link banner.
+ * The shell provides the top banner and tab navigation.
+ *
+ * Filter bar: days window (7/30/90, default 30).
+ * Renders SkillLeaderboardTable with per-skill sparkline trend column.
  */
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useSkillLeaderboard } from './use-skill-leaderboard';
@@ -17,37 +19,22 @@ type DayOption = (typeof DAY_OPTIONS)[number];
 
 const S = {
   root: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    height: '100%',
+    flex: 1,
+    overflow: 'auto',
+    padding: 16,
     fontFamily: T.fSans,
     background: T.surface,
-    overflow: 'hidden',
   } as React.CSSProperties,
-  banner: {
-    flexShrink: 0,
-    padding: '6px 16px',
-    background: T.surfaceSubtle,
-    borderBottom: `1px solid ${T.n200}`,
-    fontSize: 11,
-    color: T.n600,
+  filter: {
     display: 'flex',
-    alignItems: 'center',
     gap: 12,
-    flexWrap: 'wrap' as const,
-  } as React.CSSProperties,
-  backLink: {
-    color: T.brand,
-    textDecoration: 'none',
-    fontWeight: 500,
-    fontSize: 12,
-  } as React.CSSProperties,
-  label: {
-    color: T.n500,
+    alignItems: 'center',
+    marginBottom: 16,
     fontSize: 11,
+    color: T.n500,
   } as React.CSSProperties,
   select: {
-    padding: '2px 6px',
+    padding: '3px 8px',
     border: `1px solid ${T.n300}`,
     borderRadius: 4,
     fontSize: 12,
@@ -56,46 +43,27 @@ const S = {
     color: T.n800,
     cursor: 'pointer',
   } as React.CSSProperties,
-  gameBadge: {
-    marginLeft: 'auto',
+  meta: {
+    fontSize: 10.5,
     color: T.n500,
     fontFamily: T.fMono,
-    fontSize: 11,
-  } as React.CSSProperties,
-  body: {
-    flex: 1,
-    overflow: 'auto',
-    padding: 16,
-  } as React.CSSProperties,
-  heading: {
-    fontSize: 15,
-    fontWeight: 600,
-    color: T.n800,
     marginBottom: 12,
-    fontFamily: T.fSans,
-  } as React.CSSProperties,
-  meta: {
-    fontSize: 11,
-    color: T.n400,
-    marginBottom: 12,
-    fontFamily: T.fMono,
   } as React.CSSProperties,
   error: {
     padding: 16,
     color: '#c00',
     fontSize: 13,
-    fontFamily: T.fSans,
   } as React.CSSProperties,
   spinner: {
     padding: 24,
     color: T.n400,
-    fontFamily: T.fSans,
     fontSize: 13,
   } as React.CSSProperties,
 };
 
 export function SkillLeaderboardPage() {
   const activeGameId = useActiveGameId();
+  // Default 30d — matches phase spec; game default is "All games" (activeGameId or undefined)
   const [days, setDays] = useState<DayOption>(30);
 
   const { skills, computedAt, isLoading, error } = useSkillLeaderboard({
@@ -105,12 +73,10 @@ export function SkillLeaderboardPage() {
 
   return (
     <div style={S.root}>
-      <div style={S.banner}>
-        <Link to="/dev/chat-audit" style={S.backLink}>
-          ← Chat Audit
-        </Link>
-        <span style={S.label}>Window:</span>
+      <div style={S.filter}>
+        <label htmlFor="lb-days-select">Window:</label>
         <select
+          id="lb-days-select"
           value={days}
           onChange={(e) => setDays(Number(e.target.value) as DayOption)}
           style={S.select}
@@ -123,28 +89,19 @@ export function SkillLeaderboardPage() {
             </option>
           ))}
         </select>
-        <span style={S.gameBadge}>game: {activeGameId || 'all'}</span>
       </div>
 
-      <div style={S.body}>
-        <div style={S.heading}>Skill Leaderboard</div>
+      {computedAt && (
+        <div style={S.meta}>
+          Computed at {new Date(computedAt).toLocaleTimeString()} &mdash; {skills.length} skill(s)
+        </div>
+      )}
 
-        {computedAt && (
-          <div style={S.meta}>
-            Computed at {new Date(computedAt).toLocaleTimeString()} &mdash; {skills.length} skill(s)
-          </div>
-        )}
+      {error && <div style={S.error}>Error: {error}</div>}
 
-        {error && <div style={S.error}>Error: {error}</div>}
+      {isLoading && !error && <div style={S.spinner}>Loading…</div>}
 
-        {isLoading && !error && (
-          <div style={S.spinner}>Loading…</div>
-        )}
-
-        {!isLoading && !error && (
-          <SkillLeaderboardTable rows={skills} />
-        )}
-      </div>
+      {!isLoading && !error && <SkillLeaderboardTable rows={skills} />}
     </div>
   );
 }

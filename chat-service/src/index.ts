@@ -31,6 +31,7 @@ import debugSearchRoutes from './api/debug-search.js';
 import debugSearchCachedRoutes from './api/debug-search-cached.js';
 import debugLeaderboardRoutes from './api/debug-leaderboard.js';
 import debugCacheClearRoutes from './api/debug-cache-clear.js';
+import debugCacheEffectivenessRoutes from './api/debug-cache-effectiveness.js';
 import notificationsRoutes from './api/notifications.js';
 import { scheduler } from './services/scheduler.js';
 import { registerRetentionSweep } from './services/retention-sweep.js';
@@ -73,6 +74,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(debugSearchCachedRoutes, { db });
   await fastify.register(debugLeaderboardRoutes, { db });
   await fastify.register(debugCacheClearRoutes, { db });
+  await fastify.register(debugCacheEffectivenessRoutes, { db });
   await fastify.register(notificationsRoutes, { db });
 
   return { fastify, db };

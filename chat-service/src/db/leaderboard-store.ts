@@ -20,6 +20,12 @@ export interface SkillRow {
   successRate: number | null;
   /** How many turns have null stop_reason (pre-phase-02 legacy). */
   legacyCount: number;
+  /**
+   * Daily turn counts for the requested window, length = days param.
+   * Index 0 = oldest day (floor(sinceMs / 86400000)), last index = today.
+   * Zero-filled for days with no activity. Useful for sparkline rendering.
+   */
+  dailyCounts: number[];
 }
 
 interface RawTurnRow {
@@ -72,6 +78,13 @@ export function computeSkillLeaderboard(
     ? (db.prepare(sql).all(ownerId, sinceMs, gameId) as RawTurnRow[])
     : (db.prepare(sql).all(ownerId, sinceMs) as RawTurnRow[]);
 
+  // Compute day buckets anchored to TODAY so the last index is always clampedDays-1.
+  // dayIdx = clampedDays - 1 - (todayDayNum - turnDayNum)
+  // This is invariant: regardless of where within the UTC day we are,
+  // today → index clampedDays-1, yesterday → clampedDays-2, etc.
+  const MS_PER_DAY = 86_400_000;
+  const todayDayNum = Math.floor(Date.now() / MS_PER_DAY);
+
   // Group by skill (null skill → group as "(unknown)")
   const groups = new Map<string, {
     latencies: number[];
@@ -79,15 +92,24 @@ export function computeSkillLeaderboard(
     successCount: number;
     legacyCount: number;
     total: number;
+    /** Sparse map: dayIndex (0..clampedDays-1) → count */
+    dayCounts: Map<number, number>;
   }>();
 
   for (const row of rawRows) {
     const key = row.skill ?? '(unknown)';
     if (!groups.has(key)) {
-      groups.set(key, { latencies: [], costs: [], successCount: 0, legacyCount: 0, total: 0 });
+      groups.set(key, { latencies: [], costs: [], successCount: 0, legacyCount: 0, total: 0, dayCounts: new Map() });
     }
     const g = groups.get(key)!;
     g.total++;
+
+    // Bucket into day index: today → clampedDays-1, yesterday → clampedDays-2, …
+    const turnDayNum = Math.floor(row.started_at / MS_PER_DAY);
+    const dayIdx = clampedDays - 1 - (todayDayNum - turnDayNum);
+    if (dayIdx >= 0 && dayIdx < clampedDays) {
+      g.dayCounts.set(dayIdx, (g.dayCounts.get(dayIdx) ?? 0) + 1);
+    }
 
     // Latency: only when both timestamps present
     if (row.started_at != null && row.ended_at != null) {
@@ -115,6 +137,9 @@ export function computeSkillLeaderboard(
     const scorable = g.total - g.legacyCount;
     const successRate = scorable > 0 ? g.successCount / scorable : null;
 
+    // Expand sparse dayCounts into zero-filled length-clampedDays array
+    const dailyCounts = Array.from({ length: clampedDays }, (_, i) => g.dayCounts.get(i) ?? 0);
+
     result.push({
       skill,
       count: g.total,
@@ -124,6 +149,7 @@ export function computeSkillLeaderboard(
       totalCostUsd,
       successRate,
       legacyCount: g.legacyCount,
+      dailyCounts,
     });
   }
 

@@ -11,6 +11,7 @@ import { SearchTrigger } from './search-trigger';
 import { AvatarMenu } from './avatar-menu';
 import { TopbarTrailingContext } from './topbar-trailing-context';
 import { NotificationBell } from '../../components/Header/notification-bell';
+import { AnomalyBell } from '../anomaly-bell';
 import { AskCubeFab } from '../chat-overlay/ask-cube-fab';
 import { useChatSurfaces } from '../chat-overlay/use-chat-surfaces';
 import { setOpen } from '../chat-overlay/chat-panel-open-store';
@@ -53,6 +54,7 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
         )}
         <SearchTrigger onOpen={onSearchOpen} />
       </div>
+      <AnomalyBell />
       <NotificationBell />
       <AvatarMenu />
     </header>
