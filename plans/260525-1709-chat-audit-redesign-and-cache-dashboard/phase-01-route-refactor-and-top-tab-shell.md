@@ -8,7 +8,7 @@
 
 ## Overview
 - **Priority:** P1 (blocks phase 02/03/05/06)
-- **Status:** pending
+- **Status:** completed
 - **Description:** Replace the single `DevAuditPage` shell with a `DevAuditShell` that renders 4 top tabs (Sessions / Search / Leaderboard / Cache) driven by URL routing. Legacy URLs redirect.
 
 ## Key Insights
@@ -68,13 +68,13 @@ DevAuditShell (new — src/pages/DevAudit/dev-audit-shell.tsx)
 7. Compile check: `npm run build` from /Users/lap16299/Documents/code/cube-playground.
 
 ## Todo List
-- [ ] Create `audit-tabs.tsx` (pure tab bar)
-- [ ] Create `dev-audit-shell.tsx` (Switch + banner)
-- [ ] Refactor `dev-audit-page.tsx` → export `DevAuditSessionsTab`
-- [ ] Update `src/index.tsx` route mount
-- [ ] Add legacy redirects (`:sessionId` → `sessions/:sessionId`)
-- [ ] Manual route walkthrough (4 deep links + 1 legacy)
-- [ ] Compile (`npm run build`)
+- [x] Create `audit-tabs.tsx` (pure tab bar)
+- [x] Create `dev-audit-shell.tsx` (Switch + banner)
+- [x] Refactor `dev-audit-page.tsx` → export `DevAuditSessionsTab`
+- [x] Update `src/index.tsx` route mount
+- [x] Add legacy redirects (`:sessionId` → `sessions/:sessionId`)
+- [x] Manual route walkthrough (4 deep links + 1 legacy)
+- [x] Compile (`npm run build`)
 
 ## Success Criteria
 - All 4 tab routes load without console errors.

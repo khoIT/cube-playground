@@ -11,7 +11,7 @@ import React from 'react';
 import { T } from '../../shell/theme';
 import { CacheSparkline } from './cache-sparkline';
 import type { CacheEffectivenessResponse } from '../../api/cache-effectiveness-types';
-import { resolveStaleRatio } from '../../api/cache-effectiveness-types';
+import { deriveStaleRatios } from '../../api/cache-effectiveness-types';
 
 interface Props {
   data: CacheEffectivenessResponse;
@@ -155,9 +155,9 @@ const S = {
 
 export function CacheDashboardHero({ data, days }: Props) {
   const { summary, sparkline } = data;
-  const staleRatio = resolveStaleRatio(data.staleRatio);
+  const { staleRatio, legacyRatio } = deriveStaleRatios(data);
   const stalePercent = Math.round(staleRatio * 100);
-  const legacyCount = Math.round(data.legacyRatio * 100);
+  const legacyPercent = Math.round(legacyRatio * 100);
   const isStaleWarn = staleRatio > 0.10;
 
   const hitMs = summary.latencyWinMs.avgHitMs ?? 0;
@@ -218,7 +218,7 @@ export function CacheDashboardHero({ data, days }: Props) {
       >
         <span style={S.staleDot} />
         <span>
-          {stalePercent}% stale · {legacyCount} legacy
+          {stalePercent}% stale · {legacyPercent}% legacy
           {isStaleWarn ? ' · cube meta drifted' : ''}
         </span>
       </div>

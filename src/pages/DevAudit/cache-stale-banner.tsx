@@ -10,7 +10,7 @@
 import React, { useState } from 'react';
 import { T } from '../../shell/theme';
 import {
-  resolveStaleRatio,
+  deriveStaleRatios,
   STALE_CACHE_BANNER_THRESHOLD,
 } from '../../api/cache-effectiveness-types';
 import type { CacheEffectivenessResponse } from '../../api/cache-effectiveness-types';
@@ -101,7 +101,7 @@ function setSessionDismissed() {
 export function CacheStaleBanner({ data, onClearCache, gameId }: Props) {
   const [dismissed, setDismissed] = useState<boolean>(isSessionDismissed);
 
-  const staleRatio = resolveStaleRatio(data.staleRatio);
+  const { staleRatio } = deriveStaleRatios(data);
 
   // Don't render if ratio is within threshold or user dismissed this session
   if (staleRatio <= STALE_CACHE_BANNER_THRESHOLD || dismissed) return null;

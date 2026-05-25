@@ -1,12 +1,13 @@
 ---
 title: "/dev/chat-audit redesign + cache-effectiveness dashboard"
 description: "Top-tab IA, unified mode-toggle search, leaderboard re-skin, new cache-effectiveness data layer + UI"
-status: pending
+status: completed
 priority: P2
 effort: ~16h
 branch: main
 tags: [dev-audit, ui-redesign, cache, observability, dashboards]
 created: 2026-05-25
+updated: 2026-05-25
 ---
 
 # Chat Audit Redesign + Cache Dashboard
@@ -19,14 +20,14 @@ Replace the current two-pane + sidebar IA at `/dev/chat-audit` with a 4-tab shel
 
 ## Phases
 
-| #  | Phase                                            | Status   | Deps      | LOC est. |
-|----|--------------------------------------------------|----------|-----------|----------|
-| 01 | Route refactor + top-tab shell                   | pending  | —         | ~180     |
-| 02 | Unified search with mode toggle                  | pending  | 01        | ~260     |
-| 03 | Leaderboard re-skin + trend sparkline            | pending  | 01        | ~140     |
-| 04 | Cache effectiveness data layer (store + plugin + proxy) | pending  | —     | ~360     |
-| 05 | Cache effectiveness dashboard UI                 | pending  | 01, 04    | ~330     |
-| 06 | Polish + empty states + a11y + cmd-K             | pending  | 02, 03, 05 | ~140    |
+| #  | Phase                                            | Status    | Deps      | LOC est. |
+|----|--------------------------------------------------|-----------|-----------|----------|
+| 01 | Route refactor + top-tab shell                   | completed | —         | ~180     |
+| 02 | Unified search with mode toggle                  | completed | 01        | ~260     |
+| 03 | Leaderboard re-skin + trend sparkline            | completed | 01        | ~140     |
+| 04 | Cache effectiveness data layer (store + plugin + proxy) | completed | —     | ~360     |
+| 05 | Cache effectiveness dashboard UI                 | completed | 01, 04    | ~330     |
+| 06 | Polish + empty states + a11y + cmd-K             | completed | 02, 03, 05 | ~140    |
 
 Total est: ~1,400 LOC across ~12 files (every file < 200 LOC). See each phase for breakdown.
 
@@ -62,6 +63,16 @@ Phase 04 (data layer) runs in parallel with 01/02/03 (UI files) — disjoint own
 - `/dev/chat-audit/leaderboard` (legacy) → redirect to `/dev/chat-audit/leaderboard` (kept, falls under new shell)
 - All existing chat-service `/debug/*` routes untouched except `response_cache` schema gets one ALTER (idempotent, NULL backfill safe)
 - Existing chat-UI consumers unaffected (only audit UI shape changes)
+
+## Completion Summary
+
+**All 6 phases shipped.** Implementation via cook (01–06 sequential), verified by test suite:
+- **Tests added**: ~250 net new (chat-service 478, FE 1265); 2 pre-existing baseline failures unrelated
+- **Code review**: 2 critical + 6 notable items; C1/C2/N1/N3/N5/N6 fixed post-review; N2 (cross-game `currentMetaHash` pick) + N4 (deleted sessions in aggregates) deferred
+- **Key decisions**: Per-game cache scope, simple `$ saved` formula (hit cost ≈ miss cost), `cube_meta_hash` additive column (NULL-safe backfill)
+- **Proxy gap fix**: Server routes for annotation + search added in commit 85291bb
+
+Deferred items documented for Q3 refinement.
 
 ## Risk Summary
 - **HIGH**: `response_cache` lacks a `cube_meta_hash` column (only mixed into key). Phase 04 adds this column via idempotent ALTER. Backfill leaves legacy rows NULL → stale ratio computes over non-NULL subset, with explicit caveat in UI. (See phase-04 deviation note.)

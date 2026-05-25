@@ -99,9 +99,10 @@ describe('CacheDashboardHero', () => {
     expect(screen.getByTestId('stale-pill').textContent).toContain('0% stale');
   });
 
-  it('staleRatio as Record resolves to average', () => {
-    // { a: 0.2, b: 0.4 } → average 0.3 → warn
-    render(<CacheDashboardHero data={makeData({ staleRatio: { a: 0.2, b: 0.4 } })} days={30} />);
+  it('staleRatio as BE object shape { stale, typed, legacy } derives ratio correctly', () => {
+    // BE object shape: stale=20, typed=80, legacy=20 → denom=100 → staleRatio=0.20 > 0.10 → warn
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    render(<CacheDashboardHero data={makeData({ staleRatio: { stale: 20, typed: 80, legacy: 20 } as any })} days={30} />);
     const pill = screen.getByTestId('stale-pill');
     expect(pill.getAttribute('data-warn')).toBe('true');
   });

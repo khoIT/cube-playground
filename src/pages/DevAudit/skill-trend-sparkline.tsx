@@ -51,8 +51,25 @@ export function SkillTrendSparkline({
     return height - pad - (v / maxVal) * (height - pad * 2);
   }
 
-  const points = data.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
   const total = data.reduce((s, v) => s + v, 0);
+
+  // Single-point: a polyline of one point renders nothing; use a circle instead
+  if (data.length === 1) {
+    return (
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        aria-hidden="true"
+        style={{ display: 'inline-block', verticalAlign: 'middle' }}
+      >
+        <title>{`${total} total`}</title>
+        <circle cx={width / 2} cy={toY(data[0])} r={1.5} fill={color} />
+      </svg>
+    );
+  }
+
+  const points = data.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
 
   return (
     <svg

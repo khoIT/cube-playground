@@ -10,7 +10,7 @@
 
 ## Overview
 - **Priority:** P2 (cosmetic, no data semantics change)
-- **Status:** pending
+- **Status:** completed
 - **Description:** Re-skin the existing leaderboard to fit the new shell (drop banner+back-link, slot into shell content area). Add a small per-row daily-usage sparkline.
 
 ## Key Insights
@@ -56,13 +56,13 @@
 6. Compile.
 
 ## Todo List
-- [ ] Decide option A vs B (read store + hook)
-- [ ] (A only) Extend `leaderboard-store.ts` with `dailyCounts`
-- [ ] Create `skill-trend-sparkline.tsx`
-- [ ] Update `skill-leaderboard-table.tsx` (add trend column + tokens)
-- [ ] Slim `skill-leaderboard-page.tsx` to tab-content
-- [ ] Empty state matching mockup
-- [ ] Compile
+- [x] Decide option A vs B (read store + hook)
+- [x] (A only) Extend `leaderboard-store.ts` with `dailyCounts`
+- [x] Create `skill-trend-sparkline.tsx`
+- [x] Update `skill-leaderboard-table.tsx` (add trend column + tokens)
+- [x] Slim `skill-leaderboard-page.tsx` to tab-content
+- [x] Empty state matching mockup
+- [x] Compile
 
 ## Success Criteria
 - Leaderboard renders within new tab shell without double banner.

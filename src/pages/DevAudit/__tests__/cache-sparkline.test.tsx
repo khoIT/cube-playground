@@ -72,6 +72,15 @@ describe('CacheSparkline', () => {
     expect(svg.getAttribute('viewBox')).toBe('0 0 300 60');
   });
 
+  it('single-point data (data.length === 1) renders a visible bar without crashing', () => {
+    const { container } = render(
+      <CacheSparkline data={[makeDay('2026-05-25', 5, 0)]} />,
+    );
+    // Bar chart works fine with 1 point — at least one rect should exist
+    const hitBars = container.querySelectorAll('[data-testid="bar-hits"]');
+    expect(hitBars.length).toBe(1);
+  });
+
   it('renders one group per day', () => {
     const data = [
       makeDay('2026-05-01', 8, 2),

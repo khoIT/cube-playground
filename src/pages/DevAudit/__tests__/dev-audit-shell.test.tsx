@@ -51,22 +51,24 @@ import { DevAuditShell } from '../dev-audit-shell';
 
 function renderShell(initialPath: string) {
   let finalPath = initialPath;
+  let finalHash = '';
   render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Route path="/dev/chat-audit">
         <DevAuditShell />
       </Route>
-      {/* Capture the resolved path after any redirects */}
+      {/* Capture the resolved path + hash after any redirects */}
       <Route
         path="*"
         render={({ location }) => {
           finalPath = location.pathname;
+          finalHash = location.hash;
           return null;
         }}
       />
     </MemoryRouter>,
   );
-  return { getPath: () => finalPath };
+  return { getPath: () => finalPath, getHash: () => finalHash };
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +91,12 @@ describe('DevAuditShell — legacy redirect', () => {
   it('redirects /dev/chat-audit/sess-xyz to /dev/chat-audit/sessions/sess-xyz', () => {
     const { getPath } = renderShell('/dev/chat-audit/sess-xyz');
     expect(getPath()).toBe('/dev/chat-audit/sessions/sess-xyz');
+  });
+
+  it('preserves #hash anchor on legacy redirect', () => {
+    const { getPath, getHash } = renderShell('/dev/chat-audit/abc-123#turn-xyz');
+    expect(getPath()).toBe('/dev/chat-audit/sessions/abc-123');
+    expect(getHash()).toBe('#turn-xyz');
   });
 });
 

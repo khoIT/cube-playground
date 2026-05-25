@@ -157,7 +157,8 @@ describe('computeCacheEffectiveness', () => {
     expect(r.summary.latencyWinMs.avgMissMs).toBe(0);
     expect(r.topQueries).toHaveLength(0);
     expect(r.sparkline).toHaveLength(30);
-    expect(r.staleRatio).toEqual({ stale: 0, typed: 0, legacy: 0 });
+    expect(r.staleRatio).toBe(0);
+    expect(r.legacyRatio).toBe(0);
     expect(r.currentMetaHash).toBeNull();
     expect(r.computedAt).toBeTruthy();
   });
@@ -349,9 +350,9 @@ describe('computeCacheEffectiveness', () => {
     seedCacheRow(db, { key: 'k-legacy',  gameId: 'game-1', originalTurnId: t3, originalSessionId: sessId, cubeMetaHash: null });
 
     const r = computeCacheEffectiveness(db, { ownerId: 'owner-a', gameId: 'game-1', days: 30, topN: 20 });
-    expect(r.staleRatio.stale).toBe(1);   // k-stale
-    expect(r.staleRatio.typed).toBe(2);   // k-current + k-stale
-    expect(r.staleRatio.legacy).toBe(1);  // k-legacy
+    // stale=1, typed=2, legacy=1 → denom=3 → staleRatio=1/3, legacyRatio=1/3
+    expect(r.staleRatio).toBeCloseTo(1 / 3);
+    expect(r.legacyRatio).toBeCloseTo(1 / 3);
     expect(r.currentMetaHash).toBe('hash-new');
   });
 
@@ -362,8 +363,9 @@ describe('computeCacheEffectiveness', () => {
 
     const r = computeCacheEffectiveness(db, { ownerId: 'owner-a', gameId: 'game-1', days: 30, topN: 20 });
     expect(r.currentMetaHash).toBeNull();
-    expect(r.staleRatio.legacy).toBe(1);
-    expect(r.staleRatio.stale).toBe(0);
+    // legacy=1, typed=0 → denom=1 → legacyRatio=1, staleRatio=0
+    expect(r.legacyRatio).toBeCloseTo(1);
+    expect(r.staleRatio).toBe(0);
   });
 
   // -------------------------------------------------------------------------
@@ -386,7 +388,8 @@ describe('computeCacheEffectiveness', () => {
     expect(r.summary.dollarsSaved).toBe(0);
     expect(r.summary.hitRate).toBe(0);
     expect(r.topQueries).toHaveLength(0);
-    expect(r.staleRatio).toEqual({ stale: 0, typed: 0, legacy: 0 });
+    expect(r.staleRatio).toBe(0);
+    expect(r.legacyRatio).toBe(0);
   });
 
   it('owner B with different game sees only their own data', () => {

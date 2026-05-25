@@ -2,6 +2,19 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-25 (later) — chat-audit redesign + cache effectiveness dashboard
+
+Six-phase IA + UX overhaul of `/dev/chat-audit` applying the `huashu-design` methodology. Plan: `plans/260525-1709-chat-audit-redesign-and-cache-dashboard/`. Hi-fi mockup at `plans/.../design/hifi-mockup.html` was the design contract. Tests: chat-service 478 (+51 new), FE 1265 (+~85 new); 2 pre-existing baseline failures unchanged.
+
+- **Top-tab IA.** `/dev/chat-audit` is now a 4-tab shell (Sessions · Search · Leaderboard · Cache) with URL-driven tab state, ARIA tabs pattern, sticky header, and legacy `/dev/chat-audit/:sessionId?` → `/dev/chat-audit/sessions/:sessionId?` redirect that preserves `#turn-...` hash anchors.
+- **Unified search with mode toggle.** One search input + `[Turns] [Sessions] [Cached queries]` chip group. URL state `?q=&mode=`. Three result renderers per mode. New BE route `GET /debug/search/cached` (owner-isolated via `original_turn_id → chat_turns → chat_sessions` JOIN — prevents leaking other owners' cached queries even though the cache itself is per-game-shared).
+- **Leaderboard reskin + sparkline.** `dailyCounts: number[]` added to `GET /debug/leaderboard/skills` response; today-anchored buckets. New inline pure-SVG `<SkillTrendSparkline>` column. Single-data-point edge case renders a `<circle>` (not invisible polyline).
+- **Cache-effectiveness data layer.** Additive migration: `response_cache.cube_meta_hash TEXT`. New `cache-effectiveness-store.ts` + `cache-effectiveness-queries.ts` (5 owner-scoped SQL helpers). New route `GET /debug/cache-effectiveness?game=&days=&topN=` returning `{ summary{hitRate, dollarsSaved, tokensSaved, latencyWinMs}, sparkline, topQueries, staleRatio, legacyRatio }`. $ saved formula = `Σ cost_usd × (hit_count − 1)`. Cross-game = weighted overall, scalar fractions in [0,1].
+- **Cache-effectiveness dashboard UI.** 4 hero stat cards (hit rate / $ saved / tokens saved / latency win), hits-vs-misses pure-SVG sparkline, top-N cached queries sortable table, stale-cache pressure banner at >25% (env-tunable via `VITE_STALE_CACHE_BANNER_THRESHOLD`). Gradient accent allowed only on the $ saved hero (anti-AI-slop rule from huashu-design).
+- **Polish.** Shared `<EmptyState>` + `<SkelRow>` / `<SkelCard>` / `<SkelText>` primitives. Cmd-K opens unified search (route-scoped, bails when focus is in unrelated INPUT/TEXTAREA). Cross-tab navigation: leaderboard skill name → Sessions tab with `?skill=` filter. Mockup-faithful styling throughout.
+- **Server proxy fix (earlier commit `85291bb`).** Phase 04 of chat-audit v2 added `POST/DELETE /debug/turns/:turnId/annotation` and `GET /debug/search` to chat-service but the server proxy never forwarded them — star/flag/note saves and cross-turn search both hit 404. Three missing routes added.
+- **Deferred from code review:** N2 (cross-game `currentMetaHash` arbitrary pick), N4 (deleted sessions still counted in cache aggregates). Both lower-priority polish, filed as follow-ups.
+
 ## 2026-05-25 — liveops Phase 1: live KPI hero strip + auto-refresh + game scoping
 
 - **New `/liveops` route** with a 5-tile KPI hero strip showing DAU, MAU, Revenue (VND), Paying users, and ARPDAU for the active game. Plan: `plans/260525-1540-liveops-feature-pack/phase-01-live-kpi-hero-strip.md`.

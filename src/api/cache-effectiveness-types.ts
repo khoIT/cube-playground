@@ -31,14 +31,25 @@ export interface TopQueryRow {
   originalTurnId: string | null;
 }
 
+/** Raw BE stale-ratio counts (emitted by older BE before scalar conversion). */
+export interface StaleRatioCounts {
+  stale: number;   // rows with outdated cube_meta_hash
+  typed: number;   // all rows with a cube_meta_hash (IS NOT NULL)
+  legacy: number;  // rows with no cube_meta_hash (IS NULL)
+}
+
 export interface CacheEffectivenessResponse {
   summary: CacheEffectivenessSummary;
   sparkline: CacheSparklineDay[];
   topQueries: TopQueryRow[];
-  /** Fraction [0,1] of cached entries using stale cube schema. */
-  staleRatio: number | Record<string, number>;
-  /** Fraction [0,1] of cached entries using the legacy cache format. */
-  legacyRatio: number;
+  /**
+   * Fraction [0,1] of cached entries using stale cube schema (outdated hash).
+   * BE now emits this as a scalar number. Accepts legacy object shape for
+   * backward compat — use deriveStaleRatios() to normalize.
+   */
+  staleRatio: number | StaleRatioCounts;
+  /** Fraction [0,1] of cached entries using the legacy cache format (no hash). */
+  legacyRatio?: number;
 }
 
 /**
@@ -52,10 +63,28 @@ export const STALE_CACHE_BANNER_THRESHOLD = parseFloat(
     : '0.25'),
 );
 
-/** Resolved stale ratio — converts object form to a single number. */
-export function resolveStaleRatio(raw: number | Record<string, number>): number {
-  if (typeof raw === 'number') return raw;
-  const vals = Object.values(raw);
-  if (vals.length === 0) return 0;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
+/**
+ * Normalize staleRatio/legacyRatio from a BE response to [0,1] fractions.
+ *
+ * BE now emits two scalars (staleRatio: number, legacyRatio: number).
+ * When the raw payload is the legacy object shape { stale, typed, legacy },
+ * we compute the fractions here so components always work with plain numbers.
+ */
+export function deriveStaleRatios(raw: CacheEffectivenessResponse): {
+  staleRatio: number;
+  legacyRatio: number;
+} {
+  const sr = raw.staleRatio;
+  if (typeof sr === 'object' && sr !== null) {
+    // BE object shape: derive scalars from raw counts
+    const denom = sr.typed + sr.legacy;
+    return {
+      staleRatio: denom > 0 ? sr.stale / denom : 0,
+      legacyRatio: denom > 0 ? sr.legacy / denom : 0,
+    };
+  }
+  return {
+    staleRatio: typeof sr === 'number' ? sr : 0,
+    legacyRatio: raw.legacyRatio ?? 0,
+  };
 }

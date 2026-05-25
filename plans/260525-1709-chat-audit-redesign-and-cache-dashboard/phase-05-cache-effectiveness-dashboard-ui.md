@@ -8,7 +8,7 @@
 
 ## Overview
 - **Priority:** P1
-- **Status:** pending
+- **Status:** completed
 - **Description:** Render the new cache-effectiveness dashboard at `/dev/chat-audit/cache`. Consumes the phase-04 endpoint. 4 hero metric cards + sparkline + top-20 table + stale ratio chip.
 
 ## Key Insights
@@ -92,15 +92,15 @@ CacheDashboardPage (src/pages/DevAudit/cache-dashboard-page.tsx)
 8. Compile.
 
 ## Todo List
-- [ ] `cache-effectiveness-types.ts`
-- [ ] `use-cache-effectiveness.ts` (AbortController + tick refresh)
-- [ ] `cache-dashboard-hero.tsx` (4 cards + stale chip)
-- [ ] `cache-dashboard-top-queries.tsx` (sortable + expandable rows)
-- [ ] `cache-dashboard-page.tsx` (controller + filter bar)
-- [ ] Loading skeleton state
-- [ ] Empty state
-- [ ] Tooltip on `$ saved` explaining cost-equivalence caveat
-- [ ] Compile
+- [x] `cache-effectiveness-types.ts`
+- [x] `use-cache-effectiveness.ts` (AbortController + tick refresh)
+- [x] `cache-dashboard-hero.tsx` (4 cards + stale chip)
+- [x] `cache-dashboard-top-queries.tsx` (sortable + expandable rows)
+- [x] `cache-dashboard-page.tsx` (controller + filter bar)
+- [x] Loading skeleton state
+- [x] Empty state
+- [x] Tooltip on `$ saved` explaining cost-equivalence caveat
+- [x] Compile
 
 ## Success Criteria
 - Endpoint values render at correct positions per mockup.

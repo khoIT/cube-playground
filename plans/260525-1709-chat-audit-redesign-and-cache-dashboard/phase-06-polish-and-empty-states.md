@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P3
-- **Status:** pending
+- **Status:** completed
 - **Description:** Cross-cutting polish — loading skeletons, empty states, keyboard shortcuts (cmd-K), accessibility pass.
 
 ## Key Insights
@@ -58,15 +58,15 @@
 8. Compile + manual run-through.
 
 ## Todo List
-- [ ] `empty-state.tsx`
-- [ ] `loading-skeleton.tsx`
-- [ ] `use-keyboard-shortcuts.ts`
-- [ ] `stale-cache-banner.tsx`
-- [ ] Wire cmd-K in shell
-- [ ] ARIA roles on tab bar + panels
-- [ ] Replace empty-text in 3 tabs
-- [ ] Manual a11y pass (keyboard-only navigation)
-- [ ] Compile
+- [x] `empty-state.tsx`
+- [x] `loading-skeleton.tsx`
+- [x] `use-keyboard-shortcuts.ts`
+- [x] `stale-cache-banner.tsx`
+- [x] Wire cmd-K in shell
+- [x] ARIA roles on tab bar + panels
+- [x] Replace empty-text in 3 tabs
+- [x] Manual a11y pass (keyboard-only navigation)
+- [x] Compile
 
 ## Success Criteria
 - Press cmd-K from any tab → lands on Search tab with input focused.

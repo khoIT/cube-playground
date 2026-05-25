@@ -191,14 +191,10 @@ export function searchCachedQueries(
 ): CachedQuerySearchHit[] {
   const limit = Math.min(Math.max(params.limit ?? 20, 1), 100);
 
-  const conditions: string[] = [
-    // Owner must have at least one session in this game
-    `EXISTS (
-      SELECT 1 FROM chat_sessions cs
-      WHERE cs.owner_id = ? AND cs.game_id = rc.game_id AND cs.deleted_at IS NULL
-      LIMIT 1
-    )`,
-  ];
+  // Owner isolation: JOIN original_turn_id → chat_turns → chat_sessions WHERE owner_id = ?
+  // This mirrors cache-effectiveness-queries.ts and ensures owner A never sees
+  // cache rows whose originating turn belongs to owner B, even in a shared game.
+  const conditions: string[] = ['s.owner_id = ?'];
   const bindings: unknown[] = [params.ownerId];
 
   if (params.gameId) {
@@ -233,6 +229,8 @@ export function searchCachedQueries(
               rc.user_text_normalized, rc.hit_count, rc.cost_usd, rc.last_hit_at,
               rc.original_turn_id, rc.original_session_id
        FROM response_cache rc
+       JOIN chat_turns t ON t.id = rc.original_turn_id
+       JOIN chat_sessions s ON s.id = t.session_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY rc.hit_count DESC, rc.created_at DESC
        LIMIT ?`,

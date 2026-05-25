@@ -65,7 +65,10 @@ export interface CacheEffectivenessResult {
   };
   sparkline: SparklineDay[];
   topQueries: TopQuery[];
-  staleRatio: StaleRatio;
+  /** Fraction [0,1] of cache rows with an outdated cube_meta_hash. */
+  staleRatio: number;
+  /** Fraction [0,1] of cache rows with no cube_meta_hash (legacy format). */
+  legacyRatio: number;
   currentMetaHash: string | null;
   computedAt: string;
 }
@@ -106,15 +109,21 @@ export function computeCacheEffectiveness(
   const topQueries = queryTopQueriesByHit(db, {
     ownerId: params.ownerId, gameId: params.gameId, topN, q: params.q,
   });
-  const { staleRatio, currentMetaHash } = queryStaleRatio(db, {
+  const { staleRatio: rawStale, currentMetaHash } = queryStaleRatio(db, {
     ownerId: params.ownerId, gameId: params.gameId,
   });
+
+  // Convert raw counts to [0,1] fractions. denom = typed + legacy = all non-null + null rows.
+  const denom = rawStale.typed + rawStale.legacy;
+  const staleRatio = denom > 0 ? rawStale.stale / denom : 0;
+  const legacyRatio = denom > 0 ? rawStale.legacy / denom : 0;
 
   return {
     summary: { hitRate, dollarsSaved, tokensSaved, latencyWinMs: latencyWin },
     sparkline,
     topQueries,
     staleRatio,
+    legacyRatio,
     currentMetaHash,
     computedAt: new Date().toISOString(),
   };

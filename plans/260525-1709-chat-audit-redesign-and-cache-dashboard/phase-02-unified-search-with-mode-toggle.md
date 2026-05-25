@@ -9,7 +9,7 @@
 
 ## Overview
 - **Priority:** P1
-- **Status:** pending
+- **Status:** completed
 - **Description:** Replace the inline banner search input + sidebar swap with a dedicated `/dev/chat-audit/search` page hosting ONE input + chip group `[Turns] [Sessions] [Cached queries]`. Mode determines which API + result layout to use.
 
 ## Key Insights
@@ -78,14 +78,14 @@ UnifiedSearchPage (src/pages/DevAudit/unified-search-page.tsx)
 6. Compile check.
 
 ## Todo List
-- [ ] `search-mode-chips.tsx`
-- [ ] `unified-search-page.tsx` (URL sync + debounce + mode dispatch)
-- [ ] `search-results-cached.tsx`
-- [ ] Re-skin `search-result-list.tsx`
-- [ ] Add session-search hook (5-10 LOC inline OR new file)
-- [ ] Add cached-search hook (consumes phase 04 plugin)
-- [ ] Manual mode-switch + deep-link test
-- [ ] Compile
+- [x] `search-mode-chips.tsx`
+- [x] `unified-search-page.tsx` (URL sync + debounce + mode dispatch)
+- [x] `search-results-cached.tsx`
+- [x] Re-skin `search-result-list.tsx`
+- [x] Add session-search hook (5-10 LOC inline OR new file)
+- [x] Add cached-search hook (consumes phase 04 plugin)
+- [x] Manual mode-switch + deep-link test
+- [x] Compile
 
 ## Success Criteria
 - Typing in input updates URL after 300ms; URL reload restores query + mode.

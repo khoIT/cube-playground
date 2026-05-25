@@ -12,7 +12,7 @@
  * Shell does NOT remount on tab change — only the inner Switch content swaps.
  */
 import React, { useCallback, useRef } from 'react';
-import { Switch, Route, Redirect, useHistory, useRouteMatch } from 'react-router-dom';
+import { Switch, Route, Redirect, useHistory, useRouteMatch, useLocation } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { AuditTabs } from './audit-tabs';
@@ -77,8 +77,14 @@ const S = {
  */
 function LegacySessionRedirect() {
   const match = useRouteMatch<{ sessionId: string }>('/dev/chat-audit/:sessionId');
+  const location = useLocation();
   if (!match) return <Redirect to="/dev/chat-audit/sessions" />;
-  return <Redirect to={`/dev/chat-audit/sessions/${match.params.sessionId}`} />;
+  // Preserve hash so anchored bookmarks like /dev/chat-audit/abc#turn-xyz keep the anchor
+  return (
+    <Redirect
+      to={{ pathname: `/dev/chat-audit/sessions/${match.params.sessionId}`, hash: location.hash }}
+    />
+  );
 }
 
 export function DevAuditShell() {

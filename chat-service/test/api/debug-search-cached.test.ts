@@ -201,6 +201,38 @@ describe('GET /debug/search/cached', () => {
     expect(body.results.length).toBeLessThanOrEqual(3);
   });
 
+  it('cross-owner same-game isolation: owner-B cannot see owner-A entries when both have sessions in game', async () => {
+    // Both owners have sessions in g1 — old EXISTS-based filter would leak owner-A's entries to owner-B
+    seedEntry(db, { ownerId: 'owner-a', gameId: 'g1', userText: 'owner-a secret query' });
+    // Give owner-b their own session in the same game
+    const ownerBSession = chatStore.createSession(db, { ownerId: 'owner-b', gameId: 'g1', title: 'b-session' });
+    // Owner-b has their own unrelated cache entry
+    const bTurnId = `turn-${Math.random().toString(36).slice(2)}`;
+    db.prepare(
+      `INSERT INTO chat_turns (id, session_id, turn_index, role, started_at) VALUES (?, ?, 0, 'assistant', ?)`,
+    ).run(bTurnId, ownerBSession.id, Date.now());
+    insertCacheEntry(db, {
+      key: `key-b-${Math.random().toString(36).slice(2)}`,
+      gameId: 'g1', skill: 'general', model: 'claude-test',
+      userTextNormalized: 'owner-b own query',
+      value: { text: 'resp', toolCalls: [] },
+      inputTokens: 5, outputTokens: 3, costUsd: 0.001,
+      originalTurnId: bTurnId, originalSessionId: ownerBSession.id,
+    });
+
+    // Owner-B should only see their own entries, NOT owner-A's
+    const res = await app.inject({
+      method: 'GET',
+      url: '/debug/search/cached',
+      headers: { 'x-owner-id': 'owner-b' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as { results: Array<{ user_text_snippet: string }> };
+    expect(body.results).toHaveLength(1);
+    expect(body.results[0].user_text_snippet).toContain('owner-b own query');
+    expect(body.results.some((r) => r.user_text_snippet.includes('owner-a'))).toBe(false);
+  });
+
   it('result rows have the expected shape', async () => {
     const { sessionId, turnId } = seedEntry(db, {
       ownerId: 'owner-a',

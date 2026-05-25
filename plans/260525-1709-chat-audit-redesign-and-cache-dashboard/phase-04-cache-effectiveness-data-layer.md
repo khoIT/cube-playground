@@ -13,7 +13,7 @@
 
 ## Overview
 - **Priority:** P1 (blocks phase 05 UI; parallelizable with 01/02/03)
-- **Status:** pending
+- **Status:** completed
 - **Description:** Build the server-side data layer for the 6 cache-effectiveness metrics. New store + new Fastify plugin + proxy route. Owner-scoped; game + days filterable.
 
 ## Key Insights — verified against codebase
@@ -150,16 +150,16 @@ computeCacheEffectiveness(db, opts):    [cache-effectiveness-store.ts]
 9. **Compile**: `cd chat-service && npm run build` + `cd server && npm run build` (or whatever tsconfigs use).
 
 ## Todo List
-- [ ] Add `cube_meta_hash` column (CREATE + idempotent ALTER)
-- [ ] Update `InsertCacheParams` + INSERT SQL in `response-cache-store.ts`
-- [ ] Plumb `cubeMetaHash` through `response-cache-write.ts`
-- [ ] Write `cache-effectiveness-store.ts` (5 sub-queries + aggregator)
-- [ ] Write `debug-cache-effectiveness.ts` Fastify plugin
-- [ ] Register plugin in `chat-service/src/index.ts`
-- [ ] Add proxy route in `server/src/routes/chat.ts`
-- [ ] Smoke unit test in `chat-service/src/__tests__/`
-- [ ] Compile both services
-- [ ] Verify NULL row handling end-to-end (legacy rows pre-migration)
+- [x] Add `cube_meta_hash` column (CREATE + idempotent ALTER)
+- [x] Update `InsertCacheParams` + INSERT SQL in `response-cache-store.ts`
+- [x] Plumb `cubeMetaHash` through `response-cache-write.ts`
+- [x] Write `cache-effectiveness-store.ts` (5 sub-queries + aggregator)
+- [x] Write `debug-cache-effectiveness.ts` Fastify plugin
+- [x] Register plugin in `chat-service/src/index.ts`
+- [x] Add proxy route in `server/src/routes/chat.ts`
+- [x] Smoke unit test in `chat-service/src/__tests__/`
+- [x] Compile both services
+- [x] Verify NULL row handling end-to-end (legacy rows pre-migration)
 
 ## Success Criteria
 - Endpoint returns 200 + shape above for happy path.
