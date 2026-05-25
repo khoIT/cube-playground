@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Diff compare mode"
-status: pending
+status: completed
 priority: P2
 effort: "1-2d"
 dependencies: []

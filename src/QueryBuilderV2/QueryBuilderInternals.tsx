@@ -23,6 +23,11 @@ import { QueryStatePillBar } from './QueryStatePillBar';
 import { AnalysisPanel } from './analysis/analysis-panel';
 import { ChartSidePane } from './components/ChartSidePane';
 import { PinToDashboardButton } from '../pages/Dashboards/pin-to-dashboard-button';
+import { CompareContext } from './compare/compare-context';
+import { CompareToggle } from './compare/compare-toggle';
+import { useCompareResults } from './compare/use-compare-results';
+import { readCompareFromUrl, writeCompareToUrl } from './compare/compare-url-codec';
+import type { CompareSetting } from './compare/compare-url-codec';
 
 const FIXED_SIDEBAR_WIDTH = 315;
 
@@ -118,6 +123,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
     apiToken,
     apiUrl,
     query,
+    resultSet,
   } = useQueryBuilderContext();
   const [chartCollapsed, setChartCollapsed] = useLocalStorage<boolean>(
     'gds-cube:chart-pane-collapsed',
@@ -125,6 +131,32 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
   );
   const [tab, setTab] = useState<Tab>('results');
   const ref = useRef<HTMLDivElement>(null);
+
+  // Compare mode state — initialised from URL on first render.
+  const [compareSetting, setCompareSetting] = useState<CompareSetting>(
+    () => readCompareFromUrl(),
+  );
+
+  const handleCompareChange = useCallback((next: CompareSetting) => {
+    setCompareSetting(next);
+    writeCompareToUrl(next);
+  }, []);
+
+  // Derive measures list for delta computation.
+  const measures = useMemo(() => query?.measures ?? [], [JSON.stringify(query?.measures)]);
+
+  // Run comparison query only when a mode is active and a result set is present.
+  const compareInput = compareSetting
+    ? {
+        query,
+        mode: compareSetting,
+        apiUrl: apiUrl ?? null,
+        currentToken: apiToken ?? null,
+        currentResultSet: resultSet ?? null,
+        measures,
+      }
+    : null;
+  const compareState = useCompareResults(compareInput);
 
   const onChartTypeChange = useCallback(
     (value: ChartType) => {
@@ -143,12 +175,18 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
 
   const ResultsAndSQL = useMemo(() => {
     return (
-      <>
+      <CompareContext.Provider value={{ compareSetting, compareState }}>
         <Divider />
 
         <Tabs
           activeKey={tab}
-          extra={<><QueryBuilderExtras /><PinToDashboardButton /></>}
+          extra={
+            <>
+              <QueryBuilderExtras />
+              <CompareToggle value={compareSetting} onChange={handleCompareChange} />
+              <PinToDashboardButton />
+            </>
+          }
           styles={{ padding: '0 1x' }}
           onChange={(tab: string) => setTab(tab as Tab)}
         >
@@ -171,9 +209,12 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
             <QueryBuilderGraphQL />
           </Tab>
         </Tabs>
-      </>
+      </CompareContext.Provider>
     );
-  }, [tab]);
+    // compareSetting / compareState / handleCompareChange intentionally in dep array
+    // so context value updates when compare mode changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, compareSetting, compareState, handleCompareChange]);
 
   const centerContent = (
     <CenterColumn ref={ref}>
