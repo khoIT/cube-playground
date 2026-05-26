@@ -29,6 +29,13 @@ interface SeedTerm {
   label_vi?: string | null;
   description_vi?: string | null;
   aliases_vi?: string[];
+  // Phase 02a concept-tier fields (all optional; non-concept terms omit them).
+  entity_cube?: string | null;
+  entity_pk?: string | null;
+  default_measure_ref?: string | null;
+  default_filter_json?: Record<string, unknown> | null;
+  ranking_json?: Record<string, unknown> | null;
+  trust_tier?: 'certified' | 'experimental' | null;
 }
 
 interface SeedFile {
@@ -58,8 +65,9 @@ export function migrateGlossarySeed(
   const insertStmt = db.prepare(
     `INSERT OR IGNORE INTO glossary_terms
        (id, label, description, primary_catalog_id, secondary_catalog_ids, aliases, category,
-        updated_at, label_vi, description_vi, aliases_vi, status, source, editor_name)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        updated_at, label_vi, description_vi, aliases_vi, status, source, editor_name,
+        entity_cube, entity_pk, default_measure_ref, default_filter_json, ranking_json, trust_tier)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   );
 
   // Refresh only untouched seed rows (no human editor recorded). User-edited
@@ -69,7 +77,9 @@ export function migrateGlossarySeed(
     `UPDATE glossary_terms
        SET label = ?, description = ?, primary_catalog_id = ?, secondary_catalog_ids = ?,
            aliases = ?, category = ?, updated_at = ?, label_vi = ?, description_vi = ?,
-           aliases_vi = ?
+           aliases_vi = ?,
+           entity_cube = ?, entity_pk = ?, default_measure_ref = ?,
+           default_filter_json = ?, ranking_json = ?, trust_tier = ?
      WHERE id = ? AND source = 'seed' AND editor_name IS NULL`,
   );
 
@@ -81,6 +91,9 @@ export function migrateGlossarySeed(
 
   const arr = (a?: string[]): string | null =>
     a && a.length ? JSON.stringify(a) : null;
+
+  const obj = (o?: Record<string, unknown> | null): string | null =>
+    o && Object.keys(o).length ? JSON.stringify(o) : null;
 
   const tx = db.transaction(() => {
     for (const t of seed.terms) {
@@ -99,6 +112,12 @@ export function migrateGlossarySeed(
         'official',
         'seed',
         null,
+        t.entity_cube ?? null,
+        t.entity_pk ?? null,
+        t.default_measure_ref ?? null,
+        obj(t.default_filter_json),
+        obj(t.ranking_json),
+        t.trust_tier ?? null,
       );
 
       if (insertResult.changes === 1) {
@@ -117,6 +136,12 @@ export function migrateGlossarySeed(
         t.label_vi ?? null,
         t.description_vi ?? null,
         arr(t.aliases_vi),
+        t.entity_cube ?? null,
+        t.entity_pk ?? null,
+        t.default_measure_ref ?? null,
+        obj(t.default_filter_json),
+        obj(t.ranking_json),
+        t.trust_tier ?? null,
         t.id,
       );
       if (refreshResult.changes === 1) upserted += 1;

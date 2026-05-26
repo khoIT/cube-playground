@@ -88,6 +88,27 @@ export interface OfficialTerm {
   aliasesVi: string[];
   labelVi: string | null;
   category: string | null;
+  // Phase 02a concept-tier fields. Non-concept terms carry nulls; resolver
+  // treats `entity_cube != null` as the "rankable concept" signal.
+  entityCube?: string | null;
+  entityPk?: string | null;
+  defaultMeasureRef?: string | null;
+  defaultFilter?: ConceptFilter | null;
+  ranking?: ConceptRanking | null;
+  trustTier?: 'certified' | 'experimental' | null;
+}
+
+/** Single inline filter carried by a concept term ("spender → revenue > 0"). */
+export interface ConceptFilter {
+  member: string;
+  op: '>' | '>=' | '<' | '<=' | '=' | '!=' | 'IN' | 'NOT IN';
+  value: string | number | Array<string | number>;
+}
+
+/** Ranking config for rankable concepts. */
+export interface ConceptRanking {
+  order: 'ASC' | 'DESC';
+  default_limit: number;
 }
 
 /** Compiled alias index built from the Official glossary. */

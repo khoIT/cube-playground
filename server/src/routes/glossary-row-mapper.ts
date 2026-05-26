@@ -19,6 +19,13 @@ export interface GlossaryRow {
   status: 'draft' | 'official';
   source: 'seed' | 'user';
   editor_name: string | null;
+  // Phase 02a concept-tier columns (additive, nullable).
+  entity_cube: string | null;
+  entity_pk: string | null;
+  default_measure_ref: string | null;
+  default_filter_json: string | null;
+  ranking_json: string | null;
+  trust_tier: string | null;
 }
 
 export interface GlossaryTerm {
@@ -36,6 +43,12 @@ export interface GlossaryTerm {
   status: 'draft' | 'official';
   source: 'seed' | 'user';
   editorName: string | null;
+  entityCube: string | null;
+  entityPk: string | null;
+  defaultMeasureRef: string | null;
+  defaultFilter: Record<string, unknown> | null;
+  ranking: Record<string, unknown> | null;
+  trustTier: 'certified' | 'experimental' | null;
 }
 
 export function safeArray(raw: string | null): string[] {
@@ -45,6 +58,18 @@ export function safeArray(raw: string | null): string[] {
     return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : [];
   } catch {
     return [];
+  }
+}
+
+function safeObject(raw: string | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -64,6 +89,15 @@ export function rowToTerm(row: GlossaryRow): GlossaryTerm {
     status: row.status,
     source: row.source,
     editorName: row.editor_name,
+    entityCube: row.entity_cube,
+    entityPk: row.entity_pk,
+    defaultMeasureRef: row.default_measure_ref,
+    defaultFilter: safeObject(row.default_filter_json),
+    ranking: safeObject(row.ranking_json),
+    trustTier:
+      row.trust_tier === 'certified' || row.trust_tier === 'experimental'
+        ? row.trust_tier
+        : null,
   };
 }
 
@@ -79,6 +113,13 @@ export interface TermInput {
   descriptionVi?: string | null;
   aliasesVi?: string[];
   editorName?: string | null;
+  // Phase 02a concept-tier fields (additive; ignored when concept route off).
+  entityCube?: string | null;
+  entityPk?: string | null;
+  defaultMeasureRef?: string | null;
+  defaultFilter?: Record<string, unknown> | null;
+  ranking?: Record<string, unknown> | null;
+  trustTier?: 'certified' | 'experimental' | null;
 }
 
 const SLUG_RE = /[^a-z0-9]+/g;
@@ -100,6 +141,10 @@ export interface WriteRowParams extends TermInput {
   updatedAt: number;
 }
 
+function jsonOrNull(o?: Record<string, unknown> | null): string | null {
+  return o && Object.keys(o).length ? JSON.stringify(o) : null;
+}
+
 /** Flatten domain object into the positional params our prepared INSERT/UPDATE expects. */
 export function termToWriteParams(p: WriteRowParams): Array<string | number | null> {
   return [
@@ -117,5 +162,11 @@ export function termToWriteParams(p: WriteRowParams): Array<string | number | nu
     p.status,
     p.source,
     p.editorName ?? null,
+    p.entityCube ?? null,
+    p.entityPk ?? null,
+    p.defaultMeasureRef ?? null,
+    jsonOrNull(p.defaultFilter),
+    jsonOrNull(p.ranking),
+    p.trustTier ?? null,
   ];
 }

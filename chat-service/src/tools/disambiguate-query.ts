@@ -16,7 +16,13 @@ import { disambiguate } from '../nl-to-query/index.js';
 import type { DisambiguationResult, Clarification } from '../nl-to-query/index.js';
 import { fillResultFromMemory, writeMemoryFromResult } from './disambiguate-memory-merge.js';
 import { suggestTimeAwareAlternatives } from '../nl-to-query/time-aware-measure-suggester.js';
-import type { ToolContext } from '../types.js';
+import { config } from '../config.js';
+import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
+import { findExactMatch } from '../nl-to-query/synonym-resolver.js';
+import { firstCubeRef } from '../nl-to-query/recognise-cube-ref.js';
+import { resolveBestConcept } from '../nl-to-query/concept-resolver.js';
+import { buildLeaderboardQuery } from '../nl-to-query/leaderboard-path.js';
+import type { CubeQuery, ToolContext } from '../types.js';
 
 export const name = 'disambiguate_query';
 export const description =
@@ -45,6 +51,20 @@ function collectRefsToValidate(result: DisambiguationResult): MissingRefIssue[] 
   return issues;
 }
 
+/**
+ * Phase 02a — disclosure payload returned alongside an auto-routed query
+ * when the resolver had to pick between several plausible interpretations.
+ * The skill body renders this as a single-line footer the user can override
+ * with "not that".
+ */
+export interface ResolutionAssumption {
+  slot: 'metric' | 'concept' | 'entity';
+  chosen: string;
+  phrase: string;
+  confidence: number;
+  alternatives: Array<{ id: string; score: number }>;
+}
+
 export async function handler(
   args: { message: string; mode?: 'targeted' | 'aggressive' },
   ctx: ToolContext,
@@ -57,6 +77,7 @@ export async function handler(
   unresolved: string[];
   language: DisambiguationResult['language'];
   warnings: string[];
+  assumption?: ResolutionAssumption;
 }> {
   const mode = args.mode ?? ctx.disambiguationMode ?? 'targeted';
   const now = ctx.now ? ctx.now() : Date.now();
@@ -75,6 +96,16 @@ export async function handler(
     { message: args.message, mode, knownMembers },
     { now: () => now },
   );
+
+  // Phase 02a — v2 resolver layer. Three short-circuits (cube ref, exact alias,
+  // rankable concept + leaderboard intent) skip the clarify list when the user
+  // has already typed something unambiguous. Flag-gated; falls through to the
+  // existing engine otherwise. Builds `assumption` for the concept path so the
+  // skill body can render the disclosure footer.
+  let assumption: ResolutionAssumption | undefined;
+  if (config.chatGlossaryV2Enabled) {
+    assumption = await applyGlossaryV2(result, args.message, knownMembers);
+  }
 
   // Phase 1 — fill empty slots from memory so the validator sees the
   // user's prior context (e.g. timeRange set in a previous turn).
@@ -139,6 +170,104 @@ export async function handler(
     unresolved: result.unresolved,
     language: result.language,
     warnings: result.warnings,
+    ...(assumption ? { assumption } : {}),
+  };
+}
+
+/**
+ * Phase 02a — short-circuit the clarify list when the user has already typed
+ * something unambiguous. Mutates `result` in place; returns the assumption
+ * payload when the concept-resolver took the leaderboard path (the other two
+ * short-circuits don't need disclosure since the user was explicit).
+ */
+async function applyGlossaryV2(
+  result: DisambiguationResult,
+  message: string,
+  knownMembers: Set<string> | undefined,
+): Promise<ResolutionAssumption | undefined> {
+  // 1. Fully-qualified cube ref — `recharge.revenue_vnd` style.
+  const refHit = firstCubeRef(message, knownMembers);
+  if (refHit) {
+    result.slots.metric = {
+      value: refHit.hit.cubeRef,
+      alias: refHit.hit.cubeRef,
+      confidence: 1.0,
+      span: refHit.hit.span,
+    };
+    result.action = 'auto';
+    result.clarifications = [];
+    return undefined;
+  }
+
+  // 2. Exact id / label / alias match — user typed a term verbatim.
+  let glossary;
+  try {
+    glossary = await fetchOfficialGlossary();
+  } catch {
+    return undefined;
+  }
+  const exact = findExactMatch(message, glossary);
+  if (exact) {
+    // Concept terms carry a separate `defaultMeasureRef` (the actual cube
+    // member) distinct from `primaryCatalogId` (a catalog path like
+    // `business_metrics/paying_users`). Prefer the cube ref so the meta
+    // validator downstream accepts it.
+    const cubeRef = exact.term.defaultMeasureRef ?? exact.term.primaryCatalogId ?? exact.term.id;
+    result.slots.metric = {
+      value: cubeRef,
+      alias: message.trim(),
+      confidence: 1.0,
+    };
+    result.action = 'auto';
+    result.clarifications = [];
+    return undefined;
+  }
+
+  // 3. Rankable concept + leaderboard intent → entity-rank query.
+  const intent = result.slots.intent?.value;
+  if (intent !== 'leaderboard') return undefined;
+
+  const conceptResolution = resolveBestConcept(message, glossary);
+  if (!conceptResolution) return undefined;
+  const threshold = config.chatGlossaryAutorouteThreshold;
+  if (conceptResolution.confidence < threshold) return undefined;
+  if (conceptResolution.gap < 0.2) return undefined;
+
+  const concept = conceptResolution.best.term;
+  // Inherit timeRange (and limit hint) from the engine's slot extraction.
+  const timeRangeValue = result.slots.timeRange?.value;
+  const granularity = result.slots.timeRange?.granularity as
+    | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | undefined;
+  const built = buildLeaderboardQuery({
+    concept,
+    timeRange: timeRangeValue
+      ? { dateRange: timeRangeValue, granularity }
+      : undefined,
+    limit: result.slots.limit,
+  });
+  if (!built.rankable) return undefined;
+
+  // Replace the engine's draft query and pin the metric slot.
+  result.query = built.query as CubeQuery;
+  if (concept.defaultMeasureRef) {
+    result.slots.metric = {
+      value: concept.defaultMeasureRef,
+      alias: conceptResolution.best.alias,
+      confidence: conceptResolution.confidence,
+      span: conceptResolution.best.span,
+    };
+  }
+  result.action = 'auto';
+  result.clarifications = [];
+
+  return {
+    slot: 'concept',
+    chosen: concept.id,
+    phrase: conceptResolution.best.alias,
+    confidence: conceptResolution.confidence,
+    alternatives: conceptResolution.secondBest
+      ? [{ id: conceptResolution.secondBest.conceptId, score: conceptResolution.secondBest.score }]
+      : [],
   };
 }
 

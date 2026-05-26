@@ -9,6 +9,8 @@ synonyms:
   - pu7
   - payers
   - paying_users_rolling
+  - spender
+  - spenders
 tier: 1
 domain: payments
 owner: data-platform@vng

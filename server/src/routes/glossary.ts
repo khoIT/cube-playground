@@ -27,7 +27,8 @@ import {
 } from './glossary-validators.js';
 
 const SELECT_COLS = `id, label, description, primary_catalog_id, secondary_catalog_ids,
-  aliases, category, updated_at, label_vi, description_vi, aliases_vi, status, source, editor_name`;
+  aliases, category, updated_at, label_vi, description_vi, aliases_vi, status, source, editor_name,
+  entity_cube, entity_pk, default_measure_ref, default_filter_json, ranking_json, trust_tier`;
 
 function listEtag(): string {
   const row = getDb()
@@ -80,7 +81,7 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
     getDb().prepare(`
       INSERT INTO glossary_terms
         (${SELECT_COLS})
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(...termToWriteParams({ ...input, id, status: 'draft', source: 'user', updatedAt: now }));
 
     return reply.status(201).send(rowToTerm(getRowById(id) as GlossaryRow));
@@ -94,11 +95,15 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
     if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
 
     const now = Date.now();
+    const jsonOrNull = (o?: Record<string, unknown> | null): string | null =>
+      o && Object.keys(o).length ? JSON.stringify(o) : null;
     getDb().prepare(`
       UPDATE glossary_terms SET
         label = ?, description = ?, primary_catalog_id = ?, secondary_catalog_ids = ?,
         aliases = ?, category = ?, updated_at = ?, label_vi = ?, description_vi = ?,
-        aliases_vi = ?, editor_name = ?
+        aliases_vi = ?, editor_name = ?,
+        entity_cube = ?, entity_pk = ?, default_measure_ref = ?,
+        default_filter_json = ?, ranking_json = ?, trust_tier = ?
       WHERE id = ?
     `).run(
       parsed.data.label,
@@ -113,6 +118,12 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
       parsed.data.descriptionVi ?? null,
       parsed.data.aliasesVi && parsed.data.aliasesVi.length ? JSON.stringify(parsed.data.aliasesVi) : null,
       parsed.data.editorName ?? null,
+      parsed.data.entityCube ?? null,
+      parsed.data.entityPk ?? null,
+      parsed.data.defaultMeasureRef ?? null,
+      jsonOrNull(parsed.data.defaultFilter ?? null),
+      jsonOrNull(parsed.data.ranking ?? null),
+      parsed.data.trustTier ?? null,
       req.params.id,
     );
 

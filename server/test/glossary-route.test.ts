@@ -27,6 +27,7 @@ function inMemoryDb(): Database.Database {
   const db = new Database(':memory:');
   db.exec(readMigration('007-glossary.sql'));
   db.exec(readMigration('008-glossary-bilingual-and-status.sql'));
+  db.exec(readMigration('015-glossary-concept-tier.sql'));
   return db;
 }
 

@@ -142,6 +142,19 @@ export interface Config {
    * so a fresh deploy works without extra env wiring.
    */
   evalJudgeModel: string;
+  /**
+   * Phase 02a: enable glossary-v2 resolver path (concept tier + leaderboard
+   * path + exact-id short-circuit + assumption-disclosure). Default false
+   * until the concept-resolution eval suite ramps.
+   */
+  chatGlossaryV2Enabled: boolean;
+  /**
+   * Phase 02a: confidence threshold above which a concept/metric hit is
+   * auto-routed (`action='auto'` with assumption disclosure) instead of
+   * surfacing a clarify list. A second-best gap of >= 0.2 is also required
+   * (see concept-resolver). Default 0.8.
+   */
+  chatGlossaryAutorouteThreshold: number;
 }
 
 function parsePreset(raw: string): QueryOptionsPreset {
@@ -196,6 +209,8 @@ export const config: Config = {
   chatContextSdkResumeEnabled: optional('CHAT_CONTEXT_SDK_RESUME', 'false') === 'true',
   evalDailyBudgetUsd: optionalFloat('EVAL_DAILY_BUDGET_USD', 50),
   evalJudgeModel: optional('EVAL_JUDGE_MODEL', optional('CHAT_MODEL', 'claude-sonnet-4-6')),
+  chatGlossaryV2Enabled: optional('CHAT_GLOSSARY_V2', 'false') === 'true',
+  chatGlossaryAutorouteThreshold: optionalFloat('CHAT_GLOSSARY_AUTOROUTE_THRESHOLD', 0.8),
 };
 
 /** True only when both Langfuse credentials are present in the environment. */

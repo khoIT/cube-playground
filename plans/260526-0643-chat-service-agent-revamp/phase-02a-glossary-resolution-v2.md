@@ -12,7 +12,7 @@
 ## Overview
 
 - **Priority:** P0 — the headline phase. Primary business goal of the revamp.
-- **Status:** Pending
+- **Status:** **MVP done** (resolver core + flag-gated disambig integration + 44 unit tests). Sub-deliverable D (memory merge for `intent`/`concept`/`entity` slots), FE CRUD updates, 50-case eval suite, and prod-session audit are carved into follow-up sub-phases 02a-D / 02a-FE / 02a-E.
 - **Flag:** `CHAT_GLOSSARY_V2` (default off; ramp gated on concept-resolution eval suite)
 - **Description:** The user-visible problem is "agent asks 4 clarifying questions instead of answering". This phase fixes the four root causes that produced session `b93d68e4` (8 turns to deliver one query). Three sub-deliveries: (a) glossary schema v2 with a **concept tier**; (b) resolver with confidence-gated auto-route + exact-match short-circuit + raw-ref recogniser; (c) leaderboard intent path that resolves an **entity**, not just a metric.
 
@@ -237,33 +237,39 @@ Turns to answer: 1 (was 8).
 
 ## Todo List
 
-- [ ] Prod-session audit (200 sessions → concept list + baseline)
-- [ ] Migration `009-glossary-concept-tier.sql` (additive columns)
-- [ ] `glossary-migrate.ts` handles new columns; idempotency tested
-- [ ] Seed 10 concept rows in `glossary.seed.json` (`trust_tier: certified`, PM-reviewed)
-- [ ] `glossary.ts` route + validators + row mapper updated
-- [ ] FE `glossary-edit-form.tsx` + `glossary-row.tsx` render new fields
-- [ ] `glossary-client.ts` (chat-service) parses new fields
-- [ ] `paying_users.yml` synonyms expansion (`spender, spenders`) — duplicate path to glossary for resolver robustness
-- [ ] `recognise-cube-ref.ts` + tests
-- [ ] `concept-resolver.ts` + tests
-- [ ] `leaderboard-path.ts` + tests
-- [ ] `synonym-resolver.ts` exact-match short-circuit
-- [ ] Confidence-gated auto-route threshold env
-- [ ] `disambiguate-query.ts` returns `assumption`
-- [ ] `DisambigResolutions` extended with `intent`, `concept`, `entity` slots (sub-deliverable D)
-- [ ] Memory merge bridges new slots in BOTH tiers (session + cross-session); writes confident intent/concept on clarify outcomes
-- [ ] `PrefSlot` type extended in `user-prefs-adapter.ts` with new variants
-- [ ] Cross-session reads tagged `source: 'cross-session'` on `assumption` field; skill body renders explicit-history disclosure footer
-- [ ] Phase 03 settings page lists intent/concept/entity in cross-session defaults
-- [ ] Replay test of session `b93d68e4`: assert intent + concept survive the clarify→reply boundary
-- [ ] Cross-session round-trip test: turn 0 writes pref → fresh session same (user, game) reads pref with confidence 0.7 + always-disclose
-- [ ] `list_concepts` + `get_concept` MCP tools
-- [ ] `explore/SKILL.md` updates (disclosure + "not that")
-- [ ] Phase 02 focus-store integration (`last_concept`)
-- [ ] `concept-resolution-eval.ts` (≥50 cases)
-- [ ] Staging ramp + eval gating
-- [ ] Doc the concept catalog in `docs/glossary-v2.md` (separate, brief)
+MVP (this session — landed):
+
+- [x] Migration `015-glossary-concept-tier.sql` (additive columns; renumbered from 009 because that slot was taken by anomalies)
+- [x] `glossary-migrate.ts` handles new columns; idempotency preserved by existing `source='seed' AND editor_name IS NULL` guard
+- [x] Seed 10 concept rows in `glossary.seed.json` (`trust_tier: certified`) — spender, whale, churner, new-spender, dormant-user, top-country, top-item, active-user, returning-user, first-time-payer
+- [x] `glossary.ts` route + validators + row mapper updated (Zod schema constrains filter ops to safe allowlist)
+- [x] `glossary-client.ts` (chat-service) parses new fields onto `OfficialTerm`
+- [x] `paying_users.yml` synonyms expansion (`spender, spenders`)
+- [x] `recognise-cube-ref.ts` + 10 tests
+- [x] `concept-resolver.ts` + 15 tests
+- [x] `leaderboard-path.ts` + 10 tests
+- [x] `synonym-resolver.ts` exact-match short-circuit (`findExactMatch`) + 6 tests
+- [x] Confidence-gated auto-route threshold env (`CHAT_GLOSSARY_AUTOROUTE_THRESHOLD`)
+- [x] `CHAT_GLOSSARY_V2` flag added to config
+- [x] `disambiguate-query.ts` returns `assumption`; flag-gated v2 resolver layer (3 short-circuits) + 3 integration tests
+- [x] `explore/SKILL.md` updates (disclosure + "not that" + preserve-intent reminder)
+
+Carved into follow-up sub-phases:
+
+- [ ] **02a-Audit:** Prod-session audit (200 sessions → concept list + baseline turns-to-answer) — operational, requires prod data access
+- [ ] **02a-FE:** FE `glossary-edit-form.tsx` + `glossary-row.tsx` render new fields (collapsed "Concept ranking config" sub-panel when `entity_cube` set)
+- [ ] **02a-D:** `DisambigResolutions` extended with `intent`, `concept`, `entity` slots (sub-deliverable D)
+- [ ] **02a-D:** Memory merge bridges new slots in BOTH tiers (session + cross-session); writes confident intent/concept on clarify outcomes
+- [ ] **02a-D:** `PrefSlot` type extended in `user-prefs-adapter.ts` with new variants
+- [ ] **02a-D:** Cross-session reads tagged `source: 'cross-session'` on `assumption` field; skill body renders explicit-history disclosure footer
+- [ ] **02a-D:** Phase 03 settings page lists intent/concept/entity in cross-session defaults (cross-ref to phase 03)
+- [ ] **02a-D:** Replay test of session `b93d68e4`: assert intent + concept survive the clarify→reply boundary
+- [ ] **02a-D:** Cross-session round-trip test: turn 0 writes pref → fresh session same (user, game) reads pref with confidence 0.7 + always-disclose
+- [ ] **02a-E:** `concept-resolution-eval.ts` (≥50 cases) + judge harness using `evalJudgeModel`
+- [ ] **02a-E:** Staging ramp + eval gating to 100%
+- [ ] **02a-FE:** Phase 02 focus-store integration (`last_concept`) — requires phase 02 to land first
+- [ ] **02a-FE:** Doc the concept catalog in `docs/glossary-v2.md` (separate, brief)
+- [ ] Deferred indefinitely: `list_concepts` + `get_concept` MCP tools — existing `list_business_metrics` + glossary client cover the same surface; revisit only if eval shows gaps
 
 ## Success Criteria
 

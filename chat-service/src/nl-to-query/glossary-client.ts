@@ -11,6 +11,23 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import type { OfficialTerm } from './types.js';
 
+const ConceptFilterSchema = z
+  .object({
+    member: z.string(),
+    op: z.enum(['>', '>=', '<', '<=', '=', '!=', 'IN', 'NOT IN']),
+    value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))]),
+  })
+  .nullable()
+  .optional();
+
+const ConceptRankingSchema = z
+  .object({
+    order: z.enum(['ASC', 'DESC']),
+    default_limit: z.number().int().min(1).max(1000),
+  })
+  .nullable()
+  .optional();
+
 const TermSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -21,6 +38,14 @@ const TermSchema = z.object({
   labelVi: z.string().nullable().default(null),
   category: z.string().nullable().default(null),
   status: z.literal('official').or(z.literal('draft')).optional(),
+  // Phase 02a concept-tier fields — all optional + nullable; server returns
+  // nulls for non-concept terms which is the bulk of the existing seed.
+  entityCube: z.string().nullable().optional(),
+  entityPk: z.string().nullable().optional(),
+  defaultMeasureRef: z.string().nullable().optional(),
+  defaultFilter: ConceptFilterSchema,
+  ranking: ConceptRankingSchema,
+  trustTier: z.enum(['certified', 'experimental']).nullable().optional(),
 });
 
 const ListSchema = z.object({ terms: z.array(TermSchema) });
@@ -64,6 +89,12 @@ async function fetchFromServer(prevEtag: string | null): Promise<{ terms: Offici
     aliasesVi: t.aliasesVi,
     labelVi: t.labelVi,
     category: t.category,
+    entityCube: t.entityCube ?? null,
+    entityPk: t.entityPk ?? null,
+    defaultMeasureRef: t.defaultMeasureRef ?? null,
+    defaultFilter: t.defaultFilter ?? null,
+    ranking: t.ranking ?? null,
+    trustTier: t.trustTier ?? null,
   }));
   return { terms, etag: res.headers.get('etag') };
 }

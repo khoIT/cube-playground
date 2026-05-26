@@ -111,6 +111,68 @@ export function resolveTerms(message: string, glossary: OfficialTerm[]): AliasHi
   return hits;
 }
 
+/**
+ * Phase 02a — exact-match short-circuit.
+ *
+ * When the trimmed, lowercased message equals one of a term's id / label /
+ * aliases verbatim (case-insensitive), we treat it as conf=1.0 and the
+ * disambig tool skips the ranking + clarify step. This is what stops the
+ * "user typed `payers` and we still asked them to pick between 5 sibling
+ * metrics" failure mode.
+ *
+ * Returns null when no exact match, or when two distinct terms match the
+ * same string (ambiguous — caller must clarify). The id check happens first
+ * so explicit ids like `recharge.revenue_vnd` resolved via
+ * `recognise-cube-ref` always win.
+ */
+export interface ExactMatch {
+  termId: string;
+  term: OfficialTerm;
+  matchedOn: 'id' | 'label' | 'alias';
+}
+
+export function findExactMatch(
+  message: string,
+  glossary: OfficialTerm[],
+): ExactMatch | null {
+  const norm = normalise(message);
+  if (!norm) return null;
+
+  const matches: ExactMatch[] = [];
+  for (const t of glossary) {
+    if (normalise(t.id) === norm) {
+      matches.push({ termId: t.id, term: t, matchedOn: 'id' });
+      continue;
+    }
+    if (normalise(t.label) === norm) {
+      matches.push({ termId: t.id, term: t, matchedOn: 'label' });
+      continue;
+    }
+    if (t.labelVi && normalise(t.labelVi) === norm) {
+      matches.push({ termId: t.id, term: t, matchedOn: 'label' });
+      continue;
+    }
+    for (const a of t.aliases) {
+      if (normalise(a) === norm) {
+        matches.push({ termId: t.id, term: t, matchedOn: 'alias' });
+        break;
+      }
+    }
+    for (const a of t.aliasesVi) {
+      if (normalise(a) === norm) {
+        matches.push({ termId: t.id, term: t, matchedOn: 'alias' });
+        break;
+      }
+    }
+  }
+
+  if (matches.length === 0) return null;
+  // Ambiguous (two unrelated terms share the same alias) → caller clarifies.
+  const distinct = new Set(matches.map((m) => m.termId));
+  if (distinct.size > 1) return null;
+  return matches[0]!;
+}
+
 export function unresolvedSpans(message: string, hits: AliasHit[]): string[] {
   const out: string[] = [];
   let cursor = 0;
