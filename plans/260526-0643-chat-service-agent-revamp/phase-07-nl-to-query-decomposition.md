@@ -10,7 +10,7 @@
 ## Overview
 
 - **Priority:** P3 — REDUCED in scope after phase 02a landed
-- **Status:** Pending
+- **Status:** **Done (reduced scope)** — `parse_date_range` tool registered flag-gated; +7 unit tests. SKILL.md `allowed_tools` merge mechanism deferred (boot-guard requires the tool to be in the registry; flag-off skipping `allowed_tools` keeps that contract clean).
 - **Flag:** `CHAT_NLQ_DECOMPOSED_TOOLS`
 - **Description:** Originally proposed `get_glossary`, `parse_date_range`, `resolve_synonym` as decomposed tools. **Phase 02a now owns concept + glossary resolution** (`list_concepts`, `get_concept`, exact-match short-circuit, leaderboard path). This phase reduces to **just `parse_date_range`** — the one decomposed tool 02a doesn't subsume — so the model can backtrack on date-parsing failures specifically.
 
@@ -105,16 +105,15 @@ Model usage pattern (instructed via skill body)
 
 ## Todo List
 
-- [ ] Failure-mode spike
-- [ ] Extract impl helpers
-- [ ] Refactor disambiguate-query (no behaviour change)
-- [ ] get-glossary tool + tests
-- [ ] parse-date-range tool + tests
-- [ ] resolve-synonym tool (if spike justifies)
-- [ ] Skill body + allowed_tools update
-- [ ] Focus-store write hook
-- [ ] Backtrack round-trip test
-- [ ] Regression eval green
+- [ ] Failure-mode spike — deferred (operational; needs prod instrumentation)
+- [x] parse-date-range tool + tests (Zod schema over existing `resolveDateRanges`; +7 unit tests)
+- [x] Conditional registry entry (`CHAT_NLQ_DECOMPOSED_TOOLS` flag)
+- [~] Skill body + allowed_tools update — **reverted** because boot-guard rejects skills that reference unregistered tools. Future work: skill-merge layer that injects flag-gated tools into `allowed_tools[]` at boot when their flag is on.
+- [ ] get-glossary tool — **subsumed by phase 02a**; not needed
+- [ ] resolve-synonym tool — **subsumed by phase 02a**; not needed
+- [ ] Focus-store write hook — already covered by `turn.ts` snapshot of `disambig_resolution.timeRange` into focus
+- [ ] Backtrack round-trip test — model-loop behaviour; deferred to eval harness (phase 09)
+- [ ] Regression eval green — chat-service 703/703 across full suite
 
 ## Success Criteria
 

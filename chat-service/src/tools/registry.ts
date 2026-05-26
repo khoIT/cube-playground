@@ -18,6 +18,8 @@ import * as getSegment from './get-segment.js';
 import * as explainCubeSql from './explain-cube-sql.js';
 import * as emitChart from './emit-chart.js';
 import * as updateBusinessMetricTrust from './update-business-metric-trust.js';
+import * as parseDateRange from './parse-date-range.js';
+import { config } from '../config.js';
 
 // ---------------------------------------------------------------------------
 // Registry entry shape
@@ -112,6 +114,19 @@ const REGISTRY: RegistryEntry[] = [
     handler: updateBusinessMetricTrust.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
 ];
+
+// Phase 07 — decomposed nl-to-query helpers. Flag-gated; the boot-guard
+// validates against the SKILL.md allowed_tools so a skill cannot reference
+// a tool that the registry hasn't exposed for this process.
+if (config.chatNlqDecomposedToolsEnabled) {
+  REGISTRY.push({
+    name: parseDateRange.name,
+    description: parseDateRange.description,
+    inputSchema: parseDateRange.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: parseDateRange.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  });
+}
 
 /**
  * Return the SDK tool definitions with the ToolContext bound into each handler.

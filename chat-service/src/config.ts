@@ -162,6 +162,13 @@ export interface Config {
    * Default false until the anaphora eval gates a ramp.
    */
   chatContextFocusStoreEnabled: boolean;
+  /**
+   * Phase 07: register the decomposed nl-to-query helper tools (currently
+   * just `parse_date_range`; `get_glossary` + `resolve_synonym` are subsumed
+   * by phase 02a). Default false; flip on per-skill via the skill body
+   * allowed_tools and the boot-guard validator.
+   */
+  chatNlqDecomposedToolsEnabled: boolean;
 }
 
 function parsePreset(raw: string): QueryOptionsPreset {
@@ -219,6 +226,7 @@ export const config: Config = {
   chatGlossaryV2Enabled: optional('CHAT_GLOSSARY_V2', 'false') === 'true',
   chatGlossaryAutorouteThreshold: optionalFloat('CHAT_GLOSSARY_AUTOROUTE_THRESHOLD', 0.8),
   chatContextFocusStoreEnabled: optional('CHAT_CONTEXT_FOCUS_STORE', 'false') === 'true',
+  chatNlqDecomposedToolsEnabled: optional('CHAT_NLQ_DECOMPOSED_TOOLS', 'false') === 'true',
 };
 
 /** True only when both Langfuse credentials are present in the environment. */
