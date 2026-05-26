@@ -155,6 +155,13 @@ export interface Config {
    * (see concept-resolver). Default 0.8.
    */
   chatGlossaryAutorouteThreshold: number;
+  /**
+   * Phase 02: enable session-focus store (context layer B). When on, the
+   * compose() step injects a `## Conversation focus` block summarising
+   * last metric/dimension/timeRange/artifact, surviving SDK compaction.
+   * Default false until the anaphora eval gates a ramp.
+   */
+  chatContextFocusStoreEnabled: boolean;
 }
 
 function parsePreset(raw: string): QueryOptionsPreset {
@@ -211,6 +218,7 @@ export const config: Config = {
   evalJudgeModel: optional('EVAL_JUDGE_MODEL', optional('CHAT_MODEL', 'claude-sonnet-4-6')),
   chatGlossaryV2Enabled: optional('CHAT_GLOSSARY_V2', 'false') === 'true',
   chatGlossaryAutorouteThreshold: optionalFloat('CHAT_GLOSSARY_AUTOROUTE_THRESHOLD', 0.8),
+  chatContextFocusStoreEnabled: optional('CHAT_CONTEXT_FOCUS_STORE', 'false') === 'true',
 };
 
 /** True only when both Langfuse credentials are present in the environment. */

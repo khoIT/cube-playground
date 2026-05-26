@@ -42,6 +42,8 @@ import { getByKey, incrementHit } from '../db/response-cache-store.js';
 import { replayCachedTurn } from '../cache/replay-cached-turn.js';
 import { buildRefreshHook } from '../cache/refresh-cached-artifacts.js';
 import { maybeWriteResponseCache } from '../cache/response-cache-write.js';
+import { getFocus, mergeFocus, type SessionFocus } from '../cache/session-focus-adapter.js';
+import { getResolutions } from '../cache/disambig-memory-adapter.js';
 
 interface TurnRouteOptions {
   db: Database.Database;
@@ -279,10 +281,19 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         owner_id: body.owner_id,
       },
     });
+    // Phase 02 — read the session-focus snapshot left by the previous
+    // assistant turn so compose() can inject a `## Conversation focus` block.
+    // The adapter no-ops when the flag is off; passing `undefined` here keeps
+    // the system prompt identical to phase-01 behaviour.
+    const priorFocus: SessionFocus | undefined = config.chatContextFocusStoreEnabled
+      ? getFocus(opts.db, sessionId)
+      : undefined;
+
     const { systemPrompt, allowedToolNames } = compose({
       skill: intent.skill,
       game: body.game,
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
+      focus: priorFocus,
     });
 
     // --- 6b. Response-cache lookup (exact-match, per-game) ---
@@ -565,6 +576,29 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       // buffered observability events. Errors are swallowed by the inner
       // recorder's per-row try/catch so one bad row can't sink the rest.
       bufferedRecorder?.flush();
+
+      // Phase 02 — snapshot the resolved disambig slots + non-overlapping
+      // turn fields (skill, last artifact id) into the session focus bag.
+      // Layer B carries this forward across compaction; SDK resume gives
+      // prose continuity but focus gives the model a structured anchor.
+      if (config.chatContextFocusStoreEnabled) {
+        try {
+          const res = getResolutions(opts.db, sessionId);
+          const delta: Partial<SessionFocus> = { skill: { value: intent.skill } };
+          if (res.metric) delta.metric = res.metric;
+          if (res.dimension) delta.dimension = res.dimension;
+          if (res.timeRange) delta.timeRange = res.timeRange;
+          if (res.filters) delta.filters = res.filters;
+          if (res.intent) delta.intent = res.intent;
+          if (res.concept) delta.concept = res.concept;
+          if (res.entity) delta.entity = res.entity;
+          const lastArtifact = collectedArtifacts[collectedArtifacts.length - 1];
+          if (lastArtifact) delta.artifactRef = { value: lastArtifact.id };
+          mergeFocus(opts.db, sessionId, body.owner_id, delta);
+        } catch (focusErr) {
+          fastify.log.warn({ err: focusErr }, '[turn] focus write failed (non-fatal)');
+        }
+      }
 
       // --- Phase-06: write response-cache entry on eligible turns ---
       // stop_reason is persisted by the buffered recorder's onTurnFinalized flush above.

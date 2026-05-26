@@ -7,6 +7,7 @@
 
 import type Database from 'better-sqlite3';
 import * as chatStore from '../db/chat-store.js';
+import { getFocus, mergeFocus } from '../cache/session-focus-adapter.js';
 import type { ChatSessionRow, ChatTurnRow } from '../types.js';
 
 // How many recent turns to include in the compaction summary
@@ -99,6 +100,15 @@ export async function compactSession(opts: CompactOpts): Promise<CompactResult> 
   // preamble carries forward goal + artifacts + resolved slots (layer B in
   // phase 02) so the model still has continuity.
   chatStore.clearSdkConversationId(db, sessionId);
+
+  // Phase 02 — port the focus bag across to the new session. SDK resume gets
+  // a fresh id on compact (it must — the thread is summarised, not replayed)
+  // but the focus block is intentionally deterministic carry-over, so we
+  // copy verbatim. Adapter no-ops when the flag is off.
+  const focus = getFocus(db, sessionId);
+  if (focus.updatedAt) {
+    mergeFocus(db, newSession.id, oldSession.owner_id, focus);
+  }
 
   chatStore.markSessionCompacted(db, sessionId, newSession.id);
 

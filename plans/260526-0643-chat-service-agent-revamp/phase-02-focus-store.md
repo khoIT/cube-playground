@@ -10,7 +10,7 @@
 ## Overview
 
 - **Priority:** P0 — deterministic carry-over layer; survives compaction; works even if Phase 01 SDK resume is unavailable
-- **Status:** Pending
+- **Status:** **Done** (adapter + compose injection + turn.ts write + compact port + 17 tests). UI surface lives in phase 03; anaphora eval lives in phase 09.
 - **Flag:** `CHAT_CONTEXT_FOCUS_STORE`
 - **Description:** Per-session focus bag — last skill, last query artifact ref, last metric, last dimension, last timeRange, last segment, last filters. Written at end of each assistant turn; injected by `compose()` into the system preamble next turn.
 
@@ -106,13 +106,13 @@ Compaction
 
 ## Todo List
 
-- [ ] `session-focus-adapter.ts` (CRUD + extractor)
-- [ ] `compose()` signature + render block
-- [ ] `turn.ts` write hook
-- [ ] `compact-service.ts` port hook
-- [ ] Flag plumbing
-- [ ] Unit + integration tests
-- [ ] Anaphora eval pass
+- [x] `session-focus-adapter.ts` (CRUD + extractor + `renderFocusPreamble`)
+- [x] `compose()` signature + render block (focus injected as `## Conversation focus`)
+- [x] `turn.ts` write hook (snapshots intent.skill + collectedArtifacts[last] + disambig resolutions after appendTurn(assistant))
+- [x] `compact-service.ts` port hook (focus copied old → new before sealing)
+- [x] Flag plumbing (`CHAT_CONTEXT_FOCUS_STORE`)
+- [x] Unit + integration tests (17 total: adapter CRUD, render, flag gates, compose roundtrip, compact port)
+- [ ] Anaphora eval pass — deferred to phase 09 eval harness
 
 ## Success Criteria
 

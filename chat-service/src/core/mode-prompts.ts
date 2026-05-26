@@ -13,6 +13,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSkill } from './skill-loader.js';
+import { renderFocusPreamble, type SessionFocus } from '../cache/session-focus-adapter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MASTER_CMD_PATH = resolve(__dirname, '../../.claude/commands/cube-playground.md');
@@ -32,6 +33,14 @@ export interface ComposeParams {
   skill: string;
   game: string;
   contextPreamble?: string;
+  /**
+   * Phase 02 — optional focus snapshot. When provided AND
+   * non-empty, the resulting system prompt carries a `## Conversation
+   * focus` block summarising the prior turn's metric / dimension /
+   * timeRange / artifact. Caller is responsible for the flag gate
+   * (see `getFocus` in session-focus-adapter); pass `undefined` to skip.
+   */
+  focus?: SessionFocus;
 }
 
 export interface ComposeResult {
@@ -69,6 +78,11 @@ export function compose(params: ComposeParams): ComposeResult {
   parts.push(`## Active game\n\n${params.game}`);
 
   parts.push(FIELD_CHIP_TOKEN_GUIDANCE);
+
+  if (params.focus) {
+    const focusBlock = renderFocusPreamble(params.focus);
+    if (focusBlock) parts.push(focusBlock);
+  }
 
   if (params.contextPreamble) {
     parts.push(`## Context\n\n${params.contextPreamble}`);
