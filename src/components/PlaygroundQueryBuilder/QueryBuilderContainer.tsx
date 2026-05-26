@@ -2,7 +2,7 @@ import { Panel, Space } from '@cube-dev/ui-kit';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card, message } from 'antd';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { CubeLoader } from '../../atoms';
@@ -137,6 +137,7 @@ function QueryTabsRenderer({
   // re-render — useHistory().location is a non-reactive snapshot and
   // would leave QueryTabsRenderer stale on the new URL.
   const location = useLocation();
+  const history = useHistory();
   const { setQuery, toggleModal } = useRollupDesignerContext();
   const gameId = useActiveGameId();
 
@@ -214,11 +215,12 @@ function QueryTabsRenderer({
   }
 
   // Resolve final query: chat-artifact payload > ?query= param > null.
+  const queryParam = params.get('query');
   const rawQuery =
     (chatArtifactId && processedArtifactRef.current === chatArtifactId
       ? chatPayloadRef.current
       : null) ??
-    JSON.parse(params.get('query') || 'null');
+    JSON.parse(queryParam || 'null');
 
   // Rewrite "last N week/month/quarter/year" relative strings to rolling
   // [start, end] tuples before they reach Cube. Cube's date-parser snaps
@@ -226,7 +228,22 @@ function QueryTabsRenderer({
   // period — the chat-side normalizer covers freshly-emitted URLs, this
   // one covers already-shared URLs and hand-edited ones.
   const normalizedQuery = normalizeQueryRelativeDateRanges(rawQuery);
+  const wasNormalized = normalizedQuery !== rawQuery;
   const query = applyGameFilter(normalizedQuery, gameId, cubeHasGameDim);
+
+  // Stabilize the URL so the address bar reflects what's actually running:
+  // rewrite ?query= to carry the explicit tuple. Skipped for the chat-
+  // artifact path (?from-chat-artifact= preserves provenance — the
+  // in-memory query is already normalized for execution). Guarded against
+  // re-fires by depending on the raw query string; once replaced, the
+  // next render sees the explicit tuple and wasNormalized goes false.
+  useEffect(() => {
+    if (!wasNormalized) return;
+    if (chatArtifactId) return;
+    if (!queryParam || !normalizedQuery) return;
+    history.replace({ search: `?query=${JSON.stringify(normalizedQuery)}` });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryParam, wasNormalized, chatArtifactId]);
 
   return (
     <QueryTabs
