@@ -337,6 +337,41 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- GET /api/chat/sessions/:id/focus — Phase 03 session-focus inspection ---
+  // The chat-service registers this route with the full /api/chat prefix
+  // (unlike /sessions/:id), so the upstream path keeps it.
+  app.get<{ Params: SessionParams }>(
+    '/api/chat/sessions/:id/focus',
+    async (request: FastifyRequest<{ Params: SessionParams }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request) ?? request.owner;
+      const url = `${chatServiceUrl()}/api/chat/sessions/${encodeURIComponent(request.params.id)}/focus`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- DELETE /api/chat/sessions/:id/focus — "Forget everything in this chat" ---
+  app.delete<{ Params: SessionParams }>(
+    '/api/chat/sessions/:id/focus',
+    async (request: FastifyRequest<{ Params: SessionParams }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) {
+        return reply.status(401).send({ code: 'no_owner' });
+      }
+      const url = `${chatServiceUrl()}/api/chat/sessions/${encodeURIComponent(request.params.id)}/focus`;
+      try {
+        const { status, payload } = await proxyJson(url, 'DELETE', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- DELETE /api/chat/sessions/:id ---
   app.delete<{ Params: SessionParams }>(
     '/api/chat/sessions/:id',

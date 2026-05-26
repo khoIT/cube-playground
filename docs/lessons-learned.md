@@ -76,6 +76,12 @@ Format per lesson:
 - **Signal:** "New chat" works the first time but not the second; URL fails to update from `/chat` to `/chat/:id`; assistant reply visible while streaming then disappears on `done`; committed history loses the just-streamed turn.
 - **Apply:** prefer derived guards (`streamSessionId === id`) over once-per-mount latches. If you genuinely need a latch, reset it on the lifecycle event that opens a new cycle (e.g. `id === undefined`). Cover the second cycle in tests — most "new chat" regressions only show on the second run because the first one masks them.
 
+### A new chat-service route is dead until the main server proxies it
+- **Rule:** every `/api/chat/*` route the FE calls is served by the main server (`server/src/routes/chat.ts`), which forwards to chat-service via *explicit per-route handlers* — not a catch-all. Adding a route in chat-service is only half the job; add the matching proxy handler (same method + path, forward `X-Owner-Id`, build the upstream URL) or the FE never reaches it.
+- **Why:** Phase-03 added `GET/DELETE /api/chat/sessions/:id/focus` to chat-service, but no proxy rule was added on the main server. The FE hits `/api` → vite proxy → main server :3004 → 404 (route unknown). The focus client swallows non-OK as `null` by design, so the header chip silently hid — looked like the feature was unwired or the flag was off, when both backend and flag were fine. Cost an hour chasing the wrong layer.
+- **Signal:** a new chat feature does nothing in the UI but `curl` straight to chat-service :3005 returns correct data; the same path through :3004 returns `{"error":"Not Found"}`. Any FE client that defensively returns `null`/`[]` on error will mask this as "empty," not "broken."
+- **Apply:** when adding a chat-service route, grep `server/src/routes/chat.ts` and add the twin proxy handler in the same change. Test through :3004 (or the vite proxy), not just :3005 — a green direct hit proves nothing about what the browser sees. Watch the upstream path prefix: most session routes proxy to `/sessions/:id` (no prefix) but focus registers with the full `/api/chat/...` path, so the forward URL must match what chat-service actually registered.
+
 ---
 
 ## UI / design
