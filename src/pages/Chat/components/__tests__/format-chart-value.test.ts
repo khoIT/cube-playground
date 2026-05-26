@@ -46,6 +46,47 @@ describe('detectChartUnit', () => {
       'unknown',
     );
   });
+
+  it('ignores % inside the caption — caption prose is not a unit declaration', () => {
+    expect(
+      detectChartUnit({
+        ...baseSpec,
+        title: 'DAU Daily Trend (Apr 27 – May 26)',
+        caption: 'Spike of ~+47% visible around May 15–17',
+        encoding: { category: 'date', value: 'DAU' },
+      }),
+    ).toBe('unknown');
+  });
+
+  it('still picks percent when title declares (%)', () => {
+    expect(
+      detectChartUnit({
+        ...baseSpec,
+        title: 'D7 Retention (%)',
+        encoding: { category: 'cohort', value: 'value' },
+      }),
+    ).toBe('percent');
+  });
+
+  it('still picks percent when title uses the word "percent"', () => {
+    expect(
+      detectChartUnit({
+        ...baseSpec,
+        title: 'Conversion percent by channel',
+        encoding: { category: 'channel', value: 'value' },
+      }),
+    ).toBe('percent');
+  });
+
+  it('ignores a bare % in the title (e.g. "+47% MoM")', () => {
+    expect(
+      detectChartUnit({
+        ...baseSpec,
+        title: 'Revenue +47% MoM',
+        encoding: { category: 'month', value: 'revenue' },
+      }),
+    ).toBe('unknown');
+  });
 });
 
 describe('detectColumnUnit', () => {

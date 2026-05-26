@@ -153,6 +153,45 @@ describe('done lifecycle', () => {
   });
 });
 
+describe('cancel does not surface as "disconnected"', () => {
+  it('user-initiated cancel mid-stream leaves status at idle, not disconnected', async () => {
+    // Wire the mock's cancel handle to actually end the fake stream — matches
+    // how openChatTurn aborts its underlying fetch when cancel() runs.
+    const sseClient = await import('../../api/chat-sse-client');
+    const openChatTurnMock = sseClient.openChatTurn as unknown as ReturnType<typeof vi.fn>;
+    openChatTurnMock.mockImplementationOnce(() => ({
+      stream: fakeStream(),
+      cancel: () => close(),
+    }));
+
+    const s = useChatStreamStore.getState();
+    void s.startTurn({ sessionId: 'sess-1', message: 'hi', game: 'g' });
+    await flush();
+    push({ type: 'token', data: { delta: 'partial' } });
+    await flush();
+
+    s.cancel('sess-1');
+    await flush();
+
+    // Before the fix this was 'disconnected' (Connection lost banner).
+    expect(useChatStreamStore.getState().getEntry('sess-1').status).toBe('idle');
+  });
+
+  it('genuine premature close (no cancel) still stamps disconnected', async () => {
+    const s = useChatStreamStore.getState();
+    void s.startTurn({ sessionId: 'sess-2', message: 'hi', game: 'g' });
+    await flush();
+    push({ type: 'token', data: { delta: 'partial' } });
+    await flush();
+
+    // Server-side hangup: stream ends without 'done' and without a cancel call.
+    close();
+    await flush();
+
+    expect(useChatStreamStore.getState().getEntry('sess-2').status).toBe('disconnected');
+  });
+});
+
 describe('unmount does not cancel the live fetch', () => {
   it('refcount drops to 0 but the entry keeps accumulating events', async () => {
     const s = useChatStreamStore.getState();

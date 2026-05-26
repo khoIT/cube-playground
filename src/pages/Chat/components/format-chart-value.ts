@@ -3,8 +3,8 @@
  *
  * The LLM emits raw numbers (e.g. 314_982_000 for VND revenue). Rendering
  * them as-is is unreadable and inflates Y-axis labels. This module derives
- * a per-chart or per-column unit from the spec's textual cues (title,
- * caption, column name) and produces compact / readable strings:
+ * a per-chart or per-column unit from the spec's title + column name and
+ * produces compact / readable strings:
  *
  *   - VND        → "315M VND" (axis: "315M")
  *   - USD        → "$1.5K"   (axis: "1.5K")
@@ -12,15 +12,17 @@
  *   - count      → "16,424"
  *   - unknown    → "16,424"  (thousand-sep fallback)
  *
- * Detection is conservative: when uncertain it falls back to thousand-sep,
- * which is still better than a raw 9-digit number.
+ * Captions are deliberately excluded — they're human-readable prose
+ * ("spike of +47%…") that routinely contains symbols mistakable for unit
+ * declarations. Detection is conservative: when uncertain it falls back to
+ * thousand-sep, which is still better than a raw 9-digit number.
  */
 import type { ChartSpec } from '../../../api/chat-sse-client';
 
 export type ValueUnit = 'vnd' | 'usd' | 'percent' | 'count' | 'unknown';
 
 interface DetectionContext {
-  /** Free-form text from the chart (title + caption + axis labels). */
+  /** Declarative text from the chart (title only — captions are prose). */
   text: string;
   /** Column / field name (e.g. "revenue_vnd"). */
   column?: string;
@@ -28,7 +30,10 @@ interface DetectionContext {
 
 const VND_RE = /\bvn[dđ]\b/i;
 const USD_RE = /\busd\b|\$/i;
-const PERCENT_RE = /%|\bpercent\b/i;
+// Require `(%)` parens or the bare word `percent` — `+47%` in prose is a
+// delta annotation, not a unit. The column-name suffix regex below is the
+// stronger signal when the chart genuinely measures a percentage.
+const PERCENT_RE = /\(\s*%\s*\)|\bpercent\b/i;
 const PERCENT_COLUMN_RE = /_pct$|_rate$|_share$|_percent$/i;
 const VND_COLUMN_RE = /vnd|_vnd$/i;
 const USD_COLUMN_RE = /usd|_usd$/i;
@@ -47,14 +52,12 @@ export function detectUnit(ctx: DetectionContext): ValueUnit {
 
 /** Convenience: detect unit for a whole ChartSpec (uses encoding.value). */
 export function detectChartUnit(spec: ChartSpec): ValueUnit {
-  const text = `${spec.title ?? ''} ${spec.caption ?? ''}`;
-  return detectUnit({ text, column: spec.encoding.value });
+  return detectUnit({ text: spec.title ?? '', column: spec.encoding.value });
 }
 
 /** Detect unit for one column inside a chart's data rows. */
 export function detectColumnUnit(column: string, spec?: ChartSpec): ValueUnit {
-  const text = spec ? `${spec.title ?? ''} ${spec.caption ?? ''}` : '';
-  return detectUnit({ text, column });
+  return detectUnit({ text: spec?.title ?? '', column });
 }
 
 const COMPACT_AXIS_FMT = new Intl.NumberFormat('en-US', {

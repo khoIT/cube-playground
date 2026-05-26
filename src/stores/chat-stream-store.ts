@@ -261,6 +261,11 @@ async function runDispatchLoop(
       set((s) => {
         const cur = s.streams.get(key);
         if (!cur) return s;
+        // cancel()/reset() abort the fetch and synchronously park the entry
+        // at 'idle'. The aborted iterator then returns cleanly (no `done`
+        // event), landing us here — don't surface a user-initiated stop as
+        // "Connection lost".
+        if (cur.status === 'idle') return s;
         const next = new Map(s.streams);
         next.set(key, { ...cur, status: 'disconnected' });
         return { streams: next };
