@@ -45,6 +45,13 @@ import { validateQuery } from './utils';
 const VIEW_MODE_STORAGE_KEY = 'gds-cube:qb-view-mode';
 type SidePanelViewMode = 'all' | 'query';
 
+// Views are intentionally hidden from the query builder for now: all builder
+// and chatbot artifacts should be authored against cubes (which expose the
+// full join graph for cross-cube exploration). Views collapse a query to a
+// single self-contained namespace, which is reserved for a later use case.
+// Flip to `true` to bring the Views tab back when that use case lands.
+const VIEWS_ENABLED = false;
+
 function readPersistedViewMode(): SidePanelViewMode | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -237,6 +244,14 @@ export function QueryBuilderSidePanel({
   }, [selectedType, appliedFilterString, meta]);
 
   useEffect(() => {
+    // When views are disabled, the panel stays locked to cubes — never
+    // auto-flip into the (hidden) views namespace, even if a legacy query
+    // carries view members.
+    if (!VIEWS_ENABLED) {
+      if (selectedType !== 'cubes') setSelectedType('cubes');
+      return;
+    }
+
     const usedView = views.find((cube) => isCubeUsed(cube.name));
     const usedCube = cubes.find((cube) => isCubeUsed(cube.name));
 
@@ -286,29 +301,31 @@ export function QueryBuilderSidePanel({
     return (
       <Space qa="QueryBuilderSwitcher" gap="1x">
         {editQueryButton}
-        <Radio.ButtonGroup
-          aria-label="Cube type"
-          value={selectedType}
-          styles={{ flexGrow: 1 }}
-          onChange={(val) => switchType(val as 'cubes' | 'views')}
-        >
-          <RadioButton
-            qa="QueryBuilderTab-cubes"
-            value="cubes"
-            isDisabled={!cubes.length}
-            inputStyles={{ placeContent: 'center' }}
+        {VIEWS_ENABLED ? (
+          <Radio.ButtonGroup
+            aria-label="Cube type"
+            value={selectedType}
+            styles={{ flexGrow: 1 }}
+            onChange={(val) => switchType(val as 'cubes' | 'views')}
           >
-            Cubes <CountBadge radius="1r">{cubes.length}</CountBadge>
-          </RadioButton>
-          <RadioButton
-            qa="QueryBuilderTab-views"
-            value="views"
-            isDisabled={!views.length}
-            inputStyles={{ placeContent: 'center' }}
-          >
-            Views <CountBadge radius="1r">{views.length}</CountBadge>
-          </RadioButton>
-        </Radio.ButtonGroup>
+            <RadioButton
+              qa="QueryBuilderTab-cubes"
+              value="cubes"
+              isDisabled={!cubes.length}
+              inputStyles={{ placeContent: 'center' }}
+            >
+              Cubes <CountBadge radius="1r">{cubes.length}</CountBadge>
+            </RadioButton>
+            <RadioButton
+              qa="QueryBuilderTab-views"
+              value="views"
+              isDisabled={!views.length}
+              inputStyles={{ placeContent: 'center' }}
+            >
+              Views <CountBadge radius="1r">{views.length}</CountBadge>
+            </RadioButton>
+          </Radio.ButtonGroup>
+        ) : null}
         {displayPanelTrigger}
       </Space>
     );

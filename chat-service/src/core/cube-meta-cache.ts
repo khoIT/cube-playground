@@ -45,9 +45,30 @@ export async function getMeta(gameId: string, cubeToken: string): Promise<any> {
     throw new Error(`Failed to fetch /meta for game ${gameId}: ${res.status} ${res.statusText}`);
   }
 
-  const meta = await res.json();
+  const meta = stripViews(await res.json());
   cache.set(gameId, { meta, fetchedAt: Date.now() });
   return meta;
+}
+
+/**
+ * Drop views from a /meta response so the agent only ever sees cubes.
+ *
+ * Chatbot artifacts must be authored against cubes — cubes expose the full
+ * join graph, so a query opened in the builder stays explorable (the user can
+ * add cross-cube dimensions). Views collapse a query to a single self-contained
+ * namespace that can't join to anything, which strands the user in the builder.
+ * Views are reserved for a later use case.
+ *
+ * Cube tags views as `type: 'view'` in /meta; cubes are `type: 'cube'` or
+ * untyped. Keep everything that is not explicitly a view. Stripping here — the
+ * single fetch boundary — keeps every downstream consumer (get_cube_meta,
+ * extractMemberNames validation, capability detection) cube-only by default.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function stripViews(meta: any): any {
+  if (!meta || !Array.isArray(meta.cubes)) return meta;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { ...meta, cubes: meta.cubes.filter((c: any) => c?.type !== 'view') };
 }
 
 /** Extract all known member names (measures + dimensions) from a /meta response. */
