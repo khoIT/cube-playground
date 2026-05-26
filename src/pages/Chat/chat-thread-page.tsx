@@ -157,10 +157,16 @@ export function ChatThreadPage() {
 
   // Navigate to real id once session is created from new. Use history.replace
   // (not push) so the back button doesn't bounce the user back to /chat.
-  const replacedRef = useRef(false);
+  //
+  // Fires every time `streamSessionId` diverges from the route `id`. The
+  // `streamSessionId === id` guard prevents redundant replaces inside a
+  // single chat cycle; a per-mount latch would cement the URL after the
+  // first new chat and break back-to-back new chats — the URL would stay
+  // at /chat while the SSE has already routed a fresh session id, and the
+  // post-done guard in useChatStream would then strip the entry from the
+  // null-pinned view, hiding the assistant reply from committedMessages.
   useEffect(() => {
-    if (!streamSessionId || streamSessionId === id || replacedRef.current) return;
-    replacedRef.current = true;
+    if (!streamSessionId || streamSessionId === id) return;
     history.replace(`/chat/${streamSessionId}`);
   }, [streamSessionId, id, history]);
 

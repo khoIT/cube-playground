@@ -62,6 +62,16 @@ Format per lesson:
 
 ---
 
+## Chat session lifecycle
+
+### Per-mount latches on URL-replace effects break back-to-back chat cycles
+- **Rule:** URL-sync effects driven by streaming state must re-fire each chat cycle. A `useRef(false)` latch that flips to true on first replace and never resets will skip every subsequent cycle in the same mount.
+- **Why:** the `/chat → /chat/:id` history.replace effect was gated by a per-mount `replacedRef`. After the first new chat in a mount, it locked at `true`; the second new chat created a fresh session server-side but the URL stayed at `/chat`. The `useChatStream` post-done guard (added to stop the prior chat's terminal-state entry leaking into the next submit) then stripped the entry from the null-pinned page after `done`, so the assistant reply was never committed to `committedMessages`. Users reported "new chat got merged into the previous one" — the merge was actually a vanished reply.
+- **Signal:** "New chat" works the first time but not the second; URL fails to update from `/chat` to `/chat/:id`; assistant reply visible while streaming then disappears on `done`; committed history loses the just-streamed turn.
+- **Apply:** prefer derived guards (`streamSessionId === id`) over once-per-mount latches. If you genuinely need a latch, reset it on the lifecycle event that opens a new cycle (e.g. `id === undefined`). Cover the second cycle in tests — most "new chat" regressions only show on the second run because the first one masks them.
+
+---
+
 ## UI / design
 
 ### Don't introduce experimental visual directions on existing surfaces
