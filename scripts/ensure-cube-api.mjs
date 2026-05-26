@@ -25,22 +25,28 @@ import { resolve } from 'node:path';
 
 const CUBE_API_URL = process.env.CUBE_API_URL ?? 'http://localhost:4000';
 const CUBE_DEV_PATH = process.env.CUBE_DEV_PATH ?? resolve(homedir(), 'Documents/code/cube-dev');
-const PROBE_TIMEOUT_MS = 4000;
+const PROBE_TIMEOUT_MS = 8000;
 const READY_TIMEOUT_MS = 90_000;
 const POLL_INTERVAL_MS = 2000;
-// Watch-mode tunables. Three consecutive misses (≈90s) before a restart so a
-// single slow query doesn't trigger a kick. Cooldown stops thrash if cube_api
-// can't recover on its own (e.g. bad config).
+// Watch-mode tunables. Five consecutive misses (≈2.5min) before a restart so a
+// slow pre-aggregation build doesn't trigger a kick. Cooldown stops thrash if
+// cube_api can't recover on its own (e.g. bad config).
 const WATCH_INTERVAL_MS = 30_000;
-const WATCH_FAILURE_THRESHOLD = 3;
+const WATCH_FAILURE_THRESHOLD = 5;
 const WATCH_COOLDOWN_MS = 5 * 60_000;
+// One last, very patient probe right before restarting. A cube_api that is
+// busy building a pre-aggregation (common under dev mode / emulation) blocks
+// /livez for a while without the process being dead — restarting it there just
+// discards the partial build and guarantees the next query rebuilds from
+// scratch. If this generous probe answers, it was busy, not down: skip.
+const GRACE_PROBE_TIMEOUT_MS = 25_000;
 
 const log = (msg) => process.stdout.write(`[cube-guard] ${msg}\n`);
 const warn = (msg) => process.stderr.write(`[cube-guard] ${msg}\n`);
 
-async function probe() {
+async function probe(timeoutMs = PROBE_TIMEOUT_MS) {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), PROBE_TIMEOUT_MS);
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(`${CUBE_API_URL}/livez`, { signal: ctl.signal });
     return res.ok;
@@ -135,7 +141,15 @@ async function watchLoop() {
       continue;
     }
 
-    log(`cube_api unreachable for ${consecutiveFailures} consecutive probes — triggering recovery`);
+    // Busy-but-alive guard: one generous final probe. A cube_api mid pre-agg
+    // build answers /livez slowly, not never — don't interrupt it.
+    if (await probe(GRACE_PROBE_TIMEOUT_MS)) {
+      log(`cube_api answered the ${GRACE_PROBE_TIMEOUT_MS / 1000}s grace probe — busy, not down; skipping restart`);
+      consecutiveFailures = 0;
+      continue;
+    }
+
+    log(`cube_api unreachable for ${consecutiveFailures} consecutive probes + failed grace probe — triggering recovery`);
     cooldownUntil = Date.now() + WATCH_COOLDOWN_MS;
     await recoverOnce();
     consecutiveFailures = 0;
