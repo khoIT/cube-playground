@@ -14,6 +14,7 @@ import {
   useRollupDesignerContext,
 } from '../../rollup-designer';
 import { applyGameFilter } from '../../shared/game-scoping/apply-game-filter';
+import { normalizeQueryRelativeDateRanges } from '../../QueryBuilderV2/utils/normalize-relative-date-range';
 import { ChartRendererStateProvider } from '../QueryTabs/ChartRendererStateProvider';
 import { QueryTabs, QueryTabsProps } from '../QueryTabs/QueryTabs';
 import {
@@ -219,7 +220,13 @@ function QueryTabsRenderer({
       : null) ??
     JSON.parse(params.get('query') || 'null');
 
-  const query = applyGameFilter(rawQuery, gameId, cubeHasGameDim);
+  // Rewrite "last N week/month/quarter/year" relative strings to rolling
+  // [start, end] tuples before they reach Cube. Cube's date-parser snaps
+  // these to completed calendar units and silently drops the current
+  // period — the chat-side normalizer covers freshly-emitted URLs, this
+  // one covers already-shared URLs and hand-edited ones.
+  const normalizedQuery = normalizeQueryRelativeDateRanges(rawQuery);
+  const query = applyGameFilter(normalizedQuery, gameId, cubeHasGameDim);
 
   return (
     <QueryTabs
