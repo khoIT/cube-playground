@@ -30,8 +30,10 @@ export const description =
 
 export const inputSchema = {
   spec: ChartSpecSchema.describe(
-    'Declarative chart spec. Pick `type` from: bar, horizontal-bar, stacked-bar, line, multi-line, area, pie, donut, scatter. ' +
-      '`encoding.series` is required for stacked-bar and multi-line.',
+    'Declarative chart spec. Pick `type` from: bar, horizontal-bar, stacked-bar, grouped-bar, line, multi-line, area, pie, donut, scatter, funnel. ' +
+      '`encoding.series` is required for stacked-bar, grouped-bar, and multi-line. ' +
+      'For comparing a small number of discrete series (e.g. iOS vs Android) prefer grouped-bar — side-by-side bars read as a direct magnitude comparison, clearer than stacked (part-of-whole) or multi-line. ' +
+      'For ordered conversion steps (e.g. ordered_event_funnel: step_name + step_count) prefer funnel — `category` is the step label, `value` the count; order rows by the step index, not by value.',
   ),
   artifactRef: z
     .string()

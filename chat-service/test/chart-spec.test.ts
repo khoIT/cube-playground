@@ -65,6 +65,10 @@ describe('ChartSpecSchema — accepts valid shapes', () => {
     expect(() => ChartSpecSchema.parse(makeStackedBarSpec())).not.toThrow();
   });
 
+  it('accepts a grouped-bar spec when series is present', () => {
+    expect(() => ChartSpecSchema.parse({ ...makeStackedBarSpec(), type: 'grouped-bar' })).not.toThrow();
+  });
+
   it('accepts a multi-line spec when series is present', () => {
     const spec: ChartSpec = {
       type: 'multi-line',
@@ -75,6 +79,20 @@ describe('ChartSpecSchema — accepts valid shapes', () => {
         { day: '2026-05-21', channel: 'web', revenue: 110 },
       ],
       encoding: { category: 'day', value: 'revenue', series: 'channel' },
+    };
+    expect(() => ChartSpecSchema.parse(spec)).not.toThrow();
+  });
+
+  it('accepts a funnel spec (ordered steps)', () => {
+    const spec: ChartSpec = {
+      type: 'funnel',
+      title: 'Register → login → recharge',
+      data: [
+        { step: 'register', users: 1000 },
+        { step: 'login', users: 820 },
+        { step: 'recharge', users: 140 },
+      ],
+      encoding: { category: 'step', value: 'users' },
     };
     expect(() => ChartSpecSchema.parse(spec)).not.toThrow();
   });
@@ -102,6 +120,16 @@ describe('ChartSpecSchema — rejects malformed shapes', () => {
   it('rejects stacked-bar without series', () => {
     const bad = {
       type: 'stacked-bar',
+      title: 't',
+      data: [{ a: 'x', b: 1 }],
+      encoding: { category: 'a', value: 'b' },
+    };
+    expect(() => ChartSpecSchema.parse(bad)).toThrow();
+  });
+
+  it('rejects grouped-bar without series', () => {
+    const bad = {
+      type: 'grouped-bar',
       title: 't',
       data: [{ a: 'x', b: 1 }],
       encoding: { category: 'a', value: 'b' },

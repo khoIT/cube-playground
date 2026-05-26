@@ -60,6 +60,32 @@ export function detectColumnUnit(column: string, spec?: ChartSpec): ValueUnit {
   return detectUnit({ text: spec?.title ?? '', column });
 }
 
+/**
+ * Human-readable label for the value axis, so the reader knows the unit at a
+ * glance instead of inferring it from the title. Known units map to a short
+ * symbol/word; otherwise fall back to the humanised value-column name (e.g.
+ * "user_count" → "User count"), which is still the best available descriptor.
+ */
+export function axisUnitLabel(spec: ChartSpec): string {
+  switch (detectChartUnit(spec)) {
+    case 'vnd':
+      return 'VND';
+    case 'usd':
+      return 'USD ($)';
+    case 'percent':
+      return '%';
+    case 'count':
+      return 'Count';
+    default:
+      return humaniseColumn(spec.encoding.value);
+  }
+}
+
+function humaniseColumn(col: string): string {
+  const words = col.replace(/[_-]+/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
+}
+
 const COMPACT_AXIS_FMT = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   maximumFractionDigits: 1,

@@ -44,12 +44,14 @@ export type ChartType =
   | 'bar'
   | 'horizontal-bar'
   | 'stacked-bar'
+  | 'grouped-bar'
   | 'line'
   | 'multi-line'
   | 'area'
   | 'pie'
   | 'donut'
-  | 'scatter';
+  | 'scatter'
+  | 'funnel';
 
 export interface ChartSpec {
   type: ChartType;

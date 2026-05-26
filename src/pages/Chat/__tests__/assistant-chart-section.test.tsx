@@ -222,11 +222,11 @@ describe('compatibleChartTypes', () => {
     } as ChartSpec;
   }
 
-  it('series-encoded → stacked-bar + multi-line', () => {
+  it('series-encoded → grouped-bar + stacked-bar + multi-line', () => {
     expect(compatibleChartTypes(spec({
       type: 'stacked-bar',
       encoding: { category: 'c', value: 'v', series: 's' },
-    }))).toEqual(['stacked-bar', 'multi-line']);
+    }))).toEqual(['grouped-bar', 'stacked-bar', 'multi-line']);
   });
 
   it('pie/donut share a group', () => {
@@ -236,6 +236,10 @@ describe('compatibleChartTypes', () => {
 
   it('scatter is standalone', () => {
     expect(compatibleChartTypes(spec({ type: 'scatter' }))).toEqual(['scatter']);
+  });
+
+  it('funnel is standalone', () => {
+    expect(compatibleChartTypes(spec({ type: 'funnel' }))).toEqual(['funnel']);
   });
 
   it('default single-series → bar/horizontal-bar/line/area', () => {

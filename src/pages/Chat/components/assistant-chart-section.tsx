@@ -20,6 +20,9 @@ import {
   Cell,
   ScatterChart,
   Scatter,
+  FunnelChart,
+  Funnel,
+  LabelList,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -31,6 +34,7 @@ import { ChartSectionMenu } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 import {
+  axisUnitLabel,
   detectChartUnit,
   formatAxisValue,
   formatReadableValue,
@@ -182,6 +186,24 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
   const unit = detectChartUnit(spec);
   const axisTick = (v: number | string) => formatAxisValue(v, unit);
   const readable = (v: number | string) => formatReadableValue(v, unit);
+  // Value-axis unit label so the reader sees what the numbers mean without
+  // re-reading the title. Reused across every cartesian chart type below.
+  const valueLabel = axisUnitLabel(spec);
+  const valueAxisLabel = {
+    value: valueLabel,
+    angle: -90 as const,
+    position: 'insideLeft' as const,
+    style: { textAnchor: 'middle' as const, fill: T.n500, fontSize: 11 },
+  };
+  // Horizontal bar puts the value on the X axis, so its label sits at the bottom.
+  const valueXAxisLabel = {
+    value: valueLabel,
+    position: 'insideBottom' as const,
+    offset: -2,
+    style: { textAnchor: 'middle' as const, fill: T.n500, fontSize: 11 },
+  };
+  // Left margin reserves room for the rotated Y-axis label.
+  const cartesianMargin = { top: 8, right: 16, left: 16, bottom: 4 };
   // Recharts tooltip formatter signature: (value, name) → [display, name].
   // Returning the original `name` preserves the series label.
   const tooltipFormatter = (value: number | string, name: string) =>
@@ -192,10 +214,10 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
   switch (spec.type) {
     case 'bar':
       return (
-        <BarChart data={spec.data}>
+        <BarChart data={spec.data} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
           <Bar dataKey={spec.encoding.value} fill={CHART[0]} />
         </BarChart>
@@ -203,9 +225,15 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
 
     case 'horizontal-bar':
       return (
-        <BarChart data={spec.data} layout="vertical">
+        <BarChart data={spec.data} layout="vertical" margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis type="number" stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <XAxis
+            type="number"
+            stroke={T.n500}
+            fontSize={11}
+            tickFormatter={axisTick}
+            label={valueXAxisLabel}
+          />
           <YAxis
             dataKey={spec.encoding.category}
             type="category"
@@ -222,10 +250,10 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       const wide = pivotForSeries(spec.data, spec.encoding);
       const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
       return (
-        <BarChart data={wide}>
+        <BarChart data={wide} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
           <Legend />
           {seriesKeys.map((s, i) => (
@@ -235,12 +263,32 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       );
     }
 
-    case 'line':
+    case 'grouped-bar': {
+      // Side-by-side bars per series value (e.g. IOS vs Android) — no stackId,
+      // so recharts groups one bar per series within each category. Reads as a
+      // direct magnitude comparison, unlike stacked (part-of-whole) or lines.
+      const wide = pivotForSeries(spec.data, spec.encoding);
+      const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
       return (
-        <LineChart data={spec.data}>
+        <BarChart data={wide} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <Tooltip formatter={tooltipFormatter} />
+          <Legend />
+          {seriesKeys.map((s, i) => (
+            <Bar key={s} dataKey={s} fill={CHART[i % CHART.length]} />
+          ))}
+        </BarChart>
+      );
+    }
+
+    case 'line':
+      return (
+        <LineChart data={spec.data} margin={cartesianMargin}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
           <Line
             type="monotone"
@@ -256,10 +304,10 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       const wide = pivotForSeries(spec.data, spec.encoding);
       const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
       return (
-        <LineChart data={wide}>
+        <LineChart data={wide} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
           <Legend />
           {seriesKeys.map((s, i) => (
@@ -278,10 +326,10 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
 
     case 'area':
       return (
-        <AreaChart data={spec.data}>
+        <AreaChart data={spec.data} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} />
+          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
           <Area
             type="monotone"
@@ -337,6 +385,35 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
           <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={tooltipFormatter} />
           <Scatter data={spec.data} fill={CHART[0]} />
         </ScatterChart>
+      );
+
+    case 'funnel':
+      // Rows render top-to-bottom in submitted (step) order, widths
+      // proportional to value. Step label on the right, value on the left.
+      return (
+        <FunnelChart>
+          <Tooltip formatter={tooltipFormatter} />
+          <Funnel dataKey={spec.encoding.value} data={spec.data} isAnimationActive={false}>
+            <LabelList
+              position="right"
+              dataKey={spec.encoding.category}
+              stroke="none"
+              fill={T.n900}
+              fontSize={12}
+            />
+            <LabelList
+              position="left"
+              dataKey={spec.encoding.value}
+              stroke="none"
+              fill={T.n500}
+              fontSize={11}
+              formatter={readable}
+            />
+            {spec.data.map((_row, i) => (
+              <Cell key={i} fill={CHART[i % CHART.length]} />
+            ))}
+          </Funnel>
+        </FunnelChart>
       );
   }
 }

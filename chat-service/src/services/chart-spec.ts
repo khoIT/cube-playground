@@ -67,7 +67,12 @@ export const ChartSpecSchema = z.discriminatedUnion('type', [
     data: z.array(DataRowSchema).min(1).max(PIE_MAX_ROWS),
   }),
   z.object({ ...baseShape, type: z.literal('stacked-bar'), encoding: SeriesEncoding }),
+  z.object({ ...baseShape, type: z.literal('grouped-bar'), encoding: SeriesEncoding }),
   z.object({ ...baseShape, type: z.literal('multi-line'), encoding: SeriesEncoding }),
+  // Funnel: ordered conversion steps. `category` is the step label, `value` the
+  // count at that step. Rows are kept in submitted order (step order), so the
+  // query must order by the funnel's step index — NOT by value.
+  z.object({ ...baseShape, type: z.literal('funnel'), encoding: BaseEncoding }),
 ]);
 
 export type ChartSpec = z.infer<typeof ChartSpecSchema>;
@@ -102,7 +107,9 @@ export function truncateTopN(spec: ChartSpec, limit = TOP_N): TruncateResult {
   const originalRowCount = spec.data.length;
 
   // Pie/donut have their own (tighter) cap enforced by Zod — no truncation here.
-  if (spec.type === 'pie' || spec.type === 'donut') {
+  // Funnel rows are step-ordered; top-N would drop/reorder steps and break the
+  // taper, so it's never truncated either (funnels are inherently few rows).
+  if (spec.type === 'pie' || spec.type === 'donut' || spec.type === 'funnel') {
     return { spec, truncated: false, originalRowCount };
   }
 

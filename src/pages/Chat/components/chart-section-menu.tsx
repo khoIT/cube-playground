@@ -22,19 +22,23 @@ const TYPE_LABEL: Record<ChartSpec['type'], string> = {
   'multi-line': 'Multi-line',
   area: 'Area',
   'stacked-bar': 'Stacked bar',
+  'grouped-bar': 'Grouped bar',
   pie: 'Pie',
   donut: 'Donut',
   scatter: 'Scatter',
+  funnel: 'Funnel',
 };
 
 export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
-  if (spec.encoding.series) return ['stacked-bar', 'multi-line'];
+  if (spec.encoding.series) return ['grouped-bar', 'stacked-bar', 'multi-line'];
   switch (spec.type) {
     case 'pie':
     case 'donut':
       return ['pie', 'donut'];
     case 'scatter':
       return ['scatter'];
+    case 'funnel':
+      return ['funnel'];
     default:
       return ['bar', 'horizontal-bar', 'line', 'area'];
   }
