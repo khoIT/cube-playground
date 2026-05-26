@@ -140,7 +140,12 @@ export async function handler(
   const data = await res.json() as { data?: Record<string, string | number>[] };
   const rows = data?.data ?? [];
 
-  if (ctx.db) {
+  // Skip caching empty results. Empty rows are almost always transient (Cube
+  // mid-rebuild, Trino blip, late-arriving data). Caching them for 10 min
+  // freezes a "no data" state in the agent — every retry within the TTL
+  // window returns the same empty payload, and any chart emission fails
+  // because ChartSpec requires data.min(1). Real query results always cache.
+  if (ctx.db && rows.length > 0) {
     putCachedLoad(ctx.db, {
       query,
       gameId: ctx.gameId,

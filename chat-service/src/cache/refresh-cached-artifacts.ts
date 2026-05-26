@@ -55,7 +55,9 @@ async function runCubeLoadCached(
     if (hit) return hit;
   }
   const rows = await runCubeLoad(query, cubeToken);
-  if (db) putCachedLoad(db, { query, gameId, metaHash, rows });
+  // Mirrors preview-cube-query: skip caching empty results to avoid freezing
+  // a transient "no data" state for the load-cache TTL window.
+  if (db && rows.length > 0) putCachedLoad(db, { query, gameId, metaHash, rows });
   return rows;
 }
 
