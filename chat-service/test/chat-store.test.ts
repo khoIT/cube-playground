@@ -194,6 +194,22 @@ describe('chatStore', () => {
       expect(turns[0].id).toBe(myId);
     });
 
+    it('round-trips reasoningJson on the assistant row', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      const reasoning = 'thought A...\nthought B...';
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'final answer',
+        reasoningJson: reasoning,
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].reasoning_json).toBe(reasoning);
+    });
+
     it('appends and lists turns in order', () => {
       const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
 

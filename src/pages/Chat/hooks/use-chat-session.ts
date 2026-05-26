@@ -18,6 +18,10 @@ export interface ChatTurn {
   role: 'user' | 'assistant';
   text: string;
   createdAt: string;
+  /** Concatenated assistant chain-of-thought captured from live `thinking`
+   *  events. Null on user turns and on assistant turns persisted before
+   *  reasoning capture shipped (or when served from response cache). */
+  reasoning?: string | null;
   toolCalls?: Array<{ id: string; name: string; ok: boolean; ms: number; summary: string }>;
   artifacts?: Array<{
     id: string;

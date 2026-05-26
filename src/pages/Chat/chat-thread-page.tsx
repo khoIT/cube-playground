@@ -52,6 +52,10 @@ function sessionTurnsToMessages(
   return turns.map((t) => {
     if (t.role === 'user') return { role: 'user', id: t.id, text: t.text, ts: t.createdAt };
     const sections: AssistantSection[] = [];
+    // Reasoning above text mirrors buildStreamingSections — same visual order
+    // before and after persistence so toggling between live + hydrated state
+    // doesn't shuffle layout.
+    if (t.reasoning) sections.push({ type: 'reasoning', text: t.reasoning });
     if (t.text) sections.push({ type: 'text', text: t.text });
     for (const tc of t.toolCalls ?? []) {
       sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.ok ? 'ok' : 'error', ms: tc.ms, summary: tc.summary });
@@ -127,8 +131,14 @@ export function ChatThreadPage() {
   useEffect(() => {
     if (!session || hydratedRef.current) return;
     hydratedRef.current = true;
+    // If the user just submitted on /chat, committedMessages already holds the
+    // locally-streamed turn (with its reasoning section). Hydrating from the
+    // API would clobber that reasoning — reasoning lives in DB but only flows
+    // through the live SSE path, so a freshly-loaded turn has the data the
+    // server response does not. Skip hydration in that case.
+    if (committedMessages.length > 0) return;
     setCommittedMessages(sessionTurnsToMessages(session.turns));
-  }, [session]);
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cross-surface sync: mirror current route id into the panel's active
   // session store so the side panel (if open) shows the same conversation.

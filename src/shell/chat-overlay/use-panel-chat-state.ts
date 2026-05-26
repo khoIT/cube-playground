@@ -19,6 +19,9 @@ function turnsToMessages(
       return { role: 'user', id: t.id, text: t.text, ts: t.createdAt };
     }
     const sections: AssistantSection[] = [];
+    // Reasoning above text — matches buildStreamingSections so the layout is
+    // stable across live → persisted state.
+    if (t.reasoning) sections.push({ type: 'reasoning', text: t.reasoning });
     if (t.text) sections.push({ type: 'text', text: t.text });
     for (const tc of t.toolCalls ?? []) {
       sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.ok ? 'ok' : 'error', ms: tc.ms, summary: tc.summary });
@@ -95,11 +98,15 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     // just-cleared committedMessages from stale state.
     if (session.id !== sessionId) return;
     hydratedRef.current = true;
+    // Already streamed this turn locally (reasoning section lives only on the
+    // live SSE path; hydrating from the API would drop it). Same rationale as
+    // the chat-thread-page guard.
+    if (committedMessages.length > 0) return;
     const msgs = turnsToMessages(session.turns);
     setCommittedMessages(msgs);
     const first = msgs.find((m) => m.role === 'user');
     if (first && first.role === 'user') setFirstUserMessage(first.text);
-  }, [session, sessionId]);
+  }, [session, sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     status,

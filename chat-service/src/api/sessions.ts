@@ -33,6 +33,9 @@ interface TurnDto {
   toolCalls: Array<{ id: string; name: string; ok: boolean; ms: number; summary: string }>;
   artifacts: QueryArtifact[];
   charts: ChartArtifact[];
+  /** Concatenated assistant chain-of-thought captured from `thinking` SSE
+   *  events on the live turn; null on older turns and on user/system rows. */
+  reasoning?: string | null;
   /** True when this turn was served from the response cache. */
   cacheHit?: boolean;
   /** Freshness of cached payload — set only when cacheHit=true. */
@@ -61,6 +64,10 @@ function rowToTurn(row: ChatTurnRow): TurnDto {
     toolCalls: safeParseJson(row.tool_calls_json, []),
     artifacts: safeParseJson(row.artifacts_json, []),
     charts: safeParseJson(row.charts_json, []),
+    // reasoning_json is stored as the raw concatenated thinking text (no JSON
+    // wrapping). Null on user/system rows and on turns persisted before
+    // reasoning capture was wired up.
+    reasoning: row.role === 'assistant' ? row.reasoning_json ?? null : null,
     cacheHit,
     cacheFreshness: cacheHit ? row.cache_freshness ?? null : null,
     originalTurnId: cacheHit ? row.original_turn_id ?? null : null,

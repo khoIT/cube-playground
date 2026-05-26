@@ -386,6 +386,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     emit({ type: 'loading', data: {} });
 
     let assistantText = '';
+    let reasoningText = '';
     let inputTokens = 0;
     let outputTokens = 0;
     let costUsd: number | undefined;
@@ -444,6 +445,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           cacheCreationTokens = event.data.cache_creation_tokens;
           cacheReadTokens = event.data.cache_read_tokens;
         }
+        // Capture the assistant's chain-of-thought so the FE can render it as a
+        // collapsible Reasoning toggle on the persisted turn (not just live).
+        if (event.type === 'thinking') {
+          reasoningText += event.data.delta;
+        }
         // query_artifact and chart are already emitted via sseEmitter
         if (event.type !== 'query_artifact' && event.type !== 'chart') {
           emit(event);
@@ -469,6 +475,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         turnIndex: assistantTurnIndex,
         role: 'assistant',
         assistantText,
+        reasoningJson: reasoningText || undefined,
         artifacts: collectedArtifacts,
         charts: collectedCharts,
         inputTokens,
