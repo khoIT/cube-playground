@@ -63,6 +63,14 @@ export interface ResolutionAssumption {
   phrase: string;
   confidence: number;
   alternatives: Array<{ id: string; score: number }>;
+  /**
+   * Phase 02a sub-deliverable D — when the assumption was filled from the
+   * cross-session preference table (not this turn's resolver), the skill
+   * body renders an explicit-history footer rather than the standard
+   * "interpreted X as Y" disclosure. Drift mitigation: stale prefs become a
+   * one-word fix ("not that") instead of a silent regression.
+   */
+  source?: 'cross-session';
 }
 
 export async function handler(
@@ -113,6 +121,15 @@ export async function handler(
     ? { db: ctx.db, sessionId: ctx.sessionId, ownerId: ctx.ownerId, gameId: ctx.gameId, now }
     : null;
   if (memoryParams) fillResultFromMemory(result, memoryParams);
+
+  // Phase 02a sub-deliverable D — replay path: if memory carried forward
+  // intent=leaderboard + concept, rebuild the entity-ranked query now that
+  // this turn's metric/measure is pinned. Synthesises the assumption when
+  // the v2 layer above couldn't (because the current message had no
+  // concept phrase).
+  if (config.chatGlossaryV2Enabled && !assumption) {
+    assumption = await retryLeaderboardFromMemory(result);
+  }
 
   // Validate: reject a snapshot measure × timeRange combination BEFORE the
   // memory write so the rejected metric does not leak into memory or prefs.
@@ -257,6 +274,20 @@ async function applyGlossaryV2(
       span: conceptResolution.best.span,
     };
   }
+  // Write concept + entity slots too so memory carries the leaderboard
+  // shape across turns (sub-deliverable D — replay of session b93d68e4).
+  result.slots.concept = {
+    value: concept.id,
+    alias: conceptResolution.best.alias,
+    confidence: conceptResolution.confidence,
+  };
+  if (concept.entityCube && concept.entityPk) {
+    result.slots.entity = {
+      value: { cube: concept.entityCube, pk: concept.entityPk },
+      alias: conceptResolution.best.alias,
+      confidence: conceptResolution.confidence,
+    };
+  }
   result.action = 'auto';
   result.clarifications = [];
 
@@ -268,6 +299,68 @@ async function applyGlossaryV2(
     alternatives: conceptResolution.secondBest
       ? [{ id: conceptResolution.secondBest.conceptId, score: conceptResolution.secondBest.score }]
       : [],
+  };
+}
+
+/**
+ * Phase 02a sub-deliverable D — retry the leaderboard path AFTER memory has
+ * been merged. Handles the b93d68e4 replay case: turn 0 (clarify) wrote
+ * intent=leaderboard + concept=spender + entity=players into memory; turn 2's
+ * reply ("Revenue") merges those back and we now have enough to emit a
+ * leaderboard query without re-asking.
+ *
+ * Source attribution: if the cross-session marker
+ * (`[cross_session_pref] concept:…`) appears in warnings, the assumption is
+ * tagged so the skill body renders the always-disclose footer.
+ */
+async function retryLeaderboardFromMemory(
+  result: DisambiguationResult,
+): Promise<ResolutionAssumption | undefined> {
+  if (!config.chatGlossaryV2Enabled) return undefined;
+  const intentSlot = result.slots.intent;
+  const conceptSlot = result.slots.concept;
+  if (intentSlot?.value !== 'leaderboard') return undefined;
+  if (!conceptSlot?.value) return undefined;
+
+  // If the v2 layer already built the leaderboard query this turn (entity
+  // dim present in query.dimensions) there is nothing to retry.
+  if (result.query.dimensions && result.query.dimensions.length > 0) return undefined;
+
+  let glossary;
+  try {
+    glossary = await fetchOfficialGlossary();
+  } catch {
+    return undefined;
+  }
+  const concept = glossary.find((t) => t.id === conceptSlot.value);
+  if (!concept) return undefined;
+
+  const timeRangeValue = result.slots.timeRange?.value;
+  const granularity = result.slots.timeRange?.granularity as
+    | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | undefined;
+  const built = buildLeaderboardQuery({
+    concept,
+    timeRange: timeRangeValue ? { dateRange: timeRangeValue, granularity } : undefined,
+    limit: result.slots.limit,
+  });
+  if (!built.rankable) return undefined;
+
+  result.query = built.query as CubeQuery;
+  result.action = 'auto';
+  result.clarifications = [];
+
+  const fromCrossSession = result.warnings.some((w) =>
+    w.startsWith('[cross_session_pref] concept:') ||
+    w.startsWith('[cross_session_pref] intent:'),
+  );
+
+  return {
+    slot: 'concept',
+    chosen: concept.id,
+    phrase: conceptSlot.alias ?? concept.label,
+    confidence: conceptSlot.confidence,
+    alternatives: [],
+    ...(fromCrossSession ? { source: 'cross-session' as const } : {}),
   };
 }
 

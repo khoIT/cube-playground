@@ -14,8 +14,23 @@
 import type Database from 'better-sqlite3';
 import type { SlotMemory } from './disambig-memory-adapter.js';
 
-/** Slot keys understood by the adapter. */
-export type PrefSlot = 'metric' | 'dimension' | 'timeRange' | `filter:${string}`;
+/**
+ * Slot keys understood by the adapter.
+ *
+ * Phase 02a sub-deliverable D extended the union with `'intent'`, `'concept'`,
+ * `'entity'` so cross-session reads can re-derive a leaderboard/aggregate
+ * choice without re-asking. Cross-session reads of these slots downgrade to
+ * confidence 0.7 and ALWAYS render an explicit-history footer (never silent-
+ * auto) to mitigate stale-pref drift.
+ */
+export type PrefSlot =
+  | 'metric'
+  | 'dimension'
+  | 'timeRange'
+  | 'intent'
+  | 'concept'
+  | 'entity'
+  | `filter:${string}`;
 
 export interface UserPrefRow<T = unknown> {
   slot: PrefSlot;

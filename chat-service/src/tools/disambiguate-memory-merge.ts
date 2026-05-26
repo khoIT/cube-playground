@@ -101,6 +101,46 @@ function fillGapsFromMemory(
     const label = mem.timeRange.phrase ?? formatRange(value);
     result.warnings.push(`timeRange resolved from session memory: ${label}`);
   }
+
+  // Phase 02a sub-deliverable D — intent/concept/entity slot continuity. Read
+  // at 0.95 confidence (same tier as metric/dimension). The disambig-tool's
+  // post-fill v2 retry uses these to re-fire the leaderboard path when the
+  // current turn supplied only a measure ("Revenue") after a clarify.
+  //
+  // Intent is special: the engine always emits something (defaults to
+  // 'aggregate' at conf 0.6 when no positive regex hits). So a missing-value
+  // check would never restore from memory. We override the engine default
+  // when (a) memory carries a more specific intent (anything other than
+  // aggregate) and (b) the current-turn confidence is at-or-below the
+  // engine's default-aggregate level — i.e. the user typed a reply, not a
+  // new top-level question.
+  const memHasSpecificIntent = mem.intent && mem.intent.value !== 'aggregate';
+  const engineDefaultedAggregate =
+    result.slots.intent.value === 'aggregate' && result.slots.intent.confidence <= 0.6;
+  if (memHasSpecificIntent && (!result.slots.intent.value || engineDefaultedAggregate)) {
+    result.slots.intent = {
+      value: mem.intent!.value,
+      confidence: 0.95,
+      alias: mem.intent!.phrase,
+    };
+    result.warnings.push(`intent resolved from session memory: ${mem.intent!.value}`);
+  }
+  if (!result.slots.concept?.value && mem.concept) {
+    result.slots.concept = {
+      value: mem.concept.value,
+      confidence: 0.95,
+      alias: mem.concept.phrase,
+    };
+    result.warnings.push(`concept resolved from session memory: ${mem.concept.value}`);
+  }
+  if (!result.slots.entity?.value && mem.entity) {
+    result.slots.entity = {
+      value: mem.entity.value,
+      confidence: 0.95,
+      alias: mem.entity.phrase,
+    };
+    result.warnings.push(`entity resolved from session memory: ${mem.entity.value.cube}`);
+  }
 }
 
 function dropResolvedClarifications(result: DisambiguationResult): void {
@@ -169,6 +209,28 @@ function writeConfidentSlotsToMemory(
     if (Object.keys(filterBag).length > 0) partial.filters = filterBag;
   }
 
+  // Phase 02a sub-deliverable D — write intent/concept/entity when the slot
+  // confidence crosses the floor. Critically, this fires EVEN WHEN the
+  // overall action is clarify: that's the fix for the b93d68e4 bug where
+  // turn 0's intent ("leaderboard") evaporated because the metric slot
+  // wasn't yet pinned. The decision to write per-slot beats per-action lets
+  // turn 2's reply ("Revenue") re-derive the leaderboard shape.
+  const intent = result.slots.intent;
+  if (intent?.value && intent.confidence >= WRITE_CONFIDENCE_FLOOR && !sameValue(mem.intent?.value, intent.value)) {
+    partial.intent = { value: intent.value, phrase: intent.alias };
+  }
+  const concept = result.slots.concept;
+  if (concept?.value && concept.confidence >= WRITE_CONFIDENCE_FLOOR && !sameValue(mem.concept?.value, concept.value)) {
+    partial.concept = { value: concept.value, phrase: concept.alias };
+  }
+  const entity = result.slots.entity;
+  if (entity?.value && entity.confidence >= WRITE_CONFIDENCE_FLOOR) {
+    const memEntity = mem.entity?.value;
+    if (!memEntity || memEntity.cube !== entity.value.cube || memEntity.pk !== entity.value.pk) {
+      partial.entity = { value: entity.value, phrase: entity.alias };
+    }
+  }
+
   if (!hasAnyKey(partial)) return;
   mergeResolution(ctx.db, ctx.sessionId, ctx.ownerId, partial);
 }
@@ -188,7 +250,7 @@ function sameTimeRange(a: TimeRangeValue | undefined, b: TimeRangeValue): boolea
 }
 
 function hasAnyKey(p: DisambigResolutions): boolean {
-  return !!(p.metric || p.dimension || p.timeRange || p.filters);
+  return !!(p.metric || p.dimension || p.timeRange || p.filters || p.intent || p.concept || p.entity);
 }
 
 function typedGranularity(g: unknown): TimeRangeValue['granularity'] {

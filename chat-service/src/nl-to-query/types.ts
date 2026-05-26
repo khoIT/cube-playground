@@ -52,6 +52,14 @@ export interface DisambiguationSlots {
    * composer when intent='leaderboard'. Optional; defaults to 10.
    */
   limit?: number;
+  /**
+   * Phase 02a — concept id resolved on this turn (`spender`, `whale`, …).
+   * Memory carries it forward so a follow-up reply ("Revenue") inherits the
+   * concept and the leaderboard-path can re-fire without re-asking.
+   */
+  concept?: ScoredSlot<string>;
+  /** Phase 02a — entity (cube + primary key) derived from the resolved concept. */
+  entity?: ScoredSlot<{ cube: string; pk: string }>;
 }
 
 export interface ClarificationOption {

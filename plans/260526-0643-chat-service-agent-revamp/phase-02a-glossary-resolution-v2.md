@@ -254,17 +254,21 @@ MVP (this session — landed):
 - [x] `disambiguate-query.ts` returns `assumption`; flag-gated v2 resolver layer (3 short-circuits) + 3 integration tests
 - [x] `explore/SKILL.md` updates (disclosure + "not that" + preserve-intent reminder)
 
-Carved into follow-up sub-phases:
+Sub-deliverable D (landed this session):
+
+- [x] **02a-D:** `DisambigResolutions` extended with `intent`, `concept`, `entity` slots
+- [x] **02a-D:** Memory merge bridges new slots in BOTH tiers (session + cross-session); writes confident intent/concept on clarify outcomes
+- [x] **02a-D:** `PrefSlot` type extended in `user-prefs-adapter.ts` with new variants
+- [x] **02a-D:** Cross-session reads tagged `source: 'cross-session'` on `assumption` field (skill body always-disclose policy)
+- [x] **02a-D:** Replay test of session `b93d68e4`: turn 0 persists intent+concept on clarify; turn 2's "Revenue" reply rebuilds the leaderboard from memory (3-test E2E suite)
+- [x] **02a-D:** Cross-session round-trip test: turn 0 writes pref → fresh session same (user, game) reads pref with confidence 0.7 + always-disclose marker
+- [x] **02a-D:** Engine-default `aggregate` intent (conf 0.6) no longer overwrites memorized leaderboard intent
+
+Remaining follow-up sub-phases:
 
 - [ ] **02a-Audit:** Prod-session audit (200 sessions → concept list + baseline turns-to-answer) — operational, requires prod data access
 - [ ] **02a-FE:** FE `glossary-edit-form.tsx` + `glossary-row.tsx` render new fields (collapsed "Concept ranking config" sub-panel when `entity_cube` set)
-- [ ] **02a-D:** `DisambigResolutions` extended with `intent`, `concept`, `entity` slots (sub-deliverable D)
-- [ ] **02a-D:** Memory merge bridges new slots in BOTH tiers (session + cross-session); writes confident intent/concept on clarify outcomes
-- [ ] **02a-D:** `PrefSlot` type extended in `user-prefs-adapter.ts` with new variants
-- [ ] **02a-D:** Cross-session reads tagged `source: 'cross-session'` on `assumption` field; skill body renders explicit-history disclosure footer
-- [ ] **02a-D:** Phase 03 settings page lists intent/concept/entity in cross-session defaults (cross-ref to phase 03)
-- [ ] **02a-D:** Replay test of session `b93d68e4`: assert intent + concept survive the clarify→reply boundary
-- [ ] **02a-D:** Cross-session round-trip test: turn 0 writes pref → fresh session same (user, game) reads pref with confidence 0.7 + always-disclose
+- [ ] **02a-FE:** Phase 03 settings page lists intent/concept/entity in cross-session defaults (cross-ref to phase 03)
 - [ ] **02a-E:** `concept-resolution-eval.ts` (≥50 cases) + judge harness using `evalJudgeModel`
 - [ ] **02a-E:** Staging ramp + eval gating to 100%
 - [ ] **02a-FE:** Phase 02 focus-store integration (`last_concept`) — requires phase 02 to land first

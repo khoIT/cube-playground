@@ -35,6 +35,15 @@ export interface TimeRangeValue {
   granularity?: 'day' | 'week' | 'month' | 'quarter' | 'year';
 }
 
+/** The four user-intent shapes the engine recognises today. */
+export type QueryIntentSlot = 'aggregate' | 'leaderboard' | 'trend' | 'comparison';
+
+/** Concept-tier entity (cube + primary-key) carried across turns. */
+export interface EntityValue {
+  cube: string;
+  pk: string;
+}
+
 /** Mutable bag of resolved slots a user has accepted in this session. */
 export interface DisambigResolutions {
   metric?: SlotMemory<string>;
@@ -42,6 +51,16 @@ export interface DisambigResolutions {
   timeRange?: SlotMemory<TimeRangeValue>;
   /** Filters keyed by cube member ref. Each value is a SlotMemory<string>. */
   filters?: Record<string, SlotMemory<string>>;
+  /**
+   * Phase 02a sub-deliverable D — slot-level continuity for the disambig
+   * pipeline. Persisted EVEN WHEN the overall turn ended in clarify so the
+   * next turn's reply ("Revenue") can re-derive the prior intent+concept
+   * without re-asking. Read confidence: 0.95 from session tier (here), 0.7
+   * from cross-session prefs.
+   */
+  intent?: SlotMemory<QueryIntentSlot>;
+  concept?: SlotMemory<string>;
+  entity?: SlotMemory<EntityValue>;
   updatedAt?: number;
 }
 
@@ -89,6 +108,8 @@ export function mergeResolution(
     updatedAt: Date.now(),
   };
   if (next.filters && Object.keys(next.filters).length === 0) delete next.filters;
+  // intent/concept/entity propagate through the spread above; nothing else
+  // to merge — they are scalar slots, not maps.
 
   kvPut(db, {
     kind: KIND,
@@ -126,6 +147,30 @@ function normalise(raw: unknown): DisambigResolutions {
     }
     if (Object.keys(wrapped).length > 0) out.filters = wrapped;
   }
+  if (r.intent != null) {
+    const wrapped = wrap<string>(r.intent);
+    if (wrapped && isQueryIntent(wrapped.value)) {
+      out.intent = wrapped as SlotMemory<QueryIntentSlot>;
+    }
+  }
+  if (r.concept != null) out.concept = wrap<string>(r.concept);
+  if (r.entity != null) {
+    const wrapped = wrap<EntityValue>(r.entity);
+    if (wrapped && isEntityValue(wrapped.value)) out.entity = wrapped;
+  }
   if (typeof r.updatedAt === 'number') out.updatedAt = r.updatedAt;
   return out;
+}
+
+function isQueryIntent(v: unknown): v is QueryIntentSlot {
+  return v === 'aggregate' || v === 'leaderboard' || v === 'trend' || v === 'comparison';
+}
+
+function isEntityValue(v: unknown): v is EntityValue {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    typeof (v as EntityValue).cube === 'string' &&
+    typeof (v as EntityValue).pk === 'string'
+  );
 }
