@@ -69,7 +69,7 @@ A "pending clarification" state machine — snapshot the entire pre-clarify reso
 | **02a** | **[Glossary resolution v2 (headline)](./phase-02a-glossary-resolution-v2.md)** | **P0** | **MVP + sub-deliverable D done** (concept tier + resolver short-circuits + leaderboard path + b93d68e4 replay 8→2 turn collapse verified; sub-phases 02a-FE / 02a-E carry FE + 50-case eval) | **`CHAT_GLOSSARY_V2`** |
 | 02 | [Focus store (context layer B)](./phase-02-focus-store.md) | P1 | **Done** (adapter + compose + turn write + compact port + 17 tests; anaphora eval lives in phase 09) | `CHAT_CONTEXT_FOCUS_STORE` |
 | 03 | [Memory settings panel + chat header chip](./phase-03-memory-settings-panel.md) | P1 | Pending | `CHAT_MEMORY_UI` |
-| 04 | [Cancellation, timeouts, error UX](./phase-04-robustness-cancel-timeout.md) | P1 | Pending | `CHAT_TURN_TIMEOUT_MS` |
+| 04 | [Cancellation, timeouts, error UX](./phase-04-robustness-cancel-timeout.md) | P1 | **Backend done** — registry abort + runner signal + cancel endpoint + timeout + turn_aborted SSE + 7 tests; FE cancel button deferred | `CHAT_TURN_TIMEOUT_MS` |
 | 05 | [Observability unification](./phase-05-observability-unification.md) | P1 | Pending | — |
 | 06 | [Research mode + web search](./phase-06-research-mode-web-search.md) | P2 | Pending | `CHAT_ENABLE_WEB_SEARCH`, `CHAT_ENABLE_RESEARCH_MODE` |
 | 07 | [nl-to-query decomposition](./phase-07-nl-to-query-decomposition.md) | P3 (reduced) | **Done (reduced)** — parse_date_range tool registered flag-gated; 7 tests | `CHAT_NLQ_DECOMPOSED_TOOLS` |

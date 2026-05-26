@@ -169,6 +169,12 @@ export interface Config {
    * allowed_tools and the boot-guard validator.
    */
   chatNlqDecomposedToolsEnabled: boolean;
+  /**
+   * Phase 04: hard per-turn timeout in milliseconds. When > 0, the registry
+   * aborts the turn with reason='timeout' after this many ms. Default 120000
+   * (2 min). Set to 0 to disable the timeout.
+   */
+  chatTurnTimeoutMs: number;
 }
 
 function parsePreset(raw: string): QueryOptionsPreset {
@@ -227,6 +233,7 @@ export const config: Config = {
   chatGlossaryAutorouteThreshold: optionalFloat('CHAT_GLOSSARY_AUTOROUTE_THRESHOLD', 0.8),
   chatContextFocusStoreEnabled: optional('CHAT_CONTEXT_FOCUS_STORE', 'false') === 'true',
   chatNlqDecomposedToolsEnabled: optional('CHAT_NLQ_DECOMPOSED_TOOLS', 'false') === 'true',
+  chatTurnTimeoutMs: optionalInt('CHAT_TURN_TIMEOUT_MS', 120_000),
 };
 
 /** True only when both Langfuse credentials are present in the environment. */

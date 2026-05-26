@@ -23,6 +23,8 @@
 
 import type { SseEvent } from '../types.js';
 
+export type AbortReason = 'user_cancel' | 'timeout' | 'server_error';
+
 export interface RegistryEntry {
   turnId: string;
   /** Current sessionId (post-compact alias resolution). */
@@ -37,6 +39,13 @@ export interface RegistryEntry {
   createdAt: number;
   finishedAt?: number;
   listeners: Set<(event: SseEvent) => void>;
+  /**
+   * Phase 04 — abort controller for this turn. When the cancel endpoint or
+   * timeout timer fires, the registry calls controller.abort() with the
+   * reason captured separately on `abortReason`.
+   */
+  controller?: AbortController;
+  abortReason?: AbortReason;
 }
 
 export interface StreamRegistryConfig {
@@ -55,7 +64,7 @@ export class RegistryOverflowError extends Error {
 }
 
 export interface StreamRegistry {
-  register(turnId: string, sessionId: string): RegistryEntry;
+  register(turnId: string, sessionId: string, controller?: AbortController): RegistryEntry;
   append(turnId: string, event: SseEvent): void;
   finish(turnId: string, status: 'done' | 'error'): void;
   get(turnId: string): RegistryEntry | undefined;
@@ -64,6 +73,13 @@ export interface StreamRegistry {
   aliasSession(oldSessionId: string, newSessionId: string): void;
   /** Return the running entry for the given sessionId, resolving aliases. */
   findRunning(sessionId: string): RegistryEntry | undefined;
+  /**
+   * Phase 04 — request abort on the turn's controller. Returns true if the
+   * turn was running and the abort was signalled; false if the turn was
+   * unknown or already finished (race: cancel arrived after natural
+   * completion).
+   */
+  abort(turnId: string, reason: AbortReason): boolean;
   /** For test teardown — stops the sweeper and clears state. */
   dispose(): void;
 }
@@ -84,7 +100,7 @@ export function createStreamRegistry(config: StreamRegistryConfig): StreamRegist
     return resolved;
   }
 
-  function register(turnId: string, sessionId: string): RegistryEntry {
+  function register(turnId: string, sessionId: string, controller?: AbortController): RegistryEntry {
     // Count only RUNNING entries against the cap — finished entries linger
     // inside the TTL window but shouldn't block fresh turns.
     let running = 0;
@@ -103,9 +119,20 @@ export function createStreamRegistry(config: StreamRegistryConfig): StreamRegist
       totalEmitted: 0,
       createdAt: Date.now(),
       listeners: new Set(),
+      ...(controller ? { controller } : {}),
     };
     entries.set(turnId, entry);
     return entry;
+  }
+
+  function abort(turnId: string, reason: AbortReason): boolean {
+    const entry = entries.get(turnId);
+    if (!entry || entry.status !== 'running') return false;
+    entry.abortReason = reason;
+    if (entry.controller && !entry.controller.signal.aborted) {
+      entry.controller.abort(reason);
+    }
+    return true;
   }
 
   function append(turnId: string, event: SseEvent): void {
@@ -222,6 +249,7 @@ export function createStreamRegistry(config: StreamRegistryConfig): StreamRegist
     subscribe,
     aliasSession,
     findRunning,
+    abort,
     dispose,
   };
 }

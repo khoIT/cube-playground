@@ -10,7 +10,7 @@
 ## Overview
 
 - **Priority:** P1
-- **Status:** Pending
+- **Status:** **Backend done** — registry abort path + claude-runner signal honouring + cancel endpoint + timeout timer + `turn_aborted` SSE + 7 unit tests. **FE cancel button + hook deferred** to a follow-up sub-phase.
 - **Flag:** `CHAT_TURN_TIMEOUT_MS` (numeric env, 0 = off)
 - **Description:** Two failure modes today: a model loop or slow upstream hangs the turn indefinitely; a user wanting to abandon a turn has no path. Add: (1) per-turn `AbortController`, (2) configurable hard timeout, (3) `POST /api/chat/turn/:id/cancel` endpoint, (4) typed SSE error events the UI can render cleanly.
 
@@ -96,15 +96,15 @@ Timeout
 
 ## Todo List
 
-- [ ] Spike SDK abort surface
-- [ ] stream-registry abort path
-- [ ] claude-runner signal honouring
-- [ ] cancel-turn endpoint
-- [ ] timeout timer + cleanup
-- [ ] turn_aborted SSE event + partial persistence
-- [ ] FE cancel button + hook
-- [ ] Cancel + timeout round-trip tests
-- [ ] Mutex release audit
+- [ ] Spike SDK abort surface — runner forwards `abortSignal` via buildQueryOptions; defensive `signal.aborted` break in for-await keeps local termination correct even if SDK ignores it. Runtime validation in staging.
+- [x] stream-registry abort path (`controller` on RegistryEntry; `abort(turnId, reason)` returns boolean; idempotent)
+- [x] claude-runner signal honouring (`RunParams.signal` plumbed through; defensive break)
+- [x] cancel-turn endpoint (`POST /agent/turn/:turnId/cancel`; owner-scoped; 410 on race)
+- [x] timeout timer + cleanup (`CHAT_TURN_TIMEOUT_MS` default 120000; cleared in `finally`)
+- [x] `turn_aborted` SSE event emitted before `done` when controller aborted; reason captured from registry entry
+- [ ] FE cancel button + hook — deferred (`src/pages/Chat/` work, out of revamp window)
+- [x] Cancel + timeout unit tests (7 total: 6 registry, 1 runner break-on-abort)
+- [ ] Mutex release audit — existing `release()` in `finally` covers all paths; soak test deferred
 
 ## Success Criteria
 

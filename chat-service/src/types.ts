@@ -142,6 +142,20 @@ export type SseEvent =
         artifactCount: number;
         summaryLength: number;
       };
+    }
+  /**
+   * Phase 04 — emitted when a turn ends early via user cancel, server
+   * timeout, or an unrecoverable error path. Always followed by `done`. The
+   * FE renders a "[cancelled]" or "[timed out]" marker and stops the spinner.
+   * Partial assistant text up to the abort point is still persisted on the
+   * chat_turns row.
+   */
+  | {
+      type: 'turn_aborted';
+      data: {
+        reason: 'user_cancel' | 'timeout' | 'server_error';
+        message?: string;
+      };
     };
 
 // ---------------------------------------------------------------------------

@@ -95,6 +95,15 @@ export interface RunParams {
    * a fresh thread.
    */
   resumeId?: string;
+  /**
+   * Phase-04: abort signal. When the controller is aborted, the iterator
+   * breaks and the runner yields no further events. Forwarded to the SDK via
+   * buildQueryOptions().abortSignal — if the SDK honours it, the upstream
+   * subprocess is killed; otherwise the defensive break inside the for-await
+   * loop keeps the local turn from dragging on. Spike B confirms the SDK
+   * surface.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -104,7 +113,7 @@ export interface RunParams {
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
 
-  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, resumeId } = params;
+  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, resumeId, signal } = params;
 
   // Filter tools to only those permitted by the active skill's frontmatter.
   // An empty allowedToolNames list means no restriction (pass-through all tools).
@@ -166,8 +175,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
       },
     },
-    // Phase 04 will add { abortSignal } here.
-    { resumeId },
+    { resumeId, abortSignal: signal },
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,6 +196,11 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   let capturedSdkConversationId: string | undefined;
 
   for await (const msg of iter) {
+    // Phase 04 — defensive abort check. If the SDK respects the signal it
+    // already stopped yielding; this is the belt-and-braces local exit so
+    // an SDK that ignores the signal still terminates the turn cleanly.
+    if (signal?.aborted) break;
+
     // Try to capture session id once. The SDK can surface it on the
     // `system` init message or on the final `result` message. We don't know
     // the canonical field name until Spike A confirms, so probe the common

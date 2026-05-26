@@ -225,9 +225,23 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       emit({ type: 'session_created', data: { id: sessionId } });
     }
 
+    // Phase 04 — create an AbortController per turn. Stored on the registry
+    // entry so the cancel endpoint + timeout timer can signal it. The signal
+    // flows through to claude-runner via params.signal and into the SDK via
+    // buildQueryOptions().abortSignal. A defensive `signal.aborted` check
+    // inside the runner loop guarantees local termination even if the SDK
+    // ignores the signal.
+    const controller = new AbortController();
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    if (config.chatTurnTimeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        registry.abort(turnId, 'timeout');
+      }, config.chatTurnTimeoutMs);
+    }
+
     // Register the turn with the stream registry now that sessionId is final.
     try {
-      registry.register(turnId, sessionId);
+      registry.register(turnId, sessionId, controller);
     } catch (err) {
       if (err instanceof RegistryOverflowError) {
         stream.write(
@@ -487,6 +501,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         toolContext,
         observer,
         resumeId,
+        signal: controller.signal,
       })) {
         // Accumulate result metadata; other events are forwarded directly
         if (event.type === 'result') {
@@ -683,6 +698,23 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         });
       }
 
+      // Phase 04 — if the controller was aborted during the runner loop,
+      // emit `turn_aborted` so the FE can render the right state. Reason
+      // is read from the registry entry (set by the cancel route / timeout
+      // timer). Always followed by `done` to close the SSE stream cleanly.
+      if (controller.signal.aborted) {
+        const entry = registry.get(turnId);
+        emit({
+          type: 'turn_aborted',
+          data: {
+            reason: entry?.abortReason ?? 'server_error',
+            message: typeof controller.signal.reason === 'string'
+              ? controller.signal.reason
+              : undefined,
+          },
+        });
+      }
+
       emit({ type: 'done', data: {} });
       registry.finish(turnId, 'done');
     } catch (err) {
@@ -698,6 +730,14 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         detail: { message, stack: err instanceof Error ? err.stack : undefined },
       });
     } finally {
+      // Phase 04 — cancel the timeout timer if the turn finishes naturally.
+      // Otherwise it would fire after the SSE stream closed and try to abort
+      // a finished turn (registry.abort is a no-op on finished turns, but
+      // the unowned timer is a leak).
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+      }
       // Fire-and-forget Langfuse flush — must not delay SSE close or throw.
       // The Langfuse SDK queues internally; a missed flush is bounded loss.
       if (tracer) {
@@ -707,6 +747,46 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       stream.end();
     }
   });
+
+  // ---------------------------------------------------------------------
+  // Phase 04 — cancel a running turn.
+  //
+  // POST /agent/turn/:turnId/cancel
+  //   → 202 with { aborted: true } when the turn was running and abort
+  //     was signalled
+  //   → 410 Gone when the turn isn't running (race: cancel arrived after
+  //     natural completion or for an unknown turnId)
+  //
+  // The cancel does NOT touch sdk_conversation_id (phase 01) or focus
+  // (phase 02) — cancel ≠ session end. Owner check is performed via the
+  // X-Owner-Id header so a client cannot cancel another user's turn.
+  // ---------------------------------------------------------------------
+  fastify.post<{ Params: { turnId: string } }>(
+    '/agent/turn/:turnId/cancel',
+    async (req, reply) => {
+      const registry = getStreamRegistry();
+      const entry = registry.get(req.params.turnId);
+      if (!entry || entry.status !== 'running') {
+        return reply.status(410).send({ aborted: false, code: 'not_running' });
+      }
+      // Owner check: look up the session row and compare with the calling
+      // owner. Headers + Fastify request shape match the POST /agent/turn
+      // contract; missing owner header → 401.
+      const ownerHeader = req.headers['x-owner-id'];
+      const ownerId = typeof ownerHeader === 'string' ? ownerHeader : null;
+      if (!ownerId) return reply.status(401).send({ error: 'X-Owner-Id required' });
+      const session = chatStore.getSession(opts.db, entry.sessionId);
+      if (!session) {
+        return reply.status(410).send({ aborted: false, code: 'session_missing' });
+      }
+      if (session.owner_id !== ownerId) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
+
+      const aborted = registry.abort(req.params.turnId, 'user_cancel');
+      return reply.status(202).send({ aborted });
+    },
+  );
 };
 
 export default turnRoutes;
