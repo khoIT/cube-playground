@@ -11,7 +11,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { AssistantChartSection } from '../components/assistant-chart-section';
+import { AssistantChartSection, scatterLabelKey } from '../components/assistant-chart-section';
 import { toCsv, compatibleChartTypes } from '../components/chart-section-menu';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
@@ -229,9 +229,21 @@ describe('compatibleChartTypes', () => {
     }))).toEqual(['grouped-bar', 'stacked-bar', 'multi-line']);
   });
 
-  it('pie/donut share a group', () => {
-    expect(compatibleChartTypes(spec({ type: 'pie' }))).toEqual(['pie', 'donut']);
-    expect(compatibleChartTypes(spec({ type: 'donut' }))).toEqual(['pie', 'donut']);
+  it('category×value with few slices → full set incl pie/donut', () => {
+    const rows = [{ c: 'a', v: 1 }, { c: 'b', v: 2 }];
+    expect(compatibleChartTypes(spec({ type: 'pie', data: rows }))).toEqual([
+      'bar', 'horizontal-bar', 'line', 'area', 'pie', 'donut',
+    ]);
+    expect(compatibleChartTypes(spec({ type: 'bar', data: rows }))).toEqual([
+      'bar', 'horizontal-bar', 'line', 'area', 'pie', 'donut',
+    ]);
+  });
+
+  it('category×value with many rows → no pie/donut', () => {
+    const rows = Array.from({ length: 13 }, (_, i) => ({ c: String(i), v: i }));
+    expect(compatibleChartTypes(spec({ type: 'bar', data: rows }))).toEqual([
+      'bar', 'horizontal-bar', 'line', 'area',
+    ]);
   });
 
   it('scatter is standalone', () => {
@@ -246,5 +258,24 @@ describe('compatibleChartTypes', () => {
     expect(compatibleChartTypes(spec({ type: 'bar' }))).toEqual([
       'bar', 'horizontal-bar', 'line', 'area',
     ]);
+  });
+});
+
+describe('scatterLabelKey', () => {
+  it('picks the leftover entity column ("ARPU vs paying-rate per country")', () => {
+    const rows = [
+      { country: 'VN', arpu_vnd: 7657, paying_rate: 0.12 },
+      { country: 'SG', arpu_vnd: 2224, paying_rate: 0.08 },
+    ];
+    expect(scatterLabelKey(rows, { category: 'arpu_vnd', value: 'paying_rate' })).toBe('country');
+  });
+
+  it('returns undefined when rows carry only the two axis columns', () => {
+    const rows = [{ x: 1, y: 2 }];
+    expect(scatterLabelKey(rows, { category: 'x', value: 'y' })).toBeUndefined();
+  });
+
+  it('does not throw on empty data', () => {
+    expect(scatterLabelKey([], { category: 'x', value: 'y' })).toBeUndefined();
   });
 });

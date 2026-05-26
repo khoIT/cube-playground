@@ -29,19 +29,30 @@ const TYPE_LABEL: Record<ChartSpec['type'], string> = {
   funnel: 'Funnel',
 };
 
+// Mirrors PIE_MAX_ROWS in chat-service/src/services/chart-spec.ts — pie/donut
+// only read with a small number of slices.
+const PIE_MAX_SLICES = 12;
+
+/**
+ * Every chart type that can sensibly render this spec's data shape — drives the
+ * "switch chart type" menu so the user can explore all valid views of a table.
+ *
+ * - series-encoded (category + value + series): the multi-series families.
+ * - scatter (numeric x vs y) and funnel (ordered steps) are distinct intents
+ *   that don't interchange with the category×value set, so they stay isolated.
+ * - otherwise it's category×value: offer the full single-series set, plus
+ *   pie/donut when there are few enough slices to read.
+ */
 export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
   if (spec.encoding.series) return ['grouped-bar', 'stacked-bar', 'multi-line'];
-  switch (spec.type) {
-    case 'pie':
-    case 'donut':
-      return ['pie', 'donut'];
-    case 'scatter':
-      return ['scatter'];
-    case 'funnel':
-      return ['funnel'];
-    default:
-      return ['bar', 'horizontal-bar', 'line', 'area'];
+  if (spec.type === 'scatter') return ['scatter'];
+  if (spec.type === 'funnel') return ['funnel'];
+
+  const types: ChartSpec['type'][] = ['bar', 'horizontal-bar', 'line', 'area'];
+  if (spec.data.length >= 1 && spec.data.length <= PIE_MAX_SLICES) {
+    types.push('pie', 'donut');
   }
+  return types;
 }
 
 export function toCsv(rows: Array<Record<string, string | number>>): string {

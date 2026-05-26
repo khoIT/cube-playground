@@ -35,7 +35,9 @@ import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 import {
   axisUnitLabel,
+  columnAxisLabel,
   detectChartUnit,
+  detectColumnUnit,
   formatAxisValue,
   formatReadableValue,
 } from './format-chart-value';
@@ -364,28 +366,54 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
         </PieChart>
       );
 
-    case 'scatter':
+    case 'scatter': {
+      // Scatter plots two metrics against each other (e.g. ARPU vs paying-rate),
+      // so X and Y are independent numeric columns that may carry different
+      // units — detect each axis separately instead of reusing the single
+      // value-column unit.
+      const xUnit = detectColumnUnit(spec.encoding.category, spec);
+      const yUnit = detectColumnUnit(spec.encoding.value, spec);
+      // The point-identity column (e.g. country) is whatever data column isn't
+      // an axis metric — label each dot with it so the reader knows which point
+      // is which, the way a "X vs Y per entity" question expects.
+      const labelKey = scatterLabelKey(spec.data, spec.encoding);
+      const scatterTooltip = (value: number | string, name: string) => {
+        const u = name === spec.encoding.category ? xUnit : name === spec.encoding.value ? yUnit : unit;
+        return [formatReadableValue(value, u), name] as [string, string];
+      };
       return (
-        <ScatterChart>
+        <ScatterChart margin={{ top: 12, right: 20, left: 16, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
           <XAxis
             dataKey={spec.encoding.category}
             type="number"
             stroke={T.n500}
             fontSize={11}
-            tickFormatter={axisTick}
+            tickFormatter={(v) => formatAxisValue(v, xUnit)}
+            label={{
+              value: columnAxisLabel(spec.encoding.category, spec),
+              position: 'insideBottom',
+              offset: -8,
+              style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 },
+            }}
           />
           <YAxis
             dataKey={spec.encoding.value}
             type="number"
             stroke={T.n500}
             fontSize={11}
-            tickFormatter={axisTick}
+            tickFormatter={(v) => formatAxisValue(v, yUnit)}
+            label={valueAxisLabel}
           />
-          <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={tooltipFormatter} />
-          <Scatter data={spec.data} fill={CHART[0]} />
+          <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={scatterTooltip} />
+          <Scatter data={spec.data} fill={CHART[0]}>
+            {labelKey && (
+              <LabelList dataKey={labelKey} position="top" style={{ fill: T.n600, fontSize: 10 }} />
+            )}
+          </Scatter>
         </ScatterChart>
       );
+    }
 
     case 'funnel':
       // Rows render top-to-bottom in submitted (step) order, widths
@@ -416,6 +444,21 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
         </FunnelChart>
       );
   }
+}
+
+/**
+ * The data column that identifies each scatter point — the first column that is
+ * neither the x metric (`category`) nor the y metric (`value`). For "ARPU vs
+ * paying-rate per country" that's `country`, so each dot can be labelled.
+ * Returns undefined when the rows carry only the two axis columns.
+ */
+export function scatterLabelKey(
+  rows: Array<Record<string, string | number>>,
+  encoding: { category: string; value: string },
+): string | undefined {
+  return Object.keys(rows[0] ?? {}).find(
+    (k) => k !== encoding.category && k !== encoding.value,
+  );
 }
 
 // ---------------------------------------------------------------------------

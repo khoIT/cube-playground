@@ -61,13 +61,13 @@ export function detectColumnUnit(column: string, spec?: ChartSpec): ValueUnit {
 }
 
 /**
- * Human-readable label for the value axis, so the reader knows the unit at a
- * glance instead of inferring it from the title. Known units map to a short
- * symbol/word; otherwise fall back to the humanised value-column name (e.g.
+ * Human-readable label for a single column, so the reader knows what an axis
+ * means at a glance instead of inferring it from the title. Known units map to
+ * a short symbol/word; otherwise fall back to the humanised column name (e.g.
  * "user_count" → "User count"), which is still the best available descriptor.
  */
-export function axisUnitLabel(spec: ChartSpec): string {
-  switch (detectChartUnit(spec)) {
+export function columnAxisLabel(column: string, spec: ChartSpec): string {
+  switch (detectColumnUnit(column, spec)) {
     case 'vnd':
       return 'VND';
     case 'usd':
@@ -77,8 +77,13 @@ export function axisUnitLabel(spec: ChartSpec): string {
     case 'count':
       return 'Count';
     default:
-      return humaniseColumn(spec.encoding.value);
+      return humaniseColumn(column);
   }
+}
+
+/** Label for the value (Y) axis — the common case for category×value charts. */
+export function axisUnitLabel(spec: ChartSpec): string {
+  return columnAxisLabel(spec.encoding.value, spec);
 }
 
 function humaniseColumn(col: string): string {

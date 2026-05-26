@@ -101,9 +101,12 @@ Pick `type` by shape:
 | 1 time dim + 1 metric | `line` (or `area` for cumulative) |
 | 1 time dim + 1 metric + 1 breakdown | `multi-line` |
 | 1 categorical + 1 metric + 1 breakdown | `stacked-bar` |
-| 2 numeric metrics | `scatter` |
+| 1 entity dim + **2 metrics** ("A vs B", correlation) | `scatter` |
 
 Rules:
+- A question phrased "**A vs B per <entity>**" (e.g. "ARPU vs paying-rate per country") is a **correlation between two metrics** → `scatter`, NOT a bar of a single metric. Charting only one of the two metrics drops the comparison the user asked for.
+- For `scatter`: set `encoding.category` = the **x-axis metric** column and `encoding.value` = the **y-axis metric** column. Emit **one row per entity** and KEEP the entity's label column in each row (e.g. `country`) — the renderer labels each point with the leftover column. Example rows: `[{ country: 'VN', arpu_vnd: 7657, paying_rate: 0.12 }, …]` with `encoding: { category: 'arpu_vnd', value: 'paying_rate' }`.
+- When a metric has no native measure (e.g. lifetime paying-rate = `paying_users / user_count`), compute the ratio per row yourself and emit the scatter via `emit_chart` (an assistant-derived rollup).
 - If the chart shows the **same data** as the artifact you are about to emit, pass `chart` inline on `emit_query_artifact` (one card per question). Use the same rows you saw in `preview_cube_query`.
 - If the chart shows an **assistant-derived rollup** (groupings you assembled yourself, not raw query rows), call `emit_chart` standalone after the artifact.
 - `stacked-bar` and `multi-line` REQUIRE `encoding.series`.
