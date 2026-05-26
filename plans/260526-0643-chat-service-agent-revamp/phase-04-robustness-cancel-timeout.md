@@ -102,7 +102,7 @@ Timeout
 - [x] cancel-turn endpoint (`POST /agent/turn/:turnId/cancel`; owner-scoped; 410 on race)
 - [x] timeout timer + cleanup (`CHAT_TURN_TIMEOUT_MS` default 120000; cleared in `finally`)
 - [x] `turn_aborted` SSE event emitted before `done` when controller aborted; reason captured from registry entry
-- [ ] FE cancel button + hook — deferred (`src/pages/Chat/` work, out of revamp window)
+- [x] FE cancel button + hook — `src/pages/Chat/hooks/use-cancel-turn.ts` + `src/pages/Chat/components/turn-cancel-button.tsx`; FE SSE union extended with `turn_started` + `turn_aborted`; store reducer surfaces `turnId` + new `aborted` status; button mounted in chat-thread page + side panel
 - [x] Cancel + timeout unit tests (7 total: 6 registry, 1 runner break-on-abort)
 - [ ] Mutex release audit — existing `release()` in `finally` covers all paths; soak test deferred
 

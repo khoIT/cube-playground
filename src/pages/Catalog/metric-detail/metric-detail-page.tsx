@@ -142,7 +142,7 @@ export function MetricDetailPage() {
           {active === 'formula' && <TabFormula metric={metric} />}
           {active === 'lineage' && <TabLineage metric={metric} allMetrics={metrics} />}
           {active === 'slices' && <TabSlices metric={metric} />}
-          {active === 'activity' && <TabActivity />}
+          {active === 'activity' && <TabActivity metricId={metric.id} />}
         </Main>
         <RightRail metric={metric} />
       </Body>

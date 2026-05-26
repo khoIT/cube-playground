@@ -136,15 +136,15 @@ Settings
 
 ## Todo List
 
-- [ ] Backend GET/DELETE /focus endpoint
-- [ ] SSE focus_updated / focus_reset events
-- [ ] use-session-focus hook
-- [ ] ChatHeaderFocusChip + popover
-- [ ] ChatMemorySection in Settings
-- [ ] ChatRememberedDefaultsList polish
-- [ ] /forget slash command handler
-- [ ] A11y pass
-- [ ] Design-token compliance review
+- [x] Backend GET/DELETE /focus endpoint (`chat-service/src/api/chat-session-focus.ts`)
+- [x] SSE focus_updated / focus_reset events (typed in `chat-service/src/types.ts`; emitted from `turn.ts` after `mergeFocus` + from DELETE route)
+- [x] use-session-focus hook (`src/pages/Chat/hooks/use-session-focus.ts`)
+- [x] ChatHeaderFocusChip + popover (`src/pages/Chat/components/chat-header-focus-chip.tsx`)
+- [x] ChatMemorySection in Settings (`src/pages/Settings/chat-memory-section.tsx`, wired into ChatPreferencesSection)
+- [ ] ChatRememberedDefaultsList polish — deferred (cross-session list already shipped; group-by-slot-kind polish out of revamp window)
+- [x] /forget slash command handler (intercepted in `handleSubmit` on both `chat-thread-page` + `usePanelChatState`; clears focus + SDK resume id + disambig slots via DELETE)
+- [ ] A11y pass — basic aria roles + keyboard reachable; lighthouse-95 sweep deferred
+- [x] Design-token compliance review — chip + section use `var(--*)` tokens only (font-sans, border-card, destructive-soft/ink, etc.)
 
 ## Success Criteria
 

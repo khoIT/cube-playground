@@ -118,6 +118,8 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
   return {
     status,
     sessionId: entry?.sessionId ?? sessionId,
+    /** Phase 04 — addressable for the server-side cancel endpoint. */
+    turnId: entry?.turnId ?? null,
     currentText: entry?.currentText ?? '',
     currentReasoning: entry?.currentReasoning ?? '',
     currentArtifacts: entry?.currentArtifacts ?? [],
@@ -126,6 +128,8 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     cacheHit: entry?.cacheHit ?? false,
     cacheFreshness: entry?.cacheFreshness ?? null,
     disambigOptions: entry?.disambigOptions ?? null,
+    /** Phase 04 — populated when `turn_aborted` lands. */
+    abort: entry?.abort ?? null,
     error: entry?.error ?? null,
     lastCompactWarning: entry?.lastCompactWarning ?? null,
     retryAfterMs: entry?.retryAfterMs ?? null,

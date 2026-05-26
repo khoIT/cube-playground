@@ -12,6 +12,7 @@ import type {
   ChartArtifact,
   SseDisambigOptions,
 } from '../api/chat-sse-client';
+import type { SessionFocusClient } from '../api/chat-session-focus-client';
 
 export type DisambigOptionsPayload = SseDisambigOptions['data'];
 
@@ -22,7 +23,15 @@ export type StreamStatus =
   | 'done'
   | 'error'
   | 'disconnected'
-  | 'rate_limited';
+  | 'rate_limited'
+  /** Phase 04 — turn ended early via user cancel, server timeout, or fatal error. */
+  | 'aborted';
+
+/** Phase 04 — captured from the `turn_aborted` SSE event before `done`. */
+export interface AbortInfo {
+  reason: 'user_cancel' | 'timeout' | 'server_error';
+  message?: string;
+}
 
 export interface ToolCallState {
   id: string;
@@ -65,6 +74,15 @@ export interface StreamEntry {
    * Cleared on the next user submission. Null when no chips are pending.
    */
   disambigOptions?: DisambigOptionsPayload | null;
+  /** Phase 04 — populated when the server emits `turn_aborted`. */
+  abort?: AbortInfo | null;
+  /**
+   * Phase 03 — latest session-focus bag emitted by the server during this
+   * turn. The chat-header chip prefers this over its own GET when present so
+   * the chip refreshes <200ms after focus mutates. `null` after focus_reset
+   * fires; `undefined` when no focus event has arrived yet.
+   */
+  latestFocus?: SessionFocusClient | null;
 }
 
 export function makeIdleEntry(sessionId: string | null): StreamEntry {
@@ -93,6 +111,33 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
   switch (event.type) {
     case 'session_created':
       return { ...entry, sessionId: event.data.id };
+
+    case 'turn_started':
+      // Phase 04 — turnId becomes addressable for the cancel endpoint. Don't
+      // touch status because `loading` typically fires alongside this event.
+      return { ...entry, turnId: event.data.turnId };
+
+    case 'turn_aborted':
+      // Phase 04 — server confirms early termination. `done` is expected to
+      // arrive immediately after. The status flips here so a `done` reducer
+      // pass below doesn't overwrite the aborted state, but `done` is still
+      // what flushes streaming buffers in the parent component.
+      return {
+        ...entry,
+        status: 'aborted',
+        abort: { reason: event.data.reason, message: event.data.message },
+      };
+
+    case 'focus_updated':
+      // Phase 03 — server snapshotted the post-turn focus bag. The chat
+      // header chip subscribes to this slice via useSessionFocus.
+      return { ...entry, latestFocus: event.data.focus as SessionFocusClient };
+
+    case 'focus_reset':
+      // Phase 03 — user (or /forget) wiped both layers. Mark the slot null so
+      // the chip can distinguish "no event yet" (undefined) from "empty bag"
+      // (null) — only the latter forces a chip clear without an extra GET.
+      return { ...entry, latestFocus: null };
 
     case 'loading':
       return { ...entry, status: 'loading' };
@@ -184,6 +229,10 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
     }
 
     case 'done':
+      // Phase 04 — if a `turn_aborted` reached us first, keep that status so
+      // the FE doesn't flicker from aborted→done. The closing `done` is just
+      // a stream-close marker in that case.
+      if (entry.status === 'aborted') return entry;
       return { ...entry, status: 'done' };
 
     case 'error': {
@@ -217,5 +266,6 @@ export function clearStreamBuffers(entry: StreamEntry): StreamEntry {
     cacheHit: false,
     cacheFreshness: null,
     disambigOptions: null,
+    abort: null,
   };
 }

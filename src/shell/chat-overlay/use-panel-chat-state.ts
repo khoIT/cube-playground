@@ -8,6 +8,7 @@ import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useChatSession } from '../../pages/Chat/hooks/use-chat-session';
 import { useChatStream } from '../../pages/Chat/hooks/use-chat-stream';
 import { useAutoReplayAttach } from '../../pages/Chat/hooks/use-auto-replay-attach';
+import { useSessionFocus } from '../../pages/Chat/hooks/use-session-focus';
 import type { ChatMessage } from '../../pages/Chat/components/chat-message-list';
 import type { AssistantSection } from '../../pages/Chat/components/assistant-message';
 
@@ -19,13 +20,14 @@ function turnsToMessages(
       return { role: 'user', id: t.id, text: t.text, ts: t.createdAt };
     }
     const sections: AssistantSection[] = [];
-    // Reasoning above text — matches buildStreamingSections so the layout is
-    // stable across live → persisted state.
+    // Section order matches buildStreamingSections so layout is stable across
+    // live → persisted state: thinking (reasoning + tool chips) → answer text
+    // → supporting evidence (artifacts + charts).
     if (t.reasoning) sections.push({ type: 'reasoning', text: t.reasoning });
-    if (t.text) sections.push({ type: 'text', text: t.text });
     for (const tc of t.toolCalls ?? []) {
       sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.ok ? 'ok' : 'error', ms: tc.ms, summary: tc.summary });
     }
+    if (t.text) sections.push({ type: 'text', text: t.text });
     const embeddedChartIds = new Set<string>();
     for (const art of t.artifacts ?? []) {
       if (art.chart?.id) embeddedChartIds.add(art.chart.id);
@@ -60,6 +62,8 @@ export interface PanelChatState {
   status: ReturnType<typeof useChatStream>['status'];
   /** Updated session id (may differ from input when a new session is created). */
   liveSessionId: string | null;
+  /** Phase 04 — active turnId for the cancel button. Null until turn_started. */
+  liveTurnId: string | null;
   firstUserMessage: string | null;
 }
 
@@ -111,6 +115,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   const {
     status,
     sessionId: streamSessionId,
+    turnId: streamTurnId,
     currentText,
     currentReasoning,
     currentArtifacts,
@@ -123,8 +128,12 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
 
   const buildStreamingSections = (): AssistantSection[] => {
     const s: AssistantSection[] = [];
+    // Order: thinking (reasoning + tool chips) → answer text → supporting
+    // evidence (artifacts + standalone charts). During streaming this means
+    // artifacts appear once text starts arriving — natural reading flow.
     if (currentReasoning) s.push({ type: 'reasoning', text: currentReasoning });
     for (const tc of currentToolCalls) s.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.status, ms: tc.ms, summary: tc.summary });
+    if (currentText) s.push({ type: 'text', text: currentText });
     for (const art of currentArtifacts) s.push({ type: 'query_artifact', artifact: art });
     // Skip charts that are already embedded inside one of the emitted artifacts.
     const embeddedChartIds = new Set(
@@ -134,7 +143,6 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
       if (embeddedChartIds.has(ch.id)) continue;
       s.push({ type: 'chart', artifact: ch });
     }
-    if (currentText) s.push({ type: 'text', text: currentText });
     return s;
   };
 
@@ -162,14 +170,28 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     prevStatusRef.current = status;
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Phase 03 — `/forget` support inside the side-panel composer. Shares the
+  // GET/DELETE focus client with the chip + Settings.
+  const focusSessionIdForForget = streamSessionId ?? sessionId;
+  const { forget: forgetSessionFocus } = useSessionFocus(focusSessionIdForForget);
+
   const handleSubmit = useCallback(() => {
     const text = composerValue.trim();
     if (!text) return;
+    if (text === '/forget' || text.startsWith('/forget ')) {
+      setCommittedMessages((prev) => [
+        ...prev,
+        { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() },
+      ]);
+      setComposerValue('');
+      void forgetSessionFocus();
+      return;
+    }
     if (!firstUserMessage) setFirstUserMessage(text);
     setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() }]);
     setComposerValue('');
     sendTurn(text);
-  }, [composerValue, sendTurn, firstUserMessage]);
+  }, [composerValue, sendTurn, firstUserMessage, forgetSessionFocus]);
 
   // Explicit reset for "New chat" — needed because clicking + when sessionId
   // is already null is a no-op for the sessionId-change effect, leaving the
@@ -192,6 +214,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     resetChat,
     status,
     liveSessionId: streamSessionId,
+    liveTurnId: streamTurnId,
     firstUserMessage,
   };
 }

@@ -140,6 +140,50 @@ export interface SseCompactWarning extends SseEventBase {
   data: { from: string; to: string; summary: string };
 }
 
+/**
+ * Phase-04 — server emits this once per turn immediately after registering
+ * with the stream registry. The FE captures `turnId` for cancellation; until
+ * this event arrives the cancel button stays hidden because there's nothing
+ * to address the abort to.
+ */
+export interface SseTurnStarted extends SseEventBase {
+  type: 'turn_started';
+  data: { turnId: string };
+}
+
+/**
+ * Phase-04 — emitted when the turn ends early (user cancel, server-side
+ * timeout, fatal error). Always followed by `done`. The FE flips state into
+ * a terminal "aborted" view + suppresses follow-up retry-on-empty flows.
+ */
+export interface SseTurnAborted extends SseEventBase {
+  type: 'turn_aborted';
+  data: {
+    reason: 'user_cancel' | 'timeout' | 'server_error';
+    message?: string;
+  };
+}
+
+/**
+ * Phase-03 — fired after the session focus bag changes (post-turn write).
+ * Replaces the local hook's slice so the chat-header chip refreshes without
+ * an extra GET round-trip. Shape mirrors the GET /focus response's `focus`
+ * field so the consuming hook reuses one normaliser.
+ */
+export interface SseFocusUpdated extends SseEventBase {
+  type: 'focus_updated';
+  data: {
+    sessionId: string;
+    focus: unknown;
+  };
+}
+
+/** Phase-03 — fired when DELETE /focus succeeds. The chip empties. */
+export interface SseFocusReset extends SseEventBase {
+  type: 'focus_reset';
+  data: { sessionId: string };
+}
+
 export type SseEvent =
   | SseSessionCreated
   | SseLoading
@@ -153,7 +197,11 @@ export type SseEvent =
   | SseResult
   | SseError
   | SseDone
-  | SseCompactWarning;
+  | SseCompactWarning
+  | SseTurnStarted
+  | SseTurnAborted
+  | SseFocusUpdated
+  | SseFocusReset;
 
 // ---------------------------------------------------------------------------
 // Owner ID helper — re-exported for tests; sourced from shared module so

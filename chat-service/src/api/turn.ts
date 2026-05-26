@@ -44,6 +44,7 @@ import { buildRefreshHook } from '../cache/refresh-cached-artifacts.js';
 import { maybeWriteResponseCache } from '../cache/response-cache-write.js';
 import { getFocus, mergeFocus, type SessionFocus } from '../cache/session-focus-adapter.js';
 import { getResolutions } from '../cache/disambig-memory-adapter.js';
+import { emitFocusUpdated } from './chat-session-focus.js';
 
 interface TurnRouteOptions {
   db: Database.Database;
@@ -610,6 +611,18 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           const lastArtifact = collectedArtifacts[collectedArtifacts.length - 1];
           if (lastArtifact) delta.artifactRef = { value: lastArtifact.id };
           mergeFocus(opts.db, sessionId, body.owner_id, delta);
+          // Phase 03 — let the chat-header chip refresh in <200ms without a
+          // poll. Re-read the bag (merge above re-derives `updatedAt`) and
+          // broadcast it on the current stream so an open hook sees the bag
+          // identical to what GET /focus would return.
+          try {
+            emitFocusUpdated(sessionId, getFocus(opts.db, sessionId));
+          } catch (broadcastErr) {
+            fastify.log.warn(
+              { err: broadcastErr },
+              '[turn] focus_updated broadcast failed (non-fatal)',
+            );
+          }
         } catch (focusErr) {
           fastify.log.warn({ err: focusErr }, '[turn] focus write failed (non-fatal)');
         }

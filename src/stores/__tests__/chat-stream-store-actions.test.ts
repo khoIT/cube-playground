@@ -169,3 +169,41 @@ describe('clearStreamBuffers', () => {
     expect(cleared.sessionId).toBe('sess-1');
   });
 });
+
+describe('applySseEvent — Phase 04 cancel/abort path', () => {
+  it('turn_started populates turnId without touching status', () => {
+    let s = makeIdleEntry('sess-1');
+    s = applySseEvent(s, { type: 'loading', data: {} });
+    s = applySseEvent(s, { type: 'turn_started', data: { turnId: 'turn-abc' } });
+    expect(s.turnId).toBe('turn-abc');
+    expect(s.status).toBe('loading');
+  });
+
+  it('turn_aborted captures reason + flips status to aborted', () => {
+    let s = makeIdleEntry('sess-1');
+    s = applySseEvent(s, { type: 'turn_started', data: { turnId: 'turn-abc' } });
+    s = applySseEvent(s, { type: 'token', data: { delta: 'partial' } });
+    s = applySseEvent(s, {
+      type: 'turn_aborted',
+      data: { reason: 'user_cancel', message: 'AbortError' },
+    });
+    expect(s.status).toBe('aborted');
+    expect(s.abort).toEqual({ reason: 'user_cancel', message: 'AbortError' });
+    // Partial text is preserved so the FE can render the truncated reply.
+    expect(s.currentText).toBe('partial');
+  });
+
+  it('done arriving after turn_aborted preserves the aborted status', () => {
+    let s = makeIdleEntry('sess-1');
+    s = applySseEvent(s, { type: 'turn_aborted', data: { reason: 'timeout' } });
+    s = applySseEvent(s, { type: 'done', data: {} });
+    expect(s.status).toBe('aborted');
+  });
+
+  it('clearStreamBuffers wipes abort info alongside other buffers', () => {
+    let s = makeIdleEntry('sess-1');
+    s = applySseEvent(s, { type: 'turn_aborted', data: { reason: 'server_error' } });
+    const cleared = clearStreamBuffers(s);
+    expect(cleared.abort).toBeNull();
+  });
+});

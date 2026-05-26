@@ -17,6 +17,8 @@ import { ChatThreadView } from '../../pages/Chat/components/chat-thread-view';
 import { ChatComposer } from '../../pages/Chat/components/chat-composer';
 import { usePanelChatState } from './use-panel-chat-state';
 import { clearSessionModeOverride } from './use-session-mode-override';
+import { useCancelTurn } from '../../pages/Chat/hooks/use-cancel-turn';
+import { TurnCancelButton } from '../../pages/Chat/components/turn-cancel-button';
 
 const WIDTH_MIN = 360;
 const WIDTH_MAX = 720;
@@ -36,10 +38,18 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     composerValue,
     setComposerValue,
     handleSubmit,
+    cancel,
     resetChat,
     status,
     liveSessionId,
+    liveTurnId,
   } = usePanelChatState(sessionId);
+
+  // Phase 04 — server-side cancel for the panel's in-flight turn.
+  const { cancel: cancelTurnRemote, busy: cancelBusy } = useCancelTurn({
+    turnId: liveTurnId,
+    cancelLocal: cancel,
+  });
 
   // When stream creates a new session id, store it as the active session.
   useEffect(() => {
@@ -165,14 +175,33 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
           />
         </>
       ) : (
-        <ChatThreadView
-          messages={displayMessages}
-          streaming={isStreaming}
-          composerValue={composerValue}
-          onComposerChange={setComposerValue}
-          onSubmit={handleSubmit}
-          compact
-        />
+        <>
+          <ChatThreadView
+            messages={displayMessages}
+            streaming={isStreaming}
+            composerValue={composerValue}
+            onComposerChange={setComposerValue}
+            onSubmit={handleSubmit}
+            compact
+          />
+          {/* Phase 04 — Stop generating affordance in the side panel. */}
+          {isStreaming && liveTurnId && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                padding: '4px 0 12px',
+              }}
+            >
+              <TurnCancelButton
+                turnId={liveTurnId}
+                isStreaming={isStreaming}
+                onCancel={cancelTurnRemote}
+                busy={cancelBusy}
+              />
+            </div>
+          )}
+        </>
       )}
     </aside>
   );

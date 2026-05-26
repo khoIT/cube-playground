@@ -11,6 +11,7 @@ import { SectionCard, SectionHead, SectionTitle, SectionHint } from './section-c
 import { ChatModeRadioGroup } from './chat-mode-radio-group';
 import { useChatDisambiguationMode, type ChatDisambiguationMode } from './use-chat-disambiguation-mode';
 import { ChatRememberedDefaultsList } from './chat-remembered-defaults-list';
+import { ChatMemorySection } from './chat-memory-section';
 
 export function ChatPreferencesSection() {
   const { t } = useTranslation();
@@ -71,6 +72,8 @@ export function ChatPreferencesSection() {
         </SectionHead>
         <ChatRememberedDefaultsList />
       </SectionCard>
+
+      <ChatMemorySection />
     </>
   );
 }

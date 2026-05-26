@@ -156,6 +156,27 @@ export type SseEvent =
         reason: 'user_cancel' | 'timeout' | 'server_error';
         message?: string;
       };
+    }
+  /**
+   * Phase 03 — fired after the session focus bag is written (post-turn or
+   * via a focus DELETE). The chat-header chip re-renders from the new bag.
+   * Value shape mirrors the GET /api/chat/sessions/:id/focus response so the
+   * FE hook can replace its slice without an extra fetch.
+   */
+  | {
+      type: 'focus_updated';
+      data: {
+        sessionId: string;
+        focus: import('./cache/session-focus-adapter.js').SessionFocus;
+      };
+    }
+  /**
+   * Phase 03 — fired when DELETE /api/chat/sessions/:id/focus succeeds. Both
+   * layers (session focus + SDK resume id) are cleared; the chip empties.
+   */
+  | {
+      type: 'focus_reset';
+      data: { sessionId: string };
     };
 
 // ---------------------------------------------------------------------------

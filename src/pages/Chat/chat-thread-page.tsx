@@ -33,11 +33,15 @@ import {
 } from './components/chat-thread-status-banners';
 import { useChatSession } from './hooks/use-chat-session';
 import { useChatStream } from './hooks/use-chat-stream';
+import { useCancelTurn } from './hooks/use-cancel-turn';
 import { useAutoReplayAttach } from './hooks/use-auto-replay-attach';
 import type { ChatMessage } from './components/chat-message-list';
 import type { AssistantSection } from './components/assistant-message';
 import { readChatServiceSettings } from '../Settings/ChatService/use-chat-service-settings';
 import { ChatModeChip } from '../../shell/chat-overlay/chat-mode-chip';
+import { TurnCancelButton } from './components/turn-cancel-button';
+import { ChatHeaderFocusChip } from './components/chat-header-focus-chip';
+import { useSessionFocus } from './hooks/use-session-focus';
 
 
 // ---------------------------------------------------------------------------
@@ -52,14 +56,14 @@ function sessionTurnsToMessages(
   return turns.map((t) => {
     if (t.role === 'user') return { role: 'user', id: t.id, text: t.text, ts: t.createdAt };
     const sections: AssistantSection[] = [];
-    // Reasoning above text mirrors buildStreamingSections — same visual order
-    // before and after persistence so toggling between live + hydrated state
-    // doesn't shuffle layout.
+    // Section order matches buildStreamingSections so layout is stable across
+    // live → persisted state: thinking (reasoning + tool chips) → answer text
+    // → supporting evidence (artifacts + charts).
     if (t.reasoning) sections.push({ type: 'reasoning', text: t.reasoning });
-    if (t.text) sections.push({ type: 'text', text: t.text });
     for (const tc of t.toolCalls ?? []) {
       sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.ok ? 'ok' : 'error', ms: tc.ms, summary: tc.summary });
     }
+    if (t.text) sections.push({ type: 'text', text: t.text });
     const embeddedChartIds = new Set<string>();
     for (const art of t.artifacts ?? []) {
       if (art.chart?.id) embeddedChartIds.add(art.chart.id);
@@ -147,13 +151,27 @@ export function ChatThreadPage() {
   }, [id]);
 
   const {
-    status, sessionId: streamSessionId,
+    status, sessionId: streamSessionId, turnId: streamTurnId,
     currentText, currentReasoning, currentArtifacts, currentCharts, currentToolCalls,
     cacheHit: streamCacheHit, cacheFreshness: streamCacheFreshness,
     disambigOptions: streamDisambigOptions,
     lastCompactWarning, retryAfterMs,
     sendTurn, cancel, reconnect, clearStreamBuffers,
   } = useChatStream({ sessionId: isNew ? null : id ?? null, game: gameId });
+
+  // Phase 04 — server-side cancel for the in-flight turn. Pairs the FE-side
+  // `cancel` (closes the SSE fetch) with the POST that signals the registry
+  // to abort the SDK iterator and release the session mutex.
+  const { cancel: cancelTurnRemote, busy: cancelBusy } = useCancelTurn({
+    turnId: streamTurnId,
+    cancelLocal: cancel,
+  });
+
+  // Phase 03 — `/forget` slash command in the composer. We hook directly into
+  // the focus hook so the command shares its forget action with the chip /
+  // Settings without going through the SSE stream.
+  const focusSessionId = streamSessionId ?? (id && id !== 'new' ? id : null);
+  const { forget: forgetSessionFocus } = useSessionFocus(focusSessionId);
 
   // Navigate to real id once session is created from new. Use history.replace
   // (not push) so the back button doesn't bounce the user back to /chat.
@@ -172,10 +190,13 @@ export function ChatThreadPage() {
 
   const buildStreamingSections = (): AssistantSection[] => {
     const sections: AssistantSection[] = [];
+    // Order: thinking (reasoning + tool chips) → answer text → supporting
+    // evidence (artifacts + standalone charts). During streaming this means
+    // artifacts appear once text starts arriving — natural reading flow.
     if (currentReasoning) sections.push({ type: 'reasoning', text: currentReasoning });
     for (const tc of currentToolCalls) sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.status, ms: tc.ms, summary: tc.summary });
+    if (currentText) sections.push({ type: 'text', text: currentText });
     for (const art of currentArtifacts) sections.push({ type: 'query_artifact', artifact: art });
-    // Standalone charts (not artifact-embedded) render after artifacts, before text.
     // A chart attached to an artifact (chart.artifactRef === artifact.id) is
     // already drawn inside that artifact's card, so skip it here to avoid dups.
     const embeddedChartIds = new Set(
@@ -185,7 +206,6 @@ export function ChatThreadPage() {
       if (embeddedChartIds.has(ch.id)) continue;
       sections.push({ type: 'chart', artifact: ch });
     }
-    if (currentText) sections.push({ type: 'text', text: currentText });
     return sections;
   };
 
@@ -237,12 +257,24 @@ export function ChatThreadPage() {
   const handleSubmit = useCallback(() => {
     const text = composerValue.trim();
     if (!text) return;
+    // Phase 03 — `/forget` slash command. Intercepts the submit so the text
+    // never reaches the agent. Shows a synthetic user bubble for visual
+    // feedback, then clears the composer + invokes the focus DELETE.
+    if (text === '/forget' || text.startsWith('/forget ')) {
+      setCommittedMessages((prev) => [
+        ...prev,
+        { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() },
+      ]);
+      setComposerValue('');
+      void forgetSessionFocus();
+      return;
+    }
     setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() }]);
     setComposerValue('');
     sendTurn(text, bypassCache);
     // Reset bypass cache after send so the next turn uses the cache by default.
     if (bypassCache) setBypassCache(false);
-  }, [composerValue, sendTurn, bypassCache]);
+  }, [composerValue, sendTurn, bypassCache, forgetSessionFocus]);
 
   /**
    * Phase-04: follow-up chip click prefills + sends immediately. Bypasses
@@ -338,6 +370,7 @@ export function ChatThreadPage() {
               padding: '6px 0 2px',
             }}
           >
+            <ChatHeaderFocusChip sessionId={activeSessionId} />
             <ChatModeChip sessionId={activeSessionId} />
             {showDebugLink && (
               <Link
@@ -371,6 +404,22 @@ export function ChatThreadPage() {
           )}
           {lastCompactWarning && status === 'done' && <CompactWarningChip />}
           {status === 'error' && <ErrorBanner onDismiss={cancel} />}
+          {/* Phase 04 — Stop generating affordance. Visible only while the
+              turn is streaming and the server has surfaced a turnId. */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '8px 0 16px',
+            }}
+          >
+            <TurnCancelButton
+              turnId={streamTurnId}
+              isStreaming={isStreaming}
+              onCancel={cancelTurnRemote}
+              busy={cancelBusy}
+            />
+          </div>
         </div>
       </div>
     </div>

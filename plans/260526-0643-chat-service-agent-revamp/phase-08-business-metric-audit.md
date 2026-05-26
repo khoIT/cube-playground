@@ -94,7 +94,7 @@ Read
 - [x] `update_business_metric_trust` already accepts `note` (mapped to `reason` in audit)
 - [x] `get_business_metric_history` chat-service tool (registered + added to explore + diagnose allowed_tools)
 - [x] `GET /api/business-metrics/:id/history` route (paginated, default 50, max 500)
-- [ ] History tab UI — deferred (touches `src/pages/Catalog/`, out of revamp window)
+- [x] History tab UI — replaces the `tab-activity` placeholder on the metric detail page. New `useBusinessMetricHistory` hook (`src/pages/Catalog/metric-detail/use-business-metric-history.ts`) calls `GET /api/business-metrics/:id/history`; UI renders a row per entry with action pill (create/update/trust_change/delete) + actor + reason summary (falls back to `old → new` for trust changes); 4 tests in `tab-activity.test.tsx`
 - [x] Tests: 10 server tests covering store CRUD, POST/PATCH instrumentation, /history shape
 - [ ] Backfill decision doc — deferred; start fresh per phase plan default
 

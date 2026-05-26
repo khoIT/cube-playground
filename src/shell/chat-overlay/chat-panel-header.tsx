@@ -6,6 +6,7 @@ import React from 'react';
 import { Plus, X } from 'lucide-react';
 import { T, Icon } from '../theme';
 import { ChatModeChip } from './chat-mode-chip';
+import { ChatHeaderFocusChip } from '../../pages/Chat/components/chat-header-focus-chip';
 
 interface ChatPanelHeaderProps {
   sessionId: string | null;
@@ -69,6 +70,9 @@ export function ChatPanelHeader({
       >
         {displayTitle}
       </button>
+
+      {/* Phase 03 — what the assistant remembers in this chat. */}
+      <ChatHeaderFocusChip sessionId={sessionId} />
 
       {/* Disambiguation mode chip — controls how the agent handles ambiguous questions. */}
       <ChatModeChip sessionId={sessionId} hideLabel />

@@ -98,15 +98,16 @@ claude-runner.run() loop
 
 ## Todo List
 
-- [ ] TraceEvent + TurnTracer
-- [ ] DbSink, LangfuseSink, StructuredLogSink
-- [ ] ParallelEmitShim + staging soak
-- [ ] Diff-zero confirmed in staging
-- [ ] Parallel emit in prod (1 week)
-- [ ] Cutover; delete old observer modules
-- [ ] Cancellation reason wiring (depends Phase 04)
-- [ ] Tracer + isolation tests
-- [ ] Dashboard: per-event-type emit rate, sink-failure rate
+- [x] TraceEvent + TurnTracer (`chat-service/src/observability/{trace-event,turn-tracer}.ts`)
+- [x] ObserverSinkAdapter (`chat-service/src/observability/sinks/observer-sink-adapter.ts`) — bridges existing `LlmTraceRecorder` / `LangfuseTracer` into the new `TraceSink` interface without behavioural delta
+- [x] StructuredLogSink (`chat-service/src/observability/sinks/structured-log-sink.ts`) — JSON lines + redacted content/args
+- [ ] ParallelEmitShim + staging soak — deferred; gated on production traffic for diff comparison
+- [ ] Diff-zero confirmed in staging — deferred
+- [ ] Parallel emit in prod (1 week) — deferred
+- [ ] Cutover; delete old observer modules — deferred until parallel-emit soak proves zero diff
+- [x] Cancellation reason wiring (`tracer.abort(reason, message)` emits `TraceEvent.kind = 'turn_aborted'`; sinks consume via `onTurnAborted` extension)
+- [x] Tracer + isolation tests — `test/observability/turn-tracer.test.ts`, `structured-log-sink.test.ts`, `observer-sink-adapter.test.ts` (10 tests)
+- [ ] Dashboard: per-event-type emit rate, sink-failure rate — deferred (depends on prod parallel emit)
 
 ## Success Criteria
 
