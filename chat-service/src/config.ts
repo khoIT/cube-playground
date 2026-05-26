@@ -4,6 +4,7 @@
  */
 
 import 'dotenv/config';
+import type { QueryOptionsPreset } from './core/query-options-presets.js';
 
 function required(name: string): string {
   const val = process.env[name];
@@ -118,6 +119,29 @@ export interface Config {
    * Unknown values silently fall back to chatModel — never echoed to the SDK.
    */
   allowedModels: string[];
+  /**
+   * Active SDK query-options preset. `'standard'` matches behaviour shipped
+   * before phase 00; `'research-safe'` is a placeholder for phase 06. Closed
+   * enum — unknown values throw at boot via buildQueryOptions().
+   */
+  chatQueryPreset: QueryOptionsPreset;
+  /**
+   * Daily USD budget cap for eval suites (phase 09 thread-continuity + concept
+   * resolution evals). Default 50 — pending finance review for prod.
+   */
+  evalDailyBudgetUsd: number;
+  /**
+   * Judge model for LLM-as-judge scoring on eval suites. Defaults to chatModel
+   * so a fresh deploy works without extra env wiring.
+   */
+  evalJudgeModel: string;
+}
+
+function parsePreset(raw: string): QueryOptionsPreset {
+  if (raw === 'standard' || raw === 'research-safe') return raw;
+  throw new Error(
+    `CHAT_QUERY_PRESET must be 'standard' or 'research-safe', got: ${raw}`,
+  );
 }
 
 const DEFAULT_SKILL_LOADER_TTL = process.env['NODE_ENV'] === 'production' ? 60_000 : 5_000;
@@ -161,6 +185,9 @@ export const config: Config = {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
+  chatQueryPreset: parsePreset(optional('CHAT_QUERY_PRESET', 'standard')),
+  evalDailyBudgetUsd: optionalFloat('EVAL_DAILY_BUDGET_USD', 50),
+  evalJudgeModel: optional('EVAL_JUDGE_MODEL', optional('CHAT_MODEL', 'claude-sonnet-4-6')),
 };
 
 /** True only when both Langfuse credentials are present in the environment. */

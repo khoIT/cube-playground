@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { config } from '../config.js';
 import { mapSdkMessage } from './sse-stream.js';
+import { buildQueryOptions } from './query-options-presets.js';
 import type { SseEvent, ToolContext } from '../types.js';
 import type { ObserverHooks } from '../observability/observer-types.js';
 import {
@@ -128,8 +129,8 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   const sdkAllowedTools = permittedTools.map((t) => t.name);
 
   // sessionId is our internal uuid; the Claude SDK manages its own session ids
-  // separately. Until we persist the SDK's id and pass it back on subsequent
-  // turns, every turn opens a fresh SDK conversation.
+  // separately. Phase 01 will populate buildQueryOptions's `resumeId` override
+  // with the persisted SDK conversation id so the model sees its prior thread.
   void sessionId;
 
   // Anthropic's SDK does automatic prefix caching when the system prompt is
@@ -142,24 +143,29 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     ? systemPrompt
     : `${systemPrompt}\n\n<!-- cache-bust:${turnId} -->`;
 
-  const iter = query({
-    prompt: message,
-    options: {
+  // The SDK streams by default: iterating `query()` yields assistant tokens,
+  // tool calls, tool results, and the final `result` message as they arrive.
+  // No flag toggles streaming — `for await` IS the streaming surface.
+  const options = buildQueryOptions(
+    config.chatQueryPreset ?? 'standard',
+    {
       model: config.chatModel,
       systemPrompt: finalSystemPrompt,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mcpServers: { 'cube-playground-tools': mcpServer as any },
       allowedTools: sdkAllowedTools,
-      // Prevent the SDK subprocess from calling any builtin Claude Code tools
-      disallowedTools: ['Read', 'Write', 'Bash', 'WebFetch', 'WebSearch', 'Edit', 'MultiEdit'],
-      permissionMode: 'bypassPermissions',
       env: {
         HOME: CLAUDE_HOME,
         ANTHROPIC_API_KEY: config.anthropicApiKey,
         ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
       },
     },
-  });
+    // Phase 01 will add { resumeId } here; phase 04 will add { abortSignal }.
+    {},
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const iter = query({ prompt: message, options: options as any });
 
   // Observer per-turn state — counters always declared; helpers no-op when
   // observer is undefined (guard at each call site).

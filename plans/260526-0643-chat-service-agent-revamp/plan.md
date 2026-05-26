@@ -64,7 +64,7 @@ A "pending clarification" state machine — snapshot the entire pre-clarify reso
 
 | # | Phase | Priority | Status | Flag |
 |---|---|---|---|---|
-| 00 | [Foundations](./phase-00-foundations.md) | P0 | Pending | — |
+| 00 | [Foundations](./phase-00-foundations.md) | P0 | **Done** (code lands; spike A/B deferred to phases 01/04 kickoff) | — |
 | **01** | **[SDK session resume + compaction (primary memory)](./phase-01-sdk-session-resume.md)** | **P0** | **Pending** | **`CHAT_CONTEXT_SDK_RESUME`** |
 | **02a** | **[Glossary resolution v2 (headline)](./phase-02a-glossary-resolution-v2.md)** | **P0** | **Pending** | **`CHAT_GLOSSARY_V2`** |
 | 02 | [Focus store (context layer B)](./phase-02-focus-store.md) | P1 | Pending | `CHAT_CONTEXT_FOCUS_STORE` |

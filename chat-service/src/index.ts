@@ -17,6 +17,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { config } from './config.js';
+import { validateSkillRegistry } from './core/registry-boot-guard.js';
 import { openDatabase } from './db/migrate.js';
 import { hydrateChatFromSnapshot, getChatSyncStatus } from './db/snapshot-store.js';
 import healthRoutes from './api/health.js';
@@ -85,7 +86,15 @@ async function buildApp(dbPath?: string) {
 async function start(): Promise<void> {
   await seedClaudeHome();
 
+  // Fail fast on SKILL.md typos — better to crash at boot than silently
+  // degrade to "skill falls back to explore" in prod.
+  const skillCheck = validateSkillRegistry();
+
   const { fastify, db } = await buildApp();
+  fastify.log.info(
+    skillCheck,
+    '[boot-guard] skill registry validation OK',
+  );
   const seeded = hydrateChatFromSnapshot(db);
   if (seeded.hydrated) {
     fastify.log.info({ counts: seeded.counts }, '[chat-snapshot] hydrated from seed');

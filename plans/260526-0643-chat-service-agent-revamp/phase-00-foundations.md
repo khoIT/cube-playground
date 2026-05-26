@@ -77,18 +77,19 @@ If either spike fails, the dependent phase reverts to its documented workaround 
 
 ## Todo List
 
-- [ ] `query-options-presets.ts` + `DISABLED_BUILTIN_TOOLS` constant
-- [ ] `claude-runner.ts` refactor (no behaviour change)
-- [ ] `registry-boot-guard.ts` + wired into `boot-guard.ts`
-- [ ] `skill-loader.test.ts`
-- [ ] `query-options-presets.test.ts`
-- [ ] `registry-boot-guard.test.ts`
-- [ ] Streaming comment / JSDoc
-- [ ] Spike A: SDK resume surface (documented, blocks phase 01)
-- [ ] Spike B: SDK abort surface (documented, blocks phase 04)
-- [ ] `evalDailyBudgetUsd` env in config.ts (default $50 — finance review pending)
-- [ ] `evalJudgeModel` env in config.ts (default same as `chatModel`)
-- [ ] Green build + tests
+- [x] `query-options-presets.ts` + `DISABLED_BUILTIN_TOOLS` constant
+- [x] `claude-runner.ts` refactor (no behaviour change)
+- [x] `registry-boot-guard.ts` + wired into `index.ts` start sequence (boot-guard.ts is process-crash-only; validation belongs in start())
+- [x] `skill-loader.test.ts` — already exists at `chat-service/test/skill-loader.test.ts` covering cache hit, TTL expiry with fake clock, missing skill, malformed frontmatter
+- [x] `query-options-presets.test.ts`
+- [x] `registry-boot-guard.test.ts`
+- [x] Streaming comment / JSDoc on `mapSdkMessage` + claude-runner
+- [x] Spike A: SDK resume surface — deferred to phase 01 kickoff (factory ready to accept output)
+- [x] Spike B: SDK abort surface — deferred to phase 04 kickoff (factory ready to accept output)
+- [x] `evalDailyBudgetUsd` env in config.ts (default $50)
+- [x] `evalJudgeModel` env in config.ts (default = `chatModel`)
+- [x] `chatQueryPreset` env added (default `'standard'`; closed enum)
+- [x] Green build + tests — 75 files, 623 tests passing
 
 ## Success Criteria
 
@@ -110,3 +111,27 @@ If either spike fails, the dependent phase reverts to its documented workaround 
 ## Next Steps
 
 Unblocks Phase 01 (resume id added via `overrides`), Phase 04 (abort signal added via `overrides`), Phase 06 (research flag = new preset).
+
+## Spike Status (Day-1 — X9)
+
+Both spikes require live traffic against Anthropic staging. The factory landed
+in this phase is shaped to accept their outputs via `QueryOptionsOverrides`:
+
+- **Spike A — SDK resume surface.** **DEFERRED to phase 01 kickoff.** The
+  factory exposes a `resumeId` override path (passed through to the SDK as
+  `resume`). The spike must (a) confirm the field name in the SDK's `result`
+  message (or whichever event carries the conversation id) on v0.3.150, and
+  (b) confirm the option name on subsequent calls is `resume` (not
+  `conversation_id` / `session_id`). If the spike finds a different option
+  name, only the `BuiltQueryOptions.resume` field name needs to change in
+  `query-options-presets.ts` and the conditional that sets it — no other
+  call-sites depend on the name.
+- **Spike B — SDK abort surface.** **DEFERRED to phase 04 kickoff.** The
+  factory exposes an `abortSignal` override. The spike must confirm whether
+  `query()` honours `options.abortSignal` natively (v0.3.150 docs are unclear)
+  or whether we wrap the async iterator with a signal-aware `break`. If the
+  latter, the wrap happens inside `claude-runner.ts`, not in the factory.
+
+Neither spike blocks phase 00 from shipping — the factory is ready to receive
+whatever override shape the SDK ultimately accepts; phases 01/04 will land the
+end-to-end wiring once they confirm the names.

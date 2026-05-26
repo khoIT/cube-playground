@@ -80,6 +80,12 @@ export type SdkMessage = SdkAssistantMessage | SdkUserMessage | SdkResultMessage
 /**
  * Map a single SDK message to zero or more SseEvent objects.
  * Returns an empty array for messages that produce no client events.
+ *
+ * Streaming model: the SDK's `query()` returns an async iterator that yields
+ * SDKMessage objects as they arrive over the wire — there is no separate
+ * "enable streaming" flag. The runner's `for await (const msg of iter)` loop
+ * IS the streaming surface. This mapper converts each yielded SDKMessage to
+ * the SseEvent shape we forward to the FE over text/event-stream.
  */
 export function mapSdkMessage(msg: SdkMessage): SseEvent[] {
   if (msg.type === 'assistant') {
