@@ -175,6 +175,15 @@ export interface Config {
    * (2 min). Set to 0 to disable the timeout.
    */
   chatTurnTimeoutMs: number;
+  /**
+   * Phase 05: parallel-emit soak gate. When true, every turn also drives a
+   * shadow TurnTracer alongside the legacy inline observer dispatch and writes
+   * a per-turn diff record to runtime/parallel-emit/diffs.jsonl. The shadow
+   * path only records — it never writes to the DB or Langfuse. Used to prove
+   * the new tracer matches the legacy path byte-for-byte before the cutover
+   * deletes the inline dispatch. Default false (zero overhead when off).
+   */
+  obsParallelEmitEnabled: boolean;
 }
 
 function parsePreset(raw: string): QueryOptionsPreset {
@@ -233,6 +242,7 @@ export const config: Config = {
   chatGlossaryAutorouteThreshold: optionalFloat('CHAT_GLOSSARY_AUTOROUTE_THRESHOLD', 0.8),
   chatContextFocusStoreEnabled: optional('CHAT_CONTEXT_FOCUS_STORE', 'false') === 'true',
   chatNlqDecomposedToolsEnabled: optional('CHAT_NLQ_DECOMPOSED_TOOLS', 'false') === 'true',
+  obsParallelEmitEnabled: optional('OBS_PARALLEL_EMIT', 'false') === 'true',
   chatTurnTimeoutMs: optionalInt('CHAT_TURN_TIMEOUT_MS', 120_000),
 };
 

@@ -36,6 +36,13 @@ import { LlmTraceRecorder, BufferedLlmTraceRecorder } from '../observability/llm
 import { LangfuseTracer } from '../observability/langfuse-tracer.js';
 import { buildCompositeObserver } from '../observability/composite-observer.js';
 import type { ObserverHooks } from '../observability/observer-types.js';
+import { TurnTracer } from '../observability/turn-tracer.js';
+import {
+  RecordingObserver,
+  RecordingSink,
+  diffRecordings,
+} from '../observability/parallel-emit-shim.js';
+import { appendParallelEmitDiff } from '../observability/parallel-emit-log.js';
 import { getMetaVersion } from '../core/cube-meta-cache.js';
 import { computeCacheKey, hashSystemPrompt, normalize } from '../cache/response-cache-key.js';
 import { getByKey, incrementHit } from '../db/response-cache-store.js';
@@ -469,6 +476,10 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     let observer: ObserverHooks | undefined;
     let tracer: LangfuseTracer | undefined;
     let bufferedRecorder: BufferedLlmTraceRecorder | undefined;
+    // Phase-05 parallel-emit shim — only allocated when the soak flag is on.
+    let parallelLegacyRecorder: RecordingObserver | undefined;
+    let parallelShadowSink: RecordingSink | undefined;
+    let shadowTracer: TurnTracer | undefined;
     try {
       // Recorder writes go through a buffer: chat_turns FK rejects inserts for
       // the assistant turn until that row exists, and that INSERT happens
@@ -478,7 +489,23 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         new LlmTraceRecorder({ db: opts.db, turnId }),
       );
       tracer = new LangfuseTracer({ turnId, sessionId, ownerId: body.owner_id, skill: intent.skill });
-      observer = buildCompositeObserver([bufferedRecorder, tracer]);
+      const observers: ObserverHooks[] = [bufferedRecorder, tracer];
+      if (config.obsParallelEmitEnabled) {
+        // Legacy capture: a no-op extra observer on the composite records what
+        // the production path dispatches without writing anywhere. Shadow
+        // capture: a TurnTracer whose only sink is an in-memory recorder — it
+        // never touches the DB or Langfuse. Both are diffed after the loop.
+        parallelLegacyRecorder = new RecordingObserver();
+        observers.push(parallelLegacyRecorder);
+        parallelShadowSink = new RecordingSink();
+        shadowTracer = new TurnTracer({
+          turnId,
+          sessionId,
+          model: config.chatModel,
+          sinks: [parallelShadowSink],
+        });
+      }
+      observer = buildCompositeObserver(observers);
       chatStore.insertAudit(opts.db, {
         sessionId,
         turnId,
@@ -489,6 +516,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       fastify.log.warn({ err: obsErr }, '[turn] observer construction failed — continuing without observability');
       observer = undefined;
       tracer = undefined;
+      shadowTracer = undefined;
+      parallelLegacyRecorder = undefined;
+      parallelShadowSink = undefined;
     }
 
     try {
@@ -501,6 +531,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         tools,
         toolContext,
         observer,
+        tracer: shadowTracer,
         resumeId,
         signal: controller.signal,
       })) {
@@ -528,6 +559,31 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         // query_artifact and chart are already emitted via sseEmitter
         if (event.type !== 'query_artifact' && event.type !== 'chart') {
           emit(event);
+        }
+      }
+
+      // Phase-05 parallel-emit shim: the runner has consumed every message and
+      // called shadowTracer.finalize(). Diff the legacy dispatch against the
+      // shadow tracer and append one record to the soak log. Best-effort —
+      // a diff failure must never affect the user-facing turn.
+      if (parallelLegacyRecorder && parallelShadowSink) {
+        try {
+          const diff = diffRecordings(parallelLegacyRecorder.events, parallelShadowSink.events);
+          appendParallelEmitDiff({
+            ts: Date.now(),
+            turnId,
+            sessionId: sessionId ?? '',
+            message: body.message.slice(0, 120),
+            match: diff.match,
+            legacyCount: diff.legacyCount,
+            shadowCount: diff.shadowCount,
+            kindCounts: diff.kindCounts,
+            maxLatencyDeltaMs: diff.maxLatencyDeltaMs,
+            mismatchCount: diff.mismatches.length,
+            mismatchSample: diff.mismatches.slice(0, 5),
+          });
+        } catch (diffErr) {
+          fastify.log.warn({ err: diffErr }, '[turn] parallel-emit diff failed');
         }
       }
 

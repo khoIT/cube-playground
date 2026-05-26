@@ -19,6 +19,7 @@ import { mapSdkMessage } from './sse-stream.js';
 import { buildQueryOptions } from './query-options-presets.js';
 import type { SseEvent, ToolContext } from '../types.js';
 import type { ObserverHooks } from '../observability/observer-types.js';
+import type { TurnTracer } from '../observability/turn-tracer.js';
 import {
   emitSdkEvent,
   emitLlmCall,
@@ -90,6 +91,16 @@ export interface RunParams {
    */
   observer?: ObserverHooks;
   /**
+   * Phase-05 parallel-emit shim: a shadow TurnTracer driven from the same
+   * message stream as the legacy `observer` dispatch. When present, the runner
+   * calls `tracer.onSdkMessage(msg)` for every message and `tracer.finalize()`
+   * after the loop — mirroring the legacy emit* sites — so a soak can diff the
+   * two paths. The shadow tracer only records; it never writes to the DB or
+   * Langfuse. All calls are try/catch guarded — a throwing tracer can't break
+   * the turn for the user.
+   */
+  tracer?: TurnTracer;
+  /**
    * Phase-01: prior SDK conversation id to resume. When present, the SDK opens
    * the next turn with the full prior thread visible. Pass undefined to start
    * a fresh thread.
@@ -113,7 +124,7 @@ export interface RunParams {
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
 
-  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, resumeId, signal } = params;
+  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, tracer, resumeId, signal } = params;
 
   // Filter tools to only those permitted by the active skill's frontmatter.
   // An empty allowedToolNames list means no restriction (pass-through all tools).
@@ -258,11 +269,24 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         emitTurnFinalized(observer, turnId, msg as any);
       } catch (err) { console.warn('[observer] emitTurnFinalized threw:', err); }
     }
+
+    // Phase-05 parallel-emit shim: drive the shadow tracer from the same msg.
+    // onSdkMessage internally fans the equivalent emit* calls to its sinks.
+    if (tracer) {
+      try { tracer.onSdkMessage(msg); }
+      catch (err) { console.warn('[tracer] onSdkMessage threw:', err); }
+    }
   }
 
   // Flush tool_use entries that never received a tool_result (model abandoned).
   if (observer && pendingTools.size > 0) {
     try { flushPendingTools(observer, turnId, pendingTools); }
     catch (err) { console.warn('[observer] flushPendingTools threw:', err); }
+  }
+
+  // Phase-05: mirror the legacy flush on the shadow tracer.
+  if (tracer) {
+    try { tracer.finalize(); }
+    catch (err) { console.warn('[tracer] finalize threw:', err); }
   }
 }
