@@ -17,6 +17,7 @@ import { cubeHasTimeDimension, cubeNameOf } from '../core/cube-meta-capability.j
 import { getResolutions } from '../cache/disambig-memory-adapter.js';
 import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
+import { normalizeCubeDateRanges } from './normalize-cube-date-range.js';
 import {
   ChartSpecSchema,
   buildChartArtifact,
@@ -135,10 +136,21 @@ export async function handler(
     }
   }
 
-  // 2. Build deeplink
-  const deeplink = buildChatDeeplink(args.query);
+  // 2. Normalize "last N week/month/quarter/year" strings to rolling tuples
+  // so the playground URL carries explicit dates. Cube's parser would
+  // otherwise resolve these to calendar-aligned windows that drop the
+  // current period — surprising for chat-driven analytics. Day-unit ranges
+  // and custom tuples pass through unchanged.
+  const normalizedQuery = {
+    ...args.query,
+    timeDimensions: normalizeCubeDateRanges(args.query.timeDimensions),
+  };
 
-  // 3. Build optional embedded chart. Failures here are non-fatal — better to
+  // 3. Build deeplink from the normalized query so the URL ?query=… carries
+  // the explicit tuple instead of the ambiguous relative string.
+  const deeplink = buildChatDeeplink(normalizedQuery);
+
+  // 4. Build optional embedded chart. Failures here are non-fatal — better to
   // ship the artifact card without a chart than to stall the agent loop.
   let chart: QueryArtifact['chart'] = undefined;
   if (args.chart) {
@@ -152,15 +164,16 @@ export async function handler(
     }
   }
 
-  // 4. Build the artifact object — id MUST equal the uuid embedded in the
+  // 5. Build the artifact object — id MUST equal the uuid embedded in the
   // deeplink URL so the FE can resolve sessionStorage-backed payloads by
-  // reading the URL param.
+  // reading the URL param. The artifact carries the normalized query so the
+  // card and the deeplink describe the same window.
   const artifact: QueryArtifact = {
     id: deeplink.artifactId,
     title: args.title,
     summary: args.summary,
     game: ctx.gameId,
-    query: args.query,
+    query: normalizedQuery,
     source: args.source,
     sourceRef: args.sourceRef,
     deeplinkUrl: deeplink.url,
@@ -169,7 +182,7 @@ export async function handler(
     chart,
   };
 
-  // 5. Emit SSE side-effect — the turn handler listens and writes the event
+  // 6. Emit SSE side-effect — the turn handler listens and writes the event
   ctx.sseEmitter.emit('query_artifact', artifact);
 
   return { ok: true, id: artifact.id, deeplinkUrl: deeplink.url };

@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { getCachedLoad, putCachedLoad } from '../cache/load-cache-adapter.js';
+import { normalizeCubeDateRanges } from './normalize-cube-date-range.js';
 import type { ToolContext } from '../types.js';
 
 export const name = 'preview_cube_query';
@@ -95,7 +96,12 @@ export async function handler(
   }
 
   const limit = Math.min(args.limit ?? 10, MAX_LIMIT);
-  const query = { ...args.query, limit };
+  // Convert calendar-aligned "last N week/month/quarter/year" strings to
+  // rolling [ISO, ISO] tuples before Cube parses them. Cube's own date-parser
+  // would otherwise snap the window to completed calendar units and drop the
+  // current period — surprising for chat-driven analytics.
+  const normalizedTds = normalizeCubeDateRanges(args.query.timeDimensions);
+  const query = { ...args.query, timeDimensions: normalizedTds, limit };
 
   // Cache lookup. Key includes cube_meta_hash so schema changes invalidate
   // entries naturally; TTL inside the adapter bounds staleness for in-place

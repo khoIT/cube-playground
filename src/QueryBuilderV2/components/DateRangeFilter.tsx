@@ -102,6 +102,18 @@ export function DateRangeFilter(props: TimeDimensionFilterProps) {
     }
   });
 
+  // Normalize the dateRange string for Select.selectedKey matching.
+  // Arrays use the synthetic 'custom' key (handled elsewhere); strings are
+  // lowercased to match DATA_RANGES entries.
+  const dateRangeKey =
+    !Array.isArray(member.dateRange) && typeof member.dateRange === 'string' && member.dateRange
+      ? member.dateRange.toLowerCase()
+      : null;
+  // True when the string is set but unknown to our preset list — Cube still
+  // accepts arbitrary relative ranges (e.g. "last 3 months") so we surface
+  // them as an ad-hoc Select item rather than letting the chip look empty.
+  const showAdHocItem = dateRangeKey != null && !DATA_RANGES.includes(dateRangeKey);
+
   return (
     <DateRangeFilterWrapper>
       <FilterOptionsButton type="dateRange" onAction={onAction} />
@@ -127,12 +139,18 @@ export function DateRangeFilter(props: TimeDimensionFilterProps) {
         validationState={!open && !member.dateRange ? 'invalid' : undefined}
         // @ts-ignore
         selectedKey={
-          Array.isArray(member.dateRange) ? 'custom' : (member.dateRange?.toLowerCase() as Key)
+          Array.isArray(member.dateRange) ? 'custom' : (dateRangeKey as Key)
         }
         onSelectionChange={onDateRangeChange}
         onOpenChange={onOpenChange}
       >
-        {DATA_RANGES.map((range) => {
+        {/*
+          Prepend an ad-hoc item when the query supplies a relative-range
+          string Cube accepts (e.g. "last 3 months") but our preset list
+          doesn't include — otherwise the Select shows its placeholder
+          and the filter looks empty while still narrowing results.
+        */}
+        {(showAdHocItem ? [dateRangeKey!, ...DATA_RANGES] : DATA_RANGES).map((range) => {
           return (
             <Item key={range} textValue={capitalize(range)}>
               <Text preset="t3m">{capitalize(range)}</Text>

@@ -2,6 +2,17 @@ import { BinaryOperator, UnaryOperator, TimeDimensionGranularity } from '@cubejs
 
 type Operator = BinaryOperator | UnaryOperator;
 
+// IMPORTANT — Cube's parser treats "last N week/month/quarter/year" as
+// CALENDAR-aligned (current period excluded). On 2026-05-26, "last 3 months"
+// resolves to [2026-02-01, 2026-04-30] — May is NOT included. Only "last N
+// day(s)" is rolling (start = today - N days, end = yesterday). To avoid
+// chip choices that surprise users, we expose the day-based rolling presets
+// for trailing windows and keep the calendar-aligned options that already
+// existed in upstream so saved URLs still resolve to a known item.
+//
+// Source: @cubejs-backend/api-gateway/dist/src/date-parser.js — branch
+// `(last|next)\s+(\d+)\s+(unit)`: momentRange = [start.startOf(span),
+// end.endOf(span)] where end = today - 1 unit.
 export const DATA_RANGES = [
   'custom',
   // 'all time',
@@ -13,6 +24,9 @@ export const DATA_RANGES = [
   'this year',
   'last 7 days',
   'last 30 days',
+  'last 90 days',
+  'last 180 days',
+  'last 365 days',
   'last week',
   'last month',
   'last quarter',
