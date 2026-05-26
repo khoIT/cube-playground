@@ -19,6 +19,7 @@ import * as explainCubeSql from './explain-cube-sql.js';
 import * as emitChart from './emit-chart.js';
 import * as updateBusinessMetricTrust from './update-business-metric-trust.js';
 import * as parseDateRange from './parse-date-range.js';
+import * as getBusinessMetricHistory from './get-business-metric-history.js';
 import { config } from '../config.js';
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,13 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: updateBusinessMetricTrust.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: updateBusinessMetricTrust.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: getBusinessMetricHistory.name,
+    description: getBusinessMetricHistory.description,
+    inputSchema: getBusinessMetricHistory.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: getBusinessMetricHistory.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
 ];
 

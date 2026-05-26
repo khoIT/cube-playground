@@ -10,7 +10,7 @@
 ## Overview
 
 - **Priority:** P3 — independent of context revamp; compliance/safety win
-- **Status:** Pending
+- **Status:** **Backend done** — migration 016, audit store, POST/PATCH instrumented, GET /history route, `get_business_metric_history` chat tool, 10 server tests. **FE History tab deferred** to a follow-up sub-phase (touches `src/pages/Catalog/`; out of scope for the chat-service revamp window).
 - **Description:** Today the agent can flip business-metric trust tiers with no record of who/why/when. Add an append-only `business_metric_audit` table, write to it on every mutation, expose history via new tool `get_business_metric_history`.
 
 ## Key Insights
@@ -88,15 +88,15 @@ Read
 
 ## Todo List
 
-- [ ] Migration + audit-store module
-- [ ] POST handler wrapped
-- [ ] PATCH /trust handler wrapped
-- [ ] Agent tool reason parameter
-- [ ] get_business_metric_history tool
-- [ ] /history route
-- [ ] History tab UI
-- [ ] Tests (mutation, rollback, listing)
-- [ ] Backfill decision doc
+- [x] Migration `016-business-metric-audit.sql` + `business-metric-audit-store.ts`
+- [x] POST `/api/business-metrics` writes a 'create' or 'update' audit row on success
+- [x] PATCH `/api/business-metrics/:id/trust` writes a 'trust_change' audit row with old/new trust
+- [x] `update_business_metric_trust` already accepts `note` (mapped to `reason` in audit)
+- [x] `get_business_metric_history` chat-service tool (registered + added to explore + diagnose allowed_tools)
+- [x] `GET /api/business-metrics/:id/history` route (paginated, default 50, max 500)
+- [ ] History tab UI — deferred (touches `src/pages/Catalog/`, out of revamp window)
+- [x] Tests: 10 server tests covering store CRUD, POST/PATCH instrumentation, /history shape
+- [ ] Backfill decision doc — deferred; start fresh per phase plan default
 
 ## Success Criteria
 

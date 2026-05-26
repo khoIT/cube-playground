@@ -35,6 +35,8 @@ import {
   validateRefs,
   type MetaResponse,
 } from '../services/metric-ref-validator.js';
+import { getDb } from '../db/sqlite.js';
+import { insertAuditRow, listAudit } from '../db/business-metric-audit-store.js';
 
 const TrustPatchSchema = z.object({
   trust: z.enum(TRUST_TIERS),
@@ -108,6 +110,11 @@ export default async function businessMetricsRoutes(
       });
     }
 
+    // Capture the prior value (if any) BEFORE the write so the audit row
+    // diff is meaningful for updates (action='update'). New rows record
+    // action='create' with `old_value_json=NULL`.
+    const prevForAudit = getById(parsed.data.id);
+
     try {
       await writeMetric(parsed.data);
     } catch (err) {
@@ -115,6 +122,25 @@ export default async function businessMetricsRoutes(
       return reply.status(500).send({
         error: { code: 'WRITE_FAILED', message },
       });
+    }
+
+    // Phase 08 — audit. Best-effort; YAML is the source of truth and is
+    // already written by this point. Log + swallow on failure so a SQLite
+    // issue can't roll back a successful YAML write.
+    try {
+      const actorKind = req.headers['x-actor-kind'];
+      insertAuditRow(getDb(), {
+        metricId: parsed.data.id,
+        action: prevForAudit ? 'update' : 'create',
+        oldValueJson: prevForAudit ? JSON.stringify(prevForAudit) : null,
+        newValueJson: JSON.stringify(parsed.data),
+        actorKind: actorKind === 'agent' ? 'agent' : 'user',
+        actorId: typeof req.headers['x-actor-id'] === 'string' ? req.headers['x-actor-id'] : null,
+        reason: typeof req.headers['x-actor-reason'] === 'string' ? req.headers['x-actor-reason'] : null,
+        requestId: req.id,
+      });
+    } catch (auditErr) {
+      app.log.warn({ err: auditErr }, '[business-metrics] audit insert failed (non-fatal)');
     }
 
     return reply.status(201).send(parsed.data);
@@ -209,6 +235,46 @@ export default async function businessMetricsRoutes(
       });
     }
 
+    // Phase 08 — record the trust-tier flip. We capture the old and new
+    // trust values (not the whole metric) so the history view stays
+    // compact + readable.
+    try {
+      insertAuditRow(getDb(), {
+        metricId: prev.id,
+        action: 'trust_change',
+        oldValueJson: JSON.stringify({ trust: prev.trust }),
+        newValueJson: JSON.stringify({ trust: target }),
+        actorKind: actor === 'chat' ? 'agent' : (actor ? 'user' : 'system'),
+        actorId: actor ?? null,
+        reason: note ?? null,
+        requestId: req.id,
+      });
+    } catch (auditErr) {
+      app.log.warn({ err: auditErr }, '[business-metrics] trust audit insert failed (non-fatal)');
+    }
+
     return reply.status(200).send(next);
   });
+
+  // Phase 08 — read-only history endpoint. Returns audit rows newest-first
+  // with default limit 50. Used by the FE History tab and by the chat-
+  // service `get_business_metric_history` tool.
+  app.get<{ Params: { id: string }; Querystring: { limit?: string; since?: string } }>(
+    '/api/business-metrics/:id/history',
+    async (req, reply) => {
+      const metric = getById(req.params.id);
+      if (!metric) {
+        return reply.status(404).send({
+          error: { code: 'NOT_FOUND', message: `metric "${req.params.id}" not found` },
+        });
+      }
+      const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+      const since = req.query.since ? parseInt(req.query.since, 10) : undefined;
+      const rows = listAudit(getDb(), req.params.id, {
+        limit: Number.isFinite(limit) ? limit : undefined,
+        since: Number.isFinite(since) ? since : undefined,
+      });
+      return { entries: rows };
+    },
+  );
 }

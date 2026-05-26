@@ -32,6 +32,7 @@ allowed_tools:
   - explain_cube_sql
   - emit_query_artifact
   - emit_chart
+  - get_business_metric_history
 ---
 
 # Explore Skill
