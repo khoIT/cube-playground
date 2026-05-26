@@ -150,6 +150,18 @@ describe('cross-view resume', () => {
 
     await flush();
     push({ type: 'session_created', data: { id: 'sess-2' } });
+    await flush();
+
+    // Production transitions both surfaces from null → real id when
+    // session_created fires (URL replace on the page, useActiveChatSession
+    // mirror on the panel). Re-render with the real id so the views stay
+    // bound to it through done — otherwise useChatStream's stale-state
+    // guard (which prevents the next /chat visit from merging into this
+    // session) hides post-done state from null-pinned subscribers.
+    main.rerender(<MainView sessionId="sess-2" />);
+    panel.rerender(<PanelView sessionId="sess-2" />);
+    await flush();
+
     push({ type: 'token', data: { delta: 'Done line' } });
     push({ type: 'done', data: {} });
     close();

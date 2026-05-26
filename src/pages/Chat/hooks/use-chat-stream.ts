@@ -39,7 +39,18 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
   const entry = useChatStreamStore((s) => {
     const key = sessionId ?? '__new__';
     const resolved = s.aliases.get(key) ?? key;
-    return s.streams.get(resolved) ?? null;
+    const found = s.streams.get(resolved) ?? null;
+    // On the new-chat surface (sessionId === null), the __new__ slot may
+    // still hold a previous chat's terminal-state entry — its sessionId
+    // field is the prior session's id. Returning it here would leak that
+    // id into liveSessionIdRef and merge the next submit into the prior
+    // session. Treat the slot as empty unless a stream is actually in
+    // flight for it.
+    if (sessionId === null && found && found.sessionId !== null) {
+      const inFlight = found.status === 'loading' || found.status === 'streaming';
+      if (!inFlight) return null;
+    }
+    return found;
   });
 
   // Mirror the live session id (post session_created) for cancel/sendTurn.
