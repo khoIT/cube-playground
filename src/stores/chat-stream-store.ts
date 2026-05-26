@@ -261,11 +261,16 @@ async function runDispatchLoop(
       set((s) => {
         const cur = s.streams.get(key);
         if (!cur) return s;
-        // cancel()/reset() abort the fetch and synchronously park the entry
-        // at 'idle'. The aborted iterator then returns cleanly (no `done`
-        // event), landing us here — don't surface a user-initiated stop as
-        // "Connection lost".
-        if (cur.status === 'idle') return s;
+        // Preserve terminal states the server already reported:
+        //   - 'idle' → user-initiated cancel/reset; not a disconnect.
+        //   - 'error' / 'rate_limited' → server sent an explicit error event
+        //     (e.g. upstream proxy 403 "Failed to authenticate"); the SSE
+        //     stream then closes without a `done` event. Without this
+        //     check we'd overwrite the actionable error message with the
+        //     generic "Connection lost" disconnect banner.
+        if (cur.status === 'idle' || cur.status === 'error' || cur.status === 'rate_limited') {
+          return s;
+        }
         const next = new Map(s.streams);
         next.set(key, { ...cur, status: 'disconnected' });
         return { streams: next };

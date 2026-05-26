@@ -190,6 +190,45 @@ describe('cancel does not surface as "disconnected"', () => {
 
     expect(useChatStreamStore.getState().getEntry('sess-2').status).toBe('disconnected');
   });
+
+  it('server-reported error is NOT clobbered by "disconnected" when stream ends without done', async () => {
+    // Upstream LiteLLM proxy 403 path: chat-service emits an `error` event,
+    // then closes the stream without a `done` event. The post-loop fallback
+    // must preserve the explicit error so the user sees the actionable
+    // message (e.g. "Failed to authenticate") instead of the generic
+    // "Connection lost" banner.
+    const s = useChatStreamStore.getState();
+    void s.startTurn({ sessionId: 'sess-err', message: 'hi', game: 'g' });
+    await flush();
+    push({
+      type: 'error',
+      data: { code: 'agent_error', message: 'Failed to authenticate. API Error: 403 Forbidden' },
+    });
+    await flush();
+    close();
+    await flush();
+
+    const entry = useChatStreamStore.getState().getEntry('sess-err');
+    expect(entry.status).toBe('error');
+    expect(entry.error).toBe('Failed to authenticate. API Error: 403 Forbidden');
+  });
+
+  it('rate_limited error survives a streamless close', async () => {
+    const s = useChatStreamStore.getState();
+    void s.startTurn({ sessionId: 'sess-rl', message: 'hi', game: 'g' });
+    await flush();
+    push({
+      type: 'error',
+      data: { code: 'rate_limited', message: 'slow down', retry_after_ms: 5000 },
+    });
+    await flush();
+    close();
+    await flush();
+
+    const entry = useChatStreamStore.getState().getEntry('sess-rl');
+    expect(entry.status).toBe('rate_limited');
+    expect(entry.retryAfterMs).toBe(5000);
+  });
 });
 
 describe('unmount does not cancel the live fetch', () => {
