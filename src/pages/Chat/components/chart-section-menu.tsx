@@ -33,15 +33,48 @@ const TYPE_LABEL: Record<ChartSpec['type'], string> = {
 // only read with a small number of slices.
 const PIE_MAX_SLICES = 12;
 
+/** A column is numeric when every row's value is a finite number (or numeric string). */
+export function isNumericColumn(
+  rows: Array<Record<string, string | number>>,
+  col: string,
+): boolean {
+  if (rows.length === 0) return false;
+  return rows.every((r) => {
+    const v = r[col];
+    if (typeof v === 'number') return Number.isFinite(v);
+    return typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v));
+  });
+}
+
+/** Names of the all-numeric columns in a data table (drives scatter eligibility). */
+export function numericColumns(rows: Array<Record<string, string | number>>): string[] {
+  if (rows.length === 0) return [];
+  return Object.keys(rows[0]).filter((c) => isNumericColumn(rows, c));
+}
+
+/**
+ * Re-encode a category×value spec as a scatter: pick two numeric columns for the
+ * axes (keeping the originally-charted `value` as one axis for continuity), and
+ * leave the remaining column to label each point. Only meaningful when the rows
+ * carry ≥2 numeric columns — guarded by `compatibleChartTypes`.
+ */
+export function toScatterSpec(spec: ChartSpec): ChartSpec {
+  const nums = numericColumns(spec.data);
+  const y = isNumericColumn(spec.data, spec.encoding.value) ? spec.encoding.value : nums[0];
+  const x = nums.find((c) => c !== y) ?? nums[0];
+  return { ...spec, type: 'scatter', encoding: { category: x, value: y } } as ChartSpec;
+}
+
 /**
  * Every chart type that can sensibly render this spec's data shape — drives the
  * "switch chart type" menu so the user can explore all valid views of a table.
  *
  * - series-encoded (category + value + series): the multi-series families.
- * - scatter (numeric x vs y) and funnel (ordered steps) are distinct intents
- *   that don't interchange with the category×value set, so they stay isolated.
+ * - an already-scatter / funnel spec is a distinct intent that doesn't
+ *   interchange with the category×value set, so it stays isolated.
  * - otherwise it's category×value: offer the full single-series set, plus
- *   pie/donut when there are few enough slices to read.
+ *   pie/donut when there are few enough slices to read, plus scatter when the
+ *   rows carry ≥2 numeric columns (e.g. two metrics per entity → correlation).
  */
 export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
   if (spec.encoding.series) return ['grouped-bar', 'stacked-bar', 'multi-line'];
@@ -51,6 +84,9 @@ export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
   const types: ChartSpec['type'][] = ['bar', 'horizontal-bar', 'line', 'area'];
   if (spec.data.length >= 1 && spec.data.length <= PIE_MAX_SLICES) {
     types.push('pie', 'donut');
+  }
+  if (numericColumns(spec.data).length >= 2) {
+    types.push('scatter');
   }
   return types;
 }

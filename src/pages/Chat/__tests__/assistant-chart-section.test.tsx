@@ -12,7 +12,13 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AssistantChartSection, scatterLabelKey } from '../components/assistant-chart-section';
-import { toCsv, compatibleChartTypes } from '../components/chart-section-menu';
+import {
+  toCsv,
+  compatibleChartTypes,
+  isNumericColumn,
+  numericColumns,
+  toScatterSpec,
+} from '../components/chart-section-menu';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
 // recharts uses ResizeObserver internally — stub it for jsdom.
@@ -240,7 +246,9 @@ describe('compatibleChartTypes', () => {
   });
 
   it('category×value with many rows → no pie/donut', () => {
-    const rows = Array.from({ length: 13 }, (_, i) => ({ c: String(i), v: i }));
+    // Non-numeric category (region labels) so this isolates the pie/donut
+    // slice-count threshold, not scatter eligibility.
+    const rows = Array.from({ length: 13 }, (_, i) => ({ c: `R${i}`, v: i }));
     expect(compatibleChartTypes(spec({ type: 'bar', data: rows }))).toEqual([
       'bar', 'horizontal-bar', 'line', 'area',
     ]);
@@ -258,6 +266,62 @@ describe('compatibleChartTypes', () => {
     expect(compatibleChartTypes(spec({ type: 'bar' }))).toEqual([
       'bar', 'horizontal-bar', 'line', 'area',
     ]);
+  });
+
+  it('category×value with ≥2 numeric columns → offers scatter', () => {
+    // One categorical (country) + two metrics in the rows → correlation is viewable.
+    const rows = [
+      { country: 'VN', arpu_vnd: 7657, paying_rate: 0.12 },
+      { country: 'SG', arpu_vnd: 2224, paying_rate: 0.08 },
+    ];
+    expect(compatibleChartTypes(spec({
+      type: 'bar', data: rows, encoding: { category: 'country', value: 'arpu_vnd' },
+    }))).toEqual(['bar', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']);
+  });
+
+  it('category×value with a single numeric column → no scatter', () => {
+    const rows = [{ country: 'VN', arpu_vnd: 7657 }, { country: 'SG', arpu_vnd: 2224 }];
+    expect(compatibleChartTypes(spec({
+      type: 'bar', data: rows, encoding: { category: 'country', value: 'arpu_vnd' },
+    }))).not.toContain('scatter');
+  });
+});
+
+describe('numeric-column helpers', () => {
+  const rows = [
+    { country: 'VN', arpu_vnd: 7657, paying_rate: '0.12' },
+    { country: 'SG', arpu_vnd: 2224, paying_rate: '0.08' },
+  ];
+
+  it('isNumericColumn detects numbers and numeric strings, rejects labels', () => {
+    expect(isNumericColumn(rows, 'arpu_vnd')).toBe(true);
+    expect(isNumericColumn(rows, 'paying_rate')).toBe(true); // numeric strings
+    expect(isNumericColumn(rows, 'country')).toBe(false);
+    expect(isNumericColumn([], 'arpu_vnd')).toBe(false);
+  });
+
+  it('numericColumns lists only the all-numeric columns', () => {
+    expect(numericColumns(rows)).toEqual(['arpu_vnd', 'paying_rate']);
+    expect(numericColumns([])).toEqual([]);
+  });
+});
+
+describe('toScatterSpec', () => {
+  it('keeps the charted value as one axis and picks another numeric for the other', () => {
+    const out = toScatterSpec({
+      type: 'bar',
+      title: 'ARPU vs paying-rate per country',
+      data: [
+        { country: 'VN', arpu_vnd: 7657, paying_rate: 0.12 },
+        { country: 'SG', arpu_vnd: 2224, paying_rate: 0.08 },
+      ],
+      encoding: { category: 'country', value: 'arpu_vnd' },
+    } as ChartSpec);
+    expect(out.type).toBe('scatter');
+    expect(out.encoding.value).toBe('arpu_vnd'); // originally-charted metric kept as an axis
+    expect(out.encoding.category).toBe('paying_rate'); // the other numeric column
+    // The entity column survives in the rows so the renderer can label points.
+    expect(scatterLabelKey(out.data, out.encoding)).toBe('country');
   });
 });
 
@@ -277,5 +341,14 @@ describe('scatterLabelKey', () => {
 
   it('does not throw on empty data', () => {
     expect(scatterLabelKey([], { category: 'x', value: 'y' })).toBeUndefined();
+  });
+
+  it('prefers the non-numeric leftover when extra numeric columns are present', () => {
+    // user_count is numeric leftover; country is the real entity label.
+    const rows = [
+      { user_count: 1000, country: 'VN', arpu_vnd: 7657, paying_rate: 0.12 },
+      { user_count: 800, country: 'SG', arpu_vnd: 2224, paying_rate: 0.08 },
+    ];
+    expect(scatterLabelKey(rows, { category: 'arpu_vnd', value: 'paying_rate' })).toBe('country');
   });
 });

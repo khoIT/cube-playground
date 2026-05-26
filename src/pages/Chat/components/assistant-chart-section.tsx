@@ -30,7 +30,7 @@ import {
   Legend,
 } from 'recharts';
 import { T, CHART } from '../../../shell/theme';
-import { ChartSectionMenu } from './chart-section-menu';
+import { ChartSectionMenu, isNumericColumn, toScatterSpec } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 import {
@@ -63,7 +63,14 @@ export function AssistantChartSection({ artifact, embedded, overrideType: extern
 
   const overrideType = externalOverride ?? internalOverride;
   const activeType = overrideType ?? spec.type;
-  const activeSpec = overrideType ? ({ ...spec, type: overrideType } as ChartSpec) : spec;
+  // Switching to scatter from a category×value chart isn't a plain re-type — the
+  // axes must be re-encoded onto two numeric columns, so route through
+  // toScatterSpec. Every other switch is a straight type override.
+  const activeSpec = !overrideType
+    ? spec
+    : overrideType === 'scatter' && spec.type !== 'scatter'
+      ? toScatterSpec(spec)
+      : ({ ...spec, type: overrideType } as ChartSpec);
 
   // Embedded mode keeps the original minimal rendering — no header, no menu.
   if (embedded) {
@@ -447,18 +454,22 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
 }
 
 /**
- * The data column that identifies each scatter point — the first column that is
- * neither the x metric (`category`) nor the y metric (`value`). For "ARPU vs
- * paying-rate per country" that's `country`, so each dot can be labelled.
- * Returns undefined when the rows carry only the two axis columns.
+ * The data column that identifies each scatter point — a column that is neither
+ * the x metric (`category`) nor the y metric (`value`). For "ARPU vs paying-rate
+ * per country" that's `country`, so each dot can be labelled. Prefers the first
+ * non-numeric leftover (the natural entity label) so it stays correct even when
+ * the rows carry extra numeric metric columns. Returns undefined when the rows
+ * carry only the two axis columns.
  */
 export function scatterLabelKey(
   rows: Array<Record<string, string | number>>,
   encoding: { category: string; value: string },
 ): string | undefined {
-  return Object.keys(rows[0] ?? {}).find(
+  const leftover = Object.keys(rows[0] ?? {}).filter(
     (k) => k !== encoding.category && k !== encoding.value,
   );
+  if (leftover.length === 0) return undefined;
+  return leftover.find((k) => !isNumericColumn(rows, k)) ?? leftover[0];
 }
 
 // ---------------------------------------------------------------------------
