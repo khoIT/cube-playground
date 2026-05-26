@@ -4,11 +4,12 @@
  * All routes enforce X-Owner-Id ownership. Designed for dev/internal use only.
  * Sessions include archived AND soft-deleted ones (unlike /sessions).
  *
- *   GET  /debug/sessions?game=&q=&limit=       — list all owner sessions (incl. archived + deleted)
- *   GET  /debug/sessions/:id                   — session detail + augmented turn list (incl. deleted)
- *   POST /debug/sessions/:id/restore           — delegates to POST /sessions/:id/restore (KISS)
- *   GET  /debug/turns/:turnId                  — llm_calls + tool_invocations for a turn
- *   GET  /debug/turns/:turnId/raw?cursor=&limit= — paginated sdk_events
+ *   GET    /debug/sessions?game=&q=&limit=       — list all owner sessions (incl. archived + deleted)
+ *   GET    /debug/sessions/:id                   — session detail + augmented turn list (incl. deleted)
+ *   POST   /debug/sessions/:id/restore           — delegates to POST /sessions/:id/restore (KISS)
+ *   DELETE /debug/sessions/:id                   — hard-purge a soft-deleted session (writes tombstone)
+ *   GET    /debug/turns/:turnId                  — llm_calls + tool_invocations for a turn
+ *   GET    /debug/turns/:turnId/raw?cursor=&limit= — paginated sdk_events
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -202,6 +203,29 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
       chatStore.restoreSession(db, req.params.id);
       const restored = chatStore.getSession(db, req.params.id);
       return reply.status(200).send(toDebugSessionDto(restored!));
+    },
+  );
+
+  // DELETE /debug/sessions/:id — hard-purge a soft-deleted session.
+  // Requires the session to already be soft-deleted (deleted_at != null) so the
+  // audit UI cannot accidentally bypass the soft-delete step. Returns 409 if
+  // the session is still live. Writes a tombstone so other dev machines drop
+  // the row when they hydrate from snapshot.
+  fastify.delete<{ Params: { id: string } }>(
+    '/debug/sessions/:id',
+    async (req, reply) => {
+      const ownerId = extractOwnerId(req.headers as Record<string, string | string[] | undefined>);
+      if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
+
+      const session = chatStore.getSession(db, req.params.id);
+      if (!session) return reply.status(404).send({ error: 'Session not found' });
+      if (session.owner_id !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+      if (session.deleted_at == null) {
+        return reply.status(409).send({ error: 'Session must be soft-deleted before purge' });
+      }
+
+      chatStore.deleteSession(db, req.params.id);
+      return reply.status(204).send();
     },
   );
 

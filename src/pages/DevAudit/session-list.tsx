@@ -2,13 +2,20 @@
  * SessionList — left pane of the /dev/chat-audit triage UI.
  * Renders a searchable list of sessions for the active game.
  * Search is debounced 300ms to avoid hammering the backend.
+ *
+ * Soft-deleted sessions are visible by default; a toggle hides them.
+ * Each deleted row exposes a checkbox so the operator can mass-restore or
+ * mass-permanently-delete via the SessionListBulkBar.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useDebugSessions, DebugSession } from './use-debug-api';
 import { SkelRow } from './skeleton-row';
 import { EmptyState } from './empty-state';
+import { SessionListBulkBar } from './session-list-bulk-bar';
+import { SessionListRow } from './session-list-row';
+import { runBulkSessionAction, type BulkSessionAction } from './session-list-bulk-actions';
 
 interface SessionListProps {
   gameId: string;
@@ -32,6 +39,9 @@ const S = {
     padding: '10px 12px',
     borderBottom: `1px solid ${T.n200}`,
     flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 6,
   } as React.CSSProperties,
   searchInput: {
     width: '100%',
@@ -45,39 +55,21 @@ const S = {
     background: T.surface,
     color: T.n800,
   } as React.CSSProperties,
-  list: {
-    flex: 1,
-    overflowY: 'auto' as const,
-  } as React.CSSProperties,
-  row: (active: boolean, deleted: boolean): React.CSSProperties => ({
-    padding: '10px 14px',
-    borderBottom: `1px solid ${T.n100}`,
-    cursor: 'pointer',
-    background: active ? T.brandSoft : deleted ? T.redSoft : 'transparent',
-    borderLeft: active ? `3px solid ${T.brand}` : deleted ? `3px solid ${T.red500}` : '3px solid transparent',
-    opacity: deleted ? 0.75 : 1,
-  }),
-  title: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: T.n800,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
-  } as React.CSSProperties,
-  meta: {
-    fontSize: 11,
-    color: T.n500,
-    marginTop: 2,
+  toggleRow: {
     display: 'flex',
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    fontSize: 11,
+    color: T.n600,
   } as React.CSSProperties,
-  emptyState: {
-    padding: '32px 20px',
-    textAlign: 'center' as const,
-    color: T.n400,
-    fontSize: 12,
+  toggleLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    cursor: 'pointer',
+    userSelect: 'none' as const,
   } as React.CSSProperties,
+  list: { flex: 1, overflowY: 'auto' as const } as React.CSSProperties,
   errorBanner: {
     margin: '8px 12px',
     padding: '6px 10px',
@@ -87,46 +79,29 @@ const S = {
     fontSize: 11,
     color: T.red600,
   } as React.CSSProperties,
-  skeleton: {
-    height: 58,
-    margin: '2px 12px',
-    borderRadius: 4,
-    background: T.n100,
-    animation: 'pulse 1.5s ease-in-out infinite',
-  } as React.CSSProperties,
 };
-
-function relativeTime(ts: number | null | undefined): string {
-  if (typeof ts !== 'number' || !Number.isFinite(ts)) return '';
-  const diff = Date.now() - ts;
-  if (diff < 0) return 'just now';
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 export function SessionList({ gameId, selectedId, onSelect, skillFilter }: SessionListProps) {
   const location = useLocation();
-
-  // Read ?skill= URL param — set by Leaderboard row clicks for cross-tab navigation
   const urlSkill = new URLSearchParams(location.search).get('skill') ?? '';
-  // Merge: explicit prop > URL param (prop allows programmatic override)
   const effectiveSkill = skillFilter ?? urlSkill;
 
   const [rawQ, setRawQ] = useState(effectiveSkill);
   const [debouncedQ, setDebouncedQ] = useState(effectiveSkill);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync input when URL skill param changes (e.g. navigating from Leaderboard)
+  const [showDeleted, setShowDeleted] = useState(true);
+  const [selectedDeletedIds, setSelectedDeletedIds] = useState<Set<string>>(new Set());
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  // Sync input when URL skill param changes (e.g. navigating from Leaderboard).
   useEffect(() => {
     if (effectiveSkill && effectiveSkill !== rawQ) {
       setRawQ(effectiveSkill);
       setDebouncedQ(effectiveSkill);
     }
-    // Only run on effectiveSkill change, not rawQ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveSkill]);
 
@@ -136,8 +111,63 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter }: Sessi
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [rawQ]);
 
-  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ });
-  const sessions = data ?? [];
+  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ }, refreshTick);
+  const allSessions = data ?? [];
+
+  const deletedCount = useMemo(
+    () => allSessions.filter((s) => s.deletedAt != null).length,
+    [allSessions],
+  );
+  const visibleSessions = useMemo(
+    () => (showDeleted ? allSessions : allSessions.filter((s) => s.deletedAt == null)),
+    [allSessions, showDeleted],
+  );
+
+  // Drop ids no longer present (after purge / refetch) from selection.
+  useEffect(() => {
+    setSelectedDeletedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const present = new Set(allSessions.filter((s) => s.deletedAt != null).map((s) => s.id));
+      const next = new Set<string>();
+      let changed = false;
+      prev.forEach((id) => { if (present.has(id)) next.add(id); else changed = true; });
+      return changed ? next : prev;
+    });
+  }, [allSessions]);
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedDeletedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+  const clearSelection = useCallback(() => setSelectedDeletedIds(new Set()), []);
+
+  const runBulk = useCallback(async (action: BulkSessionAction) => {
+    const ids = Array.from(selectedDeletedIds);
+    if (ids.length === 0) return;
+    if (action === 'purge') {
+      const ok = window.confirm(
+        `Permanently delete ${ids.length} session${ids.length === 1 ? '' : 's'}? This cannot be undone.`,
+      );
+      if (!ok) return;
+    }
+    setBulkBusy(true);
+    setBulkError(null);
+    try {
+      const { ok, failed } = await runBulkSessionAction(ids, action);
+      if (failed.length > 0) {
+        setBulkError(
+          `${ok} ${action === 'restore' ? 'restored' : 'purged'}, ${failed.length} failed: ${failed[0].message}`,
+        );
+      }
+      clearSelection();
+      setRefreshTick((t) => t + 1);
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [selectedDeletedIds, clearSelection]);
 
   return (
     <div style={S.root}>
@@ -149,7 +179,32 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter }: Sessi
           onChange={(e) => setRawQ(e.target.value)}
           style={S.searchInput}
         />
+        <div style={S.toggleRow}>
+          <label style={S.toggleLabel}>
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(e) => {
+                setShowDeleted(e.target.checked);
+                if (!e.target.checked) clearSelection();
+              }}
+              data-testid="toggle-show-deleted"
+            />
+            <span>Show deleted{deletedCount > 0 ? ` (${deletedCount})` : ''}</span>
+          </label>
+        </div>
       </div>
+
+      {selectedDeletedIds.size > 0 && (
+        <SessionListBulkBar
+          selectedCount={selectedDeletedIds.size}
+          isBusy={bulkBusy}
+          error={bulkError}
+          onRestore={() => runBulk('restore')}
+          onPurge={() => runBulk('purge')}
+          onClear={clearSelection}
+        />
+      )}
 
       {error && <div style={S.errorBanner}>Error: {error}</div>}
 
@@ -158,54 +213,29 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter }: Sessi
           <SkelRow key={i} height={58} />
         ))}
 
-        {!isLoading && sessions.length === 0 && !error && (
+        {!isLoading && visibleSessions.length === 0 && !error && (
           <EmptyState
-            title="No chat sessions yet."
-            description="Start a chat to populate this view."
-            cta={{ label: 'Go to Build', href: '#/build' }}
+            title={allSessions.length === 0 ? 'No chat sessions yet.' : 'No sessions match the current filter.'}
+            description={
+              allSessions.length === 0
+                ? 'Start a chat to populate this view.'
+                : 'Toggle “Show deleted” to include soft-deleted sessions.'
+            }
+            cta={allSessions.length === 0 ? { label: 'Go to Build', href: '#/build' } : undefined}
             testId="session-list-empty"
           />
         )}
 
-        {sessions.map((s: DebugSession) => {
-          const isDeleted = s.deletedAt != null;
-          return (
-            <div
-              key={s.id}
-              style={S.row(s.id === selectedId, isDeleted)}
-              onClick={() => onSelect(s.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && onSelect(s.id)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={S.title}>{s.title || `Session ${s.id.slice(0, 8)}`}</div>
-                {isDeleted && (
-                  <span style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.05em',
-                    color: T.red600,
-                    background: T.redSoft,
-                    border: `1px solid ${T.red500}`,
-                    borderRadius: 3,
-                    padding: '1px 4px',
-                    flexShrink: 0,
-                  }}>
-                    Deleted
-                  </span>
-                )}
-              </div>
-              <div style={S.meta}>
-                <span>{s.turn_count} turn{s.turn_count !== 1 ? 's' : ''}</span>
-                <span>{relativeTime(s.last_turn_at ?? s.created_at)}</span>
-                {s.status !== 'active' && !isDeleted && <span style={{ color: T.n400 }}>{s.status}</span>}
-                {isDeleted && <span style={{ color: T.red600 }}>deleted {relativeTime(s.deletedAt)}</span>}
-              </div>
-            </div>
-          );
-        })}
+        {visibleSessions.map((s: DebugSession) => (
+          <SessionListRow
+            key={s.id}
+            session={s}
+            active={s.id === selectedId}
+            selected={selectedDeletedIds.has(s.id)}
+            onSelect={onSelect}
+            onToggleSelected={toggleSelected}
+          />
+        ))}
       </div>
     </div>
   );

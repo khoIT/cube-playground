@@ -124,6 +124,89 @@ describe('POST /sessions/:id/restore', () => {
   });
 });
 
+describe('DELETE /debug/sessions/:id', () => {
+  let db: Database.Database;
+  let app: Awaited<ReturnType<typeof buildTestApp>>;
+
+  beforeAll(async () => {
+    db = makeDb();
+    app = await buildTestApp(db);
+  });
+
+  afterAll(() => app.close());
+
+  it('hard-purges a soft-deleted session — 204 and tombstone written', async () => {
+    const session = chatStore.createSession(db, { ownerId: 'owner-a', gameId: 'g1' });
+    chatStore.softDeleteSession(db, session.id);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/debug/sessions/${session.id}`,
+      headers: { 'x-owner-id': 'owner-a' },
+    });
+
+    expect(res.statusCode).toBe(204);
+
+    // Session row is gone.
+    expect(chatStore.getSession(db, session.id)).toBeFalsy();
+
+    // Tombstone was inserted so the snapshot path drops the row downstream.
+    const tomb = db
+      .prepare('SELECT session_id FROM chat_tombstones WHERE session_id = ?')
+      .get(session.id) as { session_id: string } | undefined;
+    expect(tomb?.session_id).toBe(session.id);
+  });
+
+  it('returns 409 when the session is still live (not soft-deleted)', async () => {
+    const session = chatStore.createSession(db, { ownerId: 'owner-a', gameId: 'g1' });
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/debug/sessions/${session.id}`,
+      headers: { 'x-owner-id': 'owner-a' },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(chatStore.getSession(db, session.id)).toBeDefined();
+  });
+
+  it('returns 401 when X-Owner-Id is missing', async () => {
+    const session = chatStore.createSession(db, { ownerId: 'owner-a', gameId: 'g1' });
+    chatStore.softDeleteSession(db, session.id);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/debug/sessions/${session.id}`,
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('returns 403 when a different owner tries to purge', async () => {
+    const session = chatStore.createSession(db, { ownerId: 'owner-a', gameId: 'g1' });
+    chatStore.softDeleteSession(db, session.id);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/debug/sessions/${session.id}`,
+      headers: { 'x-owner-id': 'owner-b' },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(chatStore.getSession(db, session.id)).toBeDefined();
+  });
+
+  it('returns 404 for a non-existent session id', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/debug/sessions/does-not-exist',
+      headers: { 'x-owner-id': 'owner-a' },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 describe('POST /debug/sessions/:id/restore', () => {
   let db: Database.Database;
   let app: Awaited<ReturnType<typeof buildTestApp>>;

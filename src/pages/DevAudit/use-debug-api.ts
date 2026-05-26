@@ -42,7 +42,10 @@ function authHeaders(): Record<string, string> {
 // useDebugSessions — list sessions for a game, with optional search
 // ---------------------------------------------------------------------------
 
-export function useDebugSessions({ game, q }: { game: string; q: string }): AsyncState<DebugSession[]> {
+export function useDebugSessions(
+  { game, q }: { game: string; q: string },
+  refreshTick = 0,
+): AsyncState<DebugSession[]> {
   const [state, setState] = useState<AsyncState<DebugSession[]>>({ data: null, error: null, isLoading: false });
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export function useDebugSessions({ game, q }: { game: string; q: string }): Asyn
       });
 
     return () => controller.abort();
-  }, [game, q]);
+  }, [game, q, refreshTick]);
 
   return state;
 }
@@ -143,6 +146,44 @@ export function useRestoreSession(onSuccess?: () => void): {
   }, [onSuccess]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { restore, isLoading, error };
+}
+
+// ---------------------------------------------------------------------------
+// usePurgeSession — DELETE /debug/sessions/:id (hard-purge a soft-deleted session)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a mutator that DELETEs a soft-deleted session permanently.
+ * Server returns 409 if the session is still live; surface that to the caller.
+ * `onSuccess` callback lets the parent refresh its session list.
+ */
+export function usePurgeSession(onSuccess?: (id: string) => void): {
+  purge: (id: string) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+} {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const purge = useCallback(async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/chat/debug/sessions/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      onSuccess?.(id);
+    } catch (err) {
+      setError((err as Error).message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onSuccess]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { purge, isLoading, error };
 }
 
 // ---------------------------------------------------------------------------
