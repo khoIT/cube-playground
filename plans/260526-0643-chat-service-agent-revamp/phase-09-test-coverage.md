@@ -10,7 +10,7 @@
 ## Overview
 
 - **Priority:** P3 — runs in parallel with all earlier phases as code lands
-- **Status:** Pending
+- **Status:** **Partial.** Unit tests landed organically alongside the other phases — `intent-router`, `sse-stream`, `session-manager`, `stream-registry`, `compact-service`, `claude-runner`, `mode-prompts` all have tests (chat-service 710 tests across 89 files). Eval harness, fixture suites, `@vitest/coverage-v8` install + threshold gate, and nightly CI cron are deferred to a follow-up session.
 - **Description:** Bring `src/core/*.ts` to ≥80% line coverage. Add canned anaphora eval set + tool-misuse eval set used by phases 01, 02, 06, 07. Tests are the safety net for the refactors in phases 01, 04, 05.
 
 ## Key Insights
@@ -112,20 +112,20 @@ CI
 
 ## Todo List
 
-- [ ] Baseline coverage report
-- [ ] Coverage thresholds in vitest.config.ts
-- [ ] intent-router.test.ts
-- [ ] session-manager.test.ts
-- [ ] stream-registry.test.ts
-- [ ] sse-stream.test.ts
-- [ ] mode-prompts.test.ts (post Phase 02)
-- [ ] compact-service.test.ts (post Phase 02)
-- [ ] claude-runner.test.ts (post Phase 04)
-- [ ] Eval harness + score helpers
-- [ ] Three eval suites with fixtures
-- [ ] Nightly CI wiring + reporting
-- [ ] `EVAL_DAILY_BUDGET_USD` circuit-breaker in eval runner (+ alerting at 80%)
-- [ ] Docs on eval workflow
+- [ ] Baseline coverage report — blocked on `@vitest/coverage-v8` install
+- [ ] Coverage thresholds in vitest.config.ts (blocked on baseline)
+- [x] intent-router test (pre-existing `intent-router.test.ts` + `intent-router-compare-diagnose.test.ts` + `intent-router-keywords.test.ts`)
+- [x] session-manager.test.ts (pre-existing)
+- [x] stream-registry test (`stream-registry-abort.test.ts` from phase 04)
+- [x] sse-stream test (pre-existing `sse-stream.test.ts`)
+- [x] mode-prompts test (`focus-injection-roundtrip.test.ts` from phase 02)
+- [x] compact-service test (`compact-ports-focus.test.ts` from phase 02 + pre-existing)
+- [x] claude-runner test (`claude-runner-abort.test.ts` from phase 04 + `sdk-resume-roundtrip.test.ts` from phase 01)
+- [ ] Eval harness + score helpers — deferred (operational)
+- [ ] Three eval suites with fixtures — deferred
+- [ ] Nightly CI wiring + reporting — deferred
+- [ ] `EVAL_DAILY_BUDGET_USD` circuit-breaker — config already lands (phase 00); runner usage deferred
+- [ ] Docs on eval workflow — deferred
 
 ## Success Criteria
 

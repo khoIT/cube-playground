@@ -74,7 +74,7 @@ A "pending clarification" state machine — snapshot the entire pre-clarify reso
 | 06 | [Research mode + web search](./phase-06-research-mode-web-search.md) | P2 | Pending | `CHAT_ENABLE_WEB_SEARCH`, `CHAT_ENABLE_RESEARCH_MODE` |
 | 07 | [nl-to-query decomposition](./phase-07-nl-to-query-decomposition.md) | P3 (reduced) | **Done (reduced)** — parse_date_range tool registered flag-gated; 7 tests | `CHAT_NLQ_DECOMPOSED_TOOLS` |
 | 08 | [Business-metric audit trail](./phase-08-business-metric-audit.md) | P3 | **Backend done** — migration 016 + audit store + POST/PATCH instrumented + /history route + chat tool + 10 tests; FE History tab deferred | — |
-| 09 | [Test coverage uplift](./phase-09-test-coverage.md) | P2 | Pending | — |
+| 09 | [Test coverage uplift](./phase-09-test-coverage.md) | P2 | **Partial — unit tests landed organically (710 tests across 89 files); eval harness + nightly CI + `@vitest/coverage-v8` tooling deferred to follow-up session** | — |
 
 ## Dependencies
 
