@@ -40,6 +40,12 @@ Format per lesson:
 - **Signal:** FE component renders empty (no skeletons, no errors) on a freshly-evicted/cold cache. Console has `console.warn('[useX] cache read failed: payload.tiles is undefined')` or similar swallowed throw.
 - **Apply:** add a sentinel — empty `payload_hash` is unambiguous since a real upsert hashes the JSON — and branch on it in the route to send `202 warming`. Defensively, the FE should also guard `Array.isArray(payload.<list>)` before mapping; missing list ≠ "renderable cached row".
 
+### Never cache empty/zero-row data-fetch responses
+- **Rule:** when caching the result of a remote data query (Cube `/load`, Trino, anomaly probe, etc.), skip the cache write when `rows.length === 0`. Cache only confirmed-good payloads. Failures and empties are almost always transient and must not be glued in for the cache's TTL window.
+- **Why:** chat-service `preview_cube_query` hit Cube during a ~60s blip where every cube returned `{rows: []}`. `load-cache-adapter` cached the empty arrays for 10 min (the default TTL), keyed by `(query, gameId, metaHash)`. The agent's chart emission requires `data.min(1)` (Zod schema in `chart-spec.ts`), so the empty payload caused `emit_query_artifact({ chart })` to fail with `code: too_small`. The model dropped `chart`, retried, and persisted a chartless artifact to `response_cache`. From then on, the question replayed verbatim with no chart even though Cube was back to returning real rows seconds later. Same bug existed in `refresh-cached-artifacts.ts:58`.
+- **Signal:** a data card / chart that "used to work" stops working after a brief upstream blip, and stays broken for ~exactly the cache TTL even though hitting the upstream directly returns data. Cache row payload is `{"rows":[]}` / `{"data":[]}` / equivalent empty shape. Downstream consumers fail schema validation (`min: 1`) or render an empty state on a query that should be populated.
+- **Apply:** guard every `putCachedX(...)` call with `rows.length > 0` (or the kind-specific "is non-empty" predicate). Apply equally to: live preview reads, scheduled refreshers, any meta/probe call whose empty result might be transient. If an empty result is *legitimately* cacheable (rare — e.g. confirmed "no players in cohort"), cache it under a separate kind/key with a much shorter TTL and an explicit `emptyOk: true` flag, not the same row as non-empty results.
+
 ---
 
 ## Test infrastructure
@@ -79,6 +85,16 @@ Format per lesson:
 - **Why:** the Liveops Phase-1 polish shipped a serif/editorial direction (Georgia, 34px display H1, deck-style eyebrow) into an Inter sans-serif app. Visually a different product on `/liveops` vs every other route, and the user flagged it as "spacing odd, font not matching" the first time they opened it.
 - **Signal:** new surface uses fonts, padding, header shape, or radii that don't match the closest existing well-formed page. Hard-coded hex colors instead of `--text-*` / `--border-*` / `--*-soft / -ink` tokens.
 - **Apply:** before shipping any UI work read `docs/design-guidelines.md` and copy the page header recipe verbatim. If a direction genuinely warrants forking, isolate the fork to one route and ship it behind a "this is intentional" comment + design-review handshake — don't introduce drift through the back door of a feature PR.
+
+---
+
+## Agent query construction
+
+### Strip views from `/meta` before the agent (or any cube-only surface) sees it
+- **Rule:** the schema the chat agent builds queries from must be filtered to cubes only — drop every `type: 'view'` entry. Do it once at the `/meta` fetch boundary so every consumer (tool schema exposure, member-name validation, capability detection) is cube-only by construction.
+- **Why:** Cube's `/meta` returns cubes *and* views in the same `cubes[]` array (views tagged `type: 'view'`). `cube-meta-cache.getMeta` cached the raw payload, so `get_cube_meta` handed the agent view members like `revenue_metrics.*`. The agent emitted view-based artifacts; a view is a self-contained namespace that can't join to anything, so opening that artifact in the query builder left every cube greyed out — the user couldn't add a cross-cube dimension (platform, install cohort). The query was correct but a dead end.
+- **Signal:** an agent-generated query / "open in builder" link uses a view member (a name that maps to a `views/*.yml` entry, not a `cubes/*.yml` cube); in the builder the whole cube list is disabled and the query can't be extended. Or: you intend "cubes only" but the agent still references a known view name.
+- **Apply:** filter `meta.cubes` to `c.type !== 'view'` at the single fetch/caching chokepoint (`cube-meta-cache.ts#getMeta`), keeping untyped entries (older cubes lack `type`). Strip at the source, not per-tool — per-tool filtering leaks the day someone adds a new meta consumer. Note the runtime tail: already-cached view artifacts in `response_cache` replay verbatim, and the meta cache has a TTL — the fix only governs *new* fetches/answers, so clear stale caches or wait out the TTL when verifying.
 
 ---
 
