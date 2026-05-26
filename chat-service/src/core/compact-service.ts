@@ -50,6 +50,14 @@ export interface CompactOpts {
 export interface CompactResult {
   newSessionId: string;
   summary: string;
+  /** Phase-01: emit context_compacted SSE event with this payload. */
+  contextCompactedEvent: {
+    oldSessionId: string;
+    newSessionId: string;
+    tokensSaved: number;
+    artifactCount: number;
+    summaryLength: number;
+  };
 }
 
 /**
@@ -86,7 +94,36 @@ export async function compactSession(opts: CompactOpts): Promise<CompactResult> 
     endedAt: Date.now(),
   });
 
+  // Phase-01: drop the SDK conversation id on the old session before marking
+  // it compacted. The new session starts a fresh SDK thread; the summary
+  // preamble carries forward goal + artifacts + resolved slots (layer B in
+  // phase 02) so the model still has continuity.
+  chatStore.clearSdkConversationId(db, sessionId);
+
   chatStore.markSessionCompacted(db, sessionId, newSession.id);
 
-  return { newSessionId: newSession.id, summary };
+  // Best-effort artifact count from recent turns — counts artifacts_json rows
+  // with non-empty payloads. Used for the context_compacted SSE event so the
+  // FE can render "compacted N artifacts forward".
+  let artifactCount = 0;
+  for (const t of recentTurns) {
+    if (t.artifacts_json && t.artifacts_json !== '[]' && t.artifacts_json !== 'null') {
+      artifactCount += 1;
+    }
+  }
+
+  const tokensSaved =
+    (oldSession.total_input_tokens ?? 0) + (oldSession.total_output_tokens ?? 0);
+
+  return {
+    newSessionId: newSession.id,
+    summary,
+    contextCompactedEvent: {
+      oldSessionId: sessionId,
+      newSessionId: newSession.id,
+      tokensSaved,
+      artifactCount,
+      summaryLength: summary.length,
+    },
+  };
 }

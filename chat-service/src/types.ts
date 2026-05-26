@@ -116,7 +116,33 @@ export type SseEvent =
     }
   | { type: 'error'; data: { code: string; message: string } }
   | { type: 'done'; data: Record<string, never> }
-  | { type: 'compact_warning'; data: { from: string; to: string; summary: string } };
+  | { type: 'compact_warning'; data: { from: string; to: string; summary: string } }
+  /**
+   * Phase-01: emitted when a turn opens by resuming a prior SDK conversation.
+   * `sdkConversationId` is truncated (first 8 chars) for debug visibility; the
+   * full id never crosses the SSE boundary.
+   */
+  | { type: 'context_resumed'; data: { sdkConversationId: string; priorTurnCount: number } }
+  /**
+   * Phase-01: emitted by claude-runner once the SDK reveals the session id on
+   * the first turn so the API layer can persist it. Internal — the API hook
+   * strips it from the FE-bound stream.
+   */
+  | { type: 'sdk_session_captured'; data: { sdkConversationId: string } }
+  /**
+   * Phase-01: emitted on auto-compaction.
+   * `tokensSaved` is a best-effort delta from the pre-compact running total.
+   */
+  | {
+      type: 'context_compacted';
+      data: {
+        oldSessionId: string;
+        newSessionId: string;
+        tokensSaved: number;
+        artifactCount: number;
+        summaryLength: number;
+      };
+    };
 
 // ---------------------------------------------------------------------------
 // Tool execution context — injected per request
@@ -163,6 +189,13 @@ export interface ChatSessionRow {
   compacted_into: string | null;
   /** Epoch ms when soft-deleted; NULL = not deleted. Set by soft-delete, cleared by restore. */
   deleted_at: number | null;
+  /**
+   * Phase-01: Claude Agent SDK conversation id captured on the first turn.
+   * When CHAT_CONTEXT_SDK_RESUME is on, passed back on subsequent turns so
+   * the model sees its full prior thread. Cleared on compaction (new session
+   * starts fresh). Optional for legacy rows missing the column.
+   */
+  sdk_conversation_id?: string | null;
 }
 
 export interface ChatTurnRow {

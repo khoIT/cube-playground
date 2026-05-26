@@ -115,6 +115,17 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // --- 2b. Auto-compact pre-check (before SSE headers so errors are JSON) ---
     // If the session has used >80% of the context budget, compact it first.
     let pendingCompactWarning: { from: string; to: string; summary: string } | null = null;
+    // Phase-01: context_compacted SSE payload captured during the pre-stream
+    // auto-compact check; emitted after SSE headers open.
+    let pendingContextCompactedEvent:
+      | {
+          oldSessionId: string;
+          newSessionId: string;
+          tokensSaved: number;
+          artifactCount: number;
+          summaryLength: number;
+        }
+      | null = null;
     if (sessionId) {
       const sessionForCompact = chatStore.getSession(opts.db, sessionId);
       if (sessionForCompact) {
@@ -139,6 +150,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
               },
             });
             pendingCompactWarning = { from: sessionId, to: result.newSessionId, summary: result.summary };
+            pendingContextCompactedEvent = result.contextCompactedEvent;
             // Compact-alias map: clients holding the pre-compact sessionId still
             // need to find the active turn after the swap (Q1).
             getStreamRegistry().aliasSession(sessionId, result.newSessionId);
@@ -233,6 +245,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // Emit compact_warning if auto-compact ran before the stream was opened
     if (pendingCompactWarning) {
       emit({ type: 'compact_warning', data: pendingCompactWarning });
+    }
+    // Phase-01: emit context_compacted alongside the legacy warning so the FE
+    // can render a structured compaction indicator (artifact count, tokens
+    // saved) without parsing the warning text.
+    if (pendingContextCompactedEvent) {
+      emit({ type: 'context_compacted', data: pendingContextCompactedEvent });
     }
 
     const startedAt = Date.now();
@@ -395,6 +413,29 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // Phase-03: cache token breakdown from SDK result usage block.
     let cacheCreationTokens: number | undefined;
     let cacheReadTokens: number | undefined;
+    // Phase-01: SDK resume id flow.
+    //   - resumeId: id we hand to the SDK on this turn (null when flag off
+    //     or session has none yet)
+    //   - capturedSdkConversationId: id the SDK reveals during this turn
+    //     (always captured when present so phases 02+/UI can read it; only
+    //     persisted on the session row when the flag is on)
+    let resumeId: string | undefined;
+    let capturedSdkConversationId: string | undefined;
+    if (config.chatContextSdkResumeEnabled && sessionId) {
+      const sessionForResume = chatStore.getSession(opts.db, sessionId);
+      if (sessionForResume?.sdk_conversation_id) {
+        resumeId = sessionForResume.sdk_conversation_id;
+        // Truncate id for debug visibility — full id never crosses to FE.
+        const priorTurnCount = sessionForResume.turn_count ?? 0;
+        emit({
+          type: 'context_resumed',
+          data: {
+            sdkConversationId: resumeId.slice(0, 8),
+            priorTurnCount,
+          },
+        });
+      }
+    }
 
     // Observability: construct observer inside the try block so a failing
     // constructor (bad config, missing dep) falls back to a no-op and never
@@ -434,6 +475,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         tools,
         toolContext,
         observer,
+        resumeId,
       })) {
         // Accumulate result metadata; other events are forwarded directly
         if (event.type === 'result') {
@@ -445,6 +487,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           cacheCreationTokens = event.data.cache_creation_tokens;
           cacheReadTokens = event.data.cache_read_tokens;
         }
+        // Phase-01: SDK exposed the conversation id; capture for post-turn
+        // persistence. Do NOT forward to FE — id is server-internal.
+        if (event.type === 'sdk_session_captured') {
+          capturedSdkConversationId = event.data.sdkConversationId;
+          continue;
+        }
         // Capture the assistant's chain-of-thought so the FE can render it as a
         // collapsible Reasoning toggle on the persisted turn (not just live).
         if (event.type === 'thinking') {
@@ -453,6 +501,28 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         // query_artifact and chart are already emitted via sseEmitter
         if (event.type !== 'query_artifact' && event.type !== 'chart') {
           emit(event);
+        }
+      }
+
+      // Phase-01: persist captured SDK conversation id so the next turn can
+      // resume the same thread. Only writes when the flag is on — capture
+      // happens regardless so we have telemetry on what the SDK exposes.
+      if (
+        config.chatContextSdkResumeEnabled &&
+        sessionId &&
+        capturedSdkConversationId
+      ) {
+        try {
+          chatStore.setSdkConversationId(
+            opts.db,
+            sessionId,
+            capturedSdkConversationId,
+          );
+        } catch (sdkErr) {
+          fastify.log.warn(
+            { err: sdkErr },
+            '[turn] failed to persist sdk_conversation_id',
+          );
         }
       }
 

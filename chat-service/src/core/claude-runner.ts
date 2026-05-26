@@ -89,6 +89,12 @@ export interface RunParams {
    * break the turn for the user.
    */
   observer?: ObserverHooks;
+  /**
+   * Phase-01: prior SDK conversation id to resume. When present, the SDK opens
+   * the next turn with the full prior thread visible. Pass undefined to start
+   * a fresh thread.
+   */
+  resumeId?: string;
 }
 
 /**
@@ -98,7 +104,7 @@ export interface RunParams {
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
 
-  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer } = params;
+  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, resumeId } = params;
 
   // Filter tools to only those permitted by the active skill's frontmatter.
   // An empty allowedToolNames list means no restriction (pass-through all tools).
@@ -129,8 +135,8 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   const sdkAllowedTools = permittedTools.map((t) => t.name);
 
   // sessionId is our internal uuid; the Claude SDK manages its own session ids
-  // separately. Phase 01 will populate buildQueryOptions's `resumeId` override
-  // with the persisted SDK conversation id so the model sees its prior thread.
+  // separately. When resumeId is supplied (phase 01), the SDK opens the next
+  // turn with the prior thread visible.
   void sessionId;
 
   // Anthropic's SDK does automatic prefix caching when the system prompt is
@@ -160,8 +166,8 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
       },
     },
-    // Phase 01 will add { resumeId } here; phase 04 will add { abortSignal }.
-    {},
+    // Phase 04 will add { abortSignal } here.
+    { resumeId },
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -174,7 +180,36 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   let lastBoundary = Date.now();
   const pendingTools = new Map<string, PendingTool>();
 
+  // Phase-01: capture the SDK session/conversation id from the first message
+  // that exposes one. The exact field name on v0.3.150 is confirmed by
+  // Spike A — we walk the candidate fields to stay robust to minor SDK
+  // shifts. The capture fires at most once per turn (the first id wins) and
+  // is forwarded via `sdk_session_captured` so api/turn.ts can persist it.
+  let capturedSdkConversationId: string | undefined;
+
   for await (const msg of iter) {
+    // Try to capture session id once. The SDK can surface it on the
+    // `system` init message or on the final `result` message. We don't know
+    // the canonical field name until Spike A confirms, so probe the common
+    // shapes safely.
+    if (!capturedSdkConversationId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const anyMsg = msg as any;
+      const candidate =
+        anyMsg?.session_id ??
+        anyMsg?.conversation_id ??
+        anyMsg?.message?.id ??
+        anyMsg?.result?.session_id ??
+        anyMsg?.result?.conversation_id;
+      if (typeof candidate === 'string' && candidate.length > 0) {
+        capturedSdkConversationId = candidate;
+        yield {
+          type: 'sdk_session_captured',
+          data: { sdkConversationId: candidate },
+        };
+      }
+    }
+
     // Side channel: raw SDK event firehose (before SSE mapping, no yield).
     if (observer) {
       try { emitSdkEvent(observer, turnId, seq++, msg); }

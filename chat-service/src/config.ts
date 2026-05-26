@@ -126,6 +126,13 @@ export interface Config {
    */
   chatQueryPreset: QueryOptionsPreset;
   /**
+   * Phase-01: Enable Anthropic SDK session resume — capture the SDK's
+   * conversation id on the first turn and pass it back on subsequent turns so
+   * the model sees its full prior thread. Default false until the staging
+   * 4-cell A/B confirms cost/coherence tradeoff.
+   */
+  chatContextSdkResumeEnabled: boolean;
+  /**
    * Daily USD budget cap for eval suites (phase 09 thread-continuity + concept
    * resolution evals). Default 50 — pending finance review for prod.
    */
@@ -186,6 +193,7 @@ export const config: Config = {
     .map((s) => s.trim())
     .filter(Boolean),
   chatQueryPreset: parsePreset(optional('CHAT_QUERY_PRESET', 'standard')),
+  chatContextSdkResumeEnabled: optional('CHAT_CONTEXT_SDK_RESUME', 'false') === 'true',
   evalDailyBudgetUsd: optionalFloat('EVAL_DAILY_BUDGET_USD', 50),
   evalJudgeModel: optional('EVAL_JUDGE_MODEL', optional('CHAT_MODEL', 'claude-sonnet-4-6')),
 };

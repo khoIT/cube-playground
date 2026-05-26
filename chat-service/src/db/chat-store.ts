@@ -158,6 +158,36 @@ export function createSessionWithParent(
   return getSession(db, id)!;
 }
 
+/**
+ * Phase-01: persist the Anthropic SDK conversation id captured during the
+ * first turn. Subsequent turns read it via getSession() and pass it back as
+ * `resumeId` so the model sees its full prior thread.
+ */
+export function setSdkConversationId(
+  db: Database.Database,
+  sessionId: string,
+  sdkConversationId: string,
+): void {
+  db.prepare(
+    'UPDATE chat_sessions SET sdk_conversation_id = ? WHERE id = ?',
+  ).run(sdkConversationId, sessionId);
+}
+
+/**
+ * Phase-01: drop the persisted SDK conversation id. Called by
+ * compact-service before marking the old session compacted (the new session
+ * starts fresh) and by the stale-id retry path when the SDK rejects a
+ * resume.
+ */
+export function clearSdkConversationId(
+  db: Database.Database,
+  sessionId: string,
+): void {
+  db.prepare(
+    'UPDATE chat_sessions SET sdk_conversation_id = NULL WHERE id = ?',
+  ).run(sessionId);
+}
+
 /** Mark an old session as compacted and record which new session it was folded into. */
 export function markSessionCompacted(
   db: Database.Database,

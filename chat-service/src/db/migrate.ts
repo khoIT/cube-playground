@@ -38,6 +38,9 @@ export function migrate(db: Database.Database): void {
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN compacted_into TEXT;');
   // Soft-delete: NULL = not deleted, epoch ms = soft-deleted, pending hard-purge after 7d.
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN deleted_at INTEGER;');
+  // Phase-01: Anthropic SDK conversation id; null = no resume payload available.
+  // Cleared on compaction so the post-compact session opens a fresh SDK thread.
+  addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN sdk_conversation_id TEXT;');
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
 
   // Observability columns added to chat_turns for per-turn metadata capture.

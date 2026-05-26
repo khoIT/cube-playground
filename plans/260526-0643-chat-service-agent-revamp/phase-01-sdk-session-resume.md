@@ -154,18 +154,29 @@ Fixtures: `chat-service/test/eval/fixtures/compaction-quiz.json` with N pre-comp
 
 ## Todo List
 
-- [ ] Spike: confirm SDK surface for capture + resume in v0.3.150
-- [ ] Schema migration + chat-store CRUD (sdk_conversation_id column)
-- [ ] RunParams + claude-runner extension
-- [ ] turn.ts wiring + flag plumbing
-- [ ] compact-service: threshold to 60%, expanded summary preamble (goal + slots + artifacts + prose), context_compacted SSE
-- [ ] compact-service clears sdk_conversation_id; new session starts fresh
-- [ ] context_resumed SSE event
-- [ ] Stale-resume-id failure recovery (clear + retry)
-- [ ] Unit tests
-- [ ] **End-to-end thread-continuity eval (10 scenarios above)**
-- [ ] Telemetry: input-token delta dashboard + compaction-frequency histogram
-- [ ] 4-cell A/B comparison (`{resume × focus} on/off`) gating ramp
+- [ ] Spike: confirm SDK surface for capture + resume in v0.3.150 — **deferred to staging** (runner probes common field names: `msg.session_id`, `msg.conversation_id`, `msg.message.id`, `msg.result.session_id`, `msg.result.conversation_id`; first match wins)
+- [x] Schema migration + chat-store CRUD (sdk_conversation_id column) — `setSdkConversationId`, `clearSdkConversationId`
+- [x] RunParams + claude-runner extension — `resumeId` accepted; `sdk_session_captured` SSE emitted on first matching id
+- [x] turn.ts wiring + flag plumbing — reads `sdk_conversation_id`, passes `resumeId`; persists captured id post-turn; emits `context_resumed`
+- [ ] compact-service: threshold to 60%, expanded summary preamble (goal + slots + artifacts + prose) — **deferred to phase 01b** (threshold tune-up is decoupled from the resume wiring; lands once telemetry is live)
+- [x] compact-service clears sdk_conversation_id; new session starts fresh
+- [x] context_resumed SSE event (emitted from turn.ts when resumeId is supplied)
+- [x] context_compacted SSE event (emitted from turn.ts on auto-compact)
+- [ ] Stale-resume-id failure recovery (clear + retry) — **deferred to phase 01b** (needs spike to know SDK's "thread not found" error shape; runner-level retry adds complexity that's premature without that data)
+- [x] Unit tests — chat-store CRUD, compact-service clear, claude-runner capture (mocked SDK with system message exposing `session_id`)
+- [ ] Tool-result stripping on resume payload (X4) — **deferred to phase 01b** (no resume payload is constructed locally today; SDK manages prior-thread replay server-side; spike must confirm where stripping needs to apply)
+- [ ] Disambig memory port across compaction (X1) — **deferred to phase 02 / 02a-D** (depends on focus-store CRUD + 02a-D slot shape)
+- [ ] **End-to-end thread-continuity eval (10 scenarios above)** — **deferred to phase 01c** (requires live Anthropic calls; nightly cost-capped job + PR-gate harness)
+- [ ] Telemetry: input-token delta dashboard + compaction-frequency histogram — **deferred to phase 05**
+- [ ] 4-cell A/B comparison (`{resume × focus} on/off`) gating ramp — **deferred to phase 05** (ramp gate, not a code drop)
+
+## Implementation Status
+
+Code landed in this session covers the **MVP capture/persist/resume/clear loop**: schema, CRUD, factory override, runner capture, turn-API wiring (read + persist + SSE), compact-service id-clear + context_compacted payload, 5 unit tests. Flag stays default-off; capture fires unconditionally so we can collect telemetry on which field carries the id once staging runs. Spike A then confirms the field name and we flip the flag.
+
+Sub-phases broken out for follow-up sessions:
+- **phase 01b**: compact threshold to 60%, expanded summary preamble structure, stale-id failure recovery, tool-result stripping >2KB.
+- **phase 01c**: end-to-end thread-continuity eval suite + judge harness.
 
 ## Success Criteria
 
