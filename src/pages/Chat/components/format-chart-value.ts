@@ -106,14 +106,49 @@ const THOUSANDS_FMT = new Intl.NumberFormat('en-US', {
 });
 
 /**
+ * How to scale a percent column for display: Cube `format: percent` measures
+ * arrive as fractions (0.0069 = 0.69%), but some series are already in 0–100
+ * units (42.5 = 42.5%). Decide once per chart from the data: if every value
+ * sits within [-1, 1] it's a fraction → ×100; otherwise it's already a percent.
+ * Returning the factor (not mutating values) keeps axis/tooltip/table in sync.
+ */
+export function detectPercentScale(values: Array<number | string>): 100 | 1 {
+  let sawValue = false;
+  for (const v of values) {
+    const n = toNumber(v);
+    if (n === null) continue;
+    sawValue = true;
+    if (Math.abs(n) > 1) return 1;
+  }
+  return sawValue ? 100 : 1;
+}
+
+/**
+ * Percent with adaptive precision so small rates stay legible instead of
+ * collapsing to "0%": more decimals the smaller the magnitude (0.69%, 4.4%,
+ * 42%). `scale` comes from detectPercentScale.
+ */
+function formatPercent(n: number, scale: 100 | 1): string {
+  const p = n * scale;
+  const a = Math.abs(p);
+  const decimals = a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 1 : a > 0 ? 2 : 0;
+  return `${p.toLocaleString('en-US', { maximumFractionDigits: decimals })}%`;
+}
+
+/**
  * Format a number for an axis tick (very compact — no unit suffix when long).
  * "VND" is dropped on the axis (the title already carries the unit) and the
- * compact suffix (K/M/B) does the heavy lifting.
+ * compact suffix (K/M/B) does the heavy lifting. `percentScale` (from
+ * detectPercentScale) converts fractional percents to display units.
  */
-export function formatAxisValue(value: number | string, unit: ValueUnit): string {
+export function formatAxisValue(
+  value: number | string,
+  unit: ValueUnit,
+  percentScale: 100 | 1 = 1,
+): string {
   const n = toNumber(value);
   if (n === null) return String(value);
-  if (unit === 'percent') return `${COMPACT_AXIS_FMT.format(n)}%`;
+  if (unit === 'percent') return formatPercent(n, percentScale);
   if (unit === 'usd') return `$${COMPACT_AXIS_FMT.format(n)}`;
   return COMPACT_AXIS_FMT.format(n);
 }
@@ -122,10 +157,14 @@ export function formatAxisValue(value: number | string, unit: ValueUnit): string
  * Format a number for a tooltip / pie label / data-table cell. Includes the
  * unit so the reader doesn't have to glance back at the title.
  */
-export function formatReadableValue(value: number | string, unit: ValueUnit): string {
+export function formatReadableValue(
+  value: number | string,
+  unit: ValueUnit,
+  percentScale: 100 | 1 = 1,
+): string {
   const n = toNumber(value);
   if (n === null) return String(value);
-  if (unit === 'percent') return `${THOUSANDS_FMT.format(n)}%`;
+  if (unit === 'percent') return formatPercent(n, percentScale);
   if (unit === 'usd') return `$${formatNumeric(n)}`;
   if (unit === 'vnd') return `${formatNumeric(n)} VND`;
   if (unit === 'count') return THOUSANDS_FMT.format(n);

@@ -38,6 +38,7 @@ import {
   columnAxisLabel,
   detectChartUnit,
   detectColumnUnit,
+  detectPercentScale,
   formatAxisValue,
   formatReadableValue,
 } from './format-chart-value';
@@ -193,8 +194,14 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
   // Unit detection drives axis ticks, tooltips, pie labels. Done once per
   // chart so detectUnit's regex work doesn't run per tick / per tooltip.
   const unit = detectChartUnit(spec);
-  const axisTick = (v: number | string) => formatAxisValue(v, unit);
-  const readable = (v: number | string) => formatReadableValue(v, unit);
+  // Percent measures arrive as fractions (0.0069) or already-scaled (42.5);
+  // decide once from the value column so ticks read "0.69%" not "0%".
+  const valueScale =
+    unit === 'percent'
+      ? detectPercentScale(spec.data.map((r) => r[spec.encoding.value]))
+      : 1;
+  const axisTick = (v: number | string) => formatAxisValue(v, unit, valueScale);
+  const readable = (v: number | string) => formatReadableValue(v, unit, valueScale);
   // Value-axis unit label so the reader sees what the numbers mean without
   // re-reading the title. Reused across every cartesian chart type below.
   const valueLabel = axisUnitLabel(spec);
@@ -380,13 +387,16 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       // value-column unit.
       const xUnit = detectColumnUnit(spec.encoding.category, spec);
       const yUnit = detectColumnUnit(spec.encoding.value, spec);
+      const xScale = xUnit === 'percent' ? detectPercentScale(spec.data.map((r) => r[spec.encoding.category])) : 1;
+      const yScale = yUnit === 'percent' ? detectPercentScale(spec.data.map((r) => r[spec.encoding.value])) : 1;
       // The point-identity column (e.g. country) is whatever data column isn't
       // an axis metric — label each dot with it so the reader knows which point
       // is which, the way a "X vs Y per entity" question expects.
       const labelKey = scatterLabelKey(spec.data, spec.encoding);
       const scatterTooltip = (value: number | string, name: string) => {
         const u = name === spec.encoding.category ? xUnit : name === spec.encoding.value ? yUnit : unit;
-        return [formatReadableValue(value, u), name] as [string, string];
+        const s = name === spec.encoding.category ? xScale : name === spec.encoding.value ? yScale : 1;
+        return [formatReadableValue(value, u, s), name] as [string, string];
       };
       return (
         <ScatterChart margin={{ top: 12, right: 20, left: 16, bottom: 20 }}>
@@ -394,9 +404,12 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
           <XAxis
             dataKey={spec.encoding.category}
             type="number"
+            // Zoom to the data range (with padding) instead of anchoring at 0 —
+            // a cluster of like-valued points spreads out and reads clearly.
+            domain={['auto', 'auto']}
             stroke={T.n500}
             fontSize={11}
-            tickFormatter={(v) => formatAxisValue(v, xUnit)}
+            tickFormatter={(v) => formatAxisValue(v, xUnit, xScale)}
             label={{
               value: columnAxisLabel(spec.encoding.category, spec),
               position: 'insideBottom',
@@ -407,9 +420,10 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
           <YAxis
             dataKey={spec.encoding.value}
             type="number"
+            domain={['auto', 'auto']}
             stroke={T.n500}
             fontSize={11}
-            tickFormatter={(v) => formatAxisValue(v, yUnit)}
+            tickFormatter={(v) => formatAxisValue(v, yUnit, yScale)}
             label={valueAxisLabel}
           />
           <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={scatterTooltip} />

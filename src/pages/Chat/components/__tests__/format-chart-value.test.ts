@@ -3,6 +3,7 @@ import type { ChartSpec } from '../../../../api/chat-sse-client';
 import {
   detectChartUnit,
   detectColumnUnit,
+  detectPercentScale,
   formatAxisValue,
   formatReadableValue,
 } from '../format-chart-value';
@@ -144,5 +145,42 @@ describe('formatReadableValue', () => {
 
   it('passes through non-numeric values unchanged', () => {
     expect(formatReadableValue('N/A', 'vnd')).toBe('N/A');
+  });
+});
+
+describe('detectPercentScale', () => {
+  it('returns 100 when every value is a fraction (|v| <= 1)', () => {
+    expect(detectPercentScale([0.0069, 0.0044, 0.00189])).toBe(100);
+    expect(detectPercentScale([1, 0.5, '0.25'])).toBe(100);
+  });
+
+  it('returns 1 when any value exceeds 1 (already in percent units)', () => {
+    expect(detectPercentScale([42.5, 30, 12.3])).toBe(1);
+    expect(detectPercentScale([0.5, 1.5])).toBe(1);
+  });
+
+  it('defaults to 1 for empty / all-null input', () => {
+    expect(detectPercentScale([])).toBe(1);
+    expect(detectPercentScale(['x', 'N/A'])).toBe(1);
+  });
+});
+
+describe('percent scaling + adaptive precision', () => {
+  it('scales fractional paying-rate to a legible percent instead of 0%', () => {
+    // The reported bug: 0.0069 rendered as "0%". With scale 100 it reads 0.69%.
+    expect(formatAxisValue(0.00694, 'percent', 100)).toBe('0.69%');
+    expect(formatAxisValue(0.0044, 'percent', 100)).toBe('0.44%');
+    expect(formatReadableValue(0.00189, 'percent', 100)).toBe('0.19%');
+  });
+
+  it('keeps more decimals for small magnitudes, fewer for large', () => {
+    expect(formatAxisValue(0.425, 'percent', 100)).toBe('42.5%'); // >=10 → 1 dp
+    expect(formatAxisValue(0.044, 'percent', 100)).toBe('4.4%'); // >=1 → 1 dp
+    expect(formatAxisValue(1.2, 'percent', 100)).toBe('120%'); // >=100 → 0 dp
+  });
+
+  it('default scale (1) preserves already-scaled percents', () => {
+    expect(formatAxisValue(42.5, 'percent')).toBe('42.5%');
+    expect(formatReadableValue(12.3, 'percent')).toBe('12.3%');
   });
 });

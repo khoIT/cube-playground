@@ -10,6 +10,7 @@ import { T } from '../../../shell/theme';
 import type { ChartSpec } from '../../../api/chat-sse-client';
 import {
   detectColumnUnit,
+  detectPercentScale,
   formatReadableValue,
   type ValueUnit,
 } from './format-chart-value';
@@ -49,6 +50,15 @@ export function ChartSectionDataTable({ rows, spec }: ChartSectionDataTableProps
     for (const c of columns) map[c] = detectColumnUnit(c, spec);
     return map;
   }, [columns, spec]);
+  // Percent columns may be fractions (0.0069) or already-scaled (42.5); pick the
+  // factor per column from its values so the table matches the chart axis.
+  const percentScaleByColumn = useMemo<Record<string, 100 | 1>>(() => {
+    const map: Record<string, 100 | 1> = {};
+    for (const c of columns) {
+      map[c] = unitByColumn[c] === 'percent' ? detectPercentScale(rows.map((r) => r[c])) : 1;
+    }
+    return map;
+  }, [columns, rows, unitByColumn]);
 
   return (
     <div style={{ overflowX: 'auto', width: '100%' }}>
@@ -97,7 +107,7 @@ export function ChartSectionDataTable({ rows, spec }: ChartSectionDataTableProps
                       fontVariantNumeric: isNumeric ? 'tabular-nums' : undefined,
                     }}
                   >
-                    {isNumeric ? formatReadableValue(v, unitByColumn[c]) : String(v)}
+                    {isNumeric ? formatReadableValue(v, unitByColumn[c], percentScaleByColumn[c]) : String(v)}
                   </td>
                 );
               })}
