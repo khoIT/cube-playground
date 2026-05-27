@@ -10,7 +10,7 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: measure
-  ref: mf_users.trailing_wau
+  ref: active_daily.trailing_wau
 format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [active_daily]

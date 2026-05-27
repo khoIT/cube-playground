@@ -10,7 +10,7 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: measure
-  ref: mf_users.trailing_mpu
+  ref: user_recharge_daily.trailing_mpu
 format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [user_recharge_daily]
