@@ -8,7 +8,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles, Activity, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles, Activity, LayoutGrid, ShieldCheck } from 'lucide-react';
 
 import { SettingsTabs, type SettingsTabDescriptor } from './settings-tabs';
 import { NavVisibilitySection } from './nav-visibility-section';
@@ -18,6 +18,7 @@ import { ChatPreferencesSection } from './chat-preferences-section';
 import { ChatServiceTab } from './ChatService/chat-service-tab';
 import { LiveopsSettingsSection } from './liveops-settings-section';
 import { DashboardsSettingsSection } from './dashboards-settings-section';
+import { MetricCoverageSection } from './metric-coverage-section';
 
 const Page = styled.div`
   max-width: 1040px;
@@ -76,12 +77,12 @@ const Panel = styled.div`
   min-width: 0;
 `;
 
-type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards';
+type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards' | 'coverage';
 
 const DEFAULT_TAB: TabId = 'sidebar';
 
 const KNOWN_TABS = new Set<string>([
-  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards',
+  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards', 'coverage',
 ]);
 
 function readHashTab(hash: string): TabId | null {
@@ -148,6 +149,11 @@ export function SettingsPage(): ReactElement {
         label: t('settings.tabs.dashboards', { defaultValue: 'Dashboards' }),
         icon: LayoutGrid,
       },
+      {
+        id: 'coverage',
+        label: t('settings.tabs.coverage', { defaultValue: 'Metric coverage' }),
+        icon: ShieldCheck,
+      },
     ],
     [t],
   );
@@ -173,6 +179,8 @@ export function SettingsPage(): ReactElement {
         return <LiveopsSettingsSection />;
       case 'dashboards':
         return <DashboardsSettingsSection />;
+      case 'coverage':
+        return <MetricCoverageSection />;
     }
   };
 

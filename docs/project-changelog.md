@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-27 — metric ↔ cube coverage monitor + drift fixes
+
+Reconciled the business-metrics registry against the live cube-dev model and shipped a monitoring/scaffolding surface. Plan: `plans/260527-1257-metric-cube-coverage-sync/`. Tests: server 295, web 1441 (all pass).
+
+- **WAU/trailing measures built.** Added `wau`/`trailing_wau`/`trailing_mau` to `active_daily` and `trailing_wpu`/`trailing_mpu` to `user_recharge_daily` in cube-dev (per game: ballistar, cfm, jus, pubg), then repointed the 5 registry metrics off `mf_users`. Active-retention metrics `rr`/`rr01`/`rr07`/`rr30` repointed to the existing `retention` cube (`retained_dN ÷ cohort_size`).
+- **Anomaly-detector hardening.** `scanGameLegacy` now runs `validateRefs` against per-game `/meta` and skips unresolved metrics with one consolidated warning instead of N×400 stack traces per tick.
+- **Coverage service + API.** `metric-coverage-resolver.ts` computes three gap types per game (broken refs, uncovered cube measures, metric×game matrix) from `/meta`, fail-open. `GET /api/business-metrics/coverage` (all games or `?game=`). `POST /api/business-metrics/scaffold` generates `trust: draft` metric stubs (via `metric-stub-scaffolder.ts`) for uncovered measures through the existing atomic writer; idempotent (skips refs already covered).
+- **Settings → Metric coverage tab.** New panel: broken-refs-by-game, uncovered-measures with multiselect + "Scaffold drafts", and an availability matrix. Refresh = explicit sync gesture.
+- **Dev log capture.** `npm run dev:all` now tees output to `logs/dev-all.log` (rolling 3h) for daily triage.
+
 ## 2026-05-26 — chat disambiguator memory layers + Settings UI
 
 Four-part ship consolidating session memory + cross-session user preferences + Settings UI panel. Plan: `plans/260526-xxxx-chat-disambig-memory-and-settings/` (internal working document).

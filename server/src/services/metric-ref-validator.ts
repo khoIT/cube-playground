@@ -40,8 +40,10 @@ export function parseFqn(ref: string): ParsedRef | null {
 }
 
 export interface MetaSnapshot {
-  /** Set of fully-qualified member names — `cube.member`. */
+  /** Set of fully-qualified member names — `cube.member` (measures + dimensions). */
   members: Set<string>;
+  /** Subset of `members` that are measures only — used for coverage gap detection. */
+  measures: Set<string>;
   /** Set of cube names that exist in this meta. */
   cubes: Set<string>;
 }
@@ -62,13 +64,17 @@ export interface MetaResponse {
 
 export function snapshotFromMeta(meta: MetaResponse): MetaSnapshot {
   const members = new Set<string>();
+  const measures = new Set<string>();
   const cubes = new Set<string>();
   for (const cube of meta.cubes ?? []) {
     cubes.add(cube.name);
-    for (const m of cube.measures ?? []) members.add(m.name);
+    for (const m of cube.measures ?? []) {
+      members.add(m.name);
+      measures.add(m.name);
+    }
     for (const d of cube.dimensions ?? []) members.add(d.name);
   }
-  return { members, cubes };
+  return { members, measures, cubes };
 }
 
 /**

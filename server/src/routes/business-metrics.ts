@@ -28,6 +28,11 @@ import {
   writeMetric,
 } from '../services/business-metrics-loader.js';
 import { getDrift, resolveTrustForGame } from '../services/metric-trust-resolver.js';
+import {
+  resolveCoverageAllGames,
+  resolveCoverageForGame,
+} from '../services/metric-coverage-resolver.js';
+import { scaffoldDraftMetric } from '../services/metric-stub-scaffolder.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { getMeta } from '../services/cube-client.js';
 import {
@@ -78,6 +83,101 @@ export default async function businessMetricsRoutes(
           error: { code: 'DRIFT_FAILED', message },
         });
       }
+    },
+  );
+
+  // Coverage monitor: reconcile the registry against every game's /meta.
+  // Optional `?game=` narrows to one game. Fail-open — a game whose token or
+  // /meta fetch fails is reported with status:'error', the call still 200s.
+  app.get<{ Querystring: { game?: string } }>(
+    '/api/business-metrics/coverage',
+    async (req, reply) => {
+      try {
+        if (req.query.game) {
+          const { coverage, matrix } = await resolveCoverageForGame(getAll(), req.query.game);
+          return { games: [coverage], matrix, generatedAt: new Date().toISOString() };
+        }
+        return await resolveCoverageAllGames(getAll());
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.status(502).send({ error: { code: 'COVERAGE_FAILED', message } });
+      }
+    },
+  );
+
+  // Scaffold draft metric stubs for uncovered cube measures. Idempotent:
+  // a ref already covered by some metric (or an id clash) is skipped, not
+  // overwritten. Writes go through the same atomic writer as POST.
+  app.post<{ Body: { measures?: Array<{ ref?: string }> } }>(
+    '/api/business-metrics/scaffold',
+    async (req, reply) => {
+      const measures = req.body?.measures;
+      if (!Array.isArray(measures) || measures.length === 0) {
+        return reply.status(400).send({
+          error: { code: 'MEASURES_REQUIRED', message: '`measures` must be a non-empty array' },
+        });
+      }
+
+      const existing = getAll();
+      const takenIds = new Set(existing.map((m) => m.id));
+      const refsInUse = new Set(
+        existing.flatMap((m) =>
+          m.formula.type === 'measure'
+            ? [m.formula.ref]
+            : m.formula.type === 'ratio'
+              ? [m.formula.numerator, m.formula.denominator]
+              : [],
+        ),
+      );
+
+      const created: string[] = [];
+      const skipped: Array<{ ref: string; reason: string }> = [];
+
+      for (const entry of measures) {
+        const ref = entry?.ref;
+        if (!ref || typeof ref !== 'string') {
+          skipped.push({ ref: String(ref), reason: 'missing or invalid ref' });
+          continue;
+        }
+        if (refsInUse.has(ref)) {
+          skipped.push({ ref, reason: 'already referenced by an existing metric' });
+          continue;
+        }
+        let stub;
+        try {
+          stub = scaffoldDraftMetric(ref, takenIds);
+        } catch (err) {
+          skipped.push({ ref, reason: err instanceof Error ? err.message : String(err) });
+          continue;
+        }
+        try {
+          await writeMetric(stub.metric);
+        } catch (err) {
+          skipped.push({ ref, reason: `write failed: ${err instanceof Error ? err.message : String(err)}` });
+          continue;
+        }
+        // Reserve id + ref so a second measure in the same batch can't collide.
+        takenIds.add(stub.id);
+        refsInUse.add(ref);
+        created.push(stub.id);
+
+        try {
+          insertAuditRow(getDb(), {
+            metricId: stub.id,
+            action: 'create',
+            oldValueJson: null,
+            newValueJson: JSON.stringify(stub.metric),
+            actorKind: req.headers['x-actor-kind'] === 'agent' ? 'agent' : 'user',
+            actorId: typeof req.headers['x-actor-id'] === 'string' ? req.headers['x-actor-id'] : null,
+            reason: `scaffolded draft from ${ref}`,
+            requestId: req.id,
+          });
+        } catch (auditErr) {
+          app.log.warn({ err: auditErr }, '[business-metrics] scaffold audit insert failed (non-fatal)');
+        }
+      }
+
+      return reply.status(201).send({ created, skipped });
     },
   );
 
