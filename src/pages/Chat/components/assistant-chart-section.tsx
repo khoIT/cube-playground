@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  ComposedChart,
   LineChart,
   Line,
   AreaChart,
@@ -30,7 +31,7 @@ import {
   Legend,
 } from 'recharts';
 import { T, CHART } from '../../../shell/theme';
-import { ChartSectionMenu, isNumericColumn, toScatterSpec } from './chart-section-menu';
+import { ChartSectionMenu, isNumericColumn, toDualAxisSpec, toScatterSpec } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 import {
@@ -71,7 +72,9 @@ export function AssistantChartSection({ artifact, embedded, overrideType: extern
     ? spec
     : overrideType === 'scatter' && spec.type !== 'scatter'
       ? toScatterSpec(spec)
-      : ({ ...spec, type: overrideType } as ChartSpec);
+      : overrideType === 'dual-axis' && spec.type !== 'dual-axis'
+        ? toDualAxisSpec(spec)
+        : ({ ...spec, type: overrideType } as ChartSpec);
 
   // Embedded mode keeps the original minimal rendering — no header, no menu.
   if (embedded) {
@@ -379,6 +382,47 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
           <Legend />
         </PieChart>
       );
+
+    case 'dual-axis': {
+      // Two metrics over one category on independent axes: bars (left) + line
+      // (right). Lets differently-scaled metrics (e.g. ARPU in thousands of VND
+      // vs paying-rate <1%) both read clearly, which a single-axis chart can't.
+      const leftCol = spec.encoding.value;
+      const rightCol = spec.encoding.series ?? spec.encoding.value;
+      const leftUnit = detectColumnUnit(leftCol, spec);
+      const rightUnit = detectColumnUnit(rightCol, spec);
+      const leftScale = leftUnit === 'percent' ? detectPercentScale(spec.data.map((r) => r[leftCol])) : 1;
+      const rightScale = rightUnit === 'percent' ? detectPercentScale(spec.data.map((r) => r[rightCol])) : 1;
+      const comboTooltip = (value: number | string, name: string) => {
+        const isLeft = name === leftCol;
+        return [formatReadableValue(value, isLeft ? leftUnit : rightUnit, isLeft ? leftScale : rightScale), name] as [string, string];
+      };
+      return (
+        <ComposedChart data={spec.data} margin={{ top: 8, right: 20, left: 16, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <YAxis
+            yAxisId="left"
+            stroke={T.n500}
+            fontSize={11}
+            tickFormatter={(v) => formatAxisValue(v, leftUnit, leftScale)}
+            label={{ value: columnAxisLabel(leftCol, spec), angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            stroke={T.n500}
+            fontSize={11}
+            tickFormatter={(v) => formatAxisValue(v, rightUnit, rightScale)}
+            label={{ value: columnAxisLabel(rightCol, spec), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
+          />
+          <Tooltip formatter={comboTooltip} />
+          <Legend />
+          <Bar yAxisId="left" dataKey={leftCol} fill={CHART[0]} />
+          <Line yAxisId="right" type="monotone" dataKey={rightCol} stroke={CHART[1]} strokeWidth={2} dot={{ r: 3 }} />
+        </ComposedChart>
+      );
+    }
 
     case 'scatter': {
       // Scatter plots two metrics against each other (e.g. ARPU vs paying-rate),

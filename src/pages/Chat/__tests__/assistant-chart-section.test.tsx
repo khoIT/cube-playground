@@ -15,8 +15,10 @@ import { AssistantChartSection, scatterLabelKey } from '../components/assistant-
 import {
   toCsv,
   compatibleChartTypes,
+  canDualAxis,
   isNumericColumn,
   numericColumns,
+  toDualAxisSpec,
   toScatterSpec,
 } from '../components/chart-section-menu';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
@@ -254,8 +256,18 @@ describe('compatibleChartTypes', () => {
     ]);
   });
 
-  it('scatter is standalone', () => {
+  it('scatter is standalone when there is no dual-axis-capable shape', () => {
     expect(compatibleChartTypes(spec({ type: 'scatter' }))).toEqual(['scatter']);
+  });
+
+  it('scatter with 1 category + 2 metrics also offers dual-axis', () => {
+    const rows = [
+      { country: 'VN', arpu_vnd: 7657, paying_rate: 0.0069 },
+      { country: 'SG', arpu_vnd: 2224, paying_rate: 0.0044 },
+    ];
+    expect(compatibleChartTypes(spec({
+      type: 'scatter', data: rows, encoding: { category: 'arpu_vnd', value: 'paying_rate' },
+    }))).toEqual(['scatter', 'dual-axis']);
   });
 
   it('funnel is standalone', () => {
@@ -268,15 +280,16 @@ describe('compatibleChartTypes', () => {
     ]);
   });
 
-  it('category×value with ≥2 numeric columns → offers scatter', () => {
-    // One categorical (country) + two metrics in the rows → correlation is viewable.
+  it('category×value with ≥2 numeric columns → offers scatter + dual-axis', () => {
+    // One categorical (country) + two metrics → correlation (scatter) and a
+    // bars+line combo (dual-axis) both become viewable.
     const rows = [
       { country: 'VN', arpu_vnd: 7657, paying_rate: 0.12 },
       { country: 'SG', arpu_vnd: 2224, paying_rate: 0.08 },
     ];
     expect(compatibleChartTypes(spec({
       type: 'bar', data: rows, encoding: { category: 'country', value: 'arpu_vnd' },
-    }))).toEqual(['bar', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']);
+    }))).toEqual(['bar', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter', 'dual-axis']);
   });
 
   it('category×value with a single numeric column → no scatter', () => {
@@ -322,6 +335,43 @@ describe('toScatterSpec', () => {
     expect(out.encoding.category).toBe('paying_rate'); // the other numeric column
     // The entity column survives in the rows so the renderer can label points.
     expect(scatterLabelKey(out.data, out.encoding)).toBe('country');
+  });
+});
+
+describe('toDualAxisSpec / canDualAxis', () => {
+  const mk = (partial: Partial<ChartSpec>): ChartSpec =>
+    ({ type: 'bar', title: 't', data: [], encoding: { category: 'c', value: 'v' }, ...partial } as ChartSpec);
+  const rows = [
+    { country: 'VN', arpu_vnd: 7657, paying_rate: 0.0069 },
+    { country: 'SG', arpu_vnd: 2224, paying_rate: 0.0044 },
+  ];
+
+  it('encodes category=entity, value=first metric (bars), series=second metric (line)', () => {
+    const out = toDualAxisSpec(mk({
+      type: 'scatter', data: rows, encoding: { category: 'arpu_vnd', value: 'paying_rate' },
+    }));
+    expect(out.type).toBe('dual-axis');
+    expect(out.encoding.category).toBe('country');
+    expect(out.encoding.value).toBe('arpu_vnd');   // left axis / bars
+    expect(out.encoding.series).toBe('paying_rate'); // right axis / line
+  });
+
+  it('canDualAxis requires a category column and ≥2 numeric columns', () => {
+    expect(canDualAxis(mk({ data: rows, encoding: { category: 'country', value: 'arpu_vnd' } }))).toBe(true);
+    expect(canDualAxis(mk({ data: [{ country: 'VN', arpu_vnd: 1 }], encoding: { category: 'country', value: 'arpu_vnd' } }))).toBe(false); // 1 metric
+    expect(canDualAxis(mk({ data: [{ a: 1, b: 2 }], encoding: { category: 'a', value: 'b' } }))).toBe(false); // no categorical column
+    expect(canDualAxis(mk({ encoding: { category: 'c', value: 'v', series: 's' } }))).toBe(false); // series-encoded
+  });
+
+  it('renders without crashing', () => {
+    const artifact = makeArtifact({
+      spec: toDualAxisSpec(mk({
+        type: 'scatter', title: 'ARPU vs paying-rate', data: rows,
+        encoding: { category: 'arpu_vnd', value: 'paying_rate' },
+      })),
+    });
+    const { unmount } = renderWithWidth(<AssistantChartSection artifact={artifact} />);
+    unmount();
   });
 });
 

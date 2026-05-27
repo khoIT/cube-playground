@@ -51,7 +51,11 @@ export type ChartType =
   | 'pie'
   | 'donut'
   | 'scatter'
-  | 'funnel';
+  | 'funnel'
+  // Render-only view type: never emitted by the backend/LLM. The chart-type
+  // menu derives it client-side for "1 category + 2 metrics" data, showing the
+  // two metrics on independent axes (bars on the left, a line on the right).
+  | 'dual-axis';
 
 export interface ChartSpec {
   type: ChartType;

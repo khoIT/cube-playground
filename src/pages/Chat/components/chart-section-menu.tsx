@@ -27,6 +27,7 @@ const TYPE_LABEL: Record<ChartSpec['type'], string> = {
   donut: 'Donut',
   scatter: 'Scatter',
   funnel: 'Funnel',
+  'dual-axis': 'Bars + line',
 };
 
 // Mirrors PIE_MAX_ROWS in chat-service/src/services/chart-spec.ts — pie/donut
@@ -65,21 +66,50 @@ export function toScatterSpec(spec: ChartSpec): ChartSpec {
   return { ...spec, type: 'scatter', encoding: { category: x, value: y } } as ChartSpec;
 }
 
+/** The categorical (label) column — the first non-numeric column, e.g. country. */
+function categoryColumn(spec: ChartSpec): string | undefined {
+  return Object.keys(spec.data[0] ?? {}).find((c) => !isNumericColumn(spec.data, c));
+}
+
+/**
+ * "1 category + 2 metrics" data (e.g. country × {arpu, paying_rate}) can render
+ * as a dual-axis combo — independent axes let two differently-scaled metrics
+ * both read clearly, which a single-axis bar/line can't. Needs a categorical
+ * column for the x-axis plus ≥2 numeric columns.
+ */
+export function canDualAxis(spec: ChartSpec): boolean {
+  return !spec.encoding.series && categoryColumn(spec) != null && numericColumns(spec.data).length >= 2;
+}
+
+/**
+ * Re-encode for the dual-axis combo: x = the entity column, `value` = the first
+ * metric (left axis, bars), `series` = the second metric (right axis, line).
+ */
+export function toDualAxisSpec(spec: ChartSpec): ChartSpec {
+  const nums = numericColumns(spec.data);
+  const cat = categoryColumn(spec) ?? spec.encoding.category;
+  return { ...spec, type: 'dual-axis', encoding: { category: cat, value: nums[0], series: nums[1] } } as ChartSpec;
+}
+
 /**
  * Every chart type that can sensibly render this spec's data shape — drives the
  * "switch chart type" menu so the user can explore all valid views of a table.
  *
  * - series-encoded (category + value + series): the multi-series families.
- * - an already-scatter / funnel spec is a distinct intent that doesn't
- *   interchange with the category×value set, so it stays isolated.
- * - otherwise it's category×value: offer the full single-series set, plus
- *   pie/donut when there are few enough slices to read, plus scatter when the
- *   rows carry ≥2 numeric columns (e.g. two metrics per entity → correlation).
+ * - funnel is a distinct intent that doesn't interchange, so it stays isolated.
+ * - scatter and category×value both gain scatter + dual-axis when the rows
+ *   carry a categorical column and ≥2 numeric columns (two metrics per entity):
+ *   scatter for correlation, dual-axis (bars + line) for magnitude on two scales.
+ * - otherwise category×value: the single-series set, plus pie/donut when there
+ *   are few enough slices to read.
  */
 export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
   if (spec.encoding.series) return ['grouped-bar', 'stacked-bar', 'multi-line'];
-  if (spec.type === 'scatter') return ['scatter'];
   if (spec.type === 'funnel') return ['funnel'];
+
+  if (spec.type === 'scatter') {
+    return canDualAxis(spec) ? ['scatter', 'dual-axis'] : ['scatter'];
+  }
 
   const types: ChartSpec['type'][] = ['bar', 'horizontal-bar', 'line', 'area'];
   if (spec.data.length >= 1 && spec.data.length <= PIE_MAX_SLICES) {
@@ -87,6 +117,9 @@ export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
   }
   if (numericColumns(spec.data).length >= 2) {
     types.push('scatter');
+  }
+  if (canDualAxis(spec)) {
+    types.push('dual-axis');
   }
   return types;
 }
