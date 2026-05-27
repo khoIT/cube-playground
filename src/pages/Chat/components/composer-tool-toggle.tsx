@@ -1,49 +1,39 @@
 /**
- * ComposerToolToggle — reusable pill-button for the chat composer action row.
+ * ComposerToolToggle — flip-switch + label for the chat composer action row.
+ *
+ * Restores the original toggle-switch look (track + sliding knob) and is used
+ * once per tool: "Web Search" and "DeepThink". Each is independently
+ * controlled; backend gating is per-toggle (X-Web-Search / X-Research-Mode).
  *
  * Props:
- *   active    — controlled on/off state
- *   onToggle  — flip callback
- *   icon      — lucide icon component (rendered at 13–14 px)
- *   label     — visible text (hidden in compact/icon-only mode)
- *   title     — tooltip + aria-label
- *   compact   — icon-only mode for the narrower side-pane surface
- *
- * Visual language mirrors the existing "Bypass cache" pill in chat-composer.tsx:
- *   inactive → transparent bg, n300 border, n500 text
- *   active   → brandSoft bg, brand border, brand text
+ *   active   — controlled on/off state
+ *   onToggle — flip callback
+ *   label    — visible text to the right of the switch
+ *   title    — tooltip + aria-label
+ *   compact  — tighter geometry for the narrower side-pane surface
  */
-import React, { useState } from 'react';
-import { T, Icon } from '../../../shell/theme';
+import React from 'react';
+import { T } from '../../../shell/theme';
 
 interface ComposerToolToggleProps {
   active: boolean;
   onToggle: () => void;
-  /** Lucide icon component. */
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  /** Visible label text (hidden when compact=true). */
   label: string;
-  /** Tooltip text + aria-label. */
   title: string;
-  /** When true, renders icon-only (no label text). */
   compact?: boolean;
 }
 
 export function ComposerToolToggle({
   active,
   onToggle,
-  icon,
   label,
   title,
   compact,
 }: ComposerToolToggleProps) {
-  const [focused, setFocused] = useState(false);
-
-  const border = active ? `1px solid ${T.brand}` : `1px solid ${T.n300}`;
-  const background = active ? T.brandSoft : 'transparent';
-  const color = active ? T.brand : T.n500;
-  // Subtle hover bg — use surfaceMuted (same token used by disabled composer bg).
-  const hoverBg = active ? T.brandSoft : T.surfaceMuted;
+  const TRACK_W = compact ? 32 : 38;
+  const TRACK_H = compact ? 18 : 22;
+  const KNOB = compact ? 14 : 18;
+  const trackBg = active ? T.n900 : T.n200;
 
   return (
     <button
@@ -52,38 +42,48 @@ export function ComposerToolToggle({
       aria-pressed={active}
       aria-label={title}
       title={title}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: compact ? 0 : 4,
-        padding: '2px 8px',
-        border,
-        borderRadius: 4,
-        background,
-        color,
+        gap: compact ? 8 : 10,
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
         cursor: 'pointer',
-        whiteSpace: 'nowrap',
+        color: T.n800,
         fontFamily: T.fSans,
-        fontSize: compact ? 10 : 11,
-        lineHeight: 1,
-        // focus-visible ring
-        outline: focused ? `2px solid ${T.brand}` : 'none',
-        outlineOffset: focused ? 2 : 0,
-        transition: 'background 0.12s, border-color 0.12s, color 0.12s',
-      }}
-      onMouseEnter={(e) => {
-        if (!active) (e.currentTarget as HTMLButtonElement).style.background = hoverBg;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = active ? T.brandSoft : 'transparent';
+        fontSize: compact ? 12.5 : 14,
+        whiteSpace: 'nowrap',
       }}
     >
-      <Icon icon={icon} size={compact ? 13 : 14} color={color} />
-      {!compact && (
-        <span style={{ marginLeft: 4 }}>{label}</span>
-      )}
+      <span
+        aria-hidden
+        style={{
+          width: TRACK_W,
+          height: TRACK_H,
+          borderRadius: TRACK_H / 2,
+          background: trackBg,
+          position: 'relative',
+          display: 'inline-block',
+          flexShrink: 0,
+          transition: 'background 0.18s',
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            top: (TRACK_H - KNOB) / 2,
+            left: active ? TRACK_W - KNOB - 2 : 2,
+            width: KNOB,
+            height: KNOB,
+            borderRadius: KNOB / 2,
+            background: '#fff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+            transition: 'left 0.18s',
+          }}
+        />
+      </span>
+      {label}
     </button>
   );
 }

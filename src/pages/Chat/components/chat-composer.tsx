@@ -5,7 +5,7 @@
  * Layout:
  *   ┌──────────────────────────────────────────────────┐
  *   │ <textarea>                                       │
- *   │ [Web search] [Research] [Bypass cache] <> [↑]   │
+ *   │ [Web Search ⃝] [DeepThink ⃝] [Bypass cache] <> [↑] │
  *   └──────────────────────────────────────────────────┘
  *
  * Keyboard:
@@ -15,7 +15,7 @@
  *   Esc               → blur
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUp, Globe, Telescope } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
 import { ComposerToolToggle } from './composer-tool-toggle';
 
@@ -135,21 +135,19 @@ export function ChatComposer({
         aria-label="Ask Cube"
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 12 : 16 }}>
         <ComposerToolToggle
           active={ws}
           onToggle={toggleWs}
-          icon={Globe}
-          label="Web search"
-          title={ws ? 'Web search: On' : 'Web search: Off'}
+          label="Web Search"
+          title={ws ? 'Web Search: On' : 'Web Search: Off'}
           compact={compact}
         />
         <ComposerToolToggle
           active={dr}
           onToggle={toggleDr}
-          icon={Telescope}
-          label="Research"
-          title={dr ? 'Research mode: On' : 'Research mode: Off'}
+          label="DeepThink"
+          title={dr ? 'DeepThink: On' : 'DeepThink: Off'}
           compact={compact}
         />
         {onToggleBypassCache != null && (
