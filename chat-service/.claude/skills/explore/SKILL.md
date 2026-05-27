@@ -48,6 +48,11 @@ Before any other tool call, run `disambiguate_query({ message: <user's full mess
 - `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of "Identify the metric" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.
 - `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**
 
+**Hard rule — `disambiguate_query` is the ONLY source of a clarifying question.**
+- You MUST call `disambiguate_query` before any other tool and before writing any clarifying question. Never compose your own "which metric / rank by what / did you mean…" question from your own judgement.
+- When it returns `action: 'auto'`, the metric/entity/ranking is already pinned — **proceed to `preview_cube_query` then `emit_query_artifact`.** Do NOT second-guess into a clarification even if the phrase feels ambiguous to you (e.g. "top spenders", "biggest whales"); the resolver already decided and supplied the query. Asking the user anyway is a bug.
+- A clarifying question is permitted **only** when `action: 'clarify'`.
+
 ### Assumption disclosure (phase 02a)
 
 When the response carries an `assumption` field, the resolver picked one interpretation out of several plausible ones (typically a concept like "spender" mapped to its default measure + filter + ranking). After emitting the artifact, append a single-line footer in the user's language:
@@ -78,7 +83,7 @@ When the engine returns `intent='leaderboard'` (or memory carries it forward fro
    - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.
    - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.
 2. **Identify dimensions, filters, time grain.** Default time range is "last 7 days" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: "tuần qua" → "last 7 days".
-3. **Clarify once if ambiguous.** If two business-metric ids both match, or the time range is unclear, ask one short clarifying question and stop. Do NOT call more tools until the user answers.
+3. **Clarification is resolver-governed.** Do NOT invent your own clarifying question here. You clarify only when `disambiguate_query` returned `action: 'clarify'` (see Pre-flight). If it returned `action: 'auto'`, the metric/ranking is pinned — keep going. Time range defaults to "last 7 days" when unspecified; never clarify the time range.
 4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.
 5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.
 6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.
