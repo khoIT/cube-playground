@@ -25,6 +25,8 @@ allowed_tools:
   - emit_query_artifact
   - emit_chart
   - get_business_metric_history
+enable_web_search: false
+enable_research_mode: true
 ---
 
 # Diagnose Skill

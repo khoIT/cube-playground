@@ -56,7 +56,7 @@ export interface QueryOptionsInputs {
 
 /**
  * Per-call overrides. Phase 01 adds `resumeId`; phase 04 adds `abortSignal`;
- * phase 06 may add `webSearchEnabled`. Keep this union closed so the option
+ * phase 06 adds `webSearchEnabled`. Keep this union closed so the option
  * surface stays auditable.
  */
 export interface QueryOptionsOverrides {
@@ -64,6 +64,12 @@ export interface QueryOptionsOverrides {
   resumeId?: string;
   /** Phase 04 — abort controller signal. */
   abortSignal?: AbortSignal;
+  /**
+   * Phase 06 — when true, WebSearch is moved from disallowedTools to
+   * allowedTools for this turn. Only effective when the env flag
+   * CHAT_ENABLE_WEB_SEARCH=true AND the skill opts in (enable_web_search: true).
+   */
+  webSearchEnabled?: boolean;
 }
 
 /**
@@ -125,6 +131,16 @@ export function buildQueryOptions(
   }
   if (overrides.abortSignal !== undefined) {
     base.abortSignal = overrides.abortSignal;
+  }
+
+  // Phase 06 — web search gating. When the caller signals webSearchEnabled,
+  // move 'WebSearch' out of disallowedTools and into allowedTools so the SDK
+  // subprocess can invoke it. All other builtin restrictions stay intact.
+  if (overrides.webSearchEnabled === true) {
+    base.disallowedTools = base.disallowedTools.filter((t) => t !== 'WebSearch');
+    if (!base.allowedTools.includes('WebSearch')) {
+      base.allowedTools = [...base.allowedTools, 'WebSearch'];
+    }
   }
 
   return base;

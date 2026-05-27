@@ -115,6 +115,12 @@ export interface RunParams {
    * surface.
    */
   signal?: AbortSignal;
+  /**
+   * Phase-06: when true, the SDK WebSearch tool is added to allowedTools and
+   * removed from disallowedTools for this turn. Gated by env flag
+   * CHAT_ENABLE_WEB_SEARCH and skill-level opt-in (enable_web_search: true).
+   */
+  webSearchEnabled?: boolean;
 }
 
 /**
@@ -124,7 +130,7 @@ export interface RunParams {
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
 
-  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, tracer, resumeId, signal } = params;
+  const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, tracer, resumeId, signal, webSearchEnabled } = params;
 
   // Filter tools to only those permitted by the active skill's frontmatter.
   // An empty allowedToolNames list means no restriction (pass-through all tools).
@@ -186,7 +192,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
       },
     },
-    { resumeId, abortSignal: signal },
+    { resumeId, abortSignal: signal, webSearchEnabled },
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

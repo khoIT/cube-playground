@@ -18,6 +18,8 @@ allowed_tools:
   - get_business_metric
   - emit_query_artifact
   - emit_chart
+enable_web_search: false
+enable_research_mode: false
 ---
 
 # Explain Metric Skill

@@ -22,6 +22,7 @@ import { CachedResponseBadge } from './cached-response-badge';
 import { QueryArtifactCard } from './query-artifact-card';
 import { AssistantChartSection } from './assistant-chart-section';
 import { FieldChip } from './field-chip';
+import { CiteToken, parseCiteTokens } from './cite-token';
 import { useGlossaryLinker, type LinkedSegment } from './use-glossary-linker';
 import { resolveGlossaryHref } from '../../Catalog/glossary/resolve-glossary-link';
 import { FollowupChips } from './followup-chips';
@@ -57,11 +58,15 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
 };
 
 /**
- * Splits a raw string into FieldChips + plain-text spans, and runs the
- * glossary linker over each remaining text chunk. This is applied to every
- * string leaf inside the markdown tree (paragraphs, list items, table cells,
- * bold/italic spans, etc.), so chips and glossary links keep working
+ * Splits a raw string into FieldChips + CiteTokens + plain-text spans, and
+ * runs the glossary linker over each remaining text chunk. Applied to every
+ * string leaf inside the markdown tree so all inline tokens keep working
  * regardless of which block-level element wraps them.
+ *
+ * Pipeline per leaf string:
+ *   1. Split on {{cite:url|title}} → CiteToken nodes or plain sub-strings
+ *   2. Split each plain sub-string on {{field:cube.member}} → FieldChip nodes
+ *   3. Run glossary linker over the remaining plain text chunks
  */
 function renderTextLeaf(
   text: string,
@@ -69,20 +74,35 @@ function renderTextLeaf(
   keyPrefix: string,
 ): React.ReactNode[] {
   const out: React.ReactNode[] = [];
-  let last = 0;
-  let match: RegExpExecArray | null;
-  FIELD_TOKEN_REGEX.lastIndex = 0;
-  while ((match = FIELD_TOKEN_REGEX.exec(text)) !== null) {
-    if (match.index > last) {
-      pushGlossaryChunks(out, text.slice(last, match.index), link, `${keyPrefix}-t-${last}`);
+
+  // Step 1: split on cite tokens first so field-chip regex doesn't match inside URLs.
+  const citeSegments = parseCiteTokens(text);
+
+  citeSegments.forEach((seg, segIdx) => {
+    const segKey = `${keyPrefix}-cs${segIdx}`;
+    if (seg.kind === 'cite') {
+      out.push(<CiteToken key={segKey} url={seg.url} title={seg.title} />);
+      return;
     }
-    const fqn = match[1];
-    out.push(<FieldChip key={`${keyPrefix}-f-${match.index}`} fqn={fqn} />);
-    last = FIELD_TOKEN_REGEX.lastIndex;
-  }
-  if (last < text.length) {
-    pushGlossaryChunks(out, text.slice(last), link, `${keyPrefix}-t-${last}`);
-  }
+
+    // Step 2: split the plain text segment on field tokens.
+    const plainText = seg.text;
+    let last = 0;
+    let match: RegExpExecArray | null;
+    FIELD_TOKEN_REGEX.lastIndex = 0;
+    while ((match = FIELD_TOKEN_REGEX.exec(plainText)) !== null) {
+      if (match.index > last) {
+        pushGlossaryChunks(out, plainText.slice(last, match.index), link, `${segKey}-t-${last}`);
+      }
+      const fqn = match[1];
+      out.push(<FieldChip key={`${segKey}-f-${match.index}`} fqn={fqn} />);
+      last = FIELD_TOKEN_REGEX.lastIndex;
+    }
+    if (last < plainText.length) {
+      pushGlossaryChunks(out, plainText.slice(last), link, `${segKey}-t-${last}`);
+    }
+  });
+
   return out;
 }
 

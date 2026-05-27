@@ -23,6 +23,10 @@ export interface SkillMeta {
   triggerKeywords: string[];
   allowedTools: string[];
   body: string; // markdown body after frontmatter
+  /** Phase 06 — opt in to WebSearch tool for this skill. Default false. */
+  enableWebSearch: boolean;
+  /** Phase 06 — opt in to research mode (doubled timeout) for this skill. Default false. */
+  enableResearchMode: boolean;
 }
 
 interface CacheEntry {
@@ -40,6 +44,8 @@ function parseSkillFile(filePath: string): SkillMeta {
     triggerKeywords: Array.isArray(data['trigger_keywords']) ? data['trigger_keywords'] : [],
     allowedTools: Array.isArray(data['allowed_tools']) ? data['allowed_tools'] : [],
     body: content.trim(),
+    enableWebSearch: data['enable_web_search'] === true,
+    enableResearchMode: data['enable_research_mode'] === true,
   };
 }
 

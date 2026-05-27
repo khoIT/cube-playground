@@ -234,18 +234,10 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     }
 
     // Phase 04 — create an AbortController per turn. Stored on the registry
-    // entry so the cancel endpoint + timeout timer can signal it. The signal
-    // flows through to claude-runner via params.signal and into the SDK via
-    // buildQueryOptions().abortSignal. A defensive `signal.aborted` check
-    // inside the runner loop guarantees local termination even if the SDK
-    // ignores the signal.
+    // entry so the cancel endpoint + timeout timer can signal it.
+    // NOTE: timeout is armed further below (after compose()) so phase-06
+    // research-mode doubling can read the skill meta before the timer starts.
     const controller = new AbortController();
-    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-    if (config.chatTurnTimeoutMs > 0) {
-      timeoutHandle = setTimeout(() => {
-        registry.abort(turnId, 'timeout');
-      }, config.chatTurnTimeoutMs);
-    }
 
     // Register the turn with the stream registry now that sessionId is final.
     try {
@@ -311,12 +303,31 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       ? getFocus(opts.db, sessionId)
       : undefined;
 
-    const { systemPrompt, allowedToolNames } = compose({
+    const { systemPrompt, allowedToolNames, skillMeta } = compose({
       skill: intent.skill,
       game: body.game,
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
       focus: priorFocus,
     });
+
+    // Phase 06 — resolve per-turn web search and research mode flags.
+    // Both require the env gate AND the skill-level opt-in to be true.
+    const webSearchEnabled =
+      config.chatEnableWebSearch && (skillMeta?.enableWebSearch ?? false);
+    const researchModeEnabled =
+      config.chatEnableResearchMode && (skillMeta?.enableResearchMode ?? false);
+
+    // Phase 04/06 — arm the per-turn timeout now that skill meta is resolved.
+    // Research mode doubles the budget; 0 disables the timeout entirely.
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    if (config.chatTurnTimeoutMs > 0) {
+      const effectiveTimeoutMs = researchModeEnabled
+        ? config.chatTurnTimeoutMs * 2
+        : config.chatTurnTimeoutMs;
+      timeoutHandle = setTimeout(() => {
+        registry.abort(turnId, 'timeout');
+      }, effectiveTimeoutMs);
+    }
 
     // --- 6b. Response-cache lookup (exact-match, per-game) ---
     // Gate: RESPONSE_CACHE_ENABLED=true AND X-Bypass-Cache header not set to '1'.
@@ -534,6 +545,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         tracer: shadowTracer,
         resumeId,
         signal: controller.signal,
+        webSearchEnabled,
       })) {
         // Accumulate result metadata; other events are forwarded directly
         if (event.type === 'result') {

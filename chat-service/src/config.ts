@@ -184,6 +184,22 @@ export interface Config {
    * deletes the inline dispatch. Default false (zero overhead when off).
    */
   obsParallelEmitEnabled: boolean;
+  /**
+   * Phase 06: opt-in web search via the SDK's WebSearch built-in tool.
+   * When true AND the active skill's SKILL.md sets `enable_web_search: true`,
+   * WebSearch is moved from disallowedTools → allowedTools for that turn.
+   * Default false — zero behaviour change when off.
+   */
+  chatEnableWebSearch: boolean;
+  /**
+   * Phase 06: opt-in research mode. When true AND the active skill's SKILL.md
+   * sets `enable_research_mode: true`, the per-turn timeout is doubled to give
+   * the model extra time for multi-step investigations.
+   * SDK research option: inspected v0.3.150 types — no dedicated `research`
+   * flag found. Timeout-doubling is the only runtime change for now.
+   * Default false — zero behaviour change when off.
+   */
+  chatEnableResearchMode: boolean;
 }
 
 function parsePreset(raw: string): QueryOptionsPreset {
@@ -244,6 +260,8 @@ export const config: Config = {
   chatNlqDecomposedToolsEnabled: optional('CHAT_NLQ_DECOMPOSED_TOOLS', 'false') === 'true',
   obsParallelEmitEnabled: optional('OBS_PARALLEL_EMIT', 'false') === 'true',
   chatTurnTimeoutMs: optionalInt('CHAT_TURN_TIMEOUT_MS', 120_000),
+  chatEnableWebSearch: optional('CHAT_ENABLE_WEB_SEARCH', 'false') === 'true',
+  chatEnableResearchMode: optional('CHAT_ENABLE_RESEARCH_MODE', 'false') === 'true',
 };
 
 /** True only when both Langfuse credentials are present in the environment. */
