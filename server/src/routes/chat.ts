@@ -62,12 +62,15 @@ async function proxyJson(
   ownerId: string,
   body?: unknown,
 ): Promise<{ status: number; payload: unknown }> {
+  // Only advertise a JSON content-type when we actually send a body. A
+  // bodyless POST/DELETE (e.g. the turn-cancel route) with
+  // Content-Type: application/json trips the upstream's empty-JSON-body guard
+  // (FST_ERR_CTP_EMPTY_JSON_BODY → 400).
+  const headers: Record<string, string> = { 'X-Owner-Id': ownerId };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await fetch(upstream, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Owner-Id': ownerId,
-    },
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
@@ -301,6 +304,28 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       );
       nodeStream.on('error', () => reply.raw.destroy());
       nodeStream.pipe(reply.raw, { end: true });
+    },
+  );
+
+  // --- POST /api/agent/turn/:turnId/cancel — Phase 04 "Stop generating" ---
+  // The FE cancel button posts here; chat-service registers the upstream at
+  // /agent/turn/:turnId/cancel (no /api prefix). Forward X-Owner-Id so the
+  // upstream owner check can reject cross-user cancels. Pass the upstream
+  // status through verbatim (202 aborted / 410 not-running / 401 / 403).
+  app.post<{ Params: { turnId: string } }>(
+    '/api/agent/turn/:turnId/cancel',
+    async (request: FastifyRequest<{ Params: { turnId: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) {
+        return reply.status(401).send({ code: 'no_owner' });
+      }
+      const url = `${chatServiceUrl()}/agent/turn/${encodeURIComponent(request.params.turnId)}/cancel`;
+      try {
+        const { status, payload } = await proxyJson(url, 'POST', owner);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
     },
   );
 
