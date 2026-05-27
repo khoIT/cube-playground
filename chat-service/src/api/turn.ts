@@ -310,15 +310,16 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       focus: priorFocus,
     });
 
-    // Phase 06 — resolve per-turn web search and research mode flags.
-    // turnOverride: user toggled "Research mode" ON in the composer; overrides
-    // the skill-level opt-in so any skill can run with web search + extended
-    // timeout on demand. Env master flags remain the kill-switch.
-    const turnOverride = req.headers['x-research-mode'] === '1';
+    // Phase 06 — resolve per-turn web search and research mode flags independently.
+    // Each header gates only its own feature; env master flags remain the kill-switch.
+    // X-Web-Search: 1  → webSearchEnabled only (web search tool, does not affect timeout).
+    // X-Research-Mode: 1 → researchModeEnabled only (timeout doubling, does not enable web search).
+    const webSearchOverride = req.headers['x-web-search'] === '1';
+    const researchOverride = req.headers['x-research-mode'] === '1';
     const webSearchEnabled =
-      config.chatEnableWebSearch && (turnOverride || skillMeta?.enableWebSearch || false);
+      config.chatEnableWebSearch && (webSearchOverride || skillMeta?.enableWebSearch || false);
     const researchModeEnabled =
-      config.chatEnableResearchMode && (turnOverride || skillMeta?.enableResearchMode || false);
+      config.chatEnableResearchMode && (researchOverride || skillMeta?.enableResearchMode || false);
 
     // Phase 04/06 — arm the per-turn timeout now that skill meta is resolved.
     // Research mode doubles the budget; 0 disables the timeout entirely.

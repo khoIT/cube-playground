@@ -68,7 +68,7 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
   }, [sessionId]);
 
   const sendTurn = useCallback(
-    async (message: string, bypassCache?: boolean, researchMode?: boolean) => {
+    async (message: string, bypassCache?: boolean, webSearch?: boolean, researchMode?: boolean) => {
       // Touch ownerId so the SSE fetch picks up the current user header.
       // (openChatTurn reads it internally; this is just to keep parity with
       //  the previous hook for tests that mock getOwnerId.)
@@ -84,6 +84,7 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
         game,
         mode: getEffectiveChatMode(liveSessionIdRef.current),
         bypassCache,
+        webSearch,
         researchMode,
       });
     },

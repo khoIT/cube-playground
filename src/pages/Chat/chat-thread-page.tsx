@@ -103,8 +103,9 @@ export function ChatThreadPage() {
   const [committedMessages, setCommittedMessages] = useState<ChatMessage[]>([]);
   /** Phase-06: bypass cache toggle — off by default; set per-send. */
   const [bypassCache, setBypassCache] = useState(false);
-  /** Research mode toggle — when ON sends X-Research-Mode: 1 per turn, enabling
-   *  both web search and extended timeout (subject to env master flags). */
+  /** Web search toggle — when ON sends X-Web-Search: 1 per turn (subject to env master flag). */
+  const [webSearch, setWebSearch] = useState(false);
+  /** Research mode toggle — when ON sends X-Research-Mode: 1 per turn (extended timeout). */
   const [researchMode, setResearchMode] = useState(false);
   const hydratedRef = useRef(false);
 
@@ -274,11 +275,11 @@ export function ChatThreadPage() {
     }
     setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() }]);
     setComposerValue('');
-    sendTurn(text, bypassCache, researchMode);
+    sendTurn(text, bypassCache, webSearch, researchMode);
     // Reset bypass cache after send so the next turn uses the cache by default.
     if (bypassCache) setBypassCache(false);
-    // Research mode is intentionally kept ON between turns (sticky toggle).
-  }, [composerValue, sendTurn, bypassCache, researchMode, forgetSessionFocus]);
+    // Web search and research mode are intentionally kept ON between turns (sticky toggles).
+  }, [composerValue, sendTurn, bypassCache, webSearch, researchMode, forgetSessionFocus]);
 
   /**
    * Phase-04: follow-up chip click prefills + sends immediately. Bypasses
@@ -391,6 +392,8 @@ export function ChatThreadPage() {
               onChange={setComposerValue}
               onSubmit={handleSubmit}
               disabled={isStreaming}
+              webSearch={webSearch}
+              onToggleWebSearch={() => setWebSearch((v) => !v)}
               researchMode={researchMode}
               onToggleResearchMode={() => setResearchMode((v) => !v)}
             />
@@ -406,6 +409,8 @@ export function ChatThreadPage() {
               onDisambigPick={handleDisambigPick}
               bypassCache={bypassCache}
               onToggleBypassCache={() => setBypassCache((v) => !v)}
+              webSearch={webSearch}
+              onToggleWebSearch={() => setWebSearch((v) => !v)}
               researchMode={researchMode}
               onToggleResearchMode={() => setResearchMode((v) => !v)}
             />

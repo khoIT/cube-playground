@@ -34,12 +34,15 @@ interface ChatEmptyHeroProps {
   onChange: (v: string) => void;
   onSubmit: () => void;
   disabled: boolean;
-  /** Controlled research-mode state lifted from the page so submit can include it. */
+  /** Web search toggle — when ON, sends X-Web-Search: 1 per turn. */
+  webSearch: boolean;
+  onToggleWebSearch: () => void;
+  /** Research mode toggle — when ON, sends X-Research-Mode: 1 per turn. */
   researchMode: boolean;
   onToggleResearchMode: () => void;
 }
 
-export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
+export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, webSearch, onToggleWebSearch, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
   const [personaFilter, setPersonaFilter] = useState<StarterPersonaFilterValue>('all');
 
   const filter = useCallback(
@@ -87,6 +90,8 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, res
           onChange={onChange}
           onSubmit={onSubmit}
           disabled={disabled}
+          webSearch={webSearch}
+          onToggleWebSearch={onToggleWebSearch}
           deepResearch={researchMode}
           onToggleDeepResearch={onToggleResearchMode}
         />

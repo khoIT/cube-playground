@@ -3,10 +3,10 @@
  * side panel, and the chat home hero.
  *
  * Layout:
- *   ┌────────────────────────────────────┐
- *   │ <textarea>                         │
- *   │ [Research mode]      [↑ send btn]  │
- *   └────────────────────────────────────┘
+ *   ┌──────────────────────────────────────────────────┐
+ *   │ <textarea>                                       │
+ *   │ [Web search] [Research] [Bypass cache] <> [↑]   │
+ *   └──────────────────────────────────────────────────┘
  *
  * Keyboard:
  *   Enter             → submit (unless Shift held)
@@ -15,9 +15,9 @@
  *   Esc               → blur
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Globe, Telescope } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
-import { ResearchModeToggle } from './chat-research-mode-toggle';
+import { ComposerToolToggle } from './composer-tool-toggle';
 
 interface ChatComposerProps {
   value: string;
@@ -27,10 +27,12 @@ interface ChatComposerProps {
   /** Tighter sizing for the side panel. */
   compact?: boolean;
   placeholder?: string;
+  /** Web search toggle: when ON sends X-Web-Search: 1 per turn. */
+  webSearch?: boolean;
+  onToggleWebSearch?: () => void;
   /**
-   * Optional controlled research-mode state. If omitted, the composer manages
-   * its own local toggle. When ON, the turn enables both web search and
-   * research mode (subject to env master flags on chat-service).
+   * Research mode toggle: when ON sends X-Research-Mode: 1 per turn,
+   * enabling extended timeout (subject to env master flags on chat-service).
    */
   deepResearch?: boolean;
   onToggleDeepResearch?: () => void;
@@ -52,13 +54,18 @@ export function ChatComposer({
   disabled,
   compact,
   placeholder = 'What do you want to know?',
+  webSearch,
+  onToggleWebSearch,
   deepResearch,
   onToggleDeepResearch,
   bypassCache,
   onToggleBypassCache,
 }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [localWebSearch, setLocalWebSearch] = useState(false);
   const [localDeepResearch, setLocalDeepResearch] = useState(false);
+  const ws = webSearch ?? localWebSearch;
+  const toggleWs = onToggleWebSearch ?? (() => setLocalWebSearch((v) => !v));
   const dr = deepResearch ?? localDeepResearch;
   const toggleDr = onToggleDeepResearch ?? (() => setLocalDeepResearch((v) => !v));
 
@@ -128,8 +135,23 @@ export function ChatComposer({
         aria-label="Ask Cube"
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <ResearchModeToggle active={dr} onToggle={toggleDr} compact={compact} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <ComposerToolToggle
+          active={ws}
+          onToggle={toggleWs}
+          icon={Globe}
+          label="Web search"
+          title={ws ? 'Web search: On' : 'Web search: Off'}
+          compact={compact}
+        />
+        <ComposerToolToggle
+          active={dr}
+          onToggle={toggleDr}
+          icon={Telescope}
+          label="Research"
+          title={dr ? 'Research mode: On' : 'Research mode: Off'}
+          compact={compact}
+        />
         {onToggleBypassCache != null && (
           <button
             type="button"

@@ -65,6 +65,9 @@ export interface PanelChatState {
   /** Phase 04 — active turnId for the cancel button. Null until turn_started. */
   liveTurnId: string | null;
   firstUserMessage: string | null;
+  /** Web search toggle state for the panel composer. */
+  webSearch: boolean;
+  onToggleWebSearch: () => void;
   /** Research mode toggle state for the panel composer. */
   researchMode: boolean;
   onToggleResearchMode: () => void;
@@ -76,6 +79,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   const [composerValue, setComposerValue] = useState('');
   const [committedMessages, setCommittedMessages] = useState<ChatMessage[]>([]);
   const [firstUserMessage, setFirstUserMessage] = useState<string | null>(null);
+  const [webSearch, setWebSearch] = useState(false);
   const [researchMode, setResearchMode] = useState(false);
   const hydratedRef = useRef(false);
 
@@ -194,9 +198,9 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     if (!firstUserMessage) setFirstUserMessage(text);
     setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() }]);
     setComposerValue('');
-    sendTurn(text, undefined, researchMode);
-    // Research mode is intentionally kept ON between turns (sticky toggle).
-  }, [composerValue, sendTurn, firstUserMessage, researchMode, forgetSessionFocus]);
+    sendTurn(text, undefined, webSearch, researchMode);
+    // Web search and research mode are intentionally kept ON between turns (sticky toggles).
+  }, [composerValue, sendTurn, firstUserMessage, webSearch, researchMode, forgetSessionFocus]);
 
   // Explicit reset for "New chat" — needed because clicking + when sessionId
   // is already null is a no-op for the sessionId-change effect, leaving the
@@ -221,6 +225,8 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     liveSessionId: streamSessionId,
     liveTurnId: streamTurnId,
     firstUserMessage,
+    webSearch,
+    onToggleWebSearch: () => setWebSearch((v) => !v),
     researchMode,
     onToggleResearchMode: () => setResearchMode((v) => !v),
   };

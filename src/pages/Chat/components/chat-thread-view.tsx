@@ -24,7 +24,10 @@ interface ChatThreadViewProps {
   /** Phase-06: bypass cache toggle state + handler. */
   bypassCache?: boolean;
   onToggleBypassCache?: () => void;
-  /** Research mode toggle: when ON, enables web search + extended timeout per turn. */
+  /** Web search toggle: when ON, sends X-Web-Search: 1 per turn. */
+  webSearch?: boolean;
+  onToggleWebSearch?: () => void;
+  /** Research mode toggle: when ON, sends X-Research-Mode: 1 per turn (extended timeout). */
   researchMode?: boolean;
   onToggleResearchMode?: () => void;
 }
@@ -41,6 +44,8 @@ export function ChatThreadView({
   onDisambigPick,
   bypassCache,
   onToggleBypassCache,
+  webSearch,
+  onToggleWebSearch,
   researchMode,
   onToggleResearchMode,
 }: ChatThreadViewProps) {
@@ -81,6 +86,8 @@ export function ChatThreadView({
           compact={compact}
           bypassCache={bypassCache}
           onToggleBypassCache={onToggleBypassCache}
+          webSearch={webSearch}
+          onToggleWebSearch={onToggleWebSearch}
           deepResearch={researchMode}
           onToggleDeepResearch={onToggleResearchMode}
         />

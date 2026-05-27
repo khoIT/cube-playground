@@ -270,8 +270,11 @@ export interface OpenChatTurnOptions {
   mode?: 'targeted' | 'aggressive';
   /** Phase-06: when true, sends X-Bypass-Cache: 1 to force a fresh LLM call. */
   bypassCache?: boolean;
-  /** Research mode: when true, sends X-Research-Mode: 1 to enable web search +
-   *  extended timeout for this turn (subject to env master flags on chat-service). */
+  /** When true, sends X-Web-Search: 1 to enable web search for this turn
+   *  (subject to CHAT_ENABLE_WEB_SEARCH env master flag on chat-service). */
+  webSearch?: boolean;
+  /** When true, sends X-Research-Mode: 1 to enable extended timeout for this turn
+   *  (subject to CHAT_ENABLE_RESEARCH_MODE env master flag on chat-service). */
   researchMode?: boolean;
 }
 
@@ -344,7 +347,7 @@ export async function* parseSseFromResponse(
  * - call cancel() to abort in-flight.
  */
 export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
-  const { sessionId, message, game, context, mode, bypassCache, researchMode } = options;
+  const { sessionId, message, game, context, mode, bypassCache, webSearch, researchMode } = options;
   const controller = new AbortController();
 
   const pathId = sessionId && sessionId !== 'new' ? sessionId : 'new';
@@ -362,8 +365,9 @@ export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
       if (bypassCache || globalSettings.bypassCache) reqHeaders['X-Bypass-Cache'] = '1';
       // Settings-level model override (allowlist checked server-side).
       if (globalSettings.defaultModel) reqHeaders['X-Model'] = globalSettings.defaultModel;
-      // Research mode: enables web search + extended timeout for this turn.
-      // Mirrored mechanism as X-Bypass-Cache — header present only when ON.
+      // Web search: enables web search tool for this turn (X-Web-Search gates only webSearchEnabled).
+      if (webSearch) reqHeaders['X-Web-Search'] = '1';
+      // Research mode: enables extended timeout for this turn (X-Research-Mode gates only researchModeEnabled).
       if (researchMode) reqHeaders['X-Research-Mode'] = '1';
       response = await fetch(url, {
         method: 'POST',

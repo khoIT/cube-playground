@@ -43,6 +43,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     status,
     liveSessionId,
     liveTurnId,
+    webSearch,
+    onToggleWebSearch,
     researchMode,
     onToggleResearchMode,
   } = usePanelChatState(sessionId);
@@ -174,6 +176,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onSubmit={handleSubmit}
             disabled={isStreaming}
             compact
+            webSearch={webSearch}
+            onToggleWebSearch={onToggleWebSearch}
             deepResearch={researchMode}
             onToggleDeepResearch={onToggleResearchMode}
           />
@@ -187,6 +191,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onComposerChange={setComposerValue}
             onSubmit={handleSubmit}
             compact
+            webSearch={webSearch}
+            onToggleWebSearch={onToggleWebSearch}
             researchMode={researchMode}
             onToggleResearchMode={onToggleResearchMode}
           />
