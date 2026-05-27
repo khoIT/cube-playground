@@ -65,6 +65,9 @@ export interface PanelChatState {
   /** Phase 04 — active turnId for the cancel button. Null until turn_started. */
   liveTurnId: string | null;
   firstUserMessage: string | null;
+  /** Bypass cache toggle — per-turn; resets after each send (matches the page). */
+  bypassCache: boolean;
+  onToggleBypassCache: () => void;
   /** Web search toggle state for the panel composer. */
   webSearch: boolean;
   onToggleWebSearch: () => void;
@@ -79,6 +82,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   const [composerValue, setComposerValue] = useState('');
   const [committedMessages, setCommittedMessages] = useState<ChatMessage[]>([]);
   const [firstUserMessage, setFirstUserMessage] = useState<string | null>(null);
+  const [bypassCache, setBypassCache] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [researchMode, setResearchMode] = useState(false);
   const hydratedRef = useRef(false);
@@ -198,9 +202,11 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     if (!firstUserMessage) setFirstUserMessage(text);
     setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() }]);
     setComposerValue('');
-    sendTurn(text, undefined, webSearch, researchMode);
+    sendTurn(text, bypassCache, webSearch, researchMode);
+    // Reset bypass cache after send so the next turn uses the cache by default.
+    if (bypassCache) setBypassCache(false);
     // Web search and research mode are intentionally kept ON between turns (sticky toggles).
-  }, [composerValue, sendTurn, firstUserMessage, webSearch, researchMode, forgetSessionFocus]);
+  }, [composerValue, sendTurn, firstUserMessage, bypassCache, webSearch, researchMode, forgetSessionFocus]);
 
   // Explicit reset for "New chat" — needed because clicking + when sessionId
   // is already null is a no-op for the sessionId-change effect, leaving the
@@ -210,6 +216,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     setCommittedMessages([]);
     setFirstUserMessage(null);
     setComposerValue('');
+    setBypassCache(false);
     hydratedRef.current = false;
   }, [cancel]);
 
@@ -225,6 +232,8 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     liveSessionId: streamSessionId,
     liveTurnId: streamTurnId,
     firstUserMessage,
+    bypassCache,
+    onToggleBypassCache: () => setBypassCache((v) => !v),
     webSearch,
     onToggleWebSearch: () => setWebSearch((v) => !v),
     researchMode,

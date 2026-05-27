@@ -43,6 +43,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     status,
     liveSessionId,
     liveTurnId,
+    bypassCache,
+    onToggleBypassCache,
     webSearch,
     onToggleWebSearch,
     researchMode,
@@ -176,6 +178,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onSubmit={handleSubmit}
             disabled={isStreaming}
             compact
+            bypassCache={bypassCache}
+            onToggleBypassCache={onToggleBypassCache}
             webSearch={webSearch}
             onToggleWebSearch={onToggleWebSearch}
             deepResearch={researchMode}
@@ -191,6 +195,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onComposerChange={setComposerValue}
             onSubmit={handleSubmit}
             compact
+            bypassCache={bypassCache}
+            onToggleBypassCache={onToggleBypassCache}
             webSearch={webSearch}
             onToggleWebSearch={onToggleWebSearch}
             researchMode={researchMode}

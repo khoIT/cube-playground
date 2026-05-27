@@ -392,6 +392,8 @@ export function ChatThreadPage() {
               onChange={setComposerValue}
               onSubmit={handleSubmit}
               disabled={isStreaming}
+              bypassCache={bypassCache}
+              onToggleBypassCache={() => setBypassCache((v) => !v)}
               webSearch={webSearch}
               onToggleWebSearch={() => setWebSearch((v) => !v)}
               researchMode={researchMode}

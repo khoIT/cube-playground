@@ -34,6 +34,9 @@ interface ChatEmptyHeroProps {
   onChange: (v: string) => void;
   onSubmit: () => void;
   disabled: boolean;
+  /** Bypass cache toggle — when ON, sends X-Bypass-Cache: 1 on the next turn. */
+  bypassCache: boolean;
+  onToggleBypassCache: () => void;
   /** Web search toggle — when ON, sends X-Web-Search: 1 per turn. */
   webSearch: boolean;
   onToggleWebSearch: () => void;
@@ -42,7 +45,7 @@ interface ChatEmptyHeroProps {
   onToggleResearchMode: () => void;
 }
 
-export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, webSearch, onToggleWebSearch, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
+export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, bypassCache, onToggleBypassCache, webSearch, onToggleWebSearch, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
   const [personaFilter, setPersonaFilter] = useState<StarterPersonaFilterValue>('all');
 
   const filter = useCallback(
@@ -90,6 +93,8 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, web
           onChange={onChange}
           onSubmit={onSubmit}
           disabled={disabled}
+          bypassCache={bypassCache}
+          onToggleBypassCache={onToggleBypassCache}
           webSearch={webSearch}
           onToggleWebSearch={onToggleWebSearch}
           deepResearch={researchMode}
