@@ -20,6 +20,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { createDevLogCapture } from './dev-log-capture.mjs';
 
 const isWindows = platform() === 'win32';
 const here = dirname(fileURLToPath(import.meta.url));
@@ -36,8 +37,18 @@ function runConcurrently(args) {
   // args with spaces and re-tokenizes, so multi-word commands like
   // "npm run dev" must be quoted to survive as a single concurrently arg.
   const quoted = args.map((a) => (a.includes(' ') ? `"${a}"` : a));
-  const cc = spawn('npx', ['concurrently', ...quoted], { stdio: 'inherit', shell: true });
-  cc.on('exit', (code) => process.exit(code ?? 0));
+  // Pipe (not inherit) so we can tee combined output to logs/dev-all.log while
+  // still forwarding to this terminal. The capture rolls the file to the last
+  // few hours so an agent can read it whole for daily triage.
+  const log = createDevLogCapture();
+  process.stdout.write(`[dev-all] capturing logs → ${log.logFile}\n`);
+  const cc = spawn('npx', ['concurrently', ...quoted], { stdio: ['inherit', 'pipe', 'pipe'], shell: true });
+  cc.stdout.on('data', log.onStdout);
+  cc.stderr.on('data', log.onStderr);
+  cc.on('exit', (code) => {
+    log.close();
+    process.exit(code ?? 0);
+  });
 }
 
 // Long-running cube watchdog — keeps probing cube_api and restarts it on

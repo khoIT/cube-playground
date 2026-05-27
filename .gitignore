@@ -113,3 +113,7 @@ _audit.jsonl
 # Playwright artifacts
 test-results/
 playwright-report/
+
+# Dev server logs — rolling capture of `npm run dev:all` (may contain raw
+# payloads/tokens). Keep the folder + policy README, ignore the log files.
+logs/*.log
