@@ -59,6 +59,12 @@ const Form = styled.form`
   flex-direction: column;
   gap: 14px;
   padding: 18px 20px;
+  /* Scroll the form body between the fixed header/footer. flex:1 + min-height:0
+     are required for overflow-y to constrain inside the max-height:92vh dialog;
+     without them the form grows to content and the lower fields (concept tier)
+     get clipped with no scrollbar. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 `;
 
