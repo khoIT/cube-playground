@@ -31,6 +31,14 @@ export function composeQuery(input: ComposeInput): Partial<CubeQuery> {
 
   if (isValidRef(slots.metric.value, input.knownMembers)) {
     out.measures = [slots.metric.value as string];
+  } else if (slots.ratio) {
+    // Ratio metric: emit BOTH members so the rate can be computed downstream.
+    // Validate both — a half-valid pair would send a broken query to Cube, so
+    // emit neither and let the /meta gate fall back to clarify.
+    const { numerator, denominator } = slots.ratio;
+    if (isValidRef(numerator, input.knownMembers) && isValidRef(denominator, input.knownMembers)) {
+      out.measures = [numerator, denominator];
+    }
   }
 
   if (slots.dimension && isValidRef(slots.dimension.value, input.knownMembers)) {

@@ -35,9 +35,17 @@ interface CorpusFile { now: string; cases: CorpusCase[] }
 const fixture = JSON.parse(readFileSync(resolve(__dirname, 'glossary-fixture.json'), 'utf-8')) as FixtureFile;
 const corpus = JSON.parse(readFileSync(resolve(__dirname, 'eval-corpus.json'), 'utf-8')) as CorpusFile;
 
-const knownMembers = new Set(
-  fixture.terms.map((t) => t.primaryCatalogId).filter((m): m is string => !!m),
-);
+const knownMembers = new Set<string>();
+for (const term of fixture.terms) {
+  // Add the resolved cube member (measureRef ?? primaryCatalogId for measures/dimensions)
+  const member = term.measureRef ?? term.primaryCatalogId;
+  if (member) knownMembers.add(member);
+  // Add ratio numerator/denominator if present
+  if (term.ratioRef) {
+    knownMembers.add(term.ratioRef.numerator);
+    knownMembers.add(term.ratioRef.denominator);
+  }
+}
 
 const fixedNow = new Date(corpus.now).getTime();
 

@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-27 — glossary resolver consolidation
+
+Unified metric resolution from catalog terms into a single load-normalized resolver layer. Plan: `plans/260527-1306-glossary-resolver-consolidation/`.
+
+- **Unified metric resolver.** Server derives `measureRef`/`ratioRef`/`refKind` at glossary-read time (`GET /api/glossary`); chat-service has one `resolveMetric` contract replacing base `pickMetric` + three flag-gated `applyGlossaryV2` short-circuits. Resolver output: `{ref, ratioRef, refKind, confidence, gap, alternatives, matchedOn}`.
+- **Vocabulary alignment.** Glossary loads cube members (not catalog paths); the /meta gate is now a true safety net (validates members + ratio pairs, names missing member). Ratio terms auto-run two-measure queries; expression/unknown clarify with reason.
+- **Legacy flag replaced.** `CHAT_GLOSSARY_V2` removed; replaced by kill-switch `CHAT_GLOSSARY_LEGACY` (default false) for rollback. Slated for removal next release.
+- **Deferred follow-ups:** (1) Delete `CHAT_GLOSSARY_LEGACY` kill-switch + `applyLegacyRefContract` path next release. (2) Ratio-metric session continuity gap: a clarified ratio term is not persisted to `slots.ratio` (cross-turn reuse broken; single-turn auto-route OK).
+
 ## 2026-05-27 — metric ↔ cube coverage monitor + drift fixes
 
 Reconciled the business-metrics registry against the live cube-dev model and shipped a monitoring/scaffolding surface. Plan: `plans/260527-1257-metric-cube-coverage-sync/`. Tests: server 295, web 1441 (all pass).

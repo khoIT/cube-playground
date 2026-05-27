@@ -1,5 +1,7 @@
 # Phase 02a — Glossary Resolution v2 (Centre of Gravity)
 
+**SUPERSEDED** by `plans/260527-1306-glossary-resolver-consolidation/` — the flag-gated v2 short-circuits were folded into one load-normalized resolver.
+
 ## Context Links
 
 - `plans/reports/researcher-260526-0705-glossary-resolution-failures-session-analysis.md` — **read this first**; this phase is the direct fix

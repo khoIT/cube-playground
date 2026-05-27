@@ -49,6 +49,12 @@ export interface GlossaryTerm {
   defaultFilter: Record<string, unknown> | null;
   ranking: Record<string, unknown> | null;
   trustTier: 'certified' | 'experimental' | null;
+  // Derived on read from the catalog formula — NOT stored columns. `rowToTerm`
+  // emits null/'unknown' defaults; the list/by-id routes enrich them via
+  // `deriveMeasureRef` (the catalog loader is boot-cached there).
+  measureRef: string | null;
+  ratioRef: { numerator: string; denominator: string } | null;
+  refKind: 'measure' | 'ratio' | 'expression' | 'unknown';
 }
 
 export function safeArray(raw: string | null): string[] {
@@ -98,6 +104,10 @@ export function rowToTerm(row: GlossaryRow): GlossaryTerm {
       row.trust_tier === 'certified' || row.trust_tier === 'experimental'
         ? row.trust_tier
         : null,
+    // Defaults; enriched by the route via deriveMeasureRef (loader-aware).
+    measureRef: null,
+    ratioRef: null,
+    refKind: 'unknown',
   };
 }
 

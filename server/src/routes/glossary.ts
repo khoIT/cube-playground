@@ -18,7 +18,10 @@ import {
   termToWriteParams,
   slugify,
   type GlossaryRow,
+  type GlossaryTerm,
 } from './glossary-row-mapper.js';
+import { deriveMeasureRef } from './glossary-measure-ref-resolver.js';
+import { getById as getMetricById } from '../services/business-metrics-loader.js';
 import {
   CreateTermSchema,
   UpdateTermSchema,
@@ -43,6 +46,21 @@ function getRowById(id: string): GlossaryRow | undefined {
     .get(id) as GlossaryRow | undefined;
 }
 
+/**
+ * Resolve the term's catalog path → its cube member(s) so the chat agent's
+ * /meta validator sees a real member, not a catalog path. Loader cache is
+ * populated at boot; a cold cache degrades to refKind:'unknown' (never throws).
+ */
+function enrichTerm(term: GlossaryTerm): GlossaryTerm {
+  const derived = deriveMeasureRef(term.primaryCatalogId, term.defaultMeasureRef, getMetricById);
+  return {
+    ...term,
+    measureRef: derived.measureRef,
+    ratioRef: derived.ratioRef,
+    refKind: derived.refKind,
+  };
+}
+
 export default async function glossaryRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/glossary', async (req, reply) => {
     const parsed = ListQuerySchema.safeParse(req.query ?? {});
@@ -58,13 +76,13 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
     if (req.headers['if-none-match'] === etag) {
       return reply.status(304).header('etag', etag).send();
     }
-    return reply.header('etag', etag).send({ terms: rows.map(rowToTerm) });
+    return reply.header('etag', etag).send({ terms: rows.map(rowToTerm).map(enrichTerm) });
   });
 
   app.get<{ Params: { id: string } }>('/api/glossary/:id', async (req, reply) => {
     const row = getRowById(req.params.id);
     if (!row) return reply.status(404).send({ code: 'not_found' });
-    return rowToTerm(row);
+    return enrichTerm(rowToTerm(row));
   });
 
   app.post('/api/glossary', async (req, reply) => {

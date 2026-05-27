@@ -38,8 +38,16 @@ const TermSchema = z.object({
   labelVi: z.string().nullable().default(null),
   category: z.string().nullable().default(null),
   status: z.literal('official').or(z.literal('draft')).optional(),
-  // Phase 02a concept-tier fields — all optional + nullable; server returns
-  // nulls for non-concept terms which is the bulk of the existing seed.
+  // Cube member(s) derived from the catalog formula at glossary load. The
+  // server emits these on the list/by-id endpoints; older snapshots omit them.
+  measureRef: z.string().nullable().optional(),
+  ratioRef: z
+    .object({ numerator: z.string(), denominator: z.string() })
+    .nullable()
+    .optional(),
+  refKind: z.enum(['measure', 'ratio', 'expression', 'unknown']).optional(),
+  // Concept-tier fields — all optional + nullable; server returns nulls for
+  // non-concept terms which is the bulk of the existing seed.
   entityCube: z.string().nullable().optional(),
   entityPk: z.string().nullable().optional(),
   defaultMeasureRef: z.string().nullable().optional(),
@@ -89,6 +97,9 @@ async function fetchFromServer(prevEtag: string | null): Promise<{ terms: Offici
     aliasesVi: t.aliasesVi,
     labelVi: t.labelVi,
     category: t.category,
+    measureRef: t.measureRef ?? null,
+    ratioRef: t.ratioRef ?? null,
+    refKind: t.refKind ?? 'unknown',
     entityCube: t.entityCube ?? null,
     entityPk: t.entityPk ?? null,
     defaultMeasureRef: t.defaultMeasureRef ?? null,

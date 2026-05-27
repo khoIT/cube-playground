@@ -53,13 +53,20 @@ export interface DisambiguationSlots {
    */
   limit?: number;
   /**
-   * Phase 02a — concept id resolved on this turn (`spender`, `whale`, …).
-   * Memory carries it forward so a follow-up reply ("Revenue") inherits the
-   * concept and the leaderboard-path can re-fire without re-asking.
+   * Concept id resolved on this turn (`spender`, `whale`, …). Memory carries
+   * it forward so a follow-up reply ("Revenue") inherits the concept and the
+   * leaderboard-path can re-fire without re-asking.
    */
   concept?: ScoredSlot<string>;
-  /** Phase 02a — entity (cube + primary key) derived from the resolved concept. */
+  /** Entity (cube + primary key) derived from the resolved concept. */
   entity?: ScoredSlot<{ cube: string; pk: string }>;
+  /**
+   * Ratio-backed metric: the user asked for a rate (retention rate, ROAS…).
+   * The composer emits BOTH members in `measures` and the rate is computed
+   * downstream. `metric.value` stays undefined for ratio terms — the ratio
+   * slot IS the metric, and `metric.confidence` carries its score.
+   */
+  ratio?: { numerator: string; denominator: string };
 }
 
 export interface ClarificationOption {
@@ -84,6 +91,37 @@ export interface DisambiguationResult {
   language: EngineLanguage;
   action: EngineAction;
   warnings: string[];
+  /**
+   * The unified metric resolver's verdict for this turn — carried so the tool
+   * layer can render the "interpreted X as Y" disclosure footer without
+   * re-running resolution. Absent when no metric phrase resolved.
+   */
+  resolution?: MetricResolution;
+}
+
+export type MetricMatchKind = 'cube-ref' | 'exact' | 'alias';
+export type MetricRefKind = 'measure' | 'ratio' | 'expression' | 'unknown';
+
+/**
+ * One contract for "a resolved metric reference". `ref` is a single cube
+ * member for measure terms; `ratioRef` carries the two members for ratio
+ * terms (`ref` null then). Expression/unknown terms produce both null plus a
+ * `reason` so the clarify path can explain why no single measure exists.
+ */
+export interface MetricResolution {
+  ref: string | null;
+  ratioRef: { numerator: string; denominator: string } | null;
+  refKind: MetricRefKind;
+  /** Glossary term that matched, or null for a raw cube-ref typed by the user. */
+  termId: string | null;
+  confidence: number;
+  /** Margin to the next DISTINCT metric term — small gap means ambiguous. */
+  gap: number;
+  alternatives: Array<{ id: string; ref: string | null; score: number }>;
+  matchedOn: MetricMatchKind;
+  alias?: string;
+  span?: [number, number];
+  reason?: string;
 }
 
 /** A canonical glossary entry as seen by the engine — only Official rows. */
@@ -96,8 +134,17 @@ export interface OfficialTerm {
   aliasesVi: string[];
   labelVi: string | null;
   category: string | null;
-  // Phase 02a concept-tier fields. Non-concept terms carry nulls; resolver
-  // treats `entity_cube != null` as the "rankable concept" signal.
+  /**
+   * Canonical cube member(s) derived from the catalog formula at glossary
+   * load. `measureRef` is a single member for measure terms; `ratioRef`
+   * carries the pair for ratio terms. These — not `primaryCatalogId` — are
+   * what the /meta validator accepts.
+   */
+  measureRef?: string | null;
+  ratioRef?: { numerator: string; denominator: string } | null;
+  refKind?: MetricRefKind;
+  // Concept-tier fields. Non-concept terms carry nulls; the resolver treats
+  // `entity_cube != null` as the "rankable concept" signal.
   entityCube?: string | null;
   entityPk?: string | null;
   defaultMeasureRef?: string | null;

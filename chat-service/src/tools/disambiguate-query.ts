@@ -18,9 +18,6 @@ import { fillResultFromMemory, writeMemoryFromResult } from './disambiguate-memo
 import { suggestTimeAwareAlternatives } from '../nl-to-query/time-aware-measure-suggester.js';
 import { config } from '../config.js';
 import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
-import { findExactMatch } from '../nl-to-query/synonym-resolver.js';
-import { firstCubeRef } from '../nl-to-query/recognise-cube-ref.js';
-import { resolveBestConcept } from '../nl-to-query/concept-resolver.js';
 import { buildLeaderboardQuery } from '../nl-to-query/leaderboard-path.js';
 import type { CubeQuery, ToolContext } from '../types.js';
 
@@ -46,6 +43,13 @@ interface MissingRefIssue {
 function collectRefsToValidate(result: DisambiguationResult): MissingRefIssue[] {
   const issues: MissingRefIssue[] = [];
   if (result.slots.metric.value) issues.push({ slot: 'metric', ref: result.slots.metric.value });
+  // Ratio metric carries no single ref — validate BOTH members so a
+  // half-valid pair (one member missing from /meta) clarifies rather than
+  // sending a broken two-measure query to Cube.
+  if (result.slots.ratio) {
+    issues.push({ slot: 'metric', ref: result.slots.ratio.numerator });
+    issues.push({ slot: 'metric', ref: result.slots.ratio.denominator });
+  }
   if (result.slots.dimension?.value) issues.push({ slot: 'dimension', ref: result.slots.dimension.value });
   for (const f of result.slots.filters ?? []) issues.push({ slot: 'filters', ref: f.member });
   return issues;
@@ -105,30 +109,41 @@ export async function handler(
     { now: () => now },
   );
 
-  // Phase 02a — v2 resolver layer. Three short-circuits (cube ref, exact alias,
-  // rankable concept + leaderboard intent) skip the clarify list when the user
-  // has already typed something unambiguous. Flag-gated; falls through to the
-  // existing engine otherwise. Builds `assumption` for the concept path so the
-  // skill body can render the disclosure footer.
-  let assumption: ResolutionAssumption | undefined;
-  if (config.chatGlossaryV2Enabled) {
-    assumption = await applyGlossaryV2(result, args.message, knownMembers);
+  // Kill-switch rollback: restore the pre-consolidation contract (metric ref =
+  // catalog path), which the /meta gate rejects → clarify. Lets ops fall back
+  // to the prior behavior for one release if the unified resolver regresses.
+  if (config.chatGlossaryLegacy) {
+    await applyLegacyRefContract(result);
   }
 
-  // Phase 1 — fill empty slots from memory so the validator sees the
-  // user's prior context (e.g. timeRange set in a previous turn).
+  // Explicit reference → never round-trip through clarification. A fully-
+  // qualified cube ref or a verbatim term match is unambiguous, so auto-route
+  // it even in targeted mode (the engine would otherwise clarify a missing
+  // time range). The /meta gate below can still flip this to clarify if the
+  // member is absent — an explicit but invalid ref must not auto-run.
+  const matchedOn = result.resolution?.matchedOn;
+  if (!config.chatGlossaryLegacy && (matchedOn === 'cube-ref' || matchedOn === 'exact')) {
+    result.action = 'auto';
+    result.clarifications = [];
+  }
+
+  let assumption: ResolutionAssumption | undefined;
+
+  // Fill empty slots from memory so the validator (and the leaderboard builder
+  // below) see the user's prior context (e.g. timeRange or concept set on a
+  // previous turn).
   const memoryParams = ctx.db
     ? { db: ctx.db, sessionId: ctx.sessionId, ownerId: ctx.ownerId, gameId: ctx.gameId, now }
     : null;
   if (memoryParams) fillResultFromMemory(result, memoryParams);
 
-  // Phase 02a sub-deliverable D — replay path: if memory carried forward
-  // intent=leaderboard + concept, rebuild the entity-ranked query now that
-  // this turn's metric/measure is pinned. Synthesises the assumption when
-  // the v2 layer above couldn't (because the current message had no
-  // concept phrase).
-  if (config.chatGlossaryV2Enabled && !assumption) {
-    assumption = await retryLeaderboardFromMemory(result);
+  // Leaderboard assembly (always on). The resolver pins concept+entity on the
+  // current turn; memory backfills them on a follow-up reply. Either way, once
+  // intent=leaderboard + a rankable concept are present we build the
+  // entity-ranked query here — the engine can't, since the entity dimension
+  // was never typed. Also builds the disclosure assumption.
+  if (!config.chatGlossaryLegacy) {
+    assumption = await buildLeaderboardQueryFromConcept(result);
   }
 
   // Validate: reject a snapshot measure × timeRange combination BEFORE the
@@ -140,8 +155,10 @@ export async function handler(
   // Phase 2 — write every still-confident slot back to both memory layers.
   if (memoryParams) writeMemoryFromResult(result, memoryParams);
 
-  // Force a clarification if any resolved ref is unknown to Cube /meta —
-  // we'd rather ask the user than send a query Cube will reject downstream.
+  // Safety net: now that resolved refs are always cube members, a member the
+  // game's /meta lacks means a genuine catalog/meta mismatch (renamed member,
+  // cube absent for this game) — clarify rather than send a query Cube rejects.
+  // The warning names the missing member so ops can fix the catalog/seed.
   if (knownMembers) {
     const missing = collectRefsToValidate(result).filter((i) => !knownMembers!.has(i.ref));
     if (missing.length > 0) {
@@ -150,10 +167,11 @@ export async function handler(
         `unresolved cube refs: ${missing.map((m) => `${m.slot}:${m.ref}`).join(', ')}`,
       );
       if (result.clarifications.length === 0) {
+        const missingMembers = [...new Set(missing.map((m) => m.ref))].join(', ');
         result.clarifications.push({
           slot: missing[0].slot === 'metric' ? 'metric' : missing[0].slot === 'dimension' ? 'dimension' : 'filters',
-          question_en: 'I could not find that in the data model. Which one did you mean?',
-          question_vi: 'Mình không tìm thấy chỉ số đó. Bạn muốn dùng cái nào?',
+          question_en: `"${missingMembers}" isn't available in this game's data model. Which one did you mean?`,
+          question_vi: `"${missingMembers}" không có trong mô hình dữ liệu của game này. Bạn muốn dùng cái nào?`,
         });
       }
     }
@@ -192,138 +210,28 @@ export async function handler(
 }
 
 /**
- * Phase 02a — short-circuit the clarify list when the user has already typed
- * something unambiguous. Mutates `result` in place; returns the assumption
- * payload when the concept-resolver took the leaderboard path (the other two
- * short-circuits don't need disclosure since the user was explicit).
- */
-async function applyGlossaryV2(
-  result: DisambiguationResult,
-  message: string,
-  knownMembers: Set<string> | undefined,
-): Promise<ResolutionAssumption | undefined> {
-  // 1. Fully-qualified cube ref — `recharge.revenue_vnd` style.
-  const refHit = firstCubeRef(message, knownMembers);
-  if (refHit) {
-    result.slots.metric = {
-      value: refHit.hit.cubeRef,
-      alias: refHit.hit.cubeRef,
-      confidence: 1.0,
-      span: refHit.hit.span,
-    };
-    result.action = 'auto';
-    result.clarifications = [];
-    return undefined;
-  }
-
-  // 2. Exact id / label / alias match — user typed a term verbatim.
-  let glossary;
-  try {
-    glossary = await fetchOfficialGlossary();
-  } catch {
-    return undefined;
-  }
-  const exact = findExactMatch(message, glossary);
-  if (exact) {
-    // Concept terms carry a separate `defaultMeasureRef` (the actual cube
-    // member) distinct from `primaryCatalogId` (a catalog path like
-    // `business_metrics/paying_users`). Prefer the cube ref so the meta
-    // validator downstream accepts it.
-    const cubeRef = exact.term.defaultMeasureRef ?? exact.term.primaryCatalogId ?? exact.term.id;
-    result.slots.metric = {
-      value: cubeRef,
-      alias: message.trim(),
-      confidence: 1.0,
-    };
-    result.action = 'auto';
-    result.clarifications = [];
-    return undefined;
-  }
-
-  // 3. Rankable concept + leaderboard intent → entity-rank query.
-  const intent = result.slots.intent?.value;
-  if (intent !== 'leaderboard') return undefined;
-
-  const conceptResolution = resolveBestConcept(message, glossary);
-  if (!conceptResolution) return undefined;
-  const threshold = config.chatGlossaryAutorouteThreshold;
-  if (conceptResolution.confidence < threshold) return undefined;
-  if (conceptResolution.gap < 0.2) return undefined;
-
-  const concept = conceptResolution.best.term;
-  // Inherit timeRange (and limit hint) from the engine's slot extraction.
-  const timeRangeValue = result.slots.timeRange?.value;
-  const granularity = result.slots.timeRange?.granularity as
-    | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | undefined;
-  const built = buildLeaderboardQuery({
-    concept,
-    timeRange: timeRangeValue
-      ? { dateRange: timeRangeValue, granularity }
-      : undefined,
-    limit: result.slots.limit,
-  });
-  if (!built.rankable) return undefined;
-
-  // Replace the engine's draft query and pin the metric slot.
-  result.query = built.query as CubeQuery;
-  if (concept.defaultMeasureRef) {
-    result.slots.metric = {
-      value: concept.defaultMeasureRef,
-      alias: conceptResolution.best.alias,
-      confidence: conceptResolution.confidence,
-      span: conceptResolution.best.span,
-    };
-  }
-  // Write concept + entity slots too so memory carries the leaderboard
-  // shape across turns (sub-deliverable D — replay of session b93d68e4).
-  result.slots.concept = {
-    value: concept.id,
-    alias: conceptResolution.best.alias,
-    confidence: conceptResolution.confidence,
-  };
-  if (concept.entityCube && concept.entityPk) {
-    result.slots.entity = {
-      value: { cube: concept.entityCube, pk: concept.entityPk },
-      alias: conceptResolution.best.alias,
-      confidence: conceptResolution.confidence,
-    };
-  }
-  result.action = 'auto';
-  result.clarifications = [];
-
-  return {
-    slot: 'concept',
-    chosen: concept.id,
-    phrase: conceptResolution.best.alias,
-    confidence: conceptResolution.confidence,
-    alternatives: conceptResolution.secondBest
-      ? [{ id: conceptResolution.secondBest.conceptId, score: conceptResolution.secondBest.score }]
-      : [],
-  };
-}
-
-/**
- * Phase 02a sub-deliverable D — retry the leaderboard path AFTER memory has
- * been merged. Handles the b93d68e4 replay case: turn 0 (clarify) wrote
- * intent=leaderboard + concept=spender + entity=players into memory; turn 2's
- * reply ("Revenue") merges those back and we now have enough to emit a
- * leaderboard query without re-asking.
+ * Assemble the entity-ranked leaderboard query when intent=leaderboard and a
+ * rankable concept is pinned. Serves two cases with one code path:
+ *   - current turn: the unified resolver set concept+entity slots from the
+ *     message ("top spenders this week");
+ *   - replay: memory backfilled concept+entity from a prior turn, and this
+ *     turn's reply ("Revenue") merged them in.
+ * Mutates `result` in place; returns the disclosure assumption.
  *
- * Source attribution: if the cross-session marker
- * (`[cross_session_pref] concept:…`) appears in warnings, the assumption is
- * tagged so the skill body renders the always-disclose footer.
+ * Source attribution: a `[cross_session_pref]` marker in warnings tags the
+ * assumption so the skill body renders the always-disclose footer.
  */
-async function retryLeaderboardFromMemory(
+async function buildLeaderboardQueryFromConcept(
   result: DisambiguationResult,
 ): Promise<ResolutionAssumption | undefined> {
-  if (!config.chatGlossaryV2Enabled) return undefined;
-  const intentSlot = result.slots.intent;
   const conceptSlot = result.slots.concept;
-  if (intentSlot?.value !== 'leaderboard') return undefined;
+  if (result.slots.intent?.value !== 'leaderboard') return undefined;
   if (!conceptSlot?.value) return undefined;
-
-  // If the v2 layer already built the leaderboard query this turn (entity
-  // dim present in query.dimensions) there is nothing to retry.
+  // Only auto-route a leaderboard above the threshold; an ambiguous concept
+  // (low confidence) must stay a clarify rather than be forced to auto here.
+  if (conceptSlot.confidence < config.chatGlossaryAutorouteThreshold) return undefined;
+  // If a query already carries an explicit entity dimension (e.g. user typed
+  // "by country"), respect it — nothing to assemble.
   if (result.query.dimensions && result.query.dimensions.length > 0) return undefined;
 
   let glossary;
@@ -362,6 +270,33 @@ async function retryLeaderboardFromMemory(
     alternatives: [],
     ...(fromCrossSession ? { source: 'cross-session' as const } : {}),
   };
+}
+
+/**
+ * Kill-switch helper: rewrite the resolved metric back to its catalog path so
+ * the /meta gate rejects it and forces a clarification — the behavior before
+ * the resolver consolidation. Strips the consolidated ratio/concept slots so
+ * the legacy path doesn't auto-route a ratio or leaderboard. Removed once the
+ * unified resolver has soaked one release.
+ */
+async function applyLegacyRefContract(result: DisambiguationResult): Promise<void> {
+  const termId = result.resolution?.termId;
+  let glossary;
+  try {
+    glossary = await fetchOfficialGlossary();
+  } catch {
+    glossary = null;
+  }
+  if (termId && glossary) {
+    const term = glossary.find((t) => t.id === termId);
+    if (term?.primaryCatalogId) {
+      result.slots.metric = { ...result.slots.metric, value: term.primaryCatalogId };
+    }
+  }
+  delete result.slots.ratio;
+  delete result.slots.concept;
+  delete result.slots.entity;
+  delete result.resolution;
 }
 
 /**

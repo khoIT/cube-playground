@@ -32,7 +32,11 @@ export function compileAliasIndex(glossary: OfficialTerm[]): CompiledIndex {
 
   for (const t of glossary) {
     terms.set(t.id, t);
-    const ref = t.primaryCatalogId;
+    // Pin the cube member, not the catalog path. INVARIANT: the /meta gate
+    // accepts cube members only, so an alias hit's ref must already be a
+    // member — `measureRef` (catalog formula, resolved at load) is that
+    // member; `primaryCatalogId` (a catalog path) is the legacy fallback.
+    const ref = t.measureRef ?? t.primaryCatalogId;
 
     // Label EN + label VI both count as aliases — that's how users tend to
     // type. Filter duplicates so the same alias doesn't show up twice with

@@ -86,6 +86,14 @@ Format per lesson:
 
 ---
 
+## Metric resolution
+
+### A resolver's output ref must match downstream validator vocabulary
+- **Rule:** when normalizing user input to a canonical reference (e.g. catalog term → cube member), do it at the *read boundary*, not on demand. The resolved ref must match the vocabulary that the consuming validator accepts. Here: glossary loads as `formula.ref` (a cube member name), the /meta gate validates members by their **cube-only** names.
+- **Why:** the glossary resolver emitted catalog paths (`business_metrics/revenue`) while the `/meta` gating layer only knew cube members (`revenue`). Every catalog-backed metric query hit the /meta gate's unknown-member path, forcing a mandatory clarification prompt. A live catalog term with one unambiguous cube mapping would still clarify, because the ref mismatch turned the resolver into a silent "always clarify" trap.
+- **Signal:** a metric with an unambiguous business term (e.g. `revenue`, `paying_users`) returns a clarification prompt listing sibling metrics; the glossary-matched term appears in the prompt's prose but the answer route never auto-fires. Works fine for native cube members but fails for every catalog-backed term. Cache replay shows stale clarifications persisting even after the live metric is fixed.
+- **Apply:** (1) assert the resolver's output ref against the validator's live vocabulary in unit tests, not just in the happy path. (2) When fixing a mismatch, bypass caches (`Bypass-cache` pill, cold cache restart) because the response cache replays entire (prompt + rationale + sibling list) objects, not just refs — stale clarifications stick until the cache TTL expires or is cleared.
+
 ## Chat session lifecycle
 
 ### Per-mount latches on URL-replace effects break back-to-back chat cycles

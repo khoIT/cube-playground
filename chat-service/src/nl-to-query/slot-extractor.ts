@@ -7,11 +7,14 @@
 
 import type {
   DisambiguationSlots,
+  MetricResolution,
   OfficialTerm,
   ScoredSlot,
   SlotFilter,
 } from './types.js';
 import { resolveTerms, unresolvedSpans, type AliasHit } from './synonym-resolver.js';
+import { resolveMetric } from './metric-resolver.js';
+import { classifyTerm } from './term-classifier.js';
 import { parseNumbers, type ParsedNumber } from './number-normaliser.js';
 import { resolveDateRanges, type ResolvedDate } from './date-resolver.js';
 import { classifyIntent } from './intent-classifier.js';
@@ -31,38 +34,42 @@ export interface ExtractResult {
   dates: ResolvedDate[];
   numbers: ParsedNumber[];
   hits: AliasHit[];
+  /** The unified resolver's verdict — threaded out for the disclosure footer. */
+  resolution?: MetricResolution;
 }
 
-function classify(term: OfficialTerm): 'metric' | 'dimension' | 'filter' | 'comparison' {
-  const cat = (term.category ?? '').toLowerCase();
-  if (cat === 'segment' || cat === 'user') return 'filter';
-  if (cat === 'comparison') return 'comparison';
-  if (cat === 'dimension' || cat === 'attribute') return 'dimension';
-  return 'metric';
-}
+/**
+ * Map the unified resolver's verdict onto the metric (and, for ratios, the
+ * ratio) slot. For ratio terms `metric.value` stays undefined — the ratio
+ * slot is the metric — but `metric.confidence` carries the score so the
+ * clarification builder and overall-confidence treat it like any metric.
+ */
+function buildMetricSlots(
+  resolution: MetricResolution | null,
+): { metric: ScoredSlot<string>; ratio?: DisambiguationSlots['ratio'] } {
+  if (!resolution) return { metric: { value: undefined, confidence: 0 } };
 
-function refKnown(ref: string | null, members?: Set<string>): boolean {
-  if (!ref) return false;
-  if (!members) return true;
-  return members.has(ref);
-}
+  if (resolution.refKind === 'ratio' && resolution.ratioRef) {
+    return {
+      metric: {
+        value: undefined,
+        alias: resolution.alias,
+        span: resolution.span,
+        confidence: resolution.confidence,
+      },
+      ratio: resolution.ratioRef,
+    };
+  }
 
-function pickMetric(hits: AliasHit[], glossary: OfficialTerm[], members?: Set<string>): ScoredSlot<string> | undefined {
-  const termById = new Map(glossary.map((t) => [t.id, t]));
-  const metricHits = hits.filter((h) => {
-    const term = termById.get(h.termId);
-    return term ? classify(term) === 'metric' : false;
-  });
-  if (metricHits.length === 0) return undefined;
-  // Pick the longest alias as the canonical metric — same heuristic used by
-  // the synonym resolver to dedupe overlaps.
-  const best = metricHits.reduce((a, b) => (a.alias.length >= b.alias.length ? a : b));
-  const known = refKnown(best.cubeRef, members);
   return {
-    value: best.cubeRef ?? undefined,
-    alias: best.alias,
-    span: best.span,
-    confidence: best.cubeRef ? (known ? 1 : 0.5) : 0.3,
+    metric: {
+      value: resolution.ref ?? undefined,
+      alias: resolution.alias,
+      span: resolution.span,
+      // Expression/unknown refs carry no member — keep confidence low so the
+      // metric clarification surfaces the resolver's reason.
+      confidence: resolution.ref ? resolution.confidence : Math.min(resolution.confidence, 0.3),
+    },
   };
 }
 
@@ -70,7 +77,7 @@ function pickDimension(hits: AliasHit[], glossary: OfficialTerm[]): ScoredSlot<s
   const termById = new Map(glossary.map((t) => [t.id, t]));
   const dimHits = hits.filter((h) => {
     const term = termById.get(h.termId);
-    return term ? classify(term) === 'dimension' : false;
+    return term ? classifyTerm(term) === 'dimension' : false;
   });
   if (dimHits.length === 0) return undefined;
   const best = dimHits[0];
@@ -86,7 +93,7 @@ function buildFilters(hits: AliasHit[], glossary: OfficialTerm[], numbers: Parse
   const termById = new Map(glossary.map((t) => [t.id, t]));
   const filterHits = hits.filter((h) => {
     const term = termById.get(h.termId);
-    return term ? classify(term) === 'filter' : false;
+    return term ? classifyTerm(term) === 'filter' : false;
   });
   if (filterHits.length === 0) return undefined;
 
@@ -121,10 +128,8 @@ export function extractSlots(input: ExtractInput): ExtractResult {
   const numbers = parseNumbers(input.message, { isVietnameseContext: input.isVietnameseContext });
   const dates = resolveDateRanges(input.message, input.now);
 
-  const metric = pickMetric(hits, input.glossary, input.knownMembers) ?? {
-    value: undefined,
-    confidence: 0,
-  };
+  const resolution = resolveMetric(input.message, input.glossary, input.knownMembers);
+  const { metric, ratio } = buildMetricSlots(resolution);
   const dimension = pickDimension(hits, input.glossary);
   const filters = buildFilters(hits, input.glossary, numbers);
 
@@ -141,6 +146,7 @@ export function extractSlots(input: ExtractInput): ExtractResult {
 
   const warnings: string[] = [];
   for (const n of numbers) warnings.push(...n.warnings);
+  if (resolution?.reason) warnings.push(resolution.reason);
 
   const intentResult = classifyIntent(input.message);
   const slots: DisambiguationSlots = {
@@ -151,6 +157,28 @@ export function extractSlots(input: ExtractInput): ExtractResult {
     intent: intentResult.slot,
     limit: intentResult.limit,
   };
+  if (ratio) slots.ratio = ratio;
+
+  // Concept-tier metadata: when the resolved metric term carries an entity
+  // (e.g. "spender" → players.user_id), pin concept + entity slots so the
+  // leaderboard builder can rank by that entity without re-resolving.
+  if (resolution?.termId) {
+    const term = input.glossary.find((t) => t.id === resolution.termId);
+    if (term && (term.entityCube || term.ranking)) {
+      slots.concept = {
+        value: term.id,
+        alias: resolution.alias,
+        confidence: resolution.confidence,
+      };
+      if (term.entityCube && term.entityPk) {
+        slots.entity = {
+          value: { cube: term.entityCube, pk: term.entityPk },
+          alias: resolution.alias,
+          confidence: resolution.confidence,
+        };
+      }
+    }
+  }
 
   return {
     slots,
@@ -159,5 +187,6 @@ export function extractSlots(input: ExtractInput): ExtractResult {
     dates,
     numbers,
     hits,
+    ...(resolution ? { resolution } : {}),
   };
 }

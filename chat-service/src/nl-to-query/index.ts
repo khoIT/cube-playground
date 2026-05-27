@@ -28,13 +28,16 @@ export type {
   Clarification,
   ClarificationOption,
   OfficialTerm,
+  MetricResolution,
 } from './types.js';
 
 export { detectLanguage } from './language-detector.js';
 export { fetchOfficialGlossary, __resetGlossaryCache } from './glossary-client.js';
 export { parseNumbers } from './number-normaliser.js';
 export { resolveDateRanges } from './date-resolver.js';
-export { resolveTerms, compileAliasIndex } from './synonym-resolver.js';
+export { resolveTerms, compileAliasIndex, findExactMatch } from './synonym-resolver.js';
+export { resolveMetric } from './metric-resolver.js';
+export { classifyTerm } from './term-classifier.js';
 export { extractSlots } from './slot-extractor.js';
 export { composeQuery, overallConfidence } from './query-composer.js';
 export { buildClarifications } from './clarification-builder.js';
@@ -113,5 +116,6 @@ export async function disambiguate(
     language,
     action,
     warnings: extracted.warnings,
+    ...(extracted.resolution ? { resolution: extracted.resolution } : {}),
   };
 }

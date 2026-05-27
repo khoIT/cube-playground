@@ -50,6 +50,8 @@ const { META, GLOSSARY } = vi.hoisted(() => ({
       aliases: ['spender', 'spenders', 'payer', 'payers'],
       aliasesVi: ['người trả phí'],
       category: 'monetisation',
+      measureRef: 'recharge.revenue_vnd',
+      refKind: 'measure',
       entityCube: 'players',
       entityPk: 'players.user_id',
       defaultMeasureRef: 'recharge.revenue_vnd',
@@ -66,6 +68,8 @@ const { META, GLOSSARY } = vi.hoisted(() => ({
       aliases: ['revenue', 'total revenue'],
       aliasesVi: ['doanh thu'],
       category: 'monetisation',
+      measureRef: 'recharge.revenue_vnd',
+      refKind: 'measure',
     },
   ],
 }));
@@ -90,7 +94,7 @@ vi.mock('../../src/nl-to-query/glossary-client.js', () => ({
 vi.mock('../../src/config.js', () => ({
   config: {
     disambigAutoThreshold: 0.75,
-    chatGlossaryV2Enabled: true,
+    chatGlossaryLegacy: false,
     chatGlossaryAutorouteThreshold: 0.8,
     cacheServiceEnabled: true,
   },

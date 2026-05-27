@@ -87,7 +87,9 @@ function metricOptions(
   });
 
   return candidates.slice(0, METRIC_OPTION_COUNT).map((t) => ({
-    value: t.primaryCatalogId ?? t.id,
+    // Cube member, not catalog path — keeps option values in the same
+    // vocabulary the /meta gate accepts.
+    value: t.measureRef ?? t.primaryCatalogId ?? t.id,
     label_en: t.label,
     label_vi: t.labelVi ?? t.label,
   }));
