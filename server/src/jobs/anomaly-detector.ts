@@ -24,6 +24,7 @@ import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
 import { getAll as getAllBusinessMetrics } from '../services/business-metrics-loader.js';
 import { planMetricQueries, type CubeMeta } from '../services/metric-query-planner.js';
+import { snapshotFromMeta, validateRefs } from '../services/metric-ref-validator.js';
 import { classifySeries } from '../services/z-score.js';
 import { ANOMALY_METRICS, classifySeverity } from '../services/anomaly-config.js';
 import { upsertAnomaly } from '../services/anomaly-state-store.js';
@@ -138,8 +139,22 @@ async function scanGameLegacy(
     warn(`[anomaly-detector] /meta failed for game="${game}": ${(err as Error).message}`);
     return {};
   }
+  // Validate every metric's formula refs against this game's /meta BEFORE
+  // querying. A ref pointing at a measure the deployed cube model doesn't
+  // define would otherwise 400 on /load every tick (one stack trace per
+  // metric per game). Skip those up front and report them in a single
+  // consolidated line so the log stays actionable, not spammy.
+  const metrics = getAllBusinessMetrics();
+  const unresolved = validateRefs(metrics, snapshotFromMeta(meta));
+  const unresolvedIds = new Set(unresolved.map((u) => u.metricId));
+  if (unresolved.length > 0) {
+    const detail = unresolved.map((u) => `${u.metricId}→${u.ref} (${u.reason})`).join(', ');
+    warn(`[anomaly-detector] game="${game}": skipping ${unresolvedIds.size} metric(s) with unresolved refs: ${detail}`);
+  }
+
   const out: Record<string, AnomalyStateRecord> = {};
-  for (const metric of getAllBusinessMetrics()) {
+  for (const metric of metrics) {
+    if (unresolvedIds.has(metric.id)) continue;
     const plan = planMetricQueries(metric, meta);
     if ('skip' in plan) continue;
     try {

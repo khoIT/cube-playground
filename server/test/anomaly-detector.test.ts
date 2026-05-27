@@ -177,4 +177,27 @@ describe('runDetectorOnce', () => {
     expect(result.entries).toBe(0);
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/no Cube token/));
   });
+
+  it('skips metrics whose refs are absent from /meta and reports them once (no per-metric 400)', async () => {
+    // META has no `active_daily` cube — so the `wau` registry metric
+    // (ref: active_daily.wau) is unresolved for this game.
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue(META);
+    const loadSpy = vi
+      .spyOn(cubeClient, 'load')
+      .mockImplementation(async (query: any) =>
+        makeSeries(100, 101, query.measures[0].split('.')[0], query.measures[0]),
+      );
+    process.env.ANOMALY_DETECTOR_GAMES = 'ballistar';
+
+    const warn = vi.fn();
+    await runDetectorOnce(warn);
+
+    // One consolidated warning, naming the unresolved ref — not a 400 per tick.
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/unresolved refs:.*wau→active_daily\.wau/),
+    );
+    // The doomed measure was never sent to Cube.
+    const loadedMeasures = loadSpy.mock.calls.map((c: any[]) => c[0].measures[0]);
+    expect(loadedMeasures).not.toContain('active_daily.wau');
+  });
 });
