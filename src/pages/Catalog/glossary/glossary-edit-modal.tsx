@@ -41,6 +41,12 @@ const Dialog = styled.div`
   max-height: 92vh;
   display: flex;
   flex-direction: column;
+  /* overflow:hidden + min-height:0 force the flex children to live inside the
+     92vh cap so the scrollable <Form> body actually gets a scroll context;
+     without the clip some browsers let the form overflow instead of shrinking
+     and the footer/lower fields fall off-screen with no scrollbar. */
+  overflow: hidden;
+  min-height: 0;
   border: 1px solid var(--border-card);
 `;
 
