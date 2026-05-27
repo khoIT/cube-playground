@@ -11,11 +11,11 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: ratio
-  numerator: mf_users.retained_d7
-  denominator: mf_users.new_users
+  numerator: retention.retained_d7
+  denominator: retention.cohort_size
 format: percent
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [retention]
 parameter:
   name: n
   label: Day (n)
