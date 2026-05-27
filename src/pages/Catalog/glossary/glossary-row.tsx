@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Pencil } from 'lucide-react';
 import type { GlossaryTerm } from '../../../api/glossary-client';
+import { isConceptTerm } from '../../../api/glossary-client';
 import { resolveGlossaryHref } from './resolve-glossary-link';
 
 interface Props {
@@ -96,6 +97,18 @@ const Aliases = styled.div`
   color: var(--text-muted);
 `;
 
+/** Small badge shown on rows that carry at least one concept-tier field. */
+const ConceptBadge = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--info-soft, rgba(59,130,246,0.12));
+  color: var(--info-ink, #2563eb);
+`;
+
 const CatalogChip = styled(Link)`
   align-self: flex-start;
   margin-top: 4px;
@@ -120,6 +133,7 @@ export function GlossaryRow({ term, onEdit, editLabel, draftLabel, officialLabel
         <Label>{term.label}</Label>
         {term.labelVi ? <LabelVi>· {term.labelVi}</LabelVi> : null}
         {term.category ? <CategoryTag>{term.category}</CategoryTag> : null}
+        {isConceptTerm(term) ? <ConceptBadge title={`Entity: ${term.entityCube ?? '—'}`}>concept</ConceptBadge> : null}
         <StatusPill $official={term.status === 'official'}>
           {term.status === 'official' ? officialLabel ?? 'Official' : draftLabel ?? 'Draft'}
         </StatusPill>

@@ -20,6 +20,7 @@ import { GlossaryStatusFilter } from './glossary-status-filter';
 import { GlossaryEditModal } from './glossary-edit-modal';
 import { useGlossaryMutations } from './use-glossary-mutations';
 import type { FormValues } from './glossary-edit-form';
+import { parseConceptTier } from './glossary-concept-tier-section';
 
 const Page = styled.div`
   display: flex;
@@ -165,6 +166,7 @@ export function GlossaryIndexPage() {
 
   async function onSave(values: FormValues) {
     const editorName = values.editorName.trim() || undefined;
+    const concept = parseConceptTier(values.concept);
     const payload = {
       label: values.label,
       description: values.description,
@@ -175,6 +177,13 @@ export function GlossaryIndexPage() {
       aliases: values.aliases,
       aliasesVi: values.aliasesVi,
       editorName,
+      // Concept tier (all nullable; omit filter when JSON parse failed)
+      entityCube: concept.entityCube,
+      entityPk: concept.entityPk,
+      defaultMeasureRef: concept.defaultMeasureRef,
+      defaultFilter: concept.filterError ? undefined : concept.defaultFilter,
+      ranking: concept.ranking,
+      trustTier: concept.trustTier,
     };
     const saved = editing
       ? await mutations.update(editing.id, payload)

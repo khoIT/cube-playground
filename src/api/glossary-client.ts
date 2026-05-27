@@ -7,6 +7,20 @@
 
 export type GlossaryStatus = 'draft' | 'official';
 export type GlossarySource = 'seed' | 'user';
+export type GlossaryTrustTier = 'certified' | 'experimental';
+
+/** Shape of default_filter — server enforces safe op allowlist. */
+export interface GlossaryFilter {
+  member: string;
+  op: '>' | '>=' | '<' | '<=' | '=' | '!=' | 'IN' | 'NOT IN';
+  value: string | number | (string | number)[];
+}
+
+/** Shape of ranking_json. */
+export interface GlossaryRanking {
+  order: 'ASC' | 'DESC';
+  default_limit: number;
+}
 
 export interface GlossaryTerm {
   id: string;
@@ -23,9 +37,30 @@ export interface GlossaryTerm {
   status: GlossaryStatus;
   source: GlossarySource;
   editorName: string | null;
+  // Phase 02a concept-tier fields (nullable; absent on non-concept terms).
+  entityCube: string | null;
+  entityPk: string | null;
+  defaultMeasureRef: string | null;
+  defaultFilter: GlossaryFilter | null;
+  ranking: GlossaryRanking | null;
+  trustTier: GlossaryTrustTier | null;
 }
 
-export interface GlossaryWriteInput {
+/** Returns true when a term carries at least one concept-tier field. */
+export function isConceptTerm(term: GlossaryTerm): boolean {
+  return !!(term.entityCube || term.entityPk || term.defaultMeasureRef);
+}
+
+export interface GlossaryConceptInput {
+  entityCube?: string | null;
+  entityPk?: string | null;
+  defaultMeasureRef?: string | null;
+  defaultFilter?: GlossaryFilter | null;
+  ranking?: GlossaryRanking | null;
+  trustTier?: GlossaryTrustTier | null;
+}
+
+export interface GlossaryWriteInput extends GlossaryConceptInput {
   label: string;
   description: string;
   primaryCatalogId?: string | null;

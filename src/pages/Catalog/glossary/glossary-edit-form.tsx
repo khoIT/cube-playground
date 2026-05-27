@@ -10,6 +10,10 @@ import styled from 'styled-components';
 import type { GlossaryStatus, GlossaryTerm } from '../../../api/glossary-client';
 import { GlossaryAliasChips } from './glossary-alias-chips';
 import { GlossaryStatusToggle } from './glossary-status-toggle';
+import {
+  GlossaryConceptTierSection,
+  type ConceptTierValues,
+} from './glossary-concept-tier-section';
 
 const EDITOR_KEY = 'compass:prefs:glossary:editor-name';
 
@@ -24,6 +28,7 @@ export interface FormValues {
   aliasesVi: string[];
   editorName: string;
   status: GlossaryStatus;
+  concept: ConceptTierValues;
 }
 
 interface Props {
@@ -104,6 +109,7 @@ const StatusRow = styled.div`
 `;
 
 function toForm(initial?: GlossaryTerm): FormValues {
+  const ranking = initial?.ranking;
   return {
     label: initial?.label ?? '',
     description: initial?.description ?? '',
@@ -117,6 +123,17 @@ function toForm(initial?: GlossaryTerm): FormValues {
       initial?.editorName ??
       (typeof window !== 'undefined' ? window.localStorage.getItem(EDITOR_KEY) ?? '' : ''),
     status: initial?.status ?? 'draft',
+    concept: {
+      entityCube: initial?.entityCube ?? '',
+      entityPk: initial?.entityPk ?? '',
+      defaultMeasureRef: initial?.defaultMeasureRef ?? '',
+      defaultFilterJson: initial?.defaultFilter
+        ? JSON.stringify(initial.defaultFilter)
+        : '',
+      rankingOrder: ranking?.order ?? 'DESC',
+      rankingLimit: ranking?.default_limit != null ? String(ranking.default_limit) : '',
+      trustTier: initial?.trustTier ?? '',
+    },
   };
 }
 
@@ -127,6 +144,10 @@ export function GlossaryEditForm({ initial, onSubmit, saving, i18n }: Props) {
 
   function set<K extends keyof FormValues>(k: K, v: FormValues[K]) {
     setValues((prev) => ({ ...prev, [k]: v }));
+  }
+
+  function setConcept(patch: Partial<ConceptTierValues>) {
+    setValues((prev) => ({ ...prev, concept: { ...prev.concept, ...patch } }));
   }
 
   function submit(e: React.FormEvent) {
@@ -220,6 +241,7 @@ export function GlossaryEditForm({ initial, onSubmit, saving, i18n }: Props) {
           <Input value={values.category} onChange={(e) => set('category', e.target.value.slice(0, 64))} />
         </Field>
       </Row>
+      <GlossaryConceptTierSection values={values.concept} onChange={setConcept} />
       <input type="submit" hidden disabled={saving || !canSave} aria-label={i18n.save} />
     </Form>
   );
