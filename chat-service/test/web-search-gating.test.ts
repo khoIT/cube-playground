@@ -61,27 +61,81 @@ describe('Web-search gating — buildQueryOptions', () => {
 describe('Web-search skill-frontmatter parsing', () => {
   /**
    * The two-condition gate is enforced in api/turn.ts:
-   *   webSearchEnabled = config.chatEnableWebSearch && skillMeta.enableWebSearch
+   *   webSearchEnabled = config.chatEnableWebSearch && (webSearchOverride || skillMeta.enableWebSearch)
    *
-   * We model that logic here to unit-test the conjunction.
+   * We model that logic here to unit-test the conjunction (header override path).
    */
-  function resolveWebSearch(envFlag: boolean, skillFlag: boolean): boolean {
-    return envFlag && skillFlag;
+  function resolveWebSearch(envFlag: boolean, headerOverride: boolean, skillFlag: boolean): boolean {
+    return envFlag && (headerOverride || skillFlag);
   }
 
-  it('both flags true → web search enabled', () => {
-    expect(resolveWebSearch(true, true)).toBe(true);
+  it('both env flag and skill opt-in true → web search enabled', () => {
+    expect(resolveWebSearch(true, false, true)).toBe(true);
   });
 
   it('env flag false, skill opt-in true → web search disabled', () => {
-    expect(resolveWebSearch(false, true)).toBe(false);
+    expect(resolveWebSearch(false, false, true)).toBe(false);
   });
 
-  it('env flag true, skill opt-out → web search disabled', () => {
-    expect(resolveWebSearch(true, false)).toBe(false);
+  it('env flag true, skill opt-out, no header → web search disabled', () => {
+    expect(resolveWebSearch(true, false, false)).toBe(false);
   });
 
-  it('both flags false → web search disabled', () => {
-    expect(resolveWebSearch(false, false)).toBe(false);
+  it('both flags false, no header → web search disabled', () => {
+    expect(resolveWebSearch(false, false, false)).toBe(false);
+  });
+
+  it('X-Web-Search header overrides skill opt-out when env flag is true', () => {
+    expect(resolveWebSearch(true, true, false)).toBe(true);
+  });
+
+  it('X-Web-Search header does NOT override env master kill-switch', () => {
+    expect(resolveWebSearch(false, true, false)).toBe(false);
+  });
+});
+
+describe('Independent gate: X-Web-Search does not activate researchMode', () => {
+  /**
+   * Mirrors the split in api/turn.ts:
+   *   webSearchOverride  = x-web-search === '1'
+   *   researchOverride   = x-research-mode === '1'
+   * Each feeds only its own gate.
+   */
+  function resolveGates(
+    envWebSearch: boolean,
+    envResearch: boolean,
+    xWebSearch: boolean,
+    xResearchMode: boolean,
+    skillWebSearch: boolean,
+    skillResearch: boolean,
+  ): { webSearchEnabled: boolean; researchModeEnabled: boolean } {
+    return {
+      webSearchEnabled: envWebSearch && (xWebSearch || skillWebSearch),
+      researchModeEnabled: envResearch && (xResearchMode || skillResearch),
+    };
+  }
+
+  it('X-Web-Search ON, X-Research-Mode OFF → only webSearch enabled', () => {
+    const { webSearchEnabled, researchModeEnabled } = resolveGates(true, true, true, false, false, false);
+    expect(webSearchEnabled).toBe(true);
+    expect(researchModeEnabled).toBe(false);
+  });
+
+  it('X-Research-Mode ON, X-Web-Search OFF → only researchMode enabled', () => {
+    const { webSearchEnabled, researchModeEnabled } = resolveGates(true, true, false, true, false, false);
+    expect(webSearchEnabled).toBe(false);
+    expect(researchModeEnabled).toBe(true);
+  });
+
+  it('both headers ON → both gates enabled', () => {
+    const { webSearchEnabled, researchModeEnabled } = resolveGates(true, true, true, true, false, false);
+    expect(webSearchEnabled).toBe(true);
+    expect(researchModeEnabled).toBe(true);
+  });
+
+  it('neither header, neither skill → both gates disabled', () => {
+    const { webSearchEnabled, researchModeEnabled } = resolveGates(true, true, false, false, false, false);
+    expect(webSearchEnabled).toBe(false);
+    expect(researchModeEnabled).toBe(false);
   });
 });

@@ -163,4 +163,60 @@ describe('openChatTurn', () => {
     const callArgs = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(callArgs[0]).toBe('/api/chat/sessions/uuid-123/turn');
   });
+
+  it('sends X-Web-Search: 1 when webSearch=true', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      body: makeSseStream([{ event: 'done', data: {} }]),
+    });
+
+    const { stream } = openChatTurn({ sessionId: null, message: 'hi', game: 'ptg', webSearch: true });
+    await collect(stream);
+
+    const callArgs = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(callArgs[1]?.headers?.['X-Web-Search']).toBe('1');
+    expect(callArgs[1]?.headers?.['X-Research-Mode']).toBeUndefined();
+  });
+
+  it('sends X-Research-Mode: 1 when researchMode=true', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      body: makeSseStream([{ event: 'done', data: {} }]),
+    });
+
+    const { stream } = openChatTurn({ sessionId: null, message: 'hi', game: 'ptg', researchMode: true });
+    await collect(stream);
+
+    const callArgs = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(callArgs[1]?.headers?.['X-Research-Mode']).toBe('1');
+    expect(callArgs[1]?.headers?.['X-Web-Search']).toBeUndefined();
+  });
+
+  it('sends both X-Web-Search and X-Research-Mode when both flags true', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      body: makeSseStream([{ event: 'done', data: {} }]),
+    });
+
+    const { stream } = openChatTurn({ sessionId: null, message: 'hi', game: 'ptg', webSearch: true, researchMode: true });
+    await collect(stream);
+
+    const callArgs = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(callArgs[1]?.headers?.['X-Web-Search']).toBe('1');
+    expect(callArgs[1]?.headers?.['X-Research-Mode']).toBe('1');
+  });
+
+  it('omits X-Web-Search and X-Research-Mode when neither flag is set', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      body: makeSseStream([{ event: 'done', data: {} }]),
+    });
+
+    const { stream } = openChatTurn({ sessionId: null, message: 'hi', game: 'ptg' });
+    await collect(stream);
+
+    const callArgs = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(callArgs[1]?.headers?.['X-Web-Search']).toBeUndefined();
+    expect(callArgs[1]?.headers?.['X-Research-Mode']).toBeUndefined();
+  });
 });
