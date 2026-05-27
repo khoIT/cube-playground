@@ -57,6 +57,8 @@ interface StartTurnOptions {
   mode?: 'targeted' | 'aggressive';
   /** Phase-06: when true, sends X-Bypass-Cache: 1 to skip the response cache. */
   bypassCache?: boolean;
+  /** Research mode: when true, sends X-Research-Mode: 1 to enable web search + extended timeout. */
+  researchMode?: boolean;
 }
 
 interface ChatStreamStore {
@@ -128,7 +130,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
     return s.streams.get(resolveKey(s, sessionId)) ?? makeIdleEntry(sessionId);
   },
 
-  startTurn: async ({ sessionId, message, game, context, mode, bypassCache }) => {
+  startTurn: async ({ sessionId, message, game, context, mode, bypassCache, researchMode }) => {
     const key = resolveKey(get(), sessionId);
     const existing = get().streams.get(key);
     // Defense-in-depth: composer disables while streaming. Silent no-op if a
@@ -137,7 +139,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
       return;
     }
 
-    const { stream, cancel } = openChatTurn({ sessionId, message, game, context, mode, bypassCache });
+    const { stream, cancel } = openChatTurn({ sessionId, message, game, context, mode, bypassCache, researchMode });
 
     // Seed entry into 'loading' with cancel handle, preserve refcount.
     set((s) => {

@@ -2,13 +2,14 @@
  * ChatEmptyHero — state-of-the-art landing for /chat (no session yet).
  *
  * Composition: cube logo + wordmark + subtitle + custom composer with
- * Deep Research pill toggle + circular send + starter library grid.
+ * Research mode toggle + circular send + starter library grid.
  *
  * Starter clicks prefill the composer (no auto-submit) per decision Q10.
  * Cold-start (intent observations < STARTER_RANK_MIN_SESSIONS) renders all
  * 16 starters in source order; afterward persona-histogram ranks them.
- * Deep Research is a mocked FE-only flag for now; the value is
- * passed through but the chat-service treats it as a no-op.
+ * Research mode toggle is wired end-to-end: ON sends X-Research-Mode: 1
+ * which enables both web search and research mode for that turn (subject to
+ * CHAT_ENABLE_WEB_SEARCH + CHAT_ENABLE_RESEARCH_MODE env master flags).
  */
 import React, { useCallback, useState } from 'react';
 import { T } from '../../../shell/theme';
@@ -33,10 +34,12 @@ interface ChatEmptyHeroProps {
   onChange: (v: string) => void;
   onSubmit: () => void;
   disabled: boolean;
+  /** Controlled research-mode state lifted from the page so submit can include it. */
+  researchMode: boolean;
+  onToggleResearchMode: () => void;
 }
 
-export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled }: ChatEmptyHeroProps) {
-  const [deepResearch, setDeepResearch] = useState(false);
+export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
   const [personaFilter, setPersonaFilter] = useState<StarterPersonaFilterValue>('all');
 
   const filter = useCallback(
@@ -84,8 +87,8 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled }: C
           onChange={onChange}
           onSubmit={onSubmit}
           disabled={disabled}
-          deepResearch={deepResearch}
-          onToggleDeepResearch={() => setDeepResearch((v) => !v)}
+          deepResearch={researchMode}
+          onToggleDeepResearch={onToggleResearchMode}
         />
 
         <div style={{ width: '100%', marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>

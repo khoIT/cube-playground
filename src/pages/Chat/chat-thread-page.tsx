@@ -103,6 +103,9 @@ export function ChatThreadPage() {
   const [committedMessages, setCommittedMessages] = useState<ChatMessage[]>([]);
   /** Phase-06: bypass cache toggle — off by default; set per-send. */
   const [bypassCache, setBypassCache] = useState(false);
+  /** Research mode toggle — when ON sends X-Research-Mode: 1 per turn, enabling
+   *  both web search and extended timeout (subject to env master flags). */
+  const [researchMode, setResearchMode] = useState(false);
   const hydratedRef = useRef(false);
 
   const { session, isLoading } = useChatSession(isNew ? null : id ?? null);
@@ -271,10 +274,11 @@ export function ChatThreadPage() {
     }
     setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text, ts: new Date().toISOString() }]);
     setComposerValue('');
-    sendTurn(text, bypassCache);
+    sendTurn(text, bypassCache, researchMode);
     // Reset bypass cache after send so the next turn uses the cache by default.
     if (bypassCache) setBypassCache(false);
-  }, [composerValue, sendTurn, bypassCache, forgetSessionFocus]);
+    // Research mode is intentionally kept ON between turns (sticky toggle).
+  }, [composerValue, sendTurn, bypassCache, researchMode, forgetSessionFocus]);
 
   /**
    * Phase-04: follow-up chip click prefills + sends immediately. Bypasses
@@ -387,6 +391,8 @@ export function ChatThreadPage() {
               onChange={setComposerValue}
               onSubmit={handleSubmit}
               disabled={isStreaming}
+              researchMode={researchMode}
+              onToggleResearchMode={() => setResearchMode((v) => !v)}
             />
           ) : (
             <ChatThreadView
@@ -400,6 +406,8 @@ export function ChatThreadPage() {
               onDisambigPick={handleDisambigPick}
               bypassCache={bypassCache}
               onToggleBypassCache={() => setBypassCache((v) => !v)}
+              researchMode={researchMode}
+              onToggleResearchMode={() => setResearchMode((v) => !v)}
             />
           )}
           {lastCompactWarning && status === 'done' && <CompactWarningChip />}

@@ -193,6 +193,74 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
     expect(capturedHeaders['x-model']).toBe('claude-opus-4-5');
   });
 
+  it('forwards X-Research-Mode header to upstream when present', async () => {
+    const captureApp = Fastify({ logger: false });
+    let capturedHeaders: Record<string, string | string[] | undefined> = {};
+
+    captureApp.post('/agent/turn', (req, reply) => {
+      capturedHeaders = { ...req.headers };
+      void reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      reply.raw.write('event: done\ndata: {}\n\n');
+      reply.raw.end();
+      return reply.hijack();
+    });
+
+    await captureApp.listen({ port: 0, host: '127.0.0.1' });
+    const addr = captureApp.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    process.env.CHAT_SERVICE_URL = `http://127.0.0.1:${port}`;
+
+    const testApp = Fastify({ logger: false });
+    await testApp.register(ownerHeader);
+    await testApp.register(chatRoutes);
+
+    await testApp.inject({
+      method: 'POST',
+      url: '/api/chat/sessions/new/turn',
+      headers: { 'x-owner-id': 'tester', 'content-type': 'application/json', 'x-research-mode': '1' },
+      payload: { message: 'hi', game: 'ptg' },
+    });
+
+    await testApp.close();
+    await captureApp.close();
+
+    expect(capturedHeaders['x-research-mode']).toBe('1');
+  });
+
+  it('does not forward X-Research-Mode when absent', async () => {
+    const captureApp = Fastify({ logger: false });
+    let capturedHeaders: Record<string, string | string[] | undefined> = {};
+
+    captureApp.post('/agent/turn', (req, reply) => {
+      capturedHeaders = { ...req.headers };
+      void reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      reply.raw.write('event: done\ndata: {}\n\n');
+      reply.raw.end();
+      return reply.hijack();
+    });
+
+    await captureApp.listen({ port: 0, host: '127.0.0.1' });
+    const addr = captureApp.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : 0;
+    process.env.CHAT_SERVICE_URL = `http://127.0.0.1:${port}`;
+
+    const testApp = Fastify({ logger: false });
+    await testApp.register(ownerHeader);
+    await testApp.register(chatRoutes);
+
+    await testApp.inject({
+      method: 'POST',
+      url: '/api/chat/sessions/new/turn',
+      headers: { 'x-owner-id': 'tester', 'content-type': 'application/json' },
+      payload: { message: 'hi', game: 'ptg' },
+    });
+
+    await testApp.close();
+    await captureApp.close();
+
+    expect(capturedHeaders['x-research-mode']).toBeUndefined();
+  });
+
   it('does not forward X-Bypass-Cache when absent', async () => {
     const captureApp = Fastify({ logger: false });
     let capturedHeaders: Record<string, string | string[] | undefined> = {};

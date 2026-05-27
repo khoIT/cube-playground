@@ -165,6 +165,8 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (typeof bypassCache === 'string') forwardedHeaders['X-Bypass-Cache'] = bypassCache;
       const xModel = request.headers['x-model'];
       if (typeof xModel === 'string') forwardedHeaders['X-Model'] = xModel;
+      const xResearchMode = request.headers['x-research-mode'];
+      if (typeof xResearchMode === 'string') forwardedHeaders['X-Research-Mode'] = xResearchMode;
 
       let upstreamRes: Response;
       try {

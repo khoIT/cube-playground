@@ -24,6 +24,9 @@ interface ChatThreadViewProps {
   /** Phase-06: bypass cache toggle state + handler. */
   bypassCache?: boolean;
   onToggleBypassCache?: () => void;
+  /** Research mode toggle: when ON, enables web search + extended timeout per turn. */
+  researchMode?: boolean;
+  onToggleResearchMode?: () => void;
 }
 
 export function ChatThreadView({
@@ -38,6 +41,8 @@ export function ChatThreadView({
   onDisambigPick,
   bypassCache,
   onToggleBypassCache,
+  researchMode,
+  onToggleResearchMode,
 }: ChatThreadViewProps) {
   // Compact (side panel) keeps its self-contained scroll + flex-pinned
   // composer. Main route delegates scroll to the page wrapper and uses a
@@ -76,6 +81,8 @@ export function ChatThreadView({
           compact={compact}
           bypassCache={bypassCache}
           onToggleBypassCache={onToggleBypassCache}
+          deepResearch={researchMode}
+          onToggleDeepResearch={onToggleResearchMode}
         />
       </div>
     </div>

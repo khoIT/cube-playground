@@ -270,6 +270,9 @@ export interface OpenChatTurnOptions {
   mode?: 'targeted' | 'aggressive';
   /** Phase-06: when true, sends X-Bypass-Cache: 1 to force a fresh LLM call. */
   bypassCache?: boolean;
+  /** Research mode: when true, sends X-Research-Mode: 1 to enable web search +
+   *  extended timeout for this turn (subject to env master flags on chat-service). */
+  researchMode?: boolean;
 }
 
 export interface ChatTurnHandle {
@@ -341,7 +344,7 @@ export async function* parseSseFromResponse(
  * - call cancel() to abort in-flight.
  */
 export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
-  const { sessionId, message, game, context, mode, bypassCache } = options;
+  const { sessionId, message, game, context, mode, bypassCache, researchMode } = options;
   const controller = new AbortController();
 
   const pathId = sessionId && sessionId !== 'new' ? sessionId : 'new';
@@ -359,6 +362,9 @@ export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
       if (bypassCache || globalSettings.bypassCache) reqHeaders['X-Bypass-Cache'] = '1';
       // Settings-level model override (allowlist checked server-side).
       if (globalSettings.defaultModel) reqHeaders['X-Model'] = globalSettings.defaultModel;
+      // Research mode: enables web search + extended timeout for this turn.
+      // Mirrored mechanism as X-Bypass-Cache — header present only when ON.
+      if (researchMode) reqHeaders['X-Research-Mode'] = '1';
       response = await fetch(url, {
         method: 'POST',
         headers: reqHeaders,

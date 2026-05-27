@@ -43,6 +43,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     status,
     liveSessionId,
     liveTurnId,
+    researchMode,
+    onToggleResearchMode,
   } = usePanelChatState(sessionId);
 
   // Phase 04 — server-side cancel for the panel's in-flight turn.
@@ -172,6 +174,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onSubmit={handleSubmit}
             disabled={isStreaming}
             compact
+            deepResearch={researchMode}
+            onToggleDeepResearch={onToggleResearchMode}
           />
         </>
       ) : (
@@ -183,6 +187,8 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onComposerChange={setComposerValue}
             onSubmit={handleSubmit}
             compact
+            researchMode={researchMode}
+            onToggleResearchMode={onToggleResearchMode}
           />
           {/* Phase 04 — Stop generating affordance in the side panel. */}
           {isStreaming && liveTurnId && (

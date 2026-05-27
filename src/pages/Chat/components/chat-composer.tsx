@@ -5,7 +5,7 @@
  * Layout:
  *   ┌────────────────────────────────────┐
  *   │ <textarea>                         │
- *   │ [Deep Research]      [↑ send btn]  │
+ *   │ [Research mode]      [↑ send btn]  │
  *   └────────────────────────────────────┘
  *
  * Keyboard:
@@ -17,7 +17,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
-import { DeepResearchToggle } from './chat-deep-research-toggle';
+import { ResearchModeToggle } from './chat-research-mode-toggle';
 
 interface ChatComposerProps {
   value: string;
@@ -28,8 +28,9 @@ interface ChatComposerProps {
   compact?: boolean;
   placeholder?: string;
   /**
-   * Optional controlled deep-research state. If omitted, the composer manages
-   * its own local toggle. Currently FE-only; the chat-service ignores it.
+   * Optional controlled research-mode state. If omitted, the composer manages
+   * its own local toggle. When ON, the turn enables both web search and
+   * research mode (subject to env master flags on chat-service).
    */
   deepResearch?: boolean;
   onToggleDeepResearch?: () => void;
@@ -128,7 +129,7 @@ export function ChatComposer({
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <DeepResearchToggle active={dr} onToggle={toggleDr} compact={compact} />
+        <ResearchModeToggle active={dr} onToggle={toggleDr} compact={compact} />
         {onToggleBypassCache != null && (
           <button
             type="button"

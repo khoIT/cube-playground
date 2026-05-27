@@ -1,18 +1,20 @@
 /**
- * DeepResearchToggle — flip-switch + label rendered inside the chat composer.
- * FE-only flag for now; the chat-service treats it as a no-op.
+ * ResearchModeToggle — flip-switch rendered inside the chat composer.
+ * When ON, the turn enables both web search and research mode (subject to
+ * CHAT_ENABLE_WEB_SEARCH and CHAT_ENABLE_RESEARCH_MODE env master flags on
+ * the chat-service). Sends X-Research-Mode: 1 per turn.
  */
 import React from 'react';
 import { T } from '../../../shell/theme';
 
-interface DeepResearchToggleProps {
+interface ResearchModeToggleProps {
   active: boolean;
   onToggle: () => void;
   /** Slightly smaller geometry for the side-panel surface. */
   compact?: boolean;
 }
 
-export function DeepResearchToggle({ active, onToggle, compact }: DeepResearchToggleProps) {
+export function ResearchModeToggle({ active, onToggle, compact }: ResearchModeToggleProps) {
   const TRACK_W = compact ? 32 : 38;
   const TRACK_H = compact ? 18 : 22;
   const KNOB = compact ? 14 : 18;
@@ -22,8 +24,8 @@ export function DeepResearchToggle({ active, onToggle, compact }: DeepResearchTo
       type="button"
       onClick={onToggle}
       aria-pressed={active}
-      aria-label={active ? 'Disable Deep Research' : 'Enable Deep Research'}
-      title={active ? 'Deep Research: On' : 'Deep Research: Off'}
+      aria-label={active ? 'Disable Research mode' : 'Enable Research mode'}
+      title={active ? 'Research mode: On' : 'Research mode: Off'}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: compact ? 8 : 10,
         border: 'none', background: 'transparent', padding: 0,
@@ -51,7 +53,7 @@ export function DeepResearchToggle({ active, onToggle, compact }: DeepResearchTo
           }}
         />
       </span>
-      Deep Research
+      Research mode
     </button>
   );
 }
