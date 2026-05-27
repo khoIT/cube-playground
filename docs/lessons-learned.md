@@ -72,6 +72,12 @@ Format per lesson:
 - **Signal:** KPI / single-value tiles show ISO date strings, granularity-bucket keys, or any string that the user clearly didn't intend.
 - **Apply:** prefer `typeof v === 'number'` then numeric-parseable strings (`!Number.isNaN(Number(v))`); use the *latest* row, not the first; lock the contract with a unit test that includes time-dim columns in the fixture.
 
+### Cross-source series (ratios) must align by date key, not array index
+- **Rule:** when combining two timeseries that come from **different cubes/queries** (e.g. a ratio `numerator/denominator`), pair them on the matching **date**, not by zipping positions. Carry the date alongside the value; never reduce to a bare `number[]` and `num[i]/den[i]`.
+- **Why:** `anomaly-detector.divideSeries` sorted each series by day, dropped the dates, then divided by index. It only worked while both cubes returned the same contiguous date set. The business-metrics `paying_rate` (`recharge.paying_users / active_daily.dau`) draws from two cubes with **different freshness** — `recharge` had data to 05-25, `active_daily.dau` only to 05-18. An interior gap or different start in either series silently pairs the wrong days (`paying_users[05-20] / dau[05-19]`) and corrupts every later point; index-truncation also evaluated the *oldest* overlapping days and mislabeled the latest. The sibling LiveOps handler did it right with a date-keyed map.
+- **Signal:** a ratio/derived metric looks plausible in steady state but goes wrong after a pipeline lag, a missing day, or when the two sources' date ranges diverge; the "latest day" in an alert isn't actually the newest available date.
+- **Apply:** keep `{ date, value }[]` (`rowsToDatedSeries`), build a `Map<date, value>` for the denominator, and divide only on matching dates (`divideByDate`), skipping unmatched/zero days. Cover an interior-gap fixture in tests — the happy path hides the bug because contiguous same-start series align by index too.
+
 ---
 
 ## Chat session lifecycle

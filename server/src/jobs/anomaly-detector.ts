@@ -73,31 +73,51 @@ function asNumber(v: unknown): number | null {
   return null;
 }
 
-function rowsToSeries(
+/** One day's value, carrying its date so ratios can align on it. */
+export interface DatedValue {
+  /** Calendar day, YYYY-MM-DD. */
+  date: string;
+  value: number;
+}
+
+/**
+ * Cube rows → date-tagged values sorted ascending by day. Keeps the date (not
+ * just the number) so a ratio can pair numerator/denominator on the same day —
+ * the two measures may come from different cubes with different date coverage.
+ */
+export function rowsToDatedSeries(
   rows: Array<Record<string, unknown>>,
   measureField: string,
   timeDimensionField: string,
-): number[] {
+): DatedValue[] {
   const dayKey = `${timeDimensionField}.day`;
-  const sorted = [...rows].sort((a, b) => {
-    const ad = String(a[dayKey] ?? a[timeDimensionField] ?? '');
-    const bd = String(b[dayKey] ?? b[timeDimensionField] ?? '');
-    return ad.localeCompare(bd);
-  });
-  const out: number[] = [];
-  for (const r of sorted) {
+  const out: DatedValue[] = [];
+  for (const r of rows) {
     const n = asNumber(r[measureField]);
-    if (n != null) out.push(n);
+    if (n == null) continue;
+    // Slice to YYYY-MM-DD so a timestamp-valued day still matches a plain date
+    // from the other cube.
+    const date = String(r[dayKey] ?? r[timeDimensionField] ?? '').slice(0, 10);
+    if (date.length !== 10) continue;
+    out.push({ date, value: n });
   }
+  out.sort((a, b) => a.date.localeCompare(b.date));
   return out;
 }
 
-function divideSeries(num: number[], den: number[]): number[] {
-  const len = Math.min(num.length, den.length);
+/**
+ * Ratio of two dated series, aligned on matching dates (NOT by position). Days
+ * present in only one series — e.g. a stale denominator that lags the
+ * numerator, or an interior gap — are dropped rather than silently paired with
+ * the wrong day. Result is ordered by numerator date ascending.
+ */
+export function divideByDate(num: DatedValue[], den: DatedValue[]): number[] {
+  const denByDate = new Map(den.map((d) => [d.date, d.value]));
   const out: number[] = [];
-  for (let i = 0; i < len; i++) {
-    if (den[i] === 0) continue;
-    out.push(num[i] / den[i]);
+  for (const n of num) {
+    const d = denByDate.get(n.date);
+    if (d == null || d === 0) continue;
+    out.push(n.value / d);
   }
   return out;
 }
@@ -127,11 +147,11 @@ async function scanGameLegacy(
       let series: number[];
       if (plan.denominator) {
         const denRes = (await load(plan.denominator, token)) as CubeLoadResult;
-        const numSeries = rowsToSeries(numRes.data, plan.numerator.measures[0], plan.numerator.timeDimensions[0].dimension);
-        const denSeries = rowsToSeries(denRes.data, plan.denominator.measures[0], plan.denominator.timeDimensions[0].dimension);
-        series = divideSeries(numSeries, denSeries);
+        const numSeries = rowsToDatedSeries(numRes.data, plan.numerator.measures[0], plan.numerator.timeDimensions[0].dimension);
+        const denSeries = rowsToDatedSeries(denRes.data, plan.denominator.measures[0], plan.denominator.timeDimensions[0].dimension);
+        series = divideByDate(numSeries, denSeries);
       } else {
-        series = rowsToSeries(numRes.data, plan.numerator.measures[0], plan.numerator.timeDimensions[0].dimension);
+        series = rowsToDatedSeries(numRes.data, plan.numerator.measures[0], plan.numerator.timeDimensions[0].dimension).map((d) => d.value);
       }
       const cls = classifySeries(series);
       if (!cls) continue;
@@ -283,7 +303,7 @@ export async function runDetectorTick(
           checked++;
 
           const timeDimDay = `${cfg.timeDim}.day`;
-          const series = rowsToSeries(res.data, cfg.metric, cfg.timeDim);
+          const series = rowsToDatedSeries(res.data, cfg.metric, cfg.timeDim).map((d) => d.value);
 
           if (series.length < 6) {
             // z-score needs at least MIN_BASELINE+1=6 points
