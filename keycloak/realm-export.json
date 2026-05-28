@@ -1,0 +1,133 @@
+{
+  "id": "cube-playground",
+  "realm": "cube-playground",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "accessTokenLifespan": 3600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "roles": {
+    "realm": [
+      { "name": "viewer", "description": "Read-only access to workspaces, segments, dashboards." },
+      { "name": "editor", "description": "Can create + edit own artifacts; cannot edit others'." },
+      { "name": "admin", "description": "Full access; can edit any artifact + manage workspaces." }
+    ]
+  },
+
+  "defaultRole": {
+    "name": "viewer",
+    "description": "Realm default — new users start as viewer until upgraded.",
+    "composite": false,
+    "clientRole": false,
+    "containerId": "cube-playground"
+  },
+
+  "groups": [
+    {
+      "name": "games",
+      "path": "/games",
+      "subGroups": [
+        { "name": "ptg", "path": "/games/ptg" },
+        { "name": "ballistar", "path": "/games/ballistar" },
+        { "name": "cfm_vn", "path": "/games/cfm_vn" },
+        { "name": "cros", "path": "/games/cros" },
+        { "name": "jus_vn", "path": "/games/jus_vn" },
+        { "name": "muaw", "path": "/games/muaw" },
+        { "name": "pubg", "path": "/games/pubg" }
+      ]
+    }
+  ],
+
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@cube-playground.local",
+      "firstName": "Admin",
+      "lastName": "User",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
+      "realmRoles": ["admin"],
+      "groups": ["/games/ptg", "/games/ballistar", "/games/cfm_vn", "/games/cros", "/games/jus_vn", "/games/muaw", "/games/pubg"]
+    },
+    {
+      "username": "editor",
+      "enabled": true,
+      "email": "editor@cube-playground.local",
+      "firstName": "Editor",
+      "lastName": "User",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "editor123", "temporary": false }],
+      "realmRoles": ["editor"],
+      "groups": ["/games/ballistar", "/games/cfm_vn"]
+    },
+    {
+      "username": "viewer",
+      "enabled": true,
+      "email": "viewer@cube-playground.local",
+      "firstName": "Viewer",
+      "lastName": "User",
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "viewer123", "temporary": false }],
+      "realmRoles": ["viewer"],
+      "groups": ["/games/ballistar"]
+    }
+  ],
+
+  "clients": [
+    {
+      "clientId": "cube-playground-web",
+      "name": "Cube Playground Web",
+      "description": "Public OIDC client for the React frontend. Authorization-code flow. No client secret.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:3000/auth/callback",
+        "http://localhost:3000/auth/callback/"
+      ],
+      "webOrigins": ["http://localhost:3000"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "optionalClientScopes": ["groups"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ]
+}

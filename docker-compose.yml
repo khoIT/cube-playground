@@ -1,0 +1,32 @@
+# Local supporting services for cube-playground.
+#
+# The Node/Vite stack still runs via `npm run dev:all`; Docker is used here
+# only for things that aren't worth re-implementing in process:
+#   - keycloak: Keycloak 26 in dev mode, with a pre-imported realm so the
+#     SSO flow is testable end-to-end without manual realm provisioning.
+#
+# Bring up: `docker compose up -d keycloak`
+# Health:    http://localhost:18080/realms/cube-playground/.well-known/openid-configuration
+# Admin UI:  http://localhost:18080/admin/  (admin / admin)
+#
+# Toggle the FE/BE off by setting AUTH_DISABLED=true in .env to keep working
+# offline; Keycloak does NOT need to be running for that path.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: cube-playground-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_PORT: 8080
+    ports:
+      - "${KC_PORT:-18080}:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - kc_data:/opt/keycloak/data
+    restart: unless-stopped
+
+volumes:
+  kc_data:
