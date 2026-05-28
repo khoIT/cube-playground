@@ -99,7 +99,7 @@ export function coverageFromSnapshot(
  * `cube-missing` (cube absent from /meta) outranks `broken` (member absent)
  * so the grid distinguishes "game lacks the cube" from "measure renamed".
  */
-function matrixForGame(
+export function matrixForGame(
   game: string,
   metrics: BusinessMetric[],
   snapshot: MetaSnapshot,

@@ -8,7 +8,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles, Activity, LayoutGrid, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles, Activity, LayoutGrid, ShieldCheck, Server } from 'lucide-react';
 
 import { SettingsTabs, type SettingsTabDescriptor } from './settings-tabs';
 import { NavVisibilitySection } from './nav-visibility-section';
@@ -19,6 +19,7 @@ import { ChatServiceTab } from './ChatService/chat-service-tab';
 import { LiveopsSettingsSection } from './liveops-settings-section';
 import { DashboardsSettingsSection } from './dashboards-settings-section';
 import { MetricCoverageSection } from './metric-coverage-section';
+import { WorkspaceReadinessSection } from './workspace-readiness-section';
 
 const Page = styled.div`
   max-width: 1040px;
@@ -77,12 +78,12 @@ const Panel = styled.div`
   min-width: 0;
 `;
 
-type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards' | 'coverage';
+type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards' | 'coverage' | 'workspace';
 
 const DEFAULT_TAB: TabId = 'sidebar';
 
 const KNOWN_TABS = new Set<string>([
-  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards', 'coverage',
+  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards', 'coverage', 'workspace',
 ]);
 
 function readHashTab(hash: string): TabId | null {
@@ -154,6 +155,11 @@ export function SettingsPage(): ReactElement {
         label: t('settings.tabs.coverage', { defaultValue: 'Metric coverage' }),
         icon: ShieldCheck,
       },
+      {
+        id: 'workspace',
+        label: t('settings.tabs.workspace', { defaultValue: 'Workspace' }),
+        icon: Server,
+      },
     ],
     [t],
   );
@@ -181,6 +187,8 @@ export function SettingsPage(): ReactElement {
         return <DashboardsSettingsSection />;
       case 'coverage':
         return <MetricCoverageSection />;
+      case 'workspace':
+        return <WorkspaceReadinessSection />;
     }
   };
 
