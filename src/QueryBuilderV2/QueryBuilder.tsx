@@ -1,5 +1,5 @@
 import { Alert, Block, Card, PrismCode, Text, Title } from '@cube-dev/ui-kit';
-import cube, { Query } from '@cubejs-client/core';
+import cube, { HttpTransport, Query } from '@cubejs-client/core';
 import { useEffect, useMemo, useRef, ReactNode } from 'react';
 
 import { QueryBuilderContext } from './context';
@@ -17,7 +17,8 @@ import { QueryBuilderInternals } from './QueryBuilderInternals';
 import { QueryBuilderProps } from './types';
 import { useCommitPress } from './utils/use-commit-press';
 import { useAppContext } from '../hooks';
-import { useGameContext } from '../components/Header/use-game-context';
+import { useGameContext, useActiveGameId } from '../components/Header/use-game-context';
+import { useWorkspaceContext } from '../components/workspace-context';
 
 interface FriendlyMetaError {
   title: string;
@@ -117,13 +118,26 @@ export function QueryBuilder(
     disableSidebarResizing,
   } = props;
 
+  // Forward the active workspace + game on every Cube SDK request. Without
+  // this the SDK's GET /dry-run lands on the proxy with no x-cube-workspace
+  // header, falling back to the default workspace (prod) and erroring with
+  // `Cube 'retention' not found for path '...'` on local-only schemas.
+  const { workspaceId } = useWorkspaceContext();
+  const activeGameId = useActiveGameId();
   const cubeApi = useMemo(() => {
-    return apiUrl && apiToken && apiToken !== 'undefined'
-      ? cube(apiToken, {
-          apiUrl,
-        })
-      : undefined;
-  }, [apiUrl, apiToken]);
+    if (!apiUrl || !apiToken || apiToken === 'undefined') return undefined;
+    const headers: Record<string, string> = {};
+    if (workspaceId) headers['x-cube-workspace'] = workspaceId;
+    if (activeGameId) headers['x-cube-game'] = activeGameId;
+    return cube(apiToken, {
+      apiUrl,
+      transport: new HttpTransport({
+        apiUrl,
+        authorization: apiToken,
+        headers,
+      }),
+    } as Parameters<typeof cube>[1]);
+  }, [apiUrl, apiToken, workspaceId, activeGameId]);
 
   // C1 (red team): per-instance Zustand stores. Each <QueryBuilder> gets
   // its own factory-created pair so two tabs cannot collapse onto a shared

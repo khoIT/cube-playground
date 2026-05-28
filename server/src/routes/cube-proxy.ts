@@ -81,6 +81,16 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
     return reply.status(status).send(body);
   });
 
+  // /load and /sql have BOTH GET (with ?query=…&queryType=multi) and POST
+  // (with the query in the body) flavors. The Cube SDK in the playground uses
+  // GET; the chat-service tools use POST. Both go through the same workspace-
+  // resolved upstream.
+  app.get('/cube-api/v1/load', async (req, reply) => {
+    const search = (req.raw.url ?? '').split('?')[1] ?? '';
+    const { status, body } = await forward(req.cubeCtx, 'GET', '/load', search, undefined);
+    return reply.status(status).send(body);
+  });
+
   app.post('/cube-api/v1/load', async (req, reply) => {
     const { status, body } = await forward(req.cubeCtx, 'POST', '/load', '', req.body);
     return reply.status(status).send(body);
@@ -98,6 +108,12 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
 
   app.post('/cube-api/v1/dry-run', async (req, reply) => {
     const { status, body } = await forward(req.cubeCtx, 'POST', '/dry-run', '', req.body);
+    return reply.status(status).send(body);
+  });
+
+  app.get('/cube-api/v1/sql', async (req, reply) => {
+    const search = (req.raw.url ?? '').split('?')[1] ?? '';
+    const { status, body } = await forward(req.cubeCtx, 'GET', '/sql', search, undefined);
     return reply.status(status).send(body);
   });
 
