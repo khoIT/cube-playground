@@ -6,6 +6,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import authenticate from './middleware/authenticate.js';
+import enforceWriteRoles from './middleware/enforce-write-roles.js';
 import workspaceHeader from './middleware/workspace-header.js';
 import authRoutes from './routes/auth.js';
 import workspacesRoutes from './routes/workspaces.js';
@@ -48,6 +49,7 @@ export async function buildApp() {
 
   await app.register(cors, { origin: true });
   await app.register(authenticate);
+  await app.register(enforceWriteRoles);
   await app.register(workspaceHeader);
 
   await app.register(authRoutes);

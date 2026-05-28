@@ -15,6 +15,7 @@
       "cubeApiUrl": "http://localhost:16000",
       "authMode": "none",
       "gameModel": "prefix",
+      "allowedRoles": ["editor", "admin"],
       "gamePrefixMap": {
         "cfm_vn": "cfm",
         "ballistar": "ballistar",

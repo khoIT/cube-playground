@@ -18,8 +18,18 @@ import { getDb } from '../db/sqlite.js';
 export default async function workspacesRoutes(
   app: FastifyInstance,
 ): Promise<void> {
-  app.get('/api/workspaces', async () => {
-    return { workspaces: listWorkspacesPublic() };
+  app.get('/api/workspaces', async (req) => {
+    const all = listWorkspacesPublic();
+    // Filter by the caller's role: drop workspaces whose allowedRoles list
+    // excludes them. Anonymous callers (no req.user — e.g. early bootstrap
+    // before login) see all workspaces so the FE can render the picker for
+    // disabled-mode dev. Real-auth mode never lacks req.user here.
+    if (!req.user) return { workspaces: all };
+    const role = req.user.role;
+    const visible = all.filter(
+      (w) => !w.allowedRoles || w.allowedRoles.length === 0 || w.allowedRoles.includes(role),
+    );
+    return { workspaces: visible };
   });
 
   // GET /api/workspaces/:id/readiness

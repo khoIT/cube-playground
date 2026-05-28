@@ -16,6 +16,7 @@ import type { WorkspaceCtx } from '../services/cube-client.js';
 import {
   resolveWorkspace,
   getDefaultWorkspace,
+  workspaceAllowsRole,
   type WorkspaceDef,
 } from '../services/workspaces-config-loader.js';
 import { resolveCubeTokenForWorkspace } from '../services/resolve-cube-token.js';
@@ -67,6 +68,21 @@ async function workspaceHeaderPlugin(app: FastifyInstance): Promise<void> {
       return;
     }
     const workspace = resolved ?? getDefaultWorkspace();
+
+    // RBAC: only enforce when the client EXPLICITLY picked this workspace
+    // (sent the header). Without a header we'd 403 callers who just want
+    // to list /api/workspaces or hit auth endpoints, because the default
+    // workspace (`prod`) is itself role-gated.
+    if (wsId && request.user && !workspaceAllowsRole(workspace, request.user.role)) {
+      await reply.status(403).send({
+        error: {
+          code: 'WORKSPACE_FORBIDDEN',
+          message: `workspace "${workspace.id}" requires one of [${(workspace.allowedRoles ?? []).join(', ')}]`,
+        },
+      });
+      return;
+    }
+
     request.workspace = workspace;
     // Auto-scope cubeCtx by X-Cube-Game when present so /load + /sql against a
     // minted-auth workspace (local) get a JWT carrying the per-game claim that

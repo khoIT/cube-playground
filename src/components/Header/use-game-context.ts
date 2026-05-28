@@ -24,6 +24,7 @@ import {
   readPersistedWorkspaceId,
   WORKSPACE_CHANGE_EVENT,
 } from '../workspace-context';
+import { useAuthUser } from '../../auth/auth-context';
 
 const STORAGE_KEY = 'gds-cube:active-game';
 const FALLBACK_GAME: GameDef = { id: 'ptg', name: 'Play Together', mark: 'PT' };
@@ -154,22 +155,35 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Filter games by what the active workspace supports:
+  // Filter games by what the active workspace supports AND what this user
+  // is allowed (per KC groups → user.allowedGames in /api/auth/me):
   //   - gameModel='prefix' (prod): only games whose id is in `gamePrefixMap`.
-  //   - gameModel='game_id' (local): all games (Cube scopes by schema upstream).
-  //   - No workspace info yet: pass-through to avoid blocking initial render.
+  //   - gameModel='game_id' (local): every game in gds.config.json.
+  //   - Then intersect with user.allowedGames if the user is real-auth.
+  //   - No workspace OR auth info yet: pass-through to avoid blocking the
+  //     initial render.
   const activeWorkspace = useMemo(
     () => workspaces.find((w) => w.id === workspaceId) ?? null,
     [workspaces, workspaceId],
   );
+  const authUser = useAuthUser();
   const visibleGames = useMemo(() => {
-    if (!activeWorkspace) return config.games;
-    if (activeWorkspace.gameModel === 'prefix') {
-      const allowed = new Set(Object.keys(activeWorkspace.gamePrefixMap ?? {}));
-      return config.games.filter((g) => allowed.has(g.id));
+    let pool = config.games;
+    if (activeWorkspace) {
+      if (activeWorkspace.gameModel === 'prefix') {
+        const allowed = new Set(Object.keys(activeWorkspace.gamePrefixMap ?? {}));
+        pool = pool.filter((g) => allowed.has(g.id));
+      }
     }
-    return config.games;
-  }, [config.games, activeWorkspace]);
+    // Empty allowedGames = dev/synthesized user (admin in disabled mode) or
+    // a real user with no groups; either way we don't narrow further. Only
+    // narrow when the user explicitly carries a non-empty allow-list.
+    if (authUser && authUser.allowedGames.length > 0) {
+      const userAllowed = new Set(authUser.allowedGames);
+      pool = pool.filter((g) => userAllowed.has(g.id));
+    }
+    return pool;
+  }, [config.games, activeWorkspace, authUser]);
 
   // If the active game isn't supported by the new workspace, fall back to the
   // first visible one. Skips while still bootstrapping so we don't clobber a

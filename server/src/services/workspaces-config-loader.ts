@@ -21,6 +21,12 @@ export interface WorkspaceDef {
   gameModel: WorkspaceGameModel;
   /** When gameModel='prefix': maps gds.config game id → Cube cube-name prefix. */
   gamePrefixMap?: Record<string, string>;
+  /**
+   * Optional RBAC gate: only roles in this list can list, switch into, or
+   * mutate artifacts in this workspace. Absent / empty = no role restriction
+   * (any authenticated role can use it — viewer included).
+   */
+  allowedRoles?: Array<'viewer' | 'editor' | 'admin'>;
 }
 
 export interface WorkspacesConfig {
@@ -112,7 +118,7 @@ export function getDefaultWorkspace(): WorkspaceDef {
 
 /** Secret-free projection for the public `/api/workspaces` route. */
 export function listWorkspacesPublic(): Array<
-  Pick<WorkspaceDef, 'id' | 'label' | 'gameModel' | 'authMode' | 'gamePrefixMap'> & {
+  Pick<WorkspaceDef, 'id' | 'label' | 'gameModel' | 'authMode' | 'gamePrefixMap' | 'allowedRoles'> & {
     isDefault: boolean;
   }
 > {
@@ -123,8 +129,18 @@ export function listWorkspacesPublic(): Array<
     gameModel: w.gameModel,
     authMode: w.authMode,
     gamePrefixMap: w.gamePrefixMap,
+    allowedRoles: w.allowedRoles,
     isDefault: w.id === cfg.default,
   }));
+}
+
+/** Predicate: does the given role have access to a workspace? */
+export function workspaceAllowsRole(
+  workspace: Pick<WorkspaceDef, 'allowedRoles'>,
+  role: 'viewer' | 'editor' | 'admin',
+): boolean {
+  if (!workspace.allowedRoles || workspace.allowedRoles.length === 0) return true;
+  return workspace.allowedRoles.includes(role);
 }
 
 /** Test-only cache reset. */
