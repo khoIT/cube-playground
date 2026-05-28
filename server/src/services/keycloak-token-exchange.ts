@@ -41,6 +41,12 @@ interface TokenResponse {
   token_type: string;
   expires_in: number;
   refresh_token?: string;
+  /**
+   * Present when scope=openid. We prefer the id_token for identity claims —
+   * KC 26 ships "lightweight" access tokens by default and drops `sub` from
+   * them. The id_token always carries sub + the configured group/role
+   * mappers.
+   */
   id_token?: string;
 }
 
@@ -77,7 +83,10 @@ export async function exchangeKeycloakCode({ code, redirectUri }: ExchangeArgs):
   }
 
   const json = (await res.json()) as TokenResponse;
-  return decodeJwt(json.access_token) as KeycloakClaims;
+  // Prefer id_token; some KC setups omit identity claims (sub, etc.) from
+  // the access_token. Fall back to access_token so non-OIDC realms still work.
+  const identityToken = json.id_token ?? json.access_token;
+  return decodeJwt(identityToken) as KeycloakClaims;
 }
 
 /**

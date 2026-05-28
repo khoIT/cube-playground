@@ -6,6 +6,9 @@
 
 import type { ApiError } from '../types/segment-api';
 import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
+import { readAppToken, clearAppToken } from '../auth/auth-storage';
+
+const AUTH_FORCE_LOGOUT_EVENT = 'gds-cube:auth-force-logout';
 
 export class SegmentApiError extends Error {
   code: string;
@@ -75,6 +78,14 @@ export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Prom
     finalHeaders[WORKSPACE_HEADER] = wsId;
   }
 
+  // Bearer auth: forward the app JWT when present. Server still accepts
+  // X-Owner in AUTH_DISABLED dev mode, so this layer is additive — no
+  // breakage when the token is absent (e.g. AUTH_DISABLED=true).
+  const appToken = readAppToken();
+  if (appToken && !finalHeaders.Authorization) {
+    finalHeaders.Authorization = `Bearer ${appToken}`;
+  }
+
   const hasBody = body !== undefined && body !== null;
   if (hasBody && !(body instanceof FormData)) {
     finalHeaders['Content-Type'] = 'application/json';
@@ -96,6 +107,16 @@ export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Prom
   const isJson = contentType.includes('application/json');
 
   if (!response.ok) {
+    // 401 in SSO mode means the app JWT expired (or was revoked). Drop it
+    // and broadcast — AuthContext picks the event up and re-bootstraps,
+    // surfacing a fresh KC login. AUTH_DISABLED requests never carry a
+    // token so this can't fire spuriously there.
+    if (response.status === 401 && typeof window !== 'undefined') {
+      if (readAppToken()) {
+        clearAppToken();
+        window.dispatchEvent(new CustomEvent(AUTH_FORCE_LOGOUT_EVENT));
+      }
+    }
     let code = 'HTTP_ERROR';
     let message = `Request failed with status ${response.status}`;
     let details: unknown;

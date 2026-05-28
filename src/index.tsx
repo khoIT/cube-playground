@@ -17,6 +17,8 @@ import { SecurityContextProvider } from './components/SecurityContext/SecurityCo
 import { AppContextProvider } from './components/AppContext';
 import { GameContextProvider } from './components/Header/use-game-context';
 import { ThemeProvider } from './theme/ThemeContext';
+import { AuthProvider } from './auth/auth-context';
+import { AuthGate } from './auth/auth-gate';
 import './i18n';
 
 // The wizard at `/data-model/new` is the YAML data-model builder
@@ -133,13 +135,15 @@ function KeepAliveRoute({
 }
 
 ReactDOM.render(
-  <Router history={history}>
-    <AppContextProvider
-      playgroundContext={{
-        isCloud: false,
-      }}
-    >
-      <GameContextProvider>
+  <AuthProvider>
+    <AuthGate>
+      <Router history={history}>
+        <AppContextProvider
+          playgroundContext={{
+            isCloud: false,
+          }}
+        >
+          <GameContextProvider>
       <ThemeProvider>
         <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
           <App>
@@ -188,9 +192,11 @@ ReactDOM.render(
           </App>
         </SecurityContextProvider>
       </ThemeProvider>
-      </GameContextProvider>
-    </AppContextProvider>
-  </Router>,
+          </GameContextProvider>
+        </AppContextProvider>
+      </Router>
+    </AuthGate>
+  </AuthProvider>,
   // eslint-disable-next-line no-undef
   document.getElementById('root')
 );
