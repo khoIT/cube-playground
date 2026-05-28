@@ -823,6 +823,31 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         kind: 'error',
         detail: { message, stack: err instanceof Error ? err.stack : undefined },
       });
+
+      // Persist a visible assistant turn so the failure survives a reload.
+      // stop_reason='error' tags the row so listTurnsRecent excludes it from
+      // the agent's context on retry (otherwise the next turn sees "I failed"
+      // and may apologise instead of re-answering).
+      try {
+        const endedAt = Date.now();
+        chatStore.appendTurn(opts.db, {
+          id: turnId,
+          sessionId,
+          turnIndex: userTurnIndex + 1,
+          role: 'assistant',
+          assistantText: message,
+          stopReason: 'error',
+          model: resolvedModel ?? config.chatModel,
+          skill: intent.skill,
+          startedAt,
+          endedAt,
+        });
+      } catch (persistErr) {
+        fastify.log.warn(
+          { err: persistErr, turnId, sessionId },
+          '[turn] failed to persist assistant error turn (audit row still written)',
+        );
+      }
     } finally {
       // Phase 04 — cancel the timeout timer if the turn finishes naturally.
       // Otherwise it would fire after the SSE stream closed and try to abort
