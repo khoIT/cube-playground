@@ -42,7 +42,13 @@ function runConcurrently(args) {
   // few hours so an agent can read it whole for daily triage.
   const log = createDevLogCapture();
   process.stdout.write(`[dev-all] capturing logs → ${log.logFile}\n`);
-  const cc = spawn('npx', ['concurrently', ...quoted], { stdio: ['inherit', 'pipe', 'pipe'], shell: true });
+  // FORCE_COLOR=1 keeps ANSI codes flowing through the pipe so the terminal
+  // tee stays colourful; dev-log-capture strips ANSI from the file copy.
+  const cc = spawn('npx', ['concurrently', ...quoted], {
+    stdio: ['inherit', 'pipe', 'pipe'],
+    shell: true,
+    env: { ...process.env, FORCE_COLOR: '1' },
+  });
   cc.stdout.on('data', log.onStdout);
   cc.stderr.on('data', log.onStderr);
   cc.on('exit', (code) => {
