@@ -45,79 +45,79 @@ beforeEach(() => {
 
 describe('createDashboard / listDashboards / getDashboard', () => {
   it('creates a dashboard and retrieves it', () => {
-    const d = createDashboard({ owner: 'alice', game: 'ptg', slug: 'my-dash', title: 'My Dash' });
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'my-dash', title: 'My Dash' });
     expect(d.id).toBeTypeOf('number');
     expect(d.slug).toBe('my-dash');
     expect(d.title).toBe('My Dash');
 
-    const list = listDashboards('alice', 'ptg');
+    const list = listDashboards('alice', 'ptg', 'local');
     expect(list).toHaveLength(1);
     expect(list[0].slug).toBe('my-dash');
   });
 
   it('getDashboard returns dashboard with tiles array', () => {
-    createDashboard({ owner: 'alice', game: 'ptg', slug: 'with-tiles', title: 'With Tiles' });
-    const result = getDashboard('alice', 'ptg', 'with-tiles');
+    createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'with-tiles', title: 'With Tiles' });
+    const result = getDashboard('alice', 'ptg', 'with-tiles', 'local');
     expect(result).not.toBeNull();
     expect(result!.tiles).toEqual([]);
   });
 
   it('returns null for unknown dashboard', () => {
-    expect(getDashboard('alice', 'ptg', 'nope')).toBeNull();
+    expect(getDashboard('alice', 'ptg', 'nope', 'local')).toBeNull();
   });
 
   it('scopes by owner', () => {
-    createDashboard({ owner: 'alice', game: 'ptg', slug: 'a-dash', title: 'A' });
-    createDashboard({ owner: 'bob', game: 'ptg', slug: 'b-dash', title: 'B' });
-    expect(listDashboards('alice', 'ptg')).toHaveLength(1);
-    expect(listDashboards('bob', 'ptg')).toHaveLength(1);
+    createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'a-dash', title: 'A' });
+    createDashboard({ owner: 'bob', workspace: 'local', game: 'ptg', slug: 'b-dash', title: 'B' });
+    expect(listDashboards('alice', 'ptg', 'local')).toHaveLength(1);
+    expect(listDashboards('bob', 'ptg', 'local')).toHaveLength(1);
   });
 
   it('scopes by game', () => {
-    createDashboard({ owner: 'alice', game: 'ptg', slug: 'ptg-dash', title: 'PTG' });
-    createDashboard({ owner: 'alice', game: 'other', slug: 'other-dash', title: 'Other' });
-    expect(listDashboards('alice', 'ptg')).toHaveLength(1);
-    expect(listDashboards('alice', 'other')).toHaveLength(1);
+    createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'ptg-dash', title: 'PTG' });
+    createDashboard({ owner: 'alice', workspace: 'local', game: 'other', slug: 'other-dash', title: 'Other' });
+    expect(listDashboards('alice', 'ptg', 'local')).toHaveLength(1);
+    expect(listDashboards('alice', 'other', 'local')).toHaveLength(1);
   });
 });
 
 describe('updateDashboard', () => {
   it('updates title', () => {
-    createDashboard({ owner: 'alice', game: 'ptg', slug: 'upd', title: 'Old' });
-    const updated = updateDashboard('alice', 'ptg', 'upd', { title: 'New' });
+    createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'upd', title: 'Old' });
+    const updated = updateDashboard('alice', 'ptg', 'upd', 'local', { title: 'New' });
     expect(updated?.title).toBe('New');
   });
 
   it('returns null for missing dashboard', () => {
-    expect(updateDashboard('alice', 'ptg', 'ghost', { title: 'X' })).toBeNull();
+    expect(updateDashboard('alice', 'ptg', 'ghost', 'local', { title: 'X' })).toBeNull();
   });
 });
 
 describe('deleteDashboard', () => {
   it('deletes a dashboard and cascades tiles', () => {
-    const d = createDashboard({ owner: 'alice', game: 'ptg', slug: 'del-me', title: 'Del' });
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'del-me', title: 'Del' });
     addTile(d.id, {
       title: 'T1',
       query_json: '{}',
       viz_type: 'table',
       position_json: '{"x":0,"y":0,"w":4,"h":3}',
     });
-    const deleted = deleteDashboard('alice', 'ptg', 'del-me');
+    const deleted = deleteDashboard('alice', 'ptg', 'del-me', 'local');
     expect(deleted).toBe(true);
-    expect(getDashboard('alice', 'ptg', 'del-me')).toBeNull();
+    expect(getDashboard('alice', 'ptg', 'del-me', 'local')).toBeNull();
     // Tiles should be gone via FK cascade
     const count = (db.prepare('SELECT COUNT(*) as n FROM dashboard_tiles WHERE dashboard_id = ?').get(d.id) as { n: number }).n;
     expect(count).toBe(0);
   });
 
   it('returns false for non-existent', () => {
-    expect(deleteDashboard('alice', 'ptg', 'ghost')).toBe(false);
+    expect(deleteDashboard('alice', 'ptg', 'ghost', 'local')).toBe(false);
   });
 });
 
 describe('addTile / ≤8 cap', () => {
   it('adds a tile and returns it', () => {
-    const d = createDashboard({ owner: 'alice', game: 'ptg', slug: 'tile-test', title: 'T' });
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'tile-test', title: 'T' });
     const tile = addTile(d.id, {
       title: 'KPI',
       query_json: '{"measures":["Orders.count"]}',
@@ -127,12 +127,12 @@ describe('addTile / ≤8 cap', () => {
     expect(tile.id).toBeTypeOf('number');
     expect(tile.viz_type).toBe('kpi');
 
-    const detail = getDashboard('alice', 'ptg', 'tile-test')!;
+    const detail = getDashboard('alice', 'ptg', 'tile-test', 'local')!;
     expect(detail.tiles).toHaveLength(1);
   });
 
   it(`throws TileCapError when adding tile ${TILE_CAP + 1}`, () => {
-    const d = createDashboard({ owner: 'alice', game: 'ptg', slug: 'cap-test', title: 'Cap' });
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'cap-test', title: 'Cap' });
     for (let i = 0; i < TILE_CAP; i++) {
       addTile(d.id, {
         title: `T${i}`,
@@ -154,7 +154,7 @@ describe('addTile / ≤8 cap', () => {
 
 describe('updateTile / deleteTile', () => {
   it('updates tile fields', () => {
-    const d = createDashboard({ owner: 'alice', game: 'ptg', slug: 'upd-tile', title: 'UT' });
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'upd-tile', title: 'UT' });
     const t = addTile(d.id, { title: 'Old', query_json: '{}', viz_type: 'table', position_json: '{"x":0,"y":0,"w":4,"h":3}' });
     const updated = updateTile(t.id, { title: 'New', viz_type: 'kpi' });
     expect(updated?.title).toBe('New');
@@ -166,16 +166,16 @@ describe('updateTile / deleteTile', () => {
   });
 
   it('deletes a tile', () => {
-    const d = createDashboard({ owner: 'alice', game: 'ptg', slug: 'del-tile', title: 'DT' });
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'del-tile', title: 'DT' });
     const t = addTile(d.id, { title: 'T', query_json: '{}', viz_type: 'table', position_json: '{"x":0,"y":0,"w":4,"h":3}' });
     expect(deleteTile(t.id)).toBe(true);
-    expect(getDashboard('alice', 'ptg', 'del-tile')!.tiles).toHaveLength(0);
+    expect(getDashboard('alice', 'ptg', 'del-tile', 'local')!.tiles).toHaveLength(0);
   });
 });
 
 describe('setLayout', () => {
   it('batch-updates tile positions in a transaction', () => {
-    const d = createDashboard({ owner: 'alice', game: 'ptg', slug: 'layout', title: 'L' });
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'layout', title: 'L' });
     const t1 = addTile(d.id, { title: 'T1', query_json: '{}', viz_type: 'table', position_json: '{"x":0,"y":0,"w":4,"h":3}' });
     const t2 = addTile(d.id, { title: 'T2', query_json: '{}', viz_type: 'kpi', position_json: '{"x":4,"y":0,"w":4,"h":3}' });
 
@@ -184,7 +184,7 @@ describe('setLayout', () => {
       { tileId: t2.id, position: { x: 6, y: 5, w: 6, h: 4 } },
     ]);
 
-    const detail = getDashboard('alice', 'ptg', 'layout')!;
+    const detail = getDashboard('alice', 'ptg', 'layout', 'local')!;
     const tile1 = detail.tiles.find((t) => t.id === t1.id)!;
     const pos1 = JSON.parse(tile1.position_json);
     expect(pos1.y).toBe(5);

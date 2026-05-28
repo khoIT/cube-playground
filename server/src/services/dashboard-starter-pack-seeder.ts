@@ -14,6 +14,8 @@ import { loadStarterPack, type StarterDashboard } from './dashboard-starter-pack
 
 export interface SeedInput {
   owner: string;
+  /** Active workspace id — required so the seed stamps the right row. */
+  workspace: string;
   game: string;
   /** Set of cube names available for this game (derived from /meta). */
   availableCubes: Set<string>;
@@ -46,8 +48,13 @@ export function seedStarterPack(input: SeedInput): SeedResult {
         continue;
       }
       const existing = db
-        .prepare(`SELECT id FROM dashboards WHERE owner = ? AND game = ? AND slug = ?`)
-        .get(input.owner, input.game, dashboard.slug) as { id: number } | undefined;
+        .prepare(
+          `SELECT id FROM dashboards
+           WHERE owner = ? AND game = ? AND slug = ? AND workspace = ?`,
+        )
+        .get(input.owner, input.game, dashboard.slug, input.workspace) as
+        | { id: number }
+        | undefined;
       if (existing) {
         skipped.push({ slug: dashboard.slug, reason: 'already_exists' });
         continue;
@@ -55,10 +62,18 @@ export function seedStarterPack(input: SeedInput): SeedResult {
 
       const res = db
         .prepare(
-          `INSERT INTO dashboards (owner, game, slug, title, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO dashboards (owner, game, slug, title, created_at, updated_at, workspace)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(input.owner, input.game, dashboard.slug, dashboard.title, now, now);
+        .run(
+          input.owner,
+          input.game,
+          dashboard.slug,
+          dashboard.title,
+          now,
+          now,
+          input.workspace,
+        );
       const dashboardId = Number(res.lastInsertRowid);
 
       const addTileStmt = db.prepare(

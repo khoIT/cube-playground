@@ -22,7 +22,11 @@ export default defineConfig(({ mode }) => {
     port: 3000,
     proxy: {
       '^/playground/.*': 'http://localhost:4000',
+      // Legacy direct-to-Cube path (kept for non-workspace-aware callers).
       '^/cubejs-api/.*': 'http://localhost:4000',
+      // Workspace-aware Cube proxy: routes through Fastify so the active
+      // x-cube-workspace header decides which Cube backend handles the call.
+      '/cube-api': { target: 'http://localhost:3004', changeOrigin: true },
       '/api': { target: 'http://localhost:3004', changeOrigin: true },
     },
   },

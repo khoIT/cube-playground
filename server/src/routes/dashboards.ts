@@ -84,9 +84,9 @@ async function resolveAvailableCubes(game: string): Promise<Set<string>> {
   }
 }
 
-async function seedStarterPackForGame(owner: string, game: string) {
+async function seedStarterPackForGame(owner: string, game: string, workspace: string) {
   const availableCubes = await resolveAvailableCubes(game);
-  return seedStarterPack({ owner, game, availableCubes });
+  return seedStarterPack({ owner, workspace, game, availableCubes });
 }
 
 // ── Route plugin ─────────────────────────────────────────────────────────────
@@ -101,9 +101,9 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!game) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
     }
-    const dashboards = listDashboards(req.owner, game);
+    const dashboards = listDashboards(req.owner, game, req.workspace.id);
     if (dashboards.length === 0) {
-      void seedStarterPackForGame(req.owner, game).catch(() => {});
+      void seedStarterPackForGame(req.owner, game, req.workspace.id).catch(() => {});
     }
     return dashboards;
   });
@@ -114,7 +114,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!game) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
     }
-    const result = await seedStarterPackForGame(req.owner, game);
+    const result = await seedStarterPackForGame(req.owner, game, req.workspace.id);
     return reply.status(200).send(result);
   });
 
@@ -126,7 +126,13 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     }
     const { game, slug, title } = parsed.data;
     try {
-      const dashboard = createDashboard({ owner: req.owner, game, slug, title });
+      const dashboard = createDashboard({
+        owner: req.owner,
+        workspace: req.workspace.id,
+        game,
+        slug,
+        title,
+      });
       return reply.status(201).send(dashboard);
     } catch (err: unknown) {
       // UNIQUE constraint violation — slug already exists for this owner+game
@@ -146,7 +152,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!game) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
     }
-    const dashboard = getDashboard(req.owner, game, slug);
+    const dashboard = getDashboard(req.owner, game, slug, req.workspace.id);
     if (!dashboard) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Dashboard not found' } });
     }
@@ -179,12 +185,12 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!parsed.success) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
     }
-    const updated = updateDashboard(req.owner, game, slug, parsed.data);
+    const updated = updateDashboard(req.owner, game, slug, req.workspace.id, parsed.data);
     if (!updated) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Dashboard not found' } });
     }
     if (parsed.data.tile_ttl_seconds != null) {
-      setDashboardTileTtl(req.owner, game, slug, parsed.data.tile_ttl_seconds);
+      setDashboardTileTtl(req.owner, game, slug, req.workspace.id, parsed.data.tile_ttl_seconds);
     }
     return updated;
   });
@@ -196,7 +202,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!game) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
     }
-    const deleted = deleteDashboard(req.owner, game, slug);
+    const deleted = deleteDashboard(req.owner, game, slug, req.workspace.id);
     if (!deleted) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Dashboard not found' } });
     }
@@ -214,7 +220,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!parsed.success) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
     }
-    const dashboard = getDashboard(req.owner, game, slug);
+    const dashboard = getDashboard(req.owner, game, slug, req.workspace.id);
     if (!dashboard) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Dashboard not found' } });
     }
@@ -279,7 +285,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!game) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game is required' } });
     }
-    markDashboardViewed(req.owner, game, slug);
+    markDashboardViewed(req.owner, game, slug, req.workspace.id);
     return reply.status(204).send();
   });
 
@@ -316,7 +322,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     if (!parsed.success) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
     }
-    const dashboard = getDashboard(req.owner, game, slug);
+    const dashboard = getDashboard(req.owner, game, slug, req.workspace.id);
     if (!dashboard) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Dashboard not found' } });
     }

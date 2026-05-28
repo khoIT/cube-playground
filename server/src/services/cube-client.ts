@@ -1,19 +1,25 @@
 /**
  * Thin fetch wrapper around the Cube REST API.
- * Reads connection details from environment variables at call time
- * so the module can be imported before env is populated in tests.
  *
- * Per-game scoping: server-side jobs (e.g. anomaly detector) need to talk to
- * Cube with a token whose `securityContext.game` claim selects the right
- * `repositoryFactory` schema. Each helper therefore accepts an optional
- * `tokenOverride` so callers can pass a game-specific JWT minted by
- * `resolve-cube-token`.
+ * Per-request workspace ctx: each helper accepts an optional `WorkspaceCtx`
+ * (base URL + token), so the same client can talk to local minted-JWT Cube
+ * or an open prod cube-dev. Callers that don't pass a ctx fall back to the
+ * legacy global env (`CUBE_API_URL`) for backwards compatibility.
+ *
+ * Per-game scoping (legacy): server-side jobs (e.g. anomaly detector) still
+ * pass `tokenOverride` so Cube's `repositoryFactory` picks the right schema.
+ * In workspace mode, that override is folded into the ctx.
  */
 
 import { loadGamesConfig } from './games-config-loader.js';
 import { resolveCubeTokenForGameDetailed } from './resolve-cube-token.js';
 
 const BASE_URL = () => process.env.CUBE_API_URL ?? 'http://localhost:4000';
+
+export interface WorkspaceCtx {
+  cubeApiUrl: string;
+  token: string | null;
+}
 
 // Cube can hang in a TCP-up / HTTP-stuck mode (container alive, queries
 // frozen). Without an AbortController, `fetch` sits forever and propagates
@@ -52,20 +58,33 @@ function defaultToken(): string {
   }
 }
 
-function authHeaders(tokenOverride?: string): Record<string, string> {
-  const token = tokenOverride ?? defaultToken();
+function resolveTokenForCall(
+  tokenOverride: string | null | undefined,
+  ctx?: WorkspaceCtx,
+): string {
+  if (ctx) return ctx.token ?? '';
+  return tokenOverride ?? defaultToken();
+}
+
+function resolveBaseForCall(ctx?: WorkspaceCtx): string {
+  return ctx?.cubeApiUrl ?? BASE_URL();
+}
+
+function authHeaders(token: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 async function cubePost(
   path: string,
   body: unknown,
-  tokenOverride?: string,
+  tokenOverride?: string | null,
+  ctx?: WorkspaceCtx,
 ): Promise<unknown> {
-  const url = `${BASE_URL()}/cubejs-api/v1${path}`;
+  const token = resolveTokenForCall(tokenOverride, ctx);
+  const url = `${resolveBaseForCall(ctx)}/cubejs-api/v1${path}`;
   const res = await cubeFetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders(tokenOverride) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -83,10 +102,15 @@ async function cubePost(
   return json;
 }
 
-async function cubeGet(path: string, tokenOverride?: string): Promise<unknown> {
-  const url = `${BASE_URL()}/cubejs-api/v1${path}`;
+async function cubeGet(
+  path: string,
+  tokenOverride?: string | null,
+  ctx?: WorkspaceCtx,
+): Promise<unknown> {
+  const token = resolveTokenForCall(tokenOverride, ctx);
+  const url = `${resolveBaseForCall(ctx)}/cubejs-api/v1${path}`;
   const res = await cubeFetch(url, {
-    headers: { ...authHeaders(tokenOverride) },
+    headers: { ...authHeaders(token) },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -96,22 +120,37 @@ async function cubeGet(path: string, tokenOverride?: string): Promise<unknown> {
 }
 
 /** Fetch Cube schema metadata (/meta). */
-export async function getMeta(tokenOverride?: string): Promise<unknown> {
+export async function getMeta(tokenOverride?: string | null): Promise<unknown> {
   return cubeGet('/meta', tokenOverride);
+}
+
+/** Workspace-aware /meta — preferred for new route code. */
+export async function getMetaWithCtx(ctx: WorkspaceCtx): Promise<unknown> {
+  return cubeGet('/meta', undefined, ctx);
 }
 
 /** Execute a Cube query (/load). */
 export async function load(
   query: unknown,
-  tokenOverride?: string,
+  tokenOverride?: string | null,
 ): Promise<unknown> {
   return cubePost('/load', { query }, tokenOverride);
+}
+
+/** Workspace-aware /load. */
+export async function loadWithCtx(query: unknown, ctx: WorkspaceCtx): Promise<unknown> {
+  return cubePost('/load', { query }, undefined, ctx);
 }
 
 /** Get the SQL for a Cube query (/sql). */
 export async function sql(
   query: unknown,
-  tokenOverride?: string,
+  tokenOverride?: string | null,
 ): Promise<unknown> {
   return cubePost('/sql', { query }, tokenOverride);
+}
+
+/** Workspace-aware /sql. */
+export async function sqlWithCtx(query: unknown, ctx: WorkspaceCtx): Promise<unknown> {
+  return cubePost('/sql', { query }, undefined, ctx);
 }

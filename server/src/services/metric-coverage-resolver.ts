@@ -15,7 +15,7 @@
  * so they unit-test without network. The async wrappers add token + /meta.
  */
 
-import { getMeta } from './cube-client.js';
+import { getMeta, getMetaWithCtx, type WorkspaceCtx } from './cube-client.js';
 import { resolveCubeTokenForGame } from './resolve-cube-token.js';
 import { loadGamesConfig } from './games-config-loader.js';
 import {
@@ -118,7 +118,14 @@ function matrixForGame(
   }));
 }
 
-async function fetchSnapshot(game: string): Promise<MetaSnapshot> {
+async function fetchSnapshot(
+  game: string,
+  ctx?: WorkspaceCtx,
+): Promise<MetaSnapshot> {
+  if (ctx) {
+    const meta = (await getMetaWithCtx(ctx)) as MetaResponse;
+    return snapshotFromMeta(meta);
+  }
   const token = resolveCubeTokenForGame(game);
   if (!token) throw new Error(`no Cube token for game "${game}"`);
   const meta = (await getMeta(token)) as MetaResponse;
@@ -130,9 +137,10 @@ export async function resolveCoverageForGame(
   metrics: BusinessMetric[],
   game: string,
   referenced: Set<string> = referencedMeasures(metrics),
+  ctx?: WorkspaceCtx,
 ): Promise<{ coverage: GameCoverage; matrix: MatrixCell[] }> {
   try {
-    const snapshot = await fetchSnapshot(game);
+    const snapshot = await fetchSnapshot(game, ctx);
     return {
       coverage: coverageFromSnapshot(game, metrics, snapshot, referenced),
       matrix: matrixForGame(game, metrics, snapshot),
@@ -159,11 +167,12 @@ export async function resolveCoverageForGame(
 /** Coverage across every configured game. One /meta fetch per game. */
 export async function resolveCoverageAllGames(
   metrics: BusinessMetric[],
+  ctx?: WorkspaceCtx,
 ): Promise<CoverageReport> {
   const referenced = referencedMeasures(metrics);
   const games = loadGamesConfig().games.map((g) => g.id);
   const results = await Promise.all(
-    games.map((g) => resolveCoverageForGame(metrics, g, referenced)),
+    games.map((g) => resolveCoverageForGame(metrics, g, referenced, ctx)),
   );
   return {
     games: results.map((r) => r.coverage),

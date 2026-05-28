@@ -12,24 +12,33 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import yaml from 'js-yaml';
 
 import businessMetricsRoutes from '../src/routes/business-metrics.js';
+import workspaceHeader from '../src/middleware/workspace-header.js';
 import {
   clearCache,
   loadAll,
   setRegistryDir,
 } from '../src/services/business-metrics-loader.js';
+import { __resetWorkspacesConfigCache } from '../src/services/workspaces-config-loader.js';
 
 vi.mock('../src/services/cube-client.js', () => ({
   getMeta: vi.fn(),
+  getMetaWithCtx: vi.fn(),
 }));
 vi.mock('../src/services/resolve-cube-token.js', () => ({
   resolveCubeTokenForGame: vi.fn(),
+  resolveCubeTokenForWorkspace: vi.fn(),
 }));
 
-import { getMeta } from '../src/services/cube-client.js';
-import { resolveCubeTokenForGame } from '../src/services/resolve-cube-token.js';
+import { getMeta, getMetaWithCtx } from '../src/services/cube-client.js';
+import {
+  resolveCubeTokenForGame,
+  resolveCubeTokenForWorkspace,
+} from '../src/services/resolve-cube-token.js';
 
 const getMetaMock = vi.mocked(getMeta);
+const getMetaWithCtxMock = vi.mocked(getMetaWithCtx);
 const tokenMock = vi.mocked(resolveCubeTokenForGame);
+const workspaceTokenMock = vi.mocked(resolveCubeTokenForWorkspace);
 
 let dir: string;
 let app: FastifyInstance;
@@ -74,11 +83,14 @@ beforeEach(async () => {
   writeFileSync(join(dir, 'npu.yml'), BROKEN_YAML);
   await loadAll();
 
+  __resetWorkspacesConfigCache();
   app = Fastify();
+  await app.register(workspaceHeader);
   await app.register(businessMetricsRoutes);
 
   tokenMock.mockReturnValue('Bearer test');
-  getMetaMock.mockResolvedValue({
+  workspaceTokenMock.mockReturnValue({ token: 'Bearer test', source: 'minted' });
+  const metaResponse = {
     cubes: [
       {
         name: 'mf_users',
@@ -86,12 +98,15 @@ beforeEach(async () => {
         dimensions: [],
       },
     ],
-  });
+  };
+  getMetaMock.mockResolvedValue(metaResponse);
+  getMetaWithCtxMock.mockResolvedValue(metaResponse);
 });
 
 afterEach(async () => {
   await app.close();
   clearCache();
+  __resetWorkspacesConfigCache();
   if (dir && existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   vi.clearAllMocks();
 });

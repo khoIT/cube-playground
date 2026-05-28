@@ -11,7 +11,8 @@
 import { createHmac } from 'node:crypto';
 
 export interface CubeTokenPayload {
-  game: string;
+  /** Optional — omitted for workspace-level (game-less) calls. */
+  game?: string;
   userId: string;
   iat?: number;
   exp?: number;

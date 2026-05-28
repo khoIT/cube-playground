@@ -9,7 +9,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import cubeTokenRoutes from '../src/routes/cube-token.js';
+import workspaceHeader from '../src/middleware/workspace-header.js';
 import { __resetGamesConfigCache } from '../src/services/games-config-loader.js';
+import { __resetWorkspacesConfigCache } from '../src/services/workspaces-config-loader.js';
 
 const KEYS = ['CUBE_TOKEN', 'CUBE_TOKEN_PTG', 'CUBEJS_API_SECRET'];
 const saved: Record<string, string | undefined> = {};
@@ -34,10 +36,29 @@ beforeEach(async () => {
       ],
     }),
   );
+  // Default workspace = 'local' with authMode='minted' to preserve legacy semantics
+  // for tests originally written against the global-env token resolution.
+  writeFileSync(
+    join(cwd, 'workspaces.config.json'),
+    JSON.stringify({
+      default: 'local',
+      workspaces: [
+        {
+          id: 'local',
+          label: 'Local',
+          cubeApiUrl: 'http://localhost:4000',
+          authMode: 'minted',
+          gameModel: 'game_id',
+        },
+      ],
+    }),
+  );
   process.chdir(cwd);
   __resetGamesConfigCache();
+  __resetWorkspacesConfigCache();
 
   app = Fastify();
+  await app.register(workspaceHeader);
   await app.register(cubeTokenRoutes);
 });
 
@@ -46,6 +67,7 @@ afterEach(async () => {
   process.chdir(prevCwd);
   rmSync(cwd, { recursive: true, force: true });
   __resetGamesConfigCache();
+  __resetWorkspacesConfigCache();
   for (const k of KEYS) {
     if (saved[k] === undefined) delete process.env[k];
     else process.env[k] = saved[k];

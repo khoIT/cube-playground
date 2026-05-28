@@ -366,11 +366,25 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
         return cubeApi.meta();
       }
       const baseUrl = apiUrl.endsWith('/v1') ? apiUrl : `${apiUrl}/v1`;
+      // Attach the active workspace id so the Fastify Cube proxy routes the
+      // fetch to the right backend (local vs prod cube-dev). Read directly
+      // from localStorage so we don't have to thread the React context through
+      // every QueryBuilder consumer.
+      const wsHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: apiToken,
+      };
+      try {
+        const wsId =
+          typeof window !== 'undefined'
+            ? window.localStorage.getItem('gds-cube:workspace')
+            : null;
+        if (wsId) wsHeaders['x-cube-workspace'] = wsId;
+      } catch {
+        /* ignore localStorage errors */
+      }
       return fetch(`${baseUrl}/meta?extended=true`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: apiToken,
-        },
+        headers: wsHeaders,
       }).then(async (resp) => {
         if (!resp.ok) {
           let errorBody: any = `HTTP ${resp.status}`;

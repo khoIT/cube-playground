@@ -11,6 +11,8 @@ import { CubeLoader } from './atoms';
 import { AppContextConsumer, PlaygroundContext } from './components/AppContext';
 import GlobalStyles from './components/GlobalStyles';
 import { GamePicker } from './components/Header/game-picker';
+import { WorkspaceProvider } from './components/workspace-context';
+import { WorkspaceSwitcher } from './shell/topbar/workspace-switcher';
 import { SmartSearchOverlay } from './shared/smart-search/smart-search-overlay';
 import { SmartSearchProvider, useSmartSearch } from './shared/smart-search/smart-search-context';
 import { ChatSearchOverlay } from './shared/chat-search/chat-search-overlay';
@@ -57,7 +59,11 @@ function buildFallbackContext(): PlaygroundContext {
   return {
     anonymousId: 'gds-cube',
     cubejsToken: lsToken || envToken,
-    basePath: '/cubejs-api',
+    // /cube-api — workspace-aware proxy on Fastify (forwards to the right
+    // Cube based on the active x-cube-workspace header). The legacy
+    // /cubejs-api path still works for direct-to-Cube callers but bypasses
+    // workspace switching.
+    basePath: '/cube-api',
     isDocker: false,
     dbType: null,
     telemetry: false,
@@ -117,6 +123,11 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
     if (!context) {
       context = buildFallbackContext();
     }
+    // Force the workspace-aware Fastify proxy regardless of what
+    // `playground/context` reports. The legacy Cube endpoint at :4000 still
+    // advertises `basePath: '/cubejs-api'`, which would bypass workspace
+    // routing entirely.
+    context.basePath = '/cube-api';
 
     setTelemetry(context.telemetry);
     setTracker(trackImpl);
@@ -164,17 +175,19 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
       <Root publicUrl="." styles={ROOT_STYLES}>
         <GlobalStyles />
 
-        <SmartSearchProvider>
-          <TopbarTrailingProvider>
-            <TopbarBreadcrumbProvider>
-              <CubeTokenBootstrap />
-              <ShellLayout fatalError={fatalError}>{children}</ShellLayout>
-              <SmartSearchOverlay />
-              <ChatSearchOverlay />
-              <RecentItemPusher />
-            </TopbarBreadcrumbProvider>
-          </TopbarTrailingProvider>
-        </SmartSearchProvider>
+        <WorkspaceProvider>
+          <SmartSearchProvider>
+            <TopbarTrailingProvider>
+              <TopbarBreadcrumbProvider>
+                <CubeTokenBootstrap />
+                <ShellLayout fatalError={fatalError}>{children}</ShellLayout>
+                <SmartSearchOverlay />
+                <ChatSearchOverlay />
+                <RecentItemPusher />
+              </TopbarBreadcrumbProvider>
+            </TopbarTrailingProvider>
+          </SmartSearchProvider>
+        </WorkspaceProvider>
       </Root>
     );
   }
@@ -201,7 +214,15 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
         display: 'flex', flexDirection: 'column',
         background: T.surface, borderRadius: 18, overflow: 'hidden',
       }}>
-        <Topbar onSearchOpen={smartSearch.open} fixedTrailing={<GamePicker />} />
+        <Topbar
+          onSearchOpen={smartSearch.open}
+          fixedTrailing={
+            <>
+              <WorkspaceSwitcher />
+              <GamePicker />
+            </>
+          }
+        />
         <CubeApiBanner />
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto' }}>
           {fatalError ? (

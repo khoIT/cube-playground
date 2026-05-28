@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import cubejs, { CubeApi } from '@cubejs-client/core';
+import cubejs, { CubeApi, HttpTransport } from '@cubejs-client/core';
 import { useAppContext } from '../../../hooks';
 
 /**
@@ -69,7 +69,24 @@ export function useNewMetricMeta(): UseNewMetricMetaResult {
 
   const cubejsApi = useMemo<CubeApi | null>(() => {
     if (!ctx.apiUrl || !ctx.token || ctx.token === 'undefined') return null;
-    return cubejs(ctx.token, { apiUrl: ctx.apiUrl });
+    // The wizard's SDK call must also carry x-cube-workspace so /load + /sql
+    // route to the right backend (same fix as useCubejsApi).
+    let wsId: string | null = null;
+    try {
+      wsId = typeof window !== 'undefined' ? window.localStorage.getItem('gds-cube:workspace') : null;
+    } catch {
+      /* ignore */
+    }
+    const headers: Record<string, string> = {};
+    if (wsId) headers['x-cube-workspace'] = wsId;
+    return cubejs(ctx.token, {
+      apiUrl: ctx.apiUrl,
+      transport: new HttpTransport({
+        apiUrl: ctx.apiUrl,
+        authorization: ctx.token,
+        headers,
+      }),
+    } as Parameters<typeof cubejs>[1]);
   }, [ctx.apiUrl, ctx.token]);
 
   useEffect(() => {
@@ -82,7 +99,17 @@ export function useNewMetricMeta(): UseNewMetricMetaResult {
     setLoading(true);
     setError(null);
     const base = ctx.apiUrl.endsWith('/v1') ? ctx.apiUrl : `${ctx.apiUrl}/v1`;
-    fetch(`${base}/meta?extended=true`, { headers: { Authorization: ctx.token } })
+    const fetchHeaders: Record<string, string> = { Authorization: ctx.token };
+    try {
+      const wsId =
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem('gds-cube:workspace')
+          : null;
+      if (wsId) fetchHeaders['x-cube-workspace'] = wsId;
+    } catch {
+      /* ignore */
+    }
+    fetch(`${base}/meta?extended=true`, { headers: fetchHeaders })
       .then(async (resp) => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = (await resp.json()) as WizardMeta;

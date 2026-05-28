@@ -5,6 +5,7 @@
  */
 
 import type { ApiError } from '../types/segment-api';
+import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
 
 export class SegmentApiError extends Error {
   code: string;
@@ -66,6 +67,13 @@ export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Prom
     'X-Owner': getOwner(),
     ...((headers as Record<string, string>) ?? {}),
   };
+
+  // Attach the active workspace id so the server resolves Cube ctx per-request.
+  // Read from localStorage rather than threading context through every call site.
+  const wsId = getActiveWorkspaceId();
+  if (wsId && !finalHeaders[WORKSPACE_HEADER]) {
+    finalHeaders[WORKSPACE_HEADER] = wsId;
+  }
 
   const hasBody = body !== undefined && body !== null;
   if (hasBody && !(body instanceof FormData)) {

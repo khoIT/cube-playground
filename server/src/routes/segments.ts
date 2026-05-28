@@ -78,6 +78,12 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     let sql = 'SELECT * FROM segments WHERE 1=1';
     const params: unknown[] = [];
 
+    // Always scope by the active workspace so cross-workspace bleed is
+    // structurally impossible. Routes use req.workspace.id from the header
+    // (defaults to the registry default).
+    sql += ' AND workspace = ?';
+    params.push(req.workspace.id);
+
     if (owner && owner !== '*') {
       sql += ' AND owner = ?';
       params.push(owner);
@@ -145,8 +151,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       data.name,
@@ -163,6 +169,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       now,
       data.game_id ?? loadGamesConfig().defaultGameId,
       data.funnel_json ?? null,
+      req.workspace.id,
     );
 
     if (data.tags?.length) {
@@ -363,8 +370,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       body.name.trim(),
@@ -381,6 +388,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       now,
       body.game_id ?? loadGamesConfig().defaultGameId,
       null,
+      req.workspace.id,
     );
 
     if (body.tags?.length) {

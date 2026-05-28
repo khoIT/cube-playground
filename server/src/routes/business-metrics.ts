@@ -33,8 +33,7 @@ import {
   resolveCoverageForGame,
 } from '../services/metric-coverage-resolver.js';
 import { scaffoldDraftMetric } from '../services/metric-stub-scaffolder.js';
-import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
-import { getMeta } from '../services/cube-client.js';
+import { getMetaWithCtx } from '../services/cube-client.js';
 import {
   snapshotFromMeta,
   validateRefs,
@@ -94,10 +93,18 @@ export default async function businessMetricsRoutes(
     async (req, reply) => {
       try {
         if (req.query.game) {
-          const { coverage, matrix } = await resolveCoverageForGame(getAll(), req.query.game);
+          const ctx = req.buildCubeCtxForGame(req.query.game);
+          const { coverage, matrix } = await resolveCoverageForGame(
+            getAll(),
+            req.query.game,
+            undefined,
+            ctx,
+          );
           return { games: [coverage], matrix, generatedAt: new Date().toISOString() };
         }
-        return await resolveCoverageAllGames(getAll());
+        // Workspace-level call (e.g. prod open /meta): pass the game-less ctx so
+        // every per-game coverage hit talks to the same workspace URL/auth.
+        return await resolveCoverageAllGames(getAll(), req.cubeCtx);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return reply.status(502).send({ error: { code: 'COVERAGE_FAILED', message } });
@@ -283,15 +290,16 @@ export default async function businessMetricsRoutes(
           },
         });
       }
-      const token = resolveCubeTokenForGame(gameId);
-      if (!token) {
+      const ctx = req.buildCubeCtxForGame(gameId);
+      // 'none' authMode (open prod) is valid — only block when minted/env-token resolved nothing.
+      if (req.workspace.authMode !== 'none' && !ctx.token) {
         return reply.status(400).send({
           error: { code: 'GAME_UNKNOWN', message: `no Cube token for game "${gameId}"` },
         });
       }
       let meta: MetaResponse;
       try {
-        meta = (await getMeta(token)) as MetaResponse;
+        meta = (await getMetaWithCtx(ctx)) as MetaResponse;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return reply.status(502).send({

@@ -21,6 +21,12 @@
       "color": "#009688"
     },
     {
+      "id": "cros",
+      "name": "CrossFire PC",
+      "mark": "CP",
+      "color": "#10b981"
+    },
+    {
       "id": "jus_vn",
       "name": "Justice VN",
       "mark": "JS",

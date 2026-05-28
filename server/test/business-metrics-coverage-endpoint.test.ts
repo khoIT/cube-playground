@@ -8,16 +8,29 @@ import { tmpdir } from 'node:os';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 import businessMetricsRoutes from '../src/routes/business-metrics.js';
+import workspaceHeader from '../src/middleware/workspace-header.js';
 import { clearCache, loadAll, setRegistryDir } from '../src/services/business-metrics-loader.js';
+import { __resetWorkspacesConfigCache } from '../src/services/workspaces-config-loader.js';
 
-vi.mock('../src/services/cube-client.js', () => ({ getMeta: vi.fn() }));
-vi.mock('../src/services/resolve-cube-token.js', () => ({ resolveCubeTokenForGame: vi.fn() }));
+vi.mock('../src/services/cube-client.js', () => ({
+  getMeta: vi.fn(),
+  getMetaWithCtx: vi.fn(),
+}));
+vi.mock('../src/services/resolve-cube-token.js', () => ({
+  resolveCubeTokenForGame: vi.fn(),
+  resolveCubeTokenForWorkspace: vi.fn(),
+}));
 
-import { getMeta } from '../src/services/cube-client.js';
-import { resolveCubeTokenForGame } from '../src/services/resolve-cube-token.js';
+import { getMeta, getMetaWithCtx } from '../src/services/cube-client.js';
+import {
+  resolveCubeTokenForGame,
+  resolveCubeTokenForWorkspace,
+} from '../src/services/resolve-cube-token.js';
 
 const getMetaMock = vi.mocked(getMeta);
+const getMetaWithCtxMock = vi.mocked(getMetaWithCtx);
 const tokenMock = vi.mocked(resolveCubeTokenForGame);
+const workspaceTokenMock = vi.mocked(resolveCubeTokenForWorkspace);
 
 let dir: string;
 let app: FastifyInstance;
@@ -31,24 +44,30 @@ beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'bm-cov-'));
   setRegistryDir(dir);
   clearCache();
+  __resetWorkspacesConfigCache();
   writeFileSync(join(dir, 'dau.yml'), DAU);
   writeFileSync(join(dir, 'ghost.yml'), GHOST);
   await loadAll();
   app = Fastify();
+  await app.register(workspaceHeader);
   await app.register(businessMetricsRoutes);
   tokenMock.mockReturnValue('Bearer test');
-  getMetaMock.mockResolvedValue({
+  workspaceTokenMock.mockReturnValue({ token: 'Bearer test', source: 'minted' });
+  const metaResponse = {
     cubes: [{
       name: 'active_daily',
       measures: [{ name: 'active_daily.dau' }, { name: 'active_daily.wau' }],
       dimensions: [{ name: 'active_daily.log_date', type: 'time' }],
     }],
-  });
+  };
+  getMetaMock.mockResolvedValue(metaResponse);
+  getMetaWithCtxMock.mockResolvedValue(metaResponse);
 });
 
 afterEach(async () => {
   await app.close();
   clearCache();
+  __resetWorkspacesConfigCache();
   if (dir && existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   vi.clearAllMocks();
 });
@@ -70,8 +89,8 @@ describe('GET /api/business-metrics/coverage?game=', () => {
     expect(cells.ghost).toBe('broken');
   });
 
-  it('marks the game status:error when token cannot be resolved (fail-open, still 200)', async () => {
-    tokenMock.mockReturnValue(null);
+  it('marks the game status:error when /meta fetch fails (fail-open, still 200)', async () => {
+    getMetaWithCtxMock.mockRejectedValueOnce(new Error('no Cube token for game "ballistar"'));
     const res = await app.inject({ method: 'GET', url: '/api/business-metrics/coverage?game=ballistar' });
     expect(res.statusCode).toBe(200);
     expect(res.json().games[0].status).toBe('error');

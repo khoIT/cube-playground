@@ -6,6 +6,11 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import ownerHeader from './middleware/owner-header.js';
+import workspaceHeader from './middleware/workspace-header.js';
+import workspacesRoutes from './routes/workspaces.js';
+import cubeProxyRoutes from './routes/cube-proxy.js';
+import userPrefsRoutes from './routes/user-prefs.js';
+import cubeAliasesRoutes from './routes/cube-aliases.js';
 import segmentsRoutes from './routes/segments.js';
 import analysesRoutes from './routes/analyses.js';
 import identityMapRoutes from './routes/identity-map.js';
@@ -42,7 +47,12 @@ export async function buildApp() {
 
   await app.register(cors, { origin: true });
   await app.register(ownerHeader);
+  await app.register(workspaceHeader);
 
+  await app.register(workspacesRoutes);
+  await app.register(cubeProxyRoutes);
+  await app.register(userPrefsRoutes);
+  await app.register(cubeAliasesRoutes);
   await app.register(segmentsRoutes);
   await app.register(analysesRoutes);
   await app.register(identityMapRoutes);

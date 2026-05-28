@@ -1,21 +1,20 @@
 /**
- * Per-game Cube token endpoint.
+ * Per-game Cube token endpoint (workspace-aware).
  *
  *   GET /api/playground/cube-token?game=<id>
  *     200 { token: string | null, source: 'env' | 'minted' | 'fallback' | 'none' }
  *     400 if `game` query is missing
  *     404 if `game` is unknown to gds.config.json
  *
- * The frontend fetches this on every game switch and pushes the result into
- * SecurityContext.saveToken so subsequent Cube /meta and /load requests carry
- * the right `game` claim. `source: 'none'` means no token strategy is
- * configured — the caller should leave the existing token alone.
+ * Workspace is taken from `x-cube-workspace`. `authMode='none'` (prod cube-dev)
+ * intentionally returns `{ token: null, source: 'none' }` — the client uses
+ * that to skip Authorization header on subsequent Cube calls.
  */
 
 import type { FastifyInstance } from 'fastify';
 
 import { isKnownGame } from '../services/games-config-loader.js';
-import { resolveCubeTokenForGameDetailed } from '../services/resolve-cube-token.js';
+import { resolveCubeTokenForWorkspace } from '../services/resolve-cube-token.js';
 
 interface Query {
   game?: string;
@@ -36,6 +35,6 @@ export default async function cubeTokenRoutes(
         error: { code: 'UNKNOWN_GAME', message: `game "${game}" not in registry` },
       });
     }
-    return resolveCubeTokenForGameDetailed(game);
+    return resolveCubeTokenForWorkspace(req.workspace, game);
   });
 }

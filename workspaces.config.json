@@ -1,0 +1,25 @@
+{
+  "_comment": "Cube workspace registry — server-side only. Client never sees URLs, only ids.",
+  "default": "prod",
+  "workspaces": [
+    {
+      "id": "local",
+      "label": "Local dev",
+      "cubeApiUrl": "http://localhost:4000",
+      "authMode": "minted",
+      "gameModel": "game_id"
+    },
+    {
+      "id": "prod",
+      "label": "Prod cube-dev",
+      "cubeApiUrl": "https://cube.gds.vng.vn",
+      "authMode": "none",
+      "gameModel": "prefix",
+      "gamePrefixMap": {
+        "cfm_vn": "cfm",
+        "ballistar": "ballistar",
+        "cros": "cros"
+      }
+    }
+  ]
+}

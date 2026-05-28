@@ -76,6 +76,7 @@ describe('seedStarterPack', () => {
   it('installs starters whose required cubes are available', () => {
     const res = seedStarterPack({
       owner: 'alice',
+      workspace: 'local',
       game: 'ptg',
       availableCubes: new Set(['active_daily', 'retention']),
     });
@@ -87,6 +88,7 @@ describe('seedStarterPack', () => {
   it('skips starters whose required cubes are absent', () => {
     const res = seedStarterPack({
       owner: 'alice',
+      workspace: 'local',
       game: 'muaw',
       availableCubes: new Set(['active_daily']),
     });
@@ -97,11 +99,13 @@ describe('seedStarterPack', () => {
   it('is idempotent — re-running inserts nothing', () => {
     seedStarterPack({
       owner: 'alice',
+      workspace: 'local',
       game: 'ptg',
       availableCubes: new Set(['active_daily', 'retention']),
     });
     const second = seedStarterPack({
       owner: 'alice',
+      workspace: 'local',
       game: 'ptg',
       availableCubes: new Set(['active_daily', 'retention']),
     });
@@ -112,6 +116,7 @@ describe('seedStarterPack', () => {
   it('inserts tiles for each starter dashboard', () => {
     seedStarterPack({
       owner: 'alice',
+      workspace: 'local',
       game: 'ptg',
       availableCubes: new Set(['active_daily']),
     });

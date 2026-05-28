@@ -36,6 +36,7 @@ export interface DashboardWithTiles extends DashboardRow {
 
 export interface CreateDashboardInput {
   owner: string;
+  workspace: string;
   game: string;
   slug: string;
   title: string;
@@ -76,13 +77,19 @@ function hydrateDashboard(row: Record<string, unknown>): DashboardRow {
   return row as unknown as DashboardRow;
 }
 
-export function listDashboards(owner: string, game: string): DashboardRow[] {
+export function listDashboards(
+  owner: string,
+  game: string,
+  workspace: string,
+): DashboardRow[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT * FROM dashboards WHERE owner = ? AND game = ? ORDER BY created_at DESC`,
+      `SELECT * FROM dashboards
+       WHERE owner = ? AND game = ? AND workspace = ?
+       ORDER BY created_at DESC`,
     )
-    .all(owner, game) as Record<string, unknown>[];
+    .all(owner, game, workspace) as Record<string, unknown>[];
   return rows.map(hydrateDashboard);
 }
 
@@ -90,11 +97,15 @@ export function getDashboard(
   owner: string,
   game: string,
   slug: string,
+  workspace: string,
 ): DashboardWithTiles | null {
   const db = getDb();
   const row = db
-    .prepare(`SELECT * FROM dashboards WHERE owner = ? AND game = ? AND slug = ?`)
-    .get(owner, game, slug) as Record<string, unknown> | undefined;
+    .prepare(
+      `SELECT * FROM dashboards
+       WHERE owner = ? AND game = ? AND slug = ? AND workspace = ?`,
+    )
+    .get(owner, game, slug, workspace) as Record<string, unknown> | undefined;
 
   if (!row) return null;
 
@@ -112,10 +123,18 @@ export function createDashboard(input: CreateDashboardInput): DashboardRow {
   const now = new Date().toISOString();
   const result = db
     .prepare(
-      `INSERT INTO dashboards (owner, game, slug, title, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO dashboards (owner, game, slug, title, created_at, updated_at, workspace)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(input.owner, input.game, input.slug, input.title, now, now);
+    .run(
+      input.owner,
+      input.game,
+      input.slug,
+      input.title,
+      now,
+      now,
+      input.workspace,
+    );
 
   const row = db
     .prepare(`SELECT * FROM dashboards WHERE id = ?`)
@@ -127,12 +146,16 @@ export function updateDashboard(
   owner: string,
   game: string,
   slug: string,
+  workspace: string,
   patch: { title?: string },
 ): DashboardRow | null {
   const db = getDb();
   const row = db
-    .prepare(`SELECT * FROM dashboards WHERE owner = ? AND game = ? AND slug = ?`)
-    .get(owner, game, slug) as Record<string, unknown> | undefined;
+    .prepare(
+      `SELECT * FROM dashboards
+       WHERE owner = ? AND game = ? AND slug = ? AND workspace = ?`,
+    )
+    .get(owner, game, slug, workspace) as Record<string, unknown> | undefined;
 
   if (!row) return null;
 
@@ -151,11 +174,15 @@ export function deleteDashboard(
   owner: string,
   game: string,
   slug: string,
+  workspace: string,
 ): boolean {
   const db = getDb();
   const result = db
-    .prepare(`DELETE FROM dashboards WHERE owner = ? AND game = ? AND slug = ?`)
-    .run(owner, game, slug);
+    .prepare(
+      `DELETE FROM dashboards
+       WHERE owner = ? AND game = ? AND slug = ? AND workspace = ?`,
+    )
+    .run(owner, game, slug, workspace);
   return result.changes > 0;
 }
 
@@ -240,14 +267,16 @@ export function markDashboardViewed(
   owner: string,
   game: string,
   slug: string,
+  workspace: string,
 ): boolean {
   const db = getDb();
   const now = new Date().toISOString();
   const res = db
     .prepare(
-      `UPDATE dashboards SET last_viewed_at = ? WHERE owner = ? AND game = ? AND slug = ?`,
+      `UPDATE dashboards SET last_viewed_at = ?
+       WHERE owner = ? AND game = ? AND slug = ? AND workspace = ?`,
     )
-    .run(now, owner, game, slug);
+    .run(now, owner, game, slug, workspace);
   return res.changes > 0;
 }
 
@@ -255,14 +284,22 @@ export function setDashboardTileTtl(
   owner: string,
   game: string,
   slug: string,
+  workspace: string,
   ttlSeconds: number,
 ): boolean {
   const db = getDb();
   const res = db
     .prepare(
-      `UPDATE dashboards SET tile_ttl_seconds = ? WHERE owner = ? AND game = ? AND slug = ?`,
+      `UPDATE dashboards SET tile_ttl_seconds = ?
+       WHERE owner = ? AND game = ? AND slug = ? AND workspace = ?`,
     )
-    .run(Math.max(30, Math.min(86_400, ttlSeconds)), owner, game, slug);
+    .run(
+      Math.max(30, Math.min(86_400, ttlSeconds)),
+      owner,
+      game,
+      slug,
+      workspace,
+    );
   return res.changes > 0;
 }
 

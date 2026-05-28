@@ -17,6 +17,7 @@ import {
 import { ChangeAnalysisModal } from '../../../shared/concept-shell/change-analysis-modal';
 import { useViewMode } from '../../../shared/view-mode/view-mode-toggle';
 import { useCatalogMeta } from '../use-catalog-meta';
+import { unprefixedAlias } from '../../../components/workspace-context';
 import type { BusinessMetric, BusinessMetricDomain } from './business-metric-types';
 import { DOMAINS } from './business-metric-constants';
 import { MetricCard } from './metric-card';
@@ -90,10 +91,19 @@ export function MetricsTab() {
   const [collapsedDomains, setCollapsedDomains] = useState<Set<string>>(() => new Set());
   const [viewMode] = useViewMode('metrics-catalog');
 
-  const availableCubeNames = useMemo(
-    () => new Set(cubes.map((c) => c.name)),
-    [cubes],
-  );
+  // Prefix workspaces (prod cube-dev) namespace cubes as `<prefix>_<name>`,
+  // but the business-metrics registry references unprefixed names. Include
+  // both the real and the unprefixed alias so availability matching works
+  // for either workspace shape.
+  const availableCubeNames = useMemo(() => {
+    const out = new Set<string>();
+    for (const c of cubes) {
+      out.add(c.name);
+      const alias = unprefixedAlias(c.name);
+      if (alias) out.add(alias);
+    }
+    return out;
+  }, [cubes]);
 
   const result = useFilteredMetrics(metrics, filters, query, availableCubeNames);
 
