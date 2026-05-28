@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { BusinessMetric } from './business-metric-types';
+import { onWorkspaceChange } from '../../../shared/workspace-cache-bus';
 
 type RegistryResponse = { metrics: BusinessMetric[] };
 
@@ -22,6 +23,17 @@ const cache = new Map<string, BusinessMetric[]>();
 const inflight = new Map<string, Promise<BusinessMetric[]>>();
 type Subscriber = (metrics: BusinessMetric[]) => void;
 const subscribers = new Map<string, Set<Subscriber>>();
+
+// Drop the per-game cache and any in-flight requests when the user switches
+// workspaces — the registry result is workspace-dependent (server resolves
+// `trust` against the active workspace's /meta).
+onWorkspaceChange(() => {
+  cache.clear();
+  inflight.clear();
+  for (const subs of subscribers.values()) {
+    for (const cb of subs) cb([]);
+  }
+});
 
 function keyFor(gameId: string | null | undefined): string {
   return gameId ?? NO_GAME;

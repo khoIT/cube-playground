@@ -60,13 +60,21 @@ async function proxyJson(
   upstream: string,
   method: string,
   ownerId: string,
+  workspace: string,
   body?: unknown,
 ): Promise<{ status: number; payload: unknown }> {
   // Only advertise a JSON content-type when we actually send a body. A
   // bodyless POST/DELETE (e.g. the turn-cancel route) with
   // Content-Type: application/json trips the upstream's empty-JSON-body guard
   // (FST_ERR_CTP_EMPTY_JSON_BODY → 400).
-  const headers: Record<string, string> = { 'X-Owner-Id': ownerId };
+  const headers: Record<string, string> = {
+    'X-Owner-Id': ownerId,
+    // Partition chat-service queries by the active Cube workspace. Session
+    // list/detail must scope to the workspace so switching local↔prod hides
+    // the other side's threads. Default 'local' is applied upstream when the
+    // header is absent (legacy clients keep their existing visibility).
+    'X-Cube-Workspace': workspace,
+  };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await fetch(upstream, {
     method,
@@ -160,6 +168,10 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
         'X-Cube-Token': token,
         'X-Cube-Game': body.game,
         'X-Owner-Id': owner,
+        // Partition chat sessions by Cube data workspace — chat-service uses
+        // this to scope sessions to the active backend (local mint vs prod
+        // open access). Read off `req.workspace` populated by workspaceHeader.
+        'X-Cube-Workspace': request.workspace.id,
       };
       const bypassCache = request.headers['x-bypass-cache'];
       if (typeof bypassCache === 'string') forwardedHeaders['X-Bypass-Cache'] = bypassCache;
@@ -325,7 +337,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const url = `${chatServiceUrl()}/agent/turn/${encodeURIComponent(request.params.turnId)}/cancel`;
       try {
-        const { status, payload } = await proxyJson(url, 'POST', owner);
+        const { status, payload } = await proxyJson(url, 'POST', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -343,7 +355,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.q) params.set('q', request.query.q);
       const url = `${chatServiceUrl()}/sessions?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -358,7 +370,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       const owner = resolveOwner(request) ?? request.owner;
       const url = `${chatServiceUrl()}/sessions/${encodeURIComponent(request.params.id)}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -375,7 +387,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       const owner = resolveOwner(request) ?? request.owner;
       const url = `${chatServiceUrl()}/api/chat/sessions/${encodeURIComponent(request.params.id)}/focus`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -393,7 +405,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const url = `${chatServiceUrl()}/api/chat/sessions/${encodeURIComponent(request.params.id)}/focus`;
       try {
-        const { status, payload } = await proxyJson(url, 'DELETE', owner);
+        const { status, payload } = await proxyJson(url, 'DELETE', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -408,7 +420,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       const owner = resolveOwner(request) ?? request.owner;
       const url = `${chatServiceUrl()}/sessions/${encodeURIComponent(request.params.id)}`;
       try {
-        const { status, payload } = await proxyJson(url, 'DELETE', owner);
+        const { status, payload } = await proxyJson(url, 'DELETE', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -426,7 +438,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const url = `${chatServiceUrl()}/sessions/${encodeURIComponent(request.params.id)}`;
       try {
-        const { status, payload } = await proxyJson(url, 'PATCH', owner, request.body);
+        const { status, payload } = await proxyJson(url, 'PATCH', owner, request.workspace.id, request.body);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -447,7 +459,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.limit) params.set('limit', request.query.limit);
       const url = `${chatServiceUrl()}/notifications?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -465,7 +477,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const url = `${chatServiceUrl()}/notifications/${encodeURIComponent(request.params.id)}/read`;
       try {
-        const { status, payload } = await proxyJson(url, 'POST', owner);
+        const { status, payload } = await proxyJson(url, 'POST', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -485,7 +497,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.limit) params.set('limit', request.query.limit);
       const url = `${chatServiceUrl()}/audit/intents?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -503,7 +515,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const url = `${chatServiceUrl()}/audit`;
       try {
-        const { status, payload } = await proxyJson(url, 'POST', owner, request.body);
+        const { status, payload } = await proxyJson(url, 'POST', owner, request.workspace.id, request.body);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -522,7 +534,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.days) params.set('days', request.query.days);
       const url = `${chatServiceUrl()}/debug/leaderboard/skills?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -547,7 +559,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (q.q) params.set('q', q.q);
       const url = `${chatServiceUrl()}/debug/cache-effectiveness?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -573,7 +585,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
 
       const url = `${chatServiceUrl()}/stats?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -599,7 +611,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.limit) params.set('limit', request.query.limit);
       const url = `${chatServiceUrl()}/debug/sessions?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -615,7 +627,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const url = `${chatServiceUrl()}/debug/sessions/${encodeURIComponent(request.params.id)}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -631,7 +643,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -653,7 +665,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.limit) params.set('limit', request.query.limit);
       const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/raw?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -673,7 +685,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/annotation`;
       try {
-        const { status, payload } = await proxyJson(url, 'POST', owner, request.body);
+        const { status, payload } = await proxyJson(url, 'POST', owner, request.workspace.id, request.body);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -692,7 +704,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/annotation`;
       try {
-        const { status, payload } = await proxyJson(url, 'DELETE', owner);
+        const { status, payload } = await proxyJson(url, 'DELETE', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -716,7 +728,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const url = `${chatServiceUrl()}/debug/search?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -740,7 +752,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const url = `${chatServiceUrl()}/debug/search/cached?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner);
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -760,7 +772,7 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.game) params.set('game', request.query.game);
       const url = `${chatServiceUrl()}/debug/cache?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'DELETE', owner);
+        const { status, payload } = await proxyJson(url, 'DELETE', owner, request.workspace.id);
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });

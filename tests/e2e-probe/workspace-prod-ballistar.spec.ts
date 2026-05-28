@@ -47,3 +47,37 @@ test('catalog renders prod+ballistar end-to-end', async ({ page }) => {
   console.log('--- requests ---');
   for (const r of reqs) console.log(r);
 });
+
+test('chat sessions are partitioned by workspace', async ({ request }) => {
+  // The committed chat-snapshot seeds ~50 sessions under owner='dev'. All of
+  // those rows pre-date the schema migration, so they backfill to workspace
+  // 'local'. Asking the same owner+game with `X-Cube-Workspace: prod` MUST
+  // return strictly fewer rows than `local` — that's the proof that the
+  // partition filter is actually being applied at the DB level.
+  const owner = 'dev';
+  const game = 'ballistar';
+  const baseUrl = 'http://localhost:3004/api/chat/sessions';
+  const headersFor = (ws: string) => ({
+    'X-Owner-Id': owner,
+    'X-Cube-Workspace': ws,
+    'Accept': 'application/json',
+  });
+
+  const localRes = await request.get(`${baseUrl}?game=${game}`, { headers: headersFor('local') });
+  const prodRes = await request.get(`${baseUrl}?game=${game}`, { headers: headersFor('prod') });
+
+  expect(localRes.status()).toBe(200);
+  expect(prodRes.status()).toBe(200);
+
+  const localList = (await localRes.json()) as Array<{ id: string; workspace?: string }>;
+  const prodList = (await prodRes.json()) as Array<{ id: string; workspace?: string }>;
+
+  console.log('=== CHAT PARTITION ===');
+  console.log(`local sessions: ${localList.length}  prod sessions: ${prodList.length}`);
+
+  // Seeded sessions live in local; prod should be empty (or at least strictly
+  // smaller) on a fresh DB. The chip-on-the-shoulder assertion: if these are
+  // equal AND non-zero, partitioning isn't filtering.
+  expect(localList.length).toBeGreaterThan(0);
+  expect(prodList.length).toBeLessThan(localList.length);
+});

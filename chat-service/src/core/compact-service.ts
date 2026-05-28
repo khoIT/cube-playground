@@ -81,6 +81,9 @@ export async function compactSession(opts: CompactOpts): Promise<CompactResult> 
   const newSession = chatStore.createSessionWithParent(db, {
     ownerId: oldSession.owner_id,
     gameId: oldSession.game_id,
+    // Inherit workspace from the parent — a compaction-spawned session stays
+    // in the same Cube data namespace as the original turns.
+    workspace: oldSession.workspace,
     title: oldSession.title ?? undefined,
     parentSessionId: sessionId,
   });

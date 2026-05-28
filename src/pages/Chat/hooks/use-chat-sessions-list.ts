@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useReducer } from 'react';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
+import { useWorkspaceContext, WORKSPACE_HEADER } from '../../../components/workspace-context';
 import { onChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 import { getOwnerId } from '../../../api/chat-owner-id';
 
@@ -71,6 +72,7 @@ function reducer(prev: State, action: Action): State {
 
 export function useChatSessionsList(query?: string) {
   const gameId = useActiveGameId();
+  const { workspaceId } = useWorkspaceContext();
   const [state, dispatch] = useReducer(reducer, { status: 'idle', sessions: [] });
   const trimmed = (query ?? '').trim();
 
@@ -79,8 +81,13 @@ export function useChatSessionsList(query?: string) {
     try {
       const params = new URLSearchParams({ game: gameId });
       if (trimmed) params.set('q', trimmed);
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+        'X-Owner-Id': getOwnerId(),
+      };
+      if (workspaceId) headers[WORKSPACE_HEADER] = workspaceId;
       const res = await fetch(`/api/chat/sessions?${params.toString()}`, {
-        headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
+        headers,
         // Defeat HTTP/heuristic caching — a freshly-created session must be
         // visible in the next list response, not stale.
         cache: 'no-store',
@@ -99,7 +106,7 @@ export function useChatSessionsList(query?: string) {
       if (err instanceof Error && err.name === 'AbortError') return;
       dispatch({ type: 'ERROR', error: err instanceof Error ? err.message : 'Unknown error' });
     }
-  }, [gameId, trimmed]);
+  }, [gameId, trimmed, workspaceId]);
 
   // Initial fetch.
   useEffect(() => {

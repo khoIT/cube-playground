@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CubeApi } from '@cubejs-client/core';
 import type { WizardCube } from '../../hooks/use-new-metric-meta';
+import { onWorkspaceChange } from '../../../../shared/workspace-cache-bus';
 
 export type CubeRowCountResult =
   | { status: 'idle' }
@@ -10,6 +11,9 @@ export type CubeRowCountResult =
   | { status: 'ready'; count: number };
 
 const CACHE = new Map<string, number>();
+
+// Row counts depend on the live Cube backend — invalidate on workspace switch.
+onWorkspaceChange(() => CACHE.clear());
 
 function cubeCountMeasure(cube: WizardCube): string | null {
   const ms = cube.measures ?? [];

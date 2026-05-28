@@ -18,14 +18,14 @@ import type {
 
 export function createSession(
   db: Database.Database,
-  params: { ownerId: string; gameId: string; title?: string },
+  params: { ownerId: string; gameId: string; workspace?: string; title?: string },
 ): ChatSessionRow {
   const id = uuidv4();
   const now = Date.now();
   db.prepare(
-    `INSERT INTO chat_sessions (id, owner_id, game_id, title, created_at, status)
-     VALUES (?, ?, ?, ?, ?, 'active')`,
-  ).run(id, params.ownerId, params.gameId, params.title ?? null, now);
+    `INSERT INTO chat_sessions (id, owner_id, game_id, workspace, title, created_at, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'active')`,
+  ).run(id, params.ownerId, params.gameId, params.workspace ?? 'local', params.title ?? null, now);
   return getSession(db, id)!;
 }
 
@@ -42,9 +42,10 @@ export function getSession(
 
 export function listSessions(
   db: Database.Database,
-  params: { ownerId: string; gameId: string; limit?: number; q?: string },
+  params: { ownerId: string; gameId: string; workspace?: string; limit?: number; q?: string },
 ): ChatSessionRow[] {
   const limit = params.limit ?? 20;
+  const workspace = params.workspace ?? 'local';
   const q = params.q?.trim();
   if (q) {
     // Title-only LIKE search. Escape % _ in the user input to keep them literal.
@@ -53,23 +54,23 @@ export function listSessions(
     return db
       .prepare(
         `SELECT * FROM chat_sessions
-         WHERE owner_id = ? AND game_id = ? AND status != 'archived'
+         WHERE owner_id = ? AND game_id = ? AND workspace = ? AND status != 'archived'
            AND deleted_at IS NULL
            AND title LIKE ? ESCAPE '\\'
          ORDER BY last_turn_at DESC, created_at DESC
          LIMIT ?`,
       )
-      .all(params.ownerId, params.gameId, pattern, limit) as ChatSessionRow[];
+      .all(params.ownerId, params.gameId, workspace, pattern, limit) as ChatSessionRow[];
   }
   return db
     .prepare(
       `SELECT * FROM chat_sessions
-       WHERE owner_id = ? AND game_id = ? AND status != 'archived'
+       WHERE owner_id = ? AND game_id = ? AND workspace = ? AND status != 'archived'
          AND deleted_at IS NULL
        ORDER BY last_turn_at DESC, created_at DESC
        LIMIT ?`,
     )
-    .all(params.ownerId, params.gameId, limit) as ChatSessionRow[];
+    .all(params.ownerId, params.gameId, workspace, limit) as ChatSessionRow[];
 }
 
 /**
@@ -146,15 +147,15 @@ export function updateSessionTitle(
 /** Create a session that is a continuation of a compacted parent session. */
 export function createSessionWithParent(
   db: Database.Database,
-  params: { ownerId: string; gameId: string; title?: string; parentSessionId: string },
+  params: { ownerId: string; gameId: string; workspace?: string; title?: string; parentSessionId: string },
 ): ChatSessionRow {
   const id = uuidv4();
   const now = Date.now();
   db.prepare(
     `INSERT INTO chat_sessions
-       (id, owner_id, game_id, title, created_at, status, parent_session_id)
-     VALUES (?, ?, ?, ?, ?, 'active', ?)`,
-  ).run(id, params.ownerId, params.gameId, params.title ?? null, now, params.parentSessionId);
+       (id, owner_id, game_id, workspace, title, created_at, status, parent_session_id)
+     VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`,
+  ).run(id, params.ownerId, params.gameId, params.workspace ?? 'local', params.title ?? null, now, params.parentSessionId);
   return getSession(db, id)!;
 }
 

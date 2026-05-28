@@ -7,6 +7,7 @@ import styled from 'styled-components';
 
 import { CubeLoader } from '../../atoms';
 import { useActiveGameId } from '../Header/use-game-context';
+import { useWorkspaceContext } from '../workspace-context';
 import { useAppContext, useCubejsApi, useSecurityContext } from '../../hooks';
 import {
   OPEN_ROLLUP_DESIGNER_EVENT,
@@ -140,6 +141,7 @@ function QueryTabsRenderer({
   const history = useHistory();
   const { setQuery, toggleModal } = useRollupDesignerContext();
   const gameId = useActiveGameId();
+  const { workspaceId } = useWorkspaceContext();
 
   useEffect(() => {
     const handler = () => toggleModal();
@@ -247,7 +249,9 @@ function QueryTabsRenderer({
 
   return (
     <QueryTabs
-      key={gameId}
+      // Remount on workspace change so the per-(workspace, game) storage key
+      // is read fresh instead of carrying the prior workspace's tabs in memory.
+      key={`${workspaceId || '_'}:${gameId}`}
       gameId={gameId}
       query={query}
       sidebar={null}

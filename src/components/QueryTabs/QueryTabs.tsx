@@ -11,6 +11,7 @@ import styled from 'styled-components';
 
 import { event } from '../../events';
 import { useLocalStorage } from '../../hooks';
+import { useWorkspaceContext } from '../workspace-context';
 import { QueryLoadResult } from '../ChartRenderer/ChartRenderer';
 import { DrilldownModal } from '../DrilldownModal/DrilldownModal';
 import { useChartRendererStateMethods } from './ChartRendererStateProvider';
@@ -147,11 +148,13 @@ export function QueryTabs({
   const [editableTabId, setEditableTabId] = useState<string>();
   const [editableTabValue, setEditableTabValue] = useState<string>('');
   const [ready, setReady] = useState<boolean>(false);
-  // Scope tabs per game — empty/unknown gameId falls back to a stable bucket so
-  // pre-game-picker installs and tests don't collide. `key={gameId}` upstream
-  // already remounts on game switch, so the storage key swap is the source of
-  // truth for tab persistence.
-  const storageKey = `queryTabs:${gameId ?? '__default__'}`;
+  // Scope tabs per (workspace, game) — cube refs are namespaced per workspace
+  // (prod cube-dev prefixes with `<prefix>_`, local doesn't), so a tab built
+  // on one workspace would 400 against the other's schema. `key={gameId}`
+  // upstream already remounts on game switch; the workspace half guards the
+  // remaining axis. Unknown ids fall back to stable buckets for boot/tests.
+  const { workspaceId } = useWorkspaceContext();
+  const storageKey = `queryTabs:${workspaceId || '__default__'}:${gameId ?? '__default__'}`;
   const [queryTabs, saveTabs] = useLocalStorage<QueryTabs>(storageKey, {
     activeId: '1',
     tabs: [

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CubeApi } from '@cubejs-client/core';
 import type { WizardCube } from '../../hooks/use-new-metric-meta';
+import { onWorkspaceChange } from '../../../../shared/workspace-cache-bus';
 
 export type CubeTimeRangeResult =
   | { status: 'idle' }
@@ -10,6 +11,9 @@ export type CubeTimeRangeResult =
   | { status: 'ready'; dimension: string; minDate: Date; maxDate: Date; spanDays: number };
 
 const CACHE = new Map<string, { dimension: string; minDate: Date; maxDate: Date; spanDays: number }>();
+
+// Time-range results are workspace-specific (different Cube /sql backends).
+onWorkspaceChange(() => CACHE.clear());
 
 // Pick the cube's "primary" time dimension. We prefer well-known event-time
 // names (log_date, recharge_time, …) over attribute dates like install_date or

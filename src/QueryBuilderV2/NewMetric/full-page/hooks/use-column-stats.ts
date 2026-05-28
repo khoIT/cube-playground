@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CubeApi } from '@cubejs-client/core';
 import type { WizardCube } from '../../hooks/use-new-metric-meta';
 import type { Operation } from '../../types';
+import { onWorkspaceChange } from '../../../../shared/workspace-cache-bus';
 
 export type ColumnStats = {
   count: number | null;
@@ -24,6 +25,9 @@ export type ColumnStatsResult =
 // Simple LRU cache capped at 50 entries.
 const CACHE = new Map<string, ColumnStats>();
 const CACHE_CAP = 50;
+
+// Stats reflect the active workspace's data — wipe on switch.
+onWorkspaceChange(() => CACHE.clear());
 
 function cacheKey(cube: string, col: string, op: Operation): string {
   return `${cube}|${col}|${op}`;

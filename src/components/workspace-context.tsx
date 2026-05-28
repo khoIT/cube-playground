@@ -105,6 +105,24 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       if (prev === next) return prev;
       persistWorkspaceId(next);
       if (typeof window !== 'undefined') {
+        // Stale-artifact wipe — these keys carry data that belongs to the
+        // previous workspace's Cube namespace and would 4xx / surface ghost
+        // values on the new one. The server-side workspace partitioning
+        // (segments / dashboards / cube_aliases / chat_sessions) handles
+        // persistence; localStorage just caches client-only state.
+        //   gds-cube:token         — minted JWT for the prior workspace's
+        //                            Cube. Re-minted by useCubeTokenBootstrap
+        //                            after the switch.
+        //   gds-cube:cube-aliases  — pre-Phase-04 alias storage; now
+        //                            authoritative on the server per workspace.
+        // We leave the workspace and game keys alone — they are the source of
+        // truth for what's selected next.
+        try {
+          window.localStorage.removeItem('gds-cube:token');
+          window.localStorage.removeItem('gds-cube:cube-aliases');
+        } catch {
+          // ignore quota / privacy errors
+        }
         window.dispatchEvent(
           new CustomEvent(WORKSPACE_CHANGE_EVENT, { detail: { workspaceId: next } }),
         );

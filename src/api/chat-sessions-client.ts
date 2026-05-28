@@ -4,11 +4,15 @@
  * fetch helpers used by row actions (delete, rename later).
  */
 import { getOwnerId } from './chat-owner-id';
+import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
 
 export async function deleteChatSession(id: string): Promise<void> {
+  const headers: Record<string, string> = { 'X-Owner-Id': getOwnerId() };
+  const wsId = getActiveWorkspaceId();
+  if (wsId) headers[WORKSPACE_HEADER] = wsId;
   const res = await fetch(`/api/chat/sessions/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    headers: { 'X-Owner-Id': getOwnerId() },
+    headers,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);

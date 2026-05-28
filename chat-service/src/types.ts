@@ -231,6 +231,12 @@ export interface ChatSessionRow {
    * starts fresh). Optional for legacy rows missing the column.
    */
   sdk_conversation_id?: string | null;
+  /**
+   * Cube data workspace this session belongs to ("local", "prod", …). Sessions
+   * are partitioned by workspace so switching workspaces hides sessions whose
+   * cube refs target a different namespace. Defaults to 'local' for legacy rows.
+   */
+  workspace: string;
 }
 
 export interface ChatTurnRow {

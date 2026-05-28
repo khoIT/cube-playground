@@ -12,12 +12,16 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import ownerHeader from '../src/middleware/owner-header.js';
+import workspaceHeader from '../src/middleware/workspace-header.js';
 import chatRoutes from '../src/routes/chat.js';
 
 // --- Mock resolveCubeTokenForGame ---
 vi.mock('../src/services/resolve-cube-token.js', () => ({
   resolveCubeTokenForGame: vi.fn(() => 'test-cube-token'),
   resolveCubeTokenForGameDetailed: vi.fn(() => ({ token: 'test-cube-token', source: 'env' })),
+  // workspaceHeader middleware also resolves the workspace-aware variant —
+  // tests don't depend on its return value, just need it to not throw.
+  resolveCubeTokenForWorkspace: vi.fn(() => ({ token: 'test-cube-token', source: 'env' })),
   __envKeyFor: (g: string) => `CUBE_TOKEN_${g.toUpperCase()}`,
 }));
 
@@ -109,8 +113,9 @@ beforeEach(async () => {
   vi.mocked(resolveCubeTokenForGame).mockReturnValue('test-cube-token');
 
   // Build lightweight test app — no DB required
-  app = Fastify({ logger: false });
+  app = Fastify({ logger: true });
   await app.register(ownerHeader);
+  await app.register(workspaceHeader);
   await app.register(chatRoutes);
   await app.ready();
 });
@@ -144,6 +149,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     await testApp.inject({
@@ -178,6 +184,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     await testApp.inject({
@@ -212,6 +219,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     await testApp.inject({
@@ -246,6 +254,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     await testApp.inject({
@@ -280,6 +289,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     await testApp.inject({
@@ -314,6 +324,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     await testApp.inject({
@@ -348,6 +359,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     // Send only X-Web-Search; X-Research-Mode must be absent.
@@ -388,6 +400,7 @@ describe('POST /api/chat/sessions/new/turn — header forwarding (C1)', () => {
 
     const testApp = Fastify({ logger: false });
     await testApp.register(ownerHeader);
+    await testApp.register(workspaceHeader);
     await testApp.register(chatRoutes);
 
     await testApp.inject({
@@ -480,6 +493,7 @@ describe('POST /api/chat/sessions/new/turn', () => {
     // Rebuild app with new CHAT_SERVICE_URL
     const captureTestApp = Fastify({ logger: false });
     await captureTestApp.register(ownerHeader);
+    await captureTestApp.register(workspaceHeader);
     await captureTestApp.register(chatRoutes);
 
     await captureTestApp.inject({

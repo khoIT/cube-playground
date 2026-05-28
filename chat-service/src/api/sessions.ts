@@ -78,6 +78,13 @@ const PatchBodySchema = z.object({
   title: z.string().min(1).max(64),
 });
 
+/** Resolve the active Cube workspace from the request, defaulting to 'local'. */
+function readWorkspace(req: { headers: Record<string, string | string[] | undefined> }): string {
+  const raw = req.headers['x-cube-workspace'];
+  if (Array.isArray(raw)) return (raw[0] ?? 'local').toString();
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : 'local';
+}
+
 interface SessionsRouteOptions {
   db: Database.Database;
 }
@@ -97,9 +104,15 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
         return reply.status(400).send({ error: 'Missing ?game= query param' });
       }
 
+      // Partition sessions by cube workspace so switching between local/prod
+      // doesn't surface threads whose cube refs target a different namespace.
+      // Legacy clients (or fixture seeds) without the header land on 'local'.
+      const workspace = readWorkspace(req);
+
       const sessions = chatStore.listSessions(opts.db, {
         ownerId,
         gameId,
+        workspace,
         limit: 50,
         q: req.query.q,
       });

@@ -41,6 +41,15 @@ export function migrate(db: Database.Database): void {
   // Phase-01: Anthropic SDK conversation id; null = no resume payload available.
   // Cleared on compaction so the post-compact session opens a fresh SDK thread.
   addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN sdk_conversation_id TEXT;');
+  // Cube data workspace ("local" mints JWTs against local Cube; "prod" hits
+  // the open prod cube-dev). Sessions are partitioned per workspace so
+  // switching workspaces in the playground hides sessions whose cube refs
+  // belong to a different namespace (prefixed prod vs flat local).
+  addColumnIfMissing(db, "ALTER TABLE chat_sessions ADD COLUMN workspace TEXT NOT NULL DEFAULT 'local';");
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_sessions_owner_workspace_game
+       ON chat_sessions(owner_id, workspace, game_id, last_turn_at DESC);`,
+  );
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
 
   // Observability columns added to chat_turns for per-turn metadata capture.

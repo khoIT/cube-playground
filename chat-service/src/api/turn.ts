@@ -107,6 +107,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       return reply.status(400).send({ error: 'X-Owner-Id header must match body.owner_id' });
     }
 
+    // X-Cube-Workspace partitions sessions by the active Cube data backend.
+    // Default 'local' so legacy turn requests without the header keep working
+    // against the existing local-only session bucket.
+    const wsRaw = req.headers['x-cube-workspace'];
+    const workspace =
+      typeof wsRaw === 'string' && wsRaw.trim() ? wsRaw.trim() : 'local';
+
     // --- 2. Resolve / validate session ---
     let sessionId = body.session_id ?? null;
     if (sessionId) {
@@ -214,6 +221,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       const session = chatStore.createSession(opts.db, {
         ownerId: body.owner_id,
         gameId: body.game,
+        workspace,
         title: body.message.slice(0, 64),
       });
       sessionId = session.id;

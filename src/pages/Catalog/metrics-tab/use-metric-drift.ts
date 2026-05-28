@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { onWorkspaceChange } from '../../../shared/workspace-cache-bus';
 
 export interface MetricDriftBrokenEntry {
   id: string;
@@ -28,6 +29,12 @@ interface UseMetricDriftResult {
 
 const cache = new Map<string, MetricDriftSnapshot>();
 const inflight = new Map<string, Promise<MetricDriftSnapshot>>();
+
+// Drift depends on the active workspace's /meta — invalidate on switch.
+onWorkspaceChange(() => {
+  cache.clear();
+  inflight.clear();
+});
 
 function fetchDrift(gameId: string): Promise<MetricDriftSnapshot> {
   const cached = cache.get(gameId);
