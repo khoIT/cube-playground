@@ -62,6 +62,19 @@ interface UseQueryBuilderProps {
    * Validates and prepares the query once it's get updated
    */
   queryValidator?: (query: Query) => Query;
+  /**
+   * Optional client-side cube filter applied to `/meta` results.
+   *
+   * Prefix workspaces (e.g. prod cube-dev) return ALL cubes across every game
+   * (`ballistar_*`, `cfm_*`, `cros_*`, …) because Cube doesn't accept a
+   * `game_id` query param for them. Without this filter the playground sidebar
+   * would list cubes that don't belong to the active game.
+   *
+   * When provided, only cubes whose `name` passes the predicate are exposed via
+   * `cubes`, `members`, `joinableCubes`, search, etc. Mirrors the same filter
+   * applied in `useCatalogMeta` so Catalog and Playground stay in sync.
+   */
+  cubeFilter?: (cubeName: string) => boolean;
 }
 
 type CubeMembers = {
@@ -137,6 +150,7 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
     displayPrivateItems = true,
     memberViewType = 'name',
     onQueryChange,
+    cubeFilter,
   } = props;
 
   function queryValidation(query: Query) {
@@ -411,6 +425,9 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
         const visibilityFilter = (item: { public?: boolean }) => {
           return !displayPrivateItems ? item.public : true;
         };
+        // Prefix workspaces: scope sidebar / search / joinable to active game.
+        const passesCubeFilter = (item: { name: string }) =>
+          cubeFilter ? cubeFilter(item.name) : true;
 
         setIsMetaLoading(false);
 
@@ -420,25 +437,29 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
           segments: {},
         };
 
-        newMeta.meta.cubes.filter(visibilityFilter).forEach((cube) => {
-          cube.dimensions.filter(visibilityFilter).forEach((dimension) => {
-            memberData.dimensions[dimension.name] = dimension;
-          });
+        newMeta.meta.cubes
+          .filter(visibilityFilter)
+          .filter(passesCubeFilter)
+          .forEach((cube) => {
+            cube.dimensions.filter(visibilityFilter).forEach((dimension) => {
+              memberData.dimensions[dimension.name] = dimension;
+            });
 
-          cube.measures.filter(visibilityFilter).forEach((measure) => {
-            memberData.measures[measure.name] = measure;
-          });
+            cube.measures.filter(visibilityFilter).forEach((measure) => {
+              memberData.measures[measure.name] = measure;
+            });
 
-          cube.segments.filter(visibilityFilter).forEach((segment) => {
-            memberData.segments[segment.name] = segment;
+            cube.segments.filter(visibilityFilter).forEach((segment) => {
+              memberData.segments[segment.name] = segment;
+            });
           });
-        });
 
         setMembers(memberData);
 
         setCubes(
           newMeta.meta.cubes
             .filter(visibilityFilter)
+            .filter(passesCubeFilter)
             .map((cube) => {
               return {
                 ...cube,

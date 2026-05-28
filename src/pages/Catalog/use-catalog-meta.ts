@@ -118,12 +118,20 @@ export function useCatalogMeta(): UseCatalogMetaResult {
           // Prefix filtering — keep only cubes whose `name` starts with
           // `${prefix}_`. Use a strict `_` boundary so `cfm` doesn't also
           // match `cfmx`. Preserve `name` for queries; UI derives titles.
+          // Three cases:
+          //   - Not a prefix workspace: pass-through.
+          //   - Prefix workspace + game IS in prefix map: filter by prefix.
+          //   - Prefix workspace + game NOT in prefix map (e.g. ptg on prod):
+          //     return empty — that game has no cubes here, so showing the
+          //     full list would be misleading.
           const prefix = isPrefixWorkspace
             ? workspace?.gamePrefixMap?.[gameId]
             : undefined;
-          const filtered = prefix
-            ? all.filter((c) => c.name.startsWith(`${prefix}_`))
-            : all;
+          const filtered = !isPrefixWorkspace
+            ? all
+            : prefix
+              ? all.filter((c) => c.name.startsWith(`${prefix}_`))
+              : [];
           setCubes(mergeCdpMapping(filtered));
           setLoading(false);
         }

@@ -1,6 +1,6 @@
 import { Alert, Block, Card, PrismCode, Text, Title } from '@cube-dev/ui-kit';
 import cube, { HttpTransport, Query } from '@cubejs-client/core';
-import { useEffect, useMemo, useRef, ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, ReactNode } from 'react';
 
 import { QueryBuilderContext } from './context';
 import { useEvent, useLocalStorage } from './hooks';
@@ -122,7 +122,7 @@ export function QueryBuilder(
   // this the SDK's GET /dry-run lands on the proxy with no x-cube-workspace
   // header, falling back to the default workspace (prod) and erroring with
   // `Cube 'retention' not found for path '...'` on local-only schemas.
-  const { workspaceId } = useWorkspaceContext();
+  const { workspaceId, workspace } = useWorkspaceContext();
   const activeGameId = useActiveGameId();
   const cubeApi = useMemo(() => {
     if (!apiUrl || !apiToken || apiToken === 'undefined') return undefined;
@@ -138,6 +138,27 @@ export function QueryBuilder(
       }),
     } as Parameters<typeof cube>[1]);
   }, [apiUrl, apiToken, workspaceId, activeGameId]);
+
+  // Prefix workspaces (e.g. prod cube-dev) return all cubes from every game.
+  // Restrict the playground sidebar / search / joinable graph to the active
+  // game's prefix so the user sees only `<prefix>_*`. Three cases:
+  //   - gameModel !== 'prefix' (local): no filter — Cube already scopes by schema.
+  //   - prefix workspace, game IS in prefix map: keep `${prefix}_*`.
+  //   - prefix workspace, game NOT in prefix map (e.g. ptg/muaw/pubg on prod):
+  //     reject all — that game has no cubes in this workspace, so showing the
+  //     full unfiltered list would be misleading. Empty sidebar = accurate.
+  const isPrefixWorkspace = workspace?.gameModel === 'prefix';
+  const prefix = isPrefixWorkspace
+    ? workspace?.gamePrefixMap?.[activeGameId] ?? null
+    : null;
+  const cubeFilter = useCallback(
+    (cubeName: string) => {
+      if (!isPrefixWorkspace) return true;
+      if (!prefix) return false;
+      return cubeName.startsWith(`${prefix}_`);
+    },
+    [isPrefixWorkspace, prefix],
+  );
 
   // C1 (red team): per-instance Zustand stores. Each <QueryBuilder> gets
   // its own factory-created pair so two tabs cannot collapse onto a shared
@@ -202,6 +223,7 @@ export function QueryBuilder(
     tracking,
     queryValidator,
     displayPrivateItems,
+    cubeFilter,
   });
 
   useEffect(() => {

@@ -11,14 +11,15 @@
     },
     {
       "id": "prod",
-      "label": "Prod cube-dev",
-      "cubeApiUrl": "https://cube.gds.vng.vn",
+      "label": "Prod cube-dev (local mirror)",
+      "cubeApiUrl": "http://localhost:16000",
       "authMode": "none",
       "gameModel": "prefix",
       "gamePrefixMap": {
         "cfm_vn": "cfm",
         "ballistar": "ballistar",
-        "cros": "cros"
+        "cros": "cros",
+        "jus_vn": "jus"
       }
     }
   ]

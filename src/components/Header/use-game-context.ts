@@ -20,9 +20,23 @@ import {
 
 import { gamesClient } from '../../api/segments-client';
 import type { GameDef, GamesConfig } from '../../types/segment-api';
+import {
+  readPersistedWorkspaceId,
+  WORKSPACE_CHANGE_EVENT,
+} from '../workspace-context';
 
 const STORAGE_KEY = 'gds-cube:active-game';
 const FALLBACK_GAME: GameDef = { id: 'ptg', name: 'Play Together', mark: 'PT' };
+
+// Subset of WorkspaceDef needed for filtering. Fetched directly here (instead of
+// reading via useWorkspaceContext) because GameContextProvider mounts ABOVE
+// WorkspaceProvider in the provider tree — see src/index.tsx + src/App.tsx.
+interface WorkspaceSummary {
+  id: string;
+  gameModel: 'game_id' | 'prefix';
+  gamePrefixMap?: Record<string, string>;
+  isDefault: boolean;
+}
 
 interface GameContextValue {
   gameId: string;
@@ -77,6 +91,14 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
   const [gameId, setGameIdState] = useState<string>('ptg');
   const [ready, setReady] = useState(false);
 
+  // Workspace tracking — fetched independently of WorkspaceProvider so we can
+  // scope the visible game list per workspace (prod-only games hidden on local,
+  // local-only games hidden on prod, etc.).
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [workspaceId, setWorkspaceId] = useState<string>(
+    () => readPersistedWorkspaceId() ?? '',
+  );
+
   useEffect(() => {
     let cancelled = false;
     gamesClient
@@ -101,8 +123,70 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Fetch the workspace registry once + listen for workspace-change events so
+  // the GamePicker reacts when the user flips the topbar workspace pill.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/workspaces')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
+      .then((body: { workspaces: WorkspaceSummary[] }) => {
+        if (cancelled) return;
+        const list = Array.isArray(body?.workspaces) ? body.workspaces : [];
+        setWorkspaces(list);
+        if (!workspaceId || !list.some((w) => w.id === workspaceId)) {
+          const fallback = list.find((w) => w.isDefault)?.id ?? list[0]?.id ?? '';
+          if (fallback) setWorkspaceId(fallback);
+        }
+      })
+      .catch(() => {
+        // Workspaces endpoint missing — fall through and keep all games visible.
+      });
+
+    function onWorkspaceChange(e: Event) {
+      const detail = (e as CustomEvent<{ workspaceId?: string }>).detail;
+      if (detail?.workspaceId) setWorkspaceId(detail.workspaceId);
+    }
+    window.addEventListener(WORKSPACE_CHANGE_EVENT, onWorkspaceChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(WORKSPACE_CHANGE_EVENT, onWorkspaceChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Filter games by what the active workspace supports:
+  //   - gameModel='prefix' (prod): only games whose id is in `gamePrefixMap`.
+  //   - gameModel='game_id' (local): all games (Cube scopes by schema upstream).
+  //   - No workspace info yet: pass-through to avoid blocking initial render.
+  const activeWorkspace = useMemo(
+    () => workspaces.find((w) => w.id === workspaceId) ?? null,
+    [workspaces, workspaceId],
+  );
+  const visibleGames = useMemo(() => {
+    if (!activeWorkspace) return config.games;
+    if (activeWorkspace.gameModel === 'prefix') {
+      const allowed = new Set(Object.keys(activeWorkspace.gamePrefixMap ?? {}));
+      return config.games.filter((g) => allowed.has(g.id));
+    }
+    return config.games;
+  }, [config.games, activeWorkspace]);
+
+  // If the active game isn't supported by the new workspace, fall back to the
+  // first visible one. Skips while still bootstrapping so we don't clobber a
+  // valid stored choice on the very first render.
+  useEffect(() => {
+    if (!ready || visibleGames.length === 0) return;
+    if (visibleGames.some((g) => g.id === gameId)) return;
+    const next = visibleGames[0].id;
+    setGameIdState(next);
+    persistGameId(next);
+  }, [visibleGames, gameId, ready]);
+
   const setGameId = useCallback(
     (id: string) => {
+      // Accept any id present in the underlying config — the workspace filter
+      // is enforced separately so a programmatic switch (deep-link, restore)
+      // doesn't get silently dropped if the workspace-fetch hasn't landed yet.
       if (!config.games.some((g) => g.id === id)) return;
       setGameIdState(id);
       persistGameId(id);
@@ -135,12 +219,12 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
   const value = useMemo<GameContextValue>(
     () => ({
       gameId,
-      games: config.games,
+      games: visibleGames,
       defaultGameId: config.defaultGameId,
       setGameId,
       ready,
     }),
-    [gameId, config, setGameId, ready],
+    [gameId, visibleGames, config.defaultGameId, setGameId, ready],
   );
 
   return createElement(GameContext.Provider, { value }, children);
