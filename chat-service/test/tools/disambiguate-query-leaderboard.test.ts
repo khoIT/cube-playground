@@ -100,6 +100,7 @@ function ctx(db: Database.Database, now: number) {
     ownerId: 'owner-a',
     gameId: 'game-x',
     cubeToken: 'cube-token-test',
+    workspace: 'local',
     sessionId: 'sess-replay',
     turnId: 't',
     sseEmitter: new EventEmitter(),

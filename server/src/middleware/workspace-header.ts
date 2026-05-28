@@ -31,10 +31,18 @@ declare module 'fastify' {
 }
 
 const WORKSPACE_HEADER = 'x-cube-workspace';
+const GAME_HEADER = 'x-cube-game';
 
 function buildCtx(workspace: WorkspaceDef, gameId: string | null): WorkspaceCtx {
   const { token } = resolveCubeTokenForWorkspace(workspace, gameId);
   return { cubeApiUrl: workspace.cubeApiUrl, token };
+}
+
+function readGameId(request: FastifyRequest): string | null {
+  const raw = request.headers[GAME_HEADER];
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 async function workspaceHeaderPlugin(app: FastifyInstance): Promise<void> {
@@ -60,8 +68,12 @@ async function workspaceHeaderPlugin(app: FastifyInstance): Promise<void> {
     }
     const workspace = resolved ?? getDefaultWorkspace();
     request.workspace = workspace;
-    request.cubeCtx = buildCtx(workspace, null);
-    request.buildCubeCtxForGame = (gameId: string) => buildCtx(workspace, gameId);
+    // Auto-scope cubeCtx by X-Cube-Game when present so /load + /sql against a
+    // minted-auth workspace (local) get a JWT carrying the per-game claim that
+    // Cube's repositoryFactory needs to pick the right schema.
+    const gameId = readGameId(request);
+    request.cubeCtx = buildCtx(workspace, gameId);
+    request.buildCubeCtxForGame = (g: string) => buildCtx(workspace, g);
   });
 }
 

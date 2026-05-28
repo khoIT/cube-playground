@@ -180,6 +180,7 @@ describe('claude-runner — captures SDK session id', () => {
         ownerId: 'o',
         gameId: 'g',
         cubeToken: 'tok',
+    workspace: 'local',
         sessionId: 's1',
         turnId: 't1',
         sseEmitter: new EventEmitter(),

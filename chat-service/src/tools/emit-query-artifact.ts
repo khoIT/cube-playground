@@ -82,7 +82,7 @@ export async function handler(
   ctx: ToolContext,
 ): Promise<OkResult | ErrorResult> {
   // 1. Fetch and validate members against /meta
-  const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.cubeToken);
+  const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.workspace);
   const knownMembers = cubeMetaCache.extractMemberNames(meta);
 
   // Validate measures

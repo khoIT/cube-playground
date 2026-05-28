@@ -22,12 +22,25 @@ import { config } from '../config.js';
 import { getCachedLoad, putCachedLoad } from './load-cache-adapter.js';
 import type { ReplayOutcome } from './replay-cached-turn.js';
 
-/** Re-run a Cube /load against the live API. Returns rows or throws. */
-async function runCubeLoad(query: CubeQuery, cubeToken: string): Promise<Record<string, string | number>[]> {
-  const url = `${config.cubeApiUrl}/cubejs-api/v1/load`;
+/**
+ * Re-run a Cube /load through the workspace-aware Fastify proxy. Returns rows
+ * or throws. The proxy resolves auth + base URL from the X-Cube-Workspace
+ * header; chat-service no longer ferries a cube token here.
+ */
+async function runCubeLoad(
+  query: CubeQuery,
+  workspace: string,
+  gameId: string,
+): Promise<Record<string, string | number>[]> {
+  const url = `${config.serverBaseUrl}/cube-api/v1/load`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: cubeToken },
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-Cube-Workspace': workspace,
+      'X-Cube-Game': gameId,
+    },
     body: JSON.stringify({ query }),
   });
   if (!res.ok) {
@@ -46,15 +59,15 @@ async function runCubeLoad(query: CubeQuery, cubeToken: string): Promise<Record<
 async function runCubeLoadCached(
   db: Database.Database | null,
   gameId: string,
+  workspace: string,
   metaHash: string | null,
   query: CubeQuery,
-  cubeToken: string,
 ): Promise<Record<string, string | number>[]> {
   if (db) {
     const hit = getCachedLoad(db, { query, gameId, metaHash });
     if (hit) return hit;
   }
-  const rows = await runCubeLoad(query, cubeToken);
+  const rows = await runCubeLoad(query, workspace, gameId);
   // Mirrors preview-cube-query: skip caching empty results to avoid freezing
   // a transient "no data" state for the load-cache TTL window.
   if (db && rows.length > 0) putCachedLoad(db, { query, gameId, metaHash, rows });
@@ -83,7 +96,8 @@ function rebuildChartWithRows(
 }
 
 export interface RefreshDeps {
-  cubeToken: string;
+  /** Workspace id ("local", "prod", …) — routed through the Fastify proxy. */
+  workspace: string;
   /**
    * DB handle to enable the kv_cache load adapter. Omit (or pass null) to
    * bypass the cache and always hit Cube live.
@@ -96,10 +110,10 @@ export interface RefreshDeps {
 }
 
 /**
- * Build a refresh hook bound to the current request's Cube token.
+ * Build a refresh hook bound to the current request's workspace + game.
  *
  * Usage:
- *   const refresh = buildRefreshHook({ cubeToken, db, gameId, metaHash });
+ *   const refresh = buildRefreshHook({ workspace, db, gameId, metaHash });
  *   const outcome = await replayCachedTurn(cached, stream, emit, refresh);
  */
 export function buildRefreshHook(deps: RefreshDeps) {
@@ -109,9 +123,9 @@ export function buildRefreshHook(deps: RefreshDeps) {
       runCubeLoadCached(
         deps.db ?? null,
         deps.gameId ?? '',
+        deps.workspace,
         deps.metaHash ?? null,
         q,
-        deps.cubeToken,
       ));
 
   return async function refresh(

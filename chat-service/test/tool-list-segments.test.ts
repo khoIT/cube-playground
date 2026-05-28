@@ -49,6 +49,7 @@ function makeCtx(): ToolContext {
     ownerId: 'owner1',
     gameId: 'ptg',
     cubeToken: 'Bearer tok',
+    workspace: 'local',
     sessionId: 'sess-1',
     turnId: 'sess-1:1',
     sseEmitter: new EventEmitter(),

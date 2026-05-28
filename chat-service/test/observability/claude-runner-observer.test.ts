@@ -32,6 +32,7 @@ describe('claudeRunner with observer', () => {
     ownerId: 'owner-1',
     gameId: 'game-1',
     cubeToken: 'token-123',
+    workspace: 'local',
     sseEmitter: new EventEmitter(),
   };
 

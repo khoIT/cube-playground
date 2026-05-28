@@ -42,6 +42,7 @@ function makeCtx(overrides?: Partial<ToolContext>): ToolContext {
     ownerId: 'owner1',
     gameId: 'ptg',
     cubeToken: 'Bearer test-token',
+    workspace: 'local',
     sessionId: 'sess-1',
     turnId: 'sess-1:1',
     sseEmitter: new EventEmitter(),

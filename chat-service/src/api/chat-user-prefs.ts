@@ -30,9 +30,10 @@ function readOwner(req: { headers: Record<string, unknown> }): string | null {
   return typeof v === 'string' && v.length > 0 ? v : null;
 }
 
-function readCubeToken(req: { headers: Record<string, unknown> }): string | null {
-  const v = req.headers['x-cube-token'];
-  return typeof v === 'string' && v.length > 0 ? v : null;
+function readWorkspace(req: { headers: Record<string, unknown> }): string {
+  const v = req.headers['x-cube-workspace'];
+  if (Array.isArray(v)) return (v[0] ?? 'local').toString();
+  return typeof v === 'string' && v.trim() ? v.trim() : 'local';
 }
 
 const chatUserPrefsRoutes: FastifyPluginAsync<ChatUserPrefsRouteOptions> = async (fastify, opts) => {
@@ -47,10 +48,10 @@ const chatUserPrefsRoutes: FastifyPluginAsync<ChatUserPrefsRouteOptions> = async
       const rows = getUserPrefs(opts.db, ownerId, gameId);
       if (rows.length === 0) return reply.send({ items: [] });
 
-      const cubeToken = readCubeToken(req);
+      const workspace = readWorkspace(req);
       let memberIndex: Map<string, { name: string; shortTitle?: string; title?: string }>;
       try {
-        const meta = cubeToken ? await cubeMetaCache.getMeta(gameId, cubeToken) : null;
+        const meta = await cubeMetaCache.getMeta(gameId, workspace);
         memberIndex = meta ? buildMemberIndex(meta) : new Map();
       } catch {
         memberIndex = new Map();

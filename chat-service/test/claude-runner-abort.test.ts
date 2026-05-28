@@ -69,6 +69,7 @@ describe('claude-runner — abort signal', () => {
         ownerId: 'o',
         gameId: 'g',
         cubeToken: 'tok',
+    workspace: 'local',
         sessionId: 's1',
         turnId: 't1',
         sseEmitter: new EventEmitter(),

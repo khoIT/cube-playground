@@ -351,7 +351,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     let resolvedCubeMetaHash: string | null = null;
     if (config.responseCacheEnabled && !bypassCache) {
       try {
-        const cubeMetaHash = await getMetaVersion(body.game, cubeToken);
+        const cubeMetaHash = await getMetaVersion(body.game, workspace);
         resolvedCubeMetaHash = cubeMetaHash;
         const systemPromptHash = hashSystemPrompt(systemPrompt);
         cacheKey = computeCacheKey({
@@ -373,7 +373,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           // artifact via artifactRef) against live Cube. Query artifacts
           // themselves don't carry rows — the FE re-fetches on render.
           const refresh = buildRefreshHook({
-            cubeToken,
+            workspace,
             db: opts.db,
             gameId: body.game,
             metaHash: resolvedCubeMetaHash,
@@ -447,6 +447,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       ownerId: body.owner_id,
       gameId: body.game,
       cubeToken,
+      workspace,
       sessionId,
       turnId,
       sseEmitter,

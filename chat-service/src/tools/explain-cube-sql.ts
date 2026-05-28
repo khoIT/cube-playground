@@ -9,6 +9,8 @@ import { z } from 'zod';
 import { format } from 'sql-formatter';
 import { config } from '../config.js';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
+// Route Cube traffic through the workspace-aware Fastify proxy. Auth + base
+// URL are server-authoritative there; no need to forward ctx.cubeToken.
 import { CubeQuerySchema } from './preview-cube-query.js';
 import type { ToolContext } from '../types.js';
 
@@ -53,7 +55,7 @@ export async function handler(
   ctx: ToolContext,
 ): Promise<OkResult | MetricDraftResult | CubeErrorResult> {
   if (!args.force) {
-    const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.cubeToken);
+    const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.workspace);
     const known = cubeMetaCache.extractMemberNames(meta);
     const missingRefs: string[] = [];
     for (const measure of args.query.measures ?? []) {
@@ -75,15 +77,18 @@ export async function handler(
     }
   }
 
-  // Call Cube /sql directly — same auth pattern as preview_cube_query
-  const url = `${config.cubeApiUrl}/cubejs-api/v1/sql`;
+  // Route through the workspace-aware Fastify proxy so /sql lands on whatever
+  // Cube backend the active workspace points at (local minted or prod open).
+  const url = `${config.serverBaseUrl}/cube-api/v1/sql`;
   let res: Response;
   try {
     res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: ctx.cubeToken,
+        Accept: 'application/json',
+        'X-Cube-Workspace': ctx.workspace,
+        'X-Cube-Game': ctx.gameId,
       },
       body: JSON.stringify({ query: args.query }),
     });

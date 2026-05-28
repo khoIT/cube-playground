@@ -36,6 +36,7 @@ function makeCtx(): ToolContext {
     ownerId: 'owner1',
     gameId: 'ptg',
     cubeToken: 'Bearer test-token',
+    workspace: 'local',
     sessionId: 'sess-1',
     turnId: 'sess-1:1',
     sseEmitter: new EventEmitter(),
@@ -83,16 +84,19 @@ describe('explain_cube_sql handler', () => {
     expect(result.sql).toContain('SELECT');
   });
 
-  it('calls Cube /sql endpoint via POST with Authorization header', async () => {
+  it('calls /sql through the workspace-aware proxy with workspace + game headers', async () => {
     mockFetchOk(RAW_SQL);
 
     await handler({ query: { measures: ['Revenue.total'] } }, makeCtx());
 
     const fetchMock = vi.mocked(globalThis.fetch as ReturnType<typeof vi.fn>);
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/cubejs-api/v1/sql');
+    expect(url).toContain('/cube-api/v1/sql');
     expect((opts as RequestInit).method).toBe('POST');
-    expect((opts as RequestInit & { headers: Record<string, string> }).headers['Authorization']).toBe('Bearer test-token');
+    const headers = (opts as RequestInit & { headers: Record<string, string> }).headers;
+    expect(headers['X-Cube-Workspace']).toBe('local');
+    expect(headers['X-Cube-Game']).toBeDefined();
+    expect(headers['Authorization']).toBeUndefined();
   });
 
   it('returns metric_draft for unknown measure', async () => {

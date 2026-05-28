@@ -103,6 +103,7 @@ function makeCtx(): ToolContext {
     ownerId: 'o1',
     gameId: 'ptg',
     cubeToken: 'tok',
+    workspace: 'local',
     sessionId: 's1',
     turnId: 't1',
     db,

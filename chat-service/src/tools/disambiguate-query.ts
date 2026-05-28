@@ -98,7 +98,7 @@ export async function handler(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let meta: any = null;
   try {
-    meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.cubeToken);
+    meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.workspace);
     knownMembers = cubeMetaCache.extractMemberNames(meta);
   } catch {
     knownMembers = undefined;

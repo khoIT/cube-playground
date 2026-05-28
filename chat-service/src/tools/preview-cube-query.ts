@@ -82,7 +82,7 @@ export async function handler(
   ctx: ToolContext,
 ): Promise<OkResult | MetricDraftResult> {
   if (!args.force) {
-    const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.cubeToken);
+    const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.workspace);
     const known = cubeMetaCache.extractMemberNames(meta);
     const missingRefs = collectQueryRefs(args.query).filter((r) => !known.has(r));
     if (missingRefs.length > 0) {
@@ -106,7 +106,7 @@ export async function handler(
   // Cache lookup. Key includes cube_meta_hash so schema changes invalidate
   // entries naturally; TTL inside the adapter bounds staleness for in-place
   // data changes. Skip silently when there's no db handle on ctx (unit tests).
-  const metaHash = await cubeMetaCache.getMetaVersion(ctx.gameId, ctx.cubeToken).catch(() => null);
+  const metaHash = await cubeMetaCache.getMetaVersion(ctx.gameId, ctx.workspace).catch(() => null);
   if (ctx.db) {
     const cached = getCachedLoad(ctx.db, {
       query,
@@ -122,12 +122,17 @@ export async function handler(
     }
   }
 
-  const url = `${config.cubeApiUrl}/cubejs-api/v1/load`;
+  // Route through the workspace-aware Fastify proxy. The proxy resolves
+  // auth + base URL from the X-Cube-Workspace header (server-authoritative),
+  // so chat-service neither forwards nor needs to know the cube token here.
+  const url = `${config.serverBaseUrl}/cube-api/v1/load`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: ctx.cubeToken,
+      Accept: 'application/json',
+      'X-Cube-Workspace': ctx.workspace,
+      'X-Cube-Game': ctx.gameId,
     },
     body: JSON.stringify({ query }),
   });

@@ -187,6 +187,13 @@ export interface ToolContext {
   ownerId: string;
   gameId: string;
   cubeToken: string;
+  /**
+   * Cube data workspace id ("local", "prod", …) for this turn. Outbound Cube
+   * fetches go through the Fastify proxy carrying this header so the
+   * workspace-aware proxy resolves auth + base URL on the server side.
+   * Defaults to 'local' when absent so legacy callers keep working.
+   */
+  workspace: string;
   sessionId: string;
   turnId: string;
   sseEmitter: EventEmitter;

@@ -23,7 +23,7 @@ export async function handler(
   ctx: ToolContext,
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
-  const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.cubeToken);
+  const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.workspace);
 
   if (args.scope === 'full') {
     return meta;

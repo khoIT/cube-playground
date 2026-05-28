@@ -12,6 +12,7 @@ function ctx(): ToolContext {
     ownerId: 'o',
     gameId: 'g',
     cubeToken: 't',
+    workspace: 'local',
     sessionId: 's',
     turnId: 'u',
     sseEmitter: new EventEmitter(),

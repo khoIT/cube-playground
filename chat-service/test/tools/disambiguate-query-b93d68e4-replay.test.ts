@@ -115,6 +115,7 @@ function makeCtx(db: Database.Database): ToolContext {
     ownerId: OWNER,
     gameId: GAME,
     cubeToken: 'tok',
+    workspace: 'local',
     sessionId: SID,
     turnId: 't',
     db,
