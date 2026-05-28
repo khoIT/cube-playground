@@ -5,8 +5,9 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import ownerHeader from './middleware/owner-header.js';
+import authenticate from './middleware/authenticate.js';
 import workspaceHeader from './middleware/workspace-header.js';
+import authRoutes from './routes/auth.js';
 import workspacesRoutes from './routes/workspaces.js';
 import cubeProxyRoutes from './routes/cube-proxy.js';
 import userPrefsRoutes from './routes/user-prefs.js';
@@ -46,9 +47,10 @@ export async function buildApp() {
   const app = Fastify({ logger: true });
 
   await app.register(cors, { origin: true });
-  await app.register(ownerHeader);
+  await app.register(authenticate);
   await app.register(workspaceHeader);
 
+  await app.register(authRoutes);
   await app.register(workspacesRoutes);
   await app.register(cubeProxyRoutes);
   await app.register(userPrefsRoutes);
