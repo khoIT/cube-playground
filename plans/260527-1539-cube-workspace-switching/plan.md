@@ -34,7 +34,7 @@ truth: `plans/reports/brainstorm-260527-1539-cube-workspace-switching.md`.
 | 3 | [Prefix-mapped game selector](./phase-03-prefix-mapped-game-selector.md) | 🟡 Partial — GamePicker disabled-state deferred |
 | 4 | [Server-side per-workspace artifact storage](./phase-04-artifact-isolation-localstorage-segments.md) | 🟡 Partial — migration + segments stamp/filter only |
 | 5 | [Workspace readiness panel](./phase-05-workspace-readiness-panel.md) | ✅ Complete |
-| 6 | [Keycloak SSO + basic RBAC](./phase-06-keycloak-sso-and-basic-rbac.md) | Pending (blocked on VNG KC realm/client/redirect URIs) |
+| 6 | [Keycloak SSO + basic RBAC](./phase-06-keycloak-sso-and-basic-rbac.md) | ✅ Complete (local realm shipped; VNG prod realm/redirect URIs still pending devops input) |
 | 7 | [Chat-service workspace awareness](./phase-07-chat-service-workspace-awareness.md) | ✅ Complete |
 
 > Status report: `plans/reports/cook-260528-1128-cube-workspace-switching-status.md`
