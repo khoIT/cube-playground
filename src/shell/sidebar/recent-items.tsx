@@ -31,12 +31,14 @@ export function RecentItems({
   React.useEffect(() => {
     const handler = () => setItems(getRecent(module));
     window.addEventListener('gds-cube:recent-changed', handler);
-    // Game switch swaps the underlying bucket key — re-read so the tray
-    // shows the new game's recents instead of the previous game's stale ones.
+    // Game / workspace switch swap the underlying bucket key — re-read so the
+    // tray shows the new bucket's recents instead of the prior workspace's.
     window.addEventListener('gds-cube:game-change', handler);
+    window.addEventListener('gds-cube:workspace-change', handler);
     return () => {
       window.removeEventListener('gds-cube:recent-changed', handler);
       window.removeEventListener('gds-cube:game-change', handler);
+      window.removeEventListener('gds-cube:workspace-change', handler);
     };
   }, [module]);
 

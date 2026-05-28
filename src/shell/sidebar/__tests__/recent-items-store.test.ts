@@ -60,8 +60,11 @@ describe('getRecent — playground self-healing filter', () => {
       { id: 'abc12xy', title: 'stale', updatedAt: 'x', href: '/build' },
       { id: '1', title: 'fresh', updatedAt: 'y', href: '/build' },
     ];
+    // Key shape: gds-cube.recent.v2.{module}.{workspace}.{gameId}; both
+    // localStorage keys are unset in this test → both axes fall back to
+    // '__default__'.
     localStorage.setItem(
-      'gds-cube.recent.v2.playground.__default__',
+      'gds-cube.recent.v2.playground.__default__.__default__',
       JSON.stringify(stored),
     );
 

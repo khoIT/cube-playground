@@ -2,18 +2,22 @@
  * Recent items LRU store, persisted in localStorage.
  * Used by sidebar Data Model / Metrics Catalog / Segments sections.
  *
- * Key shape: gds-cube.recent.v2.{module}.{gameId}
- * Max items per (module, gameId): 8 (oldest evicted on push).
+ * Key shape: gds-cube.recent.v2.{module}.{workspace}.{gameId}
+ * Max items per (module, workspace, gameId): 8 (oldest evicted on push).
  *
  * v2 added per-game scoping so switching game in the picker yields the right
  * recents tray; v1 mixed all games into one bucket and showed stale items.
+ * Workspace was bolted onto the same v2 key (no schema rev) because recents
+ * are an ephemeral LRU — leaking the old bucket once after upgrade is fine.
  */
 
 const VERSION = 'v2';
 const MAX = 8;
 const EVENT = 'gds-cube:recent-changed';
 const GAME_STORAGE_KEY = 'gds-cube:active-game';
+const WORKSPACE_STORAGE_KEY = 'gds-cube:workspace';
 const NO_GAME = '__default__';
+const NO_WORKSPACE = '__default__';
 
 export type RecentModule = 'data-model' | 'metrics-catalog' | 'segments' | 'playground';
 
@@ -36,8 +40,19 @@ function activeGameId(): string {
   }
 }
 
-const key = (m: RecentModule, gameId: string = activeGameId()) =>
-  `gds-cube.recent.${VERSION}.${m}.${gameId}`;
+function activeWorkspace(): string {
+  try {
+    return localStorage.getItem(WORKSPACE_STORAGE_KEY) || NO_WORKSPACE;
+  } catch {
+    return NO_WORKSPACE;
+  }
+}
+
+const key = (
+  m: RecentModule,
+  workspace: string = activeWorkspace(),
+  gameId: string = activeGameId(),
+) => `gds-cube.recent.${VERSION}.${m}.${workspace}.${gameId}`;
 
 export function getRecent(module: RecentModule): RecentItem[] {
   try {
