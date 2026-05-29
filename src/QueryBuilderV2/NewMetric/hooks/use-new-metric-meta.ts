@@ -106,6 +106,14 @@ export function useNewMetricMeta(): UseNewMetricMetaResult {
           ? window.localStorage.getItem('gds-cube:workspace')
           : null;
       if (wsId) fetchHeaders['x-cube-workspace'] = wsId;
+      // Scope the model fetch to the active game — otherwise the proxy mints a
+      // game-less JWT and Cube's dev-mode fallback returns the default game's
+      // schema (ballistar) instead of the selected game's cubes.
+      const gameId =
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem('gds-cube:active-game')
+          : null;
+      if (gameId) fetchHeaders['x-cube-game'] = gameId;
     } catch {
       /* ignore */
     }

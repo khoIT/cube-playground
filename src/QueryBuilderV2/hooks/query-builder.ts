@@ -394,6 +394,16 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
             ? window.localStorage.getItem('gds-cube:workspace')
             : null;
         if (wsId) wsHeaders['x-cube-workspace'] = wsId;
+        // Scope the model fetch to the active game. Without this header the
+        // proxy mints a game-less JWT and Cube's dev-mode fallback serves the
+        // default game's schema (ballistar) regardless of the selected game —
+        // so the builder showed the wrong cubes. Read from localStorage to
+        // match the workspace pattern instead of threading React context.
+        const gameId =
+          typeof window !== 'undefined'
+            ? window.localStorage.getItem('gds-cube:active-game')
+            : null;
+        if (gameId) wsHeaders['x-cube-game'] = gameId;
       } catch {
         /* ignore localStorage errors */
       }

@@ -91,13 +91,13 @@ export function useCatalogMeta(): UseCatalogMetaResult {
     setError(null);
 
     const base = ctx.apiUrl.endsWith('/v1') ? ctx.apiUrl : `${ctx.apiUrl}/v1`;
-    // Prefix workspaces (e.g. prod cube-dev) namespace cubes by `<prefix>_<name>`
-    // and do NOT accept a game_id query param. Local workspaces still send
-    // game_id so Cube's repositoryFactory picks the right schema.
+    // Prefix workspaces (e.g. prod cube-dev) return every game's cubes under
+    // `<prefix>_<name>` and the FE filters client-side. Non-prefix (minted)
+    // workspaces scope server-side: the proxy mints a per-game JWT keyed off
+    // the `x-cube-game` header (set below), which is what Cube's
+    // repositoryFactory actually reads — a `game_id` query param is ignored.
     const isPrefixWorkspace = workspace?.gameModel === 'prefix';
-    const url = isPrefixWorkspace
-      ? `${base}/meta?extended=true`
-      : `${base}/meta?extended=true&game_id=${encodeURIComponent(gameId)}`;
+    const url = `${base}/meta?extended=true`;
     // 10s timeout — Cube can hang (TCP-up, HTTP-stuck) and `fetch` without an
     // AbortController would leave `loading=true` forever, surfacing as an
     // infinite "Loading…" spinner across Catalog routes.
@@ -109,6 +109,10 @@ export function useCatalogMeta(): UseCatalogMetaResult {
     const headers: Record<string, string> = {};
     if (ctx.token) headers.Authorization = ctx.token;
     if (workspaceId) headers[WORKSPACE_HEADER] = workspaceId;
+    // Scope the schema to the active game on minted workspaces. Without it the
+    // proxy's game-less JWT triggers Cube's dev-mode default-game fallback,
+    // returning ballistar's cubes regardless of the selected game.
+    if (gameId) headers['x-cube-game'] = gameId;
     fetch(url, { headers, signal: ctl.signal })
       .then(async (resp) => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
