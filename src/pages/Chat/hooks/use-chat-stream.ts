@@ -39,7 +39,17 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
   const entry = useChatStreamStore((s) => {
     const key = sessionId ?? '__new__';
     const resolved = s.aliases.get(key) ?? key;
-    const found = s.streams.get(resolved) ?? null;
+    let found = s.streams.get(resolved) ?? null;
+    // Stale-alias guard: the alias map records `realSessionId → '__new__'` for
+    // every chat created this session and is never pruned. The shared __new__
+    // entry's `sessionId` only reflects the MOST RECENT new chat, so an older
+    // real id resolves here to a different session's id. Returning it would
+    // leak that id into streamSessionId — bouncing the route to the latest
+    // session and merging sends into the wrong thread. Honor the alias only
+    // when the resolved entry is genuinely for the requested session.
+    if (sessionId !== null && found && found.sessionId !== sessionId) {
+      found = s.streams.get(sessionId) ?? null;
+    }
     // On the new-chat surface (sessionId === null), the __new__ slot may
     // still hold a previous chat's terminal-state entry — its sessionId
     // field is the prior session's id. Returning it here would leak that

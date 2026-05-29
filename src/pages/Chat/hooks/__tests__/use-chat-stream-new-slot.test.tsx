@@ -48,11 +48,11 @@ vi.mock('../../../../shell/chat-overlay/chat-session-events', () => ({
 import { useChatStream } from '../use-chat-stream';
 import { useChatStreamStore } from '../../../../stores/chat-stream-store';
 
-function Probe() {
-  const { sessionId, status } = useChatStream({ sessionId: null, game: 'g' });
+function Probe({ sessionId = null }: { sessionId?: string | null }) {
+  const { sessionId: sid, status } = useChatStream({ sessionId, game: 'g' });
   return (
     <div>
-      <span data-testid="sid">{String(sessionId)}</span>
+      <span data-testid="sid">{String(sid)}</span>
       <span data-testid="status">{status}</span>
     </div>
   );
@@ -113,5 +113,42 @@ describe('useChatStream — new-chat slot stale-state guard', () => {
 
     close();
     await flush();
+  });
+
+  it('navigating to an older session id does not leak the latest new chat id', async () => {
+    // Every new chat reuses the __new__ slot and registers `realId → __new__`
+    // in the never-pruned alias map. After two sequential new chats, both
+    // 'sess-1' and 'sess-2' alias to __new__, whose sessionId is now 'sess-2'.
+    // Opening /chat/sess-1 must resolve to sess-1 (idle), NOT inherit sess-2 —
+    // otherwise the route bounces to the latest session and sends merge there.
+    const store = useChatStreamStore.getState();
+
+    void store.startTurn({ sessionId: null, message: 'one', game: 'g' });
+    await flush();
+    push({ type: 'session_created', data: { id: 'sess-1' } });
+    push({ type: 'done', data: {} });
+    close();
+    await flush();
+
+    // Second new chat — reuses __new__, advances its sessionId to 'sess-2'.
+    queue.length = 0;
+    closed = false;
+    resolveFn = null;
+    void store.startTurn({ sessionId: null, message: 'two', game: 'g' });
+    await flush();
+    push({ type: 'session_created', data: { id: 'sess-2' } });
+    push({ type: 'done', data: {} });
+    close();
+    await flush();
+
+    // Both ids alias to the shared slot; the slot now reports 'sess-2'.
+    expect(useChatStreamStore.getState().aliases.get('sess-1')).toBe('__new__');
+    expect(useChatStreamStore.getState().getEntry(null).sessionId).toBe('sess-2');
+
+    // Open the OLDER session — must surface its own id, not 'sess-2'.
+    const { getByTestId } = render(<Probe sessionId="sess-1" />);
+    await flush();
+
+    expect(getByTestId('sid').textContent).toBe('sess-1');
   });
 });

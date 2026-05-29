@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QueryBuilder → Raw SQL — flow</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-elev: #131a30;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e7ebf3;
+      --muted: #99a4bf;
+      --brand: #7aa2ff;
+      --accent: #4ade80;
+      --warn: #fbbf24;
+      --code-bg: #0f1530;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif; }
+    body { padding: 32px 28px 80px; }
+    main { max-width: 1280px; margin: 0 auto; }
+    h1 { font-size: 24px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); font-size: 11px; margin-bottom: 8px; }
+    .sub { color: var(--muted); font-size: 13px; margin: 0 0 28px; }
+
+    .card {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+    }
+    .card h2 {
+      margin: 0 0 16px;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--brand);
+    }
+    .mermaid-host {
+      background: #0a0f24;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      overflow-x: auto;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.08em; }
+    code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', Menlo, monospace; font-size: 12px; color: #c7d2fe; }
+    .pill {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 600;
+      background: rgba(122, 162, 255, 0.14); color: var(--brand);
+    }
+    .pill.warn { background: rgba(251, 191, 36, 0.16); color: var(--warn); }
+    .pill.ok { background: rgba(74, 222, 128, 0.16); color: var(--accent); }
+
+    .grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+
+    .flavor { padding: 16px; background: #0a0f24; border: 1px solid var(--border); border-radius: 10px; }
+    .flavor h3 { margin: 0 0 8px; font-size: 14px; color: var(--text); }
+    .flavor p { margin: 4px 0; font-size: 13px; color: var(--muted); line-height: 1.55; }
+    .flavor .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 12px; margin-top: 8px; }
+    .flavor .kv span:nth-child(odd) { color: var(--muted); }
+
+    footer { color: var(--muted); font-size: 11px; text-align: center; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">cube-playground · trace</div>
+    <h1>QueryBuilder artifact → raw SQL → data</h1>
+    <p class="sub">From a user-built query in the playground, through the Fastify proxy, to Cube.js compiling and Trino executing — and back.</p>
+
+    <section class="card">
+      <h2>Request &nbsp;·&nbsp; sequence</h2>
+      <div class="mermaid-host">
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User
+    participant QB as QueryBuilder.tsx<br/>(React + @cubejs-client/core)
+    participant Vite as Vite :3000<br/>(dev proxy)
+    participant API as Fastify :3004<br/>cube-proxy.ts
+    participant WS as workspace-header.ts<br/>(onRequest hook)
+    participant Cube as Cube.js server<br/>local :4000 OR<br/>cube-api gateway :16000
+    participant Trino as Trino<br/>gio-gds-trino:443
+
+    User->>QB: build query<br/>(measures, dimensions, filters)
+    QB->>QB: Cube SDK serialises →<br/>Query JSON
+    QB->>Vite: POST /cube-api/v1/load<br/>headers:<br/>· x-cube-workspace=&lt;id&gt;<br/>· x-cube-game=&lt;gameId&gt;<br/>· Authorization: Bearer &lt;app-jwt&gt;
+    Vite->>API: passthrough proxy
+
+    API->>WS: onRequest
+    WS->>WS: resolveWorkspace(id) →<br/>{cubeApiUrl, authMode, gamePrefixMap}
+    WS->>WS: resolveCubeTokenForWorkspace(ws, game)<br/>· local → mint HS256 JWT{game_id}<br/>· prod → null (open) or env token
+    WS-->>API: req.cubeCtx = {cubeApiUrl, token}
+
+    API->>Cube: POST {cubeApiUrl}/load<br/>Authorization: Bearer &lt;token?&gt;<br/>body = Query JSON
+
+    Note over Cube: 1. parse Query JSON<br/>2. resolve cube YAMLs<br/>   (repositoryFactory picks schema<br/>    by game_id claim / prefix)<br/>3. join graph + measure compile<br/>4. emit raw SQL
+
+    Cube->>Trino: SELECT … FROM<br/>game_integration.&lt;schema&gt;.&lt;table&gt;<br/>WHERE … GROUP BY …
+    Trino-->>Cube: rows
+    Cube-->>API: { data, annotation, query, sql? }
+    API-->>Vite: 200 JSON
+    Vite-->>QB: ResultSet
+    QB->>User: render table / chart
+        </pre>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Data-shape transformations &nbsp;·&nbsp; layered</h2>
+      <table>
+        <thead>
+          <tr><th>Stage</th><th>Shape</th><th>Owner</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pill">1</span> URL artifact</td>
+            <td><code>?query={"measures":["recharge.revenue_vnd"],"timeDimensions":[…]}</code></td>
+            <td>QueryBuilder deep-link</td>
+          </tr>
+          <tr>
+            <td><span class="pill">2</span> Cube Query JSON</td>
+            <td><code>{ measures, dimensions, timeDimensions, filters, segments, order, limit }</code></td>
+            <td>Cube SDK (<code>@cubejs-client/core</code>)</td>
+          </tr>
+          <tr>
+            <td><span class="pill">3</span> HTTP request</td>
+            <td><code>POST /cube-api/v1/load</code> + <code>x-cube-workspace</code> + <code>x-cube-game</code> + <code>Authorization</code></td>
+            <td><code>HttpTransport</code> · QueryBuilder.tsx:134</td>
+          </tr>
+          <tr>
+            <td><span class="pill">4</span> Backend forward</td>
+            <td><code>POST {cubeCtx.cubeApiUrl}/load</code> with minted-or-passthrough Bearer</td>
+            <td><code>cube-proxy.ts:forward()</code></td>
+          </tr>
+          <tr>
+            <td><span class="pill">5</span> Cube compile</td>
+            <td>YAML cubes + join graph → Trino-dialect SQL</td>
+            <td>Cube.js server (or cube-api Docker wrapping it)</td>
+          </tr>
+          <tr>
+            <td><span class="pill">6</span> Trino exec</td>
+            <td>SQL → rows from <code>game_integration.&lt;schema&gt;.&lt;table&gt;</code></td>
+            <td>Trino → lakehouse</td>
+          </tr>
+          <tr>
+            <td><span class="pill">7</span> Result envelope</td>
+            <td><code>{ data: Row[], annotation, query, sql? }</code></td>
+            <td>Cube → bubbles back unchanged</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Workspace flavours &nbsp;·&nbsp; diverge only at step 4</h2>
+      <div class="grid">
+        <div class="flavor">
+          <h3><span class="pill ok">local</span> minted JWT, per-game schema</h3>
+          <p>Server signs an HS256 JWT carrying <code>{ game_id }</code>. Cube uses <code>repositoryFactory</code> to pick the per-game schema.</p>
+          <div class="kv">
+            <span>cubeApiUrl</span><span><code>http://localhost:4000</code></span>
+            <span>authMode</span><span><code>minted</code></span>
+            <span>gameModel</span><span><code>game_id</code></span>
+            <span>FE filter</span><span>none — Cube already scopes by schema</span>
+          </div>
+        </div>
+        <div class="flavor">
+          <h3><span class="pill warn">prod (local mirror)</span> open, flat prefix namespace</h3>
+          <p>Open <code>/load</code>, no token. Cube serves a flat namespace of prefix-named cubes (<code>ballistar_*</code>, <code>cfm_*</code>, <code>cros_*</code>). FE filters which to <em>show</em> by <code>gamePrefixMap[activeGameId]</code>.</p>
+          <div class="kv">
+            <span>cubeApiUrl</span><span><code>http://localhost:16000</code></span>
+            <span>authMode</span><span><code>none</code></span>
+            <span>gameModel</span><span><code>prefix</code></span>
+            <span>FE filter</span><span><code>cubeName.startsWith(prefix + '_')</code></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>cube-playground · plans/visuals/query-builder-to-sql-flow.html</footer>
+  </main>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        background: '#0a0f24',
+        primaryColor: '#1e2a4a',
+        primaryTextColor: '#e7ebf3',
+        primaryBorderColor: '#3b4d80',
+        lineColor: '#7aa2ff',
+        secondaryColor: '#172446',
+        tertiaryColor: '#0f1530',
+        actorBkg: '#1e2a4a',
+        actorBorder: '#7aa2ff',
+        actorTextColor: '#e7ebf3',
+        actorLineColor: '#3b4d80',
+        signalColor: '#c7d2fe',
+        signalTextColor: '#e7ebf3',
+        noteBkgColor: '#3a2f0a',
+        noteTextColor: '#fde68a',
+        noteBorderColor: '#a16207'
+      },
+      sequence: {
+        useMaxWidth: true,
+        wrap: true,
+        boxMargin: 12,
+        messageMargin: 36,
+        mirrorActors: false,
+        actorFontSize: 13
+      }
+    });
+  </script>
+</body>
+</html>
