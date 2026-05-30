@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Onboarding Agent · Data Hub flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── tokens (mappable to cube-playground theme/tokens.css) ───────────── */
+  :root{
+    --bg-app:#f6f7f9; --bg-card:#ffffff; --bg-sunken:#f1f3f5; --bg-rail:#fbfbfc;
+    --border:#e6e8eb; --border-strong:#d6dade;
+    --text-primary:#1a1d21; --text-secondary:#5c636b; --text-muted:#8a929b;
+    --brand:#3b5bdb; --brand-soft:#eef1fd; --brand-ink:#2840b0;
+    --positive:#16a34a; --positive-soft:#e7f6ec;
+    --warning:#d97706; --warning-soft:#fdf2e3;
+    --destructive:#dc2626; --destructive-soft:#fdecec;
+    --info:#0891b2; --info-soft:#e3f5f9;
+    --radius:12px; --radius-sm:8px;
+    --font-sans:'Inter',-apple-system,system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,monospace;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+    --shadow-lg:0 8px 24px rgba(16,24,40,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-sans);background:var(--bg-app);color:var(--text-primary);
+    font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .app{display:flex;height:100vh;overflow:hidden}
+
+  /* ── left rail ───────────────────────────────────────────────────────── */
+  .rail{width:212px;flex-shrink:0;background:var(--bg-rail);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;padding:14px 10px}
+  .logo{display:flex;align-items:center;gap:8px;padding:8px 8px 16px}
+  .logo-mark{width:22px;height:22px;border-radius:6px;background:var(--brand);color:#fff;
+    display:grid;place-items:center;font-weight:700;font-size:13px}
+  .logo-txt{font-weight:700;font-size:15px;letter-spacing:-.01em}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;
+    color:var(--text-secondary);font-weight:500;cursor:pointer;font-size:13.5px;margin-bottom:1px}
+  .nav-item:hover{background:var(--bg-sunken)}
+  .nav-item.active{background:var(--brand-soft);color:var(--brand-ink);font-weight:600}
+  .nav-ico{width:16px;height:16px;flex-shrink:0;opacity:.85}
+  .rail-spacer{flex:1}
+  .rail-foot{border-top:1px solid var(--border);padding-top:10px}
+
+  /* ── main ────────────────────────────────────────────────────────────── */
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .topbar{height:52px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg-card);
+    display:flex;align-items:center;gap:14px;padding:0 24px}
+  .crumb{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-muted)}
+  .crumb b{color:var(--text-primary);font-weight:600}
+  .crumb .sep{color:var(--border-strong)}
+  .crumb .link{color:var(--text-secondary);cursor:pointer}
+  .crumb .link:hover{color:var(--brand)}
+  .search{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--bg-sunken);
+    border:1px solid var(--border);border-radius:8px;padding:6px 10px;width:280px;color:var(--text-muted);font-size:13px}
+  .kbd{margin-left:auto;font-family:var(--font-mono);font-size:10px;background:var(--bg-card);
+    border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+  .canvas{flex:1;overflow-y:auto;padding:28px 32px}
+  .screen{display:none;max-width:1180px;margin:0 auto;animation:fade .25s ease}
+  .screen.show{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ── page header ─────────────────────────────────────────────────────── */
+  .ph{display:flex;align-items:flex-start;gap:12px;margin-bottom:22px}
+  .ph-ico{width:30px;height:30px;border-radius:8px;background:var(--brand-soft);color:var(--brand);
+    display:grid;place-items:center;flex-shrink:0}
+  .ph h1{font-size:20px;font-weight:700;letter-spacing:-.02em}
+  .ph .sub{color:var(--text-secondary);font-size:13.5px;margin-top:2px}
+  .ph-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+  /* ── buttons ─────────────────────────────────────────────────────────── */
+  .btn{display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:8px 13px;font-size:13px;
+    font-weight:600;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card);
+    color:var(--text-primary);font-family:inherit;white-space:nowrap}
+  .btn:hover{background:var(--bg-sunken)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-ink)}
+  .btn.ghost{border-color:transparent;background:transparent;color:var(--text-secondary)}
+  .btn.ghost:hover{background:var(--bg-sunken)}
+  .btn.sm{padding:5px 9px;font-size:12px}
+  .btn.ok{background:var(--positive);border-color:var(--positive);color:#fff}
+  .btn.ok:hover{filter:brightness(.95)}
+  .btn.danger-o{border-color:var(--border-strong);color:var(--destructive)}
+  .btn.danger-o:hover{background:var(--destructive-soft)}
+
+  /* ── connector cards ─────────────────────────────────────────────────── */
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .conn{display:flex;align-items:center;gap:14px;background:var(--bg-card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:16px 18px;cursor:pointer;box-shadow:var(--shadow);transition:.12s}
+  .conn:hover{border-color:var(--border-strong);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+  .conn-ico{width:40px;height:40px;border-radius:9px;display:grid;place-items:center;flex-shrink:0;
+    font-weight:700;font-size:15px;color:#fff}
+  .conn-body{flex:1;min-width:0}
+  .conn-name{font-weight:600;font-size:14.5px}
+  .conn-meta{color:var(--text-muted);font-size:12.5px;margin-top:1px}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+  .dot.ok{background:var(--positive)} .dot.warn{background:var(--warning)}
+  .dot.err{background:var(--destructive)} .dot.sync{background:var(--info)}
+  .chev{color:var(--text-muted);flex-shrink:0}
+  .conn.dashed{border-style:dashed;box-shadow:none;background:transparent}
+  .conn.dashed:hover{background:var(--bg-card)}
+
+  /* ── catalog grid ────────────────────────────────────────────────────── */
+  .chips{display:flex;gap:8px;margin:4px 0 18px;flex-wrap:wrap}
+  .chip{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg-card);
+    font-size:12.5px;font-weight:500;color:var(--text-secondary);cursor:pointer}
+  .chip.active{background:var(--text-primary);color:#fff;border-color:var(--text-primary)}
+  .grp-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text-muted);margin:20px 0 10px;display:flex;align-items:center;gap:8px}
+  .grp-label .note{font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-muted);opacity:.8}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .src{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border);
+    border-radius:10px;padding:13px 14px;cursor:pointer;font-weight:500;font-size:13px}
+  .src:hover{border-color:var(--brand);background:var(--brand-soft)}
+  .src .sq{width:26px;height:26px;border-radius:6px;background:var(--bg-sunken);flex-shrink:0;
+    display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--text-secondary)}
+  .src .badge{margin-left:auto;font-size:11px;color:var(--text-muted)}
+
+  /* ── tabs + table ────────────────────────────────────────────────────── */
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:18px 0 0}
+  .tab{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--text-muted);cursor:pointer;
+    border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:7px}
+  .tab:hover{color:var(--text-secondary)}
+  .tab.active{color:var(--text-primary);border-bottom-color:var(--brand)}
+  .tab .pip{width:6px;height:6px;border-radius:50%;background:var(--destructive)}
+  .tab-hint{color:var(--text-secondary);font-size:13px;margin:18px 0 12px}
+  table{width:100%;border-collapse:collapse;background:var(--bg-card);border:1px solid var(--border);
+    border-radius:var(--radius);overflow:hidden}
+  th{text-align:left;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--text-muted);padding:11px 16px;background:var(--bg-rail);border-bottom:1px solid var(--border)}
+  td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr.click{cursor:pointer}
+  tr.click:hover td{background:var(--bg-rail)}
+  .ds-name{font-weight:600;display:flex;align-items:center;gap:8px}
+  .ds-desc{color:var(--text-muted);font-size:12.5px;margin-top:2px;max-width:380px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+    font-size:11.5px;font-weight:600}
+  .pill.ok{background:var(--positive-soft);color:var(--positive)}
+  .pill.sync{background:var(--info-soft);color:var(--info)}
+  .pill.warn{background:var(--warning-soft);color:var(--warning)}
+  .pill.muted{background:var(--bg-sunken);color:var(--text-secondary)}
+  .pill.brand{background:var(--brand-soft);color:var(--brand-ink)}
+  .tag-modeled{font-size:11px;font-weight:600;color:var(--positive);background:var(--positive-soft);
+    padding:2px 7px;border-radius:5px}
+  .tag-fresh{font-size:11px;font-weight:600;color:var(--brand-ink);background:var(--brand-soft);
+    padding:2px 7px;border-radius:5px}
+
+  /* ── mode pick ───────────────────────────────────────────────────────── */
+  .mode-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:6px 0 22px}
+  .mode{border:1.5px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;
+    background:var(--bg-card);transition:.12s;position:relative}
+  .mode:hover{border-color:var(--border-strong)}
+  .mode.sel{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  .mode .mh{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14.5px}
+  .mode .mt{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    padding:2px 7px;border-radius:5px}
+  .mode .md{color:var(--text-secondary);font-size:13px;margin-top:8px}
+  .mode .ml{margin-top:12px;font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:5px}
+  .mode .ml b{color:var(--text-primary);font-weight:600}
+  .radio{position:absolute;top:16px;right:16px;width:18px;height:18px;border-radius:50%;
+    border:2px solid var(--border-strong)}
+  .mode.sel .radio{border-color:var(--brand);background:var(--brand);
+    box-shadow:inset 0 0 0 3px var(--bg-card)}
+
+  /* table-select rows */
+  .tsel td:first-child{width:34px}
+  .cbx{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--border-strong);
+    display:inline-grid;place-items:center;cursor:pointer;color:#fff;font-size:11px}
+  .cbx.on{background:var(--brand);border-color:var(--brand)}
+  .mono{font-family:var(--font-mono);font-size:12.5px}
+  .bar{height:6px;width:90px;background:var(--bg-sunken);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle}
+  .bar > i{display:block;height:100%;background:var(--positive)}
+
+  /* ── triage ──────────────────────────────────────────────────────────── */
+  .variant-switch{display:flex;gap:6px;align-items:center;background:var(--bg-sunken);
+    border:1px solid var(--border);border-radius:9px;padding:3px}
+  .vbtn{padding:5px 11px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;
+    color:var(--text-secondary);border:none;background:transparent;font-family:inherit}
+  .vbtn.active{background:var(--bg-card);color:var(--brand-ink);box-shadow:var(--shadow)}
+  .triage{display:none}
+  .triage.show{display:block}
+  .progress{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border);
+    border-radius:10px;padding:11px 16px;margin-bottom:14px;font-size:13px}
+  .progress b{color:var(--text-primary)}
+  .prog-track{flex:1;max-width:260px;height:6px;border-radius:3px;background:var(--bg-sunken);overflow:hidden}
+  .prog-track > i{display:block;height:100%;background:var(--brand);width:25%}
+
+  .two-pane{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;align-items:start}
+  .panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .panel-h{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;
+    display:flex;align-items:center;gap:8px}
+  .panel-h .count{margin-left:auto;font-size:12px;color:var(--text-muted);font-weight:500}
+
+  .decision{padding:15px 16px;border-bottom:1px solid var(--border)}
+  .decision:last-child{border-bottom:none}
+  .dec-top{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .dec-q{font-weight:600;font-size:13.5px}
+  .conf{margin-left:auto;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+  .conf.lo{background:var(--warning-soft);color:var(--warning)}
+  .conf.mid{background:var(--info-soft);color:var(--info)}
+  .dec-ctx{font-size:12.5px;color:var(--text-secondary);margin-bottom:11px}
+  .dec-ctx .samp{font-family:var(--font-mono);font-size:11.5px;background:var(--bg-sunken);
+    padding:1px 6px;border-radius:4px;color:var(--text-primary)}
+  .dec-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
+  .seg button{padding:6px 12px;font-size:12.5px;font-weight:600;background:var(--bg-card);border:none;
+    cursor:pointer;color:var(--text-secondary);font-family:inherit;border-right:1px solid var(--border)}
+  .seg button:last-child{border-right:none}
+  .seg button.on{background:var(--brand);color:#fff}
+  .decision.done{opacity:.55}
+  .decision.done .dec-q::before{content:'✓ ';color:var(--positive);font-weight:700}
+
+  .auto{padding:13px 16px;display:flex;align-items:center;gap:9px;cursor:pointer;
+    background:var(--bg-rail);font-size:13px;font-weight:600;color:var(--text-secondary)}
+  .auto:hover{background:var(--bg-sunken)}
+  .auto .count{margin-left:auto;font-weight:500;color:var(--text-muted)}
+  .auto-body{display:none;padding:4px 16px 12px;font-size:12.5px;color:var(--text-secondary)}
+  .auto-body.open{display:block}
+  .auto-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed var(--border);align-items:center}
+  .auto-row:last-child{border:none}
+
+  .ask{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg-rail)}
+  .ask input{flex:1;border:1px solid var(--border-strong);border-radius:8px;padding:8px 11px;
+    font-family:inherit;font-size:13px;background:var(--bg-card)}
+  .ask input:focus{outline:none;border-color:var(--brand)}
+
+  /* yaml preview */
+  .yaml{font-family:var(--font-mono);font-size:12px;line-height:1.7;padding:14px 16px;
+    background:#1c2128;color:#d6dde6;overflow-x:auto;white-space:pre}
+  .yaml .k{color:#8ab4f8}.yaml .s{color:#a5d6a7}.yaml .c{color:#6b7785}
+  .yaml .hl{background:rgba(59,91,219,.22);display:block;margin:0 -16px;padding:0 16px}
+  .preview-foot{display:flex;gap:9px;padding:13px 16px;border-top:1px solid var(--border);background:var(--bg-card)}
+
+  /* variant B: graph */
+  .graph{position:relative;height:430px;background:
+    radial-gradient(circle,var(--border) 1px,transparent 1px) 0 0/22px 22px;background-color:var(--bg-rail)}
+  .node{position:absolute;background:var(--bg-card);border:1.5px solid var(--border-strong);border-radius:10px;
+    width:190px;box-shadow:var(--shadow);font-size:12px}
+  .node.fact{border-color:var(--brand)}
+  .node .nh{padding:8px 11px;font-weight:700;font-size:12.5px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:6px}
+  .node .nh .t{margin-left:auto;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase}
+  .node .nr{padding:5px 11px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;color:var(--text-secondary)}
+  .node .nr:last-child{border:none}
+  .node .nr.m{color:var(--brand-ink);font-weight:600}
+  .node .nr.q{background:var(--warning-soft);color:var(--warning);font-weight:600}
+  .glyph{font-size:10px;width:14px;text-align:center;opacity:.7}
+  .edge-label{position:absolute;background:var(--warning-soft);border:1px solid var(--warning);
+    color:var(--warning);font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;cursor:pointer}
+  svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+  /* variant C: chat */
+  .chat{display:flex;flex-direction:column;height:560px}
+  .chat-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+  .msg{max-width:84%;font-size:13px;line-height:1.55}
+  .msg.user{align-self:flex-end;background:var(--brand);color:#fff;padding:9px 13px;border-radius:13px 13px 3px 13px}
+  .msg.bot{align-self:flex-start}
+  .msg.bot .avatar{font-size:11px;font-weight:700;color:var(--brand);margin-bottom:4px}
+  .msg.bot .bubble{background:var(--bg-sunken);padding:11px 13px;border-radius:3px 13px 13px 13px}
+  .msg .inline-actions{display:flex;gap:7px;margin-top:9px}
+  .mini{font-size:11px;padding:4px 10px;border-radius:7px;border:1px solid var(--border-strong);
+    background:var(--bg-card);cursor:pointer;font-weight:600;font-family:inherit}
+  .mini.ok{background:var(--positive);color:#fff;border-color:var(--positive)}
+
+  .hint{font-size:12px;color:var(--text-muted);margin-top:18px;text-align:center}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--text-secondary)}
+  .legend span{display:flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ── left rail ── -->
+  <aside class="rail">
+    <div class="logo"><div class="logo-mark">▦</div><div class="logo-txt">cube&nbsp;playground</div></div>
+    <div class="nav-item">◷ &nbsp;Chat</div>
+    <div class="nav-item">▤ &nbsp;Dashboards</div>
+    <div class="nav-item">▥ &nbsp;Metrics</div>
+    <div class="nav-item">◎ &nbsp;Segments</div>
+    <div class="nav-item">⚲ &nbsp;Catalog</div>
+    <div class="nav-item">⚡ &nbsp;Drift Center</div>
+    <div class="rail-spacer"></div>
+    <div class="rail-foot">
+      <div class="nav-item active" onclick="go('connectors')">🗄 &nbsp;Data</div>
+      <div class="nav-item">⚙ &nbsp;Settings</div>
+    </div>
+  </aside>
+
+  <!-- ── main ── -->
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb" id="crumb"><b>Data</b></div>
+      <div class="search">⌕ Search<span class="kbd">⌘K</span></div>
+    </div>
+    <div class="canvas">
+
+      <!-- ════ SCREEN 1 · CONNECTORS LIST ════ -->
+      <section class="screen show" id="s-connectors">
+        <div class="ph">
+          <div class="ph-ico">🗄</div>
+          <div><h1>Data Connectors</h1>
+            <div class="sub">Warehouses and sources cube-playground can model. Pick one to onboard its datasets.</div></div>
+          <div class="ph-actions">
+            <button class="btn">⟳ Refresh</button>
+            <button class="btn primary" onclick="go('add')">+ Add connector</button>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="conn" onclick="go('detail')">
+            <div class="conn-ico" style="background:#2d6cdf">Tr</div>
+            <div class="conn-body"><div class="conn-name">Trino · game_integration</div>
+              <div class="conn-meta">Presto catalog · 6 datasets · synced 4m ago</div></div>
+            <span class="dot ok"></span><span class="chev">›</span>
+          </div>
+          <div class="conn" onclick="go('detail')">
+            <div class="conn-ico" style="background:#4285f4">BQ</div>
+            <div class="conn-body"><div class="conn-name">BigQuery · Production Analytics</div>
+              <div class="conn-meta">4 datasets · 1 sync error · 12m ago</div></div>
+            <span class="dot err"></span><span class="chev">›</span>
+          </div>
+          <div class="conn" onclick="go('detail')">
+            <div class="conn-ico" style="background:#29b5e8">Sn</div>
+            <div class="conn-body"><div class="conn-name">Snowflake · Marketing</div>
+              <div class="conn-meta">2 datasets · syncing…</div></div>
+            <span class="dot sync"></span><span class="chev">›</span>
+          </div>
+          <div class="conn" onclick="go('detail')">
+            <div class="conn-ico" style="background:#336791">Pg</div>
+            <div class="conn-body"><div class="conn-name">PostgreSQL · Ops</div>
+              <div class="conn-meta">1 dataset · synced 1h ago</div></div>
+            <span class="dot ok"></span><span class="chev">›</span>
+          </div>
+          <div class="conn dashed" onclick="go('add')">
+            <div class="conn-ico" style="background:var(--bg-sunken);color:var(--text-muted)">+</div>
+            <div class="conn-body"><div class="conn-name" style="color:var(--text-secondary)">Add a connector</div>
+              <div class="conn-meta">BigQuery, Snowflake, Postgres, 85+ sources…</div></div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><span class="dot ok"></span> synced</span>
+          <span><span class="dot sync"></span> syncing</span>
+          <span><span class="dot warn"></span> stale</span>
+          <span><span class="dot err"></span> error</span>
+        </div>
+      </section>
+
+      <!-- ════ SCREEN 2 · ADD CONNECTOR CATALOG ════ -->
+      <section class="screen" id="s-add">
+        <div class="ph">
+          <div class="ph-ico">⊕</div>
+          <div><h1>Add data connector</h1>
+            <div class="sub">Pick a source type. Warehouses connect instantly; we profile their schemas for modeling.</div></div>
+          <div class="ph-actions"><button class="btn" onclick="go('connectors')">← Back</button></div>
+        </div>
+        <div class="search" style="width:100%;margin:0 0 4px">⌕ Search tables &amp; columns<span class="kbd">⌘K</span></div>
+        <div class="chips">
+          <div class="chip active">All connectors (85+)</div>
+          <div class="chip">Warehouse</div><div class="chip">MMP</div>
+          <div class="chip">Ad Networks</div><div class="chip">Others</div>
+        </div>
+        <div class="grp-label">Warehouse <span class="note">· instant connection</span></div>
+        <div class="grid" id="warehouse-grid"></div>
+        <div class="grp-label">MMP</div>
+        <div class="grid" id="mmp-grid"></div>
+        <div class="grp-label">Ad Networks</div>
+        <div class="grid" id="ad-grid"></div>
+      </section>
+
+      <!-- credentials drawer -->
+      <section class="screen" id="s-creds">
+        <div class="ph">
+          <div class="ph-ico" id="cred-ico">BQ</div>
+          <div><h1 id="cred-title">Connect BigQuery</h1>
+            <div class="sub">Credentials stay server-side. We use them only to introspect &amp; profile — read-only.</div></div>
+          <div class="ph-actions"><button class="btn" onclick="go('add')">← Back</button></div>
+        </div>
+        <div class="panel" style="max-width:560px;padding:20px">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <label style="font-size:12.5px;font-weight:600">Connection name
+              <input class="cred-in" value="Production Analytics" /></label>
+            <label style="font-size:12.5px;font-weight:600">Host
+              <input class="cred-in" placeholder="trino.internal:8443" /></label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <label style="font-size:12.5px;font-weight:600">Catalog
+                <input class="cred-in" value="game_integration" /></label>
+              <label style="font-size:12.5px;font-weight:600">User
+                <input class="cred-in" placeholder="svc_playground" /></label>
+            </div>
+            <label style="font-size:12.5px;font-weight:600">Password / key
+              <input class="cred-in" type="password" value="••••••••••••" /></label>
+            <div style="display:flex;gap:9px;margin-top:6px">
+              <button class="btn" >Test connection</button>
+              <button class="btn primary" onclick="go('detail')">Connect &amp; profile →</button>
+            </div>
+          </div>
+        </div>
+        <div class="hint">Read-only · statement timeout enforced · secrets never returned to the browser</div>
+      </section>
+
+      <!-- ════ SCREEN 3 · CONNECTOR DETAIL ════ -->
+      <section class="screen" id="s-detail">
+        <div class="ph">
+          <div class="ph-ico" style="background:#2d6cdf;color:#fff">Tr</div>
+          <div><h1>Trino · game_integration</h1>
+            <div class="sub">Presto catalog · 6 datasets · refreshed 4m ago · <span style="color:var(--info)">1 syncing</span></div></div>
+          <div class="ph-actions">
+            <button class="btn" onclick="go('connectors')">← Connectors</button>
+            <button class="btn">⟳ Refresh</button>
+            <button class="btn primary">+ Add dataset</button>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active">🗄 Datasets <span class="pip"></span></div>
+          <div class="tab">🤖 Agents</div>
+          <div class="tab">▥ Coverage</div>
+          <div class="tab">⚡ Drift</div>
+          <div class="tab">↻ History</div>
+        </div>
+        <div class="tab-hint">All datasets under this catalog. <b style="color:var(--text-secondary)">Modeled</b> datasets warm-start onboarding from sibling cubes; <b style="color:var(--brand-ink)">fresh</b> ones start cold. Click a dataset to explore its tables.</div>
+        <table>
+          <thead><tr><th>Dataset</th><th>Model</th><th>Status</th><th>Tables</th><th>Last sync</th><th></th></tr></thead>
+          <tbody>
+            <tr class="click" onclick="go('tables')">
+              <td><div class="ds-name">ballistar_vn</div><div class="ds-desc">Live ops, recharge, retention — fully modeled in cube-dev</div></td>
+              <td><span class="tag-modeled">12 cubes</span></td>
+              <td><span class="pill ok">● Synced</span></td><td>86</td><td>4 min ago</td><td class="chev">›</td>
+            </tr>
+            <tr class="click" onclick="go('tables')">
+              <td><div class="ds-name">cfm_vn</div><div class="ds-desc">CrossFire Mobile VN — modeled, partial measure coverage</div></td>
+              <td><span class="tag-modeled">9 cubes</span></td>
+              <td><span class="pill ok">● Synced</span></td><td>74</td><td>9 min ago</td><td class="chev">›</td>
+            </tr>
+            <tr class="click" onclick="go('tables')">
+              <td><div class="ds-name">ptg</div><div class="ds-desc">Only recharge + funnel modeled — most tables uncovered</div></td>
+              <td><span class="pill warn">2 / 18 cubes</span></td>
+              <td><span class="pill sync">↻ Syncing</span></td><td>52</td><td>—</td><td class="chev">›</td>
+            </tr>
+            <tr class="click" onclick="go('tables')" style="background:var(--brand-soft)">
+              <td><div class="ds-name">new_game_x &nbsp;<span class="tag-fresh">fresh</span></div><div class="ds-desc">Just ingested · no Cube model yet — cold-start candidate</div></td>
+              <td><span class="pill muted">0 cubes</span></td>
+              <td><span class="pill ok">● Synced</span></td><td>41</td><td>7 min ago</td><td class="chev">›</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ════ SCREEN 4 · DATASET TABLES + MODE PICK ════ -->
+      <section class="screen" id="s-tables">
+        <div class="ph">
+          <div class="ph-ico">▦</div>
+          <div><h1>new_game_x — onboard tables</h1>
+            <div class="sub">41 tables profiled. Choose how the agent should build the draft model, then pick tables.</div></div>
+          <div class="ph-actions"><button class="btn" onclick="go('detail')">← Datasets</button></div>
+        </div>
+
+        <div class="mode-row">
+          <div class="mode" id="mode-warm" onclick="pickMode('warm')">
+            <div class="radio"></div>
+            <div class="mh">Reference existing model
+              <span class="mt" style="background:var(--positive-soft);color:var(--positive)">warm start</span></div>
+            <div class="md">Imitate sibling cubes already modeled in this connector. Best when conventions exist.</div>
+            <div class="ml">
+              <span><b>Learns:</b> naming, identity fields, join &amp; measure style</span>
+              <span><b>Result:</b> higher confidence → fewer questions</span>
+              <span><b>Source:</b> ballistar_vn · cfm_vn (12 + 9 cubes)</span>
+            </div>
+          </div>
+          <div class="mode sel" id="mode-cold" onclick="pickMode('cold')">
+            <div class="radio"></div>
+            <div class="mh">Model from scratch
+              <span class="mt" style="background:var(--brand-soft);color:var(--brand-ink)">cold start</span></div>
+            <div class="md">Pure profiling + LLM inference. For a genuinely new shape with no precedent.</div>
+            <div class="ml">
+              <span><b>Uses:</b> column stats, samples, naming heuristics</span>
+              <span><b>Result:</b> more low-confidence calls to review</span>
+              <span><b>Source:</b> none — fresh data layer</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;margin-bottom:10px">
+          <div style="font-weight:600;font-size:13px">Tables <span style="color:var(--text-muted);font-weight:500">· 3 of 41 selected</span></div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn sm">Select fact tables</button>
+            <button class="btn primary sm" onclick="go('triage')">Generate draft →</button>
+          </div>
+        </div>
+        <table class="tsel">
+          <thead><tr><th></th><th>Table</th><th>Rows</th><th>Columns</th><th>Profiled</th><th>Inferred role</th></tr></thead>
+          <tbody>
+            <tr><td><span class="cbx on">✓</span></td><td class="mono">orders</td><td>4.2M</td><td>12</td>
+              <td><span class="bar"><i style="width:100%"></i></span></td><td><span class="pill brand">fact</span></td></tr>
+            <tr><td><span class="cbx on">✓</span></td><td class="mono">users</td><td>980K</td><td>8</td>
+              <td><span class="bar"><i style="width:100%"></i></span></td><td><span class="pill muted">dimension</span></td></tr>
+            <tr><td><span class="cbx on">✓</span></td><td class="mono">sessions</td><td>21M</td><td>14</td>
+              <td><span class="bar"><i style="width:100%"></i></span></td><td><span class="pill brand">fact</span></td></tr>
+            <tr><td><span class="cbx">&nbsp;</span></td><td class="mono">recharge</td><td>612K</td><td>11</td>
+              <td><span class="bar"><i style="width:88%"></i></span></td><td><span class="pill brand">fact</span></td></tr>
+            <tr><td><span class="cbx">&nbsp;</span></td><td class="mono" style="color:var(--text-muted)">_tmp_backfill</td><td>3.1M</td><td>9</td>
+              <td><span class="bar"><i style="width:40%"></i></span></td><td><span class="pill muted">likely ignore</span></td></tr>
+            <tr><td><span class="cbx">&nbsp;</span></td><td class="mono" style="color:var(--text-muted)">test_events</td><td>1.2K</td><td>14</td>
+              <td><span class="bar"><i style="width:30%"></i></span></td><td><span class="pill muted">likely ignore</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ════ SCREEN 5 · TRIAGE CANVAS (3 variants) ════ -->
+      <section class="screen" id="s-triage">
+        <div class="ph">
+          <div class="ph-ico">✦</div>
+          <div><h1>Triage — orders · users · sessions</h1>
+            <div class="sub">cold start · 3 tables · 41 fields profiled. Resolve the few ambiguous calls; the rest is auto-mapped.</div></div>
+          <div class="ph-actions">
+            <div class="variant-switch">
+              <button class="vbtn active" onclick="setVar('A',event)">A · Queue + YAML</button>
+              <button class="vbtn" onclick="setVar('B',event)">B · Entity graph</button>
+              <button class="vbtn" onclick="setVar('C',event)">C · Conversational</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress">
+          <span>📍 <b id="prog-text">2</b> decisions left · <b>38</b> auto-mapped</span>
+          <div class="prog-track"><i id="prog-bar"></i></div>
+          <button class="btn sm" style="margin-left:auto">Accept all high-confidence</button>
+        </div>
+
+        <!-- ── Variant A: Queue + live YAML ── -->
+        <div class="triage show" id="var-A">
+          <div class="two-pane">
+            <div class="panel">
+              <div class="panel-h">⚠ Needs your call <span class="count" id="A-count">3 open</span></div>
+
+              <div class="decision" data-dec>
+                <div class="dec-top"><span class="dec-q">How should <span class="mono">revenue_usd</span> aggregate?</span>
+                  <span class="conf lo">62% confident</span></div>
+                <div class="dec-ctx">Numeric, high distinct count → a measure. Samples:
+                  <span class="samp">4.99</span> <span class="samp">0.99</span> <span class="samp">19.99</span> <span class="samp">49.99</span></div>
+                <div class="dec-actions">
+                  <div class="seg"><button class="on" onclick="seg(this)">SUM</button><button onclick="seg(this)">AVG</button><button onclick="seg(this)">MAX</button></div>
+                  <button class="btn sm" onclick="resolve(this)">Accept</button>
+                </div>
+              </div>
+
+              <div class="decision" data-dec>
+                <div class="dec-top"><span class="dec-q">Join <span class="mono">orders.user_id → users.id</span>?</span>
+                  <span class="conf mid">81% confident</span></div>
+                <div class="dec-ctx">Name match + 99.4% of <span class="samp">orders.user_id</span> values exist in <span class="samp">users.id</span>. Relationship: many-to-one.</div>
+                <div class="dec-actions">
+                  <button class="btn ok sm" onclick="resolve(this)">✓ Confirm join</button>
+                  <button class="btn danger-o sm" onclick="resolve(this)">✕ Not a join</button>
+                </div>
+              </div>
+
+              <div class="decision" data-dec>
+                <div class="dec-top"><span class="dec-q">Is <span class="mono">status</span> a dimension?</span>
+                  <span class="conf mid">74% confident</span></div>
+                <div class="dec-ctx">Low cardinality (12 distinct). Samples:
+                  <span class="samp">paid</span> <span class="samp">refunded</span> <span class="samp">pending</span> …</div>
+                <div class="dec-actions">
+                  <button class="btn ok sm" onclick="resolve(this)">✓ Dimension</button>
+                  <button class="btn sm" onclick="resolve(this)">Ignore</button>
+                </div>
+              </div>
+
+              <div class="auto" onclick="toggleAuto()">▸ Auto-mapped fields <span class="count">38 — click to audit</span></div>
+              <div class="auto-body" id="autoBody">
+                <div class="auto-row"><span class="mono">created_at</span> → time dimension <span style="margin-left:auto" class="pill ok">98%</span></div>
+                <div class="auto-row"><span class="mono">order_id</span> → primary key <span style="margin-left:auto" class="pill ok">99%</span></div>
+                <div class="auto-row"><span class="mono">count</span> → measure (default) <span style="margin-left:auto" class="pill ok">100%</span></div>
+                <div class="auto-row"><span class="mono">country</span> → dimension <span style="margin-left:auto" class="pill ok">95%</span></div>
+                <div class="auto-row" style="color:var(--text-muted)">…34 more</div>
+              </div>
+
+              <div class="ask">
+                <input placeholder='Tell the agent…  e.g. "ignore the test_ tables" or "user_id is the join key"' />
+                <button class="btn primary sm">Ask</button>
+              </div>
+            </div>
+
+            <div class="panel" style="position:sticky;top:0">
+              <div class="panel-h">📄 Live model preview <span class="count">orders.yml</span></div>
+              <div class="yaml" id="yamlBox"></div>
+              <div class="preview-foot">
+                <button class="btn ok sm">▸ Validate (real query)</button>
+                <button class="btn primary sm" style="margin-left:auto">Stage for approval →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Variant B: Entity graph ── -->
+        <div class="triage" id="var-B">
+          <div class="two-pane">
+            <div class="panel">
+              <div class="panel-h">◇ Model canvas <span class="count">drag to arrange · click ⚠ to resolve</span></div>
+              <div class="graph">
+                <svg class="wires">
+                  <path d="M 250 150 C 330 150, 330 110, 410 110" stroke="#d97706" stroke-width="2" fill="none" stroke-dasharray="5 4"/>
+                  <path d="M 250 220 C 330 220, 330 300, 410 300" stroke="#d6dade" stroke-width="2" fill="none"/>
+                </svg>
+                <div class="node fact" style="left:40px;top:110px">
+                  <div class="nh">▦ orders <span class="t">fact</span></div>
+                  <div class="nr m"><span class="glyph">Σ</span> count</div>
+                  <div class="nr q"><span class="glyph">⚠</span> revenue_usd · SUM?</div>
+                  <div class="nr"><span class="glyph">◷</span> created_at</div>
+                  <div class="nr q"><span class="glyph">⚠</span> status · dim?</div>
+                </div>
+                <div class="node" style="left:410px;top:70px">
+                  <div class="nh">◎ users <span class="t">dim</span></div>
+                  <div class="nr"><span class="glyph">⚷</span> id</div>
+                  <div class="nr"><span class="glyph">◔</span> country</div>
+                  <div class="nr"><span class="glyph">◷</span> signup_at</div>
+                </div>
+                <div class="node fact" style="left:410px;top:265px">
+                  <div class="nh">▦ sessions <span class="t">fact</span></div>
+                  <div class="nr m"><span class="glyph">Σ</span> count</div>
+                  <div class="nr"><span class="glyph">◷</span> started_at</div>
+                </div>
+                <div class="edge-label" style="left:300px;top:95px" onclick="alert('Confirm join orders.user_id → users.id (81%)')">⚠ join 81% ›</div>
+              </div>
+              <div class="ask">
+                <input placeholder='Tell the agent…  e.g. "merge sessions into orders" or "ignore test tables"' />
+                <button class="btn primary sm">Ask</button>
+              </div>
+            </div>
+            <div class="panel" style="position:sticky;top:0">
+              <div class="panel-h">⚠ Open decisions <span class="count">3</span></div>
+              <div style="padding:6px 0">
+                <div class="auto-row" style="padding:11px 16px;border-bottom:1px solid var(--border)"><span class="glyph">⚠</span><span><b>revenue_usd</b> aggregation</span><span class="conf lo" style="margin-left:auto">62%</span></div>
+                <div class="auto-row" style="padding:11px 16px;border-bottom:1px solid var(--border)"><span class="glyph">⚠</span><span><b>orders→users</b> join</span><span class="conf mid" style="margin-left:auto">81%</span></div>
+                <div class="auto-row" style="padding:11px 16px"><span class="glyph">⚠</span><span><b>status</b> dimension?</span><span class="conf mid" style="margin-left:auto">74%</span></div>
+              </div>
+              <div class="panel-h" style="border-top:1px solid var(--border)">📄 YAML <span class="count">live</span></div>
+              <div class="yaml" id="yamlBoxB" style="max-height:170px"></div>
+              <div class="preview-foot">
+                <button class="btn ok sm">▸ Validate</button>
+                <button class="btn primary sm" style="margin-left:auto">Stage →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Variant C: Conversational ── -->
+        <div class="triage" id="var-C">
+          <div class="two-pane">
+            <div class="panel chat">
+              <div class="panel-h">🤖 Onboarding agent</div>
+              <div class="chat-body">
+                <div class="msg bot"><div class="avatar">AGENT</div><div class="bubble">
+                  Profiled <b>orders, users, sessions</b> — 41 fields. I'd model <b>orders</b> and <b>sessions</b> as fact cubes joined to <b>users</b>. Three calls I'm unsure about — let's clear them.</div></div>
+                <div class="msg bot"><div class="avatar">AGENT</div><div class="bubble">
+                  <b>revenue_usd</b> looks like a measure (samples 4.99 · 0.99 · 19.99). Aggregate as <b>SUM</b>?
+                  <div class="inline-actions"><button class="mini ok">Yes, SUM</button><button class="mini">Use AVG</button><button class="mini">It's not a measure</button></div></div></div>
+                <div class="msg user">Yes SUM. And ignore the test_ and _tmp tables.</div>
+                <div class="msg bot"><div class="avatar">AGENT</div><div class="bubble">
+                  ✓ revenue_usd → SUM. ✓ Dropped <span class="mono">test_events</span>, <span class="mono">_tmp_backfill</span>.
+                  Next: <b>orders.user_id → users.id</b> — 99.4% value overlap, looks like a many-to-one join. Confirm?
+                  <div class="inline-actions"><button class="mini ok">Confirm join</button><button class="mini">No</button></div></div></div>
+              </div>
+              <div class="ask">
+                <input placeholder="Reply to the agent…" />
+                <button class="btn primary sm">Send</button>
+              </div>
+            </div>
+            <div class="panel" style="position:sticky;top:0">
+              <div class="panel-h">📄 Model builds as you talk <span class="count">2 cubes</span></div>
+              <div class="yaml" id="yamlBoxC"></div>
+              <div class="preview-foot">
+                <button class="btn ok sm">▸ Validate</button>
+                <button class="btn primary sm" style="margin-left:auto">Stage →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hint">All three variants share the same engine — only the interaction surface differs. Pick one to take into Phase 06.</div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── nav ── */
+  const crumbs = {
+    connectors:'<b>Data</b>',
+    add:'<span class="link" onclick="go(\'connectors\')">Data</span> <span class="sep">/</span> <b>Add connector</b>',
+    creds:'<span class="link" onclick="go(\'connectors\')">Data</span> <span class="sep">/</span> <span class="link" onclick="go(\'add\')">Add</span> <span class="sep">/</span> <b>Connect</b>',
+    detail:'<span class="link" onclick="go(\'connectors\')">Data</span> <span class="sep">/</span> <b>game_integration</b>',
+    tables:'<span class="link" onclick="go(\'connectors\')">Data</span> <span class="sep">/</span> <span class="link" onclick="go(\'detail\')">game_integration</span> <span class="sep">/</span> <b>new_game_x</b>',
+    triage:'<span class="link" onclick="go(\'connectors\')">Data</span> <span class="sep">/</span> <span class="link" onclick="go(\'detail\')">game_integration</span> <span class="sep">/</span> <span class="link" onclick="go(\'tables\')">new_game_x</span> <span class="sep">/</span> <b>Triage</b>'
+  };
+  function go(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show'));
+    document.getElementById('s-'+id).classList.add('show');
+    document.getElementById('crumb').innerHTML = crumbs[id]||'<b>Data</b>';
+    document.querySelector('.canvas').scrollTop = 0;
+  }
+
+  /* ── catalog grid fill ── */
+  const warehouses = ['BigQuery','Snowflake','Redshift','PostgreSQL','Databricks','ClickHouse','Trino / Presto','Amazon Aurora','Azure SQL','DuckDB','MySQL','MongoDB'];
+  const mmps = ['AppsFlyer','Adjust','Singular','Branch'];
+  const ads = ['Meta Ads','Google Ads','TikTok Ads','Unity Ads'];
+  const sq = t => t.replace(/[^A-Za-z]/g,'').slice(0,2);
+  function card(t,badge){return `<div class="src" onclick="go('creds')"><span class="sq">${sq(t)}</span>${t}${badge?`<span class="badge">⛓ ${badge}</span>`:''}</div>`;}
+  document.getElementById('warehouse-grid').innerHTML = warehouses.map((t,i)=>card(t,i===0?'4':i===6?'6':'')).join('');
+  document.getElementById('mmp-grid').innerHTML = mmps.map(t=>card(t)).join('');
+  document.getElementById('ad-grid').innerHTML = ads.map(t=>card(t)).join('');
+
+  /* ── mode pick ── */
+  function pickMode(m){
+    document.getElementById('mode-warm').classList.toggle('sel',m==='warm');
+    document.getElementById('mode-cold').classList.toggle('sel',m==='cold');
+  }
+
+  /* ── triage variant switch ── */
+  function setVar(v,e){
+    document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    ['A','B','C'].forEach(x=>document.getElementById('var-'+x).classList.toggle('show',x===v));
+  }
+  /* segmented control */
+  function seg(btn){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+  /* resolve a decision → progress updates */
+  let open=3;
+  function resolve(btn){
+    const dec=btn.closest('[data-dec]');
+    if(dec.classList.contains('done'))return;
+    dec.classList.add('done');
+    dec.querySelectorAll('button,.seg').forEach(b=>b.style.pointerEvents='none');
+    open--; const left=open;
+    document.getElementById('prog-text').textContent=left;
+    document.getElementById('A-count').textContent=left+' open';
+    document.getElementById('prog-bar').style.width=Math.round((3-left)/3*100)+'%';
+  }
+  function toggleAuto(){document.getElementById('autoBody').classList.toggle('open');
+    const a=document.querySelector('.auto'); a.firstChild.textContent = document.getElementById('autoBody').classList.contains('open')?'▾ ':'▸ ';}
+
+  /* ── YAML preview (shared) ── */
+  const yaml =
+`<span class="c"># generated draft · review before staging</span>
+<span class="k">cubes:</span>
+  - <span class="k">name:</span> <span class="s">orders</span>
+    <span class="k">sql_table:</span> <span class="s">game_integration.new_game_x.orders</span>
+    <span class="k">joins:</span>
+<span class="hl">      - <span class="k">name:</span> <span class="s">users</span>          <span class="c"># ⚠ pending confirm</span></span>
+<span class="hl">        <span class="k">relationship:</span> <span class="s">many_to_one</span></span>
+<span class="hl">        <span class="k">sql:</span> <span class="s">"{CUBE}.user_id = {users}.id"</span></span>
+    <span class="k">measures:</span>
+      - <span class="k">name:</span> <span class="s">count</span>
+        <span class="k">type:</span> <span class="s">count</span>
+<span class="hl">      - <span class="k">name:</span> <span class="s">revenue</span>        <span class="c"># ⚠ SUM | avg ?</span></span>
+<span class="hl">        <span class="k">type:</span> <span class="s">sum</span></span>
+<span class="hl">        <span class="k">sql:</span> <span class="s">revenue_usd</span></span>
+    <span class="k">dimensions:</span>
+      - <span class="k">name:</span> <span class="s">created_at</span>
+        <span class="k">type:</span> <span class="s">time</span>
+<span class="hl">      - <span class="k">name:</span> <span class="s">status</span>         <span class="c"># ⚠ dimension?</span></span>
+        <span class="k">type:</span> <span class="s">string</span>`;
+  ['yamlBox','yamlBoxB','yamlBoxC'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=yaml;});
+</script>
+</body>
+</html>

@@ -120,8 +120,37 @@ If user clarifies in follow-up turn:
 
 ---
 
+---
+
+## Data-Model Lifecycle: Bootstrap → Reconcile → Repair
+
+Cube-model onboarding implements the **bootstrap stage** (introspect raw warehouse → stage drafts). Surfaces integrate at reconcile (coverage + drift surfaces) and repair (manual/auto repoint).
+
+### Stage 1: Bootstrap (Onboarding)
+
+A data analyst connects a warehouse (Trino) via app-side connector creds (`TRINO_PROFILER_*` env) and triggers introspection. The `raw-schema-inference.ts` service profiles columns, infers Cube-model skeleton (dimensions, measures, time dimension, PK, joins) with confidence + warm/cold priors, and scaffolds a Zod-validated Cube model. Scaffolder emits block-style YAML; drafts live in `onboarding_draft_models` table (pending → accepted → rejected → written states). Approval writes YAML atomically to cube-dev and polls /meta for validation.
+
+**Key services:** `trino-profiler.ts`, `raw-schema-inference.ts`, `cube-model-scaffolder.ts`, `onboarding-draft-store.ts`.
+
+**Gating:** LLM enrichment (`onboarding.llmEnrichment`) and golden-query seeding (`onboarding.goldenSeeding`) default off; flag-tunable.
+
+### Stage 2: Reconcile (Coverage & Drift)
+
+Once a model is written, two surfaces monitor alignment:
+
+- **Metric coverage** (`metric-coverage-resolver.ts`): Detects broken refs (metrics pointing to non-existent members) and uncovered cube measures (live members with no metric yet). API: `GET /api/business-metrics/coverage`. Scaffolds metric stubs via `metric-stub-scaffolder.ts`.
+- **Metric drift** (drift-center): Detects column/member drift (schema changes upstream). Detector polls `/meta` + compares historical schema snapshots. Feeds the triage canvas.
+
+### Stage 3: Repair (Manual + Auto)
+
+Data analysts use drift-center and coverage surfaces to triage misalignments — repoint broken refs, scaffold missing metrics, update model members. Future: auto-repair hooks (schema reconciliation templates, cross-game mirroring).
+
+---
+
 ## Future Directions
 
 **Semantic cache deferred** — exact-match cache (Layer 4) deferred pending production hit-rate measurement. If exact-match hit-rate <10%, revisit embedding-based semantic matching via a higher-latency service.
 
 **L3 eviction policy** — currently unlimited. If L3 grows unbounded, consider LRU eviction based on `last_used_at` with a high-tide mark (e.g., keep top-N per slot per owner).
+
+**Auto-repair stage** — stage 3 (Repair) currently manual. Future: template-driven auto-remediation (e.g., schema reconciliation, cross-game model mirroring).

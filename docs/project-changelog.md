@@ -2,6 +2,18 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-30 — Cube-model onboarding agent (bootstrap stage)
+
+Data-analyst-facing introspection + inference + scaffolding pipeline to stage draft Cube models from raw warehouse schema. Feeds the existing drift-center and coverage surfaces. Plan: `plans/260530-1406-cube-model-onboarding-agent/`. Tests: server 442/442 all pass.
+
+- **Trino profiler.** Direct read-only warehouse access: `trino-profiler.ts` + `trino-rest-client.ts` (fetch-based, zero npm deps, SSRF-safe) + `trino-profiler-config.ts` connector config. Gated behind `TRINO_PROFILER_*` env creds; creds redacted in all logs/responses.
+- **Raw schema inference.** `raw-schema-inference.ts` (pure) — column profiles → Cube skeleton (dimensions/measures/time-dim/PK/joins) with confidence flags + warm/cold mode priors. DATE columns auto-cast to TIMESTAMP.
+- **Cube scaffolder.** `cube-model-scaffolder.ts` — inferred schema → Zod-validated Cube model + block-style YAML via `types/cube-model.ts`.
+- **Staging store.** `onboarding-draft-store.ts` + migration 023 — draft lifecycle (pending → accepted → rejected → written). Upsert preserves accepted/written states. Append-only audit trail.
+- **Onboarding API.** `routes/onboarding.ts` — GET connectors/introspect, POST generate, drafts CRUD, accept/reject, validate, approve (writes YAML via `cube-model-writer.ts` — atomic + .bak rollback + /meta poll). RBAC via `enforce-write-roles` + game-grant re-checks + self-approve guard (generator ≠ approver in prod).
+- **LLM enrichment + golden seeding.** `cube-model-enrichment.ts` (enriches member names via LiteLLM; drops hallucinations), `golden-query-seeder.ts` (mines dashboard_tiles + chat DB for co-occurrence). Both flag-gated off by default (`onboarding.llmEnrichment`, `onboarding.goldenSeeding`).
+- **Frontend data hub.** New `/data` nav entry + `src/pages/Data/` — connectors → connector detail (tabs: Datasets/Agents/Coverage/Drift/History, Coverage/Drift deep-link out) → dataset tables + warm/cold mode → triage canvas (3 interchangeable views: queue+YAML / entity-graph / conversational, single `use-onboarding-draft` engine). Per-user triage-view pref via `onboarding.triageView`. Routes: `src/api/onboarding-client.ts`.
+
 ## 2026-05-30 — DB-authoritative authz + Microsoft SSO + admin access page
 
 Demoted Keycloak to authentication-only (brokers Microsoft/Entra OIDC in prod) and moved authorization into the app DB with default-deny. Plan: `plans/260530-0219-db-authz-microsoft-sso-admin-page/`. Tests: server 351 (all pass).
