@@ -15,7 +15,11 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { listConnectors, getConnector, schemaForGame, isProfilerConfigured } from '../services/trino-profiler-config.js';
-import { listTables, profileTable } from '../services/trino-profiler.js';
+import { getProfiler, ProfilerUnavailableError } from '../services/profiler-interface.js';
+import { listSourceTypes } from '../services/source-type-registry.js';
+import { readExistingModel } from '../services/existing-model-reader.js';
+import { testConnection, provisionConnector } from '../services/connector-provisioning.js';
+import { HostNotAllowedError } from '../services/connector-host-guard.js';
 import { inferSchema } from '../services/raw-schema-inference.js';
 import { scaffoldCubeModel, toYaml } from '../services/cube-model-scaffolder.js';
 import {
@@ -57,12 +61,94 @@ const GenerateBody = z.object({
 
 const StatusBody = z.object({ reason: z.string().max(2000).optional() });
 
+const TestConnectorBody = z.object({
+  sourceType: z.string().min(1),
+  fields: z.record(z.unknown()).default({}),
+});
+
+const CreateConnectorBody = z.object({
+  id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,62}$/i, 'id must be a slug').optional(),
+  label: z.string().min(1).max(120),
+  sourceType: z.string().min(1),
+  workspaceId: z.string().min(1).default('local'),
+  fields: z.record(z.unknown()).default({}),
+});
+
+/** Derive a slug connector id from a label when one isn't supplied. */
+function slugifyId(label: string): string {
+  return (
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 63) || 'connector'
+  );
+}
+
 export default async function onboardingRoutes(app: FastifyInstance): Promise<void> {
   // ── Connectors (secret-free) ───────────────────────────────────────────────
   app.get('/api/onboarding/connectors', async () => ({
     configured: isProfilerConfigured(),
     connectors: listConnectors(),
   }));
+
+  // Source-type catalog (field schemas + caps) that drives the dynamic connect
+  // form + server validation. Secret-free by construction.
+  app.get('/api/onboarding/source-types', async () => ({ sourceTypes: listSourceTypes() }));
+
+  // Existing committed cube-dev model for a game — the read-only worked example.
+  // Authoring view (YAML on disk), not the compiled /meta view.
+  app.get<{ Querystring: { game?: string } }>(
+    '/api/onboarding/example-model',
+    async (req, reply) => {
+      const game = req.query.game;
+      if (!game) {
+        return reply.status(400).send({ error: { code: 'GAME_REQUIRED', message: 'game is required' } });
+      }
+      if (gameForbidden(req, game)) {
+        return reply.status(403).send({ error: { code: 'GAME_FORBIDDEN', message: `game "${game}" not granted` } });
+      }
+      return readExistingModel(game);
+    },
+  );
+
+  // ── Test a connection (validate + SSRF guard + bounded live probe) ──────────
+  // POST (a write-role action) but non-mutating; returns a redacted result.
+  app.post('/api/onboarding/connectors/test', async (req, reply) => {
+    const parsed = TestConnectorBody.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const result = await testConnection(parsed.data.sourceType, parsed.data.fields);
+    return result; // { ok, latencyMs? } | { ok:false, code, message } — never leaks secrets
+  });
+
+  // ── Provision a connector (persist + dataSource registry entry) ─────────────
+  app.post('/api/onboarding/connectors', async (req, reply) => {
+    const parsed = CreateConnectorBody.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const { label, sourceType, workspaceId, fields } = parsed.data;
+    const id = parsed.data.id ?? slugifyId(label);
+    try {
+      const result = await provisionConnector({ id, label, sourceType, workspaceId, fields, createdBy: actorOf(req) });
+      return reply.status(201).send({
+        connector: listConnectors().find((c) => c.id === id) ?? null,
+        liveTested: result.liveTested,
+        note: result.note,
+      });
+    } catch (err) {
+      if (err instanceof HostNotAllowedError) {
+        return reply.status(400).send({ error: { code: 'HOST_NOT_ALLOWED', message: err.message } });
+      }
+      const message = (err as Error).message;
+      if (message.startsWith('VALIDATION:')) {
+        return reply.status(400).send({ error: { code: 'VALIDATION', message: message.slice('VALIDATION:'.length).trim() } });
+      }
+      return reply.status(500).send({ error: { code: 'PROVISION_FAILED', message } });
+    }
+  });
 
   // ── Introspect: list tables for a connector + schema (or game→schema) ───────
   app.get<{ Querystring: { connectorId?: string; schema?: string; game?: string } }>(
@@ -81,9 +167,12 @@ export default async function onboardingRoutes(app: FastifyInstance): Promise<vo
         return reply.status(400).send({ error: { code: 'SCHEMA_REQUIRED', message: 'schema or a mapped game is required' } });
       }
       try {
-        const tables = await listTables(connector, schema);
+        const tables = await getProfiler(connector).listTables(connector, schema);
         return { connectorId: connector.id, schema, tables };
       } catch (err) {
+        if (err instanceof ProfilerUnavailableError) {
+          return reply.status(501).send({ error: { code: err.code, message: err.message } });
+        }
         return reply.status(502).send({ error: { code: 'INTROSPECT_FAILED', message: (err as Error).message } });
       }
     },
@@ -110,20 +199,27 @@ export default async function onboardingRoutes(app: FastifyInstance): Promise<vo
 
     let profiles: TableProfile[];
     try {
-      profiles = await Promise.all(tables.map((t) => profileTable(connector, schema, t)));
+      const profiler = getProfiler(connector);
+      profiles = await Promise.all(tables.map((t) => profiler.profileTable(connector, schema, t)));
     } catch (err) {
+      if (err instanceof ProfilerUnavailableError) {
+        return reply.status(501).send({ error: { code: err.code, message: err.message } });
+      }
       return reply.status(502).send({ error: { code: 'PROFILE_FAILED', message: (err as Error).message } });
     }
 
     const actor = actorOf(req);
     const taken = new Set(listDrafts({ game }).map((d) => d.cubeName));
     const out = [];
+    // Stamp the cube's dataSource so multiple connectors co-exist in one model.
+    // The default Trino source stays unstamped (legacy cube behavior).
+    const dataSource = connector.sourceType === 'trino' ? undefined : connector.id;
     // One cube per table — infer each in the context of the full dataset (so
     // cross-table joins resolve) but stage one draft per cube for triage.
     const fullInference = inferSchema(profiles, mode as OnboardingMode);
     for (const cube of fullInference.cubes) {
       const single = { ...fullInference, cubes: [cube] };
-      const { model, cubeName } = scaffoldCubeModel(single, taken);
+      const { model, cubeName } = scaffoldCubeModel(single, taken, dataSource);
       taken.add(cubeName);
       const draft = upsertDraft({
         game,
