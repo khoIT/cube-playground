@@ -23,7 +23,8 @@
     "cohortRetention": "Cohort retention",
     "anomalyArchive": "Anomaly archive",
     "dashboards": "Dashboards",
-    "driftCenter": "Drift Center"
+    "driftCenter": "Drift Center",
+    "dataHub": "Data"
   },
   "segments": {
     "actions": {

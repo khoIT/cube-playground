@@ -17,6 +17,7 @@ import {
   BookOpen,
   Users,
   AlertTriangle,
+  Database,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -93,6 +94,7 @@ const ICONS: Record<NavItemId, LucideIcon> = {
   liveops: Radio,
   dashboards: LayoutGrid,
   'drift-center': AlertTriangle,
+  'data-hub': Database,
   segments: Users,
 };
 

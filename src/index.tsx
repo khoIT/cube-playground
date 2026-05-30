@@ -77,6 +77,10 @@ const DriftCenterPage = loadable(() =>
   import('./pages/DriftCenter').then((m) => ({ default: m.DriftCenterPage }))
 );
 
+const DataHubPage = loadable(() =>
+  import('./pages/Data').then((m) => ({ default: m.DataHubPage }))
+);
+
 // Admin-only route guard. Renders the page only for role 'admin' (matching the
 // server's necessary condition), otherwise bounces to '/'. The server also
 // enforces this on every /api/admin/* call — this guard is convenience only.
@@ -197,6 +201,7 @@ ReactDOM.render(
               <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
               <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
               <Route key="drift-center" exact path="/drift-center" component={DriftCenterPage} />
+              <Route key="data-hub" exact path="/data" component={DataHubPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />
               <Route key="admin-access" exact path="/admin/access" component={AdminAccessRoute} />
               <Route key="data-model-new-success" exact path="/data-model/new/success" component={DataModelWizardSuccess} />
