@@ -41,6 +41,17 @@ const Action = styled.button`
   &:hover { color: var(--brand-pressed, #f54a00); }
 `;
 
+const DriftLink = styled.a`
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--brand, #f05a22);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+
+  &:hover { color: var(--brand-pressed, #f54a00); }
+`;
+
 interface Props {
   gameId: string | null | undefined;
   gameLabel?: string;
@@ -68,6 +79,7 @@ export function DriftSummaryStrip({ gameId, gameLabel, onViewDrafts }: Props) {
           View {brokenCount} draft{brokenCount === 1 ? '' : 's'}
         </Action>
       )}
+      <DriftLink href="#/drift-center">Open Drift Center →</DriftLink>
     </Strip>
   );
 }

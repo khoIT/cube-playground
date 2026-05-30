@@ -87,10 +87,25 @@ export const TrustHistoryEntrySchema = z.object({
   note: z.string().max(280).optional(),
 });
 
+/**
+ * Per-game applicability entry. Append-only history (latest entry per game
+ * wins), mirroring `trust_history`. Marking a metric N/A for a game excludes
+ * its refs from drift counting. N/A is a property of the metric (registry
+ * YAML), not the workspace — so it applies across all workspaces and sources.
+ */
+export const MetricApplicabilityEntrySchema = z.object({
+  game: z.string().min(1),
+  applicable: z.boolean(),
+  at: z.string().datetime(),
+  actor: z.string().min(1).optional(),
+  note: z.string().max(280).optional(),
+});
+
 export const BusinessMetricMetaSchema = z
   .object({
     game_id: z.string().min(1).optional(),
     trust_history: z.array(TrustHistoryEntrySchema).optional(),
+    applicability: z.array(MetricApplicabilityEntrySchema).optional(),
   })
   .passthrough();
 
@@ -122,4 +137,5 @@ export type BusinessMetricGameCompat = z.infer<typeof BusinessMetricGameCompatSc
 export type BusinessMetricAnomalyState = (typeof ANOMALY_STATES)[number];
 export type BusinessMetricAnomaly = z.infer<typeof BusinessMetricAnomalySchema>;
 export type TrustHistoryEntry = z.infer<typeof TrustHistoryEntrySchema>;
+export type MetricApplicabilityEntry = z.infer<typeof MetricApplicabilityEntrySchema>;
 export type BusinessMetricMeta = z.infer<typeof BusinessMetricMetaSchema>;

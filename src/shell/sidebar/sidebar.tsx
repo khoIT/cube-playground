@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, ShieldCheck } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -181,6 +181,17 @@ export function Sidebar() {
             icon={LayoutGrid}
             label={t('nav.dashboards')}
             to="/dashboards"
+            flat
+            collapsed={collapsed}
+          />
+        )}
+
+        {isVisible('drift-center') && (
+          <SidebarSection
+            id="drift-center"
+            icon={AlertTriangle}
+            label={t('nav.driftCenter')}
+            to="/drift-center"
             flat
             collapsed={collapsed}
           />

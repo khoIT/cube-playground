@@ -25,6 +25,7 @@ import gamesRoutes from './routes/games.js';
 import cubeTokenRoutes from './routes/cube-token.js';
 import cdpMetricsRoutes from './routes/cdp-metrics.js';
 import businessMetricsRoutes from './routes/business-metrics.js';
+import businessMetricsDriftRoutes from './routes/business-metrics-drift.js';
 import anomalyStateRoutes from './routes/anomaly-state.js';
 import anomaliesRoutes from './routes/anomalies.js';
 import chatRoutes from './routes/chat.js';
@@ -72,6 +73,7 @@ export async function buildApp() {
   await app.register(cubeTokenRoutes);
   await app.register(cdpMetricsRoutes);
   await app.register(businessMetricsRoutes);
+  await app.register(businessMetricsDriftRoutes);
   await app.register(anomalyStateRoutes);
   await app.register(anomaliesRoutes);
   await app.register(chatRoutes);

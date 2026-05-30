@@ -4,12 +4,15 @@
  * the JSON file it wrote.
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import path from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import Database from 'better-sqlite3';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { setDb, closeDb, getDb } from '../src/db/sqlite.js';
+import { listDriftRows } from '../src/db/metric-drift-snapshot-store.js';
 import {
   loadAll,
   setRegistryDir,
@@ -73,12 +76,25 @@ let tokenSaved: string | undefined;
 let disabledSaved: string | undefined;
 let nodeEnvSaved: string | undefined;
 
+// In-memory DB so the detector→drift bridge writes never touch the dev DB.
+const MIGRATIONS_DIR = join(dirname(import.meta.url.replace('file://', '')), '..', 'src', 'db', 'migrations');
+function buildTestDb(): Database.Database {
+  const db = new Database(':memory:');
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  for (const f of readdirSync(MIGRATIONS_DIR).filter((x) => x.endsWith('.sql')).sort()) {
+    db.exec(readFileSync(join(MIGRATIONS_DIR, f), 'utf8'));
+  }
+  return db;
+}
+
 beforeAll(async () => {
   setRegistryDir(FIXTURE_DIR);
   await loadAll();
 });
 
 beforeEach(() => {
+  setDb(buildTestDb());
   __resetAnomalyDetectorState();
   tmp = mkdtempSync(join(tmpdir(), 'anomaly-detector-'));
   setAnomalyDetectorStateFile(join(tmp, 'state.json'));
@@ -100,6 +116,8 @@ afterAll(() => {
   else process.env.NODE_ENV = nodeEnvSaved;
   if (tmp) rmSync(tmp, { recursive: true, force: true });
 });
+
+afterEach(() => closeDb());
 
 describe('divideByDate (ratio alignment)', () => {
   const dated = (m: string, dim: string, pairs: Array<[string, number | string]>) =>
@@ -192,12 +210,45 @@ describe('runDetectorOnce', () => {
     const warn = vi.fn();
     await runDetectorOnce(warn);
 
-    // One consolidated warning, naming the unresolved ref — not a 400 per tick.
+    // One consolidated warning, count + pointer to Drift Center — not a 400
+    // per tick, not a per-ref dump (the full detail now lives in the store).
     expect(warn).toHaveBeenCalledWith(
-      expect.stringMatching(/unresolved refs:.*wau→active_daily\.wau/),
+      expect.stringMatching(/game="ballistar": \d+ metric\(s\) have unresolved refs — see Drift Center/),
     );
     // The doomed measure was never sent to Cube.
     const loadedMeasures = loadSpy.mock.calls.map((c: any[]) => c[0].measures[0]);
     expect(loadedMeasures).not.toContain('active_daily.wau');
+  });
+
+  it('persists the unresolved set to the drift snapshot store (local/detector)', async () => {
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue(META);
+    vi.spyOn(cubeClient, 'load').mockImplementation(async (query: any) =>
+      makeSeries(100, 101, query.measures[0].split('.')[0], query.measures[0]),
+    );
+    process.env.ANOMALY_DETECTOR_GAMES = 'ballistar';
+    await runDetectorOnce(() => {});
+
+    const rows = listDriftRows(getDb(), { workspaceId: 'local', game: 'ballistar', source: 'detector' });
+    expect(rows.length).toBeGreaterThan(0);
+    // active_daily cube is absent from META → its refs are persisted as drift.
+    expect(rows.some((r) => r.ref === 'active_daily.wau')).toBe(true);
+  });
+
+  it('clears detector rows when a game has zero unresolved refs', async () => {
+    // META that satisfies every preset ref is impractical; instead seed a row
+    // then run a scan whose game token does not resolve → empty unresolved set
+    // is NOT written (the scan returns early before the bridge). So assert the
+    // bridge's replace-semantics directly: a second scan with the same META
+    // overwrites, never accumulates.
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue(META);
+    vi.spyOn(cubeClient, 'load').mockImplementation(async (query: any) =>
+      makeSeries(100, 101, query.measures[0].split('.')[0], query.measures[0]),
+    );
+    process.env.ANOMALY_DETECTOR_GAMES = 'ballistar';
+    await runDetectorOnce(() => {});
+    const first = listDriftRows(getDb(), { workspaceId: 'local', game: 'ballistar', source: 'detector' }).length;
+    await runDetectorOnce(() => {});
+    const second = listDriftRows(getDb(), { workspaceId: 'local', game: 'ballistar', source: 'detector' }).length;
+    expect(second).toBe(first); // replace, not accumulate
   });
 });

@@ -22,7 +22,8 @@
     "liveops": "Liveops",
     "cohortRetention": "Cohort retention",
     "anomalyArchive": "Lưu trữ bất thường",
-    "dashboards": "Bảng điều khiển"
+    "dashboards": "Bảng điều khiển",
+    "driftCenter": "Trung tâm Drift"
   },
   "segments": {
     "actions": {

@@ -25,9 +25,12 @@ import { loadGamesConfig } from '../services/games-config-loader.js';
 import { getAll as getAllBusinessMetrics } from '../services/business-metrics-loader.js';
 import { planMetricQueries, type CubeMeta } from '../services/metric-query-planner.js';
 import { snapshotFromMeta, validateRefs } from '../services/metric-ref-validator.js';
+import { filterApplicable } from '../services/metric-applicability.js';
 import { classifySeries } from '../services/z-score.js';
 import { ANOMALY_METRICS, classifySeverity } from '../services/anomaly-config.js';
 import { upsertAnomaly } from '../services/anomaly-state-store.js';
+import { getDb } from '../db/sqlite.js';
+import { upsertDriftRows } from '../db/metric-drift-snapshot-store.js';
 import type { AnomalyStateFile, AnomalyStateRecord } from '../services/anomaly-state-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -145,11 +148,33 @@ async function scanGameLegacy(
   // metric per game). Skip those up front and report them in a single
   // consolidated line so the log stays actionable, not spammy.
   const metrics = getAllBusinessMetrics();
-  const unresolved = validateRefs(metrics, snapshotFromMeta(meta));
-  const unresolvedIds = new Set(unresolved.map((u) => u.metricId));
-  if (unresolved.length > 0) {
-    const detail = unresolved.map((u) => `${u.metricId}→${u.ref} (${u.reason})`).join(', ');
-    warn(`[anomaly-detector] game="${game}": skipping ${unresolvedIds.size} metric(s) with unresolved refs: ${detail}`);
+  const byId = new Map(metrics.map((m) => [m.id, m]));
+  const allUnresolved = validateRefs(metrics, snapshotFromMeta(meta));
+  // Skip querying every broken metric (N/A or not) — a missing-cube /load
+  // would 400 each tick. But only the registry-applicable refs are persisted
+  // and reported, so the detector count matches the live Drift Center path
+  // (N/A is registry-scoped, not workspace-scoped).
+  const unresolvedIds = new Set(allUnresolved.map((u) => u.metricId));
+  const reportable = filterApplicable(allUnresolved, byId, game);
+
+  // Persist the per-game unresolved set so the Drift Center page can show it
+  // in a separate "last detector run" panel. Detector stays on the local
+  // game_id model (workspace_id='local'). rows:[] clears a now-resolved game.
+  // Best-effort: a SQLite hiccup must NOT abort the scan loop.
+  try {
+    upsertDriftRows(getDb(), {
+      workspaceId: 'local',
+      game,
+      source: 'detector',
+      rows: reportable.map((u) => ({ metricId: u.metricId, ref: u.ref, reason: u.reason })),
+    });
+  } catch (err) {
+    warn(`[anomaly-detector] drift snapshot persist failed for game="${game}": ${(err as Error).message}`);
+  }
+
+  if (reportable.length > 0) {
+    const reportableIds = new Set(reportable.map((u) => u.metricId));
+    warn(`[anomaly-detector] game="${game}": ${reportableIds.size} metric(s) have unresolved refs — see Drift Center`);
   }
 
   const out: Record<string, AnomalyStateRecord> = {};

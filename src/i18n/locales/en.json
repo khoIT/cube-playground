@@ -22,7 +22,8 @@
     "liveops": "Liveops",
     "cohortRetention": "Cohort retention",
     "anomalyArchive": "Anomaly archive",
-    "dashboards": "Dashboards"
+    "dashboards": "Dashboards",
+    "driftCenter": "Drift Center"
   },
   "segments": {
     "actions": {

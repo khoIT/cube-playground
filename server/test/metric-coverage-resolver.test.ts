@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   referencedMeasures,
   coverageFromSnapshot,
+  matrixForGame,
 } from '../src/services/metric-coverage-resolver.js';
 import { snapshotFromMeta, validateRefs } from '../src/services/metric-ref-validator.js';
 import type { BusinessMetric } from '../src/types/business-metric.js';
@@ -64,5 +65,33 @@ describe('coverageFromSnapshot', () => {
   it('snapshot.measures excludes dimensions', () => {
     expect(snapshot.measures.has('active_daily.log_date')).toBe(false);
     expect(snapshot.members.has('active_daily.log_date')).toBe(true);
+  });
+});
+
+describe('applicability filter excludes N/A cells from drift', () => {
+  const broken = [metric('dau', 'active_daily.dau'), metric('ghost', 'active_daily.nope')];
+  const snapshot = snapshotFromMeta(META);
+  const referenced = referencedMeasures(broken);
+
+  it('an all-N/A-broken game is ok, not drift', () => {
+    // ghost is the only broken ref; mark it N/A → game is ok.
+    const isApplicable = (id: string) => id !== 'ghost';
+    const cov = coverageFromSnapshot('ptg', broken, snapshot, referenced, isApplicable);
+    expect(cov.status).toBe('ok');
+    expect(cov.brokenRefs).toHaveLength(0);
+  });
+
+  it('matrix renders n/a for an excluded metric instead of broken', () => {
+    const isApplicable = (id: string) => id !== 'ghost';
+    const cells = Object.fromEntries(
+      matrixForGame('ptg', broken, snapshot, isApplicable).map((c) => [c.metricId, c.state]),
+    );
+    expect(cells.dau).toBe('resolves');
+    expect(cells.ghost).toBe('n/a');
+  });
+
+  it('without the filter, broken refs still surface (default applicable)', () => {
+    const cov = coverageFromSnapshot('ptg', broken, snapshot, referenced);
+    expect(cov.status).toBe('drift');
   });
 });

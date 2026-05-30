@@ -20,6 +20,7 @@ export type NavItemId =
   | 'metrics-catalog'
   | 'liveops'
   | 'dashboards'
+  | 'drift-center'
   | 'segments';
 
 export interface NavItemDescriptor {
@@ -34,6 +35,7 @@ export const NAV_ITEMS: NavItemDescriptor[] = [
   { id: 'metrics-catalog', labelKey: 'nav.metricsCatalog' },
   { id: 'liveops', labelKey: 'nav.liveops' },
   { id: 'dashboards', labelKey: 'nav.dashboards' },
+  { id: 'drift-center', labelKey: 'nav.driftCenter' },
   { id: 'segments', labelKey: 'nav.segments' },
 ];
 

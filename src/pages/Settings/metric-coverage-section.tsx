@@ -133,7 +133,11 @@ export function MetricCoverageSection(): ReactElement {
           <SectionTitle>Metric coverage</SectionTitle>
           <SectionHint>
             Curated business metrics (registry) checked against each game's live Cube model. Matrix
-            rows are registry metrics; “uncovered” are cube measures with no metric yet.
+            rows are registry metrics; “uncovered” are cube measures with no metric yet.{' '}
+            <a href="#/drift-center" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+              Open Drift Center
+            </a>{' '}
+            to repoint broken refs or mark metrics N/A.
           </SectionHint>
         </div>
         <Btn type="button" onClick={() => void refetch()} disabled={loading}>

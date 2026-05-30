@@ -41,7 +41,15 @@ export interface GameCoverage {
   uncoveredMeasures: string[];
 }
 
-export type MatrixState = 'resolves' | 'broken' | 'cube-missing';
+export type MatrixState = 'resolves' | 'broken' | 'cube-missing' | 'n/a';
+
+/**
+ * Predicate: is a metric applicable for the game under inspection? Defaults to
+ * "always applicable" so existing `/coverage` callers keep their behaviour.
+ * The Drift Center path passes a registry-backed filter (N/A excluded).
+ */
+export type ApplicabilityFilter = (metricId: string) => boolean;
+const ALWAYS_APPLICABLE: ApplicabilityFilter = () => true;
 
 export interface MatrixCell {
   metricId: string;
@@ -79,8 +87,11 @@ export function coverageFromSnapshot(
   metrics: BusinessMetric[],
   snapshot: MetaSnapshot,
   referenced: Set<string>,
+  isApplicable: ApplicabilityFilter = ALWAYS_APPLICABLE,
 ): GameCoverage {
-  const brokenRefs = validateRefs(metrics, snapshot);
+  // N/A metrics don't count as drift: a game whose only broken refs belong to
+  // metrics marked N/A there is `ok`, not `drift`.
+  const brokenRefs = validateRefs(metrics, snapshot).filter((u) => isApplicable(u.metricId));
   const uncoveredMeasures = [...snapshot.measures]
     .filter((measure) => !referenced.has(measure))
     .sort();
@@ -103,10 +114,12 @@ export function matrixForGame(
   game: string,
   metrics: BusinessMetric[],
   snapshot: MetaSnapshot,
+  isApplicable: ApplicabilityFilter = ALWAYS_APPLICABLE,
 ): MatrixCell[] {
   const broken = validateRefs(metrics, snapshot);
   const worst = new Map<string, MatrixState>();
   for (const u of broken) {
+    if (!isApplicable(u.metricId)) continue; // N/A metrics render as 'n/a' below.
     const state: MatrixState = u.reason === 'cube-missing' ? 'cube-missing' : 'broken';
     // cube-missing wins over broken for the same metric.
     if (worst.get(u.metricId) !== 'cube-missing') worst.set(u.metricId, state);
@@ -114,7 +127,7 @@ export function matrixForGame(
   return metrics.map((m) => ({
     metricId: m.id,
     game,
-    state: worst.get(m.id) ?? 'resolves',
+    state: !isApplicable(m.id) ? 'n/a' : (worst.get(m.id) ?? 'resolves'),
   }));
 }
 
@@ -138,12 +151,13 @@ export async function resolveCoverageForGame(
   game: string,
   referenced: Set<string> = referencedMeasures(metrics),
   ctx?: WorkspaceCtx,
+  isApplicable: ApplicabilityFilter = ALWAYS_APPLICABLE,
 ): Promise<{ coverage: GameCoverage; matrix: MatrixCell[] }> {
   try {
     const snapshot = await fetchSnapshot(game, ctx);
     return {
-      coverage: coverageFromSnapshot(game, metrics, snapshot, referenced),
-      matrix: matrixForGame(game, metrics, snapshot),
+      coverage: coverageFromSnapshot(game, metrics, snapshot, referenced, isApplicable),
+      matrix: matrixForGame(game, metrics, snapshot, isApplicable),
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

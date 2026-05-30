@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drift Center — hi-fi mockup (design contract)</title>
+<!--
+  DESIGN CONTRACT for /drift-center (plans/260530-1204-metric-drift-center/phase-05).
+  Source of truth: docs/design-guidelines.md + src/theme/tokens.css.
+  Tokens below are copied verbatim from tokens.css so this file renders standalone.
+  This is a STATIC mockup — interactions (collapse, dropdown, submit) are faked for review.
+  No raw hex in component styles: everything references a token, exactly as the React page must.
+-->
+<style>
+  /* ── tokens (verbatim subset from src/theme/tokens.css) ─────────────── */
+  :root {
+    --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-200:#e5e5e5; --neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3; --neutral-500:#737373; --neutral-600:#525252; --neutral-700:#404040;
+    --neutral-800:#262626; --neutral-900:#171717;
+    --orange-50:#fff7ed; --orange-600:#f05a22; --orange-700:#f54a00;
+    --brand:var(--orange-600); --brand-hover:var(--orange-700); --brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50); --bg-card:#ffffff; --bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200); --border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700); --text-muted:var(--neutral-500);
+    --text-on-brand:#ffffff;
+    --success:#059669; --warning:#f59e0b; --danger:#ef4444; --info:#3f8dff; --positive:#15803d;
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5; --muted-ink:#525252;
+    --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-full:9999px;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.04);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg-app);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── page wrapper (design-guidelines §3) ────────────────────────────── */
+  .page { padding: 24px 32px; max-width: 1000px; margin: 0 auto; }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--text-muted); margin-bottom: 8px;
+  }
+  .title-row { display: flex; align-items: center; gap: 10px; }
+  h1.page-h1 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text-primary); }
+  .lede { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); max-width: 64ch; }
+
+  .head-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* ── small controls ─────────────────────────────────────────────────── */
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px;
+    background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-full);
+    color: var(--text-secondary); font: 500 12.5px var(--font-sans); cursor: pointer;
+  }
+  .btn-secondary:hover { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--radius-sm);
+    background: var(--brand); color: var(--text-on-brand); font: 600 13px var(--font-sans);
+    padding: 7px 16px; cursor: pointer;
+  }
+  .btn-primary:hover { background: var(--brand-hover); }
+
+  /* game chips (active-game only — current game emphasised) */
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 16px; }
+  .chip {
+    height: 26px; padding: 0 12px; display: inline-flex; align-items: center;
+    border: 1px solid var(--border-card); border-radius: var(--radius-full);
+    background: var(--bg-card); color: var(--text-secondary); font: 500 12px var(--font-sans); cursor: pointer;
+  }
+  .chip.active { background: var(--brand); color: var(--text-on-brand); border-color: var(--brand); }
+
+  /* ── summary strip ──────────────────────────────────────────────────── */
+  .summary {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+  }
+  .summary .count { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+  .summary .muted { color: var(--text-muted); font-size: 12.5px; }
+  .meter { flex: 1; height: 6px; border-radius: var(--radius-full); background: var(--muted-soft); overflow: hidden; min-width: 120px; }
+  .meter > i { display: block; height: 100%; background: var(--warning); }
+  .ts { margin-left: auto; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  /* ── section heading ────────────────────────────────────────────────── */
+  .section-h2 {
+    display: flex; align-items: baseline; gap: 8px; margin: 22px 0 12px;
+  }
+  .section-h2 h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .section-h2 .n { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  /* ── root-cause group card ──────────────────────────────────────────── */
+  .group {
+    background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg);
+    margin-bottom: 10px; overflow: hidden;
+  }
+  .group:hover { box-shadow: var(--shadow-sm); }
+  .group-head {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer;
+  }
+  .caret { color: var(--text-muted); transition: transform .15s; }
+  .group.open .caret { transform: rotate(90deg); }
+  .group-key { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-primary); font-weight: 500; }
+  .group-sub { font-size: 12px; color: var(--text-muted); }
+  .group-head .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* reason pills (semantic soft/ink) */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px;
+    border-radius: var(--radius-full); font: 600 11px var(--font-sans); white-space: nowrap;
+  }
+  .pill.cube-missing { background: var(--destructive-soft); color: var(--destructive-ink); }
+  .pill.member-missing { background: var(--warning-soft); color: var(--warning-ink); }
+  .pill.unparseable { background: var(--muted-soft); color: var(--muted-ink); }
+  .pill.affected { background: var(--info-soft); color: var(--info-ink); font-variant-numeric: tabular-nums; }
+  .pill.na { background: var(--muted-soft); color: var(--muted-ink); }
+  .pill.detector { background: var(--muted-soft); color: var(--muted-ink); }
+
+  .group-body { border-top: 1px solid var(--border-card); padding: 12px 14px 14px; background: var(--bg-app); }
+  .group.closed .group-body { display: none; }
+
+  .field-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 0 0 6px; }
+
+  /* affected metrics list */
+  .metrics { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .metric-row {
+    display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 6px 0 10px;
+    background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-full);
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .metric-row code { font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); }
+  /* mark-N/A toggle */
+  .na-toggle {
+    display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 7px;
+    border: 1px dashed var(--border-strong); border-radius: var(--radius-full);
+    background: transparent; color: var(--text-muted); font: 500 10.5px var(--font-sans); cursor: pointer;
+  }
+  .na-toggle:hover { color: var(--text-secondary); border-color: var(--text-secondary); }
+
+  /* repoint form */
+  .repoint {
+    display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+    padding: 12px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md);
+  }
+  .repoint .col { display: flex; flex-direction: column; gap: 6px; }
+  .repoint .grow { flex: 1; min-width: 220px; }
+  .input, .select {
+    height: 32px; padding: 0 10px; border: 1px solid var(--border-card); border-radius: var(--radius-sm);
+    background: var(--bg-card); color: var(--text-primary); font: 500 12.5px var(--font-sans);
+  }
+  .input[readonly] { color: var(--text-muted); background: var(--bg-muted); font-family: var(--font-mono); font-size: 11.5px; }
+  .select { font-family: var(--font-mono); font-size: 11.5px; appearance: none; background-image: none; cursor: pointer; }
+  .select.open { border-color: var(--brand); }
+  .arrow { color: var(--text-muted); padding-bottom: 8px; font-size: 14px; }
+
+  /* dropdown menu (live /meta members) */
+  .menu {
+    margin-top: 6px; border: 1px solid var(--border-card); border-radius: var(--radius-md);
+    background: var(--bg-card); box-shadow: var(--shadow-md); overflow: hidden; max-width: 380px;
+  }
+  .menu .search { padding: 8px; border-bottom: 1px solid var(--border-card); }
+  .menu .search input { width: 100%; height: 28px; }
+  .menu ul { list-style: none; margin: 0; padding: 4px; max-height: 168px; overflow: auto; }
+  .menu li {
+    padding: 6px 8px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px;
+  }
+  .menu li:hover { background: var(--bg-muted); }
+  .menu li.sel { background: var(--brand-soft); color: var(--text-primary); }
+  .menu li .tag { margin-left: auto; font: 600 9.5px var(--font-sans); letter-spacing: .04em; text-transform: uppercase; }
+  .menu li .tag.m { color: var(--warning-ink); }
+  .menu li .tag.d { color: var(--info-ink); }
+
+  /* notes / states */
+  .note {
+    display: flex; gap: 10px; padding: 12px 14px; border-radius: var(--radius-md);
+    font-size: 12.5px; line-height: 1.5;
+  }
+  .note.info { background: var(--info-soft); color: var(--info-ink); }
+  .note.muted { background: var(--bg-card); border: 1px solid var(--border-card); color: var(--text-secondary); }
+  .note.success { background: var(--success-soft); color: var(--success-ink); }
+
+  /* detector panel — visually distinct (dashed top rule, muted) */
+  .detector-panel {
+    margin-top: 26px; padding-top: 4px; border-top: 1px dashed var(--border-strong);
+  }
+  .detector-head { display: flex; align-items: baseline; gap: 8px; margin: 16px 0 10px; }
+  .detector-head h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+  .detector-head .src { font-size: 11px; color: var(--text-muted); }
+  .detector-card {
+    background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg);
+    padding: 12px 14px;
+  }
+  .detector-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--border-card); font-size: 12.5px; }
+  .detector-row:last-child { border-bottom: none; }
+  .detector-row code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); }
+  .detector-row .cnt { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 12px; }
+
+  /* state-reference strip at the bottom of the contract */
+  .ref-band { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-card); }
+  .ref-band .eyebrow { color: var(--text-muted); }
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .ref-cell { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 14px; }
+  .ref-cell .cap { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; }
+
+  /* tiny inline icon glyphs via unicode-free CSS (no emoji, no slop) */
+  .ico { width: 16px; height: 16px; display: inline-block; flex: none; }
+  .ico-tri { color: var(--brand); }
+
+  .role-tag {
+    height: 22px; padding: 0 9px; display: inline-flex; align-items: center; gap: 5px;
+    border-radius: var(--radius-full); background: var(--muted-soft); color: var(--muted-ink);
+    font: 600 11px var(--font-sans);
+  }
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────── PRIMARY STATE: populated, game_id workspace ───────────────────────── -->
+<div class="page">
+
+  <!-- header (design-guidelines §3 page-header recipe, mirrors Dashboards) -->
+  <div class="eyebrow">Metrics · ptg · workspace: local</div>
+  <div class="title-row">
+    <!-- AlertTriangle (lucide) — single icon, brand colour -->
+    <svg class="ico ico-tri" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+    </svg>
+    <h1 class="page-h1">Drift center</h1>
+    <div class="head-actions">
+      <span class="role-tag">editor</span>
+      <button class="btn-secondary">
+        <svg class="ico" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+  <p class="lede">Metric references that don’t resolve against the active workspace’s live Cube schema, grouped by the underlying missing cube or measure. Repoint a stale reference or mark a metric not-applicable for this game.</p>
+
+  <!-- active-game chips (v1 = active game only; others switch the page scope) -->
+  <div class="chips">
+    <span class="chip active">ptg</span>
+    <span class="chip">ballistar</span>
+    <span class="chip">cfm_vn</span>
+    <span class="chip">cros</span>
+    <span class="chip">jus_vn</span>
+  </div>
+
+  <!-- summary strip -->
+  <div class="summary">
+    <span class="count">7</span><span class="muted">of</span><span class="count">59</span>
+    <span class="muted">metrics resolvable for ptg</span>
+    <span class="meter"><i style="width:12%"></i></span>
+    <span class="ts">reconciled 14:04 · 2 cubes in /meta</span>
+  </div>
+
+  <!-- groups -->
+  <div class="section-h2"><h2>Root causes</h2><span class="n">4 groups · 50 metrics affected</span></div>
+
+  <!-- group 1: cube-missing, OPEN, with repoint form -->
+  <div class="group open">
+    <div class="group-head">
+      <svg class="ico caret" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <span class="group-key">mf_users</span>
+      <span class="group-sub">cube not present in ptg’s /meta</span>
+      <div class="right">
+        <span class="pill affected">30 metrics</span>
+        <span class="pill cube-missing">cube-missing</span>
+      </div>
+    </div>
+    <div class="group-body">
+      <p class="field-label">Affected metrics</p>
+      <div class="metrics">
+        <span class="metric-row"><code>acu</code> <button class="na-toggle">mark N/A</button></span>
+        <span class="metric-row"><code>ccu</code> <button class="na-toggle">mark N/A</button></span>
+        <span class="metric-row"><code>arpu</code> <button class="na-toggle">mark N/A</button></span>
+        <span class="metric-row"><code>nru</code> <button class="na-toggle">mark N/A</button></span>
+        <span class="metric-row"><code>ltv</code> <button class="na-toggle">mark N/A</button></span>
+        <span class="metric-row" style="color:var(--text-muted)">+25 more</span>
+      </div>
+
+      <p class="field-label">Repoint a reference</p>
+      <div class="repoint">
+        <div class="col grow">
+          <label class="field-label" style="margin:0">From (current, unresolved)</label>
+          <input class="input" readonly value="mf_users.acu" />
+        </div>
+        <span class="arrow">→</span>
+        <div class="col grow">
+          <label class="field-label" style="margin:0">To (live /meta member)</label>
+          <div class="select open" style="display:flex;align-items:center;justify-content:space-between">
+            <span style="color:var(--text-muted)">search members…</span>
+            <svg class="ico" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+        <button class="btn-primary">Repoint</button>
+      </div>
+      <!-- open dropdown showing live members from active workspace /meta (only recharge + ordered_event_funnel exist for ptg) -->
+      <div class="menu">
+        <div class="search"><input class="input" placeholder="filter cube.member…" /></div>
+        <ul>
+          <li class="sel">recharge.paying_users_exact <span class="tag m">measure</span></li>
+          <li>recharge.transactions <span class="tag m">measure</span></li>
+          <li>recharge.arppu_vnd <span class="tag m">measure</span></li>
+          <li>recharge.recharge_date <span class="tag d">dimension</span></li>
+          <li>ordered_event_funnel.step_count <span class="tag m">measure</span></li>
+        </ul>
+      </div>
+      <div class="note muted" style="margin-top:10px">
+        Only members from <code style="font-family:var(--font-mono)">recharge</code> and
+        <code style="font-family:var(--font-mono)">ordered_event_funnel</code> exist for ptg. The chosen target is
+        re-validated server-side before the YAML is written.
+      </div>
+    </div>
+  </div>
+
+  <!-- group 2: cube-missing, closed -->
+  <div class="group closed">
+    <div class="group-head">
+      <svg class="ico caret" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <span class="group-key">funnel</span>
+      <span class="group-sub">cube not present — likely renamed to ordered_event_funnel</span>
+      <div class="right">
+        <span class="pill affected">6 metrics</span>
+        <span class="pill cube-missing">cube-missing</span>
+      </div>
+    </div>
+    <div class="group-body"></div>
+  </div>
+
+  <!-- group 3: cube-missing, closed -->
+  <div class="group closed">
+    <div class="group-head">
+      <svg class="ico caret" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <span class="group-key">active_daily · retention · user_recharge_daily</span>
+      <span class="group-sub">3 cubes absent from ptg /meta</span>
+      <div class="right">
+        <span class="pill affected">13 metrics</span>
+        <span class="pill cube-missing">cube-missing</span>
+      </div>
+    </div>
+    <div class="group-body"></div>
+  </div>
+
+  <!-- group 4: unparseable, per-ref, closed -->
+  <div class="group closed">
+    <div class="group-head">
+      <svg class="ico caret" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <span class="group-key">marketing_cost</span>
+      <span class="group-sub">member missing on a present cube</span>
+      <div class="right">
+        <span class="pill affected">1 metric</span>
+        <span class="pill member-missing">member-missing</span>
+      </div>
+    </div>
+    <div class="group-body"></div>
+  </div>
+
+  <!-- detector panel — SEPARATE, not merged (decision D3) -->
+  <div class="detector-panel">
+    <div class="detector-head">
+      <h2>Last detector run saw</h2>
+      <span class="src">source: anomaly-detector · local · 13:48</span>
+      <span class="pill detector" style="margin-left:8px">detector</span>
+    </div>
+    <div class="detector-card">
+      <div class="detector-row"><code>mf_users</code> <span class="group-sub">cube-missing</span> <span class="cnt">30 metrics</span></div>
+      <div class="detector-row"><code>funnel</code> <span class="group-sub">cube-missing</span> <span class="cnt">6 metrics</span></div>
+      <div class="detector-row"><code>active_daily · retention · user_recharge_daily</code> <span class="group-sub">cube-missing</span> <span class="cnt">13 metrics</span></div>
+      <div class="detector-row"><code>marketing_cost · 2 more</code> <span class="group-sub">member-missing</span> <span class="cnt">3 metrics</span></div>
+    </div>
+    <p class="lede" style="margin-top:8px">The background detector reconciles against the local game_id workspace. Shown separately because its target can differ from the workspace you’re viewing — never merged into the live groups above.</p>
+  </div>
+
+  <!-- ───────── STATE REFERENCE (part of the contract; not separate pages) ───────── -->
+  <div class="ref-band">
+    <div class="eyebrow">State reference — also part of this contract</div>
+    <div class="ref-grid">
+      <div class="ref-cell">
+        <div class="cap">PREFIX WORKSPACE (e.g. prod)</div>
+        <div class="note info">
+          <svg class="ico" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <span>Drift isn’t meaningful for this workspace yet — cube names are prefixed
+          (<code style="font-family:var(--font-mono)">ballistar_mf_users</code>) and references aren’t translated. Full support lands in v1.5.</span>
+        </div>
+      </div>
+      <div class="ref-cell">
+        <div class="cap">CLEAN — NO DRIFT</div>
+        <div class="note success">
+          <svg class="ico" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>All 59 metrics resolve for this game. Nothing to repoint.</span>
+        </div>
+      </div>
+      <div class="ref-cell">
+        <div class="cap">VIEWER ROLE (read-only)</div>
+        <p class="group-sub" style="margin:0">Repoint forms and “mark N/A” toggles are hidden; groups + counts remain visible. Server enforces the gate regardless.</p>
+      </div>
+      <div class="ref-cell">
+        <div class="cap">REPOINT SUCCESS → REFETCH</div>
+        <div class="note success" style="font-size:12px">
+          <svg class="ico" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>Repointed <code style="font-family:var(--font-mono)">funnel.step_count → ordered_event_funnel.step_count</code> — group disappears on refetch.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
