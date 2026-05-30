@@ -8,7 +8,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles, Activity, LayoutGrid, ShieldCheck, Server } from 'lucide-react';
+import { ArrowLeft, PanelLeft, Gamepad2, Network, MessageCircle, Sparkles, Activity, LayoutGrid, ShieldCheck, Server, AlertTriangle, KeyRound } from 'lucide-react';
 
 import { SettingsTabs, type SettingsTabDescriptor } from './settings-tabs';
 import { NavVisibilitySection } from './nav-visibility-section';
@@ -20,9 +20,12 @@ import { LiveopsSettingsSection } from './liveops-settings-section';
 import { DashboardsSettingsSection } from './dashboards-settings-section';
 import { MetricCoverageSection } from './metric-coverage-section';
 import { WorkspaceReadinessSection } from './workspace-readiness-section';
+import { DriftCenterPage } from '../DriftCenter';
+import { AdminAccessPage } from '../Admin/access';
+import { useAuthUser } from '../../auth/auth-context';
 
 const Page = styled.div`
-  max-width: 1040px;
+  max-width: 1240px;
   margin: 32px auto;
   padding: 0 24px;
   font-family: var(--font-sans);
@@ -78,12 +81,12 @@ const Panel = styled.div`
   min-width: 0;
 `;
 
-type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards' | 'coverage' | 'workspace';
+type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards' | 'coverage' | 'workspace' | 'drift' | 'access';
 
 const DEFAULT_TAB: TabId = 'sidebar';
 
 const KNOWN_TABS = new Set<string>([
-  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards', 'coverage', 'workspace',
+  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards', 'coverage', 'workspace', 'drift', 'access',
 ]);
 
 function readHashTab(hash: string): TabId | null {
@@ -95,6 +98,9 @@ export function SettingsPage(): ReactElement {
   const { t } = useTranslation();
   const history = useHistory();
   const location = useLocation();
+  const user = useAuthUser();
+  // Access management is admin-only (mirrors the server's necessary condition).
+  const isAdmin = user?.role === 'admin';
 
   const [activeId, setActiveId] = useState<TabId>(
     () => readHashTab(location.hash) ?? DEFAULT_TAB,
@@ -156,12 +162,27 @@ export function SettingsPage(): ReactElement {
         icon: ShieldCheck,
       },
       {
+        id: 'drift',
+        label: t('settings.tabs.drift', { defaultValue: 'Drift center' }),
+        icon: AlertTriangle,
+      },
+      {
         id: 'workspace',
         label: t('settings.tabs.workspace', { defaultValue: 'Workspace' }),
         icon: Server,
       },
+      // Access management is admin-only — omit the tab entirely for non-admins.
+      ...(isAdmin
+        ? [
+            {
+              id: 'access',
+              label: t('settings.tabs.access', { defaultValue: 'Access' }),
+              icon: KeyRound,
+            } as SettingsTabDescriptor,
+          ]
+        : []),
     ],
-    [t],
+    [t, isAdmin],
   );
 
   const goBack = () => {
@@ -189,6 +210,11 @@ export function SettingsPage(): ReactElement {
         return <MetricCoverageSection />;
       case 'workspace':
         return <WorkspaceReadinessSection />;
+      case 'drift':
+        return <DriftCenterPage />;
+      case 'access':
+        // Guard direct hash navigation by non-admins (the tab itself is hidden).
+        return isAdmin ? <AdminAccessPage /> : <NavVisibilitySection />;
     }
   };
 
