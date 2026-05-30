@@ -1,15 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+
+import { setPref, removePref } from '../../hooks/server-prefs-store';
 import {
   createPlaygroundStore,
   PLAYGROUND_PREFS_KEY,
 } from '../playground-store';
 
 beforeEach(() => {
-  try {
-    window.localStorage.removeItem(PLAYGROUND_PREFS_KEY);
-  } catch {
-    /* jsdom may be unavailable in some matchers */
-  }
+  // Remove via the store API so the in-memory cache is flushed alongside localStorage.
+  removePref(PLAYGROUND_PREFS_KEY);
 });
 
 describe('playground-store factory', () => {
@@ -52,6 +51,7 @@ describe('playground-store factory', () => {
     s.getState().setChartType('bar' as any);
     s.getState().setPivotConfig({ x: ['a'], y: ['b'] } as any);
 
+    // The store writes through to the pref store (mirror = localStorage).
     const raw = window.localStorage.getItem(PLAYGROUND_PREFS_KEY);
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw!);
@@ -64,7 +64,8 @@ describe('playground-store factory', () => {
   });
 
   it('hydrating from localStorage restores chartType + pivotConfig but not query', () => {
-    window.localStorage.setItem(
+    // Seed via setPref so the in-memory cache is warmed (getPref prefers cache over localStorage).
+    setPref(
       PLAYGROUND_PREFS_KEY,
       JSON.stringify({
         state: {
@@ -74,7 +75,7 @@ describe('playground-store factory', () => {
           query: { measures: ['evil.injection'] },
         },
         version: 0,
-      })
+      }),
     );
 
     const s = createPlaygroundStore();

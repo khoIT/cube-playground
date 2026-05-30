@@ -12,9 +12,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    // src/test-setup.ts is applied only for src/ tests via environmentMatchGlobs below.
-    // vite-plugins tests run in 'node' environment and need no DOM setup.
-    setupFiles: [],
+    // Global setup: resets the server-pref store cache between tests so
+    // localStorage-seeding suites aren't shadowed by cross-test cache state.
+    // Harmless (a Map clear) for the 'node'-env vite-plugins tests.
+    setupFiles: ['src/test-setup.ts'],
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'vite-plugins/**/*.{test,spec}.ts'],
     exclude: ['node_modules', 'dist', '.claude'],

@@ -6,7 +6,7 @@ priority: P2
 branch: "main"
 tags: [cube, workspace, data-source, meta]
 blockedBy: []
-blocks: []
+blocks: [project:260530-0219-db-authz-microsoft-sso-admin-page]
 related: [project:260527-1257-metric-cube-coverage-sync, project:260527-1306-glossary-resolver-consolidation]
 created: "2026-05-27T08:58:24.940Z"
 createdBy: "ck:plan"
@@ -30,9 +30,9 @@ truth: `plans/reports/brainstorm-260527-1539-cube-workspace-switching.md`.
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | [Backend workspace registry + per-request Cube ctx](./phase-01-backend-workspace-registry-per-request-cube-ctx.md) | ✅ Complete |
-| 2 | [Frontend WorkspaceContext + switcher + consolidated meta client](./phase-02-frontend-workspacecontext-switcher-consolidated-meta-client.md) | 🟡 Partial — meta-client consolidation deferred |
-| 3 | [Prefix-mapped game selector](./phase-03-prefix-mapped-game-selector.md) | 🟡 Partial — GamePicker disabled-state deferred |
-| 4 | [Server-side per-workspace artifact storage](./phase-04-artifact-isolation-localstorage-segments.md) | 🟡 Partial — migration + segments stamp/filter only |
+| 2 | [Frontend WorkspaceContext + switcher + consolidated meta client](./phase-02-frontend-workspacecontext-switcher-consolidated-meta-client.md) | ✅ Complete (meta-client consolidation still deferred to glossary-resolver plan; all 3 loaders send `x-cube-workspace`) |
+| 3 | [Prefix-mapped game selector](./phase-03-prefix-mapped-game-selector.md) | ✅ Complete (GamePicker hard-disabled-state cosmetic deferral; absent-game "no data" covered by readiness panel) |
+| 4 | [Server-side per-workspace artifact storage](./phase-04-artifact-isolation-localstorage-segments.md) | ✅ Complete — ALL data + view-state DB-backed; see follow-up `260530-1425` |
 | 5 | [Workspace readiness panel](./phase-05-workspace-readiness-panel.md) | ✅ Complete |
 | 6 | [Keycloak SSO + basic RBAC](./phase-06-keycloak-sso-and-basic-rbac.md) | ✅ Complete (local realm shipped; VNG prod realm/redirect URIs still pending devops input) |
 | 7 | [Chat-service workspace awareness](./phase-07-chat-service-workspace-awareness.md) | ✅ Complete |

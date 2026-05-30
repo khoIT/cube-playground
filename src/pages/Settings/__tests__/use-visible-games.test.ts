@@ -7,16 +7,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 
+import { getPref, setPref, removePref } from '../../../hooks/server-prefs-store';
 import { useVisibleGames } from '../use-visible-games';
 
 const STORAGE_KEY = 'gds-cube:hidden-game-ids';
 
 beforeEach(() => {
-  window.localStorage.clear();
+  // Remove via the store API so the in-memory cache is flushed alongside localStorage.
+  removePref(STORAGE_KEY);
 });
 
 afterEach(() => {
-  window.localStorage.clear();
+  removePref(STORAGE_KEY);
 });
 
 describe('useVisibleGames', () => {
@@ -33,21 +35,22 @@ describe('useVisibleGames', () => {
     act(() => result.current.toggle('ptg'));
     expect(result.current.isVisible('ptg')).toBe(false);
     expect(result.current.hidden.has('ptg')).toBe(true);
-    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)).toEqual(['ptg']);
+    expect(JSON.parse(getPref(STORAGE_KEY)!)).toEqual(['ptg']);
 
     act(() => result.current.toggle('ptg'));
     expect(result.current.isVisible('ptg')).toBe(true);
-    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)).toEqual([]);
+    expect(JSON.parse(getPref(STORAGE_KEY)!)).toEqual([]);
   });
 
   it('showAll clears all hidden ids', () => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(['ptg', 'ballistar']));
+    // Seed via the store API so the cache is warmed correctly.
+    setPref(STORAGE_KEY, JSON.stringify(['ptg', 'ballistar']));
     const { result } = renderHook(() => useVisibleGames());
     expect(result.current.hidden.size).toBe(2);
 
     act(() => result.current.showAll());
     expect(result.current.hidden.size).toBe(0);
-    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY)!)).toEqual([]);
+    expect(JSON.parse(getPref(STORAGE_KEY)!)).toEqual([]);
   });
 
   it('syncs across sibling hook instances via the custom event', () => {
@@ -61,14 +64,16 @@ describe('useVisibleGames', () => {
   });
 
   it('tolerates corrupt JSON in localStorage', () => {
-    window.localStorage.setItem(STORAGE_KEY, '{not json');
+    // Corrupt value: seed via setPref so cache holds it (getPref returns it faithfully).
+    setPref(STORAGE_KEY, '{not json');
     const { result } = renderHook(() => useVisibleGames());
     expect(result.current.hidden.size).toBe(0);
     expect(result.current.isVisible('ptg')).toBe(true);
   });
 
   it('ignores non-string entries in stored array', () => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(['ptg', 42, null, 'ballistar']));
+    // JSON.stringify coerces non-strings: store as-is so readHidden can filter them.
+    setPref(STORAGE_KEY, JSON.stringify(['ptg', 42, null, 'ballistar']));
     const { result } = renderHook(() => useVisibleGames());
     expect([...result.current.hidden].sort()).toEqual(['ballistar', 'ptg']);
   });

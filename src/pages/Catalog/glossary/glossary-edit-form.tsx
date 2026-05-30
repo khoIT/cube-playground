@@ -14,6 +14,7 @@ import {
   GlossaryConceptTierSection,
   type ConceptTierValues,
 } from './glossary-concept-tier-section';
+import { getPref, setPref } from '../../../hooks/server-prefs-store';
 
 const EDITOR_KEY = 'compass:prefs:glossary:editor-name';
 
@@ -127,7 +128,7 @@ function toForm(initial?: GlossaryTerm): FormValues {
     aliasesVi: initial?.aliasesVi ?? [],
     editorName:
       initial?.editorName ??
-      (typeof window !== 'undefined' ? window.localStorage.getItem(EDITOR_KEY) ?? '' : ''),
+      (typeof window !== 'undefined' ? getPref(EDITOR_KEY) ?? '' : ''),
     status: initial?.status ?? 'draft',
     concept: {
       entityCube: initial?.entityCube ?? '',
@@ -159,7 +160,7 @@ export function GlossaryEditForm({ initial, onSubmit, saving, i18n }: Props) {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (typeof window !== 'undefined' && values.editorName.trim()) {
-      window.localStorage.setItem(EDITOR_KEY, values.editorName.trim());
+      setPref(EDITOR_KEY, values.editorName.trim());
     }
     onSubmit(values);
   }

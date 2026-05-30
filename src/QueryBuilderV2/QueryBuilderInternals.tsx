@@ -6,7 +6,7 @@ import { ChartType } from '@cubejs-client/core';
 
 import { AppPane, AppPaneGroup, AppResizeHandle, Card, PaneShell } from '../components/AppPanes';
 import { QUERY_BUILDER_COLOR_TOKENS } from './color-tokens';
-import { useLocalStorage } from './hooks';
+import { useServerPref } from '../hooks/use-server-pref';
 import { useQueryBuilderContext } from './context';
 import { Tabs, Tab } from './components/Tabs';
 import { QueryBuilderFilters } from './QueryBuilderFilters';
@@ -125,7 +125,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
     query,
     resultSet,
   } = useQueryBuilderContext();
-  const [chartCollapsed, setChartCollapsed] = useLocalStorage<boolean>(
+  const [chartCollapsed, setChartCollapsed] = useServerPref<boolean>(
     'gds-cube:chart-pane-collapsed',
     false
   );

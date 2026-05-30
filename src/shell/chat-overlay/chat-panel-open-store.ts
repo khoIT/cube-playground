@@ -1,8 +1,11 @@
 /**
  * Persistent store for chat panel open state and width.
- * Synced to localStorage; notifies React via useSyncExternalStore.
+ * Uses the DB-authoritative pref store (localStorage mirror keeps reads synchronous).
+ * React consumers subscribe via useSyncExternalStore.
  */
 import { useSyncExternalStore } from 'react';
+
+import { getPref, setPref } from '../../hooks/server-prefs-store';
 
 const KEY_OPEN  = 'gds-cube:chat-panel:open';
 const KEY_WIDTH = 'gds-cube:chat-panel:width';
@@ -11,16 +14,16 @@ const WIDTH_MAX     = 720;
 const WIDTH_DEFAULT = 420;
 
 // ---------------------------------------------------------------------------
-// In-module state (source-of-truth; localStorage mirrors it)
+// In-module state (source-of-truth; DB-backed store mirrors it)
 // ---------------------------------------------------------------------------
 
 let _open: boolean = (() => {
-  try { return localStorage.getItem(KEY_OPEN) === 'true'; } catch { return false; }
+  try { return getPref(KEY_OPEN) === 'true'; } catch { return false; }
 })();
 
 let _width: number = (() => {
   try {
-    const n = parseInt(localStorage.getItem(KEY_WIDTH) ?? '', 10);
+    const n = parseInt(getPref(KEY_WIDTH) ?? '', 10);
     if (!isNaN(n)) return Math.min(Math.max(n, WIDTH_MIN), WIDTH_MAX);
   } catch { /* noop */ }
   return WIDTH_DEFAULT;
@@ -45,7 +48,7 @@ export function getOpen(): boolean { return _open; }
 export function setOpen(b: boolean): void {
   if (_open === b) return;
   _open = b;
-  try { localStorage.setItem(KEY_OPEN, b ? 'true' : 'false'); } catch { /* noop */ }
+  setPref(KEY_OPEN, b ? 'true' : 'false');
   notifyOpen();
 }
 
@@ -61,7 +64,7 @@ export function setWidth(n: number): void {
   const clamped = Math.min(Math.max(n, WIDTH_MIN), WIDTH_MAX);
   if (_width === clamped) return;
   _width = clamped;
-  try { localStorage.setItem(KEY_WIDTH, String(clamped)); } catch { /* noop */ }
+  setPref(KEY_WIDTH, String(clamped));
   notifyWidth();
 }
 

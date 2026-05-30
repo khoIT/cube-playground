@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import mitt from 'mitt';
 
 import { useIdentifier } from './identifier';
+import { getPref, setPref, removePref } from './server-prefs-store';
 
 const storage = new (class Storage {
   emitter = mitt();
@@ -34,11 +35,12 @@ const storage = new (class Storage {
   }
 
   setItem(key, value) {
+    // DB-authoritative via the shared pref store (writes the localStorage
+    // mirror synchronously + persists to the server per owner).
     if (value === undefined) {
-      localStorage.removeItem(key);
+      removePref(key);
     } else {
-      const data = JSON.stringify(value);
-      localStorage.setItem(key, data);
+      setPref(key, JSON.stringify(value));
     }
 
     this.emit(key, value);
@@ -46,7 +48,7 @@ const storage = new (class Storage {
 
   getItem(key: string, defaultValue: any) {
     try {
-      const data = localStorage.getItem(key);
+      const data = getPref(key);
       const parsed = typeof data === 'string' ? JSON.parse(data) : undefined;
 
       if (typeof defaultValue === 'function') {

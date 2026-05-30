@@ -1,16 +1,19 @@
 /**
- * Sidebar collapse state — single boolean persisted in localStorage.
+ * Sidebar collapse state — single boolean persisted via the DB-authoritative
+ * pref store (localStorage mirror keeps reads synchronous).
  * Default: false (expanded). Custom event lets multiple sidebar instances stay in sync.
  */
+import { getPref, setPref } from '../../hooks/server-prefs-store';
+
 const KEY = 'gds-cube:sidebar:collapsed';
 const EVENT = 'gds-cube:sidebar:collapsed-changed';
 
 export function getCollapsed(): boolean {
-  try { return localStorage.getItem(KEY) === '1'; } catch { return false; }
+  try { return getPref(KEY) === '1'; } catch { return false; }
 }
 
 export function setCollapsed(v: boolean): void {
-  try { localStorage.setItem(KEY, v ? '1' : '0'); } catch { /* noop */ }
+  setPref(KEY, v ? '1' : '0');
   try { window.dispatchEvent(new CustomEvent(EVENT, { detail: v })); } catch { /* noop */ }
 }
 

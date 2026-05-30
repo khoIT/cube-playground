@@ -1,29 +1,23 @@
 /** Persistent collapse-state hook for chart cards / monitor sections.
  *  State is stored under `gds-cube:card-collapsed:{key}` so each card
- *  remembers its collapsed state across reloads independently. */
+ *  remembers its collapsed state across reloads independently.
+ *  Uses the DB-authoritative pref store (localStorage mirror keeps it synchronous). */
 
 import { useCallback, useEffect, useState } from 'react';
+
+import { getPref, setPref } from '../../../../hooks/server-prefs-store';
 
 const STORAGE_PREFIX = 'gds-cube:card-collapsed:';
 
 function readStored(key: string | undefined, fallback: boolean): boolean {
-  if (!key || typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_PREFIX + key);
-    if (raw == null) return fallback;
-    return raw === '1';
-  } catch {
-    return fallback;
-  }
+  if (!key) return fallback;
+  const raw = getPref(STORAGE_PREFIX + key);
+  if (raw == null) return fallback;
+  return raw === '1';
 }
 
 function writeStored(key: string, collapsed: boolean): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_PREFIX + key, collapsed ? '1' : '0');
-  } catch {
-    /* ignore quota / privacy errors */
-  }
+  setPref(STORAGE_PREFIX + key, collapsed ? '1' : '0');
 }
 
 export function useCollapsiblePref(

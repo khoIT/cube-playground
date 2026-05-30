@@ -1,5 +1,6 @@
 /**
- * Recent items LRU store, persisted in localStorage.
+ * Recent items LRU store, persisted via the DB-authoritative pref store
+ * (localStorage mirror keeps reads synchronous).
  * Used by sidebar Data Model / Metrics Catalog / Segments sections.
  *
  * Key shape: gds-cube.recent.v2.{module}.{workspace}.{gameId}
@@ -10,6 +11,8 @@
  * Workspace was bolted onto the same v2 key (no schema rev) because recents
  * are an ephemeral LRU — leaking the old bucket once after upgrade is fine.
  */
+
+import { getPref, setPref, removePref } from '../../hooks/server-prefs-store';
 
 const VERSION = 'v2';
 const MAX = 8;
@@ -34,7 +37,7 @@ export interface RecentItem {
 
 function activeGameId(): string {
   try {
-    return localStorage.getItem(GAME_STORAGE_KEY) || NO_GAME;
+    return getPref(GAME_STORAGE_KEY) || NO_GAME;
   } catch {
     return NO_GAME;
   }
@@ -42,7 +45,7 @@ function activeGameId(): string {
 
 function activeWorkspace(): string {
   try {
-    return localStorage.getItem(WORKSPACE_STORAGE_KEY) || NO_WORKSPACE;
+    return getPref(WORKSPACE_STORAGE_KEY) || NO_WORKSPACE;
   } catch {
     return NO_WORKSPACE;
   }
@@ -56,7 +59,7 @@ const key = (
 
 export function getRecent(module: RecentModule): RecentItem[] {
   try {
-    const raw = localStorage.getItem(key(module));
+    const raw = getPref(key(module));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -87,7 +90,7 @@ export function pushRecent(module: RecentModule, item: RecentItem): void {
   try {
     const cur = getRecent(module).filter(i => i.id !== item.id);
     const next = [item, ...cur].slice(0, MAX);
-    localStorage.setItem(key(module), JSON.stringify(next));
+    setPref(key(module), JSON.stringify(next));
   } catch { /* noop */ }
   try { window.dispatchEvent(new Event(EVENT)); } catch { /* noop */ }
 }
@@ -97,12 +100,12 @@ export function pushRecent(module: RecentModule, item: RecentItem): void {
 export function removeRecent(module: RecentModule, id: string): void {
   try {
     const cur = getRecent(module).filter((i) => i.id !== id);
-    localStorage.setItem(key(module), JSON.stringify(cur));
+    setPref(key(module), JSON.stringify(cur));
   } catch { /* noop */ }
   try { window.dispatchEvent(new Event(EVENT)); } catch { /* noop */ }
 }
 
 export function clearRecent(module: RecentModule): void {
-  try { localStorage.removeItem(key(module)); } catch { /* noop */ }
+  try { removePref(key(module)); } catch { /* noop */ }
   try { window.dispatchEvent(new Event(EVENT)); } catch { /* noop */ }
 }

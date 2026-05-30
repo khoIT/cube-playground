@@ -11,13 +11,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { getPref, setPref } from '../../hooks/server-prefs-store';
+
 const STORAGE_KEY = 'gds-cube:hidden-game-ids';
 const STORAGE_EVENT = 'gds-cube:hidden-games-change';
 
 function readHidden(): string[] {
-  if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = getPref(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
@@ -27,14 +28,11 @@ function readHidden(): string[] {
 }
 
 function writeHidden(ids: string[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-    // In-tab sync: localStorage `storage` event fires only across tabs, so we
-    // emit a custom event for siblings (picker + settings) in the same window.
+  setPref(STORAGE_KEY, JSON.stringify(ids));
+  // In-tab sync: the DB store's storage event covers cross-tab; the custom
+  // event keeps same-tab siblings (picker + settings page) in sync.
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(STORAGE_EVENT));
-  } catch {
-    // ignore quota / private mode
   }
 }
 

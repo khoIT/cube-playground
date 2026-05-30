@@ -1,8 +1,10 @@
 /**
- * View-mode preference for catalog pages. Persisted in localStorage so the
- * user's grid-vs-list choice survives reloads, and broadcasts a custom event
- * so multiple components on the page stay in sync.
+ * View-mode preference for catalog pages. Persisted via the DB-authoritative
+ * pref store (localStorage mirror keeps reads synchronous). Broadcasts a
+ * custom event so multiple components on the same page stay in sync.
  */
+
+import { getPref, setPref } from '../../hooks/server-prefs-store';
 
 const KEY_PREFIX = 'gds-cube.view-mode.v1.';
 const EVENT = 'gds-cube:view-mode-changed';
@@ -17,21 +19,13 @@ function key(module: ViewModule): string {
 }
 
 export function getViewMode(module: ViewModule): ViewMode {
-  try {
-    const raw = localStorage.getItem(key(module));
-    if (raw === 'grid' || raw === 'list') return raw;
-  } catch {
-    // ignore
-  }
+  const raw = getPref(key(module));
+  if (raw === 'grid' || raw === 'list') return raw;
   return DEFAULT;
 }
 
 export function setViewMode(module: ViewModule, mode: ViewMode): void {
-  try {
-    localStorage.setItem(key(module), mode);
-  } catch {
-    // ignore
-  }
+  setPref(key(module), mode);
   try {
     window.dispatchEvent(new CustomEvent(EVENT, { detail: { module, mode } }));
   } catch {

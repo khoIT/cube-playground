@@ -25,9 +25,10 @@ import {
   WORKSPACE_CHANGE_EVENT,
 } from '../workspace-context';
 import { useAuthUser } from '../../auth/auth-context';
+import { getPref, setPref, subscribe } from '../../hooks/server-prefs-store';
 
 const STORAGE_KEY = 'gds-cube:active-game';
-const FALLBACK_GAME: GameDef = { id: 'ptg', name: 'Play Together', mark: 'PT' };
+const FALLBACK_GAME: GameDef = { id: 'ballistar', name: 'Ballistar', mark: 'BS' };
 
 // Subset of WorkspaceDef needed for filtering. Fetched directly here (instead of
 // reading via useWorkspaceContext) because GameContextProvider mounts ABOVE
@@ -48,9 +49,9 @@ interface GameContextValue {
 }
 
 const GameContext = createContext<GameContextValue>({
-  gameId: 'ptg',
+  gameId: 'ballistar',
   games: [FALLBACK_GAME],
-  defaultGameId: 'ptg',
+  defaultGameId: 'ballistar',
   setGameId: () => {},
   ready: false,
 });
@@ -68,28 +69,21 @@ function readUrlGameId(): string | null {
 }
 
 function readStoredGameId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
+  // localStorage mirror maintained by the server-pref store.
+  return getPref(STORAGE_KEY);
 }
 
 function persistGameId(id: string): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, id);
-  } catch {
-    /* ignore quota / private mode */
-  }
+  // DB-authoritative write-through (server per owner + localStorage mirror).
+  setPref(STORAGE_KEY, id);
 }
 
 export function GameContextProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<GamesConfig>({
-    defaultGameId: 'ptg',
+    defaultGameId: 'ballistar',
     games: [FALLBACK_GAME],
   });
-  const [gameId, setGameIdState] = useState<string>('ptg');
+  const [gameId, setGameIdState] = useState<string>('ballistar');
   const [ready, setReady] = useState(false);
 
   // Workspace tracking — fetched independently of WorkspaceProvider so we can
@@ -123,6 +117,16 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // Server-pref hydration (or another tab) can update the active game from
+  // another device. Reflect it when the id is valid for the loaded config.
+  useEffect(() => {
+    return subscribe(STORAGE_KEY, (next) => {
+      if (next && config.games.some((g) => g.id === next)) {
+        setGameIdState((prev) => (prev === next ? prev : next));
+      }
+    });
+  }, [config.games]);
 
   // Fetch the workspace registry once + listen for workspace-change events so
   // the GamePicker reacts when the user flips the topbar workspace pill.

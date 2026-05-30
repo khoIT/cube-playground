@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { apiFetch } from '../api/api-client';
+import { WORKSPACE_CHANGE_EVENT } from '../components/workspace-context';
+
+/**
+ * Cube display aliases (custom name + icon), persisted server-side per
+ * `(owner, workspace)` via `/api/cube-aliases`. Replaces the former
+ * `gds-cube:cube-aliases` localStorage blob — aliases are user data, must be
+ * workspace-isolated (cube names differ across workspaces) and multi-user safe.
+ *
+ * A module-level store holds the active workspace's alias map and fans changes
+ * out to every mounted `useCubeAlias` instance. The map is (re)loaded on first
+ * use and whenever the active workspace changes.
+ */
+
 export type CubeAlias = {
   displayName?: string;
   icon?: string;
@@ -7,84 +21,145 @@ export type CubeAlias = {
 
 type AliasMap = Record<string, CubeAlias>;
 
-const STORAGE_KEY = 'gds-cube:cube-aliases';
+type AliasRow = { cube_name: string; alias: string | null; icon: string | null };
 
-function loadMap(): AliasMap {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? (parsed as AliasMap) : {};
-  } catch {
-    return {};
-  }
-}
+const LEGACY_STORAGE_KEY = 'gds-cube:cube-aliases';
 
-function persist(map: AliasMap): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-  } catch {
-    /* quota / privacy mode — silently ignore */
-  }
-}
+let map: AliasMap = {};
+let loaded = false;
+let loadPromise: Promise<void> | null = null;
 
-// Single subscriber set so every hook instance reacts to writes from any tab
-// (including the current one) without resorting to a global state library.
 type Listener = (next: AliasMap) => void;
 const listeners = new Set<Listener>();
 
-function broadcast(next: AliasMap) {
-  listeners.forEach((l) => l(next));
+function broadcast(): void {
+  listeners.forEach((l) => l(map));
 }
 
-function getMap(): AliasMap {
-  return loadMap();
+function rowsToMap(rows: AliasRow[]): AliasMap {
+  const next: AliasMap = {};
+  for (const r of rows) {
+    next[r.cube_name] = {
+      displayName: r.alias ?? undefined,
+      icon: r.icon ?? undefined,
+    };
+  }
+  return next;
 }
 
-function writeMap(producer: (prev: AliasMap) => AliasMap) {
-  const next = producer(loadMap());
-  persist(next);
-  broadcast(next);
+/**
+ * One-time migration of the pre-server localStorage aliases. Best-effort: push
+ * each legacy entry to the active workspace, then drop the key so it never
+ * re-imports. Failures are swallowed — the worst case is the user re-sets an
+ * alias.
+ */
+async function importLegacyAliases(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  } catch {
+    return;
+  }
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw) as AliasMap;
+    if (parsed && typeof parsed === 'object') {
+      await Promise.allSettled(
+        Object.entries(parsed).map(([cubeName, a]) =>
+          apiFetch(`/api/cube-aliases/${encodeURIComponent(cubeName)}`, {
+            method: 'PUT',
+            body: { alias: a.displayName ?? null, icon: a.icon ?? null },
+          }),
+        ),
+      );
+    }
+  } catch {
+    /* malformed blob — discard it below */
+  }
+  try {
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function load(): Promise<void> {
+  await importLegacyAliases();
+  try {
+    const rows = await apiFetch<AliasRow[]>('/api/cube-aliases');
+    map = rowsToMap(Array.isArray(rows) ? rows : []);
+  } catch {
+    map = {};
+  }
+  loaded = true;
+  broadcast();
+}
+
+function ensureLoaded(): void {
+  if (loaded || loadPromise) return;
+  loadPromise = load().finally(() => {
+    loadPromise = null;
+  });
+}
+
+/** Reload the map for the active workspace (after a workspace switch). */
+function reload(): void {
+  loaded = false;
+  loadPromise = load().finally(() => {
+    loadPromise = null;
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(WORKSPACE_CHANGE_EVENT, reload);
 }
 
 export function useCubeAlias(name: string) {
-  const [map, setMap] = useState<AliasMap>(getMap);
+  const [current, setCurrent] = useState<AliasMap>(map);
 
   useEffect(() => {
-    listeners.add(setMap);
-    const onStorage = (evt: StorageEvent) => {
-      if (evt.key === STORAGE_KEY) setMap(loadMap());
-    };
-    window.addEventListener('storage', onStorage);
+    ensureLoaded();
+    listeners.add(setCurrent);
+    setCurrent(map);
     return () => {
-      listeners.delete(setMap);
-      window.removeEventListener('storage', onStorage);
+      listeners.delete(setCurrent);
     };
   }, []);
 
-  const alias: CubeAlias = map[name] ?? {};
+  const alias: CubeAlias = current[name] ?? {};
 
   const update = useCallback(
     (patch: Partial<CubeAlias>) => {
-      writeMap((prev) => {
-        const next: AliasMap = {
-          ...prev,
-          [name]: { ...(prev[name] ?? {}), ...patch },
-        };
-        if (!next[name].displayName && !next[name].icon) {
-          delete next[name];
-        }
-        return next;
+      const nextEntry: CubeAlias = { ...(map[name] ?? {}), ...patch };
+      const cleared = !nextEntry.displayName && !nextEntry.icon;
+      // Optimistic local update so the UI reacts immediately.
+      map = { ...map };
+      if (cleared) delete map[name];
+      else map[name] = nextEntry;
+      broadcast();
+      // Persist. Empty alias + icon → the route deletes the row.
+      void apiFetch(`/api/cube-aliases/${encodeURIComponent(name)}`, {
+        method: 'PUT',
+        body: {
+          alias: nextEntry.displayName ?? null,
+          icon: nextEntry.icon ?? null,
+        },
+      }).catch(() => {
+        /* best-effort; a reload reconciles with the server */
       });
     },
     [name],
   );
 
   const reset = useCallback(() => {
-    writeMap((prev) => {
-      const { [name]: _drop, ...rest } = prev;
-      return rest;
+    map = { ...map };
+    delete map[name];
+    broadcast();
+    void apiFetch(`/api/cube-aliases/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }).catch(() => {
+      /* best-effort */
     });
   }, [name]);
 
