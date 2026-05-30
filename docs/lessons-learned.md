@@ -175,6 +175,12 @@ Format per lesson:
 - **Signal:** "move everything to a DB" requests where some values are read synchronously (request headers, pre-React init like theme/lang), genuinely device-local (anonymous telemetry id, reload-loop guard), or are credentials.
 - **Apply:** classify keys into data/view-state (→ DB-backed mirror), session/identity (→ stay local), cross-tab event-bus signals (→ stay local). Back the legacy `useLocalStorage` core itself so every current/future consumer migrates at once. Leave device-local infra keys (`playground_anonymous`, `lastLocationReload`) alone and say so.
 
+### SSRF host allow/deny checks must normalize IPv6 before stripping the port
+- **Rule:** when guarding a user-supplied host (SSRF), normalize the literal *before* pattern-matching. A naive trailing-`:port` strip (`/:\d+$/`) corrupts bare IPv6 (`::1` → `::`), so the blocklist misses it and a loopback target slips through. Strip the port only for bracketed IPv6 (`[::1]:p`) or hosts with ≤1 colon (IPv4/hostname); leave bare multi-colon IPv6 intact.
+- **Why:** the connector SSRF guard (`connector-host-guard.ts`) blocked `127.*`, `169.254.*`, `localhost`, metadata, and `::1` — but `::1` passed because `.replace(/:\d+$/,'')` rewrote it to `::`, which wasn't in the blocklist. Caught by the host-guard test matrix before ship.
+- **Signal:** an SSRF/allowlist test passes for IPv4 loopback but the IPv6 loopback case returns "allowed"; any host normalization that runs a `:port` regex unconditionally on values that may be IPv6.
+- **Apply:** branch on bracket form / colon count before the port strip; unit-test every loopback + metadata literal in both IPv4 and IPv6 form. Allow RFC1918 / `*.internal` (legit internal warehouses) — block only loopback + link-local/metadata.
+
 ---
 
 ## How to extend this doc

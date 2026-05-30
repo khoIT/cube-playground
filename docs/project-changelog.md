@@ -2,6 +2,20 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-30 — Multi-source connect + guided model builder (onboarding v2)
+
+`/data` graduates from a Trino-only request/preview surface into the product layer for the whole data-model lifecycle: connect any supported source (real, secret-vault-backed) → build its semantic model step-by-step (YAML = compiled output) → co-locate sources at the model layer. Plan: `plans/260530-1406-cube-model-onboarding-agent/` (v2, phases 9–16). Tests: server 500/500 pass.
+
+- **Nav cleanup.** Drift Center + Access moved into Settings tabs (Access admin-only); Data moved to the sidebar footer above Glossary; dropped from the nav-visibility registry.
+- **Connector secret vault.** `connector-secret-vault.ts` (AES-256-GCM, key from `CONNECTOR_SECRET_KEY`, fail-closed) + `connector-store.ts` (CRUD + append-only audit, secrets sealed at rest) + migration `024-connectors.sql`. `trino-profiler-config.ts` generalized with `sourceType`; DB connectors merge into the public list/resolver (DB wins), env/file kept as bootstrap. Public projection never returns secrets.
+- **Source-type registry + dataSource abstraction.** `source-type-registry.ts` (per-type field schema + driver + capability flags: Trino/Postgres/MySQL/Redshift/ClickHouse/Snowflake/BigQuery). `datasource-registry-writer.ts` writes a secret-free `datasources.config.json` — the config-not-code contract that resolves the "Cube dataSource is cube.js code" gap (cube.js reads the registry; one-time generalization, then adding a source = a config entry).
+- **Multi-source profiler.** `profiler-interface.ts` `getProfiler(connector)` dispatch (NOT_INTROSPECTABLE / DRIVER_NOT_WIRED → honest 501); `information-schema-profiler.ts` (ANSI, injectable `SqlRunner`, driver-pluggable via `registerSqlRunnerFactory`). Trino stays the reference impl; `onboarding.ts` introspect/generate dispatch via the interface.
+- **Connect & Profile form → real provisioning.** Replaced the disabled stub. `GET /source-types`, `POST /connectors/test` (validate → SSRF guard → bounded probe), `POST /connectors` (validate → vault-encrypt → persist → registry entry → 201). `connector-host-guard.ts` (SSRF: blocks loopback + cloud-metadata, allows RFC1918/internal). FE `connector-connect-form.tsx` renders dynamic per-type fields; secrets never echoed.
+- **Worked example (read-only).** `existing-model-reader.ts` + `GET /example-model` read committed `cube-dev` cube YAMLs; new **Model** tab in connector detail renders the existing cubes/dimensions/measures/joins as the baseline a new source's model converges toward.
+- **Guided model builder.** New triage view D (`view-builder.tsx`): Cube → Dimensions → Measures → Joins → Preview stepper over the shared `use-onboarding-draft` engine; auto-mapped fields shown ✓, ambiguous ones get include/skip; YAML compiled only at the Preview step (validate + stage). Default view for non-viewer roles; Queue/Graph/Chat retained.
+- **Cross-source model layer.** `data_source` added to the cube schema + stamped by the scaffolder (non-default sources) so multiple connectors co-exist in one model. `join-source-classifier.ts` classifies same vs cross-source joins (cross → rollupJoin advisory, declared not executed — honest about Cube's engine limit). Cross-connector join-picker UI deferred to v2.5.
+- **Security posture.** New attack surface (user-supplied host, secret-at-rest) → SSRF guard + AES-GCM vault + RBAC; flagged for the post-ship `/ck:security` review before prod enablement.
+
 ## 2026-05-30 — Cube-model onboarding agent (bootstrap stage)
 
 Data-analyst-facing introspection + inference + scaffolding pipeline to stage draft Cube models from raw warehouse schema. Feeds the existing drift-center and coverage surfaces. Plan: `plans/260530-1406-cube-model-onboarding-agent/`. Tests: server 442/442 all pass.

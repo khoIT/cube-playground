@@ -134,6 +134,15 @@ A data analyst connects a warehouse (Trino) via app-side connector creds (`TRINO
 
 **Gating:** LLM enrichment (`onboarding.llmEnrichment`) and golden-query seeding (`onboarding.goldenSeeding`) default off; flag-tunable.
 
+**Multi-source connect (v2).** `/data` is the product layer for the full lifecycle, not just Trino:
+
+- **Connect (real).** A source type is declared once in `source-type-registry.ts` (field schema + Cube driver + capability flags). The connect form (`connector-connect-form.tsx`) renders those fields dynamically; `POST /connectors/test` SSRF-guards (`connector-host-guard.ts`) + probes; `POST /connectors` encrypts the secret (`connector-secret-vault.ts`, AES-256-GCM) into `connectors` (migration 024) and writes a secret-free entry to `datasources.config.json` (`datasource-registry-writer.ts`). That registry is the **config-not-code contract**: a generalized cube.js reads it to build a driver per `dataSource`, so adding a source never edits cube.js again.
+- **Introspect (per type).** `profiler-interface.ts` `getProfiler(connector)` dispatches by source type — Trino REST profiler (reference) or the ANSI `information-schema-profiler.ts` (injectable `SqlRunner`, driver-pluggable). Non-introspectable / not-yet-wired types return an honest 501.
+- **Build (guided).** The triage canvas adds a step-by-step builder view (`view-builder.tsx`: Cube → Dimensions → Measures → Joins → Preview) over the same `use-onboarding-draft` engine; YAML is the compiled output at the Preview step, not the editing surface. The existing committed model renders read-only as a worked example (`existing-model-reader.ts` + connector **Model** tab).
+- **Merge (model layer).** Cubes carry `data_source` so multiple connectors co-exist in one model. `join-source-classifier.ts` labels joins same- vs cross-source; cross-source links are declared with a rollupJoin advisory (not executed — Cube can't SQL-join across dataSources).
+
+**Secrets/SSRF posture:** secrets sealed at rest + never returned to the browser; user-supplied hosts pass an SSRF guard (loopback + cloud-metadata blocked, RFC1918/internal allowed). Flagged for a `/ck:security` review before prod enablement.
+
 ### Stage 2: Reconcile (Coverage & Drift)
 
 Once a model is written, two surfaces monitor alignment:

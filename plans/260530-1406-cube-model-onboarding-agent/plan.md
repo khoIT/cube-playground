@@ -125,3 +125,93 @@ UX reference prototype: `visuals/onboarding-agent-flow.html` (clickable, 5 scree
 
 ## Unresolved questions
 - Security review of direct Trino creds in playground (secret storage, SSRF, per-workspace override) — flag for `/ck:security` post-ship review. (User deprioritized in v1; recommended for hardening.)
+
+---
+
+# v2 — Multi-source connect + guided semantic builder + cross-source model merge
+
+> **Status: IMPLEMENTED (2026-05-30).** Phases 9–16 shipped on `main` (unstaged); server
+> 500/500 tests pass, FE typecheck adds zero new errors. Remaining edge: cross-connector
+> join-picker UI (v2.5) + the one-time cube.js dataSource-registry generalization (operator step)
+> + `/ck:security` review before prod enablement. Extends the completed v1 onboarding agent. `/data`
+> graduates from a Trino-only request/preview surface into the **product layer for the
+> whole data-model lifecycle**: connect *any* supported source (real, secret-vault-backed)
+> → build/manage its semantic model **step-by-step** (YAML is the compiled output, not the
+> input) → **merge** sources at the data-model layer. The existing Trino connection + the
+> committed cube YAMLs render in `/data` as a **live read-only worked example**, so adding a
+> new source and wiring it into the existing model is directly visualizable.
+
+## Goal (user, locked 2026-05-30)
+1. Connect new data sources **beyond Trino** (real connect, not preview).
+2. **Manage semantics** (data model) for each connected source.
+3. **Merge** sources at the data-model layer via YAML.
+4. Show the **existing Trino connection + existing cube YAMLs** in `/data` as a worked example.
+5. Replace the **raw-YAML** triage pane with a **step-by-step** model builder (YAML = end result).
+
+## Decisions (locked via interview, 2026-05-30)
+1. **Connect posture → real live connect + secret vault.** Browser form provisions a real
+   connector: encrypted secret storage server-side, a Cube `dataSource` descriptor, live
+   introspect/profile. (Supersedes v1's config-seed-only, disabled-preview posture.)
+2. **Cross-source merge → co-locate + same-source joins, visualize cross-source.** Multiple
+   sources' cubes live in one workspace model; joins execute *within* a source; cross-source
+   links are *declared + flagged* in the builder/graph (advisory: Cube needs `rollupJoin`/
+   pre-agg for true cross-`dataSource` joins — NOT executed in v1). Honest about engine limits.
+3. **Builder depth → guided full builder.** cube → dimensions → measures → joins → preview,
+   with inference defaults pre-filled + confidence. Reuses the triage engine state + the
+   existing `metric-composition-wizard` stepper. YAML preview/diff is the final step only.
+4. **Worked example → read live from cube-dev model files.** Render the actual committed
+   cube YAMLs (`cube-dev/cube/model/cubes/<game>/*.yml`) as a read-only seeded connector+model.
+
+## Phases (v2)
+| Phase | Name | Status |
+|-------|------|--------|
+| 9  | [Connector entity + secret vault (migration 024)](./phase-09-connector-entity-secret-vault.md) | Done |
+| 10 | [Source-type registry + dataSource abstraction](./phase-10-source-type-registry-datasource.md) | Done |
+| 11 | [Multi-source introspection / profiler](./phase-11-multi-source-introspection-profiler.md) | Done |
+| 12 | [Connect & Profile form → real provisioning](./phase-12-connect-form-real-provisioning.md) | Done |
+| 13 | [Live worked-example connector (existing model)](./phase-13-worked-example-connector.md) | Done |
+| 14 | [Guided model builder (replace raw-YAML pane)](./phase-14-guided-model-builder.md) | Done |
+| 15 | [Cross-source merge at the model layer](./phase-15-cross-source-merge.md) | Done (core; cross-connector join-picker UI → v2.5) |
+| 16 | [Tests + docs sync](./phase-16-tests-docs.md) | Done |
+
+## Cross-cutting constraints (v2)
+- **Migration number: 024.** 023 (`023-onboarding-draft-models.sql`) is the latest committed.
+  `sqlite.ts` runs migrations ordered by filename; `user_version = files.length`.
+- **#1 RISK — Cube dataSource registration is *code*, not YAML.** `cube-dev/cube/cube.js`
+  `driverFactory` returns a single hard-coded Trino driver (multi-tenant by schema). True
+  multi-`dataSource` support needs `driverFactory: ({ securityContext, dataSource }) => …`
+  switching on `dataSource`, plus `data_source:` declared per cube YAML. The v1 write-back
+  (`schema-write-handler`) only touches **model YAML**, never `cube.js`. **Approach (Phase 10):**
+  define a *dataSource registry contract* — an env/JSON file (`datasources.config.json`) that a
+  generalized `cube.js` reads at request time, so the playground writes **config, not code**.
+  cube.js is edited **once** (manual/PR) to consume the registry; thereafter adding a source =
+  writing a registry entry. If the cube.js edit can't land in the v2 window, the provisioning
+  path emits the registry entry + a documented manual cube.js step (degrade gracefully, flag in UI).
+- **Cross-`dataSource` joins are unsupported in Cube SQL** — only `rollupJoin` over
+  pre-aggregations. v2 of cross-source merge therefore **declares + flags**, does not execute.
+- **Secret vault:** AES-256-GCM, key from `CONNECTOR_SECRET_KEY` env (fail-closed if absent for
+  non-seed connectors). Secrets never logged, never returned to the browser (`listConnectors()`
+  redaction invariant preserved). Config-seed path (v1) kept as a bootstrap fallback.
+- **RBAC:** all new mutations under `/api/*` inherit `enforce-write-roles` (viewer→403);
+  connector provisioning + model writes additionally re-check game/workspace grant.
+
+## Key reuse (v2 — do NOT rebuild)
+- **Profiler:** extract an interface from `trino-profiler.ts` / `trino-rest-client.ts`; add
+  per-type clients. Trino client stays as the reference implementation.
+- **Connector config:** generalize `trino-profiler-config.ts` `Connector` (add `sourceType`);
+  keep its redacted-projection + config-seed bootstrap.
+- **Scaffolder/writer:** `cube-model-scaffolder.ts` + `cube-model-writer.ts` (v1) already emit
+  + write model YAML atomically. Builder compiles into the same artifacts.
+- **Stepper UI:** `src/pages/Catalog/metric-composition-wizard/composition-wizard-page.tsx`
+  (existing multi-step builder) + the v1 triage engine state (`triage-shared.tsx`, `view-*`).
+- **Stores:** `onboarding-draft-store.ts` (staging), audit-store pattern; mirror for connectors.
+- **Graph view:** `src/pages/Data/triage/view-graph.tsx` already renders an entity graph — extend
+  for cross-source edges rather than building a new canvas.
+- **Worked example read:** the same model dir the writer targets (`VITE_CUBE_MODEL_DIR`,
+  `cube-dev/cube/model/cubes/<game>/*.yml`) — read-only this time.
+
+## v2 dependency order
+9 → 10 → 11 (backend connect/introspect stack) · 12 depends on 10 (field schemas) + 9 (persist) ·
+13 is independent (read-only example, can land early for visual baseline) · 14 depends on 11
+(profiles) + reuses stepper · 15 depends on 14 (builder) + 13 (existing model to merge against) ·
+16 last.
