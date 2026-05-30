@@ -20,6 +20,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { listStoredMeta, getStoredConnector, type ConnectorMeta } from './connector-store.js';
 
 /**
  * Per-game Trino schema map, copied from `cube-dev/cube/cube.js` (catalog
@@ -52,6 +53,8 @@ const ConnectorSchema = z.object({
   label: z.string().min(1),
   /** Workspace this connector belongs to (hierarchy: workspace ⊃ connectors). */
   workspaceId: z.string().min(1).default('local'),
+  /** Drives driver + introspection dispatch (trino, postgres, bigquery, …). */
+  sourceType: z.string().min(1).default('trino'),
   host: z.string().min(1),
   port: z.coerce.number().int().positive().default(443),
   user: z.string().min(1),
@@ -67,6 +70,7 @@ export interface ConnectorPublic {
   id: string;
   label: string;
   workspaceId: string;
+  sourceType: string;
   catalog: string;
   host: string;
   configured: boolean;
@@ -121,25 +125,70 @@ function loadConnectors(): Connector[] {
   return cached;
 }
 
-/** True when at least one connector resolves a host. */
-export function isProfilerConfigured(): boolean {
-  return loadConnectors().length > 0;
+/**
+ * DB-backed connector metadata, guarded so a missing table / DB never breaks the
+ * env/file bootstrap path. `listStoredMeta` does NOT decrypt, so no vault key is
+ * required to list connectors.
+ */
+function safeStoredMeta(): ConnectorMeta[] {
+  try {
+    return listStoredMeta();
+  } catch {
+    return [];
+  }
 }
 
-/** Secret-free connector list for the client. */
-export function listConnectors(): ConnectorPublic[] {
-  return loadConnectors().map((c) => ({
+function bootstrapToPublic(c: Connector): ConnectorPublic {
+  return {
     id: c.id,
     label: c.label,
     workspaceId: c.workspaceId,
+    sourceType: c.sourceType,
     catalog: c.catalog,
     host: c.host,
     configured: Boolean(c.host),
-  }));
+  };
 }
 
-/** Full connector (creds included) — SERVER ONLY. Returns null for unknown id. */
+function metaToPublic(m: ConnectorMeta): ConnectorPublic {
+  return {
+    id: m.id,
+    label: m.label,
+    workspaceId: m.workspaceId,
+    sourceType: m.sourceType,
+    catalog: String(m.config.catalog ?? ''),
+    host: String(m.config.host ?? ''),
+    configured: Boolean(m.config.host),
+  };
+}
+
+/** True when at least one connector (bootstrap or DB-backed) resolves. */
+export function isProfilerConfigured(): boolean {
+  return loadConnectors().length > 0 || safeStoredMeta().length > 0;
+}
+
+/** Secret-free connector list for the client. DB-backed connectors win on id. */
+export function listConnectors(): ConnectorPublic[] {
+  const byId = new Map<string, ConnectorPublic>();
+  for (const c of loadConnectors()) byId.set(c.id, bootstrapToPublic(c));
+  for (const m of safeStoredMeta()) byId.set(m.id, metaToPublic(m)); // DB overrides bootstrap
+  return [...byId.values()];
+}
+
+/**
+ * Full connector (creds included) — SERVER ONLY. Returns null for unknown id.
+ * DB-backed connectors win over the env/file bootstrap for the same id; if the
+ * vault key is missing/invalid we fall back to bootstrap connectors.
+ */
 export function getConnector(id?: string | null): Connector | null {
+  if (id) {
+    try {
+      const stored = getStoredConnector(id);
+      if (stored) return stored;
+    } catch {
+      // vault key missing/invalid — fall through to bootstrap connectors.
+    }
+  }
   const list = loadConnectors();
   if (!id) return list[0] ?? null;
   return list.find((c) => c.id === id) ?? null;

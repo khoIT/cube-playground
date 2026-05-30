@@ -98,7 +98,7 @@ function joinToCube(j: InferredCube['joins'][number]): CubeJoin {
 }
 
 /** Build one Cube object from an inferred cube. */
-function buildCube(inferred: InferredCube, schema: string): Cube {
+function buildCube(inferred: InferredCube, schema: string, dataSource?: string): Cube {
   const dimensions = inferred.fields
     .map(fieldToDimension)
     .filter((d): d is CubeDimension => d !== null);
@@ -118,6 +118,9 @@ function buildCube(inferred: InferredCube, schema: string): Cube {
     dimensions,
     measures,
   };
+  // Stamp the dataSource so cubes from multiple connectors co-exist in one model.
+  // Omitted for the default (Trino) source to preserve legacy cube behavior.
+  if (dataSource) cube.data_source = dataSource;
   if (joins.length > 0) cube.joins = joins;
   return cube;
 }
@@ -136,6 +139,7 @@ export interface ScaffoldCubeResult {
 export function scaffoldCubeModel(
   inferred: InferredSchema,
   takenNames: Set<string> = new Set(),
+  dataSource?: string,
 ): ScaffoldCubeResult {
   const first = inferred.cubes[0];
   if (!first) throw new Error('inferred schema has no cubes');
@@ -147,7 +151,7 @@ export function scaffoldCubeModel(
     cubeName = `${cubeName}_${n}`;
   }
 
-  const cube = buildCube({ ...first, name: cubeName }, inferred.schema);
+  const cube = buildCube({ ...first, name: cubeName }, inferred.schema, dataSource);
   const model = CubeModelSchema.parse({ cubes: [cube] });
   return { model, cubeName };
 }

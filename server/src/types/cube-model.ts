@@ -57,6 +57,9 @@ export const CubeJoinSchema = z.object({
 export const CubeSchema = z.object({
   name: NAME,
   sql_table: z.string().min(1),
+  // Cube dataSource this cube reads from. Lets cubes from multiple connectors
+  // co-exist in one workspace model; omitted = the default (Trino) source.
+  data_source: z.string().min(1).optional(),
   title: z.string().optional(),
   description: z.string().optional(),
   joins: z.array(CubeJoinSchema).optional(),
