@@ -18,7 +18,11 @@ export type SettingsKey =
   | 'liveops.anomaly_thresholds'
   | 'dashboards.tile_ttl_seconds'
   | 'dashboards.refresh_horizon_days'
-  | 'dashboards.refresh_concurrency';
+  | 'dashboards.refresh_concurrency'
+  // Onboarding agent — Phase 07 intelligence layer, default OFF so the
+  // heuristic v1 pipeline is unchanged when these are unset.
+  | 'onboarding.llmEnrichment'
+  | 'onboarding.goldenSeeding';
 
 const CACHE_TTL_MS = 30_000;
 
@@ -115,6 +119,8 @@ const VALIDATORS: Record<SettingsKey, (v: unknown) => ValidatorResult> = {
   'dashboards.tile_ttl_seconds':      (v) => clampNumber(v, 30, 86_400),
   'dashboards.refresh_horizon_days':  (v) => clampNumber(v, 1, 90),
   'dashboards.refresh_concurrency':   (v) => clampNumber(v, 1, 100),
+  'onboarding.llmEnrichment':         (v) => ({ ok: true, value: Boolean(v) }),
+  'onboarding.goldenSeeding':         (v) => ({ ok: true, value: Boolean(v) }),
 };
 
 export interface PatchResult {
