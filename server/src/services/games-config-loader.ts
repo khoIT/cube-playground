@@ -21,8 +21,8 @@ export interface GamesConfig {
 }
 
 const FALLBACK: GamesConfig = {
-  defaultGameId: 'ptg',
-  games: [{ id: 'ptg', name: 'Play Together', mark: 'PT' }],
+  defaultGameId: 'ballistar',
+  games: [{ id: 'ballistar', name: 'Ballistar', mark: 'BS' }],
 };
 
 const CONFIG_FILENAME = 'gds.config.json';

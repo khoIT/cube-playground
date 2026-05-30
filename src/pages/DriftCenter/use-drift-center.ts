@@ -10,9 +10,15 @@
  * endpoint.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../api/api-client';
-import { useCatalogMeta } from '../Catalog/use-catalog-meta';
+import { useWorkspaceContext } from '../../components/workspace-context';
+
+interface MetaCube {
+  name: string;
+  measures?: Array<{ name: string }>;
+  dimensions?: Array<{ name: string }>;
+}
 
 export type DriftReason = 'unparseable' | 'cube-missing' | 'member-missing';
 
@@ -66,16 +72,55 @@ export function useDriftCenter(gameId: string | null | undefined): UseDriftCente
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Live /meta members for the picker — reuse the Catalog's proxy fetch.
-  const { cubes, loading: membersLoading } = useCatalogMeta();
-  const members = useMemo<MetaMember[]>(() => {
-    const out: MetaMember[] = [];
-    for (const cube of cubes) {
-      for (const m of cube.measures ?? []) out.push({ ref: m.name, kind: 'measure' });
-      for (const d of cube.dimensions ?? []) out.push({ ref: d.name, kind: 'dimension' });
+  // Drift + members are scoped to BOTH the active game and the active workspace
+  // (a prefix workspace short-circuits; local vs prod expose different cubes).
+  // apiFetch reads the workspace from localStorage at call time; we thread
+  // workspaceId into the effect/callback deps so switching workspace (game
+  // unchanged) re-fetches instead of leaving stale drift + an empty picker.
+  const { workspaceId } = useWorkspaceContext();
+
+  // Live /meta members for the repoint picker. Fetched directly from the same
+  // proxy the server reconciles against (`/cube-api/v1/meta?extended=true`) so
+  // it's self-contained — it does NOT depend on the QueryBuilder having
+  // registered AppContext.apiUrl (the Drift Center route never mounts it, which
+  // is why reusing useCatalogMeta returned an empty list). apiFetch adds the
+  // x-cube-workspace header + app token; x-cube-game is what actually scopes
+  // the schema (see docs/lessons-learned.md).
+  const [members, setMembers] = useState<MetaMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+
+  useEffect(() => {
+    if (!gameId) {
+      setMembers([]);
+      setMembersLoading(false);
+      return;
     }
-    return out.sort((a, b) => a.ref.localeCompare(b.ref));
-  }, [cubes]);
+    let cancelled = false;
+    setMembersLoading(true);
+    apiFetch<{ cubes?: MetaCube[] }>('/cube-api/v1/meta', {
+      query: { extended: 'true' },
+      headers: { 'x-cube-game': gameId },
+    })
+      .then((meta) => {
+        if (cancelled) return;
+        const out: MetaMember[] = [];
+        for (const cube of meta.cubes ?? []) {
+          for (const m of cube.measures ?? []) out.push({ ref: m.name, kind: 'measure' });
+          for (const d of cube.dimensions ?? []) out.push({ ref: d.name, kind: 'dimension' });
+        }
+        out.sort((a, b) => a.ref.localeCompare(b.ref));
+        setMembers(out);
+      })
+      .catch(() => {
+        if (!cancelled) setMembers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMembersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, workspaceId]);
 
   const refetch = useCallback(async () => {
     if (!gameId) {
@@ -95,7 +140,7 @@ export function useDriftCenter(gameId: string | null | undefined): UseDriftCente
     } finally {
       setLoading(false);
     }
-  }, [gameId]);
+  }, [gameId, workspaceId]);
 
   const repoint = useCallback(
     async (metricId: string, from: string, to: string) => {

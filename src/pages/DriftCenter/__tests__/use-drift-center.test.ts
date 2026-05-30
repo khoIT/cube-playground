@@ -9,10 +9,21 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 const apiFetchMock = vi.fn();
 vi.mock('../../../api/api-client', () => ({ apiFetch: (...a: unknown[]) => apiFetchMock(...a) }));
 
-const catalogMetaMock = vi.fn();
-vi.mock('../../Catalog/use-catalog-meta', () => ({ useCatalogMeta: () => catalogMetaMock() }));
-
 import { useDriftCenter } from '../use-drift-center';
+
+const META = {
+  cubes: [
+    { name: 'recharge', measures: [{ name: 'recharge.paying_users' }], dimensions: [{ name: 'recharge.recharge_date' }] },
+  ],
+};
+
+// Route apiFetch by path: /meta returns the cube list, everything else the drift report.
+function routeApiFetch(report: unknown) {
+  return (path: string) => {
+    if (typeof path === 'string' && path.includes('/cube-api/v1/meta')) return Promise.resolve(META);
+    return Promise.resolve(report);
+  };
+}
 
 const REPORT = {
   game: 'ballistar',
@@ -26,39 +37,37 @@ const REPORT = {
 
 beforeEach(() => {
   apiFetchMock.mockReset();
-  catalogMetaMock.mockReset();
-  catalogMetaMock.mockReturnValue({
-    cubes: [
-      { name: 'recharge', measures: [{ name: 'recharge.paying_users' }], dimensions: [{ name: 'recharge.recharge_date' }] },
-    ],
-    loading: false,
-    error: null,
-  });
 });
 
 describe('useDriftCenter', () => {
   it('fetches drift and flattens live /meta members (measures + dimensions)', async () => {
-    apiFetchMock.mockResolvedValue(REPORT);
+    apiFetchMock.mockImplementation(routeApiFetch(REPORT));
     const { result } = renderHook(() => useDriftCenter('ballistar'));
     await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.members.length).toBeGreaterThan(0));
 
     expect(result.current.report?.groups[0].key).toBe('funnel');
     expect(result.current.members).toEqual([
       { ref: 'recharge.paying_users', kind: 'measure' },
       { ref: 'recharge.recharge_date', kind: 'dimension' },
     ]);
+    // drift report fetched with the game query
     expect(apiFetchMock).toHaveBeenCalledWith(
       '/api/business-metrics/drift-center',
       expect.objectContaining({ query: { game: 'ballistar' } }),
     );
+    // members fetched from the proxy /meta, scoped by x-cube-game (self-contained)
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      '/cube-api/v1/meta',
+      expect.objectContaining({ headers: { 'x-cube-game': 'ballistar' } }),
+    );
   });
 
   it('repoint PATCHes then refetches', async () => {
-    apiFetchMock.mockResolvedValue(REPORT);
+    apiFetchMock.mockImplementation(routeApiFetch(REPORT));
     const { result } = renderHook(() => useDriftCenter('ballistar'));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    apiFetchMock.mockClear();
-    apiFetchMock.mockResolvedValue(REPORT);
+    apiFetchMock.mockClear(); // keep implementation, reset call log
 
     await act(async () => {
       await result.current.repoint('a', 'funnel.x', 'ordered_event_funnel.step_count');
@@ -74,7 +83,7 @@ describe('useDriftCenter', () => {
   });
 
   it('passes through prefixUnsupported', async () => {
-    apiFetchMock.mockResolvedValue({ ...REPORT, prefixUnsupported: true, groups: [] });
+    apiFetchMock.mockImplementation(routeApiFetch({ ...REPORT, prefixUnsupported: true, groups: [] }));
     const { result } = renderHook(() => useDriftCenter('prodgame'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.report?.prefixUnsupported).toBe(true);

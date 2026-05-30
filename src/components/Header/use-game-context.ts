@@ -27,7 +27,7 @@ import {
 import { useAuthUser } from '../../auth/auth-context';
 
 const STORAGE_KEY = 'gds-cube:active-game';
-const FALLBACK_GAME: GameDef = { id: 'ptg', name: 'Play Together', mark: 'PT' };
+const FALLBACK_GAME: GameDef = { id: 'ballistar', name: 'Ballistar', mark: 'BS' };
 
 // Subset of WorkspaceDef needed for filtering. Fetched directly here (instead of
 // reading via useWorkspaceContext) because GameContextProvider mounts ABOVE
@@ -48,9 +48,9 @@ interface GameContextValue {
 }
 
 const GameContext = createContext<GameContextValue>({
-  gameId: 'ptg',
+  gameId: 'ballistar',
   games: [FALLBACK_GAME],
-  defaultGameId: 'ptg',
+  defaultGameId: 'ballistar',
   setGameId: () => {},
   ready: false,
 });
@@ -86,10 +86,10 @@ function persistGameId(id: string): void {
 
 export function GameContextProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<GamesConfig>({
-    defaultGameId: 'ptg',
+    defaultGameId: 'ballistar',
     games: [FALLBACK_GAME],
   });
-  const [gameId, setGameIdState] = useState<string>('ptg');
+  const [gameId, setGameIdState] = useState<string>('ballistar');
   const [ready, setReady] = useState(false);
 
   // Workspace tracking — fetched independently of WorkspaceProvider so we can
