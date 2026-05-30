@@ -166,8 +166,8 @@ UX reference prototype: `visuals/onboarding-agent-flow.html` (clickable, 5 scree
 | Phase | Name | Status |
 |-------|------|--------|
 | 9  | [Connector entity + secret vault (migration 024)](./phase-09-connector-entity-secret-vault.md) | Done |
-| 10 | [Source-type registry + dataSource abstraction](./phase-10-source-type-registry-datasource.md) | Done |
-| 11 | [Multi-source introspection / profiler](./phase-11-multi-source-introspection-profiler.md) | Done |
+| 10 | [Source-type registry + dataSource abstraction](./phase-10-source-type-registry-datasource.md) | Done (registry + writer; cube.js generalization documented, operator step pending) |
+| 11 | [Multi-source introspection / profiler](./phase-11-multi-source-introspection-profiler.md) | Done (interface + ANSI profiler + dispatch; live non-Trino driver runner not yet wired → 501) |
 | 12 | [Connect & Profile form → real provisioning](./phase-12-connect-form-real-provisioning.md) | Done |
 | 13 | [Live worked-example connector (existing model)](./phase-13-worked-example-connector.md) | Done |
 | 14 | [Guided model builder (replace raw-YAML pane)](./phase-14-guided-model-builder.md) | Done |
