@@ -1,22 +1,26 @@
 /**
  * /drift-center — metric references that don't resolve against the active
  * workspace's live Cube schema, grouped by the underlying missing cube/measure,
- * for the ACTIVE game only (like /coverage?game=). Repoint a stale ref or mark a
- * metric N/A. Header recipe mirrors src/pages/Dashboards/index.tsx; all styling
- * via design tokens (see plans/.../design/hifi-mockup.html — the design contract).
+ * for the ACTIVE game only (like /coverage?game=). Master–detail: a selectable
+ * list of root causes (+ the detector log) on the left, a resolve pane on the
+ * right. Repoint a stale ref or mark a metric N/A; resolving auto-advances to the
+ * next group. Header recipe mirrors src/pages/Dashboards/index.tsx; all styling
+ * via design tokens.
  */
 import React from 'react';
+import styled from 'styled-components';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useWorkspaceContext } from '../../components/workspace-context';
 import { useAuthUser } from '../../auth/auth-context';
 import { useDriftCenter } from './use-drift-center';
-import { DriftGroupCard } from './drift-group-card';
+import { RootCauseList, groupKey } from './root-cause-list';
+import { DriftDetailPane } from './drift-detail-pane';
 import { DetectorRunPanel } from './detector-run-panel';
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
-  maxWidth: 1000,
+  maxWidth: 1200,
   margin: '0 auto',
   fontFamily: 'var(--font-sans)',
 };
@@ -29,18 +33,8 @@ const eyebrowStyle: React.CSSProperties = {
   marginBottom: 8,
 };
 const titleRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10 };
-const titleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 20,
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-};
-const ledeStyle: React.CSSProperties = {
-  margin: '4px 0 0',
-  fontSize: 13,
-  color: 'var(--text-muted)',
-  maxWidth: '64ch',
-};
+const titleStyle: React.CSSProperties = { margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' };
+const ledeStyle: React.CSSProperties = { margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)', maxWidth: '64ch' };
 const refreshBtn: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -88,12 +82,29 @@ const summaryStyle: React.CSSProperties = {
   fontSize: 12.5,
   color: 'var(--text-muted)',
 };
-const sectionH2: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'baseline',
-  gap: 8,
-  margin: '22px 0 12px',
-};
+const strong: React.CSSProperties = { fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' };
+
+// Two-pane master–detail; collapses to a single column on narrow viewports.
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 18px;
+  align-items: start;
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+  }
+`;
+const LeftPane = styled.div`
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  @media (max-width: 860px) {
+    position: static;
+    max-height: none;
+  }
+`;
 
 export function DriftCenterPage(): React.ReactElement {
   const gameId = useActiveGameId();
@@ -103,12 +114,27 @@ export function DriftCenterPage(): React.ReactElement {
   const { report, loading, error, members, membersLoading, refetch, repoint, markNa } =
     useDriftCenter(gameId);
 
+  const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
+
+  const groups = report?.groups ?? [];
   const affectedCount = React.useMemo(() => {
-    if (!report) return 0;
     const ids = new Set<string>();
-    for (const g of report.groups) for (const id of g.affectedMetricIds) ids.add(id);
+    for (const g of groups) for (const id of g.affectedMetricIds) ids.add(id);
     return ids.size;
-  }, [report]);
+  }, [groups]);
+
+  // Keep a valid selection: when the report changes (initial load or after a
+  // resolve removes a group) snap to the still-present selection, else advance
+  // to the first remaining group.
+  React.useEffect(() => {
+    if (groups.length === 0) {
+      setSelectedKey(null);
+      return;
+    }
+    setSelectedKey((prev) => (prev && groups.some((g) => groupKey(g) === prev) ? prev : groupKey(groups[0])));
+  }, [groups]);
+
+  const selectedGroup = groups.find((g) => groupKey(g) === selectedKey) ?? null;
 
   return (
     <div style={pageStyle}>
@@ -148,9 +174,9 @@ export function DriftCenterPage(): React.ReactElement {
             Drift isn’t meaningful for this workspace yet — cube names are prefixed and references
             aren’t translated. Full support lands in v1.5.
           </div>
-          {report ? <DetectorRunPanel panel={report.detectorPanel} /> : null}
+          <DetectorRunPanel panel={report.detectorPanel} />
         </>
-      ) : report && report.groups.length === 0 ? (
+      ) : report && groups.length === 0 ? (
         <>
           <div style={{ ...noteBase, background: 'var(--success-soft)', color: 'var(--success-ink)' }}>
             All metrics resolve for {gameId}. Nothing to repoint. 🎉
@@ -160,40 +186,33 @@ export function DriftCenterPage(): React.ReactElement {
       ) : report ? (
         <>
           <div style={summaryStyle}>
-            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-              {affectedCount}
-            </span>
+            <span style={strong}>{affectedCount}</span>
             <span>metric{affectedCount === 1 ? '' : 's'} affected across</span>
-            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-              {report.groups.length}
-            </span>
-            <span>root cause{report.groups.length === 1 ? '' : 's'}</span>
+            <span style={strong}>{groups.length}</span>
+            <span>root cause{groups.length === 1 ? '' : 's'}</span>
             <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>
               reconciled {new Date(report.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
 
-          <div style={sectionH2}>
-            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Root causes</h2>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {report.groups.length} group{report.groups.length === 1 ? '' : 's'} · {affectedCount} metrics affected
-            </span>
-          </div>
-
-          {report.groups.map((g, i) => (
-            <DriftGroupCard
-              key={`${g.reason}:${g.key}`}
-              group={g}
+          <Grid>
+            <LeftPane>
+              <RootCauseList
+                groups={groups}
+                selectedKey={selectedKey}
+                onSelect={setSelectedKey}
+                detector={report.detectorPanel}
+              />
+            </LeftPane>
+            <DriftDetailPane
+              group={selectedGroup}
               canWrite={canWrite}
               members={members}
               membersLoading={membersLoading}
               onRepoint={repoint}
               onMarkNa={markNa}
-              defaultOpen={i === 0}
             />
-          ))}
-
-          <DetectorRunPanel panel={report.detectorPanel} />
+          </Grid>
         </>
       ) : null}
     </div>
