@@ -247,6 +247,11 @@ async function scanGameLegacy(
   const { meta, token, unresolvedIds } = await runDriftReconciliation(game, 'detector', warn);
   if (!meta || !token) return {};
 
+  // Drift reconcile (snapshot + run history) already ran inside the call above.
+  // In drift-only mode, stop here — skip the per-metric /load anomaly pass that
+  // queries Trino.
+  if (driftOnly()) return {};
+
   const metrics = getAllBusinessMetrics();
   const out: Record<string, AnomalyStateRecord> = {};
   for (const metric of metrics) {
@@ -304,6 +309,16 @@ function detectorDisabled(): boolean {
   if (process.env.ANOMALY_DETECTOR_DISABLED === '1') return true;
   if (process.env.NODE_ENV === 'test') return true;
   return false;
+}
+
+/**
+ * Drift-only mode: run just the cheap `/meta` ref reconciliation (which feeds
+ * the Drift Center) and skip the expensive per-metric `/load` anomaly pass.
+ * Removes the Trino data-source dependency — useful in dev where Trino may be
+ * unreachable. The anomaly archive goes stale; drift history keeps updating.
+ */
+function driftOnly(): boolean {
+  return process.env.ANOMALY_DETECTOR_DRIFT_ONLY === '1';
 }
 
 function legacyIntervalMs(): number {
@@ -470,6 +485,12 @@ export function startAnomalyDetector(
 ): void {
   if (process.env.ANOMALY_DETECTOR_ENABLED !== 'true') {
     console.info('[anomaly-detector] SQLite mode disabled (ANOMALY_DETECTOR_ENABLED != true)');
+    return;
+  }
+  if (driftOnly()) {
+    // SQLite mode is a pure anomaly /load pass (no drift reconcile) — nothing to
+    // do in drift-only mode.
+    console.info('[anomaly-detector] drift-only mode — SQLite anomaly pass skipped');
     return;
   }
   if (sqliteIntervalId !== null) return; // already started
