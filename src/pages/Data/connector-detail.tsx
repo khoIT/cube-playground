@@ -15,10 +15,12 @@ import { onboardingClient } from '../../api/onboarding-client';
 import type { Connector, TableMeta, DraftModelRow } from '../../api/onboarding-client';
 import { DatasetTables, type OnboardMode } from './dataset-tables';
 import { TriageCanvas } from './triage/triage-canvas';
+import { ExistingModelView } from './existing-model-view';
 
-type Tab = 'datasets' | 'agents' | 'coverage' | 'drift' | 'history';
+type Tab = 'datasets' | 'model' | 'agents' | 'coverage' | 'drift' | 'history';
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'datasets', label: 'Datasets' },
+  { id: 'model', label: 'Model' },
   { id: 'agents', label: 'Agents' },
   { id: 'coverage', label: 'Coverage' },
   { id: 'drift', label: 'Drift' },
@@ -241,6 +243,8 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
             onGenerate={handleGenerate}
           />
         )
+      ) : tab === 'model' ? (
+        <ExistingModelView game={gameId} />
       ) : tab === 'agents' ? (
         <Empty>Onboarding &amp; chat agents scoped to this connector land in a follow-up.</Empty>
       ) : tab === 'history' ? (

@@ -155,7 +155,16 @@ export function DataHubPage(): React.ReactElement {
             {step.kind === 'add' ? (
               <AddConnector onPick={(source) => setStep({ kind: 'connect', source })} />
             ) : step.kind === 'connect' ? (
-              <ConnectorCredentials sourceLabel={step.source.label} />
+              <ConnectorCredentials
+                source={step.source}
+                onProvisioned={async (connectorId) => {
+                  // Refresh the workspace connector list, then open the new one.
+                  const res = await onboardingClient.connectors();
+                  setConnectors(res.connectors);
+                  const c = res.connectors.find((x) => x.id === connectorId);
+                  setStep(c ? { kind: 'detail', connector: c } : { kind: 'list' });
+                }}
+              />
             ) : loading ? (
               <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading connectors…</div>
             ) : error ? (

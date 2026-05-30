@@ -13,6 +13,7 @@ export interface Connector {
   id: string;
   label: string;
   workspaceId: string;
+  sourceType: string;
   catalog: string;
   host: string;
   configured: boolean;
@@ -21,6 +22,63 @@ export interface Connector {
 export interface ConnectorsResponse {
   configured: boolean;
   connectors: Connector[];
+}
+
+// ── Source types (drives the dynamic connect form) ──────────────────────────
+export type SourceFieldType = 'text' | 'password' | 'number' | 'boolean' | 'select' | 'file';
+
+export interface SourceField {
+  key: string;
+  label: string;
+  type: SourceFieldType;
+  required: boolean;
+  secret?: boolean;
+  placeholder?: string;
+  default?: string | number | boolean;
+  options?: Array<{ value: string; label: string }>;
+  help?: string;
+}
+
+export interface SourceType {
+  id: string;
+  label: string;
+  category: 'warehouse' | 'mmp' | 'adnetworks' | 'others';
+  driverType: string;
+  fields: SourceField[];
+  caps: { introspect: boolean; sameSourceJoins: boolean; crossSourceRollupJoin: boolean };
+}
+
+export interface TestConnectorResult {
+  ok: boolean;
+  latencyMs?: number;
+  code?: string;
+  message?: string;
+}
+
+export interface ProvisionConnectorResult {
+  connector: Connector | null;
+  liveTested: boolean;
+  note?: string;
+}
+
+// ── Existing model (read-only worked example) ───────────────────────────────
+export interface ExistingDimension { name: string; type: string; sql?: string; primaryKey?: boolean; description?: string }
+export interface ExistingMeasure { name: string; type: string; sql?: string; description?: string }
+export interface ExistingJoin { name: string; relationship: string; sql: string }
+export interface ExistingCube {
+  name: string;
+  sqlTable: string;
+  title?: string;
+  description?: string;
+  file: string;
+  dimensions: ExistingDimension[];
+  measures: ExistingMeasure[];
+  joins: ExistingJoin[];
+}
+export interface ExistingModel {
+  game: string;
+  configured: boolean;
+  cubes: ExistingCube[];
 }
 
 // ── Introspection ─────────────────────────────────────────────────────────────
@@ -156,6 +214,33 @@ export interface GenerateInput {
 export const onboardingClient = {
   connectors(): Promise<ConnectorsResponse> {
     return apiFetch<ConnectorsResponse>('/api/onboarding/connectors');
+  },
+
+  sourceTypes(): Promise<{ sourceTypes: SourceType[] }> {
+    return apiFetch<{ sourceTypes: SourceType[] }>('/api/onboarding/source-types');
+  },
+
+  exampleModel(game: string): Promise<ExistingModel> {
+    return apiFetch<ExistingModel>('/api/onboarding/example-model', { query: { game } });
+  },
+
+  testConnector(sourceType: string, fields: Record<string, unknown>): Promise<TestConnectorResult> {
+    return apiFetch<TestConnectorResult>('/api/onboarding/connectors/test', {
+      method: 'POST',
+      body: { sourceType, fields },
+    });
+  },
+
+  provisionConnector(input: {
+    label: string;
+    sourceType: string;
+    workspaceId?: string;
+    fields: Record<string, unknown>;
+  }): Promise<ProvisionConnectorResult> {
+    return apiFetch<ProvisionConnectorResult>('/api/onboarding/connectors', {
+      method: 'POST',
+      body: input,
+    });
   },
 
   introspect(opts: { connectorId: string; schema?: string; game?: string }): Promise<IntrospectResponse> {

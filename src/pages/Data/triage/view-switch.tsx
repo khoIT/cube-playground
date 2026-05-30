@@ -8,24 +8,27 @@ import { ReactElement, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { getPref, setPref, subscribe } from '../../../hooks/server-prefs-store';
 
-export type TriageView = 'queue' | 'graph' | 'chat';
+export type TriageView = 'builder' | 'queue' | 'graph' | 'chat';
 
 const PREF_KEY = 'onboarding.triageView';
 
+const VALID_VIEWS = new Set<TriageView>(['builder', 'queue', 'graph', 'chat']);
+
 const VIEWS: Array<{ id: TriageView; label: string }> = [
-  { id: 'queue', label: 'A · Queue + YAML' },
-  { id: 'graph', label: 'B · Entity graph' },
-  { id: 'chat', label: 'C · Conversational' },
+  { id: 'builder', label: 'Builder' },
+  { id: 'queue', label: 'Queue + YAML' },
+  { id: 'graph', label: 'Entity graph' },
+  { id: 'chat', label: 'Conversational' },
 ];
 
 function defaultForRole(role: string | undefined): TriageView {
   if (role === 'viewer') return 'chat'; // least-technical default
-  return 'queue';
+  return 'builder'; // guided step-by-step is the default entry point
 }
 
 function readView(role: string | undefined): TriageView {
-  const stored = getPref(PREF_KEY);
-  if (stored === 'queue' || stored === 'graph' || stored === 'chat') return stored;
+  const stored = getPref(PREF_KEY) as TriageView | null;
+  if (stored && VALID_VIEWS.has(stored)) return stored;
   return defaultForRole(role);
 }
 

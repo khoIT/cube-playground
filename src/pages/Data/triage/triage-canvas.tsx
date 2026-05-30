@@ -11,6 +11,7 @@ import { Sparkles } from 'lucide-react';
 import { useAuthUser } from '../../../auth/auth-context';
 import { useOnboardingDraft } from '../use-onboarding-draft';
 import { ViewSwitch, useTriageView } from './view-switch';
+import { ViewBuilder } from './view-builder';
 import { ViewQueue } from './view-queue';
 import { ViewGraph } from './view-graph';
 import { ViewChat } from './view-chat';
@@ -148,8 +149,10 @@ export function TriageCanvas({ draftId }: Props): ReactElement {
         <ViewGraph state={state} canWrite={canWrite} />
       ) : view === 'chat' ? (
         <ViewChat state={state} canWrite={canWrite} />
-      ) : (
+      ) : view === 'queue' ? (
         <ViewQueue state={state} canWrite={canWrite} />
+      ) : (
+        <ViewBuilder state={state} canWrite={canWrite} />
       )}
     </>
   );

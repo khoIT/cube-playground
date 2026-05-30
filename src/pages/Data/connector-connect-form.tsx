@@ -1,17 +1,18 @@
 /**
- * Connector connection form. HONEST v1: connectors are config-seeded
- * server-side (no live provisioning endpoint), so this is a request/preview
- * form. Fields are present + editable but "Connect & profile" is disabled with
- * a tooltip until a provisioning endpoint ships; the copy makes the read-only,
- * server-side-secrets posture explicit. Styling via tokens; card per §5.
+ * Connector connection form. Renders fields dynamically from the source-type
+ * registry (GET /source-types), tests the connection, and provisions a real
+ * connector (secrets POSTed, sealed server-side, never echoed). On success the
+ * parent routes into the connector detail / introspect flow.
  *
  * (Named connector-connect-form rather than -credentials so the repo's privacy
  * hook doesn't false-positive the filename; the exported component keeps the
  * spec's name.)
  */
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { onboardingClient } from '../../api/onboarding-client';
+import type { SourceField, SourceType, TestConnectorResult } from '../../api/onboarding-client';
 
 const Card = styled.div`
   background: var(--bg-card);
@@ -26,17 +27,17 @@ const Field = styled.label`
   gap: 6px;
   margin-bottom: 14px;
 `;
-const FieldRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-`;
 const Label = styled.span`
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
 `;
-const Input = styled.input`
+const Hint = styled.span`
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+`;
+const inputCss = `
   height: 36px;
   padding: 0 10px;
   border: 1px solid var(--border-card);
@@ -45,14 +46,24 @@ const Input = styled.input`
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 13px;
-  &:focus {
-    outline: none;
-    border-color: var(--brand);
-  }
+`;
+const Input = styled.input`
+  ${inputCss}
+  &:focus { outline: none; border-color: var(--brand); }
+`;
+const CheckRow = styled.label`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  cursor: pointer;
 `;
 const Actions = styled.div`
   display: flex;
   gap: 10px;
+  align-items: center;
   margin-top: 6px;
 `;
 const SecondaryBtn = styled.button`
@@ -68,14 +79,8 @@ const SecondaryBtn = styled.button`
   font-weight: 500;
   padding: 8px 14px;
   cursor: pointer;
-  &:hover {
-    border-color: var(--brand);
-    color: var(--brand);
-  }
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+  &:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 const PrimaryBtn = styled.button`
   display: inline-flex;
@@ -90,10 +95,19 @@ const PrimaryBtn = styled.button`
   font-weight: 600;
   padding: 8px 16px;
   cursor: pointer;
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+`;
+const Banner = styled.div<{ $tone: 'info' | 'success' | 'warning' | 'destructive' }>`
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--${(p) => p.$tone}-soft);
+  color: var(--${(p) => p.$tone}-ink);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+  max-width: 560px;
 `;
 const FootNote = styled.p`
   margin: 16px 0 0;
@@ -101,70 +115,132 @@ const FootNote = styled.p`
   color: var(--text-muted);
   text-align: center;
 `;
-const Banner = styled.div`
-  display: flex;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  background: var(--info-soft);
-  color: var(--info-ink);
-  font-size: 12.5px;
-  line-height: 1.5;
-  margin-bottom: 18px;
-  max-width: 560px;
-`;
 
 interface Props {
-  sourceLabel: string;
+  source: { id: string; label: string };
+  onProvisioned: (connectorId: string) => void;
 }
 
-export function ConnectorCredentials({ sourceLabel }: Props): ReactElement {
-  const [name, setName] = useState('');
-  const [host, setHost] = useState('');
-  const [catalog, setCatalog] = useState('');
-  const [user, setUser] = useState('');
-  const [secret, setSecret] = useState('');
+export function ConnectorCredentials({ source, onProvisioned }: Props): ReactElement {
+  const [sourceType, setSourceType] = useState<SourceType | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [name, setName] = useState(`${source.label} connection`);
+  const [values, setValues] = useState<Record<string, unknown>>({});
+  const [test, setTest] = useState<TestConnectorResult | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    onboardingClient
+      .sourceTypes()
+      .then((res) => {
+        if (!alive) return;
+        const st = res.sourceTypes.find((s) => s.id === source.id) ?? null;
+        setSourceType(st);
+        if (st) {
+          const defaults: Record<string, unknown> = {};
+          for (const f of st.fields) if (f.default !== undefined) defaults[f.key] = f.default;
+          setValues(defaults);
+        }
+      })
+      .catch((e) => alive && setLoadErr((e as Error).message));
+    return () => {
+      alive = false;
+    };
+  }, [source.id]);
+
+  const requiredFilled = useMemo(() => {
+    if (!sourceType) return false;
+    return sourceType.fields.every((f) => !f.required || hasValue(values[f.key]));
+  }, [sourceType, values]);
+
+  function set(key: string, v: unknown) {
+    setValues((prev) => ({ ...prev, [key]: v }));
+    setTest(null); // any field edit invalidates a prior test result
+  }
+
+  async function runTest() {
+    if (!sourceType) return;
+    setTesting(true);
+    setError(null);
+    try {
+      setTest(await onboardingClient.testConnector(sourceType.id, values));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function provision() {
+    if (!sourceType) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await onboardingClient.provisionConnector({
+        label: name.trim() || source.label,
+        sourceType: sourceType.id,
+        fields: values,
+      });
+      if (res.connector) onProvisioned(res.connector.id);
+      else setError('Provisioning returned no connector.');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loadErr) {
+    return <Banner $tone="destructive"><AlertTriangle size={16} /> Could not load source types: {loadErr}</Banner>;
+  }
+  if (!sourceType) {
+    return (
+      <Banner $tone="warning">
+        <AlertTriangle size={16} />
+        {source.label} isn’t available for self-serve connect yet — warehouses (Trino, Postgres,
+        BigQuery…) are supported first; MMP / ad-network sources are coming.
+      </Banner>
+    );
+  }
 
   return (
     <>
-      <Banner>
-        New connectors are provisioned by a platform admin server-side — secrets never reach the
-        browser. Fill this in to request a {sourceLabel} source; live self-serve provisioning lands
-        in a follow-up.
+      <Banner $tone="info">
+        Credentials are sealed server-side (AES-GCM) and never returned to the browser. We use them
+        only to introspect &amp; profile — read-only.
       </Banner>
       <Card>
         <Field>
           <Label>Connection name</Label>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Production analytics" />
         </Field>
-        <Field>
-          <Label>Host</Label>
-          <Input value={host} onChange={(e) => setHost(e.target.value)} placeholder="trino.internal:8443" />
-        </Field>
-        <FieldRow>
-          <Field>
-            <Label>Catalog</Label>
-            <Input value={catalog} onChange={(e) => setCatalog(e.target.value)} placeholder="game_integration" />
-          </Field>
-          <Field>
-            <Label>User</Label>
-            <Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="svc_playground" />
-          </Field>
-        </FieldRow>
-        <Field>
-          <Label>Secret / key</Label>
-          <Input
-            type="password"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            placeholder="••••••••••••"
-          />
-        </Field>
+
+        {sourceType.fields.map((f) => renderField(f, values[f.key], (v) => set(f.key, v)))}
+
+        {test && (
+          <Banner $tone={test.ok ? 'success' : 'warning'} style={{ marginTop: 4 }}>
+            {test.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+            {test.ok
+              ? `Connection OK${test.latencyMs != null ? ` · ${test.latencyMs}ms` : ''}`
+              : `${test.code ?? 'Test failed'}: ${test.message ?? 'unable to connect'}`}
+          </Banner>
+        )}
+        {error && (
+          <Banner $tone="destructive" style={{ marginTop: 4 }}>
+            <AlertTriangle size={16} /> {error}
+          </Banner>
+        )}
+
         <Actions>
-          <SecondaryBtn type="button" disabled title="Provisioning endpoint not available in v1">
+          <SecondaryBtn type="button" onClick={runTest} disabled={!requiredFilled || testing}>
+            {testing ? <Loader2 size={14} className="spin" /> : null}
             Test connection
           </SecondaryBtn>
-          <PrimaryBtn type="button" disabled title="Self-serve provisioning is coming soon">
+          <PrimaryBtn type="button" onClick={provision} disabled={!requiredFilled || submitting}>
+            {submitting ? <Loader2 size={14} /> : null}
             Connect &amp; profile
             <ArrowRight size={14} />
           </PrimaryBtn>
@@ -172,5 +248,52 @@ export function ConnectorCredentials({ sourceLabel }: Props): ReactElement {
       </Card>
       <FootNote>Read-only · statement timeout enforced · secrets never returned to the browser</FootNote>
     </>
+  );
+}
+
+function hasValue(v: unknown): boolean {
+  return v !== undefined && v !== null && v !== '';
+}
+
+function renderField(f: SourceField, value: unknown, onChange: (v: unknown) => void): ReactElement {
+  if (f.type === 'boolean') {
+    return (
+      <CheckRow key={f.key}>
+        <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />
+        {f.label}
+      </CheckRow>
+    );
+  }
+  if (f.type === 'file') {
+    return (
+      <Field key={f.key}>
+        <Label>
+          {f.label}
+          {f.help ? <Hint> — {f.help}</Hint> : null}
+        </Label>
+        <Input
+          type="file"
+          accept="application/json"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            onChange(file ? await file.text() : '');
+          }}
+        />
+      </Field>
+    );
+  }
+  return (
+    <Field key={f.key}>
+      <Label>
+        {f.label}
+        {f.help ? <Hint> — {f.help}</Hint> : null}
+      </Label>
+      <Input
+        type={f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text'}
+        value={value === undefined || value === null ? '' : String(value)}
+        placeholder={f.placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </Field>
   );
 }
