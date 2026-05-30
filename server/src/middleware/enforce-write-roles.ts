@@ -29,6 +29,7 @@ const PROTECTED_PREFIXES = [
   '/api/user-prefs',
   '/api/business-metrics',
   '/api/analyses',
+  '/api/onboarding',
 ];
 
 function authDisabled(): boolean {

@@ -33,6 +33,7 @@ import glossaryRoutes from './routes/glossary.js';
 import dashboardsRoutes from './routes/dashboards.js';
 import liveopsRoutes from './routes/liveops.js';
 import settingsRoutes from './routes/settings.js';
+import onboardingRoutes from './routes/onboarding.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
@@ -81,6 +82,7 @@ export async function buildApp() {
   await app.register(dashboardsRoutes);
   await app.register(liveopsRoutes);
   await app.register(settingsRoutes);
+  await app.register(onboardingRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.
