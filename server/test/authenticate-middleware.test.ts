@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from '../src/index.js';
 import { setDb, closeDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
+import { __resetAccessCache } from '../src/auth/access-store.js';
+import { upsertUserAccess, setGames } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -91,12 +93,17 @@ describe('authenticate middleware', () => {
       expect(res.statusCode).toBe(401);
     });
 
-    it('/api/auth/me returns the verified user for a valid JWT', async () => {
+    it('/api/auth/me returns the DB-authoritative user for a valid JWT', async () => {
+      // DB-authoritative authz: role + grants come from the access store keyed
+      // by email, not from the client-held JWT.
+      __resetAccessCache();
+      upsertUserAccess({ email: 'editor@corp.com', role: 'editor', status: 'active' });
+      setGames('editor@corp.com', ['ballistar', 'cfm_vn']);
       const token = await signAppJwt({
         sub: 'kc-uuid-editor',
         username: 'editor',
+        email: 'editor@corp.com',
         role: 'editor',
-        allowedGames: ['ballistar', 'cfm_vn'],
       });
       const res = await app.inject({
         method: 'GET',
@@ -105,13 +112,27 @@ describe('authenticate middleware', () => {
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.user).toEqual({
-        id: 'kc-uuid-editor',
-        username: 'editor',
-        email: undefined,
-        role: 'editor',
-        allowedGames: ['ballistar', 'cfm_vn'],
+      expect(body.user.id).toBe('kc-uuid-editor');
+      expect(body.user.email).toBe('editor@corp.com');
+      expect(body.user.role).toBe('editor');
+      expect((body.user.allowedGames as string[]).sort()).toEqual(['ballistar', 'cfm_vn']);
+      expect(body.user.features.admin).toBe(false);
+    });
+
+    it('/api/auth/me 401s for a valid JWT whose email has no active grant', async () => {
+      __resetAccessCache();
+      const token = await signAppJwt({
+        sub: 'kc-uuid-nobody',
+        username: 'nobody',
+        email: 'nobody@corp.com',
+        role: 'admin', // role in the token is NOT trusted — DB has no row
       });
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/me',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(res.statusCode).toBe(401);
     });
   });
 });

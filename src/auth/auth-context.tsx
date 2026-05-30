@@ -39,6 +39,9 @@ export interface AuthUser {
   email?: string;
   role: 'viewer' | 'editor' | 'admin';
   allowedGames: string[];
+  /** Resolved feature map (key → enabled), DB-authoritative. Optional for
+   *  back-compat with older /me payloads; absent → treat as no overrides. */
+  features?: Record<string, boolean>;
 }
 
 interface KeycloakConfig {
@@ -55,6 +58,8 @@ type AuthState =
   | { status: 'disabled'; user: AuthUser }
   | { status: 'authenticated'; user: AuthUser; keycloak: KeycloakConfig }
   | { status: 'unauthenticated'; keycloak: KeycloakConfig }
+  // Authenticated with the IdP but not authorized in the app DB (default-deny).
+  | { status: 'pending'; keycloak: KeycloakConfig }
   | { status: 'error'; message: string };
 
 interface AuthContextValue {
@@ -122,16 +127,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isCallback = url.pathname === CALLBACK_PATH && url.searchParams.has('code');
       if (config.enabled && isCallback) {
         const code = url.searchParams.get('code')!;
-        const res = await fetchJson<CallbackResponse>('/api/auth/keycloak/callback', {
+        const res = await fetch('/api/auth/keycloak/callback', {
           method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, redirectUri: callbackRedirectUri() }),
         });
-        writeAppToken(res.token);
-        // Strip ?code= and bounce back into the app shell. replaceState avoids
-        // a "code-still-in-URL" reload loop if the user uses browser-back.
+        // Strip ?code= regardless of outcome so a refresh doesn't replay it.
         window.history.replaceState(null, '', '/');
         window.location.hash = '#/';
-        setState({ status: 'authenticated', user: res.user, keycloak: config });
+        // Default-deny: authenticated with the IdP but no active app grant.
+        if (res.status === 403) {
+          setState({ status: 'pending', keycloak: config });
+          return;
+        }
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(`/api/auth/keycloak/callback ${res.status} ${text.slice(0, 200)}`);
+        }
+        const data = (await res.json()) as CallbackResponse;
+        writeAppToken(data.token);
+        setState({ status: 'authenticated', user: data.user, keycloak: config });
         return;
       }
 
@@ -189,8 +204,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* server logout is a no-op anyway */
     }
     // For SSO sessions, also end the KC session so the next login isn't
-    // silently re-bound to the same user via the KC SSO cookie.
-    if (state.status === 'authenticated') {
+    // silently re-bound to the same user via the KC SSO cookie. Pending users
+    // log out too so they can retry with a different corporate account.
+    if (state.status === 'authenticated' || state.status === 'pending') {
       const params = new URLSearchParams({
         client_id: state.keycloak.clientId,
         post_logout_redirect_uri: window.location.origin,

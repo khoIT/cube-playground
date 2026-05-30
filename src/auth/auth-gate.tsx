@@ -30,7 +30,7 @@ const overlayStyle: React.CSSProperties = {
 };
 
 export function AuthGate({ children }: AuthGateProps) {
-  const { state, loginWithKeycloak } = useAuth();
+  const { state, loginWithKeycloak, logout } = useAuth();
 
   if (state.status === 'loading') {
     return (
@@ -59,6 +59,33 @@ export function AuthGate({ children }: AuthGateProps) {
           }}
         >
           Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (state.status === 'pending') {
+    return (
+      <div style={overlayStyle}>
+        <div style={{ fontSize: 20, fontWeight: 700 }}>Access pending</div>
+        <div style={{ fontSize: 14, opacity: 0.7, maxWidth: 380, textAlign: 'center' }}>
+          You&apos;re signed in, but your account hasn&apos;t been granted access yet. An
+          administrator has been notified — please check back once your request is approved.
+        </div>
+        <button
+          type="button"
+          onClick={() => void logout()}
+          style={{
+            padding: '10px 18px',
+            border: '1px solid var(--border-card, #ccc)',
+            background: 'transparent',
+            color: 'var(--text-primary, #111)',
+            borderRadius: 'var(--radius-md, 6px)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Sign in with a different account
         </button>
       </div>
     );

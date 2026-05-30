@@ -21,6 +21,8 @@ import fp from 'fastify-plugin';
 
 import { verifyAppJwt } from '../services/app-jwt.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
+import { getAccess } from '../auth/access-store.js';
+import { FEATURE_KEYS } from '../auth/feature-keys.js';
 
 export interface AuthenticatedUser {
   id: string;
@@ -29,6 +31,10 @@ export interface AuthenticatedUser {
   role: 'viewer' | 'editor' | 'admin';
   /** Game ids the user is allowed to operate on. Empty = no per-game restriction. */
   allowedGames: string[];
+  /** Workspace ids granted to the user. Empty = fall back to role gate. */
+  workspaces: string[];
+  /** Resolved feature map (key → enabled), DB-authoritative. */
+  features: Record<string, boolean>;
 }
 
 declare module 'fastify' {
@@ -59,6 +65,11 @@ function devUser(): AuthenticatedUser {
     username: 'dev',
     role: 'admin',
     allowedGames,
+    // Dev admin sees every workspace + feature. Empty workspaces fall through
+    // to the role gate (admin → all); features are all-on so the FE shows every
+    // section (incl. the default-off admin page) in local dev.
+    workspaces: [],
+    features: Object.fromEntries(FEATURE_KEYS.map((k) => [k, true])),
   };
 }
 
@@ -82,13 +93,26 @@ async function authenticatePlugin(app: FastifyInstance): Promise<void> {
       if (token) {
         try {
           const claims = await verifyAppJwt(token);
-          request.user = {
-            id: claims.sub,
-            username: claims.username,
-            email: claims.email,
-            role: claims.role,
-            allowedGames: Array.isArray(claims.allowedGames) ? claims.allowedGames : [],
-          };
+          // DB-authoritative authz: resolve role + grants from the access store
+          // per request (not from the client-held JWT). This makes revocation
+          // and grant edits take effect within the cache TTL, and default-denies
+          // a user whose row was removed or set pending/disabled mid-session.
+          const access = claims.email ? getAccess(claims.email) : null;
+          if (access && access.status === 'active') {
+            request.user = {
+              id: claims.sub,
+              username: claims.username,
+              email: claims.email,
+              role: access.role,
+              allowedGames: access.games,
+              workspaces: access.workspaces,
+              features: access.features,
+            };
+            request.owner = claims.sub;
+            return;
+          }
+          // Authenticated but unauthorized (no/inactive grant). Leave req.user
+          // undefined → protected routes 401/403. owner still set for audit.
           request.owner = claims.sub;
           return;
         } catch {

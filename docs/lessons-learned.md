@@ -148,6 +148,22 @@ Format per lesson:
 
 ---
 
+## Auth / Authz
+
+### Authenticate ≠ authorize — a brokered IdP needs an app-side default-deny
+- **Rule:** when login is brokered through a corporate IdP (Keycloak → Microsoft/Entra) with JIT user creation, authentication proves identity for the *whole tenant*. Authorization must live in a writable app store keyed by a stable identifier (lowercased email), default-deny: no active grant ⇒ no access, even with a valid token.
+- **Why:** prod login moved to KC→Microsoft. The old role/`allowedGames` claims were derived from KC realm-roles/groups, which are **empty** for brokered JIT users — so every real user would have authenticated successfully and resolved to an empty/viewer grant silently. The fix moved role + workspace/game/feature grants into `user_access` (+ `user_*_access`, `feature_flags`) and made the login callback mint a privileged JWT only for `status='active'` rows; unknown/pending/disabled → `403 ACCESS_PENDING` + an auto-created pending row for the admin queue.
+- **Signal:** users can log in but see nothing / everything depending on a claim that's empty; role/group claims you relied on are absent under brokering; "it worked in the local realm" but not in prod.
+- **Apply:** resolve role + grants from the DB per request (`getAccess(email)` in `authenticate.ts`), not from the client-held JWT — this also gives mid-session revocation within the cache TTL. Keep an env-gated bootstrap-admin seed (`AUTH_BOOTSTRAP_ADMINS`) so the first deploy isn't locked out. Never trust role/games from the signed token; the JWT carries identity only.
+
+### Scope game access server-side — an FE-only filter is not enforcement
+- **Rule:** per-user game (tenant) access must be checked on the server for every request that names a game, and the minted Cube token must carry the *real* user's key so the downstream Cube also enforces it. An FE switcher that hides games is cosmetic — a crafted request bypasses it.
+- **Why:** the minted path signed Cube JWTs with a blanket `userId:'playground'` (allowlisted for all games), so per-user game limits existed only in the FE `use-game-context` filter. Anyone could hit `/load` with `x-cube-game=<other>` directly. Fix: `workspace-header.ts` 403s `GAME_FORBIDDEN` when the requested game isn't in the user's grants, and mints the Cube token with `userId=<email>` so cube-dev's `checkAuth` (`auth-db.js` → internal access API) re-enforces it.
+- **Signal:** access control that only appears in client code (a dropdown filter, a hidden nav item); a server endpoint that trusts a client-sent game/workspace id without re-checking grants; tokens minted under a shared service principal for per-user data.
+- **Apply:** gate at the request boundary, fail closed (deny on missing/ambiguous grant), and align the token `userId` contract across services so the second hop (Cube) enforces independently. Test through the proxy (`:3004`), not just Cube (`:3005`). A migration `AUTHZ_GRANT_FALLBACK` flag may relax empty-grant users to role-based defaults during rollout; flip it OFF once grants are seeded so the gate fails closed.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

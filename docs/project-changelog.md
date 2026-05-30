@@ -2,6 +2,17 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-30 — DB-authoritative authz + Microsoft SSO + admin access page
+
+Demoted Keycloak to authentication-only (brokers Microsoft/Entra OIDC in prod) and moved authorization into the app DB with default-deny. Plan: `plans/260530-0219-db-authz-microsoft-sso-admin-page/`. Tests: server 351 (all pass).
+
+- **DB-authoritative authz.** New tables (`migration 019`): `user_access` (role + `pending|active|disabled` + `kc_sub`, keyed by lowercased email), `user_workspace_access`, `user_game_access`, `feature_flags`. `access-store.ts` resolves all grants for an email behind a short TTL cache; mutators invalidate on write and guard the last active admin. Role + grants are resolved **per request** from the DB (`authenticate.ts`), not from the client JWT — revocation takes effect within `ACCESS_CACHE_TTL_MS`.
+- **Default-deny login.** `/api/auth/keycloak/callback` mints a privileged JWT only for `status='active'` emails; unknown/pending/disabled → `403 ACCESS_PENDING` + an auto-created pending row for the admin queue + KC `sub` reconciled. JWT now carries identity only (`allowedGames` claim dropped). FE shows a "request access" screen.
+- **Server-side game enforcement.** `workspace-header.ts` 403s `GAME_FORBIDDEN` when a requested game isn't in the user's grants and mints the Cube token with `userId=email` so cube-dev's `checkAuth` re-enforces it (closes the FE-only gap). Workspace gate moved from per-role-config to per-user grants (role fallback via `AUTHZ_GRANT_FALLBACK` during migration). Feature gate (`require-feature.ts`) is real server enforcement, not cosmetic.
+- **Admin access API + UI.** `/api/admin/*` (router-scoped `requireRole('admin')` + `requireFeature('admin')`, audited via `access_audit`, migration 020) lists users and toggles role/status/workspace/game/feature grants + pre-provision by email. New admin-only page `/admin/access` (master-detail, design-token compliant).
+- **cube-dev shared authz source.** `cube/auth-db.js` now queries the playground's `GET /internal/access/:key` (shared secret, TTL cache, fail-closed) instead of the static JSON, with file fallback for local dev.
+- **Cutover safety.** `AUTH_BOOTSTRAP_ADMINS` env seeds active admins on boot. See `docs/deployment-guide.md` for env + rollout. **Deferred (devops):** KC Microsoft IdP realm config, prod redirect URIs, staging rollout dry-run, flip `AUTHZ_GRANT_FALLBACK` off after seeding.
+
 ## 2026-05-27 — glossary resolver consolidation
 
 Unified metric resolution from catalog terms into a single load-normalized resolver layer. Plan: `plans/260527-1306-glossary-resolver-consolidation/`.

@@ -8,6 +8,8 @@ import { buildApp } from '../src/index.js';
 import { setDb, closeDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetWorkspacesConfigCache } from '../src/services/workspaces-config-loader.js';
+import { __resetAccessCache } from '../src/auth/access-store.js';
+import { upsertUserAccess, setGames } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -24,28 +26,26 @@ function makeMemDb() {
 const JWT_SECRET = 'test-jwt-secret-must-be-at-least-16-chars';
 
 async function viewerToken(): Promise<string> {
-  return signAppJwt({
-    sub: 'viewer-1',
-    username: 'viewer',
-    role: 'viewer',
-    allowedGames: ['ballistar'],
-  });
+  return signAppJwt({ sub: 'viewer-1', username: 'viewer', email: 'viewer@corp.com', role: 'viewer' });
 }
 async function editorToken(): Promise<string> {
-  return signAppJwt({
-    sub: 'editor-1',
-    username: 'editor',
-    role: 'editor',
-    allowedGames: ['ballistar', 'cfm_vn'],
-  });
+  return signAppJwt({ sub: 'editor-1', username: 'editor', email: 'editor@corp.com', role: 'editor' });
 }
 async function adminToken(): Promise<string> {
-  return signAppJwt({
-    sub: 'admin-1',
-    username: 'admin',
-    role: 'admin',
-    allowedGames: ['ptg', 'ballistar', 'cfm_vn', 'cros', 'jus_vn'],
-  });
+  return signAppJwt({ sub: 'admin-1', username: 'admin', email: 'admin@corp.com', role: 'admin' });
+}
+
+// Seed DB-authoritative grants (role from DB now). No per-user workspace grants
+// → the workspace gate falls back to the role check, preserving the role-based
+// behavior these assertions cover.
+function seedAccess(): void {
+  __resetAccessCache();
+  upsertUserAccess({ email: 'viewer@corp.com', role: 'viewer', status: 'active' });
+  setGames('viewer@corp.com', ['ballistar']);
+  upsertUserAccess({ email: 'editor@corp.com', role: 'editor', status: 'active' });
+  setGames('editor@corp.com', ['ballistar', 'cfm_vn']);
+  upsertUserAccess({ email: 'admin@corp.com', role: 'admin', status: 'active' });
+  setGames('admin@corp.com', ['ptg', 'ballistar', 'cfm_vn', 'cros', 'jus_vn']);
 }
 
 describe('Phase 6.4 RBAC enforcement', () => {
@@ -57,6 +57,7 @@ describe('Phase 6.4 RBAC enforcement', () => {
     process.env.JWT_SECRET = JWT_SECRET;
     __resetWorkspacesConfigCache();
     setDb(makeMemDb());
+    seedAccess();
     app = await buildApp();
   });
 

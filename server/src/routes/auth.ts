@@ -16,12 +16,10 @@ import { z } from 'zod';
 
 import { getDb } from '../db/sqlite.js';
 import { signAppJwt } from '../services/app-jwt.js';
-import {
-  exchangeKeycloakCode,
-  extractAllowedGames,
-  resolveAppRole,
-} from '../services/keycloak-token-exchange.js';
+import { exchangeKeycloakCode } from '../services/keycloak-token-exchange.js';
 import { upsertUser } from '../services/users-store.js';
+import { getAccess } from '../auth/access-store.js';
+import { ensurePendingUser, reconcileSub } from '../auth/access-store-mutators.js';
 
 const callbackBody = z.object({
   code: z.string().min(1),
@@ -76,23 +74,41 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: 'Keycloak code exchange failed' });
     }
 
-    const role = resolveAppRole(claims.realm_access?.roles);
-    const allowedGames = extractAllowedGames(claims.groups);
     const username = claims.preferred_username ?? claims.sub;
+    const email = claims.email;
 
-    upsertUser(getDb(), {
-      id: claims.sub,
-      username,
-      email: claims.email,
-      role,
-    });
+    // Default-deny: authentication (KC/Microsoft) does NOT imply authorization.
+    // Without an email we cannot key the grant, and without an active grant the
+    // user is authenticated-but-unauthorized.
+    if (!email) {
+      return reply.status(403).send({ error: 'ACCESS_PENDING', reason: 'no_email' });
+    }
+
+    const access = getAccess(email);
+    if (!access || access.status !== 'active') {
+      // Auto-create a pending row (reconciles sub) so the user surfaces in the
+      // admin approval queue. No privileged JWT is minted.
+      ensurePendingUser(email, claims.sub);
+      // Audit the login attempt (role mirrors the pending/known row).
+      upsertUser(getDb(), {
+        id: claims.sub,
+        username,
+        email,
+        role: access?.role ?? 'viewer',
+      });
+      const status = access?.status ?? 'pending';
+      return reply.status(403).send({ error: 'ACCESS_PENDING', status });
+    }
+
+    // Active user → reconcile sub, audit, mint app JWT with DB role.
+    if (!access.kcSub) reconcileSub(email, claims.sub);
+    upsertUser(getDb(), { id: claims.sub, username, email, role: access.role });
 
     const token = await signAppJwt({
       sub: claims.sub,
       username,
-      email: claims.email,
-      role,
-      allowedGames,
+      email,
+      role: access.role,
     });
 
     return {
@@ -100,9 +116,9 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       user: {
         id: claims.sub,
         username,
-        email: claims.email,
-        role,
-        allowedGames,
+        email,
+        role: access.role,
+        allowedGames: access.games,
       },
     };
   });

@@ -8,8 +8,9 @@
  *
  * Why mint our own:
  *   - We never expose KC tokens to the browser (matches reference pattern).
- *   - We can embed app-derived fields (allowedGames, owner-id) without
- *     coupling the client to KC token shape.
+ *   - We embed only stable identity + role; authorization grants (games,
+ *     workspaces, features) are resolved server-side per request from the DB
+ *     access store, never trusted from this client-held token.
  *   - Rotation is trivial — change JWT_SECRET and every user re-logs in.
  */
 
@@ -23,9 +24,8 @@ export interface AppJwtClaims extends JWTPayload {
   sub: string;
   username: string;
   email?: string;
+  /** Role at mint time, sourced from the DB access store (not KC claims). */
   role: 'viewer' | 'editor' | 'admin';
-  /** Game ids the user can access; derived from KC `/games/*` groups. */
-  allowedGames: string[];
 }
 
 function secretBytes(): Uint8Array {

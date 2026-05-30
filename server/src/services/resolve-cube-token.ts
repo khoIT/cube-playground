@@ -102,7 +102,11 @@ export function resolveCubeTokenForGame(gameId: string): string | null {
 export function resolveCubeTokenForWorkspace(
   workspace: WorkspaceDef,
   gameId: string | null,
+  userId?: string,
 ): ResolvedCubeToken {
+  // Prefer the real user's stable key (email) so cube-dev's checkAuth can
+  // resolve per-user game access; fall back to the service principal.
+  const principal = userId && userId.length > 0 ? userId : playgroundUserId();
   switch (workspace.authMode) {
     case 'none':
       return { token: null, source: 'none' };
@@ -124,15 +128,18 @@ export function resolveCubeTokenForWorkspace(
     case 'minted': {
       const secret = process.env.CUBEJS_API_SECRET;
       if (!secret || secret.length === 0) {
-        // No secret configured — preserve legacy fallback path to keep dev unblocked.
+        // No secret configured (misconfigured/dev). We cannot mint a per-user
+        // token here, so fall back to operator-provided env tokens only. We do
+        // NOT substitute the service principal for a real user — minting under
+        // the user's key requires the secret (handled below).
         if (gameId) return resolveCubeTokenForGameDetailed(gameId);
         const fallback = process.env.CUBE_TOKEN;
         if (fallback) return { token: fallback, source: 'fallback' };
         return { token: null, source: 'none' };
       }
       const claims = gameId
-        ? { game: gameId, userId: playgroundUserId() }
-        : { userId: playgroundUserId() };
+        ? { game: gameId, userId: principal }
+        : { userId: principal };
       return { token: signCubeToken(claims, secret), source: 'minted' };
     }
   }

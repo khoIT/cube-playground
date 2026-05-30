@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -22,6 +22,7 @@ import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
 import { useBusinessMetrics } from '../../pages/Catalog/metrics-tab/use-business-metrics';
 import { useConcepts } from '../../pages/Catalog/data-model-tab/use-concepts';
 import { useSegmentIds } from '../../pages/Segments/use-segment-ids';
+import { useAuthUser } from '../../auth/auth-context';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -30,6 +31,11 @@ export function Sidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsedState] = React.useState<boolean>(() => getCollapsed());
   const { isVisible } = useVisibleNavItems();
+  // Admin-only "Access" entry. Gated purely by admin status (role or feature),
+  // not by the cosmetic useVisibleNavItems blocklist.
+  const authUser = useAuthUser();
+  // Match the server's necessary condition (admin API requires role 'admin').
+  const isAdmin = authUser?.role === 'admin';
 
   // Pull the live registries so recents that point at deleted artifacts are
   // hidden from the tray. While loading we leave the filter pass-through to
@@ -202,6 +208,17 @@ export function Sidebar() {
               }
             />
           </SidebarSection>
+        )}
+
+        {isAdmin && (
+          <SidebarSection
+            id="admin-access"
+            icon={ShieldCheck}
+            label={t('nav.access', 'Access')}
+            to="/admin/access"
+            flat
+            collapsed={collapsed}
+          />
         )}
       </nav>
 

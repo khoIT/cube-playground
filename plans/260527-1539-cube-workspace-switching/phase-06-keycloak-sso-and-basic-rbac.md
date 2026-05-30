@@ -9,6 +9,12 @@ dependencies: [1, 4]
 
 # Phase 6: Keycloak SSO + basic RBAC
 
+> **Superseded (2026-05-30):** the still-pending "VNG prod realm / redirect URIs"
+> item and the KC-derived role/group authorization are superseded by
+> `plans/260530-0219-db-authz-microsoft-sso-admin-page/` — KC is now
+> authentication-only (brokers Microsoft/Entra), and authorization moved to the
+> app DB (default-deny). Prod realm config is tracked there (Phase 1).
+
 ## Overview
 Replace the unvalidated `X-Owner` header with **validated identity via Keycloak SSO**, then
 gate three things by role: **workspace access**, **artifact write/ownership**, and

@@ -16,10 +16,14 @@ import type { WorkspaceCtx } from '../services/cube-client.js';
 import {
   resolveWorkspace,
   getDefaultWorkspace,
-  workspaceAllowsRole,
   type WorkspaceDef,
 } from '../services/workspaces-config-loader.js';
 import { resolveCubeTokenForWorkspace } from '../services/resolve-cube-token.js';
+import {
+  userCanAccessWorkspace,
+  userCanAccessGame,
+} from '../auth/authz-decisions.js';
+import type { AuthenticatedUser } from './authenticate.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -34,8 +38,15 @@ declare module 'fastify' {
 const WORKSPACE_HEADER = 'x-cube-workspace';
 const GAME_HEADER = 'x-cube-game';
 
-function buildCtx(workspace: WorkspaceDef, gameId: string | null): WorkspaceCtx {
-  const { token } = resolveCubeTokenForWorkspace(workspace, gameId);
+function buildCtx(
+  workspace: WorkspaceDef,
+  gameId: string | null,
+  userId: string | null,
+): WorkspaceCtx {
+  // Mint the Cube token under the REAL user (email) when known so cube-dev's
+  // checkAuth enforces per-user game access too — closing the minted-path gap.
+  // Falls back to the service principal ('playground') for dev / unauthenticated.
+  const { token } = resolveCubeTokenForWorkspace(workspace, gameId, userId ?? undefined);
   return { cubeApiUrl: workspace.cubeApiUrl, token };
 }
 
@@ -73,23 +84,39 @@ async function workspaceHeaderPlugin(app: FastifyInstance): Promise<void> {
     // (sent the header). Without a header we'd 403 callers who just want
     // to list /api/workspaces or hit auth endpoints, because the default
     // workspace (`prod`) is itself role-gated.
-    if (wsId && request.user && !workspaceAllowsRole(workspace, request.user.role)) {
+    const user = request.user as AuthenticatedUser | undefined;
+    if (wsId && user && !userCanAccessWorkspace(user, workspace)) {
       await reply.status(403).send({
         error: {
           code: 'WORKSPACE_FORBIDDEN',
-          message: `workspace "${workspace.id}" requires one of [${(workspace.allowedRoles ?? []).join(', ')}]`,
+          message: `workspace "${workspace.id}" is not granted to this user`,
         },
       });
       return;
     }
 
     request.workspace = workspace;
-    // Auto-scope cubeCtx by X-Cube-Game when present so /load + /sql against a
-    // minted-auth workspace (local) get a JWT carrying the per-game claim that
-    // Cube's repositoryFactory needs to pick the right schema.
+
+    // Server-side game enforcement (closes the FE-only gap): when a game is
+    // explicitly requested by an authenticated user, it must be in their grants.
+    // Fail closed (403) before any token is minted or request proxied.
     const gameId = readGameId(request);
-    request.cubeCtx = buildCtx(workspace, gameId);
-    request.buildCubeCtxForGame = (g: string) => buildCtx(workspace, g);
+    if (gameId && user && !userCanAccessGame(user, gameId)) {
+      await reply.status(403).send({
+        error: {
+          code: 'GAME_FORBIDDEN',
+          message: `game "${gameId}" is not granted to this user`,
+        },
+      });
+      return;
+    }
+
+    // Mint the Cube token under the user's stable key (email) when present so
+    // cube-dev double-enforces. Auto-scope by X-Cube-Game so repositoryFactory
+    // picks the right schema.
+    const userId = user?.email ?? null;
+    request.cubeCtx = buildCtx(workspace, gameId, userId);
+    request.buildCubeCtxForGame = (g: string) => buildCtx(workspace, g, userId);
   });
 }
 

@@ -9,6 +9,8 @@ import authenticate from './middleware/authenticate.js';
 import enforceWriteRoles from './middleware/enforce-write-roles.js';
 import workspaceHeader from './middleware/workspace-header.js';
 import authRoutes from './routes/auth.js';
+import adminAccessRoutes from './routes/admin-access.js';
+import internalAccessRoutes from './routes/internal-access.js';
 import workspacesRoutes from './routes/workspaces.js';
 import cubeProxyRoutes from './routes/cube-proxy.js';
 import userPrefsRoutes from './routes/user-prefs.js';
@@ -31,6 +33,7 @@ import dashboardsRoutes from './routes/dashboards.js';
 import liveopsRoutes from './routes/liveops.js';
 import settingsRoutes from './routes/settings.js';
 import { getDb } from './db/sqlite.js';
+import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
 import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
@@ -53,6 +56,8 @@ export async function buildApp() {
   await app.register(workspaceHeader);
 
   await app.register(authRoutes);
+  await app.register(adminAccessRoutes);
+  await app.register(internalAccessRoutes);
   await app.register(workspacesRoutes);
   await app.register(cubeProxyRoutes);
   await app.register(userPrefsRoutes);
@@ -74,6 +79,16 @@ export async function buildApp() {
   await app.register(dashboardsRoutes);
   await app.register(liveopsRoutes);
   await app.register(settingsRoutes);
+
+  // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
+  // as active admins so DB-authoritative authz never locks every operator out.
+  try {
+    getDb(); // ensure migrations (incl. 019 auth grants) have run
+    const seeded = seedBootstrapAdmins();
+    if (seeded.length > 0) app.log.info(`[auth] bootstrap admins seeded: ${seeded.length}`);
+  } catch (err) {
+    app.log.warn(`[auth] bootstrap-admin seed failed: ${(err as Error).message}`);
+  }
 
   // Phase-03: idempotent seed of the canonical glossary terms.
   try {
