@@ -1,8 +1,10 @@
 /**
- * Per-module collapsed state for catalog filter bars. localStorage-backed so
- * the user's preference (show all filter pills vs. just the header) survives
- * reloads, with a custom event so multiple components stay in sync.
+ * Per-module collapsed state for catalog filter bars. Persisted via the
+ * DB-authoritative pref store (localStorage mirror keeps reads synchronous).
+ * Custom event keeps multiple same-page components in sync.
  */
+
+import { getPref, setPref } from '../../hooks/server-prefs-store';
 
 const KEY_PREFIX = 'gds-cube.filter-bar-collapsed.v1.';
 const EVENT = 'gds-cube:filter-bar-collapsed-changed';
@@ -14,19 +16,11 @@ function key(module: FilterBarModule): string {
 }
 
 export function getFilterBarCollapsed(module: FilterBarModule): boolean {
-  try {
-    return localStorage.getItem(key(module)) === '1';
-  } catch {
-    return false;
-  }
+  return getPref(key(module)) === '1';
 }
 
 export function setFilterBarCollapsed(module: FilterBarModule, collapsed: boolean): void {
-  try {
-    localStorage.setItem(key(module), collapsed ? '1' : '0');
-  } catch {
-    // ignore
-  }
+  setPref(key(module), collapsed ? '1' : '0');
   try {
     window.dispatchEvent(
       new CustomEvent(EVENT, { detail: { module, collapsed } }),

@@ -1,16 +1,19 @@
 /**
- * Sidebar section expand state — per-section boolean persisted in localStorage.
+ * Sidebar section expand state — per-section boolean persisted via the
+ * DB-authoritative pref store (localStorage mirror keeps reads synchronous).
  * Default: expanded (true). Custom event broadcasts changes across mounts.
  *
  * Also owns the path → section-id map used for auto-expanding the section
  * matching the active route (longest-prefix match).
  */
+import { getPref, setPref } from '../../hooks/server-prefs-store';
+
 const KEY = (id: string) => `gds-cube:sidebar:section:${id}`;
 const EVENT = 'gds-cube:sidebar-expand-changed';
 
 export function getSectionExpanded(section: string): boolean {
   try {
-    const v = localStorage.getItem(KEY(section));
+    const v = getPref(KEY(section));
     return v === null ? true : v === '1';
   } catch {
     return true;
@@ -18,7 +21,7 @@ export function getSectionExpanded(section: string): boolean {
 }
 
 export function setSectionExpanded(section: string, expanded: boolean): void {
-  try { localStorage.setItem(KEY(section), expanded ? '1' : '0'); } catch { /* noop */ }
+  setPref(KEY(section), expanded ? '1' : '0');
   try { window.dispatchEvent(new CustomEvent(EVENT, { detail: { section, expanded } })); } catch { /* noop */ }
 }
 

@@ -17,6 +17,8 @@ import React, {
   useState,
 } from 'react';
 
+import { getPref, setPref, subscribe } from '../hooks/server-prefs-store';
+
 const WORKSPACE_STORAGE_KEY = 'gds-cube:workspace';
 const WORKSPACE_CHANGE_EVENT = 'gds-cube:workspace-change';
 
@@ -41,21 +43,15 @@ interface WorkspaceContextValue {
 const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(undefined);
 
 export function readPersistedWorkspaceId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
-  } catch {
-    return null;
-  }
+  // Reads the localStorage mirror maintained by the server-pref store, so
+  // synchronous callers (header injection, first paint) stay synchronous.
+  return getPref(WORKSPACE_STORAGE_KEY);
 }
 
 function persistWorkspaceId(id: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, id);
-  } catch {
-    // ignore quota / privacy errors
-  }
+  // DB-authoritative: writes through to the server (per owner) and the
+  // localStorage mirror in one call.
+  setPref(WORKSPACE_STORAGE_KEY, id);
 }
 
 interface WorkspaceProviderProps {
@@ -98,6 +94,15 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Server-pref hydration (or a switch in another tab) can update the persisted
+  // workspace from another device. Reflect it in context — surfaces re-key off
+  // workspaceId, and the synchronous readers already see the updated mirror.
+  useEffect(() => {
+    return subscribe(WORKSPACE_STORAGE_KEY, (next) => {
+      if (next) setWorkspaceIdState((prev) => (prev === next ? prev : next));
+    });
   }, []);
 
   const setWorkspaceId = useCallback((next: string) => {

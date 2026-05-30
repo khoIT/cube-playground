@@ -31,6 +31,7 @@ import {
   useEvent,
   useSidebarDisplayConfig,
 } from './hooks';
+import { getPref, setPref } from '../hooks/server-prefs-store';
 import { useQueryBuilderContext } from './context';
 import { PerfProbe } from '../dev/perf-probe';
 import { EditQueryDialogForm } from './components/EditQueryDialogForm';
@@ -53,22 +54,12 @@ type SidePanelViewMode = 'all' | 'query';
 const VIEWS_ENABLED = false;
 
 function readPersistedViewMode(): SidePanelViewMode | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-    return v === 'all' || v === 'query' ? v : null;
-  } catch {
-    return null;
-  }
+  const v = getPref(VIEW_MODE_STORAGE_KEY);
+  return v === 'all' || v === 'query' ? v : null;
 }
 
 function persistViewMode(v: SidePanelViewMode): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, v);
-  } catch {
-    // ignore quota / private mode
-  }
+  setPref(VIEW_MODE_STORAGE_KEY, v);
 }
 
 const RadioButton = tasty(Radio.Button, {

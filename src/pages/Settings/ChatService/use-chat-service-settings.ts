@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { getPref, setPref } from '../../../hooks/server-prefs-store';
+
 export interface ChatServiceSettings {
   /** Override model per /turn request. null = use server default. */
   defaultModel: string | null;
@@ -36,7 +38,7 @@ const DEFAULTS: ChatServiceSettings = {
  */
 export function readChatServiceSettings(): ChatServiceSettings {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = getPref(STORAGE_KEY);
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw) as Partial<ChatServiceSettings>;
     return {
@@ -54,11 +56,7 @@ export function readChatServiceSettings(): ChatServiceSettings {
 }
 
 function writeSettings(settings: ChatServiceSettings): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    // Quota exceeded or private mode — silently ignore
-  }
+  setPref(STORAGE_KEY, JSON.stringify(settings));
 }
 
 /**

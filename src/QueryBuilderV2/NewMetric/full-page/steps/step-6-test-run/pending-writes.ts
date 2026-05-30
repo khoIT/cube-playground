@@ -1,10 +1,12 @@
 import { deleteSchemaWrite } from '../../../api';
+import { getPref, setPref, removePref } from '../../../../../hooks/server-prefs-store';
 
 /**
  * Registry of measures the live preview has committed to disk but the user
- * has NOT yet submitted (or explicitly discarded). Backed by localStorage so
- * it survives tab refreshes and navigations — on the next wizard mount we
- * can sweep stale entries and delete the orphaned YAML on disk.
+ * has NOT yet submitted (or explicitly discarded). Persisted server-side (per
+ * owner) via the preferences store with a synchronous localStorage mirror, so
+ * it survives tab refreshes/navigations and is device-portable — on the next
+ * wizard mount we can sweep stale entries and delete the orphaned YAML on disk.
  *
  * Lifecycle:
  *   - useTestRun adds an entry after a successful schema-write.
@@ -26,9 +28,8 @@ export type PendingEntry = {
 };
 
 function readAll(): PendingEntry[] {
-  if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = getPref(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -42,13 +43,9 @@ function readAll(): PendingEntry[] {
 }
 
 function writeAll(entries: PendingEntry[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // Storage quota / unavailable — best-effort, the worst case is orphaned
-    // on-disk YAML which the user can still discard manually.
-  }
+  // Best-effort persistence — worst case is orphaned on-disk YAML the user can
+  // still discard manually.
+  setPref(STORAGE_KEY, JSON.stringify(entries));
 }
 
 function sameIdentity(a: PendingEntry, b: PendingEntry): boolean {
@@ -72,12 +69,7 @@ export function removePending(entry: PendingEntry): void {
 }
 
 export function clearPending(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
+  removePref(STORAGE_KEY);
 }
 
 /**

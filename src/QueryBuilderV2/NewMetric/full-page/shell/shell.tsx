@@ -1,6 +1,8 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import { getPref, setPref } from '../../../../hooks/server-prefs-store';
+
 const LEFT_W = 260;
 const RIGHT_DEFAULT = 340;
 const RIGHT_MIN = 240;
@@ -79,7 +81,7 @@ function clampRightWidth(w: number): number {
 
 function readPersistedWidth(): number {
   if (typeof window === 'undefined') return RIGHT_DEFAULT;
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const raw = getPref(STORAGE_KEY);
   const n = raw ? Number.parseInt(raw, 10) : NaN;
   return clampRightWidth(Number.isFinite(n) ? n : RIGHT_DEFAULT);
 }
@@ -99,7 +101,7 @@ export function Shell({ leftRail, main, rightRail }: ShellSlots) {
   // writes cheap and avoids spamming the page during a drag.
   useEffect(() => {
     if (!dragging) {
-      try { window.localStorage.setItem(STORAGE_KEY, String(rightW)); } catch { /* ignore */ }
+      setPref(STORAGE_KEY, String(rightW));
     }
   }, [rightW, dragging]);
 

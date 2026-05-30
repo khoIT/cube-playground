@@ -1,8 +1,11 @@
 import { render, screen, act } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { removePref, setPref, getPref } from '../../hooks/server-prefs-store';
 import { ThemeProvider } from '../ThemeContext';
 import { useTheme } from '../use-theme';
+
+const STORAGE_KEY = 'gds-cube:theme';
 
 function Probe() {
   const { theme, toggle, setTheme } = useTheme();
@@ -24,7 +27,8 @@ function Probe() {
 
 describe('ThemeProvider', () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    // Remove via store API so in-memory cache is flushed alongside localStorage.
+    removePref(STORAGE_KEY);
     document.documentElement.removeAttribute('data-theme');
   });
 
@@ -39,7 +43,7 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.dataset.theme).toBe('light');
   });
 
-  it('toggle flips light → dark → light and persists to localStorage', () => {
+  it('toggle flips light → dark → light and persists to the pref store mirror', () => {
     render(
       <ThemeProvider>
         <Probe />
@@ -52,18 +56,20 @@ describe('ThemeProvider', () => {
 
     expect(screen.getByTestId('theme').textContent).toBe('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(window.localStorage.getItem('gds-cube:theme')).toBe('dark');
+    // setPref writes to localStorage mirror synchronously.
+    expect(getPref(STORAGE_KEY)).toBe('dark');
 
     act(() => {
       screen.getByTestId('toggle').click();
     });
 
     expect(screen.getByTestId('theme').textContent).toBe('light');
-    expect(window.localStorage.getItem('gds-cube:theme')).toBe('light');
+    expect(getPref(STORAGE_KEY)).toBe('light');
   });
 
-  it('initialises from localStorage when present', () => {
-    window.localStorage.setItem('gds-cube:theme', 'dark');
+  it('initialises from pref store when a value is present', () => {
+    // Seed via store API so in-memory cache is warmed (getPref prefers cache over localStorage).
+    setPref(STORAGE_KEY, 'dark');
 
     render(
       <ThemeProvider>

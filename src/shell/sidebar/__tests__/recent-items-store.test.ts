@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { setPref, removePref } from '../../../hooks/server-prefs-store';
 import {
   getRecent,
   pushRecent,
@@ -19,8 +20,17 @@ const ITEM = (id: string, title = `t-${id}`) => ({
   href: `/build?query=${id}`,
 });
 
+// Recents key shape: gds-cube.recent.v2.{module}.{workspace}.{gameId}.
+// Both active-game and workspace are unset in this test environment → both
+// axes fall back to '__default__'.
+const recentKey = (module: string) =>
+  `gds-cube.recent.v2.${module}.__default__.__default__`;
+
 beforeEach(() => {
-  localStorage.clear();
+  // Flush via the store API so the in-memory cache is cleared alongside localStorage.
+  for (const mod of ['playground', 'metrics-catalog', 'data-model', 'segments']) {
+    removePref(recentKey(mod));
+  }
 });
 
 describe('pushRecent — playground module', () => {
@@ -55,18 +65,13 @@ describe('pushRecent — playground module', () => {
 describe('getRecent — playground self-healing filter', () => {
   it('strips non-numeric ids left over from the prior fingerprint-keyed scheme', () => {
     // Hand-craft a v2 bucket containing one stale fingerprint id and one valid
-    // tab-id row, mimicking a localStorage state from before the fix landed.
+    // tab-id row, mimicking a store state from before the fix landed.
     const stored = [
       { id: 'abc12xy', title: 'stale', updatedAt: 'x', href: '/build' },
       { id: '1', title: 'fresh', updatedAt: 'y', href: '/build' },
     ];
-    // Key shape: gds-cube.recent.v2.{module}.{workspace}.{gameId}; both
-    // localStorage keys are unset in this test → both axes fall back to
-    // '__default__'.
-    localStorage.setItem(
-      'gds-cube.recent.v2.playground.__default__.__default__',
-      JSON.stringify(stored),
-    );
+    // Seed via setPref so the in-memory cache is warmed (getPref prefers cache over localStorage).
+    setPref(recentKey('playground'), JSON.stringify(stored));
 
     const rows = getRecent('playground');
     expect(rows.map((r) => r.id)).toEqual(['1']);

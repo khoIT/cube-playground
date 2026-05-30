@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
 import { createStore, useStore } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+import { getPref, setPref, removePref } from '../hooks/server-prefs-store';
 import type {
   ChartType,
   PivotConfig,
@@ -81,6 +83,13 @@ export function createPlaygroundStore() {
       }),
       {
         name: PLAYGROUND_PREFS_KEY,
+        // Route pref reads/writes through the DB-authoritative store so
+        // chartType and pivotConfig follow the user across devices.
+        storage: createJSONStorage(() => ({
+          getItem: (k) => getPref(k),
+          setItem: (k, v) => setPref(k, v),
+          removeItem: (k) => removePref(k),
+        })),
         // C3: only user preferences are persisted. `query` is URL-driven.
         partialize: (s) => ({
           chartType: s.chartType,

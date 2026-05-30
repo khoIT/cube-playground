@@ -6,6 +6,7 @@ import {
   NewMetricDraftV3,
   ValidationResult,
 } from '../types';
+import { getPref, setPref, removePref } from '../../../hooks/server-prefs-store';
 import { emptyTree } from '../filter-tree';
 import { findOp, primarySlotIdFor } from '../full-page/steps/step-2-operation/operations';
 
@@ -368,7 +369,7 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const raw = window.localStorage.getItem(storageKeyFor(tabIdRef.current));
+      const raw = getPref(storageKeyFor(tabIdRef.current));
       if (!raw) return;
       const parsed = JSON.parse(raw) as { version?: number; draft?: any };
       // Accept V2 + V3 blobs; older versions are dropped (back-compat budget
@@ -409,10 +410,10 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
     function persistNow() {
       try {
         const payload = JSON.stringify({ version: STORAGE_VERSION, draft });
-        window.localStorage.setItem(storageKeyFor(tabIdRef.current), payload);
+        setPref(storageKeyFor(tabIdRef.current), payload);
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.warn('[new-metric-draft] localStorage write failed (quota?):', err);
+        console.warn('[new-metric-draft] draft persist failed:', err);
       }
     }
 
@@ -484,12 +485,7 @@ export function useNewMetricDraft(args: UseNewMetricDraftArgs = {}): UseNewMetri
     dispatch({ type: 'reset' });
   }
   function clearPersisted() {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.removeItem(storageKeyFor(tabIdRef.current));
-    } catch {
-      /* ignore */
-    }
+    removePref(storageKeyFor(tabIdRef.current));
   }
 
   const validation = validate(draft, args.reachableNames ? { reachableNames: args.reachableNames } : undefined);

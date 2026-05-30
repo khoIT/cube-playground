@@ -7,6 +7,8 @@ import {
   useState,
 } from 'react';
 
+import { getPref, setPref } from '../hooks/server-prefs-store';
+
 export type ThemeMode = 'light' | 'dark';
 
 export type ThemeContextValue = {
@@ -19,12 +21,8 @@ const STORAGE_KEY = 'gds-cube:theme';
 
 function readInitialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') return stored;
-  } catch {
-    // ignore — storage may be blocked
-  }
+  const stored = getPref(STORAGE_KEY);
+  if (stored === 'dark' || stored === 'light') return stored;
   const attr = document.documentElement.getAttribute('data-theme');
   return attr === 'dark' ? 'dark' : 'light';
 }
@@ -40,11 +38,7 @@ export function ThemeProvider({ children }: PropsWithChildren<{}>) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, theme);
-    } catch {
-      // ignore
-    }
+    setPref(STORAGE_KEY, theme);
   }, [theme]);
 
   const setTheme = useCallback((next: ThemeMode) => {

@@ -1,11 +1,14 @@
 /**
- * Tiny localStorage adapter for user prefs. Single source of truth for
- * subscribe / saved-views / recently-viewed. v1 = single-user dev profile;
- * multi-user prod will swap in a backend syncer behind the same API.
+ * Adapter for user prefs (saved-views, subscriptions, recently-viewed). Now
+ * DB-authoritative: values persist server-side per owner via the shared
+ * preferences store, with a synchronous localStorage mirror for instant reads —
+ * the "backend syncer behind the same API" this module always anticipated.
  *
  * All keys are namespaced under `compass:prefs:`. Values are JSON-serialised.
  * Reads return the default when the key is absent or storage is unavailable.
  */
+
+import { getPref, setPref, removePref, subscribe } from '../../hooks/server-prefs-store';
 
 const NS = 'compass:prefs:';
 
@@ -14,15 +17,6 @@ export interface UserPrefsStore<T> {
   write(value: T): void;
   clear(): void;
   subscribe(cb: () => void): () => void;
-}
-
-function safeLocalStorage(): Storage | null {
-  try {
-    if (typeof window === 'undefined') return null;
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 export function createUserPrefsStore<T>(
@@ -36,37 +30,25 @@ export function createUserPrefsStore<T>(
     for (const fn of subs) fn();
   }
 
+  // Drive notifications off the backing store so local writes, cross-tab
+  // writes, AND server hydration all reach subscribers through one path.
+  subscribe(ns, notify);
+
   return {
     read(): T {
-      const ls = safeLocalStorage();
-      if (!ls) return initial;
+      const raw = getPref(ns);
+      if (raw == null) return initial;
       try {
-        const raw = ls.getItem(ns);
-        if (!raw) return initial;
         return JSON.parse(raw) as T;
       } catch {
         return initial;
       }
     },
     write(value: T): void {
-      const ls = safeLocalStorage();
-      if (!ls) return;
-      try {
-        ls.setItem(ns, JSON.stringify(value));
-        notify();
-      } catch {
-        // quota exceeded / disabled — surface silently
-      }
+      setPref(ns, JSON.stringify(value));
     },
     clear(): void {
-      const ls = safeLocalStorage();
-      if (!ls) return;
-      try {
-        ls.removeItem(ns);
-        notify();
-      } catch {
-        /* ignored */
-      }
+      removePref(ns);
     },
     subscribe(cb): () => void {
       subs.add(cb);

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { useLocalStorage } from './local-storage';
+import { useServerPref } from '../../hooks/use-server-pref';
 
 const STORAGE_KEY = 'gds-cube:sidebar-display-config';
 
@@ -17,7 +17,7 @@ export type UseSidebarDisplayConfigResult = {
 export function useSidebarDisplayConfig(
   allCubeNames: string[]
 ): UseSidebarDisplayConfigResult {
-  const [config, setConfig] = useLocalStorage<SidebarDisplayConfig>(
+  const [config, setConfig] = useServerPref<SidebarDisplayConfig>(
     STORAGE_KEY,
     {}
   );

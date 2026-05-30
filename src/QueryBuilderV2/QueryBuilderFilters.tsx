@@ -6,7 +6,8 @@ import { TCubeDimension, TCubeMeasure } from '@cubejs-client/core';
 
 import { Card } from '../components/AppPanes';
 import { useQueryBuilderContext } from './context';
-import { useEvent, useLocalStorage } from './hooks';
+import { useEvent } from './hooks';
+import { useServerPref } from '../hooks/use-server-pref';
 import { AccordionCard } from './components/AccordionCard';
 import { DateRangeFilter } from './components/DateRangeFilter';
 import { MemberBadge } from './components/Badge';
@@ -127,7 +128,7 @@ export function QueryBuilderFilters({ onToggle, inline = false }: QueryBuilderFi
     (memberName) => members.dimensions[memberName]
   ).length;
 
-  const [isExpanded, setIsExpanded] = useLocalStorage<boolean>(
+  const [isExpanded, setIsExpanded] = useServerPref<boolean>(
     'gds-cube:filter-strip-expanded',
     true
   );

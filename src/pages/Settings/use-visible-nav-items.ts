@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { getPref, setPref } from '../../hooks/server-prefs-store';
+
 const STORAGE_KEY = 'gds-cube:hidden-nav-ids';
 const STORAGE_EVENT = 'gds-cube:hidden-nav-change';
 
@@ -40,9 +42,8 @@ export const NAV_ITEMS: NavItemDescriptor[] = [
 ];
 
 function readHidden(): string[] {
-  if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = getPref(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
@@ -52,12 +53,11 @@ function readHidden(): string[] {
 }
 
 function writeHidden(ids: string[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  setPref(STORAGE_KEY, JSON.stringify(ids));
+  // Same-tab siblings stay in sync via the custom event; cross-tab via the
+  // DB store's storage event passthrough.
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(STORAGE_EVENT));
-  } catch {
-    // ignore quota / private mode
   }
 }
 

@@ -27,6 +27,8 @@ import {
 } from './events';
 import { useAppContext } from './hooks';
 import { useCubeTokenBootstrap } from './hooks/use-cube-token-bootstrap';
+import { useServerPrefsBootstrap } from './hooks/use-server-pref';
+import { useAuthUser } from './auth/auth-context';
 import { QUERY_BUILDER_COLOR_TOKENS } from './QueryBuilderV2';
 import { Sidebar } from './shell/sidebar/sidebar';
 import { T } from './shell/theme';
@@ -180,6 +182,7 @@ class App extends Component<PropsWithChildren<RouteComponentProps>, AppState> {
             <TopbarTrailingProvider>
               <TopbarBreadcrumbProvider>
                 <CubeTokenBootstrap />
+                <ServerPrefsBootstrap />
                 <ShellLayout fatalError={fatalError}>{children}</ShellLayout>
                 <SmartSearchOverlay />
                 <ChatSearchOverlay />
@@ -246,6 +249,14 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
 
 function CubeTokenBootstrap() {
   useCubeTokenBootstrap();
+  return null;
+}
+
+// Pulls the owner's server-side preferences into the local mirror once the
+// authenticated identity is known, and imports any pre-migration local values.
+function ServerPrefsBootstrap() {
+  const user = useAuthUser();
+  useServerPrefsBootstrap(user?.id ?? null);
   return null;
 }
 
