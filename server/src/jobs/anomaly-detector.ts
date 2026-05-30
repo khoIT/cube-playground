@@ -30,7 +30,9 @@ import { classifySeries } from '../services/z-score.js';
 import { ANOMALY_METRICS, classifySeverity } from '../services/anomaly-config.js';
 import { upsertAnomaly } from '../services/anomaly-state-store.js';
 import { getDb } from '../db/sqlite.js';
-import { upsertDriftRows } from '../db/metric-drift-snapshot-store.js';
+import { upsertDriftRows, listDriftRows } from '../db/metric-drift-snapshot-store.js';
+import { recordDriftRun, type DriftRunSource, type DriftRunStatus } from '../db/metric-drift-run-store.js';
+import { groupDriftByRootCause } from '../services/metric-drift-grouping.js';
 import type { AnomalyStateFile, AnomalyStateRecord } from '../services/anomaly-state-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -126,41 +128,89 @@ export function divideByDate(num: DatedValue[], den: DatedValue[]): number[] {
   return out;
 }
 
-async function scanGameLegacy(
+interface DriftReconcileResult {
+  meta: CubeMeta | null;
+  token: string | null;
+  /** Metric ids with at least one unresolved ref — skipped by the anomaly pass. */
+  unresolvedIds: Set<string>;
+}
+
+const ZERO_COUNTS = {
+  totalUnresolved: 0,
+  rootCauseCount: 0,
+  newCount: 0,
+  resolvedCount: 0,
+  cubeMissing: 0,
+  memberMissing: 0,
+  unparseable: 0,
+};
+
+/**
+ * Reconcile every registry metric's formula refs against a game's live /meta,
+ * persist the unresolved set (snapshot) AND append a run-history row with the
+ * deltas vs the previous run. Shared by the scheduled scan (source='detector')
+ * and the on-demand "Run now" endpoint (source='manual'). Records a 'skipped'
+ * run when no Cube token, an 'error' run when /meta fails, else 'ok'.
+ *
+ * Returns meta/token/unresolvedIds so the caller (scanGameLegacy) can reuse them
+ * for the anomaly z-score pass without a second /meta fetch.
+ */
+export async function runDriftReconciliation(
   game: string,
-  warn: (msg: string) => void,
-): Promise<Record<string, AnomalyStateRecord>> {
+  source: DriftRunSource,
+  warn: (msg: string) => void = (m) => console.warn(m),
+): Promise<DriftReconcileResult> {
+  const startedAt = new Date().toISOString();
+  const record = (status: DriftRunStatus, counts: typeof ZERO_COUNTS): void => {
+    try {
+      recordDriftRun(getDb(), { game, source, status, startedAt, finishedAt: new Date().toISOString(), ...counts });
+    } catch (err) {
+      warn(`[anomaly-detector] drift run record failed for game="${game}": ${(err as Error).message}`);
+    }
+  };
+
   const token = resolveCubeTokenForGame(game);
   if (!token) {
     warn(`[anomaly-detector] no Cube token for game="${game}"; skipping`);
-    return {};
+    record('skipped', ZERO_COUNTS);
+    return { meta: null, token: null, unresolvedIds: new Set() };
   }
   let meta: CubeMeta;
   try {
     meta = (await getMeta(token)) as CubeMeta;
   } catch (err) {
     warn(`[anomaly-detector] /meta failed for game="${game}": ${(err as Error).message}`);
-    return {};
+    record('error', ZERO_COUNTS);
+    return { meta: null, token, unresolvedIds: new Set() };
   }
-  // Validate every metric's formula refs against this game's /meta BEFORE
-  // querying. A ref pointing at a measure the deployed cube model doesn't
-  // define would otherwise 400 on /load every tick (one stack trace per
-  // metric per game). Skip those up front and report them in a single
-  // consolidated line so the log stays actionable, not spammy.
+
+  // Validate refs up front: a ref pointing at a measure the deployed cube model
+  // doesn't define would 400 on /load every tick. Skip those for the anomaly
+  // pass; persist + report only the registry-applicable ones so the detector
+  // count matches the live Drift Center path (N/A is registry-scoped).
   const metrics = getAllBusinessMetrics();
   const byId = new Map(metrics.map((m) => [m.id, m]));
   const allUnresolved = validateRefs(metrics, snapshotFromMeta(meta));
-  // Skip querying every broken metric (N/A or not) — a missing-cube /load
-  // would 400 each tick. But only the registry-applicable refs are persisted
-  // and reported, so the detector count matches the live Drift Center path
-  // (N/A is registry-scoped, not workspace-scoped).
   const unresolvedIds = new Set(allUnresolved.map((u) => u.metricId));
   const reportable = filterApplicable(allUnresolved, byId, game);
 
-  // Persist the per-game unresolved set so the Drift Center page can show it
-  // in a separate "last detector run" panel. Detector stays on the local
-  // game_id model (workspace_id='local'). rows:[] clears a now-resolved game.
-  // Best-effort: a SQLite hiccup must NOT abort the scan loop.
+  // Delta vs the previous detector snapshot — read BEFORE the upsert overwrites
+  // it. new = refs that broke this run; resolved = refs that recovered.
+  const prevKeys = new Set(
+    listDriftRows(getDb(), { workspaceId: 'local', game, source: 'detector' }).map((r) => `${r.metricId}|${r.ref}`),
+  );
+  const nextKeys = new Set(reportable.map((u) => `${u.metricId}|${u.ref}`));
+  let newCount = 0;
+  for (const k of nextKeys) if (!prevKeys.has(k)) newCount++;
+  let resolvedCount = 0;
+  for (const k of prevKeys) if (!nextKeys.has(k)) resolvedCount++;
+
+  const byReason = { 'cube-missing': 0, 'member-missing': 0, unparseable: 0 };
+  for (const u of reportable) byReason[u.reason]++;
+
+  // Persist the per-game unresolved set (Drift Center "live detector run" data).
+  // Detector stays on the local game_id model. rows:[] clears a resolved game.
+  // Best-effort: a SQLite hiccup must NOT abort the caller's scan loop.
   try {
     upsertDriftRows(getDb(), {
       workspaceId: 'local',
@@ -177,6 +227,27 @@ async function scanGameLegacy(
     warn(`[anomaly-detector] game="${game}": ${reportableIds.size} metric(s) have unresolved refs — see Drift Center`);
   }
 
+  record('ok', {
+    totalUnresolved: reportable.length,
+    rootCauseCount: groupDriftByRootCause(reportable).length,
+    newCount,
+    resolvedCount,
+    cubeMissing: byReason['cube-missing'],
+    memberMissing: byReason['member-missing'],
+    unparseable: byReason.unparseable,
+  });
+
+  return { meta, token, unresolvedIds };
+}
+
+async function scanGameLegacy(
+  game: string,
+  warn: (msg: string) => void,
+): Promise<Record<string, AnomalyStateRecord>> {
+  const { meta, token, unresolvedIds } = await runDriftReconciliation(game, 'detector', warn);
+  if (!meta || !token) return {};
+
+  const metrics = getAllBusinessMetrics();
   const out: Record<string, AnomalyStateRecord> = {};
   for (const metric of metrics) {
     if (unresolvedIds.has(metric.id)) continue;
@@ -240,6 +311,15 @@ function legacyIntervalMs(): number {
   if (!raw) return DEFAULT_LEGACY_INTERVAL_MS;
   const n = parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_LEGACY_INTERVAL_MS;
+}
+
+/**
+ * Cadence of the scheduled drift reconciliation (the legacy scan that feeds the
+ * Drift Center detector log). The "Detector runs" tab uses this to estimate the
+ * next run: last started_at + this interval.
+ */
+export function driftReconcileIntervalMs(): number {
+  return legacyIntervalMs();
 }
 
 export async function maybeRunAnomalyDetector(now: number = Date.now()): Promise<void> {

@@ -16,7 +16,7 @@ import { useAuthUser } from '../../auth/auth-context';
 import { useDriftCenter } from './use-drift-center';
 import { RootCauseList, groupKey } from './root-cause-list';
 import { DriftDetailPane } from './drift-detail-pane';
-import { DetectorRunPanel } from './detector-run-panel';
+import { DetectorRunsPanel } from './detector-runs-panel';
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
@@ -105,6 +105,26 @@ const LeftPane = styled.div`
     max-height: none;
   }
 `;
+const Tabs = styled.div`
+  display: flex;
+  gap: 4px;
+  margin: 18px 0 16px;
+  border-bottom: 1px solid var(--border-card);
+`;
+const Tab = styled.button<{ $active: boolean }>`
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 8px 14px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid ${(p) => (p.$active ? 'var(--brand)' : 'transparent')};
+  color: ${(p) => (p.$active ? 'var(--text-primary)' : 'var(--text-muted)')};
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: ${(p) => (p.$active ? 600 : 500)};
+  cursor: pointer;
+  &:hover { color: var(--text-primary); }
+`;
 
 export function DriftCenterPage(): React.ReactElement {
   const gameId = useActiveGameId();
@@ -115,6 +135,7 @@ export function DriftCenterPage(): React.ReactElement {
     useDriftCenter(gameId);
 
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
+  const [tab, setTab] = React.useState<'resolve' | 'runs'>('resolve');
 
   const groups = report?.groups ?? [];
   const affectedCount = React.useMemo(() => {
@@ -168,51 +189,56 @@ export function DriftCenterPage(): React.ReactElement {
         <div style={{ ...noteBase, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)' }}>
           Could not load drift: {error}
         </div>
-      ) : report?.prefixUnsupported ? (
-        <>
-          <div style={{ ...noteBase, background: 'var(--info-soft)', color: 'var(--info-ink)' }}>
-            Drift isn’t meaningful for this workspace yet — cube names are prefixed and references
-            aren’t translated. Full support lands in v1.5.
-          </div>
-          <DetectorRunPanel panel={report.detectorPanel} />
-        </>
-      ) : report && groups.length === 0 ? (
-        <>
-          <div style={{ ...noteBase, background: 'var(--success-soft)', color: 'var(--success-ink)' }}>
-            All metrics resolve for {gameId}. Nothing to repoint. 🎉
-          </div>
-          <DetectorRunPanel panel={report.detectorPanel} />
-        </>
       ) : report ? (
         <>
-          <div style={summaryStyle}>
-            <span style={strong}>{affectedCount}</span>
-            <span>metric{affectedCount === 1 ? '' : 's'} affected across</span>
-            <span style={strong}>{groups.length}</span>
-            <span>root cause{groups.length === 1 ? '' : 's'}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>
-              reconciled {new Date(report.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
+          <Tabs role="tablist">
+            <Tab type="button" role="tab" aria-selected={tab === 'resolve'} $active={tab === 'resolve'} onClick={() => setTab('resolve')}>
+              Resolve
+            </Tab>
+            <Tab type="button" role="tab" aria-selected={tab === 'runs'} $active={tab === 'runs'} onClick={() => setTab('runs')}>
+              Detector runs
+            </Tab>
+          </Tabs>
 
-          <Grid>
-            <LeftPane>
-              <RootCauseList
-                groups={groups}
-                selectedKey={selectedKey}
-                onSelect={setSelectedKey}
-                detector={report.detectorPanel}
-              />
-            </LeftPane>
-            <DriftDetailPane
-              group={selectedGroup}
-              canWrite={canWrite}
-              members={members}
-              membersLoading={membersLoading}
-              onRepoint={repoint}
-              onMarkNa={markNa}
-            />
-          </Grid>
+          {tab === 'runs' ? (
+            <DetectorRunsPanel gameId={gameId} canWrite={canWrite} />
+          ) : report.prefixUnsupported ? (
+            <div style={{ ...noteBase, background: 'var(--info-soft)', color: 'var(--info-ink)' }}>
+              Drift isn’t meaningful for this workspace yet — cube names are prefixed and references
+              aren’t translated. Full support lands in v1.5. (The detector still runs against local —
+              see the Detector runs tab.)
+            </div>
+          ) : groups.length === 0 ? (
+            <div style={{ ...noteBase, background: 'var(--success-soft)', color: 'var(--success-ink)' }}>
+              All metrics resolve for {gameId}. Nothing to repoint. 🎉
+            </div>
+          ) : (
+            <>
+              <div style={summaryStyle}>
+                <span style={strong}>{affectedCount}</span>
+                <span>metric{affectedCount === 1 ? '' : 's'} affected across</span>
+                <span style={strong}>{groups.length}</span>
+                <span>root cause{groups.length === 1 ? '' : 's'}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>
+                  reconciled {new Date(report.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+
+              <Grid>
+                <LeftPane>
+                  <RootCauseList groups={groups} selectedKey={selectedKey} onSelect={setSelectedKey} />
+                </LeftPane>
+                <DriftDetailPane
+                  group={selectedGroup}
+                  canWrite={canWrite}
+                  members={members}
+                  membersLoading={membersLoading}
+                  onRepoint={repoint}
+                  onMarkNa={markNa}
+                />
+              </Grid>
+            </>
+          )}
         </>
       ) : null}
     </div>

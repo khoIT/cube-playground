@@ -42,6 +42,8 @@ import {
   listDriftRows,
   type DriftRowInput,
 } from '../db/metric-drift-snapshot-store.js';
+import { listDriftRuns } from '../db/metric-drift-run-store.js';
+import { runDriftReconciliation, driftReconcileIntervalMs } from '../jobs/anomaly-detector.js';
 import { insertAuditRow } from '../db/business-metric-audit-store.js';
 
 const RepointSchema = z.object({
@@ -92,6 +94,21 @@ function rewriteRef(
  */
 function gameForbidden(req: FastifyRequest, game: string): boolean {
   return !!req.user && !userCanAccessGame(req.user, game);
+}
+
+/**
+ * Schedule + last-N runs for the "Detector runs" tab. next-run is derived from
+ * the most recent run's start + the reconcile interval, so the estimate survives
+ * a server restart (the job's in-memory lastRunAt does not).
+ */
+function buildRunsPayload(game: string, limit: number) {
+  const runs = listDriftRuns(getDb(), game, limit);
+  const intervalMs = driftReconcileIntervalMs();
+  const lastRunAt = runs[0]?.startedAt ?? null;
+  const nextRunAt = lastRunAt
+    ? new Date(new Date(lastRunAt).getTime() + intervalMs).toISOString()
+    : null;
+  return { game, intervalMs, lastRunAt, nextRunAt, runs };
 }
 
 function auditActor(req: { headers: Record<string, unknown> }): {
@@ -334,6 +351,52 @@ export default async function businessMetricsDriftRoutes(app: FastifyInstance): 
         app.log.warn({ err: auditErr }, '[drift-center] applicability audit insert failed (non-fatal)');
       }
       return reply.status(200).send(next);
+    },
+  );
+
+  // ── GET detector run history + schedule for a game ────────────────────────
+  app.get<{ Querystring: { game?: string; limit?: string } }>(
+    '/api/business-metrics/drift-runs',
+    async (req, reply) => {
+      const game = req.query.game;
+      if (!game) {
+        return reply.status(400).send({
+          error: { code: 'GAME_REQUIRED', message: 'pass ?game=' },
+        });
+      }
+      if (gameForbidden(req, game)) {
+        return reply.status(403).send({
+          error: { code: 'GAME_FORBIDDEN', message: `game "${game}" is not granted to this user` },
+        });
+      }
+      const limit = Math.min(Math.max(parseInt(req.query.limit ?? '10', 10) || 10, 1), 50);
+      return buildRunsPayload(game, limit);
+    },
+  );
+
+  // ── POST trigger a reconciliation now (gated by enforce-write-roles) ──────
+  app.post<{ Body: { game?: string } }>(
+    '/api/business-metrics/drift-runs/run',
+    async (req, reply) => {
+      const game = req.body?.game;
+      if (!game) {
+        return reply.status(400).send({
+          error: { code: 'GAME_REQUIRED', message: 'pass { game } in body' },
+        });
+      }
+      if (gameForbidden(req, game)) {
+        return reply.status(403).send({
+          error: { code: 'GAME_FORBIDDEN', message: `game "${game}" is not granted to this user` },
+        });
+      }
+      try {
+        await runDriftReconciliation(game, 'manual', (m) => app.log.warn(m));
+      } catch (err) {
+        return reply.status(502).send({
+          error: { code: 'RECONCILE_FAILED', message: err instanceof Error ? err.message : String(err) },
+        });
+      }
+      return buildRunsPayload(game, 10);
     },
   );
 }

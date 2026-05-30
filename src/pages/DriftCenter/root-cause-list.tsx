@@ -1,14 +1,11 @@
 /**
- * Left pane of the Drift Center master–detail layout: a scannable, selectable
- * list of every root-cause group for the active game, with the background
- * detector's last-run log pinned beneath it. Selecting a row drives the resolve
- * pane on the right. The detector log is shown SEPARATELY (never merged) because
- * it reconciles against the local game_id workspace, which can differ from the
- * workspace being viewed.
+ * Left pane of the Drift Center "Resolve" tab: a scannable, selectable list of
+ * every root-cause group for the active game. Selecting a row drives the resolve
+ * pane on the right. (Detector run history lives in its own "Detector runs" tab.)
  */
 import { ReactElement } from 'react';
 import styled from 'styled-components';
-import type { DetectorPanel, RootCauseGroup } from './use-drift-center';
+import type { RootCauseGroup } from './use-drift-center';
 import { ReasonPill, REASON_LABEL } from './reason-pill';
 
 const Wrap = styled.div`
@@ -75,44 +72,10 @@ const MiniPill = styled(ReasonPill)`
   font-size: 10px;
 `;
 
-const DetectorWrap = styled.div`
-  margin-top: 20px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--border-strong);
-`;
-const DetectorRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  font-size: 12px;
-  border-bottom: 1px dashed var(--border-card);
-  &:last-child { border-bottom: none; }
-  & code { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-`;
-const DetectorReason = styled.span`
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 11px;
-  color: var(--text-muted);
-`;
-const Src = styled.div`
-  margin-top: 8px;
-  font-size: 11px;
-  color: var(--text-muted);
-`;
-
-function fmtTime(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
 interface Props {
   groups: RootCauseGroup[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
-  detector: DetectorPanel;
 }
 
 /** Stable identity for a group row (reason + key) — matches index.tsx keying. */
@@ -120,7 +83,7 @@ export function groupKey(g: RootCauseGroup): string {
   return `${g.reason}:${g.key}`;
 }
 
-export function RootCauseList({ groups, selectedKey, onSelect, detector }: Props): ReactElement {
+export function RootCauseList({ groups, selectedKey, onSelect }: Props): ReactElement {
   return (
     <Wrap>
       <SectionLabel>
@@ -144,21 +107,6 @@ export function RootCauseList({ groups, selectedKey, onSelect, detector }: Props
           );
         })}
       </List>
-
-      {detector.groups.length ? (
-        <DetectorWrap>
-          <SectionLabel>Detector log</SectionLabel>
-          {detector.groups.map((g) => (
-            <DetectorRow key={`${g.reason}:${g.key}`}>
-              <code title={g.key}>{g.key}</code>
-              <DetectorReason>
-                {g.affectedCount} metric{g.affectedCount === 1 ? '' : 's'}
-              </DetectorReason>
-            </DetectorRow>
-          ))}
-          <Src>source: anomaly-detector · local · {fmtTime(detector.updatedAt)}</Src>
-        </DetectorWrap>
-      ) : null}
     </Wrap>
   );
 }
