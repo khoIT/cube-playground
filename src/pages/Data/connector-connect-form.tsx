@@ -119,12 +119,19 @@ const FootNote = styled.p`
 interface Props {
   source: { id: string; label: string };
   onProvisioned: (connectorId: string) => void;
+  /**
+   * Edit mode: prefill non-secret fields from an existing connector. The secret
+   * field stays blank — leaving it empty keeps the stored credential (no
+   * blank-overwrite); typing a new value rotates it.
+   */
+  initial?: { id: string; label: string; config: Record<string, unknown> };
 }
 
-export function ConnectorCredentials({ source, onProvisioned }: Props): ReactElement {
+export function ConnectorCredentials({ source, onProvisioned, initial }: Props): ReactElement {
+  const editMode = Boolean(initial);
   const [sourceType, setSourceType] = useState<SourceType | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [name, setName] = useState(`${source.label} connection`);
+  const [name, setName] = useState(initial?.label ?? `${source.label} connection`);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [test, setTest] = useState<TestConnectorResult | null>(null);
   const [testing, setTesting] = useState(false);
@@ -140,16 +147,25 @@ export function ConnectorCredentials({ source, onProvisioned }: Props): ReactEle
         const st = res.sourceTypes.find((s) => s.id === source.id) ?? null;
         setSourceType(st);
         if (st) {
-          const defaults: Record<string, unknown> = {};
-          for (const f of st.fields) if (f.default !== undefined) defaults[f.key] = f.default;
-          setValues(defaults);
+          const seed: Record<string, unknown> = {};
+          for (const f of st.fields) if (f.default !== undefined) seed[f.key] = f.default;
+          // Edit mode: overlay the connector's stored non-secret config (the
+          // secret field stays blank → keep existing credential).
+          if (initial) {
+            for (const f of st.fields) {
+              if (f.secret) continue;
+              const v = initial.config[f.key];
+              if (v !== undefined && v !== null) seed[f.key] = v;
+            }
+          }
+          setValues(seed);
         }
       })
       .catch((e) => alive && setLoadErr((e as Error).message));
     return () => {
       alive = false;
     };
-  }, [source.id]);
+  }, [source.id, initial]);
 
   const requiredFilled = useMemo(() => {
     if (!sourceType) return false;
@@ -179,13 +195,19 @@ export function ConnectorCredentials({ source, onProvisioned }: Props): ReactEle
     setSubmitting(true);
     setError(null);
     try {
-      const res = await onboardingClient.provisionConnector({
-        label: name.trim() || source.label,
-        sourceType: sourceType.id,
-        fields: values,
-      });
+      const res =
+        initial != null
+          ? await onboardingClient.updateConnector(initial.id, {
+              label: name.trim() || source.label,
+              fields: values,
+            })
+          : await onboardingClient.provisionConnector({
+              label: name.trim() || source.label,
+              sourceType: sourceType.id,
+              fields: values,
+            });
       if (res.connector) onProvisioned(res.connector.id);
-      else setError('Provisioning returned no connector.');
+      else setError(`${editMode ? 'Update' : 'Provisioning'} returned no connector.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -211,6 +233,7 @@ export function ConnectorCredentials({ source, onProvisioned }: Props): ReactEle
       <Banner $tone="info">
         Credentials are sealed server-side (AES-GCM) and never returned to the browser. We use them
         only to introspect &amp; profile — read-only.
+        {editMode ? ' Leave the password field blank to keep the current credential.' : ''}
       </Banner>
       <Card>
         <Field>
@@ -218,7 +241,7 @@ export function ConnectorCredentials({ source, onProvisioned }: Props): ReactEle
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Production analytics" />
         </Field>
 
-        {sourceType.fields.map((f) => renderField(f, values[f.key], (v) => set(f.key, v)))}
+        {sourceType.fields.map((f) => renderField(f, values[f.key], (v) => set(f.key, v), editMode))}
 
         {test && (
           <Banner $tone={test.ok ? 'success' : 'warning'} style={{ marginTop: 4 }}>
@@ -241,7 +264,7 @@ export function ConnectorCredentials({ source, onProvisioned }: Props): ReactEle
           </SecondaryBtn>
           <PrimaryBtn type="button" onClick={provision} disabled={!requiredFilled || submitting}>
             {submitting ? <Loader2 size={14} /> : null}
-            Connect &amp; profile
+            {editMode ? 'Save changes' : 'Connect & profile'}
             <ArrowRight size={14} />
           </PrimaryBtn>
         </Actions>
@@ -255,7 +278,12 @@ function hasValue(v: unknown): boolean {
   return v !== undefined && v !== null && v !== '';
 }
 
-function renderField(f: SourceField, value: unknown, onChange: (v: unknown) => void): ReactElement {
+function renderField(
+  f: SourceField,
+  value: unknown,
+  onChange: (v: unknown) => void,
+  editMode = false,
+): ReactElement {
   if (f.type === 'boolean') {
     return (
       <CheckRow key={f.key}>
@@ -291,7 +319,7 @@ function renderField(f: SourceField, value: unknown, onChange: (v: unknown) => v
       <Input
         type={f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text'}
         value={value === undefined || value === null ? '' : String(value)}
-        placeholder={f.placeholder}
+        placeholder={f.secret && editMode ? '•••••• (unchanged)' : f.placeholder}
         onChange={(e) => onChange(e.target.value)}
       />
     </Field>

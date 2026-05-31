@@ -156,6 +156,77 @@ export function scaffoldCubeModel(
   return { model, cubeName };
 }
 
+/**
+ * Fully-qualified Trino table reference (`catalog.schema.table`). A cross-game
+ * join works because the target cube's own `sql_table` is FQ — Trino federates
+ * schemas within one catalog, so two cubes sharing one `data_source` can join
+ * even though they live in different game schemas.
+ */
+export function fqSqlTable(catalog: string, schema: string, table: string): string {
+  return [catalog, schema, table].filter(Boolean).join('.');
+}
+
+export interface CrossGameJoinInput {
+  /** Target cube name (the other game's cube the join references). */
+  targetCube: string;
+  /** Join key column on the initiating cube (the one that owns the entry). */
+  fromColumn: string;
+  /** Join key column on the target cube. */
+  toColumn: string;
+  relationship: CubeJoin['relationship'];
+}
+
+/**
+ * Build a cross-game join entry. The target is addressed by cube NAME (its own
+ * `sql_table` carries the FQ `catalog.schema.table`), and the ON condition is
+ * explicit — unlike the inferred same-schema joins, nothing is assumed about the
+ * target's schema. Column identifiers are validated to stay injection-safe.
+ */
+export function buildCrossGameJoin(input: CrossGameJoinInput): CubeJoin {
+  const target = slug(input.targetCube);
+  const from = assertColumn(input.fromColumn, 'fromColumn');
+  const to = assertColumn(input.toColumn, 'toColumn');
+  return {
+    name: target,
+    relationship: input.relationship,
+    sql: `{CUBE}.${from} = {${target}}.${to}`,
+  };
+}
+
+const COLUMN_RE = /^[a-z_][a-z0-9_]*$/i;
+function assertColumn(value: string, field: string): string {
+  if (!COLUMN_RE.test(value)) {
+    throw new Error(`${field} must be a bare column identifier (got "${value}")`);
+  }
+  return value;
+}
+
+/**
+ * Append a cross-game join to a named cube in an existing model, returning a new
+ * `CubeModelSchema`-valid model. Throws if the cube is absent or the join to that
+ * target already exists (idempotency guard — no duplicate edges).
+ */
+export function addCrossGameJoin(
+  model: CubeModel,
+  cubeName: string,
+  input: CrossGameJoinInput,
+): CubeModel {
+  const target = slug(cubeName);
+  if (!model.cubes.some((c) => c.name === target)) {
+    throw new Error(`cube "${cubeName}" not found in model`);
+  }
+  const join = buildCrossGameJoin(input);
+  const cubes = model.cubes.map((c) => {
+    if (c.name !== target) return c;
+    const existing = c.joins ?? [];
+    if (existing.some((j) => j.name === join.name)) {
+      throw new Error(`join to "${join.name}" already exists on cube "${c.name}"`);
+    }
+    return { ...c, joins: [...existing, join] };
+  });
+  return CubeModelSchema.parse({ cubes });
+}
+
 /** Scaffold every inferred cube into one multi-cube model (for whole-dataset gen). */
 export function scaffoldDatasetModel(inferred: InferredSchema): CubeModel {
   const taken = new Set<string>();

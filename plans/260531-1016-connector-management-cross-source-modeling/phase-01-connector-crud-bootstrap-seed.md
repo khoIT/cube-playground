@@ -1,7 +1,7 @@
 ---
 phase: A
 title: "Connector CRUD + bootstrap-seed"
-status: planned
+status: done
 priority: P1
 effort: "8h"
 dependencies: []
@@ -107,3 +107,16 @@ row so ballistar's connection can be edited without re-typing creds.
 ## Security
 - Secret-free projection invariant preserved; SSRF host guard on every edit; grant re-check;
   audit trail on all transitions.
+
+## Open decisions
+- **Reveal-secret affordance (write-only vs revealable).** Current posture: secrets are
+  **write-only** — the form lets you set/rotate (`•••••• (unchanged)` placeholder; blank ⇒
+  keep) but the stored value is never sent back to the browser. This matches server-side
+  connection managers (Cube Cloud, Metabase, Airbyte, GitHub secrets) and the vault's
+  secret-free invariant. A DBeaver-style "reveal/show password" eye icon is intentionally
+  **not** offered: in a multi-user, RBAC'd web app, revealing ships plaintext over the wire
+  into the browser DOM (XSS/log/screen-share exfil range) and lets any granted editor lift a
+  secret they didn't set. *If* this deployment is single-tenant / single-user and the team
+  accepts that trade-off, a reveal button could be added as a deliberate loosening — but it
+  reverses the core vault invariant, so it must be an explicit product decision, not a default.
+  **Decision (2026-05-31): keep write-only.**

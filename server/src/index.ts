@@ -37,6 +37,7 @@ import onboardingRoutes from './routes/onboarding.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
+import { seedEnvConnectorIntoDb } from './services/connector-bootstrap.js';
 import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
 import { startLiveopsCacheCron } from './jobs/refresh-liveops.js';
@@ -102,6 +103,15 @@ export async function buildApp() {
     );
   } catch (err) {
     app.log.warn(`[glossary] seed failed: ${(err as Error).message}`);
+  }
+
+  // Materialize the env-only Trino connector into an editable DB row (vault-key
+  // guarded; idempotent). Degrades to the read-only env seed when no vault key.
+  try {
+    const seed = seedEnvConnectorIntoDb();
+    app.log.info(`[connectors] bootstrap-seed: ${seed.reason}`);
+  } catch (err) {
+    app.log.warn(`[connectors] bootstrap-seed failed: ${(err as Error).message}`);
   }
 
   // Hydrate the business-metrics cache before serving the first request.

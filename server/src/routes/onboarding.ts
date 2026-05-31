@@ -14,14 +14,28 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { listConnectors, getConnector, schemaForGame, isProfilerConfigured } from '../services/trino-profiler-config.js';
+import {
+  listConnectors,
+  getConnector,
+  schemaForGame,
+  isProfilerConfigured,
+  WORKED_EXAMPLE_CONNECTOR_ID,
+} from '../services/trino-profiler-config.js';
+import { CUBE_RELATIONSHIPS } from '../types/cube-model.js';
 import { getProfiler, ProfilerUnavailableError } from '../services/profiler-interface.js';
 import { listSourceTypes } from '../services/source-type-registry.js';
 import { readExistingModel } from '../services/existing-model-reader.js';
-import { testConnection, provisionConnector } from '../services/connector-provisioning.js';
+import { testConnection, provisionConnector, updateConnectorProfile } from '../services/connector-provisioning.js';
+import { getConnectorMeta, disableConnector, listConnectorAudit } from '../services/connector-store.js';
+import { crossSourceVerdict } from '../services/cross-source-advisor.js';
+import {
+  createCrossSourceLink,
+  listCrossSourceLinks,
+  disableCrossSourceLink,
+} from '../services/cross-source-link-store.js';
 import { HostNotAllowedError } from '../services/connector-host-guard.js';
 import { inferSchema } from '../services/raw-schema-inference.js';
-import { scaffoldCubeModel, toYaml } from '../services/cube-model-scaffolder.js';
+import { scaffoldCubeModel, addCrossGameJoin, toYaml } from '../services/cube-model-scaffolder.js';
 import {
   upsertDraft,
   listDrafts,
@@ -61,6 +75,16 @@ const GenerateBody = z.object({
 
 const StatusBody = z.object({ reason: z.string().max(2000).optional() });
 
+const COLUMN_RE = /^[a-z_][a-z0-9_]*$/i;
+const CrossGameJoinBody = z.object({
+  draftId: z.number().int().positive(),
+  targetGame: z.string().min(1),
+  targetCube: z.string().min(1),
+  fromColumn: z.string().regex(COLUMN_RE, 'fromColumn must be a bare column identifier'),
+  toColumn: z.string().regex(COLUMN_RE, 'toColumn must be a bare column identifier'),
+  relationship: z.enum(CUBE_RELATIONSHIPS),
+});
+
 const TestConnectorBody = z.object({
   sourceType: z.string().min(1),
   fields: z.record(z.unknown()).default({}),
@@ -73,6 +97,45 @@ const CreateConnectorBody = z.object({
   workspaceId: z.string().min(1).default('local'),
   fields: z.record(z.unknown()).default({}),
 });
+
+const UpdateConnectorBody = z.object({
+  label: z.string().min(1).max(120).optional(),
+  fields: z.record(z.unknown()).default({}),
+});
+
+/** Map a thrown provisioning error to a route reply (shared create/update). */
+function sendProvisionError(reply: import('fastify').FastifyReply, err: unknown) {
+  if (err instanceof HostNotAllowedError) {
+    return reply.status(400).send({ error: { code: 'HOST_NOT_ALLOWED', message: err.message } });
+  }
+  const message = (err as Error).message;
+  if (message.startsWith('VALIDATION:')) {
+    return reply.status(400).send({ error: { code: 'VALIDATION', message: message.slice('VALIDATION:'.length).trim() } });
+  }
+  if (message.startsWith('NOT_FOUND:')) {
+    return reply.status(404).send({ error: { code: 'NOT_FOUND', message: message.slice('NOT_FOUND:'.length).trim() } });
+  }
+  if (message.startsWith('READ_ONLY:')) {
+    return reply.status(403).send({ error: { code: 'READ_ONLY', message: message.slice('READ_ONLY:'.length).trim() } });
+  }
+  return reply.status(500).send({ error: { code: 'PROVISION_FAILED', message } });
+}
+
+const CrossSourceLinkBody = z.object({
+  leftCube: z.string().min(1),
+  leftConnector: z.string().min(1),
+  rightCube: z.string().min(1),
+  rightConnector: z.string().min(1),
+  key: z.object({ fromColumn: z.string().min(1), toColumn: z.string().min(1) }),
+  relationship: z.enum(CUBE_RELATIONSHIPS),
+  rationale: z.string().max(2000).optional(),
+  workspaceId: z.string().min(1).default('local'),
+});
+
+/** Resolve a connector's source type from the public list (DB + bootstrap + example). */
+function sourceTypeOf(connectorId: string): string | null {
+  return listConnectors().find((c) => c.id === connectorId)?.sourceType ?? null;
+}
 
 /** Derive a slug connector id from a label when one isn't supplied. */
 function slugifyId(label: string): string {
@@ -139,15 +202,120 @@ export default async function onboardingRoutes(app: FastifyInstance): Promise<vo
         note: result.note,
       });
     } catch (err) {
-      if (err instanceof HostNotAllowedError) {
-        return reply.status(400).send({ error: { code: 'HOST_NOT_ALLOWED', message: err.message } });
-      }
-      const message = (err as Error).message;
-      if (message.startsWith('VALIDATION:')) {
-        return reply.status(400).send({ error: { code: 'VALIDATION', message: message.slice('VALIDATION:'.length).trim() } });
-      }
-      return reply.status(500).send({ error: { code: 'PROVISION_FAILED', message } });
+      return sendProvisionError(reply, err);
     }
+  });
+
+  // ── Edit a connector (non-secret config + optional secret/label) ────────────
+  // Body = { label?, fields }. The source type is taken from the stored row, so
+  // an edit never switches a connector's driver. A blank secret field keeps the
+  // existing sealed credential (no blank-overwrite). The read-only worked example
+  // is refused. Write-role gated by the global preHandler.
+  app.patch<{ Params: { id: string } }>('/api/onboarding/connectors/:id', async (req, reply) => {
+    const { id } = req.params;
+    if (id === WORKED_EXAMPLE_CONNECTOR_ID) {
+      return reply.status(403).send({ error: { code: 'READ_ONLY', message: 'the worked-example connector is not editable' } });
+    }
+    const meta = getConnectorMeta(id);
+    if (!meta || meta.status !== 'active') {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'connector not found' } });
+    }
+    const parsed = UpdateConnectorBody.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    try {
+      const result = await updateConnectorProfile({
+        id,
+        label: parsed.data.label,
+        sourceType: meta.sourceType,
+        workspaceId: meta.workspaceId,
+        fields: parsed.data.fields,
+        actor: actorOf(req),
+      });
+      return {
+        connector: listConnectors().find((c) => c.id === id) ?? null,
+        liveTested: result.liveTested,
+        note: result.note,
+      };
+    } catch (err) {
+      return sendProvisionError(reply, err);
+    }
+  });
+
+  // ── Disable (soft-delete) a connector — drops out of the list, keeps audit ──
+  app.post<{ Params: { id: string } }>('/api/onboarding/connectors/:id/disable', async (req, reply) => {
+    const { id } = req.params;
+    if (id === WORKED_EXAMPLE_CONNECTOR_ID) {
+      return reply.status(403).send({ error: { code: 'READ_ONLY', message: 'the worked-example connector cannot be disabled' } });
+    }
+    const ok = disableConnector(id, actorOf(req));
+    if (!ok) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'connector not found or already disabled' } });
+    }
+    return { disabled: true, id };
+  });
+
+  // ── Connector lifecycle audit (create/update/disable/test) ──────────────────
+  app.get<{ Params: { id: string } }>('/api/onboarding/connectors/:id/audit', async (req) => ({
+    audit: listConnectorAudit(req.params.id),
+  }));
+
+  // ── Cross-source links (ADVISORY) ───────────────────────────────────────────
+  // Declare a relationship between cubes on DIFFERENT connectors/dataSources.
+  // Cube cannot execute this as a live SQL join — the link is modeling intent +
+  // a capability verdict (rollupJoin-eligible? or ETL), never compiled to YAML.
+  app.get<{ Querystring: { workspaceId?: string } }>('/api/onboarding/cross-source-links', async (req) => {
+    const links = listCrossSourceLinks(req.query.workspaceId).map((link) => ({
+      ...link,
+      verdict: crossSourceVerdict(
+        sourceTypeOf(link.leftConnector) ?? 'unknown',
+        sourceTypeOf(link.rightConnector) ?? 'unknown',
+      ),
+    }));
+    return { links };
+  });
+
+  app.post('/api/onboarding/cross-source-links', async (req, reply) => {
+    const parsed = CrossSourceLinkBody.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const d = parsed.data;
+    const leftSt = sourceTypeOf(d.leftConnector);
+    const rightSt = sourceTypeOf(d.rightConnector);
+    if (!leftSt || !rightSt) {
+      return reply.status(404).send({ error: { code: 'CONNECTOR_NOT_FOUND', message: 'one or both connectors are unknown' } });
+    }
+    // Same connector ⇒ this is an executable same-source join, not a cross-source
+    // advisory link. Steer the caller to the executable path.
+    if (d.leftConnector === d.rightConnector) {
+      return reply.status(400).send({
+        error: { code: 'SAME_SOURCE', message: 'both cubes share a connector — use an executable join, not a cross-source link' },
+      });
+    }
+    const link = createCrossSourceLink({
+      workspaceId: d.workspaceId,
+      leftCube: d.leftCube,
+      leftConnector: d.leftConnector,
+      rightCube: d.rightCube,
+      rightConnector: d.rightConnector,
+      key: d.key,
+      relationship: d.relationship,
+      rationale: d.rationale ?? null,
+      createdBy: actorOf(req),
+    });
+    return reply.status(201).send({ link, verdict: crossSourceVerdict(leftSt, rightSt) });
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/onboarding/cross-source-links/:id', async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'invalid link id' } });
+    }
+    const ok = disableCrossSourceLink(id);
+    if (!ok) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'link not found or already removed' } });
+    return { removed: true, id };
   });
 
   // ── Introspect: list tables for a connector + schema (or game→schema) ───────
@@ -300,6 +468,72 @@ export default async function onboardingRoutes(app: FastifyInstance): Promise<vo
     } catch (err) {
       return { structural, live: { ok: false, error: (err as Error).message } };
     }
+  });
+
+  // ── Cross-game join: add an executable join to a cube in another game that ──
+  // lives under the SAME Trino connector (federated schemas, one data_source).
+  // Dual-game grant: the user must hold BOTH the initiating and the target game.
+  // Cross-`dataSource` links are NOT executable here — they go to Phase C
+  // (declare + flag), so a non-Trino initiating connector is refused.
+  app.post('/api/onboarding/cross-game-join', async (req, reply) => {
+    const parsed = CrossGameJoinBody.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const { draftId, targetGame, targetCube, fromColumn, toColumn, relationship } = parsed.data;
+
+    const draft = getDraft(draftId);
+    if (!draft) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'draft not found' } });
+
+    // Dual-game grant intersection — initiating game and target game.
+    if (gameForbidden(req, draft.game)) {
+      return reply.status(403).send({ error: { code: 'GAME_FORBIDDEN', message: `game "${draft.game}" not granted` } });
+    }
+    if (gameForbidden(req, targetGame)) {
+      return reply.status(403).send({ error: { code: 'GAME_FORBIDDEN', message: `target game "${targetGame}" not granted` } });
+    }
+
+    // Same-`dataSource` guard: only Trino's federated catalog can execute this
+    // join. The initiating connector must resolve to Trino; a non-Trino OR an
+    // unresolvable/disabled connector is refused (it can't back an executable
+    // cross-game join) — those go to Phase C (declare a cross-source link).
+    const connector = getConnector(draft.connectorId);
+    if (!connector || connector.sourceType !== 'trino') {
+      return reply.status(409).send({
+        error: { code: 'CROSS_SOURCE', message: 'cross-dataSource joins are not executable — declare a cross-source link instead' },
+      });
+    }
+    if (!schemaForGame(targetGame)) {
+      return reply.status(400).send({ error: { code: 'SCHEMA_REQUIRED', message: `target game "${targetGame}" has no mapped Trino schema` } });
+    }
+
+    // The target cube must exist in the other game's committed model.
+    const targetModel = readExistingModel(targetGame);
+    if (!targetModel.cubes.some((c) => c.name === targetCube)) {
+      return reply.status(404).send({ error: { code: 'TARGET_CUBE_NOT_FOUND', message: `cube "${targetCube}" not found in game "${targetGame}"` } });
+    }
+
+    let updatedModel;
+    try {
+      updatedModel = addCrossGameJoin(draft.model, draft.cubeName, { targetCube, fromColumn, toColumn, relationship });
+    } catch (err) {
+      return reply.status(400).send({ error: { code: 'JOIN_INVALID', message: (err as Error).message } });
+    }
+
+    // Persist back into the same draft (keyed on game+cubeName); preserves status.
+    const updated = upsertDraft({
+      game: draft.game,
+      connectorId: draft.connectorId,
+      schemaName: draft.schemaName,
+      cubeName: draft.cubeName,
+      model: updatedModel,
+      yaml: toYaml(updatedModel),
+      profiles: null,
+      inference: draft.inference,
+      source: draft.source,
+      createdBy: actorOf(req),
+    });
+    return { draft: updated, note: 'Cross-game join staged on the draft. Validate live after approval/write.' };
   });
 
   // ── Approve → write YAML into cube-dev → status 'written' ───────────────────

@@ -52,10 +52,18 @@ Cube **cannot execute SQL joins across different `dataSource`s** — only within
 ## Phases
 | Phase | Name | Status |
 |-------|------|--------|
-| A | [Connector CRUD + bootstrap-seed](./phase-01-connector-crud-bootstrap-seed.md) | Planned |
-| B | [Cross-game executable join (same Trino dataSource)](./phase-02-cross-game-executable-join.md) | Planned |
-| C | [Cross-source declare + flag (advisory)](./phase-03-cross-source-declare-flag.md) | Planned |
-| D | [cube.js dataSource generalization + non-Trino driver (operator)](./phase-04-cubejs-datasource-generalization.md) | Planned |
+| A | [Connector CRUD + bootstrap-seed](./phase-01-connector-crud-bootstrap-seed.md) | ✅ Done (22 tests) |
+| B | [Cross-game executable join (same Trino dataSource)](./phase-02-cross-game-executable-join.md) | ✅ Done (11 tests) |
+| C | [Cross-source declare + flag (advisory)](./phase-03-cross-source-declare-flag.md) | ✅ Done (13 tests) |
+| D | [cube.js dataSource generalization + non-Trino driver (operator)](./phase-04-cubejs-datasource-generalization.md) | ◻︎ Contract specced ([phase-04-driver-contract.md](./phase-04-driver-contract.md)); cube-dev PR + driver-dep + deploy gated on go-ahead |
+
+**Implementation status (2026-05-31):** A–C implemented + tested (46 new tests, all green;
+server `tsc` clean; FE touched files clean). Code-reviewed — all 6 security invariants verified,
+no critical/high issues; 2 low-severity hardening fixes applied (store-level read-only disable
+guard; cross-game refuses an unresolvable/non-Trino connector). Phase D is the operator unlock
+(sibling `cube-dev` repo + a driver dependency + a secret-export deploy step) — its contract is
+written; the cross-repo edit awaits explicit go-ahead. Live `/load` validation of a cross-game
+join remains post-write (an unwritten draft cube isn't in `/meta`) — matches the plan's manual-proof note.
 
 **Sequencing:** A → B deliver the full ballistar story (editable connection + executable
 cross-game join) with **zero cube.js changes**. C is additive (graph/declaration). D is the
