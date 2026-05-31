@@ -2,6 +2,14 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-05-31 — Connector management + cross-source/cross-game modeling (phases A–C)
+
+Editable connectors (move from `.env` to DB) + executable cross-game joins + declared cross-source links. Plan: `plans/260531-1016-connector-management-cross-source-modeling/`. Tests: 46 new server tests, all passing.
+
+- **Phase A — Connector CRUD + bootstrap-seed.** `/api/onboarding/connectors` now support PATCH (edit connector fields) and new POST /disable (soft-disable). Secrets remain write-only (blank edit keeps existing sealed credential; never returned). On boot, if `CONNECTOR_SECRET_KEY` is set, the env-seeded Trino connection (`TRINO_PROFILER_*`) materializes into an editable DB row; without the vault key, degrades to read-only env seed. Read-only worked-example connector (`existing-model`) refuses edit/disable. New audit trail via `connector-store.ts` append-only write path.
+- **Phase B — Cross-game executable join (same dataSource).** Users model joins between cubes in different games (e.g., ballistar ↔ cfm) sharing the same Trino connector. New POST `/api/onboarding/cross-game-join` with dual-game grant intersection enforced (403 if user lacks either game). Scaffolder emits fully-qualified FQ-addressed join. Cross-dataSource (different connectors) refused at 409.
+- **Phase C — Cross-source declare + flag (advisory).** Users declare relationships between cubes on different connectors/dataSources. New migration `025-cross-source-links.sql` + API (`GET/POST/DELETE /api/onboarding/cross-source-links`). These links are non-executable (never compiled to YAML) — marked advisory only to flag rollupJoin-eligible or ETL pathways. Engine constraint: Cube cannot execute SQL joins across different dataSources; only within one (same dataSource + same connector = executable; cross-dataSource = advisory declaration).
+
 ## 2026-05-30 — Multi-source connect + guided model builder (onboarding v2)
 
 `/data` graduates from a Trino-only request/preview surface into the product layer for the whole data-model lifecycle: connect any supported source (real, secret-vault-backed) → build its semantic model step-by-step (YAML = compiled output) → co-locate sources at the model layer. Plan: `plans/260530-1406-cube-model-onboarding-agent/` (v2, phases 9–16). Tests: server 500/500 pass.

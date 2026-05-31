@@ -1,7 +1,7 @@
 ---
 phase: B
 title: "Cross-game executable join (same Trino dataSource)"
-status: planned
+status: done
 priority: P1
 effort: "8h"
 dependencies: [A]

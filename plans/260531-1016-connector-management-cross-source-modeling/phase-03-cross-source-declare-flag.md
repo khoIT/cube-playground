@@ -1,7 +1,7 @@
 ---
 phase: C
 title: "Cross-source declare + flag (advisory)"
-status: planned
+status: done
 priority: P2
 effort: "7h"
 dependencies: [B]

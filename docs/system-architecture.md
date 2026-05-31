@@ -122,6 +122,54 @@ If user clarifies in follow-up turn:
 
 ---
 
+## Connector Management & Multi-Source Modeling
+
+Users can now edit data connections from the product UI (CRUD on `/api/onboarding/connectors`), materialize env-only connectors as editable DB rows, and model executable cross-game joins or advisory cross-source links. Three architectural constraints:
+
+1. **Secrets sealed at rest.** Vault (`AES-256-GCM` via `CONNECTOR_SECRET_KEY`) encrypts secrets before persist; never returned to browser or logged. Edit with blank secret preserves existing sealed credential.
+2. **Same-source joins are executable.** Cubes sharing the same `data_source` (connector ID) may join regardless of game boundary. Trino federates schemas within `game_integration` catalog so cross-game (ballistar ↔ cfm) is live SQL.
+3. **Cross-source joins are advisory only.** Cubes on different connectors (dataSources) can be declared linked via `/api/onboarding/cross-source-links`, but Cube's engine cannot execute SQL across dataSources — only within one. Cross-source links flag rollupJoin or ETL opportunities without false-promise of live join.
+
+### Connector Lifecycle
+
+**Bootstrap-seed:** On boot, if `CONNECTOR_SECRET_KEY` is set and no DB `connectors` row exists for the env-seeded Trino connection (`TRINO_PROFILER_*` env vars), the service auto-materializes it as an editable DB row. Without the vault key, the connection stays read-only env seed. Worked-example connector (`existing-model`) is always read-only and refuses edit/disable.
+
+**Edit/Disable:** PATCH `/api/onboarding/connectors/:id` accepts field updates (host, port, etc.); secrets in the PATCH body blank means "keep the existing sealed value." POST `/api/onboarding/connectors/:id/disable` soft-disables, marking the row inactive. Append-only audit trail via `connector-store.ts` write path. Edit/disable enforce `enforce-write-roles` RBAC + game-grant re-checks.
+
+**Registry sync:** Each connector writes a secret-free entry to `datasources.config.json` (via `datasource-registry-writer.ts`) — the config-not-code contract that Cube reads to resolve per-dataSource drivers. Multiple connectors co-exist in a single model because cubes are stamped with `data_source: <connectorId>`.
+
+### Cross-Game Executable Join
+
+When a user joins cubes from different games (both under Trino), both cubes share `data_source: trino` and the join is **executable** — Trino federates schemas within the `game_integration` catalog. New POST `/api/onboarding/cross-game-join` accepts an initiating cube + target cube + join predicate. Route enforces grant intersection: user must hold write access to **both** games (403 if not). Scaffolder emits a fully-qualified join:
+
+```yaml
+join:
+  name: to_other_game_table
+  relationship: one_to_many
+  sql: "{TABLE}.id = {OTHER_GAME_SCHEMA}.other_table.id"
+```
+
+The join compiles to YAML and is executable in `/load` because both cubes resolve to the same Trino dataSource.
+
+### Cross-Source Advisory Link
+
+Users declare relationships between cubes on **different** connectors (e.g., Trino → ClickHouse, Trino → Postgres). These are **non-executable** — never compiled to YAML. New migration `025-cross-source-links.sql` + API (`GET/POST/DELETE /api/onboarding/cross-source-links`) surfaces them in the graph as dashed edges. Link payload includes a `kind` enum (rollupJoin / ETL / other) to flag the intended bridge:
+
+```json
+{
+  "from_cube_id": "ballistar.users",
+  "to_cube_id": "clickhouse_warehouse.events",
+  "kind": "rollupJoin",
+  "is_executable": false
+}
+```
+
+The `is_executable: false` flag is advisory — a UI affordance that prevents false promises of live joins across dataSources. Future: auto-suggest rollupJoin bridges or ETL sync patterns.
+
+**RBAC:** Cross-game join requires both-game grant intersection. Cross-source link requires only initiating-game grant (no execute intent, so looser scoping).
+
+---
+
 ## Data-Model Lifecycle: Bootstrap → Reconcile → Repair
 
 Cube-model onboarding implements the **bootstrap stage** (introspect raw warehouse → stage drafts). Surfaces integrate at reconcile (coverage + drift surfaces) and repair (manual/auto repoint).
