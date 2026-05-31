@@ -75,6 +75,13 @@ export interface ConnectorPublic {
   host: string;
   configured: boolean;
   /**
+   * Non-secret connection coordinates (host/port/user/catalog/ssl + extras),
+   * present for DB-backed and bootstrap connectors so the edit form can prefill.
+   * Secret-free by construction — the credential lives only in the vault columns.
+   * Absent for the read-only worked example (not editable).
+   */
+  config?: Record<string, unknown>;
+  /**
    * Read-only worked example (no live creds). The card always appears so the
    * existing committed cube-dev model is browsable with zero env setup; its
    * detail view renders the model from disk and never live-introspects.
@@ -172,6 +179,8 @@ function bootstrapToPublic(c: Connector): ConnectorPublic {
     catalog: c.catalog,
     host: c.host,
     configured: Boolean(c.host),
+    // Non-secret coordinates only (password excluded) for edit-form prefill.
+    config: { host: c.host, port: c.port, user: c.user, catalog: c.catalog, ssl: c.ssl },
   };
 }
 
@@ -184,6 +193,8 @@ function metaToPublic(m: ConnectorMeta): ConnectorPublic {
     catalog: String(m.config.catalog ?? ''),
     host: String(m.config.host ?? ''),
     configured: Boolean(m.config.host),
+    // Stored non-secret config (secret lives in vault columns, never here).
+    config: m.config,
   };
 }
 

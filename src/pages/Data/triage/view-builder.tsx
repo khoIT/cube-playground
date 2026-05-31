@@ -13,6 +13,8 @@ import { Boxes, Ruler, Sigma, Link2, FileCode2, Check, X, KeyRound, ArrowRight, 
 import type { UseOnboardingDraftResult, Decision } from '../use-onboarding-draft';
 import { ConfidencePill, pct, YamlPane, TriageActionBar, summariseValidation, rationaleTitle } from './triage-shared';
 import type { InferredField } from '../../../api/onboarding-client';
+import { useAuthUser } from '../../../auth/auth-context';
+import { CrossGameJoinPanel } from './cross-game-join-panel';
 
 const STEPS = [
   { id: 'cube', label: 'Cube', icon: Boxes },
@@ -123,6 +125,7 @@ interface Props {
 
 export function ViewBuilder({ state, canWrite }: Props): ReactElement {
   const [step, setStep] = useState<StepId>('cube');
+  const user = useAuthUser();
   const cube = state.draft?.inference?.cubes[0] ?? null;
   const decisionById = useMemo(() => {
     const m = new Map<string, Decision>();
@@ -221,6 +224,21 @@ export function ViewBuilder({ state, canWrite }: Props): ReactElement {
           <>
             <Hint>Relationships to other cubes (foreign-key candidates from profiling).</Hint>
             {cube.joins.length ? joinRow() : <Empty>No joins inferred for this cube.</Empty>}
+            {state.draft ? (
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border-card)' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>
+                  Cross-game join
+                </div>
+                <CrossGameJoinPanel
+                  draftId={Number(state.draft.id)}
+                  currentGame={state.draft.game}
+                  fromColumns={(state.draft.model.cubes[0]?.dimensions ?? []).map((d) => d.name)}
+                  allowedGames={user?.allowedGames ?? []}
+                  canWrite={canWrite}
+                  onAdded={() => void state.refetch()}
+                />
+              </div>
+            ) : null}
           </>
         ) : (
           <>

@@ -76,6 +76,26 @@ export interface CreateConnectorInput {
   createdBy?: string | null;
 }
 
+export interface UpdateConnectorInput {
+  /** New display label; omitted ⇒ keep existing. */
+  label?: string;
+  /** Full non-secret coordinates (replaces the stored config). */
+  config: Record<string, unknown>;
+  /**
+   * Cleartext secret. A non-empty string reseals; `undefined` or `''` keeps the
+   * existing sealed secret untouched (edit-with-blank ⇒ no blank-overwrite).
+   */
+  secret?: string;
+}
+
+/**
+ * The committed worked-example connector id. It carries no live creds and is
+ * never editable/disable-able — the store refuses to mutate it so a stray route
+ * can't corrupt the read-only example. Kept as a local literal (not imported
+ * from trino-profiler-config) to avoid a store↔config import cycle.
+ */
+const READ_ONLY_CONNECTOR_ID = 'existing-model';
+
 function appendAudit(
   connectorId: string,
   action: ConnectorAction,
@@ -129,6 +149,55 @@ export function createConnector(
     );
   appendAudit(input.id, 'create', input.createdBy ?? null, `source_type=${input.sourceType}`, ts);
   return getConnectorMeta(input.id) as ConnectorMeta;
+}
+
+/**
+ * Update a connector's non-secret config (+ optional label/secret). Preserves
+ * the sealed secret when `input.secret` is blank/undefined — only a non-empty
+ * secret reseals, so an edit that leaves the password field empty never wipes
+ * the stored credential. Audits 'update'. Returns null for unknown id; throws
+ * for the read-only worked example.
+ */
+export function updateConnector(
+  id: string,
+  input: UpdateConnectorInput,
+  actor: string | null,
+  ts: string = new Date().toISOString(),
+): ConnectorMeta | null {
+  if (id === READ_ONLY_CONNECTOR_ID) {
+    throw new Error('READ_ONLY: the worked-example connector is not editable');
+  }
+  const existing = getDb().prepare(`SELECT * FROM connectors WHERE id = ?`).get(id) as
+    | RawConnectorRow
+    | undefined;
+  if (!existing) return null;
+
+  const reseal = typeof input.secret === 'string' && input.secret.length > 0;
+  const sealed = reseal ? sealSecret(input.secret as string) : null;
+  const label = input.label ?? existing.label;
+
+  getDb()
+    .prepare(
+      `UPDATE connectors SET
+         label             = ?,
+         config_json       = ?,
+         secret_ciphertext = ?,
+         secret_iv         = ?,
+         secret_tag        = ?,
+         updated_at        = ?
+       WHERE id = ?`,
+    )
+    .run(
+      label,
+      JSON.stringify(input.config),
+      sealed ? sealed.ciphertext : existing.secret_ciphertext,
+      sealed ? sealed.iv : existing.secret_iv,
+      sealed ? sealed.tag : existing.secret_tag,
+      ts,
+      id,
+    );
+  appendAudit(id, 'update', actor, reseal ? 'config+secret' : 'config', ts);
+  return getConnectorMeta(id);
 }
 
 /** Secret-free metadata for all active connectors (no vault key needed). */
@@ -186,6 +255,9 @@ export function disableConnector(
   actor: string | null,
   ts: string = new Date().toISOString(),
 ): boolean {
+  if (id === READ_ONLY_CONNECTOR_ID) {
+    throw new Error('READ_ONLY: the worked-example connector cannot be disabled');
+  }
   const res = getDb()
     .prepare(`UPDATE connectors SET status = 'disabled', updated_at = ? WHERE id = ? AND status = 'active'`)
     .run(ts, id);

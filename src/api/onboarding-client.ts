@@ -17,13 +17,51 @@ export interface Connector {
   catalog: string;
   host: string;
   configured: boolean;
+  /** Non-secret coordinates (host/port/user/catalog/ssl + extras) for edit prefill. */
+  config?: Record<string, unknown>;
   /** Read-only worked example (committed cube-dev model); never live-introspected. */
   readOnly?: boolean;
+}
+
+export interface ConnectorAuditRow {
+  id: number;
+  connectorId: string;
+  action: 'create' | 'update' | 'disable' | 'test';
+  actor: string | null;
+  detail: string | null;
+  ts: string;
 }
 
 export interface ConnectorsResponse {
   configured: boolean;
   connectors: Connector[];
+}
+
+// ── Cross-source links (advisory — never executable) ────────────────────────
+export interface CrossSourceVerdict {
+  executable: false;
+  rollupJoinEligible: boolean;
+  leftSourceType: string;
+  rightSourceType: string;
+  note: string;
+}
+
+export interface CrossSourceLink {
+  id: number;
+  workspaceId: string;
+  leftCube: string;
+  leftConnector: string;
+  rightCube: string;
+  rightConnector: string;
+  key: { fromColumn: string; toColumn: string };
+  relationship: string;
+  rationale: string | null;
+  status: string;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Capability verdict, attached on the list endpoint. */
+  verdict?: CrossSourceVerdict;
 }
 
 // ── Source types (drives the dynamic connect form) ──────────────────────────
@@ -245,6 +283,30 @@ export const onboardingClient = {
     });
   },
 
+  /** Edit a connector. Blank/omitted secret field keeps the stored credential. */
+  updateConnector(
+    id: string,
+    body: { label?: string; fields: Record<string, unknown> },
+  ): Promise<ProvisionConnectorResult> {
+    return apiFetch<ProvisionConnectorResult>(`/api/onboarding/connectors/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body,
+    });
+  },
+
+  disableConnector(id: string): Promise<{ disabled: boolean; id: string }> {
+    return apiFetch<{ disabled: boolean; id: string }>(
+      `/api/onboarding/connectors/${encodeURIComponent(id)}/disable`,
+      { method: 'POST' },
+    );
+  },
+
+  connectorAudit(id: string): Promise<{ audit: ConnectorAuditRow[] }> {
+    return apiFetch<{ audit: ConnectorAuditRow[] }>(
+      `/api/onboarding/connectors/${encodeURIComponent(id)}/audit`,
+    );
+  },
+
   introspect(opts: { connectorId: string; schema?: string; game?: string }): Promise<IntrospectResponse> {
     return apiFetch<IntrospectResponse>('/api/onboarding/introspect', {
       query: { connectorId: opts.connectorId, schema: opts.schema, game: opts.game },
@@ -293,6 +355,54 @@ export const onboardingClient = {
   approve(id: string): Promise<ApproveResponse> {
     return apiFetch<ApproveResponse>(`/api/onboarding/drafts/${encodeURIComponent(id)}/approve`, {
       method: 'POST',
+    });
+  },
+
+  /**
+   * Add an executable cross-game join to a draft cube (same Trino connector).
+   * Requires grants for both the initiating and the target game (server 403s
+   * otherwise). Returns the updated draft with the join staged.
+   */
+  crossGameJoin(input: {
+    draftId: number;
+    targetGame: string;
+    targetCube: string;
+    fromColumn: string;
+    toColumn: string;
+    relationship: 'many_to_one' | 'one_to_many' | 'one_to_one';
+  }): Promise<{ draft: DraftModelRow; note?: string }> {
+    return apiFetch<{ draft: DraftModelRow; note?: string }>('/api/onboarding/cross-game-join', {
+      method: 'POST',
+      body: input,
+    });
+  },
+
+  // ── Cross-source links (advisory) ──────────────────────────────────────────
+  crossSourceLinks(workspaceId?: string): Promise<{ links: CrossSourceLink[] }> {
+    return apiFetch<{ links: CrossSourceLink[] }>('/api/onboarding/cross-source-links', {
+      query: { workspaceId },
+    });
+  },
+
+  declareCrossSourceLink(input: {
+    leftCube: string;
+    leftConnector: string;
+    rightCube: string;
+    rightConnector: string;
+    key: { fromColumn: string; toColumn: string };
+    relationship: 'many_to_one' | 'one_to_many' | 'one_to_one';
+    rationale?: string;
+    workspaceId?: string;
+  }): Promise<{ link: CrossSourceLink; verdict: CrossSourceVerdict }> {
+    return apiFetch<{ link: CrossSourceLink; verdict: CrossSourceVerdict }>('/api/onboarding/cross-source-links', {
+      method: 'POST',
+      body: input,
+    });
+  },
+
+  removeCrossSourceLink(id: number): Promise<{ removed: boolean; id: number }> {
+    return apiFetch<{ removed: boolean; id: number }>(`/api/onboarding/cross-source-links/${id}`, {
+      method: 'DELETE',
     });
   },
 };

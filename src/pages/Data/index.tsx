@@ -108,7 +108,13 @@ export function DataHubPage(): React.ReactElement {
       </div>
 
       {step.kind === 'detail' ? (
-        <ConnectorDetail connector={step.connector} onBack={() => setStep({ kind: 'list' })} />
+        <ConnectorDetail
+          connector={step.connector}
+          onBack={() => {
+            setStep({ kind: 'list' });
+            void load(); // reflect edits / disables made in the detail view
+          }}
+        />
       ) : (
         <>
           <div style={titleRow}>

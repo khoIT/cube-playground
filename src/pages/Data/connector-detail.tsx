@@ -7,7 +7,7 @@
  */
 import { ReactElement, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Pencil, Power } from 'lucide-react';
 import { useHistory } from 'react-router-dom';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useAuthUser } from '../../auth/auth-context';
@@ -16,6 +16,7 @@ import type { Connector, TableMeta, DraftModelRow } from '../../api/onboarding-c
 import { DatasetTables, type OnboardMode } from './dataset-tables';
 import { TriageCanvas } from './triage/triage-canvas';
 import { ExistingModelView } from './existing-model-view';
+import { ConnectorCredentials } from './connector-connect-form';
 
 type Tab = 'datasets' | 'model' | 'agents' | 'coverage' | 'drift' | 'history';
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -136,6 +137,26 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
   const [mode, setMode] = useState<OnboardMode>('cold');
   const [generating, setGenerating] = useState(false);
   const [draft, setDraft] = useState<DraftModelRow | null>(null);
+  // Edit / disable lifecycle (write-role + non-readOnly only).
+  const [editing, setEditing] = useState(false);
+  const [disabling, setDisabling] = useState(false);
+  const editable = !readOnly && canWrite;
+
+  async function handleDisable() {
+    if (disabling) return;
+    if (!window.confirm(`Disable "${connector.label}"? It will drop out of the connector list (audit history is kept).`)) {
+      return;
+    }
+    setDisabling(true);
+    setError(null);
+    try {
+      await onboardingClient.disableConnector(connector.id);
+      onBack(); // parent reloads the list on back
+    } catch (err) {
+      setError((err as Error).message);
+      setDisabling(false);
+    }
+  }
 
   // Deep-link Coverage / Drift out to the shipped pages, scoped to the game.
   useEffect(() => {
@@ -188,6 +209,32 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
   // Once a draft exists, the connector detail becomes the triage canvas.
   if (draft) return <TriageCanvas draftId={draft.id} />;
 
+  // Edit mode: reuse the connect form, prefilled, secret kept unless retyped.
+  if (editing) {
+    return (
+      <>
+        <Head>
+          <Badge aria-hidden>{initials(connector.label)}</Badge>
+          <TitleBlock>
+            <Title>Edit {connector.label}</Title>
+            <Meta>{connector.catalog} catalog · secret kept unless you retype it</Meta>
+          </TitleBlock>
+          <Ghost type="button" onClick={() => setEditing(false)}>
+            <ArrowLeft size={14} /> Cancel
+          </Ghost>
+        </Head>
+        <ConnectorCredentials
+          source={{ id: connector.sourceType, label: connector.label }}
+          initial={{ id: connector.id, label: connector.label, config: connector.config ?? {} }}
+          onProvisioned={() => {
+            setEditing(false);
+            onBack(); // parent reloads the list, reflecting the edit
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -200,6 +247,16 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
               : `${connector.catalog} catalog · ${tables.length} tables`}
           </Meta>
         </TitleBlock>
+        {editable ? (
+          <>
+            <Ghost type="button" onClick={() => setEditing(true)}>
+              <Pencil size={14} /> Edit
+            </Ghost>
+            <Ghost type="button" onClick={handleDisable} disabled={disabling}>
+              <Power size={14} /> {disabling ? 'Disabling…' : 'Disable'}
+            </Ghost>
+          </>
+        ) : null}
         <Ghost type="button" onClick={onBack}>
           <ArrowLeft size={14} /> Connectors
         </Ghost>

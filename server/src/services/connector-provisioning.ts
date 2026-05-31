@@ -10,7 +10,7 @@
  */
 
 import { validateConnectionInput, getSourceType } from './source-type-registry.js';
-import { createConnector, type ConnectorMeta } from './connector-store.js';
+import { createConnector, updateConnector, type ConnectorMeta } from './connector-store.js';
 import { upsertDataSource } from './datasource-registry-writer.js';
 import { assertSafeHost, HostNotAllowedError } from './connector-host-guard.js';
 import { runQuery } from './trino-rest-client.js';
@@ -37,6 +37,15 @@ export interface ProvisionResult {
   /** True when cube.js can serve queries now; false → manual registry/cube.js step pending. */
   liveTested: boolean;
   note?: string;
+}
+
+export interface UpdateConnectorProfileInput {
+  id: string;
+  label?: string;
+  sourceType: string;
+  workspaceId: string;
+  fields: Record<string, unknown>;
+  actor?: string | null;
 }
 
 /** Build an unsaved Connector from validated config+secret, for a pre-persist probe. */
@@ -136,5 +145,51 @@ export async function provisionConnector(input: ProvisionInput): Promise<Provisi
     note: liveTested
       ? undefined
       : 'Connector saved. Live querying requires the cube.js dataSource registry step (see datasources.config.json).',
+  };
+}
+
+/**
+ * Edit an existing connector: validate → SSRF guard → secret-preserving update
+ * (blank secret keeps the stored credential) → re-emit the dataSource registry
+ * entry. Throws Error('VALIDATION: …') / HostNotAllowedError on bad input;
+ * Error('NOT_FOUND: …') for an unknown id. Same source type as stored (the
+ * route looks it up — edit never switches a connector's driver).
+ */
+export async function updateConnectorProfile(
+  input: UpdateConnectorProfileInput,
+): Promise<ProvisionResult> {
+  const st = getSourceType(input.sourceType);
+  if (!st) throw new Error(`VALIDATION: unknown source type "${input.sourceType}"`);
+
+  const v = validateConnectionInput(input.sourceType, input.fields);
+  if (!v.ok) throw new Error(`VALIDATION: ${v.errors.join('; ')}`);
+
+  const host = String(v.config.host ?? '');
+  if (host) assertSafeHost(host); // throws HostNotAllowedError → 400
+
+  const meta = updateConnector(
+    input.id,
+    { label: input.label, config: v.config, secret: v.secret },
+    input.actor ?? null,
+  );
+  if (!meta) throw new Error('NOT_FOUND: connector not found');
+
+  // Re-emit the secret-free dataSource registry entry (config + secretRef only).
+  upsertDataSource({
+    id: input.id,
+    sourceType: input.sourceType,
+    driverType: st.driverType,
+    workspaceId: input.workspaceId,
+    config: v.config,
+    secretRef: input.id,
+  });
+
+  const liveTested = input.sourceType === 'trino';
+  return {
+    meta,
+    liveTested,
+    note: liveTested
+      ? undefined
+      : 'Connector updated. Live querying requires the cube.js dataSource registry step (see datasources.config.json).',
   };
 }

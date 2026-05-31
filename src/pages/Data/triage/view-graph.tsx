@@ -12,6 +12,7 @@ import { Network, AlertTriangle } from 'lucide-react';
 import type { InferredCube, InferredField } from '../../../api/onboarding-client';
 import type { UseOnboardingDraftResult } from '../use-onboarding-draft';
 import { AskAgentBox } from './ask-agent-box';
+import { CrossSourceLinksPanel } from './cross-source-links-panel';
 import { ConfidencePill, YamlPane, TriageActionBar, pct, rationaleTitle, summariseValidation } from './triage-shared';
 
 const Grid = styled.div`
@@ -274,6 +275,8 @@ export function ViewGraph({ state, canWrite }: Props): ReactElement {
         ))}
 
         <AskAgentBox placeholder="Tell the agent…  e.g. “merge sessions into orders” or “ignore test tables”" />
+
+        <CrossSourceLinksPanel canWrite={canWrite} />
       </Col>
 
       <YamlPane
