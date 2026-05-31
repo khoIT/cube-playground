@@ -122,7 +122,14 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
   const user = useAuthUser();
   const canWrite = user ? user.role !== 'viewer' : true;
 
-  const [tab, setTab] = useState<Tab>('datasets');
+  // The read-only worked example has no live warehouse: open straight to the
+  // committed model and hide the live-introspection tabs.
+  const readOnly = connector.readOnly === true;
+  const visibleTabs = readOnly
+    ? TABS.filter((t) => t.id === 'model' || t.id === 'coverage' || t.id === 'drift')
+    : TABS;
+
+  const [tab, setTab] = useState<Tab>(readOnly ? 'model' : 'datasets');
   const [tables, setTables] = useState<TableMeta[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +144,8 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
   }, [tab, gameId, history]);
 
   useEffect(() => {
+    // Read-only worked example: no live warehouse to introspect.
+    if (readOnly) return;
     let cancelled = false;
     setLoading(true);
     onboardingClient
@@ -186,7 +195,9 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
         <TitleBlock>
           <Title>{connector.label}</Title>
           <Meta>
-            {connector.catalog} catalog · {tables.length} tables
+            {readOnly
+              ? `${connector.catalog} catalog · committed cube-dev model · read-only`
+              : `${connector.catalog} catalog · ${tables.length} tables`}
           </Meta>
         </TitleBlock>
         <Ghost type="button" onClick={onBack}>
@@ -198,7 +209,7 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
       </Head>
 
       <Tabs role="tablist">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <TabBtn
             key={t.id}
             type="button"

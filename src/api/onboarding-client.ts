@@ -17,6 +17,8 @@ export interface Connector {
   catalog: string;
   host: string;
   configured: boolean;
+  /** Read-only worked example (committed cube-dev model); never live-introspected. */
+  readOnly?: boolean;
 }
 
 export interface ConnectorsResponse {

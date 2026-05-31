@@ -74,7 +74,32 @@ export interface ConnectorPublic {
   catalog: string;
   host: string;
   configured: boolean;
+  /**
+   * Read-only worked example (no live creds). The card always appears so the
+   * existing committed cube-dev model is browsable with zero env setup; its
+   * detail view renders the model from disk and never live-introspects.
+   */
+  readOnly?: boolean;
 }
+
+/**
+ * The committed cube-dev model surfaced as a read-only "worked example"
+ * connector. It needs no credentials: opening it renders the existing YAMLs
+ * (`/api/onboarding/example-model`) rather than profiling a live warehouse.
+ * `getConnector('existing-model')` intentionally returns null, so any live
+ * introspect/generate against it 503s — the FE routes it to the Model view.
+ */
+export const WORKED_EXAMPLE_CONNECTOR_ID = 'existing-model';
+const workedExampleConnector: ConnectorPublic = {
+  id: WORKED_EXAMPLE_CONNECTOR_ID,
+  label: 'Game Integration (Trino) — existing model',
+  workspaceId: 'local',
+  sourceType: 'trino',
+  catalog: 'game_integration',
+  host: 'cube-dev committed model',
+  configured: true,
+  readOnly: true,
+};
 
 const CONFIG_FILENAME = 'connectors.config.json';
 
@@ -167,9 +192,14 @@ export function isProfilerConfigured(): boolean {
   return loadConnectors().length > 0 || safeStoredMeta().length > 0;
 }
 
-/** Secret-free connector list for the client. DB-backed connectors win on id. */
+/**
+ * Secret-free connector list for the client. The read-only worked-example
+ * connector is always first (browsable with no creds); a real connector that
+ * claims the same id would override it. DB-backed connectors win over bootstrap.
+ */
 export function listConnectors(): ConnectorPublic[] {
   const byId = new Map<string, ConnectorPublic>();
+  byId.set(workedExampleConnector.id, workedExampleConnector);
   for (const c of loadConnectors()) byId.set(c.id, bootstrapToPublic(c));
   for (const m of safeStoredMeta()) byId.set(m.id, metaToPublic(m)); // DB overrides bootstrap
   return [...byId.values()];

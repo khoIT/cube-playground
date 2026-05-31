@@ -137,7 +137,9 @@ export function ConnectorsList({ connectors, onOpen, onAdd }: Props): ReactEleme
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Title>{c.label}</Title>
                 <Meta>
-                  {c.catalog} catalog{c.host ? ` · ${c.host}` : ''}
+                  {c.readOnly
+                    ? `${c.catalog} catalog · read-only worked example`
+                    : `${c.catalog} catalog${c.host ? ` · ${c.host}` : ''}`}
                 </Meta>
               </div>
               <Dot $status={status} title={status} aria-hidden />
