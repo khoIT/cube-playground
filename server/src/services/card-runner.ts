@@ -3,8 +3,13 @@
  * per preset KPI / card spec, executes against /load, and returns the
  * normalised rows ready for the FE to render synchronously.
  *
- * Queries are scoped by identity-IN filter against the segment's uid_list,
- * mirroring the FE useSegmentCubeQuery hook.
+ * Queries are scoped by ANDing the segment's predicate filters onto each card
+ * query — the same filters that produce the segment's authoritative size. This
+ * keeps card numbers consistent with the displayed cohort size and avoids
+ * inlining the materialized uid list, which can balloon a single query past
+ * Cube's query-text length limit for large cohorts (millions of uids → MBs of
+ * JSON → HTTP 400). It is also the only correct approach for ratio/average
+ * measures (ARPU, paying-rate), which cannot be re-merged across uid batches.
  */
 
 import { createHash } from 'node:crypto';

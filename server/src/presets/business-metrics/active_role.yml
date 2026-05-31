@@ -1,9 +1,11 @@
 id: active_role
 label: Active role
 description: >-
-  Unique game characters/roles that were active during the period. Each role
-  counts once per reporting window regardless of activity volume.
-synonyms: [active_characters, active_roles]
+  Unique game characters/roles that were active during the period. Each role counts once per
+  reporting window regardless of activity volume.
+synonyms:
+  - active_characters
+  - active_roles
 tier: 3
 domain: engagement
 owner: data-platform@vng
@@ -11,6 +13,12 @@ trust: draft
 formula:
   type: measure
   ref: mf_users.active_roles
-format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes:
+    - mf_users
+format: compact
+meta:
+  applicability:
+    - game: ballistar
+      applicable: false
+      at: '2026-05-30T08:08:33.070Z'

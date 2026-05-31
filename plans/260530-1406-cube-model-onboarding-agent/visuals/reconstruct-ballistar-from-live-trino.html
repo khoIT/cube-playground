@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Connector — Reconstructing ballistar cubes from live Trino</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --panel2:#1c212b; --line:#272d39;
+    --text:#e6e9ef; --muted:#9aa4b2; --faint:#6b7480;
+    --brand:#6ea8fe; --pk:#c084fc; --time:#5eead4; --measure:#fbbf24; --dim:#93c5fd;
+    --ok:#4ade80; --review:#fbbf24; --add:#a78bfa; --drop:#fb7185;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:Inter,-apple-system,system-ui,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;font-size:14px}
+  a{color:var(--brand)}
+  .wrap{max-width:1320px;margin:0 auto;padding:28px 28px 80px}
+  header.hero{border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,#171c24,#12151b);padding:24px 26px;margin-bottom:22px}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  h1{font-size:23px;font-weight:700;margin:6px 0 8px}
+  .lede{color:var(--muted);max-width:880px}
+  .facts{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .fact{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:8px 12px;font-size:12px}
+  .fact b{color:var(--text);font-variant-numeric:tabular-nums}
+  .fact span{color:var(--faint)}
+  .live{display:inline-flex;align-items:center;gap:6px;color:var(--ok);font-weight:600;font-size:12px}
+  .live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(74,222,128,.18)}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:18px 0 6px;color:var(--muted);font-size:13px}
+  .flow .step{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:6px 11px}
+  .flow .step.hot{border-color:var(--brand);color:var(--text)}
+  .flow .arr{color:var(--faint)}
+  h2{font-size:17px;margin:34px 0 4px;display:flex;align-items:center;gap:10px}
+  h2 .tag{font-family:var(--mono);font-size:12px;color:var(--brand);background:rgba(110,168,254,.1);border:1px solid rgba(110,168,254,.25);padding:2px 8px;border-radius:6px}
+  .sub{color:var(--muted);margin:0 0 14px}
+  .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start}
+  @media(max-width:1100px){.cols{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
+  .card>.h{padding:10px 13px;border-bottom:1px solid var(--line);font-weight:600;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;background:var(--panel2)}
+  .card>.h small{color:var(--faint);font-weight:500}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td,th{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--faint);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+  .colname{font-family:var(--mono);color:var(--text)}
+  .dtype{font-family:var(--mono);color:var(--faint);font-size:11px}
+  .samp{color:var(--muted);font-size:11px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10.5px;font-weight:600;font-family:var(--mono)}
+  .pill.primary_key{background:rgba(192,132,252,.15);color:var(--pk);border:1px solid rgba(192,132,252,.3)}
+  .pill.time{background:rgba(94,234,212,.13);color:var(--time);border:1px solid rgba(94,234,212,.3)}
+  .pill.measure{background:rgba(251,191,36,.13);color:var(--measure);border:1px solid rgba(251,191,36,.3)}
+  .pill.dimension{background:rgba(147,197,253,.12);color:var(--dim);border:1px solid rgba(147,197,253,.28)}
+  .conf{font-variant-numeric:tabular-nums;font-size:11px}
+  .conf.lo{color:var(--review);font-weight:700}
+  .review-row td{background:rgba(251,191,36,.05)}
+  pre{margin:0;padding:13px;font-family:var(--mono);font-size:11.5px;color:#cdd6e3;white-space:pre;overflow:auto;max-height:560px}
+  pre .k{color:#7dd3fc}.pre .v{color:#e6e9ef}
+  pre .add{color:var(--add);background:rgba(167,139,250,.1)}
+  pre .cast{color:var(--time)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 0;font-size:11.5px;color:var(--muted)}
+  .legend .pill{margin-right:5px}
+  .triage{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:16px}
+  @media(max-width:1100px){.triage{grid-template-columns:1fr}}
+  .tcard{border:1px solid var(--line);border-radius:12px;padding:14px 15px;background:var(--panel)}
+  .tcard h3{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:7px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .tcard ul{margin:0;padding-left:17px;color:var(--muted);font-size:12.5px}
+  .tcard li{margin:4px 0}
+  .tcard code{font-family:var(--mono);color:var(--text);font-size:11.5px}
+  .bar{height:8px;border-radius:6px;background:var(--panel2);overflow:hidden;display:flex;margin:6px 0 14px;border:1px solid var(--line)}
+  .bar i{display:block;height:100%}
+  .note{border-left:3px solid var(--brand);background:rgba(110,168,254,.06);padding:11px 14px;border-radius:0 8px 8px 0;color:var(--muted);font-size:12.5px;margin-top:14px}
+  .note b{color:var(--text)}
+  footer{margin-top:46px;border-top:1px solid var(--line);padding-top:18px;color:var(--faint);font-size:12px}
+  footer code{font-family:var(--mono);color:var(--muted)}
+  details{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+  summary{cursor:pointer;padding:11px 14px;font-weight:600;font-size:13px}
+  .statgrid{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 0}
+  .stat{border:1px solid var(--line);border-radius:9px;padding:9px 14px;background:var(--panel)}
+  .stat b{font-size:20px;font-variant-numeric:tabular-nums}.stat span{display:block;color:var(--faint);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">Data Connector · Worked example</div>
+    <h1>Reconstructing ballistar's Cube model from a live Trino connection</h1>
+    <p class="lede">
+      The <b>Data connector</b> connects live to the warehouse, profiles a raw schema, and proposes a
+      draft Cube data-model — the <b>bootstrap</b> stage that feeds Coverage (reconcile) and the Drift Center (repair).
+      Below: the <i>real</i> ballistar tables behind today's hand-authored cubes, run through the actual
+      <span class="live">live</span> pipeline (<code>profileTable → inferSchema → scaffoldCubeModel → toYaml</code>),
+      shown next to the cubes a human curated — so you can see exactly what the agent gets right, what it flags
+      for review, and what only a human (or the LLM-enrichment pass) can add.
+    </p>
+    <div class="facts" id="facts"></div>
+    <div class="flow">
+      <span class="step hot">Connect live (Trino)</span><span class="arr">→</span>
+      <span class="step hot">Profile + infer</span><span class="arr">→</span>
+      <span class="step">Load existing YAML as prior</span><span class="arr">→</span>
+      <span class="step">Triage / guide build</span><span class="arr">→</span>
+      <span class="step">Stage → approve → write</span><span class="arr">·····→</span>
+      <span class="step">Playground (downstream querying)</span>
+    </div>
+  </header>
+
+  <!-- ============================ RECHARGE ============================ -->
+  <h2><span class="tag">etl_ingame_recharge</span> recharge — raw transactions</h2>
+  <p class="sub">20 columns profiled live. The agent auto-maps the PK, both money measures, every time field, and all enum dimensions; it flags the two genuinely ambiguous columns for review.</p>
+
+  <div class="cols">
+    <div class="card">
+      <div class="h">1 · Live profile → inferred role <small id="rc-meta"></small></div>
+      <table><thead><tr><th>column</th><th>role @conf</th><th>distinct / sample</th></tr></thead>
+      <tbody id="rc-rows"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="h">2 · Generated draft YAML <small>scaffoldCubeModel()</small></div>
+      <pre id="rc-yaml"></pre>
+    </div>
+    <div class="card">
+      <div class="h">3 · Hand-authored cube (today) <small>cube-dev/…/recharge.yml</small></div>
+      <pre id="rc-hand"></pre>
+    </div>
+  </div>
+  <div class="legend">
+    <span><span class="pill primary_key">primary_key</span></span>
+    <span><span class="pill time">time</span></span>
+    <span><span class="pill measure">measure</span></span>
+    <span><span class="pill dimension">dimension</span></span>
+    <span style="color:var(--review)">amber row = confidence &lt; 0.8 → surfaces in triage queue</span>
+  </div>
+
+  <div class="triage">
+    <div class="tcard">
+      <h3><span class="dot" style="background:var(--ok)"></span> Auto-accepted (conf ≥ 0.8) — 16 of 20</h3>
+      <ul>
+        <li><code>transaction_id</code> → <b>primary_key</b> (98% distinct + id-shaped) — matches human exactly</li>
+        <li><code>recharge_time, log_date, folder_date, updated_time</code> → <b>time</b>; DATE cast to <code>TIMESTAMP</code> automatically (the Cube <code>AT TIME ZONE</code> trap)</li>
+        <li><code>charged_value, ingame_value</code> → <b>sum measures</b> — human's <code>revenue_vnd</code> = sum(charged_value)</li>
+        <li><code>country_code, payment_channel, money_type, product_id, server_id, os_platform</code> → enum <b>dimensions</b></li>
+        <li>default <code>count</code> measure added — human's <code>transactions</code></li>
+      </ul>
+    </div>
+    <div class="tcard">
+      <h3><span class="dot" style="background:var(--review)"></span> Flagged for review (conf &lt; 0.8) — 2</h3>
+      <ul>
+        <li><code>is_first_recharge</code> @0.55 — low-card numeric (0/1). Agent guessed dimension; human refined to a <b>boolean</b> via <code>CASE</code>. Exactly the call a DA confirms in the queue.</li>
+        <li><code>role_name</code> @0.50 — high-card free-text string. Agent kept as dimension (review); human kept it too.</li>
+        <li><code>account_id, role_id</code> @0.75 — id-shaped strings (just under the bar) → "dimension/FK?" prompt.</li>
+      </ul>
+    </div>
+    <div class="tcard">
+      <h3><span class="dot" style="background:var(--add)"></span> Human-only additions (the guided-build value)</h3>
+      <ul>
+        <li><b>Join</b> <code>account_id = mf_users.user_id</code> — cross-table; needs <code>mf_users</code> profiled too or a naming hint (stem "account" ≠ "mf_users")</li>
+        <li><b>Derived ratios</b> <code>arppu_vnd, arpt_vnd</code> — no source column; human formula</li>
+        <li><b>count_distinct_approx</b> <code>paying_users</code> (HLL) on account_id</li>
+        <li><b>Business names</b> charged_value→<code>value_vnd</code>, semantic titles → <i>Phase-7 LLM enrichment</i></li>
+        <li><b>Segments</b> (iap/web/last_7d), <b>case-band</b> txn_value_band_vnd, <b>pre-aggregation</b> revenue_daily_by_channel</li>
+        <li><b>Dropped raw cols</b> log_type, add_info, log_month, folder_date, updated_time — reject in triage</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Read this as the triage canvas.</b> Of 20 raw columns, the agent resolves 16 with high confidence (collapsed/auditable),
+    surfaces 2–4 for a quick accept/reject, and leaves the genuinely human work — joins, derived ratios, segments, business
+    naming, pre-aggs — as <i>guided suggestions</i> (golden-query seeding shows which members appear in real saved queries;
+    LLM enrichment proposes names). The DA never starts from a blank file.
+  </div>
+
+  <!-- ============================ ACTIVE_DAILY ============================ -->
+  <h2><span class="tag">std_ingame_user_active_daily</span> active_daily — at scale</h2>
+  <p class="sub">43 columns, 561K rows, profiled in 8.5s. Shows the heuristic at width — and one honest limitation.</p>
+  <div class="statgrid" id="ad-stats"></div>
+
+  <div class="note" style="border-color:var(--review);background:rgba(251,191,36,.06)">
+    <b>Honest limitation caught live:</b> the agent found <b>no single-column primary key</b> — correct, because this table is
+    one-row-per-user-per-day and the hand-authored cube uses a synthetic <code>composite_pk = CONCAT(user_id, '__', log_date)</code>.
+    A composite key can't be inferred from column stats alone, so the triage step prompts the DA to define it. The 12 inferred
+    <b>measures</b> (the <code>total_*_active</code> / <code>*_role_level</code> bigints) and 4 <b>time</b> dims land correctly;
+    <code>fighting_power</code> + <code>client_ip</code> fall under 0.6 → review.
+  </div>
+
+  <details>
+    <summary>▸ Generated draft YAML for active_daily (43 cols → 27 dim · 12 measure · 4 time)</summary>
+    <pre id="ad-yaml"></pre>
+  </details>
+
+  <footer>
+    <p><b>How this was produced — real code, real data, no mocks.</b> Live read against
+    <code id="f-host"></code> (catalog <code>game_integration</code>, schema <code>ballistar_vn</code>) on 2026-05-30 using the shipped functions:
+    <code>trino-profiler.profileTable()</code> → <code>raw-schema-inference.inferSchema()</code> →
+    <code>cube-model-scaffolder.scaffoldCubeModel()/toYaml()</code>. Same path the
+    <code>POST /api/onboarding/generate</code> endpoint runs; staging + approve-write add the gated persistence.</p>
+    <p>Bounded + read-only: one aggregate stats query per table (count / approx_distinct / min / max) + one LIMIT-8 distinct
+    sample per column; 20s statement timeout; credentials redacted from all output.</p>
+  </footer>
+</div>
+
+<script type="application/json" id="data">
+{"host":"gio-gds-trino.vnggames.net","schema":"ballistar_vn","recharge":{"rows":40757,"ms":3804,"cols":[{"name":"log_type","dataType":"varchar","approxDistinct":1,"nullPct":0,"sampleValues":["t_log_recharge"]},{"name":"account_id","dataType":"varchar","approxDistinct":6662,"nullPct":0,"sampleValues":["3475654045005398016","3468506858491314176","3469803222345023488","3475726765302890496","3489443688101879808","3502353096979177472","3469804482683215872","3469763075205332992"]},{"name":"role_id","dataType":"varchar","approxDistinct":6970,"nullPct":0,"sampleValues":["104473","128281","128793","131097","231193","103961","77849","232729"]},{"name":"role_name","dataType":"varchar","approxDistinct":6617,"nullPct":0,"sampleValues":["Test","Sumosbx","Lobo3576","Princess6052","TừThùyNhi","Lobster6354","Aggra2651","Chipuu1"]},{"name":"country_code","dataType":"varchar","approxDistinct":26,"nullPct":0,"sampleValues":["VN","KH","DE","TW","LA","JP","KR","SG"]},{"name":"transaction_id","dataType":"varchar","approxDistinct":40105,"nullPct":0,"sampleValues":["3193432069451571200","3193487764842618880","3193488434924634112","3193489524361535488","3193490058254499840","3193490970876329984","3193491592614780928","3193506557455261696"]},{"name":"money_type","dataType":"varchar","approxDistinct":1,"nullPct":0,"sampleValues":["VND"]},{"name":"product_id","dataType":"varchar","approxDistinct":30,"nullPct":0,"sampleValues":["com.vnggames.ballisticherovn.0.99","com.vnggames.ballisticherovn.4.99","com.vnggames.ballisticherovn.9.99","com.vnggames.ballisticherovn.19.99","com.vnggames.ballisticherovn.49.99","com.vnggames.ballisticherovn.99.99","com.vnggames.ballisticherovn.0.99.voucher","com.vnggames.ballisticherovn.199.99.voucher"]},{"name":"charged_value","dataType":"double","approxDistinct":29,"nullPct":0,"sampleValues":["2.9E4","1.45E5","2.9E5","5.8E5","1.459E6","2.89E6","2.5E4","5.0E6"]},{"name":"ingame_value","dataType":"double","approxDistinct":18,"nullPct":0,"sampleValues":["6.0E1","3.0E2","6.0E2","1.2E3","3.0E3","6.0E3","1.2E4","1.2E2"]},{"name":"recharge_time","dataType":"timestamp(6) with time zone","approxDistinct":38106,"nullPct":0,"sampleValues":["2026-03-24 02:19:38.000000 UTC","2026-03-24 04:10:37.000000 UTC","2026-03-24 04:13:17.000000 UTC","2026-03-24 04:13:45.000000 UTC","2026-03-24 04:14:49.000000 UTC","2026-03-24 04:16:42.000000 UTC","2026-03-24 04:20:54.000000 UTC","2026-03-24 04:47:54.000000 UTC"]},{"name":"server_id","dataType":"varchar","approxDistinct":167,"nullPct":0,"sampleValues":["70000","70105","70002","70008","70139","70161","70004","70001"]},{"name":"payment_channel","dataType":"varchar","approxDistinct":10,"nullPct":0,"sampleValues":["appstore","playstore","userbalance","71","72","51","38","1"]},{"name":"os_platform","dataType":"varchar","approxDistinct":2,"nullPct":0,"sampleValues":["IOS","Android"]},{"name":"is_first_recharge","dataType":"bigint","approxDistinct":2,"nullPct":0,"sampleValues":["0","1"]},{"name":"add_info","dataType":"varchar","approxDistinct":172,"nullPct":0,"sampleValues":["1?90001","1?90002","1?90003","1?90004","1?90005","1?90006","7","1?30001"]},{"name":"log_date","dataType":"date","approxDistinct":28,"nullPct":0,"sampleValues":["2026-03-24","2026-03-26","2026-03-30","2026-03-23","2026-03-27","2026-05-28","2026-05-27","2026-05-26"]},{"name":"log_month","dataType":"varchar","approxDistinct":2,"nullPct":0,"sampleValues":["2026-05","2026-03"]},{"name":"folder_date","dataType":"date","approxDistinct":28,"nullPct":0,"sampleValues":["2026-03-24","2026-03-26","2026-03-30","2026-03-23","2026-03-27","2026-05-29","2026-05-28","2026-05-27"]},{"name":"updated_time","dataType":"timestamp(6) with time zone","approxDistinct":15,"nullPct":0,"sampleValues":["2026-05-16 06:12:17.630933 UTC","2026-05-29 02:05:28.763379 UTC","2026-05-30 02:05:01.474767 UTC","2026-05-28 02:04:32.685429 UTC","2026-05-27 02:05:32.121588 UTC","2026-05-26 02:05:31.838791 UTC","2026-05-25 02:05:32.944458 UTC","2026-05-24 03:23:35.377745 UTC"]}],"fields":[{"column":"log_type","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"account_id","role":"dimension","confidence":0.75,"rationale":"id-shaped string → dimension/FK"},{"column":"role_id","role":"dimension","confidence":0.75,"rationale":"id-shaped string → dimension/FK"},{"column":"role_name","role":"dimension","confidence":0.5,"rationale":"high-cardinality string → dimension (review)"},{"column":"country_code","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"transaction_id","role":"primary_key","confidence":0.95,"rationale":"unique (98% distinct) + id-shaped name"},{"column":"money_type","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"product_id","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"charged_value","role":"measure","confidence":0.85,"rationale":"numeric, high-cardinality → measure"},{"column":"ingame_value","role":"measure","confidence":0.85,"rationale":"numeric, high-cardinality → measure"},{"column":"recharge_time","role":"time","confidence":0.95,"rationale":"timestamp(6) with time zone → time dimension"},{"column":"server_id","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"payment_channel","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"os_platform","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"is_first_recharge","role":"dimension","confidence":0.55,"rationale":"low-cardinality numeric → dimension (review)"},{"column":"add_info","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"log_date","role":"time","confidence":0.95,"rationale":"date → time dimension"},{"column":"log_month","role":"dimension","confidence":0.85,"rationale":"enum-like string (0% distinct)"},{"column":"folder_date","role":"time","confidence":0.95,"rationale":"date → time dimension"},{"column":"updated_time","role":"time","confidence":0.95,"rationale":"timestamp(6) with time zone → time dimension"}],"yaml":"cubes:\n  - name: etl_ingame_recharge\n    sql_table: ballistar_vn.etl_ingame_recharge\n    description: Draft — scaffolded from ballistar_vn.etl_ingame_recharge. Review before approval.\n    dimensions:\n      - name: log_type\n        sql: log_type\n        type: string\n      - name: account_id\n        sql: account_id\n        type: string\n      - name: role_id\n        sql: role_id\n        type: string\n      - name: role_name\n        sql: role_name\n        type: string\n      - name: country_code\n        sql: country_code\n        type: string\n      - name: transaction_id\n        sql: transaction_id\n        type: string\n        primary_key: true\n      - name: money_type\n        sql: money_type\n        type: string\n      - name: product_id\n        sql: product_id\n        type: string\n      - name: recharge_time\n        sql: recharge_time\n        type: time\n      - name: server_id\n        sql: server_id\n        type: string\n      - name: payment_channel\n        sql: payment_channel\n        type: string\n      - name: os_platform\n        sql: os_platform\n        type: string\n      - name: is_first_recharge\n        sql: is_first_recharge\n        type: number\n      - name: add_info\n        sql: add_info\n        type: string\n      - name: log_date\n        sql: CAST({CUBE}.log_date AS TIMESTAMP)\n        type: time\n      - name: log_month\n        sql: log_month\n        type: string\n      - name: folder_date\n        sql: CAST({CUBE}.folder_date AS TIMESTAMP)\n        type: time\n      - name: updated_time\n        sql: updated_time\n        type: time\n    measures:\n      - name: count\n        type: count\n      - name: charged_value\n        type: sum\n        sql: charged_value\n      - name: ingame_value\n        type: sum\n        sql: ingame_value\n"},"active":{"rows":561035,"ms":8550,"nCols":43,"dist":[{"role":"dimension","n":27},{"role":"measure","n":12},{"role":"time","n":4}],"yaml":"cubes:\n  - name: std_ingame_user_active_daily\n    sql_table: ballistar_vn.std_ingame_user_active_daily\n    description: Draft — scaffolded from ballistar_vn.std_ingame_user_active_daily. Review before approval.\n    dimensions:\n      - name: gds_bundle_code\n        sql: gds_bundle_code\n        type: string\n      - name: log_date\n        sql: CAST({CUBE}.log_date AS TIMESTAMP)\n        type: time\n      - name: log_week\n        sql: log_week\n        type: string\n      - name: log_month\n        sql: log_month\n        type: string\n      - name: log_quarter\n        sql: log_quarter\n        type: string\n      - name: log_year\n        sql: log_year\n        type: string\n      - name: user_id\n        sql: user_id\n        type: string\n      - name: is_recharge\n        sql: is_recharge\n        type: number\n      - name: ingame_first_active_role_id\n        sql: ingame_first_active_role_id\n        type: string\n      - name: ingame_last_active_role_id\n        sql: ingame_last_active_role_id\n        type: string\n      - name: ingame_first_active_role_name\n        sql: ingame_first_active_role_name\n        type: string\n      - name: ingame_last_active_role_name\n        sql: ingame_last_active_role_name\n        type: string\n      - name: ingame_first_active_role_class\n        sql: ingame_first_active_role_class\n        type: string\n      - name: ingame_last_active_role_class\n        sql: ingame_last_active_role_class\n        type: string\n      - name: ingame_first_active_time\n        sql: ingame_first_active_time\n        type: time\n      - name: ingame_last_active_time\n        sql: ingame_last_active_time\n        type: time\n      - name: ingame_first_active_channel\n        sql: ingame_first_active_channel\n        type: string\n      - name: ingame_last_active_channel\n        sql: ingame_last_active_channel\n        type: string\n      - name: ingame_first_active_client_ip\n        sql: ingame_first_active_client_ip\n        type: string\n      - name: ingame_last_active_client_ip\n        sql: ingame_last_active_client_ip\n        type: string\n      - name: ingame_first_active_country_code\n        sql: ingame_first_active_country_code\n        type: string\n      - name: ingame_last_active_country_code\n        sql: ingame_last_active_country_code\n        type: string\n      - name: ingame_first_active_server_id\n        sql: ingame_first_active_server_id\n        type: string\n      - name: ingame_last_active_server_id\n        sql: ingame_last_active_server_id\n        type: string\n      - name: ingame_first_active_os_platform\n        sql: ingame_first_active_os_platform\n        type: string\n      - name: ingame_last_active_os_platform\n        sql: ingame_last_active_os_platform\n        type: string\n      - name: ingame_first_active_device_id\n        sql: ingame_first_active_device_id\n        type: string\n      - name: ingame_last_active_device_id\n        sql: ingame_last_active_device_id\n        type: string\n      - name: ingame_last_active_fighting_power\n        sql: ingame_last_active_fighting_power\n        type: number\n      - name: ingame_max_active_fighting_power\n        sql: ingame_max_active_fighting_power\n        type: number\n      - name: updated_time\n        sql: updated_time\n        type: time\n    measures:\n      - name: count\n        type: count\n      - name: total_role_id_active\n        type: sum\n        sql: total_role_id_active\n      - name: ingame_first_active_role_level\n        type: sum\n        sql: ingame_first_active_role_level\n      - name: ingame_last_active_role_level\n        type: sum\n        sql: ingame_last_active_role_level\n      - name: ingame_min_active_role_level\n        type: sum\n        sql: ingame_min_active_role_level\n      - name: ingame_max_active_role_level\n        type: sum\n        sql: ingame_max_active_role_level\n      - name: total_active_channel\n        type: sum\n        sql: total_active_channel\n      - name: total_client_ip_active\n        type: sum\n        sql: total_client_ip_active\n      - name: total_country_code_active\n        type: sum\n        sql: total_country_code_active\n      - name: total_server_id_active\n        type: sum\n        sql: total_server_id_active\n      - name: total_os_platform_active\n        type: sum\n        sql: total_os_platform_active\n      - name: total_device_id_active\n        type: sum\n        sql: total_device_id_active\n      - name: total_online_time\n        type: sum\n        sql: total_online_time\n"}}
+</script>
+<script>
+const D = JSON.parse(document.getElementById('data').textContent);
+const fmt = n => n.toLocaleString('en-US');
+
+// hero facts
+document.getElementById('facts').innerHTML = [
+  `<div class="fact"><span class="live">live</span></div>`,
+  `<div class="fact"><span>host</span> <b>${D.host}</b></div>`,
+  `<div class="fact"><span>schema</span> <b>${D.schema}</b></div>`,
+  `<div class="fact"><span>recharge</span> <b>${fmt(D.recharge.rows)}</b> rows · ${D.recharge.cols.length} cols · ${(D.recharge.ms/1000).toFixed(1)}s</div>`,
+  `<div class="fact"><span>active_daily</span> <b>${fmt(D.active.rows)}</b> rows · ${D.active.nCols} cols · ${(D.active.ms/1000).toFixed(1)}s</div>`,
+].join('');
+document.getElementById('f-host').textContent = D.host;
+document.getElementById('rc-meta').textContent = `${D.recharge.cols.length} cols · ${fmt(D.recharge.rows)} rows`;
+
+// recharge profile rows
+const fieldBy = {}; D.recharge.fields.forEach(f => fieldBy[f.column] = f);
+document.getElementById('rc-rows').innerHTML = D.recharge.cols.map(c => {
+  const f = fieldBy[c.name] || {role:'dimension',confidence:0};
+  const lo = f.confidence < 0.8;
+  const samp = (c.sampleValues||[]).slice(0,3).map(s=>s.length>22?s.slice(0,22)+'…':s).join(', ');
+  return `<tr class="${lo?'review-row':''}">
+    <td><div class="colname">${c.name}</div><div class="dtype">${c.dataType}</div></td>
+    <td><span class="pill ${f.role}">${f.role}</span><div class="conf ${lo?'lo':''}">@${f.confidence}</div></td>
+    <td><div>${fmt(c.approxDistinct)} distinct</div><div class="samp">${samp}</div></td>
+  </tr>`;
+}).join('');
+
+// yaml with light highlighting
+function paintYaml(y){
+  return y.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/(CAST\(\{CUBE\}\.[a-z_]+ AS TIMESTAMP\))/g,'<span class="cast">$1</span>');
+}
+document.getElementById('rc-yaml').innerHTML = paintYaml(D.recharge.yaml);
+document.getElementById('ad-yaml').innerHTML = paintYaml(D.active.yaml);
+
+// active stats
+document.getElementById('ad-stats').innerHTML = [
+  ...D.active.dist.map(d=>`<div class="stat"><b>${d.n}</b><span>${d.role}</span></div>`),
+  `<div class="stat"><b>0</b><span>primary_key (→ triage adds composite)</span></div>`,
+].join('');
+
+// hand-authored recharge (curated excerpt) — static reference
+document.getElementById('rc-hand').textContent =
+`cubes:
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    joins:
+      - name: mf_users          # ← human-added join
+        relationship: many_to_one
+        sql: "{CUBE}.account_id = {mf_users}.user_id"
+    dimensions:
+      - name: transaction_id    # ✓ agent: PK
+        type: string
+        primary_key: true
+      - name: user_id           # ← renamed from account_id
+        sql: account_id
+        type: string
+      - name: recharge_time     # ✓ agent: time
+        type: time
+      - name: country_code / payment_channel / money_type / product_id
+        # ✓ all agent dimensions
+      - name: is_first_recharge # ← human: boolean via CASE (agent flagged @0.55)
+        sql: "CASE WHEN {CUBE}.is_first_recharge = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+      - name: txn_value_band_vnd  # ← human-only: CASE band
+        type: string
+    measures:
+      - name: transactions      # ✓ agent: count
+        type: count
+      - name: revenue_vnd       # ✓ agent: sum(charged_value)
+        sql: charged_value
+        type: sum
+      - name: paying_users      # ← human: count_distinct_approx
+        sql: account_id
+        type: count_distinct_approx
+      - name: arppu_vnd         # ← human-only: derived ratio
+        sql: "{revenue_vnd} * 1.0 / NULLIF({paying_users}, 0)"
+        type: number
+    segments: [ iap, web, last_7d, ... ]      # ← human-only
+    pre_aggregations: [ revenue_daily_by_channel ]  # ← human-only`;
+</script>
+</body>
+</html>
