@@ -17,6 +17,7 @@ import { ConnectorsList } from './connectors-list';
 import { AddConnector } from './add-connector';
 import { ConnectorCredentials } from './connector-connect-form';
 import { ConnectorDetail } from './connector-detail';
+import { CrossSourceLinksPanel } from './triage/cross-source-links-panel';
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
@@ -200,6 +201,14 @@ export function DataHubPage(): React.ReactElement {
               />
             )}
           </div>
+
+          {/* Cross-source links are a workspace-level, advisory concept (not tied
+              to one draft), so they live on the hub — declare + view them here. */}
+          {step.kind === 'list' && !loading && !error ? (
+            <div style={{ marginTop: 24 }}>
+              <CrossSourceLinksPanel canWrite={canWrite} />
+            </div>
+          ) : null}
         </>
       )}
     </div>
