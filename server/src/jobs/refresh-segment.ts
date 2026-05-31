@@ -230,7 +230,12 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     const preset = pickPresetForCube(row.cube);
     if (preset) {
       try {
-        const entries = await runPresetCards(preset, uids, token);
+        // Scope cards by the segment's predicate filters — the same basis as
+        // the size query above — rather than the materialized uid list. The
+        // uid list can be millions of entries; inlining it as an identity-IN
+        // filter blows past Cube's query-text length limit (HTTP 400).
+        const segmentFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
+        const entries = await runPresetCards(preset, segmentFilters, token);
         upsertCardCache(segmentId, entries);
       } catch (err) {
         console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);

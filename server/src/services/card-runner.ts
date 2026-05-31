@@ -13,12 +13,20 @@
  */
 
 import { createHash } from 'node:crypto';
-import { load } from './cube-client.js';
+import { loadWithContinueWait } from './load-with-continue-wait.js';
 import type {
   PresetSpec,
   KpiSpec,
   CardSpec,
 } from '../presets/mf-users-hub.js';
+
+/** A Cube filter is either a leaf clause or a boolean group. Predicate-derived
+ *  segment queries use both shapes (e.g. `{ or: [...] }`), so the card-runner
+ *  must carry them through opaquely when scoping. */
+export type CubeFilter =
+  | { member: string; operator: string; values?: string[] }
+  | { and: CubeFilter[] }
+  | { or: CubeFilter[] };
 
 interface CubeQuery {
   measures: string[];
@@ -29,11 +37,7 @@ interface CubeQuery {
     dateRange?: string;
   }>;
   order?: Record<string, 'asc' | 'desc'>;
-  filters?: Array<{
-    member: string;
-    operator: string;
-    values?: string[];
-  }>;
+  filters?: CubeFilter[];
   limit?: number;
 }
 
@@ -73,14 +77,13 @@ function queryForCard(spec: CardSpec): CubeQuery {
   };
 }
 
-function scopeQuery(q: CubeQuery, identityDim: string, uids: string[]): CubeQuery {
-  if (uids.length === 0) return q;
-  const next: CubeQuery = { ...q };
-  next.filters = [
-    ...(q.filters ?? []),
-    { member: identityDim, operator: 'equals', values: uids },
-  ];
-  return next;
+/** AND the segment's predicate filters onto a card query, intersecting the
+ *  card's own filters with the cohort definition. Cube ANDs top-level filter
+ *  entries, so prepending the card's filters and appending the segment's is a
+ *  plain set union of constraints. */
+function scopeQuery(q: CubeQuery, segmentFilters: CubeFilter[]): CubeQuery {
+  if (segmentFilters.length === 0) return q;
+  return { ...q, filters: [...(q.filters ?? []), ...segmentFilters] };
 }
 
 function hashQuery(q: CubeQuery): string {
@@ -95,10 +98,17 @@ function extractRows(loadResult: unknown): Array<Record<string, unknown>> {
   return r.data ?? r.results?.[0]?.data ?? [];
 }
 
-/** Walk a preset and emit { cardId, queryHash, rows } per KPI + card. */
+/** Walk a preset and emit { cardId, queryHash, rows } per KPI + card.
+ *  `segmentFilters` are the segment's predicate filters (from its stored
+ *  cube_query_json); each card query is scoped by ANDing them on. */
+/** Per-card Cube timeout. Cards lean on heavy pre-aggregations (e.g. the LTV
+ *  install-cohort rollup) that can be mid-warm when a refresh fires; poll
+ *  through "Continue wait" rather than dropping the card on the first miss. */
+const PER_CARD_TIMEOUT_MS = 30_000;
+
 export async function runPresetCards(
   preset: PresetSpec,
-  uids: string[],
+  segmentFilters: CubeFilter[],
   tokenOverride?: string,
 ): Promise<CardCacheEntry[]> {
   const allSpecs: Array<{ id: string; query: CubeQuery }> = [];
@@ -117,9 +127,9 @@ export async function runPresetCards(
 
   const results: CardCacheEntry[] = [];
   for (const { id, query } of allSpecs) {
-    const scoped = scopeQuery(query, preset.identityDim, uids);
+    const scoped = scopeQuery(query, segmentFilters);
     try {
-      const raw = await load(scoped, tokenOverride);
+      const raw = await loadWithContinueWait(scoped, tokenOverride, PER_CARD_TIMEOUT_MS);
       results.push({ cardId: id, queryHash: hashQuery(scoped), rows: extractRows(raw) });
     } catch (err) {
       // Card-level failure shouldn't kill the whole refresh — log and skip.

@@ -55,7 +55,11 @@ export interface UseSegmentCubeQueryResult<T = Record<string, unknown>> {
   rows: T[];
 }
 
-/** Inject an identity-IN filter so the query is scoped to the segment's uids. */
+/** Inject an identity-IN filter so the query is scoped to an explicit uid set.
+ *  Use only for small, bounded id sets (e.g. a paginated members page) — never
+ *  the full materialized uid_list, which can be millions long and blow past
+ *  Cube's query-text length limit. For full-cohort scoping use
+ *  {@link scopeQueryToCohort}. */
 export function scopeQueryToSegment(
   query: Query,
   identityDim: string,
@@ -67,6 +71,46 @@ export function scopeQueryToSegment(
   filters.push({ member: identityDim, operator: 'equals' as never, values: uids });
   next.filters = filters;
   return next;
+}
+
+/** Parse the segment's predicate filters from its stored Cube query JSON.
+ *  Returns [] when absent/unparseable (manual segments carry no predicate). */
+export function predicateFiltersForSegment(segment: Segment): unknown[] {
+  if (!segment.cube_query_json) return [];
+  try {
+    const q = JSON.parse(segment.cube_query_json) as { filters?: unknown[] };
+    return Array.isArray(q.filters) ? q.filters : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Scope a card query to the segment's cohort.
+ *  - `uidsOverride` given (paginated members page): identity-IN over that small,
+ *    explicit id set — the only correct scope for "the visible rows".
+ *  - Predicate segment: AND on the segment's predicate filters — the same basis
+ *    as the segment's authoritative size. An all-users predicate (`filters: []`)
+ *    leaves the query unscoped, which is correct. This avoids inlining the full
+ *    uid_list (HTTP 400 `Query text length exceeds the maximum length`) and is
+ *    the only correct approach for ratio measures (ARPU, paying-rate).
+ *  - Manual segment (no predicate): identity-IN over the uid_list. Manual
+ *    segments are explicit pushes, so the list is bounded. */
+export function scopeQueryToCohort(
+  query: Query,
+  segment: Segment,
+  identityDim: string,
+  uidsOverride?: string[],
+): Query {
+  if (uidsOverride) {
+    return scopeQueryToSegment(query, identityDim, uidsOverride);
+  }
+  if (segment.type === 'predicate') {
+    const predicateFilters = predicateFiltersForSegment(segment);
+    if (predicateFilters.length === 0) return query;
+    const filters = Array.isArray(query.filters) ? [...query.filters] : [];
+    return { ...query, filters: [...filters, ...predicateFilters] as Query['filters'] };
+  }
+  return scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
 }
 
 export interface UseSegmentCubeQueryOptions<T> {
@@ -114,8 +158,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
       return;
     }
 
-    const uidsForScope = options.uidsOverride ?? segment.uid_list ?? [];
-    const scoped = scopeQueryToSegment(query, identityDim, uidsForScope);
+    const scoped = scopeQueryToCohort(query, segment, identityDim, options.uidsOverride);
     const key = hashKey(segment.id, scoped);
 
     const cached = cache.get(key);
@@ -165,7 +208,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     return () => {
       cancelled = true;
     };
-  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, JSON.stringify(options.uidsOverride)]);
+  }, [segment?.id, segment?.cube_query_json, segment?.type, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, JSON.stringify(options.uidsOverride)]);
 
   return { loading, error, rows };
 }
