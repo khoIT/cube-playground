@@ -78,8 +78,9 @@ stance and a graph view with cross edges — this phase makes it user-authorable
 ## Risks
 - **User expects it to "just join"** → UI must be explicit it's advisory; show the engine
   limit + the rollupJoin/ETL path.
-- **AppsFlyer is API, not SQL** → may not be introspectable; declaring a link is fine, but flag
-  that it needs ingestion first (see plan unresolved questions).
+- **AppsFlyer → modeled as a Postgres source** (resolved): it lands in a queryable Postgres, so
+  it's introspectable like any SQL source. The cross-source link is Trino × Postgres — still a
+  different `dataSource`, so it stays advisory (not executable) in this phase.
 
 ## Security
 - Secret-free; dual-connector grant; write-role gate; audited.

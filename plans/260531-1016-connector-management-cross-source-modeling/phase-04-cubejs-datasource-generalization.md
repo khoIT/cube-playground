@@ -16,8 +16,9 @@ ClickHouse/Postgres/etc. connector and write its `datasources.config.json` entry
 runner returns `501`. This phase does the one-time generalization so adding a source = writing
 a registry entry (config), not editing code.
 
-**This is an operator/PR step** (touches the sibling `cube-dev` repo + deploy), gated and
-independent of A–C. A/B/C deliver full value for the Trino story without it.
+**We own the `cube-dev` change directly** (resolved 2026-05-31) — no external operator
+hand-off. It still touches the sibling `cube-dev` repo + deploy, so it's sequenced last and
+kept independent of A–C; A/B/C deliver full value for the Trino story without it.
 
 ## Key insight
 The "Cube dataSource is code, not YAML" gap (plan #1 risk from the v2 work). The
@@ -80,8 +81,8 @@ The "Cube dataSource is code, not YAML" gap (plan #1 risk from the v2 work). The
 - [ ] Adding another SQL source needs only a registry entry, no code.
 
 ## Risks
-- **Sibling-repo coupling / deploy** → biggest unknown; confirm PR ownership + secret delivery
-  path before starting (plan unresolved question).
+- **Sibling-repo coupling / deploy** → we own the cube-dev edit; the remaining unknown is the
+  secret-delivery path (env/vault export → container). Pin it in step 1's contract.
 - **Driver dependency footprint** → wiring a real driver may add deps to the dependency-free
   build; isolate per-driver, lazy-load.
 - **Cross-`dataSource` joins still unsupported** → this phase serves each source; it does NOT

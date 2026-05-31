@@ -101,11 +101,13 @@ Goal: keep the **working demo** cleanly separable from this big feature.
 - **Merge:** squash/merge to `main` only after Phase A+B reviewed; bump `package.json`
   `0.1.0 → 0.2.0`; tag `v0.2.0`.
 
-## Unresolved questions
-- Phase D requires editing `cube-dev/cube.js` (sibling repo) — confirm who owns that PR and
-  the deploy path for `datasources.config.json` + secret export keyed by `secretRef`.
-- AppsFlyer as a "source type": is it a SQL-over-host driver, an API-pull (needs an
-  ingestion/ETL step into a queryable store), or a Cube driver? Affects whether it's
-  introspectable (Phase C) vs. ETL-first. Flag for source-type-registry design in Phase C.
-- Cross-game join RBAC: a user modeling ballistar⋈cfm must hold grants for **both** games —
-  confirm the join builder enforces the intersection.
+## Resolved (interview 2026-05-31)
+1. **Phase D ownership → we update `cube-dev` directly now.** No external operator hand-off;
+   the cube.js `driverFactory` generalization is part of this feature's work (sibling repo we
+   control). Deploy path for `datasources.config.json` + secret export handled in Phase D.
+2. **AppsFlyer → assume it lands in a queryable Postgres.** So it's a standard SQL-over-host
+   **`postgres`** source type (already in the registry) — introspectable/profilable like any
+   warehouse. No API-pull/ETL connector in scope; the "AppsFlyer" link in Phase C is
+   Trino × Postgres (still a different `dataSource` → advisory, not executable).
+3. **Cross-game join RBAC → enforce grant intersection.** The builder requires the user to
+   hold grants for **both** the initiating and target game; route 403s otherwise (Phase B).
