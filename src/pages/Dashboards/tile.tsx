@@ -72,14 +72,35 @@ function vizToChartType(viz: VizType): ChartType {
 }
 
 /**
- * Only the modern `{ results: [{ data: [...] }] }` load-response shape can drive
- * the chart engine (ChartRenderer reads `loadResponse.results[0].data` and calls
- * chartPivot). Anything else → take the legacy rows path instead of risking a
- * render-time throw.
+ * Normalize a persisted Cube `/load` response into the wrapper shape the chart
+ * engine requires: `{ queryType, results: [{ data, annotation, query }], pivotQuery }`.
+ *
+ * `ChartRenderer` reads `resultSet.loadResponse.results[0].data`/`.annotation`
+ * directly, so a bare ResultSet built from the legacy single-result shape
+ * (`{ data, annotation, query }` at top level — what some Cube backends return)
+ * would throw at render time. We accept BOTH shapes and lift the legacy one into
+ * the wrapper so old cached tiles render without a re-pin/refresh. Returns null
+ * when the response can't drive the engine → caller takes the legacy rows path.
  */
-function isRenderableLoadResponse(resp: unknown): boolean {
-  const r = resp as { results?: Array<{ data?: unknown }> } | null | undefined;
-  return !!r && Array.isArray(r.results) && r.results.length > 0 && Array.isArray(r.results[0]?.data);
+export function normalizeLoadResponse(resp: unknown): Record<string, unknown> | null {
+  const r = resp as
+    | { data?: unknown; results?: Array<{ data?: unknown }>; query?: Record<string, unknown> }
+    | null
+    | undefined;
+  if (!r || typeof r !== 'object') return null;
+  // Already the wrapper shape.
+  if (Array.isArray(r.results) && r.results.length > 0 && Array.isArray(r.results[0]?.data)) {
+    return r as Record<string, unknown>;
+  }
+  // Legacy single-result shape → lift into a single-result wrapper.
+  if (Array.isArray(r.data)) {
+    return {
+      queryType: 'regularQuery',
+      results: [r],
+      pivotQuery: { ...(r.query ?? {}), queryType: 'regularQuery' },
+    };
+  }
+  return null;
 }
 
 /** Synthesize a minimal ResultSet-like object from cached rows (legacy path). */
@@ -127,9 +148,10 @@ export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps)
   // A real ResultSet (engine parity) when the cache carries the full load
   // response; null for legacy rows-only entries → lightweight fallback.
   const liveResultSet = useMemo(() => {
-    if (!isRenderableLoadResponse(cache?.loadResponse)) return null;
+    const normalized = normalizeLoadResponse(cache?.loadResponse);
+    if (!normalized) return null;
     try {
-      return new ResultSet(cache!.loadResponse as ConstructorParameters<typeof ResultSet>[0]);
+      return new ResultSet(normalized as ConstructorParameters<typeof ResultSet>[0]);
     } catch {
       return null;
     }
