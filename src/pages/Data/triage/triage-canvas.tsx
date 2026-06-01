@@ -7,8 +7,9 @@
  */
 import { ReactElement } from 'react';
 import styled from 'styled-components';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { useAuthUser } from '../../../auth/auth-context';
+import { DataBreadcrumb } from '../data-breadcrumb';
 import { useOnboardingDraft } from '../use-onboarding-draft';
 import { ViewSwitch, useTriageView } from './view-switch';
 import { ViewBuilder } from './view-builder';
@@ -83,12 +84,37 @@ const Pin = styled.span`
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 `;
+const CancelBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  &:hover {
+    border-color: var(--destructive-ink);
+    color: var(--destructive-ink);
+  }
+`;
 
 interface Props {
   draftId: string;
+  /** Connector this draft belongs to — shown in the breadcrumb. */
+  connectorLabel?: string;
+  /** Cancel triage and return to the connector's datasets view. */
+  onCancel?: () => void;
+  /** Jump straight back out to the connectors list. */
+  onExitToConnectors?: () => void;
 }
 
-export function TriageCanvas({ draftId }: Props): ReactElement {
+export function TriageCanvas({ draftId, connectorLabel, onCancel, onExitToConnectors }: Props): ReactElement {
   const user = useAuthUser();
   const canWrite = user ? user.role !== 'viewer' : true; // server enforces; UX-only
   const [view, setView] = useTriageView(user?.role);
@@ -102,8 +128,26 @@ export function TriageCanvas({ draftId }: Props): ReactElement {
     ? `${state.draft.source} start · ${state.draft.inference?.cubes.length ?? 0} cubes · ${total} fields profiled. Resolve the few ambiguous calls; the rest is auto-mapped.`
     : 'Loading draft…';
 
+  function handleCancel() {
+    if (!onCancel) return;
+    if (state.openCount > 0 && !window.confirm('Cancel triage? Unresolved decisions on this draft are kept, but you’ll leave the canvas.')) {
+      return;
+    }
+    onCancel();
+  }
+
   return (
     <>
+      {onExitToConnectors || onCancel ? (
+        <DataBreadcrumb
+          items={[
+            ...(onExitToConnectors ? [{ label: 'Connectors', onClick: onExitToConnectors }] : []),
+            ...(onCancel ? [{ label: connectorLabel ?? 'Connector', onClick: onCancel }] : []),
+            { label: 'Triage' },
+          ]}
+        />
+      ) : null}
+
       <Header>
         <div style={{ flex: 1 }}>
           <TitleRow>
@@ -112,7 +156,14 @@ export function TriageCanvas({ draftId }: Props): ReactElement {
           </TitleRow>
           <Lede>{subtitle}</Lede>
         </div>
-        <ViewSwitch view={view} onChange={setView} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <ViewSwitch view={view} onChange={setView} />
+          {onCancel ? (
+            <CancelBtn type="button" onClick={handleCancel}>
+              <X size={14} /> Cancel triage
+            </CancelBtn>
+          ) : null}
+        </div>
       </Header>
 
       <ProgressBar>

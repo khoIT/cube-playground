@@ -6,8 +6,9 @@
  * way DriftCenter is a single page. Page-header recipe + tokens per
  * docs/design-guidelines.md; mirrors src/pages/Dashboards/index.tsx.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Database, RefreshCw, ArrowLeft } from 'lucide-react';
+import { useHistory, useLocation } from 'react-router-dom';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useWorkspaceContext } from '../../components/workspace-context';
 import { useAuthUser } from '../../auth/auth-context';
@@ -75,7 +76,14 @@ export function DataHubPage(): React.ReactElement {
   const gameId = useActiveGameId();
   const { workspaceId } = useWorkspaceContext();
   const user = useAuthUser();
+  const history = useHistory();
+  const location = useLocation();
   const canWrite = user ? user.role !== 'viewer' : true;
+
+  // The selected connector lives in the URL (?connector=<id>) so a refresh or
+  // shared link lands on the same detail view — handy for debugging a specific
+  // connector. Add/connect sub-steps stay ephemeral (not URL-backed).
+  const selectedId = new URLSearchParams(location.search).get('connector');
 
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,10 +103,42 @@ export function DataHubPage(): React.ReactElement {
     }
   }
 
-  // Re-fetch when the workspace changes (connectors are workspace-scoped).
+  function openConnector(c: Connector) {
+    setStep({ kind: 'detail', connector: c });
+    if (selectedId !== c.id) history.push(`/data?connector=${encodeURIComponent(c.id)}`);
+  }
+
+  function backToList() {
+    setStep({ kind: 'list' });
+    if (selectedId) history.push('/data');
+    void load(); // reflect edits / disables made in the detail view
+  }
+
+  // Restore the detail view from the URL on load / direct link / refresh.
   useEffect(() => {
+    if (!selectedId) {
+      setStep((s) => (s.kind === 'detail' ? { kind: 'list' } : s));
+      return;
+    }
+    if (loading) return;
+    const c = connectors.find((x) => x.id === selectedId);
+    if (c) setStep((s) => (s.kind === 'detail' && s.connector.id === c.id ? s : { kind: 'detail', connector: c }));
+  }, [selectedId, connectors, loading]);
+
+  // Re-fetch when the workspace changes (connectors are workspace-scoped). Skip
+  // the first run so a direct URL (?connector=…) still restores to detail —
+  // only an ACTUAL workspace switch resets to the list and clears the param.
+  const prevWorkspace = useRef(workspaceId);
+  useEffect(() => {
+    if (prevWorkspace.current === workspaceId) {
+      void load(); // initial mount: just load; restore effect handles the URL
+      return;
+    }
+    prevWorkspace.current = workspaceId;
     void load();
     setStep({ kind: 'list' });
+    if (location.search) history.replace('/data');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   return (
@@ -109,13 +149,7 @@ export function DataHubPage(): React.ReactElement {
       </div>
 
       {step.kind === 'detail' ? (
-        <ConnectorDetail
-          connector={step.connector}
-          onBack={() => {
-            setStep({ kind: 'list' });
-            void load(); // reflect edits / disables made in the detail view
-          }}
-        />
+        <ConnectorDetail connector={step.connector} onBack={backToList} />
       ) : (
         <>
           <div style={titleRow}>
@@ -169,7 +203,8 @@ export function DataHubPage(): React.ReactElement {
                   const res = await onboardingClient.connectors();
                   setConnectors(res.connectors);
                   const c = res.connectors.find((x) => x.id === connectorId);
-                  setStep(c ? { kind: 'detail', connector: c } : { kind: 'list' });
+                  if (c) openConnector(c);
+                  else setStep({ kind: 'list' });
                 }}
               />
             ) : loading ? (
@@ -195,7 +230,7 @@ export function DataHubPage(): React.ReactElement {
                 connectors={connectors}
                 onOpen={(id) => {
                   const c = connectors.find((x) => x.id === id);
-                  if (c) setStep({ kind: 'detail', connector: c });
+                  if (c) openConnector(c);
                 }}
                 onAdd={() => setStep({ kind: 'add' })}
               />
