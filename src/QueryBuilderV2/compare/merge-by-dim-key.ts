@@ -42,10 +42,18 @@ function toNum(v: string | number | null | undefined): number | null {
   return isFinite(n) ? n : null;
 }
 
+// Cross-game comparisons hit dimension-vocabulary drift — e.g. one game emits
+// os_platform 'IOS' where another emits 'ios'. Normalize each key part
+// (trim + lowercase) so rows align across that casing/whitespace drift. Same-
+// game comparisons already match exactly, so normalization is a no-op there.
+function normKeyPart(v: string | number | null | undefined): string {
+  return String(v ?? '').trim().toLowerCase();
+}
+
 function buildIndex(rows: DataRow[], dimKeys: string[]): Map<string, DataRow> {
   const map = new Map<string, DataRow>();
   for (const row of rows) {
-    const key = dimKeys.map((k) => String(row[k] ?? '')).join('\x00');
+    const key = dimKeys.map((k) => normKeyPart(row[k])).join('\x00');
     // First occurrence wins — Cube should not return duplicate dim keys but
     // we guard defensively.
     if (!map.has(key)) {
@@ -73,7 +81,7 @@ export function mergeByDimKey(
   const compIndex = buildIndex(comparison, dimKeys);
 
   return current.map((row) => {
-    const key = dimKeys.map((k) => String(row[k] ?? '')).join('\x00');
+    const key = dimKeys.map((k) => normKeyPart(row[k])).join('\x00');
     const compRow = compIndex.get(key) ?? null;
 
     const extra: Record<string, number | null> = {};

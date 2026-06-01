@@ -152,6 +152,37 @@ describe('mergeByDimKey – missing rows', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Case-insensitive key matching (cross-game dimension drift)
+// ---------------------------------------------------------------------------
+
+describe('mergeByDimKey – case-insensitive dim values', () => {
+  it("aligns 'IOS' with 'ios' across games", () => {
+    const current: DataRow[] = [row({ os: 'IOS' }, { rev: 500 })];
+    const comparison: DataRow[] = [row({ os: 'ios' }, { rev: 200 })];
+
+    const [merged] = mergeByDimKey(current, comparison, {
+      dimKeys: ['os'],
+      measures: ['rev'],
+    });
+
+    expect(merged['rev__cmp']).toBe(200);
+    expect(merged['rev__delta']).toBe(300);
+  });
+
+  it('trims surrounding whitespace when matching keys', () => {
+    const current: DataRow[] = [row({ os: 'Android' }, { rev: 100 })];
+    const comparison: DataRow[] = [row({ os: ' android ' }, { rev: 60 })];
+
+    const [merged] = mergeByDimKey(current, comparison, {
+      dimKeys: ['os'],
+      measures: ['rev'],
+    });
+
+    expect(merged['rev__delta']).toBe(40);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // NaN / Infinity / null guards
 // ---------------------------------------------------------------------------
 

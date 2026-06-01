@@ -25,6 +25,7 @@ import { ChartSidePane } from './components/ChartSidePane';
 import { PinToDashboardButton } from '../pages/Dashboards/pin-to-dashboard-button';
 import { CompareContext } from './compare/compare-context';
 import { CompareToggle } from './compare/compare-toggle';
+import { useActiveGameId } from '../components/Header/use-game-context';
 import { useCompareResults } from './compare/use-compare-results';
 import { readCompareFromUrl, writeCompareToUrl } from './compare/compare-url-codec';
 import type { CompareSetting } from './compare/compare-url-codec';
@@ -132,6 +133,11 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
   const [tab, setTab] = useState<Tab>('results');
   const ref = useRef<HTMLDivElement>(null);
 
+  // Active game scopes the comparison query — game scope rides the x-cube-game
+  // header (the cube proxy mints the upstream token from it), so the compare
+  // hook needs it explicitly or it falls back to the default game's data.
+  const activeGameId = useActiveGameId();
+
   // Compare mode state — initialised from URL on first render.
   const [compareSetting, setCompareSetting] = useState<CompareSetting>(
     () => readCompareFromUrl(),
@@ -154,6 +160,7 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
         currentToken: apiToken ?? null,
         currentResultSet: resultSet ?? null,
         measures,
+        activeGameId: activeGameId ?? null,
       }
     : null;
   const compareState = useCompareResults(compareInput);

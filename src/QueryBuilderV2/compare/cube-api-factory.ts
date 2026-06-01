@@ -20,10 +20,21 @@ function activeWorkspaceId(): string | null {
   }
 }
 
-export function makeCubeApi(token: string, apiUrl: string): CubeApi {
+export function makeCubeApi(
+  token: string,
+  apiUrl: string,
+  gameId?: string | null,
+): CubeApi {
   const headers: Record<string, string> = {};
   const wsId = activeWorkspaceId();
   if (wsId) headers['x-cube-workspace'] = wsId;
+  // Game scope is server-authoritative: the cube proxy drops the client
+  // Authorization header and mints the upstream token from x-cube-workspace +
+  // x-cube-game. Without this header the proxy mints a game-less token and
+  // cube-dev serves the default game's data — making every comparison series
+  // identical to the active game. Forward the target game so the comparison
+  // query is scoped to the game it claims to represent.
+  if (gameId) headers['x-cube-game'] = gameId;
   return cubejs(token, {
     apiUrl,
     transport: new HttpTransport({ apiUrl, authorization: token, headers }),

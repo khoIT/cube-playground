@@ -16,7 +16,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Query, ResultSet } from '@cubejs-client/core';
 
-import { cubeTokenClient } from '../../api/cube-token-client';
 import { type CompareMode } from './derive-compare-query';
 import { type DataRow, mergeByDimKey, type MergedRow } from './merge-by-dim-key';
 import { deriveCompareQuery } from './derive-compare-query';
@@ -37,6 +36,11 @@ export interface CompareResultsState {
   error: string | null;
   /** Human-readable label for the comparison series, used in chart legends. */
   compLabel: string;
+  /**
+   * Measures absent from the comparison game's schema. Their comparison/delta
+   * columns render as N/A instead of crashing the whole comparison query.
+   */
+  unavailableMeasures: string[];
 }
 
 // Minimal CubeApi surface used inside this hook — lets tests pass a stub
@@ -46,7 +50,49 @@ export interface MinimalCubeApi {
   load(query: Query): Promise<ResultSet<Record<string, string | number>>>;
 }
 
-export type ApiFactory = (token: string, apiUrl: string) => MinimalCubeApi;
+export type ApiFactory = (
+  token: string,
+  apiUrl: string,
+  gameId?: string | null,
+) => MinimalCubeApi;
+
+/** Set of fully-qualified member names (measures + dimensions) a game exposes. */
+export type MemberSet = Set<string>;
+
+/** Fetches the member names available in a game's Cube schema (null on failure). */
+export type MetaFetcher = (apiUrl: string, gameId: string) => Promise<MemberSet | null>;
+
+/**
+ * Default meta fetcher — hits the workspace-aware proxy `/meta` with the target
+ * game header so it returns that game's schema. Returns null on any failure so
+ * the caller falls back to running the unfiltered query (best effort).
+ */
+async function defaultFetchGameMembers(
+  apiUrl: string,
+  gameId: string,
+): Promise<MemberSet | null> {
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json', 'x-cube-game': gameId };
+    try {
+      const ws =
+        typeof window !== 'undefined' ? window.localStorage.getItem('gds-cube:workspace') : null;
+      if (ws) headers['x-cube-workspace'] = ws;
+    } catch {
+      /* ignore localStorage errors */
+    }
+    const resp = await fetch(`${apiUrl}/meta?extended=true`, { headers });
+    if (!resp.ok) return null;
+    const json: any = await resp.json();
+    const members: MemberSet = new Set();
+    for (const cube of json?.cubes ?? []) {
+      for (const m of cube?.measures ?? []) if (m?.name) members.add(m.name);
+      for (const d of cube?.dimensions ?? []) if (d?.name) members.add(d.name);
+    }
+    return members;
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -85,13 +131,21 @@ export interface RunCompareLoadParams {
   currentToken: string;
   currentResultSet: ResultSet<any>;
   measures: string[];
+  /**
+   * Game id of the active (base) query. Used to keep `prev` comparisons scoped
+   * to the same game; `game:<id>` mode overrides it with the target game.
+   */
+  activeGameId: string | null;
   _apiFactory?: ApiFactory | null;
+  /** Test override for the game-meta fetcher; production uses the proxy fetch. */
+  _metaFetcher?: MetaFetcher | null;
 }
 
 /** Result returned by runCompareLoad — matches the resolved portion of CompareResultsState. */
 export interface CompareLoadResult {
   mergedRows: MergedRow[];
   compLabel: string;
+  unavailableMeasures: string[];
 }
 
 /**
@@ -102,7 +156,7 @@ export interface CompareLoadResult {
 export async function runCompareLoad(
   params: RunCompareLoadParams,
 ): Promise<CompareLoadResult> {
-  const { query, mode, apiUrl, currentToken, currentResultSet, measures, _apiFactory } = params;
+  const { query, mode, apiUrl, currentToken, currentResultSet, measures, activeGameId, _apiFactory, _metaFetcher } = params;
 
   const compareQuery = deriveCompareQuery(query, mode);
   if (!compareQuery) {
@@ -112,27 +166,54 @@ export async function runCompareLoad(
   const currentRows = extractRows(currentResultSet);
   const dimKeys = dimKeysFromQuery(query);
 
+  // The cube proxy is server-authoritative — it drops the client Authorization
+  // header and mints the upstream token from x-cube-workspace + x-cube-game.
+  // So game scope rides the header, not the token: 'game:<id>' targets that
+  // game; 'prev' stays on the active game.
+  const scopeGameId = mode.startsWith('game:') ? mode.slice(5) : activeGameId;
+  const gameId = mode.startsWith('game:') ? mode.slice(5) : '';
+  const compLabel = compLabelFromMode(mode, gameId);
+
+  // Cross-game scope: the target game's schema may lack some selected measures
+  // or dimensions. Running the full query would 500 ("Cube X not found") and
+  // wipe out every comparison column. Intersect the query with the target
+  // game's meta and compare only what it supports; the rest is reported as
+  // unavailable so the UI renders N/A instead of crashing.
+  let measuresToCompare = measures;
+  let unavailableMeasures: string[] = [];
+  let queryToRun = compareQuery as Query;
+
+  if (mode.startsWith('game:') && scopeGameId) {
+    const fetchMembers = _metaFetcher ?? defaultFetchGameMembers;
+    const members = await fetchMembers(apiUrl, scopeGameId);
+    if (members) {
+      measuresToCompare = measures.filter((m) => members.has(m));
+      unavailableMeasures = measures.filter((m) => !members.has(m));
+      queryToRun = {
+        ...queryToRun,
+        measures: (queryToRun.measures ?? []).filter((m) => members.has(m)),
+        dimensions: (queryToRun.dimensions ?? []).filter((d) => members.has(d)),
+      };
+    }
+  }
+
+  // Nothing in the target game to compare against — skip the load (an empty-
+  // measures query would itself error) and surface every measure as N/A.
+  if (measuresToCompare.length === 0) {
+    const merged = mergeByDimKey(currentRows, [], { dimKeys, measures: [] });
+    return { mergedRows: merged, compLabel, unavailableMeasures };
+  }
+
   // Resolve factory lazily — avoids loading @cubejs-client/core at module-
   // collection time which triggers OOM in Node v24 vitest forks pool.
   const factory: ApiFactory = _apiFactory ?? (await import('./cube-api-factory')).makeCubeApi;
-  let compApi = factory(currentToken, apiUrl);
+  const compApi = factory(currentToken, apiUrl, scopeGameId);
 
-  if (mode.startsWith('game:')) {
-    const targetGameId = mode.slice(5);
-    const resp = await cubeTokenClient.get(targetGameId);
-    if (resp?.token) {
-      compApi = factory(resp.token, apiUrl);
-    }
-    // If token fetch fails we proceed with currentToken — comparison may be
-    // approximate but we don't hard-fail.
-  }
-
-  const compRs = await compApi.load(compareQuery as Query);
+  const compRs = await compApi.load(queryToRun);
   const compRows = extractRows(compRs as ResultSet<Record<string, string | number>>);
-  const merged = mergeByDimKey(currentRows, compRows, { dimKeys, measures });
+  const merged = mergeByDimKey(currentRows, compRows, { dimKeys, measures: measuresToCompare });
 
-  const gameId = mode.startsWith('game:') ? mode.slice(5) : '';
-  return { mergedRows: merged, compLabel: compLabelFromMode(mode, gameId) };
+  return { mergedRows: merged, compLabel, unavailableMeasures };
 }
 
 // ---------------------------------------------------------------------------
@@ -151,6 +232,13 @@ interface UseCompareResultsInput {
   /** The measures present in the current query — used as delta keys. */
   measures: string[];
   /**
+   * Game id of the active (base) query. Keeps `prev` comparisons scoped to the
+   * same game; `game:<id>` mode overrides it with the target game. Game scope
+   * is carried by the x-cube-game header (the proxy mints the token), so this
+   * must be supplied or the comparison falls back to the default game's data.
+   */
+  activeGameId: string | null;
+  /**
    * Optional override for the CubeApi factory — used in tests to avoid
    * loading @cubejs-client/core at module-collection time (Node v24 OOM).
    * Production callers omit this; runCompareLoad lazy-imports makeCubeApi().
@@ -163,6 +251,7 @@ const IDLE_STATE: CompareResultsState = {
   isLoading: false,
   error: null,
   compLabel: '',
+  unavailableMeasures: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -185,6 +274,7 @@ export function useCompareResults(
     currentToken = null,
     currentResultSet = null,
     measures = [],
+    activeGameId = null,
     _apiFactory = null,
   } = input ?? {};
 
@@ -193,6 +283,7 @@ export function useCompareResults(
     isLoading: false,
     error: null,
     compLabel: mode === 'prev' ? 'Prior period' : '',
+    unavailableMeasures: [],
   });
 
   // Track current run to cancel stale effects.
@@ -205,7 +296,7 @@ export function useCompareResults(
     }
 
     if (!currentResultSet || !apiUrl || !currentToken) {
-      setState({ mergedRows: null, isLoading: false, error: null, compLabel: '' });
+      setState({ mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [] });
       return;
     }
 
@@ -217,6 +308,7 @@ export function useCompareResults(
         isLoading: false,
         error: 'Cannot derive comparison for the current date range.',
         compLabel: '',
+        unavailableMeasures: [],
       });
       return;
     }
@@ -226,18 +318,19 @@ export function useCompareResults(
 
     (async () => {
       try {
-        const { mergedRows, compLabel } = await runCompareLoad({
+        const { mergedRows, compLabel, unavailableMeasures } = await runCompareLoad({
           query,
           mode,
           apiUrl,
           currentToken,
           currentResultSet,
           measures,
+          activeGameId,
           _apiFactory,
         });
 
         if (runId !== runIdRef.current) return;
-        setState({ mergedRows, isLoading: false, error: null, compLabel });
+        setState({ mergedRows, isLoading: false, error: null, compLabel, unavailableMeasures });
       } catch (err: unknown) {
         if (runId !== runIdRef.current) return;
         const msg = err instanceof Error ? err.message : String(err);
@@ -246,6 +339,7 @@ export function useCompareResults(
           isLoading: false,
           error: `Comparison failed: ${msg}`,
           compLabel: '',
+          unavailableMeasures: [],
         });
       }
     })();
@@ -257,6 +351,7 @@ export function useCompareResults(
     apiUrl,
     currentToken,
     currentResultSet,
+    activeGameId,
     _apiFactory,
     JSON.stringify(query),
     JSON.stringify(measures),

@@ -21,6 +21,7 @@ const DEFAULT_COMPARE_STATE: CompareResultsState = {
   isLoading: false,
   error: null,
   compLabel: '',
+  unavailableMeasures: [],
 };
 
 export const CompareContext = createContext<CompareContextValue>({

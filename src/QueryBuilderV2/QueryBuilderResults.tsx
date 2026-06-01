@@ -743,6 +743,11 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   // mergedRows is non-null when a comparison is active and loaded.
   const mergedRows: MergedRow[] | null = compareState.mergedRows;
   const compareActive = mergedRows !== null;
+  // Measures the compared game's schema lacks — their compare columns render
+  // "N/A" rather than a misleading "—" (which means "no matching row").
+  const compareUnavailableKey = compareState.unavailableMeasures.join('|');
+  const isCompareUnavailable = (measure: string) =>
+    compareState.unavailableMeasures.includes(measure);
 
   const isCompact = usedCubes.length === 1;
   const [selectedCell, setSelectedCell] = useState<[number, string] | null>(null);
@@ -1149,10 +1154,15 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                 const deltaVal = mRow ? (mRow[`${measure}__delta` as keyof MergedRow] as number | null) : null;
                 const deltaPctVal = mRow ? (mRow[`${measure}__deltaPct` as keyof MergedRow] as number | null) : null;
 
-                const [cmpFormatted] = cmpVal != null ? formatCellData(measure, cmpVal) : ['—', 'number'];
-                const deltaFormatted = formatDeltaAbs(deltaVal);
-                const deltaPctFormatted = formatDeltaPct(deltaPctVal);
-                const tone = getDeltaTone(deltaPctVal);
+                const unavailable = isCompareUnavailable(measure);
+                const [cmpFormatted] = unavailable
+                  ? ['N/A', 'number']
+                  : cmpVal != null
+                    ? formatCellData(measure, cmpVal)
+                    : ['—', 'number'];
+                const deltaFormatted = unavailable ? 'N/A' : formatDeltaAbs(deltaVal);
+                const deltaPctFormatted = unavailable ? 'N/A' : formatDeltaPct(deltaPctVal);
+                const tone = unavailable ? 'neutral' : getDeltaTone(deltaPctVal);
 
                 const toneColor =
                   tone === 'positive' ? '#52c41a' : tone === 'negative' ? '#ff4d4f' : undefined;
@@ -1206,6 +1216,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     measureTotals,
     compareActive,
     mergedRows,
+    compareUnavailableKey,
   ]);
 
   function addFilter(name: string) {
@@ -1398,7 +1409,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
       return [
         <ColumnHeader key={compId} data-member="measure" data-resize-anchor={compId}>
           <MemberLabel
-            isMissing={false}
+            isMissing={isCompareUnavailable(measure)}
             name={`${shortName} (${compareState.compLabel || 'Comparison'})`}
             memberName={`${shortName} (${compareState.compLabel || 'Comparison'})`}
             cubeName={undefined}
@@ -1412,7 +1423,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
         </ColumnHeader>,
         <ColumnHeader key={deltaId} data-member="measure" data-resize-anchor={deltaId}>
           <MemberLabel
-            isMissing={false}
+            isMissing={isCompareUnavailable(measure)}
             name={`Δ ${shortName}`}
             memberName={`Δ ${shortName}`}
             cubeName={undefined}
@@ -1426,7 +1437,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
         </ColumnHeader>,
         <ColumnHeader key={deltaPctId} data-member="measure" data-resize-anchor={deltaPctId}>
           <MemberLabel
-            isMissing={false}
+            isMissing={isCompareUnavailable(measure)}
             name={`Δ% ${shortName}`}
             memberName={`Δ% ${shortName}`}
             cubeName={undefined}
@@ -1440,7 +1451,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
         </ColumnHeader>,
       ];
     });
-  }, [measures, compareActive, compareState.compLabel, memberViewType, isCompact]);
+  }, [measures, compareActive, compareState.compLabel, compareUnavailableKey, memberViewType, isCompact]);
 
   // Synthetic "% of total" headers — one per measure with the share toggle on.
   // Placed after all real measure columns in row order so the grid template
