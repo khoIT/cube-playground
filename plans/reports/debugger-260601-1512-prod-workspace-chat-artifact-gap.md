@@ -47,9 +47,10 @@ Verified live (prod ws):
 - Confirmed **zero** shared/cross-game cubes exist (all 133 carry a game prefix), so the filter hides nothing legitimate.
 - Chat turn that previously looped: cross-game ambiguity gone; after one within-game clarification it produced **"Daily Revenue VND — Last 7 Days"** (`ballistar_recharge.revenue_vnd` by `recharge_date`) — prod's **first-ever** artifact. 546 server tests + 8 new green; no errors logged.
 
-**Remaining (out of scope, lower priority):**
-- Within-game disambiguation still asks once (ballistar has `recharge.revenue_vnd` vs `user_recharge_daily.revenue_vnd_total`) — legitimate, 1-click, resolves to an artifact. A ranking tweak in `disambiguate_query` could auto-pick the transactional measure; separate UX refinement.
-- Root cause #2 (Cube "Continue wait" / chart-data latency on prod) still to validate now that turns reach a query.
+**Remaining — both DEFERRED with rationale (do not block the meta-scoping merge):**
+
+- **#1 within-game disambiguation (DEFER — sensitive engine change).** "Show daily revenue" resolves the `revenue` glossary term to a *snapshot* measure; `rejectSnapshotMeasureUnderTimeRange` (`disambiguate-query.ts:152`) then deliberately clarifies and offers time-aware alternatives — a protective guard, not a failure (resolves to an artifact in 1 click). A real fix is glossary-data (point "revenue" at a time-scoped member) or auto-pick logic in the guard; both touch the shared, pure NL resolver (`metric-resolver.ts`) that serves the working `local` path (64/100). Warrants its own change with cross-game tests, not a pre-merge tweak.
+- **#2 prod chart-data latency (NOT an app fix — infra).** Verified: prod `/load` for `ballistar_recharge.revenue_vnd` by day returned Cube "Continue wait" for **8 retries / ~40s and never completed** — persistent, not cold-start. This is a prod cube-dev / Trino-mirror performance problem (likely missing pre-aggregations), outside cube-playground. Artifact *generation* works; chart *data* won't render until the prod Cube model gets pre-aggs. Track as a cube-dev/infra follow-up.
 
 ## Open questions
 
