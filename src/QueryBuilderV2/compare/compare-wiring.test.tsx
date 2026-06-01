@@ -46,7 +46,7 @@ describe('CompareToggle inside CompareContext.Provider', () => {
         <CompareContext.Provider
           value={{
             compareSetting: null,
-            compareState: { mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [] },
+            compareState: { mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [], noDimensionOverlap: false, comparisonRows: [] },
             onCompareChange: vi.fn(),
           }}
         >
@@ -61,7 +61,7 @@ describe('CompareToggle inside CompareContext.Provider', () => {
       <CompareContext.Provider
         value={{
           compareSetting: null,
-          compareState: { mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [] },
+          compareState: { mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [], noDimensionOverlap: false, comparisonRows: [] },
           onCompareChange: vi.fn(),
         }}
       >
@@ -84,6 +84,8 @@ describe('CompareToggle inside CompareContext.Provider', () => {
             error: null,
             compLabel: 'Prior period',
             unavailableMeasures: [],
+            noDimensionOverlap: false,
+            comparisonRows: [],
           },
           onCompareChange: vi.fn(),
         }}

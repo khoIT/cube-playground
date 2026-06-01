@@ -23,6 +23,8 @@ const DEFAULT_COMPARE_STATE: CompareResultsState = {
   error: null,
   compLabel: '',
   unavailableMeasures: [],
+  noDimensionOverlap: false,
+  comparisonRows: [],
 };
 
 export const CompareContext = createContext<CompareContextValue>({

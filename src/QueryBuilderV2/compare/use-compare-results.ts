@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Query, ResultSet } from '@cubejs-client/core';
 
 import { type CompareMode } from './derive-compare-query';
-import { type DataRow, mergeByDimKey, type MergedRow } from './merge-by-dim-key';
+import { type DataRow, mergeByDimKey, computeOverlap, type MergedRow } from './merge-by-dim-key';
 import { deriveCompareQuery } from './derive-compare-query';
 
 // cube-api-factory is intentionally NOT statically imported here.
@@ -41,6 +41,19 @@ export interface CompareResultsState {
    * columns render as N/A instead of crashing the whole comparison query.
    */
   unavailableMeasures: string[];
+  /**
+   * The comparison returned rows but NONE shared the query's dimension values
+   * with the current rows — so nothing pairs up (e.g. comparing a per-`user_id`
+   * breakdown across games, whose user populations are disjoint). The UI shows
+   * a heads-up instead of silent empty comparison bars.
+   */
+  noDimensionOverlap: boolean;
+  /**
+   * Raw rows the comparison query returned. Carried so the pane can render the
+   * comparison game's OWN top-N leaderboard side-by-side when the dimensions
+   * don't overlap (the left-join `mergedRows` would otherwise drop them).
+   */
+  comparisonRows: DataRow[];
 }
 
 // Minimal CubeApi surface used inside this hook — lets tests pass a stub
@@ -146,6 +159,8 @@ export interface CompareLoadResult {
   mergedRows: MergedRow[];
   compLabel: string;
   unavailableMeasures: string[];
+  noDimensionOverlap: boolean;
+  comparisonRows: DataRow[];
 }
 
 /**
@@ -201,7 +216,7 @@ export async function runCompareLoad(
   // measures query would itself error) and surface every measure as N/A.
   if (measuresToCompare.length === 0) {
     const merged = mergeByDimKey(currentRows, [], { dimKeys, measures: [] });
-    return { mergedRows: merged, compLabel, unavailableMeasures };
+    return { mergedRows: merged, compLabel, unavailableMeasures, noDimensionOverlap: false, comparisonRows: [] };
   }
 
   // Resolve factory lazily — avoids loading @cubejs-client/core at module-
@@ -213,7 +228,17 @@ export async function runCompareLoad(
   const compRows = extractRows(compRs as ResultSet<Record<string, string | number>>);
   const merged = mergeByDimKey(currentRows, compRows, { dimKeys, measures: measuresToCompare });
 
-  return { mergedRows: merged, compLabel, unavailableMeasures };
+  // Heads-up signal: the comparison returned rows but none pair with the current
+  // rows on the selected dimensions. Only meaningful when the query HAS
+  // dimensions (a measures-only query keys on '' and always pairs).
+  const { comparisonRowCount, matchedRowCount } = computeOverlap(currentRows, compRows, dimKeys);
+  const noDimensionOverlap =
+    dimKeys.length > 0 &&
+    currentRows.length > 0 &&
+    comparisonRowCount > 0 &&
+    matchedRowCount === 0;
+
+  return { mergedRows: merged, compLabel, unavailableMeasures, noDimensionOverlap, comparisonRows: compRows };
 }
 
 // ---------------------------------------------------------------------------
@@ -252,6 +277,8 @@ const IDLE_STATE: CompareResultsState = {
   error: null,
   compLabel: '',
   unavailableMeasures: [],
+  noDimensionOverlap: false,
+  comparisonRows: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -284,6 +311,8 @@ export function useCompareResults(
     error: null,
     compLabel: mode === 'prev' ? 'Prior period' : '',
     unavailableMeasures: [],
+    noDimensionOverlap: false,
+    comparisonRows: [],
   });
 
   // Track current run to cancel stale effects.
@@ -296,7 +325,7 @@ export function useCompareResults(
     }
 
     if (!currentResultSet || !apiUrl || !currentToken) {
-      setState({ mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [] });
+      setState({ mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [], noDimensionOverlap: false, comparisonRows: [] });
       return;
     }
 
@@ -309,6 +338,8 @@ export function useCompareResults(
         error: 'Cannot derive comparison for the current date range.',
         compLabel: '',
         unavailableMeasures: [],
+        noDimensionOverlap: false,
+        comparisonRows: [],
       });
       return;
     }
@@ -318,7 +349,7 @@ export function useCompareResults(
 
     (async () => {
       try {
-        const { mergedRows, compLabel, unavailableMeasures } = await runCompareLoad({
+        const { mergedRows, compLabel, unavailableMeasures, noDimensionOverlap, comparisonRows } = await runCompareLoad({
           query,
           mode,
           apiUrl,
@@ -330,7 +361,7 @@ export function useCompareResults(
         });
 
         if (runId !== runIdRef.current) return;
-        setState({ mergedRows, isLoading: false, error: null, compLabel, unavailableMeasures });
+        setState({ mergedRows, isLoading: false, error: null, compLabel, unavailableMeasures, noDimensionOverlap, comparisonRows });
       } catch (err: unknown) {
         if (runId !== runIdRef.current) return;
         const msg = err instanceof Error ? err.message : String(err);
@@ -340,6 +371,8 @@ export function useCompareResults(
           error: `Comparison failed: ${msg}`,
           compLabel: '',
           unavailableMeasures: [],
+          noDimensionOverlap: false,
+          comparisonRows: [],
         });
       }
     })();

@@ -217,6 +217,72 @@ describe('runCompareLoad – game mode', () => {
     expect(result.compLabel).toBe('Game: ptg');
   });
 
+  it('flags noDimensionOverlap when comparison rows share no dim values (disjoint user_id)', async () => {
+    // Cross-game per-user breakdown: the target game returns 2 payers, but none
+    // share a user_id with the current game → nothing pairs.
+    const mockLoad = vi.fn().mockResolvedValue(
+      makeResultSet([
+        { 'recharge.user_id': 'cfm-1', 'recharge.revenue_vnd': 462000000 },
+        { 'recharge.user_id': 'cfm-2', 'recharge.revenue_vnd': 120000000 },
+      ]),
+    );
+
+    const result = await runCompareLoad({
+      ...BASE_PARAMS,
+      query: {
+        measures: ['recharge.revenue_vnd'],
+        dimensions: ['recharge.user_id'],
+      },
+      mode: 'game:cfm_vn',
+      currentResultSet: makeResultSet([
+        { 'recharge.user_id': 'active-1', 'recharge.revenue_vnd': 500000000 },
+      ]),
+      measures: ['recharge.revenue_vnd'],
+      _apiFactory: makeStubFactory(mockLoad),
+      _metaFetcher: makeMetaFetcher(['recharge.revenue_vnd', 'recharge.user_id']),
+    });
+
+    expect(result.noDimensionOverlap).toBe(true);
+    // The comparison game's own rows are carried for the side-by-side leaderboard.
+    expect(result.comparisonRows).toHaveLength(2);
+  });
+
+  it('does NOT flag noDimensionOverlap when rows pair on a shared dimension', async () => {
+    const mockLoad = vi.fn().mockResolvedValue(
+      makeResultSet([{ 'recharge.os_platform': 'ios', 'recharge.revenue_vnd': 200 }]),
+    );
+
+    const result = await runCompareLoad({
+      ...BASE_PARAMS,
+      query: { measures: ['recharge.revenue_vnd'], dimensions: ['recharge.os_platform'] },
+      mode: 'game:cfm_vn',
+      currentResultSet: makeResultSet([
+        { 'recharge.os_platform': 'IOS', 'recharge.revenue_vnd': 500 },
+      ]),
+      measures: ['recharge.revenue_vnd'],
+      _apiFactory: makeStubFactory(mockLoad),
+      _metaFetcher: makeMetaFetcher(['recharge.revenue_vnd', 'recharge.os_platform']),
+    });
+
+    expect(result.noDimensionOverlap).toBe(false);
+  });
+
+  it('does NOT flag noDimensionOverlap for a measures-only query (always pairs)', async () => {
+    const mockLoad = vi.fn().mockResolvedValue(makeResultSet([{ 'dau.count': 300 }]));
+
+    const result = await runCompareLoad({
+      ...BASE_PARAMS,
+      query: { measures: ['dau.count'] },
+      mode: 'game:cfm_vn',
+      currentResultSet: makeResultSet([{ 'dau.count': 500 }]),
+      measures: ['dau.count'],
+      _apiFactory: makeStubFactory(mockLoad),
+      _metaFetcher: makeMetaFetcher(['dau.count']),
+    });
+
+    expect(result.noDimensionOverlap).toBe(false);
+  });
+
   it('sets compLabel to "Game: <id>" for game mode', async () => {
     const mockLoad = vi.fn().mockResolvedValue(makeResultSet([]));
 

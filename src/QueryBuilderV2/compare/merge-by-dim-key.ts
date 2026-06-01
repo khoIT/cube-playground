@@ -101,3 +101,35 @@ export function mergeByDimKey(
     return { ...row, ...extra } as MergedRow;
   });
 }
+
+// ---------------------------------------------------------------------------
+// Overlap stats
+// ---------------------------------------------------------------------------
+
+export interface OverlapStats {
+  /** Rows the comparison query returned. */
+  comparisonRowCount: number;
+  /** Current rows whose dim-key was found in the comparison set. */
+  matchedRowCount: number;
+}
+
+/**
+ * How well the two sides line up on `dimKeys`. Drives the "no comparable rows"
+ * heads-up: a cross-game compare on a per-entity dimension (e.g. `user_id`)
+ * returns plenty of comparison rows but zero matches, because the two games'
+ * entity populations are disjoint. Uses the SAME normalized key as the merge so
+ * the count can't disagree with what mergeByDimKey actually paired.
+ */
+export function computeOverlap(
+  current: DataRow[],
+  comparison: DataRow[],
+  dimKeys: string[],
+): OverlapStats {
+  const compIndex = buildIndex(comparison, dimKeys);
+  let matched = 0;
+  for (const row of current) {
+    const key = dimKeys.map((k) => normKeyPart(row[k])).join('\x00');
+    if (compIndex.has(key)) matched += 1;
+  }
+  return { comparisonRowCount: comparison.length, matchedRowCount: matched };
+}

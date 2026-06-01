@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mergeByDimKey } from './merge-by-dim-key';
+import { mergeByDimKey, computeOverlap } from './merge-by-dim-key';
 import type { DataRow } from './merge-by-dim-key';
 
 // ---------------------------------------------------------------------------
@@ -278,5 +278,38 @@ describe('mergeByDimKey – empty inputs', () => {
     const current: DataRow[] = [row({ d: 'a' }, { m: 10 })];
     const [merged] = mergeByDimKey(current, [], { dimKeys: ['d'], measures: [] });
     expect(merged).toMatchObject({ d: 'a', m: 10 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeOverlap — drives the "no comparable rows" heads-up
+// ---------------------------------------------------------------------------
+
+describe('computeOverlap', () => {
+  it('counts rows that pair on the dim key (case-insensitive, like the merge)', () => {
+    const current: DataRow[] = [row({ os: 'IOS' }, { rev: 100 }), row({ os: 'Android' }, { rev: 50 })];
+    const comparison: DataRow[] = [row({ os: 'ios' }, { rev: 80 })];
+    expect(computeOverlap(current, comparison, ['os'])).toEqual({
+      comparisonRowCount: 1,
+      matchedRowCount: 1,
+    });
+  });
+
+  it('reports zero matches when entity dimensions are disjoint across games', () => {
+    // Cross-game per-user breakdown: both sides have data, no shared user_id.
+    const current: DataRow[] = [row({ user_id: 'a1' }, { rev: 100 })];
+    const comparison: DataRow[] = [row({ user_id: 'b1' }, { rev: 80 }), row({ user_id: 'b2' }, { rev: 70 })];
+    expect(computeOverlap(current, comparison, ['user_id'])).toEqual({
+      comparisonRowCount: 2,
+      matchedRowCount: 0,
+    });
+  });
+
+  it('reports zero comparison rows when the comparison query returned nothing', () => {
+    const current: DataRow[] = [row({ user_id: 'a1' }, { rev: 100 })];
+    expect(computeOverlap(current, [], ['user_id'])).toEqual({
+      comparisonRowCount: 0,
+      matchedRowCount: 0,
+    });
   });
 });

@@ -134,6 +134,71 @@ const Delta = styled.span<{ $tone: 'up' | 'down' | 'flat' }>`
         : 'var(--text-tertiary, var(--text-muted))'};
 `;
 
+// Side-by-side leaderboards (shown when the two games share no dimension values
+// — each game's own top-N, ranked independently, not row-paired).
+const TwoCol = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 6px;
+`;
+
+const ColHead = styled.div<{ $variant: 'a' | 'b' }>`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const LbRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 9px;
+`;
+
+const LbTop = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+`;
+
+const Rank = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary, var(--text-muted));
+  width: 14px;
+  flex: none;
+`;
+
+const LbLabel = styled.span`
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const LbVal = styled.span`
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  flex: none;
+`;
+
+const EmptyCol = styled.div`
+  font-size: 11px;
+  color: var(--text-tertiary, var(--text-muted));
+`;
+
 const Note = styled.div<{ $tone: 'info' | 'warn' }>`
   display: flex;
   gap: 9px;
@@ -193,6 +258,67 @@ function compact(n: number | null): string {
   return new Intl.NumberFormat('en-US').format(n);
 }
 
+/** Row label from the non-time dims, plus a sub line from time-dim buckets. */
+function rowLabel(
+  r: Record<string, unknown>,
+  dims: string[],
+  timeKeys: string[],
+): { main: string; sub: string } {
+  const main = dims.map((d) => String(r[d] ?? '')).filter(Boolean).join(' · ') || '—';
+  const sub = timeKeys.map((k) => formatTimeValue(r[k])).filter(Boolean).join(' · ');
+  return { main, sub };
+}
+
+/** One game's independent top-N leaderboard for a single measure. */
+function Leaderboard({
+  head,
+  variant,
+  rows,
+  measure,
+  dims,
+  timeKeys,
+}: {
+  head: string;
+  variant: 'a' | 'b';
+  rows: Record<string, unknown>[];
+  measure: string;
+  dims: string[];
+  timeKeys: string[];
+}) {
+  // Defensive sort by the measure desc — the query orders already, but the
+  // comparison query may carry a different order.
+  const sorted = [...rows].sort((x, y) => (toNum(y[measure]) ?? 0) - (toNum(x[measure]) ?? 0));
+  const max = sorted.reduce((m, r) => Math.max(m, toNum(r[measure]) ?? 0), 0);
+
+  return (
+    <div>
+      <ColHead $variant={variant} title={head}>
+        <Swatch $variant={variant} /> {head}
+      </ColHead>
+      {sorted.length === 0 ? (
+        <EmptyCol>No rows.</EmptyCol>
+      ) : (
+        sorted.map((r, i) => {
+          const { main, sub } = rowLabel(r, dims, timeKeys);
+          const val = toNum(r[measure]);
+          return (
+            <LbRow key={`${main}|${sub}|${i}`}>
+              <LbTop>
+                <Rank>{i + 1}</Rank>
+                <LbLabel title={sub ? `${main} · ${sub}` : main}>{main}</LbLabel>
+                <LbVal>{compact(val)}</LbVal>
+              </LbTop>
+              <Track>
+                <Fill $variant={variant} $pct={max ? ((val ?? 0) / max) * 100 : 0} />
+              </Track>
+            </LbRow>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -204,7 +330,34 @@ export function ComparePane() {
 
   const measures = query?.measures ?? [];
   const { dims, timeKeys } = splitDimKeys(query ?? ({} as Query));
-  const { mergedRows, isLoading, error, compLabel, unavailableMeasures } = compareState;
+  const {
+    mergedRows,
+    isLoading,
+    error,
+    compLabel,
+    unavailableMeasures,
+    noDimensionOverlap,
+    comparisonRows,
+  } = compareState;
+
+  // Readable list of the dimensions that prevented pairing (for the heads-up).
+  const dimLabel = useMemo(
+    () => [...dims, ...timeKeys].map(shortName).join(' · '),
+    [dims, timeKeys],
+  );
+
+  // The comparison query ran but the target game returned nothing for this
+  // query/range (e.g. a game with no recharge data in the window). Distinct
+  // from "all measures unavailable" (schema gap → N/A note) and from
+  // "no dimension overlap" (rows present but disjoint). Without this, an empty
+  // comparison falls through to paired bars that render misleading empty "—".
+  const allMeasuresUnavailable =
+    measures.length > 0 && measures.every((m) => unavailableMeasures.includes(m));
+  const comparisonEmpty =
+    !noDimensionOverlap &&
+    !allMeasuresUnavailable &&
+    (comparisonRows?.length ?? 0) === 0 &&
+    (mergedRows?.length ?? 0) > 0;
 
   // Friendly label for the comparison series — prefer the game's display name
   // over the raw id baked into compLabel ("Game: ptg").
@@ -245,9 +398,78 @@ export function ComparePane() {
         </Note>
       )}
 
+      {/* Comparison ran but the target game returned no rows for this query/range. */}
+      {compareSetting != null && !error && !isLoading && comparisonEmpty && (
+        <Note $tone="info">
+          <span>ℹ</span>
+          <span>
+            <b>{compareName}</b> has no data for this query in the selected range, so there’s nothing
+            to compare. Try a wider date range or a different game.
+          </span>
+        </Note>
+      )}
+
+      {/* Comparison ran and returned data, but no row pairs up on the selected
+          dimensions (e.g. a per-user_id breakdown across games with disjoint
+          user populations). Rather than empty comparison bars, show each game's
+          OWN top-N leaderboard side by side — independently ranked, not paired. */}
+      {compareSetting != null && !error && !isLoading && noDimensionOverlap && (
+        <>
+          <Note $tone="info">
+            <span>ℹ</span>
+            <span>
+              {compareName} has different {dimLabel ? <b>{dimLabel}</b> : 'entities'} than the current
+              query, so rows can’t be paired. Showing each game’s own top rows side by side —
+              ranked independently, not matched.
+            </span>
+          </Note>
+          {measures.map((measure) => {
+            const name = shortName(measure);
+            if (unavailableMeasures.includes(measure)) {
+              return (
+                <div key={measure}>
+                  <SectionLabel>{name}</SectionLabel>
+                  <Note $tone="warn">
+                    <span>⚠</span>
+                    <span>
+                      <i>N/A</i> — <b>{cubeName(measure)}</b> isn’t in {compareName}’s schema.
+                    </span>
+                  </Note>
+                </div>
+              );
+            }
+            return (
+              <div key={measure}>
+                <SectionLabel>{name} · top rows</SectionLabel>
+                <TwoCol>
+                  <Leaderboard
+                    head="Current"
+                    variant="a"
+                    rows={(mergedRows ?? []) as Record<string, unknown>[]}
+                    measure={measure}
+                    dims={dims}
+                    timeKeys={timeKeys}
+                  />
+                  <Leaderboard
+                    head={compareName}
+                    variant="b"
+                    rows={comparisonRows as Record<string, unknown>[]}
+                    measure={measure}
+                    dims={dims}
+                    timeKeys={timeKeys}
+                  />
+                </TwoCol>
+              </div>
+            );
+          })}
+        </>
+      )}
+
       {compareSetting != null &&
         !error &&
         !isLoading &&
+        !noDimensionOverlap &&
+        !comparisonEmpty &&
         measures.map((measure) => {
           const name = shortName(measure);
 

@@ -46,6 +46,8 @@ function renderPane(setting: any, state: Partial<CompareResultsState>) {
     error: null,
     compLabel: '',
     unavailableMeasures: [],
+    noDimensionOverlap: false,
+    comparisonRows: [],
     ...state,
   };
   return render(
@@ -78,6 +80,14 @@ describe('ComparePane', () => {
     ];
     renderPane('game:bls', {
       mergedRows: rows,
+      // A real paired comparison has comparison rows (these feed the __cmp values).
+      comparisonRows: [
+        {
+          'recharge.os_platform': 'IOS',
+          'recharge.recharge_date.week': '2026-05-04T00:00:00.000',
+          'recharge.revenue_vnd': 514_000_000,
+        },
+      ],
       compLabel: 'Game: bls',
       unavailableMeasures: [],
     });
@@ -99,5 +109,41 @@ describe('ComparePane', () => {
       unavailableMeasures: ['recharge.revenue_vnd'],
     });
     expect(screen.getByText(/N\/A/)).toBeTruthy();
+  });
+
+  it('renders side-by-side leaderboards (current + comparison game) when dims do not overlap', () => {
+    renderPane('game:bls', {
+      mergedRows: [
+        { 'recharge.os_platform': 'IOS', 'recharge.revenue_vnd': 500 } as MergedRow,
+      ],
+      comparisonRows: [{ 'recharge.os_platform': 'CFM-TOP', 'recharge.revenue_vnd': 999 }],
+      compLabel: 'Game: bls',
+      noDimensionOverlap: true,
+    });
+    // Heads-up explains the side-by-side (not the old "no comparable rows").
+    expect(screen.getByText(/Showing each game’s own top rows side by side/)).toBeTruthy();
+    // The paired grouped-bar header is gone.
+    expect(screen.queryByText(/current vs/)).toBeNull();
+    // Both leaderboards render: the current row label AND the comparison game's.
+    expect(screen.getByText('IOS')).toBeTruthy();
+    expect(screen.getByText('CFM-TOP')).toBeTruthy();
+    // Column header carries the friendly game name + a "Current" column.
+    expect(screen.getByText('Current')).toBeTruthy();
+    // "Ballistar" appears in both the heads-up note and the column header.
+    expect(screen.getAllByText('Ballistar').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows a "no data" note (not empty paired bars) when the comparison game returned no rows', () => {
+    renderPane('game:bls', {
+      mergedRows: [
+        { 'recharge.os_platform': 'IOS', 'recharge.revenue_vnd': 500 } as MergedRow,
+      ],
+      comparisonRows: [], // target game has no rows for this query/range
+      compLabel: 'Game: bls',
+      noDimensionOverlap: false,
+    });
+    expect(screen.getByText(/has no data for this query/)).toBeTruthy();
+    // The misleading paired grouped-bar view is suppressed.
+    expect(screen.queryByText(/current vs/)).toBeNull();
   });
 });
