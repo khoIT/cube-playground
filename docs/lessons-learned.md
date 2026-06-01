@@ -181,6 +181,13 @@ Format per lesson:
 - **Signal:** an SSRF/allowlist test passes for IPv4 loopback but the IPv6 loopback case returns "allowed"; any host normalization that runs a `:port` regex unconditionally on values that may be IPv6.
 - **Apply:** branch on bracket form / colon count before the port strip; unit-test every loopback + metadata literal in both IPv4 and IPv6 form. Allow RFC1918 / `*.internal` (legit internal warehouses) — block only loopback + link-local/metadata.
 
+### Prefix-workspace `/meta` is not game-scoped — scope it before the chat agent sees it
+
+- **Rule:** On `gameModel:'prefix'` workspaces (prod cube-dev), Cube `/meta` returns EVERY game's cubes regardless of the `x-cube-game` header. Filter `meta.cubes` to `${gamePrefixMap[game]}_` at the gateway (`cube-proxy.ts`) before any consumer reads it. `game_id` workspaces (local) need no filter — one cube per concept, scoped by a `gameId` dimension at query time.
+- **Why:** chat produced **0 artifacts on prod vs 64/100 on local**. Unfiltered prod meta exposed `revenue_vnd` in `ballistar_recharge`, `cfm_recharge`, `jus_recharge`, … so `disambiguate_query` offered several identically-labeled "Revenue Vnd" options across games and never resolved. Local's single `recharge.revenue_vnd` was unambiguous. The readiness service already prefix-filtered for cube *counts* (`workspace-readiness.ts`) — the meta proxy just never applied the same rule.
+- **Signal:** a chat/agent feature works on one workspace but loops on disambiguation (or "can't resolve measure") on another; the same measure name appears in N cubes in `/meta`; behavior differs local vs prod with identical code.
+- **Apply:** match on the exact `${prefix}_` boundary (not bare `prefix`, else `cfm` matches `cfmx_*`). Verify no legitimate shared/cross-game cubes exist before filtering (here all cubes carried a game prefix). Re-test the actual NL→artifact flow per workspace, not just `local` — workspace-dependent behavior won't show up in unit tests or a single-workspace smoke test.
+
 ---
 
 ## How to extend this doc

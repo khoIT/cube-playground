@@ -16,8 +16,12 @@
  */
 
 import type { FastifyInstance } from 'fastify';
+import { gamePrefixFor, filterMetaToGamePrefix } from '../services/prefix-meta-filter.js';
 
 const CUBE_FETCH_TIMEOUT_MS = 15_000;
+
+// Header carrying the active game (mirrors workspace-header.ts GAME_HEADER).
+const GAME_HEADER = 'x-cube-game';
 
 interface ProxyTarget {
   cubeApiUrl: string;
@@ -78,6 +82,16 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
   app.get('/cube-api/v1/meta', async (req, reply) => {
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
     const { status, body } = await forward(req.cubeCtx, 'GET', '/meta', search, undefined);
+    // On prefix workspaces, Cube returns every game's cubes. Scope the response
+    // to the active game's prefix so consumers (chat agent, Playground) don't
+    // see the same measure name across games. No-op on game_id workspaces or
+    // when no game header is present.
+    if (status === 200) {
+      const rawGame = req.headers[GAME_HEADER];
+      const gameId = typeof rawGame === 'string' && rawGame.trim() ? rawGame.trim() : null;
+      const prefix = gamePrefixFor(req.workspace, gameId);
+      if (prefix) return reply.status(status).send(filterMetaToGamePrefix(body, prefix));
+    }
     return reply.status(status).send(body);
   });
 
