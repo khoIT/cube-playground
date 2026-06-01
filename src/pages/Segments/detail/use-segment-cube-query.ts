@@ -15,6 +15,9 @@ import type { Query } from '@cubejs-client/core';
 import { useSecurityContext } from '../../../hooks/security-context';
 import { useCubejsApi } from '../../../hooks/cubejs-api';
 import { useAppContext } from '../../../hooks';
+import { useWorkspaceContext } from '../../../components/workspace-context';
+import { useActiveGameId } from '../../../components/Header/use-game-context';
+import { resolveGamePrefix, physicalizeQuery, logicalizeRows } from '../../../lib/cube-member-resolver';
 import type { Segment } from '../../../types/segment-api';
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -118,6 +121,14 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
   const { currentToken } = useSecurityContext();
   const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
 
+  // Prefix workspaces (prod cube-dev) namespace cubes per game
+  // (`ballistar_mf_users`). Logical-named preset card queries must be
+  // physicalized before /load and the physical-keyed response logicalized back.
+  // Null on game_id/local → both translations are strict no-ops.
+  const { workspace } = useWorkspaceContext();
+  const activeGameId = useActiveGameId();
+  const prefix = resolveGamePrefix(workspace, activeGameId || null);
+
   const hasInitial = options.initialRows !== undefined;
   const skipBackground = hasInitial && options.skipBackgroundFetch === true;
   const [rows, setRows] = useState<T[]>(options.initialRows ?? []);
@@ -136,7 +147,10 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     }
 
     const uidsForScope = options.uidsOverride ?? segment.uid_list ?? [];
-    const scoped = scopeQueryToSegment(query, identityDim, uidsForScope, segmentSliceFilters(segment));
+    const scopedLogical = scopeQueryToSegment(query, identityDim, uidsForScope, segmentSliceFilters(segment));
+    // Idempotent: already-physical slice filters pass through untouched; only
+    // the logical preset members get prefixed. No-op when prefix is null.
+    const scoped = physicalizeQuery(scopedLogical, prefix);
     const key = hashKey(segment.id, scoped);
 
     const cached = cache.get(key);
@@ -165,7 +179,10 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
       await acquire();
       try {
         const resultSet = await cubejsApi.load(scoped as never);
-        const raw = (resultSet as unknown as { rawData: () => unknown[] }).rawData();
+        const rawPhysical = (resultSet as unknown as { rawData: () => unknown[] }).rawData();
+        // Strip the prefix from row keys so logical-named card specs read them
+        // (no-op on game_id/local).
+        const raw = logicalizeRows(rawPhysical, prefix);
         if (!cancelled) {
           cache.set(key, { result: raw, fetchedAt: Date.now() });
           // Diff against current display state; skip setState when identical
@@ -186,7 +203,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     return () => {
       cancelled = true;
     };
-  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, JSON.stringify(options.uidsOverride)]);
+  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, prefix, JSON.stringify(options.uidsOverride)]);
 
   return { loading, error, rows };
 }
