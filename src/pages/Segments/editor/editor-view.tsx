@@ -12,6 +12,7 @@ import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { IdentityCard } from './identity-card';
 import { RefreshBehaviourCard } from './refresh-behaviour-card';
 import { renderRoot } from './predicate-builder/predicate-group';
+import { simplifyPredicate } from '../../../QueryBuilderV2/segments-save-bar/simplify-predicate';
 import { usePredicateState, isTreeValid } from './hooks/use-predicate-state';
 import { usePreview } from './hooks/use-preview';
 import { WorkspaceRail } from './workspace-rail';
@@ -50,7 +51,9 @@ export function EditorView(): ReactElement {
         setCube(seg.cube);
         setType(seg.type);
         setCadence(seg.refresh_cadence_min ?? 60);
-        if (seg.predicate_tree) predicate.replaceTree(seg.predicate_tree);
+        // Simplify on load so segments saved before the build-time resolver
+        // (or hand-edited into verbose shapes) still render concise here.
+        if (seg.predicate_tree) predicate.replaceTree(simplifyPredicate(seg.predicate_tree));
         setSavedCount(seg.uid_count);
         setLoaded(true);
       })

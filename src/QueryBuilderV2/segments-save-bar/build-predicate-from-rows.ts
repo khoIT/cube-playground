@@ -35,6 +35,7 @@ import {
   getNonIdentityDimensions,
 } from './build-expansion-query';
 import { bucketDateRange } from './bucket-range';
+import { simplifyPredicate } from './simplify-predicate';
 
 function genId(prefix: 'grp' | 'leaf'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -196,5 +197,9 @@ export function buildPredicateFromRows(
     children.push({ kind: 'group', id: genId('grp'), op: 'OR', children: orChildren });
   }
 
-  return { kind: 'group', id: genId('grp'), op: 'AND', children };
+  // Collapse build-process redundancy (single-child OR/AND wrappers, nested
+  // same-op groups, duplicate leaves, an outer query dateRange overlapping a
+  // per-row bucket range) so the persisted + displayed predicate reflects
+  // intent rather than how the query builder assembled it.
+  return simplifyPredicate({ kind: 'group', id: genId('grp'), op: 'AND', children });
 }

@@ -20,6 +20,14 @@ import type {
   CardSpec,
 } from '../presets/mf-users-hub.js';
 
+// A card filter is either a leaf or a nested and/or group — slice filters
+// carried from the segment predicate can be logical groups, so the type must
+// admit both shapes.
+type CardFilter =
+  | { member: string; operator: string; values?: string[] }
+  | { and: CardFilter[] }
+  | { or: CardFilter[] };
+
 interface CubeQuery {
   measures: string[];
   dimensions?: string[];
@@ -29,11 +37,7 @@ interface CubeQuery {
     dateRange?: string;
   }>;
   order?: Record<string, 'asc' | 'desc'>;
-  filters?: Array<{
-    member: string;
-    operator: string;
-    values?: string[];
-  }>;
+  filters?: CardFilter[];
   limit?: number;
 }
 
@@ -73,14 +77,33 @@ function queryForCard(spec: CardSpec): CubeQuery {
   };
 }
 
-function scopeQuery(q: CubeQuery, identityDim: string, uids: string[]): CubeQuery {
-  if (uids.length === 0) return q;
-  const next: CubeQuery = { ...q };
-  next.filters = [
-    ...(q.filters ?? []),
-    { member: identityDim, operator: 'equals', values: uids },
-  ];
-  return next;
+/**
+ * Scope a card query to the segment.
+ *
+ * Two layers, both ANDed onto the card's own filters:
+ *   1. The segment's predicate filters (the slice) — e.g. `os_platform = iOS`
+ *      and `recharge_date in [W20]`. Without these, a measure like
+ *      `revenue_vnd` re-aggregates over each user's ENTIRE history (all
+ *      platforms, all time), so the monitor diverges from the query-builder
+ *      cell the segment was created from. Applying them makes card numbers
+ *      reflect the slice.
+ *   2. The materialized uid list — pins membership to the frozen cohort.
+ *
+ * Both can be present at once: the intersection (uids ∩ slice) equals the
+ * cohort, and the slice constraints are what give measures the right window.
+ */
+function scopeQuery(
+  q: CubeQuery,
+  identityDim: string,
+  uids: string[],
+  sliceFilters: CardFilter[],
+): CubeQuery {
+  const extra: CardFilter[] = [...sliceFilters];
+  if (uids.length > 0) {
+    extra.push({ member: identityDim, operator: 'equals', values: uids });
+  }
+  if (extra.length === 0) return q;
+  return { ...q, filters: [...(q.filters ?? []), ...extra] };
 }
 
 function hashQuery(q: CubeQuery): string {
@@ -100,6 +123,7 @@ export async function runPresetCards(
   preset: PresetSpec,
   uids: string[],
   tokenOverride?: string,
+  sliceFilters: CardFilter[] = [],
 ): Promise<CardCacheEntry[]> {
   const allSpecs: Array<{ id: string; query: CubeQuery }> = [];
 
@@ -117,7 +141,7 @@ export async function runPresetCards(
 
   const results: CardCacheEntry[] = [];
   for (const { id, query } of allSpecs) {
-    const scoped = scopeQuery(query, preset.identityDim, uids);
+    const scoped = scopeQuery(query, preset.identityDim, uids, sliceFilters);
     try {
       const raw = await load(scoped, tokenOverride);
       results.push({ cardId: id, queryHash: hashQuery(scoped), rows: extractRows(raw) });

@@ -8,6 +8,7 @@ import type { Segment } from '../../../../types/segment-api';
 import { SizeTrendSection } from './monitor/size-trend-section';
 import { RefreshHistorySection } from './monitor/refresh-history-section';
 import { ActivationSummarySection } from './monitor/activation-summary-section';
+import { SliceScopeNote } from '../../slice-scope/slice-scope-note';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
 export function MonitorTab({ segment, onActivate, onJumpToActivation }: Props): ReactElement {
   return (
     <div className={styles.monitorGrid}>
+      <SliceScopeNote predicate={segment.predicate_tree} />
       <SizeTrendSection segment={segment} />
       <RefreshHistorySection segment={segment} />
       <ActivationSummarySection

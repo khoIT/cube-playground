@@ -1130,6 +1130,52 @@
   color: var(--text-secondary);
 }
 
+/* ── Slice-scope notice (monitor + push modal) ───────────────── */
+.sliceScopeBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 0 0 12px 0;
+  border-radius: var(--radius-md);
+  background: var(--info-soft);
+  border: 1px solid var(--info-ink);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.sliceScopeIcon {
+  margin-top: 2px;
+  color: var(--info-ink);
+  flex-shrink: 0;
+}
+
+.sliceScopeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sliceScopeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sliceScopeChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .cellEmpty {
   color: var(--text-muted);
   font-size: 13px;

@@ -55,18 +55,39 @@ export interface UseSegmentCubeQueryResult<T = Record<string, unknown>> {
   rows: T[];
 }
 
-/** Inject an identity-IN filter so the query is scoped to the segment's uids. */
+/**
+ * Scope a card query to the segment by ANDing on:
+ *   1. `sliceFilters` — the segment's predicate (e.g. os_platform=iOS, a date
+ *      window). These give measures the right window so the monitor matches the
+ *      query-builder cell the segment came from, instead of re-aggregating each
+ *      user's entire history.
+ *   2. an identity-IN filter pinning the result to the materialized uid list.
+ */
 export function scopeQueryToSegment(
   query: Query,
   identityDim: string,
   uids: string[],
+  sliceFilters: Query['filters'] = [],
 ): Query {
-  if (uids.length === 0) return query;
+  const extra = Array.isArray(sliceFilters) ? [...sliceFilters] : [];
+  if (uids.length > 0) {
+    extra.push({ member: identityDim, operator: 'equals' as never, values: uids });
+  }
+  if (extra.length === 0) return query;
   const next: Query = { ...query };
-  const filters = Array.isArray(query.filters) ? [...query.filters] : [];
-  filters.push({ member: identityDim, operator: 'equals' as never, values: uids });
-  next.filters = filters;
+  next.filters = [...(Array.isArray(query.filters) ? query.filters : []), ...extra];
   return next;
+}
+
+/** Parse the segment's predicate-derived Cube filters from cube_query_json. */
+export function segmentSliceFilters(segment: Segment | null): Query['filters'] {
+  if (!segment?.cube_query_json) return [];
+  try {
+    const parsed = JSON.parse(segment.cube_query_json) as { filters?: Query['filters'] };
+    return Array.isArray(parsed.filters) ? parsed.filters : [];
+  } catch {
+    return [];
+  }
 }
 
 export interface UseSegmentCubeQueryOptions<T> {
@@ -115,7 +136,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     }
 
     const uidsForScope = options.uidsOverride ?? segment.uid_list ?? [];
-    const scoped = scopeQueryToSegment(query, identityDim, uidsForScope);
+    const scoped = scopeQueryToSegment(query, identityDim, uidsForScope, segmentSliceFilters(segment));
     const key = hashKey(segment.id, scoped);
 
     const cached = cache.get(key);

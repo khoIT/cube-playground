@@ -15,6 +15,7 @@ import { SegmentApiError } from '../../../api/api-client';
 import { invalidateSegmentIds } from '../use-segment-ids';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { buildPredicateFromRows } from '../../../QueryBuilderV2/segments-save-bar/build-predicate-from-rows';
+import { SliceScopeNote } from '../slice-scope/slice-scope-note';
 import { summarizeSelection } from './selection-summary';
 import {
   formatCategoricalValue,
@@ -159,6 +160,15 @@ export function PushModal({
     [rows, excludeColumns],
   );
   const showValueCounts = summary.total > 1;
+
+  // Preview the predicate the Live segment will save, so we can show the user
+  // exactly which slice the monitor metrics will be scoped to. Mirrors the
+  // predicateRows choice in handleCreate (uid-mode passes [], cohort-mode rows).
+  const previewPredicate = useMemo(() => {
+    if (type !== 'predicate' || !executedQuery || !identityField) return null;
+    const predicateRows = allowStatic ? rows : [];
+    return buildPredicateFromRows(executedQuery, predicateRows, identityField);
+  }, [type, executedQuery, identityField, allowStatic, rows]);
 
   /**
    * Resolves the uid list to use for create/append. In identity mode this is
@@ -380,6 +390,8 @@ export function PushModal({
                 )}
               </div>
             </div>
+
+            {type === 'predicate' && <SliceScopeNote predicate={previewPredicate} variant="create" />}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <Button onClick={onClose} disabled={submitting}>Cancel</Button>

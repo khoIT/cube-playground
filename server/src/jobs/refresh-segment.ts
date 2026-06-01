@@ -230,7 +230,11 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     const preset = pickPresetForCube(row.cube);
     if (preset) {
       try {
-        const entries = await runPresetCards(preset, uids, token);
+        // baseQuery.filters IS the segment's predicate translated to Cube
+        // filters — pass it as the slice scope so card measures (revenue, LTV)
+        // reflect the cohort's defining slice, not each user's full history.
+        const sliceFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
+        const entries = await runPresetCards(preset, uids, token, sliceFilters);
         upsertCardCache(segmentId, entries);
       } catch (err) {
         console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);

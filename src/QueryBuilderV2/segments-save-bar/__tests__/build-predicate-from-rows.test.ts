@@ -97,7 +97,7 @@ describe('buildPredicateFromRows', () => {
     ).toBe(false);
   });
 
-  it('emits an OR-of-AND group over non-identity dims for selected rows', () => {
+  it('emits an OR group over non-identity dims for multiple selected rows', () => {
     const rows = [
       { 'mf_users.first_login_month': '2025-05-01' },
       { 'mf_users.first_login_month': '2025-06-01' },
@@ -108,12 +108,13 @@ describe('buildPredicateFromRows', () => {
     ) as GroupNode | undefined;
     expect(orGroup).toBeDefined();
     expect(orGroup!.children).toHaveLength(2);
-    const inner = orGroup!.children[0] as GroupNode;
-    expect(inner.op).toBe('AND');
-    const innerLeaf = inner.children[0] as LeafNode;
-    expect(innerLeaf.member).toBe('mf_users.first_login_month');
-    expect(innerLeaf.op).toBe('equals');
-    expect(innerLeaf.values).toEqual(['2025-05-01']);
+    // Each row constrains a single dim, so the per-row AND[leaf] collapses to a
+    // bare leaf after simplification.
+    const leaf = orGroup!.children[0] as LeafNode;
+    expect(isLeaf(leaf)).toBe(true);
+    expect(leaf.member).toBe('mf_users.first_login_month');
+    expect(leaf.op).toBe('equals');
+    expect(leaf.values).toEqual(['2025-05-01']);
   });
 
   it('excludes the identity dim from row-equality leaves', () => {
@@ -125,11 +126,9 @@ describe('buildPredicateFromRows', () => {
       { 'mf_users.user_id': 'u1', 'mf_users.first_login_month': '2025-05' },
     ];
     const tree = buildPredicateFromRows(q, rows, 'mf_users.user_id');
-    const orGroup = tree.children.find(
-      (c) => isGroup(c) && c.op === 'OR',
-    ) as GroupNode;
-    const inner = orGroup.children[0] as GroupNode;
-    const members = inner.children.map((c) => (c as LeafNode).member);
+    // A single selected row collapses the OR/AND wrappers; its one non-identity
+    // constraint merges straight into the root AND as a leaf.
+    const members = tree.children.filter(isLeaf).map((l) => l.member);
     expect(members).not.toContain('mf_users.user_id');
     expect(members).toContain('mf_users.first_login_month');
   });
@@ -192,21 +191,18 @@ describe('buildPredicateFromRows', () => {
       },
     ];
     const tree = buildPredicateFromRows(cohortQuery, rows, 'mf_users.user_id');
-    const orGroup = tree.children.find(
-      (c) => isGroup(c) && c.op === 'OR',
-    ) as GroupNode | undefined;
-    expect(orGroup).toBeDefined();
-    const rowAnd = orGroup!.children[0] as GroupNode;
-    const leafMembers = rowAnd.children.map((c) => (c as LeafNode).member);
-    expect(leafMembers).toEqual([
-      'active_daily.log_date',
-      'mf_users.first_login_date',
-    ]);
-    const logDateLeaf = rowAnd.children[0] as LeafNode;
-    expect(logDateLeaf.op).toBe('inDateRange');
-    expect(logDateLeaf.type).toBe('time');
-    expect(logDateLeaf.values).toEqual([['2026-05-04', '2026-05-10']]);
-    const firstLoginLeaf = rowAnd.children[1] as LeafNode;
-    expect(firstLoginLeaf.values).toEqual([['2026-03-02', '2026-03-08']]);
+    // A single cohort row unwraps the OR; its bucket leaves merge into the root
+    // AND alongside the original (relative) time-dimension leaf.
+    const bucketLeaf = (member: string) =>
+      tree.children.find(
+        (c) => isLeaf(c) && c.member === member && Array.isArray(c.values[0]),
+      ) as LeafNode | undefined;
+    const logDateLeaf = bucketLeaf('active_daily.log_date');
+    expect(logDateLeaf).toBeDefined();
+    expect(logDateLeaf!.op).toBe('inDateRange');
+    expect(logDateLeaf!.type).toBe('time');
+    expect(logDateLeaf!.values).toEqual([['2026-05-04', '2026-05-10']]);
+    const firstLoginLeaf = bucketLeaf('mf_users.first_login_date');
+    expect(firstLoginLeaf!.values).toEqual([['2026-03-02', '2026-03-08']]);
   });
 });
