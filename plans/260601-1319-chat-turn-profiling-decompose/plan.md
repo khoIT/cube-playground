@@ -35,6 +35,22 @@ Extracted 5 self-contained concerns out of `turn.ts` (911→724 LOC), behaviour-
 
 **Pre-existing (not introduced):** on a cache hit the per-turn `timeoutHandle` isn't cleared before the early return; the later fire is a documented no-op (`turn.ts`). Candidate cleanup, not a regression.
 
+### Live verification (this session, refactored code on the running stack)
+
+All against the live gateway `:3004` → chat-service `:3005` → Cube. Zero chat errors logged across ~7 turns.
+
+| Path / module exercised | Result |
+|---|---|
+| NL → query artifact (LLM/miss path, `local` ws) | ✅ built `recharge.revenue_vnd` by-day artifact + real data |
+| Multi-turn clarify → follow-up artifact (`context_resumed` SDK resume) | ✅ "Revenue by Country" artifact on turn 2 |
+| **Cache-hit replay** (`try-response-cache-hit`, the riskiest extraction) | ✅ replay-only stream, DB `cache_hit=1, stop_reason=end_turn` |
+| Title summariser gate (`maybe-summarise-title`) | ✅ correctly no-op (gate matches original) |
+| `build-observer` / `write-session-focus` / `precheck-auto-compact` | ✅ ran, focus + session persisted, no errors |
+
+**Verdict: refactor achieved without breaking behavior.**
+
+**Separate pre-existing issue (NOT a regression):** the SPA runs the `prod` workspace; on `prod` the prefix data model exposes `revenue_vnd` across 3 games, so chat disambiguates across identically-labeled options and never reaches an artifact. Historical artifact rate confirms this predates the refactor: `local` 64/100 vs `prod` **0/9**. The same prompt reproduces identically on refactored code regardless of workspace, because the refactor has no workspace-conditional logic. Out of scope for this refactor; flag separately if worth fixing.
+
 ## Phase 0 (shipped this session)
 
 - `chat-service/src/observability/turn-timing.ts` — stage timer, gated by `CHAT_TURN_PROFILING`, marks: `compose → meta-hash → cache-replay | llm-first-event → llm-done → persist`, one structured log line per turn exit (cache_hit / finish / error).
