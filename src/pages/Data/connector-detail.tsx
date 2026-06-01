@@ -17,6 +17,7 @@ import { DatasetTables, type OnboardMode } from './dataset-tables';
 import { TriageCanvas } from './triage/triage-canvas';
 import { ExistingModelView } from './existing-model-view';
 import { ConnectorCredentials } from './connector-connect-form';
+import { DataBreadcrumb } from './data-breadcrumb';
 
 type Tab = 'datasets' | 'model' | 'agents' | 'coverage' | 'drift' | 'history';
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -77,6 +78,14 @@ const Ghost = styled.button`
   &:hover {
     border-color: var(--brand);
     color: var(--brand);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    &:hover {
+      border-color: var(--border-card);
+      color: var(--text-secondary);
+    }
   }
 `;
 const Tabs = styled.div`
@@ -206,13 +215,30 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
     }
   }
 
-  // Once a draft exists, the connector detail becomes the triage canvas.
-  if (draft) return <TriageCanvas draftId={draft.id} />;
+  // Once a draft exists, the connector detail becomes the triage canvas. Pass
+  // exits so the user can cancel triage (back to this connector's datasets) or
+  // jump straight out to the connectors list.
+  if (draft)
+    return (
+      <TriageCanvas
+        draftId={draft.id}
+        connectorLabel={connector.label}
+        onCancel={() => setDraft(null)}
+        onExitToConnectors={onBack}
+      />
+    );
 
   // Edit mode: reuse the connect form, prefilled, secret kept unless retyped.
   if (editing) {
     return (
       <>
+        <DataBreadcrumb
+          items={[
+            { label: 'Connectors', onClick: onBack },
+            { label: connector.label, onClick: () => setEditing(false) },
+            { label: 'Edit' },
+          ]}
+        />
         <Head>
           <Badge aria-hidden>{initials(connector.label)}</Badge>
           <TitleBlock>
@@ -237,6 +263,7 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
 
   return (
     <>
+      <DataBreadcrumb items={[{ label: 'Connectors', onClick: onBack }, { label: connector.label }]} />
       <Head>
         <Badge aria-hidden>{initials(connector.label)}</Badge>
         <TitleBlock>
@@ -256,6 +283,10 @@ export function ConnectorDetail({ connector, onBack }: Props): ReactElement {
               <Power size={14} /> {disabling ? 'Disabling…' : 'Disable'}
             </Ghost>
           </>
+        ) : readOnly ? (
+          <Ghost type="button" disabled title="Worked example — points at a committed model, no credentials to edit">
+            <Pencil size={14} /> Edit
+          </Ghost>
         ) : null}
         <Ghost type="button" onClick={onBack}>
           <ArrowLeft size={14} /> Connectors
