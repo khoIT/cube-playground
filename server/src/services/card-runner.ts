@@ -14,6 +14,7 @@
 
 import { createHash } from 'node:crypto';
 import { load } from './cube-client.js';
+import { physicalizeQuery, logicalizeRows } from './cube-member-resolver.js';
 import type {
   PresetSpec,
   KpiSpec,
@@ -124,6 +125,14 @@ export async function runPresetCards(
   uids: string[],
   tokenOverride?: string,
   sliceFilters: CardFilter[] = [],
+  /**
+   * Cube cube-name prefix for prefix-model (prod) workspaces. Preset card specs
+   * are written in logical names (`mf_users.user_count`); on a prefix workspace
+   * they must be physicalized (`ballistar_mf_users.user_count`) before /load and
+   * the response logicalized so card consumers read by the logical spec name.
+   * Null on game_id workspaces → no-op.
+   */
+  prefix: string | null = null,
 ): Promise<CardCacheEntry[]> {
   const allSpecs: Array<{ id: string; query: CubeQuery }> = [];
 
@@ -142,9 +151,14 @@ export async function runPresetCards(
   const results: CardCacheEntry[] = [];
   for (const { id, query } of allSpecs) {
     const scoped = scopeQuery(query, preset.identityDim, uids, sliceFilters);
+    // Physicalize the logical preset members for prefix workspaces (idempotent:
+    // already-physical slice filters pass through), then logicalize response
+    // row keys so the cached rows match the logical card spec the FE renders by.
+    const physical = physicalizeQuery(scoped, prefix);
     try {
-      const raw = await load(scoped, tokenOverride);
-      results.push({ cardId: id, queryHash: hashQuery(scoped), rows: extractRows(raw) });
+      const raw = await load(physical, tokenOverride);
+      const rows = logicalizeRows(extractRows(raw), prefix);
+      results.push({ cardId: id, queryHash: hashQuery(physical), rows });
     } catch (err) {
       // Card-level failure shouldn't kill the whole refresh — log and skip.
       // The FE will fall back to live fetch for any cardId missing from cache.

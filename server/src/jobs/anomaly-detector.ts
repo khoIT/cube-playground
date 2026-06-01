@@ -28,6 +28,8 @@ import { snapshotFromMeta, validateRefs } from '../services/metric-ref-validator
 import { filterApplicable } from '../services/metric-applicability.js';
 import { classifySeries } from '../services/z-score.js';
 import { ANOMALY_METRICS, classifySeverity } from '../services/anomaly-config.js';
+import { resolveGamePrefix } from '../services/resolve-game-prefix.js';
+import { physicalizeQuery, logicalizeRows } from '../services/cube-member-resolver.js';
 import { upsertAnomaly } from '../services/anomaly-state-store.js';
 import { getDb } from '../db/sqlite.js';
 import { upsertDriftRows, listDriftRows } from '../db/metric-drift-snapshot-store.js';
@@ -407,6 +409,8 @@ export async function runDetectorTick(
         warn(`[anomaly-detector] no Cube token for game="${game}"; skipping`);
         continue;
       }
+      // Physicalize the hardcoded logical metric names on prefix workspaces.
+      const prefix = resolveGamePrefix(game);
 
       for (const cfg of metrics) {
         if (queriesUsed >= budget) {
@@ -433,12 +437,15 @@ export async function runDetectorTick(
             order: { [cfg.timeDim]: 'asc' },
           };
 
-          const res = (await load(query, token)) as CubeLoadResult;
+          const res = (await load(physicalizeQuery(query, prefix), token)) as CubeLoadResult;
           queriesUsed++;
           checked++;
 
+          // Logicalize physical row keys so logical-named reads below work on
+          // both workspace models (no-op on game_id).
+          const data = logicalizeRows(res.data, prefix) as CubeLoadResult['data'];
           const timeDimDay = `${cfg.timeDim}.day`;
-          const series = rowsToDatedSeries(res.data, cfg.metric, cfg.timeDim).map((d) => d.value);
+          const series = rowsToDatedSeries(data, cfg.metric, cfg.timeDim).map((d) => d.value);
 
           if (series.length < 6) {
             // z-score needs at least MIN_BASELINE+1=6 points
@@ -452,7 +459,7 @@ export async function runDetectorTick(
           if (!severity) continue;
 
           // Latest data point's date for idempotent key
-          const lastRow = [...res.data].sort((a, b) =>
+          const lastRow = [...data].sort((a, b) =>
             String(a[timeDimDay] ?? '').localeCompare(String(b[timeDimDay] ?? ''))
           ).at(-1);
           const tsRaw = String(lastRow?.[timeDimDay] ?? new Date().toISOString().slice(0, 10));

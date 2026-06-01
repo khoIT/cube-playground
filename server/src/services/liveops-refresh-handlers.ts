@@ -12,6 +12,8 @@
 
 import { loadWithContinueWait } from './load-with-continue-wait.js';
 import { resolveCubeTokenForGame } from './resolve-cube-token.js';
+import { resolveGamePrefix } from './resolve-game-prefix.js';
+import { physicalizeQuery, logicalizeRows, physicalCube } from './cube-member-resolver.js';
 import { getMeta } from './cube-client.js';
 import { KPI_CONFIG, type KpiSpec } from './liveops-kpi-config.js';
 import type {
@@ -95,6 +97,7 @@ async function loadKpi(
   token: string | undefined,
   hasActiveDaily: boolean,
   timeoutMs: number,
+  prefix: string | null,
 ): Promise<KpiStripTile> {
   const needsActiveDaily =
     spec.measure?.startsWith('active_daily') ||
@@ -131,11 +134,13 @@ async function loadKpi(
         timeDimensions: [{ dimension: denTimeDim, granularity: 'day', dateRange: `last ${SPARKLINE_DAYS} days` }],
       };
       const [numRes, denRes] = await Promise.all([
-        loadWithContinueWait(numQuery, token, timeoutMs),
-        loadWithContinueWait(denQuery, token, timeoutMs),
+        loadWithContinueWait(physicalizeQuery(numQuery, prefix), token, timeoutMs),
+        loadWithContinueWait(physicalizeQuery(denQuery, prefix), token, timeoutMs),
       ]);
-      const numRows = rowsFrom(numRes);
-      const denRows = rowsFrom(denRes);
+      // Logicalize physical row keys so the logical-named reads below work on
+      // both workspace models (no-op on game_id).
+      const numRows = logicalizeRows(rowsFrom(numRes), prefix);
+      const denRows = logicalizeRows(rowsFrom(denRes), prefix);
       const numSeriesPairs = numRows
         .map((r) => {
           const d = String(r[`${numTimeDim}.day`] ?? '').slice(0, 10);
@@ -171,8 +176,8 @@ async function loadKpi(
       measures: [spec.measure!],
       timeDimensions: [{ dimension: spec.timeDim, granularity: 'day', dateRange: `last ${SPARKLINE_DAYS} days` }],
     };
-    const res = await loadWithContinueWait(query, token, timeoutMs);
-    const series = extractSeries(rowsFrom(res), spec.measure!, `${spec.timeDim}.day`);
+    const res = await loadWithContinueWait(physicalizeQuery(query, prefix), token, timeoutMs);
+    const series = extractSeries(logicalizeRows(rowsFrom(res), prefix), spec.measure!, `${spec.timeDim}.day`);
     const latest = series[series.length - 1] ?? null;
     return {
       id: spec.id, label: spec.label,
@@ -196,11 +201,14 @@ export async function refreshKpiStrip(
 ): Promise<KpiStripPayload> {
   const token = resolveCubeTokenForGame(game) ?? undefined;
   const meta = (await getMeta(token)) as MetaShape;
+  // On prefix workspaces meta cube names are physical (`ballistar_active_daily`);
+  // check the physicalized name so the availability gate works on both models.
+  const prefix = resolveGamePrefix(game);
   const cubeNames = findCubeNames(meta);
-  const hasActiveDaily = cubeNames.has('active_daily');
+  const hasActiveDaily = cubeNames.has(physicalCube('active_daily', prefix));
 
   const tiles = await Promise.all(
-    KPI_CONFIG.map((spec) => loadKpi(spec, game, token, hasActiveDaily, timeoutMs)),
+    KPI_CONFIG.map((spec) => loadKpi(spec, game, token, hasActiveDaily, timeoutMs, prefix)),
   );
   return { game, tiles };
 }

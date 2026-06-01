@@ -11,6 +11,8 @@ import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
 import { pickPresetForCube } from '../presets/mf-users-hub.js';
+import { resolveGamePrefix } from '../services/resolve-game-prefix.js';
+import { logicalCube } from '../services/cube-member-resolver.js';
 import { resolveIdentityField } from '../services/resolve-identity-field.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { loadWithContinueWait } from '../services/load-with-continue-wait.js';
@@ -227,14 +229,18 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // Pre-render preset cards so the FE can hydrate synchronously.
     // Failures here don't roll back the segment refresh — cards just fall
     // back to live fetch when their entry is missing from the cache.
-    const preset = pickPresetForCube(row.cube);
+    // On prefix workspaces the stored cube is physical (`ballistar_mf_users`);
+    // match the preset by its logical name so the same preset serves all games.
+    const prefix = resolveGamePrefix(row.game_id);
+    const preset = pickPresetForCube(logicalCube(row.cube, prefix));
     if (preset) {
       try {
         // baseQuery.filters IS the segment's predicate translated to Cube
         // filters — pass it as the slice scope so card measures (revenue, LTV)
         // reflect the cohort's defining slice, not each user's full history.
+        // The preset's logical members are physicalized inside runPresetCards.
         const sliceFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
-        const entries = await runPresetCards(preset, uids, token, sliceFilters);
+        const entries = await runPresetCards(preset, uids, token, sliceFilters, prefix);
         upsertCardCache(segmentId, entries);
       } catch (err) {
         console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);
