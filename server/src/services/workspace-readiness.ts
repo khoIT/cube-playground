@@ -239,6 +239,33 @@ function countArtifacts(
   };
 }
 
+// Lightweight per-game availability — just the games[] section of the full
+// readiness report (per-game /meta + cube count), skipping the heavier coverage
+// + artifact aggregation. Used by the game picker to hide games that don't
+// resolve in the active workspace (e.g. prod-only games on local). Cached with
+// a short TTL so repeated app loads / workspace flips don't re-fetch /meta per
+// game every time.
+interface GamesReadinessCacheEntry {
+  at: number;
+  games: GameReadiness[];
+}
+const gamesReadinessCache = new Map<string, GamesReadinessCacheEntry>();
+const GAMES_READINESS_TTL_MS = 60_000;
+
+export async function computeGamesReadiness(
+  workspaceId: string,
+): Promise<GameReadiness[]> {
+  const cached = gamesReadinessCache.get(workspaceId);
+  if (cached && Date.now() - cached.at < GAMES_READINESS_TTL_MS) {
+    return cached.games;
+  }
+  const workspace = resolveWorkspace(workspaceId);
+  if (!workspace) throw new Error(`unknown workspace "${workspaceId}"`);
+  const { games } = await readGamesReadiness(workspace);
+  gamesReadinessCache.set(workspaceId, { at: Date.now(), games });
+  return games;
+}
+
 export async function computeWorkspaceReadiness(
   db: Database.Database,
   workspaceId: string,

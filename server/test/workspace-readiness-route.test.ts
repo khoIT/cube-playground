@@ -120,3 +120,49 @@ describe('GET /api/workspaces/:id/readiness', () => {
     expect(aliceProd.json().artifacts.segments).toBe(2);
   });
 });
+
+describe('GET /api/workspaces/:id/games-readiness', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let db: Database.Database;
+
+  beforeEach(async () => {
+    db = makeMemDb();
+    setDb(db);
+    app = await buildApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    closeDb();
+  });
+
+  it('400s on unknown workspace id', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/workspaces/does-not-exist/games-readiness',
+      headers: { 'x-cube-workspace': 'local', 'x-owner': 'alice' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/unknown workspace/i);
+  });
+
+  it('returns the games[] availability slice with status per game', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/workspaces/local/games-readiness',
+      headers: { 'x-cube-workspace': 'local', 'x-owner': 'alice' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(Array.isArray(body.games)).toBe(true);
+    expect(body.games.length).toBeGreaterThan(0);
+    // Mock /meta returns a cube → every game resolves 'ok'.
+    for (const g of body.games) {
+      expect(g).toMatchObject({ id: expect.any(String), status: expect.any(String) });
+    }
+    expect(body.games.some((g: { status: string }) => g.status === 'ok')).toBe(true);
+    // No coverage/artifacts in the lightweight slice.
+    expect(body.coverage).toBeUndefined();
+    expect(body.artifacts).toBeUndefined();
+  });
+});

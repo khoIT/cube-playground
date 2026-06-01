@@ -1,11 +1,10 @@
 /**
- * Wiring smoke tests — Phase 4.
+ * Wiring smoke tests for the compare feature.
  *
  * These tests verify that:
  * 1. CompareToggle renders inside a CompareContext.Provider without errors.
  * 2. CompareContext default value is correctly shaped (idle state).
  * 3. readCompareFromUrl / writeCompareToUrl round-trip via window.location.hash.
- * 4. useCompareResults returns idle state when input is null (no-op path).
  *
  * We intentionally avoid rendering QueryBuilderInternals itself — it requires
  * the full QueryBuilderContext tree which would need a real CubeJS provider.
@@ -48,6 +47,7 @@ describe('CompareToggle inside CompareContext.Provider', () => {
           value={{
             compareSetting: null,
             compareState: { mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [] },
+            onCompareChange: vi.fn(),
           }}
         >
           <CompareToggle value={null} onChange={vi.fn()} />
@@ -56,21 +56,24 @@ describe('CompareToggle inside CompareContext.Provider', () => {
     ).not.toThrow();
   });
 
-  it('displays "Compare:" label', () => {
+  it('displays the mode segments (Off / Prev period / Other game)', () => {
     render(
       <CompareContext.Provider
         value={{
           compareSetting: null,
           compareState: { mergedRows: null, isLoading: false, error: null, compLabel: '', unavailableMeasures: [] },
+          onCompareChange: vi.fn(),
         }}
       >
         <CompareToggle value={null} onChange={vi.fn()} />
       </CompareContext.Provider>,
     );
-    expect(screen.getByText('Compare:')).toBeTruthy();
+    expect(screen.getByText('Off')).toBeTruthy();
+    expect(screen.getByText('Prev period')).toBeTruthy();
+    expect(screen.getByText('Other game')).toBeTruthy();
   });
 
-  it('displays "Prev period" button', () => {
+  it('marks the "Prev period" segment selected when value is "prev"', () => {
     render(
       <CompareContext.Provider
         value={{
@@ -82,12 +85,14 @@ describe('CompareToggle inside CompareContext.Provider', () => {
             compLabel: 'Prior period',
             unavailableMeasures: [],
           },
+          onCompareChange: vi.fn(),
         }}
       >
         <CompareToggle value="prev" onChange={vi.fn()} />
       </CompareContext.Provider>,
     );
-    expect(screen.getByText('Prev period')).toBeTruthy();
+    const prev = screen.getByText('Prev period');
+    expect(prev.getAttribute('aria-selected')).toBe('true');
   });
 });
 

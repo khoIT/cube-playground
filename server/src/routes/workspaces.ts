@@ -12,7 +12,10 @@
 import type { FastifyInstance } from 'fastify';
 
 import { listWorkspacesPublic } from '../services/workspaces-config-loader.js';
-import { computeWorkspaceReadiness } from '../services/workspace-readiness.js';
+import {
+  computeWorkspaceReadiness,
+  computeGamesReadiness,
+} from '../services/workspace-readiness.js';
 import { getDb } from '../db/sqlite.js';
 
 export default async function workspacesRoutes(
@@ -31,6 +34,29 @@ export default async function workspacesRoutes(
     );
     return { workspaces: visible };
   });
+
+  // GET /api/workspaces/:id/games-readiness
+  //   200 { games: Array<{ id, label, status: 'ok'|'missing'|'error', cubeCount }> }
+  //   400 unknown workspace id
+  //   500 unexpected
+  // Lightweight slice of the readiness report — drives the game picker so games
+  // that don't resolve in the active workspace (e.g. prod-only on local) hide.
+  app.get<{ Params: { id: string } }>(
+    '/api/workspaces/:id/games-readiness',
+    async (req, reply) => {
+      try {
+        const games = await computeGamesReadiness(req.params.id);
+        return reply.send({ games });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.startsWith('unknown workspace')) {
+          return reply.status(400).send({ error: msg });
+        }
+        req.log.error({ err }, '[workspaces] games-readiness failed');
+        return reply.status(500).send({ error: msg });
+      }
+    },
+  );
 
   // GET /api/workspaces/:id/readiness
   //   200 { workspace, games[], coverage, artifacts }

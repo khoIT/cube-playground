@@ -1,9 +1,8 @@
 /**
- * Thin React context carrying compare-mode state into QueryBuilderResults.
- *
- * Kept separate from QueryBuilderContext to avoid touching the shared
- * provider (Phase 4 file ownership). Only QueryBuilderInternals writes;
- * QueryBuilderResults reads.
+ * Thin React context carrying compare-mode state into the right-pane Compare
+ * tab. Kept separate from QueryBuilderContext to avoid touching the shared
+ * provider. QueryBuilderInternals writes (state + setter); ComparePane reads
+ * the state and calls onCompareChange to switch modes.
  */
 
 import { createContext, useContext } from 'react';
@@ -14,6 +13,8 @@ import type { CompareResultsState } from './use-compare-results';
 export interface CompareContextValue {
   compareSetting: CompareSetting;
   compareState: CompareResultsState;
+  /** Switch compare mode (Off / Prev period / Other game). No-op by default. */
+  onCompareChange: (next: CompareSetting) => void;
 }
 
 const DEFAULT_COMPARE_STATE: CompareResultsState = {
@@ -27,6 +28,7 @@ const DEFAULT_COMPARE_STATE: CompareResultsState = {
 export const CompareContext = createContext<CompareContextValue>({
   compareSetting: null,
   compareState: DEFAULT_COMPARE_STATE,
+  onCompareChange: () => {},
 });
 
 export function useCompareContext(): CompareContextValue {

@@ -20,11 +20,9 @@ import { QueryBuilderGraphQL } from './QueryBuilderGraphQL';
 import { QueryBuilderSidePanel } from './QueryBuilderSidePanel';
 import { QueryBuilderExtras } from './QueryBuilderExtras';
 import { QueryStatePillBar } from './QueryStatePillBar';
-import { AnalysisPanel } from './analysis/analysis-panel';
 import { ChartSidePane } from './components/ChartSidePane';
 import { PinToDashboardButton } from '../pages/Dashboards/pin-to-dashboard-button';
 import { CompareContext } from './compare/compare-context';
-import { CompareToggle } from './compare/compare-toggle';
 import { useActiveGameId } from '../components/Header/use-game-context';
 import { useCompareResults } from './compare/use-compare-results';
 import { readCompareFromUrl, writeCompareToUrl } from './compare/compare-url-codec';
@@ -40,7 +38,7 @@ const Divider = tasty({
   },
 });
 
-type Tab = 'results' | 'analysis' | 'generated-sql' | 'json' | 'graphql' | 'sql';
+type Tab = 'results' | 'generated-sql' | 'json' | 'graphql' | 'sql';
 
 const QueryBuilderPanel = tasty(UIPanel, {
   isFlex: true,
@@ -78,7 +76,7 @@ const FixedCenterBare = styled.div`
 `;
 
 const FixedChartShell = styled(PaneShell)`
-  flex: 0 0 420px;
+  flex: 0 0 460px;
   min-width: 0;
 `;
 
@@ -182,26 +180,17 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
 
   const ResultsAndSQL = useMemo(() => {
     return (
-      <CompareContext.Provider value={{ compareSetting, compareState }}>
+      <>
         <Divider />
 
         <Tabs
           activeKey={tab}
-          extra={
-            <>
-              <QueryBuilderExtras />
-              <CompareToggle value={compareSetting} onChange={handleCompareChange} />
-              <PinToDashboardButton />
-            </>
-          }
+          extra={<QueryBuilderExtras />}
           styles={{ padding: '0 1x' }}
           onChange={(tab: string) => setTab(tab as Tab)}
         >
           <Tab keepMounted id="results" title="Results">
             <QueryBuilderResults forceMinHeight />
-          </Tab>
-          <Tab id="analysis" title="Analysis">
-            <AnalysisPanel />
           </Tab>
           <Tab id="generated-sql" title="SQL">
             <QueryBuilderGeneratedSQL />
@@ -216,12 +205,9 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
             <QueryBuilderGraphQL />
           </Tab>
         </Tabs>
-      </CompareContext.Provider>
+      </>
     );
-    // compareSetting / compareState / handleCompareChange intentionally in dep array
-    // so context value updates when compare mode changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, compareSetting, compareState, handleCompareChange]);
+  }, [tab]);
 
   const centerContent = (
     <CenterColumn ref={ref}>
@@ -246,33 +232,37 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
       apiToken={apiToken}
       apiUrl={apiUrl}
       query={query}
+      chartActions={<PinToDashboardButton />}
     >
       <QueryBuilderChart />
     </ChartSidePane>
   );
 
-  // disableSidebarResizing: fixed-width sidebar, no PanelGroup
-  if (disableSidebarResizing) {
-    return (
-      <QueryBuilderPanel>
-        <FixedLayout>
-          <FixedSidebarShell>
-            <QueryBuilderSidePanel />
-          </FixedSidebarShell>
-          <FixedCenterBare>{centerContent}</FixedCenterBare>
-          {chartCollapsed ? (
-            <FixedChartRailShell>{chartContent}</FixedChartRailShell>
-          ) : (
-            <FixedChartShell>{chartContent}</FixedChartShell>
-          )}
-        </FixedLayout>
-      </QueryBuilderPanel>
-    );
-  }
+  // Compare state is read by the right-pane Compare tab. The provider wraps the
+  // whole layout so ChartSidePane (a sibling of the center column) can consume it.
+  const compareContextValue = useMemo(
+    () => ({ compareSetting, compareState, onCompareChange: handleCompareChange }),
+    [compareSetting, compareState, handleCompareChange],
+  );
 
-  // Default: 3 resizable panes. Center is a bare Panel (no PaneShell chrome) so the
-  // inner Query and Results cards each appear as their own pane.
-  return (
+  // disableSidebarResizing: fixed-width sidebar, no PanelGroup
+  const layout = disableSidebarResizing ? (
+    <QueryBuilderPanel>
+      <FixedLayout>
+        <FixedSidebarShell>
+          <QueryBuilderSidePanel />
+        </FixedSidebarShell>
+        <FixedCenterBare>{centerContent}</FixedCenterBare>
+        {chartCollapsed ? (
+          <FixedChartRailShell>{chartContent}</FixedChartRailShell>
+        ) : (
+          <FixedChartShell>{chartContent}</FixedChartShell>
+        )}
+      </FixedLayout>
+    </QueryBuilderPanel>
+  ) : (
+    // Default: 3 resizable panes. Center is a bare Panel (no PaneShell chrome) so the
+    // inner Query and Results cards each appear as their own pane.
     <QueryBuilderPanel>
       <AppPaneGroup autoSaveId="QueryBuilder:Panes" direction="horizontal">
         <AppPane id="sidebar" order={1} defaultSize={22} minSize={18} maxSize={35}>
@@ -301,6 +291,10 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
         )}
       </AppPaneGroup>
     </QueryBuilderPanel>
+  );
+
+  return (
+    <CompareContext.Provider value={compareContextValue}>{layout}</CompareContext.Provider>
   );
 });
 

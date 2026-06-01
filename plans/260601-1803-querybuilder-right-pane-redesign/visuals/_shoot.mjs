@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const f = 'file://' + process.cwd() + '/query-builder-right-pane.html';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1680, height: 920 } });
+await p.goto(f);
+await p.screenshot({ path: 'qb-01-compare.png' });
+await p.click('[data-r=analysis]'); await p.waitForTimeout(120);
+await p.screenshot({ path: 'qb-02-analysis.png' });
+await p.click('[data-r=chart]'); await p.waitForTimeout(120);
+await p.screenshot({ path: 'qb-03-chart.png' });
+await b.close();
+console.log('done');

@@ -78,9 +78,6 @@ import {
 } from './segments-save-bar/use-results-selection';
 import { useIdentityMap } from '../hooks/use-identity-map';
 import { formatShare, shareColumnId, sumMeasure } from './utils/share-of-total';
-import { useCompareContext } from './compare/compare-context';
-import { formatDeltaAbs, formatDeltaPct, getDeltaTone } from './compare/format-delta';
-import type { MergedRow } from './compare/merge-by-dim-key';
 
 const StyledTag = tasty(Tag, {
   styles: {
@@ -738,17 +735,6 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     queryDurationMs,
   } = useQueryBuilderContext();
 
-  // Compare context — provided by CompareContext.Provider in QueryBuilderInternals.
-  const { compareSetting, compareState } = useCompareContext();
-  // mergedRows is non-null when a comparison is active and loaded.
-  const mergedRows: MergedRow[] | null = compareState.mergedRows;
-  const compareActive = mergedRows !== null;
-  // Measures the compared game's schema lacks — their compare columns render
-  // "N/A" rather than a misleading "—" (which means "no matching row").
-  const compareUnavailableKey = compareState.unavailableMeasures.join('|');
-  const isCompareUnavailable = (measure: string) =>
-    compareState.unavailableMeasures.includes(measure);
-
   const isCompact = usedCubes.length === 1;
   const [selectedCell, setSelectedCell] = useState<[number, string] | null>(null);
   const dataRef = useRef<{ [k: string]: string | number }[] | undefined>(EMPTY_DATA);
@@ -811,21 +797,15 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   const orderedColumnNames = useMemo(
     () => {
       const shares = measures.filter((m) => shareOf.has(m)).map(shareColumnId);
-      // When compare is active, append three synthetic columns per measure:
-      // Comparison | Δ | Δ% — placed right after each measure column.
-      const compareExtra = compareActive
-        ? measures.flatMap((m) => [`${m}__cmp`, `${m}__delta`, `${m}__deltaPct`])
-        : [];
       return [
         ...dimensions,
         ...timeDimensions.map((td) => td.dimension),
         ...measures,
-        ...compareExtra,
         ...shares,
       ];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures), shareKey, compareActive]
+    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures), shareKey]
   );
   const baseGridColumnsTemplate = getColumnTemplate(orderedColumnNames, livePreviewWidths);
 
@@ -1145,40 +1125,6 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                   </div>
                 );
               })}
-              {/* Compare delta cells: Comparison | Δ | Δ% per measure */}
-              {compareActive && measures.map((measure) => {
-                // Offset rowId by page offset to align with mergedRows index.
-                const mergedIdx = (page - 1) * 100 + rowId;
-                const mRow = mergedRows?.[mergedIdx] ?? null;
-                const cmpVal = mRow ? (mRow[`${measure}__cmp` as keyof MergedRow] as number | null) : null;
-                const deltaVal = mRow ? (mRow[`${measure}__delta` as keyof MergedRow] as number | null) : null;
-                const deltaPctVal = mRow ? (mRow[`${measure}__deltaPct` as keyof MergedRow] as number | null) : null;
-
-                const unavailable = isCompareUnavailable(measure);
-                const [cmpFormatted] = unavailable
-                  ? ['N/A', 'number']
-                  : cmpVal != null
-                    ? formatCellData(measure, cmpVal)
-                    : ['—', 'number'];
-                const deltaFormatted = unavailable ? 'N/A' : formatDeltaAbs(deltaVal);
-                const deltaPctFormatted = unavailable ? 'N/A' : formatDeltaPct(deltaPctVal);
-                const tone = unavailable ? 'neutral' : getDeltaTone(deltaPctVal);
-
-                const toneColor =
-                  tone === 'positive' ? '#52c41a' : tone === 'negative' ? '#ff4d4f' : undefined;
-
-                return [
-                  <div key={`${measure}__cmp`} data-row={rowId} data-name={`${measure}__cmp`} data-element="NumberCell">
-                    <div data-element="CellValue">{cmpFormatted}</div>
-                  </div>,
-                  <div key={`${measure}__delta`} data-row={rowId} data-name={`${measure}__delta`} data-element="NumberCell">
-                    <div data-element="CellValue" style={{ color: toneColor }}>{deltaFormatted}</div>
-                  </div>,
-                  <div key={`${measure}__deltaPct`} data-row={rowId} data-name={`${measure}__deltaPct`} data-element="NumberCell">
-                    <div data-element="CellValue" style={{ color: toneColor }}>{deltaPctFormatted}</div>
-                  </div>,
-                ];
-              })}
               {measures.map((measure) => {
                 if (!shareOf.has(measure)) return null;
                 const total = measureTotals[measure] ?? 0;
@@ -1214,9 +1160,6 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     selection.selectedUids,
     shareKey,
     measureTotals,
-    compareActive,
-    mergedRows,
-    compareUnavailableKey,
   ]);
 
   function addFilter(name: string) {
@@ -1396,62 +1339,6 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
       </ReorderableMemberList>
     );
   }, [measures, JSON.stringify(query.order), meta, memberViewType, isCompact, shareKey]);
-
-  // Compare column headers — one group of 3 (Comparison | Δ | Δ%) per measure
-  // rendered when compare mode is active.
-  const compareColumns = useDeepMemo(() => {
-    if (!compareActive || measures.length === 0) return null;
-    return measures.flatMap((measure) => {
-      const shortName = measure.split('.').pop() ?? measure;
-      const compId = `${measure}__cmp`;
-      const deltaId = `${measure}__delta`;
-      const deltaPctId = `${measure}__deltaPct`;
-      return [
-        <ColumnHeader key={compId} data-member="measure" data-resize-anchor={compId}>
-          <MemberLabel
-            isMissing={isCompareUnavailable(measure)}
-            name={`${shortName} (${compareState.compLabel || 'Comparison'})`}
-            memberName={`${shortName} (${compareState.compLabel || 'Comparison'})`}
-            cubeName={undefined}
-            memberTitle={compareState.compLabel || 'Comparison'}
-            cubeTitle={undefined}
-            isCompact={isCompact}
-            memberViewType={memberViewType}
-            memberType="measure"
-            type="number"
-          />
-        </ColumnHeader>,
-        <ColumnHeader key={deltaId} data-member="measure" data-resize-anchor={deltaId}>
-          <MemberLabel
-            isMissing={isCompareUnavailable(measure)}
-            name={`Δ ${shortName}`}
-            memberName={`Δ ${shortName}`}
-            cubeName={undefined}
-            memberTitle="Δ (absolute)"
-            cubeTitle={undefined}
-            isCompact={isCompact}
-            memberViewType={memberViewType}
-            memberType="measure"
-            type="number"
-          />
-        </ColumnHeader>,
-        <ColumnHeader key={deltaPctId} data-member="measure" data-resize-anchor={deltaPctId}>
-          <MemberLabel
-            isMissing={isCompareUnavailable(measure)}
-            name={`Δ% ${shortName}`}
-            memberName={`Δ% ${shortName}`}
-            cubeName={undefined}
-            memberTitle="Δ%"
-            cubeTitle={undefined}
-            isCompact={isCompact}
-            memberViewType={memberViewType}
-            memberType="measure"
-            type="number"
-          />
-        </ColumnHeader>,
-      ];
-    });
-  }, [measures, compareActive, compareState.compLabel, compareUnavailableKey, memberViewType, isCompact]);
 
   // Synthetic "% of total" headers — one per measure with the share toggle on.
   // Placed after all real measure columns in row order so the grid template
@@ -1678,7 +1565,6 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
               {dimensionColumns}
               {timeDimensionsColumns}
               {measuresColumns}
-              {compareColumns}
               {shareColumns}
               {tableData}
             </GridTable>

@@ -1,7 +1,7 @@
 /**
  * Tests for compare-toggle.tsx
  *
- * Covers: render in each mode, radio click transitions, game dropdown
+ * Covers: render in each mode, segment click transitions, game picker
  * appearance, onChange callback values.
  *
  * GameContext is mocked so tests don't need a real provider tree.
@@ -51,15 +51,15 @@ describe('CompareToggle – render', () => {
     expect(screen.getByText('Other game')).toBeTruthy();
   });
 
-  it('does not show game dropdown when value is null (Off)', () => {
+  it('does not show game picker when value is null (Off)', () => {
     renderToggle(null);
-    // Antd Select has no trigger visible when mode is off
+    // The native <select> (role combobox) only appears in "Other game" mode.
     expect(screen.queryByRole('combobox')).toBeNull();
   });
 
-  it('shows "Compare:" label', () => {
+  it('marks the "Off" segment selected when value is null', () => {
     renderToggle(null);
-    expect(screen.getByText('Compare:')).toBeTruthy();
+    expect(screen.getByText('Off').getAttribute('aria-selected')).toBe('true');
   });
 });
 
@@ -67,7 +67,7 @@ describe('CompareToggle – render', () => {
 // Mode transitions via radio buttons
 // ---------------------------------------------------------------------------
 
-describe('CompareToggle – radio click transitions', () => {
+describe('CompareToggle – segment click transitions', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('clicking "Prev period" calls onChange("prev")', () => {
@@ -95,13 +95,13 @@ describe('CompareToggle – radio click transitions', () => {
 // ---------------------------------------------------------------------------
 
 describe('CompareToggle – game dropdown', () => {
-  it('shows Select when value is game:<id>', () => {
+  it('shows the game picker when value is game:<id>', () => {
     renderToggle('game:cfm');
-    // antd Select renders a combobox role
+    // Native <select> exposes the combobox role.
     expect(screen.queryByRole('combobox')).not.toBeNull();
   });
 
-  it('does not show Select when value is "prev"', () => {
+  it('does not show the game picker when value is "prev"', () => {
     renderToggle('prev');
     expect(screen.queryByRole('combobox')).toBeNull();
   });
@@ -114,10 +114,8 @@ describe('CompareToggle – game dropdown', () => {
 describe('CompareToggle – value reflects URL state', () => {
   it('renders with prev value selected when value="prev"', () => {
     renderToggle('prev');
-    // The "Prev period" radio button should appear checked (antd adds aria-checked)
-    const prevBtn = screen.getByText('Prev period').closest('label') as HTMLElement;
-    // antd Radio.Button uses a hidden input; just verify the button renders without error
-    expect(prevBtn).toBeTruthy();
+    // The "Prev period" segment is marked selected via aria-selected.
+    expect(screen.getByText('Prev period').getAttribute('aria-selected')).toBe('true');
   });
 
   it('renders game mode without throwing for valid game:<id>', () => {

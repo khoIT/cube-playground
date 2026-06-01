@@ -93,6 +93,10 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
   const [workspaceId, setWorkspaceId] = useState<string>(
     () => readPersistedWorkspaceId() ?? '',
   );
+  // Per-game availability in the active workspace (games whose Cube schema
+  // resolves). `null` = not yet loaded / fetch failed → pass-through (show all)
+  // so the picker never blocks or wrongly hides on a flaky readiness call.
+  const [readyGameIds, setReadyGameIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +163,34 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetch per-game readiness for the active workspace so games that don't
+  // resolve there (prod-only games on local, etc.) drop out of the picker.
+  // Fail-open: any failure leaves readyGameIds null → no narrowing.
+  useEffect(() => {
+    if (!workspaceId) return;
+    let cancelled = false;
+    // Reset to pass-through while the new workspace's readiness loads so we
+    // don't apply the previous workspace's allow-set to this one.
+    setReadyGameIds(null);
+    fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/games-readiness`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
+      .then((body: { games?: Array<{ id: string; status: string }> }) => {
+        if (cancelled) return;
+        const ready = new Set(
+          (body?.games ?? []).filter((g) => g.status === 'ok').map((g) => g.id),
+        );
+        // Empty set (e.g. meta unreachable for every game) is treated as
+        // "unknown" → pass-through, rather than hiding every game.
+        setReadyGameIds(ready.size > 0 ? ready : null);
+      })
+      .catch(() => {
+        if (!cancelled) setReadyGameIds(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
   // Filter games by what the active workspace supports AND what this user
   // is allowed (per KC groups → user.allowedGames in /api/auth/me):
   //   - gameModel='prefix' (prod): only games whose id is in `gamePrefixMap`.
@@ -186,8 +218,13 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
       const userAllowed = new Set(authUser.allowedGames);
       pool = pool.filter((g) => userAllowed.has(g.id));
     }
+    // Drop games that don't resolve in this workspace's Cube schema. null =
+    // readiness not loaded yet / failed → pass-through (keep all).
+    if (readyGameIds) {
+      pool = pool.filter((g) => readyGameIds.has(g.id));
+    }
     return pool;
-  }, [config.games, activeWorkspace, authUser]);
+  }, [config.games, activeWorkspace, authUser, readyGameIds]);
 
   // If the active game isn't supported by the new workspace, fall back to the
   // first visible one. Skips while still bootstrapping so we don't clobber a

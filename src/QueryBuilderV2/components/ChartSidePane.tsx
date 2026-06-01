@@ -9,14 +9,16 @@ import {
   TooltipProvider,
   Title as UITitle,
 } from '@cube-dev/ui-kit';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { CodeOutlined } from '@ant-design/icons';
 import { ChartType, PivotConfig, Query } from '@cubejs-client/core';
 
-import { PaneHeader, PaneTitle } from '../../components/AppPanes';
 import { PivotAxes, PivotOptions } from '../Pivot';
 import { ChevronIcon } from '../icons/ChevronIcon';
 import { ChartTypeToggle } from './chart-type-toggle';
+import { RightPaneTabs, RightPaneView } from './right-pane-tabs';
+import { AnalysisPanel } from '../analysis/analysis-panel';
+import { ComparePane } from '../compare/compare-pane';
 
 const ContainerCollapsed = styled.div`
   display: flex;
@@ -48,17 +50,10 @@ const ContainerExpanded = styled.div`
   overflow: hidden;
 `;
 
-const HeaderRight = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-`;
-
-const ChartTypeRow = styled.div`
+const ChartToolRow = styled.div`
   display: flex;
   align-items: center;
+  gap: 6px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border-card);
   flex-shrink: 0;
@@ -88,6 +83,8 @@ type Props = {
   apiToken?: string | null;
   apiUrl?: string;
   query?: Query;
+  /** Extra actions rendered in the Chart view toolbar (e.g. Pin to dashboard). */
+  chartActions?: ReactNode;
 };
 
 export function ChartSidePane({
@@ -103,23 +100,25 @@ export function ChartSidePane({
   apiToken,
   apiUrl,
   query,
+  chartActions,
 }: Props) {
   const [isVizardLoaded, setIsVizardLoaded] = useState(false);
+  const [view, setView] = useState<RightPaneView>('chart');
 
   if (collapsed) {
     return (
       <ContainerCollapsed>
-        <TooltipProvider title="Expand chart pane">
+        <TooltipProvider title="Expand pane">
           <Button
             qa="ChartSidePaneExpandBtn"
             type="clear"
             size="small"
             icon={<ChevronLeft size={14} strokeWidth={2.25} />}
-            aria-label="Expand chart pane"
+            aria-label="Expand pane"
             onPress={() => onToggleCollapsed(false)}
           />
         </TooltipProvider>
-        <VerticalLabel>Chart</VerticalLabel>
+        <VerticalLabel>Insights</VerticalLabel>
       </ContainerCollapsed>
     );
   }
@@ -168,29 +167,35 @@ export function ChartSidePane({
 
   return (
     <ContainerExpanded>
-      <PaneHeader>
-        <PaneTitle>Chart</PaneTitle>
-        <HeaderRight>
-          {pivotTrigger}
-          {codeTrigger}
-          <TooltipProvider title="Collapse chart pane">
-            <Button
-              qa="ChartSidePaneCollapseBtn"
-              type="clear"
-              size="small"
-              icon={<ChevronRight size={14} strokeWidth={2.25} />}
-              aria-label="Collapse chart pane"
-              onPress={() => onToggleCollapsed(true)}
-            />
-          </TooltipProvider>
-        </HeaderRight>
-      </PaneHeader>
-      {onChartTypeChange ? (
-        <ChartTypeRow>
-          <ChartTypeToggle value={chartType} onChange={onChartTypeChange} />
-        </ChartTypeRow>
-      ) : null}
-      <PaneBody>{children}</PaneBody>
+      <RightPaneTabs value={view} onChange={setView} onCollapse={() => onToggleCollapsed(true)} />
+
+      {view === 'chart' && (
+        <>
+          {(onChartTypeChange || pivotTrigger || codeTrigger || chartActions) && (
+            <ChartToolRow>
+              {onChartTypeChange ? (
+                <ChartTypeToggle value={chartType} onChange={onChartTypeChange} />
+              ) : null}
+              {pivotTrigger}
+              {codeTrigger}
+              {chartActions}
+            </ChartToolRow>
+          )}
+          <PaneBody>{children}</PaneBody>
+        </>
+      )}
+
+      {view === 'analysis' && (
+        <PaneBody>
+          <AnalysisPanel />
+        </PaneBody>
+      )}
+
+      {view === 'compare' && (
+        <PaneBody>
+          <ComparePane />
+        </PaneBody>
+      )}
     </ContainerExpanded>
   );
 }
