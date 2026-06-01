@@ -1,0 +1,39 @@
+# Keep the build context small + never bake secrets / local state into an image.
+# (Build stages run `npm ci` from manifests, so node_modules is rebuilt inside.)
+
+# Dependencies — reinstalled in the image
+**/node_modules
+
+# Build outputs — recompiled in the image
+dist
+server/dist
+chat-service/dist
+
+# Secrets + local env — provided at deploy time via Vault-written .env
+.env
+.env.*
+!.env.example
+
+# Local SQLite state — DBs live on mounted volumes, never in the image layer
+**/*.db
+**/*.db-shm
+**/*.db-wal
+server/data/*.db
+chat-service/runtime
+
+# VCS / tooling / docs noise
+.git
+.gitignore
+.github
+.claude/.ckignore
+plans
+docs
+test-results
+tests/visual
+logs
+coverage
+*.log
+
+# OS / editor cruft
+.DS_Store
+**/.DS_Store

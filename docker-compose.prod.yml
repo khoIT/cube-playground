@@ -1,0 +1,79 @@
+# Production composition for cube-playground — the artifact the deploy guide's
+# Step 4 (`docker compose up -d`) runs after the `vault` stage writes `.env`.
+#
+#   web  ──serves SPA + proxies /api,/cube-api──▶  server  ──/api/chat──▶  chat-service
+#                                                     └─▶ external: cube-dev, Trino, LiteLLM, Keycloak
+#
+# Secrets: `.env` is written next to this file by the CI `vault` stage (never in
+# git). Both Node services read it via `env_file`. The SPA's build-time VITE_*
+# values are baked into the `web` image at build, not here.
+#
+# Public port: pick one in 11000–20000, set PUBLIC_PORT, log it in
+# Apps-Configuration.xlsx, then have GIO point the domain at it.
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
+    image: cube-playground-server:${TAG:-latest}
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3004"
+      DB_PATH: /data/segments.db
+      # The server proxies /api/chat/* to the chat-service over the compose network.
+      CHAT_SERVICE_URL: http://chat-service:3005
+    volumes:
+      - server-data:/data
+    depends_on:
+      # Ordering only, not health-coupling: chat is feature-flagged
+      # (CHAT_FEATURE_ENABLED), so a down chat-service must not block the API.
+      chat-service:
+        condition: service_started
+    restart: unless-stopped
+    expose:
+      - "3004"
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: chat-service
+    image: cube-playground-chat:${TAG:-latest}
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3005"
+      CHAT_DB_PATH: /data/chat.db
+      # Topology: chat reaches the API by its compose service name, not localhost.
+      SERVER_BASE_URL: http://server:3004
+    volumes:
+      - chat-data:/data
+    restart: unless-stopped
+    expose:
+      - "3005"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+      args:
+        # Same-origin defaults; override here or in CI if the cube path differs.
+        VITE_CUBE_API_URL: ${VITE_CUBE_API_URL:-/cube-api/v1}
+        VITE_LANGFUSE_HOST: ${VITE_LANGFUSE_HOST:-}
+    image: cube-playground-web:${TAG:-latest}
+    ports:
+      - "${PUBLIC_PORT:-11000}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  # Persist SQLite across container recreates — without these the DBs reset on
+  # every deploy (RBAC, drift-center, connectors, audit, chat history all lost).
+  server-data:
+  chat-data:

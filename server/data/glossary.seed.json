@@ -149,35 +149,38 @@
     {
       "id": "whale",
       "label": "Whale",
-      "description": "Top-spender player segment — typically the top 1% of payers by spend.",
-      "primary_catalog_id": "business_metrics/whale_payer",
+      "description": "Top-spender payer tier (mf_users.payer_tier = 'whale').",
+      "primary_catalog_id": null,
       "aliases": ["whale", "whales"],
       "category": "segments",
       "label_vi": "Cá voi",
       "description_vi": "Nhóm người chi tiêu cao nhất — thường là top 1% người trả phí theo mức chi.",
-      "aliases_vi": ["cá voi", "whale"]
+      "aliases_vi": ["cá voi", "whale"],
+      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "whale" }
     },
     {
       "id": "dolphin",
       "label": "Dolphin",
-      "description": "Mid-tier paying player segment — sits between minnow and whale spenders.",
-      "primary_catalog_id": "business_metrics/dolphin_payer",
+      "description": "Mid-tier payer tier (mf_users.payer_tier = 'dolphin') — between minnow and whale.",
+      "primary_catalog_id": null,
       "aliases": ["dolphin", "dolphins"],
       "category": "segments",
       "label_vi": "Cá heo",
       "description_vi": "Nhóm người trả phí mức trung — nằm giữa minnow và whale.",
-      "aliases_vi": ["cá heo", "dolphin"]
+      "aliases_vi": ["cá heo", "dolphin"],
+      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "dolphin" }
     },
     {
       "id": "minnow",
       "label": "Minnow",
-      "description": "Low-spending paying player segment.",
-      "primary_catalog_id": "business_metrics/minnow_payer",
+      "description": "Low-spending payer tier (mf_users.payer_tier = 'minnow').",
+      "primary_catalog_id": null,
       "aliases": ["minnow", "minnows"],
       "category": "segments",
       "label_vi": "Cá nhỏ",
       "description_vi": "Nhóm người trả phí mức thấp.",
-      "aliases_vi": ["cá nhỏ", "minnow"]
+      "aliases_vi": ["cá nhỏ", "minnow"],
+      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "minnow" }
     },
     {
       "id": "revenue",
@@ -303,13 +306,14 @@
     {
       "id": "at_risk",
       "label": "At-risk player",
-      "description": "Active player whose engagement is trending toward churn in a defined window.",
-      "primary_catalog_id": "business_metrics/at_risk_players",
+      "description": "Paying player inactive 7–30 days — churn risk (mf_users.churn_risk = 'at_risk').",
+      "primary_catalog_id": null,
       "aliases": ["at-risk", "at risk player", "at-risk player"],
       "category": "segments",
       "label_vi": "Người chơi rủi ro rời bỏ",
       "description_vi": "Người chơi hoạt động có xu hướng rời bỏ trong cửa sổ định sẵn.",
-      "aliases_vi": ["rủi ro rời bỏ", "người chơi sắp churn", "at-risk"]
+      "aliases_vi": ["rủi ro rời bỏ", "người chơi sắp churn", "at-risk"],
+      "default_filter_json": { "member": "mf_users.churn_risk", "op": "=", "value": "at_risk" }
     },
     {
       "id": "engagement",
@@ -426,23 +430,6 @@
       "entity_pk": "players.user_id",
       "default_measure_ref": "recharge.revenue_vnd",
       "default_filter_json": { "member": "recharge.revenue_vnd", "op": ">", "value": 0 },
-      "ranking_json": { "order": "DESC", "default_limit": 10 },
-      "trust_tier": "certified"
-    },
-    {
-      "id": "whale",
-      "label": "Whale",
-      "description": "High-value spender bucket (top revenue tier).",
-      "primary_catalog_id": "business_metrics/paying_users",
-      "aliases": ["whale", "whales", "high spender", "high spenders", "vip"],
-      "category": "monetisation",
-      "label_vi": "Cá voi",
-      "description_vi": "Nhóm người chi trả cao nhất (top doanh thu).",
-      "aliases_vi": ["cá voi", "khách vip", "người chi cao"],
-      "entity_cube": "players",
-      "entity_pk": "players.user_id",
-      "default_measure_ref": "recharge.revenue_vnd",
-      "default_filter_json": { "member": "recharge.revenue_vnd", "op": ">=", "value": 5000000 },
       "ranking_json": { "order": "DESC", "default_limit": 10 },
       "trust_tier": "certified"
     },

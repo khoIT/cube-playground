@@ -26,6 +26,16 @@ function normalise(s: string): string {
   return s.toLowerCase().trim();
 }
 
+/**
+ * Return `ref` only when it looks like a cube member (`cube.member`), else null.
+ * A catalog path (`business_metrics/revenue`) carries a slash and can never
+ * validate against /meta, so it must not be used as a query ref. Shared by the
+ * alias index and the metric resolver so both reject the same dead refs.
+ */
+export function memberOrNull(ref: string | null | undefined): string | null {
+  return ref && !ref.includes('/') ? ref : null;
+}
+
 export function compileAliasIndex(glossary: OfficialTerm[]): CompiledIndex {
   const terms = new Map<string, OfficialTerm>();
   const aliases: AliasEntry[] = [];
@@ -35,8 +45,11 @@ export function compileAliasIndex(glossary: OfficialTerm[]): CompiledIndex {
     // Pin the cube member, not the catalog path. INVARIANT: the /meta gate
     // accepts cube members only, so an alias hit's ref must already be a
     // member — `measureRef` (catalog formula, resolved at load) is that
-    // member; `primaryCatalogId` (a catalog path) is the legacy fallback.
-    const ref = t.measureRef ?? t.primaryCatalogId;
+    // member. `primaryCatalogId` is overloaded: a real cube member for
+    // dimension/user terms (`mf_users.country`) but a catalog PATH for
+    // metric terms (`business_metrics/revenue`). A path has a slash and can
+    // never match /meta, so fall back to it only when it looks like a member.
+    const ref = t.measureRef ?? memberOrNull(t.primaryCatalogId);
 
     // Label EN + label VI both count as aliases — that's how users tend to
     // type. Filter duplicates so the same alias doesn't show up twice with

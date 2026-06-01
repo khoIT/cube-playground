@@ -89,6 +89,18 @@ function pickDimension(hits: AliasHit[], glossary: OfficialTerm[]): ScoredSlot<s
   };
 }
 
+/** Map a glossary ConceptFilter op to the Cube filter operator vocabulary. */
+const CONCEPT_OP_TO_CUBE: Record<string, string> = {
+  '=': 'equals',
+  '!=': 'notEquals',
+  '>': 'gt',
+  '>=': 'gte',
+  '<': 'lt',
+  '<=': 'lte',
+  IN: 'equals',
+  'NOT IN': 'notEquals',
+};
+
 function buildFilters(hits: AliasHit[], glossary: OfficialTerm[], numbers: ParsedNumber[]): SlotFilter[] | undefined {
   const termById = new Map(glossary.map((t) => [t.id, t]));
   const filterHits = hits.filter((h) => {
@@ -99,6 +111,22 @@ function buildFilters(hits: AliasHit[], glossary: OfficialTerm[], numbers: Parse
 
   const filters: SlotFilter[] = [];
   for (const hit of filterHits) {
+    const term = termById.get(hit.termId);
+    // Bound segment/concept value (e.g. whale → mf_users.payer_tier = 'whale').
+    // The term carries the exact member + op + value, so emit it verbatim —
+    // this is the cube-member binding the /meta gate validates against.
+    const df = term?.defaultFilter;
+    if (df?.member) {
+      const values = Array.isArray(df.value) ? df.value.map(String) : [String(df.value)];
+      filters.push({
+        member: df.member,
+        operator: CONCEPT_OP_TO_CUBE[df.op] ?? 'equals',
+        values,
+        confidence: 0.8,
+        alias: hit.alias,
+      });
+      continue;
+    }
     if (!hit.cubeRef) continue;
     // Threshold filter: nearest number after the alias span anchors the cutoff.
     const closestNumber = numbers.find((n) => n.span[0] >= hit.span[1] && n.span[0] - hit.span[1] < 32);
@@ -120,7 +148,34 @@ function buildFilters(hits: AliasHit[], glossary: OfficialTerm[], numbers: Parse
       });
     }
   }
-  return filters.length ? filters : undefined;
+  return filters.length ? mergeEqualsByMember(filters) : undefined;
+}
+
+/**
+ * Collapse multiple `equals` filters on the SAME member into one — Cube reads
+ * an `equals` with several values as IN. "whale / dolphin / minnow" thus
+ * becomes `payer_tier IN [whale,dolphin,minnow]` (a tier breakdown) instead of
+ * three contradictory `= x` clauses that AND to an empty result. Other
+ * operators (gt, set, …) are never merged.
+ */
+function mergeEqualsByMember(filters: SlotFilter[]): SlotFilter[] {
+  const out: SlotFilter[] = [];
+  const equalsByMember = new Map<string, SlotFilter>();
+  for (const f of filters) {
+    if (f.operator !== 'equals') {
+      out.push(f);
+      continue;
+    }
+    const existing = equalsByMember.get(f.member);
+    if (existing) {
+      for (const v of f.values) if (!existing.values.includes(v)) existing.values.push(v);
+    } else {
+      const copy = { ...f, values: [...f.values] };
+      equalsByMember.set(f.member, copy);
+      out.push(copy);
+    }
+  }
+  return out;
 }
 
 export function extractSlots(input: ExtractInput): ExtractResult {

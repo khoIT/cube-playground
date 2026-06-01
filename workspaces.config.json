@@ -1,6 +1,6 @@
 {
   "_comment": "Cube workspace registry — server-side only. Client never sees URLs, only ids.",
-  "default": "prod",
+  "default": "local",
   "workspaces": [
     {
       "id": "local",

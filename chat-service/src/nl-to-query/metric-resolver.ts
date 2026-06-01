@@ -16,7 +16,7 @@
  */
 
 import type { MetricResolution, OfficialTerm } from './types.js';
-import { resolveTerms, findExactMatch } from './synonym-resolver.js';
+import { resolveTerms, findExactMatch, memberOrNull } from './synonym-resolver.js';
 import { firstCubeRef } from './recognise-cube-ref.js';
 import { classifyTerm } from './term-classifier.js';
 
@@ -25,7 +25,10 @@ const ALIAS_CONFIDENCE = 0.85;
 const AMBIGUOUS_CONFIDENCE = 0.5;
 
 function refOf(term: OfficialTerm): string | null {
-  return term.measureRef ?? term.primaryCatalogId;
+  // `primaryCatalogId` is a cube member for dimension/user terms but a catalog
+  // path for metric terms — only a member is a valid query ref (see
+  // memberOrNull). A path here would leak into the /meta gate and clarify.
+  return term.measureRef ?? memberOrNull(term.primaryCatalogId);
 }
 
 /** Build a resolution from a matched glossary term (exact or alias path). */
