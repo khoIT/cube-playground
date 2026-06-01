@@ -26,32 +26,20 @@ import { compose } from '../core/mode-prompts.js';
 import * as claudeRunner from '../core/claude-runner.js';
 import { buildSdkTools } from '../tools/registry.js';
 import { writeSseEvent } from '../core/sse-stream.js';
-import { shouldCompact, compactSession } from '../core/compact-service.js';
-import { summariseTitle } from '../core/title-summariser.js';
-import { config, isLangfuseEnabled } from '../config.js';
+import { config } from '../config.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import { RegistryOverflowError } from '../core/stream-registry.js';
 import type { SseEvent, QueryArtifact, ChartArtifact, ToolContext } from '../types.js';
-import { LlmTraceRecorder, BufferedLlmTraceRecorder } from '../observability/llm-trace-recorder.js';
-import { LangfuseTracer } from '../observability/langfuse-tracer.js';
-import { buildCompositeObserver } from '../observability/composite-observer.js';
-import type { ObserverHooks } from '../observability/observer-types.js';
-import { TurnTracer } from '../observability/turn-tracer.js';
-import {
-  RecordingObserver,
-  RecordingSink,
-  diffRecordings,
-} from '../observability/parallel-emit-shim.js';
+import { diffRecordings } from '../observability/parallel-emit-shim.js';
 import { appendParallelEmitDiff } from '../observability/parallel-emit-log.js';
-import { getMetaVersion } from '../core/cube-meta-cache.js';
-import { computeCacheKey, hashSystemPrompt, normalize } from '../cache/response-cache-key.js';
-import { getByKey, incrementHit } from '../db/response-cache-store.js';
-import { replayCachedTurn } from '../cache/replay-cached-turn.js';
-import { buildRefreshHook } from '../cache/refresh-cached-artifacts.js';
+import { createTurnTimer } from '../observability/turn-timing.js';
+import { buildTurnObserver } from './turn/build-observer.js';
+import { maybeSummariseTitle } from './turn/maybe-summarise-title.js';
+import { writeSessionFocus } from './turn/write-session-focus.js';
+import { precheckAutoCompact } from './turn/precheck-auto-compact.js';
 import { maybeWriteResponseCache } from '../cache/response-cache-write.js';
-import { getFocus, mergeFocus, type SessionFocus } from '../cache/session-focus-adapter.js';
-import { getResolutions } from '../cache/disambig-memory-adapter.js';
-import { emitFocusUpdated } from './chat-session-focus.js';
+import { tryResponseCacheHit } from './turn/try-response-cache-hit.js';
+import { getFocus, type SessionFocus } from '../cache/session-focus-adapter.js';
 
 interface TurnRouteOptions {
   db: Database.Database;
@@ -130,55 +118,14 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     }
 
     // --- 2b. Auto-compact pre-check (before SSE headers so errors are JSON) ---
-    // If the session has used >80% of the context budget, compact it first.
-    let pendingCompactWarning: { from: string; to: string; summary: string } | null = null;
-    // Phase-01: context_compacted SSE payload captured during the pre-stream
-    // auto-compact check; emitted after SSE headers open.
-    let pendingContextCompactedEvent:
-      | {
-          oldSessionId: string;
-          newSessionId: string;
-          tokensSaved: number;
-          artifactCount: number;
-          summaryLength: number;
-        }
-      | null = null;
-    if (sessionId) {
-      const sessionForCompact = chatStore.getSession(opts.db, sessionId);
-      if (sessionForCompact) {
-        const decision = shouldCompact(sessionForCompact, config.contextBudgetTokens);
-        if (decision.shouldCompact) {
-          try {
-            const result = await compactSession({
-              sessionId,
-              db: opts.db,
-              summariserFn: async (turns) => {
-                // Build a plain-text compaction summary without calling the LLM in tests
-                // (the real call uses claudeRunner for one-shot prompts; injected via
-                // summariserFn for testability)
-                const lines = turns
-                  .filter((t) => t.role !== 'system_preamble')
-                  .slice(-10)
-                  .map((t) => {
-                    if (t.role === 'user') return `User: ${t.user_text ?? ''}`;
-                    return `Assistant: ${(t.assistant_text ?? '').slice(0, 200)}`;
-                  });
-                return `[Session summary]\n${lines.join('\n')}`;
-              },
-            });
-            pendingCompactWarning = { from: sessionId, to: result.newSessionId, summary: result.summary };
-            pendingContextCompactedEvent = result.contextCompactedEvent;
-            // Compact-alias map: clients holding the pre-compact sessionId still
-            // need to find the active turn after the swap (Q1).
-            getStreamRegistry().aliasSession(sessionId, result.newSessionId);
-            sessionId = result.newSessionId;
-          } catch (compactErr) {
-            // Compact failure is non-fatal — continue with the original session
-            fastify.log.error({ err: compactErr }, 'Auto-compact failed; continuing with original session');
-          }
-        }
-      }
-    }
+    const compactResult = await precheckAutoCompact({
+      db: opts.db,
+      sessionId,
+      logger: fastify.log,
+    });
+    sessionId = compactResult.sessionId;
+    const pendingCompactWarning = compactResult.pendingCompactWarning;
+    const pendingContextCompactedEvent = compactResult.pendingContextCompactedEvent;
 
     // --- 3. Acquire mutex (409 if already locked) ---
     let release: (() => void) | null = null;
@@ -209,6 +156,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // turnId — UUID v4 (unguessable; replaces the legacy sessionId:index).
     const turnId = randomUUID();
     const registry = getStreamRegistry();
+    // Per-turn stage timer — no-op cost unless CHAT_TURN_PROFILING is set.
+    // Verifies where turn latency goes (compose / meta / cache / LLM / persist).
+    const timer = createTurnTimer(turnId);
 
     // Helper: write an SSE event, mirror into the registry's ring buffer.
     function emit(event: SseEvent): void {
@@ -317,6 +267,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
       focus: priorFocus,
     });
+    timer.mark('compose');
 
     // Phase 06 — resolve per-turn web search and research mode flags independently.
     // Each header gates only its own feature; env master flags remain the kill-switch.
@@ -346,84 +297,32 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     const bypassCache = req.headers['x-bypass-cache'] === '1';
     // Resolve model: X-Model header if allowlisted, else server default.
     const resolvedModel = resolveModel(req.headers['x-model']);
-    let cacheKey: string | null = null;
-    // Hoisted so the cache-write path can persist cubeMetaHash on the response_cache row.
-    let resolvedCubeMetaHash: string | null = null;
-    if (config.responseCacheEnabled && !bypassCache) {
-      try {
-        const cubeMetaHash = await getMetaVersion(body.game, workspace);
-        resolvedCubeMetaHash = cubeMetaHash;
-        const systemPromptHash = hashSystemPrompt(systemPrompt);
-        cacheKey = computeCacheKey({
-          skill: intent.skill,
-          gameId: body.game,
-          userText: body.message,
-          cubeMetaHash,
-          model: resolvedModel,
-          systemPromptHash,
-        });
-        const cached = getByKey(opts.db, cacheKey);
-        if (cached) {
-          // Cache hit — replay and persist a new turn row marked cache_hit=1.
-          // Pass `emit` so replay events go through the stream-registry ring buffer,
-          // enabling refresh-resume mid-replay (N1 fix). The emit closure also
-          // ensures `loading` and token events appear in registry.findRunning() output.
-          //
-          // Refresh hook re-executes chart queries (those linked to a query
-          // artifact via artifactRef) against live Cube. Query artifacts
-          // themselves don't carry rows — the FE re-fetches on render.
-          const refresh = buildRefreshHook({
-            workspace,
-            db: opts.db,
-            gameId: body.game,
-            metaHash: resolvedCubeMetaHash,
-          });
-          const outcome = await replayCachedTurn(cached, stream, emit, refresh);
-          incrementHit(opts.db, cacheKey);
-
-          const hitAt = Date.now();
-          const assistantIdx = userTurnIndex + 1;
-          const cachedValue = JSON.parse(cached.value_json);
-          chatStore.appendTurn(opts.db, {
-            id: turnId,
-            sessionId,
-            turnIndex: assistantIdx,
-            role: 'assistant',
-            assistantText: cachedValue.text ?? '',
-            // Persist the (possibly refreshed) payload so hydrate/reload sees
-            // the same artifacts/charts the SSE stream emitted.
-            artifacts: outcome.artifacts.length > 0 ? outcome.artifacts : undefined,
-            charts: outcome.charts.length > 0 ? outcome.charts : undefined,
-            inputTokens: 0,
-            outputTokens: 0,
-            costUsd: 0,
-            cacheHit: 1,
-            originalTurnId: cached.original_turn_id,
-            cacheFreshness: outcome.freshness,
-            skill: intent.skill,
-            model: resolvedModel,
-            // Cache hits are gated at write time on stop_reason='end_turn', so a
-            // replayed turn represents a successful end_turn outcome. Set explicitly
-            // because the observability stack is skipped on this path — without it
-            // stop_reason stays NULL and leaderboard inflates legacyCount.
-            stopReason: 'end_turn',
-            startedAt,
-            endedAt: hitAt,
-          });
-          chatStore.incrementTurnCount(opts.db, sessionId, 0, 0);
-
-          emit({ type: 'done', data: {} });
-          registry.finish(turnId, 'done');
-          if (release) release();
-          stream.end();
-          return;
-        }
-      } catch (cacheErr) {
-        // Cache lookup failure is non-fatal — fall through to live LLM call.
-        fastify.log.warn({ err: cacheErr }, '[turn] cache lookup failed, falling through to LLM');
-        cacheKey = null;
-      }
-    }
+    const cacheLookup = await tryResponseCacheHit({
+      db: opts.db,
+      enabled: config.responseCacheEnabled,
+      bypassCache,
+      gameId: body.game,
+      workspace,
+      userText: body.message,
+      skill: intent.skill,
+      systemPrompt,
+      resolvedModel,
+      turnId,
+      sessionId,
+      userTurnIndex,
+      startedAt,
+      emit,
+      stream,
+      timer,
+      registry,
+      release,
+      logger: fastify.log,
+    });
+    if (cacheLookup.hit) return;
+    // Carried into the live-LLM path: key + meta hash to write the cache after
+    // the turn completes (null when the cache is disabled or lookup failed).
+    const cacheKey = cacheLookup.cacheKey;
+    const resolvedCubeMetaHash = cacheLookup.resolvedCubeMetaHash;
 
     // SSE emitter for tool side-effects (query_artifact + chart events)
     const sseEmitter = new EventEmitter();
@@ -494,58 +393,27 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
     }
 
-    // Observability: construct observer inside the try block so a failing
-    // constructor (bad config, missing dep) falls back to a no-op and never
-    // crashes the turn before SSE headers are sent.
-    let observer: ObserverHooks | undefined;
-    let tracer: LangfuseTracer | undefined;
-    let bufferedRecorder: BufferedLlmTraceRecorder | undefined;
-    // Phase-05 parallel-emit shim — only allocated when the soak flag is on.
-    let parallelLegacyRecorder: RecordingObserver | undefined;
-    let parallelShadowSink: RecordingSink | undefined;
-    let shadowTracer: TurnTracer | undefined;
-    try {
-      // Recorder writes go through a buffer: chat_turns FK rejects inserts for
-      // the assistant turn until that row exists, and that INSERT happens
-      // *after* the runner loop. Buffered events are flushed once appendTurn
-      // has committed the assistant row below.
-      bufferedRecorder = new BufferedLlmTraceRecorder(
-        new LlmTraceRecorder({ db: opts.db, turnId }),
-      );
-      tracer = new LangfuseTracer({ turnId, sessionId, ownerId: body.owner_id, skill: intent.skill });
-      const observers: ObserverHooks[] = [bufferedRecorder, tracer];
-      if (config.obsParallelEmitEnabled) {
-        // Legacy capture: a no-op extra observer on the composite records what
-        // the production path dispatches without writing anywhere. Shadow
-        // capture: a TurnTracer whose only sink is an in-memory recorder — it
-        // never touches the DB or Langfuse. Both are diffed after the loop.
-        parallelLegacyRecorder = new RecordingObserver();
-        observers.push(parallelLegacyRecorder);
-        parallelShadowSink = new RecordingSink();
-        shadowTracer = new TurnTracer({
-          turnId,
-          sessionId,
-          model: config.chatModel,
-          sinks: [parallelShadowSink],
-        });
-      }
-      observer = buildCompositeObserver(observers);
-      chatStore.insertAudit(opts.db, {
-        sessionId,
-        turnId,
-        kind: 'observability',
-        detail: { enabled_recorder: true, enabled_langfuse: isLangfuseEnabled(), owner_id: body.owner_id },
-      });
-    } catch (obsErr) {
-      fastify.log.warn({ err: obsErr }, '[turn] observer construction failed — continuing without observability');
-      observer = undefined;
-      tracer = undefined;
-      shadowTracer = undefined;
-      parallelLegacyRecorder = undefined;
-      parallelShadowSink = undefined;
-    }
+    // Observability: build the observer stack. Construction failures degrade
+    // to a no-op bundle (logged) so a turn whose SSE headers are already sent
+    // never crashes on a bad observer config.
+    const {
+      observer,
+      tracer,
+      bufferedRecorder,
+      parallelLegacyRecorder,
+      parallelShadowSink,
+      shadowTracer,
+    } = buildTurnObserver({
+      db: opts.db,
+      turnId,
+      sessionId,
+      ownerId: body.owner_id,
+      skill: intent.skill,
+      logger: fastify.log,
+    });
 
     try {
+      let sawFirstEvent = false;
       for await (const event of claudeRunner.run({
         sessionId,
         turnId,
@@ -560,6 +428,10 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         signal: controller.signal,
         webSearchEnabled,
       })) {
+        if (!sawFirstEvent) {
+          sawFirstEvent = true;
+          timer.mark('llm-first-event');
+        }
         // Accumulate result metadata; other events are forwarded directly
         if (event.type === 'result') {
           assistantText = event.data.text;
@@ -635,6 +507,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
 
       // --- 8. Persist assistant turn ---
+      timer.mark('llm-done');
       const endedAt = Date.now();
       const assistantTurnIndex = userTurnIndex + 1;
 
@@ -674,40 +547,16 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       // recorder's per-row try/catch so one bad row can't sink the rest.
       bufferedRecorder?.flush();
 
-      // Phase 02 — snapshot the resolved disambig slots + non-overlapping
-      // turn fields (skill, last artifact id) into the session focus bag.
-      // Layer B carries this forward across compaction; SDK resume gives
-      // prose continuity but focus gives the model a structured anchor.
-      if (config.chatContextFocusStoreEnabled) {
-        try {
-          const res = getResolutions(opts.db, sessionId);
-          const delta: Partial<SessionFocus> = { skill: { value: intent.skill } };
-          if (res.metric) delta.metric = res.metric;
-          if (res.dimension) delta.dimension = res.dimension;
-          if (res.timeRange) delta.timeRange = res.timeRange;
-          if (res.filters) delta.filters = res.filters;
-          if (res.intent) delta.intent = res.intent;
-          if (res.concept) delta.concept = res.concept;
-          if (res.entity) delta.entity = res.entity;
-          const lastArtifact = collectedArtifacts[collectedArtifacts.length - 1];
-          if (lastArtifact) delta.artifactRef = { value: lastArtifact.id };
-          mergeFocus(opts.db, sessionId, body.owner_id, delta);
-          // Phase 03 — let the chat-header chip refresh in <200ms without a
-          // poll. Re-read the bag (merge above re-derives `updatedAt`) and
-          // broadcast it on the current stream so an open hook sees the bag
-          // identical to what GET /focus would return.
-          try {
-            emitFocusUpdated(sessionId, getFocus(opts.db, sessionId));
-          } catch (broadcastErr) {
-            fastify.log.warn(
-              { err: broadcastErr },
-              '[turn] focus_updated broadcast failed (non-fatal)',
-            );
-          }
-        } catch (focusErr) {
-          fastify.log.warn({ err: focusErr }, '[turn] focus write failed (non-fatal)');
-        }
-      }
+      // Snapshot resolved disambig slots + skill + last artifact id into the
+      // session focus bag and broadcast it on the open stream.
+      writeSessionFocus({
+        db: opts.db,
+        sessionId,
+        ownerId: body.owner_id,
+        skill: intent.skill,
+        collectedArtifacts,
+        logger: fastify.log,
+      });
 
       // --- Phase-06: write response-cache entry on eligible turns ---
       // stop_reason is persisted by the buffered recorder's onTurnFinalized flush above.
@@ -745,52 +594,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       chatStore.incrementTurnCount(opts.db, sessionId, inputTokens, outputTokens);
 
       // Fire-and-forget title summariser after the 3rd assistant turn.
-      // Reads the session state after incrementTurnCount so turn_count is current.
-      const sessionAfterTurn = chatStore.getSession(opts.db, sessionId);
-      const autoPrefix = body.message.slice(0, 64);
-      if (
-        sessionAfterTurn &&
-        sessionAfterTurn.turn_count === 3 &&
-        (sessionAfterTurn.title === null || sessionAfterTurn.title === autoPrefix)
-      ) {
-        const allTurns = chatStore.listTurns(opts.db, sessionId);
-        queueMicrotask(() => {
-          summariseTitle({
-            turns: allTurns,
-            deps: {
-              callLlm: async (prompt) => {
-                // One-shot LLM call via the Anthropic SDK; no tools needed.
-                const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
-                let result = '';
-                for await (const msg of sdkQuery({
-                  prompt,
-                  options: {
-                    model: config.titleModel,
-                    env: {
-                      HOME: process.env['HOME'] ?? '/tmp',
-                      ANTHROPIC_API_KEY: config.anthropicApiKey,
-                      ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
-                    },
-                    permissionMode: 'dontAsk',
-                    disallowedTools: ['Read', 'Write', 'Bash', 'WebFetch', 'WebSearch', 'Edit', 'MultiEdit'],
-                  },
-                })) {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const m = msg as any;
-                  if (m.type === 'result') result = m.result ?? '';
-                }
-                return result;
-              },
-            },
-          })
-            .then((title) => {
-              if (title) chatStore.updateSessionTitle(opts.db, sessionId, title);
-            })
-            .catch((err) => {
-              fastify.log.warn({ err }, 'Title summariser failed');
-            });
-        });
-      }
+      // Called after incrementTurnCount so turn_count is current.
+      maybeSummariseTitle({
+        db: opts.db,
+        sessionId,
+        autoPrefix: body.message.slice(0, 64),
+        logger: fastify.log,
+      });
 
       // Phase 04 — if the controller was aborted during the runner loop,
       // emit `turn_aborted` so the FE can render the right state. Reason
@@ -810,10 +620,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
 
       emit({ type: 'done', data: {} });
+      timer.mark('persist');
+      timer.flush(fastify.log, 'finish');
       registry.finish(turnId, 'done');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       emit({ type: 'error', data: { code: 'agent_error', message } });
+      timer.flush(fastify.log, 'error');
       registry.finish(turnId, 'error');
 
       // Persist error in audit log

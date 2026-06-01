@@ -41,10 +41,46 @@ function apiError(code: string, message: string, status: number) {
   return { statusCode: status, body: { error: { code, message } } };
 }
 
-function hydrateSegment(row: Record<string, unknown>, db: ReturnType<typeof getDb>) {
-  const tags = (
-    db.prepare('SELECT tag FROM segment_tags WHERE segment_id = ?').all(row.id) as { tag: string }[]
-  ).map((r) => r.tag);
+/**
+ * Bulk-load tags for a set of segment ids in a single query, grouped by
+ * segment id. Avoids the N+1 round-trip a per-row tag lookup would cause when
+ * hydrating a list. Returns an empty map for an empty id list.
+ */
+function loadTagsBySegment(
+  ids: string[],
+  db: ReturnType<typeof getDb>,
+): Map<string, string[]> {
+  const byId = new Map<string, string[]>();
+  if (ids.length === 0) return byId;
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db
+    .prepare(`SELECT segment_id, tag FROM segment_tags WHERE segment_id IN (${placeholders})`)
+    .all(...ids) as { segment_id: string; tag: string }[];
+  for (const { segment_id, tag } of rows) {
+    const list = byId.get(segment_id);
+    if (list) list.push(tag);
+    else byId.set(segment_id, [tag]);
+  }
+  return byId;
+}
+
+/**
+ * Hydrate a raw segment row into the API shape. `preloadedTags` lets list
+ * callers pass tags fetched in one bulk query (see loadTagsBySegment); when
+ * omitted, single-row callers fall back to a per-row tag lookup.
+ */
+function hydrateSegment(
+  row: Record<string, unknown>,
+  db: ReturnType<typeof getDb>,
+  preloadedTags?: string[],
+) {
+  const tags =
+    preloadedTags ??
+    (
+      db.prepare('SELECT tag FROM segment_tags WHERE segment_id = ?').all(row.id) as {
+        tag: string;
+      }[]
+    ).map((r) => r.tag);
 
   let activations: unknown[] = [];
   try {
@@ -105,7 +141,11 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     sql += ` ORDER BY ${orderCol} DESC`;
 
     const rows = db.prepare(sql).all(...params) as Record<string, unknown>[];
-    return rows.map((r) => hydrateSegment(r, db));
+    const tagsBySegment = loadTagsBySegment(
+      rows.map((r) => r.id as string),
+      db,
+    );
+    return rows.map((r) => hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? []));
   });
 
   // POST /api/segments
