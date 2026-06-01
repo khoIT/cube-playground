@@ -19,8 +19,21 @@ On cache **hits** the LLM is skipped and the rest is in-process SQLite (microsec
 |---|---|---|---|
 | 0 | Instrumentation + gateway quick-win | ✅ done | — |
 | 1 | [Profiling & baseline](./phase-01-profiling-and-baseline.md) | pending | run real turns w/ `CHAT_TURN_PROFILING=1` |
-| 2 | [Decompose turn.ts → 5 modules](./phase-02-decompose-turn.md) | pending | phase 1 baseline captured |
+| 2 | [Decompose turn.ts → 5 modules](./phase-02-decompose-turn.md) | ✅ done (911→724) | — |
 | 3 | [Contingent perf fixes](./phase-03-contingent-perf-fixes.md) | pending | phase 1 shows the stage is hot |
+
+## Phase 2 (shipped this session)
+
+Extracted 5 self-contained concerns out of `turn.ts` (911→724 LOC), behaviour-preserving, 869 tests green after every step, code-review confirmed no drift:
+- `turn/build-observer.ts` (105) — observer stack construction
+- `turn/try-response-cache-hit.ts` (131) — cache lookup + early-exit hit path
+- `turn/precheck-auto-compact.ts` (80) — pre-stream compaction
+- `turn/maybe-summarise-title.ts` (78) — title summariser
+- `turn/write-session-focus.ts` (54) — focus-bag snapshot
+
+**Deliberately NOT extracted:** the runner loop + event accumulation (the truly entangled `emit`/registry/controller/observer/accumulator core). It would need threading ~10 shared refs for less safety margin — the orchestrator shell staying ~700 LOC is an acceptable trade vs the risk. Revisit only if it keeps growing.
+
+**Pre-existing (not introduced):** on a cache hit the per-turn `timeoutHandle` isn't cleared before the early return; the later fire is a documented no-op (`turn.ts`). Candidate cleanup, not a regression.
 
 ## Phase 0 (shipped this session)
 
