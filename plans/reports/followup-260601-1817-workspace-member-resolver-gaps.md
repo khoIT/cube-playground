@@ -28,6 +28,12 @@ These surfaces were deliberately NOT wired (can't validate against prod from her
 - Identity map seed + auto-suggester — meta-driven.
 - Pattern for new features: derive member names from `/meta` when possible → no translation needed; otherwise route logical config through `cube-member-resolver`.
 
+## Decisions
+
+- **#1 (FE live-fetch):** ✅ shipped 260601 (`1747ef1`) — FE-side rewrite.
+- **#2 (anomaly/drift):** owner chose **leave as-is** (260601) — detector/drift stays intentionally local. No code change; revisit only if the anomaly detector is turned on for prod.
+- **#3 (identity map):** ✅ no action — verified workspace-agnostic.
+
 ## Unresolved questions
 
 - Does prod actually exercise LiveOps KPI strip + anomaly detector, or are they local-only today? (If unused on prod, #2 is moot until they're turned on.)
