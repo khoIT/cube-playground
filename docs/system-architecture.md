@@ -2,6 +2,67 @@
 
 Core architectural patterns and data flows across cube-playground. Updated as major systems ship.
 
+The first section is the **top-level overview** — the runtime tiers and how they talk. Everything after it documents a single feature subsystem in depth. For a file-by-file map of where code lives, see [`codebase-summary.md`](./codebase-summary.md); this doc owns runtime topology and request flows, that one owns the file layout.
+
+## System Overview
+
+cube-playground is a thin React SPA in front of a **Cube semantic layer**, with a Fastify **gateway server** that owns persistence + auth + proxying, and a separate **chat-service** that turns natural language into Cube queries. Four runtime tiers:
+
+| Tier | Process | Port (dev) | Owns |
+|---|---|---|---|
+| **SPA** | Vite / React / TS | `:3000` | UI, query builder, dashboards, chat panel. Talks only to the gateway (`/api`, `/cube-api`) and — in dev only — direct Cube (`/cubejs-api`). |
+| **Gateway server** | Fastify + better-sqlite3 | `:3004` | API gateway + system of record. Persists segments / analyses / identity-map / presets / dashboards / glossary / onboarding drafts. Proxies Cube (workspace-aware) and chat-service (creds-injecting). Mints Cube tokens. RBAC enforcement. `server/src/index.ts`. |
+| **chat-service** | Fastify + SQLite | `:3005` | NL→Cube-query, disambiguation memory, session store, per-turn streaming registry. **Not reachable from the browser** — only via the gateway proxy. `chat-service/src/index.ts`. |
+| **Cube (cube-dev)** | external semantic layer | `:4000` local / `:16000` prod-mirror | Compiles YAML models → SQL, executes `/meta` `/load` `/sql`. Lives in the sibling `cube-dev` repo, selected per workspace. `workspaces.config.json`. |
+
+Auth/identity: pretend-auth `X-Owner` header in dev; Keycloak realm (`keycloak/realm-export.json`) backs `editor`/`admin` roles used for write-gating and workspace access.
+
+### Topology
+
+```
+                         Browser (SPA)
+                              │
+          ┌───────────────────┼─────────────────────────┐
+          │ /api, /cube-api    │ /cubejs-api, /playground  (dev only,
+          ▼ (proxied)          ▼  direct-to-Cube)
+   ┌──────────────────┐        │
+   │  Gateway server  │        │
+   │  Fastify  :3004  │        │
+   │  ───────────────  │        │
+   │  • SQLite (segments, dashboards,   │
+   │    presets, onboarding drafts …)   │
+   │  • Cube proxy (x-cube-workspace)   │
+   │  • Cube token minting              │
+   │  • Chat proxy (inject creds+owner) │
+   └───┬───────────┬──────────┬─────────┘
+       │           │          │
+       │ writes    │ /api/chat │  /cube-api  (+ direct /cubejs-api)
+       │ YAML      │  proxy    │
+       ▼           ▼          ▼
+  ┌─────────┐  ┌──────────────┐   ┌──────────────────────┐
+  │ cube-dev│  │ chat-service │──▶│  Cube semantic layer │
+  │  YAML   │  │ Fastify :3005│   │  :4000 / :16000      │
+  │  models │  │  NL→query,   │   │  /meta /load /sql    │
+  └────┬────┘  │  sessions,   │   └──────────┬───────────┘
+       │       │  stream reg. │              │
+       └───────┴──────────────┴──────────────┘
+         cube-dev YAML is what Cube compiles & serves
+```
+
+### Key request flows
+
+1. **Query / meta (Playground, Data Model, dashboards).** SPA → `/cube-api/*` → gateway `cube-proxy.ts` → the Cube backend chosen by the `x-cube-workspace` header (client never sees Cube URLs). Tokens minted on demand via `GET /api/playground/cube-token?game=<id>` (`cube-token.ts`); `use-cube-token-bootstrap.ts` re-fetches on game switch so each Cube request carries the right `game` claim. A legacy `/cubejs-api/*` path proxies straight to Cube (`:4000`) for non-workspace-aware callers.
+
+2. **Chat turn (SSE).** SPA `POST /api/chat/sessions/:id/turn` → gateway `chat.ts` (injects Cube creds + `X-Owner-Id`, gated by `CHAT_FEATURE_ENABLED`) → chat-service. chat-service resolves slots (disambiguation memory cascade), builds a Cube query, may call Cube to execute, and streams SSE back **through** the gateway to the SPA's `chat-stream-store.ts`. The per-turn ring buffer in `stream-registry.ts` lets a refreshed client reattach mid-turn via the replay endpoints.
+
+3. **Persistence + onboarding.** SPA → `/api/*` → gateway → SQLite for CRUD (segments, analyses, presets, dashboards, glossary). Model onboarding additionally writes **Cube YAML into the cube-dev repo** atomically (`cube-model-writer.ts`) and polls Cube `/meta` to validate — the bridge between the gateway and the semantic layer (see *Data-Model Lifecycle* below).
+
+### Dev / build
+
+`npm run dev:all` (`scripts/dev-all.mjs`) runs vite + gateway + chat-service + a Cube watchdog under `concurrently`. Each tier builds independently (`build`, `server:build`, `chat:build`); the SPA ships as static `dist/` served behind the same origin as Cube in prod (see [`deployment-guide.md`](./deployment-guide.md)).
+
+---
+
 ## Chat Disambiguation Memory
 
 The chat assistant learns from user interactions to auto-fill ambiguous slots (metric, dimension, timeRange, filter) in future turns. The system uses a 3-layer cascading memory that trades off latency, durability, and re-resolution freshness.

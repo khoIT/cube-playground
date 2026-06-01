@@ -1,59 +1,95 @@
 # GDS Cube
 
-Vite + React + TypeScript frontend for a Cube backend on `http://localhost:4000`. Provides:
+A data-modeling and analytics workspace on top of a **Cube semantic layer**. The product is four runtime tiers: a React SPA, a Fastify **gateway server** (persistence + auth + proxying), a separate **chat-service** (natural-language → Cube query), and the **Cube** backend itself. See [`docs/system-architecture.md` → System Overview](./docs/system-architecture.md#system-overview) for the topology and request flows.
 
+Surfaces:
+
+- **Chat** — NL assistant that resolves an English/Vietnamese question into a Cube query, streams results over SSE, and remembers disambiguation choices across sessions.
 - **Playground** — meta-driven query builder, results table, recharts bar/line, compiled-SQL preview, JSON preview, deep-linkable query state. Alias + icon picker for cubes/views (client-side, localStorage-persisted).
-- **Query State Pill Bar** — 4 inline rows (Dimensions, Measures, Time granularity, Filters) + global date range picker (7d/14d/30d/QTD/Custom) + Run button.
-- **Data Model** — read-only browser of cubes/views from `/cubejs-api/v1/meta` (members, joins, pre-aggregations, raw JSON).
-- **Settings** — current API URL + token status.
+- **Data Model & Catalog** — browse cubes/views/concepts, register business metrics, monitor metric↔cube coverage.
+- **Data (onboarding)** — connect a warehouse, introspect raw schemas, and stage draft Cube models (bootstrap → reconcile → repair lifecycle).
+- **Segments** — build and persist audience segments; identity-map management.
+- **Dashboards & LiveOps** — saved dashboards, KPI hero strip, cohort retention grid, anomaly inbox.
+- **Drift Center** — triage schema/member drift against the live model.
+- **Settings** — Cube workspace, token status, remembered chat defaults.
+
+## Architecture
+
+| Tier | Process | Port (dev) | Role |
+|---|---|---|---|
+| SPA | Vite / React / TS | `:3000` | UI. Talks to the gateway (`/api`, `/cube-api`); dev-only direct Cube (`/cubejs-api`). |
+| Gateway server | Fastify + better-sqlite3 | `:3004` | API gateway + system of record. Persists segments/dashboards/presets/onboarding drafts; proxies Cube (workspace-aware) and chat-service (creds-injecting); mints Cube tokens; RBAC. `server/`. |
+| chat-service | Fastify + SQLite | `:3005` | NL→query, disambiguation memory, sessions, per-turn stream registry. Reached only via the gateway proxy. `chat-service/`. |
+| Cube (cube-dev) | external semantic layer | `:4000` local / `:16000` prod-mirror | Compiles YAML models → SQL; serves `/meta` `/load` `/sql`. Sibling `cube-dev` repo, selected per workspace (`workspaces.config.json`). |
+
+The SPA never reaches chat-service or Cube URLs directly — the gateway proxies both and injects credentials. Full diagrams and the chat/query/onboarding request flows live in [`docs/system-architecture.md`](./docs/system-architecture.md).
 
 ## Stack
 
 - Vite 5, React 18, TypeScript strict.
-- `@cubejs-client/core`, recharts ^2.12.
+- `@cubejs-client/core`, recharts ^2.12, zustand (chat streaming store).
 - react-router-dom 6 (browser history).
 - antd 4.16.13 + design-token overrides (see `src/theme/`).
 - styled-components 6 (peer of `@cube-dev/ui-kit`).
 - lucide-react 1.16.0 (icon picker for cube aliases).
+- Backend: Fastify + better-sqlite3 (gateway) and Fastify + SQLite (chat-service); LiteLLM for chat NL inference; Keycloak for RBAC.
 
 ## Quick start
 
 ```bash
 cp .env.example .env.local
-# edit .env.local — set VITE_CUBE_API_URL and optional VITE_CUBE_TOKEN
+# edit .env.local — at minimum VITE_CUBE_API_URL (+ VITE_CUBE_TOKEN for local Cube).
+# For chat: CHAT_FEATURE_ENABLED=true, CHAT_SERVICE_URL, LITELLM_* .
+# For onboarding: TRINO_PROFILER_*, CONNECTOR_SECRET_KEY.
 npm install --legacy-peer-deps
-npm run dev          # http://localhost:3000, proxies /cubejs-api → :4000
-npm run build        # tsc + vite build
-npm run test         # vitest
+
+npm run dev:all      # vite + gateway + chat-service + Cube watchdog (concurrently)
+# or run tiers individually:
+npm run dev          # SPA only — http://localhost:3000, proxies /api,/cube-api → :3004
+npm run server:dev   # gateway server — :3004
+npm run chat:dev     # chat-service — :3005
+
+npm run build        # tsc + vite build (SPA); server:build / chat:build for the backends
+npm run test         # vitest (SPA); server:test / chat:test for the backends
 npm run typecheck    # tsc --noEmit
 ```
 
+`npm run dev:all` (`scripts/dev-all.mjs`) also boots a Cube watchdog that keeps the external `cube-dev` backend alive. The SPA dev server self-times-out gracefully if Cube isn't up.
+
 ## Auth & Personalization
 
-- Bootstrap token comes from env (`VITE_CUBE_TOKEN`) or localStorage (`gds-cube:token`).
-- Use the **API Settings** button in the header to paste a JWT; it is validated against `/cubejs-api/v1/meta` before being persisted.
-- JWT is stored in localStorage at runtime. Acceptable for an internal dev tool; rotate tokens regularly and avoid pasting prod-tier credentials.
-- Cube/View aliases and icons (localStorage key `gds-cube:cube-aliases`) are per-browser, client-only; YAML model files never modified.
+- **Cube workspace** selects which Cube backend the gateway proxies to (`workspaces.config.json`); the client only ever sees workspace ids, never Cube URLs.
+- **Cube tokens** are minted server-side per game via `GET /api/playground/cube-token` (env override → HS256 mint with `CUBEJS_API_SECRET` → fallback). A pasted JWT via **API Settings** is still supported and validated before use.
+- **Identity / RBAC**: pretend-auth `X-Owner` header in dev (`AUTH_DISABLED`); Keycloak realm (`keycloak/realm-export.json`) backs `editor`/`admin` roles for write-gating. Connector secrets are sealed at rest (AES-256-GCM via `CONNECTOR_SECRET_KEY`) and never returned to the browser.
+- Cube/View aliases and icons (localStorage key `gds-cube:cube-aliases`) are per-browser, client-only; YAML model files are never modified by aliasing.
 
 ## Routes
 
-| Route | Purpose |
+| Route | Area |
 |---|---|
-| `/playground?query=…` | QueryBuilder + result tabs (results / chart / SQL / JSON) |
-| `/data-model` | Sidebar with cubes & views |
-| `/data-model/:cubeName` | Detail tabs for one cube/view |
-| `/settings` | API URL and token status |
+| `/chat/:id?` | Chat assistant |
+| `/build` | Playground (query builder); `/` redirects here |
+| `/catalog`, `/catalog/models`, `/catalog/metric/:id` | Data Model & Metrics Catalog |
+| `/data` | Connect sources & model onboarding |
+| `/segments`, `/segments/:id`, `/segments/identity-map` | Segments |
+| `/dashboards`, `/dashboards/:slug` | Saved dashboards |
+| `/liveops`, `/liveops/cohort`, `/liveops/anomalies` | LiveOps console |
+| `/drift-center` | Metric drift triage |
+| `/data-model/new` | Data-model wizard (`/metrics/new` redirects here) |
+| `/settings` | Cube workspace, token status, chat defaults |
+| `/dev/chat-audit/*` | Dev tooling (chat audit, cache, search) |
 
-`/playground` accepts a URL-encoded `query` param holding the Cube `Query` JSON; the "Open in Playground" button on a cube detail uses this to pre-seed a measure.
+`/build` accepts a URL-encoded `query` param holding the Cube `Query` JSON; the "Open in Playground" button on a cube detail uses this to pre-seed a measure.
 
-## Endpoints used
+## Endpoints
 
-`GET /cubejs-api/v1/meta`, `POST /cubejs-api/v1/load`, `POST /cubejs-api/v1/sql`.
-No calls to `/playground/*` (dev-only on Cube Core).
+- **SPA → gateway** (`:3004`): `/api/*` (segments, dashboards, presets, onboarding, business-metrics, chat proxy …) and `/cube-api/*` (workspace-aware Cube proxy).
+- **Gateway → Cube**: `GET /cubejs-api/v1/meta`, `POST /cubejs-api/v1/load`, `POST /cubejs-api/v1/sql`.
+- **Gateway → chat-service**: `/api/chat/*` forwards to `CHAT_SERVICE_URL` (default `:3005`), injecting Cube creds + `X-Owner-Id`. Gated by `CHAT_FEATURE_ENABLED`.
 
 ## Production hosting
 
-Serve `dist/` behind the same origin as the Cube API to avoid CORS. SPA fallback required (`try_files $uri /index.html`).
+Serve the SPA `dist/` behind the same origin as the gateway/Cube to avoid CORS; SPA fallback required (`try_files $uri /index.html`). The gateway and chat-service deploy as separate Node processes. See [`docs/deployment-guide.md`](./docs/deployment-guide.md) and `docker-compose.prod.yml`.
 
 ## License
 
