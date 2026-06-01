@@ -44,6 +44,7 @@ import {
 } from '../observability/parallel-emit-shim.js';
 import { appendParallelEmitDiff } from '../observability/parallel-emit-log.js';
 import { getMetaVersion } from '../core/cube-meta-cache.js';
+import { createTurnTimer } from '../observability/turn-timing.js';
 import { computeCacheKey, hashSystemPrompt, normalize } from '../cache/response-cache-key.js';
 import { getByKey, incrementHit } from '../db/response-cache-store.js';
 import { replayCachedTurn } from '../cache/replay-cached-turn.js';
@@ -209,6 +210,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // turnId — UUID v4 (unguessable; replaces the legacy sessionId:index).
     const turnId = randomUUID();
     const registry = getStreamRegistry();
+    // Per-turn stage timer — no-op cost unless CHAT_TURN_PROFILING is set.
+    // Verifies where turn latency goes (compose / meta / cache / LLM / persist).
+    const timer = createTurnTimer(turnId);
 
     // Helper: write an SSE event, mirror into the registry's ring buffer.
     function emit(event: SseEvent): void {
@@ -317,6 +321,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
       focus: priorFocus,
     });
+    timer.mark('compose');
 
     // Phase 06 — resolve per-turn web search and research mode flags independently.
     // Each header gates only its own feature; env master flags remain the kill-switch.
@@ -352,6 +357,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     if (config.responseCacheEnabled && !bypassCache) {
       try {
         const cubeMetaHash = await getMetaVersion(body.game, workspace);
+        timer.mark('meta-hash');
         resolvedCubeMetaHash = cubeMetaHash;
         const systemPromptHash = hashSystemPrompt(systemPrompt);
         cacheKey = computeCacheKey({
@@ -379,6 +385,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
             metaHash: resolvedCubeMetaHash,
           });
           const outcome = await replayCachedTurn(cached, stream, emit, refresh);
+          timer.mark('cache-replay');
           incrementHit(opts.db, cacheKey);
 
           const hitAt = Date.now();
@@ -413,6 +420,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           chatStore.incrementTurnCount(opts.db, sessionId, 0, 0);
 
           emit({ type: 'done', data: {} });
+          timer.flush(fastify.log, 'cache_hit');
           registry.finish(turnId, 'done');
           if (release) release();
           stream.end();
@@ -546,6 +554,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     }
 
     try {
+      let sawFirstEvent = false;
       for await (const event of claudeRunner.run({
         sessionId,
         turnId,
@@ -560,6 +569,10 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         signal: controller.signal,
         webSearchEnabled,
       })) {
+        if (!sawFirstEvent) {
+          sawFirstEvent = true;
+          timer.mark('llm-first-event');
+        }
         // Accumulate result metadata; other events are forwarded directly
         if (event.type === 'result') {
           assistantText = event.data.text;
@@ -635,6 +648,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
 
       // --- 8. Persist assistant turn ---
+      timer.mark('llm-done');
       const endedAt = Date.now();
       const assistantTurnIndex = userTurnIndex + 1;
 
@@ -810,10 +824,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       }
 
       emit({ type: 'done', data: {} });
+      timer.mark('persist');
+      timer.flush(fastify.log, 'finish');
       registry.finish(turnId, 'done');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       emit({ type: 'error', data: { code: 'agent_error', message } });
+      timer.flush(fastify.log, 'error');
       registry.finish(turnId, 'error');
 
       // Persist error in audit log
