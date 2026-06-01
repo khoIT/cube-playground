@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SegmentApiError } from '../../api/api-client';
-import { dashboardsClient, type VizType } from '../../api/dashboards-client';
+import { dashboardsClient, type ChartType, type VizType } from '../../api/dashboards-client';
 import { useDashboards } from './use-dashboards';
 import { PinModalCreateForm, type CreateFormValues } from './pin-modal-create-form';
 
@@ -15,6 +15,10 @@ interface PinToDashboardModalProps {
   gameId: string;
   queryJson: string;
   vizType: VizType;
+  /** Full playground chart type — persisted so the tile mirrors the QB chart. */
+  chartType?: ChartType;
+  /** Serialised Cube PivotConfig captured from the playground. */
+  pivotConfigJson?: string;
   onClose: () => void;
   onPinned?: () => void;
 }
@@ -49,7 +53,7 @@ const btnSecondary: React.CSSProperties = {
 };
 
 export function PinToDashboardModal({
-  gameId, queryJson, vizType, onClose, onPinned,
+  gameId, queryJson, vizType, chartType, pivotConfigJson, onClose, onPinned,
 }: PinToDashboardModalProps) {
   const { dashboards, loading: listLoading } = useDashboards(gameId);
   const [mode, setMode] = useState<Mode>('pick');
@@ -80,6 +84,8 @@ export function PinToDashboardModal({
         title: tileTitle.trim() || 'Query result',
         query_json: queryJson, viz_type: vizType,
         position_json: JSON.stringify({ x: 0, y: 999, w: 4, h: 3 }),
+        chart_type: chartType,
+        pivot_config: pivotConfigJson,
       });
       onPinned?.(); onClose();
     } catch (err) {
@@ -89,7 +95,7 @@ export function PinToDashboardModal({
         setError((err as Error).message ?? 'Unexpected error.');
       }
     } finally { setSubmitting(false); }
-  }, [selectedSlug, gameId, queryJson, vizType, tileTitle, onPinned, onClose]);
+  }, [selectedSlug, gameId, queryJson, vizType, chartType, pivotConfigJson, tileTitle, onPinned, onClose]);
 
   const createAndPin = useCallback(async () => {
     const { title, slug } = createValues;
@@ -105,6 +111,8 @@ export function PinToDashboardModal({
         title: tileTitle.trim() || 'Query result',
         query_json: queryJson, viz_type: vizType,
         position_json: JSON.stringify({ x: 0, y: 0, w: 4, h: 3 }),
+        chart_type: chartType,
+        pivot_config: pivotConfigJson,
       });
       onPinned?.(); onClose();
     } catch (err) {
@@ -114,7 +122,7 @@ export function PinToDashboardModal({
         setError((err as Error).message ?? 'Unexpected error.');
       }
     } finally { setSubmitting(false); }
-  }, [createValues, gameId, queryJson, vizType, tileTitle, onPinned, onClose]);
+  }, [createValues, gameId, queryJson, vizType, chartType, pivotConfigJson, tileTitle, onPinned, onClose]);
 
   return (
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>

@@ -80,6 +80,31 @@ describe('upsertTileCache', () => {
     expect(res.wrote).toBe(true);
     expect((readTileCache(tileId)!.rows[0] as { a: number }).a).toBe(2);
   });
+
+  it('persists + returns the full load response when supplied', () => {
+    const { tileId } = seedDashboardAndTile();
+    const loadResponse = { queryType: 'regularQuery', results: [{ data: [{ a: 1 }], annotation: {} }] };
+    upsertTileCache({ tileId, rows: [{ a: 1 }], loadResponse, cubeMetaVersion: 'm1', ttlSeconds: 300 });
+    expect(readTileCache(tileId)!.loadResponse).toEqual(loadResponse);
+  });
+
+  it('loadResponse is null for legacy rows-only entries', () => {
+    const { tileId } = seedDashboardAndTile();
+    upsertTileCache({ tileId, rows: [{ a: 1 }], cubeMetaVersion: 'm1', ttlSeconds: 300 });
+    expect(readTileCache(tileId)!.loadResponse).toBeNull();
+  });
+
+  it('backfills resp_json on a rows-unchanged (skip-write) refresh', () => {
+    const { tileId } = seedDashboardAndTile();
+    // First write had no load response (legacy).
+    upsertTileCache({ tileId, rows: [{ a: 1 }], cubeMetaVersion: 'm1', ttlSeconds: 300 });
+    expect(readTileCache(tileId)!.loadResponse).toBeNull();
+    // Same rows + meta → skip-write, but the load response should still land.
+    const loadResponse = { queryType: 'regularQuery', results: [{ data: [{ a: 1 }] }] };
+    const res = upsertTileCache({ tileId, rows: [{ a: 1 }], loadResponse, cubeMetaVersion: 'm1', ttlSeconds: 300 });
+    expect(res.wrote).toBe(false);
+    expect(readTileCache(tileId)!.loadResponse).toEqual(loadResponse);
+  });
 });
 
 describe('listStaleTilesInRecentDashboards', () => {

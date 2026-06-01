@@ -14,8 +14,17 @@ export interface TilePosition {
   h: number;
 }
 
+/** Full Cube chart type persisted on a tile (superset of the coarse VizType). */
+export type ChartType = 'line' | 'bar' | 'area' | 'table' | 'number' | 'pie';
+
 export interface TileCacheView {
   rows: unknown[];
+  /**
+   * Full Cube /load response (annotation + data) when available — lets the tile
+   * rebuild a real ResultSet and render through the playground chart engine.
+   * Null/absent for legacy rows-only cache entries.
+   */
+  loadResponse?: unknown | null;
   fetched_at: string;
   expires_at: string;
   status: 'fresh' | 'refreshing' | 'broken';
@@ -31,6 +40,10 @@ export interface DashboardTile {
   viz_type: VizType;
   /** Serialised TilePosition JSON string */
   position_json: string;
+  /** Full Cube chart type captured at pin time; null for legacy tiles. */
+  chart_type?: ChartType | null;
+  /** Serialised Cube PivotConfig JSON; null when none captured. */
+  pivot_config?: string | null;
   created_at: string;
   updated_at: string;
   /** Cached query result populated by the server-side refresh cron. */
@@ -62,6 +75,8 @@ export interface AddTileInput {
   query_json: string;
   viz_type: VizType;
   position_json: string;
+  chart_type?: ChartType;
+  pivot_config?: string;
 }
 
 export interface PatchTileInput {
@@ -69,6 +84,8 @@ export interface PatchTileInput {
   query_json?: string;
   viz_type?: VizType;
   position_json?: string;
+  chart_type?: ChartType;
+  pivot_config?: string;
 }
 
 export interface LayoutItem {

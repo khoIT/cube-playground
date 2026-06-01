@@ -1,17 +1,22 @@
 /**
  * Dashboard tile shell — reads its data from the server-side tile cache.
  *
- * Phase-3 caching change: tiles no longer fire their own Cube query. The
- * GET /api/dashboards/:slug response embeds a `cache` object per tile; this
- * component renders straight from those rows. A kebab "Refresh now" path
- * (handled by the parent) bypasses the cron interval when needed.
+ * Tiles render from the cached result the refresh cron stores; they do not fire
+ * their own Cube query. When the cache carries the full Cube load response, the
+ * tile rebuilds a real ResultSet and renders through the SAME chart engine as
+ * the playground (chart type + pivot + series parity), plus a chart-type toggle
+ * that persists. Legacy tiles (rows-only cache) fall back to the lightweight
+ * rows-based renderer.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ResultSet } from '@cubejs-client/core';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ResultSet, type ChartType, type PivotConfig } from '@cubejs-client/core';
 import { TileVizBody } from './tile-viz-renderers';
+import { PlaygroundChartRenderer } from '../../QueryBuilderV2/components/ChartRenderer';
+import { ChartTypeToggle } from '../../QueryBuilderV2/components/chart-type-toggle';
+import { TileChartBoundary } from './tile-chart-boundary';
 import { dashboardsClient } from '../../api/dashboards-client';
-import type { DashboardTile as TileModel, TileCacheView } from '../../api/dashboards-client';
+import type { DashboardTile as TileModel, TileCacheView, VizType } from '../../api/dashboards-client';
 
 interface TileProps {
   tile: TileModel;
@@ -52,7 +57,32 @@ const titleStyle: React.CSSProperties = {
   cursor: 'text',
 };
 
-/** Synthesize a minimal ResultSet-like object from cached rows. */
+/** Coarse stored viz_type → a Cube chart type for legacy tiles missing chart_type. */
+function vizToChartType(viz: VizType): ChartType {
+  switch (viz) {
+    case 'kpi':
+      return 'number';
+    case 'bar':
+      return 'bar';
+    case 'table':
+      return 'table';
+    default:
+      return 'line';
+  }
+}
+
+/**
+ * Only the modern `{ results: [{ data: [...] }] }` load-response shape can drive
+ * the chart engine (ChartRenderer reads `loadResponse.results[0].data` and calls
+ * chartPivot). Anything else → take the legacy rows path instead of risking a
+ * render-time throw.
+ */
+function isRenderableLoadResponse(resp: unknown): boolean {
+  const r = resp as { results?: Array<{ data?: unknown }> } | null | undefined;
+  return !!r && Array.isArray(r.results) && r.results.length > 0 && Array.isArray(r.results[0]?.data);
+}
+
+/** Synthesize a minimal ResultSet-like object from cached rows (legacy path). */
 function cacheToResultSet(rows: unknown[]): ResultSet {
   return {
     rawData: () => rows as Array<Record<string, unknown>>,
@@ -60,19 +90,64 @@ function cacheToResultSet(rows: unknown[]): ResultSet {
   } as unknown as ResultSet;
 }
 
+/** Observe an element's height so the chart engine (needs a numeric height) fills the tile. */
+function useElementHeight<T extends HTMLElement>(): [React.RefObject<T>, number] {
+  const ref = useRef<T>(null);
+  const [height, setHeight] = useState(200);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height;
+      if (h && h > 0) setHeight(Math.floor(h));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, height];
+}
+
 export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps) {
   const [cache, setCache] = useState<TileCacheView | null>(tile.cache ?? null);
   const [refreshing, setRefreshing] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(tile.title);
+  // Local chart type — seeded from the persisted spec, toggled live, PATCHed back.
+  const [chartType, setChartType] = useState<ChartType>(
+    () => (tile.chart_type as ChartType | undefined) ?? vizToChartType(tile.viz_type),
+  );
+  const [bodyRef, bodyHeight] = useElementHeight<HTMLDivElement>();
 
   // Re-sync when the parent re-fetches the dashboard.
   useEffect(() => { setCache(tile.cache ?? null); }, [tile.cache]);
+  useEffect(() => {
+    setChartType((tile.chart_type as ChartType | undefined) ?? vizToChartType(tile.viz_type));
+  }, [tile.chart_type, tile.viz_type]);
 
-  const resultSet = useMemo(
+  // A real ResultSet (engine parity) when the cache carries the full load
+  // response; null for legacy rows-only entries → lightweight fallback.
+  const liveResultSet = useMemo(() => {
+    if (!isRenderableLoadResponse(cache?.loadResponse)) return null;
+    try {
+      return new ResultSet(cache!.loadResponse as ConstructorParameters<typeof ResultSet>[0]);
+    } catch {
+      return null;
+    }
+  }, [cache]);
+
+  const fallbackResultSet = useMemo(
     () => (cache ? cacheToResultSet(cache.rows) : null),
     [cache],
   );
+
+  const pivotConfig = useMemo<PivotConfig | undefined>(() => {
+    if (!tile.pivot_config) return undefined;
+    try {
+      return JSON.parse(tile.pivot_config) as PivotConfig;
+    } catch {
+      return undefined;
+    }
+  }, [tile.pivot_config]);
 
   const refreshNow = useCallback(async () => {
     setRefreshing(true);
@@ -86,6 +161,17 @@ export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps)
       setRefreshing(false);
     }
   }, [slug, gameId, tile.id]);
+
+  // Toggle chart type live + persist so it sticks on reload and for other viewers.
+  const onChartTypeChange = useCallback(
+    (next: ChartType) => {
+      setChartType(next);
+      dashboardsClient
+        .patchTile(slug, gameId, tile.id, { chart_type: next })
+        .catch(() => {});
+    },
+    [slug, gameId, tile.id],
+  );
 
   const handleTitleCommit = useCallback(() => {
     setEditingTitle(false);
@@ -140,15 +226,44 @@ export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps)
         )}
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      {/* Chart-type toggle — only on the engine path (real ResultSet available). */}
+      {!isWarming && !isBroken && liveResultSet && (
+        <div style={{ marginBottom: 6 }}>
+          <ChartTypeToggle value={chartType} onChange={onChartTypeChange} />
+        </div>
+      )}
+
+      <div
+        ref={bodyRef}
+        style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+      >
         {isWarming && <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Refreshing…</div>}
         {!isWarming && isBroken && (
           <div style={{ color: 'var(--danger, #dc2626)', fontSize: 11 }}>
             {cache?.error_msg ?? 'Tile data unavailable.'}
           </div>
         )}
-        {!isWarming && !isBroken && resultSet && (
-          <TileVizBody vizType={tile.viz_type} title={titleDraft} resultSet={resultSet} />
+        {!isWarming && !isBroken && liveResultSet && (
+          <TileChartBoundary
+            key={cache?.fetched_at}
+            fallback={
+              fallbackResultSet ? (
+                <TileVizBody vizType={tile.viz_type} title={titleDraft} resultSet={fallbackResultSet} />
+              ) : (
+                <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Chart unavailable.</div>
+              )
+            }
+          >
+            <PlaygroundChartRenderer
+              chartType={chartType}
+              resultSet={liveResultSet}
+              pivotConfig={pivotConfig}
+              chartHeight={Math.max(bodyHeight - 4, 80)}
+            />
+          </TileChartBoundary>
+        )}
+        {!isWarming && !isBroken && !liveResultSet && fallbackResultSet && (
+          <TileVizBody vizType={tile.viz_type} title={titleDraft} resultSet={fallbackResultSet} />
         )}
       </div>
 

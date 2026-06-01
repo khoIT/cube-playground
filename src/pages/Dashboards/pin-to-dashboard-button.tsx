@@ -9,7 +9,7 @@ import { LayoutGrid } from 'lucide-react';
 import { useQueryBuilderContext } from '../../QueryBuilderV2/context';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { PinToDashboardModal } from './pin-to-dashboard-modal';
-import type { VizType } from '../../api/dashboards-client';
+import type { ChartType, VizType } from '../../api/dashboards-client';
 
 function inferVizType(chartType: string | undefined): VizType {
   if (!chartType) return 'table';
@@ -20,14 +20,25 @@ function inferVizType(chartType: string | undefined): VizType {
   return 'table';
 }
 
+// The persisted chart_type keeps the exact playground chart; viz_type stays the
+// coarse fallback for legacy/KPI rendering.
+const CHART_TYPES: ChartType[] = ['line', 'bar', 'area', 'table', 'number', 'pie'];
+function toChartType(chartType: string | undefined): ChartType | undefined {
+  if (!chartType) return undefined;
+  const t = chartType.toLowerCase();
+  return (CHART_TYPES as string[]).includes(t) ? (t as ChartType) : undefined;
+}
+
 export function PinToDashboardButton() {
-  const { executedQuery, chartType } = useQueryBuilderContext();
+  const { executedQuery, chartType, pivotConfig } = useQueryBuilderContext();
   const gameId = useActiveGameId();
   const [open, setOpen] = useState(false);
 
   const canPin = !!executedQuery;
   const queryJson = canPin ? JSON.stringify(executedQuery) : '';
   const vizType = inferVizType(chartType as string | undefined);
+  const fullChartType = toChartType(chartType as string | undefined);
+  const pivotConfigJson = pivotConfig ? JSON.stringify(pivotConfig) : undefined;
 
   return (
     <>
@@ -66,6 +77,8 @@ export function PinToDashboardButton() {
           gameId={gameId}
           queryJson={queryJson}
           vizType={vizType}
+          chartType={fullChartType}
+          pivotConfigJson={pivotConfigJson}
           onClose={() => setOpen(false)}
           onPinned={() => setOpen(false)}
         />

@@ -42,11 +42,16 @@ const patchDashboardSchema = z.object({
   tile_ttl_seconds: z.number().int().positive().max(86_400).optional(),
 });
 
+const chartTypeEnum = z.enum(['line', 'bar', 'area', 'table', 'number', 'pie']);
+
 const addTileSchema = z.object({
   title: z.string().min(1).max(256),
   query_json: z.string().min(1),
   viz_type: z.enum(['kpi', 'line', 'bar', 'table']),
   position_json: z.string().min(1),
+  chart_type: chartTypeEnum.optional(),
+  // Serialised Cube PivotConfig; capped to guard against oversized payloads.
+  pivot_config: z.string().max(20_000).optional(),
 });
 
 const patchTileSchema = z.object({
@@ -54,6 +59,8 @@ const patchTileSchema = z.object({
   query_json: z.string().min(1).optional(),
   viz_type: z.enum(['kpi', 'line', 'bar', 'table']).optional(),
   position_json: z.string().min(1).optional(),
+  chart_type: chartTypeEnum.optional(),
+  pivot_config: z.string().max(20_000).optional(),
 });
 
 const layoutSchema = z.array(
@@ -163,6 +170,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
         cache: cache
           ? {
               rows: cache.rows,
+              loadResponse: cache.loadResponse,
               fetched_at: cache.fetched_at,
               expires_at: cache.expires_at,
               status: cache.status,
@@ -304,6 +312,7 @@ export default async function dashboardsRoutes(app: FastifyInstance): Promise<vo
     }
     return reply.status(200).send({
       rows: cache.rows,
+      loadResponse: cache.loadResponse,
       fetched_at: cache.fetched_at,
       expires_at: cache.expires_at,
       status: cache.status,

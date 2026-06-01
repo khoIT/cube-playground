@@ -80,6 +80,9 @@ export async function refreshTile(tile: StaleTile): Promise<void> {
     upsertTileCache({
       tileId: tile.tile_id,
       rows,
+      // Persist the full load response so the dashboard tile can rebuild a real
+      // ResultSet and render through the same chart engine as the playground.
+      loadResponse: res,
       cubeMetaVersion: metaVersion,
       ttlSeconds: tile.tile_ttl_seconds || defaultTtl,
     });

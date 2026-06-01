@@ -15,10 +15,17 @@ export interface TileCacheRow {
   expires_at: string;
   status: 'fresh' | 'refreshing' | 'broken';
   error_msg: string | null;
+  resp_json: string | null;
 }
 
 export interface TileCacheView {
   rows: unknown[];
+  /**
+   * Full Cube /load response (annotation + data) when available — lets the
+   * client rebuild a real ResultSet for chart-engine parity. Null for legacy
+   * rows-only cache entries.
+   */
+  loadResponse: unknown | null;
   fetched_at: string;
   expires_at: string;
   status: 'fresh' | 'refreshing' | 'broken';
@@ -36,8 +43,17 @@ export function readTileCache(tileId: number): TileCacheView | null {
     | TileCacheRow
     | undefined;
   if (!row) return null;
+  let loadResponse: unknown | null = null;
+  if (row.resp_json) {
+    try {
+      loadResponse = JSON.parse(row.resp_json);
+    } catch {
+      loadResponse = null;
+    }
+  }
   return {
     rows: JSON.parse(row.rows_json) as unknown[],
+    loadResponse,
     fetched_at: row.fetched_at,
     expires_at: row.expires_at,
     status: row.status,
@@ -49,6 +65,8 @@ export function readTileCache(tileId: number): TileCacheView | null {
 export interface UpsertTileCacheInput {
   tileId: number;
   rows: unknown[];
+  /** Full Cube /load response — persisted so the client can rebuild a ResultSet. */
+  loadResponse?: unknown;
   cubeMetaVersion: string;
   ttlSeconds: number;
 }
@@ -57,6 +75,7 @@ export function upsertTileCache(input: UpsertTileCacheInput): { wrote: boolean }
   const db = getDb();
   const rowsJson = JSON.stringify(input.rows);
   const rowsHash = hashRows(rowsJson);
+  const respJson = input.loadResponse != null ? JSON.stringify(input.loadResponse) : null;
   const now = new Date();
   const expires = new Date(now.getTime() + input.ttlSeconds * 1000);
 
@@ -69,17 +88,21 @@ export function upsertTileCache(input: UpsertTileCacheInput): { wrote: boolean }
     existing.rows_hash === rowsHash &&
     existing.cube_meta_version === input.cubeMetaVersion
   ) {
+    // Rows unchanged — still refresh resp_json so a tile cached before this
+    // column existed picks up the load response on its next refresh. COALESCE
+    // so a caller that omits loadResponse can't wipe an already-stored response.
     db.prepare(
-      `UPDATE dashboard_tile_cache SET expires_at = ?, status = 'fresh', error_msg = NULL
+      `UPDATE dashboard_tile_cache SET expires_at = ?, status = 'fresh', error_msg = NULL,
+              resp_json = COALESCE(?, resp_json)
         WHERE tile_id = ?`,
-    ).run(expires.toISOString(), input.tileId);
+    ).run(expires.toISOString(), respJson, input.tileId);
     return { wrote: false };
   }
 
   db.prepare(
     `INSERT INTO dashboard_tile_cache
-       (tile_id, rows_json, rows_hash, cube_meta_version, fetched_at, expires_at, status, error_msg)
-     VALUES (?, ?, ?, ?, ?, ?, 'fresh', NULL)
+       (tile_id, rows_json, rows_hash, cube_meta_version, fetched_at, expires_at, status, error_msg, resp_json)
+     VALUES (?, ?, ?, ?, ?, ?, 'fresh', NULL, ?)
      ON CONFLICT(tile_id) DO UPDATE SET
        rows_json         = excluded.rows_json,
        rows_hash         = excluded.rows_hash,
@@ -87,7 +110,8 @@ export function upsertTileCache(input: UpsertTileCacheInput): { wrote: boolean }
        fetched_at        = excluded.fetched_at,
        expires_at        = excluded.expires_at,
        status            = 'fresh',
-       error_msg         = NULL`,
+       error_msg         = NULL,
+       resp_json         = excluded.resp_json`,
   ).run(
     input.tileId,
     rowsJson,
@@ -95,6 +119,7 @@ export function upsertTileCache(input: UpsertTileCacheInput): { wrote: boolean }
     input.cubeMetaVersion,
     now.toISOString(),
     expires.toISOString(),
+    respJson,
   );
   return { wrote: true };
 }

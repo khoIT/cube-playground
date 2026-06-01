@@ -131,6 +131,39 @@ describe('addTile / ≤8 cap', () => {
     expect(detail.tiles).toHaveLength(1);
   });
 
+  it('persists chart_type + pivot_config and nulls them when absent', () => {
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'chart-meta', title: 'CM' });
+    const withMeta = addTile(d.id, {
+      title: 'Area',
+      query_json: '{"measures":["Orders.count"]}',
+      viz_type: 'line',
+      position_json: '{"x":0,"y":0,"w":4,"h":3}',
+      chart_type: 'area',
+      pivot_config: '{"x":["Orders.status"],"y":["measures"]}',
+    });
+    expect(withMeta.chart_type).toBe('area');
+    expect(withMeta.pivot_config).toBe('{"x":["Orders.status"],"y":["measures"]}');
+
+    const legacy = addTile(d.id, {
+      title: 'Legacy',
+      query_json: '{}',
+      viz_type: 'table',
+      position_json: '{"x":0,"y":0,"w":3,"h":3}',
+    });
+    expect(legacy.chart_type).toBeNull();
+    expect(legacy.pivot_config).toBeNull();
+  });
+
+  it('updateTile can switch chart_type (toggle persistence)', () => {
+    const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'toggle', title: 'TG' });
+    const tile = addTile(d.id, {
+      title: 'Line', query_json: '{"measures":["Orders.count"]}', viz_type: 'line',
+      position_json: '{"x":0,"y":0,"w":4,"h":3}', chart_type: 'line',
+    });
+    const updated = updateTile(tile.id, { chart_type: 'bar' });
+    expect(updated!.chart_type).toBe('bar');
+  });
+
   it(`throws TileCapError when adding tile ${TILE_CAP + 1}`, () => {
     const d = createDashboard({ owner: 'alice', workspace: 'local', game: 'ptg', slug: 'cap-test', title: 'Cap' });
     for (let i = 0; i < TILE_CAP; i++) {

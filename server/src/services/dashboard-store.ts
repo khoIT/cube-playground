@@ -26,6 +26,10 @@ export interface TileRow {
   query_json: string;
   viz_type: string;
   position_json: string;
+  /** Full Cube chart type (line|bar|area|table|number|pie); null for legacy tiles. */
+  chart_type: string | null;
+  /** Serialised Cube PivotConfig JSON; null when none captured. */
+  pivot_config: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +51,8 @@ export interface AddTileInput {
   query_json: string;
   viz_type: string;
   position_json: string;
+  chart_type?: string | null;
+  pivot_config?: string | null;
 }
 
 export interface UpdateTileInput {
@@ -54,6 +60,8 @@ export interface UpdateTileInput {
   query_json?: string;
   viz_type?: string;
   position_json?: string;
+  chart_type?: string | null;
+  pivot_config?: string | null;
 }
 
 export interface LayoutItem {
@@ -204,8 +212,8 @@ export function addTile(dashboardId: number, input: AddTileInput): TileRow {
   const result = db
     .prepare(
       `INSERT INTO dashboard_tiles
-         (dashboard_id, title, query_json, viz_type, position_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (dashboard_id, title, query_json, viz_type, position_json, chart_type, pivot_config, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       dashboardId,
@@ -213,6 +221,8 @@ export function addTile(dashboardId: number, input: AddTileInput): TileRow {
       input.query_json,
       input.viz_type,
       input.position_json,
+      input.chart_type ?? null,
+      input.pivot_config ?? null,
       now,
       now,
     );
@@ -237,13 +247,15 @@ export function updateTile(
   const now = new Date().toISOString();
   db.prepare(
     `UPDATE dashboard_tiles
-     SET title = ?, query_json = ?, viz_type = ?, position_json = ?, updated_at = ?
+     SET title = ?, query_json = ?, viz_type = ?, position_json = ?, chart_type = ?, pivot_config = ?, updated_at = ?
      WHERE id = ?`,
   ).run(
     patch.title ?? row.title,
     patch.query_json ?? row.query_json,
     patch.viz_type ?? row.viz_type,
     patch.position_json ?? row.position_json,
+    patch.chart_type ?? row.chart_type ?? null,
+    patch.pivot_config ?? row.pivot_config ?? null,
     now,
     tileId,
   );
