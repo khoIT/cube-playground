@@ -36,12 +36,16 @@ These surfaces were deliberately NOT wired (can't validate against prod from her
 
 ## Verification (260601, real data)
 
-Two legs, verified against the cube-api stack (`/Users/lap16299/Documents/code/cube-api`):
+Verified against the cube-api stack (`/Users/lap16299/Documents/code/cube-api`). Legs 1–2 were the initial split proof; leg 3 is the unified run after fixing `:16000`:
 
 1. **Revenue match (slice-filter fix), numeric proof on real Trino data** — endpoint `ballistar_cube_api` (`localhost:4000`, logical names, prefix=null path). Cell = `recharge` Android, week 2026-05-18 (1,422 payers): **804,765,000**. Post-fix monitor query (`revenue_vnd` + os/week slice + `user_id IN(1422 uids)`) = **804,765,000** → exact match. Pre-fix (uid-IN only, no slice) = **2,866,112,000** (3.56× over) → reproduces the original bug. Confirms slice filters constrain the cohort measure to the cell's window.
 2. **Prefix member resolution on prod-shaped meta** — endpoint `cube_gateway` (`localhost:16000`, prefix model, 133 game-namespaced cubes). Pre-fix logical `recharge.revenue_vnd` → HTTP 400 `Cube 'recharge' not found`; post-fix physicalized `ballistar_recharge.revenue_vnd` (+ already-physical slice filters, idempotent) → HTTP 200 accepted. Confirms `physicalizeQuery` output resolves where logical names 404.
 
-Caveat: the two legs are on different endpoints — `:16000` (prefixed) is up but its `cube_api`→Trino queries hang (no data); `:4000` (data-backed) is logical-named. No single endpoint here is both prefixed AND data-backed, so the unified "prefixed + real numbers in one" run is not reproducible locally. Each leg is independently decisive.
+3. **UNIFIED: revenue match on the prefixed prod model with real data** — endpoint `cube_gateway` (`localhost:16000`) after fixing its Cube Store wiring (see below). Cell = `ballistar_recharge` IOS, week 2026-05-04 (1,449 payers): **1,154,910,000**. Post-fix monitor (`ballistar_recharge.revenue_vnd` + os/week slice + `user_id IN(1449 uids)` — all physical/prefixed, the exact `physicalizeQuery` output) = **1,154,910,000** → exact match. Pre-fix (uid-IN only) = **4,029,000,000** (3.49× over). This supersedes the split legs above: prefixed cubes + real Trino numbers + the fix's actual physical query shape, in one run.
+
+**`:16000` was hanging on Cube Store, not Trino.** `cube_api` inherited a stale prod coord from `.env` (`CUBEJS_CUBESTORE_HOST=cubestore_router:9999`); the dev stack runs single-node `cubestore`. Every `/load` hung in the query orchestrator (`CubeStore connection failed: ENOTFOUND cubestore_router`) before reaching Trino. Fixed with a `cube-api/docker-compose.yml` `environment` override on `cube_api` → `cubestore:3030` (`environment` beats `env_file`, so the prod `.env` stays intact). Recreated `cube_api`; data now flows.
+
+Incidental: this mirror's `ballistar_recharge.recharge_date` column is empty (time-grouped queries on it return 0 rows); used `recharge_time` for the week slice. Unrelated to the connection fix or the member resolver.
 
 ## Unresolved questions
 

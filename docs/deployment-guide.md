@@ -72,3 +72,70 @@ authorization, Keycloak→Microsoft SSO, and the cube-dev shared authz source.
 
 **Break-glass:** `AUTH_DISABLED=true` bypasses all authz (synth admin). Local /
 emergency only — never a prod default.
+
+## Containerized deploy (Docker)
+
+The app ships as three images built from one multi-stage `Dockerfile` (targets
+`server`, `chat-service`, `web`) and wired by `docker-compose.prod.yml`:
+
+```
+web (nginx) ──serves SPA + proxies /api,/cube-api──▶ server :3004 ──/api/chat──▶ chat-service :3005
+                                                        └─▶ external: cube-dev, Trino, LiteLLM, Keycloak
+```
+
+- **`web`** serves the built SPA and reverse-proxies `/api` + `/cube-api` to the
+  server on the same origin (`docker/nginx.conf`); it publishes `PUBLIC_PORT`.
+- **`server`** and **`chat-service`** are internal; SQLite lives on named volumes
+  (`server-data`, `chat-data`) so DBs survive redeploys.
+- `better-sqlite3` (native) is compiled in-image — the host needs only Docker.
+
+Build + run (after the CI `vault` stage writes `.env` next to the compose file):
+
+```bash
+docker compose -f docker-compose.prod.yml build
+PUBLIC_PORT=11000 docker compose -f docker-compose.prod.yml up -d
+```
+
+GIO points the prod domain at `PUBLIC_PORT`.
+
+### Secrets ↔ topology split
+
+One **flat** Vault secret → CI writes one `.env` → compose `env_file` injects it
+into **both** Node services (chat-service reads `process.env` via `dotenv/config`;
+no separate `chat-service/.env` is needed in the container). **Local dev is
+unchanged** — it keeps its own root `.env` and `chat-service/.env`.
+
+Keep **topology in compose, secrets in Vault**. These are set per-service in
+compose and must **not** go in Vault (a shared `PORT` would collide):
+`PORT`, `DB_PATH`, `CHAT_DB_PATH`, `CHAT_SERVICE_URL` (`http://chat-service:3005`),
+`SERVER_BASE_URL` (`http://server:3004`).
+
+`VITE_*` are **build-time** baked into the `web` image (Vite inlines them); pass
+via build args, not runtime env. Default `VITE_CUBE_API_URL=/cube-api/v1`
+(same-origin via nginx).
+
+### Vault key manifest (path: `…/prod/<owner>/<project>`)
+
+Flat KV. ⚠️ = boot-blocking if absent.
+
+| Key | Req | Notes |
+|-----|-----|-------|
+| `AUTH_DISABLED` | yes | **`false`** in prod (true = auth bypass). |
+| `JWT_SECRET` | yes | app-JWT signing (≥16 chars). |
+| `KEYCLOAK_URL` / `_REALM` / `_CLIENT_ID` | yes | KC OIDC config. |
+| `KEYCLOAK_CLIENT_SECRET` | yes | confidential client. |
+| `AUTH_BOOTSTRAP_ADMINS` | yes | seed admin emails — set before first deploy or lock-out. |
+| `CUBE_AUTH_INTERNAL_SECRET` | yes | must equal cube-dev `AUTH_INTERNAL_SECRET`. |
+| `CUBEJS_API_SECRET` | yes | mints the per-game Cube JWT. |
+| `CUBE_PLAYGROUND_USER_ID` | no | service principal (default `playground`). |
+| `CHAT_FEATURE_ENABLED` | yes | `true` to run chat. |
+| `ANTHROPIC_BASE_URL` | ⚠️ | LiteLLM gateway URL — chat-service won't boot without it. |
+| `ANTHROPIC_API_KEY` | ⚠️ | LiteLLM key — chat-service won't boot without it. |
+| `CUBE_API_URL` | no | chat-service → prod cube cluster. |
+| `LITELLM_BASE_URL` / `_API_KEY_STG` / `_MODEL` | cond | server-side LLM features. |
+| `CONNECTOR_SECRET_KEY` | cond | DB-connector secret vault (32-byte base64). |
+| `TRINO_PROFILER_HOST` / `_PORT` / `_USER` / `_PASS` / `_CATALOG` / `_SSL` / `_WORKSPACE` | cond | onboarding profiler. |
+| `MAIN_SERVER_SERVICE_TOKEN` | cond | chat↔server callback auth (same value both sides). |
+| `LANGFUSE_PUBLIC_KEY` / `_SECRET_KEY` / `_HOST` | cond | observability. |
+
+Full secret-free reference lives in `.env.example`.
