@@ -1,0 +1,3 @@
+[submodule "cube-dev"]
+	path = cube-dev
+	url = git@github.com:khoIT/metrics-catalogue.git
