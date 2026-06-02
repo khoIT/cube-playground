@@ -8,15 +8,23 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { listGlossary, type GlossaryTerm } from '../../../api/glossary-client';
+import {
+  listGlossary,
+  type GlossaryFilter,
+  type GlossaryTerm,
+} from '../../../api/glossary-client';
 
 export interface LinkedSegment {
   /** Either plain text or a glossary anchor. */
   kind: 'text' | 'term';
   text: string;
   termId?: string;
-  /** Carried so the renderer can resolve term → metric/glossary URL. */
+  /** Carried so the renderer can resolve term → metric/build/glossary URL. */
   primaryCatalogId?: string | null;
+  /** Concept-tier predicate so the renderer can deep-link to a filtered Build. */
+  defaultFilter?: GlossaryFilter | null;
+  /** Concept-tier measure FQN for the Build deep-link. */
+  defaultMeasureRef?: string | null;
 }
 
 /**
@@ -35,6 +43,8 @@ interface AliasEntry {
   alias: string;
   termId: string;
   primaryCatalogId: string | null;
+  defaultFilter: GlossaryFilter | null;
+  defaultMeasureRef: string | null;
 }
 
 interface AliasIndex {
@@ -49,7 +59,13 @@ function buildIndex(terms: GlossaryTerm[]): AliasIndex {
   for (const term of terms) {
     for (const alias of term.aliases.length > 0 ? term.aliases : [term.label]) {
       if (alias.length < 2) continue;
-      flat.push({ alias, termId: term.id, primaryCatalogId: term.primaryCatalogId });
+      flat.push({
+        alias,
+        termId: term.id,
+        primaryCatalogId: term.primaryCatalogId,
+        defaultFilter: term.defaultFilter,
+        defaultMeasureRef: term.defaultMeasureRef,
+      });
     }
   }
   flat.sort((a, b) => b.alias.length - a.alias.length);
@@ -96,6 +112,8 @@ export function useGlossaryLinker() {
           text: match[1],
           termId: entry.termId,
           primaryCatalogId: entry.primaryCatalogId,
+          defaultFilter: entry.defaultFilter,
+          defaultMeasureRef: entry.defaultMeasureRef,
         });
       } else {
         out.push({ kind: 'text', text: match[1] });

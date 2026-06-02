@@ -8,11 +8,13 @@ const FAKE_TERMS = [
     id: 'whale',
     label: 'Whale',
     description: 'top spenders',
-    primaryCatalogId: 'business_metrics/whale_payer',
+    primaryCatalogId: null,
     secondaryCatalogIds: [],
     aliases: ['whale', 'whales'],
     category: 'segments',
     updatedAt: '2026-05-24T00:00:00.000Z',
+    defaultFilter: { member: 'mf_users.payer_tier', op: '=', value: 'whale' },
+    defaultMeasureRef: null,
   },
   {
     id: 'dau',
@@ -70,5 +72,18 @@ describe('useGlossaryLinker', () => {
     const out = result.current.link('DAU is the metric');
     const dauTerm = out.find((s) => s.kind === 'term' && s.text === 'DAU');
     expect(dauTerm?.primaryCatalogId).toBe('business_metrics/dau');
+  });
+
+  it('carries the concept-tier filter so a term deep-links to a filtered Build', async () => {
+    const { result } = renderHook(() => useGlossaryLinker());
+    await waitFor(() => expect(result.current.terms.length).toBeGreaterThan(0));
+
+    const out = result.current.link('a whale buys a lot');
+    const whaleTerm = out.find((s) => s.kind === 'term' && s.text === 'whale');
+    expect(whaleTerm?.defaultFilter).toEqual({
+      member: 'mf_users.payer_tier',
+      op: '=',
+      value: 'whale',
+    });
   });
 });

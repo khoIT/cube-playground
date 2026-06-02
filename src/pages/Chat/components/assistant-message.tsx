@@ -125,6 +125,8 @@ function pushGlossaryChunks(
           to={resolveGlossaryHref({
             id: seg.termId ?? '',
             primaryCatalogId: seg.primaryCatalogId ?? null,
+            defaultFilter: seg.defaultFilter ?? null,
+            defaultMeasureRef: seg.defaultMeasureRef ?? null,
           })}
           title={`Glossary: ${seg.termId}`}
           style={{ color: T.brand, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}
