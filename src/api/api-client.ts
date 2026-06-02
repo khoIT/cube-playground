@@ -43,15 +43,6 @@ export function getOwner(): string {
   }
 }
 
-export function setOwner(owner: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(OWNER_STORAGE_KEY, owner);
-  } catch {
-    // ignore quota / privacy-mode errors
-  }
-}
-
 export interface ApiRequestInit extends Omit<RequestInit, 'body' | 'signal'> {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
