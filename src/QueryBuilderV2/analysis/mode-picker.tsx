@@ -1,4 +1,4 @@
-import { Radio } from 'antd';
+import { SegmentGroup, SegmentButton } from '../components/segmented-control';
 
 export type AnalysisMode = 'breakdown' | 'distribution' | 'funnel';
 
@@ -15,16 +15,22 @@ const OPTIONS: { value: AnalysisMode; label: string }[] = [
 
 export function ModePicker({ mode, onChange }: ModePickerProps) {
   return (
-    <Radio.Group
-      value={mode}
-      buttonStyle="solid"
-      onChange={(e) => onChange(e.target.value as AnalysisMode)}
-    >
-      {OPTIONS.map((option) => (
-        <Radio.Button key={option.value} value={option.value}>
-          {option.label}
-        </Radio.Button>
-      ))}
-    </Radio.Group>
+    <SegmentGroup role="tablist" aria-label="Analysis mode">
+      {OPTIONS.map((option) => {
+        const active = mode === option.value;
+        return (
+          <SegmentButton
+            key={option.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            $active={active}
+            onClick={() => onChange(option.value)}
+          >
+            <span>{option.label}</span>
+          </SegmentButton>
+        );
+      })}
+    </SegmentGroup>
   );
 }

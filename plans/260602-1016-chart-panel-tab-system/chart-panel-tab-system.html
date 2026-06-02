@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chart Panel · 2-Layer Tab System — Design Exploration</title>
+<style>
+  /* ─── Real cube-playground tokens (light) — copied from src/theme/tokens.css ─── */
+  :root {
+    --orange-50:#fff7ed; --orange-100:#ffedd5; --orange-200:#fed7aa; --orange-600:#f05a22; --orange-700:#f54a00;
+    --neutral-100:#f5f5f5; --neutral-200:#e5e5e5; --neutral-300:#d4d4d4; --neutral-500:#737373; --neutral-700:#404040; --neutral-900:#171717;
+
+    --brand:var(--orange-600); --brand-hover:var(--orange-700); --brand-soft:var(--orange-50);
+    --bg-page:#fafafa; --bg-card:#ffffff; --bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200);
+    --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700); --text-muted:var(--neutral-500);
+    --text-on-brand:#ffffff;
+    --radius-sm:6px; --radius-md:8px; --radius-lg:10px;
+    --shadow-pane:0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
+    --shadow-pop:0 6px 24px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06);
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+
+  * { box-sizing:border-box; }
+  html { -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  body {
+    margin:0; background:var(--bg-page); color:var(--text-primary);
+    font-family:var(--font-sans); line-height:1.5; padding:48px 24px 96px;
+  }
+  .wrap { max-width:1080px; margin:0 auto; }
+
+  /* ─── Page header ─── */
+  .eyebrow { font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); margin:0 0 8px; }
+  h1 { font-size:30px; font-weight:700; letter-spacing:-.02em; margin:0 0 12px; }
+  .lede { font-size:15px; color:var(--text-secondary); max-width:660px; margin:0 0 8px; text-wrap:pretty; }
+  .lede b { color:var(--text-primary); font-weight:600; }
+
+  /* ─── Section ─── */
+  section { margin-top:56px; }
+  h2 { font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); margin:0 0 20px; padding-bottom:10px; border-bottom:1px solid var(--border-card); }
+  h3 { font-size:17px; font-weight:650; letter-spacing:-.01em; margin:0 0 4px; }
+  .note { font-size:13.5px; color:var(--text-secondary); margin:0 0 16px; max-width:620px; text-wrap:pretty; }
+
+  /* ─── Reasoning cards ─── */
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .info { background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-lg); padding:18px 20px; box-shadow:var(--shadow-pane); }
+  .info h4 { font-size:13px; font-weight:650; margin:0 0 8px; display:flex; align-items:center; gap:8px; }
+  .info .k { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--brand); background:var(--brand-soft); border-radius:5px; padding:2px 6px; }
+  .info ul { margin:0; padding-left:18px; font-size:13px; color:var(--text-secondary); }
+  .info li { margin:5px 0; }
+  .info code { font-family:ui-monospace,'SF Mono',monospace; font-size:12px; background:var(--bg-muted); padding:1px 5px; border-radius:4px; color:var(--text-primary); }
+
+  /* ─── Variation block ─── */
+  .variant { margin-top:36px; }
+  .vhead { display:flex; align-items:baseline; gap:12px; margin-bottom:6px; }
+  .badge { font-size:11px; font-weight:700; letter-spacing:.04em; color:var(--text-on-brand); background:var(--brand); border-radius:5px; padding:3px 8px; flex-shrink:0; }
+  .badge.ghost { color:var(--text-muted); background:var(--bg-muted); }
+  .rationale { font-size:13.5px; color:var(--text-secondary); max-width:640px; margin:0 0 16px; text-wrap:pretty; }
+
+  /* The pane mock — mimics the right Chart side-pane */
+  .pane { width:600px; max-width:100%; background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-lg); box-shadow:var(--shadow-pane); overflow:hidden; }
+  .pane-body { height:120px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:12.5px; background:repeating-linear-gradient(45deg,transparent,transparent 9px,rgba(0,0,0,.012) 9px,rgba(0,0,0,.012) 10px); }
+
+  /* shared bits */
+  .icon { width:15px; height:15px; flex-shrink:0; }
+  .icon-sm { width:13px; height:13px; flex-shrink:0; }
+  .spacer { flex:1; }
+  .vdiv { width:1px; align-self:stretch; margin:5px 2px; background:var(--border-card); }
+
+  /* ── L1 tab treatments ───────────────────────────── */
+  /* card-lift (current) */
+  .strip { display:flex; align-items:center; gap:2px; padding:6px 10px; border-bottom:1px solid var(--border-card); min-height:44px; }
+  .l1 { display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border-radius:var(--radius-sm); border:1px solid transparent; background:transparent; color:var(--text-muted); font-family:var(--font-sans); font-weight:500; font-size:12.5px; cursor:pointer; white-space:nowrap; transition:.12s; }
+  .l1 svg { color:inherit; }
+  .l1:hover { background:var(--bg-muted); color:var(--text-secondary); }
+  .l1.on { background:var(--bg-card); color:var(--text-primary); border-color:var(--border-card); box-shadow:var(--shadow-pane); }
+  .l1.on svg { color:var(--brand); }
+
+  /* underline tabs (understated) */
+  .strip-u { display:flex; align-items:center; gap:4px; padding:0 12px; border-bottom:1px solid var(--border-card); min-height:42px; }
+  .l1u { position:relative; display:inline-flex; align-items:center; gap:7px; padding:11px 9px; background:none; border:0; color:var(--text-muted); font-family:var(--font-sans); font-weight:550; font-size:13px; cursor:pointer; transition:.12s; }
+  .l1u svg { color:inherit; }
+  .l1u:hover { color:var(--text-secondary); }
+  .l1u.on { color:var(--text-primary); }
+  .l1u.on svg { color:var(--brand); }
+  .l1u.on::after { content:''; position:absolute; left:6px; right:6px; bottom:-1px; height:2px; border-radius:2px 2px 0 0; background:var(--brand); }
+
+  /* segmented pill (L1 as iOS-style control) */
+  .pill { display:inline-flex; padding:3px; gap:2px; background:var(--bg-muted); border-radius:var(--radius-md); }
+  .pillseg { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); font-family:var(--font-sans); font-weight:550; font-size:12.5px; cursor:pointer; transition:.12s; white-space:nowrap; }
+  .pillseg svg { color:inherit; }
+  .pillseg:hover:not(.on) { color:var(--text-primary); }
+  .pillseg.on { background:var(--bg-card); color:var(--text-primary); box-shadow:var(--shadow-pane); }
+  .pillseg.on svg { color:var(--brand); }
+
+  /* ── L2 chart-type segmented control ─────────────── */
+  /* tool row container */
+  .toolrow { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border-card); }
+  .toolrow.flush { border-bottom:0; }
+
+  /* TALL segmented (the fix): 30px to match ui-kit small buttons */
+  .seg { display:flex; flex:1 1 auto; min-width:0; padding:2px; gap:2px; background:var(--bg-muted); border-radius:var(--radius-md); }
+  .segbtn { display:inline-flex; align-items:center; justify-content:center; flex:1 1 0; min-width:0; gap:6px; height:30px; padding:0 10px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); font-family:var(--font-sans); font-weight:550; font-size:12.5px; cursor:pointer; transition:background .12s,color .12s; white-space:nowrap; }
+  .segbtn svg { color:inherit; }
+  .segbtn:hover:not(.on) { background:var(--border-card); color:var(--text-primary); }
+  .segbtn.on { background:var(--brand); color:var(--text-on-brand); box-shadow:0 1px 2px rgba(240,90,34,.30); }
+  .segbtn.on svg { color:var(--text-on-brand); }
+
+  /* compact icon-only segmented (for merged single-row) */
+  .seg-ico { display:inline-flex; padding:2px; gap:2px; background:var(--bg-muted); border-radius:var(--radius-md); }
+  .segico { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border:0; border-radius:6px; background:transparent; color:var(--text-secondary); cursor:pointer; transition:.12s; }
+  .segico:hover:not(.on) { background:var(--border-card); color:var(--text-primary); }
+  .segico.on { background:var(--brand); color:var(--text-on-brand); box-shadow:0 1px 2px rgba(240,90,34,.30); }
+
+  /* ── Action buttons (Pivot / Code / Pin) — ui-kit small parity ── */
+  .btn { display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; border-radius:var(--radius-sm); font-family:var(--font-sans); font-weight:550; font-size:12.5px; cursor:pointer; white-space:nowrap; border:1px solid transparent; transition:.12s; }
+  .btn svg { width:14px; height:14px; }
+  .btn-soft { background:var(--brand-soft); color:var(--brand-hover); }
+  .btn-soft:hover { background:var(--orange-100); }
+  .btn-primary { background:var(--brand); color:var(--text-on-brand); }
+  .btn-primary:hover { background:var(--brand-hover); }
+  .btn-ghost { background:transparent; color:var(--text-secondary); border-color:var(--border-card); }
+  .btn-ghost:hover { background:var(--bg-muted); color:var(--text-primary); }
+  .btn-icon { width:30px; padding:0; justify-content:center; }
+
+  /* recessed L2 track (depth treatment) */
+  .track { padding:7px 12px; background:var(--bg-muted); border-bottom:1px solid var(--border-card); display:flex; align-items:center; gap:8px; }
+  .track .seg { background:var(--bg-card); border:1px solid var(--border-card); }
+
+  /* pros/cons */
+  .pc { display:flex; gap:24px; margin-top:14px; font-size:12.5px; }
+  .pc div { flex:1; }
+  .pc strong { display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; margin-bottom:5px; }
+  .pc .pro strong { color:#047857; }
+  .pc .con strong { color:#b45309; }
+  .pc ul { margin:0; padding-left:16px; color:var(--text-secondary); }
+  .pc li { margin:3px 0; }
+
+  .pin { display:inline-block; font-size:11px; font-weight:600; color:var(--brand); background:var(--brand-soft); border-radius:5px; padding:3px 9px; margin-bottom:14px; }
+  .rec { border-left:3px solid var(--brand); padding:14px 18px; background:var(--brand-soft); border-radius:0 var(--radius-md) var(--radius-md) 0; margin-top:8px; }
+  .rec p { margin:0; font-size:13.5px; color:var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">QueryBuilder · Right Pane</p>
+  <h1>Chart panel · 2-layer tab system</h1>
+  <p class="lede">Three asks, one root problem: the panel stacks <b>two levels of selection</b> — mode (Chart / Analysis / Compare) over view (Line / Bar / Area / Table). When both levels shout in the same orange, the hierarchy blurs. Below: the diagnosis, a color rule, and four buildable directions. <b>Pick one, or mix.</b></p>
+
+  <!-- ───────────────────────── DIAGNOSIS ───────────────────────── -->
+  <section>
+    <h2>What's wrong today</h2>
+    <div class="variant">
+      <div class="vhead"><span class="badge ghost">Baseline</span><h3>Current state</h3></div>
+      <p class="rationale">The chart-type segments are <code>4px&nbsp;8px / 11px</code> ≈ 24px tall — visibly shorter than the 30px ui-kit Pivot/Code/Pin buttons beside them. Two full rows eat ~88px of vertical space. And the Analysis sub-tabs render in AntD's default <b>blue</b>, breaking the orange system.</p>
+      <div class="pane">
+        <div class="strip">
+          <button class="l1 on">[chart] Chart</button>
+          <button class="l1">[filter] Analysis</button>
+          <button class="l1">[compare] Compare</button>
+          <span class="spacer"></span>
+          <button class="l1" style="padding:6px 8px">[›]</button>
+        </div>
+        <!-- thin toggle row -->
+        <div class="toolrow">
+          <div style="display:flex;flex:1 1 auto;min-width:0;padding:1px;gap:1px;background:var(--bg-muted);border-radius:7px;">
+            <button class="segbtn on" style="height:24px;font-size:11px;padding:4px 8px;">[~] Line</button>
+            <button class="segbtn" style="height:24px;font-size:11px;padding:4px 8px;color:var(--text-secondary);background:transparent;box-shadow:none;">[▮] Bar</button>
+            <button class="segbtn" style="height:24px;font-size:11px;padding:4px 8px;color:var(--text-secondary);background:transparent;box-shadow:none;">[◢] Area</button>
+            <button class="segbtn" style="height:24px;font-size:11px;padding:4px 8px;color:var(--text-secondary);background:transparent;box-shadow:none;">[▦] Table</button>
+          </div>
+          <button class="btn btn-soft">Pivot [▾]</button>
+          <button class="btn btn-primary">[&lt;/&gt;] Code</button>
+          <button class="btn btn-ghost">[⊞] Pin</button>
+        </div>
+        <div class="pane-body">chart renders here</div>
+      </div>
+      <p class="note" style="margin-top:14px;">↑ Note the toggle sitting low against the taller buttons, and the cramped 24px hit-targets.</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── COLOR RULE ───────────────────────── -->
+  <section>
+    <h2>The color system for 2 layers (answers ask #3)</h2>
+    <p class="note">One principle resolves the whole panel: <b>only one saturated brand fill per visual group.</b> The two layers must use <em>different</em> treatments so the eye reads depth, not a tie.</p>
+    <div class="grid2">
+      <div class="info">
+        <h4><span class="k">Layer 1</span> Mode — neutral lift</h4>
+        <ul>
+          <li>Chart / Analysis / Compare = the outer, slower-changing choice.</li>
+          <li>Active = <b>white card + soft shadow + brand-tinted icon</b>. No fill.</li>
+          <li>Brand shows only in the <b>15px icon</b> — a whisper, not a shout.</li>
+          <li>Tokens: <code>--bg-card</code> · <code>--shadow-pane</code> · icon <code>--brand</code>.</li>
+        </ul>
+      </div>
+      <div class="info">
+        <h4><span class="k">Layer 2</span> View — brand fill</h4>
+        <ul>
+          <li>Line / Bar / Area / Table = the inner, frequently-toggled choice.</li>
+          <li>Active = <b>solid <code>--brand</code> fill + white text</b>. The loud one.</li>
+          <li>Lives in a recessed <code>--bg-muted</code> track → reads as nested.</li>
+          <li>Same treatment reused for Analysis's Breakdown/Distribution/Funnel.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="rec" style="margin-top:16px;"><p><b>Rule of thumb:</b> outer layer = tone &amp; elevation (neutral) · inner layer = hue (orange). Never two orange fills competing in one frame. This is how Linear, Vercel &amp; Stripe nest their tab levels.</p></div>
+  </section>
+
+  <!-- ───────────────────────── VARIATIONS ───────────────────────── -->
+  <section>
+    <h2>Directions</h2>
+
+    <!-- V1 -->
+    <div class="variant" id="v1">
+      <div class="vhead"><span class="badge">V1</span><h3>Refined two-row — lowest risk</h3></div>
+      <p class="rationale">Keep both rows; just fix the metrics. Segments grow to <b>30px</b> to match the action buttons, a <b>divider</b> separates the view-toggle group from the actions, and the orange-fill / neutral-track hierarchy is preserved. Smallest diff to ship.</p>
+      <div class="pane">
+        <div class="strip">
+          <button class="l1 on">[chart] Chart</button>
+          <button class="l1">[filter] Analysis</button>
+          <button class="l1">[compare] Compare</button>
+          <span class="spacer"></span>
+          <button class="l1" style="padding:6px 8px">[›]</button>
+        </div>
+        <div class="toolrow" data-seg>
+          <div class="seg">
+            <button class="segbtn on">[~] Line</button>
+            <button class="segbtn">[▮] Bar</button>
+            <button class="segbtn">[◢] Area</button>
+            <button class="segbtn">[▦] Table</button>
+          </div>
+          <span class="vdiv"></span>
+          <button class="btn btn-soft">Pivot [▾]</button>
+          <button class="btn btn-primary">[&lt;/&gt;] Code</button>
+          <button class="btn btn-ghost btn-icon" title="Pin">[⊞]</button>
+        </div>
+        <div class="pane-body">chart renders here</div>
+      </div>
+      <div class="pc">
+        <div class="pro"><strong>Pros</strong><ul><li>Button heights consistent (ask #1 ✓)</li><li>Familiar — no muscle-memory reset</li><li>Pin shrinks to an icon to win back space</li></ul></div>
+        <div class="con"><strong>Cons</strong><ul><li>Still two rows (~80px) — doesn't fully answer ask #2</li></ul></div>
+      </div>
+    </div>
+
+    <!-- V2 -->
+    <div class="variant" id="v2">
+      <div class="vhead"><span class="badge">V2</span><h3>Single merged row — "no separate line" (ask #2)</h3></div>
+      <p class="rationale">Collapse to <b>one</b> line. L1 becomes understated <b>underline tabs</b> (left); the view-toggle becomes a compact <b>icon-only</b> segmented control (right), with Code + a kebab overflow for Pivot/Pin. Saves a full row. Trade-off: chart-type labels go to tooltips.</p>
+      <div class="pane">
+        <div class="strip-u" data-seg>
+          <button class="l1u on">[chart] Chart</button>
+          <button class="l1u">[filter] Analysis</button>
+          <button class="l1u">[compare] Compare</button>
+          <span class="spacer"></span>
+          <div class="seg-ico">
+            <button class="segico on" title="Line">[~]</button>
+            <button class="segico" title="Bar">[▮]</button>
+            <button class="segico" title="Area">[◢]</button>
+            <button class="segico" title="Table">[▦]</button>
+          </div>
+          <span class="vdiv"></span>
+          <button class="btn btn-primary btn-icon" title="Code">[&lt;/&gt;]</button>
+          <button class="btn btn-ghost btn-icon" title="More — Pivot, Pin…">[⋯]</button>
+        </div>
+        <div class="pane-body">chart renders here</div>
+      </div>
+      <div class="pc">
+        <div class="pro"><strong>Pros</strong><ul><li>One row — most compact (ask #2 ✓)</li><li>Underline L1 is quietest → L2 fill clearly dominant</li><li>Reads like a modern editor toolbar</li></ul></div>
+        <div class="con"><strong>Cons</strong><ul><li>Icon-only chart types need clear glyphs + tooltips</li><li>Pivot/Pin hidden behind overflow</li><li>Tight on narrow panes</li></ul></div>
+      </div>
+    </div>
+
+    <!-- V3 -->
+    <div class="variant" id="v3">
+      <div class="vhead"><span class="badge">V3</span><h3>Segmented L1 + recessed L2 — clearest hierarchy</h3></div>
+      <p class="rationale">L1 becomes a proper <b>segmented pill</b> (active = white card lift inside a muted track). L2 sits one level deeper in its own <b>recessed track</b>. Depth + tone do the talking; this is the textbook answer to ask #3 and scales perfectly to the Analysis mode below.</p>
+      <div class="pane">
+        <div class="strip">
+          <div class="pill" data-seg>
+            <button class="pillseg on">[chart] Chart</button>
+            <button class="pillseg">[filter] Analysis</button>
+            <button class="pillseg">[compare] Compare</button>
+          </div>
+          <span class="spacer"></span>
+          <button class="l1" style="padding:6px 8px">[›]</button>
+        </div>
+        <div class="track" data-seg>
+          <div class="seg">
+            <button class="segbtn on">[~] Line</button>
+            <button class="segbtn">[▮] Bar</button>
+            <button class="segbtn">[◢] Area</button>
+            <button class="segbtn">[▦] Table</button>
+          </div>
+          <span class="vdiv" style="background:var(--border-card)"></span>
+          <button class="btn btn-soft">Pivot [▾]</button>
+          <button class="btn btn-primary">[&lt;/&gt;] Code</button>
+          <button class="btn btn-ghost btn-icon" title="Pin">[⊞]</button>
+        </div>
+        <div class="pane-body">chart renders here</div>
+      </div>
+      <div class="pc">
+        <div class="pro"><strong>Pros</strong><ul><li>Unmistakable 2-level depth (ask #3 ✓✓)</li><li>L1 pill + L2 track never compete</li><li>One pattern serves Chart &amp; Analysis identically</li></ul></div>
+        <div class="con"><strong>Cons</strong><ul><li>Biggest visual change from today</li><li>The muted track on muted track needs the border to separate</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── ANALYSIS FIX ───────────────────────── -->
+  <section>
+    <h2>Analysis sub-tabs → orange (ask #2, simplicity)</h2>
+    <p class="note">You liked the Analysis tab's simplicity but the Breakdown / Distribution / Funnel buttons are AntD <b>blue</b>. Replace the AntD <code>Radio.Group</code> with the <b>same L2 segmented control</b> used for chart types — instant system consistency, zero new patterns.</p>
+    <div class="variant">
+      <div class="vhead"><span class="badge ghost">Reuse</span><h3>Analysis mode, V3 shell</h3></div>
+      <div class="pane">
+        <div class="strip">
+          <div class="pill" data-seg>
+            <button class="pillseg">[chart] Chart</button>
+            <button class="pillseg on">[filter] Analysis</button>
+            <button class="pillseg">[compare] Compare</button>
+          </div>
+          <span class="spacer"></span>
+          <button class="l1" style="padding:6px 8px">[›]</button>
+        </div>
+        <div class="track" data-seg>
+          <div class="seg">
+            <button class="segbtn on">Breakdown</button>
+            <button class="segbtn">Distribution</button>
+            <button class="segbtn">Funnel</button>
+          </div>
+        </div>
+        <div class="pane-body">analysis controls render here</div>
+      </div>
+      <p class="note" style="margin-top:14px;">Implementation: drop AntD <code>Radio.Group</code> in <code>analysis/mode-picker.tsx</code>, render the existing <code>chart-type-toggle</code> segmented styles (extract the <code>Segment</code> styled-component into a shared <code>segmented-control.tsx</code> so Chart &amp; Analysis share one source of truth — DRY).</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── RECOMMENDATION ───────────────────────── -->
+  <section>
+    <h2>Recommendation</h2>
+    <div class="rec">
+      <p><b>Ship V1 now</b> (fixes the height + alignment with a tiny diff), and <b>adopt V3's color discipline immediately</b> for the Analysis sub-tabs (orange segmented, kill the AntD blue). If vertical space later gets tight on small screens, <b>V2's merged row</b> is the natural next step. V3's segmented-pill L1 is the most "designed" end-state — worth it if you want the panel to feel first-class, but it's the largest change so treat it as a follow-up.</p>
+    </div>
+    <p class="note" style="margin-top:16px;">All mocks use the real tokens from <code>src/theme/tokens.css</code>. Bracketed glyphs <code>[~] [▮] [◢] [▦]</code> are placeholders for the actual lucide/antd icons already in the codebase — they're not the final art.</p>
+  </section>
+
+</div>
+
+<script>
+  // Make every segmented group (data-seg) clickable so you can feel the states.
+  document.querySelectorAll('[data-seg]').forEach(function (group) {
+    // collect each independent control inside the group (.seg, .seg-ico, .pill, or the strip itself for underline tabs)
+    var controls = group.matches('.strip-u') ? [group] : group.querySelectorAll('.seg, .seg-ico, .pill');
+    if (controls.length === 0) controls = [group];
+    controls.forEach(function (ctrl) {
+      ctrl.addEventListener('click', function (e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        var sibs = btn.parentElement.querySelectorAll('button');
+        // only toggle within the same tab-like cluster
+        var cluster = btn.closest('.seg, .seg-ico, .pill, .strip-u');
+        if (!cluster) return;
+        cluster.querySelectorAll(':scope > button').forEach(function (b) { b.classList.remove('on'); });
+        if (cluster.matches('.strip-u')) {
+          // underline tabs: only the l1u buttons toggle, not the seg-ico inside
+          if (btn.classList.contains('l1u')) {
+            cluster.querySelectorAll('.l1u').forEach(function (b) { b.classList.remove('on'); });
+            btn.classList.add('on');
+          }
+          return;
+        }
+        btn.classList.add('on');
+      });
+    });
+  });
+</script>
+</body>
+</html>

@@ -50,13 +50,27 @@ const ContainerExpanded = styled.div`
   overflow: hidden;
 `;
 
+/**
+ * Recessed Layer-2 track: holds the brand-filled view selector + tool buttons.
+ * The --bg-muted surface sits one level deeper than the white mode pill above,
+ * so mode (Layer 1) and view (Layer 2) read as nested depth, not rival tabs.
+ */
 const ChartToolRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--bg-muted);
   border-bottom: 1px solid var(--border-card);
   flex-shrink: 0;
+`;
+
+/** Hairline separating the view selector from the action buttons. */
+const ToolDivider = styled.span`
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--border-card);
 `;
 
 const PaneBody = styled.div`
@@ -175,6 +189,9 @@ export function ChartSidePane({
             <ChartToolRow>
               {onChartTypeChange ? (
                 <ChartTypeToggle value={chartType} onChange={onChartTypeChange} />
+              ) : null}
+              {onChartTypeChange && (pivotTrigger || codeTrigger || chartActions) ? (
+                <ToolDivider />
               ) : null}
               {pivotTrigger}
               {codeTrigger}

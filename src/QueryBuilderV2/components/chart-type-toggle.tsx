@@ -7,7 +7,28 @@ import {
 } from '@ant-design/icons';
 import { ChartType } from '@cubejs-client/core';
 
+import { SegmentGroup, SegmentButton } from './segmented-control';
+
 type ToggleChartType = Extract<ChartType, 'line' | 'bar' | 'area' | 'table'>;
+
+/**
+ * Make the toggle a query container so the segments can drop their labels when
+ * the side pane is too narrow to fit four labeled segments + the action buttons.
+ * Below the threshold the control degrades to icon-only (labels stay as the
+ * accessible name); above it, full "Line/Bar/Area/Table" labels show.
+ */
+const Group = styled(SegmentGroup)`
+  container-type: inline-size;
+`;
+
+const Segment = styled(SegmentButton)`
+  @container (max-width: 248px) {
+    /* Drop the label only; :not(.anticon) keeps the chart icon visible. */
+    & > span:not(.anticon) {
+      display: none;
+    }
+  }
+`;
 
 const SEGMENTS: { value: ToggleChartType; label: string; Icon: any }[] = [
   { value: 'line', label: 'Line', Icon: LineChartOutlined },
@@ -16,47 +37,6 @@ const SEGMENTS: { value: ToggleChartType; label: string; Icon: any }[] = [
   { value: 'table', label: 'Table', Icon: TableOutlined },
 ];
 
-const Group = styled.div`
-  display: flex;
-  flex: 1 1 auto;
-  padding: 1px;
-  border-radius: 7px;
-  background: var(--bg-muted);
-  gap: 1px;
-  min-width: 0;
-`;
-
-const Segment = styled.button<{ $active: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1 1 0;
-  min-width: 0;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: ${(p) => (p.$active ? 'var(--brand)' : 'transparent')};
-  color: ${(p) => (p.$active ? 'var(--text-on-brand)' : 'var(--text-secondary)')};
-  font-family: var(--font-sans);
-  font-weight: 500;
-  font-size: 11px;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-  white-space: nowrap;
-
-  &:hover {
-    background: ${(p) => (p.$active ? 'var(--brand)' : 'var(--border-card)')};
-    color: ${(p) => (p.$active ? 'var(--text-on-brand)' : 'var(--text-primary)')};
-  }
-
-  & > span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-`;
-
 type Props = {
   value: ChartType | undefined;
   onChange: (value: ToggleChartType) => void;
@@ -64,7 +44,7 @@ type Props = {
 
 export function ChartTypeToggle({ value, onChange }: Props) {
   return (
-    <Group role="tablist" aria-label="Chart type">
+    <Group $fill role="tablist" aria-label="Chart type">
       {SEGMENTS.map(({ value: v, label, Icon }) => {
         const active = value === v;
         return (
@@ -73,7 +53,10 @@ export function ChartTypeToggle({ value, onChange }: Props) {
             type="button"
             role="tab"
             aria-selected={active}
+            aria-label={label}
+            title={label}
             $active={active}
+            $fill
             onClick={() => onChange(v)}
           >
             <Icon style={{ fontSize: 12 }} />
