@@ -56,33 +56,21 @@ async function ensureClaudeHome(): Promise<void> {
   homeInitialised = true;
 }
 
-// Preflight the LLM gateway. The SDK surfaces an unreachable or hung gateway
-// only as a silent ~2-minute turn timeout (no LLM call, no stderr, no result),
-// because the Claude Code subprocess just waits on a socket that never answers.
-// A short connection probe converts that into an immediate, named error in the
-// agent_error event. Any HTTP response (even 401/404) proves reachability — only
-// a network-level failure (DNS, refused, TLS, timeout) means the chat-service
-// container can't egress to ANTHROPIC_BASE_URL.
-async function assertGatewayReachable(baseUrl: string): Promise<void> {
-  let origin: string;
-  try {
-    origin = new URL(baseUrl).origin;
-  } catch {
-    throw new Error(`ANTHROPIC_BASE_URL is not a valid URL: ${JSON.stringify(baseUrl)}`);
+// Egress proxy vars to forward to the Claude Code subprocess. The LLM gateway
+// (ANTHROPIC_BASE_URL) is a public host; on the network-isolated prod runner it
+// is reachable only through the org HTTP proxy. The SDK passes our explicit env
+// bag to the child verbatim (no process.env inheritance), so the proxy vars must
+// be copied in by hand or the CLI's HTTPS call to the gateway hangs until the
+// turn times out. Internal compose calls bypass the proxy via NO_PROXY (set on
+// the container). Empty in local dev (direct connection) — the loop copies only
+// vars that are actually set, so nothing is forced on.
+function proxyEnvForChild(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of ['http_proxy', 'https_proxy', 'no_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY']) {
+    const v = process.env[k];
+    if (v) out[k] = v;
   }
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 5000);
-  try {
-    await fetch(origin, { method: 'GET', signal: ctrl.signal });
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `LLM gateway unreachable at ${origin} (${reason}). The chat-service container ` +
-        `cannot reach ANTHROPIC_BASE_URL — check the URL, DNS, and egress/proxy from the container.`,
-    );
-  } finally {
-    clearTimeout(timer);
-  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +146,6 @@ export interface RunParams {
  */
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
-  await assertGatewayReachable(config.anthropicBaseUrl);
 
   const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, tracer, resumeId, signal, webSearchEnabled } = params;
 
@@ -217,6 +204,10 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
       mcpServers: { 'cube-playground-tools': mcpServer as any },
       allowedTools: sdkAllowedTools,
       env: {
+        // Forward the org egress proxy first so the explicit keys below can't be
+        // clobbered; the CLI needs it to reach the public LLM gateway from the
+        // isolated runner. No-op in local dev (no proxy vars set).
+        ...proxyEnvForChild(),
         HOME: CLAUDE_HOME,
         ANTHROPIC_API_KEY: config.anthropicApiKey,
         ANTHROPIC_BASE_URL: config.anthropicBaseUrl,

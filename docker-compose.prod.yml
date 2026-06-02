@@ -85,6 +85,20 @@ services:
       CHAT_DB_PATH: /data/chat.db
       # Topology: chat reaches the API by its compose service name, not localhost.
       SERVER_BASE_URL: http://server:3004
+      # Runtime egress proxy. The LLM gateway (ANTHROPIC_BASE_URL =
+      # aawp-litellm-testing.vnggames.net → a PUBLIC IP) is reachable from the
+      # network-isolated runner only via the org proxy; without it the Claude Code
+      # subprocess's HTTPS call hangs until the turn times out. The deploy shell
+      # exports http_proxy/https_proxy (same values the build uses), interpolated
+      # here at `up` time. Internal compose hosts must bypass the proxy, so NO_PROXY
+      # lists them — note .vnggames.net is NOT excluded (the gateway is public and
+      # MUST go through the proxy; internal Trino is reached by cube_api, not here).
+      http_proxy: ${http_proxy:-}
+      https_proxy: ${https_proxy:-}
+      HTTP_PROXY: ${http_proxy:-}
+      HTTPS_PROXY: ${https_proxy:-}
+      no_proxy: ${CHAT_NO_PROXY:-localhost,127.0.0.1,server,chat-service,cube_api,cubestore}
+      NO_PROXY: ${CHAT_NO_PROXY:-localhost,127.0.0.1,server,chat-service,cube_api,cubestore}
     volumes:
       - chat-data:/data
     restart: unless-stopped
