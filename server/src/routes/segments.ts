@@ -73,32 +73,42 @@ function hydrateSegment(
   row: Record<string, unknown>,
   db: ReturnType<typeof getDb>,
   preloadedTags?: string[],
+  // The list view passes false: a segment's uid_list_json can be megabytes
+  // (large cohorts have millions of uids), and JSON.parse is synchronous —
+  // parsing every row on the single Node thread blocks the event loop and
+  // starves all other requests. The list only needs uid_count; the full uid
+  // array is fetched per-segment on the detail route.
+  includeUidList = true,
 ) {
+  // Never ship the raw JSON blob: no consumer reads `uid_list_json`, and for
+  // large cohorts it doubles the payload alongside the parsed `uid_list`.
+  const { uid_list_json, ...rest } = row;
+
   const tags =
     preloadedTags ??
     (
-      db.prepare('SELECT tag FROM segment_tags WHERE segment_id = ?').all(row.id) as {
+      db.prepare('SELECT tag FROM segment_tags WHERE segment_id = ?').all(rest.id) as {
         tag: string;
       }[]
     ).map((r) => r.tag);
 
   let activations: unknown[] = [];
   try {
-    activations = JSON.parse((row.activations_json as string) ?? '[]');
+    activations = JSON.parse((rest.activations_json as string) ?? '[]');
     if (!Array.isArray(activations)) activations = [];
   } catch {
     activations = [];
   }
 
   return {
-    ...row,
+    ...rest,
     tags,
-    predicate_tree: row.predicate_tree_json
-      ? JSON.parse(row.predicate_tree_json as string)
+    predicate_tree: rest.predicate_tree_json
+      ? JSON.parse(rest.predicate_tree_json as string)
       : null,
-    uid_list: JSON.parse((row.uid_list_json as string) ?? '[]'),
+    uid_list: includeUidList ? JSON.parse((uid_list_json as string) ?? '[]') : [],
     activations,
-    funnel_json: (row.funnel_json as string | null) ?? null,
+    funnel_json: (rest.funnel_json as string | null) ?? null,
   };
 }
 
@@ -145,7 +155,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       rows.map((r) => r.id as string),
       db,
     );
-    return rows.map((r) => hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? []));
+    // Skip uid_list hydration on the list — see hydrateSegment's includeUidList.
+    return rows.map((r) => hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? [], false));
   });
 
   // POST /api/segments

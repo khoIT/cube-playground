@@ -28,16 +28,12 @@ interface Props {
   knownTags: string[];
 }
 
-function downloadCsv(rows: Segment[]): void {
-  const uids = new Set<string>();
-  for (const s of rows) {
-    for (const uid of s.uid_list ?? []) uids.add(uid);
-  }
+function downloadCsv(uids: Set<string>, segmentCount: number): void {
   const blob = new Blob(['uid\n' + Array.from(uids).join('\n')], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `segments-${rows.length}-uids.csv`;
+  a.download = `segments-${segmentCount}-uids.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -177,16 +173,38 @@ export function BulkActionsToolbar({ selected, onClear, onChanged, knownTags }: 
     onChanged();
   }
 
-  function handleExport(): void {
+  async function handleExport(): Promise<void> {
     setBusy('export');
-    downloadCsv(selected);
+    // The library list response omits uid_list (it can be megabytes per
+    // segment); fetch each selected segment's full uids on demand here.
+    const uids = new Set<string>();
+    const { failed, lastError } = await runBatch(selected, async (s) => {
+      const full = await segmentsClient.get(s.id);
+      for (const uid of full.uid_list ?? []) uids.add(uid);
+    });
     setBusy(null);
-    message.success(
-      t('segments.actions.bulk.exportOk', {
-        defaultValue: 'Exported uids from {{count}} segment(s)',
-        count: selected.length,
-      }),
-    );
+    if (failed === selected.length) {
+      message.error(lastError ?? 'Export failed');
+      return;
+    }
+    downloadCsv(uids, selected.length);
+    if (failed === 0) {
+      message.success(
+        t('segments.actions.bulk.exportOk', {
+          defaultValue: 'Exported uids from {{count}} segment(s)',
+          count: selected.length,
+        }),
+      );
+    } else {
+      message.warning(
+        t('segments.actions.bulk.exportPartial', {
+          defaultValue: 'Exported {{ok}}, {{failed}} failed: {{reason}}',
+          ok: selected.length - failed,
+          failed,
+          reason: lastError ?? '',
+        }),
+      );
+    }
   }
 
   return (

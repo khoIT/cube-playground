@@ -238,6 +238,16 @@ Format per lesson:
 
 ---
 
+## Performance / event loop
+
+### A list route that JSON.parses a large per-row column starves the single event loop
+- **Rule:** a list/index endpoint must never `JSON.parse` (or do unbounded synchronous CPU on) a column that can grow large, once per row. Node is single-threaded and better-sqlite3 is synchronous, so the parse blocks *every* concurrent request — a trivial `/health` poll suddenly takes seconds. List views return summary columns (counts); the heavy payload is fetched per-item on the detail route.
+- **Why:** `GET /api/segments` did `SELECT *` then `hydrateSegment` per row, which `JSON.parse`'d each segment's `uid_list_json`. Two seed cohorts carried ~2.2 MB each (1M+ uids); ~7.5 MB of JSON parsed synchronously per call ≈ 180 ms of pure main-thread block. `...row` also shipped the raw blob *and* the parsed array (double payload). Under concurrent clicks/polls the blocks serialized — a load probe showed `/api/health` p99 going 0 ms idle → 2172 ms under 30 connections, throughput pinned at 55 req/s; the event-loop monitor logged `maxMs` 1131–1343 ms blocked. Fix: list passes `includeUidList=false` (skip the parse, never ship `uid_list_json`); detail route still hydrates full uids. Result: 182 ms → 7 ms single-request, 55 → 629 req/s, probe p99 2172 → 235 ms.
+- **Signal:** a *trivial* endpoint (health, notifications, a static read) returns 504 / multi-second `responseTime` while the server is busy — the giveaway is the slow endpoint being cheap, so the time is queueing behind a blocked loop, not its own work. `[event-loop] blocked over threshold` warns fire (see `runtime-observability.ts`). A list response is suspiciously large; one column dominates its bytes.
+- **Apply:** grep list/index handlers for `JSON.parse` of a `*_json` column inside a `.map`/loop; gate it behind an `include*` flag the detail route sets true and the list sets false, and destructure the raw blob out of the spread so it's never serialized. Confirm with the load harness (`load-test/`, latency-under-load: probe a cheap endpoint while driving the heavy one) that the cheap path's p99 stops ballooning. Any FE list code that consumed the full array (here the bulk CSV export) must fetch it per-item on demand instead. Both services ship `[slow-request]` + `[event-loop]` warns so the next instance is greppable in `logs/dev-all.log` rather than hunted by hand.
+
+---
+
 ## Deployment / Docker build
 
 ### The prod image builds from a clean checkout in network isolation — commit every build input, forward the proxy
