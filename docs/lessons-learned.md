@@ -231,6 +231,34 @@ Format per lesson:
 
 ---
 
+## Deployment / Docker build
+
+### The prod image builds from a clean checkout in network isolation — commit every build input, forward the proxy
+- **Rule:** the production image builds from tracked files only, inside a sandbox with no direct internet. Every input a `RUN` step needs must be (1) committed to git and (2) reachable through the org proxy. Gitignored lockfiles, host-only env, and ambient registry config simply don't exist in the build context.
+- **Why:** the prod deploy died in sequence, each blocker hidden behind the last. `COPY package-lock.json` failed — the 3 lockfiles were gitignored. Once committed, `apt-get` then `npm` hit "Network is unreachable" (build `RUN` steps have no internet; they need `HTTP_PROXY`/`HTTPS_PROXY` forwarded as build args). The first proxy fix used a dedicated `BUILD_HTTP_PROXY` that was **empty** in CI (`length: 0` in the trace) — fixed by falling back to the CI host's always-exported `http_proxy`/`https_proxy`. Then `npm ci` ERESOLVE'd (antd@4 vs `@ant-design/compatible` peer) because `.npmrc` (`legacy-peer-deps`) was never `COPY`'d into the deps stage. None reproduced on a dev box — it had internet, the lockfiles on disk, and global npm config.
+- **Signal:** `COPY <file>: not found` during build; `Network is unreachable` / errno 101 / `ETIMEDOUT` in an apt/npm/pip `RUN`; an `npm ci` ERESOLVE that doesn't repro locally; "builds fine in dev compose" but fails in CI. A `BUILD_*` proxy var that traces as empty.
+- **Apply:** un-ignore and commit lockfiles (`npm ci` requires them; verify `npm ci --dry-run` is in sync first). Wire proxy build args through a compose anchor with host fallback — `${BUILD_HTTP_PROXY:-${http_proxy:-}}` (nested default works in compose ≥ v2). Forward both upper- and lower-case (`HTTP_PROXY` + `http_proxy`) since tools split on convention. `COPY .npmrc ./` before `npm ci`. A green `docker compose build` on a laptop proves nothing about the sandboxed CI build — the only honest test is the CI pipeline (or `docker build` with networking disabled).
+
+### tsconfig `rootDir`/`include` defines the emit layout — keep it aligned with the container's CMD and COPY paths
+- **Rule:** a service that ships as `node dist/index.js` must have a tsconfig that emits the entry at exactly `dist/index.js`. `rootDir: "."` plus an `include` that pulls in `test/` makes `tsc` mirror the source tree under `dist/` (→ `dist/src/index.js`) and scatter compiled test files into the image — silently shifting the entry path and every relative COPY target the Dockerfile was written for.
+- **Why:** server + chat-service both used `rootDir: "."` and `include: ["src/**/*", "test/**/*"]`, so `tsc` emitted to `dist/src/index.js` while the Dockerfile ran `node dist/index.js` and copied migrations to `dist/db/migrations`. The server container crashed with `MODULE_NOT_FOUND` and never became healthy; because `web depends_on server: { condition: service_healthy }`, the whole deploy aborted — a build that compiled cleanly still failed to ship. chat-service carried the identical latent defect, invisible only because nothing gates on its health.
+- **Signal:** a container exits immediately with `MODULE_NOT_FOUND` / "Cannot find module …/dist/index.js"; `dist/` has an unexpected extra `src/` level or stray compiled `*.test.js`; a health-gated dependent service (web) aborts the deploy even though its own image built green.
+- **Apply:** set `rootDir: "src"` and scope `include` to `["src/**/*"]` so the entry lands at `dist/index.js`; tests run via their own vitest config and need no `tsc` emit. Reproduce the prod boot locally — run the compiled output (or the image) and hit the healthcheck (`/api/health` → 200) — before pushing; a passing `tsc`/`vite build` says nothing about the runtime entry path. Audit sibling services for the same defect; the one nothing health-gates will be broken silently.
+
+### Don't gate the prod bundle on a whole-repo typecheck
+- **Rule:** the production bundle step (`vite build` / esbuild) must not be chained behind `tsc --noEmit`. esbuild transpiles without type-checking, so type debt that never reaches the emitted bundle — false positives from loose `strictNullChecks`, stale test fixtures, third-party prop-type drift — will block an otherwise-shippable deploy. Keep typecheck a separate, non-blocking job.
+- **Why:** `build: "tsc --noEmit && vite build"` failed CI on 73 pre-existing type errors, none of which affected the esbuild output. The deploy was blocked by debt entirely unrelated to the change being shipped; `vite build` alone succeeded in ~30s.
+- **Signal:** prod build/deploy fails only at the `tsc` step, in files the current change never touched; the bundler step succeeds on its own; the error count is large and clearly pre-existing.
+- **Apply:** `build: vite build`; keep `typecheck: tsc --noEmit` and a `build:strict` alias for local/PR use. If you want type safety in CI, add typecheck as its own job that can fail without blocking deploy — not a serial prereq of the bundle. Caveat: loose strictness masks real bugs too, so a clean typecheck still has value (just not as the deploy gate) — fix genuine type errors on their own track.
+
+### Verify component props against the *installed* major version, not the API you remember
+- **Rule:** before using a library component prop, confirm it against the version in the lockfile. Major versions rename props with no deprecation shim, and the wrong name often type-checks loosely (or the gate is off) so it fails silently at runtime, not at build.
+- **Why:** an "activate to CDP" modal used antd v5's `<Modal open={…}>` but the project pins antd `4.16.13`, where the prop is `visible`. The modal simply never opened — no error, the trigger looked dead. Surfaced only while auditing the type errors during the deploy.
+- **Signal:** a component renders nothing / does nothing with no console error; a boolean-controlled widget (modal, drawer, popover, tooltip) ignores its open state; the prop name matches current docs but the installed major version is older.
+- **Apply:** check `package.json`/lockfile for the major version, then the prop name for *that* version (antd v4 `visible` → v5 `open`; similar churn in MUI, react-router, recharts). When `strict`/`strictNullChecks` is off, TS won't catch an extra/wrong prop — treat the installed-version check as manual.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
