@@ -1,5 +1,5 @@
 /**
- * Starter Library — 16 canonical business questions surfaced as clickable
+ * Starter Library — 18 canonical business questions surfaced as clickable
  * cards on the chat landing page (phase-01).
  *
  * Each starter declares:
@@ -8,7 +8,7 @@
  *   - targetCatalogIds = catalog ids referenced; a CI test asserts they
  *     resolve via use-catalog-meta (no parallel definitions allowed).
  *
- * Cold-start (sessions < STARTER_RANK_MIN_SESSIONS) shows all 16 unranked.
+ * Cold-start (sessions < STARTER_RANK_MIN_SESSIONS) shows all 18 unranked.
  * After threshold, persona-histogram.ts cosine-ranks by user topic mix.
  */
 
@@ -38,7 +38,7 @@ export interface StarterQuestion {
 }
 
 export const STARTER_QUESTIONS: ReadonlyArray<StarterQuestion> = [
-  // ---- PM-leaning (product / retention / engagement) ----
+  // ---- PM-leaning (retention curves, lifecycle & engagement segments) ----
   {
     id: 'dau-trend',
     text: 'How is DAU trending over the last 30 days?',
@@ -47,111 +47,125 @@ export const STARTER_QUESTIONS: ReadonlyArray<StarterQuestion> = [
     targetCatalogIds: ['business_metrics/dau'],
   },
   {
-    id: 'd7-retention',
-    text: 'What is our D7 retention for new players this month?',
+    id: 'new-cohort-retention-curve',
+    text: "Plot the D1 → D30 retention curve for this month's new-player cohort",
     personaTags: ['pm', 'analyst'],
     categoryTags: ['metric_explain', 'explore'],
-    targetCatalogIds: ['business_metrics/d7_retention'],
+    targetCatalogIds: ['new_user_retention.rnru_d7', 'new_user_retention.retention_d30'],
   },
   {
-    id: 'retention-curve-compare',
-    text: 'Compare retention curves across the last three cohorts',
+    id: 'retention-cohort-compare',
+    text: 'Compare retention curves across the last three install cohorts',
     personaTags: ['pm', 'analyst'],
     categoryTags: ['compare'],
-    targetCatalogIds: ['business_metrics/d1_retention', 'business_metrics/d7_retention', 'business_metrics/d30_retention'],
+    targetCatalogIds: ['new_user_retention.rnru_d1', 'new_user_retention.rnru_d7', 'new_user_retention.rnru_d30'],
   },
   {
-    id: 'at-risk-whales',
-    text: 'Which whales have not logged in this week?',
+    id: 'lifecycle-mix',
+    text: 'Break down the player base by lifecycle stage',
+    personaTags: ['pm', 'analyst'],
+    categoryTags: ['explore'],
+    targetCatalogIds: ['mf_users.lifecycle_stage', 'mf_users.user_count'],
+  },
+  {
+    id: 'dormant-whales',
+    text: "Which whales haven't logged in for 7+ days? (win-back list)",
     personaTags: ['pm', 'marketer'],
     categoryTags: ['explore', 'diagnose'],
-    targetCatalogIds: ['business_metrics/whale_payer'],
+    targetCatalogIds: ['mf_users.payer_tier', 'mf_users.days_since_last_active'],
   },
   {
-    id: 'session-length-drop',
-    text: 'Why did average session length drop this week?',
+    id: 'churn-risk-payers',
+    text: 'Build a segment of paying users flagged as high churn-risk',
     personaTags: ['pm', 'analyst'],
-    categoryTags: ['diagnose'],
-    targetCatalogIds: ['business_metrics/avg_session_length'],
+    categoryTags: ['diagnose', 'explore'],
+    targetCatalogIds: ['mf_users.churn_risk', 'mf_users.payer_tier'],
   },
-  // ---- Marketer-leaning (revenue / campaigns / acquisition) ----
+  // ---- Marketer-leaning (acquisition economics: spend / CPI / ROAS / quality) ----
   {
-    id: 'revenue-7d',
-    text: 'Show daily revenue for the last 7 days',
-    personaTags: ['marketer', 'analyst', 'pm'],
-    categoryTags: ['explore'],
-    targetCatalogIds: ['business_metrics/revenue'],
+    id: 'spend-by-channel',
+    text: 'How is marketing spend split across acquisition channels this month?',
+    personaTags: ['marketer'],
+    categoryTags: ['explore', 'compare'],
+    targetCatalogIds: ['marketing_cost.cost_vnd', 'business_metrics/cost'],
   },
   {
-    id: 'arpdau-mom',
-    text: 'Compare ARPDAU month-over-month',
-    personaTags: ['marketer', 'analyst'],
-    categoryTags: ['compare', 'metric_explain'],
-    targetCatalogIds: ['business_metrics/arpdau'],
+    id: 'cpi-by-channel',
+    text: 'Which acquisition channels have the best CPI right now?',
+    personaTags: ['marketer'],
+    categoryTags: ['compare', 'explore'],
+    targetCatalogIds: ['game_key_metrics.cpi_vnd', 'business_metrics/cpi'],
   },
   {
     id: 'top-campaigns-roas',
     text: 'Top 10 campaigns by ROAS this quarter',
-    personaTags: ['marketer'],
-    categoryTags: ['explore', 'compare'],
-    targetCatalogIds: ['business_metrics/roas'],
-  },
-  {
-    id: 'cpi-by-channel',
-    text: 'Break down CPI by acquisition channel',
-    personaTags: ['marketer'],
-    categoryTags: ['explore', 'compare'],
-    targetCatalogIds: ['business_metrics/cpi'],
-  },
-  {
-    id: 'revenue-by-country',
-    text: 'Where is revenue concentrated by country?',
     personaTags: ['marketer', 'analyst'],
     categoryTags: ['explore', 'compare'],
-    targetCatalogIds: ['business_metrics/revenue'],
+    targetCatalogIds: ['game_key_metrics.roas', 'business_metrics/roas'],
   },
-  // ---- Analyst-leaning (conversion / funnels / diagnostics) ----
   {
-    id: 'ltv-by-cohort',
-    text: 'What is LTV by install cohort?',
+    id: 'paid-vs-organic-quality',
+    text: 'Compare paid vs organic install quality — D7 retention and payer rate',
+    personaTags: ['marketer', 'analyst'],
+    categoryTags: ['compare', 'diagnose'],
+    targetCatalogIds: ['game_key_metrics.retention_d7', 'game_key_metrics.payer_rate'],
+  },
+  {
+    id: 'spend-to-purchase-funnel',
+    text: 'Trace the spend → install → new user → first purchase funnel by channel',
+    personaTags: ['marketer', 'analyst'],
+    categoryTags: ['explore', 'diagnose'],
+    targetCatalogIds: ['game_key_metrics.cost_vnd', 'game_key_metrics.installs', 'game_key_metrics.npu'],
+  },
+  {
+    id: 'high-ltv-source',
+    text: 'Which acquisition sources bring the highest-LTV players?',
+    personaTags: ['marketer', 'analyst'],
+    categoryTags: ['compare', 'explore'],
+    targetCatalogIds: ['mf_users.ltv_total_vnd', 'business_metrics/ltv'],
+  },
+  // ---- Analyst-leaning (monetization, payer value & outreach segments) ----
+  {
+    id: 'ltv-by-install-month',
+    text: 'What is LTV by install-month cohort?',
     personaTags: ['analyst', 'marketer'],
     categoryTags: ['metric_explain', 'compare'],
-    targetCatalogIds: ['business_metrics/ltv'],
+    targetCatalogIds: ['mf_users.ltv_total_vnd', 'business_metrics/ltv'],
   },
   {
-    id: 'conversion-funnel',
-    text: 'Walk me through the install → first-purchase funnel',
+    id: 'revenue-by-payer-tier',
+    text: 'How is revenue distributed across payer tiers (whale / dolphin / minnow)?',
     personaTags: ['analyst', 'pm'],
+    categoryTags: ['explore', 'compare'],
+    targetCatalogIds: ['mf_users.payer_tier', 'mf_users.ltv_total_vnd'],
+  },
+  {
+    id: 'vip-outreach-list',
+    text: 'Give me a prioritized list of top VIP players — by VIP level and lifetime spend — for the CS team to reach out to',
+    personaTags: ['pm', 'marketer'],
+    categoryTags: ['explore'],
+    targetCatalogIds: ['mf_users.max_vip_level', 'mf_users.ltv_vnd', 'mf_users.payer_tier'],
+  },
+  {
+    id: 'reactivation-targets',
+    text: 'Find lapsed high-value players to win back — paid before, inactive 14+ days',
+    personaTags: ['marketer', 'analyst'],
     categoryTags: ['explore', 'diagnose'],
-    targetCatalogIds: ['business_metrics/first_purchase_rate'],
+    targetCatalogIds: ['mf_users.days_since_last_active', 'mf_users.ltv_vnd'],
   },
   {
-    id: 'churn-spike',
-    text: 'Why did churn spike for week-old players?',
-    personaTags: ['analyst', 'pm'],
-    categoryTags: ['diagnose'],
-    targetCatalogIds: ['business_metrics/churn_rate'],
-  },
-  {
-    id: 'payer-conversion',
-    text: 'What fraction of DAU converted to paying users last week?',
+    id: 'new-payer-velocity',
+    text: 'What share of new users convert to payers within 7 days?',
     personaTags: ['analyst', 'marketer'],
     categoryTags: ['metric_explain', 'explore'],
-    targetCatalogIds: ['business_metrics/payer_conversion_rate'],
+    targetCatalogIds: ['new_user_retention.rpnpu_d7', 'business_metrics/paying_rate'],
   },
   {
-    id: 'compare-platforms',
-    text: 'Compare iOS vs Android revenue this month',
+    id: 'platform-arpu-compare',
+    text: 'Compare iOS vs Android ARPU and revenue this month',
     personaTags: ['analyst', 'marketer', 'pm'],
     categoryTags: ['compare'],
-    targetCatalogIds: ['business_metrics/revenue'],
-  },
-  {
-    id: 'arpu-by-country',
-    text: 'Which countries have the highest ARPU?',
-    personaTags: ['analyst', 'marketer'],
-    categoryTags: ['explore', 'compare'],
-    targetCatalogIds: ['business_metrics/arpu'],
+    targetCatalogIds: ['mf_users.arpu_vnd', 'business_metrics/arpu'],
   },
 ];
 
