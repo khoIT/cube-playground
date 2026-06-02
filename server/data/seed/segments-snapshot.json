@@ -60,10 +60,10 @@
       "uid_count": 58,
       "uid_list_json": "[\"3468645525040234496\",\"3469351130630725632\",\"3469796026282033152\",\"3469838159276507136\",\"3469918885524422656\",\"3470414872991506432\",\"3470867533222608896\",\"3472390438768541696\",\"3472705942719152128\",\"3474222896663724032\",\"3475241278230470656\",\"3475528681235128320\",\"3476068037418033152\",\"3476442225999880192\",\"3479174700403367936\",\"3480898389249630208\",\"3484307747024052224\",\"3485156461955194880\",\"3485435949039960064\",\"3485822835768115200\",\"3485889529330704384\",\"3486568899944718336\",\"3487240812553510912\",\"3487879834928160768\",\"3488318793354567680\",\"3488793054023204864\",\"3488800398131896320\",\"3488881187162988544\",\"3489372041658228736\",\"3489622034483159040\",\"3489872067567714304\",\"3490103438647132160\",\"3490287845131583488\",\"3490291147580809216\",\"3490769870361362432\",\"3490777238082101248\",\"3490786993376755712\",\"3491113283702218752\",\"3491261299252690944\",\"3491807713702699008\",\"3491959713022427136\",\"3492247034574028800\",\"3492465920938491904\",\"3492549797138038784\",\"3492623980954034176\",\"3492733597879369728\",\"3493289258937827328\",\"3493465736639856640\",\"3493864314685087744\",\"3493976187937636352\",\"3494177407600418816\",\"3494354077631725568\",\"3494550928784244736\",\"3494665551118589952\",\"3495036007926808576\",\"3495528291601211392\",\"3497146699291500544\",\"3497392105369026560\"]",
       "refresh_cadence_min": 60,
-      "last_refreshed_at": "2026-06-02T20:42:37.625Z",
+      "last_refreshed_at": "2026-06-02T21:43:31.976Z",
       "broken_reason": null,
       "created_at": "2026-05-19T12:12:54.331Z",
-      "updated_at": "2026-06-02T20:42:37.625Z",
+      "updated_at": "2026-06-02T21:43:31.976Z",
       "predicate_meta_version": "b60f1833579f128d587e9ce27233a35ed910e1776c9711075b8ee2ea3e107b6f",
       "game_id": "ballistar",
       "activations_json": "[]",
@@ -615,44 +615,44 @@
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "card:overview:country-comp",
-      "query_hash": "496090fbed961fcd",
-      "rows_json": "[{\"mf_users.country\":\"VN\",\"mf_users.user_count\":73},{\"mf_users.country\":\"OT\",\"mf_users.user_count\":7}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "172d98a88632db68",
+      "rows_json": "[{\"mf_users.country\":\"VN\",\"mf_users.user_count\":55},{\"mf_users.country\":\"OT\",\"mf_users.user_count\":3}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "card:overview:installs-90d",
-      "query_hash": "1e688f2c4c8268bc",
-      "rows_json": "[{\"mf_users.install_date.day\":\"2026-04-07T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-07T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-08T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-08T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-09T00:00:00.000\",\"mf_users.user_count\":7,\"mf_users.install_date\":\"2026-04-09T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-10T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-04-10T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-12T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-12T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-13T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-13T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-15T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-15T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-16T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-16T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-17T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-17T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-18T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-18T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-22T00:00:00.000\",\"mf_users.user_count\":4,\"mf_users.install_date\":\"2026-04-22T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-24T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-04-24T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-26T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-26T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-30T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-30T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-01T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-05-01T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-02T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-02T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-03T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-03T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-04T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-04T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-05T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-05T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-06T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-05-06T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-07T00:00:00.000\",\"mf_users.user_count\":6,\"mf_users.install_date\":\"2026-05-07T00:00:00.000\"}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "beda5445e05b8f71",
+      "rows_json": "[{\"mf_users.install_date.day\":\"2026-04-07T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-07T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-08T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-08T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-09T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-04-09T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-10T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-10T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-12T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-12T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-13T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-13T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-15T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-15T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-16T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-16T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-17T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-17T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-18T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-18T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-22T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-22T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-24T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-04-24T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-04-30T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-04-30T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-01T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-01T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-02T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-05-02T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-03T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-05-03T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-04T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-04T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-05T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-05T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-06T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-06T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-07T00:00:00.000\",\"mf_users.user_count\":4,\"mf_users.install_date\":\"2026-05-07T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-08T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-05-08T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-09T00:00:00.000\",\"mf_users.user_count\":4,\"mf_users.install_date\":\"2026-05-09T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-10T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-05-10T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-11T00:00:00.000\",\"mf_users.user_count\":1,\"mf_users.install_date\":\"2026-05-11T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-12T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-05-12T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-13T00:00:00.000\",\"mf_users.user_count\":3,\"mf_users.install_date\":\"2026-05-13T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-14T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-14T00:00:00.000\"},{\"mf_users.install_date.day\":\"2026-05-17T00:00:00.000\",\"mf_users.user_count\":2,\"mf_users.install_date\":\"2026-05-17T00:00:00.000\"}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "card:overview:lifecycle-comp",
-      "query_hash": "224883ad28183896",
-      "rows_json": "[{\"mf_users.lifecycle_stage\":\"active_7d\",\"mf_users.user_count\":46},{\"mf_users.lifecycle_stage\":\"active_30d\",\"mf_users.user_count\":34}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "efbfbc133c54ee72",
+      "rows_json": "[{\"mf_users.lifecycle_stage\":\"active_30d\",\"mf_users.user_count\":58}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "card:overview:media-comp",
-      "query_hash": "cd6f9cccf1952216",
-      "rows_json": "[{\"mf_users.media_source\":null,\"mf_users.user_count\":29},{\"mf_users.media_source\":\"Tiktok Ads\",\"mf_users.user_count\":20},{\"mf_users.media_source\":\"organic\",\"mf_users.user_count\":13},{\"mf_users.media_source\":\"Facebook Ads\",\"mf_users.user_count\":9},{\"mf_users.media_source\":\"Apple Search Ads\",\"mf_users.user_count\":6},{\"mf_users.media_source\":\"Google Ads\",\"mf_users.user_count\":3}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "f5434ce2c794617d",
+      "rows_json": "[{\"mf_users.media_source\":\"Tiktok Ads\",\"mf_users.user_count\":18},{\"mf_users.media_source\":\"Facebook Ads\",\"mf_users.user_count\":11},{\"mf_users.media_source\":\"organic\",\"mf_users.user_count\":11},{\"mf_users.media_source\":\"Apple Search Ads\",\"mf_users.user_count\":7},{\"mf_users.media_source\":\"Google Ads\",\"mf_users.user_count\":5},{\"mf_users.media_source\":null,\"mf_users.user_count\":4}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "card:overview:platform-comp",
-      "query_hash": "36d1a23256192e2e",
-      "rows_json": "[{\"mf_users.os_platform\":\"ios\",\"mf_users.user_count\":42},{\"mf_users.os_platform\":\"android\",\"mf_users.user_count\":38}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "09b3edd1eeb99121",
+      "rows_json": "[{\"mf_users.os_platform\":\"android\",\"mf_users.user_count\":29},{\"mf_users.os_platform\":\"ios\",\"mf_users.user_count\":29}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "card:overview:top-campaigns",
-      "query_hash": "a5225c5e1f1ddfd6",
-      "rows_json": "[{\"mf_users.campaign_id\":null,\"mf_users.user_count\":42},{\"mf_users.campaign_id\":\"1862646020334689\",\"mf_users.user_count\":4},{\"mf_users.campaign_id\":\"6936710795941\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"1863250010185137\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"2143646003\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"6937949996941\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"23806676107\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"52515062263931\",\"mf_users.user_count\":1}]",
-      "fetched_at": "2026-05-23T17:43:54.169Z"
+      "query_hash": "bb6b04663c8d0201",
+      "rows_json": "[{\"mf_users.campaign_id\":null,\"mf_users.user_count\":14},{\"mf_users.campaign_id\":\"1862646020334689\",\"mf_users.user_count\":4},{\"mf_users.campaign_id\":\"23806676107\",\"mf_users.user_count\":4},{\"mf_users.campaign_id\":\"23729376477\",\"mf_users.user_count\":3},{\"mf_users.campaign_id\":\"18906\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"6937945802741\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"2143646003\",\"mf_users.user_count\":2},{\"mf_users.campaign_id\":\"6937949996941\",\"mf_users.user_count\":2}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
@@ -685,9 +685,9 @@
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "kpi:arpu",
-      "query_hash": "ebb9d703b94bcea4",
-      "rows_json": "[{\"mf_users.arpu_vnd\":4682362.5}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "29d5f2237229bf4d",
+      "rows_json": "[{\"mf_users.arpu_vnd\":5241896.551724138}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
@@ -699,23 +699,23 @@
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "kpi:engagement:paying-30d",
-      "query_hash": "b177afa2354637a6",
-      "rows_json": "[{\"mf_users.paying_users_30d\":80}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "9365267d6567d36c",
+      "rows_json": "[{\"mf_users.paying_users_30d\":58}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "kpi:engagement:rate-30d",
-      "query_hash": "fecddefbac1143e7",
-      "rows_json": "[{\"mf_users.paying_rate_30d\":\"1.0\"}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "3c15c9c68bf5c539",
+      "rows_json": "[{\"mf_users.paying_rate_30d\":1}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "kpi:ltv",
-      "query_hash": "df38aa62ae201b99",
-      "rows_json": "[{\"mf_users.ltv_total_vnd\":374589000}]",
-      "fetched_at": "2026-05-23T05:10:48.015Z"
+      "query_hash": "b5c58a674adbbf14",
+      "rows_json": "[{\"mf_users.ltv_total_vnd\":304030000}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
@@ -748,9 +748,9 @@
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
       "card_id": "kpi:paying",
-      "query_hash": "988dd953c092fca8",
-      "rows_json": "[{\"mf_users.paying_users\":80}]",
-      "fetched_at": "2026-05-23T06:10:06.093Z"
+      "query_hash": "9e509a010b639cea",
+      "rows_json": "[{\"mf_users.paying_users\":58}]",
+      "fetched_at": "2026-06-02T21:44:51.078Z"
     },
     {
       "segment_id": "b92b61ff-30a8-44b0-8a89-8064d8362c61",
