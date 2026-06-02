@@ -56,6 +56,35 @@ async function ensureClaudeHome(): Promise<void> {
   homeInitialised = true;
 }
 
+// Preflight the LLM gateway. The SDK surfaces an unreachable or hung gateway
+// only as a silent ~2-minute turn timeout (no LLM call, no stderr, no result),
+// because the Claude Code subprocess just waits on a socket that never answers.
+// A short connection probe converts that into an immediate, named error in the
+// agent_error event. Any HTTP response (even 401/404) proves reachability — only
+// a network-level failure (DNS, refused, TLS, timeout) means the chat-service
+// container can't egress to ANTHROPIC_BASE_URL.
+async function assertGatewayReachable(baseUrl: string): Promise<void> {
+  let origin: string;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    throw new Error(`ANTHROPIC_BASE_URL is not a valid URL: ${JSON.stringify(baseUrl)}`);
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    await fetch(origin, { method: 'GET', signal: ctrl.signal });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `LLM gateway unreachable at ${origin} (${reason}). The chat-service container ` +
+        `cannot reach ANTHROPIC_BASE_URL — check the URL, DNS, and egress/proxy from the container.`,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tool definition shape accepted by this runner
 // ---------------------------------------------------------------------------
@@ -129,6 +158,7 @@ export interface RunParams {
  */
 export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
+  await assertGatewayReachable(config.anthropicBaseUrl);
 
   const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, tracer, resumeId, signal, webSearchEnabled } = params;
 
