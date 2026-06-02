@@ -29,7 +29,7 @@ export function ActivateToCdpModal({
   const { t } = useTranslation();
   return (
     <Modal
-      open={open}
+      visible={open}
       title={t('segments.activate.modalTitle', { defaultValue: 'Activate to CDP' })}
       onCancel={onClose}
       footer={null}
