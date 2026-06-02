@@ -11,12 +11,27 @@
 # Public port: pick one in 11000–20000, set PUBLIC_PORT, log it in
 # Apps-Configuration.xlsx, then have GIO point the domain at it.
 
+# Build-time proxy passed into every image build. CI runs on a network-isolated
+# runner whose build steps (apt, npm) reach the internet only via the org proxy;
+# the shared deploy template exports BUILD_HTTP_PROXY / BUILD_NO_PROXY for exactly
+# this. Empty when unset (local builds) → a direct connection. BuildKit injects
+# the predefined *_PROXY args into every RUN and keeps them out of image history.
+x-build-proxy-args: &build-proxy-args
+  HTTP_PROXY: ${BUILD_HTTP_PROXY:-}
+  HTTPS_PROXY: ${BUILD_HTTP_PROXY:-}
+  NO_PROXY: ${BUILD_NO_PROXY:-}
+  http_proxy: ${BUILD_HTTP_PROXY:-}
+  https_proxy: ${BUILD_HTTP_PROXY:-}
+  no_proxy: ${BUILD_NO_PROXY:-}
+
 services:
   server:
     build:
       context: .
       dockerfile: Dockerfile
       target: server
+      args:
+        <<: *build-proxy-args
     image: cube-playground-server:${TAG:-latest}
     env_file: .env
     environment:
@@ -41,6 +56,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: chat-service
+      args:
+        <<: *build-proxy-args
     image: cube-playground-chat:${TAG:-latest}
     env_file: .env
     environment:
@@ -61,6 +78,7 @@ services:
       dockerfile: Dockerfile
       target: web
       args:
+        <<: *build-proxy-args
         # Same-origin defaults; override here or in CI if the cube path differs.
         VITE_CUBE_API_URL: ${VITE_CUBE_API_URL:-/cube-api/v1}
         VITE_LANGFUSE_HOST: ${VITE_LANGFUSE_HOST:-}

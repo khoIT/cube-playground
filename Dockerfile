@@ -17,6 +17,13 @@
 ############################################################
 FROM node:22-bookworm-slim AS base
 WORKDIR /app
+# CI runners have no direct internet from build steps — apt and npm reach the
+# mirrors only through the org proxy, passed in as the predefined *_PROXY build
+# args (see docker-compose.prod.yml). BuildKit exposes these to every RUN and
+# strips them from the final image, so no ENV plumbing is needed downstream.
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
  && rm -rf /var/lib/apt/lists/*
