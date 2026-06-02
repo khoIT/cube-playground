@@ -5,7 +5,6 @@ import { useParams, useHistory } from 'react-router-dom';
 import { Button, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Activity, Code2, GitBranch, LineChart, Send, Users } from 'lucide-react';
-import { LiveBadge } from '../visuals';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { pushRecent, removeRecent } from '../../../shell/sidebar/recent-items-store';
 import { invalidateSegmentIds } from '../use-segment-ids';
@@ -29,7 +28,7 @@ import { RefreshNowButton } from './components/refresh-now-button';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
 import { HeadlineStatsRow } from './components/headline-stats-row';
-import { StatusPill } from '../status/status-pill';
+import { SegmentHealthPill } from '../status/segment-health-pill';
 import { buildPlaygroundDeeplink } from '../../../utils/playground-deeplink';
 import styles from '../segments.module.css';
 
@@ -167,10 +166,7 @@ export function DetailView(): ReactElement {
               {t('segments.detail.autoPreset.chip', { defaultValue: 'Auto preset' })}
             </span>
           )}
-          {segment.type === 'predicate' && (
-            <LiveBadge intervalMin={segment.refresh_cadence_min ?? undefined} />
-          )}
-          <StatusPill status={segment.status} reason={segment.broken_reason} />
+          <SegmentHealthPill segment={segment} onCadenceChange={setSegment} />
           <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />
           <div className={styles.detailActions}>
@@ -195,10 +191,17 @@ export function DetailView(): ReactElement {
             <Button
               size="small"
               type="primary"
-              onClick={() => history.push(`/segments/${segment.id}/edit`)}
-              disabled={segment.type !== 'predicate'}
+              onClick={() =>
+                history.push(
+                  segment.type === 'predicate'
+                    ? `/segments/${segment.id}/edit`
+                    : `/segments/${segment.id}/edit?convert=live`,
+                )
+              }
             >
-              {t('segments.detail.actions.editPredicate')}
+              {segment.type === 'predicate'
+                ? t('segments.detail.actions.editPredicate', { defaultValue: 'Edit predicate' })
+                : t('segments.detail.actions.convertToLive', { defaultValue: 'Convert to Live' })}
             </Button>
             <Button size="small" danger onClick={() => setDeleteOpen(true)}>
               {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}

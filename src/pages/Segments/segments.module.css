@@ -1017,6 +1017,91 @@
   white-space: nowrap;
 }
 
+.healthCell[data-tone='info'] .healthDot { background: var(--info); }
+
+/* Detail-header consolidated health pill (dot + Live/Stale/Static label). */
+.healthPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.002em;
+  white-space: nowrap;
+  background: var(--muted-soft);
+  color: var(--muted-ink);
+}
+
+.healthPill[data-tone='success'] { background: var(--success-soft); color: var(--success-ink); }
+.healthPill[data-tone='warning'] { background: var(--warning-soft); color: var(--warning-ink); }
+.healthPill[data-tone='destructive'] { background: var(--destructive-soft); color: var(--destructive-ink); }
+.healthPill[data-tone='info'] { background: var(--info-soft); color: var(--info-ink); }
+
+.healthPillDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  background: currentColor;
+}
+
+.healthPillDotLive {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.healthPill[data-clickable='true'] {
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+
+.healthPill[data-clickable='true']:hover,
+.healthPill[data-clickable='true']:focus-visible {
+  filter: brightness(0.96);
+  outline: none;
+}
+
+/* Inline cadence picker (popover content from the detail health pill). */
+.cadenceMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 132px;
+}
+
+.cadenceMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cadenceMenuItem:hover:not(:disabled) {
+  background: var(--bg-hover, var(--muted-soft));
+}
+
+.cadenceMenuItem:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cadenceMenuItemActive {
+  color: var(--brand);
+  font-weight: 600;
+}
+
 /* ── Generic cells ───────────────────────────────────────────── */
 .sizeCell {
   font-size: 13px;

@@ -29,6 +29,10 @@ export function EditorView(): ReactElement {
   const { id } = useParams<EditorParams>();
   const mode = id ? 'edit' : 'new';
   const gameId = useActiveGameId();
+  // Deep-link from a static segment's "Convert to Live" action — start the
+  // editor in Live mode so the user lands straight on the predicate builder.
+  const wantsConvertToLive =
+    new URLSearchParams(history.location.search).get('convert') === 'live';
 
   const [name, setName] = useState('');
   const [cube, setCube] = useState<string | null>(null);
@@ -49,7 +53,7 @@ export function EditorView(): ReactElement {
       .then((seg: Segment) => {
         setName(seg.name);
         setCube(seg.cube);
-        setType(seg.type);
+        setType(seg.type === 'manual' && wantsConvertToLive ? 'predicate' : seg.type);
         setCadence(seg.refresh_cadence_min ?? 60);
         // Simplify on load so segments saved before the build-time resolver
         // (or hand-edited into verbose shapes) still render concise here.

@@ -5,7 +5,7 @@
 
 import { ReactElement } from 'react';
 import { Button } from 'antd';
-import { Pencil } from 'lucide-react';
+import { Pencil, Zap } from 'lucide-react';
 import { useHistory } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PredicateTab } from './predicate-tab';
@@ -55,13 +55,21 @@ export function DefinitionTab({ segment, preset }: Props): ReactElement {
       <section className={styles.definitionPredicate}>
         <header className={styles.definitionSectionHead}>
           <h3>{t('segments.detail.definition.predicate', { defaultValue: 'Predicate' })}</h3>
-          <Button
-            icon={<Pencil size={13} />}
-            onClick={() => history.push(`/segments/${segment.id}/edit`)}
-            disabled={segment.type !== 'predicate'}
-          >
-            {t('segments.detail.actions.editPredicate', { defaultValue: 'Edit predicate' })}
-          </Button>
+          {segment.type === 'predicate' ? (
+            <Button
+              icon={<Pencil size={13} />}
+              onClick={() => history.push(`/segments/${segment.id}/edit`)}
+            >
+              {t('segments.detail.actions.editPredicate', { defaultValue: 'Edit predicate' })}
+            </Button>
+          ) : (
+            <Button
+              icon={<Zap size={13} />}
+              onClick={() => history.push(`/segments/${segment.id}/edit?convert=live`)}
+            >
+              {t('segments.detail.actions.convertToLive', { defaultValue: 'Convert to Live' })}
+            </Button>
+          )}
         </header>
         <PredicateTab segment={segment} />
       </section>

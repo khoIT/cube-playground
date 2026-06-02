@@ -109,7 +109,8 @@
         "stale": {
           "label": "Stale",
           "sub": "Live · {{cadence}}m · refresh overdue",
-          "subNoCadence": "Refresh overdue"
+          "subNoCadence": "Refresh overdue",
+          "pill": "Stale · {{cadence}}m"
         },
         "broken": {
           "label": "Broken",
@@ -119,9 +120,26 @@
           "label": "Static",
           "sub": "Manual upload"
         },
+        "refreshing": {
+          "label": "Refreshing…"
+        },
         "live": {
           "cadence": "Live · {{cadence}}m cadence",
-          "noCadence": "Live · on demand"
+          "noCadence": "Live · on demand",
+          "pill": "Live · {{cadence}}m",
+          "onDemandPill": "Live · on demand"
+        },
+        "tooltip": {
+          "cadence": "Auto-refreshes every {{cadence}} minutes.",
+          "onDemand": "Refreshes only when you run “Refresh now”.",
+          "static": "Static list from a manual upload — it does not auto-refresh.",
+          "stale": "Last refresh is overdue. {{cadence}}",
+          "refreshing": "Re-evaluating members now. {{cadence}}"
+        },
+        "cadence": {
+          "title": "Refresh cadence",
+          "updated": "Cadence updated",
+          "failed": "Failed to update cadence"
         }
       },
       "trend": {
@@ -146,6 +164,7 @@
         "exportIds": "Export IDs",
         "copyAsFilter": "Copy as filter",
         "editPredicate": "Edit predicate",
+        "convertToLive": "Convert to Live",
         "more": "More"
       },
       "tabs": {
@@ -254,7 +273,7 @@
         "dimsCount": "{{n}} columns from {{cube}}"
       },
       "predicate": {
-        "manual": "Manual segment — uids are imported directly. No predicate to display.",
+        "manual": "Static segment — uids were imported directly, so there's no predicate to display. Convert to Live to define one that auto-refreshes.",
         "empty": "No predicate set.",
         "editLink": "Edit predicate →"
       },

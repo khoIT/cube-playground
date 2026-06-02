@@ -4,6 +4,7 @@ import { ReactElement } from 'react';
 import { Select } from 'antd';
 import styles from '../segments.module.css';
 import type { SegmentType } from '../../../types/segment-api';
+import { cadenceOptionsFor } from '../refresh-cadence';
 
 interface Props {
   type: SegmentType;
@@ -11,14 +12,6 @@ interface Props {
   onTypeChange: (t: SegmentType) => void;
   onCadenceChange: (m: number | null) => void;
 }
-
-const CADENCE_OPTIONS = [
-  { value: 5,    label: '5 minutes' },
-  { value: 15,   label: '15 minutes' },
-  { value: 60,   label: '1 hour' },
-  { value: 360,  label: '6 hours' },
-  { value: 1440, label: '24 hours' },
-];
 
 export function RefreshBehaviourCard({ type, cadenceMin, onTypeChange, onCadenceChange }: Props): ReactElement {
   return (
@@ -58,7 +51,7 @@ export function RefreshBehaviourCard({ type, cadenceMin, onTypeChange, onCadence
           <Select
             value={cadenceMin ?? 60}
             onChange={(v) => onCadenceChange(v as number)}
-            options={CADENCE_OPTIONS}
+            options={cadenceOptionsFor(cadenceMin ?? 60)}
           />
         </div>
       )}
