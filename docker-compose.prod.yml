@@ -12,17 +12,19 @@
 # Apps-Configuration.xlsx, then have GIO point the domain at it.
 
 # Build-time proxy passed into every image build. CI runs on a network-isolated
-# runner whose build steps (apt, npm) reach the internet only via the org proxy;
-# the shared deploy template exports BUILD_HTTP_PROXY / BUILD_NO_PROXY for exactly
-# this. Empty when unset (local builds) → a direct connection. BuildKit injects
-# the predefined *_PROXY args into every RUN and keeps them out of image history.
+# runner whose build steps (apt, npm) reach the internet only via the org proxy.
+# The shared deploy template exports the working proxy as http_proxy/https_proxy
+# and an optional build-specific override as BUILD_HTTP_PROXY/BUILD_NO_PROXY.
+# Prefer the override, else fall back to the host proxy; empty for local builds
+# (direct connection). BuildKit injects the predefined *_PROXY args into every
+# RUN and strips them from image history, so credentials never persist.
 x-build-proxy-args: &build-proxy-args
-  HTTP_PROXY: ${BUILD_HTTP_PROXY:-}
-  HTTPS_PROXY: ${BUILD_HTTP_PROXY:-}
-  NO_PROXY: ${BUILD_NO_PROXY:-}
-  http_proxy: ${BUILD_HTTP_PROXY:-}
-  https_proxy: ${BUILD_HTTP_PROXY:-}
-  no_proxy: ${BUILD_NO_PROXY:-}
+  HTTP_PROXY: ${BUILD_HTTP_PROXY:-${http_proxy:-}}
+  HTTPS_PROXY: ${BUILD_HTTP_PROXY:-${https_proxy:-}}
+  NO_PROXY: ${BUILD_NO_PROXY:-${no_proxy:-}}
+  http_proxy: ${BUILD_HTTP_PROXY:-${http_proxy:-}}
+  https_proxy: ${BUILD_HTTP_PROXY:-${https_proxy:-}}
+  no_proxy: ${BUILD_NO_PROXY:-${no_proxy:-}}
 
 services:
   server:
