@@ -125,7 +125,12 @@ const CatalogChip = styled(Link)`
 `;
 
 export function GlossaryRow({ term, onEdit, editLabel, draftLabel, officialLabel }: Props) {
-  const href = term.primaryCatalogId ? resolveGlossaryHref(term) : null;
+  const href = resolveGlossaryHref(term);
+  // Show the destination chip only when the term routes somewhere other than
+  // its own anchored row (i.e. a metric or a pre-filtered Build query). Filter-
+  // only concept terms route to their own row, so they get no chip here.
+  const chipHref = href.startsWith('/catalog/glossary#') ? null : href;
+  const chipLabel = term.primaryCatalogId ?? term.defaultMeasureRef ?? 'Open in Build';
   const allAliases = [...term.aliases, ...term.aliasesVi];
   return (
     <Row data-glossary-id={term.id}>
@@ -147,7 +152,7 @@ export function GlossaryRow({ term, onEdit, editLabel, draftLabel, officialLabel
       <Description>{term.description}</Description>
       {term.descriptionVi ? <DescriptionVi>{term.descriptionVi}</DescriptionVi> : null}
       {allAliases.length > 0 ? <Aliases>aka: {allAliases.join(', ')}</Aliases> : null}
-      {href ? <CatalogChip to={href}>{term.primaryCatalogId}</CatalogChip> : null}
+      {chipHref ? <CatalogChip to={chipHref}>{chipLabel}</CatalogChip> : null}
     </Row>
   );
 }

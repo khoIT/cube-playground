@@ -17,19 +17,106 @@ describe('resolveGlossaryHref', () => {
     ).toBe('/catalog/metric/has%20space');
   });
 
-  it('routes null primaryCatalogId to the glossary index', () => {
-    expect(resolveGlossaryHref({ id: 'cohort', primaryCatalogId: null })).toBe('/catalog/glossary');
+  it('anchors a term with no binding to its own row on the index', () => {
+    expect(resolveGlossaryHref({ id: 'cohort', primaryCatalogId: null })).toBe(
+      '/catalog/glossary#cohort',
+    );
   });
 
-  it('routes non-business_metrics catalog ids to the glossary index', () => {
+  it('anchors non-business_metrics catalog ids (no filter/measure) to the term row', () => {
     expect(
       resolveGlossaryHref({ id: 'whatever', primaryCatalogId: 'players.daily_active_users' }),
-    ).toBe('/catalog/glossary');
+    ).toBe('/catalog/glossary#whatever');
   });
 
-  it('treats an empty slug after the prefix as unresolvable', () => {
+  it('treats an empty slug after the prefix as unresolvable and anchors the row', () => {
     expect(
       resolveGlossaryHref({ id: 'broken', primaryCatalogId: 'business_metrics/' }),
-    ).toBe('/catalog/glossary');
+    ).toBe('/catalog/glossary#broken');
+  });
+
+  it('encodes the anchor id', () => {
+    expect(resolveGlossaryHref({ id: 'a b', primaryCatalogId: null })).toBe(
+      '/catalog/glossary#a%20b',
+    );
+  });
+
+  it('anchors a filter-only concept term to its definition row (no measure → no Build)', () => {
+    // whale/dolphin/minnow carry only a filter predicate, no measure — a term
+    // is a definition first, so it lands on its glossary row, not the builder.
+    expect(
+      resolveGlossaryHref({
+        id: 'whale',
+        primaryCatalogId: null,
+        defaultFilter: { member: 'mf_users.payer_tier', op: '=', value: 'whale' },
+      }),
+    ).toBe('/catalog/glossary#whale');
+  });
+
+  it('uses the measure ref as the Build measure when present', () => {
+    const href = resolveGlossaryHref({
+      id: 'arpu',
+      primaryCatalogId: null,
+      defaultMeasureRef: 'mf_users.arpu_vnd',
+    });
+    expect(href.startsWith('/build?')).toBe(true);
+    const query = JSON.parse(new URLSearchParams(href.split('?')[1]).get('query')!);
+    expect(query.measures).toEqual(['mf_users.arpu_vnd']);
+    expect(query.dimensions).toEqual([]);
+    expect(new URLSearchParams(href.split('?')[1]).get('from')).toBe('glossary:arpu');
+  });
+
+  it('prefers a business metric binding over a filter when both exist', () => {
+    expect(
+      resolveGlossaryHref({
+        id: 'dau',
+        primaryCatalogId: 'business_metrics/dau',
+        defaultFilter: { member: 'mf_users.payer_tier', op: '=', value: 'whale' },
+      }),
+    ).toBe('/catalog/metric/dau');
+  });
+
+  it('combines measure + filter into one Build query', () => {
+    const href = resolveGlossaryHref({
+      id: 'whale_arpu',
+      primaryCatalogId: null,
+      defaultMeasureRef: 'mf_users.arpu_vnd',
+      defaultFilter: { member: 'mf_users.payer_tier', op: 'IN', value: ['whale', 'dolphin'] },
+    });
+    const query = JSON.parse(new URLSearchParams(href.split('?')[1]).get('query')!);
+    expect(query.measures).toEqual(['mf_users.arpu_vnd']);
+    expect(query.dimensions).toEqual([]);
+    expect(query.filters[0]).toEqual({
+      member: 'mf_users.payer_tier',
+      operator: 'equals',
+      values: ['whale', 'dolphin'],
+    });
+  });
+
+  it('maps glossary filter ops to Cube operators and stringifies values', () => {
+    const cases: Array<[string, string]> = [
+      ['=', 'equals'],
+      ['!=', 'notEquals'],
+      ['>', 'gt'],
+      ['>=', 'gte'],
+      ['<', 'lt'],
+      ['<=', 'lte'],
+      ['IN', 'equals'],
+      ['NOT IN', 'notEquals'],
+    ];
+    for (const [op, operator] of cases) {
+      const href = resolveGlossaryHref({
+        id: 'm',
+        primaryCatalogId: null,
+        defaultMeasureRef: 'recharge.total_vnd',
+        defaultFilter: { member: 'recharge.total_vnd', op: op as never, value: 1000000 },
+      });
+      const query = JSON.parse(new URLSearchParams(href.split('?')[1]).get('query')!);
+      expect(query.filters[0]).toEqual({
+        member: 'recharge.total_vnd',
+        operator,
+        values: ['1000000'],
+      });
+    }
   });
 });

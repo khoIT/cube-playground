@@ -7,6 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { Plus } from 'lucide-react';
 import {
@@ -84,6 +85,20 @@ const List = styled.div`
   flex: 1;
   overflow-y: auto;
   border-top: 1px solid var(--border-subtle);
+
+  /* Transient highlight applied to the row a #<id> anchor lands on. */
+  [data-glossary-id].glossary-anchor-hit {
+    animation: glossary-anchor-flash 2s ease-out;
+  }
+  @keyframes glossary-anchor-flash {
+    0%,
+    35% {
+      background: var(--brand-soft, rgba(240, 90, 34, 0.12));
+    }
+    100% {
+      background: transparent;
+    }
+  }
 `;
 
 const Status = styled.div`
@@ -95,6 +110,7 @@ const Status = styled.div`
 
 export function GlossaryIndexPage() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [terms, setTerms] = useState<GlossaryTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +162,24 @@ export function GlossaryIndexPage() {
       return hay.includes(q);
     });
   }, [terms, query, category]);
+
+  // Deep-link support: a `#<id>` anchor (e.g. /catalog/glossary#whale) scrolls
+  // to that term's row and flashes it once the list has rendered. No-op when
+  // the row is filtered out or the hash is empty.
+  useEffect(() => {
+    const id = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+    if (!id || loading) return;
+    const row = document.querySelector<HTMLElement>(
+      `[data-glossary-id="${CSS.escape(id)}"]`,
+    );
+    if (!row) return;
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    row.classList.add('glossary-anchor-hit');
+    const timer = window.setTimeout(() => row.classList.remove('glossary-anchor-hit'), 2000);
+    return () => window.clearTimeout(timer);
+    // `terms` (not `filtered`) so the flash fires once when the list loads,
+    // not again on every search keystroke (which only re-derives `filtered`).
+  }, [location.hash, loading, terms]);
 
   function openCreate() {
     setEditing(undefined);
