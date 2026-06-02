@@ -195,8 +195,17 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     { resumeId, abortSignal: signal, webSearchEnabled },
   );
 
+  // Capture the Claude Code subprocess stderr. The SDK surfaces a child crash
+  // as the opaque "process exited with code 1"; buffering stderr lets us attach
+  // the real cause (gateway URL/model/key rejected, missing runtime, etc.) to
+  // the error so it reaches the SSE error event instead of just the exit code.
+  let childStderr = '';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const iter = query({ prompt: message, options: options as any });
+  const sdkOptions = options as any;
+  sdkOptions.stderr = (data: string) => {
+    if (childStderr.length < 4000) childStderr += data;
+  };
+  const iter = query({ prompt: message, options: sdkOptions });
 
   // Observer per-turn state — counters always declared; helpers no-op when
   // observer is undefined (guard at each call site).
@@ -212,6 +221,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   // is forwarded via `sdk_session_captured` so api/turn.ts can persist it.
   let capturedSdkConversationId: string | undefined;
 
+  try {
   for await (const msg of iter) {
     // Phase 04 — defensive abort check. If the SDK respects the signal it
     // already stopped yielding; this is the belt-and-braces local exit so
@@ -282,6 +292,17 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
       try { tracer.onSdkMessage(msg); }
       catch (err) { console.warn('[tracer] onSdkMessage threw:', err); }
     }
+  }
+  } catch (err) {
+    // Attach the captured subprocess stderr to the opaque SDK exit error so the
+    // turn's agent_error event carries the actionable cause. Empty stderr →
+    // rethrow unchanged (don't mask the original).
+    const detail = childStderr.trim();
+    if (detail) {
+      const base = err instanceof Error ? err.message : String(err);
+      throw new Error(`${base} — claude stderr: ${detail.slice(0, 1500)}`);
+    }
+    throw err;
   }
 
   // Flush tool_use entries that never received a tool_result (model abandoned).
