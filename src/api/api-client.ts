@@ -6,6 +6,7 @@
 
 import type { ApiError } from '../types/segment-api';
 import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
+import { getActiveGameId, GAME_HEADER } from '../components/Header/active-game-storage';
 import { readAppToken, clearAppToken } from '../auth/auth-storage';
 
 const AUTH_FORCE_LOGOUT_EVENT = 'gds-cube:auth-force-logout';
@@ -76,6 +77,17 @@ export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Prom
   const wsId = getActiveWorkspaceId();
   if (wsId && !finalHeaders[WORKSPACE_HEADER]) {
     finalHeaders[WORKSPACE_HEADER] = wsId;
+  }
+
+  // Attach the active game so the gateway scopes the minted Cube token to the
+  // right tenant on game_id (multi-tenant) workspaces. Centralized here — like
+  // the workspace header above — so endpoints that need tenant scope (e.g.
+  // /api/identity-map, which drives the segment row-picker) can't silently
+  // fall back to a game-less token and an empty /meta. Harmless on prefix
+  // workspaces, where the shared schema ignores the claim.
+  const gameId = getActiveGameId();
+  if (gameId && !finalHeaders[GAME_HEADER]) {
+    finalHeaders[GAME_HEADER] = gameId;
   }
 
   // Bearer auth: forward the app JWT when present. Server still accepts

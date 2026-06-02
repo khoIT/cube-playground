@@ -26,8 +26,8 @@ import {
 } from '../workspace-context';
 import { useAuthUser } from '../../auth/auth-context';
 import { getPref, setPref, subscribe } from '../../hooks/server-prefs-store';
+import { GAME_STORAGE_KEY as STORAGE_KEY, GAME_CHANGE_EVENT } from './active-game-storage';
 
-const STORAGE_KEY = 'gds-cube:active-game';
 const FALLBACK_GAME: GameDef = { id: 'ballistar', name: 'Ballistar', mark: 'BS' };
 
 // Subset of WorkspaceDef needed for filtering. Fetched directly here (instead of
@@ -265,7 +265,7 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
             window.history.replaceState(null, '', nextHash || '#/');
           }
         }
-        window.dispatchEvent(new CustomEvent('gds-cube:game-change', { detail: { gameId: id } }));
+        window.dispatchEvent(new CustomEvent(GAME_CHANGE_EVENT, { detail: { gameId: id } }));
       }
     },
     [config.games],

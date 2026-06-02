@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { identityMapClient } from '../api/segments-client';
 import type { CubeIdentityMapping } from '../types/segment-api';
 import { WORKSPACE_CHANGE_EVENT } from '../components/workspace-context';
+import { GAME_CHANGE_EVENT } from '../components/Header/active-game-storage';
 
 let cache: CubeIdentityMapping[] | null = null;
 let inflight: Promise<CubeIdentityMapping[]> | null = null;
@@ -39,13 +40,19 @@ export function invalidateIdentityMap(): void {
 // (prod and local expose different physical cube names). Invalidate and
 // re-fetch so components with open sessions see the new workspace's map
 // without requiring a page reload.
+//
+// Game changes matter too: on a game_id (multi-tenant) workspace the suggester
+// queries the active tenant's /meta, so the resolvable cube set — and thus the
+// identity map — differs per game. Treat a game switch the same way.
 if (typeof window !== 'undefined') {
-  window.addEventListener(WORKSPACE_CHANGE_EVENT, () => {
+  const refresh = () => {
     invalidateIdentityMap();
     fetchIfNeeded(true).catch(() => {
       // Suppress — errors surface through the hook's error state on next render.
     });
-  });
+  };
+  window.addEventListener(WORKSPACE_CHANGE_EVENT, refresh);
+  window.addEventListener(GAME_CHANGE_EVENT, refresh);
 }
 
 export function useIdentityMap() {
