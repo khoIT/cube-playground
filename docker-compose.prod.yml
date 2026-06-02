@@ -40,6 +40,12 @@ services:
       NODE_ENV: production
       PORT: "3004"
       DB_PATH: /data/segments.db
+      # Workspace registry: prod points at the open, prefix-namespaced prod
+      # cube-dev (https://cube.gds.vng.vn). The committed workspaces.config.json
+      # is the local-dev variant (default=local, localhost URLs) — overriding the
+      # path here is what makes the gateway resolve workspace ids to a URL that's
+      # actually reachable from the container. Cube URLs are NEVER read from .env.
+      WORKSPACES_CONFIG_PATH: /app/workspaces.prod.config.json
       # The server proxies /api/chat/* to the chat-service over the compose network.
       CHAT_SERVICE_URL: http://chat-service:3005
     volumes:

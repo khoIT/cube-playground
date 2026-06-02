@@ -1,0 +1,19 @@
+{
+  "_comment": "Prod Cube workspace registry. Loaded in the container via WORKSPACES_CONFIG_PATH (see docker-compose.prod.yml) so the local-dev workspaces.config.json stays unchanged. Prod cube-dev is open (no token) and prefix-namespaced; URLs live here, NOT in .env — the gateway resolves workspace id -> cubeApiUrl from this file (SSRF guard).",
+  "default": "prod",
+  "workspaces": [
+    {
+      "id": "prod",
+      "label": "Prod cube-dev",
+      "cubeApiUrl": "https://cube.gds.vng.vn",
+      "authMode": "none",
+      "gameModel": "prefix",
+      "gamePrefixMap": {
+        "cfm_vn": "cfm",
+        "ballistar": "ballistar",
+        "cros": "cros",
+        "jus_vn": "jus"
+      }
+    }
+  ]
+}

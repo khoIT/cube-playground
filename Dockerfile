@@ -74,8 +74,10 @@ COPY --from=build /app/server/src/db/migrations ./dist/db/migrations
 # Seed assets read at cwd: data/glossary.seed.json + data/seed/* (DBs excluded by .dockerignore).
 COPY --from=build /app/server/data ./data
 # Root file:.. link target + game/workspace config read from the repo root.
+# Both workspace registries are baked in; WORKSPACES_CONFIG_PATH (compose) selects
+# the prod one at runtime, leaving the local-dev default file for local runs.
 COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/gds.config.json /app/workspaces.config.json /app/
+COPY --from=build /app/gds.config.json /app/workspaces.config.json /app/workspaces.prod.config.json /app/
 # SQLite lives on a mounted volume (see compose), never in the image.
 ENV DB_PATH=/data/segments.db
 EXPOSE 3004
