@@ -148,7 +148,7 @@ Flat KV. ⚠️ = boot-blocking if absent.
 | `CUBE_AUTH_INTERNAL_SECRET` | yes | must equal cube-dev `AUTH_INTERNAL_SECRET`; in-stack `cube_api` reuses it as `AUTH_INTERNAL_SECRET`. |
 | `CUBEJS_API_SECRET` | yes | mints the per-game Cube JWT; shared by `server` (mint) + in-stack `cube_api` (verify) — values must match. |
 | `CUBEJS_DB_HOST` / `_PORT` / `_USER` / `_PASS` | yes¹ | Trino creds for the in-stack `cube_api` (copy from cube-dev `.env`). ¹Required once the `local` workspace is used; `cube_api` boots but can't query Trino without them. |
-| `CUBEJS_DB_CATALOG` / `_SSL` | no | in-stack cube; default `game_integration` / `false` (compose), override in Vault if prod Trino differs. |
+| `CUBEJS_DB_PRESTO_CATALOG` / `_CATALOG` / `_SSL` | no | in-stack cube. Driver reads `_PRESTO_CATALOG` (default `game_integration`); `_CATALOG` mirrored for safety. `_SSL` defaults **`true`** (compose) — `gio-gds-trino:8080` is TLS-only; plaintext → `/v1/info socket hang up`. Set `false` in Vault only for a plaintext Trino. |
 | `CUBESTORE_TAG` | ⚠️do-not-set | leave UNSET in prod — compose defaults to amd64 `:latest`, matching the cube-api images already cached on the kraken runner (so no cold Hub pull). The arm64v8 tag (local Apple Silicon) silently wedges cubestore on the x86-64 runner. |
 | `CUBEJS_REFRESH_WORKER` | no | default `false` (compose); flip to `true` only after pre-aggregations are defined, else it pegs CPU. |
 | `CUBE_PLAYGROUND_USER_ID` | no | service principal (default `playground`). |
