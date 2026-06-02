@@ -1,0 +1,13 @@
+{
+  "name": "cube-playground-load-test",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Latency-under-load harness for the local cube-playground stack. Drives heavy endpoints while probing a cheap one to expose event-loop starvation.",
+  "scripts": {
+    "load": "node run-load.mjs"
+  },
+  "dependencies": {
+    "autocannon": "^7.15.0"
+  }
+}

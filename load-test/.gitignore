@@ -1,0 +1,4 @@
+node_modules/
+package-lock.json
+# Opt-in /load body (copy from load-query.example.json); user/game-specific.
+load-query.json

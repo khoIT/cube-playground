@@ -1,0 +1,6 @@
+{
+  "measures": ["active_daily.dau"],
+  "timeDimensions": [
+    { "dimension": "active_daily.log_date", "granularity": "day", "dateRange": "last 7 days" }
+  ]
+}
