@@ -75,18 +75,30 @@ emergency only — never a prod default.
 
 ## Containerized deploy (Docker)
 
-The app ships as three images built from one multi-stage `Dockerfile` (targets
-`server`, `chat-service`, `web`) and wired by `docker-compose.prod.yml`:
+The app ships as three built images (one multi-stage `Dockerfile`, targets
+`server`, `chat-service`, `web`) plus two official Cube images, all wired by
+`docker-compose.prod.yml`:
 
 ```
-web (nginx) ──serves SPA + proxies /api,/cube-api──▶ server :3004 ──/api/chat──▶ chat-service :3005
-                                                        └─▶ external: cube-dev, Trino, LiteLLM, Keycloak
+web (nginx) ──SPA + proxies /api,/cube-api──▶ server :3004 ──/api/chat──▶ chat-service :3005
+                                                 ├─▶ cube_api :4000 (`local` ws) ──▶ cubestore :3030
+                                                 │      └─ cube_api ──auth-db──▶ server /internal/access
+                                                 └─▶ external: cube.gds.vng.vn (`prod` ws), Trino, LiteLLM, Keycloak
 ```
 
 - **`web`** serves the built SPA and reverse-proxies `/api` + `/cube-api` to the
   server on the same origin (`docker/nginx.conf`); it publishes `PUBLIC_PORT`.
 - **`server`** and **`chat-service`** are internal; SQLite lives on named volumes
   (`server-data`, `chat-data`) so DBs survive redeploys.
+- **`cube_api`** + **`cubestore`** are the in-stack Cube semantic layer, vendored
+  from `data-product/cube-dev` into `./cube-dev/` (config + models only; runs from
+  `cubejs/cube` + `cubejs/cubestore`, no build). Backs the **`local`** workspace
+  (`gameModel=game_id`); the **`prod`** workspace stays external (`cube.gds.vng.vn`).
+  Multi-tenant — `CUBEJS_DEV_MODE=false`, minted JWT carries the game claim;
+  `auth-db.js` resolves grants via `AUTH_API_URL=http://server:3004`. Published on
+  `CUBE_PUBLIC_PORT` (17001, Playground) + `CUBE_SQL_PORT` (15432, SQL API). Server
+  reaches it internally at `http://cube_api:4000`. Pre-aggs on `cubestore_data`.
+  To refresh models: re-vendor `cube-dev/cube/` from the source repo and redeploy.
 - `better-sqlite3` (native) is compiled in-image — the host needs only Docker.
 
 Build + run (after the CI `vault` stage writes `.env` next to the compose file):
@@ -125,13 +137,17 @@ Flat KV. ⚠️ = boot-blocking if absent.
 | `KEYCLOAK_URL` / `_REALM` / `_CLIENT_ID` | yes | KC OIDC config. |
 | `KEYCLOAK_CLIENT_SECRET` | yes | confidential client. |
 | `AUTH_BOOTSTRAP_ADMINS` | yes | seed admin emails — set before first deploy or lock-out. |
-| `CUBE_AUTH_INTERNAL_SECRET` | yes | must equal cube-dev `AUTH_INTERNAL_SECRET`. |
-| `CUBEJS_API_SECRET` | yes | mints the per-game Cube JWT. |
+| `CUBE_AUTH_INTERNAL_SECRET` | yes | must equal cube-dev `AUTH_INTERNAL_SECRET`; in-stack `cube_api` reuses it as `AUTH_INTERNAL_SECRET`. |
+| `CUBEJS_API_SECRET` | yes | mints the per-game Cube JWT; shared by `server` (mint) + in-stack `cube_api` (verify) — values must match. |
+| `CUBEJS_DB_HOST` / `_PORT` / `_USER` / `_PASS` | yes¹ | Trino creds for the in-stack `cube_api` (copy from cube-dev `.env`). ¹Required once the `local` workspace is used; `cube_api` boots but can't query Trino without them. |
+| `CUBEJS_DB_CATALOG` / `_SSL` | no | in-stack cube; default `game_integration` / `false` (compose), override in Vault if prod Trino differs. |
+| `CUBESTORE_TAG` | ⚠️do-not-set | leave UNSET in prod — compose defaults to amd64 `v1.6.46`. The arm64v8 tag (local Apple Silicon) silently wedges cubestore on the x86-64 runner. |
+| `CUBEJS_REFRESH_WORKER` | no | default `false` (compose); flip to `true` only after pre-aggregations are defined, else it pegs CPU. |
 | `CUBE_PLAYGROUND_USER_ID` | no | service principal (default `playground`). |
 | `CHAT_FEATURE_ENABLED` | yes | `true` to run chat. |
 | `ANTHROPIC_BASE_URL` | ⚠️ | LiteLLM gateway URL — chat-service won't boot without it. |
 | `ANTHROPIC_API_KEY` | ⚠️ | LiteLLM key — chat-service won't boot without it. |
-| `CUBE_API_URL` | no | chat-service → prod cube cluster. |
+| `CUBE_API_URL` | ~~Vault~~ | **Moved to compose** (`server.environment`, `http://cube_api:4000`) — it's a URL not a secret. Used by the non-workspace server paths (dashboards meta, preview, card-runner, anomaly); chat-service ignores it. Remove from Vault. |
 | `LITELLM_BASE_URL` / `_API_KEY_STG` / `_MODEL` | cond | server-side LLM features. |
 | `CONNECTOR_SECRET_KEY` | cond | DB-connector secret vault (32-byte base64). |
 | `TRINO_PROFILER_HOST` / `_PORT` / `_USER` / `_PASS` / `_CATALOG` / `_SSL` / `_WORKSPACE` | cond | onboarding profiler. |

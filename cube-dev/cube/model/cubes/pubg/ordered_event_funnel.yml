@@ -1,0 +1,56 @@
+# Ordered event funnel — UNION of per-event ETL tables (pubgm schema).
+#
+# IMPORTANT: pubg's etl_ingame_recharge uses `vopenid` while login/logout/uc_flow
+# use `account_id`. The two identifier domains do not align row-for-row, so
+# `recharge` is INTENTIONALLY EXCLUDED from this funnel to keep one user-id
+# domain. If/when an identity bridge (account_id <-> vopenid) lands in
+# mf_users, add a recharge branch using a JOIN to translate.
+#
+# Available events: login, logout, currency_flow (etl_ingame_uc_flow has
+# account_id; treat each row as a currency-spend event with recharge_time).
+
+cubes:
+  - name: ordered_event_funnel
+    # Link funnel rows to the user master profile so step measures can be
+    # sliced by user attributes (country, os_platform, install cohort).
+    # many_to_one: every funnel row belongs to exactly one user, so grouping
+    # by mf_users dimensions is a safe lookup with no row fan-out.
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+    sql: |
+      WITH events AS (
+        SELECT account_id AS user_id, 'login'         AS event_name, login_datetime  AS ts FROM etl_ingame_login
+        UNION ALL
+        SELECT account_id,            'logout',                       logout_datetime        FROM etl_ingame_logout
+        UNION ALL
+        SELECT account_id,            'currency_flow',                recharge_time          FROM etl_ingame_uc_flow
+      ),
+      filtered AS (
+        SELECT user_id, event_name, ts
+        FROM events
+        WHERE {FILTER_PARAMS.ordered_event_funnel.step_name.filter('event_name')}
+      )
+      SELECT
+        user_id,
+        event_name,
+        CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts) AS BIGINT) AS step_index
+      FROM filtered
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: step_index
+        sql: step_index
+        type: number
+
+      - name: step_name
+        sql: event_name
+        type: string
+
+    measures:
+      - name: step_count
+        type: count_distinct
+        sql: user_id

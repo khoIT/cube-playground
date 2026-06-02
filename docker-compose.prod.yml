@@ -2,7 +2,9 @@
 # Step 4 (`docker compose up -d`) runs after the `vault` stage writes `.env`.
 #
 #   web  ──serves SPA + proxies /api,/cube-api──▶  server  ──/api/chat──▶  chat-service
-#                                                     └─▶ external: cube-dev, Trino, LiteLLM, Keycloak
+#                                                     ├─▶ cube_api (in-stack, `local` workspace) ──▶ cubestore
+#                                                     │       └─ cube_api ──auth-db──▶ server /internal/access
+#                                                     └─▶ external: cube.gds.vng.vn (`prod` ws), Trino, LiteLLM, Keycloak
 #
 # Secrets: `.env` is written next to this file by the CI `vault` stage (never in
 # git). Both Node services read it via `env_file`. The SPA's build-time VITE_*
@@ -48,12 +50,21 @@ services:
       WORKSPACES_CONFIG_PATH: /app/workspaces.prod.config.json
       # The server proxies /api/chat/* to the chat-service over the compose network.
       CHAT_SERVICE_URL: http://chat-service:3005
+      # Legacy global cube base for the non-workspace-aware server paths
+      # (dashboards /meta, preview-service, card-runner segment refresh, anomaly
+      # detector). These mint per-game JWTs (CUBEJS_API_SECRET), matching the
+      # in-stack game_id cube. It's a URL not a secret → lives here, not in Vault.
+      CUBE_API_URL: http://cube_api:4000
     volumes:
       - server-data:/data
     depends_on:
       # Ordering only, not health-coupling: chat is feature-flagged
       # (CHAT_FEATURE_ENABLED), so a down chat-service must not block the API.
       chat-service:
+        condition: service_started
+      # Ordering only: cube_api serves the `local` workspace (non-default), so a
+      # slow/down cube must not block the API — the `prod` workspace is external.
+      cube_api:
         condition: service_started
     restart: unless-stopped
     expose:
@@ -98,8 +109,78 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # In-stack Cube semantic layer (vendored from data-product/cube-dev → ./cube-dev).
+  # Backs the `local` workspace (gameModel=game_id). Multi-tenant: one cube serves
+  # all games; the minted JWT's { userId, game } claim selects the tenant schema
+  # per request (cube/cube.js), so CUBEJS_DEV_MODE MUST stay false. Runs from the
+  # official image — no build. DB/secret values come from .env (Vault); non-secret
+  # config is inline. Server reaches it at http://cube_api:4000 (workspaces.prod.config.json).
+  cube_api:
+    image: cubejs/cube:latest
+    container_name: cube-playground-cube-api
+    environment:
+      CUBEJS_DEV_MODE: "false"
+      CUBEJS_LOG_LEVEL: ${CUBEJS_LOG_LEVEL:-info}
+      CUBEJS_SCHEMA_PATH: model
+      TZ: ${TZ:-UTC}
+      DEBUG_LOG: ${DEBUG_LOG:-false}
+      # Trino connection — secret values (HOST/PORT/USER/PASS) come from Vault/.env;
+      # catalog matches cube-dev's working .env (CUBEJS_DB_CATALOG, not _PRESTO_).
+      CUBEJS_DB_TYPE: ${CUBEJS_DB_TYPE:-trino}
+      CUBEJS_DB_HOST: ${CUBEJS_DB_HOST:-}
+      CUBEJS_DB_PORT: ${CUBEJS_DB_PORT:-8080}
+      CUBEJS_DB_USER: ${CUBEJS_DB_USER:-}
+      CUBEJS_DB_PASS: ${CUBEJS_DB_PASS:-}
+      CUBEJS_DB_CATALOG: ${CUBEJS_DB_CATALOG:-game_integration}
+      CUBEJS_DB_SSL: ${CUBEJS_DB_SSL:-false}
+      # JWT signing secret — MUST equal the server's CUBEJS_API_SECRET so minted
+      # per-game tokens verify. Already a required prod secret (see deployment-guide).
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
+      # Pre-aggregation store (the cubestore service below).
+      CUBEJS_CUBESTORE_HOST: cubestore
+      CUBEJS_CUBESTORE_PORT: "3030"
+      # OFF: with no pre-aggregations defined, the in-process refresh worker
+      # spin-loops on partition refresh keys and pegs the event loop at 100% CPU,
+      # starving /readyz + /meta. Flip to true (via Vault) once pre-aggs exist.
+      CUBEJS_REFRESH_WORKER: ${CUBEJS_REFRESH_WORKER:-false}
+      # SQL API (Postgres wire protocol) — published on 15432 for BI/LLM clients.
+      CUBEJS_PG_SQL_PORT: "15432"
+      CUBEJS_SQL_USER: ${CUBEJS_SQL_USER:-cube}
+      CUBEJS_SQL_PASSWORD: ${CUBEJS_SQL_PASSWORD:-cube}
+      # auth-db.js resolves per-user game grants from the co-located server's
+      # internal access API (same RBAC store the server enforces). Fails closed.
+      AUTH_API_URL: http://server:3004
+      AUTH_INTERNAL_SECRET: ${CUBE_AUTH_INTERNAL_SECRET:-}
+    # Strip Cube's `SET SESSION query_max_run_time` prepend (Trino role lacks the
+    # privilege); see the script. Setting entrypoint clears the image CMD, so the
+    # `cubejs server` command must be re-declared.
+    entrypoint: ["/usr/local/bin/cube-entrypoint-patched.sh"]
+    command: ["cubejs", "server"]
+    ports:
+      - "${CUBE_PUBLIC_PORT:-17001}:4000"   # REST / GraphQL / Playground (browser)
+      - "${CUBE_SQL_PORT:-15432}:15432"     # SQL API (Postgres wire protocol)
+    volumes:
+      - ./cube-dev/cube:/cube/conf:ro
+      - ./cube-dev/cube-entrypoint-patched.sh:/usr/local/bin/cube-entrypoint-patched.sh:ro
+    depends_on:
+      - cubestore
+    restart: unless-stopped
+
+  cubestore:
+    # NOT multi-arch — default amd64 tag matches the linux prod runner. Set
+    # CUBESTORE_TAG=v1.6.46-arm64v8 only for local arm64 (Apple Silicon).
+    image: cubejs/cubestore:${CUBESTORE_TAG:-v1.6.46}
+    container_name: cube-playground-cubestore
+    environment:
+      CUBESTORE_DATA_DIR: /cube/data
+    volumes:
+      - cubestore_data:/cube/data
+    restart: unless-stopped
+
 volumes:
   # Persist SQLite across container recreates — without these the DBs reset on
   # every deploy (RBAC, drift-center, connectors, audit, chat history all lost).
   server-data:
   chat-data:
+  # Cube Store pre-aggregations — persist so rollups survive redeploys.
+  cubestore_data:

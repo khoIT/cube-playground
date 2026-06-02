@@ -1,0 +1,53 @@
+# Ordered event funnel — UNION of per-event ETL tables (cfm_vn schema).
+# cfm uses `vopenid` as user id and `dteventtime` (no underscores) on all
+# core event tables. Many more event tables exist (lotteryshoot, moneyflow,
+# propflow, room_match_flow, …); add to the UNION below if your funnel needs
+# them. Starting with the four core events keeps the cube light.
+
+cubes:
+  - name: ordered_event_funnel
+    # Link funnel rows to the user master profile so step measures can be
+    # sliced by user attributes (country, os_platform, install cohort).
+    # many_to_one: every funnel row belongs to exactly one user, so grouping
+    # by mf_users dimensions is a safe lookup with no row fan-out.
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+    sql: |
+      WITH events AS (
+        SELECT vopenid AS user_id, 'login'    AS event_name, dteventtime AS ts FROM etl_ingame_login
+        UNION ALL
+        SELECT vopenid,            'logout',                  dteventtime        FROM etl_ingame_logout
+        UNION ALL
+        SELECT vopenid,            'recharge',                dteventtime        FROM etl_ingame_recharge
+        UNION ALL
+        SELECT vopenid,            'register',                dteventtime        FROM etl_ingame_register
+      ),
+      filtered AS (
+        SELECT user_id, event_name, ts
+        FROM events
+        WHERE {FILTER_PARAMS.ordered_event_funnel.step_name.filter('event_name')}
+      )
+      SELECT
+        user_id,
+        event_name,
+        CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts) AS BIGINT) AS step_index
+      FROM filtered
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: step_index
+        sql: step_index
+        type: number
+
+      - name: step_name
+        sql: event_name
+        type: string
+
+    measures:
+      - name: step_count
+        type: count_distinct
+        sql: user_id

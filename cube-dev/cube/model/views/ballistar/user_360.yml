@@ -1,0 +1,262 @@
+views:
+  # ===========================================================================
+  # 360-view surfaces (entity-first, one user at a time)
+  #
+  # The four views below are designed for a "show me everything about user X
+  # in under a second" use case. Each is a thin facet over one source:
+  #
+  #   user_profile           ← mf_users                       (~0.4s p50)
+  #   user_activity_timeline ← std_ingame_user_active_daily   (~0.5s p50)
+  #   user_recharge_timeline ← std_ingame_user_recharge_daily (~0.3s p50)
+  #   user_transactions      ← etl_ingame_recharge (raw)      (~0.3s p50, optional)
+  #
+  # The caller should issue all four queries in PARALLEL with a user_id =
+  # equality filter. Wall-clock is bounded by the slowest (~0.5s), so the full
+  # 360 lands well under the 1-second budget. Cube's result cache (refresh_key
+  # on each cube) makes repeat lookups within the TTL essentially free.
+  #
+  # See examples/04_user_360_fanout.py for the recommended client shape.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # 1) user_profile — the wide profile row from mf_users
+  # ---------------------------------------------------------------------------
+  - name: user_profile
+    description: >
+      Single-user wide profile (one row per user). Always filter by user_id
+      with the equals operator for sub-second response.
+    cubes:
+      - join_path: mf_users
+        includes:
+          # identity & acquisition
+          - user_id
+          - country
+          - os_platform
+          - install_date
+          - install_month
+          - media_source
+          - campaign_id
+          - is_paid_install
+          # login state
+          - first_login_date
+          - first_login_channel
+          - first_login_country
+          - first_device_model
+          - last_login_date
+          - last_login_channel
+          - last_login_country
+          # activity state
+          - first_active_date
+          - last_active_date
+          - total_active_days
+          - max_role_level
+          - max_fighting_power
+          - last_role_class
+          - last_server_id
+          - days_since_install
+          - days_since_last_active
+          - days_since_last_recharge
+          # recharge state (lifetime + 30d rolling pre-aggregated)
+          - first_recharge_date
+          - last_recharge_date
+          - ltv_vnd
+          - ltv_usd
+          - ltv_30d_vnd
+          - ltv_30d_usd
+          - ltv_iap_vnd
+          - ltv_web_vnd
+          - lifetime_txn_count
+          - lifetime_txn_count_iap
+          - lifetime_txn_count_web
+          - txn_count_30d
+          - max_vip_level
+          # derived classifications
+          - is_paying_user
+          - is_paying_30d
+          - payer_tier
+          - lifecycle_stage
+
+  # ---------------------------------------------------------------------------
+  # 2) user_activity_timeline — day-by-day activity rows
+  # ---------------------------------------------------------------------------
+  - name: user_activity_timeline
+    description: >
+      One row per day a user was active. Filter by user_id equals + date range
+      and order by log_date desc for the activity-history panel of a 360 view.
+    cubes:
+      - join_path: active_daily
+        includes:
+          - user_id
+          - log_date
+          - log_month
+          - server_id
+          - role_id
+          - role_class
+          - country_code
+          - os_platform
+          - client_ip
+          - device_id
+          - max_role_level
+          - max_fighting_power
+          - online_time_sec
+          - distinct_servers_today
+          - distinct_devices_today
+          - is_recharge_day
+          - rows
+          - last_7d
+          - last_30d
+
+  # ---------------------------------------------------------------------------
+  # 3) user_recharge_timeline — day-by-day rolled-up revenue rows
+  # ---------------------------------------------------------------------------
+  - name: user_recharge_timeline
+    description: >
+      One row per day a user recharged, with daily totals already pre-aggregated
+      upstream. Faster than raw transactions — use this for the 360 revenue
+      timeline. For per-transaction detail, see user_transactions.
+    cubes:
+      - join_path: user_recharge_daily
+        includes:
+          - user_id
+          - log_date
+          - log_month
+          - server_id
+          - role_id
+          - role_level
+          - vip_level
+          - max_vip_level_today
+          - country_code
+          - os_platform
+          - payment_channel
+          - product_id
+          - revenue_vnd
+          - revenue_usd
+          - revenue_vnd_iap
+          - revenue_vnd_web
+          - txn_count
+          - txn_count_iap
+          - txn_count_web
+          - revenue_vnd_total
+          - txn_count_total
+          - last_7d
+          - last_30d
+
+  # ---------------------------------------------------------------------------
+  # 4) user_transactions — raw per-transaction recharge events (optional)
+  # ---------------------------------------------------------------------------
+  - name: user_transactions
+    description: >
+      One row per recharge transaction. Slower than user_recharge_timeline —
+      only request when the 360 panel needs per-transaction detail.
+    cubes:
+      - join_path: recharge
+        includes:
+          - user_id
+          - transaction_id
+          - role_id
+          - role_name
+          - recharge_time
+          - recharge_date
+          - log_month
+          - payment_channel
+          - money_type
+          - product_id
+          - server_id
+          - country_code
+          - os_platform
+          - value_vnd
+          - ingame_value
+          - is_first_recharge
+          - txn_value_band_vnd
+          - transactions
+          - revenue_vnd
+          - iap
+          - web
+          - last_7d
+          - last_30d
+
+  # ===========================================================================
+  # Audience / cohort views (dimensional aggregations across many users)
+  # ===========================================================================
+
+  - name: user_audience
+    description: >
+      Segmentation surface — group/filter mf_users across cohorts. Use this for
+      "how many VN whales are at risk", payer-tier breakdowns, etc. NOT for
+      single-user lookups; see user_profile for that.
+    cubes:
+      - join_path: mf_users
+        includes:
+          - country
+          - os_platform
+          - install_month
+          - media_source
+          - is_paid_install
+          - payer_tier
+          - lifecycle_stage
+          - is_paying_user
+          - is_paying_30d
+          # measures
+          - user_count
+          - user_count_approx
+          - paying_users
+          - paying_users_30d
+          - whales_count
+          - lapsed_this_month_count
+          - ltv_total_vnd
+          - ltv_30d_total_vnd
+          - arpu_vnd
+          - arppu_vnd
+          - paying_rate
+          - paying_rate_30d
+          # segments
+          - vn_users
+          - paying_lifetime
+          - paying_recently_30d
+          - whales
+          - high_level_players
+          - at_risk_paying
+          - new_install_7d
+          - paid_install
+          - lapsed_this_month
+
+  - name: revenue_metrics
+    description: Daily / monthly revenue metrics from the recharge event stream.
+    cubes:
+      - join_path: recharge
+        includes:
+          - recharge_time
+          - recharge_date
+          - payment_channel
+          - country_code
+          - os_platform
+          - product_id
+          - txn_value_band_vnd
+          - revenue_vnd
+          - transactions
+          - paying_users
+          - arppu_vnd
+          - arpt_vnd
+          - iap
+          - web
+          - last_7d
+          - last_30d
+
+  - name: activity_metrics
+    description: DAU / MAU / activity-day analytics from std_ingame_user_active_daily.
+    cubes:
+      - join_path: active_daily
+        includes:
+          - log_date
+          - log_month
+          - country_code
+          - os_platform
+          - server_id
+          - dau
+          - mau
+          - mau_prev_month
+          - rows
+          - active_servers
+          - last_7d
+          - last_30d
+          - yesterday

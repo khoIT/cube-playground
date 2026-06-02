@@ -16,10 +16,10 @@
       }
     },
     {
-      "_comment": "PLACEHOLDER. URL/port + gameModel/authMode to be set once the new cube-dev service goes live; until then selecting this workspace will error (host not reachable).",
+      "_comment": "In-stack cube-dev (docker-compose.prod.yml cube_api service). Reached over the compose network at cube_api:4000 — NOT the published host port (17001 is browser-only). Multi-tenant: authMode=minted so the JWT's game claim selects the tenant schema.",
       "id": "local",
       "label": "Local cube-dev",
-      "cubeApiUrl": "http://localhost:11001",
+      "cubeApiUrl": "http://cube_api:4000",
       "authMode": "minted",
       "gameModel": "game_id"
     }

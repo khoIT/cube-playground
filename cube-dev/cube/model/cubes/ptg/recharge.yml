@@ -1,0 +1,199 @@
+cubes:
+  # ===========================================================================
+  # recharge — raw recharge transactions for PTG.
+  # Source: <CUBEJS_DB_SCHEMA>.etl_ingame_recharge
+  #
+  # PTG uses a camelCase raw schema and has NO mf_users / std_* tables, so this
+  # cube is standalone (no joins). Notable type quirks:
+  #   - rechargetime is VARCHAR 'YYYY-MM-DD HH:MM:SS' (not timestamp). Parsed
+  #     inline via from_iso8601_timestamp(REPLACE(..., ' ', 'T') || 'Z').
+  #   - moneyvalueingame is VARCHAR (mostly NULL in sampled data). Exposed
+  #     as-is; cast manually if numeric aggregation needed.
+  #   - is_first_recharge -> isfirstcharge (integer 0/1)
+  #
+  # Field mapping vs ballistar canonical:
+  #   accountid          -> account_id (canonical user identifier)
+  #   transactionid      -> transaction_id
+  #   chargedvalue       -> charged_value
+  #   moneyvalue         -> alternate value column (kept distinct)
+  #   moneyvalueingame   -> ingame_value (varchar; raw)
+  #   rechargetime       -> recharge_time (parsed)
+  #   paymentchannel     -> payment_channel
+  #   osplatform         -> os_platform
+  #   serverid           -> server_id
+  #   moneytype          -> money_type
+  #   productid          -> product_id (paymentitemid kept as alternative)
+  #   isfirstcharge      -> is_first_recharge
+  #
+  # Columns absent in PTG raw vs ballistar canonical (not modeled):
+  #   country_code, role_class, role_level, vip_level
+  # ===========================================================================
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    title: PTG — Recharge Transactions (raw events)
+    description: >
+      One row per recharge transaction in PTG. STANDALONE cube — PTG does not
+      have an mf_users master profile, so no join is defined. Filter by
+      account_id for per-user lookups.
+
+    refresh_key:
+      every: 5 minute
+
+    dimensions:
+      - name: transaction_id
+        sql: transactionid
+        type: string
+        primary_key: true
+
+      - name: user_id
+        sql: accountid
+        type: string
+        description: PTG account id (no mf_users join available)
+
+      - name: account_id
+        sql: accountid
+        type: string
+        public: false
+
+      - name: role_id
+        sql: roleid
+        type: string
+
+      - name: role_name
+        sql: rolename
+        type: string
+
+      - name: server_id
+        sql: serverid
+        type: string
+
+      - name: recharge_time
+        sql: "from_iso8601_timestamp(REPLACE({CUBE}.rechargetime, ' ', 'T') || 'Z')"
+        type: time
+        description: Parsed from varchar 'YYYY-MM-DD HH:MM:SS' (no timezone in source)
+
+      - name: recharge_time_raw
+        sql: rechargetime
+        type: string
+        public: false
+
+      - name: recharge_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: payment_channel
+        sql: paymentchannel
+        type: string
+
+      - name: os_platform
+        sql: osplatform
+        type: string
+
+      - name: money_type
+        sql: moneytype
+        type: string
+
+      - name: product_id
+        sql: productid
+        type: string
+
+      - name: payment_item_id
+        sql: paymentitemid
+        type: string
+        description: Alternative product identifier (PTG-specific)
+
+      - name: value_vnd
+        sql: chargedvalue
+        type: number
+        description: Charged value in VND (PTG is VN-only)
+
+      - name: money_value
+        sql: moneyvalue
+        type: number
+        description: Raw moneyvalue column (purpose distinct from chargedvalue — confirm with data team before using as revenue)
+
+      - name: ingame_value
+        sql: moneyvalueingame
+        type: string
+        description: In-game currency value (VARCHAR in source; mostly NULL in samples)
+
+      - name: gift_goldbar
+        sql: giftgoldbar
+        type: number
+        description: Bonus gold bars granted with this recharge
+
+      - name: gift_gem
+        sql: giftgem
+        type: number
+        description: Bonus gems granted with this recharge
+
+      - name: is_first_recharge
+        sql: "CASE WHEN {CUBE}.isfirstcharge = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: txn_value_band_vnd
+        type: string
+        case:
+          when:
+            - sql: "{CUBE}.chargedvalue >= 1000000"
+              label: ">= 1M"
+            - sql: "{CUBE}.chargedvalue >= 200000"
+              label: "200K - 1M"
+            - sql: "{CUBE}.chargedvalue >= 50000"
+              label: "50K - 200K"
+            - sql: "{CUBE}.chargedvalue >= 10000"
+              label: "10K - 50K"
+          else:
+            label: "< 10K"
+
+    measures:
+      - name: transactions
+        type: count
+
+      - name: revenue_vnd
+        sql: chargedvalue
+        type: sum
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: accountid
+
+      - name: paying_users_exact
+        type: count_distinct
+        sql: accountid
+
+      - name: arppu_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({paying_users}, 0)"
+        type: number
+
+      - name: arpt_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({transactions}, 0)"
+        type: number
+        description: Average revenue per transaction
+
+      - name: total_gift_goldbar
+        sql: giftgoldbar
+        type: sum
+
+      - name: total_gift_gem
+        sql: giftgem
+        type: sum
+
+      - name: first_recharges
+        type: count
+        filters:
+          - sql: "{CUBE}.isfirstcharge = 1"
+
+    segments:
+      - name: first_recharges_only
+        sql: "{CUBE}.isfirstcharge = 1"
+
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

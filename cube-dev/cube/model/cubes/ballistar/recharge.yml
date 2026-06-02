@@ -1,0 +1,181 @@
+cubes:
+  # ===========================================================================
+  # recharge — raw recharge transactions, one row per transaction
+  # Real source: <CUBEJS_DB_SCHEMA>.etl_ingame_recharge
+  # Join key to mf_users: etl_ingame_recharge.account_id = mf_users.user_id
+  # Use this cube for: per-transaction analytics, exact txn lists for a user,
+  # arbitrary-window revenue by channel/product.
+  # For per-user-per-day rolled-up revenue, prefer user_recharge_daily instead.
+  # ===========================================================================
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    title: Ballistar VN — Recharge Transactions (raw events)
+    description: >
+      One row per recharge transaction. Join key to mf_users is account_id
+      (= user_id). For best 1-user latency, ALWAYS pass an account_id (or
+      user_id via the joined view) equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.account_id = {mf_users}.user_id"
+
+    # Recharges are append-only — refresh every 5 min is enough for cache.
+    refresh_key:
+      every: 5 minute
+
+    dimensions:
+      - name: transaction_id
+        sql: transaction_id
+        type: string
+        primary_key: true
+
+      # Surface account_id under both names so callers can filter either way
+      - name: user_id
+        sql: account_id
+        type: string
+        description: User account id (= mf_users.user_id)
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: recharge_time
+        sql: recharge_time
+        type: time
+
+      - name: recharge_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: payment_channel
+        sql: payment_channel
+        type: string
+
+      - name: money_type
+        sql: money_type
+        type: string
+
+      - name: product_id
+        sql: product_id
+        type: string
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: os_platform
+        sql: os_platform
+        type: string
+
+      - name: value_vnd
+        sql: charged_value
+        type: number
+        description: Charged value in VND (etl_ingame_recharge.charged_value)
+
+      - name: ingame_value
+        sql: ingame_value
+        type: number
+
+      - name: is_first_recharge
+        sql: "CASE WHEN {CUBE}.is_first_recharge = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: txn_value_band_vnd
+        type: string
+        case:
+          when:
+            - sql: "{CUBE}.charged_value >= 1000000"
+              label: ">= 1M"
+            - sql: "{CUBE}.charged_value >= 200000"
+              label: "200K - 1M"
+            - sql: "{CUBE}.charged_value >= 50000"
+              label: "50K - 200K"
+            - sql: "{CUBE}.charged_value >= 10000"
+              label: "10K - 50K"
+          else:
+            label: "< 10K"
+
+    measures:
+      - name: transactions
+        type: count
+
+      - name: revenue_vnd
+        sql: charged_value
+        type: sum
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: paying_users_exact
+        type: count_distinct
+        sql: account_id
+
+      - name: arppu_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({paying_users}, 0)"
+        type: number
+
+      - name: arpt_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({transactions}, 0)"
+        type: number
+        description: Average revenue per transaction
+
+    segments:
+      - name: iap
+        sql: "{CUBE}.payment_channel IN ('IAP_GOOGLE', 'IAP_APPLE', 'IAP')"
+
+      - name: web
+        sql: "{CUBE}.payment_channel NOT IN ('IAP_GOOGLE', 'IAP_APPLE', 'IAP')"
+
+      - name: last_7d
+        sql: "{CUBE}.recharge_time >= CURRENT_TIMESTAMP - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.recharge_time >= CURRENT_TIMESTAMP - INTERVAL '30' DAY"
+
+      - name: first_recharges_only
+        sql: "{CUBE}.is_first_recharge = 1"
+
+    # Covers the hot revenue paths used by chat / catalog: revenue by day with
+    # optional channel / country / OS breakdowns over rolling windows. HLL
+    # sketches behind paying_users let day partitions merge into week / month
+    # without rescanning etl_ingame_recharge.
+    pre_aggregations:
+      - name: revenue_daily_by_channel
+        type: rollup
+        measures:
+          - revenue_vnd
+          - transactions
+          - paying_users
+        dimensions:
+          - payment_channel
+          - country_code
+          - os_platform
+        time_dimension: recharge_time
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT DATE '2024-01-01'"
+        build_range_end:
+          sql: "SELECT CURRENT_DATE"

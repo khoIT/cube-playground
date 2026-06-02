@@ -1,0 +1,44 @@
+# Ordered event funnel — UNION of per-event ETL tables (ptg schema).
+# ptg uses no-underscore column names: `accountid`, `logindatetime`,
+# `logoutdatetime`, `rechargetime`, `createdatetime`. ccu, item_log,
+# money_flow lack a user identifier and are excluded from the funnel.
+
+cubes:
+  - name: ordered_event_funnel
+    sql: |
+      WITH events AS (
+        SELECT accountid AS user_id, 'login'    AS event_name, logindatetime  AS ts FROM etl_ingame_login
+        UNION ALL
+        SELECT accountid,            'logout',                  logoutdatetime        FROM etl_ingame_logout
+        UNION ALL
+        SELECT accountid,            'recharge',                CAST(date_parse(rechargetime, '%Y-%m-%d %H:%i:%s') AS timestamp(6) with time zone) FROM etl_ingame_recharge
+        UNION ALL
+        SELECT accountid,            'register',                createdatetime        FROM etl_ingame_register
+      ),
+      filtered AS (
+        SELECT user_id, event_name, ts
+        FROM events
+        WHERE {FILTER_PARAMS.ordered_event_funnel.step_name.filter('event_name')}
+      )
+      SELECT
+        user_id,
+        event_name,
+        CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts) AS BIGINT) AS step_index
+      FROM filtered
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: step_index
+        sql: step_index
+        type: number
+
+      - name: step_name
+        sql: event_name
+        type: string
+
+    measures:
+      - name: step_count
+        type: count_distinct
+        sql: user_id
