@@ -14,6 +14,14 @@
         "cros": "cros",
         "jus_vn": "jus"
       }
+    },
+    {
+      "_comment": "PLACEHOLDER. URL/port + gameModel/authMode to be set once the new cube-dev service goes live; until then selecting this workspace will error (host not reachable).",
+      "id": "local",
+      "label": "Local cube-dev",
+      "cubeApiUrl": "http://localhost:11001",
+      "authMode": "minted",
+      "gameModel": "game_id"
     }
   ]
 }
