@@ -9,10 +9,11 @@
  * override and reverts to the auto-suggest source.
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '../db/sqlite.js';
 import { suggestIdentities, type IdentitySuggestion } from '../services/identity-suggester.js';
+import { logicalCubeAcross, logicalMember, physicalMember } from '../services/cube-member-resolver.js';
 
 const identityPutSchema = z.object({
   identity_field: z.string().min(1),
@@ -37,23 +38,46 @@ export interface MergedIdentityRow {
   updated_at: string | null;
 }
 
+/**
+ * Merge persisted overrides with auto-suggestions, optionally physicalizing
+ * back to the active workspace's naming model.
+ *
+ * When `prefixes` is non-empty (prefix workspace): persisted overrides are
+ * stored in logical (prefix-stripped) space. For each physical suggestion we
+ * find its logical key, look up any override, then emit the row with the
+ * PHYSICAL cube name so the FE (which speaks physical names) can match it.
+ *
+ * When `prefixes` is empty (game_id/local workspace): behavior is byte-for-byte
+ * identical to before — logicalCubeAcross is a no-op, no physicalization occurs.
+ */
 export function mergeIdentityRows(
   persisted: PersistedRow[],
   suggestions: IdentitySuggestion[],
+  prefixes: string[] = [],
 ): MergedIdentityRow[] {
-  const byCube = new Map<string, PersistedRow>();
-  for (const row of persisted) byCube.set(row.cube, row);
+  // Keyed by LOGICAL cube name so lookups work regardless of which game's
+  // physical prefix the incoming suggestion carries.
+  const byLogicalCube = new Map<string, PersistedRow>();
+  for (const row of persisted) byLogicalCube.set(row.cube, row);
 
   const out: MergedIdentityRow[] = [];
-  const persistedCubes = new Set<string>();
+  // Track which logical cubes were matched by a suggestion (for the orphan pass).
+  const matchedLogicalCubes = new Set<string>();
 
   for (const s of suggestions) {
-    const override = byCube.get(s.cube);
+    const logicalKey = logicalCubeAcross(s.cube, prefixes);
+    const override = byLogicalCube.get(logicalKey);
     if (override) {
-      persistedCubes.add(s.cube);
+      matchedLogicalCubes.add(logicalKey);
+      // Physicalize the stored logical identity_field back to the physical cube's
+      // prefix so the FE member lookup (`ballistar_mf_users.user_id`) matches.
+      const matchingPrefix = prefixes.find((p) => s.cube.startsWith(`${p}_`)) ?? null;
+      const physicalField = matchingPrefix
+        ? physicalMember(override.identity_field, matchingPrefix)
+        : override.identity_field;
       out.push({
-        cube: s.cube,
-        identity_field: override.identity_field,
+        cube: s.cube, // physical name — FE matches this
+        identity_field: physicalField,
         source: 'manual',
         is_suggested: false,
         confidence: override.confidence ?? 1,
@@ -74,11 +98,11 @@ export function mergeIdentityRows(
   }
 
   // Persisted overrides for cubes no longer present in /meta still surface so
-  // the user can see/remove them.
+  // the user can see/remove them (orphaned rows in the Settings page).
   for (const row of persisted) {
-    if (persistedCubes.has(row.cube)) continue;
+    if (matchedLogicalCubes.has(row.cube)) continue;
     out.push({
-      cube: row.cube,
+      cube: row.cube, // stored logical name; acceptable for orphan display
       identity_field: row.identity_field,
       source: 'manual',
       is_suggested: false,
@@ -92,9 +116,18 @@ export function mergeIdentityRows(
   return out;
 }
 
+/** Derive the list of game prefixes for the active workspace. Empty on game_id workspaces. */
+function getPrefixes(req: FastifyRequest): string[] {
+  if (req.workspace.gameModel === 'prefix') {
+    return Object.values(req.workspace.gamePrefixMap ?? {});
+  }
+  return [];
+}
+
 export default async function identityMapRoutes(app: FastifyInstance): Promise<void> {
-  // GET /api/identity-map — merged view
-  app.get('/api/identity-map', async (_req, _reply) => {
+  // GET /api/identity-map — merged view, workspace-aware
+  app.get('/api/identity-map', async (req, _reply) => {
+    const prefixes = getPrefixes(req);
     const db = getDb();
     const persisted = db
       .prepare('SELECT cube, identity_field, source, confidence, updated_at FROM cube_identity_map')
@@ -102,13 +135,15 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
 
     let suggestions: IdentitySuggestion[] = [];
     try {
-      suggestions = await suggestIdentities();
+      // Pass the workspace ctx so the suggester queries the ACTIVE Cube endpoint,
+      // not the local fallback — on prod the physical cube names differ from local.
+      suggestions = await suggestIdentities(req.cubeCtx);
     } catch (err) {
       // If Cube is unreachable we still want to surface persisted overrides.
       app.log.warn({ err }, 'identity-suggester failed — falling back to persisted overrides only');
     }
 
-    return mergeIdentityRows(persisted, suggestions);
+    return mergeIdentityRows(persisted, suggestions, prefixes);
   });
 
   // GET /api/settings/identity-map — alias matching plan path
@@ -120,6 +155,7 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
   // PUT /api/identity-map/:cube
   app.put('/api/identity-map/:cube', async (req, reply) => {
     const { cube } = req.params as { cube: string };
+    const prefixes = getPrefixes(req);
 
     const parsed = identityPutSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -130,6 +166,15 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
     const now = new Date().toISOString();
     const db = getDb();
 
+    // Store in LOGICAL (prefix-stripped) space so a single override covers all
+    // games on prefix workspaces. On game_id workspaces logicalCubeAcross is a
+    // no-op and cubeKey === cube.
+    const cubeKey = logicalCubeAcross(cube, prefixes);
+    // Also logicalize the identity_field — strip whichever game prefix the
+    // physical field carries so the stored key is portable across games.
+    const matchingPrefix = prefixes.find((p) => identity_field.startsWith(`${p}_`)) ?? null;
+    const logicalField = matchingPrefix ? logicalMember(identity_field, matchingPrefix) : identity_field;
+
     db.prepare(`
       INSERT INTO cube_identity_map (cube, identity_field, source, confidence, updated_at)
       VALUES (?, ?, 'manual', ?, ?)
@@ -138,9 +183,9 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
         source = 'manual',
         confidence = excluded.confidence,
         updated_at = excluded.updated_at
-    `).run(cube, identity_field, confidence ?? 1, now);
+    `).run(cubeKey, logicalField, confidence ?? 1, now);
 
-    return db.prepare('SELECT * FROM cube_identity_map WHERE cube = ?').get(cube);
+    return db.prepare('SELECT * FROM cube_identity_map WHERE cube = ?').get(cubeKey);
   });
 
   // PUT /api/settings/identity-map/:cube — alias
@@ -158,8 +203,11 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
   // DELETE /api/identity-map/:cube — revert to auto-suggest
   app.delete('/api/identity-map/:cube', async (req, reply) => {
     const { cube } = req.params as { cube: string };
+    const prefixes = getPrefixes(req);
+    // Logicalize so the delete hits the same logical key the PUT wrote.
+    const cubeKey = logicalCubeAcross(cube, prefixes);
     const db = getDb();
-    db.prepare('DELETE FROM cube_identity_map WHERE cube = ?').run(cube);
+    db.prepare('DELETE FROM cube_identity_map WHERE cube = ?').run(cubeKey);
     return reply.status(204).send();
   });
 }

@@ -8,15 +8,42 @@
 
 import { getDb } from '../db/sqlite.js';
 import { suggestIdentities } from './identity-suggester.js';
+import { resolveGamePrefix } from './resolve-game-prefix.js';
+import { logicalCubeAcross } from './cube-member-resolver.js';
 
 const AUTO_SUGGEST_MIN_CONFIDENCE = 0.9;
 
-export async function resolveIdentityField(cube: string): Promise<string | null> {
+/**
+ * Resolve the identity (uid) dimension for a cube. Accepts an optional gameId
+ * so background jobs (refresh-segment) can pass the segment's game context.
+ *
+ * Persisted overrides are stored in LOGICAL (prefix-stripped) space by the PUT
+ * handler. When a physical cube name is passed (`ballistar_mf_users`) on a
+ * prefix workspace, we derive the prefix via resolveGamePrefix and strip it
+ * before looking up the DB, then physicalize the stored field back before
+ * returning. On game_id workspaces (prefix null) the helpers are all no-ops and
+ * behavior is byte-for-byte unchanged.
+ */
+export async function resolveIdentityField(
+  cube: string,
+  gameId?: string | null,
+): Promise<string | null> {
+  const prefix = resolveGamePrefix(gameId ?? null);
+  // Normalize the incoming cube to logical space to match how overrides are stored.
+  const logicalKey = prefix ? logicalCubeAcross(cube, [prefix]) : cube;
+
   const db = getDb();
   const row = db
     .prepare('SELECT identity_field FROM cube_identity_map WHERE cube = ?')
-    .get(cube) as { identity_field: string } | undefined;
-  if (row?.identity_field) return row.identity_field;
+    .get(logicalKey) as { identity_field: string } | undefined;
+  if (row?.identity_field) {
+    // Re-physicalize the stored logical field for the caller that needs the
+    // fully-qualified physical member name (e.g. `ballistar_mf_users.user_id`).
+    if (prefix && !row.identity_field.startsWith(`${prefix}_`)) {
+      return `${prefix}_${row.identity_field}`;
+    }
+    return row.identity_field;
+  }
 
   try {
     const suggestions = await suggestIdentities();

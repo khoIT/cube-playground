@@ -8,7 +8,7 @@
  * { identity_field: null, confidence: 0 } so the FE can render an empty state.
  */
 
-import { getMeta } from './cube-client.js';
+import { getMeta, getMetaWithCtx, type WorkspaceCtx } from './cube-client.js';
 
 export interface IdentitySuggestion {
   cube: string;
@@ -58,8 +58,8 @@ export function pickIdentityField(dims: CubeDimension[]): {
   return { identity_field: null, confidence: 0, matched_pattern: null };
 }
 
-export async function suggestIdentities(): Promise<IdentitySuggestion[]> {
-  const meta = (await getMeta()) as MetaResponse;
+export async function suggestIdentities(ctx?: WorkspaceCtx): Promise<IdentitySuggestion[]> {
+  const meta = (ctx ? await getMetaWithCtx(ctx) : await getMeta()) as MetaResponse;
   const cubes = meta.cubes ?? [];
   return cubes.map((cube) => {
     const dims = cube.dimensions ?? [];

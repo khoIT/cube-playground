@@ -81,7 +81,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
   const token = row.game_id ? resolveCubeTokenForGame(row.game_id) ?? undefined : undefined;
 
   try {
-    const identity = await resolveIdentityField(row.cube);
+    const identity = await resolveIdentityField(row.cube, row.game_id);
     if (!identity) {
       setSegmentStatus(segmentId, 'broken', `no identity-field mapping for ${row.cube}`);
       return;

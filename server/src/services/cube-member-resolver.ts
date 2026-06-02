@@ -69,6 +69,22 @@ export function logicalCube(cube: string, prefix: string | null): string {
   return cube.startsWith(needle) ? cube.slice(needle.length) : cube;
 }
 
+/**
+ * Strip the first matching prefix from a physical cube name across a set of
+ * known prefixes. Used when a workspace exposes multiple game prefixes and we
+ * need to map any physical cube back to its logical (prefix-stripped) name so
+ * persisted overrides stored in logical space can be matched.
+ *
+ * No-op when `prefixes` is empty (game_id workspaces) — local behavior unchanged.
+ */
+export function logicalCubeAcross(cube: string, prefixes: string[]): string {
+  for (const p of prefixes) {
+    const needle = `${p}_`;
+    if (cube.startsWith(needle)) return cube.slice(needle.length);
+  }
+  return cube;
+}
+
 function physicalizeFilter(f: CubeFilter, prefix: string): CubeFilter {
   if ('and' in f && Array.isArray(f.and)) return { and: f.and.map((c) => physicalizeFilter(c, prefix)) };
   if ('or' in f && Array.isArray(f.or)) return { or: f.or.map((c) => physicalizeFilter(c, prefix)) };
