@@ -85,4 +85,37 @@ describe('segments — multi-user / multi-workspace scoping', () => {
     });
     expect(names(aliceOnly)).toEqual(['alice-local']);
   });
+
+  it('lets a different owner in the same workspace delete a shared segment', async () => {
+    const seg = await createSegment(app, 'alice-local', 'alice@co', 'local');
+
+    // bob (same workspace) deletes alice's segment — writes mirror the shared
+    // read model, so this succeeds rather than 403 "Not your segment".
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/segments/${seg.id}`,
+      headers: { 'x-owner': 'bob@co', 'x-cube-workspace': 'local' },
+    });
+    expect(del.statusCode).toBe(204);
+
+    const after = await app.inject({ method: 'GET', url: '/api/segments', headers: { 'x-cube-workspace': 'local' } });
+    expect(names(after)).toEqual([]);
+  });
+
+  it('treats a cross-workspace delete as not-found (never reveals other workspaces)', async () => {
+    const seg = await createSegment(app, 'alice-prod', 'alice@co', 'prod');
+
+    // Same owner, wrong workspace — the row exists but is invisible from 'local',
+    // so the API returns 404 instead of acting on it.
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/segments/${seg.id}`,
+      headers: { 'x-owner': 'alice@co', 'x-cube-workspace': 'local' },
+    });
+    expect(del.statusCode).toBe(404);
+
+    // The prod segment is still intact.
+    const prod = await app.inject({ method: 'GET', url: '/api/segments', headers: { 'x-cube-workspace': 'prod' } });
+    expect(names(prod)).toEqual(['alice-prod']);
+  });
 });

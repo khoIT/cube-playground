@@ -1,6 +1,10 @@
 /**
  * Segment CRUD routes + append + refresh stub.
- * Owner enforcement: writes reject when row.owner !== request.owner.
+ * Authorization: segments are shared within a workspace (the read model lists
+ * every segment in the active workspace regardless of owner). Writes mirror
+ * that — any caller in the same workspace may edit/delete. `owner` records
+ * provenance, not a private boundary. Cross-workspace rows are treated as
+ * not-found so the API never reveals segments outside the active workspace.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -254,7 +258,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const db = getDb();
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your segment' } });
+    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
 
     const parsed = segmentPatchSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -341,7 +345,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const db = getDb();
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your segment' } });
+    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
 
     db.prepare('DELETE FROM segments WHERE id = ?').run(id);
     return reply.status(204).send();
@@ -577,7 +581,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const db = getDb();
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your segment' } });
+    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
 
     let list: Array<Record<string, unknown>> = [];
     try {
@@ -616,7 +620,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const db = getDb();
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your segment' } });
+    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
 
     let list: Array<Record<string, unknown>> = [];
     try {

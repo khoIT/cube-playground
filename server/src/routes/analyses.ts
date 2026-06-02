@@ -1,6 +1,11 @@
 /**
  * Segment analyses CRUD — saved Cube queries pinned to a segment.
  * Nested under /api/segments/:segmentId/analyses.
+ *
+ * Authorization: analyses inherit their parent segment's shared scope. Reads
+ * are un-gated and segment-scoped; writes mirror that — any caller who can
+ * reach the segment may edit/delete its analyses. `owner` records provenance,
+ * not a private boundary.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -76,7 +81,6 @@ export default async function analysesRoutes(app: FastifyInstance): Promise<void
 
     const row = db.prepare('SELECT * FROM segment_analyses WHERE id = ? AND segment_id = ?').get(id, segmentId) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Analysis not found' } });
-    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your analysis' } });
 
     const parsed = analysisPatchSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -107,7 +111,6 @@ export default async function analysesRoutes(app: FastifyInstance): Promise<void
 
     const row = db.prepare('SELECT * FROM segment_analyses WHERE id = ? AND segment_id = ?').get(id, segmentId) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Analysis not found' } });
-    if (row.owner !== req.owner) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not your analysis' } });
 
     db.prepare('DELETE FROM segment_analyses WHERE id = ?').run(id);
     return reply.status(204).send();
