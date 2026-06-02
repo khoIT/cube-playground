@@ -27,12 +27,19 @@ export class SegmentApiError extends Error {
 
 const OWNER_STORAGE_KEY = 'gds-cube:owner';
 
+// Default identity when no owner is stored. Must match getOwnerId() in
+// chat-owner-id.ts — both read OWNER_STORAGE_KEY, so a divergent default makes
+// the two halves of the app disagree about who the caller is (segments would
+// act as one identity while chat acts as another, e.g. 403 on dev-owned
+// sessions). `|| ` (not `??`) so a stray empty string also falls back.
+const DEFAULT_OWNER = 'dev';
+
 export function getOwner(): string {
-  if (typeof window === 'undefined') return 'anonymous';
+  if (typeof window === 'undefined') return DEFAULT_OWNER;
   try {
-    return window.localStorage.getItem(OWNER_STORAGE_KEY) ?? 'anonymous';
+    return window.localStorage.getItem(OWNER_STORAGE_KEY) || DEFAULT_OWNER;
   } catch {
-    return 'anonymous';
+    return DEFAULT_OWNER;
   }
 }
 

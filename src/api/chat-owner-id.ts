@@ -13,7 +13,11 @@
 
 export function getOwnerId(): string {
   try {
-    return window.localStorage.getItem('gds-cube:owner') ?? 'dev';
+    // `|| ` (not `??`) so a stray empty string also falls back to the default.
+    // The default and storage key must stay in lockstep with getOwner() in
+    // api-client.ts — both read 'gds-cube:owner'; a divergent default makes the
+    // app disagree with itself about the caller's identity.
+    return window.localStorage.getItem('gds-cube:owner') || 'dev';
   } catch {
     return 'dev';
   }
