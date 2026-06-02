@@ -5,9 +5,10 @@
  * PUT / PATCH / DELETE handler, this preHandler runs once per request and
  * blocks viewer-role mutations on the artifact prefixes below.
  *
- * Per-row ownership checks (editor can only update own; admin can update
- * any) live inside each route handler — they need table-specific lookups
- * that don't belong in a global preHandler.
+ * Artifacts are SHARED within a workspace, so write access is gated by role
+ * only (viewer blocked; editor/admin allowed) — there is intentionally no
+ * per-row ownership check: any editor may modify any segment/dashboard in the
+ * workspace. The `owner` column records provenance, not a write boundary.
  *
  * Skipped entirely when AUTH_DISABLED=true (dev mode) — the synthesized
  * dev user is `admin`, so this would never trip anyway, but skipping is
