@@ -190,6 +190,13 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         HOME: CLAUDE_HOME,
         ANTHROPIC_API_KEY: config.anthropicApiKey,
         ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
+        // The prod container runs as root, and permissionMode:'bypassPermissions'
+        // makes the CLI pass --dangerously-skip-permissions, which Claude Code
+        // refuses under uid 0 unless IS_SANDBOX=1 (verified against the CLI's own
+        // root check). Safe here: every builtin tool is disabled
+        // (DISABLED_BUILTIN_TOOLS) so the agent can only call our curated cube MCP
+        // tools — there is no filesystem/shell to "skip permissions" on.
+        IS_SANDBOX: '1',
       },
     },
     { resumeId, abortSignal: signal, webSearchEnabled },
