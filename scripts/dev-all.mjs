@@ -16,7 +16,7 @@
  * window — close it manually if you want a fully clean stop.
  */
 
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn, spawnSync, execSync } from 'node:child_process';
 import { platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -24,6 +24,39 @@ import { createDevLogCapture } from './dev-log-capture.mjs';
 
 const isWindows = platform() === 'win32';
 const here = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Free the service ports before launch so a stale orphan from a previous
+ * (uncleanly stopped) dev:all can't silently kill the new server/chat-service.
+ * server + chat-service treat EADDRINUSE as a fatal boot error and exit; since
+ * `tsx watch` only restarts on file change, a squatted port means that service
+ * dies at startup and vanishes from the combined output — looking like its
+ * logging broke. vite is omitted: it auto-picks the next free port, never crashes.
+ */
+function freePorts(ports) {
+  for (const port of ports) {
+    try {
+      if (isWindows) {
+        const out = execSync(`netstat -ano -p tcp | findstr :${port} | findstr LISTENING`, {
+          encoding: 'utf8',
+        });
+        const pids = [...new Set(out.trim().split('\n').map((l) => l.trim().split(/\s+/).pop()).filter(Boolean))];
+        for (const pid of pids) try { execSync(`taskkill /F /PID ${pid}`); } catch { /* already gone */ }
+        if (pids.length) process.stdout.write(`[dev-all] freed port ${port} (killed ${pids.join(', ')})\n`);
+      } else {
+        const out = execSync(`lsof -ti tcp:${port} -s tcp:LISTEN`, { encoding: 'utf8' });
+        const pids = out.trim().split('\n').filter(Boolean);
+        for (const pid of pids) try { process.kill(Number(pid), 'SIGTERM'); } catch { /* already gone */ }
+        if (pids.length) process.stdout.write(`[dev-all] freed port ${port} (killed ${pids.join(', ')})\n`);
+      }
+    } catch {
+      // execSync exits non-zero when nothing is listening — that's the happy path.
+    }
+  }
+}
+
+// server :3004, chat-service :3005 — the two that fatally crash on a busy port.
+freePorts([3004, 3005]);
 
 // Boot guard for the external Cube backend. Synchronous so vite/server/chat
 // don't race a not-yet-ready cube_api. The guard self-times-out and exits 0
