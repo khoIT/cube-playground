@@ -181,7 +181,12 @@ services:
       - "${CUBE_SQL_PORT:-15432}:15432"     # SQL API (Postgres wire protocol)
     volumes:
       - ./cube-dev/cube:/cube/conf:ro
-      - ./cube-dev/cube-entrypoint-patched.sh:/usr/local/bin/cube-entrypoint-patched.sh:ro
+      # Entrypoint patch lives in this repo's docker/ (not cube-dev/, which is a
+      # submodule whose root isn't vendored into the deploy context — only
+      # cube-dev/cube/ is). Keeping it here guarantees the mount source exists on
+      # the runner; a missing source makes Docker create an empty dir and the
+      # container then execs a directory ("is a directory" init failure).
+      - ./docker/cube-entrypoint-patched.sh:/usr/local/bin/cube-entrypoint-patched.sh:ro
     depends_on:
       - cubestore
     restart: unless-stopped
