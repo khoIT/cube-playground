@@ -49,6 +49,7 @@ import {
   seedRegistryFromBaked as seedBusinessMetricsFromBaked,
 } from './services/business-metrics-loader.js';
 import { startAnomalyDetector } from './jobs/anomaly-detector.js';
+import { registerSlowRequestLog, startEventLoopMonitor } from './services/runtime-observability.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
 
@@ -148,6 +149,9 @@ export async function buildApp() {
   // Health check
   app.get('/api/health', async () => ({ ok: true }));
 
+  // Warn-log slow requests so stalls are greppable in logs/dev-all.log.
+  registerSlowRequestLog(app);
+
   return app;
 }
 
@@ -182,6 +186,8 @@ if (isMain || process.env.START_SERVER === '1') {
     }
     // Phase 2: SQLite anomaly detector — gated by ANOMALY_DETECTOR_ENABLED=true
     startAnomalyDetector((msg) => app.log.warn(msg));
+    // Sample event-loop delay; warns when synchronous work starves the loop.
+    startEventLoopMonitor(app.log);
     app.log.info(`Server ready in ${Date.now() - start}ms on :${PORT}`);
   }).catch((err) => {
     console.error(err);

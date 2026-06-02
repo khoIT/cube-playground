@@ -40,6 +40,7 @@ import { scheduler } from './services/scheduler.js';
 import { registerRetentionSweep } from './services/retention-sweep.js';
 import { registerResponseCacheSweep } from './services/response-cache-sweep.js';
 import { RateLimiter, buildRateLimitHook } from './middleware/rate-limit.js';
+import { registerSlowRequestLog, startEventLoopMonitor } from './services/runtime-observability.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RUNTIME_DIR = resolve(__dirname, '../runtime');
@@ -64,6 +65,10 @@ async function buildApp(dbPath?: string) {
     refillPerMin: config.rateLimitPerOwnerPerMin,
   });
   fastify.addHook('onRequest', buildRateLimitHook(limiter));
+
+  // Warn-log slow requests so stalls (e.g. polls queued behind a streaming
+  // turn or a synchronous sweep) are greppable in logs/dev-all.log.
+  registerSlowRequestLog(fastify);
 
   await fastify.register(healthRoutes, { db });
   await fastify.register(sessionsRoutes, { db });
@@ -115,6 +120,10 @@ async function start(): Promise<void> {
 
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
   fastify.log.info(`chat-service listening on port ${config.port}`);
+
+  // Sample event-loop delay; warns when a streaming turn or synchronous DB
+  // work blocks the single thread and starves cheap polls (the 504 cause).
+  startEventLoopMonitor(fastify.log);
 
   // Register retention sweep before scheduler.start() so the catch-up sweep
   // runs synchronously on boot (purges sessions that aged out while offline).
