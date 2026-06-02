@@ -90,6 +90,26 @@ CMD ["node", "dist/index.js"]
 ############################################################
 FROM node:22-bookworm-slim AS chat-service
 ENV NODE_ENV=production
+# Runtime egress proxy. The LLM gateway (ANTHROPIC_BASE_URL —
+# aawp-litellm-testing.vnggames.net — resolves to a PUBLIC IP) is reachable from
+# the network-isolated prod runner ONLY via the org proxy; without it the Claude
+# Code subprocess's HTTPS call to the gateway hangs until the turn times out
+# (~140s, 0 LLM calls). Unlike the build stages, this runtime stage keeps the
+# proxy as a persistent ENV so the running container (and the CLI it spawns) use
+# it. The VALUE comes from the build arg the deploy injects (x-build-proxy-args),
+# so the proxy credential is NOT hardcoded in git; empty in local builds (direct).
+# NO_PROXY keeps internal traffic off the proxy — compose service names plus the
+# docker bridge (172.16/12) and VNG internal ranges (10/8). `.vnggames.net` is
+# deliberately ABSENT so the PUBLIC gateway still routes through the proxy (the
+# internal Trino host is reached by cube_api, not this container).
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ENV http_proxy=${HTTP_PROXY} \
+    https_proxy=${HTTPS_PROXY} \
+    HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    no_proxy=localhost,127.0.0.1,server,chat-service,cube_api,cubestore,.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 \
+    NO_PROXY=localhost,127.0.0.1,server,chat-service,cube_api,cubestore,.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 WORKDIR /app/chat-service
 COPY --from=build /app/chat-service/node_modules ./node_modules
 COPY --from=build /app/chat-service/dist ./dist
