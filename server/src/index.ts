@@ -45,6 +45,8 @@ import { startDashboardTileCacheCron } from './jobs/refresh-dashboard-tiles.js';
 import {
   loadAll as loadBusinessMetrics,
   startWatcher as startBusinessMetricsWatcher,
+  setRegistryDir as setBusinessMetricsRegistryDir,
+  seedRegistryFromBaked as seedBusinessMetricsFromBaked,
 } from './services/business-metrics-loader.js';
 import { startAnomalyDetector } from './jobs/anomaly-detector.js';
 
@@ -112,6 +114,18 @@ export async function buildApp() {
     app.log.info(`[connectors] bootstrap-seed: ${seed.reason}`);
   } catch (err) {
     app.log.warn(`[connectors] bootstrap-seed failed: ${(err as Error).message}`);
+  }
+
+  // Business-metrics registry: in prod the YAMLs live on the persisted /data
+  // volume (BUSINESS_METRICS_DIR) so metrics created/scaffolded at runtime
+  // survive redeploys. Seed it from the image-baked presets (per-file
+  // copy-if-missing) before loading. Unset → registry stays at the baked dir
+  // (dev), and the seed step is a no-op.
+  const bmDir = process.env.BUSINESS_METRICS_DIR;
+  if (bmDir) {
+    setBusinessMetricsRegistryDir(bmDir);
+    const seeded = await seedBusinessMetricsFromBaked({ warn: app.log.warn.bind(app.log) });
+    app.log.info(`[business-metrics] registry dir=${bmDir}; seeded ${seeded.copied} baked metric(s)`);
   }
 
   // Hydrate the business-metrics cache before serving the first request.

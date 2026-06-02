@@ -42,6 +42,10 @@ services:
       NODE_ENV: production
       PORT: "3004"
       DB_PATH: /data/segments.db
+      # Business-metrics registry on the persisted volume so metrics created or
+      # scaffolded at runtime survive redeploys. Boot seeds it (per-file
+      # copy-if-missing) from the image-baked presets under dist/presets.
+      BUSINESS_METRICS_DIR: /data/business-metrics
       # Workspace registry: prod points at the open, prefix-namespaced prod
       # cube-dev (https://cube.gds.vng.vn). The committed workspaces.config.json
       # is the local-dev variant (default=local, localhost URLs) — overriding the

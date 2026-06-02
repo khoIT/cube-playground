@@ -10,7 +10,7 @@
  * via `fs.watch` and reloads when files change.
  */
 
-import { mkdir, readdir, readFile, rename, writeFile, unlink } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, rename, writeFile, unlink } from 'node:fs/promises';
 import { watch, type FSWatcher } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +36,50 @@ export function setRegistryDir(dir: string): void {
 
 export function getRegistryDir(): string {
   return registryDir;
+}
+
+/**
+ * Seed the active registry dir from the image-baked presets when the two
+ * differ (i.e. prod points the registry at the persisted /data volume via
+ * BUSINESS_METRICS_DIR). Per-file copy-if-missing:
+ *   - first boot on an empty volume → all baked seeds copied in;
+ *   - later releases that add new baked metrics → only the new files copied;
+ *   - metrics created or edited at runtime on the volume are never clobbered.
+ * No-op when the active dir IS the baked dir (dev / unset env), so local stays
+ * byte-for-byte unchanged.
+ */
+export async function seedRegistryFromBaked(
+  logger: { warn: (...args: unknown[]) => void } = console,
+): Promise<{ copied: number }> {
+  if (resolve(registryDir) === resolve(DEFAULT_REGISTRY_DIR)) return { copied: 0 };
+  await mkdir(registryDir, { recursive: true });
+
+  let baked: string[];
+  try {
+    baked = (await readdir(DEFAULT_REGISTRY_DIR)).filter((f) => f.endsWith('.yml'));
+  } catch (err) {
+    logger.warn(
+      `[business-metrics] baked presets unreadable at ${DEFAULT_REGISTRY_DIR}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return { copied: 0 };
+  }
+  const present = new Set(
+    (await readdir(registryDir).catch(() => [] as string[])).filter((f) => f.endsWith('.yml')),
+  );
+
+  let copied = 0;
+  for (const file of baked) {
+    if (present.has(file)) continue;
+    try {
+      await copyFile(join(DEFAULT_REGISTRY_DIR, file), join(registryDir, file));
+      copied += 1;
+    } catch (err) {
+      logger.warn(
+        `[business-metrics] seed-copy ${file} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+  return { copied };
 }
 
 export async function loadAll(

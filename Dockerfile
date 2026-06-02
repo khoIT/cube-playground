@@ -71,6 +71,11 @@ COPY --from=build /app/server/node_modules ./node_modules
 COPY --from=build /app/server/dist ./dist
 # tsc does NOT emit .sql — the migration runner reads dist/db/migrations/*.sql.
 COPY --from=build /app/server/src/db/migrations ./dist/db/migrations
+# tsc does NOT emit .yml either — the business-metrics registry loader and the
+# dashboard-starter-pack loader both readdir dist/presets/**/*.yml at runtime.
+# Without this, the prod image ships an empty dir → the metrics catalog and the
+# starter dashboards load zero entries.
+COPY --from=build /app/server/src/presets ./dist/presets
 # Seed assets read at cwd: data/glossary.seed.json + data/seed/* (DBs excluded by .dockerignore).
 COPY --from=build /app/server/data ./data
 # Root file:.. link target + game/workspace config read from the repo root.

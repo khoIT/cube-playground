@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   rmSync,
   writeFileSync,
+  readFileSync,
   existsSync,
   readdirSync,
 } from 'node:fs';
@@ -22,6 +23,7 @@ import {
   getById,
   loadAll,
   setRegistryDir,
+  seedRegistryFromBaked,
   writeMetric,
 } from '../src/services/business-metrics-loader.js';
 
@@ -153,5 +155,38 @@ describe('business-metrics-loader', () => {
 
     expect(getById('fresh')?.label).toBe('Fresh');
     expect(getAll().some((m) => m.id === 'fresh')).toBe(true);
+  });
+});
+
+// `dir` (set in beforeEach) stands in for the prod /data volume; the baked
+// default registry (src/presets/business-metrics) is the seed source.
+describe('seedRegistryFromBaked — volume durability', () => {
+  it('seeds baked presets into an empty volume dir, then loads them', async () => {
+    const { copied } = await seedRegistryFromBaked({ warn });
+
+    expect(copied).toBeGreaterThan(0);
+    expect(existsSync(join(dir, 'revenue.yml'))).toBe(true);
+    expect(existsSync(join(dir, 'dau.yml'))).toBe(true);
+
+    const res = await loadAll({ warn });
+    expect(res.loaded).toBe(copied);
+    expect(getById('revenue')).toBeDefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('does not clobber a metric already present on the volume (copy-if-missing)', async () => {
+    // Simulate a runtime-edited metric already on the volume.
+    const edited =
+      'id: revenue\nlabel: EDITED ON VOLUME\ndescription: d\ntier: 1\ndomain: revenue\nowner: x\ntrust: draft\nformula:\n  type: measure\n  ref: recharge.revenue_vnd\n';
+    writeFileSync(join(dir, 'revenue.yml'), edited);
+
+    await seedRegistryFromBaked({ warn });
+
+    // The existing file is preserved verbatim; sibling baked metrics still seed.
+    expect(readFileSync(join(dir, 'revenue.yml'), 'utf8')).toBe(edited);
+    expect(existsSync(join(dir, 'dau.yml'))).toBe(true);
+
+    await loadAll({ warn });
+    expect(getById('revenue')?.label).toBe('EDITED ON VOLUME');
   });
 });
