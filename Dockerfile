@@ -34,6 +34,10 @@ RUN apt-get update \
 # declared but not imported at runtime, so a bare manifest is enough to resolve.
 ############################################################
 FROM base AS deps
+# .npmrc carries legacy-peer-deps=true — required to resolve the antd v4 /
+# @ant-design/compatible (peer antd@3.x) conflict. All three installs run with
+# cwd /app, so this single root config governs each npm ci.
+COPY .npmrc ./
 COPY package.json package-lock.json ./
 COPY server/package.json server/package-lock.json ./server/
 COPY chat-service/package.json chat-service/package-lock.json ./chat-service/
