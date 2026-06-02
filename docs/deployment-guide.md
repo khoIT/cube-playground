@@ -141,7 +141,7 @@ Flat KV. ⚠️ = boot-blocking if absent.
 | `CUBEJS_API_SECRET` | yes | mints the per-game Cube JWT; shared by `server` (mint) + in-stack `cube_api` (verify) — values must match. |
 | `CUBEJS_DB_HOST` / `_PORT` / `_USER` / `_PASS` | yes¹ | Trino creds for the in-stack `cube_api` (copy from cube-dev `.env`). ¹Required once the `local` workspace is used; `cube_api` boots but can't query Trino without them. |
 | `CUBEJS_DB_CATALOG` / `_SSL` | no | in-stack cube; default `game_integration` / `false` (compose), override in Vault if prod Trino differs. |
-| `CUBESTORE_TAG` | ⚠️do-not-set | leave UNSET in prod — compose defaults to amd64 `v1.6.46`. The arm64v8 tag (local Apple Silicon) silently wedges cubestore on the x86-64 runner. |
+| `CUBESTORE_TAG` | ⚠️do-not-set | leave UNSET in prod — compose defaults to amd64 `:latest`, matching the cube-api images already cached on the kraken runner (so no cold Hub pull). The arm64v8 tag (local Apple Silicon) silently wedges cubestore on the x86-64 runner. |
 | `CUBEJS_REFRESH_WORKER` | no | default `false` (compose); flip to `true` only after pre-aggregations are defined, else it pegs CPU. |
 | `CUBE_PLAYGROUND_USER_ID` | no | service principal (default `playground`). |
 | `CHAT_FEATURE_ENABLED` | yes | `true` to run chat. |

@@ -116,6 +116,12 @@ services:
   # official image — no build. DB/secret values come from .env (Vault); non-secret
   # config is inline. Server reaches it at http://cube_api:4000 (workspaces.prod.config.json).
   cube_api:
+    # :latest to match the live cube-api stack (cube-api/docker-compose.prod.yml)
+    # that already deploys on the kraken runner — that host has cubejs/cube:latest
+    # + cubejs/cubestore:latest cached, so compose finds them locally and skips the
+    # Docker Hub pull. The network-isolated runner daemon can't reliably finish a
+    # cold Hub pull (registry timeout), so a tag NOT already on the host (e.g. a
+    # pinned v1.6.46) wedges the deploy. Keep both images on :latest in lockstep.
     image: cubejs/cube:latest
     container_name: cube-playground-cube-api
     environment:
@@ -167,9 +173,11 @@ services:
     restart: unless-stopped
 
   cubestore:
-    # NOT multi-arch — default amd64 tag matches the linux prod runner. Set
+    # :latest matches the live cube-api stack already cached on the kraken runner
+    # (avoids a cold Hub pull on this network-isolated daemon). NOT multi-arch —
+    # the default tag is the amd64 build for the linux runner. Set
     # CUBESTORE_TAG=v1.6.46-arm64v8 only for local arm64 (Apple Silicon).
-    image: cubejs/cubestore:${CUBESTORE_TAG:-v1.6.46}
+    image: cubejs/cubestore:${CUBESTORE_TAG:-latest}
     container_name: cube-playground-cubestore
     environment:
       CUBESTORE_DATA_DIR: /cube/data
