@@ -2,8 +2,10 @@
  * RightPaneTabs — the Chart / Analysis / Compare tab strip for the right pane.
  *
  * Presentational only: receives the active view + change/collapse callbacks.
- * Styled with design tokens to sit flush under the pane top, mirroring the
- * center tab strip's visual weight (icon + label, brand-tinted active state).
+ * Layer-1 (mode) selector: a neutral segmented pill — the active tab lifts on a
+ * white card with a brand-tinted icon, never a brand fill. The loud brand fill
+ * is reserved for the Layer-2 view selector below, so the two selection layers
+ * read as depth (mode over view) rather than competing for the same color.
  */
 
 import styled from 'styled-components';
@@ -32,15 +34,24 @@ const Spacer = styled.div`
   flex: 1;
 `;
 
+/** Recessed track that holds the mode tabs — the pill the active tab lifts out of. */
+const Pill = styled.div`
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-md);
+`;
+
 const TabBtn = styled.button<{ $active: boolean }>`
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 11px;
-  border-radius: var(--radius-sm);
-  border: 1px solid ${(p) => (p.$active ? 'var(--border-card)' : 'transparent')};
+  padding: 6px 13px;
+  border: 0;
+  border-radius: 6px;
   background: ${(p) => (p.$active ? 'var(--bg-card)' : 'transparent')};
-  color: ${(p) => (p.$active ? 'var(--text-primary)' : 'var(--text-tertiary, var(--text-muted))')};
+  color: ${(p) => (p.$active ? 'var(--text-primary)' : 'var(--text-secondary)')};
   font-family: var(--font-sans);
   font-weight: 500;
   font-size: 12.5px;
@@ -54,8 +65,7 @@ const TabBtn = styled.button<{ $active: boolean }>`
   }
 
   &:hover {
-    background: ${(p) => (p.$active ? 'var(--bg-card)' : 'var(--bg-muted)')};
-    color: ${(p) => (p.$active ? 'var(--text-primary)' : 'var(--text-secondary)')};
+    color: var(--text-primary);
   }
 `;
 
@@ -68,22 +78,24 @@ type Props = {
 export function RightPaneTabs({ value, onChange, onCollapse }: Props) {
   return (
     <Strip role="tablist" aria-label="Right pane view">
-      {TABS.map(({ value: v, label, Icon }) => {
-        const active = value === v;
-        return (
-          <TabBtn
-            key={v}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            $active={active}
-            onClick={() => onChange(v)}
-          >
-            <Icon size={15} strokeWidth={1.8} />
-            {label}
-          </TabBtn>
-        );
-      })}
+      <Pill>
+        {TABS.map(({ value: v, label, Icon }) => {
+          const active = value === v;
+          return (
+            <TabBtn
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              $active={active}
+              onClick={() => onChange(v)}
+            >
+              <Icon size={15} strokeWidth={1.8} />
+              {label}
+            </TabBtn>
+          );
+        })}
+      </Pill>
       <Spacer />
       <TooltipProvider title="Collapse pane">
         <Button
