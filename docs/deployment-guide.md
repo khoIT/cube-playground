@@ -70,8 +70,16 @@ authorization, Keycloak→Microsoft SSO, and the cube-dev shared authz source.
    on lookup error. Final cross-repo smoke: a PTG-only user is allowed PTG and
    `403`'d for another game at Cube (test through the proxy `:3004`).
 
-**Break-glass:** `AUTH_DISABLED=true` bypasses all authz (synth admin). Local /
-emergency only — never a prod default.
+**Break-glass:** `AUTH_DISABLED=true` bypasses all authz (synth admin) — and
+now also opens the in-stack cube bridge: `/internal/access` returns an
+all-games admin (`allowedGames: ['*']`, which `cube/cube.js#checkAuth` expands
+to every supported tenant), so the **`local`** workspace loads `/meta` and
+switches games with no login and no per-game grants — the same posture as local
+dev. The SSO wall is also down (`/api/auth/keycloak/config` → `enabled:false`).
+⚠️ This makes the entire prod app (every game, every feature, admin pages) open
+to anyone who can reach the domain — local / internal / emergency only, never a
+hardened-prod default. Flip back to `false` to restore Keycloak + DB-default-deny.
+(Data queries still need `CUBEJS_DB_*` Trino creds; `/meta` + game switching do not.)
 
 ## Containerized deploy (Docker)
 
@@ -132,7 +140,7 @@ Flat KV. ⚠️ = boot-blocking if absent.
 
 | Key | Req | Notes |
 |-----|-----|-------|
-| `AUTH_DISABLED` | yes | **`false`** in prod (true = auth bypass). |
+| `AUTH_DISABLED` | yes | **`false`** in prod. `true` = full bypass: synth admin, SSO wall down, **and** the in-stack cube `local` workspace opens to all games (no login, no grants). Dev/break-glass only — see Break-glass note. |
 | `JWT_SECRET` | yes | app-JWT signing (≥16 chars). |
 | `KEYCLOAK_URL` / `_REALM` / `_CLIENT_ID` | yes | KC OIDC config. |
 | `KEYCLOAK_CLIENT_SECRET` | yes | confidential client. |

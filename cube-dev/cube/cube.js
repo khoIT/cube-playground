@@ -108,7 +108,12 @@ module.exports = {
       throw new Error(`Unknown game claim: ${payload.game}`);
     }
     const access = await getUserAccess(payload.userId);
-    if (!access.allowedGames.includes(game)) {
+    // '*' is an all-tenants wildcard: the playground's /internal/access returns
+    // it when the deploy runs with auth disabled (break-glass / dev posture),
+    // so every supported game resolves without per-game grants. A real grant
+    // list still gates normally. NOTE: preserve this wildcard branch when
+    // re-vendoring cube/ from the source repo.
+    if (!access.allowedGames.includes('*') && !access.allowedGames.includes(game)) {
       throw new Error(`User ${payload.userId} not allowed for game ${payload.game}`);
     }
     req.securityContext = buildSecurityContext({ ...payload, game }, access);
