@@ -5,7 +5,8 @@
   "scripts": {
     "prepare": "git config core.hooksPath scripts/git-hooks 2>/dev/null || true",
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
+    "build:strict": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
