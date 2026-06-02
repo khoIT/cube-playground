@@ -154,6 +154,21 @@ describe('applySseEvent — individual events', () => {
     expect(s.status).toBe('error');
     expect(s.error).toBe('boom');
   });
+
+  it('classified error event carries title + hint to the banner', () => {
+    const s = applySseEvent(makeIdleEntry('sess-1'), {
+      type: 'error',
+      data: {
+        code: 'llm_gateway_forbidden',
+        message: 'API Error: 403 Forbidden',
+        title: 'AI service refused the request (403)',
+        hint: 'Connect to the VPN, then retry.',
+      },
+    });
+    expect(s.status).toBe('error');
+    expect(s.errorTitle).toBe('AI service refused the request (403)');
+    expect(s.errorHint).toBe('Connect to the VPN, then retry.');
+  });
 });
 
 describe('clearStreamBuffers', () => {

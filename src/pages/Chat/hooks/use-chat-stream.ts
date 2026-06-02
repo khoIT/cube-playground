@@ -143,6 +143,8 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     /** Phase 04 — populated when `turn_aborted` lands. */
     abort: entry?.abort ?? null,
     error: entry?.error ?? null,
+    errorTitle: entry?.errorTitle ?? null,
+    errorHint: entry?.errorHint ?? null,
     lastCompactWarning: entry?.lastCompactWarning ?? null,
     retryAfterMs: entry?.retryAfterMs ?? null,
     sendTurn,

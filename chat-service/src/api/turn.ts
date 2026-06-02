@@ -26,6 +26,7 @@ import { compose } from '../core/mode-prompts.js';
 import * as claudeRunner from '../core/claude-runner.js';
 import { buildSdkTools } from '../tools/registry.js';
 import { writeSseEvent } from '../core/sse-stream.js';
+import { classifyLlmError } from '../core/llm-error-classifier.js';
 import { config } from '../config.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import { RegistryOverflowError } from '../core/stream-registry.js';
@@ -364,6 +365,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     let inputTokens = 0;
     let outputTokens = 0;
     let costUsd: number | undefined;
+    // Set when the runner surfaces an LLM/gateway failure as a result-subtype
+    // error (vs a thrown error caught below). Routes the turn through the same
+    // error finalization path so it's classified, audited, and persisted as an
+    // error turn instead of an empty "successful" answer.
+    let resultError: string | null = null;
     // Phase-02: turn-level stop_reason from SDK result message.
     let stopReason: string | undefined;
     // Phase-03: cache token breakdown from SDK result usage block.
@@ -432,6 +438,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           sawFirstEvent = true;
           timer.mark('llm-first-event');
         }
+        // LLM/gateway failure surfaced as a result-subtype error (sse-stream
+        // maps it to `error`). Capture the raw text and stop consuming — the
+        // post-loop error path classifies, audits, and persists it.
+        if (event.type === 'error') {
+          resultError = event.data.message;
+          break;
+        }
         // Accumulate result metadata; other events are forwarded directly
         if (event.type === 'result') {
           assistantText = event.data.text;
@@ -457,6 +470,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         if (event.type !== 'query_artifact' && event.type !== 'chart') {
           emit(event);
         }
+      }
+
+      // A result-subtype LLM error short-circuits the success path: throw so the
+      // catch below classifies, audits, and persists it as an error turn (one
+      // error-handling path for both thrown and result-surfaced failures).
+      if (resultError) {
+        throw new Error(resultError);
       }
 
       // Phase-05 parallel-emit shim: the runner has consumed every message and
@@ -625,17 +645,40 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       registry.finish(turnId, 'done');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      emit({ type: 'error', data: { code: 'agent_error', message } });
+      // Classify into an actionable category so the FE banner can tell the user
+      // where to fix (VPN / key / connectivity) and the audit row is triageable.
+      const classified = classifyLlmError({ message });
+      emit({
+        type: 'error',
+        data: {
+          code: classified.code,
+          message,
+          title: classified.title,
+          hint: classified.hint,
+        },
+      });
       timer.flush(fastify.log, 'error');
       registry.finish(turnId, 'error');
 
-      // Persist error in audit log
+      // Persist error in audit log — include the classification so the DevAudit
+      // triage view surfaces the category + fix hint alongside the raw cause.
       chatStore.insertAudit(opts.db, {
         sessionId,
         turnId,
         kind: 'error',
-        detail: { message, stack: err instanceof Error ? err.stack : undefined },
+        detail: {
+          message,
+          code: classified.code,
+          title: classified.title,
+          hint: classified.hint,
+          retriable: classified.retriable,
+          stack: err instanceof Error ? err.stack : undefined,
+        },
       });
+      fastify.log.error(
+        { turnId, sessionId, errorCode: classified.code, message },
+        `[turn] ${classified.code}: ${classified.title}`,
+      );
 
       // Persist a visible assistant turn so the failure survives a reload.
       // stop_reason='error' tags the row so listTurnsRecent excludes it from

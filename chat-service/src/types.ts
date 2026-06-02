@@ -114,7 +114,21 @@ export type SseEvent =
         cache_freshness?: 'refreshed' | 'stale';
       };
     }
-  | { type: 'error'; data: { code: string; message: string } }
+  | {
+      type: 'error';
+      data: {
+        /** Machine-readable category from the error classifier (e.g. llm_gateway_forbidden). */
+        code: string;
+        /** Raw underlying error text (the SDK/gateway message). */
+        message: string;
+        /** Short human-facing headline for the error banner. */
+        title?: string;
+        /** Actionable "where to fix" guidance (VPN / key / connectivity). */
+        hint?: string;
+        /** Present for rate-limit errors so the FE can show a countdown. */
+        retry_after_ms?: number;
+      };
+    }
   | { type: 'done'; data: Record<string, never> }
   | { type: 'compact_warning'; data: { from: string; to: string; summary: string } }
   /**

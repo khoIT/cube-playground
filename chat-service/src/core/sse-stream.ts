@@ -133,6 +133,22 @@ export function mapSdkMessage(msg: SdkMessage): SseEvent[] {
 
   if (msg.type === 'result') {
     const rm = msg as SdkResultMessage;
+    // The SDK reports a successful turn with subtype 'success'. Any other
+    // subtype (e.g. error_during_execution) means the underlying LLM/gateway
+    // call failed but the SDK surfaced it as a result rather than throwing —
+    // emit it as a classifiable `error` so the turn isn't persisted as a
+    // normal answer. turn.ts classifies the raw text into an actionable code.
+    if (rm.subtype && rm.subtype !== 'success') {
+      return [
+        {
+          type: 'error',
+          data: {
+            code: 'agent_error',
+            message: rm.result ?? `Agent ended with subtype "${rm.subtype}"`,
+          },
+        },
+      ];
+    }
     return [
       {
         type: 'result',

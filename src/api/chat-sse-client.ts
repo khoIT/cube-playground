@@ -134,7 +134,15 @@ export interface SseResult extends SseEventBase {
 }
 export interface SseError extends SseEventBase {
   type: 'error';
-  data: { code: string; message: string };
+  data: {
+    code: string;
+    message: string;
+    /** Short human-facing headline from the server's error classifier. */
+    title?: string;
+    /** Actionable "where to fix" guidance (VPN / key / connectivity). */
+    hint?: string;
+    retry_after_ms?: number;
+  };
 }
 export interface SseDone extends SseEventBase {
   type: 'done';

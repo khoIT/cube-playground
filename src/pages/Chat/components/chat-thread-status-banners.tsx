@@ -84,13 +84,22 @@ export function RateLimitedBanner({ retryAfterMs }: RateLimitedBannerProps) {
 
 interface ErrorBannerProps {
   onDismiss: () => void;
+  /** Server-classified headline (e.g. "AI service refused the request (403)"). */
+  title?: string | null;
+  /** Actionable "where to fix" guidance. */
+  hint?: string | null;
+  /** Raw underlying error text — shown small, below the hint, for debugging. */
+  detail?: string | null;
 }
 
-export function ErrorBanner({ onDismiss }: ErrorBannerProps) {
+export function ErrorBanner({ onDismiss, title, hint, detail }: ErrorBannerProps) {
+  // Fall back to the generic copy when the server didn't classify the error.
+  const headline = title || 'Something went wrong. Please try again.';
   return (
     <div
+      data-testid="error-banner"
       style={{
-        padding: '8px 16px',
+        padding: '10px 16px',
         background: T.redSoft,
         borderTop: `1px solid ${T.red500}`,
         fontFamily: T.fSans,
@@ -98,14 +107,34 @@ export function ErrorBanner({ onDismiss }: ErrorBannerProps) {
         color: T.red600,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        gap: 12,
       }}
     >
-      <span>Something went wrong. Please try again.</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+        <span style={{ fontWeight: 600 }}>{headline}</span>
+        {hint && (
+          <span style={{ color: T.n700 }}>
+            <strong style={{ fontWeight: 600 }}>Where to fix:</strong> {hint}
+          </span>
+        )}
+        {detail && (
+          <span
+            style={{
+              color: T.n500,
+              fontSize: 12,
+              fontFamily: T.fMono ?? 'monospace',
+              wordBreak: 'break-word',
+            }}
+          >
+            {detail}
+          </span>
+        )}
+      </div>
       <button
         type="button"
         onClick={onDismiss}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.red600, fontFamily: T.fSans, fontSize: 13 }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.red600, fontFamily: T.fSans, fontSize: 13, flexShrink: 0 }}
       >
         Dismiss
       </button>

@@ -160,6 +160,7 @@ export function ChatThreadPage() {
     cacheHit: streamCacheHit, cacheFreshness: streamCacheFreshness,
     disambigOptions: streamDisambigOptions,
     lastCompactWarning, retryAfterMs,
+    error: streamError, errorTitle: streamErrorTitle, errorHint: streamErrorHint,
     sendTurn, cancel, reconnect, clearStreamBuffers,
   } = useChatStream({ sessionId: isNew ? null : id ?? null, game: gameId });
 
@@ -418,7 +419,14 @@ export function ChatThreadPage() {
             />
           )}
           {lastCompactWarning && status === 'done' && <CompactWarningChip />}
-          {status === 'error' && <ErrorBanner onDismiss={cancel} />}
+          {status === 'error' && (
+            <ErrorBanner
+              onDismiss={cancel}
+              title={streamErrorTitle}
+              hint={streamErrorHint}
+              detail={streamError}
+            />
+          )}
           {/* Phase 04 — Stop generating affordance. Visible only while the
               turn is streaming and the server has surfaced a turnId. */}
           <div

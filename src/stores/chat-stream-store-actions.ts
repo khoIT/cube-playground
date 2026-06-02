@@ -60,6 +60,9 @@ export interface StreamEntry {
   currentCharts: ChartArtifact[];
   currentToolCalls: ToolCallState[];
   error: string | null;
+  /** Classifier headline + actionable hint, set alongside `error` (server-classified). */
+  errorTitle: string | null;
+  errorHint: string | null;
   lastCompactWarning: CompactWarning | null;
   retryAfterMs: number | null;
   refCount: number;
@@ -96,6 +99,8 @@ export function makeIdleEntry(sessionId: string | null): StreamEntry {
     currentCharts: [],
     currentToolCalls: [],
     error: null,
+    errorTitle: null,
+    errorHint: null,
     lastCompactWarning: null,
     retryAfterMs: null,
     refCount: 0,
@@ -239,6 +244,8 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
       const data = event.data as {
         code: string;
         message: string;
+        title?: string;
+        hint?: string;
         retry_after_ms?: number;
       };
       if (data.code === 'rate_limited' && data.retry_after_ms != null) {
@@ -248,7 +255,13 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
           retryAfterMs: data.retry_after_ms,
         };
       }
-      return { ...entry, status: 'error', error: data.message };
+      return {
+        ...entry,
+        status: 'error',
+        error: data.message,
+        errorTitle: data.title ?? null,
+        errorHint: data.hint ?? null,
+      };
     }
   }
   return entry;
