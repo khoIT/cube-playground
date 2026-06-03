@@ -1,0 +1,183 @@
+cubes:
+  - name: active_daily
+    sql_table: std_ingame_user_active_daily
+    title: PUBG Mobile VN — Daily Active Snapshots (per user, per day)
+    description: >
+      One row per user per active day. Use this cube whenever you need a
+      time window NOT pre-computed in mf_users (mf_users has rolling 30d only),
+      OR to retrieve a user's day-by-day activity timeline for the 360 view.
+      For best 1-user latency, ALWAYS pass a user_id equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    # -------------------------------------------------------------------------
+    # Caching: results for (user_id, log_date) are append-only and refreshed
+    # daily upstream — a 30-min cache TTL is plenty for the 360 use case and
+    # keeps repeat single-user lookups in Cube's in-memory result cache.
+    # -------------------------------------------------------------------------
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.user_id, '__', CAST({CUBE}.log_date AS VARCHAR))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: "from_iso8601_timestamp(CAST(DATE_TRUNC('month', {CUBE}.log_date) AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      # Real columns in std_ingame_user_active_daily are namespaced with
+      # ingame_first_active_* / ingame_last_active_*. Expose the "last" set as
+      # the canonical daily values (= what the user looked like on that day).
+      - name: server_id
+        sql: ingame_last_active_server_id
+        type: string
+
+      - name: role_id
+        sql: ingame_last_active_role_id
+        type: string
+
+      - name: role_class
+        sql: ingame_last_active_role_class
+        type: string
+
+      - name: country_code
+        sql: ingame_last_active_country_code
+        type: string
+
+      - name: os_platform
+        sql: ingame_last_active_os_platform
+        type: string
+
+      - name: client_ip
+        sql: ingame_last_active_client_ip
+        type: string
+
+      - name: device_id
+        sql: ingame_last_active_device_id
+        type: string
+
+      - name: max_role_level
+        sql: ingame_max_active_role_level
+        type: number
+
+      - name: max_fighting_power
+        sql: ingame_max_active_fighting_power
+        type: number
+
+      - name: online_time_sec
+        sql: total_online_time
+        type: number
+
+      - name: distinct_servers_today
+        sql: total_server_id_active
+        type: number
+
+      - name: distinct_devices_today
+        sql: total_device_id_active
+        type: number
+
+      - name: is_recharge_day
+        sql: "CASE WHEN {CUBE}.is_recharge = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+    measures:
+      - name: rows
+        type: count
+        description: Total user-day rows
+
+      - name: dau
+        type: count_distinct_approx
+        sql: user_id
+        description: Daily active users (HLL approx_distinct)
+
+      - name: dau_exact
+        type: count_distinct
+        sql: user_id
+
+      - name: active_servers
+        type: count_distinct_approx
+        sql: ingame_last_active_server_id
+
+      - name: total_online_time_sec
+        sql: total_online_time
+        type: sum
+
+      - name: mau
+        type: count_distinct_approx
+        sql: user_id
+        description: Monthly active users — query with time_dimension granularity=month
+
+      - name: mau_prev_month
+        type: count_distinct_approx
+        sql: user_id
+        filters:
+          - sql: "{CUBE}.log_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1' MONTH AND {CUBE}.log_date < DATE_TRUNC('month', CURRENT_DATE)"
+        description: Distinct users with at least one active day in the previous calendar month
+
+      - name: wau
+        type: count_distinct_approx
+        sql: user_id
+        description: Weekly active users — unique users active in the ISO week (Mon-Sun); query with time_dimension granularity=week
+
+      - name: trailing_wau
+        type: count_distinct_approx
+        sql: user_id
+        filters:
+          - sql: "{CUBE}.log_date >= DATE_TRUNC('week', CURRENT_DATE)"
+        description: Trailing WAU — distinct active users from the start of the current ISO week (Monday) through today
+
+      - name: trailing_mau
+        type: count_distinct_approx
+        sql: user_id
+        filters:
+          - sql: "{CUBE}.log_date >= DATE_TRUNC('month', CURRENT_DATE)"
+        description: Trailing MAU — distinct active users from the start of the current calendar month through today
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: yesterday
+        sql: "{CUBE}.log_date = CURRENT_DATE - INTERVAL '1' DAY"
+
+    # Cross-cube rollup: serves dau by (country, payer_tier, day) without
+    # scanning std_ingame_user_active_daily. Foreign dims come from mf_users
+    # via the declared many_to_one join. count_distinct_approx stores HLL
+    # sketches in the rollup, so the same day-grain rollup also serves
+    # week/month/quarter/year queries via sketch merge.
+    pre_aggregations:
+      - name: dau_by_country_payer_daily
+        type: rollup
+        measures:
+          - dau
+        dimensions:
+          - mf_users.country
+          - mf_users.payer_tier
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT DATE '2024-01-01'"
+        build_range_end:
+          sql: "SELECT CURRENT_DATE"

@@ -1,0 +1,176 @@
+cubes:
+  # ===========================================================================
+  # recharge — raw recharge transactions for MUAW.
+  # Source: <CUBEJS_DB_SCHEMA>.etl_ingame_recharge
+  #
+  # MUAW has no mf_users / std_* / cons_* tables, so this cube is standalone.
+  # The recharge schema is a "cleaner curated" shape — closer to ballistar's
+  # canonical form than to the VNG SDK / Netease raw shapes.
+  #
+  # Notable quirks:
+  #   - is_first_charge is VARCHAR (likely '0' / '1') — cast in CASE expression
+  #   - "class" / "level" are bare column names (vs ballistar's role_class / role_level)
+  #   - platform_os instead of os_platform
+  #   - log_time and recharge_time both exist; recharge_time is the business event,
+  #     log_time is ETL ingest time
+  # ===========================================================================
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    title: MUAW — Recharge Transactions (raw events)
+    description: >
+      One row per recharge transaction in MUAW. STANDALONE cube — MUAW has no
+      mf_users master profile, so no join is defined. Filter by account_id
+      for per-user lookups.
+
+    refresh_key:
+      every: 5 minute
+
+    dimensions:
+      - name: transaction_id
+        sql: transaction_id
+        type: string
+        primary_key: true
+
+      - name: user_id
+        sql: account_id
+        type: string
+        description: MUAW account id (no mf_users join available)
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: role_class
+        sql: class
+        type: string
+
+      - name: role_level
+        sql: level
+        type: number
+
+      - name: vip_level
+        sql: vip_level
+        type: number
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: recharge_time
+        sql: recharge_time
+        type: time
+
+      - name: log_time
+        sql: log_time
+        type: time
+        description: ETL ingest time (use recharge_time for business event time)
+
+      - name: recharge_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: payment_channel
+        sql: payment_channel
+        type: string
+
+      - name: os_platform
+        sql: platform_os
+        type: string
+
+      - name: money_type
+        sql: money_type
+        type: string
+
+      - name: product_id
+        sql: product_id
+        type: string
+
+      - name: client_ip
+        sql: client_ip
+        type: string
+        public: false
+
+      - name: value_vnd
+        sql: charged_value
+        type: number
+        description: Charged value in VND (MUAW is VN-only)
+
+      - name: recharge_total_money
+        sql: recharge_total_money
+        type: number
+        description: >
+          Additional money column distinct from charged_value. Purpose unclear
+          (possibly running total or multi-item recharge sum) — confirm with
+          data team before using for revenue reporting.
+
+      - name: is_first_recharge
+        sql: "CASE WHEN {CUBE}.is_first_charge = '1' THEN TRUE ELSE FALSE END"
+        type: boolean
+        description: Source is VARCHAR; assumes '1' = true. Sample to confirm value space.
+
+      - name: txn_value_band_vnd
+        type: string
+        case:
+          when:
+            - sql: "{CUBE}.charged_value >= 1000000"
+              label: ">= 1M"
+            - sql: "{CUBE}.charged_value >= 200000"
+              label: "200K - 1M"
+            - sql: "{CUBE}.charged_value >= 50000"
+              label: "50K - 200K"
+            - sql: "{CUBE}.charged_value >= 10000"
+              label: "10K - 50K"
+          else:
+            label: "< 10K"
+
+    measures:
+      - name: transactions
+        type: count
+
+      - name: revenue_vnd
+        sql: charged_value
+        type: sum
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: paying_users_exact
+        type: count_distinct
+        sql: account_id
+
+      - name: arppu_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({paying_users}, 0)"
+        type: number
+
+      - name: arpt_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({transactions}, 0)"
+        type: number
+
+      - name: first_recharges
+        type: count
+        filters:
+          - sql: "{CUBE}.is_first_charge = '1'"
+
+    segments:
+      - name: first_recharges_only
+        sql: "{CUBE}.is_first_charge = '1'"
+
+      - name: last_7d
+        sql: "{CUBE}.recharge_time >= CURRENT_TIMESTAMP - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.recharge_time >= CURRENT_TIMESTAMP - INTERVAL '30' DAY"

@@ -1,0 +1,43 @@
+# Ordered event funnel — UNION of per-event ETL tables (muaw schema).
+# muaw lacks std_ingame_user_active_daily, but has all 4 etl event tables.
+# Uses account_id throughout; column names match ballistar.
+
+cubes:
+  - name: ordered_event_funnel
+    sql: |
+      WITH events AS (
+        SELECT account_id AS user_id, 'login'    AS event_name, login_time   AS ts FROM etl_ingame_login
+        UNION ALL
+        SELECT account_id,            'logout',                  logout_time         FROM etl_ingame_logout
+        UNION ALL
+        SELECT account_id,            'recharge',                recharge_time       FROM etl_ingame_recharge
+        UNION ALL
+        SELECT account_id,            'register',                create_time         FROM etl_ingame_register
+      ),
+      filtered AS (
+        SELECT user_id, event_name, ts
+        FROM events
+        WHERE {FILTER_PARAMS.ordered_event_funnel.step_name.filter('event_name')}
+      )
+      SELECT
+        user_id,
+        event_name,
+        CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts) AS BIGINT) AS step_index
+      FROM filtered
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: step_index
+        sql: step_index
+        type: number
+
+      - name: step_name
+        sql: event_name
+        type: string
+
+    measures:
+      - name: step_count
+        type: count_distinct
+        sql: user_id

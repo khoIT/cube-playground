@@ -1,0 +1,290 @@
+cubes:
+  # ===========================================================================
+  # game_key_metrics — the consolidated reporting mart.
+  # Source: <schema>.cons_game_key_metrics_daily
+  #
+  # One row per (report_date × marketing-attribution slice). Pre-aggregated
+  # upstream and marketing-attributed, so it carries acquisition spend
+  # (cost_vnd / impressions / clicks), funnel counts (installs, NRU, NPU),
+  # day-N retention buckets (a1..a90 active, pu1..pu90 paying), and revenue
+  # (rev / iap_rev / web_rev) all in one table. This is the canonical source
+  # for dashboards — read it instead of scanning std_/etl_ tables.
+  #
+  # Schema-stable across ballistar/cfm/jus/muaw/pubg; per-tenant routing picks
+  # the right Trino schema. Only the title differs per game.
+  #
+  # AGGREGATION NOTE: counts/spend/revenue are additive across both the
+  # attribution slices (same day) and across days (date range), so `sum` is
+  # correct. The trailing_* snapshot columns (trailing_wau/mau/...) and the
+  # per-user average columns (rev_npu, rev_nnpu, ...) are NON-additive and are
+  # intentionally NOT exposed as raw measures — derive rates from the sums.
+  # ===========================================================================
+  - name: game_key_metrics
+    sql_table: cons_game_key_metrics_daily
+    title: CFM VN — Game Key Metrics (daily, by acquisition slice)
+    description: >
+      Consolidated daily key-metrics mart, attributed to acquisition source
+      (media_source / campaign / adset / ad / country / platform). Spend +
+      installs + retention + revenue in one row. Use for ROAS/CAC, funnel,
+      retention, and revenue reporting.
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: >
+          CONCAT(
+            CAST({CUBE}.report_date AS VARCHAR), '__',
+            COALESCE({CUBE}.app_id, ''), '__',
+            COALESCE({CUBE}.platform, ''), '__',
+            COALESCE({CUBE}.country_code, ''), '__',
+            COALESCE({CUBE}.product_code, ''), '__',
+            COALESCE({CUBE}.is_paid_install, ''), '__',
+            COALESCE({CUBE}.media_source, ''), '__',
+            COALESCE({CUBE}.campaign_id, ''), '__',
+            COALESCE({CUBE}.adset_id, ''), '__',
+            COALESCE({CUBE}.ad_id, ''), '__',
+            COALESCE({CUBE}.site_id, '')
+          )
+        type: string
+        primary_key: true
+        public: false
+
+      - name: report_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.report_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: report_week
+        sql: report_week
+        type: string
+
+      - name: report_month
+        sql: report_month
+        type: string
+
+      - name: app_id
+        sql: app_id
+        type: string
+
+      - name: platform
+        sql: platform
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: product_code
+        sql: product_code
+        type: string
+
+      - name: is_paid_install
+        sql: is_paid_install
+        type: string
+
+      - name: media_source
+        sql: media_source
+        type: string
+
+      - name: partner_id
+        sql: partner_id
+        type: string
+
+      - name: campaign_id
+        sql: campaign_id
+        type: string
+
+      - name: adset_id
+        sql: adset_id
+        type: string
+
+      - name: ad_id
+        sql: ad_id
+        type: string
+
+      - name: site_id
+        sql: site_id
+        type: string
+
+    measures:
+      # --- Acquisition spend (additive) ---------------------------------------
+      - name: impressions
+        sql: impressions
+        type: sum
+      - name: clicks
+        sql: clicks
+        type: sum
+      - name: cost_vnd
+        sql: cost_vnd
+        type: sum
+        description: Acquisition cost in VND
+
+      # --- Funnel counts (additive) -------------------------------------------
+      - name: installs
+        sql: installs
+        type: sum
+      - name: nru
+        sql: nru
+        type: sum
+        description: New registered users
+      - name: nrd
+        sql: nrd
+        type: sum
+        description: New registered devices
+      - name: npu
+        sql: npu
+        type: sum
+        description: New paying users
+      - name: nnpu
+        sql: nnpu
+        type: sum
+        description: Net-new paying users (first-ever recharge)
+
+      # --- Revenue (additive) -------------------------------------------------
+      - name: rev
+        sql: rev
+        type: sum
+        description: Total revenue (VND)
+      - name: iap_rev
+        sql: iap_rev
+        type: sum
+      - name: web_rev
+        sql: web_rev
+        type: sum
+      - name: trans
+        sql: trans
+        type: sum
+        description: Total transactions
+      - name: iap_trans
+        sql: iap_trans
+        type: sum
+      - name: web_trans
+        sql: web_trans
+        type: sum
+
+      # --- Retained / recalled (additive) -------------------------------------
+      - name: retain_user_active
+        sql: retain_user_active
+        type: sum
+      - name: recall_user_active
+        sql: recall_user_active
+        type: sum
+      - name: retain_user_recharge
+        sql: retain_user_recharge
+        type: sum
+      - name: recall_user_recharge
+        sql: recall_user_recharge
+        type: sum
+
+      # --- Day-N retained-active counts (additive over the cohort) ------------
+      - name: a1
+        sql: a1
+        type: sum
+      - name: a3
+        sql: a3
+        type: sum
+      - name: a7
+        sql: a7
+        type: sum
+      - name: a14
+        sql: a14
+        type: sum
+      - name: a30
+        sql: a30
+        type: sum
+      - name: a60
+        sql: a60
+        type: sum
+      - name: a90
+        sql: a90
+        type: sum
+
+      # --- Day-N paying-user counts (additive) --------------------------------
+      - name: pu1
+        sql: pu1
+        type: sum
+      - name: pu7
+        sql: pu7
+        type: sum
+      - name: pu30
+        sql: pu30
+        type: sum
+
+      # --- Derived rates (computed from the additive sums above) --------------
+      - name: cpi_vnd
+        sql: "CAST({cost_vnd} AS DOUBLE) / NULLIF({installs}, 0)"
+        type: number
+        description: Cost per install (VND)
+      - name: ctr
+        sql: "CAST({clicks} AS DOUBLE) / NULLIF({impressions}, 0)"
+        type: number
+        format: percent
+      - name: cpc_vnd
+        sql: "CAST({cost_vnd} AS DOUBLE) / NULLIF({clicks}, 0)"
+        type: number
+      - name: roas
+        sql: "CAST({rev} AS DOUBLE) / NULLIF({cost_vnd}, 0)"
+        type: number
+        description: Return on ad spend (revenue / cost)
+      - name: arppu_vnd
+        sql: "CAST({rev} AS DOUBLE) / NULLIF({npu}, 0)"
+        type: number
+        description: Average revenue per (new) paying user
+      - name: payer_rate
+        sql: "CAST({npu} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        format: percent
+        description: New paying users / new users
+      # Retention rates assume aN = count of NRU still active N days after
+      # acquisition. Confirm bucket semantics with the data team if exact.
+      - name: retention_d1
+        sql: "CAST({a1} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        format: percent
+      - name: retention_d7
+        sql: "CAST({a7} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        format: percent
+      - name: retention_d30
+        sql: "CAST({a30} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        format: percent
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.report_date >= CURRENT_DATE - INTERVAL '7' DAY"
+      - name: last_30d
+        sql: "{CUBE}.report_date >= CURRENT_DATE - INTERVAL '30' DAY"
+      - name: paid_only
+        sql: "{CUBE}.is_paid_install = '1'"
+
+    # Day-grain rollup by the common acquisition dimensions. Serves the BI hot
+    # path (spend/installs/rev by source/country/day) without scanning the mart.
+    pre_aggregations:
+      - name: key_metrics_by_source_daily
+        type: rollup
+        measures:
+          - cost_vnd
+          - impressions
+          - clicks
+          - installs
+          - nru
+          - npu
+          - rev
+          - trans
+        dimensions:
+          - media_source
+          - country_code
+          - platform
+          - is_paid_install
+        time_dimension: report_date
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT DATE '2024-01-01'"
+        build_range_end:
+          sql: "SELECT CURRENT_DATE"

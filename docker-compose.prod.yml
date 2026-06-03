@@ -180,12 +180,16 @@ services:
       - "${CUBE_PUBLIC_PORT:-17001}:4000"   # REST / GraphQL / Playground (browser)
       - "${CUBE_SQL_PORT:-15432}:15432"     # SQL API (Postgres wire protocol)
     volumes:
+      # cube-dev/cube/ is vendored as plain tracked files in this repo (config +
+      # models), so it ships with the deploy push and the mount source is always
+      # populated on the runner. It must NOT be a git submodule — a parent push
+      # carries only a gitlink, leaving this mount empty and Cube failing /meta
+      # with "Model files not found". Refresh models by re-vendoring cube-dev/cube/.
       - ./cube-dev/cube:/cube/conf:ro
-      # Entrypoint patch lives in this repo's docker/ (not cube-dev/, which is a
-      # submodule whose root isn't vendored into the deploy context — only
-      # cube-dev/cube/ is). Keeping it here guarantees the mount source exists on
-      # the runner; a missing source makes Docker create an empty dir and the
-      # container then execs a directory ("is a directory" init failure).
+      # Entrypoint patch lives in this repo's docker/ (the rest of cube-dev/ is
+      # gitignored local-reference only). Keeping it here guarantees the mount
+      # source exists on the runner; a missing source makes Docker create an empty
+      # dir and the container then execs a directory ("is a directory" init failure).
       - ./docker/cube-entrypoint-patched.sh:/usr/local/bin/cube-entrypoint-patched.sh:ro
     depends_on:
       - cubestore

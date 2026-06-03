@@ -1,0 +1,255 @@
+cubes:
+  # ===========================================================================
+  # recharge — raw recharge transactions for JUS VN.
+  # Source: <CUBEJS_DB_SCHEMA>.etl_ingame_recharge
+  #
+  # JUS uses the Netease/JX-style raw recharge schema. Field mapping:
+  #   account_id              -> account_id (canonical user identifier)
+  #   transid                 -> transaction_id
+  #   cash                    -> charged_value (in user currency; usually VND)
+  #   currency                -> currency code
+  #   pay_time                -> recharge_time
+  #   pay_channel             -> payment_channel
+  #   server                  -> server_id
+  #   role_id / role_name / role_class / role_level -> role_* (1:1)
+  #   yuanbao                 -> in-game currency received (gold/jade)
+  #   prepaid_detail_item_id  -> product_id
+  #
+  # Columns absent in JUS raw vs ballistar canonical (not modeled):
+  #   is_first_recharge, money_type (use currency), vip_level, ingame_value (use yuanbao)
+  # ===========================================================================
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    title: JUS VN — Recharge Transactions (raw events)
+    description: >
+      One row per recharge transaction in JUS VN. User join key is account_id
+      (= mf_users.user_id). For best 1-user latency, ALWAYS pass an account_id
+      (or user_id via the joined view) equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.account_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 5 minute
+
+    dimensions:
+      - name: transaction_id
+        sql: transid
+        type: string
+        primary_key: true
+
+      - name: event_id
+        sql: __event_id
+        type: string
+        public: false
+
+      - name: user_id
+        sql: account_id
+        type: string
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: old_account_id
+        sql: old_accountid
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: role_class
+        sql: role_class
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: recharge_time
+        sql: pay_time
+        type: time
+
+      - name: recharge_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: payment_channel
+        sql: pay_channel
+        type: string
+
+      - name: pay_method
+        sql: pay_method
+        type: string
+
+      - name: app_channel
+        sql: app_channel
+        type: string
+
+      - name: jf_app_channel
+        sql: jf_app_channel
+        type: string
+
+      - name: server_id
+        sql: server
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: os_platform
+        sql: os_name
+        type: string
+
+      - name: os_version
+        sql: os_ver
+        type: string
+
+      - name: app_version
+        sql: app_ver
+        type: string
+
+      - name: device_model
+        sql: device_model
+        type: string
+
+      - name: network
+        sql: network
+        type: string
+
+      - name: isp
+        sql: isp
+        type: string
+
+      - name: ip
+        sql: ip
+        type: string
+        public: false
+
+      - name: currency
+        sql: currency
+        type: string
+        description: Currency of charged_value
+
+      - name: order_currency
+        sql: order_currency
+        type: string
+
+      - name: product_id
+        sql: prepaid_detail_item_id
+        type: string
+
+      - name: product_name
+        sql: prepaid_detail_item_name
+        type: string
+
+      - name: product_count
+        sql: prepaid_detail_count
+        type: number
+
+      - name: value_vnd
+        sql: cash
+        type: number
+        description: Charged value (cash). Currency = `currency` dimension; VND for VN users.
+
+      - name: order_value
+        sql: order_cash
+        type: number
+        description: Order value (may differ from charged if discounts apply)
+
+      - name: total_paypoint
+        sql: total_paypoint
+        type: number
+
+      - name: yuanbao_received
+        sql: yuanbao
+        type: number
+        description: In-game currency received from this recharge
+
+      - name: yuanbao_free_received
+        sql: free_yuanbao
+        type: number
+
+      - name: yuanbao_balance
+        sql: left_yuanbao
+        type: number
+
+      - name: yuanbao_free_balance
+        sql: left_free_yuanbao
+        type: number
+
+      - name: txn_value_band_vnd
+        type: string
+        case:
+          when:
+            - sql: "{CUBE}.cash >= 1000000"
+              label: ">= 1M"
+            - sql: "{CUBE}.cash >= 200000"
+              label: "200K - 1M"
+            - sql: "{CUBE}.cash >= 50000"
+              label: "50K - 200K"
+            - sql: "{CUBE}.cash >= 10000"
+              label: "10K - 50K"
+          else:
+            label: "< 10K"
+
+      - name: is_emulator
+        sql: "CASE WHEN {CUBE}.is_emulator = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: is_root
+        sql: "CASE WHEN {CUBE}.is_root = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+    measures:
+      - name: transactions
+        type: count
+
+      - name: revenue_vnd
+        sql: cash
+        type: sum
+        description: Sum of cash. Filter currency='VND' for strict VND revenue.
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: paying_users_exact
+        type: count_distinct
+        sql: account_id
+
+      - name: arppu_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({paying_users}, 0)"
+        type: number
+
+      - name: arpt_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({transactions}, 0)"
+        type: number
+        description: Average revenue per transaction
+
+    segments:
+      - name: vnd_only
+        sql: "{CUBE}.currency = 'VND'"
+
+      - name: vn_country
+        sql: "{CUBE}.country_code = 'VN'"
+
+      - name: last_7d
+        sql: "{CUBE}.pay_time >= CURRENT_TIMESTAMP - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.pay_time >= CURRENT_TIMESTAMP - INTERVAL '30' DAY"

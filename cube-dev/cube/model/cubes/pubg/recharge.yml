@@ -1,0 +1,211 @@
+cubes:
+  # ===========================================================================
+  # recharge — raw recharge transactions for PUBG Mobile VN.
+  # Source: <CUBEJS_DB_SCHEMA>.etl_ingame_recharge
+  #
+  # PUBG Mobile uses the VNG SDK raw recharge schema (same family as CFM)
+  # with two notable additions vs cfm:
+  #   - country_code_adjust          (country code is present, unlike cfm)
+  #   - dteventtime_timezone_utc_7   (pre-adjusted to UTC+7 — useful for VN reporting)
+  #
+  # And one removal vs cfm:
+  #   - No `payment_channel` column — only the raw `pay_channel`.
+  #
+  # Field mapping vs ballistar canonical:
+  #   vopenid                        -> account_id (canonical user identifier)
+  #   fsequence_no                   -> transaction_id (no vng_transaction column here)
+  #   iamount                        -> charged_value (bigint, vs double in cfm)
+  #   imoney_us                      -> usd value
+  #   imoney                         -> ingame currency received (bigint)
+  #   dteventtime                    -> recharge_time (UTC)
+  #   dteventtime_timezone_utc_7     -> recharge_time_vn (already UTC+7)
+  #   pay_channel                    -> payment_channel
+  #   zoneid                         -> server_id
+  #   currency                       -> currency code
+  #   product_id (snake)             -> product_id
+  #   country_code_adjust            -> country_code
+  # ===========================================================================
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    title: PUBG Mobile VN — Recharge Transactions (raw events)
+    description: >
+      One row per recharge transaction in PUBG Mobile VN. User join key is
+      vopenid (= mf_users.user_id). For best 1-user latency, ALWAYS pass a
+      vopenid (or user_id via the joined view) equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.vopenid = {mf_users}.user_id"
+
+    refresh_key:
+      every: 5 minute
+
+    dimensions:
+      - name: transaction_id
+        sql: fsequence_no
+        type: string
+        primary_key: true
+        description: VNG SDK sequence number (canonical txn id here — no vng_transaction column)
+
+      - name: user_id
+        sql: vopenid
+        type: string
+        description: User account id (= mf_users.user_id)
+
+      - name: vopenid
+        sql: vopenid
+        type: string
+        public: false
+
+      - name: fuin
+        sql: fuin
+        type: string
+        description: Numeric VNG UID
+        public: false
+
+      - name: recharge_time
+        sql: dteventtime
+        type: time
+        description: Event timestamp (UTC)
+
+      - name: recharge_time_vn
+        sql: dteventtime_timezone_utc_7
+        type: time
+        description: Pre-adjusted UTC+7 timestamp (VN local time)
+
+      - name: recharge_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: payment_channel
+        sql: pay_channel
+        type: string
+
+      - name: login_channel
+        sql: login_channel
+        type: string
+
+      - name: sub_channel_id
+        sql: sub_channel_id
+        type: string
+
+      - name: country_code
+        sql: country_code_adjust
+        type: string
+
+      - name: currency
+        sql: currency
+        type: string
+        description: Currency code of charged_value (VND for VN users, may differ)
+
+      - name: product_id
+        sql: product_id
+        type: string
+
+      - name: offer_id
+        sql: fofferid
+        type: string
+        description: VNG offer id
+
+      - name: server_id
+        sql: zoneid
+        type: string
+
+      - name: zoneid2
+        sql: zoneid2
+        type: string
+        public: false
+
+      - name: platid
+        sql: platid
+        type: string
+
+      - name: user_type
+        sql: user_type
+        type: string
+
+      - name: user_ip
+        sql: user_ip
+        type: string
+        public: false
+
+      - name: value_vnd
+        sql: iamount
+        type: number
+        description: Charged value (iamount, bigint). Currency = `currency` dimension; VND for VN.
+
+      - name: value_source
+        sql: imoney_source
+        type: number
+        description: Charged value in original source currency
+
+      - name: value_usd
+        sql: imoney_us
+        type: number
+
+      - name: ingame_value
+        sql: imoney
+        type: number
+        description: In-game currency received
+
+      - name: txn_value_band_vnd
+        type: string
+        case:
+          when:
+            - sql: "{CUBE}.iamount >= 1000000"
+              label: ">= 1M"
+            - sql: "{CUBE}.iamount >= 200000"
+              label: "200K - 1M"
+            - sql: "{CUBE}.iamount >= 50000"
+              label: "50K - 200K"
+            - sql: "{CUBE}.iamount >= 10000"
+              label: "10K - 50K"
+          else:
+            label: "< 10K"
+
+    measures:
+      - name: transactions
+        type: count
+
+      - name: revenue_vnd
+        sql: iamount
+        type: sum
+        description: Sum of iamount. Filter currency='VND' for strict VND revenue.
+
+      - name: revenue_usd
+        sql: imoney_us
+        type: sum
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: vopenid
+
+      - name: paying_users_exact
+        type: count_distinct
+        sql: vopenid
+
+      - name: arppu_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({paying_users}, 0)"
+        type: number
+
+      - name: arpt_vnd
+        sql: "{revenue_vnd} * 1.0 / NULLIF({transactions}, 0)"
+        type: number
+
+    segments:
+      - name: vnd_only
+        sql: "{CUBE}.currency = 'VND'"
+
+      - name: vn_country
+        sql: "{CUBE}.country_code_adjust = 'VN'"
+
+      - name: last_7d
+        sql: "{CUBE}.dteventtime >= CURRENT_TIMESTAMP - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.dteventtime >= CURRENT_TIMESTAMP - INTERVAL '30' DAY"

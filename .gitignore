@@ -117,3 +117,12 @@ playwright-report/
 # Dev server logs — rolling capture of `npm run dev:all` (may contain raw
 # payloads/tokens). Keep the folder + policy README, ignore the log files.
 logs/*.log
+
+# Vendored Cube semantic layer (de-submoduled from metrics-catalogue).
+# Only cube-dev/cube/ (config + models) is mounted into the in-stack cube_api
+# container (docker-compose.prod.yml) and must ship with the deploy push.
+# Everything else from the source repo (README, examples, plans, release
+# manifest, .env.example) is local-reference only — keep it out of git history.
+# To refresh models: re-vendor cube-dev/cube/ from the source repo and redeploy.
+/cube-dev/*
+!/cube-dev/cube/
