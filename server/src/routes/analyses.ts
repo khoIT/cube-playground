@@ -2,16 +2,43 @@
  * Segment analyses CRUD — saved Cube queries pinned to a segment.
  * Nested under /api/segments/:segmentId/analyses.
  *
- * Authorization: analyses inherit their parent segment's shared scope. Reads
- * are un-gated and segment-scoped; writes mirror that — any caller who can
- * reach the segment may edit/delete its analyses. `owner` records provenance,
- * not a private boundary.
+ * Authorization: analyses inherit the parent segment's visibility boundary. A
+ * personal segment's analyses are readable/mutable only by the owner (sub) or an
+ * admin; shared/org segments stay workspace-collaborative. Same predicate as the
+ * segment routes — never reachable for a segment the caller can't see.
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.js';
+import { canAccessSegment, canMutateSegment } from '../auth/can-access-segment.js';
+
+/**
+ * Enforce the parent segment's workspace + visibility boundary before touching
+ * its analyses. Returns true if permitted; otherwise sends the reply (404 for
+ * unknown/cross-workspace, 403 for visibility-denied) and returns false.
+ */
+function guardParentSegment(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  segmentId: string,
+  mode: 'read' | 'mutate',
+): boolean {
+  const row = getDb()
+    .prepare('SELECT owner, visibility, workspace FROM segments WHERE id = ?')
+    .get(segmentId) as { owner: string; visibility: string | null; workspace: string } | undefined;
+  if (!row || row.workspace !== req.workspace.id) {
+    reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    return false;
+  }
+  const allowed = mode === 'read' ? canAccessSegment(req.principal, row) : canMutateSegment(req.principal, row);
+  if (!allowed) {
+    reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not permitted for this segment' } });
+    return false;
+  }
+  return true;
+}
 
 const analysisInputSchema = z.object({
   title: z.string().min(1),
@@ -31,8 +58,7 @@ export default async function analysesRoutes(app: FastifyInstance): Promise<void
     const { segmentId } = req.params as { segmentId: string };
     const db = getDb();
 
-    const segment = db.prepare('SELECT id FROM segments WHERE id = ?').get(segmentId);
-    if (!segment) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    if (!guardParentSegment(req, reply, segmentId, 'read')) return reply;
 
     return db.prepare('SELECT * FROM segment_analyses WHERE segment_id = ? ORDER BY created_at DESC').all(segmentId);
   });
@@ -42,8 +68,7 @@ export default async function analysesRoutes(app: FastifyInstance): Promise<void
     const { segmentId } = req.params as { segmentId: string };
     const db = getDb();
 
-    const segment = db.prepare('SELECT id FROM segments WHERE id = ?').get(segmentId);
-    if (!segment) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    if (!guardParentSegment(req, reply, segmentId, 'mutate')) return reply;
 
     const parsed = analysisInputSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -69,6 +94,7 @@ export default async function analysesRoutes(app: FastifyInstance): Promise<void
     const { segmentId, id } = req.params as { segmentId: string; id: string };
     const db = getDb();
 
+    if (!guardParentSegment(req, reply, segmentId, 'read')) return reply;
     const row = db.prepare('SELECT * FROM segment_analyses WHERE id = ? AND segment_id = ?').get(id, segmentId);
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Analysis not found' } });
     return row;
@@ -79,6 +105,7 @@ export default async function analysesRoutes(app: FastifyInstance): Promise<void
     const { segmentId, id } = req.params as { segmentId: string; id: string };
     const db = getDb();
 
+    if (!guardParentSegment(req, reply, segmentId, 'mutate')) return reply;
     const row = db.prepare('SELECT * FROM segment_analyses WHERE id = ? AND segment_id = ?').get(id, segmentId) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Analysis not found' } });
 
@@ -109,6 +136,7 @@ export default async function analysesRoutes(app: FastifyInstance): Promise<void
     const { segmentId, id } = req.params as { segmentId: string; id: string };
     const db = getDb();
 
+    if (!guardParentSegment(req, reply, segmentId, 'mutate')) return reply;
     const row = db.prepare('SELECT * FROM segment_analyses WHERE id = ? AND segment_id = ?').get(id, segmentId) as Record<string, unknown> | undefined;
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Analysis not found' } });
 

@@ -19,6 +19,7 @@ import { GameContextProvider } from './components/Header/use-game-context';
 import { ThemeProvider } from './theme/ThemeContext';
 import { AuthProvider, useAuthUser } from './auth/auth-context';
 import { AuthGate } from './auth/auth-gate';
+import { FeatureOpenBeacon } from './api/feature-open-beacon-mount';
 import './i18n';
 
 // The wizard at `/data-model/new` is the YAML data-model builder
@@ -168,6 +169,7 @@ ReactDOM.render(
       <ThemeProvider>
         <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
           <App>
+            <FeatureOpenBeacon />
             <Suspense fallback={<CubeLoader />}>
               <Route key="index" exact path="/">
                 <Redirect to="/chat" />

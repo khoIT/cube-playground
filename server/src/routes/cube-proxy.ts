@@ -15,13 +15,46 @@
  * proxy can route them to Fastify instead of bypassing it).
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { gamePrefixFor, filterMetaToGamePrefix } from '../services/prefix-meta-filter.js';
+import { recordActivity, projectQueryShape } from '../services/activity-store.js';
 
 const CUBE_FETCH_TIMEOUT_MS = 15_000;
 
 // Header carrying the active game (mirrors workspace-header.ts GAME_HEADER).
 const GAME_HEADER = 'x-cube-game';
+
+function gameIdOf(req: FastifyRequest): string | null {
+  const raw = req.headers[GAME_HEADER];
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
+
+/**
+ * Fire-and-forget telemetry for a successful Cube query. `query` is the raw
+ * Cube payload — `projectQueryShape` strips it to member names before it is
+ * ever persisted (no filter values, no UIDs). Only emitted on a 200 so failed
+ * / malformed queries don't pollute the activity spine.
+ */
+function emitQueryRun(req: FastifyRequest, status: number, query: unknown): void {
+  if (status !== 200 || query == null) return;
+  recordActivity(req.principal, {
+    eventType: 'query_run',
+    workspace: req.workspace.id,
+    game: gameIdOf(req),
+    detail: projectQueryShape(query),
+  });
+}
+
+/** Best-effort parse of the GET `/load?query=<json>` querystring param. */
+function parseGetQuery(req: FastifyRequest): unknown {
+  const raw = (req.query as { query?: unknown } | undefined)?.query;
+  if (typeof raw !== 'string') return raw ?? null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
 
 interface ProxyTarget {
   cubeApiUrl: string;
@@ -102,11 +135,13 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
   app.get('/cube-api/v1/load', async (req, reply) => {
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
     const { status, body } = await forward(req.cubeCtx, 'GET', '/load', search, undefined);
+    emitQueryRun(req, status, parseGetQuery(req));
     return reply.status(status).send(body);
   });
 
   app.post('/cube-api/v1/load', async (req, reply) => {
     const { status, body } = await forward(req.cubeCtx, 'POST', '/load', '', req.body);
+    emitQueryRun(req, status, (req.body as { query?: unknown } | undefined)?.query);
     return reply.status(status).send(body);
   });
 

@@ -6,6 +6,9 @@
 
 export type SegmentType = 'manual' | 'predicate';
 export type SegmentStatus = 'fresh' | 'refreshing' | 'broken' | 'stale';
+/** Unified visibility ladder. `personal` (default) = owner-private; `shared` =
+ *  workspace-visible; `org` = org-wide (admin-only to set). */
+export type SegmentVisibility = 'personal' | 'shared' | 'org';
 
 export type LeafOperator =
   | 'equals'
@@ -74,6 +77,8 @@ export interface Segment {
   card_cache?: Record<string, CardCacheEntry>;
   /** Serialised FunnelDefinition. Non-null when segment was created via the funnel builder. */
   funnel_json: string | null;
+  /** Visibility ladder. NULL on legacy rows maps to 'personal' server-side. */
+  visibility: SegmentVisibility;
 }
 
 export type ActivationStatus = 'active' | 'failed' | 'pending';
@@ -131,6 +136,8 @@ export interface SegmentInput {
   game_id?: string;
   /** Serialised FunnelDefinition when creating via the funnel builder. */
   funnel_json?: string | null;
+  /** Defaults to 'personal' server-side; 'org' requires admin. */
+  visibility?: SegmentVisibility;
 }
 
 export interface SegmentPatch {
@@ -140,6 +147,8 @@ export interface SegmentPatch {
   predicate_tree?: PredicateNode | null;
   uid_list?: string[];
   refresh_cadence_min?: number | null;
+  /** Owner may set personal/shared; 'org' requires admin. */
+  visibility?: SegmentVisibility;
 }
 
 export interface SegmentAnalysis {

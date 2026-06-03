@@ -9,6 +9,7 @@ import { SegmentApiError } from '../../../api/api-client';
 import { invalidateSegmentIds } from '../use-segment-ids';
 import { Breadcrumbs } from '../visuals';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
+import { useAuthUser } from '../../../auth/auth-context';
 import { IdentityCard } from './identity-card';
 import { RefreshBehaviourCard } from './refresh-behaviour-card';
 import { renderRoot } from './predicate-builder/predicate-group';
@@ -18,7 +19,7 @@ import { usePreview } from './hooks/use-preview';
 import { WorkspaceRail } from './workspace-rail';
 import { WorkspacePreview } from './workspace-preview';
 import { EditorStep, STEP_ORDER, useStep } from './use-step';
-import type { Segment, SegmentType, PredicateNode } from '../../../types/segment-api';
+import type { Segment, SegmentType, SegmentVisibility, PredicateNode } from '../../../types/segment-api';
 import styles from '../segments.module.css';
 
 interface EditorParams { id?: string }
@@ -34,8 +35,12 @@ export function EditorView(): ReactElement {
   const wantsConvertToLive =
     new URLSearchParams(history.location.search).get('convert') === 'live';
 
+  const authUser = useAuthUser();
+  const canSetOrg = authUser?.role === 'admin';
+
   const [name, setName] = useState('');
   const [cube, setCube] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<SegmentVisibility>('personal');
   const [type, setType] = useState<SegmentType>('predicate');
   const [cadence, setCadence] = useState<number | null>(60);
   const [saving, setSaving] = useState(false);
@@ -53,6 +58,7 @@ export function EditorView(): ReactElement {
       .then((seg: Segment) => {
         setName(seg.name);
         setCube(seg.cube);
+        setVisibility(seg.visibility ?? 'personal');
         setType(seg.type === 'manual' && wantsConvertToLive ? 'predicate' : seg.type);
         setCadence(seg.refresh_cadence_min ?? 60);
         // Simplify on load so segments saved before the build-time resolver
@@ -119,6 +125,7 @@ export function EditorView(): ReactElement {
         predicate_tree: type === 'predicate' ? (predicate.tree as PredicateNode) : null,
         refresh_cadence_min: type === 'predicate' ? cadence : null,
         game_id: gameId,
+        visibility,
       };
       if (id) {
         await segmentsClient.update(id, payload);
@@ -198,8 +205,11 @@ export function EditorView(): ReactElement {
               <IdentityCard
                 name={name}
                 cube={cube}
+                visibility={visibility}
+                canSetOrg={canSetOrg}
                 onNameChange={setName}
                 onCubeChange={setCube}
+                onVisibilityChange={setVisibility}
               />
             )}
             {step === 'predicate' && (

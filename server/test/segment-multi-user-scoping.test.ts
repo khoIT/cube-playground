@@ -1,24 +1,30 @@
 /**
- * Multi-user / multi-workspace scoping for segments.
+ * Multi-user / multi-workspace scoping for segments — OWNER-PRIVATE contract.
  *
- * Segments are a SHARED, workspace-scoped artifact: everyone working in a
- * workspace sees all of that workspace's segments (the FE lists with
- * owner='*'); `owner` records provenance, not a private-visibility boundary.
- * This proves the scoping holds with several owners and two workspaces — no
- * fake users are seeded into local dev to exercise it; the test creates them
- * in-memory via the X-Owner / X-Cube-Workspace headers (AUTH_DISABLED path).
+ * Segments default to `personal`: only the owner (Keycloak sub) or an admin may
+ * see/mutate them. `shared`/`org` are workspace-collaborative. Workspace is still
+ * a hard boundary: a row in another workspace is invisible (404), never leaked.
+ *
+ * Dev (AUTH_DISABLED) synthesizes an admin (bypasses visibility), so this runs
+ * under real auth with non-admin editors to exercise the private boundary. This
+ * replaces the prior workspace-shared contract (cross-owner delete → 204), which
+ * only held because the LIST never filtered on visibility.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { buildApp } from '../src/index.js';
-import { setDb, closeDb } from '../src/db/sqlite.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildApp } from '../src/index.js';
+import { setDb, closeDb } from '../src/db/sqlite.js';
+import { signAppJwt } from '../src/services/app-jwt.js';
+import { __resetAccessCache } from '../src/auth/access-store.js';
+import { upsertUserAccess } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
+const JWT_SECRET = 'test-jwt-secret-must-be-at-least-16-chars';
 
 function makeMemDb() {
   const db = new Database(':memory:');
@@ -29,93 +35,102 @@ function makeMemDb() {
   return db;
 }
 
-async function createSegment(
-  app: Awaited<ReturnType<typeof buildApp>>,
-  name: string,
-  owner: string,
-  workspace: string,
-) {
-  const res = await app.inject({
-    method: 'POST',
-    url: '/api/segments',
-    headers: { 'x-owner': owner, 'x-cube-workspace': workspace },
-    payload: { name, type: 'manual' },
-  });
-  expect(res.statusCode).toBe(201);
-  return res.json();
-}
+const tok = (sub: string, email: string, role: 'viewer' | 'editor' | 'admin') =>
+  signAppJwt({ sub, username: sub, email, role });
 
-function names(res: { json: () => unknown }): string[] {
-  return (res.json() as Array<{ name: string }>).map((s) => s.name).sort();
-}
-
-describe('segments — multi-user / multi-workspace scoping', () => {
+describe('segments — owner-private multi-user / multi-workspace scoping', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
+  const prev = { AUTH_DISABLED: process.env.AUTH_DISABLED, JWT_SECRET: process.env.JWT_SECRET };
+  let aliceAuth: { authorization: string };
+  let bobAuth: { authorization: string };
 
   beforeEach(async () => {
+    process.env.AUTH_DISABLED = 'false';
+    process.env.JWT_SECRET = JWT_SECRET;
     setDb(makeMemDb());
+    __resetAccessCache();
+    upsertUserAccess({ email: 'alice@co', role: 'editor', status: 'active' });
+    upsertUserAccess({ email: 'bob@co', role: 'editor', status: 'active' });
     app = await buildApp();
+    aliceAuth = { authorization: `Bearer ${await tok('alice-sub', 'alice@co', 'editor')}` };
+    bobAuth = { authorization: `Bearer ${await tok('bob-sub', 'bob@co', 'editor')}` };
   });
 
   afterEach(async () => {
     await app.close();
     closeDb();
+    process.env.AUTH_DISABLED = prev.AUTH_DISABLED;
+    process.env.JWT_SECRET = prev.JWT_SECRET;
   });
 
-  it('shares segments within a workspace across owners, isolates across workspaces, and supports owner filter', async () => {
-    await createSegment(app, 'alice-local', 'alice@co', 'local');
-    await createSegment(app, 'bob-local', 'bob@co', 'local');
-    await createSegment(app, 'alice-prod', 'alice@co', 'prod');
-
-    // owner attributed from the authenticated identity (X-Owner here).
-    const all = await app.inject({ method: 'GET', url: '/api/segments', headers: { 'x-cube-workspace': 'local' } });
-    expect(all.statusCode).toBe(200);
-    // Shared within the workspace: both owners' segments, but NOT the prod one.
-    expect(names(all)).toEqual(['alice-local', 'bob-local']);
-
-    // Switching workspace isolates: prod sees only its own.
-    const prod = await app.inject({ method: 'GET', url: '/api/segments', headers: { 'x-cube-workspace': 'prod' } });
-    expect(names(prod)).toEqual(['alice-prod']);
-
-    // Optional owner filter narrows to one user's segments within the workspace.
-    const aliceOnly = await app.inject({
-      method: 'GET',
-      url: '/api/segments?owner=alice@co',
-      headers: { 'x-cube-workspace': 'local' },
+  async function createSegment(
+    auth: { authorization: string },
+    name: string,
+    workspace: string,
+    visibility?: string,
+  ) {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      headers: { ...auth, 'x-cube-workspace': workspace },
+      payload: { name, type: 'manual', ...(visibility ? { visibility } : {}) },
     });
-    expect(names(aliceOnly)).toEqual(['alice-local']);
+    expect(res.statusCode).toBe(201);
+    return res.json();
+  }
+
+  function names(res: { json: () => unknown }): string[] {
+    return (res.json() as Array<{ name: string }>).map((s) => s.name).sort();
+  }
+
+  it('a personal segment is private to its owner within a workspace', async () => {
+    await createSegment(aliceAuth, 'alice-local', 'local');
+    await createSegment(bobAuth, 'bob-local', 'local');
+
+    // Each owner sees only their own personal segments (+ shared, none here).
+    const aliceList = await app.inject({ method: 'GET', url: '/api/segments', headers: { ...aliceAuth, 'x-cube-workspace': 'local' } });
+    expect(names(aliceList)).toEqual(['alice-local']);
+    const bobList = await app.inject({ method: 'GET', url: '/api/segments', headers: { ...bobAuth, 'x-cube-workspace': 'local' } });
+    expect(names(bobList)).toEqual(['bob-local']);
   });
 
-  it('lets a different owner in the same workspace delete a shared segment', async () => {
-    const seg = await createSegment(app, 'alice-local', 'alice@co', 'local');
+  it('shared segments are visible across owners within a workspace; isolated across workspaces', async () => {
+    await createSegment(aliceAuth, 'alice-shared', 'local', 'shared');
+    await createSegment(aliceAuth, 'alice-prod', 'prod', 'shared');
 
-    // bob (same workspace) deletes alice's segment — writes mirror the shared
-    // read model, so this succeeds rather than 403 "Not your segment".
+    const local = await app.inject({ method: 'GET', url: '/api/segments', headers: { ...bobAuth, 'x-cube-workspace': 'local' } });
+    expect(names(local)).toEqual(['alice-shared']); // bob sees alice's shared, not the prod one
+
+    const prod = await app.inject({ method: 'GET', url: '/api/segments', headers: { ...bobAuth, 'x-cube-workspace': 'prod' } });
+    expect(names(prod)).toEqual(['alice-prod']);
+  });
+
+  it('a different owner CANNOT delete another owner’s personal segment (403, owner-private)', async () => {
+    const seg = await createSegment(aliceAuth, 'alice-local', 'local');
+
     const del = await app.inject({
       method: 'DELETE',
       url: `/api/segments/${seg.id}`,
-      headers: { 'x-owner': 'bob@co', 'x-cube-workspace': 'local' },
+      headers: { ...bobAuth, 'x-cube-workspace': 'local' },
     });
-    expect(del.statusCode).toBe(204);
+    expect(del.statusCode).toBe(403);
 
-    const after = await app.inject({ method: 'GET', url: '/api/segments', headers: { 'x-cube-workspace': 'local' } });
-    expect(names(after)).toEqual([]);
+    // Still there for the owner.
+    const after = await app.inject({ method: 'GET', url: '/api/segments', headers: { ...aliceAuth, 'x-cube-workspace': 'local' } });
+    expect(names(after)).toEqual(['alice-local']);
   });
 
   it('treats a cross-workspace delete as not-found (never reveals other workspaces)', async () => {
-    const seg = await createSegment(app, 'alice-prod', 'alice@co', 'prod');
+    const seg = await createSegment(aliceAuth, 'alice-prod', 'prod');
 
-    // Same owner, wrong workspace — the row exists but is invisible from 'local',
-    // so the API returns 404 instead of acting on it.
     const del = await app.inject({
       method: 'DELETE',
       url: `/api/segments/${seg.id}`,
-      headers: { 'x-owner': 'alice@co', 'x-cube-workspace': 'local' },
+      headers: { ...aliceAuth, 'x-cube-workspace': 'local' },
     });
     expect(del.statusCode).toBe(404);
 
-    // The prod segment is still intact.
-    const prod = await app.inject({ method: 'GET', url: '/api/segments', headers: { 'x-cube-workspace': 'prod' } });
+    const prod = await app.inject({ method: 'GET', url: '/api/segments', headers: { ...aliceAuth, 'x-cube-workspace': 'prod' } });
     expect(names(prod)).toEqual(['alice-prod']);
   });
 });

@@ -360,6 +360,101 @@ Schema Cartographer (`/catalog/data-model/:cubeId` detail) now surfaces reverse 
 
 ---
 
+---
+
+## Activity Telemetry Spine & Admin Aggregation
+
+Append-only event recording + admin dashboard backend for workspace usage observability. Sub-keyed identity (Keycloak `sub` + email snapshot) bridges auth + observability without PII leakage.
+
+### Event Spine (SQLite, main server)
+
+New table `activity_events` (migration `029-activity-events.sql`):
+
+| Column | Type | Index | Notes |
+|---|---|---|---|
+| `id` | INTEGER PK | – | Auto-increment. |
+| `actor_sub` | TEXT | ✓ | Keycloak subject (always present, per-user auth identity). |
+| `actor_email` | TEXT | – | Nullable display snapshot (nullable: refreshed on session change). |
+| `event_type` | TEXT | ✓ | Closed enum: `query_run`, `segment_op`, `feature_open`, `export`, `workspace_switch`. |
+| `target_type` | TEXT | – | Optional target context: `segment`, `metric`, `dashboard`, etc. |
+| `target_id` | TEXT | – | Scoped identifier if applicable. |
+| `workspace` | TEXT | – | Workspace context. |
+| `game` | TEXT | – | Game context. |
+| `detail_json` | TEXT | – | Flexible event metadata (query shape, segment name, export format, etc.). |
+| `ts` | INTEGER | ✓ | Unix timestamp, primary sort key for aggregations. |
+
+**Indices:** `(actor_sub, ts)` for per-user timelines; `(event_type, ts)` for global event scans.
+
+**Fire-and-forget semantics.** `recordActivity(event)` in `activity-store.ts` is non-blocking, runs outside caller's transaction, never throws (logs WARN on disk-full but continues). Append-only — no deletes except retention sweep.
+
+### Emit Points
+
+**Server-only events** (forged-proof):
+- `query_run` — cube-proxy `/load` on HTTP 200 (GET + POST).
+- `segment_op` — segments create/update/delete/append/refresh via routes.
+
+**Client-forged allowlist** (`POST /api/activity`):
+- `feature_open` — user opened a feature (page, tab, modal).
+- `export` — user initiated a data export.
+- `workspace_switch` — user switched workspace or game.
+
+Client events are not trusted for attribution; they may supply contextual data (export format, feature name) but `actor_sub` is always resolved server-side from the auth token.
+
+**Event-type enum:** `server/src/services/activity-event-types.ts` (closed set).
+
+### Chat Stats Bridge
+
+chat-service gained a new internal-only endpoint `GET /internal/stats` (bulk query by `sub[]`). Returns per-user stats: total turns, total cost, last active timestamp. Behind a **mandatory `INTERNAL_SECRET` inbound gate** (`chat-service/src/middleware/internal-secret.ts`).
+
+Unlike the main server's `GET /internal/access` (which fails open under `AUTH_DISABLED`), the chat stats route **never** fails open — missing or mismatched `INTERNAL_SECRET` → 403, period. This guards against accidental exposure.
+
+**Server-side client:** `server/src/services/chat-stats-client.ts` (requests with timeout; degrades to null counts on timeout or error).
+
+### Admin Aggregation Routes (admin-gated)
+
+**`GET /api/admin/activity/summary`** — Org-wide rollup:
+- Status counts (active users, total events this period).
+- Active user counts (7d, 30d window).
+- Inactive user list (no login >30d; `INACTIVE_DAYS` env-tunable, default 30).
+- Top features (by `event_type` frequency).
+- Total chat turns (from chat stats bridge; degrades to null if chat offline).
+
+**`GET /api/admin/activity/users/:email`** — Per-user deep-dive:
+- Last login timestamp.
+- Segment count (live + all-time from segment metadata).
+- Recent features accessed (last 10 events, with timestamps).
+- Query shapes (dimensional profile of cube references from recent `query_run` events; PII allowlist: **member names only** — no dimension values, UIDs, date ranges, or other sensitive payload).
+- Chat stats (total turns, total cost, last turn timestamp; null if chat unavailable).
+
+**PII-safe query-shape projection:** `activity-store.ts` `projectQueryShape(detail_json)` extracts only `{cubes: string[], measures: string[], dimensions: string[]}` — the structural profile — never the filter values or user data queried.
+
+### Retention & Cleanup
+
+`server/src/jobs/prune-activity-events.ts` — daily background job that hard-deletes `activity_events` older than 90 days (`ACTIVITY_RETENTION_DAYS` env-tunable). Logs row count deleted.
+
+### Summary: Request Flow
+
+```
+Browser                          Gateway server                    Chat service
+  │                                  │                                │
+  │ POST /api/activity               │                                │
+  │ (forged-proof event)             │                                │
+  ├─────────────────────────>│       │                                │
+  │                          │       │ [recordActivity]               │
+  │                          │       │ → activity_events table        │
+  │                          │       │                                │
+  │ GET /api/admin/activity/summary  │                                │
+  │ (admin-gated)                    │                                │
+  ├─────────────────────────>│       │ GET /internal/stats [sub[]] │
+  │                          │       ├───────────────────────────────>│
+  │                          │       │ (secret-gated)                 │
+  │                          │       │<───────────────────────────────┤
+  │ JSON response            │       │ { [sub]: {turns, cost, ts} }   │
+  │<─────────────────────────┤       │                                │
+```
+
+---
+
 ## Future Directions
 
 **Semantic cache deferred** — exact-match cache (Layer 4) deferred pending production hit-rate measurement. If exact-match hit-rate <10%, revisit embedding-based semantic matching via a higher-latency service.
@@ -367,3 +462,5 @@ Schema Cartographer (`/catalog/data-model/:cubeId` detail) now surfaces reverse 
 **L3 eviction policy** — currently unlimited. If L3 grows unbounded, consider LRU eviction based on `last_used_at` with a high-tide mark (e.g., keep top-N per slot per owner).
 
 **Auto-repair stage** — stage 3 (Repair) currently manual. Future: template-driven auto-remediation (e.g., schema reconciliation, cross-game model mirroring).
+
+**Activity dashboard (Phase 5+)** — admin console with detailed user cohorts, feature heatmaps, and anomaly alerts (workspace-isolation plan, deferred).

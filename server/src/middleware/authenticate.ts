@@ -23,6 +23,7 @@ import { verifyAppJwt } from '../services/app-jwt.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
 import { getAccess } from '../auth/access-store.js';
 import { FEATURE_KEYS } from '../auth/feature-keys.js';
+import { resolvePrincipal, type Principal } from '../auth/principal.js';
 
 export interface AuthenticatedUser {
   id: string;
@@ -41,12 +42,28 @@ declare module 'fastify' {
   interface FastifyRequest {
     user?: AuthenticatedUser;
     owner: string;
+    /** Lazily-resolved identity (sub + email + grants). See auth/principal.ts. */
+    readonly principal: Principal;
   }
 }
 
 function authDisabled(): boolean {
   const raw = (process.env.AUTH_DISABLED ?? '').toLowerCase();
   return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+/**
+ * Boot-time fail-closed: the dev auth bypass must NEVER run in production. A
+ * truthy AUTH_DISABLED under NODE_ENV=production would synthesize an admin for
+ * every request — refuse to start instead.
+ */
+export function assertAuthConfigSafe(): void {
+  if (authDisabled() && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'AUTH_DISABLED is enabled under NODE_ENV=production — refusing to start. ' +
+        'The dev auth bypass must never run in production.',
+    );
+  }
 }
 
 function devUser(): AuthenticatedUser {
@@ -83,6 +100,13 @@ function readBearerToken(request: FastifyRequest): string | null {
 async function authenticatePlugin(app: FastifyInstance): Promise<void> {
   app.decorateRequest('owner', 'anonymous');
   app.decorateRequest('user', null);
+  // Computed decorator: resolves sub↔email + grants on demand from the already
+  // -populated owner/user. Lazy so unused routes pay nothing.
+  app.decorateRequest('principal', {
+    getter(this: FastifyRequest) {
+      return resolvePrincipal(this);
+    },
+  });
 
   app.addHook('onRequest', async (request: FastifyRequest) => {
     // Real auth mode — verify JWT, populate user. Failure to verify is silent

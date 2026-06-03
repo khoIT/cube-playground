@@ -419,6 +419,24 @@ export function queryStats(
   return { turns: totalTurns, input_tokens: totalInput, output_tokens: totalOutput, by_skill: bySkill };
 }
 
+/**
+ * Bulk variant of `queryStats` for the admin telemetry bridge — one StatsResult
+ * per owner (= Keycloak sub). Reuses the single-owner query per sub so the
+ * aggregation logic stays in one place; admin user lists are bounded so the
+ * per-sub loop is cheap. Subs are de-duplicated; an owner with no turns in the
+ * window still gets a zeroed entry so the caller sees a complete map.
+ */
+export function queryStatsBulk(
+  db: Database.Database,
+  params: { ownerIds: string[]; fromMs: number; toMs: number },
+): Record<string, StatsResult> {
+  const out: Record<string, StatsResult> = {};
+  for (const ownerId of new Set(params.ownerIds)) {
+    out[ownerId] = queryStats(db, { ownerId, fromMs: params.fromMs, toMs: params.toMs });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------

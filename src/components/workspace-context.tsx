@@ -18,6 +18,7 @@ import React, {
 } from 'react';
 
 import { getPref, setPref, subscribe } from '../hooks/server-prefs-store';
+import { recordWorkspaceSwitch } from '../api/feature-open-beacon';
 
 const WORKSPACE_STORAGE_KEY = 'gds-cube:workspace';
 const WORKSPACE_CHANGE_EVENT = 'gds-cube:workspace-change';
@@ -131,6 +132,9 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
         window.dispatchEvent(
           new CustomEvent(WORKSPACE_CHANGE_EVENT, { detail: { workspaceId: next } }),
         );
+        // Telemetry: the switch persisted, so the beacon is attributed to the
+        // new workspace. Fire-and-forget — never blocks the switch.
+        recordWorkspaceSwitch(next);
       }
       return next;
     });

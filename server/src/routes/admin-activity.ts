@@ -1,0 +1,38 @@
+/**
+ * Admin activity/observability API — org + per-user activity rollups.
+ *
+ *   GET /api/admin/activity/summary        → org rollup (status counts,
+ *                                             active 7/30d, inactive list,
+ *                                             top features, total chat turns)
+ *   GET /api/admin/activity/users/:email   → per-user activity (last login,
+ *                                             chat stats, recent features +
+ *                                             query shapes, segment count)
+ *
+ * Guards: this is a SEPARATE Fastify plugin from `admin-access.ts`, so it does
+ * NOT inherit that router's scoped preHandlers (Fastify encapsulation). The
+ * `requireRole('admin') + requireFeature('admin')` hooks are re-declared here
+ * at router scope so every route is admin-gated on its own.
+ */
+
+import type { FastifyInstance } from 'fastify';
+import { requireRole } from '../middleware/require-role.js';
+import { requireFeature } from '../middleware/require-feature.js';
+import { buildActivitySummary, buildUserActivity } from '../services/activity-aggregator.js';
+
+export default async function adminActivityRoutes(app: FastifyInstance): Promise<void> {
+  // Router-scope enforcement: admin role AND the admin feature, on every route.
+  app.addHook('preHandler', requireRole('admin'));
+  app.addHook('preHandler', requireFeature('admin'));
+
+  app.get('/api/admin/activity/summary', async () => {
+    return buildActivitySummary();
+  });
+
+  app.get<{ Params: { email: string } }>('/api/admin/activity/users/:email', async (req, reply) => {
+    const activity = await buildUserActivity(decodeURIComponent(req.params.email));
+    if (!activity) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Unknown user' } });
+    }
+    return activity;
+  });
+}

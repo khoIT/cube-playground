@@ -18,6 +18,8 @@ import { getDb } from '../db/sqlite.js';
 import { getAll as getAllMetrics } from './business-metrics-loader.js';
 import { extractRefs, parseFqn } from './metric-ref-validator.js';
 import { glossaryTrust, parseRef, type Trust } from './trust-mapping.js';
+import { canAccessSegment } from '../auth/can-access-segment.js';
+import type { Principal } from '../auth/principal.js';
 
 export interface RelatedMetric { ref: string; id: string; label: string; trust: Trust }
 export interface RelatedTerm { ref: string; id: string; label: string; trust: Trust }
@@ -46,6 +48,8 @@ interface SegmentRow {
   name: string;
   predicate_tree_json: string | null;
   cube_query_json: string | null;
+  owner: string;
+  visibility: string | null;
 }
 
 interface IndexData {
@@ -57,7 +61,7 @@ interface IndexData {
   termMeta: Map<string, { label: string; trust: Trust }>;
   /** segmentId → cube.member fields it filters on */
   segmentFields: Map<string, string[]>;
-  segmentMeta: Map<string, { name: string }>;
+  segmentMeta: Map<string, { name: string; owner: string; visibility: string | null }>;
 }
 
 const MEMBER_RE = /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/;
@@ -139,14 +143,14 @@ function build(workspaceId: string, gameId: string | null): IndexData {
   // Segments: scope by workspace (the real access boundary), then optionally by
   // game — mirrors the segments list endpoint. Never widen past the workspace.
   const segParams: string[] = [workspaceId];
-  let segSql = `SELECT id, name, predicate_tree_json, cube_query_json FROM segments WHERE workspace = ?`;
+  let segSql = `SELECT id, name, predicate_tree_json, cube_query_json, owner, visibility FROM segments WHERE workspace = ?`;
   if (gameId) { segSql += ' AND game_id = ?'; segParams.push(gameId); }
   const segRows = db.prepare(segSql).all(...segParams) as SegmentRow[];
   const segmentFields = new Map<string, string[]>();
-  const segmentMeta = new Map<string, { name: string }>();
+  const segmentMeta = new Map<string, { name: string; owner: string; visibility: string | null }>();
   for (const s of segRows) {
     segmentFields.set(s.id, segmentMembers(s));
-    segmentMeta.set(s.id, { name: s.name });
+    segmentMeta.set(s.id, { name: s.name, owner: s.owner, visibility: s.visibility });
   }
 
   return { metricFields, metricMeta, termRefs, termMeta, segmentFields, segmentMeta };
@@ -167,12 +171,21 @@ function getIndex(workspaceId: string, gameId: string | null): IndexData {
  */
 export function getRelations(
   ref: string,
-  scope: { workspaceId: string; gameId: string | null },
+  scope: { workspaceId: string; gameId: string | null; principal: Principal },
 ): ConceptRelations | null {
   const parsed = parseRef(ref);
   if (!parsed) return null;
   const idx = getIndex(scope.workspaceId, scope.gameId);
   const out: ConceptRelations = { ref, fields: [], metrics: [], terms: [], segments: [] };
+
+  // A personal segment must never surface to a non-owner via the reverse index
+  // (same predicate as the LIST/by-id routes). The index is workspace-keyed and
+  // cached; per-principal visibility is filtered here at read time.
+  const canSeeSegment = (id: string): boolean => {
+    const meta = idx.segmentMeta.get(id);
+    if (!meta) return false;
+    return canAccessSegment(scope.principal, { owner: meta.owner, visibility: meta.visibility });
+  };
 
   const metricRef = (id: string): RelatedMetric => ({
     ref: `business_metrics/${id}`,
@@ -199,13 +212,17 @@ export function getRelations(
   if (parsed.namespace === 'data_model') {
     const member = parsed.id;
     for (const [id, fields] of idx.metricFields) if (fields.includes(member)) out.metrics.push(metricRef(id));
-    for (const [id, fields] of idx.segmentFields) if (fields.includes(member)) out.segments.push(segRef(id));
+    for (const [id, fields] of idx.segmentFields)
+      if (fields.includes(member) && canSeeSegment(id)) out.segments.push(segRef(id));
     for (const id of termsReferencing(ref)) out.terms.push(termRef(id));
   } else if (parsed.namespace === 'business_metrics') {
     for (const f of idx.metricFields.get(parsed.id) ?? []) out.fields.push(fieldRef(f));
     for (const id of termsReferencing(ref)) out.terms.push(termRef(id));
   } else if (parsed.namespace === 'segments') {
-    for (const f of idx.segmentFields.get(parsed.id) ?? []) out.fields.push(fieldRef(f));
+    // Don't dereference another user's personal segment — return no fields.
+    if (canSeeSegment(parsed.id)) {
+      for (const f of idx.segmentFields.get(parsed.id) ?? []) out.fields.push(fieldRef(f));
+    }
     for (const id of termsReferencing(ref)) out.terms.push(termRef(id));
   }
 

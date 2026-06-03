@@ -2,6 +2,20 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-03 — Workspace Isolation & Sysadmin Hub (Phases 3–4: Activity Telemetry & Observability)
+
+Shipped activity-telemetry event spine + admin aggregation routes for workspace usage observability. Plan: `plans/260603-1439-workspace-isolation-and-sysadmin-hub/` (sub-project B, phases 3–4). Tests: server 1098 (+~50 new activity tests).
+
+- **Activity event spine (main server, SQLite).** New migration `029-activity-events.sql` adds `activity_events` table keyed by actor `sub` (Keycloak subject, always present) with event-type enum (`query_run`, `segment_op`, `feature_open`, `export`, `workspace_switch`). Indexed on `(actor_sub, ts)` and `(event_type, ts)` for per-user timelines and global event scans. `actor_email` is a nullable display snapshot (refreshed on session change). Fire-and-forget `recordActivity` in `activity-store.ts` is non-blocking, never throws (logs WARN on disk-full, continues). Append-only — no deletes except 90d retention sweep.
+
+- **Emit points.** Server-only events (`query_run` on cube-proxy `/load` 200; `segment_op` on segments CRUD) are forged-proof. Client-forged allowlist (`POST /api/activity`) accepts `feature_open`, `export`, `workspace_switch` with contextual data; actor `sub` always resolved server-side from auth token. `activity-event-types.ts` enforces closed enum.
+
+- **Chat stats bridge (inter-service observability).** chat-service gained `GET /internal/stats` (bulk query by `sub[]`, returns per-user turn count + cost + last-active timestamp) behind a **mandatory** `INTERNAL_SECRET` inbound gate (`chat-service/src/middleware/internal-secret.ts`). Unlike the main server's `GET /internal/access` (fails open under `AUTH_DISABLED`), chat stats **never** fails open — missing/mismatched secret → 403, period. Server-side client: `chat-stats-client.ts` (timeout-safe, degrades to null counts on unavailability).
+
+- **Admin aggregation API (admin-gated).** `GET /api/admin/activity/summary` surfaces org-wide rollup (status counts, active 7/30d, inactive list [>30d no-login], top features, total chat turns). `GET /api/admin/activity/users/:email` deep-dives per-user: last login, segment count, recent features + query shapes (PII allowlist: member names only, **no** values/UIDs/date ranges), chat stats. `activity-aggregator.ts` resolves email→sub via `user_access.kc_sub` before chat fan-out.
+
+- **Retention & env.** `server/src/jobs/prune-activity-events.ts` daily hard-deletes events >90d (`ACTIVITY_RETENTION_DAYS` env-tunable). New env var: `INTERNAL_SECRET` (both server [passes] + chat-service [validates]). See `deployment-guide.md` Vault manifest.
+
 ## 2026-06-03 — Unified Concept Fabric (trust/visibility ladder, registry, reverse index, linking, authoring)
 
 Shipped a cohesive concept system spanning glossary terms, business metrics, and segments with unified trust/visibility governance, bidirectional references, and concept-aware authoring flows. Plan: `plans/260603-0324-unified-concept-fabric/` (phases 0–5). Tests: 8 new server tests (concept-authoring-governance, concept-reverse-index, glossary-unified-refs, trust-mapping); 4 FE tests (concept-chip, concept-hover-card, resolve-concept, cross-layer-relations).

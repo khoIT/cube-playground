@@ -32,6 +32,7 @@ authorization, Keycloak→Microsoft SSO, and the cube-dev shared authz source.
 | `ACCESS_CACHE_TTL_MS` | no | Access-store cache TTL (default 30000). Revocations take effect within this window. |
 | `AUTHZ_GRANT_FALLBACK` | no | `true` (default) = users with no grants in a dimension fall back to role-based defaults (eases migration). Flip **OFF** after grants are seeded so gates fail closed. |
 | `CUBE_AUTH_INTERNAL_SECRET` | prod | Shared secret guarding `GET /internal/access/:key` (cube-dev calls it). Must match cube-dev's `AUTH_INTERNAL_SECRET`. |
+| `INTERNAL_SECRET` | prod | Shared secret guarding activity-telemetry bridge: `chat-service GET /internal/stats`. Playground server passes this header; chat-service validates it. Never fails open — missing/wrong value → 403. |
 | `CUBEJS_API_SECRET` | prod (minted ws) | Secret used to mint the Cube JWT (`userId=email`, per-game claim). |
 | `CUBE_PLAYGROUND_USER_ID` | no | Service-principal id used when no real user is present (default `playground`). |
 
@@ -233,6 +234,7 @@ Flat KV. ⚠️ = boot-blocking if absent.
 | `KEYCLOAK_CLIENT_SECRET` | yes | confidential client. |
 | `AUTH_BOOTSTRAP_ADMINS` | yes | seed admin emails — set before first deploy or lock-out. |
 | `CUBE_AUTH_INTERNAL_SECRET` | yes | must equal cube-dev `AUTH_INTERNAL_SECRET`; in-stack `cube_api` reuses it as `AUTH_INTERNAL_SECRET`. |
+| `INTERNAL_SECRET` | yes | activity-telemetry bridge secret; shared between `server` (caller) and chat-service (validator). Non-empty value required; chat-service returns 403 if missing/mismatched. |
 | `CUBEJS_API_SECRET` | yes | mints the per-game Cube JWT; shared by `server` (mint) + in-stack `cube_api` (verify) — values must match. |
 | `CUBEJS_DB_HOST` / `_PORT` / `_USER` / `_PASS` | yes¹ | Trino creds for the in-stack `cube_api` (copy from cube-dev `.env`). ¹Required once the `local` workspace is used; `cube_api` boots but can't query Trino without them. |
 | `CUBEJS_DB_PRESTO_CATALOG` / `_CATALOG` / `_SSL` | no | in-stack cube. Driver reads `_PRESTO_CATALOG` (default `game_integration`); `_CATALOG` mirrored for safety. `_SSL` defaults **`true`** (compose) — `gio-gds-trino:8080` is TLS-only; plaintext → `/v1/info socket hang up`. Set `false` in Vault only for a plaintext Trino. |

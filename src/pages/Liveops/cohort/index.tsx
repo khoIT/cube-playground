@@ -23,6 +23,7 @@ import { useGameContext } from '../../../components/Header/use-game-context';
 import { useCohortGrid } from './use-cohort-grid';
 import { CohortGrid } from './cohort-grid';
 import { downloadCohortCsv } from './export-cohort-csv';
+import { recordExport } from '../../../api/feature-open-beacon';
 import type { CohortWindow } from './use-cohort-grid';
 import type { CsvMode } from './export-cohort-csv';
 
@@ -79,7 +80,10 @@ export function CohortRetentionPage() {
 
   const { rows, status, error, dataPath } = useCohortGrid(gameId, cohortWindow);
 
-  const handleExport = () => downloadCohortCsv(rows, csvMode, gameId);
+  const handleExport = () => {
+    downloadCohortCsv(rows, csvMode, gameId);
+    recordExport('cohort-csv', gameId);
+  };
   const toggleCsvMode = () =>
     setCsvMode((m) => (m === 'percent' ? 'counts' : 'percent'));
 

@@ -85,6 +85,14 @@ export interface Config {
    */
   mainServerServiceToken: string;
   /**
+   * Inbound shared secret for the admin telemetry bridge (`/internal/stats`).
+   * The main server presents it in `x-internal-secret` when aggregating chat
+   * usage across users. Unconditional gate — NOT bypassed under AUTH_DISABLED
+   * (unlike the main server's `/internal/access`), because this exposes other
+   * users' activity. Unset → the route 503s (fails loud, never open).
+   */
+  internalSecret: string;
+  /**
    * Langfuse Cloud mirror — env-gated, all optional.
    * When publicKey or secretKey is absent, the LangfuseTracer runs as a no-op.
    * IMPORTANT: enabling mirrors turn inputs/outputs (PII) to Langfuse Cloud.
@@ -235,6 +243,7 @@ export const config: Config = {
   starterRankMinSessions: 3,
   disambigAutoThreshold: optionalFloat('CHAT_DISAMBIG_AUTO_THRESHOLD', 0.75),
   mainServerServiceToken: optional('MAIN_SERVER_SERVICE_TOKEN', ''),
+  internalSecret: optional('INTERNAL_SECRET', ''),
   streamRegistryRingSize: optionalInt('STREAM_REGISTRY_RING_SIZE', 2000),
   streamRegistryMaxTurns: optionalInt('STREAM_REGISTRY_MAX_TURNS', 100),
   streamRegistryTtlMs: optionalInt('STREAM_REGISTRY_TTL_MS', 300_000),

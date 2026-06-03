@@ -31,6 +31,7 @@ export default async function conceptsRoutes(app: FastifyInstance): Promise<void
       const relations = getRelations(ref, {
         workspaceId: req.workspace.id,
         gameId: readGameId(req),
+        principal: req.principal,
       });
       if (!relations) return reply.status(400).send({ code: 'bad_request', message: 'malformed ref' });
       return relations;

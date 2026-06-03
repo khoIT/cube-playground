@@ -20,7 +20,29 @@ import { getCardCache } from '../services/card-cache-store.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
 import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integrity.js';
 import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
-import { SEGMENT_DEFAULT_VISIBILITY } from '../services/trust-mapping.js';
+import { SEGMENT_DEFAULT_VISIBILITY, VISIBILITY_VALUES } from '../services/trust-mapping.js';
+import { canAccessSegment, canMutateSegment } from '../auth/can-access-segment.js';
+import { recordActivity } from '../services/activity-store.js';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+
+/**
+ * Fire-and-forget telemetry for a segment mutation. One `segment_op` event with
+ * the action in detail (create/update/delete/refresh/append) keeps the spine
+ * vocabulary small. Never carries cohort data — only the action + segment id.
+ */
+function emitSegmentOp(
+  req: FastifyRequest,
+  action: 'create' | 'update' | 'delete' | 'refresh' | 'append',
+  segmentId: string,
+): void {
+  recordActivity(req.principal, {
+    eventType: 'segment_op',
+    targetType: 'segment',
+    targetId: segmentId,
+    workspace: req.workspace.id,
+    detail: { action },
+  });
+}
 
 const segmentInputSchema = z.object({
   name: z.string().min(1),
@@ -33,6 +55,8 @@ const segmentInputSchema = z.object({
   game_id: z.string().min(1).max(64).optional(),
   /** Serialised FunnelDefinition — present when created via the funnel builder. */
   funnel_json: z.string().nullable().optional(),
+  /** Opt-in visibility. Defaults to 'personal'; 'org' is admin-only. */
+  visibility: z.enum(VISIBILITY_VALUES).optional(),
 });
 
 const segmentPatchSchema = z.object({
@@ -42,10 +66,65 @@ const segmentPatchSchema = z.object({
   predicate_tree: z.unknown().optional().nullable(),
   uid_list: z.array(z.string()).optional(),
   refresh_cadence_min: z.number().int().positive().nullable().optional(),
+  /** Visibility setter. Owner may set personal/shared; 'org' is admin-only. */
+  visibility: z.enum(VISIBILITY_VALUES).optional(),
 });
 
 function apiError(code: string, message: string, status: number) {
   return { statusCode: status, body: { error: { code, message } } };
+}
+
+type SegmentRow = Record<string, unknown> & { owner: string; visibility: string | null; workspace: string };
+
+/**
+ * Load a segment by id and enforce workspace + visibility access in one place.
+ * Returns the row when permitted; otherwise sends the reply (404 unknown/
+ * cross-workspace; 403 visibility-denied) and returns null. `mode` selects the
+ * read vs mutate predicate (identical today; kept distinct for future divergence).
+ */
+function guardSegment(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  id: string,
+  mode: 'read' | 'mutate',
+): SegmentRow | null {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as SegmentRow | undefined;
+  if (!row) {
+    reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    return null;
+  }
+  // Cross-workspace rows are invisible — never reveal their existence.
+  if (row.workspace !== req.workspace.id) {
+    reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    return null;
+  }
+  const allowed =
+    mode === 'read' ? canAccessSegment(req.principal, row) : canMutateSegment(req.principal, row);
+  if (!allowed) {
+    reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not permitted for this segment' } });
+    return null;
+  }
+  return row;
+}
+
+/**
+ * Reject an 'org' visibility change by a non-admin. `org` is governance-owned:
+ * a non-admin may neither promote a segment TO 'org' (target) nor alter the
+ * visibility of one that already IS 'org' (current). Returns true if it sent 403.
+ */
+function rejectNonAdminOrg(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  targetVisibility?: string,
+  currentVisibility?: string | null,
+): boolean {
+  const touchesOrg = targetVisibility === 'org' || currentVisibility === 'org';
+  if (touchesOrg && targetVisibility !== undefined && req.principal.role !== 'admin') {
+    reply.status(403).send({ error: { code: 'FORBIDDEN', message: "Only an admin may change 'org' visibility" } });
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -143,6 +222,14 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     sql += ' AND workspace = ?';
     params.push(req.workspace.id);
 
+    // Visibility: admin sees all; everyone else sees shared/org segments plus
+    // their own (NULL → personal via COALESCE, so correctness never depends on
+    // a backfill or deploy order). owner key = sub (principal.sub), not email.
+    if (req.principal.role !== 'admin') {
+      sql += " AND (COALESCE(visibility,'personal') IN ('shared','org') OR owner = ?)";
+      params.push(req.principal.sub);
+    }
+
     if (owner && owner !== '*') {
       sql += ' AND owner = ?';
       params.push(owner);
@@ -180,10 +267,13 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     }
 
     const data = parsed.data;
+    if (rejectNonAdminOrg(req, reply, data.visibility)) return;
     const db = getDb();
     const id = uuidv4();
     const now = new Date().toISOString();
     const owner = req.owner;
+    // New segments default to 'personal' (owner-private) unless explicitly shared.
+    const visibility = data.visibility ?? SEGMENT_DEFAULT_VISIBILITY;
 
     let cubeQueryJson: string | null = null;
     if (data.predicate_tree) {
@@ -215,8 +305,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace, visibility)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       data.name,
@@ -234,6 +324,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       data.game_id ?? loadGamesConfig().defaultGameId,
       data.funnel_json ?? null,
       req.workspace.id,
+      visibility,
     );
 
     if (data.tags?.length) {
@@ -249,6 +340,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     }
 
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
+    emitSegmentOp(req, 'create', id);
     return reply.status(201).send(hydrateSegment(row, db));
   });
 
@@ -256,8 +348,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   app.get('/api/segments/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
-    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    const row = guardSegment(req, reply, id, 'read');
+    if (!row) return reply;
     return { ...hydrateSegment(row, db), card_cache: getCardCache(id) };
   });
 
@@ -265,9 +357,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   app.patch('/api/segments/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
-    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    const row = guardSegment(req, reply, id, 'mutate');
+    if (!row) return reply;
 
     const parsed = segmentPatchSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -275,6 +366,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     }
 
     const patch = parsed.data;
+    if (rejectNonAdminOrg(req, reply, patch.visibility, row.visibility)) return;
     const now = new Date().toISOString();
 
     let cubeQueryJson = row.cube_query_json as string | null;
@@ -319,7 +411,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       UPDATE segments SET
         name = ?, cube = ?, predicate_tree_json = ?, cube_query_json = ?,
-        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, status = ?, updated_at = ?
+        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, status = ?, visibility = ?, updated_at = ?
       WHERE id = ?
     `).run(
       patch.name ?? row.name,
@@ -330,6 +422,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       nextUidListJson,
       patch.refresh_cadence_min !== undefined ? patch.refresh_cadence_min : row.refresh_cadence_min,
       nextStatus,
+      patch.visibility !== undefined ? patch.visibility : (row.visibility ?? null),
       now,
       id,
     );
@@ -345,6 +438,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     }
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
+    emitSegmentOp(req, 'update', id);
     return hydrateSegment(updated, db);
   });
 
@@ -354,9 +448,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   app.delete('/api/segments/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
-    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    const row = guardSegment(req, reply, id, 'mutate');
+    if (!row) return reply;
 
     const segRef = `segments/${id}`;
     const blocking = glossaryTermsReferencingArtifact(segRef);
@@ -372,20 +465,21 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     db.prepare('DELETE FROM segments WHERE id = ?').run(id);
     invalidateReverseIndex();
+    emitSegmentOp(req, 'delete', id);
     return reply.status(204).send();
   });
 
   // POST /api/segments/:id/append
   app.post('/api/segments/:id/append', async (req, reply) => {
     const { id } = req.params as { id: string };
+    const db = getDb();
+    const row = guardSegment(req, reply, id, 'mutate');
+    if (!row) return reply;
+
     const body = req.body as { uids?: string[] };
     if (!Array.isArray(body?.uids)) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: 'uids must be an array' } });
     }
-
-    const db = getDb();
-    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
 
     const existing: string[] = JSON.parse((row.uid_list_json as string) ?? '[]');
     const merged = Array.from(new Set([...existing, ...body.uids]));
@@ -393,6 +487,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare('UPDATE segments SET uid_list_json = ?, uid_count = ?, updated_at = ? WHERE id = ?')
       .run(JSON.stringify(merged), merged.length, new Date().toISOString(), id);
 
+    emitSegmentOp(req, 'append', id);
     return { uid_count: merged.length };
   });
 
@@ -489,8 +584,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const { id } = req.params as { id: string };
     const { days, limit } = req.query as Record<string, string | undefined>;
     const db = getDb();
-    const exists = db.prepare('SELECT 1 FROM segments WHERE id = ?').get(id);
-    if (!exists) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    if (!guardSegment(req, reply, id, 'read')) return reply;
 
     const dayCount = Math.max(1, Math.min(parseInt(days ?? '7', 10) || 7, 90));
     const rowLimit = Math.max(1, Math.min(parseInt(limit ?? '200', 10) || 200, 500));
@@ -543,14 +637,11 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   // GET /api/segments/:id/sql-filter — Advanced preview in Activate-to-CDP modal.
   app.get('/api/segments/:id/sql-filter', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const db = getDb();
-    const row = db.prepare('SELECT predicate_tree_json FROM segments WHERE id = ?').get(id) as
-      | { predicate_tree_json: string | null }
-      | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    const row = guardSegment(req, reply, id, 'read');
+    if (!row) return reply;
     if (!row.predicate_tree_json) return { filter: '1=1' };
     try {
-      const tree = JSON.parse(row.predicate_tree_json) as PredicateNode;
+      const tree = JSON.parse(row.predicate_tree_json as string) as PredicateNode;
       return { filter: predicateToSql(tree) };
     } catch (err) {
       return reply.status(400).send({
@@ -563,8 +654,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   app.post('/api/segments/:id/refresh', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
-    const row = db.prepare('SELECT type FROM segments WHERE id = ?').get(id) as { type: string } | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    const row = guardSegment(req, reply, id, 'mutate');
+    if (!row) return reply;
     if (row.type !== 'predicate') {
       return reply.status(400).send({ error: { code: 'NOT_LIVE', message: 'Only predicate (live) segments can be refreshed' } });
     }
@@ -575,6 +666,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     // Fire-and-forget — queue runs in background.
     void enqueueRefresh(id);
 
+    emitSegmentOp(req, 'refresh', id);
     return reply.status(202).send({ status: 'refreshing' });
   });
 
@@ -582,6 +674,12 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   // Real CDP wiring lands in Phase 7; this endpoint persists the registry entry.
   app.post('/api/segments/:id/activations', async (req, reply) => {
     const { id } = req.params as { id: string };
+    const db = getDb();
+    // Guard the parent segment before validating the body, so a non-owner gets a
+    // consistent 403 (not a 400 that would distinguish a malformed body).
+    const row = guardSegment(req, reply, id, 'mutate');
+    if (!row) return reply;
+
     const body = (req.body ?? {}) as {
       destination?: string;
       game_id?: string;
@@ -601,11 +699,6 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
         error: { code: 'VALIDATION', message: 'metric_name must match /^[a-z0-9_]{1,64}$/' },
       });
     }
-
-    const db = getDb();
-    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
 
     let list: Array<Record<string, unknown>> = [];
     try {
@@ -642,9 +735,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   app.delete('/api/segments/:id/activations/:activationId', async (req, reply) => {
     const { id, activationId } = req.params as { id: string; activationId: string };
     const db = getDb();
-    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-    if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
-    if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    const row = guardSegment(req, reply, id, 'mutate');
+    if (!row) return reply;
 
     let list: Array<Record<string, unknown>> = [];
     try {

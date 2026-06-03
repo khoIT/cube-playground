@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import authenticate from './middleware/authenticate.js';
+import authenticate, { assertAuthConfigSafe } from './middleware/authenticate.js';
 import enforceWriteRoles from './middleware/enforce-write-roles.js';
 import workspaceHeader from './middleware/workspace-header.js';
 import authRoutes from './routes/auth.js';
@@ -36,6 +36,8 @@ import dashboardsRoutes from './routes/dashboards.js';
 import liveopsRoutes from './routes/liveops.js';
 import settingsRoutes from './routes/settings.js';
 import onboardingRoutes from './routes/onboarding.js';
+import activityRoutes from './routes/activity.js';
+import adminActivityRoutes from './routes/admin-activity.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
@@ -51,11 +53,15 @@ import {
   seedRegistryFromBaked as seedBusinessMetricsFromBaked,
 } from './services/business-metrics-loader.js';
 import { startAnomalyDetector } from './jobs/anomaly-detector.js';
+import { startActivityPruneCron } from './jobs/prune-activity-events.js';
 import { registerSlowRequestLog, startEventLoopMonitor } from './services/runtime-observability.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
 
 export async function buildApp() {
+  // Fail closed before anything else: never let the dev auth bypass boot in prod.
+  assertAuthConfigSafe();
+
   const app = Fastify({ logger: true });
 
   await app.register(cors, { origin: true });
@@ -91,6 +97,8 @@ export async function buildApp() {
   await app.register(liveopsRoutes);
   await app.register(settingsRoutes);
   await app.register(onboardingRoutes);
+  await app.register(activityRoutes);
+  await app.register(adminActivityRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.
@@ -187,6 +195,7 @@ if (isMain || process.env.START_SERVER === '1') {
       startCron();
       startLiveopsCacheCron();
       startDashboardTileCacheCron();
+      startActivityPruneCron();
     }
     // Phase 2: SQLite anomaly detector — gated by ANOMALY_DETECTOR_ENABLED=true
     startAnomalyDetector((msg) => app.log.warn(msg));
