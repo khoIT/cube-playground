@@ -11,7 +11,7 @@ import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
 import { pickPresetForCube } from '../presets/mf-users-hub.js';
-import { resolveGamePrefix } from '../services/resolve-game-prefix.js';
+import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.js';
 import { logicalCube } from '../services/cube-member-resolver.js';
 import { resolveIdentityField } from '../services/resolve-identity-field.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
@@ -37,6 +37,7 @@ interface SegmentRow {
   broken_reason: string | null;
   uid_list_json: string;
   game_id: string | null;
+  workspace: string;
 }
 
 // Transient infra errors (Cube/Trino unreachable, DNS, timeouts) shouldn't
@@ -81,7 +82,9 @@ export async function refreshSegment(segmentId: string): Promise<void> {
   const token = row.game_id ? resolveCubeTokenForGame(row.game_id) ?? undefined : undefined;
 
   try {
-    const identity = await resolveIdentityField(row.cube, row.game_id);
+    const identity = await resolveIdentityField(row.cube, row.game_id, {
+      workspaceId: row.workspace,
+    });
     if (!identity) {
       setSegmentStatus(segmentId, 'broken', `no identity-field mapping for ${row.cube}`);
       return;
@@ -231,7 +234,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // back to live fetch when their entry is missing from the cache.
     // On prefix workspaces the stored cube is physical (`ballistar_mf_users`);
     // match the preset by its logical name so the same preset serves all games.
-    const prefix = resolveGamePrefix(row.game_id);
+    const prefix = resolveGamePrefixForWorkspace(row.workspace, row.game_id);
     const preset = pickPresetForCube(logicalCube(row.cube, prefix));
     if (preset) {
       try {

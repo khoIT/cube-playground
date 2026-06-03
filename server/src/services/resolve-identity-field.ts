@@ -8,27 +8,40 @@
 
 import { getDb } from '../db/sqlite.js';
 import { suggestIdentities } from './identity-suggester.js';
-import { resolveGamePrefix } from './resolve-game-prefix.js';
+import { resolveGamePrefixForWorkspace } from './resolve-game-prefix.js';
 import { logicalCubeAcross } from './cube-member-resolver.js';
 
 const AUTO_SUGGEST_MIN_CONFIDENCE = 0.9;
 
+export interface IdentityResolutionOptions {
+  /**
+   * The artifact's own workspace id (e.g. `segment.workspace`). The prefix is
+   * a property of THIS workspace, not the deployment default — passing it keeps
+   * a game_id-workspace segment from being physicalized against the default
+   * prefix workspace. Omit (or pass null) to fall back to the default workspace.
+   */
+  workspaceId?: string | null;
+}
+
 /**
  * Resolve the identity (uid) dimension for a cube. Accepts an optional gameId
- * so background jobs (refresh-segment) can pass the segment's game context.
+ * so background jobs (refresh-segment) can pass the segment's game context, and
+ * an optional workspaceId so the prefix is derived from the segment's OWN
+ * workspace rather than the global default.
  *
  * Persisted overrides are stored in LOGICAL (prefix-stripped) space by the PUT
  * handler. When a physical cube name is passed (`ballistar_mf_users`) on a
- * prefix workspace, we derive the prefix via resolveGamePrefix and strip it
- * before looking up the DB, then physicalize the stored field back before
- * returning. On game_id workspaces (prefix null) the helpers are all no-ops and
- * behavior is byte-for-byte unchanged.
+ * prefix workspace, we derive the prefix and strip it before looking up the DB,
+ * then physicalize the stored field back before returning. On game_id
+ * workspaces (prefix null) the helpers are all no-ops and behavior is
+ * byte-for-byte unchanged.
  */
 export async function resolveIdentityField(
   cube: string,
   gameId?: string | null,
+  opts?: IdentityResolutionOptions,
 ): Promise<string | null> {
-  const prefix = resolveGamePrefix(gameId ?? null);
+  const prefix = resolveGamePrefixForWorkspace(opts?.workspaceId ?? null, gameId ?? null);
   // Normalize the incoming cube to logical space to match how overrides are stored.
   const logicalKey = prefix ? logicalCubeAcross(cube, [prefix]) : cube;
 
