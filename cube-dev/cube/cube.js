@@ -108,6 +108,15 @@ module.exports = {
       throw new Error(`Unknown game claim: ${payload.game}`);
     }
     const access = await getUserAccess(payload.userId);
+    // '*' is the all-games wildcard the internal auth bridge returns for an
+    // admin / break-glass principal (when authz is disabled). Expand it to the
+    // concrete supported-game ids so the membership check below — and every
+    // downstream allowedGames consumer (security context, future RLS) — sees
+    // real tenant ids, never the raw sentinel. A real RBAC grant lists its
+    // games explicitly and never contains '*', so this is a no-op for it.
+    if (access.allowedGames.includes('*')) {
+      access.allowedGames = SUPPORTED_GAMES;
+    }
     if (!access.allowedGames.includes(game)) {
       throw new Error(`User ${payload.userId} not allowed for game ${payload.game}`);
     }
