@@ -127,33 +127,39 @@ function getPrefixes(req: FastifyRequest): string[] {
 }
 
 /**
- * Cube ctx for schema introspection. The identity map is workspace-global —
- * on a game_id (multi-tenant) workspace every tenant shares the same logical
- * cube names, so introspecting any one game's /meta yields the right map.
+ * Cube ctx for schema introspection. Two concerns, both handled here:
  *
- * `req.cubeCtx` is game-less unless the request carried `x-cube-game`. On a
- * strict multi-tenant cube a game-less token fails checkAuth ("Missing game
- * claim") → /meta throws → the suggester swallows it → an EMPTY map, which
- * silently disables identity-dependent UI (the expansion-mode row selector).
- * A caller that hasn't pinned a tenant yet (first paint, before the active-game
- * pref is persisted) hits exactly that. So when no game is pinned on a game_id
- * workspace, fall back to the default game's ctx so /meta always resolves.
+ * 1. PRINCIPAL — minted under the service principal (via
+ *    `buildIntrospectionCtxForGame`), NOT the request user's email. The
+ *    identity map reads cube *metadata*, not user-scoped data, so gating it on
+ *    the user's per-game cube grant adds no security — only a failure mode: a
+ *    real-auth request mints `userId: <email>`, which the cube can't resolve,
+ *    so /meta is denied and the suggester returns an EMPTY map → the
+ *    expansion-mode row-selection column silently disappears. The service
+ *    principal is one cube-dev's checkAuth always resolves, so introspection
+ *    works whether auth is disabled OR a real user is logged in.
  *
- * Prefix workspaces (prod) need no fallback: that cube is open and a game-less
- * /meta returns all prefixed cubes, which the merge already handles.
+ * 2. TENANT CLAIM — the identity map is workspace-global (on a game_id
+ *    workspace every tenant shares the same logical cube names). A strict
+ *    multi-tenant cube still rejects a game-less token ("Missing game claim"),
+ *    so when no `x-cube-game` is pinned we introspect the default game. Prefix
+ *    workspaces (prod) need no game: that cube is open and a game-less /meta
+ *    returns all prefixed cubes, which the merge already handles.
  */
 export function introspectionCtx(req: FastifyRequest): WorkspaceCtx {
   const rawGame = req.headers['x-cube-game'];
-  const hasGame = typeof rawGame === 'string' && rawGame.trim().length > 0;
-  if (hasGame || req.workspace.gameModel !== 'game_id' || !req.buildCubeCtxForGame) {
-    return req.cubeCtx;
+  let game: string | null =
+    typeof rawGame === 'string' && rawGame.trim().length > 0 ? rawGame.trim() : null;
+  if (!game && req.workspace.gameModel === 'game_id') {
+    try {
+      game = loadGamesConfig().defaultGameId || null;
+    } catch {
+      /* config unreadable — introspect game-less (cube may still reject) */
+    }
   }
-  try {
-    const { defaultGameId } = loadGamesConfig();
-    if (defaultGameId) return req.buildCubeCtxForGame(defaultGameId);
-  } catch {
-    /* config unreadable — fall back to the game-less ctx */
-  }
+  // Decorated per-request by the workspace-header plugin; guard for direct
+  // unit construction of a bare request.
+  if (req.buildIntrospectionCtxForGame) return req.buildIntrospectionCtxForGame(game);
   return req.cubeCtx;
 }
 

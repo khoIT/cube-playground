@@ -8,44 +8,64 @@ vi.mock('../src/services/games-config-loader.js', () => ({
 import { introspectionCtx } from '../src/routes/identity-map.js';
 import type { FastifyRequest } from 'fastify';
 
-const GAME_LESS = { cubeApiUrl: 'http://cube', token: 'game-less-token' };
-const GAME_SCOPED = { cubeApiUrl: 'http://cube', token: 'ballistar-token' };
-
-function makeReq(opts: {
-  gameHeader?: string;
-  gameModel: 'game_id' | 'prefix';
-}): FastifyRequest {
-  return {
-    headers: opts.gameHeader === undefined ? {} : { 'x-cube-game': opts.gameHeader },
-    workspace: { gameModel: opts.gameModel },
-    cubeCtx: GAME_LESS,
-    buildCubeCtxForGame: (g: string) =>
-      g === 'ballistar' ? GAME_SCOPED : { cubeApiUrl: 'http://cube', token: `${g}-token` },
-  } as unknown as FastifyRequest;
-}
+const SERVICE = { cubeApiUrl: 'http://cube', token: 'service-principal-token' };
 
 describe('introspectionCtx', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('keeps the request ctx when a game is pinned (header present)', () => {
-    const ctx = introspectionCtx(makeReq({ gameHeader: 'cfm', gameModel: 'game_id' }));
-    expect(ctx).toBe(GAME_LESS); // unchanged — the middleware already scoped it
+  it('always uses the service-principal builder (never the per-user one)', () => {
+    const introspectGames: (string | null)[] = [];
+    let userScoped = 0;
+    const req = {
+      headers: { 'x-cube-game': 'cfm' },
+      workspace: { gameModel: 'game_id' },
+      cubeCtx: { cubeApiUrl: 'http://cube', token: 'user-email-token' },
+      buildCubeCtxForGame: () => { userScoped += 1; return SERVICE; },
+      buildIntrospectionCtxForGame: (g: string | null) => { introspectGames.push(g); return SERVICE; },
+    } as unknown as FastifyRequest;
+
+    const ctx = introspectionCtx(req);
+    expect(ctx).toBe(SERVICE);
+    expect(userScoped).toBe(0); // critical: the per-user/email path is never taken
+    expect(introspectGames).toEqual(['cfm']); // pinned tenant forwarded
   });
 
   it('falls back to the default game on a game_id workspace with no pinned tenant', () => {
-    // The empty-map bug: a game-less token fails checkAuth on the strict
-    // multi-tenant cube, so /meta returns nothing. Fallback resolves it.
-    const ctx = introspectionCtx(makeReq({ gameModel: 'game_id' }));
-    expect(ctx).toBe(GAME_SCOPED);
+    const introspectGames: (string | null)[] = [];
+    const req = {
+      headers: {},
+      workspace: { gameModel: 'game_id' },
+      cubeCtx: { token: 'x', cubeApiUrl: 'http://cube' },
+      buildCubeCtxForGame: () => SERVICE,
+      buildIntrospectionCtxForGame: (g: string | null) => { introspectGames.push(g); return SERVICE; },
+    } as unknown as FastifyRequest;
+    introspectionCtx(req);
+    expect(introspectGames).toEqual(['ballistar']);
   });
 
-  it('treats a blank game header as no pin and falls back', () => {
-    const ctx = introspectionCtx(makeReq({ gameHeader: '   ', gameModel: 'game_id' }));
-    expect(ctx).toBe(GAME_SCOPED);
+  it('passes a null game on a prefix workspace (open cube, game-less /meta is fine)', () => {
+    const introspectGames: (string | null)[] = [];
+    const req = {
+      headers: {},
+      workspace: { gameModel: 'prefix' },
+      cubeCtx: { token: 'x', cubeApiUrl: 'http://cube' },
+      buildCubeCtxForGame: () => SERVICE,
+      buildIntrospectionCtxForGame: (g: string | null) => { introspectGames.push(g); return SERVICE; },
+    } as unknown as FastifyRequest;
+    introspectionCtx(req);
+    expect(introspectGames).toEqual([null]);
   });
 
-  it('does NOT force a game on a prefix workspace (open cube, game-less /meta is fine)', () => {
-    const ctx = introspectionCtx(makeReq({ gameModel: 'prefix' }));
-    expect(ctx).toBe(GAME_LESS);
+  it('treats a blank game header as no pin', () => {
+    const introspectGames: (string | null)[] = [];
+    const req = {
+      headers: { 'x-cube-game': '   ' },
+      workspace: { gameModel: 'game_id' },
+      cubeCtx: { token: 'x', cubeApiUrl: 'http://cube' },
+      buildCubeCtxForGame: () => SERVICE,
+      buildIntrospectionCtxForGame: (g: string | null) => { introspectGames.push(g); return SERVICE; },
+    } as unknown as FastifyRequest;
+    introspectionCtx(req);
+    expect(introspectGames).toEqual(['ballistar']);
   });
 });

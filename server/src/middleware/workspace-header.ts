@@ -32,6 +32,15 @@ declare module 'fastify' {
     cubeCtx: WorkspaceCtx;
     /** Build a ctx scoped to a specific game (so the minted JWT carries game claim). */
     buildCubeCtxForGame: (gameId: string) => WorkspaceCtx;
+    /**
+     * Build a ctx for SCHEMA INTROSPECTION (/meta) under the service principal —
+     * never the per-user email. Cube metadata is not user-scoped data, so gating
+     * it on the user's per-game cube grant adds no security, only a failure mode
+     * (a principal the cube can't resolve → empty /meta → broken identity map →
+     * missing row-selection column). Per-user enforcement stays on the DATA path
+     * (`cubeCtx` / `buildCubeCtxForGame`, used by cube-proxy `/load`).
+     */
+    buildIntrospectionCtxForGame: (gameId: string | null) => WorkspaceCtx;
   }
 }
 
@@ -50,6 +59,15 @@ function buildCtx(
   return { cubeApiUrl: workspace.cubeApiUrl, token };
 }
 
+// Service-principal ctx for /meta introspection. Mints WITHOUT a user id, so
+// `resolveCubeTokenForWorkspace` falls back to the playground principal — a
+// principal cube-dev's checkAuth always resolves. Used for reading schema
+// shape (identity suggester), never for executing a user's data query.
+function buildIntrospectionCtx(workspace: WorkspaceDef, gameId: string | null): WorkspaceCtx {
+  const { token } = resolveCubeTokenForWorkspace(workspace, gameId);
+  return { cubeApiUrl: workspace.cubeApiUrl, token };
+}
+
 function readGameId(request: FastifyRequest): string | null {
   const raw = request.headers[GAME_HEADER];
   if (typeof raw !== 'string') return null;
@@ -62,6 +80,7 @@ async function workspaceHeaderPlugin(app: FastifyInstance): Promise<void> {
   app.decorateRequest('workspace', fallback);
   app.decorateRequest('cubeCtx', { cubeApiUrl: fallback.cubeApiUrl, token: null });
   app.decorateRequest('buildCubeCtxForGame', null);
+  app.decorateRequest('buildIntrospectionCtxForGame', null);
 
   app.addHook('onRequest', async (request: FastifyRequest, reply) => {
     const raw = request.headers[WORKSPACE_HEADER];
@@ -117,6 +136,7 @@ async function workspaceHeaderPlugin(app: FastifyInstance): Promise<void> {
     const userId = user?.email ?? null;
     request.cubeCtx = buildCtx(workspace, gameId, userId);
     request.buildCubeCtxForGame = (g: string) => buildCtx(workspace, g, userId);
+    request.buildIntrospectionCtxForGame = (g: string | null) => buildIntrospectionCtx(workspace, g);
   });
 }
 
