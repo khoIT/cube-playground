@@ -12,7 +12,13 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-  base: './',
+  // Absolute base so asset URLs resolve from the site root at ANY route depth.
+  // A relative base ('./') breaks deep non-hash routes under nginx: at
+  // /auth/callback the browser resolves ./assets/* to /auth/assets/*, which the
+  // SPA fallback serves as index.html (text/html) → module-script MIME error →
+  // the app never boots to process the OAuth code. The app is always served
+  // from root (dev :3000, prod nginx), so '/' is correct for both.
+  base: '/',
   build: {
     outDir: 'dist',
     target: 'es2020',
