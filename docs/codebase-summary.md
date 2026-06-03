@@ -52,7 +52,7 @@ High-level map of the cube-playground app, updated as features ship.
 - **GamePicker**: Sits in Topbar's `fixedTrailing` prop (not via context) so it cannot be overwritten by per-page registrations.
 - **App.tsx refactor**: `SmartSearchProvider > TopbarTrailingProvider > shell-flex(Sidebar + main(Topbar + scroll children))`. Routes: `/` → `/build` redirect, `/chat` → `ChatPlaceholderPage`, `/catalog` (exact) → `/catalog/data-model` redirect.
 - **Header.tsx deprecation**: Kept on disk one release for safety; App.tsx no longer renders it (tests-only). Delete after next release.
-- **Catalog IA (2026-05-23)**: Advanced sidebar section removed; Data Model & Metrics Catalog now distinct pages. Data Model subtabs (Concepts / Cubes / Models) at `/catalog/data-model{/cubes,/models}`, legacy routes 301-redirect. NotificationBell moved to Topbar (between SearchTrigger & AvatarMenu). Sidebar "New data model" label drops leading `+`. RecentItemPusher: concept-detail routes push to `data-model` module; business-metric detail to `metrics-catalog`. `catalog-tabs.tsx` refactored → `DataModelSubtabs` + `resolveDataModelSubtab`.
+- **Catalog IA (2026-05-23)**: Advanced sidebar section removed; Data Model & Metrics Catalog now distinct pages. Data Model subtabs (Schema / Concepts / Cubes / Models / Concept Map) at `/catalog/data-model{,/concepts,/cubes,/models,/concept-map}`, legacy routes 301-redirect. NotificationBell moved to Topbar (between SearchTrigger & AvatarMenu). Sidebar "New data model" label drops leading `+`. RecentItemPusher: concept-detail routes push to `data-model` module; business-metric detail to `metrics-catalog`. `catalog-tabs.tsx` refactored → `DataModelSubtabs` + `resolveDataModelSubtab`.
 
 ## New Metric draft model
 
@@ -124,6 +124,7 @@ members from every selected cube and de-dupes by qualified name.
 - **Glossary row** — `src/pages/Catalog/glossary/glossary-row.tsx`. Extended with secondary-ref chips via ConceptChip.
 - **Segments row actions** — `src/pages/Segments/library/row-actions-menu.tsx`. "Promote to glossary term" affordance.
 - **Schema Cartographer detail** — `src/pages/Catalog/schema-cartographer/member-detail-panel.tsx` + new `concept-relations-section.tsx` + `layer-filter-pills.tsx`. Reverse-edge explorer with `?focus=namespaced-ref` routing.
+- **Concept Map** — `src/pages/Catalog/concept-map/` (Data Model subtab `/catalog/data-model/concept-map`, lazy-loaded). reactflow node graph of all 4 concept layers. NEW `useConceptGraph` index (separate from cube-bound `useCartographerIndex`); focus-scoped edges via `useFocusEdges`; pure `build-layout.ts` (4 columns + per-layer cap); token-styled nodes (`--layer-*`); `?focus=` deep-links all 4 namespaces. Reuses the Cartographer's `parseFocusRef`, `LayerFilterPills`, `CartographerSearch`, ConceptChip icon vocab.
 - **Chat assistant message** — `src/pages/Chat/components/assistant-message.tsx`. Glossary term references rendered as inline ConceptChips.
 - **Client** — `src/api/concepts-client.ts` (typed GET /api/concepts/:namespace/:id/relations).
 

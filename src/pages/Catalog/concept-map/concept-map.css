@@ -1,0 +1,53 @@
+/*
+ * Token overrides for reactflow defaults on the concept map. reactflow ships
+ * an opinionated blue/grey palette in `dist/style.css`; we neutralise it so the
+ * canvas reads as part of the cube-playground design system. Custom node cards
+ * supply their own chrome (see base-node.tsx), so here we mostly reset the
+ * wrapper, theme the edges/controls/background, and mute the handles.
+ */
+
+/* Reset the node wrapper — our card draws all chrome itself. */
+.concept-map-flow .react-flow__node {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  width: auto;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+/* Edges: neutral by default, accent comes from per-edge inline stroke. */
+.concept-map-flow .react-flow__edge-path {
+  stroke: var(--border-strong, var(--border-card));
+  stroke-width: 1.5;
+}
+
+/* Handles are decorative anchor points, not interactive targets. */
+.concept-map-flow .react-flow__handle {
+  background: transparent;
+  border: none;
+  width: 1px;
+  height: 1px;
+  min-width: 1px;
+  min-height: 1px;
+}
+
+/* Controls: match card surfaces + tokens instead of reactflow's white/grey. */
+.concept-map-flow .react-flow__controls {
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.12));
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.concept-map-flow .react-flow__controls-button {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+  color: var(--text-secondary);
+}
+.concept-map-flow .react-flow__controls-button:hover {
+  background: var(--bg-muted);
+}
+.concept-map-flow .react-flow__controls-button svg {
+  fill: currentColor;
+}

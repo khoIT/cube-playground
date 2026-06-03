@@ -56,27 +56,29 @@ const TabButton = styled.button<{ $active: boolean }>`
     `}
 `;
 
-export type DataModelSubtab = 'schema' | 'concepts' | 'cubes' | 'models';
+export type DataModelSubtab = 'schema' | 'concepts' | 'cubes' | 'models' | 'concept-map';
 
 /**
  * Schema is the leftmost subtab and the default landing for /catalog/data-model,
  * so it owns the root path. Concepts moves to an explicit /concepts URL.
  */
 const TAB_PATHS: Record<DataModelSubtab, string> = {
-  schema:   '/catalog/data-model',
-  concepts: '/catalog/data-model/concepts',
-  cubes:    '/catalog/data-model/cubes',
-  models:   '/catalog/data-model/models',
+  schema:        '/catalog/data-model',
+  concepts:      '/catalog/data-model/concepts',
+  cubes:         '/catalog/data-model/cubes',
+  models:        '/catalog/data-model/models',
+  'concept-map': '/catalog/data-model/concept-map',
 };
 
 const TAB_LABELS: Record<DataModelSubtab, { i18n: string; fallback: string }> = {
-  schema:   { i18n: 'tabs.schema',    fallback: 'Schema' },
-  concepts: { i18n: 'tabs.concepts',  fallback: 'Concepts' },
-  cubes:    { i18n: 'tabs.cubes',     fallback: 'Cubes' },
-  models:   { i18n: 'tabs.models',    fallback: 'Models' },
+  schema:        { i18n: 'tabs.schema',     fallback: 'Schema' },
+  concepts:      { i18n: 'tabs.concepts',   fallback: 'Concepts' },
+  cubes:         { i18n: 'tabs.cubes',      fallback: 'Cubes' },
+  models:        { i18n: 'tabs.models',     fallback: 'Models' },
+  'concept-map': { i18n: 'tabs.conceptMap', fallback: 'Concept Map' },
 };
 
-const TAB_ORDER: DataModelSubtab[] = ['schema', 'concepts', 'cubes', 'models'];
+const TAB_ORDER: DataModelSubtab[] = ['schema', 'concepts', 'cubes', 'models', 'concept-map'];
 
 /**
  * Resolve which subtab is active for a given pathname under /catalog/data-model.
@@ -84,6 +86,7 @@ const TAB_ORDER: DataModelSubtab[] = ['schema', 'concepts', 'cubes', 'models'];
  */
 export function resolveDataModelSubtab(pathname: string): DataModelSubtab | null {
   if (pathname === '/catalog/data-model' || pathname.startsWith('/catalog/data-model/')) {
+    if (pathname.includes('/data-model/concept-map')) return 'concept-map';
     if (pathname.includes('/data-model/concepts')) return 'concepts';
     if (pathname.includes('/data-model/cubes')) return 'cubes';
     if (pathname.includes('/data-model/models')) return 'models';

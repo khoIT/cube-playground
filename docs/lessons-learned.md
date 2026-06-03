@@ -62,6 +62,12 @@ Format per lesson:
 - **Signal:** an env override "isn't taking effect" only when the module was already imported earlier; the dev DB / cache / file mysteriously loses rows after running tests; module re-imports cached at a different path than the test set.
 - **Apply:** (1) move env-reads to lazy resolution at first use, not module top level (`getDb()` does this now via `resolveDbPath()`); (2) use `vi.hoisted(() => { process.env.X = …; })` if you must set env before import; (3) add a regression test that asserts the lazy contract.
 
+### reactflow doesn't render in jsdom; no jest-dom matchers in this repo
+- **Rule:** never assert on reactflow-rendered node/edge DOM or pixel geometry in a jsdom test. Unit-test the pure layout/edge logic directly; for component/integration tests, STUB the reactflow board and assert on the props passed to it. Also: `<Handle>` (and any reactflow hook) throws outside `<ReactFlowProvider>` — wrap it. And this repo has **no `@testing-library/jest-dom`** — `toBeInTheDocument`/`toBeVisible` don't exist.
+- **Why:** the concept-map integration test first asserted on board node DOM; reactflow measures via `ResizeObserver`/`getBoundingClientRect` (both zero in jsdom) so it never lays out nodes, and `BaseNode`'s `<Handle>` threw without a provider. Separately, `expect(...).toBeInTheDocument()` failed with "Invalid Chai property" because jest-dom isn't set up.
+- **Signal:** a reactflow component test hangs/empties, or errors "Seems like you have not used zustand provider as an ancestor"; `toBeInTheDocument is not a function` / "Invalid Chai property: toBeInTheDocument".
+- **Apply:** (1) extract geometry into a pure fn (`build-layout.ts`) and unit-test that; (2) `vi.mock` the board, render its props as data-attributes, assert those (focus/node-count/edge-count/active-layers); (3) wrap any direct node render in `<ReactFlowProvider>` (+ `<MemoryRouter>` if it has `<Link>`); (4) use `toBeTruthy()` / `expect(queryBy…).toBeNull()` instead of jest-dom matchers.
+
 ---
 
 ## Frontend data extraction

@@ -9,7 +9,7 @@
  * remain reachable via direct URL even though they no longer appear in the
  * sidebar.
  */
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Redirect, Route, useLocation, withRouter } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -65,6 +65,10 @@ const StatusLine = styled.div<{ $kind: 'info' | 'error' }>`
 `;
 
 const SchemaPageWithRouter = withRouter(SchemaPage);
+
+// Code-split the concept-map subtab: its reactflow canvas (~45kb) loads only
+// when the tab is opened, keeping it out of the main Catalog bundle.
+const ConceptMapPage = lazy(() => import('./concept-map/concept-map-page'));
 
 type CatalogBrowseBodyProps = {
   cubes: CatalogCube[];
@@ -211,6 +215,11 @@ export function CatalogPage() {
     <Page>
       <DataModelSubtabs />
       {subtab === 'schema' && <SchemaCartographerPage />}
+      {subtab === 'concept-map' && (
+        <Suspense fallback={<StatusLine $kind="info">Loading…</StatusLine>}>
+          <ConceptMapPage />
+        </Suspense>
+      )}
       {subtab === 'concepts' && <DataModelTab />}
       {subtab === 'cubes' && (
         <CatalogBrowseBody cubes={cubes} loading={loading} error={error} />

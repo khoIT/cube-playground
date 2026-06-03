@@ -64,10 +64,17 @@ describe('<DataModelSubtabs>', () => {
     ).toBe('true');
   });
 
-  it('renders subtabs in order: Schema, Concepts, Cubes, Models', () => {
+  it('marks Concept Map active at /catalog/data-model/concept-map', () => {
+    renderTabs('/catalog/data-model/concept-map');
+    expect(
+      screen.getByRole('tab', { name: 'Concept Map' }).getAttribute('aria-selected'),
+    ).toBe('true');
+  });
+
+  it('renders subtabs in order: Schema, Concepts, Cubes, Models, Concept Map', () => {
     renderTabs('/catalog/data-model');
     const tabs = screen.getAllByRole('tab').map((el) => el.textContent);
-    expect(tabs).toEqual(['Schema', 'Concepts', 'Cubes', 'Models']);
+    expect(tabs).toEqual(['Schema', 'Concepts', 'Cubes', 'Models', 'Concept Map']);
   });
 
   it('navigates to /catalog/data-model/concepts when Concepts clicked', () => {
@@ -98,6 +105,15 @@ describe('resolveDataModelSubtab', () => {
 
   it('returns models for /catalog/data-model/models', () => {
     expect(resolveDataModelSubtab('/catalog/data-model/models')).toBe('models');
+  });
+
+  it('returns concept-map for /catalog/data-model/concept-map', () => {
+    expect(resolveDataModelSubtab('/catalog/data-model/concept-map')).toBe('concept-map');
+  });
+
+  it('does not confuse concept-map with the concepts subtab', () => {
+    expect(resolveDataModelSubtab('/catalog/data-model/concept-map')).not.toBe('concepts');
+    expect(resolveDataModelSubtab('/catalog/data-model/concepts')).toBe('concepts');
   });
 
   it('returns null for non-data-model paths', () => {

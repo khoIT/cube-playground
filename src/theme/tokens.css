@@ -132,6 +132,15 @@
   --qb-segment-active:   rgb(219, 206, 233);
   --qb-segment-hover:    rgb(244, 234, 255);
 
+  /* Concept-map layer palette — one accent per layer (field / metric /
+     glossary / segment). Field, metric and segment mirror the QB member hues;
+     glossary is a vivid blue, distinct from the slate field blue. Dark-mode
+     pairs live in the [data-theme="dark"] block below. */
+  --layer-field:    rgb(74, 96, 156);
+  --layer-metric:   rgb(126, 94, 7);
+  --layer-glossary: #2563eb;
+  --layer-segment:  rgb(114, 83, 144);
+
   --qb-filter-strong:    rgb(95, 31, 64);
   --qb-filter-text:      rgb(142, 73, 106);
   --qb-filter-active:    rgb(255, 191, 218);
@@ -268,6 +277,12 @@
   --qb-segment-text:     #d8b4fe;
   --qb-segment-active:   rgba(168, 85, 247, 0.22);
   --qb-segment-hover:    rgba(168, 85, 247, 0.12);
+
+  /* Concept-map layer palette — dark pairs (see light block for rationale). */
+  --layer-field:    #93c5fd;
+  --layer-metric:   #fdba74;
+  --layer-glossary: #60a5fa;
+  --layer-segment:  #d8b4fe;
 
   --qb-filter-strong:    #fca5a5;
   --qb-filter-text:      #fca5a5;

@@ -318,6 +318,14 @@ Returns:
 }
 ```
 
+### Concept Map (standalone cross-layer node graph)
+
+Front-end surface at `/catalog/data-model/concept-map` (`src/pages/Catalog/concept-map/`, lazy-loaded). Renders all 4 layers as a reactflow node graph. It is a pure CONSUMER of the concept fabric — adds no server route.
+
+- **`useConceptGraph`** builds a NEW `ConceptNode` index (kept separate from the cube-FQN-bound `useCartographerIndex`) by enumerating the 4 existing list sources, keyed by the same namespaced refs the reverse-index emits (`data_model/<fqn>`, `business_metrics/<id>`, `glossary/<id>`, `segments/<id>`). This shared ref grammar is what lets an edge target resolve back to a node.
+- **Edges are focus-scoped:** `useFocusEdges` calls the per-ref `GET /api/concepts/:namespace/:id/relations` (via the module-cached `useConceptResolution`) only for the focused node — no whole-graph fan-out, no N+1. There is intentionally no batch endpoint.
+- **Rendering:** deterministic 4-column layout (pure `build-layout.ts`), per-layer cap + "show more", token-styled custom nodes (`--layer-*`), focus dims unconnected nodes. `?focus=` deep-links any of the 4 namespaces (resolves the Cartographer's metric/term/segment focus gap). Focus lives in the URL; the parser is imported from the Cartographer (no fork).
+
 ### Authoring & Governance
 
 **Write-RBAC:** `/api/glossary/*` and `/api/concepts/*` routes added to `PROTECTED_PREFIXES` (viewers blocked; editor+ allowed).

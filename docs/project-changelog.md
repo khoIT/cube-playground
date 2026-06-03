@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-04 — Concept Map (standalone cross-layer node graph)
+
+Shipped the deferred standalone concept map as a new Data Model subtab at `/catalog/data-model/concept-map`. Renders all 4 concept layers — data-model fields · business metrics · glossary terms · app segments — as a node graph (reactflow), with focus-scoped cross-layer edges. Closes the documented Schema Cartographer gap: a non-`data_model` `?focus=` (e.g. `business_metrics/dau`) now highlights a node, because every layer has node cards. Plan: `plans/260604-0058-unified-concept-fabric-map-page/`. Tests: 30 new FE (use-concept-graph, use-focus-edges, concept-node, build-layout, base-node, concept-map-page); full Catalog suite 259 green.
+
+- **Additive ConceptNode index** (`src/pages/Catalog/concept-map/`). NEW `useConceptGraph` enumerates nodes from the 4 existing list sources (`useConcepts`, `useBusinessMetrics`, `listGlossary`, `segmentsClient.list`) keyed by the same namespaced refs the relations endpoint emits. Deliberately separate from the cube-FQN-bound `useCartographerIndex` (which is NOT modified) — and disambiguates cube-YAML segments (`field` layer = measures+dimensions only) from app `segments` (`appSegment`).
+- **Focus-scoped lazy edges.** Only the focused node fetches edges, via the module-cached `useConceptResolution` (`useFocusEdges`). No whole-graph fan-out, no N+1, no new server endpoint.
+- **reactflow canvas** (`^11.11.4`, lazy-loaded so its ~45kb is code-split out of the main Catalog bundle). Deterministic 4-column layout (pure `build-layout.ts`, no auto-layout engine), per-layer cap ~50 + "show N more", custom token-styled node cards (new dedicated `--layer-*` tokens), keyboard-operable nodes, focus dims unconnected cards. reactflow's default palette overridden via `concept-map.css`.
+- **URL-backed focus + cross-nav.** `?focus=` round-trips for all 4 namespaces (reuses the Cartographer's exported `parseFocusRef`, no fork); search narrows across layers and clears focus when it hides the focused node; layer pills gate whole columns; each node deep-links out to its existing detail route (metric/term/segment).
+
 ## 2026-06-03 — Per-User Isolation & Sys-Admin Hub
 
 Made the app properly multi-user on the already-shipped DB-authz spine: per-user segment isolation, a full activity-telemetry event spine, and a tabbed sys-admin hub with fine-grained per-user controls + observability. Plan: `plans/260603-1439-workspace-isolation-and-sysadmin-hub/`. Suites green: server 718, FE 1618.
