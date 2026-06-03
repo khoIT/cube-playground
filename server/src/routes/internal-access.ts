@@ -14,10 +14,31 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { getAccess, normalizeEmail } from '../auth/access-store.js';
+import { grantFallbackEnabled } from '../auth/authz-decisions.js';
 
 function authDisabled(): boolean {
   const raw = (process.env.AUTH_DISABLED ?? '').toLowerCase();
   return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+// The Cube JWT userId for the Playground service principal (queries via the
+// proxy mint under the real user's email, but server-side introspection and the
+// legacy token path mint under this id — see resolve-cube-token playgroundUserId).
+function servicePrincipalId(): string {
+  return (process.env.CUBE_PLAYGROUND_USER_ID || 'playground').toLowerCase();
+}
+
+// The allowedGames this bridge should hand cube-dev's checkAuth for a resolved
+// user. Mirrors the server's OWN game policy (authz-decisions.userCanAccessGame):
+// an admin — or a user with no explicit game grant while grant-fallback is on —
+// may use every game. checkAuth has no fallback of its own, so we emit the '*'
+// wildcard it expands to all supported games; otherwise the concrete grant list.
+// Without this an admin (no per-game rows) resolved to allowedGames=[] and the
+// cube denied every query the server had already authorized.
+function allowedGamesFor(role: string, games: string[]): string[] {
+  if (role === 'admin') return ['*'];
+  if (games.length === 0 && grantFallbackEnabled()) return ['*'];
+  return games;
 }
 
 async function internalSecretGate(req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -53,12 +74,25 @@ export default async function internalAccessRoutes(app: FastifyInstance): Promis
         return { role: 'admin', allowedGames: ['*'], status: 'active' };
       }
       const key = normalizeEmail(req.params.key);
+      // Service principal: minted by THIS server only after it has already
+      // enforced the requesting user's workspace/game access (workspace-header).
+      // It carries no user identity to resolve and is never a grant row, so the
+      // cube trusts it as a service account → all-games admin. Without this,
+      // server-side introspection (the identity map behind the row-selection
+      // column) and the legacy token path 404 under real auth.
+      if (key === servicePrincipalId()) {
+        return { role: 'admin', allowedGames: ['*'], status: 'active' };
+      }
       const access = getAccess(key);
       // Fail closed: only active users resolve; everything else is "no access".
       if (!access || access.status !== 'active') {
         return reply.status(404).send({ error: 'not_found' });
       }
-      return { role: access.role, allowedGames: access.games, status: access.status };
+      return {
+        role: access.role,
+        allowedGames: allowedGamesFor(access.role, access.games),
+        status: access.status,
+      };
     },
   );
 }
