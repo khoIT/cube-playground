@@ -198,7 +198,7 @@ export function ConceptHoverCard({ term, children }: Props) {
       {allActions.length > 0 && (
         <span style={ACTION_LIST_STYLE}>
           {allActions.map((action) => (
-            <Link key={action.to} to={action.to} style={ACTION_ROW_STYLE}>
+            <Link key={action.to} to={action.to} className="chc-action" style={ACTION_ROW_STYLE}>
               <span aria-hidden style={{ width: 16, textAlign: 'center', flexShrink: 0 }}>
                 {ACTION_GLYPH[action.kind] ?? action.glyph}
               </span>
@@ -258,7 +258,12 @@ const CARD_STYLE: React.CSSProperties = {
 if (typeof document !== 'undefined' && !document.getElementById('chc-styles')) {
   const s = document.createElement('style');
   s.id = 'chc-styles';
-  s.textContent = `.chc-wrap { display: inline; }`;
+  // Action rows highlight on hover so users can see which typed action is
+  // focused. Inline styles can't express :hover, so the rule lives here;
+  // tokens keep it dark-mode aware. transition smooths the enter/leave.
+  s.textContent = `.chc-wrap { display: inline; }
+.chc-action { transition: background 120ms ease, color 120ms ease; }
+.chc-action:hover { background: var(--bg-muted); color: var(--text-primary); }`;
   document.head.appendChild(s);
 }
 

@@ -137,9 +137,10 @@ function pushGlossaryChunks(
           kind="concept"
           label={seg.text}
           to={href}
-          trust={fullTerm?.trust}
         />
       );
+      // Trust is intentionally omitted from the inline chip to keep the chat
+      // prose uncluttered — the hover-card header surfaces the trust badge.
       // Wrap in hover-card when the full term is available — provides definition
       // + typed actions on hover without a separate tooltip component.
       if (fullTerm) {
