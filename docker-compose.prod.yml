@@ -193,6 +193,19 @@ services:
       - ./docker/cube-entrypoint-patched.sh:/usr/local/bin/cube-entrypoint-patched.sh:ro
     depends_on:
       - cubestore
+    # Cube's stock image ships NO healthcheck. A blocked event loop (e.g. schema
+    # compile storm or refresh-worker spin-loop) keeps the process "running" while
+    # /readyz + /meta starve and CPU pegs at 100% — invisible to `docker ps` and
+    # never triggering `restart: unless-stopped` (that only fires on exit). This
+    # probe hits /readyz so a wedged cube flips to `unhealthy` and surfaces in
+    # `docker ps` / orchestrator health. start-period is generous: cold schema
+    # compilation on first boot legitimately takes several seconds.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      start_period: 90s
+      retries: 3
     restart: unless-stopped
 
   cubestore:
