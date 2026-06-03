@@ -118,6 +118,48 @@ PUBLIC_PORT=11000 docker compose -f docker-compose.prod.yml up -d
 
 GIO points the prod domain at `PUBLIC_PORT`.
 
+### Local prod-mirror (run the prod stack on a laptop)
+
+To verify a change against the exact production composition before it ships, run
+the **same** compose locally — no separate "dev" stack to drift from prod:
+
+```bash
+cp .env.docker.local.example .env.docker.local   # local-posture secrets (see below)
+npm run stack                                     # → http://localhost:11000
+npm run stack:logs                                # combined logs
+npm run stack:down                                # stop (append -- -v to drop volumes)
+```
+
+`npm run stack` (`scripts/stack-local.mjs`) layers `docker-compose.local.yml` on
+`docker-compose.prod.yml` and runs the whole five-service stack (`web`, `server`,
+`chat-service`, `cube_api`, `cubestore`). The override holds **only** host deltas:
+
+- **env_file → `.env.docker.local`** (appended; it wins conflicts over the root
+  `.env`). This is the laptop counterpart of the Vault-written prod `.env`. It is
+  gitignored; the `.example` is the secret-free template. Defaults to
+  `AUTH_DISABLED=true` (synth admin, SSO wall down, `local` Cube workspace open to
+  all games) — matching the dev:all posture. `/meta` + browsing + game switching
+  need no creds; fill in `CUBEJS_DB_*` (Trino) for real data queries and
+  `ANTHROPIC_*` for chat (chat-service is skipped at boot without them).
+- **`cubestore` image arch** — the wrapper sets `CUBESTORE_TAG=v1.6.46-arm64v8`
+  on Apple Silicon (`cubejs/cubestore` is not multi-arch). `STACK_PLATFORM=linux/amd64`
+  forces full amd64 emulation (exact prod image bytes via Rosetta) instead.
+
+**Host requirements.** The SPA build is memory-hungry; give the Docker VM **≥6 GiB
+RAM / 4 CPUs** or `vite build` gets OOM-killed (exit 137, "Killed"). On **colima**
+(no Docker Desktop): `colima stop && colima start --cpu 4 --memory 8`. The wrapper
+prints a warning when it detects an under-provisioned VM. BuildKit (matching prod's
+build path) needs the `buildx` plugin; without it compose uses the slower legacy
+builder — install via `brew install docker-buildx` and symlink into
+`~/.docker/cli-plugins/`.
+
+Everything else — build targets, service wiring, healthchecks, the prod workspace
+registry (`WORKSPACES_CONFIG_PATH=/app/workspaces.prod.config.json`, so the
+in-stack cube backs the `local` workspace at `cube_api:4000`), and published ports
+(`11000` SPA, `17001` Cube Playground, `15432` Cube SQL) — comes verbatim from
+`docker-compose.prod.yml`. Any compose subcommand passes through:
+`npm run stack -- ps`, `npm run stack -- build server`, `npm run stack -- up -d cube_api`.
+
 ### Secrets ↔ topology split
 
 One **flat** Vault secret → CI writes one `.env` → compose `env_file` injects it

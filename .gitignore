@@ -43,6 +43,9 @@ pnpm-lock.yaml
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# Local prod-mirror stack template is a safe, secret-free template — commit it.
+# The real .env.docker.local (filled with creds) stays ignored by the .env* rule.
+!.env.docker.local.example
 
 # vercel
 .vercel

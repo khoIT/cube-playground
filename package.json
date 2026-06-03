@@ -18,7 +18,11 @@
     "chat:test": "npm --prefix chat-service run test",
     "chat:typecheck": "npm --prefix chat-service run typecheck",
     "verify:sync": "node scripts/verify-sync.mjs",
+    "snapshot": "npm --prefix server run snapshot && npm --prefix chat-service run snapshot",
     "dev:all": "node scripts/dev-all.mjs",
+    "stack": "node scripts/stack-local.mjs",
+    "stack:down": "node scripts/stack-local.mjs down",
+    "stack:logs": "node scripts/stack-local.mjs logs -f",
     "test:visual": "playwright test --config=tests/visual/playwright.config.ts",
     "test:visual:update": "playwright test --config=tests/visual/playwright.config.ts --update-snapshots",
     "visual:capture-baselines": "tsx tests/visual/capture-baselines.ts"

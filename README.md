@@ -56,6 +56,19 @@ npm run typecheck    # tsc --noEmit
 
 `npm run dev:all` (`scripts/dev-all.mjs`) also boots a Cube watchdog that keeps the external `cube-dev` backend alive. The SPA dev server self-times-out gracefully if Cube isn't up.
 
+### Run the full prod-mirror stack locally (Docker)
+
+`npm run dev:all` is the fast inner loop (Vite HMR, external Cube). To verify a change against the **exact** production composition before pushing — same images, same nginx origin, same in-stack Cube — run the whole stack in Docker:
+
+```bash
+cp .env.docker.local.example .env.docker.local   # fill in Trino + ANTHROPIC creds (optional for /meta + browsing)
+npm run stack            # build all images + start detached → http://localhost:11000
+npm run stack:logs       # follow combined logs
+npm run stack:down       # stop (append -- -v to also drop volumes)
+```
+
+`npm run stack` (`scripts/stack-local.mjs`) layers `docker-compose.local.yml` (host-only deltas) on `docker-compose.prod.yml` (the single source of prod topology) — what runs locally **is** the prod stack, so it can't drift. It auto-selects the arm64 `cubestore` image on Apple Silicon and feeds `.env.docker.local`. Any compose subcommand passes through: `npm run stack -- ps`, `npm run stack -- up -d server`. See [`docs/deployment-guide.md` → Local prod-mirror](./docs/deployment-guide.md#local-prod-mirror-run-the-prod-stack-on-a-laptop).
+
 ## Auth & Personalization
 
 - **Cube workspace** selects which Cube backend the gateway proxies to (`workspaces.config.json`); the client only ever sees workspace ids, never Cube URLs.
