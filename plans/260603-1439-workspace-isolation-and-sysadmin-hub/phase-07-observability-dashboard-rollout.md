@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "Observability Dashboard & Rollout"
-status: pending
+status: complete
 priority: P2
 effort: "2-3d"
 dependencies: [4, 6]
@@ -48,11 +48,19 @@ Fill the Observability tab with the admin triage dashboard consuming the Phase 3
 7. Full FE suite green; design cross-check; end-to-end admin walkthrough.
 
 ## Success Criteria
-- [ ] Observability tab shows status rollups, active/inactive, chat totals, top features, recent-activity feed.
-- [ ] Per-user panel shows last login + chat + recent features/queries + segment counts.
-- [ ] Audit-log viewer filters + exports; empty states present; inactive quick-triage works.
-- [ ] Privacy/retention documented; lessons-learned + architecture + changelog updated.
-- [ ] Tokens + adjacency parity; admin-gated; full suite green.
+- [x] Observability tab shows status rollups, active/inactive, chat totals, top features, recent-activity feed. — `observability-tab.tsx` (KPI cards + inactive list + top-features bars) + embedded `AuditLogViewer` as the recent-activity feed.
+- [x] Per-user panel shows last login + chat + recent features/queries + segment counts. — shipped in Phase 5's `ActivitySnapshot`; extended with "last changed by/at" in Phase 6.
+- [x] Audit-log viewer filters + exports; empty states present; inactive quick-triage works. — `audit-log-viewer.tsx` (actor/action/target filters, CSV export emits a self-audit `export` event); inactive list quick-disable via `patchAdminUser status=disabled`; empty states on both.
+- [x] Privacy/retention documented; lessons-learned + architecture + changelog updated. — docs synced (architecture, lessons-learned [sub↔email + visibility flip], changelog [legacy-owner-only comms note], deployment-guide [90d prune + names-only telemetry + INTERNAL_SECRET]).
+- [x] Tokens + adjacency parity; admin-gated; full suite green. — tokens.css only; routes admin-gated; server 718/718, FE 1618/1618, tsc 0 new.
+
+## Completion Notes (2026-06-03)
+- Net-new backend: `GET /api/admin/audit` over the `queryAccessAudit` read layer (built in the prior phase). Observability + per-user activity endpoints were already shipped (Phase 4) and are consumed here.
+- `observability-data.ts` holds pure, unit-tested helpers (`auditEntriesToCsv` with RFC-4180 escaping, `auditQueryString`) + the `useActivitySummary`/`useAuditLog` hooks (both via `apiFetch` — admin routes 401 a bare fetch in prod).
+- **CSV export hardening:** export is re-validated server-side (admin-gated route), emits a self-audit `export` activity event via `recordExport`, and the CSV detail column carries only grant-change payloads — no query-filter values or UIDs.
+- **Recent-activity feed = the audit-log viewer** (newest-first over `access_audit`) — DRY, no second feed surface.
+- Tests: observability-data 7, audit-log-viewer 4, observability-tab 6 (incl. chat-null degradation + summary-fetch-error banner).
+- **Doc-sync correction:** the docs-manager agent hallucinated specifics (migration `030` → actually `028`; `INACTIVE_DAYS`/`ACTIVITY_RETENTION_DAYS` "env-tunable" → both are code constants; a fabricated "server 1098" test count; self-invented phase numbering). All verified against source and corrected before commit.
 
 ## Risk Assessment
 - **Risk:** dashboard 500s when chat-service down. **Mitigation:** Phase-4 null degradation; tested in hooks.

@@ -22,6 +22,7 @@ import { ShieldCheck } from 'lucide-react';
 import { TabShell, type TabDef } from '../../../shell/tab-shell';
 import { UsersAndAccessTab } from './users-and-access-tab';
 import { CrossUserAuditPanel } from './cross-user-audit-panel';
+import { ObservabilityTab } from './observability-tab';
 
 // ---------------------------------------------------------------------------
 // Tab definitions
@@ -29,56 +30,9 @@ import { CrossUserAuditPanel } from './cross-user-audit-panel';
 
 const ADMIN_TABS: TabDef[] = [
   { key: 'access', label: 'Users & Access', path: '/admin/access' },
-  { key: 'observability', label: 'Observability', path: '/admin/observability', tag: 'Soon' },
+  { key: 'observability', label: 'Observability', path: '/admin/observability' },
   { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev', tag: 'relocated' },
 ];
-
-// ---------------------------------------------------------------------------
-// Placeholder card — used for tabs not yet fully wired
-// ---------------------------------------------------------------------------
-
-interface PlaceholderProps {
-  title: string;
-  body: string;
-}
-
-function PlaceholderCard({ title, body }: PlaceholderProps) {
-  return (
-    <div
-      style={{
-        border: '1px solid var(--border-card)',
-        borderRadius: 'var(--radius-lg)',
-        background: 'var(--bg-card)',
-        padding: '48px 32px',
-        marginTop: 16,
-        textAlign: 'center',
-      }}
-    >
-      <h3
-        style={{
-          margin: '0 0 8px',
-          fontSize: 15,
-          fontWeight: 700,
-          color: 'var(--text-primary)',
-        }}
-      >
-        {title}
-      </h3>
-      <p
-        style={{
-          margin: 0,
-          fontSize: 13,
-          color: 'var(--text-muted)',
-          maxWidth: 480,
-          marginInline: 'auto',
-          lineHeight: 1.6,
-        }}
-      >
-        {body}
-      </p>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // AdminHub page
@@ -147,16 +101,7 @@ export function AdminHub() {
           </Route>
 
           <Route path="/admin/observability">
-            <div
-              role="tabpanel"
-              id="hub-tab-panel-observability"
-              aria-labelledby="hub-tab-observability"
-            >
-              <PlaceholderCard
-                title="Observability"
-                body="Org-wide activity rollups will appear here — users by status, active 7/30 d, inactive list, top features, total chat turns."
-              />
-            </div>
+            <ObservabilityTab />
           </Route>
 
           <Route path="/admin/dev">

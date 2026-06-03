@@ -252,3 +252,28 @@ Flat KV. ⚠️ = boot-blocking if absent.
 | `LANGFUSE_PUBLIC_KEY` / `_SECRET_KEY` / `_HOST` | cond | observability. |
 
 Full secret-free reference lives in `.env.example`.
+
+## Privacy & Retention (Activity Telemetry)
+
+### Data Retention
+
+`activity_events` table is append-only with a hard-delete retention policy:
+- **Retention window:** 90 days (`ACTIVITY_RETENTION_DAYS` constant in `server/src/jobs/prune-activity-events.ts`; not env-configurable yet).
+- **Cleanup:** Daily background job (`server/src/jobs/prune-activity-events.ts`) hard-deletes rows older than the retention window. No soft-delete; deletion is permanent.
+- **Purpose:** comply with data minimization; limit storage costs; reduce query scope for org aggregations.
+
+### PII & Query-Shape Privacy
+
+Activity telemetry records query shapes to enable observability dashboards (top features, query patterns). **Query-shape storage is PII-safe:**
+
+- **What's stored:** `{cubes: string[], measures: string[], dimensions: string[]}` — the structural profile only.
+- **What's NOT stored:** dimension values, filter predicates, date ranges, UIDs, user input, or other sensitive payload.
+- **Example:** a query filtering `mf_users.country = 'Vietnam' AND recharge_date > 2026-05-01` stores `{cubes: ['mf_users'], measures: ['revenue'], dimensions: ['country', 'recharge_date']}` — the member names reveal intent but not the data.
+- **Implementation:** `activity-store.ts` `projectQueryShape(detail_json)` extracts member names at insert time; sensitive payload is never persisted.
+
+### Chat Stats Bridge Resilience
+
+The admin activity aggregator calls `chat-service GET /internal/stats` to fetch per-user chat turn counts + costs. If chat-service is unavailable:
+- **Graceful degradation:** counts default to `null` (never error or 500).
+- **Secret gate:** the bridge requires `INTERNAL_SECRET` (same value both sides); missing/mismatched secret → 403, period. No fallback.
+- **Timeout:** server-side client has a short timeout (e.g., 5s); delays degrade to null instead of hanging.

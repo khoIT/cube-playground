@@ -362,9 +362,45 @@ Schema Cartographer (`/catalog/data-model/:cubeId` detail) now surfaces reverse 
 
 ---
 
+## Per-User Segment Isolation & Visibility Model
+
+Segments now enforce visibility scope via a nullable `segments.visibility` column and server-side filtering. Three visibility levels: `personal` (owner-only), `shared` (workspace-visible), `org` (org-visible, future expansion). Legacy segments with NULL visibility are treated as `personal` after enforcement.
+
+### Visibility Enforcement (SQLite, main server)
+
+Existing nullable column `segments.visibility` (migration `028-segments-visibility.sql`), enforced on read:
+- `personal` — owner-only; non-owners see 403 on detail, not in list.
+- `shared` — workspace-visible; members of same workspace see in list + detail.
+- `org` — org-visible (reserved for future; not enforced differently yet).
+- NULL (legacy) — treated as `personal` on read via COALESCE.
+
+**List filtering:** `WHERE COALESCE(visibility, 'personal') IN (<allowed>)`. The `<allowed>` set depends on the requesting user:
+- Owner can see: personal + shared + org.
+- Non-owner in same workspace can see: shared + org (not personal).
+- User outside workspace can see: org only (if ever enabled).
+
+**Detail route:** Explicit permission check before response; 403 if denied.
+
+### Behavior Change: Legacy Segments
+
+Segments created before `visibility` enforcement had NULL visibility. After enforcement:
+- **Old behavior:** LIST routes returned all rows (no filter). Teammates saw all segments.
+- **New behavior:** LIST routes filter via COALESCE. Legacy NULL becomes personal → only the owner sees them.
+
+**Impact:** Teammates who relied on viewing shared segments no longer see them unless owners re-grant visibility. No automatic backfill; the behavior change is intentional. Owners decide which segments to re-share.
+
+**Mitigation:** 
+1. Changelog + release notes clearly state the change.
+2. Settings panel (future) or direct support: owners click a visibility icon to re-share segments.
+3. No data loss — rows persist; filtering just changes who sees them.
+
+---
+
 ## Activity Telemetry Spine & Admin Aggregation
 
 Append-only event recording + admin dashboard backend for workspace usage observability. Sub-keyed identity (Keycloak `sub` + email snapshot) bridges auth + observability without PII leakage.
+
+**Critical identity model:** Artifacts/telemetry key on Keycloak `sub` (the immutable user identifier). Access grants + admin UI key on lowercased email (stable, user-visible, indexable). Canonical mapping = `user_access.kc_sub` (the single source of truth). Email is a display-only join; never use it as the primary key for telemetry reads. Admin aggregation routes resolve email→sub via `user_access.kc_sub` as a prerequisite before any sub-keyed reads.
 
 ### Event Spine (SQLite, main server)
 
@@ -415,7 +451,7 @@ Unlike the main server's `GET /internal/access` (which fails open under `AUTH_DI
 **`GET /api/admin/activity/summary`** — Org-wide rollup:
 - Status counts (active users, total events this period).
 - Active user counts (7d, 30d window).
-- Inactive user list (no login >30d; `INACTIVE_DAYS` env-tunable, default 30).
+- Inactive user list (no login >30d; `INACTIVE_DAYS` constant in `activity-aggregator.ts`, = 30; not env-configurable yet).
 - Top features (by `event_type` frequency).
 - Total chat turns (from chat stats bridge; degrades to null if chat offline).
 
@@ -430,7 +466,7 @@ Unlike the main server's `GET /internal/access` (which fails open under `AUTH_DI
 
 ### Retention & Cleanup
 
-`server/src/jobs/prune-activity-events.ts` — daily background job that hard-deletes `activity_events` older than 90 days (`ACTIVITY_RETENTION_DAYS` env-tunable). Logs row count deleted.
+`server/src/jobs/prune-activity-events.ts` — daily background job that hard-deletes `activity_events` older than 90 days (`ACTIVITY_RETENTION_DAYS` constant; not env-configurable yet). Logs row count deleted.
 
 ### Summary: Request Flow
 

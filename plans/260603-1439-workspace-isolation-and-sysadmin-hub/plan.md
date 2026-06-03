@@ -1,7 +1,7 @@
 ---
 title: "Per-User Isolation + Sys-Admin Hub"
 description: "Enforce per-user segment isolation (visibility ladder), add a full activity-telemetry event spine, and a huashu-built tabbed sys-admin hub for fine-grained per-user access control + observability. Built TDD on the already-shipped DB-authz spine."
-status: pending
+status: complete
 priority: P2
 branch: "main"
 tags: [authz, multi-user, isolation, admin, telemetry, segments, huashu]
@@ -49,8 +49,8 @@ Phase 2, the Phase-3/4 chain, and the Phase-5→7 chain are parallelizable after
 | 3 | [Activity Event Spine & Chat Bridge](./phase-03-activity-event-spine-chat-bridge.md) | Complete |
 | 4 | [Telemetry Aggregation & Inactive Detection](./phase-04-telemetry-aggregation-inactive-detection.md) | Complete |
 | 5 | [Admin Hub Shell & Huashu Per-User Panel](./phase-05-admin-hub-shell-huashu-per-user-panel.md) | Complete |
-| 6 | [Fine-Grained Per-User Controls](./phase-06-fine-grained-per-user-controls.md) | Pending |
-| 7 | [Observability Dashboard & Rollout](./phase-07-observability-dashboard-rollout.md) | Pending |
+| 6 | [Fine-Grained Per-User Controls](./phase-06-fine-grained-per-user-controls.md) | Complete |
+| 7 | [Observability Dashboard & Rollout](./phase-07-observability-dashboard-rollout.md) | Complete |
 
 ## Resolved Design Questions (from brainstorm §12 + red-team 2026-06-03)
 
