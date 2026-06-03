@@ -14,6 +14,8 @@ import { z } from 'zod';
 import { getDb } from '../db/sqlite.js';
 import { suggestIdentities, type IdentitySuggestion } from '../services/identity-suggester.js';
 import { logicalCubeAcross, logicalMember, physicalMember } from '../services/cube-member-resolver.js';
+import { loadGamesConfig } from '../services/games-config-loader.js';
+import type { WorkspaceCtx } from '../services/cube-client.js';
 
 const identityPutSchema = z.object({
   identity_field: z.string().min(1),
@@ -124,6 +126,37 @@ function getPrefixes(req: FastifyRequest): string[] {
   return [];
 }
 
+/**
+ * Cube ctx for schema introspection. The identity map is workspace-global —
+ * on a game_id (multi-tenant) workspace every tenant shares the same logical
+ * cube names, so introspecting any one game's /meta yields the right map.
+ *
+ * `req.cubeCtx` is game-less unless the request carried `x-cube-game`. On a
+ * strict multi-tenant cube a game-less token fails checkAuth ("Missing game
+ * claim") → /meta throws → the suggester swallows it → an EMPTY map, which
+ * silently disables identity-dependent UI (the expansion-mode row selector).
+ * A caller that hasn't pinned a tenant yet (first paint, before the active-game
+ * pref is persisted) hits exactly that. So when no game is pinned on a game_id
+ * workspace, fall back to the default game's ctx so /meta always resolves.
+ *
+ * Prefix workspaces (prod) need no fallback: that cube is open and a game-less
+ * /meta returns all prefixed cubes, which the merge already handles.
+ */
+export function introspectionCtx(req: FastifyRequest): WorkspaceCtx {
+  const rawGame = req.headers['x-cube-game'];
+  const hasGame = typeof rawGame === 'string' && rawGame.trim().length > 0;
+  if (hasGame || req.workspace.gameModel !== 'game_id' || !req.buildCubeCtxForGame) {
+    return req.cubeCtx;
+  }
+  try {
+    const { defaultGameId } = loadGamesConfig();
+    if (defaultGameId) return req.buildCubeCtxForGame(defaultGameId);
+  } catch {
+    /* config unreadable — fall back to the game-less ctx */
+  }
+  return req.cubeCtx;
+}
+
 export default async function identityMapRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/identity-map — merged view, workspace-aware
   app.get('/api/identity-map', async (req, _reply) => {
@@ -137,7 +170,9 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
     try {
       // Pass the workspace ctx so the suggester queries the ACTIVE Cube endpoint,
       // not the local fallback — on prod the physical cube names differ from local.
-      suggestions = await suggestIdentities(req.cubeCtx);
+      // On a game_id workspace with no pinned tenant, this resolves to the default
+      // game so /meta isn't rejected for a missing game claim (empty-map bug).
+      suggestions = await suggestIdentities(introspectionCtx(req));
     } catch (err) {
       // If Cube is unreachable we still want to surface persisted overrides.
       app.log.warn({ err }, 'identity-suggester failed — falling back to persisted overrides only');
