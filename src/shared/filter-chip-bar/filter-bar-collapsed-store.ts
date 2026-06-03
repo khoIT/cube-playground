@@ -9,7 +9,7 @@ import { getPref, setPref } from '../../hooks/server-prefs-store';
 const KEY_PREFIX = 'gds-cube.filter-bar-collapsed.v1.';
 const EVENT = 'gds-cube:filter-bar-collapsed-changed';
 
-export type FilterBarModule = 'metrics-catalog' | 'data-model';
+export type FilterBarModule = 'metrics-catalog' | 'data-model' | 'glossary';
 
 function key(module: FilterBarModule): string {
   return KEY_PREFIX + module;

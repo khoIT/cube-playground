@@ -8,14 +8,18 @@ import React from 'react';
 import styled from 'styled-components';
 import { Pencil } from 'lucide-react';
 import type { GlossaryTerm } from '../../../api/glossary-client';
-import { isConceptTerm } from '../../../api/glossary-client';
 import { resolveConceptHref } from './resolve-concept';
+import { wiringFacetOf } from './glossary-filter';
 import { ConceptChip } from '../../../components/concept-chip/concept-chip';
 import { ConceptHoverCard } from '../../../components/concept-hover-card/concept-hover-card';
 
 interface Props {
   term: GlossaryTerm;
   onEdit?: (term: GlossaryTerm) => void;
+  /** Click the category facet to toggle it in the index filter. */
+  onSelectCategory?: (category: string) => void;
+  /** Whether this row's category is currently an active filter. */
+  categoryActive?: boolean;
   editLabel?: string;
   draftLabel?: string;
   officialLabel?: string;
@@ -51,14 +55,34 @@ const Spacer = styled.div`
   flex: 1;
 `;
 
-const CategoryTag = styled.span`
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: var(--bg-muted);
+/**
+ * Category is a taxonomy facet (what the term is filed under / can be filtered
+ * by), NOT a state badge. Styled deliberately unlike the filled concept/status
+ * badges: outlined, lowercase, hash-prefixed — the visual vocabulary of a tag
+ * rather than a status. This stops a category like "segments" from reading as a
+ * link to the Segments feature.
+ */
+const CategoryTag = styled.button<{ $active: boolean }>`
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-transform: lowercase;
+  color: ${(p) => (p.$active ? 'var(--brand)' : 'var(--text-muted)')};
+  padding: 1px 8px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid ${(p) => (p.$active ? 'var(--brand)' : 'var(--border-card)')};
+  background: ${(p) => (p.$active ? 'var(--brand-soft, rgba(240,90,34,0.1))' : 'transparent')};
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--brand);
+    color: var(--brand);
+  }
+
+  &::before {
+    content: '#';
+    opacity: 0.55;
+    margin-right: 1px;
+  }
 `;
 
 const StatusPill = styled.span<{ $official: boolean }>`
@@ -112,7 +136,15 @@ const ConceptBadge = styled.span`
 
 // CatalogChip replaced by the shared ConceptChip component.
 
-export function GlossaryRow({ term, onEdit, editLabel, draftLabel, officialLabel }: Props) {
+export function GlossaryRow({
+  term,
+  onEdit,
+  onSelectCategory,
+  categoryActive = false,
+  editLabel,
+  draftLabel,
+  officialLabel,
+}: Props) {
   const href = resolveConceptHref(term);
   // Show the destination chip only when the term routes somewhere other than
   // its own anchored row (i.e. a metric or a pre-filtered Build query). Filter-
@@ -133,12 +165,30 @@ export function GlossaryRow({ term, onEdit, editLabel, draftLabel, officialLabel
           <Label>{term.label}</Label>
         </ConceptHoverCard>
         {term.labelVi ? <LabelVi>· {term.labelVi}</LabelVi> : null}
-        {term.category ? <CategoryTag>{term.category}</CategoryTag> : null}
-        {isConceptTerm(term) ? <ConceptBadge title={`Entity: ${term.entityCube ?? '—'}`}>concept</ConceptBadge> : null}
+        {/* State badges sit by the name (what the term IS); the category facet
+            is pushed past the spacer below (where it's FILED). */}
+        {wiringFacetOf(term) === 'wired' ? (
+          <ConceptBadge
+            title={`Wired — resolves to ${term.entityCube ?? term.primaryCatalogId ?? term.defaultMeasureRef ?? 'live data'}`}
+          >
+            Wired
+          </ConceptBadge>
+        ) : null}
         <StatusPill $official={term.status === 'official'}>
           {term.status === 'official' ? officialLabel ?? 'Official' : draftLabel ?? 'Draft'}
         </StatusPill>
         <Spacer />
+        {term.category ? (
+          <CategoryTag
+            type="button"
+            $active={categoryActive}
+            aria-pressed={categoryActive}
+            title={categoryActive ? `Remove "${term.category}" filter` : `Filter by "${term.category}"`}
+            onClick={() => onSelectCategory?.(term.category as string)}
+          >
+            {term.category}
+          </CategoryTag>
+        ) : null}
         {onEdit ? (
           <EditBtn type="button" aria-label={editLabel ?? 'Edit'} onClick={() => onEdit(term)}>
             <Pencil size={14} aria-hidden />

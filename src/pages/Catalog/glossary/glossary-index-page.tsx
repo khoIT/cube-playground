@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { Plus } from 'lucide-react';
 import {
@@ -17,7 +17,9 @@ import {
 } from '../../../api/glossary-client';
 import { GlossaryRow } from './glossary-row';
 import { GlossarySearch } from './glossary-search';
-import { GlossaryStatusFilter } from './glossary-status-filter';
+import { GlossaryFilterBar } from './glossary-filter-bar';
+import { filterGlossaryTerms, type WiringFacet } from './glossary-filter';
+import { parseFilterParams, serializeFilterParams } from './glossary-filter-url';
 import { GlossaryEditModal } from './glossary-edit-modal';
 import { useGlossaryMutations } from './use-glossary-mutations';
 import type { FormValues } from './glossary-edit-form';
@@ -61,8 +63,8 @@ const Subtitle = styled.p`
 
 const FilterRow = styled.div`
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
 `;
 
 const NewBtn = styled.button`
@@ -111,12 +113,19 @@ const Status = styled.div`
 export function GlossaryIndexPage() {
   const { t } = useTranslation();
   const location = useLocation();
+  const history = useHistory();
   const [terms, setTerms] = useState<GlossaryTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<GlossaryStatus | null>(null);
+  // Filter state hydrates from the URL once at mount (shareable/bookmarkable);
+  // an effect below writes it back. Each facet is a Set; empty Set means "all"
+  // on that axis. Filtering is fully client-side over the loaded term set (small
+  // list) so all three axes support multi-select without server round-trips.
+  const initialFilters = useMemo(() => parseFilterParams(location.search), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [query, setQuery] = useState(initialFilters.query);
+  const [statuses, setStatuses] = useState<Set<GlossaryStatus>>(initialFilters.statuses);
+  const [wiring, setWiring] = useState<Set<WiringFacet>>(initialFilters.wiring);
+  const [categories, setCategories] = useState<Set<string>>(initialFilters.categories);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<GlossaryTerm | undefined>(undefined);
   const mutations = useGlossaryMutations();
@@ -124,7 +133,7 @@ export function GlossaryIndexPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const items = await listGlossary(undefined, statusFilter ? { status: statusFilter } : undefined);
+      const items = await listGlossary(undefined, undefined);
       setTerms(items);
       setError(null);
     } catch (e) {
@@ -132,36 +141,41 @@ export function GlossaryIndexPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  const categories = useMemo(() => {
+  const availableCategories = useMemo(() => {
     const set = new Set<string>();
     for (const t of terms) if (t.category) set.add(t.category);
     return Array.from(set).sort();
   }, [terms]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return terms.filter((t) => {
-      if (category && t.category !== category) return false;
-      if (!q) return true;
-      const hay = [
-        t.label,
-        t.description,
-        t.labelVi ?? '',
-        t.descriptionVi ?? '',
-        ...t.aliases,
-        ...t.aliasesVi,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(q);
+  const filtered = useMemo(
+    () => filterGlossaryTerms(terms, { query, statuses, wiring, categories }),
+    [terms, query, statuses, wiring, categories],
+  );
+
+  // Mirror filter state into the URL search (replace, not push, so it doesn't
+  // spam history). Preserves the `#<id>` anchor in location.hash.
+  useEffect(() => {
+    const search = serializeFilterParams({ query, statuses, wiring, categories });
+    if (search !== location.search) {
+      history.replace({ search, hash: location.hash });
+    }
+  }, [query, statuses, wiring, categories, history, location.search, location.hash]);
+
+  // Click a row's category facet to toggle that category in the filter.
+  const toggleCategory = useCallback((cat: string) => {
+    setCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
     });
-  }, [terms, query, category]);
+  }, []);
 
   // Deep-link support: a `#<id>` anchor (e.g. /catalog/glossary#whale) scrolls
   // to that term's row and flashes it once the list has rendered. No-op when
@@ -259,21 +273,19 @@ export function GlossaryIndexPage() {
           </NewBtn>
         </TitleRow>
         <FilterRow>
-          <div style={{ flex: 1 }}>
-            <GlossarySearch
-              query={query}
-              onQueryChange={setQuery}
-              category={category}
-              onCategoryChange={setCategory}
-              categories={categories}
-            />
-          </div>
-          <GlossaryStatusFilter
-            value={statusFilter}
-            onChange={setStatusFilter}
-            labelAll={t('glossary.statusFilter.all', { defaultValue: 'All' })}
-            labelDraft={t('glossary.status.draft', { defaultValue: 'Draft' })}
-            labelOfficial={t('glossary.status.official', { defaultValue: 'Official' })}
+          <GlossarySearch
+            query={query}
+            onQueryChange={setQuery}
+            placeholder={t('glossary.search.placeholder', { defaultValue: 'Filter terms…' })}
+          />
+          <GlossaryFilterBar
+            statuses={statuses}
+            onStatusesChange={setStatuses}
+            wiring={wiring}
+            onWiringChange={setWiring}
+            categories={categories}
+            onCategoriesChange={setCategories}
+            availableCategories={availableCategories}
           />
         </FilterRow>
       </Header>
@@ -288,6 +300,8 @@ export function GlossaryIndexPage() {
             key={term.id}
             term={term}
             onEdit={openEdit}
+            onSelectCategory={toggleCategory}
+            categoryActive={!!term.category && categories.has(term.category)}
             editLabel={t('glossary.actions.edit', { defaultValue: 'Edit' })}
             draftLabel={t('glossary.status.draft', { defaultValue: 'Draft' })}
             officialLabel={t('glossary.status.official', { defaultValue: 'Official' })}

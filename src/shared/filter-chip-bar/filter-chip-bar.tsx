@@ -280,7 +280,8 @@ const Pill = styled.button<{ $active: boolean }>`
 `;
 
 interface FilterPillRowProps<T extends string | number> {
-  label: string;
+  /** Row label — accepts a node so callers can append an info icon, badge, etc. */
+  label: React.ReactNode;
   options: ReadonlyArray<T> | ReadonlyArray<OptionDef<T>>;
   selected: Set<T>;
   onChange: (next: Set<T>) => void;
