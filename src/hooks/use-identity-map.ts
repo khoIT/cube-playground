@@ -14,14 +14,28 @@ let cache: CubeIdentityMapping[] | null = null;
 let inflight: Promise<CubeIdentityMapping[]> | null = null;
 const listeners = new Set<(rows: CubeIdentityMapping[]) => void>();
 
+// A response is authoritative only if the suggester actually produced identity
+// fields. The endpoint derives suggestions by introspecting the cube's /meta;
+// when the cube is unreachable (restart, cold pre-aggregation build) the server
+// swallows the suggester error and returns persisted-only — typically zero
+// non-null identities — as a 200. Caching that degraded map would silently
+// disable identity-dependent UI (e.g. the expansion-mode row selector in the
+// query builder) until a manual reload, even after the cube recovers. So we
+// only cache an authoritative map; a degraded one is still returned for display
+// but left UNCACHED, so the next trigger (mount, workspace/game switch, or the
+// CUBE_META_LOADED recovery event below) re-fetches it.
+function isAuthoritative(rows: CubeIdentityMapping[]): boolean {
+  return rows.length > 0 && rows.some((r) => !!r.identity_field);
+}
+
 function fetchIfNeeded(force = false): Promise<CubeIdentityMapping[]> {
   if (!force && cache) return Promise.resolve(cache);
   if (inflight) return inflight;
   inflight = identityMapClient
     .list()
     .then((rows) => {
-      cache = rows;
       inflight = null;
+      if (isAuthoritative(rows)) cache = rows;
       listeners.forEach((cb) => cb(rows));
       return rows;
     })
@@ -44,6 +58,11 @@ export function invalidateIdentityMap(): void {
 // Game changes matter too: on a game_id (multi-tenant) workspace the suggester
 // queries the active tenant's /meta, so the resolvable cube set — and thus the
 // identity map — differs per game. Treat a game switch the same way.
+// Dispatched by the query builder when Cube /meta loads successfully — i.e. the
+// cube recovered. The identity-map endpoint reads that same /meta, so this is
+// the signal that a previously-degraded suggester will now succeed.
+export const CUBE_META_LOADED_EVENT = 'gds-cube:meta-loaded';
+
 if (typeof window !== 'undefined') {
   const refresh = () => {
     invalidateIdentityMap();
@@ -53,6 +72,14 @@ if (typeof window !== 'undefined') {
   };
   window.addEventListener(WORKSPACE_CHANGE_EVENT, refresh);
   window.addEventListener(GAME_CHANGE_EVENT, refresh);
+  // Self-heal: when the cube recovers, re-fetch ONLY if we don't already hold an
+  // authoritative map (cache stays null while degraded). Guards against churn —
+  // a healthy map isn't re-fetched on every meta load.
+  window.addEventListener(CUBE_META_LOADED_EVENT, () => {
+    if (cache == null) {
+      fetchIfNeeded(true).catch(() => {});
+    }
+  });
 }
 
 export function useIdentityMap() {

@@ -33,6 +33,7 @@ import {
 import { CubeStats, MissingMember, WithUndefinedValues, MemberViewType, Cube } from '../types';
 
 import { useEvent } from './event';
+import { CUBE_META_LOADED_EVENT } from '../../hooks/use-identity-map';
 
 interface UseQueryBuilderProps {
   displayPrivateItems?: boolean;
@@ -482,6 +483,12 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
         );
 
         setMeta(newMeta);
+
+        // Cube /meta loaded → the cube is reachable. Signal identity-map (and any
+        // other meta-derived cache) to self-heal if it degraded while cube was down.
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event(CUBE_META_LOADED_EVENT));
+        }
       })
       .catch((error) => {
         if (currentRequest !== metaLoadingRef.current) {
