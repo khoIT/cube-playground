@@ -3,6 +3,7 @@ import cubejs, { HttpTransport } from '@cubejs-client/core';
 
 import { useWorkspaceContext } from '../components/workspace-context';
 import { useActiveGameId } from '../components/Header/use-game-context';
+import { cubeProxyAuthorization } from '../auth/auth-storage';
 
 /**
  * Cube SDK factory that forwards the active workspace + game on every request.
@@ -35,7 +36,8 @@ export function useCubejsApi(apiUrl: string | null, token: string | null) {
       apiUrl,
       transport: new HttpTransport({
         apiUrl,
-        authorization: token,
+        // App JWT so the proxy attributes query telemetry to the logged-in user.
+        authorization: cubeProxyAuthorization(token),
         headers,
       }),
     } as Parameters<typeof cubejs>[1]);

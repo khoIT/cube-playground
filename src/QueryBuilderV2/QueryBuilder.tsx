@@ -19,6 +19,7 @@ import { useCommitPress } from './utils/use-commit-press';
 import { useAppContext } from '../hooks';
 import { useGameContext, useActiveGameId } from '../components/Header/use-game-context';
 import { useWorkspaceContext } from '../components/workspace-context';
+import { cubeProxyAuthorization } from '../auth/auth-storage';
 
 interface FriendlyMetaError {
   title: string;
@@ -133,7 +134,9 @@ export function QueryBuilder(
       apiUrl,
       transport: new HttpTransport({
         apiUrl,
-        authorization: apiToken,
+        // Send the app JWT so the proxy attributes query telemetry to the
+        // logged-in user (it drops this header before calling Cube upstream).
+        authorization: cubeProxyAuthorization(apiToken),
         headers,
       }),
     } as Parameters<typeof cube>[1]);

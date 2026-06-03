@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import cubejs, { CubeApi, HttpTransport } from '@cubejs-client/core';
 import { useAppContext } from '../../../hooks';
+import { cubeProxyAuthorization } from '../../../auth/auth-storage';
 
 /**
  * Wide cube-meta shape we read from the extended /meta endpoint.
@@ -83,7 +84,8 @@ export function useNewMetricMeta(): UseNewMetricMetaResult {
       apiUrl: ctx.apiUrl,
       transport: new HttpTransport({
         apiUrl: ctx.apiUrl,
-        authorization: ctx.token,
+        // App JWT so the proxy attributes query telemetry to the logged-in user.
+        authorization: cubeProxyAuthorization(ctx.token),
         headers,
       }),
     } as Parameters<typeof cubejs>[1]);

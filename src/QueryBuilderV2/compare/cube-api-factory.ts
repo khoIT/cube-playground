@@ -10,6 +10,7 @@
 
 import cubejs, { HttpTransport } from '@cubejs-client/core';
 import type { CubeApi } from '@cubejs-client/core';
+import { cubeProxyAuthorization } from '../../auth/auth-storage';
 
 function activeWorkspaceId(): string | null {
   try {
@@ -37,6 +38,7 @@ export function makeCubeApi(
   if (gameId) headers['x-cube-game'] = gameId;
   return cubejs(token, {
     apiUrl,
-    transport: new HttpTransport({ apiUrl, authorization: token, headers }),
+    // App JWT so the proxy attributes query telemetry to the logged-in user.
+    transport: new HttpTransport({ apiUrl, authorization: cubeProxyAuthorization(token), headers }),
   } as Parameters<typeof cubejs>[1]);
 }

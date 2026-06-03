@@ -21,6 +21,22 @@ export function readAppToken(): string | null {
   }
 }
 
+/**
+ * Authorization header value for the workspace Cube proxy (`/cube-api`).
+ *
+ * The proxy is server-authoritative: it DROPS this header before calling Cube
+ * upstream (it mints its own token from the workspace + game headers) and reads
+ * it ONLY to identify the requesting user — which drives per-user query
+ * telemetry attribution. So the proxy wants the app JWT here, not the Cube API
+ * token. Falls back to the Cube token when no app JWT exists (AUTH_DISABLED dev
+ * or pre-login), preserving the legacy direct-to-Cube posture.
+ */
+export function cubeProxyAuthorization(cubeToken: string | null | undefined): string {
+  const appToken = readAppToken();
+  if (appToken) return `Bearer ${appToken}`;
+  return cubeToken ?? '';
+}
+
 export function writeAppToken(token: string): void {
   if (typeof window === 'undefined') return;
   try {
