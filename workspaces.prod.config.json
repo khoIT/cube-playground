@@ -1,6 +1,6 @@
 {
-  "_comment": "Prod Cube workspace registry. Loaded in the container via WORKSPACES_CONFIG_PATH (see docker-compose.prod.yml) so the local-dev workspaces.config.json stays unchanged. Prod cube-dev is open (no token) and prefix-namespaced; URLs live here, NOT in .env — the gateway resolves workspace id -> cubeApiUrl from this file (SSRF guard).",
-  "default": "prod",
+  "_comment": "Prod Cube workspace registry. Loaded in the container via WORKSPACES_CONFIG_PATH (see docker-compose.prod.yml) so the local-dev workspaces.config.json stays unchanged. URLs live here, NOT in .env — the gateway resolves workspace id -> cubeApiUrl from this file (SSRF guard). Default is the in-stack `local` workspace (minted, per-user RBAC via cube_api's AUTH_API_URL bridge) so :11000 and prod land on the same surface the dev loop (:3000) uses; the external open `prod` cube-dev (cube.gds.vng.vn) stays selectable.",
+  "default": "local",
   "workspaces": [
     {
       "id": "prod",
