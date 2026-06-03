@@ -36,6 +36,10 @@ const repoRoot = resolve(here, '..');
 
 const PROD_COMPOSE = 'docker-compose.prod.yml';
 const LOCAL_COMPOSE = 'docker-compose.local.yml';
+// Dev-cube override — layered only when STACK_DEV_CUBE=1 (the dev:all watchdog
+// sets it). Flips cube_api to standalone file-auth on :4000 for the `npm run dev`
+// loop; the full `npm run stack` omits it and keeps the prod auth bridge.
+const DEVCUBE_COMPOSE = 'docker-compose.devcube.yml';
 const ENV_FILE = '.env.docker.local';
 const ENV_EXAMPLE = '.env.docker.local.example';
 // Native arm64 Cube Store tag — cubejs/cubestore publishes this separately from
@@ -105,6 +109,7 @@ const args = [
   'compose',
   '-f', PROD_COMPOSE,
   '-f', LOCAL_COMPOSE,
+  ...(process.env.STACK_DEV_CUBE === '1' ? ['-f', DEVCUBE_COMPOSE] : []),
   '--env-file', ENV_FILE,
   ...composeArgs,
 ];

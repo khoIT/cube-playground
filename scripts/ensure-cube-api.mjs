@@ -13,18 +13,36 @@
  * "Up" but stuck), `docker compose restart cube_api` clears it. If the
  * container is down, `docker compose up -d` starts it.
  *
+ * Recovery brings up the cube-playground stack's own cube_api+cubestore (in the
+ * dev-cube standalone posture, see docker-compose.devcube.yml) via the stack
+ * wrapper — NOT the sibling cube-dev repo. So `dev:all` needs no separate
+ * cube-dev checkout: the same in-stack Cube serves both the dev loop and
+ * `npm run stack`.
+ *
  * Env overrides:
- *   CUBE_API_URL   default http://localhost:4000
- *   CUBE_DEV_PATH  default ~/Documents/code/cube-dev
+ *   CUBE_API_URL   default http://localhost:4000  (the dev-cube published port)
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { resolve } from 'node:path';
+import { existsSync, copyFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(here, '..');
+const STACK_SCRIPT = resolve(here, 'stack-local.mjs');
+const ENV_FILE = '.env.docker.local';
+const ENV_EXAMPLE = '.env.docker.local.example';
+// The 3-file overlay the dev cube runs under (prod topology + local deltas +
+// dev-cube standalone auth). Used for the read-only `ps` running-check; up/restart
+// go through the wrapper so the cubestore arch tag + env-file are applied.
+const COMPOSE_FILES = [
+  '-f', 'docker-compose.prod.yml',
+  '-f', 'docker-compose.local.yml',
+  '-f', 'docker-compose.devcube.yml',
+];
 
 const CUBE_API_URL = process.env.CUBE_API_URL ?? 'http://localhost:4000';
-const CUBE_DEV_PATH = process.env.CUBE_DEV_PATH ?? resolve(homedir(), 'Documents/code/cube-dev');
 const PROBE_TIMEOUT_MS = 8000;
 const READY_TIMEOUT_MS = 90_000;
 const POLL_INTERVAL_MS = 2000;
@@ -65,39 +83,93 @@ async function waitReady(deadline) {
   return false;
 }
 
-function docker(args, { capture = false } = {}) {
-  return spawnSync('docker', args, {
-    cwd: CUBE_DEV_PATH,
-    stdio: capture ? 'pipe' : 'inherit',
-    encoding: 'utf8',
+// Bring the dev cube up/down via the stack wrapper, which applies the cubestore
+// arch tag, BuildKit, and --env-file. STACK_DEV_CUBE=1 makes the wrapper add the
+// dev-cube override (standalone file-auth on :4000).
+function stack(composeArgs) {
+  return spawnSync(process.execPath, [STACK_SCRIPT, ...composeArgs], {
+    cwd: REPO_ROOT,
+    stdio: 'inherit',
+    env: { ...process.env, STACK_DEV_CUBE: '1' },
   });
 }
 
+// Read-only running check — docker compose ps over the same overlay.
 function containerRunning() {
-  const r = docker(['compose', 'ps', '--status', 'running', '--services'], { capture: true });
+  const r = spawnSync('docker', ['compose', ...COMPOSE_FILES, '--env-file', ENV_FILE, 'ps', '--status', 'running', '--services'], {
+    cwd: REPO_ROOT,
+    stdio: 'pipe',
+    encoding: 'utf8',
+  });
   if (r.status !== 0) return false;
   return r.stdout.split('\n').some((s) => s.trim() === 'cube_api');
 }
 
-async function recoverOnce() {
-  if (!existsSync(CUBE_DEV_PATH)) {
-    warn(`cube-dev repo not found at ${CUBE_DEV_PATH}. Set CUBE_DEV_PATH or start cube manually.`);
+// Is the running cube_api in the DEV-CUBE posture, i.e. published on the host's
+// :4000 (where the dev loop's gateway + Vite proxy expect it)? The full
+// `npm run stack` creates cube_api in its PROD mirror posture instead — mapped
+// to :17001 with the server-bridge auth and NO :4000 — so the dev probe always
+// misses it. We must tell the two apart: a non-dev container needs a RECREATE
+// (`up -d` reconciles the posture), not a restart, which preserves the old
+// container's ports/env and can never grow a :4000 mapping.
+function cubeApiOnDevPort() {
+  const r = spawnSync('docker', ['compose', ...COMPOSE_FILES, '--env-file', ENV_FILE, 'ps', '--format', 'json', 'cube_api'], {
+    cwd: REPO_ROOT,
+    stdio: 'pipe',
+    encoding: 'utf8',
+  });
+  if (r.status !== 0 || !r.stdout.trim()) return false;
+  try {
+    // compose emits either one JSON object per line or a single JSON array,
+    // depending on version — handle both.
+    const text = r.stdout.trim();
+    const rows = text.startsWith('[') ? JSON.parse(text) : text.split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    return rows.some((row) => Array.isArray(row.Publishers)
+      && row.Publishers.some((p) => p.PublishedPort === 4000));
+  } catch {
     return false;
   }
+}
+
+// The wrapper feeds --env-file .env.docker.local; ensure it exists (the wrapper
+// would create it on an up/restart, but the ps check above runs first).
+function ensureEnvFile() {
+  const envPath = resolve(REPO_ROOT, ENV_FILE);
+  if (existsSync(envPath)) return true;
+  const examplePath = resolve(REPO_ROOT, ENV_EXAMPLE);
+  if (!existsSync(examplePath)) {
+    warn(`${ENV_FILE} and ${ENV_EXAMPLE} both missing — cannot start the dev cube.`);
+    return false;
+  }
+  copyFileSync(examplePath, envPath);
+  log(`created ${ENV_FILE} from ${ENV_EXAMPLE} — fill in CUBEJS_API_SECRET to match your dev .env.`);
+  return true;
+}
+
+async function recoverOnce() {
   if (spawnSync('docker', ['--version'], { stdio: 'ignore' }).status !== 0) {
     warn('docker CLI not found.');
     return false;
   }
+  if (!ensureEnvFile()) return false;
 
-  // Hung-but-running case (TCP accepts, HTTP timeouts) → restart clears it.
-  // Down case → `up -d` starts it. `up -d` on a healthy container is a no-op,
-  // so we branch to avoid an unnecessary recreate.
-  if (containerRunning()) {
-    log('container is up but not serving — restarting');
-    docker(['compose', 'restart', 'cube_api']);
+  // Three cases, three different actions:
+  //   down                → `up -d` starts it.
+  //   up, but not on :4000 → wrong posture (almost always `npm run stack`'s
+  //                          prod mirror on :17001). `up -d` with the dev-cube
+  //                          overlay RECREATES it on :4000 with file auth; a
+  //                          restart could not (it keeps the old ports/env).
+  //   up, on :4000, hung   → genuinely stuck (TCP accepts, HTTP hangs).
+  //                          `restart` clears it without a full recreate.
+  if (!containerRunning()) {
+    log('starting cube_api + cubestore from the cube-playground stack');
+    stack(['up', '-d', 'cube_api', 'cubestore']);
+  } else if (!cubeApiOnDevPort()) {
+    log('cube_api is running in a non-dev posture (no :4000) — recreating it in the dev-cube posture');
+    stack(['up', '-d', 'cube_api', 'cubestore']);
   } else {
-    log('starting cube_api + cubestore');
-    docker(['compose', 'up', '-d', 'cube_api', 'cubestore']);
+    log('cube_api is up on :4000 but not serving — restarting');
+    stack(['restart', 'cube_api']);
   }
 
   const deadline = Date.now() + READY_TIMEOUT_MS;
@@ -105,7 +177,7 @@ async function recoverOnce() {
     log('cube_api is ready');
     return true;
   }
-  warn(`cube_api still not ready after ${READY_TIMEOUT_MS / 1000}s — check 'docker compose -f ${CUBE_DEV_PATH}/docker-compose.yml logs cube_api'.`);
+  warn(`cube_api still not ready after ${READY_TIMEOUT_MS / 1000}s — check 'npm run stack -- logs cube_api'.`);
   return false;
 }
 

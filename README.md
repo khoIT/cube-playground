@@ -54,7 +54,7 @@ npm run test         # vitest (SPA); server:test / chat:test for the backends
 npm run typecheck    # tsc --noEmit
 ```
 
-`npm run dev:all` (`scripts/dev-all.mjs`) also boots a Cube watchdog that keeps the external `cube-dev` backend alive. The SPA dev server self-times-out gracefully if Cube isn't up.
+`npm run dev:all` (`scripts/dev-all.mjs`) also boots a Cube watchdog (`scripts/ensure-cube-api.mjs`) that brings up **this stack's** in-stack `cube_api`+`cubestore` on `:4000` — in a standalone dev posture (file-based auth, no in-stack server needed) — and keeps it alive. No separate `cube-dev` checkout is required; the same Cube backs both the dev loop and `npm run stack`. The SPA dev server self-times-out gracefully if Cube isn't up.
 
 ### Run the full prod-mirror stack locally (Docker)
 

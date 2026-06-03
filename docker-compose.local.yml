@@ -32,3 +32,21 @@ services:
   chat-service:
     env_file:
       - .env.docker.local
+
+  cube_api:
+    # colima/lima file-shares deny reads on single-FILE bind mounts ("cannot
+    # open ...: operation not permitted") — the prod compose mounts the
+    # entrypoint patch as one such file. Directory mounts (e.g. /cube/conf) are
+    # fine. So locally we INLINE the same patch (strip Trino's unprivileged
+    # `SET SESSION query_max_run_time` from the Presto driver, then exec the
+    # stock entrypoint) instead of reading the mounted script. Behaviour is
+    # identical to docker/cube-entrypoint-patched.sh; prod uses the file mount
+    # on a real Linux host and is untouched (this override is local-only).
+    entrypoint:
+      - sh
+      - -c
+      - |
+        P=/cube/node_modules/@cubejs-backend/prestodb-driver/dist/src/PrestoDriver.js
+        [ -f "$$P" ] && sed -i 's|.*query_max_run_time.*|                    session: undefined,|' "$$P"
+        exec docker-entrypoint.sh "$$@"
+      - sh

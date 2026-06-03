@@ -160,6 +160,43 @@ in-stack cube backs the `local` workspace at `cube_api:4000`), and published por
 `docker-compose.prod.yml`. Any compose subcommand passes through:
 `npm run stack -- ps`, `npm run stack -- build server`, `npm run stack -- up -d cube_api`.
 
+#### Shared local Cube — the dev loop uses this stack's cube_api too
+
+`npm run dev:all` does **not** spin up the sibling `cube-dev` repo any more. Its
+watchdog (`scripts/ensure-cube-api.mjs`) boots **this stack's** `cube_api`+`cubestore`
+via the wrapper with a third override, `docker-compose.devcube.yml`:
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.local.yml \
+  -f docker-compose.devcube.yml --env-file .env.docker.local up -d cube_api cubestore
+```
+
+That override (applied only when `STACK_DEV_CUBE=1`, which the watchdog sets) flips
+`cube_api` to the **standalone file-auth posture** — `AUTH_API_URL=""` + the committed
+`cube-dev/cube/auth-users.example.json` (its `playground` user grants all games,
+matching the `{ userId: 'playground' }` JWT the gateway mints) — and publishes it on
+host **`:4000`**, where the Vite proxy and the `local` workspace already point. So one
+in-stack Cube serves both the HMR dev loop (host gateway, `:3004`) and the full
+`npm run stack`. The full stack omits this override, keeping its prod auth bridge
+(`AUTH_API_URL=http://server:3004`) for symmetry testing.
+
+**Requirement:** `CUBEJS_API_SECRET` must be identical in `.env.docker.local` and your
+dev `.env`/`.env.local` — the gateway mints the Cube JWT, `cube_api` verifies it.
+Because both modes share the one `cube-playground-cube-api` container, switching between
+`npm run dev:all` and `npm run stack` recreates it (different port/auth); don't run both
+backends at once (the watchdog's `:4000` probe already avoids double-starting).
+
+**Trino creds for data queries:** `/meta` + game switching need no DB, but `/load`
+(real data) needs `CUBEJS_DB_*`. The playground's own dev env never carries these —
+only the Cube talks to Trino — so they live in **`cube-dev/.env`** (gitignored;
+`cp cube-dev/.env.example cube-dev/.env` and fill `CUBEJS_DB_HOST/PORT/USER/PASS`,
+where `PORT=8080` for `gio-gds-trino`, **not** 443). `npm run stack:env-sync` reads
+`cube-dev/.env` last and copies them into `.env.docker.local`; recreate the cube
+(`npm run stack -- up -d --force-recreate cube_api`) to pick them up. Symptom when
+missing: `cube_api` answers `/meta` fine but `/load` returns `Error: Invalid URL`
+(empty host) or `ECONNREFUSED` (wrong port). Data queries also need VPN — Trino is
+internal-only.
+
 ### Secrets ↔ topology split
 
 One **flat** Vault secret → CI writes one `.env` → compose `env_file` injects it

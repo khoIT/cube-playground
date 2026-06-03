@@ -56,6 +56,13 @@ COPY . .
 ARG VITE_CUBE_API_URL=/cube-api/v1
 ARG VITE_CUBE_TOKEN=
 ARG VITE_LANGFUSE_HOST=
+# Vite/Rollup bundling the antd + react-aria SPA can exceed V8's default
+# old-space ceiling and abort with "FatalProcessOutOfMemory" (exit 134) on a
+# constrained builder. Raise the heap cap for the build stage only — this ENV is
+# not inherited by the separate runtime stages, and it's a no-op where the
+# default already fits. Tune via the build arg if the builder has less RAM.
+ARG NODE_BUILD_MEM_MB=4096
+ENV NODE_OPTIONS=--max-old-space-size=${NODE_BUILD_MEM_MB}
 RUN npm run build \
  && npm run build --prefix server \
  && npm run build --prefix chat-service

@@ -1,0 +1,33 @@
+# Dev-cube override — makes the stack's cube_api serve the fast `npm run dev` /
+# `dev:all` loop, replacing the separately-spun sibling cube-dev repo.
+#
+# Layered ONLY by the dev:all watchdog (scripts/ensure-cube-api.mjs), never by
+# the full `npm run stack`:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.local.yml \
+#     -f docker-compose.devcube.yml --env-file .env.docker.local up -d cube_api cubestore
+#
+# Why a separate file: the full stack runs cube_api in its PROD posture — it
+# resolves per-user game grants by calling the in-stack server
+# (AUTH_API_URL=http://server:3004), which only exists when the whole stack is
+# up. The dev loop runs the host gateway (with HMR) and no in-stack server, so
+# the cube must resolve grants standalone. This override flips cube_api to the
+# file-auth fallback (the same mode standalone cube-dev uses today) and publishes
+# it on :4000 — exactly what the Vite proxy and the `local` workspace already
+# expect. Keeping it out of docker-compose.prod.yml preserves the full stack's
+# prod-identical auth bridge for symmetry testing.
+
+services:
+  cube_api:
+    environment:
+      # Empty → auth-db.js skips the internal API and reads the mounted users
+      # file. No in-stack server needed for the dev loop.
+      AUTH_API_URL: ""
+      # The committed dev seed (mounted at /cube/conf via the prod compose volume)
+      # ships a `playground` user with all games — matching the { userId:
+      # 'playground' } JWT the host gateway mints for the local workspace.
+      AUTH_USERS_FILE: /cube/conf/auth-users.example.json
+    # Publish on the host's :4000 (additive to the prod 17001 mapping) so the
+    # host-side `npm run dev` gateway reaches it at the URL the local workspace
+    # and Vite proxy already point to.
+    ports:
+      - "4000:4000"
