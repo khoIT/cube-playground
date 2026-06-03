@@ -396,9 +396,9 @@ Segments created before `visibility` enforcement had NULL visibility. After enfo
 
 ---
 
-## Activity Telemetry Spine & Admin Aggregation
+## Activity Telemetry Spine & Admin Hub Observability
 
-Append-only event recording + admin dashboard backend for workspace usage observability. Sub-keyed identity (Keycloak `sub` + email snapshot) bridges auth + observability without PII leakage.
+Append-only event recording + admin hub backend separating **two mental models**: Access (write-governed identity & grants) and Observability (read-only usage telemetry). Sub-keyed identity (Keycloak `sub` + email snapshot) bridges auth + observability without PII leakage.
 
 **Critical identity model:** Artifacts/telemetry key on Keycloak `sub` (the immutable user identifier). Access grants + admin UI key on lowercased email (stable, user-visible, indexable). Canonical mapping = `user_access.kc_sub` (the single source of truth). Email is a display-only join; never use it as the primary key for telemetry reads. Admin aggregation routes resolve email→sub via `user_access.kc_sub` as a prerequisite before any sub-keyed reads.
 
@@ -446,6 +446,36 @@ Unlike the main server's `GET /internal/access` (which fails open under `AUTH_DI
 
 **Server-side client:** `server/src/services/chat-stats-client.ts` (requests with timeout; degrades to null counts on timeout or error).
 
+### Session Derivation (Gap-Based Sessionization)
+
+Sessions are **derived on read** from the append-only `activity_events` table — not stored as a separate entity. New service `server/src/services/session-aggregator.ts` implements gap-based sessionization: consecutive events within an idle window (60 min) belong to one session; gaps >60 min mark session boundaries.
+
+**`GET /api/admin/activity/users/:email/sessions`** — Per-user session timeline:
+- Sessions most-recent first, capped by optional `?limit` query param.
+- Each session: `{ start, end, durationMs, events }` where events carry timestamps, type, target (for feature_open), and privacy-safe query shapes (cubes + measures + dimensions only, no filter values).
+- Total count across 30-day window + mean session duration.
+- Returns 404 for unknown users; known users with no events return an empty (non-null) timeline.
+
+This provides a separate, lightweight per-user timeline view for the Observability tab without fetching heavy activity aggregations, enabling responsive drill-in performance.
+
+### Admin Hub IA (Two Tabs)
+
+The redesigned `/admin` hub cleanly separates two mental modes via tab navigation:
+
+**Users & Access tab** (`/admin/access`):
+- **Purpose:** Govern user identity and capability grants (write-gated).
+- **Surfaces:** Users list → per-user panel with identity strip + role/status controls + workspace/game/feature grants.
+- **Performance:** Per-user panel fetches ONE light call to `/api/admin/activity/users/:email/sessions?limit=5` for session count only (no heavy activity rollup on selection). Session count powers a badge (e.g., "3 sessions in 30d").
+- **Modules:** `per-user-panel.tsx` (lean identity + grants), `access-controls.tsx` (workspace/game/feature grant cards), `feature-access-section.tsx` (feature matrix).
+
+**Observability tab** (`/admin/observability`):
+- **Purpose:** Observe org and per-user activity (read-only telemetry).
+- **Surfaces:** Org KPI strip (active users 7d/30d, total queries, top features) + PENDING-APPROVAL queue (promoted from Access tab for visibility) + inactive users list + top feature heatmap + audit log.
+- **Drill-in:** Per-user detail route `/admin/observability/:email` with a segmented Access | Activity toggle—same subject, two lenses. Access lens reuses `AccessControls` from the Access tab; Activity lens fetches full vitals + session timeline + derived query shapes + change audit.
+- **Modules:** `observability-tab.tsx` (org KPI + queue + triage), `pending-approval-queue.tsx` (list + inline approve/deny), `user-activity-profile.tsx` (sub-route detail with toggle), `activity-profile.tsx` (full vitals + timeline), `session-timeline.tsx` (visual session bands).
+
+**Pending-approval promotion:** Users awaiting role assignment now appear in a dedicated Observability queue (not buried in the Access tab) with one-click Approve/Deny (PATCH `{status:'active', role}` or `{status:'disabled'}`). A live "N pending" badge shows count.
+
 ### Admin Aggregation Routes (admin-gated)
 
 **`GET /api/admin/activity/summary`** — Org-wide rollup:
@@ -479,13 +509,20 @@ Browser                          Gateway server                    Chat service
   │                          │       │ [recordActivity]               │
   │                          │       │ → activity_events table        │
   │                          │       │                                │
-  │ GET /api/admin/activity/summary  │                                │
-  │ (admin-gated)                    │                                │
+  │ GET /api/admin/access/:email     │                                │
+  │ (light: session count)           │                                │
+  ├──→ GET /api/admin/activity/users/:email/sessions                  │
+  │    (5 most-recent only)          │                                │
+  │                          │       │ [buildUserSessions]            │
+  │                          │       │ (gap-derived from events)      │
+  │                          │       │                                │
+  │ GET /api/admin/observability/:email (full vitals)                 │
+  │ + GET /api/admin/activity/summary   (org rollup)                  │
   ├─────────────────────────>│       │ GET /internal/stats [sub[]] │
   │                          │       ├───────────────────────────────>│
   │                          │       │ (secret-gated)                 │
   │                          │       │<───────────────────────────────┤
-  │ JSON response            │       │ { [sub]: {turns, cost, ts} }   │
+  │ JSON responses           │       │ { [sub]: {turns, cost, ts} }   │
   │<─────────────────────────┤       │                                │
 ```
 

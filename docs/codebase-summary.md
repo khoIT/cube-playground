@@ -158,6 +158,27 @@ Append-only event spine + admin aggregation routes for workspace usage observabi
 
 - **029-activity-events.sql** — `activity_events` table (`actor_sub`, `event_type`, `target_type`, `target_id`, `workspace`, `game`, `detail_json`, `ts`). Indices on `(actor_sub, ts)` and `(event_type, ts)`.
 
+### Frontend (Admin Hub)
+
+The redesigned `/admin` page splits user governance from activity observation into two tabs with dedicated modules:
+
+**Access (Users & Grants) tab** (`/admin/access`):
+- **`users-and-access-tab.tsx`** — Users list, per-user selection, lean identity/grants layout.
+- **`per-user-panel.tsx`** — Identity strip + role/status controls + workspace/game/feature grants. Fetches light session count via `GET /api/admin/activity/users/:email/sessions?limit=5` for a badge (not full activity).
+- **`per-user-panel-helpers.ts`** — Utility functions for grant aggregation + display formatting.
+- **`access-controls.tsx`** — Card-based grant UI: workspace/game/feature selection + inline approve/deny for pending users.
+- **`feature-access-section.tsx`** — Feature matrix grid for granular capability assignment.
+
+**Observability (Activity Telemetry) tab** (`/admin/observability`):
+- **`observability-tab.tsx`** — Org-level KPI strip (7d/30d active users, total queries, top features) + pending-approval queue promotion + inactive users list + audit log viewer.
+- **`pending-approval-queue.tsx`** — Dedicated queue for users awaiting role assignment. One-click Approve (PATCH `{status:'active', role}`) or Deny (PATCH `{status:'disabled'}`). Live "N pending" badge on tab.
+- **`user-activity-profile.tsx`** — Shareable drill-in sub-route `/admin/observability/:email`. Segmented toggle: Access lens (reuses `AccessControls`) | Activity lens (full vitals + timeline).
+- **`activity-profile.tsx`** — Activity lens detail: last login + segment count + recent features + chat stats (turns, cost, last-active). Imported by drill-in.
+- **`session-timeline.tsx`** — Visual session bands (time range + event list per session). Powers the Activity lens timeline.
+- **`cross-user-audit-panel.tsx`** — Org-level audit log viewer (filtered by actor/action/target/date).
+- **`audit-log-viewer.tsx`** — Reusable audit entry list component.
+- **`observability-data.ts`**, **`cross-user-audit-data.ts`** — Data fetching + transformation (types + client calls).
+
 ---
 
 ## Cube-model onboarding (bootstrap → reconcile → repair lifecycle)
