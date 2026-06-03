@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "MCP-headless spike (gating)"
-status: pending
+status: complete
 priority: P1
 effort: "0.5d"
 dependencies: []

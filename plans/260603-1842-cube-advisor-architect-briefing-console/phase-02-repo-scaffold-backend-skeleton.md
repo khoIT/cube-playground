@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Repo scaffold + backend skeleton"
-status: pending
+status: complete
 priority: P1
 effort: "0.5d"
 dependencies: [1]

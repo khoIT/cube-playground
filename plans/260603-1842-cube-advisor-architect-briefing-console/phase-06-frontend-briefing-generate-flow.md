@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Frontend Briefing + Generate flow"
-status: pending
+status: complete
 priority: P1
 effort: "1.5d"
 dependencies: [3, 4]

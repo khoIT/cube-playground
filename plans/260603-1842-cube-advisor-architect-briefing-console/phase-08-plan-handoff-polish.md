@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: "Plan-handoff + polish"
-status: pending
+status: complete
 priority: P2
 effort: "0.5d"
 dependencies: [6, 7]

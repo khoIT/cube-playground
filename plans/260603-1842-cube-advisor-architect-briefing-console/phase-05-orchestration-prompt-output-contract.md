@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Orchestration prompt + output contract"
-status: pending
+status: complete
 priority: P1
 effort: "1d"
 dependencies: [1, 4]

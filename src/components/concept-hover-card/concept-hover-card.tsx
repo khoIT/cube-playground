@@ -21,6 +21,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import { BarChart3, Info, Hash, Users, type LucideIcon } from 'lucide-react';
 import type { GlossaryTerm } from '../../api/glossary-client';
 import { conceptTypedActions, resolveConceptHref, toConceptRef } from '../../pages/Catalog/glossary/resolve-concept';
 import { useConceptResolution } from './use-concept-resolution';
@@ -45,11 +46,13 @@ const TRUST_LABEL: Record<Trust, string> = {
   deprecated: 'deprecated',
 };
 
-const ACTION_GLYPH: Record<string, string> = {
-  define:  'ⓘ',
-  slice:   '＃',
-  metric:  '▦',
-  segment: '◑',
+// Action-row icons reuse the same lucide vocabulary as ConceptChip / TypeIcon
+// so a "metric" action looks like a metric everywhere.
+const ACTION_ICON: Record<string, LucideIcon> = {
+  define:  Info,
+  slice:   Hash,
+  metric:  BarChart3,
+  segment: Users,
 };
 
 function TrustBadge({ trust }: { trust: Trust }) {
@@ -182,11 +185,11 @@ export function ConceptHoverCard({ term, children }: Props) {
         visibility: coords ? 'visible' : 'hidden',
       }}
     >
-      {/* Header: label + glyph + trust */}
+      {/* Header: glyph + label + trust */}
       <span style={HEADER_STYLE}>
-        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', flex: 1 }}>
-          <span aria-hidden style={{ marginRight: 4 }}>ⓘ</span>
-          {term.label}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>
+          <Info size={14} strokeWidth={2.5} style={{ flexShrink: 0, color: 'var(--info-ink)' }} aria-hidden />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{term.label}</span>
         </span>
         <TrustBadge trust={term.trust} />
       </span>
@@ -197,14 +200,17 @@ export function ConceptHoverCard({ term, children }: Props) {
       {/* Typed action rows */}
       {allActions.length > 0 && (
         <span style={ACTION_LIST_STYLE}>
-          {allActions.map((action) => (
-            <Link key={action.to} to={action.to} className="chc-action" style={ACTION_ROW_STYLE}>
-              <span aria-hidden style={{ width: 16, textAlign: 'center', flexShrink: 0 }}>
-                {ACTION_GLYPH[action.kind] ?? action.glyph}
-              </span>
-              <span style={{ flex: 1 }}>{action.label}</span>
-            </Link>
-          ))}
+          {allActions.map((action) => {
+            const ActionIcon = ACTION_ICON[action.kind];
+            return (
+              <Link key={action.to} to={action.to} className="chc-action" style={ACTION_ROW_STYLE}>
+                <span className="chc-action-icon" aria-hidden style={ACTION_ICON_STYLE}>
+                  {ActionIcon ? <ActionIcon size={14} strokeWidth={2.25} /> : action.glyph}
+                </span>
+                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{action.label}</span>
+              </Link>
+            );
+          })}
         </span>
       )}
 
@@ -248,23 +254,34 @@ const CARD_STYLE: React.CSSProperties = {
   border: '1px solid var(--border-card)',
   borderRadius: 'var(--radius-lg)',
   boxShadow: 'var(--shadow-md)',
-  padding: '10px 12px',
+  padding: '12px 14px',
   flexDirection: 'column',
   gap: 6,
   fontFamily: 'var(--font-sans)',
 };
 
 // The wrapper stays inline so it doesn't disturb surrounding text flow.
-if (typeof document !== 'undefined' && !document.getElementById('chc-styles')) {
-  const s = document.createElement('style');
-  s.id = 'chc-styles';
-  // Action rows highlight on hover so users can see which typed action is
-  // focused. Inline styles can't express :hover, so the rule lives here;
-  // tokens keep it dark-mode aware. transition smooths the enter/leave.
+// Action rows highlight on hover so users can see which typed action is focused.
+// The base background/color live here (not in the inline style) because inline
+// styles outrank stylesheet rules — an inline background would block the :hover
+// override. tokens keep it dark-mode aware. The explicit base color is also what
+// keeps these <Link>s from falling back to the browser's default (blue/visited-
+// purple) anchor color, which has no place in the design system.
+if (typeof document !== 'undefined') {
+  let s = document.getElementById('chc-styles') as HTMLStyleElement | null;
+  if (!s) {
+    s = document.createElement('style');
+    s.id = 'chc-styles';
+    document.head.appendChild(s);
+  }
+  // Always (re)write the content — a stale sheet left over from an HMR reload
+  // (when this module re-evaluates) would otherwise drop the base color and let
+  // the UA anchor color leak through.
   s.textContent = `.chc-wrap { display: inline; }
-.chc-action { transition: background 120ms ease, color 120ms ease; }
-.chc-action:hover { background: var(--bg-muted); color: var(--text-primary); }`;
-  document.head.appendChild(s);
+.chc-action { background: transparent; color: var(--text-secondary); transition: background 120ms ease, color 120ms ease; }
+.chc-action .chc-action-icon { color: var(--text-muted); transition: color 120ms ease; }
+.chc-action:hover { background: var(--brand-soft); color: var(--text-primary); }
+.chc-action:hover .chc-action-icon { color: var(--brand); }`;
 }
 
 const HEADER_STYLE: React.CSSProperties = {
@@ -300,14 +317,26 @@ const ACTION_LIST_STYLE: React.CSSProperties = {
 const ACTION_ROW_STYLE: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
-  padding: '4px 6px',
+  gap: 8,
+  padding: '6px 8px',
   borderRadius: 'var(--radius-sm)',
   fontSize: 12,
-  color: 'var(--text-secondary)',
+  fontWeight: 500,
+  // background + color are set via the `.chc-action` class (not inline) so the
+  // :hover rule can override them — inline styles would outrank the stylesheet.
   textDecoration: 'none',
-  background: 'transparent',
   cursor: 'pointer',
+};
+
+// Fixed icon column keeps every action label left-aligned regardless of glyph
+// width. Color is driven by the `.chc-action-icon` class so it can brighten on
+// hover alongside the label.
+const ACTION_ICON_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 16,
+  flexShrink: 0,
 };
 
 const FOOTER_LINK_STYLE: React.CSSProperties = {

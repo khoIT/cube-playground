@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Users & Access — per-user redesign · hi-fi</title>
+<!--
+  Hi-fi prototype · Sys-admin hub → Users & Access → per-user detail
+  Designed against cube-playground's real design tokens (src/theme/tokens.css).
+  Data is REPRESENTATIVE (mock). Provenance of every field is annotated in the
+  "Data provenance" drawer at the bottom: real-today vs needs-backend (session
+  derivation). No fabricated data source — sessions are sessionized from the
+  existing append-only activity_events stream (feature_open + query_run).
+-->
+<style>
+  /* ---- Tokens lifted verbatim from src/theme/tokens.css (the parts this view uses) ---- */
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-150:#ededed;--neutral-200:#e5e5e5;
+    --neutral-300:#d4d4d4;--neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;
+    --neutral-700:#404040;--neutral-800:#262626;--neutral-900:#171717;--neutral-950:#0a0a0a;
+    --orange-50:#fff7ed;--orange-500:#f97316;--orange-600:#f05a22;--orange-700:#f54a00;
+
+    --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+
+    --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5;--muted-ink:#525252;
+
+    --radius-xs:4px;--radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.04);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+
+    --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+
+    /* Activity event palette — derived from the QueryBuilder member-type palette so
+       the timeline reads as part of the same product, not a new color language. */
+    --ev-feature:#3f8dff;   /* dimension-ish blue → feature_open */
+    --ev-query:#f05a22;     /* measure-ish orange → query_run */
+    --ev-chat:#a855f7;      /* segment-ish purple → chat turn */
+    --ev-login:#059669;     /* time-ish green → session start */
+  }
+  html[data-theme="dark"]{
+    --brand-soft:rgba(240,90,34,.12);--bg-app:var(--neutral-950);--bg-card:var(--neutral-900);
+    --bg-muted:var(--neutral-800);--border-card:var(--neutral-800);--border-strong:var(--neutral-700);
+    --text-primary:var(--neutral-50);--text-secondary:var(--neutral-300);--text-muted:var(--neutral-500);
+    --success-soft:rgba(16,185,129,.15);--success-ink:#6ee7b7;--warning-soft:rgba(217,119,6,.18);--warning-ink:#fcd34d;
+    --destructive-soft:rgba(220,38,38,.18);--destructive-ink:#fca5a5;--info-soft:rgba(63,141,255,.18);--info-ink:#93c5fd;
+    --muted-soft:var(--neutral-800);--muted-ink:var(--neutral-300);
+    --shadow-xs:0 1px 2px rgba(0,0,0,.4);--shadow-sm:0 1px 3px rgba(0,0,0,.55);--shadow-md:0 4px 12px rgba(0,0,0,.5);
+    --ev-feature:#93c5fd;--ev-query:#fdba74;--ev-chat:#d8b4fe;--ev-login:#6ee7b7;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--font-sans);background:var(--bg-app);color:var(--text-primary);
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45;
+  }
+  .eyebrow{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+  .card{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--bg-card);box-shadow:var(--shadow-xs);overflow:hidden}
+  .card-body{padding:14px 16px}
+  .card-head{padding:11px 16px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;justify-content:space-between}
+  .card-title{font-size:14px;font-weight:600;color:var(--text-primary)}
+  .btn{font-family:var(--font-sans);background:var(--brand);color:#fff;border:none;border-radius:var(--radius-sm);
+    padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer}
+  .btn:hover{background:var(--brand-hover)}
+  .btn-ghost{background:var(--bg-card);color:var(--text-secondary);border:1px solid var(--border-card)}
+  .btn-ghost:hover{background:var(--bg-muted)}
+  .pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .pill-ok{background:var(--success-soft);color:var(--success-ink)}
+  .pill-warn{background:var(--warning-soft);color:var(--warning-ink)}
+  .pill-bad{background:var(--destructive-soft);color:var(--destructive-ink)}
+  .pill-info{background:var(--info-soft);color:var(--info-ink)}
+  .pill-muted{background:var(--muted-soft);color:var(--muted-ink)}
+  .dot{width:6px;height:6px;border-radius:50%}
+
+  /* ---- App chrome ---- */
+  .topbar{height:44px;border-bottom:1px solid var(--border-card);background:var(--bg-card);display:flex;align-items:center;
+    padding:0 18px;gap:10px;position:sticky;top:0;z-index:5}
+  .topbar .brand-mark{width:18px;height:18px;border-radius:5px;background:var(--brand);display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px}
+  .topbar .crumb{font-size:12.5px;color:var(--text-muted)}
+  .topbar .crumb b{color:var(--text-primary);font-weight:600}
+  .spacer{flex:1}
+  .theme-toggle{font-size:11.5px;color:var(--text-secondary);border:1px solid var(--border-card);background:var(--bg-card);
+    border-radius:var(--radius-full);padding:4px 11px;cursor:pointer}
+
+  .page{padding:22px 28px;max-width:1320px;margin:0 auto}
+  .page-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+  .page-title{display:flex;align-items:center;gap:9px;margin:3px 0 4px}
+  .page-title h1{font-size:20px;font-weight:700;margin:0}
+  .page-sub{font-size:13px;color:var(--text-muted);margin:0 0 16px}
+  .shield{width:22px;height:22px;border-radius:6px;background:var(--brand);display:grid;place-items:center;color:#fff;font-size:13px}
+
+  .tabs{display:flex;gap:22px;border-bottom:1px solid var(--border-card);margin-bottom:18px}
+  .tab{font-size:13.5px;font-weight:600;color:var(--text-muted);padding:0 0 10px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;gap:7px;align-items:center}
+  .tab.active{color:var(--text-primary);border-bottom-color:var(--brand)}
+
+  .layout{display:grid;grid-template-columns:288px 1fr;gap:18px;align-items:start}
+
+  /* ---- Left rail ---- */
+  .rail{display:flex;flex-direction:column;gap:14px}
+  .field{width:100%;padding:8px 11px;font-size:13px;font-family:var(--font-sans);color:var(--text-primary);
+    background:var(--bg-app);border:1px solid var(--border-card);border-radius:var(--radius-md)}
+  .field::placeholder{color:var(--text-muted)}
+  .userlist{display:flex;flex-direction:column}
+  .userrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;border-radius:var(--radius-md);cursor:pointer;border:1px solid transparent}
+  .userrow:hover{background:var(--bg-muted)}
+  .userrow.sel{background:var(--bg-muted);border-color:var(--border-card);box-shadow:inset 3px 0 0 var(--brand)}
+  .userrow .em{font-size:13px;font-weight:600;color:var(--text-primary)}
+  .userrow .ro{font-size:11.5px;color:var(--text-muted);margin-top:1px}
+
+  /* ---- Detail ---- */
+  .detail{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .avatar{width:42px;height:42px;border-radius:var(--radius-full);background:var(--bg-muted);border:1px solid var(--border-card);
+    display:grid;place-items:center;font-size:14px;font-weight:700;color:var(--text-secondary);flex-shrink:0;position:relative}
+  .avatar .presence{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;border:2px solid var(--bg-card)}
+
+  /* identity header */
+  .id-head{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .id-meta{min-width:0;flex:1}
+  .id-email{font-size:16px;font-weight:700;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .id-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:12px;color:var(--text-muted)}
+  .vitals{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:14px}
+  .vital{background:var(--bg-muted);border-radius:var(--radius-md);padding:9px 11px}
+  .vital .v{font-size:21px;font-weight:700;line-height:1.15;margin-top:1px}
+  .vital .n{font-size:11px;color:var(--text-muted);margin-top:1px}
+
+  /* 30-day sparkline */
+  .spark{display:flex;align-items:flex-end;gap:2px;height:30px}
+  .spark i{flex:1;background:var(--brand);border-radius:1px;opacity:.85;min-height:2px}
+  .spark i.q{background:var(--ev-query)}
+  .spark i.z{background:var(--border-strong);opacity:.5}
+
+  .cols{display:grid;grid-template-columns:1fr 1.05fr;gap:14px;align-items:start}
+  .stack{display:flex;flex-direction:column;gap:14px}
+
+  /* selects */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  select.field{cursor:pointer;-webkit-appearance:none;appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 9px center;padding-right:28px}
+  .hint{font-size:11px;color:var(--text-muted);margin:10px 0 0}
+
+  /* ---- Access "passport": workspace + game as memorable tiles ---- */
+  .ws-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ws-tile{border:1px solid var(--border-card);border-radius:var(--radius-md);padding:10px 11px;cursor:pointer;background:var(--bg-card);display:flex;gap:9px;align-items:center;transition:.12s}
+  .ws-tile:hover{border-color:var(--border-strong)}
+  .ws-tile.on{border-color:var(--brand);background:var(--brand-soft)}
+  .ws-tile .swatch{width:24px;height:24px;border-radius:var(--radius-sm);display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
+  .ws-tile .wn{font-size:12.5px;font-weight:600}
+  .ws-tile .wp{font-size:10.5px;color:var(--text-muted)}
+  .ws-check{margin-left:auto;width:16px;height:16px;border-radius:var(--radius-xs);border:1.5px solid var(--border-strong);display:grid;place-items:center;flex-shrink:0}
+  .ws-tile.on .ws-check{background:var(--brand);border-color:var(--brand);color:#fff}
+
+  .callout{padding:9px 12px;border-radius:var(--radius-md);font-size:12px;border:1px solid var(--border-card);background:var(--bg-muted);color:var(--text-muted);display:flex;gap:8px;align-items:center}
+  .callout.ok{background:var(--success-soft);color:var(--success-ink);border-color:transparent}
+
+  /* game grid — abbreviation tiles + coverage ring */
+  .game-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .ring{--p:29;width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    background:conic-gradient(var(--brand) calc(var(--p)*1%),var(--bg-muted) 0);display:grid;place-items:center}
+  .ring i{width:28px;height:28px;border-radius:50%;background:var(--bg-card);display:grid;place-items:center;font-size:10.5px;font-weight:700}
+  .game-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+  .game-tile{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--radius-md);border:1px solid var(--border-card);cursor:pointer;background:var(--bg-card)}
+  .game-tile:hover{border-color:var(--border-strong)}
+  .game-tile.on{border-color:var(--brand);background:var(--brand-soft)}
+  .game-abbr{width:26px;height:26px;border-radius:var(--radius-sm);display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:.02em}
+  .game-tile .gn{font-size:12px;font-weight:600;line-height:1.15}
+  .game-tile.off{opacity:.62}
+  .game-tile.off .game-abbr{filter:grayscale(.7)}
+
+  /* feature access switches */
+  .feat-group+.feat-group{margin-top:15px}
+  .feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  .feat{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--radius-sm);font-size:13px;cursor:pointer;border:1px solid transparent}
+  .feat.on{background:var(--bg-muted)}
+  .sw{width:30px;height:18px;border-radius:var(--radius-full);background:var(--border-strong);position:relative;flex-shrink:0;transition:.15s}
+  .sw::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s}
+  .feat.on .sw{background:var(--brand)}
+  .feat.on .sw::after{left:14px}
+  .feat .fl{color:var(--text-secondary)}
+
+  /* ---- Session timeline ---- */
+  .sess{border:1px solid var(--border-card);border-radius:var(--radius-md);overflow:hidden}
+  .sess+.sess{margin-top:8px}
+  .sess-head{display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:pointer;background:var(--bg-card)}
+  .sess-head:hover{background:var(--bg-muted)}
+  .sess.open .sess-head{background:var(--bg-muted)}
+  .sess-when{min-width:96px}
+  .sess-when .d{font-size:12.5px;font-weight:600}
+  .sess-when .t{font-size:11px;color:var(--text-muted)}
+  .sess-dur{font-size:12px;font-weight:600;color:var(--text-primary);min-width:54px}
+  .sess-dur span{font-weight:400;color:var(--text-muted)}
+  .ribbon{flex:1;height:22px;border-radius:var(--radius-xs);background:var(--bg-muted);position:relative;overflow:hidden;min-width:80px}
+  .ribbon .seg{position:absolute;top:0;bottom:0;opacity:.18}
+  .ribbon .tick{position:absolute;top:3px;width:3px;height:16px;border-radius:2px}
+  .sess-counts{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--text-muted);min-width:96px;justify-content:flex-end}
+  .chev{width:14px;color:var(--text-muted);transition:.15s;flex-shrink:0}
+  .sess.open .chev{transform:rotate(90deg)}
+  .sess-body{display:none;padding:4px 12px 12px;border-top:1px dashed var(--border-card)}
+  .sess.open .sess-body{display:block}
+  .event{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--bg-muted)}
+  .event:last-child{border-bottom:none}
+  .event .et{font-size:11px;color:var(--text-muted);min-width:48px;font-variant-numeric:tabular-nums;padding-top:1px}
+  .event .ebadge{width:7px;height:7px;border-radius:2px;margin-top:5px;flex-shrink:0}
+  .event .ed{font-size:12.5px;color:var(--text-secondary)}
+  .event .eq{font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);background:var(--bg-muted);padding:4px 8px;border-radius:var(--radius-sm);margin-top:3px;display:inline-block}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);margin-bottom:10px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:8px;height:8px;border-radius:2px}
+
+  .empty{font-size:12.5px;color:var(--text-muted);padding:14px 4px;text-align:center}
+  .privacy{font-size:10.5px;color:var(--text-muted);margin:12px 0 0;border-top:1px solid var(--bg-muted);padding-top:10px}
+
+  /* provenance drawer */
+  .prov{margin:22px auto 50px;max-width:1320px}
+  .prov details{border:1px dashed var(--border-strong);border-radius:var(--radius-md);background:var(--bg-card)}
+  .prov summary{cursor:pointer;padding:11px 14px;font-size:12.5px;font-weight:600;color:var(--text-secondary)}
+  .prov table{width:100%;border-collapse:collapse;font-size:12px}
+  .prov td,.prov th{text-align:left;padding:7px 14px;border-top:1px solid var(--border-card);vertical-align:top}
+  .prov th{color:var(--text-muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+  .tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:var(--radius-full)}
+  .tag.real{background:var(--success-soft);color:var(--success-ink)}
+  .tag.derive{background:var(--info-soft);color:var(--info-ink)}
+  .tag.new{background:var(--warning-soft);color:var(--warning-ink)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand-mark">C</div>
+    <div class="crumb">cube-playground · <b>Sys-admin hub</b> · Users &amp; Access</div>
+    <div class="spacer"></div>
+    <button class="theme-toggle" onclick="toggleTheme()">◐ theme</button>
+  </div>
+
+  <div class="page">
+    <div class="page-eyebrow">Administration</div>
+    <div class="page-title"><span class="shield">🛡</span><h1>Sys-admin hub</h1></div>
+    <p class="page-sub">Manage access, fine-grained per-user controls, observability, and dev tooling.</p>
+
+    <div class="tabs">
+      <div class="tab active">Users &amp; Access</div>
+      <div class="tab">Observability</div>
+      <div class="tab">Dev / Chat-Audit <span class="pill pill-muted">relocated</span></div>
+    </div>
+
+    <div class="layout">
+      <!-- LEFT RAIL -->
+      <div class="rail">
+        <div class="card card-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+            <span style="font-size:15px">👤➕</span>
+            <span style="font-weight:700;font-size:14px">Pre-provision by email</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input class="field" placeholder="person@company.com" />
+            <button class="btn" style="white-space:nowrap">Add user</button>
+          </div>
+        </div>
+
+        <div class="card card-body">
+          <input class="field" placeholder="🔍  Search by email…" style="margin-bottom:10px" />
+          <label style="display:flex;gap:7px;align-items:center;font-size:12.5px;color:var(--text-secondary);margin-bottom:8px;cursor:pointer">
+            <input type="checkbox" style="accent-color:var(--brand)" /> Pending only
+          </label>
+          <div class="userlist" id="userlist"></div>
+        </div>
+      </div>
+
+      <!-- DETAIL -->
+      <div class="detail" id="detail"></div>
+    </div>
+  </div>
+
+  <!-- Honest data provenance -->
+  <div class="prov">
+    <details>
+      <summary>Data provenance — what is real today vs what needs a small backend addition (click)</summary>
+      <table>
+        <tr><th>Field in this redesign</th><th>Source</th><th>Status</th></tr>
+        <tr><td>Last login (absolute + relative) & inactive flag</td><td><code>users.last_login</code> via activity-aggregator</td><td><span class="tag real">real today</span></td></tr>
+        <tr><td>Recent features / query shapes (names only)</td><td><code>activity_events</code> (feature_open, query_run)</td><td><span class="tag real">real today</span></td></tr>
+        <tr><td>Chat turns (30d)</td><td>chat-service stats by sub</td><td><span class="tag real">real today</span></td></tr>
+        <tr><td>Last access change (actor/action/ts)</td><td>access-audit-store</td><td><span class="tag real">real today</span></td></tr>
+        <tr><td>Recent 5 sessions · duration · per-session activity</td><td><b>Sessionize</b> the existing <code>activity_events</code> stream: gap-based windows (≤30&nbsp;min idle = same session); duration = last−first event ts; "what they did" = events inside the window</td><td><span class="tag derive">derive — 1 query, no new logging</span></td></tr>
+        <tr><td>30-day activity sparkline</td><td>daily count of <code>activity_events</code> by actor</td><td><span class="tag derive">derive — 1 query</span></td></tr>
+        <tr><td>Live "active now" presence dot</td><td>most-recent event &lt; 5&nbsp;min ago</td><td><span class="tag derive">derive</span></td></tr>
+        <tr><td>Exact session end / idle-vs-active split inside a session</td><td>not captured (events are point-in-time, no heartbeat)</td><td><span class="tag new">optional new logging</span></td></tr>
+      </table>
+    </details>
+  </div>
+
+<script>
+/* ----------------------------------------------------------------------------
+   Representative (mock) data. Three users demonstrate the full state range:
+   - lan.pham  : active editor, rich 5-session history  → the "hero" case
+   - khoitn    : admin, active
+   - thinm     : editor, never logged in                → honest empty state
+---------------------------------------------------------------------------- */
+const WORKSPACES = [
+  {id:'prod', label:'Prod cube-dev', abbr:'P', color:'#f05a22'},
+  {id:'local', label:'Local cube-dev', abbr:'L', color:'#3f8dff'},
+];
+const GAMES = [
+  {id:'ptg', name:'Play Together', abbr:'PTG', color:'#a855f7'},
+  {id:'ballistar', name:'Ballistar', abbr:'BAL', color:'#f05a22'},
+  {id:'cfm', name:'CrossFire Mobile VN', abbr:'CFM', color:'#3f8dff'},
+  {id:'cfpc', name:'CrossFire PC', abbr:'CFP', color:'#059669'},
+  {id:'jus', name:'Justice VN', abbr:'JUS', color:'#0ea5e9'},
+  {id:'muaw', name:'MU Angel War', abbr:'MUA', color:'#d97706'},
+  {id:'pubg', name:'PUBG Mobile', abbr:'PUB', color:'#65a30d'},
+];
+const FEATURES = {
+  'Analyst surfaces':{def:true, items:[
+    {k:'chat',label:'Chats',on:true,override:true},
+    {k:'qb',label:'Query playground',on:true,override:true},
+    {k:'model',label:'Data model',on:true,override:true},
+    {k:'catalog',label:'Metrics catalog',on:true,override:true},
+    {k:'liveops',label:'LiveOps',on:true,override:true},
+    {k:'dash',label:'Dashboards',on:true,override:true},
+    {k:'seg',label:'Segments',on:true,override:true},
+  ]},
+  'Admin / governance':{def:false, items:[
+    {k:'admin',label:'Admin hub',on:false,override:true},
+  ]},
+};
+
+// event helper: m = minutes from session start, type, label, optional query
+const F = (m,label)=>({m,type:'feature',label});
+const Q = (m,label)=>({m,type:'query',label});
+const C = (m,label)=>({m,type:'chat',label});
+
+const USERS = {
+  'lan.pham@vng.com.vn':{
+    initials:'LP', role:'editor', status:'active', presence:'live',
+    lastLoginAbs:'Jun 3, 2026 · 18:42', lastLoginRel:'12 min ago', inactive:false,
+    workspaces:['prod','local'], games:['ballistar','cfm','muaw','ptg'],
+    chatTurns:84, sessions30:23, activeTime:'11h 20m', segments:6,
+    spark:[2,4,3,6,5,7,3,2,0,4,8,6,5,9,7,4,3,2,5,6,8,7,5,4,9,6,3,5,7,12],
+    lastChange:{action:'set_games', actor:'khoitn@vng.com.vn', rel:'2 days ago'},
+    sessionList:[
+      {date:'Today', start:'18:42', durMin:23, events:[
+        F(0,'Query playground'),Q(1,'active_daily · dau by log_date'),Q(4,'recharge · revenue_vnd by payer_tier, country'),
+        F(11,'Segments'),F(13,'Dashboards'),Q(15,'retention · d7 by cohort_date'),C(19,'2 chat turns — "compare DAU muaw vs cfm"')]},
+      {date:'Today', start:'09:15', durMin:47, events:[
+        F(0,'Dashboards'),F(2,'LiveOps'),Q(5,'kpi_strip · ccu, revenue by hour'),Q(18,'active_daily · wau by country'),
+        F(31,'Metrics catalog'),Q(40,'arppu · arppu_vnd by payer_tier')]},
+      {date:'Yesterday', start:'16:30', durMin:8, events:[
+        F(0,'Query playground'),Q(2,'recharge · transactions by recharge_date')]},
+      {date:'Jun 1', start:'11:02', durMin:62, events:[
+        F(0,'Data model'),F(4,'Query playground'),Q(6,'active_daily · dau by log_date, country'),
+        Q(22,'retention · d1,d7,d30 by cohort_date'),C(35,'5 chat turns — churn-risk cohort'),F(55,'Segments')]},
+      {date:'May 30', start:'14:48', durMin:15, events:[
+        F(0,'LiveOps'),Q(3,'kpi_strip · ccu by hour'),F(10,'Dashboards')]},
+    ],
+  },
+  'khoitn@vng.com.vn':{
+    initials:'KH', role:'admin', status:'active', presence:'idle',
+    lastLoginAbs:'Jun 3, 2026 · 08:05', lastLoginRel:'10 hours ago', inactive:false,
+    workspaces:['prod','local'], games:GAMES.map(g=>g.id), chatTurns:31, sessions30:40, activeTime:'26h 05m', segments:14,
+    spark:[6,8,5,9,7,10,6,8,5,9,11,8,7,12,9,8,6,5,10,9,11,8,7,9,12,10,8,9,11,7],
+    lastChange:{action:'set_workspaces', actor:'khoitn@vng.com.vn', rel:'today'},
+    sessionList:[
+      {date:'Today', start:'08:05', durMin:34, events:[
+        F(0,'Admin hub'),F(3,'Observability'),F(9,'Query playground'),Q(12,'active_daily · dau by log_date')]},
+      {date:'Yesterday', start:'19:20', durMin:52, events:[
+        F(0,'Admin hub'),F(5,'Dashboards'),Q(8,'recharge · revenue_vnd by country'),C(40,'3 chat turns')]},
+      {date:'Jun 1', start:'10:11', durMin:19, events:[F(0,'Metrics catalog'),Q(4,'arppu by payer_tier')]},
+    ],
+  },
+  'thinm@vng.com.vn':{
+    initials:'TH', role:'editor', status:'active', presence:'never',
+    lastLoginAbs:'never', lastLoginRel:'never', inactive:true,
+    workspaces:['local'], games:['ballistar','cfm'], chatTurns:null, sessions30:0, activeTime:'—', segments:0,
+    spark:new Array(30).fill(0),
+    lastChange:{action:'set_workspaces', actor:'khoitn@vng.com.vn', rel:'today'},
+    sessionList:[],
+  },
+};
+const ORDER=['lan.pham@vng.com.vn','khoitn@vng.com.vn','thinm@vng.com.vn'];
+
+const EV_COLOR={feature:'var(--ev-feature)',query:'var(--ev-query)',chat:'var(--ev-chat)',login:'var(--ev-login)'};
+const EV_LABEL={feature:'opened',query:'ran query',chat:'chatted'};
+let selected='lan.pham@vng.com.vn';
+
+function presenceColor(p){return p==='live'?'var(--ev-login)':p==='idle'?'var(--warning-ink)':'var(--border-strong)';}
+function statusPill(s){return s==='active'?'<span class="pill pill-ok">Active</span>':s==='pending'?'<span class="pill pill-warn">Pending</span>':'<span class="pill pill-bad">Disabled</span>';}
+
+function renderRail(){
+  document.getElementById('userlist').innerHTML = ORDER.map(em=>{
+    const u=USERS[em];
+    return `<div class="userrow ${em===selected?'sel':''}" onclick="select('${em}')">
+      <div><div class="em">${em}</div><div class="ro" style="text-transform:capitalize">${u.role}</div></div>
+      ${statusPill(u.status)}
+    </div>`;
+  }).join('');
+}
+
+function spark(arr){
+  const max=Math.max(1,...arr);
+  return `<div class="spark">`+arr.map(v=>{
+    const h=Math.round((v/max)*100);
+    return `<i class="${v===0?'z':(v>max*0.7?'q':'')}" style="height:${Math.max(2,h)}%" title="${v} events"></i>`;
+  }).join('')+`</div>`;
+}
+
+function ribbon(events,durMin){
+  // colored block spanning the session + ticks for each event
+  const ticks=events.map(e=>{
+    const left=Math.min(96,(e.m/Math.max(durMin,1))*96);
+    return `<span class="tick" style="left:${left}%;background:${EV_COLOR[e.type]}"></span>`;
+  }).join('');
+  return `<div class="ribbon"><span class="seg" style="left:0;right:0;background:var(--brand)"></span>${ticks}</div>`;
+}
+
+function sessionCard(s,i){
+  const fc=s.events.filter(e=>e.type==='feature').length;
+  const qc=s.events.filter(e=>e.type==='query').length;
+  const cc=s.events.filter(e=>e.type==='chat').length;
+  const counts=[fc&&`<span style="color:var(--ev-feature)">●</span> ${fc}`,qc&&`<span style="color:var(--ev-query)">●</span> ${qc}`,cc&&`<span style="color:var(--ev-chat)">●</span> ${cc}`].filter(Boolean).join('&nbsp;&nbsp;');
+  const body=s.events.map(e=>{
+    const hh=`${s.start}`; // start clock; offset shown as +Nm
+    const off=e.m===0?hh:`+${e.m}m`;
+    return `<div class="event">
+      <span class="et">${off}</span>
+      <span class="ebadge" style="background:${EV_COLOR[e.type]}"></span>
+      <div>
+        <span class="ed">${EV_LABEL[e.type]} ${e.type==='query'?'':'<b style="color:var(--text-primary);font-weight:600">'+e.label+'</b>'}</span>
+        ${e.type==='query'?`<div class="eq">${e.label}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="sess" id="sess${i}">
+    <div class="sess-head" onclick="toggleSess(${i})">
+      <div class="sess-when"><div class="d">${s.date}</div><div class="t">${s.start}</div></div>
+      <div class="sess-dur">${s.durMin}<span> min</span></div>
+      ${ribbon(s.events,s.durMin)}
+      <div class="sess-counts">${counts}</div>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>
+    </div>
+    <div class="sess-body">${body}</div>
+  </div>`;
+}
+
+function renderDetail(){
+  const u=USERS[selected];
+  const wsCount=u.workspaces.length, gCount=u.games.length, gTotal=GAMES.length;
+  const canSwitch=wsCount>1;
+  const ringP=Math.round((gCount/gTotal)*100);
+
+  const wsTiles=WORKSPACES.map(w=>{
+    const on=u.workspaces.includes(w.id);
+    return `<div class="ws-tile ${on?'on':''}" onclick="toggleWs('${w.id}')">
+      <div class="swatch" style="background:${w.color}">${w.abbr}</div>
+      <div><div class="wn">${w.label}</div><div class="wp">${on?'granted':'no access'}</div></div>
+      <div class="ws-check">${on?'✓':''}</div>
+    </div>`;
+  }).join('');
+
+  const gameTiles=GAMES.map(g=>{
+    const on=u.games.includes(g.id);
+    return `<div class="game-tile ${on?'on':'off'}" onclick="toggleGame('${g.id}')">
+      <div class="game-abbr" style="background:${g.color}">${g.abbr}</div>
+      <div class="gn">${g.name}</div>
+    </div>`;
+  }).join('');
+
+  const featGroups=Object.entries(FEATURES).map(([area,grp])=>{
+    const items=grp.items.map(it=>`
+      <label class="feat ${it.on?'on':''}" onclick="this.classList.toggle('on')">
+        <span class="sw"></span>
+        <span class="fl">${it.label}</span>
+        ${it.override?'<span class="pill pill-info" style="font-size:9.5px;padding:0 6px">override</span>':''}
+      </label>`).join('');
+    return `<div class="feat-group">
+      <div style="display:flex;gap:7px;align-items:center"><span class="eyebrow">${area}</span>
+        <span class="pill ${grp.def?'pill-ok':'pill-warn'}" style="font-size:9.5px;padding:1px 7px">${grp.def?'default on':'default off'}</span></div>
+      <div class="feat-grid">${items}</div>
+    </div>`;
+  }).join('');
+
+  const sessions = u.sessionList.length
+    ? `<div class="legend">
+         <span><i style="background:var(--ev-feature)"></i>feature open</span>
+         <span><i style="background:var(--ev-query)"></i>query run</span>
+         <span><i style="background:var(--ev-chat)"></i>chat turn</span>
+         <span style="margin-left:auto">last 5 of ${u.sessions30} sessions · 30d</span>
+       </div>`+u.sessionList.map((s,i)=>sessionCard(s,i)).join('')
+    : `<div class="empty">No sessions yet — user has never logged in.<br/><span style="font-size:11px">Timeline populates from the first authenticated session.</span></div>`;
+
+  document.getElementById('detail').innerHTML = `
+  <!-- IDENTITY + VITALS -->
+  <div class="card card-body">
+    <div class="id-head">
+      <div class="avatar">${u.initials}<span class="presence" style="background:${presenceColor(u.presence)}"></span></div>
+      <div class="id-meta">
+        <div class="id-email">${selected}
+          <span class="pill pill-muted" style="text-transform:capitalize">${u.role}</span>${statusPill(u.status)}</div>
+        <div class="id-line">
+          <span class="dot" style="background:${presenceColor(u.presence)}"></span>
+          ${u.presence==='live'?'active now':u.presence==='idle'?'idle':'never signed in'}
+          <span style="color:var(--border-strong)">·</span>
+          last login <b style="color:var(--text-secondary)">${u.lastLoginAbs}</b>
+          ${u.lastLoginRel!=='never'?`<span class="pill pill-muted">${u.lastLoginRel}</span>`:''}
+        </div>
+      </div>
+      <div style="min-width:150px">
+        <div class="eyebrow" style="margin-bottom:5px">Activity · 30 days</div>
+        ${spark(u.spark)}
+      </div>
+    </div>
+    <div class="vitals">
+      <div class="vital"><div class="eyebrow">Sessions 30d</div><div class="v">${u.sessions30}</div><div class="n">${u.activeTime} active</div></div>
+      <div class="vital"><div class="eyebrow">Workspaces</div><div class="v">${wsCount}</div><div class="n">${canSwitch?'switcher on':'pinned · no switch'}</div></div>
+      <div class="vital"><div class="eyebrow">Games</div><div class="v">${gCount}<span style="font-size:13px;color:var(--text-muted)"> / ${gTotal}</span></div><div class="n">granted</div></div>
+      <div class="vital"><div class="eyebrow">Segments</div><div class="v">${u.segments}</div><div class="n">owned</div></div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <!-- LEFT: ACCESS PASSPORT -->
+    <div class="stack">
+      <section class="card">
+        <div class="card-head"><span class="card-title">Role &amp; status</span><button class="btn">Save</button></div>
+        <div class="card-body">
+          <div class="grid2">
+            <div><div class="eyebrow" style="margin-bottom:4px">Role</div>
+              <select class="field"><option ${u.role==='viewer'?'selected':''}>viewer</option><option ${u.role==='editor'?'selected':''}>editor</option><option ${u.role==='admin'?'selected':''}>admin</option></select></div>
+            <div><div class="eyebrow" style="margin-bottom:4px">Status</div>
+              <select class="field"><option ${u.status==='active'?'selected':''}>active</option><option ${u.status==='pending'?'selected':''}>pending</option><option ${u.status==='disabled'?'selected':''}>disabled</option></select></div>
+          </div>
+          <p class="hint">${u.role==='viewer'?'Viewer = read + query only; cannot save segments, dashboards, metrics or glossary.':u.role==='editor'?'Editor = create/edit/delete shared artifacts. Cannot manage users or set org-wide visibility.':'Admin = full access incl. user management & org-wide controls. Last active admin can’t be demoted (409).'}</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><span class="card-title">Workspace grants</span><button class="btn">Save</button></div>
+        <div class="card-body">
+          <div class="ws-row">${wsTiles}</div>
+          <div class="callout ${canSwitch?'ok':''}" style="margin-top:10px">
+            ${canSwitch?'✓ Switcher enabled — user can move between '+wsCount+' workspaces.':'Pinned to one workspace — no switcher shown.'}
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><span class="card-title">Game grants</span>
+          <div style="display:flex;gap:6px"><button class="btn btn-ghost">Select all</button><button class="btn btn-ghost">Clear</button><button class="btn">Save</button></div>
+        </div>
+        <div class="card-body">
+          <div class="game-head">
+            <div class="ring" style="--p:${ringP}"><i>${gCount}/${gTotal}</i></div>
+            <div><div style="font-size:12.5px;font-weight:600">${gCount} of ${gTotal} games granted</div>
+              <div style="font-size:11.5px;color:var(--text-muted)">Tap a tile to toggle. Greyed = no access.</div></div>
+          </div>
+          <div class="game-grid">${gameTiles}</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><span class="card-title">Feature access</span><button class="btn">Save</button></div>
+        <div class="card-body">${featGroups}</div>
+      </section>
+    </div>
+
+    <!-- RIGHT: ACTIVITY & SESSIONS (promoted snapshot) -->
+    <div class="stack">
+      <section class="card">
+        <div class="card-head"><span class="card-title">Sessions &amp; activity</span>
+          <span class="pill ${u.inactive?'pill-bad':'pill-ok'}">${u.inactive?'Inactive >30d':'Active'}</span></div>
+        <div class="card-body">
+          <div class="vitals" style="grid-template-columns:repeat(3,1fr);margin-top:0;margin-bottom:14px">
+            <div class="vital"><div class="eyebrow">Chat turns</div><div class="v">${u.chatTurns==null?'—':u.chatTurns}</div><div class="n">${u.chatTurns==null?'chat-svc n/a':'last 30d'}</div></div>
+            <div class="vital"><div class="eyebrow">Avg session</div><div class="v">${avgSession(u)}<span style="font-size:13px;color:var(--text-muted)">m</span></div><div class="n">recent 5</div></div>
+            <div class="vital"><div class="eyebrow">Last seen</div><div class="v" style="font-size:15px;padding-top:5px">${u.lastLoginRel}</div><div class="n">&nbsp;</div></div>
+          </div>
+          ${sessions}
+          <div style="margin-top:14px"><div class="eyebrow" style="margin-bottom:5px">Last access change</div>
+            <div style="font-size:12.5px;color:var(--text-secondary)"><b>${u.lastChange.action}</b> by ${u.lastChange.actor} · ${u.lastChange.rel}</div></div>
+          <p class="privacy">Query rows show member <b>names only</b> — no filter values or UIDs (privacy allowlist). Sessions are derived from the activity-event stream; no keystroke or content logging.</p>
+        </div>
+      </section>
+    </div>
+  </div>`;
+}
+
+function avgSession(u){
+  if(!u.sessionList.length) return '—';
+  return Math.round(u.sessionList.reduce((s,x)=>s+x.durMin,0)/u.sessionList.length);
+}
+function select(em){selected=em;renderRail();renderDetail();window.scrollTo({top:0,behavior:'smooth'});}
+function toggleSess(i){document.getElementById('sess'+i).classList.toggle('open');}
+function toggleWs(id){const u=USERS[selected];const i=u.workspaces.indexOf(id);i<0?u.workspaces.push(id):u.workspaces.splice(i,1);renderDetail();}
+function toggleGame(id){const u=USERS[selected];const i=u.games.indexOf(id);i<0?u.games.push(id):u.games.splice(i,1);renderDetail();}
+function toggleTheme(){const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';}
+
+renderRail();renderDetail();
+// open the most recent session by default so the promoted timeline is visible at a glance
+setTimeout(()=>{const s0=document.getElementById('sess0');if(s0)s0.classList.add('open');},0);
+</script>
+</body>
+</html>

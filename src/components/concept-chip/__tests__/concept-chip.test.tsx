@@ -15,24 +15,27 @@ describe('ConceptChip', () => {
     expect(screen.getByText('Whale')).toBeTruthy();
   });
 
-  it('renders the metric glyph for kind=metric', () => {
-    renderChip(<ConceptChip kind="metric" label="DAU" />);
-    expect(screen.getByText('▦')).toBeTruthy();
+  // Each kind renders its lucide type-icon, matching the catalog's TypeIcon
+  // vocabulary (measure→bar chart, dimension→hash, segment→users) + Info for
+  // concepts. Lucide emits a per-icon class we can assert on.
+  it('renders the bar-chart icon for kind=metric', () => {
+    const { container } = renderChip(<ConceptChip kind="metric" label="DAU" />);
+    expect(container.querySelector('svg.lucide-chart-column')).toBeTruthy();
   });
 
-  it('renders the concept glyph for kind=concept', () => {
-    renderChip(<ConceptChip kind="concept" label="Funnel" />);
-    expect(screen.getByText('ⓘ')).toBeTruthy();
+  it('renders the info icon for kind=concept', () => {
+    const { container } = renderChip(<ConceptChip kind="concept" label="Funnel" />);
+    expect(container.querySelector('svg.lucide-info')).toBeTruthy();
   });
 
-  it('renders the field glyph for kind=field', () => {
-    renderChip(<ConceptChip kind="field" label="payer_tier" />);
-    expect(screen.getByText('＃')).toBeTruthy();
+  it('renders the hash icon for kind=field', () => {
+    const { container } = renderChip(<ConceptChip kind="field" label="payer_tier" />);
+    expect(container.querySelector('svg.lucide-hash')).toBeTruthy();
   });
 
-  it('renders the segment glyph for kind=segment', () => {
-    renderChip(<ConceptChip kind="segment" label="Whales segment" />);
-    expect(screen.getByText('◑')).toBeTruthy();
+  it('renders the users icon for kind=segment', () => {
+    const { container } = renderChip(<ConceptChip kind="segment" label="Whales segment" />);
+    expect(container.querySelector('svg.lucide-users')).toBeTruthy();
   });
 
   it('renders as an anchor link when `to` is provided', () => {

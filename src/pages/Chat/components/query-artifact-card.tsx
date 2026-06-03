@@ -30,10 +30,13 @@ const SOURCE_LABEL: Record<QueryArtifact['source'], string> = {
   raw: 'Raw Query',
 };
 
+// Source-type accent, mapped to the semantic design-system palette (brand /
+// info / muted) rather than raw hermes scale values — the previous blue500 /
+// purple500 weren't part of the system and read as off-brand in chat.
 const SOURCE_COLOR: Record<QueryArtifact['source'], string> = {
   'business-metric': T.brand,
-  segment: T.blue500,
-  raw: T.purple500,
+  segment: 'var(--info-ink)',
+  raw: 'var(--muted-ink)',
 };
 
 export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps) {

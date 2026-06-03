@@ -1,7 +1,7 @@
 ---
 title: "Cube Advisor — local architect's briefing console"
 description: ""
-status: pending
+status: complete
 priority: P2
 branch: "main"
 tags: []
@@ -32,14 +32,24 @@ Authoritative design: [`../../reports/brainstorm-260603-1842-cube-advisor-archit
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [MCP-headless spike (gating)](./phase-01-mcp-headless-spike-gating.md) | Pending |
-| 2 | [Repo scaffold + backend skeleton](./phase-02-repo-scaffold-backend-skeleton.md) | Pending |
-| 3 | [Run orchestration + SSE streaming](./phase-03-run-orchestration-sse-streaming.md) | Pending |
-| 4 | [Idea store + dedup + ranking](./phase-04-idea-store-dedup-ranking.md) | Pending |
-| 5 | [Orchestration prompt + output contract](./phase-05-orchestration-prompt-output-contract.md) | Pending |
-| 6 | [Frontend Briefing + Generate flow](./phase-06-frontend-briefing-generate-flow.md) | Pending |
-| 7 | [Landscape + Backlog surfaces](./phase-07-landscape-backlog-surfaces.md) | Pending |
-| 8 | [Plan-handoff + polish](./phase-08-plan-handoff-polish.md) | Pending |
+| 1 | [MCP-headless spike (gating)](./phase-01-mcp-headless-spike-gating.md) | Complete (spike PASS, recorded) |
+| 2 | [Repo scaffold + backend skeleton](./phase-02-repo-scaffold-backend-skeleton.md) | Complete |
+| 3 | [Run orchestration + SSE streaming](./phase-03-run-orchestration-sse-streaming.md) | Complete |
+| 4 | [Idea store + dedup + ranking](./phase-04-idea-store-dedup-ranking.md) | Complete |
+| 5 | [Orchestration prompt + output contract](./phase-05-orchestration-prompt-output-contract.md) | Complete (structural; live eval PENDING — see prompts/eval-notes.md) |
+| 6 | [Frontend Briefing + Generate flow](./phase-06-frontend-briefing-generate-flow.md) | Complete |
+| 7 | [Landscape + Backlog surfaces](./phase-07-landscape-backlog-surfaces.md) | Complete |
+| 8 | [Plan-handoff + polish](./phase-08-plan-handoff-polish.md) | Complete |
+
+## Build status (2026-06-03)
+
+Built into sibling repo `../cube-advisor`. **77 tests pass** (20 files, backend +
+frontend), `tsc --noEmit` clean, `vite build` succeeds. code-reviewer pass
+applied: per-run cost ceiling now ENFORCED (was dead config), `ADVISOR_TOKEN`
+scrubbed from the spawned child env, `POST /api/runs` auth now tested, git-guard
+fails-safe on missing git, brief filename id sanitized. The only deferred item is
+the **live prompt eval** (real run spends ~$1–$2.50 + reads live Confluence/email)
+— intentionally not auto-triggered; steps recorded in `../cube-advisor/prompts/eval-notes.md`.
 
 ## Dependencies
 

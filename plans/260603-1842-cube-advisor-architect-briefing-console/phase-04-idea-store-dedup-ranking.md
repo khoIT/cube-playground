@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Idea store + dedup + ranking"
-status: pending
+status: complete
 priority: P1
 effort: "1d"
 dependencies: [2, 3]

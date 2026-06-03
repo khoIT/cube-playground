@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "Landscape + Backlog surfaces"
-status: pending
+status: complete
 priority: P2
 effort: "1d"
 dependencies: [4, 6]

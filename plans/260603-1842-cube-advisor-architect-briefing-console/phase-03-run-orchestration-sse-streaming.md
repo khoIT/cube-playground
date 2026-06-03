@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Run orchestration + SSE streaming"
-status: pending
+status: complete
 priority: P1
 effort: "1d"
 dependencies: [1, 2]
