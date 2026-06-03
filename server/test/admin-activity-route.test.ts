@@ -91,6 +91,20 @@ describe('admin-activity routes (real-auth)', () => {
     expect(unknown.statusCode).toBe(404);
   });
 
+  it('sessions: 403 for non-admin; 200 + timeline for admin; 404 for unknown user', async () => {
+    const asEditor = await app.inject({ method: 'GET', url: '/api/admin/activity/users/admin@corp.com/sessions', headers: editorAuth });
+    expect(asEditor.statusCode).toBe(403);
+
+    const ok = await app.inject({ method: 'GET', url: '/api/admin/activity/users/admin@corp.com/sessions', headers: adminAuth });
+    expect(ok.statusCode).toBe(200);
+    const body = ok.json() as { sessions: unknown[]; sessions30: number; avgDurationMs: number; sparkline: number[] };
+    expect(Array.isArray(body.sessions)).toBe(true);
+    expect(body.sparkline).toHaveLength(30); // empty but well-formed for a no-event user
+
+    const unknown = await app.inject({ method: 'GET', url: '/api/admin/activity/users/nobody@corp.com/sessions', headers: adminAuth });
+    expect(unknown.statusCode).toBe(404);
+  });
+
   it('audit: 403 for non-admin; 200 + filtered entries for admin', async () => {
     // Seed a couple of audit rows directly.
     const db = getDb();

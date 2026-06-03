@@ -1,10 +1,11 @@
 /**
  * ObservabilityTab — org-wide activity triage for the sys-admin hub.
  *
- * Consumes GET /api/admin/activity/summary (Phase-4 aggregator):
+ * Consumes GET /api/admin/activity/summary (the org rollup):
  *   - status rollup cards (users by status, active 7/30 d, total chat turns)
+ *   - pending-approval queue (auto-created pending logins awaiting activation)
  *   - inactive list (>30 d since last login) with a quick-disable triage action
- *   - top features used
+ *   - top features used + per-user drill-in links
  *   - the audit log viewer (recent access-management activity feed + CSV export)
  *
  * chat-down degrades to "—" (the aggregator returns null chat counts, never a
@@ -12,9 +13,11 @@
  */
 
 import React, { useState } from 'react';
-import { patchAdminUser } from '../access/use-admin-access';
+import { Link } from 'react-router-dom';
+import { patchAdminUser, useAdminUsers } from '../access/use-admin-access';
 import { useActivitySummary, type InactiveUser } from './observability-data';
 import { AuditLogViewer } from './audit-log-viewer';
+import { PendingApprovalQueue } from './pending-approval-queue';
 import { relativeTime, FEATURE_LABEL } from './per-user-panel-helpers';
 
 const card: React.CSSProperties = {
@@ -43,6 +46,14 @@ function KpiCard({ label, value, note }: { label: string; value: string | number
 
 export function ObservabilityTab() {
   const { summary, loading, error, refetch } = useActivitySummary();
+  const { users, refetch: refetchUsers } = useAdminUsers();
+
+  const pending = users
+    .filter((u) => u.status === 'pending')
+    .map((u) => ({ email: u.email, lastLogin: u.lastLogin }));
+
+  // Approve/deny mutates status → refresh both the user list and the org rollup.
+  const onQueueChanged = () => { refetchUsers(); refetch(); };
 
   if (error) {
     return (
@@ -81,6 +92,9 @@ export function ObservabilityTab() {
               note={summary?.totalChatTurns == null ? 'chat-service unreachable' : 'last 30d'}
             />
           </div>
+
+          {/* Pending-approval queue — the #1 recurring admin job, promoted up top */}
+          <PendingApprovalQueue users={pending} onChanged={onQueueChanged} />
 
           {/* Two-column: inactive triage + top features */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12, marginTop: 12, alignItems: 'start' }}>
@@ -137,9 +151,16 @@ function InactiveList({ users, onDisabled }: { users: InactiveUser[]; onDisabled
               }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <Link
+                  to={`/admin/observability/${encodeURIComponent(u.email)}`}
+                  style={{
+                    fontSize: 13, color: 'var(--text-primary)', textDecoration: 'none',
+                    display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                  title="View activity"
+                >
                   {u.email}
-                </div>
+                </Link>
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                   last login {relativeTime(u.lastLogin)} · {u.status}
                 </div>

@@ -20,25 +20,39 @@ import React from 'react';
 import { Route, Switch, Redirect } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import { TabShell, type TabDef } from '../../../shell/tab-shell';
+import { useAdminUsers } from '../access/use-admin-access';
 import { UsersAndAccessTab } from './users-and-access-tab';
 import { CrossUserAuditPanel } from './cross-user-audit-panel';
 import { ObservabilityTab } from './observability-tab';
+import { UserActivityProfile } from './user-activity-profile';
 
 // ---------------------------------------------------------------------------
-// Tab definitions
+// Tab definitions — Observability carries a live "N pending" badge so the
+// recurring approval job is visible without opening the tab.
 // ---------------------------------------------------------------------------
 
-const ADMIN_TABS: TabDef[] = [
-  { key: 'access', label: 'Users & Access', path: '/admin/access' },
-  { key: 'observability', label: 'Observability', path: '/admin/observability' },
-  { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev', tag: 'relocated' },
-];
+function buildAdminTabs(pendingCount: number): TabDef[] {
+  return [
+    { key: 'access', label: 'Users & Access', path: '/admin/access' },
+    {
+      key: 'observability',
+      label: 'Observability',
+      path: '/admin/observability',
+      tag: pendingCount > 0 ? `${pendingCount} pending` : undefined,
+    },
+    { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev', tag: 'relocated' },
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // AdminHub page
 // ---------------------------------------------------------------------------
 
 export function AdminHub() {
+  const { users } = useAdminUsers();
+  const pendingCount = users.filter((u) => u.status === 'pending').length;
+  const adminTabs = buildAdminTabs(pendingCount);
+
   return (
     <div
       style={{
@@ -76,7 +90,7 @@ export function AdminHub() {
       {/* Tab shell — resolveTab handles /admin/access deep-link */}
       <TabShell
         basePath="/admin"
-        tabs={ADMIN_TABS}
+        tabs={adminTabs}
         ariaLabel="Sys-admin hub"
         testIdPrefix="hub-tab"
       >
@@ -100,8 +114,14 @@ export function AdminHub() {
             </div>
           </Route>
 
-          <Route path="/admin/observability">
+          <Route exact path="/admin/observability">
             <ObservabilityTab />
+          </Route>
+
+          {/* Per-user drill-in — shareable sub-route; resolveTab keeps the
+              Observability tab highlighted via its segment-boundary prefix match. */}
+          <Route path="/admin/observability/:email">
+            <UserActivityProfile />
           </Route>
 
           <Route path="/admin/dev">

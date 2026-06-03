@@ -149,3 +149,28 @@ export interface QueryShape {
 export function formatQueryShape(shape: QueryShape): string {
   return `${shape.cubes.join(', ')} · ${shape.measures.length} measure(s) · ${shape.dimensions.length} dim(s)`;
 }
+
+/** The selected members, comma-joined — the actual "what" of the query.
+ *  Falls back to the cube name(s), then a generic label. */
+export function summarizeShapeMembers(shape: QueryShape): string {
+  const members = [...shape.measures, ...shape.dimensions];
+  if (members.length > 0) return members.join(', ');
+  return shape.cubes.length > 0 ? shape.cubes.join(', ') : 'query';
+}
+
+/**
+ * Builds an in-app Query-playground deep-link that re-opens a recorded shape.
+ * Only member NAMES travel (measures + dimensions) — the same privacy-safe
+ * surface that was persisted; no filter values or date ranges exist to leak.
+ * Returns null when the shape carries nothing selectable.
+ *
+ * URL form `/build?query=<URLencoded-JSON>` — QueryBuilderContainer reads
+ * `params.get('query')` and JSON.parses it.
+ */
+export function buildShapePlaygroundUrl(shape: QueryShape): string | null {
+  const query: { measures?: string[]; dimensions?: string[] } = {};
+  if (shape.measures.length > 0) query.measures = shape.measures;
+  if (shape.dimensions.length > 0) query.dimensions = shape.dimensions;
+  if (!query.measures && !query.dimensions) return null;
+  return `/build?query=${encodeURIComponent(JSON.stringify(query))}`;
+}

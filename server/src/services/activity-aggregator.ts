@@ -20,6 +20,7 @@ import {
   distinctActorsSince,
   topEventTargets,
   projectQueryShape,
+  parseQueryShape,
 } from './activity-store.js';
 import { fetchChatStatsBySub, type ChatStatsBySub, type ChatUserStats } from './chat-stats-client.js';
 import { latestAuditForTarget } from '../auth/access-audit-store.js';
@@ -73,18 +74,6 @@ function lastLoginFor(email: string): string | null {
     .prepare('SELECT last_login FROM users WHERE LOWER(email) = ?')
     .get(normalizeEmail(email)) as { last_login: string | null } | undefined;
   return row?.last_login ?? null;
-}
-
-/** Parse a persisted query-shape detail; tolerate a malformed row (→ null)
- *  rather than 500 the admin route. Unreachable in practice (the only writer
- *  is the projector), but cheap insurance against a hand-edited/corrupt row. */
-function parseShape(detailJson: string | null): ReturnType<typeof projectQueryShape> | null {
-  if (!detailJson) return null;
-  try {
-    return JSON.parse(detailJson) as ReturnType<typeof projectQueryShape>;
-  } catch {
-    return null;
-  }
 }
 
 function isInactive(lastLogin: string | null, now: number): boolean {
@@ -151,7 +140,7 @@ export async function buildUserActivity(
 
   const recentQueryShapes = sub
     ? queryActivity(db, { actorSub: sub, eventType: 'query_run', limit: 10 })
-        .map((r) => parseShape(r.detailJson))
+        .map((r) => parseQueryShape(r.detailJson))
         .filter((s): s is ReturnType<typeof projectQueryShape> => s !== null)
     : [];
 

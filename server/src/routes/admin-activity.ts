@@ -18,6 +18,8 @@ import type { FastifyInstance } from 'fastify';
 import { requireRole } from '../middleware/require-role.js';
 import { requireFeature } from '../middleware/require-feature.js';
 import { buildActivitySummary, buildUserActivity } from '../services/activity-aggregator.js';
+import { buildUserSessions } from '../services/session-aggregator.js';
+import { getAccess, normalizeEmail } from '../auth/access-store.js';
 import { queryAccessAudit, type AccessAuditFilters } from '../auth/access-audit-store.js';
 
 interface AuditQuery {
@@ -45,6 +47,22 @@ export default async function adminActivityRoutes(app: FastifyInstance): Promise
     }
     return activity;
   });
+
+  // Gap-derived session timeline. Separate from the activity rollup above so the
+  // Access (govern) surface can read cheap vitals without pulling sessions, and
+  // the Activity profile pulls sessions only when opened. 404s for an unknown
+  // user; a known user with no events returns an empty (non-null) timeline.
+  app.get<{ Params: { email: string }; Querystring: { limit?: string } }>(
+    '/api/admin/activity/users/:email/sessions',
+    async (req, reply) => {
+      const email = decodeURIComponent(req.params.email);
+      if (!getAccess(normalizeEmail(email))) {
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Unknown user' } });
+      }
+      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+      return buildUserSessions(email, { limit: Number.isFinite(limit) ? limit : undefined });
+    },
+  );
 
   // Filtered audit-log read (newest-first) for the audit-log viewer.
   app.get<{ Querystring: AuditQuery }>('/api/admin/audit', async (req) => {

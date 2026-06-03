@@ -59,6 +59,18 @@ describe('resolveTab', () => {
     expect(resolveTab('', TABS)).toBe('sessions');
   });
 
+  it('keeps the Observability tab active on the per-user drill-in sub-route', () => {
+    // Mirrors ADMIN_TABS in pages/Admin/hub/index.tsx. The /:email drill-in must
+    // not fall through to the first tab — the Observability tab stays highlighted.
+    const adminTabs: TabDef[] = [
+      { key: 'access', label: 'Users & Access', path: '/admin/access' },
+      { key: 'observability', label: 'Observability', path: '/admin/observability' },
+      { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev' },
+    ];
+    expect(resolveTab('/admin/observability', adminTabs)).toBe('observability');
+    expect(resolveTab('/admin/observability/lan.pham%40vng.com.vn', adminTabs)).toBe('observability');
+  });
+
   it('returns first tab when tabs list is empty (guard)', () => {
     const single: TabDef[] = [{ key: 'only', label: 'Only', path: '/only' }];
     expect(resolveTab('/no-match', single)).toBe('only');

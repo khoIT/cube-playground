@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockApiFetch = vi.fn();
@@ -19,6 +20,11 @@ vi.mock('../../../../api/feature-open-beacon', () => ({ recordExport: vi.fn() })
 
 import { ObservabilityTab } from '../observability-tab';
 
+/** ObservabilityTab renders <Link>s (inactive rows, pending queue) → needs a Router. */
+function renderTab() {
+  return render(<MemoryRouter><ObservabilityTab /></MemoryRouter>);
+}
+
 const SUMMARY = {
   usersByStatus: { active: 4, pending: 1, disabled: 2 },
   activeLast7d: 3,
@@ -29,12 +35,13 @@ const SUMMARY = {
   generatedAt: 1_780_000_000_000,
 };
 
-/** Route apiFetch by URL + method so summary, audit, and PATCH all resolve. */
-function routeApiFetch(summary: Record<string, unknown> = SUMMARY) {
+/** Route apiFetch by URL + method so summary, users, audit, and PATCH all resolve. */
+function routeApiFetch(summary: Record<string, unknown> = SUMMARY, users: unknown[] = []) {
   mockApiFetch.mockImplementation((url: string, opts?: { method?: string }) => {
     if (url.startsWith('/api/admin/activity/summary')) return Promise.resolve(summary);
+    if (url.startsWith('/api/admin/users')) return Promise.resolve({ users });
     if (url.startsWith('/api/admin/audit')) return Promise.resolve({ entries: [] });
-    if (opts?.method === 'PATCH') return Promise.resolve(undefined); // quick-disable
+    if (opts?.method === 'PATCH') return Promise.resolve(undefined); // quick-disable / approve
     return Promise.resolve({});
   });
 }
@@ -46,25 +53,25 @@ describe('ObservabilityTab', () => {
   });
 
   it('renders status rollup KPIs', async () => {
-    render(<ObservabilityTab />);
+    renderTab();
     expect(await screen.findByText('4')).toBeDefined(); // active
     expect(screen.getByText('Active')).toBeDefined();
     expect(screen.getByText('Disabled')).toBeDefined();
   });
 
   it('renders total chat turns, and "—" when chat is unreachable', async () => {
-    render(<ObservabilityTab />);
+    renderTab();
     expect(await screen.findByText('42')).toBeDefined();
   });
 
   it('shows "—" + unreachable note when totalChatTurns is null', async () => {
     routeApiFetch({ ...SUMMARY, totalChatTurns: null });
-    render(<ObservabilityTab />);
+    renderTab();
     expect(await screen.findByText(/chat-service unreachable/i)).toBeDefined();
   });
 
   it('lists inactive users with a quick-disable action', async () => {
-    render(<ObservabilityTab />);
+    renderTab();
     expect(await screen.findByText('stale@corp.com')).toBeDefined();
     const disableBtn = await screen.findByRole('button', { name: /^disable$/i });
     fireEvent.click(disableBtn);
@@ -77,9 +84,18 @@ describe('ObservabilityTab', () => {
   });
 
   it('renders top features', async () => {
-    render(<ObservabilityTab />);
+    renderTab();
     expect(await screen.findByText(/Dashboards/i)).toBeDefined();
     expect(screen.getByText('12')).toBeDefined();
+  });
+
+  it('surfaces pending users in the approval queue', async () => {
+    routeApiFetch(SUMMARY, [
+      { email: 'newbie@corp.com', role: 'viewer', status: 'pending', kcSub: null, workspaces: [], games: [], features: {}, lastLogin: null },
+    ]);
+    renderTab();
+    expect(await screen.findByText('newbie@corp.com')).toBeDefined();
+    expect(await screen.findByText(/pending approval/i)).toBeDefined();
   });
 
   it('shows an error banner when the summary fetch fails', async () => {
@@ -87,7 +103,7 @@ describe('ObservabilityTab', () => {
       if (url.startsWith('/api/admin/activity/summary')) return Promise.reject(new Error('boom'));
       return Promise.resolve({ entries: [] });
     });
-    render(<ObservabilityTab />);
+    renderTab();
     expect(await screen.findByText(/couldn't load observability data/i)).toBeDefined();
   });
 });

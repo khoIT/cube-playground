@@ -120,6 +120,24 @@ export function projectQueryShape(
 }
 
 /**
+ * Inverse of `projectQueryShape` for the read path: parse a persisted
+ * `detail_json` back into the structural shape. Tolerates a malformed/corrupt
+ * row by returning null rather than throwing — a single bad row must never 500
+ * an admin observability route. (Unreachable in practice: the only writer is
+ * the projector above, but cheap insurance against a hand-edited row.)
+ */
+export function parseQueryShape(
+  detailJson: string | null,
+): { cubes: string[]; measures: string[]; dimensions: string[] } | null {
+  if (!detailJson) return null;
+  try {
+    return JSON.parse(detailJson) as { cubes: string[]; measures: string[]; dimensions: string[] };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Synchronous insert. Throws on failure — used by `recordActivity` (which
  * swallows) and directly by tests that assert on the persisted row.
  */
