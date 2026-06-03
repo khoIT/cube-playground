@@ -2,6 +2,22 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-03 — Unified Concept Fabric (trust/visibility ladder, registry, reverse index, linking, authoring)
+
+Shipped a cohesive concept system spanning glossary terms, business metrics, and segments with unified trust/visibility governance, bidirectional references, and concept-aware authoring flows. Plan: `plans/260603-0324-unified-concept-fabric/` (phases 0–5). Tests: 8 new server tests (concept-authoring-governance, concept-reverse-index, glossary-unified-refs, trust-mapping); 4 FE tests (concept-chip, concept-hover-card, resolve-concept, cross-layer-relations).
+
+- **Unified trust/visibility ladder.** New categorical trust ∈ {draft, certified, deprecated} and visibility ∈ {personal, shared, org} applied uniformly across glossary terms, metrics, and segments. Server-side mapping service (`trust-mapping.ts`) derives these on read from legacy `status` and `trustTier`; metrics gained a new optional `visibility` YAML key; segments got a nullable `visibility` column (migrations 027–028, NULL→personal on read). Glossary write-side remains derived (not persisted) — a read-side-first abstraction enabling future persistence without schema churn.
+
+- **Typed namespaced refs + dangling-guard.** Glossary `secondaryCatalogIds` now validated against a namespace allowlist (`business_metrics|data_model|segments`) and format (no `..`, proper segment IDs). Write-time enforcement in `glossary-validators.ts`; delete-time integrity check (`concept-ref-integrity.ts`) returns 409 if any glossary term or metric references a segment/metric being deleted.
+
+- **Concept reverse-index service** (`concept-reverse-index.ts`): derives three edge types per (workspace, game): field→metrics (which metrics use this cube field), metric→fields (which fields compose this metric), and field/term→segments (which segments filter on this dimension/term). Cached at the service layer, invalidated on glossary/metric/segment writes. New `GET /api/concepts/:namespace/:id/relations` endpoint returns typed edges (source type + target type + verb).
+
+- **Concept resolution + shared affordances (FE).** Model-driven `resolveConcept` (combines `resolveConceptHref` for type dispatch + `conceptTypedActions` for verb routing + `toConceptRef` for serialization). Shared `ConceptChip` component renders glyphs (▦ metric, ⓘ term, ＃ field, ◑ segment) with trust badges (draft/certified/deprecated). `ConceptHoverCard` hover-gates the relations fetch and renders navigable trust-badged edges; used across Chat assistant message flow, Catalog glossary rows, and Segments row actions. Components live in `src/components/concept-chip/` and integrate via `src/api/concepts-client.ts`.
+
+- **Authoring & governance.** `/api/glossary` and `/api/concepts` added to write-RBAC `PROTECTED_PREFIXES` (viewers blocked). `requireRole('admin')` on certify/trust-PATCH endpoints. New `POST /api/concepts/promote` (editor+) promotes a segment → draft glossary term and/or draft metric stub, atomically IDOR-safe (read source scoped by workspace). FE segment row menu + Catalog detail affordances surface "Promote to glossary term" action.
+
+- **Cross-layer explorer.** Schema Cartographer (`/catalog/data-model`) detail panel now shows reverse edges as navigable trust-badged chips grouped by verb (used_by_metrics, composed_by_terms, filtered_by_segments). New `?focus=` query parameter generalized to namespaced refs (e.g., `?focus=metric:revenue`, bare `cube.member` back-compat preserved). Layer filter pills (all / metrics / terms / fields / segments) added to the detail panel.
+
 ## 2026-05-31 — Connector management + cross-source/cross-game modeling (phases A–C)
 
 Editable connectors (move from `.env` to DB) + executable cross-game joins + declared cross-source links. Plan: `plans/260531-1016-connector-management-cross-source-modeling/`. Tests: 46 new server tests, all passing.

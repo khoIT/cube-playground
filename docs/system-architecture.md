@@ -265,6 +265,101 @@ Data analysts use drift-center and coverage surfaces to triage misalignments —
 
 ---
 
+## Unified Concept Fabric: Trust, Registry & Reverse Index
+
+Semantically unified layer bridging glossary terms, business metrics, and segments with a shared trust/visibility model, bidirectional reference tracking, and concept-aware authoring.
+
+### Trust & Visibility Model
+
+**Trust tiers** (draft → certified → deprecated) and **visibility** (personal → shared → org) apply uniformly across all concept types. Server derives these on read from legacy YAML + DB fields via `trust-mapping.ts`:
+
+- Glossary terms: mapped from legacy `status` + `trustTier` columns.
+- Metrics: read from YAML `trust` key (existing) + new `visibility` key (optional).
+- Segments: read from nullable `visibility` column (migration 028; NULL → personal on read).
+
+Write-side logic remains in YAML for metrics, SQL for glossary/segments; trust & visibility are derived read-time metadata, not persisted (yet), enabling future migration without schema thrashing.
+
+**Migrations:** 
+- `027-glossary-unified-trust-visibility.sql`: adds `trust`, `visibility` nullable columns to `glossary_terms` (not yet populated).
+- `028-segments-visibility.sql`: adds nullable `visibility` column to `segments`.
+
+### Concept Registry & Dangling-Ref Guard
+
+Glossary `secondaryCatalogIds` (links from a term to metrics/segments) now validated on write:
+
+- **Namespace allowlist:** refs must match `^(business_metrics|data_model|segments)/[a-z0-9_-]+$`.
+- **No path traversal:** `..` blocked.
+- **Delete-time integrity:** `concept-ref-integrity.ts` enforces: if a segment or metric is deleted, any glossary term referencing it returns 409.
+
+**Routes:**
+- `POST/PUT /api/glossary` + `PATCH /api/glossary/:id/status` validate refs at write.
+- `DELETE /api/segments/:id` + `DELETE /api/business-metrics/:id` check concept refs before cascade.
+
+### Concept Reverse-Index Service
+
+`concept-reverse-index.ts` derives three edge types per (workspace, game), cached at the service layer:
+
+1. **field→metrics:** which metrics use a given cube field (via dimension/measure refs).
+2. **metric→fields:** which fields compose a given metric (reverse of above).
+3. **field/term→segments:** which segments filter on a given dimension/glossary term.
+
+Caches keyed by (workspaceId, gameId); invalidated atomically on glossary/metric/segment writes.
+
+**New endpoint:** `GET /api/concepts/:namespace/:id/relations`
+
+Returns:
+```json
+{
+  "concept": { "namespace": "business_metrics", "id": "revenue", "trust": "certified", "visibility": "org" },
+  "edges": [
+    { "source": { "type": "metric", "id": "revenue" }, "verb": "used_by_metrics", "target": { "type": "segment", "id": "high_spenders" } },
+    { "source": { "type": "field", "id": "mf_users.total_spent" }, "verb": "composed_by_metrics", "target": { "type": "metric", "id": "revenue" } }
+  ]
+}
+```
+
+### Authoring & Governance
+
+**Write-RBAC:** `/api/glossary/*` and `/api/concepts/*` routes added to `PROTECTED_PREFIXES` (viewers blocked; editor+ allowed).
+
+**Trust PATCH:** `PATCH /api/business-metrics/:id/trust` (admin-only; validates refs via Cube `/meta`) certifies a metric from draft → certified.
+
+**Promotion:** `POST /api/concepts/promote` (editor+, IDOR-safe)
+
+Takes a segment and optionally promotes it to:
+- A new draft glossary term (with auto-generated definition).
+- A new draft metric stub (optionally wrapping the segment's count measure).
+
+Promotion is atomic and scoped by workspace (no cross-workspace promotion leakage).
+
+**Related services:**
+- `promote-to-term.ts`: segment → term + metric stub generation.
+- `concept-promote.ts` (route): handles the HTTP request, IDOR, and persistence.
+
+### Concept Frontend Components
+
+**ConceptChip** (`src/components/concept-chip/`): Renders a concept reference with glyph + label + optional trust badge.
+- Glyphs: ▦ (metric), ⓘ (glossary term), ＃ (field), ◑ (segment).
+- Badges: draft/certified/deprecated labels.
+- Interactive: click → navigate; hover → card delay.
+
+**ConceptHoverCard** (`src/components/concept-hover-card/`): On hover, fetches relations and renders:
+- Concept header (type + trust + visibility).
+- Categorized edges (used_by_metrics, composed_by_terms, filtered_by_segments) as navigable chips.
+- Throttled relation fetch (500 ms debounce, per-concept cache).
+
+**Usage:** Chat assistant message flow (glossary terms inline), Catalog glossary rows (secondary refs as chips), Segments row actions (promotion affordance).
+
+### Cross-Layer Explorer
+
+Schema Cartographer (`/catalog/data-model/:cubeId` detail) now surfaces reverse edges as a dedicated panel:
+
+- **Concept Relations Section:** Shows every reverse edge from the selected field/member, grouped by verb (used_by, composed_by, filtered_by).
+- **Layer Filter Pills:** Toggles visibility of metrics / terms / fields / segments in the edge list.
+- **Generalized `?focus=` param:** Accepts namespaced refs (`metric:revenue`, `segment:high_spenders`, `term:customer_lifetime_value`) or bare cube member name (backward compatible).
+
+---
+
 ## Future Directions
 
 **Semantic cache deferred** — exact-match cache (Layer 4) deferred pending production hit-rate measurement. If exact-match hit-rate <10%, revisit embedding-based semantic matching via a higher-latency service.

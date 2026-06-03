@@ -78,13 +78,13 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 
 | Method | Path | Auth/Roles | Headers | Response | Data sources |
 |---|---|---|---|---|---|
-| GET | `/api/business-metrics` | none | `x-cube-workspace`, `?game` | `{metrics}` trust adj per game | metrics cache, Cube `/meta` |
+| GET | `/api/business-metrics` | none | `x-cube-workspace`, `?game` | `{metrics}` w/ trust/visibility per game | metrics cache, Cube `/meta`, trust-mapping |
 | GET | `/api/business-metrics/drift` | none | `?game` (req) | drift report; 502 DRIFT_FAILED | metrics cache, Cube `/meta` |
 | GET | `/api/business-metrics/coverage` | none | `x-cube-workspace`, `?game` | coverage matrix; fail-open per game | metrics cache, Cube `/meta` |
-| POST | `/api/business-metrics/scaffold` | editor, admin | `authorization` | 201 `{created,skipped}` | YAML writer, audit store |
-| GET | `/api/business-metrics/:id` | none | `?game` | single metric / 404 | metrics cache, Cube `/meta` |
-| POST | `/api/business-metrics` | editor, admin | `authorization` | 201 canonical metric | YAML writer, cache, audit |
-| PATCH | `/api/business-metrics/:id/trust` | editor, admin | `authorization`, `?game` | 200 metric; certify validates refs | YAML, Cube `/meta`, audit |
+| POST | `/api/business-metrics/scaffold` | editor, admin | `authorization` | 201 `{created,skipped}` (as draft) | YAML writer, audit store |
+| GET | `/api/business-metrics/:id` | none | `?game` | single metric w/ trust/visibility / 404 | metrics cache, Cube `/meta`, trust-mapping |
+| POST | `/api/business-metrics` | editor, admin | `authorization` | 201 canonical metric (status=draft) | YAML writer, cache, audit |
+| PATCH | `/api/business-metrics/:id/trust` | admin | `authorization`, `?game` | 200 metric; certify draft→certified validates Cube refs | YAML, Cube `/meta`, audit, concept-ref-integrity |
 | GET | `/api/business-metrics/:id/history` | none | — | `{entries}` newest-first | SQLite audit store |
 | GET | `/api/business-metrics/drift-center` | none | `x-cube-workspace`, `?game` (req) | grouped drift; prefix ws → `groups:[]`,`prefixUnsupported:true` | drift-snapshot store, cache, Cube `/meta` |
 | PATCH | `/api/business-metrics/:id/repoint` | editor, admin | `authorization` | 200 metric (ref from→to) | YAML, Cube `/meta`, audit |
@@ -93,19 +93,21 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | POST | `/api/business-metrics/drift-runs/run` | editor, admin | `authorization`, `{game}` | triggers reconcile; runs payload | anomaly-detector, Cube `/meta`, stores |
 | POST | `/api/cdp/v1/metrics` | none ⚠️ not gated | — | `{metric_id,status}` proxy to MM-01; 503 NOT_CONFIGURED | external MM-01 CDP API |
 | GET | `/api/glossary` | none | `if-none-match` (ETag) `?status` | `{terms}` + weak ETag; 304 | SQLite glossary_terms, metrics cache |
-| GET | `/api/glossary/:id` | none | — | term / 404 | SQLite glossary_terms |
-| POST | `/api/glossary` | none ⚠️ not gated | — | 201 term (status=draft) / 409 | SQLite glossary_terms |
-| PUT | `/api/glossary/:id` | none ⚠️ not gated | — | updated term | SQLite glossary_terms |
-| PATCH | `/api/glossary/:id/status` | none ⚠️ not gated | — | draft↔official | SQLite glossary_terms |
-| DELETE | `/api/glossary/:id` | none ⚠️ not gated | — | 204 / 409 seed_protected | SQLite glossary_terms |
+| GET | `/api/glossary/:id` | none | — | term w/ trust/visibility / 404 | SQLite glossary_terms, trust-mapping |
+| POST | `/api/glossary` | editor, admin | `authorization` | 201 term (status=draft, validates secondaryCatalogIds) / 409 | SQLite glossary_terms, concept-ref-integrity |
+| PUT | `/api/glossary/:id` | editor, admin | `authorization` | updated term (validates refs) / 409 DANGLING_REF | SQLite glossary_terms |
+| PATCH | `/api/glossary/:id/status` | admin | `authorization` | draft↔official; certify validates Cube refs | SQLite glossary_terms, Cube `/meta`, concept-ref-integrity |
+| DELETE | `/api/glossary/:id` | editor, admin | `authorization` | 204 / 409 seed_protected / 409 dangling_refs | SQLite glossary_terms, concept-ref-integrity |
+| GET | `/api/concepts/:namespace/:id/relations` | none | — | `{concept, edges}` w/ trust/visibility | concept-reverse-index, Cube `/meta` |
+| POST | `/api/concepts/promote` | editor, admin | `authorization` | 201 `{term?, metric?, segment}` IDOR-safe | SQLite glossary/metrics, YAML writer, promote-to-term |
 
 ### segments, identity, liveops
 
 | Method | Path | Auth/Roles | Headers | Response | Data sources |
 |---|---|---|---|---|---|
-| GET | `/api/segments` | none | `x-cube-workspace`, `x-owner` `?owner,type,q,sort,game_id` | hydrated segments (no uid_list) scoped to ws | SQLite segments/segment_tags |
-| POST | `/api/segments` | editor, admin | `authorization`, `x-owner` | 201 segment | SQLite, translator, refresh-queue |
-| GET | `/api/segments/:id` | none ⚠️ not ws/owner scoped | `x-cube-workspace` | full segment + card_cache / 404 | SQLite, card-cache-store |
+| GET | `/api/segments` | none | `x-cube-workspace`, `x-owner` `?owner,type,q,sort,game_id` | hydrated segments (no uid_list, visibility default personal) scoped to ws | SQLite segments/segment_tags, trust-mapping |
+| POST | `/api/segments` | editor, admin | `authorization`, `x-owner` | 201 segment (visibility=personal default) | SQLite, translator, refresh-queue |
+| GET | `/api/segments/:id` | none ⚠️ not ws/owner scoped | `x-cube-workspace` | full segment + card_cache + visibility / 404 | SQLite, card-cache-store, trust-mapping |
 | PATCH | `/api/segments/:id` | editor, admin + **owner 403** | `authorization`, `x-owner` | updated segment | SQLite, translator, refresh-queue |
 | DELETE | `/api/segments/:id` | editor, admin + **owner 403** | `authorization`, `x-owner` | 204 | SQLite segments |
 | POST | `/api/segments/:id/append` | editor, admin (no owner check) | `authorization` | `{uid_count}` | SQLite segments |
