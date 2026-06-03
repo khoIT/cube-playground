@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Prototype (huashu)"
-status: pending
+status: complete
 priority: P1
 effort: "1-2d"
 dependencies: []
@@ -30,9 +30,9 @@ Static HTML/CSS (huashu output) — no backend. Encodes the affordance vocabular
 4. Capture chosen affordance decisions (chip glyphs, badge colors, action ordering) as notes for P3/P5.
 
 ## Success Criteria
-- [ ] 3 clickable hi-fi screens in `visuals/`, token-compliant
-- [ ] Affordance vocabulary (chips, badges, actions) decided + noted
-- [ ] User sign-off before P2 build starts
+- [x] 3 clickable hi-fi screens in `visuals/`, token-compliant — `visuals/index.html` (tabbed: cross-layer map · term hover-card · authoring/promote); rendered error-free, screenshots in `visuals/screen-{1,2,3}-*.png`
+- [x] Affordance vocabulary (chips, badges, actions) decided + noted — `visuals/affordance-decisions.md`
+- [x] User sign-off before P2 build starts — signed off 2026-06-03; affordance vocabulary approved, P2 unblocked
 
 ## Risk Assessment
 Prototype drift from real data shapes → use the whale/dolphin/spender real example, not lorem. Keep it throwaway (no premature componentization).

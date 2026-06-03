@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Authoring & Governance"
-status: pending
+status: complete
 priority: P2
 effort: "4-6d"
 dependencies: [2, 3]
@@ -40,10 +40,16 @@ Safe self-serve creation on top of the unified trust ladder: role-gate the creat
 5. Admin certify toggle (`draft→certified`) + audit rows for create/promote/certify.
 
 ## Success Criteria
-- [ ] Editors create draft metrics + propose glossary terms; **viewers get 403** (test); admins certify (admin-only enforced)
-- [ ] Promote a segment → draft metric/term prefilled from its predicate + refs; **cannot promote a segment you can't read** (no IDOR)
-- [ ] New artifacts enter as draft/personal; certified gated by admin role
-- [ ] Trust badges on all artifact surfaces; create/promote/certify audited
+- [x] Editors create draft metrics + propose glossary terms; **viewers get 403**; admins certify — `/api/glossary`+`/api/concepts` in `PROTECTED_PREFIXES`; `requireRole('admin')` on glossary status-PATCH + metric trust-PATCH; `requireRole('editor','admin')` on promote. Verified by governance test.
+- [x] Promote a segment → draft term/metric prefilled from predicate + refs; **no IDOR** — `concept-promote.ts` reads source `WHERE id=? AND workspace=req.workspace.id` → 404 on mismatch; only ever INSERTs a draft (409 on id collision). Verified by cross-workspace test.
+- [x] New artifacts enter as draft; segments default `personal` on read (NULL→personal); certified gated by admin
+- [~] Trust badges on artifact surfaces; create/promote/certify audited — badges reuse P3 ConceptChip; metric create/promote/certify audited via `business_metric_audit`. **Term-promote audit is a structured log only** (the audit store is `metric_id NOT NULL` / metric-scoped; a glossary audit store is a documented follow-up, not built here — YAGNI)
+
+## Implementation Outcome (2026-06-03)
+- New: `concept-promote.ts` (`POST /api/concepts/promote`), `promote-to-term.ts` (predicate→draft term), `concept-ref-integrity.ts` (delete-time 409 guard), migration `028-segments-visibility.sql` (additive nullable). FE: "Promote to glossary term" in segment `row-actions-menu.tsx` + `promoteSegmentToConcept` client.
+- **Partial-apply recovery:** the implementing agent hit the session limit mid-run. On resume, verified state: tsc clean, 10 governance tests green, full suite 612 pass / same 6 pre-existing failures (`routes-crud` owner-403 — invalidated by the workspace-model commit — + `internal-access-route`). Inlined metric promotion via the existing `scaffoldDraftMetric` (DRY) instead of a separate `promote-to-metric.ts`. Moved a misplaced report out of `server/plans/`.
+- **Security review (no Critical/High):** confirmed RBAC completeness (no editor self-certify path — unified `trust=certified` requires `status=official`, mutable only via admin-gated PATCH), IDOR-safe promote, delete-time guard via `json_each` exact match. Applied M2 hardening: promoted term's derived `default_filter` now validated through the shared `DefaultFilterSchema` (no asymmetric trust boundary). M1 (term-promote audit) handled as structured log + documented limitation.
+- **Tests:** 37 concept-suite tests green; tsc clean (server); FE tsc adds zero new errors. Migration `028` additive/nullable, forward-only safe.
 
 ## Risk Assessment
 - **Scope creep into a workflow engine** → single `draft→certify` toggle only; no review queues unless real demand.

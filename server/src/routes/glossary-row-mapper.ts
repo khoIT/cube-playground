@@ -4,6 +4,13 @@
  * the seed migrator can reuse `safeArray` without pulling in Fastify deps.
  */
 
+import {
+  glossaryTrust,
+  GLOSSARY_VISIBILITY,
+  type Trust,
+  type Visibility,
+} from '../services/trust-mapping.js';
+
 export interface GlossaryRow {
   id: string;
   label: string;
@@ -49,6 +56,12 @@ export interface GlossaryTerm {
   defaultFilter: Record<string, unknown> | null;
   ranking: Record<string, unknown> | null;
   trustTier: 'certified' | 'experimental' | null;
+  // Unified trust/visibility ladder, DERIVED from the legacy status/trustTier
+  // columns via trust-mapping (the stored `trust`/`visibility` columns added in
+  // migration 027 stay reserved for a later flagged cutover). Glossary terms are
+  // an org-wide vocabulary, so visibility is always 'org'.
+  trust: Trust;
+  visibility: Visibility;
   // Derived on read from the catalog formula — NOT stored columns. `rowToTerm`
   // emits null/'unknown' defaults; the list/by-id routes enrich them via
   // `deriveMeasureRef` (the catalog loader is boot-cached there).
@@ -104,6 +117,11 @@ export function rowToTerm(row: GlossaryRow): GlossaryTerm {
       row.trust_tier === 'certified' || row.trust_tier === 'experimental'
         ? row.trust_tier
         : null,
+    trust: glossaryTrust(
+      row.status,
+      row.trust_tier === 'certified' || row.trust_tier === 'experimental' ? row.trust_tier : null,
+    ),
+    visibility: GLOSSARY_VISIBILITY,
     // Defaults; enriched by the route via deriveMeasureRef (loader-aware).
     measureRef: null,
     ratioRef: null,

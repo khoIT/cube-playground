@@ -13,9 +13,10 @@
 import { ReactElement, useState, MouseEvent } from 'react';
 import { Dropdown, message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { MoreHorizontal, Trash2, Copy } from 'lucide-react';
+import { MoreHorizontal, Trash2, Copy, ArrowUpRight } from 'lucide-react';
 import styled from 'styled-components';
 import { segmentsClient } from '../../../api/segments-client';
+import { promoteSegmentToConcept } from '../../../api/concepts-client';
 import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
@@ -127,6 +128,22 @@ export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
     }
   }
 
+  async function handlePromote() {
+    try {
+      await promoteSegmentToConcept(segment.id, 'term');
+      message.success(
+        t('segments.actions.promote.success', {
+          defaultValue: 'Proposed “{{name}}” as a draft glossary term',
+          name: segment.name,
+        }),
+      );
+    } catch (err) {
+      // 403 → caller lacks the editor role; surface the server message verbatim.
+      const reason = err instanceof SegmentApiError ? err.message : 'Failed to promote segment';
+      message.error(reason);
+    }
+  }
+
   const overlay = (
     <Shell role="menu" aria-label={t('segments.actions.more', { defaultValue: 'More actions' })}>
       <Row
@@ -139,6 +156,17 @@ export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
       >
         <Copy size={14} aria-hidden />
         {t('segments.actions.duplicate.menuItem', { defaultValue: 'Duplicate segment' })}
+      </Row>
+      <Row
+        type="button"
+        role="menuitem"
+        onClick={(e) => {
+          stop(e);
+          void handlePromote();
+        }}
+      >
+        <ArrowUpRight size={14} aria-hidden />
+        {t('segments.actions.promote.menuItem', { defaultValue: 'Promote to glossary term' })}
       </Row>
       <Divider aria-hidden />
       <Row

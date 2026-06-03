@@ -22,6 +22,9 @@ import {
 } from './glossary-row-mapper.js';
 import { deriveMeasureRef } from './glossary-measure-ref-resolver.js';
 import { getById as getMetricById } from '../services/business-metrics-loader.js';
+import { parseRef } from '../services/trust-mapping.js';
+import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
+import { requireRole } from '../middleware/require-role.js';
 import {
   CreateTermSchema,
   UpdateTermSchema,
@@ -61,16 +64,42 @@ function enrichTerm(term: GlossaryTerm): GlossaryTerm {
   };
 }
 
+/**
+ * Returns the subset of typed refs that point at a non-existent target.
+ * business_metrics → metric registry; segments → segments table. data_model
+ * refs are grammar-only here (live /meta membership is covered by the scheduled
+ * metric-coverage check, not on every glossary write).
+ */
+function danglingRefs(refs: string[] | undefined): string[] {
+  if (!refs?.length) return [];
+  const bad: string[] = [];
+  for (const ref of refs) {
+    const parsed = parseRef(ref);
+    if (!parsed) { bad.push(ref); continue; }
+    if (parsed.namespace === 'business_metrics') {
+      if (!getMetricById(parsed.id)) bad.push(ref);
+    } else if (parsed.namespace === 'segments') {
+      const row = getDb().prepare('SELECT 1 FROM segments WHERE id = ?').get(parsed.id);
+      if (!row) bad.push(ref);
+    }
+  }
+  return bad;
+}
+
 export default async function glossaryRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/glossary', async (req, reply) => {
     const parsed = ListQuerySchema.safeParse(req.query ?? {});
     if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
 
-    const sql = parsed.data.status
+    // `status` wins; otherwise map the unified `trust` alias onto a status filter.
+    const statusFilter =
+      parsed.data.status ??
+      (parsed.data.trust ? (parsed.data.trust === 'certified' ? 'official' : 'draft') : undefined);
+    const sql = statusFilter
       ? `SELECT ${SELECT_COLS} FROM glossary_terms WHERE status = ? ORDER BY label COLLATE NOCASE ASC`
       : `SELECT ${SELECT_COLS} FROM glossary_terms ORDER BY label COLLATE NOCASE ASC`;
     const stmt = getDb().prepare(sql);
-    const rows = (parsed.data.status ? stmt.all(parsed.data.status) : stmt.all()) as GlossaryRow[];
+    const rows = (statusFilter ? stmt.all(statusFilter) : stmt.all()) as GlossaryRow[];
 
     const etag = listEtag();
     if (req.headers['if-none-match'] === etag) {
@@ -95,6 +124,11 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
 
     if (getRowById(id)) return reply.status(409).send({ code: 'conflict', message: 'id exists' });
 
+    const dangling = danglingRefs(input.secondaryCatalogIds);
+    if (dangling.length) {
+      return reply.status(400).send({ code: 'dangling_ref', message: 'unknown ref target(s)', refs: dangling });
+    }
+
     const now = Date.now();
     getDb().prepare(`
       INSERT INTO glossary_terms
@@ -102,6 +136,7 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(...termToWriteParams({ ...input, id, status: 'draft', source: 'user', updatedAt: now }));
 
+    invalidateReverseIndex();
     return reply.status(201).send(rowToTerm(getRowById(id) as GlossaryRow));
   });
 
@@ -111,6 +146,11 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
 
     const parsed = UpdateTermSchema.safeParse(req.body ?? {});
     if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
+
+    const dangling = danglingRefs(parsed.data.secondaryCatalogIds);
+    if (dangling.length) {
+      return reply.status(400).send({ code: 'dangling_ref', message: 'unknown ref target(s)', refs: dangling });
+    }
 
     const now = Date.now();
     const jsonOrNull = (o?: Record<string, unknown> | null): string | null =>
@@ -145,23 +185,32 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
       req.params.id,
     );
 
+    invalidateReverseIndex();
     return rowToTerm(getRowById(req.params.id) as GlossaryRow);
   });
 
-  app.patch<{ Params: { id: string } }>('/api/glossary/:id/status', async (req, reply) => {
-    const existing = getRowById(req.params.id);
-    if (!existing) return reply.status(404).send({ code: 'not_found' });
+  // Promoting a term to official/certified is an admin-only act — it gates what
+  // the chat agent treats as authoritative. Editors may create/edit drafts but
+  // cannot certify them; that requires an explicit admin sign-off.
+  app.patch<{ Params: { id: string } }>(
+    '/api/glossary/:id/status',
+    { preHandler: requireRole('admin') },
+    async (req, reply) => {
+      const existing = getRowById(req.params.id);
+      if (!existing) return reply.status(404).send({ code: 'not_found' });
 
-    const parsed = StatusPatchSchema.safeParse(req.body ?? {});
-    if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
+      const parsed = StatusPatchSchema.safeParse(req.body ?? {});
+      if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
 
-    getDb().prepare(`
-      UPDATE glossary_terms SET status = ?, editor_name = COALESCE(?, editor_name), updated_at = ?
-      WHERE id = ?
-    `).run(parsed.data.status, parsed.data.editorName ?? null, Date.now(), req.params.id);
+      getDb().prepare(`
+        UPDATE glossary_terms SET status = ?, editor_name = COALESCE(?, editor_name), updated_at = ?
+        WHERE id = ?
+      `).run(parsed.data.status, parsed.data.editorName ?? null, Date.now(), req.params.id);
 
-    return rowToTerm(getRowById(req.params.id) as GlossaryRow);
-  });
+      invalidateReverseIndex();
+      return rowToTerm(getRowById(req.params.id) as GlossaryRow);
+    },
+  );
 
   app.delete<{ Params: { id: string } }>('/api/glossary/:id', async (req, reply) => {
     const existing = getRowById(req.params.id);
@@ -173,6 +222,7 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
       });
     }
     getDb().prepare(`DELETE FROM glossary_terms WHERE id = ?`).run(req.params.id);
+    invalidateReverseIndex();
     return reply.status(204).send();
   });
 }

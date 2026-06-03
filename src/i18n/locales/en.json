@@ -42,6 +42,11 @@
         "copyName": "{{name}} (copy)",
         "success": "Duplicated as “{{name}}”"
       },
+      "promote": {
+        "menuItem": "Promote to glossary term",
+        "success": "Proposed “{{name}}” as a draft glossary term",
+        "error": "Failed to promote segment"
+      },
       "bulk": {
         "selected": "{{count}} selected",
         "clear": "Clear selection",

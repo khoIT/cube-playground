@@ -54,6 +54,11 @@ const TermSchema = z.object({
   defaultFilter: ConceptFilterSchema,
   ranking: ConceptRankingSchema,
   trustTier: z.enum(['certified', 'experimental']).nullable().optional(),
+  // Unified trust/visibility ladder (server-derived). Optional so older server
+  // snapshots without these fields still parse; grounding may later prefer
+  // `trust: certified`.
+  trust: z.enum(['draft', 'certified', 'deprecated']).optional(),
+  visibility: z.enum(['personal', 'shared', 'org']).optional(),
 });
 
 const ListSchema = z.object({ terms: z.array(TermSchema) });

@@ -5,12 +5,13 @@
  * place. A small Draft/Official pill flags publication state at a glance.
  */
 import React from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Pencil } from 'lucide-react';
 import type { GlossaryTerm } from '../../../api/glossary-client';
 import { isConceptTerm } from '../../../api/glossary-client';
-import { resolveGlossaryHref } from './resolve-glossary-link';
+import { resolveConceptHref } from './resolve-concept';
+import { ConceptChip } from '../../../components/concept-chip/concept-chip';
+import { ConceptHoverCard } from '../../../components/concept-hover-card/concept-hover-card';
 
 interface Props {
   term: GlossaryTerm;
@@ -109,33 +110,28 @@ const ConceptBadge = styled.span`
   color: var(--info-ink, #2563eb);
 `;
 
-const CatalogChip = styled(Link)`
-  align-self: flex-start;
-  margin-top: 4px;
-  font-size: 11.5px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: var(--brand-soft, rgba(240,90,34,0.1));
-  color: var(--brand, #f05a22);
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
+// CatalogChip replaced by the shared ConceptChip component.
 
 export function GlossaryRow({ term, onEdit, editLabel, draftLabel, officialLabel }: Props) {
-  const href = resolveGlossaryHref(term);
+  const href = resolveConceptHref(term);
   // Show the destination chip only when the term routes somewhere other than
   // its own anchored row (i.e. a metric or a pre-filtered Build query). Filter-
-  // only concept terms route to their own row, so they get no chip here.
+  // only concept terms route to their own glossary row, so they get no chip here.
   const chipHref = href.startsWith('/catalog/glossary#') ? null : href;
-  const chipLabel = term.primaryCatalogId ?? term.defaultMeasureRef ?? 'Open in Build';
+  // Determine kind for the chip: metric when primaryCatalogId is business_metrics/*,
+  // otherwise concept for general glossary terms.
+  const chipKind = term.primaryCatalogId?.startsWith('business_metrics/') ? 'metric' : 'concept';
+  const chipLabel = term.primaryCatalogId?.startsWith('business_metrics/')
+    ? (term.primaryCatalogId.replace('business_metrics/', '') || 'metric')
+    : term.defaultMeasureRef ?? 'Open in Build';
   const allAliases = [...term.aliases, ...term.aliasesVi];
   return (
     <Row data-glossary-id={term.id}>
       <TopLine>
-        <Label>{term.label}</Label>
+        {/* Wrap the label in a hover-card so concept details surface on hover. */}
+        <ConceptHoverCard term={term}>
+          <Label>{term.label}</Label>
+        </ConceptHoverCard>
         {term.labelVi ? <LabelVi>· {term.labelVi}</LabelVi> : null}
         {term.category ? <CategoryTag>{term.category}</CategoryTag> : null}
         {isConceptTerm(term) ? <ConceptBadge title={`Entity: ${term.entityCube ?? '—'}`}>concept</ConceptBadge> : null}
@@ -152,7 +148,10 @@ export function GlossaryRow({ term, onEdit, editLabel, draftLabel, officialLabel
       <Description>{term.description}</Description>
       {term.descriptionVi ? <DescriptionVi>{term.descriptionVi}</DescriptionVi> : null}
       {allAliases.length > 0 ? <Aliases>aka: {allAliases.join(', ')}</Aliases> : null}
-      {chipHref ? <CatalogChip to={chipHref}>{chipLabel}</CatalogChip> : null}
+      {/* ConceptChip replaces the old ad-hoc CatalogChip; trust badge surfaces certified/draft. */}
+      {chipHref ? (
+        <ConceptChip kind={chipKind} label={chipLabel} to={chipHref} trust={term.trust} />
+      ) : null}
     </Row>
   );
 }

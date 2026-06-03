@@ -1,7 +1,7 @@
 ---
 title: "Unified Concept Fabric"
 description: "Glossary-as-hub linking data-model fields ↔ metrics ↔ glossary ↔ segments, with a unified trust ladder, cross-product term resolution, governed self-serve authoring, and one cross-layer explorer."
-status: pending
+status: completed
 priority: P2
 branch: "main"
 tags: [glossary, metrics, semantic-layer, catalog, governance, chat-grounding]
@@ -27,11 +27,11 @@ Most infra already exists (concept-tier fields, `secondaryCatalogIds[]`, metric 
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | [Whale Resolver Quick-Fix](./phase-00-whale-resolver-quickfix.md) | Complete (commit/PR pending) |
-| 1 | [Prototype (huashu)](./phase-01-prototype.md) | Pending |
-| 2 | [Registry & Trust Model](./phase-02-registry-trust-model.md) | Pending |
-| 3 | [Linking & Affordance](./phase-03-linking-affordance.md) | Pending |
-| 4 | [Authoring & Governance](./phase-04-authoring-governance.md) | Pending |
-| 5 | [Unified Map](./phase-05-unified-map.md) | Pending |
+| 1 | [Prototype (huashu)](./phase-01-prototype.md) | Complete (signed off 2026-06-03) |
+| 2 | [Registry & Trust Model](./phase-02-registry-trust-model.md) | Complete (2026-06-03) |
+| 3 | [Linking & Affordance](./phase-03-linking-affordance.md) | Complete (2026-06-03) |
+| 4 | [Authoring & Governance](./phase-04-authoring-governance.md) | Complete (2026-06-03) |
+| 5 | [Unified Map](./phase-05-unified-map.md) | Complete (2026-06-03) |
 
 ## Sequencing & Dependencies
 

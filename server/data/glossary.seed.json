@@ -156,7 +156,10 @@
       "label_vi": "Cá voi",
       "description_vi": "Nhóm người chi tiêu cao nhất — thường là top 1% người trả phí theo mức chi.",
       "aliases_vi": ["cá voi", "whale"],
-      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "whale" }
+      "entity_cube": "mf_users",
+      "default_measure_ref": "mf_users.user_count",
+      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "whale" },
+      "trust_tier": "certified"
     },
     {
       "id": "dolphin",
@@ -168,7 +171,10 @@
       "label_vi": "Cá heo",
       "description_vi": "Nhóm người trả phí mức trung — nằm giữa minnow và whale.",
       "aliases_vi": ["cá heo", "dolphin"],
-      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "dolphin" }
+      "entity_cube": "mf_users",
+      "default_measure_ref": "mf_users.user_count",
+      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "dolphin" },
+      "trust_tier": "certified"
     },
     {
       "id": "minnow",
@@ -180,7 +186,10 @@
       "label_vi": "Cá nhỏ",
       "description_vi": "Nhóm người trả phí mức thấp.",
       "aliases_vi": ["cá nhỏ", "minnow"],
-      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "minnow" }
+      "entity_cube": "mf_users",
+      "default_measure_ref": "mf_users.user_count",
+      "default_filter_json": { "member": "mf_users.payer_tier", "op": "=", "value": "minnow" },
+      "trust_tier": "certified"
     },
     {
       "id": "revenue",

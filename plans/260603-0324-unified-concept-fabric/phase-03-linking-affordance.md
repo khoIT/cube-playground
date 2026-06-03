@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Linking & Affordance"
-status: pending
+status: complete
 priority: P2
 effort: "3-5d"
 dependencies: [2]
@@ -40,11 +40,16 @@ Make every term resolve to the right destination everywhere (chat, build, catalo
 5. Chat grounding: prefer certified refs; expose trust to badge. Integration point = server registry via existing chat-service HTTP client (Q3 resolved).
 
 ## Success Criteria
-- [ ] Zero term→index dead-ends; whale/dolphin/minnow resolve to field+segment+definition
-- [ ] One chip vocabulary across chat/build/catalog; type legible at a glance
-- [ ] Hover-card shows definition + typed actions
-- [ ] Chat resolves NL terms to certified definitions, badge shown
-- [ ] `resolveConcept` unit-tested incl. legacy `business_metrics/` path
+- [x] Zero term→index dead-ends; whale/dolphin/minnow resolve to field+segment+definition — `resolveConceptHref` anchors `#<id>`; `toConceptRef` derives `data_model/<member>` so payer-tier terms fetch segment relations
+- [x] One chip vocabulary across chat/build/catalog — `src/components/concept-chip/` used in glossary-row + chat assistant-message (▦/ⓘ/＃/◑)
+- [x] Hover-card shows definition + typed actions — `concept-hover-card/` (sync Define/Slice/See-metric + async Open-segment), hover-gated fetch, action cap
+- [~] Chat shows trust badge (FE) — `trust` surfaced on chip + hover-card. Server-side certified-ranking in chat-service deferred (out of P3 scope per spec)
+- [x] `resolveConcept` unit-tested incl. legacy `business_metrics/` path + `toConceptRef` + `use-concept-resolution` cache/race
+
+## Implementation Outcome (2026-06-03)
+- New: `resolve-concept.ts` (sync `resolveConceptHref`+`conceptTypedActions`+`toConceptRef`), `concepts-client.ts`, `concept-chip/`, `concept-hover-card/` (+`use-concept-resolution.ts` module-cache hook). Wired into `glossary-row.tsx` + `assistant-message.tsx`.
+- **Code review found 3 High + fixed:** H1 "Open segment" was dead for whale/dolphin/minnow (used null `primaryCatalogId`) → `toConceptRef` normalizer; H2 bare-member refs (`mf_users.country`) threw → same normalizer adds `data_model/` namespace; H3 a subscriber's unmount aborted the *shared* module fetch and poisoned the cache → removed per-subscriber abort (fetch runs to completion, subscribers just detach). M1 op-map duplication → reuse exported `toCubeFilter`. M2 → added `use-concept-resolution` two-subscriber-unmount test. Fetch hover-gated (was on-mount).
+- **Tests:** 132 green across glossary/chip/hover-card/chat; `tsc` clean (no new errors). Deferred (Low): a11y Escape-dismiss + touch path on hover-card.
 
 ## Risk Assessment
 - Per-anchor fetch storms → batch resolve + module cache (mirror `use-identity-map`).

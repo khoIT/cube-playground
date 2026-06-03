@@ -30,6 +30,8 @@ import anomalyStateRoutes from './routes/anomaly-state.js';
 import anomaliesRoutes from './routes/anomalies.js';
 import chatRoutes from './routes/chat.js';
 import glossaryRoutes from './routes/glossary.js';
+import conceptsRoutes from './routes/concepts.js';
+import conceptPromoteRoutes from './routes/concept-promote.js';
 import dashboardsRoutes from './routes/dashboards.js';
 import liveopsRoutes from './routes/liveops.js';
 import settingsRoutes from './routes/settings.js';
@@ -83,6 +85,8 @@ export async function buildApp() {
   await app.register(anomaliesRoutes);
   await app.register(chatRoutes);
   await app.register(glossaryRoutes);
+  await app.register(conceptsRoutes);
+  await app.register(conceptPromoteRoutes);
   await app.register(dashboardsRoutes);
   await app.register(liveopsRoutes);
   await app.register(settingsRoutes);

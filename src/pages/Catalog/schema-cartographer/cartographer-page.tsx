@@ -2,8 +2,12 @@
  * Schema Cartographer page — default tab at `/catalog/data-model`.
  *
  * Read-only browse + search over `useCatalogMeta`. Deep link with
- * `?focus=cube.member` selects the matching member. The legacy
- * `/catalog/schema` URL redirects here, preserving the focus param.
+ * `?focus=cube.member` (bare, back-compat) OR `?focus=<namespace>/<id>`
+ * (namespaced ref: data_model/, business_metrics/, segments/) selects the
+ * matching node. The legacy `/catalog/schema` URL redirects here.
+ *
+ * Layer filter pills (Fields / Metrics / Glossary / Segments) gate the cube
+ * tree visibility and which reverse-edge sections show in the detail panel.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
@@ -13,6 +17,7 @@ import { normaliseFqn } from '../data-model-tab/use-concepts';
 import { CartographerSearch } from './cartographer-search';
 import { CubeTree } from './cube-tree';
 import { MemberDetailPanel } from './member-detail-panel';
+import { LayerFilterPills, ALL_LAYERS, type LayerFilter } from './layer-filter-pills';
 import { searchMembers, useCartographerIndex } from './use-cartographer-index';
 
 const Page = styled.div`
@@ -63,13 +68,51 @@ const StatusLine = styled.div<{ $kind: 'info' | 'error' }>`
   color: ${(p) => (p.$kind === 'error' ? 'var(--danger)' : 'var(--text-muted)')};
 `;
 
+/**
+ * Parses a raw `?focus=` value into a canonical focus ref.
+ *
+ * Accepts two shapes:
+ *   - Namespaced ref: "<namespace>/<id>" — returned as-is (no normalisation).
+ *     Supported namespaces: data_model, business_metrics, segments.
+ *   - Bare cube member: "cube.member" — normalised via normaliseFqn for
+ *     back-compat (strips doubled prefixes like "mf_users.mf_users.dau").
+ *     Treated as "data_model/cube.member" internally for relation lookups but
+ *     the stored focus value stays bare so existing field-chip deep-links work.
+ */
+export function parseFocusRef(raw: string): string {
+  if (raw.includes('/')) {
+    // Already namespaced — pass through unchanged.
+    return raw;
+  }
+  // Bare cube.member — normalise only (strip duplicate prefix).
+  return normaliseFqn(raw);
+}
+
+/**
+ * Returns true when the focus ref is a bare cube.member (no namespace prefix).
+ * Used to decide whether to look up the member in the cartographer index.
+ */
+export function isBareDataModelRef(ref: string): boolean {
+  return !ref.includes('/');
+}
+
+/**
+ * Extracts the bare cube.member FQN from a data_model/ namespaced ref.
+ * Returns null for other namespace prefixes.
+ */
+export function extractDataModelFqn(ref: string): string | null {
+  if (ref.startsWith('data_model/')) return ref.slice('data_model/'.length);
+  if (!ref.includes('/')) return normaliseFqn(ref);
+  return null;
+}
+
 function useFocusFromQuery(): [string | null, (next: string | null) => void] {
   const history = useHistory();
   const location = useLocation();
   const value = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const raw = params.get('focus');
-    return raw ? normaliseFqn(raw) : null;
+    return raw ? parseFocusRef(raw) : null;
   }, [location.search]);
   const set = (next: string | null) => {
     const params = new URLSearchParams(location.search);
@@ -86,6 +129,15 @@ export function SchemaCartographerPage() {
   const [query, setQuery] = useState('');
   const [focus, setFocus] = useFocusFromQuery();
 
+  // Layer filter state — all layers on by default.
+  const [activeLayers, setActiveLayers] = useState<Set<LayerFilter>>(
+    () => new Set(ALL_LAYERS),
+  );
+
+  // Derive the cube.member FQN from the current focus (handles both bare and
+  // data_model/ namespaced refs; returns null for other namespace types).
+  const focusFqn = focus ? extractDataModelFqn(focus) : null;
+
   const visibleFqns = useMemo(() => {
     const trimmed = query.trim();
     if (!trimmed) return undefined;
@@ -93,20 +145,25 @@ export function SchemaCartographerPage() {
     return new Set(hits.map((m) => m.fqn));
   }, [index, query]);
 
-  const selected = focus ? index.byFqn.get(focus) ?? null : null;
+  // Resolve the selected member from the cartographer index (works for bare
+  // and data_model/ refs; non-data_model refs resolve to null, which is fine
+  // — the detail panel would need a different render path, not yet needed).
+  const selected = focusFqn ? (index.byFqn.get(focusFqn) ?? null) : null;
 
   // When the user enters a search that excludes the current selection, clear
   // the focus to avoid showing a detail panel for a hidden member.
   useEffect(() => {
-    if (!focus || !visibleFqns) return;
-    if (!visibleFqns.has(focus)) setFocus(null);
-  }, [focus, visibleFqns, setFocus]);
+    if (!focusFqn || !visibleFqns) return;
+    if (!visibleFqns.has(focusFqn)) setFocus(null);
+  }, [focusFqn, visibleFqns, setFocus]);
 
   const joinable = useMemo(() => {
     if (!selected) return [];
     const cube = index.cubes.find((c) => c.name === selected.cubeName);
     return (cube?.joins ?? []).map((j) => j.name).filter(Boolean);
   }, [index, selected]);
+
+  const showTree = activeLayers.has('fields');
 
   return (
     <Page>
@@ -117,20 +174,29 @@ export function SchemaCartographerPage() {
           back here via field chips.
         </Subtitle>
         <CartographerSearch value={query} onChange={setQuery} />
+        <LayerFilterPills active={activeLayers} onChange={setActiveLayers} />
       </Header>
       {error && <StatusLine $kind="error">Failed to load meta: {error}</StatusLine>}
       {loading && <StatusLine $kind="info">Loading…</StatusLine>}
       {!loading && !error ? (
         <Body>
-          <TreeColumn>
-            <CubeTree
-              index={index}
-              visibleFqns={visibleFqns}
-              selectedFqn={selected?.fqn}
-              onSelect={(fqn) => setFocus(fqn)}
+          {showTree ? (
+            <TreeColumn>
+              <CubeTree
+                index={index}
+                visibleFqns={visibleFqns}
+                selectedFqn={selected?.fqn}
+                onSelect={(fqn) => setFocus(fqn)}
+              />
+            </TreeColumn>
+          ) : null}
+          {selected ? (
+            <MemberDetailPanel
+              member={selected}
+              joinableCubes={joinable}
+              visibleLayers={activeLayers}
             />
-          </TreeColumn>
-          {selected ? <MemberDetailPanel member={selected} joinableCubes={joinable} /> : null}
+          ) : null}
         </Body>
       ) : null}
     </Page>

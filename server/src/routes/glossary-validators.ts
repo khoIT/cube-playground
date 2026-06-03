@@ -4,13 +4,29 @@
  */
 
 import { z } from 'zod';
+import { isValidRef } from '../services/trust-mapping.js';
 
 const Label = z.string().trim().min(1).max(80);
 const Description = z.string().trim().min(1).max(500);
 const OptLabel = z.string().trim().min(1).max(80).nullable().optional();
 const OptDescription = z.string().trim().min(1).max(500).nullable().optional();
 const CatalogId = z.string().trim().min(1).max(128).nullable().optional();
-const CatalogIds = z.array(z.string().trim().min(1).max(128)).max(20).optional();
+// Typed multi-refs: every secondary ref must be `<namespace>/<id>` with the
+// namespace in the allowlist (business_metrics | data_model | segments) and no
+// path traversal. Rejects unknown namespaces / malformed refs on write.
+const CatalogIds = z
+  .array(
+    z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .refine(isValidRef, {
+        message: 'ref must be <namespace>/<id> where namespace ∈ business_metrics|data_model|segments',
+      }),
+  )
+  .max(20)
+  .optional();
 const AliasList = z.array(z.string().trim().min(1).max(40)).max(20).optional();
 const Category = z.string().trim().min(1).max(64).nullable().optional();
 const Editor = z.string().trim().min(1).max(80).nullable().optional();
@@ -40,6 +56,16 @@ const Ranking = z
   .strict()
   .nullable()
   .optional();
+
+// Exported so the promote path validates a derived filter through the SAME
+// shape a direct POST/PUT enforces (no asymmetric trust boundary).
+export const DefaultFilterSchema = z
+  .object({
+    member: z.string().trim().min(1).max(128),
+    op: FilterOp,
+    value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))]),
+  })
+  .strict();
 const TrustTier = z.enum(['certified', 'experimental']).nullable().optional();
 
 export const CreateTermSchema = z.object({
@@ -88,6 +114,10 @@ export const StatusPatchSchema = z.object({
 
 export const ListQuerySchema = z.object({
   status: z.enum(['draft', 'official']).optional(),
+  // Unified-trust alias for the legacy `status` filter (kept one release so
+  // callers can migrate). `trust=certified` ≈ `status=official`,
+  // `trust=draft` ≈ `status=draft`. `status` wins if both are sent.
+  trust: z.enum(['certified', 'draft']).optional(),
 }).strict();
 
 export type CreateTermInput = z.infer<typeof CreateTermSchema>;

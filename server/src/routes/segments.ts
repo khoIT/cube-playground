@@ -18,6 +18,9 @@ import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
 import { enqueueRefresh } from '../jobs/refresh-queue.js';
 import { getCardCache } from '../services/card-cache-store.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
+import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integrity.js';
+import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
+import { SEGMENT_DEFAULT_VISIBILITY } from '../services/trust-mapping.js';
 
 const segmentInputSchema = z.object({
   name: z.string().min(1),
@@ -104,6 +107,11 @@ function hydrateSegment(
     activations = [];
   }
 
+  // Map NULL visibility to 'personal' — the default for user-created segments.
+  // This preserves existing behavior: segments created before the visibility
+  // column existed are treated as owner-private until the owner opts in to share.
+  const visibility = (rest.visibility as string | null) ?? SEGMENT_DEFAULT_VISIBILITY;
+
   return {
     ...rest,
     tags,
@@ -113,6 +121,7 @@ function hydrateSegment(
     uid_list: includeUidList ? JSON.parse((uid_list_json as string) ?? '[]') : [],
     activations,
     funnel_json: (rest.funnel_json as string | null) ?? null,
+    visibility,
   };
 }
 
@@ -340,6 +349,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
   });
 
   // DELETE /api/segments/:id
+  // Blocked when a glossary term's secondary_catalog_ids references this segment,
+  // because deleting it would leave a dangling ref in the concept graph.
   app.delete('/api/segments/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
@@ -347,7 +358,20 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     if (!row) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
     if (row.workspace !== req.workspace.id) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
 
+    const segRef = `segments/${id}`;
+    const blocking = glossaryTermsReferencingArtifact(segRef);
+    if (blocking.length > 0) {
+      return reply.status(409).send({
+        error: {
+          code: 'REF_INTEGRITY',
+          message: 'Cannot delete: glossary term(s) reference this segment',
+          referencedBy: blocking,
+        },
+      });
+    }
+
     db.prepare('DELETE FROM segments WHERE id = ?').run(id);
+    invalidateReverseIndex();
     return reply.status(204).send();
   });
 

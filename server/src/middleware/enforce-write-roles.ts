@@ -31,6 +31,10 @@ const PROTECTED_PREFIXES = [
   '/api/business-metrics',
   '/api/analyses',
   '/api/onboarding',
+  // Glossary and concept routes carry durable org-wide artifacts; viewers
+  // may read but must not mutate (POST/PUT/PATCH/DELETE).
+  '/api/glossary',
+  '/api/concepts',
 ];
 
 function authDisabled(): boolean {

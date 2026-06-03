@@ -41,6 +41,9 @@ import {
 } from '../services/metric-ref-validator.js';
 import { getDb } from '../db/sqlite.js';
 import { insertAuditRow, listAudit } from '../db/business-metric-audit-store.js';
+import { requireRole } from '../middleware/require-role.js';
+import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integrity.js';
+import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
 
 const TrustPatchSchema = z.object({
   trust: z.enum(TRUST_TIERS),
@@ -277,6 +280,23 @@ export default async function businessMetricsRoutes(
     }
     const { trust: target, actor, note } = parsed.data;
 
+    // Certifying a metric is an admin-only action — it makes the metric a
+    // durable source of truth for downstream consumers. Editors may create
+    // and update drafts but cannot certify them without admin sign-off.
+    // Skip this check when AUTH_DISABLED (dev mode) — the synthesized dev user
+    // is always admin, but the mini test-app harnesses skip authenticate entirely.
+    const authActive = !['1', 'true', 'yes'].includes(
+      (process.env.AUTH_DISABLED ?? '').toLowerCase(),
+    );
+    if (authActive && target === 'certified' && req.user?.role !== 'admin') {
+      return reply.status(403).send({
+        error: {
+          code: 'INSUFFICIENT_ROLE',
+          message: 'certifying a metric requires admin role',
+        },
+      });
+    }
+
     // Promotion to `certified` requires every formula ref to resolve against
     // the metric's primary game /meta. `draft` and `deprecated` are unconditional.
     if (target === 'certified') {
@@ -383,6 +403,56 @@ export default async function businessMetricsRoutes(
         since: Number.isFinite(since) ? since : undefined,
       });
       return { entries: rows };
+    },
+  );
+
+  // DELETE /api/business-metrics/:id — remove a metric from the YAML registry.
+  // Blocked when a glossary term's secondary_catalog_ids references this metric,
+  // because deleting it would leave a dangling ref in the concept graph.
+  app.delete<{ Params: { id: string } }>(
+    '/api/business-metrics/:id',
+    { preHandler: requireRole('admin') },
+    async (req, reply) => {
+      const metric = getById(req.params.id);
+      if (!metric) {
+        return reply.status(404).send({
+          error: { code: 'NOT_FOUND', message: `metric "${req.params.id}" not found` },
+        });
+      }
+
+      // Referential integrity: block delete when a glossary term points at this metric.
+      const metricRef = `business_metrics/${req.params.id}`;
+      const blocking = glossaryTermsReferencingArtifact(metricRef);
+      if (blocking.length > 0) {
+        return reply.status(409).send({
+          error: {
+            code: 'REF_INTEGRITY',
+            message: `Cannot delete: glossary term(s) reference this metric`,
+            referencedBy: blocking,
+          },
+        });
+      }
+
+      try {
+        await writeMetric({ ...metric, trust: 'deprecated' });
+        // Audit the delete-via-deprecation as a trust change.
+        insertAuditRow(getDb(), {
+          metricId: metric.id,
+          action: 'delete',
+          oldValueJson: JSON.stringify(metric),
+          newValueJson: null,
+          actorKind: 'user',
+          actorId: req.owner,
+          reason: 'deleted via API',
+          requestId: req.id,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.status(500).send({ error: { code: 'WRITE_FAILED', message } });
+      }
+
+      invalidateReverseIndex();
+      return reply.status(204).send();
     },
   );
 }

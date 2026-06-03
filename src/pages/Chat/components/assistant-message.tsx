@@ -9,7 +9,6 @@
  *   query_artifact — QueryArtifactCard
  */
 import React from 'react';
-import { Link } from 'react-router-dom';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { T } from '../../../shell/theme';
@@ -24,7 +23,10 @@ import { AssistantChartSection } from './assistant-chart-section';
 import { FieldChip } from './field-chip';
 import { CiteToken, parseCiteTokens } from './cite-token';
 import { useGlossaryLinker, type LinkedSegment } from './use-glossary-linker';
-import { resolveGlossaryHref } from '../../Catalog/glossary/resolve-glossary-link';
+import { resolveConceptHref } from '../../Catalog/glossary/resolve-concept';
+import { ConceptChip } from '../../../components/concept-chip/concept-chip';
+import { ConceptHoverCard } from '../../../components/concept-hover-card/concept-hover-card';
+import type { GlossaryTerm } from '../../../api/glossary-client';
 import { FollowupChips } from './followup-chips';
 import { DisambigChips } from './disambig-chips';
 import type { DisambigOptionsPayload } from '../../../stores/chat-stream-store-actions';
@@ -71,6 +73,7 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
 function renderTextLeaf(
   text: string,
   link: (text: string) => LinkedSegment[],
+  termsById: Map<string, GlossaryTerm>,
   keyPrefix: string,
 ): React.ReactNode[] {
   const out: React.ReactNode[] = [];
@@ -92,14 +95,14 @@ function renderTextLeaf(
     FIELD_TOKEN_REGEX.lastIndex = 0;
     while ((match = FIELD_TOKEN_REGEX.exec(plainText)) !== null) {
       if (match.index > last) {
-        pushGlossaryChunks(out, plainText.slice(last, match.index), link, `${segKey}-t-${last}`);
+        pushGlossaryChunks(out, plainText.slice(last, match.index), link, termsById, `${segKey}-t-${last}`);
       }
       const fqn = match[1];
       out.push(<FieldChip key={`${segKey}-f-${match.index}`} fqn={fqn} />);
       last = FIELD_TOKEN_REGEX.lastIndex;
     }
     if (last < plainText.length) {
-      pushGlossaryChunks(out, plainText.slice(last), link, `${segKey}-t-${last}`);
+      pushGlossaryChunks(out, plainText.slice(last), link, termsById, `${segKey}-t-${last}`);
     }
   });
 
@@ -110,6 +113,7 @@ function pushGlossaryChunks(
   out: React.ReactNode[],
   text: string,
   link: (text: string) => LinkedSegment[],
+  termsById: Map<string, GlossaryTerm>,
   keyPrefix: string,
 ): void {
   const segments = link(text);
@@ -119,21 +123,34 @@ function pushGlossaryChunks(
   }
   segments.forEach((seg, i) => {
     if (seg.kind === 'term') {
-      out.push(
-        <Link
+      const resolvable = {
+        id: seg.termId ?? '',
+        primaryCatalogId: seg.primaryCatalogId ?? null,
+        defaultFilter: seg.defaultFilter ?? null,
+        defaultMeasureRef: seg.defaultMeasureRef ?? null,
+      };
+      const href = resolveConceptHref(resolvable);
+      const fullTerm = termsById.get(seg.termId ?? '');
+      const chip = (
+        <ConceptChip
           key={`${keyPrefix}-g-${i}`}
-          to={resolveGlossaryHref({
-            id: seg.termId ?? '',
-            primaryCatalogId: seg.primaryCatalogId ?? null,
-            defaultFilter: seg.defaultFilter ?? null,
-            defaultMeasureRef: seg.defaultMeasureRef ?? null,
-          })}
-          title={`Glossary: ${seg.termId}`}
-          style={{ color: T.brand, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}
-        >
-          {seg.text}
-        </Link>,
+          kind="concept"
+          label={seg.text}
+          to={href}
+          trust={fullTerm?.trust}
+        />
       );
+      // Wrap in hover-card when the full term is available — provides definition
+      // + typed actions on hover without a separate tooltip component.
+      if (fullTerm) {
+        out.push(
+          <ConceptHoverCard key={`${keyPrefix}-hc-${i}`} term={fullTerm}>
+            {chip}
+          </ConceptHoverCard>,
+        );
+      } else {
+        out.push(chip);
+      }
     } else {
       out.push(<React.Fragment key={`${keyPrefix}-p-${i}`}>{seg.text}</React.Fragment>);
     }
@@ -148,18 +165,20 @@ function pushGlossaryChunks(
 function transformLeaves(
   children: React.ReactNode,
   link: (text: string) => LinkedSegment[],
+  termsById: Map<string, GlossaryTerm>,
 ): React.ReactNode {
   const arr = React.Children.toArray(children);
   return arr.flatMap((child, i) => {
-    if (typeof child === 'string') return renderTextLeaf(child, link, `c${i}`);
+    if (typeof child === 'string') return renderTextLeaf(child, link, termsById, `c${i}`);
     return [child];
   });
 }
 
 function buildMarkdownComponents(
   link: (text: string) => LinkedSegment[],
+  termsById: Map<string, GlossaryTerm>,
 ): Components {
-  const wrap = (children: React.ReactNode) => transformLeaves(children, link);
+  const wrap = (children: React.ReactNode) => transformLeaves(children, link, termsById);
   return {
     p: ({ children }) => <p style={P_STYLE}>{wrap(children)}</p>,
     strong: ({ children }) => <strong>{wrap(children)}</strong>,
@@ -299,10 +318,20 @@ const TD_STYLE: React.CSSProperties = {
 const REMARK_PLUGINS = [remarkGfm];
 
 function TextParagraph({ text }: { text: string }) {
-  const { link } = useGlossaryLinker();
-  // `link` is rebuilt on glossary-fetch settle; memoize the components map
-  // against it so we don't churn react-markdown's renderer on every keystroke.
-  const components = React.useMemo(() => buildMarkdownComponents(link), [link]);
+  const { link, terms } = useGlossaryLinker();
+  // Build a fast id → GlossaryTerm lookup so ConceptHoverCard can receive a
+  // full term object without an extra fetch. Rebuilt only when `terms` changes.
+  const termsById = React.useMemo(() => {
+    const m = new Map<string, GlossaryTerm>();
+    for (const t of terms) m.set(t.id, t);
+    return m;
+  }, [terms]);
+  // Memoize the components map against both link and termsById so we don't
+  // churn react-markdown's renderer on every keystroke.
+  const components = React.useMemo(
+    () => buildMarkdownComponents(link, termsById),
+    [link, termsById],
+  );
   return (
     <div style={MARKDOWN_ROOT_STYLE}>
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>

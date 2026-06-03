@@ -45,7 +45,7 @@ const OP_TO_CUBE_OPERATOR: Record<GlossaryFilter['op'], string> = {
   'NOT IN': 'notEquals',
 };
 
-function toCubeFilter(f: GlossaryFilter): { member: string; operator: string; values: string[] } {
+export function toCubeFilter(f: GlossaryFilter): { member: string; operator: string; values: string[] } {
   const raw = Array.isArray(f.value) ? f.value : [f.value];
   return {
     member: f.member,

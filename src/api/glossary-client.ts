@@ -9,6 +9,10 @@ export type GlossaryStatus = 'draft' | 'official';
 export type GlossarySource = 'seed' | 'user';
 export type GlossaryTrustTier = 'certified' | 'experimental';
 
+/** Unified trust/visibility ladder — shared vocabulary across all 4 layers. */
+export type Trust = 'draft' | 'certified' | 'deprecated';
+export type Visibility = 'personal' | 'shared' | 'org';
+
 /** Shape of default_filter — server enforces safe op allowlist. */
 export interface GlossaryFilter {
   member: string;
@@ -44,6 +48,10 @@ export interface GlossaryTerm {
   defaultFilter: GlossaryFilter | null;
   ranking: GlossaryRanking | null;
   trustTier: GlossaryTrustTier | null;
+  // Unified ladder, derived server-side from status/trustTier. Glossary terms
+  // are org-wide, so `visibility` is always 'org'.
+  trust: Trust;
+  visibility: Visibility;
 }
 
 /** Returns true when a term carries at least one concept-tier field. */

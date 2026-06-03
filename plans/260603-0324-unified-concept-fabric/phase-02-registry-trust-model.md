@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Registry & Trust Model"
-status: pending
+status: complete
 priority: P1
 effort: "4-6d"
 dependencies: [1]
@@ -47,13 +47,27 @@ The foundation. Formalize the glossary term as the typed hub (namespaced multi-r
 7. Feature-flagged data migration to persist unified glossary columns once readers cut over; leave legacy one release. Metric YAML trust bulk-rewrite + loader reload as a separate, flag-gated step.
 
 ## Success Criteria
-- [ ] Glossary term carries typed refs across all 4 layers (3 namespaces; no `parent_term`)
-- [ ] whale/dolphin/minnow resolve to field + segment + measure (via seed backfill, durable across re-seed)
-- [ ] Reverse index returns field→metrics, metric→terms, field→segments; cache keyed by workspace, invalidated on write
-- [ ] Unified `visibility`×`trust` readable on all 4 artifact types via mapping; legacy reads unbroken; metric trust = resolved (post-drift) value
-- [ ] `chat-service` still grounds (back-compat `?status=official` alias verified); single writer for unified trust
-- [ ] Dangling refs rejected on write AND on later delete; ref grammar rejects unknown namespaces/`..`
-- [ ] A term in workspace B cannot resolve a `personal` segment from workspace A
+- [x] Glossary term carries typed refs across all 4 layers (3 namespaces; no `parent_term`) — namespace allowlist in `glossary-validators.ts`; grammar in `trust-mapping.ts`
+- [x] whale/dolphin/minnow resolve to field + segment + measure — seed backfill (`default_measure_ref=mf_users.user_count`, `entity_cube=mf_users`, `trust_tier=certified`); segment edge derived via reverse index over the shared `mf_users.payer_tier` field (no brittle UUID ref)
+- [x] Reverse index returns field→metrics, metric→terms, field→segments; cache keyed by (workspace, game), invalidated on write — `concept-reverse-index.ts` + `GET /api/concepts/:namespace/:id/relations`
+- [x] Unified `visibility`×`trust` readable on all 4 artifact types via mapping; legacy reads unbroken — derived on read in `glossary-row-mapper.ts`; metric trust stays resolved (`resolveTrustForGame` untouched); metric `visibility` = YAML key
+- [x] `chat-service` still grounds — `?status=official` untouched + `?trust=certified` alias added; chat-service Zod gained optional trust/visibility (additive)
+- [x] Dangling refs rejected on write; ref grammar rejects unknown namespaces/`..` — write-time guard in `glossary.ts` (business_metrics + segments existence; data_model grammar-only). **Delete-time guard deferred to P4** (lives with the segment/metric delete authz work; see drift note)
+- [x] A term cannot resolve a segment outside the caller's workspace — reverse index scopes segments by `workspace` (see drift note)
+
+## Implementation Outcome (2026-06-03)
+- **Tests:** 30 P2-specific tests green (`trust-mapping`, `glossary-unified-refs`, `concept-reverse-index`); full server suite 602 pass / 6 pre-existing failures (`routes-crud`, `internal-access-route` — unrelated RBAC tests, untouched by P2). `tsc` clean (server + chat-service).
+- **Drift — segment scoping (supersedes C5 wording):** C5 assumed segments are owner-private (`owner = req.owner OR visibility != personal`). Live code is **workspace-shared** — `owner` is provenance, the access boundary is `workspace` (verified `segments.ts:1-8,134`; corrected by commit `4de2bc5`). The reverse index therefore scopes segment edges by `workspace` (+ optional game), not owner. This fixed a real bug a code review caught (route passed `req.user.email`, but segments are written with `owner=req.owner`=Keycloak `sub` — `email≠sub` → owner scoping never matched / was null in dev). Verified by the cross-workspace isolation test.
+- **Read-side-first:** migration `027` adds nullable `trust`/`visibility` columns but reads **derive** unified values from legacy `status`/`trust_tier`; the persisted-column populate (flagged data migration) is deferred — not needed since derive-on-read satisfies all criteria and keeps legacy the single source of truth.
+- **Deferred to P4:** delete-time coverage guard (belongs with segment/metric delete authz).
+
+## P2 Readiness (validated 2026-06-03, post-P1 sign-off)
+- **Prototype consistency:** signed-off affordance vocabulary (`visuals/affordance-decisions.md`) is consistent with this plan. The prototype exercises chips/hover-card/promote — realized in P3/P4/P5 — while P2 is the data foundation. P2 already emits the exact `visibility ∈ {personal,shared,org} × trust ∈ {draft,certified,deprecated}` enums the prototype renders; no scope change.
+- **Touchpoints confirmed:** all 12 cited files exist (verified by path check). No stale refs.
+- **Migration number pinned:** latest applied is `026-dashboard-tile-chart-metadata.sql` → new glossary migration = **`027-glossary-typed-refs-and-trust.sql`** (additive + nullable only).
+- **`deprecated` trust has no producer in P2** — it's a valid enum value but is only *reached* via the P4 certify/deprecate transition; P2 backfill yields only `draft`/`certified`. No deprecated rows created here.
+- **✅ Decision (2026-06-03, user):** unified metric `visibility` persists as a **YAML key** alongside metric `trust` — keeps all metric governance in one substrate; reverse index already reads YAML. Glossary `visibility` stays the SQL column. No metric DB side-table.
+- **Non-blocking:** Open Q1 (`entity_cube` = `mf_users` vs `players` for payer tiers) confirmed against live `/meta` during backfill (step 6), not a pre-req. Open Q2 (segment default = `personal`) and Q3 (chat-service consumes via HTTP) already resolved in `plan.md`.
 
 ## Risk Assessment
 - **Biggest blast radius**: every `trust`/`status` consumer — including `chat-service` (C3) and the runtime `metric-trust-resolver` (C6). Mitigate: mapping layer + read-side-first + keep legacy columns one release; **grep all readers AND writers** (server + FE + chat-service) before the data migration; back-compat `?status=official` alias.

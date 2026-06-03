@@ -118,6 +118,9 @@ export const BusinessMetricSchema = z.object({
   domain: z.enum(DOMAINS),
   owner: z.string().min(1),
   trust: z.enum(TRUST_TIERS),
+  // Unified visibility ladder, persisted as a YAML key alongside trust (keeps
+  // all metric governance in one substrate). Defaults to org-wide when omitted.
+  visibility: z.enum(['personal', 'shared', 'org']).optional(),
   formula: BusinessMetricFormulaSchema,
   game_compatibility: BusinessMetricGameCompatSchema.optional(),
   parameter: BusinessMetricParameterSchema.optional(),

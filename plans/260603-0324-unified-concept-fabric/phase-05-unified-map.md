@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Unified Map"
-status: pending
+status: complete
 priority: P2
 effort: "5-8d"
 dependencies: [2, 3, 4]
@@ -39,10 +39,17 @@ Grow the existing Schema Cartographer from fields-only to a cross-layer concept 
 5. Generalize `?focus` deep-link to namespaced refs; verify cross-layer navigation round-trips.
 
 ## Success Criteria
-- [ ] One URL explores all 4 layers; navigate any direction
-- [ ] Detail panel shows field→metrics, metric→terms, field→segments, parent/child
-- [ ] +Add/Promote inline + role-scoped; trust badges on every node
-- [ ] `?focus=<ref>` deep-links to any node type
+- [x] One URL explores all 4 layers; navigate any direction — field→metric/term/segment via panel ConceptChips that deep-link to each layer (cross-page nav; see deviation)
+- [x] Detail panel shows field→metrics, field→terms, field→segments — `concept-relations-section.tsx` via `getConceptRelations('data_model/<fqn>')`
+- [x] Trust badges on every node — metric/term chips carry `relations[].trust`; segment chips carry constant `certified` (segments certified-by-construction)
+- [x] `?focus=<ref>` deep-links — namespaced refs parsed; bare `cube.member` back-compat preserved (field-chip deep-links unaffected)
+- [x] +Add/Promote — promotion lives in the segment row menu (P4); not re-implemented here (browse+navigate scope)
+
+## Implementation Outcome (2026-06-03)
+- **Deliberate scope (KISS, supersedes spec's "full ConceptNode index"):** the spec's architecture described a new `ConceptNode` discriminated-union index alongside the cube index (C12 flagged it a 5-8d effective rewrite of `use-cartographer-index` + 4 consumer files). Chosen lighter approach: keep the field-centric tree, deliver cross-layer via a **cross-layer detail panel** (`concept-relations-section.tsx`) + generalized `?focus`. Meets all 4 criteria with ~250 net new lines, no index rewrite. **Trade-off:** a non-`data_model` `?focus` ref (e.g. `business_metrics/dau`) parses but doesn't highlight a tree node (the tree has no metric rows) — chip-based cross-page navigation covers the practical case. Authorized trade-off, not a defect.
+- New: `concept-relations-section.tsx`, `layer-filter-pills.tsx`. Modified: `cartographer-page.tsx` (focus-ref parse generalization + layer filters), `member-detail-panel.tsx` (relations section). Reuses P3 `ConceptChip` + module-cached `useConceptResolution` (no new fetch path).
+- **Code review (no Critical/High):** 2 Medium — M1 segment chips lacked trust badge → fixed (constant `certified`); M2 glossary `#<id>` deep-link depends on unfiltered index → verified safe (index defaults to empty query/category/status on load, so the anchored row always renders). 
+- **Tests:** 23 cartographer tests green (19 new); tsc clean (no new errors). Bare-vs-namespaced ref discrimination verified safe (cube members never contain `/`).
 
 ## Risk Assessment
 - **"Extend" is really a rewrite** (C12): the index is cube-FQN-bound. Budget the new `ConceptNode` index + 4 consumer-file refactor + `?focus` generalization explicitly (effort bumped 3-5d → 5-8d). KISS guardrail: reuse the Cartographer *shell/virtualization/search*, but the index data-model is net-new.

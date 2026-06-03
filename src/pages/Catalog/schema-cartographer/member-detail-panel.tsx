@@ -2,21 +2,29 @@
  * MemberDetailPanel — read-only view of a selected cube member. Links into
  * the existing concept-detail route when the member type maps to a
  * known Concept kind (measure / dimension / segment).
+ *
+ * The bottom section fetches and renders cross-layer reverse edges (metrics,
+ * glossary terms, app segments) via ConceptRelationsSection so users can
+ * navigate any direction from a selected field.
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import type { CartographerMember } from './use-cartographer-index';
+import { ConceptRelationsSection } from './concept-relations-section';
+import type { LayerFilter } from './layer-filter-pills';
 
 interface Props {
   member: CartographerMember;
   joinableCubes: ReadonlyArray<string>;
+  /** Which reverse-edge sections to show (Metrics / Glossary / Segments). */
+  visibleLayers: ReadonlySet<LayerFilter>;
 }
 
 const Panel = styled.aside`
-  width: 360px;
+  width: 380px;
   flex-shrink: 0;
-  border-left: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-card);
   padding: 20px;
   background: var(--bg-card);
   font-family: var(--font-sans);
@@ -24,6 +32,12 @@ const Panel = styled.aside`
   flex-direction: column;
   gap: 14px;
   overflow-y: auto;
+`;
+
+const Divider = styled.hr`
+  border: none;
+  border-top: 1px solid var(--border-card);
+  margin: 4px 0;
 `;
 
 const FieldLabel = styled.div`
@@ -40,8 +54,10 @@ const FieldValue = styled.div`
   word-break: break-word;
 `;
 
-export function MemberDetailPanel({ member, joinableCubes }: Props) {
+export function MemberDetailPanel({ member, joinableCubes, visibleLayers }: Props) {
   const conceptHref = `/catalog/concept/${member.kind}/${encodeURIComponent(member.fqn)}`;
+  // Build a namespaced concept ref so ConceptRelationsSection can fetch cross-layer edges.
+  const conceptRef = `data_model/${member.fqn}`;
   return (
     <Panel>
       <div>
@@ -104,6 +120,11 @@ export function MemberDetailPanel({ member, joinableCubes }: Props) {
           Open in concept detail →
         </Link>
       </div>
+
+      <Divider />
+
+      {/* Cross-layer reverse edges — metrics, glossary terms, app segments. */}
+      <ConceptRelationsSection conceptRef={conceptRef} visibleLayers={visibleLayers} />
     </Panel>
   );
 }
