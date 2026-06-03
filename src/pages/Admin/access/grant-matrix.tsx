@@ -19,11 +19,15 @@ interface GrantMatrixProps {
   saving: boolean;
   saved: boolean;
   error: string | null;
+  /** When provided, renders "All / None" bulk controls under the header. */
+  onSelectAll?: () => void;
+  onClear?: () => void;
 }
 
 export function GrantMatrix({
-  title, options, selected, onToggle, onSave, saving, saved, error,
+  title, options, selected, onToggle, onSave, saving, saved, error, onSelectAll, onClear,
 }: GrantMatrixProps) {
+  const showBulk = !!(onSelectAll || onClear) && options.length > 0;
   return (
     <section
       style={{
@@ -42,6 +46,22 @@ export function GrantMatrix({
           {saving ? 'Saving…' : 'Save'}
         </button>
       </header>
+
+      {showBulk && (
+        <div
+          style={{
+            display: 'flex', gap: 6, padding: '8px 14px',
+            borderBottom: '1px solid var(--border-card)',
+          }}
+        >
+          {onSelectAll && (
+            <button type="button" onClick={onSelectAll} style={bulkBtn}>Select all</button>
+          )}
+          {onClear && (
+            <button type="button" onClick={onClear} style={bulkBtn}>Clear</button>
+          )}
+        </div>
+      )}
 
       <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {options.length === 0 && (
@@ -90,3 +110,10 @@ function saveBtn(saving: boolean): React.CSSProperties {
     opacity: saving ? 0.6 : 1, fontFamily: 'var(--font-sans)',
   };
 }
+
+const bulkBtn: React.CSSProperties = {
+  background: 'var(--bg-muted)', color: 'var(--text-secondary)',
+  border: '1px solid var(--border-card)', borderRadius: 'var(--radius-sm)',
+  padding: '3px 10px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+  fontFamily: 'var(--font-sans)',
+};

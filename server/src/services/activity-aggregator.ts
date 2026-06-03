@@ -22,6 +22,7 @@ import {
   projectQueryShape,
 } from './activity-store.js';
 import { fetchChatStatsBySub, type ChatStatsBySub, type ChatUserStats } from './chat-stats-client.js';
+import { latestAuditForTarget } from '../auth/access-audit-store.js';
 
 /** A user is "inactive" when their last login is older than this many days. */
 export const INACTIVE_DAYS = 30;
@@ -56,6 +57,8 @@ export interface UserActivity {
   recentQueryShapes: ReturnType<typeof projectQueryShape>[];
   /** Chat usage for this user; null if chat-service was unreachable. */
   chatStats: ChatUserStats | null;
+  /** Most recent access-management change targeting this user; null if never changed. */
+  lastChange: { actor: string; action: string; ts: string } | null;
 }
 
 interface AggregatorOpts {
@@ -156,6 +159,11 @@ export async function buildUserActivity(
   const chat = sub ? await fetchStats([sub], { fromMs: now - 30 * DAY_MS, toMs: now }) : null;
   const chatStats = chat ? (chat[sub!] ?? null) : null;
 
+  const audit = latestAuditForTarget(email);
+  const lastChange = audit
+    ? { actor: audit.actorEmail, action: audit.action, ts: audit.ts }
+    : null;
+
   return {
     email,
     sub,
@@ -167,5 +175,6 @@ export async function buildUserActivity(
     recentFeatures,
     recentQueryShapes,
     chatStats,
+    lastChange,
   };
 }

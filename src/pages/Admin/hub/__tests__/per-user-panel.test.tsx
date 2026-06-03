@@ -269,6 +269,41 @@ describe('PerUserPanel rendering', () => {
     expect(await screen.findByText(/override/i)).toBeDefined();
   });
 
+  it('renders the last access-management change from the audit log', async () => {
+    setupActivityFetch({
+      email: 'test@example.com', segmentCount: 0,
+      recentFeatures: [], recentQueryShapes: [], chatStats: null, inactive: false,
+      lastChange: { actor: 'boss@corp.com', action: 'set_role', ts: '2026-06-02T10:00:00Z' },
+    });
+    const user = makeUser();
+    render(<PerUserPanel user={user} registry={REGISTRY} onSaved={vi.fn()} />);
+    expect(await screen.findByText(/set_role/i)).toBeDefined();
+    expect(await screen.findByText(/boss@corp\.com/i)).toBeDefined();
+  });
+
+  it('shows "no recorded changes" when lastChange is null', async () => {
+    setupActivityFetch({
+      email: 'test@example.com', segmentCount: 0,
+      recentFeatures: [], recentQueryShapes: [], chatStats: null, inactive: false,
+      lastChange: null,
+    });
+    const user = makeUser();
+    render(<PerUserPanel user={user} registry={REGISTRY} onSaved={vi.fn()} />);
+    expect(await screen.findByText(/no recorded changes/i)).toBeDefined();
+  });
+
+  it('renders Select all / Clear bulk controls on the game grants matrix', async () => {
+    setupActivityFetch({
+      email: 'test@example.com', segmentCount: 0,
+      recentFeatures: [], recentQueryShapes: [], chatStats: null, inactive: false,
+      lastChange: null,
+    });
+    const user = makeUser({ games: ['muaw'] });
+    render(<PerUserPanel user={user} registry={REGISTRY} onSaved={vi.fn()} />);
+    expect(await screen.findByText(/select all/i)).toBeDefined();
+    expect(await screen.findByText(/^clear$/i)).toBeDefined();
+  });
+
   it('degrades gracefully when activity fetch fails — no crash', async () => {
     setupActivityFetchFail();
     const user = makeUser({ workspaces: ['ws-local'] });

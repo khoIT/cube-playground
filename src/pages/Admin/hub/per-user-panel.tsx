@@ -68,6 +68,7 @@ interface UserActivity {
   recentFeatures: string[];
   recentQueryShapes: QueryShape[];
   chatStats: ChatStats | null;
+  lastChange: { actor: string; action: string; ts: string } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -412,6 +413,7 @@ function GameGrantsSection({ user, registry, onSaved }: GameGrantsSectionProps) 
 
   const total = registry.games.length;
   const count = games.selected.size;
+  const allGameIds = registry.games.map((g) => g.id);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -433,6 +435,8 @@ function GameGrantsSection({ user, registry, onSaved }: GameGrantsSectionProps) 
         saving={games.saving}
         saved={games.saved}
         error={games.error}
+        onSelectAll={() => games.selectAll(allGameIds)}
+        onClear={games.clear}
       />
     </div>
   );
@@ -665,6 +669,22 @@ function ActivitySnapshot({ email, onSegmentCount }: ActivitySnapshotProps) {
                 {formatQueryShape(s)}
               </div>
             ))
+          )}
+        </div>
+
+        {/* Last access-management change (from the audit log) */}
+        <div style={{ ...eyebrow, margin: '14px 0 6px' }}>Last changed</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+          {activity?.lastChange == null ? (
+            <span style={{ color: 'var(--text-muted)' }}>no recorded changes</span>
+          ) : (
+            <>
+              <span style={{ fontWeight: 600 }}>{activity.lastChange.action}</span>
+              {' by '}
+              {activity.lastChange.actor}
+              {' · '}
+              {relativeTime(activity.lastChange.ts)}
+            </>
           )}
         </div>
 

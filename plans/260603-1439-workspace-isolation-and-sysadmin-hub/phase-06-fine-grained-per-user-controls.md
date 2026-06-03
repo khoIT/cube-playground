@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Fine-Grained Per-User Controls"
-status: pending
+status: complete
 priority: P2
 effort: "2d"
 dependencies: [5]
@@ -52,10 +52,19 @@ Enhance the per-user panel's affordance. **Red-team reframe (C1/H2):** `AccessEd
 6. Inline error mapping (400/403/409); FE suite green; manual admin walkthrough.
 
 ## Success Criteria
-- [ ] Admin sets role/status/workspaces/games/features from one panel; all persist + audit.
-- [ ] Switch-ability + game count derived correctly (unit-tested); features show effective vs override.
-- [ ] Last-admin (409) + validation/permission errors surface inline, no crash.
-- [ ] Optimistic UI with rollback; tokens + prototype parity; FE tests green.
+- [x] Admin sets role/status/workspaces/games/features from one panel; all persist + audit. — shipped in Phase 5 panel (RoleStatusEditor + Workspace/Game/Feature grant sections over existing PATCH/PUT mutators).
+- [x] Switch-ability + game count derived correctly (unit-tested); features show effective vs override. — `per-user-panel-helpers.ts` (`switchability`, `groupFeatures`); 26 hub tests.
+- [x] Last-admin (409) + validation/permission errors surface inline, no crash. — RoleStatusEditor + GrantMatrix render the server error message inline.
+- [x] Optimistic UI with rollback; tokens + prototype parity; FE tests green. — `useGrantSection` now reverts the displayed selection to the last server-confirmed grant set on save error (unit-tested).
+
+## Completion Notes (2026-06-03)
+- Reframe honored: this was an enhancement, not a rebuild. Phase 5 already shipped role/status/workspace/game/feature saves, switch-ability, game N-of-M, and feature grouping with override badges. The genuinely net-new work landed here:
+  - **Bulk grant editing:** `GrantMatrix` gains optional Select-all / Clear controls; `useGrantSection` gains `selectAll(ids)` + `clear()`. Wired to game grants (the matrix that most needs it).
+  - **Optimistic rollback:** `useGrantSection.save` reverts `selected` to the `granted` prop (server truth) on error, so the UI never shows un-persisted state. Unit-tested with a rejecting mutator.
+  - **"Last changed by/at":** net-new backend read layer — `queryAccessAudit(filters)` + `latestAuditForTarget(email)` in `access-audit-store.ts`; `buildUserActivity` now returns `lastChange {actor,action,ts}`; the panel's activity snapshot renders it (or "no recorded changes").
+- **Audit read layer is shared with Phase 7** (the audit-log viewer reuses `queryAccessAudit` via the net-new `GET /api/admin/audit` route). Built here because Phase 6 needed `latestAuditForTarget` first.
+- **DRY decision (no `derive-user-experience.ts`):** the plan named a new selector file, but `per-user-panel-helpers.ts` (Phase 5) already holds the pure `switchability`/`groupFeatures`/game-count logic and is unit-tested. Adding a duplicate selector module would violate DRY — consolidated into the existing helpers instead.
+- Verified: server tsc 0, FE tsc steady at 72 pre-existing (0 new); use-grant-section 5/5, per-user-panel 21/21, access-audit-store 10/10, admin-activity-route 3/3.
 
 ## Risk Assessment
 - **Risk:** UI lets admin self-lockout. **Mitigation:** backend last-admin guard already enforces; surface the 409 clearly.

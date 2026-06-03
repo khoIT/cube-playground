@@ -90,4 +90,25 @@ describe('admin-activity routes (real-auth)', () => {
     const unknown = await app.inject({ method: 'GET', url: '/api/admin/activity/users/nobody@corp.com', headers: adminAuth });
     expect(unknown.statusCode).toBe(404);
   });
+
+  it('audit: 403 for non-admin; 200 + filtered entries for admin', async () => {
+    // Seed a couple of audit rows directly.
+    const db = getDb();
+    db.prepare(`INSERT INTO access_audit (actor_email, action, target_email, detail_json, ts) VALUES (?,?,?,?,?)`)
+      .run('admin@corp.com', 'set_role', 'editor@corp.com', '{"role":"editor"}', '2026-02-01T10:00:00.000Z');
+    db.prepare(`INSERT INTO access_audit (actor_email, action, target_email, detail_json, ts) VALUES (?,?,?,?,?)`)
+      .run('admin@corp.com', 'set_games', 'editor@corp.com', '{"games":["muaw"]}', '2026-02-02T10:00:00.000Z');
+
+    const asEditor = await app.inject({ method: 'GET', url: '/api/admin/audit', headers: editorAuth });
+    expect(asEditor.statusCode).toBe(403);
+
+    const all = await app.inject({ method: 'GET', url: '/api/admin/audit', headers: adminAuth });
+    expect(all.statusCode).toBe(200);
+    const body = all.json() as { entries: Array<{ action: string; detail: unknown }> };
+    expect(body.entries.map((e) => e.action)).toEqual(['set_games', 'set_role']); // newest-first
+    expect(body.entries[0].detail).toEqual({ games: ['muaw'] });
+
+    const filtered = await app.inject({ method: 'GET', url: '/api/admin/audit?action=set_role', headers: adminAuth });
+    expect((filtered.json() as { entries: unknown[] }).entries).toHaveLength(1);
+  });
 });
