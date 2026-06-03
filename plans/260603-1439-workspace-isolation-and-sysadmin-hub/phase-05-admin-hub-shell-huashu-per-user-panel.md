@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Admin Hub Shell & Huashu Per-User Panel"
-status: pending
+status: complete
 priority: P2
 effort: "3-4d"
 dependencies: [1]
@@ -46,12 +46,19 @@ Turn `/admin/access` into a tabbed sys-admin hub and design the centerpiece — 
 6. FE suite green; design-guidelines cross-check vs Dashboards/Cohort.
 
 ## Success Criteria
-- [ ] Signed-off huashu prototype in `visuals/`; React port matches + uses only `tokens.css`.
-- [ ] `/admin` hub built on the GENERALIZED existing tab shell (not new); Users & Access + Observability(placeholder) + Dev/Chat-Audit tabs; surfaces moved, not duplicated.
-- [ ] Relocated DevAudit surfaces migrated off legacy `T` onto `tokens.css` (no two-token-system drift).
-- [ ] Chat-Audit tab scoping decided (admin's own vs cross-user) + implemented accordingly.
-- [ ] Per-user panel renders role/status/workspace/game/feature from existing API; shows switch-ability + game count.
-- [ ] Admin-only guard intact; FE tests green; visual parity with adjacent pages.
+- [x] Signed-off huashu prototype in `visuals/`; React port matches + uses only `tokens.css`. — Variant B (two-column) signed off `visuals/sign-off-decisions.md`; `hub/per-user-panel.tsx` ports it on tokens.css.
+- [x] `/admin` hub built on the GENERALIZED existing tab shell (not new); Users & Access + Observability(placeholder) + Dev/Chat-Audit tabs; surfaces moved, not duplicated. — `src/shell/tab-shell.tsx` (extracted), `hub/index.tsx`; DevAudit's `audit-tabs.tsx` refactored to a thin adapter over it.
+- [x] Relocated DevAudit surfaces migrated off legacy `T` onto `tokens.css` (no two-token-system drift). — hub Dev tab renders a fresh tokens.css `CrossUserAuditPanel`; legacy hermes shell left at its own `/dev/chat-audit` route (not dragged into the hub).
+- [x] Chat-Audit tab scoping decided (admin's own vs cross-user) + implemented accordingly. — cross-user (user-confirmed); net-new admin-gated backend `GET /api/admin/chat/*` (sub-isolated) + `CrossUserAuditPanel`.
+- [x] Per-user panel renders role/status/workspace/game/feature from existing API; shows switch-ability + game count. — `hub/per-user-panel.tsx` + helpers (`switchability`, `groupFeatures`, game N-of-M, read-only activity snapshot).
+- [x] Admin-only guard intact; FE tests green; visual parity with adjacent pages. — non-exact `/admin` behind `AdminHubRoute`; FE 1592/1592, hub+shell 52/52; server 705 (4 pre-existing unrelated).
+
+## Completion Notes (2026-06-03)
+- huashu FULL gate honored: interactive 3-variant prototype (`visuals/index.html`) + screenshots; user signed off Variant B two-column + cross-user audit scope before any React work.
+- Generalized the DevAudit ARIA tab shell into `src/shell/tab-shell.tsx` (`TabShell` + pure `resolveTab` with exact-or-segment-boundary match, longest-match-wins). `audit-tabs.tsx` reduced 150→~50 lines as a thin adapter; tab IDs unchanged (backward compat). DevAudit at `/dev/chat-audit` still works.
+- Cross-user scope (scope expansion, user-confirmed): net-new `admin-chat-audit.ts` re-declares its own `requireRole('admin')+requireFeature('admin')` (Fastify encapsulation), resolves target email→kcSub via `getAccess`, proxies to chat-service with the TARGET user's sub. 19 route tests (400/404/502/status-forward). Decided NOT to retrofit the 34-file self-scoped DevAudit — a fresh tokens.css panel delivers cross-user AND dissolves the two-token-drift concern for the hub.
+- Code review: one Critical (FE used bare `fetch()` → 401 in prod real-auth) caught + fixed (routed through `apiFetch`); M1 `resolveTab` substring mis-route fixed (segment-boundary); M2 plan/phase refs scrubbed from code/comments. All verified by grep, not narration. Report: `plans/reports/code-reviewer-260603-1825-sysadmin-hub-phase5-prod-readiness-review-report.md`.
+- Stable-reason rule honored: 0 phase/variant/finding refs in shipped code, comments, filenames, or user-visible strings.
 
 ## Risk Assessment
 - **Risk:** raw huashu HTML drifts from design system. **Mitigation:** prototype = artifact only; mandatory token reconcile + adjacency cross-check.

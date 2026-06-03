@@ -48,7 +48,7 @@ Phase 2, the Phase-3/4 chain, and the Phase-5→7 chain are parallelizable after
 | 2 | [Segment Visibility Enforcement](./phase-02-segment-visibility-enforcement.md) | Complete |
 | 3 | [Activity Event Spine & Chat Bridge](./phase-03-activity-event-spine-chat-bridge.md) | Complete |
 | 4 | [Telemetry Aggregation & Inactive Detection](./phase-04-telemetry-aggregation-inactive-detection.md) | Complete |
-| 5 | [Admin Hub Shell & Huashu Per-User Panel](./phase-05-admin-hub-shell-huashu-per-user-panel.md) | Pending |
+| 5 | [Admin Hub Shell & Huashu Per-User Panel](./phase-05-admin-hub-shell-huashu-per-user-panel.md) | Complete |
 | 6 | [Fine-Grained Per-User Controls](./phase-06-fine-grained-per-user-controls.md) | Pending |
 | 7 | [Observability Dashboard & Rollout](./phase-07-observability-dashboard-rollout.md) | Pending |
 

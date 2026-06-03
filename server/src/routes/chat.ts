@@ -17,8 +17,9 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Readable } from 'node:stream';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 
-// Read at request time so tests can override CHAT_SERVICE_URL env var before each request
-function chatServiceUrl(): string {
+// Read at request time so tests can override CHAT_SERVICE_URL env var before each request.
+// Exported so admin-chat-audit can reuse the same upstream base without duplicating it.
+export function chatServiceUrl(): string {
   return process.env.CHAT_SERVICE_URL ?? 'http://localhost:3005';
 }
 
@@ -55,8 +56,9 @@ interface PatchSessionBody {
 /**
  * Forwards a plain JSON request upstream and pipes the response back.
  * Passes X-Owner-Id header through for ownership checks in chat-service.
+ * Exported so admin-chat-audit can reuse the same proxy mechanism without copying it.
  */
-async function proxyJson(
+export async function proxyJson(
   upstream: string,
   method: string,
   ownerId: string,

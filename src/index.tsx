@@ -74,6 +74,10 @@ const AdminAccessPage = loadable(() =>
   import('./pages/Admin/access').then((m) => ({ default: m.AdminAccessPage }))
 );
 
+const AdminHub = loadable(() =>
+  import('./pages/Admin/hub').then((m) => ({ default: m.AdminHub }))
+);
+
 const DriftCenterPage = loadable(() =>
   import('./pages/DriftCenter').then((m) => ({ default: m.DriftCenterPage }))
 );
@@ -89,6 +93,16 @@ function AdminAccessRoute() {
   const user = useAuthUser();
   if (user?.role !== 'admin') return <Redirect to="/" />;
   return <AdminAccessPage />;
+}
+
+// Hub guard: covers /admin, /admin/access, /admin/observability, /admin/dev.
+// AdminHub's internal TabShell + Switch handle the sub-route rendering.
+// The legacy /admin/access exact route is preserved via AdminHub's own Switch
+// (resolveTab maps the pathname to the correct tab automatically).
+function AdminHubRoute() {
+  const user = useAuthUser();
+  if (user?.role !== 'admin') return <Redirect to="/" />;
+  return <AdminHub />;
 }
 
 
@@ -205,7 +219,16 @@ ReactDOM.render(
               <Route key="drift-center" exact path="/drift-center" component={DriftCenterPage} />
               <Route key="data-hub" exact path="/data" component={DataHubPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />
-              <Route key="admin-access" exact path="/admin/access" component={AdminAccessRoute} />
+              {/*
+                AdminHub covers /admin, /admin/access, /admin/observability, /admin/dev.
+                Using path (not exact) so TabShell's Switch can match sub-routes.
+                resolveTab resolves /admin/access → 'access' tab correctly.
+                The old AdminAccessPage + AdminAccessRoute are kept for the Settings
+                "Access" link — lower-risk than changing the Settings nav target,
+                and both share the same underlying components. They will converge
+                in a follow-up once Settings nav is updated to point to /admin/access.
+              */}
+              <Route key="admin-hub" path="/admin" component={AdminHubRoute} />
               <Route key="data-model-new-success" exact path="/data-model/new/success" component={DataModelWizardSuccess} />
               <Route key="data-model-new" exact path="/data-model/new" component={DataModelWizardPage} />
               <Route key="metrics-new-success-legacy" exact path="/metrics/new/success">

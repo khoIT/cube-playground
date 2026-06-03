@@ -38,6 +38,7 @@ import settingsRoutes from './routes/settings.js';
 import onboardingRoutes from './routes/onboarding.js';
 import activityRoutes from './routes/activity.js';
 import adminActivityRoutes from './routes/admin-activity.js';
+import adminChatAuditRoutes from './routes/admin-chat-audit.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
@@ -99,6 +100,7 @@ export async function buildApp() {
   await app.register(onboardingRoutes);
   await app.register(activityRoutes);
   await app.register(adminActivityRoutes);
+  await app.register(adminChatAuditRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.

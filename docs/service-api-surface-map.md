@@ -47,6 +47,12 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | PUT | `/api/admin/users/:email/workspaces` | admin | `authorization` | 200 `{ok}` | setWorkspaces + audit |
 | PUT | `/api/admin/users/:email/games` | admin | `authorization` | 200 `{ok}` | setGames + audit |
 | PUT | `/api/admin/users/:email/features` | admin | `authorization` | 200 `{ok}` | setFeatures + audit |
+| GET | `/api/admin/activity/summary` | admin | `authorization` | org rollup `{byStatus,active7d,active30d,inactive[],totalChats,topFeatures}` | activity-aggregator (activity_events + chat `/internal/stats`) |
+| GET | `/api/admin/activity/users/:email` | admin | `authorization` | per-user `{lastLogin,sessions,turns,recentFeatures,recentQueryShapes,segments}`; 404 unknown; chat-down→null counts | activity-aggregator |
+| GET | `/api/admin/chat/sessions` | admin | `authorization` | cross-user `{sessions}` for `?email=`(req)`&game&q&limit`; 400 no email, 404 unknown user, 502 chat down | resolves email→kcSub, proxies chat-service w/ target `X-Owner-Id` |
+| GET | `/api/admin/chat/sessions/:id` | admin | `authorization` | session detail for `?email=`(req) | chat-service proxy (target sub) |
+| GET | `/api/admin/chat/turns/:turnId` | admin | `authorization` | turn detail for `?email=`(req) | chat-service proxy (target sub) |
+| POST | `/api/activity` | none (owner-scoped) | `authorization`/`x-owner` | 204; client beacon, allowlist `{feature_open,export,workspace_switch}` | activity-store (sub-keyed) |
 | GET | `/internal/access/:key` | internal-secret | `x-internal-secret` | `{role,allowedGames,status}` / 404; 503 if secret unset | access store, env |
 | GET | `/api/user-prefs` | none (owner-scoped) | `authorization` (→owner) / `x-owner` | flat `{[key]:value}` | DB user_prefs |
 | GET | `/api/user-prefs/:key` | none | `authorization`/`x-owner` | `{value}` | DB user_prefs |

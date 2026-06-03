@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sys-Admin Hub · per-user control panel — hi-fi prototype</title>
+
+<!--
+  HUASHU HI-FI PROTOTYPE — Phase 5 sign-off gate (throwaway artifact, NOT code).
+
+  Grounded in the real system (no generic AI mock):
+   - Every color/radius/font is a literal value lifted from src/theme/tokens.css.
+   - The per-user panel binds the REAL grant model: AdminUser { role, status,
+     kcSub, workspaces[], games[], features{} } + AdminRegistry { workspaces,
+     games, featureKeys }  (src/pages/Admin/access/use-admin-access.ts).
+   - Activity-snapshot slot binds the REAL UserActivity shape already shipped in
+     server/src/services/activity-aggregator.ts (recentFeatures, recentQueryShapes,
+     chatStats, segmentCount, lastLogin, inactive).
+   - Tab shell mirrors the EXISTING DevAudit ARIA tablist (role=tablist, arrow-key
+     nav, aria-selected) — to be GENERALIZED in React, not authored new.
+
+  ASSUMPTIONS (flagged for sign-off):
+   A1. "Can switch workspaces" is surfaced as an explicit affordance whenever >1
+       workspace is granted (switch-ability == having the choice). Single grant =>
+       no switcher, shown as a muted note.
+   A2. Feature toggles are grouped into "Analyst surfaces" (default-on) and
+       "Admin / governance" (admin default-off) per feature-keys.ts policy.
+   A3. Activity snapshot is read-only here; live wiring lands Phase 6/7. Shown with
+       real-shaped mock data + an honest "wired in Phase 6/7" ribbon.
+   A4. Observability tab = placeholder this phase (filled Phase 7). Dev/Chat-Audit
+       = relocated existing surface (move, not duplicate); cross-user scoping TBD.
+
+  Three LAYOUT variants via the Tweaks switch (top-right). They share ONE token
+  system — these are interaction/layout choices, not divergent visual styles
+  (design-guidelines.md: the app is one coherent system).
+-->
+
+<style>
+  /* ---- tokens.css (literal values, light + dark) ---------------------- */
+  :root {
+    --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-200:#e5e5e5;
+    --neutral-300:#d4d4d4; --neutral-500:#737373; --neutral-700:#404040;
+    --neutral-900:#171717; --neutral-950:#0a0a0a;
+
+    --text-primary:#171717; --text-secondary:#404040; --text-muted:#737373;
+    --bg-app:#fafafa; --bg-card:#ffffff; --bg-muted:#f5f5f5; --border-card:#e5e5e5;
+    --brand:#f05a22; --brand-hover:#f54a00;
+
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5; --muted-ink:#525252;
+
+    --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:10px;
+    --radius-xl:12px; --radius-2xl:16px; --radius-full:9999px;
+
+    --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --shadow-card:0 1px 2px rgba(0,0,0,0.04),0 1px 1px rgba(0,0,0,0.03);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text-primary:#fafafa; --text-secondary:#d4d4d4; --text-muted:#a3a3a3;
+      --bg-app:#0a0a0a; --bg-card:#171717; --bg-muted:#262626; --border-card:#262626;
+      --success-soft:rgba(16,185,129,0.15); --success-ink:#6ee7b7;
+      --warning-soft:rgba(217,119,6,0.18); --warning-ink:#fcd34d;
+      --destructive-soft:rgba(220,38,38,0.18); --destructive-ink:#fca5a5;
+      --info-soft:rgba(63,141,255,0.18); --info-ink:#93c5fd;
+      --muted-soft:#262626; --muted-ink:#d4d4d4;
+      --shadow-card:0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html,body { margin:0; padding:0; background:var(--bg-app); color:var(--text-primary);
+    font-family:var(--font-sans); -webkit-font-smoothing:antialiased; }
+  button { font-family:inherit; cursor:pointer; }
+  ::selection { background:var(--brand); color:#fff; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useMemo, useRef, useEffect } = React;
+
+/* ============================================================ MOCK DATA
+   Real shapes from use-admin-access.ts + activity-aggregator.ts. */
+
+const REGISTRY = {
+  workspaces: [
+    { id: 'cube-dev-local', label: 'cube-dev · local' },
+    { id: 'cube-dev-prod',  label: 'cube-dev · prod' },
+  ],
+  games: [
+    { id: 'muaw',      name: 'MU: Awakening' },
+    { id: 'huashu',    name: 'Hua Shu' },
+    { id: 'gunny',     name: 'Gunny Origin' },
+    { id: 'kingdom',   name: 'Kingdom Story' },
+    { id: 'roto',      name: 'Roto Legend' },
+  ],
+  featureKeys: ['chats','playground','data-model','metrics-catalog','liveops','dashboards','segments','admin'],
+};
+
+// Group feature keys into areas (A2).
+const FEATURE_GROUPS = [
+  { area: 'Analyst surfaces', defaultOn: true,
+    keys: ['dashboards','liveops','segments','metrics-catalog','data-model','playground','chats'] },
+  { area: 'Admin / governance', defaultOn: false, keys: ['admin'] },
+];
+const FEATURE_LABEL = {
+  chats:'Chats', playground:'Query playground', 'data-model':'Data model',
+  'metrics-catalog':'Metrics catalog', liveops:'LiveOps', dashboards:'Dashboards',
+  segments:'Segments', admin:'Admin hub',
+};
+
+const USERS = [
+  { email:'khoitn@vng.com.vn', role:'admin', status:'active', kcSub:'kc-sub-khoi',
+    workspaces:['cube-dev-local','cube-dev-prod'], games:['muaw','huashu','gunny','kingdom','roto'],
+    features:{ admin:true }, lastLogin:'2026-06-03T09:12:00Z',
+    activity:{ segmentCount:14, recentFeatures:['dashboards','segments','liveops','playground','metrics-catalog'],
+      recentQueryShapes:[
+        { cubes:['mf_users'], measures:['mf_users.wau'], dimensions:['mf_users.game_id'] },
+        { cubes:['segments'], measures:['segments.size'], dimensions:[] }],
+      chatStats:{ turns:182 }, inactive:false } },
+
+  { email:'duongnt5@vng.com.vn', role:'editor', status:'active', kcSub:'kc-sub-duong',
+    workspaces:['cube-dev-prod'], games:['muaw','gunny'],
+    features:{}, lastLogin:'2026-05-30T02:40:00Z',
+    activity:{ segmentCount:6, recentFeatures:['liveops','dashboards','segments'],
+      recentQueryShapes:[
+        { cubes:['mf_users'], measures:['mf_users.dau'], dimensions:['mf_users.cohort_day'] }],
+      chatStats:{ turns:41 }, inactive:false } },
+
+  { email:'anvtt4@vng.com.vn', role:'viewer', status:'active', kcSub:'kc-sub-an',
+    workspaces:['cube-dev-prod'], games:['muaw'],
+    features:{}, lastLogin:'2026-04-21T08:00:00Z',
+    activity:{ segmentCount:1, recentFeatures:['dashboards'],
+      recentQueryShapes:[], chatStats:{ turns:3 }, inactive:true } },
+
+  { email:'newhire@vng.com.vn', role:'viewer', status:'pending', kcSub:null,
+    workspaces:[], games:[], features:{}, lastLogin:null,
+    activity:{ segmentCount:0, recentFeatures:[], recentQueryShapes:[], chatStats:null, inactive:true } },
+
+  { email:'leftcompany@vng.com.vn', role:'editor', status:'disabled', kcSub:'kc-sub-left',
+    workspaces:['cube-dev-prod'], games:['muaw','gunny'], features:{}, lastLogin:'2026-02-11T05:00:00Z',
+    activity:{ segmentCount:9, recentFeatures:['segments','liveops'], recentQueryShapes:[],
+      chatStats:{ turns:77 }, inactive:true } },
+];
+
+/* ============================================================ PRIMITIVES */
+
+const STATUS_TONE = {
+  active:   { soft:'var(--success-soft)',     ink:'var(--success-ink)',     label:'Active' },
+  pending:  { soft:'var(--warning-soft)',     ink:'var(--warning-ink)',     label:'Pending' },
+  disabled: { soft:'var(--destructive-soft)', ink:'var(--destructive-ink)', label:'Disabled' },
+};
+
+function StatusBadge({ status }) {
+  const t = STATUS_TONE[status] || STATUS_TONE.pending;
+  return <span style={{ background:t.soft, color:t.ink, fontSize:11, fontWeight:600,
+    padding:'2px 8px', borderRadius:'var(--radius-full)', whiteSpace:'nowrap' }}>{t.label}</span>;
+}
+function RoleChip({ role }) {
+  return <span style={{ background:'var(--muted-soft)', color:'var(--muted-ink)', fontSize:11,
+    fontWeight:600, padding:'2px 8px', borderRadius:'var(--radius-full)', textTransform:'capitalize' }}>{role}</span>;
+}
+function Initials({ email }) {
+  const init = email.slice(0,2).toUpperCase();
+  return <div style={{ width:36, height:36, borderRadius:'var(--radius-full)', background:'var(--bg-muted)',
+    border:'1px solid var(--border-card)', display:'grid', placeItems:'center', fontSize:13, fontWeight:700,
+    color:'var(--text-secondary)', flexShrink:0 }}>{init}</div>;
+}
+function relTime(iso) {
+  if (!iso) return 'never';
+  const days = Math.round((Date.parse('2026-06-03T10:00:00Z') - Date.parse(iso)) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return days + 'd ago';
+  return Math.round(days/30) + 'mo ago';
+}
+
+function Card({ children, style }) {
+  return <div style={{ background:'var(--bg-card)', border:'1px solid var(--border-card)',
+    borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow-card)', ...style }}>{children}</div>;
+}
+function SectionHead({ title, right }) {
+  return <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+    <h3 style={{ margin:0, fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{title}</h3>
+    {right}
+  </div>;
+}
+
+/* ============================================================ TAB SHELL
+   Mirrors the existing DevAudit ARIA tablist (role=tablist, arrow nav). */
+
+const TABS = [
+  { key:'access',  label:'Users & Access' },
+  { key:'observe', label:'Observability', tag:'Phase 7' },
+  { key:'dev',     label:'Dev / Chat-Audit', tag:'relocated' },
+];
+
+function TabBar({ active, onChange }) {
+  const refs = useRef([]);
+  const onKey = (e, i) => {
+    let n = null;
+    if (e.key==='ArrowRight') n = (i+1)%TABS.length;
+    else if (e.key==='ArrowLeft') n = (i-1+TABS.length)%TABS.length;
+    else if (e.key==='Home') n = 0;
+    else if (e.key==='End') n = TABS.length-1;
+    if (n!==null) { e.preventDefault(); onChange(TABS[n].key); refs.current[n]?.focus(); }
+  };
+  return (
+    <div role="tablist" aria-label="Sys-admin hub" aria-orientation="horizontal"
+      style={{ display:'flex', gap:4, borderBottom:'1px solid var(--border-card)' }}>
+      {TABS.map((t,i) => {
+        const on = active===t.key;
+        return (
+          <button key={t.key} ref={el=>refs.current[i]=el} role="tab" id={`hub-tab-${t.key}`}
+            aria-selected={on} aria-controls={`hub-panel-${t.key}`} tabIndex={on?0:-1}
+            onClick={()=>onChange(t.key)} onKeyDown={e=>onKey(e,i)}
+            style={{ background:'transparent', border:'none', padding:'10px 14px', fontSize:13,
+              fontWeight:on?700:500, color:on?'var(--text-primary)':'var(--text-muted)',
+              borderBottom:on?'2px solid var(--brand)':'2px solid transparent', marginBottom:-1,
+              display:'flex', alignItems:'center', gap:7 }}>
+            {t.label}
+            {t.tag && <span style={{ fontSize:9.5, fontWeight:600, textTransform:'uppercase',
+              letterSpacing:0.4, color:'var(--text-muted)', background:'var(--bg-muted)',
+              border:'1px solid var(--border-card)', padding:'1px 6px', borderRadius:'var(--radius-full)' }}>{t.tag}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ============================================================ USER LIST */
+
+function UserList({ users, selected, onSelect }) {
+  const [q, setQ] = useState('');
+  const [pendingOnly, setPendingOnly] = useState(false);
+  const filtered = users.filter(u =>
+    u.email.includes(q.toLowerCase()) && (!pendingOnly || u.status==='pending'));
+  return (
+    <Card style={{ padding:12, display:'flex', flexDirection:'column', gap:10, height:'fit-content' }}>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search users…"
+        style={{ width:'100%', padding:'8px 10px', fontSize:13, fontFamily:'inherit',
+          color:'var(--text-primary)', background:'var(--bg-app)', border:'1px solid var(--border-card)',
+          borderRadius:'var(--radius-md)', outline:'none' }} />
+      <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--text-muted)' }}>
+        <input type="checkbox" checked={pendingOnly} onChange={e=>setPendingOnly(e.target.checked)} />
+        Pending only
+      </label>
+      <div style={{ display:'flex', flexDirection:'column', gap:2, maxHeight:'62vh', overflow:'auto' }}>
+        {filtered.map(u => {
+          const on = selected===u.email;
+          return (
+            <button key={u.email} onClick={()=>onSelect(u.email)}
+              style={{ textAlign:'left', background:on?'var(--bg-muted)':'transparent',
+                border:'none', borderLeft:on?'3px solid var(--brand)':'3px solid transparent',
+                padding:'9px 10px', borderRadius:'var(--radius-sm)', display:'flex',
+                flexDirection:'column', gap:5 }}>
+              <span style={{ fontSize:13, fontWeight:on?700:500, color:'var(--text-primary)',
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</span>
+              <span style={{ display:'flex', gap:6 }}><RoleChip role={u.role} /><StatusBadge status={u.status} /></span>
+            </button>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+/* ============================================================ PANEL PIECES */
+
+function ExperienceSummary({ user }) {
+  const wsCount = user.workspaces.length;
+  const canSwitch = wsCount > 1;                       // A1
+  const gameCount = user.games.length;
+  return (
+    <Card style={{ padding:16 }}>
+      <div style={{ display:'flex', gap:12, alignItems:'center', marginBottom:14 }}>
+        <Initials email={user.email} />
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:15, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis',
+            whiteSpace:'nowrap' }}>{user.email}</div>
+          <div style={{ display:'flex', gap:6, marginTop:5, alignItems:'center' }}>
+            <RoleChip role={user.role} /><StatusBadge status={user.status} />
+            <span style={{ fontSize:11.5, color:'var(--text-muted)' }}>· last login {relTime(user.lastLogin)}</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+        <Stat label="Workspaces" value={wsCount}
+          note={canSwitch ? '✓ can switch' : (wsCount===1 ? 'single — no switcher' : 'none granted')}
+          noteTone={canSwitch ? 'var(--success-ink)' : 'var(--text-muted)'} />
+        <Stat label="Games" value={gameCount} note={gameCount? `${gameCount} of ${REGISTRY.games.length}`:'none'} />
+        <Stat label="Segments" value={user.activity.segmentCount} note="owned" />
+      </div>
+    </Card>
+  );
+}
+function Stat({ label, value, note, noteTone }) {
+  return <div style={{ background:'var(--bg-muted)', borderRadius:'var(--radius-md)', padding:'10px 12px' }}>
+    <div style={{ fontSize:10.5, fontWeight:600, textTransform:'uppercase', letterSpacing:0.4,
+      color:'var(--text-muted)' }}>{label}</div>
+    <div style={{ fontSize:22, fontWeight:700, lineHeight:1.2, marginTop:2 }}>{value}</div>
+    {note && <div style={{ fontSize:11, color:noteTone||'var(--text-muted)', marginTop:2 }}>{note}</div>}
+  </div>;
+}
+
+function RoleStatus({ user }) {
+  const sel = { padding:'7px 10px', fontSize:13, fontFamily:'inherit', color:'var(--text-primary)',
+    background:'var(--bg-app)', border:'1px solid var(--border-card)', borderRadius:'var(--radius-md)' };
+  return (
+    <Card style={{ padding:16 }}>
+      <SectionHead title="Role & status" />
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <label style={{ display:'flex', flexDirection:'column', gap:5, fontSize:11.5, color:'var(--text-muted)' }}>
+          Role
+          <select defaultValue={user.role} style={sel}>
+            <option value="viewer">viewer</option><option value="editor">editor</option><option value="admin">admin</option>
+          </select>
+        </label>
+        <label style={{ display:'flex', flexDirection:'column', gap:5, fontSize:11.5, color:'var(--text-muted)' }}>
+          Status
+          <select defaultValue={user.status} style={sel}>
+            <option value="active">active</option><option value="pending">pending</option><option value="disabled">disabled</option>
+          </select>
+        </label>
+      </div>
+      <p style={{ fontSize:11.5, color:'var(--text-muted)', margin:'12px 0 0' }}>
+        Last active admin can't be demoted/disabled — guarded server-side (409).
+      </p>
+    </Card>
+  );
+}
+
+function GrantMatrix({ title, options, selected, footer }) {
+  return (
+    <Card style={{ padding:16 }}>
+      <SectionHead title={title} right={
+        <span style={{ fontSize:11.5, color:'var(--text-muted)' }}>{selected.size} of {options.length}</span>} />
+      <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+        {options.map(o => {
+          const on = selected.has(o.id);
+          return (
+            <label key={o.id} style={{ display:'flex', alignItems:'center', gap:9, padding:'7px 8px',
+              borderRadius:'var(--radius-sm)', background:on?'var(--bg-muted)':'transparent', fontSize:13 }}>
+              <input type="checkbox" defaultChecked={on} />
+              <span style={{ color:'var(--text-primary)' }}>{o.label}</span>
+            </label>
+          );
+        })}
+      </div>
+      {footer}
+    </Card>
+  );
+}
+
+function WorkspaceGrants({ user }) {
+  const selected = new Set(user.workspaces);
+  const canSwitch = selected.size > 1;
+  const footer = (
+    <div style={{ marginTop:12, padding:'10px 12px', borderRadius:'var(--radius-md)',
+      background: canSwitch ? 'var(--success-soft)' : 'var(--bg-muted)',
+      color: canSwitch ? 'var(--success-ink)' : 'var(--text-muted)', fontSize:12 }}>
+      {canSwitch
+        ? '✓ Can switch workspaces — both granted, the workspace switcher is enabled.'
+        : (selected.size===1
+            ? 'Single workspace — switcher hidden; user is pinned to it.'
+            : 'No workspace granted — user can’t load any cube data.')}
+    </div>
+  );
+  return <GrantMatrix title="Workspace grants"
+    options={REGISTRY.workspaces.map(w=>({ id:w.id, label:w.label }))}
+    selected={selected} footer={footer} />;
+}
+
+function GameGrants({ user }) {
+  return <GrantMatrix title="Game grants"
+    options={REGISTRY.games.map(g=>({ id:g.id, label:g.name }))}
+    selected={new Set(user.games)} />;
+}
+
+function FeatureToggles({ user }) {
+  return (
+    <Card style={{ padding:16 }}>
+      <SectionHead title="Feature access" />
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {FEATURE_GROUPS.map(group => (
+          <div key={group.area}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:7 }}>
+              <span style={{ fontSize:11, fontWeight:600, textTransform:'uppercase', letterSpacing:0.4,
+                color:'var(--text-muted)' }}>{group.area}</span>
+              <span style={{ fontSize:10.5, color:'var(--text-muted)',
+                background:group.defaultOn?'var(--success-soft)':'var(--warning-soft)',
+                color:group.defaultOn?'var(--success-ink)':'var(--warning-ink)',
+                padding:'1px 7px', borderRadius:'var(--radius-full)' }}>
+                {group.defaultOn?'default on':'default off'}</span>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+              {group.keys.map(k => {
+                const explicit = user.features[k];
+                const on = explicit !== undefined ? explicit : group.defaultOn && user.status==='active';
+                return (
+                  <label key={k} style={{ display:'flex', alignItems:'center', gap:9, padding:'7px 8px',
+                    borderRadius:'var(--radius-sm)', background:on?'var(--bg-muted)':'transparent', fontSize:13 }}>
+                    <input type="checkbox" defaultChecked={on} />
+                    <span>{FEATURE_LABEL[k]}</span>
+                    {explicit!==undefined && <span style={{ fontSize:10, color:'var(--info-ink)',
+                      background:'var(--info-soft)', padding:'0 6px', borderRadius:'var(--radius-full)' }}>override</span>}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ActivitySnapshot({ user }) {
+  const a = user.activity;
+  return (
+    <Card style={{ padding:16, position:'relative' }}>
+      <div style={{ position:'absolute', top:12, right:12, fontSize:9.5, fontWeight:600,
+        textTransform:'uppercase', letterSpacing:0.4, color:'var(--info-ink)', background:'var(--info-soft)',
+        padding:'2px 8px', borderRadius:'var(--radius-full)' }}>wired Phase 6/7</div>
+      <SectionHead title="Activity snapshot" />
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
+        <Stat label="Chat turns" value={a.chatStats ? a.chatStats.turns : '—'}
+          note={a.chatStats ? 'last 30d' : 'chat-service unreachable'} />
+        <Stat label="Status" value={a.inactive ? 'Inactive' : 'Active'}
+          note={a.inactive ? 'last login >30d' : 'within 30d'}
+          noteTone={a.inactive ? 'var(--destructive-ink)' : 'var(--success-ink)'} />
+      </div>
+      <div style={{ fontSize:11.5, fontWeight:600, color:'var(--text-muted)', marginBottom:6 }}>Recent features</div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
+        {a.recentFeatures.length ? a.recentFeatures.map((f,i)=>(
+          <span key={i} style={{ fontSize:12, background:'var(--bg-muted)', padding:'3px 9px',
+            borderRadius:'var(--radius-full)' }}>{FEATURE_LABEL[f]||f}</span>
+        )) : <span style={{ fontSize:12, color:'var(--text-muted)' }}>none recorded</span>}
+      </div>
+      <div style={{ fontSize:11.5, fontWeight:600, color:'var(--text-muted)', marginBottom:6 }}>Recent query shapes</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+        {a.recentQueryShapes.length ? a.recentQueryShapes.map((s,i)=>(
+          <div key={i} style={{ fontSize:11.5, fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',
+            color:'var(--text-secondary)', background:'var(--bg-muted)', padding:'6px 9px',
+            borderRadius:'var(--radius-sm)' }}>
+            {s.cubes.join(', ')} · {s.measures.length} measure(s) · {s.dimensions.length} dim(s)
+          </div>
+        )) : <span style={{ fontSize:12, color:'var(--text-muted)' }}>none recorded</span>}
+      </div>
+      <p style={{ fontSize:10.5, color:'var(--text-muted)', margin:'12px 0 0' }}>
+        Query shapes are member NAMES only — no filter values or UIDs (privacy allowlist).
+      </p>
+    </Card>
+  );
+}
+
+/* ============================================================ PER-USER PANEL
+   Three layout variants share these pieces. */
+
+function PerUserPanel({ user, variant }) {
+  const summary = <ExperienceSummary user={user} />;
+  const roleStatus = <RoleStatus user={user} />;
+  const ws = <WorkspaceGrants user={user} />;
+  const games = <GameGrants user={user} />;
+  const features = <FeatureToggles user={user} />;
+  const activity = <ActivitySnapshot user={user} />;
+
+  if (variant === 'stacked') {
+    return <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      {summary}{roleStatus}{ws}{games}{features}{activity}
+    </div>;
+  }
+  if (variant === 'twocol') {
+    return <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      {summary}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, alignItems:'start' }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>{roleStatus}{ws}{games}</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>{features}{activity}</div>
+      </div>
+    </div>;
+  }
+  // 'summary' — emphasise the experience header full-width, grants in a 2-col grid below
+  return <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+    {summary}{roleStatus}
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, alignItems:'start' }}>
+      {ws}{games}
+    </div>
+    {features}{activity}
+  </div>;
+}
+
+/* ============================================================ TAB BODIES */
+
+function AccessTab({ variant }) {
+  const [sel, setSel] = useState(USERS[0].email);
+  const user = USERS.find(u=>u.email===sel);
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'300px 1fr', gap:16, marginTop:16, alignItems:'start' }}>
+      <UserList users={USERS} selected={sel} onSelect={setSel} />
+      <PerUserPanel user={user} variant={variant} />
+    </div>
+  );
+}
+
+function Placeholder({ icon, title, body }) {
+  return <Card style={{ padding:48, marginTop:16, textAlign:'center' }}>
+    <div style={{ fontSize:32, marginBottom:10 }}>{icon}</div>
+    <h3 style={{ margin:'0 0 6px', fontSize:15, fontWeight:700 }}>{title}</h3>
+    <p style={{ margin:0, fontSize:13, color:'var(--text-muted)', maxWidth:440, marginInline:'auto' }}>{body}</p>
+  </Card>;
+}
+
+/* ============================================================ TWEAKS */
+
+const VARIANTS = [
+  { key:'stacked', label:'A · Stacked' },
+  { key:'twocol',  label:'B · Two-column' },
+  { key:'summary', label:'C · Summary-led' },
+];
+function Tweaks({ variant, onChange }) {
+  return <div style={{ position:'fixed', top:14, right:14, zIndex:50, display:'flex', gap:6,
+    background:'var(--bg-card)', border:'1px solid var(--border-card)', borderRadius:'var(--radius-full)',
+    padding:4, boxShadow:'var(--shadow-card)' }}>
+    {VARIANTS.map(v => {
+      const on = variant===v.key;
+      return <button key={v.key} onClick={()=>onChange(v.key)}
+        style={{ border:'none', borderRadius:'var(--radius-full)', padding:'6px 12px', fontSize:12,
+          fontWeight:on?700:500, color:on?'#fff':'var(--text-muted)',
+          background:on?'var(--brand)':'transparent' }}>{v.label}</button>;
+    })}
+  </div>;
+}
+
+/* ============================================================ APP */
+
+function App() {
+  const [tab, setTab] = useState('access');
+  const [variant, setVariant] = useState('twocol');
+  return (
+    <div>
+      <Tweaks variant={variant} onChange={setVariant} />
+      <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 32px' }}>
+        {/* page header — matches Dashboards/Access pattern */}
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:11, fontWeight:600, textTransform:'uppercase', letterSpacing:0.5,
+            color:'var(--text-muted)', marginBottom:4 }}>Administration</div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ width:22, height:22, display:'grid', placeItems:'center', color:'var(--brand)' }}>🛡</span>
+            <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Sys-admin hub</h1>
+          </div>
+          <p style={{ margin:'6px 0 0', fontSize:13, color:'var(--text-muted)' }}>
+            Manage access, fine-grained per-user controls, observability, and dev tooling.
+          </p>
+        </div>
+
+        <TabBar active={tab} onChange={setTab} />
+
+        <div role="tabpanel" id={`hub-panel-${tab}`} aria-labelledby={`hub-tab-${tab}`}>
+          {tab==='access'  && <AccessTab variant={variant} />}
+          {tab==='observe' && <Placeholder icon="📊" title="Observability — Phase 7"
+            body="Org rollup (users by status, active 7/30d, inactive list, top features, total chat turns) renders here on the activity-aggregator data already shipped in Phase 4." />}
+          {tab==='dev'     && <Placeholder icon="🔍" title="Dev / Chat-Audit — relocated"
+            body="The existing DevAudit surface moves in as a tab (sessions · search · leaderboard · cache), token-migrated off the legacy theme onto tokens.css. Cross-user scoping decision pending: admin's-own vs any-user." />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
