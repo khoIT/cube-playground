@@ -1,0 +1,34 @@
+# Local-mirror override for docker-compose.prod.yml.
+#
+# Goal: run the EXACT production composition on a developer laptop, so a change
+# verified locally behaves identically once pushed to playground.gds.vng.vn.
+#
+# This file holds ONLY the deltas a local host needs. The prod topology, build
+# targets, service wiring, healthchecks, and published ports all come from
+# docker-compose.prod.yml and are deliberately NOT restated here — restating
+# them would let the local and prod definitions drift, defeating the purpose.
+#
+# Run via:  npm run stack            (wrapper: scripts/stack-local.mjs)
+# which layers this file on the prod compose, auto-selects the cubestore image
+# arch for the host, and feeds .env.docker.local for both container env_file and
+# ${VAR} interpolation. Equivalent raw command:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.local.yml \
+#     --env-file .env.docker.local up -d --build
+#
+# Deltas vs prod:
+#   - env_file → .env.docker.local: the laptop's local-posture secrets
+#     (AUTH_DISABLED=true, local Trino/Anthropic creds) stay out of the prod .env
+#     and out of git. cube_api/cubestore read their values via ${VAR}
+#     interpolation, which the wrapper's --env-file supplies from the same file.
+#   - cubestore image arch: the wrapper sets CUBESTORE_TAG to the arm64v8 build on
+#     Apple Silicon (cubejs/cubestore is not multi-arch); prod keeps amd64 :latest.
+
+services:
+  server:
+    env_file:
+      - .env.docker.local
+
+  chat-service:
+    env_file:
+      - .env.docker.local
