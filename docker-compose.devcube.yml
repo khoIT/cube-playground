@@ -1,33 +1,85 @@
-# Dev-cube override — makes the stack's cube_api serve the fast `npm run dev` /
-# `dev:all` loop, replacing the separately-spun sibling cube-dev repo.
+# Dedicated Cube backend for the `npm run dev` / `dev:all` loop.
 #
-# Layered ONLY by the dev:all watchdog (scripts/ensure-cube-api.mjs), never by
-# the full `npm run stack`:
+# This is a SEPARATE pair of containers (cube_api_dev + cubestore_dev), NOT an
+# override of the stack's cube_api. Why: the dev loop wants Cube in the
+# standalone file-auth posture on :4000, while `npm run stack` wants the prod
+# mirror (server-bridge auth on :17001). They used to share one cube_api
+# container and fight over its posture/ports — every recreate by one mode broke
+# the other. Giving the dev loop its own container lets BOTH run at once:
+#   - `npm run stack`  → cube_api      (:17001, AUTH_API_URL=http://server:3004)
+#   - `npm run dev:all`→ cube_api_dev  (:4000,  AUTH_API_URL="" file auth)
+#
+# Layered ONLY when STACK_DEV_CUBE=1 (the dev:all watchdog sets it); the full
+# stack never sees these services. The watchdog brings them up explicitly:
 #   docker compose -f docker-compose.prod.yml -f docker-compose.local.yml \
-#     -f docker-compose.devcube.yml --env-file .env.docker.local up -d cube_api cubestore
+#     -f docker-compose.devcube.yml --env-file .env.docker.local \
+#     up -d cube_api_dev cubestore_dev
 #
-# Why a separate file: the full stack runs cube_api in its PROD posture — it
-# resolves per-user game grants by calling the in-stack server
-# (AUTH_API_URL=http://server:3004), which only exists when the whole stack is
-# up. The dev loop runs the host gateway (with HMR) and no in-stack server, so
-# the cube must resolve grants standalone. This override flips cube_api to the
-# file-auth fallback (the same mode standalone cube-dev uses today) and publishes
-# it on :4000 — exactly what the Vite proxy and the `local` workspace already
-# expect. Keeping it out of docker-compose.prod.yml preserves the full stack's
-# prod-identical auth bridge for symmetry testing.
+# It restates cube_api's config (rather than `extends`) so it can publish ONLY
+# :4000 and carry its own name without compose list-merge appending the prod
+# :17001/:15432 mappings or colliding on the explicit container_name. The DB
+# creds and secret still come from .env.docker.local via ${VAR} interpolation,
+# so there's a single source for those — only the topology is duplicated.
 
 services:
-  cube_api:
+  cube_api_dev:
+    image: cubejs/cube:latest
+    container_name: cube-playground-cube-api-dev
     environment:
-      # Empty → auth-db.js skips the internal API and reads the mounted users
-      # file. No in-stack server needed for the dev loop.
+      CUBEJS_DEV_MODE: "false"
+      CUBEJS_LOG_LEVEL: ${CUBEJS_LOG_LEVEL:-info}
+      CUBEJS_SCHEMA_PATH: model
+      TZ: ${TZ:-UTC}
+      # Trino connection — same creds as the stack cube_api (from .env.docker.local).
+      CUBEJS_DB_TYPE: ${CUBEJS_DB_TYPE:-trino}
+      CUBEJS_DB_HOST: ${CUBEJS_DB_HOST:-}
+      CUBEJS_DB_PORT: ${CUBEJS_DB_PORT:-8080}
+      CUBEJS_DB_USER: ${CUBEJS_DB_USER:-}
+      CUBEJS_DB_PASS: ${CUBEJS_DB_PASS:-}
+      CUBEJS_DB_PRESTO_CATALOG: ${CUBEJS_DB_PRESTO_CATALOG:-game_integration}
+      CUBEJS_DB_CATALOG: ${CUBEJS_DB_CATALOG:-game_integration}
+      CUBEJS_DB_SSL: ${CUBEJS_DB_SSL:-true}
+      # Must equal the host gateway's CUBEJS_API_SECRET so its minted JWTs verify.
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
+      CUBEJS_CUBESTORE_HOST: cubestore_dev
+      CUBEJS_CUBESTORE_PORT: "3030"
+      CUBEJS_REFRESH_WORKER: ${CUBEJS_REFRESH_WORKER:-false}
+      # Standalone file-auth posture: no in-stack server to bridge to (the dev
+      # loop runs the host gateway), so resolve per-user game grants from the
+      # committed dev users file — its `playground` principal grants all games,
+      # matching the { userId: 'playground' } JWT the gateway mints.
       AUTH_API_URL: ""
-      # The committed dev seed (mounted at /cube/conf via the prod compose volume)
-      # ships a `playground` user with all games — matching the { userId:
-      # 'playground' } JWT the host gateway mints for the local workspace.
       AUTH_USERS_FILE: /cube/conf/auth-users.example.json
-    # Publish on the host's :4000 (additive to the prod 17001 mapping) so the
-    # host-side `npm run dev` gateway reaches it at the URL the local workspace
-    # and Vite proxy already point to.
+    # colima/lima file-shares deny reads on single-FILE bind mounts, so inline
+    # the same patch the stack uses (strip Trino's unprivileged SET SESSION
+    # query_max_run_time from the Presto driver) instead of mounting the script.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        P=/cube/node_modules/@cubejs-backend/prestodb-driver/dist/src/PrestoDriver.js
+        [ -f "$$P" ] && sed -i 's|.*query_max_run_time.*|                    session: undefined,|' "$$P"
+        exec docker-entrypoint.sh "$$@"
+      - sh
+    command: ["cubejs", "server"]
     ports:
-      - "4000:4000"
+      - "4000:4000"   # REST / GraphQL — where the host gateway + Vite proxy point
+    volumes:
+      - ./cube-dev/cube:/cube/conf:ro
+    depends_on:
+      - cubestore_dev
+    restart: unless-stopped
+
+  cubestore_dev:
+    image: cubejs/cubestore:${CUBESTORE_TAG:-latest}
+    container_name: cube-playground-cubestore-dev
+    environment:
+      CUBESTORE_DATA_DIR: /cube/data
+    volumes:
+      - cubestore_dev_data:/cube/data
+    restart: unless-stopped
+
+volumes:
+  # Separate pre-agg store so the dev cube never contends with the stack's
+  # cubestore_data volume.
+  cubestore_dev_data:

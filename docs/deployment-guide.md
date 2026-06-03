@@ -160,31 +160,39 @@ in-stack cube backs the `local` workspace at `cube_api:4000`), and published por
 `docker-compose.prod.yml`. Any compose subcommand passes through:
 `npm run stack -- ps`, `npm run stack -- build server`, `npm run stack -- up -d cube_api`.
 
-#### Shared local Cube — the dev loop uses this stack's cube_api too
+#### Local Cube for the dev loop — a dedicated container, runs alongside the stack
 
 `npm run dev:all` does **not** spin up the sibling `cube-dev` repo any more. Its
-watchdog (`scripts/ensure-cube-api.mjs`) boots **this stack's** `cube_api`+`cubestore`
-via the wrapper with a third override, `docker-compose.devcube.yml`:
+watchdog (`scripts/ensure-cube-api.mjs`) boots a **dedicated dev cube** —
+`cube_api_dev` + `cubestore_dev`, defined in `docker-compose.devcube.yml` — via the
+wrapper with a third overlay:
 
 ```bash
 docker compose -f docker-compose.prod.yml -f docker-compose.local.yml \
-  -f docker-compose.devcube.yml --env-file .env.docker.local up -d cube_api cubestore
+  -f docker-compose.devcube.yml --env-file .env.docker.local up -d cube_api_dev cubestore_dev
 ```
 
-That override (applied only when `STACK_DEV_CUBE=1`, which the watchdog sets) flips
-`cube_api` to the **standalone file-auth posture** — `AUTH_API_URL=""` + the committed
-`cube-dev/cube/auth-users.example.json` (its `playground` user grants all games,
-matching the `{ userId: 'playground' }` JWT the gateway mints) — and publishes it on
-host **`:4000`**, where the Vite proxy and the `local` workspace already point. So one
-in-stack Cube serves both the HMR dev loop (host gateway, `:3004`) and the full
-`npm run stack`. The full stack omits this override, keeping its prod auth bridge
-(`AUTH_API_URL=http://server:3004`) for symmetry testing.
+`cube_api_dev` runs in the **standalone file-auth posture** — `AUTH_API_URL=""` + the
+committed `cube-dev/cube/auth-users.example.json` (its `playground` user grants all
+games, matching the `{ userId: 'playground' }` JWT the gateway mints) — and publishes
+host **`:4000`**, where the Vite proxy and the `local` workspace already point.
+
+It is a **separate container** from the full stack's `cube_api` (prod mirror, `:17001`,
+`AUTH_API_URL=http://server:3004`) — on purpose. The two used to share one container and
+fight over its posture/ports: every recreate by one mode broke the other (an open tab
+would show "cannot connect to cube api" until refresh). Now both can run at the same
+time — `npm run dev:all` (host gateway `:3004` → `cube_api_dev:4000`) and `npm run stack`
+(`:11000` → in-Docker `server` → `cube_api:4000` internal, published `:17001`) — without
+touching each other. The full stack omits the `devcube` overlay, so `cube_api_dev` only
+exists for the dev loop.
 
 **Requirement:** `CUBEJS_API_SECRET` must be identical in `.env.docker.local` and your
-dev `.env`/`.env.local` — the gateway mints the Cube JWT, `cube_api` verifies it.
-Because both modes share the one `cube-playground-cube-api` container, switching between
-`npm run dev:all` and `npm run stack` recreates it (different port/auth); don't run both
-backends at once (the watchdog's `:4000` probe already avoids double-starting).
+dev `.env`/`.env.local` — the gateway mints the Cube JWT, both cubes verify it.
+
+> Migrating from the old shared-container setup: stop `dev:all`, recreate the stack cube
+> in its prod posture once (`npm run stack -- up -d --force-recreate cube_api`, which drops
+> the `:4000` mapping the old watchdog had added), then start `dev:all` again — the new
+> watchdog brings up `cube_api_dev` on the now-free `:4000`.
 
 **Trino creds for data queries:** `/meta` + game switching need no DB, but `/load`
 (real data) needs `CUBEJS_DB_*`. The playground's own dev env never carries these —
