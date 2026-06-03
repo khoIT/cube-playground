@@ -28,16 +28,6 @@ services:
   server:
     env_file:
       - .env.docker.local
-    # Laptop posture is break-glass (AUTH_DISABLED=true, see above). The server's
-    # fail-closed guard refuses to boot when AUTH_DISABLED is true under
-    # NODE_ENV=production — that guard protects the REAL prod host
-    # (playground.gds.vng.vn), not this local mirror. Override NODE_ENV here so
-    # the documented local break-glass posture can actually start. Real prod
-    # keeps NODE_ENV=production from docker-compose.prod.yml and must run
-    # AUTH_DISABLED=false. Flip this mirror to real auth only once Keycloak is
-    # wired into .env.docker.local (KEYCLOAK_URL/REALM/CLIENT_ID/SECRET).
-    environment:
-      NODE_ENV: development
 
   chat-service:
     env_file:
