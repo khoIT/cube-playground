@@ -10,12 +10,16 @@
  * Degrades gracefully: if relations fail or return empty, only sync actions render.
  * Total actions capped at 6 to keep the card compact.
  *
- * Positioning: the card is absolutely positioned relative to its wrapper.
- * The caller wraps the term anchor in <ConceptHoverCard term={…}>{anchor}</ConceptHoverCard>.
- * Visibility is toggled by CSS :hover / focus-within so it works without JS state.
+ * Positioning: the card is rendered into a document.body portal with viewport-
+ * fixed coordinates measured from the anchor on open. Fixed-to-viewport means it
+ * escapes any ancestor scroll container's clip (the glossary list, the chat
+ * transcript) — an absolutely-positioned card inside `overflow:auto` would be
+ * cropped to an empty sliver on the top/edge rows. Open/close is JS-driven with a
+ * short close grace period so the pointer can travel the gap onto the card.
  */
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { GlossaryTerm } from '../../api/glossary-client';
 import { conceptTypedActions, resolveConceptHref, toConceptRef } from '../../pages/Catalog/glossary/resolve-concept';
@@ -80,7 +84,6 @@ export function ConceptHoverCard({ term, children }: Props) {
   // doesn't fire N requests on render. Stays primed after first interaction;
   // the module cache then serves repeats for free.
   const [primed, setPrimed] = React.useState(false);
-  const prime = React.useCallback(() => setPrimed(true), []);
   const { data: relations } = useConceptResolution(primed ? conceptRef : null);
 
   // Sync actions derived from term fields.
@@ -99,54 +102,132 @@ export function ConceptHoverCard({ term, children }: Props) {
 
   const primaryHref = resolveConceptHref(term);
 
-  return (
-    <span className="chc-wrap" onMouseEnter={prime} onFocus={prime}>
-      {children}
-      <span
-        role="tooltip"
-        style={CARD_STYLE}
-        // CSS-only show/hide via the parent :hover — rendered as a sibling so
-        // focus-within on the anchor also keeps it open.
-      >
-        {/* Header: label + glyph + trust */}
-        <span style={HEADER_STYLE}>
-          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', flex: 1 }}>
-            <span aria-hidden style={{ marginRight: 4 }}>ⓘ</span>
-            {term.label}
-          </span>
-          <TrustBadge trust={term.trust} />
+  // --- Open/close state + viewport positioning ----------------------------
+  const anchorRef = React.useRef<HTMLSpanElement>(null);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const closeTimer = React.useRef<number | null>(null);
+  const [open, setOpen] = React.useState(false);
+  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null);
+
+  const show = React.useCallback(() => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setPrimed(true);
+    setOpen(true);
+  }, []);
+
+  // Grace period lets the pointer cross the 6px gap from anchor onto the card
+  // without the card vanishing mid-travel.
+  const scheduleClose = React.useCallback(() => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setOpen(false), 120);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    };
+  }, []);
+
+  // Measure the anchor + card and place the card in the viewport. Prefers below
+  // the anchor; flips above when below would overflow the viewport bottom and
+  // there is more room above. Clamps horizontally to stay on-screen.
+  const reposition = React.useCallback(() => {
+    const anchor = anchorRef.current;
+    const card = cardRef.current;
+    if (!anchor || !card) return;
+    const a = anchor.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const gap = 6;
+    const margin = 8;
+    const roomBelow = window.innerHeight - a.bottom;
+    const placeAbove = roomBelow < c.height + gap + margin && a.top > roomBelow;
+    const top = placeAbove ? Math.max(margin, a.top - gap - c.height) : a.bottom + gap;
+    const maxLeft = window.innerWidth - c.width - margin;
+    const left = Math.max(margin, Math.min(a.left, maxLeft));
+    setCoords({ top, left });
+  }, []);
+
+  // Position before paint so the card never flashes at the wrong spot. Re-runs
+  // when async relations change the card height. While open, follow scroll/resize
+  // so a fixed-positioned card doesn't drift away from a moving anchor.
+  React.useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    reposition();
+    const onMove = () => reposition();
+    window.addEventListener('scroll', onMove, true);
+    window.addEventListener('resize', onMove);
+    return () => {
+      window.removeEventListener('scroll', onMove, true);
+      window.removeEventListener('resize', onMove);
+    };
+  }, [open, reposition, allActions.length, term.description]);
+
+  const card = open ? (
+    <div
+      ref={cardRef}
+      role="tooltip"
+      onMouseEnter={show}
+      onMouseLeave={scheduleClose}
+      style={{
+        ...CARD_STYLE,
+        top: coords?.top ?? 0,
+        left: coords?.left ?? 0,
+        // Hidden for the pre-measure frame to avoid a top-left flash.
+        visibility: coords ? 'visible' : 'hidden',
+      }}
+    >
+      {/* Header: label + glyph + trust */}
+      <span style={HEADER_STYLE}>
+        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', flex: 1 }}>
+          <span aria-hidden style={{ marginRight: 4 }}>ⓘ</span>
+          {term.label}
         </span>
-
-        {/* Definition */}
-        {term.description ? (
-          <span style={DESC_STYLE}>{term.description}</span>
-        ) : null}
-
-        {/* Typed action rows */}
-        {allActions.length > 0 && (
-          <span style={ACTION_LIST_STYLE}>
-            {allActions.map((action) => (
-              <Link
-                key={action.to}
-                to={action.to}
-                style={ACTION_ROW_STYLE}
-              >
-                <span aria-hidden style={{ width: 16, textAlign: 'center', flexShrink: 0 }}>
-                  {ACTION_GLYPH[action.kind] ?? action.glyph}
-                </span>
-                <span style={{ flex: 1 }}>{action.label}</span>
-              </Link>
-            ))}
-          </span>
-        )}
-
-        {/* Footer deep-link when no other actions differentiate the primary href */}
-        {allActions.length === 0 && (
-          <Link to={primaryHref} style={FOOTER_LINK_STYLE}>
-            View in glossary →
-          </Link>
-        )}
+        <TrustBadge trust={term.trust} />
       </span>
+
+      {/* Definition */}
+      {term.description ? <span style={DESC_STYLE}>{term.description}</span> : null}
+
+      {/* Typed action rows */}
+      {allActions.length > 0 && (
+        <span style={ACTION_LIST_STYLE}>
+          {allActions.map((action) => (
+            <Link key={action.to} to={action.to} style={ACTION_ROW_STYLE}>
+              <span aria-hidden style={{ width: 16, textAlign: 'center', flexShrink: 0 }}>
+                {ACTION_GLYPH[action.kind] ?? action.glyph}
+              </span>
+              <span style={{ flex: 1 }}>{action.label}</span>
+            </Link>
+          ))}
+        </span>
+      )}
+
+      {/* Footer deep-link when no other actions differentiate the primary href */}
+      {allActions.length === 0 && (
+        <Link to={primaryHref} style={FOOTER_LINK_STYLE}>
+          View in glossary →
+        </Link>
+      )}
+    </div>
+  ) : null;
+
+  return (
+    <span
+      ref={anchorRef}
+      className="chc-wrap"
+      onMouseEnter={show}
+      onMouseLeave={scheduleClose}
+      onFocus={show}
+      onBlur={scheduleClose}
+    >
+      {children}
+      {card && typeof document !== 'undefined' ? createPortal(card, document.body) : null}
     </span>
   );
 }
@@ -156,12 +237,11 @@ export function ConceptHoverCard({ term, children }: Props) {
 // ---------------------------------------------------------------------------
 
 const CARD_STYLE: React.CSSProperties = {
-  // Base: hidden. Revealed by .chc-wrap:hover / :focus-within via injected sheet.
-  display: 'none',
-  position: 'absolute',
+  // Fixed to the viewport (coords measured from the anchor) so the card escapes
+  // any ancestor scroll container's overflow clip. Show/hide is JS-driven.
+  display: 'flex',
+  position: 'fixed',
   zIndex: 1000,
-  bottom: 'calc(100% + 6px)',
-  left: 0,
   minWidth: 220,
   maxWidth: 320,
   background: 'var(--bg-card)',
@@ -174,18 +254,11 @@ const CARD_STYLE: React.CSSProperties = {
   fontFamily: 'var(--font-sans)',
 };
 
-// Because inline styles can't use :hover pseudo-selectors we inject a tiny
-// <style> tag once. The wrapper span gets the class `chc-wrap`.
+// The wrapper stays inline so it doesn't disturb surrounding text flow.
 if (typeof document !== 'undefined' && !document.getElementById('chc-styles')) {
   const s = document.createElement('style');
   s.id = 'chc-styles';
-  s.textContent = `
-    .chc-wrap { position: relative; display: inline; }
-    .chc-wrap:hover [role="tooltip"],
-    .chc-wrap:focus-within [role="tooltip"] {
-      display: flex !important;
-    }
-  `;
+  s.textContent = `.chc-wrap { display: inline; }`;
   document.head.appendChild(s);
 }
 
