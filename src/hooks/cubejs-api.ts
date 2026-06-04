@@ -16,10 +16,15 @@ import { cubeProxyAuthorization } from '../auth/auth-storage';
  * (local Cube): the proxy mints a per-game JWT keyed by this header so
  * Cube's repositoryFactory picks the right schema. Without it, local /load
  * calls return errors / wrong-schema results even when /meta looks fine.
+ *
+ * `gameOverride` pins the X-Cube-Game header to a specific game regardless of
+ * the global game selector — used by the per-member 360 page, which must query
+ * its segment's game even if the header dropdown points elsewhere.
  */
-export function useCubejsApi(apiUrl: string | null, token: string | null) {
+export function useCubejsApi(apiUrl: string | null, token: string | null, gameOverride?: string | null) {
   const { workspaceId } = useWorkspaceContext();
-  const gameId = useActiveGameId();
+  const activeGameId = useActiveGameId();
+  const gameId = gameOverride !== undefined && gameOverride !== null ? gameOverride : activeGameId;
   return useMemo(() => {
     if (!token || !apiUrl || token === 'undefined') {
       return null;

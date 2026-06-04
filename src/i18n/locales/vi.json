@@ -269,8 +269,22 @@
       "rowCount": "{{n}} dòng",
       "piiTooltip": "Chứa thông tin định danh cá nhân",
       "window": "Khoảng",
-      "behaviorTitle": "Hành vi",
-      "behaviorHint": "{{n}} luồng sự kiện · tải khi mở · ≤31 ngày",
+      "monetization": "Doanh thu",
+      "profileStatus": "Hồ sơ & trạng thái",
+      "acquisition": "Thu hút",
+      "journey": "Hành trình",
+      "levelProgression": "Tiến độ cấp (≤31 ngày gần nhất)",
+      "dailyRecharge": "Nạp theo ngày VND (≤31 ngày gần nhất)",
+      "details": "Chi tiết",
+      "tab": {
+        "roles": "Nhân vật",
+        "behavior": "Hành vi",
+        "combat": "Combat",
+        "devices": "Thiết bị",
+        "ips": "IP",
+        "activity": "Hoạt động",
+        "recharge": "Nạp"
+      },
       "unavailable": "Chưa cấu hình hồ sơ 360 cho \"{{game}}\". Hỗ trợ các game có model user_360 (cfm, ballistar)."
     },
     "push": {

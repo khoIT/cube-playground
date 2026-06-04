@@ -1,23 +1,28 @@
 /**
  * Per-member 360 page — `/#/segments/:id/members/:uid`.
  *
- * Reached by clicking a member row in a segment's Members tab. Resolves the
- * segment's game, then renders that game's 360 panel set live from Cube: a
- * profile header (KPI strip + vitals), the eager core panels, and a lazy
- * Behavior section for the event streams. Config-driven (member360-panels.ts),
- * so the page itself is game-agnostic.
+ * Reached by clicking a member row in a segment's Members tab. Renders a
+ * dashboard (modeled on cfm-user360) live from Cube: hero + monetization +
+ * profile/acquisition + journey (timeline + trend charts) + tabbed details.
+ * The whole top of the page is driven by ONE `user_profile` row; journey and
+ * details panels fetch their own scoped queries. Config-driven per game
+ * (member360-sections.ts / member360-panels.ts).
  */
 
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, UserRound } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import type { Query } from '@cubejs-client/core';
 import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
-import { panelsForGame } from './member360-panels';
-import { MemberPanel } from './member-panel';
-import { BehaviorSection } from './behavior-section';
+import { sectionsForGame, profileMembers } from './member360-sections';
+import { useMemberCubeQuery } from './use-member-cube-query';
+import { DashboardHero } from './sections/dashboard-hero';
+import { SectionCard, StatTileGrid, KvList } from './sections/dashboard-stats';
+import { DashboardJourney } from './sections/dashboard-journey';
+import { DetailsTabs } from './sections/details-tabs';
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
@@ -44,10 +49,30 @@ export function Member360View(): ReactElement {
     };
   }, [id]);
 
-  const backLink = `/segments/${id}?tab=members`;
+  const gameId = segment?.game_id ?? null;
+  const sections = sectionsForGame(gameId);
+
+  // One query powers the hero + monetization + profile/acquisition + journey dots.
+  const profileQuery = useMemo<Query | null>(
+    () =>
+      sections
+        ? {
+            dimensions: profileMembers(sections),
+            filters: [{ member: 'user_profile.user_id', operator: 'equals' as never, values: [uid] }],
+            limit: 1,
+          }
+        : null,
+    [sections, uid],
+  );
+  const { rows: profileRows, loading: profileLoading } = useMemberCubeQuery<Record<string, unknown>>(
+    gameId,
+    profileQuery,
+  );
+  const row = profileRows[0] ?? null;
+
   const back = (
     <Link
-      to={backLink}
+      to={`/segments/${id}?tab=members`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -72,52 +97,10 @@ export function Member360View(): ReactElement {
     );
   }
 
-  const gameId = segment?.game_id ?? null;
-  const panels = panelsForGame(gameId);
-  const corePanels = panels.filter((p) => p.section === 'core');
-  const behaviorPanels = panels.filter((p) => p.section === 'behavior');
-  const profile = corePanels.find((p) => p.panelType === 'profile');
-  const otherCore = corePanels.filter((p) => p.panelType !== 'profile');
-
-  return (
-    <main style={pageStyle}>
-      {back}
-      <header style={{ marginBottom: 20 }}>
-        {gameId && (
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: 0.6,
-              color: 'var(--text-tertiary)',
-              marginBottom: 4,
-            }}
-          >
-            {gameId}{segment ? ` · ${segment.name}` : ''}
-          </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <UserRound size={20} aria-hidden style={{ color: 'var(--brand)' }} />
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              margin: 0,
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            {uid}
-          </h1>
-        </div>
-      </header>
-
-      {segment == null ? (
-        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-          {t('segments.member360.loading', { defaultValue: 'Loading…' })}
-        </div>
-      ) : panels.length === 0 ? (
+  if (segment != null && sections == null) {
+    return (
+      <main style={pageStyle}>
+        {back}
         <div
           style={{
             background: 'var(--bg-card)',
@@ -134,25 +117,53 @@ export function Member360View(): ReactElement {
             game: gameId ?? '—',
           })}
         </div>
-      ) : (
+      </main>
+    );
+  }
+
+  return (
+    <main style={pageStyle}>
+      {back}
+      {gameId && (
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: 0.6,
+            color: 'var(--text-tertiary)',
+            marginBottom: 8,
+          }}
+        >
+          {gameId}{segment ? ` · ${segment.name}` : ''}
+        </div>
+      )}
+
+      {sections && <DashboardHero uid={uid} sections={sections} row={row} />}
+
+      {sections && (
         <>
-          {profile && (
-            <div style={{ marginBottom: 14 }}>
-              <MemberPanel gameId={gameId} panel={profile} idValues={[uid]} />
+          {profileLoading && row == null && (
+            <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
+              {t('segments.member360.loading', { defaultValue: 'Loading…' })}
             </div>
           )}
-          <div
-            style={{
-              display: 'grid',
-              gap: 14,
-              gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-            }}
-          >
-            {otherCore.map((p) => (
-              <MemberPanel key={p.id} gameId={gameId} panel={p} idValues={[uid]} />
-            ))}
+
+          <SectionCard icon="💰" title={t('segments.member360.monetization', { defaultValue: 'Monetization' })}>
+            <StatTileGrid fields={sections.monetization} row={row} />
+          </SectionCard>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 0, columnGap: 24 }}>
+            <SectionCard icon="🪪" title={t('segments.member360.profileStatus', { defaultValue: 'Profile & status' })}>
+              <KvList fields={sections.profileStatus} row={row} />
+            </SectionCard>
+            <SectionCard icon="📥" title={t('segments.member360.acquisition', { defaultValue: 'Acquisition' })}>
+              <KvList fields={sections.acquisition} row={row} />
+            </SectionCard>
           </div>
-          <BehaviorSection gameId={gameId} uid={uid} panels={behaviorPanels} />
+
+          <DashboardJourney gameId={gameId} uid={uid} sections={sections} row={row} />
+          <DetailsTabs gameId={gameId} uid={uid} />
         </>
       )}
     </main>

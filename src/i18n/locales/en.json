@@ -293,8 +293,22 @@
       "rowCount": "{{n}} rows",
       "piiTooltip": "Contains personally identifiable information",
       "window": "Window",
-      "behaviorTitle": "Behavior",
-      "behaviorHint": "{{n}} event streams · loads on expand · ≤31d",
+      "monetization": "Monetization",
+      "profileStatus": "Profile & status",
+      "acquisition": "Acquisition",
+      "journey": "Journey",
+      "levelProgression": "Level progression (last ≤31d)",
+      "dailyRecharge": "Daily recharge VND (last ≤31d)",
+      "details": "Details",
+      "tab": {
+        "roles": "Roles",
+        "behavior": "Behavior",
+        "combat": "Combat",
+        "devices": "Devices",
+        "ips": "IPs",
+        "activity": "Activity",
+        "recharge": "Recharge"
+      },
       "unavailable": "A per-member 360 is not configured for \"{{game}}\". It is available for games with a user_360 model (cfm, ballistar)."
     },
     "push": {

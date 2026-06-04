@@ -58,7 +58,9 @@ export function useMemberCubeQuery<T = Record<string, unknown>>(
 ): UseMemberCubeQueryResult<T> {
   const { apiUrl } = useAppContext();
   const { currentToken } = useSecurityContext();
-  const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
+  // Pin the cube schema to the segment's game, not the global game selector —
+  // the proxy mints the per-game JWT from this header.
+  const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null, gameId);
   const { workspace } = useWorkspaceContext();
   const prefix = resolveGamePrefix(workspace, gameId);
 
