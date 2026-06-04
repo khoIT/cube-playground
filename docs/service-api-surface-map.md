@@ -25,7 +25,7 @@ Debug aid for reconciling discrepancies between LOCAL and the PROD deploy at `ht
 | `x-cube-game` | On prefix workspaces scopes `/meta` to a game's prefix and mints a game-scoped Cube token. If sent + authed user lacks grant → 403 `GAME_FORBIDDEN`. NOTE: grant check fires only when game arrives as this **header**; routes that take `?game=` re-check the grant in-handler. | Optional. Needed for prefix-workspace meta filtering and `/api/identity-map` (per `api-client.ts`, required there so the token is tenant-scoped and `/meta` isn't empty). |
 | `authorization: Bearer <app-JWT>` | App identity. Populates `req.user`/`req.owner` (from JWT `sub`). Used for workspace/game grant filtering and the write-role gate. **Never forwarded to Cube** — the proxy drops it and uses a server-minted token. In `AUTH_DISABLED` mode `req.user` is a synthetic dev/admin so it's optional. | Required for `/api/admin/*`, all write routes under PROTECTED_PREFIXES (`/api/user-prefs`, `/api/cube-aliases`, `/api/business-metrics`, `/api/segments`, `/api/analyses`, `/api/dashboards`, `/api/onboarding`), and `/api/auth/me`. |
 | `x-owner` / `X-Owner` | Legacy owner-scope key (sets `req.owner` when no JWT; FE reads `localStorage gds-cube:owner`, fallback `anonymous`). | Owner-scoped rows: segments, dashboards, analyses, cube-aliases, user-prefs, readiness. |
-| `x-owner-id` | chat-service owner identity (must match `body.owner_id` on `/agent/turn`). FE sends `X-Owner-Id` (fallback `dev`). | All chat-service routes (turn routes 401 `no_owner` without it; list/detail routes fall back to `anonymous`). |
+| `x-owner-id` | chat-service owner identity. **Server-authoritative:** the chat proxy resolves owner from the verified `req.owner` (JWT `sub`) FIRST; the client `X-Owner-Id` is only a fallback when `req.owner === 'anonymous'` (dev/legacy/no-JWT). FE chat fetches now also carry the app JWT (see `src/api/chat-auth-headers.ts`). Trusting the client header alone collapsed every user to `dev` and leaked sessions. | All chat-service routes (turn routes 401 `no_owner` without an owner). |
 | `x-internal-secret` | Service-to-service shared secret (`== CUBE_AUTH_INTERNAL_SECRET`) for `/internal/access/:key`. Not browser-exposed. | `/internal/access/:key` only. |
 
 ## Service: server (Fastify gateway, local `:3004`)
@@ -169,8 +169,10 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | POST | `/api/chat/sessions/:id/turn` | none (owner req) | `x-owner-id`/`x-owner`, `x-cube-workspace`, `x-cube-game`, `x-model`, `x-web-search`, `x-research-mode`, `x-bypass-cache` | SSE turn stream; 503 no_cube_token / 502 / 409 turn_in_progress | chat-service `/agent/turn`, cube-token mint |
 | GET | `/api/chat/sessions/:sessionId/stream-replay` | none (owner req) | `x-owner-id`, `?turnId (req),from` | SSE replay; 409 ring_overflow | chat-service `/agent/turn/:id/stream` |
 | POST | `/api/agent/turn/:turnId/cancel` | none (owner req) | `x-owner-id` | cancel 202/410 | chat-service `/agent/turn/:id/cancel` |
-| GET | `/api/chat/sessions` | none (owner fallback) | `x-owner-id`, `?game,q` | session list | chat-service `/sessions` |
-| GET | `/api/chat/sessions/:id` | none | `x-owner-id` | session detail | chat-service `/sessions/:id` |
+| GET | `/api/chat/sessions` | none (owner fallback) | `x-owner-id`, `?game,q` | own session list (owner-scoped) | chat-service `/sessions` |
+| GET | `/api/chat/sessions/shared` | none (owner req) | `x-owner-id`, `?game,q` | cross-owner shared session list | chat-service `/sessions/shared` |
+| GET | `/api/chat/sessions/:id` | none | `x-owner-id` | session detail; owner OR `visibility=shared`; `readOnly` flag for non-owner | chat-service `/sessions/:id` |
+| POST | `/api/chat/sessions/:id/share`·`/unshare` | none (owner req) | `x-owner-id` | publish/unpublish to team (owner-only 403) | chat-service `/sessions/:id/(un)share` |
 | GET/DELETE | `/api/chat/sessions/:id/focus` | none (DELETE owner req) | `x-owner-id` | focus bag / clear | chat-service `/api/chat/sessions/:id/focus` |
 | DELETE | `/api/chat/sessions/:id` | none (owner fallback) | `x-owner-id` | soft-archive | chat-service `/sessions/:id` |
 | PATCH | `/api/chat/sessions/:id` | none (owner req) | `x-owner-id`, `{title}` | rename | chat-service `/sessions/:id` |
