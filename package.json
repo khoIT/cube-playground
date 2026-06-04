@@ -21,6 +21,7 @@
     "snapshot": "npm --prefix server run snapshot && npm --prefix chat-service run snapshot",
     "dev:all": "node scripts/dev-all.mjs",
     "stack": "node scripts/stack-local.mjs",
+    "stack:watch": "node scripts/stack-watch.mjs",
     "stack:down": "node scripts/stack-local.mjs down",
     "stack:logs": "node scripts/stack-local.mjs logs -f",
     "stack:env-sync": "node scripts/sync-docker-env-from-dev.mjs",
