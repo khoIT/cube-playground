@@ -19,6 +19,7 @@ import { GameContextProvider } from './components/Header/use-game-context';
 import { ThemeProvider } from './theme/ThemeContext';
 import { AuthProvider, useAuthUser } from './auth/auth-context';
 import { AuthGate } from './auth/auth-gate';
+import { FeatureRouteGuard } from './auth/feature-route-guard';
 import { FeatureOpenBeacon } from './api/feature-open-beacon-mount';
 import './i18n';
 
@@ -184,6 +185,7 @@ ReactDOM.render(
         <SecurityContextProvider onTokenPayloadChange={onTokenPayloadChange}>
           <App>
             <FeatureOpenBeacon />
+            <FeatureRouteGuard />
             <Suspense fallback={<CubeLoader />}>
               <Route key="index" exact path="/">
                 <Redirect to="/chat" />

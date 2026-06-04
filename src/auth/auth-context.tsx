@@ -39,6 +39,9 @@ export interface AuthUser {
   email?: string;
   role: 'viewer' | 'editor' | 'admin';
   allowedGames: string[];
+  /** Workspace ids granted to the user. Empty/absent → role-based fallback.
+   *  Filtering happens server-side in /api/workspaces; carried here for parity. */
+  workspaces?: string[];
   /** Resolved feature map (key → enabled), DB-authoritative. Optional for
    *  back-compat with older /me payloads; absent → treat as no overrides. */
   features?: Record<string, boolean>;

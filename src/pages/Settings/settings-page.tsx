@@ -20,9 +20,11 @@ import { LiveopsSettingsSection } from './liveops-settings-section';
 import { DashboardsSettingsSection } from './dashboards-settings-section';
 import { MetricCoverageSection } from './metric-coverage-section';
 import { WorkspaceReadinessSection } from './workspace-readiness-section';
+import { ApiSettingsSection } from './api-settings-section';
 import { DriftCenterPage } from '../DriftCenter';
 import { AdminAccessPage } from '../Admin/access';
 import { useAuthUser } from '../../auth/auth-context';
+import { useHasFeature } from '../../auth/feature-access';
 
 const Page = styled.div`
   max-width: 1240px;
@@ -81,12 +83,12 @@ const Panel = styled.div`
   min-width: 0;
 `;
 
-type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards' | 'coverage' | 'workspace' | 'drift' | 'access';
+type TabId = 'sidebar' | 'games' | 'identity' | 'chat' | 'chat-service' | 'liveops' | 'dashboards' | 'coverage' | 'workspace' | 'drift' | 'api' | 'access';
 
 const DEFAULT_TAB: TabId = 'sidebar';
 
 const KNOWN_TABS = new Set<string>([
-  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards', 'coverage', 'workspace', 'drift', 'access',
+  'sidebar', 'games', 'identity', 'chat', 'chat-service', 'liveops', 'dashboards', 'coverage', 'workspace', 'drift', 'api', 'access',
 ]);
 
 function readHashTab(hash: string): TabId | null {
@@ -101,6 +103,7 @@ export function SettingsPage(): ReactElement {
   const user = useAuthUser();
   // Access management is admin-only (mirrors the server's necessary condition).
   const isAdmin = user?.role === 'admin';
+  const hasFeature = useHasFeature();
 
   const [activeId, setActiveId] = useState<TabId>(
     () => readHashTab(location.hash) ?? DEFAULT_TAB,
@@ -119,7 +122,7 @@ export function SettingsPage(): ReactElement {
     history.replace({ ...location, hash: `#${next}` });
   };
 
-  const tabs: SettingsTabDescriptor[] = useMemo(
+  const allTabs: SettingsTabDescriptor[] = useMemo(
     () => [
       {
         id: 'sidebar',
@@ -140,21 +143,25 @@ export function SettingsPage(): ReactElement {
         id: 'chat',
         label: t('settings.tabs.chat', { defaultValue: 'Chat' }),
         icon: MessageCircle,
+        feature: 'chats',
       },
       {
         id: 'chat-service',
         label: t('settings.tabs.chatService', { defaultValue: 'Chat Service' }),
         icon: Sparkles,
+        feature: 'chats',
       },
       {
         id: 'liveops',
         label: t('settings.tabs.liveops', { defaultValue: 'Liveops' }),
         icon: Activity,
+        feature: 'liveops',
       },
       {
         id: 'dashboards',
         label: t('settings.tabs.dashboards', { defaultValue: 'Dashboards' }),
         icon: LayoutGrid,
+        feature: 'dashboards',
       },
       {
         id: 'coverage',
@@ -171,6 +178,11 @@ export function SettingsPage(): ReactElement {
         label: t('settings.tabs.workspace', { defaultValue: 'Workspace' }),
         icon: Server,
       },
+      {
+        id: 'api',
+        label: t('settings.tabs.api', { defaultValue: 'API' }),
+        icon: KeyRound,
+      },
       // Access management is admin-only — omit the tab entirely for non-admins.
       ...(isAdmin
         ? [
@@ -185,12 +197,26 @@ export function SettingsPage(): ReactElement {
     [t, isAdmin],
   );
 
+  // Drop tabs for features the user lacks (chat / liveops / dashboards). Tabs
+  // without a `feature` are always shown. This is what removes a disabled
+  // feature's settings surface, mirroring the sidebar gate.
+  const tabs = useMemo(
+    () => allTabs.filter((tab) => !tab.feature || hasFeature(tab.feature)),
+    [allTabs, hasFeature],
+  );
+
   const goBack = () => {
     if (history.length > 1) history.goBack();
     else history.push('/');
   };
 
   const renderActive = (): ReactElement => {
+    // Guard direct-hash navigation to a feature-gated tab the user lacks (the
+    // tab is already hidden from the rail) — fall back to the default section.
+    const activeTab = allTabs.find((tab) => tab.id === activeId);
+    if (activeTab?.feature && !hasFeature(activeTab.feature)) {
+      return <NavVisibilitySection />;
+    }
     switch (activeId) {
       case 'sidebar':
         return <NavVisibilitySection />;
@@ -212,6 +238,8 @@ export function SettingsPage(): ReactElement {
         return <WorkspaceReadinessSection />;
       case 'drift':
         return <DriftCenterPage />;
+      case 'api':
+        return <ApiSettingsSection />;
       case 'access':
         // Guard direct hash navigation by non-admins (the tab itself is hidden).
         return isAdmin ? <AdminAccessPage /> : <NavVisibilitySection />;

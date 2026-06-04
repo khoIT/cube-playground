@@ -37,8 +37,8 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | Method | Path | Auth/Roles | Headers | Response | Data sources |
 |---|---|---|---|---|---|
 | GET | `/api/auth/keycloak/config` | none (public) | — | `{enabled:false}` or KC SSO config | env AUTH_DISABLED/KEYCLOAK_* |
-| POST | `/api/auth/keycloak/callback` | none | — | exchanges `code`→app JWT; 200 `{token,user}` / 403 `ACCESS_PENDING` | Keycloak token ep, access store, users, JWT signer |
-| GET | `/api/auth/me` | auth | `authorization` | `{user}` from `req.user`; 401 if none | `req.user` |
+| POST | `/api/auth/keycloak/callback` | none | — | exchanges `code`→app JWT; 200 `{token,user{id,username,email,role,allowedGames,workspaces,features}}` / 403 `ACCESS_PENDING` | Keycloak token ep, access store, users, JWT signer |
+| GET | `/api/auth/me` | auth | `authorization` | `{user}` from `req.user` (same shape as callback); 401 if none | `req.user` |
 | POST | `/api/auth/logout` | none | — | `{ok:true}` no-op | — |
 | GET | `/api/admin/users` | admin | `authorization` | `{users}` | access store |
 | GET | `/api/admin/registry` | admin | `authorization` | `{workspaces,games,featureKeys}` | workspaces/games config, FEATURE_KEYS |
@@ -76,7 +76,7 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | PUT | `/api/cube-aliases/:cube_name` | editor, admin | `authorization`, `x-cube-workspace`, `x-owner` | 200 upsert / 204 cleared | SQLite cube_aliases |
 | DELETE | `/api/cube-aliases/:cube_name` | editor, admin | `authorization`, `x-owner` | 204 | SQLite cube_aliases |
 | GET | `/api/meta/version` | any | `x-cube-workspace`, `?force=1` | SHA-256 of last `/meta` payload; 502 CUBE_UNREACHABLE | meta-cache → Cube `/meta` (60s) |
-| GET | `/api/workspaces` | any | `authorization` (filters) | `{workspaces:[...]}` secret-free (no cubeApiUrl) | workspaces.config / workspaces.prod.config |
+| GET | `/api/workspaces` | any | `authorization` (grant-filters if authed) | `{workspaces:[...]}` secret-free (no cubeApiUrl), grant-filtered by `userCanAccessWorkspace(user,ws)` if user is authed | workspaces.config / workspaces.prod.config, access store |
 | GET | `/api/workspaces/:id/games-readiness` | any | — | `{games:[{id,status,cubeCount}]}` | workspace-readiness → Cube `/meta` |
 | GET | `/api/workspaces/:id/readiness` | any | `x-owner` | full readiness `{workspace,games,coverage,artifacts}` | readiness → SQLite + Cube `/meta` |
 | GET | `/api/playground/games` | any (public) | — | `{games:[...]}` | gds.config.json |
@@ -256,6 +256,7 @@ No client hardcodes a host — all use **relative** paths. `apiFetch` (api-clien
 | Method | Path | Client / headers | Response | Notes |
 |---|---|---|---|---|
 | * | base-url resolution | Vite proxy: `/api`,`/cube-api`→`:3004`; `/playground`,`/cubejs-api`→`:4000`. PROD same-origin. | — | Only browser envs: `VITE_CUBE_API_URL`, `VITE_CDP_ACTIVATION_ENABLED` |
+| — | Feature-access gate | `src/auth/feature-access.ts`: `useHasFeature()` hook gates sidebar sections, Data bottom-nav (gated by `data-model`), Settings tabs; `<FeatureRouteGuard/>` mounted in `src/index.tsx` redirects disabled feature URLs to `/settings`. Mirrors server `userHasFeature`: default-on except `admin` (default-off). | boolean | `user.features[key]` from login callback; 404→true (bootstrapping) |
 | GET/POST/PATCH/DELETE | `/api/segments[/...]` | apiFetch (full header set) | Segment(s) | row-picker etc. |
 | POST | `/api/preview` | apiFetch | count + query + SQL | segment count preview |
 | GET/PUT | `/api/identity-map[/:cube]` | apiFetch — `x-cube-game` **required** | CubeIdentityMapping | so token tenant-scoped, `/meta` non-empty |

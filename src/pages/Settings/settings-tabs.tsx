@@ -7,11 +7,14 @@
 import React, { ReactElement } from 'react';
 import styled from 'styled-components';
 import type { LucideIcon } from 'lucide-react';
+import type { FeatureKey } from '../../api/feature-open-beacon';
 
 export interface SettingsTabDescriptor {
   id: string;
   label: string;
   icon: LucideIcon;
+  /** When set, the tab is shown only if the user has this feature granted. */
+  feature?: FeatureKey;
 }
 
 interface SettingsTabsProps {

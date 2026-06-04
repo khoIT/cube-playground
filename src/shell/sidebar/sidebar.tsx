@@ -19,6 +19,7 @@ import { CollapseToggle } from './collapse-toggle';
 import { getCollapsed, onCollapsedChange } from './sidebar-collapsed-store';
 import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-store';
 import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
+import { useHasFeature } from '../../auth/feature-access';
 import { useBusinessMetrics } from '../../pages/Catalog/metrics-tab/use-business-metrics';
 import { useConcepts } from '../../pages/Catalog/data-model-tab/use-concepts';
 import { useSegmentIds } from '../../pages/Segments/use-segment-ids';
@@ -30,6 +31,11 @@ export function Sidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsedState] = React.useState<boolean>(() => getCollapsed());
   const { isVisible } = useVisibleNavItems();
+  const hasFeature = useHasFeature();
+  // A section shows only when the user both has the feature granted (access)
+  // AND hasn't hidden it via the sidebar preference (cosmetic). The nav ids
+  // are 1:1 with feature keys, so the id doubles as the feature key.
+  const showSection = (id: Parameters<typeof isVisible>[0]) => isVisible(id) && hasFeature(id);
 
   // Pull the live registries so recents that point at deleted artifacts are
   // hidden from the tray. While loading we leave the filter pass-through to
@@ -79,7 +85,7 @@ export function Sidebar() {
       <WorkspacePill collapsed={collapsed} />
 
       <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 0 12px' }}>
-        {isVisible('chats') && (
+        {showSection('chats') && (
           <SidebarSection
             id="chats"
             icon={MessageSquare}
@@ -91,7 +97,7 @@ export function Sidebar() {
           </SidebarSection>
         )}
 
-        {isVisible('playground') && (
+        {showSection('playground') && (
           <SidebarSection
             id="playground"
             icon={LayoutDashboard}
@@ -107,7 +113,7 @@ export function Sidebar() {
           </SidebarSection>
         )}
 
-        {isVisible('data-model') && (
+        {showSection('data-model') && (
           <SidebarSection
             id="data-model"
             icon={Grid}
@@ -135,7 +141,7 @@ export function Sidebar() {
           </SidebarSection>
         )}
 
-        {isVisible('metrics-catalog') && (
+        {showSection('metrics-catalog') && (
           <SidebarSection
             id="metrics-catalog"
             icon={BarChart3}
@@ -156,7 +162,7 @@ export function Sidebar() {
           </SidebarSection>
         )}
 
-        {isVisible('liveops') && (
+        {showSection('liveops') && (
           <SidebarSection
             id="liveops"
             icon={Radio}
@@ -169,7 +175,7 @@ export function Sidebar() {
           </SidebarSection>
         )}
 
-        {isVisible('dashboards') && (
+        {showSection('dashboards') && (
           <SidebarSection
             id="dashboards"
             icon={LayoutGrid}
@@ -180,7 +186,7 @@ export function Sidebar() {
           />
         )}
 
-        {isVisible('segments') && (
+        {showSection('segments') && (
           <SidebarSection
             id="segments"
             icon={Users}

@@ -119,6 +119,11 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
         email,
         role: access.role,
         allowedGames: access.games,
+        // Parity with /api/auth/me so the FE has the full grant set immediately
+        // after login — feature gating + workspace filtering work on first paint
+        // without waiting for a /me refresh.
+        workspaces: access.workspaces,
+        features: access.features,
       },
     };
   });
