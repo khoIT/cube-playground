@@ -3,8 +3,11 @@
  *
  * `query_run`, `segment_op`, and `feature_open` are wired now; `export` and
  * `workspace_switch` are reserved for the next slice (aggregation + wider
- * instrumentation). The store validates `event_type` against this list on
- * write so a typo'd emit point fails loud instead of polluting aggregates.
+ * instrumentation). `cube_outage` records client-observed Cube backend
+ * reachability transitions (unreachable / recovered) so outages are countable
+ * after the fact instead of vanishing with the ephemeral banner. The store
+ * validates `event_type` against this list on write so a typo'd emit point
+ * fails loud instead of polluting aggregates.
  */
 
 export const ACTIVITY_EVENT_TYPES = [
@@ -13,6 +16,7 @@ export const ACTIVITY_EVENT_TYPES = [
   'feature_open',
   'export',
   'workspace_switch',
+  'cube_outage',
 ] as const;
 
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];

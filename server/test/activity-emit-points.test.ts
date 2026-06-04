@@ -126,4 +126,40 @@ describe('activity emit points (real-auth)', () => {
     expect(queryActivity(getDb(), { actorSub: 'alice-sub', eventType: 'workspace_switch' })).toHaveLength(1);
     expect(queryActivity(getDb(), { actorSub: 'alice-sub', eventType: 'query_run' })).toHaveLength(0);
   });
+
+  it('records cube_outage edges (recovered carries duration); bad phase is rejected', async () => {
+    const down = await app.inject({
+      method: 'POST',
+      url: '/api/activity',
+      headers: aliceAuth,
+      payload: { eventType: 'cube_outage', targetId: 'unreachable' },
+    });
+    expect(down.statusCode).toBe(202);
+
+    const up = await app.inject({
+      method: 'POST',
+      url: '/api/activity',
+      headers: aliceAuth,
+      payload: { eventType: 'cube_outage', targetId: 'recovered', durationMs: 45_000 },
+    });
+    expect(up.statusCode).toBe(202);
+
+    // Phase must be one of the known edges — an arbitrary string is rejected.
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/activity',
+      headers: aliceAuth,
+      payload: { eventType: 'cube_outage', targetId: 'flapping' },
+    });
+    expect(bad.statusCode).toBe(400);
+
+    const rows = queryActivity(getDb(), { actorSub: 'alice-sub', eventType: 'cube_outage' });
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.targetType === 'cube_api')).toBe(true);
+    const recovered = rows.find((r) => r.targetId === 'recovered');
+    expect(JSON.parse(recovered!.detailJson!)).toEqual({ durationMs: 45_000 });
+    // The 'unreachable' edge has no duration to record.
+    const unreachable = rows.find((r) => r.targetId === 'unreachable');
+    expect(unreachable!.detailJson).toBeNull();
+  });
 });

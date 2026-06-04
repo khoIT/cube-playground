@@ -12,8 +12,15 @@
  * have no timeout, so after recovery they're effectively dead and the user
  * needs to reload to refresh. The banner reads this to switch into a green
  * "Backend recovered" recovery state.
+ *
+ * On each reachability EDGE (ok→unreachable, unreachable→ok) it also fires a
+ * fire-and-forget `cube_outage` beacon to the activity spine so outages are
+ * countable/measurable after the fact — the in-memory state above resets on
+ * reload and would otherwise leave no trace.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { recordCubeOutage } from '../api/feature-open-beacon';
 
 export type CubeApiHealth = 'unknown' | 'ok' | 'unreachable';
 
@@ -53,6 +60,10 @@ export function useCubeApiHealth(): CubeApiHealthResult {
   // Latest hadOutage in a ref so the polling closure doesn't need to be re-bound
   // each render when the outage flag flips.
   const hadOutageRef = useRef(false);
+  // Last observed status + when the current outage began — used to detect edges
+  // and measure outage duration for the recovery beacon.
+  const lastStatusRef = useRef<CubeApiHealth>('unknown');
+  const outageStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -61,6 +72,20 @@ export function useCubeApiHealth(): CubeApiHealthResult {
     const tick = async () => {
       const next = await probeOnce(ctl.signal);
       if (!ctl.signal.aborted && next !== 'unknown') {
+        const prev = lastStatusRef.current;
+        // Edge-trigger the outage beacon: report only on transitions, never on
+        // every steady-state poll (which would flood the spine while down).
+        if (next !== prev) {
+          if (next === 'unreachable') {
+            outageStartRef.current = Date.now();
+            recordCubeOutage('unreachable');
+          } else if (next === 'ok' && prev === 'unreachable') {
+            const startedAt = outageStartRef.current;
+            recordCubeOutage('recovered', startedAt != null ? Date.now() - startedAt : undefined);
+            outageStartRef.current = null;
+          }
+          lastStatusRef.current = next;
+        }
         setStatus(next);
         if (next === 'unreachable' && !hadOutageRef.current) {
           hadOutageRef.current = true;

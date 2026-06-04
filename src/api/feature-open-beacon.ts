@@ -62,10 +62,21 @@ export function recordWorkspaceSwitch(workspaceId: string): void {
   emitActivity({ eventType: 'workspace_switch', targetId: workspaceId });
 }
 
+/**
+ * Report a Cube backend reachability transition. Fired by the health probe on
+ * the edges only (not every poll): `unreachable` when the backend first drops,
+ * `recovered` when it comes back — the latter carries how long it was down so
+ * outages are countable and measurable after the fact.
+ */
+export function recordCubeOutage(phase: 'unreachable' | 'recovered', durationMs?: number): void {
+  emitActivity({ eventType: 'cube_outage', targetId: phase, durationMs });
+}
+
 interface ActivityBeacon {
-  eventType: 'feature_open' | 'export' | 'workspace_switch';
+  eventType: 'feature_open' | 'export' | 'workspace_switch' | 'cube_outage';
   targetType?: string;
   targetId?: string;
+  durationMs?: number;
 }
 
 /** Single fire-and-forget POST; telemetry is best-effort and never throws. */
