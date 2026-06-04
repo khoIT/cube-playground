@@ -49,6 +49,9 @@ interface TurnRouteOptions {
 const TurnBodySchema = z.object({
   session_id: z.string().nullable().optional(),
   owner_id: z.string().min(1),
+  // Display name for the owner, stamped on a newly-created session for
+  // "shared by …" UI. Optional — legacy callers omit it.
+  owner_label: z.string().optional(),
   game: z.string().min(1),
   message: z.string().min(1),
   context: z
@@ -173,6 +176,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         ownerId: body.owner_id,
         gameId: body.game,
         workspace,
+        ownerLabel: body.owner_label ?? null,
         title: body.message.slice(0, 64),
       });
       sessionId = session.id;

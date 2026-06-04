@@ -223,8 +223,7 @@ export type SseEvent =
 // menus) can stamp the same header without pulling in the SSE client.
 // ---------------------------------------------------------------------------
 
-import { getOwnerId } from './chat-owner-id';
-import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
+import { chatHeaders } from './chat-auth-headers';
 import { readChatServiceSettings } from '../pages/Settings/ChatService/use-chat-service-settings';
 
 // ---------------------------------------------------------------------------
@@ -366,13 +365,9 @@ export function openChatTurn(options: OpenChatTurnOptions): ChatTurnHandle {
     let response: Response;
     try {
       const globalSettings = readChatServiceSettings();
-      const reqHeaders: Record<string, string> = {
+      const reqHeaders: Record<string, string> = chatHeaders({
         'Content-Type': 'application/json',
-        'X-Owner-Id': getOwnerId(),
-      };
-      // Partition chat by Cube workspace — server scopes session writes by it.
-      const wsId = getActiveWorkspaceId();
-      if (wsId) reqHeaders[WORKSPACE_HEADER] = wsId;
+      });
       // Per-message bypass (from chat composer quick toggle) OR settings-level bypass.
       if (bypassCache || globalSettings.bypassCache) reqHeaders['X-Bypass-Cache'] = '1';
       // Settings-level model override (allowlist checked server-side).
@@ -455,12 +450,9 @@ export function openChatTurnReplay(
   async function* generateEvents(): AsyncIterable<SseEvent> {
     let response: Response;
     try {
-      const replayHeaders: Record<string, string> = {
+      const replayHeaders: Record<string, string> = chatHeaders({
         Accept: 'text/event-stream',
-        'X-Owner-Id': getOwnerId(),
-      };
-      const wsId = getActiveWorkspaceId();
-      if (wsId) replayHeaders[WORKSPACE_HEADER] = wsId;
+      });
       response = await fetch(url, {
         method: 'GET',
         headers: replayHeaders,

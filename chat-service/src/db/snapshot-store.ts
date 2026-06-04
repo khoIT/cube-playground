@@ -99,9 +99,11 @@ export function hydrateChatFromSnapshot(db: Database.Database): {
   const insertSession = db.prepare(`
     INSERT OR IGNORE INTO chat_sessions
       (id, owner_id, game_id, title, created_at, last_turn_at, turn_count,
-       total_input_tokens, total_output_tokens, status, parent_session_id, compacted_into, deleted_at)
+       total_input_tokens, total_output_tokens, status, parent_session_id, compacted_into, deleted_at,
+       visibility, owner_label, shared_at)
     VALUES (@id, @owner_id, @game_id, @title, @created_at, @last_turn_at, @turn_count,
-            @total_input_tokens, @total_output_tokens, @status, @parent_session_id, @compacted_into, @deleted_at)
+            @total_input_tokens, @total_output_tokens, @status, @parent_session_id, @compacted_into, @deleted_at,
+            @visibility, @owner_label, @shared_at)
   `);
   const insertTurn = db.prepare(`
     INSERT OR IGNORE INTO chat_turns
@@ -128,6 +130,9 @@ export function hydrateChatFromSnapshot(db: Database.Database): {
         parent_session_id: null,
         compacted_into: null,
         deleted_at: null,
+        visibility: 'private',
+        owner_label: null,
+        shared_at: null,
         ...s,
       }).changes;
     }

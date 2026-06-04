@@ -7,7 +7,7 @@
  * Defensive: GET returns empty on transient failures rather than throwing,
  * matching the chat-notifications-client pattern.
  */
-import { getOwnerId } from './chat-owner-id';
+import { chatHeaders } from './chat-auth-headers';
 
 export interface RememberedDefaultRow {
   slot: string;
@@ -19,12 +19,11 @@ export interface RememberedDefaultRow {
 }
 
 function authHeaders(cubeToken?: string | null): Record<string, string> {
-  const h: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Owner-Id': getOwnerId(),
-  };
-  if (cubeToken) h['X-Cube-Token'] = cubeToken;
-  return h;
+  return chatHeaders(
+    cubeToken
+      ? { Accept: 'application/json', 'X-Cube-Token': cubeToken }
+      : { Accept: 'application/json' },
+  );
 }
 
 export async function listRememberedDefaults(

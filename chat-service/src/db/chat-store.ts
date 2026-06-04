@@ -18,15 +18,77 @@ import type {
 
 export function createSession(
   db: Database.Database,
-  params: { ownerId: string; gameId: string; workspace?: string; title?: string },
+  params: { ownerId: string; gameId: string; workspace?: string; title?: string; ownerLabel?: string | null },
 ): ChatSessionRow {
   const id = uuidv4();
   const now = Date.now();
   db.prepare(
-    `INSERT INTO chat_sessions (id, owner_id, game_id, workspace, title, created_at, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'active')`,
-  ).run(id, params.ownerId, params.gameId, params.workspace ?? 'local', params.title ?? null, now);
+    `INSERT INTO chat_sessions (id, owner_id, game_id, workspace, title, created_at, status, owner_label)
+     VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`,
+  ).run(
+    id,
+    params.ownerId,
+    params.gameId,
+    params.workspace ?? 'local',
+    params.title ?? null,
+    now,
+    params.ownerLabel ?? null,
+  );
   return getSession(db, id)!;
+}
+
+/**
+ * Set a session's sharing state. 'shared' stamps shared_at = now; 'private'
+ * clears it. Caller (route layer) must enforce owner-only access first.
+ */
+export function setSessionVisibility(
+  db: Database.Database,
+  id: string,
+  visibility: 'private' | 'shared',
+): void {
+  const sharedAt = visibility === 'shared' ? Date.now() : null;
+  db.prepare('UPDATE chat_sessions SET visibility = ?, shared_at = ? WHERE id = ?').run(
+    visibility,
+    sharedAt,
+    id,
+  );
+}
+
+/**
+ * List sessions shared with the team for a game+workspace, across all owners.
+ * Read-only surface: any authenticated member may see these. Hides archived,
+ * compacted, and soft-deleted rows. Optional title LIKE filter.
+ */
+export function listSharedSessions(
+  db: Database.Database,
+  params: { gameId: string; workspace?: string; limit?: number; q?: string },
+): ChatSessionRow[] {
+  const limit = params.limit ?? 50;
+  const workspace = params.workspace ?? 'local';
+  const q = params.q?.trim();
+  if (q) {
+    const safe = q.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const pattern = `%${safe}%`;
+    return db
+      .prepare(
+        `SELECT * FROM chat_sessions
+         WHERE visibility = 'shared' AND game_id = ? AND workspace = ? AND status = 'active'
+           AND deleted_at IS NULL
+           AND title LIKE ? ESCAPE '\\'
+         ORDER BY last_turn_at DESC, created_at DESC
+         LIMIT ?`,
+      )
+      .all(params.gameId, workspace, pattern, limit) as ChatSessionRow[];
+  }
+  return db
+    .prepare(
+      `SELECT * FROM chat_sessions
+       WHERE visibility = 'shared' AND game_id = ? AND workspace = ? AND status = 'active'
+         AND deleted_at IS NULL
+       ORDER BY last_turn_at DESC, created_at DESC
+       LIMIT ?`,
+    )
+    .all(params.gameId, workspace, limit) as ChatSessionRow[];
 }
 
 export function getSession(

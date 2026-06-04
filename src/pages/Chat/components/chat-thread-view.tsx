@@ -4,6 +4,7 @@
  * the side-panel surface.
  */
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { T } from '../../../shell/theme';
 import { ChatMessageList, type ChatMessage } from './chat-message-list';
 import { ChatComposer } from './chat-composer';
@@ -30,6 +31,9 @@ interface ChatThreadViewProps {
   /** Research mode toggle: when ON, sends X-Research-Mode: 1 per turn (extended timeout). */
   researchMode?: boolean;
   onToggleResearchMode?: () => void;
+  /** When true the session is shared and caller is NOT the owner — hide the
+   *  composer and show a read-only footer notice instead. */
+  readOnly?: boolean;
 }
 
 export function ChatThreadView({
@@ -48,6 +52,7 @@ export function ChatThreadView({
   onToggleWebSearch,
   researchMode,
   onToggleResearchMode,
+  readOnly,
 }: ChatThreadViewProps) {
   // Compact (side panel) keeps its self-contained scroll + flex-pinned
   // composer. Main route delegates scroll to the page wrapper and uses a
@@ -77,21 +82,51 @@ export function ChatThreadView({
         compact={compact}
       />
 
-      <div style={composerWrapperStyle}>
-        <ChatComposer
-          value={composerValue}
-          onChange={onComposerChange}
-          onSubmit={onSubmit}
-          disabled={streaming}
-          compact={compact}
-          bypassCache={bypassCache}
-          onToggleBypassCache={onToggleBypassCache}
-          webSearch={webSearch}
-          onToggleWebSearch={onToggleWebSearch}
-          deepResearch={researchMode}
-          onToggleDeepResearch={onToggleResearchMode}
-        />
-      </div>
+      {readOnly ? (
+        /* Read-only shared view: replace composer with a muted notice. */
+        <div
+          style={{
+            padding: compact ? '8px 12px 12px' : '12px 0 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            fontFamily: 'var(--font-sans)',
+            fontSize: 12,
+            color: 'var(--text-muted)',
+          }}
+        >
+          <span>Shared chat — read-only. Start your own chat to ask follow-ups.</span>
+          <Link
+            to="/chat"
+            style={{
+              fontSize: 12,
+              color: 'var(--brand)',
+              textDecoration: 'none',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            New chat
+          </Link>
+        </div>
+      ) : (
+        <div style={composerWrapperStyle}>
+          <ChatComposer
+            value={composerValue}
+            onChange={onComposerChange}
+            onSubmit={onSubmit}
+            disabled={streaming}
+            compact={compact}
+            bypassCache={bypassCache}
+            onToggleBypassCache={onToggleBypassCache}
+            webSearch={webSearch}
+            onToggleWebSearch={onToggleWebSearch}
+            deepResearch={researchMode}
+            onToggleDeepResearch={onToggleResearchMode}
+          />
+        </div>
+      )}
     </div>
   );
 }

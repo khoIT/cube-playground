@@ -4,7 +4,7 @@
  * session count (used by the page to decide whether to show all-unranked).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { getOwnerId } from '../../../api/chat-owner-id';
+import { chatHeaders } from '../../../api/chat-auth-headers';
 import { rankStarters } from './persona-histogram';
 import {
   STARTER_CATEGORIES,
@@ -47,7 +47,7 @@ export function useStarterRanking(
   useEffect(() => {
     let cancelled = false;
     fetch('/api/chat/audit/intents?limit=20', {
-      headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
+      headers: chatHeaders({ Accept: 'application/json' }),
       cache: 'no-store',
     })
       .then(async (res) => {

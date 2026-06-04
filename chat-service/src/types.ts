@@ -258,6 +258,15 @@ export interface ChatSessionRow {
    * cube refs target a different namespace. Defaults to 'local' for legacy rows.
    */
   workspace: string;
+  /**
+   * Sharing state. 'private' (default) = only the owner sees it; 'shared' =
+   * any authenticated team member can open it read-only. Owner-only to change.
+   */
+  visibility: 'private' | 'shared';
+  /** Display name for the owner, stamped at creation for "shared by …" UI. */
+  owner_label: string | null;
+  /** Epoch ms when the session was last set to 'shared'; NULL when private. */
+  shared_at: number | null;
 }
 
 export interface ChatTurnRow {

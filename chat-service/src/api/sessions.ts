@@ -120,6 +120,31 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
     },
   );
 
+  // GET /sessions/shared?game=<id>&q=<title-substring>
+  // Cross-owner "shared with team" listing. Static path — registered before
+  // the parametric '/sessions/:id' so it is never swallowed by :id.
+  fastify.get<{ Querystring: { game?: string; q?: string } }>(
+    '/sessions/shared',
+    async (req, reply) => {
+      const ownerId = req.headers['x-owner-id'];
+      if (!ownerId || typeof ownerId !== 'string') {
+        return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
+      }
+      const gameId = req.query.game;
+      if (!gameId) {
+        return reply.status(400).send({ error: 'Missing ?game= query param' });
+      }
+      const workspace = readWorkspace(req);
+      const sessions = chatStore.listSharedSessions(opts.db, {
+        gameId,
+        workspace,
+        limit: 50,
+        q: req.query.q,
+      });
+      return reply.send(sessions);
+    },
+  );
+
   // GET /sessions/:id
   fastify.get<{ Params: { id: string } }>(
     '/sessions/:id',
@@ -134,7 +159,10 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
       if (!session || session.deleted_at != null) {
         return reply.status(404).send({ error: 'Session not found' });
       }
-      if (session.owner_id !== ownerId) {
+      // Owner sees their own session; any authenticated member may READ a
+      // session the owner has published ('shared'). Private + non-owner → 403.
+      const isOwner = session.owner_id === ownerId;
+      if (!isOwner && session.visibility !== 'shared') {
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
@@ -144,7 +172,9 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
       // findRunning() resolves through the compact-alias map, so requesting
       // the pre-compact sessionId still locates the live turn.
       const activeTurnId = getStreamRegistry().findRunning(session.id)?.turnId ?? null;
-      return reply.send({ session, turns, activeTurnId });
+      // readOnly tells the FE to lock the composer + hide owner-only controls
+      // when a non-owner is viewing a shared session.
+      return reply.send({ session, turns, activeTurnId, readOnly: !isOwner });
     },
   );
 
@@ -235,6 +265,30 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
       return reply.status(200).send(restored);
     },
   );
+
+  // POST /sessions/:id/share and /sessions/:id/unshare — owner-only.
+  // Publish/unpublish a session to the team. Only the owner may toggle it;
+  // a non-owner attempt is 403 (mirrors rename/delete).
+  const toggleVisibility =
+    (visibility: 'private' | 'shared') =>
+    async (req: { headers: Record<string, string | string[] | undefined>; params: { id: string } }, reply: import('fastify').FastifyReply) => {
+      const ownerId = req.headers['x-owner-id'];
+      if (!ownerId || typeof ownerId !== 'string') {
+        return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
+      }
+      const session = chatStore.getSession(opts.db, req.params.id);
+      if (!session || session.deleted_at != null) {
+        return reply.status(404).send({ error: 'Session not found' });
+      }
+      if (session.owner_id !== ownerId) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
+      chatStore.setSessionVisibility(opts.db, session.id, visibility);
+      return reply.send(chatStore.getSession(opts.db, session.id));
+    };
+
+  fastify.post<{ Params: { id: string } }>('/sessions/:id/share', toggleVisibility('shared'));
+  fastify.post<{ Params: { id: string } }>('/sessions/:id/unshare', toggleVisibility('private'));
 };
 
 export default sessionsRoutes;

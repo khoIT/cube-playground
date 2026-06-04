@@ -41,6 +41,7 @@ import { readChatServiceSettings } from '../Settings/ChatService/use-chat-servic
 import { ChatModeChip } from '../../shell/chat-overlay/chat-mode-chip';
 import { TurnCancelButton } from './components/turn-cancel-button';
 import { ChatHeaderFocusChip } from './components/chat-header-focus-chip';
+import { ChatShareButton } from './components/chat-share-button';
 import { useSessionFocus } from './hooks/use-session-focus';
 
 
@@ -109,7 +110,7 @@ export function ChatThreadPage() {
   const [researchMode, setResearchMode] = useState(false);
   const hydratedRef = useRef(false);
 
-  const { session, isLoading } = useChatSession(isNew ? null : id ?? null);
+  const { session, isLoading, forbidden, refetch: refetchSession } = useChatSession(isNew ? null : id ?? null);
 
   // Refresh-resume (Phase 7): if the session has an in-flight turn on the
   // server, attach the replay stream so the view picks up partial output.
@@ -325,6 +326,44 @@ export function ChatThreadPage() {
     return <div style={{ padding: 32, fontFamily: T.fSans, fontSize: 13, color: T.n400 }}>Loading conversation…</div>;
   }
 
+  // 403 — session exists but caller has no access (private, not their session).
+  if (forbidden) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          gap: 8,
+          fontFamily: T.fSans,
+          color: T.n500,
+          padding: '48px 32px',
+          textAlign: 'center',
+        }}
+      >
+        <span style={{ fontSize: 32, lineHeight: 1 }}>🔒</span>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: T.n800 }}>
+          No access
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: T.n500 }}>
+          This conversation is private or doesn't exist.
+        </p>
+        <Link
+          to="/chat"
+          style={{ marginTop: 8, fontSize: 13, color: T.brand, textDecoration: 'none', fontFamily: T.fSans }}
+        >
+          Start a new chat
+        </Link>
+      </div>
+    );
+  }
+
+  // Derive sharing / read-only state from loaded session.
+  const isShared = session?.visibility === 'shared';
+  const isReadOnly = session?.readOnly ?? false;
+
   // Debug link: shown only when showDebugLinks setting is on and a real session id exists.
   const activeSessionId = streamSessionId ?? (id && id !== 'new' ? id : null);
   const showDebugLink = readChatServiceSettings().showDebugLinks && !!activeSessionId;
@@ -378,6 +417,14 @@ export function ChatThreadPage() {
           >
             <ChatHeaderFocusChip sessionId={activeSessionId} />
             <ChatModeChip sessionId={activeSessionId} />
+            {/* Share toggle — only for the session owner (not new, not readOnly) */}
+            {!isNew && !isReadOnly && activeSessionId && session && (
+              <ChatShareButton
+                sessionId={activeSessionId}
+                shared={isShared}
+                onChanged={refetchSession}
+              />
+            )}
             {showDebugLink && (
               <Link
                 to={`/dev/chat-audit/sessions/${activeSessionId}`}
@@ -416,6 +463,7 @@ export function ChatThreadPage() {
               onToggleWebSearch={() => setWebSearch((v) => !v)}
               researchMode={researchMode}
               onToggleResearchMode={() => setResearchMode((v) => !v)}
+              readOnly={isReadOnly}
             />
           )}
           {lastCompactWarning && status === 'done' && <CompactWarningChip />}

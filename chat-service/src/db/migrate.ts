@@ -50,6 +50,19 @@ export function migrate(db: Database.Database): void {
     `CREATE INDEX IF NOT EXISTS idx_sessions_owner_workspace_game
        ON chat_sessions(owner_id, workspace, game_id, last_turn_at DESC);`,
   );
+  // Publish-to-team: a session may be marked 'shared' so other authenticated
+  // members get a read-only view; 'private' (default) stays owner-only.
+  addColumnIfMissing(db, "ALTER TABLE chat_sessions ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';");
+  // Owner display name stamped at creation so shared lists show "shared by …"
+  // without a cross-service identity lookup.
+  addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN owner_label TEXT;');
+  // Epoch ms the session was last shared; NULL when private.
+  addColumnIfMissing(db, 'ALTER TABLE chat_sessions ADD COLUMN shared_at INTEGER;');
+  // Index for the cross-owner "shared with team" listing per game/workspace.
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_sessions_shared
+       ON chat_sessions(visibility, game_id, workspace, last_turn_at DESC);`,
+  );
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
 
   // Observability columns added to chat_turns for per-turn metadata capture.

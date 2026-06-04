@@ -14,7 +14,7 @@
  * try/catch boilerplate.
  */
 
-import { getOwnerId } from './chat-owner-id';
+import { chatHeaders } from './chat-auth-headers';
 
 export interface CancelTurnResult {
   aborted: boolean;
@@ -25,10 +25,7 @@ export async function cancelTurn(turnId: string): Promise<CancelTurnResult> {
   try {
     const res = await fetch(`/api/agent/turn/${encodeURIComponent(turnId)}/cancel`, {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'X-Owner-Id': getOwnerId(),
-      },
+      headers: chatHeaders({ Accept: 'application/json' }),
     });
     if (res.status === 202) return { aborted: true };
     if (res.status === 410) {

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useReducer } from 'react';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { useWorkspaceContext, WORKSPACE_HEADER } from '../../../components/workspace-context';
 import { onChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
-import { getOwnerId } from '../../../api/chat-owner-id';
+import { chatHeaders } from '../../../api/chat-auth-headers';
 
 export interface SessionSummary {
   id: string;
@@ -17,6 +17,10 @@ export interface SessionSummary {
   createdAt: string;
   /** ISO timestamp string. Falls back to createdAt when missing. */
   updatedAt?: string;
+  /** Sharing state — 'shared' means published to the team. */
+  visibility?: 'private' | 'shared';
+  /** Owner display name — populated on the "shared with team" listing. */
+  ownerLabel?: string | null;
 }
 
 // Server payload (chat-service snake_case + epoch ms).
@@ -27,6 +31,8 @@ interface RawSessionSummary {
   title: string;
   created_at: number;
   last_turn_at?: number | null;
+  visibility?: 'private' | 'shared';
+  owner_label?: string | null;
 }
 
 /**
@@ -42,6 +48,8 @@ function normalizeSession(raw: RawSessionSummary): SessionSummary {
     title: raw.title,
     createdAt: new Date(raw.created_at).toISOString(),
     updatedAt: new Date(updatedMs).toISOString(),
+    visibility: raw.visibility,
+    ownerLabel: raw.owner_label ?? null,
   };
 }
 
@@ -70,23 +78,23 @@ function reducer(prev: State, action: Action): State {
   }
 }
 
-export function useChatSessionsList(query?: string) {
+export function useChatSessionsList(query?: string, opts?: { shared?: boolean }) {
   const gameId = useActiveGameId();
   const { workspaceId } = useWorkspaceContext();
   const [state, dispatch] = useReducer(reducer, { status: 'idle', sessions: [] });
   const trimmed = (query ?? '').trim();
+  const shared = opts?.shared ?? false;
 
   const fetchSessions = useCallback(async (signal?: AbortSignal) => {
     dispatch({ type: 'FETCH' });
     try {
       const params = new URLSearchParams({ game: gameId });
       if (trimmed) params.set('q', trimmed);
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-        'X-Owner-Id': getOwnerId(),
-      };
+      const headers: Record<string, string> = chatHeaders({ Accept: 'application/json' });
       if (workspaceId) headers[WORKSPACE_HEADER] = workspaceId;
-      const res = await fetch(`/api/chat/sessions?${params.toString()}`, {
+      // `shared` switches to the cross-owner "shared with team" listing.
+      const endpoint = shared ? '/api/chat/sessions/shared' : '/api/chat/sessions';
+      const res = await fetch(`${endpoint}?${params.toString()}`, {
         headers,
         // Defeat HTTP/heuristic caching — a freshly-created session must be
         // visible in the next list response, not stale.
@@ -106,7 +114,7 @@ export function useChatSessionsList(query?: string) {
       if (err instanceof Error && err.name === 'AbortError') return;
       dispatch({ type: 'ERROR', error: err instanceof Error ? err.message : 'Unknown error' });
     }
-  }, [gameId, trimmed, workspaceId]);
+  }, [gameId, trimmed, workspaceId, shared]);
 
   // Initial fetch.
   useEffect(() => {

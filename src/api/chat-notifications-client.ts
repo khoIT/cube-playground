@@ -6,7 +6,7 @@
  * Defensive: never throws on transient failures (returns empty list);
  * the bell badge should silently zero out rather than redden on outage.
  */
-import { getOwnerId } from './chat-owner-id';
+import { chatHeaders } from './chat-auth-headers';
 
 export interface ChatNotification {
   id: string;
@@ -31,7 +31,7 @@ export async function listChatNotifications(opts: {
   if (opts.limit) params.set('limit', String(opts.limit));
   try {
     const res = await fetch(`/api/chat/notifications?${params.toString()}`, {
-      headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
+      headers: chatHeaders({ Accept: 'application/json' }),
       cache: 'no-store',
       signal: opts.signal,
     });
@@ -46,7 +46,7 @@ export async function markChatNotificationRead(id: string): Promise<boolean> {
   try {
     const res = await fetch(`/api/chat/notifications/${encodeURIComponent(id)}/read`, {
       method: 'POST',
-      headers: { 'X-Owner-Id': getOwnerId() },
+      headers: chatHeaders(),
     });
     return res.ok;
   } catch {

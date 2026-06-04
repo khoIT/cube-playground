@@ -9,8 +9,7 @@
  * itself when the session id is missing or the service is down. DELETE
  * returns `false` instead of throwing.
  */
-import { getOwnerId } from './chat-owner-id';
-import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
+import { chatHeaders } from './chat-auth-headers';
 
 /** Slot value plus the user's original phrasing that produced it. */
 export interface SlotMemoryClient<T> {
@@ -51,13 +50,7 @@ export interface SessionFocusSnapshot {
 }
 
 function authHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Owner-Id': getOwnerId(),
-  };
-  const wsId = getActiveWorkspaceId();
-  if (wsId) headers[WORKSPACE_HEADER] = wsId;
-  return headers;
+  return chatHeaders({ Accept: 'application/json' });
 }
 
 export async function getSessionFocus(

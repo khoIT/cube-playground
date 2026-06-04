@@ -1,21 +1,33 @@
 /**
- * Chat sessions REST client — DELETE / future PATCH operations.
+ * Chat sessions REST client — DELETE + share/unshare (publish-to-team).
  * SSE turn streaming lives in chat-sse-client; this file holds the plain
- * fetch helpers used by row actions (delete, rename later).
+ * fetch helpers used by row actions.
  */
-import { getOwnerId } from './chat-owner-id';
-import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
+import { chatHeaders } from './chat-auth-headers';
 
 export async function deleteChatSession(id: string): Promise<void> {
-  const headers: Record<string, string> = { 'X-Owner-Id': getOwnerId() };
-  const wsId = getActiveWorkspaceId();
-  if (wsId) headers[WORKSPACE_HEADER] = wsId;
   const res = await fetch(`/api/chat/sessions/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    headers,
+    headers: chatHeaders(),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`Failed to delete conversation: ${text || res.statusText}`);
+  }
+}
+
+/**
+ * Publish / unpublish a session to the team. Owner-only (server enforces 403
+ * for non-owners). `share=true` → POST /share, `false` → POST /unshare.
+ */
+export async function setChatSessionShared(id: string, share: boolean): Promise<void> {
+  const action = share ? 'share' : 'unshare';
+  const res = await fetch(`/api/chat/sessions/${encodeURIComponent(id)}/${action}`, {
+    method: 'POST',
+    headers: chatHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to ${action} conversation: ${text || res.statusText}`);
   }
 }

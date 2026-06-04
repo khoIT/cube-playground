@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useReducer } from 'react';
 import type { ChartArtifact } from '../../../api/chat-sse-client';
-import { getOwnerId } from '../../../api/chat-owner-id';
+import { chatHeaders } from '../../../api/chat-auth-headers';
 import { onChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 
 // ---------------------------------------------------------------------------
@@ -59,6 +59,13 @@ export interface ChatSession {
   /** UUID of the turn currently running on the server, if any. Surfaced by
    *  Phase 6 so the client can attach a replay stream on refresh. */
   activeTurnId: string | null;
+  /** Sharing state — 'shared' means published to the team. */
+  visibility: 'private' | 'shared';
+  /** Owner display name (for "shared by …" on a non-owner read-only view). */
+  ownerLabel: string | null;
+  /** True when the caller is NOT the owner (viewing a shared session) — the
+   *  composer + owner-only controls must be locked. */
+  readOnly: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,19 +76,19 @@ type State =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'loaded'; session: ChatSession }
-  | { status: 'error'; error: string };
+  | { status: 'error'; error: string; httpStatus?: number };
 
 type Action =
   | { type: 'FETCH' }
   | { type: 'SUCCESS'; session: ChatSession }
-  | { type: 'ERROR'; error: string }
+  | { type: 'ERROR'; error: string; httpStatus?: number }
   | { type: 'RESET' };
 
 function reducer(_state: State, action: Action): State {
   switch (action.type) {
     case 'FETCH':  return { status: 'loading' };
     case 'SUCCESS': return { status: 'loaded', session: action.session };
-    case 'ERROR':  return { status: 'error', error: action.error };
+    case 'ERROR':  return { status: 'error', error: action.error, httpStatus: action.httpStatus };
     case 'RESET':  return { status: 'idle' };
     default:       return _state;
   }
@@ -98,12 +105,12 @@ export function useChatSession(sessionId: string | null) {
     dispatch({ type: 'FETCH' });
     try {
       const res = await fetch(`/api/chat/sessions/${id}`, {
-        headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
+        headers: chatHeaders({ Accept: 'application/json' }),
         signal,
       });
       if (!res.ok) {
         const msg = await res.text().catch(() => res.statusText);
-        dispatch({ type: 'ERROR', error: msg });
+        dispatch({ type: 'ERROR', error: msg, httpStatus: res.status });
         return;
       }
       // Server returns `{ session: { id, owner_id, game_id, created_at, ... },
@@ -111,9 +118,17 @@ export function useChatSession(sessionId: string | null) {
       // downstream code can rely on `session.id`/`session.turns` as the
       // ChatSession type promises.
       const raw = (await res.json()) as {
-        session: { id: string; owner_id: string; game_id: string; created_at: number | string };
+        session: {
+          id: string;
+          owner_id: string;
+          game_id: string;
+          created_at: number | string;
+          visibility?: 'private' | 'shared';
+          owner_label?: string | null;
+        };
         turns: ChatTurn[];
         activeTurnId?: string | null;
+        readOnly?: boolean;
       };
       const session: ChatSession = {
         id: raw.session.id,
@@ -124,6 +139,9 @@ export function useChatSession(sessionId: string | null) {
           : raw.session.created_at,
         turns: raw.turns,
         activeTurnId: raw.activeTurnId ?? null,
+        visibility: raw.session.visibility ?? 'private',
+        ownerLabel: raw.session.owner_label ?? null,
+        readOnly: raw.readOnly ?? false,
       };
       dispatch({ type: 'SUCCESS', session });
     } catch (err: unknown) {
@@ -162,6 +180,9 @@ export function useChatSession(sessionId: string | null) {
     session: state.status === 'loaded' ? state.session : null,
     isLoading: state.status === 'loading',
     error: state.status === 'error' ? state.error : null,
+    /** True when the session exists but the caller has no access (403). Drives
+     *  the "no access" empty state instead of a generic error. */
+    forbidden: state.status === 'error' && state.httpStatus === 403,
     refetch,
   };
 }

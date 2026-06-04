@@ -95,22 +95,37 @@ export async function proxyJson(
 }
 
 /**
- * Resolves the effective owner for a request.
- * Checks both X-Owner-Id (chat-specific) and falls back to the value set by
- * the owner-header middleware (which reads X-Owner). Returns null when neither
- * header is present or non-empty.
+ * Resolves the effective owner for a request — SERVER-AUTHORITATIVE.
+ *
+ * The verified principal wins over any client-supplied header. In real-auth
+ * mode the authenticate middleware sets `request.owner = claims.sub`, so we
+ * key chat ownership off the JWT, not the spoofable client `X-Owner-Id`.
+ * Trusting the client header instead collapsed every user to the `'dev'`
+ * default and leaked sessions across users.
+ *
+ * Only when no verified identity exists (AUTH_DISABLED with no X-Owner, or the
+ * standalone owner-header path used by tests → `request.owner === 'anonymous'`)
+ * do we fall back to the client `X-Owner-Id`. Returns null when neither yields
+ * a usable owner.
  */
 function resolveOwner(request: FastifyRequest): string | null {
-  // Prefer the chat-specific X-Owner-Id header used by chat-service clients
+  if (request.owner && request.owner !== 'anonymous') {
+    return request.owner;
+  }
   const ownerId = request.headers['x-owner-id'];
   if (typeof ownerId === 'string' && ownerId.trim()) {
     return ownerId.trim();
   }
-  // Fall back to value populated by the existing owner-header middleware (X-Owner)
-  if (request.owner && request.owner !== 'anonymous') {
-    return request.owner;
-  }
   return null;
+}
+
+/**
+ * Human-readable label for the owner, for "shared by …" display on published
+ * chats. Prefers the authenticated username/email; falls back to the resolved
+ * owner id when no verified user is attached (dev / legacy paths).
+ */
+function resolveOwnerLabel(request: FastifyRequest, owner: string): string {
+  return request.user?.username ?? request.user?.email ?? owner;
 }
 
 export default async function chatRoutes(app: FastifyInstance): Promise<void> {
@@ -148,6 +163,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       const upstreamBody = {
         session_id: request.params.id === 'new' ? null : request.params.id,
         owner_id: owner,
+        // Display name stamped on the session at creation so a published chat
+        // can show "shared by …" without a cross-service identity lookup.
+        owner_label: resolveOwnerLabel(request, owner),
         game: body.game,
         message: body.message,
         context: body.context,
@@ -365,6 +383,27 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- GET /api/chat/sessions/shared?game=<id>&q=<str> ---
+  // Cross-owner "shared with team" listing. Registered before '/sessions/:id'
+  // so the static path is never captured by the parametric route.
+  app.get<{ Querystring: SessionsQuery }>(
+    '/api/chat/sessions/shared',
+    async (request: FastifyRequest<{ Querystring: SessionsQuery }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const params = new URLSearchParams();
+      params.set('game', request.query.game ?? '');
+      if (request.query.q) params.set('q', request.query.q);
+      const url = `${chatServiceUrl()}/sessions/shared?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- GET /api/chat/sessions/:id ---
   app.get<{ Params: SessionParams }>(
     '/api/chat/sessions/:id',
@@ -379,6 +418,24 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
     },
   );
+
+  // --- POST /api/chat/sessions/:id/share | /unshare — owner-only publish toggle ---
+  for (const action of ['share', 'unshare'] as const) {
+    app.post<{ Params: SessionParams }>(
+      `/api/chat/sessions/:id/${action}`,
+      async (request: FastifyRequest<{ Params: SessionParams }>, reply: FastifyReply) => {
+        const owner = resolveOwner(request);
+        if (!owner) return reply.status(401).send({ code: 'no_owner' });
+        const url = `${chatServiceUrl()}/sessions/${encodeURIComponent(request.params.id)}/${action}`;
+        try {
+          const { status, payload } = await proxyJson(url, 'POST', owner, request.workspace.id);
+          return reply.status(status).send(payload);
+        } catch (err) {
+          return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+        }
+      },
+    );
+  }
 
   // --- GET /api/chat/sessions/:id/focus — Phase 03 session-focus inspection ---
   // The chat-service registers this route with the full /api/chat prefix

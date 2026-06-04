@@ -16,6 +16,7 @@ import type {
   CompactWarning,
 } from '../../../stores/chat-stream-store';
 import { getOwnerId } from '../../../api/chat-owner-id';
+import { chatHeaders } from '../../../api/chat-auth-headers';
 import { notifyChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 
 export type { StreamStatus, ToolCallState, CompactWarning };
@@ -116,7 +117,7 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     if (!sid) return;
     try {
       const res = await fetch(`/api/chat/sessions/${sid}`, {
-        headers: { Accept: 'application/json', 'X-Owner-Id': getOwnerId() },
+        headers: chatHeaders({ Accept: 'application/json' }),
       });
       if (res.ok) notifyChatSessionChanged(sid);
     } catch {
