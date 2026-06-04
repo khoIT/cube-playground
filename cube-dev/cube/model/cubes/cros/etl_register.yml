@@ -1,0 +1,109 @@
+cubes:
+  - name: etl_register
+    sql_table: etl_ingame_register
+    title: CROS — In-Game Register Events
+    description: >
+      Per-role first-character-create events. Carries user_id (= mf_users.user_id)
+      so joins directly to mf_users. Use for time-to-create, channel/platform
+      attribution of role creation, register-vs-install funnel. ALWAYS query with
+      user_id OR role_id filter + bounded log_date range.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.user_id, ''), '__', CAST({CUBE}.register_time AS VARCHAR), '__', COALESCE({CUBE}.role_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: register_time
+        sql: register_time
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: server_name
+        sql: server_name
+        type: string
+
+      - name: login_channel
+        sql: login_channel
+        type: string
+
+      - name: os_platform
+        sql: os_platform
+        type: string
+
+      - name: os_version
+        sql: os_version
+        type: string
+
+      - name: device_id
+        sql: device_id
+        type: string
+        public: false
+
+      - name: device_name
+        sql: device_name
+        type: string
+
+      - name: client_ip
+        sql: client_ip
+        type: string
+        public: false
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+    measures:
+      - name: registers
+        type: count
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: user_id
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

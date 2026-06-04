@@ -1,0 +1,122 @@
+cubes:
+  - name: etl_team_start_match_flow
+    sql_table: etl_ingame_teamstartmatchflow
+    title: CFM VN — Team Start Match Flow (events, TeamStartMatchFlow / 组队开赛)
+    description: >
+      Per-player team-match-start events. Sourced from t-log `TeamStartMatchFlow`
+      (struct in docs/cfm_tlog_desc_20251210 (2).xml). Joins via playerid →
+      cfm_user_roles.role_id → cfm_mf_users.user_id. 3.2M rows. Always filter
+      by playerid or user_id for 1-user latency.
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.playerid = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.playerid, '__', CAST({CUBE}.dteventtime AS VARCHAR), '__', {CUBE}.teamid)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: playerid
+        sql: playerid
+        type: string
+
+      - name: dteventtime
+        sql: dteventtime
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: level
+        sql: level
+        type: number
+
+      - name: team_id
+        sql: teamid
+        type: string
+
+      - name: team_member_count
+        sql: teammembercount
+        type: number
+
+      - name: game_type
+        sql: gametype
+        type: number
+
+      - name: game_mode
+        sql: gamemode
+        type: number
+        description: Mode — see docs/CFL_Game detail 2.xlsx sheet "note" for VN labels
+
+      - name: map_id
+        sql: mapid
+        type: number
+
+      - name: match_module
+        sql: matchmodule
+        type: number
+
+      - name: result
+        sql: result
+        type: number
+        description: 0 = success, non-zero = failure
+
+      - name: is_success
+        sql: "CASE WHEN {CUBE}.result = 0 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: is_private
+        sql: "CASE WHEN {CUBE}.isprivate = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: create_source
+        sql: createsource
+        type: number
+        description: 7 = e-sport room
+
+      - name: outer_room_id
+        sql: outerroomid
+        type: string
+
+    measures:
+      - name: team_starts
+        type: count
+
+      - name: distinct_players
+        type: count_distinct_approx
+        sql: playerid
+
+      - name: distinct_teams
+        type: count_distinct_approx
+        sql: teamid
+
+      - name: success_count
+        type: count
+        filters:
+          - sql: "{CUBE}.result = 0"
+
+      - name: avg_team_size
+        sql: teammembercount
+        type: avg
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: private_rooms_only
+        sql: "{CUBE}.isprivate = 1"

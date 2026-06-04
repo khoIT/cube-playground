@@ -1,0 +1,135 @@
+cubes:
+  - name: user_recharge_daily
+    sql_table: std_ingame_user_recharge_daily
+    title: TF — Daily Recharge Snapshots (per user, per day)
+    description: >
+      One row per user per recharge day. Pre-aggregated upstream with VND-
+      normalized values (reliable revenue across SEA currencies) — much faster
+      than scanning raw transactions. For best 1-user latency, ALWAYS pass a
+      user_id equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.user_id, '__', CAST({CUBE}.log_date AS VARCHAR))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: log_date
+        sql: "CAST({CUBE}.log_date AS TIMESTAMP)"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: server_id
+        sql: ingame_last_recharge_server_id
+        type: string
+
+      - name: role_id
+        sql: ingame_last_recharge_role_id
+        type: string
+
+      - name: role_level
+        sql: ingame_last_recharge_role_level
+        type: number
+
+      - name: vip_level
+        sql: ingame_last_recharge_vip_level
+        type: number
+
+      - name: max_vip_level_today
+        sql: ingame_max_recharge_vip_level
+        type: number
+
+      - name: country_code
+        sql: ingame_last_recharge_country_code
+        type: string
+
+      - name: os_platform
+        sql: ingame_last_recharge_os_platform
+        type: string
+
+      - name: payment_channel
+        sql: ingame_last_recharge_payment_channel
+        type: string
+
+      - name: product_id
+        sql: ingame_last_recharge_product_id
+        type: string
+
+      - name: currency_code
+        sql: last_currency_code
+        type: string
+
+      - name: revenue_vnd
+        sql: ingame_total_recharge_value_vnd
+        type: number
+        description: Sum of all recharge value (VND) for this user on this day
+
+      - name: revenue_usd
+        sql: ingame_total_recharged_value_usd
+        type: number
+
+      - name: revenue_vnd_iap
+        sql: ingame_total_recharged_value_vnd_iap
+        type: number
+
+      - name: revenue_vnd_web
+        sql: ingame_total_recharged_value_vnd_web
+        type: number
+
+      - name: txn_count
+        sql: ingame_total_recharge_transaction_id
+        type: number
+
+      - name: txn_count_iap
+        sql: ingame_total_recharge_transaction_id_iap
+        type: number
+
+      - name: txn_count_web
+        sql: ingame_total_recharge_transaction_id_web
+        type: number
+
+    measures:
+      - name: rows
+        type: count
+
+      - name: revenue_vnd_total
+        sql: ingame_total_recharge_value_vnd
+        type: sum
+
+      - name: revenue_usd_total
+        sql: ingame_total_recharged_value_usd
+        type: sum
+
+      - name: txn_count_total
+        sql: ingame_total_recharge_transaction_id
+        type: sum
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: user_id
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: yesterday
+        sql: "{CUBE}.log_date = CURRENT_DATE - INTERVAL '1' DAY"

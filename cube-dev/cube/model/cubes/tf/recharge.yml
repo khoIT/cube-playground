@@ -1,0 +1,157 @@
+cubes:
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    title: TF — Recharge Transactions (raw events)
+    description: >
+      One row per recharge transaction (TGA event stream). Keyed on role_id;
+      joins to mf_users via the role bridge (role_id → tf_user_roles.role_id →
+      user_id). `account_id` here is the game's internal account id (12-digit) —
+      NOT mf_users.user_id, so it is not a join key. Currency is mixed across SEA
+      (THB/VND/IDR/MYR/...) — `price`/`real_price`/`amount_rmb` are in the row's
+      own `currency`; do NOT sum them across currencies. For VND-normalized
+      revenue use tf_user_recharge_daily / tf_user_recharge_monthly instead.
+      For best 1-user latency, pass a role_id equality filter.
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 5 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.role_id, ''), '__', CAST({CUBE}.utc_time AS VARCHAR), '__', COALESCE({CUBE}.order_id, ''), '__', CAST({CUBE}.serial AS VARCHAR))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+        description: In-game character id — bridge key to tf_user_roles / mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+        description: Game-internal account id (12-digit) — NOT mf_users.user_id
+
+      - name: order_id
+        sql: order_id
+        type: string
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: vip_level
+        sql: vip_level
+        type: number
+
+      - name: recharge_time
+        sql: utc_time
+        type: time
+        description: Event time (UTC). Use zone_offset for local time.
+
+      - name: recharge_date
+        sql: log_date
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: pay_channel
+        sql: pay_channel
+        type: string
+
+      - name: channel
+        sql: channel
+        type: string
+
+      - name: currency
+        sql: currency
+        type: string
+
+      - name: product_id
+        sql: product_id
+        type: string
+
+      - name: goods_id
+        sql: goods_id
+        type: number
+
+      - name: goods_type
+        sql: goods_type
+        type: number
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: os_platform
+        sql: system
+        type: string
+
+      - name: phone_model
+        sql: phone_model
+        type: string
+
+      - name: client_ip
+        sql: ip
+        type: string
+        public: false
+
+      - name: price
+        sql: price
+        type: number
+        description: Listed price in row currency (mixed — do not sum across currencies)
+
+      - name: real_price
+        sql: real_price
+        type: number
+        description: Actually-paid price in row currency
+
+      - name: amount_local
+        sql: amount_rmb
+        type: number
+        description: Source column amount_rmb — observed equal to local price, not RMB-normalized
+
+    measures:
+      - name: transactions
+        type: count
+
+      - name: paying_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: paying_accounts
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: quantity_total
+        sql: num
+        type: sum
+        description: Sum of item quantity purchased
+
+    segments:
+      - name: vnd_only
+        sql: "{CUBE}.currency = 'VND'"
+
+      - name: thb_only
+        sql: "{CUBE}.currency = 'THB'"
+
+      - name: idr_only
+        sql: "{CUBE}.currency = 'IDR'"
+
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

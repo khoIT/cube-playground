@@ -1,0 +1,138 @@
+cubes:
+  - name: etl_logout
+    sql_table: etl_ingame_logout
+    title: CROS — Logout Events
+    description: >
+      Per-role logout events with `online_time` (session duration in seconds).
+      Joins directly to mf_users via user_id. ALWAYS query with user_id OR
+      role_id filter + bounded log_date range (queryRewrite enforces this).
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.user_id, ''), '__', CAST({CUBE}.logout_time AS VARCHAR), '__', COALESCE({CUBE}.role_id, ''), '__', COALESCE({CUBE}.device_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: logout_time
+        sql: logout_time
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: hour_of_day_vn
+        sql: "HOUR({CUBE}.logout_time AT TIME ZONE 'Asia/Ho_Chi_Minh')"
+        type: number
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: server_name
+        sql: server_name
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: login_channel
+        sql: login_channel
+        type: string
+
+      - name: os_platform
+        sql: os_platform
+        type: string
+
+      - name: device_id
+        sql: device_id
+        type: string
+        public: false
+
+      - name: client_ip
+        sql: client_ip
+        type: string
+        public: false
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: online_time_sec
+        sql: online_time
+        type: number
+        description: Session duration in seconds (this logout event)
+
+      - name: session_band
+        type: string
+        description: Bucketed online_time
+        case:
+          when:
+            - sql: "{CUBE}.online_time >= 3600"
+              label: ">= 1h"
+            - sql: "{CUBE}.online_time >= 1800"
+              label: "30m - 1h"
+            - sql: "{CUBE}.online_time >= 600"
+              label: "10m - 30m"
+            - sql: "{CUBE}.online_time >= 60"
+              label: "1m - 10m"
+          else:
+            label: "< 1m"
+
+    measures:
+      - name: logouts
+        type: count
+
+      - name: total_online_time_sec
+        sql: online_time
+        type: sum
+
+      - name: avg_session_sec
+        sql: online_time
+        type: avg
+
+      - name: max_session_sec
+        sql: online_time
+        type: max
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

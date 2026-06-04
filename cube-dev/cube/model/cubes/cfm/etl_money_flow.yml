@@ -1,0 +1,513 @@
+cubes:
+  - name: etl_money_flow
+    sql_table: etl_ingame_moneyflow
+    title: CFM VN — Money Flow (events, MoneyFlow / 货币流水)
+    description: >
+      Per-player in-game currency change events. Sourced from t-log `MoneyFlow`
+      (struct in docs/cfm_tlog_desc_20251210 (2).xml). Joins via playerid →
+      cfm_user_roles.role_id → cfm_mf_users.user_id.
+      ⚠️ HUGE table — 1.35 BILLION rows. ALWAYS query with playerid OR user_id
+      equality filter + bounded log_date range. Without filters, Trino will
+      OOM. Pre-aggregations recommended before production use.
+      Money type / reason enum labels in docs/CFL_Game detail 2.xlsx (Sheet1).
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.playerid = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.playerid, '__', CAST({CUBE}.dteventtime AS VARCHAR), '__', COALESCE({CUBE}.sequence, ''), '__', COALESCE({CUBE}.serial, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: playerid
+        sql: playerid
+        type: string
+
+      - name: dteventtime
+        sql: dteventtime
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: level
+        sql: level
+        type: number
+
+      - name: vip_level
+        sql: viplevel
+        type: string
+
+      - name: money_type_code
+        sql: imoneytype
+        type: string
+        description: Raw money type code — see docs/CFL_Game detail 2.xlsx Sheet1
+
+      - name: money_type
+        type: string
+        description: >
+          VN label for in-game currency types. Authoritative source:
+          docs/CFL_Game detail 2.xlsx Sheet1 (col A=label, col B=code).
+          Verified against Trino distribution Apr-May 2026 — code 1
+          (Kim Cương) is the highest-volume currency, consistent with
+          xlsx. Prior version had a wrong CASE — Kim Cương was mislabeled
+          at code 0.
+        case:
+          when:
+            - sql: "{CUBE}.imoneytype = '0'"
+              label: xu_game
+            - sql: "{CUBE}.imoneytype = '1'"
+              label: kim_cuong
+            - sql: "{CUBE}.imoneytype = '2'"
+              label: diem_thien_phu
+            - sql: "{CUBE}.imoneytype = '3'"
+              label: diem_tinh_thong
+            - sql: "{CUBE}.imoneytype = '4'"
+              label: diem_cong_nghe
+            - sql: "{CUBE}.imoneytype = '5'"
+              label: xu_clan
+            - sql: "{CUBE}.imoneytype = '6'"
+              label: xu_dau_rank
+            - sql: "{CUBE}.imoneytype = '7'"
+              label: van_nang_shop_dinh_cao
+            - sql: "{CUBE}.imoneytype = '8'"
+              label: diem_cf_may_man
+            - sql: "{CUBE}.imoneytype = '9'"
+              label: gp_thuong
+            - sql: "{CUBE}.imoneytype = '10'"
+              label: xu_doi
+            - sql: "{CUBE}.imoneytype = '11'"
+              label: vang_den
+            - sql: "{CUBE}.imoneytype = '12'"
+              label: xu_sanh_pve
+            - sql: "{CUBE}.imoneytype = '13'"
+              label: xu_cf
+            - sql: "{CUBE}.imoneytype = '14'"
+              label: xu_event
+            - sql: "{CUBE}.imoneytype = '15'"
+              label: xu_cf_han_gio
+            - sql: "{CUBE}.imoneytype = '16'"
+              label: chiet_khau_mua_event
+            - sql: "{CUBE}.imoneytype = '17'"
+              label: diem_ky_nang_thong_dung
+            - sql: "{CUBE}.imoneytype = '18'"
+              label: xu_giao_dich
+            - sql: "{CUBE}.imoneytype = '19'"
+              label: the_thanh_vien_bo_sung
+          else:
+            label: other
+
+      - name: reason_code
+        sql: reason
+        type: string
+        description: >
+          Composite primary reason code (varchar). Encoded as
+          reason_base + reason_action — divide by 1000 to get the
+          currency-category base (Sheet1 col F/G), modulo 1000 to get
+          the action (Sheet1 col J/L). Prefer the derived
+          reason_base_label / reason_action_label dimensions below
+          for human-readable analysis.
+
+      - name: reason_base_code
+        sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000"
+        type: number
+        description: Currency-category bucket (= reason DIV 1000 * 1000). See xlsx Sheet1 col F.
+
+      - name: reason_base_label
+        type: string
+        description: VN label for the currency category implied by reason (Sheet1 col G).
+        case:
+          when:
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 0"
+              label: kim_cuong
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 1000"
+              label: vang
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 2000"
+              label: diem_vu_khi
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 3000"
+              label: diem_chuyen_gia
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 4000"
+              label: diem_to_doi
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 5000"
+              label: gp
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 6000"
+              label: diem_cong_nghe
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 7000"
+              label: diem_clan
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 8000"
+              label: diem_xep_hang
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 9000"
+              label: diem_nang_luong
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 10000"
+              label: diem_nap_the
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 11000"
+              label: diem_battle_pass
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 12000"
+              label: diem_doi_thuong
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 13000"
+              label: diem_chiet_khau
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 14000"
+              label: diem_rogue_like
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 15000"
+              label: diem_cfm
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 16000"
+              label: diem_cfm_gioi_han
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 17000"
+              label: diem_cfm_midas
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 18000"
+              label: diem_ky_nang
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 19000"
+              label: diem_giao_dich
+            - sql: "(TRY_CAST({CUBE}.reason AS INTEGER) / 1000) * 1000 = 20000"
+              label: kim_cuong_den
+          else:
+            label: other
+
+      - name: reason_action_code
+        sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000)"
+        type: number
+        description: Specific action code (= reason MOD 1000). See xlsx Sheet1 col I.
+
+      - name: reason_action_label
+        type: string
+        description: VN label for the specific reason action (Sheet1 col L).
+        case:
+          when:
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 0"
+              label: mac_dinh
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 1"
+              label: hoat_dong_su_kien
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 2"
+              label: quay_thuong_truong_ban
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 3"
+              label: tieu_thu_trong_game
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 4"
+              label: ban_tro_chien
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 5"
+              label: ket_thuc_tran_dau
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 6"
+              label: nang_cap_vu_khi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 8"
+              label: ruong_hop_qua
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 9"
+              label: cua_hang
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 10"
+              label: thu
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 11"
+              label: mua_vang
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 12"
+              label: ban_vat_pham
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 13"
+              label: qua_tang_khoi_tao
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 14"
+              label: xoa_vat_pham_het_han
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 15"
+              label: mua_diem_thong_thao
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 16"
+              label: sua_chua_vu_khi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 17"
+              label: thuong_nhiem_vu
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 18"
+              label: thuong_thanh_tuu
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 19"
+              label: qua_idip
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 20"
+              label: vuot_ai_don
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 21"
+              label: thach_thuc_don
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 22"
+              label: lat_the_may_man
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 23"
+              label: pve_nhieu_nguoi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 24"
+              label: tieu_thu_tran_dia
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 25"
+              label: tieu_thu_trong_tran
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 26"
+              label: idip_xoa
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 27"
+              label: nang_cap_thien_phu
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 28"
+              label: mua_do_soi_noi_clan
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 29"
+              label: phat_trien_thu_thanh
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 30"
+              label: thang_cap
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 31"
+              label: thu_hoi_phan_giai
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 32"
+              label: lam_moi_ky_nang_vu_khi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 33"
+              label: hop_thanh
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 34"
+              label: doi_cu_lay_moi_cai_tao
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 35"
+              label: thuc_tinh
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 36"
+              label: hoan_doi_gia_han
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 37"
+              label: doi_vat_pham_su_kien
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 38"
+              label: he_thong_cong_su
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 39"
+              label: he_thong_trung_vang
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 40"
+              label: bao_li_xi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 41"
+              label: tang_do_soi_noi_clan
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 42"
+              label: the_diem_thong_thao
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 43"
+              label: update_kill_vu_khi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 44"
+              label: the_vo_cuc_award
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 45"
+              label: he_thong_r7
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 46"
+              label: vu_khi_du_an_nguon
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 47"
+              label: itools
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 48"
+              label: unit_test
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 49"
+              label: tieu_thu_ludo
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 50"
+              label: thu_tu_dong_cong_balo
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 51"
+              label: mua_giai_het_han
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 52"
+              label: dung_hop_manh_vu_khi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 53"
+              label: reset_mua_giai_the_vo_cuc
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 54"
+              label: thuong_diem_tich_luy_chung
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 55"
+              label: thuong_nha_suu_tap
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 56"
+              label: luyen_kim_duc
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 57"
+              label: thuong_phat_trien_clan
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 58"
+              label: ve_thuong_dau_truong
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 59"
+              label: thu_hoi_ngoai_trang_van_hoa
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 60"
+              label: the_thach_thuc_trong_tran
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 61"
+              label: thuong_module_doi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 62"
+              label: gui_ngan_hang
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 63"
+              label: rut_ngan_hang
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 64"
+              label: hoan_gui_ngan_hang
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 65"
+              label: cap_nhat_ky_nang_nhan_vat
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 66"
+              label: trinh_chinh_sua_vu_khi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 67"
+              label: bxh_the_gioi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 68"
+              label: doi_trang_phuc
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 69"
+              label: chuyen_may_chu
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 70"
+              label: lac_qua_bong_clear
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 71"
+              label: lac_qua_bong_supply
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 72"
+              label: cap_ma_so_vat_pham
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 73"
+              label: ban_truc_tiep_pack
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 74"
+              label: idip_chinh_sua_ky_nang
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 75"
+              label: mua_kim_cuong_bang_cfm
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 76"
+              label: qua_7_nam_extre
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 77"
+              label: phan_giai_avatar
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 79"
+              label: bxh
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 80"
+              label: tieu_the_chon_nhiem_vu
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 81"
+              label: module_danh_thiep
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 82"
+              label: chat_the_gioi
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 83"
+              label: doi_ten
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 84"
+              label: chuyen_so_du_cfm_qua_midas
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 85"
+              label: dung_the_tu_chon_shop
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 86"
+              label: thu_het_han
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 87"
+              label: idip_chinh_lucky_point
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 88"
+              label: ma_ngau_nhien_tru_vat_pham
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 89"
+              label: cho_giao_dich
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 90"
+              label: mua_o_cho_giao_dich
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 91"
+              label: chuyen_van_hoa_stackable
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 92"
+              label: lenh_gm
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 93"
+              label: goi_qua_thanh_tich
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 94"
+              label: thanh_tich_career
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 95"
+              label: luyen_kim_shoot
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 96"
+              label: luyen_kim_trao_giai
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 97"
+              label: luyen_kim_mua_chat_tro_dung
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 98"
+              label: vao_dau_truong
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 99"
+              label: thuong_dau_truong
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 100"
+              label: thuong_dau_truong_giai
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 101"
+              label: thuong_quan_he_dau_truong
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 102"
+              label: cuoc_thoai_he_thong_dt
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 103"
+              label: thuong_pet_trang_trai
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 104"
+              label: he_thong_di_thu
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 105"
+              label: thu_diem_du_thua_bp
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 106"
+              label: mua_cap_the_vo_cuc
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 201"
+              label: mua_truc_tiep_vat_pham_midas
+            - sql: "MOD(TRY_CAST({CUBE}.reason AS INTEGER), 1000) = 401"
+              label: mua_goi_qua_shop
+          else:
+            label: other
+
+      - name: sub_reason_code
+        sql: subreason
+        type: string
+
+      - name: add_or_reduce
+        sql: addorreduce
+        type: string
+        description: "'0' = increase, '1' = decrease"
+
+      - name: direction
+        type: string
+        case:
+          when:
+            - sql: "{CUBE}.addorreduce = '0'"
+              label: in
+            - sql: "{CUBE}.addorreduce = '1'"
+              label: out
+          else:
+            label: unknown
+
+      - name: i_money
+        sql: imoney
+        type: number
+        description: Amount of money the action involves
+
+      - name: after_money
+        sql: aftermoney
+        type: number
+
+      - name: balance
+        sql: balance
+        type: number
+
+      - name: delta
+        sql: delta
+        type: number
+        description: Net change produced by this event
+
+      - name: transaction_id
+        sql: transactionid
+        type: string
+
+      - name: bill_no
+        sql: billno
+        type: string
+
+      - name: source
+        sql: source
+        type: string
+
+    measures:
+      - name: events
+        type: count
+
+      - name: distinct_players
+        type: count_distinct_approx
+        sql: playerid
+
+      - name: in_events
+        type: count
+        filters:
+          - sql: "{CUBE}.addorreduce = '0'"
+
+      - name: out_events
+        type: count
+        filters:
+          - sql: "{CUBE}.addorreduce = '1'"
+
+      - name: total_delta
+        sql: delta
+        type: sum
+
+      - name: total_in
+        sql: delta
+        type: sum
+        filters:
+          - sql: "{CUBE}.addorreduce = '0'"
+
+      - name: total_out
+        sql: delta
+        type: sum
+        filters:
+          - sql: "{CUBE}.addorreduce = '1'"
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: diamond_only
+        sql: "{CUBE}.imoneytype = '1'"
+
+      - name: game_coin_only
+        sql: "{CUBE}.imoneytype = '0'"
+
+      - name: clan_coin_only
+        sql: "{CUBE}.imoneytype = '5'"
+
+      - name: cf_coin_only
+        sql: "{CUBE}.imoneytype = '13'"
+
+      - name: spends_only
+        sql: "{CUBE}.addorreduce = '1'"
+
+      - name: gains_only
+        sql: "{CUBE}.addorreduce = '0'"

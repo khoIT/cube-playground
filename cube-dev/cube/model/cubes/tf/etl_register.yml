@@ -1,0 +1,142 @@
+cubes:
+  - name: etl_register
+    sql_table: etl_ingame_register
+    title: TF — In-Game Register Events
+    description: >
+      Per-role first-character-create events (TGA event stream, ~2M rows). Keyed
+      on role_id; joins to mf_users via the role bridge. `account_id` (12-digit)
+      is the game-internal account, NOT mf_users.user_id. Use for time-to-create,
+      channel/platform attribution, device profile at registration (emulator,
+      language, abroad flag). ALWAYS query with role_id filter + bounded log_date
+      range (queryRewrite enforces a <= 31-day bound).
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.role_id, ''), '__', CAST({CUBE}.utc_time AS VARCHAR), '__', COALESCE({CUBE}.server_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+        description: In-game character id — bridge key to tf_user_roles / mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+        description: Game-internal account id (12-digit) — NOT mf_users.user_id
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: register_time
+        sql: utc_time
+        type: time
+        description: Register event time (UTC)
+
+      - name: role_time
+        sql: role_time
+        type: time
+        description: Role/character creation time
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: hour_of_day_local
+        sql: "HOUR(DATE_ADD('second', CAST({CUBE}.zone_offset * 3600 AS BIGINT), {CUBE}.utc_time))"
+        type: number
+        description: 0–23 in the row's own local timezone (utc_time + zone_offset)
+
+      - name: channel
+        sql: channel
+        type: string
+
+      - name: channel_info
+        sql: channel_info
+        type: string
+
+      - name: login_type
+        sql: login_type
+        type: string
+
+      - name: os_platform
+        sql: system
+        type: string
+
+      - name: os_version
+        sql: system_version
+        type: string
+
+      - name: phone_model
+        sql: phone_model
+        type: string
+
+      - name: client_ip
+        sql: ip
+        type: string
+        public: false
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: country_name
+        sql: country_name
+        type: string
+
+      - name: language
+        sql: language
+        type: string
+
+      - name: system_language
+        sql: system_language
+        type: string
+
+      - name: is_abroad
+        sql: is_abroad
+        type: boolean
+
+      - name: is_simulator
+        sql: "CASE WHEN {CUBE}.simulator = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+    measures:
+      - name: registers
+        type: count
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: distinct_accounts
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: simulator_registers
+        type: count
+        filters:
+          - sql: "{CUBE}.simulator = 1"
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

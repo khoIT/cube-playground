@@ -1,0 +1,97 @@
+cubes:
+  - name: etl_newbie_tutorial
+    sql_table: etl_ingame_newbietutorial
+    title: CFM VN — Newbie Tutorial (events, NewbieTutorial / 新手指引)
+    description: >
+      Per-player tutorial-step events. Sourced from t-log `NewbieTutorial`
+      (struct in docs/cfm_tlog_desc_20251210 (2).xml). Joins via playerid →
+      cfm_user_roles.role_id → cfm_mf_users.user_id.
+      178M rows. TutorialStatus: '0' = step started, '1' = step completed.
+      Use this for onboarding funnel + tutorial-completion retention.
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.playerid = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.playerid, '__', CAST({CUBE}.dteventtime AS VARCHAR), '__', COALESCE({CUBE}.tutorialid, ''), '__', COALESCE({CUBE}.tutorialstatus, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: playerid
+        sql: playerid
+        type: string
+
+      - name: dteventtime
+        sql: dteventtime
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: level
+        sql: level
+        type: number
+
+      - name: tutorial_id
+        sql: tutorialid
+        type: string
+        description: Newbie task ID
+
+      - name: tutorial_status
+        sql: tutorialstatus
+        type: string
+        description: "'0' = started, '1' = completed"
+
+      - name: is_completed
+        sql: "CASE WHEN {CUBE}.tutorialstatus = '1' THEN TRUE ELSE FALSE END"
+        type: boolean
+
+    measures:
+      - name: events
+        type: count
+
+      - name: distinct_players
+        type: count_distinct_approx
+        sql: playerid
+
+      - name: started_count
+        type: count
+        filters:
+          - sql: "{CUBE}.tutorialstatus = '0'"
+
+      - name: completed_count
+        type: count
+        filters:
+          - sql: "{CUBE}.tutorialstatus = '1'"
+
+      - name: distinct_tutorials_touched
+        type: count_distinct_approx
+        sql: tutorialid
+
+      - name: completion_rate
+        sql: "{completed_count} * 1.0 / NULLIF({started_count}, 0)"
+        type: number
+        format: percent
+        description: Completed / started across the filter window (per-step funnel)
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: completions_only
+        sql: "{CUBE}.tutorialstatus = '1'"

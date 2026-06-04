@@ -1,0 +1,162 @@
+cubes:
+  - name: etl_login
+    sql_table: etl_ingame_login
+    title: TF — Login Events
+    description: >
+      Per-role login events (TGA event stream, ~18M rows). Keyed on role_id;
+      joins to mf_users via the role bridge (role_id → tf_user_roles.role_id →
+      user_id). `account_id` (12-digit) is the game-internal account, NOT
+      mf_users.user_id. Event time is `utc_time` (UTC) + per-row `zone_offset`
+      (hours). Football profile signals: lineup_rating, honor_point, vip_point,
+      team composition. ALWAYS query with role_id filter + bounded log_date range
+      (queryRewrite enforces a <= 31-day bound on this cube).
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.role_id, ''), '__', CAST({CUBE}.utc_time AS VARCHAR), '__', COALESCE({CUBE}.server_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+        description: In-game character id — bridge key to tf_user_roles / mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+        description: Game-internal account id (12-digit) — NOT mf_users.user_id
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: event_time
+        sql: utc_time
+        type: time
+        description: Login event time (UTC)
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: hour_of_day_local
+        sql: "HOUR(DATE_ADD('second', CAST({CUBE}.zone_offset * 3600 AS BIGINT), {CUBE}.utc_time))"
+        type: number
+        description: 0–23 in the row's own local timezone (utc_time + zone_offset)
+
+      - name: channel
+        sql: channel
+        type: string
+
+      - name: channel_info
+        sql: channel_info
+        type: string
+
+      - name: login_type
+        sql: login_type
+        type: number
+
+      - name: os_platform
+        sql: system
+        type: string
+
+      - name: os_version
+        sql: system_version
+        type: string
+
+      - name: phone_model
+        sql: phone_model
+        type: string
+
+      - name: client_ip
+        sql: ip
+        type: string
+        public: false
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: country_name
+        sql: country_name
+        type: string
+
+      - name: alliance_id
+        sql: alliance_id
+        type: string
+
+      - name: honor_point
+        sql: honor_point
+        type: number
+
+      - name: vip_point
+        sql: vip_point
+        type: number
+
+      - name: lineup_rating
+        sql: lineup_rating
+        type: number
+        description: Team lineup rating at login
+
+      - name: lineup_rating_highest_week
+        sql: lineup_rating_highest_week
+        type: number
+
+      - name: team_set_count
+        sql: team_set_count
+        type: number
+
+      - name: team_set_star
+        sql: team_set_star
+        type: number
+
+    measures:
+      - name: logins
+        type: count
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: distinct_servers
+        type: count_distinct_approx
+        sql: server_id
+
+      - name: max_role_level
+        sql: role_level
+        type: max
+
+      - name: max_lineup_rating
+        sql: lineup_rating
+        type: max
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

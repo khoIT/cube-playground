@@ -1,0 +1,137 @@
+cubes:
+  - name: etl_logout
+    sql_table: etl_ingame_logout
+    title: CFM VN — Logout (events, Logout / 登出)
+    description: >
+      Per-role logout events. Sourced from t-log `Logout`
+      (struct in docs/cfm_tlog_desc_20251210 (2).xml). This table carries
+      `clientsdkuserid` (= mf_users.user_id, 19-digit), so it joins directly
+      to cfm_mf_users without going through the role bridge. `roleid` is
+      still exposed for in-game-character-level analysis.
+      Pairs with cfm_etl_login: onlinetime here is per-session duration,
+      so this cube gives session length / day rather than aggregate
+      online time (which lives on cfm_active_daily).
+      ALWAYS query with clientsdkuserid/user_id OR roleid + bounded log_date.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.clientsdkuserid = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.roleid = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.roleid, '__', CAST({CUBE}.dteventtime AS VARCHAR), '__', COALESCE({CUBE}.logouttype, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: roleid
+        sql: roleid
+        type: string
+
+      - name: clientsdkuserid
+        sql: clientsdkuserid
+        type: string
+        description: SDK account user_id (19-digit) — direct join key to mf_users
+
+      - name: dteventtime
+        sql: dteventtime
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: server_id
+        sql: gamesvrid
+        type: string
+
+      - name: level
+        sql: level
+        type: number
+
+      - name: online_time_sec
+        sql: "TRY_CAST({CUBE}.onlinetime AS BIGINT)"
+        type: number
+        description: Session duration in seconds
+
+      - name: logout_type
+        sql: logouttype
+        type: string
+        description: See docs/cfm_tlog_desc_20251210 (2).xml — Logout.logouttype enum
+
+      - name: client_version
+        sql: clientversion
+        type: string
+
+      - name: system_software
+        sql: systemsoftware
+        type: string
+
+      - name: system_hardware
+        sql: systemhardware
+        type: string
+
+      - name: network
+        sql: network
+        type: string
+
+      - name: device_id
+        sql: deviceid
+        type: string
+        public: false
+
+      - name: client_ip
+        sql: clientip
+        type: string
+        public: false
+
+      - name: country
+        sql: country
+        type: string
+
+      - name: is_backflow_user
+        sql: isbackflowuser
+        type: string
+
+    measures:
+      - name: sessions
+        type: count
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+      - name: total_online_time_sec
+        sql: "TRY_CAST({CUBE}.onlinetime AS BIGINT)"
+        type: sum
+
+      - name: avg_session_sec
+        sql: "TRY_CAST({CUBE}.onlinetime AS BIGINT)"
+        type: avg
+
+      - name: max_session_sec
+        sql: "TRY_CAST({CUBE}.onlinetime AS BIGINT)"
+        type: max
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: last_90d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '90' DAY"

@@ -1,207 +1,271 @@
 cubes:
   - name: mf_users
     sql_table: mf_users
-    title: CFM VN — User Master Profile
-    description: |
-      Wide feature store with one row per user. Pre-aggregates lifetime metrics (LTV, total active days, max role level) and rolling 30-day metrics (LTV 30d, recharge count 30d). Use this cube whenever a metric is already materialized here — Cube will read a single column instead of scanning event tables.
+    title: TF — User Master Profile
+    description: >
+      Wide feature store with one row per user (1.99M users). Pre-aggregates
+      lifetime metrics (LTV, total active days, max role level / fighting power)
+      and rolling 30-day metrics (LTV 30d, recharge count 30d). Use this cube
+      whenever a metric is already materialized here — Cube reads a single
+      column instead of scanning event tables. TF is a multi-region SEA football
+      team-management game (ID, TH, VN, MY, KH, LA, SG, PH); use country segments
+      to scope a region. user_id is a 19-digit account id.
+
     joins:
       - name: active_daily
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {active_daily}.user_id'
+        sql: "{CUBE}.user_id = {active_daily}.user_id"
+
       - name: user_recharge_daily
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {user_recharge_daily}.user_id'
-      - name: recharge
+        sql: "{CUBE}.user_id = {user_recharge_daily}.user_id"
+
+      - name: user_roles
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {recharge}.account_id'
+        sql: "{CUBE}.user_id = {user_roles}.user_id"
+
+      - name: user_devices
+        relationship: one_to_many
+        sql: "{CUBE}.user_id = {user_devices}.user_id"
+
+      - name: user_ips
+        relationship: one_to_many
+        sql: "{CUBE}.user_id = {user_ips}.user_id"
+
+      - name: user_active_monthly
+        relationship: one_to_many
+        sql: "{CUBE}.user_id = {user_active_monthly}.user_id"
+
+      - name: user_recharge_monthly
+        relationship: one_to_many
+        sql: "{CUBE}.user_id = {user_recharge_monthly}.user_id"
+
     refresh_key:
       every: 1 hour
+
     dimensions:
       - name: user_id
         sql: user_id
         type: string
         primary_key: true
         public: true
+
       - name: gds_bundle_code
         sql: gds_bundle_code
         type: string
+
       - name: install_date
-        sql: from_iso8601_timestamp(CAST({CUBE}.install_date AS VARCHAR) || 'T00:00:00Z')
+        sql: "CAST({CUBE}.install_date AS TIMESTAMP)"
         type: time
         description: Attributed install date (from MMP). NULL for organic / pre-attribution users.
+
       - name: install_month
         sql: install_month
         type: string
+
       - name: media_source
         sql: media_source
         type: string
+
       - name: campaign_id
         sql: campaign_id
         type: string
+
       - name: is_paid_install
-        sql: is_paid_install
+        sql: "CASE WHEN {CUBE}.is_paid_install = 1 THEN TRUE ELSE FALSE END"
         type: boolean
+
+      - name: is_fraud_install
+        sql: "CASE WHEN {CUBE}.is_fraud_install = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
       - name: appsflyer_id
         sql: appsflyer_id
         type: string
-        public: false
+
       - name: country
         sql: unified_first_country_code
         type: string
         description: First-seen country code (ISO-2)
+
       - name: os_platform
         sql: unified_first_os_platform
         type: string
+
       - name: first_login_date
-        sql: from_iso8601_timestamp(CAST({CUBE}.sdk_first_login_date AS VARCHAR) || 'T00:00:00Z')
+        sql: "CAST({CUBE}.sdk_first_login_date AS TIMESTAMP)"
         type: time
+
       - name: first_login_month
         sql: sdk_first_login_month
         type: string
+
       - name: last_login_date
-        sql: from_iso8601_timestamp(CAST({CUBE}.sdk_last_login_date AS VARCHAR) || 'T00:00:00Z')
+        sql: "CAST({CUBE}.sdk_last_login_date AS TIMESTAMP)"
         type: time
+
       - name: first_login_channel
         sql: sdk_first_login_channel
         type: string
+
       - name: last_login_channel
         sql: sdk_last_login_channel
         type: string
+
       - name: first_login_country
         sql: sdk_first_login_country_code
         type: string
+
       - name: last_login_country
         sql: sdk_last_login_country_code
         type: string
+
       - name: first_device_model
         sql: sdk_first_login_device_model
         type: string
+
       - name: first_active_date
-        sql: from_iso8601_timestamp(CAST({CUBE}.ingame_first_active_date AS VARCHAR) || 'T00:00:00Z')
+        sql: "CAST({CUBE}.ingame_first_active_date AS TIMESTAMP)"
         type: time
+
       - name: last_active_date
-        sql: from_iso8601_timestamp(CAST({CUBE}.ingame_last_active_date AS VARCHAR) || 'T00:00:00Z')
+        sql: "CAST({CUBE}.ingame_last_active_date AS TIMESTAMP)"
         type: time
+
       - name: total_active_days
         sql: ingame_total_active_days
         type: number
         description: Lifetime distinct active days
+
       - name: max_role_level
         sql: ingame_max_active_role_level
         type: number
+
       - name: max_fighting_power
         sql: ingame_max_active_fighting_power
         type: number
+
       - name: last_role_class
         sql: ingame_last_active_role_class
         type: string
+
       - name: last_server_id
         sql: ingame_last_active_server_id
         type: string
+
       - name: first_recharge_date
-        sql: from_iso8601_timestamp(CAST({CUBE}.ingame_first_recharge_date AS VARCHAR) || 'T00:00:00Z')
+        sql: "CAST({CUBE}.ingame_first_recharge_date AS TIMESTAMP)"
         type: time
+
       - name: last_recharge_date
-        sql: from_iso8601_timestamp(CAST({CUBE}.ingame_last_recharge_date AS VARCHAR) || 'T00:00:00Z')
+        sql: "CAST({CUBE}.ingame_last_recharge_date AS TIMESTAMP)"
         type: time
+
       - name: ltv_vnd
         sql: ingame_total_recharge_value_vnd
         type: number
-        description: Lifetime recharge value in VND
+        description: Lifetime recharge value in VND (normalized across SEA currencies)
+
       - name: ltv_usd
         sql: ingame_total_recharged_value_usd
         type: number
+
       - name: ltv_30d_vnd
         sql: ingame_total_recharge_value_vnd_30d
         type: number
-        description: Rolling 30-day recharge value (pre-aggregated in mf_users)
+
       - name: ltv_30d_usd
         sql: ingame_total_recharge_value_usd_30d
         type: number
+
       - name: ltv_iap_vnd
         sql: ingame_total_recharged_value_vnd_iap
         type: number
+
       - name: ltv_web_vnd
         sql: ingame_total_recharged_value_vnd_web
         type: number
+
       - name: lifetime_txn_count
         sql: ingame_total_recharge_transaction_id
         type: number
+
       - name: lifetime_txn_count_iap
         sql: ingame_total_recharge_transaction_id_iap
         type: number
+
       - name: lifetime_txn_count_web
         sql: ingame_total_recharge_transaction_id_web
         type: number
+
       - name: txn_count_30d
         sql: ingame_total_recharge_transaction_id_30d
         type: number
+
       - name: max_vip_level
         sql: ingame_max_recharge_vip_level
         type: number
+
+      - name: total_recharge_days
+        sql: ingame_total_recharge_days
+        type: number
+
       - name: is_paying_user
-        sql: CASE WHEN {CUBE}.ingame_total_recharge_value_vnd > 0 THEN TRUE ELSE FALSE END
+        sql: "CASE WHEN {CUBE}.ingame_total_recharge_value_vnd > 0 THEN TRUE ELSE FALSE END"
         type: boolean
-        description: Has any lifetime recharge
+
       - name: is_paying_30d
-        sql: CASE WHEN {CUBE}.ingame_total_recharge_value_vnd_30d > 0 THEN TRUE ELSE FALSE END
+        sql: "CASE WHEN {CUBE}.ingame_total_recharge_value_vnd_30d > 0 THEN TRUE ELSE FALSE END"
         type: boolean
+
       - name: payer_tier
         type: string
         case:
           when:
-            - sql: '{CUBE}.ingame_total_recharge_value_vnd >= 10000000'
+            - sql: "{CUBE}.ingame_total_recharge_value_vnd >= 10000000"
               label: whale
-            - sql: '{CUBE}.ingame_total_recharge_value_vnd >= 1000000'
+            - sql: "{CUBE}.ingame_total_recharge_value_vnd >= 1000000"
               label: dolphin
-            - sql: '{CUBE}.ingame_total_recharge_value_vnd > 0'
+            - sql: "{CUBE}.ingame_total_recharge_value_vnd > 0"
               label: minnow
           else:
             label: non_payer
+
       - name: days_since_install
-        sql: DATE_DIFF('day', {CUBE}.install_date, CURRENT_DATE)
+        sql: "DATE_DIFF('day', {CUBE}.install_date, CURRENT_DATE)"
         type: number
+
       - name: days_since_last_active
-        sql: DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE)
+        sql: "DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE)"
         type: number
+
       - name: days_since_last_recharge
-        sql: DATE_DIFF('day', {CUBE}.ingame_last_recharge_date, CURRENT_DATE)
+        sql: "DATE_DIFF('day', {CUBE}.ingame_last_recharge_date, CURRENT_DATE)"
         type: number
+
       - name: lifecycle_stage
         type: string
         description: Bucketed user lifecycle based on last activity recency
         case:
           when:
-            - sql: '{CUBE}.ingame_first_active_date IS NULL'
+            - sql: "{CUBE}.ingame_first_active_date IS NULL"
               label: registered_inactive
-            - sql: DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 1
+            - sql: "DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 1"
               label: active_today
-            - sql: DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 7
+            - sql: "DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 7"
               label: active_7d
-            - sql: DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 30
+            - sql: "DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 30"
               label: active_30d
-            - sql: DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 90
+            - sql: "DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) <= 90"
               label: dormant
           else:
             label: churned
-      - name: churn_risk
-        type: string
-        description: Churn-risk bucket for payers — at_risk = paying user inactive 7–30 days.
-        case:
-          when:
-            - sql: >
-                {CUBE}.ingame_total_recharge_value_vnd > 0
-                AND DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) BETWEEN 7 AND 30
-              label: at_risk
-            - sql: '{CUBE}.ingame_total_recharge_value_vnd > 0'
-              label: active_payer
-          else:
-            label: non_payer
-      # Behavior-based engagement tier from lifetime active days + engagement rate
-      # (active_days / days_since_install). Lifetime metric — cross-reference
-      # lifecycle_stage for current-state. Ported from prod cfm_vn.mf_users.
+
       - name: engagement_segment
         type: string
+        description: >
+          Behavior-based engagement tier from lifetime ingame_total_active_days
+          and engagement rate (active_days / days_since_install).
         case:
           when:
             - sql: |
@@ -220,83 +284,98 @@ cubes:
               label: soft
           else:
             label: inactive
+
     measures:
       - name: user_count
         type: count_distinct
         sql: user_id
         description: Exact distinct user count (slower)
+
       - name: user_count_approx
         type: count_distinct_approx
         sql: user_id
         description: Approx distinct via Trino approx_distinct (HLL) — fast, ~1.6% error
+
       - name: ltv_total_vnd
         sql: ingame_total_recharge_value_vnd
         type: sum
+
       - name: ltv_total_usd
         sql: ingame_total_recharged_value_usd
         type: sum
+
       - name: ltv_30d_total_vnd
         sql: ingame_total_recharge_value_vnd_30d
         type: sum
-        description: Sum of pre-aggregated 30d LTV across users
+
       - name: paying_users
         type: count_distinct
         sql: user_id
         filters:
-          - sql: '{CUBE}.ingame_total_recharge_value_vnd > 0'
+          - sql: "{CUBE}.ingame_total_recharge_value_vnd > 0"
+
       - name: paying_users_30d
         type: count_distinct
         sql: user_id
         filters:
-          - sql: '{CUBE}.ingame_total_recharge_value_vnd_30d > 0'
+          - sql: "{CUBE}.ingame_total_recharge_value_vnd_30d > 0"
+
       - name: whales_count
         type: count_distinct
         sql: user_id
         filters:
-          - sql: '{CUBE}.ingame_total_recharge_value_vnd >= 10000000'
-      - name: lapsed_this_month_count
-        type: count_distinct_approx
-        sql: user_id
-        filters:
-          - sql: DATE_TRUNC('month', {CUBE}.ingame_last_active_date) = DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1' MONTH
-        description: Approx count of users active last month but not yet this month
+          - sql: "{CUBE}.ingame_total_recharge_value_vnd >= 10000000"
+
       - name: arpu_vnd
-        sql: '{ltv_total_vnd} * 1.0 / NULLIF({user_count}, 0)'
+        sql: "{ltv_total_vnd} * 1.0 / NULLIF({user_count}, 0)"
         type: number
+
       - name: arppu_vnd
-        sql: '{ltv_total_vnd} * 1.0 / NULLIF({paying_users}, 0)'
+        sql: "{ltv_total_vnd} * 1.0 / NULLIF({paying_users}, 0)"
         type: number
-        description: Average revenue per paying user (lifetime)
+
       - name: paying_rate
-        sql: 'CAST({paying_users} AS DOUBLE) / NULLIF({user_count}, 0)'
+        sql: "{paying_users} * 1.0 / NULLIF({user_count}, 0)"
         type: number
         format: percent
+
       - name: paying_rate_30d
-        sql: 'CAST({paying_users_30d} AS DOUBLE) / NULLIF({user_count}, 0)'
+        sql: "{paying_users_30d} * 1.0 / NULLIF({user_count}, 0)"
         type: number
         format: percent
+
     segments:
       - name: vn_users
-        sql: '{CUBE}.unified_first_country_code = ''VN'''
-        description: Vietnam first-seen users
+        sql: "{CUBE}.unified_first_country_code = 'VN'"
+
+      - name: id_users
+        sql: "{CUBE}.unified_first_country_code = 'ID'"
+
+      - name: th_users
+        sql: "{CUBE}.unified_first_country_code = 'TH'"
+
+      - name: my_users
+        sql: "{CUBE}.unified_first_country_code = 'MY'"
+
       - name: paying_lifetime
-        sql: '{CUBE}.ingame_total_recharge_value_vnd > 0'
+        sql: "{CUBE}.ingame_total_recharge_value_vnd > 0"
+
       - name: paying_recently_30d
-        sql: '{CUBE}.ingame_total_recharge_value_vnd_30d > 0'
+        sql: "{CUBE}.ingame_total_recharge_value_vnd_30d > 0"
+
       - name: whales
-        sql: '{CUBE}.ingame_total_recharge_value_vnd >= 10000000'
-        description: Lifetime recharge >= 10M VND
+        sql: "{CUBE}.ingame_total_recharge_value_vnd >= 10000000"
+
       - name: high_level_players
-        sql: '{CUBE}.ingame_max_active_role_level >= 50'
+        sql: "{CUBE}.ingame_max_active_role_level >= 50"
+
       - name: at_risk_paying
         sql: |
           {CUBE}.ingame_total_recharge_value_vnd > 0
           AND DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE) BETWEEN 7 AND 30
-        description: Paying users inactive 7–30 days — churn risk
-      - name: lapsed_this_month
-        sql: DATE_TRUNC('month', {CUBE}.ingame_last_active_date) = DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1' MONTH
-        description: Active in last calendar month but no login yet this month (last_active_date falls in previous month)
+
       - name: new_install_7d
-        sql: '{CUBE}.install_date >= CURRENT_DATE - INTERVAL ''7'' DAY'
+        sql: "{CUBE}.install_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
       - name: paid_install
-        sql: '{CUBE}.is_paid_install = TRUE'
+        sql: "{CUBE}.is_paid_install = 1"

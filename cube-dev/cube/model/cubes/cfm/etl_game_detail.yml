@@ -1,0 +1,701 @@
+cubes:
+  - name: etl_game_detail
+    sql_table: etl_ingame_game_detail
+    title: CFM VN — Game Detail (events, GameDetail / 对局明细)
+    description: >
+      Per-match (per-player, per-round) PvP/PvE detail events. Sourced from
+      t-log `GameDetail` (struct in docs/cfm_tlog_desc_20251210 (2).xml).
+      VN column descriptions: docs/CFL_Game detail 2.xlsx (sheet `log desc`).
+      Joins via playerid → cfm_user_roles.role_id → cfm_mf_users.user_id.
+      Used for the PvP profile panel of a 360 view: mode breakdown, KDR,
+      headshot rate, accuracy, win rate, ladder progression.
+      ALWAYS query with playerid OR user_id + bounded log_date.
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.playerid = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.playerid, '__', CAST({CUBE}.dteventtime AS VARCHAR), '__', COALESCE({CUBE}.roomid, ''), '__', COALESCE({CUBE}.roundid, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: playerid
+        sql: playerid
+        type: string
+
+      - name: roleid
+        sql: roleid
+        type: string
+
+      - name: dteventtime
+        sql: dteventtime
+        type: time
+
+      - name: dt_game_start_time
+        sql: dtgamestarttime
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: level
+        sql: level
+        type: number
+
+      - name: vip_level
+        sql: viplevel
+        type: string
+
+      - name: map_id
+        sql: mapid
+        type: string
+        description: See docs/CFL_Game detail 2.xlsx sheet `note` for map_id labels
+
+      - name: map_label
+        type: string
+        description: VN map name. Coverage = entries documented in xlsx Sheet `note`; unknown maps fall back to "other".
+        case:
+          when:
+            - sql: "{CUBE}.mapid = '268500992'"
+              label: ngau_nhien_c4
+            - sql: "{CUBE}.mapid = '268500995'"
+              label: bao_sa_mac
+            - sql: "{CUBE}.mapid = '268501304'"
+              label: nha_may_dien
+            - sql: "{CUBE}.mapid = '268501320'"
+              label: hoi_hoa_dang
+            - sql: "{CUBE}.mapid = '268501345'"
+              label: tram_ve_tinh
+            - sql: "{CUBE}.mapid = '268501361'"
+              label: tram_phat_song
+            - sql: "{CUBE}.mapid = '268566813'"
+              label: dao_nghi_duong
+            - sql: "{CUBE}.mapid = '268568113'"
+              label: nga_tu_tu_than
+            - sql: "{CUBE}.mapid = '268568131'"
+              label: tau_cho_hang
+            - sql: "{CUBE}.mapid = '268568166'"
+              label: td_dau_hem
+            - sql: "{CUBE}.mapid = '268568181'"
+              label: biet_thu_than_sam
+          else:
+            label: other
+
+      - name: game_type
+        sql: gametype
+        type: string
+
+      - name: game_type_label
+        type: string
+        description: VN game-type label (xlsx log_desc col GameType — 1 pvp, 2 pve).
+        case:
+          when:
+            - sql: "{CUBE}.gametype = '1'"
+              label: pvp
+            - sql: "{CUBE}.gametype = '2'"
+              label: pve
+          else:
+            label: other
+
+      - name: game_mode
+        sql: gamemode
+        type: string
+        description: PvP mode code — see docs/CFL_Game detail 2.xlsx sheet `note`
+
+      - name: game_mode_label
+        type: string
+        description: VN mode name. Coverage = entries documented in xlsx Sheet `note`; unknown modes fall back to "other".
+        case:
+          when:
+            - sql: "{CUBE}.gamemode = '1'"
+              label: dat_bom
+            - sql: "{CUBE}.gamemode = '2'"
+              label: dau_doi
+            - sql: "{CUBE}.gamemode = '4'"
+              label: dau_don
+            - sql: "{CUBE}.gamemode = '5'"
+              label: zombie_ke_huy_diet
+            - sql: "{CUBE}.gamemode = '6'"
+              label: dau_sniper
+            - sql: "{CUBE}.gamemode = '7'"
+              label: dau_dao
+            - sql: "{CUBE}.gamemode = '8'"
+              label: dau_may_dau_doi
+            - sql: "{CUBE}.gamemode = '11'"
+              label: quyet_dau_1v1
+            - sql: "{CUBE}.gamemode = '13'"
+              label: zombie_dang_cuu_the
+            - sql: "{CUBE}.gamemode = '48'"
+              label: dau_may_dat_bom
+          else:
+            label: other
+
+      - name: match_module
+        sql: matchmodule
+        type: string
+        description: matching context (ladder/warm/custom)
+
+      - name: room_id
+        sql: roomid
+        type: string
+
+      - name: round_id
+        sql: roundid
+        type: string
+
+      - name: game_result
+        sql: gameresult
+        type: string
+        description: "Per-round result code — see GameDetail.gameresult enum"
+
+      - name: is_team
+        sql: isteam
+        type: string
+
+      - name: is_newbie
+        sql: isnewbie
+        type: string
+
+      - name: is_backflow_user
+        sql: isbackflowuser
+        type: string
+
+      - name: player_camp
+        sql: playercamp
+        type: string
+
+      - name: win_camp
+        sql: wincamp
+        type: string
+
+      - name: ladder_season
+        sql: ladderseason
+        type: string
+
+      - name: ladder_level
+        sql: "TRY_CAST({CUBE}.ladderlevelbeforematch AS INTEGER)"
+        type: number
+
+      - name: game_duration_sec
+        sql: "TRY_CAST({CUBE}.gameduration AS INTEGER)"
+        type: number
+
+      - name: player_duration_sec
+        sql: "TRY_CAST({CUBE}.playerduration AS INTEGER)"
+        type: number
+
+      - name: survival_duration_sec
+        sql: "TRY_CAST({CUBE}.survivalduration AS INTEGER)"
+        type: number
+
+      - name: drop_match_flag
+        sql: dropmatchflag
+        type: string
+        description: "0 = ended normally, 1 = quit mid-match"
+
+      - name: middle_join_flag
+        sql: middlejoinflag
+        type: string
+
+      - name: is_halfway_join_drop_match
+        sql: ishalfwayjoindropmatch
+        type: string
+
+      - name: quit_reason_code
+        sql: quitreason
+        type: string
+
+      - name: quit_reason_label
+        type: string
+        description: Decoded quit reason — see xlsx Sheet `log desc` row QuitReason (31 values).
+        case:
+          when:
+            - sql: "{CUBE}.quitreason = '1'"
+              label: nguoi_choi_thoat
+            - sql: "{CUBE}.quitreason = '2'"
+              label: lobby_mat_ket_noi
+            - sql: "{CUBE}.quitreason = '3'"
+              label: dang_nhap_nhieu_noi
+            - sql: "{CUBE}.quitreason = '4'"
+              label: bao_tri_server
+            - sql: "{CUBE}.quitreason = '5'"
+              label: idip_kick
+            - sql: "{CUBE}.quitreason = '6'"
+              label: chay_tron
+            - sql: "{CUBE}.quitreason = '7'"
+              label: lobby_kick_khac
+            - sql: "{CUBE}.quitreason = '8'"
+              label: dang_nhap_thiet_bi_moi
+            - sql: "{CUBE}.quitreason = '9'"
+              label: loi_7002
+            - sql: "{CUBE}.quitreason = '10'"
+              label: ban_kick
+            - sql: "{CUBE}.quitreason = '11'"
+              label: bao_ve_tre_vi_thanh_nien
+            - sql: "{CUBE}.quitreason = '20'"
+              label: udp_receive_timeout
+            - sql: "{CUBE}.quitreason = '21'"
+              label: afk
+            - sql: "{CUBE}.quitreason = '22'"
+              label: login_ds_timeout
+            - sql: "{CUBE}.quitreason = '23'"
+              label: load_map_timeout
+            - sql: "{CUBE}.quitreason = '24'"
+              label: ket_thuc_tran
+            - sql: "{CUBE}.quitreason = '25'"
+              label: kick_cheat
+            - sql: "{CUBE}.quitreason = '26'"
+              label: kick_vote
+            - sql: "{CUBE}.quitreason = '27'"
+              label: disconnect_chay_tron_dead
+            - sql: "{CUBE}.quitreason = '28'"
+              label: bi_loai_trong_game
+            - sql: "{CUBE}.quitreason = '29'"
+              label: ai_toi_quan_chua_reconnect
+            - sql: "{CUBE}.quitreason = '30'"
+              label: hack_do_tre_mang
+            - sql: "{CUBE}.quitreason = '31'"
+              label: tu_choi_join_giua_tran
+          else:
+            label: other
+
+      - name: network_quality
+        sql: networkquality
+        type: string
+
+      - name: is_ai_robot
+        sql: isairobot
+        type: string
+        description: "0 = real player, 1 = AI bot"
+
+      - name: is_ai_replace
+        sql: isaireplace
+        type: string
+
+      - name: ai_source
+        sql: aisource
+        type: string
+
+      - name: clan_id
+        sql: clanid
+        type: string
+
+      - name: clan_name
+        sql: clanname
+        type: string
+
+      - name: has_clan_member_in_game
+        sql: hasclanmemberingame
+        type: number
+
+      - name: is_cross_zone
+        sql: iscrosszone
+        type: string
+
+    measures:
+      - name: matches
+        type: count
+
+      - name: distinct_players
+        type: count_distinct_approx
+        sql: playerid
+
+      - name: distinct_rooms
+        type: count_distinct_approx
+        sql: roomid
+
+      - name: distinct_modes
+        type: count_distinct_approx
+        sql: gamemode
+
+      - name: distinct_maps
+        type: count_distinct_approx
+        sql: mapid
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+      - name: total_kills
+        sql: "TRY_CAST({CUBE}.timeskill AS BIGINT)"
+        type: sum
+
+      - name: total_deaths
+        sql: "TRY_CAST({CUBE}.timesbekilled AS BIGINT)"
+        type: sum
+
+      - name: total_assists
+        sql: "TRY_CAST({CUBE}.timesassists AS BIGINT)"
+        type: sum
+
+      - name: total_headshots
+        sql: "TRY_CAST({CUBE}.headshottimes AS BIGINT)"
+        type: sum
+
+      - name: total_been_headshot
+        sql: "TRY_CAST({CUBE}.beenheadshottimes AS BIGINT)"
+        type: sum
+
+      - name: total_damage
+        sql: "TRY_CAST({CUBE}.damagevalue AS BIGINT)"
+        type: sum
+
+      - name: total_take_damage
+        sql: "TRY_CAST({CUBE}.totaltakendamage AS BIGINT)"
+        type: sum
+
+      - name: total_bullets_shot
+        sql: "TRY_CAST({CUBE}.bulletshotcnt AS BIGINT)"
+        type: sum
+
+      - name: total_bullets_hit
+        sql: "TRY_CAST({CUBE}.bulletshothitcnt AS BIGINT)"
+        type: sum
+
+      - name: total_aces
+        sql: "TRY_CAST({CUBE}.getacecnt AS INTEGER)"
+        type: sum
+
+      - name: total_score
+        sql: "TRY_CAST({CUBE}.score AS BIGINT)"
+        type: sum
+
+      - name: total_ladder_score_delta
+        sql: "TRY_CAST({CUBE}.gainedladderscore AS INTEGER)"
+        type: sum
+        description: Net ladder score gained across matches in range
+
+      - name: max_ladder_score
+        sql: "TRY_CAST({CUBE}.totalladderscore AS INTEGER)"
+        type: max
+
+      - name: total_duration_sec
+        sql: "TRY_CAST({CUBE}.playerduration AS BIGINT)"
+        type: sum
+
+      - name: total_game_achievements
+        sql: "TRY_CAST({CUBE}.gameachievementcnt AS INTEGER)"
+        type: sum
+
+      - name: wins
+        type: count
+        filters:
+          - sql: "{CUBE}.gameresult = '1'"
+        description: Win count (gameresult enum '1' = win — confirm vs tlog xml)
+
+      - name: kdr
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.timeskill AS BIGINT)) AS DOUBLE) / NULLIF(SUM(TRY_CAST({CUBE}.timesbekilled AS BIGINT)), 0)"
+
+      - name: headshot_rate
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.headshottimes AS BIGINT)) AS DOUBLE) / NULLIF(SUM(TRY_CAST({CUBE}.timeskill AS BIGINT)), 0)"
+
+      - name: accuracy
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.bulletshothitcnt AS BIGINT)) AS DOUBLE) / NULLIF(SUM(TRY_CAST({CUBE}.bulletshotcnt AS BIGINT)), 0)"
+
+      # ── Multi-kill counts (xlsx cols 163-166)
+      - name: total_double_kills
+        sql: "TRY_CAST({CUBE}.doublekillcnt AS BIGINT)"
+        type: sum
+
+      - name: total_triple_kills
+        sql: "TRY_CAST({CUBE}.triplekillcnt AS BIGINT)"
+        type: sum
+
+      - name: total_quadra_kills
+        sql: "TRY_CAST({CUBE}.quadrakillcnt AS BIGINT)"
+        type: sum
+
+      - name: total_penta_kills
+        sql: "TRY_CAST({CUBE}.pentakillcnt AS BIGINT)"
+        type: sum
+
+      - name: total_silver_aces
+        sql: "TRY_CAST({CUBE}.silveracecnt AS INTEGER)"
+        type: sum
+
+      - name: max_top_continue_kill
+        sql: "TRY_CAST({CUBE}.topcontinuekill AS INTEGER)"
+        type: max
+
+      - name: max_kill_distance
+        sql: "TRY_CAST({CUBE}.maxkilldistance AS INTEGER)"
+        type: max
+
+      # ── Sniper specialization (xlsx cols 167-170)
+      - name: total_sniper_kills
+        sql: "TRY_CAST({CUBE}.sniperkillcnt AS BIGINT)"
+        type: sum
+
+      - name: total_sniper_shots
+        sql: "TRY_CAST({CUBE}.snipershootcnt AS BIGINT)"
+        type: sum
+
+      - name: total_sniper_hits
+        sql: "TRY_CAST({CUBE}.sniperhitcnt AS BIGINT)"
+        type: sum
+
+      - name: total_sniper_headshots
+        sql: "TRY_CAST({CUBE}.sniperhitheadcnt AS BIGINT)"
+        type: sum
+
+      - name: sniper_accuracy
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.sniperhitcnt AS BIGINT)) AS DOUBLE) / NULLIF(SUM(TRY_CAST({CUBE}.snipershootcnt AS BIGINT)), 0)"
+
+      - name: sniper_headshot_rate
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.sniperhitheadcnt AS BIGINT)) AS DOUBLE) / NULLIF(SUM(TRY_CAST({CUBE}.sniperhitcnt AS BIGINT)), 0)"
+
+      # ── Weapon-class kills (xlsx cols 72-74, 172, 214)
+      - name: total_throw_kills
+        sql: "TRY_CAST({CUBE}.throwweaponkill AS BIGINT)"
+        type: sum
+
+      - name: total_throw_hits
+        sql: "TRY_CAST({CUBE}.throwweaponhitcnt AS BIGINT)"
+        type: sum
+
+      - name: total_melee_kills
+        sql: "TRY_CAST({CUBE}.meleeweaponkill AS BIGINT)"
+        type: sum
+
+      - name: total_penetrate_kills
+        sql: "TRY_CAST({CUBE}.penetratekillcnt AS BIGINT)"
+        type: sum
+
+      - name: total_glass_kills
+        sql: "TRY_CAST({CUBE}.glasskillcnt AS BIGINT)"
+        type: sum
+
+      # ── Hit-zone distribution (xlsx cols 210-213, 87)
+      - name: total_hits_head
+        sql: "TRY_CAST({CUBE}.attackheadcnt AS BIGINT)"
+        type: sum
+
+      - name: total_hits_trunk
+        sql: "TRY_CAST({CUBE}.attacktrunkcnt AS BIGINT)"
+        type: sum
+
+      - name: total_hits_limb
+        sql: "TRY_CAST({CUBE}.attacklimbcnt AS BIGINT)"
+        type: sum
+
+      - name: total_hits_other
+        sql: "TRY_CAST({CUBE}.attackothercnt AS BIGINT)"
+        type: sum
+
+      - name: total_weak_point_damage
+        sql: "TRY_CAST({CUBE}.weakpointdamage AS BIGINT)"
+        type: sum
+
+      # ── Per-match currency gain (xlsx cols 16-23, 42, 58, 67, 238)
+      - name: total_gained_exp
+        sql: "TRY_CAST({CUBE}.gainedexp AS BIGINT)"
+        type: sum
+
+      - name: total_gained_game_point
+        sql: "TRY_CAST({CUBE}.gainedgamepoint AS BIGINT)"
+        type: sum
+
+      - name: total_gained_gold
+        sql: "TRY_CAST({CUBE}.gainedgold AS BIGINT)"
+        type: sum
+
+      - name: total_gained_diamond
+        sql: "TRY_CAST({CUBE}.gaineddiamond AS BIGINT)"
+        type: sum
+
+      - name: total_gained_hidden_score
+        sql: "TRY_CAST({CUBE}.gainedhiddenscore AS BIGINT)"
+        type: sum
+
+      - name: total_gained_bio_ladder_score
+        sql: "TRY_CAST({CUBE}.gainedbioladderscore AS BIGINT)"
+        type: sum
+
+      - name: total_gain_clan_activity
+        sql: "TRY_CAST({CUBE}.gainclanactivity AS BIGINT)"
+        type: sum
+
+      - name: total_award_honor_point
+        sql: "TRY_CAST({CUBE}.awardhonorpoint AS BIGINT)"
+        type: sum
+
+      - name: avg_gained_gold_per_match
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.gainedgold AS BIGINT)) AS DOUBLE) / NULLIF(COUNT(*), 0)"
+
+      - name: avg_gained_diamond_per_match
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.gaineddiamond AS BIGINT)) AS DOUBLE) / NULLIF(COUNT(*), 0)"
+
+      - name: avg_gained_exp_per_match
+        type: number
+        sql: "CAST(SUM(TRY_CAST({CUBE}.gainedexp AS BIGINT)) AS DOUBLE) / NULLIF(COUNT(*), 0)"
+
+      # ── Rating 2.0 (xlsx cols 239-247)
+      - name: avg_rating_plus
+        sql: "TRY_CAST({CUBE}.ratingplus AS DOUBLE)"
+        type: avg
+        description: HLTV-style Rating 2.0
+
+      - name: max_rating_plus
+        sql: "TRY_CAST({CUBE}.ratingplus AS DOUBLE)"
+        type: max
+
+      - name: avg_kast
+        sql: "TRY_CAST({CUBE}.kast AS DOUBLE)"
+        type: avg
+        description: Kill/Assist/Survive/Trade percentage
+
+      - name: total_damage_diff
+        sql: "TRY_CAST({CUBE}.dd AS BIGINT)"
+        type: sum
+        description: Damage difference total
+
+      - name: avg_adr
+        sql: "TRY_CAST({CUBE}.adr AS DOUBLE)"
+        type: avg
+        description: Average damage per round
+
+      - name: avg_impact
+        sql: "TRY_CAST({CUBE}.impact AS DOUBLE)"
+        type: avg
+
+      - name: avg_kpr
+        sql: "TRY_CAST({CUBE}.kpr AS DOUBLE)"
+        type: avg
+        description: Kills per round
+
+      - name: avg_spr
+        sql: "TRY_CAST({CUBE}.spr AS DOUBLE)"
+        type: avg
+
+      - name: avg_dpr
+        sql: "TRY_CAST({CUBE}.dpr AS DOUBLE)"
+        type: avg
+
+      # ── Cumulative lifetime totals at match time (xlsx cols 49-54)
+      - name: cumulative_total_kills
+        sql: "TRY_CAST({CUBE}.totaltimeskill AS BIGINT)"
+        type: max
+        description: Lifetime kill count snapshot at match (per-row max gives latest within range)
+
+      - name: cumulative_total_deaths
+        sql: "TRY_CAST({CUBE}.totaltimesbekilled AS BIGINT)"
+        type: max
+
+      - name: cumulative_total_games
+        sql: "TRY_CAST({CUBE}.totaltimesgame AS BIGINT)"
+        type: max
+
+      - name: cumulative_total_wins
+        sql: "TRY_CAST({CUBE}.totaltimeswin AS BIGINT)"
+        type: max
+
+      - name: cumulative_total_losses
+        sql: "TRY_CAST({CUBE}.totaltimeslose AS BIGINT)"
+        type: max
+
+      - name: cumulative_total_draws
+        sql: "TRY_CAST({CUBE}.totaltimesdraw AS BIGINT)"
+        type: max
+
+      # ── Drop / quit / network quality (xlsx cols 37, 63, 119, 183-186)
+      - name: dropped_matches
+        type: count
+        filters:
+          - sql: "{CUBE}.dropmatchflag = '1'"
+
+      - name: drop_rate
+        type: number
+        sql: "CAST(COUNT(CASE WHEN {CUBE}.dropmatchflag = '1' THEN 1 END) AS DOUBLE) / NULLIF(COUNT(*), 0)"
+
+      - name: avg_ping_max
+        sql: "TRY_CAST({CUBE}.pingmax AS INTEGER)"
+        type: avg
+
+      - name: avg_ping_min
+        sql: "TRY_CAST({CUBE}.pingmin AS INTEGER)"
+        type: avg
+
+      - name: total_ping_change
+        sql: "TRY_CAST({CUBE}.pingchangecount AS INTEGER)"
+        type: sum
+
+      - name: total_ping_over_300
+        sql: "TRY_CAST({CUBE}.pingover300 AS INTEGER)"
+        type: sum
+
+      - name: matches_with_ping_over_300
+        type: count
+        filters:
+          - sql: "TRY_CAST({CUBE}.pingover300 AS INTEGER) > 0"
+
+      # ── AI participation (xlsx cols 182, 190, 192)
+      - name: ai_matches
+        type: count
+        filters:
+          - sql: "{CUBE}.isairobot = '1'"
+
+      - name: ai_replace_matches
+        type: count
+        filters:
+          - sql: "{CUBE}.isaireplace = '1'"
+
+      - name: total_ai_robot_count
+        sql: "TRY_CAST({CUBE}.airobotcnt AS INTEGER)"
+        type: sum
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: last_90d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '90' DAY"
+
+      - name: wins_only
+        sql: "{CUBE}.gameresult = '1'"
+
+      - name: ladder_only
+        sql: "{CUBE}.matchmodule IN ('1','2','3')"
+
+      - name: pvp_only
+        sql: "{CUBE}.gametype = '1'"
+
+      - name: pve_only
+        sql: "{CUBE}.gametype = '2'"
+
+      - name: team_only
+        sql: "{CUBE}.isteam = '1'"
+
+      - name: solo_only
+        sql: "{CUBE}.isteam = '0'"
+
+      - name: dropped_only
+        sql: "{CUBE}.dropmatchflag = '1'"
+
+      - name: ai_match_only
+        sql: "{CUBE}.isairobot = '1'"
+
+      - name: high_ping_only
+        sql: "TRY_CAST({CUBE}.pingover300 AS INTEGER) > 0"

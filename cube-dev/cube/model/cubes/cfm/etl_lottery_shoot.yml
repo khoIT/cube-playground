@@ -1,0 +1,168 @@
+cubes:
+  - name: etl_lottery_shoot
+    sql_table: etl_ingame_lotteryshoot
+    title: CFM VN — Lottery / Gacha (events, LotteryShoot / 靶场抽奖)
+    description: >
+      Per-player gacha-pull events. Sourced from t-log `LotteryShoot`
+      (struct in docs/cfm_tlog_desc_20251210 (2).xml). Joins via playerid →
+      cfm_user_roles.role_id → cfm_mf_users.user_id.
+      213M rows — always filter by playerid or user_id + bounded log_date.
+      LotteryId enum (per XML desc): 1=金币礼包, 2=金币礼包十连抽, 3=钻石礼包,
+      4=钻石礼包十连抽, 5=王者礼包, 6=王者礼包十连抽 (gold / diamond / king box,
+      single + 10-pull variants). Result column = pull outcome.
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.playerid = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.playerid, '__', CAST({CUBE}.dteventtime AS VARCHAR), '__', COALESCE({CUBE}.transactionid, ''), '__', COALESCE({CUBE}.lotteryid, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: playerid
+        sql: playerid
+        type: string
+
+      - name: dteventtime
+        sql: dteventtime
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: level
+        sql: level
+        type: number
+
+      - name: lottery_id
+        sql: lotteryid
+        type: string
+        description: Pool ID — 1/2 gold box, 3/4 diamond box, 5/6 king box (single/10-pull)
+
+      - name: lottery_box
+        type: string
+        case:
+          when:
+            - sql: "{CUBE}.lotteryid IN ('1','2')"
+              label: gold_box
+            - sql: "{CUBE}.lotteryid IN ('3','4')"
+              label: diamond_box
+            - sql: "{CUBE}.lotteryid IN ('5','6')"
+              label: king_box
+          else:
+            label: other
+
+      - name: is_ten_pull
+        sql: "CASE WHEN {CUBE}.lotteryid IN ('2','4','6') THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: luck_point
+        sql: luckpoint
+        type: string
+
+      - name: cost_diamond
+        sql: costdiamond
+        type: number
+
+      - name: cost_gold
+        sql: costgold
+        type: number
+
+      - name: award_diamond
+        sql: awarddiamond
+        type: number
+
+      - name: award_gold
+        sql: awardgold
+        type: number
+
+      - name: award_weapon_point
+        sql: awardweaponpoint
+        type: number
+
+      - name: result
+        sql: result
+        type: string
+
+      - name: transaction_id
+        sql: transactionid
+        type: string
+
+      - name: is_preview
+        sql: ispreview
+        type: string
+
+      - name: is_use_ailab_rate
+        sql: isuseailabrate
+        type: string
+
+      - name: history_draw_cnt
+        sql: historydrawcnt
+        type: number
+
+      - name: this_round_draw_cnt
+        sql: thisrounddrawcnt
+        type: number
+
+    measures:
+      - name: pulls
+        type: count
+        description: Total gacha-pull events
+
+      - name: distinct_players
+        type: count_distinct_approx
+        sql: playerid
+
+      - name: total_cost_diamond
+        sql: costdiamond
+        type: sum
+
+      - name: total_cost_gold
+        sql: costgold
+        type: sum
+
+      - name: total_award_diamond
+        sql: awarddiamond
+        type: sum
+
+      - name: total_award_gold
+        sql: awardgold
+        type: sum
+
+      - name: ten_pull_count
+        type: count
+        filters:
+          - sql: "{CUBE}.lotteryid IN ('2','4','6')"
+
+      - name: diamond_pulls
+        type: count
+        filters:
+          - sql: "{CUBE}.lotteryid IN ('3','4')"
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: diamond_box_only
+        sql: "{CUBE}.lotteryid IN ('3','4')"
+
+      - name: king_box_only
+        sql: "{CUBE}.lotteryid IN ('5','6')"
+
+      - name: ten_pulls_only
+        sql: "{CUBE}.lotteryid IN ('2','4','6')"

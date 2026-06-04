@@ -1,0 +1,137 @@
+cubes:
+  - name: etl_logout
+    sql_table: etl_ingame_logout
+    title: TF — Logout Events
+    description: >
+      Per-role logout events (TGA event stream, ~64M rows). Keyed on role_id;
+      joins to mf_users via the role bridge. Carries `online_secs` = session
+      duration, so this cube gives session length / day. Event time is `utc_time`
+      (UTC) + per-row `zone_offset` (hours). ALWAYS query with role_id filter +
+      bounded log_date range (queryRewrite enforces a <= 31-day bound).
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.role_id, ''), '__', CAST({CUBE}.utc_time AS VARCHAR), '__', COALESCE({CUBE}.server_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+        description: In-game character id — bridge key to tf_user_roles / mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+        description: Game-internal account id (12-digit) — NOT mf_users.user_id
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: logout_time
+        sql: utc_time
+        type: time
+        description: Logout event time (UTC)
+
+      - name: login_time
+        sql: login_time
+        type: time
+        description: Session start time (UTC)
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: hour_of_day_local
+        sql: "HOUR(DATE_ADD('second', CAST({CUBE}.zone_offset * 3600 AS BIGINT), {CUBE}.utc_time))"
+        type: number
+        description: 0–23 in the row's own local timezone (utc_time + zone_offset)
+
+      - name: online_time_sec
+        sql: online_secs
+        type: number
+        description: Session duration in seconds
+
+      - name: activity_type
+        sql: activity_type
+        type: number
+
+      - name: game_type
+        sql: game_type
+        type: number
+
+      - name: channel_info
+        sql: channel_info
+        type: string
+
+      - name: region
+        sql: region
+        type: string
+
+      - name: client_ip
+        sql: ip
+        type: string
+        public: false
+
+      - name: session_band
+        type: string
+        description: Bucketed session length (online_secs)
+        case:
+          when:
+            - sql: "{CUBE}.online_secs >= 7200"
+              label: ">= 2h"
+            - sql: "{CUBE}.online_secs >= 3600"
+              label: "1h - 2h"
+            - sql: "{CUBE}.online_secs >= 1800"
+              label: "30m - 1h"
+            - sql: "{CUBE}.online_secs >= 600"
+              label: "10m - 30m"
+          else:
+            label: "< 10m"
+
+    measures:
+      - name: sessions
+        type: count
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: total_online_time_sec
+        sql: online_secs
+        type: sum
+
+      - name: avg_session_sec
+        sql: online_secs
+        type: avg
+
+      - name: max_session_sec
+        sql: online_secs
+        type: max
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

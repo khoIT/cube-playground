@@ -1,0 +1,71 @@
+cubes:
+  - name: user_devices
+    sql_table: map_ingame_devices_and_userid
+    title: CFM VN — User ↔ Device Mapping
+    description: >
+      One row per (user_id, device_id). A user can play from many devices,
+      a device can be used by many users — many-to-many bridge. Useful for
+      "all devices used by user X" and shared-device detection. Always
+      filter by user_id equality for 1-user 360 panels.
+      NOTE: device_id is PII-class — surfaced behind public=false on views.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.user_id, '__', {CUBE}.device_id)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: device_id
+        sql: device_id
+        type: string
+        public: false
+
+      - name: first_active_date
+        sql: "CAST({CUBE}.ingame_first_active_date AS TIMESTAMP)"
+        type: time
+
+      - name: last_active_date
+        sql: "CAST({CUBE}.ingame_last_active_date AS TIMESTAMP)"
+        type: time
+
+      - name: first_active_time
+        sql: ingame_first_active_time
+        type: time
+
+      - name: last_active_time
+        sql: ingame_last_active_time
+        type: time
+
+      - name: first_recharge_date
+        sql: "CAST({CUBE}.ingame_first_recharge_date AS TIMESTAMP)"
+        type: time
+
+      - name: last_recharge_date
+        sql: "CAST({CUBE}.ingame_last_recharge_date AS TIMESTAMP)"
+        type: time
+
+    measures:
+      - name: rows
+        type: count
+        description: Total user-device pairs
+
+      - name: distinct_devices
+        type: count_distinct_approx
+        sql: device_id
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: user_id

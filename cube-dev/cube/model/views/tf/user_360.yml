@@ -1,0 +1,544 @@
+views:
+  # ===========================================================================
+  # 360-view surfaces — TF (multi-region SEA football team-management game).
+  # Differences from cros/jus:
+  #   - etl events are TGA-sourced and key on role_id; they join to mf_users via
+  #     the 2-hop role bridge (role_id -> tf_user_roles.role_id -> user_id).
+  #     etl account_id is a game-internal id (NOT user_id) — not a join key.
+  #     => login/logout/register/transaction panels are role_id-keyed. Resolve a
+  #        user's role_ids from tf_user_roles_panel, then filter events by role_id
+  #        (or query an etl cube together with a tf_mf_users.user_id filter to let
+  #        Cube traverse the bridge).
+  #   - raw recharge is mixed-currency; VND-normalized revenue lives on the
+  #     std daily/monthly recharge cubes.
+  # ===========================================================================
+
+  - name: user_profile
+    description: >
+      Single-user wide profile (one row per user). Always filter by user_id
+      with the equals operator for sub-second response.
+    cubes:
+      - join_path: mf_users
+        includes:
+          - user_id
+          - gds_bundle_code
+          - appsflyer_id
+          - country
+          - os_platform
+          - install_date
+          - install_month
+          - media_source
+          - campaign_id
+          - is_paid_install
+          - is_fraud_install
+          - first_login_date
+          - first_login_channel
+          - first_login_country
+          - first_device_model
+          - last_login_date
+          - last_login_channel
+          - last_login_country
+          - first_active_date
+          - last_active_date
+          - total_active_days
+          - total_recharge_days
+          - max_role_level
+          - max_fighting_power
+          - last_role_class
+          - last_server_id
+          - days_since_install
+          - days_since_last_active
+          - days_since_last_recharge
+          - first_recharge_date
+          - last_recharge_date
+          - ltv_vnd
+          - ltv_usd
+          - ltv_30d_vnd
+          - ltv_30d_usd
+          - ltv_iap_vnd
+          - ltv_web_vnd
+          - lifetime_txn_count
+          - lifetime_txn_count_iap
+          - lifetime_txn_count_web
+          - txn_count_30d
+          - max_vip_level
+          - is_paying_user
+          - is_paying_30d
+          - payer_tier
+          - lifecycle_stage
+          - engagement_segment
+
+  - name: user_activity_timeline
+    description: >
+      One row per day a user was active. Filter by user_id equals + date range
+      and order by log_date desc for the activity-history panel of a 360 view.
+    cubes:
+      - join_path: active_daily
+        includes:
+          - user_id
+          - log_date
+          - log_month
+          - server_id
+          - role_id
+          - role_class
+          - country_code
+          - os_platform
+          - client_ip
+          - device_id
+          - max_role_level
+          - max_fighting_power
+          - online_time_sec
+          - distinct_servers_today
+          - distinct_devices_today
+          - is_recharge_day
+          - rows
+          - last_7d
+          - last_30d
+
+  - name: user_recharge_timeline
+    description: >
+      One row per day a user recharged, with VND-normalized daily totals
+      pre-aggregated upstream. Per-transaction detail in tf_user_transactions.
+    cubes:
+      - join_path: user_recharge_daily
+        includes:
+          - user_id
+          - log_date
+          - log_month
+          - server_id
+          - role_id
+          - role_level
+          - vip_level
+          - max_vip_level_today
+          - country_code
+          - os_platform
+          - payment_channel
+          - product_id
+          - currency_code
+          - revenue_vnd
+          - revenue_usd
+          - revenue_vnd_iap
+          - revenue_vnd_web
+          - txn_count
+          - txn_count_iap
+          - txn_count_web
+          - revenue_vnd_total
+          - txn_count_total
+          - last_7d
+          - last_30d
+
+  - name: user_transactions
+    description: >
+      One row per recharge transaction (raw TGA events). role_id-keyed — filter
+      by role_id (resolve from tf_user_roles_panel). Currency is mixed; use
+      tf_user_recharge_timeline for VND revenue.
+    cubes:
+      - join_path: recharge
+        includes:
+          - role_id
+          - order_id
+          - server_id
+          - role_level
+          - vip_level
+          - recharge_time
+          - recharge_date
+          - log_month
+          - pay_channel
+          - channel
+          - currency
+          - product_id
+          - goods_id
+          - goods_type
+          - country_code
+          - os_platform
+          - phone_model
+          - price
+          - real_price
+          - amount_local
+          - transactions
+          - paying_roles
+          - paying_accounts
+          - quantity_total
+          - vnd_only
+          - thb_only
+          - idr_only
+          - last_7d
+          - last_30d
+
+  - name: user_audience
+    description: >
+      Segmentation + top-N surface (mf_users dims only — no event-stream joins).
+      (1) Cohort aggregation — group by cohort dims (country, payer_tier,
+      lifecycle_stage, engagement_segment, ...) and read measures. Do NOT
+      include user_id.
+      (2) Top-N user ranking — include user_id plus a per-user numeric/time
+      dimension and order desc/asc with a limit. Pair with segments
+      (whales, vn_users, id_users, at_risk_paying, ...) to scope the leaderboard.
+      For single-user profile lookup, use tf_user_profile.
+    cubes:
+      - join_path: mf_users
+        includes:
+          - user_id
+          - country
+          - os_platform
+          - install_month
+          - media_source
+          - campaign_id
+          - is_paid_install
+          - is_fraud_install
+          - payer_tier
+          - lifecycle_stage
+          - engagement_segment
+          - is_paying_user
+          - is_paying_30d
+          - last_role_class
+          - last_server_id
+          - total_active_days
+          - total_recharge_days
+          - max_role_level
+          - max_fighting_power
+          - max_vip_level
+          - ltv_vnd
+          - ltv_usd
+          - ltv_30d_vnd
+          - ltv_30d_usd
+          - ltv_iap_vnd
+          - ltv_web_vnd
+          - lifetime_txn_count
+          - lifetime_txn_count_iap
+          - lifetime_txn_count_web
+          - txn_count_30d
+          - days_since_install
+          - days_since_last_active
+          - days_since_last_recharge
+          - install_date
+          - first_login_date
+          - last_login_date
+          - first_active_date
+          - last_active_date
+          - first_recharge_date
+          - last_recharge_date
+          - user_count
+          - user_count_approx
+          - paying_users
+          - paying_users_30d
+          - whales_count
+          - ltv_total_vnd
+          - ltv_30d_total_vnd
+          - arpu_vnd
+          - arppu_vnd
+          - paying_rate
+          - paying_rate_30d
+          - vn_users
+          - id_users
+          - th_users
+          - my_users
+          - paying_lifetime
+          - paying_recently_30d
+          - whales
+          - high_level_players
+          - at_risk_paying
+          - new_install_7d
+          - paid_install
+
+  - name: revenue_metrics
+    description: >
+      Daily / monthly VND revenue metrics from std_ingame_user_recharge_daily
+      (currency-normalized — preferred over raw recharge for revenue totals).
+    cubes:
+      - join_path: user_recharge_daily
+        includes:
+          - log_date
+          - log_month
+          - server_id
+          - country_code
+          - os_platform
+          - payment_channel
+          - currency_code
+          - revenue_vnd_total
+          - revenue_usd_total
+          - txn_count_total
+          - paying_users
+          - last_7d
+          - last_30d
+
+  - name: activity_metrics
+    description: DAU / MAU / activity-day analytics from std_ingame_user_active_daily.
+    cubes:
+      - join_path: active_daily
+        includes:
+          - log_date
+          - log_month
+          - country_code
+          - os_platform
+          - server_id
+          - dau
+          - mau
+          - rows
+          - active_servers
+          - last_7d
+          - last_30d
+          - yesterday
+
+  # ===========================================================================
+  # Extended 360 panels
+  # ===========================================================================
+
+  - name: user_roles_panel
+    description: >
+      All characters/roles a user has played. Filter by user_id equals for the
+      "characters" panel — also the lookup that maps a user_id to its role_ids
+      (needed to query the role-keyed event panels below).
+    cubes:
+      - join_path: user_roles
+        includes:
+          - user_id
+          - role_id
+          - server_id
+          - first_role_name
+          - last_role_name
+          - first_role_class
+          - last_role_class
+          - first_active_date
+          - last_active_date
+          - first_recharge_date
+          - last_recharge_date
+          - total_active_days
+          - total_recharge_days
+          - min_role_level
+          - max_role_level
+          - last_role_level
+          - max_fighting_power
+          - last_fighting_power
+          - min_vip_level
+          - max_vip_level
+          - role_ltv_vnd
+          - role_ltv_usd
+          - role_ltv_30d_vnd
+          - role_txn_count
+          - role_txn_count_30d
+          - rows
+          - distinct_roles
+          - distinct_servers
+          - roles_revenue_vnd
+          - roles_txn_count
+          - paying_roles
+          - high_level_roles
+          - vip_roles
+
+  - name: user_devices_panel
+    description: >
+      All devices a user has played from. device_id is PII — public=false.
+    cubes:
+      - join_path: user_devices
+        includes:
+          - user_id
+          - first_active_date
+          - last_active_date
+          - first_recharge_date
+          - last_recharge_date
+          - rows
+          - distinct_devices
+          - distinct_users
+
+  - name: user_ips_panel
+    description: >
+      All IPs a user has connected from. client_ip is PII — public=false;
+      obs sidecar hashes filter values automatically.
+    cubes:
+      - join_path: user_ips
+        includes:
+          - user_id
+          - first_active_date
+          - last_active_date
+          - first_recharge_date
+          - last_recharge_date
+          - rows
+          - distinct_ips
+          - distinct_users
+
+  - name: user_activity_monthly
+    description: >
+      Per-user, per-month activity rollup. For daily detail use tf_user_activity_timeline.
+    cubes:
+      - join_path: user_active_monthly
+        includes:
+          - user_id
+          - log_month
+          - log_year_month
+          - log_quarter
+          - log_year
+          - active_days
+          - recharge_days
+          - is_recharge_month
+          - last_role_class
+          - max_role_level
+          - last_role_level
+          - last_country_code
+          - last_os_platform
+          - last_server_id
+          - total_online_time_sec
+          - max_fighting_power
+          - first_active_month
+          - was_active_prev_month
+          - cohort_type
+          - rows
+          - mau
+          - active_days_total
+          - online_time_sec_total
+          - recharging_users
+          - this_month
+          - prev_month
+          - last_3_months
+
+  - name: user_revenue_monthly
+    description: >
+      Per-user, per-month VND revenue rollup. For daily detail use tf_user_recharge_timeline.
+    cubes:
+      - join_path: user_recharge_monthly
+        includes:
+          - user_id
+          - log_month
+          - log_year_month
+          - log_quarter
+          - log_year
+          - recharge_days
+          - last_country_code
+          - last_os_platform
+          - last_server_id
+          - last_payment_channel
+          - last_currency_code
+          - max_role_level
+          - max_vip_level
+          - last_vip_level
+          - revenue_vnd
+          - revenue_usd
+          - revenue_vnd_iap
+          - revenue_vnd_web
+          - txn_count
+          - txn_count_iap
+          - txn_count_web
+          - rows
+          - paying_users_monthly
+          - revenue_vnd_total
+          - revenue_usd_total
+          - revenue_vnd_iap_total
+          - revenue_vnd_web_total
+          - txn_count_total
+          - arppu_vnd_monthly
+          - this_month
+          - prev_month
+          - last_3_months
+          - iap_only
+          - web_only
+
+  # ===========================================================================
+  # Event-stream panels — TGA events, role_id-keyed (bridge to mf_users).
+  # ALWAYS filter by role_id + bounded log_date (<= 31 days).
+  # Registered in cube.js BEHAVIOR_VIEWS so the date-bound guard applies.
+  # ===========================================================================
+
+  - name: user_login_panel
+    description: >
+      Per-session login events (role_id-keyed). Filter by role_id + bounded
+      log_date. Powers session-frequency, device/network, and football progress
+      (lineup_rating, honor_point) panels.
+    cubes:
+      - join_path: etl_login
+        includes:
+          - role_id
+          - server_id
+          - role_level
+          - event_time
+          - log_date
+          - log_month
+          - hour_of_day_local
+          - channel
+          - channel_info
+          - login_type
+          - os_platform
+          - os_version
+          - phone_model
+          - client_ip
+          - country_code
+          - country_name
+          - alliance_id
+          - honor_point
+          - vip_point
+          - lineup_rating
+          - lineup_rating_highest_week
+          - team_set_count
+          - team_set_star
+          - logins
+          - distinct_days
+          - distinct_roles
+          - distinct_servers
+          - max_role_level
+          - max_lineup_rating
+          - last_7d
+          - last_30d
+
+  - name: user_logout_panel
+    description: >
+      Per-session logout events with online_secs (session duration). role_id-keyed.
+      Filter by role_id + bounded log_date.
+    cubes:
+      - join_path: etl_logout
+        includes:
+          - role_id
+          - server_id
+          - logout_time
+          - login_time
+          - log_date
+          - log_month
+          - hour_of_day_local
+          - online_time_sec
+          - activity_type
+          - game_type
+          - channel_info
+          - region
+          - client_ip
+          - session_band
+          - sessions
+          - distinct_days
+          - distinct_roles
+          - total_online_time_sec
+          - avg_session_sec
+          - max_session_sec
+          - last_7d
+          - last_30d
+
+  - name: user_register_panel
+    description: >
+      Per-role first-character-create events (role_id-keyed). Filter by role_id +
+      bounded log_date. Use for time-to-create, channel/platform attribution,
+      device profile at registration.
+    cubes:
+      - join_path: etl_register
+        includes:
+          - role_id
+          - server_id
+          - register_time
+          - role_time
+          - log_date
+          - log_month
+          - hour_of_day_local
+          - channel
+          - channel_info
+          - login_type
+          - os_platform
+          - os_version
+          - phone_model
+          - client_ip
+          - country_code
+          - country_name
+          - language
+          - system_language
+          - is_abroad
+          - is_simulator
+          - registers
+          - distinct_roles
+          - distinct_accounts
+          - simulator_registers
+          - last_7d
+          - last_30d

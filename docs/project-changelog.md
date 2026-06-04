@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-05 — Multi-game Cube model port (cfm full 360 + cros + tf)
+
+Ported the upstream prod Cube semantic layer (`kraken/cube`) into the local `cube-dev` submodule so local can serve the `cfm-user360` dashboard plus cros/tf 360s. Plan: `plans/260604-2317-cfm-vn-cube-model-full-port/`. Verified live against Trino + compiled green on the dev cube-api (cfm 46 objects, cros/tf 27 each; ballistar unchanged → no regression); `/load` returns reconciled data for all 6 dashboard views (e.g. `user_profile.ltv_vnd` matches Trino). vga deferred (different `iceberg` catalog).
+
+- **cfm**: added `user_roles`/`user_devices`/`user_ips` + monthly rollups + the full `etl_*` event-stream set; replaced hand-built `economy_flow`/`gameplay_match`/`onboarding_tutorial`; added `engagement_segment` to `mf_users`; new `views/cfm/user_360.yml` (~26 views). Kept richer local core cubes (WAU/trailing measures, SDK recharge dims) — field-merged, not overwritten.
+- **cros + tf**: full 12-cube 360 clones + `views/<game>/user_360.yml`, bare-named.
+- **cube.js**: `GAME_SCHEMA` += cros/tf; ported the 31-day behavior-log `queryRewrite` guardrail (bare `etl_*`, fail-closed) + `continueWaitTimeout:25`. Dev `auth-users` allowedGames extended (incl. `playground` service account) for cros/tf.
+- Naming: bare cube names (local convention) — the FE member-resolver physicalizes to `cfm_*` against prod. See `docs/lessons-learned.md` → "Porting a prod Cube model into a local tenant".
+
 ## 2026-06-04 — Concept Map (standalone cross-layer node graph)
 
 Shipped the deferred standalone concept map as a new Data Model subtab at `/catalog/data-model/concept-map`. Renders all 4 concept layers — data-model fields · business metrics · glossary terms · app segments — as a node graph (reactflow), with focus-scoped cross-layer edges. Closes the documented Schema Cartographer gap: a non-`data_model` `?focus=` (e.g. `business_metrics/dau`) now highlights a node, because every layer has node cards. Plan: `plans/260604-0058-unified-concept-fabric-map-page/`. Tests: 30 new FE (use-concept-graph, use-focus-edges, concept-node, build-layout, base-node, concept-map-page); full Catalog suite 259 green.

@@ -1,0 +1,187 @@
+cubes:
+  - name: etl_room_match_flow
+    sql_table: etl_ingame_roommatchflow
+    title: CFM VN — Room Match Flow (events, RoomMatchFlow / 匹配流水)
+    description: >
+      Per-player match-attempt events. Sourced from t-log `RoomMatchFlow` —
+      see docs/cfm_tlog_desc_20251210 (2).xml (struct name="RoomMatchFlow").
+      Joins to user via playerid → cfm_user_roles.role_id → cfm_mf_users.user_id
+      (2-hop bridge). For 1-user latency, ALWAYS pass a playerid OR user_id
+      equality filter; this table is 5.4M rows. Use log_date partition column
+      for date-range queries instead of dteventtime when possible.
+
+    joins:
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.playerid = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.playerid, '__', CAST({CUBE}.dteventtime AS VARCHAR), '__', CAST({CUBE}.roomid AS VARCHAR))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: playerid
+        sql: playerid
+        type: string
+        description: In-game role ID (PlayerId). Bridges to cfm_user_roles.role_id.
+
+      - name: dteventtime
+        sql: dteventtime
+        type: time
+        description: Event time (server-side, ICT/+07)
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — use for date-range filters
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: level
+        sql: level
+        type: number
+        description: Player level at match time
+
+      - name: is_group
+        sql: "CASE WHEN {CUBE}.isgroup = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+        description: Team-matchmaking (vs solo)
+
+      - name: map_id
+        sql: mapid
+        type: number
+
+      - name: real_map_id
+        sql: realmapid
+        type: number
+
+      - name: room_id
+        sql: roomid
+        type: number
+
+      - name: game_type
+        sql: gametype
+        type: number
+
+      - name: game_mode
+        sql: gamemode
+        type: number
+        description: Mode — see docs/CFL_Game detail 2.xlsx sheet "note" for VN labels (1=Đặt Bom, 2=Đấu Đội, 4=Đấu Đơn …)
+
+      - name: match_module
+        sql: matchmodule
+        type: number
+        description: 0 = normal matchmaking, 1 = ladder
+
+      - name: result
+        sql: result
+        type: number
+        description: 0 = match success, non-zero = failure code
+
+      - name: is_success
+        sql: "CASE WHEN {CUBE}.result = 0 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: alloc_wait_time_ms
+        sql: allocwaittime
+        type: number
+        description: Total match-allocation wait (incl. vote phase for ladder)
+
+      - name: wait_time_ms
+        sql: waittime
+        type: number
+        description: Time from match start to DS-room ready
+
+      - name: score
+        sql: score
+        type: number
+        description: Ladder/MMR score at match time
+
+      - name: hidden_score
+        sql: hiddenscore
+        type: number
+
+      - name: kd_ratio
+        sql: kdratio
+        type: number
+
+      - name: camp
+        sql: camp
+        type: number
+
+      - name: pool_id
+        sql: poolid
+        type: number
+
+      - name: team_id
+        sql: teamid
+        type: string
+
+      - name: team_member_count
+        sql: teammembercount
+        type: number
+
+      - name: is_warm
+        sql: "CASE WHEN {CUBE}.iswarm = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: client_version
+        sql: clientversion
+        type: number
+
+    measures:
+      - name: matches
+        type: count
+        description: Total match-attempt events
+
+      - name: distinct_players
+        type: count_distinct_approx
+        sql: playerid
+
+      - name: distinct_rooms
+        type: count_distinct_approx
+        sql: roomid
+
+      - name: success_count
+        type: count
+        filters:
+          - sql: "{CUBE}.result = 0"
+
+      - name: failure_count
+        type: count
+        filters:
+          - sql: "{CUBE}.result <> 0"
+
+      - name: group_match_count
+        type: count
+        filters:
+          - sql: "{CUBE}.isgroup = 1"
+
+      - name: avg_alloc_wait_ms
+        sql: allocwaittime
+        type: avg
+
+      - name: success_rate
+        sql: "{success_count} * 1.0 / NULLIF({matches}, 0)"
+        type: number
+        format: percent
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: ladder_only
+        sql: "{CUBE}.matchmodule = 1"
+
+      - name: group_only
+        sql: "{CUBE}.isgroup = 1"

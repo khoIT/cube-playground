@@ -1,0 +1,170 @@
+cubes:
+  - name: user_roles
+    sql_table: mf_ingame_roles
+    title: CROS — Per-Role Master Profile (one row per role)
+    description: >
+      One row per (user_id, server_id, role_id). A single user can have many
+      roles across servers. Use this cube for "show all characters of user X"
+      and role-level high-water marks (level, fighting power, VIP).
+      For 1-user latency, always pass a user_id equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.user_id, '__', {CUBE}.server_id, '__', {CUBE}.role_id)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: first_role_name
+        sql: ingame_first_active_role_name
+        type: string
+
+      - name: last_role_name
+        sql: ingame_last_active_role_name
+        type: string
+
+      - name: first_role_class
+        sql: ingame_first_active_role_class
+        type: string
+
+      - name: last_role_class
+        sql: ingame_last_active_role_class
+        type: string
+
+      - name: first_active_date
+        sql: "CAST({CUBE}.ingame_first_active_date AS TIMESTAMP)"
+        type: time
+
+      - name: last_active_date
+        sql: "CAST({CUBE}.ingame_last_active_date AS TIMESTAMP)"
+        type: time
+
+      - name: first_active_time
+        sql: ingame_first_active_time
+        type: time
+
+      - name: last_active_time
+        sql: ingame_last_active_time
+        type: time
+
+      - name: first_recharge_date
+        sql: "CAST({CUBE}.ingame_first_recharge_date AS TIMESTAMP)"
+        type: time
+
+      - name: last_recharge_date
+        sql: "CAST({CUBE}.ingame_last_recharge_date AS TIMESTAMP)"
+        type: time
+
+      - name: total_active_days
+        sql: ingame_total_active_days
+        type: number
+
+      - name: total_recharge_days
+        sql: ingame_total_recharge_days
+        type: number
+
+      - name: min_role_level
+        sql: ingame_min_active_role_level
+        type: number
+
+      - name: max_role_level
+        sql: ingame_max_active_role_level
+        type: number
+
+      - name: last_role_level
+        sql: ingame_last_active_role_level
+        type: number
+
+      - name: max_fighting_power
+        sql: ingame_max_active_fighting_power
+        type: number
+
+      - name: last_fighting_power
+        sql: ingame_last_active_fighting_power
+        type: number
+
+      - name: min_vip_level
+        sql: ingame_min_recharge_vip_level
+        type: number
+
+      - name: max_vip_level
+        sql: ingame_max_recharge_vip_level
+        type: number
+
+      - name: role_ltv_vnd
+        sql: ingame_total_recharge_value_vnd
+        type: number
+
+      - name: role_ltv_usd
+        sql: ingame_total_recharged_value_usd
+        type: number
+
+      - name: role_ltv_30d_vnd
+        sql: ingame_total_recharge_value_vnd_30d
+        type: number
+
+      - name: role_txn_count
+        sql: ingame_total_recharge_transaction_id
+        type: number
+
+      - name: role_txn_count_30d
+        sql: ingame_total_recharge_transaction_id_30d
+        type: number
+
+    measures:
+      - name: rows
+        type: count
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: user_id
+
+      - name: distinct_servers
+        type: count_distinct_approx
+        sql: server_id
+
+      - name: roles_revenue_vnd
+        sql: ingame_total_recharge_value_vnd
+        type: sum
+
+      - name: roles_revenue_usd
+        sql: ingame_total_recharged_value_usd
+        type: sum
+
+      - name: roles_txn_count
+        sql: ingame_total_recharge_transaction_id
+        type: sum
+
+    segments:
+      - name: paying_roles
+        sql: "{CUBE}.ingame_total_recharge_value_vnd > 0"
+
+      - name: high_level_roles
+        sql: "{CUBE}.ingame_max_active_role_level >= 50"
+
+      - name: vip_roles
+        sql: "{CUBE}.ingame_max_recharge_vip_level >= 5"

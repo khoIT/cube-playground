@@ -1,0 +1,154 @@
+cubes:
+  - name: recharge
+    sql_table: etl_ingame_recharge
+    title: CROS — Recharge Transactions (raw events)
+    description: >
+      One row per recharge transaction. Join key to mf_users is user_id
+      directly (CROS etl_ingame_recharge carries user_id, unlike CFM which
+      uses account_id). For best 1-user latency, ALWAYS pass a user_id
+      equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 5 minute
+
+    dimensions:
+      - name: transaction_id
+        sql: transaction_id
+        type: string
+        primary_key: true
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: transaction_time
+        sql: transaction_time
+        type: time
+
+      - name: recharge_date
+        sql: log_date
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: payment_platform
+        sql: payment_platform
+        type: string
+
+      - name: currency_code
+        sql: currency_code
+        type: string
+
+      - name: product_id
+        sql: product_id
+        type: string
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: os_platform
+        sql: os_platform
+        type: string
+
+      - name: login_channel
+        sql: login_channel
+        type: string
+
+      - name: device_id
+        sql: device_id
+        type: string
+        public: false
+
+      - name: client_ip
+        sql: client_ip
+        type: string
+        public: false
+
+      - name: recharged_value
+        sql: recharged_value
+        type: number
+        description: Charged value in local currency (etl_ingame_recharge.recharged_value)
+
+      - name: ingame_value
+        sql: ingame_value
+        type: string
+        description: In-game value granted (varchar in source — may be currency-typed)
+
+      - name: txn_value_band
+        type: string
+        description: Bucketed recharged_value (raw, in local currency)
+        case:
+          when:
+            - sql: "{CUBE}.recharged_value >= 1000000"
+              label: ">= 1M"
+            - sql: "{CUBE}.recharged_value >= 200000"
+              label: "200K - 1M"
+            - sql: "{CUBE}.recharged_value >= 50000"
+              label: "50K - 200K"
+            - sql: "{CUBE}.recharged_value >= 10000"
+              label: "10K - 50K"
+          else:
+            label: "< 10K"
+
+    measures:
+      - name: transactions
+        type: count
+
+      - name: revenue_total
+        sql: recharged_value
+        type: sum
+        description: Sum of recharged_value (local currency — mixed if not filtered by currency_code)
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: user_id
+
+      - name: paying_users_exact
+        type: count_distinct
+        sql: user_id
+
+      - name: arppu
+        sql: "{revenue_total} * 1.0 / NULLIF({paying_users}, 0)"
+        type: number
+
+      - name: arpt
+        sql: "{revenue_total} * 1.0 / NULLIF({transactions}, 0)"
+        type: number
+        description: Average revenue per transaction
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: vnd_only
+        sql: "{CUBE}.currency_code = 'VND'"
+
+      - name: usd_only
+        sql: "{CUBE}.currency_code = 'USD'"
