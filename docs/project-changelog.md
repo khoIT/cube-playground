@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-05 — Per-member 360 page (live Cube, config-driven)
+
+New route `/#/segments/:id/members/:uid`: clicking a member in a segment's Members tab opens that member's full 360, rendered live from Cube. Plan: `plans/260605-1200-per-member-360-page/`. Builds on the already-ported cfm `user_360.yml` substrate (no re-port). Tests: 17 new FE (`member360-data-layer`); full Segments suite 161 green; build clean.
+
+- **Config-driven panel registry** (`src/pages/Segments/member360/member360-panels.ts`), per game: **cfm** = full set (profile + roles/devices[PII]/ips[PII] + daily/monthly timelines + 10 lazy FPS event-stream "Behavior" panels); **ballistar** = core subset (profile + timelines + transactions). Built ballistar too because every existing segment is ballistar — keeps the feature reachable. cros/tf are later config-only adds.
+- **Single-member live hook** (`use-member-cube-query.ts`): reuses the proven `cube-member-resolver` physicalize/logicalize + cube client + a 3-concurrency cap; sends the query verbatim (no segment slice filters, unlike `useSegmentCubeQuery`).
+- **Guardrail-safe behavior section**: 1M–1.3B-row `etl_*` panels query only on expand, each bounded by an `inDateRange` filter on `<view>.log_date` (preset 7/14/30d, all ≤ cube.js `MAX_RANGE_DAYS=31`); playerid bridge resolves the user's `role_id`s once (`user_roles_panel`) then filters `playerid IN role_ids`; a test asserts the registry's behavior views ⊆ `BEHAVIOR_VIEWS`.
+- Generic renderer (`member-panel.tsx`) dispatches profile (KPI cards + vitals) vs table; design-token styling; PII chip on device/IP panels. Members pre-classified dimension-vs-measure from the cube YAMLs to avoid silent-empty.
+- **Pending**: in-browser value reconcile vs Trino/dashboard (standalone curl blocked by the in-app game-claim auth plumbing).
+
 ## 2026-06-05 — Multi-game Cube model port (cfm full 360 + cros + tf)
 
 Ported the upstream prod Cube semantic layer (`kraken/cube`) into the local `cube-dev` submodule so local can serve the `cfm-user360` dashboard plus cros/tf 360s. Plan: `plans/260604-2317-cfm-vn-cube-model-full-port/`. Verified live against Trino + compiled green on the dev cube-api (cfm 46 objects, cros/tf 27 each; ballistar unchanged → no regression); `/load` returns reconciled data for all 6 dashboard views (e.g. `user_profile.ltv_vnd` matches Trino). vga deferred (different `iceberg` catalog).

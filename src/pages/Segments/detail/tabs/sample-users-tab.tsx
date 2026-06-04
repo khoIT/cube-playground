@@ -12,9 +12,11 @@ import { ReactElement, useMemo, useState } from 'react';
 import { Button, Input } from 'antd';
 import { Search, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
 import { useMemberDimRows, memberColumnField } from './use-member-dim-rows';
+import { hasMember360 } from '../../member360/member360-panels';
 import { formatValue } from '../cards/format-value';
 import styles from '../../segments.module.css';
 
@@ -99,6 +101,7 @@ export function SampleUsersTab({ segment, preset }: Props): ReactElement {
 
   const { byUid, loading: dimsLoading, columns } = useMemberDimRows(segment, preset, pageRows);
   const hasDims = columns.length > 0;
+  const member360Enabled = hasMember360(segment.game_id);
 
   // Sort within the current page (we only have dim data for what's loaded).
   const sortedPageRows = useMemo(() => {
@@ -208,7 +211,19 @@ export function SampleUsersTab({ segment, preset }: Props): ReactElement {
                 <td style={{ width: 56, color: 'var(--text-tertiary)' }}>
                   {safePage * PAGE_SIZE + idx + 1}
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{uid}</td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>
+                  {member360Enabled ? (
+                    <Link
+                      to={`/segments/${segment.id}/members/${encodeURIComponent(uid)}`}
+                      style={{ color: 'var(--brand)', textDecoration: 'none' }}
+                      title={t('segments.member360.openTooltip', { defaultValue: 'Open 360 profile' })}
+                    >
+                      {uid}
+                    </Link>
+                  ) : (
+                    uid
+                  )}
+                </td>
                 {columns.map((c) => (
                   <td key={c.id} className={styles.memberDimCell}>
                     {dimsLoading && !dimRow

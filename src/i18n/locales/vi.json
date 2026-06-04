@@ -260,6 +260,19 @@
       },
       "pending": "Sẽ có ở {{phase}}."
     },
+    "member360": {
+      "back": "Về danh sách thành viên",
+      "openTooltip": "Mở hồ sơ 360",
+      "loading": "Đang tải…",
+      "empty": "Không có dữ liệu trong khoảng này",
+      "error": "Tải thất bại",
+      "rowCount": "{{n}} dòng",
+      "piiTooltip": "Chứa thông tin định danh cá nhân",
+      "window": "Khoảng",
+      "behaviorTitle": "Hành vi",
+      "behaviorHint": "{{n}} luồng sự kiện · tải khi mở · ≤31 ngày",
+      "unavailable": "Chưa cấu hình hồ sơ 360 cho \"{{game}}\". Hỗ trợ các game có model user_360 (cfm, ballistar)."
+    },
     "push": {
       "errorNoPredicateContext": "Live segment cần truy vấn nguồn — chuyển sang Tĩnh hoặc chạy lại truy vấn.",
       "summaryExpansion": "Đã chọn {{count}} cohort — user_ids sẽ được materialize khi lưu",

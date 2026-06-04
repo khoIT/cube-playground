@@ -284,6 +284,19 @@
       },
       "pending": "Coming in {{phase}}."
     },
+    "member360": {
+      "back": "Back to members",
+      "openTooltip": "Open 360 profile",
+      "loading": "Loading…",
+      "empty": "No data in this window",
+      "error": "Failed to load",
+      "rowCount": "{{n}} rows",
+      "piiTooltip": "Contains personally identifiable information",
+      "window": "Window",
+      "behaviorTitle": "Behavior",
+      "behaviorHint": "{{n}} event streams · loads on expand · ≤31d",
+      "unavailable": "A per-member 360 is not configured for \"{{game}}\". It is available for games with a user_360 model (cfm, ballistar)."
+    },
     "push": {
       "errorNoPredicateContext": "Live segments need the originating query — switch to Static or re-run the query.",
       "summaryExpansion": "{{count}} cohort(s) selected — user_ids will be materialized at save",
