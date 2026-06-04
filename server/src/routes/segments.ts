@@ -74,6 +74,22 @@ function apiError(code: string, message: string, status: number) {
   return { statusCode: status, body: { error: { code, message } } };
 }
 
+/**
+ * Index of the first element in a sorted array strictly greater than `key`.
+ * Used by the members pull route for keyset pagination: the cursor is the last
+ * uid of the previous page, and the next page starts at the first uid after it.
+ */
+function upperBound(sorted: string[], key: string): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sorted[mid] <= key) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 type SegmentRow = Record<string, unknown> & { owner: string; visibility: string | null; workspace: string };
 
 /**
@@ -351,6 +367,72 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const row = guardSegment(req, reply, id, 'read');
     if (!row) return reply;
     return { ...hydrateSegment(row, db), card_cache: getCardCache(id) };
+  });
+
+  // GET /api/segments/:id/members — bare member-ID pull API.
+  //
+  // Serves the segment's member identity values to a downstream app that pulls
+  // once and stores them. Identity-only (no per-member dims/measures): those
+  // require a flat per-user cube the segment may not be keyed on. Keyset
+  // pagination over the sorted uid list — the cursor is the last uid returned,
+  // which is stable across pages as long as the materialized list is unchanged
+  // (offset pagination would drift if a refresh lands mid-pull).
+  //
+  // `truncated` is the honest signal that the materialized list is a sample:
+  // refresh caps the stored uids while `uid_count` holds the true cohort size,
+  // so a consumer can tell it received a partial cohort instead of silently
+  // storing one.
+  //
+  // Consumers should pull only when `status === 'fresh'`. A predicate segment
+  // mid-refresh seeds `uid_count` to 0 while a warm sample is still in the list,
+  // so `total_count` would read 0 alongside a non-empty `members` page until the
+  // refresh completes.
+  app.get('/api/segments/:id/members', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = guardSegment(req, reply, id, 'read');
+    if (!row) return reply;
+
+    const { cursor, limit: limitRaw } = req.query as { cursor?: string; limit?: string };
+    const DEFAULT_LIMIT = 1000;
+    const MAX_LIMIT = 10_000;
+    const parsedLimit = Number.parseInt(limitRaw ?? '', 10);
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), MAX_LIMIT)
+      : DEFAULT_LIMIT;
+
+    let allUids: string[];
+    try {
+      const parsed = JSON.parse((row.uid_list_json as string) ?? '[]');
+      // Dedup before paginating: keyset assumes unique sorted keys, so a
+      // duplicate straddling a page boundary would otherwise be skipped (the
+      // cursor advances past it). The refresh path writes Cube results verbatim
+      // and the identity dimension is not guaranteed unique, so dedup here keeps
+      // the pull a faithful "true identity set".
+      allUids = Array.isArray(parsed) ? [...new Set((parsed as string[]).map(String))] : [];
+    } catch {
+      allUids = [];
+    }
+    // Sort once so keyset ordering is deterministic and the cursor is meaningful.
+    allUids.sort();
+
+    // Keyset: take uids strictly greater than the cursor (start at 0 when absent).
+    const start = cursor ? upperBound(allUids, cursor) : 0;
+    const page = allUids.slice(start, start + limit);
+    const nextCursor = start + limit < allUids.length ? (page[page.length - 1] ?? null) : null;
+
+    const trueCount = Number(row.uid_count ?? allUids.length);
+
+    return {
+      segment_id: id,
+      game_id: (row.game_id as string) ?? null,
+      cube: (row.cube as string | null) ?? null,
+      computed_at: (row.last_refreshed_at as string | null) ?? null,
+      total_count: trueCount,
+      returned_count: page.length,
+      truncated: trueCount > allUids.length,
+      members: page,
+      next_cursor: nextCursor,
+    };
   });
 
   // PATCH /api/segments/:id

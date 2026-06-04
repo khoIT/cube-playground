@@ -26,6 +26,19 @@ export interface ListSegmentsParams {
   game_id?: string;
 }
 
+/** One keyset page from the bare member-ID pull API (`GET /:id/members`). */
+export interface SegmentMembersPage {
+  segment_id: string;
+  game_id: string | null;
+  cube: string | null;
+  computed_at: string | null;
+  total_count: number;
+  returned_count: number;
+  truncated: boolean;
+  members: string[];
+  next_cursor: string | null;
+}
+
 export const segmentsClient = {
   list(params: ListSegmentsParams = {}): Promise<Segment[]> {
     return apiFetch<Segment[]>('/api/segments', { query: params as Record<string, string | undefined> });
@@ -93,6 +106,19 @@ export const segmentsClient = {
 
   sqlFilter(id: string): Promise<{ filter: string }> {
     return apiFetch<{ filter: string }>(`/api/segments/${encodeURIComponent(id)}/sql-filter`);
+  },
+
+  // Bare member-ID pull: keyset-paginated identity values for a downstream app.
+  members(
+    id: string,
+    params: { cursor?: string; limit?: number } = {},
+  ): Promise<SegmentMembersPage> {
+    return apiFetch<SegmentMembersPage>(`/api/segments/${encodeURIComponent(id)}/members`, {
+      query: {
+        cursor: params.cursor,
+        limit: params.limit != null ? String(params.limit) : undefined,
+      },
+    });
   },
 
   // Analyses (subresource)

@@ -15,7 +15,7 @@ import { MonitorTab } from './tabs/monitor-tab';
 import { InsightsTab } from './tabs/insights-tab';
 import { MembersTab } from './tabs/members-tab';
 import { DefinitionTab } from './tabs/definition-tab';
-import { ActivationTab } from './tabs/activation-tab';
+import { PullApiTab } from './tabs/pull-api-tab';
 import { FunnelDetailTab } from './tabs/funnel-detail-tab';
 import { ActivateToCdpModal } from '../push-modal/activate-to-cdp-modal';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
@@ -258,23 +258,7 @@ export function DetailView(): ReactElement {
         <FunnelDetailTab funnelJson={segment.funnel_json} />
       )}
       {tab === 'activation' && (
-        <ActivationTab
-          segment={segment}
-          onActivate={openActivateModal}
-          onDeactivate={async (activationId) => {
-            try {
-              const updated = await segmentsClient.removeActivation(segment.id, activationId);
-              setSegment(updated);
-              message.success(
-                t('segments.detail.activation.deactivated', { defaultValue: 'Activation removed' }),
-              );
-            } catch (err) {
-              const reason =
-                err instanceof SegmentApiError ? err.message : 'Failed to remove activation';
-              message.error(reason);
-            }
-          }}
-        />
+        <PullApiTab segment={segment} identityDim={preset?.identityDim ?? null} />
       )}
 
       <ActivateToCdpModal
