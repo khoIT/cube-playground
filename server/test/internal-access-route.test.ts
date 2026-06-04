@@ -58,12 +58,23 @@ describe('GET /internal/access/:key', () => {
 
   const hdr = { 'x-internal-secret': SECRET };
 
-  it('returns role + games for active user', async () => {
+  it('returns role + games for active user, canonicalizing aliased ids', async () => {
+    // User was granted gds.config ids ['ballistar', 'cfm_vn']. cube-dev's
+    // checkAuth folds the requested game to canonical (cfm_vn → cfm) before the
+    // allowedGames membership test, so the bridge must emit the canonical id —
+    // else `['cfm_vn'].includes('cfm')` denies a correctly-granted user.
     const res = await app.inject({ method: 'GET', url: '/internal/access/User@Corp.com', headers: hdr });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.role).toBe('editor');
-    expect((body.allowedGames as string[]).sort()).toEqual(['ballistar', 'cfm_vn']);
+    expect((body.allowedGames as string[]).sort()).toEqual(['ballistar', 'cfm']);
+  });
+
+  it('folds every aliased grant and leaves canonical ids untouched', async () => {
+    setGames('user@corp.com', ['jus_vn', 'muaw', 'cfm_vn']);
+    __resetAccessCache();
+    const res = await app.inject({ method: 'GET', url: '/internal/access/user@corp.com', headers: hdr });
+    expect((res.json().allowedGames as string[]).sort()).toEqual(['cfm', 'jus', 'muaw']);
   });
 
   it('resolves an admin to the all-games wildcard (no per-game rows needed)', async () => {
