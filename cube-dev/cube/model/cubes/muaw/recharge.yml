@@ -3,7 +3,13 @@ cubes:
   # recharge — raw recharge transactions for MUAW.
   # Source: <CUBEJS_DB_SCHEMA>.etl_ingame_recharge
   #
-  # MUAW has no mf_users / std_* / cons_* tables, so this cube is standalone.
+  # IDENTITY: account_id is the GDS user id PREFIXED with a platform tag
+  # ("100:3263201558784262144"); mf_users.user_id is the bare snowflake. The
+  # mf_users join strips the prefix with split_part — verified 100% match
+  # (51,599/51,599 txns, 2026-05-25..06-04). The header previously claimed
+  # MUAW had no mf_users/std tables; the game has since graduated to the
+  # full table set.
+  #
   # The recharge schema is a "cleaner curated" shape — closer to ballistar's
   # canonical form than to the VNG SDK / Netease raw shapes.
   #
@@ -18,9 +24,17 @@ cubes:
     sql_table: etl_ingame_recharge
     title: MUAW — Recharge Transactions (raw events)
     description: >
-      One row per recharge transaction in MUAW. STANDALONE cube — MUAW has no
-      mf_users master profile, so no join is defined. Filter by account_id
-      for per-user lookups.
+      One row per recharge transaction in MUAW. Joins to mf_users via
+      gds_user_id (account_id with its platform prefix stripped — raw
+      account_id is "100:<gds id>" and never matches mf_users directly).
+      Filter by account_id for per-user lookups.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        # account_id carries a platform prefix ("100:<gds id>"); strip it to
+        # reach the bare snowflake mf_users is keyed by.
+        sql: "split_part({CUBE}.account_id, ':', 2) = {mf_users}.user_id"
 
     refresh_key:
       every: 5 minute
@@ -34,7 +48,12 @@ cubes:
       - name: user_id
         sql: account_id
         type: string
-        description: MUAW account id (no mf_users join available)
+        description: MUAW account id with platform prefix ("100:<gds id>") — use gds_user_id for the bare canonical id
+
+      - name: gds_user_id
+        sql: "split_part({CUBE}.account_id, ':', 2)"
+        type: string
+        description: Canonical GDS user id (account_id with the platform prefix stripped) — matches mf_users.user_id
 
       - name: account_id
         sql: account_id

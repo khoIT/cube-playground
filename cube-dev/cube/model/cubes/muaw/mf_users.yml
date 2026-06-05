@@ -13,7 +13,9 @@ cubes:
         sql: '{CUBE}.user_id = {user_recharge_daily}.user_id'
       - name: recharge
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {recharge}.account_id'
+        # recharge.account_id carries a platform prefix ("100:<gds id>") —
+        # strip it to match the bare snowflake this cube is keyed by.
+        sql: "{CUBE}.user_id = split_part({recharge}.account_id, ':', 2)"
     refresh_key:
       every: 1 hour
     dimensions:

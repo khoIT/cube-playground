@@ -189,6 +189,9 @@ cubes:
       - name: value_usd
         sql: imoney_us
         type: number
+        description: >
+          CAVEAT: unit is US CENTS, not dollars (verified: 249,000 VND txn ↔
+          imoney_us 946.47 → $9.46 at ~26,300 VND/USD). Divide by 100 for USD.
 
       - name: ingame_value
         sql: imoney
@@ -233,6 +236,10 @@ cubes:
       - name: revenue_usd
         sql: imoney_us
         type: sum
+        description: >
+          CAVEAT: imoney_us is in US CENTS — this sum is 100x the dollar
+          amount, and raw totals include unbridged test traffic. Prefer
+          revenue_vnd_real (or user_recharge_daily) for money reporting.
 
       - name: paying_users
         type: count_distinct_approx
