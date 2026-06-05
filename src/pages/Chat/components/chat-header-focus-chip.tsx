@@ -58,40 +58,67 @@ const Popover = styled.div`
   font-family: var(--font-sans);
 `;
 
+// One compact line per slot: a type pill on the left, then the value (and any
+// secondary phrase / qualifier) on a single truncating line. Keeps the popover
+// tight regardless of label or value length — long values ellipsis rather than
+// wrap, and the pill carries the slot type so the value reads cleanly.
 const SlotRow = styled.div`
-  display: grid;
-  grid-template-columns: 88px 1fr auto;
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 4px;
+  padding: 6px 8px;
   border-radius: var(--radius-md);
-  font-size: 12.5px;
 
   &:hover { background: var(--bg-muted); }
+  & + & { margin-top: 2px; }
 `;
 
-const SlotLabel = styled.span`
-  color: var(--text-secondary);
-  text-transform: capitalize;
+const Pill = styled.span`
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--muted-soft);
+  color: var(--muted-ink);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+`;
+
+// Single line: spans truncate together via the container's ellipsis.
+const ValueLine = styled.div`
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const Qualifier = styled.span`
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-right: 4px;
 `;
 
 const SlotValue = styled.span`
   color: var(--text-primary);
+  font-size: 13px;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 `;
 
 const SlotPhrase = styled.span`
   color: var(--text-muted);
   font-size: 11px;
+  margin-left: 4px;
 `;
 
 const IconBtn = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 22px;
   height: 22px;
   background: transparent;
@@ -133,9 +160,10 @@ const Empty = styled.p`
 
 interface SlotRendered {
   key: string;
-  label: string;
+  pill: string; // short slot type, shown as a pill (e.g. Metric, Filter)
   value: string;
-  phrase?: string;
+  phrase?: string; // secondary muted text after the value
+  qualifier?: string; // muted prefix before the value (e.g. a filter member)
 }
 
 /**
@@ -147,29 +175,31 @@ function projectSlots(focus: SessionFocusClient | null): SlotRendered[] {
   if (!focus) return [];
   const rows: SlotRendered[] = [];
   if (focus.metric?.value) {
-    rows.push({ key: 'metric', label: 'Metric', value: focus.metric.value, phrase: focus.metric.phrase });
+    rows.push({ key: 'metric', pill: 'Metric', value: focus.metric.value, phrase: focus.metric.phrase });
   }
   if (focus.dimension?.value) {
-    rows.push({ key: 'dimension', label: 'Dimension', value: focus.dimension.value, phrase: focus.dimension.phrase });
+    rows.push({ key: 'dimension', pill: 'Dimension', value: focus.dimension.value, phrase: focus.dimension.phrase });
   }
   if (focus.timeRange?.value) {
     const r = focus.timeRange.value.dateRange;
     const range = typeof r === 'string' ? r : `${r[0]}..${r[1]}`;
-    rows.push({ key: 'timeRange', label: 'Time range', value: focus.timeRange.phrase ?? range, phrase: focus.timeRange.phrase ? range : undefined });
+    rows.push({ key: 'timeRange', pill: 'Time range', value: focus.timeRange.phrase ?? range, phrase: focus.timeRange.phrase ? range : undefined });
   }
   if (focus.concept?.value) {
-    rows.push({ key: 'concept', label: 'Concept', value: focus.concept.value, phrase: focus.concept.phrase });
+    rows.push({ key: 'concept', pill: 'Concept', value: focus.concept.value, phrase: focus.concept.phrase });
   }
   if (focus.segment?.value) {
-    rows.push({ key: 'segment', label: 'Segment', value: focus.segment.value });
+    rows.push({ key: 'segment', pill: 'Segment', value: focus.segment.value });
   }
   if (focus.filters) {
     for (const [member, slot] of Object.entries(focus.filters)) {
-      rows.push({ key: `filter:${member}`, label: `Filter (${member})`, value: slot.value });
+      // Pill stays just "Filter"; the member identifies which filter as a
+      // muted qualifier before the value, keeping the row on one line.
+      rows.push({ key: `filter:${member}`, pill: 'Filter', qualifier: member, value: slot.value });
     }
   }
   if (focus.artifactRef?.value) {
-    rows.push({ key: 'artifactRef', label: 'Last artifact', value: focus.artifactRef.value });
+    rows.push({ key: 'artifactRef', pill: 'Last artifact', value: focus.artifactRef.value });
   }
   return rows;
 }
@@ -220,11 +250,12 @@ export function ChatHeaderFocusChip({ sessionId }: Props) {
             <>
               {rows.map((r) => (
                 <SlotRow key={r.key}>
-                  <SlotLabel>{r.label}</SlotLabel>
-                  <div style={{ minWidth: 0 }}>
+                  <Pill>{r.pill}</Pill>
+                  <ValueLine>
+                    {r.qualifier ? <Qualifier>{r.qualifier}</Qualifier> : null}
                     <SlotValue>{r.value}</SlotValue>
-                    {r.phrase ? <SlotPhrase> · {r.phrase}</SlotPhrase> : null}
-                  </div>
+                    {r.phrase ? <SlotPhrase>· {r.phrase}</SlotPhrase> : null}
+                  </ValueLine>
                   {/*
                    * Per-slot delete is currently a no-op visually because the
                    * backend's only mutation is a full-bag clear. Surfaces the
@@ -233,7 +264,7 @@ export function ChatHeaderFocusChip({ sessionId }: Props) {
                    */}
                   <IconBtn
                     type="button"
-                    aria-label={t('chat.focusChip.forgetSlot', { defaultValue: 'Forget {{slot}}', slot: r.label })}
+                    aria-label={t('chat.focusChip.forgetSlot', { defaultValue: 'Forget {{slot}}', slot: r.pill })}
                     onClick={handleForgetAll}
                     disabled={busy}
                   >
