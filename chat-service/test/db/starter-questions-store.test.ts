@@ -1,6 +1,6 @@
 /**
  * starter_question_sets store: migrate idempotency, get/upsert round-trip,
- * refine-lease single-flight semantics (free → taken → expired-reclaim).
+ * per-(workspace, game) partitioning.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
@@ -8,8 +8,6 @@ import { migrate } from '../../src/db/migrate.js';
 import {
   getSet,
   upsertSet,
-  tryAcquireRefineLease,
-  releaseRefineLease,
   type StarterQuestion,
 } from '../../src/db/starter-questions-store.js';
 
@@ -49,37 +47,33 @@ describe('starter-questions-store', () => {
   it('upsert + get round-trips the set', () => {
     upsertSet(db, {
       workspace: 'local', gameId: 'cfm_vn', metaHash: 'h1',
-      source: 'template', questions: QUESTIONS, status: 'refining',
+      source: 'template', questions: QUESTIONS, status: 'template',
     }, NOW);
 
     const row = getSet(db, 'local', 'cfm_vn');
     expect(row).not.toBeNull();
     expect(row!.meta_hash).toBe('h1');
     expect(row!.source).toBe('template');
-    expect(row!.status).toBe('refining');
+    expect(row!.status).toBe('template');
     expect(row!.questions).toEqual(QUESTIONS);
     expect(row!.updated_at).toBe(NOW);
   });
 
-  it('upsert replaces an existing row but preserves a held lease', () => {
+  it('upsert replaces an existing row', () => {
     upsertSet(db, {
       workspace: 'local', gameId: 'cfm_vn', metaHash: 'h1',
-      source: 'template', questions: QUESTIONS, status: 'refining',
+      source: 'template', questions: QUESTIONS, status: 'template',
     }, NOW);
-    expect(tryAcquireRefineLease(db, 'local', 'cfm_vn', 60_000, NOW)).toBe(true);
-
-    // A concurrent template write must not wipe the in-flight lease —
-    // otherwise two cold requests double-fire the LLM refine.
     upsertSet(db, {
-      workspace: 'local', gameId: 'cfm_vn', metaHash: 'h2',
-      source: 'llm', questions: QUESTIONS, status: 'llm',
+      workspace: 'local', gameId: 'cfm_vn', metaHash: 'seed:v1',
+      source: 'seed', questions: QUESTIONS, status: 'seed',
     }, NOW + 1000);
 
     const row = getSet(db, 'local', 'cfm_vn')!;
-    expect(row.meta_hash).toBe('h2');
-    expect(row.source).toBe('llm');
-    expect(row.inflight_until).toBe(NOW + 60_000);
-    expect(tryAcquireRefineLease(db, 'local', 'cfm_vn', 60_000, NOW + 1)).toBe(false);
+    expect(row.meta_hash).toBe('seed:v1');
+    expect(row.source).toBe('seed');
+    expect(row.status).toBe('seed');
+    expect(row.updated_at).toBe(NOW + 1000);
   });
 
   it('rows are partitioned per (workspace, game)', () => {
@@ -89,33 +83,5 @@ describe('starter-questions-store', () => {
     }, NOW);
     expect(getSet(db, 'prod', 'cfm_vn')).toBeNull();
     expect(getSet(db, 'local', 'ballistar')).toBeNull();
-  });
-
-  it('lease: second acquire fails while held, succeeds after expiry', () => {
-    upsertSet(db, {
-      workspace: 'local', gameId: 'cfm_vn', metaHash: 'h1',
-      source: 'template', questions: QUESTIONS, status: 'refining',
-    }, NOW);
-
-    expect(tryAcquireRefineLease(db, 'local', 'cfm_vn', 60_000, NOW)).toBe(true);
-    expect(tryAcquireRefineLease(db, 'local', 'cfm_vn', 60_000, NOW + 1)).toBe(false);
-    // Expired lease is reclaimable — a crashed refine never wedges generation.
-    expect(tryAcquireRefineLease(db, 'local', 'cfm_vn', 60_000, NOW + 61_000)).toBe(true);
-  });
-
-  it('releaseRefineLease frees the lease without touching the set', () => {
-    upsertSet(db, {
-      workspace: 'local', gameId: 'cfm_vn', metaHash: 'h1',
-      source: 'template', questions: QUESTIONS, status: 'refining',
-    }, NOW);
-    tryAcquireRefineLease(db, 'local', 'cfm_vn', 60_000, NOW);
-    releaseRefineLease(db, 'local', 'cfm_vn');
-
-    expect(tryAcquireRefineLease(db, 'local', 'cfm_vn', 60_000, NOW + 1)).toBe(true);
-    expect(getSet(db, 'local', 'cfm_vn')!.questions).toEqual(QUESTIONS);
-  });
-
-  it('lease acquire on a missing row returns false', () => {
-    expect(tryAcquireRefineLease(db, 'local', 'nope', 60_000, NOW)).toBe(false);
   });
 });

@@ -1,8 +1,9 @@
 /**
- * getOrGenerateStarterQuestions orchestration + LLM refine pass:
- * cold miss → template baseline + background refine; stale-while-revalidate;
- * meta-failure → last saved set; LLM validation (invented member rejected,
- * fenced JSON tolerated); single-flight refine lease.
+ * getOrGenerateStarterQuestions dynamic pipeline (template-only — runtime LLM
+ * refine was removed in favour of the pregenerated seed file): cold miss →
+ * template baseline as the final set; stale regenerate; meta-failure → last
+ * saved set; plus parseAndValidateLlmSet validation (used by the pregenerate
+ * script: invented member rejected, fenced JSON tolerated).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
@@ -68,24 +69,6 @@ function makeDb(): Database.Database {
   return db;
 }
 
-/** LLM response echoing 12 valid questions built from real members. */
-function validLlmJson(): string {
-  const items = Array.from({ length: 12 }, (_, i) => ({
-    id: `llm-q${i}`,
-    text: `Refined question ${i}?`,
-    personaTags: ['analyst'],
-    categoryTags: ['explore'],
-    targetCatalogIds: ['mf_users.payer_tier', 'mf_users.ltv_total_vnd'],
-  }));
-  return JSON.stringify(items);
-}
-
-async function settleBackground(): Promise<void> {
-  // Refine runs via queueMicrotask + awaited async steps; a few macro-task
-  // turns let it settle deterministically.
-  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
-}
-
 describe('getOrGenerateStarterQuestions', () => {
   let db: Database.Database;
   beforeEach(() => {
@@ -95,57 +78,40 @@ describe('getOrGenerateStarterQuestions', () => {
     logger.warn.mockClear();
   });
 
-  it('cold miss: serves template baseline instantly and persists it', async () => {
-    const callLlm = vi.fn(async () => validLlmJson());
+  it('cold miss: serves the template baseline as the FINAL set (no runtime LLM)', async () => {
     const res = await getOrGenerateStarterQuestions(db, {
-      workspace: 'local', gameId: 'cfm_vn', logger, refinerDeps: { callLlm },
+      workspace: 'local', gameId: 'cfm_vn', logger,
     });
 
     expect(res.source).toBe('template');
-    expect(res.status).toBe('refining');
+    expect(res.status).toBe('template');
     expect(res.questions.length).toBeGreaterThanOrEqual(3);
-    expect(getSet(db, 'local', 'cfm_vn')!.source).toBe('template');
 
-    await settleBackground();
-    // Background refine settled the LLM set.
-    expect(callLlm).toHaveBeenCalledTimes(1);
-    const settled = getSet(db, 'local', 'cfm_vn')!;
-    expect(settled.source).toBe('llm');
-    expect(settled.status).toBe('llm');
-    expect(settled.questions[0].id).toBe('llm-q0');
+    const row = getSet(db, 'local', 'cfm_vn')!;
+    expect(row.source).toBe('template');
+    expect(row.status).toBe('template');
   });
 
-  it('fresh llm row: served as-is, no second refine', async () => {
-    const callLlm = vi.fn(async () => validLlmJson());
-    await getOrGenerateStarterQuestions(db, {
-      workspace: 'local', gameId: 'cfm_vn', logger, refinerDeps: { callLlm },
-    });
-    await settleBackground();
-
-    const res = await getOrGenerateStarterQuestions(db, {
-      workspace: 'local', gameId: 'cfm_vn', logger, refinerDeps: { callLlm },
-    });
-    await settleBackground();
-
-    expect(res.source).toBe('llm');
-    expect(callLlm).toHaveBeenCalledTimes(1);
+  it('fresh row: served as-is on repeat requests', async () => {
+    const first = await getOrGenerateStarterQuestions(db, { workspace: 'local', gameId: 'cfm_vn', logger });
+    const second = await getOrGenerateStarterQuestions(db, { workspace: 'local', gameId: 'cfm_vn', logger });
+    expect(second.questions).toEqual(first.questions);
+    expect(second.source).toBe('template');
   });
 
-  it('stale row (schema changed): regenerates against the new hash', async () => {
+  it('stale row (schema changed): regenerates the template against the new hash', async () => {
     upsertSet(db, {
       workspace: 'local', gameId: 'cfm_vn', metaHash: 'old-hash',
       source: 'llm', status: 'llm',
       questions: [{ id: 'old', text: 'Old?', personaTags: ['pm'], categoryTags: ['explore'], targetCatalogIds: ['gone.member'] }],
     });
 
-    const callLlm = vi.fn(async () => validLlmJson());
     const res = await getOrGenerateStarterQuestions(db, {
-      workspace: 'local', gameId: 'cfm_vn', logger, refinerDeps: { callLlm },
+      workspace: 'local', gameId: 'cfm_vn', logger,
     });
 
     expect(res.source).toBe('template');
     expect(res.metaHash).toBe(computeMetaVersion(RICH_META));
-    await settleBackground();
     expect(getSet(db, 'local', 'cfm_vn')!.meta_hash).toBe(computeMetaVersion(RICH_META));
   });
 
@@ -176,36 +142,6 @@ describe('getOrGenerateStarterQuestions', () => {
     expect(getSet(db, 'local', 'tiny')).toBeNull();
   });
 
-  it('LLM set with an invented member is rejected wholesale; baseline retained', async () => {
-    const callLlm = vi.fn(async () =>
-      JSON.stringify([
-        ...JSON.parse(validLlmJson()).slice(0, 11),
-        {
-          id: 'bad', text: 'Bad?', personaTags: ['pm'], categoryTags: ['explore'],
-          targetCatalogIds: ['mf_users.invented_member'],
-        },
-      ]),
-    );
-    await getOrGenerateStarterQuestions(db, {
-      workspace: 'local', gameId: 'cfm_vn', logger, refinerDeps: { callLlm },
-    });
-    await settleBackground();
-
-    const row = getSet(db, 'local', 'cfm_vn')!;
-    expect(row.source).toBe('template');
-    expect(row.status).toBe('template');
-    expect(logger.warn).toHaveBeenCalled();
-  });
-
-  it('two concurrent cold requests take a single refine flight', async () => {
-    const callLlm = vi.fn(async () => validLlmJson());
-    await Promise.all([
-      getOrGenerateStarterQuestions(db, { workspace: 'local', gameId: 'cfm_vn', logger, refinerDeps: { callLlm } }),
-      getOrGenerateStarterQuestions(db, { workspace: 'local', gameId: 'cfm_vn', logger, refinerDeps: { callLlm } }),
-    ]);
-    await settleBackground();
-    expect(callLlm).toHaveBeenCalledTimes(1);
-  });
 });
 
 describe('parseAndValidateLlmSet', () => {

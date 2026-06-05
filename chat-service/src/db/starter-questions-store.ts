@@ -5,10 +5,11 @@
  * set for the chat landing page. All reads/writes synchronous (better-sqlite3).
  *
  * Exported functions:
- *   getSet                — read the row, JSON-parsed
- *   upsertSet             — write/replace the set (clears any refine lease)
- *   tryAcquireRefineLease — atomic time-boxed single-flight lease
- *   releaseRefineLease    — free the lease without touching the set
+ *   getSet    — read the row, JSON-parsed
+ *   upsertSet — write/replace the set
+ *
+ * (The refine-lease helpers were removed with the runtime LLM refine pass;
+ * the legacy `inflight_until` column remains in the schema, always NULL.)
  */
 
 import type Database from 'better-sqlite3';
@@ -101,12 +102,7 @@ export interface UpsertSetParams {
   status: StarterStatus;
 }
 
-/**
- * Insert or replace the set for (workspace, game). Deliberately leaves any
- * refine lease untouched on update: a concurrent template write must not
- * wipe another caller's in-flight lease (the lease holder releases it in
- * its own finally).
- */
+/** Insert or replace the set for (workspace, game). */
 export function upsertSet(
   db: Database.Database,
   params: UpsertSetParams,
@@ -135,39 +131,3 @@ export function upsertSet(
   );
 }
 
-/**
- * Atomically claim the refine lease for (workspace, game) until now+leaseMs.
- * Returns true when this caller won. A row must already exist (the template
- * baseline is always written before a refine starts). Expired leases are
- * reclaimable so a crashed refine never wedges generation forever.
- */
-export function tryAcquireRefineLease(
-  db: Database.Database,
-  workspace: string,
-  gameId: string,
-  leaseMs: number,
-  nowMs: number = Date.now(),
-): boolean {
-  const result = db
-    .prepare(
-      `UPDATE starter_question_sets
-       SET inflight_until = ?
-       WHERE workspace = ? AND game_id = ?
-         AND (inflight_until IS NULL OR inflight_until < ?)`,
-    )
-    .run(nowMs + leaseMs, workspace, gameId, nowMs);
-  return result.changes > 0;
-}
-
-/** Free the lease without touching the stored set (refine failed or aborted). */
-export function releaseRefineLease(
-  db: Database.Database,
-  workspace: string,
-  gameId: string,
-): void {
-  db.prepare(
-    `UPDATE starter_question_sets
-     SET inflight_until = NULL
-     WHERE workspace = ? AND game_id = ?`,
-  ).run(workspace, gameId);
-}

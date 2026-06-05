@@ -1,33 +1,24 @@
 /**
- * Async LLM refinement pass for per-game starter questions.
- *
- * Takes the deterministic template baseline plus a trimmed projection of the
- * game's cube meta and asks the LLM for a sharper, business-relevant set.
- * Fire-and-forget: never blocks an HTTP response; failures are logged only
- * and the template baseline stays served.
+ * LLM refinement building blocks for per-game starter questions — prompt
+ * construction, meta projection, strict output validation, and the one-shot
+ * LLM caller. Consumed EXCLUSIVELY by scripts/pregenerate-starter-questions.ts;
+ * there is deliberately no runtime refine pass anymore (per-environment LLM
+ * runs produced different question sets, breaking the local↔prod consistency
+ * contract — the checked-in seed file is the only LLM output path).
  *
  * Hard validation rule: every `targetCatalogIds` entry must exist in the
  * game's meta. An LLM set referencing even one invented member is rejected
  * wholesale — an invented member strands the user in a broken artifact.
  */
 
-import type Database from 'better-sqlite3';
 import { config } from '../config.js';
-import { getMeta, extractMemberNames } from './cube-meta-cache.js';
-import {
-  upsertSet,
-  tryAcquireRefineLease,
-  releaseRefineLease,
-  type StarterQuestion,
-} from '../db/starter-questions-store.js';
+import type { StarterQuestion } from '../db/starter-questions-store.js';
 
 const PERSONAS = new Set(['pm', 'marketer', 'analyst']);
 const CATEGORIES = new Set(['explore', 'metric_explain', 'compare', 'diagnose']);
 
 /** Mirrors the get_cube_meta tool budget — keeps the prompt well under model limits. */
 const PROJECTION_CHAR_BUDGET = 60_000;
-
-const REFINE_LEASE_MS = 60_000;
 
 const MIN_VALID_QUESTIONS = 3;
 
@@ -137,14 +128,9 @@ export function parseAndValidateLlmSet(
   return valid.length >= MIN_VALID_QUESTIONS ? valid : null;
 }
 
-export interface RefinerDeps {
-  /** One-shot LLM call; injected for tests. */
-  callLlm: (prompt: string) => Promise<string>;
-}
-
 /**
- * Default: one-shot Agent-SDK call with no tools, same wiring as the title
- * summariser. Exported so the pregenerate script uses the exact same caller.
+ * One-shot Agent-SDK call with no tools, same wiring as the title summariser.
+ * Used by the pregenerate script only.
  */
 export async function defaultCallLlm(prompt: string): Promise<string> {
   const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
@@ -167,60 +153,4 @@ export async function defaultCallLlm(prompt: string): Promise<string> {
     if (m.type === 'result') result = m.result ?? '';
   }
   return result;
-}
-
-export interface ScheduleRefineArgs {
-  db: Database.Database;
-  workspace: string;
-  gameId: string;
-  metaHash: string;
-  baseline: StarterQuestion[];
-  logger: { warn: (obj: unknown, msg?: string) => void };
-  deps?: RefinerDeps;
-}
-
-/**
- * Kick off the background refine if no other caller holds the lease.
- * Returns true when this call won the lease and scheduled the work.
- */
-export function scheduleStarterRefine(args: ScheduleRefineArgs): boolean {
-  const { db, workspace, gameId, metaHash, baseline, logger } = args;
-  if (!tryAcquireRefineLease(db, workspace, gameId, REFINE_LEASE_MS)) return false;
-
-  const callLlm = args.deps?.callLlm ?? defaultCallLlm;
-  queueMicrotask(() => {
-    void runRefine({ db, workspace, gameId, metaHash, baseline, logger, callLlm });
-  });
-  return true;
-}
-
-async function runRefine(args: {
-  db: Database.Database;
-  workspace: string;
-  gameId: string;
-  metaHash: string;
-  baseline: StarterQuestion[];
-  logger: { warn: (obj: unknown, msg?: string) => void };
-  callLlm: (prompt: string) => Promise<string>;
-}): Promise<void> {
-  const { db, workspace, gameId, metaHash, baseline, logger, callLlm } = args;
-  try {
-    const meta = await getMeta(gameId, workspace);
-    const prompt = buildRefinePrompt(buildMetaProjection(meta), baseline);
-    const raw = await callLlm(prompt);
-    const validated = parseAndValidateLlmSet(raw, extractMemberNames(meta));
-
-    if (validated) {
-      upsertSet(db, { workspace, gameId, metaHash, source: 'llm', questions: validated, status: 'llm' });
-    } else {
-      // Keep serving the baseline; settle status so we don't loop on a bad model day.
-      upsertSet(db, { workspace, gameId, metaHash, source: 'template', questions: baseline, status: 'template' });
-      logger.warn({ workspace, gameId }, '[starter-refine] LLM set rejected by validation, baseline retained');
-    }
-  } catch (err) {
-    logger.warn({ err, workspace, gameId }, '[starter-refine] refine pass failed');
-  } finally {
-    // Always release — upsertSet intentionally never touches the lease.
-    releaseRefineLease(db, workspace, gameId);
-  }
 }

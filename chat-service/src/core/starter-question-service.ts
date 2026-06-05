@@ -1,15 +1,16 @@
 /**
  * Orchestration for the per-game starter-question lifecycle:
- * read → staleness check → synchronous template baseline → background LLM
- * refine. Stale-while-revalidate: a stale set is still served while
- * regeneration runs; only a hard miss pays the (fast, meta-cached) template
- * pass inline. The LLM never blocks a response.
+ * pregenerated seed (frozen, identical everywhere) → deterministic template
+ * baseline (pure function of the game's meta) → FE static fallback.
+ *
+ * No runtime LLM: LLM-quality sets come exclusively from
+ * `npm run starters:pregenerate`, which freezes them into the checked-in seed
+ * file — so environments never drift and serve paths never spend LLM calls.
  */
 
 import type Database from 'better-sqlite3';
 import { getMeta, getMetaVersion } from './cube-meta-cache.js';
 import { buildTemplateQuestions } from './starter-question-templates.js';
-import { scheduleStarterRefine, type RefinerDeps } from './starter-question-refiner.js';
 import {
   getSet,
   upsertSet,
@@ -37,8 +38,6 @@ export interface GetOrGenerateArgs {
   workspace: string;
   gameId: string;
   logger: { warn: (obj: unknown, msg?: string) => void };
-  /** Injected for tests; production uses the SDK default inside the refiner. */
-  refinerDeps?: RefinerDeps;
 }
 
 function toResponse(row: StarterSetRow): StarterResponse {
@@ -102,15 +101,8 @@ export async function getOrGenerateStarterQuestions(
     return row && row.questions.length > 0 ? toResponse(row) : STATIC_FALLBACK;
   }
 
-  // Fresh row: serve it. If the LLM pass never settled for this hash,
-  // (re)schedule it — the lease keeps this single-flight.
+  // Fresh row: serve it.
   if (row && row.meta_hash === liveHash) {
-    if (row.status !== 'llm' && row.questions.length > 0) {
-      scheduleStarterRefine({
-        db, workspace, gameId, metaHash: liveHash,
-        baseline: row.questions, logger, deps: args.refinerDeps,
-      });
-    }
     return row.questions.length > 0 ? toResponse(row) : STATIC_FALLBACK;
   }
 
@@ -133,19 +125,19 @@ export async function getOrGenerateStarterQuestions(
     return row && row.questions.length > 0 ? toResponse(row) : STATIC_FALLBACK;
   }
 
+  // No runtime LLM refine: the deterministic template set is final for
+  // unseeded games. LLM-quality questions come exclusively from
+  // `npm run starters:pregenerate` (reviewed + committed seed file) so every
+  // environment serves identical sets and prod spends no LLM calls here.
   upsertSet(db, {
     workspace, gameId, metaHash: liveHash,
-    source: 'template', questions: baseline, status: 'refining',
-  });
-  scheduleStarterRefine({
-    db, workspace, gameId, metaHash: liveHash,
-    baseline, logger, deps: args.refinerDeps,
+    source: 'template', questions: baseline, status: 'template',
   });
 
   return {
     questions: baseline,
     source: 'template',
-    status: 'refining',
+    status: 'template',
     metaHash: liveHash,
     generatedAt: Date.now(),
   };
