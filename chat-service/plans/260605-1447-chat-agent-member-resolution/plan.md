@@ -46,7 +46,7 @@ Reused as-is: `fetchOfficialGlossary` (cached), `resolveTerms`/`findExactMatch`
 |-------|-------|--------|
 | 01 | Resolver engine + `resolve_query_terms` tool | done |
 | 02 | `list_dimension_values` tool | done |
-| 03 | Explore skill wiring + lessons-learned | planned |
+| 03 | Explore skill wiring + lessons-learned | done |
 
 - [phase-01-resolver-engine-and-tool.md](phase-01-resolver-engine-and-tool.md)
 - [phase-02-dimension-values-tool.md](phase-02-dimension-values-tool.md)

@@ -23,6 +23,8 @@ trigger_keywords:
   - tuần qua
 allowed_tools:
   - get_cube_meta
+  - resolve_query_terms
+  - list_dimension_values
   - disambiguate_query
   - list_business_metrics
   - get_business_metric
@@ -45,7 +47,7 @@ Translate a free-form analytics question into a clickable Cube query artifact. B
 
 Before any other tool call, run `disambiguate_query({ message: <user's full message> })`. It maps Vietnamese / English / code-switched phrases to the Official glossary, normalises numbers ("10tr" → 10000000) and dates ("3 tháng qua", "Q1 2026"), and tells you what to do next:
 
-- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of "Identify the metric" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases.
+- `action: 'auto'` → use the returned `query` as your starting point for `preview_cube_query`. Skip step 1 of "Identify the metric" since the metric is already pinned. Still respect any `clarifications[]` warnings about edge cases. If you augment that query with **extra** dimensions or filters the resolver didn't pin (e.g. add `user_id`, a `days_since_last_active` filter), resolve those member names with `resolve_query_terms` first — do NOT hand-grep `get_cube_meta`.
 - `action: 'clarify'` → reply in the user's `language` ('vi' / 'en' / 'mixed') with the single clarification's `question_vi` or `question_en`. If `options` is non-empty, render them as a numbered list. **Do not call any other tool until the user answers.**
 
 **Hard rule — `disambiguate_query` is the ONLY source of a clarifying question.**
@@ -81,8 +83,8 @@ When the engine returns `intent='leaderboard'` (or memory carries it forward fro
 1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:
    - Call `list_business_metrics({ query: <user's metric phrase> })` first.
    - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.
-   - Otherwise call `get_cube_meta` and pick the closest raw measure/dimension. Never invent member names.
-2. **Identify dimensions, filters, time grain.** Default time range is "last 7 days" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: "tuần qua" → "last 7 days".
+   - Otherwise call `resolve_query_terms({ terms: [<metric phrase>] })` and use the top match. Never invent member names. Fall back to `get_cube_meta` only when resolution returns no confident match.
+2. **Identify dimensions, filters, time grain.** Resolve every dimension, filter column, and time field you need in ONE `resolve_query_terms({ terms: [...] })` call (e.g. `["user id","days since last active","recharge date"]`) — do not grep `get_cube_meta`. Before writing an equals/contains filter on a dimension, call `list_dimension_values({ member })` to get the exact value casing (e.g. `whale` not `Whale`). Default time range is "last 7 days" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: "tuần qua" → "last 7 days".
 3. **Clarification is resolver-governed.** Do NOT invent your own clarifying question here. You clarify only when `disambiguate_query` returned `action: 'clarify'` (see Pre-flight). If it returned `action: 'auto'`, the metric/ranking is pinned — keep going. Time range defaults to "last 7 days" when unspecified; never clarify the time range.
 4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.
 5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.
@@ -90,7 +92,7 @@ When the engine returns `intent='leaderboard'` (or memory carries it forward fro
 
 ## Guard rails
 
-- Never invent cube member names — confirm via `get_cube_meta`.
+- Never invent cube member names — resolve them via `resolve_query_terms` (member ref + kind + dataType). `get_cube_meta` is the fallback dump, not the first step.
 - Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.
 - Refuse non-analytics asks; redirect to /build.
 
