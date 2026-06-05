@@ -29,6 +29,19 @@ export interface MergeMemoryParams {
   now: number;
 }
 
+/**
+ * A new question carrying a substantial phrase the engine could not account
+ * for (e.g. "currency outflow reasons") must NOT have its topic decided by a
+ * saved default — gap-filling the metric there suppresses the metric
+ * clarification and flips clarify→auto with last week's metric. Short slot
+ * replies ("by country", "theo quốc gia", "last month") leave at most tiny
+ * unresolved fragments, so the ≥3-word threshold keeps the legit
+ * clarify→reply fill flow intact.
+ */
+function hasSubstantialUnresolvedText(result: DisambiguationResult): boolean {
+  return result.unresolved.some((span) => span.trim().split(/\s+/).length >= 3);
+}
+
 /** Phase 1 — fill empty slots from L2+L3 memory; no writes here. */
 export function fillResultFromMemory(
   result: DisambiguationResult,
@@ -37,8 +50,12 @@ export function fillResultFromMemory(
   const { db, sessionId, ownerId, gameId, now } = params;
   const mem = getResolutions(db, sessionId);
   const userPrefsCtx = { db, ownerId, gameId, now };
-  fillGapsFromMemory(result, mem, now);
-  fillGapsFromUserPrefs(result, userPrefsCtx);
+  // Topic-bearing slots (metric/intent/concept/entity) stay empty when the
+  // message looks like a new question about something we couldn't resolve;
+  // dimension/timeRange/filter fills are benign refinements and always apply.
+  const blockTopicFill = hasSubstantialUnresolvedText(result);
+  fillGapsFromMemory(result, mem, now, blockTopicFill);
+  fillGapsFromUserPrefs(result, userPrefsCtx, blockTopicFill);
   dropResolvedClarifications(result);
   upgradeActionIfNoClarsRemain(result);
   return result;
@@ -69,8 +86,9 @@ function fillGapsFromMemory(
   result: DisambiguationResult,
   mem: DisambigResolutions,
   now: number,
+  blockTopicFill = false,
 ): void {
-  if (!result.slots.metric.value && mem.metric) {
+  if (!blockTopicFill && !result.slots.metric.value && mem.metric) {
     result.slots.metric = {
       value: mem.metric.value,
       confidence: 0.95,
@@ -114,7 +132,7 @@ function fillGapsFromMemory(
   // aggregate) and (b) the current-turn confidence is at-or-below the
   // engine's default-aggregate level — i.e. the user typed a reply, not a
   // new top-level question.
-  const memHasSpecificIntent = mem.intent && mem.intent.value !== 'aggregate';
+  const memHasSpecificIntent = !blockTopicFill && mem.intent && mem.intent.value !== 'aggregate';
   const engineDefaultedAggregate =
     result.slots.intent.value === 'aggregate' && result.slots.intent.confidence <= 0.6;
   if (memHasSpecificIntent && (!result.slots.intent.value || engineDefaultedAggregate)) {
@@ -125,7 +143,7 @@ function fillGapsFromMemory(
     };
     result.warnings.push(`intent resolved from session memory: ${mem.intent!.value}`);
   }
-  if (!result.slots.concept?.value && mem.concept) {
+  if (!blockTopicFill && !result.slots.concept?.value && mem.concept) {
     result.slots.concept = {
       value: mem.concept.value,
       confidence: 0.95,
@@ -133,7 +151,7 @@ function fillGapsFromMemory(
     };
     result.warnings.push(`concept resolved from session memory: ${mem.concept.value}`);
   }
-  if (!result.slots.entity?.value && mem.entity) {
+  if (!blockTopicFill && !result.slots.entity?.value && mem.entity) {
     result.slots.entity = {
       value: mem.entity.value,
       confidence: 0.95,

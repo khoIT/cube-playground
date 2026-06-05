@@ -139,6 +139,52 @@ describe('layer-3 cross-session user prefs', () => {
     expect(r.slots.metric.value).toBeUndefined();
   });
 
+  it('does NOT fill metric from saved defaults into a new question with unresolved text', () => {
+    const NOW = Date.UTC(2026, 5, 5);
+    // Prior session habitually used DAU.
+    const seed = emptyResult();
+    seed.slots.metric = { value: 'active_daily.dau', confidence: 0.95, alias: 'DAU' };
+    seed.action = 'auto';
+    mergeMemoryIntoResult(seed, {
+      db, sessionId: 'sess-1', ownerId: OWNER, gameId: GAME, now: NOW,
+    });
+
+    // New session asks about a subject the engine could not resolve — the
+    // d57eb4d8 shape: the whole question lands in `unresolved`. Saved-default
+    // DAU must not suppress the metric clarification and auto-route.
+    const r = emptyResult();
+    r.unresolved = ['What are the top currency outflow reasons by total amount spent'];
+    r.clarifications = [{ slot: 'metric', question_en: 'Which metric?', question_vi: 'Chỉ số nào?' }];
+    mergeMemoryIntoResult(r, {
+      db, sessionId: 'sess-2', ownerId: OWNER, gameId: GAME, now: NOW,
+    });
+
+    expect(r.slots.metric.value).toBeUndefined();
+    expect(r.action).toBe('clarify');
+    expect(r.clarifications).toHaveLength(1);
+  });
+
+  it('still fills metric for a short slot-reply (tiny unresolved fragments)', () => {
+    const NOW = Date.UTC(2026, 5, 5);
+    const seed = emptyResult();
+    seed.slots.metric = { value: 'active_daily.dau', confidence: 0.95, alias: 'DAU' };
+    seed.action = 'auto';
+    mergeMemoryIntoResult(seed, {
+      db, sessionId: 'sess-1', ownerId: OWNER, gameId: GAME, now: NOW,
+    });
+
+    // "theo quốc gia" — dimension reply; leftover fragment under 3 words.
+    const r = emptyResult();
+    r.unresolved = ['theo'];
+    r.slots.dimension = { value: 'mf_users.country', confidence: 0.9, alias: 'quốc gia' };
+    mergeMemoryIntoResult(r, {
+      db, sessionId: 'sess-2', ownerId: OWNER, gameId: GAME, now: NOW,
+    });
+
+    expect(r.slots.metric.value).toBe('active_daily.dau');
+    expect(r.action).toBe('auto');
+  });
+
   it('isolates user prefs per game', () => {
     const NOW = Date.UTC(2026, 4, 28);
     const seed = emptyResult();

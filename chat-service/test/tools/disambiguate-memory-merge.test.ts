@@ -130,6 +130,26 @@ describe('disambiguate-memory-merge', () => {
     expect(t2.clarifications).toHaveLength(0);
   });
 
+  it('new question with substantial unresolved text → session-memory metric NOT filled, stays clarify', () => {
+    // Prime memory with a confirmed metric.
+    const t0 = emptyResult();
+    t0.slots.metric = { value: 'arpu', confidence: 0.95, alias: 'ARPU' };
+    mergeMemoryIntoResult(t0, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
+
+    // Same session, new full question about an unresolved subject. The metric
+    // clarification must survive — filling ARPU here would auto-route the
+    // wrong metric (the d57eb4d8 failure shape, session-memory tier).
+    const t1 = emptyResult();
+    t1.unresolved = ['top currency outflow reasons by amount spent'];
+    t1.clarifications = [{ slot: 'metric', question_en: '?', question_vi: '?' }];
+    mergeMemoryIntoResult(t1, { db, sessionId: SID, ownerId: OWNER, gameId: GAME, now: WED });
+
+    expect(t1.slots.metric.value).toBeUndefined();
+    expect(t1.action).toBe('clarify');
+    expect(t1.clarifications).toHaveLength(1);
+    // timeRange/dimension fills stay benign — only topic slots are gated.
+  });
+
   it('timeRange phrase re-resolves against fresh `now`', () => {
     // Prime memory at WED with phrase "today".
     const t0 = emptyResult();

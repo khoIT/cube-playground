@@ -43,15 +43,23 @@ function indexBySlot(rows: UserPrefRow[]): Map<PrefSlot, UserPrefRow> {
   return m;
 }
 
+/**
+ * @param blockTopicFill when the current message carries substantial
+ *   unresolved text (a new question about an unknown subject), topic-bearing
+ *   slots (metric/intent/concept/entity) must NOT be filled from saved
+ *   defaults — doing so suppresses the metric clarification and auto-routes
+ *   the wrong metric (e.g. DAU for a currency-outflow question).
+ */
 export function fillGapsFromUserPrefs(
   result: DisambiguationResult,
   ctx: UserPrefsCtx,
+  blockTopicFill = false,
 ): void {
   const prefs = indexBySlot(getUserPrefs(ctx.db, ctx.ownerId, ctx.gameId));
   if (prefs.size === 0) return;
 
   const metric = prefs.get('metric');
-  if (!result.slots.metric.value && metric) {
+  if (!blockTopicFill && !result.slots.metric.value && metric) {
     result.slots.metric = {
       value: metric.value as string,
       confidence: 0.92,
@@ -100,7 +108,7 @@ export function fillGapsFromUserPrefs(
   // never "empty". We override iff the pref carries a more-specific intent
   // AND the per-turn value is the low-confidence aggregate default.
   const intent = prefs.get('intent');
-  const prefHasSpecificIntent = intent && intent.value !== 'aggregate';
+  const prefHasSpecificIntent = !blockTopicFill && intent && intent.value !== 'aggregate';
   const engineDefaultedAggregate =
     result.slots.intent.value === 'aggregate' && result.slots.intent.confidence <= 0.6;
   if (intent && prefHasSpecificIntent && (!result.slots.intent.value || engineDefaultedAggregate)) {
@@ -113,7 +121,7 @@ export function fillGapsFromUserPrefs(
     touchUserPref(ctx.db, ctx.ownerId, ctx.gameId, 'intent', ctx.now);
   }
   const concept = prefs.get('concept');
-  if (!result.slots.concept?.value && concept) {
+  if (!blockTopicFill && !result.slots.concept?.value && concept) {
     result.slots.concept = {
       value: concept.value as string,
       confidence: CROSS_SESSION_INTENT_CONFIDENCE,
@@ -123,7 +131,7 @@ export function fillGapsFromUserPrefs(
     touchUserPref(ctx.db, ctx.ownerId, ctx.gameId, 'concept', ctx.now);
   }
   const entity = prefs.get('entity');
-  if (!result.slots.entity?.value && entity) {
+  if (!blockTopicFill && !result.slots.entity?.value && entity) {
     result.slots.entity = {
       value: entity.value as EntityValue,
       confidence: CROSS_SESSION_INTENT_CONFIDENCE,
