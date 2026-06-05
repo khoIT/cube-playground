@@ -91,6 +91,8 @@ export function computeSkillLeaderboard(
     costs: number[];
     successCount: number;
     legacyCount: number;
+    /** user_cancel turns — excluded from the success denominator (not a failure). */
+    excludedCount: number;
     total: number;
     /** Sparse map: dayIndex (0..clampedDays-1) → count */
     dayCounts: Map<number, number>;
@@ -99,7 +101,7 @@ export function computeSkillLeaderboard(
   for (const row of rawRows) {
     const key = row.skill ?? '(unknown)';
     if (!groups.has(key)) {
-      groups.set(key, { latencies: [], costs: [], successCount: 0, legacyCount: 0, total: 0, dayCounts: new Map() });
+      groups.set(key, { latencies: [], costs: [], successCount: 0, legacyCount: 0, excludedCount: 0, total: 0, dayCounts: new Map() });
     }
     const g = groups.get(key)!;
     g.total++;
@@ -123,6 +125,11 @@ export function computeSkillLeaderboard(
       g.legacyCount++;
     } else if (row.stop_reason === 'end_turn') {
       g.successCount++;
+    } else if (row.stop_reason === 'user_cancel') {
+      // A user cancelling a turn is not an agent failure — exclude it from the
+      // success denominator (like legacy nulls). 'timeout'/'server_error'/'error'
+      // remain scored as non-success failures.
+      g.excludedCount++;
     }
   }
 
@@ -133,8 +140,9 @@ export function computeSkillLeaderboard(
     const totalCostUsd = g.costs.reduce((s, c) => s + c, 0);
     const avgCostUsd = g.costs.length > 0 ? totalCostUsd / g.costs.length : null;
 
-    // Success rate only over turns with known stop_reason (exclude legacy nulls)
-    const scorable = g.total - g.legacyCount;
+    // Success rate only over turns with a scorable stop_reason: exclude legacy
+    // nulls (pre-phase-02) and user-cancelled turns (not agent failures).
+    const scorable = g.total - g.legacyCount - g.excludedCount;
     const successRate = scorable > 0 ? g.successCount / scorable : null;
 
     // Expand sparse dayCounts into zero-filled length-clampedDays array

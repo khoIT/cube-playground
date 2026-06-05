@@ -47,6 +47,22 @@ function insertTurn(
   ).run(turnId, sessionId, idx, skill, startedAtMs, startedAtMs + 500);
 }
 
+/** Insert one assistant turn with an explicit stop_reason (NULL when omitted). */
+function insertTurnWithStop(
+  db: Database.Database,
+  sessionId: string,
+  skill: string,
+  stopReason: string | null,
+  idx: number,
+) {
+  const turnId = `turn-${idx}-${Math.random().toString(36).slice(2)}`;
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO chat_turns (id, session_id, turn_index, role, skill, started_at, ended_at, cost_usd, stop_reason)
+     VALUES (?, ?, ?, 'assistant', ?, ?, ?, 0.001, ?)`,
+  ).run(turnId, sessionId, idx, skill, now, now + 500, stopReason);
+}
+
 describe('percentileSorted', () => {
   it('returns null for empty array', () => {
     expect(percentileSorted([], 0.5)).toBeNull();
@@ -185,5 +201,41 @@ describe('computeSkillLeaderboard — dailyCounts', () => {
     const rows = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 });
     // The SQL WHERE filters this out — no rows expected
     expect(rows).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeSkillLeaderboard — successRate classification by stop_reason
+// ---------------------------------------------------------------------------
+
+describe('computeSkillLeaderboard — successRate by stop_reason', () => {
+  let db: Database.Database;
+  let sessionId: string;
+  const OWNER = 'owner-stop';
+  const GAME = 'game-stop';
+
+  beforeEach(() => {
+    db = makeDb();
+    const session = chatStore.createSession(db, { ownerId: OWNER, gameId: GAME, title: 'test' });
+    sessionId = session.id;
+  });
+
+  it('counts timeout as a non-success failure (lowers successRate)', () => {
+    insertTurnWithStop(db, sessionId, 'explore', 'end_turn', 0);
+    insertTurnWithStop(db, sessionId, 'explore', 'timeout', 1);
+    const row = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 }).find((r) => r.skill === 'explore')!;
+    // 1 success / 2 scorable = 0.5
+    expect(row.successRate).toBe(0.5);
+    expect(row.legacyCount).toBe(0);
+  });
+
+  it('excludes null (legacy) and user_cancel from the success denominator', () => {
+    insertTurnWithStop(db, sessionId, 'explore', 'end_turn', 0);
+    insertTurnWithStop(db, sessionId, 'explore', null, 1);
+    insertTurnWithStop(db, sessionId, 'explore', 'user_cancel', 2);
+    const row = computeSkillLeaderboard(db, { ownerId: OWNER, days: 7 }).find((r) => r.skill === 'explore')!;
+    // scorable = 3 total - 1 legacy(null) - 1 excluded(user_cancel) = 1; 1 success → 1.0
+    expect(row.successRate).toBe(1);
+    expect(row.legacyCount).toBe(1);
   });
 });

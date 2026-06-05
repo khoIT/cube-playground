@@ -541,6 +541,15 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         tracer.finalize({ inputTokens, outputTokens, totalCostUsd: costUsd });
       }
 
+      // When the turn was aborted (timeout timer or user cancel), the SDK stream
+      // ends WITHOUT a `result` message — so emitTurnFinalized never fires and
+      // stop_reason would otherwise persist as NULL, hiding the abort as a
+      // pre-phase-02 "legacy" row in the leaderboard. Stamp the abort reason
+      // here so timeouts/cancels are visible and scored honestly.
+      const abortStopReason = controller.signal.aborted
+        ? registry.get(turnId)?.abortReason ?? 'server_error'
+        : undefined;
+
       chatStore.appendTurn(opts.db, {
         // Use the SSE turnId as chat_turns.id so observability FKs (llm_calls,
         // tool_invocations, sdk_events) which were buffered against turnId
@@ -559,6 +568,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         // Phase-03: cache token breakdown (undefined when SDK omits them).
         cacheCreationTokens,
         cacheReadTokens,
+        // On a clean (non-abort) finish this stays undefined and the buffered
+        // recorder's onTurnFinalized flush writes the real SDK stop_reason.
+        stopReason: abortStopReason,
         skill: intent.skill,
         systemPromptText: systemPrompt,
         model: resolvedModel,
