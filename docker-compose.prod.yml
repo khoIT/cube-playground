@@ -109,6 +109,10 @@ services:
         # Same-origin defaults; override here or in CI if the cube path differs.
         VITE_CUBE_API_URL: ${VITE_CUBE_API_URL:-/cube-api/v1}
         VITE_LANGFUSE_HOST: ${VITE_LANGFUSE_HOST:-}
+        # Prod keeps sourcemaps so deployed stack traces map to source; the
+        # local override flips this off (the map-stitching pass dominates
+        # laptop build time).
+        BUILD_SOURCEMAP: ${BUILD_SOURCEMAP:-true}
     image: cube-playground-web:${TAG:-latest}
     ports:
       - "${PUBLIC_PORT:-11000}:80"

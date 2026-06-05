@@ -33,6 +33,14 @@ services:
     env_file:
       - .env.docker.local
 
+  web:
+    build:
+      args:
+        # Skip sourcemap generation locally — it's the dominant cost of the
+        # vite bundle on a laptop Docker VM and nobody debugs the local
+        # docker-built SPA through maps (use `npm run dev` for that).
+        BUILD_SOURCEMAP: "false"
+
   cube_api:
     # colima/lima file-shares deny reads on single-FILE bind mounts ("cannot
     # open ...: operation not permitted") — the prod compose mounts the

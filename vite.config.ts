@@ -22,7 +22,11 @@ export default defineConfig(({ mode }) => {
   build: {
     outDir: 'dist',
     target: 'es2020',
-    sourcemap: true,
+    // Sourcemaps are opt-in: stitching maps for ~9k modules is the single most
+    // expensive (single-threaded, memory-hungry) part of the bundle and is
+    // wasted work on local docker builds. Prod CI passes BUILD_SOURCEMAP=true
+    // (compose build arg) so deployed stack traces stay readable.
+    sourcemap: process.env.BUILD_SOURCEMAP === 'true',
   },
   server: {
     port: 3000,

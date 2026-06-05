@@ -46,9 +46,18 @@ RUN npm ci \
  && npm ci --prefix chat-service
 
 ############################################################
-# build — compile FE (vite), server (tsc), chat-service (tsc)
+# build-web / build-server / build-chat — one compile stage per runtime image.
+#
+# Deliberately SPLIT (not one `COPY . . && build everything` stage) so BuildKit
+# invalidates only the compiler whose inputs changed: a chat-service-only edit
+# re-runs its ~30s tsc, NOT the multi-minute vite SPA bundle. The three stages
+# share the cached `deps` layer and build in parallel.
 ############################################################
-FROM deps AS build
+
+# -- web: vite SPA bundle ----------------------------------------------------
+# Needs the whole repo root (index.html, src/, public/, vite config); server/ &
+# chat-service/ ride along in COPY . . but their compilers don't run here.
+FROM deps AS build-web
 COPY . .
 # VITE_* are inlined into the bundle at BUILD time (Vite limitation) — they are
 # NOT runtime config. Same-origin defaults: the SPA calls /api and /cube-api,
@@ -56,6 +65,10 @@ COPY . .
 ARG VITE_CUBE_API_URL=/cube-api/v1
 ARG VITE_CUBE_TOKEN=
 ARG VITE_LANGFUSE_HOST=
+# Sourcemaps off by default — the map-stitching pass dominates local build time.
+# Prod compose passes BUILD_SOURCEMAP=true to keep deployed traces debuggable.
+ARG BUILD_SOURCEMAP=
+ENV BUILD_SOURCEMAP=${BUILD_SOURCEMAP}
 # Vite/Rollup bundling the antd + react-aria SPA can exceed V8's default
 # old-space ceiling and abort with "FatalProcessOutOfMemory" (exit 134) on a
 # constrained builder. Raise the heap cap for the build stage only — this ENV is
@@ -63,9 +76,21 @@ ARG VITE_LANGFUSE_HOST=
 # default already fits. Tune via the build arg if the builder has less RAM.
 ARG NODE_BUILD_MEM_MB=4096
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_BUILD_MEM_MB}
-RUN npm run build \
- && npm run build --prefix server \
- && npm run build --prefix chat-service
+RUN npm run build
+
+# -- server: tsc -------------------------------------------------------------
+# COPY merges over the deps layer, so server/node_modules (with the compiled
+# better-sqlite3 addon) survives. Root config files are staged here too so the
+# runtime stage can copy everything from this one source.
+FROM deps AS build-server
+COPY server ./server
+COPY gds.config.json workspaces.config.json workspaces.prod.config.json ./
+RUN npm run build --prefix server
+
+# -- chat-service: tsc ---------------------------------------------------------
+FROM deps AS build-chat
+COPY chat-service ./chat-service
+RUN npm run build --prefix chat-service
 
 ############################################################
 # server — runtime (Fastify :3004)
@@ -74,22 +99,22 @@ FROM node:22-bookworm-slim AS server
 ENV NODE_ENV=production
 WORKDIR /app/server
 # Proven node_modules with the already-compiled better-sqlite3 binary.
-COPY --from=build /app/server/node_modules ./node_modules
-COPY --from=build /app/server/dist ./dist
+COPY --from=build-server /app/server/node_modules ./node_modules
+COPY --from=build-server /app/server/dist ./dist
 # tsc does NOT emit .sql — the migration runner reads dist/db/migrations/*.sql.
-COPY --from=build /app/server/src/db/migrations ./dist/db/migrations
+COPY --from=build-server /app/server/src/db/migrations ./dist/db/migrations
 # tsc does NOT emit .yml either — the business-metrics registry loader and the
 # dashboard-starter-pack loader both readdir dist/presets/**/*.yml at runtime.
 # Without this, the prod image ships an empty dir → the metrics catalog and the
 # starter dashboards load zero entries.
-COPY --from=build /app/server/src/presets ./dist/presets
+COPY --from=build-server /app/server/src/presets ./dist/presets
 # Seed assets read at cwd: data/glossary.seed.json + data/seed/* (DBs excluded by .dockerignore).
-COPY --from=build /app/server/data ./data
+COPY --from=build-server /app/server/data ./data
 # Root file:.. link target + game/workspace config read from the repo root.
 # Both workspace registries are baked in; WORKSPACES_CONFIG_PATH (compose) selects
 # the prod one at runtime, leaving the local-dev default file for local runs.
-COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/gds.config.json /app/workspaces.config.json /app/workspaces.prod.config.json /app/
+COPY --from=build-server /app/node_modules /app/node_modules
+COPY --from=build-server /app/gds.config.json /app/workspaces.config.json /app/workspaces.prod.config.json /app/
 # SQLite lives on a mounted volume (see compose), never in the image.
 ENV DB_PATH=/data/segments.db
 EXPOSE 3004
@@ -123,14 +148,14 @@ ENV http_proxy=${HTTP_PROXY} \
     no_proxy=localhost,127.0.0.1,server,chat-service,cube_api,cubestore,.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 \
     NO_PROXY=localhost,127.0.0.1,server,chat-service,cube_api,cubestore,.internal,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 WORKDIR /app/chat-service
-COPY --from=build /app/chat-service/node_modules ./node_modules
-COPY --from=build /app/chat-service/dist ./dist
+COPY --from=build-chat /app/chat-service/node_modules ./node_modules
+COPY --from=build-chat /app/chat-service/dist ./dist
 # Non-TS runtime assets tsc skips:
 #   - db/schema.sql            (migrate.ts reads resolve(__dirname,'schema.sql'))
 #   - .claude/{commands,skills} (mode-prompts + skill-loader read ../../.claude)
-COPY --from=build /app/chat-service/src/db/schema.sql ./dist/db/schema.sql
-COPY --from=build /app/chat-service/.claude ./.claude
-COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build-chat /app/chat-service/src/db/schema.sql ./dist/db/schema.sql
+COPY --from=build-chat /app/chat-service/.claude ./.claude
+COPY --from=build-chat /app/node_modules /app/node_modules
 # Writable scratch (boot log, claude-home, parallel-emit). chat.db is on a volume.
 RUN mkdir -p runtime && chown -R node:node /app/chat-service/runtime
 ENV PORT=3005
@@ -145,7 +170,7 @@ CMD ["node", "dist/index.js"]
 ############################################################
 FROM nginx:1.27-alpine AS web
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build-web /app/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=4s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1
