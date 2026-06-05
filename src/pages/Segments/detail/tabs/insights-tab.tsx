@@ -64,8 +64,13 @@ export function InsightsTab({ segment, preset, section, onSectionChange }: Props
   return (
     <div className={styles.insightsTab}>
       {preset.auto && <AutoPresetBanner cube={preset.hubCube} />}
-      <InsightsFreshness segment={segment} />
-      <SubPills pills={availableSections} active={activeId} onChange={onSectionChange} />
+      {/* Section nav + freshness share one row: pills left, "Updated…" right.
+          Keeping freshness on its own line wasted vertical space between the
+          main tab strip and the section pills. */}
+      <div className={styles.insightsToolbar}>
+        <SubPills pills={availableSections} active={activeId} onChange={onSectionChange} />
+        <InsightsFreshness segment={segment} />
+      </div>
       {activeId === 'saved' ? (
         <SavedAnalysesTab segment={segment} />
       ) : (

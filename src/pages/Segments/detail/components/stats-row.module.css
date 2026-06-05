@@ -7,22 +7,42 @@
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-lg);
-  padding: 12px 0;
+  padding: 8px 0;
   overflow-x: auto;
 }
 
 .statCell {
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 18px;
+  padding: 0 16px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 
 .statCell[data-divider='true'] {
   border-left: 1px solid var(--border-card);
+}
+
+/* Muted rounded glyph chip — echoes the member-360 monetization tiles. */
+.kpiIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+}
+
+.statCellBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .label {

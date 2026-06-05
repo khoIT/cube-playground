@@ -12,13 +12,37 @@ import { ReactElement, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { LoadingOutlined } from '@ant-design/icons';
+import {
+  Activity, BarChart3, Banknote, Clock, Coins, Percent, TrendingUp,
+  User, UserMinus, Users, Wallet,
+} from 'lucide-react';
 import { Sparkline } from '../../visuals';
 import type { Preset, KpiSpec } from '../../presets/types';
 import type { Segment, RefreshLogRow } from '../../../../types/segment-api';
-import { StatsRow, StatItem, useStatItemFromKpi } from './stats-row';
+import { StatsRow, StatItem, StatCellInner, useStatItemFromKpi } from './stats-row';
 import styles from './stats-row.module.css';
 
 type Tone = 'neutral' | 'positive' | 'negative';
+
+const ICON_SIZE = 16;
+
+/**
+ * Map a headline KPI to a glyph by intent. Keyed off the spec id (stable
+ * across presets) with a format-based fallback so auto-generated presets —
+ * which have no curated id vocabulary — still get a sensible icon.
+ */
+function resolveKpiIcon(spec: KpiSpec): ReactNode {
+  const id = spec.id.toLowerCase();
+  if (id.includes('size') || id === 'users') return <Users size={ICON_SIZE} aria-hidden />;
+  if (id.includes('payer') || id.includes('paying')) return <Wallet size={ICON_SIZE} aria-hidden />;
+  if (id.includes('whale') || id.includes('arppu')) return <Coins size={ICON_SIZE} aria-hidden />;
+  if (id.includes('arpu') || id.includes('ltv') || id.includes('rev')) return <Banknote size={ICON_SIZE} aria-hidden />;
+  if (id.includes('lapsed') || id.includes('churn')) return <UserMinus size={ICON_SIZE} aria-hidden />;
+  if (id.includes('rate') || spec.format === 'percent') return <Percent size={ICON_SIZE} aria-hidden />;
+  if (id.includes('retention') || id.includes('active')) return <Activity size={ICON_SIZE} aria-hidden />;
+  if (spec.format === 'currency') return <Banknote size={ICON_SIZE} aria-hidden />;
+  return <TrendingUp size={ICON_SIZE} aria-hidden />;
+}
 
 interface Props {
   segment: Segment;
@@ -61,6 +85,7 @@ export function HeadlineStatsRow({
   const items: StatItem[] = [
     {
       id: 'size',
+      icon: <Users size={ICON_SIZE} aria-hidden />,
       label: t('segments.detail.kpi.size', { defaultValue: 'Size' }),
       value: isRefreshing ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -76,6 +101,7 @@ export function HeadlineStatsRow({
     },
     {
       id: 'last-refresh',
+      icon: <Clock size={ICON_SIZE} aria-hidden />,
       label: t('segments.detail.kpi.lastRefresh', { defaultValue: 'Last refresh' }),
       value: lastRefresh
         ? formatDistanceToNowStrict(new Date(lastRefresh), { addSuffix: true })
@@ -84,12 +110,14 @@ export function HeadlineStatsRow({
     },
     {
       id: 'owner',
+      icon: <User size={ICON_SIZE} aria-hidden />,
       label: t('segments.detail.kpi.owner', { defaultValue: 'Owner' }),
       value: segment.owner,
       footer: ownerFooter,
     },
     {
       id: 'status',
+      icon: <BarChart3 size={ICON_SIZE} aria-hidden />,
       label: t('segments.detail.kpi.status', { defaultValue: 'Status' }),
       value: segment.status,
     },
@@ -115,6 +143,7 @@ function InlineKpi({
   if (spec.id === 'size') {
     return (
       <SizeStatCell
+        icon={resolveKpiIcon(spec)}
         label={spec.label}
         count={segment.uid_count}
         comparison={sizeComparison}
@@ -123,46 +152,38 @@ function InlineKpi({
   }
   const item = useStatItemFromKpi(spec, segment, preset, `kpi:${spec.id}`, null);
   return (
-    <>
-      <div className={styles.label}>{item.label}</div>
-      <div className={styles.valueRow}>
-        <span className={styles.value}>{item.value}</span>
-        {item.delta != null && (
-          <span className={styles.delta} data-tone={item.tone ?? 'neutral'}>
-            {item.delta}
-          </span>
-        )}
-      </div>
-      {item.footer != null && <div className={styles.footer}>{item.footer}</div>}
-    </>
+    <StatCellInner
+      icon={resolveKpiIcon(spec)}
+      label={item.label}
+      value={item.value}
+      delta={item.delta}
+      tone={item.tone}
+      footer={item.footer}
+    />
   );
 }
 
 /** Size cell rendered from segment.uid_count — exact thousands-separated value
  *  with the compact form ("82.4k") underneath for quick scanning. */
 function SizeStatCell({
-  label, count, comparison,
+  icon, label, count, comparison,
 }: {
+  icon: ReactNode;
   label: string;
   count: number;
   comparison: { text: string; tone: Tone } | null;
 }): ReactElement {
+  // Exact thousands-separated value only — the compact form ("7.3k") under an
+  // already-precise number reads as redundant noise, so we drop it.
   const exact = count.toLocaleString('en-US');
-  const compact = formatCount(count);
-  const showCompact = compact !== exact;
   return (
-    <>
-      <div className={styles.label}>{label}</div>
-      <div className={styles.valueRow}>
-        <span className={styles.value} title={`${exact} users`}>{exact}</span>
-        {comparison?.text != null && (
-          <span className={styles.delta} data-tone={comparison.tone}>
-            {comparison.text}
-          </span>
-        )}
-      </div>
-      {showCompact && <div className={styles.footer}>{compact}</div>}
-    </>
+    <StatCellInner
+      icon={icon}
+      label={<span title={`${exact} users`}>{label}</span>}
+      value={<span title={`${exact} users`}>{exact}</span>}
+      delta={comparison?.text}
+      tone={comparison?.tone}
+    />
   );
 }
 

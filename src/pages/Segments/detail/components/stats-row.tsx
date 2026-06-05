@@ -25,10 +25,44 @@ export interface StatItem {
   delta?: string;
   tone?: Tone;
   footer?: ReactNode;
+  /** Leading glyph rendered in a muted chip to the left of the metric. */
+  icon?: ReactNode;
 }
 
 interface StatsRowProps {
   items: StatItem[];
+}
+
+/**
+ * Shared cell body: a muted icon chip on the left, with label / value+delta /
+ * footer stacked on the right. Used by both the data-bound preset cells and
+ * the synthesized fallback cells so the layout never drifts between them.
+ */
+export function StatCellInner({
+  icon, label, value, delta, tone, footer,
+}: {
+  icon?: ReactNode;
+  label: ReactNode;
+  value: ReactNode;
+  delta?: ReactNode;
+  tone?: Tone;
+  footer?: ReactNode;
+}): ReactElement {
+  return (
+    <>
+      {icon != null && <span className={styles.kpiIcon} aria-hidden>{icon}</span>}
+      <div className={styles.statCellBody}>
+        <div className={styles.label}>{label}</div>
+        <div className={styles.valueRow}>
+          <span className={styles.value}>{value}</span>
+          {delta != null && (
+            <span className={styles.delta} data-tone={tone ?? 'neutral'}>{delta}</span>
+          )}
+        </div>
+        {footer != null && <div className={styles.footer}>{footer}</div>}
+      </div>
+    </>
+  );
 }
 
 /** Pure render — caller resolves values. */
@@ -37,16 +71,14 @@ export function StatsRow({ items }: StatsRowProps): ReactElement {
     <div className={styles.statsRow} role="group" aria-label="Segment headline metrics">
       {items.map((item, idx) => (
         <div key={item.id} className={styles.statCell} data-divider={idx > 0 ? 'true' : 'false'}>
-          <div className={styles.label}>{item.label}</div>
-          <div className={styles.valueRow}>
-            <span className={styles.value}>{item.value}</span>
-            {item.delta != null && (
-              <span className={styles.delta} data-tone={item.tone ?? 'neutral'}>
-                {item.delta}
-              </span>
-            )}
-          </div>
-          {item.footer != null && <div className={styles.footer}>{item.footer}</div>}
+          <StatCellInner
+            icon={item.icon}
+            label={item.label}
+            value={item.value}
+            delta={item.delta}
+            tone={item.tone}
+            footer={item.footer}
+          />
         </div>
       ))}
     </div>

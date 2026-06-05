@@ -142,7 +142,6 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
   // useCubeApiBootstrap from /playground/context. Use currentToken so cards
   // work without requiring the user to open the modal first.
   const { currentToken } = useSecurityContext();
-  const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
 
   // Prefix workspaces (prod cube-dev) namespace cubes per game
   // (`ballistar_mf_users`). Logical-named preset card queries must be
@@ -150,7 +149,16 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
   // Null on game_id/local → both translations are strict no-ops.
   const { workspace } = useWorkspaceContext();
   const activeGameId = useActiveGameId();
-  const prefix = resolveGamePrefix(workspace, activeGameId || null);
+
+  // A segment carries its own game_id, and its cohort metrics MUST be queried
+  // under that game's Cube security scope — the same per-game token the server
+  // card-runner uses. Pin the x-cube-game header to the segment's game (the
+  // proxy mints the matching JWT from it) so a segment viewed under a different
+  // header game can't return that other game's — or a global — numbers. Fall
+  // back to the active game only for segments with no game_id.
+  const segmentGameId = segment?.game_id ?? null;
+  const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null, segmentGameId);
+  const prefix = resolveGamePrefix(workspace, segmentGameId ?? activeGameId ?? null);
 
   const hasInitial = options.initialRows !== undefined;
   const skipBackground = hasInitial && options.skipBackgroundFetch === true;
