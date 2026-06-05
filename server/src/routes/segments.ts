@@ -171,6 +171,18 @@ function loadTagsBySegment(
  * callers pass tags fetched in one bulk query (see loadTagsBySegment); when
  * omitted, single-row callers fall back to a per-row tag lookup.
  */
+// SQLite `datetime('now')` — used by column defaults and the demo fixtures —
+// stores naive UTC as a space-separated string with no zone marker. The
+// browser's `new Date()` reads that form as LOCAL time, so the row renders off
+// by the viewer's UTC offset (e.g. "created 7 hours ago" in GMT+7). App writes
+// already use `new Date().toISOString()` (ISO-8601 with `Z`), so pass those
+// through untouched and only stamp a `Z` onto the naive form. Null stays null.
+const NAIVE_UTC_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+function toIsoUtc(value: unknown): string | null {
+  if (typeof value !== 'string' || value === '') return null;
+  return NAIVE_UTC_RE.test(value) ? `${value.replace(' ', 'T')}Z` : value;
+}
+
 function hydrateSegment(
   row: Record<string, unknown>,
   db: ReturnType<typeof getDb>,
@@ -209,6 +221,12 @@ function hydrateSegment(
 
   return {
     ...rest,
+    // Normalize stored timestamps to unambiguous ISO-8601 UTC so the FE's
+    // relative-time labels ("created … ago") aren't shifted by the viewer's
+    // timezone for naive-default / fixture rows.
+    created_at: toIsoUtc(rest.created_at),
+    updated_at: toIsoUtc(rest.updated_at),
+    last_refreshed_at: toIsoUtc(rest.last_refreshed_at),
     tags,
     predicate_tree: rest.predicate_tree_json
       ? JSON.parse(rest.predicate_tree_json as string)

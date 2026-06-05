@@ -81,4 +81,40 @@ describe('refresh-log routes — ISO-8601 UTC timestamps', () => {
     expect(grouped[id]).toHaveLength(1);
     expect(grouped[id][0].ts).toMatch(ISO_Z);
   });
+
+  it('hydrateSegment normalizes naive-default created_at/updated_at to ISO-Z', async () => {
+    // Mirror a fixture/legacy row: timestamps written via SQLite datetime('now')
+    // (naive UTC, space-separated). hydrateSegment must serialize them with a Z.
+    getDb()
+      .prepare(
+        `INSERT INTO segments (id, name, type, owner, status, cube, uid_count, uid_list_json,
+            last_refreshed_at, created_at, updated_at)
+         VALUES (?, ?, 'manual', 'fixture@local', 'fresh', 'mf_users', 0, '[]',
+            datetime('now'), datetime('now'), datetime('now'))`,
+      )
+      .run('seg_naive', 'Naive cohort');
+    const res = await app.inject({ method: 'GET', url: '/api/segments/seg_naive' });
+    expect(res.statusCode).toBe(200);
+    const seg = res.json() as { created_at: string; updated_at: string; last_refreshed_at: string };
+    expect(seg.created_at).toMatch(ISO_Z);
+    expect(seg.updated_at).toMatch(ISO_Z);
+    expect(seg.last_refreshed_at).toMatch(ISO_Z);
+    // Parsed instant is fresh — not shifted by the UTC offset.
+    expect(Math.abs(Date.now() - new Date(seg.created_at).getTime()) / 60000).toBeLessThan(1);
+  });
+
+  it('hydrateSegment leaves already-ISO timestamps untouched', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      payload: { name: 'App-created cohort', type: 'manual' },
+    });
+    const id = created.json().id as string;
+    // App writes ISO via new Date().toISOString(); must pass through unchanged.
+    const seg = (await app.inject({ method: 'GET', url: `/api/segments/${id}` })).json() as {
+      created_at: string;
+    };
+    expect(seg.created_at).toBe(created.json().created_at);
+    expect(Number.isNaN(new Date(seg.created_at).getTime())).toBe(false);
+  });
 });
