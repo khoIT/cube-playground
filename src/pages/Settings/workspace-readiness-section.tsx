@@ -19,8 +19,9 @@ import {
   SectionTitle,
   SectionHint,
 } from './section-card';
-import { useWorkspaceReadiness, type GameReadiness } from './use-workspace-readiness';
+import { useWorkspaceReadiness, type GameReadiness, type PreaggGame } from './use-workspace-readiness';
 import { useWorkspaceContext } from '../../components/workspace-context';
+import { ArtifactSweepPanel } from './artifact-sweep-panel';
 
 const Stack = styled.div`
   display: flex;
@@ -126,6 +127,14 @@ function gameTone(g: GameReadiness): 'ok' | 'warn' | 'bad' | 'mute' {
   return 'bad';
 }
 
+/** Tone for a pre-agg game row: errors dominate, then unbuilt, then all-built, then empty. */
+function preaggTone(g: PreaggGame): 'ok' | 'warn' | 'bad' | 'mute' {
+  if (g.cubes.length === 0) return 'mute';
+  if (g.errored > 0) return 'bad';
+  if (g.unbuilt > 0) return 'warn';
+  return 'ok';
+}
+
 export function WorkspaceReadinessSection(): ReactElement {
   const { workspaceId, workspace } = useWorkspaceContext();
   const { report, loading, error, refetch } = useWorkspaceReadiness(workspaceId);
@@ -203,6 +212,48 @@ export function WorkspaceReadinessSection(): ReactElement {
           <SectionCard>
             <SectionHead>
               <div>
+                <SectionTitle>Pre-aggregation status</SectionTitle>
+                <SectionHint>
+                  {report.workspace.gameModel !== 'game_id'
+                    ? 'Pre-agg status is only tracked for the in-stack local workspace.'
+                    : 'Built / unbuilt rollup partitions per game. Unbuilt = partition exists but has not been populated yet.'}
+                </SectionHint>
+              </div>
+            </SectionHead>
+            {report.workspace.gameModel !== 'game_id' ? (
+              <Empty>Pre-agg status is only tracked for the in-stack local workspace.</Empty>
+            ) : report.preaggs.games.length === 0 ? (
+              <Empty>No games configured.</Empty>
+            ) : (
+              <Grid>
+                {report.preaggs.games.map((g) => {
+                  const tone = preaggTone(g);
+                  const total = g.built + g.unbuilt + g.errored;
+                  const erroredCubes = g.cubes
+                    .filter((c) => c.status === 'error')
+                    .map((c) => c.cube);
+                  return (
+                    <Cell key={g.id} tone={tone}>
+                      <div className="label">
+                        <span>{g.label}</span>
+                        <span>{g.built}/{total} built</span>
+                      </div>
+                      <div className="sub">
+                        {g.unbuilt > 0 && `${g.unbuilt} unbuilt`}
+                        {g.unbuilt > 0 && erroredCubes.length > 0 && ' · '}
+                        {erroredCubes.length > 0 && `err: ${erroredCubes.join(', ')}`}
+                        {g.unbuilt === 0 && erroredCubes.length === 0 && 'all built'}
+                      </div>
+                    </Cell>
+                  );
+                })}
+              </Grid>
+            )}
+          </SectionCard>
+
+          <SectionCard>
+            <SectionHead>
+              <div>
                 <SectionTitle>Your artifacts in this workspace</SectionTitle>
                 <SectionHint>
                   Counts of saved items scoped to your owner + workspace bucket.
@@ -225,6 +276,11 @@ export function WorkspaceReadinessSection(): ReactElement {
               </div>
             </StatRow>
           </SectionCard>
+
+          <ArtifactSweepPanel
+            workspaceId={workspaceId}
+            gameModel={report.workspace.gameModel}
+          />
 
           <SectionCard>
             <SectionHead>

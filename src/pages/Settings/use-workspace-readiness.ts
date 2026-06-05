@@ -46,12 +46,44 @@ export interface CoverageReport {
   generatedAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// Pre-aggregation readiness types — mirror server/src/services/preagg-readiness.ts
+// ---------------------------------------------------------------------------
+
+export type PreaggCubeStatus = 'built' | 'unbuilt' | 'error';
+
+export interface PreaggCube {
+  cube: string;
+  status: PreaggCubeStatus;
+  /** Present when status is 'unbuilt' or 'error'. */
+  message?: string;
+}
+
+export interface PreaggGame {
+  id: string;
+  label: string;
+  cubes: PreaggCube[];
+  built: number;
+  unbuilt: number;
+  errored: number;
+}
+
+export interface PreaggReadiness {
+  games: PreaggGame[];
+  generatedAt: string;
+  /** Present when workspace is not game_id — probe not applicable. */
+  note?: string;
+}
+
+// ---------------------------------------------------------------------------
+
 export interface WorkspaceReadinessReport {
   workspace: { id: string; label: string; gameModel: 'game_id' | 'prefix'; authMode: 'none' | 'minted' | 'env-token' };
   generatedAt: string;
   games: GameReadiness[];
   coverage: CoverageReport;
   artifacts: ArtifactCounts;
+  preaggs: PreaggReadiness;
 }
 
 export interface UseWorkspaceReadinessResult {

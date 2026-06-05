@@ -46,6 +46,10 @@ import {
   referencedMeasures,
   type CoverageReport,
 } from './metric-coverage-resolver.js';
+import {
+  computePreaggReadiness,
+  type PreaggReadiness,
+} from './preagg-readiness.js';
 
 export type GameReadinessStatus = 'ok' | 'missing' | 'error';
 
@@ -80,6 +84,7 @@ export interface WorkspaceReadinessReport {
   games: GameReadiness[];
   coverage: CoverageReport;
   artifacts: ArtifactCounts;
+  preaggs: PreaggReadiness;
 }
 
 /**
@@ -273,7 +278,10 @@ export async function computeWorkspaceReadiness(
 ): Promise<WorkspaceReadinessReport> {
   const workspace = resolveWorkspace(workspaceId);
   if (!workspace) throw new Error(`unknown workspace "${workspaceId}"`);
-  const { games, snapshotByGame } = await readGamesReadiness(workspace);
+  const [{ games, snapshotByGame }, preaggs] = await Promise.all([
+    readGamesReadiness(workspace),
+    computePreaggReadiness(workspace),
+  ]);
   const coverage = coverageFromSnapshots(snapshotByGame);
   const artifacts = countArtifacts(db, owner, workspaceId);
   return {
@@ -287,6 +295,7 @@ export async function computeWorkspaceReadiness(
     games,
     coverage,
     artifacts,
+    preaggs,
   };
 }
 

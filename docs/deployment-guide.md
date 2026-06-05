@@ -108,6 +108,13 @@ web (nginx) ──SPA + proxies /api,/cube-api──▶ server :3004 ──/api/
   `CUBE_PUBLIC_PORT` (17001, Playground) + `CUBE_SQL_PORT` (15432, SQL API). Server
   reaches it internally at `http://cube_api:4000`. Pre-aggs on `cubestore_data`.
   To refresh models: re-vendor `cube-dev/cube/` from the source repo and redeploy.
+- **`cube_refresh_worker`** builds pre-aggregation partitions into `cubestore`
+  (`CUBEJS_REFRESH_WORKER=true`, no published ports, same model mount + Trino creds
+  as `cube_api`). The serving `cube_api` keeps the refresh worker hard-OFF (event-loop
+  wedge risk) and only *reads* rollups — without this worker, every rollup-matching
+  query fails with "No pre-aggregation partitions were built yet". First boot on a
+  cold `cubestore_data` volume back-builds all games × rollups × monthly partitions;
+  `CUBEJS_REFRESH_WORKER_CONCURRENCY` (default 2) bounds that fan-out against Trino.
 - `better-sqlite3` (native) is compiled in-image — the host needs only Docker.
 
 Build + run (after the CI `vault` stage writes `.env` next to the compose file):

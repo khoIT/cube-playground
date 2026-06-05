@@ -47,6 +47,10 @@ const COMPOSE_FILES = [
 // recreate each other's container.
 const DEV_CUBE_SERVICE = 'cube_api_dev';
 const DEV_CUBESTORE_SERVICE = 'cubestore_dev';
+// Builds rollup partitions into cubestore_dev. Without it, a fresh dev volume
+// hard-fails every rollup-matching query ("No pre-aggregation partitions were
+// built yet") because the serving instance never builds them itself.
+const DEV_REFRESH_WORKER_SERVICE = 'cube_refresh_worker_dev';
 
 const CUBE_API_URL = process.env.CUBE_API_URL ?? 'http://localhost:4000';
 const PROBE_TIMEOUT_MS = 8000;
@@ -138,8 +142,8 @@ async function recoverOnce() {
   //   down               → `up -d` starts it (+ its cubestore).
   //   up but not serving → hung (TCP accepts, HTTP hangs); `restart` clears it.
   if (!containerRunning()) {
-    log(`starting ${DEV_CUBE_SERVICE} + ${DEV_CUBESTORE_SERVICE} (dedicated dev cube)`);
-    stack(['up', '-d', DEV_CUBE_SERVICE, DEV_CUBESTORE_SERVICE]);
+    log(`starting ${DEV_CUBE_SERVICE} + ${DEV_CUBESTORE_SERVICE} + ${DEV_REFRESH_WORKER_SERVICE} (dedicated dev cube)`);
+    stack(['up', '-d', DEV_CUBE_SERVICE, DEV_CUBESTORE_SERVICE, DEV_REFRESH_WORKER_SERVICE]);
   } else {
     log(`${DEV_CUBE_SERVICE} is up but not serving — restarting`);
     stack(['restart', DEV_CUBE_SERVICE]);

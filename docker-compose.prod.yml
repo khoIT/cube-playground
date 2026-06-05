@@ -159,10 +159,12 @@ services:
       # Pre-aggregation store (the cubestore service below).
       CUBEJS_CUBESTORE_HOST: cubestore
       CUBEJS_CUBESTORE_PORT: "3030"
-      # OFF: with no pre-aggregations defined, the in-process refresh worker
-      # spin-loops on partition refresh keys and pegs the event loop at 100% CPU,
-      # starving /readyz + /meta. Flip to true (via Vault) once pre-aggs exist.
-      CUBEJS_REFRESH_WORKER: ${CUBEJS_REFRESH_WORKER:-false}
+      # Hard OFF on the serving instance: an in-process refresh worker can wedge
+      # the single event loop (partition spin-loop) and starve /readyz + /meta.
+      # Pre-aggregations are built by the dedicated cube_refresh_worker service
+      # below — pinned literal (not ${...}) so enabling the worker via env can
+      # never accidentally flip the API instance too.
+      CUBEJS_REFRESH_WORKER: "false"
       # SQL API (Postgres wire protocol) — published on 15432 for BI/LLM clients.
       CUBEJS_PG_SQL_PORT: "15432"
       CUBEJS_SQL_USER: ${CUBEJS_SQL_USER:-cube}
@@ -200,6 +202,67 @@ services:
     # probe hits /readyz so a wedged cube flips to `unhealthy` and surfaces in
     # `docker ps` / orchestrator health. start-period is generous: cold schema
     # compilation on first boot legitimately takes several seconds.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
+
+  # Dedicated pre-aggregation refresh worker. The serving cube_api must never run
+  # the in-process refresh worker (a wedged refresh loop starves /readyz + /meta —
+  # docs/lessons-learned.md), so partition builds get their own container: same
+  # model mount, same Trino + CubeStore wiring, no published ports. The model's
+  # scheduledRefreshContexts (cube-dev/cube/cube.js) enumerates every game tenant
+  # with a synthetic refresh role that bypasses the JWT/auth path, so this worker
+  # builds all games' rollups without ever calling the server.
+  cube_refresh_worker:
+    # :latest only — the network-isolated kraken runner can't cold-pull pinned tags
+    # (see cube_api note above). Keep in lockstep with cube_api.
+    image: cubejs/cube:latest
+    container_name: cube-playground-cube-refresh-worker
+    environment:
+      CUBEJS_DEV_MODE: "false"
+      CUBEJS_LOG_LEVEL: ${CUBEJS_LOG_LEVEL:-info}
+      CUBEJS_SCHEMA_PATH: model
+      TZ: ${TZ:-UTC}
+      DEBUG_LOG: ${DEBUG_LOG:-false}
+      # Trino connection — identical to cube_api (same Vault/.env values) so the
+      # worker builds rollups from exactly the source the API would query.
+      CUBEJS_DB_TYPE: ${CUBEJS_DB_TYPE:-trino}
+      CUBEJS_DB_HOST: ${CUBEJS_DB_HOST:-}
+      CUBEJS_DB_PORT: ${CUBEJS_DB_PORT:-8080}
+      CUBEJS_DB_USER: ${CUBEJS_DB_USER:-}
+      CUBEJS_DB_PASS: ${CUBEJS_DB_PASS:-}
+      CUBEJS_DB_PRESTO_CATALOG: ${CUBEJS_DB_PRESTO_CATALOG:-game_integration}
+      CUBEJS_DB_CATALOG: ${CUBEJS_DB_CATALOG:-game_integration}
+      CUBEJS_DB_SSL: ${CUBEJS_DB_SSL:-true}
+      # Must match cube_api so both sides agree on the model compile context.
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
+      # Writes prod_pre_aggregations.* into the same CubeStore the API reads.
+      CUBEJS_CUBESTORE_HOST: cubestore
+      CUBEJS_CUBESTORE_PORT: "3030"
+      # THIS is the refresh worker — literal true, isolated from the API's flag.
+      CUBEJS_REFRESH_WORKER: "true"
+      # Bound the first backfill fan-out against Trino (games × rollups × ~29
+      # monthly partitions on a cold volume). Incremental hourly refresh is cheap.
+      CUBEJS_REFRESH_WORKER_CONCURRENCY: ${CUBEJS_REFRESH_WORKER_CONCURRENCY:-2}
+      # Auth bridge kept for config parity only: refresh contexts are synthetic
+      # and never hit checkAuth, so the worker tolerates the server being down.
+      AUTH_API_URL: http://server:3004
+      AUTH_INTERNAL_SECRET: ${CUBE_AUTH_INTERNAL_SECRET:-}
+    entrypoint: ["/usr/local/bin/cube-entrypoint-patched.sh"]
+    command: ["cubejs", "server"]
+    # No published ports: the worker serves no traffic. Its internal :4000 exists
+    # only for the /readyz healthcheck below.
+    volumes:
+      - ./cube-dev/cube:/cube/conf:ro
+      - ./docker/cube-entrypoint-patched.sh:/usr/local/bin/cube-entrypoint-patched.sh:ro
+    depends_on:
+      - cubestore
+    # Same wedge-detection probe as cube_api: a stuck refresh loop keeps the
+    # process "running" while the event loop starves — surface it as unhealthy.
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

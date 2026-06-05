@@ -43,7 +43,10 @@ services:
       CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
       CUBEJS_CUBESTORE_HOST: cubestore_dev
       CUBEJS_CUBESTORE_PORT: "3030"
-      CUBEJS_REFRESH_WORKER: ${CUBEJS_REFRESH_WORKER:-false}
+      # Hard OFF on the serving instance (event-loop wedge risk). Rollups are
+      # built by cube_refresh_worker_dev below; pinned literal so an env value
+      # meant for the worker can never flip this instance.
+      CUBEJS_REFRESH_WORKER: "false"
       # Standalone file-auth posture: no in-stack server to bridge to (the dev
       # loop runs the host gateway), so resolve per-user game grants from the
       # committed dev users file — its `playground` principal grants all games,
@@ -64,6 +67,56 @@ services:
     command: ["cubejs", "server"]
     ports:
       - "4000:4000"   # REST / GraphQL — where the host gateway + Vite proxy point
+    volumes:
+      - ./cube-dev/cube:/cube/conf:ro
+    depends_on:
+      - cubestore_dev
+    restart: unless-stopped
+
+  # Dedicated pre-aggregation refresh worker for the dev cube. Without it a
+  # fresh cubestore_dev volume reproduces the prod failure exactly: any query
+  # matching a model rollup hard-fails with "No pre-aggregation partitions were
+  # built yet". Same file-auth posture as cube_api_dev; refresh contexts are
+  # synthetic (cube-dev/cube/cube.js scheduledRefreshContexts) so it builds all
+  # games' rollups standalone. Started by scripts/ensure-cube-api.mjs alongside
+  # cube_api_dev.
+  cube_refresh_worker_dev:
+    image: cubejs/cube:latest
+    container_name: cube-playground-cube-refresh-worker-dev
+    environment:
+      CUBEJS_DEV_MODE: "false"
+      CUBEJS_LOG_LEVEL: ${CUBEJS_LOG_LEVEL:-info}
+      CUBEJS_SCHEMA_PATH: model
+      TZ: ${TZ:-UTC}
+      CUBEJS_DB_TYPE: ${CUBEJS_DB_TYPE:-trino}
+      CUBEJS_DB_HOST: ${CUBEJS_DB_HOST:-}
+      CUBEJS_DB_PORT: ${CUBEJS_DB_PORT:-8080}
+      CUBEJS_DB_USER: ${CUBEJS_DB_USER:-}
+      CUBEJS_DB_PASS: ${CUBEJS_DB_PASS:-}
+      CUBEJS_DB_PRESTO_CATALOG: ${CUBEJS_DB_PRESTO_CATALOG:-game_integration}
+      CUBEJS_DB_CATALOG: ${CUBEJS_DB_CATALOG:-game_integration}
+      CUBEJS_DB_SSL: ${CUBEJS_DB_SSL:-true}
+      CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
+      CUBEJS_CUBESTORE_HOST: cubestore_dev
+      CUBEJS_CUBESTORE_PORT: "3030"
+      # THIS is the refresh worker — literal true, isolated from the API's flag.
+      CUBEJS_REFRESH_WORKER: "true"
+      # Keep the laptop→Trino backfill gentle (games × rollups × ~29 partitions).
+      CUBEJS_REFRESH_WORKER_CONCURRENCY: ${CUBEJS_REFRESH_WORKER_CONCURRENCY:-2}
+      AUTH_API_URL: ""
+      AUTH_USERS_FILE: /cube/conf/auth-users.example.json
+    # Same inline Presto-driver patch as cube_api_dev (colima denies single-file
+    # bind mounts, so the script can't be mounted).
+    entrypoint:
+      - sh
+      - -c
+      - |
+        P=/cube/node_modules/@cubejs-backend/prestodb-driver/dist/src/PrestoDriver.js
+        [ -f "$$P" ] && sed -i 's|.*query_max_run_time.*|                    session: undefined,|' "$$P"
+        exec docker-entrypoint.sh "$$@"
+      - sh
+    command: ["cubejs", "server"]
+    # No ports: serves no traffic, only builds rollups into cubestore_dev.
     volumes:
       - ./cube-dev/cube:/cube/conf:ro
     depends_on:

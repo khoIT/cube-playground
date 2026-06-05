@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.js';
 import adminAccessRoutes from './routes/admin-access.js';
 import internalAccessRoutes from './routes/internal-access.js';
 import workspacesRoutes from './routes/workspaces.js';
+import artifactSweepRoutes from './routes/artifact-sweep.js';
 import cubeProxyRoutes from './routes/cube-proxy.js';
 import userPrefsRoutes from './routes/user-prefs.js';
 import cubeAliasesRoutes from './routes/cube-aliases.js';
@@ -74,6 +75,7 @@ export async function buildApp() {
   await app.register(adminAccessRoutes);
   await app.register(internalAccessRoutes);
   await app.register(workspacesRoutes);
+  await app.register(artifactSweepRoutes);
   await app.register(cubeProxyRoutes);
   await app.register(userPrefsRoutes);
   await app.register(cubeAliasesRoutes);
