@@ -17,6 +17,7 @@ import cubeLogoLight from '../../../assets/brand/cube-logo-light.png';
 import cubeLogoDark from '../../../assets/brand/cube-logo-dark.png';
 import { ReasoningTrace } from './reasoning-trace';
 import { ToolCallChip } from './tool-call-chip';
+import { ToolCallGroup } from './tool-call-group';
 import { CachedResponseBadge } from './cached-response-badge';
 import { QueryArtifactCard } from './query-artifact-card';
 import { AssistantChartSection } from './assistant-chart-section';
@@ -534,9 +535,17 @@ function AssistantMessageImpl({
 
       {/* Sections */}
       <div style={{ paddingLeft: 31 }}>
-        {merged.map((section, i) => (
-          <SectionRenderer key={i} section={section} />
-        ))}
+        {groupToolCallRuns(merged).map((unit, i) =>
+          unit.kind === 'tool_run' ? (
+            unit.calls.length === 1 ? (
+              <SectionRenderer key={i} section={unit.calls[0]} />
+            ) : (
+              <ToolCallGroup key={i} calls={unit.calls} />
+            )
+          ) : (
+            <SectionRenderer key={i} section={unit.section} />
+          ),
+        )}
         {disambigOptions && disambigOptions.options.length > 0 ? (
           <DisambigChips
             prompt={disambigOptions.prompt}
@@ -567,6 +576,34 @@ function AssistantMessageImpl({
  * `sections` array rebuilds each render — re-renders.
  */
 export const AssistantMessage = React.memo(AssistantMessageImpl);
+
+// ---------------------------------------------------------------------------
+// Render-unit grouping — collapse consecutive tool calls into one disclosure
+// ---------------------------------------------------------------------------
+
+type RenderUnit =
+  | { kind: 'section'; section: AssistantSection }
+  | { kind: 'tool_run'; calls: ToolCallSection[] };
+
+/**
+ * Collapses consecutive tool_call sections into a single `tool_run` unit so a
+ * burst of 10+ calls renders as one collapsed ToolCallGroup instead of a chip
+ * stack that pushes the answer off-screen. A lone call keeps its plain chip —
+ * it's already compact and one fewer click to inspect.
+ */
+function groupToolCallRuns(sections: AssistantSection[]): RenderUnit[] {
+  const units: RenderUnit[] = [];
+  for (const section of sections) {
+    if (section.type === 'tool_call') {
+      const last = units[units.length - 1];
+      if (last?.kind === 'tool_run') last.calls.push(section);
+      else units.push({ kind: 'tool_run', calls: [section] });
+    } else {
+      units.push({ kind: 'section', section });
+    }
+  }
+  return units;
+}
 
 // ---------------------------------------------------------------------------
 // Merge helper — pairs each tool_result with its tool_call

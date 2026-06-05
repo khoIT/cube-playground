@@ -6,6 +6,25 @@ import React, { useState } from 'react';
 import { CheckCircle, XCircle, Loader, ChevronDown, ChevronRight } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
 
+// No global `spin` keyframe exists in the app stylesheet, so inject our own
+// (same pattern as TypingDots' chat-blink). Named chat-spin to avoid clashing
+// with scoped module keyframes. Shared by ToolCallChip and ToolCallGroup.
+const keyframes = `
+@keyframes chat-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+`;
+
+let styleInjected = false;
+export function injectChatSpinKeyframes() {
+  if (styleInjected || typeof document === 'undefined') return;
+  const style = document.createElement('style');
+  style.textContent = keyframes;
+  document.head.appendChild(style);
+  styleInjected = true;
+}
+
 interface ToolCallChipProps {
   name: string;
   status: 'pending' | 'ok' | 'error';
@@ -22,6 +41,7 @@ const STATUS_COLOR: Record<ToolCallChipProps['status'], string> = {
 export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
   const [expanded, setExpanded] = useState(false);
   const color = STATUS_COLOR[status];
+  injectChatSpinKeyframes();
 
   return (
     <div
@@ -56,7 +76,7 @@ export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
         aria-expanded={expanded}
       >
         {status === 'pending' && (
-          <span style={{ color, animation: 'spin 1s linear infinite', display: 'inline-flex' }}>
+          <span style={{ color, animation: 'chat-spin 1s linear infinite', display: 'inline-flex' }}>
             <Icon icon={Loader} size={13} color={color} />
           </span>
         )}
