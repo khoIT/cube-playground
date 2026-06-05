@@ -15,6 +15,7 @@ import { cubeHasTimeDimension, cubeNameOf } from '../core/cube-meta-capability.j
 import { disambiguate } from '../nl-to-query/index.js';
 import type { DisambiguationResult, Clarification } from '../nl-to-query/index.js';
 import { fillResultFromMemory, writeMemoryFromResult } from './disambiguate-memory-merge.js';
+import { matchStarterQuestion } from './disambiguate-starter-passthrough.js';
 import { suggestTimeAwareAlternatives } from '../nl-to-query/time-aware-measure-suggester.js';
 import { config } from '../config.js';
 import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
@@ -102,6 +103,28 @@ export async function handler(
     knownMembers = cubeMetaCache.extractMemberNames(meta);
   } catch {
     knownMembers = undefined;
+  }
+
+  // Pregenerated starter-question pass-through: a clicked chip matches a
+  // frozen seed question whose target members are already meta-validated —
+  // skip glossary resolution and pin them directly. The glossary cannot see
+  // many of these members (e.g. match/mode engagement measures), and the
+  // engine would otherwise emit an off-topic canned clarification.
+  const starterHit = matchStarterQuestion(args.message, ctx.gameId, meta, knownMembers);
+  if (starterHit) {
+    return {
+      action: 'auto',
+      query: starterHit.query,
+      overallConfidence: 1,
+      slots: {
+        metric: { value: starterHit.measures[0], confidence: 1, alias: args.message },
+        intent: { value: 'aggregate', confidence: 1 },
+      },
+      clarifications: [],
+      unresolved: [],
+      language: 'en',
+      warnings: [`matched pregenerated starter question: ${starterHit.questionId} — members pre-validated, proceed to preview`],
+    };
   }
 
   const result = await disambiguate(
