@@ -9,6 +9,7 @@ import type { ToolDefinition } from '../core/claude-runner.js';
 
 import * as getCubeMeta from './get-cube-meta.js';
 import * as resolveQueryTerms from './resolve-query-terms.js';
+import * as listDimensionValues from './list-dimension-values.js';
 import * as disambiguateQuery from './disambiguate-query.js';
 import * as previewCubeQuery from './preview-cube-query.js';
 import * as emitQueryArtifact from './emit-query-artifact.js';
@@ -51,6 +52,13 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: resolveQueryTerms.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: resolveQueryTerms.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: listDimensionValues.name,
+    description: listDimensionValues.description,
+    inputSchema: listDimensionValues.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: listDimensionValues.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
   {
     name: disambiguateQuery.name,
