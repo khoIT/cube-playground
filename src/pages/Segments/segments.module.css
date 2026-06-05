@@ -1102,6 +1102,97 @@
   font-weight: 600;
 }
 
+/* ── Insights freshness caption (tab-level "as of …") ─────────── */
+.insightsFreshness {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 8px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+.insightsFreshnessWhen {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.insightsFreshnessError {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+  font-weight: 600;
+}
+
+/* ── Monitor auto-refresh cadence segmented control ──────────── */
+.cadenceControl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  font-family: var(--font-sans);
+}
+
+.cadenceControlLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cadenceSegmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+}
+
+.cadenceSegment {
+  min-width: 34px;
+  height: 26px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.cadenceSegment:hover:not(:disabled):not(.cadenceSegmentActive) {
+  color: var(--text-primary);
+}
+
+.cadenceSegment:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cadenceSegmentActive {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+}
+
+.cadenceControlHint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* ── Generic cells ───────────────────────────────────────────── */
 .sizeCell {
   font-size: 13px;

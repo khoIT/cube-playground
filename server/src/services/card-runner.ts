@@ -15,6 +15,7 @@
 import { createHash } from 'node:crypto';
 import { loadWithContinueWait } from './load-with-continue-wait.js';
 import { physicalizeQuery, logicalizeRows } from './cube-member-resolver.js';
+import { mapWithConcurrency } from './bounded-concurrency.js';
 import type {
   PresetSpec,
   KpiSpec,
@@ -46,6 +47,13 @@ export interface CardCacheEntry {
   cardId: string;
   queryHash: string;
   rows: Array<Record<string, unknown>>;
+  /** 'ok' when the card's Cube load succeeded; 'error' when it failed or was
+   *  skipped because the refresh budget ran out. Error entries persist (with
+   *  empty rows + a message) so the FE can show "couldn't refresh" instead of a
+   *  silent gap that's indistinguishable from "never ran". */
+  status: 'ok' | 'error';
+  /** Failure reason for status='error' (Cube error or budget message), truncated. */
+  error?: string;
 }
 
 function queryForKpi(spec: KpiSpec): CubeQuery {
@@ -114,6 +122,22 @@ function extractRows(loadResult: unknown): Array<Record<string, unknown>> {
  *  through "Continue wait" rather than dropping the card on the first miss. */
 const PER_CARD_TIMEOUT_MS = 30_000;
 
+/** Max cards loaded concurrently. A preset is ~30 independent Cube loads; a
+ *  small fixed pool turns ~30 serial round-trips into a handful of waves while
+ *  staying gentle on a warming cluster (unbounded fan-out could stampede a cold
+ *  rollup). Mirrors the FE's per-tab concurrency cap. */
+const CARD_CONCURRENCY = 4;
+
+/** Wall-clock ceiling for the whole card pass. The per-card timeout bounds one
+ *  card, not the phase: a stuck rollup could otherwise let N cards each burn
+ *  their own 30s. Once this elapses, not-yet-started cards short-circuit to an
+ *  error entry instead of waiting — so one warming pre-agg can't stall a refresh
+ *  indefinitely. Sized to absorb a few "Continue wait" cycles across waves. */
+const CARD_PHASE_BUDGET_MS = 90_000;
+
+/** Cube error messages can be long; cap what we persist per card. */
+const MAX_ERROR_LEN = 500;
+
 /** Walk a preset and emit { cardId, queryHash, rows } per KPI + card.
  *  `segmentFilters` are the segment's predicate filters (from its stored
  *  cube_query_json); each card query is scoped by ANDing them on. */
@@ -144,22 +168,45 @@ export async function runPresetCards(
     }
   }
 
-  const results: CardCacheEntry[] = [];
-  for (const { id, query } of allSpecs) {
+  // Shared wall-clock deadline across the whole pass. Each card's effective
+  // timeout is clamped to whatever budget remains, and cards that start after
+  // the budget is spent short-circuit without issuing a Cube load.
+  const deadline = Date.now() + CARD_PHASE_BUDGET_MS;
+
+  async function runOne({ id, query }: { id: string; query: CubeQuery }): Promise<CardCacheEntry> {
     const scoped = scopeQuery(query, segmentFilters);
     // Physicalize the logical preset members for prefix workspaces (idempotent:
     // already-physical predicate filters pass through), then logicalize response
     // row keys so the cached rows match the logical card spec the FE renders by.
     const physical = physicalizeQuery(scoped, prefix);
+    const queryHash = hashQuery(physical);
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      return {
+        cardId: id,
+        queryHash,
+        rows: [],
+        status: 'error',
+        error: 'skipped — refresh budget exceeded',
+      };
+    }
+
     try {
-      const raw = await loadWithContinueWait(physical, tokenOverride, PER_CARD_TIMEOUT_MS);
+      const timeout = Math.min(PER_CARD_TIMEOUT_MS, remaining);
+      const raw = await loadWithContinueWait(physical, tokenOverride, timeout);
       const rows = logicalizeRows(extractRows(raw), prefix);
-      results.push({ cardId: id, queryHash: hashQuery(physical), rows });
+      return { cardId: id, queryHash, rows, status: 'ok' };
     } catch (err) {
-      // Card-level failure shouldn't kill the whole refresh — log and skip.
-      // The FE will fall back to live fetch for any cardId missing from cache.
-      console.warn(`[card-runner] ${id} failed:`, (err as Error).message);
+      // Card-level failure shouldn't kill the whole refresh — persist an error
+      // entry (so the FE shows "couldn't refresh · live data" rather than a
+      // silent gap) and let siblings continue.
+      const message = (err as Error).message?.slice(0, MAX_ERROR_LEN) ?? 'unknown error';
+      console.warn(`[card-runner] ${id} failed:`, message);
+      return { cardId: id, queryHash, rows: [], status: 'error', error: message };
     }
   }
-  return results;
+
+  // Order-independent: results are keyed by cardId downstream.
+  return mapWithConcurrency(allSpecs, CARD_CONCURRENCY, runOne);
 }

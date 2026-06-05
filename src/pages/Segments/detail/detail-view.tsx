@@ -242,6 +242,7 @@ export function DetailView(): ReactElement {
           segment={segment}
           onActivate={openActivateModal}
           onJumpToActivation={goActivation}
+          onCadenceChange={setSegment}
         />
       )}
       {tab === 'insights' && (

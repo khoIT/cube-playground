@@ -49,6 +49,11 @@ export type PredicateNode = GroupNode | LeafNode;
 export interface CardCacheEntry {
   rows: Array<Record<string, unknown>>;
   fetched_at: string;
+  /** Outcome of the last precompute for this card. Absent on legacy cache rows
+   *  written before status tracking — treat missing as 'ok'. */
+  status?: 'ok' | 'error';
+  /** Failure reason when status='error' (Cube error or "refresh budget exceeded"). */
+  error?: string;
 }
 
 export interface Segment {

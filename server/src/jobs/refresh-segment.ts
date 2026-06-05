@@ -67,6 +67,12 @@ export async function refreshSegment(segmentId: string): Promise<void> {
   const db = getDb();
   const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(segmentId) as SegmentRow | undefined;
   if (!row) return;
+  // Only predicate segments are precomputed. Manual segments are explicit uid
+  // pushes with no predicate to re-run; their Insights cards are live-fetched on
+  // demand (FE scopes by identity-IN over the uid_list). Precomputing large
+  // manual cohorts would inline a multi-MB identity-IN filter that Cube rejects
+  // (query text length > limit) — the same reason server card scoping is
+  // predicate-only. Keep manual segments live by design.
   if (row.type !== 'predicate' || !row.cube || !row.cube_query_json) return;
 
   // Captured so a transient-network catch below can restore them instead of

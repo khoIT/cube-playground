@@ -38,3 +38,10 @@ export function cadenceOptionsFor(currentMin: number): CadenceOption[] {
   if (CADENCE_OPTIONS.some((o) => o.value === currentMin)) return CADENCE_OPTIONS;
   return [{ value: currentMin, label: cadenceLabel(currentMin) }, ...CADENCE_OPTIONS];
 }
+
+/** Compact label for tight controls (segmented control): "15m", "1h", "1d". */
+export function cadenceShortLabel(min: number): string {
+  if (min % 1440 === 0) return `${min / 1440}d`;
+  if (min % 60 === 0) return `${min / 60}h`;
+  return `${min}m`;
+}

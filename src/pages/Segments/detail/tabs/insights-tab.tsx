@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { PresetTab } from './preset-tab';
 import { SavedAnalysesTab } from './saved-analyses-tab';
 import { SubPills } from './insights/sub-pills';
+import { InsightsFreshness } from './insights/insights-freshness';
 import { AutoPresetBanner } from '../../components/auto-preset-banner';
 import type { Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
@@ -63,6 +64,7 @@ export function InsightsTab({ segment, preset, section, onSectionChange }: Props
   return (
     <div className={styles.insightsTab}>
       {preset.auto && <AutoPresetBanner cube={preset.hubCube} />}
+      <InsightsFreshness segment={segment} />
       <SubPills pills={availableSections} active={activeId} onChange={onSectionChange} />
       {activeId === 'saved' ? (
         <SavedAnalysesTab segment={segment} />
