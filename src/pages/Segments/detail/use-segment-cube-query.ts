@@ -58,39 +58,62 @@ export interface UseSegmentCubeQueryResult<T = Record<string, unknown>> {
   rows: T[];
 }
 
-/**
- * Scope a card query to the segment by ANDing on:
- *   1. `sliceFilters` — the segment's predicate (e.g. os_platform=iOS, a date
- *      window). These give measures the right window so the monitor matches the
- *      query-builder cell the segment came from, instead of re-aggregating each
- *      user's entire history.
- *   2. an identity-IN filter pinning the result to the materialized uid list.
- */
+/** Inject an identity-IN filter so the query is scoped to an explicit uid set.
+ *  Use only for small, bounded id sets (e.g. a paginated members page) — never
+ *  the full materialized uid_list, which can be millions long and blow past
+ *  Cube's query-text length limit. For full-cohort scoping use
+ *  {@link scopeQueryToCohort}. */
 export function scopeQueryToSegment(
   query: Query,
   identityDim: string,
   uids: string[],
-  sliceFilters: Query['filters'] = [],
 ): Query {
-  const extra = Array.isArray(sliceFilters) ? [...sliceFilters] : [];
-  if (uids.length > 0) {
-    extra.push({ member: identityDim, operator: 'equals' as never, values: uids });
-  }
-  if (extra.length === 0) return query;
-  const next: Query = { ...query };
-  next.filters = [...(Array.isArray(query.filters) ? query.filters : []), ...extra];
-  return next;
+  if (uids.length === 0) return query;
+  const idFilter = { member: identityDim, operator: 'equals' as never, values: uids };
+  return {
+    ...query,
+    filters: [...(Array.isArray(query.filters) ? query.filters : []), idFilter],
+  };
 }
 
-/** Parse the segment's predicate-derived Cube filters from cube_query_json. */
-export function segmentSliceFilters(segment: Segment | null): Query['filters'] {
-  if (!segment?.cube_query_json) return [];
+/** Parse the segment's predicate filters from its stored Cube query JSON.
+ *  Returns [] when absent/unparseable (manual segments carry no predicate). */
+export function predicateFiltersForSegment(segment: Segment): unknown[] {
+  if (!segment.cube_query_json) return [];
   try {
-    const parsed = JSON.parse(segment.cube_query_json) as { filters?: Query['filters'] };
-    return Array.isArray(parsed.filters) ? parsed.filters : [];
+    const q = JSON.parse(segment.cube_query_json) as { filters?: unknown[] };
+    return Array.isArray(q.filters) ? q.filters : [];
   } catch {
     return [];
   }
+}
+
+/** Scope a card query to the segment's cohort.
+ *  - `uidsOverride` given (paginated members page): identity-IN over that small,
+ *    explicit id set — the only correct scope for "the visible rows".
+ *  - Predicate segment: AND on the segment's predicate filters — the same basis
+ *    as the segment's authoritative size. An all-users predicate (`filters: []`)
+ *    leaves the query unscoped, which is correct. This avoids inlining the full
+ *    uid_list (HTTP 400 `Query text length exceeds the maximum length`) and is
+ *    the only correct approach for ratio measures (ARPU, paying-rate).
+ *  - Manual segment (no predicate): identity-IN over the uid_list. Manual
+ *    segments are explicit pushes, so the list is bounded. */
+export function scopeQueryToCohort(
+  query: Query,
+  segment: Segment,
+  identityDim: string,
+  uidsOverride?: string[],
+): Query {
+  if (uidsOverride) {
+    return scopeQueryToSegment(query, identityDim, uidsOverride);
+  }
+  if (segment.type === 'predicate') {
+    const predicateFilters = predicateFiltersForSegment(segment);
+    if (predicateFilters.length === 0) return query;
+    const filters = Array.isArray(query.filters) ? [...query.filters] : [];
+    return { ...query, filters: [...filters, ...predicateFilters] as Query['filters'] };
+  }
+  return scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
 }
 
 export interface UseSegmentCubeQueryOptions<T> {
@@ -146,10 +169,10 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
       return;
     }
 
-    const uidsForScope = options.uidsOverride ?? segment.uid_list ?? [];
-    const scopedLogical = scopeQueryToSegment(query, identityDim, uidsForScope, segmentSliceFilters(segment));
-    // Idempotent: already-physical slice filters pass through untouched; only
-    // the logical preset members get prefixed. No-op when prefix is null.
+    // Scope to the cohort by predicate (or identity-IN for manual / paginated
+    // member pages), then physicalize logical preset members for prefix
+    // workspaces. Both are no-ops where they don't apply (prefix null, etc).
+    const scopedLogical = scopeQueryToCohort(query, segment, identityDim, options.uidsOverride);
     const scoped = physicalizeQuery(scopedLogical, prefix);
     const key = hashKey(segment.id, scoped);
 
@@ -203,7 +226,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     return () => {
       cancelled = true;
     };
-  }, [segment?.id, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, prefix, JSON.stringify(options.uidsOverride)]);
+  }, [segment?.id, segment?.cube_query_json, segment?.type, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, prefix, JSON.stringify(options.uidsOverride)]);
 
   return { loading, error, rows };
 }

@@ -13,7 +13,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { load } from './cube-client.js';
+import { loadWithContinueWait } from './load-with-continue-wait.js';
 import { physicalizeQuery, logicalizeRows } from './cube-member-resolver.js';
 import type {
   PresetSpec,
@@ -21,9 +21,9 @@ import type {
   CardSpec,
 } from '../presets/mf-users-hub.js';
 
-// A card filter is either a leaf or a nested and/or group — slice filters
-// carried from the segment predicate can be logical groups, so the type must
-// admit both shapes.
+// A card filter is either a leaf or a nested and/or group — predicate filters
+// carried from the segment can be logical groups, so the type admits both
+// shapes and is carried through opaquely when scoping.
 type CardFilter =
   | { member: string; operator: string; values?: string[] }
   | { and: CardFilter[] }
@@ -79,32 +79,22 @@ function queryForCard(spec: CardSpec): CubeQuery {
 }
 
 /**
- * Scope a card query to the segment.
+ * Scope a card query to the segment's predicate filters — its defining slice
+ * (e.g. `os_platform = iOS`, `recharge_date in [W20]`). Without these a measure
+ * like `revenue_vnd` would re-aggregate over each user's ENTIRE history, so card
+ * numbers would diverge from the query-builder cell the segment came from.
  *
- * Two layers, both ANDed onto the card's own filters:
- *   1. The segment's predicate filters (the slice) — e.g. `os_platform = iOS`
- *      and `recharge_date in [W20]`. Without these, a measure like
- *      `revenue_vnd` re-aggregates over each user's ENTIRE history (all
- *      platforms, all time), so the monitor diverges from the query-builder
- *      cell the segment was created from. Applying them makes card numbers
- *      reflect the slice.
- *   2. The materialized uid list — pins membership to the frozen cohort.
- *
- * Both can be present at once: the intersection (uids ∩ slice) equals the
- * cohort, and the slice constraints are what give measures the right window.
+ * Scope by the predicate, NOT by inlining the materialized uid list: a
+ * million-member cohort serializes to multi-MB of identity-IN values that Cube
+ * rejects (query text length > 1,000,000). The predicate is also the only
+ * correct basis for ratio/average measures (ARPU, paying-rate), which can't be
+ * re-merged across uid batches. Only predicate segments reach here (the refresh
+ * job skips manual ones), so an empty predicate means all-users — the correct
+ * unscoped result.
  */
-function scopeQuery(
-  q: CubeQuery,
-  identityDim: string,
-  uids: string[],
-  sliceFilters: CardFilter[],
-): CubeQuery {
-  const extra: CardFilter[] = [...sliceFilters];
-  if (uids.length > 0) {
-    extra.push({ member: identityDim, operator: 'equals', values: uids });
-  }
-  if (extra.length === 0) return q;
-  return { ...q, filters: [...(q.filters ?? []), ...extra] };
+function scopeQuery(q: CubeQuery, segmentFilters: CardFilter[]): CubeQuery {
+  if (segmentFilters.length === 0) return q;
+  return { ...q, filters: [...(q.filters ?? []), ...segmentFilters] };
 }
 
 function hashQuery(q: CubeQuery): string {
@@ -119,12 +109,18 @@ function extractRows(loadResult: unknown): Array<Record<string, unknown>> {
   return r.data ?? r.results?.[0]?.data ?? [];
 }
 
-/** Walk a preset and emit { cardId, queryHash, rows } per KPI + card. */
+/** Per-card Cube timeout. Cards lean on heavy pre-aggregations (e.g. the LTV
+ *  install-cohort rollup) that can be mid-warm when a refresh fires; poll
+ *  through "Continue wait" rather than dropping the card on the first miss. */
+const PER_CARD_TIMEOUT_MS = 30_000;
+
+/** Walk a preset and emit { cardId, queryHash, rows } per KPI + card.
+ *  `segmentFilters` are the segment's predicate filters (from its stored
+ *  cube_query_json); each card query is scoped by ANDing them on. */
 export async function runPresetCards(
   preset: PresetSpec,
-  uids: string[],
+  segmentFilters: CardFilter[],
   tokenOverride?: string,
-  sliceFilters: CardFilter[] = [],
   /**
    * Cube cube-name prefix for prefix-model (prod) workspaces. Preset card specs
    * are written in logical names (`mf_users.user_count`); on a prefix workspace
@@ -150,13 +146,13 @@ export async function runPresetCards(
 
   const results: CardCacheEntry[] = [];
   for (const { id, query } of allSpecs) {
-    const scoped = scopeQuery(query, preset.identityDim, uids, sliceFilters);
+    const scoped = scopeQuery(query, segmentFilters);
     // Physicalize the logical preset members for prefix workspaces (idempotent:
-    // already-physical slice filters pass through), then logicalize response
+    // already-physical predicate filters pass through), then logicalize response
     // row keys so the cached rows match the logical card spec the FE renders by.
     const physical = physicalizeQuery(scoped, prefix);
     try {
-      const raw = await load(physical, tokenOverride);
+      const raw = await loadWithContinueWait(physical, tokenOverride, PER_CARD_TIMEOUT_MS);
       const rows = logicalizeRows(extractRows(raw), prefix);
       results.push({ cardId: id, queryHash: hashQuery(physical), rows });
     } catch (err) {

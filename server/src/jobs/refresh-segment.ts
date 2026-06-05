@@ -238,12 +238,13 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     const preset = pickPresetForCube(logicalCube(row.cube, prefix));
     if (preset) {
       try {
-        // baseQuery.filters IS the segment's predicate translated to Cube
-        // filters — pass it as the slice scope so card measures (revenue, LTV)
-        // reflect the cohort's defining slice, not each user's full history.
-        // The preset's logical members are physicalized inside runPresetCards.
-        const sliceFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
-        const entries = await runPresetCards(preset, uids, token, sliceFilters, prefix);
+        // Scope cards by the segment's predicate filters — the same basis as
+        // the size query above — rather than the materialized uid list. The uid
+        // list can be millions of entries; inlining it as an identity-IN filter
+        // blows past Cube's query-text length limit (HTTP 400). The preset's
+        // logical members are physicalized inside runPresetCards via `prefix`.
+        const segmentFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
+        const entries = await runPresetCards(preset, segmentFilters, token, prefix);
         upsertCardCache(segmentId, entries);
       } catch (err) {
         console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);
