@@ -461,7 +461,7 @@ function extractFollowupContext(sections: ReadonlyArray<AssistantSection>): {
   return { cubes: Array.from(cubes), tools: Array.from(tools) };
 }
 
-export function AssistantMessage({
+function AssistantMessageImpl({
   sections,
   ts,
   cacheHit,
@@ -555,6 +555,18 @@ export function AssistantMessage({
     </div>
   );
 }
+
+/**
+ * Memoized so committed turns don't re-render — and re-parse their full
+ * markdown via ReactMarkdown — on every streamed token of the live turn. In a
+ * long session the un-memoized cost grows with history length and saturates
+ * the main thread, making the "Stop generating" button (and the whole UI)
+ * unresponsive. Committed messages pass referentially-stable props (stable
+ * `sections` ref, `showFollowups=false` while streaming, useCallback handlers),
+ * so the shallow compare holds; only the live `__streaming__` message — whose
+ * `sections` array rebuilds each render — re-renders.
+ */
+export const AssistantMessage = React.memo(AssistantMessageImpl);
 
 // ---------------------------------------------------------------------------
 // Merge helper — pairs each tool_result with its tool_call

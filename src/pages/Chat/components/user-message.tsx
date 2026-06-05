@@ -29,7 +29,7 @@ interface UserMessageProps {
   compact?: boolean;
 }
 
-export function UserMessage({ text, ts, compact }: UserMessageProps) {
+function UserMessageImpl({ text, ts, compact }: UserMessageProps) {
   const tsLabel = ts ? formatLocalTimestamp(ts) : null;
   return (
     <div
@@ -67,3 +67,10 @@ export function UserMessage({ text, ts, compact }: UserMessageProps) {
     </div>
   );
 }
+
+/**
+ * Memoized so committed user turns don't re-render on every streamed token of
+ * the live assistant turn. Props (text/ts/compact) are referentially stable
+ * for committed messages, so memo holds — only the live turn re-renders.
+ */
+export const UserMessage = React.memo(UserMessageImpl);
