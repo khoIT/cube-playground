@@ -1,7 +1,7 @@
 /**
  * URL-driven tab state for the Detail page. Reads `?tab=` on mount, applies
  * legacy mapping from the old 7-tab IDs to the new 5-tab structure, and
- * falls back to `monitor` (the new default for ALL segments).
+ * falls back to `insights` (the default landing tab for ALL segments).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -48,7 +48,7 @@ export function useActiveTab(): ActiveTabState {
   const [tab, setTabState] = useState<DetailTabId>(() => {
     if (VALID.has(raw as DetailTabId)) return raw as DetailTabId;
     const mapped = LEGACY_MAP[raw];
-    return mapped?.tab ?? 'monitor';
+    return mapped?.tab ?? 'insights';
   });
   const [section, setSectionState] = useState<string | null>(() => {
     const querySection = params.get('section');
