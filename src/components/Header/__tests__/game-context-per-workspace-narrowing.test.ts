@@ -8,6 +8,8 @@
  *   1. Real-auth user with grants in active workspace → only granted games shown
  *   2. Real-auth user with empty grant in active workspace → no games shown (fail-closed)
  *   3. AUTH_DISABLED (isRealAuth=false) → all games shown regardless of grants
+ *   4. Real-auth admin → all games shown (admins manage the grant rows; gating
+ *      them on those rows would strand a fresh admin with no picker)
  *
  * Note: the full GameContextProvider is NOT rendered here because it requires
  * stubbing gamesClient.list(), fetch('/api/workspaces'), readiness fetch, and
@@ -76,6 +78,27 @@ describe('per-workspace grant narrowing (real-auth)', () => {
     const user: AuthUser = { id: 'u', username: 'u', role: 'editor' };
     const visible = applyGrantNarrowing(allGames, true, 'local', user);
     expect(visible).toHaveLength(0);
+  });
+});
+
+// ── admin bypass ─────────────────────────────────────────────────────────────
+
+describe('per-workspace grant narrowing (admin bypass)', () => {
+  it('shows all games for a real-auth admin with no grant rows', () => {
+    // A fresh admin administers grants but has none of their own — bypass keeps
+    // the picker alive (mirrors the server's userCanAccessGame admin bypass).
+    const user: AuthUser = { id: 'a', username: 'a', role: 'admin', gamesByWorkspace: {} };
+    const visible = applyGrantNarrowing(allGames, true, 'local', user);
+    expect(visible).toHaveLength(allGames.length);
+  });
+
+  it('shows all games for an admin even with a partial grant row present', () => {
+    const user: AuthUser = {
+      id: 'a', username: 'a', role: 'admin',
+      gamesByWorkspace: { local: ['ballistar'] },
+    };
+    const visible = applyGrantNarrowing(allGames, true, 'local', user);
+    expect(visible).toHaveLength(allGames.length);
   });
 });
 

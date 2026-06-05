@@ -36,15 +36,19 @@ const FALLBACK_GAME: GameDef = { id: 'ballistar', name: 'Ballistar', mark: 'BS' 
  * a resolved workspace id only — fail-closed: no grant in that workspace yields
  * an empty pool. Dev (isRealAuth=false) or an unresolved workspace id passes
  * through (the dev loop never strands the picker; first paint doesn't flash
- * empty). Exported so the narrowing is unit-tested against the real logic.
+ * empty). Admins bypass narrowing entirely — they administer the grant rows, so
+ * gating them on those rows would hide the picker from a fresh admin (mirrors
+ * the server's userCanAccessGame admin bypass). Exported so the narrowing is
+ * unit-tested against the real logic.
  */
 export function narrowGamesByWorkspaceGrant<T extends { id: string }>(
   pool: T[],
   isRealAuth: boolean,
   workspaceId: string,
-  authUser: Pick<AuthUser, 'gamesByWorkspace'> | null,
+  authUser: Pick<AuthUser, 'role' | 'gamesByWorkspace'> | null,
 ): T[] {
   if (!isRealAuth || !workspaceId) return pool;
+  if (authUser?.role === 'admin') return pool;
   const grantedHere = new Set(authUser?.gamesByWorkspace?.[workspaceId] ?? []);
   return pool.filter((g) => grantedHere.has(g.id));
 }

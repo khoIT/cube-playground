@@ -83,4 +83,17 @@ describe('userCanAccessGame — per-workspace fail-closed', () => {
     const s = subject({ 'prod': ['cfm_vn'] });
     expect(userCanAccessGame(s, 'prod', 'ballistar')).toBe(false);
   });
+
+  it('admin bypasses grant checks — no rows, partial rows, fallback OFF', () => {
+    // Admins administer the grant rows; gating them on those rows would lock
+    // the grantor out (a fresh admin has no rows). Bypass must hold regardless
+    // of fallback state or whatever partial rows exist.
+    process.env.AUTHZ_GRANT_FALLBACK = 'false';
+    const admin = (g: Record<string, string[]>): AuthzSubject => ({
+      role: 'admin', workspaces: [], gamesByWorkspace: g, features: {},
+    });
+    expect(userCanAccessGame(admin({}), 'ws-a', 'g1')).toBe(true);
+    expect(userCanAccessGame(admin({ 'ws-a': ['g2'] }), 'ws-a', 'g1')).toBe(true);
+    expect(userCanAccessGame(admin({ 'ws-a': ['g1'] }), 'ws-b', 'g1')).toBe(true);
+  });
 });

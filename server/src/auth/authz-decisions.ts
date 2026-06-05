@@ -52,12 +52,17 @@ export function userCanAccessWorkspace(
  * locked out mid-migration. But once a user has grants in even one workspace,
  * they're checked strictly per-workspace everywhere — matching the workspace
  * doctrine that a user who DOES have grants is always checked against them.
+ *
+ * Admin bypass: admins see and manage every game — they administer the grant
+ * rows themselves, so gating them on those rows would lock the grantor out
+ * (a fresh admin has no rows and would otherwise lose the game picker).
  */
 export function userCanAccessGame(
   subject: AuthzSubject,
   workspaceId: string,
   gameId: string,
 ): boolean {
+  if (subject.role === 'admin') return true;
   const granted = subject.gamesByWorkspace[workspaceId];
   if (granted && granted.length > 0) return granted.includes(gameId);
   const hasAnyGrant = Object.values(subject.gamesByWorkspace).some((g) => g.length > 0);
