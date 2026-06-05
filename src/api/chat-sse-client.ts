@@ -65,6 +65,20 @@ export interface ChartSpec {
   encoding: { category: string; value: string; series?: string };
 }
 
+/**
+ * Per-column descriptor for a chart's data rows — mirrors
+ * chat-service/src/services/chart-spec.ts. Resolved server-side from /meta so
+ * the UI labels axes/headers deterministically and the column-picker knows
+ * which columns are numeric (Y-axis eligible).
+ */
+export interface ChartColumn {
+  /** Row key == Cube member ref, e.g. "mf_users.ltv_total_vnd". */
+  key: string;
+  label: string;
+  dataType: 'number' | 'string' | 'time';
+  kind: 'measure' | 'dimension' | 'timeDimension';
+}
+
 /** Compiled chart artifact emitted via SSE / embedded on a query artifact. */
 export interface ChartArtifact {
   id: string;
@@ -75,6 +89,8 @@ export interface ChartArtifact {
   originalRowCount: number;
   /** Pointer to a parent query_artifact when the chart was attached. */
   artifactRef?: string;
+  /** Meta-resolved descriptors for every column present in spec.data rows. */
+  columns?: ChartColumn[];
 }
 
 /** QueryArtifact shape — mirrors chat-service/src/types.ts */

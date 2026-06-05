@@ -13,7 +13,7 @@
 
 import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
-import { cubeHasTimeDimension, cubeNameOf } from '../core/cube-meta-capability.js';
+import { cubeHasTimeDimension, cubeNameOf, resolveMemberMeta } from '../core/cube-meta-capability.js';
 import { getResolutions } from '../cache/disambig-memory-adapter.js';
 import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
@@ -156,6 +156,11 @@ export async function handler(
   if (args.chart) {
     try {
       chart = buildChartArtifact(args.chart, { artifactRef: deeplink.artifactId });
+      // Resolve a deterministic descriptor for every column in the chart rows so
+      // the UI labels axes/headers from /meta (not LLM-invented names) and the
+      // column-picker knows which columns are numeric. Keys are Cube member refs.
+      const columnKeys = Object.keys(chart.spec.data[0] ?? {});
+      chart.columns = columnKeys.map((key) => ({ key, ...resolveMemberMeta(meta, key) }));
     } catch (err) {
       console.warn(
         '[emit_query_artifact] chart build failed; emitting artifact without chart',

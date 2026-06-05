@@ -111,6 +111,8 @@ Pick `type` by shape:
 | 1 entity dim + **2 metrics** ("A vs B", correlation) | `scatter` |
 
 Rules:
+- **Include ALL result columns in each `data` row** (paste the `preview_cube_query` rows verbatim — already keyed by member name, ≤50 rows). The card shows the full set as a table and lets the user re-pick axes; do NOT trim rows to only the two charted columns.
+- **Set `encoding` to the two columns that best answer the question**, then pick `type` from the table above. For a multi-dimension / per-entity **leaderboard** (e.g. "top whales' lifetime value, with recency") the card opens as a **table** showing every dimension; the chart is a focused 2-column view of the two most relevant columns — here the metric (`ltv_total_vnd`) against the most relevant dimension (`days_since_last_active`). The full result set opens in the Playground.
 - A question phrased "**A vs B per <entity>**" (e.g. "ARPU vs paying-rate per country") is a **correlation between two metrics** → `scatter`, NOT a bar of a single metric. Charting only one of the two metrics drops the comparison the user asked for.
 - For `scatter`: set `encoding.category` = the **x-axis metric** column and `encoding.value` = the **y-axis metric** column. Emit **one row per entity** and KEEP the entity's label column in each row (e.g. `country`) — the renderer labels each point with the leftover column. Example rows: `[{ country: 'VN', arpu_vnd: 7657, paying_rate: 0.12 }, …]` with `encoding: { category: 'arpu_vnd', value: 'paying_rate' }`.
 - When a metric has no native measure (e.g. lifetime paying-rate = `paying_users / user_count`), compute the ratio per row yourself and emit the scatter via `emit_chart` (an assistant-derived rollup).

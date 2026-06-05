@@ -12,6 +12,8 @@
 interface CubeDimension {
   name: string;
   type?: string;
+  shortTitle?: string;
+  title?: string;
 }
 
 interface CubeMeasure {
@@ -65,4 +67,61 @@ export function primaryTimeDimensionOf(meta: any, cubeName: string): string | nu
   if (!cube) return null;
   const td = (cube.dimensions ?? []).find((d) => d.type === 'time');
   return td?.name ?? null;
+}
+
+/** "mf_users.ltv_total_vnd" → "Ltv total vnd". Last-resort label when meta lacks a title. */
+function humaniseMember(memberRef: string): string {
+  const leaf = memberRef.includes('.') ? memberRef.slice(memberRef.lastIndexOf('.') + 1) : memberRef;
+  const words = leaf.replace(/[_-]+/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : memberRef;
+}
+
+export type MemberKind = 'measure' | 'dimension' | 'timeDimension';
+export type MemberDataType = 'number' | 'string' | 'time';
+
+export interface ResolvedMemberMeta {
+  /** Display label — meta shortTitle/title, else humanised member name. */
+  label: string;
+  dataType: MemberDataType;
+  kind: MemberKind;
+}
+
+/**
+ * Resolve a chart/table column key (a Cube member ref keyed in /load rows) to
+ * its display label + data type + kind, from the /meta payload. Used to build
+ * the deterministic `columns[]` descriptor so the UI never relies on
+ * LLM-invented column names (e.g. "revenue" for ltv_total_vnd).
+ *
+ * Cube sometimes keys a granular time dimension as "cube.member.granularity"
+ * (e.g. ".day"); when an exact match fails we retry on the "cube.member" stem.
+ */
+export function resolveMemberMeta(meta: any, memberRef: string): ResolvedMemberMeta {
+  const candidates = [memberRef];
+  const parts = memberRef.split('.');
+  if (parts.length >= 3) candidates.push(`${parts[0]}.${parts[1]}`);
+
+  for (const cube of (meta?.cubes as CubeMetaCube[]) ?? []) {
+    for (const ref of candidates) {
+      const measure = (cube.measures ?? []).find((m) => m.name === ref);
+      if (measure) {
+        return {
+          label: measure.shortTitle ?? measure.title ?? humaniseMember(memberRef),
+          dataType: 'number',
+          kind: 'measure',
+        };
+      }
+      const dim = (cube.dimensions ?? []).find((d) => d.name === ref);
+      if (dim) {
+        const isTime = dim.type === 'time';
+        return {
+          label: dim.shortTitle ?? dim.title ?? humaniseMember(memberRef),
+          dataType: isTime ? 'time' : dim.type === 'number' ? 'number' : 'string',
+          kind: isTime ? 'timeDimension' : 'dimension',
+        };
+      }
+    }
+  }
+
+  // Member not in meta (assistant-derived rollup column, ratio, etc.) — best-effort label.
+  return { label: humaniseMember(memberRef), dataType: 'string', kind: 'dimension' };
 }

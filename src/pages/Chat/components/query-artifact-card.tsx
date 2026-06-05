@@ -15,8 +15,9 @@ import { useHistory } from 'react-router-dom';
 import { BarChart2, ExternalLink } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
 import { AssistantChartSection } from './assistant-chart-section';
-import { ChartSectionMenu } from './chart-section-menu';
+import { ChartSectionMenu, preferTableView } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
+import { buildLabelMap } from './chart-column-labels';
 import type { QueryArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
 interface QueryArtifactCardProps {
@@ -41,8 +42,13 @@ const SOURCE_COLOR: Record<QueryArtifact['source'], string> = {
 
 export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps) {
   const history = useHistory();
-  const [view, setView] = useState<'chart' | 'table'>('chart');
+  // Table-first for table-shaped results (leaderboards / wide multi-column);
+  // small categorical charts open on the chart.
+  const [view, setView] = useState<'chart' | 'table'>(() =>
+    artifact.chart && preferTableView(artifact.chart.spec) ? 'table' : 'chart',
+  );
   const [overrideType, setOverrideType] = useState<ChartSpec['type'] | undefined>(undefined);
+  const [overrideEncoding, setOverrideEncoding] = useState<ChartSpec['encoding'] | undefined>(undefined);
 
   function handleOpen() {
     // Write payload to sessionStorage BEFORE navigation for session-storage artifacts.
@@ -69,6 +75,8 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
   const sourceLabel = SOURCE_LABEL[artifact.source] ?? artifact.source;
   const chart = artifact.chart;
   const activeType = overrideType ?? chart?.spec.type;
+  const activeEncoding = overrideEncoding ?? chart?.spec.encoding;
+  const chartLabels = buildLabelMap(chart?.columns);
 
   return (
     <div
@@ -134,6 +142,13 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
               setOverrideType(t);
               setView('chart');
             }}
+            columns={chart.columns}
+            labels={chartLabels}
+            activeEncoding={activeEncoding}
+            onChangeEncoding={(enc) => {
+              setOverrideEncoding(enc);
+              setView('chart');
+            }}
           />
         )}
       </div>
@@ -157,9 +172,14 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
       {chart && (
         <div style={{ padding: '4px 24px 12px' }}>
           {view === 'chart' ? (
-            <AssistantChartSection artifact={chart} embedded overrideType={overrideType} />
+            <AssistantChartSection
+              artifact={chart}
+              embedded
+              overrideType={overrideType}
+              overrideEncoding={overrideEncoding}
+            />
           ) : (
-            <ChartSectionDataTable rows={chart.spec.data} spec={chart.spec} />
+            <ChartSectionDataTable rows={chart.spec.data} spec={chart.spec} labels={chartLabels} />
           )}
         </div>
       )}

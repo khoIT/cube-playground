@@ -14,6 +14,7 @@ import {
   formatReadableValue,
   type ValueUnit,
 } from './format-chart-value';
+import { labelOf, type LabelMap } from './chart-column-labels';
 
 interface ChartSectionDataTableProps {
   rows: Array<Record<string, string | number>>;
@@ -24,9 +25,15 @@ interface ChartSectionDataTableProps {
    * back to thousand-separated numbers).
    */
   spec?: ChartSpec;
+  /**
+   * Member-ref → display label map (from the artifact's `columns`). Renders
+   * "Total LTV (VND)" headers instead of raw "mf_users.ltv_total_vnd" keys.
+   * Optional — falls back to a humanised key.
+   */
+  labels?: LabelMap;
 }
 
-export function ChartSectionDataTable({ rows, spec }: ChartSectionDataTableProps) {
+export function ChartSectionDataTable({ rows, spec, labels = {} }: ChartSectionDataTableProps) {
   if (rows.length === 0) {
     return (
       <div
@@ -85,7 +92,7 @@ export function ChartSectionDataTable({ rows, spec }: ChartSectionDataTableProps
                   whiteSpace: 'nowrap',
                 }}
               >
-                {c}
+                {labelOf(labels, c)}
               </th>
             ))}
           </tr>

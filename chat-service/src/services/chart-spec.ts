@@ -82,6 +82,21 @@ export type ChartType = ChartSpec['type'];
 // ChartArtifact — the runtime object emitted to SSE and persisted to DB
 // ---------------------------------------------------------------------------
 
+/**
+ * Per-column descriptor for a chart's data rows. Resolved from /meta so the UI
+ * renders deterministic labels (table headers, axis titles) and the manual
+ * column-picker knows which columns are numeric (Y-axis eligible) — instead of
+ * trusting LLM-invented column names.
+ */
+export interface ChartColumn {
+  /** Row key == Cube member ref, e.g. "mf_users.ltv_total_vnd". */
+  key: string;
+  /** Display label — meta shortTitle/title, else humanised key. */
+  label: string;
+  dataType: 'number' | 'string' | 'time';
+  kind: 'measure' | 'dimension' | 'timeDimension';
+}
+
 export interface ChartArtifact {
   id: string;
   spec: ChartSpec;
@@ -91,6 +106,8 @@ export interface ChartArtifact {
   originalRowCount: number;
   /** Optional pointer to a query_artifact that produced this data. */
   artifactRef?: string;
+  /** Meta-resolved descriptors for every column present in spec.data rows. */
+  columns?: ChartColumn[];
 }
 
 // ---------------------------------------------------------------------------

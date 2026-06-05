@@ -6,7 +6,7 @@
  * data table, CSV export). Embedded mode (inside QueryArtifactCard) stays
  * minimal: just the chart body, no header, no menu.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -31,18 +31,18 @@ import {
   Legend,
 } from 'recharts';
 import { T, CHART } from '../../../shell/theme';
-import { ChartSectionMenu, isNumericColumn, toDualAxisSpec, toScatterSpec } from './chart-section-menu';
+import { ChartSectionMenu, isNumericColumn, preferTableView, toDualAxisSpec, toScatterSpec } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 import {
   axisUnitLabel,
-  columnAxisLabel,
   detectChartUnit,
   detectColumnUnit,
   detectPercentScale,
   formatAxisValue,
   formatReadableValue,
 } from './format-chart-value';
+import { buildLabelMap, labelOf, type LabelMap } from './chart-column-labels';
 
 const CHART_HEIGHT = 320;
 
@@ -56,32 +56,54 @@ interface AssistantChartSectionProps {
    * embedded mode; the standalone surface owns its own override state.
    */
   overrideType?: ChartSpec['type'];
+  /**
+   * Optional controlled encoding override (X/Y/series chosen via the axis
+   * picker). Like overrideType, used in embedded mode where the card owns the
+   * menu; the standalone surface manages its own.
+   */
+  overrideEncoding?: ChartSpec['encoding'];
 }
 
-export function AssistantChartSection({ artifact, embedded, overrideType: externalOverride }: AssistantChartSectionProps) {
+export function AssistantChartSection({
+  artifact,
+  embedded,
+  overrideType: externalOverride,
+  overrideEncoding: externalEncoding,
+}: AssistantChartSectionProps) {
   const { spec, truncated, originalRowCount } = artifact;
-  const [view, setView] = useState<'chart' | 'table'>('chart');
+  // Table-first for table-shaped results (leaderboards / wide multi-column);
+  // small categorical charts stay chart-first.
+  const [view, setView] = useState<'chart' | 'table'>(() => (preferTableView(spec) ? 'table' : 'chart'));
   const [internalOverride, setInternalOverride] = useState<ChartSpec['type'] | null>(null);
+  const [internalEncoding, setInternalEncoding] = useState<ChartSpec['encoding'] | null>(null);
+  // Member-ref → label map (from server-resolved columns) for axis/tooltip/header text.
+  const labels = useMemo(() => buildLabelMap(artifact.columns), [artifact.columns]);
 
   const overrideType = externalOverride ?? internalOverride;
+  const overrideEncoding = externalEncoding ?? internalEncoding;
   const activeType = overrideType ?? spec.type;
-  // Switching to scatter from a category×value chart isn't a plain re-type — the
-  // axes must be re-encoded onto two numeric columns, so route through
-  // toScatterSpec. Every other switch is a straight type override.
+  const activeEncoding = overrideEncoding ?? spec.encoding;
+  // An explicit axis pick sets the encoding directly, so a type change is then a
+  // plain re-type. Without one, switching to scatter/dual-axis must re-encode
+  // onto numeric columns (toScatterSpec / toDualAxisSpec); other switches are a
+  // straight type override.
+  const baseSpec = overrideEncoding ? ({ ...spec, encoding: overrideEncoding } as ChartSpec) : spec;
   const activeSpec = !overrideType
-    ? spec
-    : overrideType === 'scatter' && spec.type !== 'scatter'
-      ? toScatterSpec(spec)
-      : overrideType === 'dual-axis' && spec.type !== 'dual-axis'
-        ? toDualAxisSpec(spec)
-        : ({ ...spec, type: overrideType } as ChartSpec);
+    ? baseSpec
+    : overrideEncoding
+      ? ({ ...baseSpec, type: overrideType } as ChartSpec)
+      : overrideType === 'scatter' && spec.type !== 'scatter'
+        ? toScatterSpec(spec)
+        : overrideType === 'dual-axis' && spec.type !== 'dual-axis'
+          ? toDualAxisSpec(spec)
+          : ({ ...spec, type: overrideType } as ChartSpec);
 
   // Embedded mode keeps the original minimal rendering — no header, no menu.
   if (embedded) {
     return (
       <div style={{ marginTop: 12, marginBottom: 0, padding: 0 }}>
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          {renderChartBody(activeSpec)}
+          {renderChartBody(activeSpec, labels)}
         </ResponsiveContainer>
         {(spec.caption || truncated) && (
           <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
@@ -137,6 +159,13 @@ export function AssistantChartSection({ artifact, embedded, overrideType: extern
             setInternalOverride(t);
             setView('chart');
           }}
+          columns={artifact.columns}
+          labels={labels}
+          activeEncoding={activeEncoding}
+          onChangeEncoding={(enc) => {
+            setInternalEncoding(enc);
+            setView('chart');
+          }}
         />
       </div>
 
@@ -144,10 +173,10 @@ export function AssistantChartSection({ artifact, embedded, overrideType: extern
       <div style={{ padding: '16px 24px' }}>
         {view === 'chart' ? (
           <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-            {renderChartBody(activeSpec)}
+            {renderChartBody(activeSpec, labels)}
           </ResponsiveContainer>
         ) : (
-          <ChartSectionDataTable rows={spec.data} spec={spec} />
+          <ChartSectionDataTable rows={spec.data} spec={spec} labels={labels} />
         )}
         {(spec.caption || truncated) && (
           <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
@@ -193,7 +222,7 @@ function Footer({ spec, truncated, originalRowCount }: FooterProps) {
 // renderChartBody — switch on spec.type → recharts component tree
 // ---------------------------------------------------------------------------
 
-function renderChartBody(spec: ChartSpec): React.ReactElement {
+function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactElement {
   // Unit detection drives axis ticks, tooltips, pie labels. Done once per
   // chart so detectUnit's regex work doesn't run per tick / per tooltip.
   const unit = detectChartUnit(spec);
@@ -224,9 +253,12 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
   // Left margin reserves room for the rotated Y-axis label.
   const cartesianMargin = { top: 8, right: 16, left: 16, bottom: 4 };
   // Recharts tooltip formatter signature: (value, name) → [display, name].
-  // Returning the original `name` preserves the series label.
+  // Map the column key (`name`) to its friendly label so the tooltip reads
+  // "Total LTV (VND)" instead of "mf_users.ltv_total_vnd".
   const tooltipFormatter = (value: number | string, name: string) =>
-    [readable(value), name] as [string, string];
+    [readable(value), labelOf(labels, name)] as [string, string];
+  // Legend entries are dataKeys (column/series keys) — map to friendly labels.
+  const legendFormatter = (value: string | number) => labelOf(labels, String(value));
   const pieLabel = ({ name, value }: { name: string; value: number }) =>
     `${name}: ${readable(value)}`;
 
@@ -274,7 +306,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
-          <Legend />
+          <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
             <Bar key={s} dataKey={s} stackId="a" fill={CHART[i % CHART.length]} />
           ))}
@@ -294,7 +326,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
-          <Legend />
+          <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
             <Bar key={s} dataKey={s} fill={CHART[i % CHART.length]} />
           ))}
@@ -328,7 +360,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
           <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} />
-          <Legend />
+          <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
             <Line
               key={s}
@@ -379,7 +411,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             ))}
           </Pie>
           <Tooltip formatter={tooltipFormatter} />
-          <Legend />
+          <Legend formatter={legendFormatter} />
         </PieChart>
       );
 
@@ -395,7 +427,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       const rightScale = rightUnit === 'percent' ? detectPercentScale(spec.data.map((r) => r[rightCol])) : 1;
       const comboTooltip = (value: number | string, name: string) => {
         const isLeft = name === leftCol;
-        return [formatReadableValue(value, isLeft ? leftUnit : rightUnit, isLeft ? leftScale : rightScale), name] as [string, string];
+        return [formatReadableValue(value, isLeft ? leftUnit : rightUnit, isLeft ? leftScale : rightScale), labelOf(labels, name)] as [string, string];
       };
       return (
         <ComposedChart data={spec.data} margin={{ top: 8, right: 20, left: 16, bottom: 4 }}>
@@ -406,7 +438,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             stroke={T.n500}
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, leftUnit, leftScale)}
-            label={{ value: columnAxisLabel(leftCol, spec), angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
+            label={{ value: labelOf(labels, leftCol), angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
           />
           <YAxis
             yAxisId="right"
@@ -414,10 +446,10 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             stroke={T.n500}
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, rightUnit, rightScale)}
-            label={{ value: columnAxisLabel(rightCol, spec), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
+            label={{ value: labelOf(labels, rightCol), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
           />
           <Tooltip formatter={comboTooltip} />
-          <Legend />
+          <Legend formatter={legendFormatter} />
           <Bar yAxisId="left" dataKey={leftCol} fill={CHART[0]} />
           <Line yAxisId="right" type="monotone" dataKey={rightCol} stroke={CHART[1]} strokeWidth={2} dot={{ r: 3 }} />
         </ComposedChart>
@@ -440,7 +472,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
       const scatterTooltip = (value: number | string, name: string) => {
         const u = name === spec.encoding.category ? xUnit : name === spec.encoding.value ? yUnit : unit;
         const s = name === spec.encoding.category ? xScale : name === spec.encoding.value ? yScale : 1;
-        return [formatReadableValue(value, u, s), name] as [string, string];
+        return [formatReadableValue(value, u, s), labelOf(labels, name)] as [string, string];
       };
       return (
         <ScatterChart margin={{ top: 12, right: 20, left: 16, bottom: 20 }}>
@@ -455,7 +487,7 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, xUnit, xScale)}
             label={{
-              value: columnAxisLabel(spec.encoding.category, spec),
+              value: labelOf(labels, spec.encoding.category),
               position: 'insideBottom',
               offset: -8,
               style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 },
@@ -468,7 +500,12 @@ function renderChartBody(spec: ChartSpec): React.ReactElement {
             stroke={T.n500}
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, yUnit, yScale)}
-            label={valueAxisLabel}
+            label={{
+              value: labelOf(labels, spec.encoding.value),
+              angle: -90,
+              position: 'insideLeft',
+              style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 },
+            }}
           />
           <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={scatterTooltip} />
           <Scatter data={spec.data} fill={CHART[0]}>

@@ -13,7 +13,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, BarChart3, LineChart as LineChartIcon, Table2, Download, Check } from 'lucide-react';
 import { T, Icon, type LucideIcon } from '../../../shell/theme';
-import type { ChartSpec } from '../../../api/chat-sse-client';
+import type { ChartColumn, ChartSpec } from '../../../api/chat-sse-client';
+import { labelOf, type LabelMap } from './chart-column-labels';
 
 const TYPE_LABEL: Record<ChartSpec['type'], string> = {
   bar: 'Bar',
@@ -124,6 +125,17 @@ export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
   return types;
 }
 
+/**
+ * Default to the table (not the chart) for table-shaped results — a
+ * high-cardinality entity leaderboard (e.g. 100 users) or a wide multi-column
+ * result reads as a table, and a single-series bar of it is noise. Small
+ * categorical results stay chart-first.
+ */
+export function preferTableView(spec: ChartSpec): boolean {
+  const columnCount = Object.keys(spec.data[0] ?? {}).length;
+  return spec.data.length > 12 || columnCount >= 4;
+}
+
 export function toCsv(rows: Array<Record<string, string | number>>): string {
   if (rows.length === 0) return '';
   const cols = Object.keys(rows[0]);
@@ -148,6 +160,14 @@ interface ChartSectionMenuProps {
   onShowChart: () => void;
   onShowTable: () => void;
   onChangeType: (t: ChartSpec['type']) => void;
+  /** Column descriptors — when present, the menu shows an X/Y/Series axis picker. */
+  columns?: ChartColumn[];
+  /** Member-ref → label map for the axis-picker option text. */
+  labels?: LabelMap;
+  /** Encoding currently rendered (so the picker reflects the active axes). */
+  activeEncoding?: ChartSpec['encoding'];
+  /** Apply a user-chosen encoding (X/Y/optional series). */
+  onChangeEncoding?: (encoding: ChartSpec['encoding']) => void;
 }
 
 export function ChartSectionMenu({
@@ -158,6 +178,10 @@ export function ChartSectionMenu({
   onShowChart,
   onShowTable,
   onChangeType,
+  columns,
+  labels = {},
+  activeEncoding,
+  onChangeEncoding,
 }: ChartSectionMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -263,6 +287,18 @@ export function ChartSectionMenu({
               <Divider />
             </>
           )}
+          {view === 'chart' && columns && columns.length > 0 && onChangeEncoding && (
+            <>
+              <MenuLabel>Axes</MenuLabel>
+              <AxisPicker
+                columns={columns}
+                labels={labels}
+                encoding={activeEncoding ?? spec.encoding}
+                onChange={onChangeEncoding}
+              />
+              <Divider />
+            </>
+          )}
           {view === 'chart' && (
             <MenuItem icon={Table2} label="Data table" onClick={() => { onShowTable(); setOpen(false); }} />
           )}
@@ -280,6 +316,97 @@ export function ChartSectionMenu({
 function chartTypeIcon(t: ChartSpec['type']): LucideIcon {
   if (t === 'line' || t === 'multi-line' || t === 'area') return LineChartIcon;
   return BarChart3;
+}
+
+// ---------------------------------------------------------------------------
+// AxisPicker — choose which columns map to X / Y (/ optional series). Lets the
+// user re-chart any two columns of the result table without leaving the card.
+// Y is restricted to numeric columns; series to non-numeric (grouping) columns.
+// ---------------------------------------------------------------------------
+
+interface AxisPickerProps {
+  columns: ChartColumn[];
+  labels: LabelMap;
+  encoding: ChartSpec['encoding'];
+  onChange: (encoding: ChartSpec['encoding']) => void;
+}
+
+function AxisPicker({ columns, labels, encoding, onChange }: AxisPickerProps) {
+  const numeric = columns.filter((c) => c.dataType === 'number');
+  const categorical = columns.filter((c) => c.dataType !== 'number');
+
+  return (
+    <div style={{ padding: '2px 10px 6px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <AxisSelect
+        label="X"
+        value={encoding.category}
+        options={columns}
+        labels={labels}
+        onChange={(v) => onChange({ ...encoding, category: v })}
+      />
+      <AxisSelect
+        label="Y"
+        value={encoding.value}
+        options={numeric.length > 0 ? numeric : columns}
+        labels={labels}
+        onChange={(v) => onChange({ ...encoding, value: v })}
+      />
+      <AxisSelect
+        label="Series"
+        value={encoding.series ?? ''}
+        options={categorical}
+        labels={labels}
+        allowNone
+        onChange={(v) => {
+          const next = { ...encoding };
+          if (v) next.series = v;
+          else delete next.series;
+          onChange(next);
+        }}
+      />
+    </div>
+  );
+}
+
+interface AxisSelectProps {
+  label: string;
+  value: string;
+  options: ChartColumn[];
+  labels: LabelMap;
+  allowNone?: boolean;
+  onChange: (value: string) => void;
+}
+
+function AxisSelect({ label, value, options, labels, allowNone, onChange }: AxisSelectProps) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: T.fSans, fontSize: 12.5 }}>
+      <span style={{ width: 46, color: T.n500, flexShrink: 0 }}>{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: 26,
+          padding: '0 6px',
+          background: T.surface,
+          border: `1px solid ${T.n200}`,
+          borderRadius: 6,
+          color: T.n900,
+          fontFamily: T.fSans,
+          fontSize: 12.5,
+          cursor: 'pointer',
+        }}
+      >
+        {allowNone && <option value="">None</option>}
+        {options.map((c) => (
+          <option key={c.key} value={c.key}>
+            {labelOf(labels, c.key)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 interface MenuItemProps {

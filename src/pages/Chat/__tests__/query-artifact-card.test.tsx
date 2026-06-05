@@ -53,6 +53,43 @@ const INLINE_ARTIFACT: QueryArtifact = {
   payload: null,
 };
 
+// Leaderboard artifact: 1 measure + entity/attribute dims, > 12 rows → the
+// card should default to the table (showing all columns with meta-resolved
+// labels), not a single-series chart.
+const LEADERBOARD_ARTIFACT: QueryArtifact = {
+  id: 'art-lb-1',
+  title: 'Top whales by lifetime value',
+  summary: 'Whales inactive 30+ days, by LTV',
+  query: { measures: ['mf_users.ltv_total_vnd'] },
+  source: 'raw',
+  deeplinkUrl: '#/build?query=%7B%7D',
+  deeplinkVia: 'inline',
+  payload: null,
+  chart: {
+    id: 'chart-lb-1',
+    truncated: false,
+    originalRowCount: 100,
+    spec: {
+      type: 'scatter',
+      title: 'LTV vs days since last active',
+      data: Array.from({ length: 14 }, (_, i) => ({
+        'mf_users.user_id': `u${i}`,
+        'mf_users.ltv_total_vnd': 1_000_000 * (14 - i),
+        'mf_users.days_since_last_active': 30 + i,
+      })),
+      encoding: {
+        category: 'mf_users.days_since_last_active',
+        value: 'mf_users.ltv_total_vnd',
+      },
+    },
+    columns: [
+      { key: 'mf_users.user_id', label: 'User ID', dataType: 'string', kind: 'dimension' },
+      { key: 'mf_users.ltv_total_vnd', label: 'Total LTV (VND)', dataType: 'number', kind: 'measure' },
+      { key: 'mf_users.days_since_last_active', label: 'Days since last active', dataType: 'number', kind: 'dimension' },
+    ],
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Mock useHistory push
 // ---------------------------------------------------------------------------
@@ -165,5 +202,23 @@ describe('QueryArtifactCard', () => {
     expect(screen.getByText('Daily Revenue')).toBeTruthy();
     expect(screen.getByText('Revenue last 7 days')).toBeTruthy();
     expect(screen.getByText('Metric')).toBeTruthy();
+  });
+
+  it('leaderboard chart defaults to the table view with meta-resolved labels', () => {
+    render(
+      <RouterWithSpy history={memHistory}>
+        <QueryArtifactCard artifact={LEADERBOARD_ARTIFACT} />
+      </RouterWithSpy>,
+    );
+
+    // Table-first: the view-switcher trigger reads "Data table", not a chart type.
+    expect(screen.getByTestId('chart-section-menu-trigger').textContent).toContain('Data table');
+
+    // Headers use the server-resolved column labels (not raw "mf_users.ltv_total_vnd").
+    expect(screen.getByText('Total LTV (VND)')).toBeTruthy();
+    expect(screen.getByText('Days since last active')).toBeTruthy();
+    expect(screen.getByText('User ID')).toBeTruthy();
+    // The raw member key must not leak into the header.
+    expect(screen.queryByText('mf_users.ltv_total_vnd')).toBeNull();
   });
 });
