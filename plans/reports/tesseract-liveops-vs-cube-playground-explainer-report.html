@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tesseract — how it works, and why it isn't cube-playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,ital,wght@8..60,0,400;8..60,0,500;8..60,0,600;8..60,0,700;8..60,0,800;8..60,1,400;8..60,1,600&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== Financial Times palette ===== */
+:root, [data-theme="light"]{
+  --bg:#FFF1E5; --paper:#FCF8EF; --paper2:#F5E5D5; --tag:#EAD9C6;
+  --ink:#262A33; --muted:#66605C; --faint:#998F87;
+  --line:#CCC1B7; --line-strong:#A39B91;
+  --petrol:#0D7680; --petrol-ink:#0a5b63; --petrol-tint:#DCE8E9;
+  --claret:#990F3D; --claret-tint:#F2DCE2;
+  --oxford:#0F5499; --ochre:#8A5A00; --ochre-tint:#F2E4C9;
+  --shadow:0 3px 12px rgba(38,42,51,.08);
+}
+[data-theme="dark"]{
+  --bg:#1F1B17; --paper:#2A2521; --paper2:#251F19; --tag:#36302A;
+  --ink:#E8DDD0; --muted:#A89E91; --faint:#776E63;
+  --line:#3A3530; --line-strong:#524A40;
+  --petrol:#5BC0CA; --petrol-ink:#7FD0D8; --petrol-tint:#0F2A2D;
+  --claret:#E27295; --claret-tint:#3A1E26;
+  --oxford:#7AB3E0; --ochre:#D8A53E; --ochre-tint:#33280F;
+  --shadow:0 3px 14px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Source Serif 4',Georgia,serif;font-size:17px;line-height:1.62;
+  font-variation-settings:"opsz" 18;color:var(--ink);background:var(--bg);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  transition:background-color .2s,color .2s;
+}
+.sans{font-family:'Source Sans 3',system-ui,sans-serif}
+h1,h2,h3,h4{font-family:'Source Serif 4',Georgia,serif;font-weight:700;line-height:1.14;letter-spacing:-.01em;margin:0 0 .4em}
+h1{font-size:2.5rem;font-weight:800;font-variation-settings:"opsz" 60;letter-spacing:-.02em}
+h1 .accent{color:var(--claret)}
+h2{font-size:1.7rem;font-variation-settings:"opsz" 32;margin:1.5em 0 .3em;padding-bottom:.28em;border-bottom:2px solid var(--ink)}
+h2:first-child{margin-top:0}
+h3{font-size:1.2rem;font-variation-settings:"opsz" 24;margin:1.5em 0 .5em;color:var(--ink)}
+p{margin:0 0 .95em}
+.lead{font-size:1.12rem;line-height:1.6}
+code,kbd{font-family:'IBM Plex Mono',monospace;font-size:.82em;background:var(--paper2);border:1px solid var(--line);padding:.06em .34em;border-radius:2px}
+strong{font-weight:700}em{font-style:italic}
+a{color:var(--oxford);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--oxford)}
+
+/* ===== masthead ===== */
+.header{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:13px clamp(20px,3vw,48px);background:var(--bg);border-bottom:1px solid var(--ink)}
+.brand{font-weight:800;font-size:1.05rem;font-variation-settings:"opsz" 24;display:flex;align-items:center;gap:11px;letter-spacing:-.01em}
+.brand .dot{width:9px;height:9px;background:var(--petrol);display:inline-block}
+.h-meta{font-family:'Source Sans 3',sans-serif;font-size:.66rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.13em}
+.h-actions{display:flex;align-items:center;gap:12px}
+.theme-toggle{width:34px;height:34px;border:1px solid var(--ink);background:transparent;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--ink);transition:all .15s}
+.theme-toggle:hover{background:var(--ink);color:var(--bg)}
+
+.wrap{max-width:980px;margin:0 auto;padding:0 clamp(20px,3vw,48px) 90px}
+header.hero{max-width:980px;margin:0 auto;padding:46px clamp(20px,3vw,48px) 22px}
+.kicker{font-family:'Source Sans 3',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--claret);margin-bottom:10px}
+.sub{color:var(--muted);font-style:italic;font-size:1.12rem;max-width:60ch;font-variation-settings:"opsz" 20}
+.goals{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:26px;border:1px solid var(--line);background:var(--paper)}
+.goal{padding:15px 18px;border-right:1px solid var(--line)}
+.goal:last-child{border-right:none}
+.goal b{display:block;font-family:'Source Sans 3',sans-serif;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--petrol-ink);margin-bottom:5px}
+.goal small{color:var(--muted);font-size:.93rem;line-height:1.45}
+.hint-bar{margin-top:20px;font-family:'Source Sans 3',sans-serif;font-size:.82rem;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--petrol);padding:9px 14px}
+.hint-bar b{color:var(--ink)}
+
+/* ===== tabs (FT category-tabs) ===== */
+.tabs{position:sticky;top:60px;z-index:30;background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs-inner{max-width:980px;margin:0 auto;display:flex;gap:0;padding:12px clamp(20px,3vw,48px);flex-wrap:wrap}
+.tab{font-family:'Source Sans 3',sans-serif;background:var(--paper);border:1px solid var(--ink);border-right:none;color:var(--muted);padding:9px 16px;font-size:.86rem;font-weight:600;cursor:pointer}
+.tab:last-child{border-right:1px solid var(--ink)}
+.tab:hover{color:var(--ink);background:var(--tag)}
+.tab.active{background:var(--ink);color:var(--bg);font-weight:700}
+section.view{display:none;padding-top:30px}
+section.view.active{display:block;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ===== blocks ===== */
+.card{background:var(--paper);border:1px solid var(--line);padding:20px 24px;margin:18px 0;box-shadow:var(--shadow)}
+.keystone{background:var(--paper);border:1px solid var(--line);border-top:4px solid var(--claret)}
+.keystone .big{font-size:1.2rem;font-weight:700;color:var(--ink);line-height:1.4}
+.chain{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--muted);white-space:pre-wrap;line-height:1.75;background:var(--paper2);border:1px solid var(--line);padding:16px 18px;overflow:auto}
+.chain b{color:var(--petrol-ink);font-weight:600}
+.faint{color:var(--faint)}
+.note{font-family:'Source Sans 3',sans-serif;font-size:.92rem;color:var(--muted);border-left:3px solid var(--petrol);padding:5px 0 5px 15px;margin:14px 0;line-height:1.5}
+.note b{color:var(--ink)}
+.note.warn{border-color:var(--ochre)}
+
+/* ===== badges ===== */
+.b{display:inline-block;font-family:'Source Sans 3',sans-serif;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border:1px solid}
+.b.rt{background:var(--petrol-tint);color:var(--petrol-ink);border-color:var(--petrol)}
+.b.batch{background:var(--claret-tint);color:var(--claret);border-color:var(--claret)}
+.b.approx{background:var(--ochre-tint);color:var(--ochre);border-color:var(--ochre)}
+.b.no{background:var(--tag);color:var(--muted);border-color:var(--line-strong)}
+
+/* ===== event stepper ===== */
+.sim{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+@media(max-width:880px){.sim{grid-template-columns:1fr}.goals{grid-template-columns:1fr}.goal{border-right:none;border-bottom:1px solid var(--line)}}
+.stage{background:var(--paper);border:1px solid var(--line);padding:17px}
+.controls{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-family:'Source Sans 3',sans-serif}
+.btn{background:var(--petrol);color:#fff;border:1px solid var(--petrol);font-weight:700;padding:8px 15px;cursor:pointer;font-family:'Source Sans 3',sans-serif;font-size:.84rem}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+.btn.ghost:hover{border-color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:default}
+.clock{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--muted)}
+.evt{font-family:'IBM Plex Mono',monospace;font-size:12px;border:1px solid var(--line);padding:9px 11px;margin:7px 0;opacity:.4;transition:.25s;background:var(--paper2);cursor:pointer}
+.evt:hover{opacity:1;border-color:var(--petrol-ink)}
+.evt.done{opacity:.72}
+.evt.cur{opacity:1;border-color:var(--petrol);box-shadow:inset 0 0 0 1px var(--petrol);background:var(--petrol-tint)}
+.evt .ty{color:var(--petrol-ink);font-weight:600}
+.evt .pl{color:var(--muted)}
+.stamp{font-family:'Source Sans 3',sans-serif;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px}
+.statecard{border:1px solid var(--line);padding:13px 15px;margin-bottom:12px;background:var(--paper2)}
+.statecard.base{border-left:3px solid var(--claret)}
+.statecard.live{border-left:3px solid var(--petrol)}
+.statecard.merged{border:1px solid var(--petrol);border-left:3px solid var(--petrol);background:var(--petrol-tint)}
+.kv{display:flex;justify-content:space-between;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--muted)}
+.kv .v{color:var(--ink);font-weight:600}
+.kv .v.up{color:var(--petrol-ink)}
+.decision{margin-top:12px;padding:14px;border:1px dashed var(--line-strong);font-family:'Source Sans 3',sans-serif;font-size:.9rem}
+.decision.go{border:1px solid var(--petrol);background:var(--petrol-tint)}
+.decision .verdict{font-weight:800;font-size:1rem;font-family:'Source Serif 4',serif}
+.formula{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+
+/* ===== algebra explorer ===== */
+.algrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.algbtn{flex:1;min-width:140px;text-align:left;background:var(--paper);border:1px solid var(--line);padding:11px 13px;cursor:pointer;color:var(--ink);font-family:'Source Sans 3',sans-serif}
+.algbtn.active{border-color:var(--petrol);border-left:3px solid var(--petrol);background:var(--petrol-tint)}
+.algbtn b{display:block;font-size:.92rem;font-family:'Source Serif 4',serif}
+.algbtn small{color:var(--muted);font-size:.74rem}
+.algpanel{background:var(--paper);border:1px solid var(--line);padding:18px 20px;min-height:150px}
+.algpanel .merge{font-family:'IBM Plex Mono',monospace;font-size:14px;background:var(--paper2);border:1px solid var(--line);padding:14px;margin:10px 0;color:var(--ink);white-space:pre-wrap;line-height:1.6}
+
+/* ===== tables ===== */
+table{width:100%;border-collapse:collapse;font-family:'Source Sans 3',sans-serif;font-size:.92rem;margin:12px 0}
+th,td{text-align:left;padding:10px 13px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);vertical-align:top}
+th{border-bottom:2px solid var(--ink);color:var(--ink);font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+tr:hover td{background:var(--paper)}
+
+/* ===== chips ===== */
+.chips{display:flex;gap:0;margin:10px 0 14px;flex-wrap:wrap;border:1px solid var(--ink);width:fit-content}
+.chip{font-family:'Source Sans 3',sans-serif;background:var(--paper);border:none;border-right:1px solid var(--line);color:var(--muted);padding:7px 15px;font-size:.82rem;cursor:pointer;font-weight:600}
+.chip:last-child{border-right:none}
+.chip.on{background:var(--ink);color:var(--bg)}
+.qrow{display:none}.qrow.show{display:table-row}
+
+/* ===== two planes ===== */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:880px){.vs{grid-template-columns:1fr}}
+.plane{border:1px solid var(--line);padding:20px;background:var(--paper)}
+.plane.tess{border-top:4px solid var(--petrol)}
+.plane.cube{border-top:4px solid var(--claret)}
+.plane h4{font-family:'Source Serif 4',serif;margin:0 0 2px;font-size:1.3rem;font-weight:800;text-transform:none;letter-spacing:-.01em}
+.plane .tag-line{font-family:'Source Sans 3',sans-serif;font-size:.74rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em}
+.axis{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line);font-family:'Source Sans 3',sans-serif;font-size:.86rem}
+.axis:last-child{border:none}
+.axis .lab{color:var(--muted)}
+.axis .val{font-weight:700;text-align:right}
+.q{background:var(--paper);border:1px solid var(--line);padding:15px;margin:11px 0}
+.q .qtxt{font-weight:700;margin-bottom:9px;font-family:'Source Serif 4',serif}
+.route{display:inline-flex;align-items:center;gap:8px;font-family:'Source Sans 3',sans-serif;font-size:.78rem;font-weight:700;padding:5px 12px;border:1px solid}
+.route.tess{background:var(--petrol-tint);color:var(--petrol-ink);border-color:var(--petrol)}
+.route.cube{background:var(--claret-tint);color:var(--claret);border-color:var(--claret)}
+.q .why{color:var(--muted);font-family:'Source Sans 3',sans-serif;font-size:.88rem;margin-top:9px;line-height:1.5}
+
+/* ===== flow + lifecycle ===== */
+.flow{display:grid;gap:0;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+.fbox{border:1px solid var(--line);padding:11px 13px;background:var(--paper2);margin:0 auto;max-width:560px;width:100%}
+.farrow{height:24px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.fsplit{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:560px;margin:0 auto;width:100%}
+.fbox.b1{border-left:3px solid var(--claret)}.fbox.b2{border-left:3px solid var(--petrol)}
+.fbox.top{border-top:3px solid var(--petrol)}
+.lifecycle{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin-top:14px}
+.lc{flex:1;min-width:160px;background:var(--paper);border:1px solid var(--line);padding:14px 14px 12px;position:relative;font-family:'Source Sans 3',sans-serif}
+.lc.tess{border-color:var(--petrol);border-left:3px solid var(--petrol);background:var(--petrol-tint)}
+.lc .n{position:absolute;top:-11px;left:13px;background:var(--petrol);color:#fff;font-weight:800;font-size:.68rem;width:22px;height:22px;display:flex;align-items:center;justify-content:center}
+.lc b{display:block;margin-top:5px;font-size:.96rem;font-family:'Source Serif 4',serif;font-weight:700}
+.lc small{color:var(--muted);font-size:.8rem;line-height:1.4;display:block;margin-top:3px}
+.lcarrow{display:flex;align-items:center;color:var(--petrol);font-size:18px}
+@media(max-width:780px){.lcarrow{display:none}.lc{min-width:100%}}
+ul.tight{margin:8px 0;padding-left:20px}
+ul.tight li{margin:5px 0;font-family:'Source Sans 3',sans-serif;font-size:.92rem}
+.pill-legend{display:flex;gap:16px;flex-wrap:wrap;font-family:'Source Sans 3',sans-serif;font-size:.78rem;color:var(--muted);margin:8px 0 0;align-items:center}
+.footer{color:var(--muted);font-family:'Source Sans 3',sans-serif;font-size:.84rem;margin-top:44px;border-top:2px solid var(--ink);padding-top:18px}
+.footer b{color:var(--ink)}
+
+/* ===== concept popups ===== */
+.concept{border-bottom:1.5px dotted var(--petrol);cursor:pointer;color:var(--petrol-ink)}
+.concept:hover{background:var(--petrol-tint)}
+.concept::after{content:'\2197';font-size:9px;vertical-align:super;color:var(--petrol);margin-left:1px}
+.vbadge{margin-top:16px;display:inline-flex;align-items:center;gap:7px;font-family:'Source Sans 3',sans-serif;font-size:.78rem;font-weight:600;background:var(--petrol-tint);border:1px solid var(--petrol);color:var(--petrol-ink);padding:6px 13px;cursor:pointer;transition:all .15s}
+.vbadge:hover{background:var(--petrol);color:#fff}
+.modal{position:fixed;inset:0;background:rgba(38,42,51,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:24px}
+.modal.open{display:flex}
+.modal-card{position:relative;background:var(--paper);border:1px solid var(--ink);border-top:4px solid var(--claret);max-width:700px;width:100%;max-height:84vh;overflow:auto;padding:24px 28px 26px;box-shadow:0 30px 80px rgba(0,0,0,.3);animation:fade .22s ease}
+.modal-card .mtitle{font-family:'Source Serif 4',serif;font-size:1.35rem;font-weight:800;margin:0 0 8px;padding-right:36px;letter-spacing:-.01em}
+.modal-card .msec{display:inline-block;font-family:'Source Sans 3',sans-serif;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--claret);background:var(--claret-tint);border:1px solid var(--claret);padding:3px 10px;margin-bottom:16px}
+.modal-card blockquote{margin:0;border-left:3px solid var(--petrol);padding:4px 0 4px 18px;color:var(--ink);font-size:1.04rem;line-height:1.7;font-style:italic}
+.modal-card blockquote code{font-style:normal}
+.modal-card .synth{color:var(--ink);font-size:.98rem;line-height:1.62;font-family:'Source Sans 3',sans-serif}
+.modal-card .synth p{margin:0 0 11px}
+.modal-card .synth b{color:var(--ink)}
+.modal-card .synth .lead{border-left:3px solid var(--petrol);padding:3px 0 3px 15px;font-size:1.04rem;line-height:1.6}
+.modal-card .synth table{font-size:.82rem;margin:13px 0}
+.modal-card .synth th,.modal-card .synth td{padding:6px 9px}
+.modal-card .synth .served{color:var(--petrol-ink);font-weight:700}
+.modal-card .synth .reset{color:var(--claret);font-weight:700}
+.modal-card .src{margin-top:18px;font-family:'Source Sans 3',sans-serif;font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:13px}
+.modal-card .src a{color:var(--oxford);font-weight:600}
+.modal-x{position:absolute;top:16px;right:18px;background:transparent;border:1px solid var(--line-strong);color:var(--muted);width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1}
+.modal-x:hover{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* ===== non-tech aids ===== */
+.oneliner{background:var(--petrol-tint);border:1px solid var(--petrol);border-left:3px solid var(--petrol);padding:11px 16px;margin:0 0 22px;font-family:'Source Sans 3',sans-serif;font-size:.98rem;color:var(--ink)}
+.oneliner b{color:var(--petrol-ink)}
+.analogy{margin-top:24px;border:1px solid var(--ink);background:var(--paper)}
+.an-cap{font-family:'Source Sans 3',sans-serif;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.13em;color:var(--claret);padding:11px 20px 0}
+.an-row{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:780px){.an-row{grid-template-columns:1fr}}
+.an{padding:14px 20px 18px;border-right:1px solid var(--line)}
+.an:last-child{border-right:none}
+.an-emoji{font-size:1.5rem;line-height:1}
+.an b{display:block;font-family:'Source Serif 4',serif;font-size:1.15rem;margin:6px 0 5px;font-weight:800}
+.an p{margin:0;color:var(--muted);font-size:.95rem;line-height:1.5}
+.an-seq{padding:12px 20px;border-top:1px solid var(--line);background:var(--paper2);font-family:'Source Sans 3',sans-serif;font-size:.9rem;font-weight:600;color:var(--petrol-ink);text-align:center}
+@media(max-width:780px){.an-row .an{border-right:none;border-bottom:1px solid var(--line)}}
+.eli5{margin-top:13px;font-family:'Source Sans 3',sans-serif;font-size:.92rem;background:var(--petrol-tint);border-left:3px solid var(--petrol);padding:8px 13px;color:var(--ink)}
+.eli5 b{color:var(--petrol-ink)}
+/* ===== objection FAQ ===== */
+details.qa{border:1px solid var(--line);background:var(--paper);margin:11px 0}
+details.qa>summary{cursor:pointer;list-style:none;padding:13px 18px;font-family:'Source Serif 4',serif;font-weight:700;font-size:1.02rem;display:flex;gap:11px;align-items:flex-start}
+details.qa>summary::-webkit-details-marker{display:none}
+details.qa>summary::before{content:'?';flex:none;width:22px;height:22px;background:var(--claret);color:#fff;font-family:'Source Sans 3',sans-serif;font-size:.8rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+details.qa[open]>summary::before{content:'−';font-size:1rem}
+details.qa[open]>summary{border-bottom:1px solid var(--line)}
+details.qa .ans{padding:14px 18px;font-family:'Source Sans 3',sans-serif;font-size:.93rem;color:var(--ink)}
+details.qa .ans p{margin:0 0 .7em}
+.litmus{margin-top:10px;background:var(--ochre-tint);border-left:3px solid var(--ochre);padding:9px 13px;font-size:.9rem}
+.tiers{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.tier{flex:1;min-width:145px;border:1px solid var(--line);padding:10px 12px;font-family:'Source Sans 3',sans-serif;font-size:.82rem;color:var(--muted)}
+.tier b{display:block;font-family:'Source Serif 4',serif;font-size:.95rem;color:var(--ink);margin-bottom:3px}
+.tier.hot{border-left:3px solid var(--petrol)}.tier.warm{border-left:3px solid var(--ochre)}.tier.cold{border-left:3px solid var(--claret)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand"><span class="dot"></span>Tesseract · GDS Architecture</div>
+  <div class="h-actions">
+    <span class="h-meta">Explainer · v0.3 + R1/R2</span>
+    <button class="theme-toggle" id="themeToggle" title="Toggle light / dark">◑</button>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="kicker">GDS · Operational analytics</div>
+  <h1>Tesseract in real life — and why it is <span class="accent">not</span> cube-playground</h1>
+  <p class="sub">A plain-language, worked walkthrough of thangLV's Tesseract platform (v0.3) through one LiveOps scenario — then a contrast with cube-playground, the holistic exploration tool, and where the two meet.</p>
+  <button class="vbadge" data-concept="crosscheck">✓ Independently fact-checked — what was verified &amp; what the cross-check corrected ↗</button>
+  <div class="goals">
+    <div class="goal"><b>① Why it must exist</b><small>The physics of real-time LiveOps at scale: you can't re-read raw events. Watch data flow through it.</small></div>
+    <div class="goal"><b>② How it differs</b><small>Materialize-on-write for machines vs scan-on-read for humans. Same question, two paths.</small></div>
+    <div class="goal"><b>③ Where they overlap</b><small>Explore → decide thresholds → register → serve. The link is definition-flow, not data-flow.</small></div>
+  </div>
+  <div class="analogy">
+    <div class="an-cap">The whole thing in one picture</div>
+    <div class="an-row">
+      <div class="an"><span class="an-emoji">🟢</span><b>Tesseract = the live scoreboard</b><p>Always up to date, readable in a blink. Holds only the few numbers the game needs to act <em>right now</em> — read by machines, mid-match.</p></div>
+      <div class="an"><span class="an-emoji">🎬</span><b>cube-playground = the film room</b><p>Study the whole season from every angle — by humans — to decide which numbers belong on the scoreboard, and where to set the bar.</p></div>
+    </div>
+    <div class="an-seq">Study in the film room → decide the key stats &amp; thresholds → put them on the scoreboard → the team reacts live.</div>
+  </div>
+</header>
+
+<nav class="tabs"><div class="tabs-inner">
+  <button class="tab active" data-v="why">① Why Tesseract exists</button>
+  <button class="tab" data-v="diff">② Tesseract vs cube-playground</button>
+  <button class="tab" data-v="overlap">③ Where they overlap</button>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ============================ GOAL 1 ============================ -->
+<section class="view active" id="why">
+
+  <div class="oneliner"><b>In one line:</b> Tesseract keeps a tiny, always-fresh number per player so a computer can decide in a blink — because it cannot re-read millions of raw events in time.</div>
+
+  <div class="card keystone">
+    <div class="kicker">The one idea everything hangs on</div>
+    <p class="big">At ~750,000 events/sec arriving and ~15,000 reads/sec going out with a <span class="concept" data-concept="freshness">500&nbsp;ms deadline</span>, <u>you cannot re-read a player's raw event history</u> — not when an event arrives, not when a decision is asked for.</p>
+    <p style="margin-bottom:6px">Every design choice in Tesseract is a consequence of that single constraint. Trace the chain:</p>
+    <div class="chain">can't re-read raw events  <span class="faint">(too slow at read · too costly at write)</span>
+   └─►  must store a <b>pre-computed</b>, incrementally-updated number per player
+          └─►  a nightly batch number alone is too <b>stale</b> for LiveOps
+                 └─►  so add a <b>live</b> stream-updated number on top
+                        └─►  now TWO independent writers must <b>combine at read</b>, with no raw data
+                               └─►  ∴ the aggregation must be <b>MERGEABLE</b>
+                                      └─►  ∴ the metric-algebra taxonomy — non-mergeable metrics are batch-only</div>
+  </div>
+
+  <h2>The scenario we'll follow</h2>
+  <p class="lead">Game <b>Dragon Empires</b>. Player <code>p_8842</code> is playing right now. The <b>Promotion engine</b> wants to decide, in-session and in milliseconds: <em>"Is this a high-value, currently-active player I should show a bonus-bundle offer to?"</em></p>
+  <p>That decision is a machine call, thousands of times a second, against fresh state — exactly what Tesseract is for. No human is reading a dashboard here.</p>
+
+  <h3>A raw event — the atom</h3>
+  <p>Everything starts as <span class="concept" data-concept="canonical"><b>canonical events</b></span>: one fact about one player at one moment. The fields are fixed; the <code>payload</code> varies by <code>type</code>.</p>
+  <div class="chain">(game=DragonEmpires, player=p_8842, object=sku_goldpack, event_time=10:12,
+ event_id=<em>content-hash</em>, type=<b>purchase</b>, payload={amount: 4.99, item_cat: currency})</div>
+  <div class="note"><span class="concept" data-concept="dimensions"><b>Dimensions vs events:</b></span> a <em>metric</em>'s "dimensions" are just fields lifted out of the event to group by. <code>lifetime_spend</code> has dimensions <code>(game, player)</code> → one total per player. Add <code>item_cat</code> as a dimension and you get spend split by <code>currency</code> / <code>cosmetic</code> / … — same events, finer buckets. The player is always the anchor, because hot state is keyed <code>(game, player, object?, metric)</code>.</div>
+
+  <h2>▶ Watch the data flow</h2>
+  <p>Step through <code>p_8842</code>'s session — or <b>click any event</b> to jump straight to it. The <span style="color:var(--claret)">BASE</span> (last night's authoritative batch) is fixed. Each event folds into the <span style="color:var(--petrol-ink)">LIVE</span> overlay; the <b>MERGED</b> value — what the gateway serves — recomputes by each metric's algebra, and the eligibility verdict updates <em>live</em>, because a read can land at any moment.</p>
+
+  <div class="sim">
+    <div class="stage">
+      <div class="controls">
+        <button class="btn" id="step">Next event ▸</button>
+        <button class="btn ghost" id="play">Auto-play</button>
+        <button class="btn ghost" id="reset">Reset</button>
+        <span class="clock">now = <span id="clock">10:00</span> · as_of = Jun&nbsp;03 00:00</span>
+      </div>
+      <div class="stamp">Incoming stream — today's events (all &gt; as_of → LIVE)</div>
+      <div id="events"></div>
+    </div>
+
+    <div class="stage">
+      <div class="statecard base">
+        <div class="stamp" style="color:var(--claret)">BASE · authoritative · ≤ as_of · exact (nightly Spark)</div>
+        <div class="kv"><span class="k">lifetime_spend</span><span class="v">$47.00</span></div>
+        <div class="kv"><span class="k">purchases_7d</span><span class="v">3</span></div>
+        <div class="kv"><span class="k">last_purchase</span><span class="v">Jun 02 14:00</span></div>
+        <div class="kv"><span class="k">modes_7d (HLL)</span><span class="v">≈3 {pvp,coop,raid}</span></div>
+      </div>
+      <div class="statecard live">
+        <div class="stamp" style="color:var(--petrol-ink)">LIVE · bounded overlay · &gt; as_of (stream, this session)</div>
+        <div class="kv"><span class="k">+ spend</span><span class="v" id="l_spend">$0.00</span></div>
+        <div class="kv"><span class="k">+ purchases</span><span class="v" id="l_pur">0</span></div>
+        <div class="kv"><span class="k">last_purchase</span><span class="v" id="l_lastpur">—</span></div>
+        <div class="kv"><span class="k">last_event</span><span class="v" id="l_lastev">—</span></div>
+        <div class="kv"><span class="k">+ modes seen</span><span class="v" id="l_modes">{}</span></div>
+      </div>
+      <div class="statecard merged">
+        <div class="stamp" style="color:var(--petrol-ink)">MERGED = merge(base, live) · stamped as_of/confidence · what the gateway serves</div>
+        <div class="kv"><span class="k">lifetime_spend <span class="faint">(sum)</span></span><span class="v up" id="m_spend">$47.00</span></div>
+        <div class="kv"><span class="k">purchases_7d <span class="faint">(sum)</span></span><span class="v" id="m_pur">3</span></div>
+        <div class="kv"><span class="k">last_purchase <span class="faint">(last-value)</span></span><span class="v" id="m_lastpur">Jun 02 14:00</span></div>
+        <div class="kv"><span class="k">modes_7d <span class="faint">(sketch∪)</span></span><span class="v" id="m_modes">≈3</span></div>
+      </div>
+      <div class="decision" id="decision">
+        <div class="verdict">Decision pending…</div>
+        <div class="formula">Rule: <code>lifetime_spend ≥ $50</code> AND <code>active (last_event within 30m)</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:18px"><b>The merge is the whole trick.</b> The gateway never re-scans events — it reads two small pre-aggregated numbers and combines them by the metric's algebra: <code>sum</code> → add, <code>last-value</code> → keep newest, <code>sketch</code> → union. Tonight's batch recomputes BASE from full history, advances <span class="concept" data-concept="asof"><code>as_of</code></span>, <span class="concept" data-concept="asofcycle">wipes the now-superseded LIVE</span>, and <span class="concept" data-concept="reconciliation">measures how far it had drifted</span> — so any stream error self-heals within one batch period. The served value is always one coherent answer stamped with its freshness: <span class="concept" data-concept="eventualcc">eventual (as-of) consistency</span>.</div>
+  <div class="note warn"><span class="concept" data-concept="dispatch"><b>Why exact-money reads skip LIVE.</b></span> When the dispatched offer's <em>value</em> must be exact (real reward / price), the gateway reads <b>BASE only</b> — authoritative, accepts being a few hours stale — rather than the fresher-but-estimated merged value. Freshness for eligibility; exactness for money.</div>
+
+  <h2>Why mergeability is the gate</h2>
+  <p>A metric is real-time-able <b>if and only if</b> <span class="concept" data-concept="algebra">its aggregation can be merged from partials</span> without the raw data. Click each class to see the merge — and where it breaks.</p>
+  <div class="algrow">
+    <button class="algbtn active" data-alg="add"><b>Additive</b><small>sum · count · min · max</small></button>
+    <button class="algbtn" data-alg="last"><b>Last-value</b><small>latest status / tier</small></button>
+    <button class="algbtn" data-alg="sketch"><b>Mergeable sketch</b><small>HLL · t-digest</small></button>
+    <button class="algbtn" data-alg="holistic"><b>Non-mergeable</b><small>exact distinct · sessions</small></button>
+  </div>
+  <div class="algpanel" id="algpanel"></div>
+
+  <h2>What it can answer — and what's off-limits</h2>
+  <div class="chips">
+    <button class="chip on" data-f="all">All</button>
+    <button class="chip" data-f="rt">Real-time ✓</button>
+    <button class="chip" data-f="approx">Real-time (approx)</button>
+    <button class="chip" data-f="batch">Batch-only / out of scope</button>
+  </div>
+  <table id="qtable">
+    <thead><tr><th style="width:46%">LiveOps question</th><th>Metric / algebra</th><th style="width:118px">Verdict</th></tr></thead>
+    <tbody>
+      <tr class="qrow show" data-k="rt"><td>How much has this player spent (lifetime / 7d)?</td><td>spend — <code>sum</code></td><td><span class="b rt">real-time</span></td></tr>
+      <tr class="qrow show" data-k="rt"><td>When did they last buy / log in?</td><td>last_*_time — <code>last-value</code></td><td><span class="b rt">real-time</span></td></tr>
+      <tr class="qrow show" data-k="rt"><td>How many matches / logins in last 7d?</td><td>counts — <code>sum</code></td><td><span class="b rt">real-time</span></td></tr>
+      <tr class="qrow show" data-k="rt"><td>Highest level / tier reached?</td><td>max — <code>additive</code></td><td><span class="b rt">real-time</span></td></tr>
+      <tr class="qrow show" data-k="rt"><td>Is this player in segment X? (offer eligibility)</td><td>predicate over the above</td><td><span class="b rt">real-time</span></td></tr>
+      <tr class="qrow show" data-k="approx"><td><em>Roughly</em> how many distinct modes/items touched this week?</td><td>HLL — <code>sketch</code></td><td><span class="b approx">approx</span></td></tr>
+      <tr class="qrow show" data-k="approx"><td><em>Roughly</em> their p95 match duration / spend percentile?</td><td>t-digest — <code>sketch</code></td><td><span class="b approx">approx</span></td></tr>
+      <tr class="qrow show" data-k="batch"><td><em>Exactly</em> how many unique items this player owns?</td><td>exact distinct — <code>holistic</code></td><td><span class="b batch">batch-only</span></td></tr>
+      <tr class="qrow show" data-k="batch"><td>Did they complete tutorial → 1st match → 1st buy, in order?</td><td>funnel — <code>order-dependent</code></td><td><span class="b batch">batch-only</span></td></tr>
+      <tr class="qrow show" data-k="batch"><td>How many play sessions / avg session length?</td><td>sessionization — <code>holistic</code></td><td><span class="b batch">batch-only</span></td></tr>
+      <tr class="qrow show" data-k="batch"><td>Is this player in the <em>top 1%</em> of spenders this week?</td><td>global rank — <code>cross-player</code></td><td><span class="b no">out of scope*</span></td></tr>
+      <tr class="qrow show" data-k="batch"><td>D7 retention of gold-pack buyers by channel & country?</td><td>ad-hoc, cross-player joins</td><td><span class="b no">exploration</span></td></tr>
+    </tbody>
+  </table>
+  <p class="faint" style="font-family:'Source Sans 3',sans-serif;font-size:.8rem">* An <em>approximate</em> percentile-rank is reachable via a global t-digest; an <em>exact</em> leaderboard is a different system. The bottom rows are where cube-playground lives — see tab ②.</p>
+
+  <div class="note"><b>The LiveOps gotcha worth telling product teams:</b> the things they most <em>want</em> in real time — funnels, sessions, exact unique counts, leaderboards — are exactly the holistic ones. Real-time rules must lean on additive + last-value + sketch <em>proxies</em> (spend totals, last-seen, approximate distincts, timeout-based "active"). Anything needing exact ordering / uniqueness / ranking comes from the nightly BASE, or from exploration.</div>
+
+  <h2>Pushing the design — two fair objections</h2>
+  <p>Both come up immediately, and both have honest answers that sharpen <em>where</em> the line actually sits.</p>
+
+  <details class="qa" open>
+    <summary>"Exactly how many unique items does this player own — why not just keep a store and track it?"</summary>
+    <div class="ans">
+      <p>You can — but only by storing the player's <b>full set of distinct item-types</b> (you need the set to dedupe). That breaks two things the platform is built on:</p>
+      <ul class="tight">
+        <li><b>It isn't mergeable.</b> To combine a batch <code>base</code> set with a live stream set you'd re-merge the actual sets at read — the raw re-aggregation the whole design exists to avoid.</li>
+        <li><b>State grows unbounded.</b> A growing set per player × 30M players blows the cost ceiling the <span class="concept" data-concept="hotstore">hot store</span> is sized for. Bounded per-player state is what keeps it affordable.</li>
+      </ul>
+      <p>The warehouse already holds every event, so <b>batch computes the exact number overnight</b> and serves it from <code>base</code>. "Batch-only" really means <em>"don't pay real-time prices for an answer that doesn't need to be sub-second."</em></p>
+      <p><b>Subtlety:</b> if ownership is +1/−1 add/remove and each item is unique, the <em>count owned</em> is just an additive counter — that <span class="b rt">is real-time</span>. Only distinct <em>types</em> (where the same type recurs) is holistic.</p>
+      <div class="litmus"><b>Litmus test:</b> does the number need exact <em>and</em> sub-second <em>and</em> per-player-at-scale — all three at once? You can almost always drop one: exactness can wait (batch), or sub-second can approximate (HLL ±2%).</div>
+    </div>
+  </details>
+
+  <details class="qa">
+    <summary>"Is this player in the top 1% of spenders this week — what if users can wait a few seconds?"</summary>
+    <div class="ans">
+      <p>Two good answers — and the second is the interesting one.</p>
+      <p><b>1 · Decompose it (no waiting needed).</b> "Top 1%" hides a <em>population</em> statistic — the 99th-percentile weekly-spend cutoff (say $500). That barely moves minute-to-minute. <b>Precompute the cutoff on a schedule</b>; then the per-player check is just <code>weekly_spend ≥ cutoff</code> — and <code>weekly_spend</code> is a real-time additive metric. A slow global number + a fast per-player compare = real-time, exact-enough.</p>
+      <p><b>2 · Or add a "warm" tier (this is what the seconds buy you).</b> Relaxing latency to seconds unlocks a middle tier between the hot store and nightly batch: <b>query the derived-fact layer (Iceberg / Trino) on demand</b> for a fresh, exact, cross-player answer — viable at <em>low QPS</em>. That warm tier is literally <span class="concept" data-concept="derivedfact">cube-playground's scan-on-read engine</span> doing operational duty.</p>
+      <div class="tiers">
+        <div class="tier hot"><b>Hot · p99 ≤ 500ms</b>Tesseract hot store · mergeable metrics · ~15k QPS</div>
+        <div class="tier warm"><b>Warm · seconds</b>on-demand Trino over derived-fact · holistic, low QPS</div>
+        <div class="tier cold"><b>Batch · nightly</b>Spark base · exact, any algebra</div>
+      </div>
+      <p style="margin-top:12px">So the real boundary isn't a wall — it's a <b>spectrum of latency tiers</b>. v0.3 specifies the hot and batch ends; the warm tier is a reasonable extension (and a good question for thangLV).</p>
+    </div>
+  </details>
+
+</section>
+
+<!-- ============================ GOAL 2 ============================ -->
+<section class="view" id="diff">
+  <div class="oneliner"><b>In one line:</b> Tesseract is the live scoreboard for machines; cube-playground is the film room for humans. Speed vs breadth — not competitors.</div>
+  <h2>Two opposite answers to the same physics</h2>
+  <p class="lead">Tesseract and cube-playground both turn events into metrics. They make the <b>opposite</b> engineering choice about <em>when</em> the computation happens — because their latency budgets are opposite.</p>
+
+  <div class="vs">
+    <div class="plane tess">
+      <h4>Tesseract</h4>
+      <div class="tag-line">operational serving · for machines</div>
+      <div style="margin-top:14px">
+        <div class="axis"><span class="lab">Strategy</span><span class="val">Materialize-on-<b>write</b></span></div>
+        <div class="axis"><span class="lab">Consumer</span><span class="val">Systems (Apollo, Promo, CS)</span></div>
+        <div class="axis"><span class="lab">Query shape</span><span class="val">Pre-declared, keyed point read</span></div>
+        <div class="axis"><span class="lab">Latency / load</span><span class="val">p99 ≤ 500ms · ~15k QPS</span></div>
+        <div class="axis"><span class="lab">Freshness</span><span class="val">Sub-second (live overlay)</span></div>
+        <div class="axis"><span class="lab">Exactness</span><span class="val">Exact (base) or approx (sketch)</span></div>
+        <div class="axis"><span class="lab">Metric classes</span><span class="val">Mergeable only</span></div>
+        <div class="axis"><span class="lab">Store</span><span class="val"><span class="concept" data-concept="hotstore">Hot KV (Aerospike/Scylla)</span></span></div>
+        <div class="axis"><span class="lab">Breadth</span><span class="val">Narrow, by design</span></div>
+      </div>
+    </div>
+    <div class="plane cube">
+      <h4>cube-playground</h4>
+      <div class="tag-line">holistic exploration · for humans</div>
+      <div style="margin-top:14px">
+        <div class="axis"><span class="lab">Strategy</span><span class="val">Compute / scan-on-<b>read</b></span></div>
+        <div class="axis"><span class="lab">Consumer</span><span class="val">Analysts, DA/BI, definers</span></div>
+        <div class="axis"><span class="lab">Query shape</span><span class="val">Ad-hoc measure × dimension × filter</span></div>
+        <div class="axis"><span class="lab">Latency / load</span><span class="val">Seconds · low concurrency</span></div>
+        <div class="axis"><span class="lab">Freshness</span><span class="val">As fresh as the warehouse</span></div>
+        <div class="axis"><span class="lab">Exactness</span><span class="val">Exact, full-fidelity</span></div>
+        <div class="axis"><span class="lab">Metric classes</span><span class="val">Any — incl. holistic</span></div>
+        <div class="axis"><span class="lab">Store</span><span class="val">Iceberg / MinIO via Trino</span></div>
+        <div class="axis"><span class="lab">Breadth</span><span class="val">Unbounded</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note"><span class="concept" data-concept="multitenancy"><b>Per-game isolation</b></span> — one game's traffic spike can't starve the others; physical bulkheads, not just labels.</div>
+
+  <h3>Same data, opposite question — watch the routing</h3>
+  <p>Run two real questions and see which plane each belongs to, and why.</p>
+  <div class="q">
+    <div class="qtxt">Q1 · "Right now, is <code>p_8842</code> a high-value active player, for an in-session offer?"</div>
+    <span class="route tess">→ Tesseract · point read, &lt;1ms, pre-materialized, fresh, per-player</span>
+    <div class="why">A machine needs one player's decision-ready state, thousands of times a second, inside a frame budget. Tesseract already holds the answer — it just merges base+live and stamps it. cube-playground <em>could</em> compute this but would scan events in Trino over seconds — fine for a human, fatal for an in-session offer.</div>
+  </div>
+  <div class="q">
+    <div class="qtxt">Q2 · "Last month, what's D7 retention of gold-pack buyers, split by acquisition channel and country?"</div>
+    <span class="route cube">→ cube-playground · scan-on-read, exact, arbitrary dimensions, holistic OK</span>
+    <div class="why">A human exploring — cross-player, arbitrary slicing, exact, order-dependent retention math. Holistic and ad-hoc: impossible to pre-materialize per player. Tesseract is structurally the wrong tool; this is exactly what a semantic layer over the warehouse is for.</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">The one-line distinction</h3>
+    <p style="margin-bottom:0"><b>Tesseract</b> stores <em>the answer to a known question</em> and keeps it fresh, so a machine can grab it instantly. <b>cube-playground</b> answers <em>any question you can think of</em> by scanning when you ask. The first trades breadth for speed; the second trades speed for breadth. Neither replaces the other — and Tesseract explicitly refuses the exploration job (<span class="concept" data-concept="nodash">no Tesseract dashboards · DA/BI explore the processed layer via a gateway</span>). And they run in <b>sequence</b>: you explore holistically in cube-playground to decide <em>which events and what thresholds</em> are worth serving, then register the chosen few in Tesseract for real-time — see tab ③.</p>
+  </div>
+  <div class="pill-legend">
+    <span><span class="b rt">real-time</span> mergeable, served live</span>
+    <span><span class="b approx">approx</span> sketch-based</span>
+    <span><span class="b batch">batch-only</span> holistic, from base</span>
+    <span><span class="b no">exploration</span> cube-playground's home</span>
+  </div>
+</section>
+
+<!-- ============================ GOAL 3 ============================ -->
+<section class="view" id="overlap">
+  <div class="oneliner"><b>In one line:</b> study in cube-playground to choose the few numbers and thresholds worth serving, then register those in Tesseract for real-time.</div>
+  <h2>Where the two meet</h2>
+  <p class="lead">They share <b>one thing</b>: the <em>definition</em> of a metric or segment. They should never share <em>data/state</em>. So the integration is <b>definition-flow, not data-flow</b> — far simpler than the two-way sync it first looks like.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">The relationship is a sequence, not a sync</h3>
+    <p style="margin-top:0">cube-playground is the <b>understand-and-decide</b> phase; Tesseract is the <b>runtime</b> phase. You explore the data holistically to choose <em>what is even worth operationalising</em> — then only the chosen, mergeable few cross the line into real-time serving.</p>
+    <div class="lifecycle">
+      <div class="lc"><span class="n">1</span><b>Explore</b><small>cube-playground · full fidelity, any slice, holistic — understand behaviour & distributions</small></div>
+      <div class="lcarrow">▸</div>
+      <div class="lc"><span class="n">2</span><b>Decide</b><small>which events matter · which metric · what threshold & window</small></div>
+      <div class="lcarrow">▸</div>
+      <div class="lc"><span class="n">3</span><b>Register</b><small>publish declaration → Tesseract registry · serveability lint checks it's mergeable</small></div>
+      <div class="lcarrow">▸</div>
+      <div class="lc tess"><span class="n">4</span><b>Serve</b><small>Tesseract maintains it in real time → LiveOps acts in-session</small></div>
+    </div>
+    <div class="note" style="margin-top:16px"><b>Concrete link to the demo:</b> the <code>$50</code> in tab ①'s eligibility rule is not arbitrary. You would discover it in cube-playground — explore the spend distribution, find the 90th-percentile whale cutoff ≈ <code>$50</code> — then <em>freeze that number</em> as the constant in the Tesseract real-time rule. <b>Exploration finds the threshold; Tesseract enforces it at runtime.</b> The same holds for <em>which</em> events to ingest and <em>which</em> metric to maintain: holistic analysis upstream decides the narrow, mergeable set Tesseract commits to serving.</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">…and a spectrum, not a wall</h3>
+    <p style="margin-top:0">The two systems aren't only sequential — at serve time they're the two ends of one <b>latency continuum</b>. A decision picks its tier by how fast it must answer and how exact/holistic it must be. The middle "warm" tier is where the boundary genuinely blurs: cube-playground's scan-on-read engine, doing operational duty.</p>
+    <div class="lifecycle">
+      <div class="lc tess"><span class="n" style="background:var(--petrol)">⚡</span><b>Hot · p99 ≤ 500ms</b><small>Tesseract hot store · point reads · mergeable metrics · ~15k QPS · the in-session offer</small></div>
+      <div class="lcarrow">▸</div>
+      <div class="lc" style="border-left:3px solid var(--ochre)"><span class="n" style="background:var(--ochre)">≈</span><b>Warm · seconds</b><small>on-demand Trino over the derived-fact layer · exact, holistic, cross-player · low QPS — "top 1% this week"</small></div>
+      <div class="lcarrow">▸</div>
+      <div class="lc" style="border-left:3px solid var(--claret)"><span class="n" style="background:var(--claret)">▦</span><b>Batch · nightly</b><small>Spark base · exact, any algebra · the deep analysis & the authoritative re-seed</small></div>
+    </div>
+    <div class="note" style="margin-top:16px"><b>The warm tier is the overlap, made operational.</b> v0.3 specifies the hot (Tesseract) and batch (warehouse) ends explicitly but leaves the middle unnamed. That middle — <span class="concept" data-concept="derivedfact">querying the derived-fact layer on demand</span> for quasi-real-time, exact, cross-player answers at low QPS — is exactly cube-playground's read path repurposed for machines. Naming it turns "two separate systems" into "one serving continuum, two engines." <em>Open question for thangLV: is a warm/on-demand tier in scope, or is everything either pre-materialized or nightly?</em></div>
+  </div>
+
+  <div class="card keystone">
+    <div class="kicker" style="margin-bottom:8px">Important · load-bearing</div>
+    <h3 style="margin-top:0">Cube is the on-ramp, not the runway</h3>
+    <p class="big" style="margin-top:0">QPS is a property of the <em>tier</em>, not the metric. The warm plane (Cube → Trino → Iceberg) is where humans <b>discover and compose</b> — it never carries the ~15k-QPS operational load. The only true high-QPS path is <b>hot</b>. So "how does warm serve thousands of QPS?" has one honest answer: <b>it doesn't — it decides what gets promoted to hot, which does.</b></p>
+    <p style="margin-bottom:6px"><b>1 · How users explore what's serveable.</b> Make the <span class="concept" data-concept="registry">Tesseract Metric Registry</span> a lens inside Cube's catalog: every modeled member is badged <em>registered? · algebra class · freshness tier · serveable-at-QPS</em> — the operational-serveability lint (Seam 1, below). Browsing that federated catalog <em>is</em> "what's available in warm to combine into a Tesseract condition." Explore-only members stay visibly distinct from operationalised ones, so an author can't compose a segment that physically can't be served.</p>
+    <p style="margin-bottom:6px"><b>2 · How thousands of QPS actually get served</b> — never from warm; three paths, in order of preference:</p>
+    <ol class="tight" style="margin-top:4px">
+      <li><span class="concept" data-concept="promotehot"><b>Promote to hot</b></span> — register the metric (mergeable, or a materialised flag); <span class="concept" data-concept="threesx">one declaration → executors</span> builds it into the hot KV; the Gateway serves it as a point read (p99 ≤ 500 ms). <em>The real ~15k-QPS path.</em></li>
+      <li><b>Cube pre-aggregations</b> — Cube Store serves <em>rollups</em> at high <b>analytical</b> concurrency, <b>sub-second</b> (Cube's own claim — <em>not</em> sub-ms), but <b>refresh-interval stale</b> and <b>analytical, not transactional</b>. Powers the LiveOps <b>console</b> — cohort grids, segment sizes, KPIs many operators watch at once — <em>not</em> the in-session decisioning path (per-key point reads, live, ~15k QPS). The disqualifier is access-pattern + freshness, <em>not</em> latency.</li>
+      <li><b>Raw Trino</b> — genuine ad-hoc only; tens of QPS, seconds. The "let me check before I register" query.</li>
+    </ol>
+    <div class="note" style="margin-bottom:0"><b>Cross-tier conditions — the "top 1% this week AND active now" pattern.</b> The percentile is <span class="concept" data-concept="algebra">non-mergeable</span> ⇒ can't be live. So precompute it warm/nightly into a hot-servable flag (<code>is_top_1pct = true</code>); the operational check is then two cheap hot reads: <code>flag AND active</code>. <b>Collapse the holistic part into a hot feature, combine cheaply with live state</b> — and Cube is where you discover you must.</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">One declaration → two executors</h3>
+    <div class="flow">
+      <div class="fbox top"><b>cube-playground</b> — authoring · governance · serveability lint<br/><span class="faint">where business + GDS declare a metric/segment once</span></div>
+      <div class="farrow">│ one declaration ▼</div>
+      <div class="fsplit">
+        <div class="fbox b2"><b>Cube → SQL → Trino</b><br/><span class="faint">exploration plane · full breadth · exact · any algebra</span></div>
+        <div class="fbox b1"><span class="concept" data-concept="registry"><b>Tesseract Metric Registry</b></span><br/><span class="faint">serving plane · gated subset · mergeable only</span></div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:14px">This mirrors Tesseract's own internal rule — <span class="concept" data-concept="threesx">"one definition → three executors"</span> — extended by one: the analytical executor (Cube) and the operational executor (Tesseract). The registry becomes a <b>downstream target of the semantic layer</b>, the way SQL is a downstream target of a Cube model — not a second, independently-authored source of truth.</div>
+  </div>
+
+  <h3>Seam 1 — the "operational-serveability" lint (build now, zero Tesseract dependency)</h3>
+  <p>cube-playground already knows each measure's type, so it can auto-classify every metric into Tesseract's taxonomy and badge it — turning Tesseract's hard limit into a governance signal.</p>
+  <table>
+    <thead><tr><th>Cube measure</th><th>Algebra class</th><th>Operational verdict</th></tr></thead>
+    <tbody>
+      <tr><td><code>sum</code> · <code>count</code> · <code>min</code> · <code>max</code></td><td>additive / distributive</td><td><span class="b rt">real-time</span></td></tr>
+      <tr><td>last-value-by-time</td><td>last-value</td><td><span class="b rt">real-time</span></td></tr>
+      <tr><td><code>countDistinctApprox</code> (HLL)</td><td>mergeable sketch</td><td><span class="b approx">real-time · approx</span></td></tr>
+      <tr><td><code>countDistinct</code> · <code>percentile</code> · sessions · funnels</td><td>holistic</td><td><span class="b batch">batch-only</span></td></tr>
+      <tr><td>cross-entity joins · ad-hoc slices</td><td>—</td><td><span class="b no">exploration-only</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Seam 2 — exploration over Tesseract's derived-fact layer</h3>
+  <p>Tesseract's authoritative <code>base</code> persists as <span class="concept" data-concept="derivedfact"><b>Iceberg on MinIO</b></span> — the same Trino stack cube-playground already queries. Pointing Cube at it is <em>new model YAML + one Trino catalog entry</em>, not a new pipeline. The payoff: analysts explore the <b>same numbers the operational systems act on</b> — single lineage, no reimplementation drift.</p>
+  <div class="note warn">Read the <b>derived-fact Iceberg layer</b> (SQL-scannable), never the <b>hot KV store</b> (point-lookup only, on the latency-critical serving path). Surface the <code>as_of</code> stamp as a time dimension so analysts know the freshness boundary.</div>
+
+  <h3>What NOT to do</h3>
+  <ul class="tight">
+    <li><b>Don't mirror hot state or two-way-sync data</b> — wrong target, and it re-creates the multi-source-of-truth drift Tesseract spent two review rounds eliminating.</li>
+    <li><b>Don't stand up a competing registry</b> — one canonical declaration. cube-playground authors <em>into</em> Tesseract's registry for operational metrics; owns exploration-only metrics alone.</li>
+    <li><b>Don't build deep integration yet</b> — Tesseract is a target (ADRs decide Jul–Sep 2026, <span class="concept" data-concept="firstslice">v1 is one game, no self-serve UI</span>). Align the <em>definition model</em> now; wire later.</li>
+  </ul>
+
+  <div class="card">
+    <h3 style="margin-top:0">Highest-leverage move</h3>
+    <p style="margin-bottom:0">Get cube-playground's metric/segment model into the <b>ADR-003</b> (metric declaration) conversation before its 2026-08-15 decide-by — so the registry's declaration schema is co-designed to be authoring-friendly, and the two systems can't diverge. Especially: does the registry model <b>entities/joins</b>, or is it flat per-<code>(player, object, metric)</code>? If flat, cube-playground's semantic model is the <em>only</em> place relationships live — making "cube-playground = semantic layer, registry = compiled projection" not just convenient but necessary.</p>
+  </div>
+
+  <div class="footer">
+    <b>Open questions for thangLV</b>
+    <ul class="tight">
+      <li>Does the Metric Registry expose a declared-spec <em>write API</em> cube-playground can publish into? (unspecified in v0.3)</li>
+      <li>Will ADR-006's derived-fact tables sit in the same Trino/Iceberg catalog the DA stack uses (pure config), or an isolated one (access-grant + registration step)?</li>
+      <li>Does the registry declaration include entity/relationship modeling, or is it strictly flat per-player?</li>
+      <li>Are <code>avg</code>/<code>stddev</code>/top-k modeled as composite monoids (mergeable → real-time) or treated as holistic (batch-only)? A design choice, not a math necessity — it changes how much qualifies for real-time.</li>
+      <li>Does <code>eligible?(rule)</code> accept externally-authored segment/rule specs, or only registry-resident metrics composed internally?</li>
+      <li>Is a <b>warm / on-demand tier</b> (query the derived-fact layer within a seconds budget) in scope for quasi-real-time, holistic, low-QPS decisions — or is every served value either pre-materialized (hot) or nightly (batch)?</li>
+    </ul>
+    Source: Tesseract Architecture v0.3 + Reviews R1/R2 (GDS space). Example (Dragon Empires / <code>p_8842</code>) is illustrative.
+  </div>
+</section>
+
+</div>
+
+<div class="modal" id="modal"><div class="modal-card"><button class="modal-x" id="modalX">✕</button><div id="modalBody"></div></div></div>
+
+<script>
+/* ---------- theme toggle ---------- */
+document.getElementById('themeToggle').onclick=()=>{
+  const h=document.documentElement;
+  h.setAttribute('data-theme', h.getAttribute('data-theme')==='dark'?'light':'dark');
+};
+
+/* ---------- tab nav ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById(t.dataset.v).classList.add('active');
+  // bring the (sticky) tab bar to its resting position so the chosen tab's content
+  // loads directly underneath it — never jump back up to the hero/top of page
+  const nav=document.querySelector('.tabs');
+  window.scrollTo({top:Math.max(0,nav.offsetTop-60),behavior:'smooth'});
+});
+
+/* ---------- event stepper ---------- */
+const EVENTS=[
+  {t:'10:00',type:'login',obj:'-',pl:'device=ios',eff:{lastEv:'10:00'}},
+  {t:'10:05',type:'match_end',obj:'match_551',pl:'win · pvp · 320s',eff:{lastEv:'10:05',mode:'pvp'}},
+  {t:'10:12',type:'purchase',obj:'sku_goldpack',pl:'$4.99 · currency',eff:{spend:4.99,pur:1,lastPur:'10:12',lastEv:'10:12'}},
+  {t:'10:20',type:'boss_defeat',obj:'boss_3',pl:'tier 3',eff:{lastEv:'10:20'}},
+  {t:'10:31',type:'match_end',obj:'match_552',pl:'loss · coop · 180s',eff:{lastEv:'10:31',mode:'coop'}},
+  {t:'10:40',type:'purchase',obj:'sku_skin',pl:'$9.99 · cosmetic',eff:{spend:9.99,pur:1,lastPur:'10:40',lastEv:'10:40'}},
+];
+const BASE={spend:47.00,pur:3,lastPur:'Jun 02 14:00',modes:['pvp','coop','raid']};
+const evWrap=document.getElementById('events');
+EVENTS.forEach((e,i)=>{
+  const d=document.createElement('div');d.className='evt';d.id='ev'+i;
+  d.innerHTML=`<span class="faint">${e.t}</span> &nbsp;<span class="ty">${e.type}</span> <span class="faint">${e.obj}</span><br/><span class="pl">payload: ${e.pl}</span>`;
+  d.onclick=()=>gotoStep(i);
+  evWrap.appendChild(d);
+});
+let idx=-1, timer=null;
+const live={spend:0,pur:0,lastPur:null,lastEv:null,modes:new Set()};
+function fmt(n){return '$'+n.toFixed(2);}
+function toMin(hhmm){const[a,b]=hhmm.split(':').map(Number);return a*60+b;}
+function render(){
+  document.getElementById('l_spend').textContent=fmt(live.spend);
+  document.getElementById('l_pur').textContent='+'+live.pur;
+  document.getElementById('l_lastpur').textContent=live.lastPur||'—';
+  document.getElementById('l_lastev').textContent=live.lastEv||'—';
+  document.getElementById('l_modes').textContent= live.modes.size?('{'+[...live.modes].join(',')+'}'):'{}';
+  const mSpend=BASE.spend+live.spend, mPur=BASE.pur+live.pur;
+  const mLastPur= live.lastPur? (live.lastPur+' (today)') : BASE.lastPur;
+  const union=new Set([...BASE.modes,...live.modes]);
+  document.getElementById('m_spend').textContent=fmt(mSpend);
+  document.getElementById('m_pur').textContent=mPur;
+  document.getElementById('m_lastpur').textContent=mLastPur;
+  document.getElementById('m_modes').textContent='≈'+union.size+' {'+[...union].join(',')+'}';
+  const dec=document.getElementById('decision');
+  if(idx<0){
+    dec.className='decision';
+    dec.innerHTML=`<div class="verdict">Decision pending… (gateway not queried yet)</div>
+      <div class="formula">Rule: <code>lifetime_spend ≥ $50</code> AND <code>active (last_event within 30m)</code></div>`;
+  }else{
+    const now=EVENTS[idx].t;
+    const active = live.lastEv && (toMin(now)-toMin(live.lastEv) <= 30);
+    const go = mSpend>=50 && active;
+    dec.className='decision'+(go?' go':'');
+    dec.innerHTML=`<div class="verdict">${go?('✓ ELIGIBLE at '+now+' — would dispatch Bonus Bundle'):'✗ not eligible yet'}</div>
+      <div class="formula">at ${now}: lifetime_spend ${fmt(mSpend)} ≥ $50 → ${mSpend>=50?'✓':'✗'} &nbsp;·&nbsp; active (last_event ${live.lastEv||'—'}) → ${active?'✓':'✗'}</div>
+      <div class="formula" style="margin-top:6px">a read can land at <em>any</em> moment — eligibility flips the instant merged spend crosses $50 (here at the first purchase, 10:12). Exact-money offers read BASE only.</div>`;
+  }
+}
+function highlight(){
+  EVENTS.forEach((e,i)=>{const el=document.getElementById('ev'+i);el.classList.remove('cur','done');if(i<idx)el.classList.add('done');if(i===idx)el.classList.add('cur');});
+  document.getElementById('clock').textContent = idx>=0? EVENTS[idx].t : '10:00';
+}
+function clearLive(){live.spend=0;live.pur=0;live.lastPur=null;live.lastEv=null;live.modes=new Set();}
+function gotoStep(i){
+  clearInterval(timer);timer=null;
+  clearLive(); idx=i;
+  for(let j=0;j<=i;j++){const e=EVENTS[j].eff;
+    if(e.spend)live.spend+=e.spend; if(e.pur)live.pur+=e.pur;
+    if(e.lastPur)live.lastPur=e.lastPur; if(e.lastEv)live.lastEv=e.lastEv;
+    if(e.mode)live.modes.add(e.mode);}
+  document.getElementById('step').disabled = idx>=EVENTS.length-1;
+  highlight();render();
+}
+function step(){ if(idx<EVENTS.length-1) gotoStep(idx+1); }
+function reset(){
+  clearInterval(timer);timer=null;idx=-1;clearLive();
+  document.getElementById('step').disabled=false;
+  highlight();render();
+}
+document.getElementById('step').onclick=step;
+document.getElementById('reset').onclick=reset;
+document.getElementById('play').onclick=()=>{
+  if(timer){clearInterval(timer);timer=null;return;}
+  if(idx>=EVENTS.length-1)reset();
+  timer=setInterval(()=>{step();if(idx>=EVENTS.length-1){clearInterval(timer);timer=null;}},900);
+};
+reset();
+
+/* ---------- algebra explorer ---------- */
+const ALG={
+  add:{title:'Additive monoid — sum, count, min, max',
+    body:"State per player: <b>one number</b>. Merge = add (or min/max). Associative + commutative ⇒ order-free, two-writer-safe.",
+    merge:"base.spend $47.00  ⊕  live.spend $14.98   =   <b>$61.98</b>\n( a + b — no raw events touched )",
+    verdict:'<span class="b rt">real-time</span> &nbsp;O(1) state, O(1) update. The cheapest possible.'},
+  last:{title:'Last-value — latest status / tier (argmax by event-time)',
+    body:"State per player: <b>(value, timestamp)</b>. Merge = keep the larger timestamp. Idempotent — replaying the same event is a no-op.",
+    merge:"base.last_purchase (Jun02 14:00)  ⊕  live (10:40 today)\n=   <b>10:40 today</b>   ( keep newest )",
+    verdict:'<span class="b rt">real-time</span> &nbsp;ideal for streams — naturally idempotent.'},
+  sketch:{title:'Mergeable sketch — HLL distinct, t-digest quantiles',
+    body:"State per player: a <b>fixed-size (~KB) probabilistic summary</b>. Merge = a defined union (HLL = register-wise max). The count is approximate; the <em>union is exact</em>, so no double-count across base & live.",
+    merge:"base.modes {pvp,coop,raid}  ⊔  live.modes {pvp,coop}\n=   {pvp,coop,raid}  ≈ <b>3</b>   ( union — pvp/coop not double-counted )",
+    verdict:'<span class="b approx">real-time · approximate</span> &nbsp;trades exactness for bounded, mergeable state.'},
+  holistic:{title:'Non-mergeable — exact distinct, median, sessions, funnels',
+    body:"No bounded partial summarizes these. Merging needs the <b>full raw set</b> (exact distinct) or the <b>global event order</b> (sessions/funnels) — a session can straddle the base/live boundary and split.",
+    merge:"exact distinct:  count{A,B}=2  ⊕  count{B,C}=2  =  4  ✗\n( true = 3 — B double-counted; needs the full sets )\n⇒ no merge exists in bounded space",
+    verdict:'<span class="b batch">batch-only</span> &nbsp;would force a raw re-scan — exactly what the design forbids.'},
+};
+const ELI5={
+  add:"Adding up each aisle's subtotal gives the store total — no need to recount every item.",
+  last:"Like a 'last seen' label — the newest timestamp always wins.",
+  sketch:"Like estimating a crowd from a photo — fast and close, not exact to the person.",
+  holistic:"Counting <em>distinct</em> shoppers: you can't add aisle counts — the same person appears in several aisles, so you need the full guest list."
+};
+function showAlg(k){
+  const a=ALG[k];
+  document.getElementById('algpanel').innerHTML=
+    `<div style="font-family:'Source Serif 4',serif;font-weight:700;font-size:1.05rem;margin-bottom:6px">${a.title}</div>
+     <div style="font-family:'Source Sans 3',sans-serif;font-size:.94rem;color:var(--ink)">${a.body}</div>
+     <div class="merge">${a.merge}</div>
+     <div style="font-family:'Source Sans 3',sans-serif;font-size:.9rem">${a.verdict}</div>
+     <div class="eli5"><b>🟢 In everyday terms:</b> ${ELI5[k]||''}</div>`;
+  document.querySelectorAll('.algbtn').forEach(b=>b.classList.toggle('active',b.dataset.alg===k));
+}
+document.querySelectorAll('.algbtn').forEach(b=>b.onclick=()=>showAlg(b.dataset.alg));
+showAlg('add');
+
+/* ---------- can/can't filter ---------- */
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on');
+  const f=c.dataset.f;
+  document.querySelectorAll('#qtable .qrow').forEach(r=>{
+    const k=r.dataset.k;
+    const show = f==='all' || (f==='rt'&&k==='rt') || (f==='approx'&&k==='approx') || (f==='batch'&&k==='batch');
+    r.classList.toggle('show',show);
+  });
+});
+
+/* ---------- concept popups: verbatim excerpts from Tesseract v0.3 ---------- */
+const PAGE='https://vnggames.atlassian.net/wiki/spaces/GDS/pages/1608056854/Tesseract+Architecture+target+v0.3';
+const CONCEPTS={
+  canonical:{title:'Canonical events & identity unification',sec:'§8 Crosscutting — Ingestion & identity unification',
+    quote:"Heterogeneous keyless text from both in-game paths is normalized to canonical events with a derived key, event-time, and content-hash <code>event_id</code>. The two unaligned paths are reconciled by dedup on <code>event_id</code> — not by offset alignment, which doesn't exist between them. Unparseable records are quarantined. … A bounded allowed-lateness window is declared per stream; events later than it are left to the next batch (authoritative) rather than mutating closed <code>live</code> buckets, and quarantined records go to a dead-letter store with a reprocess path."},
+  dimensions:{title:'Declared metric model — dimensions',sec:'§4.2 Solution strategy · §5.2',
+    quote:"Every metric declares its dimensions, aggregation algebra (additive monoid / last-value / mergeable-sketch / non-mergeable), window, and freshness tier. Real-time is offered only for mergeable algebras; the rest are batch-only. … Hot State (as-of decomposed), per game — <code>base</code> + bounded <code>live</code>, keyed <code>(game, player, object?, metric)</code>. Hides the base/live split, the <code>as_of</code> boundary, time-bucketing, and per-game partitioning."},
+  asof:{title:'As-of state decomposition (the consistency model)',sec:'§4.4 / §8 · ADR-007 (keystone)',
+    quote:"Derived truth is split by an event-time <code>as_of</code>: an authoritative <code>base</code> (≤ <code>as_of</code>, from the deduplicated warehouse) and a bounded <code>live</code> (> <code>as_of</code>, mergeable time-bucketed partials from the stream). Served = <code>merge(base, live | bucket_time > as_of)</code>. Batch and stream write disjoint components (no clobber); the <code>as_of</code> boundary is a single value the read-filter applies, so advancing it is race-free; <code>live</code> error from at-least-once or dual-path dupes is bounded to one batch period and wiped by the next authoritative <code>base</code>. This is eventual (as-of) consistency, contractualised by the <code>as_of</code> + confidence stamp on every value."},
+  dispatch:{title:'Serve tiers & dispatch safety',sec:'§4.5 / §8 · ADR-005',
+    quote:"Facts and eligibility read the combined value. Dispatch of exact-required actions (pricing, rewards, anti-fraud) reads <code>base</code> only (authoritative, accepts staleness) or gates on idempotent confirmation; eventual-OK actions use the combined value. Dispatch guardrails (idempotency, rate-limit, dry-run, approval, audit, rollback) per ADR-005."},
+  algebra:{title:'Metric model — declared algebra + tier',sec:'§8 / §4.2 — the metric-complexity taxonomy',
+    quote:"Each metric declares an aggregation algebra: additive monoid (sum/count/min/max), last-value (argmax by event-time), mergeable sketch (HLL/Theta/t-digest — approximate), or non-mergeable (exact distinct/median, order-dependent sessions). The algebra determines the path: mergeable ⇒ may be real-time; non-mergeable ⇒ batch-only. This is the metric-complexity taxonomy, and it bounds real-time write volume."},
+  threesx:{title:'One definition → three executors',sec:'§4.3 / §8 (closes R2-3)',
+    quote:"A metric's aggregation is declared once and realised by three executors generated from that one declaration: build-stream (incremental → live), build-batch (authoritative → base), and merge-read (the gateway's combine of base + live). Generating the merge from the same declaration is what stops algebra drift reappearing at serve time. … v1 uses a small library of parameterised aggregation templates, not a DSL→job compiler."},
+  registry:{title:'Metric Registry — single source of metric meaning',sec:'§5.2 Building-block view',
+    quote:"The declared catalog of metrics: dimensions, algebra, window, freshness tier, owner (core vs open), serving contract. The single source of metric meaning; drives all three downstream modules from one declaration. Backed by PostgreSQL."},
+  derivedfact:{title:'Canonical events + Derived-fact layer',sec:'§5.2 · ADR-006',
+    quote:"The sparse, time-bucketed Iceberg store of canonical events and derived facts; the deduplicated history, the <code>base</code> source, the analytics/BI source, and the DR rebuild source. (ADR-006: sparse, time-bucketed Iceberg tables; not a dense cube.)"},
+  nodash:{title:'Exploration lives elsewhere — no Tesseract dashboards',sec:'§1.3 Stakeholders · §5.2',
+    quote:"Stakeholder — DA / BI: Explore the processed layer via a gateway — no Tesseract dashboards. … The derived-fact layer is the sparse, time-bucketed Iceberg store … the <code>base</code> source, the analytics/BI source, and the DR rebuild source. (i.e. Tesseract intentionally leaves the holistic-exploration job to a separate tool reading its processed layer.)"},
+  firstslice:{title:'The minimal first slice (v1)',sec:'§7.1 Deployment — phasing (decides R2-1)',
+    quote:"One pilot game, one consumer (Apollo — User Journeys). A handful of metrics in the cheap algebra classes only — additive counters and last-value state. No sketches, sessions, or windowed-distinct in v1. <code>base</code> + simple <code>live</code>, daily batch, eventual (as-of) consistency. … Control plane = cron + version pointer (no workflow engine). Definitions = team-authored templates (no compiler, no self-serve UI)."}
+};
+/* additional terms */
+Object.assign(CONCEPTS,{
+  freshness:{title:'Quality goals — freshness & serving latency',sec:'§1.1 Quality goals (top priorities)',
+    quote:"Freshness — Real-time-tier state reflects a source event within <b>p99 ≤ 500 ms</b>, for the metric classes that qualify (§8 metric model). Other metrics declare a looser tier honestly. Serving latency — Gateway responds p99 ≤ 500 ms at ~3 000 QPS/game (~15 000 aggregate), uptime ≥ 98%."},
+  eventualcc:{title:'Eventual (as-of) consistency',sec:'§1.1 / §8',
+    quote:"A read returns one coherent value stamped with <code>as_of</code>: authoritative ≤ <code>as_of</code> (last batch), plus a bounded real-time estimate after it that converges at the next batch. No contradictory answers, no clobber. … This is eventual (as-of) consistency, contractualised by the <code>as_of</code> + confidence stamp on every value."},
+  reconciliation:{title:'Reconciliation measures drift (not a blind overwrite)',sec:'§4.4 / §8 (closes R2-2)',
+    quote:"Reconciliation is not a blind overwrite: each <code>as_of</code> advance compares the outgoing <code>live</code> against the recomputed <code>base</code> for the overlap and emits the divergence as an SLI (with alert thresholds), so a drifting or broken stream is detected, not masked. Captured in ADR-007."},
+  hotstore:{title:'Hot State store — the online per-player store',sec:'§5.2 · ADR-002',
+    quote:"Hot State (as-of decomposed), per game — <code>base</code> + bounded <code>live</code>, keyed <code>(game, player, object?, metric)</code>. Hides the base/live split, the <code>as_of</code> boundary, time-bucketing, and per-game partitioning. Adopt OSS — ADR-002 (candidates Aerospike · ScyllaDB · Redis, sized for ~15 k QPS at p99 ≤ 500 ms)."},
+  multitenancy:{title:'Per-game isolation — physical bulkheads',sec:'§8 / §7 Deployment',
+    quote:"Multi-tenancy — Per-game topics, stream jobs, keyspaces, and quotas — physical bulkheads, not logical labels. Per-game isolation is physical: a stream runtime job and a keyspace per game, with resource quotas, so one game's 150 k-eps spike can't starve the others."},
+  asofcycle:{title:'Does the merge reset each night?',sec:'§4.4 / §8 — as-of decomposition',own:true,
+    html:`<p class="lead"><b>No — the merged value never resets.</b> The nightly batch zeroes nothing; it slides the <code>as_of</code> boundary forward and <b>promotes</b> that day's <code>live</code> into the new authoritative <code>base</code>. What "resets" is the <i>span</i> of <code>live</code>, not the served number.</p>
+<p>Each batch, in effect: (1) recompute <code>base</code> from full deduplicated history — so it now <i>includes</i> today; (2) advance <code>as_of</code> to ~end-of-today; (3) the read-filter <code>live | bucket_time &gt; as_of</code> now excludes the just-absorbed buckets, which are then wiped.</p>
+<table><thead><tr><th>Moment</th><th>base (≤ as_of)</th><th>live (&gt; as_of)</th><th>Served</th></tr></thead><tbody>
+<tr><td>Day 1, 09:00</td><td>$47.00</td><td>—</td><td class="served">$47.00</td></tr>
+<tr><td>Day 1, 10:12</td><td>$47.00</td><td>+$4.99</td><td class="served">$51.99</td></tr>
+<tr><td>Day 1, 21:00</td><td>$47.00</td><td>+$4.99 +$9.99</td><td class="served">$61.98</td></tr>
+<tr><td><b>Night batch</b></td><td>recompute → <b>$61.98</b>; as_of → end of Day 1; Day-1 live filtered out, then wiped</td><td>—</td><td class="served">$61.98</td></tr>
+<tr><td>Day 2, 09:00</td><td>$61.98</td><td>—</td><td class="served">$61.98 <span class="reset">← no reset</span></td></tr>
+<tr><td>Day 2, 13:00</td><td>$61.98</td><td>+$2.99</td><td class="served">$64.97</td></tr>
+</tbody></table>
+<p><b>How long does <code>live</code> keep accumulating?</b> Exactly <b>one batch period</b> (one day in v1). The doc bounds it: live error is <i>"bounded to one batch period and wiped by the next authoritative base."</i> It never grows past "since the last batch" — that bound is what caps hot-store memory and the drift window.</p>
+<p><b>No double-count.</b> The instant <code>as_of</code> advances, the filter <code>bucket_time &gt; as_of</code> stops counting the absorbed buckets — <i>before</i> they're physically wiped. The cutover is one value change, so it's <b>race-free</b>; the wipe is just garbage collection.</p>
+<p><b>Caveat — the combine is per-algebra.</b> "Add live to base" is literal only for <i>additive</i> metrics. Last-value keeps whichever side is newest; mergeable sketch unions the two. Same boundary-slide, different combine.</p>`},
+  promotehot:{title:'Promote to hot — what actually happens',sec:'§4.2 / §4.3 / §8 — declared algebra + executors',own:true,
+    html:`<p class="lead">The trap word is "promote." For <code>top 1% this week AND active 30m</code> you <b>don't</b> move the percentile onto the hot path — it needs a global sort. You <b>declare a new, cheap-algebra <i>feature</i></b> whose value is computed off-path and <i>written</i> into the hot store as a pre-materialised <code>base</code>. The gateway then reads it O(1).</p>
+<ol class="tight" style="margin-top:4px">
+<li><b>Declare the feature, not the query.</b> Not "percentile" — a <b>last-value boolean</b> <code>is_top_1pct_spender</code> (or float <code>weekly_spend_pctile</code>). Source = the percentile job; serving algebra = last-value. Cheap by construction.</li>
+<li><b>Pick the executor that fills it.</b> The global sort runs as a <b>batch-build</b> (nightly Spark) or <b>warm refresh</b> (scheduled Trino over the derived-fact layer) — <i>off the hot path</i> — and writes one row/player <code>(game,&nbsp;player,&nbsp;is_top_1pct,&nbsp;as_of)</code> into the hot KV as <code>base</code> (no <code>live</code> overlay). Meanwhile <code>active_30m</code> is a <b>stream-build</b>, mergeable last-value <i>with</i> a live overlay.</li>
+<li><b>Both operands become O(1) hot reads.</b> The gateway does two point lookups — <code>is_top_1pct</code> (base) AND <code>active</code> (base+live) — and ANDs them. Constant-time ⇒ the <i>composite</i> serves at the full ~15k QPS. <b>The sort never touches the serving path; it was paid once, offline.</b></li>
+<li><b>Freshness is per-operand, stamped honestly.</b> Flag = <i>as-of last refresh</i>; active = live (p99 ≤ 500 ms). The gateway stamps the <b>weakest</b> on the composite — correct, because top-1% membership barely moves intra-day while activeness must be live.</li>
+<li><b>Write-volume stays bounded</b> — the keystone. The flag is one write/player/refresh; a <i>live</i> percentile would re-sort all players on every event (impossible). This is the doc's <i>"real-time write volume sized &amp; capped"</i> — promote a cheap derived feature, never the expensive computation.</li>
+</ol>
+<p style="margin-bottom:6px"><b>Two distinct flavours of "promote":</b></p>
+<table><thead><tr><th>Flavour</th><th>How it's promoted</th><th>Freshness</th></tr></thead><tbody>
+<tr><td><b>(a)</b> mergeable metric<br/><span style="color:var(--muted)">additive · last-value · sketch</span></td><td>stream-build maintains a real <code>live</code> overlay</td><td class="served">live (p99 ≤ 500 ms)</td></tr>
+<tr><td><b>(b)</b> non-mergeable holistic<br/><span style="color:var(--muted)">percentile · distinct · sessions</span></td><td>batch/warm computes the <i>result</i>; written as a last-value <b>flag</b></td><td class="served">fresh-to-refresh</td></tr>
+</tbody></table>
+<p><code>active</code> is (a); <code>top-1%</code> is (b). The composite mixes both — and that's the point: <b>once both operands are hot reads, regardless of how they got there, the composite serves at hot QPS.</b></p>
+<p style="margin-bottom:0"><b>Cube's role:</b> discover the threshold, classify the algebra (the lint flags <code>percentile = non-mergeable</code>), author the feature declaration <i>plus its refresh cadence</i>. Tesseract's executors fill it and serve it.</p>`},
+  crosscheck:{title:'How this report was fact-checked',sec:'Adversarial cross-check · methodology',own:true,
+    srcline:`Method: every architectural claim traced to <b>Tesseract v0.3</b> (GDS); third-party capability claims verified against vendor docs. Verbatim quotes are marked <i>"Verbatim excerpt"</i> with a section link; my reasoning is marked <i>"synthesised"</i>; vendor numbers are flagged as vendor claims. Cube Store figures: <a href="https://cube.dev/blog/introducing-cubestore" target="_blank" rel="noopener">cube.dev ↗</a> — vendor claim, <b>not</b> benchmarked on our on-prem stack.`,
+    html:`<p class="lead">Claims here are <b>traced to source, not asserted.</b> thangLV's v0.3 is the authority for the architecture; the few capability claims about third-party engines were verified against vendor docs and <b>adversarially challenged</b> — assume-it's-wrong-until-shown-right.</p>
+<p style="margin-bottom:6px"><b>Verified against the doc (left as-is):</b></p>
+<ul class="tight" style="margin-top:4px">
+<li>The figures <code>~750k eps</code>, <code>~15k QPS</code>, <code>p99 ≤ 500 ms</code> — quoted verbatim from §1.1.</li>
+<li>The merge / <code>as_of</code> mechanics (never resets, bounded one batch period) — §4.4 / §8.</li>
+<li>The algebra taxonomy (additive / last-value / sketch / non-mergeable) — §4.2 / §8.</li>
+</ul>
+<p style="margin-bottom:6px"><b>What the cross-check <span class="reset">corrected</span>:</b></p>
+<ol class="tight" style="margin-top:4px">
+<li><b>Hot tier mislabelled "sub-ms."</b> The doc's <i>published contract</i> is <code>p99 ≤ 500 ms</code>. The KV point read <i>is</i> sub-ms, but the served SLO is ≤ 500 ms — so I aligned every tier headline to the doc. Consequence: hot-vs-warm is distinguished by <b>access-pattern + freshness</b>, <em>not</em> latency (≤500 ms and Cube's "sub-second" overlap).</li>
+<li><b>Cube Store over-claimed.</b> "tens-of-ms / low-thousands QPS" → Cube's own wording: <b>sub-second</b>, high <b>analytical</b> concurrency, <b>refresh-stale</b>, <b>analytical not transactional</b>. So it powers the LiveOps <b>console</b>, never in-session dispatch.</li>
+</ol>
+<p style="margin-bottom:0"><b>Trust markers in this report:</b> a popup footer reading <i>"Verbatim excerpt"</i> = thangLV's words; <i>"synthesised"</i> = my reasoning from the doc; an explicit vendor-claim flag = unbenchmarked third-party number. If a footer doesn't say "verbatim," don't quote it as the proposal.</p>`}
+});
+/* best-effort Confluence Cloud heading anchors (wrong → lands at page top, no harm) */
+const S52='5.2-Containers-%E2%80%94-responsibility%2C-interface%2C-what-it-hides';
+const S8='8.-Crosscutting-concepts';
+const ANCHORS={
+  canonical:S8, dimensions:'4.-Solution-strategy', asof:S8,
+  dispatch:S8, algebra:S8, threesx:'4.-Solution-strategy',
+  registry:S52, derivedfact:S52,
+  nodash:'1.3-Stakeholders', firstslice:'7.1-Phasing-%E2%80%94-the-minimal-first-slice-%28R2-1%29',
+  freshness:'1.1-Quality-goals-%28top-priorities%29', eventualcc:S8,
+  reconciliation:S8, hotstore:S52, multitenancy:S8, asofcycle:S8,
+  promotehot:'4.-Solution-strategy'
+};
+Object.keys(ANCHORS).forEach(k=>{if(CONCEPTS[k])CONCEPTS[k].anchor=ANCHORS[k];});
+
+function openConcept(id){
+  const c=CONCEPTS[id]; if(!c)return;
+  const head=`<div class="mtitle">${c.title}</div><span class="msec">${c.sec}</span>`;
+  const link=`<a href="${PAGE}${c.anchor?('#'+c.anchor):''}" target="_blank" rel="noopener">open in Confluence ↗</a>`;
+  const ownsrc = c.srcline || `Mechanics synthesised from <b>🏛️ Tesseract — Architecture (target) v0.3</b> §4.4 As-of state decomposition + §8 (Luong Viet Thang, GDS space). &nbsp;${link}`;
+  const body = c.own
+    ? `<div class="synth">${c.html}</div>`+
+      `<div class="src">${ownsrc}</div>`
+    : `<blockquote>${c.quote}</blockquote>`+
+      `<div class="src">Verbatim excerpt from <b>🏛️ Tesseract — Architecture (target) v0.3</b> (Luong Viet Thang, GDS space). &nbsp;<a href="${PAGE}${c.anchor?('#'+c.anchor):''}" target="_blank" rel="noopener">Open §${c.sec.replace(/^§?\s*/,'').split(/[ /·—]/)[0]} in Confluence ↗</a></div>`;
+  document.getElementById('modalBody').innerHTML=head+body;
+  document.getElementById('modal').classList.add('open');
+}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-concept]');
+  if(t){openConcept(t.dataset.concept);return;}
+  if(e.target.id==='modal'||e.target.id==='modalX'){document.getElementById('modal').classList.remove('open');}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('modal').classList.remove('open');});
+</script>
+</body>
+</html>
