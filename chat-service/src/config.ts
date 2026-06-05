@@ -179,8 +179,11 @@ export interface Config {
   chatNlqDecomposedToolsEnabled: boolean;
   /**
    * Phase 04: hard per-turn timeout in milliseconds. When > 0, the registry
-   * aborts the turn with reason='timeout' after this many ms. Default 120000
-   * (2 min). Set to 0 to disable the timeout.
+   * aborts the turn with reason='timeout' after this many ms. Default 240000
+   * (4 min): the mandated analytical flow (disambiguate → resolve → inspect
+   * meta → preview → emit) is 5-6 inference rounds at an observed 25-37s of
+   * model latency each, so 120s killed legitimate multi-step turns on
+   * member-rich games. Set to 0 to disable the timeout.
    */
   chatTurnTimeoutMs: number;
   /** Emit a per-turn stage-timing log line from the /agent/turn pipeline. */
@@ -270,7 +273,7 @@ export const config: Config = {
   chatContextFocusStoreEnabled: optional('CHAT_CONTEXT_FOCUS_STORE', 'false') === 'true',
   chatNlqDecomposedToolsEnabled: optional('CHAT_NLQ_DECOMPOSED_TOOLS', 'false') === 'true',
   obsParallelEmitEnabled: optional('OBS_PARALLEL_EMIT', 'false') === 'true',
-  chatTurnTimeoutMs: optionalInt('CHAT_TURN_TIMEOUT_MS', 120_000),
+  chatTurnTimeoutMs: optionalInt('CHAT_TURN_TIMEOUT_MS', 240_000),
   chatTurnProfilingEnabled: optional('CHAT_TURN_PROFILING', 'false') === 'true',
   chatEnableWebSearch: optional('CHAT_ENABLE_WEB_SEARCH', 'false') === 'true',
   chatEnableResearchMode: optional('CHAT_ENABLE_RESEARCH_MODE', 'false') === 'true',
