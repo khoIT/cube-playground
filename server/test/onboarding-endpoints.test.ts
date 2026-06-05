@@ -57,14 +57,22 @@ import type { AuthenticatedUser } from '../src/middleware/authenticate.js';
 type Role = 'viewer' | 'editor' | 'admin';
 
 function userFor(role: Role): AuthenticatedUser {
-  return { id: role, username: role, email: `${role}@vng`, role, allowedGames: ['ballistar'], workspaces: [], features: {} };
+  // Grants scoped to 'local' workspace (the default workspace used by the test
+  // app). userCanAccessGame checks gamesByWorkspace[workspaceId].
+  return { id: role, username: role, email: `${role}@vng`, role, gamesByWorkspace: { local: ['ballistar'] }, workspaces: [], features: {} };
 }
+
+// Minimal workspace stub used by onboarding's userCanAccessGame call.
+const localWorkspaceStub = { id: 'local' };
 
 async function buildTestApp(role: Role): Promise<FastifyInstance> {
   const app = Fastify();
   app.decorateRequest('user', undefined);
   app.decorateRequest('owner', 'tester');
   app.decorateRequest('buildCubeCtxForGame', null);
+  // Stub workspace so req.workspace.id resolves to 'local' without
+  // the full workspace-header plugin (which needs a workspace registry).
+  app.decorateRequest('workspace', localWorkspaceStub);
   app.addHook('onRequest', async (req) => {
     (req as { user?: AuthenticatedUser }).user = userFor(role);
     (req as { buildCubeCtxForGame: unknown }).buildCubeCtxForGame = () => ({ cubeApiUrl: 'http://cube', token: 't' });
@@ -177,13 +185,14 @@ describe('accept/reject re-check the game grant (no cross-game bypass)', () => {
     const draftId = gen.json().drafts[0].id;
     await owner.close();
 
-    // A different editor whose allowedGames do NOT include 'ballistar'.
+    // A different editor whose grants do NOT include 'ballistar' in 'local'.
     const app = Fastify();
     app.decorateRequest('user', undefined);
     app.decorateRequest('owner', 'intruder');
     app.decorateRequest('buildCubeCtxForGame', null);
+    app.decorateRequest('workspace', localWorkspaceStub);
     app.addHook('onRequest', async (req) => {
-      (req as { user?: AuthenticatedUser }).user = { id: 'x', username: 'x', email: 'x@vng', role: 'editor', allowedGames: ['cfm'], workspaces: [], features: {} };
+      (req as { user?: AuthenticatedUser }).user = { id: 'x', username: 'x', email: 'x@vng', role: 'editor', gamesByWorkspace: { local: ['cfm'] }, workspaces: [], features: {} };
     });
     await app.register(enforceWriteRoles);
     await app.register(onboardingRoutes);

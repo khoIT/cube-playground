@@ -120,7 +120,7 @@ async function workspaceHeaderPlugin(app: FastifyInstance): Promise<void> {
     // explicitly requested by an authenticated user, it must be in their grants.
     // Fail closed (403) before any token is minted or request proxied.
     const gameId = readGameId(request);
-    if (gameId && user && !userCanAccessGame(user, gameId)) {
+    if (gameId && user && !userCanAccessGame(user, workspace.id, gameId)) {
       await reply.status(403).send({
         error: {
           code: 'GAME_FORBIDDEN',

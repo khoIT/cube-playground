@@ -36,7 +36,8 @@ export interface Principal {
   email: string | null;
   role: AppRole;
   workspaces: string[];
-  allowedGames: string[];
+  /** Game grants scoped per workspace id (mirrors AuthenticatedUser). */
+  gamesByWorkspace: Record<string, string[]>;
   features: Record<string, boolean>;
 }
 
@@ -97,7 +98,7 @@ export function resolvePrincipal(req: FastifyRequest): Principal {
       email,
       role: u.role,
       workspaces: u.workspaces,
-      allowedGames: u.allowedGames,
+      gamesByWorkspace: u.gamesByWorkspace,
       features: u.features,
     };
   }
@@ -109,7 +110,7 @@ export function resolvePrincipal(req: FastifyRequest): Principal {
     email: emailForSub(sub),
     role: 'viewer',
     workspaces: [],
-    allowedGames: [],
+    gamesByWorkspace: {},
     features: {},
   };
 }

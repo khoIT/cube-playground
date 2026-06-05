@@ -24,7 +24,7 @@ import {
   setRole,
   setStatus,
   setWorkspaces,
-  setGames,
+  setWorkspaceGames,
   setFeatures,
   ensurePendingUser,
   reconcileSub,
@@ -59,13 +59,15 @@ describe('access-store', () => {
     expect(normalizeEmail(' A@B.com ')).toBe('a@b.com');
   });
 
-  it('resolves merged workspace + game grants', () => {
+  it('resolves merged workspace + game grants grouped by workspace', () => {
     upsertUserAccess({ email: 'u@corp.com', role: 'viewer', status: 'active' });
     setWorkspaces('u@corp.com', ['prod', 'local']);
-    setGames('u@corp.com', ['ptg', 'ballistar']);
+    setWorkspaceGames('u@corp.com', 'local', ['ptg', 'ballistar']);
+    setWorkspaceGames('u@corp.com', 'prod', ['ballistar']);
     const rec = getAccess('u@corp.com')!;
     expect(rec.workspaces.sort()).toEqual(['local', 'prod']);
-    expect(rec.games.sort()).toEqual(['ballistar', 'ptg']);
+    expect(rec.gamesByWorkspace['local'].sort()).toEqual(['ballistar', 'ptg']);
+    expect(rec.gamesByWorkspace['prod']).toEqual(['ballistar']);
   });
 
   it('feature defaults: admin off, others on', () => {
@@ -126,5 +128,42 @@ describe('access-store', () => {
     const users = listUsers();
     expect(users.map((u) => u.email).sort()).toEqual(['a@corp.com', 'b@corp.com']);
     expect(users.find((u) => u.email === 'a@corp.com')?.role).toBe('admin');
+  });
+
+  // ── per-workspace game grant semantics ──────────────────────────────────────
+
+  it('readAccess groups game rows into gamesByWorkspace keyed by workspace id', () => {
+    upsertUserAccess({ email: 'u@corp.com', role: 'editor', status: 'active' });
+    setWorkspaceGames('u@corp.com', 'ws-a', ['g1', 'g2']);
+    setWorkspaceGames('u@corp.com', 'ws-b', ['g3']);
+    const rec = getAccess('u@corp.com')!;
+    expect(rec.gamesByWorkspace['ws-a'].sort()).toEqual(['g1', 'g2']);
+    expect(rec.gamesByWorkspace['ws-b']).toEqual(['g3']);
+    expect(Object.keys(rec.gamesByWorkspace).sort()).toEqual(['ws-a', 'ws-b']);
+  });
+
+  it('setWorkspaceGames for ws-a leaves ws-b grants intact (scoped delete)', () => {
+    upsertUserAccess({ email: 'u@corp.com', role: 'editor', status: 'active' });
+    setWorkspaceGames('u@corp.com', 'ws-a', ['g1']);
+    setWorkspaceGames('u@corp.com', 'ws-b', ['g2']);
+    // Replace ws-a grants only.
+    setWorkspaceGames('u@corp.com', 'ws-a', ['g3', 'g4']);
+    const rec = getAccess('u@corp.com')!;
+    expect(rec.gamesByWorkspace['ws-a'].sort()).toEqual(['g3', 'g4']);
+    // ws-b must be untouched.
+    expect(rec.gamesByWorkspace['ws-b']).toEqual(['g2']);
+  });
+
+  it('setWorkspaceGames with empty array clears only that workspace', () => {
+    upsertUserAccess({ email: 'u@corp.com', role: 'editor', status: 'active' });
+    setWorkspaceGames('u@corp.com', 'ws-a', ['g1']);
+    setWorkspaceGames('u@corp.com', 'ws-b', ['g2']);
+    // Clear ws-a.
+    setWorkspaceGames('u@corp.com', 'ws-a', []);
+    const rec = getAccess('u@corp.com')!;
+    // ws-a entry disappears (no rows → key absent).
+    expect(rec.gamesByWorkspace['ws-a']).toBeUndefined();
+    // ws-b is untouched.
+    expect(rec.gamesByWorkspace['ws-b']).toEqual(['g2']);
   });
 });

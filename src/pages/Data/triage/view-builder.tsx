@@ -13,7 +13,7 @@ import { Boxes, Ruler, Sigma, Link2, FileCode2, Check, X, KeyRound, ArrowRight, 
 import type { UseOnboardingDraftResult, Decision } from '../use-onboarding-draft';
 import { ConfidencePill, pct, YamlPane, TriageActionBar, summariseValidation, rationaleTitle } from './triage-shared';
 import type { InferredField } from '../../../api/onboarding-client';
-import { useAuthUser } from '../../../auth/auth-context';
+import { useAuthUser, allGamesUnion } from '../../../auth/auth-context';
 import { CrossGameJoinPanel } from './cross-game-join-panel';
 
 const STEPS = [
@@ -233,7 +233,7 @@ export function ViewBuilder({ state, canWrite }: Props): ReactElement {
                   draftId={Number(state.draft.id)}
                   currentGame={state.draft.game}
                   fromColumns={(state.draft.model.cubes[0]?.dimensions ?? []).map((d) => d.name)}
-                  allowedGames={user?.allowedGames ?? []}
+                  allowedGames={allGamesUnion(user)}
                   canWrite={canWrite}
                   onAdded={() => void state.refetch()}
                 />

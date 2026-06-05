@@ -21,6 +21,7 @@ import fp from 'fastify-plugin';
 
 import { verifyAppJwt } from '../services/app-jwt.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
+import { loadWorkspacesConfig } from '../services/workspaces-config-loader.js';
 import { getAccess } from '../auth/access-store.js';
 import { FEATURE_KEYS } from '../auth/feature-keys.js';
 import { resolvePrincipal, type Principal } from '../auth/principal.js';
@@ -30,8 +31,9 @@ export interface AuthenticatedUser {
   username: string;
   email?: string;
   role: 'viewer' | 'editor' | 'admin';
-  /** Game ids the user is allowed to operate on. Empty = no per-game restriction. */
-  allowedGames: string[];
+  /** Game grants scoped per workspace id. A workspace with no entry (or an empty
+   *  list) grants no games there — enforcement is fail-closed per workspace. */
+  gamesByWorkspace: Record<string, string[]>;
   /** Workspace ids granted to the user. Empty = fall back to role gate. */
   workspaces: string[];
   /** Resolved feature map (key → enabled), DB-authoritative. */
@@ -70,18 +72,28 @@ function devUser(): AuthenticatedUser {
   // Synthesize a user that mirrors the prior "X-Owner: dev" posture so
   // pre-Phase-6 seed rows (owner='dev') remain queryable without manual
   // backfill in local dev.
-  let allowedGames: string[] = [];
+  // Dev admin sees every game in every workspace. Build an explicit all-games
+  // map per registry workspace so the per-workspace fail-closed game check
+  // (userCanAccessGame) always allows — the dev loop never strands behind RBAC,
+  // and the decision fn stays pure (no AUTH_DISABLED read inside it).
+  let allGames: string[] = [];
   try {
-    const cfg = loadGamesConfig();
-    allowedGames = cfg.games.map((g) => g.id);
+    allGames = loadGamesConfig().games.map((g) => g.id);
   } catch {
     // gds.config.json missing in some test envs — empty list = unrestricted at runtime.
+  }
+  const gamesByWorkspace: Record<string, string[]> = {};
+  try {
+    for (const w of loadWorkspacesConfig().workspaces) gamesByWorkspace[w.id] = allGames;
+  } catch {
+    // workspace registry missing in some test envs — empty map; the no-grants
+    // fallback still allows under AUTH_DISABLED.
   }
   return {
     id: 'dev',
     username: 'dev',
     role: 'admin',
-    allowedGames,
+    gamesByWorkspace,
     // Dev admin sees every workspace + feature. Empty workspaces fall through
     // to the role gate (admin → all); features are all-on so the FE shows every
     // section (incl. the default-off admin page) in local dev.
@@ -128,7 +140,7 @@ async function authenticatePlugin(app: FastifyInstance): Promise<void> {
               username: claims.username,
               email: claims.email,
               role: access.role,
-              allowedGames: access.games,
+              gamesByWorkspace: access.gamesByWorkspace,
               workspaces: access.workspaces,
               features: access.features,
             };

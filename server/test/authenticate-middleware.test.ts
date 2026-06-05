@@ -8,7 +8,7 @@ import { buildApp } from '../src/index.js';
 import { setDb, closeDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
-import { upsertUserAccess, setGames } from '../src/auth/access-store-mutators.js';
+import { upsertUserAccess, setWorkspaceGames } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -50,7 +50,9 @@ describe('authenticate middleware', () => {
       const body = res.json();
       expect(body.user.id).toBe('dev');
       expect(body.user.role).toBe('admin');
-      expect(body.user.allowedGames).toContain('ballistar');
+      // devUser builds gamesByWorkspace covering all games per registry workspace.
+      const allGames = Object.values(body.user.gamesByWorkspace as Record<string, string[]>).flat();
+      expect(allGames).toContain('ballistar');
     });
 
     it('/api/auth/keycloak/config returns enabled=false', async () => {
@@ -98,7 +100,7 @@ describe('authenticate middleware', () => {
       // by email, not from the client-held JWT.
       __resetAccessCache();
       upsertUserAccess({ email: 'editor@corp.com', role: 'editor', status: 'active' });
-      setGames('editor@corp.com', ['ballistar', 'cfm_vn']);
+      setWorkspaceGames('editor@corp.com', 'local', ['ballistar', 'cfm_vn']);
       const token = await signAppJwt({
         sub: 'kc-uuid-editor',
         username: 'editor',
@@ -115,7 +117,8 @@ describe('authenticate middleware', () => {
       expect(body.user.id).toBe('kc-uuid-editor');
       expect(body.user.email).toBe('editor@corp.com');
       expect(body.user.role).toBe('editor');
-      expect((body.user.allowedGames as string[]).sort()).toEqual(['ballistar', 'cfm_vn']);
+      // DB-authoritative grants come back per-workspace; this user's grants live in 'local'.
+      expect((body.user.gamesByWorkspace as Record<string, string[]>)['local'].sort()).toEqual(['ballistar', 'cfm_vn']);
       expect(body.user.features.admin).toBe(false);
     });
 

@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from '../src/index.js';
 import { setDb, closeDb } from '../src/db/sqlite.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
-import { upsertUserAccess, setGames } from '../src/auth/access-store-mutators.js';
+import { upsertUserAccess, setWorkspaceGames } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -42,7 +42,7 @@ describe('GET /internal/access/:key', () => {
     setDb(makeMemDb());
     __resetAccessCache();
     upsertUserAccess({ email: 'user@corp.com', role: 'editor', status: 'active' });
-    setGames('user@corp.com', ['ballistar', 'cfm_vn']);
+    setWorkspaceGames('user@corp.com', 'local', ['ballistar', 'cfm_vn']);
     upsertUserAccess({ email: 'pending@corp.com', role: 'viewer', status: 'pending' });
     upsertUserAccess({ email: 'admin@corp.com', role: 'admin', status: 'active' });
     app = await buildApp();
@@ -71,7 +71,7 @@ describe('GET /internal/access/:key', () => {
   });
 
   it('folds every aliased grant and leaves canonical ids untouched', async () => {
-    setGames('user@corp.com', ['jus_vn', 'muaw', 'cfm_vn']);
+    setWorkspaceGames('user@corp.com', 'local', ['jus_vn', 'muaw', 'cfm_vn']);
     __resetAccessCache();
     const res = await app.inject({ method: 'GET', url: '/internal/access/user@corp.com', headers: hdr });
     expect((res.json().allowedGames as string[]).sort()).toEqual(['cfm', 'jus', 'muaw']);
@@ -113,5 +113,57 @@ describe('GET /internal/access/:key', () => {
     delete process.env.CUBE_AUTH_INTERNAL_SECRET;
     const res = await app.inject({ method: 'GET', url: '/internal/access/user@corp.com', headers: hdr });
     expect(res.statusCode).toBe(503);
+  });
+
+  it('non-admin with grants in two workspaces → allowedGames is canonical union of both', async () => {
+    // user@corp.com already has ['ballistar', 'cfm_vn'] in 'local' (seeded in
+    // beforeEach). Add a second workspace grant. The bridge must flatten the
+    // per-workspace map to a unique union, canonicalized for cube-dev's checkAuth.
+    setWorkspaceGames('user@corp.com', 'prod', ['jus_vn', 'cfm_vn']);
+    __resetAccessCache();
+    const res = await app.inject({ method: 'GET', url: '/internal/access/user@corp.com', headers: hdr });
+    expect(res.statusCode).toBe(200);
+    const games = (res.json().allowedGames as string[]).sort();
+    // Union: ballistar (local) + cfm_vn→cfm (both) + jus_vn→jus (prod). Deduped.
+    expect(games).toEqual(['ballistar', 'cfm', 'jus']);
+  });
+
+  it('admin → allowedGames is always [\'*\'] regardless of per-workspace grants', async () => {
+    // admin@corp.com has no game rows but is role=admin.
+    const res = await app.inject({ method: 'GET', url: '/internal/access/admin@corp.com', headers: hdr });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().allowedGames).toEqual(['*']);
+  });
+});
+
+describe('GET /internal/access/:key — AUTH_DISABLED mode', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  const prevAuthDisabled = process.env.AUTH_DISABLED;
+  const prevSecret = process.env.CUBE_AUTH_INTERNAL_SECRET;
+
+  beforeEach(async () => {
+    process.env.AUTH_DISABLED = 'true';
+    process.env.CUBE_AUTH_INTERNAL_SECRET = SECRET;
+    setDb(makeMemDb());
+    __resetAccessCache();
+    app = await buildApp();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+    closeDb();
+    process.env.CUBE_AUTH_INTERNAL_SECRET = prevSecret;
+    if (prevAuthDisabled === undefined) delete process.env.AUTH_DISABLED;
+    else process.env.AUTH_DISABLED = prevAuthDisabled;
+  });
+
+  it('AUTH_DISABLED → resolves any principal as all-games admin (no secret required)', async () => {
+    // The bridge should allow every game in every workspace for the dev loop.
+    const res = await app.inject({ method: 'GET', url: '/internal/access/anyone@corp.com' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.role).toBe('admin');
+    expect(body.allowedGames).toEqual(['*']);
+    expect(body.status).toBe('active');
   });
 });

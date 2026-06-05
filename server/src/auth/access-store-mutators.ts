@@ -143,14 +143,27 @@ export function setWorkspaces(emailRaw: string, workspaceIds: string[]): void {
   invalidate(email);
 }
 
-/** Replace the user's game grants with exactly `gameIds`. */
-export function setGames(emailRaw: string, gameIds: string[]): void {
+/**
+ * Replace the user's game grants FOR ONE WORKSPACE with exactly `gameIds`.
+ * Scoped delete — leaves grants in the user's other workspaces untouched.
+ * An empty `gameIds` clears that workspace's grants (explicit fail-closed).
+ */
+export function setWorkspaceGames(
+  emailRaw: string,
+  workspaceId: string,
+  gameIds: string[],
+): void {
   const email = normalizeEmail(emailRaw);
   const db = getDb();
   const tx = db.transaction(() => {
-    db.prepare('DELETE FROM user_game_access WHERE email = ?').run(email);
-    const ins = db.prepare('INSERT OR IGNORE INTO user_game_access (email, game_id) VALUES (?, ?)');
-    for (const id of new Set(gameIds)) ins.run(email, id);
+    db.prepare('DELETE FROM user_game_access WHERE email = ? AND workspace_id = ?').run(
+      email,
+      workspaceId,
+    );
+    const ins = db.prepare(
+      'INSERT OR IGNORE INTO user_game_access (email, workspace_id, game_id) VALUES (?, ?, ?)',
+    );
+    for (const id of new Set(gameIds)) ins.run(email, workspaceId, id);
   });
   tx();
   invalidate(email);

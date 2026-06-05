@@ -16,7 +16,8 @@ export interface AdminUser {
   status: AdminStatus;
   kcSub: string | null;
   workspaces: string[];
-  games: string[];
+  /** Game grants scoped per workspace id. */
+  gamesByWorkspace: Record<string, string[]>;
   features: Record<string, boolean>;
   lastLogin: string | null;
 }
@@ -24,6 +25,9 @@ export interface AdminUser {
 export interface AdminRegistry {
   workspaces: Array<{ id: string; label: string }>;
   games: Array<{ id: string; name: string }>;
+  /** Games each workspace can expose (prefix workspaces surface only their
+   *  gamePrefixMap keys). Drives the per-workspace grant matrix options. */
+  gamesByWorkspace: Record<string, string[]>;
   featureKeys: string[];
 }
 
@@ -81,7 +85,7 @@ export interface CreateUserBody {
   role?: AdminRole;
   status?: AdminStatus;
   workspaceIds?: string[];
-  gameIds?: string[];
+  gamesByWorkspace?: Record<string, string[]>;
   features?: Record<string, boolean>;
 }
 
@@ -103,11 +107,15 @@ export function putAdminUserWorkspaces(email: string, workspaceIds: string[]): P
   });
 }
 
-export function putAdminUserGames(email: string, gameIds: string[]): Promise<void> {
-  return apiFetch(`/api/admin/users/${encodeEmail(email)}/games`, {
-    method: 'PUT',
-    body: { gameIds },
-  });
+export function putAdminUserWorkspaceGames(
+  email: string,
+  workspaceId: string,
+  gameIds: string[],
+): Promise<void> {
+  return apiFetch(
+    `/api/admin/users/${encodeEmail(email)}/workspaces/${encodeURIComponent(workspaceId)}/games`,
+    { method: 'PUT', body: { gameIds } },
+  );
 }
 
 export function putAdminUserFeatures(

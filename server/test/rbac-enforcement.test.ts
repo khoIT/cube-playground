@@ -9,7 +9,7 @@ import { setDb, closeDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetWorkspacesConfigCache } from '../src/services/workspaces-config-loader.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
-import { upsertUserAccess, setGames } from '../src/auth/access-store-mutators.js';
+import { upsertUserAccess, setWorkspaceGames } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -41,11 +41,13 @@ async function adminToken(): Promise<string> {
 function seedAccess(): void {
   __resetAccessCache();
   upsertUserAccess({ email: 'viewer@corp.com', role: 'viewer', status: 'active' });
-  setGames('viewer@corp.com', ['ballistar']);
+  setWorkspaceGames('viewer@corp.com', 'local', ['ballistar']);
   upsertUserAccess({ email: 'editor@corp.com', role: 'editor', status: 'active' });
-  setGames('editor@corp.com', ['ballistar', 'cfm_vn']);
+  setWorkspaceGames('editor@corp.com', 'local', ['ballistar', 'cfm_vn']);
+  setWorkspaceGames('editor@corp.com', 'prod', ['ballistar', 'cfm_vn']);
   upsertUserAccess({ email: 'admin@corp.com', role: 'admin', status: 'active' });
-  setGames('admin@corp.com', ['ptg', 'ballistar', 'cfm_vn', 'cros', 'jus_vn']);
+  setWorkspaceGames('admin@corp.com', 'local', ['ptg', 'ballistar', 'cfm_vn', 'cros', 'jus_vn']);
+  setWorkspaceGames('admin@corp.com', 'prod', ['cfm_vn', 'ballistar', 'cros', 'jus_vn']);
 }
 
 describe('Phase 6.4 RBAC enforcement', () => {
@@ -140,6 +142,43 @@ describe('Phase 6.4 RBAC enforcement', () => {
       headers: {
         authorization: `Bearer ${token}`,
         'x-cube-workspace': 'prod',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('game granted only in local → 403 GAME_FORBIDDEN on prod (cross-workspace grant isolation)', async () => {
+    // viewer has ballistar in 'local' only. The prod workspace's gamePrefixMap
+    // includes 'ballistar', but the user holds no grant in 'prod' → fail-closed.
+    // (viewer also lacks workspace access to prod, so seed a separate editor who
+    // has the workspace but not the game in prod.)
+    //
+    // Use editor: editor has ballistar + cfm_vn in local, but only those games
+    // in prod too (seeded in seedAccess). Pick ptg which editor lacks in prod.
+    const token = await editorToken();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/segments?owner=*',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-cube-workspace': 'prod',
+        'x-cube-game': 'cros', // editor not granted cros in prod
+      },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error?.code).toBe('GAME_FORBIDDEN');
+  });
+
+  it('game granted in prod → 200 on prod request', async () => {
+    // editor has cfm_vn in both local and prod (seeded in seedAccess).
+    const token = await editorToken();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/segments?owner=*',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-cube-workspace': 'prod',
+        'x-cube-game': 'cfm_vn',
       },
     });
     expect(res.statusCode).toBe(200);

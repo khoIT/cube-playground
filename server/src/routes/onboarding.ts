@@ -53,8 +53,9 @@ import type { TableProfile, OnboardingMode } from '../types/raw-schema.js';
 
 function gameForbidden(req: FastifyRequest, game: string): boolean {
   // Game comes from query/body here, so the header-keyed upstream gate never
-  // fired. Re-check; skip in AUTH_DISABLED dev (no req.user).
-  return !!req.user && !userCanAccessGame(req.user, game);
+  // fired. Re-check against the workspace this request targets (req.workspace,
+  // set upstream by workspace-header). Skip in AUTH_DISABLED dev (no req.user).
+  return !!req.user && !userCanAccessGame(req.user, req.workspace.id, game);
 }
 
 function isDev(): boolean {

@@ -43,7 +43,7 @@ function req(owner: string, user?: Record<string, unknown>) {
   return { owner, user } as never;
 }
 
-const devUser = { id: 'dev', username: 'dev', role: 'admin', allowedGames: [], workspaces: [], features: {} };
+const devUser = { id: 'dev', username: 'dev', role: 'admin', gamesByWorkspace: {}, workspaces: [], features: {} };
 
 describe('principal — sub↔email via user_access.kc_sub', () => {
   beforeEach(() => setDb(makeMemDb()));
@@ -98,6 +98,6 @@ describe('principal — sub↔email via user_access.kc_sub', () => {
     expect(p.sub).toBe('kc-ghost');
     expect(p.role).toBe('viewer');
     expect(p.workspaces).toEqual([]);
-    expect(p.allowedGames).toEqual([]);
+    expect(p.gamesByWorkspace).toEqual({});
   });
 });

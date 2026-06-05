@@ -93,7 +93,9 @@ function rewriteRef(
  * AUTH_DISABLED dev mode (no `req.user`), matching the upstream pattern.
  */
 function gameForbidden(req: FastifyRequest, game: string): boolean {
-  return !!req.user && !userCanAccessGame(req.user, game);
+  // Per-workspace grant: check the game against the workspace this request
+  // targets (resolved upstream into req.workspace by the workspace-header hook).
+  return !!req.user && !userCanAccessGame(req.user, req.workspace.id, game);
 }
 
 /**

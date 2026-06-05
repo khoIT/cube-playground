@@ -8,10 +8,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   type AdminUser, type AdminRegistry, type AdminRole, type AdminStatus,
-  patchAdminUser, putAdminUserWorkspaces, putAdminUserGames, putAdminUserFeatures,
+  patchAdminUser, putAdminUserWorkspaces, putAdminUserFeatures,
 } from './use-admin-access';
 import { GrantMatrix } from './grant-matrix';
 import { useGrantSection } from './use-grant-section';
+import { WorkspaceGamesSection } from './workspace-games-section';
 
 const ROLES: AdminRole[] = ['viewer', 'editor', 'admin'];
 const STATUSES: AdminStatus[] = ['active', 'pending', 'disabled'];
@@ -33,7 +34,6 @@ export function AccessEditor({ user, registry, onSaved }: AccessEditorProps) {
   }, [user.email, user.role, user.status]);
 
   const ws = useGrantSection(user.workspaces, (ids) => putAdminUserWorkspaces(user.email, ids), () => onSaved(user.email));
-  const games = useGrantSection(user.games, (ids) => putAdminUserGames(user.email, ids), () => onSaved(user.email));
   const featSel = Object.entries(user.features).filter(([, v]) => v).map(([k]) => k);
   const feats = useGrantSection(featSel, (ids) => {
     const next: Record<string, boolean> = {};
@@ -99,12 +99,7 @@ export function AccessEditor({ user, registry, onSaved }: AccessEditorProps) {
         selected={ws.selected} onToggle={ws.toggle} onSave={ws.save}
         saving={ws.saving} saved={ws.saved} error={ws.error}
       />
-      <GrantMatrix
-        title="Games"
-        options={(registry?.games ?? []).map((g) => ({ id: g.id, label: g.name }))}
-        selected={games.selected} onToggle={games.toggle} onSave={games.save}
-        saving={games.saving} saved={games.saved} error={games.error}
-      />
+      <WorkspaceGamesSection user={user} registry={registry} onSaved={onSaved} />
       <GrantMatrix
         title="Features"
         options={(registry?.featureKeys ?? []).map((k) => ({ id: k, label: k }))}

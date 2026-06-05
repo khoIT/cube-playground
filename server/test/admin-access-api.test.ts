@@ -16,7 +16,7 @@ import { buildApp } from '../src/index.js';
 import { setDb, closeDb, getDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
-import { upsertUserAccess, setGames } from '../src/auth/access-store-mutators.js';
+import { upsertUserAccess, setWorkspaceGames } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -45,7 +45,7 @@ describe('admin access API + game gate', () => {
     __resetAccessCache();
     upsertUserAccess({ email: 'admin@corp.com', role: 'admin', status: 'active' });
     upsertUserAccess({ email: 'viewer@corp.com', role: 'viewer', status: 'active' });
-    setGames('viewer@corp.com', ['ballistar']);
+    setWorkspaceGames('viewer@corp.com', 'local', ['ballistar']);
     app = await buildApp();
   });
 
@@ -78,18 +78,19 @@ describe('admin access API + game gate', () => {
     });
     expect(create.statusCode).toBe(201);
 
+    // Per-workspace route: grant games for 'local' workspace.
     const games = await app.inject({
       method: 'PUT',
-      url: '/api/admin/users/new.user@corp.com/games',
+      url: '/api/admin/users/new.user@corp.com/workspaces/local/games',
       headers: auth,
       payload: { gameIds: ['ptg', 'cfm_vn'] },
     });
     expect(games.statusCode).toBe(200);
 
     const list = await app.inject({ method: 'GET', url: '/api/admin/users', headers: auth });
-    const users = list.json().users as Array<{ email: string; games: string[] }>;
+    const users = list.json().users as Array<{ email: string; gamesByWorkspace: Record<string, string[]> }>;
     const created = users.find((u) => u.email === 'new.user@corp.com');
-    expect(created?.games.sort()).toEqual(['cfm_vn', 'ptg']);
+    expect(created?.gamesByWorkspace['local'].sort()).toEqual(['cfm_vn', 'ptg']);
 
     const auditCount = getDb()
       .prepare('SELECT COUNT(*) AS n FROM access_audit')
@@ -165,5 +166,81 @@ describe('admin access API + game gate', () => {
       headers: { authorization: `Bearer ${vtok}`, 'x-cube-game': 'ballistar' },
     });
     expect(allowed.statusCode).toBe(200);
+  });
+
+  // ── per-workspace game grant admin routes ──────────────────────────────────
+
+  it('PUT .../workspaces/local/games persists only to local, leaving other workspaces intact', async () => {
+    const atok = await tok('a', 'admin@corp.com', 'admin');
+    const auth = { authorization: `Bearer ${atok}` };
+
+    // Seed a user and give them games in two workspaces.
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/users',
+      headers: auth,
+      payload: { email: 'multi@corp.com', role: 'editor' },
+    });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/users/multi@corp.com/workspaces/local/games',
+      headers: auth,
+      payload: { gameIds: ['ballistar', 'cfm_vn'] },
+    });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/users/multi@corp.com/workspaces/prod/games',
+      headers: auth,
+      payload: { gameIds: ['cfm_vn'] },
+    });
+
+    // Now replace local only.
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/users/multi@corp.com/workspaces/local/games',
+      headers: auth,
+      payload: { gameIds: ['ptg'] },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const list = await app.inject({ method: 'GET', url: '/api/admin/users', headers: auth });
+    const user = (list.json().users as Array<{ email: string; gamesByWorkspace: Record<string, string[]> }>)
+      .find((u) => u.email === 'multi@corp.com');
+    // local replaced.
+    expect(user?.gamesByWorkspace['local']).toEqual(['ptg']);
+    // prod untouched.
+    expect(user?.gamesByWorkspace['prod']).toEqual(['cfm_vn']);
+  });
+
+  it('PUT .../workspaces/:wsId/games with unknown wsId → 400', async () => {
+    const atok = await tok('a', 'admin@corp.com', 'admin');
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/admin/users/viewer@corp.com/workspaces/ghost-workspace/games',
+      headers: { authorization: `Bearer ${atok}` },
+      payload: { gameIds: ['ballistar'] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('per-workspace games route writes an audit row with workspaceId in detail', async () => {
+    const atok = await tok('a', 'admin@corp.com', 'admin');
+    const before = (getDb().prepare('SELECT COUNT(*) AS n FROM access_audit').get() as { n: number }).n;
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/users/viewer@corp.com/workspaces/local/games',
+      headers: { authorization: `Bearer ${atok}` },
+      payload: { gameIds: ['ptg'] },
+    });
+    const rows = getDb()
+      .prepare("SELECT detail_json FROM access_audit WHERE action = 'set_workspace_games' ORDER BY id DESC LIMIT 1")
+      .get() as { detail_json: string } | undefined;
+    expect(rows).toBeDefined();
+    const detail = JSON.parse(rows!.detail_json) as { workspaceId: string; gameIds: string[] };
+    expect(detail.workspaceId).toBe('local');
+    expect(detail.gameIds).toEqual(['ptg']);
+    // At least one new audit row was written.
+    const after = (getDb().prepare('SELECT COUNT(*) AS n FROM access_audit').get() as { n: number }).n;
+    expect(after).toBeGreaterThan(before);
   });
 });

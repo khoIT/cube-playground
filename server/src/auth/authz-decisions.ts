@@ -21,7 +21,9 @@ import { featureDefaultEnabled, isFeatureKey } from './feature-keys.js';
 export interface AuthzSubject {
   role: 'viewer' | 'editor' | 'admin';
   workspaces: string[];
-  allowedGames: string[];
+  /** Game grants scoped per workspace id. A workspace absent here (or mapped to
+   *  an empty list) has no granted games — fail-closed (see userCanAccessGame). */
+  gamesByWorkspace: Record<string, string[]>;
   features: Record<string, boolean>;
 }
 
@@ -39,9 +41,27 @@ export function userCanAccessWorkspace(
   return false;
 }
 
-export function userCanAccessGame(subject: AuthzSubject, gameId: string): boolean {
-  if (subject.allowedGames.length > 0) return subject.allowedGames.includes(gameId);
-  if (grantFallbackEnabled()) return true; // migration ease — caller logs
+/**
+ * Per-workspace, fail-closed game access. A game is reachable only if it's
+ * granted in the SPECIFIC workspace the request targets — grants in another
+ * workspace don't carry over. Fail-closed: a workspace with no grant rows
+ * exposes no games.
+ *
+ * Migration-ease fallback: a user with NO game grants in ANY workspace falls
+ * back to allow (when AUTHZ_GRANT_FALLBACK is on) so un-seeded users aren't
+ * locked out mid-migration. But once a user has grants in even one workspace,
+ * they're checked strictly per-workspace everywhere — matching the workspace
+ * doctrine that a user who DOES have grants is always checked against them.
+ */
+export function userCanAccessGame(
+  subject: AuthzSubject,
+  workspaceId: string,
+  gameId: string,
+): boolean {
+  const granted = subject.gamesByWorkspace[workspaceId];
+  if (granted && granted.length > 0) return granted.includes(gameId);
+  const hasAnyGrant = Object.values(subject.gamesByWorkspace).some((g) => g.length > 0);
+  if (!hasAnyGrant && grantFallbackEnabled()) return true;
   return false;
 }
 

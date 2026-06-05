@@ -11,7 +11,7 @@ import { featureEnabled, featureForRoute } from './feature-access';
 import type { AuthUser } from './auth-context';
 
 function user(features?: Record<string, boolean>): AuthUser {
-  return { id: 'u', username: 'u', role: 'viewer', allowedGames: [], features };
+  return { id: 'u', username: 'u', role: 'viewer', gamesByWorkspace: {}, features };
 }
 
 describe('featureEnabled', () => {

@@ -13,7 +13,7 @@ import { setDb, closeDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetWorkspacesConfigCache } from '../src/services/workspaces-config-loader.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
-import { upsertUserAccess, setGames } from '../src/auth/access-store-mutators.js';
+import { upsertUserAccess, setWorkspaceGames } from '../src/auth/access-store-mutators.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -38,9 +38,9 @@ describe('Drift Center authz (write-roles gate)', () => {
     setDb(makeMemDb());
     __resetAccessCache();
     upsertUserAccess({ email: 'viewer@corp.com', role: 'viewer', status: 'active' });
-    setGames('viewer@corp.com', ['ballistar']);
+    setWorkspaceGames('viewer@corp.com', 'local', ['ballistar']);
     upsertUserAccess({ email: 'editor@corp.com', role: 'editor', status: 'active' });
-    setGames('editor@corp.com', ['ballistar']); // NOT granted 'ptg'
+    setWorkspaceGames('editor@corp.com', 'local', ['ballistar']); // NOT granted 'ptg'
     app = await buildApp();
   });
 

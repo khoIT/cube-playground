@@ -24,12 +24,30 @@ import {
   readPersistedWorkspaceId,
   WORKSPACE_CHANGE_EVENT,
 } from '../workspace-context';
-import { useAuthUser } from '../../auth/auth-context';
+import { useAuthUser, useAuth, type AuthUser } from '../../auth/auth-context';
 import { readAppToken } from '../../auth/auth-storage';
 import { getPref, setPref, subscribe } from '../../hooks/server-prefs-store';
 import { GAME_STORAGE_KEY as STORAGE_KEY, GAME_CHANGE_EVENT } from './active-game-storage';
 
 const FALLBACK_GAME: GameDef = { id: 'ballistar', name: 'Ballistar', mark: 'BS' };
+
+/**
+ * Narrow a game pool to the ACTIVE workspace's grant. Applied for real auth with
+ * a resolved workspace id only — fail-closed: no grant in that workspace yields
+ * an empty pool. Dev (isRealAuth=false) or an unresolved workspace id passes
+ * through (the dev loop never strands the picker; first paint doesn't flash
+ * empty). Exported so the narrowing is unit-tested against the real logic.
+ */
+export function narrowGamesByWorkspaceGrant<T extends { id: string }>(
+  pool: T[],
+  isRealAuth: boolean,
+  workspaceId: string,
+  authUser: Pick<AuthUser, 'gamesByWorkspace'> | null,
+): T[] {
+  if (!isRealAuth || !workspaceId) return pool;
+  const grantedHere = new Set(authUser?.gamesByWorkspace?.[workspaceId] ?? []);
+  return pool.filter((g) => grantedHere.has(g.id));
+}
 
 // Subset of WorkspaceDef needed for filtering. Fetched directly here (instead of
 // reading via useWorkspaceContext) because GameContextProvider mounts ABOVE
@@ -196,18 +214,22 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
     };
   }, [workspaceId]);
 
-  // Filter games by what the active workspace supports AND what this user
-  // is allowed (per KC groups → user.allowedGames in /api/auth/me):
+  // Filter games by what the active workspace supports AND what this user is
+  // granted IN THAT WORKSPACE (per-workspace grants, fail-closed):
   //   - gameModel='prefix' (prod): only games whose id is in `gamePrefixMap`.
   //   - gameModel='game_id' (local): every game in gds.config.json.
-  //   - Then intersect with user.allowedGames if the user is real-auth.
-  //   - No workspace OR auth info yet: pass-through to avoid blocking the
-  //     initial render.
+  //   - Real auth: intersect with the ACTIVE workspace's grant
+  //     (`gamesByWorkspace[workspaceId]`). Empty/absent ⇒ NO games (fail-closed).
+  //   - AUTH_DISABLED dev: never narrow by grant (dev sees all).
+  //   - Active workspace id not resolved yet: skip grant narrowing so the first
+  //     paint doesn't flash empty (mirrors the readyGameIds null-guard).
   const activeWorkspace = useMemo(
     () => workspaces.find((w) => w.id === workspaceId) ?? null,
     [workspaces, workspaceId],
   );
   const authUser = useAuthUser();
+  const { state: authState } = useAuth();
+  const isRealAuth = authState.status === 'authenticated';
   const visibleGames = useMemo(() => {
     let pool = config.games;
     if (activeWorkspace) {
@@ -216,20 +238,16 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
         pool = pool.filter((g) => allowed.has(g.id));
       }
     }
-    // Empty allowedGames = dev/synthesized user (admin in disabled mode) or
-    // a real user with no groups; either way we don't narrow further. Only
-    // narrow when the user explicitly carries a non-empty allow-list.
-    if (authUser && authUser.allowedGames.length > 0) {
-      const userAllowed = new Set(authUser.allowedGames);
-      pool = pool.filter((g) => userAllowed.has(g.id));
-    }
+    // Per-workspace grant narrowing — real auth only, once the active workspace
+    // id has resolved. Fail-closed: no grant in this workspace ⇒ empty pool.
+    pool = narrowGamesByWorkspaceGrant(pool, isRealAuth, workspaceId, authUser);
     // Drop games that don't resolve in this workspace's Cube schema. null =
     // readiness not loaded yet / failed → pass-through (keep all).
     if (readyGameIds) {
       pool = pool.filter((g) => readyGameIds.has(g.id));
     }
     return pool;
-  }, [config.games, activeWorkspace, authUser, readyGameIds]);
+  }, [config.games, activeWorkspace, authUser, isRealAuth, workspaceId, readyGameIds]);
 
   // If the active game isn't supported by the new workspace, fall back to the
   // first visible one. Skips while still bootstrapping so we don't clobber a

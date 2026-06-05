@@ -45,17 +45,21 @@ function canonicalGameId(id: string): string {
 }
 
 // The allowedGames this bridge should hand cube-dev's checkAuth for a resolved
-// user. Mirrors the server's OWN game policy (authz-decisions.userCanAccessGame):
-// an admin — or a user with no explicit game grant while grant-fallback is on —
-// may use every game. checkAuth has no fallback of its own, so we emit the '*'
-// wildcard it expands to all supported games; otherwise the concrete grant list,
-// canonicalized so it matches the post-alias id checkAuth compares against.
-// Without this an admin (no per-game rows) resolved to allowedGames=[] and the
-// cube denied every query the server had already authorized.
-function allowedGamesFor(role: string, games: string[]): string[] {
+// user. checkAuth is keyed by email only and has NO workspace context, so it
+// can't be per-workspace — it gets the workspace-AGNOSTIC UNION of the user's
+// per-workspace game grants. This is defense-in-depth only: the authoritative
+// per-workspace gate runs in workspace-header BEFORE any cube token is minted,
+// so the union here merely blocks a game the user holds in no workspace at all.
+// Mirrors the server's game policy: an admin — or a user with no game grant in
+// any workspace while grant-fallback is on — may use every game; checkAuth has
+// no fallback of its own, so we emit the '*' wildcard it expands to all
+// supported games. Concrete grants are canonicalized to match the post-alias id
+// checkAuth compares against.
+function allowedGamesFor(role: string, gamesByWorkspace: Record<string, string[]>): string[] {
   if (role === 'admin') return ['*'];
-  if (games.length === 0 && grantFallbackEnabled()) return ['*'];
-  return [...new Set(games.map(canonicalGameId))];
+  const union = [...new Set(Object.values(gamesByWorkspace).flat())];
+  if (union.length === 0 && grantFallbackEnabled()) return ['*'];
+  return [...new Set(union.map(canonicalGameId))];
 }
 
 async function internalSecretGate(req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -107,7 +111,7 @@ export default async function internalAccessRoutes(app: FastifyInstance): Promis
       }
       return {
         role: access.role,
-        allowedGames: allowedGamesFor(access.role, access.games),
+        allowedGames: allowedGamesFor(access.role, access.gamesByWorkspace),
         status: access.status,
       };
     },

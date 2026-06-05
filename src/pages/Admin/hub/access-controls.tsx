@@ -13,10 +13,10 @@ import type { AdminUser, AdminRegistry, AdminRole, AdminStatus } from '../access
 import {
   patchAdminUser,
   putAdminUserWorkspaces,
-  putAdminUserGames,
 } from '../access/use-admin-access';
 import { GrantMatrix } from '../access/grant-matrix';
 import { useGrantSection } from '../access/use-grant-section';
+import { WorkspaceGamesSection } from '../access/workspace-games-section';
 import { switchability } from './per-user-panel-helpers';
 import { card, cardBody, eyebrow, saveBtnStyle } from './per-user-shared';
 import { FeatureAccessSection } from './feature-access-section';
@@ -140,35 +140,6 @@ function WorkspaceGrantsSection({ user, registry, onSaved }: { user: AdminUser; 
   );
 }
 
-// ── Game grants ───────────────────────────────────────────────────────────────
-
-function GameGrantsSection({ user, registry, onSaved }: { user: AdminUser; registry: AdminRegistry; onSaved: (email: string) => void }) {
-  const games = useGrantSection(user.games, (ids) => putAdminUserGames(user.email, ids), () => onSaved(user.email));
-  const total = registry.games.length;
-  const count = games.selected.size;
-  const allGameIds = registry.games.map((g) => g.id);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4, fontSize: 11.5, color: 'var(--text-muted)' }}>
-        {count} of {total}
-      </div>
-      <GrantMatrix
-        title="Game grants"
-        options={registry.games.map((g) => ({ id: g.id, label: g.name }))}
-        selected={games.selected}
-        onToggle={games.toggle}
-        onSave={games.save}
-        saving={games.saving}
-        saved={games.saved}
-        error={games.error}
-        onSelectAll={() => games.selectAll(allGameIds)}
-        onClear={games.clear}
-      />
-    </div>
-  );
-}
-
 // ── AccessControls — two-column controls grid ─────────────────────────────────
 
 export interface AccessControlsProps {
@@ -183,7 +154,7 @@ export function AccessControls({ user, registry, onSaved }: AccessControlsProps)
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <RoleStatusEditor user={user} onSaved={onSaved} />
         <WorkspaceGrantsSection user={user} registry={registry} onSaved={onSaved} />
-        <GameGrantsSection user={user} registry={registry} onSaved={onSaved} />
+        <WorkspaceGamesSection user={user} registry={registry} onSaved={onSaved} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <FeatureAccessSection user={user} registry={registry} onSaved={onSaved} />

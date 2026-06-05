@@ -44,6 +44,11 @@ const REGISTRY: AdminRegistry = {
     { id: 'huashu', name: 'Hua Shu' },
     { id: 'gunny', name: 'Gunny Origin' },
   ],
+  // Per-workspace available games (mirrors what /api/admin/registry returns).
+  gamesByWorkspace: {
+    'ws-local': ['muaw', 'huashu', 'gunny'],
+    'ws-prod': ['muaw', 'huashu', 'gunny'],
+  },
   featureKeys: [
     'dashboards', 'liveops', 'segments', 'metrics-catalog',
     'data-model', 'playground', 'chats', 'admin',
@@ -57,7 +62,7 @@ function makeUser(overrides: Partial<AdminUser> = {}): AdminUser {
     status: 'active',
     kcSub: 'kc-sub-test',
     workspaces: [],
-    games: [],
+    gamesByWorkspace: {},
     features: {},
     lastLogin: '2026-06-01T10:00:00Z',
     ...overrides,
@@ -170,10 +175,18 @@ describe('PerUserPanel rendering', () => {
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders games count as "N of M" on the grant matrix', async () => {
-    renderPanel(makeUser({ games: ['muaw', 'huashu'] }));
-    const matches = await screen.findAllByText(/2 of 3/i);
-    expect(matches.length).toBeGreaterThanOrEqual(1);
+  it('renders granted game labels on the grant matrix', async () => {
+    // User has ws-local in workspaces and 2 of the 3 registry games granted there.
+    // The matrix renders a row per available game; granted game names appear.
+    renderPanel(makeUser({
+      workspaces: ['ws-local'],
+      gamesByWorkspace: { 'ws-local': ['muaw', 'huashu'] },
+    }));
+    // Both granted game labels must be visible.
+    expect(await screen.findByText('MU: Awakening')).toBeDefined();
+    expect(await screen.findByText('Hua Shu')).toBeDefined();
+    // The third game is also shown (available but not granted).
+    expect(await screen.findByText('Gunny Origin')).toBeDefined();
   });
 
   it('renders override pill when feature has explicit value', async () => {
@@ -182,7 +195,10 @@ describe('PerUserPanel rendering', () => {
   });
 
   it('renders Select all / Clear bulk controls on the game grants matrix', async () => {
-    renderPanel(makeUser({ games: ['muaw'] }));
+    renderPanel(makeUser({
+      workspaces: ['ws-local'],
+      gamesByWorkspace: { 'ws-local': ['muaw'] },
+    }));
     expect(await screen.findByText(/select all/i)).toBeDefined();
     expect(await screen.findByText(/^clear$/i)).toBeDefined();
   });

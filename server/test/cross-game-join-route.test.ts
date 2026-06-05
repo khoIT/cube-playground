@@ -46,14 +46,19 @@ import type { AuthenticatedUser } from '../src/middleware/authenticate.js';
 type Role = 'viewer' | 'editor' | 'admin';
 
 function userFor(role: Role, games: string[]): AuthenticatedUser {
-  return { id: role, username: role, email: `${role}@vng`, role, allowedGames: games, workspaces: [], features: {} };
+  // Grants scoped to 'local' workspace (the workspace this mini test app resolves to).
+  return { id: role, username: role, email: `${role}@vng`, role, gamesByWorkspace: { local: games }, workspaces: [], features: {} };
 }
+
+// Minimal workspace stub so onboarding's req.workspace.id resolves without the full plugin.
+const localWorkspaceStub = { id: 'local' };
 
 async function buildTestApp(role: Role, games: string[]): Promise<FastifyInstance> {
   const app = Fastify();
   app.decorateRequest('user', undefined);
   app.decorateRequest('owner', 'tester');
   app.decorateRequest('buildCubeCtxForGame', null);
+  app.decorateRequest('workspace', localWorkspaceStub);
   app.addHook('onRequest', async (req) => {
     (req as { user?: AuthenticatedUser }).user = userFor(role, games);
     (req as { buildCubeCtxForGame: unknown }).buildCubeCtxForGame = () => ({ cubeApiUrl: 'http://cube', token: 't' });

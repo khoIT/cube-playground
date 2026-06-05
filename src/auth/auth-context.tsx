@@ -38,13 +38,27 @@ export interface AuthUser {
   username: string;
   email?: string;
   role: 'viewer' | 'editor' | 'admin';
-  allowedGames: string[];
+  /** Game grants scoped per workspace id. The picker narrows to the ACTIVE
+   *  workspace's list (fail-closed: empty/absent → no games for real-auth users).
+   *  Absent on older payloads → treated as `{}`. */
+  gamesByWorkspace?: Record<string, string[]>;
   /** Workspace ids granted to the user. Empty/absent → role-based fallback.
    *  Filtering happens server-side in /api/workspaces; carried here for parity. */
   workspaces?: string[];
   /** Resolved feature map (key → enabled), DB-authoritative. Optional for
    *  back-compat with older /me payloads; absent → treat as no overrides. */
   features?: Record<string, boolean>;
+}
+
+/**
+ * Flattened, de-duped union of a user's per-workspace game grants. For surfaces
+ * that are inherently cross-workspace (e.g. cross-game JOIN targets) and aren't
+ * scoped to one active workspace — those still narrow per-workspace.
+ */
+export function allGamesUnion(
+  user: Pick<AuthUser, 'gamesByWorkspace'> | null | undefined,
+): string[] {
+  return [...new Set(Object.values(user?.gamesByWorkspace ?? {}).flat())];
 }
 
 interface KeycloakConfig {

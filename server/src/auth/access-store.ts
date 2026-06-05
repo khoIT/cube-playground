@@ -26,7 +26,9 @@ export interface AccessRecord {
   status: AccessStatus;
   kcSub: string | null;
   workspaces: string[];
-  games: string[];
+  /** Game grants scoped per workspace id. Absent/empty key = no games granted
+   *  in that workspace (fail-closed in the authorization layer). */
+  gamesByWorkspace: Record<string, string[]>;
   features: Record<FeatureKey, boolean>;
 }
 
@@ -121,11 +123,13 @@ function readAccess(email: string): AccessRecord | null {
     }>
   ).map((w) => w.workspace_id);
 
-  const games = (
-    db.prepare('SELECT game_id FROM user_game_access WHERE email = ?').all(email) as Array<{
-      game_id: string;
-    }>
-  ).map((g) => g.game_id);
+  const gameRows = db
+    .prepare('SELECT workspace_id, game_id FROM user_game_access WHERE email = ?')
+    .all(email) as Array<{ workspace_id: string; game_id: string }>;
+  const gamesByWorkspace: Record<string, string[]> = {};
+  for (const { workspace_id, game_id } of gameRows) {
+    (gamesByWorkspace[workspace_id] ??= []).push(game_id);
+  }
 
   return {
     email: row.email,
@@ -133,7 +137,7 @@ function readAccess(email: string): AccessRecord | null {
     status: row.status,
     kcSub: row.kc_sub,
     workspaces,
-    games,
+    gamesByWorkspace,
     features: resolveFeatures(email, row.role),
   };
 }
