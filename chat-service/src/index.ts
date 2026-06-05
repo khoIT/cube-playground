@@ -20,6 +20,7 @@ import { config } from './config.js';
 import { validateSkillRegistry } from './core/registry-boot-guard.js';
 import { openDatabase } from './db/migrate.js';
 import { hydrateChatFromSnapshot, getChatSyncStatus } from './db/snapshot-store.js';
+import { sweepOrphanedInFlightTurns } from './db/sweep-orphaned-inflight-turns.js';
 import healthRoutes from './api/health.js';
 import sessionsRoutes from './api/sessions.js';
 import turnRoutes from './api/turn.js';
@@ -122,6 +123,15 @@ async function start(): Promise<void> {
 
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
   fastify.log.info(`chat-service listening on port ${config.port}`);
+
+  // A previous process may have died mid-turn (tsx reload, container restart).
+  // Mark those turns interrupted so the FE doesn't spin forever on them.
+  // Runs AFTER listen(): only the process that won the port sweeps — orphaned
+  // dev watchers that lose the EADDRINUSE race must not race the sweep too.
+  const swept = sweepOrphanedInFlightTurns(db);
+  if (swept > 0) {
+    fastify.log.warn({ swept }, '[boot-sweep] marked orphaned in-flight turns as service_restart');
+  }
 
   // Sample event-loop delay; warns when a streaming turn or synchronous DB
   // work blocks the single thread and starves cheap polls (the 504 cause).

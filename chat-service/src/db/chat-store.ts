@@ -409,7 +409,8 @@ export function listTurnsRecent(
   sessionId: string,
   limit: number,
 ): ChatTurnRow[] {
-  // Errored assistant turns (stop_reason='error') stay out of agent context so a
+  // Errored assistant turns (stop_reason='error') and boot-sweep restart
+  // markers (stop_reason='service_restart') stay out of agent context so a
   // retry doesn't see "previous attempt failed" and apologise instead of
   // answering. The FE-facing listTurns() above keeps them so the user still
   // sees the failure in chat history.
@@ -417,7 +418,7 @@ export function listTurnsRecent(
     .prepare(
       `SELECT * FROM chat_turns
        WHERE session_id = ?
-         AND (stop_reason IS NULL OR stop_reason != 'error')
+         AND (stop_reason IS NULL OR stop_reason NOT IN ('error', 'service_restart'))
        ORDER BY turn_index DESC
        LIMIT ?`,
     )

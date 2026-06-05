@@ -78,15 +78,23 @@ If `warnings[]` contains a "thousands separator" note, mention the assumed inter
 
 When the engine returns `intent='leaderboard'` (or memory carries it forward from a prior turn), keep the leaderboard shape — entity dim + ranked measure + limit — even if the user's reply only supplies a measure. Do NOT flatten "what should I rank?" into "show me the metric"; the user asked for a ranking.
 
+## Round budget (latency)
+
+Every assistant round costs 25–40s of model latency regardless of what the tools cost, so the round count — not the tool count — is what the user feels. Target **≤ 3 tool rounds** before the artifact:
+
+- **Batch independent lookups into ONE round** by emitting multiple tool calls in the same assistant message: `resolve_query_terms` with ALL terms + `list_dimension_values` for every equals-filter dimension you already know you need + `get_cube_meta({ cubes: [...] })` for the cube(s) you expect to query. None of these depend on each other's output — do not spend a round on each.
+- **One sane preview → emit.** If the first `preview_cube_query` returns plausible rows for the question, go straight to `emit_query_artifact` in the next round. A confirmation re-preview of a result that already looks right is a wasted round.
+- Spend extra rounds only on genuine surprises: empty results, shape mismatches, or a member you could not resolve.
+
 ## Steps
 
 1. **Identify the metric.** Prefer a business-metric YAML over raw cube refs:
    - Call `list_business_metrics({ query: <user's metric phrase> })` first.
    - If the user's phrase clearly maps to a returned id, call `get_business_metric({ id })` and use its `formula` / `query` / `cube_member` as the source.
    - Otherwise call `resolve_query_terms({ terms: [<metric phrase>] })` and use the top match. Never invent member names. Fall back to `get_cube_meta` only when resolution returns no confident match.
-2. **Identify dimensions, filters, time grain.** Resolve every dimension, filter column, and time field you need in ONE `resolve_query_terms({ terms: [...] })` call (e.g. `["user id","days since last active","recharge date"]`) — do not grep `get_cube_meta`. Before writing an equals/contains filter on a dimension, call `list_dimension_values({ member })` to get the exact value casing (e.g. `whale` not `Whale`). Default time range is "last 7 days" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: "tuần qua" → "last 7 days".
+2. **Identify dimensions, filters, time grain.** Resolve every dimension, filter column, and time field you need in ONE `resolve_query_terms({ terms: [...] })` call (e.g. `["user id","days since last active","recharge date"]`) — do not grep `get_cube_meta`. Before writing an equals/contains filter on a dimension, call `list_dimension_values({ member })` to get the exact value casing (e.g. `whale` not `Whale`) — batch it into the same round as `resolve_query_terms` when the member name is already known (e.g. from the disambiguator's pinned query). Default time range is "last 7 days" if the user gave none. Granularity defaults: ≤ 14 days → day, ≤ 90 days → week, > 90 days → month. Resolve language: "tuần qua" → "last 7 days".
 3. **Clarification is resolver-governed.** Do NOT invent your own clarifying question here. You clarify only when `disambiguate_query` returned `action: 'clarify'` (see Pre-flight). If it returned `action: 'auto'`, the metric/ranking is pinned — keep going. Time range defaults to "last 7 days" when unspecified; never clarify the time range.
-4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.
+4. **Preview the query** with `preview_cube_query({ query, limit: 10 })`. If the rows plausibly answer the question, emit immediately — do not re-preview to confirm. If the result looks wrong (empty / shape mismatch), adjust before emitting. Do not preview more than twice per turn.
 5. **Emit the artifact** with `emit_query_artifact({ title, summary, query, source, sourceRef? })` where `source` is `'business-metric'` (with `sourceRef.id`) when a YAML matched, else `'raw'`. Title is ≤ 8 words; summary is one plain English sentence.
 6. **Final text.** One paragraph plain English summary of what the artifact shows. No raw row values beyond 5; no PII. Skip preamble.
 
