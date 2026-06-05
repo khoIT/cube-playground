@@ -2,10 +2,29 @@ cubes:
   # ===========================================================================
   # recharge — raw recharge transactions for CFM VN.
   # Source: <CUBEJS_DB_SCHEMA>.etl_ingame_recharge
+  #         LEFT JOIN std_ingame_role_recharge (canonical-id bridge)
+  #
+  # IDENTITY BRIDGE: vopenid is the VNG SDK openid (short numeric, e.g.
+  # 100000132) — a DIFFERENT namespace from mf_users.user_id (GDS snowflake,
+  # e.g. 2671148254558748672), so the raw table alone cannot join mf_users.
+  # The cube SQL therefore LEFT JOINs std_ingame_role_recharge on
+  # (vng_transaction = transaction_id AND log_date) — verified one row per
+  # transaction and same-date for 100% of matches — to attach the canonical
+  # gds_user_id, which the mf_users join uses. Transactions with NO bridge row
+  # have no real user behind them, so their mf_users attributes are
+  # legitimately NULL.
+  #
+  # KNOWN DATA CAVEATS (verified against Trino 2026-06-05):
+  #   - user_type = 'st_dummy' on EVERY raw row — it does NOT discriminate
+  #     test traffic. Use the `real_users_only` segment (bridge IS NOT NULL).
+  #   - Unbridged transactions dominate raw iamount (e.g. 11.0B of 11.04B on
+  #     2026-06-01) and look like load-test traffic.
+  #   - iamount is NOT the VND price (e.g. iamount 6800 ↔ true price 249000
+  #     VND). std_ingame_role_recharge.recharged_value carries the true VND.
   #
   # CFM uses the VNG SDK raw recharge schema, which is structurally different
   # from ballistar's "etl-curated" shape. Field mapping:
-  #   vopenid                 -> account_id (canonical user identifier)
+  #   vopenid                 -> account_id (VNG SDK openid; NOT mf_users.user_id)
   #   vng_transaction         -> transaction_id (primary VNG payment id)
   #   iamount                 -> charged_value (in user currency; usually VND)
   #   imoney_us               -> usd value
@@ -21,17 +40,27 @@ cubes:
   #   role_level, vip_level, money_type (use currency instead)
   # ===========================================================================
   - name: recharge
-    sql_table: etl_ingame_recharge
+    # Bridge the SDK openid to the canonical GDS user id at transaction grain.
+    # log_date in the join key lets Trino prune both partitioned tables.
+    sql: >
+      SELECT e.*, s.user_id AS gds_user_id, s.recharged_value AS true_price_vnd
+      FROM etl_ingame_recharge e
+      LEFT JOIN std_ingame_role_recharge s
+        ON e.vng_transaction = s.transaction_id AND e.log_date = s.log_date
     title: CFM VN — Recharge Transactions (raw events)
     description: >
-      One row per recharge transaction in CFM VN. User join key is vopenid
-      (= mf_users.user_id). For best 1-user latency, ALWAYS pass a
-      vopenid (or user_id via the joined view) equality filter.
+      One row per recharge transaction in CFM VN. Joins to mf_users via the
+      bridged canonical gds_user_id (vopenid alone is the VNG SDK openid and
+      cannot join mf_users). Unbridged transactions have no real user — their
+      mf_users attributes are NULL; use the real_users_only segment to
+      exclude them. NOTE: iamount is not the VND price — prefer
+      user_recharge_daily for revenue reporting. For best 1-user latency,
+      ALWAYS pass a vopenid equality filter.
 
     joins:
       - name: mf_users
         relationship: many_to_one
-        sql: "{CUBE}.vopenid = {mf_users}.user_id"
+        sql: "{CUBE}.gds_user_id = {mf_users}.user_id"
 
     refresh_key:
       every: 5 minute
@@ -51,7 +80,14 @@ cubes:
       - name: user_id
         sql: vopenid
         type: string
-        description: User account id (= mf_users.user_id)
+        description: VNG SDK openid — NOT the canonical mf_users.user_id (use gds_user_id for that)
+
+      - name: gds_user_id
+        sql: gds_user_id
+        type: string
+        description: >
+          Canonical GDS user id, bridged from std_ingame_role_recharge by
+          transaction. NULL for st_dummy test transactions (no real user).
 
       - name: vopenid
         sql: vopenid
@@ -133,7 +169,17 @@ cubes:
       - name: value_vnd
         sql: iamount
         type: number
-        description: Charged value (iamount). Currency = `currency` dimension; VND for VN.
+        description: >
+          Charged value (iamount). CAVEAT: not the actual VND price — use
+          true_price_vnd (bridged from std) for real money amounts.
+
+      - name: true_price_vnd
+        sql: true_price_vnd
+        type: number
+        description: >
+          Actual VND price of the transaction, bridged from
+          std_ingame_role_recharge.recharged_value. NULL for unbridged
+          (no-real-user) transactions.
 
       - name: value_source
         sql: imoney_source
@@ -171,7 +217,18 @@ cubes:
       - name: revenue_vnd
         sql: iamount
         type: sum
-        description: Sum of iamount. Filter currency='VND' for strict VND revenue.
+        description: >
+          Sum of iamount. CAVEAT: iamount is not the actual VND price and raw
+          totals are dominated by unbridged test traffic — prefer
+          revenue_vnd_real (or user_recharge_daily) for money reporting.
+
+      - name: revenue_vnd_real
+        sql: true_price_vnd
+        type: sum
+        description: >
+          Sum of actual VND prices (bridged from std_ingame_role_recharge).
+          Unbridged test transactions contribute nothing (NULL), so this is
+          the trustworthy transaction-grain revenue.
 
       - name: revenue_usd
         sql: imoney_us
@@ -198,6 +255,16 @@ cubes:
       - name: vnd_only
         sql: "{CUBE}.currency = 'VND'"
         description: Restrict to VND-charged transactions (drops foreign-currency edge cases)
+
+      - name: real_users_only
+        # user_type is 'st_dummy' on EVERY raw row (constant, not a
+        # discriminator). The reliable real-user signal is the canonical-id
+        # bridge: std_ingame_role_recharge only carries real-user txns.
+        sql: "{CUBE}.gds_user_id IS NOT NULL"
+        description: >
+          Keep only transactions bridged to a canonical GDS user. Unbridged
+          rows dominate raw iamount totals (~99% on sampled days) and look
+          like load-test traffic with no real user behind them.
 
       - name: last_7d
         sql: "{CUBE}.event_time_with_timezone >= CURRENT_TIMESTAMP - INTERVAL '7' DAY"

@@ -13,7 +13,9 @@ cubes:
         sql: '{CUBE}.user_id = {user_recharge_daily}.user_id'
       - name: recharge
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {recharge}.account_id'
+        # gds_user_id is the canonical id bridged inside the recharge cube SQL
+        # (raw vopenid is a different identity namespace and never matches).
+        sql: '{CUBE}.user_id = {recharge}.gds_user_id'
     refresh_key:
       every: 1 hour
     dimensions:
