@@ -129,11 +129,21 @@ describe('get_cube_meta tool', () => {
     expect(res.cubes).toHaveLength(1);
   });
 
-  it('scope=full without filter returns the raw meta unchanged', async () => {
+  it('scope=full on a small schema returns the raw meta unchanged', async () => {
     const raw = { cubes: [makeCube('recharge', 1, 1)], extraField: 'kept' };
     metaHolder.meta = raw;
     const res = await handler({ scope: 'full' }, ctx);
     expect(res).toBe(raw);
+  });
+
+  it('scope=full on an oversized schema degrades to the index, not a raw dump', async () => {
+    metaHolder.meta = {
+      cubes: Array.from({ length: 30 }, (_, i) => makeCube(`etl_cube_${i}`, 40, 40, 5)),
+    };
+    const res = await handler({ scope: 'full' }, ctx);
+    expect(res.note).toMatch(/cubes=\[/);
+    expect(res.cubes[0].measures).toBe(40); // count, not member list
+    expect(JSON.stringify(res).length).toBeLessThan(60_000);
   });
 
   it('cubes filter: exact match wins over suffix fan-out', async () => {

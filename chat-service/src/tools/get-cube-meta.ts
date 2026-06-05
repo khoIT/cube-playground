@@ -10,8 +10,13 @@
  *                       payload would blow the cap (member-rich games like
  *                       cfm_vn), degrades to a cube INDEX (name + member
  *                       counts) with instructions to re-call with cubes=[...].
- *  - scope='full'    -> raw /meta JSON. May exceed the output cap on large
- *                       schemas — prefer cubes=[...] instead.
+ *  - scope='full'    -> complete /meta JSON (joins, sql hints, drill members)
+ *                       when it fits the budget; degrades to the same index
+ *                       on large schemas. Prefer cubes=[...] instead.
+ *
+ * Every shape is workspace+game scoped upstream: the gateway filters /meta to
+ * the active game on prefixed workspaces, and the meta cache strips views and
+ * raw std_* cubes before this handler ever sees the payload.
  */
 
 import { z } from 'zod';
@@ -25,7 +30,7 @@ export const description =
   '(bare names also match workspace-prefixed cubes). Without a filter, ' +
   'scope="compact" (default) returns all cubes; on large schemas it degrades to a ' +
   'name+count index — then re-call with cubes=[...] for the ones you need. ' +
-  'scope="full" returns raw /meta and can exceed output limits on large schemas.';
+  'scope="full" adds joins/sql fields when the schema is small enough.';
 
 export const inputSchema = {
   scope: z.enum(['full', 'compact']).default('compact'),
@@ -162,8 +167,30 @@ export async function handler(
     return result;
   }
 
+  // Schema-too-large fallback: a name+count index instead of letting the SDK
+  // dump an oversized result to a file the agent has to dig back out of.
+  const cubeIndex = () => ({
+    note:
+      'Schema too large to inline. Call get_cube_meta with cubes=["name", ...] ' +
+      'to get full member details for the cubes you need.',
+    cubes: allCubes.map((c: AnyCube) => ({
+      name: c.name,
+      title: c.title,
+      measures: (c.measures ?? []).length,
+      dimensions: (c.dimensions ?? []).length,
+      segments: (c.segments ?? []).length,
+    })),
+  });
+
   if (args.scope === 'full') {
-    return meta;
+    // Full is verbose (joins, sql, drill members, …) — same budget applies.
+    // Note: like every shape here, it is already workspace+game scoped by the
+    // gateway and views/std-stripped by the meta cache; "full" only widens the
+    // per-cube fields, never the cube set.
+    if (JSON.stringify(meta).length <= COMPACT_CHAR_BUDGET) {
+      return meta;
+    }
+    return cubeIndex();
   }
 
   // Compact: cubes with name, title, and measure/dimension/segment names + types.
@@ -180,18 +207,5 @@ export async function handler(
     return compact;
   }
 
-  // Schema too large to inline — return an index instead of letting the SDK
-  // dump an oversized result to a file the agent has to dig back out of.
-  return {
-    note:
-      'Schema too large to inline. Call get_cube_meta with cubes=["name", ...] ' +
-      'to get full member details for the cubes you need.',
-    cubes: allCubes.map((c: AnyCube) => ({
-      name: c.name,
-      title: c.title,
-      measures: (c.measures ?? []).length,
-      dimensions: (c.dimensions ?? []).length,
-      segments: (c.segments ?? []).length,
-    })),
-  };
+  return cubeIndex();
 }
