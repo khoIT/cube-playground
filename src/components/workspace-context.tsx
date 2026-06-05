@@ -19,6 +19,7 @@ import React, {
 
 import { getPref, setPref, subscribe } from '../hooks/server-prefs-store';
 import { recordWorkspaceSwitch } from '../api/feature-open-beacon';
+import { readAppToken } from '../auth/auth-storage';
 
 const WORKSPACE_STORAGE_KEY = 'gds-cube:workspace';
 const WORKSPACE_CHANGE_EVENT = 'gds-cube:workspace-change';
@@ -68,7 +69,13 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/workspaces')
+    // MUST carry the app JWT: the server only runs the per-user grant filter
+    // when it can resolve req.user from `Authorization: Bearer`. A tokenless
+    // request falls into the route's "anonymous → all workspaces" branch, which
+    // on real-auth stacks (:11000 / prod) leaks workspaces the user isn't
+    // granted into the switcher (e.g. a prod-only user still sees `local`).
+    const token = readAppToken();
+    fetch('/api/workspaces', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
       .then((body: { workspaces: WorkspaceDef[] }) => {
         if (cancelled) return;

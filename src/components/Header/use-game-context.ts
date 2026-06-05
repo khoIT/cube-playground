@@ -25,6 +25,7 @@ import {
   WORKSPACE_CHANGE_EVENT,
 } from '../workspace-context';
 import { useAuthUser } from '../../auth/auth-context';
+import { readAppToken } from '../../auth/auth-storage';
 import { getPref, setPref, subscribe } from '../../hooks/server-prefs-store';
 import { GAME_STORAGE_KEY as STORAGE_KEY, GAME_CHANGE_EVENT } from './active-game-storage';
 
@@ -136,7 +137,11 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
   // the GamePicker reacts when the user flips the topbar workspace pill.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/workspaces')
+    // Carry the app JWT so the server applies the per-user workspace grant
+    // filter (see workspace-context.tsx) — otherwise this hook's own fallback
+    // could re-select a workspace the user isn't granted (e.g. `local`).
+    const token = readAppToken();
+    fetch('/api/workspaces', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
       .then((body: { workspaces: WorkspaceSummary[] }) => {
         if (cancelled) return;
