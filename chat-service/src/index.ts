@@ -38,6 +38,7 @@ import debugCacheEffectivenessRoutes from './api/debug-cache-effectiveness.js';
 import notificationsRoutes from './api/notifications.js';
 import chatUserPrefsRoutes from './api/chat-user-prefs.js';
 import chatSessionFocusRoutes from './api/chat-session-focus.js';
+import starterQuestionsRoutes from './api/starter-questions.js';
 import { scheduler } from './services/scheduler.js';
 import { registerRetentionSweep } from './services/retention-sweep.js';
 import { registerResponseCacheSweep } from './services/response-cache-sweep.js';
@@ -89,6 +90,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(notificationsRoutes, { db });
   await fastify.register(chatUserPrefsRoutes, { db });
   await fastify.register(chatSessionFocusRoutes, { db });
+  await fastify.register(starterQuestionsRoutes, { db });
 
   return { fastify, db };
 }

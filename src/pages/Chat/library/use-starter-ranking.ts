@@ -41,6 +41,12 @@ export function useStarterRanking(
   minSessions: number,
   /** Persona filter — narrows the pool BEFORE ranking. */
   filter: (s: StarterQuestion) => boolean,
+  /**
+   * Question pool to rank. Defaults to the static library; the empty-hero
+   * passes the per-game generated set so ranking applies to whichever
+   * source is live.
+   */
+  pool: ReadonlyArray<StarterQuestion> = STARTER_QUESTIONS,
 ): UseStarterRankingResult {
   const [intents, setIntents] = useState<IntentRow[]>([]);
 
@@ -67,9 +73,9 @@ export function useStarterRanking(
     const recentCategories: StarterCategory[] = intents
       .map((r) => SKILL_TO_CATEGORY[r.skill])
       .filter((c): c is StarterCategory => !!c && STARTER_CATEGORIES.includes(c));
-    const pool = STARTER_QUESTIONS.filter(filter);
+    const filteredPool = pool.filter(filter);
     const ranked = rankStarters({
-      starters: pool,
+      starters: filteredPool,
       recentCategories,
       sessionCount: intents.length,
       minSessions,
@@ -78,5 +84,5 @@ export function useStarterRanking(
       ranked: ranked.map((r) => r.starter),
       intentObservations: intents.length,
     };
-  }, [intents, minSessions, filter]);
+  }, [intents, minSessions, filter, pool]);
 }

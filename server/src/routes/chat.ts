@@ -437,6 +437,34 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     );
   }
 
+  // --- GET /api/chat/starter-questions — per-(workspace, game) suggested questions ---
+  // Dedicated handler (not proxyJson) because this route must forward the
+  // active GAME on top of owner + workspace: the upstream generates the set
+  // from that game's cube /meta. Game arrives as ?game= (GET has no body).
+  app.get<{ Querystring: { game?: string } }>(
+    '/api/chat/starter-questions',
+    async (request: FastifyRequest<{ Querystring: { game?: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request) ?? request.owner;
+      const game = typeof request.query.game === 'string' ? request.query.game.trim() : '';
+      if (!game) {
+        return reply.status(400).send({ code: 'missing_game', message: 'Query param ?game= is required' });
+      }
+      try {
+        const res = await fetch(`${chatServiceUrl()}/api/chat/starter-questions`, {
+          headers: {
+            'X-Owner-Id': owner,
+            'X-Cube-Workspace': request.workspace.id,
+            'x-cube-game': game,
+          },
+        });
+        const payload = await res.json();
+        return reply.status(res.status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- GET /api/chat/sessions/:id/focus — Phase 03 session-focus inspection ---
   // The chat-service registers this route with the full /api/chat prefix
   // (unlike /sessions/:id), so the upstream path keeps it.

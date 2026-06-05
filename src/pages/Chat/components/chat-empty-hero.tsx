@@ -5,8 +5,10 @@
  * Research mode toggle + circular send + starter library grid.
  *
  * Starter clicks prefill the composer (no auto-submit) per decision Q10.
- * Cold-start (intent observations < STARTER_RANK_MIN_SESSIONS) renders all
- * 16 starters in source order; afterward persona-histogram ranks them.
+ * The starter pool is the per-(workspace, game) generated set when one
+ * exists, else the static library. Cold-start (intent observations <
+ * STARTER_RANK_MIN_SESSIONS) renders the pool in source order; afterward
+ * persona-histogram ranks it.
  * Research mode toggle is wired end-to-end: ON sends X-Research-Mode: 1
  * which enables both web search and research mode for that turn (subject to
  * CHAT_ENABLE_WEB_SEARCH + CHAT_ENABLE_RESEARCH_MODE env master flags).
@@ -27,6 +29,7 @@ import {
   type StarterQuestion,
 } from '../library/starter-questions';
 import { useStarterRanking } from '../library/use-starter-ranking';
+import { useGeneratedStarters } from '../library/use-generated-starters';
 import { postChatAudit } from '../../../api/chat-audit-client';
 
 interface ChatEmptyHeroProps {
@@ -55,7 +58,9 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, byp
     },
     [personaFilter],
   );
-  const { ranked } = useStarterRanking(STARTER_RANK_MIN_SESSIONS, filter);
+  // Per-(workspace, game) generated pool; static library when none exists yet.
+  const { starters } = useGeneratedStarters();
+  const { ranked } = useStarterRanking(STARTER_RANK_MIN_SESSIONS, filter, starters);
 
   const handlePick = useCallback(
     (starter: StarterQuestion) => {

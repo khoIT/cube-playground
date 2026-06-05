@@ -14,6 +14,7 @@ import { migrateAnnotations } from './annotations-migrate.js';
 import { migrateResponseCache } from './response-cache-migrate.js';
 import { migrateKvCache } from './kv-cache-migrate.js';
 import { migrateUserDisambigPrefs } from './user-disambig-prefs-migrate.js';
+import { migrateStarterQuestions } from './starter-questions-migrate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -88,6 +89,7 @@ export function migrate(db: Database.Database): void {
   migrateResponseCache(db);
   migrateKvCache(db);
   migrateUserDisambigPrefs(db);
+  migrateStarterQuestions(db);
 }
 
 /**

@@ -174,6 +174,7 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | GET | `/api/chat/sessions/:id` | none | `x-owner-id` | session detail; owner OR `visibility=shared`; `readOnly` flag for non-owner | chat-service `/sessions/:id` |
 | POST | `/api/chat/sessions/:id/share`·`/unshare` | none (owner req) | `x-owner-id` | publish/unpublish to team (owner-only 403) | chat-service `/sessions/:id/(un)share` |
 | GET/DELETE | `/api/chat/sessions/:id/focus` | none (DELETE owner req) | `x-owner-id` | focus bag / clear | chat-service `/api/chat/sessions/:id/focus` |
+| GET | `/api/chat/starter-questions` | none (owner-agnostic) | `x-cube-workspace`, `?game (req)` | per-(workspace, game) generated starter set `{questions, source: static-fallback\|template\|llm, status, metaHash}`; lazy template gen + background LLM refine, meta-hash staleness | chat-service `/api/chat/starter-questions`, Cube `/meta`, SQLite `starter_question_sets` |
 | DELETE | `/api/chat/sessions/:id` | none (owner fallback) | `x-owner-id` | soft-archive | chat-service `/sessions/:id` |
 | PATCH | `/api/chat/sessions/:id` | none (owner req) | `x-owner-id`, `{title}` | rename | chat-service `/sessions/:id` |
 | GET | `/api/chat/notifications` | none (owner req) | `x-owner-id`, `?unread,limit` | notifications | chat-service `/notifications` |

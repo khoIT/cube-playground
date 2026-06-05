@@ -50,6 +50,12 @@ export interface Config {
   contextBudgetTokens: number;
   /** Cheap model used for generating session title summaries. */
   titleModel: string;
+  /**
+   * Model for the starter-question LLM refine pass. Defaults to Opus: the
+   * call is rare (once per workspace+game per schema change), cached in
+   * sqlite, and fire-and-forget — so question quality wins over cost.
+   */
+  starterRefinerModel: string;
   /** Max requests per owner per minute on POST /agent/turn. */
   rateLimitPerOwnerPerMin: number;
   /** LLM cost per 1k input tokens in USD (for stats endpoint). */
@@ -239,6 +245,7 @@ export const config: Config = {
   skillLoaderTtlMs: optionalInt('SKILL_LOADER_TTL_MS', DEFAULT_SKILL_LOADER_TTL),
   contextBudgetTokens: optionalInt('CHAT_CONTEXT_BUDGET_TOKENS', 180_000),
   titleModel: optional('CHAT_TITLE_MODEL', 'claude-haiku-4-5-20251001'),
+  starterRefinerModel: optional('CHAT_STARTER_REFINER_MODEL', 'claude-opus-4-8'),
   rateLimitPerOwnerPerMin: optionalInt('CHAT_RATE_LIMIT_PER_OWNER_PER_MIN', 30),
   costPer1kInputUsd: optionalFloat('CHAT_COST_PER_1K_INPUT_USD', 0.003),
   costPer1kOutputUsd: optionalFloat('CHAT_COST_PER_1K_OUTPUT_USD', 0.015),
