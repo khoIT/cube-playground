@@ -66,11 +66,11 @@ describe('buildTemplateQuestions', () => {
     expect(dormant!.targetCatalogIds).toContain('cfm_mf_users.days_since_last_active');
   });
 
-  it('persona/category tags stay within the FE unions', () => {
-    const personas = new Set(['pm', 'marketer', 'analyst']);
+  it('topic/category tags stay within the FE unions', () => {
+    const topics = new Set(['liveops', 'user_acquisition', 'monetization']);
     const categories = new Set(['explore', 'metric_explain', 'compare', 'diagnose']);
     for (const q of buildTemplateQuestions(LOCAL_META)) {
-      q.personaTags.forEach((p) => expect(personas.has(p)).toBe(true));
+      q.topicTags.forEach((t) => expect(topics.has(t)).toBe(true));
       q.categoryTags.forEach((c) => expect(categories.has(c)).toBe(true));
     }
   });

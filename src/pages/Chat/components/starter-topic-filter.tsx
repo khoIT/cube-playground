@@ -1,30 +1,33 @@
 /**
- * StarterPersonaFilter — chip group above the starter grid.
- * Selecting a persona filters `STARTER_QUESTIONS` by `personaTags`.
+ * StarterTopicFilter — chip group above the starter grid.
+ * Selecting a publishing-business topic (LiveOps / User Acquisition /
+ * Monetization) filters the starter pool by `topicTags`.
  */
 import React from 'react';
 import { T } from '../../../shell/theme';
-import type { StarterPersona } from '../library/starter-questions';
+import {
+  STARTER_TOPICS,
+  STARTER_TOPIC_LABELS,
+  type StarterTopic,
+} from '../library/starter-questions';
 
-export type StarterPersonaFilterValue = 'all' | StarterPersona;
+export type StarterTopicFilterValue = 'all' | StarterTopic;
 
-const OPTIONS: ReadonlyArray<{ value: StarterPersonaFilterValue; label: string }> = [
+const OPTIONS: ReadonlyArray<{ value: StarterTopicFilterValue; label: string }> = [
   { value: 'all', label: 'All' },
-  { value: 'pm', label: 'PM' },
-  { value: 'marketer', label: 'Marketer' },
-  { value: 'analyst', label: 'Analyst' },
+  ...STARTER_TOPICS.map((t) => ({ value: t, label: STARTER_TOPIC_LABELS[t] })),
 ];
 
 interface Props {
-  value: StarterPersonaFilterValue;
-  onChange: (value: StarterPersonaFilterValue) => void;
+  value: StarterTopicFilterValue;
+  onChange: (value: StarterTopicFilterValue) => void;
 }
 
-export function StarterPersonaFilter({ value, onChange }: Props) {
+export function StarterTopicFilter({ value, onChange }: Props) {
   return (
     <div
       role="radiogroup"
-      aria-label="Starter persona filter"
+      aria-label="Starter topic filter"
       style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}
     >
       {OPTIONS.map((opt) => {

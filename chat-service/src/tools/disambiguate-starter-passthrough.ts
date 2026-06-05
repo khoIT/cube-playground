@@ -56,6 +56,7 @@ export function matchStarterQuestion(
   const wanted = normalise(message);
   const question = seed.entry.questions.find((q) => normalise(q.text) === wanted);
   if (!question) return null;
+  const coverage = seed.entry.coverage ?? {};
 
   // Every target member must exist in THIS workspace's meta. The seed was
   // generated against one workspace's member names; a layout mismatch
@@ -82,13 +83,29 @@ export function matchStarterQuestion(
   };
 
   // Bound the time axis so behavior cubes with a ≤31-day guard accept the
-  // query first try. The agent re-anchors via get_time_coverage if this
-  // window turns out to be ahead of the data.
+  // query first try. When the seed carries a probed coverage date for this
+  // time dimension, anchor the 30-day window to it — data pipelines lag
+  // behind "today", so an unanchored "last 30 days" can land entirely ahead
+  // of the data and return an empty (unimpressive) first preview. Without
+  // coverage, fall back to a relative window; the agent re-anchors via
+  // get_time_coverage if that turns out empty.
   const cubeName = measures[0].split('.')[0];
   const timeDim = timeDimensionOf(meta, cubeName);
   if (timeDim) {
-    query.timeDimensions = [{ dimension: timeDim, dateRange: 'last 30 days' }];
+    const latest = coverage[timeDim];
+    query.timeDimensions = [
+      {
+        dimension: timeDim,
+        dateRange: latest ? [daysBefore(latest, 29), latest] : 'last 30 days',
+      },
+    ];
   }
 
   return { questionId: question.id, query, measures, dimensions };
+}
+
+/** ISO date `days` before `isoDate` (UTC arithmetic — dates only, no clock). */
+function daysBefore(isoDate: string, days: number): string {
+  const t = new Date(`${isoDate}T00:00:00Z`).getTime() - days * 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
 }

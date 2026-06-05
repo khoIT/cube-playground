@@ -17,13 +17,14 @@ import type Database from 'better-sqlite3';
 /**
  * Server-side mirror of the FE `StarterQuestion` shape
  * (src/pages/Chat/library/starter-questions.ts). Field names MUST stay
- * identical — the FE consumes these rows verbatim so its persona filter and
+ * identical — the FE consumes these rows verbatim so its topic filter and
  * histogram ranking work unchanged on generated sets.
  */
 export interface StarterQuestion {
   id: string;
   text: string;
-  personaTags: Array<'pm' | 'marketer' | 'analyst'>;
+  /** Publishing-business topics — drive the FE filter chips. */
+  topicTags: Array<'liveops' | 'user_acquisition' | 'monetization'>;
   categoryTags: Array<'explore' | 'metric_explain' | 'compare' | 'diagnose'>;
   /** Real `cube.member` names from THIS game's meta — never invented. */
   targetCatalogIds: string[];

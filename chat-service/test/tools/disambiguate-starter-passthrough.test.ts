@@ -44,7 +44,10 @@ const KNOWN = new Set([
 
 const QUESTION_TEXT = 'Which game modes and maps drive the most matches and unique players in available data?';
 
-function seedWith(targetCatalogIds: string[]): StarterSeedHit {
+function seedWith(
+  targetCatalogIds: string[],
+  coverage?: Record<string, string>,
+): StarterSeedHit {
   return {
     version: 'v1',
     generatedAt: 1,
@@ -52,10 +55,11 @@ function seedWith(targetCatalogIds: string[]): StarterSeedHit {
       questions: [{
         id: 'game-mode-map-popularity',
         text: QUESTION_TEXT,
-        personaTags: ['pm'],
+        topicTags: ['liveops'],
         categoryTags: ['explore'],
         targetCatalogIds,
       }],
+      ...(coverage ? { coverage } : {}),
     },
   };
 }
@@ -80,6 +84,24 @@ describe('matchStarterQuestion', () => {
     // Bounded time axis so ≤31-day guard cubes accept the first preview.
     expect(hit.query.timeDimensions).toEqual([
       { dimension: 'etl_game_detail.log_date', dateRange: 'last 30 days' },
+    ]);
+  });
+
+  it('anchors the 30-day window to the seed coverage date when present', () => {
+    seedHolder.hit = seedWith(
+      [
+        'etl_game_detail.game_mode_label',
+        'etl_game_detail.map_label',
+        'etl_game_detail.matches',
+        'etl_game_detail.distinct_players',
+      ],
+      { 'etl_game_detail.log_date': '2026-04-30' },
+    );
+    const hit = matchStarterQuestion(QUESTION_TEXT, 'cfm_vn', META, KNOWN)!;
+    // Pipelines lag behind today — the anchored window guarantees the first
+    // preview lands on data instead of an empty "last 30 days".
+    expect(hit.query.timeDimensions).toEqual([
+      { dimension: 'etl_game_detail.log_date', dateRange: ['2026-04-01', '2026-04-30'] },
     ]);
   });
 

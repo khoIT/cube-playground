@@ -153,8 +153,12 @@ COPY --from=build-chat /app/chat-service/dist ./dist
 # Non-TS runtime assets tsc skips:
 #   - db/schema.sql            (migrate.ts reads resolve(__dirname,'schema.sql'))
 #   - .claude/{commands,skills} (mode-prompts + skill-loader read ../../.claude)
+#   - seed/                    (pregenerated starter-question seed; read from
+#                               dist/db/../../seed — NOT under runtime/, which
+#                               is .dockerignored writable scratch)
 COPY --from=build-chat /app/chat-service/src/db/schema.sql ./dist/db/schema.sql
 COPY --from=build-chat /app/chat-service/.claude ./.claude
+COPY --from=build-chat /app/chat-service/seed ./seed
 COPY --from=build-chat /app/node_modules /app/node_modules
 # Writable scratch (boot log, claude-home, parallel-emit). chat.db is on a volume.
 RUN mkdir -p runtime && chown -R node:node /app/chat-service/runtime

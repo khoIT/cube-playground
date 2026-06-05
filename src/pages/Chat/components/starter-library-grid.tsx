@@ -3,12 +3,15 @@
  * of canonical business questions. Click → onPick(starter) which prefills
  * the chat composer (NO auto-submit; decision Q10).
  *
- * Filtering by persona happens in the parent (chat-empty-hero); this
+ * Filtering by topic happens in the parent (chat-empty-hero); this
  * component is a pure list renderer.
  */
 import React from 'react';
 import { T } from '../../../shell/theme';
-import type { StarterQuestion } from '../library/starter-questions';
+import {
+  STARTER_TOPIC_LABELS,
+  type StarterQuestion,
+} from '../library/starter-questions';
 
 interface Props {
   starters: ReadonlyArray<StarterQuestion>;
@@ -86,7 +89,9 @@ function StarterCard({
           letterSpacing: '0.04em',
         }}
       >
-        {starter.personaTags.join(' · ')}
+        {(starter.topicTags ?? [])
+          .map((t) => STARTER_TOPIC_LABELS[t] ?? t)
+          .join(' · ')}
       </div>
     </button>
   );

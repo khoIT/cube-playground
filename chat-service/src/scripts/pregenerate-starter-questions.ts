@@ -2,7 +2,8 @@
  * CLI: `npm run starters:pregenerate [-- --games a,b --workspace local]`
  *
  * Pregenerates the per-game starter-question sets ONCE and freezes them in
- * runtime/seed/starter-questions-seed.json (checked into git) + the local DB.
+ * seed/starter-questions-seed.json (checked into git, shipped in the prod
+ * image — see Dockerfile chat-service stage) + the local DB.
  * Every environment that ships the seed file serves these exact questions —
  * see src/db/starter-questions-seed.ts for the serve-side contract.
  *
@@ -23,6 +24,7 @@ import {
   buildRefinePrompt,
   parseAndValidateLlmSet,
   defaultCallLlm,
+  SEED_QUESTIONS_PER_GAME,
 } from '../core/starter-question-refiner.js';
 import { handler as timeCoverageHandler } from '../tools/get-time-coverage.js';
 import { openDatabase } from '../db/migrate.js';
@@ -72,26 +74,29 @@ function timeDimensionOf(meta: any, cubeName: string): string | null {
 }
 
 /**
- * Probe the latest date with data for each cube the baseline questions
+ * Probe the latest date with data for each cube the given questions
  * reference. Returns `{timeDim: 'YYYY-MM-DD'}` for found dims only.
+ * `known` short-circuits dims probed in an earlier pass — the post-LLM
+ * top-up only pays for cubes the baseline didn't already cover.
  */
 async function probeCoverage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   meta: any,
-  baseline: StarterQuestion[],
+  questions: StarterQuestion[],
   ctx: ToolContext,
+  known: Record<string, string> = {},
 ): Promise<Record<string, string>> {
   const cubes = new Set<string>();
-  for (const q of baseline) {
+  for (const q of questions) {
     for (const ref of q.targetCatalogIds) {
       const cube = ref.includes('.') ? ref.split('.')[0] : null;
       if (cube) cubes.add(cube);
     }
   }
-  const coverage: Record<string, string> = {};
+  const coverage: Record<string, string> = { ...known };
   for (const cube of [...cubes].slice(0, MAX_COVERAGE_PROBES)) {
     const timeDim = timeDimensionOf(meta, cube);
-    if (!timeDim) continue;
+    if (!timeDim || coverage[timeDim]) continue;
     try {
       const out = (await timeCoverageHandler({ member: timeDim }, ctx)) as {
         found: boolean; latestDate?: string;
@@ -122,10 +127,12 @@ function buildPromptWithCoverage(
     '',
     'COVERAGE RULES:',
     '- Every question must be answerable within data_coverage.',
-    '- When a cube\'s latest date is >14 days before today, do NOT phrase questions as "today",',
-    '  "this week" or "this month" for that cube — use period-neutral phrasing like',
-    '  "in the most recent month of data" or "over the last 30 days of available data".',
+    '- Adjust each question\'s time range to the data that actually exists: when a cube\'s latest',
+    '  date is >14 days before today, do NOT phrase questions as "today", "this week" or',
+    '  "this month" for that cube — use period-neutral phrasing like "in the most recent month',
+    '  of data" or "over the last 30 days of available data".',
     '- Cubes absent from data_coverage have unknown freshness: prefer period-neutral phrasing.',
+    '- All else equal, prefer questions on the cubes with the FRESHEST coverage.',
   ];
   return lines.join('\n');
 }
@@ -165,8 +172,14 @@ async function main(): Promise<void> {
       console.error(`  REJECTED — LLM set failed validation; game left out of seed`);
       continue;
     }
-    console.log(`  ✓ ${validated.length} questions validated`);
-    seedGames[gameId] = { questions: validated, coverage };
+    // The prompt asks for exactly SEED_QUESTIONS_PER_GAME; clamp defensively
+    // so an over-eager response can't bloat the landing grid.
+    const questions = validated.slice(0, SEED_QUESTIONS_PER_GAME);
+    console.log(`  ✓ ${questions.length} questions validated`);
+    // The LLM may pick cubes the baseline never referenced — top up coverage
+    // for those so the click-through pass can anchor its time window to data.
+    const fullCoverage = await probeCoverage(meta, questions, ctx, coverage);
+    seedGames[gameId] = { questions, coverage: fullCoverage };
   }
 
   if (Object.keys(seedGames).length === 0) throw new Error('no game produced a valid set — seed not written');

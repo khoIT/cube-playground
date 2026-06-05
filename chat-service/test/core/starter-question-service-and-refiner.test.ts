@@ -103,7 +103,7 @@ describe('getOrGenerateStarterQuestions', () => {
     upsertSet(db, {
       workspace: 'local', gameId: 'cfm_vn', metaHash: 'old-hash',
       source: 'llm', status: 'llm',
-      questions: [{ id: 'old', text: 'Old?', personaTags: ['pm'], categoryTags: ['explore'], targetCatalogIds: ['gone.member'] }],
+      questions: [{ id: 'old', text: 'Old?', topicTags: ['liveops'], categoryTags: ['explore'], targetCatalogIds: ['gone.member'] }],
     });
 
     const res = await getOrGenerateStarterQuestions(db, {
@@ -119,7 +119,7 @@ describe('getOrGenerateStarterQuestions', () => {
     upsertSet(db, {
       workspace: 'local', gameId: 'cfm_vn', metaHash: 'h',
       source: 'llm', status: 'llm',
-      questions: [{ id: 'keep', text: 'Keep?', personaTags: ['pm'], categoryTags: ['explore'], targetCatalogIds: ['mf_users.payer_tier'] }],
+      questions: [{ id: 'keep', text: 'Keep?', topicTags: ['liveops'], categoryTags: ['explore'], targetCatalogIds: ['mf_users.payer_tier'] }],
     });
     metaHolder.failVersion = true;
 
@@ -148,7 +148,7 @@ describe('parseAndValidateLlmSet', () => {
   const known = extractMemberNames(RICH_META);
 
   const item = (over: Record<string, unknown> = {}) => ({
-    id: 'q1', text: 'Q?', personaTags: ['pm'], categoryTags: ['explore'],
+    id: 'q1', text: 'Q?', topicTags: ['liveops'], categoryTags: ['explore'],
     targetCatalogIds: ['mf_users.payer_tier'], ...over,
   });
 
@@ -165,7 +165,7 @@ describe('parseAndValidateLlmSet', () => {
   it('drops items with bad tags but keeps valid ones', () => {
     const raw = JSON.stringify([
       item(), item({ id: 'q2' }), item({ id: 'q3' }),
-      item({ id: 'bad-persona', personaTags: ['ceo'] }),
+      item({ id: 'bad-persona', topicTags: ['ceo'] }),
       item({ id: 'bad-category', categoryTags: ['hack'] }),
     ]);
     const out = parseAndValidateLlmSet(raw, known)!;

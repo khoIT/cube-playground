@@ -32,8 +32,8 @@ function Probe() {
 }
 
 const GENERATED = [
-  { id: 'g1', text: 'Q1?', personaTags: ['pm'], categoryTags: ['explore'], targetCatalogIds: ['a.b'] },
-  { id: 'g2', text: 'Q2?', personaTags: ['analyst'], categoryTags: ['compare'], targetCatalogIds: ['a.c'] },
+  { id: 'g1', text: 'Q1?', topicTags: ['liveops'], categoryTags: ['explore'], targetCatalogIds: ['a.b'] },
+  { id: 'g2', text: 'Q2?', topicTags: ['monetization'], categoryTags: ['compare'], targetCatalogIds: ['a.c'] },
 ];
 
 describe('useGeneratedStarters', () => {

@@ -1,5 +1,9 @@
 /**
- * Pregenerated starter-question seed — runtime/seed/starter-questions-seed.json.
+ * Pregenerated starter-question seed — seed/starter-questions-seed.json.
+ *
+ * Lives in `chat-service/seed/` (NOT `runtime/` — that dir is writable scratch,
+ * excluded by .dockerignore, so anything in it silently vanishes from the prod
+ * image; the Dockerfile chat-service stage COPYs `seed/` explicitly).
  *
  * The seed file is produced ONCE by `npm run starters:pregenerate` (LLM refine
  * with data-shape + time-coverage context) and checked into git, so every
@@ -17,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import type { StarterQuestion } from './starter-questions-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SEED_PATH = join(__dirname, '..', '..', 'runtime', 'seed', 'starter-questions-seed.json');
+const SEED_PATH = join(__dirname, '..', '..', 'seed', 'starter-questions-seed.json');
 
 export interface StarterSeedEntry {
   questions: StarterQuestion[];

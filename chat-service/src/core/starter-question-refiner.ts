@@ -14,8 +14,11 @@
 import { config } from '../config.js';
 import type { StarterQuestion } from '../db/starter-questions-store.js';
 
-const PERSONAS = new Set(['pm', 'marketer', 'analyst']);
+const TOPICS = new Set(['liveops', 'user_acquisition', 'monetization']);
 const CATEGORIES = new Set(['explore', 'metric_explain', 'compare', 'diagnose']);
+
+/** The frozen seed shows exactly this many questions per game. */
+export const SEED_QUESTIONS_PER_GAME = 6;
 
 /** Mirrors the get_cube_meta tool budget — keeps the prompt well under model limits. */
 const PROJECTION_CHAR_BUDGET = 60_000;
@@ -63,22 +66,30 @@ export function buildRefinePrompt(
   baseline: StarterQuestion[],
 ): string {
   return [
-    'You generate analytical starter questions for a game-analytics chatbot.',
-    'The questions showcase the most meaningful business-performance analyses for THIS game,',
-    'biased toward analyses that end in a SEGMENT/list (win-back lists, churn-risk payers, VIP outreach).',
+    'You curate starter questions for a game-analytics chatbot used by a game PUBLISHING company.',
+    'This list is the FIRST thing a stakeholder sees in a product demo — every question must be',
+    'impressive: a concrete, game-specific analysis whose answer is a striking chart, ranking, or',
+    'comparison. Generic dashboard questions ("how is DAU?") are weak; prefer questions that reveal',
+    'something about THIS game (its modes, maps, payer tiers, channels, cohorts).',
     '',
     'available_members (the ONLY members that exist):',
     JSON.stringify(projection),
     '',
-    'baseline_questions (deterministic seed — improve on these):',
+    'baseline_questions (deterministic candidates — pick/improve the strongest, drop the rest):',
     JSON.stringify(baseline),
     '',
     'RULES:',
     '- Output ONLY a JSON array. No prose, no code fences.',
-    '- Each item: {"id": string, "text": string, "personaTags": string[], "categoryTags": string[], "targetCatalogIds": string[]}.',
-    '- personaTags subset of ["pm","marketer","analyst"]; categoryTags subset of ["explore","metric_explain","compare","diagnose"].',
+    `- EXACTLY ${SEED_QUESTIONS_PER_GAME} questions — the ${SEED_QUESTIONS_PER_GAME} most interesting analyses this game's data can support.`,
+    '- Each item: {"id": string, "text": string, "topicTags": string[], "categoryTags": string[], "targetCatalogIds": string[]}.',
+    '- topicTags subset of ["liveops","user_acquisition","monetization"]:',
+    '    liveops          = engagement, activity patterns, game modes/maps, retention ops, win-back',
+    '    user_acquisition = new users, install cohorts, early retention, channel/cohort quality',
+    '    monetization     = revenue, payers, ARPU, VIP/whales, conversion to payer',
+    '- Aim for ~2 questions per topic; when the data cannot support a topic, fill from the others.',
+    '- categoryTags subset of ["explore","metric_explain","compare","diagnose"].',
     '- targetCatalogIds MUST be "cube.member" names copied EXACTLY from available_members. NEVER invent a name.',
-    '- 12-18 questions. Improve clarity and business relevance over the baseline; keep good baseline items.',
+    '- Prefer cubes with rich dimensions and fresh data coverage over sparse/stale ones.',
     '- Question text in English, concrete and answerable from the listed members.',
   ].join('\n');
 }
@@ -107,8 +118,8 @@ export function parseAndValidateLlmSet(
     const x = item as any;
     if (typeof x?.id !== 'string' || !x.id.trim()) continue;
     if (typeof x?.text !== 'string' || !x.text.trim()) continue;
-    if (!Array.isArray(x.personaTags) || x.personaTags.length === 0) continue;
-    if (!x.personaTags.every((p: unknown) => typeof p === 'string' && PERSONAS.has(p))) continue;
+    if (!Array.isArray(x.topicTags) || x.topicTags.length === 0) continue;
+    if (!x.topicTags.every((t: unknown) => typeof t === 'string' && TOPICS.has(t))) continue;
     if (!Array.isArray(x.categoryTags) || x.categoryTags.length === 0) continue;
     if (!x.categoryTags.every((c: unknown) => typeof c === 'string' && CATEGORIES.has(c))) continue;
     if (!Array.isArray(x.targetCatalogIds) || x.targetCatalogIds.length === 0) continue;
@@ -120,7 +131,7 @@ export function parseAndValidateLlmSet(
     valid.push({
       id: x.id.trim(),
       text: x.text.trim(),
-      personaTags: x.personaTags,
+      topicTags: x.topicTags,
       categoryTags: x.categoryTags,
       targetCatalogIds: x.targetCatalogIds,
     });

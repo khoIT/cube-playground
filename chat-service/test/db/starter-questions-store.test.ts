@@ -17,7 +17,7 @@ const QUESTIONS: StarterQuestion[] = [
   {
     id: 'dau-trend',
     text: 'How is DAU trending?',
-    personaTags: ['pm'],
+    topicTags: ['liveops'],
     categoryTags: ['explore'],
     targetCatalogIds: ['active_daily.dau'],
   },

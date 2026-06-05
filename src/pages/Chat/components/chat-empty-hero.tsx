@@ -21,9 +21,9 @@ import cubeLogoDark from '../../../assets/brand/cube-logo-dark.png';
 import { ChatComposer } from './chat-composer';
 import { StarterLibraryGrid } from './starter-library-grid';
 import {
-  StarterPersonaFilter,
-  type StarterPersonaFilterValue,
-} from './starter-persona-filter';
+  StarterTopicFilter,
+  type StarterTopicFilterValue,
+} from './starter-topic-filter';
 import {
   STARTER_RANK_MIN_SESSIONS,
   type StarterQuestion,
@@ -49,14 +49,16 @@ interface ChatEmptyHeroProps {
 }
 
 export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, bypassCache, onToggleBypassCache, webSearch, onToggleWebSearch, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
-  const [personaFilter, setPersonaFilter] = useState<StarterPersonaFilterValue>('all');
+  const [topicFilter, setTopicFilter] = useState<StarterTopicFilterValue>('all');
 
   const filter = useCallback(
     (s: StarterQuestion) => {
-      if (personaFilter === 'all') return true;
-      return s.personaTags.includes(personaFilter);
+      if (topicFilter === 'all') return true;
+      // Defensive ?? — a stale server row generated before the topic taxonomy
+      // may still carry persona tags; show those under "All" only.
+      return (s.topicTags ?? []).includes(topicFilter);
     },
-    [personaFilter],
+    [topicFilter],
   );
   // Per-(workspace, game) generated pool; static library when none exists yet.
   const { starters } = useGeneratedStarters();
@@ -67,10 +69,10 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, byp
       onChange(starter.text);
       postChatAudit({
         kind: 'starter_clicked',
-        detail: { starterId: starter.id, persona: personaFilter },
+        detail: { starterId: starter.id, topic: topicFilter },
       });
     },
-    [onChange, personaFilter],
+    [onChange, topicFilter],
   );
 
   return (
@@ -107,7 +109,7 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, byp
         />
 
         <div style={{ width: '100%', marginTop: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <StarterPersonaFilter value={personaFilter} onChange={setPersonaFilter} />
+          <StarterTopicFilter value={topicFilter} onChange={setTopicFilter} />
           <StarterLibraryGrid starters={ranked} onPick={handlePick} />
         </div>
       </div>
