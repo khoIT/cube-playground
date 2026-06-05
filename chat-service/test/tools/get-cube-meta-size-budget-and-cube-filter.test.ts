@@ -135,4 +135,54 @@ describe('get_cube_meta tool', () => {
     const res = await handler({ scope: 'full' }, ctx);
     expect(res).toBe(raw);
   });
+
+  it('cubes filter: exact match wins over suffix fan-out', async () => {
+    // "recharge" must hit the exactly-named cube only, not suffix cousins.
+    metaHolder.meta = {
+      cubes: [makeCube('recharge', 2, 2), makeCube('user_recharge', 2, 2)],
+    };
+    const res = await handler({ cubes: ['recharge'] }, ctx);
+    expect(res.cubes.map((c: { name: string }) => c.name)).toEqual(['recharge']);
+  });
+
+  it('cubes filter: oversized multi-cube detail drops member descriptions to fit', async () => {
+    // Two big cubes whose detail (with descriptions) exceeds the budget but
+    // fits once member descriptions are stripped.
+    metaHolder.meta = { cubes: [makeCube('big_a', 120, 120), makeCube('big_b', 120, 120)] };
+    // Inflate descriptions so the described form is guaranteed over budget.
+    for (const c of (metaHolder.meta as { cubes: Array<Record<string, unknown>> }).cubes) {
+      for (const m of c.measures as Array<{ description: string }>) m.description = 'x'.repeat(300);
+      for (const d of c.dimensions as Array<{ description: string }>) d.description = 'x'.repeat(300);
+    }
+    const res = await handler({ cubes: ['big_a', 'big_b'] }, ctx);
+    expect(res.cubes).toHaveLength(2);
+    expect(res.cubes[0].measures[0].description).toBeUndefined();
+    expect(JSON.stringify(res).length).toBeLessThan(60_000);
+  });
+
+  it('cubes filter: still-oversized detail trims tail cubes and says so', async () => {
+    // Many big cubes — even description-stripped they cannot all fit.
+    metaHolder.meta = {
+      cubes: Array.from({ length: 12 }, (_, i) => makeCube(`huge_${i}`, 200, 200)),
+    };
+    const res = await handler({ cubes: Array.from({ length: 12 }, (_, i) => `huge_${i}`) }, ctx);
+    expect(res.cubes.length).toBeGreaterThanOrEqual(1);
+    expect(res.cubes.length).toBeLessThan(12);
+    expect(res.truncated.length).toBeGreaterThan(0);
+    expect(res.note).toMatch(/omitted/);
+    expect(JSON.stringify(res).length).toBeLessThan(70_000);
+  });
+
+  it('prod shape: suffix request across 5 prefixed games stays under budget', async () => {
+    // Mirrors the measured prod gateway-unfiltered worst case: 5 games each
+    // carrying an mf_users-sized cube (~46 dims with long descriptions).
+    const games = ['ballistar', 'cfm', 'cros', 'jus', 'tf'];
+    metaHolder.meta = { cubes: games.map((g) => makeCube(`${g}_mf_users`, 13, 46)) };
+    for (const c of (metaHolder.meta as { cubes: Array<Record<string, unknown>> }).cubes) {
+      for (const d of c.dimensions as Array<{ description: string }>) d.description = 'y'.repeat(200);
+    }
+    const res = await handler({ cubes: ['mf_users'] }, ctx);
+    expect(res.cubes.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(res).length).toBeLessThan(60_000);
+  });
 });

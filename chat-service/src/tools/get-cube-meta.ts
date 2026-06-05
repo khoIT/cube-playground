@@ -58,6 +58,20 @@ function cubeNameMatches(cubeName: string, requested: string): boolean {
   return a === b || a.endsWith(`_${b}`) || b.endsWith(`_${a}`);
 }
 
+/**
+ * Resolve one requested name against the cube list. Exact (case-insensitive)
+ * hits win outright; suffix-tolerant matching is only the fallback. This keeps
+ * a request like "recharge" from fanning out to every suffix cousin when an
+ * exactly-named cube exists.
+ */
+function matchCubes(allCubes: AnyCube[], requested: string): AnyCube[] {
+  const exact = allCubes.filter(
+    (c) => String(c.name ?? '').toLowerCase() === requested.toLowerCase(),
+  );
+  if (exact.length > 0) return exact;
+  return allCubes.filter((c) => cubeNameMatches(String(c.name ?? ''), requested));
+}
+
 /** Full member detail for one cube — descriptions and segments included. */
 function cubeDetail(cube: AnyCube) {
   return {
@@ -97,22 +111,50 @@ export async function handler(
     const matched: AnyCube[] = [];
     const notFound: string[] = [];
     for (const requested of args.cubes) {
-      const hits = allCubes.filter((c) => cubeNameMatches(String(c.name ?? ''), requested));
+      const hits = matchCubes(allCubes, requested);
       if (hits.length === 0) notFound.push(requested);
       else matched.push(...hits);
     }
     // De-dupe in case two requested names matched the same cube.
     const seen = new Set<string>();
-    const cubes = matched
-      .filter((c) => {
-        const key = String(c.name ?? '');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .map(cubeDetail);
+    const deduped = matched.filter((c) => {
+      const key = String(c.name ?? '');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // The detail path needs the same size guard as the unfiltered path — a
+    // multi-cube request (or a suffix request fanning out across prefixed
+    // cubes) can blow the SDK output cap just as easily as the full schema.
+    // Degrade in two steps: drop member descriptions first, then trim whole
+    // cubes from the tail (always keeping at least one).
+    let cubes = deduped.map(cubeDetail);
+    const truncated: string[] = [];
+    if (JSON.stringify(cubes).length > COMPACT_CHAR_BUDGET) {
+      cubes = cubes.map((c) => ({
+        ...c,
+        description: c.description,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        measures: c.measures.map(({ description: _d, ...m }: any) => m),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dimensions: c.dimensions.map(({ description: _d, ...d }: any) => d),
+      }));
+      while (cubes.length > 1 && JSON.stringify(cubes).length > COMPACT_CHAR_BUDGET) {
+        const dropped = cubes.pop();
+        if (dropped) truncated.unshift(dropped.name);
+      }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result: any = { cubes };
+    if (truncated.length > 0) {
+      result.truncated = truncated;
+      result.note =
+        'Response trimmed to fit output limits (member descriptions dropped' +
+        (truncated.length ? `; cubes omitted: ${truncated.join(', ')}` : '') +
+        '). Re-call get_cube_meta with one cube at a time for the omitted ones.';
+    }
     if (notFound.length > 0) {
       result.notFound = notFound;
       result.availableCubes = allCubes.map((c: AnyCube) => c.name);
