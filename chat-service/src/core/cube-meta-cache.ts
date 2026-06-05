@@ -59,30 +59,49 @@ export async function getMeta(gameId: string, workspace: string): Promise<any> {
     );
   }
 
-  const meta = stripViews(await res.json());
+  const meta = stripAgentInvisibleCubes(await res.json());
   cache.set(key, { meta, fetchedAt: Date.now() });
   return meta;
 }
 
 /**
- * Drop views from a /meta response so the agent only ever sees cubes.
+ * True when a cube is a raw `std_*` table passthrough the agent must not see.
  *
- * Chatbot artifacts must be authored against cubes — cubes expose the full
- * join graph, so a query opened in the builder stays explorable (the user can
- * add cross-cube dimensions). Views collapse a query to a single self-contained
- * namespace that can't join to anything, which strands the user in the builder.
- * Views are reserved for a later use case.
+ * `std_`-prefixed tables are upstream pipeline surfaces, not analyst-facing
+ * semantics — the curated cubes built on top of them (`user_recharge_daily`,
+ * `active_daily`, …) are the supported entry points. Matches the prefix both
+ * bare (`std_ingame_…`, game_id workspaces) and behind a game prefix
+ * (`cfm_std_ingame_…`, prefix workspaces).
+ */
+export function isRawStdTableCube(name: unknown): boolean {
+  if (typeof name !== 'string') return false;
+  return name.startsWith('std_') || name.includes('_std_');
+}
+
+/**
+ * Drop views and raw `std_*` table cubes from a /meta response.
  *
- * Cube tags views as `type: 'view'` in /meta; cubes are `type: 'cube'` or
- * untyped. Keep everything that is not explicitly a view. Stripping here — the
- * single fetch boundary — keeps every downstream consumer (get_cube_meta,
- * extractMemberNames validation, capability detection) cube-only by default.
+ * Views: chatbot artifacts must be authored against cubes — cubes expose the
+ * full join graph, so a query opened in the builder stays explorable (the user
+ * can add cross-cube dimensions). Views collapse a query to a single
+ * self-contained namespace that can't join to anything, which strands the user
+ * in the builder. Views are reserved for a later use case. Cube tags views as
+ * `type: 'view'`; cubes are `type: 'cube'` or untyped.
+ *
+ * Raw std_ tables: see {@link isRawStdTableCube}.
+ *
+ * Stripping here — the single fetch boundary — keeps every downstream consumer
+ * (get_cube_meta, extractMemberNames validation, capability detection) scoped
+ * to agent-visible cubes by default.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function stripViews(meta: any): any {
+function stripAgentInvisibleCubes(meta: any): any {
   if (!meta || !Array.isArray(meta.cubes)) return meta;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { ...meta, cubes: meta.cubes.filter((c: any) => c?.type !== 'view') };
+  return {
+    ...meta,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cubes: meta.cubes.filter((c: any) => c?.type !== 'view' && !isRawStdTableCube(c?.name)),
+  };
 }
 
 /** Extract all known member names (measures + dimensions) from a /meta response. */
