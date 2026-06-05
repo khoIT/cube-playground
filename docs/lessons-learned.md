@@ -96,6 +96,12 @@ Format per lesson:
 - **Signal:** a ratio/derived metric looks plausible in steady state but goes wrong after a pipeline lag, a missing day, or when the two sources' date ranges diverge; the "latest day" in an alert isn't actually the newest available date.
 - **Apply:** keep `{ date, value }[]` (`rowsToDatedSeries`), build a `Map<date, value>` for the denominator, and divide only on matching dates (`divideByDate`), skipping unmatched/zero days. Cover an interior-gap fixture in tests — the happy path hides the bug because contiguous same-start series align by index too.
 
+### SQLite `datetime('now')` is naive UTC — serialize with a `Z` before the browser parses it
+- **Rule:** any timestamp column defaulted from `datetime('now')`/`CURRENT_TIMESTAMP` must leave the API as ISO-8601 UTC with an explicit `Z` (`strftime('%Y-%m-%dT%H:%M:%SZ', ts) AS ts`). Never ship the raw `YYYY-MM-DD HH:MM:SS` string to the FE.
+- **Why:** SQLite stores `datetime('now')` as a space-separated UTC string with no timezone marker. The browser's `new Date('2026-06-05 03:20:00')` parses that space-separated form as **local** time, so a row written *now* renders as "&lt;utc-offset&gt; hours ago" — in GMT+7 the segment refresh history showed a just-created refresh as "7 hours ago". The data was real, not mocked; only the parse was wrong, and every consumer (`formatDistanceToNowStrict`, sparkline `new Date(ts).getTime()`) was off by the same offset.
+- **Signal:** a freshly written timestamp shows up exactly the UTC-offset number of hours in the past (7h in GMT+7); relative-time labels look mocked/seeded; the bug is invisible to a UTC-machine developer and only appears for offset users.
+- **Apply:** fix at the single API boundary (the SELECT), not per `new Date()` call site — one `strftime(... 'Z')` corrects history table + library sparklines at once. Lock it with a route test asserting `ts` matches `/T\d\d:\d\d:\d\dZ$/` and that the parsed instant is <1 min old. Same class applies to `created_at`/`updated_at`/`last_refreshed_at` if ever rendered as relative time.
+
 ---
 
 ## Metric resolution

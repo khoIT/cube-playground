@@ -672,7 +672,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const rowLimit = Math.max(1, Math.min(parseInt(limit ?? '200', 10) || 200, 500));
     const rows = db
       .prepare(
-        `SELECT id, segment_id, ts, uid_count, status
+        `SELECT id, segment_id, strftime('%Y-%m-%dT%H:%M:%SZ', ts) AS ts, uid_count, status
            FROM segment_refresh_log
           WHERE segment_id = ? AND ts >= datetime('now', ? )
           ORDER BY ts ASC
@@ -699,7 +699,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const placeholders = ids.map(() => '?').join(',');
     const rows = db
       .prepare(
-        `SELECT id, segment_id, ts, uid_count, status
+        `SELECT id, segment_id, strftime('%Y-%m-%dT%H:%M:%SZ', ts) AS ts, uid_count, status
            FROM segment_refresh_log
           WHERE segment_id IN (${placeholders}) AND ts >= datetime('now', ?)
           ORDER BY ts ASC`,
