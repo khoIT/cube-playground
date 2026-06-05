@@ -15,13 +15,19 @@ const MIGRATIONS_DIR = join(__dirname, 'migrations');
 let _db: Database.Database | null = null;
 let _dbPath: string | null = null;
 
-function resolveDbPath(): string {
+export function resolveDbPath(): string {
   // Read process.env.DB_PATH at first getDb() rather than at module load. ES
   // modules hoist imports, so test files that assign `process.env.DB_PATH = …`
   // at top level would otherwise lose the race — the singleton would open the
   // real dev DB and a later DELETE in the test wipes shared state.
   if (_dbPath !== null) return _dbPath;
-  _dbPath = process.env.DB_PATH ?? join(process.cwd(), 'data', 'segments.db');
+  // Fallback anchors to the server package root (two levels above this file:
+  // src/db or dist/db → server/) instead of process.cwd(). A cwd-relative
+  // fallback meant any process importing this module from an arbitrary
+  // working directory silently scaffolded a fresh data/segments.db there —
+  // full migrations and all. Prod always sets DB_PATH explicitly, so this
+  // only pins the dev/test default to server/data/segments.db.
+  _dbPath = process.env.DB_PATH ?? join(__dirname, '..', '..', 'data', 'segments.db');
   return _dbPath;
 }
 
