@@ -142,8 +142,11 @@ export interface RefinerDeps {
   callLlm: (prompt: string) => Promise<string>;
 }
 
-/** Default: one-shot Agent-SDK call with no tools, same wiring as the title summariser. */
-async function defaultCallLlm(prompt: string): Promise<string> {
+/**
+ * Default: one-shot Agent-SDK call with no tools, same wiring as the title
+ * summariser. Exported so the pregenerate script uses the exact same caller.
+ */
+export async function defaultCallLlm(prompt: string): Promise<string> {
   const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
   let result = '';
   for await (const msg of sdkQuery({

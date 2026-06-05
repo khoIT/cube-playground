@@ -9,6 +9,13 @@ import Database from 'better-sqlite3';
 import { migrate } from '../../src/db/migrate.js';
 import { getSet, upsertSet } from '../../src/db/starter-questions-store.js';
 
+// This suite tests the DYNAMIC pipeline — neutralise the pregenerated seed
+// file (the real one on disk contains cfm_vn) so the seed short-circuit
+// never fires here. Seed serving has its own suite.
+vi.mock('../../src/db/starter-questions-seed.js', () => ({
+  getSeedEntry: vi.fn(() => null),
+}));
+
 const metaHolder: { meta: unknown; failVersion: boolean } = {
   meta: null,
   failVersion: false,

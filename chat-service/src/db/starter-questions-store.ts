@@ -28,11 +28,11 @@ export interface StarterQuestion {
   targetCatalogIds: string[];
 }
 
-/** What the stored set was produced by. */
-export type StarterSource = 'template' | 'llm';
+/** What the stored set was produced by. 'seed' = pregenerated frozen set from the seed file. */
+export type StarterSource = 'template' | 'llm' | 'seed';
 
-/** What the generation pipeline is currently doing for this row. */
-export type StarterStatus = 'template' | 'refining' | 'llm' | 'failed';
+/** What the generation pipeline is currently doing for this row. 'seed' rows never move. */
+export type StarterStatus = 'template' | 'refining' | 'llm' | 'failed' | 'seed';
 
 export interface StarterSetRow {
   workspace: string;

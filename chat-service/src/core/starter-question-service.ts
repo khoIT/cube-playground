@@ -16,6 +16,7 @@ import {
   type StarterQuestion,
   type StarterSetRow,
 } from '../db/starter-questions-store.js';
+import { getSeedEntry } from '../db/starter-questions-seed.js';
 
 /**
  * Below this many template hits the schema is too sparse for a meaningful
@@ -43,8 +44,10 @@ export interface GetOrGenerateArgs {
 function toResponse(row: StarterSetRow): StarterResponse {
   return {
     questions: row.questions,
-    source: row.source,
-    status: row.status,
+    // Stored 'seed' rows report as 'llm' — the set is LLM-authored and the FE
+    // already maps that source; 'seed' provenance stays in the DB only.
+    source: row.source === 'seed' ? 'llm' : row.source,
+    status: row.status === 'seed' ? 'llm' : row.status,
     metaHash: row.meta_hash,
     generatedAt: row.updated_at,
   };
@@ -64,6 +67,30 @@ export async function getOrGenerateStarterQuestions(
 ): Promise<StarterResponse> {
   const { workspace, gameId, logger } = args;
   const row = getSet(db, workspace, gameId);
+
+  // Pregenerated seed short-circuit: a game in the checked-in seed file is
+  // served verbatim in EVERY environment — no meta_hash invalidation, no
+  // background refine — so local and prod show identical questions. Updating
+  // them = rerun `npm run starters:pregenerate` and commit the seed file.
+  const seed = getSeedEntry(gameId);
+  if (seed) {
+    const seedHash = `seed:${seed.version}`;
+    if (!row || row.source !== 'seed' || row.meta_hash !== seedHash) {
+      upsertSet(db, {
+        workspace, gameId, metaHash: seedHash,
+        source: 'seed', questions: seed.entry.questions, status: 'seed',
+      });
+    }
+    return {
+      questions: seed.entry.questions,
+      // Reported as 'llm' — the set IS LLM-authored, and the FE already maps
+      // this source; 'seed' provenance lives in the DB row.
+      source: 'llm',
+      status: 'llm',
+      metaHash: seedHash,
+      generatedAt: seed.generatedAt,
+    };
+  }
 
   let liveHash: string;
   try {
