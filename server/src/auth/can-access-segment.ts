@@ -43,3 +43,14 @@ export function canAccessSegment(principal: Principal, row: SegmentAccessRow): b
 export function canMutateSegment(principal: Principal, row: SegmentAccessRow): boolean {
   return canAccessSegment(principal, row);
 }
+
+/**
+ * True if the principal may ADMINISTER this segment — the owner/admin-only
+ * destructive set: delete, visibility changes (incl. share/unshare), cohort
+ * redefinition (predicate_tree / uid_list rewrite, append), and activation
+ * removal. Collaborative writes (rename, cadence, tags, analyses, refresh)
+ * stay on canMutateSegment so shared/org segments remain workspace-editable.
+ */
+export function canAdministerSegment(principal: Principal, row: SegmentAccessRow): boolean {
+  return row.owner === principal.sub || principal.role === 'admin';
+}

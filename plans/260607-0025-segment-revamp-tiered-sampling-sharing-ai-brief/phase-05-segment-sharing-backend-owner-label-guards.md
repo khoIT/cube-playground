@@ -1,9 +1,9 @@
 ---
 phase: 5
-title: "Segment sharing backend (owner_label + guards)"
-status: pending
+title: Segment sharing backend (owner_label + guards)
+status: completed
 priority: P1
-effort: "0.5d"
+effort: 0.5d
 dependencies: []
 ---
 
@@ -65,12 +65,28 @@ controls. Most of the model already exists — this phase is additive plumbing, 
 6. FE client methods `share(id)`, `unshare(id)`.
 
 ## Success Criteria
-- [ ] Non-owner DELETE on shared segment → 403; owner/admin → 204
-- [ ] Non-owner PATCH visibility/predicate_tree/uid_list → 403; PATCH name on same segment → 200
-- [ ] Non-owner append + activation-delete → 403
-- [ ] share/unshare toggle visibility + shared_at; unshare by non-owner → 403
-- [ ] List/detail responses carry owner_label/shared_at/is_owner; legacy rows degrade to sub
-- [ ] Full existing segments route test suite green
+- [x] Non-owner DELETE on shared segment → 403; owner/admin → 204
+- [x] Non-owner PATCH visibility/predicate_tree/uid_list → 403; PATCH name on same segment → 200
+      (cadence too; owner cohort rewrite verified)
+- [x] Non-owner append + activation-delete → 403
+- [x] share/unshare toggle visibility + shared_at; unshare by non-owner → 403
+      (org rows stay admin-governed: non-admin owner unshare → 403)
+- [x] List/detail responses carry owner_label/shared_at/is_owner; legacy rows degrade to sub
+- [x] Full existing segments route test suite green (server 886/886; was 876 + 10 new)
+
+## Verification notes (260607)
+- New tests: `server/test/segment-sharing-destructive-guards.test.ts` (7 real-auth route
+  tests) + 3 `canAdministerSegment` unit tests. Collaborative-regression coverage included:
+  non-owner rename/cadence PATCH → 200, refresh → 400 NOT_LIVE (guard passed), analysis
+  create → 201 on a shared segment.
+- `guardSegment` mode union extended with 'administer' (sibling member360 routes use only
+  'read' — unaffected). `hydrateSegment` gains trailing `viewerSub` param for `is_owner`.
+- Review (code-reviewer, DONE): no destructive route missed — activations CREATE, refresh,
+  precompute-members deliberately stay collaborative; import-ids creates (not mutates).
+  Applied the one Low finding: import-ids create path now stamps owner_label (parity).
+- FE `Segment` adds required owner_label/shared_at/is_owner → 2 test fixtures updated;
+  FE tsc 74 errors (one BELOW the 75 baseline — library fixture was a pre-existing error,
+  incidentally fixed). FE suite 1796 pass + the 5 known DevAudit failures only.
 
 ## Risk Assessment
 - **Hidden delete callers** (e.g. bulk ops, admin tools) hitting new 403: grep all

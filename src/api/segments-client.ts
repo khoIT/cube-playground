@@ -92,6 +92,16 @@ export const segmentsClient = {
     });
   },
 
+  // Publish toggle (owner/admin only): share → visibility 'shared' + shared_at;
+  // unshare → back to 'personal'. Returns the updated segment.
+  share(id: string): Promise<Segment> {
+    return apiFetch<Segment>(`/api/segments/${encodeURIComponent(id)}/share`, { method: 'POST' });
+  },
+
+  unshare(id: string): Promise<Segment> {
+    return apiFetch<Segment>(`/api/segments/${encodeURIComponent(id)}/unshare`, { method: 'POST' });
+  },
+
   refresh(id: string): Promise<{ status: string }> {
     return apiFetch<{ status: string }>(`/api/segments/${encodeURIComponent(id)}/refresh`, {
       method: 'POST',

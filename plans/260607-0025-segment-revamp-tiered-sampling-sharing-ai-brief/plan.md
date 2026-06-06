@@ -60,7 +60,7 @@ Three user-facing upgrades to Segments:
 | 2 | [Members tab tiered redesign (FE)](./phase-02-members-tab-tiered-redesign-fe.md) | Completed |
 | 3 | [Member-360 daily precompute cache (server)](./phase-03-member-360-daily-precompute-cache-server.md) | Completed |
 | 4 | [Member-360 cache-first serving (server+FE)](./phase-04-member-360-cache-first-serving-server-fe.md) | Completed |
-| 5 | [Segment sharing backend (owner_label + guards)](./phase-05-segment-sharing-backend-owner-label-guards.md) | Pending |
+| 5 | [Segment sharing backend (owner_label + guards)](./phase-05-segment-sharing-backend-owner-label-guards.md) | Completed |
 | 6 | [Sidebar shared pill + share UI (FE)](./phase-06-sidebar-shared-pill-share-ui-fe.md) | Pending |
 | 7 | [AI brief backend (hash + cache + LLM)](./phase-07-ai-brief-backend-hash-cache-llm.md) | Pending |
 | 8 | [AI brief card (FE)](./phase-08-ai-brief-card-fe.md) | Pending |

@@ -101,6 +101,14 @@ export interface Segment {
   funnel_json: string | null;
   /** Visibility ladder. NULL on legacy rows maps to 'personal' server-side. */
   visibility: SegmentVisibility;
+  /** Human-readable "shared by …" label stamped at create time. Null on
+   *  legacy rows — render `owner` instead. */
+  owner_label: string | null;
+  /** When the segment was last published via share. Null = never/unshared. */
+  shared_at: string | null;
+  /** True when the caller is the segment's owner — gates the owner-only
+   *  destructive controls (delete, visibility, predicate/uid rewrite). */
+  is_owner: boolean;
   /** LTV tiers (detail GET only). Null/absent → fall back to random sample. */
   member_tiers?: MemberTiers | null;
 }

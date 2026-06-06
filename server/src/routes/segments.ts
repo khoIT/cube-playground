@@ -21,7 +21,7 @@ import { loadGamesConfig } from '../services/games-config-loader.js';
 import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integrity.js';
 import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
 import { SEGMENT_DEFAULT_VISIBILITY, VISIBILITY_VALUES } from '../services/trust-mapping.js';
-import { canAccessSegment, canMutateSegment } from '../auth/can-access-segment.js';
+import { canAccessSegment, canMutateSegment, canAdministerSegment } from '../auth/can-access-segment.js';
 import { corePanelsForGame } from '../services/member360-panel-registry.js';
 import { triggerMember360Precompute } from '../services/member360-precompute-scheduler.js';
 import { recordActivity } from '../services/activity-store.js';
@@ -98,14 +98,16 @@ export type SegmentRow = Record<string, unknown> & { owner: string; visibility: 
  * Load a segment by id and enforce workspace + visibility access in one place.
  * Returns the row when permitted; otherwise sends the reply (404 unknown/
  * cross-workspace; 403 visibility-denied) and returns null. `mode` selects the
- * read vs mutate predicate (identical today; kept distinct for future divergence).
+ * access predicate: 'read'/'mutate' are workspace-collaborative for shared/org
+ * rows; 'administer' is the owner/admin-only destructive set (delete,
+ * visibility change, cohort redefinition, activation removal).
  * Exported for sibling segment route modules (member-360 cache serving).
  */
 export function guardSegment(
   req: FastifyRequest,
   reply: FastifyReply,
   id: string,
-  mode: 'read' | 'mutate',
+  mode: 'read' | 'mutate' | 'administer',
 ): SegmentRow | null {
   const db = getDb();
   const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as SegmentRow | undefined;
@@ -119,7 +121,11 @@ export function guardSegment(
     return null;
   }
   const allowed =
-    mode === 'read' ? canAccessSegment(req.principal, row) : canMutateSegment(req.principal, row);
+    mode === 'read'
+      ? canAccessSegment(req.principal, row)
+      : mode === 'administer'
+        ? canAdministerSegment(req.principal, row)
+        : canMutateSegment(req.principal, row);
   if (!allowed) {
     reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not permitted for this segment' } });
     return null;
@@ -196,6 +202,9 @@ function hydrateSegment(
   // starves all other requests. The list only needs uid_count; the full uid
   // array is fetched per-segment on the detail route.
   includeUidList = true,
+  // Caller's principal.sub — drives the computed `is_owner` flag the FE uses
+  // to gate owner-only controls. Omitted (internal callers) → is_owner=false.
+  viewerSub?: string,
 ) {
   // Never ship the raw JSON blobs: no consumer reads `uid_list_json` /
   // `member_tiers_json`, and for large cohorts the uid blob doubles the
@@ -242,6 +251,10 @@ function hydrateSegment(
     created_at: toIsoUtc(rest.created_at),
     updated_at: toIsoUtc(rest.updated_at),
     last_refreshed_at: toIsoUtc(rest.last_refreshed_at),
+    shared_at: toIsoUtc(rest.shared_at),
+    // NULL owner_label (legacy rows) is shipped as-is; FE falls back to `owner`.
+    owner_label: (rest.owner_label as string | null) ?? null,
+    is_owner: viewerSub != null && rest.owner === viewerSub,
     tags,
     predicate_tree: rest.predicate_tree_json
       ? JSON.parse(rest.predicate_tree_json as string)
@@ -306,7 +319,9 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       db,
     );
     // Skip uid_list hydration on the list — see hydrateSegment's includeUidList.
-    return rows.map((r) => hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? [], false));
+    return rows.map((r) =>
+      hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? [], false, req.principal.sub),
+    );
   });
 
   // POST /api/segments
@@ -322,6 +337,10 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const id = uuidv4();
     const now = new Date().toISOString();
     const owner = req.owner;
+    // Human-readable "shared by …" label, stamped at create time (chat parity).
+    // Prefers the authenticated username/email; legacy rows stay NULL and the
+    // FE falls back to rendering the owner sub.
+    const ownerLabel = req.user?.username ?? req.user?.email ?? owner;
     // New segments default to 'personal' (owner-private) unless explicitly shared.
     const visibility = data.visibility ?? SEGMENT_DEFAULT_VISIBILITY;
 
@@ -354,14 +373,15 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     db.prepare(`
       INSERT INTO segments
-        (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
+        (id, name, type, owner, owner_label, status, cube, predicate_tree_json, cube_query_json,
          uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace, visibility)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       data.name,
       data.type,
       owner,
+      ownerLabel,
       initialStatus,
       data.cube ?? null,
       data.predicate_tree ? JSON.stringify(data.predicate_tree) : null,
@@ -391,7 +411,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
     emitSegmentOp(req, 'create', id);
-    return reply.status(201).send(hydrateSegment(row, db));
+    return reply.status(201).send(hydrateSegment(row, db, undefined, true, req.principal.sub));
   });
 
   // GET /api/segments/:id — includes prerendered card_cache for one-shot hydration
@@ -400,7 +420,10 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const db = getDb();
     const row = guardSegment(req, reply, id, 'read');
     if (!row) return reply;
-    return { ...hydrateSegment(row, db), card_cache: getCardCache(id) };
+    return {
+      ...hydrateSegment(row, db, undefined, true, req.principal.sub),
+      card_cache: getCardCache(id),
+    };
   });
 
   // GET /api/segments/:id/members — bare member-ID pull API.
@@ -482,6 +505,19 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     }
 
     const patch = parsed.data;
+    // Cohort-redefining fields (predicate_tree silently replaces the cohort and
+    // triggers auto-refresh; uid_list rewrites it outright) and visibility are
+    // owner/admin-only. Collaborative fields (name, cadence, tags, cube) stay
+    // open to workspace members on shared/org segments.
+    const touchesAdministerField =
+      patch.visibility !== undefined ||
+      patch.predicate_tree !== undefined ||
+      patch.uid_list !== undefined;
+    if (touchesAdministerField && !canAdministerSegment(req.principal, row)) {
+      return reply.status(403).send({
+        error: { code: 'FORBIDDEN', message: 'Only the owner or an admin may change visibility or redefine the cohort' },
+      });
+    }
     if (rejectNonAdminOrg(req, reply, patch.visibility, row.visibility)) return;
     const now = new Date().toISOString();
 
@@ -555,16 +591,16 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
     emitSegmentOp(req, 'update', id);
-    return hydrateSegment(updated, db);
+    return hydrateSegment(updated, db, undefined, true, req.principal.sub);
   });
 
-  // DELETE /api/segments/:id
+  // DELETE /api/segments/:id — owner/admin only (destructive).
   // Blocked when a glossary term's secondary_catalog_ids references this segment,
   // because deleting it would leave a dangling ref in the concept graph.
   app.delete('/api/segments/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
-    const row = guardSegment(req, reply, id, 'mutate');
+    const row = guardSegment(req, reply, id, 'administer');
     if (!row) return reply;
 
     const segRef = `segments/${id}`;
@@ -585,11 +621,35 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     return reply.status(204).send();
   });
 
-  // POST /api/segments/:id/append
+  // POST /api/segments/:id/share | /unshare — owner/admin publish toggle
+  // (chat-session parity). share → visibility='shared' + shared_at stamp;
+  // unshare → back to 'personal' + shared_at cleared. 'org' rows stay
+  // admin-governed: a non-admin owner may not demote one via unshare.
+  for (const action of ['share', 'unshare'] as const) {
+    app.post(`/api/segments/:id/${action}`, async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const db = getDb();
+      const row = guardSegment(req, reply, id, 'administer');
+      if (!row) return reply;
+
+      const targetVisibility = action === 'share' ? 'shared' : SEGMENT_DEFAULT_VISIBILITY;
+      if (rejectNonAdminOrg(req, reply, targetVisibility, row.visibility)) return;
+
+      const now = new Date().toISOString();
+      db.prepare('UPDATE segments SET visibility = ?, shared_at = ?, updated_at = ? WHERE id = ?')
+        .run(targetVisibility, action === 'share' ? now : null, now, id);
+
+      const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
+      emitSegmentOp(req, 'update', id);
+      return hydrateSegment(updated, db, undefined, true, req.principal.sub);
+    });
+  }
+
+  // POST /api/segments/:id/append — owner/admin only (cohort-redefining).
   app.post('/api/segments/:id/append', async (req, reply) => {
     const { id } = req.params as { id: string };
     const db = getDb();
-    const row = guardSegment(req, reply, id, 'mutate');
+    const row = guardSegment(req, reply, id, 'administer');
     if (!row) return reply;
 
     const body = req.body as { uids?: string[] };
@@ -659,14 +719,17 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     db.prepare(`
       INSERT INTO segments
-        (id, name, type, owner, status, cube, predicate_tree_json, cube_query_json,
+        (id, name, type, owner, owner_label, status, cube, predicate_tree_json, cube_query_json,
          uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       body.name.trim(),
       'manual',
       owner,
+      // Create-path parity with POST /api/segments: imported segments get the
+      // same human-readable "shared by …" label.
+      req.user?.username ?? req.user?.email ?? owner,
       'fresh',
       body.cube,
       null,
@@ -875,14 +938,15 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     );
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
-    return reply.status(201).send(hydrateSegment(updated, db));
+    return reply.status(201).send(hydrateSegment(updated, db, undefined, true, req.principal.sub));
   });
 
   // DELETE /api/segments/:id/activations/:activationId — remove an activation.
+  // Owner/admin only: deleting an activation severs a live downstream push.
   app.delete('/api/segments/:id/activations/:activationId', async (req, reply) => {
     const { id, activationId } = req.params as { id: string; activationId: string };
     const db = getDb();
-    const row = guardSegment(req, reply, id, 'mutate');
+    const row = guardSegment(req, reply, id, 'administer');
     if (!row) return reply;
 
     let list: Array<Record<string, unknown>> = [];
@@ -900,6 +964,6 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     );
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
-    return hydrateSegment(updated, db);
+    return hydrateSegment(updated, db, undefined, true, req.principal.sub);
   });
 }

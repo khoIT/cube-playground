@@ -42,6 +42,11 @@ export interface Segment {
   name: string;
   type: SegmentType;
   owner: string;
+  /** Human-readable "shared by …" label stamped at create time. NULL on
+   *  legacy rows — consumers fall back to `owner`. */
+  owner_label: string | null;
+  /** When the segment was last published via /share. NULL = never/unshared. */
+  shared_at: string | null;
   status: SegmentStatus;
   cube: string | null;
   predicate_tree_json: string | null;

@@ -76,6 +76,9 @@ function makeSegment(overrides: Partial<Segment> = {}): Segment {
     activations: [],
     funnel_json: null,
     visibility: 'personal',
+    owner_label: null,
+    shared_at: null,
+    is_owner: true,
     member_tiers: makeTiers(),
     ...overrides,
   };

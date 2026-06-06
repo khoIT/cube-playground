@@ -4,7 +4,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { canAccessSegment, canMutateSegment } from '../src/auth/can-access-segment.js';
+import {
+  canAccessSegment,
+  canMutateSegment,
+  canAdministerSegment,
+} from '../src/auth/can-access-segment.js';
 import type { Principal } from '../src/auth/principal.js';
 
 function principal(sub: string, role: Principal['role'] = 'editor'): Principal {
@@ -51,5 +55,27 @@ describe('canAccessSegment / canMutateSegment', () => {
     const row = { owner: 'alice-sub', visibility: 'personal' };
     expect(canAccessSegment(admin, row)).toBe(true);
     expect(canMutateSegment(admin, row)).toBe(true);
+  });
+});
+
+describe('canAdministerSegment', () => {
+  it('owner may administer their segment at any visibility', () => {
+    for (const visibility of ['personal', 'shared', 'org', null]) {
+      expect(canAdministerSegment(owner, { owner: 'alice-sub', visibility })).toBe(true);
+    }
+  });
+
+  it('non-owner may NOT administer shared/org segments (mutate stays open)', () => {
+    for (const visibility of ['shared', 'org']) {
+      const row = { owner: 'alice-sub', visibility };
+      expect(canAdministerSegment(other, row)).toBe(false);
+      // The collaborative write path is unchanged — only the destructive set tightens.
+      expect(canMutateSegment(other, row)).toBe(true);
+    }
+  });
+
+  it('admin may administer any segment', () => {
+    expect(canAdministerSegment(admin, { owner: 'alice-sub', visibility: 'shared' })).toBe(true);
+    expect(canAdministerSegment(admin, { owner: 'alice-sub', visibility: null })).toBe(true);
   });
 });

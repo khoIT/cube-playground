@@ -23,6 +23,11 @@ function seg(over: Partial<Segment>): Segment {
     updated_at: '2026-05-19T00:00:00Z',
     game_id: 'ptg',
     activations: [],
+    funnel_json: null,
+    visibility: 'personal',
+    owner_label: null,
+    shared_at: null,
+    is_owner: true,
     ...over,
   };
 }
