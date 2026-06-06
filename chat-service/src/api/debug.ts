@@ -23,7 +23,7 @@ import {
 } from '../cache/turn-detail-cache-adapter.js';
 import type { ChatSessionRow, ChatTurnRow, QueryArtifact, ChartArtifact, PermissionDecisionRow } from '../types.js';
 // Shared owner-guard helpers — imported and re-exported for sub-plugins.
-import { extractOwnerId, getTurnOwnerId, canAccessOwnedResource } from './debug-shared.js';
+import { extractOwnerId, getTurnOwnerId, canAccessOwnedResource, VERIFIER_OWNER_ID } from './debug-shared.js';
 export { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
 
 // ---------------------------------------------------------------------------
@@ -157,6 +157,9 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
       const limit = Math.min(Math.max(parseInt(req.query.limit ?? '50', 10) || 50, 1), 200);
       const sessions = obsStore.listSessionsForDebug(db, {
         ownerId,
+        // Verifier sessions are shared: every owner sees them in the audit list
+        // so the /starters report's transcript links have a browsable home.
+        sharedOwnerId: VERIFIER_OWNER_ID,
         gameId: req.query.game,
         q: req.query.q,
         limit,

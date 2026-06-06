@@ -246,13 +246,27 @@ export function countObservabilityRowsByTurn(
  */
 export function listSessionsForDebug(
   db: Database.Database,
-  params: { ownerId: string; gameId?: string; q?: string; limit?: number },
+  params: {
+    ownerId: string;
+    /** Extra owner whose sessions are visible to everyone (e.g. the starter-question verifier). */
+    sharedOwnerId?: string;
+    gameId?: string;
+    q?: string;
+    limit?: number;
+  },
 ): import('../types.js').ChatSessionRow[] {
   const limit = params.limit ?? 50;
   const q = params.q?.trim();
 
-  const conditions: string[] = ['owner_id = ?'];
-  const bindings: unknown[] = [params.ownerId];
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  if (params.sharedOwnerId && params.sharedOwnerId !== params.ownerId) {
+    conditions.push('owner_id IN (?, ?)');
+    bindings.push(params.ownerId, params.sharedOwnerId);
+  } else {
+    conditions.push('owner_id = ?');
+    bindings.push(params.ownerId);
+  }
 
   if (params.gameId) {
     conditions.push('game_id = ?');
