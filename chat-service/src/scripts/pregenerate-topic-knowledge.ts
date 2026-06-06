@@ -111,6 +111,9 @@ async function buildGameKnowledge(
   for (const q of parsed.questions) {
     if (seen.has(normalise(q.text))) continue;
     seen.add(normalise(q.text));
+    // Pace probes — unpaced bursts wedge the dev cube-api (see the starter
+    // pregenerate script's tier-1 loop for the same guard).
+    await new Promise((r) => setTimeout(r, 600));
     const res = await cheapVerify(q, meta, knownMembers, coverage, ctx);
     if (res.ok) extras.push({ ...q, depth: questionDepth(q) });
     else console.log(`    ✗ [${res.reason}] ${q.text.slice(0, 70)}`);
