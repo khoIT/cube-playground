@@ -28,6 +28,12 @@ export interface StarterQuestion {
   categoryTags: Array<'explore' | 'metric_explain' | 'compare' | 'diagnose'>;
   /** Real `cube.member` names from THIS game's meta — never invented. */
   targetCatalogIds: string[];
+  /**
+   * Serve-time enrichment ONLY (never persisted): latest date with data when
+   * the question's cube lags >14 days behind today, from the seed coverage.
+   * The FE renders it as a "Data through <date>" transparency badge.
+   */
+  dataThrough?: string;
 }
 
 /** What the stored set was produced by. 'seed' = pregenerated frozen set from the seed file. */

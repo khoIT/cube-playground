@@ -33,7 +33,10 @@ vi.mock('../../src/core/cube-meta-cache.js', async (importOriginal) => {
   };
 });
 
-import { getOrGenerateStarterQuestions } from '../../src/core/starter-question-service.js';
+import {
+  getOrGenerateStarterQuestions,
+  withDataThrough,
+} from '../../src/core/starter-question-service.js';
 
 const QUESTIONS = [
   {
@@ -81,11 +84,17 @@ describe('starter-question seed serving', () => {
     vi.clearAllMocks();
   });
 
-  it('serves the seed verbatim and upserts a source=seed row', async () => {
+  it('serves the seed (dataThrough-enriched) and upserts a RAW source=seed row', async () => {
     const res = await getOrGenerateStarterQuestions(db, {
       workspace: 'local', gameId: 'cfm_vn', logger,
     });
-    expect(res.questions).toEqual(QUESTIONS);
+    // seed-q1's cube has stale coverage (2026-04-30, >14d behind the test
+    // clock) → badge stamped at serve time; the others are untouched.
+    expect(res.questions).toEqual([
+      { ...QUESTIONS[0], dataThrough: '2026-04-30' },
+      QUESTIONS[1],
+      QUESTIONS[2],
+    ]);
     expect(res.source).toBe('llm'); // FE-compatible reporting
     expect(res.metaHash).toBe('seed:260606-0001');
     expect(res.generatedAt).toBe(1780000000000);
@@ -93,6 +102,7 @@ describe('starter-question seed serving', () => {
     const row = getSet(db, 'local', 'cfm_vn');
     expect(row?.source).toBe('seed');
     expect(row?.status).toBe('seed');
+    // The persisted row stores the seed verbatim — enrichment is response-only.
     expect(row?.questions).toEqual(QUESTIONS);
   });
 
@@ -101,7 +111,7 @@ describe('starter-question seed serving', () => {
     const res = await getOrGenerateStarterQuestions(db, {
       workspace: 'prod', gameId: 'cfm_vn', logger,
     });
-    expect(res.questions).toEqual(QUESTIONS);
+    expect(res.questions.map((q) => q.id)).toEqual(QUESTIONS.map((q) => q.id));
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -120,5 +130,36 @@ describe('starter-question seed serving', () => {
     // Empty meta → sparse → static fallback; the point is the seed path did
     // not hijack a non-seeded game.
     expect(res.source).toBe('static-fallback');
+  });
+});
+
+describe('withDataThrough', () => {
+  const NOW = Date.parse('2026-06-06T00:00:00Z');
+  const q = QUESTIONS[0]; // targets etl_money_flow.total_out
+
+  it('stamps dataThrough when the cube lags >14 days', () => {
+    const out = withDataThrough([q], { 'etl_money_flow.log_date': '2026-04-30' }, NOW);
+    expect(out[0].dataThrough).toBe('2026-04-30');
+  });
+
+  it('leaves fresh cubes unbadged (≤14 days lag)', () => {
+    const out = withDataThrough([q], { 'etl_money_flow.log_date': '2026-06-01' }, NOW);
+    expect(out[0].dataThrough).toBeUndefined();
+  });
+
+  it('uses the OLDEST coverage date among the cubes a question references', () => {
+    const multi = { ...q, targetCatalogIds: ['etl_money_flow.total_out', 'mf_users.ltv_vnd'] };
+    const out = withDataThrough(
+      [multi],
+      { 'etl_money_flow.log_date': '2026-04-30', 'mf_users.install_date': '2026-06-05' },
+      NOW,
+    );
+    expect(out[0].dataThrough).toBe('2026-04-30');
+  });
+
+  it('passes questions through untouched when coverage is absent or unrelated', () => {
+    expect(withDataThrough([q], undefined, NOW)).toEqual([q]);
+    expect(withDataThrough([q], { 'other_cube.log_date': '2020-01-01' }, NOW)[0].dataThrough)
+      .toBeUndefined();
   });
 });

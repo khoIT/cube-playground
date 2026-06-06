@@ -284,6 +284,26 @@ export function ChatThreadPage() {
   }, [composerValue, sendTurn, bypassCache, webSearch, researchMode, forgetSessionFocus]);
 
   /**
+   * Starter-chip click on the empty hero: submit the chip text as a user
+   * turn immediately (no prefill step). Honors the composer toggles exactly
+   * like handleSubmit — a chip click IS a submit, just with provided text.
+   */
+  const handleSubmitText = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isStreaming) return;
+      setCommittedMessages((prev) => [
+        ...prev,
+        { role: 'user', id: `user-${Date.now()}`, text: trimmed, ts: new Date().toISOString() },
+      ]);
+      setComposerValue('');
+      sendTurn(trimmed, bypassCache, webSearch, researchMode);
+      if (bypassCache) setBypassCache(false);
+    },
+    [isStreaming, sendTurn, bypassCache, webSearch, researchMode],
+  );
+
+  /**
    * Phase-04: follow-up chip click prefills + sends immediately. Bypasses
    * composer state to avoid the user briefly seeing the chip text before
    * the send fires.
@@ -439,6 +459,7 @@ export function ChatThreadPage() {
               composerValue={composerValue}
               onChange={setComposerValue}
               onSubmit={handleSubmit}
+              onSubmitText={handleSubmitText}
               disabled={isStreaming}
               bypassCache={bypassCache}
               onToggleBypassCache={() => setBypassCache((v) => !v)}

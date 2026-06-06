@@ -60,6 +60,38 @@ const STATIC_FALLBACK: StarterResponse = {
   generatedAt: null,
 };
 
+/** Lag beyond which a question gets a "Data through <date>" badge. */
+const DATA_THROUGH_BADGE_DAYS = 14;
+const DAY_MS = 86_400_000;
+
+/**
+ * Serve-time enrichment: stamp `dataThrough` on questions whose cubes lag
+ * >DATA_THROUGH_BADGE_DAYS behind today, using the seed's probed coverage
+ * (keys are time-dimension members, `cube.dim`). The binding constraint is
+ * the OLDEST coverage date among the cubes a question references. Lag is
+ * computed against the serve-time clock — the same seed shows badges only
+ * while the pipeline is actually behind. Never persisted: callers store the
+ * raw seed questions and enrich the response copy only.
+ */
+export function withDataThrough(
+  questions: StarterQuestion[],
+  coverage: Record<string, string> | undefined,
+  nowMs: number,
+): StarterQuestion[] {
+  if (!coverage || Object.keys(coverage).length === 0) return questions;
+  return questions.map((q) => {
+    const cubes = new Set(q.targetCatalogIds.map((ref) => ref.split('.')[0]));
+    let oldest: string | null = null;
+    for (const [timeDim, latest] of Object.entries(coverage)) {
+      if (!cubes.has(timeDim.split('.')[0])) continue;
+      if (!oldest || latest < oldest) oldest = latest;
+    }
+    if (!oldest) return q;
+    const lagDays = (nowMs - Date.parse(`${oldest}T00:00:00Z`)) / DAY_MS;
+    return lagDays > DATA_THROUGH_BADGE_DAYS ? { ...q, dataThrough: oldest } : q;
+  });
+}
+
 export async function getOrGenerateStarterQuestions(
   db: Database.Database,
   args: GetOrGenerateArgs,
@@ -81,7 +113,7 @@ export async function getOrGenerateStarterQuestions(
       });
     }
     return {
-      questions: seed.entry.questions,
+      questions: withDataThrough(seed.entry.questions, seed.entry.coverage, Date.now()),
       // Reported as 'llm' — the set IS LLM-authored, and the FE already maps
       // this source; 'seed' provenance lives in the DB row.
       source: 'llm',

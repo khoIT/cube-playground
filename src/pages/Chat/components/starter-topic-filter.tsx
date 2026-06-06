@@ -8,6 +8,7 @@ import { T } from '../../../shell/theme';
 import {
   STARTER_TOPICS,
   STARTER_TOPIC_LABELS,
+  STARTER_TOPIC_COLORS,
   type StarterTopic,
 } from '../library/starter-questions';
 
@@ -32,6 +33,12 @@ export function StarterTopicFilter({ value, onChange }: Props) {
     >
       {OPTIONS.map((opt) => {
         const active = value === opt.value;
+        // Topic chips take their semantic accent when active; "All" keeps the
+        // neutral inverse style.
+        const accent = opt.value !== 'all' ? STARTER_TOPIC_COLORS[opt.value] : null;
+        const activeStyle = accent
+          ? { border: `1px solid ${accent.ink}`, background: accent.soft, color: accent.ink }
+          : { border: `1px solid ${T.n900}`, background: T.n900, color: '#fff' };
         return (
           <button
             key={opt.value}
@@ -41,14 +48,15 @@ export function StarterTopicFilter({ value, onChange }: Props) {
             onClick={() => onChange(opt.value)}
             style={{
               padding: '4px 12px',
-              border: `1px solid ${active ? T.n900 : T.n300}`,
-              background: active ? T.n900 : 'transparent',
-              color: active ? '#fff' : T.n700,
               borderRadius: 999,
               fontFamily: T.fSans,
               fontSize: 12,
+              fontWeight: active ? 600 : 400,
               cursor: 'pointer',
               transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+              ...(active
+                ? activeStyle
+                : { border: `1px solid ${T.n300}`, background: 'transparent', color: T.n700 }),
             }}
           >
             {opt.label}

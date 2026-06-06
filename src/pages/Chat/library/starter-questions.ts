@@ -40,6 +40,12 @@ export interface StarterQuestion {
    * `business_metrics/<id>` or `cube.member`.
    */
   targetCatalogIds: ReadonlyArray<string>;
+  /**
+   * Serve-time enrichment on generated sets: latest date with data when the
+   * question's cube lags >14 days behind today. Renders as a transparency
+   * badge ("Data through Apr 30"). Absent on the static library.
+   */
+  dataThrough?: string;
 }
 
 export const STARTER_QUESTIONS: ReadonlyArray<StarterQuestion> = [
@@ -192,6 +198,16 @@ export const STARTER_TOPIC_LABELS: Record<StarterTopic, string> = {
   liveops: 'LiveOps',
   user_acquisition: 'User Acquisition',
   monetization: 'Monetization',
+};
+
+/**
+ * Topic accent colors — semantic design tokens (src/theme/tokens.css), so
+ * they adapt to dark mode for free. soft = pill/chip background, ink = text.
+ */
+export const STARTER_TOPIC_COLORS: Record<StarterTopic, { soft: string; ink: string }> = {
+  liveops: { soft: 'var(--info-soft)', ink: 'var(--info-ink)' },
+  user_acquisition: { soft: 'var(--success-soft)', ink: 'var(--success-ink)' },
+  monetization: { soft: 'var(--warning-soft)', ink: 'var(--warning-ink)' },
 };
 
 /**

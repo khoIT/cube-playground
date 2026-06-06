@@ -4,7 +4,9 @@
  * Composition: cube logo + wordmark + subtitle + custom composer with
  * Research mode toggle + circular send + starter library grid.
  *
- * Starter clicks prefill the composer (no auto-submit) per decision Q10.
+ * Starter clicks SUBMIT immediately via onSubmitText (auto-submit — revised
+ * from the original prefill-only decision Q10: seeded chips are pre-validated
+ * end-to-end, so click → instant answer is the stronger demo behavior).
  * The starter pool is the per-(workspace, game) generated set when one
  * exists, else the static library. Cold-start (intent observations <
  * STARTER_RANK_MIN_SESSIONS) renders the pool in source order; afterward
@@ -36,6 +38,12 @@ interface ChatEmptyHeroProps {
   composerValue: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
+  /**
+   * Submit `text` as a user turn immediately, bypassing composer state —
+   * starter-chip clicks use this so the question fires without a second
+   * click (mirrors the follow-up-chip pattern in chat-thread-page).
+   */
+  onSubmitText: (text: string) => void;
   disabled: boolean;
   /** Bypass cache toggle — when ON, sends X-Bypass-Cache: 1 on the next turn. */
   bypassCache: boolean;
@@ -48,7 +56,7 @@ interface ChatEmptyHeroProps {
   onToggleResearchMode: () => void;
 }
 
-export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, bypassCache, onToggleBypassCache, webSearch, onToggleWebSearch, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
+export function ChatEmptyHero({ composerValue, onChange, onSubmit, onSubmitText, disabled, bypassCache, onToggleBypassCache, webSearch, onToggleWebSearch, researchMode, onToggleResearchMode }: ChatEmptyHeroProps) {
   const [topicFilter, setTopicFilter] = useState<StarterTopicFilterValue>('all');
 
   const filter = useCallback(
@@ -66,13 +74,15 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, disabled, byp
 
   const handlePick = useCallback(
     (starter: StarterQuestion) => {
-      onChange(starter.text);
+      // Auto-submit: seeded chips are pre-validated (exact-match pass-through
+      // on the server), so click → answer with zero extra steps.
+      onSubmitText(starter.text);
       postChatAudit({
         kind: 'starter_clicked',
         detail: { starterId: starter.id, topic: topicFilter },
       });
     },
-    [onChange, topicFilter],
+    [onSubmitText, topicFilter],
   );
 
   return (
