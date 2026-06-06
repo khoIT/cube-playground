@@ -38,7 +38,12 @@ vi.mock('../../src/core/cube-meta-cache.js', async (importOriginal) => {
 });
 
 import { getOrGenerateStarterQuestions } from '../../src/core/starter-question-service.js';
-import { parseAndValidateLlmSet } from '../../src/core/starter-question-refiner.js';
+import {
+  parseAndValidateLlmSet,
+  buildRefinePrompt,
+  isAdvancedCube,
+  questionDepth,
+} from '../../src/core/starter-question-refiner.js';
 import { computeMetaVersion, extractMemberNames } from '../../src/core/cube-meta-cache.js';
 
 function cube(name: string, measures: string[], dimensions: string[]) {
@@ -183,5 +188,38 @@ describe('parseAndValidateLlmSet', () => {
   it('fewer than 3 valid items rejects the set', () => {
     const raw = JSON.stringify([item(), item({ id: 'q2' })]);
     expect(parseAndValidateLlmSet(raw, known)).toBeNull();
+  });
+});
+
+describe('question depth classification & prompt split', () => {
+  it('classifies etl_* and user_roles/devices/ips cubes as advanced (prefix-tolerant)', () => {
+    expect(isAdvancedCube('etl_game_detail')).toBe(true);
+    expect(isAdvancedCube('cfm_etl_game_detail')).toBe(true); // prod prefixed name
+    expect(isAdvancedCube('user_roles')).toBe(true);
+    expect(isAdvancedCube('user_devices')).toBe(true);
+    expect(isAdvancedCube('mf_users')).toBe(false);
+    expect(isAdvancedCube('user_recharge_daily')).toBe(false);
+    expect(isAdvancedCube('recharge')).toBe(false);
+  });
+
+  it('a question is advanced when ANY referenced member lives on an advanced cube', () => {
+    expect(questionDepth({ targetCatalogIds: ['recharge.revenue_vnd'] })).toBe('basic');
+    expect(
+      questionDepth({ targetCatalogIds: ['recharge.revenue_vnd', 'etl_money_flow.amount'] }),
+    ).toBe('advanced');
+  });
+
+  it('prompt includes the depth-mix rules only when the schema has advanced cubes', () => {
+    const basicOnly = [
+      { cube: 'mf_users', member: 'mf_users.user_id', kind: 'dimension' as const },
+    ];
+    const withAdvanced = [
+      ...basicOnly,
+      { cube: 'etl_lottery_shoot', member: 'etl_lottery_shoot.pulls', kind: 'measure' as const },
+    ];
+    expect(buildRefinePrompt(basicOnly, [])).not.toContain('DEPTH MIX');
+    const prompt = buildRefinePrompt(withAdvanced, []);
+    expect(prompt).toContain('DEPTH MIX');
+    expect(prompt).toContain('4 BASIC candidates and 4 ADVANCED candidates');
   });
 });

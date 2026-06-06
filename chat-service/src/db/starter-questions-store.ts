@@ -29,6 +29,12 @@ export interface StarterQuestion {
   /** Real `cube.member` names from THIS game's meta — never invented. */
   targetCatalogIds: string[];
   /**
+   * basic = cross-game KPI cubes (recharge, mf_users, active_daily…);
+   * advanced = game-specific event tables (etl_*, user_roles/devices/ips).
+   * Stamped at freeze time by the pregenerate workflow.
+   */
+  depth?: 'basic' | 'advanced';
+  /**
    * Serve-time enrichment ONLY (never persisted): latest date with data when
    * the question's cube lags >14 days behind today, from the seed coverage.
    * The FE renders it as a "Data through <date>" transparency badge.

@@ -27,6 +27,34 @@ export const QUESTIONS_PER_TOPIC = 6;
  */
 export const CANDIDATES_PER_TOPIC = 8;
 
+// ---------------------------------------------------------------------------
+// Question depth — basic (cross-game KPI cubes) vs advanced (game-specific
+// event/raw tables). For games that HAVE advanced cubes, each topic ships
+// QUESTIONS_PER_TOPIC/2 of each so the list shows both classic publishing
+// KPIs ("top spenders this week") and this-game-only insights (gacha pulls,
+// tutorial funnels, match telemetry). Games without advanced cubes fall back
+// to depth-agnostic quotas automatically.
+// ---------------------------------------------------------------------------
+
+export type QuestionDepth = 'basic' | 'advanced';
+
+/**
+ * Game-specific raw/event cubes. `(^|_)` tolerates prod's game-prefixed
+ * physical names (cfm_etl_game_detail) alongside local bare names.
+ */
+const ADVANCED_CUBE_RE = /(^|_)etl_|(^|_)user_(devices|ips|roles)$/;
+
+export function isAdvancedCube(cubeName: string): boolean {
+  return ADVANCED_CUBE_RE.test(cubeName);
+}
+
+/** A question is advanced when ANY referenced member lives on an advanced cube. */
+export function questionDepth(q: Pick<StarterQuestion, 'targetCatalogIds'>): QuestionDepth {
+  return q.targetCatalogIds.some((ref) => isAdvancedCube(ref.split('.')[0]))
+    ? 'advanced'
+    : 'basic';
+}
+
 /** Mirrors the get_cube_meta tool budget — keeps the prompt well under model limits. */
 const PROJECTION_CHAR_BUDGET = 60_000;
 
@@ -72,6 +100,27 @@ export function buildRefinePrompt(
   projection: ProjectedMember[],
   baseline: StarterQuestion[],
 ): string {
+  // Depth split only applies when the schema actually has advanced cubes —
+  // games modeled with the cross-game basics alone keep depth-agnostic rules.
+  const hasAdvanced = projection.some((m) => isAdvancedCube(m.cube));
+  const half = QUESTIONS_PER_TOPIC / 2;
+  const candHalf = CANDIDATES_PER_TOPIC / 2;
+  const depthRules = hasAdvanced
+    ? [
+        '- DEPTH MIX: this game has both standard KPI cubes and game-specific event tables.',
+        `  Per topic, produce EXACTLY ${candHalf} BASIC candidates and ${candHalf} ADVANCED candidates;`,
+        `  the verified best ${half} of each depth per topic ship.`,
+        '    BASIC    = classic publishing KPIs over the cross-game cubes (recharge, mf_users,',
+        '               active_daily, game_key_metrics, retention, user_recharge_daily…).',
+        '               Style examples: "top spenders this week", "ARPPU broken down by payer',
+        '               tier", "LTV by install cohort", "D1/D7 retention by channel".',
+        '    ADVANCED = insights ONLY possible with this game\'s event-level tables (etl_*,',
+        '               user_roles/user_devices/user_ips): game modes, maps, gacha pulls,',
+        '               tutorial funnels, economy flows, match telemetry.',
+        '  Tag each item "depth": "basic" | "advanced" accordingly (a question referencing ANY',
+        '  etl_*/user_roles/devices/ips member counts as advanced).',
+      ]
+    : [];
   return [
     'You curate starter questions for a game-analytics chatbot used by a game PUBLISHING company.',
     'This list is the FIRST thing a stakeholder sees in a product demo — every question must be',
@@ -91,6 +140,7 @@ export function buildRefinePrompt(
     `  ordered strongest-first within each topic. Each question will be executed end-to-end against`,
     `  the live data model; only the verified best ${QUESTIONS_PER_TOPIC} per topic ship — so favour questions`,
     '  whose data CERTAINLY exists over speculative ones.',
+    ...depthRules,
     '- Each item: {"id": string, "text": string, "topicTags": string[], "categoryTags": string[], "targetCatalogIds": string[]}.',
     '- topicTags: the FIRST tag is the question\'s home topic and drives the per-topic quota:',
     '    liveops          = engagement, activity patterns, game modes/maps, retention ops, win-back',

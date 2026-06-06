@@ -34,6 +34,9 @@ import {
   defaultCallLlm,
   SEED_TOPICS,
   QUESTIONS_PER_TOPIC,
+  isAdvancedCube,
+  questionDepth,
+  type QuestionDepth,
 } from '../core/starter-question-refiner.js';
 import { handler as timeCoverageHandler } from '../tools/get-time-coverage.js';
 import {
@@ -245,6 +248,8 @@ interface ReportEntry {
   questionId: string;
   text: string;
   topic: string;
+  /** basic = cross-game KPI cubes; advanced = game-specific event tables. */
+  depth?: QuestionDepth;
   kept: boolean;
   tier1: ReportGate;
   tier2?: ReportGate;
@@ -314,6 +319,21 @@ async function generateVerifiedGameEntry(
   const seenTexts = new Set<string>();
   let turnsRun = 0;
 
+  // Depth quotas: games whose schema includes advanced cubes (etl_* etc.)
+  // ship QUESTIONS_PER_TOPIC/2 basic + /2 advanced per topic; games modeled
+  // with cross-game basics only keep the depth-agnostic quota (every question
+  // classifies as basic there, so the advanced target is simply 0).
+  const hasAdvancedCubes = [...knownMembers].some((m) => isAdvancedCube(m.split('.')[0]));
+  const targetFor = (depth: QuestionDepth): number =>
+    hasAdvancedCubes ? QUESTIONS_PER_TOPIC / 2 : depth === 'basic' ? QUESTIONS_PER_TOPIC : 0;
+  const countDepth = (t: Topic, d: QuestionDepth) =>
+    verified.get(t)!.filter((q) => questionDepth(q) === d).length;
+  const needsMore = (q: StarterQuestion): boolean => {
+    const d = questionDepth(q);
+    return countDepth(homeTopic(q), d) < targetFor(d);
+  };
+  console.log(`  depth quotas: ${hasAdvancedCubes ? `${targetFor('basic')} basic + ${targetFor('advanced')} advanced per topic` : `${QUESTIONS_PER_TOPIC} per topic (no advanced cubes)`}`);
+
   // Resume verified questions from an aborted previous run — each one cost a
   // real chat turn; never pay for it twice.
   const progress = readProgress();
@@ -324,9 +344,8 @@ async function generateVerifiedGameEntry(
     coverage = { ...prior.coverage, ...coverage };
     Object.assign(facts, prior.facts ?? {});
     for (const q of prior.verified) {
-      const t = homeTopic(q);
-      if (verified.get(t)!.length < QUESTIONS_PER_TOPIC) {
-        verified.get(t)!.push(q);
+      if (needsMore(q)) {
+        verified.get(homeTopic(q))!.push(q);
         seenTexts.add(normalise(q.text));
       }
     }
@@ -339,7 +358,9 @@ async function generateVerifiedGameEntry(
   console.log(`  coverage: ${JSON.stringify(coverage)}`);
 
   const topicsShort = () =>
-    SEED_TOPICS.filter((t) => (verified.get(t)?.length ?? 0) < QUESTIONS_PER_TOPIC);
+    SEED_TOPICS.filter((t) =>
+      (['basic', 'advanced'] as QuestionDepth[]).some((d) => countDepth(t, d) < targetFor(d)),
+    );
 
   for (let round = 0; round < MAX_GENERATION_ROUNDS && topicsShort().length > 0; round++) {
     console.log(`  — generation round ${round + 1} (topics short: ${topicsShort().join(', ')})`);
@@ -360,7 +381,7 @@ async function generateVerifiedGameEntry(
     // ---- tier 1: pass-through query composes AND returns rows ----
     const cheapPassed: StarterQuestion[] = [];
     for (const q of candidates) {
-      if (!topicsShort().includes(homeTopic(q))) continue; // topic already full
+      if (!needsMore(q)) continue; // this topic+depth quota already full
       const res = await cheapVerify(q, meta, knownMembers, coverage, ctx);
       if (res.ok) {
         cheapPassed.push(q);
@@ -369,7 +390,7 @@ async function generateVerifiedGameEntry(
         console.log(`    ✗ [tier1 ${res.reason}] ${q.text.slice(0, 70)}`);
         failureFeedback.push(`"${q.text}" — query ${res.reason}${res.detail ? ` (${res.detail.slice(0, 80)})` : ''}`);
         failedEntries.push({
-          questionId: q.id, text: q.text, topic: homeTopic(q), kept: false,
+          questionId: q.id, text: q.text, topic: homeTopic(q), depth: questionDepth(q), kept: false,
           tier1: { ok: false, reason: res.reason, detail: res.detail, rowCount: res.rowCount },
           query: res.query,
         });
@@ -388,8 +409,8 @@ async function generateVerifiedGameEntry(
 
     for (const q of cheapPassed) {
       const topic = homeTopic(q);
-      if (!topicsShort().includes(topic)) continue;
-      process.stdout.write(`    turn-verify [${topic}] ${q.text.slice(0, 60)}… `);
+      if (!needsMore(q)) continue;
+      process.stdout.write(`    turn-verify [${topic}/${questionDepth(q)}] ${q.text.slice(0, 60)}… `);
       const res = await verifyViaChatTurn(q.text, {
         baseUrl: chatBaseUrl, game: gameId, workspace, ownerId: VERIFY_OWNER_ID,
       });
@@ -414,7 +435,7 @@ async function generateVerifiedGameEntry(
         console.log(`✗ ${res.reason} (${Math.round(res.ms / 1000)}s)`);
         failureFeedback.push(`"${q.text}" — chat turn ${res.reason}${res.detail ? ` (${res.detail.slice(0, 80)})` : ''}`);
         failedEntries.push({
-          questionId: q.id, text: q.text, topic: homeTopic(q), kept: false,
+          questionId: q.id, text: q.text, topic: homeTopic(q), depth: questionDepth(q), kept: false,
           tier1: { ok: true, rowCount: facts[q.id]?.rowCount },
           tier2: { ok: false, reason: res.reason, detail: res.detail, ms: res.ms, artifactCount: res.artifactCount, sessionId: res.sessionId },
           query: facts[q.id]?.query,
@@ -425,16 +446,25 @@ async function generateVerifiedGameEntry(
 
   const short = topicsShort();
   if (short.length > 0) {
-    const counts = SEED_TOPICS.map((t) => `${t}=${verified.get(t)!.length}`).join(' ');
+    const counts = SEED_TOPICS.map(
+      (t) => `${t}=${countDepth(t, 'basic')}b+${countDepth(t, 'advanced')}a`,
+    ).join(' ');
     throw new Error(
-      `verification could not fill ${QUESTIONS_PER_TOPIC}/topic after ${MAX_GENERATION_ROUNDS} rounds (${counts}) — rerun or relax`,
+      `verification could not fill quotas after ${MAX_GENERATION_ROUNDS} rounds (${counts}) — rerun or relax`,
     );
   }
 
-  const questions = SEED_TOPICS.flatMap((t) => verified.get(t)!.slice(0, QUESTIONS_PER_TOPIC));
+  // Per topic: basic questions first, then advanced — stable display order
+  // for the FE grid, each depth capped at its quota.
+  const questions = SEED_TOPICS.flatMap((t) => {
+    const list = verified.get(t)!;
+    return (['basic', 'advanced'] as QuestionDepth[]).flatMap((d) =>
+      list.filter((q) => questionDepth(q) === d).slice(0, targetFor(d)),
+    );
+  }).map((q) => ({ ...q, depth: questionDepth(q) }));
   // Review report: every kept question (with its gate facts) + this run's failures.
   const keptEntries: ReportEntry[] = questions.map((q) => ({
-    questionId: q.id, text: q.text, topic: homeTopic(q), kept: true,
+    questionId: q.id, text: q.text, topic: homeTopic(q), depth: questionDepth(q), kept: true,
     tier1: { ok: true, rowCount: facts[q.id]?.rowCount },
     tier2: {
       ok: true,
@@ -491,7 +521,7 @@ async function main(): Promise<void> {
   const version = todayIso.replace(/-/g, '').slice(2) + '-' + String(now % 10000).padStart(4, '0');
 
   console.log(`Pregenerating starter questions: workspace=${args.workspace} games=${games.join(',')} version=${version}`);
-  console.log(`Target: ${QUESTIONS_PER_TOPIC} verified questions per topic (${SEED_TOPICS.join(' / ')})`);
+  console.log(`Target: ${QUESTIONS_PER_TOPIC} verified questions per topic (${SEED_TOPICS.join(' / ')}), split 50/50 basic/advanced where the schema has advanced cubes`);
 
   // Merge into the existing seed so a partial --games run keeps other games.
   // Snapshot the pre-run state FIRST: tier-2 writes provisional entries to
