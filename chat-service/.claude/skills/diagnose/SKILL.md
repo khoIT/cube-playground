@@ -16,6 +16,7 @@ trigger_keywords:
   - tăng đột
 allowed_tools:
   - get_cube_meta
+  - get_topic_knowledge
   - list_business_metrics
   - get_business_metric
   - list_segments

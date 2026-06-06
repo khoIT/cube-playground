@@ -23,6 +23,7 @@ trigger_keywords:
   - tuần qua
 allowed_tools:
   - get_cube_meta
+  - get_topic_knowledge
   - resolve_query_terms
   - list_dimension_values
   - get_time_coverage
@@ -43,6 +44,10 @@ enable_research_mode: false
 # Explore Skill
 
 Translate a free-form analytics question into a clickable Cube query artifact. Bias toward simplicity.
+
+## Generic orientation questions — use the knowledge bank
+
+When the user asks an OPEN-ENDED orientation question rather than a concrete query — "what should I know about revenue?", "give me an overview of liveops", "what can I ask about this game?" — call `get_topic_knowledge` (optionally with the matching topic) FIRST and build your answer from the returned bank: present the topic's key metrics with their why-it-matters lines, then offer a handful of its verified questions as concrete next asks. Every entry in the bank is proven answerable by this game's data model — do not invent suggestions outside it. For concrete analytics questions, skip this and go straight to disambiguation below.
 
 ## Pre-flight disambiguation (REQUIRED)
 
