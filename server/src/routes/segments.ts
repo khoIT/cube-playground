@@ -92,15 +92,16 @@ function upperBound(sorted: string[], key: string): number {
   return lo;
 }
 
-type SegmentRow = Record<string, unknown> & { owner: string; visibility: string | null; workspace: string };
+export type SegmentRow = Record<string, unknown> & { owner: string; visibility: string | null; workspace: string };
 
 /**
  * Load a segment by id and enforce workspace + visibility access in one place.
  * Returns the row when permitted; otherwise sends the reply (404 unknown/
  * cross-workspace; 403 visibility-denied) and returns null. `mode` selects the
  * read vs mutate predicate (identical today; kept distinct for future divergence).
+ * Exported for sibling segment route modules (member-360 cache serving).
  */
-function guardSegment(
+export function guardSegment(
   req: FastifyRequest,
   reply: FastifyReply,
   id: string,

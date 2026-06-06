@@ -26,6 +26,28 @@ export interface ListSegmentsParams {
   game_id?: string;
 }
 
+/** One cached member-360 panel as served by the nightly precompute. */
+export interface CachedMemberPanel {
+  rows: Array<Record<string, unknown>>;
+  fetched_at: string;
+  status: 'ok' | 'error';
+  error?: string;
+}
+
+export interface MemberPanelsResponse {
+  segment_id: string;
+  uid: string;
+  panels: Record<string, CachedMemberPanel>;
+  cached: boolean;
+}
+
+export interface MemberCacheStatusResponse {
+  segment_id: string;
+  /** Core panels the segment's game precomputes (ok === panel_count → ready). */
+  panel_count: number;
+  uids: Record<string, { ok: number; error: number; latest_fetched_at: string | null }>;
+}
+
 /** One keyset page from the bare member-ID pull API (`GET /:id/members`). */
 export interface SegmentMembersPage {
   segment_id: string;
@@ -119,6 +141,19 @@ export const segmentsClient = {
         limit: params.limit != null ? String(params.limit) : undefined,
       },
     });
+  },
+
+  // Member-360 precompute cache (read side of the nightly job)
+  memberPanels(id: string, uid: string): Promise<MemberPanelsResponse> {
+    return apiFetch<MemberPanelsResponse>(
+      `/api/segments/${encodeURIComponent(id)}/members/${encodeURIComponent(uid)}/panels`,
+    );
+  },
+
+  memberCacheStatus(id: string): Promise<MemberCacheStatusResponse> {
+    return apiFetch<MemberCacheStatusResponse>(
+      `/api/segments/${encodeURIComponent(id)}/member-cache-status`,
+    );
   },
 
   // Analyses (subresource)

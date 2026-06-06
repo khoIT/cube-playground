@@ -104,6 +104,24 @@ const CFM_PANELS: Member360Panel[] = [
       col('user_profile', 'first_recharge_date', 'First recharge'),
       col('user_profile', 'last_active_date', 'Last active'),
       col('user_profile', 'last_login_date', 'Last login'),
+      // The remaining fields the 360 dashboard's section layout reads
+      // (member360-sections.ts profileMembers union). They ride in this panel
+      // so the nightly precompute caches ONE profile row that covers the whole
+      // top of the page — the cache-first path checks coverage at runtime and
+      // falls back to live when any required member is missing.
+      col('user_profile', 'is_paying_user', 'Paying user'),
+      col('user_profile', 'ltv_iap_vnd', 'LTV — IAP', 'dimension', 'currency'),
+      col('user_profile', 'ltv_web_vnd', 'LTV — Web', 'dimension', 'currency'),
+      col('user_profile', 'txn_count_30d', 'Txns 30d', 'dimension', 'number'),
+      col('user_profile', 'last_recharge_date', 'Last recharge'),
+      col('user_profile', 'first_device_model', 'Device model'),
+      col('user_profile', 'last_login_country', 'Last login country'),
+      col('user_profile', 'days_since_install', 'Days since install', 'dimension', 'number'),
+      col('user_profile', 'install_month', 'Install month'),
+      col('user_profile', 'is_paid_install', 'Paid install'),
+      col('user_profile', 'first_login_date', 'First login'),
+      col('user_profile', 'first_login_channel', 'First login channel'),
+      col('user_profile', 'first_active_date', 'First active'),
     ],
   },
   {
@@ -348,6 +366,23 @@ const BALLISTAR_PANELS: Member360Panel[] = [
       col('user_profile', 'install_date', 'Installed'),
       col('user_profile', 'first_recharge_date', 'First recharge'),
       col('user_profile', 'last_active_date', 'Last active'),
+      // Section-layout fields (see the CFM profile panel note): cached profile
+      // row must cover member360-sections.ts profileMembers for ballistar too.
+      col('user_profile', 'ltv_30d_vnd', 'LTV 30d', 'dimension', 'currency'),
+      col('user_profile', 'last_login_date', 'Last login'),
+      col('user_profile', 'is_paying_user', 'Paying user'),
+      col('user_profile', 'ltv_iap_vnd', 'LTV — IAP', 'dimension', 'currency'),
+      col('user_profile', 'ltv_web_vnd', 'LTV — Web', 'dimension', 'currency'),
+      col('user_profile', 'txn_count_30d', 'Txns 30d', 'dimension', 'number'),
+      col('user_profile', 'last_recharge_date', 'Last recharge'),
+      col('user_profile', 'first_device_model', 'Device model'),
+      col('user_profile', 'last_login_country', 'Last login country'),
+      col('user_profile', 'days_since_install', 'Days since install', 'dimension', 'number'),
+      col('user_profile', 'install_month', 'Install month'),
+      col('user_profile', 'is_paid_install', 'Paid install'),
+      col('user_profile', 'first_login_date', 'First login'),
+      col('user_profile', 'first_login_channel', 'First login channel'),
+      col('user_profile', 'first_active_date', 'First active'),
     ],
   },
   {

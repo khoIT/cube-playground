@@ -10,6 +10,7 @@ import { ReactElement, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { panelsForGame, type Member360Panel } from '../member360-panels';
 import { MemberPanel } from '../member-panel';
+import type { CachedPanelSource } from '../use-cached-panel-source';
 import { EventPanelGrid } from './event-panel-grid';
 import { SectionCard } from './dashboard-stats';
 
@@ -34,9 +35,12 @@ const TAB_DEFS: TabDef[] = [
 interface Props {
   gameId: string | null;
   uid: string;
+  /** Nightly precompute source — core panels render cache-first when present.
+   *  Event (behavior) tabs always stay live by design. */
+  cachedSource?: CachedPanelSource;
 }
 
-export function DetailsTabs({ gameId, uid }: Props): ReactElement | null {
+export function DetailsTabs({ gameId, uid, cachedSource }: Props): ReactElement | null {
   const { t } = useTranslation();
   const byId = useMemo(() => {
     const m = new Map<string, Member360Panel>();
@@ -87,7 +91,14 @@ export function DetailsTabs({ gameId, uid }: Props): ReactElement | null {
       ) : (
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
           {current.panels.map((p) => (
-            <MemberPanel key={p.id} gameId={gameId} panel={p} idValues={[uid]} />
+            <MemberPanel
+              key={p.id}
+              gameId={gameId}
+              panel={p}
+              idValues={[uid]}
+              cached={cachedSource?.getCached(p.id) ?? null}
+              cacheReady={cachedSource ? cachedSource.ready : true}
+            />
           ))}
         </div>
       )}

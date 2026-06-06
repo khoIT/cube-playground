@@ -229,6 +229,15 @@
           "caption": "Top / middle / bottom 50 by LTV of {{total}} members · computed {{when}}",
           "captionAll": "All {{n}} members ranked by LTV · computed {{when}}",
           "ltvColumn": "LTV"
+        },
+        "cache": {
+          "column": "360",
+          "ready": "cached",
+          "partial": "partial",
+          "none": "live",
+          "readyTip": "360 page precomputed — opens from cache",
+          "partialTip": "Some 360 panels precomputed; the rest load live",
+          "noneTip": "Not precomputed yet — 360 page loads live"
         }
       },
       "definition": {
@@ -301,6 +310,7 @@
       "empty": "No data in this window",
       "error": "Failed to load",
       "rowCount": "{{n}} rows",
+      "cachedAsOf": "precomputed · {{when}}",
       "piiTooltip": "Contains personally identifiable information",
       "window": "Window",
       "monetization": "Monetization",

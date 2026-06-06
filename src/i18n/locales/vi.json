@@ -191,6 +191,15 @@
           "caption": "Top / giữa / cuối 50 theo LTV trong {{total}} thành viên · tính {{when}}",
           "captionAll": "Tất cả {{n}} thành viên xếp theo LTV · tính {{when}}",
           "ltvColumn": "LTV"
+        },
+        "cache": {
+          "column": "360",
+          "ready": "đã lưu",
+          "partial": "một phần",
+          "none": "trực tiếp",
+          "readyTip": "Trang 360 đã được tính sẵn — mở từ bộ nhớ đệm",
+          "partialTip": "Một số bảng 360 đã tính sẵn; phần còn lại tải trực tiếp",
+          "noneTip": "Chưa tính sẵn — trang 360 tải trực tiếp"
         }
       },
       "definition": {
@@ -277,6 +286,7 @@
       "empty": "Không có dữ liệu trong khoảng này",
       "error": "Tải thất bại",
       "rowCount": "{{n}} dòng",
+      "cachedAsOf": "tính sẵn · {{when}}",
       "piiTooltip": "Chứa thông tin định danh cá nhân",
       "window": "Khoảng",
       "monetization": "Doanh thu",

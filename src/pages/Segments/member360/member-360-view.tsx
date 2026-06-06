@@ -19,6 +19,7 @@ import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import { sectionsForGame, profileMembers } from './member360-sections';
 import { useMemberCubeQuery } from './use-member-cube-query';
+import { useCachedPanelSource } from './use-cached-panel-source';
 import { DashboardHero } from './sections/dashboard-hero';
 import { SectionCard, StatTileGrid, KvList } from './sections/dashboard-stats';
 import { DashboardJourney } from './sections/dashboard-journey';
@@ -52,23 +53,37 @@ export function Member360View(): ReactElement {
   const gameId = segment?.game_id ?? null;
   const sections = sectionsForGame(gameId);
 
-  // One query powers the hero + monetization + profile/acquisition + journey dots.
+  // Nightly precompute cache — one panel-map fetch per (segment, uid). The
+  // cached `profile` panel row covers the whole top of the page when fresh.
+  const cachedSource = useCachedPanelSource(id, uid);
+  const cachedProfileRow = useMemo<Record<string, unknown> | null>(() => {
+    if (!sections) return null;
+    const hit = cachedSource.getCached('profile');
+    const row0 = hit?.rows[0];
+    if (!row0) return null;
+    // Coverage guard: serve from cache only when every member the section
+    // layout reads is present — registry/section drift falls back to live.
+    return profileMembers(sections).every((m) => m in row0) ? (row0 as Record<string, unknown>) : null;
+  }, [cachedSource, sections]);
+
+  // One query powers the hero + monetization + profile/acquisition + journey
+  // dots — held idle until the cache lookup settles, skipped on a cache hit.
   const profileQuery = useMemo<Query | null>(
     () =>
-      sections
+      sections && cachedSource.ready && cachedProfileRow == null
         ? {
             dimensions: profileMembers(sections),
             filters: [{ member: 'user_profile.user_id', operator: 'equals' as never, values: [uid] }],
             limit: 1,
           }
         : null,
-    [sections, uid],
+    [sections, uid, cachedSource.ready, cachedProfileRow],
   );
   const { rows: profileRows, loading: profileLoading } = useMemberCubeQuery<Record<string, unknown>>(
     gameId,
     profileQuery,
   );
-  const row = profileRows[0] ?? null;
+  const row = cachedProfileRow ?? profileRows[0] ?? null;
 
   const back = (
     <Link
@@ -162,8 +177,8 @@ export function Member360View(): ReactElement {
             </SectionCard>
           </div>
 
-          <DashboardJourney gameId={gameId} uid={uid} sections={sections} row={row} />
-          <DetailsTabs gameId={gameId} uid={uid} />
+          <DashboardJourney gameId={gameId} uid={uid} sections={sections} row={row} cachedSource={cachedSource} />
+          <DetailsTabs gameId={gameId} uid={uid} cachedSource={cachedSource} />
         </>
       )}
     </main>

@@ -29,6 +29,7 @@ import {
 } from './member-table-shared';
 import { TierSelector } from './tier-selector';
 import { tierOptions, buildLtvByUid, searchPool } from './tier-view-model';
+import { MemberCacheChip, useMemberCacheStatus } from './member-cache-chip';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -78,6 +79,9 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
     [columns, tiers.ltv_measure],
   );
   const member360Enabled = hasMember360(segment.game_id);
+  // Per-member precompute readiness (one aggregate fetch; null until loaded —
+  // the chip column only renders once real data exists).
+  const cacheStatus = useMemberCacheStatus(segment.id, member360Enabled);
 
   const sortedPageRows = useMemo(() => {
     if (!sort) return pageRows;
@@ -172,6 +176,11 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
               sort={sort}
               onToggle={toggleSort}
             />
+            {cacheStatus && (
+              <th style={{ width: 72 }}>
+                {t('segments.detail.members.cache.column', { defaultValue: '360' })}
+              </th>
+            )}
             {enrichColumns.map((c) => (
               <SortableHeader
                 key={c.id}
@@ -205,6 +214,11 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
                   )}
                 </td>
                 <td>{member.ltv == null ? '—' : formatValue(member.ltv, 'currency')}</td>
+                {cacheStatus && (
+                  <td>
+                    <MemberCacheChip status={cacheStatus} uid={member.uid} />
+                  </td>
+                )}
                 {enrichColumns.map((c) => (
                   <td key={c.id} className={styles.memberDimCell}>
                     {dimsLoading && !dimRow
@@ -218,7 +232,7 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
           {sortedPageRows.length === 0 && (
             <tr>
               <td
-                colSpan={3 + enrichColumns.length}
+                colSpan={(cacheStatus ? 4 : 3) + enrichColumns.length}
                 style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 16 }}
               >
                 {t('segments.detail.sampleUsers.noMatches', {

@@ -17,6 +17,7 @@ import cubeProxyRoutes from './routes/cube-proxy.js';
 import userPrefsRoutes from './routes/user-prefs.js';
 import cubeAliasesRoutes from './routes/cube-aliases.js';
 import segmentsRoutes from './routes/segments.js';
+import segmentMember360Routes from './routes/segment-member360.js';
 import analysesRoutes from './routes/analyses.js';
 import identityMapRoutes from './routes/identity-map.js';
 import presetsRoutes from './routes/presets.js';
@@ -40,6 +41,7 @@ import onboardingRoutes from './routes/onboarding.js';
 import activityRoutes from './routes/activity.js';
 import adminActivityRoutes from './routes/admin-activity.js';
 import adminCostRoutes from './routes/admin-cost.js';
+import adminLlmAuthRoutes from './routes/admin-llm-auth.js';
 import adminChatAuditRoutes from './routes/admin-chat-audit.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
@@ -81,6 +83,7 @@ export async function buildApp() {
   await app.register(userPrefsRoutes);
   await app.register(cubeAliasesRoutes);
   await app.register(segmentsRoutes);
+  await app.register(segmentMember360Routes);
   await app.register(analysesRoutes);
   await app.register(identityMapRoutes);
   await app.register(presetsRoutes);
@@ -104,6 +107,7 @@ export async function buildApp() {
   await app.register(activityRoutes);
   await app.register(adminActivityRoutes);
   await app.register(adminCostRoutes);
+  await app.register(adminLlmAuthRoutes);
   await app.register(adminChatAuditRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve

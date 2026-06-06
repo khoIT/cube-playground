@@ -110,6 +110,36 @@ export function getMember360Cache(segmentId: string, uid: string): Record<string
   return out;
 }
 
+/** Per-uid cache status aggregate for a segment — one cheap GROUP BY powering
+ *  the Members-tab "360 ready" chips (never an N+1 over 150 uids). */
+export interface Member360UidStatus {
+  ok: number;
+  error: number;
+  latest_fetched_at: string | null;
+}
+
+export function getMember360StatusBySegment(
+  segmentId: string,
+): Record<string, Member360UidStatus> {
+  const db = getDb();
+  const rows = db
+    .prepare(`
+      SELECT uid,
+             SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END) AS ok,
+             SUM(CASE WHEN status = 'ok' THEN 0 ELSE 1 END) AS error,
+             MAX(fetched_at) AS latest_fetched_at
+        FROM segment_member360_cache
+       WHERE segment_id = ?
+       GROUP BY uid
+    `)
+    .all(segmentId) as Array<{ uid: string; ok: number; error: number; latest_fetched_at: string | null }>;
+  const out: Record<string, Member360UidStatus> = {};
+  for (const r of rows) {
+    out[r.uid] = { ok: r.ok, error: r.error, latest_fetched_at: r.latest_fetched_at };
+  }
+  return out;
+}
+
 /** Set of `${uid}|${panelId}` keys already cached ok — the runner uses this so
  *  a budget-skipped unit never clobbers a previously good row with an error. */
 export function listOkMember360CacheKeys(segmentId: string): Set<string> {

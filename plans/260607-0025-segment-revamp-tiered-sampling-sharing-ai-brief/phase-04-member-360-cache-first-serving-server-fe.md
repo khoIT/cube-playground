@@ -1,10 +1,11 @@
 ---
 phase: 4
-title: "Member-360 cache-first serving (server+FE)"
-status: pending
+title: Member-360 cache-first serving (server+FE)
+status: completed
 priority: P2
-effort: "1d"
-dependencies: [3]
+effort: 1d
+dependencies:
+  - 3
 ---
 
 # Phase 4: Member-360 cache-first serving (server+FE)
@@ -52,11 +53,34 @@ queries on miss/stale. Behavior (lazy) panels always stay live.
    (FE test with mocked fetch), stale → live, error rows → live, chip states.
 
 ## Success Criteria
-- [ ] Opening a precomputed member's 360 issues 0 live Cube queries for core panels
-- [ ] Cache miss/stale path identical to today's live behavior
-- [ ] "as of" caption on cached panels; none on live panels
-- [ ] Members tab chips reflect real cache status
-- [ ] Existing member-360 tests green
+- [x] Opening a precomputed member's 360 issues 0 live Cube queries for core panels
+      (cache hit OR pending lookup holds every live query — page top, journey trends, and
+      details panels; reviewer traced no-double-fetch + no permanently-held-query)
+- [x] Cache miss/stale path identical to today's live behavior (36h staleness; fetch failure
+      → live everywhere; event/behavior tabs byte-for-byte untouched)
+- [x] "as of" caption on cached panels; none on live panels
+- [x] Members tab chips reflect real cache status (one aggregate fetch, never N+1)
+- [x] Existing member-360 tests green (FE suite 1796 pass; only the 5 pre-existing DevAudit
+      failures, confirmed unrelated on clean tree in Phase 2)
+
+## Verification notes (260607)
+- The page had evolved past the plan's panel-grid assumption into a sectioned dashboard
+  (hero/monetization/journey from ONE sections-driven profile query + DetailsTabs). To serve
+  the WHOLE page from cache, the registry `profile` panel columns were widened (FE + server,
+  parity-tested) to cover the member360-sections.ts profileMembers union — reviewer verified
+  0 missing members for cfm AND ballistar; a runtime coverage guard falls back to live on any
+  future drift. The profile panel body renders nowhere (not in TAB_DEFS), so zero UI change.
+- Journey trend charts derive from the cached activity/recharge timeline panels (limit 90 ≥
+  the 31 charted points, same desc order), coverage-guarded per chart.
+- Server: routes split into `segment-member360.ts` (guardSegment exported from segments.ts);
+  per-uid status via single GROUP BY. Live-probed both endpoints on dev :3004 (real aggregate
+  + panel map). Server suite 876/876; tsc clean both sides (FE 75 = pre-existing baseline).
+- Code review DONE_WITH_CONCERNS, all low/non-blocking → applied L1 (memo-deps comment).
+- Deliberate (review L3): chip collapses "computed-and-failed" (ok=0, error>0) into "live" —
+  the page falls back live either way; aggregate already returns error counts if a 4th state
+  is ever wanted.
+- Plan-vs-code naming drift: chip wired into `tiered-members-view.tsx` (the actual Phase 2
+  file); `tiered-members-table.tsx` never existed.
 
 ## Risk Assessment
 - **Row-shape drift** between cached rows (server `/load` response) and FE renderers: cache

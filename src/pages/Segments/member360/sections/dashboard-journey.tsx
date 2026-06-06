@@ -14,6 +14,7 @@ import { SectionCard } from './dashboard-stats';
 import type { Member360Sections } from '../member360-sections';
 import { qualify } from '../member360-sections';
 import { useMemberCubeQuery } from '../use-member-cube-query';
+import type { CachedPanelSource } from '../use-cached-panel-source';
 import { formatCell } from '../format-cell';
 
 interface Props {
@@ -21,6 +22,10 @@ interface Props {
   uid: string;
   sections: Member360Sections;
   row: Record<string, unknown> | null;
+  /** Nightly precompute source — trend rows derive from the cached daily
+   *  timeline panels (which carry the same time/value members, desc-ordered,
+   *  limit 90 ≥ the 31 points we chart) instead of two live queries. */
+  cachedSource?: CachedPanelSource;
 }
 
 const RECENT = 31;
@@ -35,20 +40,51 @@ function trendQuery(timeDim: string, valueMember: string, uid: string): Query {
   };
 }
 
-export function DashboardJourney({ gameId, uid, sections, row }: Props): ReactElement {
+/** Cached timeline panel id for a trend's time dimension (view-derived). */
+const TIMELINE_PANEL_BY_VIEW: Record<string, string> = {
+  user_activity_timeline: 'activity_timeline',
+  user_recharge_timeline: 'recharge_timeline',
+};
+
+export function DashboardJourney({ gameId, uid, sections, row, cachedSource }: Props): ReactElement {
   const { t } = useTranslation();
 
+  // Cached rows usable for a trend chart: panel fresh AND it carries both
+  // members the chart reads (coverage guard against registry drift).
+  const cachedTrend = (timeDim: string, valueMember: string): Record<string, unknown>[] | null => {
+    const panelId = TIMELINE_PANEL_BY_VIEW[viewOf(timeDim)];
+    if (!panelId || !cachedSource) return null;
+    const hit = cachedSource.getCached(panelId);
+    if (!hit) return null;
+    if (hit.rows.length > 0 && !(timeDim in hit.rows[0] && valueMember in hit.rows[0])) return null;
+    return hit.rows.slice(0, RECENT);
+  };
+  const cachedLevel = cachedTrend(sections.levelTimeDimension, sections.levelMember);
+  const cachedRecharge = cachedTrend(sections.rechargeTimeDimension, sections.rechargeMember);
+  const holdLive = cachedSource ? !cachedSource.ready : false;
+
+  // Deps use a BOOLEAN projection of the cached arrays on purpose: cachedTrend
+  // returns a fresh array each render, so depending on the array identity would
+  // rebuild the query object every render and re-trigger the live hook's effect.
   const levelQ = useMemo(
-    () => trendQuery(sections.levelTimeDimension, sections.levelMember, uid),
-    [sections, uid],
+    () =>
+      holdLive || cachedLevel
+        ? null
+        : trendQuery(sections.levelTimeDimension, sections.levelMember, uid),
+    [sections, uid, holdLive, cachedLevel != null],
   );
   const rechargeQ = useMemo(
-    () => trendQuery(sections.rechargeTimeDimension, sections.rechargeMember, uid),
-    [sections, uid],
+    () =>
+      holdLive || cachedRecharge
+        ? null
+        : trendQuery(sections.rechargeTimeDimension, sections.rechargeMember, uid),
+    [sections, uid, holdLive, cachedRecharge != null],
   );
 
-  const { rows: levelRows } = useMemberCubeQuery<Record<string, unknown>>(gameId, levelQ);
-  const { rows: rechargeRows } = useMemberCubeQuery<Record<string, unknown>>(gameId, rechargeQ);
+  const { rows: liveLevelRows } = useMemberCubeQuery<Record<string, unknown>>(gameId, levelQ);
+  const { rows: liveRechargeRows } = useMemberCubeQuery<Record<string, unknown>>(gameId, rechargeQ);
+  const levelRows = cachedLevel ?? liveLevelRows;
+  const rechargeRows = cachedRecharge ?? liveRechargeRows;
 
   const levelData = useMemo(
     () =>

@@ -10,9 +10,11 @@
 import { ReactElement, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ShieldAlert } from 'lucide-react';
+import { formatDistanceToNowStrict } from 'date-fns';
 import type { Member360Panel } from './member360-panels';
 import { buildPanelQuery, type DateRange } from './build-panel-query';
 import { useMemberCubeQuery } from './use-member-cube-query';
+import type { CachedPanelHit } from './use-cached-panel-source';
 import { formatCell } from './format-cell';
 
 interface Props {
@@ -23,6 +25,11 @@ interface Props {
   dateRange?: DateRange;
   /** Skip the query (lazy panel not yet expanded). */
   idle?: boolean;
+  /** Precomputed rows from the nightly cache — suppresses the live query. */
+  cached?: CachedPanelHit | null;
+  /** False while the cache lookup is in flight: hold the live query so a
+   *  cache hit never double-fetches. Defaults true (live-only callers). */
+  cacheReady?: boolean;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -32,13 +39,26 @@ const cardStyle: React.CSSProperties = {
   padding: 16,
 };
 
-export function MemberPanel({ gameId, panel, idValues, dateRange, idle }: Props): ReactElement {
+export function MemberPanel({
+  gameId,
+  panel,
+  idValues,
+  dateRange,
+  idle,
+  cached,
+  cacheReady = true,
+}: Props): ReactElement {
   const { t } = useTranslation();
+  // Cache hit (or a pending cache lookup) suppresses the live query entirely.
+  const holdLive = idle || cached != null || !cacheReady;
   const query = useMemo(
-    () => (idle ? null : buildPanelQuery(panel, idValues, dateRange)),
-    [panel, idValues, dateRange, idle],
+    () => (holdLive ? null : buildPanelQuery(panel, idValues, dateRange)),
+    [panel, idValues, dateRange, holdLive],
   );
-  const { rows, loading, error } = useMemberCubeQuery<Record<string, unknown>>(gameId, query);
+  const live = useMemberCubeQuery<Record<string, unknown>>(gameId, query);
+  const rows = cached ? cached.rows : live.rows;
+  const loading = cached ? false : !cacheReady || live.loading;
+  const error = cached ? null : live.error;
 
   const title = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -67,8 +87,21 @@ export function MemberPanel({ gameId, panel, idValues, dateRange, idle }: Props)
           <ShieldAlert size={11} aria-hidden /> PII
         </span>
       )}
+      {cached && (
+        <span
+          title={cached.fetchedAt}
+          style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}
+        >
+          {t('segments.member360.cachedAsOf', {
+            defaultValue: 'precomputed · {{when}}',
+            when: formatCachedWhen(cached.fetchedAt),
+          })}
+        </span>
+      )}
       {!loading && rows.length > 0 && panel.panelType !== 'profile' && (
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+        <span
+          style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: cached ? 8 : 'auto' }}
+        >
           {t('segments.member360.rowCount', { defaultValue: '{{n}} rows', n: rows.length })}
         </span>
       )}
@@ -94,6 +127,14 @@ export function MemberPanel({ gameId, panel, idValues, dateRange, idle }: Props)
       {body}
     </section>
   );
+}
+
+function formatCachedWhen(value: string): string {
+  try {
+    return formatDistanceToNowStrict(new Date(value), { addSuffix: true });
+  } catch {
+    return '—';
+  }
 }
 
 function ProfileBody({ panel, row }: { panel: Member360Panel; row: Record<string, unknown> }): ReactElement {
