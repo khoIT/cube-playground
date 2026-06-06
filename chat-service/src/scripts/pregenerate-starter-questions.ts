@@ -38,7 +38,7 @@ import {
   questionDepth,
   type QuestionDepth,
 } from '../core/starter-question-refiner.js';
-import { handler as timeCoverageHandler } from '../tools/get-time-coverage.js';
+import { probeCoverage } from './probe-cube-time-coverage.js';
 import {
   cheapVerify,
   verifyViaChatTurn,
@@ -54,8 +54,6 @@ import {
 import type { ToolContext } from '../types.js';
 
 const MIN_TEMPLATE_QUESTIONS = 3;
-/** Coverage probes are real Cube queries — bound the per-game cost. */
-const MAX_COVERAGE_PROBES = 12;
 /** LLM generation rounds per game (initial + retries with failure feedback). */
 const MAX_GENERATION_ROUNDS = 2;
 const VERIFY_OWNER_ID = 'starter-question-verifier';
@@ -65,13 +63,16 @@ type Topic = (typeof SEED_TOPICS)[number];
 interface CliArgs {
   workspace: string;
   games: string[] | null;
+  /** Skip the tier-2 real-chat-turn gate (manual review planned instead). */
+  skipTurnVerify: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const out: CliArgs = { workspace: 'local', games: null };
+  const out: CliArgs = { workspace: 'local', games: null, skipTurnVerify: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--workspace' && argv[i + 1]) out.workspace = argv[++i];
     if (argv[i] === '--games' && argv[i + 1]) out.games = argv[++i].split(',').map((s) => s.trim()).filter(Boolean);
+    if (argv[i] === '--skip-turn-verify') out.skipTurnVerify = true;
   }
   return out;
 }
@@ -83,50 +84,6 @@ async function listReadyGames(workspace: string): Promise<string[]> {
   if (!res.ok) throw new Error(`games-readiness failed: ${res.status} ${res.statusText}`);
   const body = (await res.json()) as { games?: Array<{ id: string; status: string }> };
   return (body.games ?? []).filter((g) => g.status === 'ok').map((g) => g.id);
-}
-
-/** First time dimension per cube, from /meta. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function timeDimensionOf(meta: any, cubeName: string): string | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cube = (meta?.cubes ?? []).find((c: any) => c.name === cubeName);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const td = (cube?.dimensions ?? []).find((d: any) => d.type === 'time');
-  return td?.name ?? null;
-}
-
-/**
- * Probe the latest date with data for each cube the given questions
- * reference. `known` short-circuits dims probed in an earlier pass.
- */
-async function probeCoverage(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  meta: any,
-  questions: StarterQuestion[],
-  ctx: ToolContext,
-  known: Record<string, string> = {},
-): Promise<Record<string, string>> {
-  const cubes = new Set<string>();
-  for (const q of questions) {
-    for (const ref of q.targetCatalogIds) {
-      const cube = ref.includes('.') ? ref.split('.')[0] : null;
-      if (cube) cubes.add(cube);
-    }
-  }
-  const coverage: Record<string, string> = { ...known };
-  for (const cube of [...cubes].slice(0, MAX_COVERAGE_PROBES)) {
-    const timeDim = timeDimensionOf(meta, cube);
-    if (!timeDim || coverage[timeDim]) continue;
-    try {
-      const out = (await timeCoverageHandler({ member: timeDim }, ctx)) as {
-        found: boolean; latestDate?: string;
-      };
-      if (out.found && out.latestDate) coverage[timeDim] = out.latestDate;
-    } catch (err) {
-      console.warn(`  coverage probe failed for ${timeDim}: ${(err as Error).message}`);
-    }
-  }
-  return coverage;
 }
 
 /** Refine prompt + the data-coverage contract + retry feedback appended. */
@@ -300,6 +257,7 @@ async function generateVerifiedGameEntry(
   chatBaseUrl: string,
   seedFileForProvisional: StarterSeedFile,
   version: string,
+  skipTurnVerify = false,
 ): Promise<GameResult | null> {
   const ctx = { gameId, workspace } as ToolContext;
   const meta = await getMeta(gameId, workspace);
@@ -398,6 +356,20 @@ async function generateVerifiedGameEntry(
     }
     console.log(`    tier1: ${cheapPassed.length}/${candidates.length} candidates passed`);
 
+    // ---- skip-turn-verify mode: tier-1 alone gates the set ----
+    // Used when a human reviews the shipped chips manually instead of paying
+    // ~2 min of real chat turn per question. The report carries tier1 facts
+    // only, so the review tab shows these rows without tier-2 stats.
+    if (skipTurnVerify) {
+      for (const q of cheapPassed) {
+        if (!needsMore(q)) continue;
+        verified.get(homeTopic(q))!.push(q);
+        saveProgress();
+        console.log(`    accepted [${homeTopic(q)}/${questionDepth(q)}] (tier1-only) ${q.text.slice(0, 60)}`);
+      }
+      continue;
+    }
+
     // ---- tier 2: real chat turn via the running service ----
     // The pass-through only fires for questions in the LOADED seed, so write
     // a provisional entry (verified + remaining candidates) and hot-reload.
@@ -466,12 +438,18 @@ async function generateVerifiedGameEntry(
   const keptEntries: ReportEntry[] = questions.map((q) => ({
     questionId: q.id, text: q.text, topic: homeTopic(q), depth: questionDepth(q), kept: true,
     tier1: { ok: true, rowCount: facts[q.id]?.rowCount },
-    tier2: {
-      ok: true,
-      ms: facts[q.id]?.ms,
-      artifactCount: facts[q.id]?.artifactCount,
-      sessionId: facts[q.id]?.sessionId ?? null,
-    },
+    // tier-2 facts exist only when the chat-turn gate ran (absent in
+    // --skip-turn-verify runs — the review tab then shows tier-1 only).
+    ...(facts[q.id]?.ms != null
+      ? {
+          tier2: {
+            ok: true,
+            ms: facts[q.id]?.ms,
+            artifactCount: facts[q.id]?.artifactCount,
+            sessionId: facts[q.id]?.sessionId ?? null,
+          },
+        }
+      : {}),
     query: facts[q.id]?.query,
   }));
   writeReportForGame(gameId, [...keptEntries, ...failedEntries], { version, workspace });
@@ -535,7 +513,7 @@ async function main(): Promise<void> {
   for (const gameId of games) {
     console.log(`\n[${gameId}]`);
     try {
-      const result = await generateVerifiedGameEntry(gameId, args.workspace, chatBaseUrl, seed, version);
+      const result = await generateVerifiedGameEntry(gameId, args.workspace, chatBaseUrl, seed, version, args.skipTurnVerify);
       if (!result) continue;
       seed.games[gameId] = result.entry;
       succeeded.push(gameId);
