@@ -10,7 +10,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import type Database from 'better-sqlite3';
-import { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
+import { extractOwnerId, getTurnOwnerId, canAccessOwnedResource } from './debug-shared.js';
 import * as annotationsStore from '../db/annotations-store.js';
 
 interface AnnotationRouteOptions {
@@ -34,7 +34,11 @@ const debugAnnotationRoutes: FastifyPluginAsync<AnnotationRouteOptions> = async 
 
       const turnOwner = getTurnOwnerId(db, req.params.turnId);
       if (turnOwner === null) return reply.status(404).send({ error: 'Turn not found' });
-      if (turnOwner !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+      // Annotation rows are keyed by (turnId, requester ownerId), so allowing
+      // shared verifier turns here never mutates another owner's data.
+      if (!canAccessOwnedResource(turnOwner, ownerId)) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
 
       const { starred, flag, note } = req.body ?? {};
 
@@ -67,7 +71,11 @@ const debugAnnotationRoutes: FastifyPluginAsync<AnnotationRouteOptions> = async 
 
       const turnOwner = getTurnOwnerId(db, req.params.turnId);
       if (turnOwner === null) return reply.status(404).send({ error: 'Turn not found' });
-      if (turnOwner !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+      // Annotation rows are keyed by (turnId, requester ownerId), so allowing
+      // shared verifier turns here never mutates another owner's data.
+      if (!canAccessOwnedResource(turnOwner, ownerId)) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
 
       annotationsStore.deleteAnnotation(db, req.params.turnId, ownerId);
       return reply.status(204).send();

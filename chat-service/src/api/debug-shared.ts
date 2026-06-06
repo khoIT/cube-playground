@@ -6,6 +6,19 @@
 
 import type Database from 'better-sqlite3';
 
+/**
+ * Synthetic sessions created by the pregenerate→verify workflow. They contain
+ * no user data and the /dev/chat-audit/starters report links straight to them,
+ * so any authenticated owner may read them (sessions, turns, raw SDK events)
+ * and restore them if an old soft-delete left them pending purge.
+ */
+export const VERIFIER_OWNER_ID = 'starter-question-verifier';
+
+/** True when the requester owns the resource, or it's a shared verifier session. */
+export function canAccessOwnedResource(resourceOwnerId: string, requesterId: string): boolean {
+  return resourceOwnerId === requesterId || resourceOwnerId === VERIFIER_OWNER_ID;
+}
+
 /** Extracts and validates X-Owner-Id header; returns null if missing/invalid. */
 export function extractOwnerId(
   headers: Record<string, string | string[] | undefined>,

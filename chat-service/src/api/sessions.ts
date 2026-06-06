@@ -11,6 +11,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import * as chatStore from '../db/chat-store.js';
+import { canAccessOwnedResource } from './debug-shared.js';
 import { writeChatSnapshot } from '../db/snapshot-store.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import type { ChatTurnRow, QueryArtifact, ChartArtifact } from '../types.js';
@@ -255,7 +256,7 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
       if (!session) {
         return reply.status(404).send({ error: 'Session not found' });
       }
-      if (session.owner_id !== ownerId) {
+      if (!canAccessOwnedResource(session.owner_id, ownerId)) {
         return reply.status(403).send({ error: 'Forbidden' });
       }
 

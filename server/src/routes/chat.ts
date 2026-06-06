@@ -515,6 +515,24 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- POST /api/chat/sessions/:id/restore — clear soft-delete (DevAudit Restore button) ---
+  app.post<{ Params: SessionParams }>(
+    '/api/chat/sessions/:id/restore',
+    async (request: FastifyRequest<{ Params: SessionParams }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) {
+        return reply.status(401).send({ code: 'no_owner' });
+      }
+      const url = `${chatServiceUrl()}/sessions/${encodeURIComponent(request.params.id)}/restore`;
+      try {
+        const { status, payload } = await proxyJson(url, 'POST', owner, request.workspace.id);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- PATCH /api/chat/sessions/:id — rename session title ---
   app.patch<{ Params: SessionParams; Body: PatchSessionBody }>(
     '/api/chat/sessions/:id',

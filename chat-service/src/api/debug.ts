@@ -23,7 +23,7 @@ import {
 } from '../cache/turn-detail-cache-adapter.js';
 import type { ChatSessionRow, ChatTurnRow, QueryArtifact, ChartArtifact, PermissionDecisionRow } from '../types.js';
 // Shared owner-guard helpers — imported and re-exported for sub-plugins.
-import { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
+import { extractOwnerId, getTurnOwnerId, canAccessOwnedResource } from './debug-shared.js';
 export { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
 
 // ---------------------------------------------------------------------------
@@ -175,11 +175,7 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
 
       const session = chatStore.getSession(db, req.params.id);
       if (!session) return reply.status(404).send({ error: 'Session not found' });
-      // Synthetic verification sessions (pregenerate→verify workflow) are
-      // reviewable by anyone in the audit tool — they contain no user data,
-      // and the /dev/chat-audit/starters report links straight to them.
-      const isVerifierSession = session.owner_id === 'starter-question-verifier';
-      if (session.owner_id !== ownerId && !isVerifierSession) {
+      if (!canAccessOwnedResource(session.owner_id, ownerId)) {
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
@@ -204,7 +200,9 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
 
       const session = chatStore.getSession(db, req.params.id);
       if (!session) return reply.status(404).send({ error: 'Session not found' });
-      if (session.owner_id !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+      if (!canAccessOwnedResource(session.owner_id, ownerId)) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
 
       chatStore.restoreSession(db, req.params.id);
       const restored = chatStore.getSession(db, req.params.id);
@@ -244,7 +242,9 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
 
       const turnOwner = getTurnOwnerId(db, req.params.turnId);
       if (turnOwner === null) return reply.status(404).send({ error: 'Turn not found' });
-      if (turnOwner !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+      if (!canAccessOwnedResource(turnOwner, ownerId)) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
 
       // Cache fast-path: serve the immutable portion (llm_calls + tool_invocations
       // + permission_decisions) from kv_cache when available. Annotations stay
@@ -295,7 +295,9 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
 
       const turnOwner = getTurnOwnerId(db, req.params.turnId);
       if (turnOwner === null) return reply.status(404).send({ error: 'Turn not found' });
-      if (turnOwner !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+      if (!canAccessOwnedResource(turnOwner, ownerId)) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
 
       const limit = Math.min(Math.max(parseInt(req.query.limit ?? '200', 10) || 200, 1), 1000);
       const cursor = parseInt(req.query.cursor ?? '0', 10) || 0;
