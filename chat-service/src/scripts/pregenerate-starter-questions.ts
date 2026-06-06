@@ -340,6 +340,10 @@ async function generateVerifiedGameEntry(
     const cheapPassed: StarterQuestion[] = [];
     for (const q of candidates) {
       if (!needsMore(q)) continue; // this topic+depth quota already full
+      // Pace the probes — a back-to-back burst of ~24 queries can wedge the
+      // dev cube-api's event loop (TCP up, queries frozen; cube-guard then
+      // restarts it and everything mid-run 502s).
+      await new Promise((r) => setTimeout(r, 600));
       const res = await cheapVerify(q, meta, knownMembers, coverage, ctx);
       if (res.ok) {
         cheapPassed.push(q);

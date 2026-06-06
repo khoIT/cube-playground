@@ -1,32 +1,33 @@
 {
-  "version": "260606-9055",
-  "generatedAt": 1780736799055,
+  "version": "260606-6419",
+  "generatedAt": 1780757416419,
   "workspaceGenerated": "local",
   "games": {
     "ballistar": {
       "questions": [
         {
-          "id": "revenue-concentration-payer-tier",
-          "text": "What share of total lifetime revenue comes from whales vs dolphins vs minnows — and how many users sit in each tier?",
+          "id": "dormant-whales",
+          "text": "Which whale-tier players haven't logged in for 7+ days? Show user count and average days-since-active for win-back targeting.",
           "topicTags": [
-            "monetization"
+            "liveops"
           ],
           "categoryTags": [
             "explore",
-            "compare"
+            "diagnose"
           ],
           "targetCatalogIds": [
             "mf_users.payer_tier",
-            "mf_users.ltv_total_vnd",
-            "mf_users.paying_users"
-          ]
+            "mf_users.days_since_last_active",
+            "mf_users.whales_count",
+            "mf_users.user_count"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "churn-risk-ltv-at-stake",
-          "text": "How much lifetime spend is held by paying users currently flagged as churn-risk (inactive 7–30 days), and which payer tier is most exposed?",
+          "id": "churn-risk-payers",
+          "text": "How many paying users are flagged as at-risk of churning right now, broken down by churn-risk bucket and payer tier?",
           "topicTags": [
-            "liveops",
-            "monetization"
+            "liveops"
           ],
           "categoryTags": [
             "diagnose",
@@ -35,31 +36,81 @@
           "targetCatalogIds": [
             "mf_users.churn_risk",
             "mf_users.payer_tier",
-            "mf_users.ltv_total_vnd",
             "mf_users.paying_users"
-          ]
+          ],
+          "depth": "basic"
         },
         {
-          "id": "paid-vs-organic-retention-curve",
-          "text": "Do paid installs retain better than organic players at D1, D7, and D30 — and is the premium worth the CPI?",
+          "id": "reactivation-targets",
+          "text": "Find paying players who have been inactive for 14+ days, sorted by lifetime spend — top candidates for a re-engagement push.",
           "topicTags": [
-            "user_acquisition"
+            "liveops"
           ],
           "categoryTags": [
-            "compare",
+            "explore",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "mf_users.days_since_last_active",
+            "mf_users.ltv_total_vnd",
+            "mf_users.is_paying_user",
+            "mf_users.user_count"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "lifecycle-stage-breakdown",
+          "text": "What share of the total player base sits in each lifecycle stage (new / active / at-risk / lapsed / dormant) right now?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
             "metric_explain"
           ],
           "targetCatalogIds": [
-            "new_user_retention.rnru_d1",
-            "new_user_retention.rnru_d7",
-            "new_user_retention.rnru_d30",
-            "new_user_retention.is_paid_install",
-            "new_user_retention.nru"
-          ]
+            "mf_users.lifecycle_stage",
+            "mf_users.user_count"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "channel-roas-cpi-ranking",
-          "text": "Which media sources deliver the best ROAS and lowest CPI over the last 30 days of available data — rank all active acquisition channels head-to-head",
+          "id": "server-activity-ranking",
+          "text": "Rank all game servers by DAU over the last 7 days — which servers are under-populated and may need merging?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.server_id",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "role-class-playtime",
+          "text": "Which role class logs the most total online time per active user per day? Show all classes side-by-side.",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "active_daily.total_online_time_sec",
+            "active_daily.dau",
+            "active_daily.role_class"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "channel-roas-ranking",
+          "text": "Rank acquisition channels by ROAS this month — which channel delivers the best return on ad spend?",
           "topicTags": [
             "user_acquisition"
           ],
@@ -68,53 +119,223 @@
             "explore"
           ],
           "targetCatalogIds": [
-            "game_key_metrics.cpi_vnd",
             "game_key_metrics.roas",
-            "game_key_metrics.media_source",
-            "game_key_metrics.cost_vnd"
-          ]
+            "game_key_metrics.cost_vnd",
+            "game_key_metrics.rev",
+            "game_key_metrics.media_source"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "role-class-engagement-depth",
-          "text": "Which role classes log the most daily online time, and how does engagement depth compare across character builds?",
+          "id": "d1-d30-retention-curve",
+          "text": "Plot the D1 → D30 retention curve for the most recent monthly install cohort.",
           "topicTags": [
-            "liveops"
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.rnru_d1",
+            "new_user_retention.rnru_d3",
+            "new_user_retention.rnru_d7",
+            "new_user_retention.rnru_d14",
+            "new_user_retention.rnru_d30",
+            "new_user_retention.report_month"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "channel-roas-rank",
+          "text": "Which acquisition media sources deliver the highest ROAS over the last 30 days of available data — where should we double spend?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.roas",
+            "game_key_metrics.media_source",
+            "game_key_metrics.cost_vnd",
+            "game_key_metrics.rev"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "cpi-by-channel",
+          "text": "Rank acquisition channels by CPI and install volume over the last 30 days of available data — where are we overpaying per install?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.cpi_vnd",
+            "game_key_metrics.installs",
+            "game_key_metrics.media_source",
+            "game_key_metrics.cost_vnd"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "new-cohort-retention-curve",
+          "text": "Plot the D1 → D30 retention curve for the most recent monthly new-player cohort.",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.rnru_d1",
+            "new_user_retention.rnru_d3",
+            "new_user_retention.rnru_d7",
+            "new_user_retention.rnru_d14",
+            "new_user_retention.rnru_d30",
+            "new_user_retention.report_month"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "retention-cohort-compare",
+          "text": "Compare D1 / D7 / D30 retention rates across the last three monthly install cohorts — is retention improving?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.retention_d1",
+            "new_user_retention.retention_d7",
+            "new_user_retention.retention_d30",
+            "new_user_retention.report_month"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "revenue-by-payer-tier",
+          "text": "How is total lifetime revenue distributed across whale, dolphin, and minnow payer tiers — what share do whales contribute?",
+          "topicTags": [
+            "monetization"
           ],
           "categoryTags": [
             "explore",
             "compare"
           ],
           "targetCatalogIds": [
-            "active_daily.role_class",
-            "active_daily.total_online_time_sec",
-            "active_daily.dau"
-          ]
+            "mf_users.payer_tier",
+            "mf_users.ltv_total_vnd",
+            "mf_users.paying_users",
+            "mf_users.whales_count"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "d7-payer-conversion-cohort-trend",
-          "text": "How has the D7 payer conversion rate trended across monthly install cohorts — is the game getting better at early monetization?",
+          "id": "vip-outreach-ranking",
+          "text": "Rank the top VIP players by VIP level and lifetime spend for prioritized customer-success outreach.",
           "topicTags": [
-            "monetization",
-            "user_acquisition"
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.max_vip_level",
+            "mf_users.ltv_total_vnd",
+            "mf_users.arppu_vnd",
+            "mf_users.user_count"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "payer-conversion-funnel",
+          "text": "What are the D1 / D7 / D30 payer conversion rates for recent install cohorts — at which day do we lose the most potential spenders?",
+          "topicTags": [
+            "monetization"
           ],
           "categoryTags": [
             "metric_explain",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.pu1",
+            "game_key_metrics.pu7",
+            "game_key_metrics.pu30",
+            "game_key_metrics.nru",
+            "game_key_metrics.report_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "ios-vs-android-revenue",
+          "text": "Compare total revenue, paying user count, and ARPPU between iOS and Android over the last 30 days of available data.",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
             "compare"
           ],
           "targetCatalogIds": [
-            "new_user_retention.rpnpu_d7",
-            "new_user_retention.nru",
-            "new_user_retention.report_month",
-            "new_user_retention.npu"
-          ]
+            "game_key_metrics.platform",
+            "game_key_metrics.rev",
+            "game_key_metrics.npu",
+            "game_key_metrics.arppu_vnd"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "ltv-by-media-source",
+          "text": "Which acquisition media source produces users with the highest average lifetime value and paying rate?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.media_source",
+            "mf_users.ltv_total_vnd",
+            "mf_users.arppu_vnd",
+            "mf_users.paying_rate"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "role-class-arppu",
+          "text": "Which role class has the highest ARPPU and paying conversion rate — do certain classes attract bigger spenders?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.last_role_class",
+            "mf_users.arppu_vnd",
+            "mf_users.paying_rate",
+            "mf_users.paying_users"
+          ],
+          "depth": "basic"
         }
       ],
       "coverage": {
         "mf_users.install_date": "2026-06-04",
         "new_user_retention.report_date": "2026-06-03",
         "active_daily.log_date": "2026-06-03",
-        "game_key_metrics.report_date": "2026-06-04"
-      }
+        "game_key_metrics.report_date": "2026-06-04",
+        "recharge.recharge_time": "2026-06-03"
+      },
+      "verifiedAt": 1780740738000
     },
     "cfm_vn": {
       "questions": [
@@ -443,25 +664,60 @@
     "cros": {
       "questions": [
         {
-          "id": "role-class-power-engagement",
-          "text": "Which role classes have the highest average fighting power and total online time over the last 30 days — and how do they rank against each other?",
+          "id": "dormant-whales-winback",
+          "text": "Which whale-tier players haven't logged in for 7+ days — ranked by lifetime spend for win-back prioritization?",
+          "topicTags": [
+            "liveops",
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "mf_users.payer_tier",
+            "mf_users.days_since_last_active",
+            "mf_users.user_count",
+            "mf_users.ltv_total_vnd"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "monthly-cohort-type-mix",
+          "text": "What share of MAU are new vs returning vs reactivated players each month?",
           "topicTags": [
             "liveops"
           ],
           "categoryTags": [
-            "compare",
-            "explore"
+            "explore",
+            "metric_explain"
           ],
           "targetCatalogIds": [
-            "active_daily.role_class",
-            "active_daily.max_fighting_power",
-            "active_daily.total_online_time_sec",
-            "active_daily.dau"
-          ]
+            "user_active_monthly.cohort_type",
+            "user_active_monthly.mau",
+            "user_active_monthly.log_year_month"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "cohort-type-monthly-mix-trend",
-          "text": "How has the monthly player mix shifted across new, returning, and lapsed users over the last 6 months — is the returning segment growing or shrinking?",
+          "id": "dau-trend-30d",
+          "text": "How has DAU trended over the last 30 days?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "role-class-active-share",
+          "text": "Which character classes account for the largest share of distinct active roles in the most recent available data?",
           "topicTags": [
             "liveops"
           ],
@@ -470,67 +726,49 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "user_active_monthly.cohort_type",
-            "user_active_monthly.mau",
-            "user_active_monthly.log_year_month"
-          ]
+            "user_roles.distinct_roles",
+            "user_roles.last_role_class"
+          ],
+          "depth": "advanced"
         },
         {
-          "id": "dormant-high-ltv-winback",
-          "text": "Which whale and dolphin players with the highest lifetime spend haven't logged in for 7+ days — ranked by LTV for priority CS outreach?",
+          "id": "liveops-role-class-by-server",
+          "text": "How are role classes distributed across each server — which character class dominates which server?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "user_roles.distinct_roles",
+            "user_roles.last_role_class",
+            "user_roles.server_id"
+          ],
+          "depth": "advanced"
+        },
+        {
+          "id": "liveops-new-role-class-monthly-trend",
+          "text": "Which role classes are newly joining players choosing month-over-month — is there a shift in class popularity among recently registered characters?",
           "topicTags": [
             "liveops",
-            "monetization"
-          ],
-          "categoryTags": [
-            "diagnose",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "mf_users.payer_tier",
-            "mf_users.days_since_last_active",
-            "mf_users.ltv_total_vnd",
-            "mf_users.max_vip_level"
-          ]
-        },
-        {
-          "id": "vip-level-arppu-revenue-scaling",
-          "text": "How does monthly ARPPU scale across VIP levels — and which VIP tier concentrates the most total revenue in the most recent month of data?",
-          "topicTags": [
-            "monetization"
-          ],
-          "categoryTags": [
-            "compare",
-            "metric_explain"
-          ],
-          "targetCatalogIds": [
-            "user_recharge_monthly.max_vip_level",
-            "user_recharge_monthly.arppu_vnd_monthly",
-            "user_recharge_monthly.revenue_vnd_total",
-            "user_recharge_monthly.paying_users_monthly"
-          ]
-        },
-        {
-          "id": "media-source-install-quality",
-          "text": "Which media sources deliver the best-quality installs — ranked by 30-day LTV, 30-day paying rate, and share of flagged fraud installs?",
-          "topicTags": [
             "user_acquisition"
           ],
           "categoryTags": [
-            "compare",
-            "diagnose"
+            "explore",
+            "compare"
           ],
           "targetCatalogIds": [
-            "mf_users.media_source",
-            "mf_users.ltv_30d_total_vnd",
-            "mf_users.paying_rate_30d",
-            "mf_users.is_fraud_install",
-            "mf_users.is_paid_install"
-          ]
+            "user_roles.distinct_roles",
+            "user_roles.first_role_class",
+            "user_roles.first_active_date"
+          ],
+          "depth": "advanced"
         },
         {
-          "id": "install-cohort-paying-conversion",
-          "text": "How quickly do players from each monthly install cohort convert to payers — which cohorts have the highest 30-day paying rate?",
+          "id": "ltv-by-install-cohort",
+          "text": "Which monthly install cohorts show the highest lifetime revenue per user — and how does paying rate vary across cohorts?",
           "topicTags": [
             "user_acquisition",
             "monetization"
@@ -540,58 +778,16 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "mf_users.install_month",
-            "mf_users.paying_rate_30d",
-            "mf_users.paying_users_30d",
-            "mf_users.user_count"
-          ]
-        }
-      ],
-      "coverage": {
-        "mf_users.install_date": "2026-06-05",
-        "active_daily.log_date": "2026-06-05",
-        "user_recharge_monthly.log_month": "2026-06-01"
-      }
-    },
-    "jus_vn": {
-      "questions": [
-        {
-          "id": "churn-risk-payer-winback",
-          "text": "Which paying users are flagged at high churn risk right now — ranked by lifetime spend for prioritized win-back outreach?",
-          "topicTags": [
-            "liveops",
-            "monetization"
-          ],
-          "categoryTags": [
-            "diagnose",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "mf_users.churn_risk",
-            "mf_users.payer_tier",
             "mf_users.ltv_total_vnd",
-            "mf_users.days_since_last_active"
-          ]
+            "mf_users.install_month",
+            "mf_users.user_count",
+            "mf_users.paying_rate"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "server-trailing-wau-ranking",
-          "text": "Rank all servers by trailing WAU this week — which servers are gaining players and which are bleeding out?",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "compare",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "active_daily.server_id",
-            "active_daily.trailing_wau",
-            "active_daily.dau"
-          ]
-        },
-        {
-          "id": "channel-retention-quality-vs-volume",
-          "text": "Which acquisition channels deliver the best D30 user retention — rank media sources by retention quality against install volume?",
+          "id": "media-source-quality-ranking",
+          "text": "Rank media sources by new user volume and 30-day paying rate — which acquisition channel brings the highest-value players?",
           "topicTags": [
             "user_acquisition"
           ],
@@ -600,33 +796,88 @@
             "explore"
           ],
           "targetCatalogIds": [
-            "new_user_retention.media_source",
-            "new_user_retention.rnru_d1",
-            "new_user_retention.rnru_d30",
-            "new_user_retention.nru"
-          ]
+            "mf_users.media_source",
+            "mf_users.user_count_approx",
+            "mf_users.paying_rate_30d",
+            "mf_users.ltv_30d_total_vnd"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "cohort-retention-curve-compare",
-          "text": "Compare the D1 → D30 retention curves for the last three monthly install cohorts — is new-user stickiness improving?",
+          "id": "paid-vs-organic-ltv-gap",
+          "text": "How does lifetime value and paying rate compare between paid-install and organic users?",
           "topicTags": [
-            "user_acquisition"
+            "user_acquisition",
+            "monetization"
           ],
           "categoryTags": [
             "compare",
             "metric_explain"
           ],
           "targetCatalogIds": [
-            "new_user_retention.rnru_d1",
-            "new_user_retention.rnru_d7",
-            "new_user_retention.rnru_d14",
-            "new_user_retention.rnru_d30",
-            "new_user_retention.report_month"
-          ]
+            "mf_users.is_paid_install",
+            "mf_users.user_count",
+            "mf_users.ltv_total_vnd",
+            "mf_users.paying_rate"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "payer-tier-revenue-concentration",
-          "text": "What share of total lifetime revenue comes from whales vs. dolphins vs. minnows — and how many players sit in each tier?",
+          "id": "first-role-class-preference",
+          "text": "Which character class do new players pick most often as their first role — and does the choice vary by server?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "user_roles.distinct_roles",
+            "user_roles.first_role_class",
+            "user_roles.server_id"
+          ],
+          "depth": "advanced"
+        },
+        {
+          "id": "ua-new-cohort-revenue-by-server",
+          "text": "Which servers generated the most revenue from characters created in the last 90 days — a quality signal for server-level acquisition performance?",
+          "topicTags": [
+            "user_acquisition",
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "user_roles.roles_revenue_vnd",
+            "user_roles.roles_txn_count",
+            "user_roles.server_id",
+            "user_roles.first_active_date"
+          ],
+          "depth": "advanced"
+        },
+        {
+          "id": "ua-vip-attainment-new-roles-60d",
+          "text": "Among characters created in the last 60 days, what is the VIP level distribution — how quickly are new players progressing to paid tiers?",
+          "topicTags": [
+            "user_acquisition",
+            "monetization"
+          ],
+          "categoryTags": [
+            "diagnose",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "user_roles.distinct_roles",
+            "user_roles.max_vip_level",
+            "user_roles.first_active_date"
+          ],
+          "depth": "advanced"
+        },
+        {
+          "id": "revenue-concentration-by-payer-tier",
+          "text": "What share of total lifetime revenue comes from whales vs dolphins vs minnows — and how many players are in each tier?",
           "topicTags": [
             "monetization"
           ],
@@ -637,13 +888,46 @@
           "targetCatalogIds": [
             "mf_users.payer_tier",
             "mf_users.ltv_total_vnd",
-            "mf_users.paying_users",
             "mf_users.user_count"
-          ]
+          ],
+          "depth": "basic"
         },
         {
-          "id": "role-class-arppu-ranking",
-          "text": "Which character classes generate the highest ARPPU and transaction volume — where do the biggest spenders actually play?",
+          "id": "vip-outreach-priority-list",
+          "text": "List top VIP players ranked by VIP level and lifetime spend for high-touch CS outreach",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.max_vip_level",
+            "mf_users.ltv_total_vnd",
+            "mf_users.user_count"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "monthly-arppu-trend",
+          "text": "How has monthly ARPPU trended over the most recent months of data, and how many paying users drove it?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "user_recharge_monthly.arppu_vnd_monthly",
+            "user_recharge_monthly.log_year_month",
+            "user_recharge_monthly.paying_users_monthly"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "revenue-by-role-class",
+          "text": "Which character classes generate the most total revenue — and which have the highest revenue per active player?",
           "topicTags": [
             "monetization"
           ],
@@ -652,26 +936,431 @@
             "explore"
           ],
           "targetCatalogIds": [
-            "recharge.role_class",
-            "recharge.arppu_vnd",
-            "recharge.paying_users",
-            "recharge.transactions"
-          ]
+            "user_roles.roles_revenue_vnd",
+            "user_roles.last_role_class",
+            "user_roles.distinct_users"
+          ],
+          "depth": "advanced"
+        },
+        {
+          "id": "vip-level-by-role-class",
+          "text": "Which character classes climb the VIP ladder fastest — VIP level distribution broken down by role class?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "user_roles.max_vip_level",
+            "user_roles.last_role_class",
+            "user_roles.distinct_roles"
+          ],
+          "depth": "advanced"
+        },
+        {
+          "id": "top-revenue-servers",
+          "text": "Which game servers generate the highest total player spending in the most recent available data?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "user_roles.roles_revenue_vnd",
+            "user_roles.server_id",
+            "user_roles.distinct_users"
+          ],
+          "depth": "advanced"
         }
       ],
       "coverage": {
-        "mf_users.install_date": "2026-06-04",
-        "new_user_retention.report_date": "2026-06-04",
-        "active_daily.log_date": "2026-06-04",
-        "game_key_metrics.report_date": "2026-06-05",
-        "recharge.recharge_time": "2026-06-04"
-      }
+        "mf_users.install_date": "2026-06-06",
+        "active_daily.log_date": "2026-06-06",
+        "user_roles.first_active_date": "2026-06-06",
+        "user_recharge_monthly.log_month": "2026-06-01",
+        "recharge.transaction_time": "2026-06-05"
+      },
+      "verifiedAt": 1780741559814
+    },
+    "jus_vn": {
+      "questions": [
+        {
+          "id": "dormant-whales",
+          "text": "Which whale-tier players haven't logged in for 7+ days and should be prioritized for win-back outreach?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "diagnose",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.payer_tier",
+            "mf_users.days_since_last_active",
+            "mf_users.ltv_total_vnd"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "churn-risk-payers",
+          "text": "How many paying users are currently flagged as churn-risk, broken down by payer tier?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "mf_users.churn_risk",
+            "mf_users.paying_users",
+            "mf_users.payer_tier"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "role-class-session-time",
+          "text": "Which role class logs the most total online time per day over the last 30 days?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "active_daily.total_online_time_sec",
+            "active_daily.role_class",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "retain-vs-recall-active",
+          "text": "How many players have been retained vs recalled as active users in the most recent data — which group is larger?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.retain_user_active",
+            "game_key_metrics.recall_user_active"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "server-payer-activity",
+          "text": "Which servers have the most active paying players — rank all servers by paying user count?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "user_recharge_daily.paying_users",
+            "user_recharge_daily.server_id"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "role-class-transaction-volume",
+          "text": "Which character class logs the most recharge transactions — how does spending activity differ by class?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "recharge.transactions",
+            "recharge.role_class"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "installs-by-media-source",
+          "text": "Which media sources delivered the most new installs in the most recent data — rank all acquisition channels by install volume?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.installs",
+            "game_key_metrics.media_source"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "nnpu-by-media-source",
+          "text": "Which media source produces the most net-new paying users (first-ever recharge) — where are brand-new payers actually coming from?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.nnpu",
+            "game_key_metrics.media_source"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "npu-by-media-source",
+          "text": "Which acquisition channel converts the most new registrations into paying players?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.npu",
+            "game_key_metrics.media_source"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "spend-by-media-source",
+          "text": "How is total acquisition spend distributed across media sources — which channel is receiving the biggest budget share?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.cost_vnd",
+            "game_key_metrics.media_source"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "nru-by-country",
+          "text": "Which countries are generating the most new user registrations for JUS VN?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.nru",
+            "game_key_metrics.country_code"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "spend-by-campaign",
+          "text": "Which campaigns account for the largest share of total marketing spend — rank all campaigns by cost?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "marketing_cost.cost_vnd",
+            "marketing_cost.campaign_name"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "top-products-by-revenue",
+          "text": "Which in-game products generate the most revenue and transaction volume in the most recent data?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.transactions",
+            "recharge.product_name"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "ltv-by-install-cohort",
+          "text": "How does average lifetime revenue per paying user compare across monthly install cohorts over the last 6 months?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "mf_users.ltv_total_vnd",
+            "mf_users.arppu_vnd",
+            "mf_users.install_month"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "platform-arppu-comparison",
+          "text": "Compare iOS vs Android on ARPPU and paying-user conversion rate — which platform monetizes better?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "mf_users.arppu_vnd",
+            "mf_users.paying_rate",
+            "mf_users.os_platform"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "revenue-by-payment-channel",
+          "text": "Which payment channels generate the most total recharge revenue — rank telco, IAP, web, and other channels by VND?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.payment_channel"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "revenue-by-product-name",
+          "text": "Which in-game products drive the most recharge revenue — rank all purchasable items by total VND collected?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.product_name"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "arppu-by-role-class",
+          "text": "Which character class has the highest average revenue per paying user — do certain classes attract bigger spenders?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "recharge.arppu_vnd",
+            "recharge.role_class"
+          ],
+          "depth": "basic"
+        }
+      ],
+      "coverage": {
+        "mf_users.install_date": "2026-06-05",
+        "new_user_retention.report_date": "2026-06-05",
+        "active_daily.log_date": "2026-06-05",
+        "game_key_metrics.report_date": "2026-06-06",
+        "recharge.recharge_time": "2026-06-05",
+        "user_recharge_daily.log_date": "2026-06-05",
+        "marketing_cost.log_date": "2026-06-06"
+      },
+      "verifiedAt": 1780742294977
     },
     "muaw": {
       "questions": [
         {
-          "id": "role-class-session-time-trend",
-          "text": "Which role class logs the most daily session time on average, and how has that ranking shifted over the past 30 days?",
+          "id": "dormant-whales-winback",
+          "text": "Which whale-tier players haven't logged in for 7+ days? Rank by lifetime spend to prioritize CS win-back.",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "diagnose",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.payer_tier",
+            "mf_users.days_since_last_active",
+            "mf_users.ltv_total_vnd",
+            "mf_users.user_count_approx"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "churn-risk-payer-breakdown",
+          "text": "How many paying users are flagged as high churn-risk right now, broken down by payer tier?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "diagnose",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.churn_risk",
+            "mf_users.payer_tier",
+            "mf_users.paying_users"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "lifecycle-stage-distribution",
+          "text": "Break down the entire player base by lifecycle stage — what share is active, at-risk, or already lapsed?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "mf_users.lifecycle_stage",
+            "mf_users.user_count_approx"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "dau-30day-trend",
+          "text": "Plot DAU over the most recent 30 days of available data — flag any dips that signal emerging churn.",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "role-class-online-time-ranking",
+          "text": "Which character class logs the most daily online time — and which logs the least? Compare engagement depth by class.",
           "topicTags": [
             "liveops"
           ],
@@ -682,51 +1371,106 @@
           "targetCatalogIds": [
             "active_daily.role_class",
             "active_daily.total_online_time_sec",
-            "active_daily.dau",
-            "active_daily.log_date"
-          ]
+            "active_daily.dau"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "churn-risk-revenue-exposure",
-          "text": "How much lifetime revenue sits inside churn-risk payer accounts right now — break down by payer tier and churn-risk bucket",
+          "id": "ios-android-dau-split",
+          "text": "How does DAU split between iOS and Android in the most recent month — is the platform gap widening or narrowing?",
           "topicTags": [
-            "liveops",
-            "monetization"
+            "liveops"
           ],
           "categoryTags": [
-            "diagnose",
+            "compare",
             "explore"
           ],
           "targetCatalogIds": [
-            "mf_users.churn_risk",
-            "mf_users.payer_tier",
-            "mf_users.ltv_total_vnd",
-            "mf_users.paying_users"
-          ]
+            "active_daily.dau",
+            "active_daily.os_platform",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "paid-vs-organic-retention-curve",
-          "text": "Do paid installs retain better than organic players? Compare D1, D7, and D30 retention curves side-by-side",
+          "id": "retention-curve-latest-cohort",
+          "text": "Plot the D1 → D30 retention curve for the most recent install cohort — where does the funnel collapse hardest?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.nru",
+            "new_user_retention.rnru_d1",
+            "new_user_retention.rnru_d3",
+            "new_user_retention.rnru_d7",
+            "new_user_retention.rnru_d14",
+            "new_user_retention.rnru_d30"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "cohort-retention-monthly-comparison",
+          "text": "Compare D1, D7, and D30 retention across the last three monthly install cohorts — is new-player quality improving?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.retention_d1",
+            "new_user_retention.retention_d7",
+            "new_user_retention.retention_d30",
+            "new_user_retention.report_month",
+            "new_user_retention.nru"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "paid-vs-organic-retention-gap",
+          "text": "Do paid installs out-retain organic players at D7 and D30? Show the retention gap between paid and organic cohorts.",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.rnru_d7",
+            "new_user_retention.rnru_d30",
+            "new_user_retention.is_paid_install",
+            "new_user_retention.nru"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "channel-cpi-roas-ranking",
+          "text": "Rank all acquisition channels by CPI and ROAS — which channel delivers the most efficient installs in the most recent data?",
           "topicTags": [
             "user_acquisition"
           ],
           "categoryTags": [
             "compare",
-            "metric_explain"
+            "explore"
           ],
           "targetCatalogIds": [
-            "new_user_retention.rnru_d1",
-            "new_user_retention.rnru_d7",
-            "new_user_retention.rnru_d30",
-            "new_user_retention.is_paid_install"
-          ]
+            "game_key_metrics.cpi_vnd",
+            "game_key_metrics.roas",
+            "game_key_metrics.media_source",
+            "game_key_metrics.cost_vnd",
+            "game_key_metrics.installs"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "channel-d7-payer-conversion-ranking",
-          "text": "Rank every acquisition channel by its D7 payer conversion rate — which media source produces paying users fastest?",
+          "id": "d7-payer-conversion-by-channel",
+          "text": "Which media source produces the highest D7 payer conversion rate — the best channel for acquiring quality, paying players?",
           "topicTags": [
-            "user_acquisition",
-            "monetization"
+            "user_acquisition"
           ],
           "categoryTags": [
             "compare",
@@ -735,13 +1479,32 @@
           "targetCatalogIds": [
             "new_user_retention.rpnpu_d7",
             "new_user_retention.media_source",
-            "new_user_retention.npu",
-            "new_user_retention.nru"
-          ]
+            "new_user_retention.nru",
+            "new_user_retention.npu"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "vip-level-revenue-pareto",
-          "text": "Which VIP tiers drive 80% of revenue? Show a Pareto breakdown of revenue and payer count by VIP level",
+          "id": "ltv-by-install-cohort",
+          "text": "Which install-month cohort delivered the highest average lifetime value — and how does paying rate vary across cohorts?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "mf_users.ltv_total_vnd",
+            "mf_users.install_month",
+            "mf_users.user_count_approx",
+            "mf_users.paying_rate"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "revenue-concentration-by-payer-tier",
+          "text": "How is total revenue concentrated across whale, dolphin, and minnow tiers — what percentage comes from the top tier?",
           "topicTags": [
             "monetization"
           ],
@@ -750,60 +1513,133 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "user_recharge_daily.vip_level",
-            "user_recharge_daily.revenue_vnd_total",
-            "user_recharge_daily.paying_users"
-          ]
+            "mf_users.payer_tier",
+            "mf_users.ltv_total_vnd",
+            "mf_users.paying_users",
+            "mf_users.whales_count"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "install-cohort-arppu-trend",
-          "text": "Are newer install cohorts monetizing better than older ones? Compare ARPPU and paying rate across the last 3 install months",
+          "id": "vip-player-outreach-ranking",
+          "text": "List the top VIP players ranked by VIP level and lifetime spend — prioritized for premium CS outreach.",
           "topicTags": [
-            "monetization",
-            "user_acquisition"
+            "monetization"
           ],
           "categoryTags": [
-            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "mf_users.max_vip_level",
+            "mf_users.ltv_total_vnd",
+            "mf_users.user_count_approx",
+            "mf_users.arppu_vnd"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "arpu-paying-rate-ios-vs-android",
+          "text": "Compare ARPU and paying rate between iOS and Android players — which platform monetizes better?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "mf_users.arpu_vnd",
+            "mf_users.os_platform",
+            "mf_users.paying_rate",
+            "mf_users.paying_users"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "daily-revenue-trend-30d",
+          "text": "Plot daily revenue over the most recent 30 days — identify spikes and drops, especially around in-game events.",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
             "metric_explain"
           ],
           "targetCatalogIds": [
-            "mf_users.arppu_vnd",
-            "mf_users.paying_rate",
-            "mf_users.install_month"
-          ]
+            "user_recharge_daily.revenue_vnd_total",
+            "user_recharge_daily.log_date",
+            "user_recharge_daily.paying_users"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "iap-vs-web-payment-channel-mix",
+          "text": "How is revenue split between IAP and web payment channels, and which channel drives higher ARPPU?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.paying_users",
+            "recharge.payment_channel",
+            "recharge.arppu_vnd"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "role-class-revenue-contribution",
+          "text": "Which character class generates the most revenue and the highest average transaction value?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.role_class",
+            "recharge.transactions",
+            "recharge.arpt_vnd",
+            "recharge.paying_users"
+          ],
+          "depth": "basic"
         }
       ],
       "coverage": {
-        "mf_users.install_date": "2026-06-04",
-        "new_user_retention.report_date": "2026-06-04",
-        "active_daily.log_date": "2026-06-05",
-        "game_key_metrics.report_date": "2026-06-05",
-        "user_recharge_daily.log_date": "2026-06-04"
-      }
+        "mf_users.install_date": "2026-06-06",
+        "active_daily.log_date": "2026-06-06",
+        "new_user_retention.report_date": "2026-06-05",
+        "game_key_metrics.report_date": "2026-06-06",
+        "user_recharge_daily.log_date": "2026-06-05",
+        "recharge.recharge_time": "2026-06-05"
+      },
+      "verifiedAt": 1780743542412
     },
     "pubg": {
       "questions": [
         {
-          "id": "churn-risk-payer-tier-revenue-at-stake",
-          "text": "Among paying users flagged as at-risk, how many are whales or dolphins — and what lifetime revenue is at stake if they lapse?",
+          "id": "dau-trend-30d",
+          "text": "How has DAU trended day-by-day over the last 30 days of available data?",
           "topicTags": [
-            "liveops",
-            "monetization"
+            "liveops"
           ],
           "categoryTags": [
-            "diagnose",
-            "explore"
+            "explore",
+            "metric_explain"
           ],
           "targetCatalogIds": [
-            "mf_users.churn_risk",
-            "mf_users.payer_tier",
-            "mf_users.ltv_total_vnd",
-            "mf_users.paying_users"
-          ]
+            "active_daily.dau",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "role-class-session-depth",
-          "text": "Which role classes log the most daily online time over the last 30 days — and how does their DAU compare?",
+          "id": "role-class-dau-ranking",
+          "text": "Which role class drives the most daily active users over the last 30 days of available data?",
           "topicTags": [
             "liveops"
           ],
@@ -812,14 +1648,101 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "active_daily.role_class",
-            "active_daily.total_online_time_sec",
-            "active_daily.dau"
-          ]
+            "active_daily.dau",
+            "active_daily.role_class"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "retention-curve-by-media-source",
-          "text": "Which acquisition channels produce the best D1, D7, and D30 retention for recent new-user cohorts?",
+          "id": "server-dau-ranking",
+          "text": "Rank all servers by average DAU over the last 30 days of available data — which servers are lagging?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.server_id"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "session-depth-by-platform",
+          "text": "Compare total daily session time between iOS and Android players over the last 30 days of available data — which platform shows deeper engagement?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "active_daily.total_online_time_sec",
+            "active_daily.os_platform",
+            "active_daily.dau"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "dau-by-platform-trend",
+          "text": "How has DAU trended over the last 30 days, broken down by iOS vs Android?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.os_platform",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "server-dau-ranking",
+          "text": "Which servers have the highest daily active users over the past 7 days — rank the top servers by engagement?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.server_id",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "new-cohort-retention-curve",
+          "text": "Plot the full D1 → D30 retention curve for the most recent new-player install cohort",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.rnru_d1",
+            "new_user_retention.rnru_d3",
+            "new_user_retention.rnru_d7",
+            "new_user_retention.rnru_d14",
+            "new_user_retention.rnru_d30",
+            "new_user_retention.report_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "multi-cohort-retention-comparison",
+          "text": "Compare D7 and D30 retention rates across the last three monthly install cohorts — is new-user quality improving or declining?",
           "topicTags": [
             "user_acquisition"
           ],
@@ -827,16 +1750,16 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "new_user_retention.media_source",
-            "new_user_retention.nru",
-            "new_user_retention.rnru_d1",
             "new_user_retention.rnru_d7",
-            "new_user_retention.rnru_d30"
-          ]
+            "new_user_retention.rnru_d30",
+            "new_user_retention.report_month",
+            "new_user_retention.nru"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "roas-ranking-by-campaign",
-          "text": "Rank all campaigns by ROAS over the last 30 days of available data — which are profitable and which are burning budget?",
+          "id": "channel-cpi-roas-ranking",
+          "text": "Which acquisition channels deliver the lowest cost-per-install and highest ROAS? Rank all active channels.",
           "topicTags": [
             "user_acquisition"
           ],
@@ -845,16 +1768,84 @@
             "diagnose"
           ],
           "targetCatalogIds": [
+            "game_key_metrics.cpi_vnd",
             "game_key_metrics.roas",
             "game_key_metrics.media_source",
-            "game_key_metrics.cost_vnd",
-            "game_key_metrics.rev",
-            "game_key_metrics.installs"
-          ]
+            "game_key_metrics.cost_vnd"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "revenue-concentration-payer-tier",
-          "text": "What share of total lifetime revenue is generated by whales vs. dolphins vs. minnows — and how many users sit in each tier?",
+          "id": "paid-vs-organic-d30-retention",
+          "text": "Do paid installs retain better than organic installs at D30? Compare retention rates and cohort volumes side by side.",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.rnru_d30",
+            "new_user_retention.is_paid_install",
+            "new_user_retention.nru"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "d7-payer-conversion-by-channel",
+          "text": "Which acquisition channels produce the highest share of users who make their first purchase within 7 days?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.rpnpu_d7",
+            "new_user_retention.media_source",
+            "new_user_retention.nru"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "platform-ios-android-early-retention",
+          "text": "How does D1 and D7 retention compare between iOS and Android new-user cohorts?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "new_user_retention.rnru_d1",
+            "new_user_retention.rnru_d7",
+            "new_user_retention.platform",
+            "new_user_retention.nru"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "payment-channel-revenue-split",
+          "text": "How is revenue split between in-app purchases and web payment channels — and which channel has the higher ARPPU?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.payment_channel",
+            "recharge.arppu_vnd",
+            "recharge.transactions"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "txn-value-band-distribution",
+          "text": "How are recharge transactions distributed by value band — which price points do players prefer and which drive the most revenue?",
           "topicTags": [
             "monetization"
           ],
@@ -863,35 +1854,89 @@
             "metric_explain"
           ],
           "targetCatalogIds": [
-            "mf_users.payer_tier",
-            "mf_users.ltv_total_vnd",
-            "mf_users.paying_users",
-            "mf_users.paying_rate"
-          ]
+            "recharge.transactions",
+            "recharge.txn_value_band_vnd",
+            "recharge.revenue_vnd"
+          ],
+          "depth": "basic"
         },
         {
-          "id": "iap-vs-web-channel-arppu",
-          "text": "How does ARPPU and transaction volume compare between IAP and web-portal payment channels?",
+          "id": "revenue-by-vip-level",
+          "text": "How does total revenue break down by player VIP level — which VIP tiers generate the most spend per user?",
           "topicTags": [
             "monetization"
           ],
           "categoryTags": [
-            "compare"
+            "compare",
+            "explore"
           ],
           "targetCatalogIds": [
-            "recharge.payment_channel",
+            "user_recharge_daily.revenue_vnd_total",
+            "user_recharge_daily.vip_level",
+            "user_recharge_daily.paying_users"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "arppu-trend-monthly",
+          "text": "How has average revenue per paying user (ARPPU) trended month-over-month — are high-value players spending more or less?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
             "recharge.arppu_vnd",
-            "recharge.transactions",
-            "recharge.revenue_vnd"
-          ]
+            "recharge.log_month",
+            "recharge.paying_users"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "daily-revenue-trend",
+          "text": "How has total daily revenue (VND) trended over the last 30 days — is the trajectory growing or declining?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.recharge_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "revenue-by-payment-channel",
+          "text": "How is revenue split between in-app purchase (IAP) and web payment channels this month — which channel dominates?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "recharge.revenue_vnd",
+            "recharge.paying_users",
+            "recharge.payment_channel",
+            "recharge.log_month"
+          ],
+          "depth": "basic"
         }
       ],
       "coverage": {
-        "new_user_retention.report_date": "2026-06-04",
         "active_daily.log_date": "2026-06-04",
+        "new_user_retention.report_date": "2026-06-04",
         "game_key_metrics.report_date": "2026-06-04",
-        "recharge.recharge_time": "2026-06-04"
-      }
+        "recharge.recharge_time": "2026-06-04",
+        "user_recharge_daily.log_date": "2026-06-04"
+      },
+      "verifiedAt": 1780758114645
     }
   }
 }
