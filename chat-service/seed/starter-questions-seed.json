@@ -1,6 +1,6 @@
 {
-  "version": "260606-6419",
-  "generatedAt": 1780757416419,
+  "version": "260606-6573",
+  "generatedAt": 1780760236573,
   "workspaceGenerated": "local",
   "games": {
     "ballistar": {
@@ -340,25 +340,57 @@
     "cfm_vn": {
       "questions": [
         {
-          "id": "liveops-dau-recharge-overlap-trend",
-          "text": "What share of daily active users also recharged on the same day, and how has that engagement-to-payer overlap shifted over the last 30 days?",
+          "id": "wau-vs-trailing-wau-30d",
+          "text": "WAU vs trailing WAU over the last 30 days",
           "topicTags": [
             "liveops"
           ],
           "categoryTags": [
-            "explore",
-            "metric_explain"
+            "metric_explain",
+            "explore"
           ],
           "targetCatalogIds": [
-            "active_daily.dau",
-            "active_daily.is_recharge_day",
+            "active_daily.wau",
+            "active_daily.trailing_wau",
             "active_daily.log_date"
           ],
           "depth": "basic"
         },
         {
-          "id": "liveops-online-time-by-role-class",
-          "text": "Which role classes log the most total daily online time — how does session depth vary by character choice over the last 30 days?",
+          "id": "dau-mau-ratio-by-platform",
+          "text": "DAU/MAU ratio by OS platform — iOS vs Android stickiness",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.mau",
+            "active_daily.os_platform"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "top-servers-by-online-time",
+          "text": "Top 10 servers by total online time — where do players spend most hours?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "active_daily.total_online_time_sec",
+            "active_daily.server_id"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "matches-by-game-mode",
+          "text": "Matches and distinct players by game mode — which mode dominates?",
           "topicTags": [
             "liveops"
           ],
@@ -367,38 +399,20 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "active_daily.total_online_time_sec",
-            "active_daily.role_class",
-            "active_daily.log_date"
+            "etl_game_detail.matches",
+            "etl_game_detail.distinct_players",
+            "etl_game_detail.game_mode_label"
           ],
-          "depth": "basic"
+          "depth": "advanced"
         },
         {
-          "id": "liveops-wau-trend-by-platform",
-          "text": "How has trailing 7-day WAU trended over the last 30 days, broken down by OS platform?",
+          "id": "login-peak-by-hour-weekday",
+          "text": "Login volume by hour (VN time) and weekday — peak activity windows",
           "topicTags": [
             "liveops"
           ],
           "categoryTags": [
-            "explore",
-            "metric_explain"
-          ],
-          "targetCatalogIds": [
-            "active_daily.trailing_wau",
-            "active_daily.os_platform",
-            "active_daily.log_date"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "liveops-login-heatmap-hour-weekday",
-          "text": "Show a login-volume heatmap by hour of day vs day of week — when are CFM VN players most and least active throughout the week?",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "explore",
-            "metric_explain"
+            "explore"
           ],
           "targetCatalogIds": [
             "etl_login.logins",
@@ -408,65 +422,29 @@
           "depth": "advanced"
         },
         {
-          "id": "liveops-mode-drop-rate-ranking",
-          "text": "Which game modes have the highest match drop rate and how many matches are affected — rank all modes by drop rate vs total match volume?",
+          "id": "drop-rate-by-map",
+          "text": "Match drop rate by map — which maps trigger the most early quits?",
           "topicTags": [
             "liveops"
           ],
           "categoryTags": [
-            "diagnose",
-            "compare"
+            "diagnose"
           ],
           "targetCatalogIds": [
             "etl_game_detail.drop_rate",
-            "etl_game_detail.matches",
-            "etl_game_detail.game_mode_label"
+            "etl_game_detail.map_label",
+            "etl_game_detail.dropped_matches"
           ],
           "depth": "advanced"
         },
         {
-          "id": "liveops-map-popularity-vs-ai-fill",
-          "text": "Rank all maps by total match count and overlay the AI-bot fill rate — which high-traffic maps are being propped up by bots?",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "diagnose",
-            "compare"
-          ],
-          "targetCatalogIds": [
-            "etl_game_detail.matches",
-            "etl_game_detail.ai_matches",
-            "etl_game_detail.map_label"
-          ],
-          "depth": "advanced"
-        },
-        {
-          "id": "ua-mau-growth-trailing-vs-prev",
-          "text": "How is monthly active user growth tracking — compare trailing MAU to prior-month MAU to surface month-over-month momentum?",
+          "id": "dau-by-country-30d",
+          "text": "DAU by country over the last 30 days — geographic player spread",
           "topicTags": [
             "user_acquisition"
           ],
           "categoryTags": [
-            "metric_explain",
             "explore"
-          ],
-          "targetCatalogIds": [
-            "active_daily.trailing_mau",
-            "active_daily.mau_prev_month",
-            "active_daily.log_month"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "ua-dau-by-country-trend",
-          "text": "Which countries account for the most daily active users over the last 30 days, and which are growing fastest?",
-          "topicTags": [
-            "user_acquisition"
-          ],
-          "categoryTags": [
-            "explore",
-            "compare"
           ],
           "targetCatalogIds": [
             "active_daily.dau",
@@ -476,13 +454,13 @@
           "depth": "basic"
         },
         {
-          "id": "ua-os-platform-dau-breakdown",
-          "text": "What is the OS platform split (iOS / Android / PC) among daily active users over the last 30 days?",
+          "id": "dau-by-os-platform",
+          "text": "Daily active players by OS platform — iOS vs Android split",
           "topicTags": [
             "user_acquisition"
           ],
           "categoryTags": [
-            "explore"
+            "compare"
           ],
           "targetCatalogIds": [
             "active_daily.dau",
@@ -492,8 +470,24 @@
           "depth": "basic"
         },
         {
-          "id": "ua-tutorial-step-dropoff",
-          "text": "At which tutorial step do new players drop off most — rank all tutorial steps by completion rate to find the highest-friction gate in the onboarding funnel?",
+          "id": "trailing-mau-60d-trend",
+          "text": "Trailing MAU over the last 60 days — is the player base growing?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "active_daily.trailing_mau",
+            "active_daily.log_date"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "tutorial-completion-by-step",
+          "text": "Tutorial completion rate by step — where do new players drop off?",
           "topicTags": [
             "user_acquisition"
           ],
@@ -504,64 +498,78 @@
           "targetCatalogIds": [
             "etl_newbie_tutorial.completion_rate",
             "etl_newbie_tutorial.tutorial_id",
-            "etl_newbie_tutorial.log_date"
+            "etl_newbie_tutorial.distinct_players"
           ],
           "depth": "advanced"
         },
         {
-          "id": "ua-new-logins-by-app-channel",
-          "text": "How many novice (new-player) logins came through each acquisition channel — which channels are delivering the most fresh installs?",
+          "id": "newbie-first-game-mode",
+          "text": "First game mode chosen in training — what draws new players?",
           "topicTags": [
             "user_acquisition"
           ],
           "categoryTags": [
-            "explore",
-            "compare"
+            "explore"
           ],
           "targetCatalogIds": [
-            "etl_login.logins",
-            "etl_login.app_channel",
-            "etl_login.novice_flag"
+            "etl_newbie_detail.distinct_players",
+            "etl_newbie_detail.first_game_mode"
           ],
           "depth": "advanced"
         },
         {
-          "id": "ua-backflow-vs-new-ladder-score",
-          "text": "How do re-activated backflow users compare to first-time new players in login volume and max ladder score at re-entry?",
+          "id": "backflow-vs-new-logins-by-channel",
+          "text": "Backflow logins vs total logins by app channel — returning vs fresh players",
           "topicTags": [
             "user_acquisition"
           ],
           "categoryTags": [
             "compare",
-            "diagnose"
+            "explore"
           ],
           "targetCatalogIds": [
+            "etl_login.backflow_logins",
             "etl_login.logins",
-            "etl_login.is_backflow_user",
-            "etl_login.max_ladder_score"
+            "etl_login.app_channel"
           ],
           "depth": "advanced"
         },
         {
-          "id": "mono-mau-payer-penetration-monthly",
-          "text": "What share of monthly active users made at least one recharge, and how has payer penetration changed month over month?",
+          "id": "payer-count-per-day",
+          "text": "Payer count per day — active players who recharged, last 30 days",
           "topicTags": [
             "monetization"
           ],
           "categoryTags": [
-            "metric_explain",
-            "explore"
+            "explore",
+            "metric_explain"
           ],
           "targetCatalogIds": [
-            "active_daily.mau",
+            "active_daily.dau",
             "active_daily.is_recharge_day",
-            "active_daily.log_month"
+            "active_daily.log_date"
           ],
           "depth": "basic"
         },
         {
-          "id": "mono-server-recharge-share-ranking",
-          "text": "Which servers have the highest share of recharge-day users among their active base in the most recent month of available data?",
+          "id": "payer-share-by-platform",
+          "text": "Payer share by OS platform — iOS vs Android recharge rate",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.is_recharge_day",
+            "active_daily.os_platform"
+          ],
+          "depth": "basic"
+        },
+        {
+          "id": "recharge-density-by-server",
+          "text": "Recharge player density by server — top servers by payer share",
           "topicTags": [
             "monetization"
           ],
@@ -577,25 +585,8 @@
           "depth": "basic"
         },
         {
-          "id": "monetization-payer-dau-share-daily",
-          "text": "What share of daily active users recharged in the last 30 days — show payer vs non-payer DAU split per day as a stacked trend?",
-          "topicTags": [
-            "monetization"
-          ],
-          "categoryTags": [
-            "metric_explain",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "active_daily.dau",
-            "active_daily.is_recharge_day",
-            "active_daily.log_date"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "mono-diamond-sink-by-reason",
-          "text": "What are the biggest diamond-spend sinks — rank all spend reasons by total diamond outflow to reveal where premium currency is consumed most?",
+          "id": "gacha-diamond-spend-by-banner",
+          "text": "Diamond spend by gacha banner — which lottery box captures the most?",
           "topicTags": [
             "monetization"
           ],
@@ -604,15 +595,15 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "etl_money_flow.total_out",
-            "etl_money_flow.reason_action_label",
-            "etl_money_flow.money_type"
+            "etl_lottery_shoot.total_cost_diamond",
+            "etl_lottery_shoot.distinct_players",
+            "etl_lottery_shoot.lottery_box"
           ],
           "depth": "advanced"
         },
         {
-          "id": "mono-gacha-box-diamond-spend-trend",
-          "text": "Which gacha boxes attract the most diamond spend, and how has total gacha diamond consumption trended over recent months?",
+          "id": "diamond-spend-by-reason",
+          "text": "Top diamond spend reasons — what drains player wallets most?",
           "topicTags": [
             "monetization"
           ],
@@ -621,26 +612,26 @@
             "diagnose"
           ],
           "targetCatalogIds": [
-            "etl_lottery_shoot.total_cost_diamond",
-            "etl_lottery_shoot.lottery_box",
-            "etl_lottery_shoot.log_date"
+            "etl_money_flow.total_out",
+            "etl_money_flow.reason_base_label",
+            "etl_money_flow.money_type"
           ],
           "depth": "advanced"
         },
         {
-          "id": "mono-prop-type-consumption-gold-flow",
-          "text": "Which prop types (weapons, skins, consumables) have the highest consumption volume, and which generate the largest gold outflows?",
+          "id": "gacha-tenpull-vs-single-ratio",
+          "text": "Ten-pull vs single-pull ratio by gacha banner",
           "topicTags": [
             "monetization"
           ],
           "categoryTags": [
             "explore",
-            "compare"
+            "metric_explain"
           ],
           "targetCatalogIds": [
-            "etl_prop_flow.total_losses",
-            "etl_prop_flow.prop_type",
-            "etl_prop_flow.total_gold_delta"
+            "etl_lottery_shoot.ten_pull_count",
+            "etl_lottery_shoot.pulls",
+            "etl_lottery_shoot.lottery_box"
           ],
           "depth": "advanced"
         }
@@ -650,16 +641,15 @@
         "new_user_retention.report_date": "2026-06-04",
         "active_daily.log_date": "2026-06-04",
         "game_key_metrics.report_date": "2026-06-04",
-        "etl_login.dteventtime": "2026-06-03",
         "etl_game_detail.dteventtime": "2026-04-30",
-        "etl_logout.dteventtime": "2026-06-03",
+        "etl_login.dteventtime": "2026-06-03",
         "etl_newbie_tutorial.dteventtime": "2026-05-31",
         "etl_newbie_detail.dteventtime": "2026-05-31",
-        "etl_money_flow.dteventtime": "2026-04-30",
         "etl_lottery_shoot.dteventtime": "2026-05-31",
+        "etl_money_flow.dteventtime": "2026-04-30",
         "etl_prop_flow.dteventtime": "2026-05-30"
       },
-      "verifiedAt": 1780739773301
+      "verifiedAt": 1780761981760
     },
     "cros": {
       "questions": [
