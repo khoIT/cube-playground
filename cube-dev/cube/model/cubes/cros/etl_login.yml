@@ -46,7 +46,9 @@ cubes:
         type: time
 
       - name: log_date
-        sql: log_date
+        # Physical column is a Trino DATE — Cube's timezone conversion
+        # (AT TIME ZONE) rejects bare dates, so cast like tf/user_recharge_daily.
+        sql: "CAST({CUBE}.log_date AS TIMESTAMP)"
         type: time
         description: Partition column — REQUIRED filter for this table
 

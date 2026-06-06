@@ -42,7 +42,9 @@ cubes:
         type: string
 
       - name: log_month
-        sql: first_day_of_month
+        # Physical column is a Trino DATE — Cube's timezone conversion
+        # (AT TIME ZONE) rejects bare dates, so cast like tf/user_recharge_daily.
+        sql: "CAST({CUBE}.first_day_of_month AS TIMESTAMP)"
         type: time
         description: First day of the month (DATE).
 
