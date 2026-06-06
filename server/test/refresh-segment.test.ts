@@ -207,6 +207,64 @@ describe('refreshSegment', () => {
   });
 
 
+  it('persists LTV member tiers when the preset declares an ltvMeasure', async () => {
+    const id = seedSegment(); // cube=mf_users → mfUsersHubPreset (has ltvMeasure)
+    vi.spyOn(cubeClient, 'load').mockImplementation(async (query: unknown) => {
+      const q = query as { total?: boolean; measures?: string[] };
+      if (q.total) return { total: 2, data: [] } as never;
+      // Tier queries carry the LTV measure; the uid page query does not.
+      if (q.measures?.includes('mf_users.ltv_total_vnd')) {
+        return {
+          data: [
+            { 'mf_users.user_id': 'u1', 'mf_users.ltv_total_vnd': 100 },
+            { 'mf_users.user_id': 'u2', 'mf_users.ltv_total_vnd': 5 },
+          ],
+        } as never;
+      }
+      return { data: [{ 'mf_users.user_id': 'u1' }, { 'mf_users.user_id': 'u2' }] } as never;
+    });
+
+    await refreshSegment(id);
+    const row = getDb()
+      .prepare('SELECT status, member_tiers_json FROM segments WHERE id = ?')
+      .get(id) as { status: string; member_tiers_json: string | null };
+    expect(row.status).toBe('fresh');
+    const tiers = JSON.parse(row.member_tiers_json!);
+    expect(tiers.ltv_measure).toBe('mf_users.ltv_total_vnd');
+    // Cohort of 2 → degenerate single "all" tier.
+    expect(tiers.tiers.all).toEqual([
+      { uid: 'u1', ltv: 100 },
+      { uid: 'u2', ltv: 5 },
+    ]);
+  });
+
+  it('keeps prior tiers and completes the refresh when only tier queries fail', async () => {
+    const id = seedSegment();
+    const prior = JSON.stringify({
+      computed_at: '2026-06-01T00:00:00.000Z',
+      ltv_measure: 'mf_users.ltv_total_vnd',
+      tiers: { all: [{ uid: 'old', ltv: 1 }] },
+    });
+    getDb().prepare('UPDATE segments SET member_tiers_json = ? WHERE id = ?').run(prior, id);
+
+    vi.spyOn(cubeClient, 'load').mockImplementation(async (query: unknown) => {
+      const q = query as { total?: boolean; measures?: string[] };
+      if (q.total) return { total: 1, data: [] } as never;
+      if (q.measures?.includes('mf_users.ltv_total_vnd')) {
+        throw new Error('tier rollup exploded'); // non-transient, tier-only
+      }
+      return { data: [{ 'mf_users.user_id': 'u1' }] } as never;
+    });
+
+    await refreshSegment(id);
+    const row = getDb()
+      .prepare('SELECT status, member_tiers_json FROM segments WHERE id = ?')
+      .get(id) as { status: string; member_tiers_json: string | null };
+    // Refresh itself succeeds; stale tiers remain (visible via computed_at).
+    expect(row.status).toBe('fresh');
+    expect(JSON.parse(row.member_tiers_json!).tiers.all[0].uid).toBe('old');
+  });
+
   it('marks status=broken when no identity-field mapping exists and auto-suggest has no hit', async () => {
     const id = seedSegment();
     const db = getDb();

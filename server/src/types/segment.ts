@@ -19,6 +19,24 @@ export interface Activation {
   last_error?: string;
 }
 
+/** One member of an LTV tier. `ltv` is null when the measure cell was
+ *  missing/unparseable — render "—", never NaN. */
+export interface TierMember {
+  uid: string;
+  ltv: number | null;
+}
+
+/** `all` is used for degenerate cohorts (≤150 members) instead of the trio. */
+export type TierName = 'top' | 'middle' | 'bottom' | 'all';
+
+/** LTV-ranked member subgroups computed at refresh time (member_tiers_json). */
+export interface MemberTiers {
+  computed_at: string;
+  /** Logical name of the measure the ranking used (e.g. mf_users.ltv_total_vnd). */
+  ltv_measure: string;
+  tiers: Partial<Record<TierName, TierMember[]>>;
+}
+
 export interface Segment {
   id: string;
   name: string;
@@ -42,6 +60,8 @@ export interface Segment {
   tags?: string[];
   predicate_tree?: PredicateNode | null;
   activations?: Activation[];
+  /** Parsed member_tiers_json; detail route only. Null = no tiers computed. */
+  member_tiers?: MemberTiers | null;
 }
 
 export interface SegmentInput {

@@ -33,7 +33,10 @@ building push. A downstream app pulls a versioned snapshot once and stores it in
   total_count, returned_count, truncated, identity_type, game_id, env, projection_json, schema_json,
   members_ref, status, created_by)`. Members stored out-of-row (file ref or child table) — not inline JSON.
 - Refresh job writes a **new** snapshot row (immutable); flip `segments.current_snapshot_id` atomically.
-- `definition_hash` for cheap "changed since last pull?" (ETag).
+- `definition_hash` for cheap "changed since last pull?" (ETag). **NOTE (260607):** plan
+  `260607-0025-segment-revamp-tiered-sampling-sharing-ai-brief` Phase 7 lands
+  `server/src/services/segment-definition-hash.ts` first (AI brief cache key) — reuse that util
+  here (extend with projection if needed), do not re-implement.
 - Raise `MAX_UID_LIST` 100k → 1M; set `truncated` when the true count exceeds it.
 
 **Done when:** a refresh produces a versioned snapshot row + atomic current-pointer; old version still readable.

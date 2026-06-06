@@ -46,6 +46,23 @@ export interface GroupNode {
 
 export type PredicateNode = GroupNode | LeafNode;
 
+/** One member of an LTV tier. `ltv` null = measure cell missing → render "—". */
+export interface TierMember {
+  uid: string;
+  ltv: number | null;
+}
+
+/** `all` replaces the trio for degenerate cohorts (≤150 members). */
+export type TierName = 'top' | 'middle' | 'bottom' | 'all';
+
+/** LTV-ranked member subgroups computed server-side at refresh time. */
+export interface MemberTiers {
+  computed_at: string;
+  /** Logical name of the ranking measure (e.g. mf_users.ltv_total_vnd). */
+  ltv_measure: string;
+  tiers: Partial<Record<TierName, TierMember[]>>;
+}
+
 export interface CardCacheEntry {
   rows: Array<Record<string, unknown>>;
   fetched_at: string;
@@ -84,6 +101,8 @@ export interface Segment {
   funnel_json: string | null;
   /** Visibility ladder. NULL on legacy rows maps to 'personal' server-side. */
   visibility: SegmentVisibility;
+  /** LTV tiers (detail GET only). Null/absent → fall back to random sample. */
+  member_tiers?: MemberTiers | null;
 }
 
 export type ActivationStatus = 'active' | 'failed' | 'pending';

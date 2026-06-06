@@ -10,6 +10,7 @@ import { setSegmentStatus, setSegmentSizeAndUids } from '../services/segment-sta
 import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
+import { computeMemberTiers } from '../services/member-tier-runner.js';
 import { pickPresetForSegment } from '../presets/registry.js';
 import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.js';
 import { logicalCube } from '../services/cube-member-resolver.js';
@@ -250,6 +251,31 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       logicalCube(row.cube, prefix),
       anchorCube ? logicalCube(anchorCube, prefix) : null,
     );
+    const segmentFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
+
+    // LTV-tiered member sampling: rank the cohort by the preset's per-user LTV
+    // measure and persist top/middle/bottom-50 subgroups (Members tab + the
+    // member-360 precompute consume them). Predicate-scoped like the cards —
+    // never an inlined uid-IN list. Failure leaves the previous tiers in place
+    // (their computed_at makes staleness visible); a preset without an LTV
+    // measure clears them so the FE falls back to the random sample.
+    if (preset?.ltvMeasure) {
+      const tiers = await computeMemberTiers({
+        identityDim: identity,
+        ltvMeasure: preset.ltvMeasure,
+        segmentFilters,
+        totalCount,
+        tokenOverride: token,
+        prefix,
+      });
+      if (tiers) {
+        db.prepare('UPDATE segments SET member_tiers_json = ?, updated_at = ? WHERE id = ?')
+          .run(JSON.stringify(tiers), new Date().toISOString(), segmentId);
+      }
+    } else {
+      db.prepare('UPDATE segments SET member_tiers_json = NULL WHERE id = ?').run(segmentId);
+    }
+
     if (preset) {
       try {
         // Scope cards by the segment's predicate filters — the same basis as
@@ -257,7 +283,6 @@ export async function refreshSegment(segmentId: string): Promise<void> {
         // list can be millions of entries; inlining it as an identity-IN filter
         // blows past Cube's query-text length limit (HTTP 400). The preset's
         // logical members are physicalized inside runPresetCards via `prefix`.
-        const segmentFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
         const entries = await runPresetCards(preset, segmentFilters, token, prefix);
         upsertCardCache(segmentId, entries);
       } catch (err) {

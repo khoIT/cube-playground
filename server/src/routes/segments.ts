@@ -194,9 +194,21 @@ function hydrateSegment(
   // array is fetched per-segment on the detail route.
   includeUidList = true,
 ) {
-  // Never ship the raw JSON blob: no consumer reads `uid_list_json`, and for
-  // large cohorts it doubles the payload alongside the parsed `uid_list`.
-  const { uid_list_json, ...rest } = row;
+  // Never ship the raw JSON blobs: no consumer reads `uid_list_json` /
+  // `member_tiers_json`, and for large cohorts the uid blob doubles the
+  // payload alongside the parsed `uid_list`.
+  const { uid_list_json, member_tiers_json, ...rest } = row;
+
+  // LTV tiers ship on the detail route only (same gate as uid_list) — the
+  // list view doesn't render members, so parsing ~150 rows per row is waste.
+  let memberTiers: unknown = null;
+  if (includeUidList && typeof member_tiers_json === 'string' && member_tiers_json) {
+    try {
+      memberTiers = JSON.parse(member_tiers_json);
+    } catch {
+      memberTiers = null;
+    }
+  }
 
   const tags =
     preloadedTags ??
@@ -232,6 +244,7 @@ function hydrateSegment(
       ? JSON.parse(rest.predicate_tree_json as string)
       : null,
     uid_list: includeUidList ? JSON.parse((uid_list_json as string) ?? '[]') : [],
+    member_tiers: memberTiers,
     activations,
     funnel_json: (rest.funnel_json as string | null) ?? null,
     visibility,

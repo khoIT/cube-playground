@@ -20,6 +20,9 @@ export const etlGameDetailPreset: PresetSpec = {
   id: 'etl_game_detail-hub',
   hubCube: 'etl_game_detail',
   identityDim: 'mf_users.user_id',
+  // Cross-cube like the Monetization tab: tier ranking joins back through the
+  // same path that gives these segments their inherited mf_users identity.
+  ltvMeasure: 'mf_users.ltv_total_vnd',
 
   headlineKpis: [
     { id: 'players', label: 'Players',   measure: 'mf_users.user_count',     format: 'compact' },

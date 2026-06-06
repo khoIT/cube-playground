@@ -61,6 +61,10 @@ export interface PresetSpec {
   id: string;
   hubCube: string;
   identityDim: string;
+  /** Per-user LTV measure (logical name) used to rank members into
+   *  top/middle/bottom tiers at refresh time. Absent → no tiered sampling for
+   *  segments on this preset; the FE falls back to the random sample. */
+  ltvMeasure?: string;
   headlineKpis: KpiSpec[];
   tabs: TabDef[];
 }
@@ -69,6 +73,9 @@ export const mfUsersHubPreset: PresetSpec = {
   id: 'mf_users-hub',
   hubCube: 'mf_users',
   identityDim: 'mf_users.user_id',
+  // Grouped by user_id, ltv_total_vnd aggregates to that one user's lifetime
+  // value — the ranking key for member tiers.
+  ltvMeasure: 'mf_users.ltv_total_vnd',
 
   headlineKpis: [
     { id: 'size',   label: 'Size',         measure: 'mf_users.user_count',    format: 'compact' },
