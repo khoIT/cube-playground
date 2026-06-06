@@ -27,6 +27,12 @@ export interface StarterSeedEntry {
   questions: StarterQuestion[];
   /** Latest date with data per probed time dimension at generation time. */
   coverage?: Record<string, string>;
+  /**
+   * Set when every question in this entry passed the end-to-end verification
+   * workflow (pass-through query returns rows + a real chat turn produced a
+   * query artifact). Provenance only — the serve path doesn't read it.
+   */
+  verifiedAt?: number;
 }
 
 export interface StarterSeedFile {

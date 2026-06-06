@@ -1,21 +1,29 @@
 /**
  * CLI: `npm run starters:pregenerate [-- --games a,b --workspace local]`
  *
- * Pregenerates the per-game starter-question sets ONCE and freezes them in
- * seed/starter-questions-seed.json (checked into git, shipped in the prod
- * image — see Dockerfile chat-service stage) + the local DB.
- * Every environment that ships the seed file serves these exact questions —
- * see src/db/starter-questions-seed.ts for the serve-side contract.
+ * Generate → VERIFY → freeze workflow for per-game starter questions.
+ * Every question that ships in seed/starter-questions-seed.json is proven
+ * workable end-to-end before it is frozen — no hand-fixing dead chips later.
  *
- * Per game: template baseline → time-coverage probes (latest date with data
- * per referenced cube, same window walk as the get_time_coverage tool) →
- * synchronous LLM refine with the coverage in the prompt (questions must be
- * answerable in the data that actually exists) → strict member validation →
- * seed entry. Games with a too-sparse schema are skipped (FE static library
- * covers them, same as the dynamic pipeline).
+ * Per game:
+ *   1. template baseline + time-coverage probes (data freshness per cube)
+ *   2. LLM generates CANDIDATES_PER_TOPIC candidates per topic
+ *      (liveops / user_acquisition / monetization), strongest-first
+ *   3. tier-1 gate: compose the clicked-chip pass-through query and execute
+ *      it — drop candidates whose query errors or returns no rows
+ *   4. tier-2 gate: write a PROVISIONAL seed, hot-reload the running
+ *      chat-service's seed cache, then drive a REAL chat turn per candidate;
+ *      keep the first QUESTIONS_PER_TOPIC per topic that produce a query
+ *      artifact and finish cleanly (verification sessions are soft-deleted)
+ *   5. shortfall → one retry round with failure feedback in the prompt
+ *   6. freeze the verified set (+ coverage, verifiedAt) into the seed file,
+ *      merging with other games' existing entries, and reload once more
+ *
+ * Requires the chat-service dev server running (tier 2 talks to it over HTTP)
+ * and the playground server for meta/queries.
  */
 
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { config } from '../config.js';
 import { getMeta, extractMemberNames } from '../core/cube-meta-cache.js';
 import { buildTemplateQuestions } from '../core/starter-question-templates.js';
@@ -24,9 +32,16 @@ import {
   buildRefinePrompt,
   parseAndValidateLlmSet,
   defaultCallLlm,
-  SEED_QUESTIONS_PER_GAME,
+  SEED_TOPICS,
+  QUESTIONS_PER_TOPIC,
 } from '../core/starter-question-refiner.js';
 import { handler as timeCoverageHandler } from '../tools/get-time-coverage.js';
+import {
+  cheapVerify,
+  verifyViaChatTurn,
+  deleteVerificationSession,
+} from './verify-starter-question-workability.js';
+import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
 import { openDatabase } from '../db/migrate.js';
 import { upsertSet, type StarterQuestion } from '../db/starter-questions-store.js';
 import {
@@ -38,7 +53,12 @@ import type { ToolContext } from '../types.js';
 
 const MIN_TEMPLATE_QUESTIONS = 3;
 /** Coverage probes are real Cube queries — bound the per-game cost. */
-const MAX_COVERAGE_PROBES = 8;
+const MAX_COVERAGE_PROBES = 12;
+/** LLM generation rounds per game (initial + retries with failure feedback). */
+const MAX_GENERATION_ROUNDS = 2;
+const VERIFY_OWNER_ID = 'starter-question-verifier';
+
+type Topic = (typeof SEED_TOPICS)[number];
 
 interface CliArgs {
   workspace: string;
@@ -75,9 +95,7 @@ function timeDimensionOf(meta: any, cubeName: string): string | null {
 
 /**
  * Probe the latest date with data for each cube the given questions
- * reference. Returns `{timeDim: 'YYYY-MM-DD'}` for found dims only.
- * `known` short-circuits dims probed in an earlier pass — the post-LLM
- * top-up only pays for cubes the baseline didn't already cover.
+ * reference. `known` short-circuits dims probed in an earlier pass.
  */
 async function probeCoverage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,17 +127,17 @@ async function probeCoverage(
   return coverage;
 }
 
-/** Refine prompt + the data-coverage contract appended. */
-function buildPromptWithCoverage(
+/** Refine prompt + the data-coverage contract + retry feedback appended. */
+function buildGenerationPrompt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   meta: any,
   baseline: StarterQuestion[],
   coverage: Record<string, string>,
   todayIso: string,
+  failureFeedback: string[],
 ): string {
-  const base = buildRefinePrompt(buildMetaProjection(meta), baseline);
   const lines = [
-    base,
+    buildRefinePrompt(buildMetaProjection(meta), baseline),
     '',
     `today: ${todayIso}`,
     'data_coverage (latest date that HAS data, per time dimension — pipelines lag behind today):',
@@ -134,11 +152,246 @@ function buildPromptWithCoverage(
     '- Cubes absent from data_coverage have unknown freshness: prefer period-neutral phrasing.',
     '- All else equal, prefer questions on the cubes with the FRESHEST coverage.',
   ];
+  if (failureFeedback.length > 0) {
+    lines.push(
+      '',
+      'PREVIOUS ATTEMPT FEEDBACK — these candidates FAILED live verification.',
+      'Do NOT repeat them or near-duplicates; learn from the failure reasons:',
+      ...failureFeedback.map((f) => `- ${f}`),
+    );
+  }
   return lines.join('\n');
 }
 
+// ---------------------------------------------------------------------------
+// Seed file helpers — merge-aware so `--games x` never drops other games
+// ---------------------------------------------------------------------------
+
+function readSeedFile(): StarterSeedFile | null {
+  try {
+    if (!existsSync(STARTER_SEED_PATH)) return null;
+    return JSON.parse(readFileSync(STARTER_SEED_PATH, 'utf8')) as StarterSeedFile;
+  } catch {
+    return null;
+  }
+}
+
+function writeSeedFile(seed: StarterSeedFile): void {
+  writeFileSync(STARTER_SEED_PATH, JSON.stringify(seed, null, 2) + '\n', 'utf8');
+}
+
+// ---------------------------------------------------------------------------
+// Verification progress sidecar — chat turns are expensive (~40-200s each),
+// so verified questions survive an aborted run (gateway 403, ctrl-C) and a
+// rerun resumes instead of re-verifying from scratch. Cleared per game on a
+// successful freeze. Gitignored: progress is local workflow state, not seed.
+// ---------------------------------------------------------------------------
+
+const PROGRESS_PATH = STARTER_SEED_PATH.replace(
+  /starter-questions-seed\.json$/,
+  'starter-verify-progress.json',
+);
+
+type ProgressFile = Record<string, { verified: StarterQuestion[]; coverage: Record<string, string> }>;
+
+function readProgress(): ProgressFile {
+  try {
+    if (!existsSync(PROGRESS_PATH)) return {};
+    return JSON.parse(readFileSync(PROGRESS_PATH, 'utf8')) as ProgressFile;
+  } catch {
+    return {};
+  }
+}
+
+function writeProgress(progress: ProgressFile): void {
+  writeFileSync(PROGRESS_PATH, JSON.stringify(progress, null, 2) + '\n', 'utf8');
+}
+
+/** Ask the running chat-service to re-read the seed file from disk. */
+async function reloadServiceSeed(baseUrl: string): Promise<void> {
+  const res = await fetch(`${baseUrl}/debug/reload-starter-seed`, { method: 'POST' });
+  if (!res.ok) throw new Error(`seed reload failed: HTTP ${res.status}`);
+}
+
+// ---------------------------------------------------------------------------
+// Per-game pipeline
+// ---------------------------------------------------------------------------
+
+const normalise = (t: string) => t.trim().replace(/\s+/g, ' ').toLowerCase();
+const homeTopic = (q: StarterQuestion): Topic => (q.topicTags[0] ?? 'liveops') as Topic;
+
+interface GameResult {
+  entry: StarterSeedEntry;
+  turnsRun: number;
+}
+
+async function generateVerifiedGameEntry(
+  gameId: string,
+  workspace: string,
+  chatBaseUrl: string,
+  seedFileForProvisional: StarterSeedFile,
+  version: string,
+): Promise<GameResult | null> {
+  const ctx = { gameId, workspace } as ToolContext;
+  const meta = await getMeta(gameId, workspace);
+  const knownMembers = extractMemberNames(meta);
+
+  const baseline = buildTemplateQuestions(meta);
+  if (baseline.length < MIN_TEMPLATE_QUESTIONS) {
+    console.log(`  skipped — schema too sparse (${baseline.length} template questions)`);
+    return null;
+  }
+
+  let coverage = await probeCoverage(meta, baseline, ctx);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const verified = new Map<Topic, StarterQuestion[]>(SEED_TOPICS.map((t) => [t, []]));
+  const failureFeedback: string[] = [];
+  const seenTexts = new Set<string>();
+  let turnsRun = 0;
+
+  // Resume verified questions from an aborted previous run — each one cost a
+  // real chat turn; never pay for it twice.
+  const progress = readProgress();
+  const prior = progress[gameId];
+  if (prior?.verified?.length) {
+    coverage = { ...prior.coverage, ...coverage };
+    for (const q of prior.verified) {
+      const t = homeTopic(q);
+      if (verified.get(t)!.length < QUESTIONS_PER_TOPIC) {
+        verified.get(t)!.push(q);
+        seenTexts.add(normalise(q.text));
+      }
+    }
+    console.log(`  resumed ${prior.verified.length} verified questions from previous run`);
+  }
+  const saveProgress = () => {
+    progress[gameId] = { verified: [...verified.values()].flat(), coverage };
+    writeProgress(progress);
+  };
+  console.log(`  coverage: ${JSON.stringify(coverage)}`);
+
+  const topicsShort = () =>
+    SEED_TOPICS.filter((t) => (verified.get(t)?.length ?? 0) < QUESTIONS_PER_TOPIC);
+
+  for (let round = 0; round < MAX_GENERATION_ROUNDS && topicsShort().length > 0; round++) {
+    console.log(`  — generation round ${round + 1} (topics short: ${topicsShort().join(', ')})`);
+    const prompt = buildGenerationPrompt(meta, baseline, coverage, todayIso, failureFeedback);
+    const raw = await defaultCallLlm(prompt);
+    const parsed = parseAndValidateLlmSet(raw, knownMembers);
+    if (!parsed) {
+      console.error('  LLM set failed member validation — retrying counts as a round');
+      failureFeedback.push('entire previous set rejected: invented member names or malformed JSON');
+      continue;
+    }
+
+    // Fresh candidates only, grouped by home topic, LLM order preserved.
+    const candidates = parsed.filter((q) => !seenTexts.has(normalise(q.text)));
+    candidates.forEach((q) => seenTexts.add(normalise(q.text)));
+    coverage = await probeCoverage(meta, candidates, ctx, coverage);
+
+    // ---- tier 1: pass-through query composes AND returns rows ----
+    const cheapPassed: StarterQuestion[] = [];
+    for (const q of candidates) {
+      if (!topicsShort().includes(homeTopic(q))) continue; // topic already full
+      const res = await cheapVerify(q, meta, knownMembers, coverage, ctx);
+      if (res.ok) {
+        cheapPassed.push(q);
+      } else {
+        console.log(`    ✗ [tier1 ${res.reason}] ${q.text.slice(0, 70)}`);
+        failureFeedback.push(`"${q.text}" — query ${res.reason}${res.detail ? ` (${res.detail.slice(0, 80)})` : ''}`);
+      }
+    }
+    console.log(`    tier1: ${cheapPassed.length}/${candidates.length} candidates passed`);
+
+    // ---- tier 2: real chat turn via the running service ----
+    // The pass-through only fires for questions in the LOADED seed, so write
+    // a provisional entry (verified + remaining candidates) and hot-reload.
+    const provisionalQuestions = [...[...verified.values()].flat(), ...cheapPassed];
+    seedFileForProvisional.games[gameId] = { questions: provisionalQuestions, coverage };
+    seedFileForProvisional.version = `${version}-provisional`;
+    writeSeedFile(seedFileForProvisional);
+    await reloadServiceSeed(chatBaseUrl);
+
+    for (const q of cheapPassed) {
+      const topic = homeTopic(q);
+      if (!topicsShort().includes(topic)) continue;
+      process.stdout.write(`    turn-verify [${topic}] ${q.text.slice(0, 60)}… `);
+      const res = await verifyViaChatTurn(q.text, {
+        baseUrl: chatBaseUrl, game: gameId, workspace, ownerId: VERIFY_OWNER_ID,
+      });
+      turnsRun++;
+      if (res.sessionId) {
+        await deleteVerificationSession(res.sessionId, {
+          baseUrl: chatBaseUrl, ownerId: VERIFY_OWNER_ID, workspace,
+        });
+      }
+      if (res.ok) {
+        verified.get(topic)!.push(q);
+        saveProgress();
+        console.log(`✓ (${res.artifactCount} artifact, ${Math.round(res.ms / 1000)}s)`);
+      } else if (res.infrastructure) {
+        // Gateway 403/429 or dead service — NOT the question's fault. Abort
+        // instead of burning every remaining candidate on a broken backend;
+        // verified progress is saved, so the rerun resumes here.
+        console.log(`✗ INFRASTRUCTURE: ${res.detail}`);
+        throw new Error(
+          `infrastructure failure during verification (${res.detail}) — fix the environment and rerun; ` +
+          `${[...verified.values()].flat().length} verified questions are saved in ${PROGRESS_PATH}`,
+        );
+      } else {
+        console.log(`✗ ${res.reason} (${Math.round(res.ms / 1000)}s)`);
+        failureFeedback.push(`"${q.text}" — chat turn ${res.reason}${res.detail ? ` (${res.detail.slice(0, 80)})` : ''}`);
+      }
+    }
+  }
+
+  const short = topicsShort();
+  if (short.length > 0) {
+    const counts = SEED_TOPICS.map((t) => `${t}=${verified.get(t)!.length}`).join(' ');
+    throw new Error(
+      `verification could not fill ${QUESTIONS_PER_TOPIC}/topic after ${MAX_GENERATION_ROUNDS} rounds (${counts}) — rerun or relax`,
+    );
+  }
+
+  const questions = SEED_TOPICS.flatMap((t) => verified.get(t)!.slice(0, QUESTIONS_PER_TOPIC));
+  // Frozen successfully — drop the resume state for this game.
+  delete progress[gameId];
+  writeProgress(progress);
+  return { entry: { questions, coverage, verifiedAt: Date.now() }, turnsRun };
+}
+
+/** Warn-only: how many target members per question resolve in the official glossary/metrics catalog. */
+async function reportGlossaryCrossCheck(questions: StarterQuestion[]): Promise<void> {
+  try {
+    const terms = await fetchOfficialGlossary();
+    const catalogRefs = new Set<string>();
+    for (const t of terms) {
+      if (t.measureRef) catalogRefs.add(t.measureRef);
+      if (t.ratioRef) { catalogRefs.add(t.ratioRef.numerator); catalogRefs.add(t.ratioRef.denominator); }
+      if (t.defaultMeasureRef) catalogRefs.add(t.defaultMeasureRef);
+    }
+    for (const q of questions) {
+      const linked = q.targetCatalogIds.filter((r) => catalogRefs.has(r));
+      if (linked.length > 0) console.log(`    glossary-linked ${linked.length}/${q.targetCatalogIds.length}: ${q.id}`);
+    }
+  } catch (err) {
+    console.warn(`  glossary cross-check skipped: ${(err as Error).message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  const chatBaseUrl = `http://localhost:${config.port}`;
+
+  // Tier 2 needs the live service — fail fast with a clear message.
+  const health = await fetch(`${chatBaseUrl}/health`).catch(() => null);
+  if (!health?.ok) {
+    throw new Error(`chat-service not reachable at ${chatBaseUrl} — start it (npm run dev) before pregenerating`);
+  }
+
   const games = args.games ?? (await listReadyGames(args.workspace));
   if (games.length === 0) throw new Error('no games to generate for');
 
@@ -148,55 +401,55 @@ async function main(): Promise<void> {
   const version = todayIso.replace(/-/g, '').slice(2) + '-' + String(now % 10000).padStart(4, '0');
 
   console.log(`Pregenerating starter questions: workspace=${args.workspace} games=${games.join(',')} version=${version}`);
+  console.log(`Target: ${QUESTIONS_PER_TOPIC} verified questions per topic (${SEED_TOPICS.join(' / ')})`);
 
-  const seedGames: Record<string, StarterSeedEntry> = {};
+  // Merge into the existing seed so a partial --games run keeps other games.
+  // Snapshot the pre-run state FIRST: tier-2 writes provisional entries to
+  // disk mid-run, so a late readSeedFile() would see mutated data.
+  const originalSeed = readSeedFile();
+  const seed: StarterSeedFile = structuredClone(originalSeed) ?? {
+    version, generatedAt: now, workspaceGenerated: args.workspace, games: {},
+  };
+
+  const succeeded: string[] = [];
   for (const gameId of games) {
     console.log(`\n[${gameId}]`);
-    const ctx = { gameId, workspace: args.workspace } as ToolContext;
-
-    const meta = await getMeta(gameId, args.workspace);
-    const baseline = buildTemplateQuestions(meta);
-    if (baseline.length < MIN_TEMPLATE_QUESTIONS) {
-      console.log(`  skipped — schema too sparse (${baseline.length} template questions)`);
-      continue;
+    try {
+      const result = await generateVerifiedGameEntry(gameId, args.workspace, chatBaseUrl, seed, version);
+      if (!result) continue;
+      seed.games[gameId] = result.entry;
+      succeeded.push(gameId);
+      console.log(`  ✓ ${result.entry.questions.length} verified questions (${result.turnsRun} chat turns)`);
+      await reportGlossaryCrossCheck(result.entry.questions);
+    } catch (err) {
+      console.error(`  FAILED: ${(err as Error).message} — game left with its previous seed entry`);
+      // Restore the pre-run entry over any provisional remnant (the on-disk
+      // file was mutated mid-run; only the startup snapshot is trustworthy).
+      if (originalSeed?.games[gameId]) seed.games[gameId] = originalSeed.games[gameId];
+      else delete seed.games[gameId];
     }
-
-    const coverage = await probeCoverage(meta, baseline, ctx);
-    console.log(`  coverage: ${JSON.stringify(coverage)}`);
-
-    const prompt = buildPromptWithCoverage(meta, baseline, coverage, todayIso);
-    console.log(`  refining (${baseline.length} baseline questions)…`);
-    const raw = await defaultCallLlm(prompt);
-    const validated = parseAndValidateLlmSet(raw, extractMemberNames(meta));
-    if (!validated) {
-      console.error(`  REJECTED — LLM set failed validation; game left out of seed`);
-      continue;
-    }
-    // The prompt asks for exactly SEED_QUESTIONS_PER_GAME; clamp defensively
-    // so an over-eager response can't bloat the landing grid.
-    const questions = validated.slice(0, SEED_QUESTIONS_PER_GAME);
-    console.log(`  ✓ ${questions.length} questions validated`);
-    // The LLM may pick cubes the baseline never referenced — top up coverage
-    // for those so the click-through pass can anchor its time window to data.
-    const fullCoverage = await probeCoverage(meta, questions, ctx, coverage);
-    seedGames[gameId] = { questions, coverage: fullCoverage };
   }
 
-  if (Object.keys(seedGames).length === 0) throw new Error('no game produced a valid set — seed not written');
+  if (succeeded.length === 0) {
+    // Tier 2 wrote provisional entries to disk mid-run — put the pre-run
+    // seed back so the running service never keeps serving candidates.
+    if (originalSeed) {
+      writeSeedFile(originalSeed);
+      await reloadServiceSeed(chatBaseUrl);
+    }
+    throw new Error('no game produced a verified set — seed restored to pre-run state');
+  }
 
-  const seed: StarterSeedFile = {
-    version,
-    generatedAt: now,
-    workspaceGenerated: args.workspace,
-    games: seedGames,
-  };
-  writeFileSync(STARTER_SEED_PATH, JSON.stringify(seed, null, 2) + '\n', 'utf8');
-  console.log(`\nSeed written: ${STARTER_SEED_PATH} (${Object.keys(seedGames).length} games)`);
+  seed.version = version;
+  seed.generatedAt = now;
+  seed.workspaceGenerated = args.workspace;
+  writeSeedFile(seed);
+  await reloadServiceSeed(chatBaseUrl);
+  console.log(`\nSeed written: ${STARTER_SEED_PATH} (updated: ${succeeded.join(', ')})`);
 
-  // Mirror into the local DB so this environment serves the seed immediately
-  // (the serve path would lazily upsert anyway; this keeps the DB inspectable).
+  // Mirror into the local DB so this environment serves the seed immediately.
   const db = openDatabase(config.chatDbPath);
-  for (const [gameId, entry] of Object.entries(seedGames)) {
+  for (const [gameId, entry] of Object.entries(seed.games)) {
     upsertSet(db, {
       workspace: args.workspace, gameId, metaHash: `seed:${version}`,
       source: 'seed', questions: entry.questions, status: 'seed',

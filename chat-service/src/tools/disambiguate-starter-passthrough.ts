@@ -17,6 +17,7 @@
 
 import { getSeedEntry } from '../db/starter-questions-seed.js';
 import { resolveMemberMeta } from '../core/cube-meta-capability.js';
+import type { StarterQuestion } from '../db/starter-questions-store.js';
 import type { CubeQuery } from '../types.js';
 
 export interface StarterPassthroughHit {
@@ -56,8 +57,23 @@ export function matchStarterQuestion(
   const wanted = normalise(message);
   const question = seed.entry.questions.find((q) => normalise(q.text) === wanted);
   if (!question) return null;
-  const coverage = seed.entry.coverage ?? {};
 
+  return buildStarterQuery(question, seed.entry.coverage ?? {}, meta, knownMembers);
+}
+
+/**
+ * Compose the pinned Cube query for one starter question — pure (no seed
+ * lookup), so the pregenerate verification workflow can gate CANDIDATE
+ * questions through the exact same query the clicked chip will run.
+ * Null = not composable in this workspace (missing member / no measure).
+ */
+export function buildStarterQuery(
+  question: StarterQuestion,
+  coverage: Record<string, string>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  meta: any,
+  knownMembers: Set<string>,
+): StarterPassthroughHit | null {
   // Every target member must exist in THIS workspace's meta. The seed was
   // generated against one workspace's member names; a layout mismatch
   // (e.g. prod prefix-named cubes) must fall through to normal resolution,

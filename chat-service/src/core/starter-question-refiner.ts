@@ -14,11 +14,18 @@
 import { config } from '../config.js';
 import type { StarterQuestion } from '../db/starter-questions-store.js';
 
-const TOPICS = new Set(['liveops', 'user_acquisition', 'monetization']);
+export const SEED_TOPICS = ['liveops', 'user_acquisition', 'monetization'] as const;
+const TOPICS = new Set<string>(SEED_TOPICS);
 const CATEGORIES = new Set(['explore', 'metric_explain', 'compare', 'diagnose']);
 
-/** The frozen seed shows exactly this many questions per game. */
-export const SEED_QUESTIONS_PER_GAME = 6;
+/** The frozen seed ships exactly this many questions per topic per game. */
+export const QUESTIONS_PER_TOPIC = 6;
+/**
+ * The LLM is asked for extra candidates per topic so the end-to-end
+ * verification pass (real chat turn → artifact) can discard duds and still
+ * fill QUESTIONS_PER_TOPIC without an immediate retry round.
+ */
+export const CANDIDATES_PER_TOPIC = 8;
 
 /** Mirrors the get_cube_meta tool budget — keeps the prompt well under model limits. */
 const PROJECTION_CHAR_BUDGET = 60_000;
@@ -80,15 +87,20 @@ export function buildRefinePrompt(
     '',
     'RULES:',
     '- Output ONLY a JSON array. No prose, no code fences.',
-    `- EXACTLY ${SEED_QUESTIONS_PER_GAME} questions — the ${SEED_QUESTIONS_PER_GAME} most interesting analyses this game's data can support.`,
+    `- EXACTLY ${CANDIDATES_PER_TOPIC} candidate questions PER TOPIC (${CANDIDATES_PER_TOPIC * SEED_TOPICS.length} total),`,
+    `  ordered strongest-first within each topic. Each question will be executed end-to-end against`,
+    `  the live data model; only the verified best ${QUESTIONS_PER_TOPIC} per topic ship — so favour questions`,
+    '  whose data CERTAINLY exists over speculative ones.',
     '- Each item: {"id": string, "text": string, "topicTags": string[], "categoryTags": string[], "targetCatalogIds": string[]}.',
-    '- topicTags subset of ["liveops","user_acquisition","monetization"]:',
+    '- topicTags: the FIRST tag is the question\'s home topic and drives the per-topic quota:',
     '    liveops          = engagement, activity patterns, game modes/maps, retention ops, win-back',
     '    user_acquisition = new users, install cohorts, early retention, channel/cohort quality',
     '    monetization     = revenue, payers, ARPU, VIP/whales, conversion to payer',
-    '- Aim for ~2 questions per topic; when the data cannot support a topic, fill from the others.',
     '- categoryTags subset of ["explore","metric_explain","compare","diagnose"].',
     '- targetCatalogIds MUST be "cube.member" names copied EXACTLY from available_members. NEVER invent a name.',
+    '- Keep each question answerable by ONE aggregate query over ONE cube\'s members (its measures +',
+    '  dimensions): single-cube questions verify cleanly; cross-cube joins and multi-step cohort math',
+    '  fail verification and waste a slot.',
     '- Prefer cubes with rich dimensions and fresh data coverage over sparse/stale ones.',
     '- Question text in English, concrete and answerable from the listed members.',
   ].join('\n');

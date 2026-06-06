@@ -5,3 +5,4 @@ runtime/*
 .env
 *.log
 .DS_Store
+seed/starter-verify-progress.json
