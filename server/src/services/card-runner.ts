@@ -102,7 +102,27 @@ function queryForCard(spec: CardSpec): CubeQuery {
  */
 function scopeQuery(q: CubeQuery, segmentFilters: CardFilter[]): CubeQuery {
   if (segmentFilters.length === 0) return q;
-  return { ...q, filters: [...(q.filters ?? []), ...segmentFilters] };
+  // When the predicate already pins a date range on the very time dimension a
+  // trend card rolls over, drop the card's own rolling window (`last 30
+  // days`) and let the predicate range bound the trend. Otherwise a
+  // historical cohort (April matches) intersects the rolling window to an
+  // empty chart by construction. Top-level leaf filters only — the builder
+  // stores predicate date bounds as flat AND members.
+  let timeDimensions = q.timeDimensions;
+  if (timeDimensions && timeDimensions.length > 0) {
+    const datePinned = new Set(
+      segmentFilters
+        .filter((f): f is { member: string; operator: string; values?: string[] } => 'member' in f)
+        .filter((f) => f.operator === 'inDateRange')
+        .map((f) => f.member),
+    );
+    if (datePinned.size > 0) {
+      timeDimensions = timeDimensions.map((td) =>
+        datePinned.has(td.dimension) ? { ...td, dateRange: undefined } : td,
+      );
+    }
+  }
+  return { ...q, timeDimensions, filters: [...(q.filters ?? []), ...segmentFilters] };
 }
 
 function hashQuery(q: CubeQuery): string {

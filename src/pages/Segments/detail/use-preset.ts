@@ -4,18 +4,22 @@
  * Lookup order:
  *   1. Curated preset by `segment.preset_id`
  *   2. Curated preset by `segment.cube` matching `preset.hubCube`
- *   3. Auto-synthesized preset from live Cube /meta (cached per cube name)
+ *   3. PIVOT — the segment's identity field is join-inherited from a cube
+ *      with a curated preset (identity map) → reuse the anchor's preset
+ *   4. Auto-synthesized preset from live Cube /meta (cached per cube name)
  *
- * The auto-preset path is async — we briefly return `null` while the meta is
- * fetched, then re-render. Empty-state UI already handles `preset == null`
- * gracefully, so the transient null is not visually disruptive.
+ * The pivot/auto paths are async — we briefly return `null` while the
+ * identity map / meta is fetched, then re-render. Empty-state UI already
+ * handles `preset == null` gracefully, so the transient null is not
+ * visually disruptive.
  */
 
 import { useEffect, useMemo, useState } from 'react';
 import { useCubejsApi } from '../../../hooks/cubejs-api';
 import { useAppContext } from '../../../hooks';
 import { useSecurityContext } from '../../../hooks/security-context';
-import { getPreset, getPresetByHubCube } from '../presets/registry';
+import { useIdentityMap } from '../../../hooks/use-identity-map';
+import { getPreset, getPresetByHubCube, resolvePivotPreset } from '../presets/registry';
 import { synthesizeAutoPreset } from '../presets/auto-preset';
 import type { CubeMetaCube } from '../presets/auto-preset';
 import type { Segment } from '../../../types/segment-api';
@@ -77,17 +81,29 @@ export function usePreset(segment: Segment | null): Preset | null {
   const { apiUrl } = useAppContext();
   const { currentToken } = useSecurityContext();
   const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
+  const { mappings, loading: identityLoading } = useIdentityMap();
 
   const curatedPreset = useMemo(
     () => (segment ? curated(segment) : null),
     [segment],
   );
 
+  // Identity-anchor pivot: cube has no curated preset, but its identity is
+  // join-inherited from a cube that has one — reuse the anchor's preset.
+  // While the shared identity map is still loading we return null below
+  // (NOT auto) to avoid flashing the best-effort auto preset and then
+  // swapping it for the pivoted one.
+  const pivotedPreset = useMemo(() => {
+    if (!segment || curatedPreset || !segment.cube) return null;
+    const row = mappings.find((m) => m.cube === segment.cube);
+    return resolvePivotPreset(segment.cube, row?.identity_field ?? null);
+  }, [segment, curatedPreset, mappings]);
+
   const [auto, setAuto] = useState<Preset | null>(null);
 
   useEffect(() => {
     setAuto(null);
-    if (!segment || curatedPreset || !segment.cube || !cubejsApi) return;
+    if (!segment || curatedPreset || pivotedPreset || identityLoading || !segment.cube || !cubejsApi) return;
     const cube = segment.cube;
     // Sync hit on cache to avoid the null flicker when revisiting same cube.
     if (autoPresetCache.has(cube)) {
@@ -101,7 +117,7 @@ export function usePreset(segment: Segment | null): Preset | null {
     return () => {
       cancelled = true;
     };
-  }, [segment, curatedPreset, cubejsApi]);
+  }, [segment, curatedPreset, pivotedPreset, identityLoading, cubejsApi]);
 
-  return curatedPreset ?? auto;
+  return curatedPreset ?? pivotedPreset ?? auto;
 }

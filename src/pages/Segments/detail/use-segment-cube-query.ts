@@ -110,8 +110,34 @@ export function scopeQueryToCohort(
   if (segment.type === 'predicate') {
     const predicateFilters = predicateFiltersForSegment(segment);
     if (predicateFilters.length === 0) return query;
+    // Mirror of the server card-runner: when the predicate already pins a
+    // date range on a time dimension the card trends over, drop the card's
+    // own rolling window — a historical cohort (April matches) intersected
+    // with `last 30 days` is empty by construction; the predicate range
+    // should bound the trend instead.
+    let timeDimensions = query.timeDimensions;
+    if (timeDimensions && timeDimensions.length > 0) {
+      const datePinned = new Set(
+        predicateFilters
+          .filter((f): f is { member: string; operator: string } =>
+            typeof f === 'object' && f != null && 'member' in f && 'operator' in f)
+          .filter((f) => f.operator === 'inDateRange')
+          .map((f) => f.member),
+      );
+      if (datePinned.size > 0) {
+        timeDimensions = timeDimensions.map((td) =>
+          'dimension' in td && datePinned.has(td.dimension)
+            ? { ...td, dateRange: undefined }
+            : td,
+        );
+      }
+    }
     const filters = Array.isArray(query.filters) ? [...query.filters] : [];
-    return { ...query, filters: [...filters, ...predicateFilters] as Query['filters'] };
+    return {
+      ...query,
+      timeDimensions,
+      filters: [...filters, ...predicateFilters] as Query['filters'],
+    };
   }
   return scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
 }

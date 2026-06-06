@@ -139,15 +139,5 @@ export const mfUsersHubPreset: PresetSpec = {
   ],
 };
 
-export const presetRegistry: Record<string, PresetSpec> = {
-  [mfUsersHubPreset.id]: mfUsersHubPreset,
-};
-
-/** Pick the preset for a segment by its hub cube. v1 = hardcoded mapping. */
-export function pickPresetForCube(cube: string | null): PresetSpec | null {
-  if (!cube) return null;
-  for (const p of Object.values(presetRegistry)) {
-    if (p.hubCube === cube) return p;
-  }
-  return null;
-}
+// Preset lookup moved to ./registry.ts so it can register every curated
+// preset (this hub + etl-game-detail + future ones) without import cycles.

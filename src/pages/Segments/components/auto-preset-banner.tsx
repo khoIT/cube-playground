@@ -14,19 +14,24 @@ interface Props {
   /** Hub cube name (e.g. 'recharge'). Shown so users know which cube the
    *  defaults are derived from. */
   cube: string;
+  /** Optional override for the title line (e.g. the identity-pivot variant). */
+  titleKey?: string;
+  titleDefault?: string;
   /** Optional override for the body sentence (e.g. tighter copy for Members). */
   bodyKey?: string;
   bodyDefault?: string;
 }
 
-export function AutoPresetBanner({ cube, bodyKey, bodyDefault }: Props): ReactElement {
+export function AutoPresetBanner({ cube, titleKey, titleDefault, bodyKey, bodyDefault }: Props): ReactElement {
   const { t } = useTranslation();
   return (
     <div className={styles.autoPresetBanner} role="status">
       <Sparkles size={14} aria-hidden className={styles.autoPresetIcon} />
       <div>
         <strong>
-          {t('segments.detail.autoPreset.title', { defaultValue: 'Auto preset — best-effort defaults' })}
+          {t(titleKey ?? 'segments.detail.autoPreset.title', {
+            defaultValue: titleDefault ?? 'Auto preset — best-effort defaults',
+          })}
         </strong>
         <span className={styles.autoPresetBody}>
           {t(bodyKey ?? 'segments.detail.autoPreset.body', {

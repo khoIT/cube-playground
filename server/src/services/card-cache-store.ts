@@ -31,7 +31,11 @@ function hashRows(rows: unknown[]): string {
   return createHash('sha256').update(JSON.stringify(rows)).digest('hex').slice(0, 16);
 }
 
-/** Insert or update each entry. Skips writes when rows + queryHash unchanged. */
+/** Insert or update each entry. Skips writes when rows + queryHash unchanged.
+ *  Cards no longer in the preset (renamed/removed spec ids) are pruned — a
+ *  full refresh pass always supplies the complete entry set, so anything
+ *  absent from it is a ghost row that would otherwise linger forever (and
+ *  keep surfacing a stale error/ok state for a card the FE no longer renders). */
 export function upsertCardCache(
   segmentId: string,
   entries: CardCacheEntry[],
@@ -54,6 +58,19 @@ export function upsertCardCache(
   `);
 
   const tx = db.transaction((rows: CardCacheEntry[]) => {
+    // Prune ghost rows for card ids the current preset no longer declares.
+    if (rows.length > 0) {
+      const keep = new Set(rows.map((r) => r.cardId));
+      const existingIds = db
+        .prepare('SELECT card_id FROM segment_card_cache WHERE segment_id = ?')
+        .all(segmentId) as Array<{ card_id: string }>;
+      const del = db.prepare(
+        'DELETE FROM segment_card_cache WHERE segment_id = ? AND card_id = ?',
+      );
+      for (const { card_id } of existingIds) {
+        if (!keep.has(card_id)) del.run(segmentId, card_id);
+      }
+    }
     for (const entry of rows) {
       const rowsJson = JSON.stringify(entry.rows);
       const rowsHash = hashRows(entry.rows);

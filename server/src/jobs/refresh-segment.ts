@@ -10,7 +10,7 @@ import { setSegmentStatus, setSegmentSizeAndUids } from '../services/segment-sta
 import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
-import { pickPresetForCube } from '../presets/mf-users-hub.js';
+import { pickPresetForSegment } from '../presets/registry.js';
 import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.js';
 import { logicalCube } from '../services/cube-member-resolver.js';
 import { resolveIdentityField } from '../services/resolve-identity-field.js';
@@ -240,8 +240,16 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // back to live fetch when their entry is missing from the cache.
     // On prefix workspaces the stored cube is physical (`ballistar_mf_users`);
     // match the preset by its logical name so the same preset serves all games.
+    // When the segment's cube has no curated preset, pivot to the IDENTITY
+    // ANCHOR cube's preset (the cube the resolved identity field lives on —
+    // e.g. `mf_users` for join-inherited etl_* identities); its card queries
+    // join back through the same path that proved the inheritance.
     const prefix = resolveGamePrefixForWorkspace(row.workspace, row.game_id);
-    const preset = pickPresetForCube(logicalCube(row.cube, prefix));
+    const anchorCube = identity.includes('.') ? identity.split('.')[0] : null;
+    const preset = pickPresetForSegment(
+      logicalCube(row.cube, prefix),
+      anchorCube ? logicalCube(anchorCube, prefix) : null,
+    );
     if (preset) {
       try {
         // Scope cards by the segment's predicate filters — the same basis as

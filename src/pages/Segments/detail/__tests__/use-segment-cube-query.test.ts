@@ -99,6 +99,58 @@ describe('scopeQueryToCohort', () => {
     ]);
   });
 
+  it('drops a trend card rolling window when the predicate pins the same time dimension', () => {
+    // April cohort + "last 30 days" trend = empty chart by construction; the
+    // predicate's own date range must bound the trend instead.
+    const seg = makeSegment({
+      type: 'predicate',
+      cube_query_json: JSON.stringify({
+        filters: [
+          { member: 'etl_game_detail.dteventtime', operator: 'inDateRange', values: ['2026-04-01', '2026-04-30'] },
+          { member: 'etl_game_detail.game_mode_label', operator: 'equals', values: ['dat_bom'] },
+        ],
+      }),
+    });
+    const out = scopeQueryToCohort(
+      {
+        measures: ['etl_game_detail.matches'],
+        timeDimensions: [
+          { dimension: 'etl_game_detail.dteventtime', granularity: 'day', dateRange: 'last 30 days' },
+        ],
+      },
+      seg,
+      'mf_users.user_id',
+    );
+    expect(out.timeDimensions).toEqual([
+      { dimension: 'etl_game_detail.dteventtime', granularity: 'day', dateRange: undefined },
+    ]);
+    expect(out.filters).toHaveLength(2);
+  });
+
+  it('keeps the rolling window when the predicate pins a DIFFERENT time dimension', () => {
+    const seg = makeSegment({
+      type: 'predicate',
+      cube_query_json: JSON.stringify({
+        filters: [
+          { member: 'etl_game_detail.dteventtime', operator: 'inDateRange', values: ['2026-04-01', '2026-04-30'] },
+        ],
+      }),
+    });
+    const out = scopeQueryToCohort(
+      {
+        measures: ['mf_users.user_count'],
+        timeDimensions: [
+          { dimension: 'mf_users.install_date', granularity: 'day', dateRange: 'last 30 days' },
+        ],
+      },
+      seg,
+      'mf_users.user_id',
+    );
+    expect(out.timeDimensions).toEqual([
+      { dimension: 'mf_users.install_date', granularity: 'day', dateRange: 'last 30 days' },
+    ]);
+  });
+
   it('all-users predicate (empty filters) leaves query unscoped', () => {
     const seg = makeSegment({
       type: 'predicate',

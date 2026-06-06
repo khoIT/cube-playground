@@ -129,4 +129,10 @@ export interface Preset {
    *  Consumers should surface a "best-effort" hint so users know the content
    *  is auto-generated and not hand-tuned. */
   auto?: boolean;
+  /** Set when this preset was PIVOTED from another cube: the segment's own
+   *  cube has no curated preset, but its identity is join-inherited from this
+   *  preset's hub cube (e.g. `etl_money_flow` → `mf_users`), so the anchor's
+   *  user-centric preset is reused. Holds the segment's original cube name so
+   *  consumers can explain the pivot in a banner. */
+  pivotedFromCube?: string;
 }

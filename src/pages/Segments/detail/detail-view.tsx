@@ -166,6 +166,16 @@ export function DetailView(): ReactElement {
               {t('segments.detail.autoPreset.chip', { defaultValue: 'Auto preset' })}
             </span>
           )}
+          {preset?.pivotedFromCube && (
+            <span
+              className={styles.autoPresetChip}
+              title={t('segments.detail.pivotPreset.chipTooltip', {
+                defaultValue: `Insights reuse the ${preset.hubCube} preset — this cube's members are identified through it via the Cube join path.`,
+              })}
+            >
+              {t('segments.detail.pivotPreset.chip', { defaultValue: `via ${preset.hubCube}` })}
+            </span>
+          )}
           <SegmentHealthPill segment={segment} onCadenceChange={setSegment} />
           <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />

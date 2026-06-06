@@ -64,6 +64,15 @@ export function InsightsTab({ segment, preset, section, onSectionChange }: Props
   return (
     <div className={styles.insightsTab}>
       {preset.auto && <AutoPresetBanner cube={preset.hubCube} />}
+      {preset.pivotedFromCube && (
+        <AutoPresetBanner
+          cube={preset.pivotedFromCube}
+          titleKey="segments.detail.pivotPreset.title"
+          titleDefault="User-centric insights via identity join"
+          bodyKey="segments.detail.pivotPreset.body"
+          bodyDefault={`{{cube}} has no curated preset, but its members are identified through ${preset.hubCube} — these cards describe the users behind the segment's events, scoped by its filters.`}
+        />
+      )}
       {/* Section nav + freshness share one row: pills left, "Updated…" right.
           Keeping freshness on its own line wasted vertical space between the
           main tab strip and the section pills. */}
