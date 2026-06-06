@@ -25,4 +25,19 @@ describe('preferTableView', () => {
   it('tolerates empty data', () => {
     expect(preferTableView(spec([]))).toBe(false);
   });
+
+  it('chart-first for heatmap even with many (cell) rows', () => {
+    const rows = Array.from({ length: 168 }, (_, i) => ({
+      hour: i % 24,
+      dow: `D${Math.floor(i / 24)}`,
+      sessions: i,
+    }));
+    const heatmap: ChartSpec = {
+      type: 'heatmap',
+      title: 't',
+      data: rows,
+      encoding: { category: 'hour', value: 'sessions', series: 'dow' },
+    };
+    expect(preferTableView(heatmap)).toBe(false);
+  });
 });

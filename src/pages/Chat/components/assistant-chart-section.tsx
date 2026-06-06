@@ -43,6 +43,7 @@ import {
   formatReadableValue,
 } from './format-chart-value';
 import { buildLabelMap, labelOf, type LabelMap } from './chart-column-labels';
+import { ChartHeatmap } from './chart-heatmap';
 
 const CHART_HEIGHT = 320;
 
@@ -102,9 +103,7 @@ export function AssistantChartSection({
   if (embedded) {
     return (
       <div style={{ marginTop: 12, marginBottom: 0, padding: 0 }}>
-        <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          {renderChartBody(activeSpec, labels)}
-        </ResponsiveContainer>
+        <ChartBody spec={activeSpec} labels={labels} />
         {(spec.caption || truncated) && (
           <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
         )}
@@ -172,9 +171,7 @@ export function AssistantChartSection({
       {/* Body: chart or table — symmetric horizontal padding so content reads centered */}
       <div style={{ padding: '16px 24px' }}>
         {view === 'chart' ? (
-          <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-            {renderChartBody(activeSpec, labels)}
-          </ResponsiveContainer>
+          <ChartBody spec={activeSpec} labels={labels} />
         ) : (
           <ChartSectionDataTable rows={spec.data} spec={spec} labels={labels} />
         )}
@@ -215,6 +212,34 @@ function Footer({ spec, truncated, originalRowCount }: FooterProps) {
         </span>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ChartBody — heatmap renders as a plain CSS grid (no recharts primitive for
+// it), so it skips ResponsiveContainer; every other type goes through the
+// recharts tree in renderChartBody.
+// ---------------------------------------------------------------------------
+
+function ChartBody({ spec, labels }: { spec: ChartSpec; labels: LabelMap }) {
+  if (spec.type === 'heatmap') {
+    const unit = detectChartUnit(spec);
+    const valueScale =
+      unit === 'percent'
+        ? detectPercentScale(spec.data.map((r) => r[spec.encoding.value]))
+        : 1;
+    return (
+      <ChartHeatmap
+        spec={spec}
+        labels={labels}
+        formatValue={(v) => formatReadableValue(v, unit, valueScale)}
+      />
+    );
+  }
+  return (
+    <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+      {renderChartBody(spec, labels)}
+    </ResponsiveContainer>
   );
 }
 
@@ -516,6 +541,12 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
         </ScatterChart>
       );
     }
+
+    case 'heatmap':
+      // Normally intercepted by ChartBody (a heatmap is a plain CSS grid, not
+      // a recharts tree) — kept here so the switch stays exhaustive and a
+      // direct call still renders.
+      return <ChartHeatmap spec={spec} labels={labels} formatValue={readable} />;
 
     case 'funnel':
       // Rows render top-to-bottom in submitted (step) order, widths

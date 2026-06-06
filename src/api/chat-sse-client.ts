@@ -52,6 +52,9 @@ export type ChartType =
   | 'donut'
   | 'scatter'
   | 'funnel'
+  // Heatmap: one metric across two categorical dims — category = x column,
+  // series = y (row) column, value = cell intensity. One data row per cell.
+  | 'heatmap'
   // Render-only view type: never emitted by the backend/LLM. The chart-type
   // menu derives it client-side for "1 category + 2 metrics" data, showing the
   // two metrics on independent axes (bars on the left, a line on the right).

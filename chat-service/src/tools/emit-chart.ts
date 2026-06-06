@@ -30,11 +30,12 @@ export const description =
 
 export const inputSchema = {
   spec: ChartSpecSchema.describe(
-    'Declarative chart spec. Pick `type` from: bar, horizontal-bar, stacked-bar, grouped-bar, line, multi-line, area, pie, donut, scatter, funnel. ' +
-      '`encoding.series` is required for stacked-bar, grouped-bar, and multi-line. ' +
+    'Declarative chart spec. Pick `type` from: bar, horizontal-bar, stacked-bar, grouped-bar, line, multi-line, area, pie, donut, scatter, funnel, heatmap. ' +
+      '`encoding.series` is required for stacked-bar, grouped-bar, multi-line, and heatmap. ' +
       'For comparing a small number of discrete series (e.g. iOS vs Android) prefer grouped-bar — side-by-side bars read as a direct magnitude comparison, clearer than stacked (part-of-whole) or multi-line. ' +
       'For correlating TWO metrics across entities (e.g. "ARPU vs paying-rate per country") use scatter — `category` is the x-axis metric column, `value` the y-axis metric column, one row per entity; keep the entity label column (e.g. `country`) in each row so points can be labelled. Do NOT chart just one of the two metrics as a bar. ' +
-      'For ordered conversion steps (e.g. ordered_event_funnel: step_name + step_count) prefer funnel — `category` is the step label, `value` the count; order rows by the step index, not by value.',
+      'For ordered conversion steps (e.g. ordered_event_funnel: step_name + step_count) prefer funnel — `category` is the step label, `value` the count; order rows by the step index, not by value. ' +
+      'For one metric across TWO categorical dimensions (e.g. "activity by day-of-week × hour", "revenue by country × platform") use heatmap — `category` is the x column, `series` the y (row) column, `value` the cell intensity; emit one row per (x, y) cell.',
   ),
   artifactRef: z
     .string()

@@ -26,8 +26,15 @@ export const TOP_N = 30;
 /** Pie / donut can't read with more than this many slices. */
 export const PIE_MAX_ROWS = 12;
 
+/**
+ * Heatmap row cap — one row per (x, y) cell, so a day-of-week × hour grid is
+ * 7 × 24 = 168 rows. Higher than MAX_ROWS because cells are cheap to render
+ * and truncating would punch holes in the grid.
+ */
+export const HEATMAP_MAX_ROWS = 400;
+
 // ---------------------------------------------------------------------------
-// ChartSpec — Zod discriminated union over the 9 chart types
+// ChartSpec — Zod discriminated union over the supported chart types
 // ---------------------------------------------------------------------------
 
 /** Base data-row shape — string-or-number values keyed by column. */
@@ -73,6 +80,15 @@ export const ChartSpecSchema = z.discriminatedUnion('type', [
   // count at that step. Rows are kept in submitted order (step order), so the
   // query must order by the funnel's step index — NOT by value.
   z.object({ ...baseShape, type: z.literal('funnel'), encoding: BaseEncoding }),
+  // Heatmap: two categorical dimensions × one metric, one row per (x, y) cell.
+  // `category` is the x column, `series` the y column, `value` the cell
+  // intensity. Higher row cap than other types — a grid is cells, not bars.
+  z.object({
+    ...baseShape,
+    type: z.literal('heatmap'),
+    encoding: SeriesEncoding,
+    data: z.array(DataRowSchema).min(1).max(HEATMAP_MAX_ROWS),
+  }),
 ]);
 
 export type ChartSpec = z.infer<typeof ChartSpecSchema>;
@@ -126,7 +142,14 @@ export function truncateTopN(spec: ChartSpec, limit = TOP_N): TruncateResult {
   // Pie/donut have their own (tighter) cap enforced by Zod — no truncation here.
   // Funnel rows are step-ordered; top-N would drop/reorder steps and break the
   // taper, so it's never truncated either (funnels are inherently few rows).
-  if (spec.type === 'pie' || spec.type === 'donut' || spec.type === 'funnel') {
+  // Heatmap rows are grid cells — dropping any would punch holes in the grid,
+  // so it relies on its own (higher) Zod cap instead.
+  if (
+    spec.type === 'pie' ||
+    spec.type === 'donut' ||
+    spec.type === 'funnel' ||
+    spec.type === 'heatmap'
+  ) {
     return { spec, truncated: false, originalRowCount };
   }
 

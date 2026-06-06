@@ -12,6 +12,7 @@ import {
   buildChartArtifact,
   MAX_ROWS,
   PIE_MAX_ROWS,
+  HEATMAP_MAX_ROWS,
   TOP_N,
   type ChartSpec,
 } from '../src/services/chart-spec.js';
@@ -97,6 +98,37 @@ describe('ChartSpecSchema — accepts valid shapes', () => {
     expect(() => ChartSpecSchema.parse(spec)).not.toThrow();
   });
 
+  it('accepts a heatmap spec when series is present', () => {
+    const spec: ChartSpec = {
+      type: 'heatmap',
+      title: 'Activity by day-of-week × hour',
+      data: [
+        { hour: 0, dow: 'Mon', sessions: 12 },
+        { hour: 1, dow: 'Mon', sessions: 5 },
+        { hour: 0, dow: 'Tue', sessions: 9 },
+      ],
+      encoding: { category: 'hour', value: 'sessions', series: 'dow' },
+    };
+    expect(() => ChartSpecSchema.parse(spec)).not.toThrow();
+  });
+
+  it(`accepts a heatmap above MAX_ROWS (grid cells, own ${HEATMAP_MAX_ROWS}-row cap)`, () => {
+    // 7 days × 24 hours = 168 cells — a normal heatmap, over the generic cap.
+    const data = Array.from({ length: 168 }, (_, i) => ({
+      hour: i % 24,
+      dow: `D${Math.floor(i / 24)}`,
+      sessions: i,
+    }));
+    const spec: ChartSpec = {
+      type: 'heatmap',
+      title: 'Activity grid',
+      data,
+      encoding: { category: 'hour', value: 'sessions', series: 'dow' },
+    };
+    expect(data.length).toBeGreaterThan(MAX_ROWS);
+    expect(() => ChartSpecSchema.parse(spec)).not.toThrow();
+  });
+
   it('accepts a pie spec with caption', () => {
     const spec: ChartSpec = {
       type: 'pie',
@@ -143,6 +175,30 @@ describe('ChartSpecSchema — rejects malformed shapes', () => {
       title: 't',
       data: [{ a: 'x', b: 1 }],
       encoding: { category: 'a', value: 'b' },
+    };
+    expect(() => ChartSpecSchema.parse(bad)).toThrow();
+  });
+
+  it('rejects heatmap without series', () => {
+    const bad = {
+      type: 'heatmap',
+      title: 't',
+      data: [{ a: 'x', b: 1 }],
+      encoding: { category: 'a', value: 'b' },
+    };
+    expect(() => ChartSpecSchema.parse(bad)).toThrow();
+  });
+
+  it(`rejects heatmap with more than ${HEATMAP_MAX_ROWS} rows`, () => {
+    const bad: ChartSpec = {
+      type: 'heatmap',
+      title: 't',
+      data: Array.from({ length: HEATMAP_MAX_ROWS + 1 }, (_, i) => ({
+        x: i % 24,
+        y: `r${Math.floor(i / 24)}`,
+        v: i,
+      })),
+      encoding: { category: 'x', value: 'v', series: 'y' },
     };
     expect(() => ChartSpecSchema.parse(bad)).toThrow();
   });
@@ -262,6 +318,24 @@ describe('truncateTopN', () => {
     const result = truncateTopN(spec);
     expect(result.truncated).toBe(false);
     expect(result.spec.data).toHaveLength(PIE_MAX_ROWS);
+  });
+
+  it('does not truncate heatmap — dropping rows would punch holes in the grid', () => {
+    const rows = Array.from({ length: 168 }, (_, i) => ({
+      hour: i % 24,
+      dow: `D${Math.floor(i / 24)}`,
+      sessions: i,
+    }));
+    const spec: ChartSpec = {
+      type: 'heatmap',
+      title: 't',
+      data: rows,
+      encoding: { category: 'hour', value: 'sessions', series: 'dow' },
+    };
+
+    const result = truncateTopN(spec);
+    expect(result.truncated).toBe(false);
+    expect(result.spec.data).toHaveLength(168);
   });
 });
 

@@ -100,7 +100,7 @@ describe('AssistantChartSection', () => {
     expect(screen.getByText('May 2026, by group')).toBeTruthy();
   });
 
-  it('does not crash on each of the 9 chart types', () => {
+  it('does not crash on each of the chart types', () => {
     const baseEnc = { category: 'k', value: 'v' };
     const seriesEnc = { ...baseEnc, series: 's' };
     const data2 = [
@@ -123,6 +123,7 @@ describe('AssistantChartSection', () => {
       { type: 'donut', title: 't', data: data2, encoding: baseEnc },
       { type: 'stacked-bar', title: 't', data: seriesData, encoding: seriesEnc },
       { type: 'multi-line', title: 't', data: seriesData, encoding: seriesEnc },
+      { type: 'heatmap', title: 't', data: seriesData, encoding: seriesEnc },
     ];
 
     for (const v of variants) {
@@ -135,6 +136,28 @@ describe('AssistantChartSection', () => {
       const { unmount } = renderWithWidth(<AssistantChartSection artifact={artifact} />);
       unmount();
     }
+  });
+
+  it('renders heatmap cells with values (plain CSS grid, jsdom-visible)', () => {
+    const artifact = makeArtifact({
+      spec: {
+        type: 'heatmap',
+        title: 'Sessions by day × hour',
+        data: [
+          { hour: 0, dow: 'Mon', sessions: 12 },
+          { hour: 1, dow: 'Mon', sessions: 5 },
+          { hour: 0, dow: 'Tue', sessions: 9 },
+        ],
+        encoding: { category: 'hour', value: 'sessions', series: 'dow' },
+      },
+    });
+    renderWithWidth(<AssistantChartSection artifact={artifact} />);
+    // Row labels (y axis) and a cell value render as real text nodes.
+    expect(screen.getByText('Mon')).toBeTruthy();
+    expect(screen.getByText('Tue')).toBeTruthy();
+    expect(screen.getByText('12')).toBeTruthy();
+    // Heatmaps default to chart view, not the data table.
+    expect(screen.getAllByRole('cell').length).toBeGreaterThan(0);
   });
 
   it('view-switcher toggles between chart and data-table views', () => {
@@ -230,11 +253,11 @@ describe('compatibleChartTypes', () => {
     } as ChartSpec;
   }
 
-  it('series-encoded → grouped-bar + stacked-bar + multi-line', () => {
+  it('series-encoded → grouped-bar + stacked-bar + multi-line + heatmap', () => {
     expect(compatibleChartTypes(spec({
       type: 'stacked-bar',
       encoding: { category: 'c', value: 'v', series: 's' },
-    }))).toEqual(['grouped-bar', 'stacked-bar', 'multi-line']);
+    }))).toEqual(['grouped-bar', 'stacked-bar', 'multi-line', 'heatmap']);
   });
 
   it('category×value with few slices → full set incl pie/donut', () => {

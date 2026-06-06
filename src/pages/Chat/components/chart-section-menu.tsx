@@ -11,7 +11,7 @@
  * standalone; everything else falls back to the single-series bar/line family.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, BarChart3, LineChart as LineChartIcon, Table2, Download, Check } from 'lucide-react';
+import { ChevronDown, BarChart3, LineChart as LineChartIcon, Table2, Download, Check, Grid3x3 } from 'lucide-react';
 import { T, Icon, type LucideIcon } from '../../../shell/theme';
 import type { ChartColumn, ChartSpec } from '../../../api/chat-sse-client';
 import { labelOf, type LabelMap } from './chart-column-labels';
@@ -28,6 +28,7 @@ const TYPE_LABEL: Record<ChartSpec['type'], string> = {
   donut: 'Donut',
   scatter: 'Scatter',
   funnel: 'Funnel',
+  heatmap: 'Heatmap',
   'dual-axis': 'Bars + line',
 };
 
@@ -105,7 +106,9 @@ export function toDualAxisSpec(spec: ChartSpec): ChartSpec {
  *   are few enough slices to read.
  */
 export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
-  if (spec.encoding.series) return ['grouped-bar', 'stacked-bar', 'multi-line'];
+  // Series-encoded (category + value + series) data is exactly the heatmap
+  // shape too (x × y grid), so the families interchange.
+  if (spec.encoding.series) return ['grouped-bar', 'stacked-bar', 'multi-line', 'heatmap'];
   if (spec.type === 'funnel') return ['funnel'];
 
   if (spec.type === 'scatter') {
@@ -132,6 +135,9 @@ export function compatibleChartTypes(spec: ChartSpec): ChartSpec['type'][] {
  * categorical results stay chart-first.
  */
 export function preferTableView(spec: ChartSpec): boolean {
+  // Heatmaps are grids — one row per (x, y) cell routinely exceeds the
+  // leaderboard threshold, but the chart is the readable view.
+  if (spec.type === 'heatmap') return false;
   const columnCount = Object.keys(spec.data[0] ?? {}).length;
   return spec.data.length > 12 || columnCount >= 4;
 }
@@ -315,6 +321,7 @@ export function ChartSectionMenu({
 
 function chartTypeIcon(t: ChartSpec['type']): LucideIcon {
   if (t === 'line' || t === 'multi-line' || t === 'area') return LineChartIcon;
+  if (t === 'heatmap') return Grid3x3;
   return BarChart3;
 }
 
