@@ -134,6 +134,29 @@ describe('queryCostBreakdown (store)', () => {
     expect(r.by_workspace.map((w) => [w.workspace, w.cost_usd])).toEqual([['local', 6], ['prod', 1]]);
   });
 
+  it('splits spend by auth lane; unstamped legacy turns bucket as unknown', () => {
+    const session = createSession(db, { ownerId: 'a', gameId: 'g' });
+    appendTurn(db, {
+      sessionId: session.id, turnIndex: 0, role: 'assistant',
+      costUsd: 2, llmAuthLabel: 'primary', startedAt: 1_000,
+    });
+    appendTurn(db, {
+      sessionId: session.id, turnIndex: 1, role: 'assistant',
+      costUsd: 3, llmAuthLabel: 'subscription', startedAt: 2_000,
+    });
+    appendTurn(db, {
+      sessionId: session.id, turnIndex: 2, role: 'assistant',
+      costUsd: 1, startedAt: 3_000, // legacy: no lane stamped
+    });
+
+    const r = queryCostBreakdown(db, { fromMs: 0, toMs: 10_000, sessionLimit: 10, rates: RATES });
+    expect(r.by_auth.map((a) => [a.auth_label, a.cost_usd])).toEqual([
+      ['subscription', 3],
+      ['primary', 2],
+      ['unknown', 1],
+    ]);
+  });
+
   it('orders sessions by cost desc, caps at sessionLimit, reports session_total', () => {
     seedSession(db, { ownerId: 'a', gameId: 'g', turns: [{ input: 0, output: 0, costUsd: 1, startedAt: 1_000 }] });
     seedSession(db, { ownerId: 'a', gameId: 'g', turns: [{ input: 0, output: 0, costUsd: 3, startedAt: 2_000 }] });
@@ -193,6 +216,7 @@ describe('GET /internal/cost-breakdown (endpoint)', () => {
     expect(body.by_owner[0].owner_id).toBe('alice-sub');
     expect(body.by_game[0].game_id).toBe('cfm_vn');
     expect(body.by_workspace[0].workspace).toBe('local');
+    expect(body.by_auth[0].auth_label).toBe('unknown'); // seeded turns carry no lane
     expect(body.sessions).toHaveLength(1);
     expect(body.session_total).toBe(1);
   });

@@ -36,6 +36,11 @@ export interface WorkspaceCostRow extends CostBucket {
   workspace: string;
 }
 
+export interface AuthLaneCostRow extends CostBucket {
+  /** 'primary'|'stg'|'backup' (gateway keys), 'subscription' (OAuth token), or 'unknown' (legacy turns). */
+  auth_label: string;
+}
+
 export interface SessionCostRow {
   session_id: string;
   title: string | null;
@@ -58,6 +63,8 @@ export interface CostSummary {
     byUser: UserCostRow[];
     byGame: GameCostRow[];
     byWorkspace: WorkspaceCostRow[];
+    /** Spend split by auth lane (gateway keys vs subscription). May be absent on older servers. */
+    byAuth?: AuthLaneCostRow[];
     sessions: SessionCostRow[];
     sessionTotal: number;
   } | null;

@@ -38,6 +38,12 @@ export interface WorkspaceCostRow extends CostBucket {
   workspace: string;
 }
 
+export interface AuthLaneCostRow extends CostBucket {
+  /** 'primary'|'stg'|'backup' (gateway keys), 'subscription' (OAuth token),
+   *  or 'unknown' for legacy turns recorded before the lane was stamped. */
+  auth_label: string;
+}
+
 export interface SessionCostRow {
   session_id: string;
   title: string | null;
@@ -57,6 +63,8 @@ export interface CostBreakdown {
   by_owner: OwnerCostRow[];
   by_game: GameCostRow[];
   by_workspace: WorkspaceCostRow[];
+  /** Spend split by auth lane (gateway keys vs subscription quota). */
+  by_auth: AuthLaneCostRow[];
   /** Top-N sessions by cost (N = sessionLimit). */
   sessions: SessionCostRow[];
   /** Total distinct sessions with assistant turns in the window (so the UI can show "top N of M"). */
@@ -133,6 +141,15 @@ export function queryCostBreakdown(
     )
     .all(bind) as WorkspaceCostRow[];
 
+  const byAuth = db
+    .prepare(
+      `SELECT COALESCE(ct.llm_auth_label, 'unknown') AS auth_label, ${BUCKET_COLS}
+       ${TURNS_IN_WINDOW}
+       GROUP BY COALESCE(ct.llm_auth_label, 'unknown')
+       ORDER BY cost_usd DESC`,
+    )
+    .all(bind) as AuthLaneCostRow[];
+
   const sessions = db
     .prepare(
       `SELECT ct.session_id, cs.title, cs.owner_id, cs.owner_label, cs.game_id, cs.workspace,
@@ -160,6 +177,7 @@ export function queryCostBreakdown(
     by_owner: byOwner,
     by_game: byGame,
     by_workspace: byWorkspace,
+    by_auth: byAuth,
     sessions,
     session_total: total.sessions,
   };

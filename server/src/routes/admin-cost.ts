@@ -81,6 +81,7 @@ export default async function adminCostRoutes(app: FastifyInstance): Promise<voi
         byUser: withEmail(breakdown.by_owner, subToEmail),
         byGame: breakdown.by_game,
         byWorkspace: breakdown.by_workspace,
+        byAuth: breakdown.by_auth ?? [],
         sessions: withEmail(breakdown.sessions, subToEmail),
         sessionTotal: breakdown.session_total,
       },

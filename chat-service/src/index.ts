@@ -28,6 +28,8 @@ import replayRoutes from './api/replay.js';
 import statsRoutes from './api/stats.js';
 import internalStatsRoutes from './api/internal-stats.js';
 import internalCostRoutes from './api/internal-cost.js';
+import internalLlmAuthRoutes from './api/internal-llm-auth.js';
+import { initLlmAuthMode } from './core/llm-auth-mode.js';
 import auditRoutes from './api/audit.js';
 import debugRoutes from './api/debug.js';
 import debugAnnotationRoutes from './api/debug-annotations.js';
@@ -65,6 +67,10 @@ async function buildApp(dbPath?: string) {
 
   const db = openDatabase(dbPath ?? config.chatDbPath);
 
+  // Load the persisted admin LLM auth-mode toggle (auto/gateway/subscription)
+  // so a restart keeps the lane the admin selected.
+  initLlmAuthMode(db);
+
   // Rate limiter — applied only to POST /agent/turn via the hook
   const limiter = new RateLimiter({
     capacity: config.rateLimitPerOwnerPerMin,
@@ -83,6 +89,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(statsRoutes, { db });
   await fastify.register(internalStatsRoutes, { db });
   await fastify.register(internalCostRoutes, { db });
+  await fastify.register(internalLlmAuthRoutes);
   await fastify.register(auditRoutes, { db });
   await fastify.register(debugRoutes, { db });
   await fastify.register(debugAnnotationRoutes, { db });

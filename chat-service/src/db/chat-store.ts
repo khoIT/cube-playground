@@ -329,6 +329,8 @@ export interface AppendTurnParams {
   systemPromptText?: string;
   /** Model string used for this turn, e.g. config.chatModel (phase 01 column). */
   model?: string;
+  /** Auth lane that served the turn ('primary'|'stg'|'backup'|'subscription'). */
+  llmAuthLabel?: string | null;
   startedAt: number;
   endedAt?: number;
 }
@@ -349,9 +351,9 @@ export function appendTurn(
         cache_creation_tokens, cache_read_tokens,
         cache_hit, original_turn_id, cache_freshness,
         skill, system_prompt_text, model,
-        stop_reason,
+        stop_reason, llm_auth_label,
         started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -375,6 +377,7 @@ export function appendTurn(
     params.systemPromptText ?? null,
     params.model ?? null,
     params.stopReason ?? null,
+    params.llmAuthLabel ?? null,
     params.startedAt,
     params.endedAt ?? null,
   );

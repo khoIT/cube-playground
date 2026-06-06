@@ -1,7 +1,8 @@
 /**
- * Key-failover rotation rules: primary → stg → backup on balance exhaustion,
- * cooldown re-arm, all-exhausted fallback, and the balance-error matcher
- * (verified against the live LiteLLM gateway error text).
+ * Key-failover rotation rules: primary → stg → backup → subscription on
+ * balance exhaustion, cooldown re-arm, all-exhausted fallback, the
+ * balance-error matcher (verified against the live LiteLLM gateway error
+ * text), and per-auth-kind env construction.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -11,7 +12,9 @@ vi.mock('../src/config.js', () => ({
     anthropicApiKey: 'key-primary',
     anthropicApiStgKey: 'key-stg',
     anthropicApiBackupKey: 'key-backup',
+    anthropicSubscriptionOauthToken: 'sk-ant-oat-subscription',
     anthropicKeyRetryCooldownMs: 600_000,
+    anthropicBaseUrl: 'https://gateway.example.test',
   },
   isLangfuseEnabled: () => false,
 }));
@@ -21,6 +24,7 @@ import {
   reportKeyBalanceExhausted,
   isBalanceExhaustedError,
   anthropicKeyCount,
+  anthropicAuthEnvFor,
   keyFailoverStatus,
   __resetKeyFailoverForTests,
 } from '../src/core/anthropic-key-failover.js';
@@ -35,6 +39,10 @@ describe('isBalanceExhaustedError', () => {
   it('matches LiteLLM per-key budget errors', () => {
     expect(isBalanceExhaustedError('ExceededBudget: Crossed spend within team')).toBe(true);
     expect(isBalanceExhaustedError('Budget has been exceeded! Current cost: 12, Max budget: 10')).toBe(true);
+  });
+
+  it('matches the Claude subscription 5-hour usage-window error', () => {
+    expect(isBalanceExhaustedError('Claude AI usage limit reached|1764000000')).toBe(true);
   });
 
   it('does not match unrelated failures', () => {
@@ -56,12 +64,16 @@ describe('key rotation', () => {
     __resetKeyFailoverForTests();
   });
 
-  it('hands out the primary key first; counts all configured keys', () => {
-    expect(anthropicKeyCount()).toBe(3);
-    expect(getActiveAnthropicKey()).toEqual({ key: 'key-primary', label: 'primary' });
+  it('hands out the primary key first; counts all configured slots', () => {
+    expect(anthropicKeyCount()).toBe(4);
+    expect(getActiveAnthropicKey()).toEqual({
+      key: 'key-primary',
+      label: 'primary',
+      authKind: 'gateway-key',
+    });
   });
 
-  it('rotates primary → stg → backup as keys are reported exhausted', () => {
+  it('rotates primary → stg → backup → subscription as slots are reported exhausted', () => {
     let r = reportKeyBalanceExhausted('key-primary');
     expect(r).toEqual({ rotated: true, nextLabel: 'stg' });
     expect(getActiveAnthropicKey().label).toBe('stg');
@@ -69,12 +81,21 @@ describe('key rotation', () => {
     r = reportKeyBalanceExhausted('key-stg');
     expect(r).toEqual({ rotated: true, nextLabel: 'backup' });
     expect(getActiveAnthropicKey().label).toBe('backup');
+
+    r = reportKeyBalanceExhausted('key-backup');
+    expect(r).toEqual({ rotated: true, nextLabel: 'subscription' });
+    expect(getActiveAnthropicKey()).toEqual({
+      key: 'sk-ant-oat-subscription',
+      label: 'subscription',
+      authKind: 'oauth-token',
+    });
   });
 
-  it('reports rotated:false when the last key drains — but still returns a key', () => {
+  it('reports rotated:false when the last slot drains — but still returns a key', () => {
     reportKeyBalanceExhausted('key-primary');
     reportKeyBalanceExhausted('key-stg');
-    const r = reportKeyBalanceExhausted('key-backup');
+    reportKeyBalanceExhausted('key-backup');
+    const r = reportKeyBalanceExhausted('sk-ant-oat-subscription');
     expect(r.rotated).toBe(false);
     // All exhausted → least-recently-failed (primary) is handed out.
     expect(getActiveAnthropicKey().label).toBe('primary');
@@ -106,10 +127,34 @@ describe('key rotation', () => {
     reportKeyBalanceExhausted('key-primary');
     const s = keyFailoverStatus();
     expect(s).toEqual({
+      mode: 'auto',
       active: 'stg',
-      configured: ['primary', 'stg', 'backup'],
+      configured: ['primary', 'stg', 'backup', 'subscription'],
       exhausted: ['primary'],
     });
     expect(JSON.stringify(s)).not.toContain('key-');
+    expect(JSON.stringify(s)).not.toContain('sk-ant-oat');
+  });
+});
+
+describe('anthropicAuthEnvFor', () => {
+  it('gateway slots get ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL', () => {
+    expect(
+      anthropicAuthEnvFor({ key: 'key-primary', label: 'primary', authKind: 'gateway-key' }),
+    ).toEqual({
+      ANTHROPIC_API_KEY: 'key-primary',
+      ANTHROPIC_BASE_URL: 'https://gateway.example.test',
+    });
+  });
+
+  it('the subscription slot gets CLAUDE_CODE_OAUTH_TOKEN only — no base-url override', () => {
+    const env = anthropicAuthEnvFor({
+      key: 'sk-ant-oat-subscription',
+      label: 'subscription',
+      authKind: 'oauth-token',
+    });
+    expect(env).toEqual({ CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-subscription' });
+    expect(env).not.toHaveProperty('ANTHROPIC_API_KEY');
+    expect(env).not.toHaveProperty('ANTHROPIC_BASE_URL');
   });
 });

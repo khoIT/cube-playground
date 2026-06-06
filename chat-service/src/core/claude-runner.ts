@@ -20,6 +20,7 @@ import {
   reportKeyBalanceExhausted,
   isBalanceExhaustedError,
   anthropicKeyCount,
+  anthropicAuthEnvFor,
 } from './anthropic-key-failover.js';
 import { mapSdkMessage } from './sse-stream.js';
 import { buildQueryOptions } from './query-options-presets.js';
@@ -256,7 +257,17 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   const maxAttempts = Math.max(1, anthropicKeyCount());
 
   attempts: for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  // Already aborted (timeout/cancel landed between events): don't start —
+  // or announce — another attempt.
+  if (signal?.aborted) break;
+
   const activeKey = getActiveAnthropicKey();
+
+  // Server-internal: announce which auth lane this attempt runs on so the
+  // turn handler can persist chat_turns.llm_auth_label. On a key-failover
+  // retry a fresh event overwrites — the last one is the lane that served
+  // the turn. Excluded from meaningfulYielded (it never reaches the client).
+  yield { type: 'auth_lane_used', data: { label: activeKey.label } };
 
   // The SDK streams by default: iterating `query()` yields assistant tokens,
   // tool calls, tool results, and the final `result` message as they arrive.
@@ -275,8 +286,10 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         // isolated runner. No-op in local dev (no proxy vars set).
         ...proxyEnvForChild(),
         HOME: CLAUDE_HOME,
-        ANTHROPIC_API_KEY: activeKey.key,
-        ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
+        // Gateway slots → ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL; the
+        // last-resort subscription slot → CLAUDE_CODE_OAUTH_TOKEN, direct to
+        // api.anthropic.com (no base-url override).
+        ...anthropicAuthEnvFor(activeKey),
         // The prod container runs as root, and permissionMode:'bypassPermissions'
         // makes the CLI pass --dangerously-skip-permissions, which Claude Code
         // refuses under uid 0 unless IS_SANDBOX=1 (verified against the CLI's own
@@ -376,9 +389,12 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     const events = mapSdkMessage(msg as any);
     for (const event of events) {
       yield event;
-      // sdk_session_captured is internal metadata; anything else reaching the
-      // client (tokens, tool calls, errors) forecloses a silent key retry.
-      if (event.type !== 'sdk_session_captured') meaningfulYielded = true;
+      // sdk_session_captured / auth_lane_used are internal metadata; anything
+      // else reaching the client (tokens, tool calls, errors) forecloses a
+      // silent key retry.
+      if (event.type !== 'sdk_session_captured' && event.type !== 'auth_lane_used') {
+        meaningfulYielded = true;
+      }
     }
 
     // Side channel: per-LLM-call signal on every assistant message.

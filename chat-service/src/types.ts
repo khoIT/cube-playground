@@ -144,6 +144,14 @@ export type SseEvent =
    */
   | { type: 'sdk_session_captured'; data: { sdkConversationId: string } }
   /**
+   * Server-internal (never forwarded to FE): which auth lane the runner used
+   * for this attempt ('primary'|'stg'|'backup' gateway keys, 'subscription'
+   * OAuth token). Yielded once per attempt — a key-failover retry overwrites,
+   * so the last value is the lane that actually served the turn. Persisted to
+   * chat_turns.llm_auth_label for audit/cost attribution.
+   */
+  | { type: 'auth_lane_used'; data: { label: string } }
+  /**
    * Phase-01: emitted on auto-compaction.
    * `tokensSaved` is a best-effort delta from the pre-compact running total.
    */
@@ -305,6 +313,12 @@ export interface ChatTurnRow {
    * NULL for non-cache-hit turns.
    */
   cache_freshness?: 'refreshed' | 'stale' | null;
+  /**
+   * Auth lane that served the turn: 'primary' | 'stg' | 'backup' (gateway
+   * keys) or 'subscription' (Claude subscription OAuth token). NULL for
+   * legacy turns and cache-hit replays (no LLM call made).
+   */
+  llm_auth_label?: string | null;
 }
 
 // ---------------------------------------------------------------------------

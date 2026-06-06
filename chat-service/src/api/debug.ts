@@ -64,6 +64,8 @@ interface DebugTurnDto {
   durationMs: number | null;
   /** Phase-02: turn-level stop_reason from SDK result message. */
   stopReason: string | null;
+  /** Auth lane that served the turn ('primary'|'stg'|'backup'|'subscription'); null for legacy turns. */
+  llmAuthLabel: string | null;
   /** Phase-03: Anthropic cache token breakdown. Null for legacy turns. */
   cacheCreationTokens: number | null;
   cacheReadTokens: number | null;
@@ -125,6 +127,8 @@ function rowToDebugTurn(
     durationMs,
     // Phase-02: turn-level stop_reason (null/undefined for legacy turns).
     stopReason: row.stop_reason ?? null,
+    // Auth lane that served the turn (null for legacy turns).
+    llmAuthLabel: row.llm_auth_label ?? null,
     // Phase-03: cache token breakdown (null for legacy turns pre-migration).
     cacheCreationTokens: row.cache_creation_tokens ?? null,
     cacheReadTokens: row.cache_read_tokens ?? null,

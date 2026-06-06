@@ -53,13 +53,23 @@ export function fmtTokens(v: number): string {
   return String(v);
 }
 
-type Dimension = 'users' | 'sessions' | 'games' | 'workspaces';
+type Dimension = 'users' | 'sessions' | 'games' | 'workspaces' | 'auth';
 const DIMENSIONS: Array<{ key: Dimension; label: string }> = [
   { key: 'users', label: 'Users' },
   { key: 'sessions', label: 'Sessions' },
   { key: 'games', label: 'Games' },
   { key: 'workspaces', label: 'Workspaces' },
+  { key: 'auth', label: 'Auth lane' },
 ];
+
+/** Human label for an auth lane bucket (gateway key labels vs subscription). */
+const AUTH_LANE_LABEL: Record<string, string> = {
+  primary: 'Gateway · primary key',
+  stg: 'Gateway · stg key',
+  backup: 'Gateway · backup key',
+  subscription: 'Subscription (OAuth)',
+  unknown: 'Unrecorded (legacy turns)',
+};
 
 export function CostBreakdownSection() {
   const [range, setRange] = useState<CostRangeKey>('all');
@@ -231,6 +241,20 @@ function BreakdownTable({
       <><th style={th}>Workspace</th>{bucketCols}</>,
       breakdown.byWorkspace.map((r) => (
         <tr key={r.workspace}><td style={td}>{r.workspace}</td>{bucketCells(r)}</tr>
+      )),
+    );
+  }
+
+  if (dimension === 'auth') {
+    const byAuth = breakdown.byAuth ?? [];
+    if (byAuth.length === 0) return empty('auth lanes');
+    return table(
+      <><th style={th}>Auth lane</th>{bucketCols}</>,
+      byAuth.map((r) => (
+        <tr key={r.auth_label}>
+          <td style={td}>{AUTH_LANE_LABEL[r.auth_label] ?? r.auth_label}</td>
+          {bucketCells(r)}
+        </tr>
       )),
     );
   }

@@ -14,6 +14,7 @@ import {
   getActiveAnthropicKey,
   reportKeyBalanceExhausted,
   isBalanceExhaustedError,
+  anthropicAuthEnvFor,
 } from '../../core/anthropic-key-failover.js';
 import { summariseTitle } from '../../core/title-summariser.js';
 
@@ -62,8 +63,8 @@ export function maybeSummariseTitle(args: Args): void {
               model: config.titleModel,
               env: {
                 HOME: process.env['HOME'] ?? '/tmp',
-                ANTHROPIC_API_KEY: activeKey.key,
-                ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
+                // Gateway key or subscription OAuth token, per the active slot.
+                ...anthropicAuthEnvFor(activeKey),
               },
               permissionMode: 'dontAsk',
               disallowedTools: ['Read', 'Write', 'Bash', 'WebFetch', 'WebSearch', 'Edit', 'MultiEdit'],

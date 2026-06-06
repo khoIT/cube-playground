@@ -72,6 +72,7 @@ const internalCostRoutes: FastifyPluginAsync<InternalCostRouteOptions> = async (
         by_owner: breakdown.by_owner.map((r) => ({ ...r, cost_usd: roundCost(r.cost_usd) })),
         by_game: breakdown.by_game.map((r) => ({ ...r, cost_usd: roundCost(r.cost_usd) })),
         by_workspace: breakdown.by_workspace.map((r) => ({ ...r, cost_usd: roundCost(r.cost_usd) })),
+        by_auth: breakdown.by_auth.map((r) => ({ ...r, cost_usd: roundCost(r.cost_usd) })),
         sessions: breakdown.sessions.map((r) => ({ ...r, cost_usd: roundCost(r.cost_usd) })),
         session_total: breakdown.session_total,
       });

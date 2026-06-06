@@ -80,6 +80,10 @@ export function migrate(db: Database.Database): void {
   // Freshness flag on cache-hit turns: 'refreshed' (chart data re-executed live)
   // or 'stale' (served from cache without re-execute). NULL on non-cache-hit turns.
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN cache_freshness TEXT;');
+  // Auth lane that served the turn ('primary'|'stg'|'backup' gateway keys, or
+  // 'subscription' OAuth token) — splits gateway spend from subscription usage
+  // in audit/cost surfaces. NULL on legacy turns and cache-hit replays.
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN llm_auth_label TEXT;');
 
   // Index for the admin cost-breakdown rollup: time-windowed scans over
   // assistant turns (default window is all-time, so without this every cost

@@ -18,6 +18,7 @@ import { patchAdminUser, useAdminUsers } from '../access/use-admin-access';
 import { useActivitySummary, type InactiveUser } from './observability-data';
 import { AuditLogViewer } from './audit-log-viewer';
 import { CostBreakdownSection } from './cost-breakdown-section';
+import { LlmAuthModeControl } from './llm-auth-mode-control';
 import { PendingApprovalQueue } from './pending-approval-queue';
 import { relativeTime, FEATURE_LABEL } from './per-user-panel-helpers';
 
@@ -96,6 +97,9 @@ export function ObservabilityTab() {
 
           {/* Pending-approval queue — the #1 recurring admin job, promoted up top */}
           <PendingApprovalQueue users={pending} onChanged={onQueueChanged} />
+
+          {/* Credential lane toggle: gateway keys vs subscription OAuth */}
+          <LlmAuthModeControl />
 
           {/* Org-wide LLM spend: total + by user / session / game / workspace */}
           <CostBreakdownSection />

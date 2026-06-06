@@ -32,6 +32,12 @@ export interface WorkspaceCostRow extends CostBucket {
   workspace: string;
 }
 
+export interface AuthLaneCostRow extends CostBucket {
+  /** 'primary'|'stg'|'backup' (gateway keys), 'subscription' (OAuth token),
+   *  or 'unknown' for legacy turns recorded before the lane was stamped. */
+  auth_label: string;
+}
+
 export interface SessionCostRow {
   session_id: string;
   title: string | null;
@@ -51,6 +57,8 @@ export interface CostBreakdown {
   by_owner: OwnerCostRow[];
   by_game: GameCostRow[];
   by_workspace: WorkspaceCostRow[];
+  /** Spend split by auth lane (gateway keys vs subscription quota). Absent from older chat-service builds. */
+  by_auth?: AuthLaneCostRow[];
   sessions: SessionCostRow[];
   session_total: number;
 }

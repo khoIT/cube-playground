@@ -387,6 +387,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     //     persisted on the session row when the flag is on)
     let resumeId: string | undefined;
     let capturedSdkConversationId: string | undefined;
+    // Auth lane ('primary'|'stg'|'backup'|'subscription') the runner used —
+    // last attempt wins; persisted to chat_turns.llm_auth_label.
+    let llmAuthLabel: string | undefined;
     if (config.chatContextSdkResumeEnabled && sessionId) {
       const sessionForResume = chatStore.getSession(opts.db, sessionId);
       if (sessionForResume?.sdk_conversation_id) {
@@ -463,6 +466,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         // persistence. Do NOT forward to FE — id is server-internal.
         if (event.type === 'sdk_session_captured') {
           capturedSdkConversationId = event.data.sdkConversationId;
+          continue;
+        }
+        // Server-internal auth-lane marker from the runner — persist, never
+        // forward to FE. A key-failover retry emits a fresh one (last wins).
+        if (event.type === 'auth_lane_used') {
+          llmAuthLabel = event.data.label;
           continue;
         }
         // Capture the assistant's chain-of-thought so the FE can render it as a
@@ -574,6 +583,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         skill: intent.skill,
         systemPromptText: systemPrompt,
         model: resolvedModel,
+        llmAuthLabel,
         startedAt,
         endedAt,
       });
@@ -711,6 +721,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
           stopReason: 'error',
           model: resolvedModel ?? config.chatModel,
           skill: intent.skill,
+          // Lane that failed (when the runner got far enough to announce one)
+          // — keeps error turns attributable in the auth-lane breakdown.
+          llmAuthLabel,
           startedAt,
           endedAt,
         });

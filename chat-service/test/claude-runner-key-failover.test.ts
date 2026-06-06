@@ -98,6 +98,12 @@ describe('claude-runner — key failover retry', () => {
     expect(queryCalls).toHaveLength(2);
     expect(queryCalls[0]!.env['ANTHROPIC_API_KEY']).toBe('key-primary');
     expect(queryCalls[1]!.env['ANTHROPIC_API_KEY']).toBe('key-stg');
+    // The runner announces the lane per attempt (server-internal event);
+    // the retried attempt's label is the one the turn handler persists.
+    const lanes = events
+      .filter((e) => e.type === 'auth_lane_used')
+      .map((e) => (e as { data?: { label?: string } }).data?.label);
+    expect(lanes).toEqual(['primary', 'stg']);
     // Neither the error result nor the assistant error echo reaches the
     // client; the retried answer does.
     expect(events.some((e) => e.type === 'error')).toBe(false);
@@ -118,6 +124,40 @@ describe('claude-runner — key failover retry', () => {
     // Two keys configured → exactly two attempts, then the error yields.
     expect(queryCalls).toHaveLength(2);
     expect(events.some((e) => e.type === 'error')).toBe(true);
+  });
+
+  it('falls through to the subscription OAuth token when every gateway key drains', async () => {
+    // Arm the last-resort subscription slot for this test only.
+    const { config } = await import('../src/config.js');
+    (config as Record<string, unknown>)['anthropicSubscriptionOauthToken'] = 'sk-ant-oat-test';
+    __resetKeyFailoverForTests();
+    try {
+      scripts = [
+        [{ type: 'result', subtype: 'success', is_error: true, api_error_status: 400, result: 'Credit balance is too low' }],
+        [{ type: 'result', subtype: 'success', is_error: true, api_error_status: 400, result: 'Credit balance is too low' }],
+        [
+          { type: 'assistant', message: { content: [{ type: 'text', text: 'answer' }] } },
+          { type: 'result', subtype: 'success', result: 'answer' },
+        ],
+      ];
+
+      const { run } = await import('../src/core/claude-runner.js');
+      const events: Array<{ type: string }> = [];
+      for await (const ev of run(runParams())) events.push(ev);
+
+      expect(queryCalls).toHaveLength(3);
+      // Third attempt authenticates the subscription directly — OAuth token
+      // only, no gateway key and no base-url override.
+      const subEnv = queryCalls[2]!.env;
+      expect(subEnv['CLAUDE_CODE_OAUTH_TOKEN']).toBe('sk-ant-oat-test');
+      expect(subEnv['ANTHROPIC_API_KEY']).toBeUndefined();
+      expect(subEnv['ANTHROPIC_BASE_URL']).toBeUndefined();
+      expect(events.some((e) => e.type === 'error')).toBe(false);
+      expect(events.some((e) => e.type === 'result')).toBe(true);
+    } finally {
+      (config as Record<string, unknown>)['anthropicSubscriptionOauthToken'] = '';
+      __resetKeyFailoverForTests();
+    }
   });
 
   it('does NOT retry when tokens already streamed (mid-stream failure)', async () => {

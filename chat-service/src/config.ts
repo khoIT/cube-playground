@@ -44,6 +44,16 @@ export interface Config {
   anthropicApiStgKey: string;
   anthropicApiBackupKey: string;
   /**
+   * Last-resort fallback: a long-lived Claude subscription OAuth token
+   * (generated once via `claude setup-token` on a Pro/Max account). When every
+   * gateway key is balance-exhausted, the runner spawns the SDK subprocess with
+   * CLAUDE_CODE_OAUTH_TOKEN instead of ANTHROPIC_API_KEY — auth goes direct to
+   * api.anthropic.com on the subscription quota, bypassing the LLM gateway.
+   * Empty = not configured. Emergency continuity only: subscription quota is a
+   * shared 5-hour window, not a metered backend budget.
+   */
+  anthropicSubscriptionOauthToken: string;
+  /**
    * Cooldown (ms) before a balance-exhausted key is retried. Lets the service
    * fall back to the primary key automatically after a top-up. Default 10 min.
    */
@@ -248,6 +258,7 @@ export const config: Config = {
   anthropicApiKey: required('ANTHROPIC_API_KEY'),
   anthropicApiStgKey: optional('ANTHROPIC_API_STG_KEY', ''),
   anthropicApiBackupKey: optional('ANTHROPIC_API_BACKUP_KEY', ''),
+  anthropicSubscriptionOauthToken: optional('ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN', ''),
   anthropicKeyRetryCooldownMs: optionalInt('ANTHROPIC_KEY_RETRY_COOLDOWN_MS', 600_000),
   anthropicBaseUrl: required('ANTHROPIC_BASE_URL'),
   chatModel: optional('CHAT_MODEL', 'claude-sonnet-4-6'),
