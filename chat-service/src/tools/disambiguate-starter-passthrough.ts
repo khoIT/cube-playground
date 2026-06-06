@@ -33,14 +33,22 @@ function normalise(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-/** First time dimension of a cube, from /meta. */
+/**
+ * Pick the cube's time dimension for bounding. Partitioned behavior cubes
+ * guard on their partition column specifically — "Query … must bound
+ * log_date/dteventtime within 31 days" — so when a cube has several time
+ * dimensions (etl_register: register_time + log_date), the partition column
+ * must win or the bounded query still 500s. Otherwise: first time dimension.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function timeDimensionOf(meta: any, cubeName: string): string | null {
+export function timeDimensionOf(meta: any, cubeName: string): string | null {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cube = (meta?.cubes ?? []).find((c: any) => c.name === cubeName);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const td = (cube?.dimensions ?? []).find((d: any) => d.type === 'time');
-  return td?.name ?? null;
+  const tds = (cube?.dimensions ?? []).filter((d: any) => d.type === 'time');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const partition = tds.find((d: any) => /\.(log_date|dteventtime)$/.test(d.name));
+  return (partition ?? tds[0])?.name ?? null;
 }
 
 export function matchStarterQuestion(

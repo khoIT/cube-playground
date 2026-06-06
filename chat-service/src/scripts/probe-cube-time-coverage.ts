@@ -7,21 +7,14 @@
  */
 
 import { handler as timeCoverageHandler } from '../tools/get-time-coverage.js';
+import { timeDimensionOf } from '../tools/disambiguate-starter-passthrough.js';
 import type { StarterQuestion } from '../db/starter-questions-store.js';
 import type { ToolContext } from '../types.js';
 
+export { timeDimensionOf };
+
 /** Coverage probes are real Cube queries — bound the per-game cost. */
 export const MAX_COVERAGE_PROBES = 12;
-
-/** First time dimension per cube, from /meta. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function timeDimensionOf(meta: any, cubeName: string): string | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cube = (meta?.cubes ?? []).find((c: any) => c.name === cubeName);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const td = (cube?.dimensions ?? []).find((d: any) => d.type === 'time');
-  return td?.name ?? null;
-}
 
 /**
  * Probe the latest date with data for each cube the given questions

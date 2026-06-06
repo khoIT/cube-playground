@@ -248,20 +248,24 @@ export function parseAndValidateLlmSet(
 
 /**
  * One-shot Agent-SDK call with no tools, same wiring as the title summariser.
- * Used by the pregenerate script only.
+ * Used by the pregenerate scripts only.
+ *
+ * Auth: inherits the LOCAL Claude Code subscription login — the gateway vars
+ * are stripped so the SDK falls back to the dev machine's `claude` auth.
+ * Seed generation is a batch dev-machine task; it must not burn the
+ * quota-capped chat-service gateway key (which runtime turns depend on).
  */
 export async function defaultCallLlm(prompt: string): Promise<string> {
   const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
+  const env = { ...process.env } as Record<string, string>;
+  delete env['ANTHROPIC_API_KEY'];
+  delete env['ANTHROPIC_BASE_URL'];
   let result = '';
   for await (const msg of sdkQuery({
     prompt,
     options: {
       model: config.starterRefinerModel,
-      env: {
-        HOME: process.env['HOME'] ?? '/tmp',
-        ANTHROPIC_API_KEY: config.anthropicApiKey,
-        ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
-      },
+      env,
       permissionMode: 'dontAsk',
       disallowedTools: ['Read', 'Write', 'Bash', 'WebFetch', 'WebSearch', 'Edit', 'MultiEdit'],
     },

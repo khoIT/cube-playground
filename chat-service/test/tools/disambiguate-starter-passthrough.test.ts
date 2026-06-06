@@ -105,6 +105,35 @@ describe('matchStarterQuestion', () => {
     ]);
   });
 
+  it('bounds the PARTITION time dimension when a cube has several time dims', () => {
+    // cros-style behavior cube: register_time listed first, but the ≤31-day
+    // guard is on log_date — bounding register_time alone still 500s.
+    const meta = {
+      cubes: [{
+        name: 'etl_register',
+        measures: [{ name: 'etl_register.registrations', type: 'number' }],
+        dimensions: [
+          { name: 'etl_register.register_time', type: 'time' },
+          { name: 'etl_register.channel', type: 'string' },
+          { name: 'etl_register.log_date', type: 'time' },
+        ],
+      }],
+    };
+    const known = new Set(['etl_register.registrations', 'etl_register.channel']);
+    seedHolder.hit = {
+      version: 'v1', generatedAt: 1,
+      entry: { questions: [{
+        id: 'reg-by-channel', text: 'New registrations by channel',
+        topicTags: ['user_acquisition'], categoryTags: ['explore'],
+        targetCatalogIds: ['etl_register.registrations', 'etl_register.channel'],
+      }] },
+    };
+    const hit = matchStarterQuestion('New registrations by channel', 'cros', meta, known)!;
+    expect(hit.query.timeDimensions).toEqual([
+      { dimension: 'etl_register.log_date', dateRange: 'last 30 days' },
+    ]);
+  });
+
   it('matches case- and whitespace-insensitively', () => {
     const mangled = '  which game modes and maps   drive the most matches and unique players in available data? ';
     expect(matchStarterQuestion(mangled, 'cfm_vn', META, KNOWN)).not.toBeNull();
