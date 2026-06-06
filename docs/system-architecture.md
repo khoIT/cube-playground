@@ -263,6 +263,15 @@ Once a model is written, two surfaces monitor alignment:
 
 Data analysts use drift-center and coverage surfaces to triage misalignments — repoint broken refs, scaffold missing metrics, update model members. Future: auto-repair hooks (schema reconciliation templates, cross-game mirroring).
 
+### Segment-Identity Contract for New Cubes
+
+Segment creation from query rows requires the identity map to resolve an identity field for the queried cube. Resolution is fully automatic via two passes in `identity-suggester.ts`:
+
+1. **Pattern pass** — first dimension matching `*.user_id | *.player_id | *.customer_id | *.account_id | *.uid`.
+2. **Join-probe pass** (`identity-join-probe.ts`) — cubes with no direct match (event-level `etl_*` tables whose `playerid` is a role id) inherit `mf_users.user_id` (or the best-prefix anchor) when a Cube `/sql` dry compile proves a join path exists. TTL-cached per (endpoint, token, cube); manual `cube_identity_map` overrides always win.
+
+**Contract for a new YAML model:** either name the user-identity dimension to match a pattern above, or declare a join path (direct or transitive, e.g. `playerid → user_roles → mf_users`) to the game's user-master cube. Nothing else — no per-cube registration. The FE expansion mode (`build-expansion-query.ts`) then materializes uid lists by re-running the query with the inherited identity dimension; Cube executes the join.
+
 ---
 
 ## Unified Concept Fabric: Trust, Registry & Reverse Index
