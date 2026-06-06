@@ -27,6 +27,7 @@ import turnRoutes from './api/turn.js';
 import replayRoutes from './api/replay.js';
 import statsRoutes from './api/stats.js';
 import internalStatsRoutes from './api/internal-stats.js';
+import internalCostRoutes from './api/internal-cost.js';
 import auditRoutes from './api/audit.js';
 import debugRoutes from './api/debug.js';
 import debugAnnotationRoutes from './api/debug-annotations.js';
@@ -81,6 +82,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(replayRoutes, { db });
   await fastify.register(statsRoutes, { db });
   await fastify.register(internalStatsRoutes, { db });
+  await fastify.register(internalCostRoutes, { db });
   await fastify.register(auditRoutes, { db });
   await fastify.register(debugRoutes, { db });
   await fastify.register(debugAnnotationRoutes, { db });

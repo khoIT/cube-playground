@@ -81,6 +81,14 @@ export function migrate(db: Database.Database): void {
   // or 'stale' (served from cache without re-execute). NULL on non-cache-hit turns.
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN cache_freshness TEXT;');
 
+  // Index for the admin cost-breakdown rollup: time-windowed scans over
+  // assistant turns (default window is all-time, so without this every cost
+  // query is a full chat_turns scan).
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_turns_role_started
+       ON chat_turns(role, started_at);`,
+  );
+
   // Phase-driven migrations run in a fixed order per decision C1. Each helper
   // is idempotent and safe to re-run.
   migrateMonitoring(db);

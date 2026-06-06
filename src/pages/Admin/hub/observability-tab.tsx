@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import { patchAdminUser, useAdminUsers } from '../access/use-admin-access';
 import { useActivitySummary, type InactiveUser } from './observability-data';
 import { AuditLogViewer } from './audit-log-viewer';
+import { CostBreakdownSection } from './cost-breakdown-section';
 import { PendingApprovalQueue } from './pending-approval-queue';
 import { relativeTime, FEATURE_LABEL } from './per-user-panel-helpers';
 
@@ -95,6 +96,9 @@ export function ObservabilityTab() {
 
           {/* Pending-approval queue — the #1 recurring admin job, promoted up top */}
           <PendingApprovalQueue users={pending} onChanged={onQueueChanged} />
+
+          {/* Org-wide LLM spend: total + by user / session / game / workspace */}
+          <CostBreakdownSection />
 
           {/* Two-column: inactive triage + top features */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12, marginTop: 12, alignItems: 'start' }}>
