@@ -69,6 +69,9 @@ interface SdkResultMessage {
   };
   // The SDK calls this subtype
   subtype?: string;
+  /** The CLI can report an API failure with subtype 'success' but this flag
+   *  set (verified live: gateway 400 → subtype success, is_error true). */
+  is_error?: boolean;
 }
 
 export type SdkMessage = SdkAssistantMessage | SdkUserMessage | SdkResultMessage | { type: string };
@@ -138,7 +141,9 @@ export function mapSdkMessage(msg: SdkMessage): SseEvent[] {
     // call failed but the SDK surfaced it as a result rather than throwing —
     // emit it as a classifiable `error` so the turn isn't persisted as a
     // normal answer. turn.ts classifies the raw text into an actionable code.
-    if (rm.subtype && rm.subtype !== 'success') {
+    // NOTE: an API failure can also arrive as subtype 'success' with
+    // is_error=true (live gateway 400) — same treatment.
+    if ((rm.subtype && rm.subtype !== 'success') || rm.is_error === true) {
       return [
         {
           type: 'error',

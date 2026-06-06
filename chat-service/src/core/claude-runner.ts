@@ -15,6 +15,12 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { config } from '../config.js';
+import {
+  getActiveAnthropicKey,
+  reportKeyBalanceExhausted,
+  isBalanceExhaustedError,
+  anthropicKeyCount,
+} from './anthropic-key-failover.js';
 import { mapSdkMessage } from './sse-stream.js';
 import { buildQueryOptions } from './query-options-presets.js';
 import type { SseEvent, ToolContext } from '../types.js';
@@ -71,6 +77,39 @@ function proxyEnvForChild(): Record<string, string> {
     if (v) out[k] = v;
   }
   return out;
+}
+
+/**
+ * Extract balance-exhaustion error text from an SDK message, or null.
+ *
+ * Two shapes carry it (verified live against the LiteLLM gateway):
+ *   - `result` message — NOTE the CLI reports this failure with
+ *     `subtype: "success"` but `is_error: true, api_error_status: 400`, so the
+ *     error flag (or a non-success subtype) is the discriminator, NOT subtype;
+ *   - an `assistant` message the CLI emits FIRST (model `<synthetic>`), whose
+ *     only content is the short error echo ("Credit balance is too low") —
+ *     capped at 300 chars so a genuine long answer that merely mentions the
+ *     phrase is never matched.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function balanceErrorTextOf(msg: any): string | null {
+  if (msg?.type === 'result') {
+    const isError = msg.is_error === true || (msg.subtype && msg.subtype !== 'success');
+    if (!isError) return null;
+    const text = typeof msg.result === 'string' ? msg.result : '';
+    return isBalanceExhaustedError(text) ? text : null;
+  }
+  if (msg?.type === 'assistant') {
+    const blocks = Array.isArray(msg.message?.content) ? msg.message.content : [];
+    const text = blocks
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((b: any) => b?.type === 'text')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((b: any) => b.text ?? '')
+      .join('');
+    return text.length > 0 && text.length <= 300 && isBalanceExhaustedError(text) ? text : null;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +231,33 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     ? systemPrompt
     : `${systemPrompt}\n\n<!-- cache-bust:${turnId} -->`;
 
+  // Observer per-turn state — counters always declared; helpers no-op when
+  // observer is undefined (guard at each call site). Declared OUTSIDE the
+  // key-failover attempt loop so observer sequencing stays monotonic across
+  // a retried first call.
+  let stepIndex = 0;
+  let seq = 0;
+  let lastBoundary = Date.now();
+  const pendingTools = new Map<string, PendingTool>();
+
+  // Phase-01: capture the SDK session/conversation id from the first message
+  // that exposes one. The exact field name on v0.3.150 is confirmed by
+  // Spike A — we walk the candidate fields to stay robust to minor SDK
+  // shifts. The capture fires at most once per turn (the first id wins) and
+  // is forwarded via `sdk_session_captured` so api/turn.ts can persist it.
+  let capturedSdkConversationId: string | undefined;
+
+  // Key-failover: a balance-exhausted gateway key fails on the FIRST LLM call,
+  // before any assistant tokens stream. When that happens and a fallback key
+  // (ANTHROPIC_API_STG_KEY / ANTHROPIC_API_BACKUP_KEY) is configured, rotate
+  // and transparently re-run the turn — but only while nothing user-visible
+  // has been yielded yet (a mid-stream retry would duplicate output).
+  let meaningfulYielded = false;
+  const maxAttempts = Math.max(1, anthropicKeyCount());
+
+  attempts: for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  const activeKey = getActiveAnthropicKey();
+
   // The SDK streams by default: iterating `query()` yields assistant tokens,
   // tool calls, tool results, and the final `result` message as they arrive.
   // No flag toggles streaming — `for await` IS the streaming surface.
@@ -209,7 +275,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
         // isolated runner. No-op in local dev (no proxy vars set).
         ...proxyEnvForChild(),
         HOME: CLAUDE_HOME,
-        ANTHROPIC_API_KEY: config.anthropicApiKey,
+        ANTHROPIC_API_KEY: activeKey.key,
         ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
         // The prod container runs as root, and permissionMode:'bypassPermissions'
         // makes the CLI pass --dangerously-skip-permissions, which Claude Code
@@ -234,20 +300,6 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     if (childStderr.length < 4000) childStderr += data;
   };
   const iter = query({ prompt: message, options: sdkOptions });
-
-  // Observer per-turn state — counters always declared; helpers no-op when
-  // observer is undefined (guard at each call site).
-  let stepIndex = 0;
-  let seq = 0;
-  let lastBoundary = Date.now();
-  const pendingTools = new Map<string, PendingTool>();
-
-  // Phase-01: capture the SDK session/conversation id from the first message
-  // that exposes one. The exact field name on v0.3.150 is confirmed by
-  // Spike A — we walk the candidate fields to stay robust to minor SDK
-  // shifts. The capture fires at most once per turn (the first id wins) and
-  // is forwarded via `sdk_session_captured` so api/turn.ts can persist it.
-  let capturedSdkConversationId: string | undefined;
 
   try {
   for await (const msg of iter) {
@@ -279,15 +331,54 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     }
 
     // Side channel: raw SDK event firehose (before SSE mapping, no yield).
+    // Fires even for a balance-failure result that triggers a key retry, so
+    // the raw audit trail shows the failed attempt.
     if (observer) {
       try { emitSdkEvent(observer, turnId, seq++, msg); }
       catch (err) { console.warn('[observer] onSdkEvent threw:', err); }
+    }
+
+    // Key-failover intercept. Verified live: the CLI streams the gateway's
+    // balance error TWICE — first as an assistant text message ("Credit
+    // balance is too low"), then as a `result` with a non-success subtype (or
+    // a thrown error). Both shapes must be suppressed from the client stream
+    // while nothing real has been yielded, or the error-text tokens would (a)
+    // poison the FE transcript and (b) flip meaningfulYielded, foreclosing
+    // the silent retry.
+    const balanceErrorText = balanceErrorTextOf(msg);
+    if (balanceErrorText !== null) {
+      if (msg.type === 'result') {
+        // Always mark the key drained — even when a same-turn retry isn't
+        // possible, the NEXT turn must start on a fallback key.
+        const rotation = reportKeyBalanceExhausted(activeKey.key);
+        if (rotation.rotated && !meaningfulYielded && attempt < maxAttempts) {
+          console.warn(
+            `[claude-runner] turn ${turnId}: '${activeKey.label}' key exhausted — retrying with '${rotation.nextLabel}' (attempt ${attempt + 1}/${maxAttempts})`,
+          );
+          // Re-arm session-id capture: the failed call's SDK conversation id
+          // is dead for resume; the retry yields a fresh sdk_session_captured
+          // and downstream persistence keeps the last one.
+          capturedSdkConversationId = undefined;
+          continue attempts;
+        }
+        // No retry available → fall through and yield the error normally so
+        // the turn surfaces a classifiable llm_budget_exhausted failure.
+      } else if (!meaningfulYielded) {
+        // Error-shaped assistant echo before any real content: swallow it.
+        // The terminal result/throw right behind it drives rotation; if no
+        // key remains, the classified error event covers the user-facing
+        // message, so dropping this duplicate loses nothing.
+        continue;
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const events = mapSdkMessage(msg as any);
     for (const event of events) {
       yield event;
+      // sdk_session_captured is internal metadata; anything else reaching the
+      // client (tokens, tool calls, errors) forecloses a silent key retry.
+      if (event.type !== 'sdk_session_captured') meaningfulYielded = true;
     }
 
     // Side channel: per-LLM-call signal on every assistant message.
@@ -326,12 +417,32 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     // turn's agent_error event carries the actionable cause. Empty stderr →
     // rethrow unchanged (don't mask the original).
     const detail = childStderr.trim();
-    if (detail) {
-      const base = err instanceof Error ? err.message : String(err);
-      throw new Error(`${base} — claude stderr: ${detail.slice(0, 1500)}`);
+    const base = err instanceof Error ? err.message : String(err);
+    const full = detail ? `${base} — claude stderr: ${detail.slice(0, 1500)}` : base;
+
+    // Key-failover on the thrown route (subprocess crash whose stderr carries
+    // the balance error). Always mark the key drained so later turns rotate;
+    // retry this turn only before anything user-visible streamed and while
+    // another key remains.
+    if (isBalanceExhaustedError(full)) {
+      const rotation = reportKeyBalanceExhausted(activeKey.key);
+      if (rotation.rotated && !meaningfulYielded && attempt < maxAttempts) {
+        console.warn(
+          `[claude-runner] turn ${turnId}: '${activeKey.label}' key exhausted (thrown) — retrying with '${rotation.nextLabel}' (attempt ${attempt + 1}/${maxAttempts})`,
+        );
+        capturedSdkConversationId = undefined;
+        continue attempts;
+      }
     }
+
+    if (detail) throw new Error(full);
     throw err;
   }
+
+  // The SDK stream completed (or aborted) without a key-balance failure —
+  // don't fall through to another attempt.
+  break;
+  } // attempts loop
 
   // Flush tool_use entries that never received a tool_result (model abandoned).
   if (observer && pendingTools.size > 0) {

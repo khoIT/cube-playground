@@ -10,6 +10,11 @@
 import type Database from 'better-sqlite3';
 import * as chatStore from '../../db/chat-store.js';
 import { config } from '../../config.js';
+import {
+  getActiveAnthropicKey,
+  reportKeyBalanceExhausted,
+  isBalanceExhaustedError,
+} from '../../core/anthropic-key-failover.js';
 import { summariseTitle } from '../../core/title-summariser.js';
 
 interface Args {
@@ -44,8 +49,12 @@ export function maybeSummariseTitle(args: Args): void {
       turns: allTurns,
       deps: {
         callLlm: async (prompt) => {
-          // One-shot LLM call via the Anthropic SDK; no tools needed.
+          // One-shot LLM call via the Anthropic SDK; no tools needed. Uses the
+          // failover-aware active key; on a balance failure, mark the key
+          // exhausted so the next caller rotates — no retry here, the title
+          // pass is fire-and-forget.
           const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
+          const activeKey = getActiveAnthropicKey();
           let result = '';
           for await (const msg of sdkQuery({
             prompt,
@@ -53,7 +62,7 @@ export function maybeSummariseTitle(args: Args): void {
               model: config.titleModel,
               env: {
                 HOME: process.env['HOME'] ?? '/tmp',
-                ANTHROPIC_API_KEY: config.anthropicApiKey,
+                ANTHROPIC_API_KEY: activeKey.key,
                 ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
               },
               permissionMode: 'dontAsk',
@@ -62,7 +71,13 @@ export function maybeSummariseTitle(args: Args): void {
           })) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const m = msg as any;
-            if (m.type === 'result') result = m.result ?? '';
+            if (m.type === 'result') {
+              if (m.subtype && m.subtype !== 'success' && isBalanceExhaustedError(m.result ?? '')) {
+                reportKeyBalanceExhausted(activeKey.key);
+                return ''; // empty title → caller skips the update
+              }
+              result = m.result ?? '';
+            }
           }
           return result;
         },

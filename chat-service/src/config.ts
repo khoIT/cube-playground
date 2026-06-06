@@ -36,6 +36,18 @@ export interface Config {
   port: number;
   logLevel: string;
   anthropicApiKey: string;
+  /**
+   * Optional fallback gateway keys, tried in order (primary → stg → backup)
+   * when the active key's balance/budget is exhausted. Empty = not configured.
+   * See core/anthropic-key-failover.ts for the rotation rules.
+   */
+  anthropicApiStgKey: string;
+  anthropicApiBackupKey: string;
+  /**
+   * Cooldown (ms) before a balance-exhausted key is retried. Lets the service
+   * fall back to the primary key automatically after a top-up. Default 10 min.
+   */
+  anthropicKeyRetryCooldownMs: number;
   anthropicBaseUrl: string;
   chatModel: string;
   chatMaxOutputTokens: number;
@@ -234,6 +246,9 @@ export const config: Config = {
   port: optionalInt('PORT', 3005),
   logLevel: optional('LOG_LEVEL', 'info'),
   anthropicApiKey: required('ANTHROPIC_API_KEY'),
+  anthropicApiStgKey: optional('ANTHROPIC_API_STG_KEY', ''),
+  anthropicApiBackupKey: optional('ANTHROPIC_API_BACKUP_KEY', ''),
+  anthropicKeyRetryCooldownMs: optionalInt('ANTHROPIC_KEY_RETRY_COOLDOWN_MS', 600_000),
   anthropicBaseUrl: required('ANTHROPIC_BASE_URL'),
   chatModel: optional('CHAT_MODEL', 'claude-sonnet-4-6'),
   chatMaxOutputTokens: optionalInt('CHAT_MAX_OUTPUT_TOKENS', 4096),

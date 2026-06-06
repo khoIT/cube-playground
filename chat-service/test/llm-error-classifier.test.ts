@@ -2,6 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { classifyLlmError } from '../src/core/llm-error-classifier.js';
 
 describe('classifyLlmError', () => {
+  it('classifies a drained-balance key (live gateway 400 text) before the broad 4xx rules', () => {
+    const c = classifyLlmError({
+      message:
+        'API Error: 400 {"error":{"message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}',
+    });
+    expect(c.code).toBe('llm_budget_exhausted');
+    expect(c.retriable).toBe(false);
+    expect(c.hint).toContain('ANTHROPIC_API_BACKUP_KEY');
+  });
+
+  it('classifies LiteLLM per-key budget exhaustion', () => {
+    expect(classifyLlmError({ message: 'ExceededBudget: Crossed spend within team' }).code)
+      .toBe('llm_budget_exhausted');
+    expect(classifyLlmError({ message: 'Budget has been exceeded! Current cost: 12, Max budget: 10' }).code)
+      .toBe('llm_budget_exhausted');
+  });
+
   it('classifies the gateway 403 / failed-to-authenticate case', () => {
     const c = classifyLlmError({
       message: 'Claude Code returned an error result: Failed to authenticate. API Error: 403 Forbidden',

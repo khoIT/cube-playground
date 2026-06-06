@@ -42,6 +42,22 @@ const has =
 // broad ones (e.g. 401 before a bare "forbidden").
 const RULES: ErrorRule[] = [
   {
+    code: 'llm_budget_exhausted',
+    title: 'AI gateway key is out of credit',
+    hint: 'The gateway API key balance/budget is exhausted. Chat-service rotates to ANTHROPIC_API_STG_KEY / ANTHROPIC_API_BACKUP_KEY automatically when configured — seeing this error means every configured key is drained. Top up the gateway account.',
+    retriable: false,
+    test: has(
+      'credit balance is too low',
+      'balance is too low',
+      'insufficient credit',
+      'insufficient balance',
+      'exceededbudget',
+      'exceeded budget',
+      'budget has been exceeded',
+      'out of credits',
+    ),
+  },
+  {
     code: 'llm_unauthorized',
     title: 'AI service rejected the credentials (401)',
     hint: 'The API key is invalid or expired. Update ANTHROPIC_API_KEY in the chat-service environment.',
