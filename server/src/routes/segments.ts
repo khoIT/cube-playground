@@ -22,6 +22,8 @@ import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integr
 import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
 import { SEGMENT_DEFAULT_VISIBILITY, VISIBILITY_VALUES } from '../services/trust-mapping.js';
 import { canAccessSegment, canMutateSegment } from '../auth/can-access-segment.js';
+import { corePanelsForGame } from '../services/member360-panel-registry.js';
+import { triggerMember360Precompute } from '../services/member360-precompute-scheduler.js';
 import { recordActivity } from '../services/activity-store.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -781,6 +783,37 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     emitSegmentOp(req, 'refresh', id);
     return reply.status(202).send({ status: 'refreshing' });
+  });
+
+  // POST /api/segments/:id/precompute-members — manually warm the member-360
+  // cache for the segment's tiered members (the nightly job's "compute now"
+  // affordance). Fire-and-forget; rate-limited to 1 accepted trigger per
+  // segment per 10 minutes so it can't be used to hammer Cube.
+  app.post('/api/segments/:id/precompute-members', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = guardSegment(req, reply, id, 'mutate');
+    if (!row) return reply;
+
+    const eligible =
+      row.member_tiers_json != null &&
+      corePanelsForGame(row.game_id as string | null).length > 0;
+    if (!eligible) {
+      return reply.status(400).send({
+        error: {
+          code: 'NOT_ELIGIBLE',
+          message: 'Segment has no member tiers or its game has no member-360 panels',
+        },
+      });
+    }
+
+    const result = triggerMember360Precompute(id);
+    if (!result.accepted) {
+      reply.header('retry-after', String(Math.ceil((result.retryAfterMs ?? 0) / 1000)));
+      return reply.status(429).send({
+        error: { code: 'RATE_LIMITED', message: 'Precompute already triggered recently' },
+      });
+    }
+    return reply.status(202).send({ status: 'precomputing' });
   });
 
   // POST /api/segments/:id/activations — append a new activation (stub).

@@ -11,6 +11,8 @@ import { resolveDrift } from '../services/drift-resolver.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
 import { computeMemberTiers } from '../services/member-tier-runner.js';
+import { pruneMember360CacheToUids } from '../services/member360-cache-store.js';
+import { tieredUids } from '../services/member360-runner.js';
 import { pickPresetForSegment } from '../presets/registry.js';
 import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.js';
 import { logicalCube } from '../services/cube-member-resolver.js';
@@ -271,9 +273,17 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       if (tiers) {
         db.prepare('UPDATE segments SET member_tiers_json = ?, updated_at = ? WHERE id = ?')
           .run(JSON.stringify(tiers), new Date().toISOString(), segmentId);
+        // Tier membership just changed — drop member-360 cache rows for uids
+        // that left the tiers. Surviving uids keep their rows; new uids fill
+        // next nightly precompute window (or via the manual trigger).
+        pruneMember360CacheToUids(segmentId, tieredUids(tiers));
       }
+      // tiers === null (transient compute failure): keep prior tiers AND their
+      // cache — staleness is visible via computed_at, never destroyed by a blip.
     } else {
       db.prepare('UPDATE segments SET member_tiers_json = NULL WHERE id = ?').run(segmentId);
+      // No LTV measure → segment is no longer member-360 eligible; clear cache.
+      pruneMember360CacheToUids(segmentId, []);
     }
 
     if (preset) {

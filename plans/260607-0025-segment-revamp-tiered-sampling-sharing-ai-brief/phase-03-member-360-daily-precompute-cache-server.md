@@ -1,10 +1,11 @@
 ---
 phase: 3
-title: "Member-360 daily precompute cache (server)"
-status: pending
+title: Member-360 daily precompute cache (server)
+status: completed
 priority: P1
-effort: "2d"
-dependencies: [1]
+effort: 2d
+dependencies:
+  - 1
 ---
 
 # Phase 3: Member-360 daily precompute cache (server)
@@ -77,11 +78,34 @@ segments, recalc once per day. Lazy behavior panels are explicitly out (stay liv
    ization on prefix workspace; refresh-prune integration.
 
 ## Success Criteria
-- [ ] Nightly run fills cache for an eligible segment: 150 uids × core panels, statuses ok
-- [ ] Per-segment budget abort leaves partial cache + correct statuses, resumes next window
-- [ ] Re-run with unchanged data writes nothing (hash skip)
-- [ ] Tier change prunes stale uids' rows only
-- [ ] Ineligible segments (no tiers / no registry game) untouched
+- [x] Nightly run fills cache for an eligible segment: 150 uids × core panels, statuses ok
+      (unit-verified with mocked Cube; live happy path infra-blocked — see notes)
+- [x] Per-segment budget abort leaves partial cache + correct statuses, resumes next window
+- [x] Re-run with unchanged data writes nothing (hash skip)
+- [x] Tier change prunes stale uids' rows only
+- [x] Ineligible segments (no tiers / no registry game) untouched (no Cube load, no cache
+      writes; last_run_at IS stamped so the due-list re-qualifies next window, not per-tick)
+
+## Verification notes (260607)
+- Built as: registry copy `member360-panel-registry.ts` (core panels only — behavior panels
+  never precomputed) + builder copy `member360-panel-query.ts`; parity test deep-compares both
+  against the FE sources per game and per panel (incl. clientsdkuserid identity-key case).
+- Tests: 42 new (parity 5, store 6, runner 9+2 helpers, scheduler 9, refresh-prune integration 1
+  + pre-existing). Full server suite 122 files / 868 tests green under nvm node v24.11.1.
+- Live verified: migration 033 applied; manual trigger 202 → 429 (retry-after) on repeat;
+  **the real nightly cron pass fired in-window (02:35 GMT+7)** and serially drained all 3
+  eligible dev segments, persisting 2,624 per-row statuses + last_run_at stamps. All rows were
+  status=error because the :4000 SSH tunnel to remote cube-dev was down/flaky at the time —
+  infra, not code (single probe queries succeeded when the tunnel was up; error rows self-heal
+  next window via the status-flip write rule). Happy-path fill is unit-verified.
+- Code review DONE_WITH_CONCERNS → applied: stamp last_run_at on ALL terminal outcomes
+  (tiered-but-no-registry games are reachable — mf_users preset tiers every game).
+- Deferred (review M-4, tracking only): FE `build-panel-query.ts` filters behavior panels on
+  `<view>.log_date` while their timeDimension is `<view>.dteventtime` — pre-existing FE
+  divergence copied verbatim for parity; harmless (behavior panels not precomputed); fix
+  belongs FE-side if a behavior panel ever becomes core.
+- Deferred (review M-3): manual-trigger cooldown Map is process-lifetime; bounded by segment
+  count in practice.
 
 ## Risk Assessment
 - **Cube load**: worst case ~1,350 queries/segment. Serial segments + concurrency 3 + nightly

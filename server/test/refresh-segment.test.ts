@@ -265,6 +265,36 @@ describe('refreshSegment', () => {
     expect(JSON.parse(row.member_tiers_json!).tiers.all[0].uid).toBe('old');
   });
 
+  it('prunes member-360 cache rows for uids that left the tiers, keeps survivors', async () => {
+    const id = seedSegment();
+    // Warm cache from a prior night: u1 survives the new tiers, gone-uid doesn't.
+    const { upsertMember360Cache, getMember360Cache } = await import(
+      '../src/services/member360-cache-store.js'
+    );
+    upsertMember360Cache(id, [
+      { uid: 'u1', panelId: 'profile', queryHash: 'h', rows: [{ warm: 1 }], status: 'ok' },
+      { uid: 'gone-uid', panelId: 'profile', queryHash: 'h', rows: [{ warm: 1 }], status: 'ok' },
+    ]);
+
+    vi.spyOn(cubeClient, 'load').mockImplementation(async (query: unknown) => {
+      const q = query as { total?: boolean; measures?: string[] };
+      if (q.total) return { total: 2, data: [] } as never;
+      if (q.measures?.includes('mf_users.ltv_total_vnd')) {
+        return {
+          data: [
+            { 'mf_users.user_id': 'u1', 'mf_users.ltv_total_vnd': 100 },
+            { 'mf_users.user_id': 'u2', 'mf_users.ltv_total_vnd': 5 },
+          ],
+        } as never;
+      }
+      return { data: [{ 'mf_users.user_id': 'u1' }, { 'mf_users.user_id': 'u2' }] } as never;
+    });
+
+    await refreshSegment(id);
+    expect(Object.keys(getMember360Cache(id, 'u1'))).toEqual(['profile']);
+    expect(Object.keys(getMember360Cache(id, 'gone-uid'))).toEqual([]);
+  });
+
   it('marks status=broken when no identity-field mapping exists and auto-suggest has no hit', async () => {
     const id = seedSegment();
     const db = getDb();
