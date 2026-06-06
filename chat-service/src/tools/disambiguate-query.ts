@@ -91,6 +91,8 @@ export async function handler(
   language: DisambiguationResult['language'];
   warnings: string[];
   assumption?: ResolutionAssumption;
+  /** True when /meta couldn't be fetched — resolution ran degraded (no starter pass-through, no member gate). */
+  metaUnavailable?: boolean;
 }> {
   const mode = args.mode ?? ctx.disambiguationMode ?? 'targeted';
   const now = ctx.now ? ctx.now() : Date.now();
@@ -98,11 +100,17 @@ export async function handler(
   let knownMembers: Set<string> | undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let meta: any = null;
+  // Non-null when /meta couldn't be fetched (gateway or Cube upstream down).
+  // Carried into the result so the degradation is visible instead of silent —
+  // without meta the starter pass-through and the member-validation gate are
+  // both skipped, which otherwise looks like a resolver failure.
+  let metaError: string | null = null;
   try {
     meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.workspace);
     knownMembers = cubeMetaCache.extractMemberNames(meta);
-  } catch {
+  } catch (err) {
     knownMembers = undefined;
+    metaError = err instanceof Error ? err.message : String(err);
   }
 
   // Pregenerated starter-question pass-through: a clicked chip matches a
@@ -200,6 +208,31 @@ export async function handler(
     }
   }
 
+  // Meta outage disclosure. Without /meta both the starter pass-through and
+  // the member gate were skipped, so a clarify produced here can be off-topic
+  // (e.g. a canned revenue menu for an engagement question — session
+  // 4929a3e9). Always surface the outage in warnings; when the metric also
+  // failed to resolve, replace the canned options with an honest
+  // "data model temporarily unavailable, retry" clarification.
+  if (metaError) {
+    result.warnings.push(
+      `cube meta unavailable (${metaError}) — starter pass-through and member validation skipped`,
+    );
+    const metricUnresolved =
+      !result.slots.metric.value && (result.slots.metric.confidence ?? 0) === 0;
+    if (result.action === 'clarify' && metricUnresolved) {
+      result.clarifications = [
+        {
+          slot: 'metric',
+          question_en:
+            "The game's data model is temporarily unavailable (Cube /meta is unreachable), so I can't resolve this question right now — please try again in a moment.",
+          question_vi:
+            'Mô hình dữ liệu của game tạm thời không truy cập được (Cube /meta không phản hồi) — vui lòng thử lại sau giây lát.',
+        },
+      ];
+    }
+  }
+
   // Emit structured chip data when we still need user input. The FE listens
   // for 'disambig_options' and renders clickable pills below the assistant
   // turn. We pick the most pressing clarification and translate its options
@@ -229,6 +262,7 @@ export async function handler(
     language: result.language,
     warnings: result.warnings,
     ...(assumption ? { assumption } : {}),
+    ...(metaError ? { metaUnavailable: true } : {}),
   };
 }
 
