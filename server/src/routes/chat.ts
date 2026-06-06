@@ -722,6 +722,24 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- GET /api/chat/debug/starter-verification-report ---
+  // Pregenerated starter-question verification results (per-candidate gate
+  // outcomes) for the /dev/chat-audit/starters review tab.
+  app.get(
+    '/api/chat/debug/starter-verification-report',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const url = `${chatServiceUrl()}/debug/starter-verification-report`;
+      try {
+        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- GET /api/chat/debug/turns/:turnId ---
   app.get<{ Params: { turnId: string } }>(
     '/api/chat/debug/turns/:turnId',
