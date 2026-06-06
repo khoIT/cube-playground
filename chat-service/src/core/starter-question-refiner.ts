@@ -21,6 +21,41 @@ const CATEGORIES = new Set(['explore', 'metric_explain', 'compare', 'diagnose'])
 /** The frozen seed ships exactly this many questions per topic per game. */
 export const QUESTIONS_PER_TOPIC = 6;
 /**
+ * Hard cap on question text length. The curated business-case list tops out
+ * around ~95 chars; anything longer reads as compound analyst prose rather
+ * than a clickable chip. Over-cap candidates are dropped row-by-row (length
+ * is a style miss, not a hallucination signal — no wholesale reject).
+ */
+export const MAX_QUESTION_TEXT_CHARS = 100;
+
+/**
+ * Phrasing/content exemplars from the cube business case's curated question
+ * list (Core Analytics & Reporting / Growth & UA / LiveOps & Activation).
+ * They anchor BOTH the analytical shape (questions a publisher acts on) and
+ * the style contract: short report-headline questions, one ask each.
+ */
+export const STYLE_EXEMPLARS: Record<(typeof SEED_TOPICS)[number], string[]> = {
+  monetization: [
+    'How many paying users do we have right now?',
+    'Total revenue this month, split by IAP vs Web payment channel',
+    'ARPPU broken down by payer tier (whale / dolphin / minnow)',
+    'Revenue this month vs last month, per OS platform',
+    'Per-user 7-day spend tier (high / mid / low) across the player base',
+  ],
+  user_acquisition: [
+    'Top 5 acquisition channels by 30-day LTV',
+    'Trailing 7-day revenue per acquisition channel vs the prior week',
+    "What % of last month's install cohort recharged within 30 days?",
+    'D1 / D7 / D30 retention for paid vs organic installs',
+  ],
+  liveops: [
+    "Today's actives by register-month cohort — veterans vs new installs",
+    "Whales who haven't recharged in 14 days, by media source",
+    'New vs veteran players: daily playtime, matches, and mode mix',
+    'DAU by country and payer tier over the last 30 days',
+  ],
+};
+/**
  * The LLM is asked for extra candidates per topic so the end-to-end
  * verification pass (real chat turn → artifact) can discard duds and still
  * fill QUESTIONS_PER_TOPIC without an immediate retry round.
@@ -134,6 +169,14 @@ export function buildRefinePrompt(
     'baseline_questions (deterministic candidates — pick/improve the strongest, drop the rest):',
     JSON.stringify(baseline),
     '',
+    'style_exemplars (the phrasing baseline — adapt the SHAPE to this game\'s actual members):',
+    JSON.stringify(STYLE_EXEMPLARS),
+    '',
+    'STYLE — every question must read like a report headline, exactly like style_exemplars:',
+    `- SHORT: at most ${MAX_QUESTION_TEXT_CHARS} characters. Longer texts are dropped before verification.`,
+    '- ONE ask per question. NEVER compound two-part phrasing ("…, and how has X shifted…").',
+    '- Punchy noun-phrase or a single direct question; no scene-setting prose.',
+    '',
     'RULES:',
     '- Output ONLY a JSON array. No prose, no code fences.',
     `- EXACTLY ${CANDIDATES_PER_TOPIC} candidate questions PER TOPIC (${CANDIDATES_PER_TOPIC * SEED_TOPICS.length} total),`,
@@ -180,6 +223,8 @@ export function parseAndValidateLlmSet(
     const x = item as any;
     if (typeof x?.id !== 'string' || !x.id.trim()) continue;
     if (typeof x?.text !== 'string' || !x.text.trim()) continue;
+    // Style gate: over-length questions are compound analyst prose, not chips.
+    if (x.text.trim().length > MAX_QUESTION_TEXT_CHARS) continue;
     if (!Array.isArray(x.topicTags) || x.topicTags.length === 0) continue;
     if (!x.topicTags.every((t: unknown) => typeof t === 'string' && TOPICS.has(t))) continue;
     if (!Array.isArray(x.categoryTags) || x.categoryTags.length === 0) continue;

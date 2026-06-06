@@ -189,6 +189,17 @@ describe('parseAndValidateLlmSet', () => {
     const raw = JSON.stringify([item(), item({ id: 'q2' })]);
     expect(parseAndValidateLlmSet(raw, known)).toBeNull();
   });
+
+  it('drops over-length question texts row-by-row (style gate, not wholesale reject)', () => {
+    const longText = 'What share of daily active users also recharged on the same day, and how has that engagement-to-payer overlap shifted over the last 30 days?';
+    expect(longText.length).toBeGreaterThan(100);
+    const raw = JSON.stringify([
+      item(), item({ id: 'q2' }), item({ id: 'q3' }),
+      item({ id: 'too-long', text: longText }),
+    ]);
+    const out = parseAndValidateLlmSet(raw, known)!;
+    expect(out.map((q) => q.id)).toEqual(['q1', 'q2', 'q3']);
+  });
 });
 
 describe('question depth classification & prompt split', () => {
@@ -221,5 +232,15 @@ describe('question depth classification & prompt split', () => {
     const prompt = buildRefinePrompt(withAdvanced, []);
     expect(prompt).toContain('DEPTH MIX');
     expect(prompt).toContain('4 BASIC candidates and 4 ADVANCED candidates');
+  });
+
+  it('prompt embeds the business-case style exemplars and the length cap', () => {
+    const prompt = buildRefinePrompt(
+      [{ cube: 'mf_users', member: 'mf_users.user_id', kind: 'dimension' as const }],
+      [],
+    );
+    expect(prompt).toContain('Top 5 acquisition channels by 30-day LTV');
+    expect(prompt).toContain('at most 100 characters');
+    expect(prompt).toContain('ONE ask per question');
   });
 });

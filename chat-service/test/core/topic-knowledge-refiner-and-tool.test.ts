@@ -82,6 +82,9 @@ describe('parseKnowledgeSet', () => {
     expect(prompt).toContain('How has revenue trended?');
     expect(prompt).toContain('EXACTLY 10 questions PER TOPIC');
     expect(prompt).toContain('Up to 8 metrics PER TOPIC');
+    // Same headline-style contract as the starter chips.
+    expect(prompt).toContain('Top 5 acquisition channels by 30-day LTV');
+    expect(prompt).toContain('at most 100 characters');
   });
 });
 

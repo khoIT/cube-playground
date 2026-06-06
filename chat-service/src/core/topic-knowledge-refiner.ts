@@ -13,6 +13,7 @@
 import type { StarterQuestion } from '../db/starter-questions-store.js';
 import type { KnowledgeMetric, KnowledgeTopic } from '../db/game-topic-knowledge-seed.js';
 import { KNOWLEDGE_TOPICS } from '../db/game-topic-knowledge-seed.js';
+import { MAX_QUESTION_TEXT_CHARS, STYLE_EXEMPLARS } from './starter-question-refiner.js';
 
 /** Bank size per topic, including the shipped starter questions. */
 export const KNOWLEDGE_QUESTIONS_PER_TOPIC = 12;
@@ -55,6 +56,14 @@ export function buildKnowledgePrompt(
     '  "questions": [ {"id": string, "text": string, "topicTags": string[], "categoryTags": string[], "targetCatalogIds": string[]}, ... ],',
     '  "metrics":   [ {"member": string, "title": string, "why": string, "topic": string}, ... ]',
     '}',
+    '',
+    'style_exemplars (the phrasing baseline — adapt the SHAPE to this game\'s actual members):',
+    JSON.stringify(STYLE_EXEMPLARS),
+    '',
+    'STYLE — every question must read like a report headline, exactly like style_exemplars:',
+    `- SHORT: at most ${MAX_QUESTION_TEXT_CHARS} characters. Longer texts are dropped before verification.`,
+    '- ONE ask per question. NEVER compound two-part phrasing ("…, and how has X shifted…").',
+    '- Punchy noun-phrase or a single direct question; no scene-setting prose.',
     '',
     'QUESTION RULES:',
     `- EXACTLY ${EXTRA_CANDIDATES_PER_TOPIC} questions PER TOPIC (${KNOWLEDGE_TOPICS.join(' / ')}), strongest-first;`,
