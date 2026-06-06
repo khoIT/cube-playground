@@ -1,0 +1,1968 @@
+{
+  "version": "260606-3139",
+  "generatedAt": 1780764593139,
+  "workspaceGenerated": "local",
+  "games": {
+    "cfm_vn": {
+      "topics": {
+        "liveops": {
+          "questions": [
+            {
+              "id": "wau-vs-trailing-wau-30d",
+              "text": "WAU vs trailing WAU over the last 30 days",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.wau",
+                "active_daily.trailing_wau",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "dau-mau-ratio-by-platform",
+              "text": "DAU/MAU ratio by OS platform — iOS vs Android stickiness",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.mau",
+                "active_daily.os_platform"
+              ]
+            },
+            {
+              "id": "top-servers-by-online-time",
+              "text": "Top 10 servers by total online time — where do players spend most hours?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.total_online_time_sec",
+                "active_daily.server_id"
+              ]
+            },
+            {
+              "id": "matches-by-game-mode",
+              "text": "Matches and distinct players by game mode — which mode dominates?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_game_detail.matches",
+                "etl_game_detail.distinct_players",
+                "etl_game_detail.game_mode_label"
+              ]
+            },
+            {
+              "id": "login-peak-by-hour-weekday",
+              "text": "Login volume by hour (VN time) and weekday — peak activity windows",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_login.logins",
+                "etl_login.hour_of_day_vn",
+                "etl_login.day_of_week_vn"
+              ]
+            },
+            {
+              "id": "drop-rate-by-map",
+              "text": "Match drop rate by map — which maps trigger the most early quits?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_game_detail.drop_rate",
+                "etl_game_detail.map_label",
+                "etl_game_detail.dropped_matches"
+              ]
+            },
+            {
+              "id": "q_liveops_01",
+              "text": "Daily avg session duration trend — is engagement depth improving?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_logout.avg_session_sec",
+                "etl_logout.log_date"
+              ]
+            },
+            {
+              "id": "q_liveops_02",
+              "text": "DAU by role class last 30 days — which archetype leads activity?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.role_class",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "q_liveops_03",
+              "text": "Avg online time per active player by server last 30 days",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.total_online_time_sec",
+                "active_daily.dau",
+                "active_daily.server_id"
+              ]
+            },
+            {
+              "id": "q_liveops_04",
+              "text": "MAU vs prior-month MAU — is the monthly player base growing?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.mau",
+                "active_daily.mau_prev_month"
+              ]
+            },
+            {
+              "id": "q_liveops_05",
+              "text": "Active server count trend last 30 days — expanding or contracting?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.active_servers",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "q_liveops_06",
+              "text": "KDR by game mode in the most recent month of data",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_game_detail.kdr",
+                "etl_game_detail.game_mode_label"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "active_daily.dau",
+              "title": "DAU",
+              "why": "Baseline health check; a >10% day-over-day drop warrants immediate incident review."
+            },
+            {
+              "member": "active_daily.trailing_wau",
+              "title": "Trailing WAU",
+              "why": "7-day rolling uniques; removes weekday noise better than calendar WAU for trend calls."
+            },
+            {
+              "member": "active_daily.trailing_mau",
+              "title": "Trailing MAU",
+              "why": "28-day rolling base; shows sustainable growth earlier than calendar MAU resets."
+            },
+            {
+              "member": "active_daily.total_online_time_sec",
+              "title": "Total Online Time",
+              "why": "Session volume aggregate; flat despite DAU growth reveals thinning per-user engagement."
+            },
+            {
+              "member": "etl_logout.avg_session_sec",
+              "title": "Avg Session Length",
+              "why": "Per-visit depth signal; sustained decline anticipates DAU churn by 1–2 weeks."
+            },
+            {
+              "member": "etl_room_match_flow.success_rate",
+              "title": "Matchmaking Success Rate",
+              "why": "Queue UX health; below threshold means players abandon before a game starts."
+            },
+            {
+              "member": "etl_game_detail.drop_rate",
+              "title": "Match Drop Rate",
+              "why": "In-match quit signal; rising rate flags lag spikes, toxicity, or balance problems."
+            },
+            {
+              "member": "etl_room_match_flow.avg_alloc_wait_ms",
+              "title": "Avg Queue Wait",
+              "why": "Long waits reduce daily match frequency and directly damage session-count retention."
+            }
+          ]
+        },
+        "user_acquisition": {
+          "questions": [
+            {
+              "id": "dau-by-country-30d",
+              "text": "DAU by country over the last 30 days — geographic player spread",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.country_code",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "dau-by-os-platform",
+              "text": "Daily active players by OS platform — iOS vs Android split",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.os_platform",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "trailing-mau-60d-trend",
+              "text": "Trailing MAU over the last 60 days — is the player base growing?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.trailing_mau",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "tutorial-completion-by-step",
+              "text": "Tutorial completion rate by step — where do new players drop off?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_newbie_tutorial.completion_rate",
+                "etl_newbie_tutorial.tutorial_id",
+                "etl_newbie_tutorial.distinct_players"
+              ]
+            },
+            {
+              "id": "newbie-first-game-mode",
+              "text": "First game mode chosen in training — what draws new players?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_newbie_detail.distinct_players",
+                "etl_newbie_detail.first_game_mode"
+              ]
+            },
+            {
+              "id": "backflow-vs-new-logins-by-channel",
+              "text": "Backflow logins vs total logins by app channel — returning vs fresh players",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_login.backflow_logins",
+                "etl_login.logins",
+                "etl_login.app_channel"
+              ]
+            },
+            {
+              "id": "q_ua_01",
+              "text": "Avg ship-training completion time last 30 days — onboarding speed",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_newbie_detail.avg_ship_training_time",
+                "etl_newbie_detail.log_date"
+              ]
+            },
+            {
+              "id": "q_ua_02",
+              "text": "Newbie self-esteem distribution last 30 days — confident vs anxious starters",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_newbie_detail.newbie_self_count",
+                "etl_newbie_detail.veteran_self_count",
+                "etl_newbie_detail.self_esteem_label"
+              ]
+            },
+            {
+              "id": "q_ua_04",
+              "text": "Login volume by app channel last 30 days — channel traffic share",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_login.logins",
+                "etl_login.app_channel"
+              ]
+            },
+            {
+              "id": "q_ua_05",
+              "text": "Backflow logins by server last 30 days — which servers attract returnees?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_login.backflow_logins",
+                "etl_login.server_id"
+              ]
+            },
+            {
+              "id": "q_ua_10",
+              "text": "Login count by login channel last 30 days — auth method breakdown",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_login.logins",
+                "etl_login.login_channel"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "etl_newbie_tutorial.completion_rate",
+              "title": "Tutorial Completion Rate",
+              "why": "Core onboarding KPI; low rate signals FTUE friction before players can activate."
+            },
+            {
+              "member": "etl_newbie_tutorial.started_count",
+              "title": "Tutorial Starts",
+              "why": "Raw new-player entry volume; sustained drop is the earliest acquisition slowdown signal."
+            },
+            {
+              "member": "etl_newbie_tutorial.completed_count",
+              "title": "Tutorial Completions",
+              "why": "Activated-player count; sets the upper bound for revenue-eligible new cohorts."
+            },
+            {
+              "member": "etl_login.backflow_logins",
+              "title": "Backflow Logins",
+              "why": "Win-back volume; a lift following a campaign confirms re-engagement channel effectiveness."
+            },
+            {
+              "member": "etl_newbie_detail.avg_ship_training_time",
+              "title": "Avg Onboarding Duration",
+              "why": "Friction indicator; longer times correlate with early drop-off before first real match."
+            },
+            {
+              "member": "etl_newbie_detail.avg_score",
+              "title": "Avg Newbie Tutorial Score",
+              "why": "Quality signal; consistently low scores flag confusing mechanics or weak tutorial design."
+            },
+            {
+              "member": "etl_newbie_tutorial.distinct_tutorials_touched",
+              "title": "Tutorials Touched per Player",
+              "why": "Breadth signal; measures how much of the onboarding surface new players actually explore."
+            },
+            {
+              "member": "etl_login.distinct_devices",
+              "title": "Distinct Login Devices",
+              "why": "Multi-device reach; growing count indicates successful cross-platform acquisition spread."
+            }
+          ]
+        },
+        "monetization": {
+          "questions": [
+            {
+              "id": "payer-count-per-day",
+              "text": "Payer count per day — active players who recharged, last 30 days",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.is_recharge_day",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "payer-share-by-platform",
+              "text": "Payer share by OS platform — iOS vs Android recharge rate",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.is_recharge_day",
+                "active_daily.os_platform"
+              ]
+            },
+            {
+              "id": "recharge-density-by-server",
+              "text": "Recharge player density by server — top servers by payer share",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.is_recharge_day",
+                "active_daily.server_id"
+              ]
+            },
+            {
+              "id": "gacha-diamond-spend-by-banner",
+              "text": "Diamond spend by gacha banner — which lottery box captures the most?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_lottery_shoot.total_cost_diamond",
+                "etl_lottery_shoot.distinct_players",
+                "etl_lottery_shoot.lottery_box"
+              ]
+            },
+            {
+              "id": "diamond-spend-by-reason",
+              "text": "Top diamond spend reasons — what drains player wallets most?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_money_flow.total_out",
+                "etl_money_flow.reason_base_label",
+                "etl_money_flow.money_type"
+              ]
+            },
+            {
+              "id": "gacha-tenpull-vs-single-ratio",
+              "text": "Ten-pull vs single-pull ratio by gacha banner",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_lottery_shoot.ten_pull_count",
+                "etl_lottery_shoot.pulls",
+                "etl_lottery_shoot.lottery_box"
+              ]
+            },
+            {
+              "id": "q_mon_01",
+              "text": "Diamond inflow vs outflow by reason — most recent month of data",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_money_flow.total_in",
+                "etl_money_flow.total_out",
+                "etl_money_flow.reason_base_label"
+              ]
+            },
+            {
+              "id": "q_mon_02",
+              "text": "Distinct gacha spenders last 30 days — how wide is gacha reach?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_lottery_shoot.distinct_players",
+                "etl_lottery_shoot.log_date"
+              ]
+            },
+            {
+              "id": "q_mon_03",
+              "text": "Top prop types by quantity consumed last 30 days",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_prop_flow.losses",
+                "etl_prop_flow.prop_type"
+              ]
+            },
+            {
+              "id": "q_mon_04",
+              "text": "Payer VIP level distribution in the most recent month of data",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_money_flow.distinct_players",
+                "etl_money_flow.vip_level"
+              ]
+            },
+            {
+              "id": "q_mon_05",
+              "text": "Gold outflow by spend reason in the most recent month of data",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_money_flow.total_out",
+                "etl_money_flow.money_type",
+                "etl_money_flow.reason_base_label"
+              ]
+            },
+            {
+              "id": "q_mon_06",
+              "text": "Prop gain events vs loss events by quality last 30 days",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "etl_prop_flow.gains",
+                "etl_prop_flow.losses",
+                "etl_prop_flow.prop_quality"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "etl_lottery_shoot.total_cost_diamond",
+              "title": "Total Gacha Diamond Spend",
+              "why": "Primary soft-currency sink; tracks banner draw intensity and relative revenue contribution."
+            },
+            {
+              "member": "etl_lottery_shoot.distinct_players",
+              "title": "Gacha Participating Players",
+              "why": "Banner reach metric; low share of DAU signals weak banner appeal or a price barrier."
+            },
+            {
+              "member": "etl_prop_flow.total_losses",
+              "title": "Total Prop Consumption",
+              "why": "Item economy sink depth; validates that game-loop rewards are converting into spend."
+            },
+            {
+              "member": "etl_money_flow.total_out",
+              "title": "Total Currency Outflow",
+              "why": "Aggregate spend pressure; compare to inflow ratio to detect inflationary imbalance."
+            },
+            {
+              "member": "etl_money_flow.total_in",
+              "title": "Total Currency Inflow",
+              "why": "Reward distribution scale; persistent excess over outflow signals economy inflation risk."
+            },
+            {
+              "member": "etl_lottery_shoot.ten_pull_count",
+              "title": "Ten-Pull Count",
+              "why": "Bulk commitment gauge; rising ratio to single pulls indicates higher payer conviction."
+            },
+            {
+              "member": "etl_lottery_shoot.diamond_pulls",
+              "title": "Diamond-Fueled Pulls",
+              "why": "Premium engagement proxy; separates paying players from free-currency gacha activity."
+            },
+            {
+              "member": "etl_prop_flow.total_weapon_point_delta",
+              "title": "Net Weapon-Point Flow",
+              "why": "Weapon economy health; persistent net drain without replenishment risks player frustration."
+            }
+          ]
+        }
+      },
+      "coverage": {
+        "mf_users.install_date": "2026-06-04",
+        "new_user_retention.report_date": "2026-06-04",
+        "active_daily.log_date": "2026-06-04",
+        "game_key_metrics.report_date": "2026-06-04",
+        "etl_game_detail.dteventtime": "2026-04-30",
+        "etl_login.dteventtime": "2026-06-03",
+        "etl_newbie_tutorial.dteventtime": "2026-05-31",
+        "etl_newbie_detail.dteventtime": "2026-05-31",
+        "etl_lottery_shoot.dteventtime": "2026-05-31",
+        "etl_money_flow.dteventtime": "2026-04-30",
+        "etl_prop_flow.dteventtime": "2026-05-30",
+        "etl_logout.dteventtime": "2026-06-03",
+        "etl_room_match_flow.dteventtime": "2026-03-03"
+      },
+      "generatedAt": 1780763308289
+    },
+    "cros": {
+      "topics": {
+        "liveops": {
+          "questions": [
+            {
+              "id": "dormant-whales-winback",
+              "text": "Which whale-tier players haven't logged in for 7+ days — ranked by lifetime spend for win-back prioritization?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.payer_tier",
+                "mf_users.days_since_last_active",
+                "mf_users.user_count",
+                "mf_users.ltv_total_vnd"
+              ]
+            },
+            {
+              "id": "monthly-cohort-type-mix",
+              "text": "What share of MAU are new vs returning vs reactivated players each month?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_active_monthly.cohort_type",
+                "user_active_monthly.mau",
+                "user_active_monthly.log_year_month"
+              ]
+            },
+            {
+              "id": "dau-trend-30d",
+              "text": "How has DAU trended over the last 30 days?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "role-class-active-share",
+              "text": "Which character classes account for the largest share of distinct active roles in the most recent available data?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.distinct_roles",
+                "user_roles.last_role_class"
+              ]
+            },
+            {
+              "id": "liveops-role-class-by-server",
+              "text": "How are role classes distributed across each server — which character class dominates which server?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.distinct_roles",
+                "user_roles.last_role_class",
+                "user_roles.server_id"
+              ]
+            },
+            {
+              "id": "liveops-new-role-class-monthly-trend",
+              "text": "Which role classes are newly joining players choosing month-over-month — is there a shift in class popularity among recently registered characters?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.distinct_roles",
+                "user_roles.first_role_class",
+                "user_roles.first_active_date"
+              ]
+            },
+            {
+              "id": "q_liveops_01",
+              "text": "Average daily online time per active player over the last 30 days",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.total_online_time_sec",
+                "active_daily.dau",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "q_liveops_02",
+              "text": "Top countries by DAU in the last 7 days",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.country_code",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "q_liveops_03",
+              "text": "DAU split by OS platform — iOS vs Android share trend",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.os_platform",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "q_liveops_06",
+              "text": "Average active days per player in the most recent month",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_active_monthly.active_days_total",
+                "user_active_monthly.mau",
+                "user_active_monthly.log_year_month"
+              ]
+            },
+            {
+              "id": "q_liveops_07",
+              "text": "Player base lifecycle stage breakdown — active vs dormant vs churned share",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count",
+                "mf_users.lifecycle_stage"
+              ]
+            },
+            {
+              "id": "q_liveops_08",
+              "text": "Engagement segment distribution — hardcore, casual, and at-risk player share",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count",
+                "mf_users.engagement_segment"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "active_daily.dau",
+              "title": "Daily Active Users (DAU)",
+              "why": "Core engagement health pulse; a sustained drop signals crisis before MAU catches it."
+            },
+            {
+              "member": "active_daily.mau",
+              "title": "Monthly Active Users (MAU)",
+              "why": "Defines addressable audience size; denominator for paying rate and engagement depth ratios."
+            },
+            {
+              "member": "active_daily.total_online_time_sec",
+              "title": "Total Daily Online Time",
+              "why": "Aggregate playtime signal; declining total flags disengagement before DAU shows a drop."
+            },
+            {
+              "member": "etl_logout.avg_session_sec",
+              "title": "Avg Session Duration",
+              "why": "Depth-per-session metric; short averages surface content fatigue or progression blocks early."
+            },
+            {
+              "member": "etl_login.logins",
+              "title": "Total Login Events",
+              "why": "Volume of all login actions; spikes map to event or campaign pull, flatness signals missing trigger."
+            },
+            {
+              "member": "active_daily.active_servers",
+              "title": "Active Server Count",
+              "why": "Server health indicator; shrinking count signals player migration or content staleness on old servers."
+            },
+            {
+              "member": "user_active_monthly.active_days_total",
+              "title": "Monthly Active Days (Total)",
+              "why": "Aggregate playtime proxy; divide by MAU for avg days per user to track engagement depth trend."
+            },
+            {
+              "member": "user_active_monthly.recharging_users",
+              "title": "Monthly Recharging Active Users",
+              "why": "Active users who also paid this month; declining ratio reveals a monetization-engagement gap."
+            }
+          ]
+        },
+        "user_acquisition": {
+          "questions": [
+            {
+              "id": "ltv-by-install-cohort",
+              "text": "Which monthly install cohorts show the highest lifetime revenue per user — and how does paying rate vary across cohorts?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.ltv_total_vnd",
+                "mf_users.install_month",
+                "mf_users.user_count",
+                "mf_users.paying_rate"
+              ]
+            },
+            {
+              "id": "media-source-quality-ranking",
+              "text": "Rank media sources by new user volume and 30-day paying rate — which acquisition channel brings the highest-value players?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.media_source",
+                "mf_users.user_count_approx",
+                "mf_users.paying_rate_30d",
+                "mf_users.ltv_30d_total_vnd"
+              ]
+            },
+            {
+              "id": "paid-vs-organic-ltv-gap",
+              "text": "How does lifetime value and paying rate compare between paid-install and organic users?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.is_paid_install",
+                "mf_users.user_count",
+                "mf_users.ltv_total_vnd",
+                "mf_users.paying_rate"
+              ]
+            },
+            {
+              "id": "first-role-class-preference",
+              "text": "Which character class do new players pick most often as their first role — and does the choice vary by server?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.distinct_roles",
+                "user_roles.first_role_class",
+                "user_roles.server_id"
+              ]
+            },
+            {
+              "id": "ua-new-cohort-revenue-by-server",
+              "text": "Which servers generated the most revenue from characters created in the last 90 days — a quality signal for server-level acquisition performance?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.roles_revenue_vnd",
+                "user_roles.roles_txn_count",
+                "user_roles.server_id",
+                "user_roles.first_active_date"
+              ]
+            },
+            {
+              "id": "ua-vip-attainment-new-roles-60d",
+              "text": "Among characters created in the last 60 days, what is the VIP level distribution — how quickly are new players progressing to paid tiers?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.distinct_roles",
+                "user_roles.max_vip_level",
+                "user_roles.first_active_date"
+              ]
+            },
+            {
+              "id": "q_ua_02",
+              "text": "Fraud install rate by media source — which channels deliver the cleanest traffic?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count_approx",
+                "mf_users.is_fraud_install",
+                "mf_users.media_source"
+              ]
+            },
+            {
+              "id": "q_ua_03",
+              "text": "New install volume by OS platform — iOS vs Android acquisition split",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count_approx",
+                "mf_users.os_platform",
+                "mf_users.install_month"
+              ]
+            },
+            {
+              "id": "q_ua_04",
+              "text": "Top countries by new install count in the most recent month",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count_approx",
+                "mf_users.country",
+                "mf_users.install_month"
+              ]
+            },
+            {
+              "id": "q_ua_05",
+              "text": "Which acquisition campaigns have the highest lifetime ARPU?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.arpu_vnd",
+                "mf_users.campaign_id"
+              ]
+            },
+            {
+              "id": "q_ua_06",
+              "text": "Paid-install vs organic split of new user volume by month",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count_approx",
+                "mf_users.is_paid_install",
+                "mf_users.install_month"
+              ]
+            },
+            {
+              "id": "q_ua_07",
+              "text": "Which login channels do paid-install users favor — channel preference by install type?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count_approx",
+                "mf_users.first_login_channel",
+                "mf_users.is_paid_install"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "etl_register.registers",
+              "title": "New Role Registrations",
+              "why": "In-game character creation volume; leading indicator of top-of-funnel UA campaign output per server."
+            },
+            {
+              "member": "mf_users.user_count_approx",
+              "title": "Approx Total User Count",
+              "why": "Fast HLL estimate of total player base; baseline for acquisition funnel sizing and growth tracking."
+            },
+            {
+              "member": "mf_users.paying_rate_30d",
+              "title": "30-Day Paying Rate",
+              "why": "Recent conversion health metric; compare across channels and cohorts to rank traffic quality."
+            },
+            {
+              "member": "mf_users.arpu_vnd",
+              "title": "Lifetime ARPU (VND)",
+              "why": "Blended revenue per all users; divide by UA CPI for channel-level ROAS benchmarking."
+            },
+            {
+              "member": "mf_users.ltv_total_vnd",
+              "title": "Total Lifetime Revenue (VND)",
+              "why": "Absolute revenue contribution of the acquired base; compare cohorts to validate UA payback periods."
+            },
+            {
+              "member": "mf_users.ltv_30d_total_vnd",
+              "title": "30-Day LTV (VND)",
+              "why": "Near-term return on UA spend; benchmark new cohorts against targets to catch underperformers early."
+            },
+            {
+              "member": "mf_users.paying_users",
+              "title": "Total Paying Users",
+              "why": "Absolute lifetime payer count; combined with install volume yields overall conversion funnel rate."
+            },
+            {
+              "member": "etl_register.distinct_users",
+              "title": "Distinct Registered Users",
+              "why": "Unique SDK accounts with at least one character; separates account creation from character funnel."
+            }
+          ]
+        },
+        "monetization": {
+          "questions": [
+            {
+              "id": "revenue-concentration-by-payer-tier",
+              "text": "What share of total lifetime revenue comes from whales vs dolphins vs minnows — and how many players are in each tier?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.payer_tier",
+                "mf_users.ltv_total_vnd",
+                "mf_users.user_count"
+              ]
+            },
+            {
+              "id": "vip-outreach-priority-list",
+              "text": "List top VIP players ranked by VIP level and lifetime spend for high-touch CS outreach",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.max_vip_level",
+                "mf_users.ltv_total_vnd",
+                "mf_users.user_count"
+              ]
+            },
+            {
+              "id": "monthly-arppu-trend",
+              "text": "How has monthly ARPPU trended over the most recent months of data, and how many paying users drove it?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_recharge_monthly.arppu_vnd_monthly",
+                "user_recharge_monthly.log_year_month",
+                "user_recharge_monthly.paying_users_monthly"
+              ]
+            },
+            {
+              "id": "revenue-by-role-class",
+              "text": "Which character classes generate the most total revenue — and which have the highest revenue per active player?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.roles_revenue_vnd",
+                "user_roles.last_role_class",
+                "user_roles.distinct_users"
+              ]
+            },
+            {
+              "id": "vip-level-by-role-class",
+              "text": "Which character classes climb the VIP ladder fastest — VIP level distribution broken down by role class?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.max_vip_level",
+                "user_roles.last_role_class",
+                "user_roles.distinct_roles"
+              ]
+            },
+            {
+              "id": "top-revenue-servers",
+              "text": "Which game servers generate the highest total player spending in the most recent available data?",
+              "depth": "advanced",
+              "targetCatalogIds": [
+                "user_roles.roles_revenue_vnd",
+                "user_roles.server_id",
+                "user_roles.distinct_users"
+              ]
+            },
+            {
+              "id": "q_mon_01",
+              "text": "Revenue split: IAP vs Web payment channel in the most recent month",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_recharge_monthly.revenue_vnd_iap_total",
+                "user_recharge_monthly.revenue_vnd_web_total",
+                "user_recharge_monthly.log_year_month"
+              ]
+            },
+            {
+              "id": "q_mon_02",
+              "text": "Daily recharge revenue trend — recent acceleration or decline?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_recharge_daily.revenue_vnd_total",
+                "user_recharge_daily.log_date"
+              ]
+            },
+            {
+              "id": "q_mon_03",
+              "text": "Transaction size distribution — share of small vs large recharge amounts",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.transactions",
+                "recharge.txn_value_band"
+              ]
+            },
+            {
+              "id": "q_mon_04",
+              "text": "Top countries by total recharge revenue in the most recent month",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.revenue_total",
+                "recharge.country_code",
+                "recharge.log_month"
+              ]
+            },
+            {
+              "id": "q_mon_05",
+              "text": "Which in-game purchase packages generate the most revenue?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.revenue_total",
+                "recharge.product_id"
+              ]
+            },
+            {
+              "id": "q_mon_06",
+              "text": "Recharge frequency distribution — how many days per month do payers typically recharge?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_recharge_monthly.paying_users_monthly",
+                "user_recharge_monthly.recharge_days"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "recharge.revenue_total",
+              "title": "Total Recharge Revenue",
+              "why": "Primary top-line metric from raw events; always filter currency_code for clean same-currency sums."
+            },
+            {
+              "member": "recharge.paying_users",
+              "title": "Paying Users (Transaction Events)",
+              "why": "HLL payer count from event stream; track daily for real-time campaign and promotion impact signals."
+            },
+            {
+              "member": "recharge.arppu",
+              "title": "ARPPU (Recharge Events)",
+              "why": "Revenue per paying user from raw transactions; rising with flat payer count signals higher per-head spend."
+            },
+            {
+              "member": "recharge.arpt",
+              "title": "Avg Revenue Per Transaction",
+              "why": "Average purchase size; guides package pricing decisions and flags which product_ids punch above weight."
+            },
+            {
+              "member": "recharge.transactions",
+              "title": "Transaction Count",
+              "why": "Purchase event volume; spikes map to events and promos, enabling event ROI attribution."
+            },
+            {
+              "member": "mf_users.whales_count",
+              "title": "Whale Count",
+              "why": "Number of top-value users; an early decline signals VIP churn risk before top-line revenue reacts."
+            },
+            {
+              "member": "mf_users.paying_rate",
+              "title": "Overall Paying Rate",
+              "why": "Share of total player base who have ever paid; structural monetization health benchmark across cohorts."
+            },
+            {
+              "member": "user_recharge_monthly.arppu_vnd_monthly",
+              "title": "Monthly ARPPU (VND)",
+              "why": "Monthly revenue per paying user from snapshot cube; track MoM to measure event and offer lift."
+            }
+          ]
+        }
+      },
+      "coverage": {
+        "mf_users.install_date": "2026-06-06",
+        "active_daily.log_date": "2026-06-06",
+        "user_roles.first_active_date": "2026-06-06",
+        "user_recharge_monthly.log_month": "2026-06-01",
+        "recharge.transaction_time": "2026-06-05",
+        "user_recharge_daily.log_date": "2026-06-06"
+      },
+      "generatedAt": 1780763931438
+    },
+    "jus_vn": {
+      "topics": {
+        "liveops": {
+          "questions": [
+            {
+              "id": "dormant-whales",
+              "text": "Which whale-tier players haven't logged in for 7+ days and should be prioritized for win-back outreach?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.payer_tier",
+                "mf_users.days_since_last_active",
+                "mf_users.ltv_total_vnd"
+              ]
+            },
+            {
+              "id": "churn-risk-payers",
+              "text": "How many paying users are currently flagged as churn-risk, broken down by payer tier?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.churn_risk",
+                "mf_users.paying_users",
+                "mf_users.payer_tier"
+              ]
+            },
+            {
+              "id": "role-class-session-time",
+              "text": "Which role class logs the most total online time per day over the last 30 days?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.total_online_time_sec",
+                "active_daily.role_class",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "retain-vs-recall-active",
+              "text": "How many players have been retained vs recalled as active users in the most recent data — which group is larger?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.retain_user_active",
+                "game_key_metrics.recall_user_active"
+              ]
+            },
+            {
+              "id": "server-payer-activity",
+              "text": "Which servers have the most active paying players — rank all servers by paying user count?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_recharge_daily.paying_users",
+                "user_recharge_daily.server_id"
+              ]
+            },
+            {
+              "id": "role-class-transaction-volume",
+              "text": "Which character class logs the most recharge transactions — how does spending activity differ by class?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.transactions",
+                "recharge.role_class"
+              ]
+            },
+            {
+              "id": "lvo_01",
+              "text": "DAU trend over the last 7 days — is the daily player count rising or falling?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "lvo_02",
+              "text": "Current WAU/MAU stickiness ratio — how engaged is the active player base?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.wau",
+                "active_daily.mau",
+                "active_daily.trailing_wau",
+                "active_daily.trailing_mau"
+              ]
+            },
+            {
+              "id": "lvo_03",
+              "text": "User count by lifecycle stage — how many are active, at-risk, lapsed, or dormant?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.user_count_approx",
+                "mf_users.lifecycle_stage"
+              ]
+            },
+            {
+              "id": "lvo_06",
+              "text": "What share of today's active players visited more than one server in a single day?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.distinct_servers_today"
+              ]
+            },
+            {
+              "id": "lvo_07",
+              "text": "Daily active users by country — which markets drive the most engagement?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.country_code"
+              ]
+            },
+            {
+              "id": "lvo_08",
+              "text": "Total online time by role-level bracket — do high-level players log the most hours?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.total_online_time_sec",
+                "active_daily.max_role_level"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "active_daily.dau",
+              "title": "DAU",
+              "why": "Flags player-count shifts before they become trends; primary daily health pulse for ops decisions"
+            },
+            {
+              "member": "active_daily.wau",
+              "title": "WAU",
+              "why": "Mid-window engagement signal; leads MAU changes by days, giving earlier warning of churn waves"
+            },
+            {
+              "member": "active_daily.mau",
+              "title": "MAU",
+              "why": "Monthly player breadth; denominator for WAU/MAU stickiness ratio and retention benchmarking"
+            },
+            {
+              "member": "active_daily.trailing_wau",
+              "title": "Trailing WAU",
+              "why": "Running week-to-date actives through today; real-time engagement pacing against prior week"
+            },
+            {
+              "member": "active_daily.total_online_time_sec",
+              "title": "Total Online Time",
+              "why": "Aggregate playtime; drops signal content fatigue or broken sessions before DAU moves"
+            },
+            {
+              "member": "mf_users.lapsed_this_month_count",
+              "title": "Lapsed Users (MTD)",
+              "why": "Early-month lapse count; informs timing and audience for re-engagement push and email campaigns"
+            },
+            {
+              "member": "mf_users.whales_count",
+              "title": "Whale Count",
+              "why": "Count of top-tier payers; sudden drops predict near-term revenue loss before it hits totals"
+            },
+            {
+              "member": "active_daily.active_servers",
+              "title": "Active Servers",
+              "why": "Live server count; ecosystem health indicator and input for server consolidation decisions"
+            }
+          ]
+        },
+        "user_acquisition": {
+          "questions": [
+            {
+              "id": "installs-by-media-source",
+              "text": "Which media sources delivered the most new installs in the most recent data — rank all acquisition channels by install volume?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.installs",
+                "game_key_metrics.media_source"
+              ]
+            },
+            {
+              "id": "nnpu-by-media-source",
+              "text": "Which media source produces the most net-new paying users (first-ever recharge) — where are brand-new payers actually coming from?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.nnpu",
+                "game_key_metrics.media_source"
+              ]
+            },
+            {
+              "id": "npu-by-media-source",
+              "text": "Which acquisition channel converts the most new registrations into paying players?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.npu",
+                "game_key_metrics.media_source"
+              ]
+            },
+            {
+              "id": "spend-by-media-source",
+              "text": "How is total acquisition spend distributed across media sources — which channel is receiving the biggest budget share?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.cost_vnd",
+                "game_key_metrics.media_source"
+              ]
+            },
+            {
+              "id": "nru-by-country",
+              "text": "Which countries are generating the most new user registrations for JUS VN?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.nru",
+                "game_key_metrics.country_code"
+              ]
+            },
+            {
+              "id": "spend-by-campaign",
+              "text": "Which campaigns account for the largest share of total marketing spend — rank all campaigns by cost?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "marketing_cost.cost_vnd",
+                "marketing_cost.campaign_name"
+              ]
+            },
+            {
+              "id": "ua_01",
+              "text": "D1 retention rate: paid installs vs organic — which source brings users back on day 1?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "new_user_retention.rnru_d1",
+                "new_user_retention.retention_d1",
+                "new_user_retention.is_paid_install"
+              ]
+            },
+            {
+              "id": "ua_02",
+              "text": "D30 retention by media source — which acquisition channel delivers the most loyal users?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "new_user_retention.rnru_d30",
+                "new_user_retention.retention_d30",
+                "new_user_retention.media_source"
+              ]
+            },
+            {
+              "id": "ua_03",
+              "text": "ROAS by media source — which acquisition channel generates the best return on ad spend?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.roas",
+                "game_key_metrics.media_source"
+              ]
+            },
+            {
+              "id": "ua_04",
+              "text": "CPI trend over the last 30 days — is the cost to acquire a new player rising or falling?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.cpi_vnd",
+                "game_key_metrics.report_date"
+              ]
+            },
+            {
+              "id": "ua_05",
+              "text": "New installs by platform (iOS vs Android) — which OS drives more acquisition volume?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.installs",
+                "game_key_metrics.platform"
+              ]
+            },
+            {
+              "id": "ua_06",
+              "text": "Payer conversion rate by platform — iOS or Android turns more new users into payers?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.payer_rate",
+                "game_key_metrics.platform"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "game_key_metrics.installs",
+              "title": "Installs",
+              "why": "Top-of-funnel volume; baseline denominator for all downstream conversion and cost metrics"
+            },
+            {
+              "member": "game_key_metrics.nru",
+              "title": "NRU (New Registered Users)",
+              "why": "Install-to-registration conversion; quality filter distinguishing real UA from incentivised noise"
+            },
+            {
+              "member": "game_key_metrics.cpi_vnd",
+              "title": "CPI (VND)",
+              "why": "Cost-per-install; primary lever for budget reallocation and campaign-bid optimisation"
+            },
+            {
+              "member": "game_key_metrics.roas",
+              "title": "ROAS",
+              "why": "Revenue returned per ad dollar; determines which channels to scale, hold, or cut"
+            },
+            {
+              "member": "game_key_metrics.nnpu",
+              "title": "NNPU (Net-New Paying Users)",
+              "why": "First-ever payers attributed per channel; measures a channel's ability to seed the revenue funnel"
+            },
+            {
+              "member": "new_user_retention.retention_d1",
+              "title": "D1 Retention",
+              "why": "Day-1 return rate; strongest leading predictor of D30 retention and long-term lifetime value"
+            },
+            {
+              "member": "new_user_retention.retention_d7",
+              "title": "D7 Retention",
+              "why": "Week-1 cohort quality; tracks habit formation before the main churn window closes"
+            },
+            {
+              "member": "marketing_cost.cost_vnd",
+              "title": "Marketing Spend (VND)",
+              "why": "Total ad investment; budget pacing against monthly plan and ROAS floor thresholds"
+            }
+          ]
+        },
+        "monetization": {
+          "questions": [
+            {
+              "id": "top-products-by-revenue",
+              "text": "Which in-game products generate the most revenue and transaction volume in the most recent data?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.revenue_vnd",
+                "recharge.transactions",
+                "recharge.product_name"
+              ]
+            },
+            {
+              "id": "ltv-by-install-cohort",
+              "text": "How does average lifetime revenue per paying user compare across monthly install cohorts over the last 6 months?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.ltv_total_vnd",
+                "mf_users.arppu_vnd",
+                "mf_users.install_month"
+              ]
+            },
+            {
+              "id": "platform-arppu-comparison",
+              "text": "Compare iOS vs Android on ARPPU and paying-user conversion rate — which platform monetizes better?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.arppu_vnd",
+                "mf_users.paying_rate",
+                "mf_users.os_platform"
+              ]
+            },
+            {
+              "id": "revenue-by-payment-channel",
+              "text": "Which payment channels generate the most total recharge revenue — rank telco, IAP, web, and other channels by VND?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.revenue_vnd",
+                "recharge.payment_channel"
+              ]
+            },
+            {
+              "id": "revenue-by-product-name",
+              "text": "Which in-game products drive the most recharge revenue — rank all purchasable items by total VND collected?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.revenue_vnd",
+                "recharge.product_name"
+              ]
+            },
+            {
+              "id": "arppu-by-role-class",
+              "text": "Which character class has the highest average revenue per paying user — do certain classes attract bigger spenders?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.arppu_vnd",
+                "recharge.role_class"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "game_key_metrics.rev",
+              "title": "Total Revenue",
+              "why": "Daily headline P&L signal; benchmarks live-ops event impact and surfaces revenue anomalies fast"
+            },
+            {
+              "member": "recharge.arppu_vnd",
+              "title": "ARPPU (VND)",
+              "why": "Average revenue per paying user; depth-of-spend benchmark across channels, classes, and servers"
+            },
+            {
+              "member": "user_recharge_daily.paying_users",
+              "title": "Daily Paying Users",
+              "why": "Unique payers per day; tracks paying-cohort engagement independently of spend magnitude"
+            },
+            {
+              "member": "user_recharge_daily.trailing_mpu",
+              "title": "Trailing MPU",
+              "why": "Month-to-date unique payers; real-time pacing gauge against monthly monetisation targets"
+            },
+            {
+              "member": "mf_users.ltv_total_vnd",
+              "title": "Total LTV (VND)",
+              "why": "Aggregate lifetime value across all users; sizes the monetisable installed base"
+            },
+            {
+              "member": "game_key_metrics.iap_rev",
+              "title": "IAP Revenue",
+              "why": "App-store revenue stream; isolates platform-fee exposure and store-policy risk from web spend"
+            },
+            {
+              "member": "game_key_metrics.payer_rate",
+              "title": "Payer Rate (NRU→NPU)",
+              "why": "New-user-to-payer conversion rate; top efficiency metric of the monetisation funnel per cohort"
+            },
+            {
+              "member": "mf_users.paying_rate",
+              "title": "Lifetime Paying Rate",
+              "why": "All-time payer share of total user base; stable benchmark for overall monetisation health"
+            }
+          ]
+        }
+      },
+      "coverage": {
+        "mf_users.install_date": "2026-06-05",
+        "new_user_retention.report_date": "2026-06-05",
+        "active_daily.log_date": "2026-06-05",
+        "game_key_metrics.report_date": "2026-06-06",
+        "recharge.recharge_time": "2026-06-05",
+        "user_recharge_daily.log_date": "2026-06-05",
+        "marketing_cost.log_date": "2026-06-06"
+      },
+      "generatedAt": 1780764543586
+    },
+    "ballistar": {
+      "topics": {
+        "liveops": {
+          "questions": [
+            {
+              "id": "dormant-whales",
+              "text": "Which whale-tier players haven't logged in for 7+ days? Show user count and average days-since-active for win-back targeting.",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.payer_tier",
+                "mf_users.days_since_last_active",
+                "mf_users.whales_count",
+                "mf_users.user_count"
+              ]
+            },
+            {
+              "id": "churn-risk-payers",
+              "text": "How many paying users are flagged as at-risk of churning right now, broken down by churn-risk bucket and payer tier?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.churn_risk",
+                "mf_users.payer_tier",
+                "mf_users.paying_users"
+              ]
+            },
+            {
+              "id": "reactivation-targets",
+              "text": "Find paying players who have been inactive for 14+ days, sorted by lifetime spend — top candidates for a re-engagement push.",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.days_since_last_active",
+                "mf_users.ltv_total_vnd",
+                "mf_users.is_paying_user",
+                "mf_users.user_count"
+              ]
+            },
+            {
+              "id": "lifecycle-stage-breakdown",
+              "text": "What share of the total player base sits in each lifecycle stage (new / active / at-risk / lapsed / dormant) right now?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.lifecycle_stage",
+                "mf_users.user_count"
+              ]
+            },
+            {
+              "id": "server-activity-ranking",
+              "text": "Rank all game servers by DAU over the last 7 days — which servers are under-populated and may need merging?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.server_id",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "role-class-playtime",
+              "text": "Which role class logs the most total online time per active user per day? Show all classes side-by-side.",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.total_online_time_sec",
+                "active_daily.dau",
+                "active_daily.role_class"
+              ]
+            },
+            {
+              "id": "lv-01",
+              "text": "DAU by OS platform over the last 30 days — iOS vs Android trending split",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.os_platform",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "lv-02",
+              "text": "Average daily session length per active user this week — is engagement depth rising?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.total_online_time_sec",
+                "active_daily.dau",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "lv-03",
+              "text": "Which servers lost the most DAU this month — early warning of server population decay?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.server_id",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "lv-04",
+              "text": "DAU by country this week — which markets drive the most daily engagement?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.country_code",
+                "active_daily.log_date"
+              ]
+            },
+            {
+              "id": "lv-05",
+              "text": "Trailing WAU vs trailing MAU — what share of monthly players are active this week?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.trailing_wau",
+                "active_daily.trailing_mau"
+              ]
+            },
+            {
+              "id": "lv-06",
+              "text": "Role class share of DAU this week — which class makes up the active base?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "active_daily.dau",
+                "active_daily.role_class",
+                "active_daily.log_date"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "active_daily.dau",
+              "title": "Daily Active Users (DAU)",
+              "why": "Core engagement pulse; gates server-merge decisions and daily event targeting windows"
+            },
+            {
+              "member": "active_daily.wau",
+              "title": "Weekly Active Users (WAU)",
+              "why": "Measures week-level lift from live events and monitors decay between events"
+            },
+            {
+              "member": "active_daily.mau",
+              "title": "Monthly Active Users (MAU)",
+              "why": "Baseline health benchmark; month-over-month delta reveals structural growth or erosion"
+            },
+            {
+              "member": "active_daily.trailing_wau",
+              "title": "Trailing WAU (week-to-date)",
+              "why": "Real-time weekly active count; informs mid-week event adjustments before ISO week closes"
+            },
+            {
+              "member": "active_daily.trailing_mau",
+              "title": "Trailing MAU (month-to-date)",
+              "why": "Month-in-progress active base; enables early forecast vs. prior month final before month closes"
+            },
+            {
+              "member": "active_daily.total_online_time_sec",
+              "title": "Total Online Time (seconds)",
+              "why": "Proxy for content depth; declining aggregate session time signals disengagement before DAU itself drops"
+            },
+            {
+              "member": "mf_users.lapsed_this_month_count",
+              "title": "Lapsed Users This Month",
+              "why": "Sizes the re-engagement campaign pool; users active last month but absent this month are the highest-probability win-backs"
+            },
+            {
+              "member": "active_daily.active_servers",
+              "title": "Active Server Count",
+              "why": "Server population health indicator; sustained decline signals need for server merges to preserve community density"
+            }
+          ]
+        },
+        "user_acquisition": {
+          "questions": [
+            {
+              "id": "channel-roas-ranking",
+              "text": "Rank acquisition channels by ROAS this month — which channel delivers the best return on ad spend?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.roas",
+                "game_key_metrics.cost_vnd",
+                "game_key_metrics.rev",
+                "game_key_metrics.media_source"
+              ]
+            },
+            {
+              "id": "d1-d30-retention-curve",
+              "text": "Plot the D1 → D30 retention curve for the most recent monthly install cohort.",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "new_user_retention.rnru_d1",
+                "new_user_retention.rnru_d3",
+                "new_user_retention.rnru_d7",
+                "new_user_retention.rnru_d14",
+                "new_user_retention.rnru_d30",
+                "new_user_retention.report_month"
+              ]
+            },
+            {
+              "id": "channel-roas-rank",
+              "text": "Which acquisition media sources deliver the highest ROAS over the last 30 days of available data — where should we double spend?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.roas",
+                "game_key_metrics.media_source",
+                "game_key_metrics.cost_vnd",
+                "game_key_metrics.rev"
+              ]
+            },
+            {
+              "id": "cpi-by-channel",
+              "text": "Rank acquisition channels by CPI and install volume over the last 30 days of available data — where are we overpaying per install?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.cpi_vnd",
+                "game_key_metrics.installs",
+                "game_key_metrics.media_source",
+                "game_key_metrics.cost_vnd"
+              ]
+            },
+            {
+              "id": "new-cohort-retention-curve",
+              "text": "Plot the D1 → D30 retention curve for the most recent monthly new-player cohort.",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "new_user_retention.rnru_d1",
+                "new_user_retention.rnru_d3",
+                "new_user_retention.rnru_d7",
+                "new_user_retention.rnru_d14",
+                "new_user_retention.rnru_d30",
+                "new_user_retention.report_month"
+              ]
+            },
+            {
+              "id": "retention-cohort-compare",
+              "text": "Compare D1 / D7 / D30 retention rates across the last three monthly install cohorts — is retention improving?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "new_user_retention.retention_d1",
+                "new_user_retention.retention_d7",
+                "new_user_retention.retention_d30",
+                "new_user_retention.report_month"
+              ]
+            },
+            {
+              "id": "ua-01",
+              "text": "NRU trend by week over the last 3 months — is the new-player pipeline growing?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.nru",
+                "game_key_metrics.report_date"
+              ]
+            },
+            {
+              "id": "ua-02",
+              "text": "Paid vs organic NRU split this month — what share of new users are bought?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.nru",
+                "game_key_metrics.is_paid_install",
+                "game_key_metrics.report_date"
+              ]
+            },
+            {
+              "id": "ua-03",
+              "text": "D1/D7/D30 retention for paid vs organic installs — do bought users stick?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "new_user_retention.retention_d1",
+                "new_user_retention.retention_d7",
+                "new_user_retention.retention_d30",
+                "new_user_retention.is_paid_install"
+              ]
+            },
+            {
+              "id": "ua-04",
+              "text": "Top campaigns by NRU this month — which creatives drive the most registrations?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.nru",
+                "game_key_metrics.campaign_id",
+                "game_key_metrics.report_date"
+              ]
+            },
+            {
+              "id": "ua-05",
+              "text": "Payer rate by media source this month — which channels bring the best quality users?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.payer_rate",
+                "game_key_metrics.media_source",
+                "game_key_metrics.report_date"
+              ]
+            },
+            {
+              "id": "ua-06",
+              "text": "Total ad spend by media source this month — where is the budget concentrated?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "marketing_cost.cost_vnd",
+                "marketing_cost.media_source",
+                "marketing_cost.log_date"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "game_key_metrics.nru",
+              "title": "New Registered Users (NRU)",
+              "why": "Top-of-funnel volume; all downstream UA metrics (retention, payer conversion, LTV) are denominated on NRU"
+            },
+            {
+              "member": "game_key_metrics.cost_vnd",
+              "title": "Acquisition Spend (VND)",
+              "why": "Budget tracker per channel; pairs with NRU and installs to compute cost-per-registration and flag overspend"
+            },
+            {
+              "member": "game_key_metrics.cpi_vnd",
+              "title": "Cost Per Install (CPI, VND)",
+              "why": "Primary channel efficiency metric; drives reallocation of budget from high-CPI to low-CPI sources"
+            },
+            {
+              "member": "game_key_metrics.roas",
+              "title": "Return on Ad Spend (ROAS)",
+              "why": "Revenue-to-spend ratio; single best signal for scaling a channel — ROAS > 1 means the channel is self-funding"
+            },
+            {
+              "member": "game_key_metrics.payer_rate",
+              "title": "Payer Rate (NPU / NRU)",
+              "why": "Acquisition quality proxy; high payer rate identifies channels that deliver buyers, not just downloaders"
+            },
+            {
+              "member": "game_key_metrics.retention_d1",
+              "title": "Day-1 Retention",
+              "why": "Onboarding effectiveness signal; D1 below benchmark indicates first-session UX friction before users form a habit"
+            },
+            {
+              "member": "game_key_metrics.retention_d7",
+              "title": "Day-7 Retention",
+              "why": "One-week survival rate; strong leading indicator of D30 LTV and used as a campaign quality gate"
+            },
+            {
+              "member": "game_key_metrics.arppu_vnd",
+              "title": "ARPPU — New Cohort (VND)",
+              "why": "Revenue per new paying user; multiplied by payer_rate yields a fast cohort LTV estimate for bid-cap decisions"
+            }
+          ]
+        },
+        "monetization": {
+          "questions": [
+            {
+              "id": "revenue-by-payer-tier",
+              "text": "How is total lifetime revenue distributed across whale, dolphin, and minnow payer tiers — what share do whales contribute?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.payer_tier",
+                "mf_users.ltv_total_vnd",
+                "mf_users.paying_users",
+                "mf_users.whales_count"
+              ]
+            },
+            {
+              "id": "vip-outreach-ranking",
+              "text": "Rank the top VIP players by VIP level and lifetime spend for prioritized customer-success outreach.",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.max_vip_level",
+                "mf_users.ltv_total_vnd",
+                "mf_users.arppu_vnd",
+                "mf_users.user_count"
+              ]
+            },
+            {
+              "id": "payer-conversion-funnel",
+              "text": "What are the D1 / D7 / D30 payer conversion rates for recent install cohorts — at which day do we lose the most potential spenders?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.pu1",
+                "game_key_metrics.pu7",
+                "game_key_metrics.pu30",
+                "game_key_metrics.nru",
+                "game_key_metrics.report_date"
+              ]
+            },
+            {
+              "id": "ios-vs-android-revenue",
+              "text": "Compare total revenue, paying user count, and ARPPU between iOS and Android over the last 30 days of available data.",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "game_key_metrics.platform",
+                "game_key_metrics.rev",
+                "game_key_metrics.npu",
+                "game_key_metrics.arppu_vnd"
+              ]
+            },
+            {
+              "id": "ltv-by-media-source",
+              "text": "Which acquisition media source produces users with the highest average lifetime value and paying rate?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.media_source",
+                "mf_users.ltv_total_vnd",
+                "mf_users.arppu_vnd",
+                "mf_users.paying_rate"
+              ]
+            },
+            {
+              "id": "role-class-arppu",
+              "text": "Which role class has the highest ARPPU and paying conversion rate — do certain classes attract bigger spenders?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "mf_users.last_role_class",
+                "mf_users.arppu_vnd",
+                "mf_users.paying_rate",
+                "mf_users.paying_users"
+              ]
+            },
+            {
+              "id": "mn-01",
+              "text": "Revenue by payment channel (IAP vs web) over the last 30 days — channel mix trend",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.revenue_vnd",
+                "recharge.payment_channel",
+                "recharge.recharge_date"
+              ]
+            },
+            {
+              "id": "mn-02",
+              "text": "Daily revenue trend over the last 30 days — is total spend accelerating?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "user_recharge_daily.revenue_vnd_total",
+                "user_recharge_daily.log_date"
+              ]
+            },
+            {
+              "id": "mn-03",
+              "text": "ARPPU this month vs last month — is average spend per payer growing?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.arppu_vnd",
+                "recharge.log_month"
+              ]
+            },
+            {
+              "id": "mn-04",
+              "text": "Top products by revenue this month — which items drive the most spend?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.revenue_vnd",
+                "recharge.product_id",
+                "recharge.recharge_date"
+              ]
+            },
+            {
+              "id": "mn-05",
+              "text": "First-purchase volume and revenue by day — how fast are new payers converting?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.transactions",
+                "recharge.revenue_vnd",
+                "recharge.is_first_recharge",
+                "recharge.recharge_date"
+              ]
+            },
+            {
+              "id": "mn-06",
+              "text": "Transaction size mix this month — micro vs large spend share by band?",
+              "depth": "basic",
+              "targetCatalogIds": [
+                "recharge.transactions",
+                "recharge.txn_value_band_vnd",
+                "recharge.log_month"
+              ]
+            }
+          ],
+          "metrics": [
+            {
+              "member": "game_key_metrics.rev",
+              "title": "Total Daily Revenue (VND)",
+              "why": "Top-line health pulse; tracks P&L daily and measures gross ROI of live events and promotions"
+            },
+            {
+              "member": "recharge.arppu_vnd",
+              "title": "ARPPU — Raw Transactions (VND)",
+              "why": "Spending depth per active payer; rising ARPPU with flat payer count signals healthy monetization of existing base"
+            },
+            {
+              "member": "user_recharge_daily.paying_users",
+              "title": "Daily Paying Users",
+              "why": "Revenue base size; dividing daily revenue by this gives daily ARPPU for tracking monetization efficiency over time"
+            },
+            {
+              "member": "mf_users.ltv_total_vnd",
+              "title": "Lifetime LTV — All Users (VND)",
+              "why": "Aggregate lifetime spend across the full user portfolio; informs maximum sustainable UA cost per install"
+            },
+            {
+              "member": "mf_users.whales_count",
+              "title": "Whale Player Count",
+              "why": "Top-payer segment size; whales often drive 60–80% of revenue — weekly tracking catches early whale churn before revenue drops"
+            },
+            {
+              "member": "game_key_metrics.npu",
+              "title": "New Paying Users (NPU)",
+              "why": "Daily payer acquisition count; measures how efficiently each day's new cohort converts to first revenue"
+            },
+            {
+              "member": "user_recharge_daily.trailing_mpu",
+              "title": "Trailing Monthly Paying Users (MPU)",
+              "why": "Month-to-date distinct payer count; early-month signal for whether the revenue base is growing vs. the prior month"
+            },
+            {
+              "member": "mf_users.paying_rate",
+              "title": "Lifetime Paying Rate",
+              "why": "Share of all registered users who ever recharged; rising rate confirms the onboarding-to-purchase funnel is improving"
+            }
+          ]
+        }
+      },
+      "coverage": {
+        "mf_users.install_date": "2026-06-04",
+        "new_user_retention.report_date": "2026-06-03",
+        "active_daily.log_date": "2026-06-03",
+        "game_key_metrics.report_date": "2026-06-04",
+        "recharge.recharge_time": "2026-06-03",
+        "marketing_cost.log_date": "2026-06-04",
+        "user_recharge_daily.log_date": "2026-06-03"
+      },
+      "generatedAt": 1780765078588
+    }
+  }
+}
