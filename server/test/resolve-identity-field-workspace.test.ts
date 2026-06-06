@@ -8,6 +8,7 @@ import { getDb, setDb, closeDb } from '../src/db/sqlite.js';
 import { resolveIdentityField } from '../src/services/resolve-identity-field.js';
 import * as wsConfig from '../src/services/workspaces-config-loader.js';
 import * as suggester from '../src/services/identity-suggester.js';
+import * as cubeToken from '../src/services/resolve-cube-token.js';
 import type { WorkspaceDef } from '../src/services/workspaces-config-loader.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -88,5 +89,55 @@ describe('resolveIdentityField — prefix derives from the segment workspace, no
     ]);
     const field = await resolveIdentityField('recharge', 'ballistar', { workspaceId: 'local' });
     expect(field).toBe('recharge.user_id');
+  });
+
+  it('passes the segment-scoped introspection ctx to the suggester (per-game cubes)', async () => {
+    // Per-game cubes (cfm_vn's etl_*) exist only in that game's /meta. A
+    // ctx-less suggester introspects the DEFAULT game and never sees them —
+    // the refresh job then marks the segment broken even though the Build
+    // page (which passes a ctx) resolved an identity for it just fine.
+    vi.spyOn(cubeToken, 'resolveCubeTokenForWorkspace').mockReturnValue({
+      token: 'cfm-token',
+      source: 'minted',
+    } as ReturnType<typeof cubeToken.resolveCubeTokenForWorkspace>);
+    const suggest = vi.spyOn(suggester, 'suggestIdentities').mockResolvedValue([
+      {
+        cube: 'etl_game_detail',
+        identity_field: 'mf_users.user_id',
+        confidence: 0.7,
+        matched_pattern: 'join→mf_users',
+      },
+    ]);
+    const field = await resolveIdentityField('etl_game_detail', 'cfm_vn', { workspaceId: 'local' });
+    expect(suggest).toHaveBeenCalledWith({ cubeApiUrl: GAMEID_LOCAL.cubeApiUrl, token: 'cfm-token' });
+    expect(field).toBe('mf_users.user_id');
+  });
+
+  it('accepts a join-probe suggestion (confidence 0.7) — same set the Build page accepts', async () => {
+    // Creation (save bar) accepts any non-null suggestion; a stricter refresh
+    // floor means segments create fine then break on the next refresh tick.
+    vi.spyOn(cubeToken, 'resolveCubeTokenForWorkspace').mockReturnValue({
+      token: null,
+      source: 'none',
+    } as ReturnType<typeof cubeToken.resolveCubeTokenForWorkspace>);
+    vi.spyOn(suggester, 'suggestIdentities').mockResolvedValue([
+      {
+        cube: 'etl_game_detail',
+        identity_field: 'mf_users.user_id',
+        confidence: 0.7,
+        matched_pattern: 'join→mf_users',
+      },
+    ]);
+    const field = await resolveIdentityField('etl_game_detail', 'cfm_vn', { workspaceId: 'local' });
+    expect(field).toBe('mf_users.user_id');
+  });
+
+  it('falls back to the ctx-less suggester when neither workspace nor game is known', async () => {
+    // Legacy preview-service path: resolveIdentityField(cube) with no game
+    // and no workspaceId must keep its original behavior.
+    vi.spyOn(wsConfig, 'resolveWorkspace').mockReturnValue(null);
+    const suggest = vi.spyOn(suggester, 'suggestIdentities').mockResolvedValue([]);
+    await resolveIdentityField('recharge');
+    expect(suggest).toHaveBeenCalledWith(undefined);
   });
 });

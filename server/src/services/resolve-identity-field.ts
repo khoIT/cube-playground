@@ -10,8 +10,54 @@ import { getDb } from '../db/sqlite.js';
 import { suggestIdentities } from './identity-suggester.js';
 import { resolveGamePrefixForWorkspace } from './resolve-game-prefix.js';
 import { logicalCubeAcross } from './cube-member-resolver.js';
+import { resolveWorkspace, getDefaultWorkspace } from './workspaces-config-loader.js';
+import { resolveCubeTokenForWorkspace } from './resolve-cube-token.js';
+import { loadGamesConfig } from './games-config-loader.js';
+import type { WorkspaceCtx } from './cube-client.js';
 
-const AUTO_SUGGEST_MIN_CONFIDENCE = 0.9;
+/**
+ * Floor of what the suggester can emit with a non-null field: join-probe
+ * inheritance reports 0.7 (one hop removed from a direct pattern match,
+ * which reports 0.8–0.95). The Build page accepts ANY non-null suggestion
+ * when a segment is created, so the refresh job must accept the same set —
+ * a stricter floor here means segments create fine, then break on refresh.
+ */
+const AUTO_SUGGEST_MIN_CONFIDENCE = 0.7;
+
+/**
+ * Build the schema-introspection Cube ctx for a (workspace, game) pair —
+ * service principal, never a user email — mirroring the route-side
+ * `introspectionCtx`. Without this ctx the suggester introspects the DEFAULT
+ * game's /meta, where per-game cubes (cfm_vn's etl_*) simply don't exist, so
+ * background jobs (refresh-segment) would mark such segments broken even
+ * though the Build page resolved an identity for them just fine.
+ *
+ * Returns undefined when neither a workspace nor a game is known, preserving
+ * the legacy ctx-less path for callers like preview-service.
+ */
+function buildIntrospectionCtx(
+  workspaceId: string | null,
+  gameId: string | null,
+): WorkspaceCtx | undefined {
+  try {
+    const workspace = resolveWorkspace(workspaceId) ?? (gameId ? getDefaultWorkspace() : null);
+    if (!workspace) return undefined;
+    let game = gameId;
+    // A strict multi-tenant cube rejects game-less tokens ("Missing game
+    // claim") — fall back to the default game, same as the route-side ctx.
+    if (!game && workspace.gameModel === 'game_id') {
+      try {
+        game = loadGamesConfig().defaultGameId || null;
+      } catch {
+        /* config unreadable — introspect game-less */
+      }
+    }
+    const { token } = resolveCubeTokenForWorkspace(workspace, game);
+    return { cubeApiUrl: workspace.cubeApiUrl, token };
+  } catch {
+    return undefined; // fall back to the legacy ctx-less suggester
+  }
+}
 
 export interface IdentityResolutionOptions {
   /**
@@ -59,7 +105,11 @@ export async function resolveIdentityField(
   }
 
   try {
-    const suggestions = await suggestIdentities();
+    // Introspect under the segment's OWN (workspace, game) ctx — per-game
+    // cubes (event-level etl_*) exist only in that game's /meta, and their
+    // join-probe identity only compiles under that game's token.
+    const ctx = buildIntrospectionCtx(opts?.workspaceId ?? null, gameId ?? null);
+    const suggestions = await suggestIdentities(ctx);
     const hit = suggestions.find(
       (s) =>
         s.cube === cube &&

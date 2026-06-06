@@ -135,9 +135,14 @@ describe('refreshSegment', () => {
     const db = getDb();
     db.prepare('DELETE FROM cube_identity_map WHERE cube = ?').run('mf_users');
     // Auto-suggester picks `mf_users.user_id` (confidence 0.95) → refresh proceeds.
-    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue({
+    // The suggester introspects via the segment's workspace ctx when one
+    // resolves (getMetaWithCtx) and falls back to the ctx-less getMeta —
+    // mock both so the test is hermetic regardless of local workspace config.
+    const metaPayload = {
       cubes: [{ name: 'mf_users', dimensions: [{ name: 'mf_users.user_id' }] }],
-    } as never);
+    };
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue(metaPayload as never);
+    vi.spyOn(cubeClient, 'getMetaWithCtx').mockResolvedValue(metaPayload as never);
     vi.spyOn(cubeClient, 'load').mockResolvedValue({
       total: 1,
       data: [{ 'mf_users.user_id': 'u1' }],
@@ -206,11 +211,14 @@ describe('refreshSegment', () => {
     const id = seedSegment();
     const db = getDb();
     db.prepare('DELETE FROM cube_identity_map WHERE cube = ?').run('mf_users');
-    // Mock /meta to return a cube with no identifiable user dim, so the
-    // auto-suggest fallback in getIdentityField returns null.
-    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue({
+    // Mock /meta (both the ctx-scoped and ctx-less paths) to return a cube
+    // with no identifiable user dim, so the auto-suggest fallback in
+    // resolveIdentityField returns null.
+    const metaPayload = {
       cubes: [{ name: 'mf_users', dimensions: [{ name: 'mf_users.unrelated_dim' }] }],
-    } as never);
+    };
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue(metaPayload as never);
+    vi.spyOn(cubeClient, 'getMetaWithCtx').mockResolvedValue(metaPayload as never);
     await refreshSegment(id);
     const row = getSegment(id);
     expect(row.status).toBe('broken');
