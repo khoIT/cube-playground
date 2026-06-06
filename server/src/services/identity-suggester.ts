@@ -1,14 +1,20 @@
 /**
  * Heuristic auto-suggester for the "which dimension is the user id?" question.
- * Walks every cube in /meta and proposes the first dimension whose qualified
- * name matches a known identity pattern (case-insensitive):
- *   *.user_id | *.uid | *.customer_id | *.player_id | *.account_id
+ * Two passes over /meta:
  *
- * Returns one entry per cube. Cubes with no matching dim get
+ *   1. PATTERN — propose the first dimension whose qualified name matches a
+ *      known identity pattern (case-insensitive):
+ *        *.user_id | *.uid | *.customer_id | *.player_id | *.account_id
+ *   2. JOIN PROBE — cubes with no direct match (event-level etl_* tables)
+ *      inherit the identity of a cube they can join to (mf_users.user_id),
+ *      validated by a Cube /sql dry compile. See identity-join-probe.ts.
+ *
+ * Returns one entry per cube. Cubes that fail both passes get
  * { identity_field: null, confidence: 0 } so the FE can render an empty state.
  */
 
 import { getMeta, getMetaWithCtx, type WorkspaceCtx } from './cube-client.js';
+import { probeJoinIdentityCached, type AnchorCube } from './identity-join-probe.js';
 
 export interface IdentitySuggestion {
   cube: string;
@@ -61,7 +67,7 @@ export function pickIdentityField(dims: CubeDimension[]): {
 export async function suggestIdentities(ctx?: WorkspaceCtx): Promise<IdentitySuggestion[]> {
   const meta = (ctx ? await getMetaWithCtx(ctx) : await getMeta()) as MetaResponse;
   const cubes = meta.cubes ?? [];
-  return cubes.map((cube) => {
+  const suggestions = cubes.map((cube) => {
     const dims = cube.dimensions ?? [];
     const picked = pickIdentityField(dims);
     return {
@@ -71,4 +77,31 @@ export async function suggestIdentities(ctx?: WorkspaceCtx): Promise<IdentitySug
       matched_pattern: picked.matched_pattern,
     };
   });
+
+  // Pass 2 — join-probe inheritance. Anchors are the cubes the pattern pass
+  // resolved; identity-less cubes try to compile a query joining themselves
+  // to an anchor's identity dim. TTL-cached per (endpoint, token, cube) so
+  // the per-request cost after the first fill is zero.
+  const anchors: AnchorCube[] = suggestions
+    .filter((s) => s.identity_field != null)
+    .map((s) => ({ cube: s.cube, identityField: s.identity_field!, confidence: s.confidence }));
+  if (anchors.length > 0) {
+    await Promise.all(
+      suggestions.map(async (s, i) => {
+        if (s.identity_field != null) return;
+        const cube = cubes[i];
+        const inherited = await probeJoinIdentityCached(
+          { name: cube.name, dimensions: cube.dimensions ?? [] },
+          anchors,
+          ctx,
+        );
+        if (inherited) {
+          s.identity_field = inherited.identityField;
+          s.confidence = inherited.confidence;
+          s.matched_pattern = `join→${inherited.anchorCube}`;
+        }
+      }),
+    );
+  }
+  return suggestions;
 }
