@@ -454,6 +454,20 @@ Format per lesson:
 - **Signal:** identical input behaves differently minutes apart, around a service restart; the failing turn's output contains *defaults* (canned options, generic clarify) where the working turn had specifics; no error/warning anywhere despite the behavior flip — the absence of a trace is itself the signal that some `catch` ate the cause.
 - **Apply:** `disambiguate-query.ts` now records `metaError`, always pushes a `cube meta unavailable (…)` warning, returns `metaUnavailable: true`, and when the metric is also unresolved replaces the canned menu with a bilingual "data model temporarily unavailable, try again" clarification (no chips). New degraded-mode code should follow the same shape: catch → record reason → annotate result → make the fallback honest. Regression guard: `test/tools/disambiguate-meta-unavailable.test.ts`.
 
+### Bounding the FIRST time dimension ≠ bounding the PARTITION column — guarded cubes 500 anyway
+
+- **Rule:** when programmatically adding a `timeDimensions` bound to satisfy a behavior-cube guard ("must bound log_date/dteventtime within 31 days"), pick the cube's PARTITION time dimension (`log_date`/`dteventtime`), not `dimensions.find(type === 'time')`. A cube with several time dims (cros `etl_register`: `register_time` first, `log_date` second) gets a bounded-but-wrong-column query that the guard still rejects.
+- **Why:** every cros etl_* starter candidate failed tier-1 with `query-error` while cfm_vn etl cubes sailed through — cfm's etl cubes expose exactly one time dim (`log_date`), so "first" and "partition" coincided by luck. The shared picker (`disambiguate-starter-passthrough.ts#timeDimensionOf`) also builds the RUNTIME clicked-chip query, so shipped chips on multi-time-dim cubes would have 500'd in prod.
+- **Signal:** queries that DO carry a `timeDimensions.dateRange` still get the "must bound …" 500, only on some games' event cubes; the failing cubes list 2+ `type: time` dimensions in `/meta` with the partition column not first.
+- **Apply:** `timeDimensionOf` prefers `/\.(log_date|dteventtime)$/` among time dims, fallback first. Regression guard: "bounds the PARTITION time dimension" test in `test/tools/disambiguate-starter-passthrough.test.ts`. Any new query-shaping code (probes, draft scaffolds, card runners) must reuse this picker rather than re-deriving "first time dim".
+
+### Trino DATE column declared `type: time` in Cube YAML → every time-dim select 400s ("actual date")
+
+- **Rule:** a Cube time dimension whose physical Trino column is DATE must wrap it: `sql: "CAST({CUBE}.col AS TIMESTAMP)"`. Cube's timezone conversion wraps time dims in `AT TIME ZONE`, which Trino rejects on bare dates with `Type of value must be a time or timestamp with or without time zone (actual date)`.
+- **Why:** all cros coverage probes on `etl_login/etl_logout/etl_register.log_date` and `user_active_monthly.log_month` 400'd with that message while the same YAML shape worked on cfm (whose physical columns are timestamp-compatible). The YAML is not enough to spot it — same declaration, different upstream column type. Repo precedent: `tf/user_recharge_daily.yml` already carried the cast.
+- **Signal:** `/load` 400 `line N:M: Type of value must be a time or timestamp… (actual date)` only when the time dimension is SELECTED (probes, granularity queries); pure `dateRange` filters may still pass. Per-game: same cube name fine in one game, broken in another.
+- **Apply:** cast in the dimension SQL (cros etl_login/etl_logout/etl_register `log_date`, user_active_monthly `log_month`). When adding/onboarding game cubes, probe one time-dim SELECT per cube before shipping; don't infer health from a sibling game's identical YAML. Note: the dev "local" workspace cube (:4000, `cube-playground-cube-api-dev` container) caches the compiled schema — restart that container (not `cube-playground-cube-api` on :17001) for model edits to take effect.
+
 ---
 
 ## How to extend this doc
