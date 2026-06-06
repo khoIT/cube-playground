@@ -1,23 +1,33 @@
 /**
- * Sample Users tab — paginated random sample of the segment's uid_list,
- * enriched with preset.memberColumns (e.g. LTV, lifecycle, last active, joined).
+ * Members tab body. When the server has computed LTV tiers
+ * (segment.member_tiers, predicate segments with an LTV-bearing preset) it
+ * renders the tiered view; otherwise it falls back to the legacy paginated
+ * random sample of the uid_list, enriched with preset.memberColumns.
  *
- * When the user types in the search box, the random sample is bypassed and
- * the full uid_list is filtered by substring match. Column headers are
+ * In the fallback: typing in the search box bypasses the random sample and
+ * filters the full uid_list by substring match. Column headers are
  * click-to-sort (current-page rows only; cross-page sort would require
  * loading dim data for every uid).
  */
 
 import { ReactElement, useMemo, useState } from 'react';
 import { Button, Input } from 'antd';
-import { Search, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
 import { useMemberDimRows, memberColumnField } from './use-member-dim-rows';
 import { hasMember360 } from '../../member360/member360-panels';
-import { formatValue } from '../cards/format-value';
+import {
+  SortableHeader,
+  SortState,
+  compareValues,
+  downloadCsv,
+  formatCell,
+} from './member-table-shared';
+import { TieredMembersView } from './tiered-members-view';
+import { tierOptions } from './tier-view-model';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -27,12 +37,6 @@ interface Props {
 
 const PAGE_SIZE = 25;
 const SAMPLE_SIZE = 50;
-
-type SortDir = 'asc' | 'desc';
-interface SortState {
-  col: string; // 'uid' or memberColumnField()
-  dir: SortDir;
-}
 
 function shuffle<T>(arr: readonly T[], seed: number): T[] {
   const out = arr.slice();
@@ -45,38 +49,16 @@ function shuffle<T>(arr: readonly T[], seed: number): T[] {
   return out;
 }
 
-function downloadCsv(uids: string[], name: string) {
-  const blob = new Blob(['uid\n' + uids.join('\n')], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${name.replace(/[^\w-]+/g, '_')}-uids.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function formatCell(value: unknown, format?: string): string {
-  if (value == null || value === '') return '—';
-  const s = String(value);
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  return formatValue(value, format as never);
-}
-
-function compareValues(a: unknown, b: unknown): number {
-  const aNull = a == null || a === '';
-  const bNull = b == null || b === '';
-  if (aNull && bNull) return 0;
-  if (aNull) return 1;
-  if (bNull) return -1;
-  const an = typeof a === 'number' ? a : Number(a);
-  const bn = typeof b === 'number' ? b : Number(b);
-  if (!Number.isNaN(an) && !Number.isNaN(bn) && typeof a !== 'string' && typeof b !== 'string') {
-    return an - bn;
-  }
-  return String(a).localeCompare(String(b));
-}
-
 export function SampleUsersTab({ segment, preset }: Props): ReactElement {
+  // Server-computed LTV tiers win over the random sample. tierOptions()
+  // filters empty/unusable payloads so a degenerate blob still falls back.
+  if (segment.member_tiers && tierOptions(segment.member_tiers).length > 0) {
+    return <TieredMembersView segment={segment} preset={preset} tiers={segment.member_tiers} />;
+  }
+  return <RandomSampleFallback segment={segment} preset={preset} />;
+}
+
+function RandomSampleFallback({ segment, preset }: Props): ReactElement {
   const { t } = useTranslation();
   const [seed, setSeed] = useState<number>(() => Date.now() % 233_280);
   const [page, setPage] = useState(0);
@@ -208,7 +190,8 @@ export function SampleUsersTab({ segment, preset }: Props): ReactElement {
             const dimRow = byUid.get(uid);
             return (
               <tr key={`${uid}-${idx}`}>
-                <td style={{ width: 56, color: 'var(--text-tertiary)' }}>
+                {/* --text-muted (defined token); --text-tertiary is undefined repo-wide */}
+                <td style={{ width: 56, color: 'var(--text-muted)' }}>
                   {safePage * PAGE_SIZE + idx + 1}
                 </td>
                 <td style={{ fontFamily: 'var(--font-mono)' }}>
@@ -272,25 +255,3 @@ export function SampleUsersTab({ segment, preset }: Props): ReactElement {
   );
 }
 
-interface SortableHeaderProps {
-  label: string;
-  colKey: string;
-  sort: SortState | null;
-  onToggle: (col: string) => void;
-}
-
-function SortableHeader({ label, colKey, sort, onToggle }: SortableHeaderProps): ReactElement {
-  const active = sort?.col === colKey;
-  const dir = active ? sort?.dir : null;
-  return (
-    <th
-      className={styles.sortableHeader}
-      onClick={() => onToggle(colKey)}
-      data-active={active || undefined}
-    >
-      <span>{label}</span>
-      {dir === 'asc' && <ArrowUp size={12} aria-hidden />}
-      {dir === 'desc' && <ArrowDown size={12} aria-hidden />}
-    </th>
-  );
-}

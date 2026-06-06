@@ -181,7 +181,17 @@
       },
       "members": {
         "title": "Thành viên",
-        "identityChip": "Định danh: {{dim}}"
+        "identityChip": "Định danh: {{dim}}",
+        "tiers": {
+          "eyebrow": "Lấy mẫu theo LTV",
+          "top": "Top {{n}}",
+          "middle": "Giữa {{n}}",
+          "bottom": "Cuối {{n}}",
+          "all": "Tất cả {{n}}",
+          "caption": "Top / giữa / cuối 50 theo LTV trong {{total}} thành viên · tính {{when}}",
+          "captionAll": "Tất cả {{n}} thành viên xếp theo LTV · tính {{when}}",
+          "ltvColumn": "LTV"
+        }
       },
       "definition": {
         "identity": "Định danh",

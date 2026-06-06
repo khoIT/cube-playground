@@ -219,7 +219,17 @@
       },
       "members": {
         "title": "Members",
-        "identityChip": "Identity: {{dim}}"
+        "identityChip": "Identity: {{dim}}",
+        "tiers": {
+          "eyebrow": "LTV sampling",
+          "top": "Top {{n}}",
+          "middle": "Middle {{n}}",
+          "bottom": "Bottom {{n}}",
+          "all": "All {{n}}",
+          "caption": "Top / middle / bottom 50 by LTV of {{total}} members · computed {{when}}",
+          "captionAll": "All {{n}} members ranked by LTV · computed {{when}}",
+          "ltvColumn": "LTV"
+        }
       },
       "definition": {
         "identity": "Identity",

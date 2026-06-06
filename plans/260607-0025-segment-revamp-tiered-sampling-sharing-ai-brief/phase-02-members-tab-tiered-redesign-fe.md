@@ -1,10 +1,11 @@
 ---
 phase: 2
-title: "Members tab tiered redesign (FE)"
-status: pending
+title: Members tab tiered redesign (FE)
+status: completed
 priority: P1
-effort: "1d"
-dependencies: [1]
+effort: 1d
+dependencies:
+  - 1
 ---
 
 # Phase 2: Members tab tiered redesign (FE)
@@ -56,11 +57,24 @@ Fallback to today's random sample when tiers are absent.
    `hasMember360`, search override behavior.
 
 ## Success Criteria
-- [ ] mf_users predicate segment shows 3 tiers with LTV values, no extra Cube query for LTV
-- [ ] Manual / no-ltv segment falls back to current random sample UI unchanged
-- [ ] Search still matches the entire uid list, not just the 150
-- [ ] Tokens/spacing audit passes (no raw hex, header pattern intact)
-- [ ] Existing sample-users tests migrated/green
+- [x] mf_users predicate segment shows 3 tiers with LTV values, no extra Cube query for LTV
+- [x] Manual / no-ltv segment falls back to current random sample UI unchanged
+- [x] Search still matches the entire uid list, not just the 150
+- [x] Tokens/spacing audit passes (no raw hex, header pattern intact)
+- [x] Existing sample-users tests migrated/green (9 new tests; full FE 1787 pass, only 5
+      pre-existing DevAudit failures confirmed on clean tree)
+
+## Verification notes (260607)
+- Built as: `member-table-shared.tsx` (extracted helpers), `tier-view-model.ts` (pure logic),
+  `tier-selector.tsx`, `tiered-members-view.tsx`; `sample-users-tab.tsx` branches tiers→tiered
+  view, else legacy `RandomSampleFallback` (faithful port, reviewer-diffed vs HEAD).
+- Code review DONE_WITH_CONCERNS → fixed: display-only LTV-dedupe comment corrected; `#`-cell
+  standardized on `--text-muted` (legacy used undefined `--text-tertiary`).
+- Deferred (noted by review, non-blocking): registry guard test that preset `ltvMeasure` ∈
+  `memberColumns` measures; per-row cache chip arrives with Phase 4.
+- Test env quirks: no i18n provider in vitest → `t()` returns defaultValue WITHOUT
+  interpolation (match /Top/, not /Top 50/); repo does not register jest-dom matchers
+  (use toBeTruthy/toBeNull).
 
 ## Risk Assessment
 - **Stale tiers vs live uid list** after partial refresh failure: caption shows `computed_at`
