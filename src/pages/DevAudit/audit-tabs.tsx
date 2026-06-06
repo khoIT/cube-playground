@@ -21,6 +21,7 @@ const AUDIT_TABS: TabDef[] = [
   { key: 'search',      label: 'Search',      path: '/dev/chat-audit/search' },
   { key: 'leaderboard', label: 'Leaderboard', path: '/dev/chat-audit/leaderboard' },
   { key: 'cache',       label: 'Cache',       path: '/dev/chat-audit/cache' },
+  { key: 'starters',    label: 'Starters',    path: '/dev/chat-audit/starters' },
 ];
 
 // Re-export so any caller that previously imported resolveAuditTab can

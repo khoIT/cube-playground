@@ -175,7 +175,13 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
 
       const session = chatStore.getSession(db, req.params.id);
       if (!session) return reply.status(404).send({ error: 'Session not found' });
-      if (session.owner_id !== ownerId) return reply.status(403).send({ error: 'Forbidden' });
+      // Synthetic verification sessions (pregenerate→verify workflow) are
+      // reviewable by anyone in the audit tool — they contain no user data,
+      // and the /dev/chat-audit/starters report links straight to them.
+      const isVerifierSession = session.owner_id === 'starter-question-verifier';
+      if (session.owner_id !== ownerId && !isVerifierSession) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
 
       // Augment each turn with observability counts + legacy flag
       const rawTurns = chatStore.listTurns(db, session.id);

@@ -16,8 +16,9 @@
  *                      ≥1 query_artifact event and a clean `done` (no error,
  *                      no timeout). This is the same path a real click takes.
  *
- * Verification sessions are soft-deleted afterwards so they never appear in
- * anyone's sidebar.
+ * Verification sessions are KEPT under the dedicated verifier owner (they
+ * never appear in a user's sidebar) so the review UI can link each report
+ * row to its full transcript.
  */
 
 import { handler as previewHandler } from '../tools/preview-cube-query.js';
@@ -35,6 +36,8 @@ export interface CheapVerifyResult {
   reason?: 'not-composable' | 'query-error' | 'empty-result';
   detail?: string;
   rowCount?: number;
+  /** The composed pass-through query — surfaced in the verification report. */
+  query?: unknown;
 }
 
 export async function cheapVerify(
@@ -60,18 +63,18 @@ export async function cheapVerify(
       | string;
     if (typeof out === 'string') {
       // The preview handler returns error text for Cube /load failures.
-      return { ok: false, reason: 'query-error', detail: out.slice(0, 200) };
+      return { ok: false, reason: 'query-error', detail: out.slice(0, 200), query: hit.query };
     }
     const rowCount = out.rowCount ?? out.rows?.length ?? 0;
     // A single all-zero/null row is the empty-aggregate shape Cube returns
     // for "no data in range" on some cubes — treat it as empty.
-    if (rowCount === 0) return { ok: false, reason: 'empty-result', rowCount };
+    if (rowCount === 0) return { ok: false, reason: 'empty-result', rowCount, query: hit.query };
     if (rowCount === 1 && Array.isArray(out.rows) && out.rows[0] && isAllZeroOrNull(out.rows[0] as Record<string, unknown>)) {
-      return { ok: false, reason: 'empty-result', detail: 'single all-zero row', rowCount };
+      return { ok: false, reason: 'empty-result', detail: 'single all-zero row', rowCount, query: hit.query };
     }
-    return { ok: true, rowCount };
+    return { ok: true, rowCount, query: hit.query };
   } catch (err) {
-    return { ok: false, reason: 'query-error', detail: (err as Error).message.slice(0, 200) };
+    return { ok: false, reason: 'query-error', detail: (err as Error).message.slice(0, 200), query: hit.query };
   }
 }
 
@@ -249,17 +252,3 @@ class HardTimeoutError extends Error {
   constructor() { super('hard timeout'); }
 }
 
-/** Soft-delete a verification session so it never shows in the sidebar. */
-export async function deleteVerificationSession(
-  sessionId: string,
-  opts: Pick<TurnVerifyOptions, 'baseUrl' | 'ownerId' | 'workspace'>,
-): Promise<void> {
-  try {
-    await fetch(`${opts.baseUrl}/sessions/${encodeURIComponent(sessionId)}`, {
-      method: 'DELETE',
-      headers: { 'X-Owner-Id': opts.ownerId, 'X-Cube-Workspace': opts.workspace },
-    });
-  } catch {
-    // Cleanup is best-effort; a leaked soft session is cosmetic.
-  }
-}

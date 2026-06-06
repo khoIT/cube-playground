@@ -47,9 +47,11 @@ describe('cheapVerify', () => {
     previewHolder.error = null;
   });
 
-  it('passes when the pass-through query returns rows', async () => {
+  it('passes when the pass-through query returns rows (and surfaces the query for the report)', async () => {
     const res = await cheapVerify(QUESTION, META, KNOWN, {}, CTX);
-    expect(res).toEqual({ ok: true, rowCount: 1 });
+    expect(res.ok).toBe(true);
+    expect(res.rowCount).toBe(1);
+    expect((res.query as { measures: string[] }).measures).toEqual(['active_daily.dau']);
   });
 
   it('fails not-composable when a target member is missing from meta', async () => {

@@ -1,6 +1,6 @@
 {
-  "version": "260605-6447",
-  "generatedAt": 1780689626447,
+  "version": "260606-7851",
+  "generatedAt": 1780732767851,
   "workspaceGenerated": "local",
   "games": {
     "ballistar": {
@@ -119,26 +119,25 @@
     "cfm_vn": {
       "questions": [
         {
-          "id": "game-mode-skill-and-popularity-comparison",
-          "text": "Which game modes have the highest headshot rate and KDR — and do those high-skill modes attract more or fewer daily players than casual modes?",
+          "id": "game-mode-match-distribution",
+          "text": "Which game modes drive the most matches, and how does average match duration compare across them?",
           "topicTags": [
             "liveops"
           ],
           "categoryTags": [
-            "compare",
-            "explore"
+            "explore",
+            "compare"
           ],
           "targetCatalogIds": [
-            "etl_game_detail.game_mode_label",
-            "etl_game_detail.headshot_rate",
-            "etl_game_detail.kdr",
+            "etl_game_detail.matches",
             "etl_game_detail.distinct_players",
-            "etl_game_detail.matches"
+            "etl_game_detail.total_duration_sec",
+            "etl_game_detail.game_mode_label"
           ]
         },
         {
-          "id": "high-ping-drop-rate-by-ladder-tier",
-          "text": "What share of ranked matches have avg ping above 300 ms, and how much does that inflate the match drop rate across ladder tiers?",
+          "id": "map-drop-rate-ranking",
+          "text": "Which maps have the highest match drop rate — and how much volume do those maps carry?",
           "topicTags": [
             "liveops"
           ],
@@ -147,34 +146,79 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "etl_game_detail.matches_with_ping_over_300",
             "etl_game_detail.drop_rate",
-            "etl_game_detail.ladder_level",
-            "etl_game_detail.avg_ping_max",
-            "etl_game_detail.matches"
+            "etl_game_detail.matches",
+            "etl_game_detail.map_label"
           ]
         },
         {
-          "id": "gacha-banner-diamond-revenue-ranking",
-          "text": "Rank every gacha banner (lottery box) by total diamond spend and 10-pull session count — which banner is the strongest single revenue driver?",
+          "id": "dau-wau-mau-trend-30d",
+          "text": "Plot DAU, WAU, and trailing MAU over the last 30 days — is the player base growing or contracting?",
           "topicTags": [
-            "monetization"
+            "liveops"
           ],
           "categoryTags": [
-            "compare",
+            "metric_explain",
             "explore"
           ],
           "targetCatalogIds": [
-            "etl_lottery_shoot.lottery_box",
-            "etl_lottery_shoot.total_cost_diamond",
-            "etl_lottery_shoot.ten_pull_count",
-            "etl_lottery_shoot.diamond_pulls",
-            "etl_lottery_shoot.distinct_players"
+            "active_daily.dau",
+            "active_daily.wau",
+            "active_daily.trailing_mau",
+            "active_daily.log_date"
           ]
         },
         {
-          "id": "newbie-tutorial-funnel-dropoff-step",
-          "text": "At which tutorial step does the new-player completion rate fall furthest — pinpointing exactly where onboarding breaks down before the first real match?",
+          "id": "login-peak-hours-vn",
+          "text": "What is the hourly login distribution in VN timezone — when do players peak during the day?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "etl_login.logins",
+            "etl_login.hour_of_day_vn"
+          ]
+        },
+        {
+          "id": "role-class-dau-breakdown",
+          "text": "How is daily active player count split across role classes over the last 30 days?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.role_class",
+            "active_daily.log_date"
+          ]
+        },
+        {
+          "id": "matchmaking-failure-by-mode",
+          "text": "Which game modes have the highest matchmaking failure rate and longest average queue wait?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "diagnose",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "etl_room_match_flow.success_rate",
+            "etl_room_match_flow.failure_count",
+            "etl_room_match_flow.avg_alloc_wait_ms",
+            "etl_room_match_flow.game_mode"
+          ]
+        },
+        {
+          "id": "tutorial-step-completion-funnel",
+          "text": "Which tutorial steps have the lowest completion rate — where do new players drop out of onboarding?",
           "topicTags": [
             "user_acquisition"
           ],
@@ -183,34 +227,93 @@
             "explore"
           ],
           "targetCatalogIds": [
-            "etl_newbie_tutorial.tutorial_id",
-            "etl_newbie_tutorial.completion_rate",
             "etl_newbie_tutorial.started_count",
-            "etl_newbie_tutorial.completed_count"
+            "etl_newbie_tutorial.completed_count",
+            "etl_newbie_tutorial.completion_rate",
+            "etl_newbie_tutorial.tutorial_id"
           ]
         },
         {
-          "id": "backflow-vs-new-player-match-engagement",
-          "text": "How do returning (backflow) players compare to first-time players in matches played, KDR, and login frequency in their first week back in the game?",
+          "id": "newbie-first-mode-after-tutorial",
+          "text": "What game mode do new players choose for their first real match after completing the tutorial?",
           "topicTags": [
-            "user_acquisition",
-            "liveops"
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_newbie_detail.distinct_players",
+            "etl_newbie_detail.first_game_mode"
+          ]
+        },
+        {
+          "id": "app-channel-login-volume",
+          "text": "How are logins distributed across acquisition channels — which channel brings the most active users?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "etl_login.logins",
+            "etl_login.app_channel"
+          ]
+        },
+        {
+          "id": "newbie-vs-veteran-combat-stats",
+          "text": "How do KDR, headshot rate, and accuracy compare between newbie-flagged and non-newbie players?",
+          "topicTags": [
+            "user_acquisition"
           ],
           "categoryTags": [
             "compare",
             "diagnose"
           ],
           "targetCatalogIds": [
-            "etl_game_detail.is_backflow_user",
-            "etl_game_detail.matches",
             "etl_game_detail.kdr",
-            "etl_login.is_backflow_user",
-            "etl_login.backflow_logins"
+            "etl_game_detail.headshot_rate",
+            "etl_game_detail.accuracy",
+            "etl_game_detail.is_newbie"
           ]
         },
         {
-          "id": "diamond-spend-category-monthly-breakdown",
-          "text": "Which in-game spend categories (money-out reasons) consumed the most diamonds last month, and how has that mix shifted versus the month before?",
+          "id": "self-esteem-training-performance",
+          "text": "How does newbie self-assessed skill level (novice / normal / expert) correlate with training kills and tutorial score?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_newbie_detail.avg_ship_training_kills",
+            "etl_newbie_detail.avg_score",
+            "etl_newbie_detail.self_esteem_label"
+          ]
+        },
+        {
+          "id": "os-platform-dau-split",
+          "text": "How is daily active player count split between iOS and Android over the last 30 days?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.os_platform",
+            "active_daily.log_date"
+          ]
+        },
+        {
+          "id": "gacha-diamond-spend-by-box",
+          "text": "Which gacha boxes generate the most diamond spend and attract the most distinct spenders?",
           "topicTags": [
             "monetization"
           ],
@@ -219,11 +322,91 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "etl_money_flow.reason_action_label",
-            "etl_money_flow.money_type",
+            "etl_lottery_shoot.total_cost_diamond",
+            "etl_lottery_shoot.distinct_players",
+            "etl_lottery_shoot.pulls",
+            "etl_lottery_shoot.lottery_box"
+          ]
+        },
+        {
+          "id": "currency-inflow-outflow-by-type",
+          "text": "What is the net diamond and gold balance — compare total inflow vs outflow by currency type?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_money_flow.total_in",
             "etl_money_flow.total_out",
-            "etl_money_flow.direction",
-            "etl_money_flow.log_month"
+            "etl_money_flow.total_delta",
+            "etl_money_flow.money_type"
+          ]
+        },
+        {
+          "id": "ten-pull-vs-single-ratio-by-box",
+          "text": "What fraction of gacha pulls are 10-pull bundles vs singles, broken down by lottery box?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_lottery_shoot.ten_pull_count",
+            "etl_lottery_shoot.pulls",
+            "etl_lottery_shoot.lottery_box"
+          ]
+        },
+        {
+          "id": "gacha-banner-diamond-spend-ranking",
+          "text": "Which gacha banner generated the most diamond spend and attracted the most unique spenders in the most recent month of data?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "etl_lottery_shoot.total_cost_diamond",
+            "etl_lottery_shoot.lottery_box",
+            "etl_lottery_shoot.distinct_players"
+          ]
+        },
+        {
+          "id": "daily-recharge-player-share",
+          "text": "What share of daily active players made a recharge each day over the last 7 days?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "metric_explain",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "active_daily.dau",
+            "active_daily.is_recharge_day",
+            "active_daily.log_date"
+          ]
+        },
+        {
+          "id": "gacha-ten-pull-ratio-by-banner",
+          "text": "Which lottery banner has the highest ten-pull ratio — where are players most committed to multi-spend?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_lottery_shoot.ten_pull_count",
+            "etl_lottery_shoot.pulls",
+            "etl_lottery_shoot.lottery_box"
           ]
         }
       ],
@@ -233,11 +416,15 @@
         "active_daily.log_date": "2026-06-04",
         "game_key_metrics.report_date": "2026-06-04",
         "etl_game_detail.dteventtime": "2026-04-30",
-        "etl_lottery_shoot.dteventtime": "2026-05-31",
-        "etl_newbie_tutorial.dteventtime": "2026-05-31",
         "etl_login.dteventtime": "2026-06-03",
-        "etl_money_flow.dteventtime": "2026-04-30"
-      }
+        "etl_room_match_flow.dteventtime": "2026-03-03",
+        "etl_newbie_tutorial.dteventtime": "2026-05-31",
+        "etl_newbie_detail.dteventtime": "2026-05-31",
+        "etl_lottery_shoot.dteventtime": "2026-05-31",
+        "etl_money_flow.dteventtime": "2026-04-30",
+        "etl_prop_flow.dteventtime": "2026-05-30"
+      },
+      "verifiedAt": 1780733351712
     },
     "cros": {
       "questions": [

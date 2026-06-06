@@ -14,7 +14,7 @@
  *   4. tier-2 gate: write a PROVISIONAL seed, hot-reload the running
  *      chat-service's seed cache, then drive a REAL chat turn per candidate;
  *      keep the first QUESTIONS_PER_TOPIC per topic that produce a query
- *      artifact and finish cleanly (verification sessions are soft-deleted)
+ *      artifact and finish cleanly (sessions are kept for transcript review)
  *   5. shortfall → one retry round with failure feedback in the prompt
  *   6. freeze the verified set (+ coverage, verifiedAt) into the seed file,
  *      merging with other games' existing entries, and reload once more
@@ -39,7 +39,6 @@ import { handler as timeCoverageHandler } from '../tools/get-time-coverage.js';
 import {
   cheapVerify,
   verifyViaChatTurn,
-  deleteVerificationSession,
 } from './verify-starter-question-workability.js';
 import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
 import { openDatabase } from '../db/migrate.js';
@@ -192,7 +191,20 @@ const PROGRESS_PATH = STARTER_SEED_PATH.replace(
   'starter-verify-progress.json',
 );
 
-type ProgressFile = Record<string, { verified: StarterQuestion[]; coverage: Record<string, string> }>;
+interface VerifiedFacts {
+  rowCount?: number;
+  ms?: number;
+  artifactCount?: number;
+  sessionId?: string | null;
+  query?: unknown;
+}
+
+type ProgressFile = Record<string, {
+  verified: StarterQuestion[];
+  coverage: Record<string, string>;
+  /** Per-question gate facts (keyed by question id) — feed the review report. */
+  facts?: Record<string, VerifiedFacts>;
+}>;
 
 function readProgress(): ProgressFile {
   try {
@@ -205,6 +217,58 @@ function readProgress(): ProgressFile {
 
 function writeProgress(progress: ProgressFile): void {
   writeFileSync(PROGRESS_PATH, JSON.stringify(progress, null, 2) + '\n', 'utf8');
+}
+
+// ---------------------------------------------------------------------------
+// Verification report — reviewed in the FE at /dev/chat-audit/starters via
+// GET /debug/starter-verification-report. One entry per candidate (kept AND
+// failed) so the question set can be audited without re-asking anything.
+// Merged per game like the seed; gitignored (local workflow artifact).
+// ---------------------------------------------------------------------------
+
+const REPORT_PATH = STARTER_SEED_PATH.replace(
+  /starter-questions-seed\.json$/,
+  'starter-verification-report.json',
+);
+
+interface ReportGate {
+  ok: boolean;
+  reason?: string;
+  detail?: string;
+  rowCount?: number;
+  ms?: number;
+  artifactCount?: number;
+  sessionId?: string | null;
+}
+
+interface ReportEntry {
+  questionId: string;
+  text: string;
+  topic: string;
+  kept: boolean;
+  tier1: ReportGate;
+  tier2?: ReportGate;
+  query?: unknown;
+}
+
+function writeReportForGame(
+  gameId: string,
+  entries: ReportEntry[],
+  meta: { version: string; workspace: string },
+): void {
+  let report: { version: string; generatedAt: number; workspace: string; games: Record<string, { entries: ReportEntry[] }> };
+  try {
+    report = existsSync(REPORT_PATH)
+      ? JSON.parse(readFileSync(REPORT_PATH, 'utf8'))
+      : { version: meta.version, generatedAt: Date.now(), workspace: meta.workspace, games: {} };
+  } catch {
+    report = { version: meta.version, generatedAt: Date.now(), workspace: meta.workspace, games: {} };
+  }
+  report.version = meta.version;
+  report.generatedAt = Date.now();
+  report.workspace = meta.workspace;
+  report.games[gameId] = { entries };
+  writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2) + '\n', 'utf8');
 }
 
 /** Ask the running chat-service to re-read the seed file from disk. */
@@ -253,9 +317,12 @@ async function generateVerifiedGameEntry(
   // Resume verified questions from an aborted previous run — each one cost a
   // real chat turn; never pay for it twice.
   const progress = readProgress();
+  const facts: Record<string, VerifiedFacts> = {};
+  const failedEntries: ReportEntry[] = [];
   const prior = progress[gameId];
   if (prior?.verified?.length) {
     coverage = { ...prior.coverage, ...coverage };
+    Object.assign(facts, prior.facts ?? {});
     for (const q of prior.verified) {
       const t = homeTopic(q);
       if (verified.get(t)!.length < QUESTIONS_PER_TOPIC) {
@@ -266,7 +333,7 @@ async function generateVerifiedGameEntry(
     console.log(`  resumed ${prior.verified.length} verified questions from previous run`);
   }
   const saveProgress = () => {
-    progress[gameId] = { verified: [...verified.values()].flat(), coverage };
+    progress[gameId] = { verified: [...verified.values()].flat(), coverage, facts };
     writeProgress(progress);
   };
   console.log(`  coverage: ${JSON.stringify(coverage)}`);
@@ -297,9 +364,15 @@ async function generateVerifiedGameEntry(
       const res = await cheapVerify(q, meta, knownMembers, coverage, ctx);
       if (res.ok) {
         cheapPassed.push(q);
+        facts[q.id] = { ...facts[q.id], rowCount: res.rowCount, query: res.query };
       } else {
         console.log(`    ✗ [tier1 ${res.reason}] ${q.text.slice(0, 70)}`);
         failureFeedback.push(`"${q.text}" — query ${res.reason}${res.detail ? ` (${res.detail.slice(0, 80)})` : ''}`);
+        failedEntries.push({
+          questionId: q.id, text: q.text, topic: homeTopic(q), kept: false,
+          tier1: { ok: false, reason: res.reason, detail: res.detail, rowCount: res.rowCount },
+          query: res.query,
+        });
       }
     }
     console.log(`    tier1: ${cheapPassed.length}/${candidates.length} candidates passed`);
@@ -321,13 +394,11 @@ async function generateVerifiedGameEntry(
         baseUrl: chatBaseUrl, game: gameId, workspace, ownerId: VERIFY_OWNER_ID,
       });
       turnsRun++;
-      if (res.sessionId) {
-        await deleteVerificationSession(res.sessionId, {
-          baseUrl: chatBaseUrl, ownerId: VERIFY_OWNER_ID, workspace,
-        });
-      }
+      // Sessions are KEPT (under the verifier owner, invisible in normal
+      // sidebars) so the report can link to the full transcript for review.
       if (res.ok) {
         verified.get(topic)!.push(q);
+        facts[q.id] = { ...facts[q.id], ms: res.ms, artifactCount: res.artifactCount, sessionId: res.sessionId };
         saveProgress();
         console.log(`✓ (${res.artifactCount} artifact, ${Math.round(res.ms / 1000)}s)`);
       } else if (res.infrastructure) {
@@ -342,6 +413,12 @@ async function generateVerifiedGameEntry(
       } else {
         console.log(`✗ ${res.reason} (${Math.round(res.ms / 1000)}s)`);
         failureFeedback.push(`"${q.text}" — chat turn ${res.reason}${res.detail ? ` (${res.detail.slice(0, 80)})` : ''}`);
+        failedEntries.push({
+          questionId: q.id, text: q.text, topic: homeTopic(q), kept: false,
+          tier1: { ok: true, rowCount: facts[q.id]?.rowCount },
+          tier2: { ok: false, reason: res.reason, detail: res.detail, ms: res.ms, artifactCount: res.artifactCount, sessionId: res.sessionId },
+          query: facts[q.id]?.query,
+        });
       }
     }
   }
@@ -355,6 +432,19 @@ async function generateVerifiedGameEntry(
   }
 
   const questions = SEED_TOPICS.flatMap((t) => verified.get(t)!.slice(0, QUESTIONS_PER_TOPIC));
+  // Review report: every kept question (with its gate facts) + this run's failures.
+  const keptEntries: ReportEntry[] = questions.map((q) => ({
+    questionId: q.id, text: q.text, topic: homeTopic(q), kept: true,
+    tier1: { ok: true, rowCount: facts[q.id]?.rowCount },
+    tier2: {
+      ok: true,
+      ms: facts[q.id]?.ms,
+      artifactCount: facts[q.id]?.artifactCount,
+      sessionId: facts[q.id]?.sessionId ?? null,
+    },
+    query: facts[q.id]?.query,
+  }));
+  writeReportForGame(gameId, [...keptEntries, ...failedEntries], { version, workspace });
   // Frozen successfully — drop the resume state for this game.
   delete progress[gameId];
   writeProgress(progress);

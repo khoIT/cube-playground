@@ -19,6 +19,7 @@ import { AuditTabs } from './audit-tabs';
 import { SessionsTab } from './sessions-tab';
 import { SearchTab } from './search-tab';
 import { CacheTab } from './cache-tab';
+import { StartersVerificationTab } from './starters-verification-tab';
 import { SkillLeaderboardPage } from './skill-leaderboard-page';
 import { useDevAuditShortcuts } from './use-dev-audit-shortcuts';
 
@@ -156,6 +157,13 @@ export function DevAuditShell() {
           <Route path="/dev/chat-audit/cache">
             <div role="tabpanel" id="audit-panel-cache" aria-labelledby="audit-tab-cache" style={{ display: 'contents' }}>
               <CacheTab />
+            </div>
+          </Route>
+
+          {/* Starters tab: /dev/chat-audit/starters — pregenerated-question verification results */}
+          <Route path="/dev/chat-audit/starters">
+            <div role="tabpanel" id="audit-panel-starters" aria-labelledby="audit-tab-starters" style={{ display: 'contents' }}>
+              <StartersVerificationTab />
             </div>
           </Route>
 

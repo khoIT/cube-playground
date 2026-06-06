@@ -6,3 +6,4 @@ runtime/*
 *.log
 .DS_Store
 seed/starter-verify-progress.json
+seed/starter-verification-report.json
