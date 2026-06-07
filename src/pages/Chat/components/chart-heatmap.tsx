@@ -6,13 +6,16 @@
  * columns (x), `encoding.series` values become rows (y), and each cell's
  * background intensity encodes `encoding.value` relative to the grid max.
  *
- * Cells keep their submitted order on both axes — the LLM/query owns ordering
- * (e.g. Mon..Sun, 0..23), re-sorting here would scramble time-like axes.
+ * Categorical axes keep their submitted order (the LLM/query owns it), but
+ * recognisably time-like axes (weekdays, months, hours, numbers) are re-sorted
+ * into natural time order — "top N cells by value" queries arrive value-sorted,
+ * which would otherwise scramble them (e.g. Sun before Fri).
  */
 import React from 'react';
 import { T } from '../../../shell/theme';
 import type { ChartSpec } from '../../../api/chat-sse-client';
 import { labelOf, type LabelMap } from './chart-column-labels';
+import { canonicalAxisOrder, padTimeAxis } from './chart-heatmap-axis-order';
 
 interface ChartHeatmapProps {
   spec: ChartSpec;
@@ -22,16 +25,18 @@ interface ChartHeatmapProps {
 }
 
 /**
- * Sequential brand-orange ramp (light → deep). Mirrors the stop-interpolation
- * approach of src/pages/Liveops/cohort/intensity-ramp.ts but on the chat
- * surface's brand hue; text flips to white past the midpoint for contrast.
+ * Sequential warm ramp, amber → orange → red (light → deep). Mirrors the
+ * stop-interpolation approach of src/pages/Liveops/cohort/intensity-ramp.ts;
+ * the hue shift across stops keeps mid-range cells distinguishable where a
+ * single-hue orange ramp blurs together. Text flips to white past the
+ * midpoint for contrast.
  */
 const STOPS: Array<[bg: string, text: string]> = [
-  ['#fff7ed', '#7c2d12'], //   0 — near-white orange tint, dark text
-  ['#fed7aa', '#7c2d12'], //  25
-  ['#fb923c', '#431407'], //  50
-  ['#ea580c', '#ffffff'], //  75
-  ['#7c2d12', '#ffffff'], // 100 — deep orange, white text
+  ['#fef3c7', '#78350f'], //   0 — light amber, dark text
+  ['#fcd34d', '#78350f'], //  25 — amber
+  ['#fb923c', '#431407'], //  50 — orange
+  ['#dc2626', '#ffffff'], //  75 — red
+  ['#7f1d1d', '#ffffff'], // 100 — deep red, white text
 ];
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -49,16 +54,24 @@ function interpolateColor(a: string, b: string, t: number): string {
   return `#${c(r1, r2)}${c(g1, g2)}${c(b1, b2)}`;
 }
 
-/** bg + text colors for a value scaled into [0, 1] against the grid max. */
-export function heatColor(value: number, max: number): { bg: string; text: string } {
-  const scaled = max > 0 ? Math.max(0, Math.min(value / max, 1)) : 0;
-  const segment = Math.min(scaled * (STOPS.length - 1), STOPS.length - 2);
-  const segIdx = Math.floor(segment);
-  const t = segment - segIdx;
+/**
+ * bg + text colors for a value scaled into [0, 1] against the [min, max]
+ * range of present cells. Min–max (not zero-based) scaling: "top N cells"
+ * grids cluster in a narrow high band (e.g. 125K–217K), and a zero-based
+ * scale would paint them all the same shade. All-equal grids sit mid-ramp.
+ */
+export function heatColor(value: number, min: number, max: number): { bg: string; text: string } {
+  const range = max - min;
+  const scaled = range > 0 ? Math.max(0, Math.min((value - min) / range, 1)) : max > 0 ? 0.5 : 0;
+  // Clamp the segment INDEX (not the position) so scaled=1 lands on the
+  // deepest stop with t=1 instead of snapping back to the 75% stop.
+  const pos = scaled * (STOPS.length - 1);
+  const segIdx = Math.min(Math.floor(pos), STOPS.length - 2);
+  const t = pos - segIdx;
   const [bgA, textA] = STOPS[segIdx];
   const [bgB, textB] = STOPS[segIdx + 1];
   return {
-    bg: t < 0.001 ? bgA : interpolateColor(bgA, bgB, t),
+    bg: t < 0.001 ? bgA : t > 0.999 ? bgB : interpolateColor(bgA, bgB, t),
     text: scaled >= 0.6 ? textB : textA,
   };
 }
@@ -85,21 +98,29 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
   // Zod requires series on heatmap, but a bad payload shouldn't NPE the renderer.
   const series = spec.encoding.series ?? category;
 
-  const xs = uniqueInOrder(spec.data, category);
-  const ys = uniqueInOrder(spec.data, series);
+  // Time-like axes get canonical order AND full-range padding (00h..23h,
+  // Mon..Sun) so gaps show as empty slots instead of vanishing columns.
+  const xs = padTimeAxis(canonicalAxisOrder(uniqueInOrder(spec.data, category)));
+  const ys = padTimeAxis(canonicalAxisOrder(uniqueInOrder(spec.data, series)));
 
   // (y, x) → value lookup; later duplicates win, matching last-write semantics.
   const cells = new Map<string, number>();
-  let max = 0;
+  let min = Infinity;
+  let max = -Infinity;
   for (const row of spec.data) {
     const v = Number(row[value]) || 0;
     cells.set(`${String(row[series])}\u0000${String(row[category])}`, v);
+    if (v < min) min = v;
     if (v > max) max = v;
   }
+  if (!Number.isFinite(min)) min = max = 0; // empty-data guard
 
-  // Compact text fits only on small grids; bigger grids rely on the tooltip.
-  const showCellText = xs.length <= 14;
+  // Cell values stay visible up to ~30 columns — wide grids get a real
+  // per-column min width and the container scrolls horizontally instead of
+  // squeezing cells until text is unreadable. Beyond that, tooltip only.
+  const showCellText = xs.length <= 30;
   const cellFont = xs.length <= 8 ? 11 : 10;
+  const colMinWidth = showCellText ? 54 : 28;
 
   return (
     <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -108,10 +129,10 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
         aria-label={spec.title}
         style={{
           display: 'grid',
-          gridTemplateColumns: `minmax(72px, max-content) repeat(${xs.length}, minmax(28px, 1fr))`,
+          gridTemplateColumns: `minmax(72px, max-content) repeat(${xs.length}, minmax(${colMinWidth}px, 1fr))`,
           gap: 2,
           fontFamily: T.fSans,
-          minWidth: xs.length * 30 + 80,
+          minWidth: xs.length * (colMinWidth + 2) + 80,
         }}
       >
         {/* Header row: corner spacer + x labels */}
@@ -155,14 +176,17 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
               const v = cells.get(`${String(y)}\u0000${String(x)}`);
               if (v === undefined) {
                 // Missing (y, x) pair — render an empty slot, not a zero cell.
+                // Tooltip disambiguates "not in the result" from a true zero
+                // (e.g. hours that didn't make a "top N cells" cut).
                 return (
                   <div
                     key={String(x)}
+                    title={`${String(y)} × ${String(x)}: no data in this result`}
                     style={{ background: T.n100, borderRadius: 3, minHeight: 24 }}
                   />
                 );
               }
-              const { bg, text } = heatColor(v, max);
+              const { bg, text } = heatColor(v, min, max);
               return (
                 <div
                   key={String(x)}
