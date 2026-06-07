@@ -10,6 +10,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
+import { useAuthUser } from '../../auth/auth-context';
 import { SessionList } from './session-list';
 import { SessionDetail } from './session-detail';
 import { SearchResultList } from './search-result-list';
@@ -74,6 +75,12 @@ export function SessionsTab() {
   const { sessionId: routeSessionId } = useParams<{ sessionId?: string }>();
   const selectedSessionId = routeSessionId ?? null;
 
+  // Admins audit ALL users' sessions by default; non-admins are always
+  // self-scoped (the server enforces the role on scope=all regardless).
+  const isAdmin = useAuthUser()?.role === 'admin';
+  const [scope, setScope] = useState<'mine' | 'all'>('all');
+  const effectiveScope: 'mine' | 'all' = isAdmin ? scope : 'mine';
+
   // Cross-turn search — debounced 300 ms (preserved from original DevAuditPage)
   const [rawQ, setRawQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -101,7 +108,36 @@ export function SessionsTab() {
     <div style={S.root}>
       {/* Inline search bar preserved from original banner */}
       <div style={S.searchBar}>
-        <span>Showing your own chat sessions for triage.</span>
+        <span>
+          {effectiveScope === 'all'
+            ? 'Showing all users’ chat sessions for triage.'
+            : 'Showing your own chat sessions for triage.'}
+        </span>
+        {isAdmin && (
+          <div role="radiogroup" aria-label="Session scope" style={{ display: 'flex', gap: 2 }}>
+            {(['all', 'mine'] as const).map((s) => (
+              <button
+                key={s}
+                role="radio"
+                aria-checked={scope === s}
+                onClick={() => setScope(s)}
+                data-testid={`session-scope-${s}`}
+                style={{
+                  fontSize: 11,
+                  padding: '2px 10px',
+                  border: `1px solid ${scope === s ? T.brand : T.n300}`,
+                  borderRadius: 5,
+                  background: scope === s ? T.brandSoft : T.surface,
+                  color: scope === s ? T.brand : T.n600,
+                  fontWeight: scope === s ? 600 : 400,
+                  cursor: 'pointer',
+                }}
+              >
+                {s === 'all' ? 'All users' : 'Mine'}
+              </button>
+            ))}
+          </div>
+        )}
         <input
           type="search"
           placeholder="Search all turns…"
@@ -131,6 +167,7 @@ export function SessionsTab() {
               gameId={gameId}
               selectedId={selectedSessionId}
               onSelect={setSelectedSessionId}
+              scope={effectiveScope}
             />
           )}
         </div>

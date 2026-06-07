@@ -25,6 +25,7 @@ import { loadWorkspacesConfig } from '../services/workspaces-config-loader.js';
 import { getAccess } from '../auth/access-store.js';
 import { FEATURE_KEYS } from '../auth/feature-keys.js';
 import { resolvePrincipal, type Principal } from '../auth/principal.js';
+import { devAdminEmail, devOwnerSub, devUsername } from '../auth/dev-identity.js';
 
 export interface AuthenticatedUser {
   id: string;
@@ -69,9 +70,10 @@ export function assertAuthConfigSafe(): void {
 }
 
 function devUser(): AuthenticatedUser {
-  // Synthesize a user that mirrors the prior "X-Owner: dev" posture so
-  // pre-Phase-6 seed rows (owner='dev') remain queryable without manual
-  // backfill in local dev.
+  // Synthesize the FIRST bootstrap admin (default khoitn@vng.com.vn) so the
+  // local stack runs as the same real person prod knows — no 'dev' placeholder
+  // identity. Legacy owner='dev' rows are rewritten at boot by
+  // dev-owner-backfill.ts so existing local data stays reachable.
   // Dev admin sees every game in every workspace. Build an explicit all-games
   // map per registry workspace so the per-workspace fail-closed game check
   // (userCanAccessGame) always allows — the dev loop never strands behind RBAC,
@@ -90,8 +92,9 @@ function devUser(): AuthenticatedUser {
     // fallback still allows under AUTH_DISABLED.
   }
   return {
-    id: 'dev',
-    username: 'dev',
+    id: devOwnerSub(),
+    username: devUsername(),
+    email: devAdminEmail(),
     role: 'admin',
     gamesByWorkspace,
     // Dev admin sees every workspace + feature. Empty workspaces fall through
@@ -162,13 +165,16 @@ async function authenticatePlugin(app: FastifyInstance): Promise<void> {
       return;
     }
 
-    // Dev / auth-disabled mode — synthesize a 'dev / admin' user.
+    // Dev / auth-disabled mode — synthesize the bootstrap-admin user.
     const u = devUser();
     request.user = u;
     // X-Owner override is still honoured so existing fixtures / e2e tests
-    // that pin a specific owner keep working.
+    // that pin a specific owner keep working. The retired 'dev' placeholder
+    // maps to the synth identity — stale clients (old localStorage) must not
+    // resurrect a second identity that no longer owns anything.
     const ownerHdr = request.headers['x-owner'];
-    request.owner = typeof ownerHdr === 'string' && ownerHdr.trim() ? ownerHdr.trim() : u.id;
+    const trimmed = typeof ownerHdr === 'string' ? ownerHdr.trim() : '';
+    request.owner = trimmed && trimmed !== 'dev' ? trimmed : u.id;
   });
 }
 

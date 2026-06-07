@@ -20,6 +20,7 @@ import { config } from './config.js';
 import { validateSkillRegistry } from './core/registry-boot-guard.js';
 import { openDatabase } from './db/migrate.js';
 import { hydrateChatFromSnapshot, getChatSyncStatus } from './db/snapshot-store.js';
+import { backfillLegacyDevOwner } from './db/dev-owner-backfill.js';
 import { sweepOrphanedInFlightTurns } from './db/sweep-orphaned-inflight-turns.js';
 import healthRoutes from './api/health.js';
 import sessionsRoutes from './api/sessions.js';
@@ -123,6 +124,14 @@ async function start(): Promise<void> {
   const seeded = hydrateChatFromSnapshot(db);
   if (seeded.hydrated) {
     fastify.log.info({ counts: seeded.counts }, '[chat-snapshot] hydrated from seed');
+  }
+
+  // Local-dev only (DEV_OWNER_BACKFILL_TO): rewrite legacy 'dev'-owned sessions
+  // to the dev-admin owner so pre-rename data stays reachable. After hydration
+  // so freshly-seeded rows are caught too.
+  const rewritten = backfillLegacyDevOwner(db);
+  if (rewritten > 0) {
+    fastify.log.info(`[dev-owner-backfill] rewrote ${rewritten} legacy 'dev' session(s)`);
   }
 
   const sync = getChatSyncStatus(db);

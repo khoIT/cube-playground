@@ -19,6 +19,18 @@ export function canAccessOwnedResource(resourceOwnerId: string, requesterId: str
   return resourceOwnerId === requesterId || resourceOwnerId === VERIFIER_OWNER_ID;
 }
 
+/**
+ * True when the gateway marked this request as an admin audit read. The header
+ * is set ONLY by the server proxy after verifying the caller's DB role —
+ * chat-service is internal-only, so the trust boundary matches X-Owner-Id.
+ * Grants cross-owner READ access on debug routes; mutations stay owner-scoped.
+ */
+export function isAdminAuditRequest(
+  headers: Record<string, string | string[] | undefined>,
+): boolean {
+  return headers['x-debug-admin'] === '1';
+}
+
 /** Extracts and validates X-Owner-Id header; returns null if missing/invalid. */
 export function extractOwnerId(
   headers: Record<string, string | string[] | undefined>,

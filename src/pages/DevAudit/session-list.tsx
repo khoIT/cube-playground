@@ -23,6 +23,8 @@ interface SessionListProps {
   onSelect: (id: string) => void;
   /** Optional skill filter pre-populated from URL ?skill= param (from Leaderboard row click). */
   skillFilter?: string;
+  /** Admin audit scope: 'all' lists every user's sessions (server enforces the role). */
+  scope?: 'mine' | 'all';
 }
 
 const S = {
@@ -81,7 +83,7 @@ const S = {
   } as React.CSSProperties,
 };
 
-export function SessionList({ gameId, selectedId, onSelect, skillFilter }: SessionListProps) {
+export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope }: SessionListProps) {
   const location = useLocation();
   const urlSkill = new URLSearchParams(location.search).get('skill') ?? '';
   const effectiveSkill = skillFilter ?? urlSkill;
@@ -111,7 +113,7 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter }: Sessi
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [rawQ]);
 
-  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ }, refreshTick);
+  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ, scope }, refreshTick);
   const allSessions = data ?? [];
 
   const deletedCount = useMemo(
@@ -234,6 +236,7 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter }: Sessi
             selected={selectedDeletedIds.has(s.id)}
             onSelect={onSelect}
             onToggleSelected={toggleSelected}
+            showOwner={scope === 'all'}
           />
         ))}
       </div>

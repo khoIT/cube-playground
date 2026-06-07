@@ -44,11 +44,12 @@ describe('authenticate middleware', () => {
       app = await buildApp();
     });
 
-    it('/api/auth/me returns the synthesized dev user', async () => {
+    it('/api/auth/me returns the synthesized dev-admin user (first bootstrap admin)', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/auth/me' });
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.user.id).toBe('dev');
+      // Default dev identity = first bootstrap admin (no 'dev' placeholder).
+      expect(body.user.id).toBe('khoitn@vng.com.vn');
       expect(body.user.role).toBe('admin');
       // devUser builds gamesByWorkspace covering all games per registry workspace.
       const allGames = Object.values(body.user.gamesByWorkspace as Record<string, string[]>).flat();

@@ -45,6 +45,7 @@ import adminLlmAuthRoutes from './routes/admin-llm-auth.js';
 import adminChatAuditRoutes from './routes/admin-chat-audit.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
+import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
 import { seedEnvConnectorIntoDb } from './services/connector-bootstrap.js';
 import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
@@ -118,6 +119,18 @@ export async function buildApp() {
     if (seeded.length > 0) app.log.info(`[auth] bootstrap admins seeded: ${seeded.length}`);
   } catch (err) {
     app.log.warn(`[auth] bootstrap-admin seed failed: ${(err as Error).message}`);
+  }
+
+  // AUTH_DISABLED only: rewrite legacy 'dev'-owned rows to the dev-admin owner
+  // sub so pre-rename local data stays reachable under the real identity.
+  try {
+    const backfilled = backfillLegacyDevOwner();
+    const tables = Object.keys(backfilled);
+    if (tables.length > 0) {
+      app.log.info({ backfilled }, `[auth] legacy 'dev' owner rows rewritten in: ${tables.join(', ')}`);
+    }
+  } catch (err) {
+    app.log.warn(`[auth] dev-owner backfill failed: ${(err as Error).message}`);
   }
 
   // Phase-03: idempotent seed of the canonical glossary terms.

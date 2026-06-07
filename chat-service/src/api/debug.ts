@@ -23,7 +23,7 @@ import {
 } from '../cache/turn-detail-cache-adapter.js';
 import type { ChatSessionRow, ChatTurnRow, QueryArtifact, ChartArtifact, PermissionDecisionRow } from '../types.js';
 // Shared owner-guard helpers — imported and re-exported for sub-plugins.
-import { extractOwnerId, getTurnOwnerId, canAccessOwnedResource, VERIFIER_OWNER_ID } from './debug-shared.js';
+import { extractOwnerId, getTurnOwnerId, canAccessOwnedResource, isAdminAuditRequest, VERIFIER_OWNER_ID } from './debug-shared.js';
 export { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
 
 // ---------------------------------------------------------------------------
@@ -150,12 +150,15 @@ interface DebugRouteOptions {
 const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts) => {
   const { db } = opts;
 
-  // GET /debug/sessions?game=<id>&q=<title-substring>&limit=<n>
+  // GET /debug/sessions?game=<id>&q=<title-substring>&limit=<n>&scope=all
   // Includes archived AND soft-deleted sessions (debug UI shows all).
-  fastify.get<{ Querystring: { game?: string; q?: string; limit?: string } }>(
+  // scope=all lists across ALL owners — honoured only with the gateway's
+  // admin-audit header (verified DB role); otherwise self-scoped.
+  fastify.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string } }>(
     '/debug/sessions',
     async (req, reply) => {
-      const ownerId = extractOwnerId(req.headers as Record<string, string | string[] | undefined>);
+      const headers = req.headers as Record<string, string | string[] | undefined>;
+      const ownerId = extractOwnerId(headers);
       if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
 
       const limit = Math.min(Math.max(parseInt(req.query.limit ?? '50', 10) || 50, 1), 200);
@@ -164,6 +167,7 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
         // Verifier sessions are shared: every owner sees them in the audit list
         // so the /starters report's transcript links have a browsable home.
         sharedOwnerId: VERIFIER_OWNER_ID,
+        allOwners: req.query.scope === 'all' && isAdminAuditRequest(headers),
         gameId: req.query.game,
         q: req.query.q,
         limit,
@@ -177,12 +181,14 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
   fastify.get<{ Params: { id: string } }>(
     '/debug/sessions/:id',
     async (req, reply) => {
-      const ownerId = extractOwnerId(req.headers as Record<string, string | string[] | undefined>);
+      const headers = req.headers as Record<string, string | string[] | undefined>;
+      const ownerId = extractOwnerId(headers);
       if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
 
       const session = chatStore.getSession(db, req.params.id);
       if (!session) return reply.status(404).send({ error: 'Session not found' });
-      if (!canAccessOwnedResource(session.owner_id, ownerId)) {
+      // Admin audit (gateway-verified role) gets cross-owner READ access.
+      if (!canAccessOwnedResource(session.owner_id, ownerId) && !isAdminAuditRequest(headers)) {
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
@@ -244,12 +250,14 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
   fastify.get<{ Params: { turnId: string } }>(
     '/debug/turns/:turnId',
     async (req, reply) => {
-      const ownerId = extractOwnerId(req.headers as Record<string, string | string[] | undefined>);
+      const headers = req.headers as Record<string, string | string[] | undefined>;
+      const ownerId = extractOwnerId(headers);
       if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
 
       const turnOwner = getTurnOwnerId(db, req.params.turnId);
       if (turnOwner === null) return reply.status(404).send({ error: 'Turn not found' });
-      if (!canAccessOwnedResource(turnOwner, ownerId)) {
+      // Admin audit (gateway-verified role) gets cross-owner READ access.
+      if (!canAccessOwnedResource(turnOwner, ownerId) && !isAdminAuditRequest(headers)) {
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
@@ -297,12 +305,14 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
   fastify.get<{ Params: { turnId: string }; Querystring: { cursor?: string; limit?: string } }>(
     '/debug/turns/:turnId/raw',
     async (req, reply) => {
-      const ownerId = extractOwnerId(req.headers as Record<string, string | string[] | undefined>);
+      const headers = req.headers as Record<string, string | string[] | undefined>;
+      const ownerId = extractOwnerId(headers);
       if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
 
       const turnOwner = getTurnOwnerId(db, req.params.turnId);
       if (turnOwner === null) return reply.status(404).send({ error: 'Turn not found' });
-      if (!canAccessOwnedResource(turnOwner, ownerId)) {
+      // Admin audit (gateway-verified role) gets cross-owner READ access.
+      if (!canAccessOwnedResource(turnOwner, ownerId) && !isAdminAuditRequest(headers)) {
         return reply.status(403).send({ error: 'Forbidden' });
       }
 

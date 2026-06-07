@@ -64,6 +64,7 @@ export async function proxyJson(
   ownerId: string,
   workspace: string,
   body?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<{ status: number; payload: unknown }> {
   // Only advertise a JSON content-type when we actually send a body. A
   // bodyless POST/DELETE (e.g. the turn-cancel route) with
@@ -78,6 +79,7 @@ export async function proxyJson(
     'X-Cube-Workspace': workspace,
   };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (extraHeaders) Object.assign(headers, extraHeaders);
   const res = await fetch(upstream, {
     method,
     headers,
@@ -117,6 +119,16 @@ function resolveOwner(request: FastifyRequest): string | null {
     return ownerId.trim();
   }
   return null;
+}
+
+/**
+ * Marks debug READ proxies as admin-audit when the verified DB role is admin,
+ * granting cross-owner read access in chat-service (X-Debug-Admin is trusted
+ * there because only this gateway reaches it). Never attached to mutations —
+ * restore/purge/annotations stay strictly owner-scoped.
+ */
+function debugAdminHeaders(request: FastifyRequest): Record<string, string> | undefined {
+  return request.user?.role === 'admin' ? { 'X-Debug-Admin': '1' } : undefined;
 }
 
 /**
@@ -704,19 +716,29 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
   // All routes enforce X-Owner-Id in chat-service; proxy passes it through.
   // ---------------------------------------------------------------------------
 
-  // --- GET /api/chat/debug/sessions?game=&q=&limit= ---
-  app.get<{ Querystring: { game?: string; q?: string; limit?: string } }>(
+  // --- GET /api/chat/debug/sessions?game=&q=&limit=&scope= ---
+  // scope=all (admins only) lists sessions across ALL owners; the verified DB
+  // role gates it here, then the X-Debug-Admin header carries the decision to
+  // chat-service. Non-admins requesting scope=all get an explicit 403.
+  app.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string } }>(
     '/api/chat/debug/sessions',
-    async (request: FastifyRequest<{ Querystring: { game?: string; q?: string; limit?: string } }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string } }>, reply: FastifyReply) => {
       const owner = resolveOwner(request);
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      const isAdmin = request.user?.role === 'admin';
+      if (request.query.scope === 'all' && !isAdmin) {
+        return reply.status(403).send({ code: 'admin_only', message: 'scope=all requires the admin role' });
+      }
       const params = new URLSearchParams();
       if (request.query.game) params.set('game', request.query.game);
       if (request.query.q) params.set('q', request.query.q);
       if (request.query.limit) params.set('limit', request.query.limit);
+      if (request.query.scope === 'all') params.set('scope', 'all');
       const url = `${chatServiceUrl()}/debug/sessions?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
+        const { status, payload } = await proxyJson(
+          url, 'GET', owner, request.workspace.id, undefined, debugAdminHeaders(request),
+        );
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -732,7 +754,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const url = `${chatServiceUrl()}/debug/sessions/${encodeURIComponent(request.params.id)}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
+        const { status, payload } = await proxyJson(
+          url, 'GET', owner, request.workspace.id, undefined, debugAdminHeaders(request),
+        );
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -766,7 +790,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
+        const { status, payload } = await proxyJson(
+          url, 'GET', owner, request.workspace.id, undefined, debugAdminHeaders(request),
+        );
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
@@ -788,7 +814,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.limit) params.set('limit', request.query.limit);
       const url = `${chatServiceUrl()}/debug/turns/${encodeURIComponent(request.params.turnId)}/raw?${params.toString()}`;
       try {
-        const { status, payload } = await proxyJson(url, 'GET', owner, request.workspace.id);
+        const { status, payload } = await proxyJson(
+          url, 'GET', owner, request.workspace.id, undefined, debugAdminHeaders(request),
+        );
         return reply.status(status).send(payload);
       } catch (err) {
         return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });

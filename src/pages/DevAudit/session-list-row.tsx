@@ -13,6 +13,8 @@ interface SessionListRowProps {
   selected: boolean;
   onSelect: (id: string) => void;
   onToggleSelected: (id: string) => void;
+  /** Admin all-users scope: show whose session each row is. */
+  showOwner?: boolean;
 }
 
 const S = {
@@ -80,6 +82,7 @@ export function SessionListRow({
   selected,
   onSelect,
   onToggleSelected,
+  showOwner,
 }: SessionListRowProps) {
   const isDeleted = session.deletedAt != null;
   return (
@@ -107,6 +110,13 @@ export function SessionListRow({
           {isDeleted && <span style={S.deletedBadge}>Deleted</span>}
         </div>
         <div style={S.meta}>
+          {showOwner && (
+            // Owner subs are emails in dev mode / KC UUIDs in real auth — show
+            // the local-part for emails, a short prefix otherwise.
+            <span style={{ color: T.n600, fontWeight: 600 }} title={session.owner_id}>
+              {session.owner_id.includes('@') ? session.owner_id.split('@')[0] : session.owner_id.slice(0, 8)}
+            </span>
+          )}
           <span>{session.turn_count} turn{session.turn_count !== 1 ? 's' : ''}</span>
           <span>{relativeTime(session.last_turn_at ?? session.created_at)}</span>
           {session.status !== 'active' && !isDeleted && (

@@ -250,6 +250,8 @@ export function listSessionsForDebug(
     ownerId: string;
     /** Extra owner whose sessions are visible to everyone (e.g. the starter-question verifier). */
     sharedOwnerId?: string;
+    /** Admin audit scope: list across ALL owners (no owner_id filter). */
+    allOwners?: boolean;
     gameId?: string;
     q?: string;
     limit?: number;
@@ -260,7 +262,11 @@ export function listSessionsForDebug(
 
   const conditions: string[] = [];
   const bindings: unknown[] = [];
-  if (params.sharedOwnerId && params.sharedOwnerId !== params.ownerId) {
+  if (params.allOwners) {
+    // Admin audit view — no owner filter. SQLite needs at least one condition
+    // for the WHERE join below, so anchor with a tautology.
+    conditions.push('1 = 1');
+  } else if (params.sharedOwnerId && params.sharedOwnerId !== params.ownerId) {
     conditions.push('owner_id IN (?, ?)');
     bindings.push(params.ownerId, params.sharedOwnerId);
   } else {

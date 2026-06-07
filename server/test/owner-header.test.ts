@@ -33,7 +33,7 @@ describe('owner-header middleware', () => {
   });
 
   // Post-Phase-6: when AUTH_DISABLED=true and no X-Owner is provided, the
-  // authenticate middleware synthesizes the 'dev' user — replacing the prior
+  // authenticate middleware synthesizes the dev-admin user (first bootstrap admin) — replacing the prior
   // 'anonymous' fallback. The X-Owner override still wins when supplied.
   it('falls back to dev-user id when X-Owner header is missing (AUTH_DISABLED)', async () => {
     const res = await app.inject({
@@ -43,7 +43,7 @@ describe('owner-header middleware', () => {
     });
 
     expect(res.statusCode).toBe(201);
-    expect(res.json().owner).toBe('dev');
+    expect(res.json().owner).toBe('khoitn@vng.com.vn');
   });
 
   it('falls back to dev-user id when X-Owner is an empty string (AUTH_DISABLED)', async () => {
@@ -55,7 +55,7 @@ describe('owner-header middleware', () => {
     });
 
     expect(res.statusCode).toBe(201);
-    expect(res.json().owner).toBe('dev');
+    expect(res.json().owner).toBe('khoitn@vng.com.vn');
   });
 
   it('passes through a provided X-Owner header value', async () => {

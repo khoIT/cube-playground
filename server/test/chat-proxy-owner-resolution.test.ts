@@ -32,6 +32,14 @@ beforeAll(async () => {
   fakeUpstream.get('/sessions/:id', (req, reply) => {
     return reply.send({ id: (req.params as Record<string, string>)['id'], forwardedOwner: req.headers['x-owner-id'] });
   });
+  // Echo what reached the debug list so the admin-scope tests can assert the
+  // forwarded X-Debug-Admin marker + scope param.
+  fakeUpstream.get('/debug/sessions', (req, reply) => {
+    return reply.send({
+      forwardedDebugAdmin: req.headers['x-debug-admin'] ?? null,
+      forwardedQuery: (req as { query: Record<string, string> }).query,
+    });
+  });
   await fakeUpstream.listen({ port: 0, host: '127.0.0.1' });
   const addr = fakeUpstream.server.address();
   baseUrl = `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 3005}`;
@@ -81,5 +89,57 @@ describe('chat proxy — server-authoritative owner resolution', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().forwardedOwner).toBe('legacy-tester');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Admin audit scope on the debug proxy: scope=all requires the admin role,
+// and the X-Debug-Admin marker is attached only for admins (never spoofable
+// from the client — the proxy builds upstream headers itself).
+// ---------------------------------------------------------------------------
+
+describe('chat debug proxy — admin audit scope', () => {
+  it('scope=all from a non-admin is rejected 403 before any proxying', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/chat/debug/sessions?scope=all',
+      headers: { 'x-owner': 'editor-sub' }, // no request.user → not admin
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe('admin_only');
+  });
+
+  it('a client-sent X-Debug-Admin header is NOT forwarded for non-admins', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/chat/debug/sessions',
+      headers: { 'x-owner': 'editor-sub', 'x-debug-admin': '1' }, // spoof attempt
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().forwardedDebugAdmin).toBeNull();
+  });
+
+  it('admins get the X-Debug-Admin marker and scope=all forwarded', async () => {
+    // Stand-in for the authenticate middleware's verified admin user.
+    const adminApp = Fastify({ logger: false });
+    adminApp.addHook('onRequest', async (req) => {
+      (req as { user?: { role: string } }).user = { role: 'admin' };
+    });
+    await adminApp.register(ownerHeader);
+    await adminApp.register(workspaceHeader);
+    await adminApp.register(chatRoutes);
+    await adminApp.ready();
+    try {
+      const res = await adminApp.inject({
+        method: 'GET',
+        url: '/api/chat/debug/sessions?scope=all',
+        headers: { 'x-owner': 'admin-sub' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().forwardedDebugAdmin).toBe('1');
+      expect(res.json().forwardedQuery.scope).toBe('all');
+    } finally {
+      await adminApp.close();
+    }
   });
 });

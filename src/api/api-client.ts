@@ -32,12 +32,25 @@ const OWNER_STORAGE_KEY = 'gds-cube:owner';
 // the two halves of the app disagree about who the caller is (segments would
 // act as one identity while chat acts as another, e.g. 403 on dev-owned
 // sessions). `|| ` (not `??`) so a stray empty string also falls back.
-const DEFAULT_OWNER = 'dev';
+// The default is the org's first bootstrap admin — the AUTH_DISABLED server
+// synthesizes the same identity (server/src/auth/dev-identity.ts), so local
+// dev runs as the real person, not a 'dev' placeholder. Only meaningful when
+// no JWT is attached; real-auth mode derives the owner from the verified token.
+const DEFAULT_OWNER = 'khoitn@vng.com.vn';
 
 export function getOwner(): string {
   if (typeof window === 'undefined') return DEFAULT_OWNER;
   try {
-    return window.localStorage.getItem(OWNER_STORAGE_KEY) || DEFAULT_OWNER;
+    const stored = window.localStorage.getItem(OWNER_STORAGE_KEY);
+    // Migrate the retired 'dev' placeholder: a browser that stored it before
+    // the bootstrap-admin rename would keep sending X-Owner: dev, which
+    // overrides the synth identity server-side and locks the user out of
+    // their own (backfilled) artifacts.
+    if (stored === 'dev') {
+      window.localStorage.removeItem(OWNER_STORAGE_KEY);
+      return DEFAULT_OWNER;
+    }
+    return stored || DEFAULT_OWNER;
   } catch {
     return DEFAULT_OWNER;
   }

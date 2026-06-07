@@ -3,7 +3,7 @@
  *
  * These pin the CURRENT, CORRECT behaviour that later phases MUST NOT regress:
  *   - dashboards are owner(sub)-scoped: another owner never sees them;
- *   - dev-mode owner is deterministic (X-Owner overrides; default = 'dev');
+ *   - dev-mode owner is deterministic (X-Owner overrides; default = first bootstrap admin);
  *   - req.principal threads the same sub the owned-artifact routes scope by.
  *
  * One block is explicitly a FIXTURE-TO-REPLACE, not a lock: today the segment
@@ -73,7 +73,7 @@ describe('isolation baseline — INVARIANT LOCKS', () => {
     expect((theirs.json() as Array<{ slug: string }>).some((d) => d.slug === 'alice-board')).toBe(false);
   });
 
-  it('LOCK: dev owner is deterministic — X-Owner overrides, default is dev', async () => {
+  it('LOCK: dev owner is deterministic — X-Owner overrides, default is the bootstrap admin', async () => {
     const withHeader = await app.inject({
       method: 'POST',
       url: '/api/segments',
@@ -87,7 +87,7 @@ describe('isolation baseline — INVARIANT LOCKS', () => {
       url: '/api/segments',
       payload: { name: 'S2', type: 'manual' },
     });
-    expect(noHeader.json().owner).toBe('dev');
+    expect(noHeader.json().owner).toBe('khoitn@vng.com.vn');
   });
 
   it('FIXTURE-TO-REPLACE (Phase 2 flips to owner-private): LIST returns all workspace segments regardless of owner', async () => {

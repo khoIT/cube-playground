@@ -47,7 +47,7 @@ describe('chat owner-id header on /api/chat/sessions/*', () => {
     });
 
     const init = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
-    expect((init.headers as Record<string, string>)['X-Owner-Id']).toBe('dev');
+    expect((init.headers as Record<string, string>)['X-Owner-Id']).toBe('khoitn@vng.com.vn');
   });
 
   it('useChatSessionsList sends X-Owner-Id when listing sessions', async () => {
@@ -69,7 +69,7 @@ describe('chat owner-id header on /api/chat/sessions/*', () => {
     });
 
     const init = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
-    expect((init.headers as Record<string, string>)['X-Owner-Id']).toBe('dev');
+    expect((init.headers as Record<string, string>)['X-Owner-Id']).toBe('khoitn@vng.com.vn');
   });
 
   it('honours a custom owner id stored in localStorage', async () => {
@@ -87,5 +87,27 @@ describe('chat owner-id header on /api/chat/sessions/*', () => {
 
     const init = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>)['X-Owner-Id']).toBe('alice');
+  });
+});
+
+describe('legacy stored owner migration', () => {
+  it("getOwnerId treats a stored 'dev' as the bootstrap-admin default and clears it", async () => {
+    localStorage.setItem('gds-cube:owner', 'dev');
+    const { getOwnerId } = await import('../chat-owner-id');
+    expect(getOwnerId()).toBe('khoitn@vng.com.vn');
+    expect(localStorage.getItem('gds-cube:owner')).toBeNull();
+  });
+
+  it("getOwner (api-client) migrates the stored 'dev' the same way", async () => {
+    localStorage.setItem('gds-cube:owner', 'dev');
+    const { getOwner } = await import('../api-client');
+    expect(getOwner()).toBe('khoitn@vng.com.vn');
+    expect(localStorage.getItem('gds-cube:owner')).toBeNull();
+  });
+
+  it('a deliberately stored non-dev owner is respected (multi-user simulation)', async () => {
+    localStorage.setItem('gds-cube:owner', 'alice@corp.com');
+    const { getOwnerId } = await import('../chat-owner-id');
+    expect(getOwnerId()).toBe('alice@corp.com');
   });
 });
