@@ -160,6 +160,23 @@
         "error": "Không thể cập nhật chia sẻ",
         "ownerOnly": "Chỉ chủ sở hữu"
       },
+      "brief": {
+        "title": "AI Brief",
+        "labels": {
+          "high_value_churn_risk": "Rủi ro rời bỏ giá trị cao",
+          "upsell_candidate": "Tiềm năng upsell",
+          "engaged_non_payer": "Tương tác nhưng chưa nạp",
+          "healthy_growth_cohort": "Nhóm tăng trưởng lành mạnh",
+          "new_user_wave": "Làn sóng người dùng mới"
+        },
+        "limited": "Dữ liệu hạn chế — chỉ phân tích điều kiện",
+        "stale": "Đã cũ — định nghĩa đã thay đổi",
+        "byline": "Tạo bởi AI · ước tính · {{memberCount}} thành viên · {{when}}",
+        "error": "Không thể tạo bản tóm tắt.",
+        "retry": "Thử lại",
+        "expand": "Mở rộng AI brief",
+        "collapse": "Thu gọn AI brief"
+      },
       "monitor": {
         "size": {
           "title": "Xu hướng kích thước",

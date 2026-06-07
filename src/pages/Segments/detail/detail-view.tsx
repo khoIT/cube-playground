@@ -25,6 +25,7 @@ import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
 import { useSegmentSizeDelta } from './hooks/use-segment-size-delta';
 import { format as formatDate, addMinutes } from 'date-fns';
 import { DetailHeaderActions } from './components/detail-header-actions';
+import { AiBriefCard } from './components/ai-brief-card';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
 import { HeadlineStatsRow } from './components/headline-stats-row';
@@ -196,6 +197,8 @@ export function DetailView(): ReactElement {
         lastRefreshFooter={lastRefreshFooter}
         ownerFooter={ownerFooter}
       />
+
+      <AiBriefCard segmentId={segment.id} />
 
       <div className={styles.tabStrip} role="tablist">
         {tabs.map((tid) => (

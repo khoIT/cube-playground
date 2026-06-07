@@ -2246,3 +2246,112 @@
   padding-top: 8px;
   border-top: 1px solid var(--border-card);
 }
+
+/* ── AI Brief card ───────────────────────────────────────────────
+   Sits inside the sticky header between the KPI strip and the tab strip.
+   Brand-tinted band per the advisor mockup; all colors via tokens so it
+   adapts to dark mode with the rest of the detail chrome. */
+.briefCard {
+  background: var(--brand-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 10px 16px 12px;
+  margin: 0 0 12px;
+}
+
+.briefHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.briefTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.briefChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.briefCollapseBtn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--muted-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.briefNarrative {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+.briefSignals {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.briefSignal {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.briefSignalDot {
+  width: 6px;
+  height: 6px;
+  background: var(--brand);
+  border-radius: var(--radius-full);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.briefByline {
+  margin-top: 10px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Fixed-height shimmer so the tab strip below never shifts mid-load. */
+.briefSkeleton {
+  height: 84px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.briefErrorRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}

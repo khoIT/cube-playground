@@ -184,6 +184,23 @@
         "error": "Could not update sharing",
         "ownerOnly": "Owner-only"
       },
+      "brief": {
+        "title": "AI Brief",
+        "labels": {
+          "high_value_churn_risk": "High-value churn risk",
+          "upsell_candidate": "Upsell candidate",
+          "engaged_non_payer": "Engaged non-payer",
+          "healthy_growth_cohort": "Healthy growth cohort",
+          "new_user_wave": "New user wave"
+        },
+        "limited": "Limited data — predicate analysis only",
+        "stale": "Outdated — definition changed",
+        "byline": "AI-generated · estimated · {{memberCount}} members · {{when}}",
+        "error": "Couldn't generate the brief.",
+        "retry": "Retry",
+        "expand": "Expand AI brief",
+        "collapse": "Collapse AI brief"
+      },
       "tabs": {
         "monitor": "Monitor",
         "insights": "Insights",

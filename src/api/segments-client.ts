@@ -48,6 +48,33 @@ export interface MemberCacheStatusResponse {
   uids: Record<string, { ok: number; error: number; latest_fetched_at: string | null }>;
 }
 
+/** AI brief payload generated server-side per (definition hash, lang). */
+export interface SegmentBriefPayload {
+  label:
+    | 'high_value_churn_risk'
+    | 'upsell_candidate'
+    | 'engaged_non_payer'
+    | 'healthy_growth_cohort'
+    | 'new_user_wave';
+  narrative: string;
+  signals: string[];
+  data_coverage: 'full' | 'limited';
+  generated_at: string;
+  member_count: number;
+  definition_hash: string;
+}
+
+export interface SegmentBriefResponse {
+  segment_id: string;
+  lang: string;
+  status: 'ok' | 'error';
+  /** Set when the served brief predates the current definition (LLM down). */
+  stale?: boolean;
+  brief: SegmentBriefPayload | null;
+  error?: string;
+  generated_at: string;
+}
+
 /** One keyset page from the bare member-ID pull API (`GET /:id/members`). */
 export interface SegmentMembersPage {
   segment_id: string;
@@ -100,6 +127,13 @@ export const segmentsClient = {
 
   unshare(id: string): Promise<Segment> {
     return apiFetch<Segment>(`/api/segments/${encodeURIComponent(id)}/unshare`, { method: 'POST' });
+  },
+
+  // AI brief (server-cached per definition hash + lang; refresh is rate-limited)
+  getBrief(id: string, lang: 'en' | 'vi', refresh = false): Promise<SegmentBriefResponse> {
+    return apiFetch<SegmentBriefResponse>(`/api/segments/${encodeURIComponent(id)}/brief`, {
+      query: { lang, ...(refresh ? { refresh: '1' } : {}) },
+    });
   },
 
   refresh(id: string): Promise<{ status: string }> {
