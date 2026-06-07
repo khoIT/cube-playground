@@ -4,7 +4,7 @@ description: >-
   Members tab → top/middle/bottom-50 LTV tiers with daily-precomputed member-360
   pages; segments shareable like chat with inline nav pill; auto-generated AI
   executive brief on segment open.
-status: pending
+status: in-progress
 priority: P1
 branch: main
 tags:
@@ -62,7 +62,7 @@ Three user-facing upgrades to Segments:
 | 4 | [Member-360 cache-first serving (server+FE)](./phase-04-member-360-cache-first-serving-server-fe.md) | Completed |
 | 5 | [Segment sharing backend (owner_label + guards)](./phase-05-segment-sharing-backend-owner-label-guards.md) | Completed |
 | 6 | [Sidebar shared pill + share UI (FE)](./phase-06-sidebar-shared-pill-share-ui-fe.md) | Completed |
-| 7 | [AI brief backend (hash + cache + LLM)](./phase-07-ai-brief-backend-hash-cache-llm.md) | Pending |
+| 7 | [AI brief backend (hash + cache + LLM)](./phase-07-ai-brief-backend-hash-cache-llm.md) | In Progress |
 | 8 | [AI brief card (FE)](./phase-08-ai-brief-card-fe.md) | Pending |
 
 **Dependency graph:** 1→2, 1→3→4, 5→6, 7→8. Tracks (1–4) / (5–6) / (7–8) are independent —

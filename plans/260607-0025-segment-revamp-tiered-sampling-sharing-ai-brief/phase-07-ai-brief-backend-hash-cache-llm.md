@@ -1,9 +1,9 @@
 ---
 phase: 7
-title: "AI brief backend (hash + cache + LLM)"
-status: pending
+title: AI brief backend (hash + cache + LLM)
+status: in-progress
 priority: P1
-effort: "1.5d"
+effort: 1.5d
 dependencies: []
 ---
 
