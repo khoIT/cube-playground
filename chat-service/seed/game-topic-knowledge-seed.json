@@ -895,12 +895,11 @@
        ]
       },
       {
-       "id": "paying-rate-by-install-month",
-       "text": "30-day paying rate by install month cohort",
+       "id": "paying-users-by-install-month",
+       "text": "Paying users by install month cohort",
        "depth": "basic",
        "targetCatalogIds": [
         "mf_users.paying_users",
-        "mf_users.paying_rate_30d",
         "mf_users.install_month"
        ]
       },
