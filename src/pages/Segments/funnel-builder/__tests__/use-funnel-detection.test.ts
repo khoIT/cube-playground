@@ -21,14 +21,37 @@ interface MetaCube {
   dimensions?: MetaDimension[];
 }
 
-function detectOrderedCube(cubes: MetaCube[]): string | null {
+const CANONICAL_CUBE_SUFFIX = 'ordered_funnel_canonical';
+
+function matchesStepContract(cube: MetaCube): boolean {
+  const hasMeasure = (cube.measures ?? []).some((m) => m.name.endsWith('.step_count'));
+  const hasStepIndex = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_index'));
+  const hasStepName = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_name'));
+  return hasMeasure && hasStepIndex && hasStepName;
+}
+
+interface DetectedCubes {
+  cubeName: string | null;
+  canonicalCubeName: string | null;
+}
+
+function detectBothCubes(cubes: MetaCube[]): DetectedCubes {
+  let cubeName: string | null = null;
+  let canonicalCubeName: string | null = null;
   for (const cube of cubes) {
-    const hasMeasure = (cube.measures ?? []).some((m) => m.name.endsWith('.step_count'));
-    const hasStepIndex = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_index'));
-    const hasStepName = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_name'));
-    if (hasMeasure && hasStepIndex && hasStepName) return cube.name;
+    if (!matchesStepContract(cube)) continue;
+    if (cube.name.endsWith(CANONICAL_CUBE_SUFFIX)) {
+      canonicalCubeName = canonicalCubeName ?? cube.name;
+    } else {
+      cubeName = cubeName ?? cube.name;
+    }
   }
-  return null;
+  return { cubeName, canonicalCubeName };
+}
+
+/** Back-compat shim for the original single-cube assertions below. */
+function detectOrderedCube(cubes: MetaCube[]): string | null {
+  return detectBothCubes(cubes).cubeName;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -129,5 +152,44 @@ describe('detectOrderedCube (detection contract)', () => {
       },
     ];
     expect(detectOrderedCube(cubes)).toBe('game_event_funnel');
+  });
+
+  it('canonical cube never shadows the parametric cube, regardless of meta order', () => {
+    const canonical: MetaCube = {
+      name: 'ordered_funnel_canonical',
+      measures: [{ name: 'ordered_funnel_canonical.step_count' }],
+      dimensions: [
+        { name: 'ordered_funnel_canonical.step_index' },
+        { name: 'ordered_funnel_canonical.step_name' },
+      ],
+    };
+    const parametric: MetaCube = {
+      name: 'ordered_event_funnel',
+      measures: [{ name: 'ordered_event_funnel.step_count' }],
+      dimensions: [
+        { name: 'ordered_event_funnel.step_index' },
+        { name: 'ordered_event_funnel.step_name' },
+      ],
+    };
+    // canonical listed FIRST — parametric must still win cubeName
+    expect(detectBothCubes([canonical, parametric])).toEqual({
+      cubeName: 'ordered_event_funnel',
+      canonicalCubeName: 'ordered_funnel_canonical',
+    });
+  });
+
+  it('canonical-only deployment reports absent parametric cube', () => {
+    const canonical: MetaCube = {
+      name: 'ordered_funnel_canonical',
+      measures: [{ name: 'ordered_funnel_canonical.step_count' }],
+      dimensions: [
+        { name: 'ordered_funnel_canonical.step_index' },
+        { name: 'ordered_funnel_canonical.step_name' },
+      ],
+    };
+    expect(detectBothCubes([canonical])).toEqual({
+      cubeName: null,
+      canonicalCubeName: 'ordered_funnel_canonical',
+    });
   });
 });

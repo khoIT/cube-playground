@@ -28,7 +28,28 @@ export interface FunnelStep {
 
 export interface FunnelResult {
   steps: FunnelStep[];
-  badge: 'ordered';
+  /** 'canonical' = served by the pre-aggregated fixed-step cube (CubeStore). */
+  badge: 'ordered' | 'canonical';
+}
+
+/**
+ * Step orders the canonical pre-aggregated cube materialises (per-game event
+ * sets — see cube-dev ordered_funnel_canonical.yml). The canonical cube is
+ * only correct for an EXACT match: its step indices are chronological over
+ * its fixed event set, so any subset/superset selection must fall back to the
+ * parametric live cube.
+ */
+const CANONICAL_STEP_ORDERS: string[][] = [
+  ['register', 'login', 'recharge'],
+  ['login', 'currency_flow'],
+];
+
+function matchesCanonicalOrder(orderedEvents: string[]): boolean {
+  return CANONICAL_STEP_ORDERS.some(
+    (order) =>
+      order.length === orderedEvents.length &&
+      order.every((e, i) => e === orderedEvents[i]),
+  );
 }
 
 export interface RunFunnelInput {
@@ -37,6 +58,11 @@ export interface RunFunnelInput {
   windowMs: number;
   /** The cube name returned by useFunnelDetection */
   cubeName: string;
+  /**
+   * Pre-aggregated canonical cube (from useFunnelDetection), used instead of
+   * cubeName when orderedEvents exactly matches a canonical step order.
+   */
+  canonicalCubeName?: string | null;
   cubejsApi: CubejsLikeApi;
 }
 
@@ -98,7 +124,7 @@ function computeDropOff(
 }
 
 export async function runFunnel(input: RunFunnelInput): Promise<FunnelResult> {
-  const { orderedEvents, windowMs, cubeName, cubejsApi } = input;
+  const { orderedEvents, windowMs, cubeName, canonicalCubeName, cubejsApi } = input;
 
   if (orderedEvents.length < 2) {
     throw new Error('Funnel requires at least 2 events');
@@ -107,9 +133,15 @@ export async function runFunnel(input: RunFunnelInput): Promise<FunnelResult> {
     throw new Error('Funnel supports at most 6 events');
   }
 
-  const stepCountMember = `${cubeName}.step_count`;
-  const stepIndexDim = `${cubeName}.step_index`;
-  const stepNameDim = `${cubeName}.step_name`;
+  // Exact canonical step order + canonical cube deployed → serve from the
+  // pre-aggregation (milliseconds via CubeStore) instead of the live window
+  // scan. Any other step selection keeps the parametric cube.
+  const useCanonical = !!canonicalCubeName && matchesCanonicalOrder(orderedEvents);
+  const activeCube = useCanonical ? (canonicalCubeName as string) : cubeName;
+
+  const stepCountMember = `${activeCube}.step_count`;
+  const stepIndexDim = `${activeCube}.step_index`;
+  const stepNameDim = `${activeCube}.step_name`;
 
   const [dateFrom, dateTo] = windowToDateRange(windowMs);
 
@@ -127,8 +159,8 @@ export async function runFunnel(input: RunFunnelInput): Promise<FunnelResult> {
     timeDimensions: [
       {
         // The cube template uses the event timestamp exposed via the time dimension.
-        // Dimension name follows convention: <cubeName>.ts
-        dimension: `${cubeName}.ts`,
+        // Dimension name follows convention: <cube>.ts
+        dimension: `${activeCube}.ts`,
         dateRange: [dateFrom, dateTo],
       },
     ],
@@ -159,6 +191,6 @@ export async function runFunnel(input: RunFunnelInput): Promise<FunnelResult> {
 
   return {
     steps: computeDropOff(orderedEvents, counts),
-    badge: 'ordered',
+    badge: useCanonical ? 'canonical' : 'ordered',
   };
 }

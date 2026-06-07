@@ -141,4 +141,72 @@ describe('runFunnel', () => {
     expect(result.steps[1].dropPct).toBe(0);
     expect(Number.isFinite(result.steps[1].dropPct)).toBe(true);
   });
+
+  // ── Canonical pre-aggregated cube routing ────────────────────────────────
+
+  const CANONICAL = 'ordered_funnel_canonical';
+
+  it('routes exact canonical step order to the canonical cube', async () => {
+    const cubejsApi = makeApi([
+      { [`${CANONICAL}.step_index`]: 1, [`${CANONICAL}.step_count`]: 1000 },
+      { [`${CANONICAL}.step_index`]: 2, [`${CANONICAL}.step_count`]: 800 },
+      { [`${CANONICAL}.step_index`]: 3, [`${CANONICAL}.step_count`]: 100 },
+    ]);
+
+    const result = await runFunnel({
+      orderedEvents: ['register', 'login', 'recharge'],
+      windowMs: 30 * 24 * 3600_000,
+      cubeName: CUBE_NAME,
+      canonicalCubeName: CANONICAL,
+      cubejsApi,
+    });
+
+    expect(result.badge).toBe('canonical');
+    expect(result.steps[2].count).toBe(100);
+    const query = cubejsApi.load.mock.calls[0][0] as {
+      measures: string[];
+      timeDimensions: Array<{ dimension: string }>;
+    };
+    expect(query.measures).toEqual([`${CANONICAL}.step_count`]);
+    expect(query.timeDimensions[0].dimension).toBe(`${CANONICAL}.ts`);
+  });
+
+  it('keeps the parametric cube for a subset of the canonical steps', async () => {
+    const cubejsApi = makeApi([
+      { [`${CUBE_NAME}.step_index`]: 1, [`${CUBE_NAME}.step_count`]: 500 },
+      { [`${CUBE_NAME}.step_index`]: 2, [`${CUBE_NAME}.step_count`]: 50 },
+    ]);
+
+    const result = await runFunnel({
+      orderedEvents: ['register', 'recharge'], // subset — canonical indices wrong
+      windowMs: 3600_000,
+      cubeName: CUBE_NAME,
+      canonicalCubeName: CANONICAL,
+      cubejsApi,
+    });
+
+    expect(result.badge).toBe('ordered');
+    const query = cubejsApi.load.mock.calls[0][0] as { measures: string[] };
+    expect(query.measures).toEqual([`${CUBE_NAME}.step_count`]);
+  });
+
+  it('keeps the parametric cube when no canonical cube is deployed', async () => {
+    const cubejsApi = makeApi([
+      { [`${CUBE_NAME}.step_index`]: 1, [`${CUBE_NAME}.step_count`]: 10 },
+      { [`${CUBE_NAME}.step_index`]: 2, [`${CUBE_NAME}.step_count`]: 5 },
+      { [`${CUBE_NAME}.step_index`]: 3, [`${CUBE_NAME}.step_count`]: 1 },
+    ]);
+
+    const result = await runFunnel({
+      orderedEvents: ['register', 'login', 'recharge'],
+      windowMs: 3600_000,
+      cubeName: CUBE_NAME,
+      canonicalCubeName: null,
+      cubejsApi,
+    });
+
+    expect(result.badge).toBe('ordered');
+    const query = cubejsApi.load.mock.calls[0][0] as { measures: string[] };
+    expect(query.measures).toEqual([`${CUBE_NAME}.step_count`]);
+  });
 });

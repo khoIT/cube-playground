@@ -35,24 +35,50 @@ function metaToCubes(raw: {
   return [];
 }
 
-function detectOrderedCube(cubes: MetaCube[]): string | null {
+/**
+ * The pre-aggregated fixed-step companion cube. It satisfies the same
+ * step_count/step_index/step_name contract as the parametric cube, so the
+ * parametric detection below must skip it — its step indices are baked over
+ * a FIXED event set and are wrong for custom step subsets.
+ */
+const CANONICAL_CUBE_SUFFIX = 'ordered_funnel_canonical';
+
+function matchesStepContract(cube: MetaCube): boolean {
+  const hasMeasure = (cube.measures ?? []).some((m) => m.name.endsWith('.step_count'));
+  const hasStepIndex = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_index'));
+  const hasStepName = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_name'));
+  return hasMeasure && hasStepIndex && hasStepName;
+}
+
+interface DetectedCubes {
+  /** Parametric ordered-funnel cube (live, any step set). */
+  cubeName: string | null;
+  /** Pre-aggregated canonical cube (fixed step set) when deployed. */
+  canonicalCubeName: string | null;
+}
+
+function detectOrderedCube(cubes: MetaCube[]): DetectedCubes {
+  let cubeName: string | null = null;
+  let canonicalCubeName: string | null = null;
   for (const cube of cubes) {
-    const hasMeasure = (cube.measures ?? []).some((m) => m.name.endsWith('.step_count'));
-    const hasStepIndex = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_index'));
-    const hasStepName = (cube.dimensions ?? []).some((d) => d.name.endsWith('.step_name'));
-    if (hasMeasure && hasStepIndex && hasStepName) return cube.name;
+    if (!matchesStepContract(cube)) continue;
+    if (cube.name.endsWith(CANONICAL_CUBE_SUFFIX)) {
+      canonicalCubeName = canonicalCubeName ?? cube.name;
+    } else {
+      cubeName = cubeName ?? cube.name;
+    }
   }
-  return null;
+  return { cubeName, canonicalCubeName };
 }
 
 export type FunnelDetectionState =
   | { status: 'loading' }
-  | { status: 'found'; cubeName: string }
+  | { status: 'found'; cubeName: string; canonicalCubeName: string | null }
   | { status: 'absent' }
   | { status: 'error'; message: string };
 
-/** Module-level memo: metaVersion → detected cube name (null = absent) */
-const detectionCache = new Map<string, string | null>();
+/** Module-level memo: metaVersion → detection result (cubeName null = absent) */
+const detectionCache = new Map<string, DetectedCubes>();
 
 export function useFunnelDetection(): FunnelDetectionState {
   const { apiUrl } = useAppContext();
@@ -80,8 +106,12 @@ export function useFunnelDetection(): FunnelDetectionState {
 
     // Sync: already cached
     if (detectionCache.has(metaVersion)) {
-      const cached = detectionCache.get(metaVersion) ?? null;
-      setState(cached ? { status: 'found', cubeName: cached } : { status: 'absent' });
+      const cached = detectionCache.get(metaVersion);
+      setState(
+        cached?.cubeName
+          ? { status: 'found', cubeName: cached.cubeName, canonicalCubeName: cached.canonicalCubeName }
+          : { status: 'absent' },
+      );
       return;
     }
 
@@ -101,7 +131,11 @@ export function useFunnelDetection(): FunnelDetectionState {
         const found = detectOrderedCube(cubes);
         detectionCache.set(metaVersion, found);
         if (!cancelled) {
-          setState(found ? { status: 'found', cubeName: found } : { status: 'absent' });
+          setState(
+            found.cubeName
+              ? { status: 'found', cubeName: found.cubeName, canonicalCubeName: found.canonicalCubeName }
+              : { status: 'absent' },
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -117,8 +151,13 @@ export function useFunnelDetection(): FunnelDetectionState {
 
   // Sync fast-path when cache already populated
   if (cachedResult !== undefined) {
-    const result = cachedResult ?? null;
-    if (result) return { status: 'found', cubeName: result };
+    if (cachedResult?.cubeName) {
+      return {
+        status: 'found',
+        cubeName: cachedResult.cubeName,
+        canonicalCubeName: cachedResult.canonicalCubeName,
+      };
+    }
     return { status: 'absent' };
   }
 

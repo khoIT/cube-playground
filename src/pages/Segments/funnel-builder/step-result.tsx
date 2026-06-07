@@ -27,10 +27,12 @@ import styles from './funnel-builder.module.css';
 
 interface Props {
   cubeName: string;
+  /** Pre-aggregated canonical cube — used when the step set matches exactly. */
+  canonicalCubeName?: string | null;
   definition: FunnelDefinition;
 }
 
-export function StepResult({ cubeName, definition }: Props): ReactElement {
+export function StepResult({ cubeName, canonicalCubeName, definition }: Props): ReactElement {
   const { apiUrl } = useAppContext();
   const { currentToken } = useSecurityContext();
   const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null);
@@ -61,6 +63,7 @@ export function StepResult({ cubeName, definition }: Props): ReactElement {
         orderedEvents: definition.orderedEvents,
         windowMs: definition.windowMs,
         cubeName,
+        canonicalCubeName,
         cubejsApi: cubejsApi as unknown as CubejsLikeApi,
       });
       if (runRef.current === runId) setResult(res);
@@ -69,7 +72,7 @@ export function StepResult({ cubeName, definition }: Props): ReactElement {
     } finally {
       if (runRef.current === runId) setLoading(false);
     }
-  }, [cubejsApi, cubeName, definition]);
+  }, [cubejsApi, cubeName, canonicalCubeName, definition]);
 
   // Auto-run on mount
   useEffect(() => { void execute(); }, [execute]);
@@ -105,7 +108,9 @@ export function StepResult({ cubeName, definition }: Props): ReactElement {
       <div className={styles.wizardHeader} style={{ marginBottom: 0 }}>
         <h3 className={styles.cardTitle} style={{ flex: 1 }}>Funnel results</h3>
         <span className={`${styles.detectionBadge} ${styles.detectionBadgeOrdered}`}>
-          Ordered · single query
+          {result?.badge === 'canonical'
+            ? 'Canonical · pre-aggregated'
+            : 'Ordered · single query'}
         </span>
         <Button size="small" onClick={() => void execute()} disabled={loading}>
           {loading ? (

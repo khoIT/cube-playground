@@ -190,7 +190,11 @@ export function FunnelBuilder(): ReactElement {
             />
           )}
           {step === 3 && (
-            <StepResult cubeName={detection.cubeName} definition={definition} />
+            <StepResult
+              cubeName={detection.cubeName}
+              canonicalCubeName={detection.canonicalCubeName}
+              definition={definition}
+            />
           )}
 
           {/* Navigation footer — hidden on Step 3 (StepResult owns its actions) */}
