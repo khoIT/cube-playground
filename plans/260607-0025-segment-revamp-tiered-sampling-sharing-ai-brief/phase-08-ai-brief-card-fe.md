@@ -1,10 +1,11 @@
 ---
 phase: 8
-title: "AI brief card (FE)"
-status: pending
+title: AI brief card (FE)
+status: completed
 priority: P2
-effort: "1d"
-dependencies: [7]
+effort: 1d
+dependencies:
+  - 7
 ---
 
 # Phase 8: AI brief card (FE)
@@ -57,12 +58,27 @@ segment open (lazy, skeleton). Visual target: advisor mockup
 6. Visual cross-check vs mockup AND adjacent pages (CLAUDE.md design rule 6).
 
 ## Success Criteria
-- [ ] Opening a segment shows skeleton → brief without shifting tabs/content below
-- [ ] Byline present in every rendered state that shows a narrative (non-negotiable per idea)
-- [ ] `limited` brief shows disclaimer chip, not confident framing
-- [ ] Collapse persists across reloads; collapsed mount issues no fetch
-- [ ] VI UI shows VI narrative; switching language refetches
-- [ ] Typecheck + FE suite green
+- [x] Opening a segment shows skeleton → brief without shifting tabs/content below
+- [x] Byline present in every rendered state that shows a narrative (non-negotiable per idea)
+- [x] `limited` brief shows disclaimer chip, not confident framing
+- [x] Collapse persists across reloads; collapsed mount issues no fetch
+- [x] VI UI shows VI narrative; switching language refetches
+- [x] Typecheck + FE suite green
+
+## Verification notes (260607, commit 669fa56)
+- 8 component tests (skeleton/ok/limited/error+retry, collapse persistence +
+  lazy-when-collapsed, lang refetch, plain-text XSS guard, stale chip, mandatory
+  byline). tsc = 74 errors (== pre-existing baseline, 0 new).
+- Full FE suite 1877/1884: 5 DevAudit failures pre-exist (user Starters-tab
+  work); 2 use-concept-graph failures verified pre-existing at user commit
+  ca08c18 (game-scoped segment lists) — reproduced on that commit without any
+  Phase 8 code. Not a regression from this phase.
+- Review: DONE, no blockers. Applied L1+L2 (byline `{{memberCount}}` — avoids
+  i18next plural reservation on `count` — + toLocaleString). M1 accepted:
+  one-time skeleton→loaded height settle inside the sticky header is bounded;
+  mount stays in the sticky block per mockup (plan's fallback unused).
+- Extra beyond spec: `stale:true` (Phase 7 outage fallback) renders a
+  warning-toned "Outdated — definition changed" chip.
 
 ## Risk Assessment
 - **Sticky-header height growth** pushing tab content: card lives in the sticky block per

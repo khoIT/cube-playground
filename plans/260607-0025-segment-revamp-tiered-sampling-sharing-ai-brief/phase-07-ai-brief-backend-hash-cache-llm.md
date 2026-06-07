@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: AI brief backend (hash + cache + LLM)
-status: in-progress
+status: completed
 priority: P1
 effort: 1.5d
 dependencies: []
@@ -88,12 +88,29 @@ hardcoded output schema, gateway stores + serves.
    note: distinct from server's own `CUBE_AUTH_INTERNAL_SECRET`, do not confuse).
 
 ## Success Criteria
-- [ ] First GET generates + caches; second GET serves cache with no LLM call (test-asserted)
-- [ ] Predicate edit (hash change) regenerates; rename does not
-- [ ] lang=vi yields Vietnamese narrative cached independently of en
-- [ ] Non-mf_users game yields `data_coverage='limited'` brief, not an error
-- [ ] LLM/parse failure → `status='error'` row; retry endpoint works; segment page unaffected
-- [ ] Label always within the 5-value enum (schema validation rejects otherwise)
+- [x] First GET generates + caches; second GET serves cache with no LLM call (test-asserted)
+- [x] Predicate edit (hash change) regenerates; rename does not
+- [x] lang=vi yields Vietnamese narrative cached independently of en
+- [x] Non-mf_users game yields `data_coverage='limited'` brief, not an error
+- [x] LLM/parse failure → `status='error'` row; retry endpoint works; segment page unaffected
+- [x] Label always within the 5-value enum (schema validation rejects otherwise)
+
+## Verification notes (260607, commit e3f0d92)
+- 26 new tests: server 16 (hash 6, context 7 — incl. "no `mf_users.` leaks into
+  serialized context", route 9 + backoff regression) + chat-service 10. Full
+  suites green: server 917/917, chat 1070/1070; tsc clean both.
+- Review (code-reviewer): DONE_WITH_CONCERNS → MEDIUM fixed in-line: stale-serve
+  path bypassed error-row caching, so plain GETs re-hit the gateway every open
+  during an outage → added 2-min failure backoff (`lastFailureAt`) + lifted on
+  success; refresh gets its own single-flight lane (piggyback fix).
+- Deliberate deviations: identity-anchor pivot for the brief preset uses manual
+  `cube_identity_map` rows only (no /meta probing; auto-suggested anchors get
+  enrichment via the refresh job's card cache); error rows served on plain GET
+  (retry is explicit via ?refresh=1); upstream-down with prior ok brief → 200 +
+  `stale:true`, not 502; even-N tier median picks upper-middle (LLM context,
+  immaterial).
+- Env: chat-service `CHAT_BRIEF_MODEL` (default sonnet); reuses existing
+  `INTERNAL_SECRET` both directions — nothing new to provision.
 
 ## Risk Assessment
 - **Hash fallback vs snapshot plan**: ours is definition-only (no projection); snapshot plan
