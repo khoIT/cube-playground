@@ -1,6 +1,6 @@
 /** Compact vertical bar chart (recharts) — daily recharge in the Journey row. */
 
-import type { ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import {
   BarChart as ReBarChart,
   Bar,
@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { makeTimeTickFormatter, formatChartDateTooltip } from '../../../../utils/format-chart-datetime-label';
 
 export interface MiniBarPoint {
   x: string;
@@ -25,6 +26,7 @@ export function MiniBarChart({
   height?: number;
   color?: string;
 }): ReactElement {
+  const tickFormatter = useMemo(() => makeTimeTickFormatter(data.map((d) => d.x)), [data]);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ReBarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 38 }}>
@@ -35,6 +37,7 @@ export function MiniBarChart({
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
+          tickFormatter={tickFormatter}
         />
         <YAxis
           tick={{ fontSize: 10, fill: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}
@@ -53,6 +56,7 @@ export function MiniBarChart({
           }}
           cursor={{ fill: 'var(--bg-muted)' }}
           formatter={(v: number) => v.toLocaleString('en-US')}
+          labelFormatter={(label: unknown) => formatChartDateTooltip(label)}
         />
         <Bar dataKey="y" fill={color} radius={[3, 3, 0, 0]} isAnimationActive={false} />
       </ReBarChart>

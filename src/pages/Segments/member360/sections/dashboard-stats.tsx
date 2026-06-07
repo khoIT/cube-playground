@@ -1,13 +1,14 @@
 /**
- * Static profile-derived sections: Monetization tile grid + Profile/Acquisition
- * key-value columns. All read the single `user_profile` row passed in. Bool-ish
- * fields render Yes/No; everything else via formatCell.
+ * Shared 360 section primitives: SectionCard shell (used by every section incl.
+ * journey/details) + KvList key-value rows. All read the single `user_profile`
+ * row passed in. Bool-ish fields render Yes/No; everything else via formatCell,
+ * with full-precision hover tooltips when the display form is lossy.
  */
 
 import { ReactElement, ReactNode } from 'react';
 import type { FieldRef } from '../member360-sections';
 import { qualify } from '../member360-sections';
-import { formatCell } from '../format-cell';
+import { formatCell, formatCellExact } from '../format-cell';
 
 /** White card with an emoji-prefixed uppercase section title. */
 export function SectionCard({
@@ -51,49 +52,15 @@ export function SectionCard({
   );
 }
 
-function display(row: Record<string, unknown> | null, f: FieldRef): string {
+/** Display string + full-precision tooltip (null when display is already exact). */
+function display(row: Record<string, unknown> | null, f: FieldRef): { text: string; exact: string | null } {
   const v = row?.[qualify(f.field)];
   // Heuristic: is_*/paid fields read as Yes/No flags.
   if (/^(is_|.*_install$)/.test(f.field) && (typeof v === 'boolean' || v === 0 || v === 1 || v === '0' || v === '1')) {
     const truthy = v === true || v === 1 || v === '1';
-    return truthy ? 'Yes' : 'No';
+    return { text: truthy ? 'Yes' : 'No', exact: null };
   }
-  return formatCell(v, f.format);
-}
-
-/** Monetization-style grid of labeled stat tiles. */
-export function StatTileGrid({
-  fields,
-  row,
-}: {
-  fields: FieldRef[];
-  row: Record<string, unknown> | null;
-}): ReactElement {
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-        gap: 12,
-      }}
-    >
-      {fields.map((f) => (
-        <div
-          key={f.field}
-          style={{
-            background: 'var(--bg-muted)',
-            border: '1px solid var(--border-card)',
-            borderRadius: 'var(--radius-md)',
-            padding: '12px 14px',
-          }}
-        >
-          <div style={{ fontSize: 18, marginBottom: 6 }} aria-hidden>{f.icon}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{display(row, f)}</div>
-        </div>
-      ))}
-    </div>
-  );
+  return { text: formatCell(v, f.format), exact: formatCellExact(v, f.format) };
 }
 
 /** Two-column key-value list (icon + label left, bold value right). */
@@ -106,27 +73,33 @@ export function KvList({
 }): ReactElement {
   return (
     <div>
-      {fields.map((f, i) => (
-        <div
-          key={f.field}
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            padding: '8px 0',
-            borderTop: i === 0 ? 'none' : '1px solid var(--border-card)',
-          }}
-        >
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'inline-flex', gap: 6 }}>
-            <span aria-hidden>{f.icon}</span>
-            {f.label}
-          </span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'right' }}>
-            {display(row, f)}
-          </span>
-        </div>
-      ))}
+      {fields.map((f, i) => {
+        const d = display(row, f);
+        return (
+          <div
+            key={f.field}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              padding: '8px 0',
+              borderTop: i === 0 ? 'none' : '1px solid var(--border-card)',
+            }}
+          >
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'inline-flex', gap: 6 }}>
+              <span aria-hidden>{f.icon}</span>
+              {f.label}
+            </span>
+            <span
+              style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'right', cursor: d.exact ? 'help' : undefined }}
+              title={d.exact ?? undefined}
+            >
+              {d.text}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

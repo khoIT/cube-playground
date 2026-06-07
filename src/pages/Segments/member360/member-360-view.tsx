@@ -21,7 +21,10 @@ import { sectionsForGame, profileMembers } from './member360-sections';
 import { useMemberCubeQuery } from './use-member-cube-query';
 import { useCachedPanelSource } from './use-cached-panel-source';
 import { DashboardHero } from './sections/dashboard-hero';
-import { SectionCard, StatTileGrid, KvList } from './sections/dashboard-stats';
+import { SectionCard } from './sections/dashboard-stats';
+import { MonetizationBand } from './sections/monetization-band';
+import { ProfileStatusGroups } from './sections/profile-status-groups';
+import { AcquisitionStrip } from './sections/acquisition-strip';
 import { DashboardJourney } from './sections/dashboard-journey';
 import { DetailsTabs } from './sections/details-tabs';
 
@@ -165,15 +168,15 @@ export function Member360View(): ReactElement {
           )}
 
           <SectionCard icon="💰" title={t('segments.member360.monetization', { defaultValue: 'Monetization' })}>
-            <StatTileGrid fields={sections.monetization} row={row} />
+            <MonetizationBand config={sections.monetization} row={row} />
           </SectionCard>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 0, columnGap: 24 }}>
             <SectionCard icon="🪪" title={t('segments.member360.profileStatus', { defaultValue: 'Profile & status' })}>
-              <KvList fields={sections.profileStatus} row={row} />
+              <ProfileStatusGroups groups={sections.profileGroups} statusChips={sections.statusChips} row={row} />
             </SectionCard>
             <SectionCard icon="📥" title={t('segments.member360.acquisition', { defaultValue: 'Acquisition' })}>
-              <KvList fields={sections.acquisition} row={row} />
+              <AcquisitionStrip timeline={sections.acquisitionTimeline} chips={sections.acquisitionChips} row={row} />
             </SectionCard>
           </div>
 

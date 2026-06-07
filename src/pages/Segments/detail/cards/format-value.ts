@@ -20,7 +20,7 @@ export function formatCompact(n: number): string {
 }
 
 /** Values at/above this magnitude compact even in 'currency'/'number' formats. */
-const COMPACT_THRESHOLD = 1_000_000;
+export const COMPACT_THRESHOLD = 1_000_000;
 
 export function formatValue(value: unknown, format: FormatId | undefined): string {
   if (value == null) return '—';

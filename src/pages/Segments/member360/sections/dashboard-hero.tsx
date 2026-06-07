@@ -7,7 +7,7 @@
 import { ReactElement } from 'react';
 import type { Member360Sections } from '../member360-sections';
 import { qualify } from '../member360-sections';
-import { formatCell } from '../format-cell';
+import { formatCell, formatCellExact } from '../format-cell';
 
 interface Props {
   uid: string;
@@ -114,7 +114,10 @@ export function DashboardHero({ uid, sections, row }: Props): ReactElement {
             >
               {p.label}
             </div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>
+            <div
+              style={{ fontSize: 17, fontWeight: 700, color: '#fff', cursor: row && formatCellExact(row[qualify(p.field)], p.format) ? 'help' : undefined }}
+              title={row ? formatCellExact(row[qualify(p.field)], p.format) ?? undefined : undefined}
+            >
               {row ? formatCell(row[qualify(p.field)], p.format) : '—'}
             </div>
           </div>

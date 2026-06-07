@@ -142,10 +142,11 @@ describe('formatCell', () => {
     expect(formatCell('2026-06-04T13:45:00.000Z')).toBe('2026-06-04 13:45');
     expect(formatCell('2026-06-04')).toBe('2026-06-04');
   });
-  it('currency renders VND (₫ in browser ICU, "VND" under Node ICU)', () => {
-    const out = formatCell(1000000, 'currency');
-    expect(out).toMatch(/₫|VND/);
-    expect(out).toContain('1,000,000');
+  it('currency compacts at 1M+ (exact value reserved for the tooltip), full below', () => {
+    expect(formatCell(1_000_000, 'currency')).toBe('₫1M');
+    const sub = formatCell(750_000, 'currency');
+    expect(sub).toMatch(/₫|VND/);
+    expect(sub).toContain('750,000');
   });
   it('duration humanizes seconds', () => {
     expect(formatCell(45, 'duration')).toBe('45s');

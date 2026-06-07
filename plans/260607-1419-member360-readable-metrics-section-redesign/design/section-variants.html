@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Member 360 — section redesign variants</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Token hex resolved from src/theme/tokens.css (light mode).
+     React impl MUST use var(--…) — literals here are for standalone preview only. */
+  :root{
+    --brand:#f05a22; --brand-hover:#f54a00; --brand-soft:#fff7ed;
+    --bg-app:#fafafa; --bg-card:#ffffff; --bg-muted:#f5f5f5;
+    --border-card:#e5e5e5; --border-strong:#d4d4d4;
+    --text-primary:#171717; --text-secondary:#404040; --text-muted:#737373;
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5; --muted-ink:#525252;
+    --positive:#15803d;
+    --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-pill:9999px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg-app);color:var(--text-primary);padding:24px 32px 64px}
+  .page{max-width:1200px;margin:0 auto}
+
+  /* ---- preview chrome (not part of the design) ---- */
+  .variant-label{margin:48px 0 6px;font-size:15px;font-weight:800;color:var(--brand)}
+  .variant-rationale{font-size:13px;color:var(--text-secondary);margin-bottom:4px;max-width:860px}
+  .variant-tradeoff{font-size:12px;color:var(--text-muted);margin-bottom:16px;max-width:860px}
+  .zone{border:2px dashed var(--border-strong);border-radius:14px;padding:24px;background:var(--bg-app)}
+  .tooltip-note{font-size:11px;color:var(--text-muted);margin-top:12px}
+
+  /* ---- shared hero strip (P2 formatting shown; identical across variants) ---- */
+  .hero{background:linear-gradient(120deg,#f05a22 0%,#f54a00 100%);border-radius:12px;padding:20px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:20px;margin-bottom:24px}
+  .hero .avatar{width:56px;height:56px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0}
+  .hero .uid{font-size:22px;font-weight:700;color:#fff;font-family:ui-monospace,Menlo,monospace;word-break:break-all;margin-bottom:8px}
+  .hero .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .hero .chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#fff;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:9999px;white-space:nowrap}
+  .hero .pills{display:flex;gap:10px;flex-wrap:wrap}
+  .hero .pill{background:rgba(255,255,255,.16);border-radius:8px;padding:8px 14px;min-width:90px}
+  .hero .pill .lbl{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:rgba(255,255,255,.8);margin-bottom:3px}
+  .hero .pill .val{font-size:17px;font-weight:700;color:#fff;cursor:help}
+  .hero .pill .sub{font-size:10px;color:rgba(255,255,255,.75);margin-top:2px}
+
+  /* ---- shared section shell ---- */
+  .sec{margin-bottom:24px}
+  .sec-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-secondary)}
+  .card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:16px}
+
+  /* soft category chips */
+  .softchip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 10px;border-radius:9999px;white-space:nowrap}
+  .softchip.muted{background:var(--muted-soft);color:var(--muted-ink)}
+  .softchip.info{background:var(--info-soft);color:var(--info-ink)}
+  .softchip.success{background:var(--success-soft);color:var(--success-ink)}
+  .softchip.warning{background:var(--warning-soft);color:var(--warning-ink)}
+
+  /* ratio bar */
+  .ratio{height:8px;border-radius:9999px;overflow:hidden;display:flex;background:var(--bg-muted)}
+  .ratio .iap{background:#f05a22}
+  .ratio .web{background:#3f8dff}
+  .ratio .other{background:#d4d4d4}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text-secondary);margin-top:6px}
+  .legend .dot{display:inline-block;width:8px;height:8px;border-radius:9999px;margin-right:4px;vertical-align:1px}
+
+  /* V1 monetization */
+  .v1-money{display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:24px}
+  .v1-money .big .lbl{font-size:11px;color:var(--text-muted);margin-bottom:4px}
+  .v1-money .big .val{font-size:34px;font-weight:800;letter-spacing:-.5px;cursor:help}
+  .v1-money .big .delta{font-size:12px;color:var(--positive);font-weight:600;margin-top:2px}
+  .v1-sub{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+  .v1-sub .tile{background:var(--bg-muted);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px}
+  .v1-sub .tile .lbl{font-size:11px;color:var(--text-secondary);margin-bottom:3px}
+  .v1-sub .tile .val{font-size:15px;font-weight:700;cursor:help}
+  .payer-span{margin-top:14px;padding-top:12px;border-top:1px solid var(--border-card);font-size:12.5px;color:var(--text-secondary)}
+  .payer-span b{color:var(--text-primary)}
+
+  /* V1 clusters */
+  .v1-clusters{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .cluster h4{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+  .kv{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--border-card);font-size:13px}
+  .kv:first-of-type{border-top:none}
+  .kv .k{color:var(--text-secondary);display:inline-flex;gap:6px}
+  .kv .v{font-weight:600;text-align:right}
+  .kv .v.dim{color:var(--text-muted);font-weight:500;font-size:12px;margin-left:6px}
+
+  /* V1 acquisition timeline */
+  .tl{list-style:none}
+  .tl li{position:relative;padding:0 0 16px 22px}
+  .tl li:last-child{padding-bottom:0}
+  .tl li::before{content:"";position:absolute;left:5px;top:5px;width:8px;height:8px;border-radius:9999px;background:#f05a22}
+  .tl li::after{content:"";position:absolute;left:8px;top:16px;bottom:-2px;width:2px;background:var(--border-card)}
+  .tl li:last-child::after{display:none}
+  .tl .t-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px}
+  .tl .t-val{font-size:13px;font-weight:600}
+  .tl .t-rel{font-size:11.5px;color:var(--text-muted);font-weight:500;margin-left:6px}
+  .acq-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border-card)}
+
+  /* V2 banded */
+  .v2-band{display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap}
+  .v2-band .big .lbl{font-size:11px;color:var(--text-muted);margin-bottom:4px}
+  .v2-band .big .val{font-size:30px;font-weight:800;letter-spacing:-.5px;cursor:help}
+  .v2-stat{min-width:96px}
+  .v2-stat .lbl{font-size:11px;color:var(--text-secondary);margin-bottom:2px}
+  .v2-stat .val{font-size:16px;font-weight:700;cursor:help}
+  .v2-stat .sub{font-size:11px;color:var(--text-muted)}
+  .v2-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));column-gap:24px}
+  .v2-htl{display:flex;gap:0;margin-top:4px}
+  .v2-htl .step{flex:1;position:relative;padding-top:14px}
+  .v2-htl .step::before{content:"";position:absolute;top:0;left:0;width:10px;height:10px;border-radius:9999px;background:#f05a22}
+  .v2-htl .step::after{content:"";position:absolute;top:4px;left:14px;right:6px;height:2px;background:var(--border-card)}
+  .v2-htl .step:last-child::after{display:none}
+
+  /* V3 two-col composite */
+  .v3-wrap{display:grid;grid-template-columns:5fr 4fr;gap:24px}
+  @media(max-width:900px){.v3-wrap{grid-template-columns:1fr}}
+  .v3-statgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .v3-statgrid .tile{background:var(--bg-muted);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px}
+  .v3-statgrid .tile .lbl{font-size:11px;color:var(--text-secondary);margin-bottom:3px}
+  .v3-statgrid .tile .val{font-size:15px;font-weight:700;cursor:help}
+  .v3-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--border-card);font-size:13px;align-items:center}
+  .v3-row:first-child{border-top:none}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 style="font-size:20px;font-weight:800;margin-bottom:4px">Member 360 — Monetization / Profile &amp; status / Acquisition</h1>
+  <p style="font-size:13px;color:var(--text-secondary)">3 variants. Hero strip shown once per variant with the new compact values (P2 formatting). Sample = cfm_vn whale <span style="font-family:ui-monospace,Menlo,monospace">3469…5184</span>. Hover any bold number → exact value tooltip.</p>
+
+  <!-- ============================================================ VARIANT A -->
+  <div class="variant-label">Variant A — “Stat hierarchy” (hero stat + ratio bar + clusters + vertical timeline)</div>
+  <div class="variant-rationale">Strongest visual hierarchy: ONE dominant number per section, support stats demoted to small tiles, categorical facts become soft chips, acquisition reads as a story top-to-bottom. Closest to the cfm-user360 reference’s spirit while deduping hero facts.</div>
+  <div class="variant-tradeoff">Tradeoff: tallest layout of the three (~+15% vertical vs current); vertical timeline duplicates 2 dates also shown in the journey milestones further down the page.</div>
+
+  <div class="zone">
+    <!-- hero -->
+    <div class="hero">
+      <div class="avatar">🐳</div>
+      <div style="flex:1;min-width:240px">
+        <div class="uid">3469417135084765184</div>
+        <div class="chips">
+          <span class="chip">🏆 whale</span><span class="chip">⏱️ active_today</span><span class="chip">🔥 hardcore</span><span class="chip">💳 Paying</span><span class="chip">📍 VN · android</span>
+        </div>
+      </div>
+      <div class="pills">
+        <div class="pill"><div class="lbl">LTV</div><div class="val" title="₫10,286,465,000">₫10.29B</div></div>
+        <div class="pill"><div class="lbl">Max level</div><div class="val">Lv 78</div></div>
+        <div class="pill"><div class="lbl">Active days</div><div class="val" title="217 days">217</div></div>
+        <div class="pill"><div class="lbl">Last active</div><div class="val" title="2026-06-07">Today</div></div>
+      </div>
+    </div>
+
+    <!-- monetization -->
+    <div class="sec">
+      <div class="sec-title"><span>💰</span>MONETIZATION</div>
+      <div class="card">
+        <div class="v1-money">
+          <div class="big">
+            <div class="lbl">Lifetime LTV</div>
+            <div class="val" title="₫10,286,465,000">₫10.29B</div>
+            <div class="delta">+₫45.2M last 30d</div>
+          </div>
+          <div>
+            <div class="ratio" title="IAP ₫3,090,000,000 · Web ₫6,860,000,000 · other ₫336,465,000">
+              <span class="iap" style="width:30%"></span><span class="web" style="width:67%"></span><span class="other" style="width:3%"></span>
+            </div>
+            <div class="legend">
+              <span><span class="dot" style="background:#f05a22"></span>IAP ₫3.09B (30%)</span>
+              <span><span class="dot" style="background:#3f8dff"></span>Web ₫6.86B (67%)</span>
+              <span><span class="dot" style="background:#d4d4d4"></span>Other ₫336M (3%)</span>
+            </div>
+            <div class="v1-sub" style="margin-top:14px">
+              <div class="tile"><div class="lbl">Lifetime txns</div><div class="val" title="1,247">1,247</div></div>
+              <div class="tile"><div class="lbl">Txns 30d</div><div class="val">18</div></div>
+              <div class="tile"><div class="lbl">LTV 30d</div><div class="val" title="₫45,200,000">₫45.2M</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="payer-span">🥇 Paying since <b>12 Jan 2025</b> (~1.4y) · last paid <b>4 Jun 2026</b> <span style="color:var(--text-muted)">(3d ago)</span></div>
+      </div>
+    </div>
+
+    <!-- profile & status : 3 clusters -->
+    <div class="sec">
+      <div class="sec-title"><span>🪪</span>PROFILE &amp; STATUS</div>
+      <div class="card">
+        <div class="v1-clusters">
+          <div class="cluster">
+            <h4>Identity</h4>
+            <div class="kv"><span class="k">🌍 Country</span><span class="v">VN</span></div>
+            <div class="kv"><span class="k">📱 OS</span><span class="v">android</span></div>
+            <div class="kv"><span class="k">📲 Device</span><span class="v">Samsung SM-S918B</span></div>
+            <div class="kv"><span class="k">🖥️ Last server</span><span class="v">S142</span></div>
+            <div class="kv"><span class="k">🌐 Last login country</span><span class="v">VN</span></div>
+          </div>
+          <div class="cluster">
+            <h4>Progression</h4>
+            <div class="kv"><span class="k">⭐ Max level</span><span class="v">Lv 78</span></div>
+            <div class="kv"><span class="k">👑 Max VIP</span><span class="v">VIP 10</span></div>
+            <div class="kv"><span class="k">🔥 Engagement</span><span class="v"><span class="softchip warning">hardcore</span></span></div>
+            <div class="kv"><span class="k">⏱️ Lifecycle</span><span class="v"><span class="softchip success">active_today</span></span></div>
+          </div>
+          <div class="cluster">
+            <h4>Health</h4>
+            <div class="kv"><span class="k">🗓️ Tenure</span><span class="v" title="install 2025-04-21">412d <span class="dim">~1.1y</span></span></div>
+            <div class="kv"><span class="k">😴 Last seen</span><span class="v">Today</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- acquisition : vertical timeline + chips -->
+    <div class="sec">
+      <div class="sec-title"><span>📥</span>ACQUISITION</div>
+      <div class="card">
+        <ul class="tl">
+          <li><div class="t-lbl">Install</div><div class="t-val">21 Apr 2025<span class="t-rel">412d ago</span></div></li>
+          <li><div class="t-lbl">First login</div><div class="t-val">21 Apr 2025<span class="t-rel">same day</span></div></li>
+          <li><div class="t-lbl">Last login</div><div class="t-val">7 Jun 2026<span class="t-rel">today</span></div></li>
+        </ul>
+        <div class="acq-chips">
+          <span class="softchip info">📣 organic</span>
+          <span class="softchip muted">📕 channel: zalo</span>
+          <span class="softchip muted">💰 organic install</span>
+        </div>
+      </div>
+    </div>
+    <div class="tooltip-note">Dark mode: all surfaces/inks are semantic tokens (soft chips use --*-soft/--*-ink pairs) — no raw status hex in the React impl.</div>
+  </div>
+
+  <!-- ============================================================ VARIANT B -->
+  <div class="variant-label">Variant B — “Banded rows” (one-line money band + grouped KV + horizontal timeline)</div>
+  <div class="variant-rationale">Most compact: monetization collapses to a single band (big stat + inline secondaries + ratio bar), profile keeps the familiar KV shape but grouped with subheads, acquisition becomes a horizontal 3-step strip. Minimal height change vs current page.</div>
+  <div class="variant-tradeoff">Tradeoff: weaker hierarchy than A — secondaries compete on the band at narrow widths (wraps to 2 rows); horizontal timeline cramps on mobile.</div>
+
+  <div class="zone">
+    <div class="hero">
+      <div class="avatar">🐳</div>
+      <div style="flex:1;min-width:240px">
+        <div class="uid">3469417135084765184</div>
+        <div class="chips"><span class="chip">🏆 whale</span><span class="chip">⏱️ active_today</span><span class="chip">🔥 hardcore</span><span class="chip">💳 Paying</span><span class="chip">📍 VN · android</span></div>
+      </div>
+      <div class="pills">
+        <div class="pill"><div class="lbl">LTV</div><div class="val" title="₫10,286,465,000">₫10.29B</div></div>
+        <div class="pill"><div class="lbl">Max level</div><div class="val">Lv 78</div></div>
+        <div class="pill"><div class="lbl">Active days</div><div class="val">217</div></div>
+        <div class="pill"><div class="lbl">Last active</div><div class="val" title="2026-06-07">Today</div></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title"><span>💰</span>MONETIZATION</div>
+      <div class="card">
+        <div class="v2-band">
+          <div class="big"><div class="lbl">Lifetime LTV</div><div class="val" title="₫10,286,465,000">₫10.29B</div></div>
+          <div class="v2-stat"><div class="lbl">LTV 30d</div><div class="val" title="₫45,200,000">₫45.2M</div></div>
+          <div class="v2-stat"><div class="lbl">Lifetime txns</div><div class="val" title="1,247">1,247</div></div>
+          <div class="v2-stat"><div class="lbl">Txns 30d</div><div class="val">18</div></div>
+          <div class="v2-stat"><div class="lbl">First recharge</div><div class="val" style="font-size:14px">12 Jan 2025</div><div class="sub">~1.4y paying</div></div>
+          <div class="v2-stat"><div class="lbl">Last recharge</div><div class="val" style="font-size:14px">4 Jun 2026</div><div class="sub">3d ago</div></div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="ratio" title="IAP ₫3,090,000,000 · Web ₫6,860,000,000 · other ₫336,465,000">
+            <span class="iap" style="width:30%"></span><span class="web" style="width:67%"></span><span class="other" style="width:3%"></span>
+          </div>
+          <div class="legend">
+            <span><span class="dot" style="background:#f05a22"></span>IAP ₫3.09B</span>
+            <span><span class="dot" style="background:#3f8dff"></span>Web ₫6.86B</span>
+            <span><span class="dot" style="background:#d4d4d4"></span>Other ₫336M</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="v2-grid">
+      <div class="sec">
+        <div class="sec-title"><span>🪪</span>PROFILE &amp; STATUS</div>
+        <div class="card">
+          <div class="cluster"><h4>Identity</h4>
+            <div class="kv"><span class="k">🌍 Country</span><span class="v">VN</span></div>
+            <div class="kv"><span class="k">📱 OS · Device</span><span class="v">android · SM-S918B</span></div>
+            <div class="kv"><span class="k">🖥️ Last server</span><span class="v">S142</span></div>
+          </div>
+          <div class="cluster" style="margin-top:14px"><h4>Progression &amp; health</h4>
+            <div class="kv"><span class="k">⭐ Level / VIP</span><span class="v">Lv 78 · VIP 10</span></div>
+            <div class="kv"><span class="k">Status</span><span class="v"><span class="softchip warning">hardcore</span> <span class="softchip success">active_today</span></span></div>
+            <div class="kv"><span class="k">🗓️ Tenure</span><span class="v">412d <span class="dim">~1.1y</span></span></div>
+            <div class="kv"><span class="k">😴 Last seen</span><span class="v">Today</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-title"><span>📥</span>ACQUISITION</div>
+        <div class="card">
+          <div class="v2-htl">
+            <div class="step"><div class="t-lbl" style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Install</div><div class="t-val" style="font-size:13px;font-weight:600">21 Apr 2025</div><div class="t-rel" style="font-size:11px;color:var(--text-muted)">412d ago</div></div>
+            <div class="step"><div class="t-lbl" style="font-size:11px;color:var(--text-muted);text-transform:uppercase">First login</div><div class="t-val" style="font-size:13px;font-weight:600">21 Apr 2025</div><div class="t-rel" style="font-size:11px;color:var(--text-muted)">same day</div></div>
+            <div class="step"><div class="t-lbl" style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Last login</div><div class="t-val" style="font-size:13px;font-weight:600">7 Jun 2026</div><div class="t-rel" style="font-size:11px;color:var(--text-muted)">today</div></div>
+          </div>
+          <div class="acq-chips">
+            <span class="softchip info">📣 organic</span>
+            <span class="softchip muted">📕 zalo</span>
+            <span class="softchip muted">💰 organic install</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tooltip-note">Dark mode: same token discipline as A.</div>
+  </div>
+
+  <!-- ============================================================ VARIANT C -->
+  <div class="variant-label">Variant C — “Two-column composite” (money column + merged profile/acquisition column)</div>
+  <div class="variant-rationale">Densest above-the-fold: monetization owns the left column (hero stat + ratio + 2×2 tiles), Profile/Status/Acquisition merge into ONE right-column card with subheads — journey charts rise higher on the page. Best when the journey/details are the real destination.</div>
+  <div class="variant-tradeoff">Tradeoff: kills the distinct Acquisition section header (loses scannability for UA folks); merged card approaches the 200-LOC ceiling and the two columns can imbalance on ballistar (fewer status rows).</div>
+
+  <div class="zone">
+    <div class="hero">
+      <div class="avatar">🐳</div>
+      <div style="flex:1;min-width:240px">
+        <div class="uid">3469417135084765184</div>
+        <div class="chips"><span class="chip">🏆 whale</span><span class="chip">⏱️ active_today</span><span class="chip">🔥 hardcore</span><span class="chip">💳 Paying</span><span class="chip">📍 VN · android</span></div>
+      </div>
+      <div class="pills">
+        <div class="pill"><div class="lbl">LTV</div><div class="val" title="₫10,286,465,000">₫10.29B</div></div>
+        <div class="pill"><div class="lbl">Max level</div><div class="val">Lv 78</div></div>
+        <div class="pill"><div class="lbl">Active days</div><div class="val">217</div></div>
+        <div class="pill"><div class="lbl">Last active</div><div class="val" title="2026-06-07">Today</div></div>
+      </div>
+    </div>
+
+    <div class="v3-wrap">
+      <div class="sec">
+        <div class="sec-title"><span>💰</span>MONETIZATION</div>
+        <div class="card">
+          <div class="lbl" style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Lifetime LTV</div>
+          <div style="font-size:34px;font-weight:800;letter-spacing:-.5px;cursor:help" title="₫10,286,465,000">₫10.29B</div>
+          <div style="font-size:12px;color:var(--positive);font-weight:600;margin-top:2px">+₫45.2M last 30d · 18 txns</div>
+          <div style="margin-top:14px">
+            <div class="ratio" title="IAP ₫3,090,000,000 · Web ₫6,860,000,000 · other ₫336,465,000">
+              <span class="iap" style="width:30%"></span><span class="web" style="width:67%"></span><span class="other" style="width:3%"></span>
+            </div>
+            <div class="legend">
+              <span><span class="dot" style="background:#f05a22"></span>IAP 30%</span>
+              <span><span class="dot" style="background:#3f8dff"></span>Web 67%</span>
+              <span><span class="dot" style="background:#d4d4d4"></span>Other 3%</span>
+            </div>
+          </div>
+          <div class="v3-statgrid">
+            <div class="tile"><div class="lbl">Lifetime txns</div><div class="val" title="1,247">1,247</div></div>
+            <div class="tile"><div class="lbl">LTV 30d</div><div class="val" title="₫45,200,000">₫45.2M</div></div>
+            <div class="tile"><div class="lbl">First recharge</div><div class="val" style="font-size:13px">12 Jan 2025</div></div>
+            <div class="tile"><div class="lbl">Last recharge</div><div class="val" style="font-size:13px">4 Jun 2026 <span style="color:var(--text-muted);font-weight:500;font-size:11px">3d ago</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-title"><span>🪪</span>PLAYER PROFILE</div>
+        <div class="card">
+          <div class="v3-row"><span class="k" style="color:var(--text-secondary)">🌍 VN · android · SM-S918B</span><span class="v" style="font-weight:600">S142</span></div>
+          <div class="v3-row"><span class="k" style="color:var(--text-secondary)">⭐ Progression</span><span class="v" style="font-weight:600">Lv 78 · VIP 10</span></div>
+          <div class="v3-row"><span class="k" style="color:var(--text-secondary)">Status</span><span><span class="softchip warning">hardcore</span> <span class="softchip success">active_today</span></span></div>
+          <div class="v3-row"><span class="k" style="color:var(--text-secondary)">🗓️ Tenure / last seen</span><span class="v" style="font-weight:600">412d (~1.1y) · today</span></div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-card)">
+            <h4 style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Acquisition</h4>
+            <div class="v3-row"><span class="k" style="color:var(--text-secondary)">📅 Install → first login</span><span class="v" style="font-weight:600">21 Apr 2025 <span style="color:var(--text-muted);font-weight:500;font-size:11px">same day</span></span></div>
+            <div class="v3-row"><span class="k" style="color:var(--text-secondary)">🔄 Last login</span><span class="v" style="font-weight:600">Today</span></div>
+            <div class="acq-chips" style="border-top:none;padding-top:2px;margin-top:6px">
+              <span class="softchip info">📣 organic</span><span class="softchip muted">📕 zalo</span><span class="softchip muted">💰 organic install</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tooltip-note">Dark mode: same token discipline. Note: merged card needs a ballistar pass (engagement chip absent → status row shows lifecycle only).</div>
+  </div>
+
+  <p style="margin-top:40px;font-size:12px;color:var(--text-muted)">All variants: hero pills identical (P2 formatting); <code>is_paying_user</code> tile, <code>install_month</code>, and duplicate engagement/lifecycle KV rows removed everywhere — hero badges + Profile chips are their single homes. Ratio bar derives from existing ltv_iap/ltv_web fields (no new query, cache-safe).</p>
+</div>
+</body>
+</html>

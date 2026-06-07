@@ -17,6 +17,7 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'rec
 
 import type { SparklineResult } from './use-metric-sparkline';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
+import { formatChartDateTooltip } from '../../../utils/format-chart-datetime-label';
 
 const Card = styled.div`
   display: grid;
@@ -147,7 +148,7 @@ function renderBody(disabled: boolean, result: SparklineResult) {
           <YAxis hide domain={['auto', 'auto']} />
           <Tooltip
             cursor={{ stroke: 'var(--border-card, #e5e5e5)' }}
-            labelFormatter={(label: string) => formatTooltipDate(label)}
+            labelFormatter={(label: string) => formatChartDateTooltip(label)}
             formatter={(value: number) => [formatNumber(value), 'value']}
             contentStyle={{ fontSize: 12, borderRadius: 6 }}
           />
@@ -164,13 +165,6 @@ function renderBody(disabled: boolean, result: SparklineResult) {
       </ResponsiveContainer>
     </ChartBox>
   );
-}
-
-function formatTooltipDate(raw: string): string {
-  if (!raw) return '';
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return raw;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function formatNumber(value: number): string {

@@ -4,7 +4,16 @@
  * for `mf_users-hub`; the renderer is generic.
  */
 
-export type FormatId = 'number' | 'percent' | 'currency' | 'duration' | 'compact';
+export type FormatId =
+  | 'number'
+  | 'percent'
+  | 'currency'
+  | 'duration'
+  | 'compact'
+  /** ISO date shown short with a relative suffix: "5 Jun 2026 (2d ago)". */
+  | 'date-relative'
+  /** Day count shown as tenure: 412 → "412d (~1.1y)". */
+  | 'tenure';
 
 export interface KpiSpec {
   id: string;
