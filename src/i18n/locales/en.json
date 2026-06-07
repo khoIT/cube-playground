@@ -168,9 +168,11 @@
       },
       "backToLibrary": "Segments",
       "actions": {
-        "copyAsFilter": "Copy as filter",
+        "openInPlayground": "Open in Playground",
         "editPredicate": "Edit predicate",
         "convertToLive": "Convert to Live",
+        "refresh": "Refresh",
+        "refreshNowTitle": "Queue a refresh now",
         "more": "More"
       },
       "share": {

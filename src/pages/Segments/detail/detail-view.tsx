@@ -2,7 +2,7 @@
 
 import { ReactElement, useEffect, useState, ReactNode } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
-import { Button, message } from 'antd';
+import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Activity, Code2, GitBranch, LineChart, Send, Users } from 'lucide-react';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
@@ -24,13 +24,11 @@ import { useActiveTab, DetailTabId } from './use-active-tab';
 import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
 import { useSegmentSizeDelta } from './hooks/use-segment-size-delta';
 import { format as formatDate, addMinutes } from 'date-fns';
-import { RefreshNowButton } from './components/refresh-now-button';
-import { ShareSegmentControl } from './components/share-segment-control';
+import { DetailHeaderActions } from './components/detail-header-actions';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
 import { HeadlineStatsRow } from './components/headline-stats-row';
 import { SegmentHealthPill } from '../status/segment-health-pill';
-import { buildPlaygroundDeeplink } from '../../../utils/playground-deeplink';
 import styles from '../segments.module.css';
 
 const BASE_TABS: DetailTabId[] = ['insights', 'members', 'monitor', 'definition', 'activation'];
@@ -180,55 +178,12 @@ export function DetailView(): ReactElement {
           <SegmentHealthPill segment={segment} onCadenceChange={setSegment} />
           <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />
-          <div className={styles.detailActions}>
-            <ShareSegmentControl segment={segment} onChange={setSegment} />
-            <RefreshNowButton segment={segment} />
-            <Button
-              size="small"
-              onClick={() => {
-                const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
-                const out = buildPlaygroundDeeplink({
-                  segmentId: segment.id,
-                  segmentName: segment.name,
-                  identityDim,
-                  primaryCube: segment.cube,
-                  uids: segment.uid_list ?? [],
-                });
-                window.location.assign(out.url);
-              }}
-              disabled={(segment.uid_list ?? []).length === 0}
-            >
-              {t('segments.detail.actions.copyAsFilter')}
-            </Button>
-            {/* Cohort-redefining entry point — predicate/uid rewrites are
-                owner-or-admin on the server; can_administer mirrors that. */}
-            <Button
-              size="small"
-              type="primary"
-              disabled={!segment.can_administer}
-              title={
-                segment.can_administer
-                  ? undefined
-                  : t('segments.detail.share.ownerOnly', { defaultValue: 'Owner or admin only' })
-              }
-              onClick={() =>
-                history.push(
-                  segment.type === 'predicate'
-                    ? `/segments/${segment.id}/edit`
-                    : `/segments/${segment.id}/edit?convert=live`,
-                )
-              }
-            >
-              {segment.type === 'predicate'
-                ? t('segments.detail.actions.editPredicate', { defaultValue: 'Edit predicate' })
-                : t('segments.detail.actions.convertToLive', { defaultValue: 'Convert to Live' })}
-            </Button>
-            {segment.can_administer && (
-              <Button size="small" danger onClick={() => setDeleteOpen(true)}>
-                {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
-              </Button>
-            )}
-          </div>
+          <DetailHeaderActions
+            segment={segment}
+            preset={preset}
+            onSegmentChange={setSegment}
+            onDelete={() => setDeleteOpen(true)}
+          />
         </div>
       </header>
 

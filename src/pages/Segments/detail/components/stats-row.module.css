@@ -1,28 +1,29 @@
-/* Compact inline stats row — Hermes-style headline strip for segment detail. */
+/* Headline KPI tiles — member-360-style stat cards for segment detail.
+   Responsive by construction: auto-fit grid wraps 4 → 2×2 → 1 column. */
 
 .statsRow {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  padding: 8px 0;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
 }
 
 .statCell {
-  flex: 1 1 0;
   min-width: 0;
-  padding: 0 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.statCell[data-divider='true'] {
-  border-left: 1px solid var(--border-card);
+/* Tile head — muted glyph chip + uppercase label on one line. */
+.statCellHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 /* Muted rounded glyph chip — echoes the member-360 monetization tiles. */
@@ -30,8 +31,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
   background: var(--bg-muted);
@@ -47,9 +48,9 @@
 
 .label {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -64,11 +65,15 @@
 }
 
 .value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .delta {

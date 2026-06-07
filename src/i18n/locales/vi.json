@@ -145,8 +145,10 @@
       },
       "backToLibrary": "Nhóm người dùng",
       "actions": {
-        "copyAsFilter": "Copy as filter",
+        "openInPlayground": "Mở trong Playground",
         "editPredicate": "Sửa điều kiện",
+        "refresh": "Làm mới",
+        "refreshNowTitle": "Xếp hàng làm mới ngay",
         "more": "Thêm"
       },
       "share": {

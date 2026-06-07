@@ -4,7 +4,7 @@ import { ReactElement, useMemo } from 'react';
 import type { Query } from '@cubejs-client/core';
 import { KpiTile } from '../../visuals';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
-import { formatValue } from './format-value';
+import { formatValue, formatValueExact } from './format-value';
 import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { KpiSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
@@ -42,12 +42,15 @@ export function KpiCard({ spec, segment, preset, cacheKey, comparison, footer }:
     initialRows,
     skipBackgroundFetch,
   });
-  const value = loading ? '…' : error ? '—' : formatValue(rows[0]?.[spec.measure] ?? null, spec.format);
+  const raw = rows[0]?.[spec.measure] ?? null;
+  const value = loading ? '…' : error ? '—' : formatValue(raw, spec.format);
+  // Compact display (₫10.29B) keeps the exact figure reachable on hover.
+  const exact = loading || error ? null : formatValueExact(raw, spec.format);
 
   return (
     <KpiTile
       label={spec.label}
-      value={value}
+      value={exact != null ? <span title={exact}>{value}</span> : value}
       delta={comparison?.text}
       tone={comparison?.tone ?? 'neutral'}
       footer={footer ?? spec.unit}

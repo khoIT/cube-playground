@@ -20,6 +20,7 @@ import { Sparkline } from '../../visuals';
 import type { Preset, KpiSpec } from '../../presets/types';
 import type { Segment, RefreshLogRow } from '../../../../types/segment-api';
 import { StatsRow, StatItem, StatCellInner, useStatItemFromKpi } from './stats-row';
+import { formatCompact } from '../cards/format-value';
 import styles from './stats-row.module.css';
 
 type Tone = 'neutral' | 'positive' | 'negative';
@@ -54,12 +55,6 @@ interface Props {
   ownerFooter: ReactNode;
 }
 
-function formatCount(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
-
 export function HeadlineStatsRow({
   segment, preset, sizeComparison, refreshLog, lastRefresh,
   lastRefreshFooter, ownerFooter,
@@ -69,8 +64,8 @@ export function HeadlineStatsRow({
   if (preset && preset.headlineKpis.length > 0) {
     return (
       <div className={styles.statsRow} role="group" aria-label="Segment headline metrics">
-        {preset.headlineKpis.map((spec, idx) => (
-          <div key={spec.id} className={styles.statCell} data-divider={idx > 0 ? 'true' : 'false'}>
+        {preset.headlineKpis.map((spec) => (
+          <div key={spec.id} className={styles.statCell}>
             <InlineKpi spec={spec} segment={segment} preset={preset} sizeComparison={sizeComparison} />
           </div>
         ))}
@@ -89,10 +84,14 @@ export function HeadlineStatsRow({
       label: t('segments.detail.kpi.size', { defaultValue: 'Size' }),
       value: isRefreshing ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {formatCount(segment.uid_count)}
+          {formatCompact(segment.uid_count)}
           <LoadingOutlined spin style={{ fontSize: 14 }} />
         </span>
-      ) : formatCount(segment.uid_count),
+      ) : (
+        <span title={`${segment.uid_count.toLocaleString('en-US')} users`}>
+          {formatCompact(segment.uid_count)}
+        </span>
+      ),
       delta: sizeComparison?.text,
       tone: sizeComparison?.tone ?? 'neutral',
       footer: sizeSparkSeries.length >= 2
@@ -173,14 +172,16 @@ function SizeStatCell({
   count: number;
   comparison: { text: string; tone: Tone } | null;
 }): ReactElement {
-  // Exact thousands-separated value only — the compact form ("7.3k") under an
-  // already-precise number reads as redundant noise, so we drop it.
+  // Exact thousands-separated value up to 1M — precise counts beat compact
+  // noise at this scale. From 1M up the tile compacts ("2.41M") and the
+  // exact figure moves into the hover tooltip.
   const exact = count.toLocaleString('en-US');
+  const display = count >= 1_000_000 ? formatCompact(count) : exact;
   return (
     <StatCellInner
       icon={icon}
       label={<span title={`${exact} users`}>{label}</span>}
-      value={<span title={`${exact} users`}>{exact}</span>}
+      value={<span title={`${exact} users`}>{display}</span>}
       delta={comparison?.text}
       tone={comparison?.tone}
     />

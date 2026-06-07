@@ -2,6 +2,7 @@
 
 import { ReactElement, useState } from 'react';
 import { Button, message } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { ReloadOutlined } from '@ant-design/icons';
 import { segmentsClient } from '../../../../api/segments-client';
 import type { Segment } from '../../../../types/segment-api';
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function RefreshNowButton({ segment, onOptimistic }: Props): ReactElement | null {
+  const { t } = useTranslation();
   const [pending, setPending] = useState(false);
   if (segment.type !== 'predicate') return null;
 
@@ -33,8 +35,9 @@ export function RefreshNowButton({ segment, onOptimistic }: Props): ReactElement
       icon={<ReloadOutlined />}
       onClick={handle}
       loading={pending || segment.status === 'refreshing'}
+      title={t('segments.detail.actions.refreshNowTitle', { defaultValue: 'Queue a refresh now' })}
     >
-      Refresh now
+      {t('segments.detail.actions.refresh', { defaultValue: 'Refresh' })}
     </Button>
   );
 }

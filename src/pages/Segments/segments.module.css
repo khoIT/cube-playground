@@ -366,6 +366,43 @@
   flex-shrink: 0;
 }
 
+/* Normalize every header action to one height / radius / type size so the
+   row reads as a single system regardless of which antd variant renders. */
+.detailActions :global(.ant-btn) {
+  height: 28px;
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+}
+
+/* Command bar — Share / Refresh / Open in Playground share one bordered
+   segmented container so secondary actions read as a single toolbox. */
+.commandBar {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.commandBar > * + * {
+  border-left: 1px solid var(--border-card);
+}
+.commandBar :global(.ant-btn) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.commandBar :global(.ant-btn):hover:not(:disabled) {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}
+
 .detailTitle {
   font-family: var(--font-alt, var(--font-sans));
   font-size: 24px;

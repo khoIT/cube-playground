@@ -10,7 +10,7 @@
 import { ReactElement, ReactNode, useMemo } from 'react';
 import type { Query } from '@cubejs-client/core';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
-import { formatValue } from '../cards/format-value';
+import { formatValue, formatValueExact } from '../cards/format-value';
 import { getCachedRows, isCacheFresh } from '../cards/use-card-cache-lookup';
 import type { KpiSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
@@ -34,8 +34,8 @@ interface StatsRowProps {
 }
 
 /**
- * Shared cell body: a muted icon chip on the left, with label / value+delta /
- * footer stacked on the right. Used by both the data-bound preset cells and
+ * Shared tile body: a head row (muted icon chip + uppercase label) above the
+ * value / delta / footer stack. Used by both the data-bound preset cells and
  * the synthesized fallback cells so the layout never drifts between them.
  */
 export function StatCellInner({
@@ -50,9 +50,11 @@ export function StatCellInner({
 }): ReactElement {
   return (
     <>
-      {icon != null && <span className={styles.kpiIcon} aria-hidden>{icon}</span>}
-      <div className={styles.statCellBody}>
+      <div className={styles.statCellHead}>
+        {icon != null && <span className={styles.kpiIcon} aria-hidden>{icon}</span>}
         <div className={styles.label}>{label}</div>
+      </div>
+      <div className={styles.statCellBody}>
         <div className={styles.valueRow}>
           <span className={styles.value}>{value}</span>
           {delta != null && (
@@ -69,8 +71,8 @@ export function StatCellInner({
 export function StatsRow({ items }: StatsRowProps): ReactElement {
   return (
     <div className={styles.statsRow} role="group" aria-label="Segment headline metrics">
-      {items.map((item, idx) => (
-        <div key={item.id} className={styles.statCell} data-divider={idx > 0 ? 'true' : 'false'}>
+      {items.map((item) => (
+        <div key={item.id} className={styles.statCell}>
           <StatCellInner
             icon={item.icon}
             label={item.label}
@@ -107,7 +109,17 @@ export function useStatItemFromKpi(
     skipBackgroundFetch,
   });
 
-  const value = loading ? '…' : error ? '—' : formatValue(rows[0]?.[spec.measure] ?? null, spec.format);
+  const raw = rows[0]?.[spec.measure] ?? null;
+  const display = formatValue(raw, spec.format);
+  // Compact display (₫10.29B) keeps the exact figure reachable on hover.
+  const exact = formatValueExact(raw, spec.format);
+  const value: ReactNode = loading
+    ? '…'
+    : error
+      ? '—'
+      : exact != null
+        ? <span title={exact}>{display}</span>
+        : display;
 
   return {
     id: spec.id,
