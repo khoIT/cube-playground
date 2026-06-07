@@ -46,6 +46,7 @@ const baseTurn: DebugTurn = {
   skill: 'explore',
   durationMs: 10,
   stopReason: 'end_turn',
+  llmAuthLabel: null,
   cacheCreationTokens: null,
   cacheReadTokens: null,
   cacheHit: true,

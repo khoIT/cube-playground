@@ -35,6 +35,8 @@ export interface DebugTurn {
   durationMs: number | null;
   /** Phase-02: turn-level stop_reason from SDK result message. Null for legacy turns. */
   stopReason: string | null;
+  /** Auth lane that served the turn ('primary'|'stg'|'backup'|'subscription'); null for legacy turns. */
+  llmAuthLabel: string | null;
   /** Phase-03: Anthropic cache token breakdown. Null for legacy turns pre-migration. */
   cacheCreationTokens: number | null;
   cacheReadTokens: number | null;

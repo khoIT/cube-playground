@@ -9,6 +9,7 @@ import { useDebugSession, useRestoreSession } from './use-debug-api';
 import { TurnDetail } from './turn-detail';
 import { SkelText } from './skeleton-row';
 import { EmptyState } from './empty-state';
+import { AuthLanePill } from './auth-lane-pill';
 
 interface SessionDetailProps {
   sessionId: string | null;
@@ -147,6 +148,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               <div style={S.title}>
                 {data.session.title || `Session ${data.session.id.slice(0, 12)}…`}
               </div>
+              <AuthLanePill turns={data.turns} />
               <span style={{ fontSize: 11, color: T.n400 }}>
                 {data.turns.length} turn{data.turns.length !== 1 ? 's' : ''}
               </span>

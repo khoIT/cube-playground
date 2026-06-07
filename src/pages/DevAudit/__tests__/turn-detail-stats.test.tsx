@@ -42,6 +42,7 @@ function makeTurn(overrides: Partial<DebugTurn> = {}): DebugTurn {
     skill: 'explore',
     durationMs: 1200,
     stopReason: 'end_turn',
+    llmAuthLabel: null,
     cacheCreationTokens: null,
     cacheReadTokens: null,
     cacheHit: false,
