@@ -227,4 +227,32 @@ describe('segment sharing destructive guards (real-auth)', () => {
     const asAlice = await app.inject({ method: 'GET', url: `/api/segments/${id}`, headers: aliceAuth });
     expect(asAlice.json().is_owner).toBe(true);
   });
+
+  it('can_administer = owner OR admin; is_owner stays literal ownership', async () => {
+    const id = await sharedSegment('admin-flag');
+
+    // Owner: both flags true.
+    const asAlice = await app.inject({ method: 'GET', url: `/api/segments/${id}`, headers: aliceAuth });
+    expect(asAlice.json().is_owner).toBe(true);
+    expect(asAlice.json().can_administer).toBe(true);
+
+    // Non-admin non-owner: both false.
+    const asBob = await app.inject({ method: 'GET', url: `/api/segments/${id}`, headers: bobAuth });
+    expect(asBob.json().is_owner).toBe(false);
+    expect(asBob.json().can_administer).toBe(false);
+
+    // Admin on a foreign segment: NOT the owner (the "shared with you" rail
+    // depends on that staying false) but may administer.
+    const asAdmin = await app.inject({ method: 'GET', url: `/api/segments/${id}`, headers: adminAuth });
+    expect(asAdmin.json().is_owner).toBe(false);
+    expect(asAdmin.json().can_administer).toBe(true);
+
+    // Same flags on the list route.
+    const list = (
+      await app.inject({ method: 'GET', url: '/api/segments', headers: adminAuth })
+    ).json() as Array<Record<string, unknown>>;
+    const row = list.find((s) => s.id === id)!;
+    expect(row.is_owner).toBe(false);
+    expect(row.can_administer).toBe(true);
+  });
 });

@@ -79,6 +79,7 @@ function makeSegment(overrides: Partial<Segment> = {}): Segment {
     owner_label: null,
     shared_at: null,
     is_owner: true,
+    can_administer: true,
     member_tiers: makeTiers(),
     ...overrides,
   };

@@ -45,6 +45,7 @@ function seg(over: Partial<Segment>): Segment {
     owner_label: null,
     shared_at: null,
     is_owner: true,
+    can_administer: true,
     ...over,
   };
 }
@@ -66,6 +67,15 @@ describe('selectSharedSegments', () => {
     ]);
     expect(selectSharedSegments(rows, 2).map((s) => s.id)).toEqual(['team-shared', 'team-org']);
     expect(selectSharedSegments(null, 4)).toEqual([]);
+  });
+
+  it('admin capability (can_administer) does NOT eject foreign org rows from the rail', () => {
+    // Admin viewer: every org segment carries can_administer: true while
+    // is_owner stays false — the rail must keep keying off literal ownership.
+    const rows = [
+      seg({ id: 'org-foreign', visibility: 'org', is_owner: false, can_administer: true, owner: 'alice' }),
+    ];
+    expect(selectSharedSegments(rows, 4).map((s) => s.id)).toEqual(['org-foreign']);
   });
 });
 

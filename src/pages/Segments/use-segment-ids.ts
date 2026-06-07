@@ -107,6 +107,8 @@ export function useSegmentIds(): UseSegmentIdsResult {
 export function selectSharedSegments(rows: Segment[] | null, cap: number): Segment[] {
   if (!rows) return [];
   return rows
+    // Keyed off LITERAL is_owner, never can_administer — admins administer
+    // every org segment, and the wider flag would empty this rail for them.
     .filter((s) => (s.visibility === 'shared' || s.visibility === 'org') && !s.is_owner)
     .slice(0, cap);
 }

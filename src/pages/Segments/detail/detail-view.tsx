@@ -201,15 +201,15 @@ export function DetailView(): ReactElement {
               {t('segments.detail.actions.copyAsFilter')}
             </Button>
             {/* Cohort-redefining entry point — predicate/uid rewrites are
-                owner-or-admin on the server, so disable for non-owners. */}
+                owner-or-admin on the server; can_administer mirrors that. */}
             <Button
               size="small"
               type="primary"
-              disabled={!segment.is_owner}
+              disabled={!segment.can_administer}
               title={
-                segment.is_owner
+                segment.can_administer
                   ? undefined
-                  : t('segments.detail.share.ownerOnly', { defaultValue: 'Owner-only' })
+                  : t('segments.detail.share.ownerOnly', { defaultValue: 'Owner or admin only' })
               }
               onClick={() =>
                 history.push(
@@ -223,7 +223,7 @@ export function DetailView(): ReactElement {
                 ? t('segments.detail.actions.editPredicate', { defaultValue: 'Edit predicate' })
                 : t('segments.detail.actions.convertToLive', { defaultValue: 'Convert to Live' })}
             </Button>
-            {segment.is_owner && (
+            {segment.can_administer && (
               <Button size="small" danger onClick={() => setDeleteOpen(true)}>
                 {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
               </Button>

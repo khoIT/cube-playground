@@ -202,9 +202,9 @@ function hydrateSegment(
   // starves all other requests. The list only needs uid_count; the full uid
   // array is fetched per-segment on the detail route.
   includeUidList = true,
-  // Caller's principal.sub — drives the computed `is_owner` flag the FE uses
-  // to gate owner-only controls. Omitted (internal callers) → is_owner=false.
-  viewerSub?: string,
+  // Caller's principal — drives the computed `is_owner` / `can_administer`
+  // flags the FE uses to gate controls. Omitted (internal callers) → both false.
+  viewer?: { sub: string; role?: string },
 ) {
   // Never ship the raw JSON blobs: no consumer reads `uid_list_json` /
   // `member_tiers_json`, and for large cohorts the uid blob doubles the
@@ -254,7 +254,14 @@ function hydrateSegment(
     shared_at: toIsoUtc(rest.shared_at),
     // NULL owner_label (legacy rows) is shipped as-is; FE falls back to `owner`.
     owner_label: (rest.owner_label as string | null) ?? null,
-    is_owner: viewerSub != null && rest.owner === viewerSub,
+    // is_owner stays LITERAL ownership — the FE "shared with you" rail keys
+    // off it; an admin override here would misfile every org segment as the
+    // admin's own. Admin capability ships on the separate can_administer flag.
+    is_owner: viewer != null && rest.owner === viewer.sub,
+    // Mirrors canAdministerSegment (owner or admin) so the FE can enable
+    // owner-only controls (edit/delete/share) the API already permits.
+    can_administer:
+      viewer != null && (rest.owner === viewer.sub || viewer.role === 'admin'),
     tags,
     predicate_tree: rest.predicate_tree_json
       ? JSON.parse(rest.predicate_tree_json as string)
@@ -320,7 +327,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     );
     // Skip uid_list hydration on the list — see hydrateSegment's includeUidList.
     return rows.map((r) =>
-      hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? [], false, req.principal.sub),
+      hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? [], false, { sub: req.principal.sub, role: req.principal.role }),
     );
   });
 
@@ -411,7 +418,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
     emitSegmentOp(req, 'create', id);
-    return reply.status(201).send(hydrateSegment(row, db, undefined, true, req.principal.sub));
+    return reply.status(201).send(hydrateSegment(row, db, undefined, true, { sub: req.principal.sub, role: req.principal.role }));
   });
 
   // GET /api/segments/:id — includes prerendered card_cache for one-shot hydration
@@ -421,7 +428,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const row = guardSegment(req, reply, id, 'read');
     if (!row) return reply;
     return {
-      ...hydrateSegment(row, db, undefined, true, req.principal.sub),
+      ...hydrateSegment(row, db, undefined, true, { sub: req.principal.sub, role: req.principal.role }),
       card_cache: getCardCache(id),
     };
   });
@@ -591,7 +598,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
     emitSegmentOp(req, 'update', id);
-    return hydrateSegment(updated, db, undefined, true, req.principal.sub);
+    return hydrateSegment(updated, db, undefined, true, { sub: req.principal.sub, role: req.principal.role });
   });
 
   // DELETE /api/segments/:id — owner/admin only (destructive).
@@ -641,7 +648,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
       const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
       emitSegmentOp(req, 'update', id);
-      return hydrateSegment(updated, db, undefined, true, req.principal.sub);
+      return hydrateSegment(updated, db, undefined, true, { sub: req.principal.sub, role: req.principal.role });
     });
   }
 
@@ -938,7 +945,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     );
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
-    return reply.status(201).send(hydrateSegment(updated, db, undefined, true, req.principal.sub));
+    return reply.status(201).send(hydrateSegment(updated, db, undefined, true, { sub: req.principal.sub, role: req.principal.role }));
   });
 
   // DELETE /api/segments/:id/activations/:activationId — remove an activation.
@@ -964,6 +971,6 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     );
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
-    return hydrateSegment(updated, db, undefined, true, req.principal.sub);
+    return hydrateSegment(updated, db, undefined, true, { sub: req.principal.sub, role: req.principal.role });
   });
 }

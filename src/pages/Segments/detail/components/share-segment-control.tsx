@@ -1,10 +1,11 @@
 /**
  * ShareSegmentControl — detail-header sharing affordance.
  *
- * Owner: Share / Unshare toggle (server enforces owner-or-admin; an 'org'
- * demotion by a non-admin owner surfaces the server's 403 as a toast).
- * Non-owner: static "Shared by {owner}" chip — sharing state is owned by
- * the segment's owner, the viewer only sees attribution.
+ * Owner or admin (can_administer): Share / Unshare toggle (matches the
+ * server's owner-or-admin enforcement; an 'org' demotion by a non-admin
+ * owner surfaces the server's 403 as a toast).
+ * Other viewers: static "Shared by {owner}" chip — sharing state is owned
+ * by the segment's owner, the viewer only sees attribution.
  */
 import { ReactElement, useState } from 'react';
 import { Button, message } from 'antd';
@@ -24,7 +25,7 @@ export function ShareSegmentControl({ segment, onChange }: ShareSegmentControlPr
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
-  if (!segment.is_owner) {
+  if (!segment.can_administer) {
     return (
       <span
         style={{

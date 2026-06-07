@@ -44,6 +44,7 @@ function seg(over: Partial<Segment>): Segment {
     owner_label: 'alice',
     shared_at: null,
     is_owner: true,
+    can_administer: true,
     ...over,
   };
 }
@@ -86,10 +87,10 @@ describe('ShareSegmentControl', () => {
     expect(segmentsClient.unshare).toHaveBeenCalledWith('seg1');
   });
 
-  it('non-owner sees the shared-by chip and no toggle button', () => {
+  it('non-owner non-admin sees the shared-by chip and no toggle button', () => {
     render(
       <ShareSegmentControl
-        segment={seg({ visibility: 'shared', is_owner: false, owner_label: 'alice' })}
+        segment={seg({ visibility: 'shared', is_owner: false, can_administer: false, owner_label: 'alice' })}
         onChange={vi.fn()}
       />,
     );
@@ -97,10 +98,20 @@ describe('ShareSegmentControl', () => {
     expect(screen.getByText(/alice/)).toBeTruthy();
   });
 
-  it('non-owner chip degrades to the owner sub when owner_label is NULL (legacy rows)', () => {
+  it('admin viewer (can_administer without ownership) gets the toggle, not the chip', () => {
     render(
       <ShareSegmentControl
-        segment={seg({ visibility: 'shared', is_owner: false, owner_label: null })}
+        segment={seg({ visibility: 'shared', is_owner: false, can_administer: true, owner_label: 'alice' })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button')).toBeTruthy();
+  });
+
+  it('non-admin chip degrades to the owner sub when owner_label is NULL (legacy rows)', () => {
+    render(
+      <ShareSegmentControl
+        segment={seg({ visibility: 'shared', is_owner: false, can_administer: false, owner_label: null })}
         onChange={vi.fn()}
       />,
     );

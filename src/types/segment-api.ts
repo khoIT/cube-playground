@@ -106,9 +106,13 @@ export interface Segment {
   owner_label: string | null;
   /** When the segment was last published via share. Null = never/unshared. */
   shared_at: string | null;
-  /** True when the caller is the segment's owner — gates the owner-only
-   *  destructive controls (delete, visibility, predicate/uid rewrite). */
+  /** True when the caller is the segment's owner. LITERAL ownership only —
+   *  the "shared with you" rail keys off it. Use can_administer to gate
+   *  controls. */
   is_owner: boolean;
+  /** True when the caller may run owner-level controls (owner OR admin) —
+   *  gates edit/delete/share. Mirrors the server's canAdministerSegment. */
+  can_administer: boolean;
   /** LTV tiers (detail GET only). Null/absent → fall back to random sample. */
   member_tiers?: MemberTiers | null;
 }
