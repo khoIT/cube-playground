@@ -123,6 +123,12 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | POST | `/api/segments/refresh-logs` | editor, admin (read but POST-gated) | `authorization` | `Record<id,LogRow[]>` | SQLite segment_refresh_log |
 | GET | `/api/segments/:id/sql-filter` | none | — | `{filter}` / 400 SQL_TRANSLATOR_ERROR | SQLite, predicate-to-sql |
 | POST | `/api/segments/:id/refresh` | editor, admin (no owner) | `authorization` | 202 `{status:'refreshing'}` / 400 NOT_LIVE | SQLite, refresh-queue |
+| POST | `/api/segments/:id/share` | owner, admin | `authorization`, `x-owner` | 200 segment (shared_at set) / 403 owner | SQLite segments |
+| POST | `/api/segments/:id/unshare` | owner, admin | `authorization`, `x-owner` | 200 segment (shared_at cleared) / 403 owner | SQLite segments |
+| GET | `/api/segments/:id/brief` | none | `?lang=(en\|vi),?refresh=1` | 200 `{brief,status,stale?}` / 502 (retryable) | segment_brief_cache, chat-service /internal/segment-brief |
+| GET | `/api/segments/:id/members/:uid/panels` | none | — | `{panels:[]}` cached per-uid views / 400 NO_MEMBER360 | segment_member360_cache, Cube (live fallback) |
+| GET | `/api/segments/:id/member-cache-status` | none | — | `{members:[{uid,status,error?}]}` aggregate ok/error tally | segment_member360_cache |
+| POST | `/api/segments/:id/precompute-members` | editor, admin (manual trigger) | `authorization` | 202 `{queued}` / 400 REFRESH_IN_PROGRESS | member360-precompute-scheduler |
 | POST | `/api/segments/:id/activations` | editor, admin + **owner 403** | `authorization`, `x-owner` | 201 segment + activation | SQLite (CDP stub) |
 | DELETE | `/api/segments/:id/activations/:activationId` | editor, admin + **owner 403** | `authorization`, `x-owner` | segment w/ activation removed | SQLite |
 | GET | `/api/identity-map` | none | `x-cube-workspace`, `x-cube-game` | merged overrides + auto-suggest rows | SQLite cube_identity_map, identity-suggester (Cube `/meta`) |

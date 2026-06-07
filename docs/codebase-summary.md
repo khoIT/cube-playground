@@ -204,3 +204,32 @@ The data-analyst onboarding flow bootstraps draft Cube models from raw warehouse
 - **Pages** — `src/pages/Data/` + `/data` route. Connectors → connector detail (Datasets/Agents/Coverage/Drift/History tabs) → dataset tables + mode pick → triage canvas.
 - **Triage canvas** — 3 interchangeable views (queue+YAML / entity-graph / conversational) over shared `use-onboarding-draft` engine. Per-user pref: `onboarding.triageView`.
 - **Client** — `src/api/onboarding-client.ts` (typed API calls).
+
+---
+
+## Segment Revamp (LTV Tiers, Member-360, Sharing, AI Brief)
+
+### Services (server-side)
+
+- **LTV-tiered sampling** — `member360-panel-registry.ts` enumerates `[Engagement, Retention, Revenue, …]` panels per game; `refresh-segment.ts` computes top/middle/bottom-50 tiers by preset `ltvMeasure` at segment refresh time, stores `member_tiers_json` (50 rows per segment; migration 032).
+- **Member-360 precompute** — `member360-precompute-scheduler.ts` schedules nightly window 02:00-06:00 GMT+7 (MEMBER360_PRECOMPUTE_WINDOW), fetches cached panel rows for each tiered member via Cube `/load`. Writes to `segment_member360_cache` (migration 033); per-uid status ok/error for FE chips.
+- **Segment brief cache** — `segment-brief-store.ts` single-flight per (segment, lang); `segment-definition-hash.ts` fingerprints predicate tree so renames reuse cache, edits regenerate. `segment-brief-context.ts` assembles Cube rows + definition context for LLM. Migration 035: `segment_brief_cache(segment_id, lang, definition_hash, brief_json, status, generated_at)`.
+- **Segment sharing labels** — `owner_label` (human-readable "shared by …" stamped at create) + `shared_at` timestamp on share endpoint (migration 034). Legacy NULL rows fallback to owner sub on read.
+
+### Routes (server-side)
+
+- **`routes/segment-brief.ts`** — `GET /api/segments/:id/brief?lang=en|vi&refresh=1` serves cached narrative + 5-label enum schema. Generates on cache miss; `?refresh=1` rate-limited 10 min/segment/lang. Stale-serve on LLM failure with 2-min backoff.
+- **`routes/segment-member360.ts`** — `GET /api/segments/:id/members/:uid/panels` (cached per-uid Cube rows), `GET /api/segments/:id/member-cache-status` (ok/error aggregate), `POST /api/segments/:id/precompute-members` (manual trigger, 10-min cooldown).
+- **`routes/segments.ts`** extended — `POST /api/segments/:id/share` / `/unshare` (owner/admin-only, updates shared_at + visibility).
+
+### Chat service bridge
+
+- **`POST /internal/segment-brief`** (x-internal-secret gated) — Accepts context + lang, returns `{label, narrative, signals[]}`. Single SDK call via failover keys (CHAT_BRIEF_MODEL env, default claude-sonnet-4-6). 5-label enum schema (status/content/usage/quality/reach).
+
+### Frontend
+
+- **`AiBriefCard`** — Sticky detail-view header card. Sparkle eyebrow + label chip (semantic tokens per status), plain-text narrative + bullet signals, mandatory AI byline. Collapse state persisted (gds-cube:segment-brief-collapsed), expanded by default.
+- **`use-segment-brief`** hook — Lazy fetch while card open; request-id guard vs stale overwrites; lang-aware refetch via ?lang; retry via ?refresh=1 (client capped @ 1 per 10 min).
+- **Member-360 tabs** — Members tab renders tiered bands (top/middle/bottom-50) + per-tier panel cards (chart/KPI/table per game's corePanels). Cache-first + live fallback; status chips (ok/error/stale). Trigger manual precompute via 10-min-cooldown button.
+- **Segment list Shared pill** — Sidebar & detail sidebar display "Shared" pill when `shared_at` is non-NULL; click → modal listing collaborators (by owner_label).
+- **Client** — `segments-client.ts` extended with `getBrief()`, `getMemberCacheStatus()`, `getMemberPanels()`, `share()`, `unshare()` calls.

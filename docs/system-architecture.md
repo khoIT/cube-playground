@@ -545,6 +545,52 @@ Browser                          Gateway server                    Chat service
 
 ---
 
+## Segment Revamp: LTV Tiers, Member-360 Precompute, Sharing, & AI Brief
+
+Four coordinated subsystems added to the Segments workspace (June 2026):
+
+### LTV-tiered Member Sampling
+
+When a segment refreshes, `refresh-segment.ts` computes top/middle/bottom-50 member cohorts by a preset `ltvMeasure` (e.g., `revenue`). Tiers are stored inline as `member_tiers_json` (migration 032) — ~150 rows per segment, ~5 KB. The Members tab renders tiered bands without extra Cube queries; fallback to random sample if tiers are NULL (unsupported game or never refreshed). Tier data carries per-uid LTV values for sorting within bands.
+
+**Trigger:** Segment refresh endpoint (part of existing flow). **Storage:** `segments.member_tiers_json` (nullable JSON). **Cost:** One additional Cube call per refresh; cached for the lifetime of that refresh.
+
+### Member-360 Nightly Precompute
+
+A separate scheduler (`member360-precompute-scheduler.ts`) runs nightly 02:00–06:00 GMT+7 (MEMBER360_PRECOMPUTE_WINDOW env). For each tiered member of each eligible segment, it pre-fetches panel rows from Cube (Engagement, Retention, Revenue, … per game) and caches them in `segment_member360_cache` (migration 033). The detail page loads cache-first; if stale/missing, a live fallback re-fetches. Per-uid status tracking (ok/error) powers status chips in the UI.
+
+**Endpoint:** `GET /api/segments/:id/members/:uid/panels` (cached), `GET /api/segments/:id/member-cache-status` (aggregate ok/error), manual trigger `POST /api/segments/:id/precompute-members` (10-min cooldown to prevent quota spam).
+
+**Storage:** `segment_member360_cache(segment_id, uid, panel_id, rows_json, status, error, fetched_at)`. **Cost:** One nightly batch per workspace; subsequent detail views are zero-cost cache hits.
+
+### Segment Sharing & Owner Labels
+
+Segments now explicitly track visibility (`personal` / `shared` / `org`) via the existing nullable `visibility` column (migration 028). Share/unshare endpoints (`POST /api/segments/:id/share` / `/unshare`) gate access to owners + admins and record `shared_at` timestamp. Human-readable owner labels (`owner_label`, migration 034) preserve "shared by Alice" semantics (stamped at create; fallback to owner sub on read).
+
+**List filtering:** Owners see all their segments; non-owners see workspace-shared and org-visible rows. Detail access is explicitly gated (403 if denied).
+
+**UI:** Sidebar & detail header show a "Shared" pill if `shared_at` is non-NULL; click opens a modal listing collaborators.
+
+### AI Segment Brief
+
+On segment open, an optional AI-written executive summary appears in a collapsible card. The brief is a one-shot LLM call (via chat-service) that assembles:
+
+- Definition context (count, predicate, filters, primary cube).
+- Recent member cohort sample.
+- Usage signals (recent refresh, chart cache status).
+
+The LLM emits a 5-label enum (status: good/caution/risk) + narrative + signal bullets. Responses are cached per `(segment, lang)` keyed by the segment's definition hash — renames reuse cache, edits regenerate. Rate-limited to 1 refresh per 10 minutes per segment per language (to protect the quota-capped LLM gateway). Stale-serve (with `stale:true` flag) if the LLM is unreachable; persistent error rows allow retryable 502 responses.
+
+**Endpoints:**
+- `GET /api/segments/:id/brief?lang=en|vi&?refresh=1` (server-side, main server).
+- `POST /internal/segment-brief` (chat-service, x-internal-secret gated). One SDK call via failover keys (CHAT_BRIEF_MODEL env, default claude-sonnet-4-6).
+
+**Storage:** `segment_brief_cache(segment_id, lang, definition_hash, brief_json, status, error, generated_at)` (migration 035).
+
+**Frontend:** AiBriefCard in detail-view sticky header. Collapse state persisted at `localStorage gds-cube:segment-brief-collapsed`, expanded by default. Lazy-fetch while open; request-id guard prevents stale overwrites; lang-aware refetch; manual retry via `?refresh=1`.
+
+---
+
 ## Future Directions
 
 **Semantic cache deferred** — exact-match cache (Layer 4) deferred pending production hit-rate measurement. If exact-match hit-rate <10%, revisit embedding-based semantic matching via a higher-latency service.
