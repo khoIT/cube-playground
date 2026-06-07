@@ -300,7 +300,7 @@ cubes:
     # on purpose — it can't merge across partitions. Use user_count_approx
     # plus a separate exact query if you need the precise count.
     pre_aggregations:
-      - name: ltv_by_install_cohort
+      - name: ltv_by_install_cohort_batch
         type: rollup
         measures:
           - ltv_total_vnd
@@ -318,6 +318,15 @@ cubes:
           every: 6 hours
           incremental: true
         build_range_start:
-          sql: "SELECT DATE '2024-01-01'"
+          sql: "SELECT DATE '2025-01-01'"
         build_range_end:
           sql: "SELECT CURRENT_DATE"
+
+      # Lambda union: sealed batch partitions + a live tail straight from the
+      # source table, so recent rows appear without waiting for a refresh cycle
+      # and the batch rollup can refresh on a relaxed cadence.
+      - name: ltv_by_install_cohort
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.ltv_by_install_cohort_batch

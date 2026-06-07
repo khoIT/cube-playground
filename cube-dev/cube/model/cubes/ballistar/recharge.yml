@@ -159,7 +159,7 @@ cubes:
     # sketches behind paying_users let day partitions merge into week / month
     # without rescanning etl_ingame_recharge.
     pre_aggregations:
-      - name: revenue_daily_by_channel
+      - name: revenue_daily_by_channel_batch
         type: rollup
         measures:
           - revenue_vnd
@@ -176,6 +176,15 @@ cubes:
           every: 1 hour
           incremental: true
         build_range_start:
-          sql: "SELECT DATE '2024-01-01'"
+          sql: "SELECT DATE '2025-01-01'"
         build_range_end:
           sql: "SELECT CURRENT_DATE"
+
+      # Lambda union: sealed batch partitions + a live tail straight from the
+      # source table, so recent rows appear without waiting for a refresh cycle
+      # and the batch rollup can refresh on a relaxed cadence.
+      - name: revenue_daily_by_channel
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.revenue_daily_by_channel_batch
