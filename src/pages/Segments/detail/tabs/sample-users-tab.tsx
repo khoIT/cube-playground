@@ -12,7 +12,7 @@
 
 import { ReactElement, useMemo, useState } from 'react';
 import { Button, Input } from 'antd';
-import { Search } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { Segment } from '../../../../types/segment-api';
@@ -164,6 +164,7 @@ function RandomSampleFallback({ segment, preset }: Props): ReactElement {
           </Button>
           <Button
             type="primary"
+            icon={<Download size={13} aria-hidden />}
             onClick={() => downloadCsv(segment.uid_list, segment.name)}
           >
             {t('segments.detail.sampleUsers.exportAll')}

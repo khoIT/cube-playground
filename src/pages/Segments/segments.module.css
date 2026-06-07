@@ -1829,21 +1829,21 @@
   font-weight: 600;
 }
 
-.membersIdentityChip {
+/* Ghost icon button carrying the identity-dim tooltip next to the title. */
+.membersIdentityInfo {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: help;
+  border-radius: var(--radius-sm);
+}
+
+.membersIdentityInfo:hover {
   color: var(--text-secondary);
-  background: var(--neutral-100, rgba(0, 0, 0, 0.05));
-  border: 1px solid var(--border-card);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 360px;
 }
 
 .memberDimCell {

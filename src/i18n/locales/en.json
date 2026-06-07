@@ -296,7 +296,7 @@
       "sampleUsers": {
         "title": "Sample users",
         "description": "A randomly-sampled subset of this segment for spot-checking.",
-        "exportAll": "Export all IDs",
+        "exportAll": "Export IDs",
         "reshuffle": "Reshuffle",
         "empty": "No member uids yet — predicate matched 0 users on last refresh, or refresh hasn't run.",
         "noColumn": "uid",

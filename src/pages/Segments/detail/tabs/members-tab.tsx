@@ -5,6 +5,8 @@
  */
 
 import { ReactElement } from 'react';
+import { Tooltip } from 'antd';
+import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SampleUsersTab } from './sample-users-tab';
 import { AutoPresetBanner } from '../../components/auto-preset-banner';
@@ -27,12 +29,25 @@ export function MembersTab({ segment, preset }: Props): ReactElement {
           <h2 className={styles.membersTitle}>
             {t('segments.detail.members.title', { defaultValue: 'Members' })}
           </h2>
-          <span className={styles.membersIdentityChip} title={identityDim}>
-            {t('segments.detail.members.identityChip', {
+          {/* Identity dim demoted to an info tooltip — analysts rarely need
+              it; the chip was stealing title-row attention. */}
+          <Tooltip
+            title={t('segments.detail.members.identityChip', {
               defaultValue: 'Identity: {{dim}}',
               dim: identityDim,
             })}
-          </span>
+          >
+            <button
+              type="button"
+              className={styles.membersIdentityInfo}
+              aria-label={t('segments.detail.members.identityChip', {
+                defaultValue: 'Identity: {{dim}}',
+                dim: identityDim,
+              })}
+            >
+              <Info size={14} aria-hidden />
+            </button>
+          </Tooltip>
         </div>
       </header>
       {preset?.auto && (
