@@ -563,13 +563,26 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       // direct call still renders.
       return <ChartHeatmap spec={spec} labels={labels} formatValue={readable} />;
 
-    case 'funnel':
+    case 'funnel': {
       // Rows render top-to-bottom in submitted (step) order, widths
       // proportional to value. Step label on the right, value on the left.
+      //
+      // Funnel tooltips differ from the cartesian charts: recharts names each
+      // payload entry from `nameKey` (NOT the dataKey), falling back to the
+      // numeric row index when absent — so nameKey must point at the step
+      // column. The name is then a category VALUE (e.g. "Login"), not a
+      // member key, so it bypasses labelOf's member-humanising.
+      const funnelTooltip = (value: number | string, name: number | string) =>
+        [readable(value), formatChartDateTooltip(String(name))] as [string, string];
       return (
         <FunnelChart>
-          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
-          <Funnel dataKey={spec.encoding.value} data={spec.data} isAnimationActive={false}>
+          <Tooltip formatter={funnelTooltip} labelFormatter={tooltipLabel} />
+          <Funnel
+            dataKey={spec.encoding.value}
+            nameKey={spec.encoding.category}
+            data={spec.data}
+            isAnimationActive={false}
+          >
             <LabelList
               position="right"
               dataKey={spec.encoding.category}
@@ -591,6 +604,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
           </Funnel>
         </FunnelChart>
       );
+    }
   }
 }
 

@@ -24,6 +24,12 @@ function humaniseMember(key: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
 }
 
-export function labelOf(labels: LabelMap, key: string): string {
-  return labels[key] ?? humaniseMember(key);
+/**
+ * Accepts string | number because recharts tooltip/legend callbacks don't
+ * always hand back a column key: Funnel items, for example, name entries from
+ * `nameKey` and fall back to the numeric row index when that's absent.
+ */
+export function labelOf(labels: LabelMap, key: string | number): string {
+  const k = String(key);
+  return labels[k] ?? humaniseMember(k);
 }

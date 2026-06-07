@@ -22,6 +22,7 @@ import {
   toDualAxisSpec,
   toScatterSpec,
 } from '../components/chart-section-menu';
+import { buildLabelMap, labelOf } from '../components/chart-column-labels';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
 // recharts uses ResizeObserver internally — stub it for jsdom.
@@ -125,6 +126,7 @@ describe('AssistantChartSection', () => {
       { type: 'stacked-bar', title: 't', data: seriesData, encoding: seriesEnc },
       { type: 'multi-line', title: 't', data: seriesData, encoding: seriesEnc },
       { type: 'heatmap', title: 't', data: seriesData, encoding: seriesEnc },
+      { type: 'funnel', title: 't', data: data2, encoding: baseEnc },
     ];
 
     for (const v of variants) {
@@ -223,6 +225,26 @@ describe('AssistantChartSection', () => {
       URL.revokeObjectURL = realRevoke;
       anchorClick.mockRestore();
     }
+  });
+});
+
+describe('labelOf', () => {
+  it('resolves a known column key from the label map', () => {
+    const labels = buildLabelMap([
+      { key: 'mf_users.ltv_total_vnd', label: 'Total LTV (VND)', dataType: 'number', kind: 'measure' },
+    ]);
+    expect(labelOf(labels, 'mf_users.ltv_total_vnd')).toBe('Total LTV (VND)');
+  });
+
+  it('humanises the member leaf for unknown keys', () => {
+    expect(labelOf({}, 'mf_users.paying_user_count')).toBe('Paying user count');
+  });
+
+  it('tolerates numeric keys (recharts Funnel falls back to the row index as the tooltip name)', () => {
+    // Regression: funnel tooltip crashed with "e.includes is not a function"
+    // because recharts handed the numeric row index to the formatter.
+    expect(() => labelOf({}, 0)).not.toThrow();
+    expect(labelOf({}, 0)).toBe('0');
   });
 });
 
