@@ -2591,61 +2591,79 @@
   cursor: pointer;
 }
 
-/* ── Push modal · created/appended toast (antd notification reskin) ── */
-/* Doubled class bumps specificity over .ant-notification-notice. */
+/* ── Push modal · created/appended toast (antd notification reskin) ──
+   The whole card is one custom row passed via `message`; antd only
+   provides the frame + close icon. Doubled class beats .ant-notification-
+   notice specificity. */
 .pushToast.pushToast {
   font-family: var(--font-sans);
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-lg);
-  padding: 14px 16px;
-  width: 360px;
+  padding: 10px 32px 10px 12px; /* right gutter clears the ✕ */
+  width: 420px;
 }
 
-.pushToast :global(.ant-notification-notice-with-icon .ant-notification-notice-message) {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-left: 34px;
-  margin-bottom: 2px;
-}
-
-.pushToast :global(.ant-notification-notice-with-icon .ant-notification-notice-description) {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-left: 34px;
-  overflow-wrap: anywhere;
-}
-
-.pushToast :global(.ant-notification-notice-icon) {
-  margin-left: 0;
-  margin-top: 1px;
-  line-height: 1;
-}
-
-.pushToast :global(.ant-notification-notice-btn) {
-  margin-top: 10px;
-  float: right;
+.pushToast :global(.ant-notification-notice-message) {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
 }
 
 .pushToast :global(.ant-notification-notice-close) {
-  top: 14px;
-  right: 14px;
+  top: 12px;
+  right: 12px;
   color: var(--text-muted);
+}
+
+.pushToastRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .pushToastIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: var(--radius-full);
   background: var(--success-soft);
   color: var(--success-ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  flex: none;
+}
+
+.pushToastText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pushToastTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.pushToastName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pushToastMeta {
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .pushToastBtn {
@@ -2653,12 +2671,13 @@
   background: var(--brand);
   color: #fff;
   border-radius: var(--radius-sm);
-  height: 28px;
-  padding: 0 12px;
+  height: 26px;
+  padding: 0 10px;
   font-family: var(--font-sans);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  flex: none;
 }
 
 .pushToastBtn:hover {

@@ -100,29 +100,41 @@ export function PushModal({
 
   // Notification (not a small message toast) so the user can actually see
   // which segment was just created and has a real button to jump to it.
-  // notification.open + custom icon/classes: antd's stock success card (big
-  // outline icon, 24px paddings, default button) reads off-system, so the
-  // frame is restyled via .pushToast in segments.module.css.
-  const showSegmentToast = (segmentId: string, segmentName: string, text: string): void => {
+  // The WHOLE card is one self-contained row passed via `message` — antd's
+  // stock icon/description/btn slots impose their own bulky layout, so we
+  // bypass them entirely and only reskin the outer frame (.pushToast).
+  const showSegmentToast = (
+    segmentId: string,
+    segmentName: string,
+    text: string,
+    meta?: string,
+  ): void => {
     const key = `segment-toast-${segmentId}`;
     notification.open({
       key,
       duration: 8,
       className: styles.pushToast,
-      icon: <span className={styles.pushToastIcon}>✓</span>,
-      message: text,
-      description: segmentName,
-      btn: (
-        <button
-          type="button"
-          className={styles.pushToastBtn}
-          onClick={() => {
-            notification.close(key);
-            history.push(`/segments/${segmentId}`);
-          }}
-        >
-          {t('segments.push.viewSegment', { defaultValue: 'View segment →' })}
-        </button>
+      message: (
+        <div className={styles.pushToastRow}>
+          <span className={styles.pushToastIcon}>✓</span>
+          <span className={styles.pushToastText}>
+            <span className={styles.pushToastTitle}>{text}</span>
+            <span className={styles.pushToastName}>
+              {segmentName}
+              {meta && <span className={styles.pushToastMeta}> · {meta}</span>}
+            </span>
+          </span>
+          <button
+            type="button"
+            className={styles.pushToastBtn}
+            onClick={() => {
+              notification.close(key);
+              history.push(`/segments/${segmentId}`);
+            }}
+          >
+            {t('segments.push.viewSegment', { defaultValue: 'View segment →' })}
+          </button>
+        </div>
       ),
     });
   };
@@ -203,21 +215,24 @@ export function PushModal({
         message.error(t('segments.push.errorNoIdentity'));
         return;
       }
-      // For Live segments, build the canonical predicate tree from the
-      // executed query + selected cohort rows. The server translates it to
-      // a Cube filter array and persists both — the warm uid_list above
-      // gives the user an immediate count; the next scheduled refresh
-      // re-resolves the predicate (rolling dateRange semantics).
+      // Build the canonical predicate tree from the executed query + selected
+      // cohort rows. The server translates it to a Cube filter array and
+      // persists both.
+      //   - Live: it IS the definition — refreshes re-resolve it (rolling
+      //     dateRange semantics); the warm uid_list gives an immediate count.
+      //   - Static: membership stays the frozen uid_list, but the slice is
+      //     stored as context so detail cards report the cohort's defining
+      //     window (matching a Live twin) instead of lifetime activity.
       let predicateTree = null;
-      if (type === 'predicate') {
-        if (!executedQuery || !identityField) {
-          message.error(
-            t('segments.push.errorNoPredicateContext', {
-              defaultValue: 'Live segments need the originating query — switch to Static or re-run the query.',
-            }),
-          );
-          return;
-        }
+      if (type === 'predicate' && (!executedQuery || !identityField)) {
+        message.error(
+          t('segments.push.errorNoPredicateContext', {
+            defaultValue: 'Live segments need the originating query — switch to Static or re-run the query.',
+          }),
+        );
+        return;
+      }
+      if (executedQuery && identityField) {
         // uid-mode Live (allowStatic=false): the predicate IS the query —
         // pass [] so we don't degenerate into `identity IN (uids)`.
         // cohort-mode: pass selected rows so the predicate captures the
@@ -237,7 +252,12 @@ export function PushModal({
       };
       const created = await segmentsClient.create(input);
       invalidateSegmentIds();
-      showSegmentToast(created.id, created.name, t('segments.push.toastCreated'));
+      showSegmentToast(
+        created.id,
+        created.name,
+        t('segments.push.toastCreated'),
+        `${type === 'predicate' ? t('segments.push.typeLive') : t('segments.push.typeStatic')} · ${finalUids.length.toLocaleString()} uids`,
+      );
       onCreated?.(created.id);
       onClose();
     } catch (err) {

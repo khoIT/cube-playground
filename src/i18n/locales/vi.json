@@ -303,6 +303,7 @@
       },
       "predicate": {
         "manual": "Segment thủ công — uid được import trực tiếp. Không có predicate để hiển thị.",
+        "manualWithSlice": "Nhóm tĩnh — danh sách uid đã đóng băng. Bộ lọc gốc bên dưới chỉ là ngữ cảnh (giới hạn phạm vi các thẻ số liệu), không làm mới thành viên.",
         "empty": "Chưa đặt predicate.",
         "editLink": "Sửa predicate →"
       },

@@ -88,6 +88,37 @@ export function predicateFiltersForSegment(segment: Segment): unknown[] {
   }
 }
 
+/** AND the segment's slice filters onto a card query. Mirror of the server
+ *  card-runner: when the slice already pins a date range on a time dimension
+ *  the card trends over, drop the card's own rolling window — a historical
+ *  cohort (April matches) intersected with `last 30 days` is empty by
+ *  construction; the slice range should bound the trend instead. */
+function andSliceFilters(query: Query, sliceFilters: unknown[]): Query {
+  let timeDimensions = query.timeDimensions;
+  if (timeDimensions && timeDimensions.length > 0) {
+    const datePinned = new Set(
+      sliceFilters
+        .filter((f): f is { member: string; operator: string } =>
+          typeof f === 'object' && f != null && 'member' in f && 'operator' in f)
+        .filter((f) => f.operator === 'inDateRange')
+        .map((f) => f.member),
+    );
+    if (datePinned.size > 0) {
+      timeDimensions = timeDimensions.map((td) =>
+        'dimension' in td && datePinned.has(td.dimension)
+          ? { ...td, dateRange: undefined }
+          : td,
+      );
+    }
+  }
+  const filters = Array.isArray(query.filters) ? [...query.filters] : [];
+  return {
+    ...query,
+    timeDimensions,
+    filters: [...filters, ...sliceFilters] as Query['filters'],
+  };
+}
+
 /** Scope a card query to the segment's cohort.
  *  - `uidsOverride` given (paginated members page): identity-IN over that small,
  *    explicit id set — the only correct scope for "the visible rows".
@@ -96,8 +127,11 @@ export function predicateFiltersForSegment(segment: Segment): unknown[] {
  *    leaves the query unscoped, which is correct. This avoids inlining the full
  *    uid_list (HTTP 400 `Query text length exceeds the maximum length`) and is
  *    the only correct approach for ratio measures (ARPU, paying-rate).
- *  - Manual segment (no predicate): identity-IN over the uid_list. Manual
- *    segments are explicit pushes, so the list is bounded. */
+ *  - Manual segment: identity-IN over the uid_list (membership stays the frozen
+ *    list — explicit pushes are bounded) AND the originating slice filters when
+ *    the push stored them. Without the slice, a static "paid on Jun 5" cohort's
+ *    cards would report those users' LIFETIME activity, wildly diverging from
+ *    its Live twin built off the same playground pick. */
 export function scopeQueryToCohort(
   query: Query,
   segment: Segment,
@@ -110,36 +144,11 @@ export function scopeQueryToCohort(
   if (segment.type === 'predicate') {
     const predicateFilters = predicateFiltersForSegment(segment);
     if (predicateFilters.length === 0) return query;
-    // Mirror of the server card-runner: when the predicate already pins a
-    // date range on a time dimension the card trends over, drop the card's
-    // own rolling window — a historical cohort (April matches) intersected
-    // with `last 30 days` is empty by construction; the predicate range
-    // should bound the trend instead.
-    let timeDimensions = query.timeDimensions;
-    if (timeDimensions && timeDimensions.length > 0) {
-      const datePinned = new Set(
-        predicateFilters
-          .filter((f): f is { member: string; operator: string } =>
-            typeof f === 'object' && f != null && 'member' in f && 'operator' in f)
-          .filter((f) => f.operator === 'inDateRange')
-          .map((f) => f.member),
-      );
-      if (datePinned.size > 0) {
-        timeDimensions = timeDimensions.map((td) =>
-          'dimension' in td && datePinned.has(td.dimension)
-            ? { ...td, dateRange: undefined }
-            : td,
-        );
-      }
-    }
-    const filters = Array.isArray(query.filters) ? [...query.filters] : [];
-    return {
-      ...query,
-      timeDimensions,
-      filters: [...filters, ...predicateFilters] as Query['filters'],
-    };
+    return andSliceFilters(query, predicateFilters);
   }
-  return scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
+  const uidScoped = scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
+  const sliceFilters = predicateFiltersForSegment(segment);
+  return sliceFilters.length > 0 ? andSliceFilters(uidScoped, sliceFilters) : uidScoped;
 }
 
 export interface UseSegmentCubeQueryOptions<T> {

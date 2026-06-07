@@ -327,6 +327,7 @@
       },
       "predicate": {
         "manual": "Static segment — uids were imported directly, so there's no predicate to display. Convert to Live to define one that auto-refreshes.",
+        "manualWithSlice": "Static segment — the uid list is frozen. The originating filter below is context only (it scopes the metric cards), it does not refresh membership.",
         "empty": "No predicate set.",
         "editLink": "Edit predicate →"
       },

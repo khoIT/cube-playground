@@ -88,11 +88,20 @@ export function PredicateTab({ segment }: Props): ReactElement {
   const { t } = useTranslation();
 
   if (segment.type === 'manual') {
+    // Static pushes from the query builder store their originating slice as
+    // read-only context (it scopes the detail cards); show it when present.
+    const sliceTree = segment.predicate_tree;
     return (
       <div className={styles.tabBody}>
         <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-          {t('segments.detail.predicate.manual')}
+          {sliceTree
+            ? t('segments.detail.predicate.manualWithSlice', {
+                defaultValue:
+                  'Static segment — the uid list is frozen. The originating filter below is context only (it scopes the metric cards), it does not refresh membership.',
+              })
+            : t('segments.detail.predicate.manual')}
         </p>
+        {sliceTree && <NodeTree node={sliceTree} />}
       </div>
     );
   }

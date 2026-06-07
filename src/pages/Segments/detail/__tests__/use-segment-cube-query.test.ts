@@ -198,4 +198,45 @@ describe('scopeQueryToCohort', () => {
       { member: 'mf_users.user_id', operator: 'equals', values: ['m1', 'm2'] },
     ]);
   });
+
+  it('manual segment WITH stored slice: identity-IN AND slice filters', () => {
+    // Static push from the query builder stores its originating slice; cards
+    // must report the cohort's defining window (matching a Live twin), not
+    // the frozen users' lifetime activity.
+    const seg = makeSegment({
+      type: 'manual',
+      uid_list: ['m1', 'm2'],
+      cube_query_json: JSON.stringify({
+        filters: [{ member: 'recharge.log_date', operator: 'inDateRange', values: ['2026-06-05', '2026-06-05'] }],
+      }),
+    });
+    const out = scopeQueryToCohort({ measures: ['recharge.revenue'] }, seg, 'recharge.user_id');
+    expect(out.filters).toEqual([
+      { member: 'recharge.user_id', operator: 'equals', values: ['m1', 'm2'] },
+      { member: 'recharge.log_date', operator: 'inDateRange', values: ['2026-06-05', '2026-06-05'] },
+    ]);
+  });
+
+  it('manual segment WITH slice: drops a trend card rolling window pinned by the slice', () => {
+    const seg = makeSegment({
+      type: 'manual',
+      uid_list: ['m1'],
+      cube_query_json: JSON.stringify({
+        filters: [{ member: 'recharge.log_date', operator: 'inDateRange', values: ['2026-06-05', '2026-06-05'] }],
+      }),
+    });
+    const out = scopeQueryToCohort(
+      {
+        measures: ['recharge.revenue'],
+        timeDimensions: [
+          { dimension: 'recharge.log_date', granularity: 'day', dateRange: 'last 30 days' },
+        ],
+      },
+      seg,
+      'recharge.user_id',
+    );
+    expect(out.timeDimensions).toEqual([
+      { dimension: 'recharge.log_date', granularity: 'day', dateRange: undefined },
+    ]);
+  });
 });
