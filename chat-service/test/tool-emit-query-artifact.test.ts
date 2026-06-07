@@ -334,4 +334,48 @@ describe('emit_query_artifact handler', () => {
 
     expect(emitted).toHaveLength(0);
   });
+
+  it('persists the executed query as the additive-merge target (lastQuery)', async () => {
+    const { default: Database } = await import('better-sqlite3');
+    const { migrate } = await import('../src/db/migrate.js');
+    const { getResolutions } = await import('../src/cache/disambig-memory-adapter.js');
+    const { config } = await import('../src/config.js');
+    (config as { cacheServiceEnabled: boolean }).cacheServiceEnabled = true;
+
+    const db = new Database(':memory:');
+    migrate(db);
+    const ctx = makeCtx({ db });
+
+    const res = await handler(
+      {
+        title: 'Revenue by country',
+        summary: 'Total revenue split by country',
+        query: { measures: ['Revenue.total'], dimensions: ['Revenue.country'] },
+        source: 'raw',
+      },
+      ctx,
+    );
+    expect(res.ok).toBe(true);
+
+    const mem = getResolutions(db, ctx.sessionId);
+    expect(mem.lastQuery?.phrase).toBe('Revenue by country');
+    expect(JSON.parse(mem.lastQuery!.value)).toMatchObject({
+      measures: ['Revenue.total'],
+      dimensions: ['Revenue.country'],
+    });
+  });
+
+  it('lastQuery write is a no-op without a db handle', async () => {
+    const ctx = makeCtx(); // no db
+    const res = await handler(
+      {
+        title: 'No DB',
+        summary: 'unit-test ctx without db',
+        query: { measures: ['Revenue.total'] },
+        source: 'raw',
+      },
+      ctx,
+    );
+    expect(res.ok).toBe(true);
+  });
 });

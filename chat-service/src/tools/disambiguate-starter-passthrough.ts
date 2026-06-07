@@ -19,6 +19,7 @@ import { getSeedEntry } from '../db/starter-questions-seed.js';
 import { resolveMemberMeta } from '../core/cube-meta-capability.js';
 import type { StarterQuestion } from '../db/starter-questions-store.js';
 import type { CubeQuery } from '../types.js';
+import type { DisambiguationResult } from '../nl-to-query/index.js';
 
 export interface StarterPassthroughHit {
   questionId: string;
@@ -38,7 +39,10 @@ function normalise(text: string): string {
  * guard on their partition column specifically — "Query … must bound
  * log_date/dteventtime within 31 days" — so when a cube has several time
  * dimensions (etl_register: register_time + log_date), the partition column
- * must win or the bounded query still 500s. Otherwise: first time dimension.
+ * must win or the bounded query still 500s. Date-grain dims (recharge_date,
+ * report_date) beat raw-timestamp dims (recharge_time) for the same reason —
+ * pre-agg partitions key on the date column, so a *_time query 400s with
+ * "No pre-aggregation partitions were built". Otherwise: first time dimension.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function timeDimensionOf(meta: any, cubeName: string): string | null {
@@ -47,7 +51,9 @@ export function timeDimensionOf(meta: any, cubeName: string): string | null {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tds = (cube?.dimensions ?? []).filter((d: any) => d.type === 'time');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const partition = tds.find((d: any) => /\.(log_date|dteventtime)$/.test(d.name));
+  const partition = tds.find((d: any) => /\.(log_date|dteventtime)$/.test(d.name))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ?? tds.find((d: any) => /_date$/.test(d.name));
   return (partition ?? tds[0])?.name ?? null;
 }
 
@@ -143,4 +149,40 @@ export function buildStarterQuery(
 function daysBefore(isoDate: string, days: number): string {
   const t = new Date(`${isoDate}T00:00:00Z`).getTime() - days * 86_400_000;
   return new Date(t).toISOString().slice(0, 10);
+}
+
+/**
+ * Shape a starter hit as a DisambiguationResult so the standard memory writer
+ * (`writeMemoryFromResult`) can persist the pinned slots. Without this trail
+ * a follow-up turn ("add in user count", "break it down by mode") resolves
+ * context-blind: session memory holds nothing, the Conversation-focus block
+ * renders only the artifact UUID, and the resolver falls back to a canned
+ * glossary clarification unrelated to the on-screen chart.
+ */
+export function starterHitToResult(
+  hit: StarterPassthroughHit,
+  message: string,
+): DisambiguationResult {
+  const td = hit.query.timeDimensions?.[0];
+  return {
+    query: hit.query,
+    slots: {
+      metric: { value: hit.measures[0], confidence: 1, alias: message },
+      // A granularity axis means the chip charts a series — remember the
+      // trend shape so slot-reply follow-ups keep charting a series.
+      intent: { value: td?.granularity ? 'trend' : 'aggregate', confidence: 1 },
+      ...(hit.dimensions[0]
+        ? { dimension: { value: hit.dimensions[0], confidence: 1 } }
+        : {}),
+      ...(td?.dateRange
+        ? { timeRange: { value: td.dateRange, confidence: 1, granularity: td.granularity } }
+        : {}),
+    },
+    unresolved: [],
+    clarifications: [],
+    overallConfidence: 1,
+    language: 'en',
+    action: 'auto',
+    warnings: [],
+  };
 }

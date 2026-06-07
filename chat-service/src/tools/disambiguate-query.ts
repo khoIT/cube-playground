@@ -12,10 +12,18 @@
 import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { cubeHasTimeDimension, cubeNameOf } from '../core/cube-meta-capability.js';
-import { disambiguate } from '../nl-to-query/index.js';
+import { disambiguate, composeQuery } from '../nl-to-query/index.js';
 import type { DisambiguationResult, Clarification } from '../nl-to-query/index.js';
+import { detectAdditiveFollowUp, isFollowUpShaped } from '../nl-to-query/additive-follow-up.js';
+import { resolveAgainstAnchorCube } from '../nl-to-query/cube-anchored-metric-fallback.js';
+import type { MemberMatch } from '../nl-to-query/member-resolution.js';
+import { getResolutions, mergeResolution } from '../cache/disambig-memory-adapter.js';
 import { fillResultFromMemory, writeMemoryFromResult } from './disambiguate-memory-merge.js';
-import { matchStarterQuestion } from './disambiguate-starter-passthrough.js';
+import {
+  matchStarterQuestion,
+  starterHitToResult,
+  timeDimensionOf,
+} from './disambiguate-starter-passthrough.js';
 import { suggestTimeAwareAlternatives } from '../nl-to-query/time-aware-measure-suggester.js';
 import { config } from '../config.js';
 import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
@@ -29,7 +37,8 @@ export const description =
   'should run, or action="clarify" with one bilingual clarification question. Always call this BEFORE ' +
   'preview_cube_query / emit_query_artifact. CALL IT ALSO on reply turns that supply a slot value ' +
   '(e.g. user replied "ARPU" or "by country" to a prior clarification) — session memory only ' +
-  'persists when this tool runs.';
+  'persists when this tool runs. Additive follow-ups ("add in X", "thêm X") are handled internally: ' +
+  'the result may carry a merged multi-measure/filtered query extending the previous chart.';
 
 export const inputSchema = {
   message: z.string().min(1).max(2000),
@@ -113,6 +122,12 @@ export async function handler(
     metaError = err instanceof Error ? err.message : String(err);
   }
 
+  // Memory bridge params — built before the starter pass-through so BOTH
+  // paths leave a session-memory trail (fill happens later, normal path only).
+  const memoryParams = ctx.db
+    ? { db: ctx.db, sessionId: ctx.sessionId, ownerId: ctx.ownerId, gameId: ctx.gameId, now }
+    : null;
+
   // Pregenerated starter-question pass-through: a clicked chip matches a
   // frozen seed question whose target members are already meta-validated —
   // skip glossary resolution and pin them directly. The glossary cannot see
@@ -120,6 +135,18 @@ export async function handler(
   // engine would otherwise emit an off-topic canned clarification.
   const starterHit = matchStarterQuestion(args.message, ctx.gameId, meta, knownMembers);
   if (starterHit) {
+    // Persist the pinned slots: a chip turn must leave the same memory trail
+    // a glossary-resolved turn leaves, or the NEXT turn resolves context-
+    // blind (session 3542a7c1 — "add in user count per day" got a canned
+    // clarify menu instead of the on-screen cube's measure).
+    if (memoryParams) {
+      writeMemoryFromResult(starterHitToResult(starterHit, args.message), memoryParams);
+      // Chips bypass emit-time tweaks rarely — store the pinned query as the
+      // additive-merge target too (emit_query_artifact refreshes it later).
+      mergeResolution(memoryParams.db, memoryParams.sessionId, memoryParams.ownerId, {
+        lastQuery: { value: JSON.stringify(starterHit.query), phrase: args.message },
+      });
+    }
     return {
       action: 'auto',
       query: starterHit.query,
@@ -160,13 +187,74 @@ export async function handler(
 
   let assumption: ResolutionAssumption | undefined;
 
+  // Follow-up context — two mechanisms that read the session's prior state,
+  // run BEFORE the memory fill so a short reply ("user count") resolves the
+  // NEW phrase against the cube the user is charting, instead of memory
+  // re-filling LAST turn's metric. Both guard against topic hijack: only
+  // additive-marked or slot-reply-shaped messages qualify (mirrors the
+  // blockTopicFill discipline).
+  const additive = detectAdditiveFollowUp(args.message);
+  let anchorCube: string | null = null;
+  let anchorCandidates: MemberMatch[] = [];
+  let anchoredFill: MemberMatch | null = null;
+  let lastQuery: CubeQuery | null = null;
+  let lastQueryTitle: string | undefined;
+  if (memoryParams && (additive.isAdditive || isFollowUpShaped(args.message))) {
+    const mem = getResolutions(memoryParams.db, memoryParams.sessionId);
+    anchorCube = mem.metric?.value ? cubeNameOf(mem.metric.value) : null;
+    if (additive.isAdditive && mem.lastQuery?.value) {
+      try {
+        lastQuery = JSON.parse(mem.lastQuery.value) as CubeQuery;
+        lastQueryTitle = mem.lastQuery.phrase;
+      } catch {
+        lastQuery = null; // malformed row — additive path simply disables
+      }
+    }
+    // Anchored metric resolution when the glossary came up empty: search the
+    // anchor cube's measures with token equivalence ("user count" →
+    // distinct_players, the session-3542a7c1 gap).
+    if (meta && !result.slots.metric.value && !result.slots.ratio && anchorCube) {
+      const phrase = additive.isAdditive ? additive.residualPhrase : args.message;
+      anchorCandidates = resolveAgainstAnchorCube(phrase, anchorCube, meta).candidates;
+      const best = anchorCandidates[0];
+      if (best && best.confidence >= config.chatGlossaryAutorouteThreshold) {
+        result.slots.metric = { value: best.member, confidence: best.confidence, alias: phrase };
+        result.warnings.push(
+          `metric resolved from prior-cube anchor ${anchorCube}: ${best.member} (from "${phrase}")`,
+        );
+        anchoredFill = best;
+        assumption = {
+          slot: 'metric',
+          chosen: best.member,
+          phrase,
+          confidence: best.confidence,
+          alternatives: anchorCandidates.slice(1).map((c) => ({ id: c.member, score: c.confidence })),
+        };
+      }
+    }
+  }
+
+  // Additive merge: "add in X" extends the session's last executed query
+  // (one artifact, both series) instead of composing a standalone one.
+  if (additive.isAdditive && lastQuery && (lastQuery.measures?.length ?? 0) > 0) {
+    applyAdditiveMerge(result, lastQuery, lastQueryTitle);
+  }
+
   // Fill empty slots from memory so the validator (and the leaderboard builder
   // below) see the user's prior context (e.g. timeRange or concept set on a
   // previous turn).
-  const memoryParams = ctx.db
-    ? { db: ctx.db, sessionId: ctx.sessionId, ownerId: ctx.ownerId, gameId: ctx.gameId, now }
-    : null;
   if (memoryParams) fillResultFromMemory(result, memoryParams);
+
+  // The engine composed the query before the anchored metric existed —
+  // recompose with the anchor cube's partition time dimension so the auto
+  // query is runnable as returned (memory fill above restored timeRange).
+  if (anchoredFill && anchorCube && !result.query.measures?.length) {
+    result.query = composeQuery({
+      slots: result.slots,
+      knownMembers,
+      defaultTimeDimension: timeDimensionOf(meta, anchorCube) ?? undefined,
+    });
+  }
 
   // Leaderboard assembly (always on). The resolver pins concept+entity on the
   // current turn; memory backfills them on a follow-up reply. Either way, once
@@ -174,7 +262,8 @@ export async function handler(
   // entity-ranked query here — the engine can't, since the entity dimension
   // was never typed. Also builds the disclosure assumption.
   if (!config.chatGlossaryLegacy) {
-    assumption = await buildLeaderboardQueryFromConcept(result);
+    // Keep the anchored-fill assumption when the leaderboard path declines.
+    assumption = (await buildLeaderboardQueryFromConcept(result)) ?? assumption;
   }
 
   // Validate: reject a snapshot measure × timeRange combination BEFORE the
@@ -230,6 +319,24 @@ export async function handler(
             'Mô hình dữ liệu của game tạm thời không truy cập được (Cube /meta không phản hồi) — vui lòng thử lại sau giây lát.',
         },
       ];
+    }
+  }
+
+  // Contextual clarify options: when the anchored search found plausible
+  // measures on the cube the user is charting but none cleared the auto
+  // threshold, offer THOSE instead of the canned glossary menu — session
+  // 3542a7c1's menu didn't even contain the correct answer.
+  if (result.action === 'clarify' && !anchoredFill && anchorCube && anchorCandidates.length > 0) {
+    const metricClar = result.clarifications.find((c) => c.slot === 'metric');
+    if (metricClar) {
+      metricClar.options = anchorCandidates.map((c) => ({
+        value: c.member,
+        label_en: `${c.label} — from ${anchorCube} (same data as the current chart)`,
+        label_vi: `${c.label} — từ ${anchorCube} (cùng dữ liệu với biểu đồ hiện tại)`,
+      }));
+      result.warnings.push(
+        `clarify options replaced with anchor-cube candidates from ${anchorCube}`,
+      );
     }
   }
 
@@ -393,6 +500,78 @@ function rejectSnapshotMeasureUnderTimeRange(result: DisambiguationResult, meta:
         ? alternatives.map((alt) => ({ value: alt.ref, label_en: alt.label, label_vi: alt.label }))
         : undefined,
   });
+}
+
+/**
+ * Merge an additive follow-up into the session's last executed query.
+ * Three shapes, in priority order:
+ *
+ *   1. measure-additive, same cube  → append to `measures`, keep the window/
+ *      order/limit — ONE artifact charts both series.
+ *   2. measure-additive, OTHER cube → leave the standalone query (cross-cube
+ *      join semantics unverified); warn so the agent explains the split.
+ *   3. filter-additive (no metric, engine extracted same-cube filters) →
+ *      append to `filters`, keep measures/timeDimensions untouched.
+ *
+ * Mutates `result` in place. No-ops (with no warning) when the message
+ * resolved neither a metric nor filters — the clarify path owns it then.
+ */
+export function applyAdditiveMerge(
+  result: DisambiguationResult,
+  lastQuery: CubeQuery,
+  lastQueryTitle: string | undefined,
+): void {
+  const lastCube = cubeNameOf(lastQuery.measures![0]);
+  const title = lastQueryTitle ?? 'previous query';
+  const newMember = result.slots.metric.value;
+
+  if (newMember && cubeNameOf(newMember) === lastCube) {
+    const measures = lastQuery.measures!.includes(newMember)
+      ? lastQuery.measures!
+      : [...lastQuery.measures!, newMember];
+    result.query = { ...lastQuery, measures };
+    result.action = 'auto';
+    result.clarifications = [];
+    result.warnings.push(`additive merge: appended ${newMember} to previous query "${title}"`);
+    return;
+  }
+
+  if (newMember) {
+    // Cross-cube: keep today's standalone behavior, but tell the agent why
+    // the new metric is a separate chart so it can explain the split.
+    result.warnings.push(
+      `additive requested but ${newMember} lives on ${cubeNameOf(newMember) ?? 'another cube'}; ` +
+        `previous chart uses ${lastCube} — emitted standalone query`,
+    );
+    return;
+  }
+
+  // Filter-additive: merge engine-extracted same-cube filters into the last
+  // query. Confidence/validation discipline is unchanged — the /meta gate
+  // downstream still rejects unknown members.
+  const newFilters = (result.slots.filters ?? []).filter(
+    (f) => f.values.length > 0 && cubeNameOf(f.member) === lastCube,
+  );
+  if (newFilters.length > 0) {
+    const existing = lastQuery.filters ?? [];
+    const dedupeKey = (m: string, op: string, vals: string[] | undefined) =>
+      `${m}|${op}|${(vals ?? []).join(',')}`;
+    // Cube accepts `member` or legacy `dimension` as the filter key.
+    const seen = new Set(existing.map((f) => dedupeKey(f.member ?? f.dimension ?? '', f.operator, f.values)));
+    const appended = newFilters
+      .filter((f) => !seen.has(dedupeKey(f.member, f.operator, f.values)))
+      .map((f) => ({ member: f.member, operator: f.operator, values: f.values }));
+    result.query = { ...lastQuery, filters: [...existing, ...appended] };
+    // The merged query inherits the previous metric — reflect it in the slot
+    // so memory/validators stay consistent with what will run.
+    result.slots.metric = { value: lastQuery.measures![0], confidence: 0.95, alias: title };
+    result.action = 'auto';
+    result.clarifications = [];
+    result.warnings.push(
+      `additive merge: appended filter ${appended.map((f) => f.member).join(', ') || '(duplicate, kept previous)'} ` +
+        `to previous query "${title}"`,
+    );
+  }
 }
 
 /** Pick the most actionable clarification (metric > dimension > timeRange). */

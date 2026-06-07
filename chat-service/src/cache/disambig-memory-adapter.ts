@@ -61,6 +61,13 @@ export interface DisambigResolutions {
   intent?: SlotMemory<QueryIntentSlot>;
   concept?: SlotMemory<string>;
   entity?: SlotMemory<EntityValue>;
+  /**
+   * Last executed Cube query (JSON-serialised CubeQuery), written by
+   * emit_query_artifact and the starter pass-through. Machine context for
+   * additive follow-ups ("add in user count") — the merge target. NOT
+   * prompt-rendered (token bloat); `phrase` carries the artifact title.
+   */
+  lastQuery?: SlotMemory<string>;
   updatedAt?: number;
 }
 
@@ -154,6 +161,7 @@ function normalise(raw: unknown): DisambigResolutions {
     }
   }
   if (r.concept != null) out.concept = wrap<string>(r.concept);
+  if (r.lastQuery != null) out.lastQuery = wrap<string>(r.lastQuery);
   if (r.entity != null) {
     const wrapped = wrap<EntityValue>(r.entity);
     if (wrapped && isEntityValue(wrapped.value)) out.entity = wrapped;

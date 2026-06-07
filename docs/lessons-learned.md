@@ -510,6 +510,13 @@ Format per lesson:
 - **Signal:** `chat_turns` rows with `stop_reason='timeout'`, `length(assistant_text)=0`, large `reasoning_json`; user reports "reasoning loop stuck / no answer".
 - **Apply:** salvage path in `turn.ts` (gated on `abortReason==='timeout' && !assistantText`), budget `CHAT_TIMEOUT_SALVAGE_MS` (default 30s, 0 disables). Funnel/journey-class questions also get a 2× turn budget via `heavy-question-timeout.ts` — same multiplier as research mode.
 
+### An early-return tool path that skips its memory write makes every follow-up context-blind
+
+- **Rule:** any short-circuit branch in a tool that normally persists session state (here: `disambiguate_query`'s starter-question pass-through vs `writeMemoryFromResult`) must leave the SAME state trail as the normal path before returning. A fast path that skips the write doesn't fail on ITS turn — it fails on the NEXT turn, far from the cause.
+- **Why:** the starter pass-through returned `action:'auto'` with pinned members but never wrote disambig session memory. The follow-up "add in user count per day" (June-2026, cfm_vn) then resolved context-blind: the glossary can't see the on-screen cube's `distinct_players` (zero raw token overlap with "user count"), so the user got a canned DAU/new/paying clarify menu that didn't even contain the right answer. The Conversation-focus prompt block was also nearly empty (artifact UUID only) because focus copies from the same memory.
+- **Signal:** follow-up turn's `disambiguate_query` invocation shows `overallConfidence: 0` with a clarify unrelated to the visible chart; `kv_cache` has no `disambig_resolution` row for the session despite a prior auto turn; the prior turn's tool result carries a `matched pregenerated starter question` warning.
+- **Apply:** `starterHitToResult` + `writeMemoryFromResult` + `lastQuery` merge in the starter branch (`disambiguate-query.ts`); same-fix safety nets — prior-cube anchored metric fallback with anchor-scoped token equivalence (`cube-anchored-metric-fallback.ts`) and additive-follow-up merge (`additive-follow-up.ts`, `applyAdditiveMerge`). When adding any new pass-through/short-circuit to this tool, replay a 2-turn conversation in tests, not just the single turn.
+
 ---
 
 ## How to extend this doc

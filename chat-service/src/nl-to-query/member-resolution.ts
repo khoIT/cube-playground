@@ -68,16 +68,39 @@ interface MetaMember {
   name: string;
   title?: string;
   shortTitle?: string;
+  isMeasure?: boolean;
 }
 
 /** Flatten every measure + dimension across all cubes into a single list. */
 function allMembers(meta: any): MetaMember[] {
   const out: MetaMember[] = [];
   for (const cube of (meta?.cubes as any[]) ?? []) {
-    for (const m of cube.measures ?? []) out.push({ name: m.name, title: m.title, shortTitle: m.shortTitle });
+    for (const m of cube.measures ?? []) out.push({ name: m.name, title: m.title, shortTitle: m.shortTitle, isMeasure: true });
     for (const d of cube.dimensions ?? []) out.push({ name: d.name, title: d.title, shortTitle: d.shortTitle });
   }
   return out;
+}
+
+/**
+ * Token-equivalence classes for ANCHOR-SCOPED search only. Bridges the
+ * vocabulary gap between how analysts phrase a metric and how cube members
+ * are named ("user count" vs `distinct_players` — zero raw token overlap).
+ * Deliberately tiny and curated; extend only on observed misses. NEVER apply
+ * to global resolution — "users ≈ players" is wrong for account-level cubes.
+ */
+const TOKEN_EQUIV: Record<string, string> = {
+  user: 'player', users: 'player', gamer: 'player', gamers: 'player',
+  count: 'distinct', number: 'distinct', unique: 'distinct', num: 'distinct',
+};
+
+/** Canonicalise one token: equivalence class first, then naive plural stem. */
+function canonicalToken(t: string): string {
+  const mapped = TOKEN_EQUIV[t] ?? t;
+  return mapped.length > 3 && mapped.endsWith('s') ? mapped.slice(0, -1) : mapped;
+}
+
+function canonicalSet(ts: Iterable<string>): Set<string> {
+  return new Set([...ts].map(canonicalToken));
 }
 
 /**
@@ -91,6 +114,7 @@ function scoreMember(
   member: MetaMember,
   termNorm: string,
   termTokens: string[],
+  tokenEquiv = false,
 ): { score: number; matchedOn: MatchedOn } | null {
   if (!termNorm) return null;
 
@@ -102,15 +126,20 @@ function scoreMember(
   if (leaf === termNorm) return { score: 0.97, matchedOn: 'meta-name' };
   if (title === termNorm || shortTitle === termNorm) return { score: 0.95, matchedOn: 'meta-title' };
 
-  const leafTokens = new Set(tokens(member.name));
-  const titleTokens = new Set([...tokens(member.title ?? ''), ...tokens(member.shortTitle ?? '')]);
+  // With tokenEquiv, both sides pass through the equivalence classes so
+  // "user count" can reach `distinct_players` (user→player, count→distinct).
+  const canon = tokenEquiv ? canonicalToken : (t: string) => t;
+  const qTokens = termTokens.map(canon);
+  const leafTokens = tokenEquiv ? canonicalSet(tokens(member.name)) : new Set(tokens(member.name));
+  const rawTitleTokens = [...tokens(member.title ?? ''), ...tokens(member.shortTitle ?? '')];
+  const titleTokens = tokenEquiv ? canonicalSet(rawTitleTokens) : new Set(rawTitleTokens);
 
   // Every query token present in the leaf tokens → strong name match.
-  if (termTokens.length > 0 && termTokens.every((t) => leafTokens.has(t))) {
+  if (qTokens.length > 0 && qTokens.every((t) => leafTokens.has(t))) {
     return { score: 0.88, matchedOn: 'meta-name' };
   }
   // Every query token present in the title tokens → strong title match.
-  if (termTokens.length > 0 && termTokens.every((t) => titleTokens.has(t))) {
+  if (qTokens.length > 0 && qTokens.every((t) => titleTokens.has(t))) {
     return { score: 0.82, matchedOn: 'meta-title' };
   }
 
@@ -119,25 +148,41 @@ function scoreMember(
   if (title.includes(termNorm) || shortTitle.includes(termNorm)) return { score: 0.66, matchedOn: 'meta-title' };
 
   // Partial token overlap — weak, scaled by coverage.
-  if (termTokens.length > 0) {
-    const hit = termTokens.filter((t) => leafTokens.has(t) || titleTokens.has(t)).length;
+  if (qTokens.length > 0) {
+    const hit = qTokens.filter((t) => leafTokens.has(t) || titleTokens.has(t)).length;
     if (hit > 0) {
-      const coverage = hit / termTokens.length;
-      const onName = termTokens.some((t) => leafTokens.has(t));
+      const coverage = hit / qTokens.length;
+      const onName = qTokens.some((t) => leafTokens.has(t));
       return { score: 0.4 + 0.2 * coverage, matchedOn: onName ? 'meta-name' : 'meta-title' };
     }
   }
   return null;
 }
 
+export interface SearchMembersOpts {
+  /** Restrict matches to one cube's members (anchor-scoped resolution). */
+  cube?: string;
+  /** Restrict matches to measures (metric-slot fallback). */
+  measuresOnly?: boolean;
+  /** Apply the token-equivalence classes. Anchor-scoped callers only. */
+  tokenEquiv?: boolean;
+}
+
 /** Fuzzy-search live /meta members for a term. Ranked desc, capped to `limit`. */
-export function searchMembers(meta: any, term: string, limit = DEFAULT_TOP_K): MemberMatch[] {
+export function searchMembers(
+  meta: any,
+  term: string,
+  limit = DEFAULT_TOP_K,
+  opts: SearchMembersOpts = {},
+): MemberMatch[] {
   const termNorm = normalise(term);
   const termTokens = tokens(term);
   const scored: MemberMatch[] = [];
 
   for (const m of allMembers(meta)) {
-    const s = scoreMember(m, termNorm, termTokens);
+    if (opts.cube && cubeNameOf(m.name) !== opts.cube) continue;
+    if (opts.measuresOnly && !m.isMeasure) continue;
+    const s = scoreMember(m, termNorm, termTokens, opts.tokenEquiv ?? false);
     if (!s) continue;
     const meta2 = resolveMemberMeta(meta, m.name);
     scored.push({

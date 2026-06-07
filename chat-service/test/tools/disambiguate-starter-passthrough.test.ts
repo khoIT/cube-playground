@@ -134,6 +134,35 @@ describe('matchStarterQuestion', () => {
     ]);
   });
 
+  it('prefers a date-grain dim over a raw timestamp when no partition column matches', () => {
+    // ballistar recharge cube: recharge_time (raw ts) listed first, but the
+    // pre-agg partitions on recharge_date — bounding recharge_time 400s.
+    const meta = {
+      cubes: [{
+        name: 'recharge',
+        measures: [{ name: 'recharge.revenue_vnd', type: 'number' }],
+        dimensions: [
+          { name: 'recharge.recharge_time', type: 'time' },
+          { name: 'recharge.payment_channel', type: 'string' },
+          { name: 'recharge.recharge_date', type: 'time' },
+        ],
+      }],
+    };
+    const known = new Set(['recharge.revenue_vnd', 'recharge.payment_channel']);
+    seedHolder.hit = {
+      version: 'v1', generatedAt: 1,
+      entry: { questions: [{
+        id: 'arpt-by-channel', text: 'Average revenue per transaction by payment channel',
+        topicTags: ['monetization'], categoryTags: ['explore'],
+        targetCatalogIds: ['recharge.revenue_vnd', 'recharge.payment_channel'],
+      }] },
+    };
+    const hit = matchStarterQuestion('Average revenue per transaction by payment channel', 'ballistar', meta, known)!;
+    expect(hit.query.timeDimensions).toEqual([
+      { dimension: 'recharge.recharge_date', dateRange: 'last 30 days' },
+    ]);
+  });
+
   it('composes a day-granularity series when a time dimension is among the targets', () => {
     // A time-dim TARGET means the question wants a trend, not just a bounded
     // window — without granularity the chip collapses to one aggregate row.

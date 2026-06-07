@@ -14,7 +14,7 @@
 import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { cubeHasTimeDimension, cubeNameOf, resolveMemberMeta } from '../core/cube-meta-capability.js';
-import { getResolutions } from '../cache/disambig-memory-adapter.js';
+import { getResolutions, mergeResolution } from '../cache/disambig-memory-adapter.js';
 import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
 import { normalizeCubeDateRanges } from './normalize-cube-date-range.js';
@@ -189,6 +189,15 @@ export async function handler(
 
   // 6. Emit SSE side-effect — the turn handler listens and writes the event
   ctx.sseEmitter.emit('query_artifact', artifact);
+
+  // 7. Persist the executed query as the session's additive-merge target —
+  // a follow-up "add in X" extends THIS query (incl. any agent tweaks the
+  // disambiguator never saw). No-op without a db handle (unit tests).
+  if (ctx.db) {
+    mergeResolution(ctx.db, ctx.sessionId, ctx.ownerId, {
+      lastQuery: { value: JSON.stringify(normalizedQuery), phrase: args.title },
+    });
+  }
 
   return { ok: true, id: artifact.id, deeplinkUrl: deeplink.url };
 }
