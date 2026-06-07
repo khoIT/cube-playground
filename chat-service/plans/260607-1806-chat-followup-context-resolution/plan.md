@@ -1,6 +1,6 @@
 ---
 title: Chat follow-up context resolution (starter memory + cube anchoring + additive intent)
-status: in-progress # code+tests complete & reviewed; pending: live dev replay (blocked on sibling session's in-flight chat turns)
+status: completed # committed 81a5354 + 3de6f60; live dev replay handed to user (needs chat-service restart to load new code)
 priority: P1
 effort: medium
 branch: main

@@ -1,0 +1,1 @@
+- [disambiguate_query follow-up architecture](disambiguate-query-followup-architecture.md) — handler ordering invariants for starter memory / anchored fill / additive merge that reviews must not silently reorder
