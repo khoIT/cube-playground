@@ -67,7 +67,8 @@ export function LibrarySegmentRow({
       <div className={styles.sizeCell}>{formatCount(segment.uid_count)}</div>
       <TrendCell log={log} isStatic={segment.type === 'manual'} />
       <DestinationsCell segment={segment} />
-      <div className={styles.ownerCell}>{segment.owner}</div>
+      {/* owner is the Keycloak sub (a UUID on prod) — show the display label. */}
+      <div className={styles.ownerCell}>{segment.owner_label ?? segment.owner}</div>
       <div className={styles.rowActionsCell}>
         <RowActionsMenu segment={segment} onChanged={onChanged} />
       </div>

@@ -22,6 +22,7 @@ import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integr
 import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
 import { SEGMENT_DEFAULT_VISIBILITY, VISIBILITY_VALUES } from '../services/trust-mapping.js';
 import { canAccessSegment, canMutateSegment, canAdministerSegment } from '../auth/can-access-segment.js';
+import { emailForSub } from '../auth/principal.js';
 import { corePanelsForGame } from '../services/member360-panel-registry.js';
 import { triggerMember360Precompute } from '../services/member360-precompute-scheduler.js';
 import { recordActivity } from '../services/activity-store.js';
@@ -252,8 +253,11 @@ function hydrateSegment(
     updated_at: toIsoUtc(rest.updated_at),
     last_refreshed_at: toIsoUtc(rest.last_refreshed_at),
     shared_at: toIsoUtc(rest.shared_at),
-    // NULL owner_label (legacy rows) is shipped as-is; FE falls back to `owner`.
-    owner_label: (rest.owner_label as string | null) ?? null,
+    // Legacy rows predate the owner_label column (NULL) — resolve the owner
+    // sub to its email via the canonical user_access.kc_sub map so prod
+    // doesn't render a Keycloak UUID. Still null when the owner never logged
+    // in; FE then falls back to `owner`.
+    owner_label: (rest.owner_label as string | null) ?? emailForSub(rest.owner as string),
     // is_owner stays LITERAL ownership — the FE "shared with you" rail keys
     // off it; an admin override here would misfile every org segment as the
     // admin's own. Admin capability ships on the separate can_administer flag.

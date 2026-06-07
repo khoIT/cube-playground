@@ -111,7 +111,8 @@ export function HeadlineStatsRow({
       id: 'owner',
       icon: <User size={ICON_SIZE} aria-hidden />,
       label: t('segments.detail.kpi.owner', { defaultValue: 'Owner' }),
-      value: segment.owner,
+      // owner is the Keycloak sub (a UUID on prod) — show the display label.
+      value: segment.owner_label ?? segment.owner,
       footer: ownerFooter,
     },
     {
