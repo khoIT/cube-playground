@@ -247,14 +247,17 @@ services:
       # Writes prod_pre_aggregations.* into the same CubeStore the API reads.
       CUBEJS_CUBESTORE_HOST: cubestore
       CUBEJS_CUBESTORE_PORT: "3030"
-      # THIS is the refresh worker — literal true, isolated from the API's flag.
-      CUBEJS_REFRESH_WORKER: "true"
       # Bound the first backfill fan-out against Trino (games × rollups × ~29
       # monthly partitions on a cold volume). Incremental hourly refresh is cheap.
       CUBEJS_REFRESH_WORKER_CONCURRENCY: ${CUBEJS_REFRESH_WORKER_CONCURRENCY:-2}
-      # Sweep every 5 min instead of the 30s default: one full partition-plan
-      # sweep is CPU-bound for ~1-2 min, so back-to-back sweeps starve the event
-      # loop and /readyz, flagging the container unhealthy while it still works.
+      # THIS is the refresh worker, sweeping every 5 min instead of the 30s
+      # default: one full partition-plan sweep is CPU-bound for minutes, so
+      # back-to-back sweeps starve the event loop and /readyz, flagging the
+      # container unhealthy while it still works. Deliberately NOT using
+      # CUBEJS_REFRESH_WORKER here — that boolean short-circuits Cube's
+      # refreshWorkerMode env chain and the numeric timer below would be
+      # ignored (interval silently stays 30s). The numeric timer alone both
+      # enables worker mode and sets the sweep interval (seconds).
       CUBEJS_SCHEDULED_REFRESH_TIMER: ${CUBEJS_SCHEDULED_REFRESH_TIMER:-300}
       # Auth bridge kept for config parity only: refresh contexts are synthetic
       # and never hit checkAuth, so the worker tolerates the server being down.

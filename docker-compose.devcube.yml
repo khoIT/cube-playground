@@ -104,13 +104,14 @@ services:
       CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
       CUBEJS_CUBESTORE_HOST: cubestore_dev
       CUBEJS_CUBESTORE_PORT: "3030"
-      # THIS is the refresh worker — literal true, isolated from the API's flag.
-      CUBEJS_REFRESH_WORKER: "true"
       # Keep the laptop→Trino backfill gentle (games × rollups × ~29 partitions).
       CUBEJS_REFRESH_WORKER_CONCURRENCY: ${CUBEJS_REFRESH_WORKER_CONCURRENCY:-2}
-      # Sweep every 5 min instead of the 30s default: one full partition-plan
-      # sweep is CPU-bound for ~1-2 min, so back-to-back sweeps starve the event
-      # loop and /readyz, flagging the container unhealthy while it still works.
+      # THIS is the refresh worker, sweeping every 5 min instead of the 30s
+      # default (sweeps starve the event loop + /readyz otherwise). Deliberately
+      # NOT using CUBEJS_REFRESH_WORKER — that boolean short-circuits Cube's
+      # refreshWorkerMode env chain and the numeric timer would be ignored
+      # (interval silently stays 30s). The numeric timer alone both enables
+      # worker mode and sets the sweep interval (seconds).
       CUBEJS_SCHEDULED_REFRESH_TIMER: ${CUBEJS_SCHEDULED_REFRESH_TIMER:-300}
       AUTH_API_URL: ""
       AUTH_USERS_FILE: /cube/conf/auth-users.example.json
