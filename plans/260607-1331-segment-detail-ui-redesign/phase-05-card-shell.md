@@ -14,7 +14,7 @@
 - User decision 4: icon + title (member360 style); measure name becomes small muted unit chip RIGHT of title, shown ONLY when it adds info beyond title; remove redundant subtitle line.
 
 ## Overview
-- Priority: P2. Status: pending. Independent (cards files only).
+- Priority: P2. Status: completed. Independent (cards files only).
 - Replace the title+subtitle stack with member360-style header: leading icon, title, optional trailing muted unit chip. Drop the always-on subtitle.
 
 ## Requirements
@@ -39,11 +39,11 @@
 5. `npx tsc --noEmit`.
 
 ## Todo List
-- [ ] CardShell icon + unitChip props, shared header sub-render, subtitle removed
-- [ ] card-unit-chip.ts redundancy check
-- [ ] resolve-card-icon.tsx heuristic
-- [ ] update 5 callers (line/bar-list/donut/composition/segmented-bar)
-- [ ] tsc passes
+- [x] CardShell icon + unitChip props, shared header sub-render, subtitle removed
+- [x] card-unit-chip.ts redundancy check
+- [x] resolve-card-icon.tsx heuristic
+- [x] update 5 callers (line/bar-list/donut/composition/segmented-bar)
+- [x] tsc passes
 
 ## Success Criteria
 - Each chart card shows leading icon + title; unit chip appears only when it adds info (e.g. title "Revenue over time" + measure "Revenue (VND)" → chip "VND"-ish or hidden if subset).

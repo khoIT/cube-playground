@@ -6,7 +6,7 @@
 - Targets from P3/P4/P5.
 
 ## Overview
-- Priority: P3. Status: pending. Blocked by P3, P4, P5 (and P2 if landed).
+- Priority: P3. Status: completed. Blocked by P3, P4, P5 (and P2 if landed).
 - Unit-test new pure utils, run affected suites, tsc build, code review.
 
 ## Requirements
@@ -31,13 +31,13 @@
 5. Code review pass.
 
 ## Todo List
-- [ ] format-value.test.ts (B/M/k + exact)
-- [ ] format-chart-datetime-label.test.ts (incl TZ + passthrough)
-- [ ] card-unit-chip.test.ts (subset logic)
-- [ ] update stale tests
-- [ ] vitest all green
-- [ ] tsc clean
-- [ ] code review done
+- [x] format-value.test.ts (B/M/k + exact)
+- [x] format-chart-datetime-label.test.ts (incl TZ + passthrough)
+- [x] card-unit-chip.test.ts (subset logic)
+- [x] update stale tests
+- [x] vitest all green
+- [x] tsc clean
+- [x] code review done
 
 ## Success Criteria
 - All new + existing tests pass; no skips/mocks-to-pass.

@@ -120,6 +120,32 @@ If you reach for a number outside this list, pause and confirm — almost always
 - Secondary: `background: var(--bg-card)`, `border: 1px solid var(--border-card)`, `color: var(--text-secondary)`, `fontSize: 12`, `padding: '4–6px 10–12px'`.
 - Icon-only ghost buttons: transparent background, `color: var(--text-muted)`, no border.
 
+### Header command bar (segment detail pattern)
+
+Secondary page actions (Share / Refresh / Open in Playground) live in one bordered
+segmented container — `.commandBar` in `src/pages/Segments/segments.module.css`:
+`var(--bg-card)` background, `1px solid var(--border-strong)` border, `var(--radius-md)`,
+inner antd buttons stripped (no border/radius, 28px height, `var(--text-secondary)`).
+One filled primary button max per header; destructive actions demote to a `⋯` overflow
+Dropdown, never adjacent to the primary CTA. All header buttons normalize to 28px.
+
+### KPI tiles
+
+Headline KPI strips use member-360-style tiles (`stats-row.module.css`): auto-fit grid
+`minmax(180px, 1fr)` gap 12, each tile `var(--bg-card)` + `var(--border-card)` +
+`var(--radius-lg)`, head row = 26px muted icon chip + 11px/600 uppercase label, then a
+22px/600 tabular-nums value. Values ≥ 1M compact (`₫10.29B`, `formatCompact` in
+`src/pages/Segments/detail/cards/format-value.ts`) with the exact figure in a `title`
+tooltip — never render full billions inline.
+
+### Chart card headers + datetime axes
+
+Chart cards (`card-shell.tsx`) render: 24px muted icon chip + 13px/600 title + a
+mono pill unit chip (`users` / `VND` / `%`, `resolve-card-unit.ts`) shown only when it
+adds info beyond the title. No subtitle lines. Chart x-axis datetimes go through
+`src/utils/format-chart-datetime-label.ts` ("Apr 7", hour grain "Apr 7 14:00", year on
+year boundaries; tooltips "Apr 7, 2026") — never render raw ISO timestamps on an axis.
+
 ## 7. Dark mode
 
 Dark mode is real — every soft/ink + raw color token has a dark-mode equivalent in `:root[data-theme="dark"]`. If a surface relies on raw hex it will break in dark mode. Use semantic tokens.

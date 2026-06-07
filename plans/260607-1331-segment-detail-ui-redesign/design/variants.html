@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Segment Detail Header — 3 Variants · Huashu-Design</title>
+<!--
+  ASSUMPTIONS (Junior pass — confirm or correct):
+  1. Actions ranked by frequency: Edit predicate (primary intent) > Open in Playground
+     (analysis hand-off) > Share / Refresh (utility) > Delete (rare + destructive).
+  2. Delete moves into an overflow (kebab) menu in ALL variants — destructive actions
+     should not sit one slip away from the primary CTA. If you want Delete visible,
+     say so and I keep it inline in the chosen variant.
+  3. All buttons normalize to one height (28px) and one radius (var(--radius-md)).
+  4. KPI numbers use compact form (7.3k / ₫10.29B) + exact value via hover tooltip
+     (decision pinned earlier). Try hovering LTV TOTAL in every variant.
+  5. Light mode only in this mock; implementation uses tokens so dark mode follows.
+  6. Width toggle (1200 / 900 / 640) demonstrates the responsive KPI behavior.
+-->
+<style>
+  /* ── Tokens lifted verbatim from src/theme/tokens.css ───────────────── */
+  :root {
+    --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-200:#e5e5e5;
+    --neutral-300:#d4d4d4; --neutral-400:#a3a3a3; --neutral-500:#737373;
+    --neutral-600:#525252; --neutral-700:#404040; --neutral-800:#262626;
+    --neutral-900:#171717;
+    --orange-50:#fff7ed; --orange-600:#f05a22; --orange-700:#f54a00;
+    --brand:var(--orange-600); --brand-hover:var(--orange-700); --brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50); --bg-card:#ffffff; --bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200); --border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700);
+    --text-muted:var(--neutral-500);
+    --success:#059669; --danger:#ef4444;
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --live-badge-bg:#d1fae5; --live-badge-text:#047857; --live-badge-dot:#10b981;
+    --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:#efe9e0; font-family:var(--font-sans);
+    color:var(--text-primary); padding:32px 24px 80px;
+  }
+
+  /* ── Gallery chrome ─────────────────────────────────────────────────── */
+  .gallery-head { max-width:1280px; margin:0 auto 20px; }
+  .gallery-head h1 { font-size:20px; font-weight:700; margin:0 0 4px; }
+  .gallery-head p { font-size:13px; color:var(--text-secondary); margin:0; max-width:760px; }
+  .controls {
+    max-width:1280px; margin:16px auto 24px; display:flex; gap:16px;
+    align-items:center; flex-wrap:wrap;
+  }
+  .seg-ctl { display:inline-flex; border:1px solid var(--border-strong); border-radius:var(--radius-md); overflow:hidden; background:var(--bg-card); }
+  .seg-ctl button {
+    border:0; background:transparent; padding:7px 16px; font:600 13px var(--font-sans);
+    color:var(--text-secondary); cursor:pointer;
+  }
+  .seg-ctl button + button { border-left:1px solid var(--border-card); }
+  .seg-ctl button.on { background:var(--brand); color:#fff; }
+  .ctl-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); }
+
+  .variant-block { max-width:1280px; margin:0 auto 36px; }
+  .variant-block.hidden { display:none; }
+  .variant-meta { display:flex; align-items:baseline; gap:12px; margin:0 0 10px; }
+  .variant-meta h2 { font-size:15px; font-weight:700; margin:0; }
+  .variant-meta .tagline { font-size:12.5px; color:var(--text-secondary); }
+  .frame {
+    background:var(--bg-app); border:1px solid var(--border-strong);
+    border-radius:12px; box-shadow:var(--shadow-sm); overflow-x:auto;
+    padding:20px 24px 24px; transition:max-width .25s ease; margin:0;
+  }
+  .notes { font-size:12.5px; color:var(--text-secondary); margin:10px 2px 0; line-height:1.55; }
+  .notes b { color:var(--text-primary); }
+
+  /* ── Shared mock pieces ─────────────────────────────────────────────── */
+  .icon { width:16px; height:16px; stroke:currentColor; stroke-width:2;
+          fill:none; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  .icon.sm { width:14px; height:14px; }
+
+  .title-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .seg-title { font-size:24px; font-weight:600; letter-spacing:-0.02em; margin:0; }
+  .cube-badge {
+    font:500 11.5px var(--font-mono); color:var(--text-secondary);
+    background:var(--bg-muted); border:1px solid var(--border-card);
+    border-radius:var(--radius-sm); padding:2px 7px;
+  }
+  .live-pill {
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    color:var(--live-badge-text); background:var(--live-badge-bg);
+    border-radius:var(--radius-full); padding:3px 10px;
+  }
+  .live-pill .dot { width:7px; height:7px; border-radius:50%; background:var(--live-badge-dot); }
+  .spacer { flex:1; }
+
+  /* Buttons — one height, one radius, one type scale */
+  .btn {
+    display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 12px;
+    border-radius:var(--radius-md); border:1px solid var(--border-strong);
+    background:var(--bg-card); color:var(--text-secondary);
+    font:500 12.5px var(--font-sans); cursor:pointer; white-space:nowrap;
+  }
+  .btn:hover { border-color:var(--neutral-400); color:var(--text-primary); }
+  .btn.primary {
+    background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600;
+  }
+  .btn.primary:hover { background:var(--brand-hover); }
+  .btn.icon-only { width:28px; padding:0; justify-content:center; }
+  .btn.ghost { border-color:transparent; background:transparent; }
+  .btn.ghost:hover { background:var(--bg-muted); }
+
+  .v-divider { width:1px; height:18px; background:var(--border-card); margin:0 4px; flex:none; }
+
+  /* Kebab dropdown (static, opened for the mock) */
+  .kebab-wrap { position:relative; }
+  .dropdown {
+    position:absolute; top:34px; right:0; min-width:168px; background:var(--bg-card);
+    border:1px solid var(--border-card); border-radius:var(--radius-md);
+    box-shadow:var(--shadow-sm); padding:4px; z-index:5; font-size:12.5px;
+  }
+  .dropdown .item { display:flex; align-items:center; gap:8px; padding:6px 9px;
+    border-radius:var(--radius-sm); color:var(--text-secondary); cursor:pointer; }
+  .dropdown .item:hover { background:var(--bg-muted); }
+  .dropdown .item.danger { color:var(--danger); }
+  .dropdown .hint { font-size:10.5px; color:var(--text-muted); padding:2px 9px 4px; }
+  .open-hint { position:absolute; top:-22px; right:0; font-size:10.5px; color:var(--brand); white-space:nowrap; }
+
+  /* KPI strip — row style (variants A & B) */
+  .kpi-row {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    border:1px solid var(--border-card); border-radius:var(--radius-lg);
+    background:var(--bg-card); margin-top:16px; overflow:hidden;
+  }
+  .kpi-cell { display:flex; gap:10px; padding:14px 16px; min-width:0; position:relative; }
+  .kpi-cell::before { content:''; position:absolute; left:0; top:14px; bottom:14px;
+    width:1px; background:var(--border-card); }
+  .kpi-cell:first-child::before { display:none; }
+  .kpi-icon {
+    width:32px; height:32px; border-radius:var(--radius-md); background:var(--bg-muted);
+    color:var(--text-secondary); display:inline-flex; align-items:center;
+    justify-content:center; flex:none; margin-top:1px;
+  }
+  .kpi-body { min-width:0; }
+  .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--text-muted); margin-bottom:3px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .kpi-value { font-size:20px; font-weight:600; letter-spacing:-0.015em;
+    font-variant-numeric:tabular-nums; line-height:1.15; cursor:default; }
+  .kpi-delta { font-size:11.5px; margin-top:2px; color:var(--text-muted); }
+  .kpi-delta.pos { color:var(--success); }
+
+  /* KPI tiles — variant C (member360 StatTileGrid style) */
+  .kpi-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:12px; margin-top:16px; }
+  .kpi-tile { background:var(--bg-card); border:1px solid var(--border-card);
+    border-radius:var(--radius-lg); padding:13px 15px; min-width:0; }
+  .kpi-tile .head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .kpi-tile .kpi-icon { width:26px; height:26px; margin:0; }
+  .kpi-tile .kpi-label { margin:0; }
+  .kpi-tile .kpi-value { font-size:22px; }
+
+  /* Tooltip callout (annotation, not a real tooltip) */
+  .tip-callout {
+    position:absolute; bottom:-30px; left:50%; transform:translateX(-50%);
+    background:var(--neutral-900); color:#fff; font-size:11px; padding:4px 9px;
+    border-radius:var(--radius-sm); white-space:nowrap; z-index:4;
+    font-variant-numeric:tabular-nums;
+  }
+  .tip-callout::before { content:''; position:absolute; top:-4px; left:50%;
+    transform:translateX(-50%); border:4px solid transparent;
+    border-bottom-color:var(--neutral-900); border-top:0; }
+  .tip-note { position:absolute; bottom:-48px; left:50%; transform:translateX(-50%);
+    font-size:10.5px; color:var(--brand); white-space:nowrap; }
+
+  /* Tabs strip under header (context only) */
+  .tabs { display:flex; gap:4px; margin-top:18px; border-bottom:1px solid var(--border-card); }
+  .tab { display:inline-flex; align-items:center; gap:6px; padding:8px 12px;
+    font-size:13px; font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent; }
+  .tab.on { color:var(--brand); border-bottom-color:var(--brand); font-weight:600; }
+
+  /* Chart-card header preview (shared across variants — already decided) */
+  .chart-preview { max-width:1280px; margin:8px auto 0; }
+  .chart-preview h2 { font-size:15px; font-weight:700; margin:24px 0 10px; }
+  .cards-2col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .chart-card { background:var(--bg-card); border:1px solid var(--border-card);
+    border-radius:var(--radius-lg); padding:14px; }
+  .cc-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .cc-icon { width:24px; height:24px; border-radius:var(--radius-sm);
+    background:var(--bg-muted); color:var(--text-secondary);
+    display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  .cc-title { font-size:13px; font-weight:600; margin:0; }
+  .cc-chip { font:500 10.5px var(--font-mono); color:var(--text-muted);
+    background:var(--bg-muted); border:1px solid var(--border-card);
+    border-radius:var(--radius-full); padding:1.5px 8px; margin-left:2px; }
+  .cc-old { opacity:.55; }
+  .cc-old .cc-head { display:block; }
+  .cc-old .sub { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+  .strike { text-decoration:line-through; text-decoration-color:var(--danger); }
+  .axis-demo { display:flex; justify-content:space-between; font:400 10px var(--font-mono);
+    color:var(--text-muted); border-top:1px solid var(--neutral-100); padding-top:6px; margin-top:34px; }
+  .spark { height:56px; display:flex; align-items:flex-end; gap:3px; }
+  .spark i { flex:1; background:linear-gradient(to top, rgba(240,90,34,.55), rgba(240,90,34,.25)); border-radius:2px 2px 0 0; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></symbol>
+  <symbol id="i-banknote" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></symbol>
+  <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/><path d="m21 3-9 9"/><path d="M15 3h6v6"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol>
+  <symbol id="i-kebab" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+</svg>
+
+<div class="gallery-head">
+  <h1>Segment detail header — 3 design variants</h1>
+  <p>Same data as your screenshot (top VIP players · mf_users · Live 1440m). Differences are in
+     <b>action-row hierarchy</b> and <b>KPI strip construction</b>. All variants: one button height (28px),
+     compact numbers with exact-value tooltips, Delete demoted to an overflow menu, "Copy as filter" → "Open in Playground".
+     Use the width toggle to see responsive behavior.</p>
+</div>
+
+<div class="controls">
+  <span class="ctl-label">Variant</span>
+  <div class="seg-ctl" id="variantCtl">
+    <button data-v="a" class="on">A · Grouped toolbar</button>
+    <button data-v="b">B · Command bar</button>
+    <button data-v="c">C · Quiet header + tiles</button>
+    <button data-v="all">Compare all</button>
+  </div>
+  <span class="ctl-label">Width</span>
+  <div class="seg-ctl" id="widthCtl">
+    <button data-w="1280" class="on">1280</button>
+    <button data-w="900">900</button>
+    <button data-w="640">640</button>
+  </div>
+</div>
+
+<!-- ════════════════ VARIANT A — Grouped toolbar ════════════════ -->
+<section class="variant-block" data-variant="a">
+  <div class="variant-meta">
+    <h2>A · Grouped toolbar</h2>
+    <span class="tagline">closest to today — utilities become icon buttons, destructive action moves to ⋯</span>
+  </div>
+  <div class="frame">
+    <div class="title-row">
+      <h1 class="seg-title">top VIP players</h1>
+      <span class="cube-badge">mf_users</span>
+      <span class="live-pill"><span class="dot"></span>Live · 1440m</span>
+      <span class="spacer"></span>
+      <button class="btn ghost icon-only" title="Share"><svg class="icon"><use href="#i-share"/></svg></button>
+      <button class="btn ghost icon-only" title="Refresh now"><svg class="icon"><use href="#i-refresh"/></svg></button>
+      <span class="v-divider"></span>
+      <button class="btn"><svg class="icon sm"><use href="#i-external"/></svg>Open in Playground</button>
+      <button class="btn primary"><svg class="icon sm"><use href="#i-pencil"/></svg>Edit predicate</button>
+      <span class="kebab-wrap">
+        <span class="open-hint">menu shown open ↓</span>
+        <button class="btn icon-only"><svg class="icon"><use href="#i-kebab"/></svg></button>
+        <span class="dropdown">
+          <span class="hint">More actions</span>
+          <span class="item danger"><svg class="icon sm"><use href="#i-trash"/></svg>Delete segment</span>
+        </span>
+      </span>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-users"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">Size</div>
+          <div class="kpi-value" title="7,261 users">7,261</div>
+          <div class="kpi-delta pos">↑ 0.0% vs last week</div>
+        </div>
+      </div>
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-wallet"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">Paying users</div>
+          <div class="kpi-value" title="7,612 paying users">7.6k</div>
+        </div>
+      </div>
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-banknote"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">LTV total</div>
+          <div class="kpi-value" title="₫10,286,465,000" style="position:relative">₫10.29B
+            <span class="tip-callout">₫10,286,465,000</span>
+            <span class="tip-note">← exact value on hover</span>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-coins"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">ARPU</div>
+          <div class="kpi-value" title="₫1,355,623">₫1.36M</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs" style="margin-top:34px">
+      <span class="tab on"><svg class="icon sm"><use href="#i-activity"/></svg>Insights</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-users"/></svg>Members</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-activity"/></svg>Monitor</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-code"/></svg>Definition</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-send"/></svg>Pull API</span>
+    </div>
+  </div>
+  <p class="notes">
+    <b>Hierarchy:</b> utilities (Share / Refresh) shrink to ghost icon buttons with tooltips; the two
+    navigation-grade actions keep labels; <b>Edit predicate stays the only filled button</b>; Delete lives in ⋯.
+    <b>KPI strip:</b> same flush-row DNA as today, but grid-based — cells wrap to 2×2 at 900px and stack at 640px,
+    dividers drawn per-cell so wrapping never leaves orphan lines. Numbers compact + tabular-nums.
+  </p>
+</section>
+
+<!-- ════════════════ VARIANT B — Command bar ════════════════ -->
+<section class="variant-block hidden" data-variant="b">
+  <div class="variant-meta">
+    <h2>B · Command bar</h2>
+    <span class="tagline">all secondary actions share one segmented container — strongest visual order</span>
+  </div>
+  <div class="frame">
+    <div class="title-row">
+      <h1 class="seg-title">top VIP players</h1>
+      <span class="cube-badge">mf_users</span>
+      <span class="live-pill"><span class="dot"></span>Live · 1440m</span>
+      <span class="spacer"></span>
+      <span class="seg-ctl" style="height:28px">
+        <button style="display:inline-flex;align-items:center;gap:6px;font:500 12.5px var(--font-sans);color:var(--text-secondary);padding:0 11px"><svg class="icon sm"><use href="#i-share"/></svg>Share</button>
+        <button style="display:inline-flex;align-items:center;gap:6px;font:500 12.5px var(--font-sans);color:var(--text-secondary);padding:0 11px"><svg class="icon sm"><use href="#i-refresh"/></svg>Refresh</button>
+        <button style="display:inline-flex;align-items:center;gap:6px;font:500 12.5px var(--font-sans);color:var(--text-secondary);padding:0 11px"><svg class="icon sm"><use href="#i-external"/></svg>Playground</button>
+      </span>
+      <button class="btn primary"><svg class="icon sm"><use href="#i-pencil"/></svg>Edit predicate</button>
+      <span class="kebab-wrap">
+        <button class="btn icon-only"><svg class="icon"><use href="#i-kebab"/></svg></button>
+        <span class="dropdown">
+          <span class="item danger"><svg class="icon sm"><use href="#i-trash"/></svg>Delete segment</span>
+        </span>
+      </span>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-users"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">Size</div>
+          <div class="kpi-value" title="7,261 users">7,261</div>
+          <div class="kpi-delta pos">↑ 0.0% vs last week</div>
+        </div>
+      </div>
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-wallet"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">Paying users</div>
+          <div class="kpi-value" title="7,612 paying users">7.6k</div>
+          <div class="kpi-delta">98.7% of segment</div>
+        </div>
+      </div>
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-banknote"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">LTV total</div>
+          <div class="kpi-value" title="₫10,286,465,000">₫10.29B</div>
+          <div class="kpi-delta">VND · all time</div>
+        </div>
+      </div>
+      <div class="kpi-cell">
+        <span class="kpi-icon"><svg class="icon"><use href="#i-coins"/></svg></span>
+        <div class="kpi-body">
+          <div class="kpi-label">ARPU</div>
+          <div class="kpi-value" title="₫1,355,623">₫1.36M</div>
+          <div class="kpi-delta">VND / payer</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <span class="tab on"><svg class="icon sm"><use href="#i-activity"/></svg>Insights</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-users"/></svg>Members</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-activity"/></svg>Monitor</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-code"/></svg>Definition</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-send"/></svg>Pull API</span>
+    </div>
+  </div>
+  <p class="notes">
+    <b>Hierarchy:</b> Share / Refresh / Playground sit in one bordered segmented group — they read as
+    "the toolbox", one shape, zero competition with the primary CTA. <b>KPI strip:</b> every cell gains a
+    quiet context footer (unit / share-of-segment) so the numbers explain themselves — footers reuse the
+    existing footer slot in <code>StatCellInner</code>, no new layout.
+  </p>
+</section>
+
+<!-- ════════════════ VARIANT C — Quiet header + tiles ════════════════ -->
+<section class="variant-block hidden" data-variant="c">
+  <div class="variant-meta">
+    <h2>C · Quiet header + KPI tiles</h2>
+    <span class="tagline">boldest change — actions compress to icon rail, KPIs become member-360-style tiles</span>
+  </div>
+  <div class="frame">
+    <div class="title-row">
+      <h1 class="seg-title">top VIP players</h1>
+      <span class="cube-badge">mf_users</span>
+      <span class="live-pill"><span class="dot"></span>Live · 1440m</span>
+      <span class="spacer"></span>
+      <span style="display:inline-flex;border:1px solid var(--border-strong);border-radius:var(--radius-md);overflow:hidden">
+        <button class="btn ghost icon-only" style="border-radius:0" title="Share"><svg class="icon"><use href="#i-share"/></svg></button>
+        <button class="btn ghost icon-only" style="border-radius:0;border-left:1px solid var(--border-card)" title="Refresh now"><svg class="icon"><use href="#i-refresh"/></svg></button>
+        <button class="btn ghost icon-only" style="border-radius:0;border-left:1px solid var(--border-card)" title="Open in Playground"><svg class="icon"><use href="#i-external"/></svg></button>
+      </span>
+      <button class="btn primary"><svg class="icon sm"><use href="#i-pencil"/></svg>Edit predicate</button>
+      <span class="kebab-wrap">
+        <button class="btn icon-only"><svg class="icon"><use href="#i-kebab"/></svg></button>
+        <span class="dropdown">
+          <span class="item danger"><svg class="icon sm"><use href="#i-trash"/></svg>Delete segment</span>
+        </span>
+      </span>
+    </div>
+
+    <div class="kpi-tiles">
+      <div class="kpi-tile">
+        <div class="head">
+          <span class="kpi-icon"><svg class="icon sm"><use href="#i-users"/></svg></span>
+          <div class="kpi-label">Size</div>
+        </div>
+        <div class="kpi-value" title="7,261 users">7,261</div>
+        <div class="kpi-delta pos">↑ 0.0% vs last week</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="head">
+          <span class="kpi-icon"><svg class="icon sm"><use href="#i-wallet"/></svg></span>
+          <div class="kpi-label">Paying users</div>
+        </div>
+        <div class="kpi-value" title="7,612 paying users">7.6k</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="head">
+          <span class="kpi-icon"><svg class="icon sm"><use href="#i-banknote"/></svg></span>
+          <div class="kpi-label">LTV total</div>
+        </div>
+        <div class="kpi-value" title="₫10,286,465,000">₫10.29B</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="head">
+          <span class="kpi-icon"><svg class="icon sm"><use href="#i-coins"/></svg></span>
+          <div class="kpi-label">ARPU</div>
+        </div>
+        <div class="kpi-value" title="₫1,355,623">₫1.36M</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <span class="tab on"><svg class="icon sm"><use href="#i-activity"/></svg>Insights</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-users"/></svg>Members</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-activity"/></svg>Monitor</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-code"/></svg>Definition</span>
+      <span class="tab"><svg class="icon sm"><use href="#i-send"/></svg>Pull API</span>
+    </div>
+  </div>
+  <p class="notes">
+    <b>Hierarchy:</b> all three utilities merge into one compact icon rail (Linear-style) — quietest possible
+    header; only "Edit predicate" carries a label. <b>KPI tiles</b> echo the member-360 page you referenced:
+    separate cards, icon+label head row, big tabular value. Wraps naturally at every width (auto-fit grid).
+    Trade-off: tiles cost ~12px more vertical space than the flush row.
+  </p>
+</section>
+
+<!-- ════════════════ Shared: chart-card header (already decided) ════════════════ -->
+<div class="chart-preview">
+  <h2>Chart-card header — applies to whichever variant you pick (decision already pinned)</h2>
+  <div class="cards-2col">
+    <div class="chart-card cc-old">
+      <div class="cc-head">
+        <h3 class="cc-title">Installs (last 90 days)</h3>
+        <div class="sub strike">User count</div>
+      </div>
+      <div class="spark"><i style="height:18%"></i><i style="height:92%"></i><i style="height:38%"></i><i style="height:22%"></i><i style="height:18%"></i><i style="height:16%"></i><i style="height:20%"></i><i style="height:24%"></i><i style="height:21%"></i><i style="height:23%"></i><i style="height:25%"></i><i style="height:22%"></i><i style="height:18%"></i><i style="height:15%"></i></div>
+      <div class="axis-demo"><span class="strike">2026-04-07T00:00:00.000</span><span class="strike">2026-06-06T00:00:00.000</span></div>
+      <p style="font-size:11px;color:var(--text-muted);margin:8px 0 0">BEFORE — redundant subtitle line, raw ISO axis labels</p>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <span class="cc-icon"><svg class="icon sm"><use href="#i-chart"/></svg></span>
+        <h3 class="cc-title">Installs (last 90 days)</h3>
+        <span class="cc-chip">users</span>
+      </div>
+      <div class="spark"><i style="height:18%"></i><i style="height:92%"></i><i style="height:38%"></i><i style="height:22%"></i><i style="height:18%"></i><i style="height:16%"></i><i style="height:20%"></i><i style="height:24%"></i><i style="height:21%"></i><i style="height:23%"></i><i style="height:25%"></i><i style="height:22%"></i><i style="height:18%"></i><i style="height:15%"></i></div>
+      <div class="axis-demo"><span>Apr 7</span><span>Apr 21</span><span>May 5</span><span>May 19</span><span>Jun 6</span></div>
+      <p style="font-size:11px;color:var(--text-muted);margin:8px 0 0">AFTER — icon + title + unit chip (hidden when redundant), human dates, tooltip shows "Apr 7, 2026"</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const blocks = document.querySelectorAll('.variant-block');
+  document.getElementById('variantCtl').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#variantCtl button').forEach(x => x.classList.toggle('on', x === b));
+    const v = b.dataset.v;
+    blocks.forEach(x => x.classList.toggle('hidden', v !== 'all' && x.dataset.variant !== v));
+  });
+  document.getElementById('widthCtl').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#widthCtl button').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.frame').forEach(f => f.style.maxWidth = b.dataset.w + 'px');
+  });
+  // Deep-link support: #b, #c, #all, #a-640 (variant + optional width) — also used by screenshot tooling.
+  const [hv, hw] = (location.hash.replace('#', '') || 'a').split('-');
+  const vBtn = document.querySelector(`#variantCtl button[data-v="${hv}"]`);
+  if (vBtn) vBtn.click();
+  if (hw) { const wBtn = document.querySelector(`#widthCtl button[data-w="${hw}"]`); if (wBtn) wBtn.click(); }
+</script>
+</body>
+</html>

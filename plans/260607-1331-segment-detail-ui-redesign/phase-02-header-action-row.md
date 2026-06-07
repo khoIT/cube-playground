@@ -1,14 +1,14 @@
 # Phase 2 — Implement header/action-row + rename to "Open in Playground"
 
 ## Context Links
-- Chosen variant: `plans/260607-1331-segment-detail-ui-redesign/design/variants.html` (record selected id here after Phase 1)
+- Chosen variant: `plans/260607-1331-segment-detail-ui-redesign/design/variants.html` — **chosen: Mix of variant B (command-bar action row) + variant C (KPI tiles)**
 - Action row: `src/pages/Segments/detail/detail-view.tsx:183-231`
 - Styles: `src/pages/Segments/detail/segments.module.css` (`.detailActions`, `.detailTitleRow`, `.detailHeader`, sticky header)
 - Deeplink handler (already exists, keep): `buildPlaygroundDeeplink` imported at `detail-view.tsx:33`, called `:190`
 - i18n: `src/i18n/locales/en.json:171`, `src/i18n/locales/vi.json:148` (key `segments.detail.actions.copyAsFilter`)
 
 ## Overview
-- Priority: P1. Status: pending. Blocked by Phase 1 (user pick).
+- Priority: P1. Status: completed. Blocked by Phase 1 (user pick).
 - Implement chosen header/action-row layout in React. Rename "Copy as filter" → "Open in Playground" (label only; handler unchanged).
 
 ## Requirements
@@ -31,12 +31,12 @@
 6. `npx tsc --noEmit` build check.
 
 ## Todo List
-- [ ] Record chosen variant id
-- [ ] Implement action-row JSX
-- [ ] Add openInPlayground i18n (en+vi), remove copyAsFilter
-- [ ] Update label call site
-- [ ] CSS update + sticky header verify
-- [ ] tsc passes
+- [x] Record chosen variant id
+- [x] Implement action-row JSX
+- [x] Add openInPlayground i18n (en+vi), remove copyAsFilter
+- [x] Update label call site
+- [x] CSS update + sticky header verify
+- [x] tsc passes
 
 ## Success Criteria
 - Action row matches chosen variant; all original handlers fire; disabled/admin gating preserved.

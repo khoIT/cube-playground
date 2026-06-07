@@ -1,7 +1,7 @@
 ---
 title: "Segment detail page UI redesign"
 description: "Header/action-row redesign, compact KPI numbers, short-month chart axes, member360-style card headers."
-status: pending
+status: completed
 priority: P2
 effort: 11h
 branch: main
@@ -25,12 +25,12 @@ member360-style card headers. Design-first for the action row (HTML variants →
 
 | # | Phase | Status | Blocks |
 |---|-------|--------|--------|
-| 1 | [HTML design variants (header→KPI strip)](phase-01-design-variants.md) | pending | — |
-| 2 | [Implement header/action-row + rename to Open in Playground](phase-02-header-action-row.md) | pending | P1 (user pick) |
-| 3 | [Compact number formatting (B tier) + responsive KPI strip](phase-03-number-formatting.md) | pending | — |
-| 4 | [Shared datetime axis formatter + wire charts](phase-04-datetime-axis.md) | pending | — |
-| 5 | [Card-shell icon + unit chip redesign](phase-05-card-shell.md) | pending | — |
-| 6 | [Tests + tsc build + code review](phase-06-tests-review.md) | pending | P3,P4,P5 |
+| 1 | [HTML design variants (header→KPI strip)](phase-01-design-variants.md) | completed | — |
+| 2 | [Implement header/action-row + rename to Open in Playground](phase-02-header-action-row.md) | completed | P1 (user pick) |
+| 3 | [Compact number formatting (B tier) + responsive KPI strip](phase-03-number-formatting.md) | completed | — |
+| 4 | [Shared datetime axis formatter + wire charts](phase-04-datetime-axis.md) | completed | — |
+| 5 | [Card-shell icon + unit chip redesign](phase-05-card-shell.md) | completed | — |
+| 6 | [Tests + tsc build + code review](phase-06-tests-review.md) | completed | P3,P4,P5 |
 
 ## Dependency graph
 - P1 → P2 (P2 cannot start until user picks a variant).

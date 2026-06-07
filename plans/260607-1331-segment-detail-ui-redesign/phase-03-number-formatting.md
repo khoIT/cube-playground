@@ -8,7 +8,7 @@
 - User decision 2: compact display + FULL exact value in hover tooltip (`title` attr) on ALL KPI cells.
 
 ## Overview
-- Priority: P2. Status: pending. Independent (own files).
+- Priority: P2. Status: completed. Independent (own files).
 - Add a billion tier + a shared compact helper; surface exact value via `title` tooltip; make KPI strip wrap responsively.
 
 ## Requirements
@@ -32,12 +32,12 @@
 5. `npx tsc --noEmit`.
 
 ## Todo List
-- [ ] formatCompact + formatExact in format-value.ts (B tier)
-- [ ] currency branch uses compact for display
-- [ ] formatCount delegates (M cap removed)
-- [ ] exact value plumbed to StatCellInner title
-- [ ] responsive 2×2 KPI strip CSS
-- [ ] tsc passes
+- [x] formatCompact + formatExact in format-value.ts (B tier)
+- [x] currency branch uses compact for display
+- [x] formatCount delegates (M cap removed)
+- [x] exact value plumbed to StatCellInner title
+- [x] responsive 2×2 KPI strip CSS
+- [x] tsc passes
 
 ## Success Criteria
 - ₫10,286,465,000 renders `₫10.29B`; 7600 → `7.6k`; 10,300,000 → `10.3M`.

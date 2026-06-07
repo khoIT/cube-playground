@@ -10,7 +10,7 @@
 - User decision 3: day-grain "Apr 7" (+year on first tick when range crosses years); hour-grain "Apr 7 14:00"; tooltip "Apr 7, 2026"; date-only when time part is 00:00:00.
 
 ## Overview
-- Priority: P2. Status: pending. Independent (new util + chart files).
+- Priority: P2. Status: completed. Independent (new util + chart files).
 - One shared pure formatter for datetime tick + tooltip labels, wired into segment + chat charts; dashboards inherit via LineChart.
 
 ## Requirements
@@ -37,12 +37,12 @@
 6. `npx tsc --noEmit`.
 
 ## Todo List
-- [ ] format-chart-datetime-label.ts (pure, passthrough for non-dates)
-- [ ] segment line-chart XAxis tickFormatter + Tooltip labelFormatter
-- [ ] line-chart-card computes crossesYears
-- [ ] chat 9 XAxis + tooltip labelFormatter
-- [ ] dashboards inherit verified
-- [ ] tsc passes
+- [x] format-chart-datetime-label.ts (pure, passthrough for non-dates)
+- [x] segment line-chart XAxis tickFormatter + Tooltip labelFormatter
+- [x] line-chart-card computes crossesYears
+- [x] chat 9 XAxis + tooltip labelFormatter
+- [x] dashboards inherit verified
+- [x] tsc passes
 
 ## Success Criteria
 - Day-grain axis shows "Apr 7"; year-crossing range shows year on first tick; hour-grain "Apr 7 14:00"; tooltip "Apr 7, 2026".

@@ -9,7 +9,7 @@
 - Skill: activate `huashu-design` for variant generation
 
 ## Overview
-- Priority: P1 (blocks Phase 2). Status: pending.
+- Priority: P1 (blocks Phase 2). Status: completed.
 - Design-FIRST. Produce 2–3 self-contained HTML variants of the detail header zone (breadcrumb → title row → action row → KPI strip). User picks ONE before any React work.
 
 ## Requirements
@@ -30,11 +30,11 @@
 5. STOP. Present variants to user; await pick. Do NOT proceed to Phase 2.
 
 ## Todo List
-- [ ] Capture real header/KPI content
-- [ ] Resolve token hex values
-- [ ] Build 2–3 variants in single HTML file
-- [ ] Add rationale per variant
-- [ ] Present + STOP for user pick
+- [x] Capture real header/KPI content
+- [x] Resolve token hex values
+- [x] Build 2–3 variants in single HTML file
+- [x] Add rationale per variant
+- [x] Present + STOP for user pick
 
 ## Success Criteria
 - `variants.html` opens standalone in a browser, renders 2–3 distinct header treatments using token-faithful colors, Inter, scale spacing.
