@@ -90,20 +90,29 @@ export function buildStarterQuery(
 
   const measures: string[] = [];
   const dimensions: string[] = [];
+  // A time-dimension TARGET signals the question wants a time AXIS (trend /
+  // per-day series), not just a bound window — composed below as granularity.
+  let wantsTimeAxis = false;
   for (const ref of question.targetCatalogIds) {
     const kind = resolveMemberMeta(meta, ref).kind;
     if (kind === 'measure') measures.push(ref);
     else if (kind === 'dimension') dimensions.push(ref);
-    // timeDimension targets are skipped — the time bound is added below.
+    else if (kind === 'timeDimension') wantsTimeAxis = true;
   }
   if (measures.length === 0) return null;
+
+  const cubeName = measures[0].split('.')[0];
+  const timeDim = timeDimensionOf(meta, cubeName);
 
   const query: CubeQuery = {
     measures,
     ...(dimensions.length > 0 ? { dimensions } : {}),
     // "drive the most X" chips want a ranking — order by the primary measure.
-    order: { [measures[0]]: 'desc' },
-    limit: 50,
+    // Time-axis chips are a series instead: chronological order, and a limit
+    // big enough that 30 days × dimension cardinality is never truncated
+    // (measure-desc + limit 50 would drop random middle days of the series).
+    order: wantsTimeAxis && timeDim ? { [timeDim]: 'asc' } : { [measures[0]]: 'desc' },
+    limit: wantsTimeAxis ? 1000 : 50,
   };
 
   // Bound the time axis so behavior cubes with a ≤31-day guard accept the
@@ -113,14 +122,16 @@ export function buildStarterQuery(
   // of the data and return an empty (unimpressive) first preview. Without
   // coverage, fall back to a relative window; the agent re-anchors via
   // get_time_coverage if that turns out empty.
-  const cubeName = measures[0].split('.')[0];
-  const timeDim = timeDimensionOf(meta, cubeName);
   if (timeDim) {
     const latest = coverage[timeDim];
     query.timeDimensions = [
       {
         dimension: timeDim,
         dateRange: latest ? [daysBefore(latest, 29), latest] : 'last 30 days',
+        // Day granularity turns the bound window into a series — without it a
+        // "trend over N days" chip collapses to one aggregate row, which
+        // charts as a single bar and gives the user nothing to slice.
+        ...(wantsTimeAxis ? { granularity: 'day' as const } : {}),
       },
     ];
   }

@@ -1,13 +1,13 @@
 {
-  "version": "260606-5446",
+  "version": "260607-1730",
   "generatedAt": 1780772145446,
   "workspaceGenerated": "local",
   "games": {
     "ballistar": {
       "questions": [
         {
-          "id": "dau-by-role-class",
-          "text": "DAU by role class over the last 30 days",
+          "id": "dau-by-country",
+          "text": "Top countries by DAU — last 30 days",
           "topicTags": [
             "liveops"
           ],
@@ -17,14 +17,13 @@
           ],
           "targetCatalogIds": [
             "active_daily.dau",
-            "active_daily.role_class",
-            "active_daily.log_date"
+            "active_daily.country_code"
           ],
           "depth": "basic"
         },
         {
           "id": "top-servers-by-dau",
-          "text": "Top 10 servers ranked by DAU — last 7 days",
+          "text": "Top servers ranked by DAU — last 30 days",
           "topicTags": [
             "liveops"
           ],
@@ -34,14 +33,13 @@
           ],
           "targetCatalogIds": [
             "active_daily.dau",
-            "active_daily.server_id",
-            "active_daily.log_date"
+            "active_daily.server_id"
           ],
           "depth": "basic"
         },
         {
-          "id": "session-length-by-role",
-          "text": "Average daily session length (minutes) by role class",
+          "id": "online-time-by-platform",
+          "text": "Where do players spend more time — iOS or Android?",
           "topicTags": [
             "liveops"
           ],
@@ -51,7 +49,7 @@
           ],
           "targetCatalogIds": [
             "active_daily.total_online_time_sec",
-            "active_daily.role_class"
+            "active_daily.os_platform"
           ],
           "depth": "basic"
         },
@@ -74,7 +72,7 @@
         },
         {
           "id": "wau-trend-8weeks",
-          "text": "WAU trend over the last 8 weeks",
+          "text": "WAU trend over the last 30 days",
           "topicTags": [
             "liveops"
           ],
@@ -89,8 +87,8 @@
           "depth": "basic"
         },
         {
-          "id": "dau-by-fighting-power",
-          "text": "Daily active players by max fighting-power bracket",
+          "id": "dau-by-os-platform",
+          "text": "Daily active players by OS platform — last 30 days",
           "topicTags": [
             "liveops"
           ],
@@ -99,7 +97,7 @@
           ],
           "targetCatalogIds": [
             "active_daily.dau",
-            "active_daily.max_fighting_power",
+            "active_daily.os_platform",
             "active_daily.log_date"
           ],
           "depth": "basic"
@@ -141,7 +139,7 @@
         },
         {
           "id": "cpi-roas-by-channel",
-          "text": "CPI and ROAS by acquisition channel this month",
+          "text": "Ad spend, CPI and ROAS by acquisition channel — last 30 days",
           "topicTags": [
             "user_acquisition"
           ],
@@ -150,6 +148,7 @@
             "explore"
           ],
           "targetCatalogIds": [
+            "game_key_metrics.cost_vnd",
             "game_key_metrics.cpi_vnd",
             "game_key_metrics.roas",
             "game_key_metrics.media_source"
@@ -158,7 +157,7 @@
         },
         {
           "id": "d30-retention-cohort-compare",
-          "text": "D30 retention across the last 3 monthly install cohorts",
+          "text": "D30 retention across recent monthly install cohorts",
           "topicTags": [
             "user_acquisition"
           ],
@@ -173,7 +172,7 @@
         },
         {
           "id": "top-channels-by-nru",
-          "text": "Top 5 media sources by new registrations last 30 days",
+          "text": "Top media sources by new registrations — last 30 days",
           "topicTags": [
             "user_acquisition"
           ],
@@ -183,8 +182,7 @@
           ],
           "targetCatalogIds": [
             "game_key_metrics.nru",
-            "game_key_metrics.media_source",
-            "game_key_metrics.report_date"
+            "game_key_metrics.media_source"
           ],
           "depth": "basic"
         },
@@ -287,7 +285,7 @@
         },
         {
           "id": "arppu-by-acquisition-channel",
-          "text": "ARPPU by acquisition channel — which source brings top spenders?",
+          "text": "Revenue and ARPPU by acquisition channel — which source brings top spenders?",
           "topicTags": [
             "monetization"
           ],
@@ -296,6 +294,7 @@
             "explore"
           ],
           "targetCatalogIds": [
+            "game_key_metrics.rev",
             "game_key_metrics.arppu_vnd",
             "game_key_metrics.media_source"
           ],
@@ -347,8 +346,8 @@
           "depth": "basic"
         },
         {
-          "id": "top-servers-by-online-time",
-          "text": "Top 10 servers by total online time — where do players spend most hours?",
+          "id": "online-hours-per-day",
+          "text": "Total online hours per day — last 30 days",
           "topicTags": [
             "liveops"
           ],
@@ -357,7 +356,7 @@
           ],
           "targetCatalogIds": [
             "active_daily.total_online_time_sec",
-            "active_daily.server_id"
+            "active_daily.log_date"
           ],
           "depth": "basic"
         },
@@ -411,8 +410,8 @@
           "depth": "advanced"
         },
         {
-          "id": "dau-by-country-30d",
-          "text": "DAU by country over the last 30 days — geographic player spread",
+          "id": "matches-per-day-trend",
+          "text": "Matches played per day — last 30 days",
           "topicTags": [
             "user_acquisition"
           ],
@@ -420,9 +419,8 @@
             "explore"
           ],
           "targetCatalogIds": [
-            "active_daily.dau",
-            "active_daily.country_code",
-            "active_daily.log_date"
+            "etl_game_detail.matches",
+            "etl_game_detail.dteventtime"
           ],
           "depth": "basic"
         },
@@ -444,7 +442,7 @@
         },
         {
           "id": "trailing-mau-60d-trend",
-          "text": "Trailing MAU over the last 60 days — is the player base growing?",
+          "text": "Trailing MAU trend — last 30 days",
           "topicTags": [
             "user_acquisition"
           ],
@@ -476,8 +474,8 @@
           "depth": "advanced"
         },
         {
-          "id": "newbie-first-game-mode",
-          "text": "First game mode chosen in training — what draws new players?",
+          "id": "prologue-completion-time-trend",
+          "text": "Prologue completion time of new players — daily trend",
           "topicTags": [
             "user_acquisition"
           ],
@@ -485,8 +483,8 @@
             "explore"
           ],
           "targetCatalogIds": [
-            "etl_newbie_detail.distinct_players",
-            "etl_newbie_detail.first_game_mode"
+            "etl_newbie_detail.avg_chapter_complete_time",
+            "etl_newbie_detail.dteventtime"
           ],
           "depth": "advanced"
         },
@@ -541,8 +539,8 @@
           "depth": "basic"
         },
         {
-          "id": "recharge-density-by-server",
-          "text": "Recharge player density by server — top servers by payer share",
+          "id": "payer-share-by-role-level",
+          "text": "Payer share by role level — which levels monetize best?",
           "topicTags": [
             "monetization"
           ],
@@ -552,14 +550,14 @@
           ],
           "targetCatalogIds": [
             "active_daily.dau",
-            "active_daily.is_recharge_day",
-            "active_daily.server_id"
+            "active_daily.paying_dau",
+            "active_daily.max_role_level"
           ],
           "depth": "basic"
         },
         {
           "id": "gacha-diamond-spend-by-banner",
-          "text": "Diamond spend by gacha banner — which lottery box captures the most?",
+          "text": "Diamond spend by gacha banner — which banner captures the most?",
           "topicTags": [
             "monetization"
           ],
@@ -570,7 +568,7 @@
           "targetCatalogIds": [
             "etl_lottery_shoot.total_cost_diamond",
             "etl_lottery_shoot.distinct_players",
-            "etl_lottery_shoot.lottery_box"
+            "etl_lottery_shoot.lottery_id"
           ],
           "depth": "advanced"
         },
@@ -592,8 +590,8 @@
           "depth": "advanced"
         },
         {
-          "id": "gacha-tenpull-vs-single-ratio",
-          "text": "Ten-pull vs single-pull ratio by gacha banner",
+          "id": "gacha-gold-vs-diamond-spend",
+          "text": "Gold vs diamond spend on gacha by banner",
           "topicTags": [
             "monetization"
           ],
@@ -602,9 +600,9 @@
             "metric_explain"
           ],
           "targetCatalogIds": [
-            "etl_lottery_shoot.ten_pull_count",
-            "etl_lottery_shoot.pulls",
-            "etl_lottery_shoot.lottery_box"
+            "etl_lottery_shoot.total_cost_gold",
+            "etl_lottery_shoot.total_cost_diamond",
+            "etl_lottery_shoot.lottery_id"
           ],
           "depth": "advanced"
         }

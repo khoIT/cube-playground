@@ -134,6 +134,23 @@ describe('matchStarterQuestion', () => {
     ]);
   });
 
+  it('composes a day-granularity series when a time dimension is among the targets', () => {
+    // A time-dim TARGET means the question wants a trend, not just a bounded
+    // window — without granularity the chip collapses to one aggregate row.
+    seedHolder.hit = seedWith(
+      ['etl_game_detail.matches', 'etl_game_detail.log_date'],
+      { 'etl_game_detail.log_date': '2026-04-30' },
+    );
+    const hit = matchStarterQuestion(QUESTION_TEXT, 'cfm_vn', META, KNOWN)!;
+    expect(hit.query.timeDimensions).toEqual([
+      { dimension: 'etl_game_detail.log_date', dateRange: ['2026-04-01', '2026-04-30'], granularity: 'day' },
+    ]);
+    // Series order is chronological and the limit must hold 30 days × dim
+    // cardinality (measure-desc + 50 would drop random middle days).
+    expect(hit.query.order).toEqual({ 'etl_game_detail.log_date': 'asc' });
+    expect(hit.query.limit).toBe(1000);
+  });
+
   it('matches case- and whitespace-insensitively', () => {
     const mangled = '  which game modes and maps   drive the most matches and unique players in available data? ';
     expect(matchStarterQuestion(mangled, 'cfm_vn', META, KNOWN)).not.toBeNull();
