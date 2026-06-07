@@ -47,12 +47,17 @@ services:
       # built by cube_refresh_worker_dev below; pinned literal so an env value
       # meant for the worker can never flip this instance.
       CUBEJS_REFRESH_WORKER: "false"
-      # Standalone file-auth posture: no in-stack server to bridge to (the dev
-      # loop runs the host gateway), so resolve per-user game grants from the
-      # committed dev users file — its `playground` principal grants all games,
-      # matching the { userId: 'playground' } JWT the gateway mints.
-      AUTH_API_URL: ""
+      # Single auth source: resolve JWT userIds via the HOST gateway's
+      # /internal/access bridge — the same authority the stack cube uses. The
+      # gateway mints per-user tokens (userId = the user's email), so file auth
+      # would deny every real user ("Unknown user khoitn@vng.com.vn"). Under
+      # AUTH_DISABLED the bridge resolves every key as an all-games admin,
+      # mirroring the synth identity. File path kept as an explicit opt-out
+      # (set CUBE_DEV_AUTH_API_URL="" to fall back to auth-users.example.json).
+      AUTH_API_URL: ${CUBE_DEV_AUTH_API_URL:-http://host.docker.internal:3004}
       AUTH_USERS_FILE: /cube/conf/auth-users.example.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # colima/lima file-shares deny reads on single-FILE bind mounts, so inline
     # the same patch the stack uses (strip Trino's unprivileged SET SESSION
     # query_max_run_time from the Presto driver) instead of mounting the script.
