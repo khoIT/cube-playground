@@ -29,6 +29,7 @@ import replayRoutes from './api/replay.js';
 import statsRoutes from './api/stats.js';
 import internalStatsRoutes from './api/internal-stats.js';
 import internalCostRoutes from './api/internal-cost.js';
+import segmentBriefRoutes from './api/segment-brief.js';
 import internalLlmAuthRoutes from './api/internal-llm-auth.js';
 import { initLlmAuthMode } from './core/llm-auth-mode.js';
 import auditRoutes from './api/audit.js';
@@ -90,6 +91,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(statsRoutes, { db });
   await fastify.register(internalStatsRoutes, { db });
   await fastify.register(internalCostRoutes, { db });
+  await fastify.register(segmentBriefRoutes);
   await fastify.register(internalLlmAuthRoutes);
   await fastify.register(auditRoutes, { db });
   await fastify.register(debugRoutes, { db });

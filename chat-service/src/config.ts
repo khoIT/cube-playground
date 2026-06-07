@@ -73,6 +73,12 @@ export interface Config {
   /** Cheap model used for generating session title summaries. */
   titleModel: string;
   /**
+   * Model for the one-shot AI segment brief (`POST /internal/segment-brief`).
+   * Default sonnet — the LLM gateway key 403s non-sonnet models, so do not
+   * point this at haiku/opus without a per-feature key that allows them.
+   */
+  briefModel: string;
+  /**
    * Model for the starter-question LLM refine pass. Defaults to Opus: the
    * call is rare (once per workspace+game per schema change), cached in
    * sqlite, and fire-and-forget — so question quality wins over cost.
@@ -271,6 +277,7 @@ export const config: Config = {
   skillLoaderTtlMs: optionalInt('SKILL_LOADER_TTL_MS', DEFAULT_SKILL_LOADER_TTL),
   contextBudgetTokens: optionalInt('CHAT_CONTEXT_BUDGET_TOKENS', 180_000),
   titleModel: optional('CHAT_TITLE_MODEL', 'claude-haiku-4-5-20251001'),
+  briefModel: optional('CHAT_BRIEF_MODEL', 'claude-sonnet-4-6'),
   starterRefinerModel: optional('CHAT_STARTER_REFINER_MODEL', 'claude-opus-4-8'),
   rateLimitPerOwnerPerMin: optionalInt('CHAT_RATE_LIMIT_PER_OWNER_PER_MIN', 30),
   costPer1kInputUsd: optionalFloat('CHAT_COST_PER_1K_INPUT_USD', 0.003),

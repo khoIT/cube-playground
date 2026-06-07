@@ -18,6 +18,7 @@ import userPrefsRoutes from './routes/user-prefs.js';
 import cubeAliasesRoutes from './routes/cube-aliases.js';
 import segmentsRoutes from './routes/segments.js';
 import segmentMember360Routes from './routes/segment-member360.js';
+import segmentBriefRoutes from './routes/segment-brief.js';
 import analysesRoutes from './routes/analyses.js';
 import identityMapRoutes from './routes/identity-map.js';
 import presetsRoutes from './routes/presets.js';
@@ -85,6 +86,7 @@ export async function buildApp() {
   await app.register(cubeAliasesRoutes);
   await app.register(segmentsRoutes);
   await app.register(segmentMember360Routes);
+  await app.register(segmentBriefRoutes);
   await app.register(analysesRoutes);
   await app.register(identityMapRoutes);
   await app.register(presetsRoutes);
