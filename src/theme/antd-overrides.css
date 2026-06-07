@@ -18,6 +18,18 @@
   border-color: var(--brand);
   color: var(--brand);
 }
+/* Lucide icons passed to antd v4 Button's `icon` prop don't carry the
+   .anticon class, so antd applies neither the label gap nor baseline
+   alignment — the svg sits high and glued to the text. Align any direct
+   svg child; icon-only buttons keep no trailing gap. */
+.ant-btn > svg {
+  vertical-align: -0.155em;
+  margin-right: 6px;
+}
+.ant-btn-icon-only > svg {
+  margin-right: 0;
+}
+
 .ant-btn-primary {
   background-color: var(--brand);
   border-color: var(--brand);
