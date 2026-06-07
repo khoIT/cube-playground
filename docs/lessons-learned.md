@@ -517,6 +517,13 @@ Format per lesson:
 - **Signal:** follow-up turn's `disambiguate_query` invocation shows `overallConfidence: 0` with a clarify unrelated to the visible chart; `kv_cache` has no `disambig_resolution` row for the session despite a prior auto turn; the prior turn's tool result carries a `matched pregenerated starter question` warning.
 - **Apply:** `starterHitToResult` + `writeMemoryFromResult` + `lastQuery` merge in the starter branch (`disambiguate-query.ts`); same-fix safety nets — prior-cube anchored metric fallback with anchor-scoped token equivalence (`cube-anchored-metric-fallback.ts`) and additive-follow-up merge (`additive-follow-up.ts`, `applyAdditiveMerge`). When adding any new pass-through/short-circuit to this tool, replay a 2-turn conversation in tests, not just the single turn.
 
+### Ordering a list by a completion-time column hides rows that haven't completed yet
+
+- **Rule:** any `ORDER BY <nullable-completion-timestamp> DESC ... LIMIT n` query must `COALESCE` the sort key to a creation timestamp. SQLite sorts NULL as the smallest value, so DESC puts in-flight rows LAST — past the LIMIT they vanish entirely. Rows are invisible exactly during the window the user most expects to see them (right after creating them).
+- **Why:** `listSessions` ordered by `last_turn_at DESC LIMIT 20`; `last_turn_at` is only stamped when the first turn COMPLETES (`incrementTurnCount`), and first turns can run minutes. A user with 27 sessions started a chat, navigated away mid-turn, and the new session was unfindable in the sidebar through any number of refreshes (June-2026) — it "appeared after a while" only because the turn finally finished. A first turn that errors before completion left the session buried forever. Looked like an ownership/refresh bug; the FE refetch machinery (`gds-cube:chat-session-changed`, `cache: no-store`) was all working — the SERVER was excluding the row.
+- **Signal:** "my new X doesn't show up in the list until much later / after refreshing"; the row exists in the DB with the sort-key column NULL; list endpoint has `LIMIT`; FE refetch events fire correctly.
+- **Apply:** `ORDER BY COALESCE(last_turn_at, created_at) DESC` in `listSessions` + `listSharedSessions` (`chat-store.ts`). When adding any list endpoint sorted by an activity timestamp, write the test "just-created row with NULL activity + LIMIT-worth of older rows → new row is first".
+
 ---
 
 ## How to extend this doc

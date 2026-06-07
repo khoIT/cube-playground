@@ -75,7 +75,7 @@ export function listSharedSessions(
          WHERE visibility = 'shared' AND game_id = ? AND workspace = ? AND status = 'active'
            AND deleted_at IS NULL
            AND title LIKE ? ESCAPE '\\'
-         ORDER BY last_turn_at DESC, created_at DESC
+         ORDER BY COALESCE(last_turn_at, created_at) DESC, created_at DESC
          LIMIT ?`,
       )
       .all(params.gameId, workspace, pattern, limit) as ChatSessionRow[];
@@ -85,7 +85,7 @@ export function listSharedSessions(
       `SELECT * FROM chat_sessions
        WHERE visibility = 'shared' AND game_id = ? AND workspace = ? AND status = 'active'
          AND deleted_at IS NULL
-       ORDER BY last_turn_at DESC, created_at DESC
+       ORDER BY COALESCE(last_turn_at, created_at) DESC, created_at DESC
        LIMIT ?`,
     )
     .all(params.gameId, workspace, limit) as ChatSessionRow[];
@@ -102,6 +102,11 @@ export function getSession(
   );
 }
 
+// NOTE on ordering: last_turn_at is NULL until the first turn COMPLETES
+// (incrementTurnCount). SQLite sorts NULL as the smallest value, so a plain
+// `ORDER BY last_turn_at DESC` buried just-created sessions at the bottom —
+// past LIMIT they were invisible in the sidebar until the (possibly minutes-
+// long) first turn finished. COALESCE to created_at keeps them on top.
 export function listSessions(
   db: Database.Database,
   params: { ownerId: string; gameId: string; workspace?: string; limit?: number; q?: string },
@@ -119,7 +124,7 @@ export function listSessions(
          WHERE owner_id = ? AND game_id = ? AND workspace = ? AND status != 'archived'
            AND deleted_at IS NULL
            AND title LIKE ? ESCAPE '\\'
-         ORDER BY last_turn_at DESC, created_at DESC
+         ORDER BY COALESCE(last_turn_at, created_at) DESC, created_at DESC
          LIMIT ?`,
       )
       .all(params.ownerId, params.gameId, workspace, pattern, limit) as ChatSessionRow[];
@@ -129,7 +134,7 @@ export function listSessions(
       `SELECT * FROM chat_sessions
        WHERE owner_id = ? AND game_id = ? AND workspace = ? AND status != 'archived'
          AND deleted_at IS NULL
-       ORDER BY last_turn_at DESC, created_at DESC
+       ORDER BY COALESCE(last_turn_at, created_at) DESC, created_at DESC
        LIMIT ?`,
     )
     .all(params.ownerId, params.gameId, workspace, limit) as ChatSessionRow[];

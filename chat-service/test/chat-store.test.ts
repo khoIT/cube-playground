@@ -53,6 +53,25 @@ describe('chatStore', () => {
       expect(list.every((s) => s.owner_id === 'owner1' && s.game_id === 'ptg')).toBe(true);
     });
 
+    it('lists a just-created session (NULL last_turn_at) first, even past LIMIT of older sessions', () => {
+      // 20 older sessions with completed turns (last_turn_at set). Backdate
+      // them 1 min so timestamps can't tie with the fresh session below.
+      for (let i = 0; i < 20; i++) {
+        const s = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg', title: `old ${i}` });
+        chatStore.incrementTurnCount(db, s.id, 10, 10);
+        db.prepare('UPDATE chat_sessions SET created_at = ?, last_turn_at = ? WHERE id = ?')
+          .run(Date.now() - 60_000, Date.now() - 60_000, s.id);
+      }
+      // Fresh session whose first turn hasn't completed yet — last_turn_at NULL.
+      const fresh = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg', title: 'fresh' });
+      expect(chatStore.getSession(db, fresh.id)!.last_turn_at).toBeNull();
+
+      const list = chatStore.listSessions(db, { ownerId: 'owner1', gameId: 'ptg', limit: 20 });
+      expect(list).toHaveLength(20);
+      // Plain ORDER BY last_turn_at DESC sorted NULL last → cut off by LIMIT.
+      expect(list[0].id).toBe(fresh.id);
+    });
+
     it('deletes a session — gone from listSessions, getSession, and records a tombstone', () => {
       const session = chatStore.createSession(db, { ownerId: 'owner1', gameId: 'ptg' });
       chatStore.deleteSession(db, session.id);
