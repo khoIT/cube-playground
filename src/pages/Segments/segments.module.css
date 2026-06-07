@@ -2355,3 +2355,312 @@
   font-size: 12px;
   color: var(--text-secondary);
 }
+
+/* ── Push modal · guided rail (review → define) ───────────────── */
+.pushSteps {
+  display: flex;
+  flex-direction: column;
+}
+
+.pushStep {
+  display: flex;
+  gap: 12px;
+}
+
+.pushRail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 22px;
+}
+
+.pushRailDot {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--text-primary);
+  color: var(--bg-card);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.pushRailLine {
+  width: 1.5px;
+  flex: 1;
+  background: var(--border-card);
+  margin: 4px 0;
+}
+
+.pushStepBody {
+  flex: 1;
+  padding-bottom: 16px;
+  min-width: 0;
+}
+
+.pushStepTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 2px 0 8px;
+}
+
+.pushReviewCard {
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pushChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pushChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: var(--brand-soft);
+  color: var(--brand-hover);
+  border: 1px solid var(--brand-border, var(--border-card));
+  border-radius: var(--radius-full);
+}
+
+.pushChipKey {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.pushScopeRow {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pushScopeMono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.pushScopeStrong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.pushNameRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pushNameRow > :first-child {
+  flex: 1;
+}
+
+.pushSuggestChip {
+  border: 1px dashed var(--border-strong);
+  background: var(--bg-muted);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pushSuggestChip:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.pushTypeRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pushTypeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  cursor: pointer;
+  background: var(--bg-card);
+  text-align: left;
+  width: 100%;
+}
+
+.pushTypeRowActive {
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+.pushRadio {
+  width: 15px;
+  height: 15px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border-strong);
+  margin-top: 1px;
+  flex: none;
+  position: relative;
+}
+
+.pushTypeRowActive .pushRadio {
+  border-color: var(--brand);
+}
+
+.pushTypeRowActive .pushRadio::after {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  border-radius: var(--radius-full);
+  background: var(--brand);
+}
+
+.pushTypeTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pushTypeHint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+
+.pushLivePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--live-badge-text, var(--success-ink));
+  background: var(--live-badge-bg, var(--success-soft));
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+}
+
+.pushLivePillDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--live-badge-dot, var(--success));
+}
+
+.pushCtaSub {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.pushAltLink {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 10px;
+}
+
+.pushAltLink a {
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── Push modal · created/appended toast (antd notification reskin) ── */
+/* Doubled class bumps specificity over .ant-notification-notice. */
+.pushToast.pushToast {
+  font-family: var(--font-sans);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  width: 360px;
+}
+
+.pushToast :global(.ant-notification-notice-with-icon .ant-notification-notice-message) {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-left: 34px;
+  margin-bottom: 2px;
+}
+
+.pushToast :global(.ant-notification-notice-with-icon .ant-notification-notice-description) {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-left: 34px;
+  overflow-wrap: anywhere;
+}
+
+.pushToast :global(.ant-notification-notice-icon) {
+  margin-left: 0;
+  margin-top: 1px;
+  line-height: 1;
+}
+
+.pushToast :global(.ant-notification-notice-btn) {
+  margin-top: 10px;
+  float: right;
+}
+
+.pushToast :global(.ant-notification-notice-close) {
+  top: 14px;
+  right: 14px;
+  color: var(--text-muted);
+}
+
+.pushToastIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--success-soft);
+  color: var(--success-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pushToastBtn {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  height: 28px;
+  padding: 0 12px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pushToastBtn:hover {
+  background: var(--brand-hover);
+}

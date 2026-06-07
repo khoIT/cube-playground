@@ -5,7 +5,7 @@
  */
 
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { Modal, Input, Select, Button, message } from 'antd';
+import { Modal, Input, Select, Button, message, notification } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import type { Query } from '@cubejs-client/core';
@@ -17,11 +17,8 @@ import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { buildPredicateFromRows } from '../../../QueryBuilderV2/segments-save-bar/build-predicate-from-rows';
 import { SliceScopeNote } from '../slice-scope/slice-scope-note';
 import { summarizeSelection } from './selection-summary';
-import {
-  formatCategoricalValue,
-  formatNumericScalar,
-  parseColumnLabel,
-} from './format-selection-summary';
+import { suggestSegmentName } from './suggest-segment-name';
+import { PushModalReviewStep } from './push-modal-review-step';
 import styles from '../segments.module.css';
 
 type ModeTab = 'create' | 'append';
@@ -101,24 +98,31 @@ export function PushModal({
   const [staticSegments, setStaticSegments] = useState<Segment[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const showSegmentToast = (segmentId: string, text: string): void => {
+  // Notification (not a small message toast) so the user can actually see
+  // which segment was just created and has a real button to jump to it.
+  // notification.open + custom icon/classes: antd's stock success card (big
+  // outline icon, 24px paddings, default button) reads off-system, so the
+  // frame is restyled via .pushToast in segments.module.css.
+  const showSegmentToast = (segmentId: string, segmentName: string, text: string): void => {
     const key = `segment-toast-${segmentId}`;
-    message.open({
-      type: 'success',
+    notification.open({
       key,
-      duration: 6,
-      content: (
-        <span>
-          {text}{' '}
-          <a
-            onClick={() => {
-              message.destroy(key);
-              history.push(`/segments/${segmentId}`);
-            }}
-          >
-            {t('segments.push.viewSegment', { defaultValue: 'View' })}
-          </a>
-        </span>
+      duration: 8,
+      className: styles.pushToast,
+      icon: <span className={styles.pushToastIcon}>✓</span>,
+      message: text,
+      description: segmentName,
+      btn: (
+        <button
+          type="button"
+          className={styles.pushToastBtn}
+          onClick={() => {
+            notification.close(key);
+            history.push(`/segments/${segmentId}`);
+          }}
+        >
+          {t('segments.push.viewSegment', { defaultValue: 'View segment →' })}
+        </button>
       ),
     });
   };
@@ -164,7 +168,6 @@ export function PushModal({
     () => summarizeSelection(rows, { excludeColumns }),
     [rows, excludeColumns],
   );
-  const showValueCounts = summary.total > 1;
 
   // Preview the predicate the Live segment will save, so we can show the user
   // exactly which slice the monitor metrics will be scoped to. Mirrors the
@@ -234,7 +237,7 @@ export function PushModal({
       };
       const created = await segmentsClient.create(input);
       invalidateSegmentIds();
-      showSegmentToast(created.id, t('segments.push.toastCreated'));
+      showSegmentToast(created.id, created.name, t('segments.push.toastCreated'));
       onCreated?.(created.id);
       onClose();
     } catch (err) {
@@ -254,7 +257,11 @@ export function PushModal({
     try {
       const finalUids = await resolveUidList();
       const res = await segmentsClient.append(targetId, finalUids);
-      showSegmentToast(targetId, t('segments.push.toastAppended', { count: finalUids.length }));
+      showSegmentToast(
+        targetId,
+        staticSegments.find((s) => s.id === targetId)?.name ?? targetId,
+        t('segments.push.toastAppended', { count: finalUids.length }),
+      );
       onCreated?.(targetId);
       onClose();
       void res;
@@ -266,6 +273,13 @@ export function PushModal({
     }
   };
 
+  // ✦ name suggestion + CTA phrasing, both derived from the selected cohort.
+  const suggestion = suggestSegmentName(summary.categoricals, granularityByCol);
+  const ctaLabel =
+    type === 'predicate'
+      ? t('segments.push.ctaCreateLive', { defaultValue: 'Create Live segment' })
+      : t('segments.push.ctaCreateStatic', { defaultValue: 'Create static segment' });
+
   return (
     <Modal
       visible={open}
@@ -276,133 +290,147 @@ export function PushModal({
       destroyOnClose
     >
       <div className={styles.modalContent}>
-        <div className={styles.modalTabs} role="tablist">
-          {(['create', 'append'] as ModeTab[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="tab"
-              aria-selected={tab === m}
-              className={[
-                styles.modalTab,
-                tab === m ? styles.modalTabActive : '',
-              ].filter(Boolean).join(' ')}
-              onClick={() => setTab(m)}
-            >
-              {t(`segments.push.tabs.${m}`)}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryHeading}>{t('segments.push.summary')}</div>
-          <div>
-            {expansionPending
-              ? t('segments.push.summaryExpansion', {
-                  count: rows.length,
-                  defaultValue: '{{count}} cohort(s) selected — user_ids will be materialized at save',
-                })
-              : !allowStatic
-              ? t('segments.push.summaryPredicate', {
-                  count: uids.length,
-                  defaultValue:
-                    '{{count}} user_ids in current result — segment refreshes against the query predicate',
-                })
-              : t('segments.push.summaryCount', { count: uids.length })}
-          </div>
-          {(summary.categoricals.length > 0 || summary.numeric) && (
-            <dl className={styles.summaryRows}>
-              {summary.categoricals.map((c) => {
-                const label = parseColumnLabel(c.column, granularityByCol);
-                return (
-                  <div key={c.column} className={styles.summaryRow}>
-                    <dt className={styles.summaryRowLabel}>
-                      {label.member}
-                      {label.granularity && (
-                        <span className={styles.summaryRowTag}>{label.granularity}</span>
-                      )}
-                    </dt>
-                    <dd className={styles.summaryRowValue}>
-                      {c.topValues
-                        .map((v) => {
-                          const text = formatCategoricalValue(v.value, label.granularity);
-                          return showValueCounts ? `${text} (${v.count})` : text;
-                        })
-                        .join(', ')}
-                    </dd>
-                  </div>
-                );
-              })}
-              {summary.numeric && (() => {
-                const label = parseColumnLabel(summary.numeric.column, granularityByCol);
-                return (
-                  <div className={styles.summaryRow}>
-                    <dt className={styles.summaryRowLabel}>
-                      avg {label.member}
-                    </dt>
-                    <dd className={styles.summaryRowValue}>
-                      {formatNumericScalar(summary.numeric.avg)}
-                    </dd>
-                  </div>
-                );
-              })()}
-            </dl>
-          )}
-        </div>
-
         {tab === 'create' ? (
           <>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel} htmlFor="seg-name">
-                {t('segments.push.name')}
-              </label>
-              <Input
-                id="seg-name"
-                value={name}
-                placeholder={t('segments.push.namePlaceholder')}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
+            {/* Guided rail: step 1 review → step 2 define. The numbered rail
+                forces the eye through "what am I saving" before the form. */}
+            <div className={styles.pushSteps}>
+              <div className={styles.pushStep}>
+                <div className={styles.pushRail}>
+                  <div className={styles.pushRailDot}>1</div>
+                  <div className={styles.pushRailLine} />
+                </div>
+                <div className={styles.pushStepBody}>
+                  <div className={styles.pushStepTitle}>
+                    {t('segments.push.step1Title', { defaultValue: 'Review what you selected' })}
+                  </div>
+                  <PushModalReviewStep
+                    summary={summary}
+                    granularityByCol={granularityByCol}
+                    cube={cube}
+                    executedQuery={executedQuery}
+                    expansionPending={expansionPending}
+                    uidCount={uids.length}
+                  />
+                </div>
+              </div>
 
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>{t('segments.push.typeLabel')}</label>
-              <div className={styles.typeChoices}>
-                {allowStatic && (
-                  <button
-                    type="button"
-                    className={[
-                      styles.typeOption,
-                      type === 'manual' ? styles.typeOptionActive : '',
-                    ].filter(Boolean).join(' ')}
-                    onClick={() => setType('manual')}
-                  >
-                    <div className={styles.typeOptionTitle}>{t('segments.push.typeStatic')}</div>
-                    <div className={styles.typeOptionHint}>{t('segments.push.typeStaticHint')}</div>
-                  </button>
-                )}
-                {allowLive && (
-                  <button
-                    type="button"
-                    className={[
-                      styles.typeOption,
-                      type === 'predicate' ? styles.typeOptionActive : '',
-                    ].filter(Boolean).join(' ')}
-                    onClick={() => setType('predicate')}
-                  >
-                    <div className={styles.typeOptionTitle}>{t('segments.push.typeLive')}</div>
-                    <div className={styles.typeOptionHint}>{t('segments.push.typeLiveHint')}</div>
-                  </button>
-                )}
+              <div className={styles.pushStep}>
+                <div className={styles.pushRail}>
+                  <div className={styles.pushRailDot}>2</div>
+                </div>
+                <div className={styles.pushStepBody} style={{ paddingBottom: 4 }}>
+                  <div className={styles.pushStepTitle}>
+                    {t('segments.push.step2Title', { defaultValue: 'Define the segment' })}
+                  </div>
+                  <div className={styles.pushNameRow}>
+                    <Input
+                      id="seg-name"
+                      value={name}
+                      placeholder={t('segments.push.namePlaceholder')}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                    {suggestion && !name && (
+                      <button
+                        type="button"
+                        className={styles.pushSuggestChip}
+                        onClick={() => setName(suggestion)}
+                        title={t('segments.push.suggestName', {
+                          defaultValue: 'Use suggested name',
+                        })}
+                      >
+                        ✦ {suggestion}
+                      </button>
+                    )}
+                  </div>
+                  <div className={styles.pushTypeRows} role="radiogroup">
+                    {allowStatic && (
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={type === 'manual'}
+                        className={[
+                          styles.pushTypeRow,
+                          type === 'manual' ? styles.pushTypeRowActive : '',
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => setType('manual')}
+                      >
+                        <span className={styles.pushRadio} />
+                        <span>
+                          <span className={styles.pushTypeTitle}>
+                            {t('segments.push.typeStaticTitle', { defaultValue: 'Static snapshot' })}
+                          </span>
+                          <span className={styles.pushTypeHint} style={{ display: 'block' }}>
+                            {t('segments.push.typeStaticHint')}
+                          </span>
+                        </span>
+                      </button>
+                    )}
+                    {allowLive && (
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={type === 'predicate'}
+                        className={[
+                          styles.pushTypeRow,
+                          type === 'predicate' ? styles.pushTypeRowActive : '',
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => setType('predicate')}
+                      >
+                        <span className={styles.pushRadio} />
+                        <span>
+                          <span className={styles.pushTypeTitle}>
+                            {t('segments.push.typeLive')}
+                            <span className={styles.pushLivePill}>
+                              <span className={styles.pushLivePillDot} />
+                              {t('segments.push.typeLivePill', { defaultValue: 'auto-refresh' })}
+                            </span>
+                          </span>
+                          <span className={styles.pushTypeHint} style={{ display: 'block' }}>
+                            {t('segments.push.typeLiveHint')}
+                          </span>
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                  {type === 'predicate' && (
+                    <SliceScopeNote predicate={previewPredicate} variant="create" />
+                  )}
+                </div>
               </div>
             </div>
 
-            {type === 'predicate' && <SliceScopeNote predicate={previewPredicate} variant="create" />}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={onClose} disabled={submitting}>Cancel</Button>
-              <Button type="primary" loading={submitting} onClick={handleCreate}>
-                {t('segments.push.submitCreate')}
+            <div>
+              <Button
+                type="primary"
+                block
+                loading={submitting}
+                onClick={handleCreate}
+                style={{ height: 36 }}
+              >
+                {suggestion ? `${ctaLabel} — ${suggestion}` : ctaLabel}
               </Button>
+              <div className={styles.pushCtaSub}>
+                {type === 'predicate'
+                  ? t('segments.push.ctaLiveSub', {
+                      defaultValue:
+                        'Stores the filter as a predicate — membership refreshes on cadence.',
+                    })
+                  : t('segments.push.ctaStaticSub', {
+                      defaultValue:
+                        "Membership won't change after creation. You can convert to Live later.",
+                    })}
+              </div>
+              {allowStatic && (
+                <div className={styles.pushAltLink}>
+                  {t('segments.push.appendLinkPrefix', { defaultValue: 'or' })}{' '}
+                  <a onClick={() => setTab('append')}>
+                    {t('segments.push.appendLink', {
+                      defaultValue: 'append these users to an existing static segment',
+                    })}
+                  </a>
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -420,11 +448,16 @@ export function PushModal({
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <Button onClick={onClose} disabled={submitting}>Cancel</Button>
-              <Button type="primary" loading={submitting} onClick={handleAppend}>
-                {t('segments.push.submitAppend')}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <Button type="link" onClick={() => setTab('create')} style={{ paddingLeft: 0 }}>
+                {t('segments.push.backToCreate', { defaultValue: '← Back to create' })}
               </Button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button onClick={onClose} disabled={submitting}>Cancel</Button>
+                <Button type="primary" loading={submitting} onClick={handleAppend}>
+                  {t('segments.push.submitAppend')}
+                </Button>
+              </div>
             </div>
           </>
         )}
