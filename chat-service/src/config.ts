@@ -220,6 +220,14 @@ export interface Config {
    * member-rich games. Set to 0 to disable the timeout.
    */
   chatTurnTimeoutMs: number;
+  /**
+   * Budget (ms) for the one-shot salvage LLM call that writes a best-effort
+   * answer from the reasoning transcript when a turn hits chatTurnTimeoutMs
+   * with no answer text. Falls back to a deterministic notice when the salvage
+   * call itself exceeds this budget or fails. 0 disables salvage entirely
+   * (timed-out turns persist a deterministic notice instead of empty text).
+   */
+  chatTimeoutSalvageMs: number;
   /** Emit a per-turn stage-timing log line from the /agent/turn pipeline. */
   chatTurnProfilingEnabled: boolean;
   /**
@@ -314,6 +322,7 @@ export const config: Config = {
   chatNlqDecomposedToolsEnabled: optional('CHAT_NLQ_DECOMPOSED_TOOLS', 'false') === 'true',
   obsParallelEmitEnabled: optional('OBS_PARALLEL_EMIT', 'false') === 'true',
   chatTurnTimeoutMs: optionalInt('CHAT_TURN_TIMEOUT_MS', 240_000),
+  chatTimeoutSalvageMs: optionalInt('CHAT_TIMEOUT_SALVAGE_MS', 30_000),
   chatTurnProfilingEnabled: optional('CHAT_TURN_PROFILING', 'false') === 'true',
   chatEnableWebSearch: optional('CHAT_ENABLE_WEB_SEARCH', 'false') === 'true',
   chatEnableResearchMode: optional('CHAT_ENABLE_RESEARCH_MODE', 'false') === 'true',

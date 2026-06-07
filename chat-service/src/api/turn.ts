@@ -36,6 +36,8 @@ import { appendParallelEmitDiff } from '../observability/parallel-emit-log.js';
 import { createTurnTimer } from '../observability/turn-timing.js';
 import { buildTurnObserver } from './turn/build-observer.js';
 import { maybeSummariseTitle } from './turn/maybe-summarise-title.js';
+import { salvageTimeoutAnswer } from './turn/salvage-timeout-answer.js';
+import { isHeavyAnalysisQuestion } from './turn/heavy-question-timeout.js';
 import { writeSessionFocus } from './turn/write-session-focus.js';
 import { precheckAutoCompact } from './turn/precheck-auto-compact.js';
 import { maybeWriteResponseCache } from '../cache/response-cache-write.js';
@@ -286,12 +288,15 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       config.chatEnableResearchMode && (researchOverride || skillMeta?.enableResearchMode || false);
 
     // Phase 04/06 — arm the per-turn timeout now that skill meta is resolved.
-    // Research mode doubles the budget; 0 disables the timeout entirely.
+    // Research mode doubles the budget; funnel/journey-class questions get the
+    // same doubling (they fan out into many sequential cube queries and were
+    // routinely killed mid-analysis). 0 disables the timeout entirely.
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-    if (config.chatTurnTimeoutMs > 0) {
-      const effectiveTimeoutMs = researchModeEnabled
+    const effectiveTimeoutMs =
+      researchModeEnabled || isHeavyAnalysisQuestion(body.message)
         ? config.chatTurnTimeoutMs * 2
         : config.chatTurnTimeoutMs;
+    if (config.chatTurnTimeoutMs > 0) {
       timeoutHandle = setTimeout(() => {
         registry.abort(turnId, 'timeout');
       }, effectiveTimeoutMs);
@@ -537,6 +542,31 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
             '[turn] failed to persist sdk_conversation_id',
           );
         }
+      }
+
+      // Timeout abort with no answer text: the model did real work (reasoning
+      // + tool calls) but the budget expired before it composed an answer.
+      // Salvage one bounded, tool-less LLM pass over the reasoning transcript
+      // so the user gets a best-effort answer instead of a blank aborted turn
+      // (degrades to a deterministic notice). User cancels are NOT salvaged —
+      // the user asked to stop.
+      if (
+        controller.signal.aborted &&
+        registry.get(turnId)?.abortReason === 'timeout' &&
+        !assistantText
+      ) {
+        assistantText = await salvageTimeoutAnswer({
+          question: body.message,
+          reasoningText,
+          artifactCount: collectedArtifacts.length,
+          timeoutMs: effectiveTimeoutMs,
+          model: resolvedModel,
+          logger: fastify.log,
+        });
+        // Surface the salvaged text on the live stream; the FE accumulates
+        // token deltas into the message body, then turn_aborted (emitted
+        // below) marks the turn as timed out — honestly — on top of it.
+        emit({ type: 'token', data: { delta: assistantText } });
       }
 
       // --- 8. Persist assistant turn ---
