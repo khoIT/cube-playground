@@ -67,6 +67,11 @@ const Form = styled.form`
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* Children must NOT shrink: in a column flexbox the items compress to fit
+     before the container overflows, so overflow-y never engages. The concept
+     tier <Section> (overflow:hidden → auto min-size 0) absorbs all the
+     deficit and its fields get clipped with no scrollbar. */
+  & > * { flex-shrink: 0; }
 `;
 
 const Row = styled.div<{ $cols?: number }>`

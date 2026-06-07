@@ -148,6 +148,12 @@ Format per lesson:
 - **Signal:** new surface uses fonts, padding, header shape, or radii that don't match the closest existing well-formed page. Hard-coded hex colors instead of `--text-*` / `--border-*` / `--*-soft / -ink` tokens.
 - **Apply:** before shipping any UI work read `docs/design-guidelines.md` and copy the page header recipe verbatim. If a direction genuinely warrants forking, isolate the fork to one route and ship it behind a "this is intentional" comment + design-review handshake — don't introduce drift through the back door of a feature PR.
 
+### Scrollable flex column: children shrink to fit before overflow-y ever engages
+- **Rule:** a `display:flex; flex-direction:column; overflow-y:auto` container must also set `& > * { flex-shrink: 0; }` (or equivalent) on its children. Otherwise flexbox compresses the children to fit the container height and `scrollHeight` never exceeds `clientHeight` — no scrollbar, content just clipped. Children with their own `overflow:hidden` are the worst case: that resets their automatic minimum size from min-content to 0, so one such child silently absorbs the entire height deficit.
+- **Why:** the glossary edit-term modal had the canonical dialog scroll recipe (dialog `max-height:92vh; overflow:hidden`, form `flex:1; min-height:0; overflow-y:auto`) across two prior fixes — and still clipped. The collapsible Concept-tier `<Section>` (`overflow:hidden` for its rounded corner) shrank to absorb ~400px of overflow, clipping its fields with zero scrollbar. DevTools-style evidence: `form.scrollHeight === clientHeight` (527) while the last field's `getBoundingClientRect().bottom` (1010) sat far below the form's box bottom (613).
+- **Signal:** modal/panel content visibly cut off, wheel does nothing, and in console `el.scrollHeight === el.clientHeight` even though a descendant's rect bottom exceeds the container's rect bottom. Two scroll "fixes" on the same surface that adjust the container but never the children is the historical tell.
+- **Apply:** add `& > * { flex-shrink: 0; }` inside the scrollable flex column's CSS (styled-components nesting works). Verify with a headless-browser measurement (scrollHeight > clientHeight, last field's rect inside the form rect at max scroll), not by eyeballing — jsdom can't test layout.
+
 ---
 
 ## Agent query construction
