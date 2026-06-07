@@ -1,0 +1,76 @@
+# Canonical (fixed-step) funnel: register → login → recharge, pre-aggregated.
+# See cfm/ordered_funnel_canonical.yml for the full design rationale (why the
+# parametric ordered_event_funnel cannot be pre-aggregated, first-occurrence
+# dedup, 93-day window, HLL approx counts).
+# muaw columns match ballistar: account_id + create_time / login_time / recharge_time.
+
+cubes:
+  - name: ordered_funnel_canonical
+    title: Canonical Funnel (register → login → recharge, pre-aggregated)
+    description: >
+      Fixed-step first-occurrence funnel served from a pre-aggregation —
+      use this for standard register/login/recharge funnel questions (fast,
+      ~1-2% approximate counts). For custom step sets or step ordering, use
+      ordered_event_funnel (live, exact, requires a bounded ts range).
+    sql: |
+      WITH firsts AS (
+        SELECT user_id, event_name, MIN(ts) AS ts
+        FROM (
+          SELECT account_id AS user_id, 'register' AS event_name, create_time AS ts
+          FROM etl_ingame_register
+          WHERE log_date >= date_add('day', -93, current_date)
+          UNION ALL
+          SELECT account_id, 'login', login_time
+          FROM etl_ingame_login
+          WHERE log_date >= date_add('day', -93, current_date)
+          UNION ALL
+          SELECT account_id, 'recharge', recharge_time
+          FROM etl_ingame_recharge
+          WHERE log_date >= date_add('day', -93, current_date)
+        )
+        GROUP BY 1, 2
+      )
+      SELECT
+        user_id,
+        event_name,
+        ts,
+        CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts) AS BIGINT) AS step_index
+      FROM firsts
+
+    refresh_key:
+      every: 6 hour
+
+    dimensions:
+      - name: step_index
+        sql: step_index
+        type: number
+        description: Chronological position (1-based) of this event's first occurrence among the user's canonical events.
+
+      - name: step_name
+        sql: event_name
+        type: string
+        description: One of register / login / recharge.
+
+      - name: ts
+        sql: ts
+        type: time
+        description: First occurrence timestamp of this event for this user (within the rolling 93-day window).
+
+    measures:
+      - name: step_count
+        type: count_distinct_approx
+        sql: user_id
+        description: Approximate distinct users (HLL) whose first occurrence of this event sits at this step position.
+
+    pre_aggregations:
+      - name: canonical_daily
+        type: rollup
+        measures:
+          - step_count
+        dimensions:
+          - step_index
+          - step_name
+        time_dimension: ts
+        granularity: day
+        refresh_key:
+          every: 6 hour

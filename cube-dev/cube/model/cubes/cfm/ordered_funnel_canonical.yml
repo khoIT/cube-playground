@@ -1,0 +1,102 @@
+# Canonical (fixed-step) funnel: register → login → recharge, pre-aggregated.
+#
+# Why this exists alongside ordered_event_funnel:
+#   - ordered_event_funnel is query-time parametric (step_name FILTER_PARAMS
+#     feeds the ROW_NUMBER input). A pre-aggregation build renders
+#     FILTER_PARAMS to TRUE, so a rollup would bake step indices computed over
+#     ALL event types while live queries compute them over the SELECTED subset
+#     — same query, silently different numbers. Parametric funnels therefore
+#     cannot be pre-aggregated; this cube fixes the step set so the rollup is
+#     exact-semantics.
+#   - Steps dedup to the FIRST occurrence per user per event type, so step
+#     positions are chronological over at most 3 rows per user (a user with
+#     register → 50 logins → recharge lands recharge at step 3, not step 52).
+#   - The inner scan self-bounds to a rolling 93-day window on log_date (the
+#     partition column), so the rollup build never full-scans event history.
+#     Funnels for cohorts older than ~3 months need the live parametric cube.
+#   - step_count is count_distinct_approx (HLL): day-grain rollup rows must
+#     re-aggregate across arbitrary dateRanges, which exact count_distinct
+#     cannot do. Expect ~1-2% approximation on large counts.
+#
+# Serving: queries on (step_index, step_name, ts@day, step_count) hit the
+# CubeStore rollup in milliseconds. The refresh worker rebuilds it on the
+# refresh_key cadence — see "Production" note at the bottom.
+
+cubes:
+  - name: ordered_funnel_canonical
+    title: Canonical Funnel (register → login → recharge, pre-aggregated)
+    description: >
+      Fixed-step first-occurrence funnel served from a pre-aggregation —
+      use this for standard register/login/recharge funnel questions (fast,
+      ~1-2% approximate counts). For custom step sets or step ordering, use
+      ordered_event_funnel (live, exact, requires a bounded ts range).
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+    sql: |
+      WITH firsts AS (
+        SELECT user_id, event_name, MIN(ts) AS ts
+        FROM (
+          SELECT vopenid AS user_id, 'register' AS event_name, dteventtime AS ts
+          FROM etl_ingame_register
+          WHERE log_date >= date_add('day', -93, current_date)
+          UNION ALL
+          SELECT vopenid, 'login', dteventtime
+          FROM etl_ingame_login
+          WHERE log_date >= date_add('day', -93, current_date)
+          UNION ALL
+          SELECT vopenid, 'recharge', dteventtime
+          FROM etl_ingame_recharge
+          WHERE log_date >= date_add('day', -93, current_date)
+        )
+        GROUP BY 1, 2
+      )
+      SELECT
+        user_id,
+        event_name,
+        ts,
+        CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts) AS BIGINT) AS step_index
+      FROM firsts
+
+    refresh_key:
+      every: 6 hour
+
+    dimensions:
+      - name: step_index
+        sql: step_index
+        type: number
+        description: Chronological position (1-based) of this event's first occurrence among the user's canonical events.
+
+      - name: step_name
+        sql: event_name
+        type: string
+        description: One of register / login / recharge.
+
+      - name: ts
+        sql: ts
+        type: time
+        description: First occurrence timestamp of this event for this user (within the rolling 93-day window).
+
+    measures:
+      - name: step_count
+        type: count_distinct_approx
+        sql: user_id
+        description: Approximate distinct users (HLL) whose first occurrence of this event sits at this step position.
+
+    pre_aggregations:
+      # Single (non-partitioned) rollup: the ts predicate cannot push below the
+      # ROW_NUMBER window, so daily partitions would each re-scan the whole
+      # 93-day window. One build per refresh scans the window once and rewrites
+      # the rollup; queries then re-aggregate HLL sketches across days.
+      - name: canonical_daily
+        type: rollup
+        measures:
+          - step_count
+        dimensions:
+          - step_index
+          - step_name
+        time_dimension: ts
+        granularity: day
+        refresh_key:
+          every: 6 hour

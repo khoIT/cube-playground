@@ -42,6 +42,11 @@ cubes:
           <ts_col>      AS ts
         FROM <events_table>
         WHERE {FILTER_PARAMS.ordered_event_funnel.step_name.filter('<event_col>')}
+          -- Push the UI's date range into the scan. Apply it BOTH to the event
+          -- timestamp and to the table's partition column (log_date or similar)
+          -- so the warehouse prunes partitions instead of full-scanning history.
+          AND {FILTER_PARAMS.ordered_event_funnel.ts.filter('<ts_col>')}
+          AND {FILTER_PARAMS.ordered_event_funnel.ts.filter('<partition_col>')}
       ),
       ranked AS (
         SELECT
@@ -76,6 +81,15 @@ cubes:
       - name: step_name
         sql: ''
         type: string
+
+      # REQUIRED by the frontend dispatcher (run-funnel.ts queries
+      # `<cube>.ts` as a timeDimension) and by the chat agent. Must resolve
+      # to TIMESTAMP, not DATE. Queries without a ts dateRange should be
+      # rejected by a query-rewrite guard — an unbounded ordered-funnel scan
+      # reads every event partition.
+      - name: ts
+        sql: ts
+        type: time
 
     measures:
       - name: step_count

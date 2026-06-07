@@ -14,24 +14,34 @@ cubes:
       - name: mf_users
         relationship: many_to_one
         sql: "{CUBE}.user_id = {mf_users}.user_id"
+    # The `ts` time dimension is pushed into the scan twice: once against the
+    # event timestamp and once against `log_date`, the partition column of every
+    # etl_ingame_* table. The log_date predicate is what lets Trino prune
+    # partitions — without it any funnel query full-scans all event history and
+    # exceeds the gateway's 15s budget. Day-boundary skew between event tz and
+    # the log_date partition is acceptable for funnel analytics (same contract
+    # as querying the etl_* cubes directly by log_date).
     sql: |
       WITH events AS (
-        SELECT vopenid AS user_id, 'login'    AS event_name, dteventtime AS ts FROM etl_ingame_login
+        SELECT vopenid AS user_id, 'login'    AS event_name, dteventtime AS ts, log_date FROM etl_ingame_login
         UNION ALL
-        SELECT vopenid,            'logout',                  dteventtime        FROM etl_ingame_logout
+        SELECT vopenid,            'logout',                  dteventtime,       log_date FROM etl_ingame_logout
         UNION ALL
-        SELECT vopenid,            'recharge',                dteventtime        FROM etl_ingame_recharge
+        SELECT vopenid,            'recharge',                dteventtime,       log_date FROM etl_ingame_recharge
         UNION ALL
-        SELECT vopenid,            'register',                dteventtime        FROM etl_ingame_register
+        SELECT vopenid,            'register',                dteventtime,       log_date FROM etl_ingame_register
       ),
       filtered AS (
         SELECT user_id, event_name, ts
         FROM events
         WHERE {FILTER_PARAMS.ordered_event_funnel.step_name.filter('event_name')}
+          AND {FILTER_PARAMS.ordered_event_funnel.ts.filter('ts')}
+          AND {FILTER_PARAMS.ordered_event_funnel.ts.filter('log_date')}
       )
       SELECT
         user_id,
         event_name,
+        ts,
         CAST(ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY ts) AS BIGINT) AS step_index
       FROM filtered
 
@@ -46,6 +56,14 @@ cubes:
       - name: step_name
         sql: event_name
         type: string
+
+      - name: ts
+        sql: ts
+        type: time
+        description: >
+          Event timestamp — REQUIRED filter. Always bound with a dateRange
+          (max 31 days); unbounded queries are rejected before they full-scan
+          the event tables.
 
     measures:
       - name: step_count

@@ -102,9 +102,13 @@ const BEHAVIOR_VIEWS = new Set([
   'user_login_panel',
   'user_logout_panel',
   'user_register_panel',
+  // UNION of raw etl_ingame_* event tables behind a window function — an
+  // unbounded query full-scans every event partition, so it needs the same
+  // bound as the raw cubes it fronts (its time dimension is `ts`).
+  'ordered_event_funnel',
 ]);
 
-const TIME_DIM_FIELDS = new Set(['log_date', 'dteventtime']);
+const TIME_DIM_FIELDS = new Set(['log_date', 'dteventtime', 'ts']);
 const SAFE_SEGMENT_DAYS = { last_7d: 7, last_30d: 30 };
 
 // Bare event-stream cube: `etl_<something>`. (Prefixed `<game>_etl_*` also matched
@@ -197,7 +201,7 @@ const enforceBehaviorBounds = (query) => {
     const days = collectBoundDays(query, cube);
     if (days.length === 0) {
       throw new Error(
-        `Query on behavior cube/view "${cube}" must bound log_date/dteventtime ` +
+        `Query on behavior cube/view "${cube}" must bound log_date/dteventtime/ts ` +
         `(dateRange, inDateRange, or a last_7d/last_30d segment) within ${MAX_RANGE_DAYS} days.`,
       );
     }
