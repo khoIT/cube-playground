@@ -158,6 +158,36 @@ describe('mode-prompts.compose — snapshots', () => {
     expect(b.systemPrompt).toBe(a.systemPrompt);
   });
 
+  // Reply-language guardrail: the static mirror block is always present;
+  // the per-turn directive appears only when a language is resolved.
+  it('always includes the language-mirror guardrail block', () => {
+    const result = compose({ skill: 'explore', game: 'ptg' });
+    expect(result.systemPrompt).toContain('## Reply language');
+    expect(result.systemPrompt).toContain('NEVER mix Vietnamese and English');
+    expect(result.systemPrompt).not.toContain('LANGUAGE DIRECTIVE');
+  });
+
+  it('injects an explicit per-turn directive for Vietnamese', () => {
+    const result = compose({ skill: 'explore', game: 'ptg', language: 'vi' });
+    expect(result.systemPrompt).toContain(
+      'LANGUAGE DIRECTIVE: the user wrote this message in Vietnamese — respond entirely in Vietnamese.',
+    );
+    expect(result.systemPrompt).toMatchSnapshot();
+  });
+
+  it('injects an explicit per-turn directive for English', () => {
+    const result = compose({ skill: 'explore', game: 'ptg', language: 'en' });
+    expect(result.systemPrompt).toContain(
+      'LANGUAGE DIRECTIVE: the user wrote this message in English — respond entirely in English.',
+    );
+  });
+
+  it('compose is byte-stable with a language directive', () => {
+    const a = compose({ skill: 'explore', game: 'ptg', language: 'vi' });
+    const b = compose({ skill: 'explore', game: 'ptg', language: 'vi' });
+    expect(b.systemPrompt).toBe(a.systemPrompt);
+  });
+
   it('missing master command file is handled gracefully', async () => {
     // Temporarily reroute existsSync via vi.spyOn for this test only.
     const fs = await import('node:fs');

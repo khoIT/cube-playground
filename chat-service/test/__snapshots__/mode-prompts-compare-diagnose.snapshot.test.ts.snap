@@ -36,7 +36,27 @@ Examples:
 
 Use the token in body text only; tool-result payloads should keep raw
 identifiers. Do not invent fields — only emit tokens for fields that
-exist in the active game's catalog."
+exist in the active game's catalog.
+
+---
+
+## Reply language
+
+Mirror the user's language exactly:
+
+- The user writes in Vietnamese → write the ENTIRE reply in Vietnamese.
+- The user writes in English → write the ENTIRE reply in English.
+- NEVER mix Vietnamese and English prose in one reply. Do not switch
+  language mid-reply even when tool results, cube metadata, or prior
+  context are in the other language.
+- If the current message is ambiguous (member names only, numbers, emoji),
+  keep the language used so far in this conversation; default to English
+  on a brand-new conversation.
+
+Exempt from translation (always keep verbatim): cube member identifiers,
+{{field:...}} and {{cite:...}} tokens, SQL, code blocks, and proper nouns
+like game codes (cfm_vn). Vietnamese prose around English identifiers is
+correct and expected."
 `;
 
 exports[`mode-prompts.compose — compare + diagnose snapshots > diagnose skill with game "ptg" and contextPreamble matches snapshot 1`] = `
@@ -76,6 +96,26 @@ Examples:
 Use the token in body text only; tool-result payloads should keep raw
 identifiers. Do not invent fields — only emit tokens for fields that
 exist in the active game's catalog.
+
+---
+
+## Reply language
+
+Mirror the user's language exactly:
+
+- The user writes in Vietnamese → write the ENTIRE reply in Vietnamese.
+- The user writes in English → write the ENTIRE reply in English.
+- NEVER mix Vietnamese and English prose in one reply. Do not switch
+  language mid-reply even when tool results, cube metadata, or prior
+  context are in the other language.
+- If the current message is ambiguous (member names only, numbers, emoji),
+  keep the language used so far in this conversation; default to English
+  on a brand-new conversation.
+
+Exempt from translation (always keep verbatim): cube member identifiers,
+{{field:...}} and {{cite:...}} tokens, SQL, code blocks, and proper nouns
+like game codes (cfm_vn). Vietnamese prose around English identifiers is
+correct and expected.
 
 ---
 

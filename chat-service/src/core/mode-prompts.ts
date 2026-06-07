@@ -14,6 +14,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSkill, type SkillMeta } from './skill-loader.js';
 import { renderFocusPreamble, type SessionFocus } from '../cache/session-focus-adapter.js';
+import type { TurnLanguage } from './turn-language.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MASTER_CMD_PATH = resolve(__dirname, '../../.claude/commands/cube-playground.md');
@@ -41,6 +42,13 @@ export interface ComposeParams {
    * (see `getFocus` in session-focus-adapter); pass `undefined` to skip.
    */
   focus?: SessionFocus;
+  /**
+   * Reply-language guardrail — resolved per turn by `resolveTurnLanguage`
+   * (current message → session history → 'en'). When set, an explicit
+   * directive line is appended after the static language-mirror block so
+   * the model never has to infer the language itself.
+   */
+  language?: TurnLanguage;
 }
 
 export interface ComposeResult {
@@ -80,6 +88,15 @@ export function compose(params: ComposeParams): ComposeResult {
   parts.push(`## Active game\n\n${params.game}`);
 
   parts.push(FIELD_CHIP_TOKEN_GUIDANCE);
+
+  parts.push(LANGUAGE_MIRROR_GUIDANCE);
+  if (params.language) {
+    parts.push(
+      params.language === 'vi'
+        ? 'LANGUAGE DIRECTIVE: the user wrote this message in Vietnamese — respond entirely in Vietnamese.'
+        : 'LANGUAGE DIRECTIVE: the user wrote this message in English — respond entirely in English.',
+    );
+  }
 
   // Phase 06 — when the skill opts in to web search, inject cite-token guidance
   // so the model surfaces sources in the {{cite:url|title}} format the FE renders.
@@ -122,6 +139,30 @@ Examples:
 Use the token in body text only; tool-result payloads should keep raw
 identifiers. Do not invent fields — only emit tokens for fields that
 exist in the active game's catalog.`;
+
+/**
+ * Reply-language guardrail. Static half of the guardrail (always present);
+ * the per-turn `LANGUAGE DIRECTIVE` line names the detected language
+ * explicitly. Identifiers are exempt — translating cube members or
+ * {{field:...}} tokens would break chips and confuse analysts.
+ */
+const LANGUAGE_MIRROR_GUIDANCE = `## Reply language
+
+Mirror the user's language exactly:
+
+- The user writes in Vietnamese → write the ENTIRE reply in Vietnamese.
+- The user writes in English → write the ENTIRE reply in English.
+- NEVER mix Vietnamese and English prose in one reply. Do not switch
+  language mid-reply even when tool results, cube metadata, or prior
+  context are in the other language.
+- If the current message is ambiguous (member names only, numbers, emoji),
+  keep the language used so far in this conversation; default to English
+  on a brand-new conversation.
+
+Exempt from translation (always keep verbatim): cube member identifiers,
+{{field:...}} and {{cite:...}} tokens, SQL, code blocks, and proper nouns
+like game codes (cfm_vn). Vietnamese prose around English identifiers is
+correct and expected.`;
 
 /**
  * Citation token spec (phase-06). When web search is enabled for a skill,

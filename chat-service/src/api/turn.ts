@@ -23,6 +23,7 @@ import * as chatStore from '../db/chat-store.js';
 import * as sessionManager from '../core/session-manager.js';
 import { routeIntent } from '../core/intent-router.js';
 import { compose } from '../core/mode-prompts.js';
+import { resolveTurnLanguage } from '../core/turn-language.js';
 import * as claudeRunner from '../core/claude-runner.js';
 import { buildSdkTools } from '../tools/registry.js';
 import { writeSseEvent } from '../core/sse-stream.js';
@@ -268,11 +269,23 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       ? getFocus(opts.db, sessionId)
       : undefined;
 
+    // Reply-language guardrail: detect from the current message, falling back
+    // to the session's earlier user turns when ambiguous (default: English).
+    // `existingTurns` was read BEFORE the current user turn was appended, so
+    // it contains exactly the prior history.
+    const turnLanguage = resolveTurnLanguage(
+      body.message,
+      existingTurns
+        .filter((t) => t.role === 'user' && typeof t.user_text === 'string')
+        .map((t) => t.user_text as string),
+    );
+
     const { systemPrompt, allowedToolNames, skillMeta } = compose({
       skill: intent.skill,
       game: body.game,
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
       focus: priorFocus,
+      language: turnLanguage,
     });
     timer.mark('compose');
 
