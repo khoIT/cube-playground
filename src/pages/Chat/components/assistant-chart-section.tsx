@@ -44,6 +44,10 @@ import {
 } from './format-chart-value';
 import { buildLabelMap, labelOf, type LabelMap } from './chart-column-labels';
 import { ChartHeatmap } from './chart-heatmap';
+import {
+  formatChartDateTooltip,
+  makeTimeTickFormatter,
+} from '../../../utils/format-chart-datetime-label';
 
 const CHART_HEIGHT = 320;
 
@@ -259,6 +263,10 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       : 1;
   const axisTick = (v: number | string) => formatAxisValue(v, unit, valueScale);
   const readable = (v: number | string) => formatReadableValue(v, unit, valueScale);
+  // Category axes often carry ISO datetimes from Cube time dimensions —
+  // truncate to a readable grain ("Apr 7"); non-date categories pass through.
+  const categoryTick = makeTimeTickFormatter(spec.data.map((r) => r[spec.encoding.category]));
+  const tooltipLabel = (label: number | string) => formatChartDateTooltip(label);
   // Value-axis unit label so the reader sees what the numbers mean without
   // re-reading the title. Reused across every cartesian chart type below.
   const valueLabel = axisUnitLabel(spec);
@@ -285,16 +293,16 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
   // Legend entries are dataKeys (column/series keys) — map to friendly labels.
   const legendFormatter = (value: string | number) => labelOf(labels, String(value));
   const pieLabel = ({ name, value }: { name: string; value: number }) =>
-    `${name}: ${readable(value)}`;
+    `${formatChartDateTooltip(name)}: ${readable(value)}`;
 
   switch (spec.type) {
     case 'bar':
       return (
         <BarChart data={spec.data} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Bar dataKey={spec.encoding.value} fill={CHART[0]} />
         </BarChart>
       );
@@ -316,8 +324,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
             stroke={T.n500}
             fontSize={11}
             width={120}
+            tickFormatter={categoryTick}
           />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Bar dataKey={spec.encoding.value} fill={CHART[0]} />
         </BarChart>
       );
@@ -328,9 +337,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       return (
         <BarChart data={wide} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
             <Bar key={s} dataKey={s} stackId="a" fill={CHART[i % CHART.length]} />
@@ -348,9 +357,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       return (
         <BarChart data={wide} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
             <Bar key={s} dataKey={s} fill={CHART[i % CHART.length]} />
@@ -363,9 +372,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       return (
         <LineChart data={spec.data} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Line
             type="monotone"
             dataKey={spec.encoding.value}
@@ -382,9 +391,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       return (
         <LineChart data={wide} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
             <Line
@@ -404,9 +413,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       return (
         <AreaChart data={spec.data} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
           <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Area
             type="monotone"
             dataKey={spec.encoding.value}
@@ -435,7 +444,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
               <Cell key={i} fill={CHART[i % CHART.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
         </PieChart>
       );
@@ -457,7 +466,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       return (
         <ComposedChart data={spec.data} margin={{ top: 8, right: 20, left: 16, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} />
+          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
           <YAxis
             yAxisId="left"
             stroke={T.n500}
@@ -473,7 +482,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
             tickFormatter={(v) => formatAxisValue(v, rightUnit, rightScale)}
             label={{ value: labelOf(labels, rightCol), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
           />
-          <Tooltip formatter={comboTooltip} />
+          <Tooltip formatter={comboTooltip} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
           <Bar yAxisId="left" dataKey={leftCol} fill={CHART[0]} />
           <Line yAxisId="right" type="monotone" dataKey={rightCol} stroke={CHART[1]} strokeWidth={2} dot={{ r: 3 }} />
@@ -553,7 +562,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       // proportional to value. Step label on the right, value on the left.
       return (
         <FunnelChart>
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Funnel dataKey={spec.encoding.value} data={spec.data} isAnimationActive={false}>
             <LabelList
               position="right"

@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import {
   LineChart as ReLineChart,
   Line,
@@ -9,6 +9,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import {
+  formatChartDateTooltip,
+  makeTimeTickFormatter,
+} from '../../../utils/format-chart-datetime-label';
 
 export interface LineChartPoint {
   x: string | number;
@@ -30,6 +34,9 @@ export interface LineChartProps {
  */
 export function LineChart({ data, height = 120, color = 'var(--brand)', areaFill = true }: LineChartProps): ReactElement {
   const chartData = data.map((d) => ({ x: d.x, y: d.y }));
+  // Truncate ISO timestamps to a human-readable grain ("Apr 7", "Apr 7 14:00");
+  // non-date x values pass through unchanged.
+  const xTick = useMemo(() => makeTimeTickFormatter(data.map((d) => d.x)), [data]);
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -51,6 +58,7 @@ export function LineChart({ data, height = 120, color = 'var(--brand)', areaFill
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
+          tickFormatter={xTick}
         />
         <YAxis
           tick={{ fontSize: 10, fill: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}
@@ -60,6 +68,7 @@ export function LineChart({ data, height = 120, color = 'var(--brand)', areaFill
           tickFormatter={(v: number) => v.toLocaleString('en-US')}
         />
         <Tooltip
+          labelFormatter={(label) => formatChartDateTooltip(label)}
           contentStyle={{
             fontSize: 12,
             border: '1px solid var(--border-card)',
