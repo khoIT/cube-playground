@@ -19,6 +19,7 @@ import { useConcepts } from '../data-model-tab/use-concepts';
 import { useBusinessMetrics } from '../metrics-tab/use-business-metrics';
 import { listGlossary, type GlossaryTerm } from '../../../api/glossary-client';
 import { segmentsClient } from '../../../api/segments-client';
+import { useActiveGameId } from '../../../components/Header/use-game-context';
 import type { Segment } from '../../../types/segment-api';
 import {
   type ConceptNode,
@@ -80,6 +81,7 @@ const loadSegments = (): Promise<Segment[]> =>
   segmentsClient.list({ owner: '*' });
 
 export function useConceptGraph(): ConceptGraph {
+  const gameId = useActiveGameId();
   // Fields + cubes share the catalog /meta fetch (reused, not re-fetched).
   const { concepts, loading: fieldsLoading, error: fieldsError } = useConcepts();
   const {
@@ -135,6 +137,9 @@ export function useConceptGraph(): ConceptGraph {
     }
 
     for (const s of segments) {
+      // Segments belong to a game — the map only shows the active game's
+      // rows (client-side so the once-on-mount fetch stays game-agnostic).
+      if (s.game_id !== gameId) continue;
       out.push({
         kind: 'appSegment',
         ref: makeSegmentRef(s.id),
@@ -146,7 +151,7 @@ export function useConceptGraph(): ConceptGraph {
     }
 
     return out;
-  }, [concepts, metrics, terms, segments]);
+  }, [concepts, metrics, terms, segments, gameId]);
 
   const byRef = useMemo(() => {
     const map = new Map<string, ConceptNode>();

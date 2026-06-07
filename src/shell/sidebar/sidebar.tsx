@@ -22,7 +22,12 @@ import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
 import { useHasFeature } from '../../auth/feature-access';
 import { useBusinessMetrics } from '../../pages/Catalog/metrics-tab/use-business-metrics';
 import { useConcepts } from '../../pages/Catalog/data-model-tab/use-concepts';
-import { useSegmentRows, selectSharedSegments } from '../../pages/Segments/use-segment-ids';
+import {
+  useSegmentRows,
+  selectSharedSegments,
+  filterRowsByGame,
+} from '../../pages/Segments/use-segment-ids';
+import { useActiveGameId } from '../../components/Header/use-game-context';
 import { SharedPill } from './shared-pill';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
@@ -44,21 +49,30 @@ export function Sidebar() {
   const { metrics, loading: metricsLoading } = useBusinessMetrics();
   const { concepts, loading: conceptsLoading } = useConcepts();
   // One fetch feeds both the recents-pruning id set and the shared-with-me
-  // group below the recents (teammates' shared/org segments).
+  // group below the recents (teammates' shared/org segments). Rows are
+  // narrowed to the ACTIVE game before any selector runs: segments belong to
+  // a game, so recents/pills of other games hide on switch and reappear on
+  // switch-back (recents storage itself is untouched). Client-side filter
+  // keeps the single-flight cache — no refetch on game change.
+  const gameId = useActiveGameId();
   const { rows: segmentRows } = useSegmentRows();
+  const gameSegmentRows = React.useMemo(
+    () => filterRowsByGame(segmentRows, gameId),
+    [segmentRows, gameId],
+  );
   const segmentIds = React.useMemo(
-    () => (segmentRows ? new Set(segmentRows.map((s) => s.id)) : null),
-    [segmentRows],
+    () => (gameSegmentRows ? new Set(gameSegmentRows.map((s) => s.id)) : null),
+    [gameSegmentRows],
   );
   const sharedSegments = React.useMemo(
-    () => selectSharedSegments(segmentRows, 4),
-    [segmentRows],
+    () => selectSharedSegments(gameSegmentRows, 4),
+    [gameSegmentRows],
   );
   // Built from the UNCAPPED shared set — a teammate-shared segment past the
   // display cap must still be excluded from recents (never shown un-pilled).
   const sharedSegmentIds = React.useMemo(
-    () => new Set(selectSharedSegments(segmentRows, Infinity).map((s) => s.id)),
-    [segmentRows],
+    () => new Set(selectSharedSegments(gameSegmentRows, Infinity).map((s) => s.id)),
+    [gameSegmentRows],
   );
   const metricIds = React.useMemo(
     () => (metricsLoading ? null : new Set(metrics.map((m) => m.id))),

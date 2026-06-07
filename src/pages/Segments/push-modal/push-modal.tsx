@@ -129,8 +129,13 @@ export function PushModal({
     setType(initialType);
     setTargetId(null);
     setTab('create');
-    segmentsClient.list({ owner: '*', type: 'manual' }).then(setStaticSegments).catch(() => {});
-  }, [open, initialType]);
+    // Scope the append-target picker to the active game — a push from one
+    // game's playground must not land in another game's static segment.
+    segmentsClient
+      .list({ owner: '*', type: 'manual', game_id: gameId })
+      .then(setStaticSegments)
+      .catch(() => {});
+  }, [open, initialType, gameId]);
 
   // Force the available type when the other isn't allowed. Both flags off
   // is an invalid configuration callers must avoid — UI still defaults to

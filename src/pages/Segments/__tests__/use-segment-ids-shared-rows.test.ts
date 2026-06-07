@@ -11,6 +11,7 @@ import {
   useSegmentIds,
   useSegmentRows,
   selectSharedSegments,
+  filterRowsByGame,
   __resetSegmentIdsCache,
 } from '../use-segment-ids';
 import { segmentsClient } from '../../../api/segments-client';
@@ -76,6 +77,32 @@ describe('selectSharedSegments', () => {
       seg({ id: 'org-foreign', visibility: 'org', is_owner: false, can_administer: true, owner: 'alice' }),
     ];
     expect(selectSharedSegments(rows, 4).map((s) => s.id)).toEqual(['org-foreign']);
+  });
+});
+
+describe('filterRowsByGame', () => {
+  it('keeps only the active game and preserves the null loading sentinel', () => {
+    const rows = [
+      seg({ id: 'b1', game_id: 'ballistar' }),
+      seg({ id: 'c1', game_id: 'cfm_vn' }),
+      seg({ id: 'b2', game_id: 'ballistar' }),
+    ];
+    expect(filterRowsByGame(rows, 'ballistar')?.map((s) => s.id)).toEqual(['b1', 'b2']);
+    expect(filterRowsByGame(rows, 'cfm_vn')?.map((s) => s.id)).toEqual(['c1']);
+    expect(filterRowsByGame(rows, 'unknown')).toEqual([]);
+    // null (still loading) must pass through — consumers treat null as
+    // "don't prune yet", and an empty array would flash recents out.
+    expect(filterRowsByGame(null, 'ballistar')).toBeNull();
+  });
+
+  it('composes with selectSharedSegments — other-game shared rows drop off the rail', () => {
+    const rows = [
+      seg({ id: 'shared-here', visibility: 'shared', is_owner: false, game_id: 'ballistar' }),
+      seg({ id: 'shared-other-game', visibility: 'shared', is_owner: false, game_id: 'cfm_vn' }),
+    ];
+    expect(
+      selectSharedSegments(filterRowsByGame(rows, 'ballistar'), 4).map((s) => s.id),
+    ).toEqual(['shared-here']);
   });
 });
 

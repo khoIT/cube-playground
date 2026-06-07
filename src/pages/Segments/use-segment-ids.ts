@@ -100,6 +100,19 @@ export function useSegmentIds(): UseSegmentIdsResult {
 }
 
 /**
+ * Narrow rows to one game's segments. Segments belong to a game — list
+ * surfaces (sidebar recents/pills, pickers) show only the active game's rows;
+ * switching back restores the others (the underlying fetch stays unscoped so
+ * the single-flight cache survives game changes without a refetch).
+ * Null passes through: "still loading" must stay distinguishable from "empty"
+ * so consumers' pass-through-while-loading guards keep working.
+ */
+export function filterRowsByGame(rows: Segment[] | null, gameId: string): Segment[] | null {
+  if (!rows) return null;
+  return rows.filter((s) => s.game_id === gameId);
+}
+
+/**
  * Segments shared WITH the viewer: visibility shared/org and owned by someone
  * else. The viewer's own shared segments are excluded — the pill marks
  * "shared with me", not "shared by me" (those live in normal recents).
