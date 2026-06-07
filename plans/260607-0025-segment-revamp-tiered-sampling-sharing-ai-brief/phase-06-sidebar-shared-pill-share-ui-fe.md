@@ -1,10 +1,11 @@
 ---
 phase: 6
-title: "Sidebar shared pill + share UI (FE)"
-status: pending
+title: Sidebar shared pill + share UI (FE)
+status: completed
 priority: P1
-effort: "1d"
-dependencies: [5]
+effort: 1d
+dependencies:
+  - 5
 ---
 
 # Phase 6: Sidebar shared pill + share UI (FE)
@@ -72,11 +73,32 @@ restyle chat's separate "SHARED WITH TEAM" section into the same inline-pill pat
    order + no heading, share toggle states, delete gating.
 
 ## Success Criteria
-- [ ] Teammate's shared segment appears in my nav with pill; opens with full functionality
-- [ ] My own shared segment shows in my recents WITHOUT pill (pill = shared *with* me)
-- [ ] Chat nav has no "SHARED WITH TEAM" heading; shared chats inline with pill
-- [ ] Non-owner sees no Delete, no share toggle; owner sees both
-- [ ] No additional network requests in sidebar render path
+- [x] Teammate's shared segment appears in my nav with pill; opens with full functionality
+- [x] My own shared segment shows in my recents WITHOUT pill (pill = shared *with* me)
+- [x] Chat nav has no "SHARED WITH TEAM" heading; shared chats inline with pill
+- [x] Non-owner sees no Delete, no share toggle; owner sees both
+- [x] No additional network requests in sidebar render path (single-flight cache test
+      asserts 1 list call for both hooks)
+
+## Verification notes (260607)
+- 12 new FE tests across 3 files: `use-segment-ids-shared-rows.test.ts` (selectSharedSegments
+  semantics + single-fetch guarantee), `sidebar-chat-recents-shared-inline.test.tsx` (merge,
+  no heading, own-session dedupe, kebab gating), `share-segment-control.test.tsx` (owner
+  toggle wiring, non-owner chip, legacy owner_label NULL degrade).
+- Full FE suite: 1814 pass + only the 5 known DevAudit baseline failures. FE tsc 74 (= baseline).
+- Review (code-reviewer, DONE_WITH_CONCERNS) — all findings applied:
+  - H1: chat shared listing has NO owner exclusion server-side, so the viewer's own published
+    session came back in both lists → FE dedupe (`ownIds` filter) keeps it scoped to this
+    phase. Server-side exclusion in the chat store is a candidate follow-up.
+  - M1: recents-dedupe id set now built from the UNCAPPED shared list, so a teammate-shared
+    segment past the display cap (4) never shows un-pilled in recents.
+  - L1: non-owner chip radius → `var(--radius-full)` token.
+- Deliberate (reviewed, kept): chat own/shared lists keep separate VISIBLE caps of 6 (a
+  combined cap would hide shared rows for active users — deviation from the literal step-4
+  wording, no regression vs old behavior); Edit predicate disabled-with-tooltip (not hidden);
+  admins viewing others' segments treated as non-owners in UI (server still allows via API);
+  share toggle await-then-update (not optimistic); unshare from 'org' demotes to personal in
+  one hop (server admin-governed, Phase 5 tested).
 
 ## Risk Assessment
 - **Nav clutter** when team shares many segments: same VISIBLE cap as recents (3) + see-all.

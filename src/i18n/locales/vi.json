@@ -24,7 +24,9 @@
     "anomalyArchive": "Lưu trữ bất thường",
     "dashboards": "Bảng điều khiển",
     "driftCenter": "Trung tâm Drift",
-    "dataHub": "Dữ liệu"
+    "dataHub": "Dữ liệu",
+    "sharedPill": "Chia sẻ",
+    "sharedBy": "Chia sẻ bởi {{owner}}"
   },
   "segments": {
     "actions": {
@@ -147,6 +149,15 @@
         "copyAsFilter": "Copy as filter",
         "editPredicate": "Sửa điều kiện",
         "more": "Thêm"
+      },
+      "share": {
+        "share": "Chia sẻ",
+        "unshare": "Ngừng chia sẻ",
+        "sharedBy": "Chia sẻ bởi {{owner}}",
+        "shareSuccess": "Đã chia sẻ segment với nhóm",
+        "unshareSuccess": "Segment đã trở về riêng tư",
+        "error": "Không thể cập nhật chia sẻ",
+        "ownerOnly": "Chỉ chủ sở hữu"
       },
       "monitor": {
         "size": {

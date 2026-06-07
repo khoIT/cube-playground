@@ -1,34 +1,39 @@
 /**
- * `useSegmentIds` — module-level cache of the server's segment-id set.
+ * Shared module-level cache of the server's segments list, exposed two ways:
  *
- * Used by the sidebar recents tray to hide entries whose segment no longer
- * exists (deleted in another tab, removed via API, etc.). Single-flight
- * pattern mirrors `useBusinessMetrics` so the list is fetched at most once
- * per session; mutating sites call `invalidateSegmentIds()` to drop the
- * cache so the next subscriber re-fetches.
+ *   - `useSegmentRows()` — full rows, used by the sidebar to surface segments
+ *     shared by teammates (visibility shared/org, owner ≠ viewer).
+ *   - `useSegmentIds()` — derived id set, used by the sidebar recents tray to
+ *     hide entries whose segment no longer exists (deleted in another tab,
+ *     removed via API, etc.).
+ *
+ * Both hooks share ONE fetch (single-flight, mirrors `useBusinessMetrics`)
+ * so the sidebar render path costs at most one network request per session;
+ * mutating sites call `invalidateSegmentIds()` to drop the cache so the next
+ * subscriber re-fetches.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { segmentsClient } from '../../api/segments-client';
+import type { Segment } from '../../types/segment-api';
 
 const INVALIDATE_EVENT = 'gds-cube:segments-changed';
 
-let cache: Set<string> | null = null;
-let inflight: Promise<Set<string>> | null = null;
+let cache: Segment[] | null = null;
+let inflight: Promise<Segment[]> | null = null;
 
-async function fetchOnce(): Promise<Set<string>> {
+async function fetchOnce(): Promise<Segment[]> {
   if (cache) return cache;
   if (inflight) return inflight;
   inflight = (async () => {
     try {
       // owner=* — recents may reference segments owned by other users in the
-      // dev-pretend-auth model; we only need the id set, not write access.
-      const list = await segmentsClient.list({ owner: '*' });
-      cache = new Set(list.map((s) => s.id));
+      // dev-pretend-auth model, and the shared group needs teammates' rows.
+      cache = await segmentsClient.list({ owner: '*' });
       return cache;
     } catch {
-      cache = new Set();
+      cache = [];
       return cache;
     } finally {
       inflight = null;
@@ -47,27 +52,27 @@ export function invalidateSegmentIds(): void {
   }
 }
 
-interface UseSegmentIdsResult {
-  ids: Set<string> | null;
+interface UseSegmentRowsResult {
+  rows: Segment[] | null;
   loading: boolean;
 }
 
-export function useSegmentIds(): UseSegmentIdsResult {
-  const [ids, setIds] = useState<Set<string> | null>(cache);
+export function useSegmentRows(): UseSegmentRowsResult {
+  const [rows, setRows] = useState<Segment[] | null>(cache);
   const [loading, setLoading] = useState<boolean>(cache === null);
 
   useEffect(() => {
     let cancelled = false;
     function load(): void {
       if (cache !== null) {
-        setIds(cache);
+        setRows(cache);
         setLoading(false);
         return;
       }
       setLoading(true);
-      fetchOnce().then((s) => {
+      fetchOnce().then((list) => {
         if (cancelled) return;
-        setIds(s);
+        setRows(list);
         setLoading(false);
       });
     }
@@ -80,7 +85,30 @@ export function useSegmentIds(): UseSegmentIdsResult {
     };
   }, []);
 
+  return { rows, loading };
+}
+
+interface UseSegmentIdsResult {
+  ids: Set<string> | null;
+  loading: boolean;
+}
+
+export function useSegmentIds(): UseSegmentIdsResult {
+  const { rows, loading } = useSegmentRows();
+  const ids = useMemo(() => (rows ? new Set(rows.map((s) => s.id)) : null), [rows]);
   return { ids, loading };
+}
+
+/**
+ * Segments shared WITH the viewer: visibility shared/org and owned by someone
+ * else. The viewer's own shared segments are excluded — the pill marks
+ * "shared with me", not "shared by me" (those live in normal recents).
+ */
+export function selectSharedSegments(rows: Segment[] | null, cap: number): Segment[] {
+  if (!rows) return [];
+  return rows
+    .filter((s) => (s.visibility === 'shared' || s.visibility === 'org') && !s.is_owner)
+    .slice(0, cap);
 }
 
 /** Test-only: reset module state between cases. */

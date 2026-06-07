@@ -6,39 +6,19 @@
  * sessions created before pushRecent ran). This component mirrors what the
  * /chat history rail shows, scoped to the active game.
  *
- * Also renders a "Shared with team" group below the user's own recents,
- * listing up to 6 sessions published by other team members.
+ * Sessions published by other team members render inline below the user's
+ * own recents with a "Shared" pill — same pattern as the Segments section,
+ * no separate heading. Owner attribution lives in the pill tooltip.
  */
 import React from 'react';
 import { useHistory, useRouteMatch } from 'react-router-dom';
 import { SidebarItem } from './sidebar-item';
+import { SharedPill } from './shared-pill';
 import { useChatSessionsList } from '../../pages/Chat/hooks/use-chat-sessions-list';
 import { openChatSearch } from '../../shared/chat-search/chat-search-store';
 import { ChatRowKebabMenu } from '../../shared/chat-recents/chat-row-kebab-menu';
-import { T } from '../theme';
 
 const VISIBLE = 6;
-
-/** Section heading for the "Shared with team" group — matches the muted
- *  eyebrow style used on other grouped sidebar sections. */
-function SharedSectionHeading() {
-  return (
-    <div
-      style={{
-        padding: '8px 12px 2px 16px',
-        fontFamily: T.fSans,
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        color: T.n500,
-        userSelect: 'none',
-      }}
-    >
-      Shared with team
-    </div>
-  );
-}
 
 export function SidebarChatRecents() {
   const { sessions, isLoading, error } = useChatSessionsList();
@@ -56,7 +36,11 @@ export function SidebarChatRecents() {
   }
 
   const shown = sessions.slice(0, VISIBLE);
-  const shownShared = sharedSessions.slice(0, VISIBLE);
+  // The shared listing has no owner exclusion server-side, so the viewer's
+  // OWN published sessions come back in it too. Drop them — the pill means
+  // "shared WITH me"; own sessions already render above with their kebab.
+  const ownIds = new Set(sessions.map((s) => s.id));
+  const shownShared = sharedSessions.filter((s) => !ownIds.has(s.id)).slice(0, VISIBLE);
 
   // The user's own recents. The empty/loading/error states only describe THIS
   // list — they must not suppress the shared group below (a brand-new teammate
@@ -87,14 +71,6 @@ export function SidebarChatRecents() {
             }
           />
         ))}
-        {/* Always-present search trigger so users can find older conversations
-            even when the visible tray already shows everything. */}
-        <SidebarItem
-          label={`See all… (${sessions.length})`}
-          onClick={openChatSearch}
-          indent
-          muted
-        />
       </>
     );
   }
@@ -103,22 +79,28 @@ export function SidebarChatRecents() {
     <>
       {ownSection}
 
-      {/* Shared-with-team group — rendered whenever the team has published
-          sessions, independent of the viewer's own-list state. No kebab menus
-          here since these sessions are not owned by the viewer. */}
-      {shownShared.length > 0 && (
-        <>
-          <SharedSectionHeading />
-          {shownShared.map((s) => (
-            <SidebarItem
-              key={s.id}
-              label={s.ownerLabel ? `${s.title || 'Chat'} · by ${s.ownerLabel}` : (s.title || 'Chat')}
-              to={`/chat/${s.id}`}
-              indent
-              muted
-            />
-          ))}
-        </>
+      {/* Sessions shared by teammates, inline with the viewer's own recents.
+          No kebab menus — these are not owned by the viewer. */}
+      {shownShared.map((s) => (
+        <SidebarItem
+          key={s.id}
+          label={s.title || 'Chat'}
+          to={`/chat/${s.id}`}
+          indent
+          muted
+          trailing={<SharedPill ownerLabel={s.ownerLabel} />}
+        />
+      ))}
+
+      {/* Always-present search trigger so users can find older conversations
+          even when the visible tray already shows everything. */}
+      {!error && !(isLoading && sessions.length === 0) && sessions.length > 0 && (
+        <SidebarItem
+          label={`See all… (${sessions.length})`}
+          onClick={openChatSearch}
+          indent
+          muted
+        />
       )}
     </>
   );

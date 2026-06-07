@@ -25,6 +25,7 @@ import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
 import { useSegmentSizeDelta } from './hooks/use-segment-size-delta';
 import { format as formatDate, addMinutes } from 'date-fns';
 import { RefreshNowButton } from './components/refresh-now-button';
+import { ShareSegmentControl } from './components/share-segment-control';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
 import { HeadlineStatsRow } from './components/headline-stats-row';
@@ -180,6 +181,7 @@ export function DetailView(): ReactElement {
           <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />
           <div className={styles.detailActions}>
+            <ShareSegmentControl segment={segment} onChange={setSegment} />
             <RefreshNowButton segment={segment} />
             <Button
               size="small"
@@ -198,9 +200,17 @@ export function DetailView(): ReactElement {
             >
               {t('segments.detail.actions.copyAsFilter')}
             </Button>
+            {/* Cohort-redefining entry point — predicate/uid rewrites are
+                owner-or-admin on the server, so disable for non-owners. */}
             <Button
               size="small"
               type="primary"
+              disabled={!segment.is_owner}
+              title={
+                segment.is_owner
+                  ? undefined
+                  : t('segments.detail.share.ownerOnly', { defaultValue: 'Owner-only' })
+              }
               onClick={() =>
                 history.push(
                   segment.type === 'predicate'
@@ -213,9 +223,11 @@ export function DetailView(): ReactElement {
                 ? t('segments.detail.actions.editPredicate', { defaultValue: 'Edit predicate' })
                 : t('segments.detail.actions.convertToLive', { defaultValue: 'Convert to Live' })}
             </Button>
-            <Button size="small" danger onClick={() => setDeleteOpen(true)}>
-              {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
-            </Button>
+            {segment.is_owner && (
+              <Button size="small" danger onClick={() => setDeleteOpen(true)}>
+                {t('segments.actions.delete.menuItem', { defaultValue: 'Delete segment' })}
+              </Button>
+            )}
           </div>
         </div>
       </header>

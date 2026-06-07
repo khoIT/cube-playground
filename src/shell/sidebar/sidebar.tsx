@@ -22,7 +22,8 @@ import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
 import { useHasFeature } from '../../auth/feature-access';
 import { useBusinessMetrics } from '../../pages/Catalog/metrics-tab/use-business-metrics';
 import { useConcepts } from '../../pages/Catalog/data-model-tab/use-concepts';
-import { useSegmentIds } from '../../pages/Segments/use-segment-ids';
+import { useSegmentRows, selectSharedSegments } from '../../pages/Segments/use-segment-ids';
+import { SharedPill } from './shared-pill';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -42,7 +43,23 @@ export function Sidebar() {
   // avoid flashing items out and back in on first paint.
   const { metrics, loading: metricsLoading } = useBusinessMetrics();
   const { concepts, loading: conceptsLoading } = useConcepts();
-  const { ids: segmentIds } = useSegmentIds();
+  // One fetch feeds both the recents-pruning id set and the shared-with-me
+  // group below the recents (teammates' shared/org segments).
+  const { rows: segmentRows } = useSegmentRows();
+  const segmentIds = React.useMemo(
+    () => (segmentRows ? new Set(segmentRows.map((s) => s.id)) : null),
+    [segmentRows],
+  );
+  const sharedSegments = React.useMemo(
+    () => selectSharedSegments(segmentRows, 4),
+    [segmentRows],
+  );
+  // Built from the UNCAPPED shared set — a teammate-shared segment past the
+  // display cap must still be excluded from recents (never shown un-pilled).
+  const sharedSegmentIds = React.useMemo(
+    () => new Set(selectSharedSegments(segmentRows, Infinity).map((s) => s.id)),
+    [segmentRows],
+  );
   const metricIds = React.useMemo(
     () => (metricsLoading ? null : new Set(metrics.map((m) => m.id))),
     [metrics, metricsLoading],
@@ -202,11 +219,26 @@ export function Sidebar() {
               // name) AND any id no longer present in the server's segments
               // list (deleted in another tab, by another user, or directly
               // via API).
+              // Shared rows are also excluded — a teammate's segment the
+              // viewer visited would otherwise render twice (recent + pill).
               filter={(item) =>
                 item.title !== item.id &&
+                !sharedSegmentIds.has(item.id) &&
                 (segmentIds === null || segmentIds.has(item.id))
               }
             />
+            {/* Segments shared WITH the viewer — same row shape as recents,
+                marked with the always-visible pill (owner in its tooltip). */}
+            {sharedSegments.map((s) => (
+              <SidebarItem
+                key={s.id}
+                label={s.name}
+                to={`/segments/${s.id}`}
+                indent
+                muted
+                trailing={<SharedPill ownerLabel={s.owner_label ?? s.owner} />}
+              />
+            ))}
           </SidebarSection>
         )}
       </nav>
