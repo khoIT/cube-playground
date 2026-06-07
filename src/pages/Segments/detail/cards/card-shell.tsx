@@ -10,8 +10,12 @@ import styles from '../../segments.module.css';
 
 interface Props {
   title: string;
-  /** One-line subtitle describing the measured quantity (e.g. "Transactions"). */
-  subtitle?: string;
+  /** Leading glyph rendered in a muted chip before the title. */
+  icon?: ReactNode;
+  /** Short unit token rendered as a muted chip after the title (e.g. "users",
+   *  "VND"). Pass null/undefined to omit — callers should hide it when it
+   *  would only repeat the title (see cardUnitChip). */
+  unit?: string | null;
   loading?: boolean;
   error?: Error | null;
   /** Optional visual hint for the skeleton shape ('chart' | 'bars' | 'donut' | 'lines'). */
@@ -25,8 +29,65 @@ interface Props {
   children: ReactNode;
 }
 
+/** Icon chip + title + unit chip — shared by both header branches so the
+ *  collapsible and static variants never drift. */
+function HeaderTitle({ icon, title, unit }: Pick<Props, 'icon' | 'title' | 'unit'>): ReactElement {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+      {icon != null && (
+        <span
+          aria-hidden
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
+            flexShrink: 0,
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-muted)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          {icon}
+        </span>
+      )}
+      <h3
+        style={{
+          margin: 0,
+          fontSize: 13,
+          fontWeight: 600,
+          color: 'var(--text-primary)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {title}
+      </h3>
+      {unit != null && unit !== '' && (
+        <span
+          style={{
+            flexShrink: 0,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10.5,
+            fontWeight: 500,
+            color: 'var(--text-muted)',
+            background: 'var(--bg-muted)',
+            border: '1px solid var(--border-card)',
+            borderRadius: 'var(--radius-full)',
+            padding: '1px 8px',
+          }}
+        >
+          {unit}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function CardShell({
-  title, subtitle, loading, error, skeletonShape = 'chart', cardKey, defaultCollapsed,
+  title, icon, unit, loading, error, skeletonShape = 'chart', cardKey, defaultCollapsed,
   trailing, children,
 }: Props): ReactElement {
   const collapsible = cardKey != null;
@@ -37,14 +98,14 @@ export function CardShell({
       style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border-card)',
-        borderRadius: 10,
+        borderRadius: 'var(--radius-lg)',
         padding: 14,
         display: 'flex',
         flexDirection: 'column',
         gap: collapsed ? 0 : 10,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 24 }}>
         {collapsible ? (
           <button
             type="button"
@@ -57,28 +118,10 @@ export function CardShell({
             {collapsed
               ? <ChevronRight size={14} aria-hidden />
               : <ChevronDown size={14} aria-hidden />}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left' }}>
-              <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                {title}
-              </h3>
-              {subtitle && (
-                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-secondary)' }}>
-                  {subtitle}
-                </span>
-              )}
-            </div>
+            <HeaderTitle icon={icon} title={title} unit={unit} />
           </button>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-              {title}
-            </h3>
-            {subtitle && (
-              <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-secondary)' }}>
-                {subtitle}
-              </span>
-            )}
-          </div>
+          <HeaderTitle icon={icon} title={title} unit={unit} />
         )}
         {trailing != null && (
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>

@@ -4,7 +4,8 @@ import { ReactElement, useMemo } from 'react';
 import type { Query } from '@cubejs-client/core';
 import { CompositionCard as VisualCompositionCard } from '../../visuals';
 import { CardShell } from './card-shell';
-import { humanizeMeasure } from './humanize-measure';
+import { resolveCardIcon } from './resolve-card-icon';
+import { cardUnitChip } from './resolve-card-unit';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
 import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
 import type { CompositionCardSpec, Preset } from '../../presets/types';
@@ -43,14 +44,15 @@ export function CompositionDataCard({ spec, segment, preset, cacheKey }: Props):
   return (
     <CardShell
       title={spec.label}
-      subtitle={humanizeMeasure(spec.measure)}
+      icon={resolveCardIcon(spec.measure, 'donut')}
+      unit={cardUnitChip(spec.measure, spec.label)}
       loading={loading}
       error={error}
       skeletonShape="donut"
       cardKey={cacheKey}
     >
       {data.length > 0 ? (
-        // Pass an empty title — CardShell already renders title + subtitle so
+        // Pass an empty title — CardShell already renders the header so
         // the inner card would otherwise duplicate the heading.
         <VisualCompositionCard title="" donutData={data} barData={data} />
       ) : (
