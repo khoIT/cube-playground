@@ -334,7 +334,7 @@
               "depth": "basic",
               "targetCatalogIds": [
                 "active_daily.dau",
-                "active_daily.is_recharge_day",
+                "active_daily.paying_dau",
                 "active_daily.os_platform"
               ]
             },
@@ -344,7 +344,7 @@
               "depth": "basic",
               "targetCatalogIds": [
                 "active_daily.dau",
-                "active_daily.is_recharge_day",
+                "active_daily.paying_dau",
                 "active_daily.server_id"
               ]
             },

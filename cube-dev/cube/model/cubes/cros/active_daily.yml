@@ -103,6 +103,17 @@ cubes:
         type: count_distinct
         sql: user_id
 
+      - name: paying_dau
+        type: count_distinct_approx
+        sql: user_id
+        filters:
+          - sql: "{CUBE}.is_recharge = 1"
+        description: >
+          Distinct active users with at least one recharge day in the selected
+          window. Payer share / recharge rate = paying_dau / dau. Prefer this
+          over grouping dau by is_recharge_day for multi-day windows — that
+          split double-counts users who paid on some days but not others.
+
       - name: active_servers
         type: count_distinct_approx
         sql: ingame_last_active_server_id
