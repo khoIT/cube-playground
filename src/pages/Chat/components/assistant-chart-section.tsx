@@ -31,7 +31,7 @@ import {
   Legend,
 } from 'recharts';
 import { T, CHART } from '../../../shell/theme';
-import { ChartSectionMenu, isNumericColumn, preferTableView, toDualAxisSpec, toScatterSpec } from './chart-section-menu';
+import { ChartSectionMenu, isNumericColumn, preferDualAxis, preferTableView, toDualAxisSpec, toScatterSpec } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import type { ChartArtifact, ChartSpec } from '../../../api/chat-sse-client';
 import {
@@ -86,7 +86,11 @@ export function AssistantChartSection({
 
   const overrideType = externalOverride ?? internalOverride;
   const overrideEncoding = externalEncoding ?? internalEncoding;
-  const activeType = overrideType ?? spec.type;
+  // Derived default (not state): a two-measure series on visibly different
+  // scales squashes the smaller one flat on a shared axis — open as the
+  // dual-axis combo. Any explicit menu choice (type OR axis pick) wins.
+  const autoDualAxis = !overrideType && !overrideEncoding && preferDualAxis(spec);
+  const activeType = overrideType ?? (autoDualAxis ? 'dual-axis' : spec.type);
   const activeEncoding = overrideEncoding ?? spec.encoding;
   // An explicit axis pick sets the encoding directly, so a type change is then a
   // plain re-type. Without one, switching to scatter/dual-axis must re-encode
@@ -94,7 +98,9 @@ export function AssistantChartSection({
   // straight type override.
   const baseSpec = overrideEncoding ? ({ ...spec, encoding: overrideEncoding } as ChartSpec) : spec;
   const activeSpec = !overrideType
-    ? baseSpec
+    ? autoDualAxis
+      ? toDualAxisSpec(spec)
+      : baseSpec
     : overrideEncoding
       ? ({ ...baseSpec, type: overrideType } as ChartSpec)
       : overrideType === 'scatter' && spec.type !== 'scatter'

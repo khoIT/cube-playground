@@ -93,6 +93,36 @@ export function toDualAxisSpec(spec: ChartSpec): ChartSpec {
   return { ...spec, type: 'dual-axis', encoding: { category: cat, value: nums[0], series: nums[1] } } as ChartSpec;
 }
 
+// Two measures whose peaks differ by more than this squash the smaller series
+// toward the axis floor on a shared scale — the dual-axis combo becomes the
+// better default. 4× ≈ the smaller series capped at a quarter of the axis;
+// the real motivating case ("matches per day" ~2M vs "distinct players"
+// ~300K) sits at ~6.5×, well past it, while near-peer pairs (kills vs
+// deaths) stay single-axis.
+const DUAL_AXIS_SCALE_GAP = 4;
+
+/**
+ * Should this spec DEFAULT to the dual-axis view? True for single-axis
+ * category×value specs carrying two numeric measure columns on visibly
+ * different scales. The chart-type menu still lets the user switch back.
+ */
+export function preferDualAxis(spec: ChartSpec): boolean {
+  if (!canDualAxis(spec)) return false;
+  // Only single-axis families auto-upgrade; explicit scatter/pie/funnel/
+  // heatmap intents (and already-dual specs) are respected as declared.
+  if (spec.type !== 'bar' && spec.type !== 'line' && spec.type !== 'area') return false;
+  const nums = numericColumns(spec.data);
+  // Exactly two measures: the combo can only chart two — auto-upgrading a
+  // 3+-measure result would silently drop series (menu still offers it).
+  if (nums.length !== 2) return false;
+  const [a, b] = nums;
+  const peak = (col: string) =>
+    spec.data.reduce((m, r) => Math.max(m, Math.abs(Number(r[col]) || 0)), 0);
+  const [pa, pb] = [peak(a), peak(b)];
+  if (pa === 0 || pb === 0) return false;
+  return Math.max(pa, pb) / Math.min(pa, pb) > DUAL_AXIS_SCALE_GAP;
+}
+
 /**
  * Every chart type that can sensibly render this spec's data shape — drives the
  * "switch chart type" menu so the user can explore all valid views of a table.

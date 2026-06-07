@@ -16,6 +16,7 @@ import {
   toCsv,
   compatibleChartTypes,
   canDualAxis,
+  preferDualAxis,
   isNumericColumn,
   numericColumns,
   toDualAxisSpec,
@@ -423,5 +424,97 @@ describe('scatterLabelKey', () => {
       { user_count: 800, country: 'SG', arpu_vnd: 2224, paying_rate: 0.08 },
     ];
     expect(scatterLabelKey(rows, { category: 'arpu_vnd', value: 'paying_rate' })).toBe('country');
+  });
+});
+
+describe('preferDualAxis — auto dual-axis default for mixed-scale measures', () => {
+  // The 3542a7c1 additive-merge shape: matches ~2M/day vs distinct players
+  // ~300K/day on one shared axis squashes the player series flat.
+  const mixedScaleSpec: ChartSpec = {
+    type: 'line',
+    title: 'Daily Matches + Players',
+    data: [
+      { day: '2026-04-01', matches: 1979114, players: 310000 },
+      { day: '2026-04-02', matches: 2028202, players: 295000 },
+    ],
+    encoding: { category: 'day', value: 'matches' },
+  };
+
+  it('true for a 2-measure series past the scale gap (real case ≈6.5×)', () => {
+    expect(preferDualAxis(mixedScaleSpec)).toBe(true);
+  });
+
+  it('false when the scales are comparable (kills vs deaths)', () => {
+    expect(
+      preferDualAxis({
+        ...mixedScaleSpec,
+        data: [
+          { day: '2026-04-01', kills: 51000, deaths: 49000 },
+          { day: '2026-04-02', kills: 53000, deaths: 50500 },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('false with a single numeric column', () => {
+    expect(
+      preferDualAxis({
+        ...mixedScaleSpec,
+        data: [{ day: '2026-04-01', matches: 1979114 }],
+      }),
+    ).toBe(false);
+  });
+
+  it('false for series-encoded and non-single-axis declared types', () => {
+    expect(preferDualAxis({ ...mixedScaleSpec, encoding: { category: 'day', value: 'matches', series: 'mode' } })).toBe(false);
+    expect(preferDualAxis({ ...mixedScaleSpec, type: 'scatter' })).toBe(false);
+    expect(preferDualAxis({ ...mixedScaleSpec, type: 'heatmap' })).toBe(false);
+  });
+
+  it('false when a column peaks at zero (no meaningful ratio)', () => {
+    expect(
+      preferDualAxis({
+        ...mixedScaleSpec,
+        data: [{ day: '2026-04-01', matches: 1979114, players: 0 }],
+      }),
+    ).toBe(false);
+  });
+
+  it('false with 3+ numeric columns — the combo would silently drop a series', () => {
+    expect(
+      preferDualAxis({
+        ...mixedScaleSpec,
+        data: [
+          { day: '2026-04-01', matches: 1979114, players: 310000, kills: 51000 },
+          { day: '2026-04-02', matches: 2028202, players: 295000, kills: 53000 },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('AssistantChartSection opens such a spec on the dual-axis view (menu shows Bars + line)', () => {
+    renderWithWidth(
+      <AssistantChartSection
+        artifact={makeArtifact({ spec: mixedScaleSpec })}
+      />,
+    );
+    expect(screen.getByText('Bars + line')).toBeTruthy();
+  });
+
+  it('comparable-scale spec keeps its declared type as the default', () => {
+    renderWithWidth(
+      <AssistantChartSection
+        artifact={makeArtifact({
+          spec: {
+            ...mixedScaleSpec,
+            data: [
+              { day: '2026-04-01', kills: 51000, deaths: 49000 },
+              { day: '2026-04-02', kills: 53000, deaths: 50500 },
+            ],
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText('Line')).toBeTruthy();
   });
 });
