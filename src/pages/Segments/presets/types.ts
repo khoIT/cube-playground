@@ -113,6 +113,14 @@ export interface MemberColumnSpec {
   format?: FormatId;
   /** Optional max char width to truncate string-y values. */
   truncate?: number;
+  /** Behavior-cube measures whose model REQUIRES a bounded time window
+   *  (event cubes reject unbounded queries). Columns carrying this are fetched
+   *  in a SEPARATE query bound to this time dimension over `dateRange` —
+   *  bundling them unbounded fails the whole enrichment query and blanks
+   *  every member column. */
+  boundTimeDimension?: string;
+  /** Cube relative date range for the bounded query (default 'last 30 days'). */
+  dateRange?: string;
 }
 
 export interface Preset {

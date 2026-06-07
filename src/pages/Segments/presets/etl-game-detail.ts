@@ -35,7 +35,10 @@ export const etlGameDetailPreset: Preset = {
 
   memberColumns: [
     { id: 'ltv',         label: 'LTV',         measure:   'mf_users.ltv_total_vnd',     format: 'currency' },
-    { id: 'matches',     label: 'Matches',     measure:   'etl_game_detail.matches',    format: 'compact' },
+    // The behavior cube enforces a bounded dteventtime window — fetched in a
+    // separate 30d-bound query so the mf_users columns survive regardless.
+    { id: 'matches',     label: 'Matches (30d)', measure: 'etl_game_detail.matches',    format: 'compact',
+      boundTimeDimension: 'etl_game_detail.dteventtime', dateRange: 'last 30 days' },
     { id: 'stage',       label: 'Stage',       dimension: 'mf_users.lifecycle_stage' },
     { id: 'last-active', label: 'Last active', dimension: 'mf_users.last_active_date' },
   ],
