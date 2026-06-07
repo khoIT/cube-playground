@@ -468,6 +468,13 @@ Format per lesson:
 - **Signal:** `/load` 400 `line N:M: Type of value must be a time or timestamp… (actual date)` only when the time dimension is SELECTED (probes, granularity queries); pure `dateRange` filters may still pass. Per-game: same cube name fine in one game, broken in another.
 - **Apply:** cast in the dimension SQL (cros etl_login/etl_logout/etl_register `log_date`, user_active_monthly `log_month`). When adding/onboarding game cubes, probe one time-dim SELECT per cube before shipping; don't infer health from a sibling game's identical YAML. Note: the dev "local" workspace cube (:4000, `cube-playground-cube-api-dev` container) caches the compiled schema — restart that container (not `cube-playground-cube-api` on :17001) for model edits to take effect.
 
+### Pre-agg on a cube whose source table is missing for one game → refresh worker pegs CPU, container goes "unhealthy" (not crashed)
+
+- **Rule:** a scaffolded schema-stable cube (same YAML copied across games) with a `pre_aggregations` block must only ship for games whose schema actually has the source table. A missing-source pre-agg never succeeds and never gives up: the refresh scheduler re-enqueues every partition (`build_range_start` × `partition_granularity` worth) each 30s sweep, the doomed builds saturate the Node event loop, and the HTTP server stops accepting connections — healthcheck `fetch /readyz` times out with the listen socket's accept backlog full (512) and hundreds of CLOSE_WAIT sockets.
+- **Why:** ptg `marketing_cost.yml` referenced `std_marketing_cost_all_channels_by_game`; 56 game schemas have it, ptg has only `etl_*` tables. Refresh worker ran 99.6% CPU with 1,909 consecutive healthcheck timeouts (~19h) while still partially doing other refresh work — "unhealthy" was starvation, not a crash, so nothing restarted or alerted.
+- **Signal:** container `(unhealthy)` with healthcheck `ExitCode: -1` / "exceeded timeout" (not a 4xx/5xx); in-container `fetch 127.0.0.1:4000` gets `UND_ERR_CONNECT_TIMEOUT` despite port LISTENing; logs repeat `Refresh Scheduler Interval … was not finished` + the same `Table '…' does not exist` pre-agg error every cycle.
+- **Apply:** deleted `cube-dev/cube/model/cubes/ptg/marketing_cost.yml` (verified via `information_schema.tables` that ptg has no marketing/cost source under any name). Before adding a pre-agg to a per-game scaffolded cube, verify the source table exists in THAT game's schema (`SELECT table_schema FROM game_integration.information_schema.tables WHERE table_name = '…'`). Restart the refresh worker after removal — the error loop and stale sockets don't clear on their own.
+
 ---
 
 ## How to extend this doc
