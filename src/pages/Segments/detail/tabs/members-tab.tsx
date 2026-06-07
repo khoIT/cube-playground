@@ -1,11 +1,10 @@
 /**
- * Members tab — header (title + identity chip + Export button) and the
- * paginated/dim-enriched member table.
+ * Members tab — header (title + identity chip) and the paginated/dim-enriched
+ * member table. Export lives in the table's controls row ("Export all IDs") —
+ * one export affordance, wired to the full uid_list.
  */
 
 import { ReactElement } from 'react';
-import { Button } from 'antd';
-import { Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SampleUsersTab } from './sample-users-tab';
 import { AutoPresetBanner } from '../../components/auto-preset-banner';
@@ -35,9 +34,6 @@ export function MembersTab({ segment, preset }: Props): ReactElement {
             })}
           </span>
         </div>
-        <Button icon={<Download size={14} />} disabled={(segment.uid_list ?? []).length === 0}>
-          {t('segments.detail.actions.exportIds', { defaultValue: 'Export IDs' })}
-        </Button>
       </header>
       {preset?.auto && (
         <AutoPresetBanner

@@ -168,7 +168,6 @@
       },
       "backToLibrary": "Segments",
       "actions": {
-        "exportIds": "Export IDs",
         "copyAsFilter": "Copy as filter",
         "editPredicate": "Edit predicate",
         "convertToLive": "Convert to Live",

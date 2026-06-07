@@ -22,6 +22,7 @@ import { hasMember360 } from '../../member360/member360-panels';
 import {
   SortableHeader,
   SortState,
+  columnsWithData,
   compareValues,
   downloadCsv,
   formatCell,
@@ -81,7 +82,13 @@ function RandomSampleFallback({ segment, preset }: Props): ReactElement {
   const safePage = Math.min(page, pageCount - 1);
   const pageRows = pool.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
-  const { byUid, loading: dimsLoading, columns } = useMemberDimRows(segment, preset, pageRows);
+  const { byUid, loading: dimsLoading, columns: rawColumns } = useMemberDimRows(segment, preset, pageRows);
+  // Drop columns that came back empty for every visible row (silent query
+  // failure / dim not resolvable for this game) — no dead all-dash columns.
+  const columns = useMemo(
+    () => columnsWithData(rawColumns, byUid, pageRows, dimsLoading),
+    [rawColumns, byUid, pageRows, dimsLoading],
+  );
   const hasDims = columns.length > 0;
   const member360Enabled = hasMember360(segment.game_id);
 

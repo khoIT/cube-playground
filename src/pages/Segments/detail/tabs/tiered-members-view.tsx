@@ -23,6 +23,7 @@ import { formatValue } from '../cards/format-value';
 import {
   SortableHeader,
   SortState,
+  columnsWithData,
   compareValues,
   downloadCsv,
   formatCell,
@@ -74,9 +75,17 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
   // The stored tier LTV replaces the preset's live LTV column for DISPLAY —
   // rendering both would show the same value twice. (The enrichment query
   // still requests the measure; one extra measure on a 25-row page is noise.)
+  // Columns that came back empty for every visible row are dropped once the
+  // dim query settles — no dead all-dash columns.
   const enrichColumns = useMemo(
-    () => columns.filter((c) => memberColumnField(c) !== tiers.ltv_measure),
-    [columns, tiers.ltv_measure],
+    () =>
+      columnsWithData(
+        columns.filter((c) => memberColumnField(c) !== tiers.ltv_measure),
+        byUid,
+        pageUids,
+        dimsLoading,
+      ),
+    [columns, tiers.ltv_measure, byUid, pageUids, dimsLoading],
   );
   const member360Enabled = hasMember360(segment.game_id);
   // Per-member precompute readiness (one aggregate fetch; null until loaded —

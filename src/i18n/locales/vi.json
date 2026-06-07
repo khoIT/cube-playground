@@ -145,7 +145,6 @@
       },
       "backToLibrary": "Nhóm người dùng",
       "actions": {
-        "exportIds": "Xuất IDs",
         "copyAsFilter": "Copy as filter",
         "editPredicate": "Sửa điều kiện",
         "more": "Thêm"

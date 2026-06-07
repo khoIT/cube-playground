@@ -85,7 +85,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   const isFresh = segment.status === 'fresh';
 
   return (
-    <section style={{ paddingTop: 4 }}>
+    <section style={{ paddingTop: 0 }}>
       <header style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 3px', color: 'var(--text-primary)' }}>
           {t('segments.detail.pullApi.title', { defaultValue: 'Pull API' })}
