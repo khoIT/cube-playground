@@ -10,7 +10,7 @@
 import React, { useCallback, useState } from 'react';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
-import { getOwnerId } from '../../api/chat-owner-id';
+import { chatHeaders } from '../../api/chat-auth-headers';
 import { useCacheEffectiveness } from './use-cache-effectiveness';
 import { CacheDashboardHero } from './cache-dashboard-hero';
 import { CacheDashboardTopQueries } from './cache-dashboard-top-queries';
@@ -150,7 +150,7 @@ export function CacheDashboardPage() {
     try {
       await fetch(`/api/chat/debug/cache${qs}`, {
         method: 'DELETE',
-        headers: { 'X-Owner-Id': getOwnerId() },
+        headers: chatHeaders(),
       });
     } catch (err) {
       console.error('[CacheDashboardPage] clear cache failed:', err);

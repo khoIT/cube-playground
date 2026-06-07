@@ -3,7 +3,7 @@
  * Issues per-id requests in parallel and aggregates the result so the caller
  * can surface a single status (count succeeded + first failure message).
  */
-import { getOwnerId } from '../../api/chat-owner-id';
+import { chatHeaders } from '../../api/chat-auth-headers';
 
 export type BulkSessionAction = 'restore' | 'purge';
 
@@ -16,7 +16,7 @@ export async function runBulkSessionAction(
   ids: string[],
   action: BulkSessionAction,
 ): Promise<BulkSessionResult> {
-  const headers = { 'X-Owner-Id': getOwnerId() };
+  const headers = chatHeaders();
   const results = await Promise.allSettled(
     ids.map((id) => {
       const url =

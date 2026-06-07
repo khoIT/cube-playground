@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { getOwnerId } from '../../api/chat-owner-id';
+import { chatHeaders } from '../../api/chat-auth-headers';
 
 export interface SkillRow {
   skill: string;
@@ -42,7 +42,7 @@ export function useSkillLeaderboard(opts: { gameId?: string; days: number }): Le
     if (opts.gameId) params.set('game', opts.gameId);
 
     fetch(`/api/chat/debug/leaderboard/skills?${params.toString()}`, {
-      headers: { 'X-Owner-Id': getOwnerId() },
+      headers: chatHeaders(),
       signal: controller.signal,
     })
       .then(async (res) => {

@@ -6,11 +6,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { getOwnerId } from '../../api/chat-owner-id';
+import { chatHeaders } from '../../api/chat-auth-headers';
 import type { DebugSession } from './use-debug-api-types';
 
 function authHeaders(): Record<string, string> {
-  return { 'X-Owner-Id': getOwnerId() };
+  return chatHeaders();
 }
 
 export interface SessionsSearchState {

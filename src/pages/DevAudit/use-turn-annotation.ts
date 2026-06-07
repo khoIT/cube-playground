@@ -11,13 +11,13 @@
  */
 
 import { useState, useCallback } from 'react';
-import { getOwnerId } from '../../api/chat-owner-id';
+import { chatHeaders } from '../../api/chat-auth-headers';
 import type { TurnAnnotation, AnnotationFlag } from './use-debug-api-types';
 
 export type { TurnAnnotation, AnnotationFlag };
 
 function authHeaders(): Record<string, string> {
-  return { 'X-Owner-Id': getOwnerId(), 'Content-Type': 'application/json' };
+  return chatHeaders({ 'Content-Type': 'application/json' });
 }
 
 // ---------------------------------------------------------------------------

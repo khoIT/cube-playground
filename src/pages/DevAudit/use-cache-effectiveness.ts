@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { getOwnerId } from '../../api/chat-owner-id';
+import { chatHeaders } from '../../api/chat-auth-headers';
 import type { CacheEffectivenessResponse } from '../../api/cache-effectiveness-types';
 
 interface Params {
@@ -44,7 +44,7 @@ export function useCacheEffectiveness(params: Params): CacheEffectivenessState {
     if (params.topN != null) qp.set('topN', String(params.topN));
 
     fetch(`/api/chat/debug/cache-effectiveness?${qp.toString()}`, {
-      headers: { 'X-Owner-Id': getOwnerId() },
+      headers: chatHeaders(),
       signal: controller.signal,
     })
       .then(async (res) => {

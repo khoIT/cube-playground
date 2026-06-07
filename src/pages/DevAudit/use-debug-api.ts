@@ -4,7 +4,7 @@
  * All requests include X-Owner-Id; ownership enforced server-side.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getOwnerId } from '../../api/chat-owner-id';
+import { chatHeaders } from '../../api/chat-auth-headers';
 import type {
   AsyncState,
   DebugSession,
@@ -35,7 +35,7 @@ export { useTurnAnnotation, useSetTurnAnnotation, useDeleteTurnAnnotation } from
 export { useDebugSearch } from './use-debug-search';
 
 function authHeaders(): Record<string, string> {
-  return { 'X-Owner-Id': getOwnerId() };
+  return chatHeaders();
 }
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ function authHeaders(): Record<string, string> {
 // ---------------------------------------------------------------------------
 
 export function useDebugSessions(
-  { game, q }: { game: string; q: string },
+  { game, q, scope }: { game: string; q: string; scope?: 'mine' | 'all' },
   refreshTick = 0,
 ): AsyncState<DebugSession[]> {
   const [state, setState] = useState<AsyncState<DebugSession[]>>({ data: null, error: null, isLoading: false });
@@ -55,6 +55,8 @@ export function useDebugSessions(
 
     const params = new URLSearchParams({ game, limit: '50' });
     if (q) params.set('q', q);
+    // Admin audit scope — the server 403s unless the verified role is admin.
+    if (scope === 'all') params.set('scope', 'all');
 
     fetch(`/api/chat/debug/sessions?${params.toString()}`, {
       headers: authHeaders(),
@@ -71,7 +73,7 @@ export function useDebugSessions(
       });
 
     return () => controller.abort();
-  }, [game, q, refreshTick]);
+  }, [game, q, scope, refreshTick]);
 
   return state;
 }
