@@ -184,14 +184,21 @@ cubes:
           - mf_users.payer_tier
         time_dimension: log_date
         granularity: day
-        partition_granularity: month
+        partition_granularity: year
         refresh_key:
           every: 1 hour
           incremental: true
+        # Bound the build window to the source table's real data extent. A fixed
+        # wide range (e.g. 2025-01-01→today) spans months with zero source rows;
+        # each empty month builds a 0-row partition that never becomes a queryable
+        # CubeStore table, and the partition-range loader needs the WHOLE range
+        # covered — so a single empty month stops the entire rollup from serving
+        # (even months that built fine). MIN/MAX over the source keeps the range
+        # tight to populated months; the lambda tails anything newer than MAX.
         build_range_start:
-          sql: "SELECT DATE '2025-01-01'"
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
         build_range_end:
-          sql: "SELECT CURRENT_DATE"
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
 
       # Lambda union: sealed batch partitions + a live tail straight from the
       # source table, so recent rows appear without waiting for a refresh cycle
@@ -211,14 +218,16 @@ cubes:
           - dau
         time_dimension: log_date
         granularity: day
-        partition_granularity: month
+        partition_granularity: year
         refresh_key:
           every: 1 hour
           incremental: true
+        # Bound to source data extent — see dau_by_country_payer_daily_batch above
+        # for why a fixed wide range breaks serving when interior months are empty.
         build_range_start:
-          sql: "SELECT DATE '2025-01-01'"
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
         build_range_end:
-          sql: "SELECT CURRENT_DATE"
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
 
       # Lambda union: sealed batch partitions + a live tail straight from the
       # source table, so recent rows appear without waiting for a refresh cycle

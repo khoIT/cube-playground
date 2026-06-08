@@ -171,14 +171,14 @@ cubes:
           - os_platform
         time_dimension: recharge_time
         granularity: day
-        partition_granularity: month
+        partition_granularity: year
         refresh_key:
           every: 1 hour
           incremental: true
         build_range_start:
-          sql: "SELECT DATE '2025-01-01'"
+          sql: "SELECT MIN(recharge_time) FROM etl_ingame_recharge"
         build_range_end:
-          sql: "SELECT CURRENT_DATE"
+          sql: "SELECT MAX(recharge_time) FROM etl_ingame_recharge"
 
       # Lambda union: sealed batch partitions + a live tail straight from the
       # source table, so recent rows appear without waiting for a refresh cycle

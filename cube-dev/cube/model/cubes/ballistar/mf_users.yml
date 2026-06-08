@@ -313,14 +313,14 @@ cubes:
           - os_platform
         time_dimension: install_date
         granularity: day
-        partition_granularity: month
+        partition_granularity: year
         refresh_key:
           every: 6 hours
           incremental: true
         build_range_start:
-          sql: "SELECT DATE '2025-01-01'"
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
         build_range_end:
-          sql: "SELECT CURRENT_DATE"
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
 
       # Lambda union: sealed batch partitions + a live tail straight from the
       # source table, so recent rows appear without waiting for a refresh cycle

@@ -184,14 +184,14 @@ cubes:
           - mf_users.payer_tier
         time_dimension: log_date
         granularity: day
-        partition_granularity: month
+        partition_granularity: year
         refresh_key:
           every: 1 hour
           incremental: true
         build_range_start:
-          sql: "SELECT DATE '2025-01-01'"
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
         build_range_end:
-          sql: "SELECT CURRENT_DATE"
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
 
       # Lambda union: sealed batch partitions + a live tail straight from the
       # source table, so recent rows appear without waiting for a refresh cycle
@@ -211,14 +211,14 @@ cubes:
           - dau
         time_dimension: log_date
         granularity: day
-        partition_granularity: month
+        partition_granularity: year
         refresh_key:
           every: 1 hour
           incremental: true
         build_range_start:
-          sql: "SELECT DATE '2025-01-01'"
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
         build_range_end:
-          sql: "SELECT CURRENT_DATE"
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
 
       # Lambda union: sealed batch partitions + a live tail straight from the
       # source table, so recent rows appear without waiting for a refresh cycle
