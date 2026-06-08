@@ -1,0 +1,195 @@
+/**
+ * Seed ⊕ override merge — the single playbook view every surface reads.
+ *
+ * For a game: start from the 21 seeds, apply per-game override rows (override wins
+ * per field), append net-new CS-authored playbooks, then resolve each against the
+ * game's live member set (availability) and compile its threshold rule to a cohort
+ * predicate where possible. Calibration results (when present) resolve percentile
+ * rules to concrete cutoffs.
+ */
+
+import { SEED_PLAYBOOKS, type Playbook, type PlaybookPriority } from './playbook-registry.js';
+import { listOverrides, type CarePlaybookOverride } from './care-playbooks-store.js';
+import {
+  resolveAvailability,
+  type AvailabilityStatus,
+} from './availability.js';
+import {
+  compileRule,
+  type CalibrationResult,
+  type EvalMode,
+} from './threshold-rule.js';
+import type { PredicateNode } from '../types/predicate-tree.js';
+
+export type PlaybookSource = 'seed' | 'override' | 'custom';
+
+export interface ResolvedPlaybook extends Playbook {
+  source: PlaybookSource;
+  /** Override row id when source !== 'seed'. */
+  overrideId?: string;
+  enabled: boolean;
+  availability: AvailabilityStatus;
+  evalMode: EvalMode;
+  /** Compiled cohort predicate; null for trigger rules or uncalibrated percentiles. */
+  predicate: PredicateNode | null;
+  /** Reason predicate is null on a membership rule (e.g. awaiting calibration). */
+  compileReason?: string;
+  /** True once a calibration cutoff backs the threshold; false = starter estimate. */
+  calibrated: boolean;
+}
+
+const GROUP_TO_NHOM: Record<Playbook['group'], Playbook['nhom']> = {
+  payment: 1,
+  ingame: 2,
+  churn: 3,
+  event: 4,
+};
+
+/** Apply an override's set fields over a seed (or onto an empty base for net-new). */
+function applyOverride(base: Playbook | undefined, ov: CarePlaybookOverride): Playbook {
+  const b = base ?? {
+    id: ov.baseId ?? ov.id,
+    nhom: GROUP_TO_NHOM[ov.group ?? 'event'],
+    group: ov.group ?? 'event',
+    name: ov.name ?? 'Custom playbook',
+    priority: ov.priority ?? 'tb',
+    dataRequirements: ov.dataRequirements ?? [],
+    condition: ov.condition ?? { kind: 'abs', member: '', op: 'gte', value: 0 },
+    watchedMetric: ov.watchedMetric ?? { member: '', label: '' },
+    action: ov.action ?? { text: '', channels: [] },
+  } as Playbook;
+
+  return {
+    ...b,
+    name: ov.name ?? b.name,
+    group: ov.group ?? b.group,
+    priority: ov.priority ?? b.priority,
+    dataRequirements: ov.dataRequirements ?? b.dataRequirements,
+    condition: ov.condition ?? b.condition,
+    watchedMetric: ov.watchedMetric ?? b.watchedMetric,
+    action: ov.action ?? b.action,
+  };
+}
+
+export interface MergeOptions {
+  /** Per-playbook-id calibration results (keyed by effective playbook id). */
+  calibration?: Record<string, CalibrationResult>;
+}
+
+/**
+ * Merge seeds + a game's overrides into the resolved view.
+ * `members` is the game's live logical member set (from getGameMembers).
+ */
+export function mergePlaybooks(
+  gameId: string,
+  members: Set<string>,
+  overrides: CarePlaybookOverride[] = listOverrides(gameId),
+  opts: MergeOptions = {},
+): ResolvedPlaybook[] {
+  const calibration = opts.calibration ?? {};
+
+  // Index overrides: seed-overrides by base_id, net-new collected separately.
+  const overrideByBase = new Map<string, CarePlaybookOverride>();
+  const netNew: CarePlaybookOverride[] = [];
+  for (const ov of overrides) {
+    if (ov.baseId) overrideByBase.set(ov.baseId, ov);
+    else netNew.push(ov);
+  }
+
+  const resolved: ResolvedPlaybook[] = [];
+
+  // Seeds (optionally overridden).
+  for (const seed of SEED_PLAYBOOKS) {
+    const ov = overrideByBase.get(seed.id);
+    const merged = ov ? applyOverride(seed, ov) : seed;
+    resolved.push(
+      finalize(merged, {
+        source: ov ? 'override' : 'seed',
+        overrideId: ov?.id,
+        enabled: ov ? ov.enabled : true,
+        members,
+        calibration: calibration[merged.id],
+      }),
+    );
+  }
+
+  // Net-new CS-authored playbooks.
+  for (const ov of netNew) {
+    const merged = applyOverride(undefined, ov);
+    resolved.push(
+      finalize(merged, {
+        source: 'custom',
+        overrideId: ov.id,
+        enabled: ov.enabled,
+        members,
+        calibration: calibration[merged.id],
+      }),
+    );
+  }
+
+  return resolved;
+}
+
+/**
+ * Lightweight {effective playbook id → priority/name} map for a game, WITHOUT a
+ * /meta round-trip — used by the action queue to rank cases by priority. Applies
+ * seed-overrides and includes net-new playbooks.
+ */
+export function playbookMetaMap(
+  gameId: string,
+  overrides: CarePlaybookOverride[] = listOverrides(gameId),
+): Record<string, { priority: PlaybookPriority; name: string; group: string }> {
+  const overrideByBase = new Map<string, CarePlaybookOverride>();
+  const netNew: CarePlaybookOverride[] = [];
+  for (const ov of overrides) {
+    if (ov.baseId) overrideByBase.set(ov.baseId, ov);
+    else netNew.push(ov);
+  }
+  const map: Record<string, { priority: PlaybookPriority; name: string; group: string }> = {};
+  for (const seed of SEED_PLAYBOOKS) {
+    const ov = overrideByBase.get(seed.id);
+    map[seed.id] = {
+      priority: ov?.priority ?? seed.priority,
+      name: ov?.name ?? seed.name,
+      group: ov?.group ?? seed.group,
+    };
+  }
+  for (const ov of netNew) {
+    map[ov.id] = {
+      priority: ov.priority ?? 'tb',
+      name: ov.name ?? 'Custom playbook',
+      group: ov.group ?? 'event',
+    };
+  }
+  return map;
+}
+
+const PRIORITY_RANK: Record<PlaybookPriority, number> = { cao: 0, tb: 1, thap: 2 };
+export function priorityRank(p: PlaybookPriority): number {
+  return PRIORITY_RANK[p] ?? 3;
+}
+
+function finalize(
+  pb: Playbook,
+  o: {
+    source: PlaybookSource;
+    overrideId?: string;
+    enabled: boolean;
+    members: Set<string>;
+    calibration?: CalibrationResult;
+  },
+): ResolvedPlaybook {
+  const availability = resolveAvailability(pb, o.members);
+  const compiled = compileRule(pb.condition, o.calibration);
+  return {
+    ...pb,
+    source: o.source,
+    overrideId: o.overrideId,
+    enabled: o.enabled,
+    availability,
+    evalMode: compiled.evalMode,
+    predicate: compiled.predicate,
+    compileReason: compiled.reason,
+    calibrated: o.calibration?.cutoff != null,
+  };
+}

@@ -1,0 +1,134 @@
+/**
+ * Care-case ledger routes: list / by-vip (priority-ranked, deduped) / vip-history
+ * / patch lifecycle, plus game-param validation (allow-list + path-traversal guard).
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import Database from 'better-sqlite3';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { buildApp } from '../src/index.js';
+import { setDb, closeDb } from '../src/db/sqlite.js';
+import { openCase } from '../src/care/care-case-store.js';
+import { signAppJwt } from '../src/services/app-jwt.js';
+import { __resetAccessCache } from '../src/auth/access-store.js';
+import { upsertUserAccess } from '../src/auth/access-store-mutators.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
+
+function makeMemDb() {
+  const db = new Database(':memory:');
+  for (const f of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
+    db.exec(readFileSync(join(MIGRATIONS_DIR, f), 'utf8'));
+  }
+  return db;
+}
+
+describe('care-case ledger routes', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeEach(async () => {
+    setDb(makeMemDb());
+    app = await buildApp();
+  });
+  afterEach(async () => {
+    if (app) await app.close();
+    closeDb();
+  });
+
+  it('rejects an invalid game id (path-traversal guard)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases?game=../../etc/passwd' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects an unknown game', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases?game=not_a_game' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('lists cases and dedupes by VIP with top-priority ranking', async () => {
+    // whale matches 02 (cao) + 14 (cao); minnow matches 14 only.
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '14', uid: 'whale', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '18', uid: 'minnow', source: 'membership' }); // 18 = thap
+
+    const list = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn' });
+    expect(list.statusCode).toBe(200);
+    expect(list.json().cases).toHaveLength(3);
+
+    const byVip = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn' });
+    const vips = byVip.json().vips;
+    expect(vips).toHaveLength(2);
+    // whale (cao, 2 cases) ranks before minnow (thap, 1 case).
+    expect(vips[0].uid).toBe('whale');
+    expect(vips[0].caseCount).toBe(2);
+    expect(vips[0].topPriority).toBe('cao');
+  });
+
+  it('patches a case to treated and reflects in vip history', async () => {
+    const { case: c } = openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'vip1', source: 'membership' });
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/care/cases/${c.id}`,
+      payload: { status: 'treated', channel_used: 'call', action_taken: 'tier benefits' },
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().status).toBe('treated');
+    expect(patch.json().treated_at).not.toBeNull();
+
+    const hist = await app.inject({ method: 'GET', url: '/api/care/cases/vip/vip1?game=jus_vn' });
+    const cases = hist.json().cases;
+    expect(cases[0].playbook_name).toBe('VIP tier reached');
+    expect(cases[0].channel_used).toBe('call');
+  });
+
+  it('404 on patching a missing case', async () => {
+    const res = await app.inject({ method: 'PATCH', url: '/api/care/cases/nope', payload: { status: 'treated' } });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+// Auth-enabled surface: the write-role gate must block viewers from mutating
+// the ledger (the AUTH_DISABLED default-on suite can't catch this).
+describe('care-case PATCH write-role gate (real auth)', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  const prev = { AUTH_DISABLED: process.env.AUTH_DISABLED, JWT_SECRET: process.env.JWT_SECRET };
+  const JWT_SECRET = 'test-jwt-secret-must-be-at-least-16-chars';
+  const tok = (sub: string, email: string, role: 'viewer' | 'editor' | 'admin') =>
+    signAppJwt({ sub, username: sub, email, role });
+  let caseId: string;
+
+  beforeEach(async () => {
+    process.env.AUTH_DISABLED = 'false';
+    process.env.JWT_SECRET = JWT_SECRET;
+    setDb(makeMemDb());
+    __resetAccessCache();
+    upsertUserAccess({ email: 'viewer@corp.com', role: 'viewer', status: 'active' });
+    upsertUserAccess({ email: 'editor@corp.com', role: 'editor', status: 'active' });
+    app = await buildApp();
+    caseId = openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'vip1', source: 'membership' }).case.id;
+  });
+  afterEach(async () => {
+    process.env.AUTH_DISABLED = prev.AUTH_DISABLED;
+    process.env.JWT_SECRET = prev.JWT_SECRET;
+    if (app) await app.close();
+    closeDb();
+  });
+
+  it('viewer cannot PATCH a case (403); editor can (200)', async () => {
+    const viewer = { authorization: `Bearer ${await tok('v', 'viewer@corp.com', 'viewer')}` };
+    const editor = { authorization: `Bearer ${await tok('e', 'editor@corp.com', 'editor')}` };
+
+    const denied = await app.inject({ method: 'PATCH', url: `/api/care/cases/${caseId}`, headers: viewer, payload: { status: 'treated' } });
+    expect(denied.statusCode).toBe(403);
+
+    const ok = await app.inject({ method: 'PATCH', url: `/api/care/cases/${caseId}`, headers: editor, payload: { status: 'treated' } });
+    expect(ok.statusCode).toBe(200);
+
+    // Viewer can still READ the monitor/ledger (GET unaffected).
+    const read = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn', headers: viewer });
+    expect(read.statusCode).toBe(200);
+  });
+});

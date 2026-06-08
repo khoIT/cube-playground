@@ -35,6 +35,9 @@ const PROTECTED_PREFIXES = [
   // may read but must not mutate (POST/PUT/PATCH/DELETE).
   '/api/glossary',
   '/api/concepts',
+  // VIP-care: viewers may read the monitor/ledger (GET) but must not mutate the
+  // case ledger (PATCH treatment/status) or author playbooks (Phase-6 writes).
+  '/api/care',
 ];
 
 function authDisabled(): boolean {
