@@ -335,6 +335,10 @@ const CORE_PANELS_BY_GAME: Record<string, Member360Panel[]> = {
   cfm_vn: CFM_CORE_PANELS,
   ballistar: BALLISTAR_CORE_PANELS,
   ballistar_vn: BALLISTAR_CORE_PANELS,
+  // jus reuses the core-360 shape (its user_360.yml mirrors ballistar's; no FPS
+  // event cubes). Keeps the nightly precompute + cache-status path working.
+  jus: BALLISTAR_CORE_PANELS,
+  jus_vn: BALLISTAR_CORE_PANELS,
 };
 
 /** Core (eager) panels for a game, or `[]` when the game has no 360 config. */

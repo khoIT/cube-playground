@@ -19,6 +19,7 @@ import type { MemberTiers, Segment, TierMember, TierName } from '../../../../typ
 import type { Preset } from '../../presets/types';
 import { useMemberDimRows, memberColumnField } from './use-member-dim-rows';
 import { hasMember360 } from '../../member360/member360-panels';
+import { Member360UnavailableChip } from '../../member360/member360-unavailable-chip';
 import { formatValue } from '../cards/format-value';
 import {
   SortableHeader,
@@ -133,8 +134,9 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
   return (
     <div className={styles.tabBody}>
       <div className={styles.sampleControls}>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 12 }} title={tiers.computed_at}>
-          {caption}
+        <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', color: 'var(--text-secondary)', fontSize: 12 }} title={tiers.computed_at}>
+          <span>{caption}</span>
+          {!member360Enabled && <Member360UnavailableChip gameId={segment.game_id} />}
         </div>
         <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
           <Input

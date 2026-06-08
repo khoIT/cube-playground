@@ -543,6 +543,13 @@ Format per lesson:
 - **Signal:** "my new X doesn't show up in the list until much later / after refreshing"; the row exists in the DB with the sort-key column NULL; list endpoint has `LIMIT`; FE refetch events fire correctly.
 - **Apply:** `ORDER BY COALESCE(last_turn_at, created_at) DESC` in `listSessions` + `listSharedSessions` (`chat-store.ts`). When adding any list endpoint sorted by an activity timestamp, write the test "just-created row with NULL activity + LIMIT-worth of older rows → new row is first".
 
+### A new Cube view YAML is invisible until the dev container restarts — `/meta` still 200s without it
+
+- **Rule:** after adding/editing a file under `cube-dev/cube/model/**`, restart the Cube container that mounts it before assuming the change is live. The dev Cube (`cube-playground-cube-api-dev`, :4000) mounts the VENDORED `cube-playground/cube-dev/cube` dir read-only (`docker-compose.devcube.yml` → `./cube-dev/cube:/cube/conf:ro`) — NOT the sibling `cube-dev-old`. Hot-reload does not fire reliably on a `:ro` bind mount, so a long-running container keeps serving the schema it compiled at boot.
+- **Why:** enabling jus_vn Member 360 added `views/jus/user_360.yml`, but the member page 400'd `Cube 'user_recharge_timeline' not found` (all 4 jus 360 views, not just one). The container had been up 24h — it compiled before the file existed. The trap: `/meta` for game=jus returned **200** the whole time (the security context resolves fine), so it looked like the model was loaded and the bug was elsewhere; in fact the views were simply absent from the compiled schema. `docker restart cube-playground-cube-api-dev` → clean compile → all 7 views present (June-2026).
+- **Signal:** a query errors `Cube '<view>' not found for path '<view>.<field>'` for a view you just authored; `/meta` returns 200 but a JWT-authed `/meta` dump doesn't list the view's cube; the Cube container's uptime predates the file's mtime; editing the sibling `cube-dev-old` instead of the vendored `cube-dev/cube` (wrong dir entirely) produces the same "not found".
+- **Apply:** confirm the live mount with `docker inspect <cube-container> --format '{{range .Mounts}}…'` before debugging schema; restart the container (or let the `dev:all` watchdog recreate it) after model edits; verify with a minted-JWT `/meta` grep for the new view, not just an HTTP 200. The `member360-coverage` surface (admin Data-coverage tab) now makes this visible — a just-added-but-unloaded view shows `blocked` until the reload.
+
 ---
 
 ## How to extend this doc

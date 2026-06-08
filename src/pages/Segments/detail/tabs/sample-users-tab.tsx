@@ -19,6 +19,7 @@ import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
 import { useMemberDimRows, memberColumnField } from './use-member-dim-rows';
 import { hasMember360 } from '../../member360/member360-panels';
+import { Member360UnavailableChip } from '../../member360/member360-unavailable-chip';
 import {
   SortableHeader,
   SortState,
@@ -136,8 +137,9 @@ function RandomSampleFallback({ segment, preset }: Props): ReactElement {
   return (
     <div className={styles.tabBody}>
       <div className={styles.sampleControls}>
-        <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-          {t('segments.detail.sampleUsers.description')} ({summaryText})
+        <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>
+          <span>{t('segments.detail.sampleUsers.description')} ({summaryText})</span>
+          {!member360Enabled && <Member360UnavailableChip gameId={segment.game_id} />}
         </div>
         <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
           <Input

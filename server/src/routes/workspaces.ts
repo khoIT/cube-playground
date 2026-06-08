@@ -16,6 +16,7 @@ import {
   computeWorkspaceReadiness,
   computeGamesReadiness,
 } from '../services/workspace-readiness.js';
+import { computeMember360Coverage } from '../services/member360-coverage.js';
 import { userCanAccessWorkspace } from '../auth/authz-decisions.js';
 import { getDb } from '../db/sqlite.js';
 
@@ -82,6 +83,30 @@ export default async function workspacesRoutes(
           return reply.status(400).send({ error: msg });
         }
         req.log.error({ err }, '[workspaces] readiness failed');
+        return reply.status(500).send({ error: msg });
+      }
+    },
+  );
+
+  // GET /api/workspaces/:id/member360-coverage
+  //   200 { workspace, prefixUnsupported, generatedAt, games[] }
+  //   400 unknown workspace id
+  //   500 unexpected
+  // Per-game Member 360 coverage: /meta diff + 1-row probe across the
+  // Trino → Cube YAML → product-config chain. Drives the admin coverage matrix
+  // and the end-user "dashboard unavailable" states.
+  app.get<{ Params: { id: string } }>(
+    '/api/workspaces/:id/member360-coverage',
+    async (req, reply) => {
+      try {
+        const report = await computeMember360Coverage(req.params.id);
+        return reply.send(report);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.startsWith('unknown workspace')) {
+          return reply.status(400).send({ error: msg });
+        }
+        req.log.error({ err }, '[workspaces] member360-coverage failed');
         return reply.status(500).send({ error: msg });
       }
     },

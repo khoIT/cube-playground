@@ -155,6 +155,9 @@ const SECTIONS_BY_GAME: Record<string, Member360Sections> = {
   cfm_vn: CFM_SECTIONS,
   ballistar: BALLISTAR_SECTIONS,
   ballistar_vn: BALLISTAR_SECTIONS,
+  // jus mirrors ballistar's mf_users (no engagement_segment) — same section layout.
+  jus: BALLISTAR_SECTIONS,
+  jus_vn: BALLISTAR_SECTIONS,
 };
 
 export function sectionsForGame(gameId: string | null | undefined): Member360Sections | null {

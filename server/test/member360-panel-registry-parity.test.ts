@@ -26,7 +26,7 @@ import {
 } from '../src/services/member360-panel-registry.js';
 import { buildPanelQuery as serverBuildPanelQuery } from '../src/services/member360-panel-query.js';
 
-const KNOWN_360_GAMES = ['cfm', 'cfm_vn', 'ballistar', 'ballistar_vn'];
+const KNOWN_360_GAMES = ['cfm', 'cfm_vn', 'ballistar', 'ballistar_vn', 'jus', 'jus_vn'];
 
 describe('member360 server registry parity', () => {
   it.each(KNOWN_360_GAMES)('%s: server core panels equal the FE core subset', (game) => {

@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-08 — Member 360 data-coverage surface + jus_vn enablement
+
+Shipped queryable per-game/per-panel Member 360 data-coverage evaluator (ready/partial/empty/blocked) accessible via admin UI at `/admin/dev/data-coverage` + end-user chips/notices on Members tab. Enabled jus_vn Member 360 with new `cube-dev/cube/model/views/jus/user_360.yml` (4 core + 3 audience views). Plan: coverage-service iteration; jus_vn addition. Tests: 28 new server tests (member360-coverage), full server suite 946/946 green; parity guard extended to jus/jus_vn.
+
+- **Coverage classifier** (`server/src/services/member360-coverage.ts`) — hybrid /meta-diff + 1-row probe per game/panel. Returns `{ ready, partial, empty, blocked }` status; game-level rollup; workspace-aware (game_id fully eval, prefix workspaces flagged `prefixUnsupported`).
+- **Coverage route** (`GET /api/workspaces/:id/member360-coverage`) — returns game list with panel statuses, error messages, ready count/total. Timeout-safe fallback for slow Cube.
+- **Admin UI** (`/admin/dev/data-coverage`) — new sub-tab in dev-hub-panel: game matrix (rows=panels, cols=games with color-coded dot status), per-game row, click-to-resolve Trino/YAML/context pane. Manual refresh button, last-check timestamp.
+- **End-user notices** — unavailable-chip when game has no config; partial-coverage notice (yellow) on 360 page listing missing panels + admin link.
+- **jus_vn Member 360** — New `views/jus/user_360.yml` (4 core + 3 audience views, mirrors ballistar shape). Config entries in `member360-panels.ts` + `member360-sections.ts`. Parity guard extended to jus/jus_vn test suite.
+
 ## 2026-06-05 — Per-member 360 page (live Cube, config-driven)
 
 New route `/#/segments/:id/members/:uid`: clicking a member in a segment's Members tab opens that member's full 360, rendered live from Cube. Plan: `plans/260605-1200-per-member-360-page/`. Builds on the already-ported cfm `user_360.yml` substrate (no re-port). Tests: 17 new FE (`member360-data-layer`); full Segments suite 161 green; build clean.

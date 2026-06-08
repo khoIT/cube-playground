@@ -443,6 +443,11 @@ const PANELS_BY_GAME: Record<string, Member360Panel[]> = {
   cfm_vn: CFM_PANELS,
   ballistar: BALLISTAR_PANELS,
   ballistar_vn: BALLISTAR_PANELS,
+  // jus shares the core-360 view family (user_profile / activity / recharge /
+  // transactions) — its user_360.yml mirrors ballistar's, with no FPS event
+  // panels. Same panel shape, so it reuses BALLISTAR_PANELS.
+  jus: BALLISTAR_PANELS,
+  jus_vn: BALLISTAR_PANELS,
 };
 
 /** Panels for a game, or `[]` when the game has no 360 config (page guards). */

@@ -27,6 +27,7 @@ import { ProfileStatusGroups } from './sections/profile-status-groups';
 import { AcquisitionStrip } from './sections/acquisition-strip';
 import { DashboardJourney } from './sections/dashboard-journey';
 import { DetailsTabs } from './sections/details-tabs';
+import { Member360CoverageNotice } from './member360-coverage-notice';
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
@@ -156,6 +157,8 @@ export function Member360View(): ReactElement {
           {gameId}{segment ? ` · ${segment.name}` : ''}
         </div>
       )}
+
+      {sections && <Member360CoverageNotice gameId={gameId} />}
 
       {sections && <DashboardHero uid={uid} sections={sections} row={row} />}
 

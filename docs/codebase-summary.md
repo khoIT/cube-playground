@@ -233,3 +233,32 @@ The data-analyst onboarding flow bootstraps draft Cube models from raw warehouse
 - **Member-360 tabs** — Members tab renders tiered bands (top/middle/bottom-50) + per-tier panel cards (chart/KPI/table per game's corePanels). Cache-first + live fallback; status chips (ok/error/stale). Trigger manual precompute via 10-min-cooldown button.
 - **Segment list Shared pill** — Sidebar & detail sidebar display "Shared" pill when `shared_at` is non-NULL; click → modal listing collaborators (by owner_label).
 - **Client** — `segments-client.ts` extended with `getBrief()`, `getMemberCacheStatus()`, `getMemberPanels()`, `share()`, `unshare()` calls.
+
+---
+
+## Member 360 Data-Coverage Surface (jus_vn enablement + per-game evaluator)
+
+Per-game + per-panel live data-coverage status (ready/partial/empty/blocked) visible to admin + end-user (chip on Members tab when no 360). Replaces hand-audited spreadsheets with a queryable Cube YAML → Trino → product classifier.
+
+### Services (server-side)
+
+- **Coverage classifier** — `server/src/services/member360-coverage.ts`. Hybrid /meta-diff + 1-row probe evaluator: for each game/panel, query Cube `/meta` for dimension existence + /load a single row from that panel's view. Status enum: `ready` (meta + row), `partial` (meta but no row), `empty` (meta but all NULL), `blocked` (Cube error). Rollup: game `ready` iff all `corePanels` ready. Workspace-aware: game_id (full eval) vs prefix (flagged `prefixUnsupported` without detail).
+
+### Routes (server-side)
+
+- **`routes/workspaces.ts`** — `GET /api/workspaces/:id/member360-coverage` returns `{ ready: bool, games: [{ id, readyCount, totalCount, prefixUnsupported, panels: [{id, status, message}] }] }`. Per-workspace, per-game scoped; timeout-safe (LLM-style fallback for slow Cube).
+
+### Frontend (admin UI at `/admin/dev/data-coverage`)
+
+- **Data-coverage panel** — `dev-hub-panel.tsx` new sub-tabs (Chat-Audit | Data coverage). Per-game matrix: rows = panels, cols = game statuses (color-coded dots). Click dot → resolve pane: shows Trino column + Cube YAML + product context + cached error message.
+- **Member360-coverage panel** (`member360-coverage-panel.tsx`) — table of `{ game, status, readyCount/totalCount, lastCheck }` + manual refresh button (cooldown respected server-side).
+
+### Frontend (end-user UI on Members tab)
+
+- **Unavailable chip** — `member360-unavailable-chip.tsx`: renders when segment's game has no Member 360 config; tooltip: "Member 360 not available for {game}. Contact the data team to enable."
+- **Partial-coverage notice** — `member360-coverage-notice.tsx`: banner on the 360 page when game status is `partial`. Yellow background, lists missing panels + link to `/admin/dev/data-coverage`.
+
+### jus_vn Enablement
+
+- **Cube model** — New `cube-dev/cube/model/views/jus/user_360.yml` (4 core + 3 audience views). jus/jus_vn share ballistar's core-360 panel/section shape; config in `member360-panels.ts` + `member360-sections.ts`.
+- **Parity guard** — Server test parity assertion extended to jus/jus_vn alongside cfm/ballistar (ensures coverage evaluator catches new game adds).

@@ -22,7 +22,7 @@ import { ShieldCheck } from 'lucide-react';
 import { TabShell, type TabDef } from '../../../shell/tab-shell';
 import { useAdminUsers } from '../access/use-admin-access';
 import { UsersAndAccessTab } from './users-and-access-tab';
-import { CrossUserAuditPanel } from './cross-user-audit-panel';
+import { DevHubPanel } from './dev-hub-panel';
 import { ObservabilityTab } from './observability-tab';
 import { UserActivityProfile } from './user-activity-profile';
 
@@ -131,12 +131,12 @@ export function AdminHub() {
               aria-labelledby="hub-tab-dev"
             >
               {/*
-                CrossUserAuditPanel replaces the legacy self-scoped DevAuditShell
-                here. Admins need cross-user read access (any user's sessions),
-                not just their own. The legacy DevAuditShell remains at its own
-                /dev/chat-audit route for self-scoped use — it is NOT deleted.
+                Dev area splits into Chat-Audit (CrossUserAuditPanel — cross-user
+                read scope; replaces the legacy self-scoped DevAuditShell, which
+                still lives at /dev/chat-audit) and Data coverage (Member 360
+                coverage matrix). DevHubPanel owns the sub-routing.
               */}
-              <CrossUserAuditPanel />
+              <DevHubPanel />
             </div>
           </Route>
         </Switch>
