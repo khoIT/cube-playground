@@ -29,6 +29,8 @@ export interface VipProfile {
   name: string | null;
   ltvVnd: number | null;
   vipLevel: number | null;
+  /** payer_tier label, e.g. "Diamond" / "Gold"; null when unknown. */
+  tier: string | null;
   /** lifecycle_stage, e.g. "active" / "churned". */
   status: string | null;
   /** days_since_last_active. */
@@ -47,6 +49,7 @@ const PROFILE_DIMS = [
   'user_profile.user_id',
   'user_profile.ltv_vnd',
   'user_profile.max_vip_level',
+  'user_profile.payer_tier',
   'user_profile.lifecycle_stage',
   'user_profile.days_since_last_active',
   'user_profile.last_recharge_date',
@@ -92,6 +95,7 @@ export function mergeVipProfiles(
       name: null,
       ltvVnd: toNum(r['user_profile.ltv_vnd']),
       vipLevel: toNum(r['user_profile.max_vip_level']),
+      tier: r['user_profile.payer_tier'] != null ? String(r['user_profile.payer_tier']) : null,
       status: r['user_profile.lifecycle_stage'] != null ? String(r['user_profile.lifecycle_stage']) : null,
       churnPlayDays: toNum(r['user_profile.days_since_last_active']),
       churnPayDays: daysSince(r['user_profile.last_recharge_date'], now),
@@ -118,7 +122,7 @@ export function mergeVipProfiles(
       bestLevel.set(key, lvl);
       const existing = map.get(key) ?? {
         uid: key, name: null, ltvVnd: null, vipLevel: null,
-        status: null, churnPlayDays: null, churnPayDays: null,
+        tier: null, status: null, churnPlayDays: null, churnPayDays: null,
       };
       map.set(key, { ...existing, name: nameStr });
     }
