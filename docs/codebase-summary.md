@@ -262,3 +262,67 @@ Per-game + per-panel live data-coverage status (ready/partial/empty/blocked) vis
 
 - **Cube model** — New `cube-dev/cube/model/views/jus/user_360.yml` (4 core + 3 audience views). jus/jus_vn share ballistar's core-360 panel/section shape; config in `member360-panels.ts` + `member360-sections.ts`.
 - **Parity guard** — Server test parity assertion extended to jus/jus_vn alongside cfm/ballistar (ensures coverage evaluator catches new game adds).
+
+---
+
+## VIP Care Playbook Console (21-playbook care ledger + CS monitor + authoring)
+
+Stateful CS console for the VIP Care Program: a monitor grid (playbook status + case count), action queue, per-VIP care history, and a playbook builder for threshold/predicate overrides. Single source of truth is the `care_cases` ledger; availability gating + data-calibrated thresholds ensure only reachable VIPs qualify.
+
+### Core Services (server-side)
+
+- **Playbook registry** — `server/src/care/playbook-registry.ts`. Seeded 21-playbook config (per-playbook: condition predicate, watched metric, KPI, action, channel, priority, dataRequirements). One registry, rendered per-game with availability gating.
+- **Threshold-rule compiler** — `server/src/care/threshold-rule.ts`. Compiles threshold rules (abs / tierStep / event / percentile / ratio) into Cube-queryable predicates (ANDed onto cohort predicate at finalization). Zod-validated ThresholdRule schema.
+- **Availability resolver** — `server/src/care/availability.ts`. Per-game evaluator: checks Cube `/meta` for dataRequirements members; missing ⇒ status `unavailable` (greyed, no query). Scoped to game's prefix to prevent prod cross-game member leaks.
+- **Playbook merge** — `server/src/care/playbook-merge.ts`. Merges seed configs ⊕ DB overrides (threshold tune, supplemental predicate, custom playbooks). One registry, N override versions per game.
+- **Game-scope guard** — `server/src/care/game-scope.ts`. Allowlist + path-traversal guard for game-scoped routes.
+- **Care-case store** — `server/src/care/care-case-store.ts`. CRUD on `care_cases` table (migration 037): case status, membership, trigger timestamp, notes, assignee, contact history.
+- **Case engine** — `server/src/care/care-case-engine.ts`. Core logic: idempotent case open, membership diff (who's new/lapsed), trigger eval, by-VIP priority dedup, condition lapsed tracking.
+- **Case sweep driver** — `server/src/care/care-case-sweep.ts`. Orchestrates refresh: calls Cube cohort fetcher (injected), runs trigger eval, returns new+updated cases. Unit-tested via injection (no live Cube required).
+- **Care governance** — `server/src/care/care-governance-store.ts`. CRUD on `care_governance` table (migration 038): org-wide fatigue rules (max 1 proactive/VIP/24h, per-channel cooldown defaults).
+- **Contact fatigue** — `server/src/care/fatigue.ts`. Window-based fatigue calc: checks last contact per channel, applies cooldowns (call 7d, Zalo 48h, in-game/push 24h), surfaces `cao`-priority cases hitting cap as "blocked — override?" (human decision).
+- **KPI auto-eval** — `server/src/care/kpi-eval.ts`. Numeric-threshold-only: auto-resolves cases where the watched metric hits the KPI threshold. Idempotent job, never reverts.
+- **Calibration CLI** — `server/src/care/calibrate.ts`. Runs on live Cube: reconciles registry logical member names against `/meta`, seeds concrete threshold values (percentile cutoff, personal-baseline ratio), writes back to registry.
+
+### Routes (server-side)
+
+All care routes in `PROTECTED_PREFIXES` — editor/admin write-gated, viewers read-only.
+
+- **`GET /api/care/playbooks?game=<id>`** — 21 playbooks (seeded ⊕ overrides merged), per-game availability gated.
+- **`GET /api/care/cases`** — open cases, paginated, sortable by priority/fatigue.
+- **`GET /api/care/cases/by-vip`** — deduplicated case count per VIP.
+- **`GET /api/care/cases/vip/:uid`** — VIP's full case history (timeline).
+- **`PATCH /api/care/cases/:id`** — case status, assignee, notes, contact history.
+- **`GET /api/care/governance`** — org fatigue rules.
+- **`PUT /api/care/governance`** — update fatigue rules (max outreach, cooldowns).
+- **`GET /api/care/fatigue`** — fatigue window + per-channel cooldown snapshot.
+- **`POST /api/care/playbooks`** — create custom playbook (threshold rule, supplemental predicate, enabled).
+- **`PATCH /api/care/playbooks/:id`** — edit override (threshold, predicate, enable/disable).
+- **`DELETE /api/care/playbooks/:id`** — delete custom playbook override (seeds immutable).
+
+### Migrations
+
+- **`036-care-playbooks.sql`** — `care_playbooks(id, seed_base_id, game_id, name, condition_predicate, data_requirements, threshold_rule, supplemental_predicate, enabled, created_at, updated_at)`. Seed rows immutable (NULL override rows). Override rows carry supplemental AND/OR predicate persisted at migration 039.
+- **`037-care-cases.sql`** — `care_cases(id, game_id, vip_uid, playbook_id, status, membership_state, trigger_ts, condition_lapsed, assignee, contact_history, notes, created_at, updated_at)`. Idempotent case store keyed by (game, vip, playbook).
+- **`038-care-governance.sql`** — `care_governance(workspace_id, max_proactive_per_vip_24h, call_cooldown_days, zalo_cooldown_hours, ingame_push_cooldown_hours, updated_at)`. One row per workspace.
+- **`039-care-playbook-supplemental-predicate.sql`** — adds nullable `supplemental_predicate` column to override rows, ANDed onto compiled cohort predicate at finalization.
+
+### Frontend
+
+- **CS Monitor** — `src/pages/Dashboards/cs/index.tsx`. Grid of 21 playbooks: seed name, status (available/unavailable), active case count, case rate, last trigger. Header: "+ New playbook" CTA, game selector, refresh. Reuses grid + card patterns from Dashboards.
+- **Action Queue** — `src/pages/Dashboards/cs/queue/index.tsx`. Paginated, sortable case list (VIP name, playbook, status, assignee, fatigue window, contact history). Click case → detail drawer. Assignee pull-pool + affinity support (route to known AM if set).
+- **Playbook Builder** — `src/pages/Dashboards/cs/playbooks/new.tsx` + `/:id/edit.tsx`. Four-section form: playbook name/description, threshold rule (rule-type picker + value input), supplemental predicate (optional AND/OR using Segments builder), enable/disable toggle. Read-only for viewers. Mutation id-routing via `playbook-mutation-target.ts` (seed→POST base_id, override→PATCH override-row-id).
+- **Member-360 Care tab** — `src/pages/Segments/member360/care-tab.tsx`. Opens auto on VIP qualification. Case timeline (dates, playbooks triggered, contact history), governance status (fatigue window, blocked-override flag), action affordances.
+- **API client** — `src/api/care-playbooks-client.ts`. Typed CRUD + case routes.
+
+### Tests
+
+- **Server:** `care-playbook-registry.test.ts`, `care-playbooks-route.test.ts`, `care-case-ledger.test.ts`, `care-case-sweep.test.ts`, `care-cases-route.test.ts`, `care-playbooks-authoring.test.ts` (54 tests, 36 from initial phases, 18 from Phase 6 authoring close-out).
+- **Frontend:** `cs-monitor.test.ts`, `cs-queue.test.ts`, `playbook-builder.test.ts`, `playbook-mutation-target.test.ts`, `care-tab.test.ts` (55 tests).
+
+### Deferred to Live Integration
+
+- **Cron scheduling + live trigger eval.** `runCaseSweep` + `makeCubeCohortFetcher` are implemented and unit-tested via injection. Only the background scheduler tick + HTTP POST trigger remain (need reachable Cube workspace to fetch cohorts).
+- **Live threshold calibration.** The `calibrate.ts` CLI (runs on host dev / prod-mirror) reconciles registry logical member names (e.g., `mf_users.ltv_total_vnd`, `user_recharge_daily.revenue_vnd`) against live `/meta` and seeds concrete values. Starter percentile estimates in spec carry forward until live calibration runs.
+- **Percentile-rule cutoff computation.** Threshold-rule engine supports percentile rules; currently no seed uses percentile. Awaiting live data probe to determine the cutoff value.
+- **Phase 4 — cfm_vn gameplay-daily mart** (data-team dependency). When live, 6 NHÓM-2 playbooks flip `unavailable → available` with zero frontend change (availability gating auto-detects new Cube members).

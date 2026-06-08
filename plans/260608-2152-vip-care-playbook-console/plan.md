@@ -21,10 +21,10 @@ Playbooks are **data, not 21 bespoke dashboards**: one registry of uniform confi
 | 0 | [Playbook registry + data-readiness gating + threshold calibration](phase-00-playbook-registry-and-readiness-gating.md) | ✅ done (backend; live calibration deferred to integration) | **BLOCKS all** — registry + gating contract first |
 | 1 | [Care-case ledger + trigger/watched-metric engine (backend)](phase-01-care-case-ledger-and-trigger-engine.md) | ✅ done (ledger+engine+sweep+routes; live cron/trigger-eval deferred) | blockedBy 0 |
 | 2 | [CS Monitor dashboard (Dashboards/CS)](phase-02-cs-monitor-dashboard.md) | ✅ done | blockedBy 0,1 |
-| 3 | [Case Ledger / VIP Action Queue + Member-360 Care tab](phase-03-action-queue-and-member360-care.md) | 🔄 in progress (frontend) | blockedBy 1,2 |
+| 3 | [Case Ledger / VIP Action Queue + Member-360 Care tab](phase-03-action-queue-and-member360-care.md) | ✅ done | blockedBy 1,2 |
 | 4 | [cfm_vn gameplay-daily mart (unlocks NHÓM 2)](phase-04-cfm-gameplay-daily-mart.md) | pending (data-team dep) | blockedBy 0; data-team dep; parallel to 2/3 |
 | 5 | [Contact governance + KPI auto-eval loop](phase-05-contact-governance-and-kpi-loop.md) | ✅ backend done (FE wiring + cron deferred) | blockedBy 1,3 |
-| 6 | [Playbook Builder (authoring & overrides)](phase-06-playbook-builder.md) | ✅ backend done (Builder UI pending) | blockedBy 0,2; reuses Segments predicate builder |
+| 6 | [Playbook Builder (authoring & overrides)](phase-06-playbook-builder.md) | ✅ done (Builder UI + supplemental-predicate persistence) | blockedBy 0,2; reuses Segments predicate builder |
 
 ## Sequencing
 - **MVP (jus_vn + cfm_vn spend/churn):** 0 → 1 → 2 → 3 → 5. Ships 9 jus / 11 cfm playbooks on data available **today**.
@@ -44,8 +44,13 @@ Playbooks are **data, not 21 bespoke dashboards**: one registry of uniform confi
 5. **Routes:** monitor `/dashboards/cs` · ledger/queue `/dashboards/cs/queue` · builder `/dashboards/cs/playbooks/new` + `/:id/edit` · Member-360 Care tab stays on existing `/segments/:id/members/:uid`. Stateful surfaces live under the `/dashboards/cs` namespace, reached from the monitor.
 6. **Playbook authoring (two-tier) — resolves "where do I create/edit a playbook":** the 21 doc playbooks ship as **seeded canonical** configs (version-controlled, not deletable — only enable/disable + threshold tune); CS managers **create / clone / edit** via a **Playbook Builder** (new Phase 6), persisted as DB overrides/additions layered over the seeds. Entry points: **"+ New playbook"** in the monitor header, **"Edit / Clone"** per row. Builder reuses the **Segments predicate builder** for the condition.
 
-## Implementation status (as of 2026-06-08)
-**Backend complete & verified — Phases 0, 1, 5, 6 (server: 1011 tests green, tsc clean). Frontend: Phase 2 done; Phase 3 in progress; Phase 6 UI pending.**
+## Implementation status (as of 2026-06-09)
+**Shipped on `feat/vip-care-playbook-console` (2 commits): backend `5d41459`, frontend + predicate persistence `ee4ebde`. Phases 0,1,2,3,5,6 done & verified (server care suite 54 green, frontend care suite 55 green, tsc clean on all touched files). Phase 4 (gameplay mart) still a data-team dep.**
+
+Phase 6 close-out:
+- **Builder UI shipped** — 4-section form at `/dashboards/cs/playbooks/new` + `/:id/edit`; viewer read-only, editor/admin write; routes registered before the `/dashboards/:slug` catch-all.
+- **Mutation id-routing fix** — resolved playbooks expose a display `id` that equals the seed base-id for overrides, while PATCH/DELETE key on the override row id. New shared `playbook-mutation-target.ts` routes seed→POST(base_id) and override/custom→PATCH(overrideId); fixes custom-edit 404 and override mis-targeting. Regression test `playbook-mutation-target.test.ts`.
+- **Supplemental predicate persisted** (decision #6 fully realized) — optional AND/OR filter on the override (migration `039-care-playbook-supplemental-predicate.sql`), ANDed onto the compiled cohort predicate in `finalize`, round-tripped to the Builder, members fold into the data-readiness gate; a half-built tree blocks save (no silent drop). Test added to `care-playbooks-authoring.test.ts`.
 
 Phase 5 (governance): `care_governance` table (migration 038) + `care-governance-store.ts` (defaults: 1/VIP/24h + call 7d·Zalo 48h·in-game/push 24h) + `fatigue.ts` (window cap + per-channel cooldown + `cao`→blocked_override) + `kpi-eval.ts` (numeric-threshold-only auto-resolve, SLA breach, idempotent job) + routes `GET/PUT /api/care/governance`, `GET /api/care/fatigue`. FE action-queue consumption + cron scheduling deferred (post-Phase-3 / live).
 Phase 6 (authoring backend): override CRUD on `care_playbooks` (`createOverride`/`updateOverride`/`deleteOverride`, seed-overridden-not-deleted) + routes `POST/PATCH/DELETE /api/care/playbooks` (zod-validated ThresholdRule, editor/admin gated). Builder UI pending (blocked on Phase 3 to avoid monitor-file conflicts).

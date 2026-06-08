@@ -591,6 +591,57 @@ The LLM emits a 5-label enum (status: good/caution/risk) + narrative + signal bu
 
 ---
 
+## VIP Care Playbook Console
+
+CS-facing console for the 21-playbook VIP Care Program. Turns static playbook definitions into a **stateful care-case ledger** — one playbook monitor + action queue + per-VIP treatment history + case governance — for cfm_vn and jus_vn, with per-(game×playbook) **availability gating** (playbooks grey out when Cube members aren't modeled for that game) and **data-calibrated thresholds** (percentile, personal-baseline ratio, absolute).
+
+### Core Architecture
+
+**Registry & compilation:** `playbook-registry.ts` seeds 21 playbook configs (one declarative source of truth: condition predicate, watched metric, KPI, channel, priority, dataRequirements). `threshold-rule.ts` compiles threshold rules (abs / tierStep / event / percentile / ratio) → Cube-queryable predicates (ANDed onto the cohort predicate at finalization).
+
+**Ledger:** `care_cases` table (migration 037) is the single source of truth: case status (open/active/escalated/closed), membership history, trigger timestamp, contact fatigue governance. `care-case-store.ts` + `care-case-engine.ts` handle idempotent case open/membership diff/trigger eval/by-VIP priority dedup. `care-case-sweep.ts` injects the Cube cohort fetcher and runs trigger logic.
+
+**Availability gating:** Per-game resolver (`availability.ts`) queries `/meta` for Cube members declared in `dataRequirements`; missing member ⇒ playbook status `unavailable` (greyed in UI, no cohort query). Same registry renders differently per game (cfm shows NHÓM 2 playbooks available; jus shows them unavailable due to data-model gap).
+
+**Contact governance:** `care_governance` table (migration 038) + `care-governance-store.ts` enforce: max 1 proactive outreach/VIP/24h + per-channel cooldown (call 7d, Zalo 48h, in-game/push 24h). `fatigue.ts` computes contact fatigue window + per-channel cooldown + surfaces `cao`-priority cases that hit cap as "blocked — override?" (human decision, no silent suppression). `kpi-eval.ts` auto-resolves cases hitting numeric KPI thresholds.
+
+### Surfaces
+
+| Route | Role | Purpose |
+|---|---|---|
+| `/dashboards/cs` | CS | **Playbook monitor** — grid of 21 playbooks, status (available/unavailable), active case count, case rate, CTA to action queue. Real-time view, data-driven thresholds. |
+| `/dashboards/cs/queue` | CS | **Action queue** — sorted by fatigue + priority, assignee pull-pool. Case detail, contact history, manual dedup. |
+| `/dashboards/cs/playbooks/new` | Editor+ | **Playbook builder** — new/clone/edit override form. Reuses Segments predicate builder for condition. Threshold override, supplemental AND/OR filter, save. |
+| `/dashboards/cs/playbooks/:id/edit` | Editor+ | Edit existing playbook override. |
+| `/segments/:id/members/:uid` (Care tab) | All | **Per-VIP care history** — Member 360 Care tab; opens auto on VIP qualification. Case timeline, contact history, governance status. |
+
+### API
+
+**Read:**
+- `GET /api/care/playbooks?game=<id>` — 21 playbooks (seeded + overrides merged), availability gated.
+- `GET /api/care/cases` — all open cases, paginated, sortable.
+- `GET /api/care/cases/by-vip` — deduplicated by-VIP case count.
+- `GET /api/care/cases/vip/:uid` — VIP's case history (timeline).
+- `GET /api/care/governance` — org-wide fatigue rules + cooldowns.
+- `GET /api/care/fatigue` — fatigue stats + contact window snapshot.
+
+**Write** (all `/api/care/*` added to `PROTECTED_PREFIXES` — editor/admin gated):
+- `PATCH /api/care/cases/:id` — case status, assignee, notes.
+- `PUT /api/care/governance` — update fatigue rules.
+- `POST /api/care/playbooks` — create override (seeded base-id, custom threshold, supplemental predicate).
+- `PATCH /api/care/playbooks/:id` — edit override (threshold, predicate, enable/disable).
+- `DELETE /api/care/playbooks/:id` — delete custom override (seeds are immutable).
+
+### Deferred to Live Integration
+
+**Cron scheduling + on-demand trigger.** `runCaseSweep` + `makeCubeCohortFetcher` are implemented and unit-tested via injection; only the background cron tick and HTTP POST trigger remain (need reachable Cube workspace).
+
+**Live threshold calibration.** The `calibrate.ts` CLI reconciles registry logical member names (e.g., `mf_users.ltv_total_vnd`) against live `/meta`; starter percentile estimates in the spec carry forward until calibration runs on a live Cube.
+
+**Percentile-rule cutoff computation.** Currently no seed playbook uses percentile; the rule infrastructure is complete, awaiting live data probe to determine the threshold value.
+
+---
+
 ## Future Directions
 
 **Semantic cache deferred** — exact-match cache (Layer 4) deferred pending production hit-rate measurement. If exact-match hit-rate <10%, revisit embedding-based semantic matching via a higher-latency service.
@@ -600,3 +651,5 @@ The LLM emits a 5-label enum (status: good/caution/risk) + narrative + signal bu
 **Auto-repair stage** — stage 3 (Repair) currently manual. Future: template-driven auto-remediation (e.g., schema reconciliation, cross-game model mirroring).
 
 **Activity dashboard (Phase 5+)** — admin console with detailed user cohorts, feature heatmaps, and anomaly alerts (workspace-isolation plan, deferred).
+
+**cfm_vn gameplay-daily mart** — Phase 4 data-team dependency. When the gameplay-daily mart ships, cfm's 6 NHÓM-2 playbooks automatically flip `unavailable → available` with zero frontend change (registry gating auto-detects new Cube members).
