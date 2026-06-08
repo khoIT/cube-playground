@@ -259,3 +259,31 @@ export async function patchCareCase(id: string, patch: CareCasePatch): Promise<C
     body: patch,
   });
 }
+
+// ── On-demand sweep ─────────────────────────────────────────────────────────
+
+export interface SweepPlaybookSummary {
+  playbookId: string;
+  cohortSize: number;
+  opened: number;
+  lapsed: number;
+  alreadyOpen: number;
+  skipped?: 'trigger-eval-pending' | 'unavailable' | 'disabled' | 'no-predicate';
+}
+
+export interface SweepResult {
+  game: string;
+  opened: number;
+  lapsed: number;
+  summaries: SweepPlaybookSummary[];
+}
+
+/**
+ * Triggers a cohort sweep for a game against the live Cube (editor/admin).
+ * Populates the ledger; throws on a Cube/API error so callers can surface it.
+ */
+export async function runCareSweep(game: string): Promise<SweepResult> {
+  return apiFetch<SweepResult>(`/api/care/cases/sweep?game=${encodeURIComponent(game)}`, {
+    method: 'POST',
+  });
+}

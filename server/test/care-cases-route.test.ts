@@ -88,6 +88,11 @@ describe('care-case ledger routes', () => {
     const res = await app.inject({ method: 'PATCH', url: '/api/care/cases/nope', payload: { status: 'treated' } });
     expect(res.statusCode).toBe(404);
   });
+
+  it('sweep rejects an invalid game before touching Cube', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/sweep?game=../../etc' });
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 // Auth-enabled surface: the write-role gate must block viewers from mutating
@@ -130,5 +135,11 @@ describe('care-case PATCH write-role gate (real auth)', () => {
     // Viewer can still READ the monitor/ledger (GET unaffected).
     const read = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn', headers: viewer });
     expect(read.statusCode).toBe(200);
+  });
+
+  it('viewer cannot trigger a sweep (403, mutating)', async () => {
+    const viewer = { authorization: `Bearer ${await tok('v', 'viewer@corp.com', 'viewer')}` };
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/sweep?game=jus_vn', headers: viewer });
+    expect(res.statusCode).toBe(403);
   });
 });

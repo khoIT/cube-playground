@@ -22,6 +22,9 @@ import {
 import { groupCasesByVip } from '../care/care-case-engine.js';
 import { playbookMetaMap, priorityRank } from '../care/playbook-merge.js';
 import { resolveGameScope } from '../care/game-scope.js';
+import { getGameMembers } from '../care/availability.js';
+import { loadCalibration } from '../care/calibrate.js';
+import { runCaseSweep, makeCubeCohortFetcher } from '../care/care-case-sweep.js';
 import type { PlaybookPriority } from '../care/playbook-registry.js';
 import type { WorkspaceDef } from '../services/workspaces-config-loader.js';
 
@@ -104,6 +107,36 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       playbook_priority: meta[c.playbook_id]?.priority ?? 'tb',
     }));
     return { uid, cases };
+  });
+
+  // On-demand sweep — materializes the current VIP cohort for each membership
+  // playbook of `game` against the live Cube and opens/lapses cases. Editor/admin
+  // (mutating; gated by the global /api/care write rule). Returns per-playbook
+  // summaries so the UI can show what opened / why a playbook was skipped.
+  app.post('/api/care/cases/sweep', async (req, reply) => {
+    const scope = resolveGameScope(req.workspace, (req.query as { game?: string })?.game);
+    if (!scope.ok) return reply.status(400).send({ error: { code: 'VALIDATION', message: scope.error } });
+    const game = (req.query as { game: string }).game.trim();
+
+    const ctx = req.buildIntrospectionCtxForGame ? req.buildIntrospectionCtxForGame(game) : req.cubeCtx;
+    const cacheKey = `${req.workspace.id}:${game}`;
+
+    try {
+      // Force a fresh member set so gating reflects the live model, not a cached probe.
+      const members = await getGameMembers(ctx, scope.gamePrefix, cacheKey, true);
+      const deps = { fetchCohortUids: makeCubeCohortFetcher(ctx, game, req.workspace.id, members) };
+      const summaries = await runCaseSweep(game, req.workspace.id, members, deps, loadCalibration(game));
+      const opened = summaries.reduce((n, s) => n + s.opened, 0);
+      const lapsed = summaries.reduce((n, s) => n + s.lapsed, 0);
+      return { game, opened, lapsed, summaries };
+    } catch (err) {
+      // Live Cube unreachable / query failure — surface it so the button shows a
+      // real error instead of a silent empty result.
+      req.log.error({ err, game }, '[care] sweep failed');
+      return reply.status(502).send({
+        error: { code: 'SWEEP_FAILED', message: err instanceof Error ? err.message : 'sweep failed' },
+      });
+    }
   });
 
   app.patch('/api/care/cases/:id', async (req, reply) => {

@@ -18,9 +18,10 @@
 
 import React, { useState, useCallback } from 'react';
 import { useLocation, useHistory, Link } from 'react-router-dom';
-import { ListChecks, Users, ChevronLeft } from 'lucide-react';
+import { ListChecks, Users, ChevronLeft, RefreshCw } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
-import { useCareCases, useVipQueue } from './use-care-cases';
+import { useAuthUser } from '../../../auth/auth-context';
+import { useCareCases, useVipQueue, runCareSweep } from './use-care-cases';
 import type { CareCase, VipCaseRow } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -491,10 +492,35 @@ export function CaseLedgerPage() {
   const history = useHistory();
   const { gameId: ctxGame } = useGameContext();
 
+  const user = useAuthUser();
+  const canWrite = user?.role === 'editor' || user?.role === 'admin';
+
   const params = new URLSearchParams(location.search);
   const playbookParam = params.get('playbook') ?? '';
   const gameParam = params.get('game') ?? '';
   const gameId = gameParam || ctxGame;
+
+  // On-demand sweep: populate the ledger from the live Cube. Reloads on success
+  // (cases opened) so the queue reflects new rows; surfaces 0-opened / errors inline.
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepMsg, setSweepMsg] = useState<string | null>(null);
+  const handleSweep = useCallback(async () => {
+    if (!gameId) return;
+    setSweeping(true);
+    setSweepMsg(null);
+    try {
+      const r = await runCareSweep(gameId);
+      if (r.opened > 0) {
+        window.location.reload();
+        return;
+      }
+      setSweepMsg(`Swept — 0 cases opened (no VIPs currently qualify for ${gameId}).`);
+    } catch (err) {
+      setSweepMsg(err instanceof Error ? `Sweep failed: ${err.message}` : 'Sweep failed.');
+    } finally {
+      setSweeping(false);
+    }
+  }, [gameId]);
 
   // Determine initial lens from URL.
   const initialLens: Lens = playbookParam ? 'playbook' : 'vip';
@@ -536,12 +562,41 @@ export function CaseLedgerPage() {
           </h1>
         </div>
 
-        {/* Game badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-muted)', padding: '5px 11px', borderRadius: 'var(--radius-full)' }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
-          {gameId}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Run sweep — editor/admin only; populates the ledger from the live Cube. */}
+          {canWrite && (
+            <button
+              type="button"
+              onClick={handleSweep}
+              disabled={sweeping}
+              title="Query the live Cube for each playbook's current VIP cohort and open cases"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                color: 'var(--text-secondary)', background: 'var(--bg-card)',
+                border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
+                padding: '6px 12px', cursor: sweeping ? 'wait' : 'pointer',
+                opacity: sweeping ? 0.6 : 1,
+              }}
+            >
+              <RefreshCw size={13} style={{ opacity: sweeping ? 0.5 : 1 }} />
+              {sweeping ? 'Sweeping…' : 'Run sweep'}
+            </button>
+          )}
+
+          {/* Game badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-muted)', padding: '5px 11px', borderRadius: 'var(--radius-full)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+            {gameId}
+          </div>
         </div>
       </div>
+
+      {sweepMsg && (
+        <div style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+          {sweepMsg}
+        </div>
+      )}
 
       <p style={{ margin: '2px 0 18px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
         {lens === 'vip'
