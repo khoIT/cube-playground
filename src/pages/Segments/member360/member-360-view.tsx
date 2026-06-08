@@ -196,7 +196,9 @@ export function Member360View(): ReactElement {
           </div>
 
           <DashboardJourney gameId={gameId} uid={uid} sections={sections} row={row} cachedSource={cachedSource} />
-          <DetailsTabs gameId={gameId} uid={uid} cachedSource={cachedSource} />
+          {/* showCareTab always true — CareHistoryTab handles empty state gracefully
+              when no care cases exist yet for the active game. */}
+          <DetailsTabs gameId={gameId} uid={uid} cachedSource={cachedSource} showCareTab />
         </>
       )}
     </main>

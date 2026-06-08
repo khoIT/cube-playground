@@ -8,6 +8,7 @@
  * rules to concrete cutoffs.
  */
 
+import { randomUUID } from 'node:crypto';
 import { SEED_PLAYBOOKS, type Playbook, type PlaybookPriority } from './playbook-registry.js';
 import { listOverrides, type CarePlaybookOverride } from './care-playbooks-store.js';
 import {
@@ -30,8 +31,14 @@ export interface ResolvedPlaybook extends Playbook {
   enabled: boolean;
   availability: AvailabilityStatus;
   evalMode: EvalMode;
-  /** Compiled cohort predicate; null for trigger rules or uncalibrated percentiles. */
+  /**
+   * Effective cohort predicate: the compiled threshold rule ANDed with the
+   * optional supplemental filter. null for trigger rules or uncalibrated
+   * percentiles with no supplemental filter.
+   */
   predicate: PredicateNode | null;
+  /** The raw supplemental AND/OR filter (for the Builder to re-edit); undefined when unused. */
+  supplementalPredicate?: PredicateNode;
   /** Reason predicate is null on a membership rule (e.g. awaiting calibration). */
   compileReason?: string;
   /** True once a calibration cutoff backs the threshold; false = starter estimate. */
@@ -109,6 +116,7 @@ export function mergePlaybooks(
         enabled: ov ? ov.enabled : true,
         members,
         calibration: calibration[merged.id],
+        supplementalPredicate: ov?.supplementalPredicate,
       }),
     );
   }
@@ -123,6 +131,7 @@ export function mergePlaybooks(
         enabled: ov.enabled,
         members,
         calibration: calibration[merged.id],
+        supplementalPredicate: ov.supplementalPredicate,
       }),
     );
   }
@@ -169,6 +178,20 @@ export function priorityRank(p: PlaybookPriority): number {
   return PRIORITY_RANK[p] ?? 3;
 }
 
+/**
+ * Combine the compiled threshold predicate with the optional supplemental
+ * filter. Both present → AND group; one present → that one; neither → null.
+ */
+function combinePredicates(
+  base: PredicateNode | null,
+  supplemental?: PredicateNode,
+): PredicateNode | null {
+  if (base && supplemental) {
+    return { kind: 'group', id: randomUUID(), op: 'AND', children: [base, supplemental] };
+  }
+  return base ?? supplemental ?? null;
+}
+
 function finalize(
   pb: Playbook,
   o: {
@@ -177,6 +200,7 @@ function finalize(
     enabled: boolean;
     members: Set<string>;
     calibration?: CalibrationResult;
+    supplementalPredicate?: PredicateNode;
   },
 ): ResolvedPlaybook {
   const availability = resolveAvailability(pb, o.members);
@@ -188,7 +212,8 @@ function finalize(
     enabled: o.enabled,
     availability,
     evalMode: compiled.evalMode,
-    predicate: compiled.predicate,
+    predicate: combinePredicates(compiled.predicate, o.supplementalPredicate),
+    supplementalPredicate: o.supplementalPredicate,
     compileReason: compiled.reason,
     calibrated: o.calibration?.cutoff != null,
   };

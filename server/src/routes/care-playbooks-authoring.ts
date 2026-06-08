@@ -15,6 +15,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { resolveGameScope } from '../care/game-scope.js';
 import { getSeedPlaybook } from '../care/playbook-registry.js';
+import type { PredicateNode } from '../types/predicate-tree.js';
 import {
   createOverride,
   updateOverride,
@@ -33,6 +34,31 @@ const thresholdRuleSchema = z.discriminatedUnion('kind', [
 const watchedMetricSchema = z.object({ member: z.string(), label: z.string(), kpiTarget: z.string().optional() });
 const actionSchema = z.object({ text: z.string(), channels: z.array(z.string()), slaMinutes: z.number().optional() });
 
+// Optional AND/OR filter layered on the threshold condition — same PredicateNode
+// shape segments store. Recursive (groups nest), so defined via z.lazy.
+const leafOps = [
+  'equals', 'notEquals', 'gt', 'lt', 'gte', 'lte', 'in', 'notIn',
+  'contains', 'set', 'notSet', 'inDateRange', 'beforeDate', 'afterDate',
+] as const;
+const predicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('leaf'),
+      id: z.string(),
+      member: z.string().min(1),
+      type: z.enum(['string', 'number', 'time', 'boolean']),
+      op: z.enum(leafOps),
+      values: z.array(z.unknown()),
+    }),
+    z.object({
+      kind: z.literal('group'),
+      id: z.string(),
+      op: z.enum(['AND', 'OR']),
+      children: z.array(predicateNodeSchema),
+    }),
+  ]),
+);
+
 const createSchema = z.object({
   base_id: z.string().nullable().optional(),
   name: z.string().min(1),
@@ -42,6 +68,7 @@ const createSchema = z.object({
   watchedMetric: watchedMetricSchema,
   action: actionSchema,
   dataRequirements: z.array(z.string()),
+  supplementalPredicate: predicateNodeSchema.nullable().optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -70,6 +97,7 @@ export default async function carePlaybooksAuthoringRoutes(app: FastifyInstance)
       watchedMetric: parsed.data.watchedMetric,
       action: parsed.data.action,
       dataRequirements: parsed.data.dataRequirements,
+      supplementalPredicate: (parsed.data.supplementalPredicate ?? undefined) as PredicateNode | undefined,
       enabled: parsed.data.enabled,
       owner: req.user?.email,
     });
@@ -83,8 +111,15 @@ export default async function carePlaybooksAuthoringRoutes(app: FastifyInstance)
     if (!parsed.success) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
     }
-    const { base_id, ...rest } = parsed.data;
-    return updateOverride(id, { ...rest, baseId: base_id ?? undefined });
+    const { base_id, supplementalPredicate, ...rest } = parsed.data;
+    return updateOverride(id, {
+      ...rest,
+      baseId: base_id ?? undefined,
+      // null clears the filter; a tree sets it; absent key leaves it untouched.
+      ...(supplementalPredicate !== undefined
+        ? { supplementalPredicate: (supplementalPredicate as PredicateNode | null) }
+        : {}),
+    });
   });
 
   app.delete('/api/care/playbooks/:id', async (req, reply) => {

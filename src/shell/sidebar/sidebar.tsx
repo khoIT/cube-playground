@@ -212,9 +212,10 @@ export function Sidebar() {
             icon={LayoutGrid}
             label={t('nav.dashboards')}
             to="/dashboards"
-            flat
             collapsed={collapsed}
-          />
+          >
+            <SidebarItem label={t('nav.csVipCare')} to="/dashboards/cs" indent />
+          </SidebarSection>
         )}
 
         {showSection('segments') && (

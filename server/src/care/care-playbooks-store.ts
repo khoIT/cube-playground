@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { getDb } from '../db/sqlite.js';
 import type { PlaybookGroup, PlaybookPriority, WatchedMetric, PlaybookAction } from './playbook-registry.js';
 import type { ThresholdRule } from './threshold-rule.js';
+import type { PredicateNode } from '../types/predicate-tree.js';
 
 export interface CarePlaybookRow {
   id: string;
@@ -22,6 +23,7 @@ export interface CarePlaybookRow {
   watched_metric_json: string | null;
   action_json: string | null;
   data_requirements_json: string | null;
+  supplemental_predicate_json: string | null;
   enabled: number;
   owner: string | null;
   created_at: string;
@@ -40,6 +42,8 @@ export interface CarePlaybookOverride {
   watchedMetric?: WatchedMetric;
   action?: PlaybookAction;
   dataRequirements?: string[];
+  /** Optional AND/OR filter layered on top of the threshold condition. */
+  supplementalPredicate?: PredicateNode;
   enabled: boolean;
   owner?: string;
   createdAt: string;
@@ -70,6 +74,7 @@ export function rowToOverride(row: CarePlaybookRow): CarePlaybookOverride {
     watchedMetric: parse<WatchedMetric>(row.watched_metric_json),
     action: parse<PlaybookAction>(row.action_json),
     dataRequirements: parse<string[]>(row.data_requirements_json),
+    supplementalPredicate: parse<PredicateNode>(row.supplemental_predicate_json),
     enabled: row.enabled === 1,
     owner: row.owner ?? undefined,
     createdAt: row.created_at,
@@ -104,6 +109,7 @@ export interface CarePlaybookWrite {
   watchedMetric?: WatchedMetric;
   action?: PlaybookAction;
   dataRequirements?: string[];
+  supplementalPredicate?: PredicateNode | null;
   enabled?: boolean;
   owner?: string;
 }
@@ -132,11 +138,13 @@ export function createOverride(w: CarePlaybookWrite): CarePlaybookOverride {
   db.prepare(
     `INSERT INTO care_playbooks
        (id, game_id, base_id, name, group_name, priority, condition_json,
-        watched_metric_json, action_json, data_requirements_json, enabled, owner, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        watched_metric_json, action_json, data_requirements_json, supplemental_predicate_json,
+        enabled, owner, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id, w.gameId, w.baseId ?? null, w.name ?? null, w.group ?? null, w.priority ?? null,
     jstr(w.condition), jstr(w.watchedMetric), jstr(w.action), jstr(w.dataRequirements),
+    jstr(w.supplementalPredicate ?? undefined),
     enabled, w.owner ?? null, now, now,
   );
   return getOverride(id)!;
@@ -157,6 +165,10 @@ export function updateOverride(id: string, w: Partial<CarePlaybookWrite>): CareP
   if (w.watchedMetric !== undefined) push('watched_metric_json', jstr(w.watchedMetric));
   if (w.action !== undefined) push('action_json', jstr(w.action));
   if (w.dataRequirements !== undefined) push('data_requirements_json', jstr(w.dataRequirements));
+  // null clears the supplemental filter; a tree sets it; undefined leaves it.
+  if (w.supplementalPredicate !== undefined) {
+    push('supplemental_predicate_json', w.supplementalPredicate === null ? null : jstr(w.supplementalPredicate));
+  }
   if (w.enabled !== undefined) push('enabled', w.enabled ? 1 : 0);
   if (w.owner !== undefined) push('owner', w.owner);
 

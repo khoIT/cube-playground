@@ -1,9 +1,14 @@
 /**
  * Details section — tabbed sub-panels (Roles / Behavior / Combat / Devices /
- * IPs / Activity / Recharge), mirroring the cfm-user360 reference. Only the
- * active tab's content mounts, so the event-stream (etl_*) tabs query Cube
+ * IPs / Activity / Recharge / Care), mirroring the cfm-user360 reference. Only
+ * the active tab's content mounts, so the event-stream (etl_*) tabs query Cube
  * lazily on selection. Tabs are derived from the per-game panel registry, so a
  * game without (e.g.) event panels simply shows fewer tabs.
+ *
+ * Care tab: always appended as the last tab when `showCareTab` is true.
+ * It renders CareHistoryTab — cross-playbook timeline + recommended action +
+ * treatment form (write-gated for viewer role). Does not depend on the panel
+ * registry, so it never blocks panel-only games from showing the tab.
  */
 
 import { ReactElement, useMemo, useState } from 'react';
@@ -13,12 +18,15 @@ import { MemberPanel } from '../member-panel';
 import type { CachedPanelSource } from '../use-cached-panel-source';
 import { EventPanelGrid } from './event-panel-grid';
 import { SectionCard } from './dashboard-stats';
+import { CareHistoryTab } from '../care-history-tab';
 
 interface TabDef {
   id: string;
   label: string;
   panelIds: string[];
   isEvent?: boolean;
+  /** When true this tab renders the Care history panel, not a panel grid. */
+  isCare?: boolean;
 }
 
 // Ordered tab groups. A tab appears only if ≥1 of its panels exists for the game.
@@ -32,15 +40,25 @@ const TAB_DEFS: TabDef[] = [
   { id: 'recharge', label: 'Recharge', panelIds: ['recharge_timeline', 'revenue_monthly', 'transactions'] },
 ];
 
+// Care tab sentinel — rendered regardless of panel registry. Conditionally
+// appended based on `showCareTab` prop.
+const CARE_TAB: TabDef = { id: 'care', label: 'Care', panelIds: [], isCare: true };
+
 interface Props {
   gameId: string | null;
   uid: string;
   /** Nightly precompute source — core panels render cache-first when present.
    *  Event (behavior) tabs always stay live by design. */
   cachedSource?: CachedPanelSource;
+  /**
+   * When true, appends a "Care" tab showing the VIP care history for the uid.
+   * Pass true whenever the CS feature is enabled for the active game.
+   * Defaults to false for backward compat.
+   */
+  showCareTab?: boolean;
 }
 
-export function DetailsTabs({ gameId, uid, cachedSource }: Props): ReactElement | null {
+export function DetailsTabs({ gameId, uid, cachedSource, showCareTab = false }: Props): ReactElement | null {
   const { t } = useTranslation();
   const byId = useMemo(() => {
     const m = new Map<string, Member360Panel>();
@@ -48,12 +66,13 @@ export function DetailsTabs({ gameId, uid, cachedSource }: Props): ReactElement 
     return m;
   }, [gameId]);
 
-  const tabs = useMemo(
-    () =>
-      TAB_DEFS.map((tab) => ({ ...tab, panels: tab.panelIds.map((id) => byId.get(id)).filter(Boolean) as Member360Panel[] }))
-        .filter((tab) => tab.panels.length > 0),
-    [byId],
-  );
+  const tabs = useMemo(() => {
+    const panelTabs = TAB_DEFS
+      .map((tab) => ({ ...tab, panels: tab.panelIds.map((id) => byId.get(id)).filter(Boolean) as Member360Panel[] }))
+      .filter((tab) => tab.panels.length > 0);
+    // Append Care tab last when the feature is active.
+    return showCareTab ? [...panelTabs, { ...CARE_TAB, panels: [] }] : panelTabs;
+  }, [byId, showCareTab]);
 
   const [active, setActive] = useState(0);
   if (tabs.length === 0) return null;
@@ -86,7 +105,9 @@ export function DetailsTabs({ gameId, uid, cachedSource }: Props): ReactElement 
         })}
       </div>
 
-      {current.isEvent ? (
+      {current.isCare ? (
+        <CareHistoryTab gameId={gameId} uid={uid} />
+      ) : current.isEvent ? (
         <EventPanelGrid gameId={gameId} uid={uid} panels={current.panels} />
       ) : (
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>

@@ -71,6 +71,18 @@ const DashboardDetailPage = loadable(() =>
   import('./pages/Dashboards/dashboard-detail').then((m) => ({ default: m.DashboardDetailPage }))
 );
 
+const CsMonitorPage = loadable(() =>
+  import('./pages/Dashboards/cs').then((m) => ({ default: m.CsMonitorPage }))
+);
+
+const CaseLedgerPage = loadable(() =>
+  import('./pages/Dashboards/cs/case-ledger').then((m) => ({ default: m.CaseLedgerPage }))
+);
+
+const PlaybookBuilderPage = loadable(() =>
+  import('./pages/Dashboards/cs/playbook-builder').then((m) => ({ default: m.PlaybookBuilderPage }))
+);
+
 const AdminAccessPage = loadable(() =>
   import('./pages/Admin/access').then((m) => ({ default: m.AdminAccessPage }))
 );
@@ -216,6 +228,13 @@ ReactDOM.render(
               <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
               <Route key="liveops-cohort" exact path="/liveops/cohort" component={CohortRetentionPage} />
               <Route key="liveops" exact path="/liveops" component={LiveopsPage} />
+              {/* CS Monitor must be before /:slug so /dashboards/cs is not consumed as a slug.
+                  /dashboards/cs/queue must be before /dashboards/cs (exact) for correct matching.
+                  Playbook builder routes must be before /dashboards/cs (exact) to avoid slug capture. */}
+              <Route key="dashboards-cs-playbook-new" exact path="/dashboards/cs/playbooks/new" component={PlaybookBuilderPage} />
+              <Route key="dashboards-cs-playbook-edit" exact path="/dashboards/cs/playbooks/:id/edit" component={PlaybookBuilderPage} />
+              <Route key="dashboards-cs-queue" exact path="/dashboards/cs/queue" component={CaseLedgerPage} />
+              <Route key="dashboards-cs" exact path="/dashboards/cs" component={CsMonitorPage} />
               <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
               <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
               <Route key="drift-center" exact path="/drift-center" component={DriftCenterPage} />

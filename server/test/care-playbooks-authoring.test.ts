@@ -97,6 +97,46 @@ describe('care playbook authoring (dev/admin)', () => {
     expect((await app.inject({ method: 'PATCH', url: '/api/care/playbooks/nope', payload: { priority: 'tb' } })).statusCode).toBe(404);
     expect((await app.inject({ method: 'DELETE', url: '/api/care/playbooks/nope' })).statusCode).toBe(404);
   });
+
+  it('persists a supplemental predicate and ANDs it onto the compiled threshold predicate', async () => {
+    const supp = {
+      kind: 'group',
+      id: 'g1',
+      op: 'AND',
+      children: [{ kind: 'leaf', id: 'l1', member: 'mf_users.country', type: 'string', op: 'equals', values: ['VN'] }],
+    };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/care/playbooks?game=jus_vn',
+      payload: {
+        ...overrideBody,
+        base_id: null,
+        name: 'Whales in VN',
+        condition: { kind: 'abs', member: 'mf_users.ltv_total_vnd', op: 'gte', value: 100000000 },
+        dataRequirements: ['mf_users.ltv_total_vnd'],
+        supplementalPredicate: supp,
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const id = res.json().id;
+
+    const merged = mergePlaybooks('jus_vn', new Set(['mf_users.ltv_total_vnd']), listOverrides('jus_vn'));
+    const p = merged.find((pb) => pb.overrideId === id)!;
+    // Round-trips the raw tree for the Builder to re-edit…
+    expect(p.supplementalPredicate).toEqual(supp);
+    // …and the effective cohort predicate is AND(threshold leaf, supplemental).
+    expect(p.predicate?.kind).toBe('group');
+    expect((p.predicate as { op: string }).op).toBe('AND');
+    expect((p.predicate as { children: unknown[] }).children).toContainEqual(supp);
+
+    // PATCH with null clears the filter; effective predicate reverts to the threshold alone.
+    await app.inject({ method: 'PATCH', url: `/api/care/playbooks/${id}`, payload: { supplementalPredicate: null } });
+    const cleared = mergePlaybooks('jus_vn', new Set(['mf_users.ltv_total_vnd']), listOverrides('jus_vn')).find(
+      (pb) => pb.overrideId === id,
+    )!;
+    expect(cleared.supplementalPredicate).toBeUndefined();
+    expect(cleared.predicate?.kind).toBe('leaf'); // just the abs threshold
+  });
 });
 
 describe('care playbook authoring write-role gate (real auth)', () => {
