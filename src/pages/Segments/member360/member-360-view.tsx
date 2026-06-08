@@ -37,7 +37,19 @@ const pageStyle: React.CSSProperties = {
 
 export function Member360View(): ReactElement {
   const { t } = useTranslation();
-  const { id, uid } = useParams<{ id: string; uid: string }>();
+  const { id, uid: rawUid } = useParams<{ id: string; uid: string }>();
+  // The Members-tab link encodes the uid (vopenid uids contain '@' → %40), and
+  // react-router v5 does NOT decode route params. Recover the literal uid before
+  // it feeds the Cube `user_id equals` filter / cache key — otherwise a game
+  // whose uids contain '@' (jus_vn, cfm vopenid) matches zero rows. Plain numeric
+  // uids decode to themselves; fall back to raw on malformed encoding.
+  const uid = useMemo(() => {
+    try {
+      return decodeURIComponent(rawUid);
+    } catch {
+      return rawUid;
+    }
+  }, [rawUid]);
   const [segment, setSegment] = useState<Segment | null>(null);
   const [error, setError] = useState<string | null>(null);
 
