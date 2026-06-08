@@ -20,7 +20,7 @@
 import type { FormatId } from '../presets/types';
 
 export type Member360PanelType = 'profile' | 'dailyTimeline' | 'detailTable' | 'eventStream';
-export type IdentityKey = 'user_id' | 'playerid' | 'clientsdkuserid';
+export type IdentityKey = 'user_id' | 'playerid' | 'clientsdkuserid' | 'role_id';
 
 /** A column rendered in a 360 panel (dimension or measure, view-qualified). */
 export interface PanelColumn {
@@ -438,6 +438,330 @@ const BALLISTAR_PANELS: Member360Panel[] = [
   },
 ];
 
+/** Build a lazy, ≤31d-bounded session event panel (login/logout/register) over a
+ *  std session view that bounds on `log_date`. cros keys these by user_id (etl
+ *  joins to mf_users directly); tf keys by role_id (resolved via the role bridge,
+ *  like cfm's playerid panels). */
+function sessionPanel(
+  id: string,
+  title: string,
+  view: string,
+  identityKey: IdentityKey,
+  fields: Array<[string, string, FormatId?]>,
+): Member360Panel {
+  return {
+    id,
+    title,
+    view,
+    identityKey,
+    panelType: 'eventStream',
+    section: 'behavior',
+    needsDateRange: true,
+    lazy: true,
+    limit: 100,
+    timeDimension: `${view}.log_date`,
+    columns: [
+      col(view, 'log_date', 'Date'),
+      ...fields.map(([f, label, fmt]) => col(view, f, label, 'dimension', fmt)),
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// CROS / TF — full 360. Both expose the rich view family (profile + roles +
+// device/IP rollups + daily/monthly + sessions). cros/tf user_profile carry
+// engagement_segment (like cfm). The device/IP views are per-user AGGREGATE
+// rollups (distinct counts + first/last seen) — NOT per-row device_id/client_ip
+// lists like cfm's, so no raw PII column is exposed here.
+//
+// Core panels (section: 'core') are mirrored verbatim in the server registry
+// (member360-panel-registry.ts) — keep the two in sync (parity test guards it).
+// ---------------------------------------------------------------------------
+
+/** Profile panel shared by cros + tf (cfm-shape, with engagement_segment). */
+function richProfilePanel(): Member360Panel {
+  return {
+    id: 'profile',
+    title: 'Profile',
+    view: 'user_profile',
+    identityKey: 'user_id',
+    panelType: 'profile',
+    section: 'core',
+    kpis: [
+      { member: 'user_profile.ltv_vnd', label: 'Lifetime value', format: 'currency' },
+      { member: 'user_profile.total_active_days', label: 'Active days', format: 'number' },
+      { member: 'user_profile.lifetime_txn_count', label: 'Transactions', format: 'number' },
+      { member: 'user_profile.max_role_level', label: 'Max level', format: 'number' },
+      { member: 'user_profile.max_vip_level', label: 'Max VIP', format: 'number' },
+      { member: 'user_profile.days_since_last_active', label: 'Days since active', format: 'number' },
+    ],
+    columns: [
+      col('user_profile', 'user_id', 'User ID'),
+      col('user_profile', 'country', 'Country'),
+      col('user_profile', 'os_platform', 'Platform'),
+      col('user_profile', 'payer_tier', 'Payer tier'),
+      col('user_profile', 'lifecycle_stage', 'Lifecycle'),
+      col('user_profile', 'engagement_segment', 'Engagement'),
+      col('user_profile', 'last_role_class', 'Last class'),
+      col('user_profile', 'last_server_id', 'Last server'),
+      col('user_profile', 'media_source', 'Acquired via'),
+      col('user_profile', 'ltv_vnd', 'LTV (VND)', 'dimension', 'currency'),
+      col('user_profile', 'ltv_30d_vnd', 'LTV 30d', 'dimension', 'currency'),
+      col('user_profile', 'install_date', 'Installed'),
+      col('user_profile', 'first_recharge_date', 'First recharge'),
+      col('user_profile', 'last_active_date', 'Last active'),
+      col('user_profile', 'last_login_date', 'Last login'),
+      col('user_profile', 'is_paying_user', 'Paying user'),
+      col('user_profile', 'ltv_iap_vnd', 'LTV — IAP', 'dimension', 'currency'),
+      col('user_profile', 'ltv_web_vnd', 'LTV — Web', 'dimension', 'currency'),
+      col('user_profile', 'txn_count_30d', 'Txns 30d', 'dimension', 'number'),
+      col('user_profile', 'last_recharge_date', 'Last recharge'),
+      col('user_profile', 'first_device_model', 'Device model'),
+      col('user_profile', 'last_login_country', 'Last login country'),
+      col('user_profile', 'days_since_install', 'Days since install', 'dimension', 'number'),
+      col('user_profile', 'install_month', 'Install month'),
+      col('user_profile', 'is_paid_install', 'Paid install'),
+      col('user_profile', 'first_login_date', 'First login'),
+      col('user_profile', 'first_login_channel', 'First login channel'),
+      col('user_profile', 'first_active_date', 'First active'),
+    ],
+  };
+}
+
+/** Characters/roles panel shared by cros + tf. */
+function rolesPanel(): Member360Panel {
+  return {
+    id: 'roles',
+    title: 'Characters / roles',
+    view: 'user_roles_panel',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    limit: 100,
+    columns: [
+      col('user_roles_panel', 'role_id', 'Role ID'),
+      col('user_roles_panel', 'last_role_name', 'Name'),
+      col('user_roles_panel', 'last_role_class', 'Class'),
+      col('user_roles_panel', 'server_id', 'Server'),
+      col('user_roles_panel', 'max_role_level', 'Max level', 'dimension', 'number'),
+      col('user_roles_panel', 'max_vip_level', 'Max VIP', 'dimension', 'number'),
+      col('user_roles_panel', 'role_ltv_vnd', 'Role LTV (VND)', 'dimension', 'currency'),
+      col('user_roles_panel', 'total_active_days', 'Active days', 'dimension', 'number'),
+      col('user_roles_panel', 'last_active_date', 'Last active'),
+    ],
+  };
+}
+
+/** Aggregate device-count panel. cros/tf user_devices is per-(user, device)
+ *  grain, so the panel selects measures only (filtered to one user → a single
+ *  rolled-up row): distinct device count + record count. No raw device_id
+ *  column exists in this rollup view (no per-device PII exposed). */
+function deviceRollupPanel(): Member360Panel {
+  return {
+    id: 'devices',
+    title: 'Devices',
+    view: 'user_devices_panel',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    limit: 1,
+    columns: [
+      col('user_devices_panel', 'distinct_devices', 'Distinct devices', 'measure', 'number'),
+      col('user_devices_panel', 'rows', 'Records', 'measure', 'number'),
+    ],
+  };
+}
+
+/** Aggregate IP-count panel. cros/tf user_ips is per-(user, ip) grain → measures
+ *  only (one rolled-up row per user). No raw client_ip column in this rollup. */
+function ipRollupPanel(): Member360Panel {
+  return {
+    id: 'ips',
+    title: 'IP addresses',
+    view: 'user_ips_panel',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    limit: 1,
+    columns: [
+      col('user_ips_panel', 'distinct_ips', 'Distinct IPs', 'measure', 'number'),
+      col('user_ips_panel', 'rows', 'Records', 'measure', 'number'),
+    ],
+  };
+}
+
+/** Daily activity timeline shared by cros + tf. */
+function activityTimelinePanel(): Member360Panel {
+  return {
+    id: 'activity_timeline',
+    title: 'Activity (daily)',
+    view: 'user_activity_timeline',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_activity_timeline.log_date',
+    limit: 90,
+    columns: [
+      col('user_activity_timeline', 'server_id', 'Server'),
+      col('user_activity_timeline', 'role_class', 'Class'),
+      col('user_activity_timeline', 'online_time_sec', 'Online', 'dimension', 'duration'),
+      col('user_activity_timeline', 'max_role_level', 'Level', 'dimension', 'number'),
+      col('user_activity_timeline', 'is_recharge_day', 'Paid?'),
+    ],
+  };
+}
+
+/** Daily recharge timeline shared by cros + tf. */
+function rechargeTimelinePanel(): Member360Panel {
+  return {
+    id: 'recharge_timeline',
+    title: 'Recharge (daily)',
+    view: 'user_recharge_timeline',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_recharge_timeline.log_date',
+    limit: 90,
+    columns: [
+      col('user_recharge_timeline', 'payment_channel', 'Channel'),
+      col('user_recharge_timeline', 'product_id', 'Product'),
+      col('user_recharge_timeline', 'revenue_vnd', 'Revenue (VND)', 'dimension', 'currency'),
+      col('user_recharge_timeline', 'txn_count', 'Txns', 'dimension', 'number'),
+      col('user_recharge_timeline', 'vip_level', 'VIP', 'dimension', 'number'),
+    ],
+  };
+}
+
+/** Monthly activity rollup shared by cros + tf. */
+function activityMonthlyPanel(): Member360Panel {
+  return {
+    id: 'activity_monthly',
+    title: 'Activity (monthly)',
+    view: 'user_activity_monthly',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_activity_monthly.log_month',
+    limit: 24,
+    columns: [
+      col('user_activity_monthly', 'active_days', 'Active days', 'dimension', 'number'),
+      col('user_activity_monthly', 'recharge_days', 'Recharge days', 'dimension', 'number'),
+      col('user_activity_monthly', 'total_online_time_sec', 'Online', 'dimension', 'duration'),
+      col('user_activity_monthly', 'max_role_level', 'Max level', 'dimension', 'number'),
+      col('user_activity_monthly', 'last_country_code', 'Country'),
+    ],
+  };
+}
+
+/** Monthly revenue rollup shared by cros + tf. */
+function revenueMonthlyPanel(): Member360Panel {
+  return {
+    id: 'revenue_monthly',
+    title: 'Revenue (monthly)',
+    view: 'user_revenue_monthly',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_revenue_monthly.log_month',
+    limit: 24,
+    columns: [
+      col('user_revenue_monthly', 'revenue_vnd', 'Revenue (VND)', 'dimension', 'currency'),
+      col('user_revenue_monthly', 'revenue_usd', 'Revenue (USD)', 'dimension', 'number'),
+      col('user_revenue_monthly', 'txn_count', 'Txns', 'dimension', 'number'),
+      col('user_revenue_monthly', 'max_vip_level', 'Max VIP', 'dimension', 'number'),
+      col('user_revenue_monthly', 'last_payment_channel', 'Channel'),
+    ],
+  };
+}
+
+const CROS_PANELS: Member360Panel[] = [
+  richProfilePanel(),
+  rolesPanel(),
+  deviceRollupPanel(),
+  ipRollupPanel(),
+  activityTimelinePanel(),
+  rechargeTimelinePanel(),
+  {
+    // cros raw transactions use payment_platform / recharged_value / txn_value_band
+    // (multi-region naming) rather than ballistar's payment_channel / value_vnd.
+    id: 'transactions',
+    title: 'Transactions',
+    view: 'user_transactions',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    timeDimension: 'user_transactions.recharge_date',
+    limit: 50,
+    columns: [
+      col('user_transactions', 'recharge_date', 'Date'),
+      col('user_transactions', 'product_id', 'Product'),
+      col('user_transactions', 'payment_platform', 'Channel'),
+      col('user_transactions', 'recharged_value', 'Value', 'dimension', 'currency'),
+      col('user_transactions', 'txn_value_band', 'Band'),
+    ],
+  },
+  activityMonthlyPanel(),
+  revenueMonthlyPanel(),
+  // --- Sessions (lazy, ≤31d bounded, user_id-keyed — etl joins mf_users) ----
+  sessionPanel('login', 'Logins', 'user_login_panel', 'user_id', [
+    ['hour_of_day_vn', 'Hour'],
+    ['day_of_week_vn', 'Weekday'],
+    ['login_channel', 'Channel'],
+    ['os_platform', 'Platform'],
+    ['server_id', 'Server'],
+    ['country_code', 'Country'],
+  ]),
+  sessionPanel('logout', 'Logouts', 'user_logout_panel', 'user_id', [
+    ['online_time_sec', 'Session', 'duration'],
+    ['session_band', 'Band'],
+    ['login_channel', 'Channel'],
+    ['server_id', 'Server'],
+    ['country_code', 'Country'],
+  ]),
+  sessionPanel('register', 'Registrations', 'user_register_panel', 'user_id', [
+    ['login_channel', 'Channel'],
+    ['os_platform', 'Platform'],
+    ['server_id', 'Server'],
+    ['country_code', 'Country'],
+  ]),
+];
+
+const TF_PANELS: Member360Panel[] = [
+  richProfilePanel(),
+  rolesPanel(),
+  deviceRollupPanel(),
+  ipRollupPanel(),
+  activityTimelinePanel(),
+  rechargeTimelinePanel(),
+  activityMonthlyPanel(),
+  revenueMonthlyPanel(),
+  // tf raw transactions are role_id-keyed (TGA events via the role bridge) and
+  // redundant with the VND-normalized recharge_timeline — deferred. Sessions are
+  // role_id-keyed: the event-panel grid resolves the user's role_ids first.
+  sessionPanel('login', 'Logins', 'user_login_panel', 'role_id', [
+    ['hour_of_day_local', 'Hour'],
+    ['channel', 'Channel'],
+    ['os_platform', 'Platform'],
+    ['server_id', 'Server'],
+    ['lineup_rating', 'Lineup', 'number'],
+    ['country_code', 'Country'],
+  ]),
+  sessionPanel('logout', 'Logouts', 'user_logout_panel', 'role_id', [
+    ['online_time_sec', 'Session', 'duration'],
+    ['session_band', 'Band'],
+    ['activity_type', 'Activity'],
+    ['game_type', 'Mode'],
+    ['server_id', 'Server'],
+  ]),
+  sessionPanel('register', 'Registrations', 'user_register_panel', 'role_id', [
+    ['channel', 'Channel'],
+    ['os_platform', 'Platform'],
+    ['server_id', 'Server'],
+    ['country_code', 'Country'],
+    ['is_simulator', 'Simulator?'],
+  ]),
+];
+
 const PANELS_BY_GAME: Record<string, Member360Panel[]> = {
   cfm: CFM_PANELS,
   cfm_vn: CFM_PANELS,
@@ -448,6 +772,13 @@ const PANELS_BY_GAME: Record<string, Member360Panel[]> = {
   // panels. Same panel shape, so it reuses BALLISTAR_PANELS.
   jus: BALLISTAR_PANELS,
   jus_vn: BALLISTAR_PANELS,
+  // cros / tf expose the full rich view family (sessions + monthly + rollups).
+  cros: CROS_PANELS,
+  tf: TF_PANELS,
+  // muaw / pubg model the 4 core views only (no role/device/event cubes yet) —
+  // same core shape as ballistar.
+  muaw: BALLISTAR_PANELS,
+  pubg: BALLISTAR_PANELS,
 };
 
 /** Panels for a game, or `[]` when the game has no 360 config (page guards). */

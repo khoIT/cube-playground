@@ -171,7 +171,7 @@ describe('member360-runner', () => {
 
   it('returns null for ineligible segments (no tiers / unknown game / missing)', async () => {
     seedSegment('no-tiers', { tiers: null });
-    seedSegment('no-registry', { game_id: 'muaw' });
+    seedSegment('no-registry', { game_id: 'gunpow' });
     const load = vi.spyOn(cubeClient, 'load').mockResolvedValue({ data: [] });
 
     expect(await precomputeSegmentMembers360('no-tiers')).toBeNull();

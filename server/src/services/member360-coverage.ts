@@ -99,16 +99,26 @@ export function requiredMembers(p: Member360Panel): string[] {
   return [...s];
 }
 
+export interface ProbeTarget {
+  member: string;
+  kind: 'dimension' | 'measure';
+}
+
 /**
- * Cheapest member to probe a view's existence with. Prefer a plain column over
- * the time dimension: selecting a monthly time dimension (`log_month`) as a bare
- * dimension makes Trino reject the cast ("must be a time or timestamp"). A
- * non-time dimension with `limit:1` is a clean has-any-rows check.
+ * Cheapest member to probe a view's existence with, and how to query it.
+ * Prefer a non-time DIMENSION: selecting the time dimension (`log_month`) as a
+ * bare dimension makes Trino reject the cast ("must be a time or timestamp"),
+ * and selecting a measure as a dimension fails to resolve. When a panel exposes
+ * only measures (e.g. the device/IP count rollups), fall back to a measure and
+ * flag it so the probe queries `measures:[…]` instead of `dimensions:[…]`.
  */
-export function probeMember(p: Member360Panel): string | null {
-  const nonTime = p.columns.find((c) => c.member !== p.timeDimension);
-  if (nonTime) return nonTime.member;
-  return p.columns[0]?.member ?? p.timeDimension ?? null;
+export function probeMember(p: Member360Panel): ProbeTarget | null {
+  const dim = p.columns.find((c) => c.kind === 'dimension' && c.member !== p.timeDimension);
+  if (dim) return { member: dim.member, kind: 'dimension' };
+  const any = p.columns.find((c) => c.member !== p.timeDimension) ?? p.columns[0];
+  if (any) return { member: any.member, kind: any.kind };
+  if (p.timeDimension) return { member: p.timeDimension, kind: 'dimension' };
+  return null;
 }
 
 function buildCtxFor(ws: WorkspaceDef, gameId: string | null): WorkspaceCtx {
@@ -116,15 +126,15 @@ function buildCtxFor(ws: WorkspaceDef, gameId: string | null): WorkspaceCtx {
   return { cubeApiUrl: ws.cubeApiUrl, token };
 }
 
-/** 1-row existence probe for a fully-modeled view. */
+/** 1-row existence probe for a fully-modeled view. A measure probe must be
+ *  queried as a measure (selecting it as a dimension fails to resolve). */
 async function probeHasRows(
   ctx: WorkspaceCtx,
-  member: string,
+  probe: ProbeTarget,
 ): Promise<boolean> {
-  const res = (await loadWithCtx(
-    { dimensions: [member], limit: 1 },
-    ctx,
-  )) as { data?: unknown[] };
+  const query =
+    probe.kind === 'measure' ? { measures: [probe.member], limit: 1 } : { dimensions: [probe.member], limit: 1 };
+  const res = (await loadWithCtx(query, ctx)) as { data?: unknown[] };
   return (res.data?.length ?? 0) > 0;
 }
 
@@ -165,12 +175,12 @@ async function classifyPanel(
   }
 
   // Fully modeled → probe for data.
-  const member = probeMember(panel);
-  if (!member) {
+  const probe = probeMember(panel);
+  if (!probe) {
     return { ...base, status: 'ready', modeledMembers, missingMembers: [], hasRows: null };
   }
   try {
-    const hasRows = await probeHasRows(ctx, member);
+    const hasRows = await probeHasRows(ctx, probe);
     return {
       ...base,
       status: hasRows ? 'ready' : 'empty',

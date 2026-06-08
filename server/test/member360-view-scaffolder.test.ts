@@ -53,7 +53,7 @@ describe('scaffoldMember360View', () => {
   });
 
   it('returns no views for a game with no 360 config', () => {
-    const r = scaffoldMember360View('muaw');
+    const r = scaffoldMember360View('gunpow');
     expect(r.views).toEqual([]);
   });
 });

@@ -43,6 +43,12 @@
       "name": "PUBG Mobile",
       "mark": "PB",
       "color": "#ef4444"
+    },
+    {
+      "id": "tf",
+      "name": "TF",
+      "mark": "TF",
+      "color": "#6366f1"
     }
   ]
 }

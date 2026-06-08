@@ -24,7 +24,7 @@ interface TabDef {
 // Ordered tab groups. A tab appears only if ≥1 of its panels exists for the game.
 const TAB_DEFS: TabDef[] = [
   { id: 'roles', label: 'Roles', panelIds: ['roles'] },
-  { id: 'behavior', label: 'Behavior', isEvent: true, panelIds: ['login', 'logout', 'lottery', 'money_flow', 'tutorial', 'prop_flow', 'team_starts', 'newbie_detail'] },
+  { id: 'behavior', label: 'Behavior', isEvent: true, panelIds: ['login', 'logout', 'register', 'lottery', 'money_flow', 'tutorial', 'prop_flow', 'team_starts', 'newbie_detail'] },
   { id: 'combat', label: 'Combat', isEvent: true, panelIds: ['matches', 'game_detail'] },
   { id: 'devices', label: 'Devices', panelIds: ['devices'] },
   { id: 'ips', label: 'IPs', panelIds: ['ips'] },

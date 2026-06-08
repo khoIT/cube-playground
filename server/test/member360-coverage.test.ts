@@ -137,8 +137,8 @@ describe('probeMember', () => {
       timeDimension: 'view.log_month',
     });
     const probe = probeMember(p);
-    expect(probe).toBe('view.field_a');
-    expect(probe).not.toBe('view.log_month');
+    expect(probe?.member).toBe('view.field_a');
+    expect(probe?.member).not.toBe('view.log_month');
   });
 
   it('returns first non-time column when multiple exist', () => {
@@ -151,7 +151,7 @@ describe('probeMember', () => {
       timeDimension: 'view.log_month',
     });
     const probe = probeMember(p);
-    expect(probe).toBe('view.field_a');
+    expect(probe?.member).toBe('view.field_a');
   });
 
   it('skips time column and returns first non-time in middle position', () => {
@@ -164,7 +164,7 @@ describe('probeMember', () => {
       timeDimension: 'view.log_month',
     });
     const probe = probeMember(p);
-    expect(probe).toBe('view.field_a');
+    expect(probe?.member).toBe('view.field_a');
   });
 
   it('returns columns[0] when it is NOT the timeDimension', () => {
@@ -173,7 +173,7 @@ describe('probeMember', () => {
       timeDimension: 'view.log_date',
     });
     const probe = probeMember(p);
-    expect(probe).toBe('view.field_a');
+    expect(probe?.member).toBe('view.field_a');
   });
 
   it('falls back to columns[0] when all columns are timeDimension', () => {
@@ -182,7 +182,7 @@ describe('probeMember', () => {
       timeDimension: 'view.log_month',
     });
     const probe = probeMember(p);
-    expect(probe).toBe('view.log_month');
+    expect(probe?.member).toBe('view.log_month');
   });
 
   it('falls back to timeDimension when no columns exist', () => {
@@ -190,7 +190,7 @@ describe('probeMember', () => {
       timeDimension: 'view.log_month',
     });
     const probe = probeMember(p);
-    expect(probe).toBe('view.log_month');
+    expect(probe?.member).toBe('view.log_month');
   });
 
   it('returns null when panel is completely empty', () => {
@@ -210,8 +210,30 @@ describe('probeMember', () => {
       timeDimension: 'user_activity_daily.log_month',
     });
     const probe = probeMember(p);
-    expect(probe).not.toBe('user_activity_daily.log_month');
-    expect(probe).toBe('user_activity_daily.user_id');
+    expect(probe?.member).not.toBe('user_activity_daily.log_month');
+    expect(probe?.member).toBe('user_activity_daily.user_id');
+  });
+
+  it('prefers a dimension over a leading measure (probes as a dimension)', () => {
+    const p = panel('p1', {
+      columns: [
+        { member: 'view.count', label: 'Count', kind: 'measure' },
+        { member: 'view.label', label: 'Label', kind: 'dimension' },
+      ],
+    });
+    expect(probeMember(p)).toEqual({ member: 'view.label', kind: 'dimension' });
+  });
+
+  it('falls back to a measure when a panel exposes only measures', () => {
+    // Device/IP rollups select count_distinct measures only — the probe must
+    // query them as measures, not bare dimensions.
+    const p = panel('devices', {
+      columns: [
+        { member: 'user_devices_panel.distinct_devices', label: 'Distinct devices', kind: 'measure' },
+        { member: 'user_devices_panel.rows', label: 'Records', kind: 'measure' },
+      ],
+    });
+    expect(probeMember(p)).toEqual({ member: 'user_devices_panel.distinct_devices', kind: 'measure' });
   });
 });
 

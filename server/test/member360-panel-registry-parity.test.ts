@@ -26,7 +26,9 @@ import {
 } from '../src/services/member360-panel-registry.js';
 import { buildPanelQuery as serverBuildPanelQuery } from '../src/services/member360-panel-query.js';
 
-const KNOWN_360_GAMES = ['cfm', 'cfm_vn', 'ballistar', 'ballistar_vn', 'jus', 'jus_vn'];
+const KNOWN_360_GAMES = [
+  'cfm', 'cfm_vn', 'ballistar', 'ballistar_vn', 'jus', 'jus_vn', 'cros', 'tf', 'muaw', 'pubg',
+];
 
 describe('member360 server registry parity', () => {
   it.each(KNOWN_360_GAMES)('%s: server core panels equal the FE core subset', (game) => {
@@ -38,7 +40,7 @@ describe('member360 server registry parity', () => {
   });
 
   it('returns [] for games without a 360 registry entry (FE agrees)', () => {
-    for (const game of ['muaw', 'gunpow', null, undefined, '']) {
+    for (const game of ['gunpow', 'omg', null, undefined, '']) {
       expect(corePanelsForGame(game)).toEqual([]);
       expect(panelsForGame(game).filter((p) => p.section === 'core')).toEqual([]);
     }

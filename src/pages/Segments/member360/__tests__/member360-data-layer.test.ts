@@ -24,11 +24,16 @@ const MAX_RANGE_DAYS = 31;
 const TIME_DIM_FIELDS = new Set(['log_date', 'dteventtime']);
 
 describe('member360 panel registry', () => {
-  it('enables cfm + ballistar, disables unknown games', () => {
+  it('enables configured games, disables unconfigured games', () => {
     expect(hasMember360('cfm')).toBe(true);
     expect(hasMember360('cfm_vn')).toBe(true);
     expect(hasMember360('ballistar')).toBe(true);
-    expect(hasMember360('pubg')).toBe(false);
+    expect(hasMember360('cros')).toBe(true);
+    expect(hasMember360('tf')).toBe(true);
+    expect(hasMember360('muaw')).toBe(true);
+    expect(hasMember360('pubg')).toBe(true);
+    // gunpow has no user_360 config → still disabled.
+    expect(hasMember360('gunpow')).toBe(false);
     expect(hasMember360(null)).toBe(false);
   });
 

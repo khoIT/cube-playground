@@ -158,6 +158,12 @@ const SECTIONS_BY_GAME: Record<string, Member360Sections> = {
   // jus mirrors ballistar's mf_users (no engagement_segment) — same section layout.
   jus: BALLISTAR_SECTIONS,
   jus_vn: BALLISTAR_SECTIONS,
+  // cros / tf carry engagement_segment on mf_users → full cfm-shape sections.
+  cros: CFM_SECTIONS,
+  tf: CFM_SECTIONS,
+  // muaw / pubg mirror ballistar's mf_users (no engagement_segment).
+  muaw: BALLISTAR_SECTIONS,
+  pubg: BALLISTAR_SECTIONS,
 };
 
 export function sectionsForGame(gameId: string | null | undefined): Member360Sections | null {

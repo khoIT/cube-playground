@@ -4,9 +4,10 @@
  * is the lazy gate (only the active tab mounts this), so the 1M–1.3B-row etl_*
  * cubes are queried only when the user opens that tab.
  *
- * Bridge: resolve the user's role_id`s once (user_roles_panel), then playerid
- * panels filter `playerid IN role_ids`; login/logout filter clientsdkuserid =
- * user_id. 0 roles → playerid panels show an empty state (not an error).
+ * Bridge: resolve the user's role_id`s once (user_roles_panel), then bridged
+ * panels filter `<key> IN role_ids` — `playerid` (cfm FPS) and `role_id` (tf
+ * TGA sessions). user_id-keyed panels (cros sessions, cfm login/logout) filter
+ * directly. 0 roles → bridged panels show an empty state (not an error).
  */
 
 import { ReactElement, useMemo, useState } from 'react';
@@ -26,7 +27,9 @@ export function EventPanelGrid({ gameId, uid, panels }: Props): ReactElement {
   const [rangeId, setRangeId] = useState('last_30d');
   const [range, setRange] = useState(() => rangeForDays(30));
 
-  const needsBridge = panels.some((p) => p.identityKey === 'playerid');
+  const isBridged = (p: Member360Panel): boolean =>
+    p.identityKey === 'playerid' || p.identityKey === 'role_id';
+  const needsBridge = panels.some(isBridged);
   const rolesQuery = useMemo<Query | null>(
     () =>
       needsBridge
@@ -64,15 +67,15 @@ export function EventPanelGrid({ gameId, uid, panels }: Props): ReactElement {
       </div>
       <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
         {panels.map((p) => {
-          const playeridKeyed = p.identityKey === 'playerid';
+          const bridged = isBridged(p);
           return (
             <MemberPanel
               key={p.id}
               gameId={gameId}
               panel={p}
-              idValues={playeridKeyed ? roleIds : [uid]}
+              idValues={bridged ? roleIds : [uid]}
               dateRange={range}
-              idle={playeridKeyed && rolesLoading}
+              idle={bridged && rolesLoading}
             />
           );
         })}

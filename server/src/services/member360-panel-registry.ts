@@ -330,6 +330,235 @@ const BALLISTAR_CORE_PANELS: Member360Panel[] = [
   },
 ];
 
+// --- CROS / TF core panels --------------------------------------------------
+// Verbatim copies of the FE cros/tf `section: 'core'` subset (built by the
+// shared factories in member360-panels.ts). Behavior session panels
+// (login/logout/register) stay live-on-expand and are never precomputed, so
+// they are intentionally absent here. Parity test guards this against drift.
+
+function richProfilePanel(): Member360Panel {
+  return {
+    id: 'profile',
+    title: 'Profile',
+    view: 'user_profile',
+    identityKey: 'user_id',
+    panelType: 'profile',
+    section: 'core',
+    kpis: [
+      { member: 'user_profile.ltv_vnd', label: 'Lifetime value', format: 'currency' },
+      { member: 'user_profile.total_active_days', label: 'Active days', format: 'number' },
+      { member: 'user_profile.lifetime_txn_count', label: 'Transactions', format: 'number' },
+      { member: 'user_profile.max_role_level', label: 'Max level', format: 'number' },
+      { member: 'user_profile.max_vip_level', label: 'Max VIP', format: 'number' },
+      { member: 'user_profile.days_since_last_active', label: 'Days since active', format: 'number' },
+    ],
+    columns: [
+      col('user_profile', 'user_id', 'User ID'),
+      col('user_profile', 'country', 'Country'),
+      col('user_profile', 'os_platform', 'Platform'),
+      col('user_profile', 'payer_tier', 'Payer tier'),
+      col('user_profile', 'lifecycle_stage', 'Lifecycle'),
+      col('user_profile', 'engagement_segment', 'Engagement'),
+      col('user_profile', 'last_role_class', 'Last class'),
+      col('user_profile', 'last_server_id', 'Last server'),
+      col('user_profile', 'media_source', 'Acquired via'),
+      col('user_profile', 'ltv_vnd', 'LTV (VND)', 'dimension', 'currency'),
+      col('user_profile', 'ltv_30d_vnd', 'LTV 30d', 'dimension', 'currency'),
+      col('user_profile', 'install_date', 'Installed'),
+      col('user_profile', 'first_recharge_date', 'First recharge'),
+      col('user_profile', 'last_active_date', 'Last active'),
+      col('user_profile', 'last_login_date', 'Last login'),
+      col('user_profile', 'is_paying_user', 'Paying user'),
+      col('user_profile', 'ltv_iap_vnd', 'LTV — IAP', 'dimension', 'currency'),
+      col('user_profile', 'ltv_web_vnd', 'LTV — Web', 'dimension', 'currency'),
+      col('user_profile', 'txn_count_30d', 'Txns 30d', 'dimension', 'number'),
+      col('user_profile', 'last_recharge_date', 'Last recharge'),
+      col('user_profile', 'first_device_model', 'Device model'),
+      col('user_profile', 'last_login_country', 'Last login country'),
+      col('user_profile', 'days_since_install', 'Days since install', 'dimension', 'number'),
+      col('user_profile', 'install_month', 'Install month'),
+      col('user_profile', 'is_paid_install', 'Paid install'),
+      col('user_profile', 'first_login_date', 'First login'),
+      col('user_profile', 'first_login_channel', 'First login channel'),
+      col('user_profile', 'first_active_date', 'First active'),
+    ],
+  };
+}
+
+function rolesPanel(): Member360Panel {
+  return {
+    id: 'roles',
+    title: 'Characters / roles',
+    view: 'user_roles_panel',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    limit: 100,
+    columns: [
+      col('user_roles_panel', 'role_id', 'Role ID'),
+      col('user_roles_panel', 'last_role_name', 'Name'),
+      col('user_roles_panel', 'last_role_class', 'Class'),
+      col('user_roles_panel', 'server_id', 'Server'),
+      col('user_roles_panel', 'max_role_level', 'Max level', 'dimension', 'number'),
+      col('user_roles_panel', 'max_vip_level', 'Max VIP', 'dimension', 'number'),
+      col('user_roles_panel', 'role_ltv_vnd', 'Role LTV (VND)', 'dimension', 'currency'),
+      col('user_roles_panel', 'total_active_days', 'Active days', 'dimension', 'number'),
+      col('user_roles_panel', 'last_active_date', 'Last active'),
+    ],
+  };
+}
+
+function deviceRollupPanel(): Member360Panel {
+  return {
+    id: 'devices',
+    title: 'Devices',
+    view: 'user_devices_panel',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    limit: 1,
+    columns: [
+      col('user_devices_panel', 'distinct_devices', 'Distinct devices', 'measure', 'number'),
+      col('user_devices_panel', 'rows', 'Records', 'measure', 'number'),
+    ],
+  };
+}
+
+function ipRollupPanel(): Member360Panel {
+  return {
+    id: 'ips',
+    title: 'IP addresses',
+    view: 'user_ips_panel',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    limit: 1,
+    columns: [
+      col('user_ips_panel', 'distinct_ips', 'Distinct IPs', 'measure', 'number'),
+      col('user_ips_panel', 'rows', 'Records', 'measure', 'number'),
+    ],
+  };
+}
+
+function activityTimelinePanel(): Member360Panel {
+  return {
+    id: 'activity_timeline',
+    title: 'Activity (daily)',
+    view: 'user_activity_timeline',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_activity_timeline.log_date',
+    limit: 90,
+    columns: [
+      col('user_activity_timeline', 'server_id', 'Server'),
+      col('user_activity_timeline', 'role_class', 'Class'),
+      col('user_activity_timeline', 'online_time_sec', 'Online', 'dimension', 'duration'),
+      col('user_activity_timeline', 'max_role_level', 'Level', 'dimension', 'number'),
+      col('user_activity_timeline', 'is_recharge_day', 'Paid?'),
+    ],
+  };
+}
+
+function rechargeTimelinePanel(): Member360Panel {
+  return {
+    id: 'recharge_timeline',
+    title: 'Recharge (daily)',
+    view: 'user_recharge_timeline',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_recharge_timeline.log_date',
+    limit: 90,
+    columns: [
+      col('user_recharge_timeline', 'payment_channel', 'Channel'),
+      col('user_recharge_timeline', 'product_id', 'Product'),
+      col('user_recharge_timeline', 'revenue_vnd', 'Revenue (VND)', 'dimension', 'currency'),
+      col('user_recharge_timeline', 'txn_count', 'Txns', 'dimension', 'number'),
+      col('user_recharge_timeline', 'vip_level', 'VIP', 'dimension', 'number'),
+    ],
+  };
+}
+
+function activityMonthlyPanel(): Member360Panel {
+  return {
+    id: 'activity_monthly',
+    title: 'Activity (monthly)',
+    view: 'user_activity_monthly',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_activity_monthly.log_month',
+    limit: 24,
+    columns: [
+      col('user_activity_monthly', 'active_days', 'Active days', 'dimension', 'number'),
+      col('user_activity_monthly', 'recharge_days', 'Recharge days', 'dimension', 'number'),
+      col('user_activity_monthly', 'total_online_time_sec', 'Online', 'dimension', 'duration'),
+      col('user_activity_monthly', 'max_role_level', 'Max level', 'dimension', 'number'),
+      col('user_activity_monthly', 'last_country_code', 'Country'),
+    ],
+  };
+}
+
+function revenueMonthlyPanel(): Member360Panel {
+  return {
+    id: 'revenue_monthly',
+    title: 'Revenue (monthly)',
+    view: 'user_revenue_monthly',
+    identityKey: 'user_id',
+    panelType: 'dailyTimeline',
+    section: 'core',
+    timeDimension: 'user_revenue_monthly.log_month',
+    limit: 24,
+    columns: [
+      col('user_revenue_monthly', 'revenue_vnd', 'Revenue (VND)', 'dimension', 'currency'),
+      col('user_revenue_monthly', 'revenue_usd', 'Revenue (USD)', 'dimension', 'number'),
+      col('user_revenue_monthly', 'txn_count', 'Txns', 'dimension', 'number'),
+      col('user_revenue_monthly', 'max_vip_level', 'Max VIP', 'dimension', 'number'),
+      col('user_revenue_monthly', 'last_payment_channel', 'Channel'),
+    ],
+  };
+}
+
+const CROS_CORE_PANELS: Member360Panel[] = [
+  richProfilePanel(),
+  rolesPanel(),
+  deviceRollupPanel(),
+  ipRollupPanel(),
+  activityTimelinePanel(),
+  rechargeTimelinePanel(),
+  {
+    id: 'transactions',
+    title: 'Transactions',
+    view: 'user_transactions',
+    identityKey: 'user_id',
+    panelType: 'detailTable',
+    section: 'core',
+    timeDimension: 'user_transactions.recharge_date',
+    limit: 50,
+    columns: [
+      col('user_transactions', 'recharge_date', 'Date'),
+      col('user_transactions', 'product_id', 'Product'),
+      col('user_transactions', 'payment_platform', 'Channel'),
+      col('user_transactions', 'recharged_value', 'Value', 'dimension', 'currency'),
+      col('user_transactions', 'txn_value_band', 'Band'),
+    ],
+  },
+  activityMonthlyPanel(),
+  revenueMonthlyPanel(),
+];
+
+const TF_CORE_PANELS: Member360Panel[] = [
+  richProfilePanel(),
+  rolesPanel(),
+  deviceRollupPanel(),
+  ipRollupPanel(),
+  activityTimelinePanel(),
+  rechargeTimelinePanel(),
+  activityMonthlyPanel(),
+  revenueMonthlyPanel(),
+];
+
 const CORE_PANELS_BY_GAME: Record<string, Member360Panel[]> = {
   cfm: CFM_CORE_PANELS,
   cfm_vn: CFM_CORE_PANELS,
@@ -339,6 +568,11 @@ const CORE_PANELS_BY_GAME: Record<string, Member360Panel[]> = {
   // event cubes). Keeps the nightly precompute + cache-status path working.
   jus: BALLISTAR_CORE_PANELS,
   jus_vn: BALLISTAR_CORE_PANELS,
+  cros: CROS_CORE_PANELS,
+  tf: TF_CORE_PANELS,
+  // muaw / pubg model the 4 core views only — same core shape as ballistar.
+  muaw: BALLISTAR_CORE_PANELS,
+  pubg: BALLISTAR_CORE_PANELS,
 };
 
 /** Core (eager) panels for a game, or `[]` when the game has no 360 config. */
