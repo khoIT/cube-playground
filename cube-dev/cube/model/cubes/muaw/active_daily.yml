@@ -179,6 +179,7 @@ cubes:
         type: rollup
         measures:
           - dau
+          - paying_dau
         dimensions:
           - mf_users.country
           - mf_users.payer_tier
@@ -209,6 +210,7 @@ cubes:
         type: rollup
         measures:
           - dau
+          - paying_dau
         time_dimension: log_date
         granularity: day
         partition_granularity: year
