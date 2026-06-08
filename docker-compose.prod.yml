@@ -259,6 +259,11 @@ services:
       # ignored (interval silently stays 30s). The numeric timer alone both
       # enables worker mode and sets the sweep interval (seconds).
       CUBEJS_SCHEDULED_REFRESH_TIMER: ${CUBEJS_SCHEDULED_REFRESH_TIMER:-300}
+      # Pre-aggregation partitions are built per query timezone; a query whose
+      # timezone wasn't built hard-fails ("No pre-aggregation partitions built
+      # yet"). The UI sends the viewer's browser timezone (Asia/Saigon), so
+      # build both it and UTC. Date-grain data makes the extra timezone cheap.
+      CUBEJS_SCHEDULED_REFRESH_TIMEZONES: ${CUBEJS_SCHEDULED_REFRESH_TIMEZONES:-UTC,Asia/Saigon}
       # Auth bridge kept for config parity only: refresh contexts are synthetic
       # and never hit checkAuth, so the worker tolerates the server being down.
       AUTH_API_URL: http://server:3004

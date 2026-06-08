@@ -113,6 +113,12 @@ services:
       # (interval silently stays 30s). The numeric timer alone both enables
       # worker mode and sets the sweep interval (seconds).
       CUBEJS_SCHEDULED_REFRESH_TIMER: ${CUBEJS_SCHEDULED_REFRESH_TIMER:-300}
+      # Pre-aggregation partitions are built per query timezone — a query in a
+      # timezone the worker didn't build for finds no partitions and hard-fails
+      # ("No pre-aggregation partitions were built yet"). The UI sends the
+      # viewer's browser timezone (Asia/Saigon for this team), so build both it
+      # and UTC. log_date-grain data is date-only, so the extra timezone is cheap.
+      CUBEJS_SCHEDULED_REFRESH_TIMEZONES: ${CUBEJS_SCHEDULED_REFRESH_TIMEZONES:-UTC,Asia/Saigon}
       AUTH_API_URL: ""
       AUTH_USERS_FILE: /cube/conf/auth-users.example.json
     # Same inline Presto-driver patch as cube_api_dev (colima denies single-file
