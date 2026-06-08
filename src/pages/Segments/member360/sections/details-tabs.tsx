@@ -12,6 +12,7 @@
  */
 
 import { ReactElement, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { panelsForGame, type Member360Panel } from '../member360-panels';
 import { MemberPanel } from '../member-panel';
@@ -74,7 +75,16 @@ export function DetailsTabs({ gameId, uid, cachedSource, showCareTab = false }: 
     return showCareTab ? [...panelTabs, { ...CARE_TAB, panels: [] }] : panelTabs;
   }, [byId, showCareTab]);
 
-  const [active, setActive] = useState(0);
+  // Deep-link: ?tab=<id> selects that tab on mount (e.g. care-queue "Open 360"
+  // links to ?tab=care). Falls back to the first tab when absent / unmatched.
+  const location = useLocation();
+  const initialTab = useMemo(() => {
+    const want = new URLSearchParams(location.search).get('tab');
+    const idx = want ? tabs.findIndex((tab) => tab.id === want) : -1;
+    return idx >= 0 ? idx : 0;
+  }, [location.search, tabs]);
+
+  const [active, setActive] = useState(initialTab);
   if (tabs.length === 0) return null;
   const current = tabs[Math.min(active, tabs.length - 1)];
 

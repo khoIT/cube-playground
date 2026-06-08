@@ -18,10 +18,13 @@
 
 import React, { useState, useCallback } from 'react';
 import { useLocation, useHistory, Link } from 'react-router-dom';
-import { ListChecks, Users, ChevronLeft, RefreshCw } from 'lucide-react';
+import { ListChecks, Users, ChevronLeft, RefreshCw, ExternalLink } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
+import { useCubeApiBootstrap } from '../../../hooks';
+import { formatValue, formatValueExact } from '../../Segments/detail/cards/format-value';
 import { useCareCases, useVipQueue, runCareSweep } from './use-care-cases';
+import { useVipProfiles, type VipProfile } from './use-vip-profiles';
 import type { CareCase, VipCaseRow } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -38,6 +41,7 @@ function parseSnapshot(raw: string | null): Record<string, unknown> | null {
 function relativeTime(iso: string | null): string {
   if (!iso) return '—';
   const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return '—';
   const h = Math.floor(ms / 3_600_000);
   if (h < 1) return `${Math.floor(ms / 60_000)}m ago`;
   if (h < 24) return `${h}h ago`;
@@ -160,6 +164,94 @@ function LapsedBadge() {
   );
 }
 
+// ── Profile cells (VIP queue enrichment) ──────────────────────────────────────
+
+function VipBadge({ level }: { level: number | null }) {
+  if (level == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        fontSize: 10.5,
+        fontWeight: 700,
+        padding: '2px 8px',
+        borderRadius: 'var(--radius-full)',
+        background: 'var(--warning-soft)',
+        color: 'var(--warning-ink)',
+        fontFamily: 'var(--font-sans)',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+      title={`Max VIP level ${level}`}
+    >
+      👑 {level}
+    </span>
+  );
+}
+
+// lifecycle_stage → a soft status chip. "active" reads positive; dormant/churned
+// read warning/destructive; anything else is neutral.
+function StatusChip({ status }: { status: string | null }) {
+  if (!status) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  const s = status.toLowerCase();
+  let style: React.CSSProperties = { background: 'var(--muted-soft)', color: 'var(--muted-ink)' };
+  if (s.includes('active') || s.includes('engaged')) {
+    style = { background: 'var(--success-soft)', color: 'var(--success-ink)' };
+  } else if (s.includes('churn') || s.includes('lost') || s.includes('lapsed')) {
+    style = { background: 'var(--destructive-soft)', color: 'var(--destructive-ink)' };
+  } else if (s.includes('dorm') || s.includes('risk') || s.includes('inactive')) {
+    style = { background: 'var(--warning-soft)', color: 'var(--warning-ink)' };
+  }
+  return (
+    <span
+      style={{
+        ...style,
+        display: 'inline-block',
+        fontSize: 10.5,
+        fontWeight: 600,
+        padding: '2px 8px',
+        borderRadius: 'var(--radius-full)',
+        textTransform: 'capitalize',
+        fontFamily: 'var(--font-sans)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {status}
+    </span>
+  );
+}
+
+function LtvCell({ vnd }: { vnd: number | null }) {
+  if (vnd == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  const exact = formatValueExact(vnd, 'currency');
+  return (
+    <span
+      style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'var(--text-primary)' }}
+      title={exact ?? undefined}
+    >
+      {formatValue(vnd, 'currency')}
+    </span>
+  );
+}
+
+function ChurnCell({ days }: { days: number | null }) {
+  if (days == null) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  // 14d+ idle reads as a soft warning; fresher activity stays neutral.
+  const warn = days >= 14;
+  return (
+    <span
+      style={{
+        fontWeight: 600,
+        fontVariantNumeric: 'tabular-nums',
+        color: warn ? 'var(--warning-ink)' : 'var(--text-secondary)',
+      }}
+    >
+      {days}
+    </span>
+  );
+}
+
 // ── Shared table styles ───────────────────────────────────────────────────────
 
 const cellBase: React.CSSProperties = {
@@ -197,7 +289,7 @@ function PlaybookCaseRow({ c, gameId, segId }: PlaybookRowProps) {
   // otherwise we navigate to the standalone care queue UID view via query param.
   const member360Href = segId
     ? `#/segments/${segId}/members/${encodeURIComponent(c.uid)}`
-    : `#/dashboards/cs/queue?game=${encodeURIComponent(gameId)}&uid=${encodeURIComponent(c.uid)}`;
+    : `#/dashboards/cs/members/${encodeURIComponent(c.uid)}?game=${encodeURIComponent(gameId)}`;
 
   const isOpen = c.status === 'new' || c.status === 'in_review';
 
@@ -289,35 +381,56 @@ function ByPlaybookView({ gameId, playbookId }: ByPlaybookViewProps) {
 interface VipRowProps {
   row: VipCaseRow;
   gameId: string;
+  profile: VipProfile | undefined;
+  enriching: boolean;
 }
 
-function VipQueueRow({ row, gameId }: VipRowProps) {
-  const openCount = row.cases.filter((c) => c.status === 'new' || c.status === 'in_review').length;
+function VipQueueRow({ row, gameId, profile, enriching }: VipRowProps) {
+  const member360Href = `#/dashboards/cs/members/${encodeURIComponent(row.uid)}?game=${encodeURIComponent(gameId)}`;
+  // "Open 360" lands directly on the Care tab, where treatment logging lives.
+  const careHref = `${member360Href}&tab=care`;
+  const dash = <span style={{ color: 'var(--text-muted)' }}>{enriching ? '…' : '—'}</span>;
 
   return (
     <tr
-      style={{ cursor: 'pointer', transition: 'background 0.12s' }}
+      style={{ transition: 'background 0.12s' }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--brand-soft)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}
     >
-      {/* UID → action queue UID detail view */}
+      {/* UID → member 360 */}
       <td style={cellBase}>
         <a
-          href={`#/dashboards/cs/queue?game=${encodeURIComponent(gameId)}&uid=${encodeURIComponent(row.uid)}`}
-          style={{ color: 'var(--brand)', fontWeight: 600, textDecoration: 'none', fontSize: 12 }}
+          href={member360Href}
+          style={{ color: 'var(--brand)', fontWeight: 600, textDecoration: 'none', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}
         >
           {row.uid}
         </a>
       </td>
 
-      {/* Top priority */}
-      <td style={cellBase}>
-        <PriorityBadge priority={row.topPriority} />
+      {/* Name (main character) */}
+      <td style={{ ...cellBase, color: 'var(--text-primary)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {profile?.name ?? dash}
       </td>
 
-      {/* Case chips: one per playbook */}
+      {/* VIP club */}
+      <td style={cellBase}>{profile ? <VipBadge level={profile.vipLevel} /> : dash}</td>
+
+      {/* In-game status */}
+      <td style={cellBase}>{profile ? <StatusChip status={profile.status} /> : dash}</td>
+
+      {/* Total payment (LTV) */}
+      <td style={{ ...cellBase, textAlign: 'right' }}>{profile ? <LtvCell vnd={profile.ltvVnd} /> : dash}</td>
+
+      {/* #Churn PAY (days) */}
+      <td style={{ ...cellBase, textAlign: 'right' }}>{profile ? <ChurnCell days={profile.churnPayDays} /> : dash}</td>
+
+      {/* #Churn PLAY (days) */}
+      <td style={{ ...cellBase, textAlign: 'right' }}>{profile ? <ChurnCell days={profile.churnPlayDays} /> : dash}</td>
+
+      {/* Triggered playbooks: priority badge + one chip per playbook */}
       <td style={cellBase}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
+          <PriorityBadge priority={row.topPriority} />
           {row.playbooks.map((pb) => {
             const pbCases = row.cases.filter((c) => c.playbook_id === pb.id);
             const openPbCases = pbCases.filter((c) => c.status === 'new' || c.status === 'in_review');
@@ -333,7 +446,6 @@ function VipQueueRow({ row, gameId }: VipRowProps) {
                   background: openPbCases.length > 0 ? 'var(--info-soft)' : 'var(--muted-soft)',
                   color: openPbCases.length > 0 ? 'var(--info-ink)' : 'var(--muted-ink)',
                   fontFamily: 'var(--font-sans)',
-                  cursor: 'default',
                 }}
               >
                 {pb.name} ·{pbCases.length}
@@ -343,16 +455,26 @@ function VipQueueRow({ row, gameId }: VipRowProps) {
         </div>
       </td>
 
-      {/* Open count */}
-      <td style={{ ...cellBase, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-        <span style={{ fontWeight: openCount > 0 ? 700 : 400, color: openCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-          {openCount}
-        </span>
-      </td>
-
-      {/* Last contact (Phase 5 fatigue placeholder) */}
+      {/* Last action (treatment) */}
       <td style={{ ...cellBase, color: 'var(--text-muted)', fontSize: 11.5 }}>
         {relativeTime(row.lastTreatedAt)}
+      </td>
+
+      {/* Action — open the member 360 Care tab to log treatment */}
+      <td style={cellBase}>
+        <a
+          href={careHref}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+            color: 'var(--text-secondary)', background: 'var(--bg-card)',
+            border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
+            padding: '4px 10px', textDecoration: 'none', whiteSpace: 'nowrap',
+          }}
+          title="Open the member 360 Care tab to log a treatment"
+        >
+          <ExternalLink size={12} aria-hidden /> Open 360
+        </a>
       </td>
     </tr>
   );
@@ -364,6 +486,10 @@ interface ByVipViewProps {
 
 function ByVipView({ gameId }: ByVipViewProps) {
   const { status, vips, error } = useVipQueue(gameId);
+  // Enrich the queue's uids with live member profile (LTV / VIP / churn / name).
+  // Additive + fail-soft — an empty map just renders dashes, never an error.
+  const uids = vips.map((v) => v.uid);
+  const { byUid, loading: enriching, truncated } = useVipProfiles(gameId, uids);
 
   if (status === 'error') {
     return (
@@ -383,19 +509,35 @@ function ByVipView({ gameId }: ByVipViewProps) {
 
   return (
     <div style={{ overflowX: 'auto' }}>
+      {truncated && (
+        <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--warning-ink)', background: 'var(--warning-soft)' }}>
+          Showing enrichment for the first 300 VIPs — narrow the queue to see the rest.
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={thStyle}>VIP UID</th>
-            <th style={thStyle}>Top priority</th>
-            <th style={thStyle}>Playbook cases</th>
-            <th style={{ ...thStyle, textAlign: 'right' }}>Open</th>
-            <th style={thStyle}>Last contact</th>
+            <th style={thStyle}>UID</th>
+            <th style={thStyle}>Name</th>
+            <th style={thStyle}>VIP club</th>
+            <th style={thStyle}>In-game status</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Total payment</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>#Churn PAY (d)</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>#Churn PLAY (d)</th>
+            <th style={thStyle}>Triggered playbooks</th>
+            <th style={thStyle}>Last action</th>
+            <th style={thStyle}>Action</th>
           </tr>
         </thead>
         <tbody>
           {vips.map((row) => (
-            <VipQueueRow key={row.uid} row={row} gameId={gameId} />
+            <VipQueueRow
+              key={row.uid}
+              row={row}
+              gameId={gameId}
+              profile={byUid.get(row.uid)}
+              enriching={enriching}
+            />
           ))}
         </tbody>
       </table>
@@ -474,7 +616,7 @@ function LensToggle({ active, onSwitch }: LensToggleProps) {
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
-  maxWidth: 1320,
+  maxWidth: 1400,
   margin: '0 auto',
   fontFamily: 'var(--font-sans)',
 };
@@ -485,12 +627,16 @@ const pageStyle: React.CSSProperties = {
  * URL params:
  *   ?playbook=<id>   → pre-selects By-Playbook lens for that playbook.
  *   ?game=<id>       → overrides the active game (optional; defaults to context).
- *   ?uid=<uid>       → future: drill into VIP detail inline.
+ *
+ * Clicking a UID navigates to the segment-less Member-360 at
+ * /dashboards/cs/members/:uid?game=<id>.
  */
 export function CaseLedgerPage() {
   const location = useLocation();
   const history = useHistory();
   const { gameId: ctxGame } = useGameContext();
+  // Push Cube creds into AppContext so the By-VIP view can enrich rows directly.
+  useCubeApiBootstrap();
 
   const user = useAuthUser();
   const canWrite = user?.role === 'editor' || user?.role === 'admin';

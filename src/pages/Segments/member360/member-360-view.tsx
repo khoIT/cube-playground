@@ -10,7 +10,7 @@
  */
 
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import type { Query } from '@cubejs-client/core';
@@ -18,6 +18,7 @@ import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import { sectionsForGame, profileMembers } from './member360-sections';
+import { useCubeApiBootstrap } from '../../../hooks';
 import { useMemberCubeQuery } from './use-member-cube-query';
 import { useCachedPanelSource } from './use-cached-panel-source';
 import { DashboardHero } from './sections/dashboard-hero';
@@ -37,7 +38,19 @@ const pageStyle: React.CSSProperties = {
 
 export function Member360View(): ReactElement {
   const { t } = useTranslation();
-  const { id, uid: rawUid } = useParams<{ id: string; uid: string }>();
+  // Reachable both under /segments (already bootstrapped) and standalone from the
+  // CS care queue — bootstrap Cube creds here so the standalone route can query.
+  useCubeApiBootstrap();
+  const { id, uid: rawUid } = useParams<{ id?: string; uid: string }>();
+  const location = useLocation();
+  // Segment-less mode: reached from the CS care queue, which has no backing
+  // segment. The game is carried on the URL (?game=) and the back-link returns
+  // to the queue instead of a segment's members tab.
+  const segmentLess = !id;
+  const careGame = useMemo(
+    () => new URLSearchParams(location.search).get('game') || null,
+    [location.search],
+  );
   // The Members-tab link encodes the uid (vopenid uids contain '@' → %40), and
   // react-router v5 does NOT decode route params. Recover the literal uid before
   // it feeds the Cube `user_id equals` filter / cache key — otherwise a game
@@ -57,6 +70,8 @@ export function Member360View(): ReactElement {
     let cancelled = false;
     setSegment(null);
     setError(null);
+    // No segment to resolve in care mode — the game comes from the URL.
+    if (!id) return;
     segmentsClient
       .get(id)
       .then((row) => !cancelled && setSegment(row))
@@ -66,7 +81,7 @@ export function Member360View(): ReactElement {
     };
   }, [id]);
 
-  const gameId = segment?.game_id ?? null;
+  const gameId = segment?.game_id ?? (segmentLess ? careGame : null);
   const sections = sectionsForGame(gameId);
 
   // Nightly precompute cache — one panel-map fetch per (segment, uid). The
@@ -103,7 +118,11 @@ export function Member360View(): ReactElement {
 
   const back = (
     <Link
-      to={`/segments/${id}?tab=members`}
+      to={
+        segmentLess
+          ? `/dashboards/cs/queue?game=${encodeURIComponent(careGame ?? '')}`
+          : `/segments/${id}?tab=members`
+      }
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -115,7 +134,9 @@ export function Member360View(): ReactElement {
       }}
     >
       <ArrowLeft size={14} aria-hidden />
-      {t('segments.member360.back', { defaultValue: 'Back to members' })}
+      {segmentLess
+        ? t('segments.member360.backToQueue', { defaultValue: 'Back to action queue' })
+        : t('segments.member360.back', { defaultValue: 'Back to members' })}
     </Link>
   );
 
@@ -128,7 +149,7 @@ export function Member360View(): ReactElement {
     );
   }
 
-  if (segment != null && sections == null) {
+  if (sections == null && (segment != null || segmentLess)) {
     return (
       <main style={pageStyle}>
         {back}

@@ -83,6 +83,11 @@ const PlaybookBuilderPage = loadable(() =>
   import('./pages/Dashboards/cs/playbook-builder').then((m) => ({ default: m.PlaybookBuilderPage }))
 );
 
+// Segment-less per-member 360 reachable from the CS care queue (game on ?game=).
+const CareMember360Page = loadable(() =>
+  import('./pages/Segments/member360/member-360-view').then((m) => ({ default: m.Member360View }))
+);
+
 const AdminAccessPage = loadable(() =>
   import('./pages/Admin/access').then((m) => ({ default: m.AdminAccessPage }))
 );
@@ -234,6 +239,7 @@ ReactDOM.render(
               <Route key="dashboards-cs-playbook-new" exact path="/dashboards/cs/playbooks/new" component={PlaybookBuilderPage} />
               <Route key="dashboards-cs-playbook-edit" exact path="/dashboards/cs/playbooks/:id/edit" component={PlaybookBuilderPage} />
               <Route key="dashboards-cs-queue" exact path="/dashboards/cs/queue" component={CaseLedgerPage} />
+              <Route key="dashboards-cs-member" exact path="/dashboards/cs/members/:uid" component={CareMember360Page} />
               <Route key="dashboards-cs" exact path="/dashboards/cs" component={CsMonitorPage} />
               <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
               <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
