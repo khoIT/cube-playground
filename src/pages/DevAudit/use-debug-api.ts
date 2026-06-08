@@ -43,7 +43,7 @@ function authHeaders(): Record<string, string> {
 // ---------------------------------------------------------------------------
 
 export function useDebugSessions(
-  { game, q, scope }: { game: string; q: string; scope?: 'mine' | 'all' },
+  { game, q, scope, owner }: { game: string; q: string; scope?: 'mine' | 'all'; owner?: string },
   refreshTick = 0,
 ): AsyncState<DebugSession[]> {
   const [state, setState] = useState<AsyncState<DebugSession[]>>({ data: null, error: null, isLoading: false });
@@ -53,10 +53,15 @@ export function useDebugSessions(
     const controller = new AbortController();
     setState({ data: null, error: null, isLoading: true });
 
-    const params = new URLSearchParams({ game, limit: '50' });
+    // 500 ≫ the largest per-owner-per-game bucket so a single user's list is
+    // never truncated; the header count comes from the owners endpoint, which
+    // is exact regardless.
+    const params = new URLSearchParams({ game, limit: '500' });
     if (q) params.set('q', q);
     // Admin audit scope — the server 403s unless the verified role is admin.
     if (scope === 'all') params.set('scope', 'all');
+    // Pin the audit to one owner (admin only; server ignores it otherwise).
+    if (owner) params.set('owner', owner);
 
     fetch(`/api/chat/debug/sessions?${params.toString()}`, {
       headers: authHeaders(),
@@ -73,7 +78,55 @@ export function useDebugSessions(
       });
 
     return () => controller.abort();
-  }, [game, q, scope, refreshTick]);
+  }, [game, q, scope, owner, refreshTick]);
+
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// useDebugSessionOwners — distinct owners + counts for the admin user filter
+// ---------------------------------------------------------------------------
+
+export interface DebugSessionOwner {
+  ownerId: string;
+  label: string | null;
+  count: number;
+}
+
+/**
+ * Admin-only: lists every chat owner (incl. synthetic test owners) with a
+ * session count for the active game. Powers the user-filter dropdown and the
+ * exact per-user / total counts in the audit header. Skips fetching unless
+ * `enabled` (i.e. the caller is an admin) to avoid a guaranteed 403.
+ */
+export function useDebugSessionOwners(
+  { game, enabled }: { game: string; enabled: boolean },
+  refreshTick = 0,
+): AsyncState<DebugSessionOwner[]> {
+  const [state, setState] = useState<AsyncState<DebugSessionOwner[]>>({ data: null, error: null, isLoading: false });
+
+  useEffect(() => {
+    if (!game || !enabled) { setState({ data: null, error: null, isLoading: false }); return; }
+    const controller = new AbortController();
+    setState({ data: null, error: null, isLoading: true });
+
+    const params = new URLSearchParams({ game });
+    fetch(`/api/chat/debug/session-owners?${params.toString()}`, {
+      headers: authHeaders(),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return res.json() as Promise<DebugSessionOwner[]>;
+      })
+      .then((data) => setState({ data, error: null, isLoading: false }))
+      .catch((err: Error) => {
+        if (err.name === 'AbortError') return;
+        setState({ data: null, error: err.message, isLoading: false });
+      });
+
+    return () => controller.abort();
+  }, [game, enabled, refreshTick]);
 
   return state;
 }

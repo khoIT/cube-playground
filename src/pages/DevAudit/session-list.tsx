@@ -25,6 +25,8 @@ interface SessionListProps {
   skillFilter?: string;
   /** Admin audit scope: 'all' lists every user's sessions (server enforces the role). */
   scope?: 'mine' | 'all';
+  /** Admin audit: pin the list to one owner_id (empty/undefined = all owners). */
+  owner?: string;
 }
 
 const S = {
@@ -83,7 +85,7 @@ const S = {
   } as React.CSSProperties,
 };
 
-export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope }: SessionListProps) {
+export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope, owner }: SessionListProps) {
   const location = useLocation();
   const urlSkill = new URLSearchParams(location.search).get('skill') ?? '';
   const effectiveSkill = skillFilter ?? urlSkill;
@@ -113,7 +115,7 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [rawQ]);
 
-  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ, scope }, refreshTick);
+  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ, scope, owner }, refreshTick);
   const allSessions = data ?? [];
 
   const deletedCount = useMemo(

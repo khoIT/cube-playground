@@ -154,25 +154,43 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
   // Includes archived AND soft-deleted sessions (debug UI shows all).
   // scope=all lists across ALL owners — honoured only with the gateway's
   // admin-audit header (verified DB role); otherwise self-scoped.
-  fastify.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string } }>(
+  fastify.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string } }>(
     '/debug/sessions',
     async (req, reply) => {
       const headers = req.headers as Record<string, string | string[] | undefined>;
       const ownerId = extractOwnerId(headers);
       if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
 
-      const limit = Math.min(Math.max(parseInt(req.query.limit ?? '50', 10) || 50, 1), 200);
+      const limit = Math.min(Math.max(parseInt(req.query.limit ?? '50', 10) || 50, 1), 500);
+      const isAdmin = isAdminAuditRequest(headers);
       const sessions = obsStore.listSessionsForDebug(db, {
         ownerId,
         // Verifier sessions are shared: every owner sees them in the audit list
         // so the /starters report's transcript links have a browsable home.
         sharedOwnerId: VERIFIER_OWNER_ID,
-        allOwners: req.query.scope === 'all' && isAdminAuditRequest(headers),
+        allOwners: req.query.scope === 'all' && isAdmin,
+        // owner= pins the audit to one user; honoured only for admins (it's a
+        // no-op without allOwners, so a non-admin can never use it to widen).
+        filterOwnerId: isAdmin ? req.query.owner : undefined,
         gameId: req.query.game,
         q: req.query.q,
         limit,
       });
       return reply.send(sessions.map(toDebugSessionDto));
+    },
+  );
+
+  // GET /debug/session-owners?game=<id>
+  // Distinct owners + session counts for the admin audit user-filter dropdown.
+  // Admin-only: the gateway sets X-Debug-Admin after verifying the DB role.
+  fastify.get<{ Querystring: { game?: string } }>(
+    '/debug/session-owners',
+    async (req, reply) => {
+      const headers = req.headers as Record<string, string | string[] | undefined>;
+      const ownerId = extractOwnerId(headers);
+      if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
+      if (!isAdminAuditRequest(headers)) return reply.status(403).send({ error: 'Forbidden' });
+      return reply.send(obsStore.listSessionOwnersForDebug(db, { gameId: req.query.game }));
     },
   );
 

@@ -252,6 +252,13 @@ export function listSessionsForDebug(
     sharedOwnerId?: string;
     /** Admin audit scope: list across ALL owners (no owner_id filter). */
     allOwners?: boolean;
+    /**
+     * Admin-only: narrow an allOwners audit to a single owner_id. Lets the
+     * audit UI's user dropdown pin one user (including synthetic owners like
+     * the verifier or test probes that have no Keycloak identity). Ignored
+     * unless allOwners is set, so it can never widen a self-scoped request.
+     */
+    filterOwnerId?: string;
     gameId?: string;
     q?: string;
     limit?: number;
@@ -263,9 +270,15 @@ export function listSessionsForDebug(
   const conditions: string[] = [];
   const bindings: unknown[] = [];
   if (params.allOwners) {
-    // Admin audit view — no owner filter. SQLite needs at least one condition
-    // for the WHERE join below, so anchor with a tautology.
-    conditions.push('1 = 1');
+    if (params.filterOwnerId) {
+      // Admin picked one user from the audit dropdown — pin to that owner.
+      conditions.push('owner_id = ?');
+      bindings.push(params.filterOwnerId);
+    } else {
+      // Admin audit view — no owner filter. SQLite needs at least one condition
+      // for the WHERE join below, so anchor with a tautology.
+      conditions.push('1 = 1');
+    }
   } else if (params.sharedOwnerId && params.sharedOwnerId !== params.ownerId) {
     conditions.push('owner_id IN (?, ?)');
     bindings.push(params.ownerId, params.sharedOwnerId);
@@ -296,4 +309,43 @@ export function listSessionsForDebug(
        LIMIT ?`,
     )
     .all(...bindings) as import('../types.js').ChatSessionRow[];
+}
+
+/** One row per distinct chat owner, with session count + a display label. */
+export interface DebugSessionOwner {
+  ownerId: string;
+  /** Most recent non-null owner_label for the owner, or null if none recorded. */
+  label: string | null;
+  count: number;
+}
+
+/**
+ * Lists every distinct owner_id that has sessions (optionally scoped to one
+ * game), with a session count and display label — powers the admin audit
+ * user-filter dropdown. Counts ALL sessions (incl. archived + soft-deleted) to
+ * match listSessionsForDebug, which also shows them. Admin-only at the route
+ * layer; this store fn applies no auth of its own.
+ */
+export function listSessionOwnersForDebug(
+  db: Database.Database,
+  params: { gameId?: string },
+): DebugSessionOwner[] {
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  if (params.gameId) {
+    conditions.push('game_id = ?');
+    bindings.push(params.gameId);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  return db
+    .prepare(
+      `SELECT owner_id AS ownerId,
+              MAX(owner_label) AS label,
+              COUNT(*) AS count
+       FROM chat_sessions
+       ${where}
+       GROUP BY owner_id
+       ORDER BY count DESC, owner_id ASC`,
+    )
+    .all(...bindings) as DebugSessionOwner[];
 }

@@ -15,6 +15,7 @@ import { SessionList } from './session-list';
 import { SessionDetail } from './session-detail';
 import { SearchResultList } from './search-result-list';
 import { useDebugSearch } from './use-debug-search';
+import { useDebugSessionOwners } from './use-debug-api';
 
 const S = {
   root: {
@@ -81,6 +82,26 @@ export function SessionsTab() {
   const [scope, setScope] = useState<'mine' | 'all'>('all');
   const effectiveScope: 'mine' | 'all' = isAdmin ? scope : 'mine';
 
+  // Admin user filter — pin the audit to one owner_id ('' = all owners).
+  const [ownerFilter, setOwnerFilter] = useState('');
+  const ownersEnabled = isAdmin && effectiveScope === 'all';
+  const { data: owners } = useDebugSessionOwners({ game: gameId, enabled: ownersEnabled });
+
+  // Clear the user pin whenever it can't apply (left admin scope, or the
+  // active game changed and the previously-picked owner may not exist here).
+  useEffect(() => {
+    if (!ownersEnabled) setOwnerFilter('');
+  }, [ownersEnabled]);
+  useEffect(() => {
+    setOwnerFilter('');
+  }, [gameId]);
+
+  // Exact counts from the owners endpoint (independent of the list's row cap).
+  const totalCount = (owners ?? []).reduce((sum, o) => sum + o.count, 0);
+  const selectedCount = ownerFilter
+    ? (owners ?? []).find((o) => o.ownerId === ownerFilter)?.count ?? 0
+    : totalCount;
+
   // Cross-turn search — debounced 300 ms (preserved from original DevAuditPage)
   const [rawQ, setRawQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -138,6 +159,37 @@ export function SessionsTab() {
             ))}
           </div>
         )}
+        {ownersEnabled && (
+          <select
+            aria-label="Filter by user"
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+            data-testid="session-owner-filter"
+            style={{
+              fontSize: 11,
+              fontFamily: T.fSans,
+              padding: '2px 6px',
+              maxWidth: 220,
+              border: `1px solid ${ownerFilter ? T.brand : T.n300}`,
+              borderRadius: 5,
+              background: T.surface,
+              color: ownerFilter ? T.brand : T.n700,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="">All users ({totalCount})</option>
+            {(owners ?? []).map((o) => (
+              <option key={o.ownerId} value={o.ownerId}>
+                {(o.label || o.ownerId)} ({o.count})
+              </option>
+            ))}
+          </select>
+        )}
+        {ownersEnabled && (
+          <span data-testid="session-count" style={{ color: T.n500, whiteSpace: 'nowrap' }}>
+            {selectedCount} session{selectedCount === 1 ? '' : 's'}
+          </span>
+        )}
         <input
           type="search"
           placeholder="Search all turns…"
@@ -168,6 +220,7 @@ export function SessionsTab() {
               selectedId={selectedSessionId}
               onSelect={setSelectedSessionId}
               scope={effectiveScope}
+              owner={ownerFilter}
             />
           )}
         </div>

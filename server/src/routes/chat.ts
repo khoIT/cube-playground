@@ -720,9 +720,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
   // scope=all (admins only) lists sessions across ALL owners; the verified DB
   // role gates it here, then the X-Debug-Admin header carries the decision to
   // chat-service. Non-admins requesting scope=all get an explicit 403.
-  app.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string } }>(
+  app.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string } }>(
     '/api/chat/debug/sessions',
-    async (request: FastifyRequest<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string } }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string } }>, reply: FastifyReply) => {
       const owner = resolveOwner(request);
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const isAdmin = request.user?.role === 'admin';
@@ -734,7 +734,36 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       if (request.query.q) params.set('q', request.query.q);
       if (request.query.limit) params.set('limit', request.query.limit);
       if (request.query.scope === 'all') params.set('scope', 'all');
+      // owner= narrows the admin audit to one user. Forwarded only for admins;
+      // chat-service ignores it unless X-Debug-Admin is set, so this is defence
+      // in depth, not the sole gate.
+      if (request.query.owner && isAdmin) params.set('owner', request.query.owner);
       const url = `${chatServiceUrl()}/debug/sessions?${params.toString()}`;
+      try {
+        const { status, payload } = await proxyJson(
+          url, 'GET', owner, request.workspace.id, undefined, debugAdminHeaders(request),
+        );
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
+  // --- GET /api/chat/debug/session-owners?game= ---
+  // Distinct chat owners + counts for the admin audit user-filter dropdown.
+  // Admin-only here; chat-service re-checks via X-Debug-Admin.
+  app.get<{ Querystring: { game?: string } }>(
+    '/api/chat/debug/session-owners',
+    async (request: FastifyRequest<{ Querystring: { game?: string } }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) return reply.status(401).send({ code: 'no_owner' });
+      if (request.user?.role !== 'admin') {
+        return reply.status(403).send({ code: 'admin_only', message: 'session-owners requires the admin role' });
+      }
+      const params = new URLSearchParams();
+      if (request.query.game) params.set('game', request.query.game);
+      const url = `${chatServiceUrl()}/debug/session-owners?${params.toString()}`;
       try {
         const { status, payload } = await proxyJson(
           url, 'GET', owner, request.workspace.id, undefined, debugAdminHeaders(request),
