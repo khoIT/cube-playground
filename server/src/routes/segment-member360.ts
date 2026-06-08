@@ -14,8 +14,21 @@ import {
   getMember360StatusBySegment,
 } from '../services/member360-cache-store.js';
 import { corePanelsForGame } from '../services/member360-panel-registry.js';
+import { scaffoldMember360View } from '../services/member360-view-scaffolder.js';
 
 export default async function segmentMember360Routes(app: FastifyInstance): Promise<void> {
+  // GET /api/member360/scaffold/:game
+  //   200 { game, views[], unknownViews[], yaml }   — draft views/<game>/user_360.yml
+  //   404 game has no Member 360 panel config
+  // Read-only: returns YAML text for human review + placement (no disk write).
+  app.get<{ Params: { game: string } }>('/api/member360/scaffold/:game', async (req, reply) => {
+    const result = scaffoldMember360View(req.params.game);
+    if (result.views.length === 0) {
+      return reply.status(404).send({ error: `no Member 360 config for "${req.params.game}"` });
+    }
+    return reply.send(result);
+  });
+
   // Cached core-panel rows for one member. `cached: false` (and an empty map)
   // means the FE should use its live path for everything — same response shape
   // either way so the client never branches on status codes.

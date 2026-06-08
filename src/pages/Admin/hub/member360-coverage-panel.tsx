@@ -26,6 +26,7 @@ import {
   SectionTitle,
   SectionHint,
 } from '../../Settings/section-card';
+import { apiFetch } from '../../../api/api-client';
 import { useWorkspaceContext } from '../../../components/workspace-context';
 import {
   useMember360Coverage,
@@ -159,6 +160,37 @@ const Arrow = styled.div`
   font-size: 14px;
 `;
 
+const Pre = styled.pre`
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre;
+  overflow: auto;
+  max-height: 360px;
+`;
+
+// Member 360 draft-view scaffold, fetched on demand for a blocked/partial game.
+interface ScaffoldState {
+  game: string;
+  loading: boolean;
+  yaml: string | null;
+  unknownViews: string[];
+  error: string | null;
+}
+
+interface ScaffoldResponse {
+  game: string;
+  views: Array<{ name: string; baseCube: string | null; includes: string[] }>;
+  unknownViews: string[];
+  yaml: string;
+}
+
 // Map a panel status to the three gated layers (Trino → Cube YAML → Product).
 function chainFor(p: PanelCoverage): Array<{ layer: string; tone: Tone; state: string; note?: string }> {
   if (p.status === 'blocked') {
@@ -204,6 +236,29 @@ export function Member360CoveragePanel(): ReactElement {
   const { workspaceId, workspace } = useWorkspaceContext();
   const { report, loading, error, refetch } = useMember360Coverage(workspaceId);
   const [sel, setSel] = useState<Selection | null>(null);
+  const [scaffold, setScaffold] = useState<ScaffoldState | null>(null);
+
+  async function generateDraft(game: string): Promise<void> {
+    setScaffold({ game, loading: true, yaml: null, unknownViews: [], error: null });
+    try {
+      const res = await apiFetch<ScaffoldResponse>(
+        `/api/member360/scaffold/${encodeURIComponent(game)}`,
+      );
+      setScaffold({ game, loading: false, yaml: res.yaml, unknownViews: res.unknownViews, error: null });
+    } catch (err) {
+      setScaffold({ game, loading: false, yaml: null, unknownViews: [], error: (err as Error).message });
+    }
+  }
+
+  function downloadDraft(game: string, yaml: string): void {
+    const blob = new Blob([yaml], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `user_360.${game}.draft.yml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Configured games + the union of their 360 surfaces, ordered by first sight.
   const games = useMemo(
@@ -274,7 +329,16 @@ export function Member360CoveragePanel(): ReactElement {
                       <td className="game">{g.label}</td>
                       {cols.map((c) => {
                         const p = byView.get(c.view);
-                        if (!p) return <td key={c.view} style={{ color: 'var(--text-muted)' }}>—</td>;
+                        if (!p)
+                          return (
+                            <td
+                              key={c.view}
+                              style={{ color: 'var(--text-muted)' }}
+                              title={`Not part of ${g.label}’s 360 — this game's config has no ${c.title} panel`}
+                            >
+                              —
+                            </td>
+                          );
                         const tone = asTone(p.status);
                         const selected = sel?.game === g.game && sel?.view === c.view;
                         return (
@@ -303,6 +367,28 @@ export function Member360CoveragePanel(): ReactElement {
                 })}
               </tbody>
             </Table>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 14,
+                marginTop: 12,
+                fontSize: 11.5,
+                color: 'var(--text-muted)',
+                alignItems: 'center',
+              }}
+            >
+              {(['ready', 'partial', 'empty', 'blocked'] as Tone[]).map((tn) => (
+                <span key={tn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Dot tone={tn} />
+                  {TONE[tn].label}
+                </span>
+              ))}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: 'var(--text-muted)' }}>—</span>
+                not part of this game’s 360
+              </span>
+            </div>
           </div>
         )}
       </SectionCard>
@@ -334,12 +420,47 @@ export function Member360CoveragePanel(): ReactElement {
             ))}
           </Chain>
           {(selectedPanel.panel.status === 'blocked' || selectedPanel.panel.status === 'partial') && (
-            <SectionHint>
-              Next step: author / extend{' '}
-              <code>views/{selectedPanel.game.game}/user_360.yml</code> (and any
-              missing base cube members) so the view resolves in <code>/meta</code>.
-              Scaffolding a draft model is handled by the onboarding flow.
-            </SectionHint>
+            <>
+              <SectionHint>
+                Next step: author / extend{' '}
+                <code>views/{selectedPanel.game.game}/user_360.yml</code> (and any
+                missing base cube members) so the view resolves in <code>/meta</code>.
+                Generate a draft from the core-360 template to start:
+              </SectionHint>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                <Btn
+                  type="button"
+                  onClick={() => void generateDraft(selectedPanel.game.game)}
+                  disabled={scaffold?.loading && scaffold.game === selectedPanel.game.game}
+                >
+                  {scaffold?.loading && scaffold.game === selectedPanel.game.game
+                    ? 'Generating…'
+                    : 'Generate draft model'}
+                </Btn>
+                {scaffold?.game === selectedPanel.game.game && scaffold.yaml && (
+                  <>
+                    <Btn type="button" onClick={() => void navigator.clipboard.writeText(scaffold.yaml ?? '')}>
+                      Copy
+                    </Btn>
+                    <Btn type="button" onClick={() => downloadDraft(scaffold.game, scaffold.yaml ?? '')}>
+                      Download .yml
+                    </Btn>
+                  </>
+                )}
+              </div>
+              {scaffold?.game === selectedPanel.game.game && scaffold.error && (
+                <Empty style={{ color: 'var(--destructive-ink)' }}>Couldn’t scaffold: {scaffold.error}</Empty>
+              )}
+              {scaffold?.game === selectedPanel.game.game && scaffold.unknownViews.length > 0 && (
+                <SectionHint>
+                  Set <code>join_path</code> manually for: {scaffold.unknownViews.join(', ')} (no
+                  canonical base cube).
+                </SectionHint>
+              )}
+              {scaffold?.game === selectedPanel.game.game && scaffold.yaml && (
+                <Pre>{scaffold.yaml}</Pre>
+              )}
+            </>
           )}
         </SectionCard>
       )}
