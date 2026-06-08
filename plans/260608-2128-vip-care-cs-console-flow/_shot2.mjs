@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const f='file://'+process.cwd()+'/VIP Care CS Console Flow.html';
+const b=await chromium.launch(); const p=await b.newPage();
+await p.setViewportSize({width:1440,height:1040});
+const errs=[]; p.on('pageerror',e=>errs.push(String(e)));
+await p.goto(f); await p.waitForTimeout(400);
+await p.getByText('New playbook',{exact:false}).first().click(); await p.waitForTimeout(350);
+await p.screenshot({path:'05-builder.png'});
+console.log('pageerrors:',errs.length, errs.join('|'));
+await b.close();

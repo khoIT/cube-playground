@@ -1,11 +1,15 @@
 /**
  * Lightweight liveness probe for the upstream Cube backend.
  *
- * Probes `/cubejs-api/v1/meta` through the vite dev proxy. Treats any HTTP
- * response as "alive" (a 401/403 from cube means the server is up but our
- * token is wrong — still a backend-is-running signal). Only network failures
- * and timeouts flip the status to 'unreachable', which is the case the boot
- * guard couldn't recover from and the user needs to see.
+ * Probes `/api/meta/version` through the gateway — a game-independent endpoint
+ * that reflects upstream Cube liveness (it hashes the cached `/meta`). The
+ * legacy `/cubejs-api/v1/meta` direct-Cube path was retired here: it bypassed
+ * the gateway and 500'd once that upstream stopped serving HEAD /meta, flooding
+ * the console while the probe silently treated the 500 as "ok". A 4xx still
+ * counts as "alive" (server up, e.g. auth); only a 5xx (gateway reports the
+ * Cube backend down — 502 CUBE_UNREACHABLE), network failure, or timeout flips
+ * the status to 'unreachable', which is the case the boot guard couldn't
+ * recover from and the user needs to see.
  *
  * Also exposes `hadOutage` — a sticky bit set the first time we see
  * 'unreachable'. The page's in-flight cube requests (e.g. cubejs-client meta)
@@ -32,7 +36,7 @@ export interface CubeApiHealthResult {
   acknowledgeRecovery: () => void;
 }
 
-const PROBE_PATH = '/cubejs-api/v1/meta';
+const PROBE_PATH = '/api/meta/version';
 const PROBE_TIMEOUT_MS = 4000;
 const POLL_INTERVAL_MS = 15_000;
 
@@ -42,10 +46,11 @@ async function probeOnce(signal: AbortSignal): Promise<CubeApiHealth> {
   signal.addEventListener('abort', onParentAbort);
   const timer = setTimeout(() => ctl.abort(), PROBE_TIMEOUT_MS);
   try {
-    // HEAD avoids transferring the (potentially large) meta payload every poll.
-    // Cube returns the same status codes for HEAD as GET on this endpoint.
-    await fetch(PROBE_PATH, { method: 'HEAD', signal: ctl.signal });
-    return 'ok';
+    // GET is fine — the version endpoint returns a tiny hash, not the full
+    // meta payload. A 5xx means the gateway can't reach the Cube backend
+    // (502 CUBE_UNREACHABLE); a 4xx still means the server itself is up.
+    const res = await fetch(PROBE_PATH, { method: 'GET', signal: ctl.signal });
+    return res.status >= 500 ? 'unreachable' : 'ok';
   } catch {
     return signal.aborted ? 'unknown' : 'unreachable';
   } finally {

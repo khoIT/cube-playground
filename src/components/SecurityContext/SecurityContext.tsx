@@ -51,10 +51,15 @@ export function SecurityContext() {
     setEditingToken(!token);
     setPayload(payload);
 
-    form.setFieldsValue({
-      token,
-    });
-  }, [form, token, payload]);
+    // Only push values while the modal (and thus the <Form>) is mounted. antd's
+    // useForm instance isn't connected to any Form element while the modal is
+    // closed, so setFieldsValue would warn and no-op; re-runs when it opens.
+    if (isModalOpen) {
+      form.setFieldsValue({
+        token,
+      });
+    }
+  }, [form, token, payload, isModalOpen]);
 
   async function handleTokenSave(values) {
     try {

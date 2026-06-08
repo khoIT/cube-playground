@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIT Claude Usage — blurred</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---- faithful static replica of the AIT Claude usage dashboard ----
+   numbers + layout match the live dashboard screenshot; department names
+   and usernames are blurred for privacy. ---- */
+:root{
+  --bg:#F4F1EA; --paper:#FFFFFF; --ink:#1A2230; --body:#3A4658; --muted:#6B7686; --faint:#9AA3B0;
+  --line:#E6E2D8; --line2:#EFEBE1; --track:#ECE8DE;
+  --code:#1C7A57; --code2:#16623F; --cowork:#7E3535; --ai:#D98A2B;
+  --green-ttl:#1C7A57; --red:#D64545; --red-soft:#FCEFEF; --red-line:#F1C9C9;
+  --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9E5DD;font-family:var(--sans);color:var(--body);-webkit-font-smoothing:antialiased;
+  display:flex;justify-content:center;padding:32px 18px}
+.dash{width:1000px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:26px 30px 30px;
+  box-shadow:0 20px 60px rgba(20,28,40,.12)}
+.mono{font-family:var(--mono)}
+
+/* blur for redacted identities */
+.blur{filter:blur(5px);user-select:none;color:#46505f;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+
+/* header */
+.eyebrow{font-size:.7rem;font-weight:700;letter-spacing:.18em;color:#8A8473;text-transform:uppercase}
+.h-row{display:flex;align-items:baseline;gap:10px;margin-top:7px}
+.h-row h1{font-size:1.6rem;margin:0;color:var(--green-ttl);font-weight:800;letter-spacing:-.01em}
+.h-row .sep{color:var(--faint)}
+.h-row .ttl2{font-size:.95rem;color:var(--muted);font-weight:600}
+.meta{margin-top:6px;font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.tzpill{float:right;font-family:var(--mono);font-size:.74rem;color:var(--muted);border:1px solid var(--line);
+  background:var(--paper);border-radius:7px;padding:5px 11px}
+
+/* filter bar */
+.filters{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);
+  border-radius:10px;padding:11px 14px;margin:18px 0 8px;font-size:.82rem}
+.filters .fl{font-weight:700;color:var(--muted);font-size:.72rem;letter-spacing:.04em}
+.filters .field{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:7px;
+  padding:7px 11px;background:#FCFBF8;color:var(--ink);font-weight:500;min-width:150px;justify-content:space-between}
+.filters .field .cv{color:#9aa3b0}
+.filters .dot{color:var(--faint)}
+.filters .date{font-family:var(--mono);min-width:120px}
+.filters .arrow{color:var(--faint)}
+.filters .run{margin-left:auto;background:var(--code);color:#fff;font-weight:700;border-radius:7px;padding:8px 16px;border:none;font-size:.82rem}
+.filters .ready{color:var(--muted);font-size:.78rem;font-weight:600}
+
+.sect{font-size:.7rem;font-weight:700;letter-spacing:.16em;color:#8A8473;text-transform:uppercase;margin:22px 0 11px}
+
+/* leaderboards */
+.lb-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.card .ct{display:flex;justify-content:space-between;align-items:flex-start}
+.card h3{font-size:1rem;margin:0;color:var(--ink);font-weight:700}
+.card .sub{font-size:.76rem;color:var(--faint);margin:3px 0 0}
+.lg{display:flex;gap:11px;font-size:.72rem;color:var(--muted);font-weight:600}
+.lg span{display:inline-flex;align-items:center;gap:5px}
+.lg i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.i-code{background:var(--code)} .i-cowork{background:var(--cowork)} .i-ai{background:var(--ai)}
+.lrow{display:grid;grid-template-columns:16px 116px 1fr auto;align-items:center;gap:11px;padding:6.5px 0}
+.lrow .rk{font-family:var(--mono);font-size:.8rem;color:var(--faint);text-align:right}
+.lrow .nm{font-size:.86rem;overflow:hidden}
+.lrow .tk{position:relative;height:13px;background:var(--track);border-radius:3px;overflow:hidden}
+.lrow .tk .seg{position:absolute;top:0;bottom:0;border-radius:3px}
+.lrow .vv{font-family:var(--mono);font-size:.82rem;color:var(--ink);font-weight:600;white-space:nowrap}
+.pager{display:flex;gap:5px;justify-content:center;align-items:center;margin-top:14px;font-family:var(--mono);font-size:.78rem}
+.pager .pg{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;color:var(--muted)}
+.pager .pg.on{background:var(--code);color:#fff;border-color:var(--code);font-weight:700}
+.pager .el{color:var(--faint)}
+
+/* aggregate cards */
+.agg{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:4px}
+.acard{background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:14px 15px}
+.acard .al{font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.acard .av{font-size:1.7rem;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin:8px 0 0;line-height:1;font-family:var(--mono)}
+.acard .as{font-size:.74rem;color:var(--faint);margin-top:7px;font-family:var(--mono)}
+.acard.red{background:var(--red-soft);border-color:var(--red-line)}
+.acard.red .av{color:var(--red)} .acard.red .al{color:#B23B3B}
+
+/* daily chart */
+.chartcard{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:14px}
+.chartcard .ct{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.chartcard h3{font-size:.98rem;margin:0;color:var(--ink);font-weight:700}
+.plot{display:flex;align-items:flex-end;gap:0;height:200px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);
+  position:relative;padding-left:6px}
+.yax{position:absolute;left:-44px;top:0;bottom:18px;width:40px;display:flex;flex-direction:column;justify-content:space-between;
+  font-family:var(--mono);font-size:.62rem;color:var(--faint);text-align:right}
+.bars{display:flex;align-items:flex-end;gap:3px;width:100%;height:100%}
+.bar{flex:1;border-radius:2px 2px 0 0;min-width:0;
+  background:linear-gradient(to top,var(--code) 0,var(--code) 92.5%,var(--cowork) 92.5%,var(--cowork) 99.4%,var(--ai) 99.4%)}
+.xax{display:flex;gap:3px;margin-top:5px;padding-left:6px}
+.xax span{flex:1;text-align:center;font-family:var(--mono);font-size:.54rem;color:var(--faint);transform:rotate(-90deg);transform-origin:center;white-space:nowrap;height:34px}
+.chwrap{position:relative;margin-left:44px}
+
+/* bottom row */
+.brow{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-top:14px}
+.hbars{display:flex;align-items:flex-end;gap:3px;height:150px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);padding-left:4px}
+.hbars .bar{flex:1}
+.hx{display:flex;gap:3px;margin-top:4px;padding-left:4px;font-family:var(--mono);font-size:.56rem;color:var(--faint)}
+.hx span{flex:1;text-align:center}
+.donuts{display:flex;gap:18px}
+.donut-block{flex:1}
+.donut-block h4{font-size:.84rem;margin:0 0 10px;color:var(--ink);font-weight:700}
+.donut{width:120px;height:120px;border-radius:50%;margin:0 auto;position:relative}
+.donut::after{content:"";position:absolute;inset:26px;background:var(--paper);border-radius:50%}
+.dleg{margin-top:12px;font-size:.72rem;font-family:var(--mono)}
+.dleg div{display:flex;align-items:center;gap:6px;margin:4px 0;color:var(--body)}
+.dleg i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.dleg .pc{margin-left:auto;color:var(--muted)}
+.stamp{margin-top:18px;font-size:.72rem;color:var(--faint);text-align:center}
+</style>
+</head>
+<body>
+<div class="dash">
+
+  <div class="tzpill mono">VN time · UTC+7</div>
+  <div class="eyebrow">AIT Claude — Usage Analytics</div>
+  <div class="h-row"><h1>All Users</h1><span class="sep">·</span><span class="ttl2">AIT Claude Usage</span></div>
+  <div class="meta">2026-05-09 → 2026-06-08 · 31 active days · VN time (UTC+7)</div>
+
+  <!-- FILTER BAR -->
+  <div class="filters">
+    <span class="fl">DEPT</span>
+    <span class="field">All Departments <span class="cv">▾</span></span>
+    <span class="dot">·</span>
+    <span class="fl">USER</span>
+    <span class="field">All Users <span class="cv">▾</span></span>
+    <span class="dot">·</span>
+    <span class="fl">FROM</span>
+    <span class="field date">09/05/2026 <span class="cv">▦</span></span>
+    <span class="arrow">→</span>
+    <span class="field date">08/06/2026 <span class="cv">▦</span></span>
+    <button class="run">▶ Run</button>
+    <span class="ready">Ready</span>
+  </div>
+
+  <!-- LEADERBOARDS -->
+  <div class="sect">Leaderboards</div>
+  <div class="lb-grid">
+
+    <!-- DEPARTMENT -->
+    <div class="card">
+      <div class="ct">
+        <div><h3>Department Leaderboard</h3><p class="sub">Click to filter · sorted by total tokens</p></div>
+        <div class="lg"><span><i class="i-code"></i>code</span><span><i class="i-cowork"></i>cowork</span><span><i class="i-ai"></i>ai</span></div>
+      </div>
+      <div id="dept"></div>
+    </div>
+
+    <!-- USER -->
+    <div class="card">
+      <div class="ct">
+        <div><h3>User Leaderboard</h3><p class="sub">Click to drill down · filtered by dept</p></div>
+      </div>
+      <div id="user"></div>
+      <div class="pager">
+        <span class="el">‹</span>
+        <span class="pg on">1</span><span class="pg">2</span><span class="pg">3</span><span class="pg">4</span><span class="pg">5</span>
+        <span class="el">…</span><span class="pg">21</span><span class="el">›</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AGGREGATE ACTIVITY -->
+  <div class="sect">Aggregate Activity</div>
+  <div class="agg">
+    <div class="acard"><div class="al">Total Tokens</div><div class="av">348.63B</div><div class="as">31 active days</div></div>
+    <div class="acard"><div class="al">Avg / Day</div><div class="av">11.25B</div><div class="as">across active days</div></div>
+    <div class="acard"><div class="al">Peak Day</div><div class="av">15.72B</div><div class="as">2026-06-04</div></div>
+    <div class="acard"><div class="al">Peak Hour</div><div class="av">15:00</div><div class="as">33.17B total</div></div>
+    <div class="acard"><div class="al">Peak Day-of-Week</div><div class="av">Mon</div><div class="as">59.37B</div></div>
+  </div>
+  <div class="agg" style="margin-top:14px">
+    <div class="acard"><div class="al">Chats</div><div class="av">268.0K</div><div class="as">87.8K conversations</div></div>
+    <div class="acard"><div class="al">Net LOC</div><div class="av">+11.9M</div><div class="as">+13.9M · -2.0M</div></div>
+    <div class="acard"><div class="al">Edit Acceptance</div><div class="av">99%</div><div class="as">383.4K / 387.5K</div></div>
+    <div class="acard"><div class="al">Cache Efficiency</div><div class="av">97%</div><div class="as">336.99B / 348.63B</div></div>
+    <div class="acard red"><div class="al">Quota Hits</div><div class="av">31</div><div class="as">31 day(s) capped</div></div>
+  </div>
+
+  <!-- DAILY -->
+  <div class="chartcard">
+    <div class="ct">
+      <h3>Daily token usage</h3>
+      <div class="lg"><span><i class="i-code"></i>claude_code</span><span><i class="i-cowork"></i>cowork</span><span><i class="i-ai"></i>claude_ai</span></div>
+    </div>
+    <div class="chwrap">
+      <div class="plot">
+        <div class="yax"><span>18.00B</span><span>15.00B</span><span>12.00B</span><span>9.00B</span><span>6.00B</span><span>3.00B</span><span>0</span></div>
+        <div class="bars" id="daily"></div>
+      </div>
+      <div class="xax" id="dailyx"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="brow">
+    <div class="chartcard" style="margin:0">
+      <h3>Hourly distribution</h3>
+      <p class="sub" style="margin:2px 0 12px;color:var(--faint);font-size:.76rem">Hour-of-day · VN time (UTC+7)</p>
+      <div class="hbars" id="hourly"></div>
+      <div class="hx" id="hourlyx"></div>
+    </div>
+    <div class="chartcard" style="margin:0">
+      <div class="donuts">
+        <div class="donut-block">
+          <h4>Service mix</h4>
+          <div class="donut" style="background:conic-gradient(var(--code) 0 92.7%, var(--cowork) 92.7% 99.6%, var(--ai) 99.6% 100%)"></div>
+          <div class="dleg">
+            <div><i class="i-code"></i>claude_code <span class="pc">323.10B · 92.7%</span></div>
+            <div><i class="i-cowork"></i>cowork <span class="pc">24.13B · 6.9%</span></div>
+            <div><i class="i-ai"></i>claude_ai <span class="pc">1.40B · 0.4%</span></div>
+          </div>
+        </div>
+        <div class="donut-block">
+          <h4>Token type</h4>
+          <div class="donut" style="background:conic-gradient(var(--code) 0 96.7%, #5BB089 96.7% 99.4%, var(--ai) 99.4% 99.8%, var(--cowork) 99.8% 100%)"></div>
+          <div class="dleg">
+            <div><i class="i-code"></i>cache_read <span class="pc">336.99B · 96.7%</span></div>
+            <div><i style="background:#5BB089"></i>cache_creation <span class="pc">9.56B · 2.7%</span></div>
+            <div><i class="i-ai"></i>output <span class="pc">1.49B · 0.4%</span></div>
+            <div><i class="i-cowork"></i>input <span class="pc">587.7M · 0.2%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stamp">Department &amp; user identities blurred for privacy · all metrics are live values from AIT Claude Usage Analytics</div>
+
+</div>
+
+<script>
+/* ---- leaderboard data (values real; names blurred via placeholder length) ---- */
+const DEPT=[
+  {ph:'Northgate Platform Enginee…',v:'251.00B',n:251.00,cw:.06,ai:.004},
+  {ph:'Product Studio',v:'31.69B',n:31.69,cw:.04,ai:0},
+  {ph:'Data Lab Group',v:'30.46B',n:30.46,cw:.05,ai:0},
+  {ph:'GX Platform Unit',v:'15.06B',n:15.06,cw:.03,ai:0},
+  {ph:'Infrastructure and Oper…',v:'14.01B',n:14.01,cw:.04,ai:0},
+  {ph:'Platform Integration',v:'4.03B',n:4.03,cw:.02,ai:0},
+  {ph:'Uncategorized',v:'1.14B',n:1.14,cw:.02,ai:0},
+  {ph:'Transformation Office',v:'698.3M',n:.6983,cw:.05,ai:0},
+  {ph:'Fast Studio Group',v:'474.0M',n:.474,cw:.03,ai:0},
+  {ph:'Connect Division',v:'59.3M',n:.0593,cw:0,ai:0},
+];
+const USER=[
+  {ph:'marlowekd4',v:'12.55B',n:12.55,cw:.02},
+  {ph:'khoitn',v:'7.86B',n:7.86,cw:.02,clear:true},
+  {ph:'sabinevh',v:'7.73B',n:7.73,cw:.03},
+  {ph:'tobiasrd',v:'7.39B',n:7.39,cw:.02},
+  {ph:'rowannv5',v:'6.89B',n:6.89,cw:.05},
+  {ph:'milesnv2',v:'6.53B',n:6.53,cw:.02},
+  {ph:'harperda',v:'6.52B',n:6.52,cw:.03},
+  {ph:'odetteta',v:'6.45B',n:6.45,cw:.13},
+  {ph:'lennoxph',v:'6.34B',n:6.34,cw:.10},
+  {ph:'sorenmm',v:'6.26B',n:6.26,cw:.02},
+];
+function renderLB(id,data,max){
+  const el=document.getElementById(id);
+  el.innerHTML=data.map((d,i)=>{
+    const fill=Math.max(d.n/max*100,0.6);
+    const cwW=fill*(d.cw||0), aiW=fill*(d.ai||0), codeW=fill-cwW-aiW;
+    return `<div class="lrow">
+      <div class="rk">${i+1}</div>
+      <div class="nm">${d.clear?`<span style="font-size:.86rem;font-weight:700;color:var(--ink)">${d.ph}</span>`:`<span class="blur">${d.ph}</span>`}</div>
+      <div class="tk">
+        <div class="seg" style="left:0;width:${codeW}%;background:var(--code)"></div>
+        <div class="seg" style="left:${codeW}%;width:${cwW}%;background:var(--cowork)"></div>
+        <div class="seg" style="left:${codeW+cwW}%;width:${aiW}%;background:var(--ai)"></div>
+      </div>
+      <div class="vv">${d.v}</div>
+    </div>`;
+  }).join('');
+}
+renderLB('dept',DEPT,251.00);
+renderLB('user',USER,12.55);
+
+/* ---- daily bars (heights match the live chart shape; y-max 18B) ---- */
+const DAILY=[6.5,7,13,12.5,12,13,9.5,10.5,12.5,14,14.5,15,13,12.5,9.5,11,13.5,14,12.5,12,9.5,9,9.5,15.5,15,15.3,15.72,13.5,8,8.5,5.5];
+const D_LABELS=['05-09','05-10','05-11','05-12','05-13','05-14','05-15','05-16','05-17','05-18','05-19','05-20','05-21','05-22','05-23','05-24','05-25','05-26','05-27','05-28','05-29','05-30','05-31','06-01','06-02','06-03','06-04','06-05','06-06','06-07','06-08'];
+document.getElementById('daily').innerHTML=DAILY.map(v=>`<div class="bar" style="height:${v/18*100}%"></div>`).join('');
+document.getElementById('dailyx').innerHTML=D_LABELS.map(l=>`<span>${l}</span>`).join('');
+
+/* ---- hourly bars (shape matches live; y-max 35B; peak 15:00=33.17B) ---- */
+const HOURLY=[10,9,6,3,2,2,3,5,9,16,22,26,20,28,32,33.17,30,22,13,14,17,16,16,14];
+document.getElementById('hourly').innerHTML=HOURLY.map(v=>`<div class="bar" style="height:${v/35*100}%;background:linear-gradient(to top,var(--code) 0,var(--code) 93%,var(--cowork) 93%,var(--cowork) 100%)"></div>`).join('');
+document.getElementById('hourlyx').innerHTML=[0,2,4,6,8,10,12,14,16,18,20,22].map(h=>`<span>${String(h).padStart(2,'0')}</span>`).join('');
+</script>
+</body>
+</html>

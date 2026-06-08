@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Forward-Deployed Backend Engineer — Game Data Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FBFAF8; --paper:#FFFFFF; --ink:#0F172A; --body:#334155; --muted:#64748B; --faint:#94A3B8;
+  --line:#E6E3DD; --line2:#EEEBE4;
+  --indigo:#4F46E5; --indigo-soft:#EEF2FF; --indigo-ink:#3730A3;
+  --teal:#0D9488; --teal-soft:#ECFEFB; --teal-ink:#0F766E;
+  --amber:#D97706; --amber-soft:#FFF7ED; --amber-ink:#92400E;
+  --green:#16A34A; --green-soft:#DCFCE7; --green-ink:#15803D;
+  --slate-soft:#F1F5F9;
+  --radius:14px; --shadow:0 1px 2px rgba(15,23,42,.04),0 8px 30px rgba(15,23,42,.05);
+  --sans:'Inter',ui-sans-serif,system-ui,sans-serif; --display:'Space Grotesk',var(--sans);
+}
+body[data-theme="dark"]{
+  --bg:#0E1117; --paper:#161B22; --ink:#E6EDF3; --body:#C2CBD6; --muted:#8B949E; --faint:#6E7681;
+  --line:#262C36; --line2:#21262D;
+  --indigo:#818CF8; --indigo-soft:#1E1B33; --indigo-ink:#A5B4FC;
+  --teal:#2DD4BF; --teal-soft:#0E2A2A; --teal-ink:#5EEAD4;
+  --amber:#FBBF24; --amber-soft:#2A2010; --amber-ink:#FCD34D;
+  --green:#4ADE80; --green-soft:#0E2A18; --green-ink:#86EFAC;
+  --slate-soft:#1C2230;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--body);font-family:var(--sans);line-height:1.62;font-size:16px;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s}
+.wrap{max-width:980px;margin:0 auto;padding:0 24px 96px}
+a{color:var(--indigo);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3{font-family:var(--display);color:var(--ink);letter-spacing:-.02em;line-height:1.15}
+h2{font-size:1.5rem;margin:48px 0 14px;padding-bottom:.3em;border-bottom:1px solid var(--line)}
+h3{font-size:1.06rem;margin:0 0 6px}
+p{margin:0 0 14px}
+.eyebrow{font-family:var(--sans);font-size:.74rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--indigo)}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
+  padding:11px clamp(16px,3vw,28px);background:var(--bg);border-bottom:1px solid var(--line);backdrop-filter:saturate(1.2) blur(4px)}
+.brand{font-family:var(--display);font-weight:700;color:var(--ink);font-size:.98rem;display:flex;align-items:center;gap:9px}
+.brand .dot{width:9px;height:9px;border-radius:3px;background:var(--indigo);display:inline-block}
+.ctrls{display:flex;align-items:center;gap:10px}
+.langtog{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.langtog button{border:none;background:transparent;color:var(--muted);font-family:var(--sans);font-weight:700;font-size:.78rem;padding:6px 13px;cursor:pointer}
+.langtog button.on{background:var(--ink);color:var(--bg)}
+.themetog{width:34px;height:34px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.themetog:hover{background:var(--ink);color:var(--bg)}
+
+header.hero{padding:46px 0 8px}
+.hero h1{font-size:2.5rem;margin:12px 0 14px}
+.hero .lead{font-size:1.18rem;color:var(--body);max-width:780px}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.tag{font-size:.8rem;font-weight:600;background:var(--paper);border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:999px}
+.tag.k{background:var(--indigo-soft);border-color:transparent;color:var(--indigo-ink)}
+.tag.loc{background:var(--teal-soft);border-color:transparent;color:var(--teal-ink)}
+.tag.loc:hover{text-decoration:none;filter:brightness(.97)}
+
+/* diagram — locked to a light "figure" look in both themes */
+.diagram-card{
+  --paper:#FFFFFF;--ink:#0F172A;--body:#334155;--muted:#64748B;--faint:#94A3B8;
+  --line:#E6E3DD;--line2:#EEEBE4;--slate-soft:#F1F5F9;
+  --indigo-soft:#EEF2FF;--indigo-ink:#3730A3;--green-soft:#DCFCE7;--green-ink:#15803D;
+  --amber-soft:#FFF7ED;--amber-ink:#92400E;
+  background:#FFFFFF;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;margin:26px 0;color:var(--body)}
+.diagram-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.legend{display:flex;flex-wrap:wrap;gap:7px}
+.lg{display:inline-flex;align-items:center;gap:7px;font-size:.76rem;font-weight:600;color:var(--ink);background:var(--slate-soft);border:1px solid var(--line);border-radius:999px;padding:4px 11px;cursor:pointer;user-select:none;transition:.15s}
+.lg:hover{border-color:var(--ink)}
+.lg.dim{opacity:.4}
+.lg .sw{width:11px;height:11px;border-radius:3px}
+.sw.built{background:#16A34A} .sw.build{background:#D97706} .sw.connect{background:#4F46E5} .sw.found{background:#94A3B8}
+.diagram-grid{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:stretch;margin-top:8px}
+@media(max-width:820px){.diagram-grid{grid-template-columns:1fr}}
+svg.arch{width:100%;height:auto;display:block;background:linear-gradient(180deg,#FFFFFF,#FCFBF9);border:1px solid var(--line2);border-radius:10px}
+.node{cursor:pointer}
+.node rect{transition:.18s}
+.node:hover rect{filter:brightness(.97)}
+.node.sel rect{stroke-width:3}
+.node.faded{opacity:.28}
+.node .nt{font-family:var(--display);font-weight:700;fill:#0F172A}
+.node .ns{font-family:var(--sans);fill:#fff;font-weight:700}
+.flow{stroke:#94A3B8;stroke-width:2;fill:none}
+.flow.dash{stroke-dasharray:5 4;stroke:#B6BECB}
+.detail{background:var(--slate-soft);border:1px solid var(--line);border-radius:10px;padding:18px 18px 20px;min-height:240px}
+.detail .badge{display:inline-block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border-radius:6px;margin-bottom:10px}
+.badge.built{background:var(--green-soft);color:var(--green-ink)}
+.badge.build{background:var(--amber-soft);color:var(--amber-ink)}
+.badge.connect{background:var(--indigo-soft);color:var(--indigo-ink)}
+.badge.found{background:#E9EDF2;color:#475569}
+.detail h3{font-size:1.12rem;margin-bottom:8px;font-family:var(--display);color:var(--ink)}
+.detail .what{font-size:.92rem;color:var(--body);margin-bottom:14px}
+.detail .you-lab{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
+.detail .you{font-size:.92rem;color:var(--ink);font-weight:500}
+
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:18px 0}
+@media(max-width:820px){.cols{grid-template-columns:1fr}}
+.col{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow)}
+.col .ch{display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.col.built .ch{color:var(--green-ink)} .col.build .ch{color:var(--amber-ink)} .col.connect .ch{color:var(--indigo-ink)}
+.col ul{margin:0;padding-left:18px}
+.col li{margin:6px 0;font-size:.92rem}
+.dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+ul.clean{list-style:none;padding:0;margin:14px 0}
+ul.clean li{position:relative;padding:8px 0 8px 26px;border-bottom:1px solid var(--line2);font-size:.97rem}
+ul.clean li:last-child{border-bottom:none}
+ul.clean li::before{content:"";position:absolute;left:4px;top:15px;width:8px;height:8px;border-radius:2px;background:var(--indigo)}
+ul.clean li b{color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:820px){.two{grid-template-columns:1fr}}
+.callout{background:var(--indigo-soft);border:1px solid transparent;border-left:4px solid var(--indigo);border-radius:10px;padding:16px 18px;margin:18px 0}
+.callout b{color:var(--indigo-ink)}
+.apply{background:var(--ink);color:var(--bg);border-radius:var(--radius);padding:28px 30px;margin-top:40px}
+body[data-theme="dark"] .apply{background:#1F2937}
+.apply h2{color:#fff;border:none;margin:0 0 8px}
+.apply p{color:#CBD5E1}
+.apply a.email{color:#A5B4FC;font-weight:600}
+.btn{display:inline-block;margin-top:12px;background:var(--indigo);color:#fff;font-weight:700;padding:11px 22px;border-radius:10px;font-family:var(--display)}
+.btn:hover{text-decoration:none;filter:brightness(1.08)}
+.foot{margin-top:34px;font-size:.8rem;color:var(--faint)}
+</style>
+</head>
+<body data-theme="light">
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span><span data-en="Game Data Platform" data-vi="Nền tảng Dữ liệu Game">Game Data Platform</span></div>
+  <div class="ctrls">
+    <div class="langtog" id="langtog">
+      <button data-lang="en" class="on">EN</button>
+      <button data-lang="vi">VI</button>
+    </div>
+    <button class="themetog" id="themeBtn" title="Toggle theme">◑</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow" data-en="Game Data Platform · Senior" data-vi="Nền tảng Dữ liệu Game · Senior">Game Data Platform · Senior</div>
+  <h1 data-en="AI Forward-Deployed Backend Engineer" data-vi="Kỹ sư Backend Forward-Deployed, định hướng AI">AI Forward-Deployed Backend Engineer</h1>
+  <p class="lead" data-en="Connect a real-time decisioning engine, a data-exploration engine, and a shared metadata backbone into one platform — turning a flood of raw game events into the right action for the right player, in the moment. The hardest, most valuable work lives in the architecture between the pieces. Embedded with the teams who use it, shipping with AI as a force-multiplier." data-vi="Kết nối engine ra quyết định real-time, engine khám phá dữ liệu, và một nền metadata dùng chung thành một nền tảng duy nhất — biến dòng sự kiện game khổng lồ thành đúng hành động cho đúng người chơi, ngay trong khoảnh khắc. Phần khó và giá trị nhất nằm ở kiến trúc nối các mảnh lại với nhau. Làm việc sát cánh với các đội dùng sản phẩm, lấy AI làm đòn bẩy.">Connect a real-time decisioning engine, a data-exploration engine, and a shared metadata backbone into one platform — turning a flood of raw game events into the right action for the right player, in the moment. The hardest, most valuable work lives in the architecture between the pieces. Embedded with the teams who use it, shipping with AI as a force-multiplier.</p>
+  <div class="tags">
+    <span class="tag k" data-en="Senior · ~4–7 yrs" data-vi="Senior · ~4–7 năm">Senior · ~4–7 yrs</span>
+    <span class="tag" data-en="Backend-first" data-vi="Ưu tiên Backend">Backend-first</span>
+    <span class="tag" data-en="Data engineering depth" data-vi="Vững Data Engineering">Data engineering depth</span>
+    <span class="tag" data-en="Real-time + lakehouse" data-vi="Real-time + lakehouse">Real-time + lakehouse</span>
+    <span class="tag" data-en="AI-native" data-vi="AI-native">AI-native</span>
+    <a class="tag loc" href="https://vng.com.vn/news/enterprise/vng-campus-3906.html" target="_blank" rel="noopener" data-en="📍 VNG Campus · HCMC" data-vi="📍 VNG Campus · TP.HCM">📍 VNG Campus · HCMC</a>
+    <span class="tag" data-en="On-site" data-vi="Làm tại văn phòng">On-site</span>
+  </div>
+</header>
+
+<p data-en="We run LiveOps for games at scale: millions of players, hundreds of thousands of events per second. The value of that data shows up two ways — acting on it in the moment (offers, rewards, win-back) and understanding it well enough to decide what's worth acting on. We already run an exploration engine and an AI authoring product in production, and a senior engineer is building the real-time decisioning core. What's missing is the person who makes it one platform: connecting the engines through a shared catalog, owning the seams, and automating the glue — like turning the onboarding of thousands of raw game-log streams from a manual chore into a pipeline." data-vi="Chúng tôi vận hành LiveOps cho game ở quy mô lớn: hàng triệu người chơi, hàng trăm nghìn sự kiện mỗi giây. Giá trị của dữ liệu đó thể hiện theo hai cách — hành động ngay trong khoảnh khắc (ưu đãi, phần thưởng, kéo người chơi quay lại) và hiểu đủ sâu để quyết định điều gì đáng làm. Chúng tôi đã có engine khám phá và một sản phẩm tạo lập bằng AI chạy production, và một kỹ sư senior đang xây phần lõi ra quyết định real-time. Thứ còn thiếu là người biến tất cả thành một nền tảng duy nhất: nối các engine qua một catalog dùng chung, làm chủ các điểm nối, và tự động hoá phần keo dính — như biến việc onboard hàng nghìn luồng log game thô từ thao tác thủ công thành một pipeline.">We run LiveOps for games at scale: millions of players, hundreds of thousands of events per second. The value of that data shows up two ways — acting on it in the moment (offers, rewards, win-back) and understanding it well enough to decide what's worth acting on. We already run an exploration engine and an AI authoring product in production, and a senior engineer is building the real-time decisioning core. What's missing is the person who makes it one platform: connecting the engines through a shared catalog, owning the seams, and automating the glue — like turning the onboarding of thousands of raw game-log streams from a manual chore into a pipeline.</p>
+
+<!-- ============ INTERACTIVE DIAGRAM ============ -->
+<div class="diagram-card">
+  <div class="diagram-top">
+    <div>
+      <div class="eyebrow" style="color:var(--ink)" data-en="The platform you'd work on" data-vi="Nền tảng bạn sẽ làm việc cùng">The platform you'd work on</div>
+      <p style="margin:4px 0 0;font-size:.9rem;color:var(--muted)" data-en="Click any block to see what it is and what you'd own. (Stack genericized.)" data-vi="Nhấp vào bất kỳ khối nào để xem nó là gì và bạn phụ trách gì. (Tên công nghệ đã được khái quát hoá.)">Click any block to see what it is and what you'd own. (Stack genericized.)</p>
+    </div>
+    <div class="legend" id="legend">
+      <span class="lg" data-f="built"><span class="sw built"></span><span data-en="Built · harden" data-vi="Đã có · củng cố">Built · harden</span></span>
+      <span class="lg" data-f="build"><span class="sw build"></span><span data-en="In progress · co-build" data-vi="Đang xây · cùng làm">In progress · co-build</span></span>
+      <span class="lg" data-f="connect"><span class="sw connect"></span><span data-en="Connect" data-vi="Kết nối">Connect</span></span>
+      <span class="lg" data-f="found"><span class="sw found"></span><span data-en="Foundation" data-vi="Nền tảng">Foundation</span></span>
+    </div>
+  </div>
+
+  <div class="diagram-grid">
+    <svg class="arch" viewBox="0 0 1000 660" id="arch" role="img" aria-label="Platform architecture">
+      <path class="flow" d="M380,150 C300,150 250,150 250,210"/>
+      <path class="flow" d="M620,150 C720,150 760,150 760,210"/>
+      <path class="flow dash" d="M460,300 L330,300"/>
+      <path class="flow dash" d="M540,300 L690,300"/>
+      <path class="flow dash" d="M500,250 L500,168"/>
+      <path class="flow" d="M520,470 C600,470 760,470 760,372"/>
+      <path class="flow" d="M360,590 C240,590 250,590 250,372"/>
+      <path class="flow" d="M440,600 C440,540 460,510 470,492"/>
+      <path class="flow" d="M560,590 C540,540 530,510 525,492"/>
+      <path class="flow dash" d="M820,600 C720,600 660,600 620,600"/>
+      <path class="flow" d="M820,300 C900,300 905,300 905,210"/>
+
+      <g class="node" data-key="product">
+        <rect x="300" y="92" width="400" height="76" rx="12" fill="#fff" stroke="#16A34A" stroke-width="2"/>
+        <rect x="300" y="92" width="124" height="22" rx="11" fill="#16A34A"/>
+        <text class="ns" x="362" y="108" font-size="11" text-anchor="middle" data-en="BUILT · HARDEN" data-vi="ĐÃ CÓ · CỦNG CỐ">BUILT · HARDEN</text>
+        <text class="nt" x="500" y="138" font-size="16" text-anchor="middle" data-en="Product &amp; AI Authoring Layer" data-vi="Lớp Sản phẩm &amp; Tạo lập bằng AI">Product &amp; AI Authoring Layer</text>
+        <text x="500" y="158" font-size="11.5" fill="#64748B" text-anchor="middle" data-en="describe an audience — by hand or in natural language → segment" data-vi="mô tả tập người chơi — thủ công hoặc bằng ngôn ngữ tự nhiên → segment">describe an audience — by hand or in natural language → segment</text>
+      </g>
+
+      <g class="node" data-key="exploration">
+        <rect x="120" y="210" width="230" height="162" rx="12" fill="#fff" stroke="#16A34A" stroke-width="2"/>
+        <rect x="120" y="210" width="106" height="22" rx="11" fill="#16A34A"/>
+        <text class="ns" x="173" y="226" font-size="10.5" text-anchor="middle" data-en="BUILT · HARDEN" data-vi="ĐÃ CÓ · CỦNG CỐ">BUILT · HARDEN</text>
+        <text class="nt" x="235" y="262" font-size="14.5" text-anchor="middle" data-en="Exploration Engine" data-vi="Engine Khám phá">Exploration Engine</text>
+        <text x="235" y="286" font-size="11" fill="#64748B" text-anchor="middle" data-en="scan-on-read · semantic layer" data-vi="scan-on-read · lớp ngữ nghĩa">scan-on-read · semantic layer</text>
+        <text x="235" y="304" font-size="11" fill="#64748B" text-anchor="middle" data-en="any question, any slice, exact" data-vi="mọi câu hỏi, mọi lát cắt, chính xác">any question, any slice, exact</text>
+        <text x="235" y="328" font-size="11" fill="#4338CA" text-anchor="middle" data-en="AI agent drafts metrics &amp;" data-vi="AI agent soạn metric &amp;">AI agent drafts metrics &amp;</text>
+        <text x="235" y="344" font-size="11" fill="#4338CA" text-anchor="middle" data-en="segments from raw logs" data-vi="segment từ log thô">segments from raw logs</text>
+      </g>
+
+      <g class="node" data-key="catalog">
+        <rect x="430" y="250" width="140" height="100" rx="10" fill="#EEF2FF" stroke="#4F46E5" stroke-width="2"/>
+        <text class="nt" x="500" y="286" font-size="12.5" text-anchor="middle" fill="#3730A3" data-en="Metrics &amp;" data-vi="Danh mục">Metrics &amp;</text>
+        <text class="nt" x="500" y="303" font-size="12.5" text-anchor="middle" fill="#3730A3" data-en="Dimension" data-vi="Metric &amp;">Dimension</text>
+        <text class="nt" x="500" y="320" font-size="12.5" text-anchor="middle" fill="#3730A3" data-en="Catalog" data-vi="Dimension">Catalog</text>
+        <text x="500" y="338" font-size="9.5" text-anchor="middle" fill="#6366F1" data-en="the shared spine" data-vi="trục xương sống chung">the shared spine</text>
+      </g>
+
+      <g class="node" data-key="decisioning">
+        <rect x="650" y="210" width="230" height="162" rx="12" fill="#fff" stroke="#D97706" stroke-width="2.5"/>
+        <rect x="650" y="210" width="104" height="22" rx="11" fill="#D97706"/>
+        <text class="ns" x="702" y="226" font-size="10.5" text-anchor="middle" data-en="IN PROGRESS" data-vi="ĐANG XÂY">IN PROGRESS</text>
+        <text class="nt" x="765" y="262" font-size="14" text-anchor="middle" data-en="Real-time Decisioning Engine" data-vi="Engine Ra quyết định Real-time">Real-time Decisioning Engine</text>
+        <text x="765" y="286" font-size="11" fill="#64748B" text-anchor="middle" data-en="materialize-on-write · for machines" data-vi="materialize-on-write · cho máy">materialize-on-write · for machines</text>
+        <text x="765" y="304" font-size="11" fill="#64748B" text-anchor="middle" data-en="per-player state, served fast" data-vi="trạng thái theo người chơi, phục vụ nhanh">per-player state, served fast</text>
+        <text x="765" y="328" font-size="11" fill="#92400E" text-anchor="middle" data-en="live overlay + authoritative base," data-vi="lớp live + nền dữ liệu chuẩn,">live overlay + authoritative base,</text>
+        <text x="765" y="344" font-size="11" fill="#92400E" text-anchor="middle" data-en="merged at read · serving gateway" data-vi="gộp khi đọc · serving gateway">merged at read · serving gateway</text>
+      </g>
+
+      <g class="node" data-key="ingestion">
+        <rect x="380" y="416" width="260" height="76" rx="11" fill="#fff" stroke="#D97706" stroke-width="2"/>
+        <rect x="380" y="416" width="90" height="22" rx="11" fill="#D97706"/>
+        <text class="ns" x="425" y="432" font-size="10.5" text-anchor="middle" data-en="TO BUILD" data-vi="CẦN XÂY">TO BUILD</text>
+        <text class="nt" x="510" y="460" font-size="13.5" text-anchor="middle" data-en="Ingestion &amp; Identity" data-vi="Thu nạp &amp; Định danh">Ingestion &amp; Identity</text>
+        <text x="510" y="480" font-size="10.5" fill="#64748B" text-anchor="middle" data-en="normalize · dedup · player-key · event-time" data-vi="chuẩn hoá · khử trùng lặp · khoá người chơi · event-time">normalize · dedup · player-key · event-time</text>
+      </g>
+
+      <g class="node" data-key="actions">
+        <rect x="850" y="120" width="120" height="90" rx="10" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.6"/>
+        <text class="nt" x="910" y="156" font-size="12.5" text-anchor="middle" data-en="LiveOps" data-vi="Hành động">LiveOps</text>
+        <text class="nt" x="910" y="173" font-size="12.5" text-anchor="middle" data-en="Actions" data-vi="LiveOps">Actions</text>
+        <text x="910" y="193" font-size="9.5" fill="#64748B" text-anchor="middle" data-en="offer / reward" data-vi="ưu đãi / thưởng">offer / reward</text>
+      </g>
+
+      <g class="node" data-key="stream">
+        <rect x="360" y="588" width="170" height="56" rx="10" fill="#F1F5F9" stroke="#94A3B8" stroke-width="1.6"/>
+        <text class="nt" x="445" y="614" font-size="12.5" text-anchor="middle" data-en="Stream" data-vi="Stream">Stream</text>
+        <text x="445" y="632" font-size="9.5" fill="#64748B" text-anchor="middle" data-en="live in-game events" data-vi="sự kiện trong game real-time">live in-game events</text>
+      </g>
+      <g class="node" data-key="lakehouse">
+        <rect x="550" y="588" width="180" height="56" rx="10" fill="#F1F5F9" stroke="#94A3B8" stroke-width="1.6"/>
+        <text class="nt" x="640" y="614" font-size="12.5" text-anchor="middle" data-en="Lakehouse" data-vi="Lakehouse">Lakehouse</text>
+        <text x="640" y="632" font-size="9.5" fill="#64748B" text-anchor="middle" data-en="clean batch · authoritative base" data-vi="batch sạch · nền dữ liệu chuẩn">clean batch · authoritative base</text>
+      </g>
+      <g class="node" data-key="governance">
+        <rect x="810" y="588" width="170" height="56" rx="10" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.8"/>
+        <text class="nt" x="895" y="614" font-size="12" text-anchor="middle" fill="#3730A3" data-en="Metadata &amp; Onboarding" data-vi="Metadata &amp; Onboarding">Metadata &amp; Onboarding</text>
+        <text x="895" y="632" font-size="9.5" fill="#6366F1" text-anchor="middle" data-en="auto-catalog raw log streams" data-vi="tự động lập danh mục log thô">auto-catalog raw log streams</text>
+      </g>
+    </svg>
+
+    <div class="detail" id="detail">
+      <span class="badge" id="d-badge"></span>
+      <h3 id="d-title"></h3>
+      <div class="what" id="d-what"></div>
+      <div class="you-lab" id="d-youlab" data-en="What you'd own" data-vi="Bạn sẽ phụ trách">What you'd own</div>
+      <div class="you" id="d-you"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WHAT YOU'LL DO ============ -->
+<h2 data-en="What you'll build &amp; own" data-vi="Bạn sẽ xây dựng &amp; phụ trách">What you'll build &amp; own</h2>
+<div class="cols">
+  <div class="col built">
+    <div class="ch"><span class="dot" style="background:#16A34A"></span><span data-en="Harden what's built" data-vi="Củng cố phần đã có">Harden what's built</span></div>
+    <ul>
+      <li data-i18n="cb1a"></li><li data-i18n="cb1b"></li><li data-i18n="cb1c"></li>
+    </ul>
+  </div>
+  <div class="col build">
+    <div class="ch"><span class="dot" style="background:#D97706"></span><span data-en="Build what's next" data-vi="Xây phần tiếp theo">Build what's next</span></div>
+    <ul>
+      <li data-i18n="cb2a"></li><li data-i18n="cb2b"></li><li data-i18n="cb2c"></li>
+    </ul>
+  </div>
+  <div class="col connect">
+    <div class="ch"><span class="dot" style="background:#4F46E5"></span><span data-en="Connect the platform" data-vi="Kết nối nền tảng">Connect the platform</span></div>
+    <ul>
+      <li data-i18n="cb3a"></li><li data-i18n="cb3b"></li><li data-i18n="cb3c"></li>
+    </ul>
+  </div>
+</div>
+
+<div class="two">
+  <div>
+    <h2 data-en="This role is forward-deployed" data-vi="Vai trò này là forward-deployed">This role is forward-deployed</h2>
+    <p data-i18n="fwd1"></p>
+    <p data-i18n="fwd2"></p>
+  </div>
+  <div>
+    <h2 data-en="AI-forward, by default" data-vi="Định hướng AI, mặc định">AI-forward, by default</h2>
+    <p data-en="Two things we mean by this:" data-vi="Hai điều chúng tôi muốn nói:">Two things we mean by this:</p>
+    <ul class="clean">
+      <li data-i18n="aib1"></li>
+      <li data-i18n="aib2"></li>
+    </ul>
+    <div class="callout" data-i18n="callout"></div>
+  </div>
+</div>
+
+<h2 data-en="What we're looking for" data-vi="Chúng tôi tìm kiếm">What we're looking for</h2>
+<ul class="clean">
+  <li data-i18n="lf1"></li><li data-i18n="lf2"></li><li data-i18n="lf3"></li>
+  <li data-i18n="lf4"></li><li data-i18n="lf5"></li><li data-i18n="lf6"></li>
+</ul>
+
+<h3 style="margin-top:26px" data-en="Bonus points" data-vi="Điểm cộng">Bonus points</h3>
+<ul class="clean">
+  <li data-i18n="bn1"></li><li data-i18n="bn2"></li><li data-i18n="bn3"></li><li data-i18n="bn4"></li>
+</ul>
+
+<h2 data-en="What you'll get" data-vi="Bạn sẽ nhận được">What you'll get</h2>
+<ul class="clean">
+  <li data-i18n="pk1"></li><li data-i18n="pk2"></li><li data-i18n="pk3"></li><li data-i18n="pk4"></li>
+</ul>
+
+<h2 data-en="Why this role is rare" data-vi="Vì sao vai trò này hiếm">Why this role is rare</h2>
+<ul class="clean">
+  <li data-i18n="rr1"></li><li data-i18n="rr2"></li><li data-i18n="rr3"></li><li data-i18n="rr4"></li>
+</ul>
+
+<div class="apply">
+  <h2 data-en="Sound like you?" data-vi="Thấy giống bạn?">Sound like you?</h2>
+  <p data-en="Tell us about a system you took from idea to production and operated — bonus if it crossed the backend / data-engineering line, or shipped an AI feature to real users." data-vi="Kể cho chúng tôi về một hệ thống bạn đưa từ ý tưởng đến production và vận hành — điểm cộng nếu nó vắt ngang ranh giới backend / data engineering, hoặc đã ship một tính năng AI tới người dùng thật.">Tell us about a system you took from idea to production and operated — bonus if it crossed the backend / data-engineering line, or shipped an AI feature to real users.</p>
+  <p><span data-en="Apply — email:" data-vi="Ứng tuyển — email:">Apply — email:</span> <a class="email" href="mailto:khoitn@vng.com.vn?subject=AI%20Forward-Deployed%20Backend%20Engineer">khoitn@vng.com.vn</a></p>
+  <a class="btn" href="mailto:khoitn@vng.com.vn?subject=AI%20Forward-Deployed%20Backend%20Engineer" data-en="Apply →" data-vi="Ứng tuyển →">Apply →</a>
+</div>
+
+<p class="foot" data-en="Architecture diagram is a simplified, genericized view of our platform; internal product and infrastructure names are omitted." data-vi="Sơ đồ kiến trúc là phiên bản đơn giản hoá, khái quát hoá của nền tảng; tên sản phẩm và hạ tầng nội bộ đã được lược bỏ.">Architecture diagram is a simplified, genericized view of our platform; internal product and infrastructure names are omitted.</p>
+
+</div>
+
+<script>
+/* ---- rich bilingual strings (HTML) ---- */
+const T = {
+  cb1a:{en:'Take a working exploration engine + AI authoring product from prototype to a <b>sustainable, maintainable</b> platform',vi:'Đưa engine khám phá + sản phẩm tạo lập bằng AI từ prototype thành nền tảng <b>bền vững, dễ bảo trì</b>'},
+  cb1b:{en:'Tests, CI/CD, observability, error budgets',vi:'Kiểm thử, CI/CD, observability, error budget'},
+  cb1c:{en:'Multi-tenant / workspace isolation, performance, cost',vi:'Đa tenant / cô lập workspace, hiệu năng, chi phí'},
+  cb2a:{en:'<b>Co-build the real-time decisioning engine</b> with the engineer leading it — own major adjacent pieces (serving gateway integration, live-overlay + base merge-at-read)',vi:'<b>Cùng xây engine ra quyết định real-time</b> với kỹ sư đang dẫn dắt — làm chủ các mảnh lớn kế cận (tích hợp serving gateway, gộp lớp live + nền khi đọc)'},
+  cb2b:{en:'Ingestion &amp; identity unification across stream + batch (dedup, event-time, player-key)',vi:'Thu nạp &amp; hợp nhất định danh giữa stream + batch (khử trùng lặp, event-time, khoá người chơi)'},
+  cb2c:{en:'Eligibility / dispatch with real latency &amp; throughput SLOs',vi:'Đánh giá điều kiện / kích hoạt với SLO độ trễ &amp; thông lượng thực tế'},
+  cb3a:{en:'Design the <b>metric catalog</b> + the “one definition, two executors” contract so explore &amp; serve never drift',vi:'Thiết kế <b>danh mục metric</b> + giao ước “một định nghĩa, hai bộ thực thi” để explore &amp; serve không bao giờ lệch'},
+  cb3b:{en:'<b>Automate raw-log onboarding</b>: discover, infer schema, auto-document &amp; register thousands of game-log streams into the catalog',vi:'<b>Tự động hoá onboarding log thô</b>: phát hiện, suy ra schema, tự động mô tả &amp; đăng ký hàng nghìn luồng log game vào catalog'},
+  cb3c:{en:'Close the loop: explore → define → register → serve → act → learn',vi:'Khép vòng: khám phá → định nghĩa → đăng ký → phục vụ → hành động → học'},
+  fwd1:{en:'You won\'t build infrastructure in a vacuum. You\'ll sit close to the LiveOps and marketing teams who run campaigns, watch how they actually work, and ship the thing that removes their friction — then iterate on a short loop. You own the problem, not just a ticket.',vi:'Bạn sẽ không xây hạ tầng trong môi trường tách biệt. Bạn ngồi cạnh các đội LiveOps và marketing đang chạy chiến dịch, quan sát cách họ thực sự làm việc, và ship thứ gỡ bỏ vướng mắc của họ — rồi lặp lại trên vòng phản hồi ngắn. Bạn làm chủ vấn đề, không chỉ làm task.'},
+  fwd2:{en:'Expect to move between product surface, API, streaming pipeline, and serving store in the same week — and to care about whether a non-technical user can actually get their segment live.',vi:'Bạn sẽ di chuyển giữa lớp sản phẩm, API, pipeline streaming và serving store trong cùng một tuần — và quan tâm liệu một người dùng không rành kỹ thuật có thực sự đưa được segment của họ lên chạy hay không.'},
+  aib1:{en:'<b>You use AI as leverage</b> — AI coding agents are part of your daily toolchain; you get more done and spend your judgement where it counts.',vi:'<b>Bạn dùng AI làm đòn bẩy</b> — AI coding agent là một phần công cụ hằng ngày; bạn làm được nhiều hơn và dành phán đoán cho nơi thật sự quan trọng.'},
+  aib2:{en:'<b>You build AI features</b> — natural-language → segment, agentic exploration of raw logs, tool-using assistants. LLM-in-the-product, not just LLM-in-the-editor.',vi:'<b>Bạn xây tính năng AI</b> — ngôn ngữ tự nhiên → segment, khám phá log thô theo kiểu agent, trợ lý biết dùng công cụ. LLM trong sản phẩm, không chỉ LLM trong editor.'},
+  callout:{en:'<b>Why one role, not two.</b> We believe AI is collapsing the line between backend and data engineering. We\'re hiring one strong engineer who can do both — own a service <em>and</em> a pipeline — rather than splitting the work across a handoff.',vi:'<b>Vì sao một vai trò, không phải hai.</b> Chúng tôi tin AI đang xoá nhoà ranh giới giữa backend và data engineering. Chúng tôi tuyển một kỹ sư giỏi làm được cả hai — làm chủ cả service <em>lẫn</em> pipeline — thay vì chia việc qua các điểm bàn giao.'},
+  lf1:{en:'<b>~4–7 years building backend systems</b> in a typed language, with real distributed-systems instincts (consistency, idempotency, failure modes).',vi:'<b>~4–7 năm xây hệ thống backend</b> bằng ngôn ngữ có kiểu (typed), với trực giác thật về hệ phân tán (tính nhất quán, idempotency, các kiểu lỗi).'},
+  lf2:{en:'<b>You\'ve built and operated production services</b> against real SLOs — latency, throughput, availability — not just shipped and walked away.',vi:'<b>Bạn đã xây và vận hành service production</b> theo SLO thực — độ trễ, thông lượng, độ sẵn sàng — chứ không chỉ ship rồi bỏ đó.'},
+  lf3:{en:'<b>Data engineering is in your toolkit</b>: you design pipelines and data models, are fluent in SQL, and are comfortable across both <b>streaming</b> and <b>batch / lakehouse</b> worlds.',vi:'<b>Data engineering nằm trong bộ kỹ năng của bạn</b>: bạn thiết kế pipeline và mô hình dữ liệu, thành thạo SQL, và thoải mái ở cả thế giới <b>streaming</b> lẫn <b>batch / lakehouse</b>.'},
+  lf4:{en:'<b>You reach for AI</b> — both to build faster (coding agents) and to build features (LLMs, retrieval, agents, tool-use) — and you have judgement about where it helps and where it doesn\'t.',vi:'<b>Bạn chủ động dùng AI</b> — vừa để làm nhanh hơn (coding agent) vừa để xây tính năng (LLM, retrieval, agent, tool-use) — và có phán đoán về nơi nó giúp ích và nơi không.'},
+  lf5:{en:'<b>Product sense and user empathy.</b> You can talk to a non-technical user, find the real need, and ship something they\'ll actually use.',vi:'<b>Tư duy sản phẩm và thấu cảm người dùng.</b> Bạn có thể trò chuyện với người dùng không rành kỹ thuật, tìm ra nhu cầu thật, và ship thứ họ thực sự dùng.'},
+  lf6:{en:'<b>Ownership.</b> Comfortable with ambiguity and a large surface area; you decide, ship, measure, and iterate.',vi:'<b>Tinh thần làm chủ.</b> Thoải mái với sự mơ hồ và phạm vi rộng; bạn quyết định, ship, đo lường, và lặp lại.'},
+  bn1:{en:'Low-latency / high-QPS <b>serving stores</b> (key-value / OLTP at scale) and a feel for <b>OLAP vs OLTP</b> trade-offs.',vi:'<b>Serving store</b> độ trễ thấp / QPS cao (key-value / OLTP ở quy mô lớn) và cảm nhận về đánh đổi <b>OLAP vs OLTP</b>.'},
+  bn2:{en:'Semantic layers, metrics platforms, feature stores, or customer-data platforms (CDP).',vi:'Lớp ngữ nghĩa, nền tảng metric, feature store, hoặc customer-data platform (CDP).'},
+  bn3:{en:'Real-time streaming engines, lakehouse table formats, and warehouse query engines.',vi:'Engine streaming real-time, định dạng bảng lakehouse, và engine truy vấn warehouse.'},
+  bn4:{en:'Gaming / LiveOps, on-prem / Kubernetes, or data governance &amp; lineage tooling.',vi:'Gaming / LiveOps, on-prem / Kubernetes, hoặc công cụ quản trị &amp; lineage dữ liệu.'},
+  rr1:{en:'<b>Co-build + connect + harden in one seat.</b> Help build a new real-time engine, harden a working AI product, and own the connective tissue between them — design freedom plus immediate impact.',vi:'<b>Cùng xây + kết nối + củng cố trong cùng một vị trí.</b> Góp phần xây engine real-time mới, củng cố một sản phẩm AI đang chạy, và làm chủ mô liên kết giữa chúng — tự do thiết kế cộng tác động tức thì.'},
+  rr2:{en:'<b>You sit on the frontier.</b> The interesting problem is exactly where the explore-engine (OLAP) meets the decision-engine (OLTP) — most platforms only do one.',vi:'<b>Bạn ở ngay tuyến đầu.</b> Bài toán thú vị nằm đúng chỗ engine khám phá (OLAP) gặp engine ra quyết định (OLTP) — đa số nền tảng chỉ làm một.'},
+  rr3:{en:'<b>Small team, big surface, high autonomy</b> — your decisions shape the platform.',vi:'<b>Đội nhỏ, phạm vi lớn, quyền tự quyết cao</b> — quyết định của bạn định hình nền tảng.'},
+  rr4:{en:'<b>AI as a real multiplier</b>, not a buzzword — in how you work and what you ship.',vi:'<b>AI là đòn bẩy thực sự</b>, không phải khẩu hiệu — trong cách bạn làm việc và thứ bạn ship.'},
+  pk1:{en:'<b>A premium Claude account</b> — top-tier AI coding agents as standard daily tooling, not a perk you have to justify.',vi:'<b>Tài khoản Claude premium</b> — AI coding agent hàng đầu là công cụ hằng ngày tiêu chuẩn, không phải đặc quyền phải xin.'},
+  pk2:{en:'<b>Access to state-of-the-art technology</b> — the latest models, infrastructure, and tools; we invest in whatever makes you faster.',vi:'<b>Tiếp cận công nghệ tân tiến nhất</b> — model, hạ tầng và công cụ mới nhất; chúng tôi đầu tư vào bất cứ thứ gì giúp bạn nhanh hơn.'},
+  pk3:{en:'<b>A frontier problem with high autonomy</b> — a small team, a large surface, and decisions that shape the platform.',vi:'<b>Bài toán tuyến đầu với quyền tự quyết cao</b> — đội nhỏ, phạm vi rộng, và những quyết định định hình nền tảng.'},
+  pk4:{en:'<b>On-site at VNG Campus</b> — modern offices, strong engineers, and close contact with the teams who use what you build.',vi:'<b>Làm việc tại VNG Campus</b> — văn phòng hiện đại, đội ngũ kỹ sư mạnh, và tiếp xúc gần với các đội dùng sản phẩm bạn xây.'}
+};
+
+/* ---- diagram node detail (bilingual) ---- */
+const NODES = {
+  product:{status:'built',label:{en:'Built · harden',vi:'Đã có · củng cố'},
+    title:{en:'Product & AI Authoring Layer',vi:'Lớp Sản phẩm & Tạo lập bằng AI'},
+    what:{en:'Where LiveOps / marketing users describe an audience — by hand or in natural language — and the system turns it into a segment or campaign.',vi:'Nơi người dùng LiveOps / marketing mô tả tập người chơi — thủ công hoặc bằng ngôn ngữ tự nhiên — và hệ thống biến nó thành segment hoặc chiến dịch.'},
+    you:{en:'Own and harden the authoring UX + APIs, including natural-language → segment and AI-assisted exploration. Make it reliable, tested, multi-tenant.',vi:'Làm chủ và củng cố UX + API tạo lập, gồm cả ngôn ngữ tự nhiên → segment và khám phá có AI hỗ trợ. Làm cho nó đáng tin, có kiểm thử, đa tenant.'}},
+  exploration:{status:'built',label:{en:'Built · harden',vi:'Đã có · củng cố'},
+    title:{en:'Exploration Engine',vi:'Engine Khám phá'},
+    what:{en:'A scan-on-read semantic layer over the lakehouse. Answers any question, any slice, exact — and powers the AI agent that explores raw logs and drafts new metrics & segments.',vi:'Một lớp ngữ nghĩa scan-on-read trên lakehouse. Trả lời mọi câu hỏi, mọi lát cắt, chính xác — và là nền cho AI agent khám phá log thô rồi soạn metric & segment mới.'},
+    you:{en:'Take a working prototype to a sustainable platform: tests, CI/CD, observability, workspace isolation, query performance and cost.',vi:'Đưa một prototype đang chạy thành nền tảng bền vững: kiểm thử, CI/CD, observability, cô lập workspace, hiệu năng và chi phí truy vấn.'}},
+  catalog:{status:'connect',label:{en:'Connect',vi:'Kết nối'},
+    title:{en:'Metrics & Dimension Catalog',vi:'Danh mục Metric & Dimension'},
+    what:{en:'The single source of metric meaning. A metric is defined once and run two ways — as a query (explore) and as a served value (decide).',vi:'Nguồn ý nghĩa duy nhất của metric. Một metric được định nghĩa một lần và chạy theo hai cách — như một truy vấn (khám phá) và như một giá trị được phục vụ (ra quyết định).'},
+    you:{en:'Design the declaration schema and the “one definition → two executors” contract, so explore and serve can never drift out of sync.',vi:'Thiết kế schema khai báo và giao ước “một định nghĩa → hai bộ thực thi”, để explore và serve không bao giờ lệch nhau.'}},
+  decisioning:{status:'build',label:{en:'In progress · co-build',vi:'Đang xây · cùng làm'},
+    title:{en:'Real-time Decisioning Engine',vi:'Engine Ra quyết định Real-time'},
+    what:{en:'Materialize-on-write serving for machines: per-player state served at high QPS, low latency. A bounded real-time overlay merged at read with an authoritative base, stamped with freshness. A senior engineer is already building the core.',vi:'Phục vụ kiểu materialize-on-write cho máy: trạng thái theo người chơi, phục vụ ở QPS cao, độ trễ thấp. Một lớp real-time có giới hạn được gộp khi đọc với nền dữ liệu chuẩn, kèm dấu thời gian độ tươi. Một kỹ sư senior đang xây phần lõi.'},
+    you:{en:'Co-build it with the engineer leading it — understand the core deeply, and own major adjacent pieces: ingestion & identity, the live + base merge-at-read, eligibility & dispatch, and the SLOs that keep it honest.',vi:'Cùng xây với kỹ sư đang dẫn dắt — hiểu phần lõi thật sâu, và làm chủ các mảnh lớn kế cận: thu nạp & định danh, gộp lớp live + nền khi đọc, đánh giá điều kiện & kích hoạt, và các SLO giữ cho nó đúng cam kết.'}},
+  ingestion:{status:'build',label:{en:'To build',vi:'Cần xây mới'},
+    title:{en:'Ingestion & Identity',vi:'Thu nạp & Định danh'},
+    what:{en:'Normalizes heterogeneous stream + batch events into canonical, deduplicated, player-keyed facts — the shared correctness foundation both engines depend on.',vi:'Chuẩn hoá sự kiện stream + batch đa dạng thành dữ liệu chuẩn, đã khử trùng lặp, gắn khoá người chơi — nền tảng tính đúng đắn mà cả hai engine cùng dựa vào.'},
+    you:{en:'Build the unification layer: parsing, content-hash dedup across paths, event-time and identity derivation, and the stream→overlay / batch→base split.',vi:'Xây lớp hợp nhất: phân tích, khử trùng lặp bằng content-hash giữa các luồng, suy ra event-time và định danh, và tách stream→overlay / batch→base.'}},
+  actions:{status:'found',label:{en:'Output',vi:'Đầu ra'},
+    title:{en:'LiveOps Actions',vi:'Hành động LiveOps'},
+    what:{en:'The end of the loop: a message, code, or in-app offer fired to a player in-session, off a decision the platform served.',vi:'Điểm cuối của vòng lặp: một tin nhắn, mã code, hoặc ưu đãi in-app được kích hoạt tới người chơi ngay trong phiên, dựa trên quyết định nền tảng phục vụ.'},
+    you:{en:'Integrate the serving gateway with the action/dispatch surfaces — idempotent, audited, safe for exact-required rewards.',vi:'Tích hợp serving gateway với các bề mặt hành động/kích hoạt — idempotent, có ghi vết, an toàn cho các phần thưởng đòi hỏi chính xác.'}},
+  stream:{status:'found',label:{en:'Foundation',vi:'Nền tảng'},
+    title:{en:'Stream — live events',vi:'Stream — sự kiện real-time'},
+    what:{en:'The real-time firehose of in-game events. High volume, schema-light, the source of freshness for the decisioning engine.',vi:'Dòng sự kiện trong game real-time, khối lượng lớn, ít ràng buộc schema, là nguồn độ tươi cho engine ra quyết định.'},
+    you:{en:'Consume it reliably at scale; derive identity and event-time; feed the live overlay.',vi:'Tiêu thụ ổn định ở quy mô lớn; suy ra định danh và event-time; nạp vào lớp live.'}},
+  lakehouse:{status:'found',label:{en:'Foundation',vi:'Nền tảng'},
+    title:{en:'Lakehouse — clean batch',vi:'Lakehouse — batch sạch'},
+    what:{en:'Clean, modeled, query-able data. The authoritative base for serving and the source the exploration engine scans.',vi:'Dữ liệu sạch, đã mô hình hoá, truy vấn được. Nền dữ liệu chuẩn để phục vụ và là nguồn mà engine khám phá quét.'},
+    you:{en:'Model and maintain the tables; serve as the recompute / authoritative source and the exploration surface.',vi:'Mô hình hoá và duy trì các bảng; đóng vai trò nguồn tính lại / nguồn chuẩn và bề mặt khám phá.'}},
+  governance:{status:'connect',label:{en:'Connect & automate',vi:'Kết nối & tự động hoá'},
+    title:{en:'Metadata Catalog & Log Onboarding',vi:'Catalog Metadata & Onboarding Log'},
+    what:{en:'A central catalog already holds thousands of raw game-log event streams — today largely undocumented and onboarded by hand. Schema, lineage, ownership and classification live here, and it feeds the raw-log inventory the AI explores.',vi:'Một catalog trung tâm đã chứa hàng nghìn luồng sự kiện log game thô — hiện phần lớn chưa có mô tả và phải onboard thủ công. Schema, lineage, chủ sở hữu và phân loại nằm ở đây, và nó cung cấp danh mục log thô để AI khám phá.'},
+    you:{en:'A flagship project: automate onboarding end-to-end — discover new log streams, infer schema, auto-document & classify, and register them into the catalog. Turn a manual chore into a pipeline the whole platform trusts.',vi:'Một dự án chủ lực: tự động hoá onboarding từ đầu đến cuối — phát hiện luồng log mới, suy ra schema, tự động mô tả & phân loại, và đăng ký vào catalog. Biến một việc thủ công thành pipeline mà cả nền tảng tin tưởng.'}}
+};
+
+let lang = (localStorage.getItem('jd-lang')||'en');
+let theme = (localStorage.getItem('jd-theme')||'light');
+let currentKey = 'decisioning';
+
+const detail=document.getElementById('detail');
+const dBadge=document.getElementById('d-badge'), dTitle=document.getElementById('d-title'),
+      dWhat=document.getElementById('d-what'), dYou=document.getElementById('d-you');
+const nodes=[...document.querySelectorAll('.node')];
+
+function renderDetail(){
+  const n=NODES[currentKey]; if(!n) return;
+  nodes.forEach(g=>g.classList.toggle('sel', g.dataset.key===currentKey));
+  dBadge.className='badge '+n.status; dBadge.textContent=n.label[lang];
+  dTitle.textContent=n.title[lang];
+  dWhat.textContent=n.what[lang];
+  dYou.textContent=n.you[lang];
+}
+function select(key){ currentKey=key; renderDetail(); }
+nodes.forEach(g=>g.addEventListener('click',()=>select(g.dataset.key)));
+
+/* legend filter */
+const legend=document.getElementById('legend');
+let activeFilter=null;
+legend.querySelectorAll('.lg').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    const f=chip.dataset.f;
+    activeFilter = activeFilter===f ? null : f;
+    legend.querySelectorAll('.lg').forEach(c=>c.classList.toggle('dim', activeFilter && c.dataset.f!==activeFilter));
+    nodes.forEach(g=>g.classList.toggle('faded', activeFilter && NODES[g.dataset.key].status!==activeFilter));
+  });
+});
+
+/* i18n apply */
+function applyLang(){
+  document.querySelectorAll('[data-en]').forEach(el=>{
+    const v=el.getAttribute('data-'+lang); if(v!=null) el.textContent=v;
+  });
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.getAttribute('data-i18n'); if(T[k]) el.innerHTML=T[k][lang];
+  });
+  document.documentElement.lang = lang;
+  document.querySelectorAll('#langtog button').forEach(b=>b.classList.toggle('on', b.dataset.lang===lang));
+  renderDetail();
+}
+document.querySelectorAll('#langtog button').forEach(b=>{
+  b.addEventListener('click',()=>{ lang=b.dataset.lang; localStorage.setItem('jd-lang',lang); applyLang(); });
+});
+
+/* theme */
+function applyTheme(){
+  document.body.setAttribute('data-theme',theme);
+  document.getElementById('themeBtn').textContent = theme==='dark' ? '☀' : '◑';
+}
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  theme = theme==='dark' ? 'light' : 'dark';
+  localStorage.setItem('jd-theme',theme); applyTheme();
+});
+
+applyTheme();
+applyLang();
+select('decisioning');
+</script>
+</body>
+</html>
