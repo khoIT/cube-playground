@@ -136,3 +136,48 @@ cubes:
 
       - name: yesterday
         sql: "{CUBE}.log_date = CURRENT_DATE - INTERVAL '1' DAY"
+
+    pre_aggregations:
+      - name: dau_by_country_payer_daily_batch
+        type: rollup
+        measures:
+          - dau
+          - paying_dau
+        dimensions:
+          - mf_users.country
+          - mf_users.payer_tier
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+      - name: dau_by_country_payer_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.dau_by_country_payer_daily_batch
+      - name: dau_daily_batch
+        type: rollup
+        measures:
+          - dau
+          - paying_dau
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+      - name: dau_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.dau_daily_batch

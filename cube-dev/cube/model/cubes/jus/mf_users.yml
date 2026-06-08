@@ -277,3 +277,33 @@ cubes:
         sql: '{CUBE}.install_date >= CURRENT_DATE - INTERVAL ''7'' DAY'
       - name: paid_install
         sql: '{CUBE}.is_paid_install = TRUE'
+
+    pre_aggregations:
+      - name: ltv_by_install_cohort_batch
+        type: rollup
+        measures:
+          - ltv_total_vnd
+          - ltv_30d_total_vnd
+          - user_count_approx
+        dimensions:
+          - country
+          - media_source
+          - is_paid_install
+          - os_platform
+        time_dimension: install_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        # Bound to the source's real data extent; year granularity collapses
+        # sparse install months so no empty partition blocks the rollup.
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
+      - name: ltv_by_install_cohort
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.ltv_by_install_cohort_batch

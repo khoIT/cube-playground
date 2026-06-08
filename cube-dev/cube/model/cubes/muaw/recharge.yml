@@ -193,3 +193,29 @@ cubes:
 
       - name: last_30d
         sql: "{CUBE}.recharge_time >= CURRENT_TIMESTAMP - INTERVAL '30' DAY"
+
+    pre_aggregations:
+      - name: revenue_daily_by_channel_batch
+        type: rollup
+        measures:
+          - revenue_vnd
+          - transactions
+          - paying_users
+        dimensions:
+          - payment_channel
+          - os_platform
+        time_dimension: recharge_time
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT MIN(recharge_time) FROM etl_ingame_recharge"
+        build_range_end:
+          sql: "SELECT MAX(recharge_time) FROM etl_ingame_recharge"
+      - name: revenue_daily_by_channel
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.revenue_daily_by_channel_batch
