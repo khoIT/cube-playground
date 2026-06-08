@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from '../src/index.js';
 import { setDb, closeDb } from '../src/db/sqlite.js';
 import { openCase } from '../src/care/care-case-store.js';
+import { upsertVipProfiles } from '../src/care/care-vip-profile-store.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
 import { upsertUserAccess } from '../src/auth/access-store-mutators.js';
@@ -92,6 +93,27 @@ describe('care-case ledger routes', () => {
   it('sweep rejects an invalid game before touching Cube', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/care/cases/sweep?game=../../etc' });
     expect(res.statusCode).toBe(400);
+  });
+
+  it('by-vip and list attach the persisted VIP profile (no live Cube)', async () => {
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
+    upsertVipProfiles('jus_vn', 'local', [
+      { uid: 'whale', name: 'BigSpender', ltvVnd: 944_000_000, tier: 'Diamond', daysSinceLastActive: 5, lastRechargeDate: null },
+    ]);
+
+    const byVip = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn' });
+    const vip = byVip.json().vips[0];
+    expect(vip.uid).toBe('whale');
+    expect(vip.profile).toMatchObject({ name: 'BigSpender', ltvVnd: 944_000_000, tier: 'Diamond', churnPlayDays: 5 });
+
+    const list = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn' });
+    expect(list.json().cases[0].profile.name).toBe('BigSpender');
+  });
+
+  it('omits the profile (null) for an un-swept VIP', async () => {
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'nobody', source: 'membership' });
+    const byVip = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn' });
+    expect(byVip.json().vips[0].profile).toBeNull();
   });
 });
 

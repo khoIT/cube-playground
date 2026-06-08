@@ -21,6 +21,19 @@ import { apiFetch } from '../../../api/api-client';
 
 // ── Canonical case shape (server contract) ────────────────────────────────────
 
+/**
+ * VIP profile snapshot persisted by the sweep and returned inline on case /
+ * by-vip responses — so the queue enriches from SQLite, not a live Cube query.
+ * Null/absent when the VIP hasn't been swept yet.
+ */
+export interface CareVipProfileDto {
+  name: string | null;
+  ltvVnd: number | null;
+  tier: string | null;
+  churnPlayDays: number | null;
+  churnPayDays: number | null;
+}
+
 export interface CareCase {
   id: string;
   game_id: string;
@@ -48,6 +61,8 @@ export interface CareCase {
   // legacy compat aliases from server
   created_at?: string;
   updated_at?: string;
+  /** Persisted VIP profile snapshot (name / LTV / tier / churn); null until swept. */
+  profile?: CareVipProfileDto | null;
 }
 
 // ── By-VIP aggregated shape ───────────────────────────────────────────────────
@@ -66,6 +81,8 @@ export interface VipCaseRow {
   lastTreatedAt: string | null;
   topPriority: number;
   playbooks: VipPlaybookRef[];
+  /** Persisted VIP profile snapshot (name / LTV / tier / churn); null until swept. */
+  profile?: CareVipProfileDto | null;
 }
 
 // ── Patch payload ─────────────────────────────────────────────────────────────
@@ -275,6 +292,8 @@ export interface SweepResult {
   game: string;
   opened: number;
   lapsed: number;
+  /** VIP profile snapshots refreshed for the queue (persisted to SQLite). */
+  profilesRefreshed?: number;
   summaries: SweepPlaybookSummary[];
 }
 

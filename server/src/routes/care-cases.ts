@@ -25,6 +25,8 @@ import { resolveGameScope } from '../care/game-scope.js';
 import { getGameMembers } from '../care/availability.js';
 import { loadCalibration } from '../care/calibrate.js';
 import { runCaseSweep, makeCubeCohortFetcher } from '../care/care-case-sweep.js';
+import { getVipProfiles, upsertVipProfiles } from '../care/care-vip-profile-store.js';
+import { makeCubeProfileFetcher } from '../care/care-vip-profile-fetch.js';
 import type { PlaybookPriority } from '../care/playbook-registry.js';
 import type { WorkspaceDef } from '../services/workspaces-config-loader.js';
 
@@ -55,7 +57,11 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
     if (status && !STATUSES.includes(status as CaseStatus)) {
       return reply.status(400).send({ error: { code: 'VALIDATION', message: `bad status "${status}"` } });
     }
-    return { cases: listCases({ gameId: game, playbookId: playbook, status: status as CaseStatus }) };
+    const cases = listCases({ gameId: game, playbookId: playbook, status: status as CaseStatus });
+    // Enrich each case with the persisted VIP profile (name / LTV) — SQLite read,
+    // no live Cube. Missing snapshot (un-swept) → field absent, client shows uid.
+    const profiles = getVipProfiles(game, req.workspace.id, cases.map((c) => c.uid));
+    return { cases: cases.map((c) => ({ ...c, profile: profiles.get(c.uid) ?? null })) };
   });
 
   app.get('/api/care/cases/by-vip', async (req, reply) => {
@@ -68,6 +74,8 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
     );
     const groups = groupCasesByVip(open);
     const meta = playbookMetaMap(game);
+    // Persisted profile snapshots for the queue's uids (SQLite, no live Cube).
+    const profiles = getVipProfiles(game, req.workspace.id, groups.map((g) => g.uid));
 
     const enriched = groups
       .map((g) => {
@@ -78,6 +86,7 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
         return {
           ...g,
           topPriority,
+          profile: profiles.get(g.uid) ?? null,
           playbooks: g.playbookIds.map((id) => ({
             id,
             name: meta[id]?.name ?? id,
@@ -128,7 +137,26 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       const summaries = await runCaseSweep(game, req.workspace.id, members, deps, loadCalibration(game));
       const opened = summaries.reduce((n, s) => n + s.opened, 0);
       const lapsed = summaries.reduce((n, s) => n + s.lapsed, 0);
-      return { game, opened, lapsed, summaries };
+
+      // Persist VIP profile snapshots for every open case so the queue reads them
+      // from SQLite. Best-effort: a profile-fetch failure must not fail the sweep.
+      let profilesRefreshed = 0;
+      try {
+        const openUids = [...new Set(
+          listCases({ gameId: game })
+            .filter((c) => c.status !== 'resolved' && c.status !== 'dismissed')
+            .map((c) => c.uid),
+        )];
+        if (openUids.length > 0) {
+          const snapshots = await makeCubeProfileFetcher(ctx, game, req.workspace.id)(openUids);
+          upsertVipProfiles(game, req.workspace.id, snapshots);
+          profilesRefreshed = snapshots.length;
+        }
+      } catch (perr) {
+        req.log.warn({ perr, game }, '[care] profile enrichment failed (cases still swept)');
+      }
+
+      return { game, opened, lapsed, profilesRefreshed, summaries };
     } catch (err) {
       // Live Cube unreachable / query failure — surface it so the button shows a
       // real error instead of a silent empty result.

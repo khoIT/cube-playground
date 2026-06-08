@@ -21,12 +21,10 @@ import { useLocation, useHistory, Link } from 'react-router-dom';
 import { ListChecks, Users, ChevronLeft, RefreshCw, Heart } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
-import { useCubeApiBootstrap } from '../../../hooks';
 import { formatValue, formatValueExact } from '../../Segments/detail/cards/format-value';
 import { useCareCases, useVipQueue, runCareSweep } from './use-care-cases';
-import { useVipProfiles, type VipProfile } from './use-vip-profiles';
 import { summarizeSnapshot } from './case-snapshot-summary';
-import type { CareCase, VipCaseRow } from './use-care-cases';
+import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -164,12 +162,12 @@ const thStyle: React.CSSProperties = {
 interface PlaybookRowProps {
   c: CareCase;
   gameId: string;
-  profile: VipProfile | undefined;
   /** segment id used to build the Member-360 link; absent when navigating from queue */
   segId?: string;
 }
 
-function PlaybookCaseRow({ c, gameId, profile, segId }: PlaybookRowProps) {
+function PlaybookCaseRow({ c, gameId, segId }: PlaybookRowProps) {
+  const profile = c.profile;
   const history = useHistory();
   // Member-360 links to the segment-member view when a segment id is known;
   // otherwise the standalone care route carries the game on the URL.
@@ -227,10 +225,9 @@ interface ByPlaybookViewProps {
 }
 
 function ByPlaybookView({ gameId, playbookId }: ByPlaybookViewProps) {
+  // Cases arrive pre-enriched with the persisted VIP profile (name + LTV) — no
+  // live Cube call; the sweep populates it.
   const { status, cases, error } = useCareCases(gameId, { playbookId });
-  // Enrich with the same live profile lookup as the action queue (name + LTV).
-  const uids = cases.map((c) => c.uid);
-  const { byUid } = useVipProfiles(gameId, uids);
 
   if (status === 'error') {
     return (
@@ -263,7 +260,7 @@ function ByPlaybookView({ gameId, playbookId }: ByPlaybookViewProps) {
         </thead>
         <tbody>
           {cases.map((c) => (
-            <PlaybookCaseRow key={c.id} c={c} gameId={gameId} profile={byUid.get(c.uid)} />
+            <PlaybookCaseRow key={c.id} c={c} gameId={gameId} />
           ))}
         </tbody>
       </table>
@@ -276,11 +273,11 @@ function ByPlaybookView({ gameId, playbookId }: ByPlaybookViewProps) {
 interface VipRowProps {
   row: VipCaseRow;
   gameId: string;
-  profile: VipProfile | undefined;
 }
 
-function VipQueueRow({ row, gameId, profile }: VipRowProps) {
+function VipQueueRow({ row, gameId }: VipRowProps) {
   const history = useHistory();
+  const profile: CareVipProfileDto | null | undefined = row.profile;
   const base = `/dashboards/cs/members/${encodeURIComponent(row.uid)}?game=${encodeURIComponent(gameId)}`;
   const go = (toCare: boolean) => history.push(toCare ? `${base}&tab=care` : base);
 
@@ -415,11 +412,9 @@ interface ByVipViewProps {
 }
 
 function ByVipView({ gameId }: ByVipViewProps) {
+  // Rows arrive pre-enriched with the persisted VIP profile (name / LTV / tier /
+  // churn) from the sweep — SQLite read, no live Cube. Un-swept VIPs show dashes.
   const { status, vips, error } = useVipQueue(gameId);
-  // Enrich the queue's uids with live member profile (name / LTV / tier / churn).
-  // Additive + fail-soft — an empty map just renders the uid + em-dashes.
-  const uids = vips.map((v) => v.uid);
-  const { byUid, truncated } = useVipProfiles(gameId, uids);
 
   if (status === 'error') {
     return (
@@ -439,11 +434,6 @@ function ByVipView({ gameId }: ByVipViewProps) {
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      {truncated && (
-        <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--warning-ink)', background: 'var(--warning-soft)' }}>
-          Showing enrichment for the first 300 VIPs — narrow the queue to see the rest.
-        </div>
-      )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
@@ -456,7 +446,7 @@ function ByVipView({ gameId }: ByVipViewProps) {
         </thead>
         <tbody>
           {vips.map((row) => (
-            <VipQueueRow key={row.uid} row={row} gameId={gameId} profile={byUid.get(row.uid)} />
+            <VipQueueRow key={row.uid} row={row} gameId={gameId} />
           ))}
         </tbody>
       </table>
@@ -558,8 +548,6 @@ export function CaseLedgerPage() {
   const location = useLocation();
   const history = useHistory();
   const { gameId: ctxGame } = useGameContext();
-  // Push Cube creds into AppContext so the By-VIP view can enrich rows directly.
-  useCubeApiBootstrap();
 
   const user = useAuthUser();
   const canWrite = user?.role === 'editor' || user?.role === 'admin';
