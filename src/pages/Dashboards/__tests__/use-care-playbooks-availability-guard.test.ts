@@ -14,7 +14,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useCarePlaybooks } from '../cs/use-care-playbooks';
-import type { ResolvedPlaybook, PlaybooksResponse, CasesResponse } from '../cs/use-care-playbooks';
+import type { ResolvedPlaybook, PlaybooksResponse, CaseAggregateResponse } from '../cs/use-care-playbooks';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -49,32 +49,25 @@ const MOCK_REGISTRY: PlaybooksResponse = {
   playbooks: [AVAILABLE_PB, PARTIAL_PB, UNAVAIL_PB],
 };
 
-const MOCK_CASES: CasesResponse = {
-  cases: [
-    {
-      id: 'c1',
-      game_id: 'cfm_vn',
-      playbook_id: '01',
-      uid: 'user_a',
-      status: 'new',
-      created_at: new Date(Date.now() - 60_000).toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'c2',
-      game_id: 'cfm_vn',
-      playbook_id: '01',
-      uid: 'user_b',
-      status: 'treated',
-      created_at: new Date(Date.now() - 100_000).toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ],
+// One playbook ('01') with one open + one treated case → openCases 1,
+// treatedCases 1, one triggered VIP. Mirrors the server count-only aggregate.
+const MOCK_AGGREGATE: CaseAggregateResponse = {
+  byPlaybook: [{ playbookId: '01', open: 1, treated: 1, slaBreached: 0 }],
+  openCases: 1,
+  treatedCases: 1,
+  vipsTriggered: 1,
+};
+
+const EMPTY_AGGREGATE: CaseAggregateResponse = {
+  byPlaybook: [],
+  openCases: 0,
+  treatedCases: 0,
+  vipsTriggered: 0,
 };
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
-type FetchRoute = '/api/care/playbooks' | '/api/care/cases';
+type FetchRoute = '/api/care/playbooks' | '/api/care/cases/aggregate';
 
 function setupFetchMock(
   routes: Partial<Record<FetchRoute, unknown>>,
@@ -83,7 +76,7 @@ function setupFetchMock(
   const mockFetch = vi.fn((url: string) => {
     const path = url.split('?')[0] as FetchRoute;
 
-    if (path === '/api/care/cases' && failCases) {
+    if (path === '/api/care/cases/aggregate' && failCases) {
       return Promise.resolve({
         ok: false,
         status: 500,
@@ -133,7 +126,7 @@ describe('useCarePlaybooks', () => {
   it('transitions idle → loading → success and populates playbooks + counts', async () => {
     setupFetchMock({
       '/api/care/playbooks': MOCK_REGISTRY,
-      '/api/care/cases': MOCK_CASES,
+      '/api/care/cases/aggregate': MOCK_AGGREGATE,
     });
 
     const { result } = renderHook(() => useCarePlaybooks('cfm_vn'));
@@ -151,7 +144,7 @@ describe('useCarePlaybooks', () => {
   it('casesByPlaybook does NOT contain an entry for unavailable playbook 05', async () => {
     setupFetchMock({
       '/api/care/playbooks': MOCK_REGISTRY,
-      '/api/care/cases': MOCK_CASES,
+      '/api/care/cases/aggregate': MOCK_AGGREGATE,
     });
 
     const { result } = renderHook(() => useCarePlaybooks('cfm_vn'));
@@ -166,7 +159,7 @@ describe('useCarePlaybooks', () => {
   it('builds correct portfolio stats from cases', async () => {
     setupFetchMock({
       '/api/care/playbooks': MOCK_REGISTRY,
-      '/api/care/cases': MOCK_CASES,
+      '/api/care/cases/aggregate': MOCK_AGGREGATE,
     });
 
     const { result } = renderHook(() => useCarePlaybooks('cfm_vn'));
@@ -184,7 +177,7 @@ describe('useCarePlaybooks', () => {
   it('portfolio attainmentRate is null when no cases exist', async () => {
     setupFetchMock({
       '/api/care/playbooks': MOCK_REGISTRY,
-      '/api/care/cases': { cases: [] },
+      '/api/care/cases/aggregate': EMPTY_AGGREGATE,
     });
 
     const { result } = renderHook(() => useCarePlaybooks('cfm_vn'));
@@ -230,7 +223,7 @@ describe('useCarePlaybooks', () => {
       return Promise.resolve({
         ok: true, status: 200,
         headers: { get: () => 'application/json' },
-        json: () => Promise.resolve({ cases: [] }),
+        json: () => Promise.resolve(EMPTY_AGGREGATE),
       });
     });
     vi.stubGlobal('fetch', mockFetch);

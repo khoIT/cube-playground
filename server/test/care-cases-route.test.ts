@@ -9,7 +9,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from '../src/index.js';
-import { setDb, closeDb } from '../src/db/sqlite.js';
+import { setDb, closeDb, getDb } from '../src/db/sqlite.js';
 import { openCase } from '../src/care/care-case-store.js';
 import { upsertVipProfiles } from '../src/care/care-vip-profile-store.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
@@ -83,6 +83,37 @@ describe('care-case ledger routes', () => {
     const cases = hist.json().cases;
     expect(cases[0].playbook_name).toBe('VIP tier reached');
     expect(cases[0].channel_used).toBe('call');
+  });
+
+  it('aggregate: count-only per-playbook counts, SLA breach, distinct triggered VIPs', async () => {
+    // whale open on 02 (cao), minnow open on 14, treatdude treated on 02.
+    const { case: whaleCase } = openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '14', uid: 'minnow', source: 'membership' });
+    const { case: treatedCase } = openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'treatdude', source: 'membership' });
+    await app.inject({ method: 'PATCH', url: `/api/care/cases/${treatedCase.id}`, payload: { status: 'treated' } });
+    // Backdate whale's open case 30 days so it's well past playbook 02's SLA window.
+    getDb()
+      .prepare('UPDATE care_cases SET opened_at = ? WHERE id = ?')
+      .run(new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(), whaleCase.id);
+
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases/aggregate?game=jus_vn' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.game).toBe('jus_vn');
+    expect(body.openCases).toBe(2); // whale(02) + minnow(14); treatdude no longer open
+    expect(body.treatedCases).toBe(1); // treatdude(02)
+    expect(body.vipsTriggered).toBe(2); // whale + minnow
+    expect(body.byPlaybook.find((p: { playbookId: string }) => p.playbookId === '02')).toMatchObject({
+      open: 1, treated: 1, slaBreached: 1,
+    });
+    expect(body.byPlaybook.find((p: { playbookId: string }) => p.playbookId === '14')).toMatchObject({
+      open: 1, treated: 0, slaBreached: 0,
+    });
+  });
+
+  it('aggregate validates game (path-traversal guard)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases/aggregate?game=../../etc' });
+    expect(res.statusCode).toBe(400);
   });
 
   it('404 on patching a missing case', async () => {

@@ -20,7 +20,8 @@ import {
   type CaseStatus,
 } from '../care/care-case-store.js';
 import { groupCasesByVip } from '../care/care-case-engine.js';
-import { playbookMetaMap, priorityRank } from '../care/playbook-merge.js';
+import { playbookMetaMap, playbookSlaMap, priorityRank } from '../care/playbook-merge.js';
+import { aggregateCaseCounts } from '../care/care-case-aggregate-store.js';
 import { promoteMultiMatchCases } from '../care/care-case-multi-match-order.js';
 import { resolveGameScope } from '../care/game-scope.js';
 import { getVipProfiles } from '../care/care-vip-profile-store.js';
@@ -128,6 +129,23 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       page,
       pageSize,
     };
+  });
+
+  // Count-only aggregates for the CS Monitor (per-playbook open/treated/SLA +
+  // distinct triggered VIPs). The monitor used to pull the FULL case list and
+  // re-aggregate client-side — tens of thousands of rows / multi-MB on a mature
+  // game. This computes the same numbers in SQLite. SLA breach uses each
+  // playbook's own window from the static registry (no live Cube needed).
+  app.get('/api/care/cases/aggregate', async (req, reply) => {
+    const game = requireGame(req.workspace, req.query);
+    if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
+
+    const now = Date.now();
+    const cutoffs = new Map<string, string>();
+    for (const [pid, mins] of Object.entries(playbookSlaMap(game))) {
+      cutoffs.set(pid, new Date(now - mins * 60_000).toISOString());
+    }
+    return { game, ...aggregateCaseCounts(game, cutoffs) };
   });
 
   app.get('/api/care/cases/by-vip', async (req, reply) => {

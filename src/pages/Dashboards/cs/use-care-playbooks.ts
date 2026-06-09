@@ -90,6 +90,15 @@ export interface CasesResponse {
   cases: CareCase[];
 }
 
+/** Count-only aggregate from /api/care/cases/aggregate — drives the monitor
+ *  without shipping the full (potentially tens-of-thousands) case list. */
+export interface CaseAggregateResponse {
+  byPlaybook: { playbookId: string; open: number; treated: number; slaBreached: number }[];
+  openCases: number;
+  treatedCases: number;
+  vipsTriggered: number;
+}
+
 // Aggregated case metrics per playbook, derived client-side from the flat list.
 export interface PlaybookCaseAgg {
   playbookId: string;
@@ -105,7 +114,7 @@ export interface PortfolioStats {
   /** VIPs with ≥1 open case. */
   vipsTriggered: number;
   openCases: number;
-  /** Treated / (treated + dismissed) — 0–1 or null when no data yet. */
+  /** Treated / (open + treated) — 0–1, or null when no data yet (dismissed excluded). */
   attainmentRate: number | null;
   slaBreaches: number;
 }
@@ -121,69 +130,46 @@ export interface CarePlaybooksState {
   error: string | null;
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const SLA_MINUTES_DEFAULT = 1440; // 24 h fallback when SLA not specified
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Derive per-playbook aggregates from raw case list. */
-function aggregateCases(
-  cases: CareCase[],
-  playbooks: ResolvedPlaybook[],
-): Map<string, PlaybookCaseAgg> {
-  const now = Date.now();
-  const slaMap = new Map<string, number>(
-    playbooks.map((p) => [p.id, (p.action.slaMinutes ?? SLA_MINUTES_DEFAULT) * 60_000]),
-  );
-
-  const agg = new Map<string, PlaybookCaseAgg>();
-  for (const c of cases) {
-    if (!agg.has(c.playbook_id)) {
-      agg.set(c.playbook_id, { playbookId: c.playbook_id, open: 0, treated: 0, slaBreached: 0 });
-    }
-    const entry = agg.get(c.playbook_id)!;
-    const isOpen = c.status === 'new' || c.status === 'in_review';
-    const isTreated = c.status === 'treated' || c.status === 'resolved';
-    if (isOpen) {
-      entry.open += 1;
-      const age = now - new Date(c.created_at).getTime();
-      const sla = slaMap.get(c.playbook_id) ?? SLA_MINUTES_DEFAULT * 60_000;
-      if (age > sla) entry.slaBreached += 1;
-    }
-    if (isTreated) entry.treated += 1;
+/** Index the count-only aggregate by playbook id for the grid's per-row stats.
+ *  A playbook with zero cases has NO entry (the server GROUPs by playbook_id) —
+ *  the grid must treat an absent key as 0 open / 0 treated / 0 breached. */
+function casesByPlaybookFrom(agg: CaseAggregateResponse): Map<string, PlaybookCaseAgg> {
+  const map = new Map<string, PlaybookCaseAgg>();
+  for (const p of agg.byPlaybook) {
+    map.set(p.playbookId, {
+      playbookId: p.playbookId,
+      open: p.open,
+      treated: p.treated,
+      slaBreached: p.slaBreached,
+    });
   }
-  return agg;
+  return map;
 }
 
-/** Derive top-level portfolio stats from registry + case aggregates. */
-function buildPortfolio(
-  counts: RegistryCounts,
-  cases: CareCase[],
-  agg: Map<string, PlaybookCaseAgg>,
-): PortfolioStats {
+/** Derive top-level portfolio stats from registry counts + the case aggregate. */
+function buildPortfolio(counts: RegistryCounts, agg: CaseAggregateResponse): PortfolioStats {
   const livePlaybooks = counts.available + counts.partial;
-  const openCases = cases.filter((c) => c.status === 'new' || c.status === 'in_review').length;
-  const treatedCases = cases.filter((c) => c.status === 'treated' || c.status === 'resolved').length;
-  const total = openCases + treatedCases;
-  const attainmentRate = total > 0 ? treatedCases / total : null;
-  let slaBreaches = 0;
-  let vipSet = new Set<string>();
-  for (const [, a] of agg) {
-    slaBreaches += a.slaBreached;
-  }
-  for (const c of cases) {
-    if (c.status === 'new' || c.status === 'in_review') vipSet.add(c.uid);
-  }
+  const total = agg.openCases + agg.treatedCases;
+  const attainmentRate = total > 0 ? agg.treatedCases / total : null;
+  const slaBreaches = agg.byPlaybook.reduce((n, p) => n + p.slaBreached, 0);
   return {
     livePlaybooks,
     totalPlaybooks: counts.total,
-    vipsTriggered: vipSet.size,
-    openCases,
+    vipsTriggered: agg.vipsTriggered,
+    openCases: agg.openCases,
     attainmentRate,
     slaBreaches,
   };
 }
+
+const EMPTY_AGGREGATE: CaseAggregateResponse = {
+  byPlaybook: [],
+  openCases: 0,
+  treatedCases: 0,
+  vipsTriggered: 0,
+};
 
 const EMPTY_COUNTS: RegistryCounts = { total: 0, available: 0, partial: 0, unavailable: 0 };
 const EMPTY_PORTFOLIO: PortfolioStats = {
@@ -230,28 +216,29 @@ export function useCarePlaybooks(gameId: string): CarePlaybooksState {
 
     async function load() {
       try {
-        // Fetch registry and case list in parallel. Cases may be empty (no sweep
-        // has run yet) — that is fine; we render 0 gracefully.
-        const [registry, casesResp] = await Promise.all([
+        // Fetch registry + count-only case aggregate in parallel. The aggregate
+        // is a few hundred bytes (server-side GROUP BY) instead of the full case
+        // list, so the monitor stays fast on games with tens of thousands of
+        // cases. A missing aggregate (no sweep yet / endpoint error) renders 0.
+        const [registry, agg] = await Promise.all([
           apiFetch<PlaybooksResponse>('/api/care/playbooks', {
             query: { game: gameId },
             signal: controller.signal,
           }),
-          apiFetch<CasesResponse>('/api/care/cases', {
+          apiFetch<CaseAggregateResponse>('/api/care/cases/aggregate', {
             query: { game: gameId },
             signal: controller.signal,
-          }).catch(() => ({ cases: [] } as CasesResponse)),
+          }).catch(() => EMPTY_AGGREGATE),
         ]);
 
-        const cases = casesResp.cases ?? [];
-        const agg = aggregateCases(cases, registry.playbooks);
-        const portfolio = buildPortfolio(registry.counts, cases, agg);
+        const casesByPlaybook = casesByPlaybookFrom(agg);
+        const portfolio = buildPortfolio(registry.counts, agg);
 
         setState({
           status: 'success',
           playbooks: registry.playbooks,
           counts: registry.counts,
-          casesByPlaybook: agg,
+          casesByPlaybook,
           portfolio,
           error: null,
         });

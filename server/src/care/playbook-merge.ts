@@ -173,6 +173,35 @@ export function playbookMetaMap(
   return map;
 }
 
+/** Fallback SLA when a playbook declares none — mirrors the CS console default. */
+const DEFAULT_SLA_MINUTES = 1440;
+
+/**
+ * Per-playbook SLA window in minutes for a game (seed ⊕ override), independent
+ * of live availability. Lets a count-only surface compute SLA breaches from the
+ * static registry without a Cube /meta round-trip.
+ */
+export function playbookSlaMap(
+  gameId: string,
+  overrides: CarePlaybookOverride[] = listOverrides(gameId),
+): Record<string, number> {
+  const overrideByBase = new Map<string, CarePlaybookOverride>();
+  const netNew: CarePlaybookOverride[] = [];
+  for (const ov of overrides) {
+    if (ov.baseId) overrideByBase.set(ov.baseId, ov);
+    else netNew.push(ov);
+  }
+  const map: Record<string, number> = {};
+  for (const seed of SEED_PLAYBOOKS) {
+    const ov = overrideByBase.get(seed.id);
+    map[seed.id] = ov?.action?.slaMinutes ?? seed.action.slaMinutes ?? DEFAULT_SLA_MINUTES;
+  }
+  for (const ov of netNew) {
+    map[ov.id] = ov.action?.slaMinutes ?? DEFAULT_SLA_MINUTES;
+  }
+  return map;
+}
+
 const PRIORITY_RANK: Record<PlaybookPriority, number> = { cao: 0, tb: 1, thap: 2 };
 export function priorityRank(p: PlaybookPriority): number {
   return PRIORITY_RANK[p] ?? 3;
