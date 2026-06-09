@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { expandRelativeDateRange, expandAnniversaryWindows, ANNIVERSARY_OFFSET_DAYS } from '../src/services/expand-relative-date-range.js';
+import { expandRelativeDateRange, expandAnniversaryWindows, anniversaryMilestoneForDate, ANNIVERSARY_OFFSET_DAYS } from '../src/services/expand-relative-date-range.js';
 
 const NOW = new Date('2026-06-09T12:00:00.000Z');
 
@@ -17,6 +17,34 @@ describe('expandAnniversaryWindows', () => {
     // 30d before 2026-05-04 = 2026-04-04, expressed as a single calendar day
     expect(windows[0]).toEqual(['2026-04-04', '2026-04-04']);
     for (const [start, end] of windows) expect(start).toBe(end);
+  });
+});
+
+describe('anniversaryMilestoneForDate', () => {
+  const anchor = new Date(2026, 5, 9); // 2026-06-09 local
+
+  it('attributes each milestone offset exactly', () => {
+    for (const n of ANNIVERSARY_OFFSET_DAYS) {
+      const firstSeen = new Date(anchor);
+      firstSeen.setDate(firstSeen.getDate() - n);
+      expect(anniversaryMilestoneForDate(firstSeen, anchor)).toBe(n);
+    }
+  });
+
+  it('absorbs ±1-day anchor/timezone drift', () => {
+    const off = new Date(anchor);
+    off.setDate(off.getDate() - 366); // one day past the 365 milestone
+    expect(anniversaryMilestoneForDate(off, anchor)).toBe(365);
+  });
+
+  it('returns null for a date on no milestone', () => {
+    const between = new Date(anchor);
+    between.setDate(between.getDate() - 200); // between 180 and 365
+    expect(anniversaryMilestoneForDate(between, anchor)).toBeNull();
+  });
+
+  it('returns null for an unparseable date', () => {
+    expect(anniversaryMilestoneForDate(new Date('not-a-date'), anchor)).toBeNull();
   });
 });
 

@@ -14,6 +14,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { loadWithCtx, type WorkspaceCtx } from '../services/cube-client.js';
 import { treeToCubeFilters } from '../services/translator.js';
+import { anniversaryMilestoneForDate } from '../services/expand-relative-date-range.js';
 import { resolveIdentityField } from '../services/resolve-identity-field.js';
 import { resolveDataAnchor, findWindowedDateMember } from './resolve-data-anchor.js';
 import { mergePlaybooks, type ResolvedPlaybook } from './playbook-merge.js';
@@ -44,9 +45,28 @@ function gateWithVipBase(predicate: PredicateNode, members: Set<string>): Predic
   return group;
 }
 
+/** Per-uid match attribution for an anniversary playbook. */
+export interface CohortMatch {
+  /** Anniversary milestone the member hit, in days (one of ANNIVERSARY_OFFSET_DAYS). */
+  milestoneDays: number;
+  /** The member's first-seen date that matched (raw warehouse value). */
+  date: string;
+}
+
+export interface CohortFetchResult {
+  /** Current cohort uids for the playbook. */
+  uids: string[];
+  /**
+   * Per-uid milestone attribution — populated only for the anniversary playbook,
+   * where the cohort spans 5 milestone days and CS needs to know which one each
+   * member hit (a 1-year gift ≠ a 30-day gift). Absent for every other playbook.
+   */
+  matchByUid?: Map<string, CohortMatch>;
+}
+
 export interface SweepDeps {
-  /** Returns the current cohort uids for a resolved playbook. */
-  fetchCohortUids: (pb: ResolvedPlaybook) => Promise<string[]>;
+  /** Returns the current cohort uids (+ optional per-uid attribution) for a resolved playbook. */
+  fetchCohortUids: (pb: ResolvedPlaybook) => Promise<CohortFetchResult>;
 }
 
 export interface PlaybookSweepSummary extends SweepResult {
@@ -108,20 +128,30 @@ export async function runCaseSweep(
     // A single playbook's cohort query failing (e.g. its cube is absent from
     // this game's live model despite passing the availability probe) must not
     // abort the whole sweep — skip it, surface the reason, keep the rest going.
-    let uids: string[];
+    let cohort: CohortFetchResult;
     try {
-      uids = await deps.fetchCohortUids(pb);
+      cohort = await deps.fetchCohortUids(pb);
     } catch (err) {
       console.warn(`[care] sweep cohort query failed for playbook ${pb.id} (${gameId}):`, err instanceof Error ? err.message : err);
       summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'query-failed' });
       continue;
     }
+    const uids = cohort.uids;
     const result = applyMembershipResult(uids, {
       gameId,
       workspace,
       playbookId: pb.id,
       kpiTarget: pb.watchedMetric.kpiTarget ?? null,
-      snapshotFor: () => ({ matched_at: new Date().toISOString(), threshold: pb.condition }),
+      // Anniversary cases also record which milestone (30/90/180/365/730) the
+      // member hit + their first-seen date, so the action is milestone-aware.
+      snapshotFor: (uid) => {
+        const match = cohort.matchByUid?.get(uid);
+        return {
+          matched_at: new Date().toISOString(),
+          threshold: pb.condition,
+          ...(match ? { milestone_days: match.milestoneDays, anniversary_date: match.date } : {}),
+        };
+      },
       // A single-playbook (manual) sweep is an ad-hoc retune: drop cases that no
       // longer match so the segment count is honest. The full scheduled sweep
       // keeps the flag-and-keep behaviour.
@@ -142,11 +172,11 @@ export function makeCubeCohortFetcher(
   workspace: string,
   members: Set<string>,
 ): SweepDeps['fetchCohortUids'] {
-  return async (pb: ResolvedPlaybook): Promise<string[]> => {
+  return async (pb: ResolvedPlaybook): Promise<CohortFetchResult> => {
     const cube = pb.dataRequirements[0]?.split('.')[0];
-    if (!cube || !pb.predicate) return [];
+    if (!cube || !pb.predicate) return { uids: [] };
     const identity = await resolveIdentityField(cube, gameId, { workspaceId: workspace });
-    if (!identity) return [];
+    if (!identity) return { uids: [] };
 
     const gated = gateWithVipBase(pb.predicate, members);
     // Anchor relative-date windows on the freshest day the windowed member has
@@ -157,16 +187,36 @@ export function makeCubeCohortFetcher(
       ? await resolveDataAnchor(ctx, dateMember, gameId, `${workspace}:${gameId}`)
       : undefined;
     const filters = treeToCubeFilters(gated, { anchorDate });
+
+    // Anniversary's cohort spans 5 milestone days at once. Select the windowed
+    // date member alongside identity so each member's first-seen date is in the
+    // row, and we can attribute which milestone they hit for the case snapshot.
+    const isAnniversary =
+      pb.condition.kind === 'event' && pb.condition.window === 'anniversary' && dateMember != null;
+    const dimensions = isAnniversary ? [identity, dateMember!] : [identity];
+
     const res = (await loadWithCtx(
-      { dimensions: [identity], filters, limit: COHORT_CAP },
+      { dimensions, filters, limit: COHORT_CAP },
       ctx,
     )) as { data?: Record<string, unknown>[] };
     const rows = res.data ?? [];
     const seen = new Set<string>();
+    const matchByUid = isAnniversary ? new Map<string, CohortMatch>() : undefined;
     for (const r of rows) {
       const v = r[identity];
-      if (v != null) seen.add(String(v));
+      if (v == null) continue;
+      const uid = String(v);
+      seen.add(uid);
+      // First row wins per uid (mf_users is one row/user); skip uids whose date
+      // matches no milestone within tolerance rather than fabricating one.
+      if (matchByUid && !matchByUid.has(uid) && anchorDate) {
+        const raw = r[dateMember!];
+        if (raw != null) {
+          const milestone = anniversaryMilestoneForDate(new Date(String(raw)), anchorDate);
+          if (milestone != null) matchByUid.set(uid, { milestoneDays: milestone, date: String(raw) });
+        }
+      }
     }
-    return [...seen];
+    return { uids: [...seen], matchByUid };
   };
 }

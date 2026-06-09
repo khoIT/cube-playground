@@ -43,7 +43,7 @@ afterEach(() => closeDb());
 describe('runCaseSweep', () => {
   it('opens cases for membership playbooks, skips trigger/unavailable with a reason', async () => {
     // Every membership playbook gets the same 2-uid cohort.
-    const deps: SweepDeps = { fetchCohortUids: async () => ['u1', 'u2'] };
+    const deps: SweepDeps = { fetchCohortUids: async () => ({ uids: ['u1', 'u2'] }) };
     const summaries = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
 
     const byId = Object.fromEntries(summaries.map((s) => [s.playbookId, s]));
@@ -68,7 +68,7 @@ describe('runCaseSweep', () => {
     const deps: SweepDeps = {
       fetchCohortUids: async (pb) => {
         fetched.push(pb.id);
-        return ['u1', 'u2'];
+        return { uids: ['u1', 'u2'] };
       },
     };
     const summaries = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
@@ -92,7 +92,7 @@ describe('runCaseSweep', () => {
   });
 
   it('re-sweep of a stable cohort opens nothing new (idempotent)', async () => {
-    const deps: SweepDeps = { fetchCohortUids: async () => ['u1', 'u2'] };
+    const deps: SweepDeps = { fetchCohortUids: async () => ({ uids: ['u1', 'u2'] }) };
     await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
     const second = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
     const p02 = second.find((s) => s.playbookId === '02')!;
@@ -100,8 +100,44 @@ describe('runCaseSweep', () => {
     expect(listCases({ gameId: 'jus_vn', playbookId: '02' })).toHaveLength(2); // no dup rows
   });
 
+  it('anniversary attribution records the matched milestone + date in the case snapshot', async () => {
+    // Fetcher surfaces per-uid milestone attribution for playbook 18 only.
+    const deps: SweepDeps = {
+      fetchCohortUids: async (pb) =>
+        pb.id === '18'
+          ? {
+              uids: ['u1', 'u2'],
+              matchByUid: new Map([
+                ['u1', { milestoneDays: 365, date: '2024-06-09' }],
+                ['u2', { milestoneDays: 30, date: '2025-05-10' }],
+              ]),
+            }
+          : { uids: [] },
+    };
+    await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps, {}, '18');
+
+    const cases = listCases({ gameId: 'jus_vn', playbookId: '18' });
+    expect(cases).toHaveLength(2);
+    const byUid = Object.fromEntries(
+      cases.map((c) => [c.uid, JSON.parse(c.stats_snapshot_json ?? '{}')]),
+    );
+    expect(byUid['u1'].milestone_days).toBe(365);
+    expect(byUid['u1'].anniversary_date).toBe('2024-06-09');
+    expect(byUid['u2'].milestone_days).toBe(30);
+    // Threshold rule is still captured alongside the milestone.
+    expect(byUid['u1'].threshold.window).toBe('anniversary');
+  });
+
+  it('non-anniversary playbooks store no milestone (matchByUid absent)', async () => {
+    const deps: SweepDeps = { fetchCohortUids: async () => ({ uids: ['u1'] }) };
+    await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps, {}, '02');
+    const snap = JSON.parse(listCases({ gameId: 'jus_vn', playbookId: '02' })[0].stats_snapshot_json ?? '{}');
+    expect(snap.milestone_days).toBeUndefined();
+    expect(snap.threshold.kind).toBe('tierStep');
+  });
+
   it('onlyPlaybookId scopes the sweep to a single playbook (per-segment manual sweep)', async () => {
-    const deps: SweepDeps = { fetchCohortUids: async () => ['u1', 'u2'] };
+    const deps: SweepDeps = { fetchCohortUids: async () => ({ uids: ['u1', 'u2'] }) };
     const summaries = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps, {}, '02');
 
     // Only the targeted playbook is in the summaries — every other one is absent.

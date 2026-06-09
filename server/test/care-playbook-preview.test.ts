@@ -18,7 +18,7 @@ vi.mock('../src/care/care-case-sweep.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/care/care-case-sweep.js')>();
   return {
     ...actual,
-    makeCubeCohortFetcher: vi.fn(() => async () => ['u1', 'u2', 'u3']),
+    makeCubeCohortFetcher: vi.fn(() => async () => ({ uids: ['u1', 'u2', 'u3'] })),
   };
 });
 

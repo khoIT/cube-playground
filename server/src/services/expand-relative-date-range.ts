@@ -94,6 +94,30 @@ export function expandAnniversaryWindows(now: Date = new Date()): [string, strin
   });
 }
 
+/**
+ * Attribute a member's first-seen date to the anniversary milestone (in days) it
+ * lands on as of `anchor`, or null if it matches none. The sweep's cohort query
+ * already restricts to exactly these milestone days, so a matched member's date
+ * should sit on one of them — a ±1-day tolerance absorbs data-anchor / timezone
+ * rounding so a "365 days old" member isn't dropped by an off-by-one.
+ */
+export function anniversaryMilestoneForDate(firstSeen: Date, anchor: Date = new Date()): number | null {
+  if (Number.isNaN(firstSeen.getTime())) return null;
+  const diffDays = Math.round(
+    (startOfDay(anchor).getTime() - startOfDay(firstSeen).getTime()) / 86_400_000,
+  );
+  let best: number | null = null;
+  let bestDelta = Infinity;
+  for (const n of ANNIVERSARY_OFFSET_DAYS) {
+    const delta = Math.abs(diffDays - n);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = n;
+    }
+  }
+  return best != null && bestDelta <= 1 ? best : null;
+}
+
 // ── Minimal date helpers (no deps) ────────────────────────────────────────
 
 function iso(d: Date): string {

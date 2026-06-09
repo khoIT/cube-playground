@@ -50,4 +50,17 @@ describe('summarizeSnapshot', () => {
   it('empty object → "matched"', () => {
     expect(summarizeSnapshot('{}')).toBe('matched');
   });
+  it('anniversary milestone → specific milestone label, not the generic window phrase', () => {
+    const raw = JSON.stringify({
+      matched_at: '2026-06-09T00:00:00Z',
+      threshold: { kind: 'event', member: 'mf_users.first_active_date', window: 'anniversary' },
+      milestone_days: 365,
+      anniversary_date: '2025-06-09',
+    });
+    expect(summarizeSnapshot(raw)).toBe('1-year anniversary');
+  });
+  it('falls back to "N-day" for an unmapped milestone', () => {
+    const raw = JSON.stringify({ matched_at: '2026-06-09T00:00:00Z', milestone_days: 45 });
+    expect(summarizeSnapshot(raw)).toBe('45-day anniversary');
+  });
 });

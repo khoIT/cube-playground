@@ -134,7 +134,7 @@ export default async function carePlaybookPreviewRoutes(app: FastifyInstance): P
     try {
       const fetchCohort = makeCubeCohortFetcher(ctx, game, req.workspace.id, members);
       const t0 = Date.now();
-      const uids = await fetchCohort(resolved);
+      const { uids } = await fetchCohort(resolved);
       return { matched: uids.length, elapsedMs: Date.now() - t0, gated };
     } catch (err) {
       req.log.error({ err, game, editedId }, '[care] preview-count query failed');

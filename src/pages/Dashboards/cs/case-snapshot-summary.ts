@@ -19,6 +19,19 @@ export function shortMember(m: unknown): string {
   return String(m ?? '').split('.').pop() ?? '';
 }
 
+/** Human label for an anniversary milestone (in days). Falls back to "N-day". */
+const MILESTONE_LABEL: Record<number, string> = {
+  30: '30-day',
+  90: '90-day',
+  180: '6-month',
+  365: '1-year',
+  730: '2-year',
+};
+export function milestoneLabel(days: unknown): string {
+  const n = Number(days);
+  return MILESTONE_LABEL[n] ?? `${Number.isFinite(n) ? n : '?'}-day`;
+}
+
 /** Currency for vnd/ltv/revenue/spend members, else a grouped number. */
 export function fmtRuleValue(member: string, value: unknown): string {
   const n = Number(value);
@@ -67,6 +80,12 @@ export function summarizeSnapshot(raw: string | null): string | null {
     return null;
   }
   if (!snap || typeof snap !== 'object') return null;
+
+  // Anniversary cases record the exact milestone they hit — show "1-year
+  // anniversary" rather than the generic "first_active_date in anniversary".
+  if (snap.milestone_days != null) {
+    return `${milestoneLabel(snap.milestone_days)} anniversary`;
+  }
 
   const threshold = snap.threshold;
   if (threshold && typeof threshold === 'object') {

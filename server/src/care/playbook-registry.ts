@@ -278,8 +278,10 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     name: 'Anniversary',
     priority: 'thap',
     dataRequirements: ['mf_users.first_active_date'],
-    // Offset-day match {30,90,180,365,730} computed per-member in the engine; the
-    // cohort gate is "has a first_active_date" (event member presence).
+    // "anniversary" compiles to an OR of single-day inDateRange filters at the
+    // {30,90,180,365,730}-day offsets before the data anchor — a real membership
+    // cohort, not a per-member engine pass. The sweep attributes which milestone
+    // each matched member hit (from their first_active_date) into the case snapshot.
     condition: tier({ kind: 'event', member: 'mf_users.first_active_date', window: 'anniversary' }),
     watchedMetric: { member: 'mf_users.ltv_total_vnd', label: 'LTV', kpiTarget: 'engagement on milestone' },
     action: { text: 'Celebrate anniversary; milestone gift', channels: ['zalo_zns', 'in_game'], slaMinutes: 1440 },
