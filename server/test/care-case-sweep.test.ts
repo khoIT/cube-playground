@@ -99,4 +99,18 @@ describe('runCaseSweep', () => {
     expect(p02.opened).toBe(0); // set-diff: stable cohort opens nothing new
     expect(listCases({ gameId: 'jus_vn', playbookId: '02' })).toHaveLength(2); // no dup rows
   });
+
+  it('onlyPlaybookId scopes the sweep to a single playbook (per-segment manual sweep)', async () => {
+    const deps: SweepDeps = { fetchCohortUids: async () => ['u1', 'u2'] };
+    const summaries = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps, {}, '02');
+
+    // Only the targeted playbook is in the summaries — every other one is absent.
+    expect(summaries.map((s) => s.playbookId)).toEqual(['02']);
+    expect(summaries[0].opened).toBe(2);
+
+    // Only that playbook's cases were opened; a sibling membership playbook (14)
+    // that a full sweep would have opened stays untouched.
+    expect(listCases({ gameId: 'jus_vn', playbookId: '02' })).toHaveLength(2);
+    expect(listCases({ gameId: 'jus_vn', playbookId: '14' })).toHaveLength(0);
+  });
 });

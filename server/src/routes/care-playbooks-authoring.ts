@@ -22,42 +22,12 @@ import {
   deleteOverride,
   getOverride,
 } from '../care/care-playbooks-store.js';
-
-const thresholdRuleSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('abs'), member: z.string().min(1), op: z.enum(['gt', 'lt', 'gte', 'lte', 'equals']), value: z.number(), valueType: z.enum(['string', 'number', 'time', 'boolean']).optional() }),
-  z.object({ kind: z.literal('tierStep'), member: z.string().min(1), bands: z.array(z.object({ label: z.string(), min: z.number() })).min(1) }),
-  z.object({ kind: z.literal('event'), member: z.string().min(1), window: z.string().min(1) }),
-  z.object({ kind: z.literal('percentile'), of: z.string().min(1), p: z.number().min(0).max(100), gate: z.string().optional() }),
-  z.object({ kind: z.literal('ratio'), member: z.string().min(1), vs: z.string().min(1), value: z.number(), op: z.enum(['gt', 'lt', 'gte', 'lte']) }),
-]);
-
-const watchedMetricSchema = z.object({ member: z.string(), label: z.string(), kpiTarget: z.string().optional() });
-const actionSchema = z.object({ text: z.string(), channels: z.array(z.string()), slaMinutes: z.number().optional() });
-
-// Optional AND/OR filter layered on the threshold condition — same PredicateNode
-// shape segments store. Recursive (groups nest), so defined via z.lazy.
-const leafOps = [
-  'equals', 'notEquals', 'gt', 'lt', 'gte', 'lte', 'in', 'notIn',
-  'contains', 'set', 'notSet', 'inDateRange', 'beforeDate', 'afterDate',
-] as const;
-const predicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.discriminatedUnion('kind', [
-    z.object({
-      kind: z.literal('leaf'),
-      id: z.string(),
-      member: z.string().min(1),
-      type: z.enum(['string', 'number', 'time', 'boolean']),
-      op: z.enum(leafOps),
-      values: z.array(z.unknown()),
-    }),
-    z.object({
-      kind: z.literal('group'),
-      id: z.string(),
-      op: z.enum(['AND', 'OR']),
-      children: z.array(predicateNodeSchema),
-    }),
-  ]),
-);
+import {
+  thresholdRuleSchema,
+  watchedMetricSchema,
+  actionSchema,
+  predicateNodeSchema,
+} from './care-playbook-validation.js';
 
 const createSchema = z.object({
   base_id: z.string().nullable().optional(),

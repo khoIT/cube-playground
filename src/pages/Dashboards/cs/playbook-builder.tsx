@@ -24,12 +24,13 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory, useLocation, useParams } from 'react-router-dom';
-import { BookOpen, ChevronLeft, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { HeartHandshake, ChevronLeft, AlertTriangle, CheckCircle2, Calculator, Zap } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
 import { useCarePlaybooks } from './use-care-playbooks';
 import { createPlaybook, updatePlaybook } from './use-playbook-mutations';
-import { mutationTargetFor } from './playbook-mutation-target';
+import { previewCount, sweepSegment, type PreviewCountResult, type SweepSegmentResult } from './use-playbook-preview';
+import { mutationTargetFor, resolveSweepTargetId } from './playbook-mutation-target';
 import { renderRoot } from '../../Segments/editor/predicate-builder/predicate-group';
 import { usePredicateState } from '../../Segments/editor/hooks/use-predicate-state';
 import type { ThresholdRule, TierBand } from '../../../types/threshold-rule';
@@ -54,9 +55,56 @@ function useQueryParams(): URLSearchParams {
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
-  maxWidth: 960,
+  maxWidth: 1240,
   margin: '0 auto',
   fontFamily: 'var(--font-sans)',
+};
+
+// Two-column shell: authoring sections on the left, sticky live-segment rail on
+// the right (match count + data readiness + save/sweep stay in view while editing).
+const twoColStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) 360px',
+  gap: 22,
+  alignItems: 'start',
+};
+const railColStyle: React.CSSProperties = {
+  position: 'sticky',
+  top: 16,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 14,
+};
+const railCardStyle: React.CSSProperties = {
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border-card)',
+  borderRadius: 'var(--radius-xl)',
+  boxShadow: 'var(--shadow-sm)',
+  padding: 16,
+};
+const railTitleStyle: React.CSSProperties = {
+  fontSize: 10.5,
+  textTransform: 'uppercase',
+  letterSpacing: '0.07em',
+  color: 'var(--text-muted)',
+  fontWeight: 700,
+  marginBottom: 12,
+};
+const railBtnStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 7,
+  width: '100%',
+  padding: '9px 14px',
+  borderRadius: 'var(--radius-md)',
+  fontSize: 12.5,
+  fontWeight: 600,
+  fontFamily: 'var(--font-sans)',
+  border: '1px solid var(--border-strong)',
+  background: 'var(--bg-card)',
+  color: 'var(--text-secondary)',
+  cursor: 'pointer',
 };
 
 const cardStyle: React.CSSProperties = {
@@ -744,6 +792,21 @@ function SupplementalPredicateSection({ helpers, disabled }: SupplementalPredica
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+/** Persistable playbook fields the create/update mutations accept. */
+interface PersistFields {
+  name: string;
+  group: PlaybookGroup;
+  priority: PlaybookPriority;
+  condition: ThresholdRule;
+  watchedMetric: WatchedMetricInput;
+  action: ActionInput;
+  dataRequirements: string[];
+  supplementalPredicate: PredicateNode | null;
+}
+
+/** Result of validating the current form into persistable fields. */
+type BuildFieldsResult = { fields: PersistFields } | { error: string };
+
 export function PlaybookBuilderPage() {
   const { id: editId } = useParams<BuilderParams>();
   const history = useHistory();
@@ -828,39 +891,39 @@ export function PlaybookBuilderPage() {
     pickedMembers.length === 0 ||
     pickedMembers.every((m) => !m || availableMembers.has(m));
 
-  // ── Save ──────────────────────────────────────────────────────────────────
+  // ── Save / Count / Sweep ────────────────────────────────────────────────────
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const handleSave = useCallback(async () => {
-    if (isViewer) return;
+  // Live match-count (read-only Trino dry run) state.
+  const [counting, setCounting] = useState(false);
+  const [countResult, setCountResult] = useState<PreviewCountResult | null>(null);
+  const [countError, setCountError] = useState<string | null>(null);
+  const countAbortRef = useRef<AbortController | null>(null);
 
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+  // Per-segment sweep (persist then open/lapse just this playbook) state.
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepResult, setSweepResult] = useState<SweepSegmentResult | null>(null);
+  const [sweepError, setSweepError] = useState<string | null>(null);
 
-    setSaving(true);
-    setSaveError(null);
-
+  // Build the persistable fields from the current form, or report why not. The
+  // single source for what Save, Count, and Save&sweep all act on — so a counted
+  // cohort can't drift from what a save+sweep would persist and open.
+  const buildFields = useCallback((): BuildFieldsResult => {
+    // A half-built supplemental tree is invalid — block rather than persist a
+    // filter the cohort query can't translate.
+    const hasPredicate = treeHasContent(predicateHelpers.tree);
+    if (hasPredicate && !predicateHelpers.isValid) {
+      return { error: 'Complete or remove the supplemental predicate filter first.' };
+    }
+    const supplementalPredicate: PredicateNode | null = hasPredicate ? predicateHelpers.tree : null;
     const action: ActionInput = {
       text: actionText,
       channels: actionChannels,
       slaMinutes: actionSla === '' ? undefined : Number(actionSla),
     };
-
-    // Supplemental AND/OR filter: send the tree when authored & complete, null to
-    // clear, undefined when never touched. A half-built tree blocks save rather
-    // than silently persisting an invalid filter the cohort sweep can't translate.
-    const hasPredicate = treeHasContent(predicateHelpers.tree);
-    if (hasPredicate && !predicateHelpers.isValid) {
-      setSaveError('Complete or remove the supplemental predicate filter before saving.');
-      setSaving(false);
-      return;
-    }
-    const supplementalPredicate: PredicateNode | null = hasPredicate ? predicateHelpers.tree : null;
-
     const dataRequirements = [
       ...new Set([
         ...ruleMembers(condition),
@@ -868,28 +931,48 @@ export function PlaybookBuilderPage() {
         watchedMetric.member,
       ].filter(Boolean)),
     ];
+    return { fields: { name, group, priority, condition, watchedMetric, action, dataRequirements, supplementalPredicate } };
+  }, [name, group, priority, condition, watchedMetric, actionText, actionChannels, actionSla, predicateHelpers]);
 
-    const fields = { name, group, priority, condition, watchedMetric, action, dataRequirements, supplementalPredicate };
+  // Persist the current form and return the RESOLVED display id (the id the
+  // sweep filters on), or null on a validation block. Routes the same 4 ways as
+  // the merge layer: PATCH an override/custom row by its row id; POST a fresh
+  // override for a seed (display id stays the seed id); POST net-new (display id
+  // is the new row id). Throws on API error so callers can surface it.
+  const persist = useCallback(async (signal: AbortSignal): Promise<string | null> => {
+    const built = buildFields();
+    if ('error' in built) { setSaveError(built.error); return null; }
+    const { fields } = built;
+    // Editing an existing playbook routes by its mutation target: override/custom
+    // rows PATCH by overrideId; a seed POSTs a fresh override. Clone/new always
+    // create (target stays null).
+    const mutation = mode === 'edit' && sourcePlaybook && !isClone ? mutationTargetFor(sourcePlaybook) : null;
 
+    let createdRowId: string | undefined;
+    if (mutation?.kind === 'patch') {
+      await updatePlaybook(mutation.overrideId, fields, signal);
+    } else if (mutation?.kind === 'createFromSeed') {
+      await createPlaybook(gameId, { base_id: mutation.baseId, ...fields }, signal);
+    } else if (isClone) {
+      createdRowId = (await createPlaybook(gameId, { base_id: null, ...fields }, signal)).id;
+    } else {
+      createdRowId = (await createPlaybook(gameId, { base_id: baseIdFromUrl ?? null, ...fields }, signal)).id;
+    }
+    // The sweep filters on the resolved DISPLAY id, which differs from the row id
+    // for overrides/seeds — resolve it from the same routing inputs.
+    return resolveSweepTargetId({ mutation, sourceDisplayId: sourcePlaybook?.id, isClone, baseIdFromUrl, createdRowId });
+  }, [buildFields, mode, isClone, baseIdFromUrl, gameId, sourcePlaybook]);
+
+  const handleSave = useCallback(async () => {
+    if (isViewer) return;
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setSaving(true);
+    setSaveError(null);
     try {
-      // Editing an existing playbook routes by its mutation target: override/
-      // custom rows PATCH by overrideId (NOT the display id, which is the seed
-      // base-id for overrides); a seed POSTs a fresh override.
-      const target = mode === 'edit' && sourcePlaybook && !isClone ? mutationTargetFor(sourcePlaybook) : null;
-
-      if (target?.kind === 'patch') {
-        await updatePlaybook(target.overrideId, fields, ctrl.signal);
-      } else if (target?.kind === 'createFromSeed') {
-        await createPlaybook(gameId, { base_id: target.baseId, ...fields }, ctrl.signal);
-      } else if (isClone) {
-        // Clone → net-new (base_id = null), name already pre-filled as "Copy of …"
-        await createPlaybook(gameId, { base_id: null, ...fields }, ctrl.signal);
-      } else {
-        // New playbook (blank or pre-filled from a base_id query param).
-        await createPlaybook(gameId, { base_id: baseIdFromUrl ?? null, ...fields }, ctrl.signal);
-      }
-
-      // Navigate back to monitor on success.
+      const id = await persist(ctrl.signal);
+      if (id === null) return; // validation block — error already set
       history.push('/dashboards/cs');
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -897,25 +980,58 @@ export function PlaybookBuilderPage() {
     } finally {
       setSaving(false);
     }
-  }, [
-    isViewer,
-    mode,
-    editId,
-    isClone,
-    baseIdFromUrl,
-    gameId,
-    name,
-    group,
-    priority,
-    condition,
-    watchedMetric,
-    actionText,
-    actionChannels,
-    actionSla,
-    sourcePlaybook,
-    predicateHelpers,
-    history,
-  ]);
+  }, [isViewer, persist, history]);
+
+  // The condition's members; count is meaningless without at least one.
+  const conditionHasMember = ruleMembers(condition).some(Boolean);
+
+  const handleCount = useCallback(async () => {
+    if (isViewer) return;
+    const built = buildFields();
+    if ('error' in built) { setCountError(built.error); setCountResult(null); return; }
+    countAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    countAbortRef.current = ctrl;
+    setCounting(true);
+    setCountError(null);
+    setCountResult(null);
+    try {
+      const r = await previewCount(
+        gameId,
+        editId ?? 'new',
+        { condition: built.fields.condition, supplementalPredicate: built.fields.supplementalPredicate },
+        ctrl.signal,
+      );
+      setCountResult(r);
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setCountError(err instanceof Error ? err.message : 'Count failed');
+    } finally {
+      setCounting(false);
+    }
+  }, [isViewer, buildFields, gameId, editId]);
+
+  const handleSaveAndSweep = useCallback(async () => {
+    if (isViewer) return;
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setSweeping(true);
+    setSweepError(null);
+    setSweepResult(null);
+    setSaveError(null);
+    try {
+      const id = await persist(ctrl.signal);
+      if (id === null) return; // validation block — error already set
+      const r = await sweepSegment(gameId, id, ctrl.signal);
+      setSweepResult(r);
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setSweepError(err instanceof Error ? err.message : 'Save & sweep failed');
+    } finally {
+      setSweeping(false);
+    }
+  }, [isViewer, persist, gameId]);
 
   // ── Page title logic ──────────────────────────────────────────────────────
 
@@ -971,7 +1087,7 @@ export function PlaybookBuilderPage() {
           >
             <ChevronLeft size={18} />
           </button>
-          <BookOpen size={22} color="var(--brand)" />
+          <HeartHandshake size={22} color="var(--brand)" />
           <h1
             style={{
               margin: 0,
@@ -1013,6 +1129,11 @@ export function PlaybookBuilderPage() {
         </span>
       </div>
 
+      <p style={{ margin: '0 0 18px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+        Tune the trigger condition, then count matching VIPs against live data before you save. Save &amp; sweep
+        opens cases for this one segment now.
+      </p>
+
       {isViewer && (
         <div
           style={{
@@ -1028,6 +1149,10 @@ export function PlaybookBuilderPage() {
           admin to make changes.
         </div>
       )}
+
+      <div style={twoColStyle}>
+        {/* Left column — the four authoring sections */}
+        <div>
 
       {/* ── Section 1: Identity ──────────────────────────────────────────── */}
       <div style={cardStyle}>
@@ -1077,32 +1202,6 @@ export function PlaybookBuilderPage() {
 
         <div style={{ marginTop: 16 }}>
           <SupplementalPredicateSection helpers={predicateHelpers} disabled={isViewer} />
-        </div>
-
-        {/* Live data-readiness panel */}
-        <div style={{ marginTop: 14 }}>
-          <label style={{ ...labelStyle, marginBottom: 8 }}>
-            Data readiness for <strong>{gameId}</strong>
-          </label>
-          {isReady ? (
-            <MemberReadinessPanel
-              members={pickedMembers}
-              playbooks={playbooks}
-              gameId={gameId}
-            />
-          ) : (
-            <div
-              style={{
-                padding: '10px 14px',
-                background: 'var(--bg-muted)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: 12,
-                color: 'var(--text-muted)',
-              }}
-            >
-              Loading registry…
-            </div>
-          )}
         </div>
       </div>
 
@@ -1193,89 +1292,181 @@ export function PlaybookBuilderPage() {
         </Field>
       </div>
 
-      {/* ── Save bar ─────────────────────────────────────────────────────── */}
-      {!isViewer && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            padding: '16px 0 8px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !name.trim()}
-            style={{
-              padding: '9px 22px',
-              background: saving || !name.trim() ? 'var(--border-card)' : 'var(--brand)',
-              color: saving || !name.trim() ? 'var(--text-muted)' : '#fff',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: saving || !name.trim() ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-sans)',
-              transition: 'background 0.12s',
-            }}
-          >
-            {saving ? 'Saving…' : 'Save playbook'}
-          </button>
+        </div>{/* end left column */}
 
-          <button
-            type="button"
-            onClick={() => history.push('/dashboards/cs')}
-            disabled={saving}
-            style={{
-              padding: '9px 18px',
-              background: 'none',
-              border: '1px solid var(--border-card)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 13,
-              color: 'var(--text-secondary)',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
-            Cancel
-          </button>
+        {/* Right column — sticky live-segment rail */}
+        <div style={railColStyle}>
+          {/* Live match count — a read-only dry run against live data. Explicit
+              click only: the cold query can take several seconds, so it never
+              auto-fires while the condition is being edited. */}
+          <div style={railCardStyle}>
+            <div style={railTitleStyle}>Live match · VIPs in this segment</div>
+            <div style={{ minHeight: 46, marginBottom: 13 }}>
+              {counting ? (
+                <>
+                  <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, color: 'var(--text-muted)' }}>—</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Querying live data — can take several seconds.</div>
+                </>
+              ) : countResult ? (
+                countResult.note ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{countResult.note}</div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                      {countResult.matched.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+                      <strong style={{ color: 'var(--success-ink)' }}>VIP{countResult.matched === 1 ? '' : 's'} match</strong>
+                      {countResult.elapsedMs != null && <> · {countResult.elapsedMs}ms</>}
+                    </div>
+                  </>
+                )
+              ) : (
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Run a count to see how many VIPs match.</div>
+              )}
+            </div>
 
-          {!allMembersAvailable && pickedMembers.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                fontSize: 11.5,
-                color: 'var(--warning-ink)',
-                background: 'var(--warning-soft)',
-                padding: '5px 10px',
-                borderRadius: 'var(--radius-md)',
-              }}
-            >
-              <AlertTriangle size={12} />
-              Playbook will be saved but enabling is blocked until all members are available
-              for {gameId}.
+            {!isViewer && (
+              <button
+                type="button"
+                onClick={handleCount}
+                disabled={counting || !conditionHasMember || !allMembersAvailable}
+                title={
+                  !conditionHasMember
+                    ? 'Set a condition member first'
+                    : !allMembersAvailable
+                    ? `Some members are unavailable for ${gameId}`
+                    : 'Count matching VIPs against live data'
+                }
+                style={{
+                  ...railBtnStyle,
+                  background: 'var(--bg-muted)',
+                  borderColor: 'var(--border-card)',
+                  color: counting || !conditionHasMember || !allMembersAvailable ? 'var(--text-muted)' : 'var(--text-secondary)',
+                  cursor: counting || !conditionHasMember || !allMembersAvailable ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <Calculator size={14} />
+                {counting ? 'Counting…' : 'Count matches'}
+              </button>
+            )}
+            {!counting && countError && (
+              <div style={{ fontSize: 12, color: 'var(--destructive-ink)', marginTop: 8 }}>{countError}</div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--info)', display: 'inline-block' }} />
+              VIP-base gated (LTV ≥ ₫1M), same as the sweep.
+            </div>
+          </div>
+
+          {/* Data readiness — moved out of the condition card so it stays visible. */}
+          <div style={railCardStyle}>
+            <div style={railTitleStyle}>Data readiness · {gameId}</div>
+            {isReady ? (
+              <MemberReadinessPanel members={pickedMembers} playbooks={playbooks} gameId={gameId} />
+            ) : (
+              <div style={{ padding: '10px 14px', background: 'var(--bg-muted)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--text-muted)' }}>
+                Loading registry…
+              </div>
+            )}
+          </div>
+
+          {/* Save actions — editor/admin only. */}
+          {!isViewer && (
+            <div style={railCardStyle}>
+              <div style={railTitleStyle}>Save</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || !name.trim()}
+                  style={{
+                    ...railBtnStyle,
+                    background: saving || !name.trim() ? 'var(--border-card)' : 'var(--brand)',
+                    borderColor: saving || !name.trim() ? 'var(--border-card)' : 'var(--brand)',
+                    color: saving || !name.trim() ? 'var(--text-muted)' : 'var(--text-on-brand)',
+                    cursor: saving || !name.trim() ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {saving ? 'Saving…' : 'Save playbook'}
+                </button>
+
+                {/* Save then open/lapse cases for just this one playbook. */}
+                <button
+                  type="button"
+                  onClick={handleSaveAndSweep}
+                  disabled={saving || sweeping || !name.trim()}
+                  title="Save, then sweep this one segment (open/lapse its cases now)"
+                  style={{
+                    ...railBtnStyle,
+                    background: saving || sweeping || !name.trim() ? 'var(--bg-muted)' : 'var(--brand-soft, var(--bg-muted))',
+                    borderColor: 'var(--brand)',
+                    color: saving || sweeping || !name.trim() ? 'var(--text-muted)' : 'var(--brand)',
+                    cursor: saving || sweeping || !name.trim() ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <Zap size={14} />
+                  {sweeping ? 'Sweeping…' : 'Save & sweep this segment'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => history.push('/dashboards/cs')}
+                  disabled={saving}
+                  style={{ ...railBtnStyle, cursor: saving ? 'not-allowed' : 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+
+              {!allMembersAvailable && pickedMembers.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 11.5,
+                    color: 'var(--warning-ink)',
+                    background: 'var(--warning-soft)',
+                    padding: '7px 10px',
+                    borderRadius: 'var(--radius-md)',
+                    marginTop: 10,
+                  }}
+                >
+                  <AlertTriangle size={12} />
+                  Enabling is blocked until all members are available for {gameId}.
+                </div>
+              )}
+
+              {saveError && (
+                <div style={{ padding: '10px 12px', background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', borderRadius: 'var(--radius-md)', fontSize: 12.5, marginTop: 10 }}>
+                  {saveError}
+                </div>
+              )}
+              {sweepError && (
+                <div style={{ padding: '10px 12px', background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', borderRadius: 'var(--radius-md)', fontSize: 12.5, marginTop: 10 }}>
+                  {sweepError}
+                </div>
+              )}
+              {sweepResult && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '12px 13px', background: 'var(--success-soft)', color: 'var(--success-ink)', borderRadius: 'var(--radius-md)', fontSize: 12.5, marginTop: 10 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                    <CheckCircle2 size={14} />
+                    Swept this segment — {sweepResult.opened} opened · {sweepResult.lapsed} lapsed
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => history.push('/dashboards/cs')}
+                    style={{ alignSelf: 'flex-start', padding: '5px 12px', background: 'none', border: '1px solid var(--success-ink)', borderRadius: 'var(--radius-md)', fontSize: 12, fontWeight: 600, color: 'var(--success-ink)', cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                  >
+                    Back to monitor
+                  </button>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
-
-      {saveError && (
-        <div
-          style={{
-            padding: '10px 14px',
-            background: 'var(--destructive-soft)',
-            color: 'var(--destructive-ink)',
-            borderRadius: 'var(--radius-md)',
-            fontSize: 12.5,
-            marginTop: 8,
-          }}
-        >
-          {saveError}
-        </div>
-      )}
+        </div>{/* end rail */}
+      </div>{/* end two-column */}
     </div>
   );
 }

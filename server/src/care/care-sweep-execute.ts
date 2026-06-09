@@ -71,6 +71,7 @@ export async function executeSweep(
   game: string,
   ctx: WorkspaceCtx,
   source: SweepRunSource,
+  onlyPlaybookId?: string,
 ): Promise<SweepExecuteResult> {
   const key = keyOf(workspace.id, game);
   if (inFlight.has(key)) throw new SweepBusyError(game);
@@ -87,7 +88,7 @@ export async function executeSweep(
     // Force a fresh member set so gating reflects the live model, not a cached probe.
     const members = await getGameMembers(ctx, scope.gamePrefix, key, true);
     const deps = { fetchCohortUids: makeCubeCohortFetcher(ctx, game, workspace.id, members) };
-    const summaries = await runCaseSweep(game, workspace.id, members, deps, loadCalibration(game));
+    const summaries = await runCaseSweep(game, workspace.id, members, deps, loadCalibration(game), onlyPlaybookId);
     const opened = summaries.reduce((n, s) => n + s.opened, 0);
     const lapsed = summaries.reduce((n, s) => n + s.lapsed, 0);
 

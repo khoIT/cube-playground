@@ -217,17 +217,24 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
   // playbook of `game` against the live Cube and opens/lapses cases. Editor/admin
   // (mutating; gated by the global /api/care write rule). Returns per-playbook
   // summaries so the UI can show what opened / why a playbook was skipped.
+  //
+  // Optional `playbook` query param scopes the sweep to ONE playbook (the
+  // per-segment manual sweep from the builder). It contends on the same
+  // per-(workspace,game) mutex as a full sweep, so the two cannot overlap.
   app.post('/api/care/cases/sweep', async (req, reply) => {
     const scope = resolveGameScope(req.workspace, (req.query as { game?: string })?.game);
     if (!scope.ok) return reply.status(400).send({ error: { code: 'VALIDATION', message: scope.error } });
     const game = (req.query as { game: string }).game.trim();
+
+    const rawPlaybook = (req.query as { playbook?: string })?.playbook;
+    const onlyPlaybookId = typeof rawPlaybook === 'string' && rawPlaybook.trim() ? rawPlaybook.trim() : undefined;
 
     const ctx = req.buildIntrospectionCtxForGame ? req.buildIntrospectionCtxForGame(game) : req.cubeCtx;
 
     try {
       // Shared executor (same path the auto-sweep cron uses): members → sweep →
       // profile enrich → snapshot run. Records the run + per-uid membership.
-      const r = await executeSweep(req.workspace, game, ctx, 'manual');
+      const r = await executeSweep(req.workspace, game, ctx, 'manual', onlyPlaybookId);
       return { game, opened: r.opened, lapsed: r.lapsed, profilesRefreshed: r.profilesRefreshed, summaries: r.summaries };
     } catch (err) {
       if (err instanceof SweepBusyError) {

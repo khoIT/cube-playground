@@ -24,7 +24,9 @@ import type { GroupNode, PredicateNode } from '../types/predicate-tree.js';
 
 /** Floor for "is a VIP" — only paying members enter the program (₫1M cumulative). */
 const VIP_LTV_FLOOR = 1_000_000;
-const VIP_LTV_MEMBER = 'mf_users.ltv_total_vnd';
+/** The VIP-base gate member — exported so the preview-count route reports the
+ *  same `gated` flag the sweep actually applies (one source of truth). */
+export const VIP_LTV_MEMBER = 'mf_users.ltv_total_vnd';
 const COHORT_CAP = 50_000;
 
 /** AND the playbook predicate with the VIP-base gate so non-VIPs never enter. */
@@ -58,15 +60,21 @@ export interface PlaybookSweepSummary extends SweepResult {
   uids?: string[];
 }
 
-/** Sweep one game's playbooks. `members` + `deps` are injected for testability. */
+/**
+ * Sweep one game's playbooks. `members` + `deps` are injected for testability.
+ * `onlyPlaybookId` scopes the sweep to a single playbook (per-segment manual
+ * sweep from the builder); omitted/undefined sweeps the whole game as before.
+ */
 export async function runCaseSweep(
   gameId: string,
   workspace: string,
   members: Set<string>,
   deps: SweepDeps,
   calibration: Record<string, CalibrationResult> = {},
+  onlyPlaybookId?: string,
 ): Promise<PlaybookSweepSummary[]> {
-  const playbooks = mergePlaybooks(gameId, members, undefined, { calibration });
+  const merged = mergePlaybooks(gameId, members, undefined, { calibration });
+  const playbooks = onlyPlaybookId ? merged.filter((p) => p.id === onlyPlaybookId) : merged;
   const summaries: PlaybookSweepSummary[] = [];
 
   for (const pb of playbooks) {
