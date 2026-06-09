@@ -176,9 +176,9 @@ cubes:
         # never becomes queryable, and the partition-range loader needs the whole
         # range covered — one empty month stops the entire rollup from serving.
         build_range_start:
-          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_recharge_daily"
+          sql: "SELECT COALESCE(from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z'), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM std_ingame_user_recharge_daily"
         build_range_end:
-          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_recharge_daily"
+          sql: "SELECT COALESCE(from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z'), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM std_ingame_user_recharge_daily"
 
       # Lambda union: sealed batch partitions + a live tail straight from source,
       # so recent rows appear without waiting for a refresh cycle.
