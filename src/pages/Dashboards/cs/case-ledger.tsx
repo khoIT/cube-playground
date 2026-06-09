@@ -16,9 +16,9 @@
  * pattern: 24px 32px padding, maxWidth 1320, margin 0 auto, var(--font-sans).
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation, useHistory, Link } from 'react-router-dom';
-import { ListChecks, Users, ChevronLeft, RefreshCw, Heart, GitCompare } from 'lucide-react';
+import { ListChecks, Users, ChevronLeft, RefreshCw, Heart, GitCompare, Search, X } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
 import { formatValue, formatValueExact } from '../../Segments/detail/cards/format-value';
@@ -27,6 +27,8 @@ import { QueuePager } from './queue-pager';
 import { summarizeSnapshot } from './case-snapshot-summary';
 import { ltvLabel } from './case-ledger-format';
 import { SweepsLens } from './sweeps-lens';
+import { PlaybookFilterBar } from './playbook-filter-bar';
+import { StatusChipRow } from './status-chip-row';
 import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -39,6 +41,13 @@ function relativeTime(iso: string | null): string {
   if (h < 1) return `${Math.floor(ms / 60_000)}m ago`;
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+/** Full local timestamp for hover tooltips (when exactly the sweep matched). */
+function exactTime(iso: string | null): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? d.toLocaleString() : undefined;
 }
 
 // ── Status pill ───────────────────────────────────────────────────────────────
@@ -77,16 +86,35 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-// ── "Why it fired" — human summary of the snapshot / threshold rule ─────────────
+// ── Matched-playbook pill — names the playbook this case fired against ──────────
 
-/** "Why it fired" cell — prefers the threshold-rule summary, falls back to scalars. */
-function WhyFiredCell({ raw }: { raw: string | null }) {
-  const text = summarizeSnapshot(raw);
-  if (!text) return <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>;
+/**
+ * Priority-tinted pill showing the matched playbook. Links back to that single
+ * playbook's queue (?playbook=<id>) so an analyst can drill from a multi-playbook
+ * view to one. The deciding stats snapshot moves into the hover tooltip so the
+ * triage context isn't lost.
+ */
+function MatchedPlaybookPill({ c, gameId }: { c: CareCase; gameId: string }) {
+  const name = c.playbook_name ?? c.playbook_id;
+  const tint = PRIO[prioOf(c.playbook_priority ?? 'tb')].badge;
+  const snapshot = summarizeSnapshot(c.stats_snapshot_json);
+  const tip = snapshot ? `Matched: ${snapshot}` : `Playbook ${c.playbook_id}`;
   return (
-    <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-      Matched: <b style={{ color: 'var(--text-primary)' }}>{text}</b>
-    </span>
+    <Link
+      to={`/dashboards/cs/queue?playbook=${encodeURIComponent(c.playbook_id)}&game=${encodeURIComponent(gameId)}`}
+      onClick={(e) => e.stopPropagation()}
+      title={tip}
+      style={{
+        ...tint,
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        fontSize: 11, fontWeight: 600, padding: '3px 10px',
+        borderRadius: 'var(--radius-full)', whiteSpace: 'nowrap',
+        textDecoration: 'none', fontFamily: 'var(--font-sans)',
+        maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis',
+      }}
+    >
+      {name}
+    </Link>
   );
 }
 
@@ -185,8 +213,8 @@ function PlaybookCaseRow({ c, gameId, segId }: PlaybookRowProps) {
         {profile?.name ?? c.uid}
         {c.condition_lapsed === 1 && <LapsedBadge />}
       </td>
-      {/* Why it fired (snapshot at match time) */}
-      <td style={cellBase}><WhyFiredCell raw={c.stats_snapshot_json} /></td>
+      {/* Matched Playbook (pill → that playbook's queue; snapshot in tooltip) */}
+      <td style={cellBase}><MatchedPlaybookPill c={c} gameId={gameId} /></td>
       {/* LTV */}
       <td style={{ ...cellBase, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
         {profile?.ltvVnd != null
@@ -195,8 +223,11 @@ function PlaybookCaseRow({ c, gameId, segId }: PlaybookRowProps) {
       </td>
       {/* State */}
       <td style={cellBase}><StatusPill status={c.status} /></td>
-      {/* Opened */}
-      <td style={{ ...cellBase, color: 'var(--text-muted)', fontSize: 11.5 }}>
+      {/* Matched (when the sweep opened this case) */}
+      <td
+        style={{ ...cellBase, color: 'var(--text-muted)', fontSize: 11.5 }}
+        title={exactTime(c.opened_at ?? c.created_at ?? null)}
+      >
         {relativeTime(c.opened_at ?? c.created_at ?? null)}
       </td>
       {/* Action */}
@@ -219,52 +250,83 @@ function PlaybookCaseRow({ c, gameId, segId }: PlaybookRowProps) {
 
 interface ByPlaybookViewProps {
   gameId: string;
-  playbookId: string;
+  /** Selected playbook ids (URL source of truth). [] = all playbooks. */
+  playbookIds: string[];
+  onTogglePlaybook: (id: string) => void;
+  /** Selected statuses; [] = all. Applied client-side as a page refinement. */
+  statuses: string[];
+  onToggleStatus: (s: string) => void;
+  onClearStatus: () => void;
 }
 
-function ByPlaybookView({ gameId, playbookId }: ByPlaybookViewProps) {
-  // Cases arrive pre-enriched with the persisted VIP profile (name + LTV) — no
-  // live Cube call; the sweep populates it. Paginated 50/page.
+function ByPlaybookView({
+  gameId,
+  playbookIds,
+  onTogglePlaybook,
+  statuses,
+  onToggleStatus,
+  onClearStatus,
+}: ByPlaybookViewProps) {
+  // Cases arrive pre-enriched with the persisted VIP profile + matched-playbook
+  // name — no live Cube call. Pagination is server-side per the selected
+  // playbooks; the status chips refine the current page client-side so their
+  // counts stay honest ("on page").
   const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [gameId, playbookId]); // reset on game / playbook switch
-  const { status, cases, error, total, pageSize } = useCareCases(gameId, { playbookId, page });
+  const pbKey = playbookIds.join(',');
+  useEffect(() => setPage(1), [gameId, pbKey]); // reset on game / playbook-set switch
+  const { status, cases, error, total, pageSize } = useCareCases(gameId, { playbookIds, page });
 
-  if (status === 'error') {
-    return (
-      <div style={{ padding: 16, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', borderRadius: 'var(--radius-md)', fontSize: 13 }}>
-        Failed to load cases: {error}
-      </div>
-    );
-  }
-
-  if (status === 'idle' || status === 'loading') {
-    return <LoadingRows />;
-  }
-
-  if (cases.length === 0) {
-    return <EmptyState label={`No cases for playbook ${playbookId}.`} />;
-  }
+  const counts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of cases) m[c.status] = (m[c.status] ?? 0) + 1;
+    return m;
+  }, [cases]);
+  const shown = useMemo(
+    () => (statuses.length === 0 ? cases : cases.filter((c) => statuses.includes(c.status))),
+    [cases, statuses],
+  );
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ ...thStyle, width: '16%' }}>VIP</th>
-            <th style={thStyle}>Why it fired (snapshot at match time)</th>
-            <th style={{ ...thStyle, textAlign: 'right' }}>LTV</th>
-            <th style={thStyle}>State</th>
-            <th style={thStyle}>Opened</th>
-            <th style={{ ...thStyle, width: 130 }} aria-label="Action" />
-          </tr>
-        </thead>
-        <tbody>
-          {cases.map((c) => (
-            <PlaybookCaseRow key={c.id} c={c} gameId={gameId} />
-          ))}
-        </tbody>
-      </table>
-      <QueuePager page={page} pageSize={pageSize} total={total} onPage={setPage} unit="cases" />
+    <div>
+      {/* Filters */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderBottom: '1px solid var(--border-card)' }}>
+        <PlaybookFilterBar gameId={gameId} selected={playbookIds} onToggle={onTogglePlaybook} />
+        <StatusChipRow selected={statuses} onToggle={onToggleStatus} onClear={onClearStatus} counts={counts} />
+      </div>
+
+      {status === 'error' ? (
+        <div style={{ margin: 16, padding: 16, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', borderRadius: 'var(--radius-md)', fontSize: 13 }}>
+          Failed to load cases: {error}
+        </div>
+      ) : status === 'idle' || status === 'loading' ? (
+        <LoadingRows />
+      ) : cases.length === 0 ? (
+        <EmptyState label="No open cases in the selected playbook(s)." />
+      ) : shown.length === 0 ? (
+        <EmptyState label="No cases match the selected status(es)." />
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ ...thStyle, width: '16%' }}>VIP</th>
+                <th style={thStyle}>Matched Playbook</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>LTV</th>
+                <th style={thStyle}>State</th>
+                <th style={thStyle}>Matched</th>
+                <th style={{ ...thStyle, width: 130 }} aria-label="Action" />
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((c) => (
+                // uids repeat across playbooks → key must include the playbook id.
+                <PlaybookCaseRow key={`${c.playbook_id}_${c.id}`} c={c} gameId={gameId} />
+              ))}
+            </tbody>
+          </table>
+          <QueuePager page={page} pageSize={pageSize} total={total} onPage={setPage} unit="cases" />
+        </div>
+      )}
     </div>
   );
 }
@@ -416,46 +478,94 @@ function ByVipView({ gameId }: ByVipViewProps) {
   // Rows arrive pre-enriched with the persisted VIP profile (name / LTV / tier /
   // churn) from the sweep — SQLite read, no live Cube. Un-swept VIPs show dashes.
   // Paginated 50/page; the priority sort happens server-side before the slice,
-  // so page 1 always holds the most urgent VIPs.
+  // so page 1 always holds the most urgent VIPs. Search runs server-side (q=) so
+  // a name on page 3 is still found.
   const [page, setPage] = useState(1);
+  const [input, setInput] = useState('');
+  const [q, setQ] = useState('');
   useEffect(() => setPage(1), [gameId]); // reset on game switch
-  const { status, vips, error, total, pageSize } = useVipQueue(gameId, { page });
+  // Debounce the keystrokes → one request per ~250ms pause; reset to page 1.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setQ(input.trim());
+      setPage(1);
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [input]);
+  const { status, vips, error, total, pageSize } = useVipQueue(gameId, { page, q });
 
+  const searchBar = (
+    <div style={{ padding: 16, borderBottom: '1px solid var(--border-card)' }}>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380,
+          padding: '7px 11px', background: 'var(--bg-muted)', borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-card)',
+        }}
+      >
+        <Search size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Search uid or name"
+          style={{
+            flex: 1, border: 0, outline: 'none', background: 'transparent',
+            fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--text-primary)',
+          }}
+        />
+        {input && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={() => setInput('')}
+            style={{ display: 'inline-flex', border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  let body: React.ReactNode;
   if (status === 'error') {
-    return (
-      <div style={{ padding: 16, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', borderRadius: 'var(--radius-md)', fontSize: 13 }}>
+    body = (
+      <div style={{ margin: 16, padding: 16, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', borderRadius: 'var(--radius-md)', fontSize: 13 }}>
         Failed to load VIP queue: {error}
+      </div>
+    );
+  } else if (status === 'idle' || status === 'loading') {
+    body = <LoadingRows />;
+  } else if (vips.length === 0) {
+    body = <EmptyState label={q ? `No VIPs match “${q}”.` : 'No open VIP cases.'} />;
+  } else {
+    body = (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...thStyle, width: '20%' }}>VIP</th>
+              <th style={thStyle}>Open cases (cross-playbook)</th>
+              <th style={thStyle}>Top priority</th>
+              <th style={thStyle}>Last contact</th>
+              <th style={{ ...thStyle, width: 130 }} aria-label="Action" />
+            </tr>
+          </thead>
+          <tbody>
+            {vips.map((row) => (
+              <VipQueueRow key={row.uid} row={row} gameId={gameId} />
+            ))}
+          </tbody>
+        </table>
+        <QueuePager page={page} pageSize={pageSize} total={total} onPage={setPage} unit="VIPs" />
       </div>
     );
   }
 
-  if (status === 'idle' || status === 'loading') {
-    return <LoadingRows />;
-  }
-
-  if (vips.length === 0) {
-    return <EmptyState label="No open VIP cases." />;
-  }
-
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ ...thStyle, width: '20%' }}>VIP</th>
-            <th style={thStyle}>Open cases (cross-playbook)</th>
-            <th style={thStyle}>Top priority</th>
-            <th style={thStyle}>Last contact</th>
-            <th style={{ ...thStyle, width: 130 }} aria-label="Action" />
-          </tr>
-        </thead>
-        <tbody>
-          {vips.map((row) => (
-            <VipQueueRow key={row.uid} row={row} gameId={gameId} />
-          ))}
-        </tbody>
-      </table>
-      <QueuePager page={page} pageSize={pageSize} total={total} onPage={setPage} unit="VIPs" />
+    <div>
+      {searchBar}
+      {body}
     </div>
   );
 }
@@ -561,8 +671,34 @@ export function CaseLedgerPage() {
 
   const params = new URLSearchParams(location.search);
   const playbookParam = params.get('playbook') ?? '';
+  const statusParam = params.get('status') ?? '';
   const gameParam = params.get('game') ?? '';
   const gameId = gameParam || ctxGame;
+
+  // Filters live in the URL → shareable, refresh-safe, deep-link compatible.
+  const csv = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+  const playbookIds = useMemo(() => csv(playbookParam), [playbookParam]);
+  const statuses = useMemo(() => csv(statusParam), [statusParam]);
+
+  // Rewrite a single URL filter param in place (preserving the others).
+  const setParam = useCallback(
+    (key: string, values: string[]) => {
+      const next = new URLSearchParams(location.search);
+      if (values.length) next.set(key, values.join(','));
+      else next.delete(key);
+      history.replace({ ...location, search: next.toString() });
+    },
+    [history, location],
+  );
+  const togglePlaybook = useCallback(
+    (id: string) => setParam('playbook', playbookIds.includes(id) ? playbookIds.filter((x) => x !== id) : [...playbookIds, id]),
+    [playbookIds, setParam],
+  );
+  const toggleStatus = useCallback(
+    (s: string) => setParam('status', statuses.includes(s) ? statuses.filter((x) => x !== s) : [...statuses, s]),
+    [statuses, setParam],
+  );
+  const clearStatus = useCallback(() => setParam('status', []), [setParam]);
 
   // On-demand sweep: populate the ledger from the live Cube. Reloads on success
   // (cases opened) so the queue reflects new rows; surfaces 0-opened / errors inline.
@@ -593,9 +729,12 @@ export function CaseLedgerPage() {
   const handleLensSwitch = useCallback(
     (l: Lens) => {
       setLens(l);
-      // Preserve game param but drop playbook on the non-playbook lenses.
+      // Preserve game param but drop the playbook/status filters on other lenses.
       const next = new URLSearchParams(location.search);
-      if (l !== 'playbook') next.delete('playbook');
+      if (l !== 'playbook') {
+        next.delete('playbook');
+        next.delete('status');
+      }
       history.replace({ ...location, search: next.toString() });
     },
     [history, location],
@@ -628,7 +767,7 @@ export function CaseLedgerPage() {
               ? 'VIP Action Queue'
               : lens === 'sweeps'
                 ? 'Sweep History'
-                : `Case Ledger${playbookParam ? ` · ${playbookParam}` : ''}`}
+                : `Case Ledger${playbookIds.length === 1 ? ` · ${playbookIds[0]}` : playbookIds.length > 1 ? ` · ${playbookIds.length} playbooks` : ''}`}
           </h1>
         </div>
 
@@ -673,7 +812,7 @@ export function CaseLedgerPage() {
           ? 'One row per VIP — deduped across all playbooks, ranked by priority, with contact-fatigue guard.'
           : lens === 'sweeps'
             ? 'Sweep snapshots over time — cohort trend per playbook and a run-to-run diff of which VIPs entered or left each cohort.'
-            : 'Stateful cases for a single playbook, with the stats snapshot that fired each one.'}
+            : 'Stateful cases across the selected playbooks — filter by playbook and status, then open the matched member 360.'}
       </p>
 
       {/* Lens toggle + table card */}
@@ -682,7 +821,11 @@ export function CaseLedgerPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border-card)' }}>
           <LensToggle active={lens} onSwitch={handleLensSwitch} />
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {lens === 'playbook' && playbookParam ? `Playbook: ${playbookParam}` : 'Same ledger · two lenses'}
+            {lens === 'playbook'
+              ? playbookIds.length === 0
+                ? 'All playbooks'
+                : `${playbookIds.length} playbook${playbookIds.length > 1 ? 's' : ''} selected`
+              : 'Same ledger · multiple lenses'}
           </span>
         </div>
 
@@ -690,7 +833,14 @@ export function CaseLedgerPage() {
         {!gameId ? (
           <EmptyState label="Select a game to view cases." />
         ) : lens === 'playbook' ? (
-          <ByPlaybookView gameId={gameId} playbookId={playbookParam} />
+          <ByPlaybookView
+            gameId={gameId}
+            playbookIds={playbookIds}
+            onTogglePlaybook={togglePlaybook}
+            statuses={statuses}
+            onToggleStatus={toggleStatus}
+            onClearStatus={clearStatus}
+          />
         ) : lens === 'vip' ? (
           <ByVipView gameId={gameId} />
         ) : (

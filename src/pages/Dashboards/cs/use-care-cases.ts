@@ -38,10 +38,10 @@ export interface CareCase {
   id: string;
   game_id: string;
   playbook_id: string;
-  /** Playbook display name — present on /vip/:uid responses. */
+  /** Playbook display name — present on /api/care/cases + /vip/:uid responses. */
   playbook_name?: string;
-  /** Numeric priority from playbook registry — present on /vip/:uid. */
-  playbook_priority?: number;
+  /** Priority from playbook registry ('cao' | 'tb' | 'thap', or legacy numeric). */
+  playbook_priority?: number | string;
   uid: string;
   source: 'membership' | 'trigger';
   opened_at: string;
@@ -149,7 +149,18 @@ export interface VipDetailState {
  */
 export function useCareCases(
   gameId: string,
-  opts: { playbookId?: string; status?: string; page?: number; pageSize?: number } = {},
+  opts: {
+    /** Single playbook (deep-link / back-compat). */
+    playbookId?: string;
+    /** Multi-select playbooks → comma param. Takes precedence over playbookId. */
+    playbookIds?: string[];
+    /** Single status (back-compat). */
+    status?: string;
+    /** Multi-select statuses → comma param. Takes precedence over status. */
+    statuses?: string[];
+    page?: number;
+    pageSize?: number;
+  } = {},
 ): CareCasesState {
   const [state, setState] = useState<CareCasesState>({
     status: 'idle',
@@ -160,7 +171,11 @@ export function useCareCases(
   });
 
   const abortRef = useRef<AbortController | null>(null);
-  const { playbookId, status: filterStatus, page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
+  const { playbookId, playbookIds, status: filterStatus, statuses, page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
+  // Stable comma keys so the effect re-runs on selection change (arrays are new
+  // refs each render; the joined string is the real dependency).
+  const playbookParam = (playbookIds && playbookIds.length ? playbookIds.join(',') : playbookId) ?? '';
+  const statusParam = (statuses && statuses.length ? statuses.join(',') : filterStatus) ?? '';
 
   useEffect(() => {
     if (!gameId) return;
@@ -178,8 +193,8 @@ export function useCareCases(
           page: String(page),
           pageSize: String(pageSize),
         };
-        if (playbookId) query.playbook = playbookId;
-        if (filterStatus) query.status = filterStatus;
+        if (playbookParam) query.playbook = playbookParam;
+        if (statusParam) query.status = statusParam;
 
         const data = await apiFetch<PagedCases>('/api/care/cases', {
           query,
@@ -202,7 +217,7 @@ export function useCareCases(
 
     load();
     return () => controller.abort();
-  }, [gameId, playbookId, filterStatus, page, pageSize]);
+  }, [gameId, playbookParam, statusParam, page, pageSize]);
 
   return state;
 }
@@ -215,7 +230,7 @@ export function useCareCases(
  */
 export function useVipQueue(
   gameId: string,
-  opts: { page?: number; pageSize?: number } = {},
+  opts: { page?: number; pageSize?: number; q?: string } = {},
 ): VipQueueState {
   const [state, setState] = useState<VipQueueState>({
     status: 'idle',
@@ -226,7 +241,8 @@ export function useVipQueue(
   });
 
   const abortRef = useRef<AbortController | null>(null);
-  const { page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
+  const { page = 1, pageSize = DEFAULT_PAGE_SIZE, q } = opts;
+  const query = (q ?? '').trim();
 
   useEffect(() => {
     if (!gameId) return;
@@ -239,8 +255,10 @@ export function useVipQueue(
 
     async function load() {
       try {
+        const params: Record<string, string> = { game: gameId, page: String(page), pageSize: String(pageSize) };
+        if (query) params.q = query;
         const data = await apiFetch<PagedVips>('/api/care/cases/by-vip', {
-          query: { game: gameId, page: String(page), pageSize: String(pageSize) },
+          query: params,
           signal: controller.signal,
         });
         setState({
@@ -259,7 +277,7 @@ export function useVipQueue(
 
     load();
     return () => controller.abort();
-  }, [gameId, page, pageSize]);
+  }, [gameId, page, pageSize, query]);
 
   return state;
 }
