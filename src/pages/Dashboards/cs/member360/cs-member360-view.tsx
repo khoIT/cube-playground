@@ -19,6 +19,7 @@ import { useVipCaseHistory } from '../use-care-cases';
 import { CsCareHistoryTimeline } from './cs-care-history-timeline';
 import { CsRecommendedActionRail } from './cs-recommended-action-rail';
 import { CsReferencePanels } from './cs-reference-panels';
+import { CsConsoleNav } from '../cs-console-nav';
 import {
   SAMPLE_CARE_TIMELINE,
   SAMPLE_RECOMMENDED_ACTION,
@@ -80,6 +81,8 @@ export function CsMember360View({
 
   return (
     <>
+      <CsConsoleNav current="member" gameId={gameId} />
+
       {back}
       <div
         style={{
