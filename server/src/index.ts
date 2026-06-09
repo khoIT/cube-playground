@@ -46,6 +46,7 @@ import adminLlmAuthRoutes from './routes/admin-llm-auth.js';
 import adminChatAuditRoutes from './routes/admin-chat-audit.js';
 import carePlaybooksRoutes from './routes/care-playbooks.js';
 import carePlaybooksAuthoringRoutes from './routes/care-playbooks-authoring.js';
+import carePlaybookPreviewRoutes from './routes/care-playbook-preview.js';
 import careCasesRoutes from './routes/care-cases.js';
 import careGovernanceRoutes from './routes/care-governance.js';
 import { getDb } from './db/sqlite.js';
@@ -120,6 +121,7 @@ export async function buildApp() {
   await app.register(adminChatAuditRoutes);
   await app.register(carePlaybooksRoutes);
   await app.register(carePlaybooksAuthoringRoutes);
+  await app.register(carePlaybookPreviewRoutes);
   await app.register(careCasesRoutes);
   await app.register(careGovernanceRoutes);
 

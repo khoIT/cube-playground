@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en" data-theme="default">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CS · VIP Care — Variant B · Segment Card Deck</title>
+<style>
+:root {
+  --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-150:#ededed; --neutral-200:#e5e5e5;
+  --neutral-300:#d4d4d4; --neutral-400:#a3a3a3; --neutral-500:#737373; --neutral-600:#525252;
+  --neutral-700:#404040; --neutral-800:#262626; --neutral-900:#171717; --neutral-950:#0a0a0a;
+  --orange-50:#fff7ed; --orange-600:#f05a22; --orange-700:#f54a00;
+  --brand:var(--orange-600); --brand-hover:var(--orange-700); --brand-soft:var(--orange-50);
+  --bg-app:var(--neutral-50); --bg-card:#ffffff; --bg-muted:var(--neutral-100);
+  --border-card:var(--neutral-200); --border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700);
+  --text-muted:var(--neutral-500); --text-on-brand:#ffffff;
+  --success:#059669; --warning:#f59e0b; --danger:#ef4444; --info:#3f8dff;
+  --success-soft:#d1fae5; --success-ink:#047857;
+  --warning-soft:#fef3c7; --warning-ink:#92400e;
+  --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+  --info-soft:#dbeafe; --info-ink:#1d4ed8;
+  --muted-soft:#f5f5f5; --muted-ink:#525252;
+  --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-2xl:16px; --radius-full:9999px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg:0 12px 32px rgba(0,0,0,0.12),0 4px 8px rgba(0,0,0,0.06);
+  --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --positive:#15803d; --negative:#b91c1c;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; font-family:var(--font-sans); color:var(--text-primary); background:var(--bg-app); }
+body { padding:24px 32px; }
+.page { max-width:1320px; margin:0 auto; }
+
+/* Nav */
+.nav { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+.step { display:inline-flex; align-items:center; gap:8px; padding:5px 6px; border-radius:var(--radius-full); white-space:nowrap; }
+.step.active { background:var(--text-primary); padding:5px 13px 5px 7px; }
+.step .num { width:18px; height:18px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.step.active .num { background:var(--brand); color:var(--text-on-brand); }
+.step.todo .num { background:transparent; color:var(--text-muted); border:1.5px solid var(--border-strong); }
+.step .lbl { font-size:12.5px; font-weight:600; }
+.step.active .lbl { color:var(--bg-card); font-weight:700; }
+.step.todo .lbl { color:var(--text-muted); opacity:.65; }
+.chev { color:var(--text-muted); }
+
+/* Header */
+.eyebrow { font-size:10.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--text-muted); font-weight:600; margin-bottom:5px; }
+.headrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.title { display:flex; align-items:center; gap:11px; }
+.title h1 { margin:0; font-size:20px; font-weight:700; letter-spacing:-0.02em; }
+.headactions { display:flex; align-items:center; gap:10px; }
+.btn-primary { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; background:var(--brand); color:#fff; border:none; border-radius:var(--radius-md); font-size:12.5px; font-weight:600; cursor:pointer; font-family:var(--font-sans); }
+.btn-primary:hover { background:var(--brand-hover); }
+.gamebadge { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--text-secondary); background:var(--bg-muted); padding:5px 11px; border-radius:var(--radius-full); }
+.gamebadge .dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+.subhead { margin:2px 0 20px; font-size:12.5px; color:var(--text-muted); }
+
+/* Portfolio strip */
+.strip { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:22px; }
+.stat { background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-xl); padding:14px 16px; box-shadow:var(--shadow-sm); }
+.stat .l { font-size:11px; color:var(--text-muted); font-weight:500; margin-bottom:7px; }
+.stat .v { font-size:23px; font-weight:700; letter-spacing:-0.02em; line-height:1; font-variant-numeric:tabular-nums; }
+.stat .v small { font-size:12px; font-weight:600; color:var(--text-muted); margin-left:4px; }
+.stat .s { font-size:11px; color:var(--text-muted); margin-top:5px; }
+.v.good { color:var(--success-ink); } .v.warn { color:var(--warning-ink); } .v.bad { color:var(--destructive-ink); }
+
+.snapbar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-md); padding:8px 14px; margin-bottom:16px; font-size:12px; }
+.snapbar .left { display:flex; align-items:center; gap:8px; color:var(--text-secondary); }
+.snapbar .asof { color:var(--text-muted); }
+.snapbar .asof b { color:var(--text-secondary); font-weight:600; }
+.btn-ghost { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; background:var(--bg-card); border:1px solid var(--border-card); color:var(--text-secondary); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font-sans); }
+.btn-ghost:hover { background:var(--bg-muted); }
+
+/* Group section */
+.gsection { margin-bottom:24px; }
+.ghead { display:flex; align-items:center; gap:10px; margin-bottom:12px; padding:0 2px; }
+.ghead .gname { font-weight:700; font-size:15px; }
+.ghead .gdesc { font-size:11.5px; color:var(--text-muted); }
+.ghead .gmeta { margin-left:auto; font-size:11px; color:var(--text-muted); display:flex; gap:12px; }
+
+/* Card grid */
+.deck { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px; }
+
+.card { position:relative; background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-xl); box-shadow:var(--shadow-sm); padding:14px 14px 12px; display:flex; flex-direction:column; gap:11px; transition:box-shadow .14s, transform .14s; }
+.card:hover { box-shadow:var(--shadow-md); transform:translateY(-1px); }
+.card .top { display:flex; align-items:flex-start; gap:8px; }
+.card .pid { font-size:11px; color:var(--text-muted); font-weight:600; font-variant-numeric:tabular-nums; }
+.card .pn { font-size:14px; font-weight:600; color:var(--text-primary); line-height:1.25; }
+.card .badges { display:flex; gap:5px; margin-left:auto; flex-shrink:0; }
+
+.badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; padding:3px 8px; border-radius:var(--radius-full); white-space:nowrap; }
+.b-cao { background:var(--destructive-soft); color:var(--destructive-ink); }
+.b-tb { background:var(--info-soft); color:var(--info-ink); }
+.b-thap { background:var(--muted-soft); color:var(--muted-ink); }
+.b-av { background:var(--success-soft); color:var(--success-ink); }
+.b-pa { background:var(--warning-soft); color:var(--warning-ink); }
+.b-un { background:var(--muted-soft); color:var(--muted-ink); }
+
+/* live count metric block */
+.metric { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; }
+.metric .mleft { display:flex; flex-direction:column; gap:2px; }
+.metric .mlabel { font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:600; }
+.metric .mnum { font-size:28px; font-weight:700; letter-spacing:-0.025em; line-height:1; font-variant-numeric:tabular-nums; color:var(--text-primary); }
+.metric .mnum.zero { color:var(--text-muted); }
+.metric .masof { font-size:10px; color:var(--text-muted); margin-top:3px; }
+.countbtn { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border:1px solid var(--border-card); background:var(--bg-card); border-radius:var(--radius-md); color:var(--text-secondary); font-size:11px; font-weight:600; cursor:pointer; font-family:var(--font-sans); white-space:nowrap; }
+.countbtn:hover { background:var(--brand-soft); color:var(--brand); border-color:var(--brand); }
+
+/* counting state */
+.counting-block { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--brand); }
+.spinner { width:16px; height:16px; border:2.5px solid var(--orange-50); border-top-color:var(--brand); border-radius:50%; animation:spin .7s linear infinite; }
+.spinner.sm { width:13px; height:13px; border-width:2px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* condition + secondary stats */
+.cond { font-size:11.5px; color:var(--text-secondary); background:var(--bg-muted); border-radius:var(--radius-sm); padding:6px 10px; display:flex; align-items:center; gap:7px; }
+.cond svg { color:var(--text-muted); flex-shrink:0; }
+.cond b { color:var(--text-primary); font-weight:600; }
+
+.substats { display:flex; gap:16px; font-size:11px; }
+.substats .ss { display:flex; flex-direction:column; gap:1px; }
+.substats .ss .k { color:var(--text-muted); font-weight:500; }
+.substats .ss .vv { font-weight:700; font-variant-numeric:tabular-nums; font-size:13px; }
+.substats .ss .vv.bad { color:var(--destructive-ink); }
+.substats .ss .vv.muted { color:var(--text-muted); }
+.substats .chips { margin-left:auto; display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+.chips .ch { font-size:10px; background:var(--bg-muted); color:var(--text-secondary); border-radius:var(--radius-full); padding:2px 7px; font-weight:500; }
+
+/* footer actions — appear on hover (always visible here for mockup) */
+.foot { display:flex; gap:6px; border-top:1px solid var(--border-card); margin:0 -14px -12px; padding:10px 14px; opacity:0; transition:opacity .14s; }
+.card:hover .foot { opacity:1; }
+.act { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:6px 10px; border-radius:var(--radius-sm); font-size:11.5px; font-weight:600; cursor:pointer; font-family:var(--font-sans); border:1px solid var(--border-card); background:var(--bg-card); color:var(--text-secondary); }
+.act:hover { background:var(--bg-muted); }
+.act.sweep { border-color:var(--warning-soft); color:var(--warning-ink); }
+.act.sweep:hover { background:var(--warning-soft); }
+.foot-hint { font-size:10.5px; color:var(--text-muted); padding:10px 14px 12px; margin:0 -14px -12px; }
+
+/* unavailable card */
+.card.unavail { background:repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 10px, var(--neutral-50) 10px, var(--neutral-50) 20px); border-style:dashed; border-color:var(--border-strong); opacity:.75; }
+.card.unavail:hover { box-shadow:var(--shadow-sm); transform:none; }
+.card.unavail .pn, .card.unavail .pid { color:var(--text-muted); }
+.card.unavail .mnum { color:var(--text-muted); }
+.card.unavail .cond { text-decoration:line-through; color:var(--text-muted); }
+.dash { color:var(--text-muted); letter-spacing:.05em; }
+
+.annot { margin-top:8px; padding:14px 16px; background:var(--info-soft); border:1px solid var(--border-card); border-radius:var(--radius-md); font-size:11.5px; color:var(--info-ink); line-height:1.55; }
+.annot b { font-weight:700; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <nav class="nav">
+    <span class="step active"><span class="num">1</span><span class="lbl">CS Monitor</span></span>
+    <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+    <span class="step todo"><span class="num">2</span><span class="lbl">Case Ledger / Queue</span></span>
+    <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+    <span class="step todo"><span class="num">3</span><span class="lbl">Member-360 Care</span></span>
+  </nav>
+
+  <div class="eyebrow">Dashboards</div>
+  <div class="headrow">
+    <div class="title">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66"/><path d="m18 15-2-2"/><path d="m15 18-2-2"/></svg>
+      <h1>CS · VIP Care</h1>
+    </div>
+    <div class="headactions">
+      <button class="btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>New playbook</button>
+      <span class="gamebadge"><span class="dot"></span>cfm_vn</span>
+    </div>
+  </div>
+  <p class="subhead">VIP player care program monitor. 18 live · 1 partial · 2 blocked</p>
+
+  <div class="strip">
+    <div class="stat"><div class="l">Playbooks live</div><div class="v">19<small>/ 21</small></div><div class="s">available + partial</div></div>
+    <div class="stat"><div class="l">VIPs triggered</div><div class="v warn">3,482</div><div class="s">match across live segments</div></div>
+    <div class="stat"><div class="l">Open cases</div><div class="v warn">214</div><div class="s">new + in review</div></div>
+    <div class="stat"><div class="l">KPI attainment</div><div class="v good">81%</div><div class="s">treated / total closed</div></div>
+    <div class="stat"><div class="l">SLA breaches</div><div class="v bad">12</div><div class="s">open cases past SLA</div></div>
+  </div>
+
+  <div class="snapbar">
+    <div class="left">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      <span>Match counts from latest sweep snapshot</span>
+      <span class="asof">· as of <b>09:42 today</b> (GMT+7)</span>
+    </div>
+    <button class="btn-ghost">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+      Refresh all counts
+    </button>
+  </div>
+
+  <!-- NHÓM 1 -->
+  <div class="gsection">
+    <div class="ghead">
+      <span class="gname">NHÓM 1 · Payment</span>
+      <span class="gdesc">Payment behavior</span>
+      <span class="gmeta"><span>5 live</span><span>5 total</span></span>
+    </div>
+    <div class="deck">
+
+      <!-- standard card -->
+      <div class="card">
+        <div class="top">
+          <span><span class="pid">#1 · </span><span class="pn">High-LTV whale watch</span></span>
+          <span class="badges"><span class="badge b-cao">Cao</span><span class="badge b-av">Live</span></span>
+        </div>
+        <div class="metric">
+          <div class="mleft">
+            <span class="mlabel">VIPs matching now</span>
+            <span class="mnum">1,240</span>
+            <span class="masof">snapshot · 09:42</span>
+          </div>
+          <button class="countbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count now</button>
+        </div>
+        <div class="cond"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span><b>LTV ≥ ₫50M</b> lifetime</span></div>
+        <div class="substats">
+          <div class="ss"><span class="k">Open</span><span class="vv">42</span></div>
+          <div class="ss"><span class="k">SLA breach</span><span class="vv bad">3</span></div>
+          <div class="chips"><span class="ch">zalo</span><span class="ch">call</span></div>
+        </div>
+        <div class="foot">
+          <button class="act"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>Edit</button>
+          <button class="act sweep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg>Sweep</button>
+        </div>
+      </div>
+
+      <!-- COUNTING / LOADING card -->
+      <div class="card">
+        <div class="top">
+          <span><span class="pid">#3 · </span><span class="pn">First-purchase nurture</span></span>
+          <span class="badges"><span class="badge b-tb">TB</span><span class="badge b-av">Live</span></span>
+        </div>
+        <div class="metric">
+          <div class="mleft">
+            <span class="mlabel">VIPs matching now</span>
+            <span class="counting-block"><span class="spinner"></span>Counting…</span>
+            <span class="masof">fresh live query · 3.5–15s</span>
+          </div>
+          <button class="countbtn" disabled style="opacity:.5;cursor:wait"><span class="spinner sm"></span>Running</button>
+        </div>
+        <div class="cond"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>first top-up <b>≤ 48h ago</b></span></div>
+        <div class="substats">
+          <div class="ss"><span class="k">Open</span><span class="vv">11</span></div>
+          <div class="ss"><span class="k">SLA breach</span><span class="vv muted">0</span></div>
+          <div class="chips"><span class="ch">zalo</span></div>
+        </div>
+        <div class="foot">
+          <button class="act"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>Edit</button>
+          <button class="act sweep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg>Sweep</button>
+        </div>
+      </div>
+
+      <!-- zero-match card -->
+      <div class="card">
+        <div class="top">
+          <span><span class="pid">#5 · </span><span class="pn">Lapsed whale win-back</span></span>
+          <span class="badges"><span class="badge b-thap">Thấp</span><span class="badge b-av">Live</span></span>
+        </div>
+        <div class="metric">
+          <div class="mleft">
+            <span class="mlabel">VIPs matching now</span>
+            <span class="mnum zero">0</span>
+            <span class="masof">snapshot · 09:42</span>
+          </div>
+          <button class="countbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count now</button>
+        </div>
+        <div class="cond"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>LTV ≥ ₫50M · <b>no spend 30d</b></span></div>
+        <div class="substats">
+          <div class="ss"><span class="k">Open</span><span class="vv muted">0</span></div>
+          <div class="ss"><span class="k">SLA breach</span><span class="vv muted">0</span></div>
+          <div class="chips"><span class="ch">email</span></div>
+        </div>
+        <div class="foot">
+          <button class="act"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>Edit</button>
+          <button class="act sweep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg>Sweep</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- NHÓM 2 -->
+  <div class="gsection">
+    <div class="ghead">
+      <span class="gname">NHÓM 2 · In-game</span>
+      <span class="gdesc">In-game behavior</span>
+      <span class="gmeta"><span>4 live</span><span>1 blocked</span><span>5 total</span></span>
+    </div>
+    <div class="deck">
+
+      <div class="card">
+        <div class="top">
+          <span><span class="pid">#7 · </span><span class="pn">High-engagement spender</span></span>
+          <span class="badges"><span class="badge b-thap">Thấp</span><span class="badge b-av">Live</span></span>
+        </div>
+        <div class="metric">
+          <div class="mleft">
+            <span class="mlabel">VIPs matching now</span>
+            <span class="mnum">2,104</span>
+            <span class="masof">snapshot · 09:42</span>
+          </div>
+          <button class="countbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count now</button>
+        </div>
+        <div class="cond"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>playtime <b>≥ 4h/day</b> · 7d</span></div>
+        <div class="substats">
+          <div class="ss"><span class="k">Open</span><span class="vv">18</span></div>
+          <div class="ss"><span class="k">SLA breach</span><span class="vv muted">0</span></div>
+          <div class="chips"><span class="ch">in app</span></div>
+        </div>
+        <div class="foot">
+          <button class="act"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>Edit</button>
+          <button class="act sweep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg>Sweep</button>
+        </div>
+      </div>
+
+      <!-- partial card -->
+      <div class="card">
+        <div class="top">
+          <span><span class="pid">#8 · </span><span class="pn">Tilt / loss-streak care</span></span>
+          <span class="badges"><span class="badge b-tb">TB</span><span class="badge b-pa">Partial</span></span>
+        </div>
+        <div class="metric">
+          <div class="mleft">
+            <span class="mlabel">VIPs matching now</span>
+            <span class="mnum">512</span>
+            <span class="masof">estimate · partial data</span>
+          </div>
+          <button class="countbtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count now</button>
+        </div>
+        <div class="cond"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span><b>5+ losses</b> in a row</span></div>
+        <div class="substats">
+          <div class="ss"><span class="k">Open</span><span class="vv">7</span></div>
+          <div class="ss"><span class="k">SLA breach</span><span class="vv muted">0</span></div>
+          <div class="chips"><span class="ch">zalo</span></div>
+        </div>
+        <div class="foot">
+          <button class="act"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>Edit</button>
+          <button class="act sweep"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg>Sweep</button>
+        </div>
+      </div>
+
+      <!-- UNAVAILABLE card -->
+      <div class="card unavail">
+        <div class="top">
+          <span><span class="pid">#9 · </span><span class="pn">Clan-leader retention</span></span>
+          <span class="badges"><span class="badge b-un">Blocked</span></span>
+        </div>
+        <div class="metric">
+          <div class="mleft">
+            <span class="mlabel">VIPs matching now</span>
+            <span class="mnum"><span class="dash">– –</span></span>
+            <span class="masof">no data for cfm_vn</span>
+          </div>
+        </div>
+        <div class="cond"><span>clan rank ≤ 3 · active 14d</span></div>
+        <div class="foot-hint">Requires <b>clan_membership</b> — unmodeled for this game.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="annot">
+    <b>Variant B — Segment Card Deck.</b> Each segment becomes a card in a responsive <code style="font-family:var(--font-sans)">auto-fill minmax(290px,1fr)</code> grid inside its NHÓM (groups become section headers, not collapsibles). The <b>live match count is the hero metric</b> (28px tabular), with the snapshot "as of" beneath it and a <b>Count now</b> button beside it (#3 shows the counting/spinner state and a disabled "Running" button). Condition lives in a muted strip; Open / SLA-breach + channel chips form a sub-stat row. <b>Edit / Sweep</b> live in a footer that fades in on hover. Blocked cards use a dashed hatched fill, dashed count, and a reason hint — no actions. Most visual, scannable by count, best for triage.
+  </div>
+
+</div>
+</body>
+</html>

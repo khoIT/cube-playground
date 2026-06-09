@@ -32,3 +32,27 @@ export function mutationTargetFor(pb: {
   // it does, fall back to creating a net-new row rather than mis-PATCHing.
   return { kind: 'createNew' };
 }
+
+/**
+ * The merged DISPLAY id a per-segment sweep must target after a save — NOT the
+ * created DB row id. A sweep filters playbooks by their resolved display id:
+ *   - patch (override/custom row): the source playbook's display id (a seed's id
+ *     for an override; the row id for a custom playbook).
+ *   - createFromSeed: the seed id — an override resolves under its seed's id.
+ *   - net-new with a base_id (editing/cloning a seed via URL): that seed id.
+ *   - net-new with no base_id: the freshly created row id.
+ */
+export function resolveSweepTargetId(input: {
+  mutation: PlaybookMutationTarget | null; // null when creating (clone / new)
+  sourceDisplayId?: string;
+  isClone: boolean;
+  baseIdFromUrl: string | null;
+  createdRowId?: string;
+}): string {
+  const { mutation } = input;
+  if (mutation?.kind === 'patch') return input.sourceDisplayId ?? input.createdRowId ?? '';
+  if (mutation?.kind === 'createFromSeed') return mutation.baseId;
+  // Creating: a clone is always net-new; a "new" form may carry a seed base_id.
+  if (input.isClone) return input.createdRowId ?? '';
+  return input.baseIdFromUrl ?? input.createdRowId ?? '';
+}
