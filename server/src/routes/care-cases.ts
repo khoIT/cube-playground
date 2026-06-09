@@ -23,7 +23,7 @@ import { groupCasesByVip } from '../care/care-case-engine.js';
 import { playbookMetaMap, priorityRank } from '../care/playbook-merge.js';
 import { resolveGameScope } from '../care/game-scope.js';
 import { getVipProfiles } from '../care/care-vip-profile-store.js';
-import { executeSweep, SweepBusyError } from '../care/care-sweep-execute.js';
+import { executeSweep, SweepBusyError, getSweepInFlight } from '../care/care-sweep-execute.js';
 import {
   listSweepRuns,
   getSweepRun,
@@ -231,6 +231,19 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
         error: { code: 'SWEEP_FAILED', message: err instanceof Error ? err.message : 'sweep failed' },
       });
     }
+  });
+
+  // Live status of an in-flight sweep for `game` — lets the queue page reconnect
+  // to a running sweep after navigating away (the "Sweeping…" UI is otherwise
+  // component-local and lost on unmount). In-process / single-instance: reads the
+  // same mutex the POST sweep + auto-sweep cron hold. Read-only, viewer-ok.
+  app.get('/api/care/cases/sweep/status', async (req, reply) => {
+    const game = requireGame(req.workspace, req.query);
+    if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
+    const active = getSweepInFlight(req.workspace.id, game);
+    return active
+      ? { inFlight: true, game, source: active.source, startedAt: active.startedAt }
+      : { inFlight: false, game, source: null, startedAt: null };
   });
 
   app.patch('/api/care/cases/:id', async (req, reply) => {

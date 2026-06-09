@@ -95,6 +95,15 @@ describe('care-case ledger routes', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('sweep status validates game and reports idle when nothing is running', async () => {
+    const bad = await app.inject({ method: 'GET', url: '/api/care/cases/sweep/status?game=not_a_game' });
+    expect(bad.statusCode).toBe(400);
+
+    const idle = await app.inject({ method: 'GET', url: '/api/care/cases/sweep/status?game=jus_vn' });
+    expect(idle.statusCode).toBe(200);
+    expect(idle.json()).toEqual({ inFlight: false, game: 'jus_vn', source: null, startedAt: null });
+  });
+
   it('by-vip and list attach the persisted VIP profile (no live Cube)', async () => {
     openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
     upsertVipProfiles('jus_vn', 'local', [

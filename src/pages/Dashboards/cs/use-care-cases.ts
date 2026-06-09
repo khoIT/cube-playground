@@ -369,3 +369,76 @@ export async function runCareSweep(game: string): Promise<SweepResult> {
     method: 'POST',
   });
 }
+
+// ── Live sweep status (reconnect to an in-flight sweep) ──────────────────────
+
+export interface SweepStatus {
+  inFlight: boolean;
+  game: string;
+  /** Who launched the running sweep — 'manual' (a Run sweep click) or 'cron'. */
+  source: 'manual' | 'cron' | null;
+  /** ISO start time of the running sweep; null when idle. Anchors elapsed time. */
+  startedAt: string | null;
+}
+
+export async function fetchSweepStatus(game: string, signal?: AbortSignal): Promise<SweepStatus> {
+  return apiFetch<SweepStatus>(`/api/care/cases/sweep/status?game=${encodeURIComponent(game)}`, { signal });
+}
+
+const SWEEP_POLL_ACTIVE_MS = 2000; // fast cadence while a sweep is running
+const SWEEP_POLL_IDLE_MS = 15000; // slow heartbeat so a sweep started elsewhere still surfaces
+
+/**
+ * Polls sweep status so the queue can reconnect to a sweep already running — one
+ * started here then navigated away from (the "Sweeping…" button state is
+ * component-local and lost on unmount), by the auto-sweep cron, or by another tab.
+ * Polls fast while in flight, slow when idle. Calls `onSettled` once on each
+ * in-flight → idle transition so the caller can refresh the ledger.
+ * Single-instance / in-process on the server side.
+ */
+export function useSweepStatus(
+  game: string,
+  onSettled?: () => void,
+): { inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null } {
+  const [status, setStatus] = useState<{ inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null }>({
+    inFlight: false,
+    source: null,
+    startedAt: null,
+  });
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  const wasInFlight = useRef(false);
+
+  useEffect(() => {
+    if (!game) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | null = null;
+
+    const tick = async () => {
+      controller = new AbortController();
+      try {
+        const s = await fetchSweepStatus(game, controller.signal);
+        if (cancelled) return;
+        setStatus({ inFlight: s.inFlight, source: s.source, startedAt: s.startedAt });
+        if (wasInFlight.current && !s.inFlight) onSettledRef.current?.();
+        wasInFlight.current = s.inFlight;
+        timer = setTimeout(tick, s.inFlight ? SWEEP_POLL_ACTIVE_MS : SWEEP_POLL_IDLE_MS);
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+        // Transient error — keep the heartbeat alive on the idle cadence.
+        timer = setTimeout(tick, SWEEP_POLL_IDLE_MS);
+      }
+    };
+    tick();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      controller?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game]);
+
+  return status;
+}
