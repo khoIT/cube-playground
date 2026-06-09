@@ -18,7 +18,7 @@
 |---|-------|---------|--------|
 | 01 | [Data as-of anchor + daily sweep cadence](phase-01-data-anchor-and-daily-sweep.md) | foundation (all etl) | ✅ anchor mechanism done (cadence kept at 6h — already periodic) |
 | 02 | [Registry member-name + window fixes](phase-02-registry-member-and-window-fixes.md) | 18; preps 03/04/15 | ✅ member fixes (03/04/15→log_date) + anniversary (18) offset-day OR-set, done + tested |
-| 03 | [Rolling spend/session marts](phase-03-rolling-spend-session-marts.md) | 03, 04, 15 | ◑ marts built in `cube-dev/.../cfm/` + validated live; 03 spike well-sized (105). 04 drop / 15 session degenerate at default thresholds → need Phase-06 calibration + predicate redefinition (exclude ratio=0 churn, require baseline) |
+| 03 | [Rolling spend/session marts](phase-03-rolling-spend-session-marts.md) | 03, 04, 15 | ✅ marts built + validated live + calibrated (88 / 1683 / 1230 VIP cohorts). Committed 888c489. |
 | 04 | [Gameplay + clan daily mart](phase-04-gameplay-clan-daily-mart.md) | 06, 08, 09, 10, 17 | ☐ blocked on identity mapping (playerid→user_id) verify |
 | 05 | [Prop + lottery rollup marts](phase-05-prop-lottery-rollup-marts.md) | 07, 11, 12 | ☐ blocked on rare-prop/SSR signal existence verify |
 | 06 | [Integration, validation, demo verify](phase-06-integration-validation-demo.md) | all | ☐ |
