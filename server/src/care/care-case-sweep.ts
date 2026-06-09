@@ -21,8 +21,8 @@ import { applyMembershipResult, type SweepResult } from './care-case-engine.js';
 import type { CalibrationResult } from './threshold-rule.js';
 import type { GroupNode, PredicateNode } from '../types/predicate-tree.js';
 
-/** Floor for "is a VIP" — only real VIPs enter the program (dolphin starter ₫10M). */
-const VIP_LTV_FLOOR = 10_000_000;
+/** Floor for "is a VIP" — only paying members enter the program (₫1M cumulative). */
+const VIP_LTV_FLOOR = 1_000_000;
 const VIP_LTV_MEMBER = 'mf_users.ltv_total_vnd';
 const COHORT_CAP = 50_000;
 
