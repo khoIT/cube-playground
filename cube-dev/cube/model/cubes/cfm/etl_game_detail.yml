@@ -735,3 +735,35 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.match_detail_batch
+
+      # dteventtime-keyed twin of match_detail_batch. Queries bound time on the
+      # dteventtime event timestamp; a log_date-only rollup never matched them,
+      # so they fell through to a full source scan. This lets them hit CubeStore.
+      - name: match_detail_ts_batch
+        type: rollup
+        measures:
+          - matches
+          - distinct_players
+          - dropped_matches
+          - total_ai_robot_count
+          - total_duration_sec
+        dimensions:
+          - game_mode_label
+          - map_label
+          - is_newbie
+        time_dimension: dteventtime
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        build_range_end:
+          sql: "SELECT LEAST(MAX(dteventtime), current_timestamp) FROM etl_ingame_game_detail"
+
+      - name: match_detail_ts
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.match_detail_ts_batch

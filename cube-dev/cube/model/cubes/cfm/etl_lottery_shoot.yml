@@ -201,3 +201,33 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.lottery_pulls_batch
+
+      # dteventtime-keyed twin of lottery_pulls_batch — see etl_login for rationale
+      # (dteventtime-bound queries can't match a log_date rollup).
+      - name: lottery_pulls_ts_batch
+        type: rollup
+        measures:
+          - pulls
+          - distinct_players
+          - total_cost_diamond
+          - total_cost_gold
+          - ten_pull_count
+        dimensions:
+          - lottery_id
+          - lottery_box
+        time_dimension: dteventtime
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        build_range_end:
+          sql: "SELECT LEAST(MAX(dteventtime), current_timestamp) FROM etl_ingame_lotteryshoot"
+
+      - name: lottery_pulls_ts
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.lottery_pulls_ts_batch

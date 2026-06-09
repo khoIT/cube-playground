@@ -549,3 +549,36 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.money_flow_summary_batch
+
+      # dteventtime-keyed twin of money_flow_summary_batch — see etl_login for
+      # rationale (dteventtime-bound queries can't match a log_date rollup).
+      - name: money_flow_summary_ts_batch
+        type: rollup
+        measures:
+          - events
+          - in_events
+          - out_events
+          - total_in
+          - total_out
+          - total_delta
+          - distinct_players
+        dimensions:
+          - reason_action_label
+          - money_type
+          - reason_base_label
+        time_dimension: dteventtime
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        build_range_end:
+          sql: "SELECT LEAST(MAX(dteventtime), current_timestamp) FROM etl_ingame_moneyflow"
+
+      - name: money_flow_summary_ts
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.money_flow_summary_ts_batch

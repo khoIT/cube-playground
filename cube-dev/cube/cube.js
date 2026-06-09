@@ -297,15 +297,24 @@ module.exports = {
   // 5. Refresh worker must enumerate every tenant or it only ever refreshes
   //    the first one it sees. We mint synthetic contexts (no JWT, all games
   //    allowed to self) tagged with REFRESH_ROLE so RLS rules can skip them.
-  scheduledRefreshContexts: async () =>
-    SUPPORTED_GAMES.map((game) => ({
+  //    CUBE_REFRESH_GAMES (optional, comma-separated) scopes the sweep to a
+  //    subset of games — used by the manual build trigger to seal one game's
+  //    rollups without re-grinding all tenants. Unset = every supported game.
+  scheduledRefreshContexts: async () => {
+    const only = (process.env.CUBE_REFRESH_GAMES || '')
+      .split(',').map((s) => canonicalGame(s.trim())).filter(Boolean);
+    const games = only.length
+      ? SUPPORTED_GAMES.filter((g) => only.includes(g))
+      : SUPPORTED_GAMES;
+    return games.map((game) => ({
       securityContext: {
         userId:       `refresh:${game}`,
         game,
         allowedGames: [game],
         roles:        [REFRESH_ROLE],
       },
-    })),
+    }));
+  },
 
   // 6. Per-tenant model loader. Each game has its own subdir under
   //    model/cubes/<game>/ and model/views/<game>/. We read both at request

@@ -202,3 +202,34 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.dau_by_country_payer_daily_batch
+
+      # Platform/payer-flag cut: the country×payer_tier rollup above doesn't carry
+      # the dimensions actually queried most (os_platform split, payer-day flag,
+      # country_code), so those DAU questions fell through to source. All three
+      # measures are additive (count_distinct_approx / sum) so they roll up safely.
+      - name: dau_by_platform_daily_batch
+        type: rollup
+        measures:
+          - dau
+          - paying_dau
+          - total_online_time_sec
+        dimensions:
+          - os_platform
+          - is_recharge_day
+          - country_code
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+
+      - name: dau_by_platform_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.dau_by_platform_daily_batch

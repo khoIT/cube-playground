@@ -128,3 +128,31 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.tutorial_funnel_batch
+
+      # dteventtime-keyed twin of tutorial_funnel_batch — see etl_login for
+      # rationale (dteventtime-bound queries can't match a log_date rollup).
+      - name: tutorial_funnel_ts_batch
+        type: rollup
+        measures:
+          - events
+          - started_count
+          - completed_count
+          - distinct_players
+        dimensions:
+          - tutorial_id
+        time_dimension: dteventtime
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        build_range_end:
+          sql: "SELECT LEAST(MAX(dteventtime), current_timestamp) FROM etl_ingame_newbietutorial"
+
+      - name: tutorial_funnel_ts
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.tutorial_funnel_ts_batch

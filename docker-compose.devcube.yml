@@ -113,6 +113,10 @@ services:
       # (interval silently stays 30s). The numeric timer alone both enables
       # worker mode and sets the sweep interval (seconds).
       CUBEJS_SCHEDULED_REFRESH_TIMER: ${CUBEJS_SCHEDULED_REFRESH_TIMER:-300}
+      # Optional: scope the scheduled sweep to a subset of games (comma-separated).
+      # Used by cube-dev/scripts/trigger-preagg-build.sh to seal one game's rollups
+      # without re-grinding all tenants. Empty = every supported game (default).
+      CUBE_REFRESH_GAMES: ${CUBE_REFRESH_GAMES:-}
       # Pre-aggregation partitions are built per query timezone — a query in a
       # timezone the worker didn't build for finds no partitions and hard-fails
       # ("No pre-aggregation partitions were built yet"). The UI sends the

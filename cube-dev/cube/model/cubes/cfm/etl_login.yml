@@ -264,3 +264,38 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.login_activity_batch
+
+      # Same measures/dims as login_activity_batch but keyed on the dteventtime
+      # event timestamp instead of log_date. The UI/agent bound login queries on
+      # dteventtime (the natural event-time field), so a log_date-only rollup
+      # never matched them and they fell through to a full source scan. This
+      # variant lets those dteventtime-bound queries route to CubeStore.
+      - name: login_activity_ts_batch
+        type: rollup
+        measures:
+          - logins
+          - backflow_logins
+          - max_ladder_score
+        dimensions:
+          - hour_of_day_vn
+          - day_of_week_vn
+          - app_channel
+        time_dimension: dteventtime
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        # Cap at current_timestamp so the open partition never seals a future
+        # end (dteventtime carries a tz; an end past 'now' in a tz ahead of UTC
+        # makes CubeStore reject the partition with "second time later than self").
+        build_range_end:
+          sql: "SELECT LEAST(MAX(dteventtime), current_timestamp) FROM etl_ingame_login"
+
+      - name: login_activity_ts
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.login_activity_ts_batch
