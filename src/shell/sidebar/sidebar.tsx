@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, Heart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -214,7 +214,13 @@ export function Sidebar() {
             to="/dashboards"
             collapsed={collapsed}
           >
-            <SidebarItem label={t('nav.csVipCare')} to="/dashboards/cs" indent />
+            <SidebarItem
+              label={t('nav.csVipCare')}
+              to="/dashboards/cs"
+              icon={Heart}
+              iconColor="var(--brand)"
+              indent
+            />
           </SidebarSection>
         )}
 

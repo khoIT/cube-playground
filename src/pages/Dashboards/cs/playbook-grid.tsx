@@ -65,9 +65,9 @@ const BADGE_STYLES: Record<BadgeVariant, React.CSSProperties> = {
 };
 
 const BADGE_LABELS: Partial<Record<BadgeVariant, string>> = {
-  cao:         'Cao',
-  tb:          'TB',
-  thap:        'Thấp',
+  cao:         'High',
+  tb:          'Medium',
+  thap:        'Low',
   available:   'Live',
   partial:     'Partial',
   unavailable: 'Blocked',
@@ -369,7 +369,7 @@ function PlaybookRow({ playbook, agg, gameId, canWrite, asOf }: PlaybookRowProps
     : undefined;
 
   const cellBase: React.CSSProperties = {
-    padding: '10px 16px',
+    padding: '14px 20px',
     borderBottom: '1px solid var(--border-card)',
     fontSize: 12.5,
     verticalAlign: 'middle',
@@ -526,27 +526,6 @@ function PlaybookRow({ playbook, agg, gameId, canWrite, asOf }: PlaybookRowProps
         )}
       </td>
 
-      {/* Action channels */}
-      <td style={{ ...cellBase, ...mutedText }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {playbook.action.channels.map((ch) => (
-            <span
-              key={ch}
-              style={{
-                fontSize: 10.5,
-                background: 'var(--bg-muted)',
-                color: 'var(--text-secondary)',
-                borderRadius: 'var(--radius-full)',
-                padding: '2px 7px',
-                fontWeight: 500,
-              }}
-            >
-              {ch.replace('_', ' ')}
-            </span>
-          ))}
-        </div>
-      </td>
-
       {/* SLA label */}
       <td style={{ ...cellBase, textAlign: 'right', color: 'var(--text-muted)', fontSize: 11, ...mutedText }}>
         {isUnavailable ? (
@@ -604,7 +583,7 @@ export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite, asO
     color: 'var(--text-muted)',
     fontWeight: 600,
     textAlign: 'left',
-    padding: '8px 16px',
+    padding: '10px 20px',
     borderBottom: '1px solid var(--border-card)',
     background: 'var(--bg-card)',
     fontFamily: 'var(--font-sans)',
@@ -641,7 +620,6 @@ export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite, asO
                     <th style={thStyle}>Watched metric</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>Open</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>SLA breach</th>
-                    <th style={thStyle}>Channels</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>SLA</th>
                     {canWrite && <th style={{ ...thStyle, width: 40 }} />}
                   </tr>

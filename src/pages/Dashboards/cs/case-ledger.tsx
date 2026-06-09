@@ -1234,11 +1234,6 @@ export function CaseLedgerPage() {
     <div style={pageStyle}>
       <CsConsoleNav current="queue" gameId={gameId} />
 
-      {/* Eyebrow */}
-      <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 5 }}>
-        Dashboards
-      </div>
-
       {/* Page header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

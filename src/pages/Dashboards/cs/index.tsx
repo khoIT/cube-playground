@@ -66,20 +66,6 @@ export function CsMonitorPage() {
     <div style={pageStyle}>
       <CsConsoleNav current="monitor" gameId={gameId} />
 
-      {/* Eyebrow */}
-      <div
-        style={{
-          fontSize: 10.5,
-          textTransform: 'uppercase',
-          letterSpacing: '0.09em',
-          color: 'var(--text-muted)',
-          fontWeight: 600,
-          marginBottom: 5,
-        }}
-      >
-        Dashboards
-      </div>
-
       {/* Page header */}
       <div
         style={{

@@ -150,16 +150,6 @@ export function CsMember360View({
     <>
       <CsConsoleNav current="member" gameId={gameId} />
 
-      {/* Eyebrow — mirrors CS Monitor + Case Ledger page headers. */}
-      <div
-        style={{
-          fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.09em',
-          color: 'var(--text-muted)', fontWeight: 600, marginBottom: 5,
-        }}
-      >
-        Dashboards
-      </div>
-
       {/* Page header — icon + 20px title on the left, game badge on the right. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

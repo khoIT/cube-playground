@@ -12,6 +12,9 @@ import { T, Icon, type LucideIcon } from '../theme';
 
 interface SidebarItemProps {
   icon?: LucideIcon;
+  /** Override the icon color (e.g. a brand-orange accent). Defaults to the
+   *  standard active/inactive nav grey. Applies to both expanded and collapsed. */
+  iconColor?: string;
   label: string;
   /** Route to navigate to. Omit if it's an expand-only header (use onClick instead). */
   to?: string;
@@ -39,7 +42,7 @@ interface SidebarItemProps {
 }
 
 export function SidebarItem({
-  icon, label, to, matchPrefix, expandable, expanded,
+  icon, iconColor, label, to, matchPrefix, expandable, expanded,
   primary, onClick, indent, muted, trailing, trailingShowOnHover, collapsed,
 }: SidebarItemProps) {
   const location = useLocation();
@@ -66,7 +69,7 @@ export function SidebarItem({
 
   if (collapsed && !indent) {
     const inner = (
-      <CollapsedRow icon={icon} label={label} primary={primary} isActive={isActive} />
+      <CollapsedRow icon={icon} iconColor={iconColor} label={label} primary={primary} isActive={isActive} />
     );
     if (!to) {
       return <div ref={scrollRef} onClick={onClick} role="button" tabIndex={0}>{inner}</div>;
@@ -125,7 +128,7 @@ export function SidebarItem({
       {primary
         ? <Icon icon={Plus} size={14} color={T.n800} />
         : icon
-          ? <Icon icon={icon} size={indent ? 12 : 16} color={isActive ? T.n950 : T.n600} />
+          ? <Icon icon={icon} size={indent ? 12 : 16} color={iconColor ?? (isActive ? T.n950 : T.n600)} />
           : <span style={{ width: indent ? 12 : 16 }} />
       }
 
@@ -173,12 +176,13 @@ export function SidebarItem({
 
 interface CollapsedRowProps {
   icon?: LucideIcon;
+  iconColor?: string;
   label: string;
   primary?: boolean;
   isActive: boolean;
 }
 
-function CollapsedRow({ icon, label, primary, isActive }: CollapsedRowProps) {
+function CollapsedRow({ icon, iconColor, label, primary, isActive }: CollapsedRowProps) {
   const [hover, setHover] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const [tipPos, setTipPos] = React.useState<{ top: number; left: number } | null>(null);
@@ -215,7 +219,7 @@ function CollapsedRow({ icon, label, primary, isActive }: CollapsedRowProps) {
       {primary
         ? <Icon icon={Plus} size={16} color={T.n800} />
         : icon
-          ? <Icon icon={icon} size={18} color={isActive ? T.n950 : T.n600} />
+          ? <Icon icon={icon} size={18} color={iconColor ?? (isActive ? T.n950 : T.n600)} />
           : null}
       {hover && tipPos && (
         <div
