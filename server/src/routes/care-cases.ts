@@ -21,6 +21,7 @@ import {
 } from '../care/care-case-store.js';
 import { groupCasesByVip } from '../care/care-case-engine.js';
 import { playbookMetaMap, priorityRank } from '../care/playbook-merge.js';
+import { promoteMultiMatchCases } from '../care/care-case-multi-match-order.js';
 import { resolveGameScope } from '../care/game-scope.js';
 import { getVipProfiles } from '../care/care-vip-profile-store.js';
 import { executeSweep, SweepBusyError, getSweepInFlight } from '../care/care-sweep-execute.js';
@@ -96,18 +97,26 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       playbookId: playbookIds.length ? playbookIds : undefined,
       status: statuses.length ? (statuses as CaseStatus[]) : undefined,
     });
-    // Paginate AFTER the store's ORDER BY opened_at DESC, then enrich only the
-    // page slice — a large game has thousands of cases; enriching all per request
-    // is what made the queue slow. Profiles are a SQLite read, no live Cube.
-    const { page, pageSize, paginate } = parsePaging(req.query);
-    const total = cases.length;
-    const slice = paginate
-      ? cases.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
-      : cases;
-    const profiles = getVipProfiles(game, req.workspace.id, slice.map((c) => c.uid));
-    // Carry the playbook display name + priority on each row so the By-Playbook
-    // lens can render the matched-playbook pill without a second lookup.
     const meta = playbookMetaMap(game);
+    // Multi-playbook promotion must run over the FULL set before paging, or the
+    // overlap VIPs (matching several selected playbooks) stay scattered by
+    // opened_at and never reach the first page. Single selection keeps the
+    // store's recency order.
+    const ordered =
+      playbookIds.length > 1
+        ? promoteMultiMatchCases(cases, (c) => priorityRank(meta[c.playbook_id]?.priority ?? 'tb'))
+        : cases;
+    // Paginate AFTER ordering, then enrich only the page slice — a large game has
+    // thousands of cases; enriching all per request is what made the queue slow.
+    // Profiles are a SQLite read, no live Cube.
+    const { page, pageSize, paginate } = parsePaging(req.query);
+    const total = ordered.length;
+    const slice = paginate
+      ? ordered.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+      : ordered;
+    const profiles = getVipProfiles(game, req.workspace.id, slice.map((c) => c.uid));
+    // `meta` (above) carries the playbook display name + priority onto each row so
+    // the By-Playbook lens renders the matched-playbook pill without a re-lookup.
     return {
       cases: slice.map((c) => ({
         ...c,
