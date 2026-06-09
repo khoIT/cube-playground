@@ -289,16 +289,21 @@ Stateful CS console for the VIP Care Program: a monitor grid (playbook status + 
 All care routes in `PROTECTED_PREFIXES` — editor/admin write-gated, viewers read-only.
 
 - **`GET /api/care/playbooks?game=<id>`** — 21 playbooks (seeded ⊕ overrides merged), per-game availability gated.
-- **`GET /api/care/cases`** — open cases, paginated, sortable by priority/fatigue.
-- **`GET /api/care/cases/by-vip`** — deduplicated case count per VIP.
-- **`GET /api/care/cases/vip/:uid`** — VIP's full case history (timeline).
-- **`PATCH /api/care/cases/:id`** — case status, assignee, notes, contact history.
-- **`GET /api/care/governance`** — org fatigue rules.
+- **`GET /api/care/cases?game=&playbook=&status=&page&pageSize`** — By-Playbook lens. `playbook` and `status` accept comma-delimited lists (multi-select filters) or scalar (back-compat); empty filters = all. Paginated, enriched with `playbook_name`, `playbook_priority`, VIP profile snapshots. Response: `{cases, total, page, pageSize}`.
+- **`GET /api/care/cases/by-vip?game=&q=&page&pageSize`** — By-VIP lens. Deduplicates open cases per VIP, ranked by top-priority playbook then case count. Optional `?q=` substring search (uid OR display name, filtered on full ranked set before pagination). Response: `{vips: [{uid, caseCount, topPriority, playbooks, profile}], total, page, pageSize}`.
+- **`GET /api/care/cases/vip/:uid?game=`** — VIP's full case history (timeline), cross-playbook, enriched with playbook metadata.
+- **`PATCH /api/care/cases/:id`** — case status, assignee, channel_used, action_taken, notes, outcome, kpi_eval_at, condition_lapsed.
+- **`POST /api/care/cases/sweep?game=`** — on-demand sweep. Materializes current VIP cohort for each membership playbook against live Cube, opens/lapses cases. Editor/admin write-gated. Response: `{game, opened, lapsed, profilesRefreshed, summaries}` or 409 SWEEP_BUSY / 502 SWEEP_FAILED.
+- **`GET /api/care/governance?game=`** — org fatigue rules (or defaults).
 - **`PUT /api/care/governance`** — update fatigue rules (max outreach, cooldowns).
-- **`GET /api/care/fatigue`** — fatigue window + per-channel cooldown snapshot.
+- **`GET /api/care/fatigue?game=&uid=&channel&priority`** — fatigue verdict for a proposed outreach.
 - **`POST /api/care/playbooks`** — create custom playbook (threshold rule, supplemental predicate, enabled).
 - **`PATCH /api/care/playbooks/:id`** — edit override (threshold, predicate, enable/disable).
 - **`DELETE /api/care/playbooks/:id`** — delete custom playbook override (seeds immutable).
+- **`GET /api/care/sweeps/runs?game=&limit`** — sweep run snapshots (for trend/diff picker).
+- **`GET /api/care/sweeps/trend?game=&playbook=`** — cohort-size trend per playbook across runs.
+- **`GET /api/care/sweeps/diff?game=&runA=&runB=`** — per-playbook count + membership deltas between runs.
+- **`GET /api/care/sweeps/diff/vips?game=&runA=&runB=&playbook=&direction=&page&pageSize`** — paginated VIP drill (entered/left membership) between two runs, profile-enriched.
 
 ### Migrations
 
@@ -310,10 +315,13 @@ All care routes in `PROTECTED_PREFIXES` — editor/admin write-gated, viewers re
 ### Frontend
 
 - **CS Monitor** — `src/pages/Dashboards/cs/index.tsx`. Grid of 21 playbooks: seed name, status (available/unavailable), active case count, case rate, last trigger. Header: "+ New playbook" CTA, game selector, refresh. Reuses grid + card patterns from Dashboards.
+- **By-Playbook lens** — `src/pages/Dashboards/cs/cases/index.tsx`. Case Ledger with multi-select playbook filter (`src/pages/Dashboards/cs/playbook-filter-bar.tsx`) + de-emphasized status chip row (`status-chip-row.tsx`). URL is source of truth (`?playbook=01,04&status=new,treated`); empty playbook selection = all. "Matched Playbook" pill links to that playbook's queue. Paginated case grid.
+- **By-VIP lens** — `src/pages/Dashboards/cs/by-vip/index.tsx`. Debounced uid/name search (`?q=`) filters the ranked VIP queue. Server-enriched with profile snapshots (SQLite, no live Cube). Click case or VIP → detail drawer.
 - **Action Queue** — `src/pages/Dashboards/cs/queue/index.tsx`. Paginated, sortable case list (VIP name, playbook, status, assignee, fatigue window, contact history). Click case → detail drawer. Assignee pull-pool + affinity support (route to known AM if set).
 - **Playbook Builder** — `src/pages/Dashboards/cs/playbooks/new.tsx` + `/:id/edit.tsx`. Four-section form: playbook name/description, threshold rule (rule-type picker + value input), supplemental predicate (optional AND/OR using Segments builder), enable/disable toggle. Read-only for viewers. Mutation id-routing via `playbook-mutation-target.ts` (seed→POST base_id, override→PATCH override-row-id).
-- **Member-360 Care tab** — `src/pages/Segments/member360/care-tab.tsx`. Opens auto on VIP qualification. Case timeline (dates, playbooks triggered, contact history), governance status (fatigue window, blocked-override flag), action affordances.
-- **API client** — `src/api/care-playbooks-client.ts`. Typed CRUD + case routes.
+- **Sweeps snapshot comparison** — `src/pages/Dashboards/cs/sweeps/index.tsx`. Compare cohort size trends + membership deltas (entered/left) between two sweep runs. Run picker + per-playbook trend chart + drill detail (VIP list with profiles) via `GET /api/care/sweeps/*`.
+- **Member-360 Care tab** — `src/pages/Segments/member360/care-tab.tsx`. Segment-less care branch. Case timeline (dates, playbooks triggered), governance status (fatigue window, blocked-override flag), contact history, action affordances (update status, assign, log contact). Reuses reference panels from Segments 360.
+- **API client** — `src/api/care-playbooks-client.ts`. Typed CRUD + case routes (filters, by-vip search, sweeps).
 
 ### Tests
 
