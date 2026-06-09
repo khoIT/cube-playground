@@ -30,11 +30,25 @@ function openedMs(c: CareCase): number {
   return Number.isFinite(t) ? t : 0;
 }
 
+/** One playbook a VIP matched on the page — drives the column's sibling chips. */
+export interface MatchedPlaybook {
+  id: string;
+  name: string;
+  priority: number | string | undefined;
+}
+
 export interface MultiMatchOrdering {
   /** Cases sorted with multi-match VIPs promoted (or input order when !multi). */
   ordered: CareCase[];
   /** Per-uid count of distinct playbooks matched on this page (drives the badge). */
   matchCountByUid: Map<string, number>;
+  /**
+   * Per-uid list of the distinct playbooks matched on this page, priority-first.
+   * Lets the Matched-Playbook column show *all* of a multi-match VIP's playbooks
+   * (the row's own as primary, the rest as sibling chips) so the promotion that
+   * floated the VIP to the top is legible right in the column.
+   */
+  matchedPlaybooksByUid: Map<string, MatchedPlaybook[]>;
 }
 
 /**
@@ -43,15 +57,30 @@ export interface MultiMatchOrdering {
  * returned so callers can decide whether to show the multi-match badge.
  */
 export function orderByMultiMatch(cases: CareCase[], multi: boolean): MultiMatchOrdering {
-  const matchByUid = new Map<string, Set<string>>();
+  const matchByUid = new Map<string, Map<string, MatchedPlaybook>>();
   for (const c of cases) {
-    if (!matchByUid.has(c.uid)) matchByUid.set(c.uid, new Set());
-    matchByUid.get(c.uid)!.add(c.playbook_id);
+    if (!matchByUid.has(c.uid)) matchByUid.set(c.uid, new Map());
+    const pbs = matchByUid.get(c.uid)!;
+    if (!pbs.has(c.playbook_id)) {
+      pbs.set(c.playbook_id, {
+        id: c.playbook_id,
+        name: c.playbook_name ?? c.playbook_id,
+        priority: c.playbook_priority,
+      });
+    }
   }
   const matchCountByUid = new Map<string, number>();
-  for (const [uid, set] of matchByUid) matchCountByUid.set(uid, set.size);
+  const matchedPlaybooksByUid = new Map<string, MatchedPlaybook[]>();
+  for (const [uid, pbs] of matchByUid) {
+    matchCountByUid.set(uid, pbs.size);
+    // Priority-first so the most-urgent matched playbook leads the chip list.
+    matchedPlaybooksByUid.set(
+      uid,
+      [...pbs.values()].sort((a, b) => PRIO_RANK[prioOf(a.priority)] - PRIO_RANK[prioOf(b.priority)]),
+    );
+  }
 
-  if (!multi) return { ordered: cases, matchCountByUid };
+  if (!multi) return { ordered: cases, matchCountByUid, matchedPlaybooksByUid };
 
   // Per-VIP best priority + latest open → groups stay together and sort by the
   // VIP's most-urgent, most-recent case.
@@ -78,5 +107,5 @@ export function orderByMultiMatch(cases: CareCase[], multi: boolean): MultiMatch
     return openedMs(b) - openedMs(a);
   });
 
-  return { ordered, matchCountByUid };
+  return { ordered, matchCountByUid, matchedPlaybooksByUid };
 }

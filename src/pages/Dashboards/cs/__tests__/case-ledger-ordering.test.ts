@@ -54,6 +54,18 @@ describe('orderByMultiMatch', () => {
     expect(matchCountByUid.get('single')).toBe(1);
   });
 
+  it('lists each VIP\'s distinct matched playbooks priority-first for the column chips', () => {
+    const cases = [
+      mk({ id: 'm1', uid: 'multi', playbook_id: '04', playbook_name: 'PB Four', playbook_priority: 'thap' }),
+      mk({ id: 'm2', uid: 'multi', playbook_id: '01', playbook_name: 'PB One', playbook_priority: 'cao' }),
+      mk({ id: 'm3', uid: 'multi', playbook_id: '01', playbook_name: 'PB One', playbook_priority: 'cao' }), // dup playbook
+    ];
+    const { matchedPlaybooksByUid } = orderByMultiMatch(cases, true);
+    const pbs = matchedPlaybooksByUid.get('multi')!;
+    expect(pbs.map((p) => p.id)).toEqual(['01', '04']); // distinct, priority-first (cao before thap)
+    expect(pbs[0].name).toBe('PB One');
+  });
+
   it('breaks equal-overlap ties by priority then recency', () => {
     const cases = [
       mk({ id: 'low', uid: 'low', playbook_id: '01', playbook_priority: 'thap', opened_at: '2026-06-05T00:00:00.000Z' }),

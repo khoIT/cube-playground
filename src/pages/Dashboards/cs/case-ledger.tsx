@@ -29,7 +29,7 @@ import { ltvLabel } from './case-ledger-format';
 import { SweepsLens } from './sweeps-lens';
 import { PlaybookFilterBar } from './playbook-filter-bar';
 import { StatusChipRow } from './status-chip-row';
-import { orderByMultiMatch } from './case-ledger-ordering';
+import { orderByMultiMatch, type MatchedPlaybook } from './case-ledger-ordering';
 import { CsConsoleNav } from './cs-console-nav';
 import { VipTierBadge } from './vip-tier-badge';
 import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
@@ -118,6 +118,33 @@ function MatchedPlaybookPill({ c, gameId }: { c: CareCase; gameId: string }) {
       }}
     >
       {name}
+    </Link>
+  );
+}
+
+/**
+ * Compact secondary chip for a playbook the same VIP *also* matched among the
+ * selected set (the row's own playbook renders as the primary pill). Muted with
+ * a priority dot so the cross-match reads as context, not the row's subject;
+ * still a link to that playbook's definition.
+ */
+function SiblingPlaybookChip({ pb, gameId }: { pb: MatchedPlaybook; gameId: string }) {
+  return (
+    <Link
+      to={`/dashboards/cs/playbooks/${encodeURIComponent(pb.id)}/edit?game=${encodeURIComponent(gameId)}`}
+      onClick={(e) => e.stopPropagation()}
+      title={`Also matches: ${pb.name} — open its definition`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        fontSize: 10.5, fontWeight: 600, padding: '2px 8px',
+        borderRadius: 'var(--radius-full)', whiteSpace: 'nowrap',
+        background: 'var(--muted-soft)', color: 'var(--muted-ink)',
+        textDecoration: 'none', fontFamily: 'var(--font-sans)',
+        maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis',
+      }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: PRIO[prioOf(pb.priority ?? 'tb')].dot, flexShrink: 0 }} />
+      {pb.name}
     </Link>
   );
 }
@@ -223,9 +250,11 @@ interface PlaybookRowProps {
   segId?: string;
   /** How many of the selected playbooks this VIP matches (>1 → multi-match badge). */
   matchCount?: number;
+  /** Other selected playbooks this VIP also matches (excludes the row's own). */
+  siblings?: MatchedPlaybook[];
 }
 
-function PlaybookCaseRow({ c, gameId, segId, matchCount = 1 }: PlaybookRowProps) {
+function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [] }: PlaybookRowProps) {
   const profile = c.profile;
   const history = useHistory();
   // Member-360 links to the segment-member view when a segment id is known;
@@ -247,8 +276,17 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1 }: PlaybookRowProps)
         {matchCount > 1 && <MultiMatchBadge count={matchCount} />}
         {c.condition_lapsed === 1 && <LapsedBadge />}
       </td>
-      {/* Matched Playbook (pill → that playbook's queue; snapshot in tooltip) */}
-      <td style={cellBase}><MatchedPlaybookPill c={c} gameId={gameId} /></td>
+      {/* Matched Playbook: the row's own playbook (primary pill) plus compact
+          chips for the other selected playbooks this VIP also matches, so the
+          multi-match that floated the VIP to the top is legible in the column. */}
+      <td style={cellBase}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
+          <MatchedPlaybookPill c={c} gameId={gameId} />
+          {siblings.map((pb) => (
+            <SiblingPlaybookChip key={pb.id} pb={pb} gameId={gameId} />
+          ))}
+        </div>
+      </td>
       {/* LTV + VIP tier */}
       <td style={{ ...cellBase, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
         {profile?.ltvVnd != null ? (
@@ -329,7 +367,10 @@ function ByPlaybookView({
   // matching several of them to the top (highest-value triage), tie-broken by
   // priority then recency. Page-scoped, in lock-step with the on-page counts.
   const multi = playbookIds.length > 1;
-  const { ordered, matchCountByUid } = useMemo(() => orderByMultiMatch(shown, multi), [shown, multi]);
+  const { ordered, matchCountByUid, matchedPlaybooksByUid } = useMemo(
+    () => orderByMultiMatch(shown, multi),
+    [shown, multi],
+  );
 
   return (
     <div>
@@ -370,6 +411,11 @@ function ByPlaybookView({
                   c={c}
                   gameId={gameId}
                   matchCount={multi ? (matchCountByUid.get(c.uid) ?? 1) : 1}
+                  siblings={
+                    multi
+                      ? (matchedPlaybooksByUid.get(c.uid) ?? []).filter((pb) => pb.id !== c.playbook_id)
+                      : []
+                  }
                 />
               ))}
             </tbody>
