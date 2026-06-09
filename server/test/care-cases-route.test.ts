@@ -150,6 +150,57 @@ describe('care-case ledger routes', () => {
     expect(b.total).toBe(60);
   });
 
+  it('list rows carry the matched playbook name + priority (for the pill)', async () => {
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn' });
+    const c = res.json().cases[0];
+    expect(c.playbook_name).toBe('VIP tier reached');
+    expect(c.playbook_priority).toBeTruthy();
+  });
+
+  it('filters cases by a comma-list of playbooks', async () => {
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'a', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '14', uid: 'b', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '18', uid: 'c', source: 'membership' });
+
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn&playbook=02,14' });
+    const ids = res.json().cases.map((c: { playbook_id: string }) => c.playbook_id).sort();
+    expect(ids).toEqual(['02', '14']);
+  });
+
+  it('filters cases by a comma-list of statuses; rejects a bad token', async () => {
+    const { case: t } = openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'a', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '14', uid: 'b', source: 'membership' }); // stays 'new'
+    await app.inject({ method: 'PATCH', url: `/api/care/cases/${t.id}`, payload: { status: 'treated' } });
+
+    const ok = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn&status=new,treated' });
+    expect(ok.json().cases).toHaveLength(2);
+
+    const onlyTreated = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn&status=treated' });
+    expect(onlyTreated.json().cases).toHaveLength(1);
+    expect(onlyTreated.json().cases[0].status).toBe('treated');
+
+    const bad = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn&status=new,bogus' });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  it('by-vip q= searches uid AND display name', async () => {
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'uid_alpha', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'uid_beta', source: 'membership' });
+    upsertVipProfiles('jus_vn', 'local', [
+      { uid: 'uid_alpha', name: 'Dragon Lord', ltvVnd: 1, tier: 'Gold', daysSinceLastActive: 1, lastRechargeDate: null },
+    ]);
+
+    // by uid substring
+    const byUid = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn&q=beta&page=1&pageSize=50' });
+    expect(byUid.json().vips.map((v: { uid: string }) => v.uid)).toEqual(['uid_beta']);
+    expect(byUid.json().total).toBe(1);
+
+    // by name substring (case-insensitive) — must match even though name lives in the profile
+    const byName = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn&q=dragon&page=1&pageSize=50' });
+    expect(byName.json().vips.map((v: { uid: string }) => v.uid)).toEqual(['uid_alpha']);
+  });
+
   it('clamps pageSize to [1,200] and defaults page to 1', async () => {
     openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
     const res = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn&page=0&pageSize=9999' });

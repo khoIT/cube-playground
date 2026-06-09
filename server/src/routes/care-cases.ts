@@ -71,15 +71,31 @@ function parsePaging(query: unknown): { page: number; pageSize: number; paginate
   return { page, pageSize, paginate };
 }
 
+/** Split a `?param=a,b,c` value into trimmed, non-empty tokens. */
+function csv(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 export default async function careCasesRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/care/cases', async (req, reply) => {
     const game = requireGame(req.workspace, req.query);
     if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
+    // `playbook` / `status` accept a comma list (multi-select filters) or a single
+    // id (back-compatible deep links). Empty tokens are dropped; every status token
+    // is validated against the enum.
     const { playbook, status } = req.query as { playbook?: string; status?: string };
-    if (status && !STATUSES.includes(status as CaseStatus)) {
-      return reply.status(400).send({ error: { code: 'VALIDATION', message: `bad status "${status}"` } });
+    const playbookIds = csv(playbook);
+    const statuses = csv(status);
+    const badStatus = statuses.find((s) => !STATUSES.includes(s as CaseStatus));
+    if (badStatus) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: `bad status "${badStatus}"` } });
     }
-    const cases = listCases({ gameId: game, playbookId: playbook, status: status as CaseStatus });
+    const cases = listCases({
+      gameId: game,
+      playbookId: playbookIds.length ? playbookIds : undefined,
+      status: statuses.length ? (statuses as CaseStatus[]) : undefined,
+    });
     // Paginate AFTER the store's ORDER BY opened_at DESC, then enrich only the
     // page slice — a large game has thousands of cases; enriching all per request
     // is what made the queue slow. Profiles are a SQLite read, no live Cube.
@@ -89,8 +105,16 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       ? cases.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
       : cases;
     const profiles = getVipProfiles(game, req.workspace.id, slice.map((c) => c.uid));
+    // Carry the playbook display name + priority on each row so the By-Playbook
+    // lens can render the matched-playbook pill without a second lookup.
+    const meta = playbookMetaMap(game);
     return {
-      cases: slice.map((c) => ({ ...c, profile: profiles.get(c.uid) ?? null })),
+      cases: slice.map((c) => ({
+        ...c,
+        playbook_name: meta[c.playbook_id]?.name ?? c.playbook_id,
+        playbook_priority: meta[c.playbook_id]?.priority ?? 'tb',
+        profile: profiles.get(c.uid) ?? null,
+      })),
       total,
       page,
       pageSize,
@@ -133,9 +157,30 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
           a.uid.localeCompare(b.uid),
       );
 
-    // Slice the ranked queue, then enrich only the page with persisted profile
-    // snapshots (SQLite, no live Cube) — bounds enrichment to pageSize uids.
     const { page, pageSize, paginate } = parsePaging(req.query);
+    const q = (req.query as { q?: string }).q?.trim().toLowerCase();
+
+    if (q) {
+      // Search by uid OR display name. The name lives in the persisted profile, so
+      // we must enrich the WHOLE ranked set before filtering — otherwise a name
+      // match on page 3 would be invisible. Still cheap: a single SQLite read.
+      const allProfiles = getVipProfiles(game, req.workspace.id, ranked.map((g) => g.uid));
+      const matched = ranked
+        .map((g) => ({ ...g, profile: allProfiles.get(g.uid) ?? null }))
+        .filter(
+          (g) =>
+            g.uid.toLowerCase().includes(q) ||
+            (g.profile?.name?.toLowerCase().includes(q) ?? false),
+        );
+      const total = matched.length;
+      const vips = paginate
+        ? matched.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+        : matched;
+      return { vips, total, page, pageSize };
+    }
+
+    // No search: slice the ranked queue first, then enrich only the page with
+    // persisted profile snapshots (SQLite, no live Cube) — bounds enrichment to pageSize uids.
     const total = ranked.length;
     const slice = paginate
       ? ranked.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
