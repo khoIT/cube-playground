@@ -1,0 +1,92 @@
+cubes:
+  # ===========================================================================
+  # user_gameplay_daily — per-user progression-leaderboard rank.
+  # Source: mf_users (user master feature store).
+  #
+  # jus is a wuxia/social MMO with NO PvP ladder, and its fighting-power column
+  # (战力) is NOT collected — ingame_max_active_fighting_power is 100% NULL across
+  # active_daily, mf_users, and mf_ingame_roles. So the leaderboard is ranked by
+  # the progression signals jus DOES populate: max role level, tie-broken by
+  # lifetime recharge (LTV). The top of the board is therefore the most-advanced,
+  # highest-value players — the "elite" cohort a VIP-care team white-gloves.
+  #
+  # The logical member `ladder_rank` is reused across games (resolved per-game
+  # from /meta): on cfm it ranks by PvP ladder score, here by role-level+LTV. Same
+  # registry member name (user_gameplay_daily.ladder_rank), so the top-leaderboard
+  # (rank<=10) and major-achievement (rank==1) care playbooks light up for jus
+  # without any registry edit.
+  #
+  # This mart is deliberately REDUCED vs the cfm gameplay mart: it exposes ONLY
+  # ladder_rank (+ the ranked fields for drill-down). It does NOT emit rank-drop
+  # or clan/guild members — jus has no source for those, and emitting empty/garbage
+  # members would falsely flip the rank-drop / guild playbooks to "available".
+  #
+  # ladder_rank uses RANK() (a window fn) → non-additive → no pre-aggregation.
+  # log_date is stamped to the active-data anchor so the leaderboard's "as of"
+  # date lines up with the rolling marts.
+  # ===========================================================================
+  - name: user_gameplay_daily
+    sql: >
+      WITH anchor AS (
+        SELECT MAX(CAST(log_date AS DATE)) AS d FROM std_ingame_user_active_daily
+      )
+      SELECT
+        m.user_id,
+        a.d AS log_date,
+        m.ingame_max_active_role_level AS role_level,
+        m.ingame_total_recharge_value_vnd AS ltv_vnd,
+        RANK() OVER (
+          ORDER BY m.ingame_max_active_role_level DESC NULLS LAST,
+                   m.ingame_total_recharge_value_vnd DESC NULLS LAST
+        ) AS ladder_rank
+      FROM mf_users m
+      CROSS JOIN anchor a
+      WHERE m.ingame_max_active_role_level > 0
+    title: JUS VN — Progression Leaderboard (per user, role-level + LTV rank)
+    description: >
+      One row per progressed user (role_level > 0), ranked by max role level then
+      lifetime recharge (LTV) as the tiebreak. ladder_rank = global progression
+      rank (1 = most-advanced highest-value player) — jus's leaderboard, a
+      cross-game reuse of the registry's user_gameplay_daily.ladder_rank member
+      (which ranks by PvP ladder score on cfm; jus has no PvP ladder and no
+      fighting-power data). Feeds the top-leaderboard and major-achievement care
+      playbooks. No rank-drop / clan members (no jus source).
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: user_id
+        sql: user_id
+        type: string
+        primary_key: true
+        # The care cohort fetcher selects user_id as the identity dimension.
+        public: true
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: role_level
+        sql: role_level
+        type: number
+        description: Max role level reached — primary ranking key
+
+      - name: ltv_vnd
+        sql: ltv_vnd
+        type: number
+        description: Lifetime recharge value (VND) — ranking tiebreak within a role level
+
+      - name: ladder_rank
+        sql: ladder_rank
+        type: number
+        description: Global progression rank (1 = top). Ranked by role_level DESC, LTV DESC. RANK leaves gaps after ties.
+
+    measures:
+      - name: rows
+        type: count

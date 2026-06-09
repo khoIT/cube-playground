@@ -1,0 +1,106 @@
+cubes:
+  # ===========================================================================
+  # etl_prop_flow — per-player in-game item acquisition / consumption events.
+  # Source: etl_ingame_item_flow (jus item flow t-log).
+  #
+  # The logical cube name is `etl_prop_flow` (NOT the physical table name) on
+  # purpose: the rare/cosmetic-unlock care playbook hard-codes the logical
+  # member `etl_prop_flow.prop_id` as its data requirement. Naming the jus cube
+  # `etl_prop_flow` (over the physical etl_ingame_item_flow) lets that playbook
+  # resolve for jus WITHOUT editing the shared registry — exactly mirroring how
+  # cfm names its etl_prop_flow over etl_ingame_propflow. One logical member,
+  # two physical sources; per-game /meta isolation keeps the verdicts separate.
+  #
+  # This is a RAW event table → the resolver downgrades any etl_*-backed
+  # requirement to a "partial" (per-member drill-down only, no cohort sweep).
+  # No user_id join: jus has no roles cube, so the drill-down is role-grain.
+  # ===========================================================================
+  - name: etl_prop_flow
+    sql_table: etl_ingame_item_flow
+    title: JUS VN — Item Flow (events, ItemFlow / 道具流水)
+    description: >
+      Per-player in-game item acquisition / consumption events from the jus
+      item-flow t-log. Use for the "items obtained" panel of a 360 view —
+      groups by reason / place show how a player acquires and spends items.
+      Role-grain (role_id); ALWAYS query with role_id + bounded log_date.
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.role_id, ''), '__', CAST({CUBE}.log_date AS VARCHAR), '__', COALESCE({CUBE}.item_id, ''), '__', COALESCE({CUBE}.transid, ''), '__', COALESCE({CUBE}.reason, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: account_id
+        sql: account_id
+        type: string
+
+      # prop_id is the registry data-requirement member for the rare-unlock
+      # playbook — mapped from the jus physical column item_id.
+      - name: prop_id
+        sql: item_id
+        type: string
+        description: Item ID (jus item_id) — the rare/cosmetic-unlock care signal source
+
+      # acquired_at is the playbook's event condition member — the moment of
+      # acquisition. jus item-flow has only day-grain (log_date), wrapped to
+      # TIMESTAMP per the model's time-dimension contract.
+      - name: acquired_at
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Acquisition day (day-grain), wrapped to TIMESTAMP
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: reason
+        sql: reason
+        type: string
+        description: Acquisition / consumption reason code
+
+      - name: place
+        sql: place
+        type: string
+
+      - name: scene_id
+        sql: scene_id
+        type: string
+
+      - name: server
+        sql: server
+        type: string
+
+    measures:
+      - name: events
+        type: count
+
+      - name: distinct_players
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: distinct_items
+        type: count_distinct_approx
+        sql: item_id
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: last_90d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '90' DAY"
