@@ -18,9 +18,13 @@ import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.j
 import type { VipProfileSnapshot } from './care-vip-profile-store.js';
 
 // Trino IN-lists get split into per-chunk queries so the whole open-case queue
-// is enriched, not just the first slice. CAP is a runaway backstop.
+// is enriched, not just the first slice. MAX_UIDS is a runaway backstop only —
+// set well above the largest live game cohort so a normal sweep enriches every
+// open-case uid (a lower cap silently dropped the tail, leaving thousands of
+// cases with no persisted profile → uid-only cards). Truncation is logged, never
+// silent, so the backstop firing is visible.
 const CHUNK = 500;
-const MAX_UIDS = 10_000;
+const MAX_UIDS = 50_000;
 
 const PROFILE_DIMS = [
   'user_profile.user_id',
