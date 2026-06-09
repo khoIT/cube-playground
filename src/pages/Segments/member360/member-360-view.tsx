@@ -187,7 +187,6 @@ export function Member360View(): ReactElement {
           row={row}
           profileLoading={profileLoading}
           cachedSource={cachedSource}
-          back={back}
         />
       </main>
     );

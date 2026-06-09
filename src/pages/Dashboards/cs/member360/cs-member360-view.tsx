@@ -11,7 +11,8 @@
  */
 
 import { ReactElement, useMemo, useState } from 'react';
-import { HeartHandshake } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ChevronLeft, HeartHandshake } from 'lucide-react';
 import type { Query } from '@cubejs-client/core';
 import { useAuthUser } from '../../../../auth/auth-context';
 import { DashboardHero } from '../../../Segments/member360/sections/dashboard-hero';
@@ -36,8 +37,6 @@ interface CsMember360ViewProps {
   row: Record<string, unknown> | null;
   profileLoading: boolean;
   cachedSource: React.ComponentProps<typeof CsReferencePanels>['cachedSource'];
-  /** The shared back-link element from the parent view. */
-  back: ReactElement;
 }
 
 export function CsMember360View({
@@ -47,7 +46,6 @@ export function CsMember360View({
   row,
   profileLoading,
   cachedSource,
-  back,
 }: CsMember360ViewProps): ReactElement {
   const user = useAuthUser();
   const canWrite = user?.role === 'editor' || user?.role === 'admin';
@@ -84,8 +82,6 @@ export function CsMember360View({
     <>
       <CsConsoleNav current="member" gameId={gameId} />
 
-      {back}
-
       {/* Eyebrow — mirrors CS Monitor + Case Ledger page headers. */}
       <div
         style={{
@@ -99,6 +95,13 @@ export function CsMember360View({
       {/* Page header — icon + 20px title on the left, game badge on the right. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <Link
+            to={`/dashboards/cs/queue?game=${encodeURIComponent(gameId)}`}
+            style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', marginRight: 4 }}
+            title="Back to action queue"
+          >
+            <ChevronLeft size={16} />
+          </Link>
           <HeartHandshake size={22} color="var(--brand)" />
           <h1
             style={{
