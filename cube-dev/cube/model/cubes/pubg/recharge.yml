@@ -220,6 +220,7 @@ cubes:
         dimensions:
           - payment_channel
           - country_code
+          - product_id
         time_dimension: recharge_time
         granularity: day
         partition_granularity: year

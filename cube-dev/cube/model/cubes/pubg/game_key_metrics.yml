@@ -273,6 +273,11 @@ cubes:
           - npu
           - rev
           - trans
+          - nnpu
+          - iap_rev
+          - web_rev
+          - retain_user_active
+          - recall_user_active
         dimensions:
           - media_source
           - country_code

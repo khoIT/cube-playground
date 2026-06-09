@@ -168,3 +168,37 @@ cubes:
 
       - name: vip_roles
         sql: "{CUBE}.ingame_max_recharge_vip_level >= 5"
+
+    # Role-roster cuts (server / class / VIP) keyed on the role's first-active
+    # date. All measures are additive (HLL distinct counts + revenue sum), so the
+    # day-grain rollup serves the cohort splits the liveops/monetization chips ask
+    # for. max_fighting_power is intentionally NOT a rollup dim (continuous numeric
+    # → cardinality blow-up); that one query stays on source.
+    pre_aggregations:
+      - name: roles_by_server_class_batch
+        type: rollup
+        measures:
+          - distinct_roles
+          - distinct_users
+          - roles_revenue_vnd
+        dimensions:
+          - server_id
+          - first_role_class
+          - last_role_class
+          - max_vip_level
+        time_dimension: first_active_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT CAST(MIN(ingame_first_active_date) AS TIMESTAMP) FROM mf_ingame_roles"
+        build_range_end:
+          sql: "SELECT CAST(MAX(ingame_first_active_date) AS TIMESTAMP) FROM mf_ingame_roles"
+
+      - name: roles_by_server_class
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.roles_by_server_class_batch

@@ -68,3 +68,29 @@ cubes:
       - name: distinct_users
         type: count_distinct_approx
         sql: user_id
+
+    # Device-distribution counts keyed on first-active date. Both measures are
+    # additive HLL distinct counts, so the day-grain rollup serves the multi-device
+    # distribution chip (and any date-range window) via sketch merge.
+    pre_aggregations:
+      - name: devices_daily_batch
+        type: rollup
+        measures:
+          - distinct_devices
+          - distinct_users
+        time_dimension: first_active_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT CAST(MIN(ingame_first_active_date) AS TIMESTAMP) FROM map_ingame_devices_and_userid"
+        build_range_end:
+          sql: "SELECT CAST(MAX(ingame_first_active_date) AS TIMESTAMP) FROM map_ingame_devices_and_userid"
+
+      - name: devices_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.devices_daily_batch

@@ -189,3 +189,31 @@ cubes:
 
       - name: last_3_months
         sql: "{CUBE}.first_day_of_month >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '3' MONTH"
+
+    # Monthly active counts by cohort type. mau is an additive HLL distinct, so a
+    # month-grain rollup serves the monthly-cohort-mix chip. build_range reads the
+    # base table directly (the cube's window-function subquery isn't needed just
+    # to bound the month range).
+    pre_aggregations:
+      - name: mau_by_cohort_monthly_batch
+        type: rollup
+        measures:
+          - mau
+        dimensions:
+          - cohort_type
+        time_dimension: log_month
+        granularity: month
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT CAST(MIN(first_day_of_month) AS TIMESTAMP) FROM std_ingame_user_active_monthly"
+        build_range_end:
+          sql: "SELECT CAST(MAX(first_day_of_month) AS TIMESTAMP) FROM std_ingame_user_active_monthly"
+
+      - name: mau_by_cohort_monthly
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.mau_by_cohort_monthly_batch

@@ -181,3 +181,30 @@ cubes:
 
       - name: web_only
         sql: "{CUBE}.ingame_total_recharged_value_vnd_web > 0 AND {CUBE}.ingame_total_recharged_value_vnd_iap = 0"
+
+    # Monthly IAP-vs-web revenue split. Both measures are additive sums, so a
+    # month-grain rollup serves the iap-vs-web monetization chip.
+    pre_aggregations:
+      - name: revenue_split_monthly_batch
+        type: rollup
+        measures:
+          - revenue_vnd_iap_total
+          - revenue_vnd_web_total
+        dimensions:
+          - log_year_month
+        time_dimension: log_month
+        granularity: month
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT CAST(MIN(first_day_of_month) AS TIMESTAMP) FROM std_ingame_user_recharge_monthly"
+        build_range_end:
+          sql: "SELECT CAST(MAX(first_day_of_month) AS TIMESTAMP) FROM std_ingame_user_recharge_monthly"
+
+      - name: revenue_split_monthly
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.revenue_split_monthly_batch

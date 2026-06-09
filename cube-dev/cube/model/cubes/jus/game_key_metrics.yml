@@ -273,11 +273,15 @@ cubes:
           - npu
           - rev
           - trans
+          - nnpu
+          - iap_rev
+          - web_rev
         dimensions:
           - media_source
           - country_code
           - platform
           - is_paid_install
+          - report_month
         time_dimension: report_date
         granularity: day
         partition_granularity: year

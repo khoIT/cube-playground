@@ -265,6 +265,7 @@ cubes:
           - payment_channel
           - country_code
           - os_platform
+          - product_name
         time_dimension: recharge_time
         granularity: day
         partition_granularity: year

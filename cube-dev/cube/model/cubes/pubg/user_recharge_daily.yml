@@ -165,6 +165,7 @@ cubes:
           - os_platform
           - payment_channel
           - country_code
+          - vip_level
         time_dimension: log_date
         granularity: day
         partition_granularity: month
