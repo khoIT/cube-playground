@@ -18,7 +18,7 @@ cubes:
         UNION ALL
         SELECT accountid,            'logout',                  logoutdatetime,       log_date FROM etl_ingame_logout
         UNION ALL
-        SELECT accountid,            'recharge',                CAST(date_parse(rechargetime, '%Y-%m-%d %H:%i:%s') AS timestamp(6) with time zone), log_date FROM etl_ingame_recharge
+        SELECT accountid,            'recharge',                CAST(rechargetime AS timestamp(6) with time zone), log_date FROM etl_ingame_recharge
         UNION ALL
         SELECT accountid,            'register',                createdatetime,       log_date FROM etl_ingame_register
       ),

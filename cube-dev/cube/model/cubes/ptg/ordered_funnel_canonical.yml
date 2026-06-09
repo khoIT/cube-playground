@@ -25,7 +25,7 @@ cubes:
           FROM etl_ingame_login
           WHERE log_date >= date_add('day', -93, current_date)
           UNION ALL
-          SELECT accountid, 'recharge', CAST(date_parse(rechargetime, '%Y-%m-%d %H:%i:%s') AS timestamp(6) with time zone)
+          SELECT accountid, 'recharge', CAST(rechargetime AS timestamp(6) with time zone)
           FROM etl_ingame_recharge
           WHERE log_date >= date_add('day', -93, current_date)
         )

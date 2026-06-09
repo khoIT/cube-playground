@@ -5,8 +5,8 @@ cubes:
   #
   # PTG uses a camelCase raw schema and has NO mf_users / std_* tables, so this
   # cube is standalone (no joins). Notable type quirks:
-  #   - rechargetime is VARCHAR 'YYYY-MM-DD HH:MM:SS' (not timestamp). Parsed
-  #     inline via from_iso8601_timestamp(REPLACE(..., ' ', 'T') || 'Z').
+  #   - rechargetime is a native timestamp(6) in the source — exposed directly,
+  #     no string parsing needed.
   #   - moneyvalueingame is VARCHAR (mostly NULL in sampled data). Exposed
   #     as-is; cast manually if numeric aggregation needed.
   #   - is_first_recharge -> isfirstcharge (integer 0/1)
@@ -68,9 +68,9 @@ cubes:
         type: string
 
       - name: recharge_time
-        sql: "from_iso8601_timestamp(REPLACE({CUBE}.rechargetime, ' ', 'T') || 'Z')"
+        sql: rechargetime
         type: time
-        description: Parsed from varchar 'YYYY-MM-DD HH:MM:SS' (no timezone in source)
+        description: Native timestamp column in the source (no parsing needed)
 
       - name: recharge_time_raw
         sql: rechargetime
@@ -214,10 +214,12 @@ cubes:
         refresh_key:
           every: 1 hour
           incremental: true
+        # Physical column `rechargetime` is a native timestamp; build_range runs
+        # raw SQL against the datasource, so reference the physical column directly.
         build_range_start:
-          sql: "SELECT MIN(recharge_time) FROM etl_ingame_recharge"
+          sql: "SELECT MIN(rechargetime) FROM etl_ingame_recharge"
         build_range_end:
-          sql: "SELECT MAX(recharge_time) FROM etl_ingame_recharge"
+          sql: "SELECT MAX(rechargetime) FROM etl_ingame_recharge"
       - name: revenue_daily_by_channel
         type: rollup_lambda
         union_with_source_data: true
