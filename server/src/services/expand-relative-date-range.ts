@@ -77,6 +77,23 @@ export function expandRelativeDateRange(
   return null;
 }
 
+/** Milestone day-offsets (days before the as-of date) that count as an anniversary. */
+export const ANNIVERSARY_OFFSET_DAYS = [30, 90, 180, 365, 730] as const;
+
+/**
+ * Expand an "anniversary" window into a set of single-day `[startISO, endISO]`
+ * ranges — one per milestone offset before `now`/the as-of anchor. A member
+ * whose date falls on any of these days hit a milestone as of the anchor. Each
+ * range is a single calendar day so it composes into an OR of `inDateRange`
+ * filters (anniversary is a set of points, not one contiguous window).
+ */
+export function expandAnniversaryWindows(now: Date = new Date()): [string, string][] {
+  return ANNIVERSARY_OFFSET_DAYS.map((n) => {
+    const day = addDays(now, -n);
+    return [iso(startOfDay(day)), iso(endOfDay(day))] as [string, string];
+  });
+}
+
 // ── Minimal date helpers (no deps) ────────────────────────────────────────
 
 function iso(d: Date): string {

@@ -5,9 +5,20 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { expandRelativeDateRange } from '../src/services/expand-relative-date-range.js';
+import { expandRelativeDateRange, expandAnniversaryWindows, ANNIVERSARY_OFFSET_DAYS } from '../src/services/expand-relative-date-range.js';
 
 const NOW = new Date('2026-06-09T12:00:00.000Z');
+
+describe('expandAnniversaryWindows', () => {
+  it('returns one single-day range per milestone offset before the anchor', () => {
+    const anchor = new Date(2026, 4, 4); // 2026-05-04 local
+    const windows = expandAnniversaryWindows(anchor);
+    expect(windows).toHaveLength(ANNIVERSARY_OFFSET_DAYS.length);
+    // 30d before 2026-05-04 = 2026-04-04, expressed as a single calendar day
+    expect(windows[0]).toEqual(['2026-04-04', '2026-04-04']);
+    for (const [start, end] of windows) expect(start).toBe(end);
+  });
+});
 
 describe('expandRelativeDateRange — hours', () => {
   it('expands "last 24 hours" to a precise 24h datetime window ending now', () => {

@@ -203,6 +203,47 @@ describe('treeToCubeFilters', () => {
   });
 });
 
+describe('treeToCubeFilters — anchorDate threading', () => {
+  it('expands a relative window against anchorDate, not real today', () => {
+    const tree = leaf({ member: 'etl.d', op: 'inDateRange', type: 'time', values: ['last 7 days'] });
+    const anchorDate = new Date('2026-05-04T00:00:00.000Z');
+    const filters = treeToCubeFilters(tree, { anchorDate }) as { values: string[] }[];
+    // 7 days inclusive ending on the anchor day → 2026-04-28 .. 2026-05-04.
+    expect(filters[0].values).toEqual(['2026-04-28', '2026-05-04']);
+  });
+
+  it('reaches an inDateRange leaf nested inside a group', () => {
+    const tree = group('AND', [
+      leaf({ member: 'mf.ltv', op: 'gte', type: 'number', values: [1] }),
+      leaf({ member: 'etl.d', op: 'inDateRange', type: 'time', values: ['last 7 days'] }),
+    ]);
+    const anchorDate = new Date('2026-05-04T00:00:00.000Z');
+    const filters = treeToCubeFilters(tree, { anchorDate });
+    const dateFilter = filters.find((f) => 'member' in f && f.member === 'etl.d') as { values: string[] };
+    expect(dateFilter.values).toEqual(['2026-04-28', '2026-05-04']);
+  });
+
+  it('expands an "anniversary" window to an OR of 5 single-day ranges before the anchor', () => {
+    const tree = leaf({ member: 'mf_users.first_active_date', op: 'inDateRange', type: 'time', values: ['anniversary'] });
+    const anchorDate = new Date(2026, 4, 4); // 2026-05-04 local
+    const filters = treeToCubeFilters(tree, { anchorDate }) as { or: { member: string; values: string[] }[] }[];
+    expect(filters).toHaveLength(1);
+    const or = filters[0].or;
+    expect(or).toHaveLength(5); // {30,90,180,365,730} days before
+    // 30 days before 2026-05-04 = 2026-04-04, as a single-day range.
+    expect(or[0]).toMatchObject({ member: 'mf_users.first_active_date', values: ['2026-04-04', '2026-04-04'] });
+    // every range is a single day (start === end)
+    for (const f of or) expect(f.values[0]).toBe(f.values[1]);
+  });
+
+  it('defaults to today when no anchorDate is passed (back-compat)', () => {
+    const tree = leaf({ member: 'etl.d', op: 'inDateRange', type: 'time', values: ['this year'] });
+    const thisYear = String(new Date().getFullYear());
+    const filters = treeToCubeFilters(tree) as { values: string[] }[];
+    expect(filters[0].values[0].startsWith(thisYear)).toBe(true);
+  });
+});
+
 describe('cubeFiltersToTree', () => {
   it('wraps multiple top-level filters in a root AND group', () => {
     const filters = [

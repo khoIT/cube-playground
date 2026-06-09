@@ -39,12 +39,12 @@ const JUS_META = {
     },
     {
       name: 'user_recharge_daily',
-      dimensions: [{ name: 'user_recharge_daily.recharge_date' }],
+      dimensions: [{ name: 'user_recharge_daily.log_date' }],
       measures: [{ name: 'user_recharge_daily.revenue_vnd' }],
     },
     {
       name: 'active_daily',
-      dimensions: [{ name: 'active_daily.active_date' }],
+      dimensions: [{ name: 'active_daily.log_date' }],
       measures: [{ name: 'active_daily.online_time_sec' }],
     },
   ],

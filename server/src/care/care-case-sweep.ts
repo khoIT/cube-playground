@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { loadWithCtx, type WorkspaceCtx } from '../services/cube-client.js';
 import { treeToCubeFilters } from '../services/translator.js';
 import { resolveIdentityField } from '../services/resolve-identity-field.js';
+import { resolveDataAnchor, findWindowedDateMember } from './resolve-data-anchor.js';
 import { mergePlaybooks, type ResolvedPlaybook } from './playbook-merge.js';
 import { getGameMembers } from './availability.js';
 import { applyMembershipResult, type SweepResult } from './care-case-engine.js';
@@ -136,7 +137,14 @@ export function makeCubeCohortFetcher(
     if (!identity) return [];
 
     const gated = gateWithVipBase(pb.predicate, members);
-    const filters = treeToCubeFilters(gated);
+    // Anchor relative-date windows on the freshest day the windowed member has
+    // (warehouse data lags real time), so `last N days` binds to where the data
+    // ends rather than an empty future range. No window → no probe, no anchor.
+    const dateMember = findWindowedDateMember(pb.predicate);
+    const anchorDate = dateMember
+      ? await resolveDataAnchor(ctx, dateMember, gameId, `${workspace}:${gameId}`)
+      : undefined;
+    const filters = treeToCubeFilters(gated, { anchorDate });
     const res = (await loadWithCtx(
       { dimensions: [identity], filters, limit: COHORT_CAP },
       ctx,

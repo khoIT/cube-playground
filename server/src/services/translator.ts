@@ -6,7 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { expandRelativeDateRange } from './expand-relative-date-range.js';
+import { expandRelativeDateRange, expandAnniversaryWindows } from './expand-relative-date-range.js';
 import { normalizeInDateRangeValues } from './normalize-in-date-range-values.js';
 import type {
   PredicateNode,
@@ -60,9 +60,31 @@ const CUBE_TO_TREE_BASE: Record<string, LeafOperator> = {
   afterDate: 'afterDate',
 };
 
-function leafToCubeFilter(node: LeafNode): CubeLeafFilter | null {
+/**
+ * Optional knobs for predicate→Cube translation.
+ *   - anchorDate: the "as-of" date relative-window expansion resolves against,
+ *     instead of real today. Lets a sweep over data that lags real time still
+ *     bind `last N days` / `last N hours` windows to where the data actually
+ *     ends. Undefined = today (the default for segments, drift, preview).
+ */
+export interface TranslateOptions {
+  anchorDate?: Date;
+}
+
+function leafToCubeFilter(node: LeafNode, anchorDate?: Date): CubeFilter | null {
   const cubeOp = TREE_TO_CUBE[node.op];
   if (!cubeOp) throw new UnsupportedOperatorError(node.op, `member=${node.member}`);
+
+  // "anniversary" is not a contiguous range but a set of milestone days before
+  // the as-of date, so it can't be one inDateRange — emit an OR of single-day
+  // ranges (member's date ∈ any milestone day). Anchored on anchorDate when the
+  // caller supplies one (a lagging data feed's last day), else today.
+  if (node.op === 'inDateRange' && node.values.length === 1 && String(node.values[0]).trim().toLowerCase() === 'anniversary') {
+    const days = expandAnniversaryWindows(anchorDate);
+    return {
+      or: days.map(([start, end]) => ({ member: node.member, operator: 'inDateRange', values: [start, end] })),
+    };
+  }
 
   const filter: CubeLeafFilter = {
     member: node.member,
@@ -90,7 +112,7 @@ function leafToCubeFilter(node: LeafNode): CubeLeafFilter | null {
     const vals = filter.values ?? [];
     if (vals.length !== 2) {
       if (vals.length === 1) {
-        const expanded = expandRelativeDateRange(vals[0]);
+        const expanded = expandRelativeDateRange(vals[0], anchorDate);
         if (expanded) {
           filter.values = expanded;
           return filter;
@@ -108,11 +130,11 @@ function leafToCubeFilter(node: LeafNode): CubeLeafFilter | null {
   return filter;
 }
 
-function nodeToCubeFilter(node: PredicateNode): CubeFilter | null {
-  if (node.kind === 'leaf') return leafToCubeFilter(node);
+function nodeToCubeFilter(node: PredicateNode, anchorDate?: Date): CubeFilter | null {
+  if (node.kind === 'leaf') return leafToCubeFilter(node, anchorDate);
 
   const childFilters = node.children
-    .map(nodeToCubeFilter)
+    .map((child) => nodeToCubeFilter(child, anchorDate))
     .filter((f): f is CubeFilter => f != null);
   // If all children dropped (e.g. malformed date filters), drop this group too.
   if (childFilters.length === 0) return null;
@@ -128,22 +150,23 @@ function nodeToCubeFilter(node: PredicateNode): CubeFilter | null {
  * Malformed leaf filters (e.g. inDateRange with an unparseable single value)
  * are dropped with a warning so the rest of the query still runs.
  */
-export function treeToCubeFilters(tree: PredicateNode): CubeFilter[] {
+export function treeToCubeFilters(tree: PredicateNode, opts: TranslateOptions = {}): CubeFilter[] {
+  const { anchorDate } = opts;
   if (tree.kind === 'leaf') {
-    const f = leafToCubeFilter(tree);
+    const f = leafToCubeFilter(tree, anchorDate);
     return f ? [f] : [];
   }
 
   if (tree.op === 'AND') {
     // Root AND: each child becomes a top-level filter entry
     return tree.children
-      .map(nodeToCubeFilter)
+      .map((child) => nodeToCubeFilter(child, anchorDate))
       .filter((f): f is CubeFilter => f != null);
   }
 
   // Root OR: wrap everything in { or: [...] }
   const orChildren = tree.children
-    .map(nodeToCubeFilter)
+    .map((child) => nodeToCubeFilter(child, anchorDate))
     .filter((f): f is CubeFilter => f != null);
   if (orChildren.length === 0) return [];
   return [{ or: orChildren }];

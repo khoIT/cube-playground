@@ -104,9 +104,9 @@ const JUS_MEMBERS = new Set<string>([
   'mf_users.days_since_last_active',
   'mf_users.first_active_date',
   'user_recharge_daily.revenue_vnd',
-  'user_recharge_daily.recharge_date',
+  'user_recharge_daily.log_date',
   'active_daily.online_time_sec',
-  'active_daily.active_date',
+  'active_daily.log_date',
 ]);
 
 describe('availability resolver (per game × playbook)', () => {
@@ -118,6 +118,15 @@ describe('availability resolver (per game × playbook)', () => {
     expect(resolveAvailability(pb('18'), JUS_MEMBERS)).toBe('available'); // anniversary
     expect(resolveAvailability(pb('06'), JUS_MEMBERS)).toBe('unavailable'); // leaderboard
     expect(resolveAvailability(pb('12'), JUS_MEMBERS)).toBe('unavailable'); // gacha
+  });
+
+  it('spend/session playbooks read available once their std-mart date members resolve', () => {
+    // 03/04 window on user_recharge_daily.log_date, 15 on active_daily.log_date —
+    // std marts (not raw etl_), so member-present resolves to available (the sweep
+    // still defers them while they carry a ratio rule; availability is independent).
+    expect(resolveAvailability(pb('03'), JUS_MEMBERS)).toBe('available'); // spend spike
+    expect(resolveAvailability(pb('04'), JUS_MEMBERS)).toBe('available'); // spend drop
+    expect(resolveAvailability(pb('15'), JUS_MEMBERS)).toBe('available'); // session-time drop
   });
 
   it('blocked playbooks are always unavailable; ops-driven are partial', () => {

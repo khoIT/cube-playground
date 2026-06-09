@@ -32,9 +32,9 @@ const JUS_MEMBERS = new Set<string>([
   'mf_users.days_since_last_active',
   'mf_users.first_active_date',
   'user_recharge_daily.revenue_vnd',
-  'user_recharge_daily.recharge_date',
+  'user_recharge_daily.log_date',
   'active_daily.online_time_sec',
-  'active_daily.active_date',
+  'active_daily.log_date',
 ]);
 
 beforeEach(() => setDb(makeMemDb()));
@@ -73,17 +73,21 @@ describe('runCaseSweep', () => {
     const summaries = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
     const byId = Object.fromEntries(summaries.map((s) => [s.playbookId, s]));
 
-    // 18 Anniversary uses window 'anniversary' — unsupported → filter dropped to
-    // empty → must be skipped, NOT swept against the whole VIP base.
-    expect(byId['18'].skipped).toBe('no-predicate');
-    expect(byId['18'].opened).toBe(0);
-    expect(fetched).not.toContain('18');
+    // 19 Pre-patch uses window 'next 3 days' — unsupported by the expander → filter
+    // dropped to empty → must be skipped, NOT swept against the whole VIP base.
+    expect(byId['19'].skipped).toBe('no-predicate');
+    expect(byId['19'].opened).toBe(0);
+    expect(fetched).not.toContain('19');
 
-    // 01 First deposit ('last 24 hours') now compiles to a real datetime window,
-    // so it is swept normally (proves the hours-window support).
+    // 01 First deposit ('last 3 months') compiles to a real window, so it is swept.
     expect(byId['01'].skipped).toBeUndefined();
     expect(byId['01'].opened).toBe(2);
     expect(fetched).toContain('01');
+
+    // 18 Anniversary now compiles to an OR of milestone-day ranges (a real cohort
+    // filter) instead of being dropped, so it is swept normally.
+    expect(byId['18'].skipped).toBeUndefined();
+    expect(fetched).toContain('18');
   });
 
   it('re-sweep of a stable cohort opens nothing new (idempotent)', async () => {

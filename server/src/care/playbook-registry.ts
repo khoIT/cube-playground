@@ -93,7 +93,7 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'payment',
     name: 'Spend spike',
     priority: 'cao',
-    dataRequirements: ['user_recharge_daily.revenue_vnd', 'user_recharge_daily.recharge_date'],
+    dataRequirements: ['user_recharge_daily.revenue_vnd', 'user_recharge_daily.log_date'],
     // ≥3× personal daily average — per-member comparison (trigger engine).
     condition: tier({ kind: 'ratio', member: 'user_recharge_daily.revenue_1d', vs: 'user_recharge_daily.revenue_30d_avg', value: 3, op: 'gte' }),
     watchedMetric: { member: 'user_recharge_daily.revenue_vnd', label: '7d spend', kpiTarget: 'no refund / chargeback' },
@@ -105,7 +105,7 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'payment',
     name: 'Spend drop',
     priority: 'cao',
-    dataRequirements: ['user_recharge_daily.revenue_vnd', 'user_recharge_daily.recharge_date'],
+    dataRequirements: ['user_recharge_daily.revenue_vnd', 'user_recharge_daily.log_date'],
     // Rolling 7d spend < 30% of personal 30d avg — per-member (trigger engine).
     condition: tier({ kind: 'ratio', member: 'user_recharge_daily.revenue_7d', vs: 'user_recharge_daily.revenue_30d_avg', value: 0.3, op: 'lt' }),
     watchedMetric: { member: 'user_recharge_daily.revenue_vnd', label: '7d spend recovery', kpiTarget: 'spend back ≥ 60% baseline in 14d' },
@@ -235,7 +235,7 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'churn',
     name: 'Session-time drop',
     priority: 'tb',
-    dataRequirements: ['active_daily.online_time_sec', 'active_daily.active_date'],
+    dataRequirements: ['active_daily.online_time_sec', 'active_daily.log_date'],
     // 7d avg session < 40% of prior-30d avg — per-member (trigger engine).
     condition: tier({ kind: 'ratio', member: 'active_daily.session_7d_avg', vs: 'active_daily.session_30d_avg', value: 0.4, op: 'lt' }),
     watchedMetric: { member: 'active_daily.online_time_sec', label: 'Avg session', kpiTarget: 'session time recovers' },
