@@ -12,6 +12,7 @@ import {
   openCase,
   findOpenCase,
   patchCase,
+  deleteCases,
   listCases,
   type CareCase,
   type CaseSource,
@@ -39,6 +40,15 @@ export interface SweepContext {
   kpiTarget?: string | null;
   /** Per-uid deciding stats captured into the case at open time. */
   snapshotFor?: (uid: string) => unknown;
+  /**
+   * Manual per-segment sweep: hard-delete pre-treatment cases that exit the
+   * cohort (a retuned threshold) instead of flagging them condition_lapsed and
+   * keeping them open. Treated cases are still protected. Keeps the segment
+   * count honest after an ad-hoc retune and avoids orphaned-row buildup across
+   * repeated retunes. Off by default — the scheduled sweep keeps the flag-and-
+   * keep behaviour so CS still sees who slipped.
+   */
+  pruneLapsed?: boolean;
 }
 
 export interface SweepResult {
@@ -84,13 +94,23 @@ export function applyMembershipResult(currentUids: string[], ctx: SweepContext):
 
   const { opened, alreadyOpen } = openForUids(entered, 'membership', ctx);
 
+  // Pre-treatment cases whose user left the cohort. A treated case that exits is
+  // a success, not a lapse — always protected.
+  const exitedCases = exited
+    .map((uid) => findOpenCase(ctx.gameId, ctx.playbookId, uid))
+    .filter((c): c is CareCase => !!c && c.status !== 'treated');
+
   let lapsed = 0;
-  for (const uid of exited) {
-    const open = findOpenCase(ctx.gameId, ctx.playbookId, uid);
-    // Only flag pre-treatment cases; a treated case that exits is a success, not a lapse.
-    if (open && open.condition_lapsed === 0 && open.status !== 'treated') {
-      patchCase(open.id, { conditionLapsed: true });
-      lapsed++;
+  if (ctx.pruneLapsed) {
+    // Manual retune: drop them so the segment count reflects the new threshold.
+    lapsed = deleteCases(exitedCases.map((c) => c.id));
+  } else {
+    // Scheduled sweep: flag (keep open) so CS still sees who slipped.
+    for (const open of exitedCases) {
+      if (open.condition_lapsed === 0) {
+        patchCase(open.id, { conditionLapsed: true });
+        lapsed++;
+      }
     }
   }
   return { opened, lapsed, alreadyOpen };

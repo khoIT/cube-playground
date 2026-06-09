@@ -1452,7 +1452,7 @@ export function PlaybookBuilderPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '12px 13px', background: 'var(--success-soft)', color: 'var(--success-ink)', borderRadius: 'var(--radius-md)', fontSize: 12.5, marginTop: 10 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
                     <CheckCircle2 size={14} />
-                    Swept this segment — {sweepResult.opened} opened · {sweepResult.lapsed} lapsed
+                    Swept this segment — {sweepResult.opened} opened · {sweepResult.lapsed} removed (no longer match)
                   </span>
                   <button
                     type="button"

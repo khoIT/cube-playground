@@ -193,3 +193,21 @@ export function patchCase(id: string, patch: PatchCaseInput): CareCase | undefin
     .run(...params, id);
   return getCase(id);
 }
+
+/**
+ * Permanently remove cases by id, in one transaction. Used by the manual
+ * per-segment sweep to drop cases that no longer match a retuned threshold
+ * (the caller decides which ids — e.g. protecting treated cases). Returns the
+ * number of rows deleted.
+ */
+export function deleteCases(ids: string[]): number {
+  if (ids.length === 0) return 0;
+  const db = getDb();
+  const stmt = db.prepare('DELETE FROM care_cases WHERE id = ?');
+  const run = db.transaction((rows: string[]) => {
+    let n = 0;
+    for (const id of rows) n += stmt.run(id).changes;
+    return n;
+  });
+  return run(ids);
+}

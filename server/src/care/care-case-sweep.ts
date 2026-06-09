@@ -122,6 +122,10 @@ export async function runCaseSweep(
       playbookId: pb.id,
       kpiTarget: pb.watchedMetric.kpiTarget ?? null,
       snapshotFor: () => ({ matched_at: new Date().toISOString(), threshold: pb.condition }),
+      // A single-playbook (manual) sweep is an ad-hoc retune: drop cases that no
+      // longer match so the segment count is honest. The full scheduled sweep
+      // keeps the flag-and-keep behaviour.
+      pruneLapsed: onlyPlaybookId !== undefined,
     });
     summaries.push({ playbookId: pb.id, cohortSize: uids.length, uids, ...result });
   }

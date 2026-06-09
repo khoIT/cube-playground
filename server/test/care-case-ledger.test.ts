@@ -107,6 +107,46 @@ describe('applyMembershipResult', () => {
   });
 });
 
+describe('applyMembershipResult — pruneLapsed (manual retune)', () => {
+  const pruneCtx = (playbookId: string) => ({ ...ctx(playbookId), pruneLapsed: true });
+
+  it('hard-deletes exited pre-treatment cases so the segment count drops', () => {
+    applyMembershipResult(['a', 'b', 'c'], ctx('14')); // 3 open
+    const r = applyMembershipResult(['a'], pruneCtx('14')); // retune: only a still matches
+    expect(r.lapsed).toBe(2); // b, c removed
+    expect(findOpenCase('jus_vn', '14', 'b')).toBeUndefined();
+    expect(findOpenCase('jus_vn', '14', 'c')).toBeUndefined();
+    // a survives, and no orphaned rows linger (delete, not dismiss).
+    expect(listCases({ gameId: 'jus_vn', playbookId: '14' })).toHaveLength(1);
+  });
+
+  it('protects a treated case that exits even when pruning', () => {
+    applyMembershipResult(['a', 'b'], ctx('14'));
+    patchCase(findOpenCase('jus_vn', '14', 'a')!.id, { status: 'treated' });
+    const r = applyMembershipResult([], pruneCtx('14')); // both exit
+    expect(r.lapsed).toBe(1); // only b removed
+    expect(findOpenCase('jus_vn', '14', 'a')!.status).toBe('treated'); // a kept
+    expect(findOpenCase('jus_vn', '14', 'b')).toBeUndefined();
+  });
+
+  it('also removes already-flagged (condition_lapsed) cases from a prior scheduled sweep', () => {
+    applyMembershipResult(['a', 'b'], ctx('14'));
+    applyMembershipResult(['a'], ctx('14')); // scheduled sweep flags b (kept open)
+    expect(findOpenCase('jus_vn', '14', 'b')!.condition_lapsed).toBe(1);
+    const r = applyMembershipResult(['a'], pruneCtx('14')); // manual retune cleans it up
+    expect(r.lapsed).toBe(1);
+    expect(findOpenCase('jus_vn', '14', 'b')).toBeUndefined();
+  });
+
+  it('re-widening after a prune opens fresh cases for the returning users', () => {
+    applyMembershipResult(['a', 'b'], pruneCtx('14'));
+    applyMembershipResult(['a'], pruneCtx('14')); // b removed
+    const r = applyMembershipResult(['a', 'b'], pruneCtx('14')); // loosen again
+    expect(r.opened).toBe(1); // b re-opened fresh
+    expect(findOpenCase('jus_vn', '14', 'b')).toBeDefined();
+  });
+});
+
 describe('applyTriggerResult', () => {
   it('opens one case per matched user with source trigger', () => {
     const r = applyTriggerResult(['x', 'y'], ctx('03'));
