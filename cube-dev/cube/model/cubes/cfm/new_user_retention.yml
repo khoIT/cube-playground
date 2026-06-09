@@ -139,3 +139,49 @@ cubes:
         sql: "{CUBE}.report_date >= CURRENT_DATE - INTERVAL '30' DAY"
       - name: last_90d
         sql: "{CUBE}.report_date >= CURRENT_DATE - INTERVAL '90' DAY"
+
+    pre_aggregations:
+      - name: nru_retention_by_cohort_batch
+        type: rollup
+        measures:
+          - nru
+          - npu
+          - rnru_d1
+          - rnru_d3
+          - rnru_d7
+          - rnru_d14
+          - rnru_d30
+          - rnru_d60
+          - rnru_d90
+          - rnru_d180
+          - rnru_d360
+          - rpnpu_d7
+          - rpnpu_d30
+        dimensions:
+          - report_month
+          - is_paid_install
+          - country_code
+          - media_source
+          - platform
+        time_dimension: report_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        # Bound to the source table's real data extent. A fixed wide range spans
+        # months with zero rows; each empty month builds a 0-row partition that
+        # never becomes queryable, and the partition-range loader needs the whole
+        # range covered — one empty month stops the entire rollup from serving.
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(report_date) AS VARCHAR) || 'T00:00:00Z') FROM cons_game_new_user_retention_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(report_date) AS VARCHAR) || 'T00:00:00Z') FROM cons_game_new_user_retention_daily"
+
+      # Lambda union: sealed batch partitions + a live tail straight from source,
+      # so recent rows appear without waiting for a refresh cycle.
+      - name: nru_retention_by_cohort
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.nru_retention_by_cohort_batch

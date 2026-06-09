@@ -46,7 +46,7 @@ cubes:
         type: time
 
       - name: log_date
-        sql: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
         type: time
         description: Partition column — REQUIRED filter for this table
 
@@ -230,3 +230,37 @@ cubes:
 
       - name: backflow_only
         sql: "{CUBE}.isbackflowuser = '1'"
+
+    pre_aggregations:
+      - name: login_activity_batch
+        type: rollup
+        measures:
+          - logins
+          - backflow_logins
+          - max_ladder_score
+        dimensions:
+          - hour_of_day_vn
+          - day_of_week_vn
+          - app_channel
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        # Bound to the source table's real data extent. A fixed wide range spans
+        # months with zero rows; each empty month builds a 0-row partition that
+        # never becomes queryable, and the partition-range loader needs the whole
+        # range covered — one empty month stops the entire rollup from serving.
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM etl_ingame_login"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM etl_ingame_login"
+
+      # Lambda union: sealed batch partitions + a live tail straight from source,
+      # so recent rows appear without waiting for a refresh cycle.
+      - name: login_activity
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.login_activity_batch

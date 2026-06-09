@@ -153,3 +153,37 @@ cubes:
 
       - name: yesterday
         sql: "{CUBE}.log_date = CURRENT_DATE - INTERVAL '1' DAY"
+
+    pre_aggregations:
+      - name: recharge_daily_by_channel_batch
+        type: rollup
+        measures:
+          - revenue_vnd_total
+          - txn_count_total
+          - paying_users
+        dimensions:
+          - os_platform
+          - payment_channel
+          - country_code
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 30 minute
+          incremental: true
+        # Bound to the source table's real data extent. A fixed wide range spans
+        # months with zero rows; each empty month builds a 0-row partition that
+        # never becomes queryable, and the partition-range loader needs the whole
+        # range covered — one empty month stops the entire rollup from serving.
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_recharge_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_recharge_daily"
+
+      # Lambda union: sealed batch partitions + a live tail straight from source,
+      # so recent rows appear without waiting for a refresh cycle.
+      - name: recharge_daily_by_channel
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.recharge_daily_by_channel_batch

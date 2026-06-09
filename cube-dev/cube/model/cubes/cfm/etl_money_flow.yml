@@ -35,7 +35,7 @@ cubes:
         type: time
 
       - name: log_date
-        sql: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
         type: time
         description: Partition column — REQUIRED filter for this table
 
@@ -511,3 +511,41 @@ cubes:
 
       - name: gains_only
         sql: "{CUBE}.addorreduce = '0'"
+
+    pre_aggregations:
+      - name: money_flow_summary_batch
+        type: rollup
+        measures:
+          - events
+          - in_events
+          - out_events
+          - total_in
+          - total_out
+          - total_delta
+          - distinct_players
+        dimensions:
+          - reason_action_label
+          - money_type
+          - reason_base_label
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        # Bound to the source table's real data extent. A fixed wide range spans
+        # months with zero rows; each empty month builds a 0-row partition that
+        # never becomes queryable, and the partition-range loader needs the whole
+        # range covered — one empty month stops the entire rollup from serving.
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM etl_ingame_moneyflow"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM etl_ingame_moneyflow"
+
+      # Lambda union: sealed batch partitions + a live tail straight from source,
+      # so recent rows appear without waiting for a refresh cycle.
+      - name: money_flow_summary
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.money_flow_summary_batch

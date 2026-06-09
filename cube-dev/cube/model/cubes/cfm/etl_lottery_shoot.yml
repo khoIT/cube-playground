@@ -35,7 +35,7 @@ cubes:
         type: time
 
       - name: log_date
-        sql: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
         type: time
 
       - name: log_month
@@ -166,3 +166,38 @@ cubes:
 
       - name: ten_pulls_only
         sql: "{CUBE}.lotteryid IN ('2','4','6')"
+
+    pre_aggregations:
+      - name: lottery_pulls_batch
+        type: rollup
+        measures:
+          - pulls
+          - distinct_players
+          - total_cost_diamond
+          - total_cost_gold
+          - ten_pull_count
+        dimensions:
+          - lottery_id
+          - lottery_box
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        # Bound to the source table's real data extent. A fixed wide range spans
+        # months with zero rows; each empty month builds a 0-row partition that
+        # never becomes queryable, and the partition-range loader needs the whole
+        # range covered — one empty month stops the entire rollup from serving.
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM etl_ingame_lotteryshoot"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM etl_ingame_lotteryshoot"
+
+      # Lambda union: sealed batch partitions + a live tail straight from source,
+      # so recent rows appear without waiting for a refresh cycle.
+      - name: lottery_pulls
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.lottery_pulls_batch
