@@ -72,7 +72,7 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     name: 'First deposit',
     priority: 'tb',
     dataRequirements: ['mf_users.first_recharge_date'],
-    condition: tier({ kind: 'event', member: 'mf_users.first_recharge_date', window: 'last 24 hours' }),
+    condition: tier({ kind: 'event', member: 'mf_users.first_recharge_date', window: 'last 3 months' }),
     watchedMetric: { member: 'user_recharge_daily.revenue_vnd', label: 'Day-7 spend', kpiTarget: 'second deposit within 7d' },
     action: { text: 'Welcome the new payer; thank-you note + onboarding offer', channels: ['in_game', 'zalo_zns'], slaMinutes: 1440 },
   },
