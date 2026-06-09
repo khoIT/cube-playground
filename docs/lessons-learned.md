@@ -106,6 +106,22 @@ Format per lesson:
 - **Signal:** a data card / chart that "used to work" stops working after a brief upstream blip, and stays broken for ~exactly the cache TTL even though hitting the upstream directly returns data. Cache row payload is `{"rows":[]}` / `{"data":[]}` / equivalent empty shape. Downstream consumers fail schema validation (`min: 1`) or render an empty state on a query that should be populated.
 - **Apply:** guard every `putCachedX(...)` call with `rows.length > 0` (or the kind-specific "is non-empty" predicate). Apply equally to: live preview reads, scheduled refreshers, any meta/probe call whose empty result might be transient. If an empty result is *legitimately* cacheable (rare — e.g. confirmed "no players in cohort"), cache it under a separate kind/key with a much shorter TTL and an explicit `emptyOk: true` flag, not the same row as non-empty results.
 
+### Destructive ops guarded by a mutex must check the guard BEFORE mutating
+- **Rule:** any DELETE / PATCH / write operation that protects against concurrent conflicts (via a mutex, in-flight flag, or version check) must check that guard **before** any mutation. Order: (1) check the precondition, (2) if it fails → abort + error response, (3) only if it passes → mutate. Checking after the mutation is a logic bug that reports false success.
+- **Why:** `POST /api/care/cases/reset` deleted all cases for a game (via `clearCases()`) and *then* checked `isSweepInFlight`. A concurrent sweep could have started after the code determined the flag was clear but before the delete, causing the fresh sweep to reference cases that had just been wiped. The response would correctly send `409 sweep in-flight`, but the user would see "reset aborted" while the cases were already gone, invisible to the sweep. This is silent data loss masked as a "prevented conflict."
+- **Signal:** an operation reports "conflict detected, changes not applied" but you audit the data and find the mutation already happened; a guard check comes after the destructive operation in the code flow; a concurrent operation's data disappears after it receives a "prevented conflict" response.
+- **Apply:** restructure the route as:
+
+```typescript
+if (isSweepInFlight) {
+  return res.status(409).json({ error: 'sweep_in_flight' });  // Abort first
+}
+// Only then proceed to mutation
+await clearCases(gameId, workspace);
+```
+
+The 409 response is now truthful: the conflict was detected and the mutation was prevented. Unit-test both paths: happy path verifies the delete, conflict path verifies nothing was deleted. Integration test: spawn a concurrent sweep immediately after receiving 409 and verify cases still exist.
+
 ---
 
 ## Test infrastructure
