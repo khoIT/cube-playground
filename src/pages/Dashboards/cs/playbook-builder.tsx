@@ -167,14 +167,87 @@ const fieldStyle: React.CSSProperties = {
 function Field({
   label,
   children,
+  style,
 }: {
   label: string;
   children: React.ReactNode;
+  /** Width override merged over the default flex sizing (e.g. narrow operator column). */
+  style?: React.CSSProperties;
 }) {
   return (
-    <div style={fieldStyle}>
+    <div style={style ? { ...fieldStyle, ...style } : fieldStyle}>
       <label style={labelStyle}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+// Segmented control for the rule-kind picker — mirrors the redesign's .segctl
+// (replaces the dropdown that, wrapped in a column-flex Field, reserved vertical
+// flex-basis and left a white gap beneath itself).
+const segCtlStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  flexWrap: 'wrap',
+  gap: 2,
+  background: 'var(--bg-muted)',
+  borderRadius: 'var(--radius-md)',
+  padding: 3,
+};
+const segBtnStyle: React.CSSProperties = {
+  border: 0,
+  background: 'transparent',
+  fontFamily: 'var(--font-sans)',
+  fontSize: 12,
+  fontWeight: 600,
+  color: 'var(--text-muted)',
+  padding: '6px 13px',
+  borderRadius: 'var(--radius-sm)',
+};
+const segBtnOnStyle: React.CSSProperties = {
+  background: 'var(--bg-card)',
+  color: 'var(--text-primary)',
+  boxShadow: 'var(--shadow-sm)',
+};
+
+// Member / Operator / Value column widths for the trigger-condition row.
+const memberFieldStyle: React.CSSProperties = { flex: '2 1 240px' };
+const opFieldStyle: React.CSSProperties = { flex: '0 0 150px' };
+const valueFieldStyle: React.CSSProperties = { flex: '0 0 160px' };
+const windowFieldStyle: React.CSSProperties = { flex: '1 1 170px' };
+
+function RuleKindSegmented({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: ThresholdRule['kind'];
+  onChange: (k: ThresholdRule['kind']) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <label style={labelStyle}>Rule kind</label>
+      <div style={segCtlStyle}>
+        {THRESHOLD_KINDS.map((k) => {
+          const on = k.value === value;
+          return (
+            <button
+              key={k.value}
+              type="button"
+              title={k.description}
+              disabled={disabled}
+              onClick={() => !disabled && onChange(k.value)}
+              style={{
+                ...segBtnStyle,
+                ...(on ? segBtnOnStyle : null),
+                cursor: disabled ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {k.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -215,8 +288,8 @@ function defaultRule(kind: ThresholdRule['kind']): ThresholdRule {
   switch (kind) {
     case 'abs':        return { kind: 'abs',        member: '', op: 'gte', value: 0 };
     case 'tierStep':   return { kind: 'tierStep',   member: '', bands: [{ label: 'Silver', min: 1 }] };
-    case 'event':      return { kind: 'event',      member: '', window: 'last 7 days' };
-    case 'percentile': return { kind: 'percentile', of: '', p: 90 };
+    case 'event':      return { kind: 'event',      member: '', window: 'last 7 days', op: 'in' };
+    case 'percentile': return { kind: 'percentile', of: '', p: 90, op: 'gte' };
     case 'ratio':      return { kind: 'ratio',      member: '', vs: '', value: 0.5, op: 'lt' };
   }
 }
@@ -558,26 +631,17 @@ function ConditionEditor({
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Kind selector */}
-      <Field label="Rule kind">
-        <select
-          style={selectStyle}
-          value={rule.kind}
-          disabled={disabled}
-          onChange={(e) => onChange(defaultRule(e.target.value as ThresholdRule['kind']))}
-        >
-          {THRESHOLD_KINDS.map((k) => (
-            <option key={k.value} value={k.value}>
-              {k.label} — {k.description}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {/* Kind selector — segmented control (see RuleKindSegmented). */}
+      <RuleKindSegmented
+        value={rule.kind}
+        onChange={(k) => onChange(defaultRule(k))}
+        disabled={disabled}
+      />
 
-      {/* Kind-specific fields */}
+      {/* Kind-specific fields — uniform Member / Operator / Value row. */}
       {rule.kind === 'abs' && (
         <div style={rowStyle}>
-          <Field label="Member (cube.measure)">
+          <Field label="Member (cube.measure)" style={memberFieldStyle}>
             <input
               style={inputStyle}
               value={rule.member}
@@ -586,7 +650,7 @@ function ConditionEditor({
               onChange={(e) => onChange({ ...rule, member: e.target.value })}
             />
           </Field>
-          <Field label="Operator">
+          <Field label="Operator" style={opFieldStyle}>
             <select
               style={selectStyle}
               value={rule.op}
@@ -600,7 +664,7 @@ function ConditionEditor({
               <option value="equals">= (equals)</option>
             </select>
           </Field>
-          <Field label="Value">
+          <Field label="Value" style={valueFieldStyle}>
             <input
               type="number"
               style={inputStyle}
@@ -614,15 +678,24 @@ function ConditionEditor({
 
       {rule.kind === 'tierStep' && (
         <>
-          <Field label="Member (cube.dimension)">
-            <input
-              style={inputStyle}
-              value={rule.member}
-              placeholder="e.g. mf_users.vip_tier"
-              disabled={disabled}
-              onChange={(e) => onChange({ ...rule, member: e.target.value })}
-            />
-          </Field>
+          <div style={rowStyle}>
+            <Field label="Member (cube.dimension)" style={memberFieldStyle}>
+              <input
+                style={inputStyle}
+                value={rule.member}
+                placeholder="e.g. mf_users.vip_tier"
+                disabled={disabled}
+                onChange={(e) => onChange({ ...rule, member: e.target.value })}
+              />
+            </Field>
+            {/* Tier entry is always "reached" (≥ the lowest band) — the operator is
+                shown for layout parity but fixed; the band mins carry the value. */}
+            <Field label="Operator" style={opFieldStyle}>
+              <select style={selectStyle} value="reaches" disabled title="Tier entry is ≥ the lowest band">
+                <option value="reaches">≥ reaches</option>
+              </select>
+            </Field>
+          </div>
           <div>
             <label style={labelStyle}>Tier bands (lowest min = entry threshold)</label>
             <TierBandsEditor
@@ -637,7 +710,7 @@ function ConditionEditor({
 
       {rule.kind === 'event' && (
         <div style={rowStyle}>
-          <Field label="Event member (time dimension)">
+          <Field label="Event member (time dimension)" style={memberFieldStyle}>
             <input
               style={inputStyle}
               value={rule.member}
@@ -646,7 +719,18 @@ function ConditionEditor({
               onChange={(e) => onChange({ ...rule, member: e.target.value })}
             />
           </Field>
-          <Field label="Time window">
+          <Field label="Operator" style={opFieldStyle}>
+            <select
+              style={selectStyle}
+              value={rule.op ?? 'in'}
+              disabled={disabled}
+              onChange={(e) => onChange({ ...rule, op: e.target.value as 'in' | 'notIn' })}
+            >
+              <option value="in">in window</option>
+              <option value="notIn">not in window</option>
+            </select>
+          </Field>
+          <Field label="Time window" style={windowFieldStyle}>
             <input
               style={inputStyle}
               value={rule.window}
@@ -659,28 +743,41 @@ function ConditionEditor({
       )}
 
       {rule.kind === 'percentile' && (
-        <div style={rowStyle}>
-          <Field label="Distribution member">
-            <input
-              style={inputStyle}
-              value={rule.of}
-              placeholder="e.g. mf_users.ltv_vnd"
-              disabled={disabled}
-              onChange={(e) => onChange({ ...rule, of: e.target.value })}
-            />
-          </Field>
-          <Field label="Percentile (0–100)">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              style={inputStyle}
-              value={rule.p}
-              disabled={disabled}
-              onChange={(e) => onChange({ ...rule, p: Number(e.target.value) })}
-            />
-          </Field>
-          <Field label="Gate predicate (optional)">
+        <>
+          <div style={rowStyle}>
+            <Field label="Distribution member" style={memberFieldStyle}>
+              <input
+                style={inputStyle}
+                value={rule.of}
+                placeholder="e.g. mf_users.ltv_vnd"
+                disabled={disabled}
+                onChange={(e) => onChange({ ...rule, of: e.target.value })}
+              />
+            </Field>
+            <Field label="Operator" style={opFieldStyle}>
+              <select
+                style={selectStyle}
+                value={rule.op ?? 'gte'}
+                disabled={disabled}
+                onChange={(e) => onChange({ ...rule, op: e.target.value as 'gte' | 'lte' })}
+              >
+                <option value="gte">≥ (top Pn)</option>
+                <option value="lte">≤ (bottom Pn)</option>
+              </select>
+            </Field>
+            <Field label="Percentile (0–100)" style={valueFieldStyle}>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                style={inputStyle}
+                value={rule.p}
+                disabled={disabled}
+                onChange={(e) => onChange({ ...rule, p: Number(e.target.value) })}
+              />
+            </Field>
+          </div>
+          <Field label="Gate predicate (optional)" style={memberFieldStyle}>
             <input
               style={inputStyle}
               value={rule.gate ?? ''}
@@ -689,7 +786,7 @@ function ConditionEditor({
               onChange={(e) => onChange({ ...rule, gate: e.target.value || undefined })}
             />
           </Field>
-        </div>
+        </>
       )}
 
       {rule.kind === 'ratio' && (
@@ -1063,6 +1160,23 @@ export function PlaybookBuilderPage() {
       setCounting(false);
     }
   }, [isViewer, buildFields, gameId, editId]);
+
+  // Auto-run the live count once on initial load so the match number is the
+  // first thing the editor sees (the count is the co-star of this surface, per
+  // the redesign). Fires only after the form pre-fills from an existing
+  // playbook, and only when the count button would itself be enabled (a
+  // condition member is set, all members are available, and the user is not a
+  // viewer). It never re-fires on keystroke — subsequent counts stay explicit
+  // via the button, keeping the cold-Trino query off the edit hot path.
+  const autoCounted = useRef(false);
+  useEffect(() => {
+    if (autoCounted.current) return;
+    if (isViewer) return;
+    if (!sourcePlaybook) return; // a blank "new" form has nothing to count yet
+    if (!conditionHasMember || !allMembersAvailable) return;
+    autoCounted.current = true;
+    void handleCount();
+  }, [isViewer, sourcePlaybook, conditionHasMember, allMembersAvailable, handleCount]);
 
   const handleSaveAndSweep = useCallback(async () => {
     if (isViewer) return;
