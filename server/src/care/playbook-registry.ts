@@ -178,9 +178,9 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'ingame',
     name: 'Guild instability',
     priority: 'tb',
-    dataRequirements: ['user_gameplay_daily.clan_rank'], // partial: derived from clan snapshot delta
-    condition: tier({ kind: 'event', member: 'user_gameplay_daily.clan_rank_changed_at', window: 'last 48 hours' }),
-    watchedMetric: { member: 'user_gameplay_daily.clan_rank', label: 'Clan rank', kpiTarget: 'stays in guild' },
+    dataRequirements: ['user_gameplay_daily.clan_switched_recent'], // clan switch flag (trailing 48h, cross-window clan_id diff)
+    condition: tier({ kind: 'abs', member: 'user_gameplay_daily.clan_switched_recent', op: 'equals', value: 1 }),
+    watchedMetric: { member: 'user_gameplay_daily.clan_id', label: 'Clan membership', kpiTarget: 'stays in guild' },
     action: { text: 'Stabilize guild; offer support / mediation', channels: ['in_game'], slaMinutes: 1440 },
   },
   {
@@ -264,8 +264,8 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'churn',
     name: 'Leave / disband guild',
     priority: 'tb',
-    dataRequirements: ['user_gameplay_daily.clan_id'], // partial: clan snapshot diff
-    condition: tier({ kind: 'event', member: 'user_gameplay_daily.clan_left_at', window: 'last 48 hours' }),
+    dataRequirements: ['user_gameplay_daily.clan_left_recent'], // clan-left flag (trailing 48h, still-active cross-window clan_id diff)
+    condition: tier({ kind: 'abs', member: 'user_gameplay_daily.clan_left_recent', op: 'equals', value: 1 }),
     watchedMetric: { member: 'user_gameplay_daily.clan_id', label: 'Guild membership', kpiTarget: 'rejoins / stays active' },
     action: { text: 'Reconnect socially; suggest active guilds', channels: ['in_game', 'push'], slaMinutes: 1440 },
   },

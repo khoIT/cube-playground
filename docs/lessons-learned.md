@@ -66,6 +66,24 @@ Format per lesson:
 - **Signal:** a rollup-backed `avg`/percentile reads plausibly but disagrees with the raw query once the date span > the rollup granularity; `usedPreAggregations` in the `/load` JSON is empty even though the query is fast.
 - **Apply:** check each measure's `type:` before adding it to a rollup. For routing proof, read the compiled SQL FROM clause via `/cube-api/v1/sql` — a `rollup_lambda` (`union_with_source_data: true`) always unions live source, so it reports `usedPreAggregations: []` even when sealed partitions serve. Also: after model edits the SERVING instance needs a restart (DEV_MODE=false = no hot-reload) before it knows the new rollup — restart `cube_api`/`cube_api_dev`, not just the worker; and `CREATE TABLE prod_pre_aggregations.…` build lines only log at trace level.
 
+### A custom-`sql` cube's partition prune must be a scalar subquery, not a CROSS-JOINed anchor value
+- **Rule:** when a cube's `sql:` filters a partition column (`log_month`) by a bound derived from a CROSS-JOINed CTE (e.g. `WHERE g.log_month >= substr(a.d - 3d, …)` with `a` an anchor CTE), Trino CANNOT use it for partition pruning — the join value isn't known at plan time, so it scans the FULL table history. Make the prune predicate a self-contained scalar subquery: `WHERE g.log_month >= (SELECT substr(CAST(MAX(...) - INTERVAL '3' DAY AS VARCHAR),1,7) FROM <table>)`.
+- **Why:** `user_gameplay_daily` over raw `etl_ingame_game_detail` (~1M matches/day, monthly partitions) took 17s cold (scanning Dec→May, ~150M rows) with a CROSS-JOIN-derived bound; the same query with a scalar-subquery `log_month` bound pruned to 2 months (~7.4M rows) and dropped to 8s — back under the 15s Cube client timeout.
+- **Signal:** a custom-SQL mart query is far slower than the equivalent direct behavior-cube query with a static `dateRange` (which prunes); EXPLAIN / scan-row-count covers months you filtered out.
+- **Apply:** keep the CROSS-JOIN anchor for SELECT-list window logic, but express every partition-column WHERE bound as an independent scalar subquery. Aggregating-before-join helps join cost but does NOT fix a missing partition prune — the scan dominates.
+
+### Heavy raw-event marts can't back an `event`-window playbook — the anchor probe times out
+- **Rule:** a care playbook with `kind:'event'` (relative window like `last 48 hours`) triggers a SECOND Cube query per sweep — `resolveDataAnchor` probes `ORDER BY <member> DESC LIMIT 1` to find the data anchor. On a heavy raw-event mart that probe runs the full cube SQL and times out (15s), then fail-safes to `new Date()` → the window resolves to today (no data) → empty cohort. Model the event as a 1/0 flag dimension on the mart and gate with `kind:'abs', op:'equals', value:1` instead — the trailing window is baked into the mart's own cross-window diff, so no anchor probe is needed.
+- **Why:** PB10/17 (clan switch / clan left) on `user_gameplay_daily` returned 0 (anchor probe timed out → window = today, data ends 2026-05-01); switching them to `clan_switched_recent` / `clan_left_recent` flags + abs(=1) made them return 213 / 156 and removed the extra query.
+- **Signal:** an `event` playbook reports `cohortSize 0` or `query-failed` while a direct `<member> is set` probe returns a real cohort; sweep latency spikes on that playbook.
+- **Apply:** reserve `kind:'event'` for members on light daily marts (e.g. `mf_users.first_recharge_date`). For anything computed over a raw-event mart, emit the recency as a flag column and use `abs`.
+
+### A YAML folded scalar (`>`) collapses base-indent `--` comments onto one line — the comment eats the next statement
+- **Rule:** in a `sql: >` block, lines at the block's BASE indent are folded together with spaces; a `--` line comment at that level therefore swallows whatever follows on the folded line (e.g. a CTE keyword), producing `mismatched input 'SELECT'`. Put any `--` comment at a DEEPER indent than the base (inside a clause), where folding preserves the newline — or use `/* … */`.
+- **Why:** comments placed between CTEs (`), -- note\n  next AS (`) folded to `), -- note next AS (`, commenting out `next AS (` → Trino syntax error. The same comment moved one line down, just after the CTE's `SELECT`, compiled fine.
+- **Signal:** a Cube `/sql` dump shows several source lines joined onto one line with a trailing `-- …`; the parse error points at the token right after where a CTE/clause keyword should be.
+- **Apply:** never leave a `--` comment on a foldable (base-indent) line; verify by reading the compiled SQL via `/cube-api/v1/sql`, not just the YAML.
+
 ---
 
 ## Server cache contract

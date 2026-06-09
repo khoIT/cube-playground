@@ -152,14 +152,27 @@ describe('availability resolver (per game × playbook)', () => {
       ...JUS_MEMBERS,
       'user_gameplay_daily.ladder_rank',
       'user_gameplay_daily.ladder_rank_drop_48h',
+      'user_gameplay_daily.clan_switched_recent',
+      'user_gameplay_daily.clan_left_recent',
       'etl_prop_flow.prop_id',
       'etl_prop_flow.acquired_at',
       'user_gameplay_daily.limited_set_owned_count',
     ]);
     expect(resolveAvailability(pb('06'), cfm)).toBe('available'); // leaderboard, mart member present
     expect(resolveAvailability(pb('08'), cfm)).toBe('available'); // rank drop
+    expect(resolveAvailability(pb('09'), cfm)).toBe('available'); // major achievement (rank == 1)
+    expect(resolveAvailability(pb('10'), cfm)).toBe('available'); // guild instability — clan-switch flag
+    expect(resolveAvailability(pb('17'), cfm)).toBe('available'); // clan left — clan-left flag
     expect(resolveAvailability(pb('07'), cfm)).toBe('partial'); // raw etl_prop_flow → per-member only
     expect(resolveAvailability(pb('11'), cfm)).toBe('partial'); // requires etl_prop_flow
+
+    // The clan playbooks gate on a 1/0 flag (abs =1), not an event-window on a
+    // timestamp — so they resolve as a cohort-queryable membership rule.
+    expect(resolveAvailability(pb('10'), JUS_MEMBERS)).toBe('unavailable'); // no gameplay mart
+    expect(resolveAvailability(pb('17'), JUS_MEMBERS)).toBe('unavailable');
+    const merged = mergePlaybooks('cfm_vn', cfm, []);
+    expect(merged.find((p) => p.id === '10')!.evalMode).toBe('membership');
+    expect(merged.find((p) => p.id === '17')!.evalMode).toBe('membership');
   });
 });
 

@@ -1,0 +1,231 @@
+cubes:
+  # ===========================================================================
+  # user_gameplay_daily — per-user PvP ladder + clan standing AS OF the data
+  # anchor (latest day etl_ingame_game_detail has). Source: that match table,
+  # mapped playerid → mf_ingame_roles.role_id → user_id.
+  #
+  # Powers four leaderboard/clan VIP-care playbooks WITHOUT an app-side trigger
+  # engine, by pushing the rolling state + 48h diff into Trino so each predicate
+  # is a plain cohort filter:
+  #   - top-leaderboard / major-achievement → ladder_rank (global RANK by score)
+  #   - rank drop / loss streak             → ladder_rank_drop_48h (tier decline)
+  #   - guild instability                   → clan_changed_at (switched clans)
+  #   - clan left                           → clan_left_at (clan → no-clan)
+  #
+  # Grain = one row per user who played in the trailing 4 days, evaluated as of
+  # the anchor day (MAX(log_date)). State is taken over two windows so the 48h
+  # change is visible without an event stream:
+  #   - CURRENT  = anchor day + the day before (evt_date >= d-1)
+  #   - PRIOR    = ~48h earlier, the d-3..d-2 slice (evt_date <= d-2)
+  # A user present in PRIOR but not CURRENT keeps a NULL current state, so a
+  # "left clan" / "tier drop" only fires when both windows are observed (the
+  # signal is fail-closed — silence never counts as a drop).
+  #
+  # ladder_score (totalladderscore) is a LIFETIME-cumulative per-player value (it
+  # survives the season reset), so the global RANK on it is valid and population-
+  # independent. The ladder LEVEL (ladderlevelbeforematch), by contrast, RESETS
+  # each ladder season — so the 48h tier-drop is computed ONLY from rows in the
+  # anchor day's season, or a season rollover would read as a mass demotion.
+  # Window-function ranks are non-additive → no pre-aggregation.
+  # ===========================================================================
+  - name: user_gameplay_daily
+    sql: >
+      WITH anchor AS (
+        -- anchor day = latest match date; anchor season = that day's dominant
+        -- ladderseason (the tier reset is per-season, so the 48h drop must stay
+        -- within one season to be meaningful).
+        SELECT d, season FROM (
+          SELECT
+            CAST(g.log_date AS DATE) AS d,
+            g.ladderseason AS season,
+            COUNT(*) AS c,
+            MAX(CAST(g.log_date AS DATE)) OVER () AS max_d
+          FROM etl_ingame_game_detail g
+          WHERE CAST(g.log_date AS DATE) >= (
+                  SELECT MAX(CAST(log_date AS DATE)) FROM etl_ingame_game_detail
+                ) - INTERVAL '1' DAY
+          GROUP BY CAST(g.log_date AS DATE), g.ladderseason
+        ) s
+        WHERE d = max_d
+        ORDER BY c DESC
+        LIMIT 1
+      ),
+      per_player AS (
+        -- Aggregate the raw match rows per PLAYERID first (cur/prior windows), so
+        -- the role-identity join runs against ~one row per player instead of every
+        -- match — keeps the query well under the 15s client timeout even cold.
+        SELECT
+          g.playerid,
+          a.d AS anchor_d,
+          MAX(IF(CAST(g.log_date AS DATE) >= a.d - INTERVAL '1' DAY,
+                 TRY_CAST(g.totalladderscore AS INTEGER))) AS ladder_score_cur,
+          MAX(IF(CAST(g.log_date AS DATE) >= a.d - INTERVAL '1' DAY AND g.ladderseason = a.season,
+                 TRY_CAST(g.ladderlevelbeforematch AS INTEGER))) AS ladder_level_cur,
+          MAX(IF(CAST(g.log_date AS DATE) <= a.d - INTERVAL '2' DAY AND g.ladderseason = a.season,
+                 TRY_CAST(g.ladderlevelbeforematch AS INTEGER))) AS ladder_level_prev,
+          SUM(IF(CAST(g.log_date AS DATE) >= a.d - INTERVAL '1' DAY, 1, 0)) AS matches_cur,
+          SUM(IF(CAST(g.log_date AS DATE) <= a.d - INTERVAL '2' DAY, 1, 0)) AS matches_prev,
+          max_by(IF(CAST(g.log_date AS DATE) >= a.d - INTERVAL '1' DAY, g.clanid),
+                 IF(CAST(g.log_date AS DATE) >= a.d - INTERVAL '1' DAY, g.dteventtime)) AS clan_cur,
+          max_by(IF(CAST(g.log_date AS DATE) <= a.d - INTERVAL '2' DAY, g.clanid),
+                 IF(CAST(g.log_date AS DATE) <= a.d - INTERVAL '2' DAY, g.dteventtime)) AS clan_prev
+        FROM etl_ingame_game_detail g
+        CROSS JOIN anchor a
+        -- Prune partitions at PLAN time: log_month ('YYYY-MM') is the partition
+        -- key, and the bound must be a scalar subquery (not the CROSS-JOINed
+        -- anchor a.d — Trino can't push a join value into partition pruning, so
+        -- referencing a.d here scans the full Dec→May history). This caps the
+        -- read at the two months the 4-day window can touch.
+        WHERE g.log_month >= (
+                SELECT substr(CAST(MAX(CAST(log_date AS DATE)) - INTERVAL '3' DAY AS VARCHAR), 1, 7)
+                FROM etl_ingame_game_detail
+              )
+          AND CAST(g.log_date AS DATE) >= a.d - INTERVAL '3' DAY
+        GROUP BY g.playerid, a.d
+      ),
+      agg AS (
+        -- Map playerid → user_id and fold a user's roles into one row. clan/level
+        -- come from the role with the most current-window matches (the player's main).
+        SELECT
+          r.user_id,
+          p.anchor_d,
+          MAX(p.ladder_score_cur) AS ladder_score_cur,
+          MAX(p.ladder_level_cur) AS ladder_level_cur,
+          MAX(p.ladder_level_prev) AS ladder_level_prev,
+          SUM(p.matches_cur) AS matches_cur,
+          -- Fold a user's roles per window INDEPENDENTLY: the current clan comes
+          -- from the role most active THIS window, the prior clan from the role
+          -- most active the PRIOR window. Keying both by matches_cur would let a
+          -- player who switched mains across windows drop their real prior clan.
+          max_by(p.clan_cur, COALESCE(p.matches_cur, 0)) AS clan_cur,
+          max_by(p.clan_prev, COALESCE(p.matches_prev, 0)) AS clan_prev
+        FROM per_player p
+        JOIN mf_ingame_roles r ON p.playerid = r.role_id
+        GROUP BY r.user_id, p.anchor_d
+      )
+      SELECT
+        agg.*,
+        RANK() OVER (ORDER BY ladder_score_cur DESC NULLS LAST) AS ladder_rank,
+        -- in-season tiers lost over ~48h; NULL when either window is unobserved
+        (ladder_level_prev - ladder_level_cur) AS ladder_rank_drop_48h,
+        -- guild instability: switched from one real clan to a different one
+        CASE
+          WHEN clan_prev IS NOT NULL AND clan_prev <> '0'
+           AND clan_cur  IS NOT NULL AND clan_cur  <> '0'
+           AND clan_cur <> clan_prev
+          THEN anchor_d
+        END AS clan_changed_date,
+        -- left their clan: was in a real clan, STILL active this window, now in none
+        CASE
+          WHEN matches_cur > 0
+           AND clan_prev IS NOT NULL AND clan_prev <> '0'
+           AND (clan_cur IS NULL OR clan_cur = '0')
+          THEN anchor_d
+        END AS clan_left_date,
+        -- 1/0 flags mirroring the two clan events. Playbooks gate on these with a
+        -- plain abs(=1) rule rather than an event-window on the *_at timestamps:
+        -- the trailing-48h window is already baked into the cross-window diff, so
+        -- the flag avoids a second anchor-resolution query per sweep (that probe
+        -- is heavy on this raw-match mart and would time out → wrong window).
+        CASE
+          WHEN clan_prev IS NOT NULL AND clan_prev <> '0'
+           AND clan_cur  IS NOT NULL AND clan_cur  <> '0'
+           AND clan_cur <> clan_prev
+          THEN 1 ELSE 0
+        END AS clan_switched_recent,
+        CASE
+          WHEN matches_cur > 0
+           AND clan_prev IS NOT NULL AND clan_prev <> '0'
+           AND (clan_cur IS NULL OR clan_cur = '0')
+          THEN 1 ELSE 0
+        END AS clan_left_recent
+      FROM agg
+    title: CFM VN — Daily Gameplay Standing (per user, as of the data anchor)
+    description: >
+      One row per user who played in the trailing 4 days, evaluated as of the
+      latest match date, carrying global ladder rank, the 48h tier-drop, and the
+      clan join/leave/switch signals used by the leaderboard and guild care
+      playbooks. Identity: playerid → mf_ingame_roles.role_id → user_id.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: user_id
+        sql: user_id
+        type: string
+        primary_key: true
+        # Primary keys are public:false by default, but the care cohort fetcher
+        # selects user_id as the identity dimension — expose it.
+        public: true
+
+      # Time dimension wrapped to TIMESTAMP (the model's contract — a bare DATE
+      # breaks date-range routing/filters).
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.anchor_d AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      # Global ladder rank by current ladder score (1 = best). Top-leaderboard
+      # (<=10) and major-achievement (==1) gate on this.
+      - name: ladder_rank
+        sql: ladder_rank
+        type: number
+        description: Global rank by current ladder score across all ranked players (1 = top)
+
+      - name: ladder_score
+        sql: ladder_score_cur
+        type: number
+        description: This player's ladder score (totalladderscore) as of the anchor
+
+      - name: ladder_level
+        sql: ladder_level_cur
+        type: number
+        description: This player's ladder tier (1-22) as of the anchor
+
+      # Tiers lost over ~48h (prior tier − current tier). NULL when the player
+      # wasn't seen in both windows → never a false "drop". >5 = sharp demotion.
+      - name: ladder_rank_drop_48h
+        sql: ladder_rank_drop_48h
+        type: number
+        description: Ladder tiers dropped over the trailing 48h (positive = demoted); NULL if not observed both windows
+
+      - name: clan_id
+        sql: clan_cur
+        type: string
+        description: Current clan id ('0' = no clan)
+
+      # Set to the anchor date only when the player switched between two real
+      # clans in the window → the "guild instability" event the playbook gates on.
+      - name: clan_changed_at
+        sql: "from_iso8601_timestamp(CAST({CUBE}.clan_changed_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Anchor date if the player switched clans in the trailing 48h, else NULL
+
+      # Set to the anchor date only when the player left a real clan (now in none)
+      # → the "clan left" event the retention playbook gates on.
+      - name: clan_left_at
+        sql: "from_iso8601_timestamp(CAST({CUBE}.clan_left_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Anchor date if the player left their clan in the trailing 48h, else NULL
+
+      # 1/0 flags the playbooks actually gate on (abs =1) — see the SQL comment:
+      # they encode the same trailing-48h events as the *_at timestamps but cost
+      # no extra anchor-resolution query per sweep.
+      - name: clan_switched_recent
+        sql: clan_switched_recent
+        type: number
+        description: 1 if the player switched between two real clans in the trailing 48h (guild instability)
+
+      - name: clan_left_recent
+        sql: clan_left_recent
+        type: number
+        description: 1 if the player left their clan (still active, now clanless) in the trailing 48h
+
+    measures:
+      - name: rows
+        type: count
