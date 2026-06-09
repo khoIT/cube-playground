@@ -8,6 +8,7 @@
  *   - "yesterday"
  *   - "this week" / "this month" / "this quarter" / "this year"
  *   - "last week" / "last month" / "last quarter" / "last year"
+ *   - "last N hours" / "last N hour"   (precise rolling window — datetime bounds)
  *   - "last N days"  / "last N day"
  *   - "last N weeks" / "last N week"
  *   - "last N months"/ "last N month"
@@ -51,6 +52,16 @@ export function expandRelativeDateRange(
   if (s === 'last year') {
     const ly = new Date(now.getFullYear() - 1, 0, 1);
     return [iso(ly), iso(endOfYear(ly))];
+  }
+
+  // "last N hours" — a precise rolling window ending now. Sub-day windows
+  // (e.g. "last 24 hours") can't be expressed at day granularity, so this branch
+  // returns full ISO datetime bounds; Cube accepts datetimes in inDateRange.
+  const mh = s.match(/^last (\d+) (hour|hours)$/);
+  if (mh) {
+    const n = Math.max(1, parseInt(mh[1], 10));
+    const start = new Date(now.getTime() - n * 3_600_000);
+    return [start.toISOString(), now.toISOString()];
   }
 
   // "last N days|weeks|months" — N inclusive of today.
