@@ -49,6 +49,7 @@ import carePlaybooksAuthoringRoutes from './routes/care-playbooks-authoring.js';
 import carePlaybookPreviewRoutes from './routes/care-playbook-preview.js';
 import careDataFreshnessRoutes from './routes/care-data-freshness.js';
 import careCasesRoutes from './routes/care-cases.js';
+import careActivityRoutes from './routes/care-activity.js';
 import careGovernanceRoutes from './routes/care-governance.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
@@ -125,6 +126,7 @@ export async function buildApp() {
   await app.register(carePlaybookPreviewRoutes);
   await app.register(careDataFreshnessRoutes);
   await app.register(careCasesRoutes);
+  await app.register(careActivityRoutes);
   await app.register(careGovernanceRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve

@@ -28,6 +28,7 @@ import { distinctAsOf, formatAsOf } from './data-freshness-format';
 import { PortfolioStrip } from './portfolio-strip';
 import { PlaybookGrid } from './playbook-grid';
 import { CsConsoleNav } from './cs-console-nav';
+import { CsActivityStrip } from './cs-activity-strip';
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -200,6 +201,9 @@ export function CsMonitorPage() {
           Failed to load playbook registry: {error}
         </div>
       )}
+
+      {/* 24h activity strip — treated / dismissed / resolved counts + recent feed */}
+      <CsActivityStrip gameId={gameId} />
 
       {/* Portfolio strip — skeleton while loading */}
       <PortfolioStrip stats={portfolio} loading={isLoading} />
