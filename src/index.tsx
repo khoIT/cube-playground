@@ -1,6 +1,6 @@
 import ReactDOM from 'react-dom';
 import { ReactNode, Suspense, useRef } from 'react';
-import { Router, Route, Redirect, useLocation, useParams } from 'react-router-dom';
+import { Router, Route, Switch, Redirect, useLocation, useParams } from 'react-router-dom';
 import { createHashHistory } from 'history';
 
 import App from './App';
@@ -233,16 +233,20 @@ ReactDOM.render(
               <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
               <Route key="liveops-cohort" exact path="/liveops/cohort" component={CohortRetentionPage} />
               <Route key="liveops" exact path="/liveops" component={LiveopsPage} />
-              {/* CS Monitor must be before /:slug so /dashboards/cs is not consumed as a slug.
-                  /dashboards/cs/queue must be before /dashboards/cs (exact) for correct matching.
-                  Playbook builder routes must be before /dashboards/cs (exact) to avoid slug capture. */}
-              <Route key="dashboards-cs-playbook-new" exact path="/dashboards/cs/playbooks/new" component={PlaybookBuilderPage} />
-              <Route key="dashboards-cs-playbook-edit" exact path="/dashboards/cs/playbooks/:id/edit" component={PlaybookBuilderPage} />
-              <Route key="dashboards-cs-queue" exact path="/dashboards/cs/queue" component={CaseLedgerPage} />
-              <Route key="dashboards-cs-member" exact path="/dashboards/cs/members/:uid" component={CareMember360Page} />
-              <Route key="dashboards-cs" exact path="/dashboards/cs" component={CsMonitorPage} />
-              <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
-              <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
+              {/* Switch so only the FIRST match in this family renders. Without it,
+                  /dashboards/:slug also matches /dashboards/cs and the detail page
+                  renders its "Dashboard not found" beneath the CS Monitor. Order:
+                  the more specific cs/* paths precede /dashboards/:slug, which
+                  precedes the bare list. */}
+              <Switch>
+                <Route key="dashboards-cs-playbook-new" exact path="/dashboards/cs/playbooks/new" component={PlaybookBuilderPage} />
+                <Route key="dashboards-cs-playbook-edit" exact path="/dashboards/cs/playbooks/:id/edit" component={PlaybookBuilderPage} />
+                <Route key="dashboards-cs-queue" exact path="/dashboards/cs/queue" component={CaseLedgerPage} />
+                <Route key="dashboards-cs-member" exact path="/dashboards/cs/members/:uid" component={CareMember360Page} />
+                <Route key="dashboards-cs" exact path="/dashboards/cs" component={CsMonitorPage} />
+                <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
+                <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
+              </Switch>
               <Route key="drift-center" exact path="/drift-center" component={DriftCenterPage} />
               <Route key="data-hub" exact path="/data" component={DataHubPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />

@@ -176,6 +176,60 @@ describe('useCareCases (by-playbook)', () => {
     expect(calledUrl).not.toContain('playbook=');
     expect(result.current.cases).toHaveLength(1);
   });
+
+  it('joins playbookIds into a comma param (multi-select)', async () => {
+    const fetchMock = mockFetch({ cases: [makeCase()] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useCareCases('cfm_vn', { playbookIds: ['01', '04', '14'] }));
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    const calledUrl: string = fetchMock.mock.calls[0][0] as string;
+    // URLSearchParams encodes commas as %2C.
+    expect(decodeURIComponent(calledUrl)).toContain('playbook=01,04,14');
+  });
+
+  it('omits playbook param when playbookIds is empty (all playbooks)', async () => {
+    const fetchMock = mockFetch({ cases: [makeCase()] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useCareCases('cfm_vn', { playbookIds: [] }));
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    const calledUrl: string = fetchMock.mock.calls[0][0] as string;
+    expect(calledUrl).not.toContain('playbook=');
+  });
+});
+
+describe('useVipQueue search (q=)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('forwards a trimmed q param when searching', async () => {
+    const fetchMock = mockFetch({ vips: [] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useVipQueue('cfm_vn', { q: '  dragon  ' }));
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    const calledUrl: string = fetchMock.mock.calls[0][0] as string;
+    expect(calledUrl).toContain('q=dragon');
+  });
+
+  it('omits q when the search is blank', async () => {
+    const fetchMock = mockFetch({ vips: [] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useVipQueue('cfm_vn', { q: '   ' }));
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    const calledUrl: string = fetchMock.mock.calls[0][0] as string;
+    expect(calledUrl).not.toContain('q=');
+  });
 });
 
 describe('patchCareCase', () => {

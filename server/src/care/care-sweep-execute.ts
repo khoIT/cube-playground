@@ -22,12 +22,23 @@ import { makeCubeProfileFetcher } from './care-vip-profile-fetch.js';
 import { upsertVipProfiles } from './care-vip-profile-store.js';
 import { recordSweep, recordFailedSweep, deriveRunStatus, type SweepRunSource, type SweepRunStatus } from './care-sweep-run-store.js';
 
-/** Per-(workspace, game) in-flight set; shared by route + cron to avoid overlap. */
-const inFlight = new Set<string>();
+/** What we track per in-flight sweep, so a reconnecting UI can show live status. */
+export interface SweepInFlight {
+  startedAt: string; // ISO — when the lock was acquired
+  source: SweepRunSource;
+}
+
+/** Per-(workspace, game) in-flight map; shared by route + cron to avoid overlap. */
+const inFlight = new Map<string, SweepInFlight>();
 const keyOf = (workspaceId: string, game: string) => `${workspaceId}:${game}`;
 
 export function isSweepInFlight(workspaceId: string, game: string): boolean {
   return inFlight.has(keyOf(workspaceId, game));
+}
+
+/** The live status of an in-flight sweep for (workspace, game), or null if none. */
+export function getSweepInFlight(workspaceId: string, game: string): SweepInFlight | null {
+  return inFlight.get(keyOf(workspaceId, game)) ?? null;
 }
 
 /** Raised when a sweep is requested for a game already being swept. */
@@ -63,9 +74,12 @@ export async function executeSweep(
 ): Promise<SweepExecuteResult> {
   const key = keyOf(workspace.id, game);
   if (inFlight.has(key)) throw new SweepBusyError(game);
-  inFlight.add(key);
-
+  // Check + claim must stay synchronous (no await between) so two callers can't
+  // both pass the busy check. startedAt doubles as the lock value and the
+  // elapsed-time anchor the status endpoint reports.
   const startedAt = new Date().toISOString();
+  inFlight.set(key, { startedAt, source });
+
   try {
     const scope = resolveGameScope(workspace, game);
     if (!scope.ok) throw new Error(scope.error);

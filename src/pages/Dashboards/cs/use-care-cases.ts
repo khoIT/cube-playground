@@ -38,10 +38,10 @@ export interface CareCase {
   id: string;
   game_id: string;
   playbook_id: string;
-  /** Playbook display name — present on /vip/:uid responses. */
+  /** Playbook display name — present on /api/care/cases + /vip/:uid responses. */
   playbook_name?: string;
-  /** Numeric priority from playbook registry — present on /vip/:uid. */
-  playbook_priority?: number;
+  /** Priority from playbook registry ('cao' | 'tb' | 'thap', or legacy numeric). */
+  playbook_priority?: number | string;
   uid: string;
   source: 'membership' | 'trigger';
   opened_at: string;
@@ -149,7 +149,18 @@ export interface VipDetailState {
  */
 export function useCareCases(
   gameId: string,
-  opts: { playbookId?: string; status?: string; page?: number; pageSize?: number } = {},
+  opts: {
+    /** Single playbook (deep-link / back-compat). */
+    playbookId?: string;
+    /** Multi-select playbooks → comma param. Takes precedence over playbookId. */
+    playbookIds?: string[];
+    /** Single status (back-compat). */
+    status?: string;
+    /** Multi-select statuses → comma param. Takes precedence over status. */
+    statuses?: string[];
+    page?: number;
+    pageSize?: number;
+  } = {},
 ): CareCasesState {
   const [state, setState] = useState<CareCasesState>({
     status: 'idle',
@@ -160,7 +171,11 @@ export function useCareCases(
   });
 
   const abortRef = useRef<AbortController | null>(null);
-  const { playbookId, status: filterStatus, page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
+  const { playbookId, playbookIds, status: filterStatus, statuses, page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
+  // Stable comma keys so the effect re-runs on selection change (arrays are new
+  // refs each render; the joined string is the real dependency).
+  const playbookParam = (playbookIds && playbookIds.length ? playbookIds.join(',') : playbookId) ?? '';
+  const statusParam = (statuses && statuses.length ? statuses.join(',') : filterStatus) ?? '';
 
   useEffect(() => {
     if (!gameId) return;
@@ -178,8 +193,8 @@ export function useCareCases(
           page: String(page),
           pageSize: String(pageSize),
         };
-        if (playbookId) query.playbook = playbookId;
-        if (filterStatus) query.status = filterStatus;
+        if (playbookParam) query.playbook = playbookParam;
+        if (statusParam) query.status = statusParam;
 
         const data = await apiFetch<PagedCases>('/api/care/cases', {
           query,
@@ -202,7 +217,7 @@ export function useCareCases(
 
     load();
     return () => controller.abort();
-  }, [gameId, playbookId, filterStatus, page, pageSize]);
+  }, [gameId, playbookParam, statusParam, page, pageSize]);
 
   return state;
 }
@@ -215,7 +230,7 @@ export function useCareCases(
  */
 export function useVipQueue(
   gameId: string,
-  opts: { page?: number; pageSize?: number } = {},
+  opts: { page?: number; pageSize?: number; q?: string } = {},
 ): VipQueueState {
   const [state, setState] = useState<VipQueueState>({
     status: 'idle',
@@ -226,7 +241,8 @@ export function useVipQueue(
   });
 
   const abortRef = useRef<AbortController | null>(null);
-  const { page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
+  const { page = 1, pageSize = DEFAULT_PAGE_SIZE, q } = opts;
+  const query = (q ?? '').trim();
 
   useEffect(() => {
     if (!gameId) return;
@@ -239,8 +255,10 @@ export function useVipQueue(
 
     async function load() {
       try {
+        const params: Record<string, string> = { game: gameId, page: String(page), pageSize: String(pageSize) };
+        if (query) params.q = query;
         const data = await apiFetch<PagedVips>('/api/care/cases/by-vip', {
-          query: { game: gameId, page: String(page), pageSize: String(pageSize) },
+          query: params,
           signal: controller.signal,
         });
         setState({
@@ -259,7 +277,7 @@ export function useVipQueue(
 
     load();
     return () => controller.abort();
-  }, [gameId, page, pageSize]);
+  }, [gameId, page, pageSize, query]);
 
   return state;
 }
@@ -350,4 +368,77 @@ export async function runCareSweep(game: string): Promise<SweepResult> {
   return apiFetch<SweepResult>(`/api/care/cases/sweep?game=${encodeURIComponent(game)}`, {
     method: 'POST',
   });
+}
+
+// ── Live sweep status (reconnect to an in-flight sweep) ──────────────────────
+
+export interface SweepStatus {
+  inFlight: boolean;
+  game: string;
+  /** Who launched the running sweep — 'manual' (a Run sweep click) or 'cron'. */
+  source: 'manual' | 'cron' | null;
+  /** ISO start time of the running sweep; null when idle. Anchors elapsed time. */
+  startedAt: string | null;
+}
+
+export async function fetchSweepStatus(game: string, signal?: AbortSignal): Promise<SweepStatus> {
+  return apiFetch<SweepStatus>(`/api/care/cases/sweep/status?game=${encodeURIComponent(game)}`, { signal });
+}
+
+const SWEEP_POLL_ACTIVE_MS = 2000; // fast cadence while a sweep is running
+const SWEEP_POLL_IDLE_MS = 15000; // slow heartbeat so a sweep started elsewhere still surfaces
+
+/**
+ * Polls sweep status so the queue can reconnect to a sweep already running — one
+ * started here then navigated away from (the "Sweeping…" button state is
+ * component-local and lost on unmount), by the auto-sweep cron, or by another tab.
+ * Polls fast while in flight, slow when idle. Calls `onSettled` once on each
+ * in-flight → idle transition so the caller can refresh the ledger.
+ * Single-instance / in-process on the server side.
+ */
+export function useSweepStatus(
+  game: string,
+  onSettled?: () => void,
+): { inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null } {
+  const [status, setStatus] = useState<{ inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null }>({
+    inFlight: false,
+    source: null,
+    startedAt: null,
+  });
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  const wasInFlight = useRef(false);
+
+  useEffect(() => {
+    if (!game) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | null = null;
+
+    const tick = async () => {
+      controller = new AbortController();
+      try {
+        const s = await fetchSweepStatus(game, controller.signal);
+        if (cancelled) return;
+        setStatus({ inFlight: s.inFlight, source: s.source, startedAt: s.startedAt });
+        if (wasInFlight.current && !s.inFlight) onSettledRef.current?.();
+        wasInFlight.current = s.inFlight;
+        timer = setTimeout(tick, s.inFlight ? SWEEP_POLL_ACTIVE_MS : SWEEP_POLL_IDLE_MS);
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+        // Transient error — keep the heartbeat alive on the idle cadence.
+        timer = setTimeout(tick, SWEEP_POLL_IDLE_MS);
+      }
+    };
+    tick();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      controller?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game]);
+
+  return status;
 }

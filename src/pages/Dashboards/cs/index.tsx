@@ -25,6 +25,7 @@ import { useAuthUser } from '../../../auth/auth-context';
 import { useCarePlaybooks } from './use-care-playbooks';
 import { PortfolioStrip } from './portfolio-strip';
 import { PlaybookGrid } from './playbook-grid';
+import { CsConsoleNav } from './cs-console-nav';
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,8 @@ export function CsMonitorPage() {
 
   return (
     <div style={pageStyle}>
+      <CsConsoleNav current="monitor" gameId={gameId} />
+
       {/* Eyebrow */}
       <div
         style={{

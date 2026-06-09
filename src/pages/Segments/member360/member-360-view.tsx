@@ -29,6 +29,7 @@ import { AcquisitionStrip } from './sections/acquisition-strip';
 import { DashboardJourney } from './sections/dashboard-journey';
 import { DetailsTabs } from './sections/details-tabs';
 import { Member360CoverageNotice } from './member360-coverage-notice';
+import { CsMember360View } from '../../Dashboards/cs/member360/cs-member360-view';
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
@@ -169,6 +170,25 @@ export function Member360View(): ReactElement {
             game: gameId ?? '—',
           })}
         </div>
+      </main>
+    );
+  }
+
+  // Care-first layout when reached from the CS care queue: the care timeline is
+  // the central action and the rest of the 360 folds into reference panels. The
+  // Segments path keeps the existing stacked dashboard below.
+  if (segmentLess && sections && gameId) {
+    return (
+      <main style={pageStyle}>
+        <CsMember360View
+          gameId={gameId}
+          uid={uid}
+          sections={sections}
+          row={row}
+          profileLoading={profileLoading}
+          cachedSource={cachedSource}
+          back={back}
+        />
       </main>
     );
   }

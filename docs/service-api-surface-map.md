@@ -168,6 +168,27 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | POST | `/api/dashboards/:slug/tiles/:id/refresh` | editor, admin | `authorization`, `x-cube-workspace` | 200 cache view / 202 warming | refresh-dashboard-tiles, Cube, tile cache |
 | PUT | `/api/dashboards/:slug/layout` | editor, admin | `authorization`, `?game (req)` | 204 | SQLite dashboards/tiles |
 
+### care (VIP-care playbooks, cases, governance)
+
+| Method | Path | Auth/Roles | Headers | Response | Data sources |
+|---|---|---|---|---|---|
+| GET | `/api/care/playbooks` | none (viewer-ok) | `?game (req)` | `[{id, name, priority, condition, watchedMetric, kpi, channel, dataRequirements, status, available}]` merged seed ⊕ overrides, per-game availability gated | playbook-registry, playbook-merge, Cube `/meta` |
+| POST | `/api/care/playbooks` | editor, admin | `authorization`, `{name, threshold_rule, supplemental_predicate, enabled}` | 201 override (new playbook or threshold tune) | care-playbooks-override DB table, audit |
+| PATCH | `/api/care/playbooks/:id` | editor, admin | `authorization`, `{name?, threshold_rule?, supplemental_predicate?, enabled?}` | 200 updated override | care-playbooks-override, audit |
+| DELETE | `/api/care/playbooks/:id` | editor, admin | `authorization` | 204 (reverts override, seed re-surfaces) | care-playbooks-override, audit |
+| GET | `/api/care/cases` | none (viewer-ok) | `?game (req),?playbook (comma-list),?status (comma-list),?page,?pageSize` | `{cases: [{id, uid, playbook_id, playbook_name, playbook_priority, status, opened_at, …, profile}], total, page, pageSize}` paginated, enriched w/ VIP profile snapshots | care_cases table, playbook-merge, SQLite profile store |
+| GET | `/api/care/cases/by-vip` | none (viewer-ok) | `?game (req),?q (substring search on uid\|name),?page,?pageSize` | `{vips: [{uid, caseCount, topPriority, playbooks: [{id, name, priority}], profile}], total, page, pageSize}` open cases deduplicated by VIP, ranked by priority then count | care_cases, profile-enriched |
+| GET | `/api/care/cases/vip/:uid` | none (viewer-ok) | `?game (req)` | `{uid, cases: [{id, playbook_id, playbook_name, playbook_priority, status, opened_at, …}]}` full case history for one VIP cross-playbook | care_cases |
+| PATCH | `/api/care/cases/:id` | editor, admin | `authorization`, `{status?, assignee?, channel_used?, action_taken?, notes?, outcome?, kpi_eval_at?, condition_lapsed?}` | 200 case updated | care_cases, audit |
+| POST | `/api/care/cases/sweep` | editor, admin | `authorization`, `?game (req)` | 202 `{game, opened, lapsed, profilesRefreshed, summaries: [{playbook_id, opened, lapsed, skipped_reason?}]}` async or 409 SWEEP_BUSY / 502 SWEEP_FAILED | Cube cohort query, member sweep logic, profile refresh |
+| GET | `/api/care/governance` | none (viewer-ok) | `?game (req)` | `{maxProactivePerVipPer24h, cooldowns: {call_days, zalo_hours, in_game_hours, push_hours}}` org-wide fatigue rules (defaults if not set per game) | care_governance table |
+| PUT | `/api/care/governance` | admin | `authorization`, `{maxProactivePerVipPer24h?, cooldowns?}` | 200 updated rules | care_governance |
+| GET | `/api/care/fatigue` | none (viewer-ok) | `?game (req),?uid (req),?channel,?priority` | `{blocked: boolean, reason?: string, lastContactAt?, cooldownUntil?}` fatigue verdict for a proposed outreach | care_cases, contact history |
+| GET | `/api/care/sweeps/runs` | none (viewer-ok) | `?game (req),?limit` | `[{id, game, createdAt, triggeredBy, opened, lapsed, profilesRefreshed}]` paginated sweep run snapshots | care_sweep_runs table |
+| GET | `/api/care/sweeps/trend` | none (viewer-ok) | `?game (req),?playbook` | `{trends: [{playbook_id, playbook_name, runs: [{runId, cohortSize, openedCount}]}]}` cohort-size trend per playbook across runs | care_sweep_runs, care_sweep_membership |
+| GET | `/api/care/sweeps/diff` | none (viewer-ok) | `?game (req),?runA (req),?runB (req)` | `{diffs: [{playbook_id, playbook_name, entered, left, deltaSize}]}` per-playbook count + membership deltas | care_sweep_membership |
+| GET | `/api/care/sweeps/diff/vips` | none (viewer-ok) | `?game (req),?runA (req),?runB (req),?playbook (req),?direction (entered\|left),?page,?pageSize` | `{vips: [{uid, profile}], total, page, pageSize, membershipAvailable}` paginated VIP drill for membership flow | care_sweep_membership, profile-enriched |
+
 ### chat proxy, onboarding, misc (gateway → chat-service `:3005`)
 
 | Method | Path | Auth/Roles | Headers | Response | Data sources |

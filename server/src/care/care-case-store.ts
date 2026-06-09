@@ -100,22 +100,37 @@ export function getCase(id: string): CareCase | undefined {
 
 export interface ListCasesFilter {
   gameId: string;
-  playbookId?: string;
-  status?: CaseStatus;
+  /** Single id or a set — a set produces `playbook_id IN (...)`. */
+  playbookId?: string | string[];
+  /** Single status or a set — a set produces `status IN (...)`. */
+  status?: CaseStatus | CaseStatus[];
   uid?: string;
+}
+
+/** Push either an `= ?` or an `IN (?,…)` clause for a scalar-or-array filter. */
+function pushInClause(
+  clauses: string[],
+  params: unknown[],
+  column: string,
+  value: string | string[] | undefined,
+): void {
+  if (value == null) return;
+  const vals = Array.isArray(value) ? value : [value];
+  if (vals.length === 0) return;
+  if (vals.length === 1) {
+    clauses.push(`${column} = ?`);
+    params.push(vals[0]);
+  } else {
+    clauses.push(`${column} IN (${vals.map(() => '?').join(',')})`);
+    params.push(...vals);
+  }
 }
 
 export function listCases(f: ListCasesFilter): CareCase[] {
   const clauses = ['game_id = ?'];
   const params: unknown[] = [f.gameId];
-  if (f.playbookId) {
-    clauses.push('playbook_id = ?');
-    params.push(f.playbookId);
-  }
-  if (f.status) {
-    clauses.push('status = ?');
-    params.push(f.status);
-  }
+  pushInClause(clauses, params, 'playbook_id', f.playbookId);
+  pushInClause(clauses, params, 'status', f.status);
   if (f.uid) {
     clauses.push('uid = ?');
     params.push(f.uid);
