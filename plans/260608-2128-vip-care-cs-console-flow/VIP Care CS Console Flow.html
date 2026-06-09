@@ -128,6 +128,59 @@ tbody tr.blocked:hover{background:transparent}
 .segctl button{border:0;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:var(--text-muted);padding:6px 13px;border-radius:var(--radius-sm);cursor:pointer}
 .segctl button.on{background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow-sm)}
 
+/* prominent multi-select Playbooks bar — the primary filter on the By Playbook lens */
+.pbbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:11px 13px;box-shadow:var(--shadow-sm)}
+.pbbar-lbl{display:inline-flex;align-items:center;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--text-muted);margin-right:2px}
+.pbbar-lbl .ic{color:var(--text-muted)}
+.pbchip{display:inline-flex;align-items:center;gap:7px;background:var(--brand-soft);color:var(--brand-hover);border-radius:var(--radius-full);padding:5px 7px 5px 11px;font-size:12.5px;font-weight:600}
+.pbchip .pbchip-id{font-variant-numeric:tabular-nums;opacity:.65}
+.pbchip .x{display:inline-flex;cursor:pointer;border-radius:var(--radius-full);padding:1px;opacity:.7}
+.pbchip .x:hover{opacity:1;background:rgba(240,90,34,.18)}
+.pbadd{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--border-strong);background:var(--bg-card);border-radius:var(--radius-full);padding:5px 12px;font-family:inherit;font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer}
+.pbadd:hover{border-color:var(--brand);color:var(--brand-hover)}
+.pbsel-check{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--border-strong);display:grid;place-items:center;flex:0 0 auto;color:#fff}
+.pbsel-item.on .pbsel-check{background:var(--brand);border-color:var(--brand)}
+.pbtag{font-size:11.5px;color:var(--text-secondary);font-weight:600;white-space:nowrap}
+
+/* status filter — de-emphasized plain chip row (secondary to the playbook bar) */
+.fbar{display:flex;align-items:center;gap:7px;margin-bottom:16px;flex-wrap:wrap}
+.fbar-lbl{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text-muted);margin-right:2px}
+.fbar-lbl .ic{color:var(--text-muted)}
+.fchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--bg-card);border-radius:var(--radius-full);padding:5px 11px;font-family:inherit;font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer}
+.fchip:hover{border-color:var(--text-muted)}
+.fchip .fdot{width:8px;height:8px;border-radius:50%}
+.fchip .fcheck{margin-left:1px;display:inline-flex}
+.fchip .fcount{font-variant-numeric:tabular-nums;font-size:11px;color:var(--text-muted);background:var(--bg-muted);border-radius:var(--radius-full);padding:1px 7px;min-width:20px;text-align:center}
+.fchip.on{border-color:transparent}
+.fchip.on .fcount{background:rgba(255,255,255,.55);color:inherit}
+.fchip.on.f-all{background:#171717;color:#fff}
+.fchip.on.f-new{background:var(--brand-soft);color:var(--brand-hover)}
+.fchip.on.f-review{background:var(--info-soft);color:var(--info-ink)}
+.fchip.on.f-treated{background:var(--success-soft);color:var(--success-ink)}
+.fbar-clear{margin-left:4px;font-size:11.5px;font-weight:600;color:var(--brand-hover);cursor:pointer;padding:4px 6px}
+.fbar-clear:hover{text-decoration:underline}
+
+/* search bar — By VIP action queue (name / uid) */
+.srchbar{display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:8px 12px;background:var(--bg-card);max-width:340px;margin-bottom:14px}
+.srchbar .ic{color:var(--text-muted);flex:0 0 auto}
+.srchbar input{border:0;outline:0;font-family:inherit;font-size:12.5px;color:var(--text-primary);width:100%;background:transparent}
+
+/* playbook switcher — turns the static pill into a searchable dropdown (By Playbook lens) */
+.pbsel{position:relative;display:inline-block}
+.pbsel-btn{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:600;padding:5px 9px 5px 11px;border-radius:var(--radius-full);background:var(--bg-muted);color:var(--text-secondary);border:1px solid transparent;cursor:pointer;font-family:inherit}
+.pbsel-btn:hover{border-color:var(--border-strong)}
+.pbsel-btn .car{color:var(--text-muted);transition:transform .15s}
+.pbsel-btn.open .car{transform:rotate(180deg)}
+.pbsel-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:50;width:316px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:8px;max-height:380px;overflow:auto}
+.pbsel-search{width:100%;border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:7px 10px;font-family:inherit;font-size:12.5px;color:var(--text-primary);margin-bottom:4px}
+.pbsel-grp{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;padding:9px 8px 4px}
+.pbsel-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px;color:var(--text-secondary)}
+.pbsel-item:hover{background:var(--bg-muted)}
+.pbsel-item.on{background:var(--brand-soft);color:var(--brand-hover);font-weight:600}
+.pbsel-item .pbid{color:var(--text-muted);font-weight:500;font-variant-numeric:tabular-nums;min-width:18px}
+.pbsel-item.on .pbid{color:var(--brand-hover)}
+.pbsel-empty{padding:14px 9px;font-size:12px;color:var(--text-muted);text-align:center}
+
 .hint{display:flex;gap:9px;align-items:flex-start;background:var(--info-soft);border:1px solid #bfdbfe;color:#1e3a8a;padding:10px 14px;border-radius:var(--radius-md);font-size:12px;margin-bottom:16px}
 .hint b{font-weight:700}
 
@@ -222,6 +275,10 @@ const ic = {
   plus:<path d="M12 5v14M5 12h14"/>,
   edit:<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>,
   check:<path d="M20 6 9 17l-5-5"/>,
+  caret:<path d="M6 9l6 6 6-6"/>,
+  search:<g><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></g>,
+  filter:<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>,
+  x:<path d="M18 6 6 18M6 6l12 12"/>,
 };
 
 /* spark generator */
@@ -265,20 +322,65 @@ const GROUPS=[
 
 /* VIP action queue (cross-playbook, grouped by user) */
 const VIPS=[
- {uid:"player_8821",ltv:"₫184M",tier:"Diamond",sub:"whale · last active 2d ago",cases:[{pb:"Spend drop",st:"new",d:"var(--danger)"},{pb:"No login",st:"new",d:"var(--warning)"}],top:"Spend drop",prio:"Cao",last:"—"},
- {uid:"player_3140",ltv:"₫96M",tier:"Platinum",sub:"whale · ladder T-8",cases:[{pb:"Gacha bad-luck",st:"new",d:"var(--danger)"},{pb:"VIP tier reached",st:"treated",d:"var(--success)"}],top:"Gacha bad-luck",prio:"Cao",last:"2h ago",fatigue:true},
- {uid:"player_0967",ltv:"₫61M",tier:"Platinum",sub:"clan officer",cases:[{pb:"Anniversary 365d",st:"review",d:"var(--info)"}],top:"Anniversary",prio:"TB",last:"5d ago"},
- {uid:"player_5512",ltv:"₫212M",tier:"Diamond",sub:"whale · top spender",cases:[{pb:"Top leaderboard",st:"new",d:"var(--success)"},{pb:"Collector FOMO",st:"new",d:"var(--warning)"},{pb:"Spend spike",st:"treated",d:"var(--success)"}],top:"Top leaderboard",prio:"TB",last:"1d ago"},
- {uid:"player_7203",ltv:"₫48M",tier:"Gold",sub:"loss streak 6",cases:[{pb:"Rank drop",st:"new",d:"var(--warning)"}],top:"Rank drop",prio:"Cao",last:"—"},
+ {uid:"player_8821",name:"BinhMinh_AK",ltv:"₫184M",tier:"Diamond",sub:"whale · last active 2d ago",cases:[{pb:"Spend drop",st:"new",d:"var(--danger)"},{pb:"No login",st:"new",d:"var(--warning)"}],top:"Spend drop",prio:"Cao",last:"—"},
+ {uid:"player_3140",name:"ToxicLord",ltv:"₫96M",tier:"Platinum",sub:"whale · ladder T-8",cases:[{pb:"Gacha bad-luck",st:"new",d:"var(--danger)"},{pb:"VIP tier reached",st:"treated",d:"var(--success)"}],top:"Gacha bad-luck",prio:"Cao",last:"2h ago",fatigue:true},
+ {uid:"player_0967",name:"ClanMom_Lan",ltv:"₫61M",tier:"Platinum",sub:"clan officer",cases:[{pb:"Anniversary 365d",st:"review",d:"var(--info)"}],top:"Anniversary",prio:"TB",last:"5d ago"},
+ {uid:"player_5512",name:"WhaleKing",ltv:"₫212M",tier:"Diamond",sub:"whale · top spender",cases:[{pb:"Top leaderboard",st:"new",d:"var(--success)"},{pb:"Collector FOMO",st:"new",d:"var(--warning)"},{pb:"Spend spike",st:"treated",d:"var(--success)"}],top:"Top leaderboard",prio:"TB",last:"1d ago"},
+ {uid:"player_7203",name:"NoScope_Tin",ltv:"₫48M",tier:"Gold",sub:"loss streak 6",cases:[{pb:"Rank drop",st:"new",d:"var(--warning)"}],top:"Rank drop",prio:"Cao",last:"—"},
 ];
 
-/* per-playbook case queue (Spend drop example) */
-const PB_CASES=[
- {uid:"player_8821",snap:"7d spend ₫0.4M vs 30d avg ₫2.9M (−86%)",ltv:"₫184M",st:"new",when:"12m ago"},
- {uid:"player_4490",snap:"7d spend ₫0.9M vs 30d avg ₫3.4M (−74%)",ltv:"₫77M",st:"new",when:"41m ago"},
- {uid:"player_1180",snap:"7d spend ₫0.2M vs 30d avg ₫1.1M (−82%)",ltv:"₫52M",st:"review",when:"3h ago"},
- {uid:"player_9925",snap:"7d spend ₫1.2M vs 30d avg ₫4.0M (−70%)",ltv:"₫138M",st:"treated",when:"yesterday"},
-];
+/* per-playbook case queues. "04 Spend drop" is hand-authored; the rest are
+   generated deterministically (seeded by playbook id) so each playbook shows
+   its own coherent queue. Mock data — illustrative for layout only. */
+const PB_CASES_BY_ID={
+ "04":[
+   {uid:"player_8821",snap:"7d spend ₫0.4M vs 30d avg ₫2.9M (−86%)",ltv:"₫184M",st:"new",when:"12m ago"},
+   {uid:"player_4490",snap:"7d spend ₫0.9M vs 30d avg ₫3.4M (−74%)",ltv:"₫77M",st:"new",when:"41m ago"},
+   {uid:"player_1180",snap:"7d spend ₫0.2M vs 30d avg ₫1.1M (−82%)",ltv:"₫52M",st:"review",when:"3h ago"},
+   {uid:"player_9925",snap:"7d spend ₫1.2M vs 30d avg ₫4.0M (−70%)",ltv:"₫138M",st:"treated",when:"yesterday"},
+ ],
+};
+/* deterministic FNV-ish hash → stable pseudo-random per (playbook,row) */
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+const WHENS=["8m ago","26m ago","1h ago","3h ago","6h ago","yesterday","2d ago"];
+const STATES=["new","new","new","review","treated"]; // skew toward un-actioned
+/* snapshot phrasing per playbook id — v = 4 seeded small ints */
+const PB_SNAP={
+ "01":v=>`First deposit ₫${3+v[2]}0K · ${1+v[1]}h after install`,
+ "02":v=>`Reached VIP${4+v[2]} · cumulative ₫${20+v[3]*8}M (+${5+v[0]}% MoM)`,
+ "03":v=>`7d spend ₫${4+v[3]}M vs 30d avg ₫${1+v[2]}M (+${60+v[0]}%)`,
+ "06":v=>`Server rank #${1+v[2]} · held ${4+v[1]}d`,
+ "07":v=>`Unlocked ${2+v[2]} cosmetics 7d · spend ₫${v[3]}M`,
+ "08":v=>`Loss streak ${5+v[2]} · rank ${1500+v[3]*10}→${1300+v[0]*5}`,
+ "09":v=>`First on S${10+v[2]} to clear endgame boss`,
+ "10":v=>`Guild activity −${20+v[0]}% · ${2+v[2]} members left 7d`,
+ "11":v=>`Collection ${55+v[0]}% · ${3+v[2]} items missing`,
+ "12":v=>`${40+v[3]} pulls no SSR · pity ${60+v[0]}/80`,
+ "14":v=>`No login ${5+v[2]}d (was daily) · last spend ₫${v[3]}M`,
+ "15":v=>`Avg session ${10+v[2]}m vs ${30+v[1]}m baseline (−${40+v[0]}%)`,
+ "17":v=>`Left guild after ${120+v[3]*4}d · officer role`,
+ "18":v=>`Account ${2+v[2]}y · ${1+v[1]} VIP events joined`,
+};
+/* return cases for a playbook: bespoke if authored, else generated */
+function casesFor(pb){
+ if(PB_CASES_BY_ID[pb.id])return PB_CASES_BY_ID[pb.id];
+ const fired=pb.fired==null?0:pb.fired;
+ const n=fired===0?0:Math.min(fired,3+(hash(pb.id)%3)); // 3–5 rows, 0 if nothing fired
+ const tmpl=PB_SNAP[pb.id];
+ const out=[];
+ for(let i=0;i<n;i++){
+   const h=hash(pb.id+"_"+i);
+   const v=[h%30,h%9,(h>>>3)%4,(h>>>6)%9+1]; // unsigned shifts — signed >> can go negative
+   out.push({
+     uid:"player_"+(1000+(h%8999)),
+     snap:tmpl?tmpl(v):`Matched ${pb.name} condition`,
+     ltv:"₫"+(30+(h%180))+"M",
+     st:STATES[(h>>>4)%STATES.length],
+     when:WHENS[(h>>>8)%WHENS.length],
+   });
+ }
+ return out;
+}
 
 /* member-360 care history (player_8821) */
 const CARE=[
@@ -417,7 +519,36 @@ function Monitor({openPlaybook,openQueue,openBuilder}){
 }
 
 /* ---------- B · LEDGER / QUEUE ---------- */
-function Queue({mode,setMode,playbook,openMember,back}){
+function Queue({mode,setMode,playbook,setPlaybook,openMember,back}){
+  // live playbooks only — blocked ones have no queue to select
+  const livePB=GROUPS.flatMap(g=>g.rows.filter(r=>r.data!=='blocked').map(r=>({...r,group:g.name})));
+  const [stSel,setStSel]=useState([]); // selected case states; [] = show all (multi-select)
+  const [pbSel,setPbSel]=useState(playbook?[playbook.id]:[livePB[0].id]); // selected playbook ids (multi)
+  const [pbOpen,setPbOpen]=useState(false);
+  const [pbQuery,setPbQuery]=useState('');
+  const [vipQuery,setVipQuery]=useState(''); // By VIP search: name or uid
+  const toggleSt=(k)=>setStSel(s=>s.includes(k)?s.filter(x=>x!==k):[...s,k]);
+  const togglePB=(id)=>setPbSel(s=>s.includes(id)?(s.length>1?s.filter(x=>x!==id):s):[...s,id]); // keep ≥1 selected
+  // arriving from a Monitor row resets the selection to that single playbook
+  React.useEffect(()=>{if(playbook)setPbSel([playbook.id]);},[playbook]);
+  // close the playbook dropdown on outside click — no blocking backdrop that would eat chip clicks
+  React.useEffect(()=>{
+    if(!pbOpen)return;
+    const h=(e)=>{if(!e.target.closest('.pbsel'))setPbOpen(false);};
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[pbOpen]);
+  const selPBs=livePB.filter(r=>pbSel.includes(r.id));
+  const multiPB=selPBs.length>1;
+  // combine cases across all selected playbooks, tagged with their source playbook
+  const cases=selPBs.flatMap(pb=>casesFor(pb).map((c,i)=>({...c,pbId:pb.id,pbName:pb.name,key:pb.id+'_'+i})));
+  const stCounts={all:cases.length,new:0,review:0,treated:0};
+  cases.forEach(c=>stCounts[c.st]++);
+  const shown=stSel.length===0?cases:cases.filter(c=>stSel.includes(c.st));
+  const FILTERS=[['new','New','var(--brand)'],['review','Review','var(--info)'],['treated','Treated','var(--success)']];
+  // By VIP search filter (name or uid)
+  const vq=vipQuery.trim().toLowerCase();
+  const vipShown=VIPS.filter(v=>!vq||v.uid.toLowerCase().includes(vq)||v.name.toLowerCase().includes(vq));
   return(
    <div className="content">
      <div className="eyebrow" style={{display:'flex',alignItems:'center',gap:8}}>
@@ -425,39 +556,90 @@ function Queue({mode,setMode,playbook,openMember,back}){
        <span>/</span><span>Case Ledger</span>
      </div>
      <div className="pagehead"><I d={ic.bolt} s={24}/><h1>{mode==='vip'?'VIP Action Queue':'Case Queue'}</h1></div>
-     <div className="subhead">{mode==='vip'?'One row per VIP — deduped across all playbooks, ranked by priority, with contact-fatigue guard.':'Stateful cases for a single playbook, with the stats snapshot that fired each one.'}</div>
+     <div className="subhead">{mode==='vip'?'One row per VIP — deduped across all playbooks, ranked by priority, with contact-fatigue guard.':'Stateful cases for one or more playbooks, with the stats snapshot that fired each one.'}</div>
 
      <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
        <div className="segctl">
          <button className={mode==='playbook'?'on':''} onClick={()=>setMode('playbook')}>By Playbook</button>
          <button className={mode==='vip'?'on':''} onClick={()=>setMode('vip')}>By VIP (action queue)</button>
        </div>
-       {mode==='playbook'&&<span className="pill">Playbook 04 · {playbook?playbook.name:'Spend drop'}</span>}
        <div className="spacer" style={{flex:1}}></div>
        <span style={{fontSize:11,color:'var(--text-muted)'}}>Same ledger · two lenses</span>
      </div>
 
      {mode==='vip'?(
+       <div>
+       <div className="srchbar"><I d={ic.search} s={14}/><input placeholder="Search VIP by name or uid…" value={vipQuery} onChange={e=>setVipQuery(e.target.value)}/></div>
        <div className="card"><table>
-         <thead><tr><th style={{width:'18%'}}>VIP</th><th>Open cases (cross-playbook)</th><th>Top priority</th><th>Last contact</th><th style={{width:120}}></th></tr></thead>
+         <thead><tr><th style={{width:'20%'}}>VIP</th><th>Open cases (cross-playbook)</th><th>Top priority</th><th>Last contact</th><th style={{width:120}}></th></tr></thead>
          <tbody>
-           {VIPS.map(v=>(
+           {vipShown.map(v=>(
              <tr key={v.uid} className="row" onClick={()=>openMember(v.uid)}>
-               <td><div style={{fontWeight:700}}>{v.uid}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>{v.ltv} · {v.tier}</div></td>
+               <td><div style={{fontWeight:700}}>{v.name}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>{v.uid} · {v.ltv} · {v.tier}</div></td>
                <td>{v.cases.map((c,i)=><span key={i} className="qcase"><span className="d" style={{background:c.d}}></span>{c.pb}{c.st==='treated'&&' ✓'}</span>)}</td>
                <td><span className={"badge "+PRIO[v.prio][0]}>{v.top}</span></td>
                <td>{v.fatigue?<span className="fatigue"><I d={ic.bolt} s={13}/>{v.last} · cap</span>:<span style={{color:'var(--text-muted)'}}>{v.last}</span>}</td>
                <td style={{textAlign:'right'}}>{v.fatigue?<button className="btn sm" disabled style={{opacity:.5}}>Deferred</button>:<button className="btn sm primary" onClick={e=>{e.stopPropagation();openMember(v.uid)}}>Take care →</button>}</td>
              </tr>
            ))}
+           {vipShown.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'var(--text-muted)',padding:'28px 16px'}}>No VIP matches “<b>{vipQuery}</b>”.</td></tr>}
          </tbody>
        </table></div>
+       </div>
      ):(
+       <div>
+       <div className="pbbar">
+         <span className="pbbar-lbl"><I d={ic.book} s={14}/>Playbooks</span>
+         {selPBs.map(pb=>(
+           <span key={pb.id} className="pbchip">
+             <span className="pbchip-id">{pb.id}</span>{pb.name}
+             {multiPB&&<span className="x" onClick={()=>togglePB(pb.id)}><I d={ic.x} s={12}/></span>}
+           </span>
+         ))}
+         <div className="pbsel">
+           <button className={"pbadd"+(pbOpen?" open":"")} onClick={()=>setPbOpen(o=>!o)}><I d={ic.plus} s={13}/>Add / change</button>
+           {pbOpen&&(
+             <div className="pbsel-menu">
+               <input className="pbsel-search" autoFocus placeholder="Search playbooks…" value={pbQuery} onChange={e=>setPbQuery(e.target.value)}/>
+               {(()=>{
+                 const q=pbQuery.trim().toLowerCase();
+                 const hits=livePB.filter(r=>!q||r.name.toLowerCase().includes(q)||r.id.includes(q));
+                 if(!hits.length)return<div className="pbsel-empty">No matching playbook.</div>;
+                 let lastG=null;
+                 return hits.map(r=>{
+                   const on=pbSel.includes(r.id);
+                   const head=r.group!==lastG?(lastG=r.group,<div className="pbsel-grp" key={"g"+r.id}>{r.group}</div>):null;
+                   return(<React.Fragment key={r.id}>{head}
+                     <div className={"pbsel-item"+(on?" on":"")} onClick={()=>togglePB(r.id)}>
+                       <span className="pbsel-check">{on&&<I d={ic.check} s={11}/>}</span>
+                       <span className="pbid">{r.id}</span>{r.name}
+                     </div></React.Fragment>);
+                 });
+               })()}
+             </div>
+           )}
+         </div>
+         {multiPB&&<span className="fbar-clear" onClick={()=>setPbSel([selPBs[0].id])}>Reset to 1</span>}
+       </div>
+       <div className="fbar">
+         <span className="fbar-lbl"><I d={ic.filter} s={14}/>Status</span>
+         <button className={"fchip f-all"+(stSel.length===0?' on':'')} onClick={()=>setStSel([])}>All<span className="fcount">{stCounts.all}</span></button>
+         {FILTERS.map(([k,l,dot])=>{
+           const on=stSel.includes(k);
+           return(
+           <button key={k} className={"fchip f-"+k+(on?' on':'')} onClick={()=>toggleSt(k)}>
+             <span className="fdot" style={{background:dot}}></span>{l}<span className="fcount">{stCounts[k]}</span>
+             {on&&<span className="fcheck"><I d={ic.check} s={12}/></span>}
+           </button>);
+         })}
+         {stSel.length>0&&<span className="fbar-clear" onClick={()=>setStSel([])}>Clear ({stSel.length})</span>}
+       </div>
        <div className="card"><table>
-         <thead><tr><th style={{width:'15%'}}>VIP</th><th>Why it fired (snapshot at match time)</th><th>LTV</th><th>State</th><th>Opened</th><th style={{width:120}}></th></tr></thead>
+         <thead><tr>{multiPB&&<th style={{width:'14%'}}>Playbook</th>}<th style={{width:'14%'}}>VIP</th><th>Why it fired (snapshot at match time)</th><th>LTV</th><th>State</th><th>Opened</th><th style={{width:120}}></th></tr></thead>
          <tbody>
-           {PB_CASES.map(c=>(
-             <tr key={c.uid} className="row" onClick={()=>openMember(c.uid)}>
+           {shown.map(c=>(
+             <tr key={c.key} className="row" onClick={()=>openMember(c.uid)}>
+               {multiPB&&<td><span className="pbtag"><span className="pbid">{c.pbId}</span>{c.pbName}</span></td>}
                <td style={{fontWeight:700}}>{c.uid}</td>
                <td className="metcell">{c.snap}</td>
                <td className="num">{c.ltv}</td>
@@ -466,8 +648,10 @@ function Queue({mode,setMode,playbook,openMember,back}){
                <td style={{textAlign:'right'}}><button className="btn sm primary" onClick={e=>{e.stopPropagation();openMember(c.uid)}}>Open 360 →</button></td>
              </tr>
            ))}
+           {shown.length===0&&<tr><td colSpan={multiPB?7:6} style={{textAlign:'center',color:'var(--text-muted)',padding:'28px 16px'}}>{stSel.length===0?<span>No open cases in the selected playbook{multiPB?'s':''}.</span>:<span>No cases match the selected status{stSel.length>1?'es':''}.</span>}</td></tr>}
          </tbody>
        </table></div>
+       </div>
      )}
 
      <div className="hint" style={{marginTop:18,background:'var(--brand-soft)',borderColor:'#fed7aa',color:'#7c2d12'}}>
@@ -633,7 +817,7 @@ function App(){
       <div className="main">
         <Top view={view} go={go}/>
         {view==='monitor'&&<Monitor openPlaybook={openPlaybook} openQueue={openQueue} openBuilder={openBuilder}/>}
-        {view==='queue'&&<Queue mode={qmode} setMode={setQmode} playbook={pb} openMember={openMember} back={()=>setView('monitor')}/>}
+        {view==='queue'&&<Queue mode={qmode} setMode={setQmode} playbook={pb} setPlaybook={setPb} openMember={openMember} back={()=>setView('monitor')}/>}
         {view==='member'&&<Member uid={uid} back={()=>setView('queue')}/>}
         {view==='builder'&&<Builder playbook={pb} back={()=>setView('monitor')}/>}
         <div className="foot">Flow prototype · cfm_vn · mock data · anchored to cube-playground design tokens. Click the flow-map breadcrumb or rows to navigate.</div>
