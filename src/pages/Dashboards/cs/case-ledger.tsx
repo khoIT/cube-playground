@@ -244,6 +244,49 @@ const thStyle: React.CSSProperties = {
   fontFamily: 'var(--font-sans)',
 };
 
+// ── Shared action-button styles ─────────────────────────────────────────────
+// One equal-height cluster across both lenses: a ghost secondary (Claim) and a
+// brand primary (Open 360 / Take care), with a muted disabled state (Deferred).
+
+const actionBtnBase: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: 28,
+  padding: '0 12px',
+  fontSize: 11.5,
+  fontWeight: 600,
+  fontFamily: 'var(--font-sans)',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid transparent',
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  lineHeight: 1,
+};
+
+const ghostBtn: React.CSSProperties = {
+  ...actionBtnBase,
+  background: 'transparent',
+  borderColor: 'var(--border-strong)',
+  color: 'var(--text-secondary)',
+};
+
+const primaryBtn: React.CSSProperties = {
+  ...actionBtnBase,
+  background: 'var(--brand)',
+  borderColor: 'var(--brand)',
+  color: '#fff',
+};
+
+const disabledBtn: React.CSSProperties = {
+  ...actionBtnBase,
+  background: 'var(--bg-card)',
+  borderColor: 'var(--border-card)',
+  color: 'var(--text-muted)',
+  opacity: 0.6,
+  cursor: 'not-allowed',
+};
+
 // ── By-Playbook table ─────────────────────────────────────────────────────────
 
 interface PlaybookRowProps {
@@ -341,12 +384,7 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [], me, 
               type="button"
               onClick={handleClaim}
               title={c.assignee ? 'Re-assign to yourself' : 'Claim this case'}
-              style={{
-                fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)',
-                padding: '3px 9px', borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-muted)', border: '1px solid var(--border-card)',
-                color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
-              }}
+              style={ghostBtn}
             >
               Claim
             </button>
@@ -354,11 +392,7 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [], me, 
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); history.push(path); }}
-            style={{
-              fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
-              color: '#fff', background: 'var(--brand)', border: '1px solid var(--brand)',
-              borderRadius: 'var(--radius-md)', padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
-            }}
+            style={primaryBtn}
           >
             Open 360 →
           </button>
@@ -586,7 +620,7 @@ function VipQueueRow({ row, gameId, me, canWrite, onClaim }: VipRowProps) {
       onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}
     >
       {/* VIP identity */}
-      <td style={{ ...cellBase, width: '20%' }}>
+      <td style={{ ...cellBase, width: '24%' }}>
         <VipIdentityCard uid={row.uid} profile={profile} />
       </td>
 
@@ -654,12 +688,7 @@ function VipQueueRow({ row, gameId, me, canWrite, onClaim }: VipRowProps) {
               type="button"
               onClick={handleClaim}
               title={topOpenCase.assignee ? 'Re-assign to yourself' : 'Claim this case'}
-              style={{
-                fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)',
-                padding: '3px 9px', borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-muted)', border: '1px solid var(--border-card)',
-                color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
-              }}
+              style={ghostBtn}
             >
               Claim
             </button>
@@ -669,12 +698,7 @@ function VipQueueRow({ row, gameId, me, canWrite, onClaim }: VipRowProps) {
               type="button"
               disabled
               title="Contacted recently — outreach deferred by the contact-fatigue guard"
-              style={{
-                fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
-                color: 'var(--text-muted)', background: 'var(--bg-card)',
-                border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
-                padding: '5px 12px', opacity: 0.55, cursor: 'not-allowed',
-              }}
+              style={disabledBtn}
             >
               Deferred
             </button>
@@ -682,12 +706,7 @@ function VipQueueRow({ row, gameId, me, canWrite, onClaim }: VipRowProps) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); go(true); }}
-              style={{
-                fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
-                color: '#fff', background: 'var(--brand)', border: '1px solid var(--brand)',
-                borderRadius: 'var(--radius-md)', padding: '5px 12px', cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
+              style={primaryBtn}
               title="Open the member 360 Care tab to log a treatment"
             >
               Take care →
@@ -836,7 +855,7 @@ function ByVipView({ gameId, onRegisterRefetch, onTotalChange }: ByVipViewProps)
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: '20%' }}>VIP</th>
+              <th style={{ ...thStyle, width: '24%' }}>VIP</th>
               <th style={thStyle}>Open cases (cross-playbook)</th>
               <th style={thStyle}>Top priority</th>
               <th style={thStyle}>Last contact</th>
