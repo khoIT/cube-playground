@@ -412,10 +412,13 @@ function ChannelMultiSelect({
 
 function TierBandsEditor({
   bands,
+  member,
   onChange,
   disabled,
 }: {
   bands: TierBand[];
+  /** Watched member — used only to render the compiled cohort-filter caption. */
+  member?: string;
   onChange: (bands: TierBand[]) => void;
   disabled?: boolean;
 }) {
@@ -435,9 +438,20 @@ function TierBandsEditor({
     onChange(bands.filter((_, idx) => idx !== i));
   }
 
+  // The lowest band by `min` is the entry threshold: a tierStep rule compiles to
+  // `member >= lowest.min` (see server compileRule). Higher bands are display-only
+  // tiers attributed at snapshot time — editing them does NOT change the cohort.
+  const lowestIdx = bands.reduce(
+    (lo, b, idx) => (lo === -1 || b.min < bands[lo].min ? idx : lo),
+    -1,
+  );
+  const lowest = lowestIdx >= 0 ? bands[lowestIdx] : undefined;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {bands.map((b, i) => (
+      {bands.map((b, i) => {
+        const isTrigger = i === lowestIdx;
+        return (
         <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             style={{ ...inputStyle, flex: '1 1 120px' }}
@@ -454,6 +468,23 @@ function TierBandsEditor({
             disabled={disabled}
             onChange={(e) => updateBand(i, { min: Number(e.target.value) })}
           />
+          <span
+            style={{
+              flex: '0 0 92px',
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              color: isTrigger ? 'var(--brand)' : 'var(--text-muted)',
+            }}
+            title={
+              isTrigger
+                ? 'Lowest band — this is the entry threshold that gates the cohort'
+                : 'Display-only tier — does not affect who enters the playbook'
+            }
+          >
+            {isTrigger ? '◀ trigger' : 'tier label'}
+          </span>
           {!disabled && bands.length > 1 && (
             <button
               type="button"
@@ -473,7 +504,8 @@ function TierBandsEditor({
             </button>
           )}
         </div>
-      ))}
+        );
+      })}
       {!disabled && (
         <button
           type="button"
@@ -492,6 +524,22 @@ function TierBandsEditor({
         >
           + Add band
         </button>
+      )}
+      {lowest && (
+        <div
+          style={{
+            marginTop: 2,
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          Gates cohort:{' '}
+          <code style={{ fontSize: 10.5, fontFamily: 'var(--font-mono, monospace)' }}>
+            {member || '(member)'} ≥ {lowest.min.toLocaleString()}
+          </code>
+          {bands.length > 1 && ' — higher bands are display-only tiers'}
+        </div>
       )}
     </div>
   );
@@ -576,8 +624,13 @@ function ConditionEditor({
             />
           </Field>
           <div>
-            <label style={labelStyle}>Tier bands (label + minimum value)</label>
-            <TierBandsEditor bands={rule.bands} onChange={(b) => onChange({ ...rule, bands: b })} disabled={disabled} />
+            <label style={labelStyle}>Tier bands (lowest min = entry threshold)</label>
+            <TierBandsEditor
+              bands={rule.bands}
+              member={rule.member}
+              onChange={(b) => onChange({ ...rule, bands: b })}
+              disabled={disabled}
+            />
           </div>
         </>
       )}
