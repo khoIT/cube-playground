@@ -372,8 +372,8 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [], me, 
         {relativeTime(c.opened_at ?? c.created_at ?? null)}
       </td>
       {/* Action: Open 360 + inline claim/owner chip for open cases */}
-      <td style={{ ...cellBase, textAlign: 'right', width: 160 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+      <td style={{ ...cellBase, textAlign: 'right', width: 190 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
           {/* Owner chip — shows who owns this open case */}
           {isOpen && c.assignee && (
             <CsOwnerChip assignee={c.assignee} me={me} />
@@ -549,7 +549,7 @@ function ByPlaybookView({
                 <th style={thStyle}>Matched Playbook</th>
                 <th style={thStyle}>State</th>
                 <th style={thStyle}>Matched</th>
-                <th style={{ ...thStyle, width: 130 }} aria-label="Action" />
+                <th style={{ ...thStyle, width: 190 }} aria-label="Action" />
               </tr>
             </thead>
             <tbody>
@@ -676,8 +676,8 @@ function VipQueueRow({ row, gameId, me, canWrite, onClaim }: VipRowProps) {
       </td>
 
       {/* Action — Claim + owner chip + Take care / Deferred */}
-      <td style={{ ...cellBase, textAlign: 'right', width: 180 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+      <td style={{ ...cellBase, textAlign: 'right', width: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
           {/* Owner chip for the top open case */}
           {topOpenCase?.assignee && (
             <CsOwnerChip assignee={topOpenCase.assignee} me={me} />
@@ -859,7 +859,7 @@ function ByVipView({ gameId, onRegisterRefetch, onTotalChange }: ByVipViewProps)
               <th style={thStyle}>Open cases (cross-playbook)</th>
               <th style={thStyle}>Top priority</th>
               <th style={thStyle}>Last contact</th>
-              <th style={{ ...thStyle, width: 180 }} aria-label="Action" />
+              <th style={{ ...thStyle, width: 200 }} aria-label="Action" />
             </tr>
           </thead>
           <tbody>
