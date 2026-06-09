@@ -32,7 +32,6 @@ import { CsRecommendedActionRail } from './cs-recommended-action-rail';
 import type { TreatmentPayload } from './cs-recommended-action-rail';
 import { CsOwnerChip } from './cs-owner-chip';
 import { CsReferencePanels } from './cs-reference-panels';
-import { CsConsoleNav } from '../cs-console-nav';
 import {
   SAMPLE_CARE_TIMELINE,
   SAMPLE_RECOMMENDED_ACTION,
@@ -148,8 +147,6 @@ export function CsMember360View({
 
   return (
     <>
-      <CsConsoleNav current="member" gameId={gameId} />
-
       {/* Page header — icon + 20px title on the left, game badge on the right. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -160,7 +157,7 @@ export function CsMember360View({
           >
             <ChevronLeft size={16} />
           </Link>
-          <HeartHandshake size={22} color="var(--brand)" />
+          <HeartHandshake size={24} color="var(--brand)" />
           <h1
             style={{
               margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em',
@@ -185,7 +182,7 @@ export function CsMember360View({
       </div>
 
       {/* Sub-heading */}
-      <p style={{ margin: '2px 0 18px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+      <p style={{ margin: '2px 0 20px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
         Care-first member profile — treat from the recommended-action rail, then refer to the folded reference panels.
       </p>
 

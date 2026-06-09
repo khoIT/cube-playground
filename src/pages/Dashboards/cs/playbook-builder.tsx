@@ -16,9 +16,9 @@
  *   - clone       → POST with base_id=null (net-new, name pre-filled with "Copy of …")
  *
  * Design compliance:
- *   - 24px 32px padding, maxWidth 960, margin 0 auto
+ *   - 24px 32px padding, maxWidth 1320, margin 0 auto
  *   - var(--font-sans) only; design tokens throughout, no raw hex
- *   - Page-header mirrors CS Monitor (eyebrow + icon + title)
+ *   - Page-header mirrors CS Monitor (icon + title)
  *   - Viewer role: form renders read-only; save button hidden
  */
 
@@ -55,7 +55,7 @@ function useQueryParams(): URLSearchParams {
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
-  maxWidth: 1240,
+  maxWidth: 1320,
   margin: '0 auto',
   fontFamily: 'var(--font-sans)',
 };
@@ -1229,27 +1229,13 @@ export function PlaybookBuilderPage() {
 
   return (
     <div style={pageStyle}>
-      {/* Eyebrow */}
-      <div
-        style={{
-          fontSize: 10.5,
-          textTransform: 'uppercase',
-          letterSpacing: '0.09em',
-          color: 'var(--text-muted)',
-          fontWeight: 600,
-          marginBottom: 5,
-        }}
-      >
-        CS · VIP Care
-      </div>
-
       {/* Page header */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 20,
+          marginBottom: 4,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -1269,7 +1255,7 @@ export function PlaybookBuilderPage() {
           >
             <ChevronLeft size={18} />
           </button>
-          <HeartHandshake size={22} color="var(--brand)" />
+          <HeartHandshake size={24} color="var(--brand)" />
           <h1
             style={{
               margin: 0,
@@ -1311,7 +1297,7 @@ export function PlaybookBuilderPage() {
         </span>
       </div>
 
-      <p style={{ margin: '0 0 18px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+      <p style={{ margin: '2px 0 20px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
         Tune the trigger condition, then count matching VIPs against live data before you save. Save &amp; sweep
         opens cases for this one segment now.
       </p>

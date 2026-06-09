@@ -27,7 +27,6 @@ import { useCareDataFreshness } from './use-care-data-freshness';
 import { distinctAsOf, formatAsOf } from './data-freshness-format';
 import { PortfolioStrip } from './portfolio-strip';
 import { PlaybookGrid } from './playbook-grid';
-import { CsConsoleNav } from './cs-console-nav';
 import { CsActivityStrip } from './cs-activity-strip';
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -64,8 +63,6 @@ export function CsMonitorPage() {
 
   return (
     <div style={pageStyle}>
-      <CsConsoleNav current="monitor" gameId={gameId} />
-
       {/* Page header */}
       <div
         style={{

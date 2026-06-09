@@ -34,6 +34,12 @@ interface CsConsoleNavProps {
   current: CsConsoleStep;
   /** Active game — preserved across the monitor/queue links via ?game=. */
   gameId?: string;
+  /**
+   * `page` (default) renders the bar inside a page body with bottom spacing.
+   * `topbar` renders it inline in the global Topbar — no bottom margin, fills
+   * the leading slot, never wraps.
+   */
+  variant?: 'page' | 'topbar';
 }
 
 /** Destination for a step, or null when it has no generic target (member step). */
@@ -86,8 +92,9 @@ function StepBadge({ state, index }: { state: 'done' | 'active' | 'todo'; index:
   );
 }
 
-export function CsConsoleNav({ current, gameId }: CsConsoleNavProps): ReactElement {
+export function CsConsoleNav({ current, gameId, variant = 'page' }: CsConsoleNavProps): ReactElement {
   const currentIdx = STEPS.findIndex((s) => s.key === current);
+  const inTopbar = variant === 'topbar';
 
   return (
     <nav
@@ -95,9 +102,12 @@ export function CsConsoleNav({ current, gameId }: CsConsoleNavProps): ReactEleme
       style={{
         display: 'flex',
         alignItems: 'center',
-        flexWrap: 'wrap',
+        flexWrap: inTopbar ? 'nowrap' : 'wrap',
         gap: 8,
-        marginBottom: 18,
+        marginBottom: inTopbar ? 0 : 18,
+        minWidth: 0,
+        flex: inTopbar ? 1 : undefined,
+        overflow: inTopbar ? 'hidden' : undefined,
         fontFamily: 'var(--font-sans)',
       }}
     >

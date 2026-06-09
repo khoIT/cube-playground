@@ -369,7 +369,7 @@ function PlaybookRow({ playbook, agg, gameId, canWrite, asOf }: PlaybookRowProps
     : undefined;
 
   const cellBase: React.CSSProperties = {
-    padding: '14px 20px',
+    padding: '10px 16px',
     borderBottom: '1px solid var(--border-card)',
     fontSize: 12.5,
     verticalAlign: 'middle',
@@ -583,7 +583,7 @@ export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite, asO
     color: 'var(--text-muted)',
     fontWeight: 600,
     textAlign: 'left',
-    padding: '10px 20px',
+    padding: '8px 16px',
     borderBottom: '1px solid var(--border-card)',
     background: 'var(--bg-card)',
     fontFamily: 'var(--font-sans)',

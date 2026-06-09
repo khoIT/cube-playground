@@ -7,6 +7,7 @@
 import React from 'react';
 import { T } from '../theme';
 import { Breadcrumb } from './breadcrumb';
+import { useCsFlowNav } from './cs-flow-nav';
 import { SearchTrigger } from './search-trigger';
 import { AvatarMenu } from './avatar-menu';
 import { TopbarTrailingContext } from './topbar-trailing-context';
@@ -26,6 +27,9 @@ interface TopbarProps {
 export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
   const { node: trailing } = React.useContext(TopbarTrailingContext);
   const { fabVisible, panelVisible } = useChatSurfaces();
+  // CS flow surfaces lift their 3-step wayfinding bar into the leading slot;
+  // every other route falls back to the route-derived breadcrumb.
+  const csNav = useCsFlowNav();
   return (
     <header
       style={{
@@ -39,7 +43,7 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
         fontFamily: T.fSans,
       }}
     >
-      <Breadcrumb />
+      {csNav ?? <Breadcrumb />}
       {trailing && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {trailing}

@@ -34,7 +34,6 @@ import { SweepsLens } from './sweeps-lens';
 import { PlaybookFilterBar } from './playbook-filter-bar';
 import { StatusChipRow } from './status-chip-row';
 import { orderByMultiMatch, type MatchedPlaybook } from './case-ledger-ordering';
-import { CsConsoleNav } from './cs-console-nav';
 import { VipIdentityCard } from './vip-identity-card';
 import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
 
@@ -225,7 +224,7 @@ const FATIGUE_WINDOW_MS = 24 * 3_600_000;
 // ── Shared table styles ───────────────────────────────────────────────────────
 
 const cellBase: React.CSSProperties = {
-  padding: '10px 14px',
+  padding: '10px 16px',
   borderBottom: '1px solid var(--border-card)',
   fontSize: 12.5,
   verticalAlign: 'middle',
@@ -239,7 +238,7 @@ const thStyle: React.CSSProperties = {
   color: 'var(--text-muted)',
   fontWeight: 600,
   textAlign: 'left',
-  padding: '8px 14px',
+  padding: '8px 16px',
   borderBottom: '1px solid var(--border-card)',
   background: 'var(--bg-card)',
   fontFamily: 'var(--font-sans)',
@@ -1057,7 +1056,7 @@ function ResetConfirmDialog({ gameId, caseCount, onConfirm, onCancel }: ResetCon
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
-  maxWidth: 1400,
+  maxWidth: 1320,
   margin: '0 auto',
   fontFamily: 'var(--font-sans)',
 };
@@ -1232,8 +1231,6 @@ export function CaseLedgerPage() {
 
   return (
     <div style={pageStyle}>
-      <CsConsoleNav current="queue" gameId={gameId} />
-
       {/* Page header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -1245,10 +1242,10 @@ export function CaseLedgerPage() {
             <ChevronLeft size={16} />
           </Link>
           {lens === 'vip'
-            ? <Users size={22} color="var(--brand)" />
+            ? <Users size={24} color="var(--brand)" />
             : lens === 'sweeps'
-              ? <GitCompare size={22} color="var(--brand)" />
-              : <ListChecks size={22} color="var(--brand)" />}
+              ? <GitCompare size={24} color="var(--brand)" />
+              : <ListChecks size={24} color="var(--brand)" />}
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>
             {lens === 'vip'
               ? 'VIP Action Queue'
@@ -1350,7 +1347,7 @@ export function CaseLedgerPage() {
         </div>
       )}
 
-      <p style={{ margin: '2px 0 18px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+      <p style={{ margin: '2px 0 20px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
         {lens === 'vip'
           ? 'One row per VIP — deduped across all playbooks, ranked by priority, with contact-fatigue guard.'
           : lens === 'sweeps'
