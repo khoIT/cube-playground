@@ -49,7 +49,7 @@ export interface SweepDeps {
 export interface PlaybookSweepSummary extends SweepResult {
   playbookId: string;
   cohortSize: number;
-  skipped?: 'trigger-eval-pending' | 'unavailable' | 'disabled' | 'no-predicate';
+  skipped?: 'trigger-eval-pending' | 'unavailable' | 'disabled' | 'no-predicate' | 'query-failed';
 }
 
 /** Sweep one game's playbooks. `members` + `deps` are injected for testability. */
@@ -81,7 +81,17 @@ export async function runCaseSweep(
       continue;
     }
 
-    const uids = await deps.fetchCohortUids(pb);
+    // A single playbook's cohort query failing (e.g. its cube is absent from
+    // this game's live model despite passing the availability probe) must not
+    // abort the whole sweep — skip it, surface the reason, keep the rest going.
+    let uids: string[];
+    try {
+      uids = await deps.fetchCohortUids(pb);
+    } catch (err) {
+      console.warn(`[care] sweep cohort query failed for playbook ${pb.id} (${gameId}):`, err instanceof Error ? err.message : err);
+      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'query-failed' });
+      continue;
+    }
     const result = applyMembershipResult(uids, {
       gameId,
       workspace,

@@ -285,7 +285,7 @@ export interface SweepPlaybookSummary {
   opened: number;
   lapsed: number;
   alreadyOpen: number;
-  skipped?: 'trigger-eval-pending' | 'unavailable' | 'disabled' | 'no-predicate';
+  skipped?: 'trigger-eval-pending' | 'unavailable' | 'disabled' | 'no-predicate' | 'query-failed';
 }
 
 export interface SweepResult {

@@ -17,8 +17,10 @@ import { physicalizeQuery, logicalizeRows } from '../services/cube-member-resolv
 import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.js';
 import type { VipProfileSnapshot } from './care-vip-profile-store.js';
 
-// Queue is bounded by open VIP cases; cap the IN-list as a backstop.
-const MAX_UIDS = 500;
+// Trino IN-lists get split into per-chunk queries so the whole open-case queue
+// is enriched, not just the first slice. CAP is a runaway backstop.
+const CHUNK = 500;
+const MAX_UIDS = 10_000;
 
 const PROFILE_DIMS = [
   'user_profile.user_id',
@@ -54,7 +56,8 @@ async function runQuery(
     const query = {
       dimensions: dims,
       filters: [{ member: idMember, operator: 'equals', values: uids }],
-      limit: MAX_UIDS * 8,
+      // roles is multi-row per uid; allow headroom over the chunk size.
+      limit: CHUNK * 8,
     };
     const res = (await loadWithCtx(physicalizeQuery(query, prefix), ctx)) as { data?: Row[] };
     return logicalizeRows(res.data ?? [], prefix) as Row[];
@@ -78,10 +81,19 @@ export function makeCubeProfileFetcher(
     if (unique.length === 0) return [];
     const prefix = resolveGamePrefixForWorkspace(workspace, gameId);
 
-    const [profileRows, roleRows] = await Promise.all([
-      runQuery(ctx, prefix, PROFILE_DIMS, 'user_profile.user_id', unique),
-      runQuery(ctx, prefix, ROLE_DIMS, 'user_roles_panel.user_id', unique),
-    ]);
+    // Chunk the IN-list so a large queue (thousands of open-case VIPs) is fully
+    // enriched. Chunks run sequentially to keep Trino load gentle on a manual sweep.
+    const profileRows: Row[] = [];
+    const roleRows: Row[] = [];
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const slice = unique.slice(i, i + CHUNK);
+      const [p, r] = await Promise.all([
+        runQuery(ctx, prefix, PROFILE_DIMS, 'user_profile.user_id', slice),
+        runQuery(ctx, prefix, ROLE_DIMS, 'user_roles_panel.user_id', slice),
+      ]);
+      profileRows.push(...p);
+      roleRows.push(...r);
+    }
 
     const byUid = new Map<string, VipProfileSnapshot>();
     for (const r of profileRows) {
