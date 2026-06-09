@@ -16,19 +16,21 @@
  * pattern: 24px 32px padding, maxWidth 1320, margin 0 auto, var(--font-sans).
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useHistory, Link } from 'react-router-dom';
 import { ListChecks, Users, ChevronLeft, RefreshCw, Heart, GitCompare, Search, X } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
 import { formatValue, formatValueExact } from '../../Segments/detail/cards/format-value';
-import { useCareCases, useVipQueue, runCareSweep } from './use-care-cases';
+import { useCareCases, useVipQueue, runCareSweep, useSweepStatus } from './use-care-cases';
 import { QueuePager } from './queue-pager';
 import { summarizeSnapshot } from './case-snapshot-summary';
 import { ltvLabel } from './case-ledger-format';
 import { SweepsLens } from './sweeps-lens';
 import { PlaybookFilterBar } from './playbook-filter-bar';
 import { StatusChipRow } from './status-chip-row';
+import { orderByMultiMatch } from './case-ledger-ordering';
+import { CsConsoleNav } from './cs-console-nav';
 import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -89,19 +91,20 @@ function StatusPill({ status }: { status: string }) {
 // ── Matched-playbook pill — names the playbook this case fired against ──────────
 
 /**
- * Priority-tinted pill showing the matched playbook. Links back to that single
- * playbook's queue (?playbook=<id>) so an analyst can drill from a multi-playbook
- * view to one. The deciding stats snapshot moves into the hover tooltip so the
- * triage context isn't lost.
+ * Priority-tinted pill naming the matched playbook. Clicking opens that playbook's
+ * definition (the builder in edit mode) so an analyst can inspect the threshold and
+ * action that fired this case — distinct from the row click, which opens the VIP's
+ * Member-360. The deciding stats snapshot moves into the hover tooltip so the triage
+ * context isn't lost.
  */
 function MatchedPlaybookPill({ c, gameId }: { c: CareCase; gameId: string }) {
   const name = c.playbook_name ?? c.playbook_id;
   const tint = PRIO[prioOf(c.playbook_priority ?? 'tb')].badge;
   const snapshot = summarizeSnapshot(c.stats_snapshot_json);
-  const tip = snapshot ? `Matched: ${snapshot}` : `Playbook ${c.playbook_id}`;
+  const tip = snapshot ? `Open playbook definition · matched: ${snapshot}` : 'Open playbook definition';
   return (
     <Link
-      to={`/dashboards/cs/queue?playbook=${encodeURIComponent(c.playbook_id)}&game=${encodeURIComponent(gameId)}`}
+      to={`/dashboards/cs/playbooks/${encodeURIComponent(c.playbook_id)}/edit?game=${encodeURIComponent(gameId)}`}
       onClick={(e) => e.stopPropagation()}
       title={tip}
       style={{
@@ -115,6 +118,33 @@ function MatchedPlaybookPill({ c, gameId }: { c: CareCase; gameId: string }) {
     >
       {name}
     </Link>
+  );
+}
+
+// ── Multi-match badge — VIP matches >1 of the selected playbooks ────────────────
+
+/**
+ * Flags a VIP whose open cases span several of the selected playbooks. These rows
+ * are promoted to the top of the By-Playbook view (they have multiple concurrent
+ * problems → highest triage value), and the badge makes that promotion legible.
+ */
+function MultiMatchBadge({ count }: { count: number }) {
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        background: 'var(--info-soft)',
+        color: 'var(--info-ink)',
+        borderRadius: 'var(--radius-full)',
+        padding: '1px 7px',
+        fontWeight: 700,
+        marginLeft: 6,
+        whiteSpace: 'nowrap',
+      }}
+      title={`Matches ${count} of the selected playbooks`}
+    >
+      {count} playbooks
+    </span>
   );
 }
 
@@ -190,9 +220,11 @@ interface PlaybookRowProps {
   gameId: string;
   /** segment id used to build the Member-360 link; absent when navigating from queue */
   segId?: string;
+  /** How many of the selected playbooks this VIP matches (>1 → multi-match badge). */
+  matchCount?: number;
 }
 
-function PlaybookCaseRow({ c, gameId, segId }: PlaybookRowProps) {
+function PlaybookCaseRow({ c, gameId, segId, matchCount = 1 }: PlaybookRowProps) {
   const profile = c.profile;
   const history = useHistory();
   // Member-360 links to the segment-member view when a segment id is known;
@@ -211,6 +243,7 @@ function PlaybookCaseRow({ c, gameId, segId }: PlaybookRowProps) {
       {/* VIP */}
       <td style={{ ...cellBase, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
         {profile?.name ?? c.uid}
+        {matchCount > 1 && <MultiMatchBadge count={matchCount} />}
         {c.condition_lapsed === 1 && <LapsedBadge />}
       </td>
       {/* Matched Playbook (pill → that playbook's queue; snapshot in tooltip) */}
@@ -286,6 +319,12 @@ function ByPlaybookView({
     [cases, statuses],
   );
 
+  // Multi-playbook promotion: when more than one playbook is selected, float VIPs
+  // matching several of them to the top (highest-value triage), tie-broken by
+  // priority then recency. Page-scoped, in lock-step with the on-page counts.
+  const multi = playbookIds.length > 1;
+  const { ordered, matchCountByUid } = useMemo(() => orderByMultiMatch(shown, multi), [shown, multi]);
+
   return (
     <div>
       {/* Filters */}
@@ -318,9 +357,14 @@ function ByPlaybookView({
               </tr>
             </thead>
             <tbody>
-              {shown.map((c) => (
+              {ordered.map((c) => (
                 // uids repeat across playbooks → key must include the playbook id.
-                <PlaybookCaseRow key={`${c.playbook_id}_${c.id}`} c={c} gameId={gameId} />
+                <PlaybookCaseRow
+                  key={`${c.playbook_id}_${c.id}`}
+                  c={c}
+                  gameId={gameId}
+                  matchCount={multi ? (matchCountByUid.get(c.uid) ?? 1) : 1}
+                />
               ))}
             </tbody>
           </table>
@@ -722,6 +766,32 @@ export function CaseLedgerPage() {
     }
   }, [gameId]);
 
+  // Reconnect to a sweep that's running but wasn't started by this mount: one
+  // launched here then navigated away from, the 6h auto-sweep cron, or another
+  // tab. handleSweep manages its own completion (reload-on-opened / inline 0-opened
+  // message), so only auto-refresh on settle when this mount isn't itself sweeping —
+  // otherwise we'd clobber that inline message.
+  const sweepingRef = useRef(sweeping);
+  sweepingRef.current = sweeping;
+  const sweepStatus = useSweepStatus(
+    gameId,
+    useCallback(() => {
+      if (!sweepingRef.current) window.location.reload();
+    }, []),
+  );
+  const reconnectedSweep = sweepStatus.inFlight && !sweeping;
+
+  // Ticking clock so the live banner can show elapsed seconds while a sweep runs.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!reconnectedSweep) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [reconnectedSweep]);
+  const sweepElapsedS = sweepStatus.startedAt
+    ? Math.max(0, Math.round((nowMs - new Date(sweepStatus.startedAt).getTime()) / 1000))
+    : 0;
+
   // Determine initial lens from URL.
   const initialLens: Lens = playbookParam ? 'playbook' : 'vip';
   const [lens, setLens] = useState<Lens>(initialLens);
@@ -742,6 +812,8 @@ export function CaseLedgerPage() {
 
   return (
     <div style={pageStyle}>
+      <CsConsoleNav current="queue" gameId={gameId} />
+
       {/* Eyebrow */}
       <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 5 }}>
         Dashboards
@@ -777,19 +849,23 @@ export function CaseLedgerPage() {
             <button
               type="button"
               onClick={handleSweep}
-              disabled={sweeping}
-              title="Query the live Cube for each playbook's current VIP cohort and open cases"
+              disabled={sweeping || reconnectedSweep}
+              title={
+                reconnectedSweep
+                  ? 'A sweep is already running for this game'
+                  : "Query the live Cube for each playbook's current VIP cohort and open cases"
+              }
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
                 color: 'var(--text-secondary)', background: 'var(--bg-card)',
                 border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
-                padding: '6px 12px', cursor: sweeping ? 'wait' : 'pointer',
-                opacity: sweeping ? 0.6 : 1,
+                padding: '6px 12px', cursor: sweeping || reconnectedSweep ? 'wait' : 'pointer',
+                opacity: sweeping || reconnectedSweep ? 0.6 : 1,
               }}
             >
-              <RefreshCw size={13} style={{ opacity: sweeping ? 0.5 : 1 }} />
-              {sweeping ? 'Sweeping…' : 'Run sweep'}
+              <RefreshCw size={13} style={{ opacity: sweeping || reconnectedSweep ? 0.5 : 1 }} />
+              {sweeping || reconnectedSweep ? 'Sweeping…' : 'Run sweep'}
             </button>
           )}
 
@@ -800,6 +876,26 @@ export function CaseLedgerPage() {
           </div>
         </div>
       </div>
+
+      {/* Reconnected-sweep banner: a sweep this mount didn't start is running.
+          Surfaces source + live elapsed time for debugging; clears (and the page
+          auto-refreshes) when the sweep settles. */}
+      {reconnectedSweep && (
+        <div
+          style={{
+            margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8,
+            fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
+            color: 'var(--warning-ink)', background: 'var(--warning-soft)',
+            border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
+            padding: '8px 12px',
+          }}
+        >
+          <RefreshCw size={13} />
+          Sweep in progress
+          {sweepStatus.source === 'cron' ? ' (auto-sweep)' : sweepStatus.source === 'manual' ? ' (manual)' : ''}
+          {sweepStatus.startedAt ? ` — ${sweepElapsedS}s elapsed` : ''}. Results refresh when it finishes.
+        </div>
+      )}
 
       {sweepMsg && (
         <div style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>

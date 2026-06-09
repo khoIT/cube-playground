@@ -748,7 +748,11 @@ export function PlaybookBuilderPage() {
   const { id: editId } = useParams<BuilderParams>();
   const history = useHistory();
   const query = useQueryParams();
-  const { gameId } = useGameContext();
+  const { gameId: ctxGame } = useGameContext();
+  // Honor an explicit ?game= override (e.g. opened from the Case Ledger of a game
+  // that differs from the global selector) so the registry + availability checks
+  // resolve against the playbook's actual game, not the ambient context.
+  const gameId = query.get('game') || ctxGame;
   const user = useAuthUser();
 
   const isViewer = user?.role === 'viewer';
