@@ -11,7 +11,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setDb, closeDb } from '../src/db/sqlite.js';
-import { runCaseSweep, type SweepDeps } from '../src/care/care-case-sweep.js';
+import { runCaseSweep, SWEEP_CONCURRENCY, type SweepDeps } from '../src/care/care-case-sweep.js';
 import { listCases } from '../src/care/care-case-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -134,6 +134,48 @@ describe('runCaseSweep', () => {
     const snap = JSON.parse(listCases({ gameId: 'jus_vn', playbookId: '02' })[0].stats_snapshot_json ?? '{}');
     expect(snap.milestone_days).toBeUndefined();
     expect(snap.threshold.kind).toBe('tierStep');
+  });
+
+  it('runs cohort queries concurrently (bounded) instead of one-at-a-time', async () => {
+    // Each fetch holds for a microtask-resolved gate while we record how many are
+    // in flight at once. A serial loop would never exceed 1; the bounded pool
+    // should overlap several but never breach SWEEP_CONCURRENCY.
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const deps: SweepDeps = {
+      fetchCohortUids: async () => {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        // Yield across a few microtasks so sibling fetches get a chance to start.
+        await Promise.resolve();
+        await Promise.resolve();
+        inFlight--;
+        return { uids: ['u1', 'u2'] };
+      },
+    };
+    await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
+
+    expect(maxInFlight).toBeGreaterThan(1); // proves parallelism (not serial)
+    expect(maxInFlight).toBeLessThanOrEqual(SWEEP_CONCURRENCY); // proves the cap holds
+  });
+
+  it('preserves playbook order in summaries even when fetches resolve out of order', async () => {
+    // Resolve later playbooks' fetches first; the order-preserving pool must still
+    // emit summaries in the merged-playbook order so the recorded run is stable.
+    const deps: SweepDeps = {
+      fetchCohortUids: async (pb) => {
+        const delayTicks = pb.id === '02' ? 3 : 0; // make '02' finish last
+        for (let i = 0; i < delayTicks; i++) await Promise.resolve();
+        return { uids: ['u1'] };
+      },
+    };
+    const serial: SweepDeps = { fetchCohortUids: async () => ({ uids: ['u1'] }) };
+
+    const concurrent = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
+    setDb(makeMemDb());
+    const expected = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, serial);
+
+    expect(concurrent.map((s) => s.playbookId)).toEqual(expected.map((s) => s.playbookId));
   });
 
   it('onlyPlaybookId scopes the sweep to a single playbook (per-segment manual sweep)', async () => {

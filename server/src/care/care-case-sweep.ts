@@ -13,6 +13,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { loadWithCtx, type WorkspaceCtx } from '../services/cube-client.js';
+import { mapWithConcurrency } from '../services/bounded-concurrency.js';
 import { treeToCubeFilters } from '../services/translator.js';
 import { anniversaryMilestoneForDate } from '../services/expand-relative-date-range.js';
 import { resolveIdentityField } from '../services/resolve-identity-field.js';
@@ -29,6 +30,15 @@ const VIP_LTV_FLOOR = 1_000_000;
  *  same `gated` flag the sweep actually applies (one source of truth). */
 export const VIP_LTV_MEMBER = 'mf_users.ltv_total_vnd';
 const COHORT_CAP = 50_000;
+/**
+ * Max cohort queries in flight during one sweep. Each playbook's open/lapse work
+ * is independent (scoped to its own playbookId) and the only awaited step is the
+ * slow Cube cohort query, so overlapping a bounded number of them collapses the
+ * wall-time of N cold-warehouse round-trips from ~sum toward ~max. Bounded so a
+ * 21-playbook game doesn't fire 21 simultaneous Trino queries and stampede the
+ * warehouse (or a still-warming pre-aggregation).
+ */
+export const SWEEP_CONCURRENCY = 6;
 
 /** AND the playbook predicate with the VIP-base gate so non-VIPs never enter. */
 function gateWithVipBase(predicate: PredicateNode, members: Set<string>): PredicateNode {
@@ -95,71 +105,76 @@ export async function runCaseSweep(
 ): Promise<PlaybookSweepSummary[]> {
   const merged = mergePlaybooks(gameId, members, undefined, { calibration });
   const playbooks = onlyPlaybookId ? merged.filter((p) => p.id === onlyPlaybookId) : merged;
-  const summaries: PlaybookSweepSummary[] = [];
 
-  for (const pb of playbooks) {
-    if (!pb.enabled) {
-      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'disabled' });
-      continue;
-    }
-    if (pb.availability === 'unavailable') {
-      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'unavailable' });
-      continue;
-    }
-    if (pb.evalMode === 'trigger') {
-      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'trigger-eval-pending' });
-      continue;
-    }
-    if (!pb.predicate) {
-      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'no-predicate' });
-      continue;
-    }
-    // Fail-closed: a membership predicate that compiles to NO Cube filter — e.g.
-    // an unsupported relative-date window the translator dropped to avoid a 400 —
-    // would otherwise match the entire VIP base (the VIP-base gate is the only
-    // surviving filter), opening a case for every VIP. That's never the intent, so
-    // skip rather than fabricate a full-cohort match.
-    if (treeToCubeFilters(pb.predicate).length === 0) {
-      console.warn(`[care] sweep skipping playbook ${pb.id} (${gameId}): predicate compiled to an empty filter (unsupported/malformed condition).`);
-      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'no-predicate' });
-      continue;
-    }
+  // The cohort query is the slow, awaited step and each playbook is independent
+  // (scoped to its own playbookId, and better-sqlite3 writes run synchronously
+  // once a worker starts applying), so run a bounded number concurrently. The
+  // pool preserves order, keeping summaries and the recorded run deterministic.
+  return mapWithConcurrency(playbooks, SWEEP_CONCURRENCY, (pb) =>
+    sweepOnePlaybook(pb, gameId, workspace, deps, onlyPlaybookId),
+  );
+}
 
-    // A single playbook's cohort query failing (e.g. its cube is absent from
-    // this game's live model despite passing the availability probe) must not
-    // abort the whole sweep — skip it, surface the reason, keep the rest going.
-    let cohort: CohortFetchResult;
-    try {
-      cohort = await deps.fetchCohortUids(pb);
-    } catch (err) {
-      console.warn(`[care] sweep cohort query failed for playbook ${pb.id} (${gameId}):`, err instanceof Error ? err.message : err);
-      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'query-failed' });
-      continue;
-    }
-    const uids = cohort.uids;
-    const result = applyMembershipResult(uids, {
-      gameId,
-      workspace,
-      playbookId: pb.id,
-      kpiTarget: pb.watchedMetric.kpiTarget ?? null,
-      // Anniversary cases also record which milestone (30/90/180/365/730) the
-      // member hit + their first-seen date, so the action is milestone-aware.
-      snapshotFor: (uid) => {
-        const match = cohort.matchByUid?.get(uid);
-        return {
-          matched_at: new Date().toISOString(),
-          threshold: pb.condition,
-          ...(match ? { milestone_days: match.milestoneDays, anniversary_date: match.date } : {}),
-        };
-      },
-      // A single-playbook (manual) sweep is an ad-hoc retune: drop cases that no
-      // longer match so the segment count is honest. The full scheduled sweep
-      // keeps the flag-and-keep behaviour.
-      pruneLapsed: onlyPlaybookId !== undefined,
-    });
-    summaries.push({ playbookId: pb.id, cohortSize: uids.length, uids, ...result });
+/** Sweep a single playbook: gate on availability, fetch its cohort, apply the
+ *  membership diff. Returns a summary (with a `skipped` reason when not swept).
+ *  A failure here is isolated to this playbook — it never aborts the sweep. */
+async function sweepOnePlaybook(
+  pb: ResolvedPlaybook,
+  gameId: string,
+  workspace: string,
+  deps: SweepDeps,
+  onlyPlaybookId: string | undefined,
+): Promise<PlaybookSweepSummary> {
+  const skip = (reason: NonNullable<PlaybookSweepSummary['skipped']>): PlaybookSweepSummary => ({
+    playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: reason,
+  });
+
+  if (!pb.enabled) return skip('disabled');
+  if (pb.availability === 'unavailable') return skip('unavailable');
+  if (pb.evalMode === 'trigger') return skip('trigger-eval-pending');
+  if (!pb.predicate) return skip('no-predicate');
+  // Fail-closed: a membership predicate that compiles to NO Cube filter — e.g.
+  // an unsupported relative-date window the translator dropped to avoid a 400 —
+  // would otherwise match the entire VIP base (the VIP-base gate is the only
+  // surviving filter), opening a case for every VIP. That's never the intent, so
+  // skip rather than fabricate a full-cohort match.
+  if (treeToCubeFilters(pb.predicate).length === 0) {
+    console.warn(`[care] sweep skipping playbook ${pb.id} (${gameId}): predicate compiled to an empty filter (unsupported/malformed condition).`);
+    return skip('no-predicate');
   }
-  return summaries;
+
+  // A single playbook's cohort query failing (e.g. its cube is absent from this
+  // game's live model despite passing the availability probe) must not abort the
+  // whole sweep — skip it, surface the reason, keep the rest going.
+  let cohort: CohortFetchResult;
+  try {
+    cohort = await deps.fetchCohortUids(pb);
+  } catch (err) {
+    console.warn(`[care] sweep cohort query failed for playbook ${pb.id} (${gameId}):`, err instanceof Error ? err.message : err);
+    return skip('query-failed');
+  }
+  const uids = cohort.uids;
+  const result = applyMembershipResult(uids, {
+    gameId,
+    workspace,
+    playbookId: pb.id,
+    kpiTarget: pb.watchedMetric.kpiTarget ?? null,
+    // Anniversary cases also record which milestone (30/90/180/365/730) the
+    // member hit + their first-seen date, so the action is milestone-aware.
+    snapshotFor: (uid) => {
+      const match = cohort.matchByUid?.get(uid);
+      return {
+        matched_at: new Date().toISOString(),
+        threshold: pb.condition,
+        ...(match ? { milestone_days: match.milestoneDays, anniversary_date: match.date } : {}),
+      };
+    },
+    // A single-playbook (manual) sweep is an ad-hoc retune: drop cases that no
+    // longer match so the segment count is honest. The full scheduled sweep
+    // keeps the flag-and-keep behaviour.
+    pruneLapsed: onlyPlaybookId !== undefined,
+  });
+  return { playbookId: pb.id, cohortSize: uids.length, uids, ...result };
 }
 
 /**
