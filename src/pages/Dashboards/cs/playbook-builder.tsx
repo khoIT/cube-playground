@@ -262,9 +262,9 @@ const GROUP_OPTIONS: { value: PlaybookGroup; label: string }[] = [
 ];
 
 const PRIORITY_OPTIONS: { value: PlaybookPriority; label: string }[] = [
-  { value: 'cao',  label: 'Cao (High)' },
-  { value: 'tb',   label: 'TB (Medium)' },
-  { value: 'thap', label: 'Thấp (Low)' },
+  { value: 'cao',  label: 'High' },
+  { value: 'tb',   label: 'Medium' },
+  { value: 'thap', label: 'Low' },
 ];
 
 const CHANNEL_OPTIONS = [
@@ -708,7 +708,12 @@ function ConditionEditor({
         </>
       )}
 
-      {rule.kind === 'event' && (
+      {rule.kind === 'event' && (() => {
+        // "anniversary" expands to an OR of milestone-day ranges, which has no
+        // negation form — only "in window" is meaningful. Lock the operator to
+        // 'in' so a "not in window" pick can't silently drop to an empty cohort.
+        const isAnniversaryWindow = rule.window.trim().toLowerCase() === 'anniversary';
+        return (
         <div style={rowStyle}>
           <Field label="Event member (time dimension)" style={memberFieldStyle}>
             <input
@@ -722,12 +727,13 @@ function ConditionEditor({
           <Field label="Operator" style={opFieldStyle}>
             <select
               style={selectStyle}
-              value={rule.op ?? 'in'}
-              disabled={disabled}
+              value={isAnniversaryWindow ? 'in' : (rule.op ?? 'in')}
+              disabled={disabled || isAnniversaryWindow}
+              title={isAnniversaryWindow ? 'Anniversary windows only support "in window"' : undefined}
               onChange={(e) => onChange({ ...rule, op: e.target.value as 'in' | 'notIn' })}
             >
               <option value="in">in window</option>
-              <option value="notIn">not in window</option>
+              {!isAnniversaryWindow && <option value="notIn">not in window</option>}
             </select>
           </Field>
           <Field label="Time window" style={windowFieldStyle}>
@@ -736,11 +742,20 @@ function ConditionEditor({
               value={rule.window}
               placeholder="last 7 days"
               disabled={disabled}
-              onChange={(e) => onChange({ ...rule, window: e.target.value })}
+              // Switching to an anniversary window forces op back to 'in' (notIn is unsupported there).
+              onChange={(e) => {
+                const window = e.target.value;
+                const next: ThresholdRule =
+                  window.trim().toLowerCase() === 'anniversary'
+                    ? { ...rule, window, op: 'in' }
+                    : { ...rule, window };
+                onChange(next);
+              }}
             />
           </Field>
         </div>
-      )}
+        );
+      })()}
 
       {rule.kind === 'percentile' && (
         <>
@@ -1225,7 +1240,7 @@ export function PlaybookBuilderPage() {
           marginBottom: 5,
         }}
       >
-        Dashboards · CS · VIP Care
+        CS · VIP Care
       </div>
 
       {/* Page header */}
