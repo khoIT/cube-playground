@@ -195,6 +195,23 @@ export function patchCase(id: string, patch: PatchCaseInput): CareCase | undefin
 }
 
 /**
+ * Delete ALL cases for a single (game, workspace) pair in one transaction.
+ * Scoped to BOTH axes so a reset never touches another workspace's game rows or
+ * another game's rows in the same workspace. Returns the row count deleted.
+ * `care_vip_profile` is intentionally left untouched — profiles are re-populated
+ * by the next sweep; wiping them separately would orphan the sweep's enrichment.
+ */
+export function clearCases(gameId: string, workspaceId: string): number {
+  const db = getDb();
+  return db.transaction(() => {
+    const result = db
+      .prepare('DELETE FROM care_cases WHERE game_id = ? AND workspace = ?')
+      .run(gameId, workspaceId);
+    return result.changes;
+  })();
+}
+
+/**
  * Permanently remove cases by id, in one transaction. Used by the manual
  * per-segment sweep to drop cases that no longer match a retuned threshold
  * (the caller decides which ids — e.g. protecting treated cases). Returns the

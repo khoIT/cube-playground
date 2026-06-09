@@ -17,6 +17,7 @@ import {
   casesForUid,
   patchCase,
   getCase,
+  clearCases,
   type CaseStatus,
 } from '../care/care-case-store.js';
 import { groupCasesByVip } from '../care/care-case-engine.js';
@@ -25,7 +26,7 @@ import { aggregateCaseCounts } from '../care/care-case-aggregate-store.js';
 import { promoteMultiMatchCases } from '../care/care-case-multi-match-order.js';
 import { resolveGameScope } from '../care/game-scope.js';
 import { getVipProfiles } from '../care/care-vip-profile-store.js';
-import { executeSweep, SweepBusyError, getSweepInFlight } from '../care/care-sweep-execute.js';
+import { executeSweep, SweepBusyError, getSweepInFlight, isSweepInFlight } from '../care/care-sweep-execute.js';
 import {
   listSweepRuns,
   getSweepRun,
@@ -261,6 +262,49 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       // Live Cube unreachable / query failure — surface it so the button shows a
       // real error instead of a silent empty result.
       req.log.error({ err, game }, '[care] sweep failed');
+      return reply.status(502).send({
+        error: { code: 'SWEEP_FAILED', message: err instanceof Error ? err.message : 'sweep failed' },
+      });
+    }
+  });
+
+  // Destructive reset — wipes all cases for (game, workspace). Editor/admin only
+  // (inherited from the global /api/care write gate). Optional `resweep=true`
+  // runs executeSweep after clearing, so the demo can be restarted in one click.
+  // A confirm dialog (FE) is mandatory before this endpoint is called.
+  app.post('/api/care/cases/reset', async (req, reply) => {
+    const scope = resolveGameScope(req.workspace, (req.query as { game?: string })?.game);
+    if (!scope.ok) return reply.status(400).send({ error: { code: 'VALIDATION', message: scope.error } });
+    const game = (req.query as { game: string }).game.trim();
+    const resweep = (req.query as { resweep?: string })?.resweep === 'true';
+
+    // When a resweep is requested, guard BEFORE wiping: a 409 on the delete path
+    // is misleading (cases already gone, but sweep still refused). Check the
+    // in-flight mutex synchronously here — same primitive executeSweep uses to
+    // guard itself — so the 409 is returned before any rows are deleted.
+    if (resweep && isSweepInFlight(req.workspace.id, game)) {
+      return reply.status(409).send({ error: { code: 'SWEEP_BUSY', message: `sweep already in progress for ${game}` } });
+    }
+
+    // Wipe all cases scoped to this (game, workspace) — never crosses tenants.
+    const deleted = clearCases(game, req.workspace.id);
+
+    if (!resweep) {
+      return { game, deleted };
+    }
+
+    // Optional re-sweep: re-populate the ledger from the live Cube. Contends on
+    // the same per-(workspace, game) mutex as the manual sweep so they cannot
+    // overlap. Mirror the sweep route's error handling exactly.
+    const ctx = req.buildIntrospectionCtxForGame ? req.buildIntrospectionCtxForGame(game) : req.cubeCtx;
+    try {
+      const r = await executeSweep(req.workspace, game, ctx, 'manual');
+      return { game, deleted, reswept: { opened: r.opened, lapsed: r.lapsed, summaries: r.summaries } };
+    } catch (err) {
+      if (err instanceof SweepBusyError) {
+        return reply.status(409).send({ error: { code: 'SWEEP_BUSY', message: err.message } });
+      }
+      req.log.error({ err, game }, '[care] reset re-sweep failed');
       return reply.status(502).send({
         error: { code: 'SWEEP_FAILED', message: err instanceof Error ? err.message : 'sweep failed' },
       });

@@ -3,14 +3,14 @@
  * / patch lifecycle, plus game-param validation (allow-list + path-traversal guard).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from '../src/index.js';
 import { setDb, closeDb, getDb } from '../src/db/sqlite.js';
-import { openCase } from '../src/care/care-case-store.js';
+import { openCase, listCases } from '../src/care/care-case-store.js';
 import { upsertVipProfiles } from '../src/care/care-vip-profile-store.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
@@ -296,5 +296,90 @@ describe('care-case PATCH write-role gate (real auth)', () => {
     const viewer = { authorization: `Bearer ${await tok('v', 'viewer@corp.com', 'viewer')}` };
     const res = await app.inject({ method: 'POST', url: '/api/care/cases/sweep?game=jus_vn', headers: viewer });
     expect(res.statusCode).toBe(403);
+  });
+
+  it('viewer cannot POST /reset (403, destructive write)', async () => {
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'v1', source: 'membership' });
+    const viewer = { authorization: `Bearer ${await tok('v', 'viewer@corp.com', 'viewer')}` };
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/reset?game=jus_vn', headers: viewer });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('editor can POST /reset — wipes cases and returns deleted count', async () => {
+    // beforeEach opens 1 case (caseId); add 2 more = 3 total
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'a', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '14', uid: 'b', source: 'membership' });
+    const editor = { authorization: `Bearer ${await tok('e', 'editor@corp.com', 'editor')}` };
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/reset?game=jus_vn', headers: editor });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.game).toBe('jus_vn');
+    expect(body.deleted).toBe(3); // caseId (from beforeEach) + a + b
+    expect(body.reswept).toBeUndefined();
+    // Cases are gone from the store
+    expect(listCases({ gameId: 'jus_vn' })).toHaveLength(0);
+  });
+
+  it('/reset rejects an invalid game (400)', async () => {
+    const editor = { authorization: `Bearer ${await tok('e', 'editor@corp.com', 'editor')}` };
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/reset?game=../../etc', headers: editor });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('/reset?resweep=true calls executeSweep and returns reswept payload (mocked)', async () => {
+    // Stub executeSweep so we don't need a live Cube in tests.
+    const sweepMod = await import('../src/care/care-sweep-execute.js');
+    const spy = vi.spyOn(sweepMod, 'executeSweep').mockResolvedValue({
+      opened: 3, lapsed: 1, profilesRefreshed: 3,
+      summaries: [],
+    });
+
+    // beforeEach opens exactly 1 case (caseId); isolated DB so that's the only row
+    const editor = { authorization: `Bearer ${await tok('e', 'editor@corp.com', 'editor')}` };
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/reset?game=jus_vn&resweep=true', headers: editor });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.deleted).toBe(1);
+    expect(body.reswept).toMatchObject({ opened: 3, lapsed: 1 });
+    expect(spy).toHaveBeenCalledOnce();
+    spy.mockRestore();
+  });
+
+  it('/reset?resweep=true returns 409 when a sweep is already in flight (via executeSweep throwing)', async () => {
+    const sweepMod = await import('../src/care/care-sweep-execute.js');
+    const { SweepBusyError } = sweepMod;
+    const spy = vi.spyOn(sweepMod, 'executeSweep').mockRejectedValue(new SweepBusyError('jus_vn'));
+
+    const editor = { authorization: `Bearer ${await tok('e', 'editor@corp.com', 'editor')}` };
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/reset?game=jus_vn&resweep=true', headers: editor });
+    expect(res.statusCode).toBe(409);
+    spy.mockRestore();
+  });
+
+  it('/reset?resweep=true returns 409 BEFORE deleting cases when sweep is in-flight (pre-check)', async () => {
+    // Stub isSweepInFlight so the pre-check fires without actually spinning up a sweep.
+    // This verifies the guard fires before clearCases — cases must survive the 409.
+    const sweepMod = await import('../src/care/care-sweep-execute.js');
+    const inFlightSpy = vi.spyOn(sweepMod, 'isSweepInFlight').mockReturnValue(true);
+    const executeSpy = vi.spyOn(sweepMod, 'executeSweep');
+
+    // beforeEach already opens 1 case; add one more so there's a measurable set.
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '14', uid: 'extra', source: 'membership' });
+
+    const editor = { authorization: `Bearer ${await tok('e', 'editor@corp.com', 'editor')}` };
+    const res = await app.inject({ method: 'POST', url: '/api/care/cases/reset?game=jus_vn&resweep=true', headers: editor });
+
+    // Route must reject with 409.
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('SWEEP_BUSY');
+
+    // Cases must NOT have been deleted — the guard fired before clearCases.
+    expect(listCases({ gameId: 'jus_vn' })).toHaveLength(2);
+
+    // executeSweep must never have been called (we bailed out before even wiping).
+    expect(executeSpy).not.toHaveBeenCalled();
+
+    inFlightSpy.mockRestore();
+    executeSpy.mockRestore();
   });
 });
