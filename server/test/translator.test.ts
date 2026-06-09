@@ -127,6 +127,22 @@ describe('treeToCubeFilters', () => {
     expect((f as { values: string[] }).values[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it('expands a notInDateRange single-value relative window the same as inDateRange', () => {
+    // The "not in window" event operator shares inDateRange's value shape; the
+    // translator must expand the relative string and keep the negated operator.
+    const tree = leaf({
+      member: 'U.last_active_date',
+      op: 'notInDateRange',
+      values: ['this month'],
+      type: 'time',
+    });
+    const [f] = treeToCubeFilters(tree);
+    expect(f).toBeDefined();
+    expect((f as { operator: string }).operator).toBe('notInDateRange');
+    expect((f as { values: string[] }).values).toHaveLength(2);
+    expect((f as { values: string[] }).values[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it('normalizes inDateRange values wrapped as `[[start, end]]` to a flat tuple', () => {
     // Authoring path (segments-save-bar/build-predicate-from-rows) emits the
     // nested shape because each `values[i]` is one logical value. Translator

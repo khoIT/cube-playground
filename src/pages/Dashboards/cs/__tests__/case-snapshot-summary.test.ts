@@ -23,8 +23,15 @@ describe('summarizeRule', () => {
     expect(summarizeRule({ kind: 'event', member: 'user_profile.first_recharge_date', window: 'last 24 hours' }))
       .toBe('first_recharge_date in last 24 hours');
   });
+  it('event op "notIn" → negated window phrase', () => {
+    expect(summarizeRule({ kind: 'event', member: 'user_profile.last_active_date', window: 'last 30 days', op: 'notIn' }))
+      .toBe('last_active_date not in last 30 days');
+  });
   it('percentile → P-notation', () => {
     expect(summarizeRule({ kind: 'percentile', of: 'user_profile.ltv_vnd', p: 90 })).toBe('ltv_vnd ≥ P90');
+  });
+  it('percentile op "lte" → bottom-Pn P-notation', () => {
+    expect(summarizeRule({ kind: 'percentile', of: 'user_profile.ltv_vnd', p: 10, op: 'lte' })).toBe('ltv_vnd ≤ P10');
   });
   it('ratio → member vs baseline', () => {
     expect(summarizeRule({ kind: 'ratio', member: 'user_recharge_daily.revenue_7d', vs: 'user_recharge_daily.revenue_30d_avg', op: 'lt', value: 0.5 }))

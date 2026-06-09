@@ -34,6 +34,8 @@ export interface EventRule {
   member: string;
   /** Relative window string, e.g. "last 24 hours", "last 7 days". */
   window: string;
+  /** Event inside ('in', default) or outside ('notIn') the window. */
+  op?: 'in' | 'notIn';
 }
 
 export interface PercentileRule {
@@ -41,6 +43,8 @@ export interface PercentileRule {
   of: string;
   p: number;
   gate?: string;
+  /** Top Pn ('gte', default) or bottom Pn ('lte') of the distribution. */
+  op?: 'gte' | 'lte';
 }
 
 export interface RatioRule {

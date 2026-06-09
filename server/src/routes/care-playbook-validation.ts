@@ -13,8 +13,8 @@ import { z } from 'zod';
 export const thresholdRuleSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('abs'), member: z.string().min(1), op: z.enum(['gt', 'lt', 'gte', 'lte', 'equals']), value: z.number(), valueType: z.enum(['string', 'number', 'time', 'boolean']).optional() }),
   z.object({ kind: z.literal('tierStep'), member: z.string().min(1), bands: z.array(z.object({ label: z.string(), min: z.number() })).min(1) }),
-  z.object({ kind: z.literal('event'), member: z.string().min(1), window: z.string().min(1) }),
-  z.object({ kind: z.literal('percentile'), of: z.string().min(1), p: z.number().min(0).max(100), gate: z.string().optional() }),
+  z.object({ kind: z.literal('event'), member: z.string().min(1), window: z.string().min(1), op: z.enum(['in', 'notIn']).optional() }),
+  z.object({ kind: z.literal('percentile'), of: z.string().min(1), p: z.number().min(0).max(100), gate: z.string().optional(), op: z.enum(['gte', 'lte']).optional() }),
   z.object({ kind: z.literal('ratio'), member: z.string().min(1), vs: z.string().min(1), value: z.number(), op: z.enum(['gt', 'lt', 'gte', 'lte']) }),
 ]);
 
@@ -25,7 +25,7 @@ export const actionSchema = z.object({ text: z.string(), channels: z.array(z.str
 // shape segments store. Recursive (groups nest), so defined via z.lazy.
 const leafOps = [
   'equals', 'notEquals', 'gt', 'lt', 'gte', 'lte', 'in', 'notIn',
-  'contains', 'set', 'notSet', 'inDateRange', 'beforeDate', 'afterDate',
+  'contains', 'set', 'notSet', 'inDateRange', 'notInDateRange', 'beforeDate', 'afterDate',
 ] as const;
 
 export const predicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>

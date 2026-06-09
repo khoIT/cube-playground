@@ -39,6 +39,7 @@ const TREE_TO_CUBE: Record<LeafOperator, string> = {
   set: 'set',
   notSet: 'notSet',
   inDateRange: 'inDateRange',
+  notInDateRange: 'notInDateRange',
   beforeDate: 'beforeDate',
   afterDate: 'afterDate',
 };
@@ -56,6 +57,7 @@ const CUBE_TO_TREE_BASE: Record<string, LeafOperator> = {
   set: 'set',
   notSet: 'notSet',
   inDateRange: 'inDateRange',
+  notInDateRange: 'notInDateRange',
   beforeDate: 'beforeDate',
   afterDate: 'afterDate',
 };
@@ -86,6 +88,10 @@ function leafToCubeFilter(node: LeafNode, anchorDate?: Date): CubeFilter | null 
     };
   }
 
+  // notInDateRange is the negation of inDateRange — same value shape (a 2-tuple
+  // or a relative-window string), so both share the normalization/expansion below.
+  const isDateRange = node.op === 'inDateRange' || node.op === 'notInDateRange';
+
   const filter: CubeLeafFilter = {
     member: node.member,
     operator: cubeOp,
@@ -93,22 +99,19 @@ function leafToCubeFilter(node: LeafNode, anchorDate?: Date): CubeFilter | null 
 
   // set/notSet carry no values
   if (node.op !== 'set' && node.op !== 'notSet') {
-    // Authoring tools may wrap an inDateRange 2-tuple as `[[start, end]]`
+    // Authoring tools may wrap a date-range 2-tuple as `[[start, end]]`
     // (each element treated as one logical value). Flatten before
     // stringifying so the length-2 branch below accepts it.
-    const rawValues =
-      node.op === 'inDateRange'
-        ? normalizeInDateRangeValues(node.values)
-        : node.values;
+    const rawValues = isDateRange ? normalizeInDateRangeValues(node.values) : node.values;
     filter.values = rawValues.map(String);
   }
 
-  // inDateRange requires exactly 2 ISO date strings. Authoring tools sometimes
+  // (not)inDateRange requires exactly 2 ISO date strings. Authoring tools sometimes
   // stash a relative-range string ("this month", "last 7 days") as the only
   // value — Cube rejects those with "Invalid format: Invalid date". Expand the
   // recognized ones here; drop the filter (return null) when unrecoverable so
   // the rest of the query still runs.
-  if (node.op === 'inDateRange') {
+  if (isDateRange) {
     const vals = filter.values ?? [];
     if (vals.length !== 2) {
       if (vals.length === 1) {
@@ -121,7 +124,7 @@ function leafToCubeFilter(node: LeafNode, anchorDate?: Date): CubeFilter | null 
       // Unrecognized → drop the filter so Cube doesn't 400.
       // eslint-disable-next-line no-console
       console.warn(
-        `[translator] Dropping malformed inDateRange filter for ${node.member}: ${JSON.stringify(vals)}`,
+        `[translator] Dropping malformed ${node.op} filter for ${node.member}: ${JSON.stringify(vals)}`,
       );
       return null;
     }

@@ -16,6 +16,7 @@ export type LeafOperator =
   | 'set'
   | 'notSet'
   | 'inDateRange'
+  | 'notInDateRange'
   | 'beforeDate'
   | 'afterDate';
 

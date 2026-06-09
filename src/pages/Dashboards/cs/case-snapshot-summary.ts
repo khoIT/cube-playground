@@ -56,9 +56,9 @@ export function summarizeRule(rule: Record<string, unknown>): string {
       return `${member} tier reached${top?.label ? ` · ${top.label}` : ''}`;
     }
     case 'event':
-      return `${member} in ${String(rule.window ?? 'window')}`;
+      return `${member} ${rule.op === 'notIn' ? 'not in' : 'in'} ${String(rule.window ?? 'window')}`;
     case 'percentile':
-      return `${member} ≥ P${String(rule.p)}`;
+      return `${member} ${rule.op === 'lte' ? '≤' : '≥'} P${String(rule.p)}`;
     case 'ratio':
       return `${member} vs ${shortMember(rule.vs)} ${OP_SYM[String(rule.op)] ?? String(rule.op)} ${String(rule.value)}`;
     default:
