@@ -85,6 +85,16 @@ export async function runCaseSweep(
       summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'no-predicate' });
       continue;
     }
+    // Fail-closed: a membership predicate that compiles to NO Cube filter — e.g.
+    // an unsupported relative-date window the translator dropped to avoid a 400 —
+    // would otherwise match the entire VIP base (the VIP-base gate is the only
+    // surviving filter), opening a case for every VIP. That's never the intent, so
+    // skip rather than fabricate a full-cohort match.
+    if (treeToCubeFilters(pb.predicate).length === 0) {
+      console.warn(`[care] sweep skipping playbook ${pb.id} (${gameId}): predicate compiled to an empty filter (unsupported/malformed condition).`);
+      summaries.push({ playbookId: pb.id, cohortSize: 0, opened: 0, lapsed: 0, alreadyOpen: 0, skipped: 'no-predicate' });
+      continue;
+    }
 
     // A single playbook's cohort query failing (e.g. its cube is absent from
     // this game's live model despite passing the availability probe) must not

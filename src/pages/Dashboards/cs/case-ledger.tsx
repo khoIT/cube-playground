@@ -31,6 +31,7 @@ import { PlaybookFilterBar } from './playbook-filter-bar';
 import { StatusChipRow } from './status-chip-row';
 import { orderByMultiMatch } from './case-ledger-ordering';
 import { CsConsoleNav } from './cs-console-nav';
+import { VipTierBadge } from './vip-tier-badge';
 import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -248,11 +249,16 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1 }: PlaybookRowProps)
       </td>
       {/* Matched Playbook (pill → that playbook's queue; snapshot in tooltip) */}
       <td style={cellBase}><MatchedPlaybookPill c={c} gameId={gameId} /></td>
-      {/* LTV */}
+      {/* LTV + VIP tier */}
       <td style={{ ...cellBase, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-        {profile?.ltvVnd != null
-          ? <span title={formatValueExact(profile.ltvVnd, 'currency') ?? undefined}>{ltvLabel(profile.ltvVnd)}</span>
-          : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+        {profile?.ltvVnd != null ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, justifyContent: 'flex-end' }}>
+            <VipTierBadge ltvVnd={profile.ltvVnd} />
+            <span title={formatValueExact(profile.ltvVnd, 'currency') ?? undefined}>{ltvLabel(profile.ltvVnd)}</span>
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>—</span>
+        )}
       </td>
       {/* State */}
       <td style={cellBase}><StatusPill status={c.status} /></td>
@@ -414,8 +420,11 @@ function VipQueueRow({ row, gameId }: VipRowProps) {
     >
       {/* VIP identity */}
       <td style={{ ...cellBase, width: '20%' }}>
-        <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.uid}>
-          {title}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.uid}>
+            {title}
+          </div>
+          <VipTierBadge ltvVnd={profile?.ltvVnd} />
         </div>
         {idLine && (
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }} title={profile?.ltvVnd != null ? (formatValueExact(profile.ltvVnd, 'currency') ?? undefined) : undefined}>
