@@ -52,6 +52,8 @@ export interface Playbook {
 
 // Cumulative LTV tier bands (doc ₫5/20/50/100M). Starter values — Phase-0
 // calibration confirms band populations against live mf_users.
+// Mirrored client-side in src/pages/Dashboards/cs/vip-tier.ts (TIER_BANDS) for the
+// VIP tier badge — keep the two in lock-step if these thresholds change.
 const LTV_BANDS = [
   { label: 'tier1_5m', min: 5_000_000 },
   { label: 'tier2_20m', min: 20_000_000 },
