@@ -233,3 +233,40 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.dau_by_platform_daily_batch
+
+      # Ingame-dimension cut: server / role-class / payer-day splits carrying the
+      # full active-measure set (incl. wau + mau HLL sketches) that the country and
+      # platform rollups above don't hold together. All measures are additive
+      # (count_distinct_approx HLL + sum), so this day-grain rollup also answers
+      # week/month windows via sketch merge — serving server-online-time,
+      # recharge-by-server, and the dau-vs-mau-by-platform ratio off one rollup.
+      - name: dau_by_ingame_dims_daily_batch
+        type: rollup
+        measures:
+          - dau
+          - paying_dau
+          - wau
+          - mau
+          - total_online_time_sec
+        dimensions:
+          - server_id
+          - role_class
+          - os_platform
+          - country_code
+          - is_recharge_day
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+
+      - name: dau_by_ingame_dims_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.dau_by_ingame_dims_daily_batch
