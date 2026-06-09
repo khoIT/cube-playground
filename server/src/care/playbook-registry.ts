@@ -93,9 +93,10 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'payment',
     name: 'Spend spike',
     priority: 'cao',
-    dataRequirements: ['user_recharge_daily.revenue_vnd', 'user_recharge_daily.log_date'],
-    // ≥3× personal daily average — per-member comparison (trigger engine).
-    condition: tier({ kind: 'ratio', member: 'user_recharge_daily.revenue_1d', vs: 'user_recharge_daily.revenue_30d_avg', value: 3, op: 'gte' }),
+    dataRequirements: ['user_recharge_rolling.spike_ratio'],
+    // ≥3× personal 30d daily average — the rolling mart materializes the ratio
+    // per user (latest recharge day), so this is a plain cohort filter, no trigger.
+    condition: tier({ kind: 'abs', member: 'user_recharge_rolling.spike_ratio', op: 'gte', value: 3 }),
     watchedMetric: { member: 'user_recharge_daily.revenue_vnd', label: '7d spend', kpiTarget: 'no refund / chargeback' },
     action: { text: 'Acknowledge big spend; VIP perk + fraud/refund sanity check', channels: ['call'], slaMinutes: 240 },
   },
@@ -105,9 +106,11 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'payment',
     name: 'Spend drop',
     priority: 'cao',
-    dataRequirements: ['user_recharge_daily.revenue_vnd', 'user_recharge_daily.log_date'],
-    // Rolling 7d spend < 30% of personal 30d avg — per-member (trigger engine).
-    condition: tier({ kind: 'ratio', member: 'user_recharge_daily.revenue_7d', vs: 'user_recharge_daily.revenue_30d_avg', value: 0.3, op: 'lt' }),
+    dataRequirements: ['user_recharge_rolling.qualified_drop_ratio'],
+    // 7d daily spend < 30% of 30d daily average, scoped (in the mart) to engaged
+    // spenders still paying — excludes fully-lapsed (churn, PB14) and low-value
+    // users so the cohort is a genuine decline, not recharge sparsity.
+    condition: tier({ kind: 'abs', member: 'user_recharge_rolling.qualified_drop_ratio', op: 'lt', value: 0.3 }),
     watchedMetric: { member: 'user_recharge_daily.revenue_vnd', label: '7d spend recovery', kpiTarget: 'spend back ≥ 60% baseline in 14d' },
     action: { text: 'Reach out; understand friction, targeted retention offer', channels: ['call', 'zalo_zns'], slaMinutes: 1440 },
   },
@@ -235,9 +238,11 @@ export const SEED_PLAYBOOKS: Playbook[] = [
     group: 'churn',
     name: 'Session-time drop',
     priority: 'tb',
-    dataRequirements: ['active_daily.online_time_sec', 'active_daily.log_date'],
-    // 7d avg session < 40% of prior-30d avg — per-member (trigger engine).
-    condition: tier({ kind: 'ratio', member: 'active_daily.session_7d_avg', vs: 'active_daily.session_30d_avg', value: 0.4, op: 'lt' }),
+    dataRequirements: ['user_active_rolling.qualified_session_ratio'],
+    // 7d daily session < 20% of 30d daily average, scoped (in the mart) to heavy
+    // players still active — session activity is dense/noisy, so the cutoff is
+    // sharper than spend to keep the cohort a real, actionable drop.
+    condition: tier({ kind: 'abs', member: 'user_active_rolling.qualified_session_ratio', op: 'lt', value: 0.2 }),
     watchedMetric: { member: 'active_daily.online_time_sec', label: 'Avg session', kpiTarget: 'session time recovers' },
     action: { text: 'Re-engage; surface fresh content / events', channels: ['push', 'zalo_zns'], slaMinutes: 1440 },
   },

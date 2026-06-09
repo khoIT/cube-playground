@@ -49,8 +49,9 @@ describe('runCaseSweep', () => {
     const byId = Object.fromEntries(summaries.map((s) => [s.playbookId, s]));
     // 02 VIP tier (tierStep → membership, available) opens cases.
     expect(byId['02'].opened).toBe(2);
-    // 04 spend-drop is a ratio → trigger, skipped (needs per-member baseline).
-    expect(byId['04'].skipped).toBe('trigger-eval-pending');
+    // 04 spend-drop now reads the rolling mart (user_recharge_rolling), absent for
+    // jus → unavailable (membership rule, but no source cube).
+    expect(byId['04'].skipped).toBe('unavailable');
     // 06 leaderboard requires gameplay cube absent for jus → unavailable.
     expect(byId['06'].skipped).toBe('unavailable');
     // 05 payment-failure is blocked → unavailable.

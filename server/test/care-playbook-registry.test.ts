@@ -120,13 +120,24 @@ describe('availability resolver (per game × playbook)', () => {
     expect(resolveAvailability(pb('12'), JUS_MEMBERS)).toBe('unavailable'); // gacha
   });
 
-  it('spend/session playbooks read available once their std-mart date members resolve', () => {
-    // 03/04 window on user_recharge_daily.log_date, 15 on active_daily.log_date —
-    // std marts (not raw etl_), so member-present resolves to available (the sweep
-    // still defers them while they carry a ratio rule; availability is independent).
-    expect(resolveAvailability(pb('03'), JUS_MEMBERS)).toBe('available'); // spend spike
-    expect(resolveAvailability(pb('04'), JUS_MEMBERS)).toBe('available'); // spend drop
-    expect(resolveAvailability(pb('15'), JUS_MEMBERS)).toBe('available'); // session-time drop
+  it('spend/session playbooks need their rolling marts — available with them, unavailable without', () => {
+    // 03/04/15 now read the materialized rolling ratios (user_recharge_rolling /
+    // user_active_rolling). jus has no rolling marts → unavailable (fail-closed).
+    expect(resolveAvailability(pb('03'), JUS_MEMBERS)).toBe('unavailable'); // spend spike
+    expect(resolveAvailability(pb('04'), JUS_MEMBERS)).toBe('unavailable'); // spend drop
+    expect(resolveAvailability(pb('15'), JUS_MEMBERS)).toBe('unavailable'); // session-time drop
+
+    // With the rolling-mart members present (cfm post-mart) they flip to available
+    // — cohort-queryable ratios, not raw etl_.
+    const withRolling = new Set([
+      ...JUS_MEMBERS,
+      'user_recharge_rolling.spike_ratio',
+      'user_recharge_rolling.qualified_drop_ratio',
+      'user_active_rolling.qualified_session_ratio',
+    ]);
+    expect(resolveAvailability(pb('03'), withRolling)).toBe('available');
+    expect(resolveAvailability(pb('04'), withRolling)).toBe('available');
+    expect(resolveAvailability(pb('15'), withRolling)).toBe('available');
   });
 
   it('blocked playbooks are always unavailable; ops-driven are partial', () => {
@@ -160,9 +171,11 @@ describe('mergePlaybooks (seed ⊕ override)', () => {
     expect(p02.source).toBe('seed');
     expect(p02.availability).toBe('available');
     expect(p02.predicate).not.toBeNull();
-    const p04 = merged.find((p) => p.id === '04')!; // ratio → trigger
-    expect(p04.evalMode).toBe('trigger');
-    expect(p04.predicate).toBeNull();
+    // 04 now reads the materialized rolling drop_ratio (abs) → membership with a
+    // real cohort predicate (no longer a per-member trigger ratio).
+    const p04 = merged.find((p) => p.id === '04')!;
+    expect(p04.evalMode).toBe('membership');
+    expect(p04.predicate).not.toBeNull();
   });
 
   it('override wins per field and flips source to override; disabled honored', () => {

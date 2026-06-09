@@ -18,7 +18,7 @@
 |---|-------|---------|--------|
 | 01 | [Data as-of anchor + daily sweep cadence](phase-01-data-anchor-and-daily-sweep.md) | foundation (all etl) | ✅ anchor mechanism done (cadence kept at 6h — already periodic) |
 | 02 | [Registry member-name + window fixes](phase-02-registry-member-and-window-fixes.md) | 18; preps 03/04/15 | ✅ member fixes (03/04/15→log_date) + anniversary (18) offset-day OR-set, done + tested |
-| 03 | [Rolling spend/session marts](phase-03-rolling-spend-session-marts.md) | 03, 04, 15 | ☐ marts → `cube-dev/.../cfm/`; needs live Trino SQL + cube restart |
+| 03 | [Rolling spend/session marts](phase-03-rolling-spend-session-marts.md) | 03, 04, 15 | ◑ marts built in `cube-dev/.../cfm/` + validated live; 03 spike well-sized (105). 04 drop / 15 session degenerate at default thresholds → need Phase-06 calibration + predicate redefinition (exclude ratio=0 churn, require baseline) |
 | 04 | [Gameplay + clan daily mart](phase-04-gameplay-clan-daily-mart.md) | 06, 08, 09, 10, 17 | ☐ blocked on identity mapping (playerid→user_id) verify |
 | 05 | [Prop + lottery rollup marts](phase-05-prop-lottery-rollup-marts.md) | 07, 11, 12 | ☐ blocked on rare-prop/SSR signal existence verify |
 | 06 | [Integration, validation, demo verify](phase-06-integration-validation-demo.md) | all | ☐ |
@@ -34,6 +34,13 @@
 
 ## Target outcome
 17/21 playbooks available/partial and producing cohorts in the CS dashboard for cfm_vn, on real (anchored) data.
+
+## Build note — Phase 03 rolling marts (validated live)
+Two marts in `cube-dev/.../cfm/`: `user_recharge_rolling`, `user_active_rolling`. Grain = one row per user **as of the data anchor** (MAX log_date), trailing 1d/7d/30d via CASE-window SUMs — this grain (not "latest recharge/active day") is what lets spend/session DROP be visible (a user gone quiet has 7d_total=0). `user_id` must be `public: true` (it's the PK and the cohort fetcher selects it). Live distributions on cfm:
+- 03 spike_ratio≥3 → **105** users (prior-29d-day baseline excludes one-time payers). Demo-ready.
+- 04 drop_ratio<0.3 → **25,819 / 33,582** (degenerate): recharge is sparse, 71% just didn't pay in 7d; the ratio=0 bucket (23,997) is churn, not decline.
+- 15 session_ratio<0.4 → **358,410 / 661,691** (degenerate): activity is dense.
+**Phase-06 calibration must redefine 04/15**, not just retune: exclude ratio=0 (→ PB14 churn), require a real 30d baseline (engaged VIPs only), and pick thresholds from the live ratio distribution (likely a percentile rule). Spike's prior-baseline trick is the template.
 
 ## Build note — model directory (discovered during impl)
 The plan's phase files write marts to `../cube-api/cube/model/cubes/cfm_vn/`, but the **local** demo Cube (`cube_api_dev:4000`, `docker-compose.devcube.yml`) mounts `./cube-dev/cube` and resolves app-game `cfm_vn` → alias → canonical `cfm` → loads `./cube-dev/cube/model/cubes/cfm/`. So new marts must land in `./cube-dev/.../cfm/` for the local CS-dashboard demo to serve them; `../cube-api/.../cfm_vn/` is a separate (prod-source-style) tree the local cube does not serve. Pending user decision (Phases 03–05).
