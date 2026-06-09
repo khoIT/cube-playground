@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-10 — jus_vn VIP-care playbook coverage unlock (6/21 → 13/21 enabled)
+
+Expanded jus_vn VIP-care playbook coverage from 6 to 13 enabled by adding 4 new Cube YAML marts in the sibling `cube-dev` repo. No server/client code changes, no registry edits — the per-game availability system automatically resolved verdicts from live Cube `/meta` member presence. Added `user_recharge_rolling.yml` (spend-spike, spend-drop), `user_active_rolling.yml` (session-drop), `user_gameplay_daily.yml` (top-leaderboard, major-achievement), and `etl_prop_flow.yml` (rare-unlock, collector-FOMO partial). Leaderboard ranking uses role_level + LTV tiebreak (fighting_power is 100% NULL in jus). Plan: `plans/260610-0000-jus-vn-playbook-coverage-unlock/`. Tests: 59 care-server tests all pass; live Cube /meta, sweep, and API surface validated on 2026-06-08 anchor.
+
+- **4 new jus marts** — added to `cube-dev/cube/model/cubes/jus/`: `user_recharge_rolling.yml` (unlocks PB03/04), `user_active_rolling.yml` (unlocks PB15), `user_gameplay_daily.yml` (unlocks PB06/09), `etl_prop_flow.yml` (unlocks PB07/11 as partial). Honest semantic: jus leaderboard ranks by progression-level + lifetime-spend (cross-game member `ladder_rank` reused, cfm = PvP score, jus = progression+LTV).
+- **Availability auto-flip** — no registry changes. Each mart exposes the exact logical members the playbooks' `dataRequirements` expect; the shared per-game `/meta` probe flips verdicts with zero FE/server edits.
+- **Cohort validation** — all 9 newly-available playbooks have non-empty cohorts: spend-spike 1,324; spend-drop 623; session-drop 237; top-leaderboard 10; major-achievement 1. Calibration-free: cfm-tuned qualification floors (₫500k spend, 30h session) produce sane jus cohorts.
+- **Unavailable playbooks (unchanged)** — no jus source or fabrication: 05 payment-fail, 08 rank-drop, 10/17 guild, 12 gacha, 13 sentiment, 16 ticket, 21 birthday. Cross-game safety verified (cfm coverage 12+5 unchanged).
+
 ## 2026-06-09 — Close the CS demo-care-loop (persist treatment, claim/assign, human-closed KPI, export, activity, reseed)
 
 Completed the CS console care loop from read-only artifact to a true interactive demo: VIP 360 now persists real treatment actions, supports claim/assign/dismiss workflows, human-closed KPI outcome (met/missed) with rollup ROI stats, CSV case export, rolling 24h activity tracking, and guarded full-game reseed. Plan: `plans/260609-1813-cs-demo-care-loop/`. Tests: 5 phases, 40+ new FE tests; all green.

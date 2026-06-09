@@ -593,7 +593,7 @@ The LLM emits a 5-label enum (status: good/caution/risk) + narrative + signal bu
 
 ## VIP Care Playbook Console
 
-CS-facing console for the 21-playbook VIP Care Program. Turns static playbook definitions into a **stateful care-case ledger** — one playbook monitor + action queue + per-VIP treatment history + case governance — for cfm_vn and jus_vn, with per-(game×playbook) **availability gating** (playbooks grey out when Cube members aren't modeled for that game) and **data-calibrated thresholds** (percentile, personal-baseline ratio, absolute).
+CS-facing console for the 21-playbook VIP Care Program. Turns static playbook definitions into a **stateful care-case ledger** — one playbook monitor + action queue + per-VIP treatment history + case governance — for cfm_vn and jus_vn, with per-(game×playbook) **availability gating** (playbooks grey out when Cube members aren't modeled for that game) and **data-calibrated thresholds** (percentile, personal-baseline ratio, absolute). As of 2026-06-10, cfm_vn exposes 12 available + 5 partial playbooks, and jus_vn 9 available + 4 partial (from newly-added spend-recharge, session-active, gameplay-daily, and event-flow marts in cube-dev).
 
 ### Core Architecture
 

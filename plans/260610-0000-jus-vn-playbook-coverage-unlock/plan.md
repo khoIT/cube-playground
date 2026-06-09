@@ -1,7 +1,8 @@
 ---
 title: "jus_vn VIP-care playbook coverage unlock"
 description: "Port the cfm_vn coverage-expansion marts to jus_vn so the CS dashboard unlocks ~12-13/21 playbooks on real anchored data."
-status: pending
+status: completed
+result: "13/21 enabled (9 available + 4 partial). Result report: plans/reports/from-cook-jus-vn-playbook-coverage-unlock-result-report.md"
 priority: P2
 effort: 9h
 branch: main
@@ -22,12 +23,12 @@ created: 2026-06-10
 ## Phases
 | # | Phase | Unlocks | Status |
 |---|-------|---------|--------|
-| 01 | [Baseline verify + registry member reconciliation](phase-01-baseline-verify-and-reconciliation.md) | confirm 01,02,14,18 + 19,20 partial | pending |
-| 02 | [user_recharge_rolling mart](phase-02-user-recharge-rolling-mart.md) | 03, 04 | pending |
-| 03 | [user_active_rolling mart](phase-03-user-active-rolling-mart.md) | 15 | pending |
-| 04 | [user_gameplay_daily power-leaderboard mart](phase-04-user-gameplay-daily-power-leaderboard-mart.md) | 06, 09 | pending |
-| 05 | [etl_prop_flow rare-item partial (jus)](phase-05-etl-prop-flow-rare-item-partial.md) | 07 (partial) | pending |
-| 06 | [Calibrate + live-validate + coverage surface + restart](phase-06-calibrate-validate-coverage-restart.md) | all | pending |
+| 01 | [Baseline verify + registry member reconciliation](phase-01-baseline-verify-and-reconciliation.md) | confirm 01,02,14,18 + 19,20 partial | ✅ done (no mismatch; no reconciliation needed) |
+| 02 | [user_recharge_rolling mart](phase-02-user-recharge-rolling-mart.md) | 03, 04 | ✅ done (03→1324, 04→623) |
+| 03 | [user_active_rolling mart](phase-03-user-active-rolling-mart.md) | 15 | ✅ done (15→237) |
+| 04 | [user_gameplay_daily power-leaderboard mart](phase-04-user-gameplay-daily-power-leaderboard-mart.md) | 06, 09 | ✅ done — fighting_power NULL in jus; ranked by role_level+LTV per user choice (06→10, 09→1) |
+| 05 | [etl_prop_flow rare-item partial (jus)](phase-05-etl-prop-flow-rare-item-partial.md) | 07 (partial) | ✅ done (07 + 11 partial; mirrors cfm) |
+| 06 | [Calibrate + live-validate + coverage surface + restart](phase-06-calibrate-validate-coverage-restart.md) | all | ✅ done — no calibration needed (cohorts non-degenerate). Report in plans/reports/ |
 
 ## Key dependencies
 - 01 is foundational: confirms baseline members + that jus member names match registry `dataRequirements` (fail-closed depends on it). Marts in 02-05 are independent of each other (different source tables, different YAML files) — can build in any order / parallel.
