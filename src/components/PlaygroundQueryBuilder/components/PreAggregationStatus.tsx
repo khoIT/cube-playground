@@ -38,6 +38,14 @@ export function PreAggregationStatus({
   const isVersionGte = useServerCoreVersionGte('0.28.4');
   const { toggleModal } = useRollupDesignerContext();
 
+  // `usedPreAggregations` (which drives `isAggregated`) comes back EMPTY for
+  // rollup_lambda pre-aggregations using `union_with_source_data` — even when
+  // CubeStore actually served the query. Cube still flags those results as served
+  // from the external store, so treat `external` as acceleration too; otherwise
+  // the badge falsely reports "not accelerated" for every lambda rollup. The
+  // migration-suggestion alerts below stay keyed on the real `isAggregated`.
+  const accelerated = isAggregated || Boolean(external);
+
   // hide it for the time being
   // const renderTime = () => (
   //   <Typography.Text strong style={{ color: 'rgba(20, 20, 70, 0.85)' }}>
@@ -48,7 +56,7 @@ export function PreAggregationStatus({
   return (
     <>
       <Space style={{ marginLeft: 'auto' }}>
-        {isAggregated && (
+        {accelerated && (
           <Badge>
             <Space size={4}>
               <Icon
@@ -59,7 +67,7 @@ export function PreAggregationStatus({
           </Badge>
         )}
 
-        {isAggregated ? (
+        {accelerated ? (
           <Typography.Text style={{ fontSize: 12, lineHeight: 1 }}>
             Query was accelerated with pre-aggregation
           </Typography.Text>
