@@ -16,7 +16,7 @@
  * All fetch calls mirror the AbortController pattern from use-care-playbooks.ts.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../../api/api-client';
 
 // ── Canonical case shape (server contract) ────────────────────────────────────
@@ -125,6 +125,8 @@ export interface CareCasesState {
   error: string | null;
   total: number;
   pageSize: number;
+  /** Manually re-run the fetch — call after a PATCH to refresh assignee/status. */
+  refetch: () => void;
 }
 
 export interface VipQueueState {
@@ -133,12 +135,16 @@ export interface VipQueueState {
   error: string | null;
   total: number;
   pageSize: number;
+  /** Manually re-run the fetch — call after a PATCH to get updated assignee/status. */
+  refetch: () => void;
 }
 
 export interface VipDetailState {
   status: CasesLoadStatus;
   cases: CareCase[];
   error: string | null;
+  /** Manually re-run the fetch — call after a PATCH to get the updated case list. */
+  refetch: () => void;
 }
 
 // ── Hook: by-playbook list ────────────────────────────────────────────────────
@@ -162,7 +168,7 @@ export function useCareCases(
     pageSize?: number;
   } = {},
 ): CareCasesState {
-  const [state, setState] = useState<CareCasesState>({
+  const [state, setState] = useState<Omit<CareCasesState, 'refetch'>>({
     status: 'idle',
     cases: [],
     error: null,
@@ -176,6 +182,8 @@ export function useCareCases(
   // refs each render; the joined string is the real dependency).
   const playbookParam = (playbookIds && playbookIds.length ? playbookIds.join(',') : playbookId) ?? '';
   const statusParam = (statuses && statuses.length ? statuses.join(',') : filterStatus) ?? '';
+  // Increment to trigger a manual re-fetch after a PATCH without changing filters.
+  const [fetchTick, setFetchTick] = useState(0);
 
   useEffect(() => {
     if (!gameId) return;
@@ -217,9 +225,14 @@ export function useCareCases(
 
     load();
     return () => controller.abort();
-  }, [gameId, playbookParam, statusParam, page, pageSize]);
+  // fetchTick is intentionally included so refetch() below re-runs this effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, playbookParam, statusParam, page, pageSize, fetchTick]);
 
-  return state;
+  /** Call after a successful PATCH to synchronise the local case list. */
+  const refetch = useCallback(() => setFetchTick((n) => n + 1), []);
+
+  return { ...state, refetch };
 }
 
 // ── Hook: by-vip action queue ─────────────────────────────────────────────────
@@ -232,7 +245,7 @@ export function useVipQueue(
   gameId: string,
   opts: { page?: number; pageSize?: number; q?: string } = {},
 ): VipQueueState {
-  const [state, setState] = useState<VipQueueState>({
+  const [state, setState] = useState<Omit<VipQueueState, 'refetch'>>({
     status: 'idle',
     vips: [],
     error: null,
@@ -243,6 +256,9 @@ export function useVipQueue(
   const abortRef = useRef<AbortController | null>(null);
   const { page = 1, pageSize = DEFAULT_PAGE_SIZE, q } = opts;
   const query = (q ?? '').trim();
+  // Increment to trigger a manual re-fetch after a PATCH (e.g. claim) without
+  // changing the external opts, so the caller doesn't need to manage extra state.
+  const [fetchTick, setFetchTick] = useState(0);
 
   useEffect(() => {
     if (!gameId) return;
@@ -277,9 +293,14 @@ export function useVipQueue(
 
     load();
     return () => controller.abort();
-  }, [gameId, page, pageSize, query]);
+  // fetchTick is intentionally included so refetch() below re-runs this effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, page, pageSize, query, fetchTick]);
 
-  return state;
+  /** Call after a successful PATCH to synchronise the queue with the ledger. */
+  const refetch = useCallback(() => setFetchTick((n) => n + 1), []);
+
+  return { ...state, refetch };
 }
 
 // ── Hook: single-VIP cross-playbook history ───────────────────────────────────
@@ -289,42 +310,47 @@ export function useVipQueue(
  * Used by the Member-360 Care tab.
  */
 export function useVipCaseHistory(gameId: string | null, uid: string): VipDetailState {
-  const [state, setState] = useState<VipDetailState>({
+  const [state, setState] = useState<Omit<VipDetailState, 'refetch'>>({
     status: 'idle',
     cases: [],
     error: null,
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  // Increment this counter to trigger a manual re-fetch without changing gameId/uid.
+  const [fetchTick, setFetchTick] = useState(0);
+
+  const load = useCallback(async (signal: AbortSignal) => {
+    if (!gameId || !uid) return;
+    setState((prev) => ({ ...prev, status: 'loading', error: null }));
+    try {
+      const data = await apiFetch<{ uid: string; cases: CareCase[] }>(
+        `/api/care/cases/vip/${encodeURIComponent(uid)}`,
+        { query: { game: gameId }, signal },
+      );
+      setState({ status: 'success', cases: data.cases ?? [], error: null });
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setState((prev) => ({ ...prev, status: 'error', error: message }));
+    }
+  }, [gameId, uid]);
 
   useEffect(() => {
     if (!gameId || !uid) return;
-
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-
-    setState((prev) => ({ ...prev, status: 'loading', error: null }));
-
-    async function load() {
-      try {
-        const data = await apiFetch<{ uid: string; cases: CareCase[] }>(
-          `/api/care/cases/vip/${encodeURIComponent(uid)}`,
-          { query: { game: gameId as string }, signal: controller.signal },
-        );
-        setState({ status: 'success', cases: data.cases ?? [], error: null });
-      } catch (err: unknown) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        setState((prev) => ({ ...prev, status: 'error', error: message }));
-      }
-    }
-
-    load();
+    load(controller.signal);
     return () => controller.abort();
-  }, [gameId, uid]);
+  // fetchTick is intentionally included so the manual refetch() below re-runs this effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, uid, load, fetchTick]);
 
-  return state;
+  /** Call after a successful PATCH to synchronise the local case list with the ledger. */
+  const refetch = useCallback(() => setFetchTick((n) => n + 1), []);
+
+  return { ...state, refetch };
 }
 
 // ── PATCH helper ──────────────────────────────────────────────────────────────
@@ -338,6 +364,142 @@ export async function patchCareCase(id: string, patch: CareCasePatch): Promise<C
     method: 'PATCH',
     body: patch,
   });
+}
+
+// ── Activity aggregate (24h rolling strip) ────────────────────────────────────
+
+export interface ActivityEvent {
+  uid: string;
+  kind: 'treated' | 'resolved' | 'dismissed';
+  playbookId: string;
+  at: string;
+}
+
+export interface CareActivityState {
+  status: CasesLoadStatus;
+  treated24h: number;
+  dismissed24h: number;
+  resolved24h: number;
+  recent: ActivityEvent[];
+  error: string | null;
+  /** Re-fetch manually (e.g. after a patch to see the updated counts). */
+  refetch: () => void;
+}
+
+/** Heartbeat cadence for the activity strip — slow poll, not real-time. */
+const ACTIVITY_POLL_MS = 30_000;
+
+/**
+ * Polls GET /api/care/activity for the rolling 24h treated / dismissed /
+ * resolved counts and a short list of recent events. Self-heals on transient
+ * errors; call refetch() after a case patch for an immediate update.
+ */
+export function useCareActivity(gameId: string): CareActivityState {
+  const [state, setState] = useState<Omit<CareActivityState, 'refetch'>>({
+    status: 'idle',
+    treated24h: 0,
+    dismissed24h: 0,
+    resolved24h: 0,
+    recent: [],
+    error: null,
+  });
+
+  const abortRef = useRef<AbortController | null>(null);
+  const [fetchTick, setFetchTick] = useState(0);
+
+  useEffect(() => {
+    if (!gameId) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function load() {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setState((prev) => ({ ...prev, status: 'loading', error: null }));
+      try {
+        const data = await apiFetch<{
+          treated24h: number;
+          dismissed24h: number;
+          resolved24h: number;
+          recent: ActivityEvent[];
+        }>('/api/care/activity', {
+          query: { game: gameId },
+          signal: controller.signal,
+        });
+
+        if (cancelled) return;
+        setState({
+          status: 'success',
+          treated24h: data.treated24h ?? 0,
+          dismissed24h: data.dismissed24h ?? 0,
+          resolved24h: data.resolved24h ?? 0,
+          recent: data.recent ?? [],
+          error: null,
+        });
+      } catch (err: unknown) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        setState((prev) => ({ ...prev, status: 'error', error: message }));
+      }
+      // Schedule next heartbeat even on error so the strip self-heals.
+      if (!cancelled) {
+        timer = setTimeout(load, ACTIVITY_POLL_MS);
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      abortRef.current?.abort();
+    };
+  // fetchTick drives manual refetch; gameId drives re-init on game switch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, fetchTick]);
+
+  const refetch = useCallback(() => setFetchTick((n) => n + 1), []);
+
+  return { ...state, refetch };
+}
+
+// ── Full-queue export fetch (un-paginated, for CSV download) ──────────────────
+
+/**
+ * Fetches the complete un-paginated VIP queue for CSV export.
+ * Omitting page/pageSize causes the server to return the full set
+ * (pagination is opt-in on the by-vip endpoint).
+ */
+export async function fetchFullVipQueue(gameId: string): Promise<VipCaseRow[]> {
+  const data = await apiFetch<{ vips: VipCaseRow[] }>('/api/care/cases/by-vip', {
+    query: { game: gameId },
+  });
+  return data.vips ?? [];
+}
+
+// ── Demo reset ──────────────────────────────────────────────────────────────
+
+export interface ResetResult {
+  game: string;
+  deleted: number;
+  reswept?: { opened: number; lapsed: number; summaries: SweepPlaybookSummary[] };
+}
+
+/**
+ * Wipes all cases for `game` in the current workspace. Editor/admin only —
+ * the server enforces the write gate; the caller must show a confirm dialog
+ * before invoking this. `resweep: true` triggers a full cohort sweep after
+ * the wipe so the demo can be restarted in one request.
+ */
+export async function resetCareCases(
+  game: string,
+  opts: { resweep?: boolean } = {},
+): Promise<ResetResult> {
+  const url = `/api/care/cases/reset?game=${encodeURIComponent(game)}${opts.resweep ? '&resweep=true' : ''}`;
+  return apiFetch<ResetResult>(url, { method: 'POST' });
 }
 
 // ── On-demand sweep ─────────────────────────────────────────────────────────

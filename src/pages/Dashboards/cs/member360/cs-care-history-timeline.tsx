@@ -46,7 +46,7 @@ function relDay(daysAgo: number): string {
   return `${daysAgo}d ago`;
 }
 
-function OutcomeChip({ outcome }: { outcome: CareOutcome }) {
+export function OutcomeChip({ outcome }: { outcome: CareOutcome }) {
   const map = {
     kpi_met: { bg: 'var(--success-soft)', ink: 'var(--success-ink)', icon: <Check size={11} strokeWidth={3} />, label: 'KPI met' },
     kpi_missed: { bg: 'var(--destructive-soft)', ink: 'var(--destructive-ink)', icon: <X size={11} strokeWidth={3} />, label: 'KPI missed' },
@@ -106,11 +106,16 @@ function EventCard({ e }: { e: CareTimelineEvent }) {
 
 interface TimelineProps {
   events: CareTimelineEvent[];
-  /** Real open-case count from the ledger, anchoring the sample. */
+  /** Real open-case count from the ledger, anchoring the timeline. */
   openCount: number | null;
+  /**
+   * When true the events are real ledger data — the "sample" tag is hidden.
+   * When false (default) the "sample" tag renders to signal illustrative data.
+   */
+  live?: boolean;
 }
 
-export function CsCareHistoryTimeline({ events, openCount }: TimelineProps) {
+export function CsCareHistoryTimeline({ events, openCount, live = false }: TimelineProps) {
   return (
     <section>
       <header style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -122,12 +127,14 @@ export function CsCareHistoryTimeline({ events, openCount }: TimelineProps) {
             {openCount} open
           </span>
         )}
-        <span
-          title="Treatment outcomes are not captured in the ledger yet — this lifecycle is illustrative."
-          style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 'var(--radius-full)', background: 'var(--warning-soft)', color: 'var(--warning-ink)' }}
-        >
-          <Sparkles size={11} /> sample
-        </span>
+        {!live && (
+          <span
+            title="Showing illustrative sample data — no real cases for this VIP yet."
+            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 'var(--radius-full)', background: 'var(--warning-soft)', color: 'var(--warning-ink)' }}
+          >
+            <Sparkles size={11} /> sample
+          </span>
+        )}
       </header>
 
       {/* Spine + nodes */}
