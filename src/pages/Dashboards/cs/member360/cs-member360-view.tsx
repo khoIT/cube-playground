@@ -11,6 +11,7 @@
  */
 
 import { ReactElement, useMemo, useState } from 'react';
+import { HeartHandshake } from 'lucide-react';
 import type { Query } from '@cubejs-client/core';
 import { useAuthUser } from '../../../../auth/auth-context';
 import { DashboardHero } from '../../../Segments/member360/sections/dashboard-hero';
@@ -84,14 +85,48 @@ export function CsMember360View({
       <CsConsoleNav current="member" gameId={gameId} />
 
       {back}
+
+      {/* Eyebrow — mirrors CS Monitor + Case Ledger page headers. */}
       <div
         style={{
-          fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6,
-          color: 'var(--text-tertiary)', marginBottom: 8,
+          fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.09em',
+          color: 'var(--text-muted)', fontWeight: 600, marginBottom: 5,
         }}
       >
-        {gameId} · care
+        Dashboards
       </div>
+
+      {/* Page header — icon + 20px title on the left, game badge on the right. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <HeartHandshake size={22} color="var(--brand)" />
+          <h1
+            style={{
+              margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em',
+              color: 'var(--text-primary)', fontFamily: 'var(--font-sans)',
+            }}
+          >
+            Member-360 Care
+          </h1>
+        </div>
+
+        {/* Game badge */}
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600,
+            color: 'var(--text-secondary)', background: 'var(--bg-muted)',
+            padding: '5px 11px', borderRadius: 'var(--radius-full)',
+          }}
+        >
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+          {gameId}
+        </div>
+      </div>
+
+      {/* Sub-heading */}
+      <p style={{ margin: '2px 0 18px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+        Care-first member profile — treat from the recommended-action rail, then refer to the folded reference panels.
+      </p>
 
       <DashboardHero uid={uid} sections={sections} row={row} />
 
