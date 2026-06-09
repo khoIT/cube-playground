@@ -1,7 +1,7 @@
 ---
 title: "VIP Care: sweep snapshots, 6h cron, queue pagination, diff/trend"
 description: "Paginate the Case Ledger queue, snapshot every sweep (per-run/per-playbook/per-uid), auto-sweep eligible games every 6h, and surface trend + two-run diff."
-status: pending
+status: complete
 priority: P2
 effort: ~5d (P1 1d, P2 1.5d, P3 0.5d, P4 2d)
 branch: main
@@ -26,10 +26,12 @@ Four locked user decisions (DO NOT reverse): (1) 6h auto-sweep cron per eligible
 
 | # | Phase | Status | Depends on | Effort |
 |---|-------|--------|-----------|--------|
-| 1 | [Queue pagination (BE + FE)](phase-01-queue-pagination.md) | pending | — | 1d |
-| 2 | [Sweep-run snapshot store + recording + prune](phase-02-sweep-snapshot-store.md) | pending | — | 1.5d |
-| 3 | [6h auto-sweep cron (fail-soft per game)](phase-03-auto-sweep-cron.md) | pending | 2 | 0.5d |
-| 4 | [Diff/trend API + FE comparison surface](phase-04-diff-trend-surface.md) | pending | 2 | 2d |
+| 1 | [Queue pagination (BE + FE)](phase-01-queue-pagination.md) | complete | — | 1d |
+| 2 | [Sweep-run snapshot store + recording + prune](phase-02-sweep-snapshot-store.md) | complete | — | 1.5d |
+| 3 | [6h auto-sweep cron (fail-soft per game)](phase-03-auto-sweep-cron.md) | complete | 2 | 0.5d |
+| 4 | [Diff/trend API + FE comparison surface](phase-04-diff-trend-surface.md) | complete | 2 | 2d |
+
+**Delivered (260609):** opt-in pagination (no-param = full list, preserving CS Monitor aggregates); store in `care/` not `db/` (cohesion w/ sibling care stores); shared `executeSweep` (route + cron, in-flight mutex); 6h cron w/ request-free ctx; Sweeps lens (trend sparklines + two-run diff + drill). 33 server care tests + 50 client CS tests green.
 
 Phase 1 ships independently (unblocks slow load now). Phases 2→3 and 2→4 are the snapshot chain. Phase 1 and Phase 2 touch disjoint files and may run in parallel.
 

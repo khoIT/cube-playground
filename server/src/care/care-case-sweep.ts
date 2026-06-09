@@ -50,6 +50,11 @@ export interface PlaybookSweepSummary extends SweepResult {
   playbookId: string;
   cohortSize: number;
   skipped?: 'trigger-eval-pending' | 'unavailable' | 'disabled' | 'no-predicate' | 'query-failed';
+  /**
+   * Matched cohort uids — populated for non-skipped playbooks only, so the sweep
+   * route can snapshot per-uid membership. Server-internal; not sent to the FE.
+   */
+  uids?: string[];
 }
 
 /** Sweep one game's playbooks. `members` + `deps` are injected for testability. */
@@ -99,7 +104,7 @@ export async function runCaseSweep(
       kpiTarget: pb.watchedMetric.kpiTarget ?? null,
       snapshotFor: () => ({ matched_at: new Date().toISOString(), threshold: pb.condition }),
     });
-    summaries.push({ playbookId: pb.id, cohortSize: uids.length, ...result });
+    summaries.push({ playbookId: pb.id, cohortSize: uids.length, uids, ...result });
   }
   return summaries;
 }

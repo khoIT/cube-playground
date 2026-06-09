@@ -115,6 +115,48 @@ describe('care-case ledger routes', () => {
     const byVip = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn' });
     expect(byVip.json().vips[0].profile).toBeNull();
   });
+
+  it('paginates by-vip: 50/page envelope, urgent on page 1, disjoint pages', async () => {
+    // 60 low-priority VIPs (18 = thap) + one high-priority (02 = cao). The cao
+    // VIP must surface on page 1 row 1 regardless of insertion order.
+    for (let i = 0; i < 60; i++) {
+      openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '18', uid: `low${String(i).padStart(3, '0')}`, source: 'membership' });
+    }
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
+
+    const p1 = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn&page=1&pageSize=50' });
+    const b1 = p1.json();
+    expect(b1.total).toBe(61);
+    expect(b1.page).toBe(1);
+    expect(b1.pageSize).toBe(50);
+    expect(b1.vips).toHaveLength(50);
+    expect(b1.vips[0].uid).toBe('whale'); // cao ranks first, survives the slice
+    expect(b1.vips[0].topPriority).toBe('cao');
+
+    const p2 = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn&page=2&pageSize=50' });
+    const b2 = p2.json();
+    expect(b2.vips).toHaveLength(11); // 61 - 50
+    const overlap = new Set(b1.vips.map((v: { uid: string }) => v.uid));
+    expect(b2.vips.some((v: { uid: string }) => overlap.has(v.uid))).toBe(false);
+  });
+
+  it('returns the FULL list when no page param (CS Monitor aggregates) — not capped at 50', async () => {
+    for (let i = 0; i < 60; i++) {
+      openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '18', uid: `u${String(i).padStart(3, '0')}`, source: 'membership' });
+    }
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases?game=jus_vn' });
+    const b = res.json();
+    expect(b.cases).toHaveLength(60); // un-paginated: every case, so aggregates stay correct
+    expect(b.total).toBe(60);
+  });
+
+  it('clamps pageSize to [1,200] and defaults page to 1', async () => {
+    openCase({ gameId: 'jus_vn', workspace: 'local', playbookId: '02', uid: 'whale', source: 'membership' });
+    const res = await app.inject({ method: 'GET', url: '/api/care/cases/by-vip?game=jus_vn&page=0&pageSize=9999' });
+    const b = res.json();
+    expect(b.page).toBe(1);
+    expect(b.pageSize).toBe(200);
+  });
 });
 
 // Auth-enabled surface: the write-role gate must block viewers from mutating

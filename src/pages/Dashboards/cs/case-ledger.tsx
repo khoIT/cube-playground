@@ -16,14 +16,17 @@
  * pattern: 24px 32px padding, maxWidth 1320, margin 0 auto, var(--font-sans).
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useLocation, useHistory, Link } from 'react-router-dom';
-import { ListChecks, Users, ChevronLeft, RefreshCw, Heart } from 'lucide-react';
+import { ListChecks, Users, ChevronLeft, RefreshCw, Heart, GitCompare } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
 import { formatValue, formatValueExact } from '../../Segments/detail/cards/format-value';
 import { useCareCases, useVipQueue, runCareSweep } from './use-care-cases';
+import { QueuePager } from './queue-pager';
 import { summarizeSnapshot } from './case-snapshot-summary';
+import { ltvLabel } from './case-ledger-format';
+import { SweepsLens } from './sweeps-lens';
 import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -125,11 +128,6 @@ function prioOf(p: number | string): Prio {
   return 'thap';
 }
 
-/** "₫10.18M" with the exact figure in a tooltip; em-dash when unknown. */
-function ltvLabel(vnd: number | null): string {
-  return vnd == null ? '—' : formatValue(vnd, 'currency');
-}
-
 // Recent treatment within this window flips a VIP to a contact-fatigue "cap":
 // the next outreach is deferred so the same whale isn't pinged twice in a day.
 const FATIGUE_WINDOW_MS = 24 * 3_600_000;
@@ -226,8 +224,10 @@ interface ByPlaybookViewProps {
 
 function ByPlaybookView({ gameId, playbookId }: ByPlaybookViewProps) {
   // Cases arrive pre-enriched with the persisted VIP profile (name + LTV) — no
-  // live Cube call; the sweep populates it.
-  const { status, cases, error } = useCareCases(gameId, { playbookId });
+  // live Cube call; the sweep populates it. Paginated 50/page.
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [gameId, playbookId]); // reset on game / playbook switch
+  const { status, cases, error, total, pageSize } = useCareCases(gameId, { playbookId, page });
 
   if (status === 'error') {
     return (
@@ -264,6 +264,7 @@ function ByPlaybookView({ gameId, playbookId }: ByPlaybookViewProps) {
           ))}
         </tbody>
       </table>
+      <QueuePager page={page} pageSize={pageSize} total={total} onPage={setPage} unit="cases" />
     </div>
   );
 }
@@ -414,7 +415,11 @@ interface ByVipViewProps {
 function ByVipView({ gameId }: ByVipViewProps) {
   // Rows arrive pre-enriched with the persisted VIP profile (name / LTV / tier /
   // churn) from the sweep — SQLite read, no live Cube. Un-swept VIPs show dashes.
-  const { status, vips, error } = useVipQueue(gameId);
+  // Paginated 50/page; the priority sort happens server-side before the slice,
+  // so page 1 always holds the most urgent VIPs.
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [gameId]); // reset on game switch
+  const { status, vips, error, total, pageSize } = useVipQueue(gameId, { page });
 
   if (status === 'error') {
     return (
@@ -450,6 +455,7 @@ function ByVipView({ gameId }: ByVipViewProps) {
           ))}
         </tbody>
       </table>
+      <QueuePager page={page} pageSize={pageSize} total={total} onPage={setPage} unit="VIPs" />
     </div>
   );
 }
@@ -484,7 +490,7 @@ function EmptyState({ label }: { label: string }) {
 
 // ── Lens toggle ───────────────────────────────────────────────────────────────
 
-type Lens = 'playbook' | 'vip';
+type Lens = 'playbook' | 'vip' | 'sweeps';
 
 interface LensToggleProps {
   active: Lens;
@@ -521,6 +527,7 @@ function LensToggle({ active, onSwitch }: LensToggleProps) {
     <div style={{ display: 'inline-flex', background: 'var(--bg-muted)', borderRadius: 'var(--radius-md)', padding: 3, gap: 2 }}>
       {btn('playbook', 'By Playbook')}
       {btn('vip', 'By VIP (action queue)')}
+      {btn('sweeps', 'Sweeps')}
     </div>
   );
 }
@@ -586,9 +593,9 @@ export function CaseLedgerPage() {
   const handleLensSwitch = useCallback(
     (l: Lens) => {
       setLens(l);
-      // Preserve game param but drop playbook when switching to vip lens.
+      // Preserve game param but drop playbook on the non-playbook lenses.
       const next = new URLSearchParams(location.search);
-      if (l === 'vip') next.delete('playbook');
+      if (l !== 'playbook') next.delete('playbook');
       history.replace({ ...location, search: next.toString() });
     },
     [history, location],
@@ -613,9 +620,15 @@ export function CaseLedgerPage() {
           </Link>
           {lens === 'vip'
             ? <Users size={22} color="var(--brand)" />
-            : <ListChecks size={22} color="var(--brand)" />}
+            : lens === 'sweeps'
+              ? <GitCompare size={22} color="var(--brand)" />
+              : <ListChecks size={22} color="var(--brand)" />}
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>
-            {lens === 'vip' ? 'VIP Action Queue' : `Case Ledger${playbookParam ? ` · ${playbookParam}` : ''}`}
+            {lens === 'vip'
+              ? 'VIP Action Queue'
+              : lens === 'sweeps'
+                ? 'Sweep History'
+                : `Case Ledger${playbookParam ? ` · ${playbookParam}` : ''}`}
           </h1>
         </div>
 
@@ -658,7 +671,9 @@ export function CaseLedgerPage() {
       <p style={{ margin: '2px 0 18px', fontSize: 12.5, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
         {lens === 'vip'
           ? 'One row per VIP — deduped across all playbooks, ranked by priority, with contact-fatigue guard.'
-          : 'Stateful cases for a single playbook, with the stats snapshot that fired each one.'}
+          : lens === 'sweeps'
+            ? 'Sweep snapshots over time — cohort trend per playbook and a run-to-run diff of which VIPs entered or left each cohort.'
+            : 'Stateful cases for a single playbook, with the stats snapshot that fired each one.'}
       </p>
 
       {/* Lens toggle + table card */}
@@ -676,8 +691,12 @@ export function CaseLedgerPage() {
           <EmptyState label="Select a game to view cases." />
         ) : lens === 'playbook' ? (
           <ByPlaybookView gameId={gameId} playbookId={playbookParam} />
-        ) : (
+        ) : lens === 'vip' ? (
           <ByVipView gameId={gameId} />
+        ) : (
+          <div style={{ padding: 16 }}>
+            <SweepsLens gameId={gameId} />
+          </div>
         )}
       </div>
 

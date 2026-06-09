@@ -22,11 +22,15 @@ import {
 import { groupCasesByVip } from '../care/care-case-engine.js';
 import { playbookMetaMap, priorityRank } from '../care/playbook-merge.js';
 import { resolveGameScope } from '../care/game-scope.js';
-import { getGameMembers } from '../care/availability.js';
-import { loadCalibration } from '../care/calibrate.js';
-import { runCaseSweep, makeCubeCohortFetcher } from '../care/care-case-sweep.js';
-import { getVipProfiles, upsertVipProfiles } from '../care/care-vip-profile-store.js';
-import { makeCubeProfileFetcher } from '../care/care-vip-profile-fetch.js';
+import { getVipProfiles } from '../care/care-vip-profile-store.js';
+import { executeSweep, SweepBusyError } from '../care/care-sweep-execute.js';
+import {
+  listSweepRuns,
+  getSweepRun,
+  trendByPlaybook,
+  diffCounts,
+  diffMembers,
+} from '../care/care-sweep-run-store.js';
 import type { PlaybookPriority } from '../care/playbook-registry.js';
 import type { WorkspaceDef } from '../services/workspaces-config-loader.js';
 
@@ -49,6 +53,24 @@ function requireGame(workspace: WorkspaceDef, query: unknown): string | null {
   return scope.ok ? (query as { game: string }).game.trim() : null;
 }
 
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
+
+/**
+ * Parse + clamp `?page`/`?pageSize`. Pagination is OPT-IN: only when a page or
+ * pageSize param is present. Callers that omit both (e.g. the CS Monitor, which
+ * aggregates the FULL case list) keep the un-paginated full-list behaviour — a
+ * silent default cap would under-count their portfolio stats.
+ */
+function parsePaging(query: unknown): { page: number; pageSize: number; paginate: boolean } {
+  const q = query as { page?: string; pageSize?: string };
+  const paginate = q?.page != null || q?.pageSize != null;
+  const page = Math.max(1, Math.floor(Number(q?.page)) || 1);
+  const rawSize = Math.floor(Number(q?.pageSize)) || DEFAULT_PAGE_SIZE;
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, rawSize));
+  return { page, pageSize, paginate };
+}
+
 export default async function careCasesRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/care/cases', async (req, reply) => {
     const game = requireGame(req.workspace, req.query);
@@ -58,10 +80,21 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       return reply.status(400).send({ error: { code: 'VALIDATION', message: `bad status "${status}"` } });
     }
     const cases = listCases({ gameId: game, playbookId: playbook, status: status as CaseStatus });
-    // Enrich each case with the persisted VIP profile (name / LTV) — SQLite read,
-    // no live Cube. Missing snapshot (un-swept) → field absent, client shows uid.
-    const profiles = getVipProfiles(game, req.workspace.id, cases.map((c) => c.uid));
-    return { cases: cases.map((c) => ({ ...c, profile: profiles.get(c.uid) ?? null })) };
+    // Paginate AFTER the store's ORDER BY opened_at DESC, then enrich only the
+    // page slice — a large game has thousands of cases; enriching all per request
+    // is what made the queue slow. Profiles are a SQLite read, no live Cube.
+    const { page, pageSize, paginate } = parsePaging(req.query);
+    const total = cases.length;
+    const slice = paginate
+      ? cases.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+      : cases;
+    const profiles = getVipProfiles(game, req.workspace.id, slice.map((c) => c.uid));
+    return {
+      cases: slice.map((c) => ({ ...c, profile: profiles.get(c.uid) ?? null })),
+      total,
+      page,
+      pageSize,
+    };
   });
 
   app.get('/api/care/cases/by-vip', async (req, reply) => {
@@ -74,10 +107,8 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
     );
     const groups = groupCasesByVip(open);
     const meta = playbookMetaMap(game);
-    // Persisted profile snapshots for the queue's uids (SQLite, no live Cube).
-    const profiles = getVipProfiles(game, req.workspace.id, groups.map((g) => g.uid));
 
-    const enriched = groups
+    const ranked = groups
       .map((g) => {
         const priorities = g.playbookIds
           .map((id) => meta[id]?.priority ?? 'tb')
@@ -86,7 +117,6 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
         return {
           ...g,
           topPriority,
-          profile: profiles.get(g.uid) ?? null,
           playbooks: g.playbookIds.map((id) => ({
             id,
             name: meta[id]?.name ?? id,
@@ -94,7 +124,8 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
           })),
         };
       })
-      // Rank queue by top-priority first, then by number of open cases.
+      // Rank queue by top-priority first, then by number of open cases. Sorting
+      // BEFORE the page slice keeps urgent (cao) VIPs on page 1.
       .sort(
         (a, b) =>
           priorityRank(a.topPriority) - priorityRank(b.topPriority) ||
@@ -102,7 +133,17 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
           a.uid.localeCompare(b.uid),
       );
 
-    return { vips: enriched };
+    // Slice the ranked queue, then enrich only the page with persisted profile
+    // snapshots (SQLite, no live Cube) — bounds enrichment to pageSize uids.
+    const { page, pageSize, paginate } = parsePaging(req.query);
+    const total = ranked.length;
+    const slice = paginate
+      ? ranked.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
+      : ranked;
+    const profiles = getVipProfiles(game, req.workspace.id, slice.map((g) => g.uid));
+    const vips = slice.map((g) => ({ ...g, profile: profiles.get(g.uid) ?? null }));
+
+    return { vips, total, page, pageSize };
   });
 
   app.get('/api/care/cases/vip/:uid', async (req, reply) => {
@@ -128,36 +169,16 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
     const game = (req.query as { game: string }).game.trim();
 
     const ctx = req.buildIntrospectionCtxForGame ? req.buildIntrospectionCtxForGame(game) : req.cubeCtx;
-    const cacheKey = `${req.workspace.id}:${game}`;
 
     try {
-      // Force a fresh member set so gating reflects the live model, not a cached probe.
-      const members = await getGameMembers(ctx, scope.gamePrefix, cacheKey, true);
-      const deps = { fetchCohortUids: makeCubeCohortFetcher(ctx, game, req.workspace.id, members) };
-      const summaries = await runCaseSweep(game, req.workspace.id, members, deps, loadCalibration(game));
-      const opened = summaries.reduce((n, s) => n + s.opened, 0);
-      const lapsed = summaries.reduce((n, s) => n + s.lapsed, 0);
-
-      // Persist VIP profile snapshots for every open case so the queue reads them
-      // from SQLite. Best-effort: a profile-fetch failure must not fail the sweep.
-      let profilesRefreshed = 0;
-      try {
-        const openUids = [...new Set(
-          listCases({ gameId: game })
-            .filter((c) => c.status !== 'resolved' && c.status !== 'dismissed')
-            .map((c) => c.uid),
-        )];
-        if (openUids.length > 0) {
-          const snapshots = await makeCubeProfileFetcher(ctx, game, req.workspace.id)(openUids);
-          upsertVipProfiles(game, req.workspace.id, snapshots);
-          profilesRefreshed = snapshots.length;
-        }
-      } catch (perr) {
-        req.log.warn({ perr, game }, '[care] profile enrichment failed (cases still swept)');
-      }
-
-      return { game, opened, lapsed, profilesRefreshed, summaries };
+      // Shared executor (same path the auto-sweep cron uses): members → sweep →
+      // profile enrich → snapshot run. Records the run + per-uid membership.
+      const r = await executeSweep(req.workspace, game, ctx, 'manual');
+      return { game, opened: r.opened, lapsed: r.lapsed, profilesRefreshed: r.profilesRefreshed, summaries: r.summaries };
     } catch (err) {
+      if (err instanceof SweepBusyError) {
+        return reply.status(409).send({ error: { code: 'SWEEP_BUSY', message: err.message } });
+      }
       // Live Cube unreachable / query failure — surface it so the button shows a
       // real error instead of a silent empty result.
       req.log.error({ err, game }, '[care] sweep failed');
@@ -187,5 +208,62 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
       conditionLapsed: b.condition_lapsed,
     });
     return updated;
+  });
+
+  // ── Sweep snapshot comparison (Sweeps lens) — viewer-ok reads ───────────────
+
+  /** Both runs must belong to the validated (game, workspace) — block cross-game leakage. */
+  function runInScope(runId: string, game: string, workspaceId: string): boolean {
+    const r = getSweepRun(runId);
+    return r != null && r.game === game && r.workspaceId === workspaceId;
+  }
+
+  // Run list for the comparison picker.
+  app.get('/api/care/sweeps/runs', async (req, reply) => {
+    const game = requireGame(req.workspace, req.query);
+    if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
+    const limit = Math.floor(Number((req.query as { limit?: string }).limit)) || 50;
+    return { runs: listSweepRuns(game, req.workspace.id, limit) };
+  });
+
+  // Cohort-size trend per playbook across runs.
+  app.get('/api/care/sweeps/trend', async (req, reply) => {
+    const game = requireGame(req.workspace, req.query);
+    if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
+    const { playbook } = req.query as { playbook?: string };
+    return { trends: trendByPlaybook(game, req.workspace.id, playbook) };
+  });
+
+  // Per-playbook count + entered/left deltas between two runs.
+  app.get('/api/care/sweeps/diff', async (req, reply) => {
+    const game = requireGame(req.workspace, req.query);
+    if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
+    const { runA, runB } = req.query as { runA?: string; runB?: string };
+    if (!runA || !runB || !runInScope(runA, game, req.workspace.id) || !runInScope(runB, game, req.workspace.id)) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'runA/runB must be runs of this game' } });
+    }
+    return diffCounts(runA, runB);
+  });
+
+  // Paginated entered/left VIP drill for one playbook, profile-enriched.
+  app.get('/api/care/sweeps/diff/vips', async (req, reply) => {
+    const game = requireGame(req.workspace, req.query);
+    if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
+    const q = req.query as { runA?: string; runB?: string; playbook?: string; direction?: string };
+    if (!q.runA || !q.runB || !runInScope(q.runA, game, req.workspace.id) || !runInScope(q.runB, game, req.workspace.id)) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'runA/runB must be runs of this game' } });
+    }
+    if (!q.playbook) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'playbook required' } });
+    const direction = q.direction === 'left' ? 'left' : 'entered';
+    const { page, pageSize } = parsePaging(req.query);
+    const res = diffMembers(q.runA, q.runB, q.playbook, direction, page, pageSize);
+    const profiles = getVipProfiles(game, req.workspace.id, res.uids);
+    return {
+      vips: res.uids.map((uid) => ({ uid, profile: profiles.get(uid) ?? null })),
+      total: res.total,
+      page,
+      pageSize,
+      membershipAvailable: res.membershipAvailable,
+    };
   });
 }

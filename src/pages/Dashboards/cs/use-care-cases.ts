@@ -100,18 +100,39 @@ export interface CareCasePatch {
 
 // ── Load states ───────────────────────────────────────────────────────────────
 
+/** Client default page size; server clamps and echoes the effective value back. */
+export const DEFAULT_PAGE_SIZE = 50;
+
+/** Paged response envelopes from the list / by-vip endpoints. */
+interface PagedCases {
+  cases: CareCase[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+}
+interface PagedVips {
+  vips: VipCaseRow[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+}
+
 export type CasesLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export interface CareCasesState {
   status: CasesLoadStatus;
   cases: CareCase[];
   error: string | null;
+  total: number;
+  pageSize: number;
 }
 
 export interface VipQueueState {
   status: CasesLoadStatus;
   vips: VipCaseRow[];
   error: string | null;
+  total: number;
+  pageSize: number;
 }
 
 export interface VipDetailState {
@@ -128,16 +149,18 @@ export interface VipDetailState {
  */
 export function useCareCases(
   gameId: string,
-  opts: { playbookId?: string; status?: string } = {},
+  opts: { playbookId?: string; status?: string; page?: number; pageSize?: number } = {},
 ): CareCasesState {
   const [state, setState] = useState<CareCasesState>({
     status: 'idle',
     cases: [],
     error: null,
+    total: 0,
+    pageSize: DEFAULT_PAGE_SIZE,
   });
 
   const abortRef = useRef<AbortController | null>(null);
-  const { playbookId, status: filterStatus } = opts;
+  const { playbookId, status: filterStatus, page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
 
   useEffect(() => {
     if (!gameId) return;
@@ -150,16 +173,26 @@ export function useCareCases(
 
     async function load() {
       try {
-        const query: Record<string, string> = { game: gameId };
+        const query: Record<string, string> = {
+          game: gameId,
+          page: String(page),
+          pageSize: String(pageSize),
+        };
         if (playbookId) query.playbook = playbookId;
         if (filterStatus) query.status = filterStatus;
 
-        const data = await apiFetch<{ cases: CareCase[] }>('/api/care/cases', {
+        const data = await apiFetch<PagedCases>('/api/care/cases', {
           query,
           signal: controller.signal,
         });
 
-        setState({ status: 'success', cases: data.cases ?? [], error: null });
+        setState({
+          status: 'success',
+          cases: data.cases ?? [],
+          error: null,
+          total: data.total ?? (data.cases?.length ?? 0),
+          pageSize: data.pageSize ?? pageSize,
+        });
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -169,7 +202,7 @@ export function useCareCases(
 
     load();
     return () => controller.abort();
-  }, [gameId, playbookId, filterStatus]);
+  }, [gameId, playbookId, filterStatus, page, pageSize]);
 
   return state;
 }
@@ -180,14 +213,20 @@ export function useCareCases(
  * Fetches the deduplicated, priority-ranked VIP queue from /api/care/cases/by-vip.
  * A VIP appearing in N playbooks produces exactly ONE row with N case chips.
  */
-export function useVipQueue(gameId: string): VipQueueState {
+export function useVipQueue(
+  gameId: string,
+  opts: { page?: number; pageSize?: number } = {},
+): VipQueueState {
   const [state, setState] = useState<VipQueueState>({
     status: 'idle',
     vips: [],
     error: null,
+    total: 0,
+    pageSize: DEFAULT_PAGE_SIZE,
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  const { page = 1, pageSize = DEFAULT_PAGE_SIZE } = opts;
 
   useEffect(() => {
     if (!gameId) return;
@@ -200,11 +239,17 @@ export function useVipQueue(gameId: string): VipQueueState {
 
     async function load() {
       try {
-        const data = await apiFetch<{ vips: VipCaseRow[] }>('/api/care/cases/by-vip', {
-          query: { game: gameId },
+        const data = await apiFetch<PagedVips>('/api/care/cases/by-vip', {
+          query: { game: gameId, page: String(page), pageSize: String(pageSize) },
           signal: controller.signal,
         });
-        setState({ status: 'success', vips: data.vips ?? [], error: null });
+        setState({
+          status: 'success',
+          vips: data.vips ?? [],
+          error: null,
+          total: data.total ?? (data.vips?.length ?? 0),
+          pageSize: data.pageSize ?? pageSize,
+        });
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -214,7 +259,7 @@ export function useVipQueue(gameId: string): VipQueueState {
 
     load();
     return () => controller.abort();
-  }, [gameId]);
+  }, [gameId, page, pageSize]);
 
   return state;
 }
