@@ -230,3 +230,41 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.dau_daily_batch
+
+      # In-game activity cut: the country/payer rollups above don't carry the
+      # local activity dimensions (server, role class, platform, recharge-day)
+      # that liveops DAU questions actually group by, so those fell through to
+      # source. All measures are additive (HLL count_distinct / sum), so one wide
+      # daily rollup also serves role/server/platform sub-splits and weekly /
+      # monthly windows via sketch merge. Continuous numeric dims (fighting power,
+      # role level) are deliberately excluded — they explode partition cardinality.
+      - name: dau_by_ingame_dims_daily_batch
+        type: rollup
+        measures:
+          - dau
+          - paying_dau
+          - wau
+          - mau
+          - total_online_time_sec
+        dimensions:
+          - server_id
+          - role_class
+          - os_platform
+          - country_code
+          - is_recharge_day
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_ingame_user_active_daily"
+
+      - name: dau_by_ingame_dims_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.dau_by_ingame_dims_daily_batch

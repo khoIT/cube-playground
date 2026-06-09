@@ -163,6 +163,7 @@ cubes:
           - country_code
           - media_source
           - platform
+          - campaign_id
         time_dimension: report_date
         granularity: day
         partition_granularity: month

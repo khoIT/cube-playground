@@ -48,6 +48,24 @@ Format per lesson:
 - **Signal:** two segments with 100% identical uid lists but wildly different card numbers; a static segment's Definition tab saying "no predicate to display" for a cohort that clearly originated from a filter.
 - **Apply:** build the predicate tree on EVERY query-builder push (`push-modal.tsx` — Live requires the context, static stores it best-effort); server create/PATCH already persist + translate it type-agnostically. FE `scopeQueryToCohort` scopes manual-with-slice as `identity-IN ∧ slice` (with the same date-pin window-drop as predicate scoping). Membership stays the frozen uid_list — the slice is card context only, never a refresh driver (`isPredicateWithQuery` and the refresh route stay predicate-gated).
 
+### A rollup only serves a query if it's a superset — including the EXACT time dimension
+- **Rule:** before adding/relying on a rollup, confirm the query's bound time dimension *is* the rollup's `time_dimension`. cfm event cubes expose both `log_date` (DATE) and `dteventtime` (event timestamp); the UI/agent bound their queries on `dteventtime`, but the shipped rollups were keyed on `log_date`. A rollup must be a superset of the query (every measure, every dimension, AND the same time dim) or Cube silently falls through to a full source scan.
+- **Why:** 118/122 seeded cfm_vn queries served `raw` despite rollups existing on every event cube — the only mismatch was time dim (`dteventtime` query vs `log_date` rollup). Same logical query keyed on `log_date` routed to `prod_pre_aggregations.*`; keyed on `dteventtime` it scanned `etl_ingame_login` (~5s).
+- **Signal:** a query that "should" hit a rollup is slow / `source: raw`; compiled SQL (`/cube-api/v1/sql`) reads `FROM <raw_source_table>` not `FROM prod_pre_aggregations.*`; the rollup's measures+dims match but its `time_dimension` differs from the query's `timeDimensions[].dimension`.
+- **Apply:** add a `*_ts_batch` sibling rollup keyed on `dteventtime` (mirror the existing `*_batch` measures/dims + a `*_ts` `rollup_lambda` union), or switch the existing rollup's `time_dimension` if the cube has no `log_date` demand. Keep granularity `day`, `partition_granularity: month`. Verify with the compiled-SQL FROM clause per cube — do NOT trust `usedPreAggregations` (see lambda note below).
+
+### dteventtime-keyed rollups must cap build_range_end at current_timestamp
+- **Rule:** when a rollup's `time_dimension` is a tz-carrying timestamp (`dteventtime`), set `build_range_end` to `SELECT LEAST(MAX(dteventtime), current_timestamp) FROM <source>`. `log_date`-keyed rollups (DATE wrapped to midnight UTC) don't need this.
+- **Why:** the open (current-month) partition's end is computed in the query timezone. The UI sends `Asia/Saigon` (UTC+7), so an uncapped end lands ahead of UTC "now" and CubeStore rejects the partition with `Internal: second time provided was later than self`, so it never seals. `log_date` sidesteps it because the DATE→midnight-UTC value is never future.
+- **Signal:** worker logs `second time provided was later than self`; a `*_ts` rollup never seals while its `log_date` twin builds fine.
+- **Apply:** the `LEAST(..., current_timestamp)` cap (already used in the cfm `*_ts_batch` rollups). Confirm clean seal with `cube-dev/scripts/trigger-preagg-build.sh <game>` (reports per-rollup sealed/errored).
+
+### Only additive measures roll up correctly; verify routing by compiled SQL, not usedPreAggregations
+- **Rule:** a rollup may only carry **additive** measures: `count`, `sum`, `min`, `max`, `count_distinct_approx`. `avg` and exact `count_distinct` are NON-additive — a day-grain rollup returns wrong numbers when a query re-aggregates across days. Remodel as `sum`+`count` (compute the avg as a ratio measure) or switch to `count_distinct_approx` before rolling up.
+- **Why:** `etl_newbie_detail`'s demanded measures are `avg_*` + `distinct_players` — a naive rollup would silently serve wrong averages, so it was deferred rather than shipped. `active_daily`'s rollup is safe because `dau`/`paying_dau` are `count_distinct_approx` and `total_online_time_sec` is `sum`.
+- **Signal:** a rollup-backed `avg`/percentile reads plausibly but disagrees with the raw query once the date span > the rollup granularity; `usedPreAggregations` in the `/load` JSON is empty even though the query is fast.
+- **Apply:** check each measure's `type:` before adding it to a rollup. For routing proof, read the compiled SQL FROM clause via `/cube-api/v1/sql` — a `rollup_lambda` (`union_with_source_data: true`) always unions live source, so it reports `usedPreAggregations: []` even when sealed partitions serve. Also: after model edits the SERVING instance needs a restart (DEV_MODE=false = no hot-reload) before it knows the new rollup — restart `cube_api`/`cube_api_dev`, not just the worker; and `CREATE TABLE prod_pre_aggregations.…` build lines only log at trace level.
+
 ---
 
 ## Server cache contract

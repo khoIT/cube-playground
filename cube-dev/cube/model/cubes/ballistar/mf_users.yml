@@ -311,6 +311,8 @@ cubes:
           - media_source
           - is_paid_install
           - os_platform
+          - payer_tier
+          - install_month
         time_dimension: install_date
         granularity: day
         partition_granularity: year

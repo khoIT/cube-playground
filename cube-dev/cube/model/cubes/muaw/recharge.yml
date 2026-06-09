@@ -204,6 +204,7 @@ cubes:
         dimensions:
           - payment_channel
           - os_platform
+          - role_class
         time_dimension: recharge_time
         granularity: day
         partition_granularity: year
