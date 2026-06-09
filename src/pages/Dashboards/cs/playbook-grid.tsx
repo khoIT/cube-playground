@@ -52,7 +52,7 @@ const NHOM_LABELS: Record<number, { label: string; description: string }> = {
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
-type BadgeVariant = 'cao' | 'tb' | 'thap' | 'available' | 'partial' | 'unavailable' | 'estimate';
+type BadgeVariant = 'cao' | 'tb' | 'thap' | 'available' | 'partial' | 'unavailable';
 
 const BADGE_STYLES: Record<BadgeVariant, React.CSSProperties> = {
   cao:         { background: 'var(--destructive-soft)', color: 'var(--destructive-ink)' },
@@ -61,7 +61,6 @@ const BADGE_STYLES: Record<BadgeVariant, React.CSSProperties> = {
   available:   { background: 'var(--success-soft)',     color: 'var(--success-ink)' },
   partial:     { background: 'var(--warning-soft)',     color: 'var(--warning-ink)' },
   unavailable: { background: 'var(--muted-soft)',       color: 'var(--muted-ink)' },
-  estimate:    { background: 'var(--warning-soft)',     color: 'var(--warning-ink)' },
 };
 
 const BADGE_LABELS: Partial<Record<BadgeVariant, string>> = {
@@ -71,7 +70,6 @@ const BADGE_LABELS: Partial<Record<BadgeVariant, string>> = {
   available:   'Live',
   partial:     'Partial',
   unavailable: 'Blocked',
-  estimate:    'Estimate',
 };
 
 function Badge({ variant, label }: { variant: BadgeVariant; label?: string }) {
@@ -432,19 +430,6 @@ function PlaybookRow({ playbook, agg, gameId, canWrite, asOf }: PlaybookRowProps
             <span style={{ fontWeight: 600, color: 'var(--text-primary)', ...mutedText }}>
               {playbook.name}
             </span>
-            {!playbook.calibrated && !isUnavailable && (
-              <span
-                style={{
-                  marginLeft: 8,
-                  fontSize: 10,
-                  color: 'var(--warning-ink)',
-                  fontStyle: 'italic',
-                }}
-                title="Threshold is an estimate — run Phase-0 calibration to confirm."
-              >
-                estimate
-              </span>
-            )}
           </span>
         </div>
       </td>
