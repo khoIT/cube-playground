@@ -210,14 +210,14 @@ cubes:
           - os_platform
         time_dimension: recharge_time
         granularity: day
-        partition_granularity: year
+        partition_granularity: month
         refresh_key:
           every: 1 hour
           incremental: true
         # Physical column `rechargetime` is a native timestamp; build_range runs
         # raw SQL against the datasource, so reference the physical column directly.
         build_range_start:
-          sql: "SELECT COALESCE(MIN(rechargetime), CAST('2025-01-01' AS timestamp)) FROM etl_ingame_recharge"
+          sql: "SELECT date_add('day', -120, current_timestamp)"
         build_range_end:
           sql: "SELECT COALESCE(MAX(rechargetime), CAST('2025-01-01' AS timestamp)) FROM etl_ingame_recharge"
       - name: revenue_daily_by_channel

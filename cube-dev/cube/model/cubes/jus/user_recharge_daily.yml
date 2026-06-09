@@ -167,16 +167,16 @@ cubes:
           - country_code
         time_dimension: log_date
         granularity: day
-        partition_granularity: year
+        partition_granularity: month
         refresh_key:
           every: 30 minute
           incremental: true
-        # Bound to the source table's real data extent. A fixed wide range spans
-        # months with zero rows; each empty month builds a 0-row partition that
-        # never becomes queryable, and the partition-range loader needs the whole
-        # range covered — one empty month stops the entire rollup from serving.
+        # Rolling 120-day build window with monthly partitions: only recent
+        # months materialize to CubeStore (matches recent-skewed demand and
+        # survives source blips since each month seals independently); older
+        # dates fall through to source via the union lambda.
         build_range_start:
-          sql: "SELECT COALESCE(from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z'), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM std_ingame_user_recharge_daily"
+          sql: "SELECT date_add('day', -120, current_timestamp)"
         build_range_end:
           sql: "SELECT COALESCE(from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z'), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM std_ingame_user_recharge_daily"
 
