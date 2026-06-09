@@ -626,11 +626,15 @@ CS-facing console for the 21-playbook VIP Care Program. Turns static playbook de
 - `GET /api/care/fatigue` — fatigue stats + contact window snapshot.
 
 **Write** (all `/api/care/*` added to `PROTECTED_PREFIXES` — editor/admin gated):
-- `PATCH /api/care/cases/:id` — case status, assignee, notes.
+- `PATCH /api/care/cases/:id` — case status, assignee, channel_used, action_taken, notes, outcome (kpi_met/missed/na). Stamps treated_at + closed_at on transition.
 - `PUT /api/care/governance` — update fatigue rules.
 - `POST /api/care/playbooks` — create override (seeded base-id, custom threshold, supplemental predicate).
 - `PATCH /api/care/playbooks/:id` — edit override (threshold, predicate, enable/disable).
 - `DELETE /api/care/playbooks/:id` — delete custom override (seeds are immutable).
+- `POST /api/care/cases/reset?game=<id>[&resweep=true]` — wipe all cases for a game (single txn) + optional re-trigger sweep. Confirm UI names game + count. Pre-check: if sweep in-flight → 409.
+
+**Demo Loop (New):**
+- `GET /api/care/activity?game=<id>` — rolling 24-hour activity aggregate: treated/dismissed/resolved counts per hour + recent events (case id, VIP uid, playbook, action type, ts, actor). Viewer-gated read.
 
 ### Deferred to Live Integration
 

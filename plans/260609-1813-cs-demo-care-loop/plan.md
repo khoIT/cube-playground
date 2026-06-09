@@ -1,7 +1,7 @@
 ---
 title: "Close the CS VIP-care demo loop"
 description: "Make the CS console care loop real & reseedable — persist treatment, claim/dismiss, human-closed KPI outcome, export + activity, guarded reset."
-status: pending
+status: completed
 priority: P2
 effort: ~13h
 branch: main
@@ -40,11 +40,11 @@ behavior + assert new behavior, implement, verify green. **No regression** in ex
 
 | # | Phase | Scope | Status | Depends |
 |---|-------|-------|--------|---------|
-| 01 | [Persist Mark-treated + real timeline](phase-01-persist-mark-treated-real-timeline.md) | A1 — FE only (biggest slice) | pending | — |
-| 02 | [Claim/assign + dismiss-with-reason](phase-02-claim-assign-dismiss-with-reason.md) | A2 + A3 — FE only | pending | 01 |
-| 03 | [Human-closed KPI outcome + badge](phase-03-human-closed-kpi-outcome-badge.md) | B4 — FE only | pending | 02 |
-| 04 | [CSV export + 24h activity strip](phase-04-csv-export-activity-strip.md) | B5 FE + B6 server aggregate | pending | 01 |
-| 05 | [Guarded reseed](phase-05-guarded-reseed.md) | clearCases + reset route + button | pending | 01 |
+| 01 | [Persist Mark-treated + real timeline](phase-01-persist-mark-treated-real-timeline.md) | A1 — FE only (biggest slice) | completed | — |
+| 02 | [Claim/assign + dismiss-with-reason](phase-02-claim-assign-dismiss-with-reason.md) | A2 + A3 — FE only | completed | 01 |
+| 03 | [Human-closed KPI outcome + badge](phase-03-human-closed-kpi-outcome-badge.md) | B4 — FE only (+ additive server kpiMet/kpiClosed counts) | completed | 02 |
+| 04 | [CSV export + 24h activity strip](phase-04-csv-export-activity-strip.md) | B5 FE + B6 server aggregate | completed | 01 |
+| 05 | [Guarded reseed](phase-05-guarded-reseed.md) | clearCases + reset route + button | completed | 01 |
 
 Phases 02–05 build on the A1 treat-form patterns. 04 & 05 can run in parallel after 01
 (disjoint files: 04 = activity route + export util; 05 = reset route + store fn).

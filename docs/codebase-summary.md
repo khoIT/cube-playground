@@ -333,4 +333,44 @@ All care routes in `PROTECTED_PREFIXES` — editor/admin write-gated, viewers re
 - **Cron scheduling + live trigger eval.** `runCaseSweep` + `makeCubeCohortFetcher` are implemented and unit-tested via injection. Only the background scheduler tick + HTTP POST trigger remain (need reachable Cube workspace to fetch cohorts).
 - **Live threshold calibration.** The `calibrate.ts` CLI (runs on host dev / prod-mirror) reconciles registry logical member names (e.g., `mf_users.ltv_total_vnd`, `user_recharge_daily.revenue_vnd`) against live `/meta` and seeds concrete values. Starter percentile estimates in spec carry forward until live calibration runs.
 - **Percentile-rule cutoff computation.** Threshold-rule engine supports percentile rules; currently no seed uses percentile. Awaiting live data probe to determine the cutoff value.
+
+---
+
+## CS Demo-Care Loop (Persisted Actions, KPI Outcome, Activity, Reseed)
+
+Makes the CS console a true interactive demo loop: real ledger-driven timelines, persistent treatment/claim/dismiss actions, human-closed KPI outcome tracking, case export, rolling activity metrics, and guarded reseed capability. All routes leverage existing `/api/care/cases/:id` PATCH infrastructure + new activity + reset endpoints.
+
+### Frontend Modules
+
+- **Member-360 timeline derive** — `src/pages/Dashboards/cs/member360/cs-member360-derive.ts`. Pure transforms (testable without React): `caseToTimelineEvent()` (maps ledger case status → timeline event with optional outcome badge), `topOpenCaseAsRecommendedAction()` (derives talk-track from playbook + top case). Reuses `CareTimelineEvent` and `RecommendedAction` types from mock.
+- **Treatment actions** — `src/pages/Dashboards/cs/cs-case-actions.ts`. Async helpers: `claimCareCase()`, `dismissCareCase()` (reason code), `treatCareCase()` (channel/action/notes), `closeCaseWithOutcome()` (KPI met/missed). Each wraps `patchCareCase()` from `use-care-cases.ts:336`. DRY pattern for multi-phase workflows.
+- **Member-360 treatment form** — `src/pages/Dashboards/cs/member360/cs-action-rail-forms.tsx`. Inline treat form (channel select, action textarea, notes). Submit gated on `canWrite`, shows pending + error state. Powered by `treatCareCase()`.
+- **Case ownership inline edit** — `src/pages/Dashboards/cs/cs-owner-chip.tsx`. Claim-to-me button + assignee dropdown. Updates assignee field via PATCH. Click-to-edit affordance.
+- **Dismiss with reason** — `src/pages/Dashboards/cs/cs-case-actions.ts`. Reason code picked from UI (too many, spam, resolved, etc.) → encoded in dismiss endpoint call. Status + notes stamped server-side.
+- **KPI outcome badge** — Reuses `OutcomeChip` from `cs-care-history-timeline.tsx:49`. Resolved rows render `kpi_met ✓ / missed ✗` badge (semantic colors).
+- **Close with outcome buttons** — `cs-recommended-action-rail.tsx` + queue treated rows. Two CTA: "Close · KPI met" / "Close · KPI missed" → `closeCaseWithOutcome()` → refetch.
+- **Portfolio KPI-met rate** — `use-care-playbooks.ts:160-186` extended. New additive field `kpiMetRate = kpi_met / closed-with-outcome`. Existing `attainmentRate` untouched. `portfolio-strip.tsx` renders new "KPI met %" card alongside attainment.
+- **Case export to CSV** — `src/pages/Dashboards/cs/care-queue-csv.ts`. Util `exportQueueToCSV()` (cases array → CSV download link). Columns: VIP UID, playbook, status, outcome, channel_used, action_taken, treated_at, closed_at, notes. "Export queue" link on Monitor.
+- **Activity strip** — `src/pages/Dashboards/cs/cs-activity-strip.tsx`. Renders rolling 24h metrics (treated/dismissed/resolved counts) + recent events list. Fetched from new `/api/care/activity?game=` route. Positioned left sidebar on Monitor. GMT+7 timestamps.
+
+### Server Routes & Store
+
+- **`GET /api/care/activity?game=<id>`** (new) — Rolling 24-hour aggregate for game: treated/dismissed/resolved counts per hour, recent events (case id, vip uid, playbook, action type, timestamp, actor email). Scoped SQLite query on care_cases + activity_events. Response: `{game, hours: [{ts, treated, dismissed, resolved}], events: [{id, uid, playbook, action, ts, actor}]}`. Viewer-gated read (no special write role).
+- **`POST /api/care/cases/reset?game=<id>[&resweep=true]`** (new) — Guarded full-game reseed. Delete all cases for a game (single transaction). Pre-check: `isSweepInFlight` → 409 if sweep running. Optional `?resweep=true` checkbox (OFF by default) to re-trigger sweep after delete. Confirm dialog in UI names game + count before delete. Editor/admin write-gated. Response: `{game, deletedCount, resweepTriggered}` or error.
+- **`clearCases(gameId, workspaceId)`** (new) — `server/src/care/care-case-store.ts`. Single transaction: `DELETE FROM care_cases WHERE game_id = ? AND workspace_id = ?`. Returns count. Game + workspace scoped (no cross-game wipe risk).
+
+### Migrations
+
+No new migrations (existing columns: `status`, `assignee`, `channel_used`, `action_taken`, `notes`, `outcome`, `treated_at`, `closed_at` already exist on `care_cases` from prior phases).
+
+### Tests
+
+- **FE:** `cs-member360-derive.test.ts` (timeline derive + recommended action), `cs-case-actions.test.ts` (claim/dismiss/treat/close helpers), `portfolio-kpi-met-rate.test.ts` (KPI-met rate + attainment unchanged). Coverage of all UI state (pending, error, success).
+- **Server:** care-activity-route test (aggregate logic), care-cases-reset test (transaction + resweep logic, mock isSweepInFlight).
+
+### Constraints & Guarantees
+
+- **Attainment semantics unchanged.** `attainmentRate = (treated + resolved) / total` remains the single ROI metric. New `kpiMetRate` is additive tracking only.
+- **Outcome exclusive to human close.** Only humans select outcome (met/missed); `runKpiEval()` not wired this round (deferred to live when auto-eval is ready).
+- **Re-sweep optional, OFF by default.** Reset deletes only; `?resweep=true` is a checkbox offer, not automatic. Permits demo to restart from blank slate without re-fetching Cube cohorts (which may be slow or absent locally).
 - **Phase 4 — cfm_vn gameplay-daily mart** (data-team dependency). When live, 6 NHÓM-2 playbooks flip `unavailable → available` with zero frontend change (availability gating auto-detects new Cube members).

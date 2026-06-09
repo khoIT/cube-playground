@@ -2,6 +2,17 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-09 — Close the CS demo-care-loop (persist treatment, claim/assign, human-closed KPI, export, activity, reseed)
+
+Completed the CS console care loop from read-only artifact to a true interactive demo: VIP 360 now persists real treatment actions, supports claim/assign/dismiss workflows, human-closed KPI outcome (met/missed) with rollup ROI stats, CSV case export, rolling 24h activity tracking, and guarded full-game reseed. Plan: `plans/260609-1813-cs-demo-care-loop/`. Tests: 5 phases, 40+ new FE tests; all green.
+
+- **Persist member-360 treatment** (`cs-member360-derive.ts`) — real timeline from ledger, real recommended action from top open case. "Mark treated" form (channel/action/notes) → `PATCH /api/care/cases/:id` → refetch. No more mock data.
+- **Claim / assign / dismiss** (`cs-case-actions.ts`) — claim-to-me / owner chip inline edits, dismiss-with-reason (reason code encoding). FE routes to existing `PATCH /api/care/cases/:id` (assignee/status). Buttons on queue and rail.
+- **Human-closed KPI outcome** — treated cases expose "Close · KPI met" / "Close · KPI missed" → `patch{status:'resolved', outcome}`. New additive `kpiMetRate` stat (kpi_met / closed-with-outcome) in portfolio alongside unchanged `attainmentRate`. Outcome badge on resolved rows.
+- **CSV export** (`care-queue-csv.ts`) — full un-paginated queue download (VIP, playbook, status, outcome, channel, dates, notes). Link on Monitor.
+- **Activity strip** (`/api/care/activity`, `cs-activity-strip.tsx`) — new GET route (rolling 24h treated/dismissed/resolved counts + recent events, game-scoped). Monitor left sidebar strip showing hourly metrics (GMT+7 display).
+- **Guarded reseed** (`POST /api/care/cases/reset?game[&resweep=true]`) — new `clearCases(gameId, workspaceId)` store fn + route. Editor/admin write-gated. Confirm dialog names game + count. Re-sweep OFF by default (optional checkbox). Pre-check `isSweepInFlight` → 409 before any delete.
+
 ## 2026-06-09 — VIP Care Playbook Console (21-playbook care ledger + CS monitor + authoring)
 
 Shipped a stateful CS console for the 21-playbook VIP Care Program targeting cfm_vn + jus_vn: a playbook monitor (status + case count), action queue (sorted by fatigue + priority), per-VIP care history (Member-360 Care tab), and a playbook builder (threshold/predicate override authoring). Single source of truth is the `care_cases` ledger with data-calibrated thresholds and per-(game×playbook) availability gating (playbooks grey out when Cube members aren't modeled). Plan: `plans/260608-2152-vip-care-playbook-console/`. Tests: 54 server + 55 FE (109 total); tsc clean.
