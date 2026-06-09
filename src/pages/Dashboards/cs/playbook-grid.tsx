@@ -26,6 +26,7 @@ import { useHistory } from 'react-router-dom';
 import { ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { updatePlaybook, createPlaybook } from './use-playbook-mutations';
 import { mutationTargetFor } from './playbook-mutation-target';
+import { primaryCubeOf, formatAsOf } from './data-freshness-format';
 import type { ResolvedPlaybook, PlaybookCaseAgg } from './use-care-playbooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -36,6 +37,8 @@ interface PlaybookGridProps {
   gameId: string;
   /** Editor/admin can see Edit / Clone / Disable actions; viewers see none. */
   canWrite?: boolean;
+  /** logical cube → 'YYYY-MM-DD' the cube's data is current to (best-effort, may be empty). */
+  asOfByCube?: Record<string, string>;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -345,9 +348,11 @@ interface PlaybookRowProps {
   agg: PlaybookCaseAgg | undefined;
   gameId: string;
   canWrite?: boolean;
+  /** as-of date for this row's backing cube (best-effort), or undefined when unknown. */
+  asOf?: string;
 }
 
-function PlaybookRow({ playbook, agg, gameId, canWrite }: PlaybookRowProps) {
+function PlaybookRow({ playbook, agg, gameId, canWrite, asOf }: PlaybookRowProps) {
   const isUnavailable = playbook.availability === 'unavailable';
   // CRITICAL: unavailable rows are visually greyed; they receive no click
   // navigation and (because we never reach into agg for unavailable rows) they
@@ -453,9 +458,22 @@ function PlaybookRow({ playbook, agg, gameId, canWrite }: PlaybookRowProps) {
         )}
       </td>
 
-      {/* Availability / data badge */}
+      {/* Availability / data badge + as-of date of the backing cube */}
       <td style={cellBase}>
         <Badge variant={playbook.availability} />
+        {!isUnavailable && asOf && (
+          <div
+            style={{
+              fontSize: 10,
+              color: 'var(--text-muted)',
+              marginTop: 4,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+            title="The freshest date this playbook's data source holds — its cohort is a snapshot as of this day, not necessarily today."
+          >
+            as of {formatAsOf(asOf)}
+          </div>
+        )}
       </td>
 
       {/* Watched metric + KPI */}
@@ -555,7 +573,7 @@ function PlaybookRow({ playbook, agg, gameId, canWrite }: PlaybookRowProps) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite }: PlaybookGridProps) {
+export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite, asOfByCube }: PlaybookGridProps) {
   // Group playbooks by nhom (1-4), preserving registry order within each group.
   const groups = React.useMemo(() => {
     const map = new Map<number, ResolvedPlaybook[]>();
@@ -644,6 +662,11 @@ export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite }: P
                       }
                       gameId={gameId}
                       canWrite={canWrite}
+                      asOf={
+                        p.availability === 'unavailable'
+                          ? undefined
+                          : asOfByCube?.[primaryCubeOf(p.dataRequirements) ?? '']
+                      }
                     />
                   ))}
                 </tbody>

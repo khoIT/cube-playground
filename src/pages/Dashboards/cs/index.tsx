@@ -23,6 +23,8 @@ import { HeartHandshake, PlusCircle } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
 import { useCarePlaybooks } from './use-care-playbooks';
+import { useCareDataFreshness } from './use-care-data-freshness';
+import { distinctAsOf, formatAsOf } from './data-freshness-format';
 import { PortfolioStrip } from './portfolio-strip';
 import { PlaybookGrid } from './playbook-grid';
 import { CsConsoleNav } from './cs-console-nav';
@@ -45,8 +47,19 @@ export function CsMonitorPage() {
   const canWrite = user?.role === 'editor' || user?.role === 'admin';
   const { status, playbooks, counts, casesByPlaybook, portfolio, error } =
     useCarePlaybooks(gameId);
+  const { asOfByCube } = useCareDataFreshness(gameId);
 
   const isLoading = status === 'idle' || status === 'loading';
+
+  // Distinct as-of dates across queryable playbooks — flags warehouse lag at the
+  // top of the page (e.g. gameplay marts run weeks behind spend/activity marts).
+  const asOfDates = distinctAsOf(playbooks, asOfByCube);
+  const asOfLabel =
+    asOfDates.length === 1
+      ? `data as of ${formatAsOf(asOfDates[0])}`
+      : asOfDates.length > 1
+      ? `data as of ${formatAsOf(asOfDates[0])} → ${formatAsOf(asOfDates[asOfDates.length - 1])}`
+      : null;
 
   return (
     <div style={pageStyle}>
@@ -160,6 +173,13 @@ export function CsMonitorPage() {
         {status === 'success' && (
           <>
             {counts.available} live · {counts.partial} partial · {counts.unavailable} blocked
+            {asOfLabel && (
+              <span
+                title="Behaviour marts lag real time. Each playbook row shows the freshest date its own data source holds."
+              >
+                {' · '}{asOfLabel}
+              </span>
+            )}
           </>
         )}
         {isLoading && 'Loading registry…'}
@@ -207,6 +227,7 @@ export function CsMonitorPage() {
           casesByPlaybook={casesByPlaybook}
           gameId={gameId}
           canWrite={canWrite}
+          asOfByCube={asOfByCube}
         />
       )}
 

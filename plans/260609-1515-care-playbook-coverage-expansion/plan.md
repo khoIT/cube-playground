@@ -21,7 +21,7 @@
 | 03 | [Rolling spend/session marts](phase-03-rolling-spend-session-marts.md) | 03, 04, 15 | ✅ marts built + validated live + calibrated (88 / 1683 / 1230 VIP cohorts). Committed 888c489. |
 | 04 | [Gameplay + clan daily mart](phase-04-gameplay-clan-daily-mart.md) | 06, 08, 09, 10, 17 | ✅ `user_gameplay_daily` built + validated live + swept (06=9 / 08=1 / 09=1 / 10=213 / 17=156 VIP cohorts) |
 | 05 | [Prop + lottery rollup marts](phase-05-prop-lottery-rollup-marts.md) | 07, 11, 12 | ⏸ deferred — rare-prop/SSR tier semantics unresolvable from data + no tlog enum doc; 07/11/12 stay partial (user decision, no fabrication). Revisit when enum doc exists. |
-| 06 | [Integration, validation, demo verify](phase-06-integration-validation-demo.md) | all | ◑ validation + coverage report done (12/21 available); as-of-date UI/route surfacing pending (avoid colliding with concurrent care-sweep/dashboard edits) |
+| 06 | [Integration, validation, demo verify](phase-06-integration-validation-demo.md) | all | ✅ validation + coverage report done (12/21 available); as-of-date surfacing shipped — `/api/care/data-freshness` + per-row & header "data as-of {date}" (prefix-workspace probe physicalized) |
 
 ## Key dependencies
 - Phase 01 is foundational — 03/04/15/06/08/09/10/17/07/11/12 all need the anchor to return non-empty cohorts.
