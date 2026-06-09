@@ -18,20 +18,24 @@
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useHistory, Link } from 'react-router-dom';
-import { ListChecks, Users, ChevronLeft, RefreshCw, Heart, GitCompare, Search, X } from 'lucide-react';
+import { ListChecks, Users, ChevronLeft, RefreshCw, Heart, GitCompare, Search, X, Trash2 } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
-import { formatValue, formatValueExact } from '../../Segments/detail/cards/format-value';
-import { useCareCases, useVipQueue, runCareSweep, useSweepStatus } from './use-care-cases';
+import { useCareCases, useVipQueue, runCareSweep, useSweepStatus, patchCareCase, resetCareCases, fetchFullVipQueue } from './use-care-cases';
+import { toCsv, downloadCsv, buildCsvFilename } from './care-queue-csv';
+import type { CsvRow } from './care-queue-csv';
+import { claimCase } from './cs-case-actions';
+import { CsOwnerChip } from './member360/cs-owner-chip';
+import { OutcomeChip } from './member360/cs-care-history-timeline';
+import type { CareOutcome } from './member360/cs-member360-mock';
 import { QueuePager } from './queue-pager';
 import { summarizeSnapshot } from './case-snapshot-summary';
-import { ltvLabel } from './case-ledger-format';
 import { SweepsLens } from './sweeps-lens';
 import { PlaybookFilterBar } from './playbook-filter-bar';
 import { StatusChipRow } from './status-chip-row';
 import { orderByMultiMatch, type MatchedPlaybook } from './case-ledger-ordering';
 import { CsConsoleNav } from './cs-console-nav';
-import { VipTierBadge } from './vip-tier-badge';
+import { VipIdentityCard } from './vip-identity-card';
 import type { CareCase, VipCaseRow, CareVipProfileDto } from './use-care-cases';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -252,9 +256,15 @@ interface PlaybookRowProps {
   matchCount?: number;
   /** Other selected playbooks this VIP also matches (excludes the row's own). */
   siblings?: MatchedPlaybook[];
+  /** Current user's identity string for the owner chip comparison. */
+  me?: string | null;
+  /** True when user may claim cases. */
+  canWrite?: boolean;
+  /** Called after a successful claim — parent re-fetches its list. */
+  onClaim?: () => void;
 }
 
-function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [] }: PlaybookRowProps) {
+function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [], me, canWrite, onClaim }: PlaybookRowProps) {
   const profile = c.profile;
   const history = useHistory();
   // Member-360 links to the segment-member view when a segment id is known;
@@ -263,6 +273,15 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [] }: Pl
     ? `/segments/${segId}/members/${encodeURIComponent(c.uid)}`
     : `/dashboards/cs/members/${encodeURIComponent(c.uid)}?game=${encodeURIComponent(gameId)}`;
 
+  const isOpen = c.status === 'new' || c.status === 'in_review';
+
+  function handleClaim(e: React.MouseEvent) {
+    // Prevent the row-click navigation when the claim button is clicked.
+    e.stopPropagation();
+    if (!me || !canWrite || !isOpen) return;
+    claimCase(c.id, me).then(() => onClaim?.()).catch(() => {});
+  }
+
   return (
     <tr
       onClick={() => history.push(path)}
@@ -270,11 +289,18 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [] }: Pl
       onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--brand-soft)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}
     >
-      {/* VIP */}
-      <td style={{ ...cellBase, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-        {profile?.name ?? c.uid}
-        {matchCount > 1 && <MultiMatchBadge count={matchCount} />}
-        {c.condition_lapsed === 1 && <LapsedBadge />}
+      {/* VIP identity card — name + tier badge + LTV·tier + churn */}
+      <td style={cellBase}>
+        <VipIdentityCard
+          uid={c.uid}
+          profile={profile}
+          trailing={
+            <>
+              {matchCount > 1 && <MultiMatchBadge count={matchCount} />}
+              {c.condition_lapsed === 1 && <LapsedBadge />}
+            </>
+          }
+        />
       </td>
       {/* Matched Playbook: the row's own playbook (primary pill) plus compact
           chips for the other selected playbooks this VIP also matches, so the
@@ -287,19 +313,15 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [] }: Pl
           ))}
         </div>
       </td>
-      {/* LTV + VIP tier */}
-      <td style={{ ...cellBase, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-        {profile?.ltvVnd != null ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, justifyContent: 'flex-end' }}>
-            <VipTierBadge ltvVnd={profile.ltvVnd} />
-            <span title={formatValueExact(profile.ltvVnd, 'currency') ?? undefined}>{ltvLabel(profile.ltvVnd)}</span>
-          </span>
-        ) : (
-          <span style={{ color: 'var(--text-muted)' }}>—</span>
-        )}
+      {/* State — resolved rows also show a KPI outcome badge when present */}
+      <td style={cellBase}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <StatusPill status={c.status} />
+          {c.status === 'resolved' && c.outcome && (c.outcome === 'kpi_met' || c.outcome === 'kpi_missed') && (
+            <OutcomeChip outcome={c.outcome as CareOutcome} />
+          )}
+        </div>
       </td>
-      {/* State */}
-      <td style={cellBase}><StatusPill status={c.status} /></td>
       {/* Matched (when the sweep opened this case) */}
       <td
         style={{ ...cellBase, color: 'var(--text-muted)', fontSize: 11.5 }}
@@ -307,19 +329,41 @@ function PlaybookCaseRow({ c, gameId, segId, matchCount = 1, siblings = [] }: Pl
       >
         {relativeTime(c.opened_at ?? c.created_at ?? null)}
       </td>
-      {/* Action */}
-      <td style={{ ...cellBase, textAlign: 'right', width: 130 }}>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); history.push(path); }}
-          style={{
-            fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
-            color: '#fff', background: 'var(--brand)', border: '1px solid var(--brand)',
-            borderRadius: 'var(--radius-md)', padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
-          }}
-        >
-          Open 360 →
-        </button>
+      {/* Action: Open 360 + inline claim/owner chip for open cases */}
+      <td style={{ ...cellBase, textAlign: 'right', width: 160 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          {/* Owner chip — shows who owns this open case */}
+          {isOpen && c.assignee && (
+            <CsOwnerChip assignee={c.assignee} me={me} />
+          )}
+          {/* Claim button for open unowned cases (or re-claim for writers) */}
+          {isOpen && canWrite && me && (
+            <button
+              type="button"
+              onClick={handleClaim}
+              title={c.assignee ? 'Re-assign to yourself' : 'Claim this case'}
+              style={{
+                fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                padding: '3px 9px', borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-muted)', border: '1px solid var(--border-card)',
+                color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              Claim
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); history.push(path); }}
+            style={{
+              fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              color: '#fff', background: 'var(--brand)', border: '1px solid var(--brand)',
+              borderRadius: 'var(--radius-md)', padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            Open 360 →
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -334,6 +378,10 @@ interface ByPlaybookViewProps {
   statuses: string[];
   onToggleStatus: (s: string) => void;
   onClearStatus: () => void;
+  /** Called once on mount so the parent can trigger a refetch after a reset. */
+  onRegisterRefetch?: (fn: () => void) => void;
+  /** Notifies the parent of the current server-side total (used for the reset dialog label). */
+  onTotalChange?: (n: number) => void;
 }
 
 function ByPlaybookView({
@@ -343,7 +391,13 @@ function ByPlaybookView({
   statuses,
   onToggleStatus,
   onClearStatus,
+  onRegisterRefetch,
+  onTotalChange,
 }: ByPlaybookViewProps) {
+  const user = useAuthUser();
+  const canWrite = user?.role === 'editor' || user?.role === 'admin';
+  const me = user ? (user.username ?? user.email ?? null) : null;
+
   // Cases arrive pre-enriched with the persisted VIP profile + matched-playbook
   // name — no live Cube call. Pagination is server-side per the selected
   // playbooks; the status chips refine the current page client-side so their
@@ -351,7 +405,25 @@ function ByPlaybookView({
   const [page, setPage] = useState(1);
   const pbKey = playbookIds.join(',');
   useEffect(() => setPage(1), [gameId, pbKey]); // reset on game / playbook-set switch
-  const { status, cases, error, total, pageSize } = useCareCases(gameId, { playbookIds, page });
+  const { status, cases, error, total, pageSize, refetch } = useCareCases(gameId, { playbookIds, page });
+  // Re-fetch after a claim so the owner chip updates immediately without navigation.
+  const handleClaim = useCallback(() => refetch(), [refetch]);
+
+  // Register refetch with the parent so a reset can immediately clear stale rows
+  // without a full page reload. Runs once on mount; stable refetch identity means
+  // it won't re-register on every render.
+  useEffect(() => {
+    onRegisterRefetch?.(refetch);
+  // onRegisterRefetch is provided by the parent once (stable callback ref setter);
+  // refetch identity is stable across renders (defined with useCallback).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refetch]);
+
+  // Keep the parent's reset-dialog count in sync with what the server reports as
+  // the current total — no extra fetch needed, the list response carries it.
+  useEffect(() => {
+    onTotalChange?.(total);
+  }, [total, onTotalChange]);
 
   const counts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -372,11 +444,56 @@ function ByPlaybookView({
     [shown, multi],
   );
 
+  // Export: fetch the FULL un-paginated VIP queue (no page params → server
+  // returns all rows), map to CSV columns, and trigger a browser download.
+  const [exporting, setExporting] = useState(false);
+  const handleExport = useCallback(async () => {
+    if (!gameId || exporting) return;
+    setExporting(true);
+    try {
+      const vips = await fetchFullVipQueue(gameId);
+      const csvRows: CsvRow[] = vips.map((v) => ({
+        uid: v.uid,
+        name: v.profile?.name ?? null,
+        ltvVnd: v.profile?.ltvVnd ?? null,
+        tier: v.profile?.tier ?? null,
+        topPlaybook: v.playbooks[0]?.name ?? null,
+        openCaseCount: v.caseCount,
+        lastContact: v.lastTreatedAt,
+        status: v.cases[0]?.status ?? '',
+      }));
+      downloadCsv(buildCsvFilename(gameId), toCsv(csvRows));
+    } finally {
+      setExporting(false);
+    }
+  }, [gameId, exporting]);
+
   return (
     <div>
-      {/* Filters */}
+      {/* Filters + Export */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderBottom: '1px solid var(--border-card)' }}>
-        <PlaybookFilterBar gameId={gameId} selected={playbookIds} onToggle={onTogglePlaybook} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <PlaybookFilterBar gameId={gameId} selected={playbookIds} onToggle={onTogglePlaybook} />
+          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            title="Download full VIP queue as CSV (all pages, GMT+7 timestamp)"
+            style={{
+              flexShrink: 0,
+              fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              color: 'var(--text-secondary)', background: 'var(--bg-card)',
+              border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
+              padding: '5px 12px', cursor: exporting ? 'wait' : 'pointer',
+              opacity: exporting ? 0.6 : 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {exporting ? 'Exporting…' : '↓ Export CSV'}
+          </button>
+        </div>
         <StatusChipRow selected={statuses} onToggle={onToggleStatus} onClear={onClearStatus} counts={counts} />
       </div>
 
@@ -395,9 +512,8 @@ function ByPlaybookView({
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={{ ...thStyle, width: '16%' }}>VIP</th>
+                <th style={{ ...thStyle, width: '24%' }}>VIP</th>
                 <th style={thStyle}>Matched Playbook</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>LTV</th>
                 <th style={thStyle}>State</th>
                 <th style={thStyle}>Matched</th>
                 <th style={{ ...thStyle, width: 130 }} aria-label="Action" />
@@ -416,6 +532,9 @@ function ByPlaybookView({
                       ? (matchedPlaybooksByUid.get(c.uid) ?? []).filter((pb) => pb.id !== c.playbook_id)
                       : []
                   }
+                  me={me}
+                  canWrite={canWrite}
+                  onClaim={handleClaim}
                 />
               ))}
             </tbody>
@@ -432,22 +551,25 @@ function ByPlaybookView({
 interface VipRowProps {
   row: VipCaseRow;
   gameId: string;
+  me?: string | null;
+  canWrite?: boolean;
+  onClaim?: () => void;
 }
 
-function VipQueueRow({ row, gameId }: VipRowProps) {
+function VipQueueRow({ row, gameId, me, canWrite, onClaim }: VipRowProps) {
   const history = useHistory();
   const profile: CareVipProfileDto | null | undefined = row.profile;
   const base = `/dashboards/cs/members/${encodeURIComponent(row.uid)}?game=${encodeURIComponent(gameId)}`;
   const go = (toCare: boolean) => history.push(toCare ? `${base}&tab=care` : base);
 
-  // Identity: name (main character) when known, else the uid. LTV · tier sits
-  // under it; churn pay/play idle days form a compact third line when present.
-  const title = profile?.name ?? row.uid;
-  const idLine = [profile && ltvLabel(profile.ltvVnd), profile?.tier].filter(Boolean).join(' · ');
-  const churn =
-    profile && (profile.churnPayDays != null || profile.churnPlayDays != null)
-      ? `no-pay ${profile.churnPayDays ?? '—'}d · idle ${profile.churnPlayDays ?? '—'}d`
-      : null;
+  // Top-priority open case drives the claim target (highest urgency for this VIP).
+  const topOpenCase = row.cases.find((c) => c.status === 'new' || c.status === 'in_review');
+
+  function handleClaim(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!me || !canWrite || !topOpenCase) return;
+    claimCase(topOpenCase.id, me).then(() => onClaim?.()).catch(() => {});
+  }
 
   // Top-priority playbook drives the named pill; row priority drives its tint.
   const topPb = row.playbooks.find((pb) => pb.priority === row.topPriority) ?? row.playbooks[0];
@@ -466,20 +588,7 @@ function VipQueueRow({ row, gameId }: VipRowProps) {
     >
       {/* VIP identity */}
       <td style={{ ...cellBase, width: '20%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.uid}>
-            {title}
-          </div>
-          <VipTierBadge ltvVnd={profile?.ltvVnd} />
-        </div>
-        {idLine && (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }} title={profile?.ltvVnd != null ? (formatValueExact(profile.ltvVnd, 'currency') ?? undefined) : undefined}>
-            {idLine}
-          </div>
-        )}
-        {churn && (
-          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{churn}</div>
-        )}
+        <VipIdentityCard uid={row.uid} profile={profile} />
       </td>
 
       {/* Open cases across playbooks — dot-chips, ✓ when that playbook is treated */}
@@ -533,37 +642,59 @@ function VipQueueRow({ row, gameId }: VipRowProps) {
         )}
       </td>
 
-      {/* Action — Take care (→ Care tab) or Deferred when fatigue-capped */}
-      <td style={{ ...cellBase, textAlign: 'right', width: 130 }}>
-        {fatigued ? (
-          <button
-            type="button"
-            disabled
-            title="Contacted recently — outreach deferred by the contact-fatigue guard"
-            style={{
-              fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
-              color: 'var(--text-muted)', background: 'var(--bg-card)',
-              border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
-              padding: '5px 12px', opacity: 0.55, cursor: 'not-allowed',
-            }}
-          >
-            Deferred
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); go(true); }}
-            style={{
-              fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
-              color: '#fff', background: 'var(--brand)', border: '1px solid var(--brand)',
-              borderRadius: 'var(--radius-md)', padding: '5px 12px', cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-            title="Open the member 360 Care tab to log a treatment"
-          >
-            Take care →
-          </button>
-        )}
+      {/* Action — Claim + owner chip + Take care / Deferred */}
+      <td style={{ ...cellBase, textAlign: 'right', width: 180 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          {/* Owner chip for the top open case */}
+          {topOpenCase?.assignee && (
+            <CsOwnerChip assignee={topOpenCase.assignee} me={me} />
+          )}
+          {/* Claim button for writers when there is an open case */}
+          {topOpenCase && canWrite && me && (
+            <button
+              type="button"
+              onClick={handleClaim}
+              title={topOpenCase.assignee ? 'Re-assign to yourself' : 'Claim this case'}
+              style={{
+                fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                padding: '3px 9px', borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-muted)', border: '1px solid var(--border-card)',
+                color: 'var(--text-secondary)', cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              Claim
+            </button>
+          )}
+          {fatigued ? (
+            <button
+              type="button"
+              disabled
+              title="Contacted recently — outreach deferred by the contact-fatigue guard"
+              style={{
+                fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                color: 'var(--text-muted)', background: 'var(--bg-card)',
+                border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
+                padding: '5px 12px', opacity: 0.55, cursor: 'not-allowed',
+              }}
+            >
+              Deferred
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); go(true); }}
+              style={{
+                fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                color: '#fff', background: 'var(--brand)', border: '1px solid var(--brand)',
+                borderRadius: 'var(--radius-md)', padding: '5px 12px', cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+              title="Open the member 360 Care tab to log a treatment"
+            >
+              Take care →
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -571,9 +702,17 @@ function VipQueueRow({ row, gameId }: VipRowProps) {
 
 interface ByVipViewProps {
   gameId: string;
+  /** Called once on mount so the parent can trigger a refetch after a reset. */
+  onRegisterRefetch?: (fn: () => void) => void;
+  /** Notifies the parent of the current server-side total (used for the reset dialog label). */
+  onTotalChange?: (n: number) => void;
 }
 
-function ByVipView({ gameId }: ByVipViewProps) {
+function ByVipView({ gameId, onRegisterRefetch, onTotalChange }: ByVipViewProps) {
+  const user = useAuthUser();
+  const canWrite = user?.role === 'editor' || user?.role === 'admin';
+  const me = user ? (user.username ?? user.email ?? null) : null;
+
   // Rows arrive pre-enriched with the persisted VIP profile (name / LTV / tier /
   // churn) from the sweep — SQLite read, no live Cube. Un-swept VIPs show dashes.
   // Paginated 50/page; the priority sort happens server-side before the slice,
@@ -591,13 +730,50 @@ function ByVipView({ gameId }: ByVipViewProps) {
     }, 250);
     return () => window.clearTimeout(id);
   }, [input]);
-  const { status, vips, error, total, pageSize } = useVipQueue(gameId, { page, q });
+  const { status, vips, error, total, pageSize, refetch } = useVipQueue(gameId, { page, q });
+  // Re-fetch after a claim so the owner chip updates immediately.
+  const handleClaim = useCallback(() => refetch(), [refetch]);
+
+  // Register refetch with the parent so a reset can immediately clear stale rows
+  // without a full page reload (same pattern as ByPlaybookView).
+  useEffect(() => {
+    onRegisterRefetch?.(refetch);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refetch]);
+
+  // Keep the parent's reset-dialog count in sync with what the server reports.
+  useEffect(() => {
+    onTotalChange?.(total);
+  }, [total, onTotalChange]);
+
+  // Export: fetch the FULL un-paginated VIP queue (no page params → all rows).
+  const [exporting, setExporting] = useState(false);
+  const handleExport = useCallback(async () => {
+    if (!gameId || exporting) return;
+    setExporting(true);
+    try {
+      const allVips = await fetchFullVipQueue(gameId);
+      const csvRows: CsvRow[] = allVips.map((v) => ({
+        uid: v.uid,
+        name: v.profile?.name ?? null,
+        ltvVnd: v.profile?.ltvVnd ?? null,
+        tier: v.profile?.tier ?? null,
+        topPlaybook: v.playbooks[0]?.name ?? null,
+        openCaseCount: v.caseCount,
+        lastContact: v.lastTreatedAt,
+        status: v.cases[0]?.status ?? '',
+      }));
+      downloadCsv(buildCsvFilename(gameId), toCsv(csvRows));
+    } finally {
+      setExporting(false);
+    }
+  }, [gameId, exporting]);
 
   const searchBar = (
-    <div style={{ padding: 16, borderBottom: '1px solid var(--border-card)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 16, borderBottom: '1px solid var(--border-card)' }}>
       <div
         style={{
-          display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380,
+          display: 'flex', alignItems: 'center', gap: 8, flex: 1, maxWidth: 380,
           padding: '7px 11px', background: 'var(--bg-muted)', borderRadius: 'var(--radius-md)',
           border: '1px solid var(--border-card)',
         }}
@@ -623,6 +799,24 @@ function ByVipView({ gameId }: ByVipViewProps) {
           </button>
         )}
       </div>
+      {/* Export full queue — bypasses current page and search filter */}
+      <button
+        type="button"
+        onClick={handleExport}
+        disabled={exporting}
+        title="Download the full VIP queue as CSV (all pages, GMT+7 timestamp)"
+        style={{
+          flexShrink: 0,
+          fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+          color: 'var(--text-secondary)', background: 'var(--bg-card)',
+          border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
+          padding: '5px 12px', cursor: exporting ? 'wait' : 'pointer',
+          opacity: exporting ? 0.6 : 1,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {exporting ? 'Exporting…' : '↓ Export CSV'}
+      </button>
     </div>
   );
 
@@ -647,12 +841,19 @@ function ByVipView({ gameId }: ByVipViewProps) {
               <th style={thStyle}>Open cases (cross-playbook)</th>
               <th style={thStyle}>Top priority</th>
               <th style={thStyle}>Last contact</th>
-              <th style={{ ...thStyle, width: 130 }} aria-label="Action" />
+              <th style={{ ...thStyle, width: 180 }} aria-label="Action" />
             </tr>
           </thead>
           <tbody>
             {vips.map((row) => (
-              <VipQueueRow key={row.uid} row={row} gameId={gameId} />
+              <VipQueueRow
+                key={row.uid}
+                row={row}
+                gameId={gameId}
+                me={me}
+                canWrite={canWrite}
+                onClaim={handleClaim}
+              />
             ))}
           </tbody>
         </table>
@@ -741,6 +942,117 @@ function LensToggle({ active, onSwitch }: LensToggleProps) {
   );
 }
 
+// ── Reset confirm dialog ──────────────────────────────────────────────────────
+
+interface ResetConfirmDialogProps {
+  gameId: string;
+  /** Estimated case count shown in the dialog; 0 when unknown. */
+  caseCount: number;
+  onConfirm: (resweep: boolean) => void;
+  onCancel: () => void;
+}
+
+/**
+ * Modal confirm dialog for the destructive reset action. Mandatory before any
+ * wipe: names the game and the case count so the operator knows exactly what
+ * will be deleted. The resweep checkbox is OFF by default per spec — the
+ * operator opts in only when they want to refill the queue immediately.
+ */
+function ResetConfirmDialog({ gameId, caseCount, onConfirm, onCancel }: ResetConfirmDialogProps) {
+  const [resweep, setResweep] = React.useState(false);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reset-dialog-title"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.45)',
+      }}
+    >
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-card)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18))',
+          padding: '28px 32px',
+          maxWidth: 440,
+          width: '100%',
+          fontFamily: 'var(--font-sans)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <Trash2 size={18} style={{ color: 'var(--destructive-ink)', flexShrink: 0 }} aria-hidden />
+          <h2
+            id="reset-dialog-title"
+            style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}
+          >
+            Reset demo data
+          </h2>
+        </div>
+
+        <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text-secondary)' }}>
+          This will permanently delete
+          {caseCount > 0 ? (
+            <b style={{ color: 'var(--destructive-ink)' }}> {caseCount} case{caseCount !== 1 ? 's' : ''} </b>
+          ) : (
+            ' all cases '
+          )}
+          for <b style={{ color: 'var(--text-primary)' }}>{gameId}</b>. This cannot be undone.
+        </p>
+        <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--text-muted)' }}>
+          VIP profiles are preserved — only case rows are removed.
+        </p>
+
+        {/* Resweep option — OFF by default */}
+        <label
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+            fontSize: 13, color: 'var(--text-secondary)', marginBottom: 22,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={resweep}
+            onChange={(e) => setResweep(e.target.checked)}
+            style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--brand)' }}
+          />
+          Re-sweep immediately after reset (populates the queue from the live Cube)
+        </label>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              padding: '7px 16px', borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-muted)', border: '1px solid var(--border-card)',
+              color: 'var(--text-secondary)', cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(resweep)}
+            style={{
+              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              padding: '7px 16px', borderRadius: 'var(--radius-md)',
+              background: 'var(--destructive-soft)', border: '1px solid var(--destructive-ink)',
+              color: 'var(--destructive-ink)', cursor: 'pointer',
+            }}
+          >
+            Delete {caseCount > 0 ? `${caseCount} case${caseCount !== 1 ? 's' : ''}` : 'cases'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const pageStyle: React.CSSProperties = {
@@ -798,6 +1110,59 @@ export function CaseLedgerPage() {
     [statuses, setParam],
   );
   const clearStatus = useCallback(() => setParam('status', []), [setParam]);
+
+  // ── Reset state ───────────────────────────────────────────────────────────
+  // Holds the confirm-dialog open/close state and the rough case count to show
+  // in the dialog. The count comes from the active view's server-reported total
+  // (updated via onTotalChange callback below) — no extra fetch needed; the
+  // server returns the exact deleted count in the response anyway.
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetCaseCount, setResetCaseCount] = useState(0);
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+
+  // Refs holding the refetch functions registered by the currently mounted child
+  // views. Both lenses mount simultaneously (only one is visible), so both refs
+  // are populated and called after reset — ensuring the just-hidden lens is also
+  // refreshed when the user switches back without a page reload.
+  const refetchQueueRef = useRef<(() => void) | null>(null);
+  const refetchPortfolioRef = useRef<(() => void) | null>(null);
+
+  // Stable setter callbacks passed into child views as props. Using useCallback
+  // with [] avoids triggering the child effects on every parent render.
+  const registerQueueRefetch = useCallback((fn: () => void) => { refetchQueueRef.current = fn; }, []);
+  const registerPortfolioRefetch = useCallback((fn: () => void) => { refetchPortfolioRef.current = fn; }, []);
+  // Mirror the active view's total into resetCaseCount so the dialog always
+  // shows the real number. Both lenses call this; the last-rendered one wins
+  // (they share the same state slot — fine because only one is visible at a time).
+  const handleTotalChange = useCallback((n: number) => setResetCaseCount(n), []);
+
+  const handleOpenResetDialog = useCallback(() => {
+    setResetDialogOpen(true);
+    setResetMsg(null);
+  }, []);
+
+  const handleResetConfirm = useCallback(async (resweep: boolean) => {
+    if (!gameId) return;
+    setResetDialogOpen(false);
+    setResetting(true);
+    setResetMsg(null);
+    try {
+      const r = await resetCareCases(gameId, { resweep });
+      const label = resweep && r.reswept
+        ? `Reset complete — ${r.deleted} case${r.deleted !== 1 ? 's' : ''} deleted; re-sweep opened ${r.reswept.opened}.`
+        : `Reset complete — ${r.deleted} case${r.deleted !== 1 ? 's' : ''} deleted.`;
+      setResetMsg(label);
+      // Trigger re-fetches in both views so the queue/portfolio clear immediately.
+      refetchQueueRef.current?.();
+      refetchPortfolioRef.current?.();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Reset failed.';
+      setResetMsg(`Reset failed: ${msg}`);
+    } finally {
+      setResetting(false);
+    }
+  }, [gameId]);
 
   // On-demand sweep: populate the ledger from the live Cube. Reloads on success
   // (cases opened) so the queue reflects new rows; surfaces 0-opened / errors inline.
@@ -924,6 +1289,27 @@ export function CaseLedgerPage() {
             </button>
           )}
 
+          {/* Reset demo data — editor/admin only; destructive, so confirm dialog mandatory */}
+          {canWrite && (
+            <button
+              type="button"
+              onClick={handleOpenResetDialog}
+              disabled={resetting || sweeping || reconnectedSweep}
+              title="Wipe all cases for this game to restart the demo (confirm required)"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                color: 'var(--destructive-ink)', background: 'var(--destructive-soft)',
+                border: '1px solid var(--destructive-ink)', borderRadius: 'var(--radius-md)',
+                padding: '6px 12px', cursor: resetting ? 'wait' : 'pointer',
+                opacity: resetting || sweeping || reconnectedSweep ? 0.5 : 1,
+              }}
+            >
+              <Trash2 size={13} />
+              {resetting ? 'Resetting…' : 'Reset'}
+            </button>
+          )}
+
           {/* Game badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-muted)', padding: '5px 11px', borderRadius: 'var(--radius-full)' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
@@ -955,6 +1341,17 @@ export function CaseLedgerPage() {
       {sweepMsg && (
         <div style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
           {sweepMsg}
+        </div>
+      )}
+
+      {resetMsg && (
+        <div
+          style={{
+            margin: '0 0 12px', fontSize: 12, fontFamily: 'var(--font-sans)',
+            color: resetMsg.startsWith('Reset failed') ? 'var(--destructive-ink)' : 'var(--text-muted)',
+          }}
+        >
+          {resetMsg}
         </div>
       )}
 
@@ -991,9 +1388,15 @@ export function CaseLedgerPage() {
             statuses={statuses}
             onToggleStatus={toggleStatus}
             onClearStatus={clearStatus}
+            onRegisterRefetch={registerPortfolioRefetch}
+            onTotalChange={handleTotalChange}
           />
         ) : lens === 'vip' ? (
-          <ByVipView gameId={gameId} />
+          <ByVipView
+            gameId={gameId}
+            onRegisterRefetch={registerQueueRefetch}
+            onTotalChange={handleTotalChange}
+          />
         ) : (
           <div style={{ padding: 16 }}>
             <SweepsLens gameId={gameId} />
@@ -1019,6 +1422,16 @@ export function CaseLedgerPage() {
             outreach is deferred. Click any row → full Member-360 Care history across every playbook.
           </div>
         </div>
+      )}
+
+      {/* Confirm dialog — rendered outside the card so it escapes overflow:hidden */}
+      {resetDialogOpen && (
+        <ResetConfirmDialog
+          gameId={gameId}
+          caseCount={resetCaseCount}
+          onConfirm={handleResetConfirm}
+          onCancel={() => setResetDialogOpen(false)}
+        />
       )}
     </div>
   );
