@@ -47,6 +47,11 @@ export interface EventRule {
   member: string;
   /** Relative window string understood by expand-relative-date-range (e.g. "last 24 hours"). */
   window: string;
+  /**
+   * Whether the member's event must fall inside the window ('in', default) or
+   * outside it ('notIn'). Compiles to inDateRange / notInDateRange respectively.
+   */
+  op?: 'in' | 'notIn';
 }
 
 export interface PercentileRule {
@@ -57,6 +62,12 @@ export interface PercentileRule {
   p: number;
   /** Optional gate predicate restricting the population the percentile is computed over. */
   gate?: string;
+  /**
+   * Side of the distribution the cohort sits on: at-or-above the cutoff ('gte',
+   * default, top Pn) or at-or-below it ('lte', bottom Pn). Applied to the
+   * calibrated cutoff.
+   */
+  op?: 'gte' | 'lte';
 }
 
 export interface RatioRule {
@@ -120,9 +131,15 @@ export function compileRule(rule: ThresholdRule, calibration?: CalibrationResult
     }
 
     case 'event':
-      // Relative window string; translator expands it to a 2-tuple inDateRange.
+      // Relative window string; translator expands it to a 2-tuple date range.
+      // op 'notIn' negates membership (event fell OUTSIDE the window).
       return {
-        predicate: leaf(rule.member, 'inDateRange', [rule.window], 'time'),
+        predicate: leaf(
+          rule.member,
+          rule.op === 'notIn' ? 'notInDateRange' : 'inDateRange',
+          [rule.window],
+          'time',
+        ),
         evalMode: 'membership',
       };
 
@@ -135,7 +152,8 @@ export function compileRule(rule: ThresholdRule, calibration?: CalibrationResult
           reason: `percentile P${rule.p} of ${rule.of} not yet calibrated — fail-closed`,
         };
       }
-      return { predicate: leaf(rule.of, 'gte', [cutoff], 'number'), evalMode: 'membership' };
+      // op 'lte' selects the bottom Pn (at-or-below the cutoff); 'gte' (default) the top.
+      return { predicate: leaf(rule.of, rule.op === 'lte' ? 'lte' : 'gte', [cutoff], 'number'), evalMode: 'membership' };
     }
 
     case 'ratio':

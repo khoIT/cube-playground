@@ -97,6 +97,16 @@ export interface CaseAggregateResponse {
   openCases: number;
   treatedCases: number;
   vipsTriggered: number;
+  /**
+   * Count of resolved cases with outcome === 'kpi_met'.
+   * Optional for back-compat with older server responses that predate this field.
+   */
+  kpiMet?: number;
+  /**
+   * Count of resolved cases with outcome ∈ {kpi_met, kpi_missed} — the denominator
+   * for kpiMetRate.  Optional for the same back-compat reason as kpiMet.
+   */
+  kpiClosed?: number;
 }
 
 // Aggregated case metrics per playbook, derived client-side from the flat list.
@@ -117,6 +127,12 @@ export interface PortfolioStats {
   /** Treated / (open + treated) — 0–1, or null when no data yet (dismissed excluded). */
   attainmentRate: number | null;
   slaBreaches: number;
+  /**
+   * kpi_met / (kpi_met + kpi_missed) — fraction of closed-with-outcome cases that
+   * met their KPI target.  Null when no outcome data exists (denominator = 0).
+   * Additive stat; does not redefine or replace attainmentRate.
+   */
+  kpiMetRate: number | null;
 }
 
 export type CareLoadStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -148,12 +164,24 @@ function casesByPlaybookFrom(agg: CaseAggregateResponse): Map<string, PlaybookCa
   return map;
 }
 
-/** Derive top-level portfolio stats from registry counts + the case aggregate. */
-function buildPortfolio(counts: RegistryCounts, agg: CaseAggregateResponse): PortfolioStats {
+/**
+ * Derive top-level portfolio stats from registry counts + the case aggregate.
+ *
+ * Exported for unit-testing the two rate computations:
+ *   attainmentRate — treated / (open + treated); locked formula, never changes.
+ *   kpiMetRate     — kpi_met / kpiClosed; additive, null when no outcome data.
+ */
+export function buildPortfolioStats(counts: RegistryCounts, agg: CaseAggregateResponse): PortfolioStats {
   const livePlaybooks = counts.available + counts.partial;
   const total = agg.openCases + agg.treatedCases;
+  // attainmentRate: locked formula — do NOT modify this line.
   const attainmentRate = total > 0 ? agg.treatedCases / total : null;
   const slaBreaches = agg.byPlaybook.reduce((n, p) => n + p.slaBreached, 0);
+  // kpiMetRate: kpi_met / (cases with outcome ∈ {kpi_met, kpi_missed}).
+  // Null when denominator is 0 (no outcome data → render "—" in the card).
+  const kpiClosed = agg.kpiClosed ?? 0;
+  const kpiMet = agg.kpiMet ?? 0;
+  const kpiMetRate = kpiClosed > 0 ? kpiMet / kpiClosed : null;
   return {
     livePlaybooks,
     totalPlaybooks: counts.total,
@@ -161,8 +189,12 @@ function buildPortfolio(counts: RegistryCounts, agg: CaseAggregateResponse): Por
     openCases: agg.openCases,
     attainmentRate,
     slaBreaches,
+    kpiMetRate,
   };
 }
+
+/** Internal alias kept for the hook — same function. */
+const buildPortfolio = buildPortfolioStats;
 
 const EMPTY_AGGREGATE: CaseAggregateResponse = {
   byPlaybook: [],
@@ -179,6 +211,7 @@ const EMPTY_PORTFOLIO: PortfolioStats = {
   openCases: 0,
   attainmentRate: null,
   slaBreaches: 0,
+  kpiMetRate: null,
 };
 
 // ── Hook ─────────────────────────────────────────────────────────────────────

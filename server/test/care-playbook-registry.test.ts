@@ -37,6 +37,13 @@ describe('threshold-rule compiler', () => {
     expect(c.predicate).toMatchObject({ kind: 'leaf', op: 'inDateRange', values: ['last 24 hours'] });
   });
 
+  it('event op "notIn" → notInDateRange leaf (event fell OUTSIDE the window)', () => {
+    const r: ThresholdRule = { kind: 'event', member: 'mf_users.first_recharge_date', window: 'last 24 hours', op: 'notIn' };
+    const c = compileRule(r);
+    expect(c.predicate).toMatchObject({ kind: 'leaf', op: 'notInDateRange', values: ['last 24 hours'] });
+    expect(c.evalMode).toBe('membership');
+  });
+
   it('percentile is fail-closed until calibrated, then compiles to a cutoff leaf', () => {
     const r: ThresholdRule = { kind: 'percentile', of: 'mf_users.ltv_total_vnd', p: 90 };
     const uncal = compileRule(r);
@@ -46,6 +53,12 @@ describe('threshold-rule compiler', () => {
 
     const cal = compileRule(r, { cutoff: 12_345_678 });
     expect(cal.predicate).toMatchObject({ kind: 'leaf', op: 'gte', values: [12_345_678] });
+  });
+
+  it('percentile op "lte" compiles the calibrated cutoff to a bottom-Pn leaf', () => {
+    const r: ThresholdRule = { kind: 'percentile', of: 'mf_users.ltv_total_vnd', p: 10, op: 'lte' };
+    const cal = compileRule(r, { cutoff: 1_000_000 });
+    expect(cal.predicate).toMatchObject({ kind: 'leaf', op: 'lte', values: [1_000_000] });
   });
 
   it('ratio is per-member (trigger), never a cohort predicate', () => {

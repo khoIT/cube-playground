@@ -125,7 +125,7 @@ interface PortfolioStripProps {
 export function PortfolioStrip({ stats, loading }: PortfolioStripProps) {
   const stripStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(5, 1fr)',
+    gridTemplateColumns: 'repeat(6, 1fr)',
     gap: 12,
     marginBottom: 22,
   };
@@ -133,7 +133,7 @@ export function PortfolioStrip({ stats, loading }: PortfolioStripProps) {
   if (loading) {
     return (
       <div style={stripStyle}>
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 6 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
       </div>
@@ -184,6 +184,20 @@ export function PortfolioStrip({ stats, loading }: PortfolioStripProps) {
         value={fmtPct(stats.attainmentRate)}
         sub={stats.attainmentRate === null ? 'no data yet' : 'treated / total closed'}
         accent={attainmentAccent}
+      />
+      <StatCard
+        label="KPI met %"
+        value={fmtPct(stats.kpiMetRate ?? null)}
+        sub={stats.kpiMetRate === null ? 'no outcomes yet' : 'met / closed with outcome'}
+        accent={
+          stats.kpiMetRate === null
+            ? 'neutral'
+            : stats.kpiMetRate >= 0.8
+            ? 'good'
+            : stats.kpiMetRate >= 0.5
+            ? 'warn'
+            : 'bad'
+        }
       />
       <StatCard
         label="SLA breaches"

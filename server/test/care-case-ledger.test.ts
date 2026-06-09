@@ -16,6 +16,7 @@ import {
   patchCase,
   findOpenCase,
   casesForUid,
+  clearCases,
 } from '../src/care/care-case-store.js';
 import {
   membershipDiff,
@@ -152,6 +153,44 @@ describe('applyTriggerResult', () => {
     const r = applyTriggerResult(['x', 'y'], ctx('03'));
     expect(r.opened).toBe(2);
     expect(listCases({ gameId: 'jus_vn', playbookId: '03' }).every((c) => c.source === 'trigger')).toBe(true);
+  });
+});
+
+// ── clearCases — bulk delete scoped to (game, workspace) ─────────────────────
+// These tests verify that a demo reset never crosses game or workspace tenants.
+
+describe('clearCases scope isolation', () => {
+  it('deletes all cases for the given (game, workspace) and returns the count', () => {
+    openCase({ gameId: 'cfm_vn', workspace: 'wsA', playbookId: '01', uid: 'u1', source: 'membership' });
+    openCase({ gameId: 'cfm_vn', workspace: 'wsA', playbookId: '02', uid: 'u2', source: 'membership' });
+    const deleted = clearCases('cfm_vn', 'wsA');
+    expect(deleted).toBe(2);
+    expect(listCases({ gameId: 'cfm_vn' })).toHaveLength(0);
+  });
+
+  it('leaves cases from a different game in the same workspace untouched', () => {
+    openCase({ gameId: 'cfm_vn', workspace: 'wsA', playbookId: '01', uid: 'u1', source: 'membership' });
+    openCase({ gameId: 'jus_vn', workspace: 'wsA', playbookId: '14', uid: 'u2', source: 'membership' });
+    const deleted = clearCases('cfm_vn', 'wsA');
+    expect(deleted).toBe(1);
+    // jus_vn cases survive in wsA
+    expect(listCases({ gameId: 'jus_vn' })).toHaveLength(1);
+  });
+
+  it('leaves cases from a different workspace for the same game untouched', () => {
+    openCase({ gameId: 'cfm_vn', workspace: 'wsA', playbookId: '01', uid: 'u1', source: 'membership' });
+    openCase({ gameId: 'cfm_vn', workspace: 'wsB', playbookId: '01', uid: 'u2', source: 'membership' });
+    const deleted = clearCases('cfm_vn', 'wsA');
+    expect(deleted).toBe(1);
+    // wsB row survives even though it shares the same game_id
+    const remaining = listCases({ gameId: 'cfm_vn' });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].workspace).toBe('wsB');
+  });
+
+  it('returns 0 when there are no cases for the target (game, workspace)', () => {
+    const deleted = clearCases('cfm_vn', 'wsA');
+    expect(deleted).toBe(0);
   });
 });
 

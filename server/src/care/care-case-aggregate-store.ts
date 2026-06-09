@@ -28,6 +28,13 @@ export interface CaseAggregate {
   treatedCases: number;
   /** Distinct VIPs with ≥1 open case (a VIP open in N playbooks counts once). */
   vipsTriggered: number;
+  /** Resolved cases with outcome = 'kpi_met'. Numerator for kpiMetRate. */
+  kpiMet: number;
+  /**
+   * Resolved cases with outcome ∈ {kpi_met, kpi_missed}. Denominator for kpiMetRate.
+   * 'na' and null outcomes are excluded — only definitive human-closed outcomes count.
+   */
+  kpiClosed: number;
 }
 
 /**
@@ -98,5 +105,21 @@ export function aggregateCaseCounts(
       .get(gameId) as { n: number }
   ).n;
 
-  return { byPlaybook, openCases, treatedCases, vipsTriggered };
+  // Outcome counts for kpiMetRate — resolved cases with a definitive human-assigned
+  // outcome ('na' and null are excluded from the denominator so in-progress treatments
+  // don't dilute the rate before the agent closes the loop).
+  const outcomeRow = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN outcome = 'kpi_met' THEN 1 ELSE 0 END) AS kpi_met_n,
+         SUM(CASE WHEN outcome IN ('kpi_met','kpi_missed') THEN 1 ELSE 0 END) AS kpi_closed_n
+         FROM care_cases
+        WHERE game_id = ? AND status = 'resolved'`,
+    )
+    .get(gameId) as { kpi_met_n: number | null; kpi_closed_n: number | null };
+
+  const kpiMet = outcomeRow.kpi_met_n ?? 0;
+  const kpiClosed = outcomeRow.kpi_closed_n ?? 0;
+
+  return { byPlaybook, openCases, treatedCases, vipsTriggered, kpiMet, kpiClosed };
 }
