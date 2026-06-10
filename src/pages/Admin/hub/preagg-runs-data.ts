@@ -93,6 +93,60 @@ export function useSweepDetail(id: number | null) {
   return { sweep, items, loading, error };
 }
 
+// ---------------------------------------------------------------------------
+// Build trigger (dev/demo)
+// ---------------------------------------------------------------------------
+
+export interface TriggerState {
+  phase: 'idle' | 'running' | 'done' | 'error';
+  game: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  message: string | null;
+  exitCode: number | null;
+}
+
+export interface TriggerStatus {
+  enabled: boolean;
+  state: TriggerState;
+}
+
+/** Poll trigger status; polls fast while a build is running, slow otherwise. */
+export function useTriggerStatus() {
+  const [status, setStatus] = useState<TriggerStatus | null>(null);
+
+  const refetch = useCallback(() => {
+    apiFetch<TriggerStatus>('/api/preagg-runs/trigger/status')
+      .then(setStatus)
+      .catch(() => { /* trigger status is best-effort; ignore transient errors */ });
+  }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  // While a build runs, poll every 3s so the UI reflects progress + completion.
+  const running = status?.state.phase === 'running';
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(refetch, 3000);
+    return () => clearInterval(t);
+  }, [running, refetch]);
+
+  return { status, refetch };
+}
+
+/** POST a build trigger for one game. Resolves to an error string or null. */
+export async function triggerBuild(game: string): Promise<string | null> {
+  try {
+    await apiFetch('/api/preagg-runs/trigger', {
+      method: 'POST',
+      body: { game },
+    });
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : 'Failed to start build';
+  }
+}
+
 export function useServeabilityNow() {
   const [data, setData] = useState<ServeabilityNow | null>(null);
   const [loading, setLoading] = useState(false);

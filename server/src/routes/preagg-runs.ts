@@ -18,6 +18,8 @@ import { listSweeps, getSweepWithItems } from '../db/preagg-run-store.js';
 import { getPreaggReadinessNonBlocking } from '../services/preagg-readiness.js';
 import { getDefaultWorkspace } from '../services/workspaces-config-loader.js';
 import { getCollectorStatus } from '../services/preagg-run-collector.js';
+import { isKnownGame } from '../services/games-config-loader.js';
+import { isTriggerEnabled, getTriggerState, startTrigger } from '../services/preagg-trigger.js';
 
 export default async function preaggRunsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireRole('admin'));
@@ -86,6 +88,34 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
       warming: false,
     };
   });
+
+  // ── Build trigger (dev/demo) ───────────────────────────────────────────────
+  // Registered before /:id so the literal paths win over the numeric param.
+
+  app.get('/api/preagg-runs/trigger/status', async () => {
+    return { enabled: isTriggerEnabled(), state: getTriggerState() };
+  });
+
+  app.post<{ Body: { game?: string; minutes?: number } }>(
+    '/api/preagg-runs/trigger',
+    async (req, reply) => {
+      if (!isTriggerEnabled()) {
+        return reply.status(403).send({
+          error: { code: 'TRIGGER_DISABLED', message: 'Pre-agg build trigger is disabled (set PREAGG_TRIGGER_ENABLED=true on a dev host).' },
+        });
+      }
+      const game = String(req.body?.game ?? '');
+      if (!isKnownGame(game)) {
+        return reply.status(400).send({ error: { code: 'BAD_GAME', message: `Unknown game '${game}'.` } });
+      }
+      const result = startTrigger(game, req.body?.minutes ?? 8);
+      if (!result.ok) {
+        // Busy = 409 conflict; anything else (disabled, bad game) handled above.
+        return reply.status(409).send({ error: { code: 'TRIGGER_BUSY', message: result.error ?? 'Cannot start build.' } });
+      }
+      return { ok: true, state: getTriggerState() };
+    },
+  );
 
   // ── GET /api/preagg-runs/:id ───────────────────────────────────────────────
   app.get<{ Params: { id: string } }>(

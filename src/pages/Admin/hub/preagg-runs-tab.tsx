@@ -15,9 +15,9 @@
  * surfaces a small disclaimer note in the strip for transparency.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Database } from 'lucide-react';
-import { usePreaggRuns, useSweepDetail, useServeabilityNow } from './preagg-runs-data';
+import { usePreaggRuns, useSweepDetail, useServeabilityNow, useTriggerStatus, triggerBuild } from './preagg-runs-data';
 import type { ServeabilityNow } from './preagg-runs-data';
 import { SweepRow } from './preagg-runs-sweep-row';
 import type { PreaggSweepItem } from '../../../types/preagg-run';
@@ -287,14 +287,40 @@ function fmtDuration(ms: number | null): string {
 // ---------------------------------------------------------------------------
 
 export function PreaggRunsTab() {
-  const { sweeps, loading, error } = usePreaggRuns(30);
-  const { data: serveability, loading: serveLoading, error: serveError } = useServeabilityNow();
+  const { sweeps, loading, error, refetch: refetchSweeps } = usePreaggRuns(30);
+  const { data: serveability, loading: serveLoading, error: serveError, refetch: refetchServe } = useServeabilityNow();
+  const { status: triggerStatus, refetch: refetchTrigger } = useTriggerStatus();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [gameFilter, setGameFilter] = useState<string | null>(null);
+  const [triggerError, setTriggerError] = useState<string | null>(null);
   const { sweep: detailSweep, items: detailItems } = useSweepDetail(expandedId);
 
   // Game options for the filter — sourced from the live probe (id + label).
   const gameOptions = serveability?.games ?? [];
+
+  const buildRunning = triggerStatus?.state.phase === 'running';
+  const triggerEnabled = triggerStatus?.enabled ?? false;
+
+  const handleRebuild = async () => {
+    if (buildRunning) return;
+    if (!gameFilter) {
+      // Stay clickable when "All games" is selected, but explain rather than
+      // rebuild every game at once (each is a multi-minute scoped sweep).
+      setTriggerError('Pick a game in the filter above to rebuild its pre-aggregations.');
+      return;
+    }
+    setTriggerError(null);
+    const err = await triggerBuild(gameFilter);
+    if (err) setTriggerError(err);
+    refetchTrigger();
+  };
+
+  // When a build finishes, refresh serveability + history so the UI reflects
+  // the freshly sealed partitions without a manual reload.
+  const buildPhase = triggerStatus?.state.phase;
+  useEffect(() => {
+    if (buildPhase === 'done') { refetchServe(); refetchSweeps(); }
+  }, [buildPhase, refetchServe, refetchSweeps]);
 
   // Build a map so each expanded sweep gets its items from the detail hook
   const itemsForSweep = (id: number): PreaggSweepItem[] | null => {
@@ -431,7 +457,56 @@ export function PreaggRunsTab() {
               ))}
             </select>
           </label>
+
+          {/* Build trigger — scopes the worker to the selected game, rebuilds,
+              then restores the all-games sweep. Only shown when enabled on the host. */}
+          {triggerEnabled && (
+            <button
+              type="button"
+              onClick={handleRebuild}
+              disabled={buildRunning}
+              title={buildRunning ? 'A build is already running' : gameFilter ? `Rebuild ${gameFilter}'s pre-aggregations now` : 'Pick a game in the filter to rebuild'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                height: 28,
+                padding: '0 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+                color: 'var(--brand)',
+                background: 'var(--brand-soft)',
+                border: '1px solid var(--brand)',
+                borderRadius: 'var(--radius-sm)',
+                cursor: buildRunning ? 'not-allowed' : 'pointer',
+                opacity: buildRunning ? 0.55 : gameFilter ? 1 : 0.8,
+              }}
+            >
+              {buildRunning && (
+                <span style={{ width: 7, height: 7, borderRadius: 'var(--radius-full)', background: 'var(--brand)', animation: 'pulse 1.8s ease-in-out infinite' }} />
+              )}
+              {buildRunning ? `Building ${triggerStatus?.state.game}…` : 'Rebuild'}
+            </button>
+          )}
         </div>
+
+        {/* Trigger status / error line */}
+        {triggerEnabled && (buildRunning || triggerError || buildPhase === 'done' || buildPhase === 'error') && (
+          <div
+            style={{
+              padding: '8px 16px',
+              borderBottom: '1px solid var(--border-card)',
+              fontSize: 11.5,
+              color: triggerError || buildPhase === 'error' ? 'var(--destructive-ink)' : 'var(--text-muted)',
+              background: triggerError || buildPhase === 'error' ? 'var(--destructive-soft)' : 'var(--bg-muted)',
+            }}
+          >
+            {triggerError
+              ? triggerError
+              : `${buildPhase === 'done' ? '✓ ' : ''}${triggerStatus?.state.message ?? ''}`}
+          </div>
+        )}
 
         {loading && sweeps.length === 0 ? (
           <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
