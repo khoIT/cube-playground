@@ -35,7 +35,17 @@ export function useServerPref<T>(
   key: string,
   defaultValue: T,
 ): [T, (next: T) => void, () => void] {
-  const read = useCallback((): T => decode(getPref(key), defaultValue), [key, defaultValue]);
+  // Hold the latest default in a ref so the sync effect can re-read fresh
+  // values without listing `defaultValue` as a dependency. An inline object/
+  // array default (e.g. `useServerPref(key, {})`) changes identity on every
+  // render; if it drove the effect, each render would re-run it and call
+  // `setValue` with a freshly JSON-parsed (new-reference) value, looping
+  // forever ("Maximum update depth exceeded"). Keying only on `key` matches
+  // the loop-safe `useLocalStorage` contract this hook replaces.
+  const defaultRef = useRef(defaultValue);
+  defaultRef.current = defaultValue;
+
+  const read = useCallback((): T => decode(getPref(key), defaultRef.current), [key]);
 
   const [value, setValue] = useState<T>(read);
 
