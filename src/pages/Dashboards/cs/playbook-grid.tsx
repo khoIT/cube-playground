@@ -588,7 +588,7 @@ export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite, asO
     '10%', // SLA breach
     '7%',  // SLA
   ];
-  if (canWrite) colWidths.push('44px'); // Kebab actions
+  if (canWrite) colWidths.push('60px'); // Kebab actions — wide enough to keep the 16px cell padding off the card edge
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
