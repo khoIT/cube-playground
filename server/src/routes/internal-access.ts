@@ -15,6 +15,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { getAccess, normalizeEmail } from '../auth/access-store.js';
 import { grantFallbackEnabled } from '../auth/authz-decisions.js';
+import { canonicalGameId } from '../services/game-aliases.js';
 
 function authDisabled(): boolean {
   const raw = (process.env.AUTH_DISABLED ?? '').toLowerCase();
@@ -33,16 +34,7 @@ function servicePrincipalId(): string {
 // membership of allowedGames (see cube-dev cube.js GAME_ALIASES). The test is
 // `canonical(requestedGame) ∈ allowedGames`, so the list this bridge hands over
 // must already be canonical — otherwise `['cfm_vn'].includes('cfm')` is false
-// and a correctly-granted non-admin user is denied. Keep in sync with cube-dev.
-const GAME_ALIASES: Record<string, string> = {
-  cfm_vn: 'cfm',
-  jus_vn: 'jus',
-  ballistar_vn: 'ballistar',
-};
-
-function canonicalGameId(id: string): string {
-  return GAME_ALIASES[id] ?? id;
-}
+// and a correctly-granted non-admin user is denied. Shared map keeps it in sync.
 
 // The allowedGames this bridge should hand cube-dev's checkAuth for a resolved
 // user. checkAuth is keyed by email only and has NO workspace context, so it

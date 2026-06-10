@@ -70,6 +70,7 @@ import { startAnomalyDetector } from './jobs/anomaly-detector.js';
 import { startActivityPruneCron } from './jobs/prune-activity-events.js';
 import { startCareSweepPruneCron } from './jobs/prune-care-sweep-membership.js';
 import { startCareAutoSweepCron } from './jobs/care-auto-sweep.js';
+import { startSegmentMembershipSnapshotCron } from './jobs/snapshot-segment-membership.js';
 import { registerSlowRequestLog, startEventLoopMonitor } from './services/runtime-observability.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
@@ -239,6 +240,9 @@ if (isMain || process.env.START_SERVER === '1') {
       startActivityPruneCron();
       startCareSweepPruneCron();
       startCareAutoSweepCron();
+      // Lakehouse daily segment-membership snapshot — only fires when
+      // SEGMENT_SNAPSHOT_ENABLED=true (writes to shared Trino; opt-in per env).
+      startSegmentMembershipSnapshotCron();
     }
     // Phase 2: SQLite anomaly detector — gated by ANOMALY_DETECTOR_ENABLED=true
     startAnomalyDetector((msg) => app.log.warn(msg));

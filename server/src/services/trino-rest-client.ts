@@ -6,8 +6,12 @@
  * thin-fetch style (`cube-client.ts`), and the security surface is identical —
  * the host is always server-owned (from a `Connector`), never client-supplied.
  *
- * Protocol (read-only by construction — this module only ever issues the
- * statements the profiler hands it; it exposes no DDL/DML path):
+ * The transport is statement-agnostic: it issues whatever SQL a caller hands
+ * it (SELECT for the profiler; DDL/DML for the lakehouse snapshot writer). The
+ * security surface is unchanged either way — the host is always server-owned
+ * (from a `Connector`), never client-supplied.
+ *
+ * Protocol:
  *   POST {scheme}://{host}:{port}/v1/statement  body = SQL text
  *   → { id, nextUri?, columns?, data?, stats, error? }
  *   GET nextUri repeatedly until no nextUri; accumulate `data`.
@@ -86,17 +90,20 @@ async function trinoFetch(
 }
 
 /**
- * Execute one read-only SQL statement and return all rows. The connector's
- * default schema is `c.catalog` + `schema`; fully-qualified table names in the
- * SQL override it. Bounded by `PROFILER_CAPS.statementTimeoutMs`.
+ * Execute one SQL statement and return all rows (empty for DDL/DML). The
+ * connector's session is `c.catalog` + `schema`; fully-qualified table names in
+ * the SQL override it. Bounded by `timeoutMs` — defaults to the profiler cap,
+ * but write callers (cross-catalog INSERT over a full cohort) pass a larger
+ * bound since those scans run well past 20s.
  */
 export async function runQuery(
   c: Connector,
   schema: string,
   sql: string,
+  timeoutMs: number = PROFILER_CAPS.statementTimeoutMs,
 ): Promise<TrinoResult> {
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), PROFILER_CAPS.statementTimeoutMs);
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
   let columns: TrinoColumn[] = [];
   const rows: unknown[][] = [];
   let lastNextUri: string | null = null;
@@ -127,7 +134,7 @@ export async function runQuery(
       void fetch(lastNextUri, { method: 'DELETE', headers: authHeader(c) }).catch(() => undefined);
     }
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`Trino statement timed out after ${PROFILER_CAPS.statementTimeoutMs / 1000}s`);
+      throw new Error(`Trino statement timed out after ${timeoutMs / 1000}s`);
     }
     throw err instanceof Error ? new Error(redact(err.message, c)) : err;
   } finally {

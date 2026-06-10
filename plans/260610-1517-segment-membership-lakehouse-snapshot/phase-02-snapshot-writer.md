@@ -60,9 +60,11 @@ partition instead (decided in Phase 01 smoke test).
 - `inlineParams` must escape single quotes + type-cast; add a unit test with adversarial values.
 - Trino write creds in env/Vault only — never in code or SQLite. Reuse the prod Vault path pattern.
 
-## Open questions
-- Exact Trino coordinator endpoint + catalog name for `stag_iceberg` and for `game_integration`
-  (session default). → needs the connection details from Phase 01.
+## Connection (RESOLVED)
+- Trino coordinator endpoint + catalogs + creds come from **`cube-dev/.env`**. Load via the
+  server's env loader; do not hardcode. Confirm the exact var names by reading `cube-dev/.env`
+  during Phase 01/02 (e.g. `CUBEJS_DB_HOST`, `CUBEJS_DB_PORT`, `CUBEJS_DB_USER`,
+  `CUBEJS_DB_PASS`, plus the Trino catalog Cube targets for `game_integration`).
 
 ## Next
 Phase 03 diffs consecutive snapshots into the delta table.

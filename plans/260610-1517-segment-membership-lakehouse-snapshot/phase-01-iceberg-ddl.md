@@ -17,8 +17,8 @@ segment_id      VARCHAR
 uid             VARCHAR     -- the segment's identity dimension value
 -- v1 stores identity only; attrs are a cheap columnar add later (YAGNI now)
 ```
-Iceberg props: `partitioning = ARRAY['snapshot_date','game_id']`,
-`sorted_by = ARRAY['segment_id','uid']`, `format = 'PARQUET'`.
+Iceberg props: `partitioning = ARRAY['snapshot_date','game_id','segment_id']`,
+`sorted_by = ARRAY['uid']`, `format = 'PARQUET'`.
 
 ### `stag_iceberg.khoitn.segment_membership_delta`
 Day-over-day change feed for downstream consumers.
@@ -29,18 +29,19 @@ segment_id      VARCHAR
 uid             VARCHAR
 change          VARCHAR     -- 'entered' | 'exited'
 ```
-Partition `['snapshot_date','game_id']`.
+Partition `['snapshot_date','game_id','segment_id']`.
 
-## Decision: partition grain (Open Q1)
-Default: partition by `(snapshot_date, game_id)`, **sort** by `segment_id` — gives partition
-pruning by day+game and column-stat skipping by segment without exploding file count.
-Add `segment_id` to the partition spec ONLY if total segment count stays bounded (<~few hundred)
-AND point-by-segment reads dominate. Confirm segment cardinality before deviating.
+## Decision: partition grain (RESOLVED)
+Partition by **`(snapshot_date, game_id, segment_id)`**, sort by `uid`. The app targets
+100s of segments per game and point-by-segment reads dominate, so segment_id in the partition
+spec gives direct pruning to a single cohort slice. Daily write per `(date,game,segment)` is
+one partition → one file group, so small-file risk is bounded by the per-day-per-segment cohort,
+not fragmented across the table.
 
 ## Implementation steps
-1. Confirm a **write-capable Trino connection** to `stag_iceberg` (Open Q2): host/catalog/creds,
-   separate from the Cube read proxy. Capture how the app will issue statements (existing Trino
-   client in `server/src`? or add one — check `connectors` table / any `trino`/`presto` client).
+1. Trino write connection (RESOLVED): creds live in **`cube-dev/.env`** — read host/port/user/
+   password/catalog from there for the write client. No new provisioning. Capture how the app
+   issues statements (no existing `trino`/`presto` client in `server/src` → Phase 02 adds one).
 2. Author DDL as idempotent `CREATE TABLE IF NOT EXISTS` (run via the write connection, or by hand
    in Trino UI for the first cut). Keep DDL text in `server/src/lakehouse/segment-membership-ddl.sql`
    (or inline constant) so it's version-tracked.

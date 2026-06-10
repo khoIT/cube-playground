@@ -36,6 +36,11 @@ export const GAME_SCHEMA: Record<string, string> = {
   pubg: 'pubgm',
 };
 
+// Shared alias canonicalizer (single source of truth). Imported for local use
+// in schemaForGame and re-exported so existing importers keep working.
+import { GAME_ALIASES, canonicalGameId } from './game-aliases.js';
+export { GAME_ALIASES, canonicalGameId };
+
 // Bounded-cost guards — every profiling query is capped by these.
 export const PROFILER_CAPS = {
   /** Skip profiling tables wider than this (cost guard). */
@@ -235,9 +240,10 @@ export function getConnector(id?: string | null): Connector | null {
   return list.find((c) => c.id === id) ?? null;
 }
 
-/** Resolve the Trino schema for a game under a connector's catalog. */
+/** Resolve the Trino schema for a game under a connector's catalog. Accepts
+ *  canonical keys and country-suffixed aliases (`cfm_vn` → `cfm` → `cfm_vn`). */
 export function schemaForGame(game: string): string | null {
-  return GAME_SCHEMA[game] ?? null;
+  return GAME_SCHEMA[canonicalGameId(game)] ?? null;
 }
 
 /** Test-only cache reset. */
