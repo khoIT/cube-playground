@@ -5,6 +5,15 @@
  * the existing row and only writes when something actually changed. That
  * means git diffs on the snapshot file stay quiet when Cube returns the
  * same numbers — important for keeping the demo snapshot stable.
+ *
+ * Last-good preservation: a failed refresh (status='error', empty rows) must
+ * NOT wipe a value that was previously computed successfully. A transient Cube
+ * timeout or a not-yet-built pre-aggregation would otherwise destroy the cohort's
+ * last-good cards, leaving the UI to fall back to a doomed live query. So when an
+ * incoming error would overwrite an existing 'ok' entry, we keep the prior rows
+ * and their fetched_at (the data's real age), keep status='ok' so the card still
+ * renders its last-good value, and only stamp the latest failure into `error` for
+ * diagnostics. The good value survives until a fresh success replaces it.
  */
 
 import { createHash } from 'node:crypto';
@@ -44,7 +53,7 @@ export function upsertCardCache(
   const now = new Date().toISOString();
 
   const select = db.prepare(
-    'SELECT query_hash, rows_json, status, error FROM segment_card_cache WHERE segment_id = ? AND card_id = ?',
+    'SELECT query_hash, rows_json, fetched_at, status, error FROM segment_card_cache WHERE segment_id = ? AND card_id = ?',
   );
   const upsert = db.prepare(`
     INSERT INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at, status, error)
@@ -72,27 +81,60 @@ export function upsertCardCache(
       }
     }
     for (const entry of rows) {
-      const rowsJson = JSON.stringify(entry.rows);
-      const rowsHash = hashRows(entry.rows);
-      const status = entry.status ?? 'ok';
-      const error = entry.error ?? null;
+      const incomingStatus = entry.status ?? 'ok';
+      const incomingError = entry.error ?? null;
       const existing = select.get(segmentId, entry.cardId) as
-        | { query_hash: string; rows_json: string; status: string; error: string | null }
+        | { query_hash: string; rows_json: string; fetched_at: string; status: string; error: string | null }
         | undefined;
+
+      // Preserve last-good rows when a failed refresh would clobber a prior
+      // success: keep the existing rows + query_hash + fetched_at, hold
+      // status at 'ok' so the card still renders, and record only the latest
+      // failure message. Otherwise write the incoming entry as-is (a success
+      // always lands with a fresh fetched_at; an error with no prior good
+      // value persists as the error entry it is).
+      const preserveGood =
+        incomingStatus === 'error' && existing != null && existing.status === 'ok';
+
+      const toWrite = preserveGood
+        ? {
+            queryHash: existing!.query_hash,
+            rowsJson: existing!.rows_json,
+            fetchedAt: existing!.fetched_at,
+            status: 'ok',
+            error: incomingError,
+          }
+        : {
+            queryHash: entry.queryHash,
+            rowsJson: JSON.stringify(entry.rows),
+            fetchedAt: now,
+            status: incomingStatus,
+            error: incomingError,
+          };
+
       if (existing) {
         const existingHash = hashRows(JSON.parse(existing.rows_json));
+        const toWriteHash = hashRows(JSON.parse(toWrite.rowsJson));
         // Skip the write only when EVERYTHING is unchanged — including status,
         // so a card flipping ok↔error (or its message) always lands.
         if (
-          existing.query_hash === entry.queryHash &&
-          existingHash === rowsHash &&
-          existing.status === status &&
-          (existing.error ?? null) === error
+          existing.query_hash === toWrite.queryHash &&
+          existingHash === toWriteHash &&
+          existing.status === toWrite.status &&
+          (existing.error ?? null) === toWrite.error
         ) {
           continue; // no-op — nothing to write
         }
       }
-      upsert.run(segmentId, entry.cardId, entry.queryHash, rowsJson, now, status, error);
+      upsert.run(
+        segmentId,
+        entry.cardId,
+        toWrite.queryHash,
+        toWrite.rowsJson,
+        toWrite.fetchedAt,
+        toWrite.status,
+        toWrite.error,
+      );
     }
   });
 

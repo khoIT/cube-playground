@@ -9,6 +9,7 @@
 
 import { getDb } from '../db/sqlite.js';
 import { enqueueRefresh } from './refresh-queue.js';
+import { reconcileOrphanedRefreshing } from '../services/segment-status.js';
 import { pruneRefreshLog, DEFAULT_PRUNE_INTERVAL_MS } from './refresh-log-retention.js';
 import { maybeRunAnomalyDetector } from './anomaly-detector.js';
 import { maybeRunMember360Precompute } from '../services/member360-precompute-scheduler.js';
@@ -90,6 +91,20 @@ let interval: ReturnType<typeof setInterval> | null = null;
 
 export function startCron(): void {
   if (interval) return;
+  // Recover segments orphaned mid-refresh by a previous process: the queue is
+  // in-memory, so any 'refreshing' row at boot is wedged and would otherwise be
+  // skipped by listDueSegments() forever. Reset to 'stale' so the first tick
+  // below re-enqueues them.
+  try {
+    const reset = reconcileOrphanedRefreshing();
+    if (reset > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[cron] reconciled ${reset} orphaned 'refreshing' segment(s) → 'stale'`);
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[cron] orphan reconciliation failed:', (err as Error).message);
+  }
   // Fire one tick immediately so a freshly-created live segment doesn't wait 60s.
   void tick().catch(() => {});
   interval = setInterval(() => {

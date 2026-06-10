@@ -26,17 +26,25 @@ export interface WorkspaceCtx {
 // the hang into every route that calls into Cube — most visibly the metric
 // detail page, which 'Loading…'s indefinitely. 15s is enough for legit
 // /meta + /sql calls (well under Cube's own slow-query window) but bounds
-// the worst case.
+// the worst case. This is the DEFAULT; batch callers that legitimately need
+// longer (e.g. the card precompute polling Cube's 25s continue-wait window
+// against a cold cohort) pass an explicit larger timeout — capping every
+// caller at 15s silently aborts heavy precompute queries before Cube can
+// even respond, so they never complete and never cache.
 const CUBE_FETCH_TIMEOUT_MS = 15_000;
 
-async function cubeFetch(url: string, init: RequestInit): Promise<Response> {
+async function cubeFetch(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number = CUBE_FETCH_TIMEOUT_MS,
+): Promise<Response> {
   const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), CUBE_FETCH_TIMEOUT_MS);
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: ctl.signal });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`Cube request timed out after ${CUBE_FETCH_TIMEOUT_MS / 1000}s: ${url}`);
+      throw new Error(`Cube request timed out after ${Math.round(timeoutMs / 1000)}s: ${url}`);
     }
     throw err;
   } finally {
@@ -79,6 +87,7 @@ async function cubePost(
   body: unknown,
   tokenOverride?: string | null,
   ctx?: WorkspaceCtx,
+  timeoutMs?: number,
 ): Promise<unknown> {
   const token = resolveTokenForCall(tokenOverride, ctx);
   const url = `${resolveBaseForCall(ctx)}/cubejs-api/v1${path}`;
@@ -86,7 +95,7 @@ async function cubePost(
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify(body),
-  });
+  }, timeoutMs);
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`Cube ${path} → ${res.status}: ${text}`);
@@ -129,12 +138,15 @@ export async function getMetaWithCtx(ctx: WorkspaceCtx): Promise<unknown> {
   return cubeGet('/meta', undefined, ctx);
 }
 
-/** Execute a Cube query (/load). */
+/** Execute a Cube query (/load). `timeoutMs` overrides the default 15s fetch
+ *  abort for batch callers that poll Cube's continue-wait window (see
+ *  loadWithContinueWait); omit it for interactive callers. */
 export async function load(
   query: unknown,
   tokenOverride?: string | null,
+  timeoutMs?: number,
 ): Promise<unknown> {
-  return cubePost('/load', { query }, tokenOverride);
+  return cubePost('/load', { query }, tokenOverride, undefined, timeoutMs);
 }
 
 /** Workspace-aware /load. */

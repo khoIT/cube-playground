@@ -2,7 +2,7 @@
 
 Core architectural patterns and data flows across cube-playground. Updated as major systems ship.
 
-The first section is the **top-level overview** — the runtime tiers and how they talk. Everything after it documents a single feature subsystem in depth. For a file-by-file map of where code lives, see [`codebase-summary.md`](./codebase-summary.md); this doc owns runtime topology and request flows, that one owns the file layout.
+The first section is the **top-level overview** — the runtime tiers and how they talk. Everything after it documents a single feature subsystem in depth. For a file-by-file map of where code lives, see [`codebase-summary.md`](./codebase-summary.md); this doc owns runtime topology and request flows, that one owns the file layout. For a deep dive into the proxy/port topology (why `:4000` vs `:3004`, the Vite proxy routing) and every path by which the app reaches Trino, see [`query-paths-and-service-topology.md`](./query-paths-and-service-topology.md).
 
 ## System Overview
 

@@ -22,19 +22,23 @@ export async function loadWithContinueWait(
 ): Promise<unknown> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
+    // Give each fetch the remaining budget rather than the default 15s cap —
+    // otherwise a single heavy live query (cold cohort scan inside Cube's 25s
+    // continue-wait window) is aborted client-side before Cube can respond,
+    // and the whole budget is wasted on a guaranteed timeout.
+    const remaining = deadline - Date.now();
     try {
-      return await cubeClient.load(query, tokenOverride);
+      return await cubeClient.load(query, tokenOverride, Math.max(1, remaining));
     } catch (err) {
       const msg = (err as Error).message;
       if (!CONTINUE_WAIT_RE.test(msg)) throw err;
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) {
+      if (Date.now() >= deadline) {
         throw new Error(
           `${msg} — pre-aggregation still warming after ${timeoutMs}ms`,
         );
       }
       await new Promise((r) =>
-        setTimeout(r, Math.min(CONTINUE_WAIT_POLL_MS, remaining)),
+        setTimeout(r, Math.min(CONTINUE_WAIT_POLL_MS, deadline - Date.now())),
       );
     }
   }
