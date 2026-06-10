@@ -18,6 +18,7 @@
 import React, { useState } from 'react';
 import { Database } from 'lucide-react';
 import { usePreaggRuns, useSweepDetail, useServeabilityNow } from './preagg-runs-data';
+import type { ServeabilityNow } from './preagg-runs-data';
 import { SweepRow } from './preagg-runs-sweep-row';
 import type { PreaggSweepItem } from '../../../types/preagg-run';
 
@@ -43,9 +44,12 @@ const eyebrow: React.CSSProperties = {
 // Serveability-now strip
 // ---------------------------------------------------------------------------
 
-function ServeabilityStrip() {
-  const { data, loading, error } = useServeabilityNow();
-
+function ServeabilityStrip({ data, loading, error, gameFilter }: {
+  data: ServeabilityNow | null;
+  loading: boolean;
+  error: string | null;
+  gameFilter: string | null;
+}) {
   if (error) {
     return (
       <div style={{ ...card, padding: '12px 16px', marginBottom: 12, color: 'var(--destructive-ink)', background: 'var(--destructive-soft)', fontSize: 12 }}>
@@ -63,12 +67,14 @@ function ServeabilityStrip() {
     );
   }
 
-  const s = data?.summary;
-  const built = s?.built ?? 0;
-  const unbuilt = s?.unbuilt ?? 0;
-  const errored = s?.errored ?? 0;
-  const total = s?.totalRollups ?? 0;
-  const games = s?.gamesCount ?? 0;
+  // When a game filter is active, scope the now-strip to that game's per-game
+  // probe counts; otherwise show the cross-game totals.
+  const g = gameFilter ? data?.games.find((x) => x.id === gameFilter) ?? null : null;
+  const built = g ? g.built : data?.summary.built ?? 0;
+  const unbuilt = g ? g.unbuilt : data?.summary.unbuilt ?? 0;
+  const errored = g ? g.errored : data?.summary.errored ?? 0;
+  const total = g ? g.built + g.unbuilt + g.errored : data?.summary.totalRollups ?? 0;
+  const games = gameFilter ? 1 : data?.summary.gamesCount ?? 0;
   // Serveability "stale" count comes from the most recent sweep (staleCount on
   // the sweep row) rather than the probe, which doesn't distinguish stale vs failed.
   // For the now-strip, we show probe-level counts (built vs unbuilt/errored).
@@ -110,7 +116,9 @@ function ServeabilityStrip() {
       <Pill variant="unb"  label={`${unbuilt} never built`} />
 
       <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--text-muted)' }}>
-        across {games} games · {total} rollups
+        {gameFilter
+          ? <><strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{gameFilter}</strong> · {total} rollups</>
+          : <>across {games} games · {total} rollups</>}
         {' · '}
         <span style={{ fontStyle: 'italic' }}>failures attributed at rollup level; serveability is per-game</span>
       </span>
@@ -280,8 +288,13 @@ function fmtDuration(ms: number | null): string {
 
 export function PreaggRunsTab() {
   const { sweeps, loading, error } = usePreaggRuns(30);
+  const { data: serveability, loading: serveLoading, error: serveError } = useServeabilityNow();
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [gameFilter, setGameFilter] = useState<string | null>(null);
   const { sweep: detailSweep, items: detailItems } = useSweepDetail(expandedId);
+
+  // Game options for the filter — sourced from the live probe (id + label).
+  const gameOptions = serveability?.games ?? [];
 
   // Build a map so each expanded sweep gets its items from the detail hook
   const itemsForSweep = (id: number): PreaggSweepItem[] | null => {
@@ -336,7 +349,12 @@ export function PreaggRunsTab() {
       </header>
 
       {/* Serveability now */}
-      <ServeabilityStrip />
+      <ServeabilityStrip
+        data={serveability}
+        loading={serveLoading}
+        error={serveError}
+        gameFilter={gameFilter}
+      />
 
       {/* Stale banner — only when latest sweep has stale items */}
       {latest && latest.staleCount > 0 && (
@@ -390,6 +408,29 @@ export function PreaggRunsTab() {
         >
           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Sweep history</span>
           <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>last 30 days · 1 row per hourly sweep</span>
+
+          {/* Game filter — scopes the now-strip + expanded detail rows. */}
+          <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--text-muted)' }}>
+            Game
+            <select
+              value={gameFilter ?? ''}
+              onChange={(e) => setGameFilter(e.target.value || null)}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 12,
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-card)',
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <option value="">All games</option>
+              {gameOptions.map((g) => (
+                <option key={g.id} value={g.id}>{g.id} · {g.label}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {loading && sweeps.length === 0 ? (
@@ -407,6 +448,7 @@ export function PreaggRunsTab() {
               items={itemsForSweep(sweep.id)}
               expanded={expandedId === sweep.id}
               onToggle={() => setExpandedId(expandedId === sweep.id ? null : sweep.id)}
+              gameFilter={gameFilter}
             />
           ))
         )}

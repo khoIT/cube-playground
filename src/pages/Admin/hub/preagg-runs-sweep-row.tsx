@@ -158,16 +158,29 @@ const GROUP_LABEL: Record<Outcome, string> = {
 // Expanded detail panel
 // ---------------------------------------------------------------------------
 
-function DetailPanel({ items }: { items: PreaggSweepItem[] }) {
+// Shared 4-column track: game · cube/rollup · outcome · detail.
+const ITEM_GRID = '96px minmax(180px, 1.4fr) 124px 2fr';
+
+function DetailPanel({ items, gameFilter }: { items: PreaggSweepItem[]; gameFilter: string | null }) {
+  const visible = gameFilter ? items.filter((i) => i.game === gameFilter) : items;
+
   const grouped = OUTCOME_ORDER.reduce<Record<Outcome, PreaggSweepItem[]>>(
     (acc, o) => ({ ...acc, [o]: [] }),
     {} as Record<Outcome, PreaggSweepItem[]>,
   );
-  for (const item of items) {
+  for (const item of visible) {
     grouped[item.outcome as Outcome]?.push(item);
   }
 
   const nonEmpty = OUTCOME_ORDER.filter((o) => grouped[o].length > 0);
+
+  if (visible.length === 0) {
+    return (
+      <div style={{ padding: '12px 16px', background: 'var(--bg-muted)', borderTop: '1px solid var(--border-card)', fontSize: 12, color: 'var(--text-muted)' }}>
+        No rollups for <strong style={{ fontFamily: 'var(--font-mono)' }}>{gameFilter}</strong> in this sweep.
+      </div>
+    );
+  }
 
   return (
     <div
@@ -177,6 +190,25 @@ function DetailPanel({ items }: { items: PreaggSweepItem[] }) {
         borderTop: '1px solid var(--border-card)',
       }}
     >
+      {/* Column header */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: ITEM_GRID,
+          gap: 12,
+          padding: '6px 0 2px',
+          fontSize: 10,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+          color: 'var(--text-muted)',
+        }}
+      >
+        <span>Game</span>
+        <span>Cube · rollup</span>
+        <span>Status</span>
+        <span>Detail</span>
+      </div>
       {nonEmpty.map((outcome) => (
         <div key={outcome}>
           <div
@@ -198,24 +230,34 @@ function DetailPanel({ items }: { items: PreaggSweepItem[] }) {
               key={item.id}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '230px 130px 1fr',
+                gridTemplateColumns: ITEM_GRID,
                 alignItems: 'center',
                 gap: 12,
                 padding: '8px 0',
                 borderBottom: '1px dashed var(--neutral-200)',
               }}
             >
-              {/* Cube + rollup identifier */}
+              {/* Game — its own column. The id maps to the cube-dev model folder
+                  cubes/<game>/, so it's the handle for jumping to the YAML. */}
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--brand)',
+                }}
+              >
+                {item.game ?? '—'}
+              </span>
+
+              {/* Cube + rollup */}
               <div>
-                <div
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)' }}
-                >
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)' }}>
                   {item.cube ?? '—'}
                 </div>
                 {item.rollup && (
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
                     {item.rollup}
-                    {item.game ? ` · ${item.game}` : ''}
                   </div>
                 )}
               </div>
@@ -266,9 +308,10 @@ interface SweepRowProps {
   items: PreaggSweepItem[] | null; // null = not yet loaded
   expanded: boolean;
   onToggle: () => void;
+  gameFilter: string | null; // null = all games
 }
 
-export function SweepRow({ sweep, items, expanded, onToggle }: SweepRowProps) {
+export function SweepRow({ sweep, items, expanded, onToggle, gameFilter }: SweepRowProps) {
   return (
     <div style={{ borderBottom: '1px solid var(--border-card)' }}>
       {/* Collapsed header row */}
@@ -341,7 +384,7 @@ export function SweepRow({ sweep, items, expanded, onToggle }: SweepRowProps) {
       </div>
 
       {/* Expanded detail */}
-      {expanded && items && <DetailPanel items={items} />}
+      {expanded && items && <DetailPanel items={items} gameFilter={gameFilter} />}
       {expanded && !items && (
         <div
           style={{
