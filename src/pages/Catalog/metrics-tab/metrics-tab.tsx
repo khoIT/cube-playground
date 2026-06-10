@@ -105,7 +105,7 @@ export function MetricsTab() {
     return out;
   }, [cubes]);
 
-  const result = useFilteredMetrics(metrics, filters, query, availableCubeNames);
+  const result = useFilteredMetrics(metrics, filters, query, availableCubeNames, gameId ?? undefined);
 
   const activeGameLabel = games.find((g) => g.id === gameId)?.name ?? gameId;
 
@@ -167,12 +167,14 @@ export function MetricsTab() {
               {!collapsed && (
                 viewMode === 'grid' ? (
                   <Grid role="list">
-                    {items.map(({ metric, available, missingCubes }) => (
+                    {items.map(({ metric, available, missingCubes, cold, blockedByApplicability }) => (
                       <MetricCard
                         key={metric.id}
                         metric={metric}
                         disabled={!available}
                         missingCubes={missingCubes}
+                        cold={cold}
+                        blockedByApplicability={blockedByApplicability}
                         activeGameLabel={activeGameLabel}
                         onAnomalyClick={setAnomalyMetric}
                       />
@@ -180,11 +182,12 @@ export function MetricsTab() {
                   </Grid>
                 ) : (
                   <List role="list">
-                    {items.map(({ metric, available }) => (
+                    {items.map(({ metric, available, cold }) => (
                       <MetricListRow
                         key={metric.id}
                         metric={metric}
                         disabled={!available}
+                        cold={cold}
                       />
                     ))}
                   </List>

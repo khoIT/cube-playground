@@ -14,6 +14,19 @@
  */
 
 import type { StarterQuestion } from '../db/starter-questions-store.js';
+import {
+  LTV_FIELDS,
+  REVENUE_FIELDS,
+  ECONOMY_SPEND_FIELDS,
+  ECONOMY_DELTA_FIELDS,
+  ECONOMY_SPENDER_FIELDS,
+  GACHA_PULL_FIELDS,
+  GACHA_DIAMOND_FIELDS,
+  TUTORIAL_RATE_FIELDS,
+  TUTORIAL_COMPLETED_FIELDS,
+  TUTORIAL_STARTED_FIELDS,
+  PAYING_RETENTION_FIELDS,
+} from './starter-question-template-fields.js';
 
 interface MemberEntry {
   /** Full member ref, e.g. `cfm_mf_users.payer_tier`. */
@@ -69,8 +82,6 @@ class MemberIndex {
 
 /** A template fires (returns a question) only when its members resolve. */
 type Template = (idx: MemberIndex) => StarterQuestion | null;
-
-const LTV_FIELDS = ['ltv_total_vnd', 'ltv_vnd', 'total_recharge_vnd', 'revenue_vnd'];
 
 /**
  * Priority-ordered catalogue. Segment-arriving questions (win-back, churn,
@@ -168,6 +179,68 @@ const TEMPLATES: Template[] = [
     if (!npu) return null;
     return q('new-payer-velocity', 'What share of new users convert to payers within 7 days?',
       ['monetization', 'user_acquisition'], ['metric_explain', 'explore'], [npu]);
+  },
+  // ---- Revenue (fast path via user_recharge_daily) ----
+  (idx) => {
+    const rev = idx.anyField(REVENUE_FIELDS, 'measure');
+    if (!rev) return null;
+    return q('revenue-trend-30d', 'How has revenue trended over the last 30 days?',
+      ['monetization'], ['explore', 'metric_explain'], [rev]);
+  },
+  // ---- Paying-user retention (new_user_retention fast rollup) ----
+  (idx) => {
+    const rp = idx.anyField(PAYING_RETENTION_FIELDS, 'measure');
+    if (!rp) return null;
+    return q('paying-retention-trend', 'How has paying-user D7 retention changed across monthly cohorts?',
+      ['user_acquisition', 'monetization'], ['metric_explain', 'explore'], [rp]);
+  },
+  // ---- Economy / diamond flow (etl_money_flow) ----
+  (idx) => {
+    const spendEvents = idx.anyField(ECONOMY_SPEND_FIELDS, 'measure');
+    if (!spendEvents) return null;
+    return q('diamond-spend-daily', 'Daily diamond spend events over the last 14 days',
+      ['liveops'], ['explore', 'metric_explain'], [spendEvents]);
+  },
+  (idx) => {
+    const delta = idx.anyField(ECONOMY_DELTA_FIELDS, 'measure');
+    if (!delta) return null;
+    return q('diamond-net-delta-trend', 'Is diamond net delta trending positive or negative this week?',
+      ['liveops'], ['explore', 'diagnose'], [delta]);
+  },
+  (idx) => {
+    const spenders = idx.anyField(ECONOMY_SPENDER_FIELDS, 'measure');
+    // Only fire when the cube is an economy cube (avoid hitting mf_users.distinct_players).
+    const hit = idx.anyField(ECONOMY_SPEND_FIELDS, 'measure');
+    if (!spenders || !hit) return null;
+    return q('economy-spenders-count', 'How many unique economy spenders per day this month?',
+      ['liveops', 'monetization'], ['explore', 'metric_explain'], [spenders]);
+  },
+  // ---- Gacha / lottery pulls (etl_lottery_shoot) ----
+  (idx) => {
+    const pulls = idx.anyField(GACHA_PULL_FIELDS, 'measure');
+    if (!pulls) return null;
+    return q('gacha-pulls-trend', 'How many gacha pulls per day over the last 30 days?',
+      ['liveops'], ['explore', 'metric_explain'], [pulls]);
+  },
+  (idx) => {
+    const diamondCost = idx.anyField(GACHA_DIAMOND_FIELDS, 'measure');
+    if (!diamondCost) return null;
+    return q('gacha-diamond-cost-by-banner', 'Rank every gacha banner by total diamond spend this month',
+      ['liveops', 'monetization'], ['compare', 'explore'], [diamondCost]);
+  },
+  // ---- Tutorial / onboarding funnel (etl_newbie_tutorial) ----
+  (idx) => {
+    const rate = idx.anyField(TUTORIAL_RATE_FIELDS, 'measure');
+    if (!rate) return null;
+    return q('tutorial-completion-rate', 'What is the tutorial completion rate this month?',
+      ['user_acquisition'], ['metric_explain', 'explore'], [rate]);
+  },
+  (idx) => {
+    const completed = idx.anyField(TUTORIAL_COMPLETED_FIELDS, 'measure');
+    const started = idx.anyField(TUTORIAL_STARTED_FIELDS, 'measure');
+    if (!completed || !started || completed === started) return null;
+    return q('tutorial-starters-vs-completions', 'Compare tutorial starters vs completions over the last 14 days',
+      ['user_acquisition'], ['compare', 'diagnose'], [started, completed]);
   },
 ];
 

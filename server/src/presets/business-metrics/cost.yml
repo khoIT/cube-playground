@@ -10,8 +10,8 @@ owner: marketing-ops@vng
 trust: certified
 formula:
   type: measure
-  ref: mf_users.marketing_cost
+  ref: game_key_metrics.cost_vnd
 unit: USD
 format: currency
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

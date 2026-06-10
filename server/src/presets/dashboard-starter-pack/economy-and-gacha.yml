@@ -1,0 +1,44 @@
+slug: economy-and-gacha
+title: Economy & Gacha
+description: Diamond flow, gacha pulls, and economy spender trends — served from pre-aggregated rollups.
+applies_when:
+  required_cubes: [etl_money_flow, etl_lottery_shoot]
+tiles:
+  - title: Diamond spend events (30d)
+    viz_type: line
+    position: { x: 0, y: 0, w: 6, h: 3 }
+    query:
+      measures: [etl_money_flow.out_events]
+      timeDimensions:
+        - dimension: etl_money_flow.log_date
+          granularity: day
+          dateRange: last 30 days
+  - title: Diamond net delta (30d)
+    viz_type: bar
+    position: { x: 6, y: 0, w: 6, h: 3 }
+    query:
+      measures: [etl_money_flow.total_delta]
+      segments: [etl_money_flow.diamond_only]
+      timeDimensions:
+        - dimension: etl_money_flow.log_date
+          granularity: day
+          dateRange: last 30 days
+  - title: Economy spenders (14d)
+    viz_type: kpi
+    position: { x: 0, y: 3, w: 4, h: 2 }
+    query:
+      measures: [etl_money_flow.distinct_players]
+      timeDimensions:
+        - dimension: etl_money_flow.log_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev
+  - title: Gacha pulls (30d)
+    viz_type: line
+    position: { x: 4, y: 3, w: 8, h: 2 }
+    query:
+      measures: [etl_lottery_shoot.pulls]
+      timeDimensions:
+        - dimension: etl_lottery_shoot.log_date
+          granularity: day
+          dateRange: last 30 days

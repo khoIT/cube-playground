@@ -1,0 +1,1053 @@
+{
+  "capturedAt": "2026-06-10T09:29:16.119Z",
+  "gameId": "cfm_vn",
+  "workspace": "local",
+  "chatBase": "http://localhost:3005",
+  "corpusVersion": "2026-06-10T08:30:00.000Z",
+  "results": [
+    {
+      "caseId": "revenue-basic",
+      "question": "show revenue last 7 days",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "recharge",
+      "emittedQueries": [
+        {
+          "measures": [
+            "recharge.revenue_vnd_real"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "recharge.recharge_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-06-04",
+                "2026-06-10"
+              ]
+            }
+          ],
+          "segments": [
+            "recharge.real_users_only"
+          ]
+        }
+      ],
+      "sessionId": "1d51cf3e-459d-472c-a57c-4222aa8ddd2a",
+      "capturedAt": "2026-06-10T08:40:40.825Z"
+    },
+    {
+      "caseId": "gross-bookings-basic",
+      "question": "show gross bookings last 7 days",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "50df5fe5-99bb-4c2f-a1dc-b9c59b522a0b",
+      "capturedAt": "2026-06-10T08:40:54.404Z"
+    },
+    {
+      "caseId": "revenue-vi",
+      "question": "doanh thu 7 ngày qua",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "recharge",
+      "emittedQueries": [
+        {
+          "measures": [
+            "recharge.revenue_vnd_real"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "recharge.recharge_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-06-04",
+                "2026-06-10"
+              ]
+            }
+          ],
+          "segments": [
+            "recharge.real_users_only"
+          ]
+        }
+      ],
+      "sessionId": "42395f0b-ba75-47b5-9520-5007b44c207d",
+      "capturedAt": "2026-06-10T08:42:08.942Z"
+    },
+    {
+      "caseId": "revenue-cube-ref",
+      "question": "recharge.revenue_vnd last month",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "recharge",
+      "emittedQueries": [
+        {
+          "measures": [
+            "recharge.revenue_vnd"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "recharge.recharge_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-05-01",
+                "2026-05-31"
+              ]
+            }
+          ],
+          "segments": [
+            "recharge.real_users_only"
+          ]
+        }
+      ],
+      "sessionId": "7293d848-24a3-4a6d-85ec-20f17710dffe",
+      "capturedAt": "2026-06-10T08:43:33.691Z"
+    },
+    {
+      "caseId": "paying-users-window",
+      "question": "paying users this month",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__resolve_query_terms",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": "paying_users",
+      "resolvedCube": "user_recharge_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "user_recharge_daily.paying_users"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "user_recharge_daily.log_date",
+              "dateRange": [
+                "2026-06-01",
+                "2026-06-10"
+              ]
+            }
+          ]
+        }
+      ],
+      "sessionId": "7b808907-1f3d-4b9d-8f1e-efb8b2f8bbb8",
+      "capturedAt": "2026-06-10T08:45:33.652Z"
+    },
+    {
+      "caseId": "paying-users-30d",
+      "question": "paying users 30 day trailing",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "23eaf7af-a157-489b-a060-79484fac97c9",
+      "capturedAt": "2026-06-10T08:45:55.437Z"
+    },
+    {
+      "caseId": "payers-alias",
+      "question": "how many payers this week?",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__resolve_query_terms",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "user_recharge_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "user_recharge_daily.trailing_wpu"
+          ]
+        }
+      ],
+      "sessionId": "d3043f05-078d-4f5f-a9a0-2c70ed7b3bbb",
+      "capturedAt": "2026-06-10T08:48:53.674Z"
+    },
+    {
+      "caseId": "arpu-basic",
+      "question": "ARPU this month",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_business_metric",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "4abea0c6-1b0b-4765-956a-05446243219c",
+      "capturedAt": "2026-06-10T08:53:18.221Z"
+    },
+    {
+      "caseId": "arppu-basic",
+      "question": "ARPPU last quarter",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": "arppu",
+      "resolvedCube": "recharge",
+      "emittedQueries": [
+        {
+          "measures": [
+            "recharge.arppu_vnd",
+            "recharge.revenue_vnd_real",
+            "recharge.paying_users"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "recharge.recharge_date",
+              "granularity": "month",
+              "dateRange": [
+                "2026-01-01",
+                "2026-03-31"
+              ]
+            }
+          ],
+          "segments": [
+            "recharge.real_users_only"
+          ]
+        }
+      ],
+      "sessionId": "cf53ff72-8670-4318-bb69-e9be41e4a1a2",
+      "capturedAt": "2026-06-10T08:55:04.970Z"
+    },
+    {
+      "caseId": "arpdau-basic",
+      "question": "what is ARPDAU this month?",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__get_business_metric",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": "arpdau",
+      "resolvedCube": "user_recharge_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "user_recharge_daily.revenue_vnd_total",
+            "active_daily.dau"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "active_daily.log_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-06-01",
+                "2026-06-10"
+              ]
+            }
+          ],
+          "order": {
+            "active_daily.log_date": "asc"
+          }
+        }
+      ],
+      "sessionId": "16651d29-08fd-4f32-afa8-129bb7f2b528",
+      "capturedAt": "2026-06-10T08:57:04.118Z"
+    },
+    {
+      "caseId": "arpdau-vi",
+      "question": "arpdau tuần này",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact",
+        "mcp__cube-playground-tools__emit_chart"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": "arpdau",
+      "resolvedCube": "recharge",
+      "emittedQueries": [
+        {
+          "measures": [
+            "recharge.revenue_vnd_real"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "recharge.recharge_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-06-04",
+                "2026-06-10"
+              ]
+            }
+          ],
+          "segments": [
+            "recharge.real_users_only"
+          ]
+        }
+      ],
+      "sessionId": "8a0659e1-3c81-4e81-a17b-573529c14250",
+      "capturedAt": "2026-06-10T09:00:44.130Z"
+    },
+    {
+      "caseId": "arpdau-describe",
+      "question": "average revenue per daily active user last 30 days",
+      "status": "http-error",
+      "httpStatus": 408,
+      "toolCalls": [],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": null,
+      "capturedAt": "2026-06-10T09:05:14.170Z"
+    },
+    {
+      "caseId": "dau-trend",
+      "question": "How is DAU trending over the last 30 days?",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "active_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "active_daily.dau"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "active_daily.log_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-05-12",
+                "2026-06-10"
+              ]
+            }
+          ]
+        }
+      ],
+      "sessionId": "74f83262-9935-4105-b89f-d3f3e40650d4",
+      "capturedAt": "2026-06-10T09:06:22.612Z"
+    },
+    {
+      "caseId": "dau-vi",
+      "question": "DAU 7 ngày qua",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "active_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "active_daily.dau"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "active_daily.log_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-06-04",
+                "2026-06-10"
+              ]
+            }
+          ]
+        }
+      ],
+      "sessionId": "7119ed72-9443-4392-a350-e22c4cf77f5e",
+      "capturedAt": "2026-06-10T09:07:16.563Z"
+    },
+    {
+      "caseId": "mau-basic",
+      "question": "MAU in the last 3 months",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__resolve_query_terms",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__emit_query_artifact",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "active_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "active_daily.mau"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "active_daily.log_date",
+              "granularity": "month",
+              "dateRange": [
+                "2026-03-13",
+                "2026-06-10"
+              ]
+            }
+          ]
+        }
+      ],
+      "sessionId": "bb3a68f6-06c3-4a90-a4c5-02b8428cc437",
+      "capturedAt": "2026-06-10T09:08:42.547Z"
+    },
+    {
+      "caseId": "wau-basic",
+      "question": "weekly active users last 4 weeks",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__emit_query_artifact",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "active_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "active_daily.wau"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "active_daily.log_date",
+              "granularity": "week",
+              "dateRange": [
+                "2026-05-14",
+                "2026-06-10"
+              ]
+            }
+          ]
+        }
+      ],
+      "sessionId": "997828f1-d0a1-42df-98b1-bd4d16e8061a",
+      "capturedAt": "2026-06-10T09:09:45.024Z"
+    },
+    {
+      "caseId": "installs-basic",
+      "question": "installs this month by channel",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "c6877dc6-12b8-4037-9e9b-f306559d145f",
+      "capturedAt": "2026-06-10T09:10:00.701Z"
+    },
+    {
+      "caseId": "roas-basic",
+      "question": "top campaigns by ROAS this quarter",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "a48e3a92-df75-43f1-a212-e597f30f591c",
+      "capturedAt": "2026-06-10T09:10:18.083Z"
+    },
+    {
+      "caseId": "npu-basic",
+      "question": "NPU trend last 30 days",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "64d0732e-40e7-4f04-a3ec-c63dac89ea78",
+      "capturedAt": "2026-06-10T09:10:33.935Z"
+    },
+    {
+      "caseId": "ltv-cohort",
+      "question": "LTV by install-month cohort",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "edbedf70-5431-4c3c-b9c7-b9038f72bee4",
+      "capturedAt": "2026-06-10T09:11:05.713Z"
+    },
+    {
+      "caseId": "paying-rate",
+      "question": "paying rate this month",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "b193b782-bfc0-4cec-9555-d250b9d01c5d",
+      "capturedAt": "2026-06-10T09:11:28.315Z"
+    },
+    {
+      "caseId": "revenue-by-country",
+      "question": "revenue by country last month",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "user_recharge_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "user_recharge_daily.revenue_vnd_total"
+          ],
+          "dimensions": [
+            "user_recharge_daily.country_code"
+          ],
+          "filters": [
+            {
+              "member": "user_recharge_daily.log_month",
+              "operator": "equals",
+              "values": [
+                "2026-05"
+              ]
+            }
+          ],
+          "order": {
+            "user_recharge_daily.revenue_vnd_total": "desc"
+          },
+          "limit": 50
+        }
+      ],
+      "sessionId": "a642d615-5b67-4236-a44e-62f25ea5b408",
+      "capturedAt": "2026-06-10T09:13:40.422Z"
+    },
+    {
+      "caseId": "revenue-vs-bookings-ambiguous",
+      "question": "compare revenue and gross bookings last quarter",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": "revenue",
+      "resolvedCube": "recharge",
+      "emittedQueries": [
+        {
+          "measures": [
+            "recharge.revenue_vnd_real"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "recharge.recharge_date",
+              "granularity": "month",
+              "dateRange": [
+                "2026-01-01",
+                "2026-03-31"
+              ]
+            }
+          ],
+          "order": {
+            "recharge.recharge_date": "asc"
+          },
+          "segments": [
+            "recharge.real_users_only"
+          ]
+        }
+      ],
+      "sessionId": "db76aae3-8671-4c52-997d-594953fa4090",
+      "capturedAt": "2026-06-10T09:15:16.828Z"
+    },
+    {
+      "caseId": "spender-concept",
+      "question": "show top spenders this week",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__resolve_query_terms",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "recharge",
+      "emittedQueries": [
+        {
+          "measures": [
+            "recharge.revenue_vnd"
+          ],
+          "dimensions": [
+            "recharge.user_id"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "recharge.recharge_date",
+              "dateRange": [
+                "2026-06-04",
+                "2026-06-10"
+              ]
+            }
+          ],
+          "filters": [
+            {
+              "member": "recharge.revenue_vnd",
+              "operator": "gt",
+              "values": [
+                "0"
+              ]
+            }
+          ],
+          "order": {
+            "recharge.revenue_vnd": "desc"
+          },
+          "limit": 10
+        }
+      ],
+      "sessionId": "93106f4b-da90-4db4-9398-a3eff1248a0d",
+      "capturedAt": "2026-06-10T09:16:27.953Z"
+    },
+    {
+      "caseId": "whale-concept",
+      "question": "which whales are at risk of churning?",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "c03b9556-17aa-451c-a63b-658a9343eb1d",
+      "capturedAt": "2026-06-10T09:16:45.755Z"
+    },
+    {
+      "caseId": "revenue-q1-2026",
+      "question": "revenue Q1 2026",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_time_coverage",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__emit_query_artifact",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "0e1749ca-e241-4c25-8c19-3981285c6846",
+      "capturedAt": "2026-06-10T09:19:25.472Z"
+    },
+    {
+      "caseId": "dau-weekly-breakdowns",
+      "question": "break down DAU by lifecycle stage last 30 days",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__resolve_query_terms",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "active_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "active_daily.dau"
+          ],
+          "dimensions": [
+            "mf_users.lifecycle_stage"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "active_daily.log_date",
+              "granularity": "day",
+              "dateRange": [
+                "2026-05-12",
+                "2026-06-10"
+              ]
+            }
+          ],
+          "order": {
+            "active_daily.log_date": "asc"
+          }
+        }
+      ],
+      "sessionId": "2843fff7-269a-4472-ab71-3faf40e39a84",
+      "capturedAt": "2026-06-10T09:21:15.541Z"
+    },
+    {
+      "caseId": "arppu-vi",
+      "question": "arppu tuần qua",
+      "status": "ok",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "ToolSearch",
+        "mcp__cube-playground-tools__emit_query_artifact",
+        "mcp__cube-playground-tools__emit_chart"
+      ],
+      "artifactCount": 1,
+      "resolvedMetricId": null,
+      "resolvedCube": "user_recharge_daily",
+      "emittedQueries": [
+        {
+          "measures": [
+            "user_recharge_daily.revenue_vnd_total",
+            "user_recharge_daily.paying_users"
+          ],
+          "timeDimensions": [
+            {
+              "dimension": "user_recharge_daily.log_date",
+              "granularity": "day"
+            }
+          ],
+          "segments": [
+            "user_recharge_daily.last_7d"
+          ]
+        }
+      ],
+      "sessionId": "5e75c901-88f3-4e3f-a5cb-de92a8c97fc6",
+      "capturedAt": "2026-06-10T09:23:31.459Z"
+    },
+    {
+      "caseId": "arpu-vs-arppu",
+      "question": "compare ARPU and ARPPU this month",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__get_business_metric",
+        "mcp__cube-playground-tools__get_business_metric",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "ToolSearch",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__get_cube_meta",
+        "mcp__cube-playground-tools__preview_cube_query",
+        "mcp__cube-playground-tools__preview_cube_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "88daedd3-3e2f-4cbc-b650-0e00a5a8cddf",
+      "capturedAt": "2026-06-10T09:27:52.422Z"
+    },
+    {
+      "caseId": "revenue-exact-ref",
+      "question": "recharge.revenue_vnd by country last 30 days",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "9c39248d-87bf-4cc1-bc42-2bdcc0f0e58c",
+      "capturedAt": "2026-06-10T09:28:13.205Z"
+    },
+    {
+      "caseId": "nru-install-rate",
+      "question": "NRU to install rate this month",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "58397d57-92c5-4cc5-8cb7-b5230a27436b",
+      "capturedAt": "2026-06-10T09:28:26.901Z"
+    },
+    {
+      "caseId": "arpdau-formula",
+      "question": "what is the formula for ARPDAU?",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "Skill",
+        "ToolSearch",
+        "mcp__cube-playground-tools__list_business_metrics",
+        "mcp__cube-playground-tools__get_business_metric"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "15f0b8a8-b00c-4d15-928c-4a5267ad53dc",
+      "capturedAt": "2026-06-10T09:29:00.824Z"
+    },
+    {
+      "caseId": "unknown-metric",
+      "question": "show xyz_metric_unknown last 7 days",
+      "status": "no-artifact",
+      "httpStatus": 200,
+      "toolCalls": [
+        "ToolSearch",
+        "mcp__cube-playground-tools__disambiguate_query"
+      ],
+      "artifactCount": 0,
+      "resolvedMetricId": null,
+      "resolvedCube": null,
+      "emittedQueries": [],
+      "sessionId": "825cadfd-af8f-48e9-a895-23a7752144d4",
+      "capturedAt": "2026-06-10T09:29:16.118Z"
+    }
+  ]
+}

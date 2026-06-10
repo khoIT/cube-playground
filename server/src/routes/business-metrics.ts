@@ -22,6 +22,7 @@ import {
   type BusinessMetric,
   type TrustHistoryEntry,
 } from '../types/business-metric.js';
+import { applicableForGame } from '../services/metric-applicability.js';
 import {
   getAll,
   getById,
@@ -58,11 +59,40 @@ export default async function businessMetricsRoutes(
   // `draft` for any metric whose formula refs don't resolve against the
   // game's /meta. Omit the param to get the registry with declared trust
   // (kept for backwards-compat with callers that don't have a game context).
-  app.get<{ Querystring: { game?: string } }>(
+  //
+  // Optional `?filter=available` (requires `?game=`): excludes metrics that are
+  // not applicable for the game (meta.applicability latest entry applicable:false)
+  // AND metrics with unresolved refs. Used by the chat agent to receive only
+  // metrics that can actually be queried for the given game.
+  app.get<{ Querystring: { game?: string; filter?: string } }>(
     '/api/business-metrics',
     async (req) => {
       const metrics = getAll();
-      const adjusted = await resolveTrustForGame(metrics, req.query.game ?? null);
+      const gameId = req.query.game ?? null;
+      const adjusted = await resolveTrustForGame(metrics, gameId);
+
+      if (req.query.filter === 'available' && gameId) {
+        // Exclude metrics blocked for this game via applicability.
+        const notBlocked = adjusted.filter((m) => applicableForGame(m, gameId));
+        // Exclude metrics with broken refs. A broken-ref metric is one whose
+        // trust was downgraded to 'draft' by resolveTrustForGame, meaning at
+        // least one formula ref doesn't resolve against this game's /meta.
+        // We detect this by comparing the adjusted trust against the original
+        // declared trust from the registry: if adjusted is 'draft' but the
+        // declared trust is NOT 'draft', the metric was downgraded due to broken
+        // refs. Declared-draft metrics with all refs resolving are NOT broken
+        // (resolveTrustForGame keeps their trust as 'draft', same as declared) —
+        // they must remain in the available set.
+        const originalById = new Map(getAll().map((m) => [m.id, m.trust]));
+        const available = notBlocked.filter((m) => {
+          const declaredTrust = originalById.get(m.id);
+          // Broken-ref: resolveTrustForGame downgraded to 'draft' from something else.
+          const brokenRef = m.trust === 'draft' && declaredTrust !== 'draft';
+          return !brokenRef;
+        });
+        return { metrics: available };
+      }
+
       return { metrics: adjusted };
     },
   );

@@ -1,7 +1,11 @@
 id: ltv_30
 label: LTV Day 30
 description: >-
-  Cumulative D0..D30 revenue from new registered users divided by NRU on D0.
+  Daily cohort LTV at D30 (rev/NRU on report_date) — total revenue on
+  report_date divided by NRU on that date. Not a D0..D30 cumulative LTV: true
+  30-day cohort LTV requires summing revenue attributed to the cohort from D0
+  to D30, which needs a cohort-window join not yet available. Kept draft until
+  semantics are confirmed.
 synonyms: [lifetime_value_d30]
 tier: 1
 domain: retention
@@ -9,12 +13,20 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: ratio
-  numerator: mf_users.ltv_total_vnd
-  denominator: mf_users.new_users
+  numerator: game_key_metrics.rev
+  denominator: game_key_metrics.nru
 unit: VND
 format: currency
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]
+meta:
+  serving:
+    - game: cfm_vn
+      latency: cold
+      at: "2026-06-10T00:00:00.000Z"
+      note: >-
+        Draft pending semantics review; query scans game_key_metrics source
+        when no rollup partition covers the requested date range.
 anomaly:
   state: trend
   deltaPct: 7.8

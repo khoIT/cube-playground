@@ -196,11 +196,11 @@
       "label": "Revenue",
       "description": "Total value of in-game items successfully delivered to users during the selected period. Recognised by item delivery (consumption) date.",
       "primary_catalog_id": "business_metrics/revenue",
-      "aliases": ["revenue", "gross revenue", "in-game revenue"],
+      "aliases": ["revenue", "gross revenue", "in-game revenue", "gross bookings", "bookings", "total bookings"],
       "category": "monetisation",
       "label_vi": "Doanh thu",
       "description_vi": "Tổng giá trị vật phẩm trong game đã giao thành công cho người dùng trong kỳ, ghi nhận theo ngày giao (tiêu thụ).",
-      "aliases_vi": ["doanh thu", "doanh thu trong game", "tổng doanh thu"]
+      "aliases_vi": ["doanh thu", "doanh thu trong game", "tổng doanh thu", "gross bookings", "tổng đặt hàng"]
     },
     {
       "id": "roas",
@@ -553,6 +553,138 @@
       "default_measure_ref": "recharge.revenue_vnd",
       "ranking_json": { "order": "DESC", "default_limit": 10 },
       "trust_tier": "certified"
+    },
+    {
+      "id": "diamond_spend_events",
+      "label": "Diamond spend events",
+      "description": "Count of diamond-spend transactions in the period (etl_money_flow, spends segment).",
+      "primary_catalog_id": "business_metrics/diamond_spend_events",
+      "aliases": ["diamond spend", "diamond spend events", "diamond transactions", "diamond outflow events"],
+      "category": "economy",
+      "label_vi": "Số lần tiêu kim cương",
+      "description_vi": "Số giao dịch tiêu kim cương trong kỳ.",
+      "aliases_vi": ["tiêu kim cương", "số lần tiêu kim cương", "giao dịch kim cương"]
+    },
+    {
+      "id": "diamond_net_delta",
+      "label": "Diamond net delta",
+      "description": "Net change in diamond balance (earned minus spent) for the period.",
+      "primary_catalog_id": "business_metrics/diamond_net_delta",
+      "aliases": ["diamond net delta", "diamond balance change", "net diamond", "diamond delta"],
+      "category": "economy",
+      "label_vi": "Biến động kim cương ròng",
+      "description_vi": "Thay đổi ròng số dư kim cương trong kỳ (kiếm trừ tiêu).",
+      "aliases_vi": ["biến động kim cương", "thay đổi kim cương ròng", "delta kim cương"]
+    },
+    {
+      "id": "economy_spenders",
+      "label": "Economy spenders",
+      "description": "Distinct players who spent in-game currency (diamonds) in the period.",
+      "primary_catalog_id": "business_metrics/economy_spenders",
+      "aliases": ["economy spenders", "currency spenders", "diamond spenders", "in-game spenders"],
+      "category": "economy",
+      "label_vi": "Người tiêu tệ trong game",
+      "description_vi": "Số người chơi khác nhau đã tiêu tiền tệ trong game trong kỳ.",
+      "aliases_vi": ["người tiêu kim cương", "người tiêu tệ game", "người chơi tiêu tệ"]
+    },
+    {
+      "id": "gacha_pulls",
+      "label": "Gacha pulls",
+      "description": "Total lottery / gacha pull count in the period (etl_lottery_shoot).",
+      "primary_catalog_id": "business_metrics/gacha_pulls",
+      "aliases": ["gacha pulls", "lottery pulls", "gacha", "pulls", "draw count", "spins"],
+      "category": "economy",
+      "label_vi": "Lượt quay gacha",
+      "description_vi": "Tổng số lần quay gacha/xổ số trong kỳ.",
+      "aliases_vi": ["lượt quay", "quay gacha", "số lần quay", "gacha pulls"]
+    },
+    {
+      "id": "gacha_diamond_cost",
+      "label": "Gacha diamond cost",
+      "description": "Total diamonds spent on gacha / lottery pulls in the period.",
+      "primary_catalog_id": "business_metrics/gacha_diamond_cost",
+      "aliases": ["gacha diamond cost", "gacha spend", "lottery diamond spend", "diamonds spent on gacha"],
+      "category": "economy",
+      "label_vi": "Kim cương tiêu cho gacha",
+      "description_vi": "Tổng kim cương tiêu trong các lần quay gacha/xổ số trong kỳ.",
+      "aliases_vi": ["kim cương quay gacha", "tiêu kim cương gacha", "chi phí gacha"]
+    },
+    {
+      "id": "gacha_players",
+      "label": "Gacha players",
+      "description": "Distinct players who made at least one gacha pull in the period.",
+      "primary_catalog_id": "business_metrics/gacha_players",
+      "aliases": ["gacha players", "lottery players", "players who pulled", "gacha participants"],
+      "category": "economy",
+      "label_vi": "Người chơi quay gacha",
+      "description_vi": "Số người chơi khác nhau đã quay gacha ít nhất một lần trong kỳ.",
+      "aliases_vi": ["người quay gacha", "người chơi gacha", "người tham gia gacha"]
+    },
+    {
+      "id": "tutorial_completions",
+      "label": "Tutorial completions",
+      "description": "Count of players who completed the new-player tutorial in the period.",
+      "primary_catalog_id": "business_metrics/tutorial_completions",
+      "aliases": ["tutorial completions", "tutorial complete", "completed tutorial", "onboarding completions"],
+      "category": "acquisition",
+      "label_vi": "Lượt hoàn thành hướng dẫn",
+      "description_vi": "Số người chơi hoàn thành hướng dẫn người chơi mới trong kỳ.",
+      "aliases_vi": ["hoàn thành hướng dẫn", "hoàn thành tutorial", "lượt xong tutorial"]
+    },
+    {
+      "id": "tutorial_completion_rate",
+      "label": "Tutorial completion rate",
+      "description": "Fraction of players who started the tutorial and completed it (completed / started).",
+      "primary_catalog_id": "business_metrics/tutorial_completion_rate",
+      "aliases": ["tutorial completion rate", "tutorial rate", "onboarding completion rate", "tutorial funnel rate"],
+      "category": "acquisition",
+      "label_vi": "Tỉ lệ hoàn thành hướng dẫn",
+      "description_vi": "Tỉ lệ người chơi bắt đầu và hoàn thành hướng dẫn (hoàn thành / bắt đầu).",
+      "aliases_vi": ["tỉ lệ hoàn thành hướng dẫn", "tỉ lệ tutorial", "tỉ lệ onboarding"]
+    },
+    {
+      "id": "tutorial_starters",
+      "label": "Tutorial starters",
+      "description": "Distinct players who started the new-player tutorial in the period.",
+      "primary_catalog_id": "business_metrics/tutorial_starters",
+      "aliases": ["tutorial starters", "tutorial started", "onboarding starters", "players who started tutorial"],
+      "category": "acquisition",
+      "label_vi": "Người bắt đầu hướng dẫn",
+      "description_vi": "Số người chơi khác nhau bắt đầu hướng dẫn người chơi mới trong kỳ.",
+      "aliases_vi": ["người bắt đầu tutorial", "bắt đầu hướng dẫn", "lượt bắt đầu tutorial"]
+    },
+    {
+      "id": "total_online_time_hrs",
+      "label": "Total online time (hrs)",
+      "description": "Total player online time in hours across all active players in the period.",
+      "primary_catalog_id": "business_metrics/total_online_time_hrs",
+      "aliases": ["total online time", "online time", "total playtime", "session time", "playtime hours"],
+      "category": "engagement",
+      "label_vi": "Tổng thời gian trực tuyến (giờ)",
+      "description_vi": "Tổng thời gian người chơi trực tuyến (giờ) trong kỳ.",
+      "aliases_vi": ["tổng thời gian online", "thời gian chơi tổng", "tổng giờ chơi"]
+    },
+    {
+      "id": "avg_online_time_min_per_dau",
+      "label": "Avg online time per DAU (min)",
+      "description": "Average online time per daily active user in minutes.",
+      "primary_catalog_id": "business_metrics/avg_online_time_min_per_dau",
+      "aliases": ["avg online time", "average session time", "avg playtime per dau", "average online time per player"],
+      "category": "engagement",
+      "label_vi": "Thời gian online TB mỗi DAU (phút)",
+      "description_vi": "Thời gian trực tuyến trung bình mỗi người dùng hoạt động ngày (phút).",
+      "aliases_vi": ["thời gian online trung bình", "thời gian chơi TB mỗi người", "phút online mỗi dau"]
+    },
+    {
+      "id": "iap_revenue",
+      "label": "IAP revenue",
+      "description": "Revenue from in-app purchases (IAP channel only) in the period.",
+      "primary_catalog_id": "business_metrics/iap_revenue",
+      "aliases": ["iap revenue", "iap", "in-app purchase revenue", "in app purchases", "app store revenue"],
+      "category": "monetisation",
+      "label_vi": "Doanh thu IAP",
+      "description_vi": "Doanh thu từ mua hàng trong ứng dụng (kênh IAP) trong kỳ.",
+      "aliases_vi": ["doanh thu iap", "iap", "mua trong ứng dụng", "doanh thu in-app"]
     }
   ]
 }

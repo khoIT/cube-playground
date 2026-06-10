@@ -10,7 +10,7 @@ owner: data-platform@vng
 trust: certified
 formula:
   type: measure
-  ref: mf_users.new_users
+  ref: game_key_metrics.nru
 format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

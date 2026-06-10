@@ -8,9 +8,9 @@ owner: data-platform@vng
 trust: certified
 formula:
   type: ratio
-  numerator: recharge.revenue_vnd
-  denominator: recharge.paying_users
+  numerator: user_recharge_daily.revenue_vnd_total
+  denominator: user_recharge_daily.paying_users
 unit: VND
 format: currency
 game_compatibility:
-  required_cubes: [recharge]
+  required_cubes: [user_recharge_daily]

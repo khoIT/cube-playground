@@ -159,6 +159,21 @@ cubes:
           - sql: "{CUBE}.log_date >= DATE_TRUNC('month', CURRENT_DATE)"
         description: Trailing MAU — distinct active users from the start of the current calendar month through today
 
+      # Post-agg ratio: computed at query time from total_online_time_sec (sum)
+      # and dau (count_distinct_approx HLL) both present in dau_by_ingame_dims_daily_batch.
+      # Not placed in the rollup — ratios are non-additive across partition slices.
+      - name: avg_online_time_min_per_dau
+        sql: "CAST({total_online_time_sec} AS DOUBLE) / NULLIF({dau}, 0) / 60"
+        type: number
+        description: Average online time per DAU (minutes)
+
+      # Derived scaled sum — not in any rollup (the base total_online_time_sec is additive
+      # and present in rollups; the /3600 scaling is applied at query time).
+      - name: total_online_time_hrs
+        sql: "CAST({total_online_time_sec} AS DOUBLE) / 3600"
+        type: number
+        description: Total online time in hours (sum of seconds / 3600)
+
     segments:
       - name: last_7d
         sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"

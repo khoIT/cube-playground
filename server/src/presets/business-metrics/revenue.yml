@@ -10,11 +10,11 @@ owner: data-platform@vng
 trust: certified
 formula:
   type: measure
-  ref: recharge.revenue_vnd
+  ref: user_recharge_daily.revenue_vnd_total
 unit: VND
 format: currency
 game_compatibility:
-  required_cubes: [recharge]
+  required_cubes: [user_recharge_daily]
 related_concepts:
   - mf_users.country
   - mf_users.media_source

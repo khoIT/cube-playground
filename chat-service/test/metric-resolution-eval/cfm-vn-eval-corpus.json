@@ -1,0 +1,319 @@
+{
+  "_comment": "Frozen cfm_vn resolution baseline corpus. Weighted toward metrics affected by curation: duplicate refs (revenue/gross_bookings → same recharge.revenue_vnd), multi-source paying-users variants, and the ARPDAU cross-cube ratio.",
+  "capturedAt": "2026-06-10T08:30:00.000Z",
+  "gameId": "cfm_vn",
+  "cases": [
+    {
+      "id": "revenue-basic",
+      "question": "show revenue last 7 days",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "duplicate-ref"
+    },
+    {
+      "id": "gross-bookings-basic",
+      "question": "show gross bookings last 7 days",
+      "expectedMetricId": "gross_bookings",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "duplicate-ref",
+      "note": "gross_bookings and revenue both resolve to recharge.revenue_vnd today — curation target"
+    },
+    {
+      "id": "revenue-vi",
+      "question": "doanh thu 7 ngày qua",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "duplicate-ref"
+    },
+    {
+      "id": "revenue-cube-ref",
+      "question": "recharge.revenue_vnd last month",
+      "expectedMetricId": null,
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "duplicate-ref"
+    },
+    {
+      "id": "paying-users-window",
+      "question": "paying users this month",
+      "expectedMetricId": "paying_users",
+      "expectedRef": "recharge.paying_users",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "paying-users-variants"
+    },
+    {
+      "id": "paying-users-30d",
+      "question": "paying users 30 day trailing",
+      "expectedMetricId": "paying_users_30d",
+      "expectedRef": "mf_users.paying_users_30d",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "paying-users-variants",
+      "note": "paying_users_30d uses snapshot cube mf_users — different from transactional recharge.paying_users"
+    },
+    {
+      "id": "payers-alias",
+      "question": "how many payers this week?",
+      "expectedMetricId": "paying_users",
+      "expectedRef": "recharge.paying_users",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "paying-users-variants"
+    },
+    {
+      "id": "arpu-basic",
+      "question": "ARPU this month",
+      "expectedMetricId": "arpu",
+      "expectedRef": "mf_users.arpu_vnd",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "arpu-arppu-ambiguity"
+    },
+    {
+      "id": "arppu-basic",
+      "question": "ARPPU last quarter",
+      "expectedMetricId": "arppu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "expectedRatioRef": { "numerator": "recharge.revenue_vnd", "denominator": "recharge.paying_users" },
+      "queryShapeClass": "ratio",
+      "curationGroup": "arpu-arppu-ambiguity",
+      "note": "arppu is a ratio term — agent should emit both measures in query"
+    },
+    {
+      "id": "arpdau-basic",
+      "question": "what is ARPDAU this month?",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "expectedRatioRef": { "numerator": "recharge.revenue_vnd", "denominator": "active_daily.dau" },
+      "queryShapeClass": "ratio",
+      "curationGroup": "arpdau-cross-cube",
+      "note": "ARPDAU crosses recharge+active_daily cubes — key verdict for query shape"
+    },
+    {
+      "id": "arpdau-vi",
+      "question": "arpdau tuần này",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "expectedRatioRef": { "numerator": "recharge.revenue_vnd", "denominator": "active_daily.dau" },
+      "queryShapeClass": "ratio",
+      "curationGroup": "arpdau-cross-cube"
+    },
+    {
+      "id": "arpdau-describe",
+      "question": "average revenue per daily active user last 30 days",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "expectedRatioRef": { "numerator": "recharge.revenue_vnd", "denominator": "active_daily.dau" },
+      "queryShapeClass": "ratio",
+      "curationGroup": "arpdau-cross-cube"
+    },
+    {
+      "id": "dau-trend",
+      "question": "How is DAU trending over the last 30 days?",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "engagement"
+    },
+    {
+      "id": "dau-vi",
+      "question": "DAU 7 ngày qua",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "engagement"
+    },
+    {
+      "id": "mau-basic",
+      "question": "MAU in the last 3 months",
+      "expectedMetricId": "mau",
+      "expectedRef": "active_daily.mau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "engagement"
+    },
+    {
+      "id": "wau-basic",
+      "question": "weekly active users last 4 weeks",
+      "expectedMetricId": "wau",
+      "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "engagement"
+    },
+    {
+      "id": "installs-basic",
+      "question": "installs this month by channel",
+      "expectedMetricId": "installs",
+      "expectedRef": "mf_users.installs",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "ua"
+    },
+    {
+      "id": "roas-basic",
+      "question": "top campaigns by ROAS this quarter",
+      "expectedMetricId": "roas",
+      "expectedRef": null,
+      "expectedCube": null,
+      "expectedRatioRef": { "numerator": "mf_users.rev_per_install_d7", "denominator": "mf_users.marketing_cost" },
+      "queryShapeClass": "ratio",
+      "curationGroup": "ua"
+    },
+    {
+      "id": "npu-basic",
+      "question": "NPU trend last 30 days",
+      "expectedMetricId": "npu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "trend",
+      "curationGroup": "ua",
+      "note": "npu metric may not have a measureRef in current glossary — tests refKind resolution"
+    },
+    {
+      "id": "ltv-cohort",
+      "question": "LTV by install-month cohort",
+      "expectedMetricId": "ltv",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "ltv"
+    },
+    {
+      "id": "paying-rate",
+      "question": "paying rate this month",
+      "expectedMetricId": "paying_rate",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "paying-users-variants"
+    },
+    {
+      "id": "revenue-by-country",
+      "question": "revenue by country last month",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "duplicate-ref"
+    },
+    {
+      "id": "revenue-vs-bookings-ambiguous",
+      "question": "compare revenue and gross bookings last quarter",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "compare",
+      "curationGroup": "duplicate-ref",
+      "note": "ambiguous: two metrics that resolve to same ref — expected to clarify"
+    },
+    {
+      "id": "spender-concept",
+      "question": "show top spenders this week",
+      "expectedMetricId": "spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "leaderboard",
+      "curationGroup": "concepts"
+    },
+    {
+      "id": "whale-concept",
+      "question": "which whales are at risk of churning?",
+      "expectedMetricId": "whale",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "leaderboard",
+      "curationGroup": "concepts"
+    },
+    {
+      "id": "revenue-q1-2026",
+      "question": "revenue Q1 2026",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "duplicate-ref"
+    },
+    {
+      "id": "dau-weekly-breakdowns",
+      "question": "break down DAU by lifecycle stage last 30 days",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "engagement"
+    },
+    {
+      "id": "arppu-vi",
+      "question": "arppu tuần qua",
+      "expectedMetricId": "arppu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "expectedRatioRef": { "numerator": "recharge.revenue_vnd", "denominator": "recharge.paying_users" },
+      "queryShapeClass": "ratio",
+      "curationGroup": "arpu-arppu-ambiguity"
+    },
+    {
+      "id": "arpu-vs-arppu",
+      "question": "compare ARPU and ARPPU this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "compare",
+      "curationGroup": "arpu-arppu-ambiguity",
+      "note": "ambiguous dual-metric message — expected clarify"
+    },
+    {
+      "id": "revenue-exact-ref",
+      "question": "recharge.revenue_vnd by country last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "duplicate-ref"
+    },
+    {
+      "id": "nru-install-rate",
+      "question": "NRU to install rate this month",
+      "expectedMetricId": "nru_install_rate",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "ua"
+    },
+    {
+      "id": "arpdau-formula",
+      "question": "what is the formula for ARPDAU?",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "expectedRatioRef": { "numerator": "recharge.revenue_vnd", "denominator": "active_daily.dau" },
+      "queryShapeClass": "explain",
+      "curationGroup": "arpdau-cross-cube"
+    },
+    {
+      "id": "unknown-metric",
+      "question": "show xyz_metric_unknown last 7 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "edge-cases",
+      "note": "should not resolve — tests null-return path"
+    }
+  ]
+}

@@ -1,6 +1,10 @@
 id: roas_07
 label: ROAS Day 7
-description: 7-day return on ad spend — D0-D7 cumulative revenue / marketing cost.
+description: >-
+  Period ROAS (not D7-cohort) — revenue in the query window divided by
+  marketing cost in the same window. D7-cohort ROAS (install-day revenue
+  accumulated to D7) is not yet available in game_key_metrics and requires a
+  cohort-window join against new_user_retention.
 synonyms: [roas7, return_on_ad_spend_d7]
 tier: 1
 domain: marketing
@@ -8,8 +12,8 @@ owner: marketing-ops@vng
 trust: draft
 formula:
   type: ratio
-  numerator: mf_users.rev_per_install_d7
-  denominator: mf_users.marketing_cost
+  numerator: game_key_metrics.rev
+  denominator: game_key_metrics.cost_vnd
 format: percent
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

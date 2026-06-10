@@ -1,8 +1,9 @@
 id: organic_installs
 label: Organic installs
 description: >-
-  Installs attributed to an organic media source (first media_source for the
-  appsflyer_id is Organic).
+  Installs attributed to an organic media source. Paid/organic split pending
+  dedicated filtered measures in game_key_metrics; currently reports total
+  installs.
 synonyms: [non_paid_installs]
 tier: 2
 domain: acquisition
@@ -10,7 +11,7 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: measure
-  ref: mf_users.organic_installs
+  ref: game_key_metrics.installs
 format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

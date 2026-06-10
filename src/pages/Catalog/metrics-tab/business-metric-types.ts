@@ -65,11 +65,32 @@ export interface TrustHistoryEntry {
   note?: string;
 }
 
+/** Per-game applicability entry — mirrors server MetricApplicabilityEntrySchema. */
+export interface MetricApplicabilityEntry {
+  game: string;
+  applicable: boolean;
+  at: string;
+  actor?: string;
+  note?: string;
+}
+
+/** Per-game serving latency — mirrors server MetricServingEntrySchema. */
+export interface MetricServingEntry {
+  game: string;
+  latency: 'fast' | 'cold';
+  at: string;
+  note?: string;
+}
+
 export interface BusinessMetricMeta {
   /** Primary game id used to validate refs when promoting to certified. */
   game_id?: string;
   /** Append-only audit trail of trust transitions. */
   trust_history?: TrustHistoryEntry[];
+  /** Per-game applicability history; latest entry per game wins. */
+  applicability?: MetricApplicabilityEntry[];
+  /** Per-game serving latency. Absence of an entry means fast (default). */
+  serving?: MetricServingEntry[];
   [key: string]: unknown;
 }
 
@@ -93,16 +114,46 @@ export interface BusinessMetric {
 }
 
 /**
- * Compute per-game availability for a metric: a metric is "available" iff
- * every cube listed in `game_compatibility.required_cubes` exists in the
- * currently active game's `/meta` payload. When `game_compatibility` is
- * absent, the metric is treated as universally available.
+ * Compute per-game availability for a metric.
+ *
+ * A metric is "available" iff:
+ *   1. Its `meta.applicability` latest entry for the game is not `applicable:false`.
+ *   2. Every cube in `game_compatibility.required_cubes` exists in the game's /meta.
+ *
+ * When `game_compatibility` is absent and no applicability block exists, the
+ * metric is treated as universally available.
+ *
+ * `gameId` is optional for backwards-compat callers that don't pass it; when
+ * absent, only the cube-name check runs (no applicability check).
  */
 export function isAvailableForGame(
   metric: BusinessMetric,
   availableCubeNames: ReadonlySet<string>,
-): { available: boolean; missing: string[] } {
+  gameId?: string,
+): { available: boolean; missing: string[]; blockedByApplicability: boolean } {
+  // Applicability check: latest entry for this game wins; missing = applicable.
+  let blockedByApplicability = false;
+  if (gameId) {
+    const entries = metric.meta?.applicability?.filter((e) => e.game === gameId) ?? [];
+    if (entries.length > 0) {
+      const latest = entries.reduce((best, e) => (e.at > best.at ? e : best));
+      blockedByApplicability = !latest.applicable;
+    }
+  }
+
   const required = metric.game_compatibility?.required_cubes ?? [];
   const missing = required.filter((c) => !availableCubeNames.has(c));
-  return { available: missing.length === 0, missing };
+  const available = !blockedByApplicability && missing.length === 0;
+  return { available, missing, blockedByApplicability };
+}
+
+/**
+ * Returns true when the metric's `meta.serving` latest entry for the given
+ * game has `latency: 'cold'`. Absence of any entry means fast (default).
+ */
+export function isColdForGame(metric: BusinessMetric, gameId: string): boolean {
+  const entries = metric.meta?.serving?.filter((e) => e.game === gameId) ?? [];
+  if (entries.length === 0) return false;
+  const latest = entries.reduce((best, e) => (e.at > best.at ? e : best));
+  return latest.latency === 'cold';
 }

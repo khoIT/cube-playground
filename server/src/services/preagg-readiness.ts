@@ -68,9 +68,9 @@ export const PREAGG_REGISTRY: PreaggRegistryEntry[] = [
     timeDimension: 'mf_users.install_date',
   },
   {
-    cube: 'recharge',
-    measure: 'recharge.revenue_vnd',
-    timeDimension: 'recharge.recharge_time',
+    cube: 'user_recharge_daily',
+    measure: 'user_recharge_daily.revenue_vnd_total',
+    timeDimension: 'user_recharge_daily.log_date',
   },
 ];
 

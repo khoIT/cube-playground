@@ -10,8 +10,8 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: ratio
-  numerator: mf_users.new_users
-  denominator: mf_users.installs
+  numerator: game_key_metrics.nru
+  denominator: game_key_metrics.installs
 format: percent
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

@@ -21,6 +21,15 @@ formula:
 format: compact
 game_compatibility:
   required_cubes: [recharge]
+meta:
+  serving:
+    - game: cfm_vn
+      latency: cold
+      at: "2026-06-10T00:00:00.000Z"
+      note: >-
+        recharge cube has no pre-aggregation; full scan ~5s. Repoint to
+        user_recharge_daily.paying_users for fast path (different identity
+        base: user_id vs vopenid — semantics must be confirmed first).
 anomaly:
   state: high
   deltaPct: -18.4

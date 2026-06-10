@@ -1,6 +1,9 @@
 id: rev_nnpu
 label: RevNNPU
-description: Revenue from new registered & new paying users (NNPU) in the period.
+description: >-
+  Revenue from new registered & new paying users (NNPU) in the period. After
+  repoint to game_key_metrics, this is total cohort revenue for the NNPU slice
+  — not strictly NNPU-only revenue. Best available single-mart approximation.
 synonyms: [revenue_from_nnpu]
 tier: 3
 domain: revenue
@@ -8,8 +11,8 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: measure
-  ref: mf_users.rev_new_register_and_paying_users
+  ref: game_key_metrics.rev
 unit: VND
 format: currency
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

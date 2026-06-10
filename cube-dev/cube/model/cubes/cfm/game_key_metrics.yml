@@ -251,6 +251,43 @@ cubes:
         type: number
         format: percent
 
+      # --- New ratio metrics (post-agg ratios of additive base sums) ----------
+      # These are computed at query time from rolled-up base measures in the
+      # key_metrics rollup — they must NOT be placed in the rollup itself since
+      # non-additive ratios don't aggregate correctly across partition slices.
+      - name: cti
+        sql: "CAST({installs} AS DOUBLE) / NULLIF({clicks}, 0)"
+        type: number
+        format: percent
+        description: Click-to-install rate
+
+      - name: cpn
+        sql: "CAST({cost_vnd} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        description: Cost per new registered user (VND)
+
+      - name: nru_install_rate
+        sql: "CAST({nru} AS DOUBLE) / NULLIF({installs}, 0)"
+        type: number
+        format: percent
+        description: New registered users per install
+
+      - name: rev_per_npu
+        sql: "CAST({rev} AS DOUBLE) / NULLIF({npu}, 0)"
+        type: number
+        description: Revenue per new paying user (VND)
+
+      - name: rev_per_nnpu
+        sql: "CAST({rev} AS DOUBLE) / NULLIF({nnpu}, 0)"
+        type: number
+        description: Revenue per net-new paying user (VND)
+
+      - name: mkt_rev_ratio
+        sql: "CAST({cost_vnd} AS DOUBLE) / NULLIF({rev}, 0)"
+        type: number
+        format: percent
+        description: Marketing cost to revenue ratio
+
     segments:
       - name: last_7d
         sql: "{CUBE}.report_date >= CURRENT_DATE - INTERVAL '7' DAY"
@@ -271,6 +308,8 @@ cubes:
           - installs
           - nru
           - npu
+          - nnpu
+          - iap_rev
           - rev
           - trans
         dimensions:

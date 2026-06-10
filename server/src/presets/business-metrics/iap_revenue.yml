@@ -1,0 +1,18 @@
+id: iap_revenue
+label: IAP revenue
+description: >-
+  In-app purchase revenue in the period — direct mobile store purchases
+  (Google Play / App Store) tracked via game_key_metrics.iap_rev.
+  Excludes web/PC purchase channels counted in total revenue.
+synonyms: [in_app_purchase_revenue, mobile_iap_rev]
+tier: 3
+domain: revenue
+owner: data-platform@vng
+trust: draft
+formula:
+  type: measure
+  ref: game_key_metrics.iap_rev
+unit: VND
+format: currency
+game_compatibility:
+  required_cubes: [game_key_metrics]

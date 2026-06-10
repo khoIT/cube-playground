@@ -1,0 +1,17 @@
+id: total_online_time_hrs
+label: Total online time (hrs)
+description: >-
+  Sum of all active users' online session durations in the period, expressed in
+  hours.
+synonyms: [total_playtime_hrs, total_session_time_hrs]
+tier: 3
+domain: engagement
+owner: data-platform@vng
+trust: draft
+formula:
+  type: measure
+  ref: active_daily.total_online_time_hrs
+unit: hours
+format: compact
+game_compatibility:
+  required_cubes: [active_daily]

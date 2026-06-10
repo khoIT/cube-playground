@@ -15,3 +15,11 @@ formula:
 format: percent
 game_compatibility:
   required_cubes: [funnel]
+meta:
+  applicability:
+    - game: cfm_vn
+      applicable: false
+      at: "2026-06-10T00:00:00.000Z"
+      note: >-
+        cfm_vn does not have a funnel cube; AppsFlyer funnel data is not
+        ingested for this game.

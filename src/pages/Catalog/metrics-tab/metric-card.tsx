@@ -85,14 +85,29 @@ const Footer = styled.div`
 
 const DisabledTip = styled.div`
   font-size: 11px;
-  color: #b91c1c;
+  color: var(--destructive-ink, #991b1b);
   font-style: italic;
+`;
+
+const ColdBadge = styled.span`
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs, 4px);
+  background: var(--warning-soft, #fef3c7);
+  color: var(--warning-ink, #92400e);
 `;
 
 interface MetricCardProps {
   metric: BusinessMetric;
   disabled?: boolean;
   missingCubes?: string[];
+  /** True when the metric is marked as cold (no pre-agg) for this game. */
+  cold?: boolean;
+  /** True when the metric is explicitly blocked (not applicable) for this game. */
+  blockedByApplicability?: boolean;
   activeGameLabel?: string;
   onAnomalyClick?: (metric: BusinessMetric) => void;
 }
@@ -101,6 +116,8 @@ export function MetricCard({
   metric,
   disabled = false,
   missingCubes = [],
+  cold = false,
+  blockedByApplicability = false,
   activeGameLabel,
   onAnomalyClick,
 }: MetricCardProps) {
@@ -118,12 +135,18 @@ export function MetricCard({
       <BadgeRow>
         <DomainChip domain={metric.domain} />
         <TrustBadge trust={metric.trust} size="sm" />
+        {cold && <ColdBadge title="No pre-aggregation for this game — query may be slow">Slow</ColdBadge>}
         <AnomalyBadge anomaly={liveAnomaly} onClick={() => onAnomalyClick?.(metric)} />
       </BadgeRow>
       <Footer>
         <span>{metric.owner}</span>
       </Footer>
-      {disabled && (
+      {disabled && blockedByApplicability && (
+        <DisabledTip>
+          Not available for {activeGameLabel ?? 'this game'}
+        </DisabledTip>
+      )}
+      {disabled && !blockedByApplicability && missingCubes.length > 0 && (
         <DisabledTip title={`Missing: ${missingCubes.join(', ')}`}>
           Not available{activeGameLabel ? ` for ${activeGameLabel}` : ''}
         </DisabledTip>

@@ -101,11 +101,24 @@ export const MetricApplicabilityEntrySchema = z.object({
   note: z.string().max(280).optional(),
 });
 
+/**
+ * Per-game serving latency entry. Latest entry per game wins.
+ * Absence = fast (default). cold = no pre-agg available for this game.
+ * Per-game because rollup coverage differs across workspaces.
+ */
+export const MetricServingEntrySchema = z.object({
+  game: z.string().min(1),
+  latency: z.enum(['fast', 'cold']),
+  at: z.string().datetime(),
+  note: z.string().max(280).optional(),
+});
+
 export const BusinessMetricMetaSchema = z
   .object({
     game_id: z.string().min(1).optional(),
     trust_history: z.array(TrustHistoryEntrySchema).optional(),
     applicability: z.array(MetricApplicabilityEntrySchema).optional(),
+    serving: z.array(MetricServingEntrySchema).optional(),
   })
   .passthrough();
 
@@ -142,3 +155,4 @@ export type BusinessMetricAnomaly = z.infer<typeof BusinessMetricAnomalySchema>;
 export type TrustHistoryEntry = z.infer<typeof TrustHistoryEntrySchema>;
 export type MetricApplicabilityEntry = z.infer<typeof MetricApplicabilityEntrySchema>;
 export type BusinessMetricMeta = z.infer<typeof BusinessMetricMetaSchema>;
+export type MetricServingEntry = z.infer<typeof MetricServingEntrySchema>;

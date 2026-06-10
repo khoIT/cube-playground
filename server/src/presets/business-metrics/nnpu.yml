@@ -10,7 +10,7 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: measure
-  ref: mf_users.new_register_and_paying_users
+  ref: game_key_metrics.nnpu
 format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

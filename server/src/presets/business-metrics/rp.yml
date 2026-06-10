@@ -10,11 +10,11 @@ owner: data-platform@vng
 trust: draft
 formula:
   type: ratio
-  numerator: mf_users.paying_retained_d7
-  denominator: mf_users.new_paying_users
+  numerator: new_user_retention.rpnpu_d7
+  denominator: new_user_retention.npu
 format: percent
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [new_user_retention]
 parameter:
   name: n
   label: Day (n)

@@ -96,14 +96,36 @@ const TrustChip = styled.span<{ $trust: BusinessMetric['trust'] }>`
         : 'var(--text-muted, #737373)'};
 `;
 
+const ColdBadge = styled.span`
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs, 4px);
+  background: var(--warning-soft, #fef3c7);
+  color: var(--warning-ink, #92400e);
+`;
+
+const BadgeCell = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+`;
+
 interface MetricListRowProps {
   metric: BusinessMetric;
   disabled: boolean;
+  /** True when no pre-aggregation is available for this game. */
+  cold?: boolean;
 }
 
 export function MetricListRow({
   metric,
   disabled,
+  cold = false,
 }: MetricListRowProps) {
   const displayLabel = metric.label || metric.id;
   const showCodename = Boolean(metric.label && metric.label !== metric.id);
@@ -119,7 +141,10 @@ export function MetricListRow({
         )}
       </TitleBlock>
       <Meta>{metric.owner}</Meta>
-      <TrustChip $trust={metric.trust}>{metric.trust}</TrustChip>
+      <BadgeCell>
+        {cold && <ColdBadge title="No pre-aggregation for this game — query may be slow">Slow</ColdBadge>}
+        <TrustChip $trust={metric.trust}>{metric.trust}</TrustChip>
+      </BadgeCell>
     </Row>
   );
 }

@@ -5,17 +5,25 @@ synonyms: [arpu_daily, avg_rev_per_dau]
 tier: 1
 domain: revenue
 owner: data-platform@vng
-trust: certified
+trust: draft
 formula:
   type: ratio
-  numerator: recharge.revenue_vnd
+  numerator: user_recharge_daily.revenue_vnd_total
   denominator: active_daily.dau
 unit: VND
 format: currency
 game_compatibility:
-  required_cubes: [recharge, active_daily]
+  required_cubes: [user_recharge_daily, active_daily]
 parameter:
   name: cohort_window
   label: Cohort window
   options: [d1, d7, d30]
   default: d7
+meta:
+  serving:
+    - game: cfm_vn
+      latency: cold
+      at: "2026-06-10T00:00:00.000Z"
+      note: >-
+        Cross-cube ratio (user_recharge_daily + active_daily) — no single
+        rollup covers both; requires a conforming mart or ETL join to serve warm.

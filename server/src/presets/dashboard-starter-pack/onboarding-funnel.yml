@@ -1,0 +1,45 @@
+slug: onboarding-funnel
+title: Onboarding funnel
+description: New-player tutorial funnel — starters, completions, and completion rate from pre-aggregated rollups.
+applies_when:
+  required_cubes: [etl_newbie_tutorial]
+tiles:
+  - title: Tutorial completion rate (30d)
+    viz_type: line
+    position: { x: 0, y: 0, w: 8, h: 3 }
+    query:
+      measures: [etl_newbie_tutorial.completion_rate]
+      timeDimensions:
+        - dimension: etl_newbie_tutorial.log_date
+          granularity: day
+          dateRange: last 30 days
+  - title: Completion rate (14d)
+    viz_type: kpi
+    position: { x: 8, y: 0, w: 4, h: 3 }
+    query:
+      measures: [etl_newbie_tutorial.completion_rate]
+      timeDimensions:
+        - dimension: etl_newbie_tutorial.log_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev
+  - title: Tutorial starters (14d)
+    viz_type: kpi
+    position: { x: 0, y: 3, w: 4, h: 2 }
+    query:
+      measures: [etl_newbie_tutorial.started_count]
+      timeDimensions:
+        - dimension: etl_newbie_tutorial.log_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev
+  - title: Tutorial completions (14d)
+    viz_type: kpi
+    position: { x: 4, y: 3, w: 4, h: 2 }
+    query:
+      measures: [etl_newbie_tutorial.completed_count]
+      timeDimensions:
+        - dimension: etl_newbie_tutorial.log_date
+          granularity: day
+          dateRange: last 14 days
+      compare: prev

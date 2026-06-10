@@ -1,0 +1,16 @@
+id: gacha_diamond_cost
+label: Gacha diamond cost
+description: >-
+  Total diamonds spent on gacha pulls in the period. Aggregates
+  etl_lottery_shoot.total_cost_diamond across all lottery box types.
+synonyms: [lottery_diamond_spend, gacha_diamond_spend]
+tier: 3
+domain: engagement
+owner: data-platform@vng
+trust: draft
+formula:
+  type: measure
+  ref: etl_lottery_shoot.total_cost_diamond
+format: compact
+game_compatibility:
+  required_cubes: [etl_lottery_shoot]

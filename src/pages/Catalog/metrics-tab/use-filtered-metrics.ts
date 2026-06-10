@@ -9,7 +9,7 @@ import type {
   BusinessMetricDomain,
   BusinessMetricTrust,
 } from './business-metric-types';
-import { isAvailableForGame } from './business-metric-types';
+import { isAvailableForGame, isColdForGame } from './business-metric-types';
 
 export interface MetricFilters {
   domains: Set<BusinessMetricDomain>;
@@ -35,6 +35,10 @@ export interface FilteredMetric {
   metric: BusinessMetric;
   available: boolean;
   missingCubes: string[];
+  /** True when the metric is available but has no pre-aggregation for this game. */
+  cold: boolean;
+  /** True when the metric is explicitly marked not applicable for this game. */
+  blockedByApplicability: boolean;
 }
 
 export interface FilteredMetricsResult {
@@ -62,13 +66,21 @@ export function useFilteredMetrics(
   filters: MetricFilters,
   query: string,
   availableCubeNames: ReadonlySet<string>,
+  gameId?: string,
 ): FilteredMetricsResult {
   const q = query.trim().toLowerCase();
 
   // 1. Compute per-game availability for ALL metrics (used for the "X of Y" chip).
   const annotated: FilteredMetric[] = metrics.map((metric) => {
-    const compat = isAvailableForGame(metric, availableCubeNames);
-    return { metric, available: compat.available, missingCubes: compat.missing };
+    const compat = isAvailableForGame(metric, availableCubeNames, gameId);
+    const cold = compat.available && !!gameId && isColdForGame(metric, gameId);
+    return {
+      metric,
+      available: compat.available,
+      missingCubes: compat.missing,
+      cold,
+      blockedByApplicability: compat.blockedByApplicability,
+    };
   });
 
   const availableCount = annotated.filter((m) => m.available).length;

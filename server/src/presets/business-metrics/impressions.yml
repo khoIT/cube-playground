@@ -10,7 +10,7 @@ owner: marketing-ops@vng
 trust: draft
 formula:
   type: measure
-  ref: mf_users.impressions
+  ref: game_key_metrics.impressions
 format: compact
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes: [game_key_metrics]

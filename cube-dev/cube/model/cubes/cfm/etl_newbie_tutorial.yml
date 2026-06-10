@@ -81,7 +81,7 @@ cubes:
         sql: tutorialid
 
       - name: completion_rate
-        sql: "{completed_count} * 1.0 / NULLIF({started_count}, 0)"
+        sql: "CAST({completed_count} AS DOUBLE) / NULLIF({started_count}, 0)"
         type: number
         format: percent
         description: Completed / started across the filter window (per-step funnel)

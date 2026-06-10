@@ -1,0 +1,18 @@
+id: tutorial_completion_rate
+label: Tutorial completion rate
+description: >-
+  Ratio of players who completed the tutorial to players who started it
+  (completed_count / started_count). Computed from rolled-up counts in
+  etl_newbie_tutorial — not stored as a pre-aggregated column.
+synonyms: [onboarding_completion_rate, tutorial_cvr]
+tier: 3
+domain: engagement
+owner: data-platform@vng
+trust: draft
+formula:
+  type: ratio
+  numerator: etl_newbie_tutorial.completed_count
+  denominator: etl_newbie_tutorial.started_count
+format: percent
+game_compatibility:
+  required_cubes: [etl_newbie_tutorial]

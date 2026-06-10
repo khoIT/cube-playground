@@ -65,6 +65,62 @@ describe('GET /api/business-metrics/:id', () => {
   });
 });
 
+describe('GET /api/business-metrics?filter=available', () => {
+  it('includes a declared-draft metric with valid refs and excludes an applicability-blocked metric', async () => {
+    // gacha_pulls: declared draft, no applicability restriction — resolvable for cfm_vn
+    writeFileSync(
+      join(dir, 'gacha_pulls.yml'),
+      [
+        'id: gacha_pulls',
+        'label: Gacha pulls',
+        'description: Lottery pull attempts',
+        'tier: 3',
+        'domain: engagement',
+        'owner: data@vng',
+        'trust: draft',
+        'formula:',
+        '  type: measure',
+        '  ref: etl_lottery_shoot.pulls',
+      ].join('\n'),
+    );
+    // acu: blocked for cfm_vn via applicability — must be excluded from available
+    writeFileSync(
+      join(dir, 'acu.yml'),
+      [
+        'id: acu',
+        'label: ACU',
+        'description: Avg concurrent users',
+        'tier: 3',
+        'domain: concurrency',
+        'owner: data@vng',
+        'trust: draft',
+        'formula:',
+        '  type: measure',
+        '  ref: mf_users.acu',
+        'meta:',
+        '  applicability:',
+        '    - game: cfm_vn',
+        '      applicable: false',
+        '      at: "2026-01-01T00:00:00.000Z"',
+      ].join('\n'),
+    );
+    clearCache();
+    await loadAll();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/business-metrics?game=cfm_vn&filter=available',
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { metrics: Array<{ id: string }> };
+    const ids = body.metrics.map((m) => m.id);
+    // gacha_pulls is declared draft but resolvable — must be in the available set
+    expect(ids).toContain('gacha_pulls');
+    // acu is blocked by applicability — must be excluded
+    expect(ids).not.toContain('acu');
+  });
+});
+
 describe('POST /api/business-metrics', () => {
   it('rejects invalid payloads with 400', async () => {
     const res = await app.inject({

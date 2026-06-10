@@ -44,6 +44,36 @@ decisions and must be surfaced, not silent.
 - Width: **curate the 57 + propose additions** from cfm event tables.
 - Latency bar: **warm <2s from CubeStore**; cold-Trino acceptable only for unusual slices.
 
+### Phase-2 sign-off (locked 2026-06-10) — dispositions
+
+Audit reality (not the plan's original premise): only **20/57** resolve with live data; 36
+broken-ref; 1 stub (arpdau cross-cube >15s). recharge PK = **PASS** (Phase 4 unblocked).
+
+- **Revenue correctness:** repoint `revenue` (and cascade gross_bookings, arpdau numerator,
+  arppu) from inflated `recharge.revenue_vnd` (iamount, ~15× test-traffic) →
+  `user_recharge_daily.revenue_vnd_total` (bridged, pre-agg). Also fix `preagg-readiness.ts`
+  probe. Changelog the value drop.
+- **Recover clean, defer ambiguous:** repoint the ~16 unambiguous broken metrics
+  (nru, npu, nnpu, installs, cost, cpi, clicks, impressions, ctr, cti, cpn, nru_install_rate,
+  roas, mkt_rev_ratio, rev_npu/arpnpu, rev_nnpu/arpnnpu) to `game_key_metrics`; `rp` →
+  `new_user_retention.rpnpu_d7/npu`. HOLD as draft pending semantics: `ltv`/`ltv_30`
+  (cohort-vs-calendar), `roas_07` (period-vs-D7), `organic_installs`/`paid_installs`
+  (need 2 new additive measures on game_key_metrics).
+- **Width: add all 12** event-cube metrics (economy×3, gacha×3, onboarding×3, session×2,
+  iap×1). Gacha requires a NEW `etl_lottery_shoot` daily rollup first (213M rows).
+- **Structural 12 → blocked stubs** (not deleted): 4 funnel + 4 concurrency + 4 roles have no
+  cfm data source; wire them `unavailable` so agent/Catalog flag + never query.
+
+### New standing asks (from sign-off — fold into scope)
+
+- **Cold-label, don't drop:** a meaningful metric that can't serve warm <2s (pre-agg not built
+  / cross-cube / wide HLL) is KEPT and labeled **cold**, not excluded. Availability taxonomy
+  becomes three-state: **fast** (rollup warm <2s) / **cold** (resolves, slow Trino) / **blocked**
+  (no data source). This supersedes the earlier "exclude slow metrics from catalog+seeds" rule.
+- **Cross-game master metric list:** maintain a canonical master list of metrics across ALL
+  games (concept → per-game backing/verdict), since this curation repeats per game. cfm_vn is
+  the first column; Phase 6 generalizes. New deliverable.
+
 ## Foundational facts (verified this session)
 
 - `recharge.recharge_date` and `active_daily.log_date` are the **identical** SQL expr →
@@ -57,13 +87,13 @@ decisions and must be surfaced, not silent.
 
 | # | Phase | Status | Output |
 |---|-------|--------|--------|
-| 0 | Chat-agent resolution-baseline harness | pending | eval harness + **before** baseline of current metric-resolution + ARPDAU query shape |
-| 1 | Availability & Trino-grounding audit | pending | per-metric matrix: resolvable / broken / stub / no-data; cfm recharge PK verdict; verdicts wired to availability |
-| 2 | Width curation + event-table proposals | pending | final curated cfm_vn metric list (dedup; synonyms preserved) |
-| 3 | Per-metric fast-query (rollup) design | pending | rollup spec per cube to hit <2s warm |
-| 4 | Implement cfm_vn semantic layer | pending | rollup YAMLs + restart + <2s verification; PK hard-gate |
+| 0 | Chat-agent resolution-baseline harness | harness done; live baseline running (~2h) | eval harness built + compiles; baseline snapshot in flight; ARPDAU shape verdict pending live cases |
+| 1 | Availability & Trino-grounding audit | done | matrix: 20 work / 36 broken / 1 stub; recharge PK PASS; availability-wiring spec |
+| 2 | Width curation + event-table proposals | done (signed off) | locked dispositions above; 16 recover + 4 defer + 12 add + 12 blocked-stub |
+| 3 | Per-metric fast-query (rollup) design | pending | rollup spec per cube to hit <2s warm + cold-label policy |
+| 4 | Implement cfm_vn semantic layer | pending | rollup YAMLs + preset repoints + restart + <2s verification |
 | 5 | Rebuild seeded questions + agent surface | pending | regenerated seeds across all 3 sources incl. chat-service starters |
-| 6 | Per-game roll-out template | pending | repeatable doc for other games |
+| 6 | Per-game roll-out template + master list | pending | repeatable doc + cross-game master metric list |
 
 Phase 0 is also the **gate**: re-run after Phases 2, 4, 5 — accuracy must not regress vs the
 captured baseline before each ships.
