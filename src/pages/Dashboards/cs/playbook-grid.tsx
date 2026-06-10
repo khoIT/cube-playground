@@ -574,6 +574,22 @@ export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite, asO
     fontFamily: 'var(--font-sans)',
   };
 
+  // Each NHÓM renders its own <table>, so a per-table auto layout sizes columns
+  // to that group's content — leaving the columns misaligned card-to-card. A
+  // shared colgroup + table-layout:fixed pins every table to the same column
+  // widths so they read as one continuous grid. The kebab column only exists
+  // when the user can write, so it's appended conditionally.
+  const colWidths: string[] = [
+    '26%', // Playbook (id + name)
+    '9%',  // Priority
+    '11%', // Data / availability
+    'auto', // Watched metric — absorbs remaining width
+    '7%',  // Open
+    '10%', // SLA breach
+    '7%',  // SLA
+  ];
+  if (canWrite) colWidths.push('44px'); // Kebab actions
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {groups.map(([nhom, rows]) => (
@@ -596,7 +612,12 @@ export function PlaybookGrid({ playbooks, casesByPlaybook, gameId, canWrite, asO
 
           {expanded.has(nhom) && (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <colgroup>
+                  {colWidths.map((w, i) => (
+                    <col key={i} style={{ width: w }} />
+                  ))}
+                </colgroup>
                 <thead>
                   <tr>
                     <th style={thStyle}>Playbook</th>
