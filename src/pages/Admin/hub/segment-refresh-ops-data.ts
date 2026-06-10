@@ -39,7 +39,7 @@ const STATE_META: Record<DerivedRefreshState, StateMeta> = {
   wedged:        { label: 'Wedged',        tone: 'destructive', blurb: 'Stuck mid-refresh — orphaned' },
   serving_stale: { label: 'Serving stale', tone: 'warning',     blurb: 'Last refresh failed; serving last-good' },
   broken:        { label: 'Broken',        tone: 'destructive', blurb: 'Hard failure' },
-  degraded:      { label: 'Degraded',      tone: 'warning',     blurb: 'Cohort OK, but KPI cards erroring' },
+  degraded:      { label: 'Degraded',      tone: 'warning',     blurb: 'Cohort OK, but ≥1 KPI card failing its refresh (may serve last-good)' },
 };
 
 export function stateMeta(state: DerivedRefreshState): StateMeta {

@@ -28,19 +28,20 @@ const OPS = {
       id: 's-wedged', name: 'Wedged cohort', gameId: 'jus_vn', workspace: 'local',
       status: 'refreshing', derivedState: 'wedged', lastRefreshedAt: null, cadenceMin: 60,
       ageMs: null, overdueByMs: 0, uidCount: 1000, brokenReason: null,
-      cards: { ok: 0, error: 0, total: 0 }, erroringCards: [],
+      cards: { ok: 0, error: 0, total: 0 }, failingCards: 0, newestCardAgeMs: null, cardsStale: false, erroringCards: [],
     },
     {
       id: 's-degraded', name: 'Degraded cohort', gameId: 'cfm_vn', workspace: 'local',
       status: 'fresh', derivedState: 'degraded', lastRefreshedAt: '2026-06-10T23:55:00.000Z', cadenceMin: 60,
       ageMs: 300_000, overdueByMs: 0, uidCount: 500, brokenReason: null,
-      cards: { ok: 3, error: 1, total: 4 }, erroringCards: [{ cardId: 'arpu', error: 'cold query timeout' }],
+      cards: { ok: 3, error: 1, total: 4 }, failingCards: 1, newestCardAgeMs: 240_000, cardsStale: false,
+      erroringCards: [{ cardId: 'arpu', error: 'cold query timeout' }],
     },
     {
       id: 's-healthy', name: 'Healthy cohort', gameId: 'jus_vn', workspace: 'local',
       status: 'fresh', derivedState: 'healthy', lastRefreshedAt: '2026-06-10T23:58:00.000Z', cadenceMin: 60,
       ageMs: 120_000, overdueByMs: 0, uidCount: 800, brokenReason: null,
-      cards: { ok: 2, error: 0, total: 2 }, erroringCards: [],
+      cards: { ok: 2, error: 0, total: 2 }, failingCards: 0, newestCardAgeMs: 100_000, cardsStale: false, erroringCards: [],
     },
   ],
 };

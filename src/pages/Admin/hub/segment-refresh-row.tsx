@@ -69,8 +69,9 @@ export interface SegmentRefreshRowProps {
 
 export function SegmentRefreshRow({ row, busy, onRefresh, onUnstick }: SegmentRefreshRowProps) {
   const [open, setOpen] = useState(false);
-  const hasErrors = row.cards.error > 0;
-  const canExpand = hasErrors || row.brokenReason != null;
+  const hasFailing = row.failingCards > 0;
+  const hardDown = row.cards.error > 0; // cards with no last-good to render
+  const canExpand = row.erroringCards.length > 0 || row.brokenReason != null;
   const showUnstick = row.derivedState === 'wedged';
 
   return (
@@ -123,15 +124,24 @@ export function SegmentRefreshRow({ row, busy, onRefresh, onUnstick }: SegmentRe
           </div>
         </div>
 
-        {/* Card tally */}
+        {/* Card tally — surface the FAILING count (last refresh errored) so cards
+            that still serve a last-good value can't read green as "X/X cards ok".
+            Destructive when some are hard-down (no last-good), warning when all
+            failing cards are still serving last-good (the silent decay). */}
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', minWidth: 92, textAlign: 'right' }}>
           {row.cards.total > 0 ? (
-            <>
-              <span style={{ color: hasErrors ? 'var(--destructive-ink)' : 'var(--text-secondary)', fontWeight: 600 }}>
-                {row.cards.ok}/{row.cards.total}
-              </span>{' '}
-              cards ok
-            </>
+            hasFailing ? (
+              <span style={{ color: hardDown ? 'var(--destructive-ink)' : 'var(--warning-ink)', fontWeight: 600 }}>
+                {row.failingCards}/{row.cards.total} failing
+              </span>
+            ) : (
+              <>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  {row.cards.ok}/{row.cards.total}
+                </span>{' '}
+                cards ok
+              </>
+            )
           ) : (
             'no cards'
           )}
@@ -180,10 +190,18 @@ export function SegmentRefreshRow({ row, busy, onRefresh, onUnstick }: SegmentRe
               <strong>Broken:</strong> {row.brokenReason}
             </div>
           )}
+          {row.cardsStale && (
+            <div style={{ fontSize: 12, color: 'var(--warning-ink)', marginBottom: 8, lineHeight: 1.45 }}>
+              <strong>Serving last-good:</strong> {row.failingCards} card{row.failingCards === 1 ? '' : 's'}{' '}
+              {row.failingCards === 1 ? 'is' : 'are'} failing to refresh but still rendering a prior value
+              (newest value changed {fmtAge(row.newestCardAgeMs)}). Reads green by status alone. Use Refresh
+              to force a recompute, or check the card-runner logs for the errors below.
+            </div>
+          )}
           {row.erroringCards.length > 0 && (
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5 }}>
-                Erroring cards ({row.erroringCards.length})
+                Failing cards ({row.erroringCards.length})
               </div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {row.erroringCards.map((c) => (

@@ -12,10 +12,18 @@
  *                  is in-memory, so a refreshing row at rest is an orphan; the
  *                  cron's listDueSegments() skips it, so without recovery it
  *                  rots until the next process boot.
- *   - `degraded` — cohort refreshed fine, but K of N KPI cards are erroring
- *                  (cold-query timeout / unbuilt rollup). Cards keep serving
- *                  last-good (card-cache-store preserves it), so the segment
- *                  looks green while individual cards are silently frozen.
+ *   - `degraded` — cohort refreshed fine, but K of N KPI cards FAILED their last
+ *                  refresh (cold-query timeout / unbuilt rollup). The signal is
+ *                  the card's persisted `error` breadcrumb, NOT its status: when
+ *                  a card that previously succeeded starts failing, the cache's
+ *                  last-good preservation flips it back to status='ok' (so it
+ *                  still serves the stale value) and records the failure only in
+ *                  `error`. Counting status='error' alone therefore misses the
+ *                  most common decay — a card that froze hours ago while the
+ *                  segment kept reading green. `error IS NOT NULL` catches both
+ *                  the never-succeeded (status='error') and the serving-last-good
+ *                  (status='ok' + breadcrumb) cases without false-flagging a
+ *                  healthy-but-stable card (whose value simply hasn't changed).
  *
  * Wedge threshold = max(cadence, WEDGE_FLOOR_MIN) so a legitimately long refresh
  * (e.g. a multi-million-uid cohort) is never falsely flagged or auto-killed.
@@ -59,7 +67,12 @@ export interface DeriveInput {
   /** When the row last changed state — while 'refreshing' this is when it started. */
   updatedAt: string | null;
   cadenceMin: number | null;
-  errorCards: number;
+  /**
+   * Cards whose LAST refresh attempt failed (persisted `error IS NOT NULL`),
+   * counting both status='error' (never succeeded) and status='ok'-with-error
+   * (serving last-good while the refresh keeps failing). Drives `degraded`.
+   */
+  failingCards: number;
   now: number;
 }
 
@@ -69,7 +82,7 @@ export interface DeriveInput {
  * Pure: no DB access, fully unit-testable.
  */
 export function deriveRefreshState(input: DeriveInput): DerivedRefreshState {
-  const { status, lastRefreshedAt, updatedAt, cadenceMin, errorCards, now } = input;
+  const { status, lastRefreshedAt, updatedAt, cadenceMin, failingCards, now } = input;
 
   if (status === 'broken') return 'broken';
 
@@ -79,8 +92,10 @@ export function deriveRefreshState(input: DeriveInput): DerivedRefreshState {
     return refreshingAge >= wedgeThresholdMs(cadenceMin) ? 'wedged' : 'in_flight';
   }
 
-  // Serving states (fresh / stale): cohort is up, but cards may be cold-failing.
-  if (errorCards > 0) return 'degraded';
+  // Serving states (fresh / stale): cohort is up, but ≥1 KPI card's last refresh
+  // failed — including cards that still serve a last-good value (status='ok' +
+  // error breadcrumb), the decay a status='error'-only count would miss.
+  if (failingCards > 0) return 'degraded';
 
   if (status === 'stale') return 'serving_stale';
 
@@ -117,7 +132,18 @@ export interface SegmentRefreshOpsRow {
   overdueByMs: number;
   uidCount: number;
   brokenReason: string | null;
+  /** `error` = cards at status='error' (no last-good to show). */
   cards: { ok: number; error: number; total: number };
+  /** Cards whose last refresh attempt failed (status='error' OR status='ok' with
+   *  an error breadcrumb still serving last-good). ≥1 ⇒ derivedState 'degraded'. */
+  failingCards: number;
+  /** Age (ms) of the newest cached card; null when the segment has no cards.
+   *  Display only (last time any card VALUE changed — not last verified). */
+  newestCardAgeMs: number | null;
+  /** True when ≥1 card is failing its refresh while still serving last-good — the
+   *  silent decay that reads green via status alone. (= failingCards > cards.error) */
+  cardsStale: boolean;
+  /** Every card whose last refresh failed (id + latest error), incl. last-good. */
   erroringCards: ErroringCard[];
 }
 
@@ -161,31 +187,47 @@ interface RawSegmentRow {
 
 interface CardTally {
   ok: number;
+  /** status='error' — no last-good value to render. */
   error: number;
+  /** error IS NOT NULL — last refresh failed (incl. status='ok' serving last-good). */
+  failing: number;
   total: number;
+  /** ISO of the most recently computed card; null when the segment has none. */
+  newestFetchedAt: string | null;
 }
 
-/** Tally ok/error/total cards per segment in one grouped query. */
+/** Tally per segment in one query: ok/error/total, failing (last attempt errored,
+ *  by breadcrumb — catches cards serving last-good), and newest fetched_at. */
 function loadCardTallies(): Map<string, CardTally> {
   const rows = getDb()
     .prepare(
       `SELECT segment_id,
               SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS err,
-              COUNT(*) AS total
+              SUM(CASE WHEN error IS NOT NULL THEN 1 ELSE 0 END) AS failing,
+              COUNT(*) AS total,
+              MAX(fetched_at) AS newest
          FROM segment_card_cache
         GROUP BY segment_id`,
     )
-    .all() as Array<{ segment_id: string; err: number; total: number }>;
+    .all() as Array<{ segment_id: string; err: number; failing: number; total: number; newest: string | null }>;
   const map = new Map<string, CardTally>();
   for (const r of rows) {
     const error = Number(r.err) || 0;
     const total = Number(r.total) || 0;
-    map.set(r.segment_id, { ok: total - error, error, total });
+    map.set(r.segment_id, {
+      ok: total - error,
+      error,
+      failing: Number(r.failing) || 0,
+      total,
+      newestFetchedAt: r.newest ?? null,
+    });
   }
   return map;
 }
 
-/** Load only the erroring cards (id + message) for the given segments. */
+/** Load every card whose last refresh failed (id + latest message) for the given
+ *  segments — by `error IS NOT NULL`, so cards still serving a last-good value
+ *  (status='ok' + breadcrumb) are surfaced alongside hard status='error' ones. */
 function loadErroringCards(segmentIds: string[]): Map<string, ErroringCard[]> {
   const map = new Map<string, ErroringCard[]>();
   if (segmentIds.length === 0) return map;
@@ -194,7 +236,7 @@ function loadErroringCards(segmentIds: string[]): Map<string, ErroringCard[]> {
     .prepare(
       `SELECT segment_id, card_id, error
          FROM segment_card_cache
-        WHERE status = 'error' AND segment_id IN (${placeholders})`,
+        WHERE error IS NOT NULL AND segment_id IN (${placeholders})`,
     )
     .all(...segmentIds) as Array<{ segment_id: string; card_id: string; error: string | null }>;
   for (const r of rows) {
@@ -231,10 +273,10 @@ export function collectSegmentRefreshOps(opts: {
     .all() as RawSegmentRow[];
 
   const tallies = loadCardTallies();
-  const errorSegmentIds = raw
-    .filter((r) => (tallies.get(r.id)?.error ?? 0) > 0)
+  const failingSegmentIds = raw
+    .filter((r) => (tallies.get(r.id)?.failing ?? 0) > 0)
     .map((r) => r.id);
-  const erroringBySegment = loadErroringCards(errorSegmentIds);
+  const erroringBySegment = loadErroringCards(failingSegmentIds);
 
   const summary = {
     total: raw.length,
@@ -248,15 +290,21 @@ export function collectSegmentRefreshOps(opts: {
   };
 
   const segments: SegmentRefreshOpsRow[] = raw.map((r) => {
-    const cards = tallies.get(r.id) ?? { ok: 0, error: 0, total: 0 };
+    const tally = tallies.get(r.id) ?? { ok: 0, error: 0, failing: 0, total: 0, newestFetchedAt: null };
+    const newestMs = tally.newestFetchedAt ? Date.parse(tally.newestFetchedAt) : NaN;
+    const newestCardAgeMs = Number.isNaN(newestMs) ? null : now - newestMs;
+
     const derivedState = deriveRefreshState({
       status: r.status,
       lastRefreshedAt: r.last_refreshed_at,
       updatedAt: r.updated_at,
       cadenceMin: r.refresh_cadence_min,
-      errorCards: cards.error,
+      failingCards: tally.failing,
       now,
     });
+    // Silent decay: cards failing their refresh while still serving last-good
+    // (status='ok' + breadcrumb) — green by status alone, the case worth a callout.
+    const cardsStale = tally.failing > tally.error;
 
     const lastMs = r.last_refreshed_at ? Date.parse(r.last_refreshed_at) : NaN;
     const ageMs = Number.isNaN(lastMs) ? null : now - lastMs;
@@ -280,7 +328,10 @@ export function collectSegmentRefreshOps(opts: {
       overdueByMs,
       uidCount: r.uid_count,
       brokenReason: r.broken_reason,
-      cards,
+      cards: { ok: tally.ok, error: tally.error, total: tally.total },
+      failingCards: tally.failing,
+      newestCardAgeMs,
+      cardsStale,
       erroringCards: erroringBySegment.get(r.id) ?? [],
     };
   });

@@ -72,18 +72,24 @@ function seedSegment(o: SeedOpts): void {
   );
 }
 
-function seedCard(segmentId: string, cardId: string, status: 'ok' | 'error', error: string | null = null): void {
+function seedCard(
+  segmentId: string,
+  cardId: string,
+  status: 'ok' | 'error',
+  error: string | null = null,
+  ageMin = 1,
+): void {
   getDb().prepare(`
     INSERT INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at, status, error)
     VALUES (?,?,?,?,?,?,?)
-  `).run(segmentId, cardId, 'h', '[]', minsAgo(1), status, error);
+  `).run(segmentId, cardId, 'h', '[]', minsAgo(ageMin), status, error);
 }
 
 describe('deriveRefreshState', () => {
-  const base = { lastRefreshedAt: minsAgo(5), updatedAt: minsAgo(5), cadenceMin: 60, errorCards: 0, now: NOW };
+  const base = { lastRefreshedAt: minsAgo(5), updatedAt: minsAgo(5), cadenceMin: 60, failingCards: 0, now: NOW };
 
   it('broken status → broken (highest precedence)', () => {
-    expect(deriveRefreshState({ ...base, status: 'broken', errorCards: 3 })).toBe('broken');
+    expect(deriveRefreshState({ ...base, status: 'broken', failingCards: 3 })).toBe('broken');
   });
 
   it('refreshing under threshold → in_flight', () => {
@@ -94,8 +100,12 @@ describe('deriveRefreshState', () => {
     expect(deriveRefreshState({ ...base, status: 'refreshing', updatedAt: minsAgo(90), cadenceMin: 60 })).toBe('wedged');
   });
 
-  it('serving state with erroring cards → degraded', () => {
-    expect(deriveRefreshState({ ...base, status: 'fresh', errorCards: 2 })).toBe('degraded');
+  it('fresh cohort with ≥1 failing card → degraded (includes cards serving last-good)', () => {
+    expect(deriveRefreshState({ ...base, status: 'fresh', failingCards: 2 })).toBe('degraded');
+  });
+
+  it('fresh cohort with all cards healthy → healthy (no false-flag on stable cards)', () => {
+    expect(deriveRefreshState({ ...base, status: 'fresh', failingCards: 0 })).toBe('healthy');
   });
 
   it('stale with prior data → serving_stale', () => {
@@ -157,10 +167,54 @@ describe('collectSegmentRefreshOps', () => {
     const degraded = payload.segments.find((x) => x.id === 'degraded1')!;
     expect(degraded.derivedState).toBe('degraded');
     expect(degraded.cards).toEqual({ ok: 1, error: 1, total: 2 });
+    expect(degraded.failingCards).toBe(1);
     expect(degraded.erroringCards).toEqual([{ cardId: 'c2', error: 'cold query timeout' }]);
 
     expect(payload.cron.sinceLastTickMs).toBe(60_000);
     expect(payload.watchdog.wedgeFloorMin).toBe(WEDGE_FLOOR_MIN);
+  });
+
+  it('flags cards serving last-good (status=ok + error breadcrumb) as degraded, not healthy', () => {
+    // The real-world bug: cards succeeded once, now fail every refresh. The
+    // cache's last-good preservation flips them back to status='ok' and records
+    // the failure only in `error`. A status='error'-only count reads green; the
+    // breadcrumb count must catch them.
+    seedSegment({ id: 'lastgood', status: 'fresh', lastRefreshedAt: minsAgo(5), cadenceMin: 60 });
+    seedCard('lastgood', 'c1', 'ok'); // genuinely healthy, no breadcrumb
+    seedCard('lastgood', 'c2', 'ok', 'Cube request timed out after 14s'); // serving last-good
+    seedCard('lastgood', 'c3', 'ok', 'Cube request timed out after 10s'); // serving last-good
+
+    const payload = collectSegmentRefreshOps({
+      now: NOW, lastTickAt: minsAgo(1), tickIntervalMs: 60_000, queueProcessing: false, queueSize: 0,
+    });
+
+    const row = payload.segments.find((x) => x.id === 'lastgood')!;
+    expect(row.derivedState).toBe('degraded');
+    expect(row.cards).toEqual({ ok: 3, error: 0, total: 3 }); // all status='ok'
+    expect(row.failingCards).toBe(2); // by breadcrumb
+    expect(row.cardsStale).toBe(true); // failing > hard-down
+    expect(row.erroringCards.map((c) => c.cardId).sort()).toEqual(['c2', 'c3']);
+    expect(payload.summary.degraded).toBe(1);
+    expect(payload.summary.healthy).toBe(0);
+  });
+
+  it('does NOT flag a fresh cohort whose cards are healthy but stable (no breadcrumb)', () => {
+    // Stable cohort: cards re-verify successfully but dedup-skip keeps their
+    // fetched_at old. Must read healthy — old fetched_at alone is not a failure.
+    seedSegment({ id: 'stable', status: 'fresh', lastRefreshedAt: minsAgo(5), cadenceMin: 60 });
+    seedCard('stable', 'c1', 'ok', null, 600); // 10h old value, but no error
+    seedCard('stable', 'c2', 'ok', null, 720);
+
+    const payload = collectSegmentRefreshOps({
+      now: NOW, lastTickAt: minsAgo(1), tickIntervalMs: 60_000, queueProcessing: false, queueSize: 0,
+    });
+
+    const row = payload.segments.find((x) => x.id === 'stable')!;
+    expect(row.derivedState).toBe('healthy');
+    expect(row.failingCards).toBe(0);
+    expect(row.cardsStale).toBe(false);
+    expect(payload.summary.healthy).toBe(1);
+    expect(payload.summary.degraded).toBe(0);
   });
 
   it('handles an empty DB without throwing', () => {

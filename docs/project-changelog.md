@@ -2,6 +2,14 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-11 — Card-failure detection in the segment-refresh monitor
+
+Closed a blind spot where a segment read `healthy` while its KPI cards had been failing to refresh for hours. Root cause: the card cache's last-good preservation flips a card that previously succeeded but now errors back to `status='ok'` (so it keeps serving the stale value) and records the failure only in the `error` breadcrumb — so the monitor's `status='error'`-only count scored it green. Live DB had 6 such segments (one with 19/31 cards failing) all reading healthy. Tests: server ops + route + refresh suites green (32); FE ops suites green (8); typecheck clean.
+
+- **`degraded` now keys on the error breadcrumb (`error IS NOT NULL`)**, not `status='error'` — counting both never-succeeded cards and those serving last-good. New `failingCards` on each ops row; `cardsStale` flags the serving-last-good case (green by status alone). The ops payload + wire type carry `failingCards` + `newestCardAgeMs` (display-only).
+- **Rejected a `fetched_at`-age signal**: the cache deliberately doesn't bump `fetched_at` when a re-verified card's value is unchanged (dedup for snapshot stability), so a healthy-but-stable cohort would false-positive. The breadcrumb is the precise signal — it reflects the last *attempt's* outcome, with no false flag on stable cards.
+- **UI** — the row's card tally shows `N/total failing` (destructive when some are hard-down, warning when all serving last-good) and the expand panel lists every failing card + its latest error, with a "serving last-good" callout. The known card-runner cause is the per-card Cube `/load` timeout on heavy full-cohort aggregations (retention/composition cards over large `mf_users` predicates) against a cold local Cube.
+
 ## 2026-06-11 — Fail-soft segment identity resolution
 
 Distinguished the two reasons a segment's uid identity can fail to resolve so a transient blip no longer masquerades as a dead segment. Tests: new fail-soft refresh test + existing identity/refresh suites green.

@@ -30,7 +30,15 @@ export interface SegmentRefreshOpsRow {
   overdueByMs: number;
   uidCount: number;
   brokenReason: string | null;
+  /** `error` = cards at status='error' (no last-good to show). */
   cards: { ok: number; error: number; total: number };
+  /** Cards whose last refresh attempt failed (status='error' OR status='ok' with
+   *  an error breadcrumb still serving last-good). ≥1 ⇒ derivedState 'degraded'. */
+  failingCards: number;
+  /** Age (ms) of the newest cached card; null when none. Display only. */
+  newestCardAgeMs: number | null;
+  /** ≥1 card failing its refresh while still serving last-good (= failingCards > cards.error). */
+  cardsStale: boolean;
   erroringCards: ErroringCard[];
 }
 
