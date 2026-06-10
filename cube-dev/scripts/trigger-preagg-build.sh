@@ -21,13 +21,17 @@
 #     --stop      stop the worker when done (returns the stack to auto-run-off)
 set -euo pipefail
 
-GAME="${1:?usage: trigger-preagg-build.sh <game> [--minutes N] [--timer S] [--stop]}"; shift || true
-MINUTES=10; STOP=0; TIMER=30
+GAME="${1:?usage: trigger-preagg-build.sh <game> [--minutes N] [--timer S] [--stop|--restore]}"; shift || true
+MINUTES=10; STOP=0; TIMER=30; RESTORE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --minutes) MINUTES="${2:?}"; shift 2;;
     --timer)   TIMER="${2:?}"; shift 2;;
     --stop)    STOP=1; shift;;
+    # --restore: when done, recreate the worker with its default (all-games,
+    # hourly) config instead of leaving it scoped to GAME. This is what the UI
+    # trigger uses so a one-off build never leaves the shared sweep mis-scoped.
+    --restore) RESTORE=1; shift;;
     *) echo "unknown arg: $1"; exit 2;;
   esac
 done
@@ -89,7 +93,11 @@ for pa in ${attempted}; do
   fi
 done
 
-if [ "${STOP}" = 1 ]; then
+if [ "${RESTORE}" = 1 ]; then
+  echo "" && echo "▶ restoring worker to default config (all games, hourly)…"
+  docker compose -f "${COMPOSE}" up -d --no-deps --force-recreate cube_refresh_worker_dev >/dev/null
+  echo "  worker back to all-games sweep."
+elif [ "${STOP}" = 1 ]; then
   docker stop "${WORKER}" >/dev/null && echo "" && echo "▶ worker stopped (auto-run off)."
 else
   echo "" && echo "▶ worker left running (still scoped to ${GAME}). Stop it with: docker stop ${WORKER}"

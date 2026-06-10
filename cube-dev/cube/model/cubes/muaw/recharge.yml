@@ -207,7 +207,7 @@ cubes:
           - role_class
         time_dimension: recharge_time
         granularity: day
-        partition_granularity: year
+        partition_granularity: month
         refresh_key:
           every: 1 hour
           incremental: true

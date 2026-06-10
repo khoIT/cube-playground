@@ -284,7 +284,7 @@ cubes:
           - report_month
         time_dimension: report_date
         granularity: day
-        partition_granularity: year
+        partition_granularity: month
         refresh_key:
           every: 1 hour
           incremental: true

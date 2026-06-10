@@ -200,7 +200,7 @@ cubes:
           - mf_users.payer_tier
         time_dimension: log_date
         granularity: day
-        partition_granularity: year
+        partition_granularity: month
         refresh_key:
           every: 1 hour
           incremental: true
@@ -234,7 +234,7 @@ cubes:
           - country_code
         time_dimension: log_date
         granularity: day
-        partition_granularity: year
+        partition_granularity: month
         refresh_key:
           every: 1 hour
           incremental: true
@@ -271,7 +271,7 @@ cubes:
           - is_recharge_day
         time_dimension: log_date
         granularity: day
-        partition_granularity: year
+        partition_granularity: month
         refresh_key:
           every: 1 hour
           incremental: true
