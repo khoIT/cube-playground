@@ -1,0 +1,92 @@
+# Cross-game segment-membership snapshot, modeled over the lakehouse fact
+# table stag_iceberg.khoitn.segment_membership_daily (written nightly by the
+# playground server's snapshot-segment-membership job).
+#
+# NOT YET LOADED. The cube.js repositoryFactory only reads model/cubes/<game>/
+# and model/views/<game>/ per request. This table is cross-game (one row per
+# member, per segment, per day, partitioned by game_id), so it has no per-game
+# home. To activate, either:
+#   (a) add `model/_shared/` to the repositoryFactory file sweep (preferred —
+#       one shared cube, all tenants see it filtered by game_id), or
+#   (b) symlink/copy into each model/cubes/<game>/ dir.
+# Then RESTART the Cube serving instance (DEV_MODE=false ⇒ no hot reload) so the
+# new cube + rollup register.
+#
+# sql_table is fully qualified to cross from the session catalog
+# (game_integration) into stag_iceberg — Trino resolves cross-catalog refs.
+
+cubes:
+  - name: segment_membership_daily
+    sql_table: stag_iceberg.khoitn.segment_membership_daily
+    title: Segment Membership — Daily Snapshot (per member, per segment, per day)
+    description: >
+      Full daily membership of every predicate segment, materialized once/day in
+      Trino. Serves segment-size-over-time and member-of-segment lookups without
+      recomputing capped uid lists against cold Trino. Always pass a segment_id
+      (and ideally snapshot_date) equality filter for best latency.
+
+    # Snapshot rows for a (date, game, segment) partition are immutable once
+    # written; the nightly job rewrites only the current day's partition. A
+    # 1-hour TTL keeps repeat reads in Cube's result cache.
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(CAST({CUBE}.snapshot_date AS VARCHAR), '__', {CUBE}.game_id, '__', {CUBE}.segment_id, '__', {CUBE}.uid)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: snapshot_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.snapshot_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: game_id
+        sql: game_id
+        type: string
+
+      - name: segment_id
+        sql: segment_id
+        type: string
+
+      - name: uid
+        sql: uid
+        type: string
+
+    measures:
+      - name: members
+        type: count_distinct_approx
+        sql: uid
+        description: >
+          Distinct members (HLL approx_distinct). Sketches merge across grains,
+          so the day-grain rollup also serves week/month size-over-time.
+
+      - name: members_exact
+        type: count_distinct
+        sql: uid
+        description: Exact distinct members — use for a single point-in-time count.
+
+    pre_aggregations:
+      # Day-grain rollup so segment-size-over-time is sub-second. members is an
+      # additive HLL sketch, so weekly/monthly windows resolve from these daily
+      # partitions via sketch merge. Build range bound to the table's real
+      # snapshot_date extent (a fixed wide range builds empty partitions that
+      # stall the partition-range loader — see active_daily for the full story).
+      - name: members_daily
+        type: rollup
+        measures:
+          - members
+        dimensions:
+          - game_id
+          - segment_id
+        time_dimension: snapshot_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(snapshot_date) AS VARCHAR) || 'T00:00:00Z') FROM stag_iceberg.khoitn.segment_membership_daily"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(snapshot_date) AS VARCHAR) || 'T00:00:00Z') FROM stag_iceberg.khoitn.segment_membership_daily"
