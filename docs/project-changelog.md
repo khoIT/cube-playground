@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-11 — Pre-agg the heavy segment composition/retention cards (approx)
+
+Made the unscoped + rollup-aligned segment insight cards serve from CubeStore instead of cold Trino. The heavy composition/retention cards (lifecycle, payer-tier, country, platform, install trend, paying-rate) were full-cohort `count_distinct` group-bys that timed out on a cold cube; a fresh-looking segment (e.g. `High value`, filters `[]`) had 19/31 cards silently failing. After: that segment refreshes in ~1s with those cards routed.
+
+- **New dedicated rollup** `user_composition_batch` (+ `user_composition` lambda) on every game's `mf_users` — measures `user_count_approx` + `paying_users_approx`, dims `country / media_source / os_platform / payer_tier / lifecycle_stage / is_paying_user`, time `install_date` (year-partitioned). Kept **separate** from `ltv_by_install_cohort` so its shape can evolve without rehashing the flagship LTV rollup.
+- **New measures** `paying_users_approx` (count_distinct_approx + recharge filter) and `paying_rate_approx` (= approx components) on all 7 `mf_users`. The shared `mf-users-hub` preset cards now use the approx measures for the composition/trend/paying-rate cards (≈±2% HLL — fine for bars/trends); headline KPIs + non-routing cards (campaign / last-country / first-active / first-recharge trends) stay exact.
+- **Scope/limits**: only unscoped segments and those whose predicate filters on rollup dims (`is_paying_user`, `payer_tier`, `media_source`, `lifecycle_stage`) route. Segments filtering on continuous columns (`lifetime_txn_count`, `ltv_30d_vnd`, `days_since_last_active`) can't be served by a dimensional rollup and still hit Trino (bounded by the widened card-phase budget). The 4 trend/high-card cards above need their own rollups (follow-up).
+- **Deploy note**: adding the approx measures rehashes the cube's existing pre-aggs, so on rollout the LTV cards rebuild their current-year partition; during that window they serve last-good (the card cache preserves it) and the ops monitor flags `degraded` until the reseal completes.
+
 ## 2026-06-11 — Card-failure detection in the segment-refresh monitor
 
 Closed a blind spot where a segment read `healthy` while its KPI cards had been failing to refresh for hours. Root cause: the card cache's last-good preservation flips a card that previously succeeded but now errors back to `status='ok'` (so it keeps serving the stale value) and records the failure only in the `error` breadcrumb — so the monitor's `status='error'`-only count scored it green. Live DB had 6 such segments (one with 19/31 cards failing) all reading healthy. Tests: server ops + route + refresh suites green (32); FE ops suites green (8); typecheck clean.

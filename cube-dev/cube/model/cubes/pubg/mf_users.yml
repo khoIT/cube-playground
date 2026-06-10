@@ -221,6 +221,11 @@ cubes:
         sql: user_id
         filters:
           - sql: '{CUBE}.ingame_total_recharge_value_vnd > 0'
+      - name: paying_users_approx
+        type: count_distinct_approx
+        sql: user_id
+        filters:
+          - sql: '{CUBE}.ingame_total_recharge_value_vnd > 0'
       - name: paying_users_30d
         type: count_distinct
         sql: user_id
@@ -248,6 +253,9 @@ cubes:
         sql: 'CAST({paying_users} AS DOUBLE) / NULLIF({user_count}, 0)'
         type: number
         format: percent
+      - name: paying_rate_approx
+        sql: 'CAST({paying_users_approx} AS DOUBLE) / NULLIF({user_count_approx}, 0)'
+        type: number
       - name: paying_rate_30d
         sql: 'CAST({paying_users_30d} AS DOUBLE) / NULLIF({user_count}, 0)'
         type: number
@@ -310,3 +318,32 @@ cubes:
         union_with_source_data: true
         rollups:
           - CUBE.ltv_by_install_cohort_batch
+
+      - name: user_composition_batch
+        type: rollup
+        measures:
+          - user_count_approx
+          - paying_users_approx
+        dimensions:
+          - country
+          - media_source
+          - os_platform
+          - payer_tier
+          - lifecycle_stage
+          - is_paying_user
+        time_dimension: install_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 6 hours
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
+
+      - name: user_composition
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.user_composition_batch
