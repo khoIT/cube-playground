@@ -312,4 +312,19 @@ describe('refreshSegment', () => {
     expect(row.status).toBe('broken');
     expect(row.broken_reason).toContain('no identity-field mapping');
   });
+
+  it('marks status=stale (retryable), NOT broken, when identity introspection itself fails', async () => {
+    const id = seedSegment();
+    const db = getDb();
+    db.prepare('DELETE FROM cube_identity_map WHERE cube = ?').run('mf_users');
+    // /meta unreachable (Cube down / wrong ctx) → resolveIdentityDetailed can't
+    // tell whether the cube has a uid dim. That's transient, so the segment must
+    // stay retryable rather than be stamped a sticky 'broken'.
+    vi.spyOn(cubeClient, 'getMeta').mockRejectedValue(new Error('fetch failed'));
+    vi.spyOn(cubeClient, 'getMetaWithCtx').mockRejectedValue(new Error('fetch failed'));
+    await refreshSegment(id);
+    const row = getSegment(id);
+    expect(row.status).toBe('stale');
+    expect(row.broken_reason).toBeNull();
+  });
 });

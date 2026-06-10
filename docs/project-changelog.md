@@ -2,6 +2,14 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-11 — Fail-soft segment identity resolution
+
+Distinguished the two reasons a segment's uid identity can fail to resolve so a transient blip no longer masquerades as a dead segment. Tests: new fail-soft refresh test + existing identity/refresh suites green.
+
+- **`resolveIdentityDetailed()`** returns a discriminated result: `no-uid-dim` (Cube `/meta` read fine, cube genuinely exposes no uid-like dimension — structural) vs `introspection-failed` (couldn't introspect: Cube unreachable / wrong ctx / timeout — transient).
+- **`refresh-segment`** now branches on it: `no-uid-dim → broken` (unchanged; set a mapping in Settings), `introspection-failed → stale` + retry. A transient identity failure self-heals on the next cron tick and surfaces in the ops console as `serving_stale` instead of a sticky `broken` that needed a code deploy to clear.
+- `resolveIdentityField()` retained as a `string | null` wrapper, so preview / member-pull callers are unchanged.
+
 ## 2026-06-11 — Segment refresh ops console + wedge watchdog
 
 Added a sys-admin "Segment Refreshes" tab (sibling to "Pre-agg Runs") that monitors the **gateway's segment-refresh cron** (path B — per-cohort + KPI-card recompute), and a runtime watchdog that self-heals segments wedged mid-refresh. Plan: `plans/260610-1923-segment-refresh-ops-console/`. Tests: 22 new server tests + 8 new FE tests; server cron/refresh + FE hub suites green; FE/server typecheck clean on touched files.

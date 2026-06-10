@@ -20,7 +20,7 @@ import { tieredUids } from '../services/member360-runner.js';
 import { pickPresetForSegment } from '../presets/registry.js';
 import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.js';
 import { logicalCube } from '../services/cube-member-resolver.js';
-import { resolveIdentityField } from '../services/resolve-identity-field.js';
+import { resolveIdentityDetailed } from '../services/resolve-identity-field.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { loadWithContinueWait } from '../services/load-with-continue-wait.js';
 
@@ -95,13 +95,24 @@ export async function refreshSegment(segmentId: string): Promise<void> {
   const token = row.game_id ? resolveCubeTokenForGame(row.game_id) ?? undefined : undefined;
 
   try {
-    const identity = await resolveIdentityField(row.cube, row.game_id, {
+    const identity = await resolveIdentityDetailed(row.cube, row.game_id, {
       workspaceId: row.workspace,
     });
-    if (!identity) {
+    if (!identity.field) {
+      if (identity.reason === 'introspection-failed') {
+        // Couldn't reach/introspect Cube — transient, not a structural problem.
+        // Keep the segment retryable ('stale') so the next tick re-attempts once
+        // Cube is reachable, rather than stamping a sticky 'broken' that misreads
+        // a network/ctx blip as an uncohortable cube. Last-good cards survive.
+        setSegmentStatus(segmentId, 'stale', priorReason);
+        return;
+      }
+      // Introspection succeeded and the cube genuinely has no uid dimension —
+      // structurally uncohortable, hard-fail so an operator sets a mapping.
       setSegmentStatus(segmentId, 'broken', `no identity-field mapping for ${row.cube}`);
       return;
     }
+    const identityField = identity.field;
 
     // Drift check — re-translate predicate against current /meta if schema moved.
     let cubeQueryJson = row.cube_query_json;
@@ -157,7 +168,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       // Cube returns one row per unique user — adding extra dims would
       // inflate row count via cartesian expansion and hit the page cap
       // faster.
-      dimensions: [identity],
+      dimensions: [identityField],
     };
 
     const sizeResult = await withTimeout(
@@ -196,7 +207,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       const rows = pageTyped.data ?? pageTyped.results?.[0]?.data ?? [];
       if (rows.length === 0) break;
       for (const r of rows) {
-        const v = r[identity];
+        const v = r[identityField];
         if (v == null) continue;
         const key = String(v);
         if (seen.has(key)) continue;
@@ -260,7 +271,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // e.g. `mf_users` for join-inherited etl_* identities); its card queries
     // join back through the same path that proved the inheritance.
     const prefix = resolveGamePrefixForWorkspace(row.workspace, row.game_id);
-    const anchorCube = identity.includes('.') ? identity.split('.')[0] : null;
+    const anchorCube = identityField.includes('.') ? identityField.split('.')[0] : null;
     const preset = pickPresetForSegment(
       logicalCube(row.cube, prefix),
       anchorCube ? logicalCube(anchorCube, prefix) : null,
@@ -291,7 +302,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // so the FE falls back to the random sample.
     if (rankMeasure) {
       const tiers = await computeMemberTiers({
-        identityDim: identity,
+        identityDim: identityField,
         ltvMeasure: rankMeasure,
         segmentFilters,
         cubeSegments: cohortCubeSegments,
@@ -319,7 +330,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // by the same rank measure, enriched with the preset's member columns.
     // Failure (null) keeps the previous snapshot — same posture as tiers.
     const profiles = await computeMemberProfiles({
-      identityDim: identity,
+      identityDim: identityField,
       rankMeasure,
       memberColumns: (preset?.memberColumns ?? []) as Array<Record<string, unknown>>,
       metaSets,

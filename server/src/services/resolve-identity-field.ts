@@ -70,10 +70,25 @@ export interface IdentityResolutionOptions {
 }
 
 /**
- * Resolve the identity (uid) dimension for a cube. Accepts an optional gameId
- * so background jobs (refresh-segment) can pass the segment's game context, and
- * an optional workspaceId so the prefix is derived from the segment's OWN
- * workspace rather than the global default.
+ * Why a cube's identity could not be resolved — lets callers tell a genuinely
+ * uncohortable cube apart from a transient inability to introspect:
+ *   - `no-uid-dim`         — /meta was read fine, the cube simply exposes no
+ *                            uid-like dimension. Structural; a refresh should
+ *                            hard-fail (`broken`).
+ *   - `introspection-failed` — /meta could not be fetched (Cube unreachable,
+ *                            wrong ctx, timeout). Transient; a refresh should
+ *                            stay retryable (`stale`), and a create should not
+ *                            block on it (Cube may just be momentarily down).
+ */
+export type IdentityResolution =
+  | { field: string; reason: null }
+  | { field: null; reason: 'no-uid-dim' | 'introspection-failed' };
+
+/**
+ * Resolve the identity (uid) dimension for a cube, returning WHY it failed when
+ * it does. Accepts an optional gameId so background jobs (refresh-segment) can
+ * pass the segment's game context, and an optional workspaceId so the prefix is
+ * derived from the segment's OWN workspace rather than the global default.
  *
  * Persisted overrides are stored in LOGICAL (prefix-stripped) space by the PUT
  * handler. When a physical cube name is passed (`ballistar_mf_users`) on a
@@ -82,11 +97,11 @@ export interface IdentityResolutionOptions {
  * workspaces (prefix null) the helpers are all no-ops and behavior is
  * byte-for-byte unchanged.
  */
-export async function resolveIdentityField(
+export async function resolveIdentityDetailed(
   cube: string,
   gameId?: string | null,
   opts?: IdentityResolutionOptions,
-): Promise<string | null> {
+): Promise<IdentityResolution> {
   const prefix = resolveGamePrefixForWorkspace(opts?.workspaceId ?? null, gameId ?? null);
   // Normalize the incoming cube to logical space to match how overrides are stored.
   const logicalKey = prefix ? logicalCubeAcross(cube, [prefix]) : cube;
@@ -98,10 +113,11 @@ export async function resolveIdentityField(
   if (row?.identity_field) {
     // Re-physicalize the stored logical field for the caller that needs the
     // fully-qualified physical member name (e.g. `ballistar_mf_users.user_id`).
-    if (prefix && !row.identity_field.startsWith(`${prefix}_`)) {
-      return `${prefix}_${row.identity_field}`;
-    }
-    return row.identity_field;
+    const field =
+      prefix && !row.identity_field.startsWith(`${prefix}_`)
+        ? `${prefix}_${row.identity_field}`
+        : row.identity_field;
+    return { field, reason: null };
   }
 
   try {
@@ -116,8 +132,23 @@ export async function resolveIdentityField(
         s.identity_field &&
         s.confidence >= AUTO_SUGGEST_MIN_CONFIDENCE,
     );
-    return hit?.identity_field ?? null;
+    if (hit?.identity_field) return { field: hit.identity_field, reason: null };
+    // Introspection succeeded but the cube exposes no uid-like dim — structural.
+    return { field: null, reason: 'no-uid-dim' };
   } catch {
-    return null;
+    // Could not introspect at all — transient (Cube down / wrong ctx / timeout).
+    return { field: null, reason: 'introspection-failed' };
   }
+}
+
+/**
+ * Back-compat wrapper: resolve the identity field as a plain `string | null`
+ * for callers that don't need the failure reason (preview, member pull, etc.).
+ */
+export async function resolveIdentityField(
+  cube: string,
+  gameId?: string | null,
+  opts?: IdentityResolutionOptions,
+): Promise<string | null> {
+  return (await resolveIdentityDetailed(cube, gameId, opts)).field;
 }
