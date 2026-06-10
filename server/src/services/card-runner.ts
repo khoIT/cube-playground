@@ -150,8 +150,10 @@ function extractRows(loadResult: unknown): Array<Record<string, unknown>> {
 
 /** Per-card Cube timeout. Cards lean on heavy pre-aggregations (e.g. the LTV
  *  install-cohort rollup) that can be mid-warm when a refresh fires; poll
- *  through "Continue wait" rather than dropping the card on the first miss. */
-const PER_CARD_TIMEOUT_MS = 30_000;
+ *  through "Continue wait" rather than dropping the card on the first miss.
+ *  Env-tunable (`SEGMENT_CARD_TIMEOUT_MS`) for cold local Cube where heavy
+ *  full-cohort group-bys over large cohorts need more than the default. */
+const PER_CARD_TIMEOUT_MS = Number(process.env.SEGMENT_CARD_TIMEOUT_MS) || 30_000;
 
 /** Max cards loaded concurrently. A preset is ~30 independent Cube loads; a
  *  small fixed pool turns ~30 serial round-trips into a handful of waves while
@@ -161,10 +163,17 @@ const CARD_CONCURRENCY = 4;
 
 /** Wall-clock ceiling for the whole card pass. The per-card timeout bounds one
  *  card, not the phase: a stuck rollup could otherwise let N cards each burn
- *  their own 30s. Once this elapses, not-yet-started cards short-circuit to an
- *  error entry instead of waiting — so one warming pre-agg can't stall a refresh
- *  indefinitely. Sized to absorb a few "Continue wait" cycles across waves. */
-const CARD_PHASE_BUDGET_MS = 90_000;
+ *  their own budget. Once this elapses, not-yet-started cards short-circuit to
+ *  an error entry instead of waiting — so one warming pre-agg can't stall a
+ *  refresh indefinitely.
+ *
+ *  Must be wide enough that the LAST wave still gets a full per-card timeout —
+ *  with ~30 cards at concurrency 4 (~8 waves) a 90s budget squeezed late-wave
+ *  heavy cards (retention/composition group-bys) down to ~10s, timing them out
+ *  even though they'd complete in 20–30s. Sized to ⌈N/conc⌉ full per-card slots
+ *  so card ORDER never decides which cards get starved. Env-tunable. */
+const CARD_PHASE_BUDGET_MS =
+  Number(process.env.SEGMENT_CARD_PHASE_BUDGET_MS) || 240_000;
 
 /** Cube error messages can be long; cap what we persist per card. */
 const MAX_ERROR_LEN = 500;
