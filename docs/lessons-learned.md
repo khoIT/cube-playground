@@ -673,6 +673,24 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### Cube `/sql` returns SQL capped by the default rowLimit — wrapping it in an INSERT silently truncates the cohort
+
+- **Rule:** when you take the compiled SQL from Cube's `/sql` endpoint and run it directly (e.g. wrap it in `INSERT … SELECT … FROM (<compiled>)` to land a full cohort in a warehouse), STRIP the trailing `LIMIT n` (and `FETCH FIRST n ROWS ONLY`) first. Cube appends its default rowLimit (10000) to the compiled SQL regardless of whether the query carried an explicit limit — so the raw compiled SELECT silently caps results.
+- **Why:** the segment-membership lakehouse writer compiles `{filters, dimensions:[identity]}` via `/sql`, gets back `… GROUP BY 1 ORDER BY 1 ASC LIMIT 10000`, and wraps it in a cross-catalog INSERT. Without stripping, every cohort >10k members landed exactly 10000 rows with no error — a paying-user segment of 7,829 looked fine, but an 8.3M-member segment would have been truncated to 10k and looked "done". The whole point of the feature (full membership, no `MAX_UID_LIST` cap) was silently defeated by Cube's default limit. Also: `/sql` returns **parameterized** SQL `[sqlText, params]` with positional `?` placeholders — inline params with a quote-aware scanner before wrapping, never naive string-replace.
+- **Signal:** a "full cohort" write/export lands a suspiciously round count (exactly 10000, 50000); the count matches Cube's default page size rather than the segment's true `total:true` size; large cohorts and small cohorts both "succeed" but large ones plateau at the same number.
+- **Apply:** after compiling, end-anchor-strip `/\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i` and the `FETCH FIRST … ROWS ONLY` form, then assert the landed count equals Cube's `total:true` count for at least one large segment. Note the compiled SELECT references game tables **bare** (`FROM mf_users`) — run it with the session catalog+schema Cube uses (`game_integration` + `GAME_SCHEMA[game]` from cube.js) so the refs resolve.
+
+---
+
+### A cross-game table has no home in cube.js's per-game `repositoryFactory` — it needs a shared-models path + a Cube restart
+
+- **Rule:** before modeling a table that spans all tenants (one physical table partitioned by `game_id`, e.g. a shared lakehouse fact), check that the Cube serving instance can actually load it. cube-dev's `repositoryFactory` reads ONLY `model/cubes/<game>/` and `model/views/<game>/` for the request's game — a cube dropped anywhere else is never loaded, and there is no shared/global model dir by default.
+- **Why:** the segment-membership rollup cube is inherently cross-game (`stag_iceberg.khoitn.segment_membership_daily`, all games in one table). Placing it under one game's dir would expose it to only that tenant; a true fix needs either a `model/_shared/` path added to the `repositoryFactory` file sweep or the YAML duplicated into every game dir — both edit the multi-tenant router AND require a Cube restart (DEV_MODE=false ⇒ no hot reload, briefly affects all tenants). This is high-friction infra, not a drop-in YAML.
+- **Signal:** you wrote a valid cube YAML referencing a cross-catalog `sql_table`, but `/meta` for any game never shows it; the rollup never builds; nothing errors — the file is simply not in the per-game sweep.
+- **Apply:** treat cross-game model + rollup as its own change with explicit go-ahead: add `model/_shared/` to `repositoryFactory`, restart the Cube serving instance, then verify by compiled SQL (not just `usedPreAggregations`). If the serve layer isn't needed yet (read path still on SQLite), ship the YAML as an inert artifact in `model/_shared/` and defer wiring.
+
+---
+
 ### A derived artifact rebuilt from a narrower representation silently drops what the narrow form can't express
 
 - **Rule:** when a stored artifact (`cube_query_json`) is *derived* from a canonical form (the predicate tree) but also carries data the canonical form cannot represent (cube-level `segments` — named SQL snippets, not member/op/values filters), EVERY code path that regenerates the artifact must explicitly re-attach that sidecar. Audit all rebuild sites (create, update, drift rehydration), not just the create path.
