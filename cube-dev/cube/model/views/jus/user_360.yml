@@ -255,3 +255,47 @@ views:
           - last_7d
           - last_30d
           - yesterday
+
+  - name: user_roles_panel
+    description: >
+      All characters/roles a user has played. Filter by user_id equals for the
+      "characters" panel of a 360 view, and the source of the in-game character
+      name (last_role_name) used as the player display name in the VIP-care
+      queue / member360. Aggregates without a user filter give role-level cohort
+      views (paying_roles, vip_roles, etc.).
+    cubes:
+      - join_path: user_roles
+        includes:
+          - user_id
+          - role_id
+          - server_id
+          - first_role_name
+          - last_role_name
+          - first_role_class
+          - last_role_class
+          - first_active_date
+          - last_active_date
+          - first_recharge_date
+          - last_recharge_date
+          - total_active_days
+          - total_recharge_days
+          - min_role_level
+          - max_role_level
+          - last_role_level
+          - max_fighting_power
+          - last_fighting_power
+          - min_vip_level
+          - max_vip_level
+          - role_ltv_vnd
+          - role_ltv_usd
+          - role_ltv_30d_vnd
+          - role_txn_count
+          - role_txn_count_30d
+          - rows
+          - distinct_roles
+          - distinct_servers
+          - roles_revenue_vnd
+          - roles_txn_count
+          - paying_roles
+          - high_level_roles
+          - vip_roles
