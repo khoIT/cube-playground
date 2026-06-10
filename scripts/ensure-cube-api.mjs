@@ -13,6 +13,12 @@
  * "Up" but stuck), `docker compose restart cube_api` clears it. If the
  * container is down, `docker compose up -d` starts it.
  *
+ * CubeStore guard: /livez only proves cube_api answers — it stays green when
+ * cubestore's router (:3030) dies, even though every rollup-backed query then
+ * fails on ECONNREFUSED. So both modes ALSO check cubestore's listen socket and
+ * recover it (restart cubestore_dev, then cube_api_dev so it reconnects) when
+ * cube_api looks healthy but cubestore is dead.
+ *
  * Recovery brings up the cube-playground stack's DEDICATED dev cube
  * (cube_api_dev + cubestore_dev, see docker-compose.devcube.yml) via the stack
  * wrapper — NOT the sibling cube-dev repo, and NOT the stack's own cube_api.
@@ -69,6 +75,18 @@ const WATCH_COOLDOWN_MS = 5 * 60_000;
 // scratch. If this generous probe answers, it was busy, not down: skip.
 const GRACE_PROBE_TIMEOUT_MS = 25_000;
 
+// CubeStore router port (3030) in /proc/net/tcp hex. cube_api connects here for
+// every rollup-backed query. Its failure mode is invisible to /livez: the
+// cubestore container can read "Up" (worker still persisting snapshots) while
+// the router socket is dead, so cube_api answers /livez but every rollup query
+// dies on ECONNREFUSED <cubestore-ip>:3030 → retries → surfaces as a generic
+// timeout. We detect it directly by checking the listen socket, then recover.
+const CUBESTORE_PORT_HEX = '0BD6'; // 3030
+const TCP_LISTEN_STATE = '0A'; // /proc/net/tcp st column for LISTEN
+// Cubestore restart re-opens 3030 in ~15-20s; two consecutive misses (≈1min at
+// the watch cadence) avoids acting during that window or a transient blip.
+const CUBESTORE_FAILURE_THRESHOLD = 2;
+
 const log = (msg) => process.stdout.write(`[cube-guard] ${msg}\n`);
 const warn = (msg) => process.stderr.write(`[cube-guard] ${msg}\n`);
 
@@ -105,14 +123,49 @@ function stack(composeArgs) {
 }
 
 // Read-only running check — docker compose ps over the same overlay.
-function containerRunning() {
+function containerRunning(service = DEV_CUBE_SERVICE) {
   const r = spawnSync('docker', ['compose', ...COMPOSE_FILES, '--env-file', ENV_FILE, 'ps', '--status', 'running', '--services'], {
     cwd: REPO_ROOT,
     stdio: 'pipe',
     encoding: 'utf8',
   });
   if (r.status !== 0) return false;
-  return r.stdout.split('\n').some((s) => s.trim() === DEV_CUBE_SERVICE);
+  return r.stdout.split('\n').some((s) => s.trim() === service);
+}
+
+// Is cubestore's router actually listening on :3030? Reads /proc/net/tcp{,6}
+// from inside the cubestore container — /proc is always present, so this needs
+// no netstat/ss/nc (the minimal image has none). Returns true (listening),
+// false (running but socket dead — the silent failure), or null (can't tell:
+// container down or exec failed, in which case the cube_api recovery path or
+// the next tick handles it).
+function cubestoreListening() {
+  const idr = spawnSync('docker', ['compose', ...COMPOSE_FILES, '--env-file', ENV_FILE, 'ps', '-q', DEV_CUBESTORE_SERVICE], {
+    cwd: REPO_ROOT,
+    stdio: 'pipe',
+    encoding: 'utf8',
+  });
+  const cid = idr.status === 0 ? idr.stdout.trim().split('\n')[0] : '';
+  if (!cid) return null;
+  const r = spawnSync('docker', ['exec', cid, 'cat', '/proc/net/tcp', '/proc/net/tcp6'], { stdio: 'pipe', encoding: 'utf8' });
+  if (r.status !== 0) return null;
+  return r.stdout.split('\n').some((line) => {
+    const cols = line.trim().split(/\s+/);
+    // cols[1] = "local_addr:PORT" (hex), cols[3] = connection state.
+    return cols[1]?.toUpperCase().endsWith(`:${CUBESTORE_PORT_HEX}`) && cols[3] === TCP_LISTEN_STATE;
+  });
+}
+
+// Coarse cubestore health for the decision sites: 'down' (container stopped, or
+// running with a dead :3030 router — both break rollup queries → recover),
+// 'ok' (router listening), or 'unknown' (couldn't determine — don't act, retry
+// next tick).
+function cubestoreState() {
+  if (!containerRunning(DEV_CUBESTORE_SERVICE)) return 'down';
+  const listening = cubestoreListening();
+  if (listening === true) return 'ok';
+  if (listening === false) return 'down';
+  return 'unknown';
 }
 
 // The wrapper feeds --env-file .env.docker.local; ensure it exists (the wrapper
@@ -130,44 +183,70 @@ function ensureEnvFile() {
   return true;
 }
 
-async function recoverOnce() {
+// Unified recovery for the dedicated dev cube. Reconciles BOTH services because
+// a cube_api restart alone can't fix a dead cubestore, and cube_api won't
+// reconnect to a recovered cubestore on its own:
+//   1. cubestore down/router-dead → start it (if stopped) or restart it.
+//   2. cube_api → start (if stopped) or restart (clears a hung process AND
+//      re-establishes the cubestore connection cube_api forms only at boot).
+// Order matters: cubestore first, then cube_api, so cube_api connects to a live
+// router. Both end up freshly wired regardless of which one failed.
+async function recoverDevCube() {
   if (spawnSync('docker', ['--version'], { stdio: 'ignore' }).status !== 0) {
     warn('docker CLI not found.');
     return false;
   }
   if (!ensureEnvFile()) return false;
 
-  // The dev cube is its own dedicated container, so there's no posture to
-  // reconcile (unlike when it shared the stack's cube_api). Two cases:
-  //   down               → `up -d` starts it (+ its cubestore).
-  //   up but not serving → hung (TCP accepts, HTTP hangs); `restart` clears it.
-  if (!containerRunning()) {
-    log(`starting ${DEV_CUBE_SERVICE} + ${DEV_CUBESTORE_SERVICE} + ${DEV_REFRESH_WORKER_SERVICE} (dedicated dev cube)`);
-    stack(['up', '-d', DEV_CUBE_SERVICE, DEV_CUBESTORE_SERVICE, DEV_REFRESH_WORKER_SERVICE]);
+  const csState = cubestoreState();
+  if (csState === 'down') {
+    if (!containerRunning(DEV_CUBESTORE_SERVICE)) {
+      log(`${DEV_CUBESTORE_SERVICE} is down — starting it (+ refresh worker)`);
+      stack(['up', '-d', DEV_CUBESTORE_SERVICE, DEV_REFRESH_WORKER_SERVICE]);
+    } else {
+      log(`${DEV_CUBESTORE_SERVICE} router (:3030) is dead — restarting it`);
+      stack(['restart', DEV_CUBESTORE_SERVICE]);
+    }
+  }
+
+  // cube_api: start if stopped, else restart so it reconnects to (the now-live)
+  // cubestore and clears any hung state.
+  if (!containerRunning(DEV_CUBE_SERVICE)) {
+    log(`starting ${DEV_CUBE_SERVICE}`);
+    stack(['up', '-d', DEV_CUBE_SERVICE]);
   } else {
-    log(`${DEV_CUBE_SERVICE} is up but not serving — restarting`);
+    log(`restarting ${DEV_CUBE_SERVICE}${csState === 'down' ? ' to reconnect to cubestore' : ''}`);
     stack(['restart', DEV_CUBE_SERVICE]);
   }
 
   const deadline = Date.now() + READY_TIMEOUT_MS;
   if (await waitReady(deadline)) {
-    log(`${DEV_CUBE_SERVICE} is ready`);
+    log(`${DEV_CUBE_SERVICE} is ready${cubestoreListening() === false ? ' (cubestore still settling)' : ''}`);
     return true;
   }
-  warn(`${DEV_CUBE_SERVICE} still not ready after ${READY_TIMEOUT_MS / 1000}s — check 'docker logs cube-playground-cube-api-dev'.`);
+  warn(`${DEV_CUBE_SERVICE} still not ready after ${READY_TIMEOUT_MS / 1000}s — check 'docker logs cube-playground-cube-api-dev' and 'cube-playground-cubestore-dev'.`);
   return false;
 }
 
 async function bootGuard() {
-  if (await probe()) return;
-  log(`cube_api unreachable at ${CUBE_API_URL} — attempting recovery`);
-  await recoverOnce();
+  // Healthy = cube_api answers /livez AND cubestore's router is up. /livez alone
+  // is not enough: a dead cubestore is invisible to it but breaks every rollup.
+  const live = await probe();
+  const cs = cubestoreState();
+  if (live && cs !== 'down') return;
+  log(`dev cube needs recovery (cube_api ${live ? 'live' : 'unreachable'}, cubestore ${cs}) — attempting recovery`);
+  await recoverDevCube();
 }
 
 async function watchLoop() {
   log(`watchdog started — probing every ${WATCH_INTERVAL_MS / 1000}s, restarting after ${WATCH_FAILURE_THRESHOLD} consecutive misses`);
   let consecutiveFailures = 0;
   let cooldownUntil = 0;
+  // Separate accounting for the cubestore-router check: it runs only when
+  // cube_api is healthy (the silent-failure case) and has its own cooldown so a
+  // cubestore restart can't thrash with the cube_api one.
+  let cubestoreMisses = 0;
+  let cubestoreCooldownUntil = 0;
 
   // SIGINT/SIGTERM from concurrently land here so the loop exits cleanly.
   let stopped = false;
@@ -181,6 +260,20 @@ async function watchLoop() {
 
     if (await probe()) {
       consecutiveFailures = 0;
+      // /livez is green, but that says nothing about cubestore's router. A dead
+      // :3030 makes every rollup query fail while cube_api looks healthy — catch
+      // it here and restart cubestore (+ cube_api to reconnect).
+      if (cubestoreState() === 'down') {
+        cubestoreMisses += 1;
+        if (cubestoreMisses >= CUBESTORE_FAILURE_THRESHOLD && Date.now() >= cubestoreCooldownUntil) {
+          log(`cube_api live but cubestore :3030 down for ${cubestoreMisses} consecutive probes — rollup queries are failing; recovering`);
+          cubestoreCooldownUntil = Date.now() + WATCH_COOLDOWN_MS;
+          await recoverDevCube();
+          cubestoreMisses = 0;
+        }
+      } else {
+        cubestoreMisses = 0; // 'ok' or 'unknown' → don't act
+      }
       continue;
     }
     consecutiveFailures += 1;
@@ -200,7 +293,7 @@ async function watchLoop() {
 
     log(`cube_api unreachable for ${consecutiveFailures} consecutive probes + failed grace probe — triggering recovery`);
     cooldownUntil = Date.now() + WATCH_COOLDOWN_MS;
-    await recoverOnce();
+    await recoverDevCube();
     consecutiveFailures = 0;
   }
   log('watchdog stopped');
