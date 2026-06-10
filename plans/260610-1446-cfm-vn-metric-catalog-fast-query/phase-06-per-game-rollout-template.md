@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Per-game roll-out template"
-status: pending
+status: completed
 priority: P3
 effort: "1.5h"
 dependencies: [4, 5]

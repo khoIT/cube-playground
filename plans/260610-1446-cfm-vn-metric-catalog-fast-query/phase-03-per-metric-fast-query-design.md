@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Per-metric fast-query (rollup) design (cfm_vn)"
-status: pending
+status: completed
 priority: P1
 effort: "4h"
 dependencies: [1, 2]

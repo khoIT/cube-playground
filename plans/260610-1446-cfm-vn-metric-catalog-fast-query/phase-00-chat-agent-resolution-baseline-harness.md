@@ -1,7 +1,7 @@
 ---
 phase: 0
 title: "Chat-agent resolution-baseline harness (accuracy guard)"
-status: pending
+status: completed
 priority: P1
 effort: "3h"
 dependencies: []

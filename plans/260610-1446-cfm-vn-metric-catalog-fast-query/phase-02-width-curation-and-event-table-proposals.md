@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Width curation + event-table proposals (cfm_vn)"
-status: pending
+status: completed
 priority: P1
 effort: "3h"
 dependencies: [1]

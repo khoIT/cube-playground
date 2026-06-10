@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Implement cfm_vn semantic layer + verify <2s"
-status: pending
+status: completed
 priority: P1
 effort: "5h"
 dependencies: [1, 3]

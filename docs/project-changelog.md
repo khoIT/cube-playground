@@ -2,6 +2,17 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-10 — cfm_vn metric catalog: Trino-grounded + fast/cold/blocked taxonomy
+
+Re-grounded the business-metric catalog for cfm_vn so every listed metric resolves against modeled cubes and the common daily slice routes to a CubeStore pre-aggregation. Audit found only 20/57 presets resolving with data; recovered ~16 by repointing formulas to existing marts, added 12 event-cube exploration metrics, and labeled the rest cold or blocked instead of dropping them. Plan: `plans/260610-1446-cfm-vn-metric-catalog-fast-query/`. Tests: server + frontend + chat-service suites green; code-review clean after fixes.
+
+- **⚠️ Revenue value shift (not a regression):** `revenue`/`gross_bookings`/`arppu`/`arpdau` were repointed off `recharge.revenue_vnd` (raw `iamount`, ~15× inflated by unbridged test traffic) to `user_recharge_daily.revenue_vnd_total` (bridged). cfm_vn revenue figures drop to the correct value (e.g. ~710M vs ~11B on 2026-06-01). Monitoring (anomaly detector, LiveOps KPI board, daily-health) already used the correct measure and is unaffected.
+- **Recovered metrics** — acquisition/marketing/payment metrics repointed from unwired `mf_users.*` to `game_key_metrics.*` (+ 6 new post-agg ratio measures, `nnpu`/`iap_rev` in the daily rollup); paying retention to `new_user_retention`. Deferred as draft pending semantics: `ltv`/`ltv_30` (cohort vs calendar), `roas_07` (period vs D7), `organic_installs`/`paid_installs` (need filtered measures).
+- **12 new exploration metrics** — diamond economy, gacha, onboarding tutorial, session time, IAP revenue (all backed by existing event-cube rollups).
+- **Taxonomy** — per-game `meta.serving` (cold) + `meta.applicability` (blocked) annotations; `?filter=available` excludes blocked + broken-ref while keeping resolvable drafts; Catalog surfaces cold/blocked badges. 12 structurally-absent metrics (funnel, concurrency, roles) kept as blocked stubs, not deleted.
+- **Agent surface** — starter questions, chat-service templates, and glossary synonyms rebuilt to fast metrics only (`gross_bookings` folded as a `revenue` alias). New resolution-baseline eval harness (`chat-service/test/metric-resolution-eval/`) freezes pre-change agent resolution; cross-game master list + per-game rollout template added under `docs/`.
+- **Verification** — pre-agg routing confirmed via compiled SQL for all fast metrics; warm-latency + `game_key_metrics` data presence are prod-confirm items (local batch pre-aggs >100k rows can't seal without an export bucket).
+
 ## 2026-06-10 — jus_vn VIP-care playbook coverage unlock (6/21 → 13/21 enabled)
 
 Expanded jus_vn VIP-care playbook coverage from 6 to 13 enabled by adding 4 new Cube YAML marts in the sibling `cube-dev` repo. No server/client code changes, no registry edits — the per-game availability system automatically resolved verdicts from live Cube `/meta` member presence. Added `user_recharge_rolling.yml` (spend-spike, spend-drop), `user_active_rolling.yml` (session-drop), `user_gameplay_daily.yml` (top-leaderboard, major-achievement), and `etl_prop_flow.yml` (rare-unlock, collector-FOMO partial). Leaderboard ranking uses role_level + LTV tiebreak (fighting_power is 100% NULL in jus). Plan: `plans/260610-0000-jus-vn-playbook-coverage-unlock/`. Tests: 59 care-server tests all pass; live Cube /meta, sweep, and API surface validated on 2026-06-08 anchor.

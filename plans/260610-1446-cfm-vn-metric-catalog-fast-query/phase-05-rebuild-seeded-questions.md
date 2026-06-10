@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Rebuild seeded questions from the final catalog"
-status: pending
+status: completed
 priority: P2
 effort: "2h"
 dependencies: [2, 4]

@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Availability & Trino-grounding audit (cfm_vn)"
-status: pending
+status: completed
 priority: P1
 effort: "3h"
 dependencies: []
