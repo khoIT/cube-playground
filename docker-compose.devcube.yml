@@ -106,13 +106,15 @@ services:
       CUBEJS_CUBESTORE_PORT: "3030"
       # Keep the laptop→Trino backfill gentle (games × rollups × ~29 partitions).
       CUBEJS_REFRESH_WORKER_CONCURRENCY: ${CUBEJS_REFRESH_WORKER_CONCURRENCY:-2}
-      # THIS is the refresh worker, sweeping every 5 min instead of the 30s
-      # default (sweeps starve the event loop + /readyz otherwise). Deliberately
+      # THIS is the refresh worker, sweeping hourly (a full all-games sweep is a
+      # heavy Trino+CubeStore job, so it runs once an hour rather than minutely).
+      # Per-rollup refresh_key `every:` still governs actual rebuild cadence; the
+      # sweep is just how often the worker wakes to evaluate staleness. Deliberately
       # NOT using CUBEJS_REFRESH_WORKER — that boolean short-circuits Cube's
       # refreshWorkerMode env chain and the numeric timer would be ignored
       # (interval silently stays 30s). The numeric timer alone both enables
       # worker mode and sets the sweep interval (seconds).
-      CUBEJS_SCHEDULED_REFRESH_TIMER: ${CUBEJS_SCHEDULED_REFRESH_TIMER:-300}
+      CUBEJS_SCHEDULED_REFRESH_TIMER: ${CUBEJS_SCHEDULED_REFRESH_TIMER:-3600}
       # Optional: scope the scheduled sweep to a subset of games (comma-separated).
       # Used by cube-dev/scripts/trigger-preagg-build.sh to seal one game's rollups
       # without re-grinding all tenants. Empty = every supported game (default).

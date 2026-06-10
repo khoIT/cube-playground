@@ -28,6 +28,16 @@ services:
   server:
     env_file:
       - .env.docker.local
+    # The read-only Docker socket lets the server tail the refresh-worker's logs
+    # (cross-compose-stack, same Docker daemon) for the pre-agg run history
+    # collector. The mount is :ro — the server can only read, never manage
+    # containers. If the socket is absent (CI, prod without opt-in) the
+    # collector degrades gracefully and falls back to probe-snapshot mode.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      PREAGG_COLLECTOR_ENABLED: "true"
+      PREAGG_WORKER_CONTAINER: "cube-playground-cube-refresh-worker-dev"
 
   chat-service:
     env_file:

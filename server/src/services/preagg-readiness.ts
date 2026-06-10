@@ -180,9 +180,38 @@ interface CacheEntry {
 const preaggCache = new Map<string, CacheEntry>();
 const PREAGG_CACHE_TTL_MS = 60_000;
 
+/** Workspaces with a background refresh currently in flight (dedup guard). */
+const refreshInFlight = new Set<string>();
+
 /** Reset the module-level cache — used in tests to prevent cross-test bleed. */
 export function __resetPreaggCache(): void {
   preaggCache.clear();
+  refreshInFlight.clear();
+}
+
+/**
+ * Non-blocking accessor for the readiness probe.
+ *
+ * The live probe fans out 40 cube /load calls and takes several seconds on a
+ * cold cube — too slow to block an HTTP handler on (a dev proxy in front will
+ * error out and the caller sees a 500). This returns whatever is cached
+ * immediately (even past TTL) and kicks off a single background refresh when
+ * the cache is missing or stale. On the very first call, when nothing is
+ * cached yet, it returns null so the caller can render a calm "warming" state
+ * instead of hanging or 500ing.
+ */
+export function getPreaggReadinessNonBlocking(
+  workspace: WorkspaceDef,
+): PreaggReadiness | null {
+  const cached = preaggCache.get(workspace.id);
+  const fresh = cached && Date.now() - cached.at < PREAGG_CACHE_TTL_MS;
+  if (!fresh && !refreshInFlight.has(workspace.id)) {
+    refreshInFlight.add(workspace.id);
+    computePreaggReadiness(workspace)
+      .catch(() => undefined)
+      .finally(() => refreshInFlight.delete(workspace.id));
+  }
+  return cached ? cached.result : null;
 }
 
 // ---------------------------------------------------------------------------

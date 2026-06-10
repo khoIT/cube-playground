@@ -25,6 +25,7 @@ import { UsersAndAccessTab } from './users-and-access-tab';
 import { DevHubPanel } from './dev-hub-panel';
 import { ObservabilityTab } from './observability-tab';
 import { UserActivityProfile } from './user-activity-profile';
+import { PreaggRunsTab } from './preagg-runs-tab';
 
 // ---------------------------------------------------------------------------
 // Tab definitions — Observability carries a live "N pending" badge so the
@@ -41,6 +42,7 @@ function buildAdminTabs(pendingCount: number): TabDef[] {
       tag: pendingCount > 0 ? `${pendingCount} pending` : undefined,
     },
     { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev', tag: 'relocated' },
+    { key: 'preagg-runs', label: 'Pre-agg Runs', path: '/admin/preagg-runs' },
   ];
 }
 
@@ -122,6 +124,10 @@ export function AdminHub() {
               Observability tab highlighted via its segment-boundary prefix match. */}
           <Route path="/admin/observability/:email">
             <UserActivityProfile />
+          </Route>
+
+          <Route exact path="/admin/preagg-runs">
+            <PreaggRunsTab />
           </Route>
 
           <Route path="/admin/dev">

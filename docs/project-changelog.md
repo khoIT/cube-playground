@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-10 — Pre-agg run history console + hourly all-games refresh cadence
+
+Made the local refresh worker sweep **hourly across all games** (a full sweep is a heavy Trino+CubeStore job) and added a sys-admin "Pre-agg Runs" tab to observe those sweeps. The headline operator signal is `stale_serving` — a rollup whose latest refresh failed but whose old cache is still answering warm, so dashboards look green while data silently goes stale. Plan: `plans/260610-1838-preagg-run-history-console/`. Tests: 56 new server tests + full suite green; code-review APPROVED_WITH_MINORS (fixed).
+
+- **Worker cadence** — `CUBEJS_SCHEDULED_REFRESH_TIMER` default 300s → 3600s, scope all games (`CUBE_REFRESH_GAMES` empty). Per-rollup `refresh_key` still governs actual rebuild cadence. A mid-sweep failure never wipes cache (versioned-table swap is atomic), which is exactly why failures need surfacing.
+- **Telemetry collector** (`PREAGG_COLLECTOR_ENABLED`-gated) — reads the refresh-worker's logs via a read-only Docker socket mount on the server, parses hourly sweeps + failures, and merges them with the per-game serveability probe into a four-state outcome taxonomy: `sealed` / `stale_serving` / `failed` / `unbuilt`. Degrades to probe-snapshot mode when the socket is absent (CI/prod-without-opt-in).
+- **Attribution limit (surfaced, not hidden)** — worker logs carry no game/security-context, so failures are rollup-level and over-warn across games sharing a cube; the UI notes this. Successful seals are trace-only and inferred from probe + absence-of-error.
+- **UI** — `/admin/preagg-runs`: live serveability strip, amber stale-serving headline banner, KPI row with a flagged stale-serving card, and an expandable sweep history (per-cube outcome chips grouped failures-first). SQLite-backed (`preagg_sweep` + `preagg_sweep_item`, migration 045, 30-day retention).
+
 ## 2026-06-10 — cfm_vn metric catalog: Trino-grounded + fast/cold/blocked taxonomy
 
 Re-grounded the business-metric catalog for cfm_vn so every listed metric resolves against modeled cubes and the common daily slice routes to a CubeStore pre-aggregation. Audit found only 20/57 presets resolving with data; recovered ~16 by repointing formulas to existing marts, added 12 event-cube exploration metrics, and labeled the rest cold or blocked instead of dropping them. Plan: `plans/260610-1446-cfm-vn-metric-catalog-fast-query/`. Tests: server + frontend + chat-service suites green; code-review clean after fixes.

@@ -51,6 +51,7 @@ import careDataFreshnessRoutes from './routes/care-data-freshness.js';
 import careCasesRoutes from './routes/care-cases.js';
 import careActivityRoutes from './routes/care-activity.js';
 import careGovernanceRoutes from './routes/care-governance.js';
+import preaggRunsRoutes from './routes/preagg-runs.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
@@ -72,6 +73,7 @@ import { startCareSweepPruneCron } from './jobs/prune-care-sweep-membership.js';
 import { startCareAutoSweepCron } from './jobs/care-auto-sweep.js';
 import { startSegmentMembershipSnapshotCron } from './jobs/snapshot-segment-membership.js';
 import { registerSlowRequestLog, startEventLoopMonitor } from './services/runtime-observability.js';
+import { startPreaggRunCollector } from './services/preagg-run-collector.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
 
@@ -129,6 +131,7 @@ export async function buildApp() {
   await app.register(careCasesRoutes);
   await app.register(careActivityRoutes);
   await app.register(careGovernanceRoutes);
+  await app.register(preaggRunsRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.
@@ -246,6 +249,10 @@ if (isMain || process.env.START_SERVER === '1') {
     }
     // Phase 2: SQLite anomaly detector — gated by ANOMALY_DETECTOR_ENABLED=true
     startAnomalyDetector((msg) => app.log.warn(msg));
+    // Pre-agg run history collector — gated by PREAGG_COLLECTOR_ENABLED=true.
+    // Reads worker logs via Docker socket (read-only mount) and persists sweep
+    // outcomes to SQLite. Degrades gracefully when the socket is absent.
+    startPreaggRunCollector();
     // Sample event-loop delay; warns when synchronous work starves the loop.
     startEventLoopMonitor(app.log);
     app.log.info(`Server ready in ${Date.now() - start}ms on :${PORT}`);
