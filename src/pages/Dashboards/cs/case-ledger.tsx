@@ -22,6 +22,7 @@ import { ListChecks, Users, ChevronLeft, RefreshCw, Heart, GitCompare, Search, X
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
 import { useCareCases, useVipQueue, runCareSweep, useSweepStatus, patchCareCase, resetCareCases, fetchFullVipQueue } from './use-care-cases';
+import { SweepProgressBanner } from './sweep-progress-banner';
 import { toCsv, downloadCsv, buildCsvFilename } from './care-queue-csv';
 import type { CsvRow } from './care-queue-csv';
 import { claimCase } from './cs-case-actions';
@@ -1330,23 +1331,15 @@ export function CaseLedgerPage() {
       </div>
 
       {/* Reconnected-sweep banner: a sweep this mount didn't start is running.
-          Surfaces source + live elapsed time for debugging; clears (and the page
-          auto-refreshes) when the sweep settles. */}
+          Surfaces source + live elapsed time, with an expand toggle for the live
+          per-playbook breakdown; clears (and the page auto-refreshes) on settle. */}
       {reconnectedSweep && (
-        <div
-          style={{
-            margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8,
-            fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
-            color: 'var(--warning-ink)', background: 'var(--warning-soft)',
-            border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)',
-            padding: '8px 12px',
-          }}
-        >
-          <RefreshCw size={13} />
-          Sweep in progress
-          {sweepStatus.source === 'cron' ? ' (auto-sweep)' : sweepStatus.source === 'manual' ? ' (manual)' : ''}
-          {sweepStatus.startedAt ? ` — ${sweepElapsedS}s elapsed` : ''}. Results refresh when it finishes.
-        </div>
+        <SweepProgressBanner
+          source={sweepStatus.source}
+          startedAt={sweepStatus.startedAt}
+          elapsedS={sweepElapsedS}
+          progress={sweepStatus.progress}
+        />
       )}
 
       {sweepMsg && (

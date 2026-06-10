@@ -26,9 +26,14 @@ vi.mock('../src/care/calibrate.js', () => ({
 }));
 vi.mock('../src/care/care-case-sweep.js', () => ({
   makeCubeCohortFetcher: () => async () => [],
-  // Block on the gate so the sweep stays in flight until the test releases it.
-  runCaseSweep: vi.fn(async () => {
+  // Drive the progress sink the way the real driver does (init → start → settle),
+  // then block on the gate so the sweep — and its mid-flight progress — stays
+  // observable until the test releases it.
+  runCaseSweep: vi.fn(async (_g, _w, _m, _d, _c, _only, progress?: { init: (p: unknown[]) => void; start: (id: string) => void; settle: (s: unknown) => void }) => {
+    progress?.init([{ playbookId: '02', label: 'VIP tier change' }]);
+    progress?.start('02');
     await gate;
+    progress?.settle({ playbookId: '02', cohortSize: 2, opened: 2, lapsed: 0, alreadyOpen: 0 });
     return [];
   }),
 }));
@@ -68,6 +73,11 @@ describe('sweep in-flight status', () => {
     expect(typeof active?.startedAt).toBe('string');
     expect(Number.isNaN(Date.parse(active!.startedAt))).toBe(false);
     expect(isSweepInFlight('local', 'jus_vn')).toBe(true);
+
+    // Mid-flight progress: the running playbook is seeded + flipped to 'running'.
+    expect(active?.progress).toEqual([
+      { playbookId: '02', label: 'VIP tier change', state: 'running' },
+    ]);
 
     // A different game is unaffected.
     expect(getSweepInFlight('local', 'other')).toBeNull();

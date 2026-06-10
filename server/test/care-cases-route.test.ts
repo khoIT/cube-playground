@@ -132,7 +132,7 @@ describe('care-case ledger routes', () => {
 
     const idle = await app.inject({ method: 'GET', url: '/api/care/cases/sweep/status?game=jus_vn' });
     expect(idle.statusCode).toBe(200);
-    expect(idle.json()).toEqual({ inFlight: false, game: 'jus_vn', source: null, startedAt: null });
+    expect(idle.json()).toEqual({ inFlight: false, game: 'jus_vn', source: null, startedAt: null, progress: [] });
   });
 
   it('by-vip and list attach the persisted VIP profile (no live Cube)', async () => {

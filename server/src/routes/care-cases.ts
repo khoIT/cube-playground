@@ -320,8 +320,8 @@ export default async function careCasesRoutes(app: FastifyInstance): Promise<voi
     if (!game) return reply.status(400).send({ error: { code: 'VALIDATION', message: 'game required' } });
     const active = getSweepInFlight(req.workspace.id, game);
     return active
-      ? { inFlight: true, game, source: active.source, startedAt: active.startedAt }
-      : { inFlight: false, game, source: null, startedAt: null };
+      ? { inFlight: true, game, source: active.source, startedAt: active.startedAt, progress: active.progress }
+      : { inFlight: false, game, source: null, startedAt: null, progress: [] };
   });
 
   app.patch('/api/care/cases/:id', async (req, reply) => {

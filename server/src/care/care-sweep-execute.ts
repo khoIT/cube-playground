@@ -16,16 +16,34 @@ import type { WorkspaceDef } from '../services/workspaces-config-loader.js';
 import { resolveGameScope } from './game-scope.js';
 import { getGameMembers } from './availability.js';
 import { loadCalibration } from './calibrate.js';
-import { runCaseSweep, makeCubeCohortFetcher, type PlaybookSweepSummary } from './care-case-sweep.js';
+import { runCaseSweep, makeCubeCohortFetcher, type PlaybookSweepSummary, type SweepProgressSink } from './care-case-sweep.js';
 import { listCases } from './care-case-store.js';
 import { makeCubeProfileFetcher } from './care-vip-profile-fetch.js';
 import { upsertVipProfiles } from './care-vip-profile-store.js';
 import { recordSweep, recordFailedSweep, deriveRunStatus, type SweepRunSource, type SweepRunStatus } from './care-sweep-run-store.js';
 
+/** Live state of one playbook within an in-flight sweep. */
+export type PlaybookSweepState = 'pending' | 'running' | 'done';
+
+/** Per-playbook progress row surfaced to a reconnecting UI mid-sweep. */
+export interface PlaybookSweepProgress {
+  playbookId: string;
+  label: string;
+  state: PlaybookSweepState;
+  /** Settled counts — populated once state is 'done'. */
+  cohortSize?: number;
+  opened?: number;
+  lapsed?: number;
+  /** Skip reason when the playbook was not swept (still 'done'). */
+  skipped?: PlaybookSweepSummary['skipped'] | null;
+}
+
 /** What we track per in-flight sweep, so a reconnecting UI can show live status. */
 export interface SweepInFlight {
   startedAt: string; // ISO — when the lock was acquired
   source: SweepRunSource;
+  /** Per-playbook progress, mutated in place as the sweep advances. */
+  progress: PlaybookSweepProgress[];
 }
 
 /** Per-(workspace, game) in-flight map; shared by route + cron to avoid overlap. */
@@ -79,7 +97,30 @@ export async function executeSweep(
   // both pass the busy check. startedAt doubles as the lock value and the
   // elapsed-time anchor the status endpoint reports.
   const startedAt = new Date().toISOString();
-  inFlight.set(key, { startedAt, source });
+  const entry: SweepInFlight = { startedAt, source, progress: [] };
+  inFlight.set(key, entry);
+
+  // Live progress sink — mutates `entry.progress` in place so the status endpoint
+  // (which reads the same in-flight entry) reflects per-playbook state as it runs.
+  const progressSink: SweepProgressSink = {
+    init(playbooks) {
+      entry.progress = playbooks.map((p) => ({ playbookId: p.playbookId, label: p.label, state: 'pending' }));
+    },
+    start(playbookId) {
+      const row = entry.progress.find((p) => p.playbookId === playbookId);
+      if (row) row.state = 'running';
+    },
+    settle(summary) {
+      const row = entry.progress.find((p) => p.playbookId === summary.playbookId);
+      if (row) {
+        row.state = 'done';
+        row.cohortSize = summary.cohortSize;
+        row.opened = summary.opened;
+        row.lapsed = summary.lapsed;
+        row.skipped = summary.skipped ?? null;
+      }
+    },
+  };
 
   try {
     const scope = resolveGameScope(workspace, game);
@@ -88,7 +129,7 @@ export async function executeSweep(
     // Force a fresh member set so gating reflects the live model, not a cached probe.
     const members = await getGameMembers(ctx, scope.gamePrefix, key, true);
     const deps = { fetchCohortUids: makeCubeCohortFetcher(ctx, game, workspace.id, members) };
-    const summaries = await runCaseSweep(game, workspace.id, members, deps, loadCalibration(game), onlyPlaybookId);
+    const summaries = await runCaseSweep(game, workspace.id, members, deps, loadCalibration(game), onlyPlaybookId, progressSink);
     const opened = summaries.reduce((n, s) => n + s.opened, 0);
     const lapsed = summaries.reduce((n, s) => n + s.lapsed, 0);
 

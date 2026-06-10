@@ -91,9 +91,25 @@ export interface PlaybookSweepSummary extends SweepResult {
 }
 
 /**
+ * Live progress sink — lets a caller observe per-playbook sweep state as it runs
+ * (which playbooks are in scope, when each starts, and its settled counts) so a
+ * reconnecting UI can render a live breakdown instead of just elapsed time. The
+ * sweep proceeds identically whether or not a sink is attached.
+ */
+export interface SweepProgressSink {
+  /** Called once with the full in-scope playbook list before any cohort fetch. */
+  init(playbooks: { playbookId: string; label: string }[]): void;
+  /** Called when a worker picks up a playbook (concurrency means several may be running at once). */
+  start(playbookId: string): void;
+  /** Called when a playbook settles (swept or skipped), carrying its summary. */
+  settle(summary: PlaybookSweepSummary): void;
+}
+
+/**
  * Sweep one game's playbooks. `members` + `deps` are injected for testability.
  * `onlyPlaybookId` scopes the sweep to a single playbook (per-segment manual
  * sweep from the builder); omitted/undefined sweeps the whole game as before.
+ * `progress` (optional) receives live per-playbook events for a reconnecting UI.
  */
 export async function runCaseSweep(
   gameId: string,
@@ -102,17 +118,23 @@ export async function runCaseSweep(
   deps: SweepDeps,
   calibration: Record<string, CalibrationResult> = {},
   onlyPlaybookId?: string,
+  progress?: SweepProgressSink,
 ): Promise<PlaybookSweepSummary[]> {
   const merged = mergePlaybooks(gameId, members, undefined, { calibration });
   const playbooks = onlyPlaybookId ? merged.filter((p) => p.id === onlyPlaybookId) : merged;
+
+  progress?.init(playbooks.map((pb) => ({ playbookId: pb.id, label: pb.name })));
 
   // The cohort query is the slow, awaited step and each playbook is independent
   // (scoped to its own playbookId, and better-sqlite3 writes run synchronously
   // once a worker starts applying), so run a bounded number concurrently. The
   // pool preserves order, keeping summaries and the recorded run deterministic.
-  return mapWithConcurrency(playbooks, SWEEP_CONCURRENCY, (pb) =>
-    sweepOnePlaybook(pb, gameId, workspace, deps, onlyPlaybookId),
-  );
+  return mapWithConcurrency(playbooks, SWEEP_CONCURRENCY, async (pb) => {
+    progress?.start(pb.id);
+    const summary = await sweepOnePlaybook(pb, gameId, workspace, deps, onlyPlaybookId);
+    progress?.settle(summary);
+    return summary;
+  });
 }
 
 /** Sweep a single playbook: gate on availability, fetch its cohort, apply the

@@ -191,4 +191,35 @@ describe('runCaseSweep', () => {
     expect(listCases({ gameId: 'jus_vn', playbookId: '02' })).toHaveLength(2);
     expect(listCases({ gameId: 'jus_vn', playbookId: '14' })).toHaveLength(0);
   });
+
+  it('drives the progress sink: init lists every in-scope playbook, each starts then settles with its counts', async () => {
+    const deps: SweepDeps = { fetchCohortUids: async () => ({ uids: ['u1', 'u2'] }) };
+
+    const initSeen: { playbookId: string; label: string }[][] = [];
+    const started: string[] = [];
+    const settled: Record<string, { opened: number; skipped: string | null }> = {};
+    const sink = {
+      init: (pbs: { playbookId: string; label: string }[]) => initSeen.push(pbs),
+      start: (id: string) => started.push(id),
+      settle: (s: { playbookId: string; opened: number; skipped?: string }) => {
+        settled[s.playbookId] = { opened: s.opened, skipped: s.skipped ?? null };
+      },
+    };
+
+    const summaries = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps, {}, undefined, sink);
+
+    // init fires exactly once with a label for every playbook the sweep covers.
+    expect(initSeen).toHaveLength(1);
+    expect(initSeen[0].map((p) => p.playbookId).sort()).toEqual(summaries.map((s) => s.playbookId).sort());
+    expect(initSeen[0].every((p) => typeof p.label === 'string' && p.label.length > 0)).toBe(true);
+
+    // Every playbook starts and settles; settled state mirrors the summary counts.
+    expect(started.sort()).toEqual(summaries.map((s) => s.playbookId).sort());
+    for (const s of summaries) {
+      expect(settled[s.playbookId]).toEqual({ opened: s.opened, skipped: s.skipped ?? null });
+    }
+    // A membership playbook reports opened cases; an unavailable one reports a skip.
+    expect(settled['02'].opened).toBe(2);
+    expect(settled['06'].skipped).toBe('unavailable');
+  });
 });

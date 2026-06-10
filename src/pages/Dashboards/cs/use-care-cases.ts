@@ -534,6 +534,17 @@ export async function runCareSweep(game: string): Promise<SweepResult> {
 
 // ── Live sweep status (reconnect to an in-flight sweep) ──────────────────────
 
+/** Live per-playbook progress within an in-flight sweep (empty when idle). */
+export interface PlaybookSweepProgress {
+  playbookId: string;
+  label: string;
+  state: 'pending' | 'running' | 'done';
+  cohortSize?: number;
+  opened?: number;
+  lapsed?: number;
+  skipped?: string | null;
+}
+
 export interface SweepStatus {
   inFlight: boolean;
   game: string;
@@ -541,6 +552,8 @@ export interface SweepStatus {
   source: 'manual' | 'cron' | null;
   /** ISO start time of the running sweep; null when idle. Anchors elapsed time. */
   startedAt: string | null;
+  /** Per-playbook breakdown of the running sweep; empty when idle. */
+  progress: PlaybookSweepProgress[];
 }
 
 export async function fetchSweepStatus(game: string, signal?: AbortSignal): Promise<SweepStatus> {
@@ -561,11 +574,12 @@ const SWEEP_POLL_IDLE_MS = 15000; // slow heartbeat so a sweep started elsewhere
 export function useSweepStatus(
   game: string,
   onSettled?: () => void,
-): { inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null } {
-  const [status, setStatus] = useState<{ inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null }>({
+): { inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null; progress: PlaybookSweepProgress[] } {
+  const [status, setStatus] = useState<{ inFlight: boolean; source: 'manual' | 'cron' | null; startedAt: string | null; progress: PlaybookSweepProgress[] }>({
     inFlight: false,
     source: null,
     startedAt: null,
+    progress: [],
   });
   const onSettledRef = useRef(onSettled);
   onSettledRef.current = onSettled;
@@ -582,7 +596,7 @@ export function useSweepStatus(
       try {
         const s = await fetchSweepStatus(game, controller.signal);
         if (cancelled) return;
-        setStatus({ inFlight: s.inFlight, source: s.source, startedAt: s.startedAt });
+        setStatus({ inFlight: s.inFlight, source: s.source, startedAt: s.startedAt, progress: s.progress ?? [] });
         if (wasInFlight.current && !s.inFlight) onSettledRef.current?.();
         wasInFlight.current = s.inFlight;
         timer = setTimeout(tick, s.inFlight ? SWEEP_POLL_ACTIVE_MS : SWEEP_POLL_IDLE_MS);
