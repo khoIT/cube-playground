@@ -84,7 +84,7 @@ describe('GET /api/care/playbooks', () => {
     expect(byId['06'].availability).toBe('unavailable'); // leaderboard (no gameplay cube)
     expect(byId['12'].availability).toBe('unavailable'); // gacha
     expect(byId['05'].availability).toBe('unavailable'); // payment failure (blocked)
-    expect(byId['19'].availability).toBe('partial'); // pre-patch (ops)
+    expect(byId['19'].availability).toBe('unavailable'); // pre-patch (ops — no ops_calendar source)
     expect(body.counts.total).toBe(21);
   });
 
@@ -94,8 +94,9 @@ describe('GET /api/care/playbooks', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.meta_members).toBe(0);
-    // ops-driven (19,20) still partial; everything member-gated is unavailable.
+    // No members at all → every playbook fails closed, including ops-driven (their
+    // ops_calendar gate member is absent too). Nothing available or partial.
     expect(body.counts.available).toBe(0);
-    expect(body.counts.partial).toBe(2);
+    expect(body.counts.partial).toBe(0);
   });
 });

@@ -74,9 +74,10 @@ describe('runCaseSweep', () => {
     const summaries = await runCaseSweep('jus_vn', 'local', JUS_MEMBERS, deps);
     const byId = Object.fromEntries(summaries.map((s) => [s.playbookId, s]));
 
-    // 19 Pre-patch uses window 'next 3 days' — unsupported by the expander → filter
-    // dropped to empty → must be skipped, NOT swept against the whole VIP base.
-    expect(byId['19'].skipped).toBe('no-predicate');
+    // 19 Pre-patch windows on ops_calendar.next_patch_at — absent from jus's model,
+    // so it gates as unavailable upstream and is never swept against the VIP base
+    // (caught at availability, not as an empty-filter compile downstream).
+    expect(byId['19'].skipped).toBe('unavailable');
     expect(byId['19'].opened).toBe(0);
     expect(fetched).not.toContain('19');
 

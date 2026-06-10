@@ -153,11 +153,34 @@ describe('availability resolver (per game × playbook)', () => {
     expect(resolveAvailability(pb('15'), withRolling)).toBe('available');
   });
 
-  it('blocked playbooks are always unavailable; ops-driven are partial', () => {
+  it('blocked playbooks are unavailable; ops-driven gate unavailable when their calendar member is absent', () => {
     expect(resolveAvailability(pb('05'), JUS_MEMBERS)).toBe('unavailable'); // payment failure (blocked)
     expect(resolveAvailability(pb('13'), JUS_MEMBERS)).toBe('unavailable'); // sentiment (blocked)
-    expect(resolveAvailability(pb('19'), JUS_MEMBERS)).toBe('partial'); // pre-patch (ops)
-    expect(resolveAvailability(pb('20'), JUS_MEMBERS)).toBe('partial'); // new content (ops)
+    // 19/20 window on ops_calendar.* — no modeled source, so the gate member is
+    // absent → unavailable (gated, not swept into an empty-filter "no usable
+    // condition" failure).
+    expect(resolveAvailability(pb('19'), JUS_MEMBERS)).toBe('unavailable'); // pre-patch (ops)
+    expect(resolveAvailability(pb('20'), JUS_MEMBERS)).toBe('unavailable'); // new content (ops)
+  });
+
+  it('gates on the condition gate member, not just dataRequirements', () => {
+    // The mid-sweep failure class: a playbook whose dataRequirements member is
+    // present but whose CONDITION member is absent from the game's model passed
+    // the old gate, then 400/500'd at query time. Gate it unavailable instead.
+    const dataReqPresentOnly = new Set([
+      ...JUS_MEMBERS,
+      'etl_prop_flow.prop_id', // 07/11 dataRequirements present…
+      'etl_lottery_shoot.history_draw_cnt', // 12 dataRequirements present…
+      // …but the condition members (acquired_at / limited_set_owned_count /
+      // draws_since_ssr) are intentionally ABSENT.
+    ]);
+    expect(resolveAvailability(pb('07'), dataReqPresentOnly)).toBe('unavailable'); // acquired_at absent
+    expect(resolveAvailability(pb('11'), dataReqPresentOnly)).toBe('unavailable'); // limited_set_owned_count absent
+    expect(resolveAvailability(pb('12'), dataReqPresentOnly)).toBe('unavailable'); // draws_since_ssr absent
+
+    // With the condition member also present, 07 returns to partial (raw etl_).
+    const withCondMember = new Set([...dataReqPresentOnly, 'etl_prop_flow.acquired_at']);
+    expect(resolveAvailability(pb('07'), withCondMember)).toBe('partial');
   });
 
   it('cfm post-mart: gameplay flips to available; raw etl_* stays partial', () => {

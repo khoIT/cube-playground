@@ -19,6 +19,7 @@
 import { getMetaWithCtx, type WorkspaceCtx } from '../services/cube-client.js';
 import { logicalCube } from '../services/cube-member-resolver.js';
 import type { Playbook } from './playbook-registry.js';
+import { ruleMembers } from './threshold-rule.js';
 
 export type AvailabilityStatus = 'available' | 'partial' | 'unavailable';
 
@@ -74,17 +75,24 @@ export function extractLogicalMembers(meta: unknown, gamePrefix: string | null =
  */
 export function resolveAvailability(playbook: Playbook, members: Set<string>): AvailabilityStatus {
   if (playbook.availabilityHints?.blocked) return 'unavailable';
+
+  // Gate on every member the cohort query actually touches — the dataRequirements
+  // cube AND the condition's gate member. Checking dataRequirements alone let a
+  // playbook whose condition referenced a member ABSENT from this game's model
+  // (a behavior field the title doesn't emit, an ops_calendar with no source)
+  // pass gating, then fail mid-sweep with a 400 "not found", a behavior-cube
+  // date-bound 500, or an empty filter. The gate member must exist or the query
+  // can't run — fail-closed to unavailable so it reads as "not available for this
+  // game" rather than a refresh error. Every ThresholdRule kind carries `member`.
+  const queryMembers = [...playbook.dataRequirements, ...ruleMembers(playbook.condition)];
+  if (queryMembers.some((m) => !members.has(m))) return 'unavailable';
+
+  // ops-driven playbooks with a present gate member are still per-event, not a
+  // refresh-cadence cohort scan → surface as partial.
   if (playbook.availabilityHints?.opsDriven) return 'partial';
 
-  const reqs = playbook.dataRequirements;
-  // No requirements + not ops-driven shouldn't happen, but treat as available.
-  if (reqs.length === 0) return 'available';
-
-  const missing = reqs.some((m) => !members.has(m));
-  if (missing) return 'unavailable';
-
-  // All present — downgrade to partial when any requirement is a raw event table.
-  if (reqs.some(isRawEventMember)) return 'partial';
+  // Downgrade to partial when any requirement is a raw event table.
+  if (playbook.dataRequirements.some(isRawEventMember)) return 'partial';
   return 'available';
 }
 
