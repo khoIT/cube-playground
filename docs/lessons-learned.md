@@ -90,6 +90,12 @@ Format per lesson:
 - **Signal:** a Cube `/sql` dump shows several source lines joined onto one line with a trailing `-- …`; the parse error points at the token right after where a CTE/clause keyword should be.
 - **Apply:** never leave a `--` comment on a foldable (base-indent) line; verify by reading the compiled SQL via `/cube-api/v1/sql`, not just the YAML.
 
+### A surface's identity/enrichment view is a silent per-game dependency the availability check can't see
+- **Rule:** before declaring a per-game surface "done", inventory the views/cubes its code reads **directly by name** — not just the members gated by an availability/coverage check. Identity and enrichment views (display name, profile) are queried unconditionally; if the game lacks one, the surface degrades silently (raw ids, blank fields) while every gated feature still reports "available".
+- **Why:** jus_vn's CS queue showed raw uids. All playbooks were "available" (their `dataRequirements` members existed), but the VIP profile fetcher also queries `user_roles_panel.last_role_name` for the display name — a view jus never had (only cfm/cros/tf did). The availability check only inspects playbook `dataRequirements`, so the missing identity view was invisible to it. The name data existed (`mf_ingame_roles`, ~100% populated) — only the cube + view were missing. Also: the fetcher reads the **view** (`user_roles_panel`), so adding just the `user_roles` cube wasn't enough — the `user_360.yml` view block was the other half.
+- **Signal:** a per-game surface renders fallback values (raw uid, em-dash, blank) for one game while another game is fine, and no error/`unavailable` is raised. Grep the surface's fetch code for view/member names it queries without a presence guard.
+- **Apply:** port the canonical game's full view set (`views/<game>/user_360.yml`) and backing cubes, not just the playbook marts — see `docs/game-onboarding-data-yaml.md` (Tier 0). After landing YAML, refresh stored snapshots (`upsertVipProfiles`) — existing rows keep stale `NULL` until re-fetched.
+
 ---
 
 ## Server cache contract
