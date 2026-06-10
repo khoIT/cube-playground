@@ -35,10 +35,23 @@ cubes:
       every: 5 minute
 
     dimensions:
+      # transid is NOT unique per row in JUS: a single payment splits into
+      # multiple rows by role_id + prepaid_detail_item_id, and transid values
+      # are reused across days. Using it as the primary key corrupts every
+      # query that fans this cube out through a join (e.g. recharge + a per-day
+      # cube): Cube de-dups measures on the primary key, so a non-unique key
+      # both under-counts `count` (COUNT DISTINCT collapses real rows) and
+      # inflates `sum` (the key re-join matches unrelated rows). The composite
+      # below is genuinely one-row-per-transaction.
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.account_id, ''), '__', CAST({CUBE}.pay_time AS VARCHAR), '__', COALESCE({CUBE}.transid, ''), '__', COALESCE({CUBE}.role_id, ''), '__', COALESCE({CUBE}.prepaid_detail_item_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
       - name: transaction_id
         sql: transid
         type: string
-        primary_key: true
 
       - name: event_id
         sql: __event_id
