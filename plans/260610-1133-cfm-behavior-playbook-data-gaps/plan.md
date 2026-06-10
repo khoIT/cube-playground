@@ -37,6 +37,33 @@ Trino data verification (via Cube `/load` → Trino, cfm_vn, last 30d, 2026-06-1
 Out of scope (stay gated, decided): **19 Pre-major-patch**, **20 New faction/server** —
 windowed on `ops_calendar.*` with no modeled data source.
 
+## Cross-game raw-table availability (verified on Trino 2026-06-10)
+
+The source spec (`~/Downloads/VIP_Data_Requirement_Final.docx`) was written for
+**jus_vn (Nghịch Thủy Hàn)** — but the doc itself lists **no concrete data fields** for
+07 (`—`) and 11 (`—`) and only a conceptual `Gacha_Roll_Count_Without_SSR` for 12. So the
+spec left these as "Dev to prepare", and the real question is whether raw Trino data exists.
+
+Enumerated `game_integration.{cfm_vn,jus_vn}` tables + sampled real rows. Headline (ironic):
+**jus_vn — the doc's own game — has the LEAST raw support for 07/11/12.** Its `etl_ingame_item_flow`
+is a bare flow log (`item_id`, `before_num`/`cur_num`, opaque integer `reason`/`place`) with
+**no rarity, no set grouping, no gacha table at all**. cfm_vn (a different game) is the only one
+with rich enough behavior tables.
+
+Freshness lag: cfm tables → `log_date` max **2026-05-31**; jus `item_flow` → **2026-05-15**
+(staler). Anchor any demo cohort to those, not `current_date`.
+
+| Playbook | cfm_vn | jus_vn (doc's game) |
+|---|---|---|
+| **07** cosmetic/rare unlock | `etl_ingame_propflow.propquality` {0–4} × `proptype` {1–3} × `propdelta>0` — **structurally present**. But volume is **non-monotonic** (q4 is HIGHEST volume 11.5M → likely "common", not rare), so the code→rarity legend is still unknown. `styleid` is useless (1 distinct value); `propgid` is a per-instance GUID (15.5M distinct ≈ rows), **not** a set id. → Demonstrable as "rare-tier prop gain" only once a quality-code is picked. | `item_flow` has `item_id` + before/after counts only. **No rarity field.** Needs an external item→rarity legend. NOT demonstrable from the warehouse alone. |
+| **11** collector FOMO (4/5 of a limited set) | **No set-grouping column anywhere** (propgid = GUID, styleid = constant). Can't compute "owns 4/5 of a set" without a set-definition table. NOT demonstrable. | Same — no set grouping. NOT demonstrable. |
+| **12** gacha bad-luck (pity) | `etl_ingame_lotteryshoot` — **strongly demonstrable.** 1.2M rows / 126K players / 7d. `luckpoint` 0–99 pity confirmed: **56,458 players ≥90, 63,727 in 70–89**. `historydrawcnt` cumulative (max 870). `result`: code `0` = no-win dominates, rare codes (11092, 20002, 32016/32032) = SSR. Bonus: `isuseailabrate`/`ailabresult` = CFM's own bad-luck-protection mechanic. | **No gacha/lottery table exists.** NOT demonstrable. |
+
+Bottom line for a demo: **only 12 is cleanly real, and only on cfm_vn** (via `luckpoint >= threshold`,
+latest-per-player). **07 is half-real on cfm_vn** (quality tiers exist, rarity legend missing).
+**11 is real on neither game** — no limited-set grouping in any raw table. Targeting jus_vn for any
+of the three means inventing/ingesting data the warehouse does not hold.
+
 ## Model YAML locations + facts (verified 2026-06-10)
 
 The cfm behavior cubes are bare column passthroughs — **no titles/descriptions/legends**,
