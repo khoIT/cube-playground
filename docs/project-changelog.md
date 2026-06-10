@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-11 — Segment refresh ops console + wedge watchdog
+
+Added a sys-admin "Segment Refreshes" tab (sibling to "Pre-agg Runs") that monitors the **gateway's segment-refresh cron** (path B — per-cohort + KPI-card recompute), and a runtime watchdog that self-heals segments wedged mid-refresh. Plan: `plans/260610-1923-segment-refresh-ops-console/`. Tests: 22 new server tests + 8 new FE tests; server cron/refresh + FE hub suites green; FE/server typecheck clean on touched files.
+
+- **Two signals nothing surfaced before** — `wedged` (a row stuck in `refreshing`; the queue is in-memory so any refreshing row at rest is an orphan that `listDueSegments()` skips forever) and `degraded` (cohort refreshed fine but K-of-N KPI cards are cold-failing — kept invisible by card-cache last-good preservation). Full derived taxonomy: healthy / due / in_flight / wedged / serving_stale / broken / degraded — computed, no new status column.
+- **Wedge watchdog** (`SEGMENT_REFRESH_WATCHDOG_ENABLED`, default on) — each cron tick reconciles any `refreshing` row older than `max(cadence, SEGMENT_REFRESH_WEDGE_FLOOR_MIN=10min)` back to `stale`, so the next tick re-runs it. Closes the no-restart gap the boot-time reconcile can't reach on a long-lived gateway. Same single-id reconcile (`reconcileSegmentRefreshing`) backs the manual **Unstick** action.
+- **Server** — `GET /api/segment-refresh/ops` (cron heartbeat via new `getLastTickAt()` + queue depth + per-segment derived health) and `POST /api/segment-refresh/:id/unstick` (admin-gated, idempotent). Read-only over `segments` + `segment_card_cache` except the unstick write. Derivation isolated in a pure helper (`segment-refresh-ops.ts`).
+- **UI** — `/admin/segment-refreshes`: cron heartbeat strip (last tick, queue depth, wedged/degraded counts, watchdog state), alert-sorted segment table with status chips + per-card ok/error tally + expand-to-erroring-cards, and per-row **Refresh now** / **Unstick** actions. Hub-nav badge raises an "N alert" tag for wedged+degraded.
+- **Per-instance by design** — reports the gateway that served the request (its own SQLite); the `:3000` host and `:11000` docker gateways each have their own DB + cron. Cross-ref `docs/query-paths-and-service-topology.md` §7/§8.
+
 ## 2026-06-10 — Pre-agg run history console + hourly all-games refresh cadence
 
 Made the local refresh worker sweep **hourly across all games** (a full sweep is a heavy Trino+CubeStore job) and added a sys-admin "Pre-agg Runs" tab to observe those sweeps. The headline operator signal is `stale_serving` — a rollup whose latest refresh failed but whose old cache is still answering warm, so dashboards look green while data silently goes stale. Plan: `plans/260610-1838-preagg-run-history-console/`. Tests: 56 new server tests + full suite green; code-review APPROVED_WITH_MINORS (fixed).

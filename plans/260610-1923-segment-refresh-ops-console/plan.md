@@ -1,13 +1,21 @@
 ---
 title: "Segment Refresh Ops Console — cron + queue + card-health monitor"
-status: pending
+status: completed
 created: 2026-06-10
+completed: 2026-06-11
 owner: khoitn@vng.com.vn
 scope: local devcube stack; Admin/hub UI; server SQLite (read-only over existing tables)
 sibling_of: plans/260610-1838-preagg-run-history-console
 ---
 
 # Segment Refresh Ops Console
+
+> **Status: shipped 2026-06-11.** All 4 phases built in one `/ck:cook --auto` pass.
+> Server: `getLastTickAt()` + `TICK_INTERVAL_MS` export (cron-runner), `reconcileSegmentRefreshing(id)`
+> (segment-status), `segment-refresh-ops.ts` (derive + collect + watchdog), `routes/segment-refresh-ops.ts`,
+> watchdog+heartbeat wired into `tick()`. UI: `segment-refresh-ops-tab.tsx` + `-data.ts` + `segment-refresh-row.tsx`,
+> registered in hub `index.tsx` with nav badge. Tests: 14 ops-unit + 3 route + 5 FE-data + 3 FE-tab; cron/refresh +
+> hub regression suites green. Watchdog decision: shipped enabled, env-killable via `SEGMENT_REFRESH_WATCHDOG_ENABLED`.
 
 ## Goal
 
@@ -76,14 +84,32 @@ status column — purely a computed view.
 are the whole reason for the tab — render them with the **warning/destructive**
 status tokens, visually distinct from `healthy`.
 
+### Wedge threshold — operational role (not just display)
+
+The threshold classifies a `refreshing` row as `wedged` (vs benign `in_flight`),
+**and** drives a runtime watchdog. Mechanics it has to respect:
+
+- The cron tick never re-evaluates `refreshing` rows (`listDueSegments()` skips
+  them, `cron-runner.ts:61`); the queue is in-memory. So a row that wedges
+  *without* a process restart stays stuck until the next boot — the boot-time
+  `reconcileOrphanedRefreshing()` is the only recovery and it can't reach a
+  long-lived gateway.
+- **Watchdog closes that gap:** each tick, any `refreshing` row whose age exceeds
+  the threshold is reconciled to `stale` (single-id form of the boot reconcile),
+  so it self-heals within one tick (≤60s) instead of waiting for a restart. The
+  manual **Unstick** button is the same op, on demand.
+- Threshold MUST sit above the longest legitimate single-segment refresh (the
+  7.16M-cohort case) or a slow-but-healthy run gets falsely killed. Default
+  `max(cadence, 10min)`, env-configurable, documented.
+
 ## Phases
 
 | # | Phase | Output |
 |---|-------|--------|
 | 1 | Server: heartbeat + aggregation route | Add `getLastTickAt()` to `cron-runner.ts`. New `GET /api/segment-refresh/ops` (zod-typed): `{ cron:{lastTickAt,tickIntervalMs}, queue:{processing,size}, segments:[{id,name,game_id,status,derivedState,lastRefreshedAt,cadenceMin,ageMs,overdueBy,uidCount,brokenReason,cards:{ok,error,total}}] }`. Wedge threshold = `max(cadence, FLOOR_MIN)` (default 10min), config via env. Read-only over existing tables + queue introspection. |
-| 2 | Admin/hub UI tab | "Segment Refreshes" tab: cron heartbeat strip (last tick + queue depth + "N wedged / N degraded" counts), segment table with status chip, age-vs-cadence bar, per-card ok/error tally, expand → erroring card ids + messages. `TabDef` + `<Route>` registration. Design tokens. |
-| 3 | (optional) Operator actions | Per-segment **Refresh now** (reuse `POST /api/segments/:id/refresh`) + **Unstick** (new `POST /api/segment-refresh/:id/unstick` → single-id reconcile to `stale`). Gated `editor,admin`. Build only if read-only proves insufficient. |
-| 4 | Tests + docs | route test (aggregation + wedge/degraded derivation, empty-DB), `*-data.ts` helper unit test (state derivation table), tab render test; changelog + journal; cross-link `docs/query-paths-and-service-topology.md` §7 + `system-architecture.md`. |
+| 2 | Admin/hub UI tab + nav badge | "Segment Refreshes" tab: cron heartbeat strip (last tick + queue depth + "N wedged / N degraded" counts), segment table with status chip, age-vs-cadence bar, per-card ok/error tally, expand → erroring card ids + messages. `TabDef` + `<Route>` registration. **Hub-nav badge** showing `wedged`+`degraded` count (mirror the Observability "N pending" badge — surfaces the alarm without opening the tab; 0 → no badge). Design tokens. |
+| 3 | Operator actions + watchdog | Per-segment **Refresh now** (reuse `POST /api/segments/:id/refresh`) + **Unstick** (new `POST /api/segment-refresh/:id/unstick` → single-id reconcile to `stale`). Both gated `editor,admin`. **Watchdog:** in the cron tick, auto-reconcile any `refreshing` row past the wedge threshold to `stale` (reuse the single-id unstick path) — self-heals wedges between restarts. Shipped in the first cut. |
+| 4 | Tests + docs | route test (aggregation + wedge/degraded derivation, empty-DB), `*-data.ts` helper unit test (state derivation table), tab render test, **watchdog test** (refreshing-past-threshold → stale; in-flight-under-threshold untouched), unstick route test; changelog + journal; cross-link `docs/query-paths-and-service-topology.md` §7 + `system-architecture.md`. |
 
 ## Architecture
 
@@ -93,6 +119,10 @@ status tokens, visually distinct from `healthy`.
 - **Derivation lives server-side** in a small pure helper
   (`server/src/services/segment-refresh-ops.ts`) so the state taxonomy is unit-
   testable without HTTP. Route is a thin wrapper.
+- **Unstick + watchdog reuse one path.** Add `reconcileSegmentRefreshing(id)`
+  (single-id form of the existing `reconcileOrphanedRefreshing()`) to
+  `segment-status.ts`. The Unstick route, and the cron-tick watchdog, both call
+  it — one tested op, two triggers. No duplicate reset logic.
 - **Per-instance by design.** The tab shows the gateway that served it (its own
   SQLite). Label it so an operator isn't confused that `:3000` and `:11000` differ
   (cross-ref the two-gateway note in `query-paths-and-service-topology.md` §1/§8).
@@ -115,7 +145,8 @@ one `TabDef` + one `<Route>`; no conflict if sequenced).
 - **Triggering pre-agg builds** — that's the preagg console's domain; this tab is
   segment-cron only.
 - **Changing cron cadence / queue concurrency** — monitor only, not a control
-  panel (except the optional Phase-3 unstick/refresh actions).
+  panel. The only writes are Refresh-now, Unstick, and the wedge watchdog — all
+  reconcile/enqueue ops, no scheduling/concurrency knobs.
 
 ## Risks
 
@@ -128,11 +159,18 @@ one `TabDef` + one `<Route>`; no conflict if sequenced).
   DB) — treat run-history as best-effort; derive live state from `segments` +
   `segment_card_cache`, not from the log.
 
+## Resolved decisions
+
+- **Wedge threshold:** `max(cadence, 10min)`, env-configurable. Operational, not
+  cosmetic — also drives the watchdog (see "Wedge threshold — operational role").
+- **Nav badge:** yes — show `wedged`+`degraded` count on the hub nav, mirroring
+  the Observability "N pending" badge; 0 → no badge.
+- **Operator actions:** Refresh-now + Unstick ship in the first cut (Phase 3, not
+  optional), plus the runtime watchdog.
+
 ## Open questions
 
-- Wedge threshold default — `max(cadence, 10min)`, or a flat 15min? (cadences in
-  play: 60 / 720 / 1440 min.)
-- Should `wedged`/`degraded` counts raise a badge on the hub nav (like the
-  Observability "N pending" badge), or is the tab enough for v1?
-- Include Phase 3 operator actions in the first cut, or ship read-only and add
-  actions only if the boot-reconcile + watchdog prove insufficient?
+- Watchdog auto-reconcile: log-only first run, or write from day one? (Leaning
+  write from day one — it's the same op as boot reconcile, already proven safe —
+  but a one-release log-only soak would surface any false-wedge before it
+  auto-kills a slow-but-healthy refresh. Flagging for your call at cook time.)

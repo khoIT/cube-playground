@@ -303,6 +303,20 @@ for diagnostics. A fresh success fully replaces it. Without this, a transient
 Cube timeout or an unbuilt rollup would destroy the cohort's last-good cards and
 force the UI into a doomed live query.
 
+**Monitoring this cron** (`/admin/segment-refreshes`, sibling to `/admin/preagg-runs`):
+the **Segment Refreshes** tab in the sys-admin hub derives per-segment health
+from `segments` + `segment_card_cache` (no new persistence) and surfaces two
+signals nothing else shows — `wedged` (a row stuck in `refreshing`; the queue is
+in-memory so any refreshing row at rest is an orphan) and `degraded` (cohort
+refreshed fine but K-of-N KPI cards are erroring on cold queries / unbuilt
+rollups, kept invisible by last-good preservation above). A **wedge watchdog**
+runs each cron tick (`SEGMENT_REFRESH_WATCHDOG_ENABLED`, default on) and resets
+any row stuck past `max(cadence, 10min)` to `stale` so the next tick re-runs it —
+self-healing the deadlock between restarts that the boot-time reconcile can't
+reach on a long-lived gateway. The tab is **per-instance** (reads the gateway's
+own SQLite); the `:3000` host process and the `:11000` docker process each have
+their own DB + cron, so they report different segment sets — see §1 and §8.
+
 ---
 
 ## 8. Local vs prod port/host summary

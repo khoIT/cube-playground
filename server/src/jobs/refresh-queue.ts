@@ -8,6 +8,7 @@ import { refreshSegment } from './refresh-segment.js';
 
 const pending = new Set<string>();
 let processing = false;
+let processingId: string | null = null;
 let drainPromise: Promise<void> | null = null;
 
 export function enqueueRefresh(segmentId: string): Promise<void> {
@@ -21,6 +22,14 @@ export function isProcessing(): boolean {
 
 export function queueSize(): number {
   return pending.size;
+}
+
+/** The segment id currently being refreshed by the drain loop, or null when
+ *  idle. The wedge watchdog consults this so it never reaps a row that is
+ *  genuinely in-flight (a slow multi-million-uid refresh can outrun the wedge
+ *  threshold while still legitimately running). */
+export function currentlyProcessing(): string | null {
+  return processingId;
 }
 
 function startDrain(): Promise<void> {
@@ -39,13 +48,17 @@ async function drain(): Promise<void> {
       const next = pending.values().next().value as string | undefined;
       if (next == null) break;
       pending.delete(next);
+      processingId = next;
       try {
         await refreshSegment(next);
       } catch {
         // refresh-segment handles its own errors; never throw past the queue.
+      } finally {
+        processingId = null;
       }
     }
   } finally {
     processing = false;
+    processingId = null;
   }
 }

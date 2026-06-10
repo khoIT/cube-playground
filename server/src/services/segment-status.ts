@@ -36,6 +36,22 @@ export function reconcileOrphanedRefreshing(): number {
   return res.changes;
 }
 
+/**
+ * Single-id form of reconcileOrphanedRefreshing(): reset one segment from
+ * 'refreshing' back to 'stale'. Used by the manual "Unstick" operator action
+ * and the wedge watchdog, which both need to recover a specific wedged segment
+ * without touching the others. Only flips a row that is actually 'refreshing'
+ * (a no-op otherwise), so it is safe to call speculatively. broken_reason is
+ * left untouched. Returns true when a row was changed.
+ */
+export function reconcileSegmentRefreshing(id: string): boolean {
+  const db = getDb();
+  const res = db
+    .prepare(`UPDATE segments SET status = 'stale', updated_at = ? WHERE id = ? AND status = 'refreshing'`)
+    .run(new Date().toISOString(), id);
+  return res.changes > 0;
+}
+
 export function setSegmentUids(
   id: string,
   uids: string[],

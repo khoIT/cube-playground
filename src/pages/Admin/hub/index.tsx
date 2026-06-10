@@ -26,13 +26,15 @@ import { DevHubPanel } from './dev-hub-panel';
 import { ObservabilityTab } from './observability-tab';
 import { UserActivityProfile } from './user-activity-profile';
 import { PreaggRunsTab } from './preagg-runs-tab';
+import { SegmentRefreshOpsTab } from './segment-refresh-ops-tab';
+import { useSegmentRefreshAlertCount } from './segment-refresh-ops-data';
 
 // ---------------------------------------------------------------------------
 // Tab definitions — Observability carries a live "N pending" badge so the
 // recurring approval job is visible without opening the tab.
 // ---------------------------------------------------------------------------
 
-function buildAdminTabs(pendingCount: number): TabDef[] {
+function buildAdminTabs(pendingCount: number, refreshAlertCount: number): TabDef[] {
   return [
     { key: 'access', label: 'Users & Access', path: '/admin/access' },
     {
@@ -43,6 +45,14 @@ function buildAdminTabs(pendingCount: number): TabDef[] {
     },
     { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev', tag: 'relocated' },
     { key: 'preagg-runs', label: 'Pre-agg Runs', path: '/admin/preagg-runs' },
+    {
+      key: 'segment-refreshes',
+      label: 'Segment Refreshes',
+      path: '/admin/segment-refreshes',
+      // wedged + degraded count — surfaces a stuck/cold-failing cron without
+      // opening the tab (mirrors the Observability "N pending" badge).
+      tag: refreshAlertCount > 0 ? `${refreshAlertCount} alert` : undefined,
+    },
   ];
 }
 
@@ -53,7 +63,8 @@ function buildAdminTabs(pendingCount: number): TabDef[] {
 export function AdminHub() {
   const { users } = useAdminUsers();
   const pendingCount = users.filter((u) => u.status === 'pending').length;
-  const adminTabs = buildAdminTabs(pendingCount);
+  const refreshAlertCount = useSegmentRefreshAlertCount();
+  const adminTabs = buildAdminTabs(pendingCount, refreshAlertCount);
 
   return (
     <div
@@ -128,6 +139,10 @@ export function AdminHub() {
 
           <Route exact path="/admin/preagg-runs">
             <PreaggRunsTab />
+          </Route>
+
+          <Route exact path="/admin/segment-refreshes">
+            <SegmentRefreshOpsTab />
           </Route>
 
           <Route path="/admin/dev">

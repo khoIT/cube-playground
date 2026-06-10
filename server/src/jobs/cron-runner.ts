@@ -10,13 +10,21 @@
 import { getDb } from '../db/sqlite.js';
 import { enqueueRefresh } from './refresh-queue.js';
 import { reconcileOrphanedRefreshing } from '../services/segment-status.js';
+import { runWedgeWatchdog } from '../services/segment-refresh-ops.js';
 import { pruneRefreshLog, DEFAULT_PRUNE_INTERVAL_MS } from './refresh-log-retention.js';
 import { maybeRunAnomalyDetector } from './anomaly-detector.js';
 import { maybeRunMember360Precompute } from '../services/member360-precompute-scheduler.js';
 
-const TICK_INTERVAL_MS = 60_000;
+export const TICK_INTERVAL_MS = 60_000;
 
 let lastPruneAt = 0;
+let lastTickAt: number | null = null;
+
+/** When the cron last ran a tick (ms epoch), or null if it never has. Powers
+ *  the segment-refresh-ops heartbeat — "is the background job even running?". */
+export function getLastTickAt(): number | null {
+  return lastTickAt;
+}
 
 function maybePruneRefreshLog(now: number): void {
   if (now - lastPruneAt < DEFAULT_PRUNE_INTERVAL_MS) return;
@@ -71,7 +79,22 @@ export function listDueSegments(now: number = Date.now()): string[] {
 }
 
 export async function tick(): Promise<void> {
-  maybePruneRefreshLog(Date.now());
+  const now = Date.now();
+  lastTickAt = now;
+  maybePruneRefreshLog(now);
+  // Self-heal segments wedged in 'refreshing' past their threshold without
+  // waiting for a process restart (the boot reconcile can't reach a long-lived
+  // gateway). No-op when SEGMENT_REFRESH_WATCHDOG_ENABLED=false.
+  try {
+    const reset = runWedgeWatchdog(now);
+    if (reset.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[cron] watchdog reset ${reset.length} wedged segment(s) → 'stale': ${reset.join(', ')}`);
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[cron] wedge watchdog failed:', (err as Error).message);
+  }
   const ids = listDueSegments();
   for (const id of ids) {
     await enqueueRefresh(id);

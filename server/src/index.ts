@@ -52,6 +52,7 @@ import careCasesRoutes from './routes/care-cases.js';
 import careActivityRoutes from './routes/care-activity.js';
 import careGovernanceRoutes from './routes/care-governance.js';
 import preaggRunsRoutes from './routes/preagg-runs.js';
+import segmentRefreshOpsRoutes from './routes/segment-refresh-ops.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
@@ -132,6 +133,7 @@ export async function buildApp() {
   await app.register(careActivityRoutes);
   await app.register(careGovernanceRoutes);
   await app.register(preaggRunsRoutes);
+  await app.register(segmentRefreshOpsRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.
