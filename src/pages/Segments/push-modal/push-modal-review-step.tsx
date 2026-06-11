@@ -47,6 +47,13 @@ export function PushModalReviewStep({
   const { t } = useTranslation();
   const window = describeQueryWindow(executedQuery);
   const scope = [cube, window].filter(Boolean).join(' · ');
+  // Cube-level segments scoping the query (e.g. mf_users.whales) — part of
+  // WHAT is being saved, so they must appear in the review chips alongside
+  // the selected cohort values. Strip the cube prefix for readability.
+  const cubeSegments = (executedQuery?.segments ?? []).map((s) => {
+    const dot = s.indexOf('.');
+    return dot >= 0 ? s.slice(dot + 1) : s;
+  });
 
   // Weekday restatement: only when the whole selection is one single-valued
   // day-grain cohort — anything broader and a one-day phrase would mislead.
@@ -64,8 +71,16 @@ export function PushModalReviewStep({
 
   return (
     <div className={styles.pushReviewCard}>
-      {summary.categoricals.length > 0 ? (
+      {summary.categoricals.length > 0 || cubeSegments.length > 0 ? (
         <div className={styles.pushChips}>
+          {cubeSegments.map((s) => (
+            <span key={`segment:${s}`} className={styles.pushChip}>
+              <span className={styles.pushChipKey}>
+                {t('segments.push.reviewSegmentChipKey', { defaultValue: 'segment' })}
+              </span>
+              {s}
+            </span>
+          ))}
           {summary.categoricals.map((c) => {
             const label = parseColumnLabel(c.column, granularityByCol);
             return c.topValues.map((v) => (
