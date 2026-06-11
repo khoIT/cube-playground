@@ -104,11 +104,15 @@ export function startTrigger(game: string, minutes = DEFAULT_MINUTES): StartResu
 
   // Arg array (not a shell string) — game is also allowlisted above, so no
   // shell-injection surface. --restore returns the worker to all-games on exit.
+  // detached + unref: the script MUST outlive this gateway process — a tsx
+  // watch restart mid-window once killed it before --restore ran, leaving the
+  // shared worker permanently scoped to one game at a 20s trace-level sweep.
   const child = spawn(
     'bash',
     [scriptPath(), game, '--minutes', String(mins), '--timer', '20', '--restore'],
-    { cwd: resolve(process.cwd(), '..'), env: process.env },
+    { cwd: resolve(process.cwd(), '..'), env: process.env, detached: true },
   );
+  child.unref();
 
   let buf = '';
   const onData = (d: Buffer) => {
