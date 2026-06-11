@@ -11,6 +11,7 @@ import { resolveDrift } from '../services/drift-resolver.js';
 import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segments.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
+import { beginRun, markRunning, markSettled, endRun } from '../services/card-progress.js';
 import { computeMemberTiers } from '../services/member-tier-runner.js';
 import { computeMemberProfiles } from '../services/member-profile-runner.js';
 import { getMetaMemberSets } from '../services/cube-meta-members.js';
@@ -346,16 +347,27 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     }
 
     if (preset) {
+      // Live per-card progress for the refresh monitor (poll-based; both the
+      // cron and the manual Refresh button reach here). Ephemeral + per-process.
+      const reporter = {
+        plan: (ids: string[]) => beginRun(segmentId, ids),
+        start: (id: string) => markRunning(segmentId, id),
+        settle: (id: string, status: 'ok' | 'error') => markSettled(segmentId, id, status),
+      };
       try {
         // Scope cards by the segment's predicate filters — the same basis as
         // the size query above — rather than the materialized uid list. The uid
         // list can be millions of entries; inlining it as an identity-IN filter
         // blows past Cube's query-text length limit (HTTP 400). The preset's
         // logical members are physicalized inside runPresetCards via `prefix`.
-        const entries = await runPresetCards(preset, segmentFilters, token, prefix, cohortCubeSegments);
+        const entries = await runPresetCards(preset, segmentFilters, token, prefix, cohortCubeSegments, reporter);
         upsertCardCache(segmentId, entries);
       } catch (err) {
         console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);
+      } finally {
+        // Close the run regardless of outcome so the monitor sees it as done
+        // (a thrown pass leaves any unsettled cards in their last phase).
+        endRun(segmentId);
       }
     }
   } catch (err) {

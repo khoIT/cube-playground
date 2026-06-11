@@ -20,6 +20,7 @@ import { getDefaultWorkspace } from '../services/workspaces-config-loader.js';
 import { getCollectorStatus } from '../services/preagg-run-collector.js';
 import { isKnownGame } from '../services/games-config-loader.js';
 import { isTriggerEnabled, getTriggerState, startTrigger } from '../services/preagg-trigger.js';
+import { getBuildProgress } from '../services/preagg-build-progress.js';
 
 export default async function preaggRunsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireRole('admin'));
@@ -94,6 +95,13 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
 
   app.get('/api/preagg-runs/trigger/status', async () => {
     return { enabled: isTriggerEnabled(), state: getTriggerState() };
+  });
+
+  // ── GET /api/preagg-runs/build-progress ──────────────────────────────────
+  // Live per-rollup progress of the current (or just-finished) triggered
+  // build, derived from the worker's docker logs. Null when idle.
+  app.get('/api/preagg-runs/build-progress', async () => {
+    return { progress: await getBuildProgress() };
   });
 
   app.post<{ Body: { game?: string; minutes?: number } }>(

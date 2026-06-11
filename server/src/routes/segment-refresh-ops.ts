@@ -26,6 +26,7 @@ import { getLastTickAt, TICK_INTERVAL_MS } from '../jobs/cron-runner.js';
 import { isProcessing, queueSize } from '../jobs/refresh-queue.js';
 import { collectSegmentRefreshOps } from '../services/segment-refresh-ops.js';
 import { reconcileSegmentRefreshing } from '../services/segment-status.js';
+import { getCardProgress } from '../services/card-progress.js';
 
 export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireRole('admin'));
@@ -41,6 +42,17 @@ export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Pro
       queueSize: queueSize(),
     });
   });
+
+  // ── GET /api/segment-refresh/:id/progress ──────────────────────────────────
+  // Live per-card progress for the CURRENT (or most recent) card-runner pass of
+  // one segment. Process-local + ephemeral (see card-progress.ts) — `progress`
+  // is null when this gateway has never run a pass for the segment this boot.
+  app.get<{ Params: { id: string } }>(
+    '/api/segment-refresh/:id/progress',
+    async (req) => {
+      return { progress: getCardProgress(req.params.id) };
+    },
+  );
 
   // ── POST /api/segment-refresh/:id/unstick ──────────────────────────────────
   app.post<{ Params: { id: string } }>(

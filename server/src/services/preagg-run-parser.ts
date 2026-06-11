@@ -47,7 +47,9 @@ const FAILURE_MESSAGES = [
   'Error querying db',
 ];
 
-function isFailureLine(message: string): boolean {
+/** Exported for the live build-progress aggregator, which classifies the same
+ *  failure shapes over the same log stream. */
+export function isFailureLine(message: string): boolean {
   return FAILURE_MESSAGES.some((pat) => message.includes(pat));
 }
 
@@ -70,8 +72,23 @@ interface LogLine {
   error?: string;
 }
 
-function parseJsonLine(line: string): LogLine | null {
-  const trimmed = line.trim();
+/**
+ * Split an optional leading Docker RFC3339 timestamp from a log line.
+ * The log reader requests `timestamps=1`, so payloads arrive as
+ * `2026-06-11T06:17:35.236526456Z {json}` — the JSON body never starts the
+ * line. Cube's own info-level JSON carries NO time field, so this prefix is
+ * the only reliable per-line timestamp. Lines without the prefix (tests,
+ * future reader changes) pass through unchanged.
+ */
+export function splitDockerTimestamp(line: string): { ts: string | null; body: string } {
+  const m = /^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(.*)$/.exec(line);
+  if (m) return { ts: m[1], body: m[2] };
+  return { ts: null, body: line };
+}
+
+export function parseJsonLine(line: string): LogLine | null {
+  const { ts: dockerTs, body } = splitDockerTimestamp(line.trim());
+  const trimmed = body.trim();
   if (!trimmed.startsWith('{')) return null;
   try {
     const parsed = JSON.parse(trimmed) as Record<string, unknown>;
@@ -80,6 +97,7 @@ function parseJsonLine(line: string): LogLine | null {
       (parsed['timestamp'] as string) ??
       (parsed['@timestamp'] as string) ??
       (parsed['t'] as string) ??
+      dockerTs ??
       new Date().toISOString();
     const message =
       (parsed['message'] as string) ??

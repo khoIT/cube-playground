@@ -67,3 +67,27 @@ export interface SegmentRefreshOpsPayload {
   summary: SegmentRefreshOpsSummary;
   segments: SegmentRefreshOpsRow[];
 }
+
+// ── Live per-card refresh progress (GET /api/segment-refresh/:id/progress) ────
+// Mirror server/src/services/card-progress.ts — keep in sync.
+
+export type CardPhase = 'queued' | 'running' | 'ok' | 'error';
+
+export interface CardProgressEntry {
+  cardId: string;
+  phase: CardPhase;
+}
+
+export interface SegmentCardProgress {
+  segmentId: string;
+  startedAt: string;
+  /** ISO when the pass ended; null while still running. */
+  finishedAt: string | null;
+  total: number;
+  /** ok + error (settled cards). */
+  done: number;
+  ok: number;
+  error: number;
+  /** Per-card phase, in stable spec order. */
+  cards: CardProgressEntry[];
+}

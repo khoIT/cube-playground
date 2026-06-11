@@ -12,7 +12,7 @@
  * gateway that served the request.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import {
   useSegmentRefreshOps,
@@ -112,6 +112,9 @@ export function SegmentRefreshOpsTab() {
     }
   };
 
+  // Stable so the row's progress poll doesn't re-subscribe on every ops poll.
+  const handleProgressComplete = useCallback(() => void refetch(), [refetch]);
+
   const sorted = useMemo(() => {
     const segs = data?.segments ?? [];
     return [...segs].sort((a, b) => {
@@ -192,6 +195,7 @@ export function SegmentRefreshOpsTab() {
               busy={busyIds.has(row.id)}
               onRefresh={(id) => void runAction(id, refreshSegmentNow)}
               onUnstick={(id) => void runAction(id, unstickSegment)}
+              onProgressComplete={handleProgressComplete}
             />
           ))
         )}

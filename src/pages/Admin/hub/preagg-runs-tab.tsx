@@ -17,9 +17,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Database } from 'lucide-react';
-import { usePreaggRuns, useSweepDetail, useServeabilityNow, useTriggerStatus, triggerBuild } from './preagg-runs-data';
+import { usePreaggRuns, useSweepDetail, useServeabilityNow, useTriggerStatus, useBuildProgress, triggerBuild } from './preagg-runs-data';
 import type { ServeabilityNow } from './preagg-runs-data';
 import { SweepRow } from './preagg-runs-sweep-row';
+import { BuildProgressPanel } from './preagg-build-progress-panel';
 import type { PreaggSweepItem } from '../../../types/preagg-run';
 
 // ---------------------------------------------------------------------------
@@ -301,6 +302,10 @@ export function PreaggRunsTab() {
   const buildRunning = triggerStatus?.state.phase === 'running';
   const triggerEnabled = triggerStatus?.enabled ?? false;
 
+  // Live per-rollup build stream — polls while a build runs; the last snapshot
+  // (and the server's lingering window) keeps the finished checklist visible.
+  const { progress: buildProgress } = useBuildProgress(buildRunning);
+
   const handleRebuild = async () => {
     if (buildRunning) return;
     if (!gameFilter) {
@@ -506,6 +511,12 @@ export function PreaggRunsTab() {
               ? triggerError
               : `${buildPhase === 'done' ? '✓ ' : ''}${triggerStatus?.state.message ?? ''}`}
           </div>
+        )}
+
+        {/* Live per-rollup build checklist — shown while a triggered build runs
+            and lingers after it closes so the final states stay readable. */}
+        {triggerEnabled && (buildRunning || buildProgress) && (
+          <BuildProgressPanel progress={buildProgress} />
         )}
 
         {loading && sweeps.length === 0 ? (

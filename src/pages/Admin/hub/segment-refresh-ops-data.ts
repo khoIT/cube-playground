@@ -11,14 +11,15 @@
  * JWT) — the routes are admin-gated.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../../../api/api-client';
 import type {
   DerivedRefreshState,
   SegmentRefreshOpsPayload,
+  SegmentCardProgress,
 } from '../../../types/segment-refresh-ops';
 
-export type { SegmentRefreshOpsPayload };
+export type { SegmentRefreshOpsPayload, SegmentCardProgress };
 
 // ---------------------------------------------------------------------------
 // Pure presentation helpers
@@ -121,4 +122,54 @@ export function unstickSegment(id: string): Promise<{ id: string; unstuck: boole
 
 export function refreshSegmentNow(id: string): Promise<{ status: string }> {
   return apiFetch(`/api/segments/${encodeURIComponent(id)}/refresh`, { method: 'POST' });
+}
+
+/**
+ * Poll one segment's live per-card refresh progress while `enabled`.
+ *
+ * `enabled` should track the row being expanded — polling continuously while
+ * open is the simplest correct behaviour: it captures every transition (queued
+ * → running → ok/error → a fresh pass) with no edge cases, and the poll is a
+ * cheap in-memory read. The returned `progress` persists in state after polling
+ * stops, so a completed pass stays visible until collapse.
+ *
+ * Best-effort: a missing run (process-local, may be on another gateway) returns
+ * null. `onComplete` fires once per finished pass (tracked by finishedAt), so a
+ * new refresh on the same row fires it again — letting the caller refetch the
+ * ops list to reflect the settled state without re-firing on every poll.
+ */
+export function useCardProgress(
+  segmentId: string,
+  enabled: boolean,
+  pollMs = 1500,
+  onComplete?: () => void,
+) {
+  const [progress, setProgress] = useState<SegmentCardProgress | null>(null);
+  // Last finishedAt we fired onComplete for — survives re-subscribes so a poll
+  // that re-observes the same finished pass doesn't re-trigger a refetch.
+  const lastFinishedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const tick = () =>
+      void apiFetch<{ progress: SegmentCardProgress | null }>(
+        `/api/segment-refresh/${encodeURIComponent(segmentId)}/progress`,
+      )
+        .then((d) => {
+          if (cancelled) return;
+          setProgress(d.progress);
+          const fin = d.progress?.finishedAt ?? null;
+          if (fin && fin !== lastFinishedRef.current) {
+            lastFinishedRef.current = fin;
+            onComplete?.();
+          }
+        })
+        .catch(() => { /* progress is best-effort; stay quiet on transient errors */ });
+    tick();
+    const t = setInterval(tick, pollMs);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [segmentId, enabled, pollMs, onComplete]);
+
+  return { progress };
 }

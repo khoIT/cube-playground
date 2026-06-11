@@ -35,3 +35,33 @@ export interface PreaggSweepItem {
   errorMessage: string | null;
   observedAt: string;
 }
+
+// ── Live triggered-build progress (GET /api/preagg-runs/build-progress) ─────
+// Mirror server/src/services/preagg-build-progress.ts — keep in sync.
+
+export type BuildRollupPhase = 'queued' | 'building' | 'finished' | 'failed';
+
+export interface BuildRollupProgress {
+  /** "<cube>.<rollup>" — Cube's preAggregationId. */
+  id: string;
+  cube: string;
+  rollup: string;
+  phase: BuildRollupPhase;
+  /** Partition builds observed started / completed (a rollup = many partitions). */
+  partitionsStarted: number;
+  partitionsCompleted: number;
+  errorSig: string | null;
+  errorMessage: string | null;
+  lastEventAt: string | null;
+}
+
+export interface BuildProgress {
+  game: string | null;
+  startedAt: string;
+  /** Trigger script finish time; null while the build window is open. */
+  finishedAt: string | null;
+  /** True when docker logs were unreadable — rollup list may be empty/stale. */
+  degraded: boolean;
+  rollups: BuildRollupProgress[];
+  totals: { queued: number; building: number; finished: number; failed: number };
+}

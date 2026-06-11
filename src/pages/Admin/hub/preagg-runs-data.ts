@@ -12,12 +12,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../../api/api-client';
-import type { PreaggSweep, PreaggSweepItem } from '../../../types/preagg-run';
+import type { PreaggSweep, PreaggSweepItem, BuildProgress } from '../../../types/preagg-run';
 
 // ---------------------------------------------------------------------------
 // Re-export types used by the tab components
 // ---------------------------------------------------------------------------
-export type { PreaggSweep, PreaggSweepItem };
+export type { PreaggSweep, PreaggSweepItem, BuildProgress };
 
 // ---------------------------------------------------------------------------
 // /current response shape (mirrors routes/preagg-runs.ts)
@@ -132,6 +132,38 @@ export function useTriggerStatus() {
   }, [running, refetch]);
 
   return { status, refetch };
+}
+
+/**
+ * Poll live per-rollup build progress while `active` (a triggered build is
+ * running). The last snapshot persists in state after polling stops, so the
+ * finished checklist stays visible instead of vanishing when the build ends —
+ * the server also lingers the finished window, so a late mount still gets it.
+ */
+export function useBuildProgress(active: boolean, pollMs = 2500) {
+  const [progress, setProgress] = useState<BuildProgress | null>(null);
+
+  const refetch = useCallback(() => {
+    apiFetch<{ progress: BuildProgress | null }>('/api/preagg-runs/build-progress')
+      .then((d) => {
+        // Keep the last non-null snapshot: a transient null (e.g. trigger state
+        // resetting) shouldn't blank a checklist the operator is reading.
+        setProgress((prev) => d.progress ?? prev);
+      })
+      .catch(() => { /* best-effort live view; ignore transient errors */ });
+  }, []);
+
+  // Fetch once on mount (picks up an in-flight or lingering build), then poll
+  // while active — plus one trailing fetch when active flips off so the final
+  // per-rollup states land.
+  useEffect(() => { refetch(); }, [refetch]);
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(refetch, pollMs);
+    return () => { clearInterval(t); refetch(); };
+  }, [active, pollMs, refetch]);
+
+  return { progress };
 }
 
 /** POST a build trigger for one game. Resolves to an error string or null. */

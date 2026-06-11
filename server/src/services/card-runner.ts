@@ -45,6 +45,19 @@ interface CubeQuery {
   limit?: number;
 }
 
+/** Optional live-progress sink. The runner reports its card plan and each
+ *  card's start/settle as the pass executes, so a monitor can show a live
+ *  checklist while the batched cache upsert is still pending. All methods are
+ *  optional — a runner with no reporter behaves exactly as before. */
+export interface CardProgressReporter {
+  /** Full ordered card-id list, emitted once before any load starts. */
+  plan?(cardIds: string[]): void;
+  /** A card's Cube load is starting. */
+  start?(cardId: string): void;
+  /** A card finished — 'ok' on success, 'error' on failure or budget skip. */
+  settle?(cardId: string, status: 'ok' | 'error'): void;
+}
+
 export interface CardCacheEntry {
   cardId: string;
   queryHash: string;
@@ -199,6 +212,8 @@ export async function runPresetCards(
    * segment-scoped cohort's cards report the unsegmented population.
    */
   cubeSegments: string[] = [],
+  /** Optional live-progress sink (see CardProgressReporter). */
+  reporter?: CardProgressReporter,
 ): Promise<CardCacheEntry[]> {
   const allSpecs: Array<{ id: string; query: CubeQuery }> = [];
 
@@ -214,12 +229,17 @@ export async function runPresetCards(
     }
   }
 
+  // Announce the full card plan up front so a live monitor can seed every card
+  // as 'queued' before the first load fires.
+  reporter?.plan?.(allSpecs.map((s) => s.id));
+
   // Shared wall-clock deadline across the whole pass. Each card's effective
   // timeout is clamped to whatever budget remains, and cards that start after
   // the budget is spent short-circuit without issuing a Cube load.
   const deadline = Date.now() + CARD_PHASE_BUDGET_MS;
 
   async function runOne({ id, query }: { id: string; query: CubeQuery }): Promise<CardCacheEntry> {
+    reporter?.start?.(id);
     const scoped = scopeQuery(query, segmentFilters, cubeSegments);
     // Physicalize the logical preset members for prefix workspaces (idempotent:
     // already-physical predicate filters pass through), then logicalize response
@@ -229,6 +249,7 @@ export async function runPresetCards(
 
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
+      reporter?.settle?.(id, 'error');
       return {
         cardId: id,
         queryHash,
@@ -242,6 +263,7 @@ export async function runPresetCards(
       const timeout = Math.min(PER_CARD_TIMEOUT_MS, remaining);
       const raw = await loadWithContinueWait(physical, tokenOverride, timeout);
       const rows = logicalizeRows(extractRows(raw), prefix);
+      reporter?.settle?.(id, 'ok');
       return { cardId: id, queryHash, rows, status: 'ok' };
     } catch (err) {
       // Card-level failure shouldn't kill the whole refresh — persist an error
@@ -249,6 +271,7 @@ export async function runPresetCards(
       // silent gap) and let siblings continue.
       const message = (err as Error).message?.slice(0, MAX_ERROR_LEN) ?? 'unknown error';
       console.warn(`[card-runner] ${id} failed:`, message);
+      reporter?.settle?.(id, 'error');
       return { cardId: id, queryHash, rows: [], status: 'error', error: message };
     }
   }
