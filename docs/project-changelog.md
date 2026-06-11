@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-11 — Preset bundles: one YAML feeds FE + server (kills the mirror drift)
+
+Consolidated the hand-synced FE/server preset mirrors into shared YAML bundles at `server/src/presets/bundles/*.yml`. The cache contract (`kpi:<id>` / `kpi:<tabId>:<id>` / `card:<tabId>:<cardId>` keys + measure names per card) had drifted twice — most recently the mf_users overview cards (FE `lifecycle-strip`/`platform-donut` vs server `lifecycle-comp`/`platform-comp`), silently downgrading 4 rendered cards from cache-hydrated to live-fetched. Tests: full server suite 1260 green; FE suite green except 8 pre-existing failures (verified failing on baseline); FE tsc error count down 77→74.
+
+- **Server** parses the bundles at boot (`preset-bundles-loader.ts`, same `__dirname`-relative pattern as business-metrics, with a `dist→src` fallback since tsc doesn't copy .yml). **FE** inlines the same files at build time (Vite `?raw` + js-yaml). The TS preset modules on both sides are now thin loader shims keeping their export names, so no import site changed.
+- **Card ids unified on the FE list** — the server now precomputes exactly what the FE renders (the 4 drifted overview cards become cache hits; `upsertCardCache` prunes the orphaned old ids on next refresh). Server `CardSpec` accepts the FE presentation kinds (`donut`, `segmented-bar`) — query shape is identical to bar/composition.
+- **Brief enrichment** mines distributions from all categorical kinds (`composition | segmented-bar | donut`) instead of composition-only, so the unified card list keeps feeding the AI brief.
+- **recharge-events** registered server-side too (was FE-only; zero recharge segments exist today, so no behavior change in practice). The parity test now pins loader fidelity: every bundle registered verbatim, no orphan YAML, no unknown card kinds.
+- **Adding a new segment needs no preset change** — presets key on hub cube. Adding a new hub cube = one new bundle YAML + a registry line on each side.
+
 ## 2026-06-11 — Pre-agg the heavy segment composition/retention cards (approx)
 
 Made the unscoped + rollup-aligned segment insight cards serve from CubeStore instead of cold Trino. The heavy composition/retention cards (lifecycle, payer-tier, country, platform, install trend, paying-rate) were full-cohort `count_distinct` group-bys that timed out on a cold cube; a fresh-looking segment (e.g. `High value`, filters `[]`) had 19/31 cards silently failing. After: that segment refreshes in ~1s with those cards routed.

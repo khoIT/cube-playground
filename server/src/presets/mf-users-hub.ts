@@ -1,11 +1,13 @@
 /**
- * Server-side mirror of src/pages/Segments/presets/mf-users-hub.ts.
- * Card-runner uses these specs to compose Cube queries on refresh and
- * write rendered rows to segment_card_cache.
- *
- * Keep in sync with the FE file manually. v1.5 will externalize both
- * to a YAML registry consumed by both sides.
+ * Server-side preset types + the mf_users-hub preset, loaded from the shared
+ * YAML bundle (./bundles/mf-users-hub.yml) — the single source of truth the FE
+ * inlines at build time. Card-runner uses these specs to compose Cube queries
+ * on refresh and write rendered rows to segment_card_cache; the FE hydrates by
+ * the same `kpi:<id>` / `kpi:<tabId>:<id>` / `card:<tabId>:<cardId>` keys, so
+ * sharing one file makes key/measure drift structurally impossible.
  */
+
+import { loadPresetBundle } from './preset-bundles-loader.js';
 
 export type FormatId = 'number' | 'percent' | 'currency' | 'duration' | 'compact';
 
@@ -48,13 +50,49 @@ export interface CompositionCardSpec {
   limit?: number;
 }
 
-export type CardSpec = LineCardSpec | BarListCardSpec | CompositionCardSpec;
+/** FE-rendered as a donut; query shape identical to bar/composition. */
+export interface DonutCardSpec {
+  kind: 'donut';
+  id: string;
+  label: string;
+  measure: string;
+  groupBy: string;
+  limit?: number;
+}
+
+/** FE-rendered as a single stacked strip; query shape identical to bar/composition. */
+export interface SegmentedBarCardSpec {
+  kind: 'segmented-bar';
+  id: string;
+  label: string;
+  measure: string;
+  groupBy: string;
+  limit?: number;
+  footer?: string;
+}
+
+export type CardSpec =
+  | LineCardSpec
+  | BarListCardSpec
+  | CompositionCardSpec
+  | DonutCardSpec
+  | SegmentedBarCardSpec;
+
+/** Card kinds whose rows are a categorical count distribution (measure ×
+ *  groupBy) — the set brief-context mines for top-N distributions. */
+export const DISTRIBUTION_CARD_KINDS: ReadonlyArray<CardSpec['kind']> = [
+  'composition',
+  'segmented-bar',
+  'donut',
+];
 
 export interface TabDef {
   id: string;
   label: string;
   kpis: KpiSpec[];
   cards: CardSpec[];
+  /** FE layout hint; server ignores. */
+  gridCols?: number;
 }
 
 export interface PresetSpec {
@@ -67,107 +105,11 @@ export interface PresetSpec {
   ltvMeasure?: string;
   headlineKpis: KpiSpec[];
   tabs: TabDef[];
-  /** Per-member enrichment columns (Members tab + the ranked member-profile
-   *  snapshot served by the tokenless pull API). Entries carry `dimension`
-   *  or `measure`; columns a game's /meta doesn't have are dropped at
-   *  refresh time. */
+  // FE-only bundle fields, carried through untyped-loosely so one YAML shape
+  // serves both sides; the server never reads them.
+  label?: string;
+  reachableCubes?: string[];
   memberColumns?: Array<Record<string, unknown>>;
 }
 
-export const mfUsersHubPreset: PresetSpec = {
-  id: 'mf_users-hub',
-  hubCube: 'mf_users',
-  identityDim: 'mf_users.user_id',
-  // Grouped by user_id, ltv_total_vnd aggregates to that one user's lifetime
-  // value — the ranking key for member tiers.
-  ltvMeasure: 'mf_users.ltv_total_vnd',
-
-  // Mirrors the FE preset's memberColumns — feeds the ranked member-profile
-  // snapshot (uid / name / ltv / stage / last_active / joined). The in-game
-  // name dim exists only where the game models it (jus today); the /meta
-  // check drops absent columns per game.
-  memberColumns: [
-    { id: 'name',        label: 'In-game name', dimension: 'mf_users.ingame_name' },
-    { id: 'ltv',         label: 'LTV',          measure: 'mf_users.ltv_total_vnd', format: 'currency' },
-    { id: 'stage',       label: 'Stage',        dimension: 'mf_users.lifecycle_stage' },
-    { id: 'last-active', label: 'Last active',  dimension: 'mf_users.last_active_date' },
-    { id: 'joined',      label: 'Joined',       dimension: 'mf_users.install_date' },
-  ],
-
-  headlineKpis: [
-    { id: 'size',   label: 'Size',         measure: 'mf_users.user_count',    format: 'compact' },
-    { id: 'paying', label: 'Paying users', measure: 'mf_users.paying_users',  format: 'compact' },
-    { id: 'ltv',    label: 'LTV total',    measure: 'mf_users.ltv_total_vnd', format: 'currency' },
-    { id: 'arpu',   label: 'ARPU',         measure: 'mf_users.arpu_vnd',      format: 'currency' },
-  ],
-
-  tabs: [
-    {
-      id: 'overview',
-      label: 'Overview',
-      kpis: [],
-      cards: [
-        // Composition + install-trend cards use the approx count so they route
-        // to the user_composition rollup (exact count_distinct can't be served
-        // from a year-partitioned rollup). ±~2% HLL error — fine for bars/trends.
-        // top-campaigns / last-country / first-active / first-recharge keep the
-        // exact measure: their group-by/time-dim isn't in any rollup, so approx
-        // would change numbers without a routing win.
-        { kind: 'composition', id: 'media-comp',    label: 'Media source',    measure: 'mf_users.user_count_approx', groupBy: 'mf_users.media_source',     limit: 6 },
-        { kind: 'composition', id: 'platform-comp', label: 'OS platform',     measure: 'mf_users.user_count_approx', groupBy: 'mf_users.os_platform',      limit: 6 },
-        { kind: 'composition', id: 'country-comp',  label: 'Country',         measure: 'mf_users.user_count_approx', groupBy: 'mf_users.country',          limit: 6 },
-        { kind: 'composition', id: 'lifecycle-comp',label: 'Lifecycle stage', measure: 'mf_users.user_count_approx', groupBy: 'mf_users.lifecycle_stage',  limit: 6 },
-        { kind: 'line', id: 'installs-90d',  label: 'Installs (last 90 days)', measure: 'mf_users.user_count_approx', timeDimension: 'mf_users.install_date', dateRange: 'last 90 days', granularity: 'day' },
-        { kind: 'bar',  id: 'top-campaigns', label: 'Top campaigns',           measure: 'mf_users.user_count', groupBy: 'mf_users.campaign_id', limit: 8 },
-      ],
-    },
-    {
-      id: 'engagement',
-      label: 'Engagement',
-      kpis: [
-        { id: 'paying-30d', label: 'Paying users (30d)', measure: 'mf_users.paying_users_30d',        format: 'compact' },
-        { id: 'rate-30d',   label: 'Paying rate (30d)',  measure: 'mf_users.paying_rate_30d',         format: 'percent' },
-        { id: 'lapsed',     label: 'Lapsed this month',  measure: 'mf_users.lapsed_this_month_count', format: 'compact' },
-      ],
-      cards: [
-        { kind: 'composition', id: 'lifecycle-eng',    label: 'Lifecycle stage',                measure: 'mf_users.user_count_approx', groupBy: 'mf_users.lifecycle_stage', limit: 6 },
-        { kind: 'bar',         id: 'last-country',     label: 'Users by last-login country',    measure: 'mf_users.user_count', groupBy: 'mf_users.last_login_country', limit: 8 },
-        { kind: 'line',        id: 'first-active-90d', label: 'First-active (last 90 days)',    measure: 'mf_users.user_count', timeDimension: 'mf_users.first_active_date', dateRange: 'last 90 days', granularity: 'day' },
-      ],
-    },
-    {
-      id: 'monetization',
-      label: 'Monetization',
-      kpis: [
-        { id: 'ltv-total', label: 'LTV total', measure: 'mf_users.ltv_total_vnd',     format: 'currency' },
-        { id: 'ltv-30d',   label: 'LTV 30d',   measure: 'mf_users.ltv_30d_total_vnd', format: 'currency' },
-        { id: 'arppu',     label: 'ARPPU',     measure: 'mf_users.arppu_vnd',         format: 'currency' },
-        { id: 'whales',    label: 'Whales',    measure: 'mf_users.whales_count',      format: 'compact' },
-      ],
-      cards: [
-        { kind: 'composition', id: 'payer-tier-comp', label: 'Payer tier',                    measure: 'mf_users.user_count_approx', groupBy: 'mf_users.payer_tier', limit: 6 },
-        { kind: 'bar',         id: 'rev-by-media',    label: 'LTV by media source',           measure: 'mf_users.ltv_total_vnd', groupBy: 'mf_users.media_source', limit: 6 },
-        { kind: 'line',        id: 'first-rev-90d',   label: 'First-recharge (last 90 days)', measure: 'mf_users.user_count',    timeDimension: 'mf_users.first_recharge_date', dateRange: 'last 90 days', granularity: 'day' },
-        { kind: 'bar',         id: 'rev-by-platform', label: 'LTV by OS platform',            measure: 'mf_users.ltv_total_vnd', groupBy: 'mf_users.os_platform', limit: 5 },
-      ],
-    },
-    {
-      id: 'retention',
-      label: 'Retention',
-      kpis: [
-        { id: 'paying-30d-r', label: 'Paying users (30d)', measure: 'mf_users.paying_users_30d',        format: 'compact' },
-        { id: 'rate-30d-r',   label: 'Paying rate (30d)',  measure: 'mf_users.paying_rate_30d',         format: 'percent' },
-        { id: 'lapsed-r',     label: 'Lapsed this month',  measure: 'mf_users.lapsed_this_month_count', format: 'compact' },
-      ],
-      cards: [
-        { kind: 'composition', id: 'lifecycle-ret',    label: 'Lifecycle stage',             measure: 'mf_users.user_count_approx',  groupBy: 'mf_users.lifecycle_stage', limit: 6 },
-        { kind: 'bar',         id: 'rate-by-platform', label: 'Paying rate by OS platform',  measure: 'mf_users.paying_rate_approx', groupBy: 'mf_users.os_platform', limit: 5 },
-        { kind: 'bar',         id: 'rate-by-media',    label: 'Paying rate by media source', measure: 'mf_users.paying_rate_approx', groupBy: 'mf_users.media_source', limit: 6 },
-        { kind: 'line',        id: 'installs-30d-ret', label: 'Installs (last 30 days)',     measure: 'mf_users.user_count_approx',  timeDimension: 'mf_users.install_date', dateRange: 'last 30 days', granularity: 'day' },
-      ],
-    },
-  ],
-};
-
-// Preset lookup moved to ./registry.ts so it can register every curated
-// preset (this hub + etl-game-detail + future ones) without import cycles.
+export const mfUsersHubPreset: PresetSpec = loadPresetBundle('mf-users-hub');

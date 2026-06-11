@@ -20,8 +20,22 @@ import { resolveGamePrefixForWorkspace } from './resolve-game-prefix.js';
 import { resolveCubeTokenForGame } from './resolve-cube-token.js';
 import { logicalCube } from './cube-member-resolver.js';
 import { getDb } from '../db/sqlite.js';
-import type { PresetSpec, CompositionCardSpec } from '../presets/mf-users-hub.js';
+import { DISTRIBUTION_CARD_KINDS } from '../presets/mf-users-hub.js';
+import type {
+  PresetSpec,
+  CardSpec,
+  CompositionCardSpec,
+  DonutCardSpec,
+  SegmentedBarCardSpec,
+} from '../presets/mf-users-hub.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
+
+/** Categorical count-by-group cards — same query shape, different FE rendering. */
+type DistributionCardSpec = CompositionCardSpec | DonutCardSpec | SegmentedBarCardSpec;
+
+function isDistributionCard(card: CardSpec): card is DistributionCardSpec {
+  return (DISTRIBUTION_CARD_KINDS as readonly string[]).includes(card.kind);
+}
 
 const CARD_CACHE_FRESH_MS = 36 * 3600_000;
 
@@ -96,13 +110,15 @@ export function summarizePredicate(treeJson: string | null): string[] {
   return single ? [single] : [];
 }
 
-/** All composition cards in a preset, deduped by groupBy dimension. */
-function compositionCards(preset: PresetSpec): CompositionCardSpec[] {
+/** Categorical distribution cards (composition / segmented-bar / donut — all
+ *  count-by-group shapes), deduped by groupBy dimension. The presentation kind
+ *  is an FE concern; for the brief they're all the same top-N distribution. */
+function distributionCards(preset: PresetSpec): DistributionCardSpec[] {
   const seen = new Set<string>();
-  const out: CompositionCardSpec[] = [];
+  const out: DistributionCardSpec[] = [];
   for (const tab of preset.tabs) {
     for (const card of tab.cards) {
-      if (card.kind !== 'composition' || seen.has(card.groupBy)) continue;
+      if (!isDistributionCard(card) || seen.has(card.groupBy)) continue;
       seen.add(card.groupBy);
       out.push(card);
     }
@@ -153,7 +169,7 @@ function buildEnrichment(
   const distributions: Array<{ label: string; top: Array<{ value: string; count: number }> }> = [];
   for (const tab of preset.tabs) {
     for (const card of tab.cards) {
-      if (card.kind !== 'composition') continue;
+      if (!isDistributionCard(card)) continue;
       if (distributions.some((d) => d.label === card.label)) continue;
       const entry = byCardId[`card:${tab.id}:${card.id}`];
       if (!entry || entry.status !== 'ok' || entry.rows.length === 0) continue;
@@ -220,7 +236,7 @@ export async function assembleBriefContext(
       try {
         const baseQuery = JSON.parse(row.cube_query_json) as { filters?: unknown };
         const segmentFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
-        const briefTab = { id: 'overview', label: 'Brief', kpis: [], cards: compositionCards(preset).slice(0, 2) };
+        const briefTab = { id: 'overview', label: 'Brief', kpis: [], cards: distributionCards(preset).slice(0, 2) };
         const miniPreset: PresetSpec = { ...preset, headlineKpis: preset.headlineKpis, tabs: [briefTab] };
         const token = row.game_id ? resolveCubeTokenForGame(row.game_id) ?? undefined : undefined;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

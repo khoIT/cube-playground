@@ -1,17 +1,22 @@
 /**
- * Server-side preset registry — mirror of src/pages/Segments/presets/registry.ts.
- * Owns preset lookup for the refresh job's card pre-rendering. Lookup logic
- * (direct hub-cube match, then identity-anchor pivot) lives here so it stays
- * unit-testable without spinning the refresh job.
+ * Server-side preset registry. Presets load from the shared YAML bundles
+ * (./bundles/*.yml) that the FE registry also consumes, so both sides always
+ * carry the same card ids and measures. Lookup logic (direct hub-cube match,
+ * then identity-anchor pivot) lives here so it stays unit-testable without
+ * spinning the refresh job.
  */
 
 import type { PresetSpec } from './mf-users-hub.js';
 import { mfUsersHubPreset } from './mf-users-hub.js';
 import { etlGameDetailPreset } from './etl-game-detail.js';
+import { loadPresetBundle } from './preset-bundles-loader.js';
+
+const rechargeEventsPreset: PresetSpec = loadPresetBundle('recharge-events');
 
 export const presetRegistry: Record<string, PresetSpec> = {
   [mfUsersHubPreset.id]: mfUsersHubPreset,
   [etlGameDetailPreset.id]: etlGameDetailPreset,
+  [rechargeEventsPreset.id]: rechargeEventsPreset,
 };
 
 /** Pick the preset for a segment by its hub cube (logical name). */

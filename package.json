@@ -89,6 +89,7 @@
     "@testing-library/react": "^16.0.1",
     "@types/flexsearch": "^0.7.3",
     "@types/js-cookie": "^2.2.7",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20",
     "@types/prismjs": "^1.26.5",
     "@types/react": "^18.3.4",

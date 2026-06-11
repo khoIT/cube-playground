@@ -138,6 +138,9 @@ export interface Preset {
   hubCube: string;
   identityDim: string;
   reachableCubes: string[];
+  /** Per-user LTV measure used by the SERVER refresh job to rank members into
+   *  tiers. Carried in the shared YAML bundle; the FE itself never queries it. */
+  ltvMeasure?: string;
   headlineKpis: KpiSpec[];
   tabs: TabDef[];
   /** Optional per-member info shown alongside uid on the Members tab. */

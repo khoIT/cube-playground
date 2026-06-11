@@ -117,11 +117,12 @@ describe('assembleBriefContext', () => {
       { cardId: 'kpi:size', queryHash: 'h', rows: [{ 'mf_users.user_count': 1234 }], status: 'ok' },
       { cardId: 'kpi:ltv', queryHash: 'h', rows: [{ 'mf_users.ltv_total_vnd': 9_000_000 }], status: 'ok' },
       {
-        cardId: 'card:overview:lifecycle-comp',
+        // The unified bundle's overview lifecycle card (segmented-bar kind —
+        // distribution mining covers all categorical kinds, not just
+        // composition). Rows are keyed by the card's measure (approx count).
+        cardId: 'card:overview:lifecycle-strip',
         queryHash: 'h',
         rows: [
-          // Composition cards read by spec.measure — now the approx count
-          // (rollup-served); cached rows are keyed by it.
           { 'mf_users.lifecycle_stage': 'churned', 'mf_users.user_count_approx': 800 },
           { 'mf_users.lifecycle_stage': 'at_risk', 'mf_users.user_count_approx': 434 },
         ],
