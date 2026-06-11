@@ -157,7 +157,13 @@ export interface CronHeartbeat {
 export interface SegmentRefreshOpsPayload {
   generatedAt: string;
   cron: CronHeartbeat;
-  queue: { processing: boolean; size: number };
+  queue: {
+    processing: boolean;
+    /** Segments WAITING behind the in-flight one — excludes the running id. */
+    size: number;
+    runningId: string | null;
+    queuedIds: string[];
+  };
   watchdog: { enabled: boolean; wedgeFloorMin: number };
   summary: {
     total: number;
@@ -258,6 +264,8 @@ export function collectSegmentRefreshOps(opts: {
   tickIntervalMs: number;
   queueProcessing: boolean;
   queueSize: number;
+  queueRunningId?: string | null;
+  queueQueuedIds?: string[];
 }): SegmentRefreshOpsPayload {
   const now = opts.now ?? Date.now();
   const db = getDb();
@@ -345,7 +353,12 @@ export function collectSegmentRefreshOps(opts: {
       tickIntervalMs: opts.tickIntervalMs,
       sinceLastTickMs: Number.isNaN(sinceLastTickMs as number) ? null : sinceLastTickMs,
     },
-    queue: { processing: opts.queueProcessing, size: opts.queueSize },
+    queue: {
+      processing: opts.queueProcessing,
+      size: opts.queueSize,
+      runningId: opts.queueRunningId ?? null,
+      queuedIds: opts.queueQueuedIds ?? [],
+    },
     watchdog: { enabled: WATCHDOG_ENABLED, wedgeFloorMin: WEDGE_FLOOR_MIN },
     summary,
     segments,

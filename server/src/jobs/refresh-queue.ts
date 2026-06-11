@@ -24,6 +24,13 @@ export function queueSize(): number {
   return pending.size;
 }
 
+/** Segment ids waiting behind the in-flight one (insertion order). The ops
+ *  monitor shows these as "Queued" so a deep queue isn't mistaken for stalled
+ *  segments that merely display "Due". */
+export function pendingIds(): string[] {
+  return [...pending];
+}
+
 /** The segment id currently being refreshed by the drain loop, or null when
  *  idle. The wedge watchdog consults this so it never reaps a row that is
  *  genuinely in-flight (a slow multi-million-uid refresh can outrun the wedge

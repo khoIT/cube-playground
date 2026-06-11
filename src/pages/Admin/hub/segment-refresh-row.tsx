@@ -178,6 +178,8 @@ function LiveChecklist({ progress }: { progress: SegmentCardProgress | null }) {
 
 export interface SegmentRefreshRowProps {
   row: SegmentRefreshOpsRow;
+  /** Waiting in the serial refresh queue behind the in-flight segment. */
+  queued?: boolean;
   busy: boolean;
   onRefresh: (id: string) => void;
   onUnstick: (id: string) => void;
@@ -186,7 +188,7 @@ export interface SegmentRefreshRowProps {
   onProgressComplete?: (id: string) => void;
 }
 
-export function SegmentRefreshRow({ row, busy, onRefresh, onUnstick, onProgressComplete }: SegmentRefreshRowProps) {
+export function SegmentRefreshRow({ row, queued = false, busy, onRefresh, onUnstick, onProgressComplete }: SegmentRefreshRowProps) {
   const [open, setOpen] = useState(false);
   const hasFailing = row.failingCards > 0;
   const hardDown = row.cards.error > 0; // cards with no last-good to render
@@ -284,9 +286,30 @@ export function SegmentRefreshRow({ row, busy, onRefresh, onUnstick, onProgressC
           {fmtAge(row.ageMs)}
         </div>
 
-        {/* State chip */}
+        {/* State chip — queued in the serial drain takes display precedence over
+            the staleness-derived state, which would otherwise just say "Due". */}
         <div style={{ minWidth: 96, textAlign: 'right' }}>
-          <StateChip state={row.derivedState} />
+          {queued && row.derivedState !== 'in_flight' ? (
+            <span
+              title="Waiting in the refresh queue behind the segment currently refreshing"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                height: 22,
+                padding: '0 9px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: 11.5,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                background: 'var(--info-soft)',
+                color: 'var(--info-ink)',
+              }}
+            >
+              Queued
+            </span>
+          ) : (
+            <StateChip state={row.derivedState} />
+          )}
         </div>
 
         {/* Actions */}

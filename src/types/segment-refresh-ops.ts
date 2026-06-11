@@ -62,7 +62,13 @@ export interface SegmentRefreshOpsSummary {
 export interface SegmentRefreshOpsPayload {
   generatedAt: string;
   cron: CronHeartbeat;
-  queue: { processing: boolean; size: number };
+  queue: {
+    processing: boolean;
+    /** Segments waiting behind the in-flight one — excludes the running id. */
+    size: number;
+    runningId: string | null;
+    queuedIds: string[];
+  };
   watchdog: { enabled: boolean; wedgeFloorMin: number };
   summary: SegmentRefreshOpsSummary;
   segments: SegmentRefreshOpsRow[];

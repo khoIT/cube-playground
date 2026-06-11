@@ -23,7 +23,7 @@ import { requireRole } from '../middleware/require-role.js';
 import { requireFeature } from '../middleware/require-feature.js';
 import { getDb } from '../db/sqlite.js';
 import { getLastTickAt, TICK_INTERVAL_MS } from '../jobs/cron-runner.js';
-import { isProcessing, queueSize } from '../jobs/refresh-queue.js';
+import { isProcessing, queueSize, currentlyProcessing, pendingIds } from '../jobs/refresh-queue.js';
 import { collectSegmentRefreshOps } from '../services/segment-refresh-ops.js';
 import { reconcileSegmentRefreshing } from '../services/segment-status.js';
 import { getCardProgress } from '../services/card-progress.js';
@@ -40,6 +40,8 @@ export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Pro
       tickIntervalMs: TICK_INTERVAL_MS,
       queueProcessing: isProcessing(),
       queueSize: queueSize(),
+      queueRunningId: currentlyProcessing(),
+      queueQueuedIds: pendingIds(),
     });
   });
 

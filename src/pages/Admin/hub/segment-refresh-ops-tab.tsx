@@ -74,7 +74,13 @@ function HeartbeatStrip({
         value={lastTickAt ? fmtAge(sinceLastTickMs) : 'never'}
         flagged={stale}
       />
-      <HeartStat label="Queue" value={queueProcessing ? `${queueSize} · running` : queueSize} />
+      {/* queueSize counts only WAITING segments — the drain loop removes the
+          in-flight id — so render the running one separately to avoid reading
+          "3 · running" as three concurrent refreshes. */}
+      <HeartStat
+        label="Queue"
+        value={queueProcessing ? `1 running · ${queueSize} queued` : queueSize > 0 ? `${queueSize} queued` : 'idle'}
+      />
       <HeartStat label="Wedged" value={wedged} flagged={wedged > 0} />
       <HeartStat label="Degraded" value={degraded} flagged={degraded > 0} />
       <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--text-muted)' }}>
@@ -192,6 +198,7 @@ export function SegmentRefreshOpsTab() {
             <SegmentRefreshRow
               key={row.id}
               row={row}
+              queued={data?.queue.queuedIds.includes(row.id) ?? false}
               busy={busyIds.has(row.id)}
               onRefresh={(id) => void runAction(id, refreshSegmentNow)}
               onUnstick={(id) => void runAction(id, unstickSegment)}
