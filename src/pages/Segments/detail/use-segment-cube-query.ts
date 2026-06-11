@@ -88,6 +88,27 @@ export function predicateFiltersForSegment(segment: Segment): unknown[] {
   }
 }
 
+/** Parse the segment's cube-level segments (e.g. `mf_users.whales`) from its
+ *  stored Cube query JSON. These scope membership exactly like filters do but
+ *  live in a separate query key — dropping them silently widens every live
+ *  card/KPI to the unsegmented population (cache said 241, live said 6.3k). */
+export function predicateCubeSegmentsForSegment(segment: Segment): string[] {
+  if (!segment.cube_query_json) return [];
+  try {
+    const q = JSON.parse(segment.cube_query_json) as { segments?: unknown[] };
+    return Array.isArray(q.segments) ? q.segments.filter((s): s is string => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Attach the segment's cube-level segments onto a card query (deduped). */
+function withCohortCubeSegments(query: Query, cubeSegments: string[]): Query {
+  if (cubeSegments.length === 0) return query;
+  const existing = Array.isArray(query.segments) ? query.segments : [];
+  return { ...query, segments: [...new Set([...existing, ...cubeSegments])] };
+}
+
 /** AND the segment's slice filters onto a card query. Mirror of the server
  *  card-runner: when the slice already pins a date range on a time dimension
  *  the card trends over, drop the card's own rolling window — a historical
@@ -141,14 +162,23 @@ export function scopeQueryToCohort(
   if (uidsOverride) {
     return scopeQueryToSegment(query, identityDim, uidsOverride);
   }
+  // Cube-level segments scope independently of plain filters (mirror of the
+  // server card-runner's scopeQuery) — attach them even when the predicate
+  // carries no filter leaves, or a segments-only cohort goes fully unscoped.
+  const cubeSegments = predicateCubeSegmentsForSegment(segment);
   if (segment.type === 'predicate') {
     const predicateFilters = predicateFiltersForSegment(segment);
-    if (predicateFilters.length === 0) return query;
-    return andSliceFilters(query, predicateFilters);
+    const segmented = withCohortCubeSegments(query, cubeSegments);
+    if (predicateFilters.length === 0) return segmented;
+    return andSliceFilters(segmented, predicateFilters);
   }
   const uidScoped = scopeQueryToSegment(query, identityDim, segment.uid_list ?? []);
   const sliceFilters = predicateFiltersForSegment(segment);
-  return sliceFilters.length > 0 ? andSliceFilters(uidScoped, sliceFilters) : uidScoped;
+  const sliceScoped =
+    sliceFilters.length > 0 ? andSliceFilters(uidScoped, sliceFilters) : uidScoped;
+  // Manual segments only re-pin the slice when the push stored it; cube
+  // segments are part of that same slice basis.
+  return sliceFilters.length > 0 ? withCohortCubeSegments(sliceScoped, cubeSegments) : sliceScoped;
 }
 
 export interface UseSegmentCubeQueryOptions<T> {
