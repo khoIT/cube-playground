@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.js';
 import { treeToCubeFilters } from '../services/translator.js';
+import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segments.js';
 import { predicateToSql } from '../services/predicate-to-sql.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
@@ -58,6 +59,12 @@ const segmentInputSchema = z.object({
   game_id: z.string().min(1).max(64).optional(),
   /** Serialised FunnelDefinition — present when created via the funnel builder. */
   funnel_json: z.string().nullable().optional(),
+  /**
+   * Cube-level segments from the originating query (e.g. mf_users.whales).
+   * Not representable in the predicate tree — stored as a `segments` sidecar
+   * inside cube_query_json so cadence refreshes keep the same membership scope.
+   */
+  cube_segments: z.array(z.string().min(1)).nullable().optional(),
   /** Opt-in visibility. Defaults to 'personal'; 'org' is admin-only. */
   visibility: z.enum(VISIBILITY_VALUES).optional(),
 });
@@ -359,7 +366,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     if (data.predicate_tree) {
       try {
         const filters = treeToCubeFilters(data.predicate_tree as PredicateNode);
-        cubeQueryJson = JSON.stringify({ filters });
+        cubeQueryJson = JSON.stringify(withCubeSegments({ filters }, data.cube_segments));
       } catch (err) {
         return reply.status(400).send({
           error: { code: 'TRANSLATOR_ERROR', message: (err as Error).message },
@@ -537,7 +544,12 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       if (patch.predicate_tree) {
         try {
           const filters = treeToCubeFilters(patch.predicate_tree as PredicateNode);
-          cubeQueryJson = JSON.stringify({ filters });
+          // The predicate editor only knows the tree — carry the cube-segment
+          // sidecar forward from the stored query so editing a filter doesn't
+          // silently widen membership past the original cube segments.
+          cubeQueryJson = JSON.stringify(
+            withCubeSegments({ filters }, parseCubeSegments(row.cube_query_json as string | null)),
+          );
         } catch (err) {
           return reply.status(400).send({
             error: { code: 'TRANSLATOR_ERROR', message: (err as Error).message },

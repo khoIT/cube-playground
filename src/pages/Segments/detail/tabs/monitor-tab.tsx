@@ -10,6 +10,7 @@ import { RefreshHistorySection } from './monitor/refresh-history-section';
 import { ActivationSummarySection } from './monitor/activation-summary-section';
 import { CadenceControl } from './monitor/cadence-control';
 import { SliceScopeNote } from '../../slice-scope/slice-scope-note';
+import { parseCubeSegmentsFromQueryJson } from '../../slice-scope/parse-cube-segments';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -23,7 +24,10 @@ interface Props {
 export function MonitorTab({ segment, onActivate, onJumpToActivation, onCadenceChange }: Props): ReactElement {
   return (
     <div className={styles.monitorGrid}>
-      <SliceScopeNote predicate={segment.predicate_tree} />
+      <SliceScopeNote
+        predicate={segment.predicate_tree}
+        cubeSegments={parseCubeSegmentsFromQueryJson(segment.cube_query_json)}
+      />
       <CadenceControl segment={segment} onCadenceChange={onCadenceChange} />
       <SizeTrendSection segment={segment} />
       <RefreshHistorySection segment={segment} />

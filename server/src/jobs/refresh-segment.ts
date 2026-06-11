@@ -8,6 +8,7 @@
 import { getDb } from '../db/sqlite.js';
 import { setSegmentStatus, setSegmentSizeAndUids } from '../services/segment-status.js';
 import { resolveDrift } from '../services/drift-resolver.js';
+import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segments.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
 import { computeMemberTiers } from '../services/member-tier-runner.js';
@@ -111,7 +112,12 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       );
       if (drift.drifted) {
         if (drift.rehydrated) {
-          cubeQueryJson = JSON.stringify(drift.newCubeQuery);
+          // Rehydration rebuilds the query from the predicate tree, which
+          // cannot express cube-level segments — re-attach the sidecar from
+          // the prior stored query or membership silently widens.
+          cubeQueryJson = JSON.stringify(
+            withCubeSegments(drift.newCubeQuery, parseCubeSegments(row.cube_query_json)),
+          );
           db.prepare(`
             UPDATE segments
                SET cube_query_json = ?, predicate_meta_version = ?, updated_at = ?

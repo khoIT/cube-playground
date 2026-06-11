@@ -172,6 +172,12 @@ export interface SegmentInput {
   game_id?: string;
   /** Serialised FunnelDefinition when creating via the funnel builder. */
   funnel_json?: string | null;
+  /**
+   * Cube-level segments from the originating query (e.g. mf_users.whales).
+   * Not representable in the predicate tree — the server stores them as a
+   * `segments` sidecar in cube_query_json so Live refreshes keep the scope.
+   */
+  cube_segments?: string[] | null;
   /** Defaults to 'personal' server-side; 'org' requires admin. */
   visibility?: SegmentVisibility;
 }

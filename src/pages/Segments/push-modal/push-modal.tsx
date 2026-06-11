@@ -247,6 +247,10 @@ export function PushModal({
         cube: cube ?? null,
         uid_list: finalUids,
         predicate_tree: predicateTree,
+        // Cube-level segments (mf_users.whales, …) can't be expressed in the
+        // predicate tree — send them alongside so Live refreshes keep the
+        // same membership scope as the originating query.
+        cube_segments: executedQuery?.segments?.length ? executedQuery.segments : null,
         refresh_cadence_min: type === 'predicate' ? 60 : null,
         game_id: gameId,
       };
@@ -414,7 +418,11 @@ export function PushModal({
                     )}
                   </div>
                   {type === 'predicate' && (
-                    <SliceScopeNote predicate={previewPredicate} variant="create" />
+                    <SliceScopeNote
+                      predicate={previewPredicate}
+                      cubeSegments={executedQuery?.segments}
+                      variant="create"
+                    />
                   )}
                 </div>
               </div>

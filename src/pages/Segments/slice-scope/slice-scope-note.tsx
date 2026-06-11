@@ -13,12 +13,27 @@ import styles from '../segments.module.css';
 
 interface Props {
   predicate: PredicateNode | null;
+  /**
+   * Cube-level segments scoping the slice (e.g. ["mf_users.whales"]). Rendered
+   * as their own chips — they're named SQL snippets the predicate can't express.
+   */
+  cubeSegments?: string[] | null;
   /** Wording differs slightly between an existing segment and the create flow. */
   variant?: 'monitor' | 'create';
 }
 
-export function SliceScopeNote({ predicate, variant = 'monitor' }: Props): ReactElement | null {
-  const chips = describePredicate(predicate);
+/** `mf_users.whales` → `segment: whales` chip text. */
+function cubeSegmentChip(segment: string): string {
+  const dot = segment.indexOf('.');
+  return `segment: ${dot >= 0 ? segment.slice(dot + 1) : segment}`;
+}
+
+export function SliceScopeNote({
+  predicate,
+  cubeSegments,
+  variant = 'monitor',
+}: Props): ReactElement | null {
+  const chips = [...(cubeSegments ?? []).map(cubeSegmentChip), ...describePredicate(predicate)];
   if (chips.length === 0) return null;
 
   const lead =
