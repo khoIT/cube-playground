@@ -71,7 +71,9 @@ async function ensureClaudeHome(): Promise<void> {
 // turn times out. Internal compose calls bypass the proxy via NO_PROXY (set on
 // the container). Empty in local dev (direct connection) — the loop copies only
 // vars that are actually set, so nothing is forced on.
-function proxyEnvForChild(): Record<string, string> {
+// Exported: every one-shot SDK call site (segment brief, title summariser,
+// timeout salvage) needs the same spread or it hangs prod-only.
+export function proxyEnvForChild(): Record<string, string> {
   const out: Record<string, string> = {};
   for (const k of ['http_proxy', 'https_proxy', 'no_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY']) {
     const v = process.env[k];

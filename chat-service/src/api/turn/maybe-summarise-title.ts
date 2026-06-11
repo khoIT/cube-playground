@@ -16,6 +16,7 @@ import {
   isBalanceExhaustedError,
   anthropicAuthEnvFor,
 } from '../../core/anthropic-key-failover.js';
+import { proxyEnvForChild } from '../../core/claude-runner.js';
 import { summariseTitle } from '../../core/title-summariser.js';
 
 interface Args {
@@ -62,6 +63,9 @@ export function maybeSummariseTitle(args: Args): void {
             options: {
               model: config.titleModel,
               env: {
+                // Org egress proxy for the network-isolated prod runner — without
+                // it the child's gateway call hangs and the title pass silently dies.
+                ...proxyEnvForChild(),
                 HOME: process.env['HOME'] ?? '/tmp',
                 // Gateway key or subscription OAuth token, per the active slot.
                 ...anthropicAuthEnvFor(activeKey),

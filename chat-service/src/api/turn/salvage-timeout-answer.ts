@@ -20,6 +20,7 @@ import {
   isBalanceExhaustedError,
   anthropicAuthEnvFor,
 } from '../../core/anthropic-key-failover.js';
+import { proxyEnvForChild } from '../../core/claude-runner.js';
 
 // ---------------------------------------------------------------------------
 // Deps (injected for testability)
@@ -101,6 +102,9 @@ function defaultDeps(model: string): SalvageDeps {
         options: {
           model,
           env: {
+            // Org egress proxy for the network-isolated prod runner — without it
+            // the child's gateway call hangs past the salvage budget.
+            ...proxyEnvForChild(),
             HOME: process.env['HOME'] ?? '/tmp',
             ...anthropicAuthEnvFor(activeKey),
           },

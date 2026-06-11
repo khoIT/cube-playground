@@ -22,6 +22,7 @@ import {
   isBalanceExhaustedError,
   anthropicAuthEnvFor,
 } from '../core/anthropic-key-failover.js';
+import { proxyEnvForChild } from '../core/claude-runner.js';
 import { buildBriefPrompt, parseBriefResponse, type SegmentBrief } from '../core/segment-brief-prompt.js';
 
 export interface SegmentBriefRouteOptions {
@@ -46,6 +47,9 @@ async function defaultCallLlm(prompt: string): Promise<string> {
     options: {
       model: config.briefModel,
       env: {
+        // Org egress proxy for the network-isolated prod runner — without it the
+        // child's HTTPS call to the gateway hangs and the caller's timeout fires.
+        ...proxyEnvForChild(),
         HOME: process.env['HOME'] ?? '/tmp',
         ...anthropicAuthEnvFor(activeKey),
       },
