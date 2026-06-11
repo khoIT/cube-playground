@@ -67,6 +67,11 @@ export interface PresetSpec {
   ltvMeasure?: string;
   headlineKpis: KpiSpec[];
   tabs: TabDef[];
+  /** Per-member enrichment columns (Members tab + the ranked member-profile
+   *  snapshot served by the tokenless pull API). Entries carry `dimension`
+   *  or `measure`; columns a game's /meta doesn't have are dropped at
+   *  refresh time. */
+  memberColumns?: Array<Record<string, unknown>>;
 }
 
 export const mfUsersHubPreset: PresetSpec = {
@@ -76,6 +81,18 @@ export const mfUsersHubPreset: PresetSpec = {
   // Grouped by user_id, ltv_total_vnd aggregates to that one user's lifetime
   // value — the ranking key for member tiers.
   ltvMeasure: 'mf_users.ltv_total_vnd',
+
+  // Mirrors the FE preset's memberColumns — feeds the ranked member-profile
+  // snapshot (uid / name / ltv / stage / last_active / joined). The in-game
+  // name dim exists only where the game models it (jus today); the /meta
+  // check drops absent columns per game.
+  memberColumns: [
+    { id: 'name',        label: 'In-game name', dimension: 'mf_users.ingame_name' },
+    { id: 'ltv',         label: 'LTV',          measure: 'mf_users.ltv_total_vnd', format: 'currency' },
+    { id: 'stage',       label: 'Stage',        dimension: 'mf_users.lifecycle_stage' },
+    { id: 'last-active', label: 'Last active',  dimension: 'mf_users.last_active_date' },
+    { id: 'joined',      label: 'Joined',       dimension: 'mf_users.install_date' },
+  ],
 
   headlineKpis: [
     { id: 'size',   label: 'Size',         measure: 'mf_users.user_count',    format: 'compact' },
