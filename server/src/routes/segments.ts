@@ -16,6 +16,7 @@ import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segm
 import { predicateToSql } from '../services/predicate-to-sql.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
 import type { MemberProfiles } from '../types/segment.js';
+import { ensureManualMemberProfiles } from '../services/member-profile-on-demand.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
 import { enqueueRefresh } from '../jobs/refresh-queue.js';
 import { getCardCache } from '../services/card-cache-store.js';
@@ -504,6 +505,16 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       }
     } catch {
       profiles = null; // unreadable snapshot — serve the uid fallback
+    }
+
+    // Manual segments never refresh, so their snapshot is computed lazily on
+    // the first pull (small cohorts only; identity-IN scope). Also recomputes
+    // when the uid list changed after the stored snapshot.
+    if (row.type === 'manual' && row.cube) {
+      profiles =
+        (await ensureManualMemberProfiles(
+          row as unknown as Parameters<typeof ensureManualMemberProfiles>[0],
+        )) ?? profiles;
     }
 
     if (profiles) {

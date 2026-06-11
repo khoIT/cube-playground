@@ -7,13 +7,24 @@
  * servable — including cross-workspace rows — while unknown ids 404).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
+
+// Mock the Cube loader so the manual-segment on-demand profile path is
+// exercisable without a live cluster (everything else uses the DB only).
+vi.mock('../src/services/load-with-continue-wait.js', () => ({
+  loadWithContinueWait: vi.fn(),
+}));
+
+import { loadWithContinueWait } from '../src/services/load-with-continue-wait.js';
 import { buildApp } from '../src/index.js';
 import { getDb, setDb, closeDb } from '../src/db/sqlite.js';
+import { __resetManualProfileState } from '../src/services/member-profile-on-demand.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const mockLoad = vi.mocked(loadWithContinueWait);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -42,6 +53,9 @@ describe('GET /api/segments/:id/members — tokenless member pull', () => {
 
   beforeEach(async () => {
     setDb(makeMemDb());
+    __resetManualProfileState();
+    mockLoad.mockReset();
+    mockLoad.mockRejectedValue(new Error('no cube in tests'));
     app = await buildApp();
   });
 
@@ -202,6 +216,63 @@ describe('GET /api/segments/:id/members — tokenless member pull', () => {
       expect(body.returned_count).toBeGreaterThanOrEqual(1);
       expect(body.members.length).toBe(body.returned_count);
     }
+  });
+
+  it('computes profiles on demand for a small manual segment with a hub cube', async () => {
+    const id = await createSegment(app);
+    // Manual segment keyed on mf_users with a pinned identity mapping — the
+    // shape a CS-uploaded uid list takes.
+    getDb()
+      .prepare("UPDATE segments SET cube = 'mf_users', uid_list_json = ?, uid_count = 2 WHERE id = ?")
+      .run(JSON.stringify(['u2', 'u1']), id);
+    getDb()
+      .prepare("INSERT INTO cube_identity_map (cube, identity_field) VALUES ('mf_users', 'mf_users.user_id')")
+      .run();
+
+    mockLoad.mockResolvedValue({
+      data: [
+        { 'mf_users.user_id': 'u1', 'mf_users.ltv_total_vnd': 900, 'mf_users.ingame_name': 'Diaochan' },
+        { 'mf_users.user_id': 'u2', 'mf_users.ltv_total_vnd': 100, 'mf_users.ingame_name': null },
+      ],
+    });
+
+    const res = await app.inject({ method: 'GET', url: `/api/segments/${id}/members` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.rank_measure).toBe('mf_users.ltv_total_vnd');
+    expect(body.members[0].uid).toBe('u1'); // ranked, not lexicographic-fallback
+    expect(body.members[0].name).toBe('Diaochan');
+    expect(body.members[0].ltv).toBe(900);
+
+    // The identity-IN scope carried the uploaded list.
+    const sent = mockLoad.mock.calls[0][0] as { filters: Array<{ member: string; values: string[] }> };
+    expect(sent.filters[0].member).toBe('mf_users.user_id');
+    expect(sent.filters[0].values.sort()).toEqual(['u1', 'u2']);
+
+    // Snapshot persisted — the second pull serves it without another Cube hit.
+    mockLoad.mockClear();
+    const res2 = await app.inject({ method: 'GET', url: `/api/segments/${id}/members` });
+    expect(res2.json().members[0].name).toBe('Diaochan');
+    expect(mockLoad).not.toHaveBeenCalled();
+  });
+
+  it('stays uid-only when the on-demand compute fails (cooldown, no hammering)', async () => {
+    const id = await createSegment(app);
+    getDb()
+      .prepare("UPDATE segments SET cube = 'mf_users', uid_list_json = ?, uid_count = 1 WHERE id = ?")
+      .run(JSON.stringify(['solo']), id);
+    getDb()
+      .prepare("INSERT INTO cube_identity_map (cube, identity_field) VALUES ('mf_users', 'mf_users.user_id')")
+      .run();
+    // mockLoad already rejects by default.
+
+    const res = await app.inject({ method: 'GET', url: `/api/segments/${id}/members` });
+    expect(res.json().members).toEqual([{ uid: 'solo' }]);
+    const callsAfterFirst = mockLoad.mock.calls.length;
+
+    // Within the failure cooldown a second pull must not retry Cube.
+    await app.inject({ method: 'GET', url: `/api/segments/${id}/members` });
+    expect(mockLoad.mock.calls.length).toBe(callsAfterFirst);
   });
 
   it('serves a segment from a non-default workspace (UUID is the capability)', async () => {
