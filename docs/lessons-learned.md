@@ -709,6 +709,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A "running" CubeStore container can be unable to serve — two distinct silent half-deaths
+
+- **Rule:** when ANY pre-agg symptom appears ("No pre-aggregation partitions were built yet…", refresh worker `ECONNREFUSED <ip>:3030` loops, zero worker log output), check CubeStore's actual ability to serve before debugging models/rollups: is port 3030 listening (`cat /proc/net/tcp* | awk '$4=="0A"'` inside the container — 3030 = hex `0BD6`), and does the binary even run on this host (`docker exec … ./cubestored --help`)?
+- **Why:** two separate same-day failures, both with the container reporting "Up": (1) `cubejs/cubestore:latest` is amd64-only; on Apple Silicon the binary dies instantly with `Illegal instruction` — no logs, no listeners, container "Up" for 9+ hours while the worker burned ECONNREFUSED retries and every `user_composition`-matched KPI card hard-failed. The `npm run stack` wrapper pins `CUBESTORE_TAG=v1.6.46-arm64v8` exactly for this; the stack had been brought up without it. (2) After a host-clock jump (laptop hibernation), the arm64 cubestore's 3030 WS-server thread panicked (`second time provided was later than self`) while 3031 (status!) and 3306 kept answering — so even a status-port probe lies.
+- **Signal:** cards fail with "expected table name patterns: preagg_<game>…"; worker logs are either pure `ECONNREFUSED …:3030` retries or completely silent; cubestore container "Up" with empty/strange logs; 3031 answers but 3030 refuses.
+- **Apply:** bring the local stack up via `npm run stack` (never raw `docker compose up` on arm64). The cubestore service now has a bash `/dev/tcp/127.0.0.1/3030` healthcheck in docker-compose.prod.yml — `docker ps` showing `(unhealthy)` is the tell; restart the container to recover (partitions persist in the `cubestore_data` volume). After laptop hibernation, suspect the clock-panic variant first.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

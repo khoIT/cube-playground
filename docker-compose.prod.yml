@@ -299,6 +299,17 @@ services:
     volumes:
       - cubestore_data:/cube/data
     restart: unless-stopped
+    # Probe the WS/HTTP port the Cube drivers actually use. CubeStore can lose
+    # this listener while the process stays up (observed after a host-clock jump:
+    # the 3030 server thread panics but 3031/3306 keep answering), which
+    # otherwise reads as a healthy "Up" container while every pre-agg build and
+    # rollup read fails with ECONNREFUSED. bash /dev/tcp = no extra binaries.
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3030"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   # Persist SQLite across container recreates — without these the DBs reset on
