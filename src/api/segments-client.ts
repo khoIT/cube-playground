@@ -75,7 +75,22 @@ export interface SegmentBriefResponse {
   generated_at: string;
 }
 
-/** One keyset page from the bare member-ID pull API (`GET /:id/members`). */
+/** One enriched member row from the pull API. Beyond `uid`, keys follow the
+ *  page's `columns` (snake_cased preset column ids: name, ltv, joined,
+ *  last_active, …) — uid-only rows when no profile snapshot exists yet. */
+export type SegmentMemberRow = { uid: string } & Record<string, unknown>;
+
+/** Column descriptor for the enriched rows (`key` indexes into each row). */
+export interface SegmentMemberColumn {
+  key: string;
+  label: string;
+  field: string;
+  format?: string;
+}
+
+/** One page from the tokenless member pull API (`GET /:id/members`).
+ *  Rows are RANKED by `rank_measure` when a profile snapshot exists (cursor =
+ *  numeric offset); otherwise uid-sorted with a uid keyset cursor. */
 export interface SegmentMembersPage {
   segment_id: string;
   game_id: string | null;
@@ -84,7 +99,9 @@ export interface SegmentMembersPage {
   total_count: number;
   returned_count: number;
   truncated: boolean;
-  members: string[];
+  rank_measure: string | null;
+  columns: SegmentMemberColumn[];
+  members: SegmentMemberRow[];
   next_cursor: string | null;
 }
 

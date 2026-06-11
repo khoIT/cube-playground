@@ -31,7 +31,7 @@ import {
   formatCell,
 } from './member-table-shared';
 import { TierSelector } from './tier-selector';
-import { tierOptions, buildLtvByUid, searchPool } from './tier-view-model';
+import { tierOptions, buildLtvByUid, searchPool, rankColumnSpec } from './tier-view-model';
 import { MemberCacheChip, useMemberCacheStatus } from './member-cache-chip';
 import styles from '../../segments.module.css';
 
@@ -60,6 +60,12 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
   const [sort, setSort] = useState<SortState | null>(null);
 
   const ltvByUid = useMemo(() => buildLtvByUid(tiers), [tiers]);
+  // The ranking column is the segment's defining measure when its predicate
+  // filters on one — label/format follow the matching preset member column.
+  const rankCol = useMemo(
+    () => rankColumnSpec(tiers, preset?.memberColumns),
+    [tiers, preset?.memberColumns],
+  );
   const searching = search.trim().length > 0;
 
   // Pool: the active tier's ranked members, or a full-uid-list search.
@@ -125,12 +131,14 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
       })
     : tiers.tiers.all
       ? t('segments.detail.members.tiers.captionAll', {
-          defaultValue: 'All {{n}} members ranked by LTV · computed {{when}}',
+          defaultValue: 'All {{n}} members ranked by {{metric}} · computed {{when}}',
           n: tiers.tiers.all.length,
+          metric: rankCol.label,
           when: formatWhen(tiers.computed_at),
         })
       : t('segments.detail.members.tiers.caption', {
-          defaultValue: 'Top / middle / bottom 50 by LTV of {{total}} members · computed {{when}}',
+          defaultValue: 'Top / middle / bottom 50 by {{metric}} of {{total}} members · computed {{when}}',
+          metric: rankCol.label,
           total: segment.uid_count,
           when: formatWhen(tiers.computed_at),
         });
@@ -190,7 +198,7 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
               onToggle={toggleSort}
             />
             <SortableHeader
-              label={t('segments.detail.members.tiers.ltvColumn', { defaultValue: 'LTV' })}
+              label={rankCol.label}
               colKey="ltv"
               sort={sort}
               onToggle={toggleSort}
@@ -226,7 +234,7 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
                   member360Enabled={member360Enabled}
                   linkTitle={t('segments.member360.openTooltip', { defaultValue: 'Open 360 profile' })}
                 />
-                <td>{member.ltv == null ? '—' : formatValue(member.ltv, 'currency')}</td>
+                <td>{member.ltv == null ? '—' : formatValue(member.ltv, rankCol.format)}</td>
                 {cacheStatus && (
                   <td>
                     <MemberCacheChip status={cacheStatus} uid={member.uid} />

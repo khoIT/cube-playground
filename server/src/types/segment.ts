@@ -37,6 +37,30 @@ export interface MemberTiers {
   tiers: Partial<Record<TierName, TierMember[]>>;
 }
 
+/** One column of the ranked member-profile snapshot. `key` is the row-object
+ *  key (snake_cased preset column id: `last-active` → `last_active`). */
+export interface MemberProfileColumn {
+  key: string;
+  label: string;
+  /** Cube member the column was loaded from, as stored in the preset. */
+  field: string;
+  format?: string;
+}
+
+/**
+ * Ranked, enriched member snapshot (member_profiles_json): up to
+ * MEMBER_PROFILE_LIMIT members ordered by `rank_measure` desc, each row keyed
+ * `{ uid, <column.key>: value }`. Computed at refresh time so the pull API
+ * serves it with zero per-request Cube cost.
+ */
+export interface MemberProfiles {
+  computed_at: string;
+  /** Measure the ranking used; null = unranked (identity order). */
+  rank_measure: string | null;
+  columns: MemberProfileColumn[];
+  rows: Array<Record<string, unknown> & { uid: string }>;
+}
+
 export interface Segment {
   id: string;
   name: string;

@@ -1,9 +1,10 @@
 /**
  * Pull API tab — exposes the segment as a versioned, pullable member list a
  * downstream app can read once and store. Replaces the mock CDP "activation"
- * surface. This is the bare member-ID slice: identity values only, no per-member
- * dims/measures projection yet (that needs a flat per-user cube the segment may
- * not be keyed on).
+ * surface. The endpoint is TOKENLESS (segment UUID is the capability,
+ * deployment is VPN-only) and serves enriched rows when a refresh has built
+ * the ranked profile snapshot: uid + in-game name + LTV + lifecycle dates,
+ * ordered by the segment's rank measure.
  *
  * Shows: snapshot freshness + counts, a loud truncation warning when the stored
  * list is a capped sample, the copy-able pull endpoint, a live first-page member
@@ -15,7 +16,11 @@ import { message } from 'antd';
 import { Copy, AlertTriangle, KeyRound, Shield } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
-import { segmentsClient, type SegmentMembersPage } from '../../../../api/segments-client';
+import {
+  segmentsClient,
+  type SegmentMemberRow,
+  type SegmentMembersPage,
+} from '../../../../api/segments-client';
 import type { Segment } from '../../../../types/segment-api';
 
 interface Props {
@@ -38,7 +43,7 @@ function freshness(value: string | null): string {
 export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   const { t } = useTranslation();
   const [page, setPage] = useState<SegmentMembersPage | null>(null);
-  const [preview, setPreview] = useState<string[]>([]);
+  const [preview, setPreview] = useState<SegmentMemberRow[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -231,7 +236,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
           </span>
           <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 11.5 }}>
             {t('segments.detail.pullApi.endpointHint', {
-              defaultValue: 'keyset-paginated — follow next_cursor until null',
+              defaultValue: 'tokenless · ranked by the segment metric — follow next_cursor until null',
             })}
           </span>
         </div>
@@ -315,17 +320,19 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
                 fontSize: 11.5,
               }}
             >
-              {preview.map((uid) => (
+              {preview.map((row, idx) => (
                 <span
-                  key={uid}
+                  key={`${row.uid}-${idx}`}
                   style={{
                     background: 'var(--bg-muted)',
                     color: 'var(--text-secondary)',
                     padding: '3px 8px',
                     borderRadius: 'var(--radius-sm)',
                   }}
+                  title={row.uid}
                 >
-                  {uid}
+                  {/* Enriched rows lead with the friendly name when the game models one. */}
+                  {typeof row.name === 'string' && row.name ? `${row.name} · ${row.uid}` : row.uid}
                 </span>
               ))}
             </div>
@@ -372,7 +379,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
         <span>
           {t('segments.detail.pullApi.piiNote', {
             defaultValue:
-              'Pulling raw member IDs is a PII surface. Access follows this segment’s visibility — anyone who can view the segment can pull it.',
+              'Pulling member IDs and profiles is a PII surface. The pull endpoint is tokenless — the segment URL itself is the credential, so share it only with teams who may see this cohort.',
           })}
         </span>
       </div>

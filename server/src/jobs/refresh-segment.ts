@@ -12,6 +12,9 @@ import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segm
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
 import { computeMemberTiers } from '../services/member-tier-runner.js';
+import { computeMemberProfiles } from '../services/member-profile-runner.js';
+import { getMetaMemberSets } from '../services/cube-meta-members.js';
+import { pickSegmentRankMeasure, type RankFilter } from '../services/segment-rank-measure.js';
 import { pruneMember360CacheToUids } from '../services/member360-cache-store.js';
 import { tieredUids } from '../services/member360-runner.js';
 import { pickPresetForSegment } from '../presets/registry.js';
@@ -268,16 +271,28 @@ export async function refreshSegment(segmentId: string): Promise<void> {
     // unsegmented population while the size query (baseQuery) is scoped.
     const cohortCubeSegments = parseCubeSegments(cubeQueryJson) ?? [];
 
-    // LTV-tiered member sampling: rank the cohort by the preset's per-user LTV
-    // measure and persist top/middle/bottom-50 subgroups (Members tab + the
-    // member-360 precompute consume them). Predicate-scoped like the cards —
-    // never an inlined uid-IN list. Failure leaves the previous tiers in place
-    // (their computed_at makes staleness visible); a preset without an LTV
-    // measure clears them so the FE falls back to the random sample.
-    if (preset?.ltvMeasure) {
+    // Rank members by the segment's DEFINING metric when its predicate filters
+    // on a measure (a "30d spend" cohort ranks by that spend), else the
+    // preset's generic per-user LTV. /meta tells measures from dimensions;
+    // when it's unreachable the picker falls back to the LTV measure.
+    const metaSets = await getMetaMemberSets(row.game_id);
+    const rankMeasure = pickSegmentRankMeasure(
+      segmentFilters as RankFilter[],
+      metaSets,
+      prefix,
+      preset?.ltvMeasure ?? null,
+    );
+
+    // Tiered member sampling: rank the cohort by the rank measure and persist
+    // top/middle/bottom-50 subgroups (Members tab + the member-360 precompute
+    // consume them). Predicate-scoped like the cards — never an inlined
+    // uid-IN list. Failure leaves the previous tiers in place (their
+    // computed_at makes staleness visible); no rank measure at all clears them
+    // so the FE falls back to the random sample.
+    if (rankMeasure) {
       const tiers = await computeMemberTiers({
         identityDim: identity,
-        ltvMeasure: preset.ltvMeasure,
+        ltvMeasure: rankMeasure,
         segmentFilters,
         cubeSegments: cohortCubeSegments,
         totalCount,
@@ -296,8 +311,27 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       // cache — staleness is visible via computed_at, never destroyed by a blip.
     } else {
       db.prepare('UPDATE segments SET member_tiers_json = NULL WHERE id = ?').run(segmentId);
-      // No LTV measure → segment is no longer member-360 eligible; clear cache.
+      // No rank measure → segment is no longer member-360 eligible; clear cache.
       pruneMember360CacheToUids(segmentId, []);
+    }
+
+    // Ranked member-profile snapshot for the tokenless pull API: top members
+    // by the same rank measure, enriched with the preset's member columns.
+    // Failure (null) keeps the previous snapshot — same posture as tiers.
+    const profiles = await computeMemberProfiles({
+      identityDim: identity,
+      rankMeasure,
+      memberColumns: (preset?.memberColumns ?? []) as Array<Record<string, unknown>>,
+      metaSets,
+      segmentFilters: segmentFilters as RankFilter[],
+      cubeSegments: cohortCubeSegments,
+      totalCount,
+      tokenOverride: token,
+      prefix,
+    });
+    if (profiles) {
+      db.prepare('UPDATE segments SET member_profiles_json = ? WHERE id = ?')
+        .run(JSON.stringify(profiles), segmentId);
     }
 
     if (preset) {

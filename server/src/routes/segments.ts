@@ -15,6 +15,7 @@ import { treeToCubeFilters } from '../services/translator.js';
 import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segments.js';
 import { predicateToSql } from '../services/predicate-to-sql.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
+import type { MemberProfiles } from '../types/segment.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
 import { enqueueRefresh } from '../jobs/refresh-queue.js';
 import { getCardCache } from '../services/card-cache-store.js';
@@ -215,9 +216,10 @@ function hydrateSegment(
   viewer?: { sub: string; role?: string },
 ) {
   // Never ship the raw JSON blobs: no consumer reads `uid_list_json` /
-  // `member_tiers_json`, and for large cohorts the uid blob doubles the
-  // payload alongside the parsed `uid_list`.
-  const { uid_list_json, member_tiers_json, ...rest } = row;
+  // `member_tiers_json` / `member_profiles_json` (profiles serve the members
+  // pull route only), and for large cohorts the blobs multiply the payload.
+  const { uid_list_json, member_tiers_json, member_profiles_json, ...rest } = row;
+  void member_profiles_json;
 
   // LTV tiers ship on the detail route only (same gate as uid_list) — the
   // list view doesn't render members, so parsing ~150 rows per row is waste.
@@ -444,28 +446,36 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     };
   });
 
-  // GET /api/segments/:id/members — bare member-ID pull API.
+  // GET /api/segments/:id/members — TOKENLESS member pull API.
   //
-  // Serves the segment's member identity values to a downstream app that pulls
-  // once and stores them. Identity-only (no per-member dims/measures): those
-  // require a flat per-user cube the segment may not be keyed on. Keyset
-  // pagination over the sorted uid list — the cursor is the last uid returned,
-  // which is stable across pages as long as the materialized list is unchanged
-  // (offset pagination would drift if a refresh lands mid-pull).
+  // Serves enriched member rows to downstream consumers (CS tooling) that
+  // can't mint an app JWT. Deliberately unauthenticated: the segment UUID is
+  // the capability, and the deployment is VPN-only — a consumer who has the
+  // URL was handed it from the Activation tab. Read-only, serves only
+  // refresh-time snapshots (never triggers a Cube query), and skips the
+  // workspace-header check so a plain curl works.
   //
-  // `truncated` is the honest signal that the materialized list is a sample:
-  // refresh caps the stored uids while `uid_count` holds the true cohort size,
-  // so a consumer can tell it received a partial cohort instead of silently
-  // storing one.
+  // Preferred source: the ranked member-profile snapshot (refresh-time, top
+  // 1000 by the segment's rank measure, enriched with the preset's member
+  // columns — uid / name / ltv / joined / last_active…). Rows come back
+  // RANKED; the cursor is a numeric offset into the static snapshot.
+  // Fallback (no snapshot yet — e.g. manual segments): uid-only rows over the
+  // sorted uid list with the legacy uid keyset cursor.
   //
+  // `truncated` is the honest signal that the served list is a sample of a
+  // larger cohort: `total_count` holds the true size from the refresh.
   // Consumers should pull only when `status === 'fresh'`. A predicate segment
-  // mid-refresh seeds `uid_count` to 0 while a warm sample is still in the list,
-  // so `total_count` would read 0 alongside a non-empty `members` page until the
-  // refresh completes.
+  // mid-refresh seeds `uid_count` to 0 while a warm sample is still stored, so
+  // `total_count` may read 0 alongside non-empty `members` until it completes.
   app.get('/api/segments/:id/members', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const row = guardSegment(req, reply, id, 'read');
-    if (!row) return reply;
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as
+      | SegmentRow
+      | undefined;
+    if (!row) {
+      return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Segment not found' } });
+    }
 
     const { cursor, limit: limitRaw } = req.query as { cursor?: string; limit?: string };
     const DEFAULT_LIMIT = 1000;
@@ -475,6 +485,47 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       ? Math.min(Math.max(parsedLimit, 1), MAX_LIMIT)
       : DEFAULT_LIMIT;
 
+    const trueCount = Number(row.uid_count ?? 0);
+    const base = {
+      segment_id: id,
+      game_id: (row.game_id as string) ?? null,
+      cube: (row.cube as string | null) ?? null,
+      computed_at: (row.last_refreshed_at as string | null) ?? null,
+      total_count: trueCount,
+    };
+
+    // Ranked enriched snapshot, when the refresh has produced one.
+    let profiles: MemberProfiles | null = null;
+    try {
+      const rawProfiles = row.member_profiles_json as string | null | undefined;
+      if (typeof rawProfiles === 'string' && rawProfiles) {
+        const parsed = JSON.parse(rawProfiles) as MemberProfiles;
+        if (Array.isArray(parsed?.rows) && parsed.rows.length > 0) profiles = parsed;
+      }
+    } catch {
+      profiles = null; // unreadable snapshot — serve the uid fallback
+    }
+
+    if (profiles) {
+      // Offset cursor into the static ranked snapshot (stable until the next
+      // refresh rewrites it atomically).
+      const parsedCursor = Number.parseInt(cursor ?? '', 10);
+      const start = Number.isFinite(parsedCursor) ? Math.max(parsedCursor, 0) : 0;
+      const page = profiles.rows.slice(start, start + limit);
+      return {
+        ...base,
+        computed_at: profiles.computed_at,
+        rank_measure: profiles.rank_measure,
+        columns: profiles.columns,
+        returned_count: page.length,
+        truncated: trueCount > profiles.rows.length,
+        members: page,
+        next_cursor: start + limit < profiles.rows.length ? String(start + limit) : null,
+      };
+    }
+
+    // Fallback — uid-only rows over the materialized list (manual segments,
+    // or predicate segments not refreshed since profiles shipped).
     let allUids: string[];
     try {
       const parsed = JSON.parse((row.uid_list_json as string) ?? '[]');
@@ -495,17 +546,14 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const page = allUids.slice(start, start + limit);
     const nextCursor = start + limit < allUids.length ? (page[page.length - 1] ?? null) : null;
 
-    const trueCount = Number(row.uid_count ?? allUids.length);
-
     return {
-      segment_id: id,
-      game_id: (row.game_id as string) ?? null,
-      cube: (row.cube as string | null) ?? null,
-      computed_at: (row.last_refreshed_at as string | null) ?? null,
-      total_count: trueCount,
+      ...base,
+      total_count: trueCount > 0 ? trueCount : allUids.length,
+      rank_measure: null,
+      columns: [],
       returned_count: page.length,
       truncated: trueCount > allUids.length,
-      members: page,
+      members: page.map((uid) => ({ uid })),
       next_cursor: nextCursor,
     };
   });

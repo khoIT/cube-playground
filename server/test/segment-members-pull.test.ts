@@ -1,9 +1,10 @@
 /**
- * GET /api/segments/:id/members — bare member-ID pull API.
+ * GET /api/segments/:id/members — tokenless member pull API.
  *
- * Verifies keyset pagination over the sorted uid list, the `truncated` signal
- * when the stored list is a capped sample of a larger cohort, and that access
- * control is inherited from guardSegment (unknown id → 404).
+ * Verifies the ranked member-profile snapshot path (enriched object rows,
+ * numeric offset cursor), the uid-only fallback with keyset pagination, the
+ * `truncated` signal, and capability-style access (any stored segment id is
+ * servable — including cross-workspace rows — while unknown ids 404).
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -36,7 +37,7 @@ async function createSegment(app: Awaited<ReturnType<typeof buildApp>>): Promise
   return created.json().id as string;
 }
 
-describe('GET /api/segments/:id/members — bare member-ID pull', () => {
+describe('GET /api/segments/:id/members — tokenless member pull', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeEach(async () => {
@@ -49,7 +50,7 @@ describe('GET /api/segments/:id/members — bare member-ID pull', () => {
     closeDb();
   });
 
-  it('paginates via keyset cursor and terminates with next_cursor=null', async () => {
+  it('paginates uid fallback via keyset cursor and terminates with next_cursor=null', async () => {
     const id = await createSegment(app);
     // Unsorted on purpose — the route must sort for stable keyset order.
     const uids = ['u3', 'u1', 'u10', 'u2', 'u20'];
@@ -60,10 +61,11 @@ describe('GET /api/segments/:id/members — bare member-ID pull', () => {
     const p1 = await app.inject({ method: 'GET', url: `/api/segments/${id}/members?limit=2` });
     expect(p1.statusCode).toBe(200);
     const b1 = p1.json();
-    expect(b1.members).toEqual(['u1', 'u10']); // lexicographic sort
+    expect(b1.members).toEqual([{ uid: 'u1' }, { uid: 'u10' }]); // lexicographic sort
     expect(b1.total_count).toBe(5);
     expect(b1.returned_count).toBe(2);
     expect(b1.truncated).toBe(false);
+    expect(b1.rank_measure).toBeNull();
     expect(b1.next_cursor).toBe('u10');
 
     const p2 = await app.inject({
@@ -71,7 +73,7 @@ describe('GET /api/segments/:id/members — bare member-ID pull', () => {
       url: `/api/segments/${id}/members?limit=2&cursor=${b1.next_cursor}`,
     });
     const b2 = p2.json();
-    expect(b2.members).toEqual(['u2', 'u20']);
+    expect(b2.members).toEqual([{ uid: 'u2' }, { uid: 'u20' }]);
     expect(b2.next_cursor).toBe('u20');
 
     const p3 = await app.inject({
@@ -79,8 +81,63 @@ describe('GET /api/segments/:id/members — bare member-ID pull', () => {
       url: `/api/segments/${id}/members?limit=2&cursor=${b2.next_cursor}`,
     });
     const b3 = p3.json();
-    expect(b3.members).toEqual(['u3']);
+    expect(b3.members).toEqual([{ uid: 'u3' }]);
     expect(b3.next_cursor).toBeNull(); // exhausted
+  });
+
+  it('serves the ranked profile snapshot with enriched rows and offset cursor', async () => {
+    const id = await createSegment(app);
+    const profiles = {
+      computed_at: '2026-06-11T00:00:00.000Z',
+      rank_measure: 'mf_users.ltv_total_vnd',
+      columns: [
+        { key: 'name', label: 'In-game name', field: 'mf_users.ingame_name' },
+        { key: 'ltv', label: 'LTV', field: 'mf_users.ltv_total_vnd', format: 'currency' },
+        { key: 'joined', label: 'Joined', field: 'mf_users.install_date' },
+      ],
+      rows: [
+        { uid: 'whale1', name: 'Diaochan', ltv: 9000, joined: '2024-01-01' },
+        { uid: 'whale2', name: 'Ha Tong', ltv: 5000, joined: '2024-02-01' },
+        { uid: 'fish1', name: null, ltv: 100, joined: '2025-03-01' },
+      ],
+    };
+    getDb()
+      .prepare(
+        'UPDATE segments SET member_profiles_json = ?, uid_list_json = ?, uid_count = ? WHERE id = ?',
+      )
+      .run(JSON.stringify(profiles), JSON.stringify(['whale1', 'whale2', 'fish1']), 50_000, id);
+
+    const p1 = await app.inject({ method: 'GET', url: `/api/segments/${id}/members?limit=2` });
+    expect(p1.statusCode).toBe(200);
+    const b1 = p1.json();
+    expect(b1.rank_measure).toBe('mf_users.ltv_total_vnd');
+    expect(b1.columns.map((c: { key: string }) => c.key)).toEqual(['name', 'ltv', 'joined']);
+    expect(b1.members).toEqual([
+      { uid: 'whale1', name: 'Diaochan', ltv: 9000, joined: '2024-01-01' },
+      { uid: 'whale2', name: 'Ha Tong', ltv: 5000, joined: '2024-02-01' },
+    ]); // rank order preserved, NOT lexicographic
+    expect(b1.truncated).toBe(true); // 50k cohort, 3-row snapshot
+    expect(b1.computed_at).toBe('2026-06-11T00:00:00.000Z');
+    expect(b1.next_cursor).toBe('2');
+
+    const p2 = await app.inject({
+      method: 'GET',
+      url: `/api/segments/${id}/members?limit=2&cursor=${b1.next_cursor}`,
+    });
+    const b2 = p2.json();
+    expect(b2.members).toEqual([{ uid: 'fish1', name: null, ltv: 100, joined: '2025-03-01' }]);
+    expect(b2.next_cursor).toBeNull();
+  });
+
+  it('falls back to uid rows when the profile snapshot is unreadable or empty', async () => {
+    const id = await createSegment(app);
+    getDb()
+      .prepare('UPDATE segments SET member_profiles_json = ?, uid_list_json = ?, uid_count = ? WHERE id = ?')
+      .run('{not json', JSON.stringify(['a', 'b']), 2, id);
+
+    const res = await app.inject({ method: 'GET', url: `/api/segments/${id}/members` });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().members).toEqual([{ uid: 'a' }, { uid: 'b' }]);
   });
 
   it('reports truncated=true when uid_count exceeds the stored sample', async () => {
@@ -125,7 +182,7 @@ describe('GET /api/segments/:id/members — bare member-ID pull', () => {
       const url = `/api/segments/${id}/members?limit=2${cursor ? `&cursor=${cursor}` : ''}`;
       const res = await app.inject({ method: 'GET', url });
       const body = res.json();
-      collected.push(...body.members);
+      collected.push(...body.members.map((m: { uid: string }) => m.uid));
       cursor = body.next_cursor;
       if (!cursor) break;
     }
@@ -147,7 +204,18 @@ describe('GET /api/segments/:id/members — bare member-ID pull', () => {
     }
   });
 
-  it('returns 404 for an unknown segment (access inherited from guardSegment)', async () => {
+  it('serves a segment from a non-default workspace (UUID is the capability)', async () => {
+    const id = await createSegment(app);
+    getDb()
+      .prepare("UPDATE segments SET workspace = 'some-other-ws', uid_list_json = ?, uid_count = 1 WHERE id = ?")
+      .run(JSON.stringify(['x']), id);
+
+    const res = await app.inject({ method: 'GET', url: `/api/segments/${id}/members` });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().members).toEqual([{ uid: 'x' }]);
+  });
+
+  it('returns 404 for an unknown segment', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/segments/does-not-exist/members' });
     expect(res.statusCode).toBe(404);
   });

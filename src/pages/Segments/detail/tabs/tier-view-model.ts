@@ -5,6 +5,8 @@
  */
 
 import type { MemberTiers, TierMember, TierName } from '../../../../types/segment-api';
+import type { FormatId, MemberColumnSpec } from '../../presets/types';
+import { memberColumnField } from './use-member-dim-rows';
 
 /** Display order. `all` only appears for degenerate cohorts (≤150 members)
  *  and is mutually exclusive with the trio server-side. */
@@ -26,6 +28,30 @@ export function tierOptions(tiers: MemberTiers): TierOption[] {
     }
   }
   return out;
+}
+
+/** Header label + cell format for the ranking column. Tiers are ranked by the
+ *  segment's DEFINING measure when its predicate filters on one (server-side
+ *  rank-measure pick), so "LTV" is only sometimes the truth: resolve the label
+ *  and format from the preset member column matching `tiers.ltv_measure`,
+ *  falling back to a humanized measure name for non-preset measures. */
+export interface RankColumnSpec {
+  label: string;
+  format: FormatId | undefined;
+}
+
+export function rankColumnSpec(
+  tiers: MemberTiers,
+  columns: readonly MemberColumnSpec[] | undefined,
+): RankColumnSpec {
+  const match = (columns ?? []).find((c) => memberColumnField(c) === tiers.ltv_measure);
+  if (match) return { label: match.label, format: match.format ?? 'currency' };
+  const tail = tiers.ltv_measure.split('.').pop() ?? tiers.ltv_measure;
+  // VND-denominated measures keep currency formatting even off-preset.
+  const format: FormatId | undefined = /vnd|ltv|revenue|recharge/i.test(tail)
+    ? 'currency'
+    : undefined;
+  return { label: tail.replace(/_/g, ' '), format };
 }
 
 /** uid → LTV across every tier, for annotating search results with known
