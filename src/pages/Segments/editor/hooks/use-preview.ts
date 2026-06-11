@@ -18,6 +18,9 @@ interface PreviewResponse {
 interface UsePreviewArgs {
   tree: PredicateNode;
   primaryCube: string | null;
+  /** Cube-level segments scoping the cohort (e.g. mf_users.whales) — without
+   *  them the live count previews the unsegmented population. */
+  cubeSegments?: string[];
   enabled: boolean;
   debounceMs?: number;
 }
@@ -35,6 +38,7 @@ const RING_SIZE = 14;
 export function usePreview({
   tree,
   primaryCube,
+  cubeSegments,
   enabled,
   debounceMs = 500,
 }: UsePreviewArgs): UsePreviewState {
@@ -59,7 +63,11 @@ export function usePreview({
 
       apiFetch<PreviewResponse>('/api/preview', {
         method: 'POST',
-        body: { predicate_tree: tree, primary_cube: primaryCube },
+        body: {
+          predicate_tree: tree,
+          primary_cube: primaryCube,
+          ...(cubeSegments && cubeSegments.length > 0 ? { cube_segments: cubeSegments } : {}),
+        },
         signal: controller.signal,
       })
         .then((res) => {
@@ -82,7 +90,7 @@ export function usePreview({
     return () => {
       clearTimeout(handle);
     };
-  }, [JSON.stringify(tree), primaryCube, enabled, debounceMs]);
+  }, [JSON.stringify(tree), primaryCube, (cubeSegments ?? []).join(','), enabled, debounceMs]);
 
   return state;
 }

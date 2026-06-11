@@ -27,9 +27,9 @@ export interface PreviewResult {
 const CACHE_TTL_MS = 60_000;
 const cache = new Map<string, { result: PreviewResult; storedAt: number }>();
 
-function cacheKey(tree: PredicateNode, primaryCube: string): string {
+function cacheKey(tree: PredicateNode, primaryCube: string, cubeSegments: string[]): string {
   return createHash('sha256')
-    .update(JSON.stringify({ tree, primaryCube }))
+    .update(JSON.stringify({ tree, primaryCube, cubeSegments }))
     .digest('hex');
 }
 
@@ -66,8 +66,11 @@ function extractSql(sqlResult: unknown): string | null {
 export async function preview(
   tree: PredicateNode,
   primaryCube: string,
+  /** Cube-level segments scoping the cohort — carried so the editor's live
+   *  count matches the membership the refresh job will materialize. */
+  cubeSegments: string[] = [],
 ): Promise<PreviewResult> {
-  const key = cacheKey(tree, primaryCube);
+  const key = cacheKey(tree, primaryCube, cubeSegments);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.storedAt < CACHE_TTL_MS) {
     return { ...hit.result, cached: true };
@@ -79,9 +82,10 @@ export async function preview(
 
   // Identity-distinct path mirrors refresh-segment so the editor preview
   // matches the persisted uid_count once the segment refreshes.
+  const segments = cubeSegments.length > 0 ? { segments: cubeSegments } : {};
   const cubeQuery = identity
-    ? { dimensions: [identity], filters, limit: 1, total: true }
-    : { measures: [`${primaryCube}.count`], filters, limit: 1 };
+    ? { dimensions: [identity], filters, ...segments, limit: 1, total: true }
+    : { measures: [`${primaryCube}.count`], filters, ...segments, limit: 1 };
 
   const [loadRes, sqlRes] = await Promise.allSettled([
     load(cubeQuery),

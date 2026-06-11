@@ -92,3 +92,29 @@ describe('preview-service', () => {
     expect(out.sql_preview).toContain('SELECT 1');
   });
 });
+
+describe('preview-service — cube-segment scoping', () => {
+  beforeEach(() => {
+    __resetPreviewCache();
+    vi.restoreAllMocks();
+  });
+
+  it('attaches cube segments to the count query and keys the cache by them', async () => {
+    vi.spyOn(resolveIdentity, 'resolveIdentityField').mockResolvedValue('mf_users.uid');
+    const loadSpy = vi
+      .spyOn(cubeClient, 'load')
+      .mockResolvedValueOnce({ data: [], total: 241 } as never)
+      .mockResolvedValueOnce({ data: [], total: 6329 } as never);
+    vi.spyOn(cubeClient, 'sql').mockResolvedValue({ sql: { sql: ['SELECT 1', []] } } as never);
+
+    const scoped = await preview(tree, 'mf_users', ['mf_users.whales']);
+    expect(scoped.estimated_count).toBe(241);
+    expect(loadSpy.mock.calls[0][0]).toMatchObject({ segments: ['mf_users.whales'] });
+
+    // Different segments → different cache entry, not a stale hit.
+    const unscoped = await preview(tree, 'mf_users');
+    expect(unscoped.estimated_count).toBe(6329);
+    expect(unscoped.cached).toBe(false);
+    expect(loadSpy.mock.calls[1][0]).not.toHaveProperty('segments');
+  });
+});

@@ -115,6 +115,7 @@ export function EditorView(): ReactElement {
   const preview = usePreview({
     tree: predicate.tree,
     primaryCube: cube,
+    cubeSegments,
     enabled: cube != null && validPredicate,
   });
 
