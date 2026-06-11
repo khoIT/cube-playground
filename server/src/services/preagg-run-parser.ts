@@ -14,7 +14,7 @@
  *     everything before the first dot.
  */
 
-import type { ParsedFailure, ParsedSweep } from '../types/preagg-run.js';
+import type { ParsedBuild, ParsedFailure, ParsedSweep } from '../types/preagg-run.js';
 
 // ---------------------------------------------------------------------------
 // Error signature classifier
@@ -70,6 +70,12 @@ interface LogLine {
   targetTableName?: string;
   /** Raw error string */
   error?: string;
+  /** Query duration in ms (string in the log JSON) — on completed lines. */
+  duration?: number;
+  /** Stringified query key — partition builds start with `[['CREATE TABLE …`. */
+  queryKey?: string;
+  /** Orchestrator queue — `…_CACHE_…` lines are metadata fetches, not builds. */
+  queuePrefix?: string;
 }
 
 /**
@@ -103,6 +109,7 @@ export function parseJsonLine(line: string): LogLine | null {
       (parsed['message'] as string) ??
       (parsed['msg'] as string) ??
       '';
+    const rawDuration = parsed['duration'];
     return {
       ts,
       message,
@@ -110,6 +117,9 @@ export function parseJsonLine(line: string): LogLine | null {
       newVersionEntry: parsed['newVersionEntry'] as { table_name?: string } | undefined,
       targetTableName: parsed['targetTableName'] as string | undefined,
       error: parsed['error'] as string | undefined,
+      duration: rawDuration != null ? Number(rawDuration) : undefined,
+      queryKey: typeof parsed['queryKey'] === 'string' ? (parsed['queryKey'] as string) : undefined,
+      queuePrefix: parsed['queuePrefix'] as string | undefined,
     };
   } catch {
     return null;
@@ -127,12 +137,38 @@ export function parseJsonLine(line: string): LogLine | null {
  * Each sweep is delimited by a "Refresh Scheduler Interval" message.
  * Lines before the first such marker are ignored (server startup noise).
  */
+/**
+ * Extract a completed PARTITION BUILD from a log line, or null.
+ * A build-completed line is 'Performing query completed' whose queryKey is a
+ * `CREATE TABLE preagg_<game>.…` — the same message also fires for orchestrator
+ * cache fetches ('Fetch tables for …', `…_CACHE_…` queue), which must not
+ * count as partitions or inflate durations.
+ */
+function parseBuildLine(line: LogLine): ParsedBuild | null {
+  if (!line.message.includes('Performing query completed')) return null;
+  if (!line.preAggregationId) return null;
+  if (line.queuePrefix?.includes('_CACHE_')) return null;
+  const table = line.newVersionEntry?.table_name ?? line.queryKey ?? '';
+  const schema = /(?:^|\s|\[\[')CREATE TABLE preagg_([a-z0-9]+)\./.exec(table)
+    ?? /^preagg_([a-z0-9]+)\./.exec(table);
+  if (!schema) return null;
+  const dot = line.preAggregationId.indexOf('.');
+  return {
+    schemaGame: schema[1],
+    cube: dot > 0 ? line.preAggregationId.slice(0, dot) : line.preAggregationId,
+    rollup: dot > 0 ? line.preAggregationId.slice(dot + 1) : '',
+    durationMs: Number.isFinite(line.duration) ? (line.duration as number) : 0,
+    ts: line.ts,
+  };
+}
+
 export function parseWorkerLog(lines: string[]): ParsedSweep[] {
   const sweeps: ParsedSweep[] = [];
 
   let currentStart: string | null = null;
   let currentLastTs: string = new Date().toISOString();
   let currentFailures: ParsedFailure[] = [];
+  let currentBuilds: ParsedBuild[] = [];
 
   function flush(): void {
     if (currentStart === null) return;
@@ -140,9 +176,11 @@ export function parseWorkerLog(lines: string[]): ParsedSweep[] {
       startedAt: currentStart,
       endedAt: currentLastTs,
       failures: currentFailures,
+      builds: currentBuilds,
     });
     currentStart = null;
     currentFailures = [];
+    currentBuilds = [];
   }
 
   for (const raw of lines) {
@@ -156,6 +194,15 @@ export function parseWorkerLog(lines: string[]): ParsedSweep[] {
       flush();
       currentStart = parsed.ts;
       continue;
+    }
+
+    // Collect completed partition builds within the active sweep window
+    if (currentStart !== null) {
+      const build = parseBuildLine(parsed);
+      if (build) {
+        currentBuilds.push(build);
+        continue;
+      }
     }
 
     // Collect failures within the active sweep window

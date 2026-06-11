@@ -222,3 +222,61 @@ describe('mergeSweep — metadata', () => {
     expect(sweep.durationMs).toBe(360_000);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Build-stats attachment (schema short name → probe game id)
+// ---------------------------------------------------------------------------
+
+describe('mergeSweep — build stats', () => {
+  it('attaches aggregated partitions/duration/rollups to the matching game × cube', () => {
+    const probe = makeProbe([{
+      id: 'cfm_vn', label: 'CFM VN',
+      cubes: [
+        { cube: 'active_daily', status: 'built' },
+        { cube: 'mf_users', status: 'built' },
+      ],
+      built: 2, unbuilt: 0, errored: 0,
+    }]);
+    const builds = [
+      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 8000, ts: '2026-06-10T07:01:00.000Z' },
+      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 2000, ts: '2026-06-10T07:02:00.000Z' },
+      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'online_time_batch', durationMs: 500, ts: '2026-06-10T07:03:00.000Z' },
+    ];
+
+    const { items } = mergeSweep(probe, [], META, builds);
+    const ad = items.find((i) => i.cube === 'active_daily');
+    expect(ad).toMatchObject({ buildMs: 10_500, partitionsBuilt: 3 });
+    expect(ad?.rollupsBuilt?.sort()).toEqual(['dau_daily_batch', 'online_time_batch']);
+
+    // mf_users had no build lines → stats stay null (probe-sealed, nothing rebuilt)
+    const mf = items.find((i) => i.cube === 'mf_users');
+    expect(mf?.buildMs).toBeNull();
+    expect(mf?.partitionsBuilt).toBeNull();
+  });
+
+  it('drops builds whose schema game matches no probe game id', () => {
+    const probe = makeProbe([{
+      id: 'ballistar', label: 'Ballistar',
+      cubes: [{ cube: 'active_daily', status: 'built' }],
+      built: 1, unbuilt: 0, errored: 0,
+    }]);
+    const builds = [
+      { schemaGame: 'zzz', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, ts: '2026-06-10T07:01:00.000Z' },
+    ];
+    const { items } = mergeSweep(probe, [], META, builds);
+    expect(items[0].buildMs).toBeNull();
+  });
+
+  it('matches exact game ids without a suffix (schema ballistar → id ballistar)', () => {
+    const probe = makeProbe([{
+      id: 'ballistar', label: 'Ballistar',
+      cubes: [{ cube: 'active_daily', status: 'built' }],
+      built: 1, unbuilt: 0, errored: 0,
+    }]);
+    const builds = [
+      { schemaGame: 'ballistar', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, ts: '2026-06-10T07:01:00.000Z' },
+    ];
+    const { items } = mergeSweep(probe, [], META, builds);
+    expect(items[0].partitionsBuilt).toBe(1);
+  });
+});

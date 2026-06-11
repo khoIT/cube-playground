@@ -22,6 +22,7 @@
 
 import type { PreaggReadiness } from './preagg-readiness.js';
 import type {
+  ParsedBuild,
   ParsedFailure,
   PreaggSweepInput,
   PreaggSweepItemInput,
@@ -116,13 +117,61 @@ function classifyOutcome(probeStatus: 'built' | 'unbuilt' | 'error', hasFailure:
  * sweepId is NOT set here (assigned after DB upsert). Pass items directly to
  * upsertSweep which injects the real sweepId.
  */
+/** Aggregated build stats for one game × cube within a sweep. */
+interface BuildStats {
+  buildMs: number;
+  partitions: number;
+  rollups: Set<string>;
+}
+
+/**
+ * Index parsed builds by (probe game id, cube). Build lines carry the SCHEMA
+ * short name (`preagg_cfm` → 'cfm'), while probe games use full ids
+ * ('cfm_vn') — match exact id first, then `<short>_…` prefix.
+ */
+function buildBuildIndex(
+  builds: ParsedBuild[],
+  gameIds: string[],
+): Map<string, BuildStats> {
+  const idForSchema = new Map<string, string | null>();
+  const resolve = (schemaGame: string): string | null => {
+    if (!idForSchema.has(schemaGame)) {
+      idForSchema.set(
+        schemaGame,
+        gameIds.find((id) => id === schemaGame)
+          ?? gameIds.find((id) => id.startsWith(`${schemaGame}_`))
+          ?? null,
+      );
+    }
+    return idForSchema.get(schemaGame) ?? null;
+  };
+
+  const index = new Map<string, BuildStats>();
+  for (const b of builds) {
+    const gameId = resolve(b.schemaGame);
+    if (!gameId) continue;
+    const key = `${gameId}|${b.cube}`;
+    let stats = index.get(key);
+    if (!stats) {
+      stats = { buildMs: 0, partitions: 0, rollups: new Set() };
+      index.set(key, stats);
+    }
+    stats.buildMs += b.durationMs;
+    stats.partitions += 1;
+    if (b.rollup) stats.rollups.add(b.rollup);
+  }
+  return index;
+}
+
 export function mergeSweep(
   probe: PreaggReadiness,
   failures: ParsedFailure[],
   meta: SweepMeta,
+  builds: ParsedBuild[] = [],
 ): MergeResult {
   const now = meta.endedAt;
   const failureIndex = buildFailureIndex(failures);
+  const buildIndex = buildBuildIndex(builds, probe.games.map((g) => g.id));
 
   const items: PreaggSweepItemInput[] = [];
 
@@ -135,6 +184,7 @@ export function mergeSweep(
 
       // Rollup name from the first failure that matches (best-effort; may be '')
       const rollup = failure ? failure.preAggregationId.slice(cubeName.length + 1) : null;
+      const stats = buildIndex.get(`${game.id}|${cubeName}`) ?? null;
 
       items.push({
         sweepId: 0, // placeholder — upsertSweep replaces with real id
@@ -151,6 +201,11 @@ export function mergeSweep(
         errorSig: failure?.errorSig ?? null,
         errorMessage: failure?.errorMessage ?? null,
         observedAt: now,
+        // Attached regardless of outcome — a stale/failed cube may still have
+        // completed some partitions before the failure.
+        buildMs: stats ? stats.buildMs : null,
+        partitionsBuilt: stats ? stats.partitions : null,
+        rollupsBuilt: stats && stats.rollups.size > 0 ? [...stats.rollups] : null,
       });
     }
   }

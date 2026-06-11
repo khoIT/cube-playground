@@ -34,6 +34,12 @@ export interface PreaggSweepItem {
   errorSig: string | null;
   errorMessage: string | null;
   observedAt: string;
+  /** Sum of partition-build durations for this game × cube (ms), if captured. */
+  buildMs: number | null;
+  /** Partition builds (CREATE TABLE completions) observed this sweep. */
+  partitionsBuilt: number | null;
+  /** Distinct rollup names built this sweep. */
+  rollupsBuilt: string[] | null;
 }
 
 // ── Live triggered-build progress (GET /api/preagg-runs/build-progress) ─────

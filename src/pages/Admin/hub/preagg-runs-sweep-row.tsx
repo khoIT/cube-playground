@@ -299,9 +299,29 @@ function DetailPanel({ items, gameFilter, onRetry, retryDisabled }: {
                       ? item.errorMessage.slice(0, 120) + '…'
                       : item.errorMessage}
                   </div>
+                ) : item.outcome === 'sealed' ? (
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1, lineHeight: 1.5 }}>
+                    {item.partitionsBuilt ? (
+                      <>
+                        <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          {item.partitionsBuilt} partition{item.partitionsBuilt === 1 ? '' : 's'}
+                          {' '}in {fmtDuration(item.buildMs)}
+                        </span>
+                        {item.rollupsBuilt && item.rollupsBuilt.length > 0 && (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, display: 'block' }}>
+                            {item.rollupsBuilt.join(' · ')}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      // Sealed by probe but no build lines in the window — the
+                      // refresh key matched, so the worker had nothing to write.
+                      'up to date — no partitions rebuilt'
+                    )}
+                  </div>
                 ) : (
                   <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1 }}>
-                    {item.outcome === 'sealed' ? 'refreshed this sweep' : 'no error captured'}
+                    no error captured
                   </div>
                 )}
                 {onRetry && item.game && RETRYABLE.has(item.outcome as Outcome) && (

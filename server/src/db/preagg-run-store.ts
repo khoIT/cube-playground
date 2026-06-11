@@ -49,6 +49,9 @@ interface RawItem {
   error_sig: string | null;
   error_message: string | null;
   observed_at: string | null;
+  build_ms: number | null;
+  partitions_built: number | null;
+  rollups_built: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +88,20 @@ function toItem(r: RawItem): PreaggSweepItem {
     errorSig: r.error_sig,
     errorMessage: r.error_message,
     observedAt: r.observed_at ?? new Date().toISOString(),
+    buildMs: r.build_ms,
+    partitionsBuilt: r.partitions_built,
+    rollupsBuilt: parseRollupsBuilt(r.rollups_built),
   };
+}
+
+function parseRollupsBuilt(raw: string | null): string[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]).map(String) : null;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -136,14 +152,23 @@ export function upsertSweep(
     const insertItem = db.prepare(
       `INSERT INTO preagg_sweep_item
          (sweep_id, game, cube, rollup, outcome, serveable,
-          last_sealed_at, error_sig, error_message, observed_at)
+          last_sealed_at, error_sig, error_message, observed_at,
+          build_ms, partitions_built, rollups_built)
        VALUES
          (@sweepId, @game, @cube, @rollup, @outcome, @serveable,
-          @lastSealedAt, @errorSig, @errorMessage, @observedAt)`,
+          @lastSealedAt, @errorSig, @errorMessage, @observedAt,
+          @buildMs, @partitionsBuilt, @rollupsBuilt)`,
     );
 
     for (const item of items) {
-      insertItem.run({ ...item, sweepId, serveable: item.serveable ? 1 : 0 });
+      insertItem.run({
+        ...item,
+        sweepId,
+        serveable: item.serveable ? 1 : 0,
+        buildMs: item.buildMs ?? null,
+        partitionsBuilt: item.partitionsBuilt ?? null,
+        rollupsBuilt: item.rollupsBuilt ? JSON.stringify(item.rollupsBuilt) : null,
+      });
     }
 
     return toSweep(row);

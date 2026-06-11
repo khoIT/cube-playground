@@ -95,7 +95,7 @@ async function runPass(container: string): Promise<void> {
         startedAt: parsedSweep.startedAt,
         endedAt: parsedSweep.endedAt,
         collectorStatus,
-      });
+      }, parsedSweep.builds);
       upsertSweep(db, sweep, items);
     }
   } else {

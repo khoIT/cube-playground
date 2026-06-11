@@ -73,6 +73,9 @@ function makeItemInput(sweepId: number, cube = 'active_daily'): PreaggSweepItemI
     errorSig: null,
     errorMessage: null,
     observedAt: '2026-06-10T07:06:00.000Z',
+    buildMs: null,
+    partitionsBuilt: null,
+    rollupsBuilt: null,
   };
 }
 

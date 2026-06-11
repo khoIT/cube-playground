@@ -47,6 +47,12 @@ export interface PreaggSweepItemInput {
   errorSig: string | null;
   errorMessage: string | null;
   observedAt: string;
+  /** Sum of partition-build durations observed for this game × cube (ms). */
+  buildMs: number | null;
+  /** Partition builds (CREATE TABLE completions) observed for this game × cube. */
+  partitionsBuilt: number | null;
+  /** Distinct rollup names built for this game × cube this sweep. */
+  rollupsBuilt: string[] | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,10 +84,25 @@ export interface ParsedFailure {
   ts: string;
 }
 
+/** One completed partition build observed in the log (CREATE TABLE line). */
+export interface ParsedBuild {
+  /** Schema short name from the table, e.g. 'cfm' in `preagg_cfm.…` —
+   *  maps to a probe game id by prefix (cfm → cfm_vn). */
+  schemaGame: string;
+  /** Cube + rollup split from preAggregationId. */
+  cube: string;
+  rollup: string;
+  /** Build duration in ms reported on the completed line. */
+  durationMs: number;
+  ts: string;
+}
+
 export interface ParsedSweep {
   /** ISO timestamp parsed from the sweep-start line */
   startedAt: string;
   /** ISO timestamp of the last line processed in this sweep window */
   endedAt: string;
   failures: ParsedFailure[];
+  /** Completed partition builds within this sweep window. */
+  builds: ParsedBuild[];
 }

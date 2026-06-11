@@ -148,3 +148,61 @@ describe('parseWorkerLog', () => {
     expect(sweep.startedAt).toBe('2026-06-10T07:00:00.000Z');
   });
 });
+
+// ---------------------------------------------------------------------------
+// parseWorkerLog — completed partition builds
+// ---------------------------------------------------------------------------
+
+const BUILD_COMPLETED = makeLine({
+  time: '2026-06-10T07:03:00.000Z',
+  message: 'Performing query completed',
+  duration: '8529',
+  preAggregationId: 'active_daily.dau_by_country_payer_daily_batch',
+  queuePrefix: 'SQL_PRE_AGGREGATIONS_orch_jus_default',
+  queryKey: "[['CREATE TABLE preagg_jus.active_daily_dau_by_country_payer_daily_batch20260601 AS SELECT",
+  newVersionEntry: { table_name: 'preagg_jus.active_daily_dau_by_country_payer_daily_batch20260601' },
+});
+
+const BUILD_SECOND_PARTITION = makeLine({
+  time: '2026-06-10T07:04:00.000Z',
+  message: 'Performing query completed',
+  duration: '1471',
+  preAggregationId: 'active_daily.dau_by_country_payer_daily_batch',
+  queuePrefix: 'SQL_PRE_AGGREGATIONS_orch_jus_default',
+  newVersionEntry: { table_name: 'preagg_jus.active_daily_dau_by_country_payer_daily_batch20260101' },
+});
+
+// Orchestrator metadata fetch — same message shape, must NOT count as a build.
+const CACHE_FETCH_NOISE = makeLine({
+  time: '2026-06-10T07:03:30.000Z',
+  message: 'Performing query completed',
+  duration: '13',
+  preAggregationId: 'active_daily.dau_by_country_payer_daily_batch',
+  queuePrefix: 'SQL_PRE_AGGREGATIONS_CACHE_orch_jus_default',
+  queryKey: 'Fetch tables for preagg_jus',
+});
+
+describe('parseWorkerLog — partition builds', () => {
+  it('collects completed builds with schema game, rollup split, and duration', () => {
+    const [sweep] = parseWorkerLog([SWEEP_START, BUILD_COMPLETED, BUILD_SECOND_PARTITION]);
+    expect(sweep.builds).toHaveLength(2);
+    expect(sweep.builds[0]).toMatchObject({
+      schemaGame: 'jus',
+      cube: 'active_daily',
+      rollup: 'dau_by_country_payer_daily_batch',
+      durationMs: 8529,
+    });
+    expect(sweep.builds[1].durationMs).toBe(1471);
+  });
+
+  it('ignores CACHE-queue metadata fetches that share the completed message', () => {
+    const [sweep] = parseWorkerLog([SWEEP_START, CACHE_FETCH_NOISE, BUILD_COMPLETED]);
+    expect(sweep.builds).toHaveLength(1);
+    expect(sweep.builds[0].durationMs).toBe(8529);
+  });
+
+  it('ignores builds outside a sweep window', () => {
+    const result = parseWorkerLog([BUILD_COMPLETED, SWEEP_START]);
+    expect(result[0].builds).toHaveLength(0);
+  });
+});
