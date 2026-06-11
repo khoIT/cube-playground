@@ -349,8 +349,25 @@ export function SweepRow({ sweep, items, expanded, onToggle, gameFilter }: Sweep
 
         {/* Timestamp */}
         <div style={{ width: 150, flexShrink: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
             {fmtTime(sweep.startedAt)}
+            {sweep.source === 'probe-snapshot' && (
+              <span
+                title="State sample taken by the readiness probe — no worker sweep ran in this window"
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  padding: '1px 6px',
+                  borderRadius: 'var(--radius-full)',
+                  background: 'var(--muted-soft)',
+                  color: 'var(--muted-ink)',
+                }}
+              >
+                probe
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             {fmtDatetime(sweep.startedAt)} GMT+7

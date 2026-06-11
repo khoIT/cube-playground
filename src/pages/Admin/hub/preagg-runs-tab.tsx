@@ -20,6 +20,7 @@ import { Database } from 'lucide-react';
 import { usePreaggRuns, useSweepDetail, useServeabilityNow, useTriggerStatus, useBuildProgress, triggerBuild } from './preagg-runs-data';
 import type { ServeabilityNow } from './preagg-runs-data';
 import { SweepRow } from './preagg-runs-sweep-row';
+import { PreaggReadinessMatrix } from './preagg-readiness-matrix';
 import { BuildProgressPanel } from './preagg-build-progress-panel';
 import type { PreaggSweepItem } from '../../../types/preagg-run';
 
@@ -294,6 +295,10 @@ export function PreaggRunsTab() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [gameFilter, setGameFilter] = useState<string | null>(null);
   const [triggerError, setTriggerError] = useState<string | null>(null);
+  // Probe snapshots are state samples (collector pass with no worker sweep in
+  // the log window), not worker activity — hidden by default so the history
+  // reads as "what the worker did".
+  const [showSnapshots, setShowSnapshots] = useState(false);
   const { sweep: detailSweep, items: detailItems } = useSweepDetail(expandedId);
 
   // Game options for the filter — sourced from the live probe (id + label).
@@ -306,16 +311,17 @@ export function PreaggRunsTab() {
   // (and the server's lingering window) keeps the finished checklist visible.
   const { progress: buildProgress } = useBuildProgress(buildRunning);
 
-  const handleRebuild = async () => {
+  const handleRebuild = async (game?: string) => {
     if (buildRunning) return;
-    if (!gameFilter) {
+    const target = game ?? gameFilter;
+    if (!target) {
       // Stay clickable when "All games" is selected, but explain rather than
       // rebuild every game at once (each is a multi-minute scoped sweep).
       setTriggerError('Pick a game in the filter above to rebuild its pre-aggregations.');
       return;
     }
     setTriggerError(null);
-    const err = await triggerBuild(gameFilter);
+    const err = await triggerBuild(target);
     if (err) setTriggerError(err);
     refetchTrigger();
   };
@@ -334,7 +340,10 @@ export function PreaggRunsTab() {
     return detailItems;
   };
 
-  const latest = sweeps[0] ?? null;
+  // Header/KPIs describe WORKER activity — skip probe snapshots, which would
+  // otherwise report a 0s "sweep" that never ran anything.
+  const latest = sweeps.find((s) => s.source === 'scheduled') ?? null;
+  const visibleSweeps = showSnapshots ? sweeps : sweeps.filter((s) => s.source === 'scheduled');
 
   if (error) {
     return (
@@ -365,9 +374,10 @@ export function PreaggRunsTab() {
             Refresh Runs
           </h2>
           <p style={{ margin: '5px 0 0', fontSize: 12.5, color: 'var(--text-muted)', maxWidth: 560, lineHeight: 1.45 }}>
-            History of the worker's hourly pre-aggregation sweeps. A failed sweep never
-            wipes the cache — old partitions keep serving — so this is where you catch
-            refreshes that <strong>silently fell behind</strong>.
+            Live rollup readiness per game (<strong>what still needs a build</strong>) plus the
+            worker's sweep history (<strong>what just ran</strong>). A failed sweep never wipes
+            the cache — old partitions keep serving — so this is where you catch refreshes
+            that silently fell behind.
           </p>
         </div>
         {latest && (
@@ -385,6 +395,17 @@ export function PreaggRunsTab() {
         loading={serveLoading}
         error={serveError}
         gameFilter={gameFilter}
+      />
+
+      {/* Rollup readiness matrix — current state per game × cube, with in-place
+          build actions. The sweep history below is the event log; this is the
+          "what still needs building" view. */}
+      <PreaggReadinessMatrix
+        games={serveability?.games ?? []}
+        generatedAt={serveability?.generatedAt ?? null}
+        triggerEnabled={triggerEnabled}
+        buildingGame={buildRunning ? triggerStatus?.state.game ?? null : null}
+        onBuild={(game) => void handleRebuild(game)}
       />
 
       {/* Stale banner — only when latest sweep has stale items */}
@@ -438,7 +459,18 @@ export function PreaggRunsTab() {
           }}
         >
           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Sweep history</span>
-          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>last 30 days · 1 row per hourly sweep</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>last 30 days · 1 row per worker sweep</span>
+
+          {/* Probe snapshots are point-in-time state samples, not runs — opt-in. */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showSnapshots}
+              onChange={(e) => setShowSnapshots(e.target.checked)}
+              style={{ accentColor: 'var(--brand)', margin: 0 }}
+            />
+            show probe snapshots
+          </label>
 
           {/* Game filter — scopes the now-strip + expanded detail rows. */}
           <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--text-muted)' }}>
@@ -468,7 +500,7 @@ export function PreaggRunsTab() {
           {triggerEnabled && (
             <button
               type="button"
-              onClick={handleRebuild}
+              onClick={() => void handleRebuild()}
               disabled={buildRunning}
               title={buildRunning ? 'A build is already running' : gameFilter ? `Rebuild ${gameFilter}'s pre-aggregations now` : 'Pick a game in the filter to rebuild'}
               style={{
@@ -521,13 +553,14 @@ export function PreaggRunsTab() {
 
         {loading && sweeps.length === 0 ? (
           <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
-        ) : sweeps.length === 0 ? (
+        ) : visibleSweeps.length === 0 ? (
           <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)' }}>
-            No sweep history yet. The collector will populate this once PREAGG_COLLECTOR_ENABLED=true
-            and the first pass completes.
+            {sweeps.length > 0
+              ? 'No worker sweeps in the window — only probe snapshots (tick the box above to see them). The worker may not have run a scheduled refresh yet.'
+              : 'No sweep history yet. The collector will populate this once PREAGG_COLLECTOR_ENABLED=true and the first pass completes.'}
           </div>
         ) : (
-          sweeps.map((sweep) => (
+          visibleSweeps.map((sweep) => (
             <SweepRow
               key={sweep.id}
               sweep={sweep}
