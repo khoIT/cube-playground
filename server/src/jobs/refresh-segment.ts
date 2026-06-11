@@ -263,6 +263,10 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       anchorCube ? logicalCube(anchorCube, prefix) : null,
     );
     const segmentFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
+    // Cube-level segments from the same stored query — every cohort-scoped
+    // query below (cards, tiers) must carry them, or it reports the
+    // unsegmented population while the size query (baseQuery) is scoped.
+    const cohortCubeSegments = parseCubeSegments(cubeQueryJson) ?? [];
 
     // LTV-tiered member sampling: rank the cohort by the preset's per-user LTV
     // measure and persist top/middle/bottom-50 subgroups (Members tab + the
@@ -275,6 +279,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
         identityDim: identity,
         ltvMeasure: preset.ltvMeasure,
         segmentFilters,
+        cubeSegments: cohortCubeSegments,
         totalCount,
         tokenOverride: token,
         prefix,
@@ -302,7 +307,7 @@ export async function refreshSegment(segmentId: string): Promise<void> {
         // list can be millions of entries; inlining it as an identity-IN filter
         // blows past Cube's query-text length limit (HTTP 400). The preset's
         // logical members are physicalized inside runPresetCards via `prefix`.
-        const entries = await runPresetCards(preset, segmentFilters, token, prefix);
+        const entries = await runPresetCards(preset, segmentFilters, token, prefix, cohortCubeSegments);
         upsertCardCache(segmentId, entries);
       } catch (err) {
         console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);

@@ -40,6 +40,8 @@ interface CubeQuery {
   }>;
   order?: Record<string, 'asc' | 'desc'>;
   filters?: CardFilter[];
+  /** Cube-level segments from the cohort definition (e.g. mf_users.whales). */
+  segments?: string[];
   limit?: number;
 }
 
@@ -100,7 +102,16 @@ function queryForCard(spec: CardSpec): CubeQuery {
  * job skips manual ones), so an empty predicate means all-users — the correct
  * unscoped result.
  */
-function scopeQuery(q: CubeQuery, segmentFilters: CardFilter[]): CubeQuery {
+function scopeQuery(
+  q: CubeQuery,
+  segmentFilters: CardFilter[],
+  cubeSegments: string[] = [],
+): CubeQuery {
+  // Cube-level segments scope independently of plain filters — attach them
+  // even when the predicate carries no filter leaves.
+  if (cubeSegments.length > 0) {
+    q = { ...q, segments: [...(q.segments ?? []), ...cubeSegments] };
+  }
   if (segmentFilters.length === 0) return q;
   // When the predicate already pins a date range on the very time dimension a
   // trend card rolls over, drop the card's own rolling window (`last 30
@@ -173,6 +184,12 @@ export async function runPresetCards(
    * Null on game_id workspaces → no-op.
    */
   prefix: string | null = null,
+  /**
+   * Cube-level segments from the segment's stored query (e.g. mf_users.whales).
+   * Scopes every card the same way the size query is scoped — without them a
+   * segment-scoped cohort's cards report the unsegmented population.
+   */
+  cubeSegments: string[] = [],
 ): Promise<CardCacheEntry[]> {
   const allSpecs: Array<{ id: string; query: CubeQuery }> = [];
 
@@ -194,7 +211,7 @@ export async function runPresetCards(
   const deadline = Date.now() + CARD_PHASE_BUDGET_MS;
 
   async function runOne({ id, query }: { id: string; query: CubeQuery }): Promise<CardCacheEntry> {
-    const scoped = scopeQuery(query, segmentFilters);
+    const scoped = scopeQuery(query, segmentFilters, cubeSegments);
     // Physicalize the logical preset members for prefix workspaces (idempotent:
     // already-physical predicate filters pass through), then logicalize response
     // row keys so the cached rows match the logical card spec the FE renders by.

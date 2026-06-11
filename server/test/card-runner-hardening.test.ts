@@ -151,3 +151,43 @@ describe('card-cache-store — status/error round-trip', () => {
     expect(cache['card:overview:c0'].rows).toEqual([{ v: 2 }]);
   });
 });
+
+describe('runPresetCards — cube-segment scoping', () => {
+  beforeEach(() => {
+    mockLoad.mockReset();
+  });
+
+  it('attaches cube segments to every issued card query', async () => {
+    mockLoad.mockResolvedValue({ data: [{ v: 1 }] });
+    await runPresetCards(
+      makePreset(2),
+      [{ member: 'mf_users.churn_risk', operator: 'equals', values: ['at_risk'] }],
+      undefined,
+      null,
+      ['mf_users.whales', 'mf_users.at_risk_paying'],
+    );
+    // 1 headline KPI + 2 cards — each load must carry the segments.
+    expect(mockLoad).toHaveBeenCalledTimes(3);
+    for (const call of mockLoad.mock.calls) {
+      const sent = call[0] as { segments?: string[]; filters?: unknown[] };
+      expect(sent.segments).toEqual(['mf_users.whales', 'mf_users.at_risk_paying']);
+      expect(sent.filters).toHaveLength(1);
+    }
+  });
+
+  it('attaches cube segments even with no predicate filters', async () => {
+    mockLoad.mockResolvedValue({ data: [{ v: 1 }] });
+    await runPresetCards(makePreset(1), [], undefined, null, ['mf_users.whales']);
+    for (const call of mockLoad.mock.calls) {
+      expect((call[0] as { segments?: string[] }).segments).toEqual(['mf_users.whales']);
+    }
+  });
+
+  it('omits the segments key when the cohort has none', async () => {
+    mockLoad.mockResolvedValue({ data: [{ v: 1 }] });
+    await runPresetCards(makePreset(1), [], undefined, null);
+    for (const call of mockLoad.mock.calls) {
+      expect(call[0] as object).not.toHaveProperty('segments');
+    }
+  });
+});

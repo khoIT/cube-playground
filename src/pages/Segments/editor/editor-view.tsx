@@ -15,6 +15,7 @@ import { RefreshBehaviourCard } from './refresh-behaviour-card';
 import { renderRoot } from './predicate-builder/predicate-group';
 import { simplifyPredicate } from '../../../QueryBuilderV2/segments-save-bar/simplify-predicate';
 import { usePredicateState, isTreeValid } from './hooks/use-predicate-state';
+import { parseCubeSegmentsFromQueryJson } from '../slice-scope/parse-cube-segments';
 import { usePreview } from './hooks/use-preview';
 import { WorkspaceRail } from './workspace-rail';
 import { WorkspacePreview } from './workspace-preview';
@@ -47,6 +48,11 @@ export function EditorView(): ReactElement {
   const [loaded, setLoaded] = useState(!id);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [savedTrend, setSavedTrend] = useState<number[]>([]);
+  // Cube-level segments riding in the stored query (e.g. mf_users.whales).
+  // They scope membership alongside the editable predicate but are named SQL
+  // snippets in the cube model — shown read-only, preserved by the server on
+  // every predicate edit.
+  const [cubeSegments, setCubeSegments] = useState<string[]>([]);
 
   const predicate = usePredicateState();
   const { step, setStep, goNext, goBack } = useStep(mode);
@@ -64,6 +70,7 @@ export function EditorView(): ReactElement {
         // Simplify on load so segments saved before the build-time resolver
         // (or hand-edited into verbose shapes) still render concise here.
         if (seg.predicate_tree) predicate.replaceTree(simplifyPredicate(seg.predicate_tree));
+        setCubeSegments(parseCubeSegmentsFromQueryJson(seg.cube_query_json));
         setSavedCount(seg.uid_count);
         setLoaded(true);
       })
@@ -214,6 +221,23 @@ export function EditorView(): ReactElement {
             )}
             {step === 'predicate' && (
               <>
+                {cubeSegments.length > 0 && (
+                  <div className={styles.sliceScopeBanner} role="note" style={{ marginBottom: 12 }}>
+                    <div className={styles.sliceScopeBody}>
+                      <span>
+                        {t('segments.editor.cubeSegmentsNote', {
+                          defaultValue:
+                            'Membership is also scoped by these cube segments from the originating query (defined in the data model — not editable here):',
+                        })}
+                      </span>
+                      <div className={styles.sliceScopeChips}>
+                        {cubeSegments.map((s) => (
+                          <span key={s} className={styles.sliceScopeChip}>{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {renderRoot(predicate.tree, {
                   toggleConj: predicate.toggleConj,
                   addLeaf: predicate.addLeaf,

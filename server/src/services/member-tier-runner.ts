@@ -35,6 +35,8 @@ interface TierQuery {
   dimensions: string[];
   measures: string[];
   filters?: TierFilter[];
+  /** Cube-level segments from the cohort definition (e.g. mf_users.whales). */
+  segments?: string[];
   order: Record<string, 'asc' | 'desc'>;
   limit: number;
   offset?: number;
@@ -48,6 +50,9 @@ export interface ComputeMemberTiersArgs {
   ltvMeasure: string;
   /** The segment's predicate filters from its stored cube_query_json. */
   segmentFilters: TierFilter[];
+  /** Cube-level segments from the same stored query — scope the ranking the
+   *  same way membership is scoped, or tiers sample the wrong population. */
+  cubeSegments?: string[];
   /** True cohort size from the refresh's `total: true` size query. */
   totalCount: number;
   tokenOverride?: string;
@@ -74,7 +79,7 @@ function toLtv(value: unknown): number | null {
 export async function computeMemberTiers(
   args: ComputeMemberTiersArgs,
 ): Promise<MemberTiers | null> {
-  const { identityDim, ltvMeasure, segmentFilters, totalCount, tokenOverride, prefix } = args;
+  const { identityDim, ltvMeasure, segmentFilters, cubeSegments, totalCount, tokenOverride, prefix } = args;
   if (totalCount <= 0) return null;
 
   // One row per user: group by the identity dim, aggregate the LTV measure.
@@ -88,6 +93,7 @@ export async function computeMemberTiers(
       limit,
     };
     if (segmentFilters.length > 0) q.filters = segmentFilters;
+    if (cubeSegments && cubeSegments.length > 0) q.segments = cubeSegments;
     if (offset && offset > 0) q.offset = offset;
     return q;
   }

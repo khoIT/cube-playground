@@ -174,3 +174,28 @@ describe('computeMemberTiers', () => {
     ]);
   });
 });
+
+describe('computeMemberTiers — cube-segment scoping', () => {
+  beforeEach(() => {
+    mockLoad.mockReset();
+  });
+
+  it('attaches cube segments to every tier query', async () => {
+    mockLoad.mockImplementation(async (q: unknown) => {
+      const query = q as SentQuery;
+      if (query.order[LTV] === 'asc') return rows(TIER_SIZE, { uidPrefix: 'bot', ltvStart: 0 });
+      if (query.offset) return rows(TIER_SIZE, { uidPrefix: 'mid', ltvStart: 500 });
+      return rows(TIER_SIZE, { uidPrefix: 'top', ltvStart: 99_999 });
+    });
+
+    const result = await computeMemberTiers({
+      ...baseArgs(10_000),
+      cubeSegments: ['mf_users.whales'],
+    });
+    expect(result).not.toBeNull();
+    expect(mockLoad).toHaveBeenCalledTimes(3);
+    for (const call of mockLoad.mock.calls) {
+      expect((call[0] as { segments?: string[] }).segments).toEqual(['mf_users.whales']);
+    }
+  });
+});
