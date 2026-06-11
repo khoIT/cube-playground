@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 
 import { getMeta } from './cube-client.js';
 import { getVersion } from './meta-cache.js';
+import { parseCubeSegments } from './cube-query-segments.js';
 import { treeToCubeFilters } from './translator.js';
 import type { CubeFilter, PredicateNode } from '../types/predicate-tree.js';
 
@@ -48,6 +49,7 @@ interface MetaCube {
   name: string;
   dimensions?: MetaDim[];
   measures?: MetaDim[];
+  segments?: MetaDim[];
 }
 interface MetaResponse {
   cubes?: MetaCube[];
@@ -73,6 +75,12 @@ function collectKnownMembers(meta: MetaResponse): Set<string> {
 export interface SegmentLike {
   predicate_tree_json: string | null;
   predicate_meta_version: string | null;
+  /**
+   * Stored query blob — carries the cube-segment sidecar (e.g. mf_users.whales)
+   * so a segment removed from the cube model is caught here as explicit drift
+   * instead of failing /load with an opaque Cube error.
+   */
+  cube_query_json?: string | null;
 }
 
 export async function resolveDrift(
@@ -109,7 +117,18 @@ export async function resolveDrift(
   const meta = (scopedMeta ?? ((await getMeta(tokenOverride)) as MetaResponse)) as MetaResponse;
   const known = collectKnownMembers(meta);
 
-  const missing = [...referenced].filter((m) => !known.has(m));
+  // Cube-segment sidecar: each must still exist as a named segment in /meta.
+  // A removed one is non-rehydratable drift (its SQL lived in the model) — the
+  // suffix tells the operator what kind of member vanished.
+  const knownSegments = new Set<string>();
+  for (const cube of meta.cubes ?? []) {
+    for (const s of cube.segments ?? []) knownSegments.add(s.name);
+  }
+  const missingCubeSegments = (parseCubeSegments(segment.cube_query_json) ?? [])
+    .filter((s) => !knownSegments.has(s))
+    .map((s) => `${s} (cube segment)`);
+
+  const missing = [...[...referenced].filter((m) => !known.has(m)), ...missingCubeSegments];
   if (missing.length > 0) {
     return {
       drifted: true,

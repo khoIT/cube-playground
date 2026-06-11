@@ -107,6 +107,9 @@ export async function refreshSegment(segmentId: string): Promise<void> {
         {
           predicate_tree_json: row.predicate_tree_json,
           predicate_meta_version: row.predicate_meta_version,
+          // Lets the resolver flag cube segments removed from the model as
+          // explicit drift ("… (cube segment)") instead of an opaque /load error.
+          cube_query_json: row.cube_query_json,
         },
         token,
       );

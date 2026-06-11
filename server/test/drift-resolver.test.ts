@@ -51,6 +51,56 @@ describe('resolveDrift', () => {
     }
   });
 
+  it('rehydrates when sidecar cube segments still exist in meta', async () => {
+    vi.spyOn(metaCache, 'getVersion').mockResolvedValue({ hash: 'new', fetchedAt: Date.now() });
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue({
+      cubes: [{
+        name: 'mf_users',
+        dimensions: [
+          { name: 'mf_users.country' },
+          { name: 'mf_users.total_spend' },
+        ],
+        segments: [{ name: 'mf_users.whales' }],
+      }],
+    } as never);
+    const out = await resolveDrift({
+      predicate_tree_json: JSON.stringify(tree),
+      predicate_meta_version: 'old',
+      cube_query_json: JSON.stringify({ filters: [], segments: ['mf_users.whales'] }),
+    });
+    expect(out.drifted).toBe(true);
+    if (!(out.drifted && out.rehydrated)) throw new Error('expected rehydrated=true');
+  });
+
+  it('returns broken=true when a sidecar cube segment was removed from the model', async () => {
+    vi.spyOn(metaCache, 'getVersion').mockResolvedValue({ hash: 'new', fetchedAt: Date.now() });
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue({
+      cubes: [{
+        name: 'mf_users',
+        dimensions: [
+          { name: 'mf_users.country' },
+          { name: 'mf_users.total_spend' },
+        ],
+        // whales no longer defined in the model
+        segments: [{ name: 'mf_users.at_risk_paying' }],
+      }],
+    } as never);
+    const out = await resolveDrift({
+      predicate_tree_json: JSON.stringify(tree),
+      predicate_meta_version: 'old',
+      cube_query_json: JSON.stringify({
+        filters: [],
+        segments: ['mf_users.whales', 'mf_users.at_risk_paying'],
+      }),
+    });
+    expect(out.drifted).toBe(true);
+    if (out.drifted && !out.rehydrated) {
+      expect(out.missingMembers).toEqual(['mf_users.whales (cube segment)']);
+    } else {
+      throw new Error('expected rehydrated=false');
+    }
+  });
+
   it('returns broken=true when a referenced member disappeared', async () => {
     vi.spyOn(metaCache, 'getVersion').mockResolvedValue({ hash: 'new', fetchedAt: Date.now() });
     vi.spyOn(cubeClient, 'getMeta').mockResolvedValue({

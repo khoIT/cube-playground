@@ -667,6 +667,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A derived artifact rebuilt from a narrower representation silently drops what the narrow form can't express
+
+- **Rule:** when a stored artifact (`cube_query_json`) is *derived* from a canonical form (the predicate tree) but also carries data the canonical form cannot represent (cube-level `segments` — named SQL snippets, not member/op/values filters), EVERY code path that regenerates the artifact must explicitly re-attach that sidecar. Audit all rebuild sites (create, update, drift rehydration), not just the create path.
+- **Why:** saving a Live segment from a playground query with `segments: [mf_users.whales]` captured only the tree-expressible filters; the first cadence refresh re-ran the rebuilt query and silently widened membership from "at-risk whales" to "all at-risk users". No error anywhere — counts just grew. Same drop repeated in two more places: the PATCH route rebuilding on predicate edit, and drift rehydration rebuilding on schema change. Fixed by a `segments` sidecar in cube_query_json + `withCubeSegments`/`parseCubeSegments` helpers at all three rebuild sites; drift resolver also validates sidecar segments against `/meta` so a segment deleted from the model marks the segment broken with "`… (cube segment)`" instead of an opaque /load error.
+- **Signal:** a refreshed/regenerated artifact loses a property that was present at creation; membership/result counts widen after the first refresh with no error; the feature works in one save mode (static snapshot honored segments via `buildExpansionQuery`) but not its twin (Live).
+- **Apply:** grep for every site that serializes the artifact (`JSON.stringify({ filters`) and route all of them through one attach-helper; write a test per rebuild site asserting the sidecar survives. If the sidecar references model objects, extend the drift/existence check to cover them so removal fails loud.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
