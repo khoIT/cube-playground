@@ -24,26 +24,48 @@ const TONE: Record<ProbeCubeResult['status'], React.CSSProperties> = {
   error:   { background: 'var(--destructive-soft)', color: 'var(--destructive-ink)' },
 };
 
+/** Compact relative age — "3h", "2d" — for the seal timestamp under a cell. */
+function sealAge(iso: string): string {
+  const ms = Date.now() - Date.parse(iso);
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const m = Math.floor(ms / 60_000);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
 function CellChip({ result }: { result: ProbeCubeResult | undefined }) {
   if (!result) {
     return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>;
   }
+  const age = result.lastSealedAt ? sealAge(result.lastSealedAt) : null;
   return (
-    <span
-      title={result.message ?? `${result.cube}: ${result.status}`}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        height: 20,
-        padding: '0 8px',
-        borderRadius: 'var(--radius-full)',
-        fontSize: 10.5,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        ...TONE[result.status],
-      }}
-    >
-      {result.status}
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
+      <span
+        title={result.message ?? `${result.cube}: ${result.status}`}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          height: 20,
+          padding: '0 8px',
+          borderRadius: 'var(--radius-full)',
+          fontSize: 10.5,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          ...TONE[result.status],
+        }}
+      >
+        {result.status}
+      </span>
+      {age && (
+        <span
+          title={`last sealed ${new Date(result.lastSealedAt as string).toLocaleString('en-GB')}`}
+          style={{ fontSize: 9.5, color: 'var(--text-muted)', paddingLeft: 2 }}
+        >
+          sealed {age} ago
+        </span>
+      )}
     </span>
   );
 }

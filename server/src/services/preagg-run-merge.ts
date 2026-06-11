@@ -143,7 +143,11 @@ export function mergeSweep(
         rollup: rollup || null,
         outcome,
         serveable,
-        lastSealedAt: null, // not available from info-level logs; future enhancement
+        // Exact per-partition seal times aren't in info-level logs, but a
+        // 'sealed' outcome means the rollup was refreshed within THIS sweep —
+        // the sweep's observation time is the seal time to sweep precision.
+        // Feeds latestSealedByGameCube → the matrix's "sealed Xh ago" cells.
+        lastSealedAt: outcome === 'sealed' ? now : null,
         errorSig: failure?.errorSig ?? null,
         errorMessage: failure?.errorMessage ?? null,
         observedAt: now,

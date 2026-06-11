@@ -14,7 +14,7 @@ import type { FastifyInstance } from 'fastify';
 import { requireRole } from '../middleware/require-role.js';
 import { requireFeature } from '../middleware/require-feature.js';
 import { getDb } from '../db/sqlite.js';
-import { listSweeps, getSweepWithItems } from '../db/preagg-run-store.js';
+import { listSweeps, getSweepWithItems, latestSealedByGameCube } from '../db/preagg-run-store.js';
 import { getPreaggReadinessNonBlocking } from '../services/preagg-readiness.js';
 import { getDefaultWorkspace } from '../services/workspaces-config-loader.js';
 import { getCollectorStatus } from '../services/preagg-run-collector.js';
@@ -74,10 +74,24 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
     const totalRollups = totalBuilt + totalUnbuilt + totalErrored;
     const gamesCount = readiness.games.length;
 
+    // The probe only classifies built/unbuilt; seal TIMES live in sweep
+    // history. Attach the most recent known seal per (game, cube) so the
+    // readiness matrix can show "last sealed Xh ago" on each cell.
+    const sealMap = new Map(
+      latestSealedByGameCube(getDb()).map((s) => [`${s.game}|${s.cube}`, s.lastSealedAt]),
+    );
+    const games = readiness.games.map((g) => ({
+      ...g,
+      cubes: g.cubes.map((c) => ({
+        ...c,
+        lastSealedAt: sealMap.get(`${g.id}|${c.cube}`) ?? null,
+      })),
+    }));
+
     return {
       generatedAt: readiness.generatedAt,
       note: readiness.note ?? null,
-      games: readiness.games,
+      games,
       summary: {
         gamesCount,
         totalRollups,

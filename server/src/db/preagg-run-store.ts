@@ -166,6 +166,28 @@ export function listSweeps(db: Database.Database, limit = 30): PreaggSweep[] {
   return rows.map(toSweep);
 }
 
+/**
+ * Most recent known seal time per (game, cube) across all retained sweeps.
+ * Feeds the readiness matrix's "last sealed" ages — the live probe only says
+ * built/unbuilt; the seal timestamps live in sweep history.
+ */
+export function latestSealedByGameCube(
+  db: Database.Database,
+): Array<{ game: string; cube: string; lastSealedAt: string }> {
+  return db
+    .prepare(
+      `SELECT game, cube, MAX(last_sealed_at) AS last_sealed_at
+         FROM preagg_sweep_item
+        WHERE last_sealed_at IS NOT NULL AND game IS NOT NULL AND cube IS NOT NULL
+        GROUP BY game, cube`,
+    )
+    .all()
+    .map((r) => {
+      const row = r as { game: string; cube: string; last_sealed_at: string };
+      return { game: row.game, cube: row.cube, lastSealedAt: row.last_sealed_at };
+    });
+}
+
 /** Fetch a single sweep with all its items. Returns null if not found. */
 export function getSweepWithItems(
   db: Database.Database,

@@ -28,6 +28,8 @@ export interface ProbeCubeResult {
   cube: string;
   status: 'built' | 'unbuilt' | 'error';
   message?: string;
+  /** Most recent seal observed in sweep history for this game × cube. */
+  lastSealedAt?: string | null;
 }
 
 export interface GameReadinessSummary {

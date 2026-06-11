@@ -15,6 +15,7 @@ import {
   listSweeps,
   getLatestSweep,
   getSweepWithItems,
+  latestSealedByGameCube,
   pruneOlderThan,
 } from '../src/db/preagg-run-store.js';
 import type { PreaggSweepInput, PreaggSweepItemInput } from '../src/types/preagg-run.js';
@@ -133,6 +134,26 @@ describe('upsertSweep', () => {
 // ---------------------------------------------------------------------------
 // listSweeps
 // ---------------------------------------------------------------------------
+
+describe('latestSealedByGameCube', () => {
+  it('returns the newest seal per (game, cube) across sweeps, ignoring null seals', () => {
+    const s1 = upsertSweep(db, makeSweepInput('2026-06-10T05:00:00.000Z'), [
+      { ...makeItemInput(0), lastSealedAt: '2026-06-10T04:55:00.000Z' },
+      { ...makeItemInput(0, 'mf_users'), lastSealedAt: null }, // never sealed → excluded
+    ]);
+    void s1;
+    upsertSweep(db, makeSweepInput('2026-06-10T07:00:00.000Z'), [
+      { ...makeItemInput(0), lastSealedAt: '2026-06-10T06:58:00.000Z' }, // newer seal wins
+      { ...makeItemInput(0, 'mf_users'), game: 'jus_vn', lastSealedAt: '2026-06-10T06:30:00.000Z' },
+    ]);
+
+    const seals = latestSealedByGameCube(db);
+    const byKey = new Map(seals.map((s) => [`${s.game}|${s.cube}`, s.lastSealedAt]));
+    expect(byKey.get('cfm_vn|active_daily')).toBe('2026-06-10T06:58:00.000Z');
+    expect(byKey.get('jus_vn|mf_users')).toBe('2026-06-10T06:30:00.000Z');
+    expect(byKey.has('cfm_vn|mf_users')).toBe(false);
+  });
+});
 
 describe('listSweeps', () => {
   it('returns sweeps newest first', () => {

@@ -568,6 +568,8 @@ export function PreaggRunsTab() {
               expanded={expandedId === sweep.id}
               onToggle={() => setExpandedId(expandedId === sweep.id ? null : sweep.id)}
               gameFilter={gameFilter}
+              onRetry={triggerEnabled ? (game) => void handleRebuild(game) : undefined}
+              retryDisabled={buildRunning}
             />
           ))
         )}

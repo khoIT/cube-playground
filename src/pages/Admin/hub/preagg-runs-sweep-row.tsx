@@ -145,7 +145,10 @@ function fmtDatetime(iso: string): string {
   }
 }
 
-const OUTCOME_ORDER: Outcome[] = ['stale_serving', 'failed', 'unbuilt', 'sealed'];
+// Detail shows what the sweep ATTEMPTED — problems first, then successes.
+// 'unbuilt' items are ambient state (never attempted), owned by the readiness
+// matrix above; listing them per-sweep just repeats the same rows every hour.
+const OUTCOME_ORDER: Outcome[] = ['stale_serving', 'failed', 'sealed'];
 
 const GROUP_LABEL: Record<Outcome, string> = {
   stale_serving: 'Stale-serving — refresh failed, old cache still answering',
@@ -154,6 +157,9 @@ const GROUP_LABEL: Record<Outcome, string> = {
   sealed:        'Sealed',
 };
 
+/** Problem outcomes get a retry CTA (scoped rebuild of the item's game). */
+const RETRYABLE: ReadonlySet<Outcome> = new Set(['stale_serving', 'failed']);
+
 // ---------------------------------------------------------------------------
 // Expanded detail panel
 // ---------------------------------------------------------------------------
@@ -161,7 +167,13 @@ const GROUP_LABEL: Record<Outcome, string> = {
 // Shared 4-column track: game · cube/rollup · outcome · detail.
 const ITEM_GRID = '96px minmax(180px, 1.4fr) 124px 2fr';
 
-function DetailPanel({ items, gameFilter }: { items: PreaggSweepItem[]; gameFilter: string | null }) {
+function DetailPanel({ items, gameFilter, onRetry, retryDisabled }: {
+  items: PreaggSweepItem[];
+  gameFilter: string | null;
+  /** Scoped rebuild of one game (the build trigger); absent ⇒ no CTA shown. */
+  onRetry?: (game: string) => void;
+  retryDisabled?: boolean;
+}) {
   const visible = gameFilter ? items.filter((i) => i.game === gameFilter) : items;
 
   const grouped = OUTCOME_ORDER.reduce<Record<Outcome, PreaggSweepItem[]>>(
@@ -265,32 +277,58 @@ function DetailPanel({ items, gameFilter }: { items: PreaggSweepItem[]; gameFilt
               {/* Outcome chip */}
               <OutcomeChip outcome={item.outcome as Outcome} />
 
-              {/* Error message or ok note */}
-              {item.errorMessage ? (
-                <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                  <code
+              {/* Error message or ok note, with a retry CTA on problem rows */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {item.errorMessage ? (
+                  <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.45, flex: 1 }}>
+                    <code
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 10.5,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-card)',
+                        padding: '1px 5px',
+                        borderRadius: 4,
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      {item.errorSig ?? 'error'}
+                    </code>
+                    {' '}
+                    {item.errorMessage.length > 120
+                      ? item.errorMessage.slice(0, 120) + '…'
+                      : item.errorMessage}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1 }}>
+                    {item.outcome === 'sealed' ? 'refreshed this sweep' : 'no error captured'}
+                  </div>
+                )}
+                {onRetry && item.game && RETRYABLE.has(item.outcome as Outcome) && (
+                  <button
+                    type="button"
+                    disabled={retryDisabled}
+                    onClick={() => onRetry(item.game as string)}
+                    title={retryDisabled ? 'A build is already running' : `Rebuild ${item.game}'s pre-aggregations now`}
                     style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 10.5,
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border-card)',
-                      padding: '1px 5px',
-                      borderRadius: 4,
-                      color: 'var(--text-muted)',
+                      flexShrink: 0,
+                      height: 22,
+                      padding: '0 9px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      fontFamily: 'var(--font-sans)',
+                      color: 'var(--brand)',
+                      background: 'var(--brand-soft)',
+                      border: '1px solid var(--brand)',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: retryDisabled ? 'not-allowed' : 'pointer',
+                      opacity: retryDisabled ? 0.5 : 1,
                     }}
                   >
-                    {item.errorSig ?? 'error'}
-                  </code>
-                  {' '}
-                  {item.errorMessage.length > 120
-                    ? item.errorMessage.slice(0, 120) + '…'
-                    : item.errorMessage}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                  {item.outcome === 'sealed' ? 'refreshed this sweep' : 'no error captured'}
-                </div>
-              )}
+                    Retry
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -303,15 +341,18 @@ function DetailPanel({ items, gameFilter }: { items: PreaggSweepItem[]; gameFilt
 // SweepRow — public export
 // ---------------------------------------------------------------------------
 
-interface SweepRowProps {
+export interface SweepRowProps {
   sweep: PreaggSweep;
   items: PreaggSweepItem[] | null; // null = not yet loaded
   expanded: boolean;
   onToggle: () => void;
   gameFilter: string | null; // null = all games
+  /** Scoped rebuild of one game — shown as a Retry CTA on failed items. */
+  onRetry?: (game: string) => void;
+  retryDisabled?: boolean;
 }
 
-export function SweepRow({ sweep, items, expanded, onToggle, gameFilter }: SweepRowProps) {
+export function SweepRow({ sweep, items, expanded, onToggle, gameFilter, onRetry, retryDisabled }: SweepRowProps) {
   return (
     <div style={{ borderBottom: '1px solid var(--border-card)' }}>
       {/* Collapsed header row */}
@@ -383,8 +424,9 @@ export function SweepRow({ sweep, items, expanded, onToggle, gameFilter }: Sweep
           {sweep.gamesCount} games · {sweep.rollupsTotal} rollups
         </div>
 
-        {/* Count chips */}
-        <div style={{ display: 'flex', gap: 7, flex: 1, flexWrap: 'wrap' }}>
+        {/* Count chips — only what this sweep ATTEMPTED. Unbuilt is ambient
+            state (it shows in the readiness matrix), not run output. */}
+        <div style={{ display: 'flex', gap: 7, flex: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {sweep.sealedCount > 0 && (
             <CountChip label={`${sweep.sealedCount} sealed`} variant="ok" />
           )}
@@ -394,14 +436,18 @@ export function SweepRow({ sweep, items, expanded, onToggle, gameFilter }: Sweep
           {sweep.failedCount > 0 && (
             <CountChip label={`${sweep.failedCount} failed`} variant="fail" />
           )}
-          {sweep.unbuiltCount > 0 && (
-            <CountChip label={`${sweep.unbuiltCount} unbuilt`} variant="unb" />
+          {sweep.sealedCount === 0 && sweep.staleCount === 0 && sweep.failedCount === 0 && (
+            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+              nothing to refresh — all partitions current
+            </span>
           )}
         </div>
       </div>
 
       {/* Expanded detail */}
-      {expanded && items && <DetailPanel items={items} gameFilter={gameFilter} />}
+      {expanded && items && (
+        <DetailPanel items={items} gameFilter={gameFilter} onRetry={onRetry} retryDisabled={retryDisabled} />
+      )}
       {expanded && !items && (
         <div
           style={{
