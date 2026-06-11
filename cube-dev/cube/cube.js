@@ -275,10 +275,22 @@ module.exports = {
   contextToAppId: ({ securityContext }) =>
     `cube_${gameFor(securityContext)}`,
 
-  // 3. Per-tenant orchestrator. Pre-aggregation storage in Cube Store is
-  //    keyed by orchestratorId, so each game gets its own rollup namespace.
+  // 3. Per-tenant orchestrator. Isolates each game's query queues and
+  //    refresh scheduling state.
   contextToOrchestratorId: ({ securityContext }) =>
     `orch_${gameFor(securityContext)}`,
+
+  // 3b. Per-tenant pre-aggregation schema in Cube Store. orchestratorId does
+  //     NOT namespace rollup tables — table identity is the pre-agg name plus
+  //     a hash of the compiled loadSql, and because every game's YAML is
+  //     identical text with bare sql_table values (the Trino schema only
+  //     exists in the driver connection, never in the SQL), tenants compile
+  //     byte-identical loadSql and collide on the SAME table in a shared
+  //     schema. Whichever game the refresh worker builds first wins and every
+  //     other game silently reads its data. A per-game schema makes the
+  //     collision impossible.
+  preAggregationsSchema: ({ securityContext }) =>
+    `preagg_${gameFor(securityContext)}`,
 
   // 4. Per-tenant Trino driver. Same catalog, swap the schema. Existing
   //    cube YAMLs use bare sql_table values, so this is the only place the

@@ -244,7 +244,7 @@ services:
       CUBEJS_DB_SSL: ${CUBEJS_DB_SSL:-true}
       # Must match cube_api so both sides agree on the model compile context.
       CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
-      # Writes prod_pre_aggregations.* into the same CubeStore the API reads.
+      # Writes per-game preagg_<game>.* rollups into the same CubeStore the API reads.
       CUBEJS_CUBESTORE_HOST: cubestore
       CUBEJS_CUBESTORE_PORT: "3030"
       # Bound the first backfill fan-out against Trino (games × rollups × ~29

@@ -676,6 +676,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### Identical multi-tenant YAML + shared pre-agg schema = every game silently reads one game's rollup
+
+- **Rule:** in a multi-tenant Cube deployment where tenants share model text (same YAML per game dir) and the tenant difference lives only in the driver connection (bare `sql_table`, schema swapped in `driverFactory`), you MUST set a per-tenant `preAggregationsSchema`. `contextToAppId` / `contextToOrchestratorId` do NOT namespace CubeStore tables — pre-agg table identity is `<schema>.<cube>_<preagg>_<hash>` where the hash covers the compiled loadSql, and byte-identical YAML compiles byte-identical loadSql (the Trino schema never appears in the SQL text). All tenants resolve to the SAME table; whichever the refresh worker builds first wins and every other tenant reads its data with no error.
+- **Why:** on prod, `active_daily.total_online_time_sec` by `os_platform` for jus_vn returned android-dominant numbers (android 1.75B / ios 1.34B / pc 63K) that were exactly ballistar_vn's source aggregation — jus_vn's real split is pc-dominant (pc 5.78B / ios 3.26B / na 3.11B). Probing the same query across tenants returned identical rows for ballistar/jus/muaw/pubg. The discrepancy only surfaced because adding `mf_users.user_count` pushed the query off the rollup to raw Trino (correct schema), making the two paths visibly disagree. tf escaped only because its YAML had drifted (different hash → own table); cfm/cros had no matching partitions and errored instead.
+- **Signal:** a rollup-served query returns numbers whose *shape* belongs to another game (wrong dominant platform/country/magnitude); the same query returns byte-identical results under different tenant headers; adding any cross-cube member (forcing raw-source SQL) "changes" the answer — the raw path is the correct one.
+- **Apply:** `preAggregationsSchema: ({ securityContext }) => \`preagg_${gameFor(securityContext)}\`` in cube.js, then rebuild rollups per game. To verify a suspected collision: run the identical query with 2+ tenant headers and diff results, then compare each against a direct Trino aggregation of that tenant's schema.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
