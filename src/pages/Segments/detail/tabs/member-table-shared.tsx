@@ -6,11 +6,73 @@
  */
 
 import { ReactElement } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { formatValue } from '../cards/format-value';
 import { memberColumnField } from './use-member-dim-rows';
 import type { MemberColumnSpec } from '../../presets/types';
 import styles from '../../segments.module.css';
+
+/** The preset memberColumn that carries the friendly identity (in-game name).
+ *  It renders inside the identity cell, not as a separate data column. */
+const NAME_COLUMN_ID = 'name';
+
+/** Split the in-game-name column (when the preset/game models one) from the
+ *  ordinary data columns: the name feeds the identity cell, the rest render
+ *  as regular enrichment columns. */
+export function splitNameColumn(columns: MemberColumnSpec[]): {
+  nameField: string | null;
+  dataColumns: MemberColumnSpec[];
+} {
+  const nameCol = columns.find((c) => c.id === NAME_COLUMN_ID);
+  return {
+    nameField: nameCol ? memberColumnField(nameCol) : null,
+    dataColumns: columns.filter((c) => c.id !== NAME_COLUMN_ID),
+  };
+}
+
+/**
+ * Identity cell shared by both member tables. The in-game name is the primary,
+ * 360-linked line (friendlier than a snowflake uid); the uid drops to a small
+ * mono secondary line. Games without a name dim keep the uid as the primary
+ * link — exact prior behavior.
+ */
+export function MemberIdentityCell({
+  uid,
+  name,
+  segmentId,
+  member360Enabled,
+  linkTitle,
+}: {
+  uid: string;
+  name: string | null;
+  segmentId: string;
+  member360Enabled: boolean;
+  linkTitle: string;
+}): ReactElement {
+  const primary = name ?? uid;
+  const link = member360Enabled ? (
+    <Link
+      to={`/segments/${segmentId}/members/${encodeURIComponent(uid)}`}
+      style={{ color: 'var(--brand)', textDecoration: 'none', fontWeight: name ? 600 : 400 }}
+      title={linkTitle}
+    >
+      {primary}
+    </Link>
+  ) : (
+    <span style={{ fontWeight: name ? 600 : 400 }}>{primary}</span>
+  );
+  return (
+    <td style={{ fontFamily: name ? 'var(--font-sans)' : 'var(--font-mono)' }}>
+      {link}
+      {name && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+          {uid}
+        </div>
+      )}
+    </td>
+  );
+}
 
 export type SortDir = 'asc' | 'desc';
 

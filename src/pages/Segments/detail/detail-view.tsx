@@ -1,4 +1,4 @@
-/** Segment detail — header, KPI strip, 5-tab strip (Insights default), tab bodies. */
+/** Segment detail — header, KPI strip, 5-tab strip (Members first, Insights default), tab bodies. */
 
 import { ReactElement, useEffect, useState, ReactNode } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
@@ -32,7 +32,7 @@ import { HeadlineStatsRow } from './components/headline-stats-row';
 import { SegmentHealthPill } from '../status/segment-health-pill';
 import styles from '../segments.module.css';
 
-const BASE_TABS: DetailTabId[] = ['insights', 'members', 'monitor', 'definition', 'activation'];
+const BASE_TABS: DetailTabId[] = ['members', 'insights', 'monitor', 'definition', 'activation'];
 
 const TAB_ICONS: Record<DetailTabId, ReactNode> = {
   monitor: <Activity size={14} aria-hidden />,

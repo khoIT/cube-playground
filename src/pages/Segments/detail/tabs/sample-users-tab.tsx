@@ -14,16 +14,17 @@ import { ReactElement, useMemo, useState } from 'react';
 import { Button, Input } from 'antd';
 import { Download, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
 import { useMemberDimRows, memberColumnField } from './use-member-dim-rows';
 import { hasMember360 } from '../../member360/member360-panels';
 import { Member360UnavailableChip } from '../../member360/member360-unavailable-chip';
 import {
+  MemberIdentityCell,
   SortableHeader,
   SortState,
   columnsWithData,
+  splitNameColumn,
   compareValues,
   downloadCsv,
   formatCell,
@@ -86,10 +87,12 @@ function RandomSampleFallback({ segment, preset }: Props): ReactElement {
   const { byUid, loading: dimsLoading, columns: rawColumns } = useMemberDimRows(segment, preset, pageRows);
   // Drop columns that came back empty for every visible row (silent query
   // failure / dim not resolvable for this game) — no dead all-dash columns.
-  const columns = useMemo(
-    () => columnsWithData(rawColumns, byUid, pageRows, dimsLoading),
+  // The in-game-name column renders inside the identity cell, not as a column.
+  const { nameField, dataColumns } = useMemo(
+    () => splitNameColumn(columnsWithData(rawColumns, byUid, pageRows, dimsLoading)),
     [rawColumns, byUid, pageRows, dimsLoading],
   );
+  const columns = dataColumns;
   const hasDims = columns.length > 0;
   const member360Enabled = hasMember360(segment.game_id);
 
@@ -204,19 +207,13 @@ function RandomSampleFallback({ segment, preset }: Props): ReactElement {
                 <td style={{ width: 56, color: 'var(--text-muted)' }}>
                   {safePage * PAGE_SIZE + idx + 1}
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>
-                  {member360Enabled ? (
-                    <Link
-                      to={`/segments/${segment.id}/members/${encodeURIComponent(uid)}`}
-                      style={{ color: 'var(--brand)', textDecoration: 'none' }}
-                      title={t('segments.member360.openTooltip', { defaultValue: 'Open 360 profile' })}
-                    >
-                      {uid}
-                    </Link>
-                  ) : (
-                    uid
-                  )}
-                </td>
+                <MemberIdentityCell
+                  uid={uid}
+                  name={nameField ? ((dimRow?.[nameField] as string | undefined) ?? null) : null}
+                  segmentId={segment.id}
+                  member360Enabled={member360Enabled}
+                  linkTitle={t('segments.member360.openTooltip', { defaultValue: 'Open 360 profile' })}
+                />
                 {columns.map((c) => (
                   <td key={c.id} className={styles.memberDimCell}>
                     {dimsLoading && !dimRow

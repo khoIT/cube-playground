@@ -13,7 +13,6 @@ import { ReactElement, useMemo, useState } from 'react';
 import { Button, Input } from 'antd';
 import { Download, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { formatDistanceToNowStrict } from 'date-fns';
 import type { MemberTiers, Segment, TierMember, TierName } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
@@ -22,9 +21,11 @@ import { hasMember360 } from '../../member360/member360-panels';
 import { Member360UnavailableChip } from '../../member360/member360-unavailable-chip';
 import { formatValue } from '../cards/format-value';
 import {
+  MemberIdentityCell,
   SortableHeader,
   SortState,
   columnsWithData,
+  splitNameColumn,
   compareValues,
   downloadCsv,
   formatCell,
@@ -78,13 +79,16 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
   // still requests the measure; one extra measure on a 25-row page is noise.)
   // Columns that came back empty for every visible row are dropped once the
   // dim query settles — no dead all-dash columns.
-  const enrichColumns = useMemo(
+  // The in-game-name column renders inside the identity cell, not as a column.
+  const { nameField, dataColumns: enrichColumns } = useMemo(
     () =>
-      columnsWithData(
-        columns.filter((c) => memberColumnField(c) !== tiers.ltv_measure),
-        byUid,
-        pageUids,
-        dimsLoading,
+      splitNameColumn(
+        columnsWithData(
+          columns.filter((c) => memberColumnField(c) !== tiers.ltv_measure),
+          byUid,
+          pageUids,
+          dimsLoading,
+        ),
       ),
     [columns, tiers.ltv_measure, byUid, pageUids, dimsLoading],
   );
@@ -215,19 +219,13 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
                 <td style={{ width: 56, color: 'var(--text-muted)' }}>
                   {safePage * PAGE_SIZE + idx + 1}
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>
-                  {member360Enabled ? (
-                    <Link
-                      to={`/segments/${segment.id}/members/${encodeURIComponent(member.uid)}`}
-                      style={{ color: 'var(--brand)', textDecoration: 'none' }}
-                      title={t('segments.member360.openTooltip', { defaultValue: 'Open 360 profile' })}
-                    >
-                      {member.uid}
-                    </Link>
-                  ) : (
-                    member.uid
-                  )}
-                </td>
+                <MemberIdentityCell
+                  uid={member.uid}
+                  name={nameField ? ((dimRow?.[nameField] as string | undefined) ?? null) : null}
+                  segmentId={segment.id}
+                  member360Enabled={member360Enabled}
+                  linkTitle={t('segments.member360.openTooltip', { defaultValue: 'Open 360 profile' })}
+                />
                 <td>{member.ltv == null ? '—' : formatValue(member.ltv, 'currency')}</td>
                 {cacheStatus && (
                   <td>
