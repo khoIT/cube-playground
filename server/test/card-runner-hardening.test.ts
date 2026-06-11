@@ -97,11 +97,11 @@ describe('runPresetCards — concurrency, error entries, budget', () => {
 
   it('short-circuits remaining cards to error once the phase budget is spent', async () => {
     // Freeze the clock so the budget is already exhausted on the first remaining-
-    // time check: deadline = base + 90s, then "now" jumps past it.
+    // time check: deadline = base + phase budget (240s), then "now" jumps past it.
     const base = 1_000_000;
     const nowSpy = vi.spyOn(Date, 'now');
     nowSpy.mockReturnValueOnce(base); // deadline computed once at pass start
-    nowSpy.mockReturnValue(base + 90_001); // every per-card remaining check → ≤ 0
+    nowSpy.mockReturnValue(base + 240_001); // every per-card remaining check → ≤ 0
     mockLoad.mockResolvedValue({ data: [] } as never);
 
     const entries = await runPresetCards(makePreset(2), []);

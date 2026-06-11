@@ -107,11 +107,17 @@ export const mfUsersHubPreset: PresetSpec = {
       label: 'Overview',
       kpis: [],
       cards: [
-        { kind: 'composition', id: 'media-comp',    label: 'Media source',    measure: 'mf_users.user_count', groupBy: 'mf_users.media_source',     limit: 6 },
-        { kind: 'composition', id: 'platform-comp', label: 'OS platform',     measure: 'mf_users.user_count', groupBy: 'mf_users.os_platform',      limit: 6 },
-        { kind: 'composition', id: 'country-comp',  label: 'Country',         measure: 'mf_users.user_count', groupBy: 'mf_users.country',          limit: 6 },
-        { kind: 'composition', id: 'lifecycle-comp',label: 'Lifecycle stage', measure: 'mf_users.user_count', groupBy: 'mf_users.lifecycle_stage',  limit: 6 },
-        { kind: 'line', id: 'installs-90d',  label: 'Installs (last 90 days)', measure: 'mf_users.user_count', timeDimension: 'mf_users.install_date', dateRange: 'last 90 days', granularity: 'day' },
+        // Composition + install-trend cards use the approx count so they route
+        // to the user_composition rollup (exact count_distinct can't be served
+        // from a year-partitioned rollup). ±~2% HLL error — fine for bars/trends.
+        // top-campaigns / last-country / first-active / first-recharge keep the
+        // exact measure: their group-by/time-dim isn't in any rollup, so approx
+        // would change numbers without a routing win.
+        { kind: 'composition', id: 'media-comp',    label: 'Media source',    measure: 'mf_users.user_count_approx', groupBy: 'mf_users.media_source',     limit: 6 },
+        { kind: 'composition', id: 'platform-comp', label: 'OS platform',     measure: 'mf_users.user_count_approx', groupBy: 'mf_users.os_platform',      limit: 6 },
+        { kind: 'composition', id: 'country-comp',  label: 'Country',         measure: 'mf_users.user_count_approx', groupBy: 'mf_users.country',          limit: 6 },
+        { kind: 'composition', id: 'lifecycle-comp',label: 'Lifecycle stage', measure: 'mf_users.user_count_approx', groupBy: 'mf_users.lifecycle_stage',  limit: 6 },
+        { kind: 'line', id: 'installs-90d',  label: 'Installs (last 90 days)', measure: 'mf_users.user_count_approx', timeDimension: 'mf_users.install_date', dateRange: 'last 90 days', granularity: 'day' },
         { kind: 'bar',  id: 'top-campaigns', label: 'Top campaigns',           measure: 'mf_users.user_count', groupBy: 'mf_users.campaign_id', limit: 8 },
       ],
     },
@@ -124,7 +130,7 @@ export const mfUsersHubPreset: PresetSpec = {
         { id: 'lapsed',     label: 'Lapsed this month',  measure: 'mf_users.lapsed_this_month_count', format: 'compact' },
       ],
       cards: [
-        { kind: 'composition', id: 'lifecycle-eng',    label: 'Lifecycle stage',                measure: 'mf_users.user_count', groupBy: 'mf_users.lifecycle_stage', limit: 6 },
+        { kind: 'composition', id: 'lifecycle-eng',    label: 'Lifecycle stage',                measure: 'mf_users.user_count_approx', groupBy: 'mf_users.lifecycle_stage', limit: 6 },
         { kind: 'bar',         id: 'last-country',     label: 'Users by last-login country',    measure: 'mf_users.user_count', groupBy: 'mf_users.last_login_country', limit: 8 },
         { kind: 'line',        id: 'first-active-90d', label: 'First-active (last 90 days)',    measure: 'mf_users.user_count', timeDimension: 'mf_users.first_active_date', dateRange: 'last 90 days', granularity: 'day' },
       ],
@@ -139,7 +145,7 @@ export const mfUsersHubPreset: PresetSpec = {
         { id: 'whales',    label: 'Whales',    measure: 'mf_users.whales_count',      format: 'compact' },
       ],
       cards: [
-        { kind: 'composition', id: 'payer-tier-comp', label: 'Payer tier',                    measure: 'mf_users.user_count',    groupBy: 'mf_users.payer_tier', limit: 6 },
+        { kind: 'composition', id: 'payer-tier-comp', label: 'Payer tier',                    measure: 'mf_users.user_count_approx', groupBy: 'mf_users.payer_tier', limit: 6 },
         { kind: 'bar',         id: 'rev-by-media',    label: 'LTV by media source',           measure: 'mf_users.ltv_total_vnd', groupBy: 'mf_users.media_source', limit: 6 },
         { kind: 'line',        id: 'first-rev-90d',   label: 'First-recharge (last 90 days)', measure: 'mf_users.user_count',    timeDimension: 'mf_users.first_recharge_date', dateRange: 'last 90 days', granularity: 'day' },
         { kind: 'bar',         id: 'rev-by-platform', label: 'LTV by OS platform',            measure: 'mf_users.ltv_total_vnd', groupBy: 'mf_users.os_platform', limit: 5 },
@@ -154,10 +160,10 @@ export const mfUsersHubPreset: PresetSpec = {
         { id: 'lapsed-r',     label: 'Lapsed this month',  measure: 'mf_users.lapsed_this_month_count', format: 'compact' },
       ],
       cards: [
-        { kind: 'composition', id: 'lifecycle-ret',    label: 'Lifecycle stage',             measure: 'mf_users.user_count',  groupBy: 'mf_users.lifecycle_stage', limit: 6 },
-        { kind: 'bar',         id: 'rate-by-platform', label: 'Paying rate by OS platform',  measure: 'mf_users.paying_rate', groupBy: 'mf_users.os_platform', limit: 5 },
-        { kind: 'bar',         id: 'rate-by-media',    label: 'Paying rate by media source', measure: 'mf_users.paying_rate', groupBy: 'mf_users.media_source', limit: 6 },
-        { kind: 'line',        id: 'installs-30d-ret', label: 'Installs (last 30 days)',     measure: 'mf_users.user_count',  timeDimension: 'mf_users.install_date', dateRange: 'last 30 days', granularity: 'day' },
+        { kind: 'composition', id: 'lifecycle-ret',    label: 'Lifecycle stage',             measure: 'mf_users.user_count_approx',  groupBy: 'mf_users.lifecycle_stage', limit: 6 },
+        { kind: 'bar',         id: 'rate-by-platform', label: 'Paying rate by OS platform',  measure: 'mf_users.paying_rate_approx', groupBy: 'mf_users.os_platform', limit: 5 },
+        { kind: 'bar',         id: 'rate-by-media',    label: 'Paying rate by media source', measure: 'mf_users.paying_rate_approx', groupBy: 'mf_users.media_source', limit: 6 },
+        { kind: 'line',        id: 'installs-30d-ret', label: 'Installs (last 30 days)',     measure: 'mf_users.user_count_approx',  timeDimension: 'mf_users.install_date', dateRange: 'last 30 days', granularity: 'day' },
       ],
     },
   ],

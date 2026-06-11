@@ -120,8 +120,10 @@ describe('assembleBriefContext', () => {
         cardId: 'card:overview:lifecycle-comp',
         queryHash: 'h',
         rows: [
-          { 'mf_users.lifecycle_stage': 'churned', 'mf_users.user_count': 800 },
-          { 'mf_users.lifecycle_stage': 'at_risk', 'mf_users.user_count': 434 },
+          // Composition cards read by spec.measure — now the approx count
+          // (rollup-served); cached rows are keyed by it.
+          { 'mf_users.lifecycle_stage': 'churned', 'mf_users.user_count_approx': 800 },
+          { 'mf_users.lifecycle_stage': 'at_risk', 'mf_users.user_count_approx': 434 },
         ],
         status: 'ok',
       },
