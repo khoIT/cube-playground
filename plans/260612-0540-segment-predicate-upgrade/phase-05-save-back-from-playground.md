@@ -23,9 +23,14 @@ Close the loop: when /build holds an `edit-segment` context, show a persistent "
 
 ## Architecture
 - Editing context from phase 4 (QueryBuilderContainer state) threaded to `SegmentsSaveBar` via props alongside existing `executedQuery`.
-- Reuse `buildPredicateFromRows` (`build-predicate-from-rows.ts:171`) — it already handles filters + dateRange literals + simplification. Identity-IN filters injected by the deeplink for manual segments must be STRIPPED before tree-building (they're cohort echo, not definition) — strip any leaf on the identity dim with op `in`/`equals` when it matches the edit context's identityDim and value count is large; keep deliberate small identity filters (edge: user genuinely filtering 3 uids — accept loss, document).
+- Reuse `buildPredicateFromRows` (`build-predicate-from-rows.ts:171`) for the conversion core.
+- **[RED-TEAM C3 — translatability gate, no heuristics]** `buildPredicateFromRows` silently nulls unsupported operators (`:103-104`) — a zero-edit round-trip could silently widen the cohort. Build an explicit gate: count consumable constructs in the executed query (filters by operator whitelist, timeDimensions with dateRange, segments) vs constructs the produced tree actually encodes; ANY unconsumed construct → Update disabled with a tooltip listing exactly what can't be expressed ("notInDateRange on X", "OR-group on Y"); Save-as-new stays available. Unit-test the gate against every operator `build-predicate-from-rows` nulls.
+- **[RED-TEAM major — deterministic identity-echo tagging]** Do NOT strip by "identity dim + large value count" heuristic (misfire → empty predicate → match-everyone segment). Phase 4's deeplink records the exact injected filters (identity echo, `applyGameFilter` echo) in the edit context (sessionStorage payload); save-back strips by exact structural match against that record. Deliberate user-added identity filters survive.
+- **[RED-TEAM major]** Strip the playground's `applyGameFilter` game-scoping echo the same deterministic way — it must not be persisted into the predicate.
+- `cube_segments` PATCH support lands in phase 3 (server). If phase 3 unmerged, ship the server schema change here — single source: check before duplicating.
 - `cube_segments` PATCH support lands in phase 3 (server). If phase 3 unmerged, ship the server schema change here — single source: check before duplicating.
 - New `playground-edit-segment-banner.tsx` component near QueryBuilderContainer; design tokens only.
+- **[RED-TEAM major]** Edit context is tab-scoped, not URL-scoped: bind the context to the booted query instance; if the user loads a saved analysis / switches cube mid-session, drop edit mode (banner explains) rather than risk overwriting the segment with an unrelated query. Update button also hidden when `!segment.can_administer` (fetch via `segmentsClient.get` at boot — prod auth, not just AUTH_DISABLED local).
 
 ## Related Code Files
 - Create: `src/components/PlaygroundQueryBuilder/playground-edit-segment-banner.tsx`

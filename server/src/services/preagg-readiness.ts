@@ -19,6 +19,7 @@ import { loadWithCtx, type WorkspaceCtx } from './cube-client.js';
 import { loadGamesConfig } from './games-config-loader.js';
 import { resolveCubeTokenForWorkspace } from './resolve-cube-token.js';
 import { mapWithConcurrency } from './bounded-concurrency.js';
+import { getModelPreaggRegistry } from './preagg-model-registry.js';
 import type { WorkspaceDef } from './workspaces-config-loader.js';
 
 // ---------------------------------------------------------------------------
@@ -260,10 +261,15 @@ export async function computePreaggReadiness(
 
   // Each task = one (game, cube) pair. We flatten into a task list, run with
   // bounded concurrency 2, then re-group by game.
+  // Registry per game comes from the in-repo Cube model when available (so the
+  // matrix matches each game's REAL rollup-bearing cubes — ptg has recharge +
+  // ordered_funnel_canonical, not the standard five); the curated static list
+  // is the fallback for hosts that don't ship cube-dev.
   type ProbeTask = { gameId: string; gameLabel: string; entry: PreaggRegistryEntry };
-  const tasks: ProbeTask[] = cfg.games.flatMap((g) =>
-    PREAGG_REGISTRY.map((entry) => ({ gameId: g.id, gameLabel: g.name, entry })),
-  );
+  const tasks: ProbeTask[] = cfg.games.flatMap((g) => {
+    const registry = getModelPreaggRegistry(g.id) ?? PREAGG_REGISTRY;
+    return registry.map((entry) => ({ gameId: g.id, gameLabel: g.name, entry }));
+  });
 
   const probeResults = await mapWithConcurrency(tasks, 2, async (task) => {
     const ctx = buildCtxFor(workspace, task.gameId);

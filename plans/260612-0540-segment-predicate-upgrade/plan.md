@@ -53,6 +53,15 @@ Order: 1–3 independent of 4–5 (parallel-safe by file ownership); 5 depends o
 - `useCubeMetaMembers` + `physicalMember` — /meta validation plumbing the picker reuses.
 - Refresh honors the sidecar end-to-end (`refresh-segment.ts:157` spreads stored `cube_query_json` incl. `segments`).
 
+## Red-team amendments (2026-06-12, report: reports/from-red-team-to-planner-roundtrip-plan-attack-report.md)
+
+Three criticals folded into phases:
+- **C1 — `cube_identity_map` is GLOBAL** (`cube TEXT PRIMARY KEY`): `active_daily` exists in 7 game models; a "jus sweep" rebinds identity for all of them (cfm's vopenid namespace would break). Phase 1 now starts with a cross-game collision audit; if any game's join semantics differ → game-scoped identity-map migration is a phase-1 pre-step.
+- **C2 — relative-date freeze**: `cube_query_json` holds dates already expanded to literals; deeplinking from it then saving back permanently freezes rolling windows. Phase 4 now builds the deeplink from `predicate_tree_json` (which retains relative literals) via an FE tree→query mapping.
+- **C3 — no silent-drop guard**: `buildPredicateFromRows` silently nulls unsupported operators → a zero-edit round-trip could widen the cohort. Phase 5 now specifies an explicit translatability gate (construct-consumption diff) + deterministic identity-echo tagging (no heuristics).
+
+Majors folded: save-bar render-gate visibility (phase 4 boot query), cross-cube sidecar chips read-only (phase 3), PATCH precedence spec (phase 3), `applyGameFilter` echo strip + workspace/game mismatch guard (phase 5), sessionStorage deeplink fallback with real consumer + `saved-analyses-tab.tsx:43` migration (phase 4), six extra fidelity rows (phase 6).
+
 ## Dependencies
 
 None cross-plan. Tangent: `260609-2323-coalesce-same-source-care-sweep-queries` consumes `treeToCubeFilters` output server-side — phases here don't change translator semantics, only authoring UX.

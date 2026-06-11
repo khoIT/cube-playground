@@ -21,7 +21,11 @@ Repoint "Open in Playground" to carry the segment's DEFINITION (predicate filter
 - Non-functional: remove the dead `from-segment` emission path or implement its sessionStorage consumer — no half-wired branches left.
 
 ## Architecture
-- Rework `src/utils/playground-deeplink.ts`: new `buildDefinitionDeeplink({segment, filters, cubeSegments, identityDim})`; keep pure-module contract. Predicate→filters translation happens server-side already at save; for the FE we reuse the stored `cube_query_json` (source of truth) via `segmentsClient.get` — no FE re-translation needed.
+- **[RED-TEAM C2]** Build the definition from `predicate_tree_json`, NOT `cube_query_json` — the stored query has relative dates already expanded to literal tuples (`translator.ts:114-131`); deeplinking it and saving back would freeze rolling windows forever. New FE util `predicate-tree-to-cube-query.ts` maps tree leaves → filters/timeDimensions preserving relative literals (`inDateRange` leaf value "last 30 days" → `timeDimensions[].dateRange: "last 30 days"`). Sidecar `segments` still come from `cube_query_json`.
+- Rework `src/utils/playground-deeplink.ts`: new `buildDefinitionDeeplink({segment, tree, cubeSegments, identityDim})`; keep pure-module contract.
+- **[RED-TEAM major]** Boot query MUST satisfy the save-bar render gates (`QueryBuilderResults.tsx:1609,829` — bar renders only in uid/expansion mode): include `identityDim` in `dimensions` with a sane `limit` (e.g. 100) so mode='uid' activates and Update is reachable. Document the row-per-user trade-off in code.
+- **[RED-TEAM major]** Implement the sessionStorage fallback FOR REAL (oversize definitions from expansion-born segments): emit `?edit-segment=<id>` and a stashed payload; QueryBuilderContainer consumes it (pattern: `from-chat-artifact` at `:177`). Also migrate the other dead-path caller `saved-analyses-tab.tsx:43`.
+- **[RED-TEAM major]** Deeplink carries `game_id` + workspace; QueryBuilderContainer compares against the active game context and warns/switches before applying — filters referencing cubes absent from the booted /meta must not silently no-op.
 - `QueryBuilderContainer.tsx`: parse `edit-segment` param at boot (alongside existing `?query=` handling); stash `{segmentId, segmentName, returnedFrom}` in component state/context for phase 5's banner + save bar. Follow the existing `from-chat-artifact` pattern at `:177` for param consumption.
 - Detail header (`detail-header-actions.tsx:39`): swap `buildPlaygroundDeeplink` call for the definition variant; drop the `uid_list.length === 0` disable in favor of definition availability.
 
@@ -30,11 +34,12 @@ Repoint "Open in Playground" to carry the segment's DEFINITION (predicate filter
 - Read: existing `?query=` + `from-chat-artifact` boot handling in QueryBuilderContainer
 
 ## Implementation Steps
-1. Deeplink util: `buildDefinitionDeeplink` from stored `cube_query_json` + identityDim; unit tests (definition inlines; manual small-list inlines; manual oversize returns `{disabled, reason}`).
-2. Remove/replace dead `from-segment` branch; migrate existing tests.
-3. QueryBuilderContainer: consume `edit-segment` param → editing context; verify query boot applies filters + segments + identity dim.
-4. Wire detail-header + editor buttons; disable states + tooltips.
-5. Manual check on b7a6cae9: lands in /build with `os_platform=pc` filter + `last_30d` segment active + `mf_users.user_id` dimension (post phase 1) and a live count.
+1. FE `predicate-tree-to-cube-query.ts`: tree → `{filters, timeDimensions}` preserving relative date literals; unit tests incl. every leaf op.
+2. Deeplink util: `buildDefinitionDeeplink` from `predicate_tree_json` (+ sidecar `segments` from `cube_query_json`, identityDim, game_id); records injected echo filters for phase 5's deterministic strip; unit tests (definition inlines; manual small-list inlines; oversize → sessionStorage payload; manual oversize without tree returns `{disabled, reason}`).
+3. Replace dead `from-segment` branch with a real sessionStorage consumer in QueryBuilderContainer (pattern of `from-chat-artifact`); migrate `saved-analyses-tab.tsx:43` caller + existing tests.
+4. QueryBuilderContainer: consume `edit-segment` → editing context (incl. echo-filter record + game guard); verify boot applies filters + segments + identity dim and the save bar's uid-mode render gate is satisfied.
+5. Wire detail-header + editor buttons; disable states + tooltips.
+6. Manual check on b7a6cae9: lands in /build with `os_platform=pc` filter + `last_30d` segment active + `mf_users.user_id` dimension (post phase 1) and a live count.
 
 ## Success Criteria
 - [ ] b7a6cae9 "Open in Playground" boots /build with its definition applied — no empty playground

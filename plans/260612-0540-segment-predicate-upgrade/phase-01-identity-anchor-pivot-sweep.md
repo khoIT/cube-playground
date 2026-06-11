@@ -24,6 +24,7 @@ Seed `cube_identity_map` rows anchoring every jus_vn cube that joins `mf_users` 
 - Read: `server/src/services/resolve-identity-field.ts`, `src/pages/Segments/detail/use-preset.ts`, identity-map route in `server/src/routes/`
 
 ## Implementation Steps
+0. **[RED-TEAM C1 — gate before any seeding]** `cube_identity_map.cube` is a GLOBAL primary key (`001-init.sql:42`) — `active_daily` exists in jus, cfm, muaw, ballistar, pubg, tf, cros. For EVERY cube name about to be seeded, audit the same-named cube in ALL game dirs: does each have an mf_users join with compatible identity semantics (beware cfm vopenid namespace)? If yes for all → seed globally. If ANY differs → add a game-scoped identity-map migration first (`cube_identity_map(game_id, cube)` composite key + resolver/`useIdentityMap` updates) and seed per-game. Record the audit table in this file.
 1. Audit `cube-dev/cube/model/cubes/jus/*.yml` for cubes with an `mf_users` join. Expected hits: `active_daily`, `user_roles`, `user_active_rolling`, `user_recharge_daily`, event `etl_*` cubes — list the actual set.
 2. For each hit, prove the join compiles with one Cube query: `{dimensions:['mf_users.user_id'], filters:[{member:'<cube>.<any-dim>', operator:'set'}], limit:1}` (workspace `local`).
 3. Seed through the Identity Map surface/API (NOT raw SQL — preserves `source`/`updated_at` semantics): rows `{cube:'<cube>', identity_field:'mf_users.user_id'}`. Confirm the PUT route shape in `server/src/routes/` first.

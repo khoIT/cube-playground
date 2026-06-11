@@ -161,7 +161,9 @@ export function PreaggReadinessMatrix({
                   ))}
                   {triggerEnabled && (
                     <td style={{ ...td, textAlign: 'right' }}>
-                      {toBuild > 0 || isBuilding ? (
+                      {(g.cubes ?? []).length === 0 ? (
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>no rollups in model</span>
+                      ) : toBuild > 0 || isBuilding ? (
                         <button
                           type="button"
                           disabled={buildRunning}

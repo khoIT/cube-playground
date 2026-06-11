@@ -27,6 +27,12 @@ Prove the loop end-to-end on the live local stack and burn down red-team finding
 | 5 | predicate seg | untranslatable construct (measure filter w/ grouping) | Update blocked with tooltip; Save-as-new offered |
 | 6 | predicate seg, non-owner | open Update | PATCH 403 surfaced as toast; edit mode dropped |
 | 7 | cross-cube: active_daily seg + mf_users filter (post phase 1+2) | Update | refresh completes; enriched Members tab consistent |
+| 8 | predicate seg w/ relative "last 30 days" tree leaf | zero-edit round-trip (open → Update immediately) | tree byte-equivalent; relative literal preserved (C2 guard) |
+| 9 | query with operator the tree can't express (`notInDateRange`) | attempt Update | gate blocks with named construct; Save-as-new works (C3 guard) |
+| 10 | deeplink from jus segment while active game = cfm | open | warned/switched game context; no silent no-op filters |
+| 11 | sidecar carrying `mf_users.whales` (cross-cube) | toggle primary chip, Update | cross-cube entry preserved verbatim |
+| 12 | load saved analysis while in edit mode | — | edit mode dropped with banner notice; segment untouched |
+| 13 | same cube name, different game (`cfm active_daily` segment) | check identity resolution | C1 guard: no jus mapping bleed (per audit/scoped-map outcome) |
 
 ## Implementation Steps
 1. Script the matrix as vitest integration tests where the seam allows (translator round-trip, payload shapes); manual-verify the browser-only rows and record results in this file.

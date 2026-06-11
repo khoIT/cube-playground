@@ -45,7 +45,7 @@ echo "▶ Scoping refresh worker to game='${GAME}' and (re)starting it…"
 # Override the sweep interval to ${TIMER}s (default 300s is too slow to catch a
 # sweep inside a short monitoring window). A small timer makes the first sweep
 # fire almost immediately so partitions seal while we watch.
-# Force trace logging: the per-partition `CREATE TABLE prod_pre_aggregations.…`
+# Force trace logging: the per-partition `CREATE TABLE preagg_<game>.…`
 # lines we grep for to detect builds are only emitted at trace level — at the
 # worker's normal `info` level the build is invisible and this script reports
 # build-attempts=0 even while partitions are sealing.
@@ -58,8 +58,8 @@ echo "  worker rebuilding ${GAME} rollups (sweep every ${TIMER}s); monitoring up
 # either shape to its stable base name so we count/attribute by pre-aggregation.
 ERR_SIGS='after it was successfully created|later than self|must be a time or timestamp'
 base_names() {  # stdin: log text -> stdout: sorted-unique pre-agg base names
-  grep -oE 'CREATE TABLE prod_pre_aggregations\.[a-z_0-9]+' \
-    | sed -E 's#^CREATE TABLE prod_pre_aggregations\.##; s#_batch[0-9]+.*#_batch#; s#_[a-z0-9]{8}_[a-z0-9]{8}_[a-z0-9]+$##' \
+  grep -oE 'CREATE TABLE preagg_[a-z0-9]+\.[a-z_0-9]+' \
+    | sed -E 's#^CREATE TABLE preagg_[a-z0-9]+\.##; s#_batch[0-9]+.*#_batch#; s#_[a-z0-9]{8}_[a-z0-9]{8}_[a-z0-9]+$##' \
     | sort -u
 }
 
@@ -69,7 +69,7 @@ last_attempts=0; quiet=0
 while [ "$(date +%s)" -lt "${deadline}" ]; do
   sleep 30
   logs="$(docker logs --since "${START_TS}" "${WORKER}" 2>&1 || true)"
-  attempts="$(printf '%s' "${logs}" | grep -coE 'CREATE TABLE prod_pre_aggregations\.' || true)"
+  attempts="$(printf '%s' "${logs}" | grep -coE 'CREATE TABLE preagg_[a-z0-9]+\.' || true)"
   errs="$(printf '%s' "${logs}" | grep -coE "${ERR_SIGS}" || true)"
   printf '  +%ds  build-attempts=%s  errors=%s\n' "$(( $(date +%s) - deadline + MINUTES*60 ))" "${attempts}" "${errs}"
   if [ "${attempts}" = "${last_attempts}" ] && [ "${attempts}" -gt 0 ]; then
