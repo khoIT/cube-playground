@@ -11,7 +11,7 @@ cubes:
     joins:
       - name: mf_users
         relationship: many_to_one
-        sql: "{CUBE}.user_id = {mf_users}.user_id"
+        sql: "split_part({CUBE}.user_id, '@', 1) = {mf_users}.user_id"
     # The `ts` time dimension is pushed into the scan twice: once against the
     # event timestamp and once against `log_date`, the partition column of every
     # etl_ingame_* table. The log_date predicate is what lets Trino prune

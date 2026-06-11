@@ -29,7 +29,7 @@ cubes:
     joins:
       - name: mf_users
         relationship: many_to_one
-        sql: "{CUBE}.account_id = {mf_users}.user_id"
+        sql: "split_part({CUBE}.account_id, '@', 1) = {mf_users}.user_id"
 
     refresh_key:
       every: 5 minute

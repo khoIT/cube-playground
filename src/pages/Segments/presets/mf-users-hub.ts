@@ -24,6 +24,10 @@ export const mfUsersHubPreset: Preset = {
   ],
 
   memberColumns: [
+    // Friendly identity: latest in-game role name. Only some games model it
+    // (jus today) — games without the dim drop the column via the /meta check
+    // in use-member-dim-rows.
+    { id: 'name',         label: 'In-game name', dimension: 'mf_users.ingame_name' },
     // ltv_total_vnd is a measure (per-user aggregate), not a flat dim.
     { id: 'ltv',          label: 'LTV',         measure:   'mf_users.ltv_total_vnd',    format: 'currency' },
     { id: 'stage',        label: 'Stage',       dimension: 'mf_users.lifecycle_stage' },

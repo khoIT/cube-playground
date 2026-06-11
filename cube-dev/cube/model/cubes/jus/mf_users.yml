@@ -1,19 +1,83 @@
 cubes:
   - name: mf_users
-    sql_table: mf_users
+    # The raw mf_users mart carries each real user as TWO disjoint rows keyed in
+    # different identity namespaces: a bare GDS-id row holding the SDK/MMP
+    # attribution columns (country, os_platform, campaign, media_source) and an
+    # `<id>@vng_vie.win.163.com` row holding the ingame columns (recharge, LTV,
+    # activity). The upstream identity join misses because ingame sources key
+    # accounts with the channel suffix — so attribution dims were NULL for every
+    # paying user and user counts were ~2x inflated. Merge the halves here on
+    # the normalized id; split_part is a no-op for already-bare ids. max()
+    # ignores NULLs, so each column resolves from whichever half carries it.
+    # ingame_name (latest active role name) is attached from mf_ingame_roles
+    # for human-readable member lists.
+    sql: >
+      WITH merged AS (
+        SELECT
+          split_part(user_id, '@', 1) AS user_id,
+          max(gds_bundle_code) AS gds_bundle_code,
+          max(install_date) AS install_date,
+          max(install_month) AS install_month,
+          max(media_source) AS media_source,
+          max(campaign_id) AS campaign_id,
+          max(is_paid_install) AS is_paid_install,
+          max(appsflyer_id) AS appsflyer_id,
+          max(unified_first_country_code) AS unified_first_country_code,
+          max(unified_first_os_platform) AS unified_first_os_platform,
+          max(sdk_first_login_date) AS sdk_first_login_date,
+          max(sdk_first_login_month) AS sdk_first_login_month,
+          max(sdk_last_login_date) AS sdk_last_login_date,
+          max(sdk_first_login_channel) AS sdk_first_login_channel,
+          max(sdk_last_login_channel) AS sdk_last_login_channel,
+          max(sdk_first_login_country_code) AS sdk_first_login_country_code,
+          max(sdk_last_login_country_code) AS sdk_last_login_country_code,
+          max(sdk_first_login_device_model) AS sdk_first_login_device_model,
+          max(ingame_first_active_date) AS ingame_first_active_date,
+          max(ingame_last_active_date) AS ingame_last_active_date,
+          max(ingame_total_active_days) AS ingame_total_active_days,
+          max(ingame_max_active_role_level) AS ingame_max_active_role_level,
+          max(ingame_max_active_fighting_power) AS ingame_max_active_fighting_power,
+          max(ingame_last_active_role_class) AS ingame_last_active_role_class,
+          max(ingame_last_active_server_id) AS ingame_last_active_server_id,
+          max(ingame_first_recharge_date) AS ingame_first_recharge_date,
+          max(ingame_last_recharge_date) AS ingame_last_recharge_date,
+          max(ingame_total_recharge_value_vnd) AS ingame_total_recharge_value_vnd,
+          max(ingame_total_recharged_value_usd) AS ingame_total_recharged_value_usd,
+          max(ingame_total_recharge_value_vnd_30d) AS ingame_total_recharge_value_vnd_30d,
+          max(ingame_total_recharge_value_usd_30d) AS ingame_total_recharge_value_usd_30d,
+          max(ingame_total_recharged_value_vnd_iap) AS ingame_total_recharged_value_vnd_iap,
+          max(ingame_total_recharged_value_vnd_web) AS ingame_total_recharged_value_vnd_web,
+          max(ingame_total_recharge_transaction_id) AS ingame_total_recharge_transaction_id,
+          max(ingame_total_recharge_transaction_id_iap) AS ingame_total_recharge_transaction_id_iap,
+          max(ingame_total_recharge_transaction_id_web) AS ingame_total_recharge_transaction_id_web,
+          max(ingame_total_recharge_transaction_id_30d) AS ingame_total_recharge_transaction_id_30d,
+          max(ingame_max_recharge_vip_level) AS ingame_max_recharge_vip_level
+        FROM mf_users
+        GROUP BY 1
+      ),
+      latest_role AS (
+        SELECT
+          split_part(user_id, '@', 1) AS user_id,
+          max_by(ingame_last_active_role_name, ingame_last_active_date) AS ingame_name
+        FROM mf_ingame_roles
+        GROUP BY 1
+      )
+      SELECT merged.*, latest_role.ingame_name
+      FROM merged
+      LEFT JOIN latest_role ON merged.user_id = latest_role.user_id
     title: JUS VN — User Master Profile
     description: |
       Wide feature store with one row per user. Pre-aggregates lifetime metrics (LTV, total active days, max role level) and rolling 30-day metrics (LTV 30d, recharge count 30d). Use this cube whenever a metric is already materialized here — Cube will read a single column instead of scanning event tables.
     joins:
       - name: active_daily
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {active_daily}.user_id'
+        sql: "{CUBE}.user_id = split_part({active_daily}.user_id, '@', 1)"
       - name: user_recharge_daily
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {user_recharge_daily}.user_id'
+        sql: "{CUBE}.user_id = split_part({user_recharge_daily}.user_id, '@', 1)"
       - name: recharge
         relationship: one_to_many
-        sql: '{CUBE}.user_id = {recharge}.account_id'
+        sql: "{CUBE}.user_id = split_part({recharge}.account_id, '@', 1)"
     refresh_key:
       every: 1 hour
     dimensions:
@@ -22,6 +86,10 @@ cubes:
         type: string
         primary_key: true
         public: true
+      - name: ingame_name
+        sql: ingame_name
+        type: string
+        description: Latest in-game role name (most recently active role, from mf_ingame_roles)
       - name: gds_bundle_code
         sql: gds_bundle_code
         type: string

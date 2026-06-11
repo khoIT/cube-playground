@@ -11,7 +11,7 @@ cubes:
     joins:
       - name: mf_users
         relationship: many_to_one
-        sql: "{CUBE}.user_id = {mf_users}.user_id"
+        sql: "split_part({CUBE}.user_id, '@', 1) = {mf_users}.user_id"
 
     # -------------------------------------------------------------------------
     # Caching: results for (user_id, log_date) are append-only and refreshed

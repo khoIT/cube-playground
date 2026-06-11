@@ -20,6 +20,10 @@
 import { useMemo } from 'react';
 import type { Query } from '@cubejs-client/core';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
+import { useCubeMetaMembers } from './use-cube-meta-members';
+import { useWorkspaceContext } from '../../../../components/workspace-context';
+import { useActiveGameId } from '../../../../components/Header/use-game-context';
+import { resolveGamePrefix, physicalMember } from '../../../../lib/cube-member-resolver';
 import type { Segment } from '../../../../types/segment-api';
 import type { MemberColumnSpec, Preset } from '../../presets/types';
 
@@ -83,8 +87,27 @@ export function useMemberDimRows(
   preset: Preset | null,
   uids: string[],
 ): MemberDimRowsResult {
-  const columns = preset?.memberColumns ?? [];
+  const allColumns = preset?.memberColumns ?? [];
   const identityDim = preset?.identityDim ?? null;
+
+  // Presets are shared across games but games model different fields; one
+  // unknown member 400s the whole base query and blanks EVERY column. Validate
+  // columns against /meta (physical names on prefix workspaces) and silently
+  // drop the ones this game doesn't model. While meta loads, defer querying
+  // (empty list); if meta itself is unavailable, keep legacy unfiltered
+  // behavior rather than hiding the members table.
+  const { workspace } = useWorkspaceContext();
+  const activeGameId = useActiveGameId();
+  const gameId = segment.game_id ?? activeGameId ?? null;
+  const metaMembers = useCubeMetaMembers(gameId);
+  const prefix = resolveGamePrefix(workspace, gameId);
+  const columns = useMemo(() => {
+    if (metaMembers === null) return [];
+    if (metaMembers === 'unavailable') return allColumns;
+    return allColumns.filter((c) =>
+      metaMembers.has(physicalMember(memberColumnField(c), prefix)),
+    );
+  }, [allColumns, metaMembers, prefix]);
 
   const baseColumns = columns.filter((c) => !c.boundTimeDimension);
   const boundedColumns = columns.filter((c) => !!c.boundTimeDimension);
@@ -127,7 +150,9 @@ export function useMemberDimRows(
 
   return {
     byUid,
-    loading: base.loading || bounded.loading,
+    // metaMembers === null means column validation is still pending — surface
+    // it as loading so the tab doesn't flash "no data" before queries fire.
+    loading: base.loading || bounded.loading || (metaMembers === null && allColumns.length > 0),
     // The base columns are the tab's backbone; a failed bounded (event-cube)
     // query degrades to an empty column instead of erroring the whole table.
     error: base.error,
