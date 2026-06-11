@@ -73,6 +73,8 @@ const segmentInputSchema = z.object({
 
 const segmentPatchSchema = z.object({
   name: z.string().min(1).optional(),
+  /** Manual ↔ predicate conversion ("Convert to Live"). Owner/admin only. */
+  type: z.enum(['manual', 'predicate']).optional(),
   cube: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
   predicate_tree: z.unknown().optional().nullable(),
@@ -586,10 +588,12 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     // triggers auto-refresh; uid_list rewrites it outright) and visibility are
     // owner/admin-only. Collaborative fields (name, cadence, tags, cube) stay
     // open to workspace members on shared/org segments.
+    const typeChanged = patch.type !== undefined && patch.type !== row.type;
     const touchesAdministerField =
       patch.visibility !== undefined ||
       patch.predicate_tree !== undefined ||
-      patch.uid_list !== undefined;
+      patch.uid_list !== undefined ||
+      typeChanged;
     if (touchesAdministerField && !canAdministerSegment(req.principal, row)) {
       return reply.status(403).send({
         error: { code: 'FORBIDDEN', message: 'Only the owner or an admin may change visibility or redefine the cohort' },
@@ -632,23 +636,40 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       ? JSON.stringify(patch.uid_list)
       : (row.uid_list_json as string);
 
-    // Auto-refresh when the predicate changed on a predicate segment — the
-    // cube_query_json was just regenerated, so the stored uid_count/uid_list
-    // are stale by construction. Flip status to 'refreshing' so the UI
-    // surfaces in-flight state immediately.
+    // Type conversion ("Convert to Live" sends type='predicate' along with the
+    // new tree). A predicate segment without a predicate can never refresh, so
+    // reject the conversion unless a tree is present in this patch or already
+    // stored on the row.
+    const nextType = patch.type !== undefined ? patch.type : (row.type as string);
+    const hasTree =
+      patch.predicate_tree !== undefined
+        ? patch.predicate_tree !== null
+        : row.predicate_tree_json != null;
+    if (nextType === 'predicate' && !hasTree) {
+      return reply.status(400).send({
+        error: { code: 'VALIDATION', message: 'A predicate segment requires a predicate_tree' },
+      });
+    }
+
+    // Auto-refresh when the predicate changed on a segment that is (or just
+    // became) predicate-typed — the cube_query_json was just regenerated, so
+    // the stored uid_count/uid_list are stale by construction. Judged against
+    // the NEW type so a manual→live conversion enqueues its first refresh.
+    // Flip status to 'refreshing' so the UI surfaces in-flight state immediately.
     const predicateChanged =
       patch.predicate_tree !== undefined &&
       patch.predicate_tree !== null &&
-      row.type === 'predicate';
+      nextType === 'predicate';
     const nextStatus = predicateChanged ? 'refreshing' : (row.status as string);
 
     db.prepare(`
       UPDATE segments SET
-        name = ?, cube = ?, predicate_tree_json = ?, cube_query_json = ?,
+        name = ?, type = ?, cube = ?, predicate_tree_json = ?, cube_query_json = ?,
         uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, status = ?, visibility = ?, updated_at = ?
       WHERE id = ?
     `).run(
       patch.name ?? row.name,
+      nextType,
       patch.cube !== undefined ? patch.cube : row.cube,
       patch.predicate_tree !== undefined ? (patch.predicate_tree ? JSON.stringify(patch.predicate_tree) : null) : row.predicate_tree_json,
       cubeQueryJson,
