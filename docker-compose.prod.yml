@@ -73,6 +73,12 @@ services:
       # daemon — acceptable for this admin-gated internal tool; remove the
       # mount (or set PREAGG_TRIGGER_ENABLED=false) to revoke.
       - /var/run/docker.sock:/var/run/docker.sock
+      # Cube model for the readiness matrix's per-game rollup registry
+      # (preagg-model-registry resolves /app/server/../cube-dev/...). Without
+      # it every game falls back to the static 5-cube list and the matrix
+      # probes rollups the game doesn't define. Same source the cube
+      # containers mount; read-only.
+      - ./cube-dev/cube:/app/cube-dev/cube:ro
     depends_on:
       # Ordering only, not health-coupling: chat is feature-flagged
       # (CHAT_FEATURE_ENABLED), so a down chat-service must not block the API.
