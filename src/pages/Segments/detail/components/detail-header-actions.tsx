@@ -8,13 +8,15 @@
  * slip away from the primary CTA.
  */
 import { ReactElement } from 'react';
-import { Button, Dropdown, Menu } from 'antd';
+import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { ExternalLink, MoreHorizontal, Trash2 } from 'lucide-react';
 import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
-import { buildPlaygroundDeeplink } from '../../../../utils/playground-deeplink';
+import {
+  buildDefinitionDeeplink,
+} from '../../../../utils/playground-deeplink';
 import { RefreshNowButton } from './refresh-now-button';
 import { ShareSegmentControl } from './share-segment-control';
 import styles from '../../segments.module.css';
@@ -36,17 +38,47 @@ export function DetailHeaderActions({
   const { t } = useTranslation();
   const history = useHistory();
 
+  // Extract the cube-level segments sidecar from the stored query so the
+  // definition deeplink carries the same scope constraints the refresh uses.
+  // We parse only the segments[] array — not dates or filters — to avoid the
+  // relative-date freeze problem (see predicate-tree-to-cube-query.ts).
+  const cubeSegments: string[] = (() => {
+    if (!segment.cube_query_json) return [];
+    try {
+      const parsed = JSON.parse(segment.cube_query_json) as Record<string, unknown>;
+      const segs = parsed.segments;
+      return Array.isArray(segs) ? (segs as string[]) : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
+
+  const deeplinkResult = buildDefinitionDeeplink({
+    segment,
+    identityDim,
+    cubeSegments,
+    gameId: segment.game_id,
+  });
+
+  const isDisabled = 'disabled' in deeplinkResult;
+  const disabledReason = isDisabled ? deeplinkResult.reason : undefined;
+
   const openInPlayground = (): void => {
-    const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
-    const out = buildPlaygroundDeeplink({
-      segmentId: segment.id,
-      segmentName: segment.name,
-      identityDim,
-      primaryCube: segment.cube,
-      uids: segment.uid_list ?? [],
-    });
-    window.location.assign(out.url);
+    if (isDisabled) return;
+    window.location.assign(deeplinkResult.url);
   };
+
+  const openButton = (
+    <Button
+      icon={<ExternalLink size={13} aria-hidden />}
+      onClick={openInPlayground}
+      disabled={isDisabled}
+    >
+      {t('segments.detail.actions.openInPlayground', { defaultValue: 'Open in Playground' })}
+    </Button>
+  );
 
   return (
     <div className={styles.detailActions}>
@@ -60,13 +92,14 @@ export function DetailHeaderActions({
           <ShareSegmentControl segment={segment} onChange={onSegmentChange} />
         )}
         <RefreshNowButton segment={segment} />
-        <Button
-          icon={<ExternalLink size={13} aria-hidden />}
-          onClick={openInPlayground}
-          disabled={(segment.uid_list ?? []).length === 0}
-        >
-          {t('segments.detail.actions.openInPlayground', { defaultValue: 'Open in Playground' })}
-        </Button>
+        {isDisabled ? (
+          <Tooltip title={disabledReason}>
+            {/* Tooltip requires a DOM element child when the button is disabled */}
+            <span>{openButton}</span>
+          </Tooltip>
+        ) : (
+          openButton
+        )}
       </div>
       {/* Cohort-redefining entry point — predicate/uid rewrites are
           owner-or-admin on the server; can_administer mirrors that. */}

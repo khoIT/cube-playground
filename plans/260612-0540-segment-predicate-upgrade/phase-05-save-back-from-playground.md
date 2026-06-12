@@ -1,10 +1,11 @@
 ---
 phase: 5
-title: "Save-back from playground"
-status: pending
+title: Save-back from playground
+status: completed
 priority: P1
-effort: "6h"
-dependencies: [4]
+effort: 6h
+dependencies:
+  - 4
 ---
 
 # Phase 5: Save-back from playground

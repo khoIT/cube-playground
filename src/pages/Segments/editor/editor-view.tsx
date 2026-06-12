@@ -2,8 +2,11 @@
 
 import { ReactElement, useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
-import { Button, message } from 'antd';
+import { Button, Tooltip, message } from 'antd';
+import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { buildDefinitionDeeplink } from '../../../utils/playground-deeplink';
+import { useIdentityMap } from '../../../hooks/use-identity-map';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import { invalidateSegmentIds } from '../use-segment-ids';
@@ -16,6 +19,8 @@ import { renderRoot } from './predicate-builder/predicate-group';
 import { simplifyPredicate } from '../../../QueryBuilderV2/segments-save-bar/simplify-predicate';
 import { usePredicateState, isTreeValid } from './hooks/use-predicate-state';
 import { parseCubeSegmentsFromQueryJson } from '../slice-scope/parse-cube-segments';
+import { usePredicateMemberCatalog } from './predicate-builder/use-predicate-member-catalog';
+import { CubeSegmentScopeChips } from './cube-segment-scope-chips';
 import { usePreview } from './hooks/use-preview';
 import { WorkspaceRail } from './workspace-rail';
 import { WorkspacePreview } from './workspace-preview';
@@ -56,6 +61,12 @@ export function EditorView(): ReactElement {
 
   const predicate = usePredicateState();
   const { step, setStep, goNext, goBack } = useStep(mode);
+  // Load /meta member catalog for the chosen cube — powers the member-field dropdown.
+  const { catalog } = usePredicateMemberCatalog(cube);
+  // Track whether we have a loaded segment to know can_administer status.
+  const [canAdminister, setCanAdminister] = useState(mode === 'new');
+  // Shared cube→identity-field map; powers the playground deeplink's identity dim.
+  const { mappings } = useIdentityMap();
 
   useEffect(() => {
     if (!id) return;
@@ -71,6 +82,7 @@ export function EditorView(): ReactElement {
         // (or hand-edited into verbose shapes) still render concise here.
         if (seg.predicate_tree) predicate.replaceTree(simplifyPredicate(seg.predicate_tree));
         setCubeSegments(parseCubeSegmentsFromQueryJson(seg.cube_query_json));
+        setCanAdminister(seg.can_administer);
         setSavedCount(seg.uid_count);
         setLoaded(true);
       })
@@ -134,6 +146,9 @@ export function EditorView(): ReactElement {
         refresh_cadence_min: type === 'predicate' ? cadence : null,
         game_id: gameId,
         visibility,
+        // Include cube_segments so PATCH can rebuild cube_query_json with
+        // the updated chip set. Empty array explicitly clears the sidecar.
+        cube_segments: type === 'predicate' ? cubeSegments : undefined,
       };
       if (id) {
         await segmentsClient.update(id, payload);
@@ -162,6 +177,32 @@ export function EditorView(): ReactElement {
 
   const stepIndex = STEP_ORDER.indexOf(step);
   const isLastStep = stepIndex === STEP_ORDER.length - 1;
+
+  // "Open in Playground" carries the CURRENT (possibly unsaved) definition so
+  // the playground mirrors what's on screen; save-back targets this segment id.
+  // Identity dim comes from the shared identity map (same anchor the refresh
+  // job resolves), falling back to the cube's own user_id dimension.
+  const identityDim = cube
+    ? (mappings.find((m) => m.cube === cube)?.identity_field ?? `${cube}.user_id`)
+    : null;
+  const playgroundLink =
+    id && type === 'predicate' && cube && validPredicate && identityDim
+      ? buildDefinitionDeeplink({
+          segment: {
+            id,
+            name,
+            type,
+            cube,
+            predicate_tree: predicate.tree as PredicateNode,
+            cube_query_json: null,
+            uid_list: [],
+            game_id: gameId,
+          },
+          identityDim,
+          cubeSegments,
+          gameId,
+        })
+      : null;
   const stepTitleKey = `segments.editor.steps.${step}.center`;
   const centerTitleDefault: Record<EditorStep, string> = {
     identity: 'Pick a cube + name the segment',
@@ -197,6 +238,24 @@ export function EditorView(): ReactElement {
           <header className={styles.workspaceCenterHead}>
             <h2>{t(stepTitleKey, { defaultValue: centerTitleDefault[step] })}</h2>
             <div style={{ display: 'inline-flex', gap: 8 }}>
+              {step === 'predicate' && playgroundLink && (
+                'disabled' in playgroundLink ? (
+                  <Tooltip title={playgroundLink.reason}>
+                    <span>
+                      <Button icon={<ExternalLink size={13} aria-hidden />} disabled>
+                        {t('segments.detail.actions.openInPlayground', { defaultValue: 'Open in Playground' })}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    icon={<ExternalLink size={13} aria-hidden />}
+                    onClick={() => window.location.assign(playgroundLink.url)}
+                  >
+                    {t('segments.detail.actions.openInPlayground', { defaultValue: 'Open in Playground' })}
+                  </Button>
+                )
+              )}
               {id && (
                 <Button onClick={() => history.push(`/segments/${id}`)}>
                   {t('segments.editor.viewSegment', { defaultValue: 'View segment' })}
@@ -222,23 +281,15 @@ export function EditorView(): ReactElement {
             )}
             {step === 'predicate' && (
               <>
-                {cubeSegments.length > 0 && (
-                  <div className={styles.sliceScopeBanner} role="note" style={{ marginBottom: 12 }}>
-                    <div className={styles.sliceScopeBody}>
-                      <span>
-                        {t('segments.editor.cubeSegmentsNote', {
-                          defaultValue:
-                            'Membership is also scoped by these cube segments from the originating query (defined in the data model — not editable here):',
-                        })}
-                      </span>
-                      <div className={styles.sliceScopeChips}>
-                        {cubeSegments.map((s) => (
-                          <span key={s} className={styles.sliceScopeChip}>{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {(catalog?.modelSegments.length ?? 0) > 0 || cubeSegments.length > 0 ? (
+                  <CubeSegmentScopeChips
+                    modelSegments={catalog?.modelSegments ?? []}
+                    activeSegments={cubeSegments}
+                    primaryCube={cube ?? ''}
+                    canAdminister={canAdminister}
+                    onChange={setCubeSegments}
+                  />
+                ) : null}
                 {renderRoot(predicate.tree, {
                   toggleConj: predicate.toggleConj,
                   addLeaf: predicate.addLeaf,
@@ -247,6 +298,7 @@ export function EditorView(): ReactElement {
                   setLeafMember: predicate.setLeafMember,
                   setLeafOp: predicate.setLeafOp,
                   setLeafValues: predicate.setLeafValues,
+                  catalog,
                 })}
               </>
             )}

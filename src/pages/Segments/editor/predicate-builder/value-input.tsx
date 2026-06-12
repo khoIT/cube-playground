@@ -1,8 +1,9 @@
 /** Renders the correct value editor for a leaf based on (type, op). */
 
 import { ReactElement } from 'react';
-import { Input, InputNumber, Select, Switch } from 'antd';
+import { AutoComplete, Input, InputNumber, Select, Switch } from 'antd';
 import { opDef } from './operators';
+import { useDimValueSuggestions } from './use-dim-value-suggestions';
 import type { LeafOperator, LeafValueType } from '../../../../types/segment-api';
 
 interface Props {
@@ -10,10 +11,14 @@ interface Props {
   op: LeafOperator;
   values: unknown[];
   onChange: (values: unknown[]) => void;
+  /** Fully-qualified member name (e.g. mf_users.os_platform) for value suggestions. */
+  member?: string;
 }
 
-export function ValueInput({ type, op, values, onChange }: Props): ReactElement | null {
+export function ValueInput({ type, op, values, onChange, member }: Props): ReactElement | null {
   const def = opDef(type, op);
+  const { fetchSuggestions, suggestions } = useDimValueSuggestions(member ?? null, type, op);
+
   if (!def || !def.takesValue) return null;
 
   if (def.multiValue) {
@@ -52,11 +57,32 @@ export function ValueInput({ type, op, values, onChange }: Props): ReactElement 
     );
   }
 
-  // string / time fall back to a text input (time can be ISO yyyy-mm-dd)
+  // String dims with equality ops: AutoComplete with fetched suggestions.
+  // Free-text entry is always allowed — suggestions are advisory only.
+  if (type === 'string' && suggestions.length > 0) {
+    return (
+      <AutoComplete
+        value={String(values[0] ?? '')}
+        options={suggestions.map((s) => ({ value: s }))}
+        onSelect={(v: string) => onChange([v])}
+        onChange={(v: string) => onChange([v])}
+        onFocus={fetchSuggestions}
+        style={{ width: '100%', minWidth: 200 }}
+        placeholder="value"
+        filterOption={(input, option) =>
+          (option?.value ?? '').toLowerCase().includes(input.toLowerCase())
+        }
+      />
+    );
+  }
+
+  // String dim without suggestions yet, or time dim — plain text input.
+  // For string, trigger suggestion fetch on focus so options populate lazily.
   return (
     <Input
       value={String(values[0] ?? '')}
       onChange={(e) => onChange([e.target.value])}
+      onFocus={type === 'string' ? fetchSuggestions : undefined}
       style={{ width: '100%', minWidth: 200 }}
       placeholder={type === 'time' ? 'YYYY-MM-DD' : 'value'}
     />

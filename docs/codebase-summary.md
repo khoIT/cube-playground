@@ -236,6 +236,41 @@ The data-analyst onboarding flow bootstraps draft Cube models from raw warehouse
 
 ---
 
+## Segment Predicate Explorer + Playground Round-Trip (2026-06-12)
+
+Closes the build↔segment loop: refine a segment's definition in the Playground, save it back to the segment editor, and fully edit a segment's predicate through the UI (previously blind text editors). Five coordinated subsystems:
+
+### Identity-anchor pivot sweep
+
+- **`cube_identity_map`** — All 8 cubes that join mf_users (active_daily, ordered_event_funnel, ordered_funnel_canonical, user_active_rolling, user_gameplay_daily, user_roles, user_recharge_daily, user_recharge_rolling) now have rows anchoring their identity to mf_users.user_id. Global seeding across all games; audit confirmed no game-level semantics collisions (recharge excluded: ptg standalone / tf role-bridge + it already has a curated preset). Preset-less cubes now render "via mf_users" chip + enriched Members tab. Rows are data seeded via `PUT /api/identity-map/:cube` (`server/src/routes/identity-map.ts`) — no schema migration.
+
+### Meta-driven member picker
+
+- **Predicate-builder member field** (`use-predicate-member-catalog.ts`) — Live searchable Select fed by Cube `/meta` via server's `connectedComponent` reachability (FE deduplicates joined cubes). Auto-sets leaf `type`; on-focus distinct-value suggestions ((`use-dim-value-suggestions.ts`). Degrades to free-text when meta unavailable. Replaced hardcoded `Input` in `predicate-leaf.tsx:35`.
+- **Dim value suggestions** — `use-dim-value-suggestions.ts` — lazy on-focus Cube `/load` distinct-values probe; cached per (workspace, game, dim); 50-row max; string equality ops only.
+
+### Cube-segment sidecar scope chips
+
+- **`cube-segment-scope-chips.tsx`** — Toggleable chips render model-defined cube segments in editor. Owner/admin-gated add affordance. Cross-cube entries read-only + always preserved. Server `PATCH /api/segments/:id` accepts `cube_segments` with precedence spec (tree+segments / segments-only / tree-only carry-forward), canonical sort, equality no-op guard.
+
+### Definition deeplink segment → Playground
+
+- **Deeplink builder** (`predicate-tree-to-cube-query.ts`) — Trees → Cube filters (preserving relative-date literals like `inDateRange(last 30 days)` + boolean AND/OR groups; identity dim + sidecar segments auto-attached). Replaces broken `?from-segment=` (uid-IN only, choked on >8k-char UIDs).
+- **Playground boot** — `?edit-segment=<id>` + sessionStorage edit context (always persisted). Game-mismatch guard; dead `?from-segment=` path retired with consumer migrated (saved-analyses uid-IN overlay stays via new deeplink).
+
+### Save-back from Playground to Segment Editor
+
+- **Refining banner** — Playground shows "Refining: <segment-name>" when edit-context active.
+- **SegmentsSaveBar update mode** — New "Update <name>" action (translatability gate blocks unexpressible constructs: empty-predicate guard, nested-group constructs, operators the reverse translator can't consume). Save-as-new always available. Injected echo filters (per-cube gameId scoping) stripped by exact structural match (`echo-filter-stripper.ts`).
+- **Patch + auto-refresh** — PATCH → refresh enqueued immediately (same path as in-editor predicate edits) → navigate back. Conflicts: last-write-wins by design. Can_administer-gated.
+
+### Code paths
+
+- **Server:** `routes/segments.ts` (`withCubeSegments` + `cube_segments` PATCH precedence); `services/translator.ts` (tree → filters at save). Identity-map rows are data, not schema — no migration.
+- **FE:** `src/pages/Segments/predicate-tree-to-cube-query.ts` (tree → boot query, relative literals preserved); `src/utils/playground-deeplink.ts` (definition deeplink + edit context); `src/QueryBuilderV2/segments-save-bar/` (translatability-gate, echo-filter-stripper, use-segment-update-action); `build-predicate-from-rows.ts:171` (query → tree, used by save-back).
+
+---
+
 ## Member 360 Data-Coverage Surface (jus_vn enablement + per-game evaluator)
 
 Per-game + per-panel live data-coverage status (ready/partial/empty/blocked) visible to admin + end-user (chip on Members tab when no 360). Replaces hand-audited spreadsheets with a queryable Cube YAML → Trino → product classifier.

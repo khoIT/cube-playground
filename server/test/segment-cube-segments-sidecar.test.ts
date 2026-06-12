@@ -126,6 +126,189 @@ describe('cube-segment sidecar in cube_query_json', () => {
   });
 });
 
+describe('PATCH cube_segments — precedence spec', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeEach(async () => {
+    setDb(makeMemDb());
+    app = await buildApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    closeDb();
+  });
+
+  async function createBase(opts: { cube_segments?: string[] } = {}): Promise<string> {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      payload: {
+        name: 'base segment',
+        type: 'predicate',
+        cube: 'mf_users',
+        predicate_tree: predicateTree,
+        ...opts,
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    return res.json().id as string;
+  }
+
+  it('(a) both predicate_tree + cube_segments: uses new tree + new segments, no carry-forward', async () => {
+    const id = await createBase({ cube_segments: ['mf_users.old_seg'] });
+
+    const newTree = JSON.parse(JSON.stringify(predicateTree));
+    newTree.children[0].values = ['vip'];
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { predicate_tree: newTree, cube_segments: ['mf_users.whales'] },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const q = storedCubeQuery(id);
+    expect(q.segments).toEqual(['mf_users.whales']);
+    expect(JSON.stringify(q.filters)).toContain('vip');
+    // old_seg is NOT carried forward when both are explicitly provided
+    expect((q.segments ?? []).includes('mf_users.old_seg')).toBe(false);
+  });
+
+  it('(b) only cube_segments: rebuilds from stored tree + new segments', async () => {
+    const id = await createBase({ cube_segments: ['mf_users.old_seg'] });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { cube_segments: ['mf_users.whales', 'mf_users.at_risk_paying'] },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const q = storedCubeQuery(id);
+    // Segments updated to the new set (canonical-sorted)
+    expect(q.segments).toEqual(['mf_users.at_risk_paying', 'mf_users.whales']);
+    // Filters rebuilt from stored tree — still contains at_risk
+    expect(JSON.stringify(q.filters)).toContain('at_risk');
+  });
+
+  it('(b) only cube_segments on segment with no stored tree returns 400', async () => {
+    // Create a manual segment — no predicate_tree.
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/segments',
+      payload: { name: 'manual seg', type: 'manual', cube: 'mf_users' },
+    });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id as string;
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { cube_segments: ['mf_users.whales'] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION');
+  });
+
+  it('(c) only predicate_tree: carries stored sidecar forward', async () => {
+    const id = await createBase({ cube_segments: ['mf_users.whales'] });
+
+    const newTree = JSON.parse(JSON.stringify(predicateTree));
+    newTree.children[0].values = ['churned'];
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { predicate_tree: newTree },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const q = storedCubeQuery(id);
+    // Sidecar preserved
+    expect(q.segments).toEqual(['mf_users.whales']);
+    // Filters updated
+    expect(JSON.stringify(q.filters)).toContain('churned');
+  });
+
+  it('(d) neither tree nor segments: cube_query_json unchanged', async () => {
+    const id = await createBase({ cube_segments: ['mf_users.whales'] });
+    const before = storedCubeQuery(id);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { name: 'renamed only' },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const after = storedCubeQuery(id);
+    expect(after.segments).toEqual(before.segments);
+    expect(JSON.stringify(after.filters)).toEqual(JSON.stringify(before.filters));
+  });
+
+  it('(d) refresh enqueues when cube_segments changed (not when unchanged)', async () => {
+    // Create with no sidecar so initial status is 'refreshing' from the predicate query,
+    // then manually reset to 'fresh' so we can observe the diff clearly.
+    const id = await createBase();
+    getDb().prepare("UPDATE segments SET status = 'fresh' WHERE id = ?").run(id);
+
+    // Same empty sidecar as stored → should NOT flip to refreshing.
+    const noop = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { cube_segments: [] },
+    });
+    expect(noop.statusCode).toBe(200);
+    // Empty cube_segments → null (withCubeSegments no-op); stored sidecar also null/empty.
+    expect(noop.json().status).toBe('fresh');
+
+    // Different segments — SHOULD flip to refreshing.
+    const changed = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { cube_segments: ['mf_users.vip'] },
+    });
+    expect(changed.statusCode).toBe(200);
+    expect(changed.json().status).toBe('refreshing');
+  });
+
+  it('canonical-sorts segments before persisting to prevent byte churn', async () => {
+    const id = await createBase();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { cube_segments: ['mf_users.zzz', 'mf_users.aaa', 'mf_users.mmm'] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(storedCubeQuery(id).segments).toEqual([
+      'mf_users.aaa',
+      'mf_users.mmm',
+      'mf_users.zzz',
+    ]);
+  });
+
+  it('cube_segments is an administer-gated field (owner or admin only)', async () => {
+    // Create a segment owned by the test principal (AUTH_DISABLED gives a fixed
+    // sub). Then verify that patching cube_segments on it succeeds (200) — the
+    // principal IS the owner, so administer-gated fields are allowed. The field
+    // being in the gate means a non-owner would get 403; we test the positive
+    // path since AUTH_DISABLED always runs as the owner/admin principal.
+    const id = await createBase();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      payload: { cube_segments: ['mf_users.whales'] },
+    });
+    // The calling principal owns the segment → 200.
+    expect(res.statusCode).toBe(200);
+    // Confirm cube_segments reached the storage layer (not silently dropped).
+    expect(storedCubeQuery(id).segments).toContain('mf_users.whales');
+  });
+});
+
 describe('cube-query-segments helpers', () => {
   it('round-trips through parse + attach', () => {
     const json = JSON.stringify(withCubeSegments({ filters: [] }, ['mf_users.whales']));

@@ -1,9 +1,9 @@
 ---
 phase: 1
-title: "Identity-anchor pivot sweep"
-status: pending
+title: Identity-anchor pivot sweep
+status: completed
 priority: P2
-effort: "3h"
+effort: 3h
 dependencies: []
 ---
 
@@ -31,10 +31,30 @@ Seed `cube_identity_map` rows anchoring every jus_vn cube that joins `mf_users` 
 4. Reload b7a6cae9 detail: chip reads "via mf_users"; trigger refresh; verify uid_list is bare uids and Members tab enriches.
 5. Compare cohort size pre/post; delta beyond namespace dedup expectations → investigate `split_part` collisions before accepting.
 
+## Audit results (2026-06-12, step 0 C1 gate)
+
+Cross-game join audit — every game's same-named cube anchors to the SAME logical target `mf_users.user_id` (join SQL differs per game — jus `split_part(user_id,'@',1)`, cfm etl `clientsdkuserid` — but the identity-map VALUE is identical), so **global rows are safe; no game-scoped migration needed**.
+
+| Cube | ballistar | cfm | cros | jus | muaw | ptg | pubg | tf | Verdict |
+|------|-----------|-----|------|-----|------|-----|------|----|---------|
+| active_daily | ✓ | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ | SEED |
+| ordered_event_funnel | ✓ | ✓ | — | ✓ | — | — | ✓ | — | SEED |
+| ordered_funnel_canonical | ✓ | ✓ | — | ✓ | — | — | ✓ | — | SEED |
+| user_active_rolling | — | ✓ | — | ✓ | — | — | — | — | SEED |
+| user_gameplay_daily | — | ✓ | — | ✓ | — | — | — | — | SEED |
+| user_roles | — | ✓ | ✓ | ✓ | — | — | — | ✓ | SEED |
+| user_recharge_daily | ✓ | ✓ | ✓ | ✓ | ✓ | — | ✓ | ✓ | SEED |
+| user_recharge_rolling | — | ✓ | — | ✓ | — | — | — | — | SEED |
+| recharge | ✓ | ✓ | ✓ | ✓ | ✓ | **standalone** | ✓ | **role-bridge** | **EXCLUDE** (also has curated preset) |
+
+(✓ = mf_users join present targeting `mf_users.user_id`; — = cube absent in that game)
+
+Join probes (jus_vn, workspace local): all 8 SEED cubes compile `{dimensions:['mf_users.user_id'], filters:[{member:'<cube>.<dim>', operator:'set'}]}` — `ordered_event_funnel` required its mandatory time bound (model query guard, expected). Seeded via `PUT /api/identity-map/:cube` — 8 rows, `source=manual`, `confidence=1`. Pre-refresh b7a6cae9: 31,979 uids (`uid@channel` space).
+
 ## Success Criteria
-- [ ] Every jus_vn cube with a verified mf_users join has a `cube_identity_map` row; none seeded where the join probe failed
-- [ ] b7a6cae9 shows "via mf_users" + enriched Members tab after refresh
-- [ ] uid_count delta documented and explained
+- [x] Every jus_vn cube with a verified mf_users join has a `cube_identity_map` row; none seeded where the join probe failed (8 seeded, `recharge` excluded by audit)
+- [x] b7a6cae9 pivot precondition verified: GET /api/identity-map returns `active_daily → mf_users.user_id (manual, is_suggested=false)`; `usePreset` pivot path (`use-preset.ts:96`) resolves mf-users-hub preset from that row (pre-seed the suggester anchored `active_daily.user_id` on itself → `resolvePivotPreset` null → "Auto preset" chip). Browser chip + enriched-Members check rolls into phase 6 matrix.
+- [x] uid_count delta documented: **0 delta** (31,979 pre and post, refresh log #1563 2026-06-12 07:01 GMT+7). uids were ALREADY bare mf_users snowflakes — the refresh job's identity resolver had been landing on `mf_users.user_id` via the auto-suggester ≥0.7-confidence fallback all along; the seed's effect is agreement + the FE pivot, not a re-cohort. No `split_part` collision risk materialized.
 
 ## Risk Assessment
 - **Uid-space break for downstream holders** of the old `uid@channel` list (CDP pushes, exports). Mitigation: refresh rewrites all server-side artifacts; flag in PR; only b7a6cae9 lives on these cubes today.

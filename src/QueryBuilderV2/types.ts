@@ -43,6 +43,14 @@ export interface QueryBuilderProps extends QueryBuilderSharedProps {
   schemaVersion?: number;
   defaultQuery?: Query;
   shouldRunDefaultQuery?: boolean;
+  /**
+   * Deeplink auto-run trigger. When set (and meta is loaded) the current
+   * query executes without a manual Run press; a NEW trigger value re-fires,
+   * so repeat "Open in Playground" clicks re-run an already-open tab.
+   * Unlike shouldRunDefaultQuery (boolean, mount-time only), this carries
+   * navigation identity — pass a per-click nonce.
+   */
+  autoRunTrigger?: string | null;
   initialVizState?: VizState;
   onSchemaChange?: (props: SchemaChangeProps) => void;
   extra?: ReactNode | null;

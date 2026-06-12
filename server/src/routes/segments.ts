@@ -82,6 +82,12 @@ const segmentPatchSchema = z.object({
   refresh_cadence_min: z.number().int().positive().nullable().optional(),
   /** Visibility setter. Owner may set personal/shared; 'org' is admin-only. */
   visibility: z.enum(VISIBILITY_VALUES).optional(),
+  /**
+   * Cube-level named segments (SQL snippets from the data model) to attach as
+   * scope sidecar in cube_query_json. Owner/admin-gated — same gate as
+   * predicate_tree. Omitting preserves the current sidecar (carry-forward).
+   */
+  cube_segments: z.array(z.string().min(1)).nullable().optional(),
 });
 
 function apiError(code: string, message: string, status: number) {
@@ -593,6 +599,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       patch.visibility !== undefined ||
       patch.predicate_tree !== undefined ||
       patch.uid_list !== undefined ||
+      patch.cube_segments !== undefined ||
       typeChanged;
     if (touchesAdministerField && !canAdministerSegment(req.principal, row)) {
       return reply.status(403).send({
@@ -602,14 +609,66 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     if (rejectNonAdminOrg(req, reply, patch.visibility, row.visibility)) return;
     const now = new Date().toISOString();
 
+    // Rebuild cube_query_json according to the precedence spec:
+    //
+    // (a) both predicate_tree + cube_segments present
+    //     → filters from tree, segments from patch (no carry-forward from stored)
+    // (b) only cube_segments present (no tree in patch)
+    //     → filters from STORED tree, segments from patch
+    //     → 400 if no stored tree (nothing to scope)
+    // (c) only predicate_tree present (no cube_segments in patch)
+    //     → carry stored cube-segment sidecar forward (existing behavior)
+    // (d) neither → cube_query_json unchanged
+    //
+    // Segments are canonical-sorted before persistence; equality-checked against
+    // the stored value to avoid triggering a no-op refresh.
+    const hasPatchTree = patch.predicate_tree !== undefined;
+    const hasPatchSegments = patch.cube_segments !== undefined;
+
     let cubeQueryJson = row.cube_query_json as string | null;
-    if (patch.predicate_tree !== undefined) {
+
+    if (hasPatchTree && hasPatchSegments) {
+      // Case (a): both provided — use tree for filters, patch for segments.
       if (patch.predicate_tree) {
         try {
           const filters = treeToCubeFilters(patch.predicate_tree as PredicateNode);
-          // The predicate editor only knows the tree — carry the cube-segment
-          // sidecar forward from the stored query so editing a filter doesn't
-          // silently widen membership past the original cube segments.
+          const sortedSegs = patch.cube_segments
+            ? [...patch.cube_segments].sort()
+            : null;
+          cubeQueryJson = JSON.stringify(withCubeSegments({ filters }, sortedSegs));
+        } catch (err) {
+          return reply.status(400).send({
+            error: { code: 'TRANSLATOR_ERROR', message: (err as Error).message },
+          });
+        }
+      } else {
+        cubeQueryJson = null;
+      }
+    } else if (hasPatchSegments && !hasPatchTree) {
+      // Case (b): only cube_segments — rebuild from stored tree + new segments.
+      if (!row.predicate_tree_json) {
+        return reply.status(400).send({
+          error: {
+            code: 'VALIDATION',
+            message: 'cube_segments requires a stored predicate_tree to rebuild the query',
+          },
+        });
+      }
+      try {
+        const storedTree = JSON.parse(row.predicate_tree_json as string) as PredicateNode;
+        const filters = treeToCubeFilters(storedTree);
+        const sortedSegs = patch.cube_segments ? [...patch.cube_segments].sort() : null;
+        cubeQueryJson = JSON.stringify(withCubeSegments({ filters }, sortedSegs));
+      } catch (err) {
+        return reply.status(400).send({
+          error: { code: 'TRANSLATOR_ERROR', message: (err as Error).message },
+        });
+      }
+    } else if (hasPatchTree && !hasPatchSegments) {
+      // Case (c): only predicate_tree — carry stored sidecar forward.
+      if (patch.predicate_tree) {
+        try {
+          const filters = treeToCubeFilters(patch.predicate_tree as PredicateNode);
           cubeQueryJson = JSON.stringify(
             withCubeSegments({ filters }, parseCubeSegments(row.cube_query_json as string | null)),
           );
@@ -621,6 +680,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       } else {
         cubeQueryJson = null;
       }
+      // Case (d): neither hasPatchTree nor hasPatchSegments → cubeQueryJson unchanged.
     }
 
     // When the caller didn't provide uid_list, preserve the existing row
@@ -651,15 +711,23 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       });
     }
 
-    // Auto-refresh when the predicate changed on a segment that is (or just
-    // became) predicate-typed — the cube_query_json was just regenerated, so
-    // the stored uid_count/uid_list are stale by construction. Judged against
-    // the NEW type so a manual→live conversion enqueues its first refresh.
-    // Flip status to 'refreshing' so the UI surfaces in-flight state immediately.
+    // Auto-refresh when the cohort definition changed on a predicate segment.
+    // "Changed" means: a non-null tree was supplied, OR the cube_segments sidecar
+    // was explicitly updated to a different sorted set than what is stored.
+    // Both cases regenerate cube_query_json, making the stored uid_count stale.
+    // Flip status to 'refreshing' immediately so the UI shows in-flight state.
+    const storedSegs = parseCubeSegments(row.cube_query_json as string | null) ?? [];
+    const patchedSegs = patch.cube_segments ? [...patch.cube_segments].sort() : null;
+    const cubeSegmentsChanged =
+      hasPatchSegments &&
+      nextType === 'predicate' &&
+      JSON.stringify(patchedSegs) !== JSON.stringify([...storedSegs].sort());
+
     const predicateChanged =
-      patch.predicate_tree !== undefined &&
-      patch.predicate_tree !== null &&
-      nextType === 'predicate';
+      (patch.predicate_tree !== undefined &&
+        patch.predicate_tree !== null &&
+        nextType === 'predicate') ||
+      cubeSegmentsChanged;
     const nextStatus = predicateChanged ? 'refreshing' : (row.status as string);
 
     db.prepare(`

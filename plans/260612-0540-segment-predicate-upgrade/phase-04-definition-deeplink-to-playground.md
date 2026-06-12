@@ -1,9 +1,9 @@
 ---
 phase: 4
-title: "Definition deeplink to playground"
-status: pending
+title: Definition deeplink to playground
+status: completed
 priority: P1
-effort: "4h"
+effort: 4h
 dependencies: []
 ---
 

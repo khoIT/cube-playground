@@ -1,14 +1,21 @@
 ---
-title: "Segment predicate upgrade: discoverable filters + playground round-trip"
-description: "Make segment predicates explorable (meta-driven picker, editable cube-segment scope) and close the build↔segment loop: refine a segment's definition in the playground and save it back"
-status: pending
+title: 'Segment predicate upgrade: discoverable filters + playground round-trip'
+description: >-
+  Make segment predicates explorable (meta-driven picker, editable cube-segment
+  scope) and close the build↔segment loop: refine a segment's definition in the
+  playground and save it back
+status: completed
 priority: P2
-branch: "main"
-tags: [segments, predicate-builder, playground, identity-map]
+branch: main
+tags:
+  - segments
+  - predicate-builder
+  - playground
+  - identity-map
 blockedBy: []
 blocks: []
-created: "2026-06-11T22:54:45.218Z"
-createdBy: "ck:plan"
+created: '2026-06-11T22:54:45.218Z'
+createdBy: 'ck:plan'
 source: skill
 ---
 
@@ -35,12 +42,12 @@ Born from the b7a6cae9 (`pc online last 30 days`, jus_vn/active_daily) investiga
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Identity-anchor pivot sweep](./phase-01-identity-anchor-pivot-sweep.md) | Pending |
-| 2 | [Meta-driven member picker](./phase-02-meta-driven-member-picker.md) | Pending |
-| 3 | [Cube-segment sidecar chips](./phase-03-cube-segment-sidecar-chips.md) | Pending |
-| 4 | [Definition deeplink to playground](./phase-04-definition-deeplink-to-playground.md) | Pending |
-| 5 | [Save-back from playground](./phase-05-save-back-from-playground.md) | Pending |
-| 6 | [Round-trip E2E + red-team fixes](./phase-06-round-trip-e2e-red-team-fixes.md) | Pending |
+| 1 | [Identity-anchor pivot sweep](./phase-01-identity-anchor-pivot-sweep.md) | Completed |
+| 2 | [Meta-driven member picker](./phase-02-meta-driven-member-picker.md) | Completed |
+| 3 | [Cube-segment sidecar chips](./phase-03-cube-segment-sidecar-chips.md) | Completed |
+| 4 | [Definition deeplink to playground](./phase-04-definition-deeplink-to-playground.md) | Completed |
+| 5 | [Save-back from playground](./phase-05-save-back-from-playground.md) | Completed |
+| 6 | [Round-trip E2E + red-team fixes](./phase-06-round-trip-e2e-red-team-fixes.md) | Completed |
 
 Order: 1–3 independent of 4–5 (parallel-safe by file ownership); 5 depends on 4; 6 depends on all.
 

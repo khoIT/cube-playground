@@ -4,6 +4,7 @@ import { ReactElement } from 'react';
 import { Button } from 'antd';
 import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
 import { PredicateLeaf } from './predicate-leaf';
+import type { MemberCatalog } from './use-predicate-member-catalog';
 import type { GroupNode, PredicateNode, LeafValueType, LeafOperator } from '../../../../types/segment-api';
 import type { Path } from '../hooks/use-predicate-state';
 
@@ -18,6 +19,8 @@ interface Props {
   setLeafMember: (path: Path, member: string, type: LeafValueType) => void;
   setLeafOp: (path: Path, op: LeafOperator) => void;
   setLeafValues: (path: Path, values: unknown[]) => void;
+  /** Threaded down from editor-view; undefined = degrade to free-text Input. */
+  catalog?: MemberCatalog | null;
 }
 
 export function PredicateGroup(props: Props): ReactElement {
@@ -25,6 +28,7 @@ export function PredicateGroup(props: Props): ReactElement {
     node, path, isRoot = false,
     toggleConj, addLeaf, addGroup, removeNode,
     setLeafMember, setLeafOp, setLeafValues,
+    catalog,
   } = props;
 
   return (
@@ -80,6 +84,7 @@ export function PredicateGroup(props: Props): ReactElement {
               setLeafMember={setLeafMember}
               setLeafOp={setLeafOp}
               setLeafValues={setLeafValues}
+              catalog={catalog}
             />
           );
         }
@@ -91,6 +96,7 @@ export function PredicateGroup(props: Props): ReactElement {
             onOp={(o) => setLeafOp(childPath, o)}
             onValues={(v) => setLeafValues(childPath, v)}
             onRemove={() => removeNode(childPath)}
+            catalog={catalog}
           />
         );
       })}
@@ -112,3 +118,5 @@ export function renderRoot(
   if (root.kind !== 'group') return null;
   return <PredicateGroup node={root} path={[]} isRoot {...helpers} />;
 }
+
+export type { Props as PredicateGroupProps };

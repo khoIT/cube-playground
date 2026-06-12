@@ -184,6 +184,9 @@ export interface SegmentInput {
 
 export interface SegmentPatch {
   name?: string;
+  /** Changing type to 'predicate' converts a manual segment to live — requires
+   *  a predicate_tree in the same request. The server auto-enqueues a refresh. */
+  type?: SegmentType;
   cube?: string | null;
   tags?: string[];
   predicate_tree?: PredicateNode | null;
@@ -191,6 +194,11 @@ export interface SegmentPatch {
   refresh_cadence_min?: number | null;
   /** Owner may set personal/shared; 'org' requires admin. */
   visibility?: SegmentVisibility;
+  /**
+   * Cube-level named segments (SQL snippets from the data model) to attach as
+   * scope sidecar. Owner/admin only. Omitting preserves the existing sidecar.
+   */
+  cube_segments?: string[] | null;
 }
 
 export interface SegmentAnalysis {

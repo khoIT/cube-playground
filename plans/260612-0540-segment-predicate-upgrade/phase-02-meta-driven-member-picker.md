@@ -1,9 +1,9 @@
 ---
 phase: 2
-title: "Meta-driven member picker"
-status: pending
+title: Meta-driven member picker
+status: completed
 priority: P1
-effort: "5h"
+effort: 5h
 dependencies: []
 ---
 

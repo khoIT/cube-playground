@@ -3,19 +3,28 @@
  *
  * Each card is a thin container around the saved Cube query, rendered via the
  * same LineChartCard / BarListCard primitives from P4. v1 surfaces the saved
- * title + query JSON + an "Open in Playground" action (uid filter applied).
+ * title + query JSON + an "Open in Playground" action.
+ *
+ * "Open in Playground" opens the saved analysis query scoped to the segment's
+ * current uid list by overlaying an IN filter on the identity dimension. This
+ * preserves the original behavior: the analysis ran against the query as
+ * filtered to the segment's members.
+ *
+ * The uid overlay uses buildPlaygroundDeeplink / mergeUidFilter. For large
+ * uid lists (uid_list.length → URL overflow), the sessionStorage overflow path
+ * now has a real consumer in QueryBuilderContainer (?from-segment=), so the
+ * old 8000-char limitation is solved rather than sidestepped.
  */
 
 import { ReactElement, useEffect, useState } from 'react';
 import { Button, message, Popconfirm } from 'antd';
 import { DeleteOutlined, ExportOutlined } from '@ant-design/icons';
 import { apiFetch, SegmentApiError } from '../../../../api/api-client';
-import {
-  buildPlaygroundDeeplink,
-  defaultBaseQuery,
-} from '../../../../utils/playground-deeplink';
 import type { Segment, SegmentAnalysis } from '../../../../types/segment-api';
 import { usePreset } from '../use-preset';
+import {
+  buildPlaygroundDeeplink,
+} from '../../../../utils/playground-deeplink';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -25,7 +34,10 @@ interface Props {
 export function SavedAnalysesTab({ segment }: Props): ReactElement {
   const [rows, setRows] = useState<SegmentAnalysis[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Resolve the identity dimension for the uid overlay.
   const preset = usePreset(segment);
+  const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
 
   const load = () => {
     apiFetch<SegmentAnalysis[]>(`/api/segments/${encodeURIComponent(segment.id)}/analyses`)
@@ -35,20 +47,50 @@ export function SavedAnalysesTab({ segment }: Props): ReactElement {
 
   useEffect(load, [segment.id]);
 
+  /**
+   * Open a saved analysis query in the Playground with the segment's uid list
+   * overlaid as an IN filter on the identity dimension.
+   *
+   * The uid list is the segment's current membership snapshot. For small lists
+   * the query is inlined in the URL; for large lists the sessionStorage overflow
+   * path handles it (QueryBuilderContainer's ?from-segment= consumer).
+   *
+   * If the segment has no uid list (predicate-only, no snapshot yet) the query
+   * is passed without an overlay — same as opening it standalone.
+   */
   const handleOpen = (analysis: SegmentAnalysis) => {
-    const baseQuery = analysis.query_json
-      ? (JSON.parse(analysis.query_json) as Record<string, unknown>)
-      : defaultBaseQuery(segment.cube);
-    const identityDim = preset?.identityDim ?? `${segment.cube ?? ''}.user_id`;
-    const out = buildPlaygroundDeeplink({
-      baseQuery,
+    if (!analysis.query_json) {
+      message.warning('This analysis has no saved query.');
+      return;
+    }
+
+    const uids = segment.uid_list ?? [];
+
+    if (uids.length === 0) {
+      // No uid snapshot available — open without overlay.
+      const encoded = encodeURIComponent(analysis.query_json);
+      window.location.assign(`#/build?query=${encoded}`);
+      return;
+    }
+
+    let baseQuery: Record<string, unknown>;
+    try {
+      baseQuery = JSON.parse(analysis.query_json) as Record<string, unknown>;
+    } catch {
+      message.error('Could not parse the saved query.');
+      return;
+    }
+
+    const result = buildPlaygroundDeeplink({
       segmentId: segment.id,
       segmentName: segment.name,
       identityDim,
       primaryCube: segment.cube,
-      uids: segment.uid_list ?? [],
+      uids,
+      baseQuery,
     });
-    window.location.assign(out.url);
+
+    window.location.assign(result.url);
   };
 
   const handleDelete = async (analysis: SegmentAnalysis) => {

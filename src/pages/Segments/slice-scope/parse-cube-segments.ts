@@ -4,6 +4,16 @@
  * server/src/services/cube-query-segments.ts — the sidecar exists because
  * cube segments are named SQL snippets the predicate tree cannot express.
  */
+
+/**
+ * Canonical sort for cube-segment arrays before persistence.
+ * Sorting prevents byte-for-byte churn when the same logical set is saved
+ * in different orderings (e.g. chip toggling always re-derives a full set).
+ */
+export function canonicallySortSegments(segments: string[]): string[] {
+  return [...segments].sort();
+}
+
 export function parseCubeSegmentsFromQueryJson(
   cubeQueryJson: string | null | undefined,
 ): string[] {

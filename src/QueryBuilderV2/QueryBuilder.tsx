@@ -107,6 +107,7 @@ export function QueryBuilder(
     onQueryChange,
     defaultQuery,
     shouldRunDefaultQuery,
+    autoRunTrigger,
     schemaVersion,
     tracking,
     isApiBlocked,

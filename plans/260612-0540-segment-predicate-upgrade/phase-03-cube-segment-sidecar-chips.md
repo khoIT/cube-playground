@@ -1,9 +1,9 @@
 ---
 phase: 3
-title: "Cube-segment sidecar chips"
-status: pending
+title: Cube-segment sidecar chips
+status: completed
 priority: P2
-effort: "4h"
+effort: 4h
 dependencies: []
 ---
 

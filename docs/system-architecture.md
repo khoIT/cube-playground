@@ -57,6 +57,8 @@ Auth/identity: pretend-auth `X-Owner` header in dev; Keycloak realm (`keycloak/r
 
 3. **Persistence + onboarding.** SPA → `/api/*` → gateway → SQLite for CRUD (segments, analyses, presets, dashboards, glossary). Model onboarding additionally writes **Cube YAML into the cube-dev repo** atomically (`cube-model-writer.ts`) and polls Cube `/meta` to validate — the bridge between the gateway and the semantic layer (see *Data-Model Lifecycle* below).
 
+4. **Segment predicate round-trip (2026-06-12).** Three flows: (a) **Deeplink to Playground:** SPA `/segments/:id` "Open in Playground" → `?query=<definition>&edit-segment=<id>` + sessionStorage edit context. The definition is built client-side from the predicate tree (`predicate-tree-to-cube-query.ts`, relative date literals preserved) + sidecar segments + identity dim. (b) **Save-back:** user edits filters in the Playground, clicks "Update <name>" on SegmentsSaveBar → echo filters stripped → `buildPredicateFromRows` produces the new tree → `PATCH /api/segments/:id` with predicate + cube_segments → refresh enqueued. (c) **In-editor authoring:** member picker Select fed by /meta connectedComponent (`use-predicate-member-catalog`), sidecar cube-segment chips (toggleable, owner/admin-gated).
+
 ### Dev / build
 
 `npm run dev:all` (`scripts/dev-all.mjs`) runs vite + gateway + chat-service + a Cube watchdog under `concurrently`. Each tier builds independently (`build`, `server:build`, `chat:build`); the SPA ships as static `dist/` served behind the same origin as Cube in prod (see [`deployment-guide.md`](./deployment-guide.md)).
