@@ -730,6 +730,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### Count-keyed SQLite migrations + out-of-order numbering = prod-only boot crash
+
+- **Rule:** the migration runner tracks progress as `PRAGMA user_version = file count` and applies `files.slice(user_version)` — it knows *how many* migrations ran, never *which*. New migration files MUST sort after every file that has ever shipped to prod. Before numbering a new migration, check the highest number on `second/main` (not your branch): parallel branches that each take "next free number" interleave, and the lower numbers land later.
+- **Why:** prod deploy 098f064 crash-looped the server (`dependency failed to start: server-1 unhealthy`). Prod had 44 applied files ending at `046-segment-member-profiles.sql`; the push inserted `044`/`045`/`047` before/around it, so `slice(44)` skipped 044 entirely and re-ran 046 — a bare `ALTER TABLE segments ADD COLUMN` → `duplicate column name: member_profiles_json` → `getDb()` throws on every boot. Local dev and a fresh-DB prod-mode repro both boot fine: the bug only exists against a DB whose count was stamped by a *different* file list.
+- **Signal:** deploy fails with server unhealthy but the same commit boots fine locally; the new-migration list in the diff is non-contiguous or sorts before existing files; CI trace shows no server logs (the compose `up` line aborts the job before any log-dump hook).
+- **Apply:** renumber the unshipped migrations past the highest prod-applied file (here 044/045/047 → 048/049/050). To verify the upgrade path locally: `git archive <deployed-sha> server/src/db/migrations`, apply all + stamp `user_version`, then boot the new build against that DB and watch `/api/health`. Failed-deploy forensics: container logs are destroyed by the next deploy's `down` — capture them immediately or reproduce locally.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
