@@ -9,8 +9,12 @@
  *     dead even though new requests would succeed — the user must reload to see
  *     data again. Dismiss clears it without reloading.
  *
- * The detailed "how to restart cube_api" hint moves to the strip's title
- * tooltip to keep the single line uncluttered. Colors use the semantic
+ * The strip names what actually broke: 'cube' (gateway up, Cube backend down)
+ * vs 'gateway' (the playground server itself not answering) — the health hook
+ * tells them apart and filters out brief dev-server restart blips entirely.
+ *
+ * The detailed "how to restart" hint moves to the strip's title tooltip to
+ * keep the single line uncluttered. Colors use the semantic
  * destructive/success tokens so the strip adapts to dark mode.
  */
 import { Button } from 'antd';
@@ -29,22 +33,30 @@ const STRIP_BASE: React.CSSProperties = {
   borderBottom: '1px solid var(--border-card)',
 };
 
-const RESTART_HINT =
+const CUBE_RESTART_HINT =
   'The local boot guard auto-recovers cube_api. If it sticks, restart it from ' +
   '~/Documents/code/cube-dev with `docker compose restart cube_api`, or rerun `npm run dev:all`.';
 
+const GATEWAY_RESTART_HINT =
+  'The playground gateway itself is not answering (Cube may be fine behind it). ' +
+  'On a dev host check the `npm run dev` terminal; brief tsx-watch restarts are filtered out, ' +
+  'so a persistent strip means the server crashed.';
+
 export function CubeApiBanner() {
-  const { status, hadOutage, acknowledgeRecovery } = useCubeApiHealth();
+  const { status, outageKind, hadOutage, acknowledgeRecovery } = useCubeApiHealth();
 
   if (status === 'unreachable') {
+    const gatewayDown = outageKind === 'gateway';
     return (
       <div
         role="alert"
-        title={RESTART_HINT}
+        title={gatewayDown ? GATEWAY_RESTART_HINT : CUBE_RESTART_HINT}
         style={{ ...STRIP_BASE, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)' }}
       >
         <span style={{ flex: 1 }}>
-          ⛔ Cube backend unreachable · retrying every 15s
+          {gatewayDown
+            ? '⛔ Playground server unreachable · retrying every 15s'
+            : '⛔ Cube backend unreachable · retrying every 15s'}
         </span>
         <Button size="small" onClick={() => window.location.reload()}>
           Reload
@@ -60,7 +72,9 @@ export function CubeApiBanner() {
         style={{ ...STRIP_BASE, background: 'var(--success-soft)', color: 'var(--success-ink)' }}
       >
         <span style={{ flex: 1 }}>
-          ✓ Cube backend recovered · reload so in-flight requests pick up fresh data
+          {outageKind === 'gateway'
+            ? '✓ Playground server recovered · reload so in-flight requests pick up fresh data'
+            : '✓ Cube backend recovered · reload so in-flight requests pick up fresh data'}
         </span>
         <Button size="small" type="primary" onClick={() => window.location.reload()}>
           Reload
