@@ -20,7 +20,7 @@ import { SegmentRefreshOpsTab } from '../segment-refresh-ops-tab';
 const OPS = {
   generatedAt: '2026-06-11T00:00:00.000Z',
   cron: { lastTickAt: '2026-06-10T23:59:30.000Z', tickIntervalMs: 60_000, sinceLastTickMs: 30_000 },
-  queue: { processing: false, size: 0 },
+  queue: { processing: false, size: 0, queuedIds: [] },
   watchdog: { enabled: true, wedgeFloorMin: 10 },
   summary: { total: 3, wedged: 1, degraded: 1, servingStale: 0, broken: 0, inFlight: 0, due: 0, healthy: 1 },
   segments: [
@@ -51,6 +51,9 @@ describe('SegmentRefreshOpsTab', () => {
     mockApiFetch.mockReset();
     mockApiFetch.mockImplementation((url: string) => {
       if (url.startsWith('/api/segment-refresh/ops')) return Promise.resolve(OPS);
+      if (url.startsWith('/api/segment-refresh/snapshot-runs')) {
+        return Promise.resolve({ enabledHere: false, runs: [], latestLanded: null, latestLandedError: null });
+      }
       return Promise.resolve({});
     });
   });

@@ -25,6 +25,7 @@ import { getDb } from '../db/sqlite.js';
 import { getLastTickAt, TICK_INTERVAL_MS } from '../jobs/cron-runner.js';
 import { isProcessing, queueSize, currentlyProcessing, pendingIds } from '../jobs/refresh-queue.js';
 import { collectSegmentRefreshOps } from '../services/segment-refresh-ops.js';
+import { collectSnapshotRuns } from '../services/segment-snapshot-runs.js';
 import { reconcileSegmentRefreshing } from '../services/segment-status.js';
 import { getCardProgress } from '../services/card-progress.js';
 
@@ -43,6 +44,14 @@ export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Pro
       queueRunningId: currentlyProcessing(),
       queueQueuedIds: pendingIds(),
     });
+  });
+
+  // ── GET /api/segment-refresh/snapshot-runs ─────────────────────────────────
+  // Nightly lakehouse membership-snapshot observability: per-instance heartbeat
+  // log (this gateway's SQLite) + latest landed partition from shared Trino
+  // (cross-instance truth, TTL-cached inside the service).
+  app.get('/api/segment-refresh/snapshot-runs', async () => {
+    return collectSnapshotRuns();
   });
 
   // ── GET /api/segment-refresh/:id/progress ──────────────────────────────────

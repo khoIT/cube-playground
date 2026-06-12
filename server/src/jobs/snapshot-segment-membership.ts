@@ -26,6 +26,10 @@ import {
 } from '../lakehouse/segment-snapshot-writer.js';
 import { writeSegmentMembershipDelta } from '../lakehouse/segment-delta-writer.js';
 import {
+  writeSegmentDefinitions,
+  type SegmentDefinitionSnapshotInput,
+} from '../lakehouse/segment-definition-writer.js';
+import {
   lakehouseSchemaForGame,
   lakehouseConnectorFromEnv,
 } from '../lakehouse/lakehouse-trino-connector.js';
@@ -48,21 +52,28 @@ interface SegmentRow {
   game_id: string | null;
   workspace: string;
   cube_query_json: string | null;
+  name: string;
+  type: string;
+  predicate_tree_json: string | null;
 }
+
+/** Eligible segment with the definition fields the definition writer needs on
+ *  top of what the membership writer consumes. */
+export type SnapshotEligibleSegment = SegmentSnapshotInput & SegmentDefinitionSnapshotInput;
 
 /** Predicate segments eligible for snapshotting: have a cube, a query, a game
  *  id, and that game maps to a known Trino schema. */
-export function listSnapshotEligibleSegments(): SegmentSnapshotInput[] {
+export function listSnapshotEligibleSegments(): SnapshotEligibleSegment[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT id, cube, game_id, workspace, cube_query_json
+      `SELECT id, cube, game_id, workspace, cube_query_json, name, type, predicate_tree_json
          FROM segments
         WHERE type = 'predicate' AND cube IS NOT NULL AND cube_query_json IS NOT NULL
               AND game_id IS NOT NULL`,
     )
     .all() as SegmentRow[];
-  const out: SegmentSnapshotInput[] = [];
+  const out: SnapshotEligibleSegment[] = [];
   for (const r of rows) {
     if (!r.cube || !r.game_id || !r.cube_query_json) continue;
     if (!lakehouseSchemaForGame(r.game_id)) continue; // unknown game → skip
@@ -72,6 +83,9 @@ export function listSnapshotEligibleSegments(): SegmentSnapshotInput[] {
       cube: r.cube,
       workspace: r.workspace,
       cubeQueryJson: r.cube_query_json,
+      name: r.name,
+      type: r.type,
+      predicateTreeJson: r.predicate_tree_json,
     });
   }
   return out;
@@ -131,6 +145,12 @@ export async function runSegmentMembershipSnapshot(
   // Build the lakehouse connector once (parses cube-dev/.env) and reuse it for
   // every segment + the delta, rather than re-reading the file per segment.
   const connector = lakehouseConnectorFromEnv();
+
+  // Definitions land BEFORE the membership loop so a segment whose membership
+  // INSERT errors still gets its definition row (history of what was
+  // attempted). Failure here never aborts the run — writer doesn't throw.
+  const defs = await writeSegmentDefinitions(segments, snapshotDate, { connector });
+  logHeartbeat(snapshotDate, '__definitions__', null, defs.rowCount, defs.status, defs.error);
 
   for (const seg of segments) {
     const res = await writeSegmentSnapshot(seg, snapshotDate, { connector });

@@ -6,6 +6,8 @@
 import { ReactElement } from 'react';
 import type { Segment } from '../../../../types/segment-api';
 import { SizeTrendSection } from './monitor/size-trend-section';
+import { TrajectoryCard } from '../cards/trajectory-card';
+import { MetricMovementCard } from '../cards/metric-movement-card';
 import { RefreshHistorySection } from './monitor/refresh-history-section';
 import { ActivationSummarySection } from './monitor/activation-summary-section';
 import { CadenceControl } from './monitor/cadence-control';
@@ -29,6 +31,11 @@ export function MonitorTab({ segment, onActivate, onJumpToActivation, onCadenceC
         cubeSegments={parseCubeSegmentsFromQueryJson(segment.cube_query_json)}
       />
       <CadenceControl segment={segment} onCadenceChange={onCadenceChange} />
+      {/* Lakehouse-backed trajectory (predicate+game segments only; renders
+          null otherwise). The SQLite SizeTrendSection below stays as the
+          fallback path for segments without snapshots. */}
+      <TrajectoryCard segment={segment} />
+      <MetricMovementCard segment={segment} />
       <SizeTrendSection segment={segment} />
       <RefreshHistorySection segment={segment} />
       <ActivationSummarySection

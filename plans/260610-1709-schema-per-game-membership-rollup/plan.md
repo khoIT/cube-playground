@@ -1,5 +1,11 @@
 # Schema-per-Game Membership → CubeStore Rollup Serve-Layer
 
+> **blockedBy: `260612-1554-segment-metric-movement-lakehouse`** (2026-06-12). That plan ships the
+> same membership-shaped reads (size-over-time, entered/exited) via query-time Trino first
+> (its Phase 5), and gates materialization/Cube-serving on measured latency (its Phase 7).
+> Re-evaluate this plan's go/no-go against that evidence before starting Phase 00 — if the
+> Phase 7 gate fires with a Cube-serving need, this plan's phases 00–02 are the execution route.
+
 Promote the nightly Trino segment-membership tables from **write-only system-of-record**
 to a **fast serve-layer** for membership-shaped reads (size-over-time, point-in-time
 count, entered/exited delta, optional full-cohort member list) — by giving each game its

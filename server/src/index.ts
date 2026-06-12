@@ -19,6 +19,8 @@ import cubeAliasesRoutes from './routes/cube-aliases.js';
 import segmentsRoutes from './routes/segments.js';
 import segmentMember360Routes from './routes/segment-member360.js';
 import segmentBriefRoutes from './routes/segment-brief.js';
+import segmentTrajectoryRoutes from './routes/segment-trajectory.js';
+import segmentMetricSeriesRoutes from './routes/segment-metric-series.js';
 import analysesRoutes from './routes/analyses.js';
 import identityMapRoutes from './routes/identity-map.js';
 import presetsRoutes from './routes/presets.js';
@@ -53,6 +55,7 @@ import careActivityRoutes from './routes/care-activity.js';
 import careGovernanceRoutes from './routes/care-governance.js';
 import preaggRunsRoutes from './routes/preagg-runs.js';
 import segmentRefreshOpsRoutes from './routes/segment-refresh-ops.js';
+import modelViewRoutes from './routes/model-view.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
@@ -101,6 +104,8 @@ export async function buildApp() {
   await app.register(segmentsRoutes);
   await app.register(segmentMember360Routes);
   await app.register(segmentBriefRoutes);
+  await app.register(segmentTrajectoryRoutes);
+  await app.register(segmentMetricSeriesRoutes);
   await app.register(analysesRoutes);
   await app.register(identityMapRoutes);
   await app.register(presetsRoutes);
@@ -135,6 +140,7 @@ export async function buildApp() {
   await app.register(careGovernanceRoutes);
   await app.register(preaggRunsRoutes);
   await app.register(segmentRefreshOpsRoutes);
+  await app.register(modelViewRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.

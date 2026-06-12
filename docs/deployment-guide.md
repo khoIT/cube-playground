@@ -279,6 +279,7 @@ Flat KV. ⚠️ = boot-blocking if absent.
 | `TRINO_PROFILER_HOST` / `_PORT` / `_USER` / `_PASS` / `_CATALOG` / `_SSL` / `_WORKSPACE` | cond | onboarding profiler. |
 | `MAIN_SERVER_SERVICE_TOKEN` | cond | chat↔server callback auth (same value both sides). |
 | `LANGFUSE_PUBLIC_KEY` / `_SECRET_KEY` / `_HOST` | cond | observability. |
+| `SEGMENT_SNAPSHOT_ENABLED` | cond | `true` on **exactly ONE** instance (prod) — enables the nightly job landing full segment membership + delta into shared `stag_iceberg.khoitn`. The once-per-day guard is per-instance SQLite, so two enabled instances double-scan shared Trino. Default off; dev machines must not set it. Verify landings via admin → Segment Refreshes → "Lakehouse snapshots" (latest-landed partition is the cross-instance truth). As of 2026-06-12 NOT yet set in prod Vault — only one manual partition (2026-06-10) exists. |
 
 Full secret-free reference lives in `.env.example`.
 

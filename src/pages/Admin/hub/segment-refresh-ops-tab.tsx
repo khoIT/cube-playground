@@ -21,6 +21,7 @@ import {
   fmtAge,
 } from './segment-refresh-ops-data';
 import { SegmentRefreshRow } from './segment-refresh-row';
+import { SnapshotRunsSection } from './snapshot-runs-section';
 import type { DerivedRefreshState } from '../../../types/segment-refresh-ops';
 
 const card: React.CSSProperties = {
@@ -207,6 +208,9 @@ export function SegmentRefreshOpsTab() {
           ))
         )}
       </section>
+
+      {/* Nightly lakehouse membership-snapshot observability */}
+      <SnapshotRunsSection />
     </div>
   );
 }

@@ -371,6 +371,52 @@ All care routes in `PROTECTED_PREFIXES` — editor/admin write-gated, viewers re
 
 ---
 
+## Segment Metric-Movement Lakehouse (2026-06-12)
+
+Nightly snapshot of segment definitions + membership deltas into Trino Iceberg (`stag_iceberg.khoitn`), powering per-segment cohort trajectory (size + entered/exited flow) and metric series (revenue, active members) by lens (current, entry, stayers) with optional survivorship bias.
+
+### Lakehouse Tables (Trino Iceberg, nightly writes)
+
+- **`segment_definition_daily`** — snapshot of segment metadata (id, name, type, cube_name, predicate JSON ≤100KB, definition hash, identity_dimension). Writer: `server/src/lakehouse/segment-definition-writer.ts` (idempotent batched DELETE ↔ INSERT per partition). No schema migrations; data-only seeding via server job. Cardinality: ~10–100 per game per day.
+- **`segment_membership_daily` / `segment_membership_delta`** — existing tables from the earlier segment-membership-snapshot feature; now co-referenced by metric-series queries. Membership snapshots (user_id, segment_id, log_date) + delta (entered/exited per day).
+
+### Services (server-side)
+
+- **Definition writer** — `server/src/lakehouse/segment-definition-writer.ts`. Idempotent: deletes old partition, INSERT-SELECTs current segment definitions (from SQLite) + cube metadata joins to produce normalized rows. Never throws; failure logs WARN. Wired into `server/src/jobs/snapshot-segment-membership.ts` with `__definitions__` heartbeat sentinel.
+- **Trajectory reader** — `server/src/lakehouse/segment-trajectory-reader.ts`. Joins membership snapshots + identity map to materialize per-(segment, day) cohort size + daily entered/exited flow (closed cohort, fixed-anchor per segment).
+- **Metric-series registry** — `server/src/lakehouse/segment-metric-registry.ts`. Seeded probe-verified (game, mart) pairs (cfm_vn + jus_vn: revenue, active_members). Per-mart pre-registration prevents wild data-warehouse scans.
+- **Metric-series reader** — `server/src/lakehouse/segment-metric-series-reader.ts`. Joins membership snapshots to per-user daily marts at query time, three cohort lenses: (a) **current** (membership@d ⨝ fact@d), (b) **entry** (closed cohort, per-member clock from first entry day, tracked through marts even after exit), (c) **stayers** (membership@anchor ∩ membership@d, survivor-bias flag). Dead-join detection: warns ≥5 all-zero cohort days.
+
+### Routes (server-side)
+
+- **`GET /api/segments/:id/trajectory`** — cohort size + entered/exited series from membership snapshots. guardSegment auth, 1h TTL bounded cache, 502 LAKEHOUSE_UNAVAILABLE on outage, 404 for non-predicate/no-game segments. Response: `{trajectory: [{day, size, entered, exited}]}`.
+- **`GET /api/segments/:id/metric-series?metric=<name>&lens=<current|entry|stayers>`** — per-(segment, day) metric series joining membership to daily marts. Three cohort lenses (current/entry/stayers), registry-gated. Response: `{series: [{day, value, memberCount}], cohortType, registry?}`.
+- **`GET /api/segments/:id/eligible-metrics`** — which metrics are queryable for this segment (registry-gated per game + mart availability). Response: `{metrics: [{id, name, display_name}]}`.
+- **`GET /api/segment-refresh/snapshot-runs`** — admin observability: per-instance heartbeat + cross-instance Trino latest-partition truth. 10-min TTL. Response: `{runs: [{instance, status, lastRunAt, definitionsPartition, membershipPartition}]}`.
+
+### Frontend
+
+- **Trajectory card** — `src/pages/Segments/detail/cards/trajectory-card.tsx` + `-model.ts`. Stat rail (size now, entered 7d, exited 7d) + sparkline (30d size trend) + diverging entered/exited strip (no interpolation on gaps, amber markers). Live data refresh on segment refresh.
+- **Metric-movement card** — `src/pages/Segments/detail/cards/metric-movement-card.tsx`. Lens tabs (current / entry / stayers) with semantic blurbs, survivor-bias and dead-join warning banners.
+- **Snapshot-runs admin card** — `src/pages/Admin/hub/snapshot-runs-section.tsx`. Segment-refresh ops tab; per-instance status + Delta/Definitions columns, latest-partition truth from Trino.
+
+### Scripts (server-side)
+
+- `server/src/scripts/verify-lakehouse-snapshot-partitions.ts` — audit tool; checks Trino partition alignment.
+- `server/src/scripts/verify-segment-definition-snapshot-live.ts` — live definition snapshot validation.
+- `server/src/scripts/run-segment-membership-snapshot-once.ts` — manual on-demand trigger.
+- `server/src/scripts/verify-entry-lens-post-entry-live.ts` — entry-lens post-entry tracking validation.
+
+### Operational Notes
+
+- **Nightly write dormant in prod.** `SEGMENT_SNAPSHOT_ENABLED` is unset in prod Vault as of 2026-06-12. Manual partition runs via scripts; automatic nightly scheduling deferred pending live validation.
+- **Local development.** Queries succeed against local/mock partitions if Trino is reachable; lakehouse is read-only on dev instances. Never set `SEGMENT_SNAPSHOT_ENABLED=true` on dev machines — writes double-scan shared Trino (per-instance guard is local SQLite).
+- **Availability gate.** Metric-series routes return 404 if segment has no game or predicate (not queryable); registry gates per-game (cfm_vn/jus_vn only, other games return empty metrics list).
+
+---
+
+---
+
 ## CS Demo-Care Loop (Persisted Actions, KPI Outcome, Activity, Reseed)
 
 Makes the CS console a true interactive demo loop: real ledger-driven timelines, persistent treatment/claim/dismiss actions, human-closed KPI outcome tracking, case export, rolling activity metrics, and guarded reseed capability. All routes leverage existing `/api/care/cases/:id` PATCH infrastructure + new activity + reset endpoints.

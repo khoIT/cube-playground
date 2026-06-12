@@ -648,6 +648,43 @@ CS-facing console for the 21-playbook VIP Care Program. Turns static playbook de
 
 ---
 
+## Segment Metric-Movement Lakehouse
+
+Dual-layer snapshot architecture: nightly Trino Iceberg (`stag_iceberg.khoitn`) writes of segment definitions + membership deltas, powering latency-bound cohort trajectory and metric-series analytics without live Cube dependencies.
+
+### Layer 1: Snapshot Writer (Fastify server, nightly)
+
+The job `server/src/jobs/snapshot-segment-membership.ts` materializes two Iceberg tables nightly:
+
+1. **`segment_definition_daily`** — metadata snapshot: segment id/name/type, cube name, definition JSON (predicate tree + cube-segments sidecar), definition hash (for change detection), and the resolved identity dimension. Writer is `segment-definition-writer.ts`: deletes the old partition (idempotent), then batches INSERT from SQLite segment rows + Cube metadata joins. Schema-less data seeding (no migration).
+
+2. **`segment_membership_daily` / `segment_membership_delta`** — existing membership snapshot tables (per-user entry dates, daily state flags) co-live in the same dataset. Delta rows let the reader distinguish exits from no-events.
+
+**Heartbeat:** Writer emits a `__definitions__` sentinel row per partition, visible in `GET /api/segment-refresh/snapshot-runs` for cross-instance truth detection (10-min TTL cache). Per-instance SQLite guard (`last_definitions_partition_written`) prevents double-writes if two instances both try to write the same date.
+
+### Layer 2: Snapshot Readers (Server queries, bound-latency)
+
+Three reader patterns, all join membership snapshots to identity map + per-user daily marts (Trino, query-time):
+
+1. **Trajectory reader** (`segment-trajectory-reader.ts`) — size + entered/exited series. Closed cohort anchored per segment at its refresh date. Used by `GET /api/segments/:id/trajectory` (1h TTL, cache, 502 LAKEHOUSE_UNAVAILABLE on Trino outage).
+
+2. **Metric-series reader** (`segment-metric-series-reader.ts`) — per-(segment, day) metric joinable via membership snapshots. Three cohort lenses:
+   - **Current** — (membership@day ⨝ mart@day): who was in AND active today.
+   - **Entry** — closed cohort by first-entry date; per-member clock starts at entry; data tracked through marts even after exit.
+   - **Stayers** — (membership@anchor ∩ membership@day): only members who entered and still in today.
+   - **Survivor bias flag** — warn when using stayers to interpret trends (selection bias inherent to the cohort).
+   - **Dead-join warning** — if ≥5 consecutive days have zero members + zero metrics, reader logs WARN + response includes `{deadJoinWarning: true}`.
+
+3. **Eligible metrics** (`GET /api/segments/:id/eligible-metrics`) — which metrics are queryable for this segment's game, gated by registry (`segment-metric-registry.ts`). Registry pre-registers only probe-verified (game, mart) pairs (cfm_vn + jus_vn: revenue, active_members) to prevent unbounded warehouse scans.
+
+### Operational Constraints
+
+- **Write dormant in prod.** `SEGMENT_SNAPSHOT_ENABLED` is unset in prod Vault; manual partition runs via `verify-lakehouse-snapshot-partitions.ts` / `run-segment-membership-snapshot-once.ts`. Nightly automation deferred.
+- **Per-instance guard.** Server-side SQLite counter `last_definitions_partition_written` prevents two instances both writing the same partition. Guard is per-instance (not cross-Trino), so two enabled instances will double-scan shared Trino — mitigated by Vault gating (SEGMENT_SNAPSHOT_ENABLED set on exactly one prod instance).
+- **Query-time safety.** Readers use identity map to translate segment UIDs → logical dimension names, then join to marts. If identity dim is unmapped or mart is missing for a game, readers return empty cohorts (404 for non-queryable segments; empty metrics list for unavailable games).
+
+---
+
 ## Future Directions
 
 **Semantic cache deferred** — exact-match cache (Layer 4) deferred pending production hit-rate measurement. If exact-match hit-rate <10%, revisit embedding-based semantic matching via a higher-latency service.
