@@ -53,8 +53,12 @@ interface SegmentRow {
 // cluster is down generates pointless DB churn that noisily drifts the
 // segments seed snapshot. When detected, we restore the segment to its prior
 // status instead of marking it broken.
+// 'abort' covers Cube's 500 {"error":"AbortError: This operation was aborted"} —
+// raised when Cube's checkAuth fetch to the gateway's auth bridge hits its 3s
+// fail-closed timer under load. A momentary auth blip is exactly as transient
+// as a connection reset; without this it paints the sticky 'broken' badge.
 const TRANSIENT_ERROR_RE =
-  /ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH|fetch failed|timed out after/i;
+  /ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH|fetch failed|timed out after|abort/i;
 
 function isTransientNetworkError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);

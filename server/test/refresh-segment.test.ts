@@ -130,6 +130,22 @@ describe('refreshSegment', () => {
     expect(row.broken_reason).toBe('Schema drift — missing members: foo');
   });
 
+  it("treats Cube's internal AbortError 500 as transient, not broken", async () => {
+    // Cube returns 500 {"error":"AbortError: ..."} when its checkAuth fetch to
+    // the gateway's auth bridge aborts at the 3s fail-closed timer under load —
+    // a momentary blip, same class as a connection reset. It must restore the
+    // prior status instead of stamping the sticky 'broken' badge.
+    const id = seedSegment();
+    vi.spyOn(cubeClient, 'load').mockRejectedValue(
+      new Error('Cube /load → 500: {"error":"AbortError: This operation was aborted"}'),
+    );
+    await refreshSegment(id);
+
+    const row = getSegment(id);
+    expect(row.status).not.toBe('broken');
+    expect(row.broken_reason).toBeNull();
+  });
+
   it('falls back to auto-suggester when manual identity-field mapping is missing', async () => {
     const id = seedSegment();
     const db = getDb();
