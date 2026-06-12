@@ -1,12 +1,12 @@
 import { Panel as UIPanel, tasty } from '@cube-dev/ui-kit';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Panel as ResizablePanel } from 'react-resizable-panels';
 import { ChartType } from '@cubejs-client/core';
 
 import { AppPane, AppPaneGroup, AppResizeHandle, Card, PaneShell } from '../components/AppPanes';
 import { QUERY_BUILDER_COLOR_TOKENS } from './color-tokens';
-import { useServerPref } from '../hooks/use-server-pref';
+import { useLocalStorage } from './hooks';
 import { useQueryBuilderContext } from './context';
 import { Tabs, Tab } from './components/Tabs';
 import { QueryBuilderFilters } from './QueryBuilderFilters';
@@ -20,12 +20,15 @@ import { QueryBuilderGraphQL } from './QueryBuilderGraphQL';
 import { QueryBuilderSidePanel } from './QueryBuilderSidePanel';
 import { QueryBuilderExtras } from './QueryBuilderExtras';
 import { QueryStatePillBar } from './QueryStatePillBar';
+import { AnalysisPanel } from './analysis/analysis-panel';
 import { ChartSidePane } from './components/ChartSidePane';
 import { PinToDashboardButton } from '../pages/Dashboards/pin-to-dashboard-button';
+import { CompareToggle } from './compare/compare-toggle';
 import { CompareContext } from './compare/compare-context';
-import { useActiveGameId } from '../components/Header/use-game-context';
-import { useCompareResults } from './compare/use-compare-results';
 import { readCompareFromUrl, writeCompareToUrl } from './compare/compare-url-codec';
+import { useCompareResults } from './compare/use-compare-results';
+import { useAppContext } from '../hooks';
+import { useSecurityContext } from '../hooks/security-context';
 import type { CompareSetting } from './compare/compare-url-codec';
 
 const FIXED_SIDEBAR_WIDTH = 315;
@@ -38,7 +41,7 @@ const Divider = tasty({
   },
 });
 
-type Tab = 'results' | 'generated-sql' | 'json' | 'graphql' | 'sql';
+type Tab = 'results' | 'analysis' | 'generated-sql' | 'json' | 'graphql' | 'sql';
 
 const QueryBuilderPanel = tasty(UIPanel, {
   isFlex: true,
@@ -76,7 +79,7 @@ const FixedCenterBare = styled.div`
 `;
 
 const FixedChartShell = styled(PaneShell)`
-  flex: 0 0 460px;
+  flex: 0 0 420px;
   min-width: 0;
 `;
 
@@ -124,44 +127,40 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
     query,
     resultSet,
   } = useQueryBuilderContext();
-  const [chartCollapsed, setChartCollapsed] = useServerPref<boolean>(
+  const { apiUrl: appApiUrl } = useAppContext();
+  const { currentToken } = useSecurityContext();
+  const [chartCollapsed, setChartCollapsed] = useLocalStorage<boolean>(
     'gds-cube:chart-pane-collapsed',
     false
   );
   const [tab, setTab] = useState<Tab>('results');
   const ref = useRef<HTMLDivElement>(null);
 
-  // Active game scopes the comparison query — game scope rides the x-cube-game
-  // header (the cube proxy mints the upstream token from it), so the compare
-  // hook needs it explicitly or it falls back to the default game's data.
-  const activeGameId = useActiveGameId();
-
-  // Compare mode state — initialised from URL on first render.
+  // ── Compare mode state ──────────────────────────────────────────────────
+  // Initialise from URL so page-reload preserves compare setting.
   const [compareSetting, setCompareSetting] = useState<CompareSetting>(
-    () => readCompareFromUrl(),
+    () => readCompareFromUrl()
   );
 
-  const handleCompareChange = useCallback((next: CompareSetting) => {
-    setCompareSetting(next);
-    writeCompareToUrl(next);
-  }, []);
+  // Keep URL in sync whenever compareSetting changes.
+  useEffect(() => {
+    writeCompareToUrl(compareSetting);
+  }, [compareSetting]);
 
-  // Derive measures list for delta computation.
-  const measures = useMemo(() => query?.measures ?? [], [JSON.stringify(query?.measures)]);
+  const measures = (query.measures ?? []) as string[];
 
-  // Run comparison query only when a mode is active and a result set is present.
-  const compareInput = compareSetting
-    ? {
-        query,
-        mode: compareSetting,
-        apiUrl: apiUrl ?? null,
-        currentToken: apiToken ?? null,
-        currentResultSet: resultSet ?? null,
-        measures,
-        activeGameId: activeGameId ?? null,
-      }
-    : null;
-  const compareState = useCompareResults(compareInput);
+  const compareState = useCompareResults(
+    compareSetting
+      ? {
+          query,
+          mode: compareSetting,
+          apiUrl: apiUrl ?? appApiUrl ?? null,
+          currentToken: apiToken ?? currentToken ?? null,
+          currentResultSet: resultSet,
+          measures,
+        }
+      : null
+  );
 
   const onChartTypeChange = useCallback(
     (value: ChartType) => {
@@ -180,17 +179,26 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
 
   const ResultsAndSQL = useMemo(() => {
     return (
-      <>
+      <CompareContext.Provider value={{ compareSetting, compareState }}>
         <Divider />
 
         <Tabs
           activeKey={tab}
-          extra={<QueryBuilderExtras />}
+          extra={
+            <>
+              <CompareToggle value={compareSetting} onChange={setCompareSetting} />
+              <QueryBuilderExtras />
+              <PinToDashboardButton />
+            </>
+          }
           styles={{ padding: '0 1x' }}
           onChange={(tab: string) => setTab(tab as Tab)}
         >
           <Tab keepMounted id="results" title="Results">
             <QueryBuilderResults forceMinHeight />
+          </Tab>
+          <Tab id="analysis" title="Analysis">
+            <AnalysisPanel />
           </Tab>
           <Tab id="generated-sql" title="SQL">
             <QueryBuilderGeneratedSQL />
@@ -205,9 +213,12 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
             <QueryBuilderGraphQL />
           </Tab>
         </Tabs>
-      </>
+      </CompareContext.Provider>
     );
-  }, [tab]);
+    // compareSetting + compareState included so toolbar re-renders on toggle;
+    // tab kept for active-tab switching.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, compareSetting, compareState]);
 
   const centerContent = (
     <CenterColumn ref={ref}>
@@ -232,37 +243,33 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
       apiToken={apiToken}
       apiUrl={apiUrl}
       query={query}
-      chartActions={<PinToDashboardButton />}
     >
       <QueryBuilderChart />
     </ChartSidePane>
   );
 
-  // Compare state is read by the right-pane Compare tab. The provider wraps the
-  // whole layout so ChartSidePane (a sibling of the center column) can consume it.
-  const compareContextValue = useMemo(
-    () => ({ compareSetting, compareState, onCompareChange: handleCompareChange }),
-    [compareSetting, compareState, handleCompareChange],
-  );
-
   // disableSidebarResizing: fixed-width sidebar, no PanelGroup
-  const layout = disableSidebarResizing ? (
-    <QueryBuilderPanel>
-      <FixedLayout>
-        <FixedSidebarShell>
-          <QueryBuilderSidePanel />
-        </FixedSidebarShell>
-        <FixedCenterBare>{centerContent}</FixedCenterBare>
-        {chartCollapsed ? (
-          <FixedChartRailShell>{chartContent}</FixedChartRailShell>
-        ) : (
-          <FixedChartShell>{chartContent}</FixedChartShell>
-        )}
-      </FixedLayout>
-    </QueryBuilderPanel>
-  ) : (
-    // Default: 3 resizable panes. Center is a bare Panel (no PaneShell chrome) so the
-    // inner Query and Results cards each appear as their own pane.
+  if (disableSidebarResizing) {
+    return (
+      <QueryBuilderPanel>
+        <FixedLayout>
+          <FixedSidebarShell>
+            <QueryBuilderSidePanel />
+          </FixedSidebarShell>
+          <FixedCenterBare>{centerContent}</FixedCenterBare>
+          {chartCollapsed ? (
+            <FixedChartRailShell>{chartContent}</FixedChartRailShell>
+          ) : (
+            <FixedChartShell>{chartContent}</FixedChartShell>
+          )}
+        </FixedLayout>
+      </QueryBuilderPanel>
+    );
+  }
+
+  // Default: 3 resizable panes. Center is a bare Panel (no PaneShell chrome) so the
+  // inner Query and Results cards each appear as their own pane.
+  return (
     <QueryBuilderPanel>
       <AppPaneGroup autoSaveId="QueryBuilder:Panes" direction="horizontal">
         <AppPane id="sidebar" order={1} defaultSize={22} minSize={18} maxSize={35}>
@@ -291,10 +298,6 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
         )}
       </AppPaneGroup>
     </QueryBuilderPanel>
-  );
-
-  return (
-    <CompareContext.Provider value={compareContextValue}>{layout}</CompareContext.Provider>
   );
 });
 

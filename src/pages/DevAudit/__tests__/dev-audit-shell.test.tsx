@@ -49,11 +49,11 @@ import { DevAuditShell } from '../dev-audit-shell';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderShell(initialPath: string) {
+function renderShell(initialPath: string, initialHash = '') {
   let finalPath = initialPath;
-  let finalHash = '';
+  let finalHash = initialHash;
   render(
-    <MemoryRouter initialEntries={[initialPath]}>
+    <MemoryRouter initialEntries={[{ pathname: initialPath, hash: initialHash }]}>
       <Route path="/dev/chat-audit">
         <DevAuditShell />
       </Route>
@@ -94,7 +94,8 @@ describe('DevAuditShell — legacy redirect', () => {
   });
 
   it('preserves #hash anchor on legacy redirect', () => {
-    const { getPath, getHash } = renderShell('/dev/chat-audit/abc-123#turn-xyz');
+    // Bookmarks like /dev/chat-audit/abc-123#turn-xyz must keep #turn-xyz after redirect.
+    const { getPath, getHash } = renderShell('/dev/chat-audit/abc-123', '#turn-xyz');
     expect(getPath()).toBe('/dev/chat-audit/sessions/abc-123');
     expect(getHash()).toBe('#turn-xyz');
   });

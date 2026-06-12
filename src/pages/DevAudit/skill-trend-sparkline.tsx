@@ -22,7 +22,7 @@ export function SkillTrendSparkline({
   height = 18,
   color = T.brand,
 }: Props) {
-  // Guard: empty or single-point data → flat baseline
+  // Guard: empty data → flat baseline
   if (data.length === 0) {
     return (
       <svg
@@ -53,8 +53,8 @@ export function SkillTrendSparkline({
 
   const total = data.reduce((s, v) => s + v, 0);
 
-  // Single-point: a polyline of one point renders nothing; use a circle instead
-  if (data.length === 1) {
+  // Single-point: SVG polyline requires ≥2 points to render; use a dot instead.
+  if (n === 1) {
     return (
       <svg
         width={width}
@@ -64,7 +64,13 @@ export function SkillTrendSparkline({
         style={{ display: 'inline-block', verticalAlign: 'middle' }}
       >
         <title>{`${total} total`}</title>
-        <circle cx={width / 2} cy={toY(data[0])} r={1.5} fill={color} />
+        <circle
+          cx={toX(0)}
+          cy={toY(data[0])}
+          r={1.5}
+          fill={color}
+          data-testid="sparkline-dot"
+        />
       </svg>
     );
   }

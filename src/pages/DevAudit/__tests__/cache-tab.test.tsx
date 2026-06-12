@@ -54,8 +54,8 @@ const FULL_DATA: CacheEffectivenessResponse = {
       originalTurnId: 'turn_1',
     },
   ],
-  staleRatio: 0.05,
-  legacyRatio: 0.01,
+  // BE shape: stale=5, typed=100, legacy=1 → staleRatio=5/101≈0.05, legacyRatio=1/101≈0.01
+  staleRatio: { stale: 5, typed: 100, legacy: 1 },
 };
 
 const EMPTY_DATA: CacheEffectivenessResponse = {
@@ -67,8 +67,7 @@ const EMPTY_DATA: CacheEffectivenessResponse = {
   },
   sparkline: [],
   topQueries: [],
-  staleRatio: 0,
-  legacyRatio: 0,
+  staleRatio: { stale: 0, typed: 0, legacy: 0 },
 };
 
 function renderPage() {

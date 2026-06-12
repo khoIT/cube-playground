@@ -141,6 +141,22 @@
   --layer-glossary: #2563eb;
   --layer-segment:  rgb(114, 83, 144);
 
+  /* Cube join-graph cluster palette — a 9-hue qualitative scale, one accent per
+     topology cluster (hub / bridge / session / behavior / recharge / activity /
+     mapping / profile / other). Purpose-built to stay mutually distinguishable
+     (the semantic/layer tokens collapse into too few hue families for 9
+     categories). Light values are darkened for contrast on the light canvas;
+     dark pairs live in the [data-theme="dark"] block below. */
+  --cluster-hub:      #2f6fdb;
+  --cluster-bridge:   #8b5cf6;
+  --cluster-session:  #d97b16;
+  --cluster-behavior: #e23d3d;
+  --cluster-recharge: #0f9d58;
+  --cluster-activity: #0e9bc4;
+  --cluster-mapping:  #6d5cf0;
+  --cluster-profile:  #0f9e86;
+  --cluster-other:    #64748b;
+
   --qb-filter-strong:    rgb(95, 31, 64);
   --qb-filter-text:      rgb(142, 73, 106);
   --qb-filter-active:    rgb(255, 191, 218);
@@ -283,6 +299,18 @@
   --layer-metric:   #fdba74;
   --layer-glossary: #60a5fa;
   --layer-segment:  #d8b4fe;
+
+  /* Cube join-graph cluster palette — dark pairs (see light block for
+     rationale). Brighter values tuned for legibility on the dark canvas. */
+  --cluster-hub:      #6ea8ff;
+  --cluster-bridge:   #c08cff;
+  --cluster-session:  #f0a64c;
+  --cluster-behavior: #f06a6a;
+  --cluster-recharge: #4fcf8a;
+  --cluster-activity: #4cc4e0;
+  --cluster-mapping:  #a98cff;
+  --cluster-profile:  #5cd6c0;
+  --cluster-other:    #9aa8c4;
 
   --qb-filter-strong:    #fca5a5;
   --qb-filter-text:      #fca5a5;

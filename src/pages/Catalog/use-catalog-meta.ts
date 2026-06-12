@@ -10,6 +10,8 @@ export type CatalogMeasure = {
   description?: string;
   aggType?: string;
   format?: string;
+  /** On view members: the `source_cube.member` this view field proxies. */
+  aliasMember?: string;
   meta?: { source?: string; author?: string; tags?: unknown };
 };
 
@@ -19,6 +21,8 @@ export type CatalogDimension = {
   type?: string;
   primaryKey?: boolean;
   public?: boolean;
+  /** On view members: the `source_cube.member` this view field proxies. */
+  aliasMember?: string;
 };
 
 export type CatalogJoin = {

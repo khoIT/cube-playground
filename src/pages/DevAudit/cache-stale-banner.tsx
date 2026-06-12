@@ -101,7 +101,7 @@ function setSessionDismissed() {
 export function CacheStaleBanner({ data, onClearCache, gameId }: Props) {
   const [dismissed, setDismissed] = useState<boolean>(isSessionDismissed);
 
-  const { staleRatio } = deriveStaleRatios(data);
+  const { staleRatio } = deriveStaleRatios(data.staleRatio);
 
   // Don't render if ratio is within threshold or user dismissed this session
   if (staleRatio <= STALE_CACHE_BANNER_THRESHOLD || dismissed) return null;

@@ -2,20 +2,20 @@
  * Catalog routing host. Since the Hermes shell port (260523) the top-level
  * Data Model vs Metrics Catalog split lives in the sidebar — there is no
  * catalog-wide page header here. Inside /catalog/data-model the user can
- * subnav between Concepts / Cubes / Models. /catalog/metrics renders the
- * business-metric registry directly.
+ * subnav between Cubes (join graph + card grid, default) / Schema / Concepts /
+ * Models / Concept Map. /catalog/metrics renders the business-metric registry
+ * directly.
  *
  * Long-tail surfaces (Digest / Notifications / Saved views / Workspaces)
  * remain reachable via direct URL even though they no longer appear in the
  * sidebar.
  */
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense } from 'react';
 import { Redirect, Route, useLocation, withRouter } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { SchemaPage } from '../Schema/SchemaPage';
-import { CatalogGrid } from './catalog-grid';
-import { CatalogToolbar } from './catalog-toolbar';
+import { CatalogBrowseBody } from './catalog-browse-body';
 import { ConceptDetailPage } from './concept-detail/concept-detail-page';
 import { DataModelSubtabs, resolveDataModelSubtab } from './catalog-tabs';
 import { DataModelTab } from './data-model-tab/data-model-tab';
@@ -24,11 +24,10 @@ import { MetricCompositionWizard } from './metric-composition-wizard/composition
 import { NotificationsPage } from './notifications/notifications-page';
 import { SavedViewsPage } from './saved-views/saved-views-page';
 import { WorkspacesPage } from './workspaces/workspaces-page';
-import { DetailPanel } from './detail-panel';
 import { MetricDetailPage } from './metric-detail/metric-detail-page';
 import { MetricsTab } from './metrics-tab/metrics-tab';
-import { useCatalogMeta, CatalogCube } from './use-catalog-meta';
-import { useCubeClusters } from './use-cube-clusters';
+import { CubesSurface } from './cube-graph/cubes-surface';
+import { useCatalogMeta } from './use-catalog-meta';
 import { SchemaCartographerPage } from './schema-cartographer/cartographer-page';
 import { GlossaryIndexPage } from './glossary/glossary-index-page';
 import { useCubeApiBootstrap } from '../../hooks';
@@ -38,18 +37,6 @@ const Page = styled.div`
   flex-direction: column;
   height: 100%;
   background: var(--bg-app);
-`;
-
-const Body = styled.div`
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-`;
-
-const Main = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 24px 32px;
 `;
 
 const ModelsHost = styled.div`
@@ -70,70 +57,6 @@ const SchemaPageWithRouter = withRouter(SchemaPage);
 // when the tab is opened, keeping it out of the main Catalog bundle.
 const ConceptMapPage = lazy(() => import('./concept-map/concept-map-page'));
 
-type CatalogBrowseBodyProps = {
-  cubes: CatalogCube[];
-  loading: boolean;
-  error: string | null;
-};
-
-function CatalogBrowseBody({ cubes, loading, error }: CatalogBrowseBodyProps) {
-  const [search, setSearch] = useState('');
-  const [hasPreAggOnly, setHasPreAggOnly] = useState(false);
-  const [selectedCube, setSelectedCube] = useState<string | null>(null);
-  const clusters = useCubeClusters(cubes);
-
-  const filteredClusters = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const matches = (c: CatalogCube): boolean => {
-      if (q) {
-        const hit = (s: string | undefined) => s?.toLowerCase().includes(q) ?? false;
-        if (!(hit(c.name) || hit(c.title) || hit(c.description))) return false;
-      }
-      if (hasPreAggOnly && (c.preAggregations?.length ?? 0) === 0) return false;
-      return true;
-    };
-    return {
-      connected: clusters.connected
-        .map((group) => group.filter(matches))
-        .filter((g) => g.length > 0),
-      standalone: clusters.standalone.filter(matches),
-    };
-  }, [clusters, search, hasPreAggOnly]);
-
-  const selected = useMemo(
-    () => cubes.find((c) => c.name === selectedCube) ?? null,
-    [cubes, selectedCube],
-  );
-
-  return (
-    <>
-      {error && <StatusLine $kind="error">Failed to load meta: {error}</StatusLine>}
-      {loading && <StatusLine $kind="info">Loading…</StatusLine>}
-
-      <CatalogToolbar
-        search={search}
-        onSearchChange={setSearch}
-        hasPreAggOnly={hasPreAggOnly}
-        onHasPreAggToggle={() => setHasPreAggOnly((v) => !v)}
-      />
-
-      <Body>
-        <Main>
-          {!loading && !error && (
-            <CatalogGrid
-              clusters={filteredClusters}
-              onSelect={(name) => setSelectedCube(name)}
-              selected={selectedCube}
-            />
-          )}
-        </Main>
-
-        {selected && <DetailPanel cube={selected} onClose={() => setSelectedCube(null)} />}
-      </Body>
-    </>
-  );
-}
-
 export function CatalogPage() {
   const location = useLocation();
   // Without this, /catalog/metric/:id rendered before /build leaves apiUrl
@@ -153,13 +76,13 @@ export function CatalogPage() {
   }
 
   // Long-tail surfaces — sidebar entries removed (260523-1347) but the routes
-  // remain reachable via direct URL. Schema cartographer moved into the
-  // Data Model subtabs as the default landing; the old /catalog/schema URL
-  // (used by chat field-chips before the move) preserves its `?focus=` param
-  // through the redirect.
+  // remain reachable via direct URL. Schema cartographer lives at the
+  // /data-model/schema subtab; the old /catalog/schema URL (used by chat
+  // field-chips before the move) preserves its `?focus=` param through the
+  // redirect.
   if (location.pathname === '/catalog/schema') {
     const search = location.search ?? '';
-    return <Redirect to={`/catalog/data-model${search}`} />;
+    return <Redirect to={`/catalog/data-model/schema${search}`} />;
   }
   const longTailMap: Record<string, JSX.Element> = {
     '/catalog/digest':        <DigestPage />,
@@ -198,6 +121,21 @@ export function CatalogPage() {
   if (location.pathname === '/catalog/models') return <Redirect to="/catalog/data-model/models" />;
   if (location.pathname === '/catalog') return <Redirect to="/catalog/data-model" />;
 
+  // The Cubes surface owns the bare /catalog/data-model URL (Graph default).
+  // Two legacy shapes still need rerouting:
+  //  - root + ?focus= → Schema Cartographer (chat field-chips deep-link the
+  //    root from when Schema owned it; keep the full search string).
+  //  - /data-model/cubes (old grid bookmark) → root with ?view=grid.
+  if (location.pathname === '/catalog/data-model') {
+    const params = new URLSearchParams(location.search);
+    if (params.has('focus')) {
+      return <Redirect to={`/catalog/data-model/schema${location.search}`} />;
+    }
+  }
+  if (location.pathname === '/catalog/data-model/cubes') {
+    return <Redirect to="/catalog/data-model?view=grid" />;
+  }
+
   // Metrics Catalog — single surface, no subtabs.
   if (location.pathname === '/catalog/metrics' || location.pathname.startsWith('/catalog/metrics/')) {
     return (
@@ -207,13 +145,15 @@ export function CatalogPage() {
     );
   }
 
-  // Data Model surface with Schema / Concepts / Cubes / Models subtabs.
-  // Schema is the leftmost tab and the default landing (renders at the bare
-  // /catalog/data-model URL); other subtabs hang off /concepts /cubes /models.
-  const subtab = resolveDataModelSubtab(location.pathname) ?? 'schema';
+  // Data Model surface with Cubes / Schema / Concepts / Models / Concept Map
+  // subtabs. Cubes is the leftmost tab and the default landing (renders at
+  // the bare /catalog/data-model URL, Graph view by default); other subtabs
+  // hang off /schema /concepts /models /concept-map.
+  const subtab = resolveDataModelSubtab(location.pathname) ?? 'cubes';
   return (
     <Page>
       <DataModelSubtabs />
+      {subtab === 'cubes' && <CubesSurface cubes={cubes} loading={loading} error={error} />}
       {subtab === 'schema' && <SchemaCartographerPage />}
       {subtab === 'concept-map' && (
         <Suspense fallback={<StatusLine $kind="info">Loading…</StatusLine>}>
@@ -221,9 +161,6 @@ export function CatalogPage() {
         </Suspense>
       )}
       {subtab === 'concepts' && <DataModelTab />}
-      {subtab === 'cubes' && (
-        <CatalogBrowseBody cubes={cubes} loading={loading} error={error} />
-      )}
       {subtab === 'models' && (
         <ModelsHost>
           <SchemaPageWithRouter />

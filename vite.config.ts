@@ -39,6 +39,8 @@ export default defineConfig(({ mode }) => {
         // x-cube-workspace header decides which Cube backend handles the call.
         '/cube-api': { target: 'http://localhost:3004', changeOrigin: true },
         '/api': { target: 'http://localhost:3004', changeOrigin: true },
+        // Cube data-model viewer (static, served by Fastify from model-viewer/).
+        '/model-view': { target: 'http://localhost:3004', changeOrigin: true },
       },
     },
     plugins: [

@@ -55,16 +55,20 @@ describe('SkillTrendSparkline', () => {
     expect(svg.getAttribute('viewBox')).toBe('0 0 120 40');
   });
 
-  it('single-point data renders a circle (not polyline) at midpoint', () => {
+  it('single-point data renders a dot (circle), not a polyline', () => {
+    // SVG polyline requires ≥2 points; single-point uses a circle marker instead.
     const { container } = render(<SkillTrendSparkline data={[5]} />);
-    // polyline of 1 point renders nothing visible — we render a circle instead
     const polyline = container.querySelector('polyline');
+    const dot = container.querySelector('[data-testid="sparkline-dot"]');
     expect(polyline).toBeNull();
-    const circle = container.querySelector('circle');
-    expect(circle).toBeTruthy();
-    // title still shows total
+    expect(dot).toBeTruthy();
+  });
+
+  it('single-point dot has a title showing the total', () => {
+    const { container } = render(<SkillTrendSparkline data={[7]} />);
     const title = container.querySelector('title');
-    expect(title?.textContent).toBe('5 total');
+    expect(title).toBeTruthy();
+    expect(title!.textContent).toBe('7 total');
   });
 
   it('title element shows total count', () => {

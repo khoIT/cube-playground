@@ -7,7 +7,10 @@
  * - latency win shows multiplier
  * - stale pill shows amber warn when staleRatio > 0.10
  * - stale pill shows normal style when staleRatio <= 0.10
- * - staleRatio as Record averages correctly
+ * - BE-shape staleRatio counts derive correct fractions
+ *
+ * staleRatio is the BE shape { stale, typed, legacy } — raw counts.
+ * deriveStaleRatios() computes [0,1] fractions: stale/(typed+legacy), legacy/(typed+legacy).
  */
 
 import React from 'react';
@@ -29,8 +32,8 @@ function makeData(overrides: Partial<CacheEffectivenessResponse> = {}): CacheEff
       { day: '2026-05-02', hits: 15, misses: 3 },
     ],
     topQueries: [],
-    staleRatio: 0.12,
-    legacyRatio: 0.04,
+    // Default: 12 stale out of 100 typed → staleRatio=0.12; 4 legacy → legacyRatio=0.04
+    staleRatio: { stale: 12, typed: 100, legacy: 4 },
     ...overrides,
   };
 }
@@ -83,28 +86,35 @@ describe('CacheDashboardHero', () => {
   });
 
   it('stale pill shows warn state when staleRatio > 0.10', () => {
-    render(<CacheDashboardHero data={makeData({ staleRatio: 0.12 })} days={30} />);
+    // stale=12, typed=100, legacy=0 → 12/100=0.12 > 0.10 → warn
+    render(<CacheDashboardHero data={makeData({ staleRatio: { stale: 12, typed: 100, legacy: 0 } })} days={30} />);
     const pill = screen.getByTestId('stale-pill');
     expect(pill.getAttribute('data-warn')).toBe('true');
   });
 
   it('stale pill shows normal state when staleRatio <= 0.10', () => {
-    render(<CacheDashboardHero data={makeData({ staleRatio: 0.05 })} days={30} />);
+    // stale=5, typed=100, legacy=0 → 5/100=0.05 ≤ 0.10 → no warn
+    render(<CacheDashboardHero data={makeData({ staleRatio: { stale: 5, typed: 100, legacy: 0 } })} days={30} />);
     const pill = screen.getByTestId('stale-pill');
     expect(pill.getAttribute('data-warn')).toBe('false');
   });
 
-  it('stale pill shows 0% when staleRatio is 0', () => {
-    render(<CacheDashboardHero data={makeData({ staleRatio: 0 })} days={30} />);
+  it('stale pill shows 0% when no stale rows', () => {
+    render(<CacheDashboardHero data={makeData({ staleRatio: { stale: 0, typed: 100, legacy: 0 } })} days={30} />);
     expect(screen.getByTestId('stale-pill').textContent).toContain('0% stale');
   });
 
-  it('staleRatio as BE object shape { stale, typed, legacy } derives ratio correctly', () => {
-    // BE object shape: stale=20, typed=80, legacy=20 → denom=100 → staleRatio=0.20 > 0.10 → warn
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render(<CacheDashboardHero data={makeData({ staleRatio: { stale: 20, typed: 80, legacy: 20 } as any })} days={30} />);
+  it('empty cache (all zeros) shows 0% stale and no warn', () => {
+    render(<CacheDashboardHero data={makeData({ staleRatio: { stale: 0, typed: 0, legacy: 0 } })} days={30} />);
     const pill = screen.getByTestId('stale-pill');
-    expect(pill.getAttribute('data-warn')).toBe('true');
+    expect(pill.getAttribute('data-warn')).toBe('false');
+    expect(pill.textContent).toContain('0% stale');
+  });
+
+  it('BE-shape counts derive correct legacyRatio — pill shows legacy %', () => {
+    // stale=0, typed=60, legacy=40 → denom=100 → legacyRatio=40% → pill shows "40 legacy"
+    render(<CacheDashboardHero data={makeData({ staleRatio: { stale: 0, typed: 60, legacy: 40 } })} days={30} />);
+    expect(screen.getByTestId('stale-pill').textContent).toContain('40 legacy');
   });
 
   it('shows days prop in $ saved subtext', () => {

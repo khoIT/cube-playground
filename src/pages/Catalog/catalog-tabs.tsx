@@ -1,7 +1,8 @@
 /**
  * DataModelSubtabs — sub-navigation within the Data Model surface.
- * Splits the data-model content into three views: Concepts (default,
- * concept-grid), Cubes (raw cube cards), Models (schema files).
+ * Cubes (join graph + card grid) is the first tab and the default landing;
+ * Schema (Cartographer), Concepts, Models, and Concept Map hang off explicit
+ * subpaths.
  *
  * The top-level Data Model vs Metrics Catalog split lives in the sidebar
  * now — there is no longer a catalog-wide tab strip above the page.
@@ -59,13 +60,15 @@ const TabButton = styled.button<{ $active: boolean }>`
 export type DataModelSubtab = 'schema' | 'concepts' | 'cubes' | 'models' | 'concept-map';
 
 /**
- * Schema is the leftmost subtab and the default landing for /catalog/data-model,
- * so it owns the root path. Concepts moves to an explicit /concepts URL.
+ * Cubes is the leftmost subtab and the default landing for /catalog/data-model,
+ * so it owns the root path (the join graph renders there, with ?view=grid for
+ * the card grid). Schema moved to an explicit /schema URL; `?focus=` deep
+ * links to the root are redirected to it by the Catalog dispatch.
  */
 const TAB_PATHS: Record<DataModelSubtab, string> = {
-  schema:        '/catalog/data-model',
+  cubes:         '/catalog/data-model',
+  schema:        '/catalog/data-model/schema',
   concepts:      '/catalog/data-model/concepts',
-  cubes:         '/catalog/data-model/cubes',
   models:        '/catalog/data-model/models',
   'concept-map': '/catalog/data-model/concept-map',
 };
@@ -78,19 +81,21 @@ const TAB_LABELS: Record<DataModelSubtab, { i18n: string; fallback: string }> = 
   'concept-map': { i18n: 'tabs.conceptMap', fallback: 'Concept Map' },
 };
 
-const TAB_ORDER: DataModelSubtab[] = ['schema', 'concepts', 'cubes', 'models', 'concept-map'];
+const TAB_ORDER: DataModelSubtab[] = ['cubes', 'schema', 'concepts', 'models', 'concept-map'];
 
 /**
  * Resolve which subtab is active for a given pathname under /catalog/data-model.
- * Returns null if the pathname is not under the Data Model surface.
+ * Returns null if the pathname is not under the Data Model surface. The bare
+ * root (any query string) resolves to cubes; the legacy /cubes subpath also
+ * resolves to cubes (the dispatch redirects it to the root grid view).
  */
 export function resolveDataModelSubtab(pathname: string): DataModelSubtab | null {
   if (pathname === '/catalog/data-model' || pathname.startsWith('/catalog/data-model/')) {
     if (pathname.includes('/data-model/concept-map')) return 'concept-map';
     if (pathname.includes('/data-model/concepts')) return 'concepts';
-    if (pathname.includes('/data-model/cubes')) return 'cubes';
+    if (pathname.includes('/data-model/schema')) return 'schema';
     if (pathname.includes('/data-model/models')) return 'models';
-    return 'schema';
+    return 'cubes';
   }
   return null;
 }

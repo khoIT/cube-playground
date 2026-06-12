@@ -19,59 +19,53 @@ export interface CacheSparklineDay {
   misses: number;
 }
 
-/**
- * Mirrors chat-service `TopQuery` (see chat-service/src/db/cache-effectiveness-store.ts).
- * BE precomputes `dollarsSaved`; snippet is already truncated to 80 chars in SQL layer.
- * `lastHitAt` is ms-epoch (number) on the wire — `new Date(n)` parses it.
- */
 export interface TopQueryRow {
-  queryKey: string;
-  snippet: string;
-  skill: string;
-  model: string;
+  cacheKey: string;
+  normalizedQuery: string;
+  skill: string | null;
+  model: string | null;
   hitCount: number;
-  lastHitAt: number | null;
-  dollarsSaved: number;
-  originalTurnId: string | null;
+  lastHitAt: string | null;   // ISO timestamp
+  costUsd: number | null;
   originalSessionId: string | null;
+  originalTurnId: string | null;
 }
 
 /**
- * Per-kind row count + total hits from the unified kv_cache table.
- * Surfaces non-response_cache caches (cube /load rows, turn-detail audit)
- * alongside the headline response_cache totals.
+ * Raw stale-ratio counts from BE.
+ * stale  = rows where cube_meta_hash IS NOT NULL AND != newest hash for that game.
+ * typed  = rows where cube_meta_hash IS NOT NULL (superset includes stale).
+ * legacy = rows where cube_meta_hash IS NULL.
  */
-export interface KvCacheKindStat {
-  kind: string;
-  entries: number;
-  totalHits: number;
-  lastHitAt: number | null;
-}
-
-/** Raw BE stale-ratio counts (emitted by older BE before scalar conversion). */
-export interface StaleRatioCounts {
-  stale: number;   // rows with outdated cube_meta_hash
-  typed: number;   // all rows with a cube_meta_hash (IS NOT NULL)
-  legacy: number;  // rows with no cube_meta_hash (IS NULL)
+export interface BEStaleRatioCounts {
+  stale: number;
+  typed: number;
+  legacy: number;
 }
 
 export interface CacheEffectivenessResponse {
   summary: CacheEffectivenessSummary;
   sparkline: CacheSparklineDay[];
   topQueries: TopQueryRow[];
-  /**
-   * Fraction [0,1] of cached entries using stale cube schema (outdated hash).
-   * BE now emits this as a scalar number. Accepts legacy object shape for
-   * backward compat — use deriveStaleRatios() to normalize.
-   */
-  staleRatio: number | StaleRatioCounts;
-  /** Fraction [0,1] of cached entries using the legacy cache format (no hash). */
-  legacyRatio?: number;
-  /**
-   * Optional kv_cache breakdown by kind (cube /load, turn-detail audit, etc.).
-   * Older BE releases omit this field — treat as [] when absent.
-   */
-  byKind?: KvCacheKindStat[];
+  /** Raw counts from BE — use deriveStaleRatios() to get [0,1] fractions. */
+  staleRatio: BEStaleRatioCounts;
+}
+
+/**
+ * Derive [0,1] scalar ratios from the raw BE counts.
+ *
+ * staleRatio  = stale / (typed + legacy)  — fraction of all rows that are stale.
+ * legacyRatio = legacy / (typed + legacy) — fraction of all rows using legacy format.
+ *
+ * Both default to 0 when the cache is empty (denom = 0).
+ */
+export function deriveStaleRatios(raw: BEStaleRatioCounts): { staleRatio: number; legacyRatio: number } {
+  const denom = raw.typed + raw.legacy;
+  if (denom === 0) return { staleRatio: 0, legacyRatio: 0 };
+  return {
+    staleRatio: raw.stale / denom,
+    legacyRatio: raw.legacy / denom,
+  };
 }
 
 /**
@@ -84,29 +78,3 @@ export const STALE_CACHE_BANNER_THRESHOLD = parseFloat(
     ? ((import.meta as { env: Record<string, string> }).env.VITE_STALE_CACHE_BANNER_THRESHOLD ?? '0.25')
     : '0.25'),
 );
-
-/**
- * Normalize staleRatio/legacyRatio from a BE response to [0,1] fractions.
- *
- * BE now emits two scalars (staleRatio: number, legacyRatio: number).
- * When the raw payload is the legacy object shape { stale, typed, legacy },
- * we compute the fractions here so components always work with plain numbers.
- */
-export function deriveStaleRatios(raw: CacheEffectivenessResponse): {
-  staleRatio: number;
-  legacyRatio: number;
-} {
-  const sr = raw.staleRatio;
-  if (typeof sr === 'object' && sr !== null) {
-    // BE object shape: derive scalars from raw counts
-    const denom = sr.typed + sr.legacy;
-    return {
-      staleRatio: denom > 0 ? sr.stale / denom : 0,
-      legacyRatio: denom > 0 ? sr.legacy / denom : 0,
-    };
-  }
-  return {
-    staleRatio: typeof sr === 'number' ? sr : 0,
-    legacyRatio: raw.legacyRatio ?? 0,
-  };
-}

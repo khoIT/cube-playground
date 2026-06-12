@@ -1,8 +1,21 @@
+/**
+ * DetailPanel — the cube drawer shown beside the join graph and the card grid.
+ * Mirrors the standalone model-viewer drawer: header + (clamped) description,
+ * a Joins section with the colored target / relationship / key mapping, then a
+ * Dimensions / Measures / Segments tab bar whose rows link into the catalog.
+ *
+ * There is intentionally no "Open in Playground" action — every member row is
+ * itself a link to its catalog artifact (metric card / concept page), which is
+ * the canonical way to query from here.
+ */
+import { useState } from 'react';
 import styled from 'styled-components';
-import { useHistory } from 'react-router-dom';
 import { X } from 'lucide-react';
+
 import { CatalogCube } from './use-catalog-meta';
-import { DetailPanelMeasures } from './detail-panel-measures';
+import { DetailPanelMembers, type MemberTab } from './detail-panel-members';
+import { clusterAccent } from './cube-graph/cube-clusters';
+import { clusterOf, parseKeyLabel } from './cube-graph/build-join-graph';
 
 const Panel = styled.aside`
   width: 480px;
@@ -14,32 +27,68 @@ const Panel = styled.aside`
   flex-direction: column;
 `;
 
-const Header = styled.header`
-  padding: 20px 24px 12px;
+const Header = styled.header<{ $accent: string }>`
+  padding: 18px 24px 14px;
+  border-top: 4px solid ${(p) => p.$accent};
   border-bottom: 1px solid var(--border-card);
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  position: relative;
 `;
 
 const Title = styled.h2`
   margin: 0;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text-primary);
+  word-break: break-all;
+  padding-right: 28px;
+`;
+
+const SubLine = styled.div`
+  margin-top: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
 `;
 
 const CloseBtn = styled.button`
+  position: absolute;
+  top: 14px;
+  right: 16px;
   appearance: none;
   background: transparent;
   border: 0;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 16px;
+  line-height: 1;
 
   &:hover {
     color: var(--text-primary);
+  }
+`;
+
+const Description = styled.p<{ $clamp: boolean }>`
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  ${(p) =>
+    p.$clamp
+      ? `display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;`
+      : ''}
+`;
+
+const MoreToggle = styled.button`
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px 0 0;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--brand);
+
+  &:hover {
+    text-decoration: underline;
   }
 `;
 
@@ -60,135 +109,183 @@ const SectionTitle = styled.h3`
   letter-spacing: 0.05em;
 `;
 
-const Description = styled.p`
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-`;
-
-const Row = styled.div`
+const JoinRow = styled.div`
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
+  flex-direction: column;
+  gap: 2px;
   padding: 4px 0;
 `;
 
-const Code = styled.code`
+const JoinHead = styled.div`
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+`;
+
+const JoinTarget = styled.code`
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-primary);
 `;
 
-const Chip = styled.span`
-  display: inline-flex;
-  padding: 1px 6px;
-  border-radius: var(--pill-mono-radius);
-  background: var(--pill-mono-bg);
+const JoinRel = styled.span`
   font-size: 10.5px;
+  color: var(--text-muted);
+`;
+
+const JoinKey = styled.code`
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--text-secondary);
-  margin-left: 6px;
 `;
 
-const Footer = styled.div`
-  padding: 16px 24px;
-  border-top: 1px solid var(--border-card);
+const TabBar = styled.div`
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 2px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-card);
 `;
 
-const PrimaryBtn = styled.button`
+const Tab = styled.button<{ $active: boolean }>`
   appearance: none;
-  cursor: pointer;
-  background: var(--brand);
-  color: var(--text-on-brand);
+  background: transparent;
   border: 0;
-  border-radius: var(--radius-pill);
-  padding: 8px 16px;
-  font-size: 13px;
+  border-bottom: 2px solid ${(p) => (p.$active ? 'var(--brand)' : 'transparent')};
+  cursor: pointer;
+  padding: 10px 12px;
+  font-size: 12.5px;
   font-weight: 600;
+  font-family: var(--font-sans);
+  color: ${(p) => (p.$active ? 'var(--text-primary)' : 'var(--text-muted)')};
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 
   &:hover {
-    background: var(--brand-hover);
+    color: var(--text-primary);
   }
 `;
+
+const TabCount = styled.span`
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: var(--pill-mono-bg);
+  border-radius: var(--radius-full);
+  padding: 0 6px;
+`;
+
+const TabBody = styled.div`
+  padding: 12px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const CLAMP_AT = 110;
 
 interface DetailPanelProps {
   cube: CatalogCube;
   onClose: () => void;
+  /**
+   * Pre-computed cluster key from the graph node (prefix-aware). When omitted
+   * (grid view) the cluster is derived locally — correct on bare-name
+   * workspaces, best-effort on prefixed ones.
+   */
+  cluster?: string;
 }
 
-export function DetailPanel({ cube, onClose }: DetailPanelProps) {
-  const history = useHistory();
+export function DetailPanel({ cube, onClose, cluster }: DetailPanelProps) {
+  const [tab, setTab] = useState<MemberTab>('dimensions');
+  const [descOpen, setDescOpen] = useState(false);
 
-  function openInPlayground() {
-    history.push(`/build?cube=${encodeURIComponent(cube.name)}`);
-  }
+  // The drawer accent matches the cube's graph cluster color so the panel and
+  // the node read as the same object. Joins are needed for the cluster heuristic.
+  const resolvedCluster =
+    cluster ?? clusterOf(cube.name, (cube.joins ?? []).map((j) => j.name));
+  const accent = clusterAccent(resolvedCluster);
+
+  const tabs: Array<{ key: MemberTab; label: string; count: number }> = [
+    { key: 'dimensions', label: 'Dimensions', count: cube.dimensions.length },
+    { key: 'measures', label: 'Measures', count: cube.measures.length },
+    { key: 'segments', label: 'Segments', count: cube.segments?.length ?? 0 },
+  ];
+
+  const desc = cube.description ?? '';
+  const clamp = desc.length > CLAMP_AT && !descOpen;
 
   return (
     <Panel role="dialog" aria-label={`${cube.name} details`}>
-      <Header>
+      <Header $accent={accent}>
         <Title>{cube.name}</Title>
+        <SubLine>{cube.type === 'view' ? 'view' : 'cube'}</SubLine>
         <CloseBtn type="button" aria-label="Close details" onClick={onClose}>
           <X size={16} strokeWidth={2} />
         </CloseBtn>
+        {desc && (
+          <>
+            <Description $clamp={clamp}>{desc}</Description>
+            {desc.length > CLAMP_AT && (
+              <MoreToggle type="button" onClick={() => setDescOpen((o) => !o)}>
+                {descOpen ? '▲ less' : '… more'}
+              </MoreToggle>
+            )}
+          </>
+        )}
       </Header>
-
-      {cube.description && (
-        <Section>
-          <SectionTitle>Description</SectionTitle>
-          <Description>{cube.description}</Description>
-        </Section>
-      )}
 
       {cube.joins && cube.joins.length > 0 && (
         <Section>
           <SectionTitle>Joins ({cube.joins.length})</SectionTitle>
-          {cube.joins.map((j) => (
-            <Row key={j.name}>
-              <Code>{j.name}</Code>
-              <Code>{j.sql}</Code>
-            </Row>
-          ))}
+          {cube.joins.map((j) => {
+            const targetAccent = clusterAccent(clusterOf(j.name, []));
+            const keyLabel = parseKeyLabel(j.sql, cube.name, j.name);
+            return (
+              <JoinRow key={j.name}>
+                <JoinHead>
+                  <JoinTarget style={{ color: targetAccent }}>{j.name}</JoinTarget>
+                  {j.relationship && <JoinRel>· {j.relationship}</JoinRel>}
+                </JoinHead>
+                {keyLabel && <JoinKey>{keyLabel}</JoinKey>}
+              </JoinRow>
+            );
+          })}
         </Section>
       )}
-
-      <DetailPanelMeasures cube={cube} />
-
-      <Section>
-        <SectionTitle>Dimensions ({cube.dimensions.length})</SectionTitle>
-        {cube.dimensions.map((d) => (
-          <Row key={d.name}>
-            <span>
-              <Code>{d.name.split('.').slice(1).join('.') || d.name}</Code>
-              {d.type && <Chip>{d.type}</Chip>}
-              {d.primaryKey && <Chip>PK</Chip>}
-              {d.public === false && <Chip>hidden</Chip>}
-            </span>
-          </Row>
-        ))}
-      </Section>
 
       {cube.preAggregations && cube.preAggregations.length > 0 && (
         <Section>
-          <SectionTitle>Pre-aggregations</SectionTitle>
+          <SectionTitle>Pre-aggregations ({cube.preAggregations.length})</SectionTitle>
           {cube.preAggregations.map((pa) => (
-            <Row key={pa.name}>
-              <Code>{pa.name}</Code>
-              {pa.granularity && <Chip>{pa.granularity}</Chip>}
-            </Row>
+            <JoinRow key={pa.name}>
+              <JoinHead>
+                <JoinTarget>{pa.name}</JoinTarget>
+                {pa.granularity && <JoinRel>· {pa.granularity}</JoinRel>}
+              </JoinHead>
+            </JoinRow>
           ))}
         </Section>
       )}
 
-      <Footer>
-        <PrimaryBtn type="button" onClick={openInPlayground}>
-          Open in Playground →
-        </PrimaryBtn>
-      </Footer>
+      <TabBar role="tablist">
+        {tabs.map((t) => (
+          <Tab
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            $active={tab === t.key}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+            <TabCount>{t.count}</TabCount>
+          </Tab>
+        ))}
+      </TabBar>
+      <TabBody role="tabpanel">
+        <DetailPanelMembers cube={cube} tab={tab} />
+      </TabBody>
     </Panel>
   );
 }

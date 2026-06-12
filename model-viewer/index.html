@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cube Data-Model Viewer</title>
+<link rel="stylesheet" href="lib/reactflow.css" />
+<style>
+  :root { --bg:#0f1420; --panel:#1a2233; --ink:#e8edf6; --sub:#9fb0c9; --line:#2b3548;
+          --inset:var(--inset); --btn-bg:var(--btn-bg); --btn-hover:var(--btn-hover); --node-bg:#141d2e;
+          --node-border:var(--node-border); --text2:var(--text2); --chip-ink:var(--chip-ink); }
+  [data-theme="light"] { --bg:#eef1f7; --panel:#ffffff; --ink:#1a2233; --sub:#5b6b86; --line:#d7deec;
+          --inset:#f0f3fa; --btn-bg:#e4e9f4; --btn-hover:#d6deef; --node-bg:#ffffff;
+          --node-border:#c4cee2; --text2:#33415e; --chip-ink:#5b6b86; }
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; margin: 0; }
+  body { font-family: Inter, "Segoe UI", system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  #root { display: flex; flex-direction: column; }
+
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+            background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .topbar h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 800; letter-spacing: .2px; }
+  .topbar select, .topbar input { background: var(--inset); color: var(--ink); border: 1px solid var(--line);
+            border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  .topbar input { width: 220px; }
+  .topbar .muted { color: var(--sub); font-size: 12px; }
+  .topbar .btn { background:var(--btn-bg); color:var(--ink); border:1px solid var(--line); border-radius:8px;
+                 padding:6px 12px; font-size:12.5px; cursor:pointer; }
+  .topbar .btn:hover { background:var(--btn-hover); }
+  .topbar .hint { color:var(--sub); font-size:11px; opacity:.85; }
+  .topbar .saved-msg { color:#4fcf8a; font-size:12px; font-weight:700; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--sub); }
+  .legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+  .canvas { flex: 1; position: relative; }
+  .react-flow__renderer { background: var(--bg); }
+
+  .cube-node { width: 230px; border: 2px solid var(--node-border); border-radius: 12px; background: var(--node-bg);
+               overflow: hidden; transition: opacity .15s, box-shadow .15s; cursor: pointer; }
+  .cube-node.dim { opacity: .18; }
+  .cube-node.match { box-shadow: 0 0 0 3px #ffd76688; }
+  .react-flow__node.selected .cube-node { box-shadow: 0 0 0 2px #6ea8ff, 0 0 0 6px #6ea8ff2e; }
+
+  .cluster-box { width: 100%; height: 100%; border: 1.6px dashed; border-radius: 18px; }
+  .cluster-label { position: absolute; top: 8px; left: 16px; font-size: 11.5px; font-weight: 800;
+                   letter-spacing: .5px; text-transform: uppercase; }
+  .cn-stripe { height: 4px; width: 100%; }
+  .cn-body { padding: 7px 12px 8px; }
+  .cn-title { font-size: 13.5px; font-weight: 700; color: var(--ink);
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .react-flow__edge-text { font-family: Menlo, monospace; }
+  .rf-elabel { position: absolute; font-family: Menlo, monospace; font-size: 10px; font-weight: 700;
+               background: var(--inset); padding: 1px 4px; border-radius: 4px; pointer-events: none; white-space: nowrap; }
+
+  .drawer { position: absolute; top: 0; right: 0; height: 100%; width: 420px; max-width: 92vw;
+            background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 24px #0008;
+            display: flex; flex-direction: column; z-index: 20; }
+  .drawer header { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .drawer header .dh-title { font-size: 16px; font-weight: 800; }
+  .drawer header .dh-sub { font-family: Menlo, monospace; font-size: 11px; color: var(--sub); margin-top: 3px; word-break: break-all; }
+  .drawer header .dh-desc { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.45; }
+  .drawer header .dh-desc.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .drawer header .dh-more { color: #6ea8ff; cursor: pointer; font-size: 11.5px; margin-top: 4px; display: inline-block; }
+  .drawer header .dh-more:hover { text-decoration: underline; }
+  .drawer .close { position: absolute; top: 10px; right: 12px; background: none; border: none; color: var(--sub);
+                   font-size: 22px; cursor: pointer; line-height: 1; }
+  .drawer .body { overflow-y: auto; padding: 4px 16px 24px; }
+  .sec-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+               color: var(--sub); margin: 16px 0 6px; display: flex; gap: 6px; align-items: center; }
+  .sec-title .cnt { background: var(--inset); border-radius: 10px; padding: 1px 7px; font-size: 11px; color: var(--chip-ink); }
+  .member { border-top: 1px solid var(--line); padding: 7px 0; }
+  .member .m-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .member .m-name { font-family: Menlo, monospace; font-size: 12.5px; color: var(--ink); }
+  .member .m-type { font-size: 10.5px; color: var(--sub); background: var(--inset); border-radius: 6px; padding: 1px 6px; }
+  .member .m-pk { font-size: 10px; color: #bcd4ff; }
+  .member .m-desc { font-size: 11.5px; color: #aab8d2; margin-top: 3px; line-height: 1.4; }
+  .join-row { border-top: 1px solid var(--line); padding: 8px 0; }
+  .join-row .jr-target { font-family: Menlo, monospace; font-size: 12.5px; color: #ffd766; }
+  .join-row .jr-rel { font-size: 10.5px; color: var(--sub); }
+  .join-row .jr-key { font-family: Menlo, monospace; font-size: 11.5px; color: var(--text2); margin-top: 3px; }
+  .drawer .resizer { position: absolute; left: -3px; top: 0; width: 9px; height: 100%; cursor: ew-resize; z-index: 30; }
+  .drawer .resizer:hover { background: linear-gradient(90deg, #6ea8ff55, transparent); }
+  .tabbar { display: flex; gap: 2px; margin: 16px 0 2px; border-bottom: 1px solid var(--line); position: sticky; top: 0;
+            background: var(--panel); z-index: 2; }
+  .tab { background: none; border: none; color: var(--sub); font-size: 12.5px; font-weight: 700; padding: 9px 13px;
+         cursor: pointer; border-bottom: 2px solid transparent; display: flex; gap: 6px; align-items: center; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--ink); border-bottom-color: #6ea8ff; }
+  .tab .cnt { background: var(--inset); border-radius: 10px; padding: 1px 6px; font-size: 10.5px; color: var(--chip-ink); }
+  .member.has-desc { cursor: help; }
+  .m-info { font-size: 10px; color: #6ea8ff; opacity: .75; }
+  .empty { color: var(--sub); font-size: 12px; padding: 16px 2px; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- vendored, proxy-safe (no CDN at runtime). Regenerate data: python3 gen_model_graph.py -->
+  <script src="lib/react.production.min.js"></script>
+  <script src="lib/react-dom.production.min.js"></script>
+  <script src="lib/reactflow.umd.js"></script>
+  <script src="lib/dagre.min.js"></script>
+  <script src="lib/htm.js"></script>
+  <script src="model-graph.js"></script>
+  <script src="layouts.js"></script>
+  <script>
+  (function () {
+    const { useState, useEffect, useMemo } = React;
+    const RF = window.ReactFlow;
+    const ReactFlowComp = RF.default;
+    const { Background, Controls, MiniMap, Handle, Position, MarkerType } = RF;
+    const html = htm.bind(React.createElement);
+    const GRAPH = window.MODEL_GRAPH;
+    const PRODUCTS = Object.keys(GRAPH.products);
+
+    const CLUSTERS = {
+      hub:      { color: "#6ea8ff", label: "User hub" },
+      bridge:   { color: "#c08cff", label: "Role bridge" },
+      session:  { color: "#f0a64c", label: "Session events (direct join)" },
+      behavior: { color: "#f06a6a", label: "Behavior-log events (bridge join)" },
+      recharge: { color: "#4fcf8a", label: "Recharge / monetization" },
+      activity: { color: "#4cc4e0", label: "Activity snapshots" },
+      mapping:  { color: "#a98cff", label: "Identity mapping" },
+      profile:  { color: "#5cd6c0", label: "Profile / dimension" },
+      other:    { color: "#7d8db0", label: "Other" },
+    };
+    const clusterOf = (c) => CLUSTERS[c] || CLUSTERS.other;
+    const shortName = (n) => (n.includes("__") ? n.split("__").slice(1).join("__") : n);
+    const NODE_W = 230, NODE_H = 42, CLUSTER_PAD_TOP = 30;
+    // distinct hue per edge (golden-angle spread) so overlapping arrows stay legible
+    const edgeColor = (i) => `hsl(${Math.round((i * 137.508) % 360)}, 70%, 55%)`;
+
+    // ---- positions ----
+    // A position map is { cubeId: {x, y} } in absolute canvas coords (top-left).
+    // It comes either from a saved/curated layout or from dagre auto-layout.
+    const CLUSTER_PAD = 22;
+
+    function dagrePositions(cubeNodes, edges, dir) {
+      dir = dir || "TB";
+      const g = new dagre.graphlib.Graph({ compound: true });
+      g.setGraph({ rankdir: dir, nodesep: 30, ranksep: 90, marginx: 30, marginy: 30,
+                   ranker: "tight-tree" });
+      g.setDefaultEdgeLabel(() => ({}));
+      const clusters = [...new Set(cubeNodes.map((n) => n.data.cube.cluster))];
+      clusters.forEach((cl) => g.setNode("cl__" + cl, {}));
+      cubeNodes.forEach((n) => {
+        g.setNode(n.id, { width: NODE_W, height: NODE_H });
+        g.setParent(n.id, "cl__" + n.data.cube.cluster);
+      });
+      edges.forEach((e) => g.setEdge(e.source, e.target));
+      dagre.layout(g);
+      const pos = {};
+      cubeNodes.forEach((n) => { const p = g.node(n.id); pos[n.id] = { x: p.x - NODE_W / 2, y: p.y - NODE_H / 2 }; });
+      return pos;
+    }
+
+    // Build RF group+child nodes from an absolute cube position map. Cluster
+    // boxes are derived as the bounding box of their member cubes (+ padding),
+    // so a saved layout only needs cube positions; boxes re-fit automatically.
+    function assembleNodes(cubeNodes, pos) {
+      const byCluster = {};
+      cubeNodes.forEach((n) => { (byCluster[n.data.cube.cluster] = byCluster[n.data.cube.cluster] || []).push(n); });
+      const out = [];
+      const groupPos = {};
+      Object.keys(byCluster).forEach((cl) => {            // group boxes first (RF requires parent-before-child)
+        const members = byCluster[cl];
+        const xs = members.map((n) => (pos[n.id] || { x: 0, y: 0 }).x);
+        const ys = members.map((n) => (pos[n.id] || { x: 0, y: 0 }).y);
+        const minX = Math.min.apply(null, xs), minY = Math.min.apply(null, ys);
+        const maxX = Math.max.apply(null, xs) + NODE_W, maxY = Math.max.apply(null, ys) + NODE_H;
+        const gp = { x: minX - CLUSTER_PAD, y: minY - CLUSTER_PAD - CLUSTER_PAD_TOP };
+        groupPos[cl] = gp;
+        out.push({
+          id: "cl__" + cl, type: "cluster", data: { cluster: cl }, position: gp,
+          style: { width: (maxX - minX) + CLUSTER_PAD * 2, height: (maxY - minY) + CLUSTER_PAD * 2 + CLUSTER_PAD_TOP },
+          draggable: true, selectable: false, zIndex: 0,
+        });
+      });
+      cubeNodes.forEach((n) => {                          // cubes as children, positioned within their group
+        const p = pos[n.id] || { x: 0, y: 0 };
+        const gp = groupPos[n.data.cube.cluster];
+        out.push({
+          ...n, parentNode: "cl__" + n.data.cube.cluster, zIndex: 10,
+          position: { x: p.x - gp.x, y: p.y - gp.y },
+        });
+      });
+      return out;
+    }
+
+    function layout(cubeNodes, edges, dir, savedPos) {
+      return assembleNodes(cubeNodes, savedPos || dagrePositions(cubeNodes, edges, dir));
+    }
+
+    // ---- saved layout persistence (localStorage override → committed window.LAYOUTS) ----
+    const LS_KEY = (product) => "cube-layout:" + product;
+    function loadSavedPositions(product) {
+      try { const s = localStorage.getItem(LS_KEY(product)); if (s) return JSON.parse(s); } catch (e) {}
+      if (window.LAYOUTS && window.LAYOUTS[product]) return window.LAYOUTS[product];
+      return null;
+    }
+    // Capture absolute cube positions from the current RF node tree (child pos + its group pos).
+    function capturePositions(nodes) {
+      const groupPos = {};
+      nodes.forEach((n) => { if (n.type === "cluster") groupPos[n.id] = n.position; });
+      const out = {};
+      nodes.forEach((n) => {
+        if (n.data && n.data.cube) {
+          const gp = groupPos[n.parentNode] || { x: 0, y: 0 };
+          out[n.id] = { x: Math.round(n.position.x + gp.x), y: Math.round(n.position.y + gp.y) };
+        }
+      });
+      return out;
+    }
+    function downloadJSON(filename, obj) {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    // ---- cluster container node ----
+    function ClusterNode({ data }) {
+      const c = clusterOf(data.cluster);
+      return html`
+        <div class="cluster-box" style=${{ borderColor: c.color + "99", background: c.color + "12" }}>
+          <div class="cluster-label" style=${{ color: c.color }}>${c.label}</div>
+        </div>`;
+    }
+
+    // ---- custom node: table name only (full schema lives in the drawer) ----
+    function CubeNode({ data }) {
+      const c = clusterOf(data.cube.cluster);
+      const k = data.cube;
+      const cls = "cube-node" + (data.dim ? " dim" : "") + (data.match ? " match" : "");
+      return html`
+        <div class=${cls} title=${k.description}>
+          <${Handle} type="target" position=${Position.Left} style=${{ opacity: 0 }} />
+          <div class="cn-stripe" style=${{ background: c.color }}></div>
+          <div class="cn-body"><div class="cn-title">${shortName(k.name)}</div></div>
+          <${Handle} type="source" position=${Position.Right} style=${{ opacity: 0 }} />
+        </div>`;
+    }
+    const nodeTypes = { cube: CubeNode, cluster: ClusterNode };
+
+    // apply search/view highlight to cube nodes only (clusters untouched)
+    function applyHighlight(nodes, hl) {
+      return nodes.map((nd) =>
+        nd.data && nd.data.cube
+          ? { ...nd, data: { ...nd.data, match: hl.set.has(nd.id), dim: hl.active && !hl.set.has(nd.id) } }
+          : nd);
+    }
+    // Style edges from view-highlight + the focused (clicked) node. Labels show ONLY
+    // for edges touching the focused node (clutter-free by default); a focused node
+    // lights its incident edges and dims the rest.
+    function styleEdges(edges, hl, focusId) {
+      return edges.map((e) => {
+        const base = (e.data && e.data.color) || "#64748b";
+        const incident = !!focusId && (e.source === focusId || e.target === focusId);
+        let lit;
+        if (focusId) lit = incident;
+        else if (hl.active) lit = hl.set.has(e.source) || hl.set.has(e.target);
+        else lit = true;
+        const col = lit ? base : "#39435a";
+        return {
+          ...e,
+          data: { ...e.data, showLabel: incident },
+          style: { ...e.style, stroke: col, strokeWidth: lit ? 2 : 1, opacity: lit ? 1 : 0.18 },
+          markerEnd: { ...e.markerEnd, color: col },
+          zIndex: lit ? 2 : 0,
+        };
+      });
+    }
+
+    // ---- floating edges: attach to the box side facing the other box ----
+    const { useStore, getBezierPath, EdgeLabelRenderer } = RF;
+    function nodeRect(n) {
+      const p = n.positionAbsolute || n.position || { x: 0, y: 0 };
+      const w = n.width || NODE_W, h = n.height || NODE_H;
+      return { x: p.x, y: p.y, w, h, cx: p.x + w / 2, cy: p.y + h / 2 };
+    }
+    function borderPoint(a, b) {            // point on rect a's border toward b's centre
+      const w = a.w / 2, h = a.h / 2, x2 = a.cx, y2 = a.cy, x1 = b.cx, y1 = b.cy;
+      const xx = (x1 - x2) / (2 * w) - (y1 - y2) / (2 * h);
+      const yy = (x1 - x2) / (2 * w) + (y1 - y2) / (2 * h);
+      const k = 1 / (Math.abs(xx) + Math.abs(yy) || 1);
+      return { x: w * (k * xx + k * yy) + x2, y: h * (k * yy - k * xx) + y2 };
+    }
+    function sideOf(a, p) {
+      if (Math.round(p.x) <= a.x + 1) return Position.Left;
+      if (Math.round(p.x) >= a.x + a.w - 1) return Position.Right;
+      if (Math.round(p.y) <= a.y + 1) return Position.Top;
+      return Position.Bottom;
+    }
+    function getEdgeParams(s, t) {
+      const a = nodeRect(s), b = nodeRect(t);
+      const sp = borderPoint(a, b), tp = borderPoint(b, a);
+      return { sx: sp.x, sy: sp.y, tx: tp.x, ty: tp.y, sourcePos: sideOf(a, sp), targetPos: sideOf(b, tp) };
+    }
+    function FloatingEdge({ id, source, target, markerEnd, style, label, data }) {
+      const s = useStore((st) => st.nodeInternals.get(source));
+      const t = useStore((st) => st.nodeInternals.get(target));
+      if (!s || !t) return null;
+      const p = getEdgeParams(s, t);
+      const curv = 0.18 + ((data && data.idx ? data.idx : 0) % 4) * 0.12;   // per-edge offset so parallels separate
+      const [path, lx, ly] = getBezierPath({
+        sourceX: p.sx, sourceY: p.sy, targetX: p.tx, targetY: p.ty,
+        sourcePosition: p.sourcePos, targetPosition: p.targetPos, curvature: curv,
+      });
+      const col = (style && style.stroke) || "#64748b";
+      const op = style && style.opacity != null ? style.opacity : 1;
+      return html`
+        <${React.Fragment}>
+          <path id=${id} class="react-flow__edge-path" d=${path} markerEnd=${markerEnd} style=${style} />
+          ${(label && data && data.showLabel) ? html`
+            <${EdgeLabelRenderer}>
+              <div class="rf-elabel" style=${{ transform: `translate(-50%,-50%) translate(${lx}px,${ly}px)`, color: col, opacity: op }}>${label}</div>
+            <//>` : null}
+        </${React.Fragment}>`;
+    }
+    const edgeTypes = { floating: FloatingEdge };
+
+    // ---- build nodes + de-duped edges for a product ----
+    function buildGraph(product) {
+      const p = GRAPH.products[product];
+      const known = new Set(p.cubes.map((c) => c.name));
+      const nodes = p.cubes.map((c) => ({ id: c.name, type: "cube", position: { x: 0, y: 0 }, data: { cube: c } }));
+      const seen = new Set();
+      const edges = [];
+      p.cubes.forEach((c) =>
+        c.joins.forEach((j) => {
+          if (!known.has(j.target)) return;
+          const pair = [c.name, j.target].sort().join("|");
+          if (seen.has(pair)) return;
+          seen.add(pair);
+          const col = edgeColor(edges.length);
+          edges.push({
+            id: c.name + "->" + j.target,
+            source: c.name, target: j.target,
+            label: j.keyLabel,
+            data: { color: col, idx: edges.length },
+            type: "floating",
+            markerEnd: { type: MarkerType.ArrowClosed, color: col, width: 18, height: 18 },
+            style: { stroke: col, strokeWidth: 1.8 },
+          });
+        })
+      );
+      return { nodes, edges };
+    }
+
+    // ---- detail drawer ----
+    function MemberRow({ m }) {
+      const cls = "member" + (m.description ? " has-desc" : "");
+      return html`
+        <div class=${cls} title=${m.description || ""}>
+          <div class="m-head">
+            <span class="m-name">${m.name}</span>
+            ${m.type ? html`<span class="m-type">${m.type}</span>` : null}
+            ${m.primaryKey ? html`<span class="m-pk">🔑 primary key</span>` : null}
+            ${m.public === false ? html`<span class="m-type">private</span>` : null}
+            ${m.description ? html`<span class="m-info" title=${m.description}>ⓘ</span>` : null}
+          </div>
+        </div>`;
+    }
+    function Section({ title, items, render }) {
+      if (!items || !items.length) return null;
+      return html`
+        <div>
+          <div class="sec-title">${title}<span class="cnt">${items.length}</span></div>
+          ${items.map((it, i) => render(it, i))}
+        </div>`;
+    }
+    function Drawer({ cube, onClose, width, onResizeStart }) {
+      if (!cube) return null;
+      const c = clusterOf(cube.cluster);
+      const [tab, setTab] = useState("dimensions");
+      const [descOpen, setDescOpen] = useState(false);
+      const tabs = [
+        { key: "dimensions", label: "Dimensions", items: cube.dimensions || [] },
+        { key: "measures", label: "Measures", items: cube.measures || [] },
+        { key: "segments", label: "Segments", items: cube.segments || [] },
+      ];
+      const active = tabs.find((t) => t.key === tab) || tabs[0];
+      return html`
+        <div class="drawer" style=${{ width: width + "px" }}>
+          <div class="resizer" onMouseDown=${onResizeStart} title="Drag to resize"></div>
+          <button class="close" onClick=${onClose}>×</button>
+          <header style=${{ borderTop: "4px solid " + c.color }}>
+            <div class="dh-title">${shortName(cube.name)}</div>
+            <div class="dh-sub">${cube.name} · ${cube.sqlTable}</div>
+            ${cube.description ? html`
+              <div class=${"dh-desc" + (descOpen ? "" : " clamp")}>${cube.description}</div>
+              ${cube.description.length > 110
+                ? html`<span class="dh-more" onClick=${() => setDescOpen((o) => !o)}>${descOpen ? "▲ less" : "… more"}</span>`
+                : null}` : null}
+          </header>
+          <div class="body">
+            <${Section} title="Joins" items=${cube.joins} render=${(j) => html`
+              <div class="join-row" key=${j.target}>
+                <div><span class="jr-target">${shortName(j.target)}</span>
+                  <span class="jr-rel"> · ${j.relationship}</span></div>
+                ${j.keyLabel ? html`<div class="jr-key">${j.keyLabel}</div>` : null}
+              </div>`} />
+            <div class="tabbar">
+              ${tabs.map((t) => html`
+                <button key=${t.key} class=${"tab" + (t.key === tab ? " active" : "")}
+                        onClick=${() => setTab(t.key)}>
+                  ${t.label}<span class="cnt">${t.items.length}</span>
+                </button>`)}
+            </div>
+            ${active.items.length
+              ? active.items.map((m) => html`<${MemberRow} m=${m} key=${m.name} />`)
+              : html`<div class="empty">No ${active.label.toLowerCase()}</div>`}
+          </div>
+        </div>`;
+    }
+
+    // ---- app ----
+    function App() {
+      const [product, setProduct] = useState(PRODUCTS.includes("cfm") ? "cfm" : PRODUCTS[0]);
+      const [search, setSearch] = useState("");
+      const [viewName, setViewName] = useState("");
+      const [selected, setSelected] = useState(null);
+      const [dir, setDir] = useState("TB");
+      const [drawerWidth, setDrawerWidth] = useState(440);
+      const [theme, setTheme] = useState(() => {
+        try { return localStorage.getItem("cube-theme") || "dark"; } catch (e) { return "dark"; }
+      });
+      const [savedMsg, setSavedMsg] = useState("");
+
+      useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+        try { localStorage.setItem("cube-theme", theme); } catch (e) {}
+      }, [theme]);
+
+      // drag the drawer's left edge to resize it
+      const startResize = (e) => {
+        e.preventDefault();
+        const onMove = (ev) => {
+          const w = Math.min(Math.max(window.innerWidth - ev.clientX, 320), Math.round(window.innerWidth * 0.9));
+          setDrawerWidth(w);
+        };
+        const onUp = () => {
+          window.removeEventListener("mousemove", onMove);
+          window.removeEventListener("mouseup", onUp);
+        };
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+      };
+      const instRef = React.useRef(null);
+      const edgesRef = React.useRef([]);
+      const cubesRef = React.useRef([]);
+      const highlightRef = React.useRef({ set: new Set(), active: false });
+
+      const [nodes, setNodes, onNodesChange] = RF.useNodesState([]);
+      const [edges, setEdges, onEdgesChange] = RF.useEdgesState([]);
+
+      const product_data = GRAPH.products[product];
+
+      // product change → curated/saved layout if any, else dagre; reset filters
+      useEffect(() => {
+        const { nodes: n, edges: e } = buildGraph(product);
+        cubesRef.current = n; edgesRef.current = e;
+        setNodes(layout(n, e, dir, loadSavedPositions(product)));
+        setEdges(e);
+        setSearch(""); setViewName(""); setSelected(null);
+      }, [product]);
+
+      // "Auto: TB/LR" toggle → re-run dagre auto-layout (ignores saved). Skips the
+      // initial mount so the curated/saved layout from the product effect survives.
+      const dirMounted = React.useRef(false);
+      useEffect(() => {
+        if (!dirMounted.current) { dirMounted.current = true; return; }
+        if (!cubesRef.current.length) return;
+        setNodes(applyHighlight(layout(cubesRef.current, edgesRef.current, dir), highlightRef.current));
+        const inst = instRef.current;
+        if (inst) requestAnimationFrame(() => inst.fitView({ padding: 0.1 }));
+      }, [dir]);
+
+      // highlight set from search and/or selected view
+      const highlight = useMemo(() => {
+        const set = new Set();
+        const q = search.trim().toLowerCase();
+        if (q) product_data.cubes.forEach((c) => {
+          if (c.name.toLowerCase().includes(q) || (c.title || "").toLowerCase().includes(q)) set.add(c.name);
+        });
+        if (viewName) {
+          const v = product_data.views.find((v) => v.name === viewName);
+          if (v) v.panels.forEach((p) => set.add(p));
+        }
+        return { set, active: !!(q || viewName) };
+      }, [search, viewName, product]);
+
+      // re-style nodes (view highlight) + edges (view highlight + clicked-node focus).
+      // Edge labels appear only for the clicked node's incident edges.
+      useEffect(() => {
+        highlightRef.current = highlight;
+        setNodes((ns) => applyHighlight(ns, highlight));
+        setEdges((es) => styleEdges(es, highlight, selected ? selected.name : null));
+      }, [highlight, selected]);
+
+      // save current arrangement as this product's default (persists to localStorage,
+      // which the load order prefers — so it loads by default on the next visit)
+      const onSaveLayout = () => {
+        try { localStorage.setItem(LS_KEY(product), JSON.stringify(capturePositions(nodes))); } catch (e) {}
+        setSavedMsg("Saved as default ✓");
+        setTimeout(() => setSavedMsg(""), 2200);
+      };
+      // export the arrangement as JSON to commit into layouts.js (shared default)
+      const onExportLayout = () => downloadJSON(product + "-layout.json", capturePositions(nodes));
+      // publish to the server so it's the default for ALL users (writes layouts.js)
+      const onPublishLayout = async () => {
+        try {
+          const res = await fetch("/model-view-api/layout/" + product, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(capturePositions(nodes)),
+          });
+          if (res.ok) {
+            try { localStorage.removeItem(LS_KEY(product)); } catch (e) {}   // shared default now wins
+            setSavedMsg("Published to all ✓");
+          } else {
+            setSavedMsg("Publish failed (" + res.status + ")");
+          }
+        } catch (e) {
+          setSavedMsg("Publish failed (no server)");
+        }
+        setTimeout(() => setSavedMsg(""), 2800);
+      };
+      // reset → drop my saved drags, fall back to committed layout (or dagre)
+      const onResetLayout = () => {
+        try { localStorage.removeItem(LS_KEY(product)); } catch (e) {}
+        const fallback = (window.LAYOUTS && window.LAYOUTS[product]) || null;
+        setNodes(applyHighlight(layout(cubesRef.current, edgesRef.current, dir, fallback), highlightRef.current));
+        if (instRef.current) requestAnimationFrame(() => instRef.current.fitView({ padding: 0.1 }));
+      };
+
+      const legend = Object.entries(CLUSTERS).map(([k, v]) =>
+        html`<span key=${k}><i style=${{ background: v.color }}></i>${v.label}</span>`);
+
+      return html`
+        <${React.Fragment}>
+          <div class="topbar">
+            <h1>Cube Data-Model Viewer</h1>
+            <select value=${product} onChange=${(e) => setProduct(e.target.value)}>
+              ${PRODUCTS.map((p) => html`<option key=${p} value=${p}>${p}</option>`)}
+            </select>
+            <input placeholder="Search cube…" value=${search}
+                   onChange=${(e) => setSearch(e.target.value)} />
+            <select value=${viewName} onChange=${(e) => setViewName(e.target.value)}>
+              <option value="">— highlight a view —</option>
+              ${product_data.views.map((v) => html`<option key=${v.name} value=${v.name}>${shortName(v.name)} (${v.panels.length})</option>`)}
+            </select>
+            <button class="btn" onClick=${() => setDir((d) => (d === "TB" ? "LR" : "TB"))}>Auto: ${dir}</button>
+            <button class="btn" onClick=${onSaveLayout}>Save layout</button>
+            <button class="btn" onClick=${onPublishLayout} title="Save as the default for all users (writes to the server)">Publish to all</button>
+            <button class="btn" onClick=${onExportLayout}>Export</button>
+            <button class="btn" onClick=${onResetLayout}>Reset</button>
+            <button class="btn" onClick=${() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
+              ${theme === "dark" ? "☀ Light" : "🌙 Dark"}</button>
+            ${savedMsg ? html`<span class="saved-msg">${savedMsg}</span>` : null}
+            <span class="muted">${product_data.cubes.length} cubes · ${edges.length} joins · ${product_data.views.length} views</span>
+            <span class="hint">left-drag = pan · Shift+drag = box-select · drag a selection to move together</span>
+            <div class="legend">${legend}</div>
+          </div>
+          <div class="canvas">
+            <${ReactFlowComp}
+              key=${product}
+              nodes=${nodes} edges=${edges}
+              onNodesChange=${onNodesChange} onEdgesChange=${onEdgesChange}
+              nodeTypes=${nodeTypes} edgeTypes=${edgeTypes}
+              onInit=${(inst) => { instRef.current = inst; }}
+              onNodeClick=${(_, n) => { if (n.data.cube) setSelected(n.data.cube); }}
+              onPaneClick=${() => setSelected(null)}
+              panOnDrag=${true}
+              selectionKeyCode="Shift"
+              multiSelectionKeyCode="Shift"
+              selectionMode=${(RF.SelectionMode && RF.SelectionMode.Partial) || "partial"}
+              fitView fitViewOptions=${{ padding: 0.12 }} minZoom=${0.1} proOptions=${{ hideAttribution: true }}>
+              <${Background} color=${theme === "light" ? "#cdd6e8" : "#22304a"} gap=${22} />
+              <${Controls} />
+              <${MiniMap} pannable zoomable
+                          nodeColor=${(n) => clusterOf(n.data.cluster || (n.data.cube && n.data.cube.cluster)).color}
+                          style=${{ background: "var(--inset)" }} />
+            <//>
+            <${Drawer} key=${selected ? selected.name : "none"} cube=${selected}
+                       width=${drawerWidth} onResizeStart=${startResize}
+                       onClose=${() => setSelected(null)} />
+          </div>
+        <//>`;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+  })();
+  </script>
+</body>
+</html>

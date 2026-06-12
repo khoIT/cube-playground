@@ -1,0 +1,62 @@
+/*
+ * Token overrides for reactflow defaults on the cube join graph — same
+ * neutralisation approach as concept-map.css, scoped to .cube-graph-flow.
+ * Custom nodes draw their own chrome; here we reset the wrapper, theme
+ * edges/labels/controls, and mute the handles.
+ */
+
+.cube-graph-flow .react-flow__node {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  width: auto;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+/* Edges are styled per-edge inline (dim vs highlight); this is the fallback. */
+.cube-graph-flow .react-flow__edge-path {
+  stroke: var(--border-strong, var(--border-card));
+  stroke-width: 1.5;
+}
+
+.cube-graph-flow .react-flow__edge-text {
+  fill: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.cube-graph-flow .react-flow__edge-textbg {
+  fill: var(--bg-card);
+}
+
+.cube-graph-flow .react-flow__handle {
+  background: transparent;
+  border: none;
+  width: 1px;
+  height: 1px;
+  min-width: 1px;
+  min-height: 1px;
+}
+
+.cube-graph-flow .react-flow__controls {
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.12));
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.cube-graph-flow .react-flow__controls-button {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-card);
+  color: var(--text-secondary);
+}
+
+.cube-graph-flow .react-flow__controls-button:hover {
+  background: var(--bg-muted);
+}
+
+.cube-graph-flow .react-flow__controls-button svg {
+  fill: currentColor;
+}

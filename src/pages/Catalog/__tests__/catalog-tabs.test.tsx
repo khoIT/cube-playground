@@ -27,16 +27,16 @@ function renderTabs(pathname: string) {
 }
 
 describe('<DataModelSubtabs>', () => {
-  it('marks Schema active at /catalog/data-model (default landing)', () => {
+  it('marks Cubes active at /catalog/data-model (default landing)', () => {
     renderTabs('/catalog/data-model');
     expect(
-      screen.getByRole('tab', { name: 'Schema' }).getAttribute('aria-selected'),
+      screen.getByRole('tab', { name: 'Cubes' }).getAttribute('aria-selected'),
     ).toBe('true');
     expect(
       screen.getByRole('tab', { name: 'Concepts' }).getAttribute('aria-selected'),
     ).toBe('false');
     expect(
-      screen.getByRole('tab', { name: 'Cubes' }).getAttribute('aria-selected'),
+      screen.getByRole('tab', { name: 'Schema' }).getAttribute('aria-selected'),
     ).toBe('false');
     expect(
       screen.getByRole('tab', { name: 'Models' }).getAttribute('aria-selected'),
@@ -50,10 +50,10 @@ describe('<DataModelSubtabs>', () => {
     ).toBe('true');
   });
 
-  it('marks Cubes active at /catalog/data-model/cubes', () => {
-    renderTabs('/catalog/data-model/cubes');
+  it('marks Schema active at /catalog/data-model/schema', () => {
+    renderTabs('/catalog/data-model/schema');
     expect(
-      screen.getByRole('tab', { name: 'Cubes' }).getAttribute('aria-selected'),
+      screen.getByRole('tab', { name: 'Schema' }).getAttribute('aria-selected'),
     ).toBe('true');
   });
 
@@ -71,10 +71,10 @@ describe('<DataModelSubtabs>', () => {
     ).toBe('true');
   });
 
-  it('renders subtabs in order: Schema, Concepts, Cubes, Models, Concept Map', () => {
+  it('renders subtabs in order: Cubes, Schema, Concepts, Models, Concept Map', () => {
     renderTabs('/catalog/data-model');
     const tabs = screen.getAllByRole('tab').map((el) => el.textContent);
-    expect(tabs).toEqual(['Schema', 'Concepts', 'Cubes', 'Models', 'Concept Map']);
+    expect(tabs).toEqual(['Cubes', 'Schema', 'Concepts', 'Models', 'Concept Map']);
   });
 
   it('navigates to /catalog/data-model/concepts when Concepts clicked', () => {
@@ -83,23 +83,33 @@ describe('<DataModelSubtabs>', () => {
     expect(getPath()).toBe('/catalog/data-model/concepts');
   });
 
-  it('navigates back to /catalog/data-model (Schema) when Schema clicked', () => {
-    const { getPath } = renderTabs('/catalog/data-model/cubes');
-    fireEvent.click(screen.getByRole('tab', { name: 'Schema' }));
+  it('navigates back to /catalog/data-model (Cubes) when Cubes clicked', () => {
+    const { getPath } = renderTabs('/catalog/data-model/schema');
+    fireEvent.click(screen.getByRole('tab', { name: 'Cubes' }));
     expect(getPath()).toBe('/catalog/data-model');
+  });
+
+  it('navigates to /catalog/data-model/schema when Schema clicked', () => {
+    const { getPath } = renderTabs('/catalog/data-model');
+    fireEvent.click(screen.getByRole('tab', { name: 'Schema' }));
+    expect(getPath()).toBe('/catalog/data-model/schema');
   });
 });
 
 describe('resolveDataModelSubtab', () => {
-  it('returns schema for /catalog/data-model (default)', () => {
-    expect(resolveDataModelSubtab('/catalog/data-model')).toBe('schema');
+  it('returns cubes for /catalog/data-model (default)', () => {
+    expect(resolveDataModelSubtab('/catalog/data-model')).toBe('cubes');
+  });
+
+  it('returns schema for /catalog/data-model/schema', () => {
+    expect(resolveDataModelSubtab('/catalog/data-model/schema')).toBe('schema');
   });
 
   it('returns concepts for /catalog/data-model/concepts', () => {
     expect(resolveDataModelSubtab('/catalog/data-model/concepts')).toBe('concepts');
   });
 
-  it('returns cubes for /catalog/data-model/cubes', () => {
+  it('returns cubes for the legacy /catalog/data-model/cubes subpath', () => {
     expect(resolveDataModelSubtab('/catalog/data-model/cubes')).toBe('cubes');
   });
 

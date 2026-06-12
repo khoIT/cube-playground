@@ -12,14 +12,13 @@
  * Shell does NOT remount on tab change — only the inner Switch content swaps.
  */
 import React, { useCallback, useRef } from 'react';
-import { Switch, Route, Redirect, useHistory, useRouteMatch, useLocation } from 'react-router-dom';
+import { Switch, Route, Redirect, useHistory, useLocation, useRouteMatch } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { AuditTabs } from './audit-tabs';
 import { SessionsTab } from './sessions-tab';
 import { SearchTab } from './search-tab';
 import { CacheTab } from './cache-tab';
-import { StartersVerificationTab } from './starters-verification-tab';
 import { SkillLeaderboardPage } from './skill-leaderboard-page';
 import { useDevAuditShortcuts } from './use-dev-audit-shortcuts';
 
@@ -80,7 +79,7 @@ function LegacySessionRedirect() {
   const match = useRouteMatch<{ sessionId: string }>('/dev/chat-audit/:sessionId');
   const location = useLocation();
   if (!match) return <Redirect to="/dev/chat-audit/sessions" />;
-  // Preserve hash so anchored bookmarks like /dev/chat-audit/abc#turn-xyz keep the anchor
+  // Preserve hash fragment so anchored bookmarks (e.g. #turn-xyz) survive the redirect.
   return (
     <Redirect
       to={{ pathname: `/dev/chat-audit/sessions/${match.params.sessionId}`, hash: location.hash }}
@@ -157,13 +156,6 @@ export function DevAuditShell() {
           <Route path="/dev/chat-audit/cache">
             <div role="tabpanel" id="audit-panel-cache" aria-labelledby="audit-tab-cache" style={{ display: 'contents' }}>
               <CacheTab />
-            </div>
-          </Route>
-
-          {/* Starters tab: /dev/chat-audit/starters — pregenerated-question verification results */}
-          <Route path="/dev/chat-audit/starters">
-            <div role="tabpanel" id="audit-panel-starters" aria-labelledby="audit-tab-starters" style={{ display: 'contents' }}>
-              <StartersVerificationTab />
             </div>
           </Route>
 

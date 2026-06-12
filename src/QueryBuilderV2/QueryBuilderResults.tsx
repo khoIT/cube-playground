@@ -78,6 +78,9 @@ import {
 } from './segments-save-bar/use-results-selection';
 import { useIdentityMap } from '../hooks/use-identity-map';
 import { formatShare, shareColumnId, sumMeasure } from './utils/share-of-total';
+import { useCompareContext } from './compare/compare-context';
+import { formatDeltaAbs, formatDeltaPct, getDeltaTone } from './compare/format-delta';
+import type { MergedRow } from './compare/merge-by-dim-key';
 
 const StyledTag = tasty(Tag, {
   styles: {
@@ -735,6 +738,13 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     queryDurationMs,
   } = useQueryBuilderContext();
 
+  // ── Compare mode ──────────────────────────────────────────────────────────
+  const { compareSetting, compareState } = useCompareContext();
+  const isCompareActive = compareSetting !== null && compareState.mergedRows !== null;
+  // When compare is active the effective data rows come from mergedRows so
+  // delta columns sit beside the current values in the same row objects.
+  const compareRows = isCompareActive ? (compareState.mergedRows as MergedRow[]) : null;
+
   const isCompact = usedCubes.length === 1;
   const [selectedCell, setSelectedCell] = useState<[number, string] | null>(null);
   const dataRef = useRef<{ [k: string]: string | number }[] | undefined>(EMPTY_DATA);
@@ -797,15 +807,22 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   const orderedColumnNames = useMemo(
     () => {
       const shares = measures.filter((m) => shareOf.has(m)).map(shareColumnId);
+      // When compare is active, append cmp/delta/deltaPct virtual column ids
+      // for each measure. These IDs are never real Cube member names — they use
+      // the `__cmp`, `__delta`, `__deltaPct` suffixes written by mergeByDimKey.
+      const cmpCols = isCompareActive
+        ? measures.flatMap((m) => [`${m}__cmp`, `${m}__delta`, `${m}__deltaPct`])
+        : [];
       return [
         ...dimensions,
         ...timeDimensions.map((td) => td.dimension),
         ...measures,
+        ...cmpCols,
         ...shares,
       ];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures), shareKey]
+    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures), shareKey, isCompareActive]
   );
   const baseGridColumnsTemplate = getColumnTemplate(orderedColumnNames, livePreviewWidths);
 
@@ -1125,6 +1142,58 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                   </div>
                 );
               })}
+              {/* Compare delta cells — one triple per measure when compare is active */}
+              {isCompareActive && compareRows
+                ? measures.flatMap((measure) => {
+                    const cmpRow = compareRows[rowId];
+                    const cmpVal = cmpRow != null ? (cmpRow[`${measure}__cmp`] as number | null) : null;
+                    const deltaVal = cmpRow != null ? (cmpRow[`${measure}__delta`] as number | null) : null;
+                    const deltaPctVal = cmpRow != null ? (cmpRow[`${measure}__deltaPct`] as number | null) : null;
+                    const tone = getDeltaTone(deltaPctVal);
+                    const deltaColor =
+                      tone === 'positive' ? 'var(--success-color, #52c41a)' :
+                      tone === 'negative' ? 'var(--danger-color, #f5222d)' :
+                      'inherit';
+
+                    return [
+                      // Comparison value cell
+                      <div
+                        key={`${measure}__cmp`}
+                        data-row={rowId}
+                        data-name={`${measure}__cmp`}
+                        data-element="NumberCell"
+                      >
+                        <div data-element="CellValue">
+                          {cmpVal != null
+                            ? renderValue(formatCellData(measure, cmpVal)[0])
+                            : <StyledTag>—</StyledTag>}
+                        </div>
+                      </div>,
+                      // Absolute delta cell
+                      <div
+                        key={`${measure}__delta`}
+                        data-row={rowId}
+                        data-name={`${measure}__delta`}
+                        data-element="NumberCell"
+                      >
+                        <div data-element="CellValue" style={{ color: deltaColor }}>
+                          {formatDeltaAbs(deltaVal)}
+                        </div>
+                      </div>,
+                      // Delta % cell
+                      <div
+                        key={`${measure}__deltaPct`}
+                        data-row={rowId}
+                        data-name={`${measure}__deltaPct`}
+                        data-element="NumberCell"
+                      >
+                        <div data-element="CellValue" style={{ color: deltaColor }}>
+                          {formatDeltaPct(deltaPctVal)}
+                        </div>
+                      </div>,
+                    ];
+                  })
+                : null}
               {measures.map((measure) => {
                 if (!shareOf.has(measure)) return null;
                 const total = measureTotals[measure] ?? 0;
@@ -1160,6 +1229,8 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     selection.selectedUids,
     shareKey,
     measureTotals,
+    isCompareActive,
+    compareRows,
   ]);
 
   function addFilter(name: string) {
@@ -1339,6 +1410,63 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
       </ReorderableMemberList>
     );
   }, [measures, JSON.stringify(query.order), meta, memberViewType, isCompact, shareKey]);
+
+  // Compare columns: Comparison | Δ | Δ% — one triple per measure.
+  // Rendered only when compare mode is active and mergedRows exist.
+  const compareColumns = useDeepMemo(() => {
+    if (!isCompareActive) return null;
+    const label = compareState.compLabel || 'Comparison';
+    return measures.flatMap((measure) => {
+      const shortName = measure.split('.').pop() ?? measure;
+      const cmpId = `${measure}__cmp`;
+      const deltaId = `${measure}__delta`;
+      const deltaPctId = `${measure}__deltaPct`;
+      return [
+        <ColumnHeader key={cmpId} data-member="measure" data-resize-anchor={cmpId}>
+          <MemberLabel
+            isMissing={false}
+            name={`${shortName} (${label})`}
+            memberName={`${shortName} (${label})`}
+            cubeName={undefined}
+            memberTitle={`${shortName} — ${label}`}
+            cubeTitle={undefined}
+            isCompact={isCompact}
+            memberViewType={memberViewType}
+            memberType="measure"
+            type="number"
+          />
+        </ColumnHeader>,
+        <ColumnHeader key={deltaId} data-member="measure" data-resize-anchor={deltaId}>
+          <MemberLabel
+            isMissing={false}
+            name={`Δ ${shortName}`}
+            memberName={`Δ ${shortName}`}
+            cubeName={undefined}
+            memberTitle={`Δ ${shortName}`}
+            cubeTitle={undefined}
+            isCompact={isCompact}
+            memberViewType={memberViewType}
+            memberType="measure"
+            type="number"
+          />
+        </ColumnHeader>,
+        <ColumnHeader key={deltaPctId} data-member="measure" data-resize-anchor={deltaPctId}>
+          <MemberLabel
+            isMissing={false}
+            name={`Δ% ${shortName}`}
+            memberName={`Δ% ${shortName}`}
+            cubeName={undefined}
+            memberTitle={`Δ% ${shortName}`}
+            cubeTitle={undefined}
+            isCompact={isCompact}
+            memberViewType={memberViewType}
+            memberType="measure"
+            type="number"
+          />
+        </ColumnHeader>,
+      ];
+    });
+  }, [isCompareActive, measures, compareState.compLabel, memberViewType, isCompact]);
 
   // Synthetic "% of total" headers — one per measure with the share toggle on.
   // Placed after all real measure columns in row order so the grid template
@@ -1565,6 +1693,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
               {dimensionColumns}
               {timeDimensionsColumns}
               {measuresColumns}
+              {compareColumns}
               {shareColumns}
               {tableData}
             </GridTable>

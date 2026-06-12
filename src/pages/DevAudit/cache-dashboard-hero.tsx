@@ -155,9 +155,9 @@ const S = {
 
 export function CacheDashboardHero({ data, days }: Props) {
   const { summary, sparkline } = data;
-  const { staleRatio, legacyRatio } = deriveStaleRatios(data);
+  const { staleRatio, legacyRatio } = deriveStaleRatios(data.staleRatio);
   const stalePercent = Math.round(staleRatio * 100);
-  const legacyPercent = Math.round(legacyRatio * 100);
+  const legacyCount = Math.round(legacyRatio * 100);
   const isStaleWarn = staleRatio > 0.10;
 
   const hitMs = summary.latencyWinMs.avgHitMs ?? 0;
@@ -218,7 +218,7 @@ export function CacheDashboardHero({ data, days }: Props) {
       >
         <span style={S.staleDot} />
         <span>
-          {stalePercent}% stale · {legacyPercent}% legacy
+          {stalePercent}% stale · {legacyCount} legacy
           {isStaleWarn ? ' · cube meta drifted' : ''}
         </span>
       </div>
