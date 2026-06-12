@@ -67,7 +67,12 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
     const path = artifact.deeplinkUrl.startsWith('#')
       ? artifact.deeplinkUrl.slice(1)
       : artifact.deeplinkUrl;
-    history.push(path);
+    // Per-click nonce: lets the playground re-consume the same artifact on a
+    // repeat click — reopening the query if its tab was closed, re-running it
+    // if still open — instead of the once-per-artifact guard swallowing it.
+    const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const sep = path.includes('?') ? '&' : '?';
+    history.push(`${path}${sep}n=${nonce}`);
     onClick?.();
   }
 

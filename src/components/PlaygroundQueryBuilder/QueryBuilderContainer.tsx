@@ -1,6 +1,8 @@
 import { Panel, Space } from '@cube-dev/ui-kit';
+import { validateQuery } from '@cubejs-client/core';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card, message } from 'antd';
+import equals from 'fast-deep-equal';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -273,24 +275,39 @@ function QueryTabsRenderer({
 
   const params = new URLSearchParams(location.search);
 
+  // Per-navigation nonce. Deeplink emitters that support repeat-clicks (the
+  // chat QueryArtifactCard) append a fresh `n=` on every click; folding it
+  // into the consume guards below lets the SAME artifact/query be applied
+  // again on a NEW click (reopening a closed tab, re-running an open one).
+  // location.key is NOT usable here — createHashHistory doesn't keep keys.
+  // Callers without a nonce keep the original once-per-id behavior.
+  const navNonce = params.get('n');
+
   // --------------------------------------------------------------------------
   // ?from-chat-artifact=<id> — consume CubeQuery payload from sessionStorage.
   //
-  // On first render with a given artifactId:
+  // On first render with a given (artifactId, nonce):
   //   - Key present  → parse, clear key, use as query (inline hydration).
   //   - Key missing  → show stale-link toast (user refreshed after key expired).
   // Does NOT affect existing ?query= or segment-edit flows.
   // --------------------------------------------------------------------------
   const chatArtifactId = params.get('from-chat-artifact');
-  // Ref tracks which artifactId we already processed so we don't re-run on
-  // every render while the URL still contains the param.
+  const chatProcessKey = chatArtifactId ? `${chatArtifactId}:${navNonce ?? ''}` : null;
+  // Ref tracks which (artifactId, nonce) we already processed so we don't
+  // re-run on every render while the URL still contains the params.
   const processedArtifactRef = useRef<string | null>(null);
   // Ref holds the parsed payload after the first successful read.
   const chatPayloadRef = useRef<Record<string, unknown> | null>(null);
 
-  if (chatArtifactId && processedArtifactRef.current !== chatArtifactId) {
+  // Payload cache keyed by artifact id, surviving nonce changes: sessionStorage
+  // is one-shot (consumed below), so browser back/forward across two clicks of
+  // the same artifact re-processes under an old nonce with empty storage —
+  // serve the cached payload silently instead of a spurious "expired" toast.
+  const chatPayloadCacheRef = useRef<{ id: string; payload: Record<string, unknown> } | null>(null);
+
+  if (chatArtifactId && processedArtifactRef.current !== chatProcessKey) {
     // Mark as processed immediately (synchronous, before any render side-effects).
-    processedArtifactRef.current = chatArtifactId;
+    processedArtifactRef.current = chatProcessKey;
     chatPayloadRef.current = null;
 
     const storageKey = `gds-cube:pending-chat-deeplink:${chatArtifactId}`;
@@ -303,12 +320,17 @@ function QueryTabsRenderer({
       sessionStorage.removeItem(storageKey);
       try {
         chatPayloadRef.current = JSON.parse(raw) as Record<string, unknown>;
+        chatPayloadCacheRef.current = { id: chatArtifactId, payload: chatPayloadRef.current };
       } catch {
         chatPayloadRef.current = null;
       }
+    } else if (chatPayloadCacheRef.current?.id === chatArtifactId) {
+      // Storage already consumed this session (back/forward re-navigation) —
+      // reuse the cached payload.
+      chatPayloadRef.current = chatPayloadCacheRef.current.payload;
     } else {
-      // Key absent: expired or was never written (e.g. user refreshed page).
-      // Show warning via antd message (non-blocking).
+      // Key absent and never seen: expired or was never written (e.g. user
+      // refreshed page). Show warning via antd message (non-blocking).
       message.warning(
         'This chat link has expired — return to the chat to re-open it.',
         4,
@@ -327,11 +349,12 @@ function QueryTabsRenderer({
   // buildDefinitionDeeplink falls back to sessionStorage for large definitions.
   // --------------------------------------------------------------------------
   const fromSegmentId = params.get('from-segment');
+  const fromSegmentProcessKey = fromSegmentId ? `${fromSegmentId}:${navNonce ?? ''}` : null;
   const processedFromSegmentRef = useRef<string | null>(null);
   const fromSegmentPayloadRef = useRef<Record<string, unknown> | null>(null);
 
-  if (fromSegmentId && processedFromSegmentRef.current !== fromSegmentId) {
-    processedFromSegmentRef.current = fromSegmentId;
+  if (fromSegmentId && processedFromSegmentRef.current !== fromSegmentProcessKey) {
+    processedFromSegmentRef.current = fromSegmentProcessKey;
     fromSegmentPayloadRef.current = null;
 
     const stored = readDeeplinkFromStorage(fromSegmentId);
@@ -362,11 +385,12 @@ function QueryTabsRenderer({
   // We only call onEditContextReady once per distinct segmentId.
   // --------------------------------------------------------------------------
   const editSegmentId = params.get('edit-segment');
+  const editSegmentProcessKey = editSegmentId ? `${editSegmentId}:${navNonce ?? ''}` : null;
   const processedEditSegmentRef = useRef<string | null>(null);
   const [editContext, setEditContext] = useState<SegmentEditContext | null>(null);
 
-  if (editSegmentId && processedEditSegmentRef.current !== editSegmentId) {
-    processedEditSegmentRef.current = editSegmentId;
+  if (editSegmentId && processedEditSegmentRef.current !== editSegmentProcessKey) {
+    processedEditSegmentRef.current = editSegmentProcessKey;
 
     // buildDefinitionDeeplink always writes the edit context to sessionStorage
     // (both inline and oversize paths), keyed by segment id. Read it here to
@@ -431,10 +455,10 @@ function QueryTabsRenderer({
   //   4. null
   const queryParam = params.get('query');
   const rawQuery =
-    (chatArtifactId && processedArtifactRef.current === chatArtifactId
+    (chatArtifactId && processedArtifactRef.current === chatProcessKey
       ? chatPayloadRef.current
       : null) ??
-    (fromSegmentId && processedFromSegmentRef.current === fromSegmentId
+    (fromSegmentId && processedFromSegmentRef.current === fromSegmentProcessKey
       ? fromSegmentPayloadRef.current
       : null) ??
     JSON.parse(queryParam || 'null');
@@ -456,6 +480,32 @@ function QueryTabsRenderer({
   const wasNormalized = normalizedQuery !== rawQuery;
   const query = applyGameFilter(normalizedQuery, gameId, cubeHasGameDim);
 
+  // --------------------------------------------------------------------------
+  // Deeplink auto-run: remember which query the current navigation delivered
+  // (validated, post game-filter — the exact shape QueryTabs stores on the
+  // tab) plus a trigger value. The tab that holds this query and is active
+  // gets autoRunTrigger, executing without a manual Run press. The trigger is
+  // the per-click nonce when present, so a repeat "Open in Playground" click
+  // re-runs an already-open tab; without a nonce it's the query JSON itself,
+  // which fires once per distinct deeplinked query.
+  // --------------------------------------------------------------------------
+  const autoRunRef = useRef<{ trigger: string; validated: unknown } | null>(null);
+  if (query) {
+    const validated = validateQuery(query);
+    autoRunRef.current = {
+      trigger: navNonce ?? JSON.stringify(validated),
+      validated,
+    };
+  } else {
+    // Query-less navigation (plain /build visit through the KeepAlive'd
+    // instance): drop the stale trigger so restored tabs never auto-run.
+    autoRunRef.current = null;
+  }
+  // Active tab id, mirrored from QueryTabs via onTabChange — the auto-run
+  // trigger must only reach the ACTIVE matching tab (legacy duplicate tabs
+  // can hold the same query).
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
   // Stabilize the URL so the address bar reflects what's actually running:
   // rewrite ?query= to carry the explicit tuple. Skipped for the chat-
   // artifact path (?from-chat-artifact= preserves provenance — the
@@ -468,9 +518,12 @@ function QueryTabsRenderer({
     if (chatArtifactId) return;
     if (!queryParam || !normalizedQuery) return;
     const editParam = editSegmentId ? `&edit-segment=${encodeURIComponent(editSegmentId)}` : '';
-    history.replace({ search: `?query=${encodeURIComponent(JSON.stringify(normalizedQuery))}${editParam}` });
+    // Preserve the per-click nonce: dropping it would change the auto-run
+    // trigger identity mid-boot and re-fire the query a second time.
+    const nonceParam = navNonce ? `&n=${encodeURIComponent(navNonce)}` : '';
+    history.replace({ search: `?query=${encodeURIComponent(JSON.stringify(normalizedQuery))}${editParam}${nonceParam}` });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryParam, wasNormalized, chatArtifactId, editSegmentId]);
+  }, [queryParam, wasNormalized, chatArtifactId, editSegmentId, navNonce]);
 
   return (
     <QueryTabs
@@ -479,31 +532,45 @@ function QueryTabsRenderer({
       key={`${workspaceId || '_'}:${gameId}`}
       gameId={gameId}
       query={query}
+      applyNonce={navNonce}
       sidebar={null}
       onTabChange={(tab) => {
+        setActiveTabId(tab.id);
         props.onTabChange?.(tab);
         setQuery(tab.query);
       }}
     >
-      {({ id, query, chartType }, saveTab) => (
-        <Panel key={id} height="100% 100%" fill="#clear">
-          <QueryBuilder
-            apiUrl={apiUrl}
-            apiToken={token}
-            defaultQuery={applyGameFilter(query, gameId, cubeHasGameDim)}
-            defaultChartType={chartType}
-            schemaVersion={props.schemaVersion}
-            extra={props.extra ?? null}
-            RequestStatusComponent={RequestStatusComponent}
-            VizardComponent={PlaygroundVizard}
-            onSchemaChange={props.onSchemaChange}
-            onQueryChange={(data) => {
-              saveTab(data);
-              onQueryChange?.(data);
-            }}
-          />
-        </Panel>
-      )}
+      {({ id, query, chartType }, saveTab) => {
+        // Auto-run only the active tab whose query is exactly what this
+        // navigation deeplinked in; user edits break the match, so later
+        // meta reloads can't re-fire a query the user has moved away from.
+        const autoRun = autoRunRef.current;
+        const isDeeplinkTab =
+          !!autoRun &&
+          id === activeTabId &&
+          equals(validateQuery(query), autoRun.validated);
+
+        return (
+          <Panel key={id} height="100% 100%" fill="#clear">
+            <QueryBuilder
+              apiUrl={apiUrl}
+              apiToken={token}
+              defaultQuery={applyGameFilter(query, gameId, cubeHasGameDim)}
+              autoRunTrigger={isDeeplinkTab ? autoRun.trigger : undefined}
+              defaultChartType={chartType}
+              schemaVersion={props.schemaVersion}
+              extra={props.extra ?? null}
+              RequestStatusComponent={RequestStatusComponent}
+              VizardComponent={PlaygroundVizard}
+              onSchemaChange={props.onSchemaChange}
+              onQueryChange={(data) => {
+                saveTab(data);
+                onQueryChange?.(data);
+              }}
+            />
+          </Panel>
+        );
+      }}
     </QueryTabs>
   );
 }

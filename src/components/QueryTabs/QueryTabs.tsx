@@ -124,6 +124,14 @@ export type QueryTabsProps = {
    * (or that game's saved tabs) without leaking state across tenants.
    */
   gameId?: string | null;
+  /**
+   * Navigation identity for the `query` prop (e.g. a per-click nonce from
+   * the deeplink URL). Folded into the applied-query key so the SAME query
+   * arriving via a NEW navigation re-applies — reactivating its tab if one
+   * still holds it, or opening a fresh tab if the user closed it. Without a
+   * nonce, behavior is unchanged: a given query JSON applies once.
+   */
+  applyNonce?: string | null;
 };
 
 export function QueryTabs({
@@ -132,6 +140,7 @@ export function QueryTabs({
   sidebar = null,
   onTabChange,
   gameId,
+  applyNonce,
 }: QueryTabsProps) {
   const {
     setChartRendererReady,
@@ -273,40 +282,48 @@ export function QueryTabs({
     // Bind the URL query to a single "applied" key so deep-links from the
     // Catalog (which can reuse the same KeepAlive instance) always open a
     // fresh tab when the URL changes, and never re-trigger on re-renders
-    // of an already-applied query.
-    const queryKey = query ? JSON.stringify(validateQuery(query)) : null;
+    // of an already-applied query. The applyNonce (per-navigation, e.g. a
+    // chat "Open in Playground" click) is folded in so the same query JSON
+    // re-applies on a NEW navigation — reopening a closed tab instead of
+    // being swallowed by the once-per-query guard.
+    const queryKey = query
+      ? `${applyNonce ?? ''}|${JSON.stringify(validateQuery(query))}`
+      : null;
 
-    if (
-      query &&
-      queryKey !== lastAppliedQueryKey.current &&
-      !equals(validateQuery(currentTab?.query), validateQuery(query))
-    ) {
+    if (query && queryKey !== lastAppliedQueryKey.current) {
+      // Consume the key even when the active tab already holds the query
+      // (no-op apply). Leaving it stale would make a LATER effect re-run
+      // (tab close / tab switch changes currentTab) fall into the apply
+      // branch and resurrect a tab the user deliberately closed, or yank
+      // the active tab back.
       lastAppliedQueryKey.current = queryKey;
 
-      // If a tab already holds this exact query (e.g. user clicked a recent
-      // in the sidebar tray), re-activate it rather than spawning a duplicate.
-      // Otherwise the tab strip fills with copies of the same query every
-      // time the user clicks the same recent.
-      const normalized = validateQuery(query);
-      const existing = queryTabs.tabs.find((t) =>
-        equals(validateQuery(t.query), normalized)
-      );
+      if (!equals(validateQuery(currentTab?.query), validateQuery(query))) {
+        // If a tab already holds this exact query (e.g. user clicked a recent
+        // in the sidebar tray), re-activate it rather than spawning a duplicate.
+        // Otherwise the tab strip fills with copies of the same query every
+        // time the user clicks the same recent.
+        const normalized = validateQuery(query);
+        const existing = queryTabs.tabs.find((t) =>
+          equals(validateQuery(t.query), normalized)
+        );
 
-      if (existing) {
-        if (existing.id !== queryTabs.activeId) {
-          saveTabs({ ...queryTabs, activeId: existing.id });
+        if (existing) {
+          if (existing.id !== queryTabs.activeId) {
+            saveTabs({ ...queryTabs, activeId: existing.id });
+          }
+        } else {
+          const id = getNextId();
+          saveTabs({
+            activeId: id,
+            tabs: [...queryTabs.tabs, { id, query }],
+          });
         }
-      } else {
-        const id = getNextId();
-        saveTabs({
-          activeId: id,
-          tabs: [...queryTabs.tabs, { id, query }],
-        });
       }
     }
 
     if (!ready) setReady(true);
-  }, [ready, query]);
+  }, [ready, query, applyNonce]);
 
   useEffect(() => {
     if (ready && queryTabs.activeId) {

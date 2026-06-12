@@ -236,6 +236,20 @@ export function QueryBuilder(
     }
   }, [shouldRunDefaultQuery, meta]);
 
+  // Deeplink auto-run: fires once meta is ready, and again whenever the
+  // trigger value changes (each "Open in Playground" click mints a new
+  // nonce, so re-opening an already-open tab re-executes its query).
+  // firedTriggerRef ensures each trigger value runs at most once — without
+  // it, meta reloads (refreshMeta / schemaVersion bumps) and tab-revisit
+  // prop flaps (undefined → same trigger) would re-execute the query.
+  const firedTriggerRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (autoRunTrigger && meta && firedTriggerRef.current !== autoRunTrigger) {
+      firedTriggerRef.current = autoRunTrigger;
+      void runQuery();
+    }
+  }, [autoRunTrigger, meta]);
+
   useCommitPress(() => {
     return runQuery();
   }, true);

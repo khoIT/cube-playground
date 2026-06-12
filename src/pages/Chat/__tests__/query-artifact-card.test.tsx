@@ -152,9 +152,35 @@ describe('QueryArtifactCard', () => {
     );
     expect(stored).toBe(JSON.stringify(SESSION_STORAGE_ARTIFACT.payload));
 
-    // History should have navigated to the deeplink path (strip leading '#').
+    // History should have navigated to the deeplink path (strip leading '#'),
+    // with a per-click nonce appended so the playground re-consumes repeat clicks.
     const expectedPath = SESSION_STORAGE_ARTIFACT.deeplinkUrl.slice(1); // '/build?from-chat-artifact=art-ss-1'
-    expect(memHistory.location.pathname + memHistory.location.search).toBe(expectedPath);
+    const actualPath = memHistory.location.pathname + memHistory.location.search;
+    expect(actualPath.startsWith(`${expectedPath}&n=`)).toBe(true);
+  });
+
+  it('repeat click: re-writes the consumed payload and mints a fresh nonce', () => {
+    render(
+      <RouterWithSpy history={memHistory}>
+        <QueryArtifactCard artifact={SESSION_STORAGE_ARTIFACT} />
+      </RouterWithSpy>,
+    );
+    const btn = screen.getByRole('button', { name: /open in playground/i });
+    const storageKey = `gds-cube:pending-chat-deeplink:${SESSION_STORAGE_ARTIFACT.id}`;
+
+    fireEvent.click(btn);
+    const firstSearch = memHistory.location.search;
+    // Simulate the playground consuming the payload (it removes the key).
+    sessionStorage.removeItem(storageKey);
+
+    fireEvent.click(btn);
+    // Payload restored for the second navigation…
+    expect(sessionStorage.getItem(storageKey)).toBe(
+      JSON.stringify(SESSION_STORAGE_ARTIFACT.payload),
+    );
+    // …under a distinct nonce, so the consume guard treats it as a new click.
+    expect(memHistory.location.search).not.toBe(firstSearch);
+    expect(memHistory.location.search).toContain('&n=');
   });
 
   it('inline artifact: does NOT write sessionStorage, navigates correctly', () => {
@@ -173,11 +199,11 @@ describe('QueryArtifactCard', () => {
     );
     expect(stored).toBeNull();
 
-    // History navigated to the inline deeplink path.
+    // History navigated to the inline deeplink path (+ per-click nonce).
     const expectedPath = INLINE_ARTIFACT.deeplinkUrl.slice(1);
     const actualPath =
       memHistory.location.pathname + memHistory.location.search;
-    expect(actualPath).toBe(expectedPath);
+    expect(actualPath.startsWith(`${expectedPath}&n=`)).toBe(true);
   });
 
   it('calls onClick callback after navigation', () => {
