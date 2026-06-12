@@ -27,20 +27,35 @@ interface Props {
 
 const TYPES: LeafValueType[] = ['string', 'number', 'time', 'boolean'];
 
-/** Build antd grouped Select options from the catalog. */
+/** Build antd grouped Select options from the catalog.
+ *
+ * Group header = cube NAME (mono, compact) with the verbose cube title as a
+ * native tooltip — cube titles repeat the game prefix and would dwarf the
+ * options. Option label = member shortTitle with the qualified member name as
+ * a muted mono suffix, so same-named members from different cubes stay
+ * distinguishable both in the open list and the closed (selected) state.
+ */
 function buildMemberOptions(catalog: MemberCatalog) {
   return catalog.groups.map((group) => ({
     label: (
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {group.title}
+      <span
+        title={group.title}
+        style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+      >
+        {group.cube}
       </span>
     ),
     title: group.cube,
     options: group.members.map((m) => ({
       value: m.name,
+      // Searchable haystack for filterOption (name + label, case-folded once).
+      search: `${m.name} ${m.title}`.toLowerCase(),
       label: (
-        <span>
-          <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>{m.title}</span>
+        <span title={m.name}>
+          <span style={{ fontSize: 12 }}>{m.title}</span>
+          <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: 'var(--text-muted, var(--text-secondary))', opacity: 0.7 }}>
+            {m.name}
+          </span>
           {m.kind === 'measure' && (
             <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-muted, var(--text-secondary))', opacity: 0.7 }}>
               measure
@@ -94,11 +109,13 @@ export function PredicateLeaf({ node, onMember, onOp, onValues, onRemove, catalo
           }}
           filterOption={(input, option) => {
             if (!option) return false;
-            // Match against the option value (member name) for keyboard search.
-            return String(option.value ?? '').toLowerCase().includes(input.toLowerCase());
+            // Match against name + human label (the `search` haystack); fall
+            // back to the member name for group-level entries without one.
+            const hay = String((option as { search?: string }).search ?? option.value ?? '').toLowerCase();
+            return hay.includes(input.toLowerCase());
           }}
-          style={{ minWidth: 220, fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}
-          dropdownStyle={{ minWidth: 280 }}
+          style={{ minWidth: 220, maxWidth: 420, fontSize: 12 }}
+          dropdownStyle={{ minWidth: 320 }}
         />
       ) : (
         <Input

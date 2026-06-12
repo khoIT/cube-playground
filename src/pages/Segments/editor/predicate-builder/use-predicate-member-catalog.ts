@@ -55,6 +55,10 @@ export interface MemberCatalog {
 interface RawMetaMember {
   name: string;
   title?: string;
+  /** Member-only label ("Os Platform"); `title` prefixes the full cube title
+   *  ("JUS VN — Daily Active Snapshots (…) Os Platform") and is unusable in
+   *  dropdown options. Prefer shortTitle for display. */
+  shortTitle?: string;
   type?: string;
 }
 
@@ -65,7 +69,14 @@ export interface RawMetaCube {
   connectedComponent?: number;
   measures?: RawMetaMember[];
   dimensions?: RawMetaMember[];
-  segments?: Array<{ name: string; title?: string }>;
+  segments?: Array<{ name: string; title?: string; shortTitle?: string }>;
+}
+
+/** Display label for a member: shortTitle, else title, else the name suffix.
+ *  Cube meta `title` concatenates the cube title in front of the member label,
+ *  so it's only a fallback for metas that omit shortTitle. */
+function memberLabel(m: { name: string; title?: string; shortTitle?: string }): string {
+  return m.shortTitle ?? m.title ?? (m.name.split('.').pop() ?? m.name);
 }
 
 /** Map Cube meta type strings to the four predicate leaf value types. */
@@ -133,7 +144,7 @@ export function buildCatalog(cubes: RawMetaCube[], primaryCube: string): MemberC
     for (const dim of cube.dimensions ?? []) {
       const entry: CatalogMember = {
         name: dim.name,
-        title: dim.title ?? (dim.name.split('.').pop() ?? dim.name),
+        title: memberLabel(dim),
         type: toCatalogType(dim.type),
         kind: 'dimension',
       };
@@ -146,7 +157,7 @@ export function buildCatalog(cubes: RawMetaCube[], primaryCube: string): MemberC
       if (toCatalogType(m.type) === 'number') {
         const entry: CatalogMember = {
           name: m.name,
-          title: m.title ?? (m.name.split('.').pop() ?? m.name),
+          title: memberLabel(m),
           type: 'number',
           kind: 'measure',
         };
@@ -159,7 +170,7 @@ export function buildCatalog(cubes: RawMetaCube[], primaryCube: string): MemberC
     for (const seg of cube.segments ?? []) {
       modelSegments.push({
         name: seg.name,
-        title: seg.title ?? (seg.name.split('.').pop() ?? seg.name),
+        title: memberLabel(seg),
         cube: cube.name,
       });
     }
