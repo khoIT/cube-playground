@@ -246,7 +246,11 @@ describe('mergeSweep — build stats', () => {
     const { items } = mergeSweep(probe, [], META, builds);
     const ad = items.find((i) => i.cube === 'active_daily');
     expect(ad).toMatchObject({ buildMs: 10_500, partitionsBuilt: 3 });
-    expect(ad?.rollupsBuilt?.sort()).toEqual(['dau_daily_batch', 'online_time_batch']);
+    // Per-rollup breakdown, slowest first
+    expect(ad?.rollupsBuilt).toEqual([
+      { rollup: 'dau_daily_batch', partitions: 2, buildMs: 10_000 },
+      { rollup: 'online_time_batch', partitions: 1, buildMs: 500 },
+    ]);
 
     // mf_users had no build lines → stats stay null (probe-sealed, nothing rebuilt)
     const mf = items.find((i) => i.cube === 'mf_users');

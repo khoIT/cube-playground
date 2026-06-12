@@ -121,7 +121,8 @@ function classifyOutcome(probeStatus: 'built' | 'unbuilt' | 'error', hasFailure:
 interface BuildStats {
   buildMs: number;
   partitions: number;
-  rollups: Set<string>;
+  /** Per-rollup partitions + duration, so slow rollups are attributable. */
+  rollups: Map<string, { partitions: number; buildMs: number }>;
 }
 
 /**
@@ -153,12 +154,17 @@ function buildBuildIndex(
     const key = `${gameId}|${b.cube}`;
     let stats = index.get(key);
     if (!stats) {
-      stats = { buildMs: 0, partitions: 0, rollups: new Set() };
+      stats = { buildMs: 0, partitions: 0, rollups: new Map() };
       index.set(key, stats);
     }
     stats.buildMs += b.durationMs;
     stats.partitions += 1;
-    if (b.rollup) stats.rollups.add(b.rollup);
+    if (b.rollup) {
+      const r = stats.rollups.get(b.rollup) ?? { partitions: 0, buildMs: 0 };
+      r.partitions += 1;
+      r.buildMs += b.durationMs;
+      stats.rollups.set(b.rollup, r);
+    }
   }
   return index;
 }
@@ -205,7 +211,13 @@ export function mergeSweep(
         // completed some partitions before the failure.
         buildMs: stats ? stats.buildMs : null,
         partitionsBuilt: stats ? stats.partitions : null,
-        rollupsBuilt: stats && stats.rollups.size > 0 ? [...stats.rollups] : null,
+        // Slowest rollup first — the one an operator debugging a long sweep
+        // wants to see at the top.
+        rollupsBuilt: stats && stats.rollups.size > 0
+          ? [...stats.rollups.entries()]
+              .map(([rollup, r]) => ({ rollup, partitions: r.partitions, buildMs: r.buildMs }))
+              .sort((a, b) => b.buildMs - a.buildMs)
+          : null,
       });
     }
   }

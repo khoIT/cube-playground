@@ -16,6 +16,7 @@ import type {
   PreaggSweepInput,
   PreaggSweepItem,
   PreaggSweepItemInput,
+  RollupBuildStat,
 } from '../types/preagg-run.js';
 
 // ---------------------------------------------------------------------------
@@ -94,11 +95,22 @@ function toItem(r: RawItem): PreaggSweepItem {
   };
 }
 
-function parseRollupsBuilt(raw: string | null): string[] | null {
+function parseRollupsBuilt(raw: string | null): RollupBuildStat[] | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as string[]).map(String) : null;
+    if (!Array.isArray(parsed)) return null;
+    return parsed.map((entry): RollupBuildStat =>
+      // Legacy rows stored bare rollup-name strings (no per-rollup stats);
+      // surface them with zeroed stats rather than dropping the names.
+      typeof entry === 'string'
+        ? { rollup: entry, partitions: 0, buildMs: 0 }
+        : {
+            rollup: String((entry as RollupBuildStat).rollup ?? ''),
+            partitions: Number((entry as RollupBuildStat).partitions) || 0,
+            buildMs: Number((entry as RollupBuildStat).buildMs) || 0,
+          },
+    );
   } catch {
     return null;
   }

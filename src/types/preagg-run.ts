@@ -38,8 +38,17 @@ export interface PreaggSweepItem {
   buildMs: number | null;
   /** Partition builds (CREATE TABLE completions) observed this sweep. */
   partitionsBuilt: number | null;
-  /** Distinct rollup names built this sweep. */
-  rollupsBuilt: string[] | null;
+  /** Per-rollup build breakdown this sweep (slowest first). */
+  rollupsBuilt: RollupBuildStat[] | null;
+}
+
+/** Per-rollup build stats within one game × cube of a sweep. */
+export interface RollupBuildStat {
+  rollup: string;
+  /** Partition builds observed (0 = unknown / legacy row). */
+  partitions: number;
+  /** Summed build duration in ms (0 = unknown). */
+  buildMs: number;
 }
 
 // ── Live triggered-build progress (GET /api/preagg-runs/build-progress) ─────

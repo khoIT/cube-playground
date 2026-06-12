@@ -8,7 +8,7 @@
  * Uses only var(--…) design tokens. No inline hex.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { PreaggSweep, PreaggSweepItem } from '../../../types/preagg-run';
 import type { Outcome } from '../../../types/preagg-run';
 
@@ -145,20 +145,17 @@ function fmtDatetime(iso: string): string {
   }
 }
 
-// Detail shows what the sweep ATTEMPTED — problems first, then successes.
-// 'unbuilt' items are ambient state (never attempted), owned by the readiness
-// matrix above; listing them per-sweep just repeats the same rows every hour.
-const OUTCOME_ORDER: Outcome[] = ['stale_serving', 'failed', 'sealed'];
-
-const GROUP_LABEL: Record<Outcome, string> = {
-  stale_serving: 'Stale-serving — refresh failed, old cache still answering',
-  failed:        'Failed — refresh failed and not serveable',
-  unbuilt:       'Unbuilt — never sealed (cold)',
-  sealed:        'Sealed',
-};
-
 /** Problem outcomes get a retry CTA (scoped rebuild of the item's game). */
 const RETRYABLE: ReadonlySet<Outcome> = new Set(['stale_serving', 'failed']);
+
+const GROUP_HEAD: React.CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  color: 'var(--text-muted)',
+  margin: '10px 0 2px',
+};
 
 // ---------------------------------------------------------------------------
 // Expanded detail panel
@@ -167,6 +164,124 @@ const RETRYABLE: ReadonlySet<Outcome> = new Set(['stale_serving', 'failed']);
 // Shared 4-column track: game · cube/rollup · outcome · detail.
 const ITEM_GRID = '96px minmax(180px, 1.4fr) 124px 2fr';
 
+/** One full-width row for an item the sweep actually worked on. */
+function ItemRow({ item, onRetry, retryDisabled }: {
+  item: PreaggSweepItem;
+  onRetry?: (game: string) => void;
+  retryDisabled?: boolean;
+}) {
+  // Average partition build time — the quickest "is this rollup getting
+  // expensive" signal when comparing sweeps over time.
+  const avgMs = item.partitionsBuilt && item.buildMs
+    ? Math.round(item.buildMs / item.partitionsBuilt)
+    : null;
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: ITEM_GRID,
+        alignItems: 'center',
+        gap: 12,
+        padding: '8px 0',
+        borderBottom: '1px dashed var(--neutral-200)',
+      }}
+    >
+      {/* Game — its own column. The id maps to the cube-dev model folder
+          cubes/<game>/, so it's the handle for jumping to the YAML. */}
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--brand)' }}>
+        {item.game ?? '—'}
+      </span>
+
+      {/* Cube + rollup */}
+      <div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)' }}>
+          {item.cube ?? '—'}
+        </div>
+        {item.rollup && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+            {item.rollup}
+          </div>
+        )}
+      </div>
+
+      <OutcomeChip outcome={item.outcome as Outcome} />
+
+      {/* Error message or build stats, with a retry CTA on problem rows */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {item.errorMessage ? (
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.45, flex: 1 }}>
+            <code
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10.5,
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-card)',
+                padding: '1px 5px',
+                borderRadius: 4,
+                color: 'var(--text-muted)',
+              }}
+            >
+              {item.errorSig ?? 'error'}
+            </code>
+            {' '}
+            {item.errorMessage.length > 120
+              ? item.errorMessage.slice(0, 120) + '…'
+              : item.errorMessage}
+          </div>
+        ) : item.partitionsBuilt ? (
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1, lineHeight: 1.5 }}>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+              {item.partitionsBuilt} partition{item.partitionsBuilt === 1 ? '' : 's'}
+              {' '}in {fmtDuration(item.buildMs)}
+              {avgMs !== null && item.partitionsBuilt > 1 && (
+                <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}> · ~{fmtDuration(avgMs)}/partition</span>
+              )}
+            </span>
+            {item.rollupsBuilt?.map((r) => (
+              <span key={r.rollup} style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, display: 'block' }}>
+                {r.rollup}
+                {r.partitions > 0 && (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {' '}— {r.partitions} partition{r.partitions === 1 ? '' : 's'} · {fmtDuration(r.buildMs)}
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1 }}>
+            no error captured
+          </div>
+        )}
+        {onRetry && item.game && RETRYABLE.has(item.outcome as Outcome) && (
+          <button
+            type="button"
+            disabled={retryDisabled}
+            onClick={() => onRetry(item.game as string)}
+            title={retryDisabled ? 'A build is already running' : `Rebuild ${item.game}'s pre-aggregations now`}
+            style={{
+              flexShrink: 0,
+              height: 22,
+              padding: '0 9px',
+              fontSize: 11,
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              color: 'var(--brand)',
+              background: 'var(--brand-soft)',
+              border: '1px solid var(--brand)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: retryDisabled ? 'not-allowed' : 'pointer',
+              opacity: retryDisabled ? 0.5 : 1,
+            }}
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DetailPanel({ items, gameFilter, onRetry, retryDisabled }: {
   items: PreaggSweepItem[];
   gameFilter: string | null;
@@ -174,17 +289,19 @@ function DetailPanel({ items, gameFilter, onRetry, retryDisabled }: {
   onRetry?: (game: string) => void;
   retryDisabled?: boolean;
 }) {
+  const [showUpToDate, setShowUpToDate] = useState(false);
   const visible = gameFilter ? items.filter((i) => i.game === gameFilter) : items;
 
-  const grouped = OUTCOME_ORDER.reduce<Record<Outcome, PreaggSweepItem[]>>(
-    (acc, o) => ({ ...acc, [o]: [] }),
-    {} as Record<Outcome, PreaggSweepItem[]>,
-  );
-  for (const item of visible) {
-    grouped[item.outcome as Outcome]?.push(item);
-  }
-
-  const nonEmpty = OUTCOME_ORDER.filter((o) => grouped[o].length > 0);
+  // Three tiers, by how much attention each deserves:
+  //   problems  — stale_serving / failed: always visible, retryable
+  //   built     — sealed WITH partition builds: the sweep's actual work
+  //   upToDate  — sealed with nothing rebuilt: collapsed summary, on demand
+  // ('unbuilt' is ambient state owned by the readiness matrix — not listed.)
+  const problems = visible.filter((i) => RETRYABLE.has(i.outcome as Outcome));
+  const built = visible
+    .filter((i) => i.outcome === 'sealed' && (i.partitionsBuilt ?? 0) > 0)
+    .sort((a, b) => (b.buildMs ?? 0) - (a.buildMs ?? 0));
+  const upToDate = visible.filter((i) => i.outcome === 'sealed' && !(i.partitionsBuilt ?? 0));
 
   if (visible.length === 0) {
     return (
@@ -202,157 +319,98 @@ function DetailPanel({ items, gameFilter, onRetry, retryDisabled }: {
         borderTop: '1px solid var(--border-card)',
       }}
     >
-      {/* Column header */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: ITEM_GRID,
-          gap: 12,
-          padding: '6px 0 2px',
-          fontSize: 10,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.04em',
-          color: 'var(--text-muted)',
-        }}
-      >
-        <span>Game</span>
-        <span>Cube · rollup</span>
-        <span>Status</span>
-        <span>Detail</span>
-      </div>
-      {nonEmpty.map((outcome) => (
-        <div key={outcome}>
-          <div
+      {(problems.length > 0 || built.length > 0) && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: ITEM_GRID,
+            gap: 12,
+            padding: '6px 0 2px',
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            color: 'var(--text-muted)',
+          }}
+        >
+          <span>Game</span>
+          <span>Cube · rollup</span>
+          <span>Status</span>
+          <span>Detail</span>
+        </div>
+      )}
+
+      {problems.length > 0 && (
+        <>
+          <div style={GROUP_HEAD}>Problems — refresh failed{problems.some((i) => i.outcome === 'stale_serving') ? ' (stale rows still serving old cache)' : ''}</div>
+          {problems.map((item) => (
+            <ItemRow key={item.id} item={item} onRetry={onRetry} retryDisabled={retryDisabled} />
+          ))}
+        </>
+      )}
+
+      {built.length > 0 && (
+        <>
+          <div style={GROUP_HEAD}>Built this sweep — {built.length} cube{built.length === 1 ? '' : 's'}, slowest first</div>
+          {built.map((item) => (
+            <ItemRow key={item.id} item={item} onRetry={onRetry} retryDisabled={retryDisabled} />
+          ))}
+        </>
+      )}
+
+      {problems.length === 0 && built.length === 0 && (
+        <div style={{ padding: '10px 0 4px', fontSize: 12, color: 'var(--text-muted)' }}>
+          Nothing rebuilt this sweep — every refresh key matched.
+        </div>
+      )}
+
+      {/* Up-to-date rollups: real state but zero news — one line, expand on demand */}
+      {upToDate.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <button
+            type="button"
+            onClick={() => setShowUpToDate((v) => !v)}
             style={{
-              fontSize: 10.5,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              fontSize: 11.5,
+              fontFamily: 'var(--font-sans)',
               color: 'var(--text-muted)',
-              margin: '10px 0 2px',
+              cursor: 'pointer',
             }}
           >
-            {outcome === 'sealed'
-              ? `${GROUP_LABEL[outcome]} — ${grouped[outcome].length} rollups`
-              : GROUP_LABEL[outcome]}
-          </div>
-          {grouped[outcome].map((item) => (
-            <div
-              key={item.id}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: ITEM_GRID,
-                alignItems: 'center',
-                gap: 12,
-                padding: '8px 0',
-                borderBottom: '1px dashed var(--neutral-200)',
-              }}
-            >
-              {/* Game — its own column. The id maps to the cube-dev model folder
-                  cubes/<game>/, so it's the handle for jumping to the YAML. */}
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: 'var(--brand)',
-                }}
-              >
-                {item.game ?? '—'}
-              </span>
-
-              {/* Cube + rollup */}
-              <div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-primary)' }}>
-                  {item.cube ?? '—'}
-                </div>
-                {item.rollup && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
-                    {item.rollup}
-                  </div>
-                )}
-              </div>
-
-              {/* Outcome chip */}
-              <OutcomeChip outcome={item.outcome as Outcome} />
-
-              {/* Error message or ok note, with a retry CTA on problem rows */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {item.errorMessage ? (
-                  <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.45, flex: 1 }}>
-                    <code
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 10.5,
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border-card)',
-                        padding: '1px 5px',
-                        borderRadius: 4,
-                        color: 'var(--text-muted)',
-                      }}
-                    >
-                      {item.errorSig ?? 'error'}
-                    </code>
-                    {' '}
-                    {item.errorMessage.length > 120
-                      ? item.errorMessage.slice(0, 120) + '…'
-                      : item.errorMessage}
-                  </div>
-                ) : item.outcome === 'sealed' ? (
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1, lineHeight: 1.5 }}>
-                    {item.partitionsBuilt ? (
-                      <>
-                        <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                          {item.partitionsBuilt} partition{item.partitionsBuilt === 1 ? '' : 's'}
-                          {' '}in {fmtDuration(item.buildMs)}
-                        </span>
-                        {item.rollupsBuilt && item.rollupsBuilt.length > 0 && (
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, display: 'block' }}>
-                            {item.rollupsBuilt.join(' · ')}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      // Sealed by probe but no build lines in the window — the
-                      // refresh key matched, so the worker had nothing to write.
-                      'up to date — no partitions rebuilt'
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1 }}>
-                    no error captured
-                  </div>
-                )}
-                {onRetry && item.game && RETRYABLE.has(item.outcome as Outcome) && (
-                  <button
-                    type="button"
-                    disabled={retryDisabled}
-                    onClick={() => onRetry(item.game as string)}
-                    title={retryDisabled ? 'A build is already running' : `Rebuild ${item.game}'s pre-aggregations now`}
-                    style={{
-                      flexShrink: 0,
-                      height: 22,
-                      padding: '0 9px',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      fontFamily: 'var(--font-sans)',
-                      color: 'var(--brand)',
-                      background: 'var(--brand-soft)',
-                      border: '1px solid var(--brand)',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: retryDisabled ? 'not-allowed' : 'pointer',
-                      opacity: retryDisabled ? 0.5 : 1,
-                    }}
-                  >
-                    Retry
-                  </button>
-                )}
-              </div>
+            <span style={{ display: 'inline-block', transform: showUpToDate ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', fontSize: 10 }}>▶</span>
+            {upToDate.length} up to date — sealed, no partitions rebuilt
+          </button>
+          {showUpToDate && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {upToDate.map((item) => (
+                <span
+                  key={item.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    height: 20,
+                    padding: '0 8px',
+                    borderRadius: 'var(--radius-full)',
+                    background: 'var(--success-soft)',
+                    color: 'var(--success-ink)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 10.5,
+                  }}
+                >
+                  {item.game} · {item.cube}
+                </span>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }

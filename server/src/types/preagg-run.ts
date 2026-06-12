@@ -36,6 +36,15 @@ export interface PreaggSweepInput {
   collectorStatus: string;
 }
 
+/** Per-rollup build stats within one game × cube of a sweep. */
+export interface RollupBuildStat {
+  rollup: string;
+  /** Partition builds observed for this rollup (0 = unknown / legacy row). */
+  partitions: number;
+  /** Sum of partition-build durations for this rollup (ms; 0 = unknown). */
+  buildMs: number;
+}
+
 export interface PreaggSweepItemInput {
   sweepId: number;
   game: string | null;
@@ -51,8 +60,8 @@ export interface PreaggSweepItemInput {
   buildMs: number | null;
   /** Partition builds (CREATE TABLE completions) observed for this game × cube. */
   partitionsBuilt: number | null;
-  /** Distinct rollup names built for this game × cube this sweep. */
-  rollupsBuilt: string[] | null;
+  /** Per-rollup build breakdown for this game × cube this sweep. */
+  rollupsBuilt: RollupBuildStat[] | null;
 }
 
 // ---------------------------------------------------------------------------
