@@ -6,6 +6,7 @@
 import styled from 'styled-components';
 
 import { CubeGraphLegend } from './cube-graph-legend';
+import { CardinalityKey } from './edge-cardinality-markers';
 
 const Bar = styled.div`
   display: flex;
@@ -158,7 +159,8 @@ export function CubeGraphToolbar({
             ' · ',
           )}
         </Stats>
-        <Hint>click a cube to focus its joins · scroll = zoom · drag = pan</Hint>
+        <Hint>click a cube to focus its joins · drag cards to rearrange</Hint>
+        <CardinalityKey />
         <LegendSlot>
           <CubeGraphLegend present={presentClusters} />
         </LegendSlot>

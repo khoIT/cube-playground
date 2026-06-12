@@ -83,13 +83,15 @@ export function CubeNode({ data }: NodeProps<CubeNodeData>) {
         style={{
           flex: 1,
           minWidth: 0,
-          fontFamily: 'var(--font-mono)',
-          fontSize: 12,
+          fontFamily: 'var(--font-sans)',
+          fontSize: 13.5,
+          fontWeight: 700,
+          letterSpacing: '-0.01em',
           color: 'var(--text-primary)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          paddingLeft: 7,
+          paddingLeft: 8,
         }}
       >
         {label}
@@ -118,16 +120,19 @@ export function CubeNode({ data }: NodeProps<CubeNodeData>) {
 /** Background rectangle labelling one cluster's block. Never interactive. */
 export function ClusterBoxNode({ data }: NodeProps<ClusterBoxData>) {
   const { cluster, accent, width, height } = data;
+  // Tint the box (bg + border) with the cluster accent so each group reads as
+  // its color, and color the header text the same — far more legible than a
+  // grey box + a faint dot. color-mix keeps one accent var driving both the
+  // light and dark canvas.
   return (
     <div
       style={{
         width,
         height,
         boxSizing: 'border-box',
-        border: '1px dashed var(--border-card)',
+        border: `1px solid color-mix(in srgb, ${accent} 38%, transparent)`,
         borderRadius: 'var(--radius-lg)',
-        background: 'var(--bg-muted)',
-        opacity: 0.6,
+        background: `color-mix(in srgb, ${accent} 9%, var(--bg-card))`,
         pointerEvents: 'none',
       }}
     >
@@ -139,10 +144,10 @@ export function ClusterBoxNode({ data }: NodeProps<ClusterBoxData>) {
           padding: '4px 10px',
           fontFamily: 'var(--font-sans)',
           fontSize: 11,
-          fontWeight: 600,
+          fontWeight: 700,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
-          color: 'var(--text-muted)',
+          color: accent,
         }}
       >
         <span

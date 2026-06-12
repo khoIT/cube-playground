@@ -6,11 +6,11 @@
  * `keyLabel · cardinality` labels and dims the rest, mirroring the
  * model-viewer interaction grammar.
  */
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import ReactFlow, {
   Background,
   Controls,
-  MarkerType,
+  useNodesState,
   type Edge,
   type Node,
   type NodeMouseHandler,
@@ -19,7 +19,8 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import './cube-graph.css';
 
-import type { JoinGraph } from './build-join-graph';
+import type { EdgeCardinality, JoinGraph } from './build-join-graph';
+import { EdgeCardinalityMarkers, markersForCardinality } from './edge-cardinality-markers';
 import type { ClusterGridLayout } from './cluster-grid-layout';
 import {
   ClusterBoxNode,
@@ -54,7 +55,8 @@ export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Pr
     return map;
   }, [graph.lints]);
 
-  const nodes = useMemo<Node[]>(() => {
+  // Source of truth for node identity, data, and *initial* layout positions.
+  const computedNodes = useMemo<Node[]>(() => {
     const boxes: Node<ClusterBoxData>[] = layout.clusterRects.map((r) => ({
       id: `cluster:${r.cluster}`,
       type: 'clusterBox',
@@ -69,6 +71,9 @@ export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Pr
       id: n.name,
       type: 'cubeNode',
       position: layout.positions[n.name] ?? { x: 0, y: 0 },
+      // Cards are freely draggable so users can rearrange the canvas (same as
+      // the standalone model viewer); the layout is the starting point only.
+      draggable: true,
       data: {
         label: n.name,
         description: n.description,
@@ -80,6 +85,22 @@ export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Pr
     }));
     return [...boxes, ...cards];
   }, [graph.nodes, layout, selected, dimmed, lintByNode]);
+
+  // Hold nodes in state so drag positions persist. When the computed nodes
+  // change (selection / dim / lint), re-apply the latest data but keep any
+  // position the user has dragged a card to. A new graph (game/workspace
+  // switch) remounts the board via its key, resetting to the fresh layout.
+  const [rfNodes, setRfNodes, onNodesChange] = useNodesState(computedNodes);
+  useEffect(() => {
+    setRfNodes((prev) => {
+      const draggedPos = new Map(prev.map((n) => [n.id, n.position]));
+      return computedNodes.map((n) =>
+        n.type === 'cubeNode' && draggedPos.has(n.id)
+          ? { ...n, position: draggedPos.get(n.id) ?? n.position }
+          : n,
+      );
+    });
+  }, [computedNodes, setRfNodes]);
 
   // Each cube name → its cluster accent, so an edge can take the color of the
   // cluster it originates from (the legend then reads the arrows too).
@@ -95,26 +116,22 @@ export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Pr
       .filter((e) => !e.missingTarget) // no node to land on — surfaced via lints
       .map((e) => {
         const hot = anySelected && (e.source === selected || e.target === selected);
-        // Hot edges go brand so the focused cube's joins pop; otherwise the
-        // edge wears its source cluster's color and dims when something else
-        // is selected.
+        // An edge always keeps its source cluster's color — selecting a cube
+        // only lights its incident joins (full opacity) and dims the rest; it
+        // never recolors them (mirrors the standalone model viewer).
         const base = accentByNode.get(e.source) ?? 'var(--border-strong)';
-        const stroke = hot ? 'var(--brand)' : base;
         const opacity = hot ? 1 : anySelected ? 0.18 : 0.85;
+        // Cardinality is shown as crow's-foot / bar ER markers at the edge
+        // ends (many vs one) instead of overlapping text — readable at a glance
+        // and never collides; the full `col → col` mapping lives in the drawer.
+        const { markerStart, markerEnd } = markersForCardinality(e.cardinality as EdgeCardinality);
         return {
           id: e.id,
           source: e.source,
           target: e.target,
-          label: hot ? [e.keyLabel, e.cardinality].filter(Boolean).join(' · ') : undefined,
-          style: { stroke, strokeWidth: hot ? 2 : 1.5, opacity },
-          // Arrowhead points at the join target (N:1 → the hub), giving the
-          // graph an explicit direction like the standalone model viewer.
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: stroke,
-            width: 16,
-            height: 16,
-          },
+          style: { stroke: base, strokeWidth: hot ? 2.5 : 1.5, opacity },
+          markerStart,
+          markerEnd,
           zIndex: hot ? 1 : 0,
         };
       });
@@ -127,10 +144,12 @@ export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Pr
 
   return (
     <div style={canvasStyle}>
+      <EdgeCardinalityMarkers />
       <ReactFlow
         className="cube-graph-flow"
-        nodes={nodes}
+        nodes={rfNodes}
         edges={edges}
+        onNodesChange={onNodesChange}
         nodeTypes={nodeTypes}
         onNodeClick={onNodeClick}
         onPaneClick={() => onSelect(null)}

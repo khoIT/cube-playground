@@ -9,7 +9,7 @@
 import type { JoinGraphNode } from './build-join-graph';
 
 export const NODE_W = 230;
-export const NODE_H = 42;
+export const NODE_H = 48;
 const GAP = 26; // spacing between cubes inside one cluster block
 const COL_GAP = 120; // spacing between cluster blocks (room for label + edges)
 const ROW_GAP = 110;

@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-13 — Cube graph readability pass (emphasized names + crow's-foot cardinality + tinted groups + draggable cards)
+
+Follow-up UX pass on the Data Model graph for first-time readability.
+
+- **Cube names emphasized** — node title is now Inter 13.5px / 700 (was 12px mono) with a taller card (`NODE_H` 42→48), making the cube name the focal point of each card.
+- **Crow's-foot cardinality** (`edge-cardinality-markers.tsx`) — replaced the overlapping `col → col · N:1` edge text with standard ER notation: crow's foot on the many side, bar on the one side, colored to the edge via SVG `context-stroke`. No text to overlap; the full key mapping stays in the drawer Joins section. Added a small notation key to the toolbar.
+- **Tinted cluster groups** — cluster boxes use a `color-mix` accent tint (bg + border) with a header in the cluster color, instead of a grey box + faint dot.
+- **Draggable cards** — cubes are freely draggable (`useNodesState`); dragged positions persist across data updates and reset on game/workspace switch.
+- **Edge selection** — selecting a cube now keeps its joins' cluster colors (lit + dimmed others) rather than recoloring to brand; labels render with no background.
+
 ## 2026-06-13 — Cube graph: full model-viewer parity (cluster palette + legend + colored arrows + tabbed drawer)
 
 Ported the remaining standalone `model-viewer/` interaction layer into the in-app Data Model graph. Edges and the cube drawer now read like the standalone viewer. FE-only, design-token-based; the shared `DetailPanel` upgrade applies to both the Graph and the card-Grid view.
