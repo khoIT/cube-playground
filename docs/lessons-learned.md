@@ -150,6 +150,12 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 - **Signal:** a reactflow component test hangs/empties, or errors "Seems like you have not used zustand provider as an ancestor"; `toBeInTheDocument is not a function` / "Invalid Chai property: toBeInTheDocument".
 - **Apply:** (1) extract geometry into a pure fn (`build-layout.ts`) and unit-test that; (2) `vi.mock` the board, render its props as data-attributes, assert those (focus/node-count/edge-count/active-layers); (3) wrap any direct node render in `<ReactFlowProvider>` (+ `<MemoryRouter>` if it has `<Link>`); (4) use `toBeTruthy()` / `expect(queryBy…).toBeNull()` instead of jest-dom matchers.
 
+### A new translator's tests must use the EXISTING counterpart as oracle, not self-written fixtures
+- **Rule:** when writing one direction of a paired translation (FE tree→Cube-query mirroring the server's `treeToCubeFilters`; a reverse of `buildPredicateFromRows`), the test oracle is the **counterpart's behavior**, not fixtures you author alongside the code. Self-written fixtures encode the same misunderstanding as the implementation and pass green.
+- **Why:** the FE tree→query mapper forwarded tree ops `in`/`notIn` verbatim — invalid Cube operators (the server maps `in→equals`); and it flattened `OR(AND(a,b),c)` to `or(a,b,c)`, silently widening cohorts. Both shipped with green tests asserting exactly the buggy output. Code review caught them only by diffing against the server translator line-by-line.
+- **Signal:** a translator/serializer test suite where every expected value was written by the same author in the same session; no test feeds output of direction A into direction B; operator/shape sets duplicated in two files with no cross-check.
+- **Apply:** (1) round-trip property tests (`A(B(x)) ≅ x`) over hand-picked expected outputs; (2) one test that imports the counterpart's operator map (or a shared constant) and asserts set equality — drift then fails loud; (3) for op sets that must be a subset/superset (translatability gates), assert that relation explicitly against the counterpart's exports.
+
 ---
 
 ## Frontend data extraction
@@ -183,6 +189,12 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 - **Why:** SQLite stores `datetime('now')` as a space-separated UTC string with no timezone marker. The browser's `new Date('2026-06-05 03:20:00')` parses that space-separated form as **local** time, so a row written *now* renders as "&lt;utc-offset&gt; hours ago" — in GMT+7 the segment refresh history showed a just-created refresh as "7 hours ago". The data was real, not mocked; only the parse was wrong, and every consumer (`formatDistanceToNowStrict`, sparkline `new Date(ts).getTime()`) was off by the same offset.
 - **Signal:** a freshly written timestamp shows up exactly the UTC-offset number of hours in the past (7h in GMT+7); relative-time labels look mocked/seeded; the bug is invisible to a UTC-machine developer and only appears for offset users.
 - **Apply:** fix at the single API boundary (the SELECT), not per `new Date()` call site — one `strftime(... 'Z')` corrects history table + library sparklines at once. Lock it with a route test asserting `ts` matches `/T\d\d:\d\d:\d\dZ$/` and that the parsed instant is <1 min old. Same class applies to `created_at`/`updated_at`/`last_refreshed_at` if ever rendered as relative time.
+
+### Never synthesize Cube member names — and don't trust the SDK's meta shape
+- **Rule:** any member name your code *constructs* (`` `${cube}.count` ``) instead of reading from /meta is a latent boot error — cube models name their measures differently (`rows`, `events`, `transactions`). And when you DO read meta, know your source: the cubejs SDK's `meta()` object strips fields the raw `/v1/meta` response carries (`joins`, and reliably only the raw fetch keeps `connectedComponent`). Features keyed on those fields silently degrade while fixture tests stay green.
+- **Why:** the segment "Open in Playground" deeplink synthesized `<cube>.count` as its boot measure — no jus cube exposes `count`, so every boot would have thrown a Cube UserError; only a live probe caught it (unit fixtures used the synthesized name). Same day, the predicate member-catalog grouped "joined cubes" from SDK `meta()` joins — which the SDK strips — so joined-cube members never appeared at runtime while the fixture (which included joins) passed.
+- **Signal:** a member name built by string template; a meta-driven feature that works in tests but shows nothing/errors live; a fixture whose meta shape includes fields the real response lacks (or vice versa).
+- **Apply:** boot queries that don't need a measure should send `measures: []` (a dimensions+filters query is valid). For reachability/joins, fetch raw `/cube-api/v1/meta?extended=true` (pattern: `use-catalog-meta.ts`) and key on `connectedComponent`. Make fixtures mimic the REAL response shape — copy a live /meta excerpt, don't hand-write one.
 
 ---
 
