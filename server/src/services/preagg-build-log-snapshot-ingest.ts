@@ -1,0 +1,55 @@
+/**
+ * Ingest worker-log snapshots left by trigger-preagg-build.sh.
+ *
+ * The trigger script force-recreates the worker container twice (scope, then
+ * restore), and each recreate DESTROYS the container's log history — including
+ * the build window's per-partition lines the collector needs for sweep
+ * history. Before each recreate the script dumps `docker logs --timestamps`
+ * into a shared directory; the collector calls consumeBuildLogSnapshots() each
+ * pass to fold those dumped lines back into its normal parse, then deletes the
+ * files (consume-once).
+ *
+ * The dir is host-shared between the script and the host-run gateway. Prod
+ * gateways never see files here because the trigger is disabled there.
+ */
+
+import { readdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+
+const DEFAULT_DIR = '/tmp/cube-playground-preagg-log-snapshots';
+
+/** Same env override the trigger script honors — keep the two in sync. */
+function snapshotDir(): string {
+  return process.env.PREAGG_BUILD_LOG_SNAPSHOT_DIR ?? DEFAULT_DIR;
+}
+
+/**
+ * Read and delete all pending snapshot files, oldest first (filenames are
+ * epoch-prefixed: `<epoch>-<game>-<label>.log`). Returns their log lines in
+ * chronological file order; [] when the dir is absent or empty. A file that
+ * can't be read is skipped and left in place for the next pass.
+ */
+export function consumeBuildLogSnapshots(): string[] {
+  let files: string[];
+  try {
+    files = readdirSync(snapshotDir()).filter((f) => f.endsWith('.log')).sort();
+  } catch {
+    return []; // dir absent — no trigger has run on this host
+  }
+
+  const lines: string[] = [];
+  for (const f of files) {
+    const path = join(snapshotDir(), f);
+    try {
+      const content = readFileSync(path, 'utf8');
+      unlinkSync(path);
+      for (const raw of content.split('\n')) {
+        const line = raw.trim();
+        if (line) lines.push(line);
+      }
+    } catch {
+      // Unreadable mid-write or permission hiccup — retry on the next pass.
+    }
+  }
+  return lines;
+}

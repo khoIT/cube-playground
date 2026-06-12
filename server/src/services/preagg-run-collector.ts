@@ -22,6 +22,7 @@
  */
 
 import { readWorkerLogsSince, DockerLogError } from './docker-log-reader.js';
+import { consumeBuildLogSnapshots } from './preagg-build-log-snapshot-ingest.js';
 import { parseWorkerLog } from './preagg-run-parser.js';
 import type { ParsedSweep } from '../types/preagg-run.js';
 import { mergeSweep } from './preagg-run-merge.js';
@@ -67,10 +68,10 @@ async function runPass(container: string): Promise<void> {
   // ── Step A: read Docker logs since cursor ──────────────────────────────────
   let parsedSweeps: ParsedSweep[] = [];
   let collectorStatus: CollectorStatus = 'online';
+  let dockerLines: string[] = [];
 
   try {
-    const lines = await readWorkerLogsSince(container, _logCursorUnix);
-    parsedSweeps = parseWorkerLog(lines);
+    dockerLines = await readWorkerLogsSince(container, _logCursorUnix);
     // Advance cursor to now so next pass only fetches the delta.
     // We advance even if no sweeps were found — avoids re-reading old lines.
     _logCursorUnix = Math.floor(now.getTime() / 1000);
@@ -82,6 +83,15 @@ async function runPass(container: string): Promise<void> {
       throw err; // unexpected — rethrow so outer catch records it
     }
   }
+
+  // Trigger-script snapshots: logs dumped before a container force-recreate
+  // would otherwise be lost forever (the recreate wipes docker log history).
+  // They predate the live lines, so prepend; re-parsed windows the collector
+  // already recorded live land on the same started_at and upsert idempotently.
+  // Consumed even on a degraded docker read — the snapshot files come off the
+  // filesystem, not the docker socket, so they're still ingestable.
+  const snapshotLines = consumeBuildLogSnapshots();
+  parsedSweeps = parseWorkerLog([...snapshotLines, ...dockerLines]);
 
   // ── Step B: serveability probe ─────────────────────────────────────────────
   const probe = await computePreaggReadiness(workspace);

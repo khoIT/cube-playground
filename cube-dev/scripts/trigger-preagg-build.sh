@@ -41,7 +41,26 @@ COMPOSE="$ROOT/docker-compose.devcube.yml"
 WORKER=cube-playground-cube-refresh-worker-dev
 START_TS="$(date -u +%Y-%m-%dT%H:%M:%S)"
 
+# Every force-recreate below DESTROYS the container's log history — and the
+# gateway's preagg-run collector reads those logs to populate sweep history.
+# Dump them to a shared dir first (--timestamps matches the collector's docker
+# API read); the collector ingests + deletes these files on its next pass.
+SNAPSHOT_DIR="${PREAGG_BUILD_LOG_SNAPSHOT_DIR:-/tmp/cube-playground-preagg-log-snapshots}"
+snapshot_logs() {  # $1: label; $2 (optional): --since duration, else full history
+  mkdir -p "${SNAPSHOT_DIR}" 2>/dev/null || return 0
+  local out="${SNAPSHOT_DIR}/$(date +%s)-${GAME}-$1.log"
+  if [ -n "${2:-}" ]; then
+    docker logs --timestamps --since "$2" "${WORKER}" > "${out}" 2>&1 || true
+  else
+    docker logs --timestamps "${WORKER}" > "${out}" 2>&1 || true
+  fi
+  [ -s "${out}" ] || rm -f "${out}"   # drop empty/failed dumps
+}
+
 echo "▶ Scoping refresh worker to game='${GAME}' and (re)starting it…"
+# The outgoing all-games container may hold sweep logs the collector (5-min
+# cadence) hasn't ingested yet — preserve the recent tail before wiping it.
+snapshot_logs prescope 15m
 # Override the sweep interval to ${TIMER}s (default 300s is too slow to catch a
 # sweep inside a short monitoring window). A small timer makes the first sweep
 # fire almost immediately so partitions seal while we watch.
@@ -95,6 +114,9 @@ done
 
 if [ "${RESTORE}" = 1 ]; then
   echo "" && echo "▶ restoring worker to default config (all games, hourly)…"
+  # The scoped container's full history IS the build window — preserve it so
+  # the collector can backfill sweep history with this build's stats.
+  snapshot_logs window
   docker compose -f "${COMPOSE}" up -d --no-deps --force-recreate cube_refresh_worker_dev >/dev/null
   echo "  worker back to all-games sweep."
 elif [ "${STOP}" = 1 ]; then
