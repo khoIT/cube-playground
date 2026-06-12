@@ -217,6 +217,31 @@ describe('collectSegmentRefreshOps', () => {
     expect(payload.summary.degraded).toBe(0);
   });
 
+  it("shows the queue's running segment as in_flight even when its status is already 'fresh'", () => {
+    // The cohort write flips status back to 'fresh' BEFORE the card/tier tail
+    // of the refresh runs, and the prior pass's error breadcrumbs would derive
+    // 'degraded' — masking that a refresh is mid-flight and inviting a
+    // redundant manual Refresh. The queue's running id must outrank that.
+    seedSegment({ id: 'midcards', status: 'fresh', lastRefreshedAt: minsAgo(3), cadenceMin: 60 });
+    seedCard('midcards', 'c1', 'error', 'Cube request timed out after 4s');
+    seedCard('midcards', 'c2', 'ok', 'Cube request timed out after 4s'); // serving last-good
+
+    const payload = collectSegmentRefreshOps({
+      now: NOW,
+      lastTickAt: minsAgo(1),
+      tickIntervalMs: 60_000,
+      queueProcessing: true,
+      queueSize: 0,
+      queueRunningId: 'midcards',
+    });
+
+    const row = payload.segments.find((x) => x.id === 'midcards')!;
+    expect(row.derivedState).toBe('in_flight');
+    expect(row.failingCards).toBe(2); // tally still reported — only the state is overridden
+    expect(payload.summary.inFlight).toBe(1);
+    expect(payload.summary.degraded).toBe(0);
+  });
+
   it('handles an empty DB without throwing', () => {
     const payload = collectSegmentRefreshOps({
       now: NOW, lastTickAt: null, tickIntervalMs: 60_000, queueProcessing: false, queueSize: 0,

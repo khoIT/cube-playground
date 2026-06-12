@@ -325,14 +325,16 @@ export function SegmentRefreshRow({ row, queued = false, busy, onRefresh, onUnst
               <Wrench size={13} /> Unstick
             </button>
           )}
+          {/* Disabled while this segment's refresh is in flight — the server
+              dedupes too, but the button shouldn't invite a redundant click. */}
           <button
             type="button"
-            style={{ ...actionBtn, ...(busy ? { opacity: 0.5, cursor: 'wait' } : {}) }}
-            disabled={busy}
+            style={{ ...actionBtn, ...(busy || isRefreshing ? { opacity: 0.5, cursor: busy ? 'wait' : 'default' } : {}) }}
+            disabled={busy || isRefreshing}
             onClick={() => onRefresh(row.id)}
-            title="Enqueue an immediate refresh"
+            title={isRefreshing ? 'Refresh already in progress' : 'Enqueue an immediate refresh'}
           >
-            <RefreshCw size={13} /> Refresh
+            <RefreshCw size={13} /> {isRefreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
       </div>

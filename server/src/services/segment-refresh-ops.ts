@@ -302,14 +302,22 @@ export function collectSegmentRefreshOps(opts: {
     const newestMs = tally.newestFetchedAt ? Date.parse(tally.newestFetchedAt) : NaN;
     const newestCardAgeMs = Number.isNaN(newestMs) ? null : now - newestMs;
 
-    const derivedState = deriveRefreshState({
-      status: r.status,
-      lastRefreshedAt: r.last_refreshed_at,
-      updatedAt: r.updated_at,
-      cadenceMin: r.refresh_cadence_min,
-      failingCards: tally.failing,
-      now,
-    });
+    // The queue's running id outranks the status-derived state: the cohort
+    // write flips `status` back to 'fresh' BEFORE the card/tier tail of the
+    // refresh runs, so for minutes a segment can be mid-refresh while its row
+    // reads 'degraded' (prior pass's error breadcrumbs) — inviting an operator
+    // to stack a redundant refresh on an already-running one.
+    const derivedState: DerivedRefreshState =
+      r.id === (opts.queueRunningId ?? null)
+        ? 'in_flight'
+        : deriveRefreshState({
+            status: r.status,
+            lastRefreshedAt: r.last_refreshed_at,
+            updatedAt: r.updated_at,
+            cadenceMin: r.refresh_cadence_min,
+            failingCards: tally.failing,
+            now,
+          });
     // Silent decay: cards failing their refresh while still serving last-good
     // (status='ok' + breadcrumb) — green by status alone, the case worth a callout.
     const cardsStale = tally.failing > tally.error;

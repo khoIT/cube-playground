@@ -12,6 +12,13 @@ let processingId: string | null = null;
 let drainPromise: Promise<void> | null = null;
 
 export function enqueueRefresh(segmentId: string): Promise<void> {
+  // The drain loop removes an id from `pending` before awaiting its refresh,
+  // so the Set alone doesn't dedupe against the IN-FLIGHT segment — re-adding
+  // it here would schedule a redundant back-to-back refresh of the exact
+  // cohort still being computed.
+  if (segmentId === processingId) {
+    return drainPromise ?? Promise.resolve();
+  }
   pending.add(segmentId);
   return startDrain();
 }
