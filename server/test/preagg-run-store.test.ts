@@ -16,6 +16,7 @@ import {
   getLatestSweep,
   getSweepWithItems,
   latestSealedByGameCube,
+  builtLinesBySweep,
   pruneOlderThan,
 } from '../src/db/preagg-run-store.js';
 import type { PreaggSweepInput, PreaggSweepItemInput } from '../src/types/preagg-run.js';
@@ -179,6 +180,46 @@ describe('listSweeps', () => {
 
   it('returns empty array when no sweeps exist', () => {
     expect(listSweeps(db)).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// builtLinesBySweep — built-work summary for collapsed history rows
+// ---------------------------------------------------------------------------
+
+describe('builtLinesBySweep', () => {
+  it('returns only items with partitions built, slowest first, keyed by sweep', () => {
+    const s1 = upsertSweep(db, makeSweepInput('2026-06-10T05:00:00.000Z'), [
+      { ...makeItemInput(0, 'recharge'), game: 'muaw', partitionsBuilt: 1, buildMs: 9_000,
+        rollupsBuilt: [{ rollup: 'revenue_daily_by_channel_batch', partitions: 1, buildMs: 9_000 }] },
+      { ...makeItemInput(0, 'active_daily'), game: 'cfm_vn', partitionsBuilt: 4, buildMs: 30_000,
+        rollupsBuilt: [{ rollup: 'dau_batch', partitions: 4, buildMs: 30_000 }] },
+      // sealed but nothing rebuilt — must not appear in the summary
+      { ...makeItemInput(0, 'payment'), game: 'jus_vn', partitionsBuilt: 0 },
+      makeItemInput(0, 'social'),
+    ]);
+    const s2 = upsertSweep(db, makeSweepInput('2026-06-10T06:00:00.000Z'), [
+      makeItemInput(0, 'active_daily'),
+    ]);
+
+    const map = builtLinesBySweep(db, [s1.id, s2.id]);
+
+    const lines = map.get(s1.id);
+    expect(lines).toHaveLength(2);
+    // slowest (cfm_vn, 30s) first
+    expect(lines![0]).toEqual({
+      game: 'cfm_vn', cube: 'active_daily', rollups: ['dau_batch'], partitions: 4,
+    });
+    expect(lines![1]).toEqual({
+      game: 'muaw', cube: 'recharge', rollups: ['revenue_daily_by_channel_batch'], partitions: 1,
+    });
+
+    // sweep with no built work has no entry at all
+    expect(map.has(s2.id)).toBe(false);
+  });
+
+  it('returns an empty map for an empty id list', () => {
+    expect(builtLinesBySweep(db, []).size).toBe(0);
   });
 });
 

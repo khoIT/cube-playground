@@ -17,6 +17,7 @@ import type {
   PreaggSweepItem,
   PreaggSweepItemInput,
   RollupBuildStat,
+  SweepBuiltLine,
 } from '../types/preagg-run.js';
 
 // ---------------------------------------------------------------------------
@@ -203,6 +204,44 @@ export function listSweeps(db: Database.Database, limit = 30): PreaggSweep[] {
     .prepare(`SELECT * FROM preagg_sweep ORDER BY started_at DESC LIMIT ?`)
     .all(limit) as RawSweep[];
   return rows.map(toSweep);
+}
+
+/**
+ * Built-work summary per sweep — only items that actually rebuilt partitions,
+ * slowest first. Lets the collapsed history row name the games/rollups so the
+ * operator can pick which sweep to expand without loading every item set.
+ */
+export function builtLinesBySweep(
+  db: Database.Database,
+  sweepIds: number[],
+): Map<number, SweepBuiltLine[]> {
+  const result = new Map<number, SweepBuiltLine[]>();
+  if (sweepIds.length === 0) return result;
+
+  const placeholders = sweepIds.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `SELECT sweep_id, game, cube, partitions_built, rollups_built, build_ms
+         FROM preagg_sweep_item
+        WHERE sweep_id IN (${placeholders}) AND partitions_built > 0
+        ORDER BY sweep_id, build_ms DESC`,
+    )
+    .all(...sweepIds) as Array<
+      Pick<RawItem, 'sweep_id' | 'game' | 'cube' | 'partitions_built' | 'rollups_built' | 'build_ms'>
+    >;
+
+  for (const r of rows) {
+    const line: SweepBuiltLine = {
+      game: r.game,
+      cube: r.cube,
+      rollups: (parseRollupsBuilt(r.rollups_built) ?? []).map((s) => s.rollup),
+      partitions: r.partitions_built ?? 0,
+    };
+    const list = result.get(r.sweep_id);
+    if (list) list.push(line);
+    else result.set(r.sweep_id, [line]);
+  }
+  return result;
 }
 
 /**

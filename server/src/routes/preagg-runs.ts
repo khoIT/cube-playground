@@ -14,7 +14,7 @@ import type { FastifyInstance } from 'fastify';
 import { requireRole } from '../middleware/require-role.js';
 import { requireFeature } from '../middleware/require-feature.js';
 import { getDb } from '../db/sqlite.js';
-import { listSweeps, getSweepWithItems, latestSealedByGameCube } from '../db/preagg-run-store.js';
+import { listSweeps, getSweepWithItems, latestSealedByGameCube, builtLinesBySweep } from '../db/preagg-run-store.js';
 import { getPreaggReadinessNonBlocking } from '../services/preagg-readiness.js';
 import { getDefaultWorkspace } from '../services/workspaces-config-loader.js';
 import { getCollectorStatus } from '../services/preagg-run-collector.js';
@@ -33,6 +33,13 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
       const limit = Math.min(parseInt(req.query.limit ?? '30', 10) || 30, 100);
       const db = getDb();
       const sweeps = listSweeps(db, limit);
+      // Name the built work on each header so the collapsed row can show
+      // WHICH games/rollups rebuilt — items themselves load on expand.
+      const built = builtLinesBySweep(db, sweeps.map((s) => s.id));
+      for (const s of sweeps) {
+        const lines = built.get(s.id);
+        if (lines) s.built = lines;
+      }
       return { sweeps };
     },
   );

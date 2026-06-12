@@ -7,6 +7,17 @@
 export type Outcome = 'sealed' | 'stale_serving' | 'failed' | 'unbuilt';
 export type SweepSource = 'scheduled' | 'probe-snapshot';
 
+/** Compact "what actually built" line on sweep-list headers — names the
+ *  games/rollups so the collapsed row is scannable without loading items. */
+export interface SweepBuiltLine {
+  game: string | null;
+  cube: string | null;
+  /** Rollup names that built partitions this sweep (empty for legacy rows). */
+  rollups: string[];
+  /** Total partition builds for this game × cube. */
+  partitions: number;
+}
+
 export interface PreaggSweep {
   id: number;
   startedAt: string;
@@ -20,6 +31,8 @@ export interface PreaggSweep {
   failedCount: number;
   unbuiltCount: number;
   collectorStatus: string;
+  /** Present on list reads when the sweep rebuilt anything; slowest first. */
+  built?: SweepBuiltLine[];
 }
 
 export interface PreaggSweepItem {

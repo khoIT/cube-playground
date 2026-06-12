@@ -73,8 +73,21 @@ export interface PreaggSweepItemInput {
 // DB read shapes (returned from store)
 // ---------------------------------------------------------------------------
 
+/** Compact "what actually built" line attached to sweep-list headers, so the
+ *  collapsed history row can name the games/rollups without loading items. */
+export interface SweepBuiltLine {
+  game: string | null;
+  cube: string | null;
+  /** Rollup names that built partitions this sweep (empty for legacy rows). */
+  rollups: string[];
+  /** Total partition builds for this game × cube. */
+  partitions: number;
+}
+
 export interface PreaggSweep extends PreaggSweepInput {
   id: number;
+  /** Present on list reads when the sweep rebuilt anything; ordered by buildMs desc. */
+  built?: SweepBuiltLine[];
 }
 
 export interface PreaggSweepItem extends PreaggSweepItemInput {

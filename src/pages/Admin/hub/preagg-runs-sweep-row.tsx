@@ -9,7 +9,7 @@
  */
 
 import React, { useState } from 'react';
-import type { PreaggSweep, PreaggSweepItem } from '../../../types/preagg-run';
+import type { PreaggSweep, PreaggSweepItem, SweepBuiltLine } from '../../../types/preagg-run';
 import type { Outcome } from '../../../types/preagg-run';
 
 // ---------------------------------------------------------------------------
@@ -111,6 +111,66 @@ function CountChip({ label, variant }: { label: string; variant: ChipVariant }) 
       }}
     >
       {label}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BuiltSummary — names the built work on the collapsed header
+// ---------------------------------------------------------------------------
+
+const BUILT_SHOWN_MAX = 3;
+
+/**
+ * Inline "what this sweep actually built" — game · cube chips with partition
+ * counts, so the operator can spot the sweep they care about without
+ * expanding every row. Rollup names go in the tooltip to keep the row short.
+ */
+function BuiltSummary({ lines }: { lines: SweepBuiltLine[] }) {
+  const shown = lines.slice(0, BUILT_SHOWN_MAX);
+  const more = lines.length - shown.length;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+      <span
+        style={{
+          fontSize: 9.5,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+          color: 'var(--text-muted)',
+        }}
+      >
+        built
+      </span>
+      {shown.map((l) => (
+        <span
+          key={`${l.game}|${l.cube}`}
+          title={l.rollups.length > 0 ? l.rollups.join(', ') : undefined}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            height: 20,
+            padding: '0 7px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-card)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10.5,
+          }}
+        >
+          <span style={{ fontWeight: 600, color: 'var(--brand)' }}>{l.game ?? '—'}</span>
+          <span style={{ color: 'var(--text-secondary)' }}>· {l.cube ?? '—'}</span>
+          {l.partitions > 0 && (
+            <span style={{ color: 'var(--text-muted)' }}>
+              · {l.partitions}p
+            </span>
+          )}
+        </span>
+      ))}
+      {more > 0 && (
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{more} more</span>
+      )}
     </span>
   );
 }
@@ -536,6 +596,9 @@ export function SweepRow({ sweep, items, expanded, onToggle, gameFilter, onRetry
             <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
               nothing to refresh — all partitions current
             </span>
+          )}
+          {sweep.built && sweep.built.length > 0 && (
+            <BuiltSummary lines={sweep.built} />
           )}
         </div>
       </div>

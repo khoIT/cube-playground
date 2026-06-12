@@ -160,6 +160,37 @@ describe('preagg-runs routes', () => {
       expect(body.sweeps[0].startedAt).toBe('2026-06-10T07:00:00.000Z');
     });
 
+    it('attaches built-work lines to sweeps that rebuilt partitions', async () => {
+      upsertSweep(db, makeSweep('2026-06-10T05:00:00.000Z'), [
+        {
+          ...makeItem(0),
+          game: 'muaw',
+          cube: 'recharge',
+          buildMs: 9_000,
+          partitionsBuilt: 1,
+          rollupsBuilt: [{ rollup: 'revenue_daily_by_channel_batch', partitions: 1, buildMs: 9_000 }],
+        },
+        makeItem(0), // sealed, nothing rebuilt — not in the summary
+      ]);
+      upsertSweep(db, makeSweep('2026-06-10T07:00:00.000Z'), [makeItem(0)]);
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/preagg-runs',
+        headers: adminAuth,
+      });
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body) as {
+        sweeps: Array<{ startedAt: string; built?: Array<{ game: string; cube: string; rollups: string[]; partitions: number }> }>;
+      };
+      // newest sweep rebuilt nothing — no built field at all
+      expect(body.sweeps[0].built).toBeUndefined();
+      // older sweep names its built work
+      expect(body.sweeps[1].built).toEqual([
+        { game: 'muaw', cube: 'recharge', rollups: ['revenue_daily_by_channel_batch'], partitions: 1 },
+      ]);
+    });
+
     it('respects limit query param', async () => {
       for (let h = 0; h < 5; h++) {
         upsertSweep(db, makeSweep(`2026-06-10T0${h}:00:00.000Z`), []);
