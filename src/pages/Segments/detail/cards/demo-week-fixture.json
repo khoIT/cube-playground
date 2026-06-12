@@ -1,0 +1,87 @@
+{
+  "_comment": "TEMPORARY demo fixture — a week of plausible lakehouse data shaped like the /trajectory and /metric-series API payloads (which mirror segment_membership_daily/_delta ⨝ std_* mart reads). Activated by ?demo=1 on the segment detail URL. Delete once real nightly history accrues.",
+  "trajectory": {
+    "days": 90,
+    "size": [
+      { "date": "2026-06-06", "members": 281 },
+      { "date": "2026-06-07", "members": 294 },
+      { "date": "2026-06-08", "members": 302 },
+      { "date": "2026-06-10", "members": 314 },
+      { "date": "2026-06-11", "members": 309 },
+      { "date": "2026-06-12", "members": 306 }
+    ],
+    "delta": [
+      { "date": "2026-06-06", "entered": 9, "exited": 4 },
+      { "date": "2026-06-07", "entered": 17, "exited": 4 },
+      { "date": "2026-06-08", "entered": 13, "exited": 5 },
+      { "date": "2026-06-10", "entered": 21, "exited": 9 },
+      { "date": "2026-06-11", "entered": 6, "exited": 11 },
+      { "date": "2026-06-12", "entered": 5, "exited": 8 }
+    ],
+    "empty": false
+  },
+  "metrics": [
+    { "metricKey": "revenue", "label": "Revenue (VND)", "unit": "VND" },
+    { "metricKey": "active_members", "label": "Active members", "unit": "members" }
+  ],
+  "series": {
+    "revenue": {
+      "current": [
+        { "date": "2026-06-06", "value": 182000000, "memberCount": 281 },
+        { "date": "2026-06-07", "value": 246000000, "memberCount": 294 },
+        { "date": "2026-06-08", "value": 158000000, "memberCount": 302 },
+        { "date": "2026-06-09", "value": 91000000, "memberCount": 302 },
+        { "date": "2026-06-10", "value": 371000000, "memberCount": 314 },
+        { "date": "2026-06-11", "value": 124000000, "memberCount": 309 },
+        { "date": "2026-06-12", "value": 96000000, "memberCount": 306 }
+      ],
+      "entry": [
+        { "date": "2026-06-06", "value": 21000000, "memberCount": 9 },
+        { "date": "2026-06-07", "value": 38000000, "memberCount": 26 },
+        { "date": "2026-06-08", "value": 29000000, "memberCount": 39 },
+        { "date": "2026-06-09", "value": 12000000, "memberCount": 39 },
+        { "date": "2026-06-10", "value": 64000000, "memberCount": 60 },
+        { "date": "2026-06-11", "value": 18000000, "memberCount": 66 },
+        { "date": "2026-06-12", "value": 11000000, "memberCount": 71 }
+      ],
+      "stayers": [
+        { "date": "2026-06-06", "value": 182000000, "memberCount": 281 },
+        { "date": "2026-06-07", "value": 231000000, "memberCount": 273 },
+        { "date": "2026-06-08", "value": 149000000, "memberCount": 266 },
+        { "date": "2026-06-09", "value": 87000000, "memberCount": 266 },
+        { "date": "2026-06-10", "value": 322000000, "memberCount": 258 },
+        { "date": "2026-06-11", "value": 109000000, "memberCount": 247 },
+        { "date": "2026-06-12", "value": 84000000, "memberCount": 241 }
+      ]
+    },
+    "active_members": {
+      "current": [
+        { "date": "2026-06-06", "value": 204, "memberCount": 281 },
+        { "date": "2026-06-07", "value": 221, "memberCount": 294 },
+        { "date": "2026-06-08", "value": 197, "memberCount": 302 },
+        { "date": "2026-06-09", "value": 168, "memberCount": 302 },
+        { "date": "2026-06-10", "value": 243, "memberCount": 314 },
+        { "date": "2026-06-11", "value": 188, "memberCount": 309 },
+        { "date": "2026-06-12", "value": 176, "memberCount": 306 }
+      ],
+      "entry": [
+        { "date": "2026-06-06", "value": 8, "memberCount": 9 },
+        { "date": "2026-06-07", "value": 22, "memberCount": 26 },
+        { "date": "2026-06-08", "value": 31, "memberCount": 39 },
+        { "date": "2026-06-09", "value": 24, "memberCount": 39 },
+        { "date": "2026-06-10", "value": 47, "memberCount": 60 },
+        { "date": "2026-06-11", "value": 41, "memberCount": 66 },
+        { "date": "2026-06-12", "value": 44, "memberCount": 71 }
+      ],
+      "stayers": [
+        { "date": "2026-06-06", "value": 204, "memberCount": 281 },
+        { "date": "2026-06-07", "value": 209, "memberCount": 273 },
+        { "date": "2026-06-08", "value": 184, "memberCount": 266 },
+        { "date": "2026-06-09", "value": 151, "memberCount": 266 },
+        { "date": "2026-06-10", "value": 212, "memberCount": 258 },
+        { "date": "2026-06-11", "value": 159, "memberCount": 247 },
+        { "date": "2026-06-12", "value": 148, "memberCount": 241 }
+      ]
+    }
+  }
+}

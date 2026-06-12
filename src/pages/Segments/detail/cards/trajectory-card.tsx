@@ -15,6 +15,7 @@ import { Waypoints } from 'lucide-react';
 import { apiFetch } from '../../../../api/api-client';
 import { CardShell } from './card-shell';
 import { useMeasuredWidth } from './use-measured-width';
+import { isDemoWeekMode, demoTrajectoryPayload } from './demo-week-mode';
 import {
   buildTrajectoryModel,
   fmtCompact,
@@ -137,7 +138,16 @@ export function TrajectoryCard({ segment }: Props): ReactElement | null {
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const demo = isDemoWeekMode();
+
   useEffect(() => {
+    if (demo) {
+      // Temporary preview mode (?demo=1): a week of fixture data instead of
+      // the lakehouse read — for visualizing the card before history accrues.
+      setPayload(demoTrajectoryPayload(segment.id, segment.game_id ?? '') as TrajectoryPayload);
+      setLoading(false);
+      return;
+    }
     let alive = true;
     setLoading(true);
     apiFetch<TrajectoryPayload>(`/api/segments/${encodeURIComponent(segment.id)}/trajectory?days=90`)
@@ -145,7 +155,7 @@ export function TrajectoryCard({ segment }: Props): ReactElement | null {
       .catch((err: Error) => { if (alive) setError(err); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [segment.id]);
+  }, [segment.id, demo]);
 
   // Mount-guard lives here too (server 404s non-predicate) so the monitor tab
   // composition stays declarative.
@@ -164,6 +174,7 @@ export function TrajectoryCard({ segment }: Props): ReactElement | null {
       trailing={
         m ? (
           <>
+            {demo && <Chip tone="warning">demo data</Chip>}
             <Chip tone="success">{`latest ${m.latestDate}`}</Chip>
             {m.gapCount > 0 && <Chip tone="warning">{`${m.gapCount} night${m.gapCount > 1 ? 's' : ''} missed`}</Chip>}
           </>

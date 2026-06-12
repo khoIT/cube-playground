@@ -16,6 +16,7 @@ import { TrendingUp } from 'lucide-react';
 import { apiFetch } from '../../../../api/api-client';
 import { CardShell } from './card-shell';
 import { useMeasuredWidth } from './use-measured-width';
+import { isDemoWeekMode, demoEligibleMetrics, demoMetricSeriesPayload } from './demo-week-mode';
 import { fmtCompact } from './trajectory-card-model';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -106,19 +107,33 @@ export function MetricMovementCard({ segment }: { segment: Segment }): ReactElem
   const [loading, setLoading] = useState(false);
 
   const isPredicateWithGame = segment.type === 'predicate' && Boolean(segment.game_id);
+  const demo = isDemoWeekMode();
 
   useEffect(() => {
     if (!isPredicateWithGame) return;
+    if (demo) {
+      const m = demoEligibleMetrics();
+      setMetrics(m);
+      setMetric((cur) => cur ?? m[0]?.metricKey ?? null);
+      return;
+    }
     apiFetch<{ metrics: MetricOption[] }>(`/api/segments/${encodeURIComponent(segment.id)}/eligible-metrics`)
       .then((d) => {
         setMetrics(d.metrics);
         setMetric((m) => m ?? d.metrics[0]?.metricKey ?? null);
       })
       .catch(() => setMetrics([]));
-  }, [segment.id, isPredicateWithGame]);
+  }, [segment.id, isPredicateWithGame, demo]);
 
   useEffect(() => {
     if (!isPredicateWithGame || !metric) return;
+    if (demo) {
+      // Temporary preview mode (?demo=1): fixture week instead of Trino reads.
+      setSeries(demoMetricSeriesPayload(segment.id, segment.game_id ?? '', metric, lens, anchor) as SeriesPayload);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     const params = new URLSearchParams({ metric, lens, days: '90' });
     if (lens !== 'current') params.set('anchor', anchor);
     let alive = true;
@@ -132,7 +147,7 @@ export function MetricMovementCard({ segment }: { segment: Segment }): ReactElem
       .catch((err: Error) => { if (alive) setError(err); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [segment.id, isPredicateWithGame, metric, lens, anchor]);
+  }, [segment.id, isPredicateWithGame, metric, lens, anchor, demo]);
 
   const metricOptions = useMemo(
     () => (metrics ?? []).map((m) => ({ value: m.metricKey, label: m.label })),
@@ -152,6 +167,11 @@ export function MetricMovementCard({ segment }: { segment: Segment }): ReactElem
       cardKey="metric-movement"
       trailing={
         <>
+          {demo && (
+            <span style={{ background: 'var(--warning-soft)', color: 'var(--warning-ink)', borderRadius: 'var(--radius-full)', padding: '2px 8px', fontSize: 10.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              demo data
+            </span>
+          )}
           <Select
             size="small"
             style={{ minWidth: 160 }}
