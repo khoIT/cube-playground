@@ -109,6 +109,8 @@ function parseRollupsBuilt(raw: string | null): RollupBuildStat[] | null {
             rollup: String((entry as RollupBuildStat).rollup ?? ''),
             partitions: Number((entry as RollupBuildStat).partitions) || 0,
             buildMs: Number((entry as RollupBuildStat).buildMs) || 0,
+            firstBatch: (entry as RollupBuildStat).firstBatch ?? null,
+            lastBatch: (entry as RollupBuildStat).lastBatch ?? null,
           },
     );
   } catch {

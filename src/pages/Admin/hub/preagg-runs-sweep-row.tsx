@@ -128,6 +128,20 @@ function fmtDuration(ms: number | null): string {
   return `${m}m ${rem}s`;
 }
 
+/** '20260601' → '2026-06-01'; '202606' (monthly tables) → '2026-06'. */
+function fmtBatch(raw: string): string {
+  if (/^\d{8}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}`;
+  if (/^\d{6}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+  return raw;
+}
+
+/** Partition date window for a rollup line — single date or 'a → b' range. */
+function batchWindow(first?: string | null, last?: string | null): string | null {
+  if (!first) return null;
+  if (!last || last === first) return fmtBatch(first);
+  return `${fmtBatch(first)} → ${fmtBatch(last)}`;
+}
+
 function fmtTime(iso: string): string {
   try {
     return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -237,16 +251,20 @@ function ItemRow({ item, onRetry, retryDisabled }: {
                 <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}> · ~{fmtDuration(avgMs)}/partition</span>
               )}
             </span>
-            {item.rollupsBuilt?.map((r) => (
-              <span key={r.rollup} style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, display: 'block' }}>
-                {r.rollup}
-                {r.partitions > 0 && (
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    {' '}— {r.partitions} partition{r.partitions === 1 ? '' : 's'} · {fmtDuration(r.buildMs)}
-                  </span>
-                )}
-              </span>
-            ))}
+            {item.rollupsBuilt?.map((r) => {
+              const window = batchWindow(r.firstBatch, r.lastBatch);
+              return (
+                <span key={r.rollup} style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, display: 'block' }}>
+                  {r.rollup}
+                  {r.partitions > 0 && (
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {' '}— {r.partitions} partition{r.partitions === 1 ? '' : 's'} · {fmtDuration(r.buildMs)}
+                      {window && ` · ${window}`}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
           </div>
         ) : (
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flex: 1 }}>

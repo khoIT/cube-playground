@@ -191,8 +191,10 @@ describe('parseWorkerLog — partition builds', () => {
       cube: 'active_daily',
       rollup: 'dau_by_country_payer_daily_batch',
       durationMs: 8529,
+      batchDate: '20260601', // partition window from the table's batch suffix
     });
     expect(sweep.builds[1].durationMs).toBe(1471);
+    expect(sweep.builds[1].batchDate).toBe('20260101');
   });
 
   it('ignores CACHE-queue metadata fetches that share the completed message', () => {

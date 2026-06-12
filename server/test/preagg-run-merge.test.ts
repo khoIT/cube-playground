@@ -238,18 +238,18 @@ describe('mergeSweep — build stats', () => {
       built: 2, unbuilt: 0, errored: 0,
     }]);
     const builds = [
-      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 8000, ts: '2026-06-10T07:01:00.000Z' },
-      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 2000, ts: '2026-06-10T07:02:00.000Z' },
-      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'online_time_batch', durationMs: 500, ts: '2026-06-10T07:03:00.000Z' },
+      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 8000, batchDate: '20260101', ts: '2026-06-10T07:01:00.000Z' },
+      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 2000, batchDate: '20260601', ts: '2026-06-10T07:02:00.000Z' },
+      { schemaGame: 'cfm', cube: 'active_daily', rollup: 'online_time_batch', durationMs: 500, batchDate: null, ts: '2026-06-10T07:03:00.000Z' },
     ];
 
     const { items } = mergeSweep(probe, [], META, builds);
     const ad = items.find((i) => i.cube === 'active_daily');
     expect(ad).toMatchObject({ buildMs: 10_500, partitionsBuilt: 3 });
-    // Per-rollup breakdown, slowest first
+    // Per-rollup breakdown, slowest first, with the partition date window
     expect(ad?.rollupsBuilt).toEqual([
-      { rollup: 'dau_daily_batch', partitions: 2, buildMs: 10_000 },
-      { rollup: 'online_time_batch', partitions: 1, buildMs: 500 },
+      { rollup: 'dau_daily_batch', partitions: 2, buildMs: 10_000, firstBatch: '20260101', lastBatch: '20260601' },
+      { rollup: 'online_time_batch', partitions: 1, buildMs: 500, firstBatch: null, lastBatch: null },
     ]);
 
     // mf_users had no build lines → stats stay null (probe-sealed, nothing rebuilt)
@@ -265,7 +265,7 @@ describe('mergeSweep — build stats', () => {
       built: 1, unbuilt: 0, errored: 0,
     }]);
     const builds = [
-      { schemaGame: 'zzz', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, ts: '2026-06-10T07:01:00.000Z' },
+      { schemaGame: 'zzz', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, batchDate: null, ts: '2026-06-10T07:01:00.000Z' },
     ];
     const { items } = mergeSweep(probe, [], META, builds);
     expect(items[0].buildMs).toBeNull();
@@ -278,7 +278,7 @@ describe('mergeSweep — build stats', () => {
       built: 1, unbuilt: 0, errored: 0,
     }]);
     const builds = [
-      { schemaGame: 'ballistar', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, ts: '2026-06-10T07:01:00.000Z' },
+      { schemaGame: 'ballistar', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, batchDate: null, ts: '2026-06-10T07:01:00.000Z' },
     ];
     const { items } = mergeSweep(probe, [], META, builds);
     expect(items[0].partitionsBuilt).toBe(1);

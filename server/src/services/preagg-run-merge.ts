@@ -121,8 +121,9 @@ function classifyOutcome(probeStatus: 'built' | 'unbuilt' | 'error', hasFailure:
 interface BuildStats {
   buildMs: number;
   partitions: number;
-  /** Per-rollup partitions + duration, so slow rollups are attributable. */
-  rollups: Map<string, { partitions: number; buildMs: number }>;
+  /** Per-rollup partitions + duration + batch-date window, so slow rollups
+   *  are attributable and "whole year vs just yesterday" is answerable. */
+  rollups: Map<string, { partitions: number; buildMs: number; firstBatch: string | null; lastBatch: string | null }>;
 }
 
 /**
@@ -160,9 +161,15 @@ function buildBuildIndex(
     stats.buildMs += b.durationMs;
     stats.partitions += 1;
     if (b.rollup) {
-      const r = stats.rollups.get(b.rollup) ?? { partitions: 0, buildMs: 0 };
+      const r = stats.rollups.get(b.rollup)
+        ?? { partitions: 0, buildMs: 0, firstBatch: null as string | null, lastBatch: null as string | null };
       r.partitions += 1;
       r.buildMs += b.durationMs;
+      if (b.batchDate) {
+        // YYYYMMDD strings order lexicographically — min/max without parsing.
+        if (r.firstBatch === null || b.batchDate < r.firstBatch) r.firstBatch = b.batchDate;
+        if (r.lastBatch === null || b.batchDate > r.lastBatch) r.lastBatch = b.batchDate;
+      }
       stats.rollups.set(b.rollup, r);
     }
   }
@@ -215,7 +222,13 @@ export function mergeSweep(
         // wants to see at the top.
         rollupsBuilt: stats && stats.rollups.size > 0
           ? [...stats.rollups.entries()]
-              .map(([rollup, r]) => ({ rollup, partitions: r.partitions, buildMs: r.buildMs }))
+              .map(([rollup, r]) => ({
+                rollup,
+                partitions: r.partitions,
+                buildMs: r.buildMs,
+                firstBatch: r.firstBatch,
+                lastBatch: r.lastBatch,
+              }))
               .sort((a, b) => b.buildMs - a.buildMs)
           : null,
       });

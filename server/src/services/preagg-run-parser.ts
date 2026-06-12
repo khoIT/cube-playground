@@ -152,12 +152,17 @@ function parseBuildLine(line: LogLine): ParsedBuild | null {
   const schema = /(?:^|\s|\[\[')CREATE TABLE preagg_([a-z0-9]+)\./.exec(table)
     ?? /^preagg_([a-z0-9]+)\./.exec(table);
   if (!schema) return null;
+  // Partition window: table names append the partition start date to the
+  // rollup name — `…_daily_batch20260601[_hash…]`. Non-partitioned rollups
+  // have no batch suffix → null. 6 digits = monthly granularity tables.
+  const batch = /batch(\d{6,8})/.exec(table);
   const dot = line.preAggregationId.indexOf('.');
   return {
     schemaGame: schema[1],
     cube: dot > 0 ? line.preAggregationId.slice(0, dot) : line.preAggregationId,
     rollup: dot > 0 ? line.preAggregationId.slice(dot + 1) : '',
     durationMs: Number.isFinite(line.duration) ? (line.duration as number) : 0,
+    batchDate: batch ? batch[1] : null,
     ts: line.ts,
   };
 }

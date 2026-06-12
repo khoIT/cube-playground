@@ -43,6 +43,11 @@ export interface RollupBuildStat {
   partitions: number;
   /** Sum of partition-build durations for this rollup (ms; 0 = unknown). */
   buildMs: number;
+  /** Earliest partition date rebuilt (raw batch suffix, YYYYMMDD or YYYYMM). */
+  firstBatch?: string | null;
+  /** Latest partition date rebuilt. With firstBatch answers "whole year or
+   *  just yesterday?" for a slow sweep. */
+  lastBatch?: string | null;
 }
 
 export interface PreaggSweepItemInput {
@@ -103,6 +108,9 @@ export interface ParsedBuild {
   rollup: string;
   /** Build duration in ms reported on the completed line. */
   durationMs: number;
+  /** Partition start date from the table's batch suffix (YYYYMMDD/YYYYMM),
+   *  null for non-partitioned rollups. */
+  batchDate: string | null;
   ts: string;
 }
 

@@ -49,6 +49,10 @@ export interface RollupBuildStat {
   partitions: number;
   /** Summed build duration in ms (0 = unknown). */
   buildMs: number;
+  /** Earliest / latest partition date rebuilt (raw batch suffix, YYYYMMDD or
+   *  YYYYMM) — answers "whole year or just yesterday?" for a slow sweep. */
+  firstBatch?: string | null;
+  lastBatch?: string | null;
 }
 
 // ── Live triggered-build progress (GET /api/preagg-runs/build-progress) ─────
