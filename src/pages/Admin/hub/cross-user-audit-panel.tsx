@@ -16,6 +16,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAdminUsers } from '../access/use-admin-access';
+// Shared artifacts section from DevAudit — internally styled with hermes T.*
+// tokens, which are :root-scoped CSS vars, so it renders correctly here too.
+import { TurnArtifactsSection } from '../../DevAudit/turn-artifacts-section';
 import {
   fetchAdminChatSessions,
   fetchAdminChatSessionDetail,
@@ -235,6 +238,12 @@ function TurnRow({ turn }: TurnRowProps) {
           <span style={mutedText}> … ({turn.text.length} chars total)</span>
         )}
       </p>
+      {/* Query artifacts emitted by this turn — read-only audit view */}
+      {!isUser && (turn.artifacts?.length ?? 0) > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <TurnArtifactsSection artifacts={turn.artifacts} />
+        </div>
+      )}
     </div>
   );
 }

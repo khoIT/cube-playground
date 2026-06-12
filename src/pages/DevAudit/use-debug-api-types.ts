@@ -3,6 +3,8 @@
  * Mirrors the DTO shapes returned by chat-service debug routes.
  */
 
+import type { QueryArtifact } from '../../api/chat-sse-client';
+
 export interface DebugSession {
   id: string;
   title: string | null;
@@ -22,6 +24,8 @@ export interface DebugTurn {
   text: string;
   createdAt: string;
   toolCalls: Array<{ id: string; name: string; ok: boolean; ms: number; summary: string }>;
+  /** Query artifacts emitted during this turn, in emit order (from chat_turns.artifacts_json). */
+  artifacts?: QueryArtifact[];
   legacy: boolean;
   llmCallCount: number;
   toolInvocationCount: number;

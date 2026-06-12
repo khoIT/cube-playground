@@ -18,6 +18,7 @@ import { AssistantChartSection } from './assistant-chart-section';
 import { ChartSectionMenu, preferDualAxis, preferTableView } from './chart-section-menu';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import { buildLabelMap } from './chart-column-labels';
+import { openArtifactInPlayground } from './open-artifact-in-playground';
 import type { QueryArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
 interface QueryArtifactCardProps {
@@ -51,28 +52,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
   const [overrideEncoding, setOverrideEncoding] = useState<ChartSpec['encoding'] | undefined>(undefined);
 
   function handleOpen() {
-    // Write payload to sessionStorage BEFORE navigation for session-storage artifacts.
-    if (artifact.deeplinkVia === 'session-storage') {
-      try {
-        sessionStorage.setItem(
-          `gds-cube:pending-chat-deeplink:${artifact.id}`,
-          JSON.stringify(artifact.payload),
-        );
-      } catch {
-        // sessionStorage quota/unavailable — proceed anyway; /build will show stale toast.
-      }
-    }
-    // Push deeplinkUrl (hash-based) into React Router history.
-    // deeplinkUrl is "#/build?..." — strip the leading '#' for react-router-dom v5.
-    const path = artifact.deeplinkUrl.startsWith('#')
-      ? artifact.deeplinkUrl.slice(1)
-      : artifact.deeplinkUrl;
-    // Per-click nonce: lets the playground re-consume the same artifact on a
-    // repeat click — reopening the query if its tab was closed, re-running it
-    // if still open — instead of the once-per-artifact guard swallowing it.
-    const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    const sep = path.includes('?') ? '&' : '?';
-    history.push(`${path}${sep}n=${nonce}`);
+    openArtifactInPlayground(artifact, history);
     onClick?.();
   }
 

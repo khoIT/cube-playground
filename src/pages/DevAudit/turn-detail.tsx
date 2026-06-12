@@ -15,6 +15,7 @@ import { LlmCallsSection } from './turn-llm-calls-section';
 import { ToolInvocationsSection } from './turn-tool-invocations-section';
 import { PermissionDecisionsSection } from './turn-permission-decisions-section';
 import { TurnAnnotationToggle } from './turn-annotation-toggle';
+import { TurnArtifactsSection, ArtifactCountBadge } from './turn-artifacts-section';
 
 // Langfuse deep-link: VITE_LANGFUSE_HOST set at build time; undefined means hidden.
 const LANGFUSE_HOST = (import.meta as Record<string, any>).env?.VITE_LANGFUSE_HOST as string | undefined;
@@ -75,6 +76,7 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
         </span>
         {turn.legacy && <LegacyTurnBadge />}
         {turn.cacheHit && <CacheHitBadge originalTurnId={turn.originalTurnId} originalSessionId={turn.originalSessionId} />}
+        {isAssistant && <ArtifactCountBadge count={turn.artifacts?.length ?? 0} />}
         {stats && (
           <span
             style={{ color: T.n500, fontFamily: T.fMono, fontSize: 11 }}
@@ -112,6 +114,9 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
       {/* Assistant turn expanded body */}
       {isAssistant && expanded && (
         <div style={S.body}>
+          {/* Artifacts first — independent of observability rows, so legacy
+              turns with persisted artifacts_json still show them. */}
+          <TurnArtifactsSection artifacts={turn.artifacts} />
           {turn.legacy ? (
             <div style={{ color: T.n500, fontSize: 12, padding: '8px 0' }}>
               No per-step observability data captured for this turn — predates the observability feature.

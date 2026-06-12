@@ -101,9 +101,13 @@ export interface QueryArtifact {
   id: string;
   title: string;
   summary: string;
+  /** Game the query targets — always set by the backend; optional here for older payloads. */
+  game?: string;
   query: unknown;
   source: 'business-metric' | 'segment' | 'raw';
   sourceRef?: { id: string; name?: string };
+  /** Row count from the preview run at emit time. */
+  previewRows?: number;
   deeplinkUrl: string;
   deeplinkVia: 'inline' | 'session-storage';
   payload: unknown;
