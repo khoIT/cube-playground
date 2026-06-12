@@ -7,8 +7,14 @@
  * previously made parseWorkerLog skip every line.
  */
 
-import { describe, it, expect } from 'vitest';
-import { aggregateBuildEvents } from '../src/services/preagg-build-progress.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  aggregateBuildEvents,
+  applySnapshotFallback,
+  __resetBuildProgressSnapshot,
+  type BuildProgress,
+  type BuildRollupProgress,
+} from '../src/services/preagg-build-progress.js';
 import { splitDockerTimestamp, parseWorkerLog } from '../src/services/preagg-run-parser.js';
 
 const TS = '2026-06-11T06:17:35.236526456Z';
@@ -108,5 +114,36 @@ describe('aggregateBuildEvents', () => {
       line({ message: 'Performing query', preAggregationId: 'a.r1' }, '2026-06-11T06:01:00Z'),
     ]);
     expect(out[0].lastEventAt).toBe('2026-06-11T06:01:00Z');
+  });
+});
+
+describe('applySnapshotFallback', () => {
+  beforeEach(() => __resetBuildProgressSnapshot());
+
+  const rollup = (id: string): BuildRollupProgress => ({
+    id, cube: id.split('.')[0], rollup: id.split('.')[1] ?? '',
+    phase: 'finished', partitionsStarted: 4, partitionsCompleted: 4,
+    errorSig: null, errorMessage: null, lastEventAt: '2026-06-11T23:56:00Z',
+  });
+  const window = (over: Partial<BuildProgress>): BuildProgress => ({
+    game: 'tf', startedAt: '2026-06-11T23:54:05.052Z', finishedAt: null,
+    degraded: false, rollups: [], totals: { queued: 0, building: 0, finished: 0, failed: 0 },
+    ...over,
+  });
+
+  it('serves the cached rollups when --restore wiped the logs of the same window', () => {
+    const live = window({ rollups: [rollup('active_daily.r')], totals: { queued: 0, building: 0, finished: 1, failed: 0 } });
+    expect(applySnapshotFallback(live)).toBe(live); // non-empty passes through + caches
+
+    // Post-restore poll: same window, container recreated → zero log lines.
+    const afterRestore = applySnapshotFallback(window({ finishedAt: '2026-06-11T23:57:41.237Z' }));
+    expect(afterRestore.rollups.map((r) => r.id)).toEqual(['active_daily.r']);
+    expect(afterRestore.finishedAt).toBe('2026-06-11T23:57:41.237Z'); // live metadata wins
+  });
+
+  it('does NOT recover a snapshot from a different trigger window', () => {
+    applySnapshotFallback(window({ rollups: [rollup('active_daily.r')] }));
+    const next = window({ startedAt: '2026-06-12T01:00:00.000Z' });
+    expect(applySnapshotFallback(next).rollups).toEqual([]);
   });
 });

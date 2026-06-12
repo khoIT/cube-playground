@@ -141,6 +141,39 @@ export function aggregateBuildEvents(lines: string[]): BuildRollupProgress[] {
 }
 
 // ---------------------------------------------------------------------------
+// Last-window snapshot fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * The --restore step of the trigger script recreates the worker container,
+ * which DESTROYS its log history — so a poll right after the window closes
+ * reads zero build lines and the final checklist would blank out. Keep the
+ * last non-empty aggregation per window in memory and serve it whenever a
+ * later read of the SAME window comes back empty. Lost on server restart,
+ * which is acceptable: the linger window is 10 minutes.
+ */
+let lastWindowSnapshot: BuildProgress | null = null;
+
+/** Test-only reset. */
+export function __resetBuildProgressSnapshot(): void {
+  lastWindowSnapshot = null;
+}
+
+/** Cache non-empty progress; recover the cached window when logs vanished. */
+export function applySnapshotFallback(progress: BuildProgress): BuildProgress {
+  if (progress.rollups.length > 0) {
+    lastWindowSnapshot = progress;
+    return progress;
+  }
+  if (lastWindowSnapshot && lastWindowSnapshot.startedAt === progress.startedAt) {
+    // Same trigger window, logs gone — serve the snapshot but keep the live
+    // window metadata (finishedAt lands after the snapshot was taken).
+    return { ...lastWindowSnapshot, finishedAt: progress.finishedAt, degraded: progress.degraded };
+  }
+  return progress;
+}
+
+// ---------------------------------------------------------------------------
 // Live read keyed off the trigger window
 // ---------------------------------------------------------------------------
 
@@ -181,12 +214,12 @@ export async function getBuildProgress(): Promise<BuildProgress | null> {
   const totals = { queued: 0, building: 0, finished: 0, failed: 0 };
   for (const r of rollups) totals[r.phase]++;
 
-  return {
+  return applySnapshotFallback({
     game: trigger.game,
     startedAt: trigger.startedAt,
     finishedAt: trigger.finishedAt,
     degraded,
     rollups,
     totals,
-  };
+  });
 }

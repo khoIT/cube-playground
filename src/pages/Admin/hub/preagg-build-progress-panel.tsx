@@ -63,9 +63,20 @@ function RollupLine({ r }: { r: BuildRollupProgress }) {
 }
 
 export function BuildProgressPanel({ progress }: { progress: BuildProgress | null }) {
-  // Build started but the worker hasn't emitted per-rollup lines yet
-  // (recreating the container + compiling schema) — show an honest sign.
   if (!progress || progress.rollups.length === 0) {
+    // Window already closed with no per-rollup detail: the --restore step
+    // recreates the worker container, which wipes its log history — nothing
+    // is "in progress", so a spinner here would lie.
+    if (progress?.finishedAt) {
+      return (
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-card)', fontSize: 11.5, color: 'var(--text-muted)' }}>
+          Build window closed — per-rollup detail unavailable (worker logs were reset by the restore).
+          Outcome lands on the readiness chips above as the probe refreshes.
+        </div>
+      );
+    }
+    // Build started but the worker hasn't emitted per-rollup lines yet
+    // (recreating the container + compiling schema) — show an honest sign.
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--border-card)', fontSize: 11.5, color: 'var(--text-muted)' }}>
         <style>{SPIN_KEYFRAMES}</style>

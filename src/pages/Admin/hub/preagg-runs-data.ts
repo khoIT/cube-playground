@@ -214,5 +214,13 @@ export function useServeabilityNow() {
     return () => clearTimeout(t);
   }, [data?.warming, refetch]);
 
+  // Steady slow poll: the worker auto-refreshes hourly and the server probe
+  // cache re-warms in the background, so without this the chips only update
+  // on a manual reload.
+  useEffect(() => {
+    const t = setInterval(refetch, 60_000);
+    return () => clearInterval(t);
+  }, [refetch]);
+
   return { data, loading, error, refetch };
 }

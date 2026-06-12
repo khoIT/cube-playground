@@ -327,10 +327,18 @@ export function PreaggRunsTab() {
   };
 
   // When a build finishes, refresh serveability + history so the UI reflects
-  // the freshly sealed partitions without a manual reload.
+  // the freshly sealed partitions without a manual reload. /current is served
+  // by a non-blocking 60s probe cache: the first refetch returns the stale
+  // pre-build snapshot and only KICKS a background re-probe — so refetch again
+  // a couple of times to pick up the recomputed result once it lands.
   const buildPhase = triggerStatus?.state.phase;
   useEffect(() => {
-    if (buildPhase === 'done') { refetchServe(); refetchSweeps(); }
+    if (buildPhase !== 'done') return;
+    refetchServe();
+    refetchSweeps();
+    const t1 = setTimeout(refetchServe, 8_000);
+    const t2 = setTimeout(refetchServe, 25_000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [buildPhase, refetchServe, refetchSweeps]);
 
   // Build a map so each expanded sweep gets its items from the detail hook
