@@ -14,6 +14,7 @@ import { ReactElement, useEffect, useState } from 'react';
 import { Waypoints } from 'lucide-react';
 import { apiFetch } from '../../../../api/api-client';
 import { CardShell } from './card-shell';
+import { useMeasuredWidth } from './use-measured-width';
 import {
   buildTrajectoryModel,
   fmtCompact,
@@ -23,10 +24,13 @@ import {
 } from './trajectory-card-model';
 import type { Segment } from '../../../../types/segment-api';
 
-const W = 640;
+// Pixel-true chart geometry (1 SVG unit = 1px; width measured from the
+// container) — a fixed viewBox stretched to the card width scales fonts and
+// dots with it and falls apart on wide layouts.
 const LINE_H = 120;
 const STRIP_H = 72;
-const PAD_X = 10;
+const PAD_L = 44; // gutter for the min/max labels so they never overlap data
+const PAD_R = 14;
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'positive' | 'negative' }): ReactElement {
   const color = tone === 'positive' ? 'var(--positive)' : tone === 'negative' ? 'var(--negative)' : 'var(--text-primary)';
@@ -53,17 +57,20 @@ function Chip({ children, tone }: { children: string; tone: 'success' | 'warning
 }
 
 function TrajectoryCharts({ m }: { m: TrajectoryModel }): ReactElement {
+  const { ref, width: W } = useMeasuredWidth<HTMLDivElement>();
   const n = m.days.length;
-  const x = (i: number) => (n === 1 ? W / 2 : PAD_X + (i * (W - 2 * PAD_X)) / (n - 1));
+  const x = (i: number) => (n === 1 ? (PAD_L + W - PAD_R) / 2 : PAD_L + (i * (W - PAD_L - PAD_R)) / (n - 1));
+  // 12% vertical breathing room so a tiny absolute change (314→306) doesn't
+  // render as a full-height cliff; the stat rail carries the real Δ%.
   const span = Math.max(1, m.maxMembers - m.minMembers);
-  const y = (members: number) => 10 + (1 - (members - m.minMembers) / span) * (LINE_H - 24);
+  const y = (members: number) => 16 + (0.12 + 0.76 * (1 - (members - m.minMembers) / span)) * (LINE_H - 28);
 
   let linePath = '';
   const gapRects: ReactElement[] = [];
   const dots: ReactElement[] = [];
   const bars: ReactElement[] = [];
   const mid = STRIP_H / 2 - 6;
-  const barW = Math.max(2, Math.min(7, (W - 2 * PAD_X) / Math.max(1, n) - 2));
+  const barW = Math.max(3, Math.min(12, (W - PAD_L - PAD_R) / Math.max(1, n) - 2));
 
   // Pen lifts across gap days — drawing an L through the amber band would
   // interpolate membership we never observed.
@@ -72,7 +79,7 @@ function TrajectoryCharts({ m }: { m: TrajectoryModel }): ReactElement {
     const cx = x(i);
     if (d.members == null) {
       gapRects.push(
-        <rect key={`g${d.date}`} x={cx - barW / 2} y={6} width={barW} height={LINE_H - 16} fill="var(--warning-soft)" />,
+        <rect key={`g${d.date}`} x={cx - barW / 2} y={8} width={barW} height={LINE_H - 16} rx={2} fill="var(--warning-soft)" />,
       );
       penDown = false;
       return;
@@ -80,7 +87,7 @@ function TrajectoryCharts({ m }: { m: TrajectoryModel }): ReactElement {
     linePath += `${penDown ? ' L' : `${linePath ? ' ' : ''}M`}${cx.toFixed(1)} ${y(d.members).toFixed(1)}`;
     penDown = true;
     if (n <= 21) {
-      dots.push(<circle key={`d${d.date}`} cx={cx} cy={y(d.members)} r={2.5} fill="var(--brand)" />);
+      dots.push(<circle key={`d${d.date}`} cx={cx} cy={y(d.members)} r={3} fill="var(--brand)" />);
     }
     if (d.entered != null || d.exited != null) {
       const eh = ((d.entered ?? 0) / m.maxDelta) * (mid - 6);
@@ -95,20 +102,24 @@ function TrajectoryCharts({ m }: { m: TrajectoryModel }): ReactElement {
   });
 
   const tickIdx = n > 2 ? [0, Math.floor((n - 1) / 2), n - 1] : n === 2 ? [0, 1] : [0];
+  // Edge ticks anchor inward so they never clip at the chart bounds.
+  const tickAnchor = (i: number) => (i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle');
   return (
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <svg viewBox={`0 0 ${W} ${LINE_H}`} style={{ width: '100%', display: 'block' }} role="img" aria-label="Cohort size over time">
+    <div ref={ref} style={{ flex: 1, minWidth: 0 }}>
+      <svg width={W} height={LINE_H} viewBox={`0 0 ${W} ${LINE_H}`} style={{ display: 'block' }} role="img" aria-label="Cohort size over time">
         {gapRects}
         <path d={linePath} fill="none" stroke="var(--brand)" strokeWidth={2} />
         {dots}
-        <text x={4} y={14} fontSize={10} fill="var(--text-muted)">{fmtCompact(m.maxMembers)}</text>
-        <text x={4} y={LINE_H - 6} fontSize={10} fill="var(--text-muted)">{fmtCompact(m.minMembers)}</text>
+        <text x={PAD_L - 8} y={y(m.maxMembers) + 3} fontSize={10} fill="var(--text-muted)" textAnchor="end">{fmtCompact(m.maxMembers)}</text>
+        {m.maxMembers !== m.minMembers && (
+          <text x={PAD_L - 8} y={y(m.minMembers) + 3} fontSize={10} fill="var(--text-muted)" textAnchor="end">{fmtCompact(m.minMembers)}</text>
+        )}
       </svg>
-      <svg viewBox={`0 0 ${W} ${STRIP_H}`} style={{ width: '100%', display: 'block' }} role="img" aria-label="Members entered and exited per day">
-        <line x1={PAD_X} x2={W - PAD_X} y1={mid} y2={mid} stroke="var(--border-card)" />
+      <svg width={W} height={STRIP_H} viewBox={`0 0 ${W} ${STRIP_H}`} style={{ display: 'block' }} role="img" aria-label="Members entered and exited per day">
+        <line x1={PAD_L} x2={W - PAD_R} y1={mid} y2={mid} stroke="var(--border-card)" />
         {bars}
         {tickIdx.map((i) => (
-          <text key={i} x={x(i)} y={STRIP_H - 2} fontSize={10} fill="var(--text-muted)" textAnchor="middle">
+          <text key={i} x={x(i)} y={STRIP_H - 2} fontSize={10} fill="var(--text-muted)" textAnchor={tickAnchor(i)}>
             {m.days[i].date.slice(5)}
           </text>
         ))}

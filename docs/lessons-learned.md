@@ -739,6 +739,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### Fixed-viewBox SVG charts stretch fonts/dots with the card — review designs at the REAL container width
+
+- **Rule:** never ship an SVG chart as `viewBox="0 0 640 H"` + `width: 100%` when it contains text, dots, or fixed-size marks. On a full-width card (~1700px) the browser scales the whole coordinate system ~2.7×: 10px axis labels render at ~27px, gap bands triple in width, and the chart reads as broken. Render pixel-true instead: measure the container (`use-measured-width.ts`, ResizeObserver + jsdom fallback) and build the viewBox at 1 unit = 1px with a fixed pixel height.
+- **Why:** the segment-detail trajectory/metric-movement cards were designed as 640px-wide HTML variant mocks and reviewed for tokens/patterns — but never rendered at the monitor tab's actual width. First real screenshot showed giant min/max labels overlapping data dots and edge tick labels clipped mid-character. Path-only charts (size-trend sparkline) get away with `preserveAspectRatio="none"` because nothing in them has intrinsic size; text-bearing charts don't.
+- **Signal:** chart typography visibly larger than the card's UI text; labels/dots that looked fine in a design mock look inflated in the app; `textAnchor="middle"` ticks at x≈0 or x≈W clipping at chart bounds.
+- **Apply:** measured-width + fixed height for any new text-bearing SVG chart; first/last tick `textAnchor` start/end; value labels in a left gutter (`PAD_L`), not overlaid at x=4. Before calling UI work done, screenshot the real page at desktop width (`npx playwright screenshot --viewport-size=1900,950 --wait-for-timeout=8000 "<url>" out.png`) — a static design variant is not a render review.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

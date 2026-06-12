@@ -15,6 +15,7 @@ import { Select } from 'antd';
 import { TrendingUp } from 'lucide-react';
 import { apiFetch } from '../../../../api/api-client';
 import { CardShell } from './card-shell';
+import { useMeasuredWidth } from './use-measured-width';
 import { fmtCompact } from './trajectory-card-model';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -55,13 +56,16 @@ function defaultAnchor(): string {
 }
 
 function SeriesChart({ points, unit }: { points: SeriesPoint[]; unit: string }): ReactElement {
-  const W = 680;
+  // Pixel-true (1 SVG unit = 1px, width from the container) — a stretched
+  // fixed viewBox scales fonts/dots with the card and breaks on wide layouts.
+  const { ref, width: W } = useMeasuredWidth<HTMLDivElement>();
   const H = 180;
-  const PAD = 34;
+  const PAD_L = 52; // gutter for the max-value label
+  const PAD_R = 14;
   const maxV = Math.max(1, ...points.map((p) => p.value));
   const maxM = Math.max(1, ...points.map((p) => p.memberCount));
   const minM = Math.min(...points.map((p) => p.memberCount));
-  const x = (i: number) => (points.length === 1 ? W / 2 : PAD + (i * (W - 2 * PAD)) / (points.length - 1));
+  const x = (i: number) => (points.length === 1 ? (PAD_L + W - PAD_R) / 2 : PAD_L + (i * (W - PAD_L - PAD_R)) / (points.length - 1));
   const yV = (v: number) => 12 + (1 - v / maxV) * (H - 44);
   const yM = (m: number) => 12 + (1 - (maxM === minM ? 0.5 : (m - minM) / (maxM - minM))) * (H - 44);
 
@@ -72,20 +76,23 @@ function SeriesChart({ points, unit }: { points: SeriesPoint[]; unit: string }):
     mPath += `${mPath ? ' L' : 'M'}${x(i).toFixed(1)} ${yM(p.memberCount).toFixed(1)}`;
   });
   const ticks = points.length > 2 ? [0, Math.floor((points.length - 1) / 2), points.length - 1] : points.map((_, i) => i);
+  const tickAnchor = (i: number) => (i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle');
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', display: 'block' }} role="img" aria-label={`Metric series (${unit})`}>
-      <path d={mPath} fill="none" stroke="var(--chart-2)" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.7} />
-      <path d={vPath} fill="none" stroke="var(--brand)" strokeWidth={2} />
-      {points.length <= 21 && points.map((p, i) => (
-        <circle key={p.date} cx={x(i)} cy={yV(p.value)} r={2.5} fill="var(--brand)" />
-      ))}
-      <text x={4} y={16} fontSize={10} fill="var(--text-muted)">{fmtCompact(maxV)}</text>
-      {ticks.map((i) => (
-        <text key={i} x={x(i)} y={H - 4} fontSize={10} fill="var(--text-muted)" textAnchor="middle">
-          {points[i].date.slice(5)}
-        </text>
-      ))}
-    </svg>
+    <div ref={ref} style={{ minWidth: 0 }}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }} role="img" aria-label={`Metric series (${unit})`}>
+        <path d={mPath} fill="none" stroke="var(--chart-2)" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.7} />
+        <path d={vPath} fill="none" stroke="var(--brand)" strokeWidth={2} />
+        {points.length <= 21 && points.map((p, i) => (
+          <circle key={p.date} cx={x(i)} cy={yV(p.value)} r={3} fill="var(--brand)" />
+        ))}
+        <text x={PAD_L - 8} y={yV(maxV) + 3} fontSize={10} fill="var(--text-muted)" textAnchor="end">{fmtCompact(maxV)}</text>
+        {ticks.map((i) => (
+          <text key={i} x={x(i)} y={H - 4} fontSize={10} fill="var(--text-muted)" textAnchor={tickAnchor(i)}>
+            {points[i].date.slice(5)}
+          </text>
+        ))}
+      </svg>
+    </div>
   );
 }
 
