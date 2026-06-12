@@ -341,6 +341,27 @@ export function PreaggRunsTab() {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [buildPhase, refetchServe, refetchSweeps]);
 
+  // A finished build RESOLVES into sweep history: the collector (fed by the
+  // trigger's log snapshots) records the build window as a scheduled sweep
+  // within one pass of the window closing. Once such a row exists — any
+  // worker sweep that started after the trigger did — the ephemeral status
+  // line + checklist are redundant and auto-dismiss; the history row is the
+  // durable record. A 10-min fallback (matching the server's progress linger)
+  // covers a missed collector pass. Failed builds stay visible — they have no
+  // history row to hand off to and the operator must see them.
+  const buildStartedAtMs = triggerStatus?.state.startedAt ? Date.parse(triggerStatus.state.startedAt) : null;
+  const buildFinishedAtMs = triggerStatus?.state.finishedAt ? Date.parse(triggerStatus.state.finishedAt) : null;
+  const buildResolvedIntoHistory =
+    buildPhase === 'done' &&
+    buildStartedAtMs !== null &&
+    sweeps.some((s) => s.source === 'scheduled' && Date.parse(s.startedAt) >= buildStartedAtMs);
+  const buildLingerExpired =
+    buildPhase === 'done' && buildFinishedAtMs !== null && Date.now() - buildFinishedAtMs > 10 * 60_000;
+  const showBuildBlock =
+    buildRunning ||
+    buildPhase === 'error' ||
+    (buildPhase === 'done' && !buildResolvedIntoHistory && !buildLingerExpired);
+
   // Build a map so each expanded sweep gets its items from the detail hook
   const itemsForSweep = (id: number): PreaggSweepItem[] | null => {
     if (expandedId !== id) return null;
@@ -536,8 +557,9 @@ export function PreaggRunsTab() {
           )}
         </div>
 
-        {/* Trigger status / error line */}
-        {triggerEnabled && (buildRunning || triggerError || buildPhase === 'done' || buildPhase === 'error') && (
+        {/* Trigger status / error line — auto-dismissed once the finished
+            build resolves into a sweep-history row below. */}
+        {triggerEnabled && (triggerError || showBuildBlock) && (
           <div
             style={{
               padding: '8px 16px',
@@ -553,9 +575,10 @@ export function PreaggRunsTab() {
           </div>
         )}
 
-        {/* Live per-rollup build checklist — shown while a triggered build runs
-            and lingers after it closes so the final states stay readable. */}
-        {triggerEnabled && (buildRunning || buildProgress) && (
+        {/* Live per-rollup build checklist — shown while a triggered build
+            runs, keeps the final states readable after it closes, then
+            auto-dismisses with the status line once history has the record. */}
+        {triggerEnabled && showBuildBlock && (buildRunning || buildProgress) && (
           <BuildProgressPanel progress={buildProgress} />
         )}
 

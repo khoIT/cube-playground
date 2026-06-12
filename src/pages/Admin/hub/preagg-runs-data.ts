@@ -82,6 +82,15 @@ export function usePreaggRuns(limit = 30) {
 
   useEffect(() => { refetch(); }, [refetch]);
 
+  // Steady slow poll: collector passes land new sweep rows (hourly auto
+  // sweeps, snapshot-backfilled build windows) every ~5 minutes — without
+  // this they only appear on a manual reload, and a finished build's
+  // ephemeral panel could never resolve into its history row.
+  useEffect(() => {
+    const t = setInterval(refetch, 60_000);
+    return () => clearInterval(t);
+  }, [refetch]);
+
   return { sweeps, loading, error, refetch };
 }
 
