@@ -29,8 +29,10 @@ while [ $# -gt 0 ]; do
     --timer)   TIMER="${2:?}"; shift 2;;
     --stop)    STOP=1; shift;;
     # --restore: when done, recreate the worker with its default (all-games,
-    # hourly) config instead of leaving it scoped to GAME. This is what the UI
-    # trigger uses so a one-off build never leaves the shared sweep mis-scoped.
+    # hourly) config instead of leaving it scoped to GAME — a one-off build
+    # never leaves the shared sweep mis-scoped. (The Admin UI trigger does the
+    # same dance in-process via the Docker Engine API: server/src/services/
+    # preagg-trigger.ts. This script is the manual host-shell equivalent.)
     --restore) RESTORE=1; shift;;
     *) echo "unknown arg: $1"; exit 2;;
   esac

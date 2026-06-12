@@ -130,7 +130,7 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
     async (req, reply) => {
       if (!isTriggerEnabled()) {
         return reply.status(403).send({
-          error: { code: 'TRIGGER_DISABLED', message: 'Pre-agg build trigger is disabled (set PREAGG_TRIGGER_ENABLED=true on a dev host).' },
+          error: { code: 'TRIGGER_DISABLED', message: 'Pre-agg build trigger is disabled on this host (PREAGG_TRIGGER_ENABLED=false).' },
         });
       }
       const game = String(req.body?.game ?? '');

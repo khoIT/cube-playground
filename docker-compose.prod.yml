@@ -59,8 +59,20 @@ services:
       # detector). These mint per-game JWTs (CUBEJS_API_SECRET), matching the
       # in-stack game_id cube. It's a URL not a secret → lives here, not in Vault.
       CUBE_API_URL: http://cube_api:4000
+      # Pre-agg observability + on-demand builds against the in-stack worker.
+      # The collector tails the worker's logs over the docker socket to build
+      # sweep history; the admin Rebuild trigger recreates the worker scoped to
+      # one game (Engine API — no docker CLI in this image). Both target the
+      # prod worker container named below (the code default is the -dev name).
+      PREAGG_COLLECTOR_ENABLED: "true"
+      PREAGG_WORKER_CONTAINER: cube-playground-cube-refresh-worker
     volumes:
       - server-data:/data
+      # Docker Engine socket for the pre-agg collector (log reads) and build
+      # trigger (worker recreate). Grants this container control of the host
+      # daemon — acceptable for this admin-gated internal tool; remove the
+      # mount (or set PREAGG_TRIGGER_ENABLED=false) to revoke.
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       # Ordering only, not health-coupling: chat is feature-flagged
       # (CHAT_FEATURE_ENABLED), so a down chat-service must not block the API.

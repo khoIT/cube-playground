@@ -75,6 +75,7 @@ import { startCareAutoSweepCron } from './jobs/care-auto-sweep.js';
 import { startSegmentMembershipSnapshotCron } from './jobs/snapshot-segment-membership.js';
 import { registerSlowRequestLog, startEventLoopMonitor } from './services/runtime-observability.js';
 import { startPreaggRunCollector } from './services/preagg-run-collector.js';
+import { restoreLeftoverScopedWorker } from './services/preagg-trigger.js';
 
 const PORT = parseInt(process.env.PORT ?? '3004', 10);
 
@@ -255,6 +256,12 @@ if (isMain || process.env.START_SERVER === '1') {
     // Reads worker logs via Docker socket (read-only mount) and persists sweep
     // outcomes to SQLite. Degrades gracefully when the socket is absent.
     startPreaggRunCollector();
+    if (process.env.NODE_ENV !== 'test') {
+      // If a previous gateway died mid-build-window, the refresh worker is
+      // still scoped to one game at a 20s trace sweep — restore its default
+      // all-games config. No-op when no docker socket / worker on this host.
+      void restoreLeftoverScopedWorker((msg) => app.log.warn(msg));
+    }
     // Sample event-loop delay; warns when synchronous work starves the loop.
     startEventLoopMonitor(app.log);
     app.log.info(`Server ready in ${Date.now() - start}ms on :${PORT}`);

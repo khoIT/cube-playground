@@ -1,19 +1,20 @@
 /**
- * Ingest worker-log snapshots left by trigger-preagg-build.sh.
+ * Worker-log snapshots bridging the build trigger and the sweep collector.
  *
- * The trigger script force-recreates the worker container twice (scope, then
+ * A triggered build force-recreates the worker container twice (scope, then
  * restore), and each recreate DESTROYS the container's log history — including
  * the build window's per-partition lines the collector needs for sweep
- * history. Before each recreate the script dumps `docker logs --timestamps`
- * into a shared directory; the collector calls consumeBuildLogSnapshots() each
- * pass to fold those dumped lines back into its normal parse, then deletes the
- * files (consume-once).
+ * history. Before each recreate the trigger dumps the worker's timestamped
+ * logs into a shared directory (writeBuildLogSnapshot, or the manual
+ * trigger-preagg-build.sh's equivalent dump); the collector calls
+ * consumeBuildLogSnapshots() each pass to fold those lines back into its
+ * normal parse, then deletes the files (consume-once).
  *
- * The dir is host-shared between the script and the host-run gateway. Prod
- * gateways never see files here because the trigger is disabled there.
+ * The in-process trigger and the collector share one process, so the dir is
+ * plain local tmp; the manual script shares it with a host-run gateway.
  */
 
-import { readdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DEFAULT_DIR = '/tmp/cube-playground-preagg-log-snapshots';
@@ -29,6 +30,23 @@ function snapshotDir(): string {
  * chronological file order; [] when the dir is absent or empty. A file that
  * can't be read is skipped and left in place for the next pass.
  */
+/**
+ * Persist worker log lines for the collector's next pass. Filename follows the
+ * trigger script's `<epoch>-<game>-<label>.log` convention so chronological
+ * sort interleaves both producers. Errors are swallowed — losing a snapshot
+ * degrades sweep-history detail, never the build itself.
+ */
+export function writeBuildLogSnapshot(lines: string[], game: string, label: string): void {
+  if (!lines.length) return;
+  try {
+    mkdirSync(snapshotDir(), { recursive: true });
+    const epochSec = Math.floor(Date.now() / 1000);
+    writeFileSync(join(snapshotDir(), `${epochSec}-${game}-${label}.log`), lines.join('\n') + '\n', 'utf8');
+  } catch {
+    // tmp unwritable — skip; the collector simply misses this window's lines.
+  }
+}
+
 export function consumeBuildLogSnapshots(): string[] {
   let files: string[];
   try {

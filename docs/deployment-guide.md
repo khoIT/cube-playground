@@ -229,6 +229,28 @@ compose and must **not** go in Vault (a shared `PORT` would collide):
 via build args, not runtime env. Default `VITE_CUBE_API_URL=/cube-api/v1`
 (same-origin via nginx).
 
+### Pre-agg observability + build trigger (admin → Refresh Runs)
+
+All topology, **no Vault keys needed**. The server container mounts
+`/var/run/docker.sock` (compose) and sets `PREAGG_COLLECTOR_ENABLED=true` +
+`PREAGG_WORKER_CONTAINER=cube-playground-cube-refresh-worker`:
+
+- **Sweep history (collector)** tails the refresh worker's logs over the socket
+  every 5 min and persists sweep outcomes to SQLite. Degrades gracefully (status
+  chip shows `degraded`) when the socket is absent.
+- **Rebuild trigger** is **ON by default** (`PREAGG_TRIGGER_ENABLED=false` to
+  opt out). Admin-gated + single-flight. It scopes the worker to one game by
+  recreating the container with env overrides via the Docker Engine API —
+  in-process, no docker CLI in the image — then restores the all-games config
+  when the window closes. The pre-scope env is stamped on the container as the
+  `playground.preagg.scoped-original-env` label, and server boot restores any
+  leftover scoped worker, so a gateway crash mid-window can't leave the shared
+  sweep mis-scoped.
+
+⚠️ The socket mount grants the server container control of the host Docker
+daemon. Accepted for this admin-gated internal tool; revoke by removing the
+mount (collector + trigger then degrade cleanly).
+
 ### Vault key manifest (path: `…/prod/<owner>/<project>`)
 
 Flat KV. ⚠️ = boot-blocking if absent.
