@@ -1,5 +1,5 @@
 /**
- * WhatsNewPage — renders bundled release entries as a timeline, shows the unread
+ * WhatsNewPage — renders bundled release entries as feature cards, shows the unread
  * count, and "Mark all read" persists every id through the client.
  *
  * The read-state client is mocked so the test is deterministic regardless of any
@@ -35,7 +35,7 @@ describe('WhatsNewPage', () => {
     renderPage();
 
     // A known seed title renders (content is real bundled markdown).
-    expect(await screen.findByText('Lakehouse Snapshot Inbox')).toBeTruthy();
+    expect(await screen.findByText('Metric Drift Center')).toBeTruthy();
 
     // Unread count reflects "nothing read yet" = every bundled entry.
     await waitFor(() => expect(screen.getByText(`${announcementIds.length} unread`)).toBeTruthy());

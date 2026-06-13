@@ -5,6 +5,7 @@ date: 2026-06-09
 kind: new
 area: Catalog
 deepLink: /drift-center
+image: /whats-new/metric-drift-center.svg
 ---
 Find and fix **broken metric references** in one place.
 

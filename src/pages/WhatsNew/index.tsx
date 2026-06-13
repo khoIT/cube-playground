@@ -1,7 +1,8 @@
 /**
  * WhatsNewPage — /whats-new
  *
- * Feature-announcement inbox rendered as a changelog timeline (design Variant A).
+ * Feature-announcement inbox rendered as feature cards (design Variant B): each
+ * release leads with a hero picture so users see what it does before diving in.
  * Content is bundled markdown (announcements-content.ts); per-user read-state
  * comes from useAnnouncements (server-backed). Header mirrors the design-system
  * page pattern (icon + 20px/700 title, eyebrow); tokens only.
@@ -10,7 +11,7 @@
 import { useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useAnnouncements } from './use-announcements';
-import { AnnouncementTimelineItem } from './announcement-timeline-item';
+import { AnnouncementFeatureCard } from './announcement-feature-card';
 
 type Filter = 'all' | 'unread';
 
@@ -41,7 +42,7 @@ export function WhatsNewPage() {
           </div>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>What's New</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13.5, color: 'var(--text-muted)' }}>
-            New features and improvements across cube-playground
+            The latest features, with a peek at each one before you dive in
             {unreadCount > 0 ? <> · <strong style={{ color: 'var(--text-secondary)' }}>{unreadCount} unread</strong></> : null}.
           </p>
         </div>
@@ -78,7 +79,7 @@ export function WhatsNewPage() {
         )}
       </div>
 
-      {/* timeline */}
+      {/* feature cards */}
       {visible.length === 0 ? (
         <div
           style={{
@@ -89,11 +90,9 @@ export function WhatsNewPage() {
           {filter === 'unread' ? "You're all caught up — no unread updates." : 'No announcements yet.'}
         </div>
       ) : (
-        <div style={{ position: 'relative', paddingLeft: 30 }}>
-          {/* rail */}
-          <span aria-hidden style={{ position: 'absolute', left: 7, top: 6, bottom: 6, width: 2, background: 'var(--border-card)' }} />
+        <div style={{ display: 'grid', gap: 18 }}>
           {visible.map((item) => (
-            <AnnouncementTimelineItem key={item.id} item={item} onMarkRead={markRead} />
+            <AnnouncementFeatureCard key={item.id} item={item} onMarkRead={markRead} />
           ))}
         </div>
       )}

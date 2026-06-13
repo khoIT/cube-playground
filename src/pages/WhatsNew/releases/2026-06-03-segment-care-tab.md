@@ -5,6 +5,7 @@ date: 2026-06-03
 kind: improved
 area: Segments
 deepLink: /segments
+image: /whats-new/segment-care-tab.svg
 ---
 Every segment now has a **Care** tab linking the cohort to its customer-support
 history.

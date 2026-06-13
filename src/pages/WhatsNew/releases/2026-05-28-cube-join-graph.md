@@ -5,6 +5,7 @@ date: 2026-05-28
 kind: improved
 area: Catalog
 deepLink: /catalog
+image: /whats-new/cube-join-graph.svg
 ---
 The Catalog now visualises how cubes connect.
 
