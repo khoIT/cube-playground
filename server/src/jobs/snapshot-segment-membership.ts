@@ -32,6 +32,7 @@ import {
 import {
   lakehouseSchemaForGame,
   lakehouseConnectorFromEnv,
+  ensureLakehouseTables,
 } from '../lakehouse/lakehouse-trino-connector.js';
 
 const TICK_INTERVAL_MS = 3_600_000; // hourly; daily-guarded inside the tick
@@ -145,6 +146,22 @@ export async function runSegmentMembershipSnapshot(
   // Build the lakehouse connector once (parses cube-dev/.env) and reuse it for
   // every segment + the delta, rather than re-reading the file per segment.
   const connector = lakehouseConnectorFromEnv();
+
+  // Create the env-scoped schema + tables before any writer runs. On a fresh
+  // environment (a newly-pointed schema's first run) nothing has created them
+  // yet, so every INSERT would fail with "Table does not exist". Idempotent
+  // (CREATE … IF NOT EXISTS) — a cheap no-op once they exist. If it fails (e.g.
+  // lakehouse genuinely unreachable) abort before hammering Trino with N
+  // doomed INSERTs; a manual re-run clears today's heartbeat and retries.
+  try {
+    await ensureLakehouseTables(connector);
+  } catch (err) {
+    const detail = (err as Error).message;
+    logHeartbeat(snapshotDate, '__ensure__', null, undefined, 'error', detail);
+    console.warn(`[snapshot-segment-membership] ensure tables failed:`, detail);
+    summary.deltaStatus = 'skipped-ensure-failed';
+    return summary;
+  }
 
   // Definitions land BEFORE the membership loop so a segment whose membership
   // INSERT errors still gets its definition row (history of what was

@@ -811,6 +811,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A schema-creating helper must run in the PRODUCTION path, not just a verify script — a fresh env-scoped schema has zero tables
+
+- **Rule:** `ensureLakehouseTables()` (CREATE SCHEMA + CREATE TABLE IF NOT EXISTS) must be called by the actual job (`runSegmentMembershipSnapshot`, at the top of every run, right after building the connector), not only by a one-off `verify-*-live.ts` script. Idempotent table-creation belongs on the hot path; calling it every run is a cheap no-op once the tables exist.
+- **Why:** env-scoping shipped correctly (`LAKEHOUSE_SCHEMA=khoitn/prod` reached prod — it showed in the error path), but the ONLY caller of `ensureLakehouseTables` was the local verify script. Locally the `khoitn/local` tables already existed (created by that script + the migration), so the job "worked" and the gap was invisible. On prod's brand-new `khoitn/prod` schema nothing had ever created the tables, so all 20 segment INSERTs failed `Table 'stag_iceberg."khoitn/prod".segment_membership_daily' does not exist`. The dev environment having pre-existing state masked a missing bootstrap step that only bites a fresh environment.
+- **Signal:** a write job fails `Table … does not exist` on a newly-pointed/just-deployed environment while running fine locally; a `grep` for the table-creating helper finds it called only from scripts under `scripts/` / `verify-*`, never from the job/route that does the writes.
+- **Apply:** for any "ensure infra exists" helper, grep its callers — if every caller is a manual script, the production entrypoint is missing the call. Guard it: if `ensureLakehouseTables` throws (lakehouse truly unreachable), log a heartbeat + abort the run before hammering Trino with N doomed INSERTs; a manual "Snapshot now" clears today's heartbeat and retries. Caveat after deploying the fix: the failed run already wrote today's `__started__` sentinel, so `alreadyRanToday` blocks the hourly cron until tomorrow — hit "Snapshot now" (clears today's heartbeat) to land the first prod partition immediately.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
