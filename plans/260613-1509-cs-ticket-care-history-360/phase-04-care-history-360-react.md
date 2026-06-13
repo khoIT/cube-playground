@@ -22,10 +22,10 @@ Route /segments/:id/members/:uid/care -> <CareHistory360Page>
 ## Requirements
 **Functional**
 1. Route component renders the chosen variant's layout in React, design-token compliant.
-2. Header: back link → `/segments/:id?tab=care`; member name+uid; VIP profile chips from `tickets[].vip`/payload; recharge sparkline; **security banner** when any ticket `securityFlag`.
+2. Header: back link → `/segments/:id?tab=care`; member name+uid; VIP profile chips from `tickets[].vip`/payload; **recharge pre→post delta stat** (LOCKED v1: reuse `summarizeCohortRecharge` on a 1-member cohort — NOT a daily sparkline, deferred); **security banner** when any ticket `securityFlag`.
 3. Ticket list/selector + transcript pane:
    - Bubbles: side by `is_customer` (1=player right, 0=staff left — confirmed reliable in Phase 0 step 5; else use the Phase 0 fallback).
-   - **Sanitize HTML** `content` before render (caveat c) — use a sanitizer (DOMPurify if already a dep; else strip-to-text fallback — check `package.json` first, do NOT add a heavy dep without need).
+   - **Strip HTML to plain text** before render (LOCKED v1: no sanitizer dep exists; render text + line breaks, NEVER `dangerouslySetInnerHTML`). Server already returns stripped snippet; client strips full `content` too.
    - Attachments from `files` JSON; handler (staff_dept/domain); SLA latency; reopen markers; rating verbatim + structured complaint tags.
    - Sentiment trajectory badge (first→last), reopen badge, latency badge.
 4. States mirror `care-tab.tsx`: loading skeleton, `no-coverage` (404 NO_CS_CARE), empty (coverage.joined=false), error, ready.
@@ -47,7 +47,7 @@ Route /segments/:id/members/:uid/care -> <CareHistory360Page>
 **Delete**: none.
 
 ## Implementation steps
-1. Confirm chosen variant + check `package.json` for an existing HTML sanitizer.
+1. Confirm chosen variant. HTML handling LOCKED = strip-to-plain-text (no dep); recharge LOCKED = pre→post delta stat (no daily spark).
 2. Build `care-history-360-page.tsx` shell + state machine (clone `care-tab.tsx` state union: loading/ready/no-coverage/error + empty).
 3. Build header, ticket-list, transcript-pane, bubble, rating-card from atoms + tokens, matching the chosen variant.
 4. Sanitize bubble HTML; render attachments; map is_customer→side; show latency/reopen/sentiment/security badges.

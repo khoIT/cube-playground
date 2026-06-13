@@ -63,8 +63,8 @@ Route order matters (react-router v5 `exact`): `/care` route must sit alongside 
 ## Security
 - No new public surface; route renders the `guardSegment`-gated page. Confirm the page errors cleanly (no PII leak) on 403/404.
 
-## Open Questions
-1. **uid membership assertion (Phase 1):** Should the endpoint additionally require `uid ∈ segment.uid_list_json`, or is `guardSegment(read)` on the segment sufficient? Default plan = assert membership (safer; a reader of segment X cannot pull arbitrary uids' transcripts). Confirm.
-2. **Sentiment/security label vocabulary:** `securityFlag` keys on `Account_*` / "security" AI labels — is the exact `label_category`/`label_name` set stable across jus_vn/cfm, or do we need a configurable matcher (like `HIGH_STAKES_CATEGORY` regex in assembly)? Phase 0 uses a regex; confirm coverage.
-3. **HTML sanitizer dependency:** Is there an existing sanitizer (DOMPurify) in `package.json`, or do we add one / use strip-to-text? (Resolved during Phase 4 step 1, but flag if a dep add needs approval.)
-4. **Recharge sparkline on the header:** reuse `cs-recharge-trajectory` per-member series — confirm it exposes a single-uid daily series (current use is cohort-anchored). If not, the header spark may need a small reader addition or be dropped from v1.
+## Open Questions — ALL RESOLVED (2026-06-13, user)
+1. **uid membership assertion:** RESOLVED — **assert** `uid ∈ parseUids(uid_list_json)` → 404 `NOT_IN_SEGMENT` (Phase 1, step 2b, test h).
+2. **Security label vocabulary:** RESOLVED — `securityFlag` hard signal = `login_info ≠ uid`; the `Account_*`/security label is a secondary AND-narrowing kept in ONE constant/regex in `cs-ticket-detail-signals.ts` so the vocab is maintainable in one place.
+3. **HTML sanitizer:** RESOLVED — no sanitizer dep exists (`dangerouslySetInnerHTML` used in only one error component). v1 = **strip-to-plain-text** (server snippet + client render). No new dependency, zero XSS surface. Do NOT use `dangerouslySetInnerHTML`.
+4. **Header recharge:** RESOLVED — `cs-recharge-trajectory` exposes per-uid pre/post **window sums**, not a daily series. v1 header shows the **pre→post delta stat** (reuse `summarizeCohortRecharge` on a 1-member cohort); full daily sparkline DEFERRED (would need a new reader).

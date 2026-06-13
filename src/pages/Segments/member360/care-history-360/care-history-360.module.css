@@ -1,0 +1,51 @@
+/* Care History 360 — responsive panes. Inbox is a 3-column split that collapses
+   to a single column on narrow viewports; the transcript stays scrollable. */
+
+.page {
+  padding: 24px 32px;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.inbox {
+  display: grid;
+  grid-template-columns: 300px 1fr 230px;
+  min-height: 460px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.inboxList {
+  border-right: 1px solid var(--border-card);
+  overflow: auto;
+  max-height: 620px;
+}
+
+.inboxMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.inboxRail {
+  border-left: 1px solid var(--border-card);
+  background: var(--neutral-50);
+  padding: 16px;
+}
+
+@media (max-width: 1040px) {
+  .inbox {
+    grid-template-columns: 1fr;
+  }
+  .inboxList {
+    border-right: none;
+    border-bottom: 1px solid var(--border-card);
+    max-height: 240px;
+  }
+  .inboxRail {
+    border-left: none;
+    border-top: 1px solid var(--border-card);
+  }
+}

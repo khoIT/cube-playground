@@ -12,6 +12,7 @@ import { IdentityMapSection } from './identity-map/identity-map-section';
 import { EditorView } from './editor/editor-view';
 import { FunnelBuilder } from './funnel-builder';
 import { Member360View } from './member360/member-360-view';
+import { CareHistory360Page } from './member360/care-history-360/care-history-360-page';
 import { useCubeApiBootstrap } from '../../hooks';
 
 export function SegmentsPage(): ReactElement {
@@ -27,6 +28,8 @@ export function SegmentsPage(): ReactElement {
       <Route exact path="/segments/new/funnel" component={FunnelBuilder} />
       <Route exact path="/segments/new" component={EditorView} />
       <Route exact path="/segments/:id/edit" component={EditorView} />
+      {/* CS Care History 360 (Care-tab drill) — more specific, precedes /members/:uid */}
+      <Route exact path="/segments/:id/members/:uid/care" component={CareHistory360Page} />
       {/* Per-member 360 — must precede the catch-all detail route below */}
       <Route exact path="/segments/:id/members/:uid" component={Member360View} />
       <Route path="/segments/:id" component={DetailView} />

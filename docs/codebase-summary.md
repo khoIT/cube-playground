@@ -446,6 +446,28 @@ Nightly snapshot of segment definitions + membership deltas into Trino Iceberg (
 
 ---
 
+## CS Ticket Care History 360 (2026-06-13)
+
+NEW per-member CS transcript page + row-expand on Care tab watchlist. Routes `/segments/:id/members/:uid/care` (Inbox ↔ Timeline toggle) + inline ticket-summary cards. Guards segment membership + CS-game availability. Deep lakehouse reader: ticket_communications_centralized (timestamps÷1000 before from_unixtime), cs_ticket_map_ai_label, ticket_ratings_centralized, tickets_v2 (login_info legitimacy + account/security label pattern), cs_map_status, customers_v2 (VIP). Signals: securityFlag, firstResponseLatencyMin, sentimentTrajectory, reopenCount, htmlSnippet. Reuses cs-ticket-reader helpers + cs-recharge-trajectory.
+
+### Services (server-side)
+
+- **CS ticket detail types** — `server/src/lakehouse/cs-ticket-detail-types.ts`. Schema: CsTicketDetail (ticket id, subject, category, status, created/updated, communication count, rating, sentiment, securityFlag), CsTicketCommunication (timestamp, direction, author, text), CsTicketRating (timestamp, rating, feedback). Derived signals enum.
+- **CS ticket detail reader** — `server/src/lakehouse/cs-ticket-detail-reader.ts`. Per-(segmentId, uid): queries iceberg.cs_ticket + join layers; dedupes multi-row (ROW_NUMBER); groups by category/sentiment/rating; caps and LOOKBACK_DAYS filter. Returns ordered list of CsTicketDetail[] with full communication + rating history.
+- **CS ticket detail signals** — `server/src/lakehouse/cs-ticket-detail-signals.ts`. Derives securityFlag (login_info≠uid AND account/security label), firstResponseLatencyMin, sentimentTrajectory, reopenCount, htmlSnippet. Pure functions testable without lakehouse.
+
+### Routes (server-side)
+
+- **`GET /api/segments/:id/members/:uid/cs-tickets`** — guardSegment(read) + uid∈uid_list_json (404 NOT_IN_SEGMENT); predicate+CS-game gate. Payload: segmentId, gameId, uid, member{name,ltv}, coverage{joined,note}, freshness{csMaxLogDate}, recharge{windowDays}|null, tickets[]. Caps: 60 tickets, 80 messages/ticket, 10 ratings/ticket, 365d lookback. 6h TTL. CS-fail→502, recharge-fail→null.
+
+### Frontend
+
+- **Member-360 care-history-360/** — `src/pages/Segments/member360/care-history-360/`. Entry: `/segments/:id/members/:uid/care`. Inbox view (3-pane: ticket list, detail, communication thread), Timeline view (chronological). Drilled from Care tab watchlist row-expand (lazy-loaded ticket summary cards). Inbox/Timeline toggle persistent (localStorage). Status + sentiment semantic colors, HTML snippet inline preview.
+- **Care tab watchlist row-expand** — `src/pages/Segments/detail/tabs/care-tab.tsx` rows now expand inline to show ticket summary cards (date, subject, status, latest communication preview). "View all" → navigate to `/care` page.
+- **Client** — `src/api/segment-cs-care-member.ts` (typed GET call, keyed by segmentId+uid).
+
+---
+
 ## CS Demo-Care Loop (Persisted Actions, KPI Outcome, Activity, Reseed)
 
 Makes the CS console a true interactive demo loop: real ledger-driven timelines, persistent treatment/claim/dismiss actions, human-closed KPI outcome tracking, case export, rolling activity metrics, and guarded reseed capability. All routes leverage existing `/api/care/cases/:id` PATCH infrastructure + new activity + reset endpoints.

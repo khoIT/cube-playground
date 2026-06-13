@@ -32,12 +32,12 @@ See [phase-00](./phase-00-data-layer-reader-assembly.md) for the join graph, ver
 
 | # | Phase | Status | File ownership |
 |---|-------|--------|----------------|
-| 0 | Data-layer reader + assembly + unit tests | pending | `server/src/lakehouse/cs-ticket-detail-*.ts`, `*.test.ts` |
-| 1 | API route + caps + cache + gating/degrade tests | pending | `server/src/routes/segment-cs-tickets.ts`, `index.ts` (1 line), `*.test.ts` |
-| 2 | Row-expand in care-watchlist + tests | pending | `src/pages/Segments/detail/tabs/care/*`, `src/api/segment-cs-care-member.ts` |
-| 3 | Huashu hi-fi design variants (DESIGN GATE) | pending | `visuals/*.html` |
-| 4 | React build of Care History 360 page + tests | pending | `src/pages/Segments/member360/care-history-360/*` |
-| 5 | Route wiring + Care-tab drill link + docs sync | pending | `segments-page.tsx`, `care-watchlist.tsx`, `docs/*` |
+| 0 | Data-layer reader + assembly + unit tests | ✅ done (13 tests + live-verified) | `server/src/lakehouse/cs-ticket-detail-*.ts`, `*.test.ts` |
+| 1 | API route + caps + cache + gating/degrade tests | ✅ done (9 tests; +member/recharge fields) | `server/src/routes/segment-cs-tickets.ts`, `index.ts` (1 line), `*.test.ts` |
+| 2 | Row-expand in care-watchlist + tests | ✅ done (5 tests) | `src/pages/Segments/detail/tabs/care/*`, `src/api/segment-cs-care-member.ts` |
+| 3 | Huashu hi-fi design variants (DESIGN GATE) | ✅ done — user picked **A (inbox) + C (timeline) toggle** | `visuals/*.html` |
+| 4 | React build of Care History 360 page + tests | ✅ done (6 tests) | `src/pages/Segments/member360/care-history-360/*` |
+| 5 | Route wiring + Care-tab drill link + docs sync | ✅ route wired; docs in progress | `segments-page.tsx`, `care-watchlist.tsx`, `docs/*` |
 
 ## Phase files
 - [phase-00-data-layer-reader-assembly.md](./phase-00-data-layer-reader-assembly.md)

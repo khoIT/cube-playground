@@ -13,8 +13,10 @@ GET /api/segments/:id/members/:uid/cs-tickets
   guardSegment(read) -> row | 403/404
   gate: predicate? game has csProductId? else 404 NO_CS_CARE
   validate uid against /^[A-Za-z0-9_-]+$/ (reject -> 400)
-  member NOT required to be in uid_list_json (uid is path param; guard already
-    authorizes the SEGMENT — see Open Q1) ; productId from csProductId(gameId)
+  ASSERT MEMBERSHIP (locked): uid MUST be in parseUids(row.uid_list_json)
+    (same snapshot source as segment-cs-care.ts:116); else 404 NOT_IN_SEGMENT.
+    Prevents using any readable segment as an arbitrary-uid CS-transcript lookup.
+  productId from csProductId(gameId)
   cache hit (TTL) -> payload
   fetchCsTicketDetail({productId, uid, sinceDate=LOOKBACK}) -> details[]
   apply caps (tickets<=T, messages<=M/ticket, ratings<=R/ticket)
@@ -48,10 +50,11 @@ GET /api/segments/:id/members/:uid/cs-tickets
 ## Implementation steps
 1. Scaffold route from `segment-cs-care.ts` (copy guard+gate+cache skeleton, strip recharge/impact).
 2. Validate `uid` path param against the sanitize regex; 400 on reject (defense-in-depth even though reader re-sanitizes).
+2b. Membership assert (LOCKED): `if (!parseUids(row.uid_list_json).includes(uid)) return 404 NOT_IN_SEGMENT`. Reuse `parseUids` from `segment-cs-care.ts` (extract to a shared helper or duplicate the 6-line fn — DRY-extract preferred).
 3. `productId = csProductId(gameId)`; `sinceDate = isoDaysAgo(LOOKBACK_DAYS)`.
 4. `fetchCsTicketDetail` (Phase 0) → cap (`.slice(0,MAX_TICKETS)`; reader already caps msgs/ratings via SQL window, route re-asserts).
 5. Build payload incl. `coverage.joined`, `freshness.csMaxLogDate` (max logDate across tickets), cache-set, return.
-6. Tests (vitest, mock connector / injected fetch): (a) 404 NO_CS_CARE for non-predicate / uncovered game; (b) 403 path via guard (unauthorized segment); (c) 400 on bad uid; (d) 200 empty `tickets` + `coverage.joined=false` for unjoinable uid; (e) 502 on reader throw; (f) cache hit skips reader; (g) caps applied + truncation flags.
+6. Tests (vitest, mock connector / injected fetch): (a) 404 NO_CS_CARE for non-predicate / uncovered game; (b) 403 path via guard (unauthorized segment); (c) 400 on bad uid; (d) 200 empty `tickets` + `coverage.joined=false` for unjoinable uid; (e) 502 on reader throw; (f) cache hit skips reader; (g) caps applied + truncation flags; (h) 404 NOT_IN_SEGMENT when uid not in uid_list_json.
 
 ## Todo
 - [ ] segment-cs-tickets.ts (guard, gate, validate, fetch, caps, cache, degrade)
@@ -66,7 +69,7 @@ GET /api/segments/:id/members/:uid/cs-tickets
 ## Risk assessment
 | Risk | L×I | Mitigation |
 |------|-----|------------|
-| uid path param lets a caller read tickets for a uid NOT in the segment | M×M | guard authorizes the SEGMENT (workspace+visibility); uid is a CS-product-scoped lookup. **Open Q1** — confirm with user whether to additionally assert `uid ∈ uid_list_json`. Default: assert membership (safer) unless user opts out. |
+| uid path param lets a caller read tickets for a uid NOT in the segment | M×M | RESOLVED (locked): assert `uid ∈ parseUids(uid_list_json)` → 404 `NOT_IN_SEGMENT`. Test case (h). |
 | Cache unbounded across many uids | L×M | MAX_CACHE_ENTRIES evict-oldest (same as cs-care) |
 | Large whale → huge payload | L×M | caps T/M/R + truncation flags |
 
