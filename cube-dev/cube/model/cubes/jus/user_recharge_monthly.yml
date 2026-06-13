@@ -1,0 +1,176 @@
+cubes:
+  - name: user_recharge_monthly
+    sql_table: std_ingame_user_recharge_monthly
+    title: JUS VN — Monthly Recharge Snapshots (per user, per month)
+    description: >
+      One row per (user_id, log_month) where the user recharged. Complements
+      cfm_user_recharge_daily with a monthly rollup — use this for MRR trend,
+      paying-user retention, and the monthly band of the 1-user revenue panel.
+      For per-day detail use cfm_user_recharge_daily; per-transaction, cfm_recharge.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.user_id, '__', {CUBE}.log_month)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: log_month
+        sql: "CAST({CUBE}.first_day_of_month AS TIMESTAMP)"
+        type: time
+
+      - name: log_quarter
+        sql: log_quarter
+        type: string
+
+      - name: log_year
+        sql: log_year
+        type: string
+
+      - name: recharge_days
+        sql: recharge_days
+        type: number
+
+      - name: first_country_code
+        sql: ingame_first_recharge_country_code
+        type: string
+
+      - name: last_country_code
+        sql: ingame_last_recharge_country_code
+        type: string
+
+      - name: first_os_platform
+        sql: ingame_first_recharge_os_platform
+        type: string
+
+      - name: last_os_platform
+        sql: ingame_last_recharge_os_platform
+        type: string
+
+      - name: first_server_id
+        sql: ingame_first_recharge_server_id
+        type: string
+
+      - name: last_server_id
+        sql: ingame_last_recharge_server_id
+        type: string
+
+      - name: first_payment_channel
+        sql: ingame_first_recharge_payment_channel
+        type: string
+
+      - name: last_payment_channel
+        sql: ingame_last_recharge_payment_channel
+        type: string
+
+      - name: min_role_level
+        sql: ingame_min_recharge_role_level
+        type: number
+
+      - name: max_role_level
+        sql: ingame_max_recharge_role_level
+        type: number
+
+      - name: min_vip_level
+        sql: ingame_min_recharge_vip_level
+        type: number
+
+      - name: max_vip_level
+        sql: ingame_max_recharge_vip_level
+        type: number
+
+      - name: last_vip_level
+        sql: ingame_last_recharge_vip_level
+        type: number
+
+      - name: revenue_vnd
+        sql: ingame_total_recharge_value_vnd
+        type: number
+        description: Total monthly recharge value (VND) for this user
+
+      - name: revenue_usd
+        sql: ingame_total_recharged_value_usd
+        type: number
+
+      - name: revenue_vnd_iap
+        sql: ingame_total_recharged_value_vnd_iap
+        type: number
+
+      - name: revenue_vnd_web
+        sql: ingame_total_recharged_value_vnd_web
+        type: number
+
+      - name: txn_count
+        sql: ingame_total_recharge_transaction_id
+        type: number
+
+      - name: txn_count_iap
+        sql: ingame_total_recharge_transaction_id_iap
+        type: number
+
+      - name: txn_count_web
+        sql: ingame_total_recharge_transaction_id_web
+        type: number
+
+    measures:
+      - name: rows
+        type: count
+        description: Total user-month recharge rows
+
+      - name: paying_users_monthly
+        type: count_distinct_approx
+        sql: user_id
+        description: Distinct paying users in a given month (HLL approx)
+
+      - name: revenue_vnd_total
+        sql: ingame_total_recharge_value_vnd
+        type: sum
+
+      - name: revenue_usd_total
+        sql: ingame_total_recharged_value_usd
+        type: sum
+
+      - name: revenue_vnd_iap_total
+        sql: ingame_total_recharged_value_vnd_iap
+        type: sum
+
+      - name: revenue_vnd_web_total
+        sql: ingame_total_recharged_value_vnd_web
+        type: sum
+
+      - name: txn_count_total
+        sql: ingame_total_recharge_transaction_id
+        type: sum
+
+      - name: arppu_vnd_monthly
+        sql: "{revenue_vnd_total} * 1.0 / NULLIF({paying_users_monthly}, 0)"
+        type: number
+        description: Monthly ARPPU (revenue per paying user)
+
+    segments:
+      - name: this_month
+        sql: "{CUBE}.first_day_of_month = DATE_TRUNC('month', CURRENT_DATE)"
+
+      - name: prev_month
+        sql: "{CUBE}.first_day_of_month = DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1' MONTH"
+
+      - name: last_3_months
+        sql: "{CUBE}.first_day_of_month >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '3' MONTH"
+
+      - name: iap_only
+        sql: "{CUBE}.ingame_total_recharged_value_vnd_iap > 0 AND {CUBE}.ingame_total_recharged_value_vnd_web = 0"
+
+      - name: web_only
+        sql: "{CUBE}.ingame_total_recharged_value_vnd_web > 0 AND {CUBE}.ingame_total_recharged_value_vnd_iap = 0"

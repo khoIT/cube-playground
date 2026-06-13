@@ -1,0 +1,178 @@
+cubes:
+  # ===========================================================================
+  # marketing_cost — ad spend across all acquisition channels.
+  # Source: <schema>.std_marketing_cost_all_channels_by_game
+  #
+  # Finer-grained than the spend embedded in cons_game_key_metrics_daily: it
+  # carries campaign/adset/ad NAMES, the objective, and account_id. Use it for
+  # standalone spend reporting and to compute CAC/CPI/CPC/CPM. Schema-stable
+  # across games; only the title differs.
+  # ===========================================================================
+  - name: marketing_cost
+    sql_table: std_marketing_cost_all_channels_by_game
+    title: PTG — Marketing Cost (all channels)
+    description: >
+      Daily ad spend by channel/campaign/adset/ad with impressions and clicks.
+      Cost is provided in native currency plus normalized USD and VND.
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: >
+          CONCAT(
+            CAST({CUBE}.log_date AS VARCHAR), '__',
+            COALESCE({CUBE}.app_id, ''), '__',
+            COALESCE({CUBE}.media_source, ''), '__',
+            COALESCE({CUBE}.campaign_id, ''), '__',
+            COALESCE({CUBE}.adset_id, ''), '__',
+            COALESCE({CUBE}.ad_id, ''), '__',
+            COALESCE({CUBE}.country_code, '')
+          )
+        type: string
+        primary_key: true
+        public: false
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: app_id
+        sql: app_id
+        type: string
+
+      - name: media_source
+        sql: media_source
+        type: string
+
+      - name: partner_id
+        sql: partner_id
+        type: string
+
+      - name: campaign_id
+        sql: campaign_id
+        type: string
+
+      - name: campaign_name
+        sql: campaign_name
+        type: string
+
+      - name: platform_campaign
+        sql: platform_campaign
+        type: string
+
+      - name: adset_id
+        sql: adset_id
+        type: string
+
+      - name: adset_name
+        sql: adset_name
+        type: string
+
+      - name: ad_id
+        sql: ad_id
+        type: string
+
+      - name: ad_name
+        sql: ad_name
+        type: string
+
+      - name: objective
+        sql: objective
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: currency_code
+        sql: currency_code
+        type: string
+
+    measures:
+      - name: rows
+        type: count
+
+      - name: impressions
+        sql: impression
+        type: sum
+
+      - name: clicks
+        sql: click
+        type: sum
+
+      - name: cost_native
+        sql: cost
+        type: sum
+        description: Spend in the campaign's native currency (see currency_code)
+
+      - name: cost_usd
+        sql: cost_usd
+        type: sum
+
+      - name: cost_vnd
+        sql: cost_vnd
+        type: sum
+
+      - name: ctr
+        sql: "CAST({clicks} AS DOUBLE) / NULLIF({impressions}, 0)"
+        type: number
+        format: percent
+
+      - name: cpc_vnd
+        sql: "CAST({cost_vnd} AS DOUBLE) / NULLIF({clicks}, 0)"
+        type: number
+        description: Cost per click (VND)
+
+      - name: cpm_vnd
+        sql: "CAST({cost_vnd} AS DOUBLE) * 1000.0 / NULLIF({impressions}, 0)"
+        type: number
+        description: Cost per mille / thousand impressions (VND)
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+    pre_aggregations:
+      - name: cost_by_source_daily_batch
+        type: rollup
+        measures:
+          - cost_vnd
+          - cost_usd
+          - impressions
+          - clicks
+        dimensions:
+          - media_source
+          - campaign_id
+          - country_code
+        time_dimension: log_date
+        granularity: day
+        partition_granularity: year
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT from_iso8601_timestamp(CAST(MIN(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_marketing_cost_all_channels_by_game"
+        build_range_end:
+          sql: "SELECT from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z') FROM std_marketing_cost_all_channels_by_game"
+
+      # Lambda union: sealed batch partitions + a live tail straight from the
+      # source table, so recent rows appear without waiting for a refresh cycle
+      # and the batch rollup can refresh on a relaxed cadence.
+      - name: cost_by_source_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.cost_by_source_daily_batch

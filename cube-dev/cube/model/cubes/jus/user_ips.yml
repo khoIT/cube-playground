@@ -1,0 +1,70 @@
+cubes:
+  - name: user_ips
+    sql_table: map_ingame_ips_and_userid
+    title: JUS VN — User ↔ IP Mapping
+    description: >
+      One row per (user_id, client_ip). Useful for fraud / shared-network
+      detection and "all IPs seen for user X" panels in the 360 view.
+      NOTE: client_ip is PII — surfaced behind public=false on views; the
+      obs sidecar hashes filter values on this dimension automatically.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.user_id, '__', {CUBE}.client_ip)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: client_ip
+        sql: client_ip
+        type: string
+        public: false
+
+      - name: first_active_date
+        sql: "CAST({CUBE}.ingame_first_active_date AS TIMESTAMP)"
+        type: time
+
+      - name: last_active_date
+        sql: "CAST({CUBE}.ingame_last_active_date AS TIMESTAMP)"
+        type: time
+
+      - name: first_active_time
+        sql: ingame_first_active_time
+        type: time
+
+      - name: last_active_time
+        sql: ingame_last_active_time
+        type: time
+
+      - name: first_recharge_date
+        sql: "CAST({CUBE}.ingame_first_recharge_date AS TIMESTAMP)"
+        type: time
+
+      - name: last_recharge_date
+        sql: "CAST({CUBE}.ingame_last_recharge_date AS TIMESTAMP)"
+        type: time
+
+    measures:
+      - name: rows
+        type: count
+        description: Total user-IP pairs
+
+      - name: distinct_ips
+        type: count_distinct_approx
+        sql: client_ip
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: user_id

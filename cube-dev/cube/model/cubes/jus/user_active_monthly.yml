@@ -1,0 +1,197 @@
+cubes:
+  - name: user_active_monthly
+    sql: >
+      SELECT
+        m.*,
+        date_format(MIN(m.first_day_of_month) OVER (PARTITION BY m.user_id), '%Y-%m')
+          AS first_active_month_lt,
+        COALESCE(
+          LAG(m.first_day_of_month) OVER (PARTITION BY m.user_id ORDER BY m.first_day_of_month)
+            = m.first_day_of_month - INTERVAL '1' MONTH,
+          FALSE
+        ) AS was_active_prev_month
+      FROM std_ingame_user_active_monthly m
+    title: JUS VN — Monthly Active Snapshots (per user, per month)
+    description: >
+      One row per (user_id, log_month). Complements cfm_active_daily with a
+      coarser, faster monthly rollup — use this for monthly retention curves,
+      MAU trend, and the monthly band of the 1-user activity panel. For
+      sub-daily detail, use cfm_active_daily instead.
+
+      Source table column `ingame_first_active_month` is per-row (always equals
+      log_month) — NOT lifetime. The lifetime first active month is derived
+      here as `first_active_month_lt` via MIN() OVER (PARTITION BY user_id).
+      `was_active_prev_month` is derived via LAG() over the same partition.
+      These feed the `cohort_type` dimension (new / old / return).
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.user_id, '__', {CUBE}.log_month)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: log_month
+        sql: first_day_of_month
+        type: time
+        description: First day of the month (DATE).
+
+      - name: log_year_month
+        sql: log_month
+        type: string
+        description: >
+          YYYY-MM string from the source. Prefer this dimension for monthly
+          equality filters — sidesteps the Trino session-TZ skew that affects
+          DATE/TIMESTAMP comparisons when Cube emits from_iso8601_timestamp.
+
+      - name: log_quarter
+        sql: log_quarter
+        type: string
+
+      - name: log_year
+        sql: log_year
+        type: string
+
+      - name: active_days
+        sql: active_days
+        type: number
+
+      - name: recharge_days
+        sql: recharge_days
+        type: number
+
+      - name: is_recharge_month
+        sql: "CASE WHEN {CUBE}.is_recharge = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: first_role_class
+        sql: ingame_first_active_role_class
+        type: string
+
+      - name: last_role_class
+        sql: ingame_last_active_role_class
+        type: string
+
+      - name: min_role_level
+        sql: ingame_min_active_role_level
+        type: number
+
+      - name: max_role_level
+        sql: ingame_max_active_role_level
+        type: number
+
+      - name: last_role_level
+        sql: ingame_last_active_role_level
+        type: number
+
+      - name: first_country_code
+        sql: ingame_first_active_country_code
+        type: string
+
+      - name: last_country_code
+        sql: ingame_last_active_country_code
+        type: string
+
+      - name: first_os_platform
+        sql: ingame_first_active_os_platform
+        type: string
+
+      - name: last_os_platform
+        sql: ingame_last_active_os_platform
+        type: string
+
+      - name: first_server_id
+        sql: ingame_first_active_server_id
+        type: string
+
+      - name: last_server_id
+        sql: ingame_last_active_server_id
+        type: string
+
+      - name: total_online_time_sec
+        sql: total_online_time
+        type: number
+
+      - name: max_fighting_power
+        sql: ingame_max_active_fighting_power
+        type: number
+
+      - name: first_active_month
+        sql: first_active_month_lt
+        type: string
+        description: >
+          Lifetime first active month (YYYY-MM) per user — derived via
+          MIN(first_day_of_month) OVER (PARTITION BY user_id). Same value
+          repeats on every row for a given user. Use as "register_month"
+          for cohort classification.
+
+      - name: was_active_prev_month
+        sql: was_active_prev_month
+        type: boolean
+        description: >
+          TRUE if the same user has a row for log_month - 1. Derived via LAG.
+
+      - name: cohort_type
+        type: string
+        description: >
+          User-month cohort classification anchored on log_month:
+            new    = first_active_month_lt = log_month
+            old    = first_active_month_lt < log_month AND was_active_prev_month
+            return = first_active_month_lt < (log_month - 1) AND NOT was_active_prev_month
+            other  = edge cases (e.g. registered prev month but no row prev month — shouldn't occur with consistent data)
+        case:
+          when:
+            - sql: "{CUBE}.first_active_month_lt = date_format({CUBE}.first_day_of_month, '%Y-%m')"
+              label: new
+            - sql: "{CUBE}.first_active_month_lt < date_format({CUBE}.first_day_of_month, '%Y-%m') AND {CUBE}.was_active_prev_month"
+              label: old
+            - sql: "{CUBE}.first_active_month_lt < date_format({CUBE}.first_day_of_month - INTERVAL '1' MONTH, '%Y-%m') AND NOT {CUBE}.was_active_prev_month"
+              label: return
+          else:
+            label: other
+
+    measures:
+      - name: rows
+        type: count
+        description: Total user-month rows
+
+      - name: mau
+        type: count_distinct_approx
+        sql: user_id
+        description: Monthly active users (HLL approx_distinct)
+
+      - name: active_days_total
+        sql: active_days
+        type: sum
+
+      - name: online_time_sec_total
+        sql: total_online_time
+        type: sum
+
+      - name: recharging_users
+        type: count_distinct_approx
+        sql: user_id
+        filters:
+          - sql: "{CUBE}.is_recharge = 1"
+
+    segments:
+      - name: this_month
+        sql: "{CUBE}.first_day_of_month = DATE_TRUNC('month', CURRENT_DATE)"
+
+      - name: prev_month
+        sql: "{CUBE}.first_day_of_month = DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1' MONTH"
+
+      - name: last_3_months
+        sql: "{CUBE}.first_day_of_month >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '3' MONTH"
