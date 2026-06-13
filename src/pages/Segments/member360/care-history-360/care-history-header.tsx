@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import type { CsTicketsPayload } from '../../../../api/segment-cs-care-member';
 import { fmtVnd, fmtPct } from '../../detail/tabs/care/care-ui-atoms';
+import { InfoTip } from './care-history-info-tip';
 
 export type CareView = 'inbox' | 'timeline';
 
@@ -19,10 +20,13 @@ interface Props {
   onViewChange: (v: CareView) => void;
 }
 
-function Kpi({ label, value, tone, title }: { label: string; value: string; tone?: string; title?: string }): ReactElement {
+function Kpi({ label, value, tone, hint }: { label: string; value: string; tone?: string; hint?: string }): ReactElement {
   return (
-    <div title={title} style={title ? { cursor: 'help' } : undefined}>
-      <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>{label}</div>
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+        {label}
+        {hint && <InfoTip text={hint} />}
+      </div>
       <div style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em', color: tone ?? 'var(--text-primary)' }}>{value}</div>
     </div>
   );
@@ -66,7 +70,7 @@ export function CareHistoryHeader({ payload, view, onViewChange }: Props): React
             <Kpi
               label={t('segments.detail.care.vipTier', { defaultValue: 'VIP tier' })}
               value={`${vip.tierId}${vip.vipGameProportion != null ? ` · ${vip.vipGameProportion}` : ''}`}
-              title={
+              hint={
                 vip.vipGameProportion != null
                   ? t('segments.detail.care.vipTierHelp', {
                       defaultValue:
