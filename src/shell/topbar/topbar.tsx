@@ -1,7 +1,7 @@
 /**
  * Topbar — sticky 56px chrome inside <main>.
  * Layout: Breadcrumb (flex 1) | trailing slot | fixedTrailing (GamePicker) |
- *         AskCubeFab (when fabVisible) | Search input | NotificationBell | Avatar.
+ *         AskCubeFab (when fabVisible) | Search input | WhatsNewBell | Avatar.
  * Backdrop blur w/ opaque fallback; sits below AntD modal portals (z 1000+).
  */
 import React from 'react';
@@ -11,8 +11,7 @@ import { useCsFlowNav } from './cs-flow-nav';
 import { SearchTrigger } from './search-trigger';
 import { AvatarMenu } from './avatar-menu';
 import { TopbarTrailingContext } from './topbar-trailing-context';
-import { NotificationBell } from '../../components/Header/notification-bell';
-import { AnomalyBell } from '../anomaly-bell';
+import { WhatsNewBell } from '../../pages/WhatsNew/whats-new-bell';
 import { AskCubeFab } from '../chat-overlay/ask-cube-fab';
 import { useChatSurfaces } from '../chat-overlay/use-chat-surfaces';
 import { setOpen } from '../chat-overlay/chat-panel-open-store';
@@ -58,8 +57,7 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
         )}
         <SearchTrigger onOpen={onSearchOpen} />
       </div>
-      <AnomalyBell />
-      <NotificationBell />
+      <WhatsNewBell />
       <AvatarMenu />
     </header>
   );

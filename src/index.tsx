@@ -59,6 +59,10 @@ const AnomalyInboxPage = loadable(() =>
   import('./pages/Liveops/anomaly-inbox').then((m) => ({ default: m.AnomalyInboxPage }))
 );
 
+const WhatsNewPage = loadable(() =>
+  import('./pages/WhatsNew').then((m) => ({ default: m.WhatsNewPage }))
+);
+
 const CohortRetentionPage = loadable(() =>
   import('./pages/Liveops/cohort').then((m) => ({ default: m.CohortRetentionPage }))
 );
@@ -231,6 +235,7 @@ ReactDOM.render(
                 <SegmentsPage />
               </KeepAliveRoute>
               <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
+              <Route key="whats-new" exact path="/whats-new" component={WhatsNewPage} />
               <Route key="liveops-cohort" exact path="/liveops/cohort" component={CohortRetentionPage} />
               <Route key="liveops" exact path="/liveops" component={LiveopsPage} />
               {/* Switch so only the FIRST match in this family renders. Without it,

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>What's New · Inbox design variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-200:#e5e5e5; --neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3; --neutral-500:#737373; --neutral-600:#525252; --neutral-700:#404040;
+    --neutral-800:#262626; --neutral-900:#171717;
+    --orange-50:#fff7ed; --orange-100:#ffedd5; --orange-500:#f97316; --orange-600:#f05a22; --orange-700:#f54a00;
+    --brand:var(--orange-600); --brand-hover:var(--orange-700); --brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50); --bg-card:#fff; --bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200); --border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700); --text-muted:var(--neutral-500);
+    --text-on-brand:#fff;
+    --success-soft:#d1fae5; --success-ink:#047857; --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --warning-soft:#fef3c7; --warning-ink:#92400e; --muted-soft:#f5f5f5; --muted-ink:#525252;
+    --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-2xl:16px; --radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:var(--font-sans); background:var(--bg-app); color:var(--text-primary); -webkit-font-smoothing:antialiased; }
+
+  /* ---- chrome ---- */
+  .switcher { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:6px;
+    padding:10px 16px; background:rgba(255,255,255,.85); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border-card); }
+  .switcher .label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-right:6px; }
+  .switcher button { font-family:inherit; font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:var(--radius-full);
+    border:1px solid var(--border-card); background:var(--bg-card); color:var(--text-secondary); cursor:pointer; transition:all .12s; }
+  .switcher button:hover { background:var(--bg-muted); }
+  .switcher button.active { background:var(--brand); color:var(--text-on-brand); border-color:var(--brand); }
+
+  .topbar { height:56px; display:flex; align-items:center; gap:10px; padding:0 24px;
+    background:rgba(255,255,255,.8); border-bottom:1px solid var(--border-card); }
+  .topbar .crumb { font-size:13px; color:var(--text-muted); flex:1; }
+  .topbar .crumb b { color:var(--text-primary); font-weight:600; }
+  .bell { position:relative; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+    border-radius:var(--radius-md); color:var(--text-secondary); cursor:pointer; }
+  .bell:hover { background:var(--bg-muted); }
+  .bell .dot { position:absolute; top:3px; right:3px; min-width:16px; height:16px; padding:0 4px; border-radius:var(--radius-full);
+    background:var(--brand); color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center;
+    box-shadow:0 0 0 2px var(--bg-card); }
+  .avatar { width:30px; height:30px; border-radius:var(--radius-full); background:linear-gradient(135deg,var(--orange-500),var(--orange-700)); }
+
+  .stage { display:none; }
+  .stage.active { display:block; }
+  .wrap { max-width:920px; margin:0 auto; padding:28px 24px 80px; }
+
+  .page-head { display:flex; align-items:flex-start; gap:14px; margin-bottom:6px; }
+  .page-head .icn { width:40px; height:40px; border-radius:var(--radius-xl); background:var(--brand-soft); color:var(--brand);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .eyebrow { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--brand); margin:2px 0 2px; }
+  h1.title { margin:0; font-size:22px; font-weight:700; letter-spacing:-.01em; }
+  .sub { margin:4px 0 0; font-size:13.5px; color:var(--text-muted); }
+  .toolbar { display:flex; align-items:center; gap:8px; margin:20px 0 18px; }
+  .seg { display:inline-flex; background:var(--bg-muted); border-radius:var(--radius-full); padding:3px; }
+  .seg button { border:none; background:transparent; font-family:inherit; font-size:12.5px; font-weight:600; color:var(--text-muted);
+    padding:5px 12px; border-radius:var(--radius-full); cursor:pointer; }
+  .seg button.on { background:var(--bg-card); color:var(--text-primary); box-shadow:var(--shadow-sm); }
+  .markall { margin-left:auto; font-size:12.5px; font-weight:600; color:var(--brand); background:none; border:none; cursor:pointer; }
+
+  .tag { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600; letter-spacing:.02em;
+    padding:2px 8px; border-radius:var(--radius-full); text-transform:none; }
+  .tag.new { background:var(--success-soft); color:var(--success-ink); }
+  .tag.improved { background:var(--info-soft); color:var(--info-ink); }
+  .tag.fix { background:var(--warning-soft); color:var(--warning-ink); }
+  .tag.area { background:var(--muted-soft); color:var(--muted-ink); }
+  .date { font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .unread-dot { width:8px; height:8px; border-radius:50%; background:var(--brand); flex-shrink:0; }
+
+  .shot { border-radius:var(--radius-lg); border:1px solid var(--border-card); aspect-ratio:16/9; overflow:hidden;
+    position:relative; background:linear-gradient(135deg,#fff,var(--neutral-100)); }
+  .shot .mock { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .shot .chip { font-size:11px; font-weight:600; color:var(--text-muted); background:rgba(255,255,255,.7);
+    padding:4px 10px; border-radius:var(--radius-full); border:1px solid var(--border-card); }
+  .shot .bars { position:absolute; left:14px; right:14px; bottom:14px; display:flex; gap:6px; align-items:flex-end; height:46%; }
+  .shot .bars span { flex:1; border-radius:3px 3px 0 0; background:linear-gradient(180deg,var(--orange-400,#fb923c),var(--orange-600)); opacity:.55; }
+
+  .btn { display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:12.5px; font-weight:600;
+    padding:7px 14px; border-radius:var(--radius-md); border:none; cursor:pointer; }
+  .btn.primary { background:var(--brand); color:var(--text-on-brand); }
+  .btn.primary:hover { background:var(--brand-hover); }
+  .btn.ghost { background:var(--bg-card); border:1px solid var(--border-card); color:var(--text-secondary); }
+  .body-text { font-size:13.5px; line-height:1.6; color:var(--text-secondary); }
+  .body-text strong { color:var(--text-primary); }
+
+  svg { display:block; }
+
+  /* ===== Variant A — Changelog timeline ===== */
+  .tl { position:relative; padding-left:30px; }
+  .tl::before { content:''; position:absolute; left:7px; top:6px; bottom:0; width:2px; background:var(--border-card); }
+  .tl-item { position:relative; padding-bottom:30px; }
+  .tl-item::before { content:''; position:absolute; left:-30px; top:4px; width:16px; height:16px; border-radius:50%;
+    background:var(--bg-card); border:2px solid var(--border-strong); }
+  .tl-item.unread::before { border-color:var(--brand); background:var(--brand); box-shadow:0 0 0 4px var(--brand-soft); }
+  .tl-card { background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-xl); padding:16px 18px;
+    box-shadow:var(--shadow-sm); }
+  .tl-card.unread { border-color:var(--orange-200,#fed7aa); }
+  .tl-meta { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .tl-card h3 { margin:0 0 6px; font-size:16px; font-weight:700; }
+  .tl-grid { display:grid; grid-template-columns:1fr 220px; gap:16px; align-items:start; }
+  @media(max-width:680px){ .tl-grid{ grid-template-columns:1fr; } }
+  .tl-actions { margin-top:12px; display:flex; gap:8px; }
+
+  /* ===== Variant B — Feature cards (hero shot) ===== */
+  .cards { display:grid; gap:18px; }
+  .fcard { background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-2xl); overflow:hidden;
+    box-shadow:var(--shadow-sm); transition:box-shadow .15s, transform .15s; }
+  .fcard:hover { box-shadow:var(--shadow-md); transform:translateY(-1px); }
+  .fcard .hero { aspect-ratio:21/9; border:none; border-bottom:1px solid var(--border-card); border-radius:0; }
+  .fcard .pad { padding:16px 20px 18px; }
+  .fcard .row1 { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .fcard h3 { margin:0 0 6px; font-size:17px; font-weight:700; letter-spacing:-.01em; }
+  .fcard .foot { display:flex; align-items:center; margin-top:14px; gap:8px; }
+
+  /* ===== Variant C — Master / detail reader ===== */
+  .reader { display:grid; grid-template-columns:300px 1fr; gap:0; background:var(--bg-card);
+    border:1px solid var(--border-card); border-radius:var(--radius-xl); overflow:hidden; box-shadow:var(--shadow-sm); min-height:560px; }
+  @media(max-width:720px){ .reader{ grid-template-columns:1fr; } .reader .detail{ display:none; } }
+  .rlist { border-right:1px solid var(--border-card); overflow:auto; }
+  .rrow { display:flex; gap:10px; align-items:flex-start; padding:13px 14px; border-bottom:1px solid var(--border-card); cursor:pointer; }
+  .rrow:hover { background:var(--bg-muted); }
+  .rrow.sel { background:var(--brand-soft); box-shadow:inset 3px 0 0 var(--brand); }
+  .rrow .rmeta { min-width:0; flex:1; }
+  .rrow h4 { margin:0 0 3px; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rrow p { margin:0; font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .detail { padding:24px 28px; overflow:auto; }
+  .detail .dhead { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .detail h2 { margin:6px 0 4px; font-size:21px; font-weight:700; letter-spacing:-.01em; }
+  .detail .dshot { margin:18px 0; aspect-ratio:16/9; }
+  .detail ul { padding-left:18px; margin:10px 0; }
+  .detail li { margin:5px 0; }
+</style>
+</head>
+<body>
+  <div class="switcher">
+    <span class="label">What's New · variant</span>
+    <button class="active" data-stage="A">A · Changelog timeline</button>
+    <button data-stage="B">B · Feature cards</button>
+    <button data-stage="C">C · Master–detail reader</button>
+  </div>
+
+  <!-- shared topbar mock (merged bell) -->
+  <div class="topbar">
+    <span class="crumb"><b>What's New</b> · feature releases</span>
+    <span class="bell" title="3 new features">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span class="dot">3</span>
+    </span>
+    <span class="avatar"></span>
+  </div>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="stage active" id="stage-A">
+    <div class="wrap">
+      <div class="page-head">
+        <span class="icn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></span>
+        <div>
+          <div class="eyebrow">Product updates</div>
+          <h1 class="title">What's New</h1>
+          <p class="sub">New features and improvements across cube-playground. <strong style="color:var(--text-secondary)">3 unread</strong>.</p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <span class="seg"><button class="on">All</button><button>Unread</button></span>
+        <button class="markall">Mark all read</button>
+      </div>
+
+      <div class="tl">
+        <div class="tl-item unread">
+          <div class="tl-card unread">
+            <div class="tl-grid">
+              <div>
+                <div class="tl-meta"><span class="unread-dot"></span><span class="tag new">New</span><span class="tag area">Segments</span><span class="date">Jun 14, 2026</span></div>
+                <h3>Lakehouse Snapshot Inbox</h3>
+                <p class="body-text">Track the nightly membership snapshot in real time — <strong>per-segment breakdown</strong>, a live-run indicator, owner provenance, and run-level error surfacing when the lakehouse is unreachable.</p>
+                <div class="tl-actions"><button class="btn primary">Open Snapshots →</button><button class="btn ghost">Mark read</button></div>
+              </div>
+              <div class="shot"><div class="bars"><span style="height:40%"></span><span style="height:70%"></span><span style="height:55%"></span><span style="height:90%"></span><span style="height:62%"></span></div><div class="mock"><span class="chip">Admin · Snapshots</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tl-item unread">
+          <div class="tl-card unread">
+            <div class="tl-grid">
+              <div>
+                <div class="tl-meta"><span class="unread-dot"></span><span class="tag new">New</span><span class="tag area">Catalog</span><span class="date">Jun 9, 2026</span></div>
+                <h3>Metric Drift Center</h3>
+                <p class="body-text">Find and fix broken metric references in one place — root-cause grouping, one-click <strong>repoint-ref</strong>, and mark-N/A for retired members.</p>
+                <div class="tl-actions"><button class="btn primary">Open Drift Center →</button><button class="btn ghost">Mark read</button></div>
+              </div>
+              <div class="shot"><div class="mock"><span class="chip">Catalog · Drift</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-card">
+            <div class="tl-grid">
+              <div>
+                <div class="tl-meta"><span class="tag improved">Improved</span><span class="tag area">Segments</span><span class="date">Jun 3, 2026</span></div>
+                <h3>Segment Care tab + CS tickets</h3>
+                <p class="body-text">Each segment now shows linked CS tickets joined from the lakehouse, with sentiment and AI labels.</p>
+                <div class="tl-actions"><button class="btn primary">Explore Segments →</button></div>
+              </div>
+              <div class="shot"><div class="mock"><span class="chip">Segments · Care</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="stage" id="stage-B">
+    <div class="wrap">
+      <div class="page-head">
+        <span class="icn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></span>
+        <div>
+          <div class="eyebrow">Product updates</div>
+          <h1 class="title">What's New</h1>
+          <p class="sub">The latest features, with a peek at each one before you dive in.</p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <span class="seg"><button class="on">All</button><button>Unread</button></span>
+        <button class="markall">Mark all read</button>
+      </div>
+
+      <div class="cards">
+        <div class="fcard">
+          <div class="shot hero"><div class="bars"><span style="height:38%"></span><span style="height:66%"></span><span style="height:52%"></span><span style="height:88%"></span><span style="height:60%"></span><span style="height:74%"></span></div><div class="mock"><span class="chip">Admin · Snapshots</span></div></div>
+          <div class="pad">
+            <div class="row1"><span class="unread-dot"></span><span class="tag new">New</span><span class="tag area">Segments</span><span class="date" style="margin-left:auto">Jun 14, 2026</span></div>
+            <h3>Lakehouse Snapshot Inbox</h3>
+            <p class="body-text">Watch the nightly membership snapshot land in real time — per-segment breakdown, live-run indicator, and owner provenance.</p>
+            <div class="foot"><button class="btn primary">Try it →</button><button class="btn ghost">Mark read</button></div>
+          </div>
+        </div>
+        <div class="fcard">
+          <div class="shot hero"><div class="mock"><span class="chip">Catalog · Drift Center</span></div></div>
+          <div class="pad">
+            <div class="row1"><span class="unread-dot"></span><span class="tag new">New</span><span class="tag area">Catalog</span><span class="date" style="margin-left:auto">Jun 9, 2026</span></div>
+            <h3>Metric Drift Center</h3>
+            <p class="body-text">Find and fix broken metric references — root-cause grouping, one-click repoint-ref, and mark-N/A.</p>
+            <div class="foot"><button class="btn primary">Try it →</button><button class="btn ghost">Mark read</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="stage" id="stage-C">
+    <div class="wrap" style="max-width:1040px">
+      <div class="page-head">
+        <span class="icn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></span>
+        <div>
+          <div class="eyebrow">Product updates</div>
+          <h1 class="title">What's New</h1>
+          <p class="sub">Browse releases on the left, read the full announcement on the right.</p>
+        </div>
+      </div>
+      <div class="toolbar"><span class="seg"><button class="on">All</button><button>Unread</button></span><button class="markall">Mark all read</button></div>
+
+      <div class="reader">
+        <div class="rlist">
+          <div class="rrow sel"><span class="unread-dot"></span><div class="rmeta"><h4>Lakehouse Snapshot Inbox</h4><p>Jun 14 · Segments · New</p></div></div>
+          <div class="rrow"><span class="unread-dot"></span><div class="rmeta"><h4>Metric Drift Center</h4><p>Jun 9 · Catalog · New</p></div></div>
+          <div class="rrow"><span style="width:8px"></span><div class="rmeta"><h4>Segment Care tab + CS tickets</h4><p>Jun 3 · Segments · Improved</p></div></div>
+          <div class="rrow"><span style="width:8px"></span><div class="rmeta"><h4>Member 360 coverage panel</h4><p>May 28 · Admin · New</p></div></div>
+          <div class="rrow"><span style="width:8px"></span><div class="rmeta"><h4>Cube Join Graph default view</h4><p>May 24 · Catalog · Improved</p></div></div>
+        </div>
+        <div class="detail">
+          <div class="dhead"><span class="tag new">New</span><span class="tag area">Segments</span><span class="date">June 14, 2026</span></div>
+          <h2>Lakehouse Snapshot Inbox</h2>
+          <p class="body-text">The nightly segment-membership snapshot now has a live operational view in the Admin hub.</p>
+          <div class="shot dshot"><div class="bars"><span style="height:40%"></span><span style="height:70%"></span><span style="height:55%"></span><span style="height:90%"></span><span style="height:62%"></span><span style="height:78%"></span></div><div class="mock"><span class="chip">Admin · Segment refreshes · Snapshots</span></div></div>
+          <p class="body-text"><strong>What's included:</strong></p>
+          <ul class="body-text">
+            <li>Per-segment breakdown — which segments landed, row counts, skips and errors.</li>
+            <li>A <strong>live-run indicator</strong> that streams segments in as they land.</li>
+            <li>Owner provenance so you can see whose segment each row belongs to.</li>
+            <li>Run-level error surfacing when the lakehouse is unreachable.</li>
+          </ul>
+          <div style="margin-top:18px; display:flex; gap:8px;"><button class="btn primary">Open Snapshots →</button><button class="btn ghost">Mark read</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  document.querySelectorAll('.switcher button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.switcher button').forEach(function(x){ x.classList.remove('active'); });
+      b.classList.add('active');
+      var s = b.getAttribute('data-stage');
+      document.querySelectorAll('.stage').forEach(function(st){ st.classList.remove('active'); });
+      document.getElementById('stage-'+s).classList.add('active');
+      window.scrollTo({top:0});
+    });
+  });
+  // master-detail row select (visual only)
+  document.querySelectorAll('#stage-C .rrow').forEach(function(r){
+    r.addEventListener('click', function(){
+      document.querySelectorAll('#stage-C .rrow').forEach(function(x){ x.classList.remove('sel'); });
+      r.classList.add('sel');
+    });
+  });
+</script>
+</body>
+</html>
