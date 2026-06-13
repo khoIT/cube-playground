@@ -79,7 +79,16 @@ export async function resolveMemberNamesLive(
     if (!identityDim) return out;
 
     const prefix = resolveGamePrefixForWorkspace(row.workspace, row.game_id);
-    const preset = pickPresetForSegment(logicalCube(row.cube, prefix), null);
+    // The name column lives on the segment's cube preset, OR — when the identity
+    // is join-inherited from another cube (e.g. an active_daily segment whose
+    // identity resolves to mf_users.user_id) — on the identity-ANCHOR cube's
+    // preset. Mirror the refresh job's pivot (refresh-segment.ts), else cubes
+    // without their own member columns resolve no name and the query is skipped.
+    const anchorCube = identityDim.includes('.') ? identityDim.split('.')[0] : null;
+    const preset = pickPresetForSegment(
+      logicalCube(row.cube, prefix),
+      anchorCube ? logicalCube(anchorCube, prefix) : null,
+    );
     const memberColumns = (preset?.memberColumns ?? []) as Array<Record<string, unknown>>;
     // No name-ish column in this game's preset → nothing to resolve; skip the query.
     if (!memberColumns.some(memberColumnIsNameish)) return out;

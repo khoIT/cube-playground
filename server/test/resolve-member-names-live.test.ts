@@ -13,8 +13,9 @@ vi.mock('../src/services/member-profile-runner.js', () => ({
   MEMBER_PROFILE_LIMIT: 1000,
   computeMemberProfiles: (...a: unknown[]) => computeMock(...a),
 }));
+const identityMock = vi.fn(async () => 'mf_users.uid');
 vi.mock('../src/services/resolve-identity-field.js', () => ({
-  resolveIdentityField: vi.fn(async () => 'mf_users.uid'),
+  resolveIdentityField: (...a: unknown[]) => identityMock(...a),
 }));
 vi.mock('../src/services/resolve-game-prefix.js', () => ({
   resolveGamePrefixForWorkspace: () => null,
@@ -53,6 +54,8 @@ beforeEach(() => {
   computeMock.mockReset();
   presetMock.mockReset();
   presetMock.mockReturnValue(NAME_PRESET);
+  identityMock.mockReset();
+  identityMock.mockResolvedValue('mf_users.uid');
 });
 
 describe('resolveMemberNamesLive', () => {
@@ -65,6 +68,16 @@ describe('resolveMemberNamesLive', () => {
     expect(out.get('111')).toBe('Tô Phi');
     expect(out.get('222')).toBe('OmManiPadMeHum');
     expect(out.has('333')).toBe(false); // not returned → absent (caller keeps uid)
+  });
+
+  it('pivots to the identity-anchor cube preset when the segment cube has no member columns', async () => {
+    // active_daily segment whose identity is join-inherited from mf_users — the
+    // name column lives on the mf_users preset, reached via the anchor fallback.
+    identityMock.mockResolvedValue('mf_users.user_id');
+    computeMock.mockResolvedValue(profiles([{ uid: '111', name: 'Bạc Cận Ngôn' }]));
+    const out = await resolveMemberNamesLive({ ...ROW, cube: 'active_daily' }, ['111']);
+    expect(presetMock).toHaveBeenCalledWith('active_daily', 'mf_users');
+    expect(out.get('111')).toBe('Bạc Cận Ngôn');
   });
 
   it('drops null/empty names', async () => {
