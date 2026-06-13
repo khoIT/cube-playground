@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Experiment Command Center — cube-playground</title>
+
+<!--
+  HI-FI PROTOTYPE · Experiment Command Center (internal game-ops demo)
+  ----------------------------------------------------------------------
+  Junior-designer reasoning (assumptions surfaced, change before React build):
+  • Grounded in cube-playground's REAL design system: tokens copied verbatim
+    from src/theme/tokens.css (neutral scale + single orange accent --brand,
+    Inter, semantic soft/ink status pills, --radius/--shadow scale).
+  • Anti-slop: ONE accent (orange) used only for the active loop stage + primary
+    actions. No gradients, no emoji icons, no decorative icons, no left-border
+    accent cards. Density is EARNED — this product's value is measurement, so
+    numbers, CIs and exposure funnels are the content, not decoration.
+  • HERO CONCEPT = the closed loop. A persistent 5-stage stepper is the spine of
+    the whole tool so leadership reads "Segment → Assign → CS deliver → Sync-back
+    → Measure" in one glance. Clicking a stage navigates.
+  • Demo data is synthetic but realistic (CFM_VN lapsing-whale win-back). Where a
+    real source is required, the label names the table (pmt_user_daily etc.).
+  • NO raw PII anywhere in the CS queue — masked ids + reachability flags only,
+    per the privacy-by-design decision.
+-->
+
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<style>
+  /* --- tokens copied from src/theme/tokens.css (semantic subset) --- */
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
+    --neutral-800:#262626;--neutral-900:#171717;
+    --orange-50:#fff7ed;--orange-100:#ffedd5;--orange-600:#f05a22;--orange-700:#f54a00;
+    --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+    --text-on-brand:#fff;
+    --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+    --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5;--muted-ink:#525252;
+    --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-2xl:16px;--radius-full:9999px;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.04);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --positive:#15803d;--negative:#b91c1c;
+    --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--font-sans);background:var(--bg-app);color:var(--text-primary);
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:var(--radius-full);border:2px solid var(--bg-app)}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const {useState} = React;
+
+/* ============================ demo data ============================ */
+const EXPERIMENT = {
+  id:'exp_2041', name:'CFM_VN · Lapsing Whale Win-back', game:'cfm_vn', status:'Running',
+  day:9, window:14, owner:'khoitn',
+  hypothesis:'A CS proactive outreach to top-quartile lifetime-value payers who lapsed 21–60 days lifts 14-day re-pay rate vs. an untouched holdout.',
+  metric:'14-day re-pay rate', metricSource:'billing.pmt_user_daily',
+  cohortSource:'billing.mf_payment_user_history',
+  exposureSource:'cs_ticket.cs_ticket_logs',
+  n:2400, treatment:1200, holdout:1200,
+  reachablePct:78, contacted:814,
+  ittTreat:18.4, ittHold:12.1, totTreat:24.2,
+};
+
+const EXPERIMENTS = [
+  {id:'exp_2041', name:'CFM_VN · Lapsing Whale Win-back', game:'cfm_vn', status:'Running', day:9, win:14, n:2400, lift:'+6.3pp', sig:true, metric:'14d re-pay'},
+  {id:'exp_2037', name:'JUS_VN · Cooling Mid-spender Care Call', game:'jus_vn', status:'Running', day:4, win:21, n:1810, lift:'+2.1pp', sig:false, metric:'21d re-pay'},
+  {id:'exp_2033', name:'CFM_VN · Post-refund Goodwill Outreach', game:'cfm_vn', status:'Readout', day:14, win:14, n:920, lift:'+9.4pp', sig:true, metric:'14d re-pay'},
+  {id:'exp_2028', name:'JUS_VN · New-payer D7 Welcome Touch', game:'jus_vn', status:'Draft', day:0, win:28, n:0, lift:'—', sig:null, metric:'D7→D28 LTV'},
+  {id:'exp_2019', name:'CFM_VN · VIP SLA Fast-track', game:'cfm_vn', status:'Archived', day:21, win:21, n:1500, lift:'+0.4pp', sig:false, metric:'repeat ticket'},
+];
+
+// cumulative re-pay rate by day, two arms (synthetic, monotonic)
+const SERIES_TREAT = [0,2.1,4.8,7.2,9.6,11.8,13.1,15.0,16.9,18.4];
+const SERIES_HOLD  = [0,1.4,2.9,4.4,5.9,7.1,8.3,9.6,11.0,12.1];
+
+// CS work queue rows — NO raw PII, masked ids + reachability + decision context
+const QUEUE = [
+  {id:'u_8f…3a91', tier:'P1', ltv:'48.2M₫', lastPay:'27d', reach:'Phone ✓ · Zalo ✓', status:'Contacted', csat:5, action:'Called + Zalo follow-up'},
+  {id:'u_2c…7b04', tier:'P1', ltv:'41.7M₫', lastPay:'34d', reach:'Phone ✓ · Zalo ✓', status:'Contacted', csat:4, action:'Zalo message'},
+  {id:'u_9d…1f55', tier:'P1', ltv:'39.0M₫', lastPay:'22d', reach:'Phone ✓', status:'In progress', csat:null, action:'Call attempt 1 (no answer)'},
+  {id:'u_4a…c2e8', tier:'P2', ltv:'31.5M₫', lastPay:'51d', reach:'Zalo ✓', status:'Queued', csat:null, action:'—'},
+  {id:'u_7e…99b1', tier:'P2', ltv:'28.8M₫', lastPay:'44d', reach:'No verified contact', status:'Unreachable', csat:null, action:'Skipped — no channel'},
+  {id:'u_1b…40dd', tier:'P1', ltv:'52.6M₫', lastPay:'29d', reach:'Phone ✓ · Zalo ✓', status:'Contacted', csat:5, action:'Called'},
+];
+
+// cohort-360 rows
+const COHORT = [
+  {id:'u_8f…3a91', arm:'Treatment', exposed:'Yes · d2', csat:5, prePay:'0', postPay:'2 · 1.2M₫', outcome:'Re-paid'},
+  {id:'u_1b…40dd', arm:'Treatment', exposed:'Yes · d3', csat:5, prePay:'0', postPay:'1 · 0.8M₫', outcome:'Re-paid'},
+  {id:'u_9d…1f55', arm:'Treatment', exposed:'No', csat:null, prePay:'0', postPay:'0', outcome:'No re-pay'},
+  {id:'u_6h…22ac', arm:'Holdout', exposed:'—', csat:null, prePay:'0', postPay:'1 · 0.5M₫', outcome:'Re-paid'},
+  {id:'u_3k…81fe', arm:'Holdout', exposed:'—', csat:null, prePay:'0', postPay:'0', outcome:'No re-pay'},
+];
+
+/* ============================ primitives ============================ */
+const card = {background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-xs)'};
+const eyebrow = {fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-muted)'};
+
+function Pill({bg,ink,children}){
+  return <span style={{fontSize:11,fontWeight:600,borderRadius:'var(--radius-full)',padding:'2px 9px',background:bg,color:ink,whiteSpace:'nowrap'}}>{children}</span>;
+}
+function StatusPill({s}){
+  const map={Running:['var(--success-soft)','var(--success-ink)'],Readout:['var(--info-soft)','var(--info-ink)'],
+    Draft:['var(--muted-soft)','var(--muted-ink)'],Archived:['var(--muted-soft)','var(--muted-ink)'],
+    Contacted:['var(--success-soft)','var(--success-ink)'],'In progress':['var(--warning-soft)','var(--warning-ink)'],
+    Queued:['var(--muted-soft)','var(--muted-ink)'],Unreachable:['var(--destructive-soft)','var(--destructive-ink)']};
+  const [bg,ink]=map[s]||map.Queued; return <Pill bg={bg} ink={ink}>{s}</Pill>;
+}
+function Metric({label,value,sub,tone}){
+  return <div style={{...card,padding:'16px 18px',flex:1,minWidth:0}}>
+    <div style={eyebrow}>{label}</div>
+    <div style={{fontSize:26,fontWeight:700,marginTop:6,color:tone||'var(--text-primary)',fontVariantNumeric:'tabular-nums'}}>{value}</div>
+    {sub&&<div style={{fontSize:12,color:'var(--text-muted)',marginTop:3}}>{sub}</div>}
+  </div>;
+}
+function Btn({children,kind='ghost',onClick}){
+  const base={fontFamily:'inherit',fontSize:13,fontWeight:600,padding:'8px 14px',borderRadius:'var(--radius-md)',cursor:'pointer',border:'1px solid transparent'};
+  const kinds={primary:{background:'var(--brand)',color:'var(--text-on-brand)'},
+    ghost:{background:'var(--bg-card)',color:'var(--text-secondary)',borderColor:'var(--border-strong)'}};
+  return <button style={{...base,...kinds[kind]}} onClick={onClick}>{children}</button>;
+}
+const th = {textAlign:'left',fontSize:11,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'10px 14px',borderBottom:'1px solid var(--border-card)'};
+const td = {padding:'12px 14px',borderBottom:'1px solid var(--bg-muted)',fontSize:13};
+
+/* ============================ closed-loop stepper (the spine) ============================ */
+const STAGES=[
+  {key:'home',n:1,t:'Segment',d:'define cohort'},
+  {key:'builder',n:2,t:'Assign',d:'treatment / holdout'},
+  {key:'queue',n:3,t:'Deliver',d:'CS outreach'},
+  {key:'queue',n:4,t:'Sync-back',d:'cs_ticket_logs'},
+  {key:'scorecard',n:5,t:'Measure',d:'pmt_user_daily'},
+];
+function LoopStepper({screen,go}){
+  const activeN = screen==='home'?1:screen==='builder'?2:screen==='queue'?3:screen==='scorecard'?5:screen==='cohort'?5:1;
+  return <div style={{display:'flex',alignItems:'center',gap:0,padding:'14px 28px',background:'var(--bg-card)',borderBottom:'1px solid var(--border-card)',overflowX:'auto'}}>
+    <span style={{...eyebrow,marginRight:18,whiteSpace:'nowrap'}}>Closed loop</span>
+    {STAGES.map((s,i)=>{
+      const on = s.n===activeN || (activeN===5&&s.n===4);
+      return <React.Fragment key={i}>
+        <div onClick={()=>go(s.key)} style={{display:'flex',alignItems:'center',gap:9,cursor:'pointer',padding:'4px 6px',whiteSpace:'nowrap'}}>
+          <span style={{width:22,height:22,borderRadius:'var(--radius-full)',display:'grid',placeItems:'center',
+            fontSize:11,fontWeight:700,background:on?'var(--brand)':'var(--bg-muted)',color:on?'#fff':'var(--text-muted)',
+            border:on?'none':'1px solid var(--border-strong)'}}>{s.n}</span>
+          <span><span style={{fontSize:12.5,fontWeight:600,color:on?'var(--text-primary)':'var(--text-secondary)'}}>{s.t}</span>
+          <span style={{fontSize:11,color:'var(--text-muted)',marginLeft:7}}>{s.d}</span></span>
+        </div>
+        {i<STAGES.length-1 && <div style={{width:26,height:1,background:'var(--border-strong)',margin:'0 6px',flexShrink:0}}/>}
+      </React.Fragment>;
+    })}
+    {/* loop-back arc label */}
+    <div style={{marginLeft:14,display:'flex',alignItems:'center',gap:6,color:'var(--text-muted)',fontSize:11,whiteSpace:'nowrap'}}>
+      <span style={{fontSize:14}}>↻</span> learnings re-feed Segment
+    </div>
+  </div>;
+}
+
+/* ============================ line chart (hand-rolled SVG) ============================ */
+function CumChart(){
+  const W=560,H=220,pad=34, maxY=22, days=SERIES_TREAT.length-1;
+  const x=i=>pad+(i/days)*(W-pad-12);
+  const y=v=>H-pad-(v/maxY)*(H-pad-14);
+  const path=arr=>arr.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto'}}>
+    {[0,5.5,11,16.5,22].map((g,i)=><g key={i}>
+      <line x1={pad} x2={W-12} y1={y(g)} y2={y(g)} stroke="var(--border-card)" strokeWidth="1"/>
+      <text x={pad-8} y={y(g)+3} textAnchor="end" fontSize="10" fill="var(--text-muted)">{g}%</text>
+    </g>)}
+    {[0,3,6,9].map(d=><text key={d} x={x(d)} y={H-pad+16} textAnchor="middle" fontSize="10" fill="var(--text-muted)">d{d}</text>)}
+    <path d={path(SERIES_HOLD)} fill="none" stroke="var(--neutral-400)" strokeWidth="2.5" strokeDasharray="5 4"/>
+    <path d={path(SERIES_TREAT)} fill="none" stroke="var(--brand)" strokeWidth="2.5"/>
+    {SERIES_TREAT.map((v,i)=><circle key={i} cx={x(i)} cy={y(v)} r="2.6" fill="var(--brand)"/>)}
+    <circle cx={x(days)} cy={y(SERIES_TREAT[days])} r="4" fill="var(--brand)"/>
+    <circle cx={x(days)} cy={y(SERIES_HOLD[days])} r="4" fill="var(--neutral-400)"/>
+  </svg>;
+}
+
+/* ============================ screens ============================ */
+function PageHead({eye,title,right}){
+  return <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:20}}>
+    <div>
+      <div style={eyebrow}>{eye}</div>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginTop:5}}>
+        <h1 style={{fontSize:20,fontWeight:700,margin:0}}>{title}</h1>
+      </div>
+    </div>
+    {right}
+  </div>;
+}
+
+function Home({go}){
+  return <div>
+    <PageHead eye="Experiment Command Center" title="Experiments"
+      right={<Btn kind="primary" onClick={()=>go('builder')}>+ New experiment</Btn>}/>
+    <div style={{display:'flex',gap:12,marginBottom:20}}>
+      <Metric label="Running" value="2" sub="of 5 total"/>
+      <Metric label="Members under test" value="4,210" sub="across running experiments"/>
+      <Metric label="Best live lift" value="+6.3pp" sub="CFM_VN win-back · stat-sig" tone="var(--positive)"/>
+      <Metric label="Exposure rate" value="68%" sub="contacted / assigned (treated)"/>
+    </div>
+    <div style={card}>
+      <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border-card)',fontWeight:600,fontSize:13}}>All experiments</div>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr><th style={th}>Experiment</th><th style={th}>Game</th><th style={th}>Status</th><th style={th}>Primary metric</th><th style={th}>Progress</th><th style={{...th,textAlign:'right'}}>Lift vs holdout</th></tr></thead>
+        <tbody>{EXPERIMENTS.map(e=><tr key={e.id} onClick={()=>go(e.status==='Draft'?'builder':'scorecard')} style={{cursor:'pointer'}}>
+          <td style={{...td,fontWeight:600}}>{e.name}<div style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)',marginTop:2}}>{e.id}</div></td>
+          <td style={td}><Pill bg="var(--bg-muted)" ink="var(--muted-ink)">{e.game}</Pill></td>
+          <td style={td}><StatusPill s={e.status}/></td>
+          <td style={{...td,color:'var(--text-secondary)'}}>{e.metric}</td>
+          <td style={{...td,color:'var(--text-muted)',fontVariantNumeric:'tabular-nums'}}>{e.n? `d${e.day}/${e.win} · n=${e.n.toLocaleString()}`:'—'}</td>
+          <td style={{...td,textAlign:'right',fontWeight:700,fontVariantNumeric:'tabular-nums',
+            color:e.sig?'var(--positive)':e.lift==='—'?'var(--text-muted)':'var(--text-secondary)'}}>
+            {e.lift}{e.sig&&<span style={{marginLeft:6}}><Pill bg="var(--success-soft)" ink="var(--success-ink)">sig</Pill></span>}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>;
+}
+
+function Field({label,children,hint}){
+  return <div style={{marginBottom:18}}>
+    <div style={{fontSize:12.5,fontWeight:600,marginBottom:6}}>{label}</div>
+    {children}
+    {hint&&<div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:5}}>{hint}</div>}
+  </div>;
+}
+const inputBox={width:'100%',fontFamily:'inherit',fontSize:13,padding:'9px 11px',border:'1px solid var(--border-strong)',borderRadius:'var(--radius-md)',background:'var(--bg-card)',color:'var(--text-primary)'};
+
+function Builder({go}){
+  const [split,setSplit]=useState(50);
+  return <div style={{maxWidth:880}}>
+    <PageHead eye="Step 1–2 · Segment + Assign" title="New experiment"
+      right={<div style={{display:'flex',gap:8}}><Btn>Save draft</Btn><Btn kind="primary" onClick={()=>go('queue')}>Launch & build work queue</Btn></div>}/>
+    <div style={{display:'grid',gridTemplateColumns:'1.4fr 1fr',gap:16}}>
+      <div style={{...card,padding:'20px 22px'}}>
+        <Field label="Hypothesis"><textarea style={{...inputBox,minHeight:74,resize:'vertical'}} defaultValue={EXPERIMENT.hypothesis}/></Field>
+        <Field label="Target segment" hint="Pulled from the Segments product. Cohort source: billing.mf_payment_user_history.">
+          <div style={{...inputBox,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span>Lapsing whales — top-quartile lifetime ₫, last pay 21–60d</span><Pill bg="var(--brand-soft)" ink="var(--brand)">2,400 members</Pill></div>
+        </Field>
+        <Field label="Primary metric" hint="Outcome source: billing.pmt_user_daily (live to yesterday).">
+          <div style={{display:'flex',gap:10}}>
+            <select style={{...inputBox,flex:1}}><option>14-day re-pay rate</option><option>Revenue per member (14d)</option><option>Transactions (14d)</option></select>
+            <select style={{...inputBox,width:170}}><option>Higher is better</option></select>
+          </div>
+        </Field>
+        <Field label="Guardrail" hint="Auto-flag if treatment harms this vs holdout.">
+          <div style={inputBox}>Repeat-ticket rate (cs_ticket) · CSAT floor 3.5</div>
+        </Field>
+      </div>
+      <div style={{...card,padding:'20px 22px'}}>
+        <div style={eyebrow}>Assignment</div>
+        <div style={{fontSize:12.5,color:'var(--text-secondary)',margin:'8px 0 16px'}}>Deterministic hash split over the nightly segment-membership snapshot — stable across the window.</div>
+        <Field label={`Treatment / Holdout split — ${split}/${100-split}`}>
+          <input type="range" min="10" max="90" value={split} onChange={e=>setSplit(+e.target.value)} style={{width:'100%',accentColor:'var(--brand)'}}/>
+        </Field>
+        <div style={{display:'flex',gap:10,marginTop:6}}>
+          <div style={{flex:1,padding:'12px',borderRadius:'var(--radius-md)',background:'var(--brand-soft)',border:'1px solid var(--orange-100)'}}>
+            <div style={{...eyebrow,color:'var(--brand)'}}>Treatment</div>
+            <div style={{fontSize:22,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{Math.round(2400*split/100).toLocaleString()}</div>
+            <div style={{fontSize:11,color:'var(--text-muted)'}}>CS will reach out</div>
+          </div>
+          <div style={{flex:1,padding:'12px',borderRadius:'var(--radius-md)',background:'var(--bg-muted)',border:'1px solid var(--border-card)'}}>
+            <div style={eyebrow}>Holdout</div>
+            <div style={{fontSize:22,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{(2400-Math.round(2400*split/100)).toLocaleString()}</div>
+            <div style={{fontSize:11,color:'var(--text-muted)'}}>untouched control</div>
+          </div>
+        </div>
+        <div style={{marginTop:16,padding:'12px',borderRadius:'var(--radius-md)',background:'var(--info-soft)',color:'var(--info-ink)',fontSize:12}}>
+          <b>Reachability:</b> 78% of this cohort is phone-verified (vga_pii aggregate). Treatment-on-treated denominator will use actual CS contacts, not assignment.
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+function Queue({go}){
+  return <div>
+    <PageHead eye="Step 3–4 · Deliver + Sync-back" title="CS work queue — Lapsing Whale Win-back"
+      right={<div style={{display:'flex',gap:8,alignItems:'center'}}><Pill bg="var(--bg-muted)" ink="var(--muted-ink)">treatment arm · 1,200</Pill><Btn>Export for CS tool</Btn></div>}/>
+    <div style={{display:'flex',gap:12,marginBottom:18}}>
+      <Metric label="Assigned (treatment)" value="1,200"/>
+      <Metric label="Reachable" value="936" sub="78% · has verified channel"/>
+      <Metric label="Contacted (exposure)" value="814" sub="synced from cs_ticket_logs" tone="var(--brand)"/>
+      <Metric label="Avg CSAT" value="4.6" sub="cs_rating_processes"/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1.7fr 1fr',gap:16}}>
+      <div style={card}>
+        <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border-card)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontWeight:600,fontSize:13}}>Worklist</span>
+          <span style={{fontSize:11.5,color:'var(--text-muted)'}}>no raw PII · CS resolves contact in their own tool</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr><th style={th}>Member</th><th style={th}>Tier</th><th style={th}>Lifetime ₫</th><th style={th}>Last pay</th><th style={th}>Reachability</th><th style={th}>Status</th></tr></thead>
+          <tbody>{QUEUE.map(r=><tr key={r.id}>
+            <td style={{...td,fontFamily:'var(--font-mono)',fontSize:12}}>{r.id}</td>
+            <td style={td}><Pill bg={r.tier==='P1'?'var(--brand-soft)':'var(--bg-muted)'} ink={r.tier==='P1'?'var(--brand)':'var(--muted-ink)'}>{r.tier}</Pill></td>
+            <td style={{...td,fontVariantNumeric:'tabular-nums',fontWeight:600}}>{r.ltv}</td>
+            <td style={{...td,color:'var(--text-secondary)'}}>{r.lastPay}</td>
+            <td style={{...td,fontSize:12,color:r.reach.includes('No')?'var(--destructive-ink)':'var(--text-secondary)'}}>{r.reach}</td>
+            <td style={td}><StatusPill s={r.status}/></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div style={{...card,padding:'20px 22px',alignSelf:'start'}}>
+        <div style={eyebrow}>Outreach script — given to CS</div>
+        <ol style={{paddingLeft:18,margin:'12px 0',fontSize:13,color:'var(--text-secondary)',lineHeight:1.7}}>
+          <li>Greet as a valued long-time player; reference recent inactivity warmly, no spend pressure.</li>
+          <li>Confirm any account / payment friction (a common lapse cause).</li>
+          <li>Offer the standard returning-player support path.</li>
+          <li>Log the contact + outcome in the CS tool — <b>syncs back automatically</b>.</li>
+        </ol>
+        <div style={{marginTop:14,padding:'12px',borderRadius:'var(--radius-md)',background:'var(--bg-muted)',fontSize:12,color:'var(--text-secondary)'}}>
+          <b>How exposure is measured:</b> when CS logs the action, <span style={{fontFamily:'var(--font-mono)'}}>cs_ticket_logs</span> records action + staff + time + status. We match it back to this member → flags them <i>treated</i> for the scorecard.
+        </div>
+        <div style={{marginTop:12}}><Btn kind="primary" onClick={()=>go('scorecard')}>View live scorecard →</Btn></div>
+      </div>
+    </div>
+  </div>;
+}
+
+function Scorecard({go}){
+  const itt=(EXPERIMENT.ittTreat-EXPERIMENT.ittHold).toFixed(1);
+  const tot=(EXPERIMENT.totTreat-EXPERIMENT.ittHold).toFixed(1);
+  return <div>
+    <PageHead eye={`Step 5 · Measure · day ${EXPERIMENT.day} of ${EXPERIMENT.window}`} title="Scorecard — Lapsing Whale Win-back"
+      right={<div style={{display:'flex',gap:8,alignItems:'center'}}><StatusPill s="Running"/><Btn onClick={()=>go('cohort')}>Cohort 360 →</Btn></div>}/>
+    <div style={{display:'flex',gap:12,marginBottom:18}}>
+      <Metric label="ITT lift (assigned)" value={`+${itt}pp`} sub={`${EXPERIMENT.ittTreat}% vs ${EXPERIMENT.ittHold}% holdout`} tone="var(--positive)"/>
+      <Metric label="Treated-on-treated" value={`+${tot}pp`} sub={`${EXPERIMENT.totTreat}% contacted vs holdout`} tone="var(--positive)"/>
+      <Metric label="95% CI (ITT)" value="+3.1 … +9.5pp" sub="excludes 0 → significant"/>
+      <Metric label="p-value" value="0.004" sub="two-proportion z-test"/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1.5fr 1fr',gap:16}}>
+      <div style={{...card,padding:'18px 20px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+          <div style={{fontWeight:600,fontSize:13}}>Cumulative re-pay rate by day</div>
+          <div style={{display:'flex',gap:16,fontSize:12}}>
+            <span style={{color:'var(--brand)'}}>● Treatment</span>
+            <span style={{color:'var(--neutral-500)'}}>╌ Holdout</span>
+          </div>
+        </div>
+        <CumChart/>
+        <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:8}}>Outcome read from billing.pmt_user_daily, windowed by assignment date. Live to yesterday.</div>
+      </div>
+      <div style={{...card,padding:'18px 20px'}}>
+        <div style={{fontWeight:600,fontSize:13,marginBottom:14}}>Exposure funnel</div>
+        {[['Assigned to treatment',1200,100],['Reachable (verified channel)',936,78],['Contacted by CS',814,68],['Re-paid within 14d',197,16.4]].map(([l,v,p],i)=>
+          <div key={i} style={{marginBottom:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,marginBottom:5}}>
+              <span style={{color:'var(--text-secondary)'}}>{l}</span>
+              <span style={{fontWeight:600,fontVariantNumeric:'tabular-nums'}}>{v.toLocaleString()} · {p}%</span></div>
+            <div style={{height:8,background:'var(--bg-muted)',borderRadius:'var(--radius-full)',overflow:'hidden'}}>
+              <div style={{width:`${p}%`,height:'100%',background:i===3?'var(--positive)':'var(--brand)',opacity:1-i*0.12}}/></div>
+          </div>)}
+        <div style={{marginTop:6,padding:'11px 12px',borderRadius:'var(--radius-md)',background:'var(--warning-soft)',color:'var(--warning-ink)',fontSize:11.5}}>
+          Holdout re-pay = 12.1% (145/1,200). Lift is measured against this untouched baseline, not vs pre-period.
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+function Cohort(){
+  return <div>
+    <PageHead eye="Drilldown" title="Cohort 360 — who, exposed, and what happened"/>
+    <div style={card}>
+      <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border-card)',display:'flex',justifyContent:'space-between'}}>
+        <span style={{fontWeight:600,fontSize:13}}>Members</span>
+        <span style={{fontSize:11.5,color:'var(--text-muted)'}}>joins: assignment log · cs_ticket_logs · pmt_user_daily</span>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr><th style={th}>Member</th><th style={th}>Arm</th><th style={th}>Exposed (CS)</th><th style={th}>CSAT</th><th style={th}>Pre-window pay</th><th style={th}>Post-window pay</th><th style={th}>Outcome</th></tr></thead>
+        <tbody>{COHORT.map(r=><tr key={r.id}>
+          <td style={{...td,fontFamily:'var(--font-mono)',fontSize:12}}>{r.id}</td>
+          <td style={td}><Pill bg={r.arm==='Treatment'?'var(--brand-soft)':'var(--bg-muted)'} ink={r.arm==='Treatment'?'var(--brand)':'var(--muted-ink)'}>{r.arm}</Pill></td>
+          <td style={{...td,color:'var(--text-secondary)'}}>{r.exposed}</td>
+          <td style={td}>{r.csat?`${r.csat}/5`:'—'}</td>
+          <td style={{...td,color:'var(--text-muted)'}}>{r.prePay}</td>
+          <td style={{...td,fontVariantNumeric:'tabular-nums'}}>{r.postPay}</td>
+          <td style={td}>{r.outcome==='Re-paid'?<Pill bg="var(--success-soft)" ink="var(--success-ink)">Re-paid</Pill>:<Pill bg="var(--muted-soft)" ink="var(--muted-ink)">No re-pay</Pill>}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+    <div style={{...card,padding:'16px 20px',marginTop:16,fontSize:12.5,color:'var(--text-secondary)'}}>
+      <b>Reading this table:</b> Treatment members flagged <i>Exposed=No</i> (CS never reached them) are why ITT &lt; treated-on-treated. Holdout members can still re-pay organically — that's the baseline the lift is measured against.
+    </div>
+  </div>;
+}
+
+/* ============================ app shell ============================ */
+const NAV=[['home','Command Center'],['builder','Experiment Builder'],['queue','CS Work Queue'],['scorecard','Scorecard'],['cohort','Cohort 360']];
+function App(){
+  const [screen,setScreen]=useState('home');
+  const go=setScreen;
+  const Screen={home:Home,builder:Builder,queue:Queue,scorecard:Scorecard,cohort:Cohort}[screen];
+  return <div style={{display:'flex',minHeight:'100vh'}}>
+    {/* sidebar */}
+    <aside style={{width:220,background:'var(--bg-card)',borderRight:'1px solid var(--border-card)',padding:'20px 14px',flexShrink:0}}>
+      <div style={{display:'flex',alignItems:'center',gap:9,padding:'0 8px 18px'}}>
+        <div style={{width:26,height:26,borderRadius:'var(--radius-md)',background:'var(--brand)',display:'grid',placeItems:'center',color:'#fff',fontWeight:700,fontSize:14}}>E</div>
+        <div style={{fontWeight:700,fontSize:14}}>Experiments</div>
+      </div>
+      {NAV.map(([k,l])=><div key={k} onClick={()=>go(k)} style={{padding:'9px 10px',borderRadius:'var(--radius-md)',marginBottom:2,cursor:'pointer',fontSize:13,fontWeight:screen===k?600:500,
+        background:screen===k?'var(--brand-soft)':'transparent',color:screen===k?'var(--brand)':'var(--text-secondary)'}}>{l}</div>)}
+      <div style={{marginTop:24,padding:'0 10px',...eyebrow}}>Reuses</div>
+      <div style={{padding:'6px 10px',fontSize:11.5,color:'var(--text-muted)',lineHeight:1.7}}>Segments · Care console · CS sync · membership snapshot</div>
+    </aside>
+    {/* main */}
+    <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column'}}>
+      <LoopStepper screen={screen} go={go}/>
+      <main style={{padding:'24px 32px',maxWidth:1400,margin:'0 auto',width:'100%'}}><Screen go={go}/></main>
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
