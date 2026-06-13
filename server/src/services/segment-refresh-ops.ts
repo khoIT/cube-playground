@@ -115,6 +115,10 @@ function isOverdue(lastRefreshedAt: string | null, cadenceMin: number | null, no
 export interface ErroringCard {
   cardId: string;
   error: string | null;
+  /** ISO of the refresh pass that last ATTEMPTED this card — dates the error
+   *  breadcrumb itself (fetched_at only dates the last-good value). Null on
+   *  rows written before attempt-stamping existed. */
+  lastAttemptAt: string | null;
 }
 
 export interface SegmentRefreshOpsRow {
@@ -240,17 +244,61 @@ function loadErroringCards(segmentIds: string[]): Map<string, ErroringCard[]> {
   const placeholders = segmentIds.map(() => '?').join(',');
   const rows = getDb()
     .prepare(
-      `SELECT segment_id, card_id, error
+      `SELECT segment_id, card_id, error, last_attempt_at
          FROM segment_card_cache
         WHERE error IS NOT NULL AND segment_id IN (${placeholders})`,
     )
-    .all(...segmentIds) as Array<{ segment_id: string; card_id: string; error: string | null }>;
+    .all(...segmentIds) as Array<{
+      segment_id: string;
+      card_id: string;
+      error: string | null;
+      last_attempt_at: string | null;
+    }>;
   for (const r of rows) {
     const list = map.get(r.segment_id) ?? [];
-    list.push({ cardId: r.card_id, error: r.error });
+    list.push({ cardId: r.card_id, error: r.error, lastAttemptAt: r.last_attempt_at });
     map.set(r.segment_id, list);
   }
   return map;
+}
+
+export interface SegmentCardStatus {
+  cardId: string;
+  /** 'ok' = renders a value (may be last-good); 'error' = no value to render. */
+  status: 'ok' | 'error';
+  /** Latest failed attempt's message; null when the last attempt succeeded. */
+  error: string | null;
+  /** When the rendered VALUE last changed (preserved across failed passes). */
+  fetchedAt: string;
+  /** When a pass last ATTEMPTED this card; null pre-attempt-stamping. */
+  lastAttemptAt: string | null;
+}
+
+/** Every cached card for one segment, stable card_id order — the persisted
+ *  per-card picture an expanded monitor row shows when no live pass is
+ *  available (the in-memory progress only covers passes run this boot). */
+export function listSegmentCardStatuses(segmentId: string): SegmentCardStatus[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT card_id, status, error, fetched_at, last_attempt_at
+         FROM segment_card_cache
+        WHERE segment_id = ?
+        ORDER BY card_id`,
+    )
+    .all(segmentId) as Array<{
+      card_id: string;
+      status: string;
+      error: string | null;
+      fetched_at: string;
+      last_attempt_at: string | null;
+    }>;
+  return rows.map((r) => ({
+    cardId: r.card_id,
+    status: r.status === 'error' ? 'error' : 'ok',
+    error: r.error,
+    fetchedAt: r.fetched_at,
+    lastAttemptAt: r.last_attempt_at,
+  }));
 }
 
 /**

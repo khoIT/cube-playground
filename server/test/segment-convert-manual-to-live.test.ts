@@ -93,7 +93,7 @@ describe('PATCH /api/segments/:id — manual → live conversion', () => {
     const body = res.json();
     expect(body.type).toBe('predicate');
     expect(body.status).toBe('refreshing');
-    expect(enqueueSpy).toHaveBeenCalledWith(id);
+    expect(enqueueSpy).toHaveBeenCalledWith(id, 'manual');
 
     // Survives a re-read (actually written, not just echoed).
     const reread = await app.inject({ method: 'GET', url: `/api/segments/${id}`, headers: ownerAuth });

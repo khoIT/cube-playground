@@ -24,10 +24,12 @@ import { requireFeature } from '../middleware/require-feature.js';
 import { getDb } from '../db/sqlite.js';
 import { getLastTickAt, TICK_INTERVAL_MS } from '../jobs/cron-runner.js';
 import { isProcessing, queueSize, currentlyProcessing, pendingIds } from '../jobs/refresh-queue.js';
-import { collectSegmentRefreshOps } from '../services/segment-refresh-ops.js';
+import { collectSegmentRefreshOps, listSegmentCardStatuses } from '../services/segment-refresh-ops.js';
 import { collectSnapshotRuns } from '../services/segment-snapshot-runs.js';
 import { reconcileSegmentRefreshing } from '../services/segment-status.js';
 import { getCardProgress } from '../services/card-progress.js';
+import { listCardRuns } from '../services/segment-card-run-store.js';
+import { triggerManualSnapshot } from '../jobs/snapshot-segment-membership.js';
 
 export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireRole('admin'));
@@ -54,6 +56,18 @@ export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Pro
     return collectSnapshotRuns();
   });
 
+  // ── POST /api/segment-refresh/snapshot-runs/trigger ────────────────────────
+  // Operator-triggered lakehouse snapshot for today (GMT+7) on THIS gateway —
+  // works even where the nightly cron is env-disabled. Fire-and-forget; the
+  // section polls the payload's runningNow until the run lands.
+  app.post('/api/segment-refresh/snapshot-runs/trigger', async (_req, reply) => {
+    const res = triggerManualSnapshot();
+    if (!res.started) {
+      return reply.status(409).send({ error: { code: 'ALREADY_RUNNING', message: res.reason } });
+    }
+    return reply.status(202).send({ started: true });
+  });
+
   // ── GET /api/segment-refresh/:id/progress ──────────────────────────────────
   // Live per-card progress for the CURRENT (or most recent) card-runner pass of
   // one segment. Process-local + ephemeral (see card-progress.ts) — `progress`
@@ -62,6 +76,27 @@ export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Pro
     '/api/segment-refresh/:id/progress',
     async (req) => {
       return { progress: getCardProgress(req.params.id) };
+    },
+  );
+
+  // ── GET /api/segment-refresh/:id/cards ─────────────────────────────────────
+  // Persisted per-card statuses (ok / serving-last-good / error) from the card
+  // cache — what an expanded row shows when no live pass exists on this gateway.
+  app.get<{ Params: { id: string } }>(
+    '/api/segment-refresh/:id/cards',
+    async (req) => {
+      return { cards: listSegmentCardStatuses(req.params.id) };
+    },
+  );
+
+  // ── GET /api/segment-refresh/:id/runs ──────────────────────────────────────
+  // Persisted history of the most recent card passes for one segment (newest
+  // first, capped server-side). Unlike /progress this survives restarts — it's
+  // the answer to "which run was this error from and how old is it".
+  app.get<{ Params: { id: string } }>(
+    '/api/segment-refresh/:id/runs',
+    async (req) => {
+      return { runs: listCardRuns(req.params.id) };
     },
   );
 

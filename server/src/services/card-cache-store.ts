@@ -26,6 +26,7 @@ export interface CachedCardRow {
   fetched_at: string;
   status: string;
   error: string | null;
+  last_attempt_at: string | null;
 }
 
 /** Shape returned to API consumers for each cached card. */
@@ -34,6 +35,9 @@ export interface CardCacheView {
   fetched_at: string;
   status: 'ok' | 'error';
   error?: string;
+  /** When a refresh pass last ATTEMPTED this card (success or fail) — unlike
+   *  fetched_at, which dates the last-good VALUE and survives failed passes. */
+  last_attempt_at?: string;
 }
 
 function hashRows(rows: unknown[]): string {
@@ -56,15 +60,22 @@ export function upsertCardCache(
     'SELECT query_hash, rows_json, fetched_at, status, error FROM segment_card_cache WHERE segment_id = ? AND card_id = ?',
   );
   const upsert = db.prepare(`
-    INSERT INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at, status, error)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at, status, error, last_attempt_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(segment_id, card_id) DO UPDATE SET
-      query_hash = excluded.query_hash,
-      rows_json  = excluded.rows_json,
-      fetched_at = excluded.fetched_at,
-      status     = excluded.status,
-      error      = excluded.error
+      query_hash      = excluded.query_hash,
+      rows_json       = excluded.rows_json,
+      fetched_at      = excluded.fetched_at,
+      status          = excluded.status,
+      error           = excluded.error,
+      last_attempt_at = excluded.last_attempt_at
   `);
+  // Every entry in a pass is an ATTEMPT, even when its value/status is
+  // unchanged and the full upsert is skipped — stamp the attempt time alone so
+  // the row's age stays readable without touching rows_json/fetched_at.
+  const touchAttempt = db.prepare(
+    'UPDATE segment_card_cache SET last_attempt_at = ? WHERE segment_id = ? AND card_id = ?',
+  );
 
   const tx = db.transaction((rows: CardCacheEntry[]) => {
     // Prune ghost rows for card ids the current preset no longer declares.
@@ -123,7 +134,8 @@ export function upsertCardCache(
           existing.status === toWrite.status &&
           (existing.error ?? null) === toWrite.error
         ) {
-          continue; // no-op — nothing to write
+          touchAttempt.run(now, segmentId, entry.cardId);
+          continue; // value/status unchanged — only the attempt time moves
         }
       }
       upsert.run(
@@ -134,6 +146,7 @@ export function upsertCardCache(
         toWrite.fetchedAt,
         toWrite.status,
         toWrite.error,
+        now,
       );
     }
   });
@@ -145,7 +158,7 @@ export function upsertCardCache(
 export function getCardCache(segmentId: string): Record<string, CardCacheView> {
   const db = getDb();
   const rows = db
-    .prepare('SELECT card_id, rows_json, fetched_at, status, error FROM segment_card_cache WHERE segment_id = ?')
+    .prepare('SELECT card_id, rows_json, fetched_at, status, error, last_attempt_at FROM segment_card_cache WHERE segment_id = ?')
     .all(segmentId) as CachedCardRow[];
 
   const out: Record<string, CardCacheView> = {};
@@ -156,6 +169,7 @@ export function getCardCache(segmentId: string): Record<string, CardCacheView> {
       fetched_at: r.fetched_at,
       status,
       ...(r.error ? { error: r.error } : {}),
+      ...(r.last_attempt_at ? { last_attempt_at: r.last_attempt_at } : {}),
     };
   }
   return out;

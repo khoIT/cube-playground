@@ -124,6 +124,9 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | GET | `/api/segments/:id/sql-filter` | none | — | `{filter}` / 400 SQL_TRANSLATOR_ERROR | SQLite, predicate-to-sql |
 | POST | `/api/segments/:id/refresh` | editor, admin (no owner) | `authorization` | 202 `{status:'refreshing'}` / 400 NOT_LIVE | SQLite, refresh-queue |
 | GET | `/api/segment-refresh/snapshot-runs` | admin | `authorization` | `{runs:[{instance,status,lastRunAt,definitionsPartition,membershipPartition}]}` | Trino latest-partition + SQLite heartbeat, 10-min TTL |
+| GET | `/api/segment-refresh/:id/runs` | admin | `authorization` | `{runs:[{startedAt,finishedAt,source,total,ok,failed,failingCards,runError}]}` newest-first, ≤5 | SQLite segment_card_run (persisted card-pass history) |
+| GET | `/api/segment-refresh/:id/cards` | admin | `authorization` | `{cards:[{cardId,status,error,fetchedAt,lastAttemptAt}]}` | SQLite segment_card_cache (persisted per-card statuses) |
+| POST | `/api/segment-refresh/snapshot-runs/trigger` | admin | `authorization` | 202 `{started:true}` / 409 ALREADY_RUNNING | manual lakehouse snapshot (bypasses SEGMENT_SNAPSHOT_ENABLED; idempotent writers) |
 | POST | `/api/segments/:id/share` | owner, admin | `authorization`, `x-owner` | 200 segment (shared_at set) / 403 owner | SQLite segments |
 | POST | `/api/segments/:id/unshare` | owner, admin | `authorization`, `x-owner` | 200 segment (shared_at cleared) / 403 owner | SQLite segments |
 | GET | `/api/segments/:id/brief` | none | `?lang=(en\|vi),?refresh=1` | 200 `{brief,status,stale?}` / 502 (retryable) | segment_brief_cache, chat-service /internal/segment-brief |

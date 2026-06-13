@@ -18,6 +18,7 @@ import {
   SEGMENT_MEMBERSHIP_DAILY,
 } from '../lakehouse/lakehouse-trino-connector.js';
 import { runQuery } from '../services/trino-rest-client.js';
+import { isSnapshotRunning } from '../jobs/snapshot-segment-membership.js';
 
 const TRINO_READ_TIMEOUT_MS = 20_000;
 const LATEST_PARTITION_TTL_MS = 10 * 60_000;
@@ -25,6 +26,18 @@ const LATEST_PARTITION_TTL_MS = 10 * 60_000;
 export interface SnapshotRunError {
   segmentId: string;
   gameId: string | null;
+  detail: string | null;
+}
+
+/** One segment's outcome within a snapshot run — the per-segment breakdown an
+ *  expanded run row shows. `name` resolves from this instance's segments table
+ *  (null when the segment was deleted since the run). */
+export interface SnapshotRunItem {
+  segmentId: string;
+  name: string | null;
+  gameId: string | null;
+  rowCount: number | null;
+  status: string; // 'written' | 'skipped' | 'error' | 'started' (mid-run)
   detail: string | null;
 }
 
@@ -39,6 +52,8 @@ export interface SnapshotRun {
   definitionsStatus: string | null; // 'written' | 'error' | null (not run)
   definitionsRows: number | null;
   errors: SnapshotRunError[];
+  /** Per-segment outcomes in write order (sentinels excluded). */
+  items: SnapshotRunItem[];
 }
 
 export interface LatestLandedPartition {
@@ -48,6 +63,8 @@ export interface LatestLandedPartition {
 
 export interface SnapshotRunsPayload {
   enabledHere: boolean;
+  /** A snapshot run (cron or manual) is in flight on THIS gateway right now. */
+  runningNow: boolean;
   runs: SnapshotRun[];
   /** Shared-lakehouse truth — null when Trino is unreachable. */
   latestLanded: LatestLandedPartition | null;
@@ -75,9 +92,16 @@ export function listSnapshotRuns(limit = 30): SnapshotRun[] {
         WHERE snapshot_date IN (
                 SELECT DISTINCT snapshot_date FROM segment_snapshot_log
                  ORDER BY snapshot_date DESC LIMIT ?)
-        ORDER BY snapshot_date DESC, ts ASC`,
+        ORDER BY snapshot_date DESC, ts ASC, id ASC`,
     )
     .all(limit) as LogRow[];
+
+  // Segment names resolve from this instance's segments table — one query,
+  // applied to every run's items (deleted segments fall back to null/raw id).
+  const names = new Map<string, string>();
+  for (const s of getDb().prepare('SELECT id, name FROM segments').all() as Array<{ id: string; name: string }>) {
+    names.set(s.id, s.name);
+  }
 
   const byDate = new Map<string, SnapshotRun>();
   for (const r of rows) {
@@ -94,6 +118,7 @@ export function listSnapshotRuns(limit = 30): SnapshotRun[] {
         definitionsStatus: null,
         definitionsRows: null,
         errors: [],
+        items: [],
       };
       byDate.set(r.snapshot_date, run);
     }
@@ -112,6 +137,14 @@ export function listSnapshotRuns(limit = 30): SnapshotRun[] {
       }
       continue;
     }
+    run.items.push({
+      segmentId: r.segment_id,
+      name: names.get(r.segment_id) ?? null,
+      gameId: r.game_id,
+      rowCount: r.row_count,
+      status: r.status,
+      detail: r.detail,
+    });
     if (r.status === 'written') run.written++;
     else if (r.status === 'skipped') run.skipped++;
     else {
@@ -164,6 +197,7 @@ export async function collectSnapshotRuns(): Promise<SnapshotRunsPayload> {
   const latest = await readLatestLandedPartition();
   return {
     enabledHere: (process.env.SEGMENT_SNAPSHOT_ENABLED ?? 'false').toLowerCase() === 'true',
+    runningNow: isSnapshotRunning(),
     runs: listSnapshotRuns(),
     latestLanded: latest.value,
     latestLandedError: latest.error,

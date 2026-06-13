@@ -4,14 +4,18 @@
  * Returns a promise that resolves when the queue is fully drained.
  */
 
-import { refreshSegment } from './refresh-segment.js';
+import { refreshSegment, type RefreshSource } from './refresh-segment.js';
 
 const pending = new Set<string>();
+/** Who asked for each pending refresh — recorded into the run history so an
+ *  operator can tell a manual re-run from the hourly cron pass. A re-enqueue
+ *  of a queued id overwrites (last requester wins). */
+const pendingSource = new Map<string, RefreshSource>();
 let processing = false;
 let processingId: string | null = null;
 let drainPromise: Promise<void> | null = null;
 
-export function enqueueRefresh(segmentId: string): Promise<void> {
+export function enqueueRefresh(segmentId: string, source: RefreshSource = 'manual'): Promise<void> {
   // The drain loop removes an id from `pending` before awaiting its refresh,
   // so the Set alone doesn't dedupe against the IN-FLIGHT segment — re-adding
   // it here would schedule a redundant back-to-back refresh of the exact
@@ -20,6 +24,7 @@ export function enqueueRefresh(segmentId: string): Promise<void> {
     return drainPromise ?? Promise.resolve();
   }
   pending.add(segmentId);
+  pendingSource.set(segmentId, source);
   return startDrain();
 }
 
@@ -62,9 +67,11 @@ async function drain(): Promise<void> {
       const next = pending.values().next().value as string | undefined;
       if (next == null) break;
       pending.delete(next);
+      const source = pendingSource.get(next) ?? 'manual';
+      pendingSource.delete(next);
       processingId = next;
       try {
-        await refreshSegment(next);
+        await refreshSegment(next, source);
       } catch {
         // refresh-segment handles its own errors; never throw past the queue.
       } finally {

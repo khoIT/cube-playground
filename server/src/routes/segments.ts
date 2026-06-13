@@ -435,7 +435,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     // converges to the true total instead of waiting up to one cadence
     // interval for the cron tick.
     if (isPredicateWithQuery) {
-      void enqueueRefresh(id);
+      void enqueueRefresh(id, 'manual');
     }
 
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
@@ -757,7 +757,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     }
 
     if (predicateChanged) {
-      void enqueueRefresh(id);
+      void enqueueRefresh(id, 'manual');
     }
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
@@ -1014,7 +1014,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       .run(new Date().toISOString(), id);
 
     // Fire-and-forget — queue runs in background.
-    void enqueueRefresh(id);
+    void enqueueRefresh(id, 'manual');
 
     emitSegmentOp(req, 'refresh', id);
     return reply.status(202).send({ status: 'refreshing' });

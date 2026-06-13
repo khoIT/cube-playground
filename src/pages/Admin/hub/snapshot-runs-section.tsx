@@ -9,30 +9,15 @@
  *  - The runs table is THIS gateway's heartbeat log (empty here ≠ not running).
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { CloudUpload } from 'lucide-react';
 import { apiFetch } from '../../../api/api-client';
-
-interface SnapshotRunError {
-  segmentId: string;
-  gameId: string | null;
-  detail: string | null;
-}
-
-interface SnapshotRun {
-  snapshotDate: string;
-  startedAt: string | null;
-  written: number;
-  skipped: number;
-  errored: number;
-  deltaStatus: string | null;
-  deltaRows: number | null;
-  definitionsStatus: string | null;
-  definitionsRows: number | null;
-  errors: SnapshotRunError[];
-}
+import { SnapshotRunExpandableRow, type SnapshotRun } from './snapshot-run-expandable-row';
 
 interface SnapshotRunsPayload {
   enabledHere: boolean;
+  /** A snapshot run (cron or manual) is in flight on THIS gateway right now. */
+  runningNow: boolean;
   runs: SnapshotRun[];
   latestLanded: { snapshotDate: string; games: Array<{ gameId: string; segments: number; rows: number }> } | null;
   latestLandedError: string | null;
@@ -59,14 +44,6 @@ const th: React.CSSProperties = {
   borderBottom: '1px solid var(--border-card)',
 };
 
-const td: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12.5,
-  color: 'var(--text-primary)',
-  borderBottom: '1px solid var(--border-card)',
-  verticalAlign: 'top',
-};
-
 /** Yesterday in GMT+7 — the snapshot a healthy nightly run should have landed. */
 function expectedSnapshotDate(): string {
   return new Date(Date.now() + 7 * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
@@ -88,14 +65,51 @@ function Chip({ tone, children }: { tone: 'success' | 'warning' | 'muted'; child
 export function SnapshotRunsSection() {
   const [data, setData] = useState<SnapshotRunsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [triggering, setTriggering] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    apiFetch<SnapshotRunsPayload>('/api/segment-refresh/snapshot-runs')
-      .then((d) => { if (alive) setData(d); })
-      .catch((err: Error) => { if (alive) setError(err.message); });
-    return () => { alive = false; };
+  const refetch = useCallback(() => {
+    return apiFetch<SnapshotRunsPayload>('/api/segment-refresh/snapshot-runs')
+      .then((d) => {
+        setData(d);
+        setError(null); // a recovered poll must clear a prior blip, not stick on it
+      })
+      .catch((err: Error) => setError(err.message));
   }, []);
+
+  useEffect(() => { void refetch(); }, [refetch]);
+
+  // A snapshot run takes minutes (full-cohort Trino INSERTs) — poll while one
+  // is in flight on this gateway so the table fills in as segments land.
+  const runningNow = data?.runningNow ?? false;
+  useEffect(() => {
+    if (!runningNow) return;
+    const t = setInterval(() => void refetch(), 5000);
+    return () => clearInterval(t);
+  }, [runningNow, refetch]);
+
+  const triggerSnapshot = useCallback(() => {
+    // The lakehouse is SHARED and the server's in-flight guard is per-gateway:
+    // if today's partition already landed (likely another gateway's cron), a
+    // re-run rewrites it from THIS gateway's segments — and overlapping a run
+    // still in flight elsewhere would silently duplicate membership rows.
+    // Make that an explicit operator decision, not a stray click.
+    const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+    if (
+      data?.latestLanded?.snapshotDate === today &&
+      !window.confirm(
+        `Today's partition (${today}) already landed in the lakehouse — likely from another gateway. ` +
+          'Re-snapshotting now rewrites it from THIS gateway\'s segments, and would conflict with a run ' +
+          'still in flight elsewhere. Continue?',
+      )
+    ) {
+      return;
+    }
+    setTriggering(true);
+    apiFetch('/api/segment-refresh/snapshot-runs/trigger', { method: 'POST' })
+      .catch(() => { /* 409 ALREADY_RUNNING etc. — refetch shows the truth */ })
+      .then(() => refetch())
+      .finally(() => setTriggering(false));
+  }, [data?.latestLanded?.snapshotDate, refetch]);
 
   if (error) {
     return (
@@ -129,6 +143,36 @@ export function SnapshotRunsSection() {
           <Chip tone={data.enabledHere ? 'success' : 'muted'}>
             job {data.enabledHere ? 'enabled' : 'off'} on this gateway
           </Chip>
+          {/* Manual run works even where the nightly cron is env-disabled —
+              the writers are idempotent per (date, segment). */}
+          <button
+            type="button"
+            onClick={triggerSnapshot}
+            disabled={triggering || runningNow}
+            title={
+              runningNow
+                ? 'A snapshot run is in flight on this gateway'
+                : "Land today's membership snapshot from this gateway now"
+            }
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              height: 26,
+              padding: '0 10px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-card)',
+              background: 'var(--bg-card)',
+              color: 'var(--text-secondary)',
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: triggering || runningNow ? 'default' : 'pointer',
+              opacity: triggering || runningNow ? 0.5 : 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <CloudUpload size={13} /> {runningNow ? 'Snapshotting…' : 'Snapshot now'}
+          </button>
         </span>
       </div>
 
@@ -163,34 +207,7 @@ export function SnapshotRunsSection() {
           </thead>
           <tbody>
             {data.runs.map((run) => (
-              <React.Fragment key={run.snapshotDate}>
-                <tr>
-                  <td style={{ ...td, fontWeight: 600 }}>{run.snapshotDate}</td>
-                  <td style={td}>{run.startedAt ?? '—'}</td>
-                  <td style={td}>{run.written}</td>
-                  <td style={td}>{run.skipped}</td>
-                  <td style={{ ...td, color: run.errored > 0 ? 'var(--destructive-ink)' : 'var(--text-primary)', fontWeight: run.errored > 0 ? 700 : 400 }}>
-                    {run.errored}
-                  </td>
-                  <td style={td}>
-                    {run.deltaStatus
-                      ? `${run.deltaStatus}${run.deltaRows != null ? ` · ${run.deltaRows.toLocaleString()} rows` : ''}`
-                      : '—'}
-                  </td>
-                  <td style={{ ...td, color: run.definitionsStatus === 'error' ? 'var(--destructive-ink)' : 'var(--text-primary)' }}>
-                    {run.definitionsStatus
-                      ? `${run.definitionsStatus}${run.definitionsRows != null ? ` · ${run.definitionsRows.toLocaleString()} rows` : ''}`
-                      : '—'}
-                  </td>
-                </tr>
-                {run.errors.map((e) => (
-                  <tr key={`${run.snapshotDate}-${e.segmentId}`}>
-                    <td colSpan={7} style={{ ...td, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', fontSize: 12 }}>
-                      {e.segmentId}{e.gameId ? ` (${e.gameId})` : ''}: {e.detail ?? 'unknown error'}
-                    </td>
-                  </tr>
-                ))}
-              </React.Fragment>
+              <SnapshotRunExpandableRow key={run.snapshotDate} run={run} />
             ))}
           </tbody>
         </table>

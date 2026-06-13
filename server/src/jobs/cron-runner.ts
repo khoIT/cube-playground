@@ -97,7 +97,7 @@ export async function tick(): Promise<void> {
   }
   const ids = listDueSegments();
   for (const id of ids) {
-    await enqueueRefresh(id);
+    await enqueueRefresh(id, 'cron');
   }
   await maybeRunAnomalyDetector().catch((err) => {
     // eslint-disable-next-line no-console

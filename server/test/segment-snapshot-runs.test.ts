@@ -64,6 +64,20 @@ describe('listSnapshotRuns', () => {
     expect(run.deltaStatus).toBe('written');
     expect(run.deltaRows).toBe(150);
     expect(run.errors).toEqual([{ segmentId: 'seg-d', gameId: 'cfm_vn', detail: 'boom' }]);
+
+    // Per-segment breakdown: sentinels excluded, write order kept, names from
+    // this instance's segments table (unknown/deleted ids fall back to null).
+    getDb().prepare(`
+      INSERT OR IGNORE INTO segments (id, name, type, owner, status, cube, uid_count, uid_list_json, created_at, updated_at)
+      VALUES ('seg-a', 'Paying cohort', 'predicate', 'tester', 'fresh', 'mf_users', 0, '[]', datetime('now'), datetime('now'))
+    `).run();
+    const [withNames] = listSnapshotRuns();
+    expect(withNames.items.map((i) => i.segmentId)).toEqual(['seg-a', 'seg-b', 'seg-c', 'seg-d']);
+    expect(withNames.items[0]).toEqual({
+      segmentId: 'seg-a', name: 'Paying cohort', gameId: 'cfm_vn', rowCount: 100, status: 'written', detail: null,
+    });
+    expect(withNames.items[1].name).toBeNull(); // seg-b not in segments table
+    expect(withNames.items[3].detail).toBe('boom');
   });
 
   it('orders runs newest-first and surfaces the definitions sentinel without counting it', () => {

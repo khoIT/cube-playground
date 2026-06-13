@@ -11,8 +11,12 @@ import {
   fmtAge,
   fmtCadence,
   useCardProgress,
+  useRecentRuns,
+  useCardStatuses,
   type StateTone,
 } from './segment-refresh-ops-data';
+import { RecentRunsStrip } from './segment-refresh-recent-runs';
+import { CardStatusChecklist } from './segment-refresh-card-checklist';
 import type { SegmentRefreshOpsRow, CardPhase, SegmentCardProgress } from '../../../types/segment-refresh-ops';
 
 /** Per-card phase → dot colour for the live refresh checklist. */
@@ -193,11 +197,21 @@ export function SegmentRefreshRow({ row, queued = false, busy, onRefresh, onUnst
   const hasFailing = row.failingCards > 0;
   const hardDown = row.cards.error > 0; // cards with no last-good to render
   const isRefreshing = row.derivedState === 'in_flight';
-  // Allow expanding a refreshing row even with no prior errors, so the live
-  // checklist is reachable the first time a healthy segment refreshes.
-  const canExpand = row.erroringCards.length > 0 || row.brokenReason != null || isRefreshing;
+  // Expandable when there's anything to show: errors / broken reason / a live
+  // pass, or any cards at all — cards imply pass history, and the recent-passes
+  // strip is exactly how a HEALTHY row answers "when did this last run".
+  const canExpand =
+    row.erroringCards.length > 0 || row.brokenReason != null || isRefreshing || row.cards.total > 0;
   const showUnstick = row.derivedState === 'wedged';
-  const handleComplete = useCallback(() => onProgressComplete?.(row.id), [onProgressComplete, row.id]);
+  // Persisted pass history + per-card statuses — fetched on expand, refreshed
+  // when a live pass ends so both reflect the run that just landed.
+  const { runs, refetch: refetchRuns } = useRecentRuns(row.id, open);
+  const { cards: cardStatuses, refetch: refetchCards } = useCardStatuses(row.id, open);
+  const handleComplete = useCallback(() => {
+    void refetchRuns();
+    void refetchCards();
+    onProgressComplete?.(row.id);
+  }, [onProgressComplete, refetchRuns, refetchCards, row.id]);
 
   // Poll per-card progress while expanded. Owned by the row (not the checklist)
   // so the last-known progress survives after the pass finishes and the row
@@ -348,6 +362,13 @@ export function SegmentRefreshRow({ row, queued = false, busy, onRefresh, onUnst
               <LiveChecklist progress={progress} />
             </div>
           )}
+          {/* No live pass on this gateway → show the PERSISTED per-card picture
+              (which cards are green / serving last-good / failing) instead. */}
+          {!showLive && cardStatuses != null && cardStatuses.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <CardStatusChecklist cards={cardStatuses} />
+            </div>
+          )}
           {row.brokenReason && (
             <div style={{ fontSize: 12, color: 'var(--destructive-ink)', marginBottom: 8 }}>
               <strong>Broken:</strong> {row.brokenReason}
@@ -371,11 +392,35 @@ export function SegmentRefreshRow({ row, queued = false, busy, onRefresh, onUnst
                   <li key={c.cardId} style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                     <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{c.cardId}</code>
                     {c.error ? <span style={{ color: 'var(--text-muted)' }}> — {c.error}</span> : null}
+                    {/* Dates the failing ATTEMPT — without it the breadcrumb
+                        reads as current even when it's from a pass hours ago. */}
+                    {c.lastAttemptAt != null && (
+                      <span style={{ color: 'var(--warning-ink)' }}>
+                        {' '}· attempted {fmtAge(Date.now() - Date.parse(c.lastAttemptAt))}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
             </div>
           )}
+          {runs != null && runs.length > 0 && (
+            <div style={{ marginTop: row.erroringCards.length > 0 || row.brokenReason || row.cardsStale ? 12 : 0 }}>
+              <RecentRunsStrip runs={runs} />
+            </div>
+          )}
+          {/* A row with no cached cards AND no recorded history would otherwise
+              expand to an empty box — say why instead. */}
+          {!showLive &&
+            !row.brokenReason &&
+            !row.cardsStale &&
+            row.erroringCards.length === 0 &&
+            (cardStatuses == null || cardStatuses.length === 0) &&
+            (runs == null || runs.length === 0) && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                No recorded passes yet — history starts with the next refresh.
+              </div>
+            )}
         </div>
       )}
     </div>

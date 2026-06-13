@@ -90,4 +90,30 @@ describe('upsertCardCache — last-good preservation', () => {
     expect(after.status).toBe('error');
     expect(after.error).toBe('timeout'); // latest failure lands
   });
+
+  it('stamps last_attempt_at on every attempt — including the unchanged skip path', async () => {
+    upsertCardCache('seg1', [ok('kpi:paying', [{ paying: 42 }])]);
+    const first = getCardCache('seg1')['kpi:paying'].last_attempt_at;
+    expect(first).toBeTruthy();
+
+    // Identical pass: rows/status/error unchanged → the full upsert is skipped,
+    // but the attempt time must still move (it's how breadcrumb age is read).
+    await new Promise((r) => setTimeout(r, 5));
+    upsertCardCache('seg1', [ok('kpi:paying', [{ paying: 42 }])]);
+    const after = getCardCache('seg1')['kpi:paying'];
+    expect(after.last_attempt_at! > first!).toBe(true);
+    expect(after.rows).toEqual([{ paying: 42 }]); // payload untouched
+  });
+
+  it('stamps last_attempt_at on a preserved-last-good failure while fetched_at stays put', async () => {
+    upsertCardCache('seg1', [ok('kpi:paying', [{ paying: 42 }])]);
+    const before = getCardCache('seg1')['kpi:paying'];
+
+    await new Promise((r) => setTimeout(r, 5));
+    upsertCardCache('seg1', [errored('kpi:paying', 'timed out after 4s')]);
+    const after = getCardCache('seg1')['kpi:paying'];
+
+    expect(after.fetched_at).toBe(before.fetched_at);            // value age preserved
+    expect(after.last_attempt_at! > before.last_attempt_at!).toBe(true); // attempt age moved
+  });
 });

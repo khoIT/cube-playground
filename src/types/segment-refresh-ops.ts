@@ -15,6 +15,10 @@ export type DerivedRefreshState =
 export interface ErroringCard {
   cardId: string;
   error: string | null;
+  /** ISO of the refresh pass that last ATTEMPTED this card — dates the error
+   *  breadcrumb (fetched_at only dates the last-good value). Null on rows
+   *  written before attempt-stamping existed. */
+  lastAttemptAt: string | null;
 }
 
 export interface SegmentRefreshOpsRow {
@@ -96,4 +100,43 @@ export interface SegmentCardProgress {
   error: number;
   /** Per-card phase, in stable spec order. */
   cards: CardProgressEntry[];
+}
+
+// ── Persisted per-card statuses (GET /api/segment-refresh/:id/cards) ─────────
+// Mirror server/src/services/segment-refresh-ops.ts listSegmentCardStatuses.
+
+export interface SegmentCardStatus {
+  cardId: string;
+  /** 'ok' = renders a value (may be last-good); 'error' = no value to render. */
+  status: 'ok' | 'error';
+  /** Latest failed attempt's message; null when the last attempt succeeded. */
+  error: string | null;
+  /** When the rendered VALUE last changed (preserved across failed passes). */
+  fetchedAt: string;
+  /** When a pass last ATTEMPTED this card; null pre-attempt-stamping. */
+  lastAttemptAt: string | null;
+}
+
+// ── Persisted card-pass history (GET /api/segment-refresh/:id/runs) ──────────
+// Mirror server/src/services/segment-card-run-store.ts — keep in sync.
+
+export type CardRunSource = 'cron' | 'manual';
+
+export interface CardRunFailingCard {
+  cardId: string;
+  error: string | null;
+}
+
+export interface SegmentCardRun {
+  id: number;
+  segmentId: string;
+  startedAt: string;
+  finishedAt: string | null;
+  source: CardRunSource;
+  total: number;
+  ok: number;
+  failed: number;
+  failingCards: CardRunFailingCard[];
+  /** Pass-level throw message; per-card tallies may be partial when set. */
+  runError: string | null;
 }

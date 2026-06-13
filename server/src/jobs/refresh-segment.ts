@@ -11,7 +11,8 @@ import { resolveDrift } from '../services/drift-resolver.js';
 import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segments.js';
 import { runPresetCards } from '../services/card-runner.js';
 import { upsertCardCache } from '../services/card-cache-store.js';
-import { beginRun, markRunning, markSettled, endRun } from '../services/card-progress.js';
+import { beginRun, markRunning, markSettled, endRun, getCardProgress } from '../services/card-progress.js';
+import { recordCardRun, type FailingCard } from '../services/segment-card-run-store.js';
 import { computeMemberTiers } from '../services/member-tier-runner.js';
 import { computeMemberProfiles } from '../services/member-profile-runner.js';
 import { getMetaMemberSets } from '../services/cube-meta-members.js';
@@ -75,7 +76,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-export async function refreshSegment(segmentId: string): Promise<void> {
+/** Who initiated the refresh — recorded into the per-pass run history. */
+export type RefreshSource = 'cron' | 'manual';
+
+export async function refreshSegment(segmentId: string, source: RefreshSource = 'cron'): Promise<void> {
   const db = getDb();
   const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(segmentId) as SegmentRow | undefined;
   if (!row) return;
@@ -358,6 +362,9 @@ export async function refreshSegment(segmentId: string): Promise<void> {
         start: (id: string) => markRunning(segmentId, id),
         settle: (id: string, status: 'ok' | 'error') => markSettled(segmentId, id, status),
       };
+      const passStartedAt = new Date().toISOString();
+      let passEntries: Array<{ cardId: string; status?: string; error?: string | null }> | null = null;
+      let passError: string | null = null;
       try {
         // Scope cards by the segment's predicate filters — the same basis as
         // the size query above — rather than the materialized uid list. The uid
@@ -366,12 +373,23 @@ export async function refreshSegment(segmentId: string): Promise<void> {
         // logical members are physicalized inside runPresetCards via `prefix`.
         const entries = await runPresetCards(preset, segmentFilters, token, prefix, cohortCubeSegments, reporter);
         upsertCardCache(segmentId, entries);
+        passEntries = entries;
       } catch (err) {
-        console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, (err as Error).message);
+        passError = (err as Error).message;
+        console.warn(`[refresh-segment] card-runner failed for ${segmentId}:`, passError);
       } finally {
         // Close the run regardless of outcome so the monitor sees it as done
         // (a thrown pass leaves any unsettled cards in their last phase).
         endRun(segmentId);
+        // Freeze this pass into the persisted run history. On a clean pass the
+        // entries carry per-card errors; on a throw fall back to the live
+        // progress tallies (counts only — messages never reached us). Best
+        // effort: history-keeping must never fail the refresh itself.
+        try {
+          recordRunHistory(segmentId, source, passStartedAt, passEntries, passError);
+        } catch (historyErr) {
+          console.warn(`[refresh-segment] run-history write failed for ${segmentId}:`, (historyErr as Error).message);
+        }
       }
     }
   } catch (err) {
@@ -394,4 +412,56 @@ export async function refreshSegment(segmentId: string): Promise<void> {
       // refresh-log write is best-effort; never mask the primary error.
     }
   }
+}
+
+/** Persist one card pass into segment_card_run. A clean pass is summarized
+ *  from the runner's entries (per-card errors included); a thrown pass falls
+ *  back to the in-memory progress tallies, whose card list carries no messages
+ *  — the pass-level error is recorded instead. */
+function recordRunHistory(
+  segmentId: string,
+  source: RefreshSource,
+  startedAt: string,
+  entries: Array<{ cardId: string; status?: string; error?: string | null }> | null,
+  runError: string | null,
+): void {
+  const finishedAt = new Date().toISOString();
+  if (entries) {
+    const failing: FailingCard[] = entries
+      .filter((e) => (e.status ?? 'ok') === 'error')
+      .map((e) => ({ cardId: e.cardId, error: e.error ?? null }));
+    recordCardRun({
+      segmentId,
+      startedAt,
+      finishedAt,
+      source,
+      total: entries.length,
+      ok: entries.length - failing.length,
+      failed: failing.length,
+      failingCards: failing,
+      runError,
+    });
+    return;
+  }
+  // Only trust the in-memory progress if it belongs to THIS pass: a throw
+  // before the runner's plan() fired leaves the PREVIOUS pass in card-progress
+  // (endRun never clears it), and freezing those tallies into this failed run
+  // would mislabel it (e.g. "33/33 ok · pass aborted"). ISO strings compare
+  // lexicographically; beginRun stamps at-or-after passStartedAt.
+  const seen = getCardProgress(segmentId);
+  const progress = seen && seen.startedAt >= startedAt ? seen : null;
+  const failing: FailingCard[] = (progress?.cards ?? [])
+    .filter((c) => c.phase === 'error')
+    .map((c) => ({ cardId: c.cardId, error: null }));
+  recordCardRun({
+    segmentId,
+    startedAt,
+    finishedAt,
+    source,
+    total: progress?.total ?? 0,
+    ok: progress?.ok ?? 0,
+    failed: progress?.error ?? 0,
+    failingCards: failing,
+    runError,
+  });
 }

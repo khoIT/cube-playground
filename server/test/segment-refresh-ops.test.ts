@@ -26,6 +26,7 @@ import {
   deriveRefreshState,
   wedgeThresholdMs,
   collectSegmentRefreshOps,
+  listSegmentCardStatuses,
   runWedgeWatchdog,
   WEDGE_FLOOR_MIN,
 } from '../src/services/segment-refresh-ops.js';
@@ -80,9 +81,9 @@ function seedCard(
   ageMin = 1,
 ): void {
   getDb().prepare(`
-    INSERT INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at, status, error)
-    VALUES (?,?,?,?,?,?,?)
-  `).run(segmentId, cardId, 'h', '[]', minsAgo(ageMin), status, error);
+    INSERT INTO segment_card_cache (segment_id, card_id, query_hash, rows_json, fetched_at, status, error, last_attempt_at)
+    VALUES (?,?,?,?,?,?,?,?)
+  `).run(segmentId, cardId, 'h', '[]', minsAgo(ageMin), status, error, minsAgo(ageMin));
 }
 
 describe('deriveRefreshState', () => {
@@ -168,7 +169,11 @@ describe('collectSegmentRefreshOps', () => {
     expect(degraded.derivedState).toBe('degraded');
     expect(degraded.cards).toEqual({ ok: 1, error: 1, total: 2 });
     expect(degraded.failingCards).toBe(1);
-    expect(degraded.erroringCards).toEqual([{ cardId: 'c2', error: 'cold query timeout' }]);
+    // lastAttemptAt dates the failing ATTEMPT itself (the breadcrumb's age) —
+    // distinct from fetched_at, which only dates the last-good value.
+    expect(degraded.erroringCards).toEqual([
+      { cardId: 'c2', error: 'cold query timeout', lastAttemptAt: minsAgo(1) },
+    ]);
 
     expect(payload.cron.sinceLastTickMs).toBe(60_000);
     expect(payload.watchdog.wedgeFloorMin).toBe(WEDGE_FLOOR_MIN);
@@ -250,6 +255,26 @@ describe('collectSegmentRefreshOps', () => {
     expect(payload.segments).toEqual([]);
     expect(payload.cron.lastTickAt).toBeNull();
     expect(payload.cron.sinceLastTickMs).toBeNull();
+  });
+});
+
+describe('listSegmentCardStatuses', () => {
+  beforeEach(() => setDb(makeMemDb()));
+  afterEach(() => closeDb());
+
+  it('returns every cached card with the fields that distinguish ok / last-good / error', () => {
+    seedSegment({ id: 'seg1', status: 'fresh' });
+    seedCard('seg1', 'b-ok', 'ok', null);
+    seedCard('seg1', 'a-lastgood', 'ok', 'timed out after 4s'); // serving last-good
+    seedCard('seg1', 'c-down', 'error', 'no pre-agg');
+
+    const cards = listSegmentCardStatuses('seg1');
+    expect(cards.map((c) => c.cardId)).toEqual(['a-lastgood', 'b-ok', 'c-down']); // stable order
+    expect(cards[0]).toMatchObject({ status: 'ok', error: 'timed out after 4s' });
+    expect(cards[1]).toMatchObject({ status: 'ok', error: null });
+    expect(cards[2]).toMatchObject({ status: 'error', error: 'no pre-agg' });
+    expect(cards[0].lastAttemptAt).toBeTruthy();
+    expect(listSegmentCardStatuses('nope')).toEqual([]);
   });
 });
 

@@ -196,6 +196,41 @@ function alreadyRanToday(snapshotDate: string): boolean {
 
 let running = false;
 
+/** Whether a snapshot run (cron or manual) is in flight on this gateway. */
+export function isSnapshotRunning(): boolean {
+  return running;
+}
+
+/**
+ * Operator-triggered snapshot for today's GMT+7 date, fire-and-forget.
+ * Deliberately bypasses BOTH guards the cron tick honours:
+ *  - isEnabled: the whole point is running it on a gateway where the nightly
+ *    job is off ("job off on this gateway") — an explicit human action.
+ *  - alreadyRanToday: writers are idempotent per (date, game, segment)
+ *    (DELETE → INSERT), so a re-run refreshes today's partition in place.
+ * Today's heartbeat rows are cleared first so the re-run's tallies REPLACE the
+ * prior attempt's — listSnapshotRuns aggregates per date; appending would
+ * double-count written/skipped. Only the in-flight guard is kept.
+ */
+export function triggerManualSnapshot(nowMs: number = Date.now()): { started: boolean; reason?: string } {
+  if (running) return { started: false, reason: 'snapshot already running' };
+  const date = gmt7DateString(nowMs);
+  running = true;
+  try {
+    getDb().prepare('DELETE FROM segment_snapshot_log WHERE snapshot_date = ?').run(date);
+  } catch {
+    // heartbeat cleanup is best-effort — a duplicate-counted date beats no run
+  }
+  void runSegmentMembershipSnapshot(date)
+    .catch((err) => {
+      console.warn('[snapshot-segment-membership] manual run failed:', (err as Error).message);
+    })
+    .finally(() => {
+      running = false;
+    });
+  return { started: true };
+}
+
 export async function snapshotSegmentMembershipTick(nowMs: number = Date.now()): Promise<void> {
   if (!isEnabled() || running) return;
   const date = gmt7DateString(nowMs);

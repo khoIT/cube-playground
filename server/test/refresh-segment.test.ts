@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getDb, setDb, closeDb } from '../src/db/sqlite.js';
 import { refreshSegment } from '../src/jobs/refresh-segment.js';
 import * as cubeClient from '../src/services/cube-client.js';
+import * as cardRunner from '../src/services/card-runner.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -101,6 +102,49 @@ describe('refreshSegment', () => {
     expect(row.status).toBe('fresh');
     expect(row.uid_count).toBe(2);
     expect(JSON.parse(row.uid_list_json)).toEqual(['u1', 'u2']);
+  });
+
+  it('persists a card-pass run record with source + tallies', async () => {
+    const id = seedSegment();
+    vi.spyOn(cubeClient, 'load').mockResolvedValue({
+      results: [{ total: 1, data: [{ 'mf_users.user_id': 'u1' }] }],
+    } as never);
+
+    await refreshSegment(id, 'manual');
+
+    const runs = getDb()
+      .prepare('SELECT source, total, ok, failed, started_at, finished_at FROM segment_card_run WHERE segment_id = ?')
+      .all(id) as Array<{ source: string; total: number; ok: number; failed: number; started_at: string; finished_at: string | null }>;
+    expect(runs).toHaveLength(1);
+    expect(runs[0].source).toBe('manual');
+    expect(runs[0].total).toBeGreaterThan(0);
+    expect(runs[0].ok + runs[0].failed).toBe(runs[0].total);
+    expect(runs[0].finished_at).toBeTruthy();
+  });
+
+  it('records a coherent run row on a pass-level throw — never the previous pass\'s tallies', async () => {
+    const id = seedSegment();
+    vi.spyOn(cubeClient, 'load').mockResolvedValue({
+      results: [{ total: 1, data: [{ 'mf_users.user_id': 'u1' }] }],
+    } as never);
+
+    // First refresh succeeds — leaves a finished pass in the in-memory
+    // card-progress (endRun stamps finishedAt but never clears the run).
+    await refreshSegment(id, 'cron');
+
+    // Second pass throws BEFORE the runner reports plan(), so card-progress
+    // still holds the PREVIOUS pass. The run record must not inherit its
+    // tallies (would read "N/N ok · pass aborted").
+    vi.spyOn(cardRunner, 'runPresetCards').mockRejectedValue(new Error('preset spec exploded'));
+    await refreshSegment(id, 'manual');
+
+    const runs = getDb()
+      .prepare('SELECT source, total, ok, failed, run_error FROM segment_card_run WHERE segment_id = ? ORDER BY id')
+      .all(id) as Array<{ source: string; total: number; ok: number; failed: number; run_error: string | null }>;
+    expect(runs).toHaveLength(2);
+    expect(runs[0].run_error).toBeNull();
+    expect(runs[1]).toMatchObject({ source: 'manual', total: 0, ok: 0, failed: 0 });
+    expect(runs[1].run_error).toContain('preset spec exploded');
   });
 
   it('marks status=broken on cube error', async () => {
