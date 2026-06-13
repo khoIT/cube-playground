@@ -80,6 +80,7 @@ interface ModelPreagg {
   type?: string;
   measures?: unknown[];
   time_dimension?: string;
+  granularity?: string;
 }
 
 interface ModelCube {
@@ -106,6 +107,9 @@ function entriesFromDoc(doc: unknown, out: PreaggRegistryEntry[]): void {
       cube: cube.name,
       measure: qualify(cube.name, String(rollup.measures![0])),
       timeDimension: qualify(cube.name, rollup.time_dimension as string),
+      // Probe must query at the rollup's grain (monthly rollup ⇒ monthly query),
+      // else routing falls through to source. Defaults to 'day' when omitted.
+      granularity: typeof rollup.granularity === 'string' ? rollup.granularity : 'day',
     });
   }
 }

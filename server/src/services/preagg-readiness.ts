@@ -69,6 +69,13 @@ export interface PreaggRegistryEntry {
   measure: string;
   /** Time dimension the rollup is partitioned on. */
   timeDimension: string;
+  /**
+   * The rollup's `granularity` (day/week/month). The probe query MUST match it:
+   * a monthly rollup only serves a monthly-grain query, so probing a `month`
+   * rollup at `day` grain routes to source and reads as a false `from-source`.
+   * Defaults to 'day' when the model/static entry omits it.
+   */
+  granularity?: string;
 }
 
 export const PREAGG_REGISTRY: PreaggRegistryEntry[] = [
@@ -133,22 +140,45 @@ export interface ProbeResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Build a minimal 1-day probe query for a registry entry.
- * The /sql dry-run is compile-time only (no data scan), so the exact date does
- * not gate routing — the planner matches a rollup structurally on
- * measures/dimensions/grain. Yesterday keeps the range plausible.
+ * A date range matching the rollup's granularity. The /sql dry-run is
+ * compile-time (no data scan), so the dates don't gate routing — but the
+ * timeDimension `granularity` DOES, and it must equal the rollup's grain or the
+ * planner falls through to source. The range is just kept plausible per grain.
+ */
+function probeRange(granularity: string): [string, string] {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const now = new Date();
+  if (granularity === 'month') {
+    // Previous full month.
+    const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const last = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+    return [iso(first), iso(last)];
+  }
+  if (granularity === 'week') {
+    const end = new Date(now); end.setUTCDate(end.getUTCDate() - 1);
+    const start = new Date(end); start.setUTCDate(start.getUTCDate() - 6);
+    return [iso(start), iso(end)];
+  }
+  // day / hour / default — yesterday.
+  const y = new Date(now); y.setUTCDate(y.getUTCDate() - 1);
+  return [iso(y), iso(y)];
+}
+
+/**
+ * Build a minimal probe query for a registry entry AT THE ROLLUP'S GRANULARITY.
+ * The planner matches a rollup structurally on measures/dimensions/grain, so a
+ * monthly rollup must be probed at `month` grain (probing it at `day` routes to
+ * source and the cell falsely reads `from-source`).
  */
 function buildProbeQuery(entry: PreaggRegistryEntry): unknown {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const iso = yesterday.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  const granularity = entry.granularity ?? 'day';
   return {
     measures: [entry.measure],
     timeDimensions: [
       {
         dimension: entry.timeDimension,
-        dateRange: [iso, iso],
-        granularity: 'day',
+        dateRange: probeRange(granularity),
+        granularity,
       },
     ],
     limit: 1,

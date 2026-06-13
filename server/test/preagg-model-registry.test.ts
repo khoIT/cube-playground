@@ -91,6 +91,7 @@ describe('getModelPreaggRegistry', () => {
         cube: 'recharge',
         measure: 'recharge.revenue_vnd',
         timeDimension: 'recharge.recharge_time',
+        granularity: 'day',
       },
     ]);
   });
@@ -103,6 +104,38 @@ describe('getModelPreaggRegistry', () => {
         cube: 'mf_users',
         measure: 'mf_users.user_count_approx',
         timeDimension: 'mf_users.install_date',
+        granularity: 'day',
+      },
+    ]);
+  });
+
+  it('captures a monthly rollup granularity so the probe queries at month grain', () => {
+    // A monthly rollup probed at day grain routes to source → false from-source.
+    // The registry must surface granularity:'month' for buildProbeQuery to match.
+    const MONTHLY_YML = `
+cubes:
+  - name: user_active_monthly
+    sql_table: std_active_monthly
+    pre_aggregations:
+      - name: mau_by_cohort_monthly
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.mau_by_cohort_monthly_batch
+      - name: mau_by_cohort_monthly_batch
+        type: rollup
+        measures:
+          - mau
+        time_dimension: log_month
+        granularity: month
+`;
+    writeGame('cros', { 'user_active_monthly.yml': MONTHLY_YML });
+    expect(getModelPreaggRegistry('cros')).toEqual([
+      {
+        cube: 'user_active_monthly',
+        measure: 'user_active_monthly.mau',
+        timeDimension: 'user_active_monthly.log_month',
+        granularity: 'month',
       },
     ]);
   });

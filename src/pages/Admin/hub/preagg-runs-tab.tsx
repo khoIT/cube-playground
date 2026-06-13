@@ -338,34 +338,40 @@ export function PreaggRunsTab() {
   };
 
   // When a build finishes, refresh serveability + history so the UI reflects
-  // the freshly sealed partitions without a manual reload. /current is served
-  // by a non-blocking 60s probe cache: the first refetch returns the stale
-  // pre-build snapshot and only KICKS a background re-probe — so refetch again
-  // a couple of times to pick up the recomputed result once it lands.
+  // the freshly sealed partitions without a manual reload. Two cadence quirks
+  // make a single refetch insufficient:
+  //   - /current is a non-blocking 60s probe cache: the first refetch returns
+  //     the stale pre-build snapshot and only KICKS a background re-probe.
+  //   - the triggered-build history row is written in the trigger's finally,
+  //     just AFTER phase flips to 'done' (behind an async worker-log read), so
+  //     the immediate refetchSweeps can race ahead of the row landing.
+  // So re-poll BOTH a couple of times to pick up the recomputed result + row.
   const buildPhase = triggerStatus?.state.phase;
   useEffect(() => {
     if (buildPhase !== 'done') return;
     refetchServe();
     refetchSweeps();
-    const t1 = setTimeout(refetchServe, 8_000);
-    const t2 = setTimeout(refetchServe, 25_000);
+    const t1 = setTimeout(() => { refetchServe(); refetchSweeps(); }, 8_000);
+    const t2 = setTimeout(() => { refetchServe(); refetchSweeps(); }, 25_000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [buildPhase, refetchServe, refetchSweeps]);
 
-  // A finished build RESOLVES into sweep history: the collector (fed by the
-  // trigger's log snapshots) records the build window as a scheduled sweep
-  // within one pass of the window closing. Once such a row exists — any
-  // worker sweep that started after the trigger did — the ephemeral status
-  // line + checklist are redundant and auto-dismiss; the history row is the
-  // durable record. A 10-min fallback (matching the server's progress linger)
-  // covers a missed collector pass. Failed builds stay visible — they have no
-  // history row to hand off to and the operator must see them.
+  // A finished build RESOLVES into sweep history: the trigger records the build
+  // window directly as a `triggered-build` row at window close (started_at =
+  // the trigger's own start). Once that row appears, the ephemeral status line +
+  // checklist are redundant and auto-dismiss; the history row is the durable
+  // record. A 10-min fallback (matching the server's progress linger) covers a
+  // missed write. Failed builds stay visible — the operator must see them.
   const buildStartedAtMs = triggerStatus?.state.startedAt ? Date.parse(triggerStatus.state.startedAt) : null;
   const buildFinishedAtMs = triggerStatus?.state.finishedAt ? Date.parse(triggerStatus.state.finishedAt) : null;
   const buildResolvedIntoHistory =
     buildPhase === 'done' &&
     buildStartedAtMs !== null &&
-    sweeps.some((s) => s.source === 'scheduled' && Date.parse(s.startedAt) >= buildStartedAtMs);
+    sweeps.some(
+      (s) =>
+        (s.source === 'triggered-build' || s.source === 'scheduled') &&
+        Date.parse(s.startedAt) >= buildStartedAtMs,
+    );
   const buildLingerExpired =
     buildPhase === 'done' && buildFinishedAtMs !== null && Date.now() - buildFinishedAtMs > 10 * 60_000;
   const showBuildBlock =
@@ -383,7 +389,11 @@ export function PreaggRunsTab() {
   // Header/KPIs describe WORKER activity — skip probe snapshots, which would
   // otherwise report a 0s "sweep" that never ran anything.
   const latest = sweeps.find((s) => s.source === 'scheduled') ?? null;
-  const visibleSweeps = showSnapshots ? sweeps : sweeps.filter((s) => s.source === 'scheduled');
+  // Always show scheduled sweeps AND on-demand build records (both are real
+  // work); only probe snapshots hide behind the toggle.
+  const visibleSweeps = showSnapshots
+    ? sweeps
+    : sweeps.filter((s) => s.source === 'scheduled' || s.source === 'triggered-build');
 
   if (error) {
     return (
