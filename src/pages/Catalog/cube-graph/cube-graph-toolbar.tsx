@@ -45,7 +45,14 @@ const Hint = styled.span`
   color: var(--text-muted);
 `;
 
-const LegendSlot = styled.div`
+// Meta facts (stats / hint / cardinality key) sit on the RIGHT of the row;
+// the cluster legend is anchored on the LEFT (first child of MetaRow) so it
+// reads as a standing key and never sits directly above the right detail pane.
+const MetaRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-left: auto;
 `;
 
@@ -161,18 +168,18 @@ export function CubeGraphToolbar({
         )}
       </Bar>
       <MetaRow>
-        <Stats>
-          {[plural(cubeCount, 'cube'), plural(joinCount, 'join'), plural(viewCount, 'view')].join(
-            ' · ',
-          )}
-        </Stats>
-        <Divider />
-        <Hint>click to focus · drag to rearrange</Hint>
-        <Divider />
-        <CardinalityKey />
-        <LegendSlot>
-          <CubeGraphLegend present={presentClusters} />
-        </LegendSlot>
+        <CubeGraphLegend present={presentClusters} />
+        <MetaRight>
+          <Stats>
+            {[plural(cubeCount, 'cube'), plural(joinCount, 'join'), plural(viewCount, 'view')].join(
+              ' · ',
+            )}
+          </Stats>
+          <Divider />
+          <Hint>click to focus · drag to rearrange</Hint>
+          <Divider />
+          <CardinalityKey />
+        </MetaRight>
       </MetaRow>
     </>
   );

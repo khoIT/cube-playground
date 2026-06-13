@@ -1,7 +1,7 @@
 /**
  * DataModelSubtabs — sub-navigation within the Data Model surface.
  * Cubes (join graph + card grid) is the first tab and the default landing;
- * Schema (Cartographer), Concepts, Models, and Concept Map hang off explicit
+ * Schema (Cartographer), Concepts, and Concept Map hang off explicit
  * subpaths.
  *
  * The top-level Data Model vs Metrics Catalog split lives in the sidebar
@@ -57,7 +57,7 @@ const TabButton = styled.button<{ $active: boolean }>`
     `}
 `;
 
-export type DataModelSubtab = 'schema' | 'concepts' | 'cubes' | 'models' | 'concept-map';
+export type DataModelSubtab = 'schema' | 'concepts' | 'cubes' | 'concept-map';
 
 /**
  * Cubes is the leftmost subtab and the default landing for /catalog/data-model,
@@ -69,7 +69,6 @@ const TAB_PATHS: Record<DataModelSubtab, string> = {
   cubes:         '/catalog/data-model',
   schema:        '/catalog/data-model/schema',
   concepts:      '/catalog/data-model/concepts',
-  models:        '/catalog/data-model/models',
   'concept-map': '/catalog/data-model/concept-map',
 };
 
@@ -77,11 +76,10 @@ const TAB_LABELS: Record<DataModelSubtab, { i18n: string; fallback: string }> = 
   schema:        { i18n: 'tabs.schema',     fallback: 'Schema' },
   concepts:      { i18n: 'tabs.concepts',   fallback: 'Concepts' },
   cubes:         { i18n: 'tabs.cubes',      fallback: 'Cubes' },
-  models:        { i18n: 'tabs.models',     fallback: 'Models' },
   'concept-map': { i18n: 'tabs.conceptMap', fallback: 'Concept Map' },
 };
 
-const TAB_ORDER: DataModelSubtab[] = ['cubes', 'schema', 'concepts', 'models', 'concept-map'];
+const TAB_ORDER: DataModelSubtab[] = ['cubes', 'schema', 'concepts', 'concept-map'];
 
 /**
  * Resolve which subtab is active for a given pathname under /catalog/data-model.
@@ -94,7 +92,6 @@ export function resolveDataModelSubtab(pathname: string): DataModelSubtab | null
     if (pathname.includes('/data-model/concept-map')) return 'concept-map';
     if (pathname.includes('/data-model/concepts')) return 'concepts';
     if (pathname.includes('/data-model/schema')) return 'schema';
-    if (pathname.includes('/data-model/models')) return 'models';
     return 'cubes';
   }
   return null;

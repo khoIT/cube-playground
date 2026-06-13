@@ -8,10 +8,6 @@ import { loadable } from '../loadable';
 // the underlying modules into the initial chunk and silently defeat lazy
 // splitting. Every route component is mapped explicitly through `loadable`.
 
-export const SchemaPage = loadable(() =>
-  import('./Schema/SchemaPage').then((m) => ({ default: m.SchemaPage }))
-);
-
 export const ExplorePage = loadable(() =>
   import('./Explore/ExplorePage').then((m) => ({ default: m.ExplorePage }))
 );

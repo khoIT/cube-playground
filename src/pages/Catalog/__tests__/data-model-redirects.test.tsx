@@ -29,7 +29,6 @@ vi.mock('../schema-cartographer/cartographer-page', () => ({
 }));
 vi.mock('../data-model-tab/data-model-tab', () => ({ DataModelTab: () => <div /> }));
 vi.mock('../catalog-browse-body', () => ({ CatalogBrowseBody: () => <div /> }));
-vi.mock('../../Schema/SchemaPage', () => ({ SchemaPage: () => <div /> }));
 vi.mock('../concept-detail/concept-detail-page', () => ({ ConceptDetailPage: () => <div /> }));
 vi.mock('../digest/digest-page', () => ({ DigestPage: () => <div /> }));
 vi.mock('../metric-composition-wizard/composition-wizard-page', () => ({

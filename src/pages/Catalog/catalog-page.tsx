@@ -3,7 +3,7 @@
  * Data Model vs Metrics Catalog split lives in the sidebar — there is no
  * catalog-wide page header here. Inside /catalog/data-model the user can
  * subnav between Cubes (join graph + card grid, default) / Schema / Concepts /
- * Models / Concept Map. /catalog/metrics renders the business-metric registry
+ * Concept Map. /catalog/metrics renders the business-metric registry
  * directly.
  *
  * Long-tail surfaces (Digest / Notifications / Saved views / Workspaces)
@@ -11,10 +11,9 @@
  * sidebar.
  */
 import { lazy, Suspense } from 'react';
-import { Redirect, Route, useLocation, withRouter } from 'react-router-dom';
+import { Redirect, Route, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { SchemaPage } from '../Schema/SchemaPage';
 import { CatalogBrowseBody } from './catalog-browse-body';
 import { ConceptDetailPage } from './concept-detail/concept-detail-page';
 import { DataModelSubtabs, resolveDataModelSubtab } from './catalog-tabs';
@@ -39,19 +38,11 @@ const Page = styled.div`
   background: var(--bg-app);
 `;
 
-const ModelsHost = styled.div`
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-`;
-
 const StatusLine = styled.div<{ $kind: 'info' | 'error' }>`
   padding: 16px 32px;
   font-size: 13px;
   color: ${(p) => (p.$kind === 'error' ? 'var(--danger)' : 'var(--text-muted)')};
 `;
-
-const SchemaPageWithRouter = withRouter(SchemaPage);
 
 // Code-split the concept-map subtab: its reactflow canvas (~45kb) loads only
 // when the tab is opened, keeping it out of the main Catalog bundle.
@@ -115,10 +106,12 @@ export function CatalogPage() {
     );
   }
 
-  // Legacy top-level paths fold into the new IA: Data Model owns Cubes + Models
-  // as subtabs; /catalog (root) defers to the sidebar's default landing.
+  // Legacy top-level paths fold into the new IA: Data Model owns the Cubes
+  // surface; /catalog (root) defers to the sidebar's default landing. The
+  // legacy DB-schema generator (/catalog/models) is retired — its endpoint has
+  // no backend in this deployment — so it now lands on the Data Model root.
   if (location.pathname === '/catalog/cubes') return <Redirect to="/catalog/data-model/cubes" />;
-  if (location.pathname === '/catalog/models') return <Redirect to="/catalog/data-model/models" />;
+  if (location.pathname === '/catalog/models') return <Redirect to="/catalog/data-model" />;
   if (location.pathname === '/catalog') return <Redirect to="/catalog/data-model" />;
 
   // The Cubes surface owns the bare /catalog/data-model URL (Graph default).
@@ -145,10 +138,10 @@ export function CatalogPage() {
     );
   }
 
-  // Data Model surface with Cubes / Schema / Concepts / Models / Concept Map
-  // subtabs. Cubes is the leftmost tab and the default landing (renders at
-  // the bare /catalog/data-model URL, Graph view by default); other subtabs
-  // hang off /schema /concepts /models /concept-map.
+  // Data Model surface with Cubes / Schema / Concepts / Concept Map subtabs.
+  // Cubes is the leftmost tab and the default landing (renders at the bare
+  // /catalog/data-model URL, Graph view by default); other subtabs hang off
+  // /schema /concepts /concept-map.
   const subtab = resolveDataModelSubtab(location.pathname) ?? 'cubes';
   return (
     <Page>
@@ -161,11 +154,6 @@ export function CatalogPage() {
         </Suspense>
       )}
       {subtab === 'concepts' && <DataModelTab />}
-      {subtab === 'models' && (
-        <ModelsHost>
-          <SchemaPageWithRouter />
-        </ModelsHost>
-      )}
     </Page>
   );
 }

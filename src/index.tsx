@@ -216,7 +216,7 @@ ReactDOM.render(
                 <ExplorePage />
               </KeepAliveRoute>
               <Route key="schema-redirect" exact path="/schema">
-                <Redirect to="/catalog/models" />
+                <Redirect to="/catalog/data-model" />
               </Route>
               <Route key="catalog-default" exact path="/catalog">
                 <Redirect to="/catalog/data-model" />
