@@ -20,6 +20,7 @@ import segmentsRoutes from './routes/segments.js';
 import segmentMember360Routes from './routes/segment-member360.js';
 import segmentBriefRoutes from './routes/segment-brief.js';
 import segmentTrajectoryRoutes from './routes/segment-trajectory.js';
+import segmentCsCareRoutes from './routes/segment-cs-care.js';
 import segmentMetricSeriesRoutes from './routes/segment-metric-series.js';
 import analysesRoutes from './routes/analyses.js';
 import identityMapRoutes from './routes/identity-map.js';
@@ -105,6 +106,7 @@ export async function buildApp() {
   await app.register(segmentMember360Routes);
   await app.register(segmentBriefRoutes);
   await app.register(segmentTrajectoryRoutes);
+  await app.register(segmentCsCareRoutes);
   await app.register(segmentMetricSeriesRoutes);
   await app.register(analysesRoutes);
   await app.register(identityMapRoutes);

@@ -236,6 +236,35 @@ The data-analyst onboarding flow bootstraps draft Cube models from raw warehouse
 
 ---
 
+## CS Care Tab on Segment Detail (2026-06-13)
+
+New "Care" tab on predicate segment detail pages for VIP/whale segments, overlaying CS support history + directional recharge impact. Gated to segments of CS-covered games (jus_vn, cfm_vn); renders coverage metrics, recent ticket pulse, issue taxonomy, top-risk watchlist, and recharge-outcome attribution.
+
+### Services (server-side)
+
+- **CS product-game map** — `server/src/lakehouse/cs-product-map.ts`. Seeds game-to-ticket-system lookups (jus_vn → 832, cfm_vn → 856); gates availability on static coverage list.
+- **CS ticket reader** — `server/src/lakehouse/cs-ticket-reader.ts`. Queries `iceberg.cs_ticket.cs_ticket_new_master` + `cs_ticket_map_ai_label` (both multi-row per ticket; deduped via `row_number()`), groups by category/sentiment/rating. Serves pulse (open/unresolved/negative), issue mix (tickets/members per category).
+- **CS recharge trajectory** — `server/src/lakehouse/cs-recharge-trajectory.ts`. Joins contacted-member segment to recharge fact mart, computes impact window (members treated + control). Failure degrades `csImpact` to null (200) while other response sections remain.
+- **Care-segment assembly** — `server/src/routes/segment-cs-care-assembly.ts`. Computes coverage %, freshness anchor, orchestrates ticket/recharge reads. 6h TTL cached.
+- **Coverage calculation** — Membership cardinality vs contacted count; surfaces truncation flag if membership exceeds query limit.
+
+### Routes (server-side)
+
+- **`GET /api/segments/:id/cs-care`** — 404 if segment non-predicate or game has no CS coverage. Response: `{coverage{totalMembers,contactedMembers,pct,truncated},freshness{csMaxLogDate},pulse{tickets,contacted,openUnresolved,negativeSentiment,lowRating},issueMix[{category,tickets,members}],watchlist[{uid,name,ltv,lastCategory,lastSource,sentiment,rating,statusGroup,daysSince,riskScore}],csImpact{contacted,nonContacted,windowDays,smallSample}|null}`. Recharge-failure only: `csImpact→null`, rest populated. CS-read failure: 502.
+
+### Frontend
+
+- **Care tab entry** — `src/pages/Segments/detail/tabs/care-tab.tsx`. Registered in `detail-view.tsx` + `use-active-tab.ts` (DetailTabId gains 'care'); visibility gated to CS-covered games.
+- **Care UI atoms** — `care-ui-atoms.tsx`. Reusable badge/pill components for status/sentiment.
+- **Pulse strip** — `care-pulse-strip.tsx`. Open tickets + contacted members KPI cards; negative-sentiment + low-rating alert banners.
+- **Issue mix** — `care-issue-mix.tsx`. Category breakdown (tickets, member count) with trend indicators.
+- **Impact strip** — `care-impact-strip.tsx`. Recharge-outcome attribution for contacted vs control cohorts; `smallSample` warning.
+- **Watchlist** — `care-watchlist.tsx`. Ranked risk members: LTV, last contact, sentiment, days-since, risk-score. Actionable for inline updates.
+- **CSS** — `.careTab/.careRail/.careRailSide` in `segments.module.css`.
+- **Client** — `src/api/segment-cs-care.ts` (typed GET call).
+
+---
+
 ## Segment Predicate Explorer + Playground Round-Trip (2026-06-12)
 
 Closes the build↔segment loop: refine a segment's definition in the Playground, save it back to the segment editor, and fully edit a segment's predicate through the UI (previously blind text editors). Five coordinated subsystems:

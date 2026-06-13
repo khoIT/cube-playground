@@ -7,12 +7,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 
-export type DetailTabId = 'monitor' | 'insights' | 'members' | 'definition' | 'activation' | 'funnel';
+export type DetailTabId = 'monitor' | 'insights' | 'members' | 'care' | 'definition' | 'activation' | 'funnel';
 
 const VALID: ReadonlySet<DetailTabId> = new Set([
   'monitor',
   'insights',
   'members',
+  'care',
   'definition',
   'activation',
   'funnel',

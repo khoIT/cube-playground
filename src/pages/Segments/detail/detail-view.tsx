@@ -4,7 +4,7 @@ import { ReactElement, useEffect, useState, ReactNode } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { Activity, Code2, GitBranch, LineChart, Send, Users } from 'lucide-react';
+import { Activity, Code2, GitBranch, HeartPulse, LineChart, Send, Users } from 'lucide-react';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { pushRecent, removeRecent } from '../../../shell/sidebar/recent-items-store';
 import { invalidateSegmentIds } from '../use-segment-ids';
@@ -14,11 +14,13 @@ import { SegmentApiError } from '../../../api/api-client';
 import { MonitorTab } from './tabs/monitor-tab';
 import { InsightsTab } from './tabs/insights-tab';
 import { MembersTab } from './tabs/members-tab';
+import { CareTab } from './tabs/care-tab';
 import { DefinitionTab } from './tabs/definition-tab';
 import { PullApiTab } from './tabs/pull-api-tab';
 import { FunnelDetailTab } from './tabs/funnel-detail-tab';
 import { ActivateToCdpModal } from '../push-modal/activate-to-cdp-modal';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
+import { hasCsCoverage } from '../../../api/segment-cs-care';
 import { usePreset } from './use-preset';
 import { useActiveTab, DetailTabId } from './use-active-tab';
 import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
@@ -38,6 +40,7 @@ const TAB_ICONS: Record<DetailTabId, ReactNode> = {
   monitor: <Activity size={14} aria-hidden />,
   insights: <LineChart size={14} aria-hidden />,
   members: <Users size={14} aria-hidden />,
+  care: <HeartPulse size={14} aria-hidden />,
   definition: <Code2 size={14} aria-hidden />,
   activation: <Send size={14} aria-hidden />,
   funnel: <GitBranch size={14} aria-hidden />,
@@ -110,10 +113,14 @@ export function DetailView(): ReactElement {
     );
   }
 
-  // Include the funnel tab when this segment was created via the funnel builder.
-  const tabs: DetailTabId[] = segment.funnel_json
-    ? [...BASE_TABS, 'funnel']
+  // Care tab only for predicate segments of games wired to the CS warehouse —
+  // slotted next to Members (it's a member-centric CS overlay). Funnel tab is
+  // appended when the segment was created via the funnel builder.
+  const showCare = segment.type === 'predicate' && hasCsCoverage(segment.game_id);
+  const baseTabs: DetailTabId[] = showCare
+    ? BASE_TABS.flatMap((tid) => (tid === 'members' ? [tid, 'care' as DetailTabId] : [tid]))
     : BASE_TABS;
+  const tabs: DetailTabId[] = segment.funnel_json ? [...baseTabs, 'funnel'] : baseTabs;
 
   const lastRefresh = segment.last_refreshed_at ?? segment.updated_at;
   const goActivation = () => setTab('activation');
@@ -234,6 +241,7 @@ export function DetailView(): ReactElement {
         />
       )}
       {tab === 'members' && <MembersTab segment={segment} preset={preset} />}
+      {tab === 'care' && <CareTab segment={segment} />}
       {tab === 'definition' && <DefinitionTab segment={segment} preset={preset} />}
       {tab === 'funnel' && segment.funnel_json && (
         <FunnelDetailTab funnelJson={segment.funnel_json} />
