@@ -811,6 +811,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### `tsc` emits only `.js` — any runtime-read non-TS asset (`.sql`/`.yml`) needs an explicit Dockerfile COPY into `dist/`
+
+- **Rule:** when code does `readFileSync(join(__dirname, 'something.sql'))` (or `.yml`), `tsc` does NOT copy that asset to `dist/`, so prod ENOENTs on it while dev (tsx, runs from `src/`) works fine. Every such asset needs a matching `COPY --from=build-server /app/server/src/<path> ./dist/<path>` in the Dockerfile. Before shipping any new runtime file read, grep the Dockerfile to confirm the asset's directory is copied.
+- **Why:** the lakehouse snapshot job's `ensureLakehouseTables()` reads `dist/lakehouse/segment-membership-ddl.sql`; the Dockerfile copied `dist/db/migrations` and `dist/presets` but not the lakehouse DDL, so prod failed `ENOENT: … /app/server/dist/lakehouse/segment-membership-ddl.sql` on every snapshot run. Dev never caught it because tsx reads the `.sql` straight from `src/`. This is the THIRD asset type to hit this (migrations, preset YAMLs, now the DDL) — it's a recurring class, not a one-off.
+- **Signal:** a feature works locally but ENOENTs in prod on a path under `dist/`; the missing file is a `.sql`/`.yml`/other non-`.ts` asset; `ls dist/<dir>` shows only `.js`.
+- **Apply:** add the COPY line next to the existing ones (Dockerfile ~line 105). Alternative for a single small asset with one consumer: inline it as a TS string constant so there's no asset to copy at all. The Dockerfile comments at those COPY lines explain the same trap — keep them.
+
+---
+
 ### A schema-creating helper must run in the PRODUCTION path, not just a verify script — a fresh env-scoped schema has zero tables
 
 - **Rule:** `ensureLakehouseTables()` (CREATE SCHEMA + CREATE TABLE IF NOT EXISTS) must be called by the actual job (`runSegmentMembershipSnapshot`, at the top of every run, right after building the connector), not only by a one-off `verify-*-live.ts` script. Idempotent table-creation belongs on the hot path; calling it every run is a cheap no-op once the tables exist.
