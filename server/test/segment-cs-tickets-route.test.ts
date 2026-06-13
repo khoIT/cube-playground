@@ -21,6 +21,14 @@ vi.mock('../src/lakehouse/cs-ticket-detail-reader.js', async (importOriginal) =>
   };
 });
 
+// Live name resolution is its own unit-tested service; here default it to an
+// empty map (no name found) so the snapshot-decoration assertions stay exact,
+// and override it in the one test that exercises the live fill.
+const liveNamesMock = vi.fn(async () => new Map<string, string>());
+vi.mock('../src/services/resolve-member-names-live.js', () => ({
+  resolveMemberNamesLive: (...args: unknown[]) => liveNamesMock(...args),
+}));
+
 import { buildApp } from '../src/index.js';
 import { setDb, closeDb, getDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
@@ -90,6 +98,8 @@ describe('GET /api/segments/:id/members/:uid/cs-tickets', () => {
     __clearCsTicketsCache();
     fetchDetailMock.mockReset();
     fetchDetailMock.mockResolvedValue([ticket()]);
+    liveNamesMock.mockReset();
+    liveNamesMock.mockResolvedValue(new Map());
     upsertUserAccess({ email: 'alice@corp.com', role: 'editor', status: 'active' });
     app = await buildApp();
     auth = {
@@ -132,6 +142,14 @@ describe('GET /api/segments/:id/members/:uid/cs-tickets', () => {
     // here (no Trino connector in tests) without failing the endpoint.
     expect(body.member).toEqual({ name: null, ltv: null });
     expect(body.recharge).toBeNull();
+  });
+
+  it('fills member.name live when the snapshot has no name for the member', async () => {
+    liveNamesMock.mockResolvedValue(new Map([[MEMBER, 'Tô Phi']]));
+    const res = await app.inject({ method: 'GET', url: url(predicateId), headers: auth });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().member.name).toBe('Tô Phi');
+    expect(liveNamesMock).toHaveBeenCalledWith(expect.objectContaining({ id: predicateId }), [MEMBER]);
   });
 
   it('404 NO_CS_CARE for a non-predicate (manual) segment, before touching Trino', async () => {

@@ -34,6 +34,7 @@ import {
   medianDate,
   type WatchlistEntry,
 } from './segment-cs-care-assembly.js';
+import { resolveMemberNamesLive } from '../services/resolve-member-names-live.js';
 
 const CACHE_TTL_MS = 6 * 60 * 60_000; // 6h — CS data is next-day fresh
 const MAX_CACHE_ENTRIES = 300;
@@ -124,6 +125,21 @@ export default async function segmentCsCareRoutes(app: FastifyInstance): Promise
       const rows = await fetchCsTickets({ productId, uids, sinceDate });
       const { pulse, issueMix } = summarizeCsTickets(rows);
       const watchlist = buildWatchlist(rows, memberInfo, asOf).slice(0, WATCHLIST_LIMIT);
+
+      // Many contacted members rank below the stored top-1000 profile snapshot, so
+      // resolveMemberInfo found no name for them. Resolve names for just the
+      // displayed rows via one bounded identity-IN query; fail-soft (keeps uid).
+      // Cached with the payload below → at most one lookup per segment per window.
+      const missingName = watchlist.filter((w) => !w.name).map((w) => w.uid);
+      if (missingName.length > 0) {
+        const liveNames = await resolveMemberNamesLive(
+          { id, cube: typeof row.cube === 'string' ? row.cube : null, game_id: gameId, workspace: String(row.workspace) },
+          missingName,
+        );
+        for (const w of watchlist) {
+          if (!w.name && liveNames.has(w.uid)) w.name = liveNames.get(w.uid) ?? null;
+        }
+      }
 
       const csImpact = await computeCsImpact(gameId, uids, rows);
 

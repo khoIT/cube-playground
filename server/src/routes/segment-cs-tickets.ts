@@ -20,6 +20,7 @@ import { hasCsCoverage, csProductId } from '../lakehouse/cs-product-map.js';
 import { fetchCsTicketDetail, DEFAULT_DETAIL_CAPS } from '../lakehouse/cs-ticket-detail-reader.js';
 import type { CsTicketDetail } from '../lakehouse/cs-ticket-detail-types.js';
 import { resolveMemberInfo } from './segment-cs-care-assembly.js';
+import { resolveMemberNamesLive } from '../services/resolve-member-names-live.js';
 import {
   readRechargeAroundAnchors,
   summarizeCohortRecharge,
@@ -137,6 +138,16 @@ export default async function segmentCsTicketsRoutes(app: FastifyInstance): Prom
       const tickets = all.slice(0, DEFAULT_DETAIL_CAPS.maxTickets);
       const joined = tickets.length > 0;
       const member = resolveMemberInfo(parseProfiles(row.member_profiles_json)).get(uid) ?? { name: null, ltv: null };
+      // Members below the stored top-1000 snapshot have no name; resolve this one
+      // live (fail-soft — keeps uid on any failure). Cached with the payload.
+      if (member.name == null) {
+        const liveNames = await resolveMemberNamesLive(
+          { id, cube: typeof row.cube === 'string' ? row.cube : null, game_id: gameId, workspace: String(row.workspace) },
+          [uid],
+        );
+        const live = liveNames.get(uid);
+        if (live) member.name = live;
+      }
       const recharge = await computeMemberRecharge(gameId, uid, tickets);
       payload = {
         segmentId: id,
