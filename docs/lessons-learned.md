@@ -829,6 +829,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A preset column that points at a per-game dimension dies silently for games whose cube doesn't expose it — and the data often lives in a raw table no cube wraps
+
+- **Rule:** the `mf-users-hub` preset hardcodes the name column as `mf_users.ingame_name`. Only `jus`'s `mf_users` cube actually builds that dimension (via a `latest_role` CTE over `mf_ingame_roles`). For every other game the dim doesn't exist, so `/meta` drops it and every name surface (members table live query, CS-care live name resolver, stored member-profile snapshot) falls back to bare uid — with no error. Before assuming "this game has no name", check the RAW Trino table, not just whether a cube wraps it: `SHOW TABLES FROM game_integration.<schema> LIKE 'mf_ingame_roles'` then `count(ingame_last_active_role_name)`. A missing *cube* ≠ missing *table*.
+- **Why:** cfm/cros/ballistar/pubg/muaw all had a populated `mf_ingame_roles` table but no `ingame_name` dim on `mf_users`, so member lists showed uid-only. Fix = graft jus's pattern into each `mf_users.yml`: wrap `sql_table: mf_users` as `sql: SELECT base.*, latest_role.ingame_name FROM mf_users base LEFT JOIN (SELECT user_id, max_by(ingame_last_active_role_name, ingame_last_active_date) AS ingame_name FROM mf_ingame_roles GROUP BY 1) latest_role ON base.user_id = latest_role.user_id` + add the `ingame_name` dimension. `GROUP BY user_id` on the right side makes the LEFT JOIN fan-out-proof (one-row-per-role → one-row-per-user); never add `user_roles.last_role_name` as a plain dim/join — that fans out the member count. tf is the lone exception: its table exists but `ingame_last_active_role_name` is 100% NULL, so leave it as `sql_table` (a join would scan 2M rows for only nulls).
+- **Signal:** a segment's members/care tab shows uids without names for one game while another game (jus) shows names fine; the stored `member_profiles_json` snapshot has no name column; a `/load` for `mf_users.ingame_name` returns `'ingame_name' not found for path`.
+- **Apply:** the schema map is `cube-dev/cube/cube.js#GAME_SCHEMA` (game key → Trino schema, e.g. cfm→`cfm_vn`, pubg→`pubgm`). user_id joins direct (no `@` suffix → no `split_part`) for these games; verify hit-rate with a `LEFT JOIN … WHERE role_name IS NOT NULL` count before trusting it. The cube serves under `DEV_MODE=false`, so restart `cube-playground-cube-api-dev` after editing — no hot-reload. Members tab + care tab then resolve live (no segment re-refresh needed); only the stored snapshot stays nameless until the next refresh.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
