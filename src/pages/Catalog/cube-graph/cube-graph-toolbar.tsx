@@ -11,31 +11,38 @@ import { CardinalityKey } from './edge-cardinality-markers';
 const Bar = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 32px 6px;
+  gap: 10px;
+  padding: 10px 24px 8px;
   flex-wrap: wrap;
 `;
 
 const MetaRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 32px 12px;
+  gap: 12px;
+  padding: 0 24px 10px;
   flex-wrap: wrap;
 `;
 
 const Stats = styled.span`
   font-size: 12px;
+  font-weight: 600;
   font-family: var(--font-sans);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+`;
+
+const Divider = styled.span`
+  width: 1px;
+  height: 14px;
+  background: var(--border-card);
+  flex-shrink: 0;
 `;
 
 const Hint = styled.span`
   font-size: 11px;
   font-family: var(--font-sans);
   color: var(--text-muted);
-  opacity: 0.85;
 `;
 
 const LegendSlot = styled.div`
@@ -159,7 +166,9 @@ export function CubeGraphToolbar({
             ' · ',
           )}
         </Stats>
-        <Hint>click a cube to focus its joins · drag cards to rearrange</Hint>
+        <Divider />
+        <Hint>click to focus · drag to rearrange</Hint>
+        <Divider />
         <CardinalityKey />
         <LegendSlot>
           <CubeGraphLegend present={presentClusters} />

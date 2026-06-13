@@ -19,7 +19,7 @@ const CubeGraphPage = lazy(() => import('./cube-graph-page'));
 const ToggleRow = styled.div`
   display: flex;
   align-items: center;
-  padding: 12px 32px 0;
+  padding: 12px 24px 2px;
 `;
 
 const Segmented = styled.div`

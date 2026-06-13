@@ -11,22 +11,23 @@ import { CLUSTER_ORDER, clusterMeta } from './cube-clusters';
 const rowStyle: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: 14,
+  gap: '6px 12px',
   alignItems: 'center',
 };
 
 const itemStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 6,
+  gap: 5,
   fontFamily: 'var(--font-sans)',
-  fontSize: 12,
+  fontSize: 11.5,
   color: 'var(--text-secondary)',
+  whiteSpace: 'nowrap',
 };
 
 const swatchStyle = (color: string): React.CSSProperties => ({
-  width: 10,
-  height: 10,
+  width: 9,
+  height: 9,
   borderRadius: 'var(--radius-sm)',
   background: color,
   flexShrink: 0,
@@ -44,11 +45,13 @@ export function CubeGraphLegend({ present }: Props) {
   return (
     <div style={rowStyle} role="list" aria-label="Cluster colors">
       {clusters.map((cluster) => {
-        const { label, accent } = clusterMeta(cluster);
+        const { label, short, accent } = clusterMeta(cluster);
+        // Compact label keeps the strip on one tidy run; the full descriptive
+        // label (e.g. "Session events (direct join)") shows on hover.
         return (
-          <span key={cluster} style={itemStyle} role="listitem">
+          <span key={cluster} style={itemStyle} role="listitem" title={label}>
             <span style={swatchStyle(accent)} aria-hidden="true" />
-            {label}
+            {short}
           </span>
         );
       })}

@@ -27,7 +27,7 @@ const Row = styled.div<{ $clickable: boolean }>`
   gap: 8px;
   font-size: 12px;
   color: var(--text-secondary);
-  padding: 4px 0;
+  padding: 3px 0;
   cursor: ${(p) => (p.$clickable ? 'pointer' : 'default')};
   user-select: none;
   outline: none;

@@ -6,21 +6,24 @@
  * `keyLabel · cardinality` labels and dims the rest, mirroring the
  * model-viewer interaction grammar.
  */
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import ReactFlow, {
   Background,
   Controls,
   useNodesState,
   type Edge,
+  type EdgeTypes,
   type Node,
   type NodeMouseHandler,
   type NodeTypes,
+  type ReactFlowInstance,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './cube-graph.css';
 
 import type { EdgeCardinality, JoinGraph } from './build-join-graph';
 import { EdgeCardinalityMarkers, markersForCardinality } from './edge-cardinality-markers';
+import { FloatingEdge } from './floating-edge';
 import type { ClusterGridLayout } from './cluster-grid-layout';
 import {
   ClusterBoxNode,
@@ -32,6 +35,9 @@ import {
 } from './cube-node';
 
 const nodeTypes: NodeTypes = { cubeNode: CubeNode, clusterBox: ClusterBoxNode };
+// Floating edges anchor to whichever side of each card faces the other cube,
+// so lines take the shortest route and rarely cut back across a card.
+const edgeTypes: EdgeTypes = { floating: FloatingEdge };
 
 interface Props {
   graph: JoinGraph;
@@ -40,12 +46,29 @@ interface Props {
   selected: string | null;
   /** Cube names that should render dimmed (search miss / outside view). */
   dimmed: ReadonlySet<string>;
+  /** True while the detail pane is open beside the board (drives the re-fit). */
+  paneOpen: boolean;
   onSelect: (name: string | null) => void;
 }
 
 const canvasStyle: React.CSSProperties = { flex: 1, minHeight: 0, position: 'relative' };
 
-export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Props) {
+export function CubeGraphBoard({ graph, layout, selected, dimmed, paneOpen, onSelect }: Props) {
+  // Opening the pane narrows the canvas (flex sibling); re-fit so the whole
+  // graph reflows into the remaining width instead of hiding behind the pane.
+  const rfInstance = useRef<ReactFlowInstance | null>(null);
+  const skipFirstFit = useRef(true);
+  useEffect(() => {
+    if (skipFirstFit.current) {
+      skipFirstFit.current = false; // initial framing comes from the `fitView` prop
+      return;
+    }
+    // Wait a frame so the flex width change is applied before reactflow measures.
+    const raf = requestAnimationFrame(() => {
+      rfInstance.current?.fitView({ padding: 0.18, duration: 350 });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [paneOpen]);
   const lintByNode = useMemo(() => {
     const map = new Map<string, CubeLint>();
     for (const m of graph.lints.missingTarget) map.set(m.source, 'missing-target');
@@ -127,6 +150,7 @@ export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Pr
         const { markerStart, markerEnd } = markersForCardinality(e.cardinality as EdgeCardinality);
         return {
           id: e.id,
+          type: 'floating',
           source: e.source,
           target: e.target,
           style: { stroke: base, strokeWidth: hot ? 2.5 : 1.5, opacity },
@@ -150,7 +174,11 @@ export function CubeGraphBoard({ graph, layout, selected, dimmed, onSelect }: Pr
         nodes={rfNodes}
         edges={edges}
         onNodesChange={onNodesChange}
+        onInit={(inst) => {
+          rfInstance.current = inst;
+        }}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodeClick={onNodeClick}
         onPaneClick={() => onSelect(null)}
         fitView

@@ -148,6 +148,7 @@ export function CubeGraphPage({ cubes, loading, error }: CubeGraphPageProps) {
             layout={layout}
             selected={selected}
             dimmed={dimmed}
+            paneOpen={!!selectedCube}
             onSelect={setSelected}
           />
         )}

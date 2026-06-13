@@ -24,6 +24,7 @@ const CUBE: CatalogCube = {
   ],
   measures: [{ name: 'mf_users.dau', aggType: 'count' }],
   segments: [{ name: 'mf_users.vips' }],
+  preAggregations: [{ name: 'ltv_by_cohort', granularity: 'day' }],
 };
 
 function renderPanel() {
@@ -68,10 +69,20 @@ describe('DetailPanel', () => {
     expect(currentUrl()).toBe('/catalog/concept/segment/mf_users.vips');
   });
 
-  it('renders the Joins section with target and relationship', () => {
+  it('renders the Joins segment by default with target and relationship', () => {
     renderPanel();
     expect(screen.getByText('active_daily')).toBeTruthy();
     expect(screen.getByText(/belongsTo/)).toBeTruthy();
+    // Pre-agg lives behind the other segment tab, not shown yet.
+    expect(screen.queryByText('ltv_by_cohort')).toBeNull();
+  });
+
+  it('switches the structure segment to Pre-aggs on one row', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: /Pre-aggs/ }));
+    expect(screen.getByText('ltv_by_cohort')).toBeTruthy();
+    // Joins target is hidden once the Pre-aggs segment is active.
+    expect(screen.queryByText('active_daily')).toBeNull();
   });
 
   it('has no "Open in Playground" action', () => {
