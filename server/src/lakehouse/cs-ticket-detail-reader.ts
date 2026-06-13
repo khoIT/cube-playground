@@ -13,7 +13,8 @@
  */
 
 import { runQuery } from '../services/trino-rest-client.js';
-import { getConnector, type Connector } from '../services/trino-profiler-config.js';
+import { type Connector } from '../services/trino-profiler-config.js';
+import { resolveCsTrinoConnector } from './cs-trino-connector.js';
 import { toSqlLiteral } from './inline-sql-params.js';
 import { CS_READ_TIMEOUT_MS } from './cs-ticket-reader.js';
 import {
@@ -181,7 +182,7 @@ export async function fetchCsTicketDetail(opts: FetchCsTicketDetailOptions): Pro
   const uid = sanitizeUid(opts.uid);
   if (!uid) return [];
   const caps = { ...DEFAULT_DETAIL_CAPS, ...opts.caps };
-  const connector = opts.connector ?? getConnector();
+  const connector = opts.connector ?? resolveCsTrinoConnector();
   if (!connector) throw new Error('CS ticket detail reader: no Trino connector configured');
 
   const scalarRes = await runQuery(

@@ -16,7 +16,8 @@
  */
 
 import { runQuery } from '../services/trino-rest-client.js';
-import { getConnector, type Connector, schemaForGame } from '../services/trino-profiler-config.js';
+import { type Connector, schemaForGame } from '../services/trino-profiler-config.js';
+import { resolveCsTrinoConnector } from './cs-trino-connector.js';
 import { toSqlLiteral } from './inline-sql-params.js';
 
 export const RECHARGE_READ_TIMEOUT_MS = 30_000;
@@ -82,7 +83,7 @@ export async function readRechargeAroundAnchors(
 
   const schema = schemaForGame(opts.gameId);
   if (!schema) throw new Error(`Recharge trajectory: no schema mapping for game ${opts.gameId}`);
-  const connector = opts.connector ?? getConnector();
+  const connector = opts.connector ?? resolveCsTrinoConnector();
   if (!connector) throw new Error('Recharge trajectory: no Trino connector configured');
 
   const anchorDates = clean.map((a) => a.anchor);

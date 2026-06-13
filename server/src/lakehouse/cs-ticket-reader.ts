@@ -20,7 +20,8 @@
  */
 
 import { runQuery } from '../services/trino-rest-client.js';
-import { getConnector, type Connector } from '../services/trino-profiler-config.js';
+import { type Connector } from '../services/trino-profiler-config.js';
+import { resolveCsTrinoConnector } from './cs-trino-connector.js';
 import { toSqlLiteral } from './inline-sql-params.js';
 
 /** CS schema lives behind the `iceberg` catalog; tables are fully qualified so
@@ -152,7 +153,7 @@ function mapRow(r: unknown[]): CsTicketRow {
 export async function fetchCsTickets(opts: FetchCsTicketsOptions): Promise<CsTicketRow[]> {
   const uids = sanitizeUids(opts.uids);
   if (uids.length === 0) return [];
-  const connector = opts.connector ?? getConnector();
+  const connector = opts.connector ?? resolveCsTrinoConnector();
   if (!connector) throw new Error('CS ticket reader: no Trino connector configured');
 
   const rows: CsTicketRow[] = [];

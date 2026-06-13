@@ -21,6 +21,20 @@ vi.mock('../src/lakehouse/cs-ticket-detail-reader.js', async (importOriginal) =>
   };
 });
 
+// The recharge reader resolves a live Trino connector (profiler env, or the
+// Cube connector via the cube-dev/.env fallback), so leave it unmocked and it
+// would hit the warehouse. Stub it to reject — exercising the route's documented
+// "recharge warehouse unavailable → degrade to null" path, deterministically.
+vi.mock('../src/lakehouse/cs-recharge-trajectory.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/lakehouse/cs-recharge-trajectory.js')>();
+  return {
+    ...actual,
+    readRechargeAroundAnchors: vi.fn(async () => {
+      throw new Error('recharge warehouse unavailable (test)');
+    }),
+  };
+});
+
 // Live name resolution is its own unit-tested service; here default it to an
 // empty map (no name found) so the snapshot-decoration assertions stay exact,
 // and override it in the one test that exercises the live fill.

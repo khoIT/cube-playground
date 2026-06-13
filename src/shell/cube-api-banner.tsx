@@ -47,16 +47,18 @@ export function CubeApiBanner() {
 
   if (status === 'unreachable') {
     const gatewayDown = outageKind === 'gateway';
+    // User-facing copy is the same for both outage kinds — a transient
+    // reconnect reads friendliest framed as a likely update, not an error.
+    // The dev-facing "how to restart" detail stays in the title tooltip, and
+    // the amber (warning) tone signals "temporary" rather than "broken".
     return (
       <div
         role="alert"
         title={gatewayDown ? GATEWAY_RESTART_HINT : CUBE_RESTART_HINT}
-        style={{ ...STRIP_BASE, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)' }}
+        style={{ ...STRIP_BASE, background: 'var(--warning-soft)', color: 'var(--warning-ink)' }}
       >
         <span style={{ flex: 1 }}>
-          {gatewayDown
-            ? '⛔ Playground server unreachable · retrying every 15s'
-            : '⛔ Cube backend unreachable · retrying every 15s'}
+          🔄 Reconnecting to the server… this can happen briefly during an update. Retrying every 15s.
         </span>
         <Button size="small" onClick={() => window.location.reload()}>
           Reload
@@ -71,11 +73,7 @@ export function CubeApiBanner() {
         role="status"
         style={{ ...STRIP_BASE, background: 'var(--success-soft)', color: 'var(--success-ink)' }}
       >
-        <span style={{ flex: 1 }}>
-          {outageKind === 'gateway'
-            ? '✓ Playground server recovered · reload so in-flight requests pick up fresh data'
-            : '✓ Cube backend recovered · reload so in-flight requests pick up fresh data'}
-        </span>
+        <span style={{ flex: 1 }}>✓ Back online — reload to refresh your data.</span>
         <Button size="small" type="primary" onClick={() => window.location.reload()}>
           Reload
         </Button>
