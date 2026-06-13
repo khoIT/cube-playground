@@ -2,79 +2,89 @@
 
 ## Context Links
 - Bridge spec (input): `reports/bridge-spec-cfm-jus.md` (phase 1)
-- Reports: scout §2.4, §4.1 (compliance edge via cs_ticket_logs); §5
-- Memory: `cs-ticket-schema-join` (iceberg.cs_ticket; join via `split_part(user_id,'@',1)`, ~8% match; dedup multi-row master/label),
-  `cs-facebook-aihelp-uid-unresolvable` (FB/AIHelp PSID cannot join to game uid)
-- Prod oracle: `/Users/lap16299/Documents/code/cube-prod/cube/model/cubes/vga/cs_ticket_report.yaml`, `.../vga/vga_cs_customer.yaml`
-- Source tables: `cs_ticket.cs_ticket_info` (4.26M), `cs_ticket.cs_ticket_logs` (action trail), `cs_ticket.cs_rating_processes` (CSAT)
-- Already used: `cs_ticket_new_master` (do NOT rebuild — these ADD depth)
+- Source report: `plans/reports/from-explore-to-planner-iceberg-cs-platform-schema-map-report.md`
+- Existing raw reader (NOT a cube): `server/src/lakehouse/cs-ticket-reader.ts` — a Trino reader; these cubes ADD a
+  modeled CS layer alongside it; reconcile (do not rebuild the reader).
+- Source tables (iceberg): `cs_ticket.cs_ticket_info` (4.67M), `cs_ticket.cs_ticket_report` (4.66M, enriched),
+  `cs_ticket.customers_v2` (12.66M, the bridge), `cs_ticket.cs_ticket_logs` (action), `cs_ticket.cs_rating_processes` (CSAT)
 
 ## Overview
-- **Priority:** P1 — VIP routing + CSAT + support-volume-per-segment.
+- **Priority:** P1 — VIP routing + CSAT + support-volume-per-segment. Lands AFTER MVP monetization (incremental).
 - **Status:** pending · **Depends on:** Phase 1.
-- **Description:** Author game-scoped CS-depth cubes from cs_ticket_info (ticket metadata + vip_id + routing
-  hierarchy), cs_ticket_logs (action trail — who/when/what/status-transition), cs_rating_processes (CSAT +
-  handling time). Join to mf_users via `split_part(user_id,'@',1)` per phase 1. Tag `[freshness: lagging]` (~3mo).
+- **Description:** Author a game-scoped `cs_ticket_detail` cube from `cs_ticket_report` (enriched lifecycle +
+  resolution + VIP + sentiment) joined to the game via the **`customer_id → customers_v2.product_id` path (99.9%
+  match)** — NOT the dev `split_part` ~8% approach. Action-trail (`cs_ticket_logs`) and CSAT (`cs_rating_processes`)
+  cubes are DEFERRED unless a named Phase-7 consumer exists (red-team #15). Tag `[freshness: lagging]` (2-day lag).
 
 ## Key Insights
-- CS join is partial: `split_part(user_id,'@',1)` matches only ~8% (memory `cs-ticket-schema-join`); FB/AIHelp
-  PSID tickets are unresolvable to game uid (memory `cs-facebook-aihelp-uid-unresolvable`). Phase 1 measures the
-  real match-rate per game — scope the cube to resolvable tickets + expose an "unresolved share" so users don't
-  assume full coverage.
-- cs_ticket_logs is the compliance/exposure edge for the future experiment loop (scout §4.1): action_code,
-  status_before→after, staff, log_time. Model at action grain (1:N per ticket) — separate cube, pre-agg if large.
-- cs tables have multi-row master/label dups (memory) → dedup in cube SQL (filter to a canonical status, like
-  prod's `ticket_status = 'New'`) to get one-row-per-ticket.
-- CS is ~3mo lagging → triage/historical OK, NOT live SLA alerting.
+- **CS join is SOLVED by iceberg** (red-team #13, RESOLVED): `cs_ticket_info/report.customer_id → customers_v2.customer_id`,
+  then `customers_v2.product_id → game`. The CS report measured **99.9%** (4,661,645 / 4,668,491; 826 unmatched).
+  This REPLACES the dev `split_part(user_id,'@',1)` ~8% framing entirely.
+- **CS product_id namespace ≠ billing product_code** (phase-1 probe): `customers_v2.product_id` uses `267` for cfm
+  (vs billing's `A49`). The CS game-scope is `customer_id→customers_v2.product_id`, reconciled to game in phase 1 —
+  do NOT reuse the billing product_code filter here.
+- **`cs-ticket-reader.ts` is a raw Trino reader, NOT a cube** (red-team #13): correct label. The new cube COEXISTS
+  with it (the reader powers existing Care surfaces). Add a reconciliation test (cube ticket count vs reader for a
+  known customer) so they don't silently diverge; decide which surface reads which.
+- **`customers_v2` is multi-row** (12.66M rows / 1.61M customers ≈ 7.8 rows each — one per product). The join must
+  scope to the game's product_id to get one customer row per game (avoid fan-out).
+- **`cs_ticket_report` is the enriched fact** (lifecycle times, resolution_time, ticket_status, vip_id, staff,
+  sentiment, rating) — prefer it over `cs_ticket_info` for the detail cube. Dedup to ticket grain (PK ticket_id).
+- CS lags 2 days (max_date 2026-06-12 vs today) → triage/historical OK, NOT live SLA alerting. Tag `[freshness: lagging]`.
+- Staff-identity cols (`staff_id`, `by_id`, `created_by`) → `public:false` (red-team #11 PII deny-list).
 
 ## Requirements
-- Functional: per game, `cs_ticket_detail` (ticket grain, routing + vip + resolution dims/measures),
-  `cs_action_log` (action grain, compliance trail), `cs_rating` (CSAT + handling time). Join mf_users via phase-1 key.
-- Non-functional: ticket cube deduped to 1 row/ticket; action/rating cubes at their own grain (flag pre-agg if >5M).
+- Functional: per game, `cs_ticket_detail` (ticket grain via cs_ticket_report; routing/VIP/resolution/CSAT
+  dims+measures), joined via the 99.9% customer_id path. `unresolved_share` measure (count where bridge NULL — the
+  ~0.01% + any game-specific gap). DEFER `cs_action_log` (cs_ticket_logs) + `cs_rating` (cs_rating_processes) unless a
+  Phase-7 consumer is named.
+- Non-functional: ticket cube deduped to 1 row/ticket; bridge scoped to game product_id (no customers_v2 fan-out).
 
 ## Architecture
-- Data flow: cs_ticket source → cube SQL (dedup + `split_part` bridge to user_id) → join mf_users many_to_one →
-  routing/vip/CSAT dims. Unresolved-share surfaced as a measure (count where bridge NULL).
-- Files in `cubes/{cfm,jus}/` → game-scoped. Filter to the game: cs tables are cross-product, so the bridge JOIN
-  to the game's mf_users IS the game filter (rows that don't resolve to this game's users drop out).
+- Data flow: `iceberg.cs_ticket.cs_ticket_report` → cube `sql:` (JOIN customers_v2 on customer_id, filter
+  product_id = game's CS product_id) → join mf_users many_to_one on the resolved user_id → routing/vip/CSAT dims.
+  Unresolved-share surfaced as a measure.
+- **Game-scope is the customers_v2.product_id filter** (the customer_id bridge), NOT folder placement and NOT the
+  billing product_code. 3-part iceberg refs (cross-catalog, proven).
 
 ## Related Code Files
 - Create: `cube-dev/cube/model/cubes/cfm/cs_ticket_detail.yml`, `.../jus/cs_ticket_detail.yml`
-- Create: `cube-dev/cube/model/cubes/cfm/cs_action_log.yml`, `.../jus/cs_action_log.yml`
-- Create: `cube-dev/cube/model/cubes/cfm/cs_rating.yml`, `.../jus/cs_rating.yml`
-- Read: prod `cs_ticket_report.yaml`, `vga_cs_customer.yaml`; existing `cs_ticket_new_master` cube (find via grep) for dedup precedent
+- Read: CS schema-map report; `server/src/lakehouse/cs-ticket-reader.ts` (reconcile, do not rebuild)
+- DEFERRED (do NOT create now unless consumer named): `*/cs_action_log.yml`, `*/cs_rating.yml`
 
 ## Implementation Steps
-1. Lift phase-1 cs keys + measured match-rate (cfm, jus). Confirm dedup status filter.
-2. `cs_ticket_detail.yml`: dims (ticket_id PK, vip_id, dept/pillar/ticket_type/category/source, country, created/closed
-   times), measures (total/closed/rejected/active tickets, resolution_rate, avg_resolution_time, unresolved_share).
-   `[freshness: lagging]`.
-3. `cs_action_log.yml`: action grain (action_code/name, status_before→after, staff, log_time). `[freshness: lagging]`.
-   Flag pre-agg if row count warrants (phase 8).
-4. `cs_rating.yml`: CSAT rating + handling time per process. `[freshness: lagging]`.
-5. Mirror prod dedup (canonical status filter) to enforce one-row-per-ticket; verify with GROUP BY ticket_id probe.
-6. Compile + per-game /meta verify; confirm bridge match-rate equals phase-1 measurement.
+1. Lift phase-1 CS keys: the game's `customers_v2.product_id` (cfm = 267; jus = phase-1 resolved) + measured
+   match-rate. Confirm dedup to ticket grain (PK ticket_id in cs_ticket_report).
+2. `cs_ticket_detail.yml`: cube `sql:` joins cs_ticket_report → customers_v2 (customer_id, filter game product_id) →
+   resolve user_id → join mf_users. Dims (ticket_id PK, vip_id, dept/pillar/ticket_type/category/source, country,
+   created/closed/resolution times, ticket_status, sentiment). Measures (total/closed/active tickets, resolution_rate,
+   avg_resolution_time, CSAT score where present, `unresolved_share`). `[freshness: lagging]`. Staff cols `public:false`.
+3. DEFER cs_action_log + cs_rating cubes — note as follow-ups requiring a named consumer + (if large) pre-agg.
+4. Reconciliation test: cube ticket count for a known customer vs `cs-ticket-reader.ts` output; document divergence + which
+   surface reads which.
+5. Compile (isolated — one bad YAML fails the whole game model) + per-game /meta verify; confirm bridge match-rate
+   equals phase-1 and only the game's tickets return.
 
 ## Todo List
-- [ ] cs_ticket_detail.yml (cfm, jus) + unresolved_share measure + freshness:lagging
-- [ ] cs_action_log.yml (cfm, jus) action grain + freshness:lagging
-- [ ] cs_rating.yml (cfm, jus) CSAT + freshness:lagging
-- [ ] Dedup to 1-row/ticket verified
-- [ ] Match-rate matches phase-1; unresolved share surfaced
-- [ ] Compile + per-game /meta verification
+- [ ] cs_ticket_detail.yml (cfm, jus) via 99.9% customer_id→product_id path + unresolved_share + freshness:lagging
+- [ ] Dedup to 1-row/ticket verified; customers_v2 scoped to game product_id (no fan-out)
+- [ ] Staff-identity cols public:false
+- [ ] Reconciliation test vs cs-ticket-reader.ts (coexist, no divergence)
+- [ ] cs_action_log / cs_rating DEFERRED unless consumer named
+- [ ] Compile (isolated) + per-game /meta verification
 
 ## Success Criteria
-- 3 CS-depth cubes compile per game, browsable, deduped to expected grain.
-- Bridge match-rate documented + unresolved-share exposed (no false "full coverage").
-- Tagged lagging; not wired into any live SLA alert.
+- `cs_ticket_detail` compiles per game, browsable, deduped to ticket grain, game-scoped via customers_v2.product_id.
+- Match-rate ≈ 99.9% documented; `unresolved_share` exposed (no false full-coverage).
+- Coexists with cs-ticket-reader.ts (reconciled, labeled correctly); tagged lagging; not in any live SLA alert.
 
 ## Risk Assessment
-- **Low CS match-rate misread as data loss** (Med×Med): ~8% match looks broken. Mitigate: unresolved_share measure
-  + description explaining PSID-namespace limit (memory). Scope to resolvable tickets.
-- **Outbound CS outreach not logged** (Med×Med, unresolved Q8): compliance edge blind if outbound isn't a ticket.
-  Mitigate: document as open question; CS-depth cube still valid for inbound triage.
-- **Action-log fan-out** (Low×Med): Mitigate: separate grain + pre-agg flag.
+- **customers_v2 fan-out** (Med×High): multi-row per customer inflates ticket counts. Mitigate: scope join to game
+  product_id; verify with GROUP BY ticket_id probe.
+- **Divergence from cs-ticket-reader.ts** (Med×Med): two CS sources disagree. Mitigate: reconciliation test + documented ownership.
+- **Outbound CS not logged** (Med×Med, open Q): cs_ticket is inbound-only. Mitigate: document; cube valid for inbound triage.
+- **CS product_id confused with billing product_code** (Med×High): wrong game scope. Mitigate: phase-1 reconciles both namespaces.
 
 ## Security Considerations
-- NO raw contact PII (login_info/social_id are PII-risk per prod `vga_cs_customer`) — keep `public: false`.
-- CSAT/handling-time aggregate only; vip_id is a tier, not PII.
+- NO raw contact PII (login_info/social_id in customers_v2 are PII-risk) — keep `public: false`.
+- Staff identity (staff_id/by_id/created_by) `public:false`. CSAT/handling-time aggregate only; vip_id is a tier, not PII.
