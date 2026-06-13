@@ -246,6 +246,7 @@ New "Care" tab on predicate segment detail pages for VIP/whale segments, overlay
 - **CS ticket reader** — `server/src/lakehouse/cs-ticket-reader.ts`. Queries `iceberg.cs_ticket.cs_ticket_new_master` + `cs_ticket_map_ai_label` (both multi-row per ticket; deduped via `row_number()`), groups by category/sentiment/rating. Serves pulse (open/unresolved/negative), issue mix (tickets/members per category).
 - **CS recharge trajectory** — `server/src/lakehouse/cs-recharge-trajectory.ts`. Joins contacted-member segment to recharge fact mart, computes impact window (members treated + control). Failure degrades `csImpact` to null (200) while other response sections remain.
 - **Care-segment assembly** — `server/src/routes/segment-cs-care-assembly.ts`. Computes coverage %, freshness anchor, orchestrates ticket/recharge reads. 6h TTL cached.
+- **Live member-name resolution** — `server/src/services/resolve-member-names-live.ts`. Resolves in-game names for bounded uid sets (≤60) via single identity-IN Cube query; fail-soft with 60s cooldown per segment. Segment refresh stores membership-only uids + top-1000 profile snapshot; members below cap have no stored name. Wired into watchlist (cs-care) and member detail (cs-tickets) — names cached with their 6h payloads.
 - **Coverage calculation** — Membership cardinality vs contacted count; surfaces truncation flag if membership exceeds query limit.
 
 ### Routes (server-side)
