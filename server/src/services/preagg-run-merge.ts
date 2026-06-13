@@ -5,8 +5,12 @@
  * Outcome rules (per game × cube):
  *   probe=built  + no log error → sealed         (healthy, serving warm)
  *   probe=built  + log error    → stale_serving  (KEY: old cache still up)
- *   probe∈{unbuilt,error} + log error → failed   (not serving at all)
- *   probe=unbuilt/error + no error   → unbuilt   (cold / never built)
+ *   probe∈{from-source,unbuilt,error} + log error → failed   (not serving from rollup)
+ *   probe∈{from-source,unbuilt,error} + no error  → unbuilt  (cold: passthrough / never built)
+ *
+ * `from-source` (200 but served from Trino, not a rollup) is treated like
+ * `unbuilt` for sweep history — neither is serving warm from a materialised
+ * rollup, which is what the sweep taxonomy tracks.
  *
  * IMPORTANT: worker logs carry no game/securityContext, so failures are
  * rollup-level. A failure for rollup X is attributed to EVERY game whose probe
@@ -20,7 +24,7 @@
  * slightly different ID formats still match.
  */
 
-import type { PreaggReadiness } from './preagg-readiness.js';
+import type { PreaggReadiness, ProbeStatus } from './preagg-readiness.js';
 import type {
   ParsedBuild,
   ParsedFailure,
@@ -98,11 +102,11 @@ function buildFailureIndex(failures: ParsedFailure[]): Map<string, ParsedFailure
 // Outcome classifier
 // ---------------------------------------------------------------------------
 
-function classifyOutcome(probeStatus: 'built' | 'unbuilt' | 'error', hasFailure: boolean): Outcome {
+function classifyOutcome(probeStatus: ProbeStatus, hasFailure: boolean): Outcome {
   if (probeStatus === 'built') {
     return hasFailure ? 'stale_serving' : 'sealed';
   }
-  // unbuilt or error
+  // from-source, unbuilt, or error — not serving warm from a rollup
   return hasFailure ? 'failed' : 'unbuilt';
 }
 

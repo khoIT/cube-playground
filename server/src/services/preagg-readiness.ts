@@ -2,10 +2,19 @@
  * Pre-aggregation readiness probe service.
  *
  * Probes each known pre-agg-bearing cube per game in a `game_id` workspace by
- * issuing a minimal /load (limit 1, 1-day range) and classifying the result:
- *   built   — HTTP 200 (data or empty set, partition exists)
- *   unbuilt — Cube returns the partition-not-built error before any data scan
- *   error   — timeout, auth failure, cube missing, or other unexpected error
+ * issuing a minimal /load (limit 1, 1-day range) and classifying the result by
+ * what ACTUALLY served it (read from the response's `usedPreAggregations`), not
+ * merely whether it returned 200:
+ *   built       — 200 AND a rollup served it (usedPreAggregations non-empty)
+ *   from-source — 200 but no rollup matched; Cube fell through to Trino. The
+ *                 rollup is defined in the model but not materialised/active, so
+ *                 a 200 here is NOT evidence the cache is serving.
+ *   unbuilt     — Cube returned the partition-not-built error before any scan
+ *   error       — timeout, auth failure, cube missing, or other unexpected error
+ *
+ * A bare 200 used to be classified "built", which masked passthrough: a query
+ * answered emptily by Trino read as green. Asserting usedPreAggregations is the
+ * honest signal — green means a rollup is genuinely active.
  *
  * Non-game_id workspaces (prefix, etc.) short-circuit and return an empty
  * section — they point at an external cube stack where these rollups may differ.
@@ -95,13 +104,24 @@ export function isPartitionNotBuiltError(message: string): boolean {
   return message.includes(PARTITION_NOT_BUILT_SUBSTRING);
 }
 
-export type ProbeStatus = 'built' | 'unbuilt' | 'error';
+export type ProbeStatus = 'built' | 'from-source' | 'unbuilt' | 'error';
 
 export interface ProbeResult {
   cube: string;
   status: ProbeStatus;
   /** Present when status is 'unbuilt' or 'error'. */
   message?: string;
+}
+
+/**
+ * Read the rollups that served a /load response. Cube returns
+ * `usedPreAggregations` as an object keyed by pre-agg name (empty/absent when
+ * the query fell through to source). Tolerant of the unknown body shape.
+ */
+function servedByRollup(body: unknown): boolean {
+  const used = (body as { usedPreAggregations?: Record<string, unknown> } | null)
+    ?.usedPreAggregations;
+  return used != null && typeof used === 'object' && Object.keys(used).length > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,8 +157,10 @@ function buildProbeQuery(entry: PreaggRegistryEntry): unknown {
  */
 async function probeOne(ctx: WorkspaceCtx, entry: PreaggRegistryEntry): Promise<ProbeResult> {
   try {
-    await loadWithCtx(buildProbeQuery(entry), ctx);
-    return { cube: entry.cube, status: 'built' };
+    const body = await loadWithCtx(buildProbeQuery(entry), ctx);
+    // Green only when a rollup actually served — a bare 200 that fell through
+    // to Trino is `from-source`, not `built`.
+    return { cube: entry.cube, status: servedByRollup(body) ? 'built' : 'from-source' };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (isPartitionNotBuiltError(msg)) {
@@ -157,6 +179,8 @@ export interface GamePreaggResult {
   label: string;
   cubes: ProbeResult[];
   built: number;
+  /** 200 but served from Trino — rollup defined, not materialised/active. */
+  fromSource: number;
   unbuilt: number;
   errored: number;
 }
@@ -289,9 +313,10 @@ export async function computePreaggReadiness(
   const games: GamePreaggResult[] = cfg.games.map((g) => {
     const entry = byGame.get(g.id)!;
     const built = entry.cubes.filter((c) => c.status === 'built').length;
+    const fromSource = entry.cubes.filter((c) => c.status === 'from-source').length;
     const unbuilt = entry.cubes.filter((c) => c.status === 'unbuilt').length;
     const errored = entry.cubes.filter((c) => c.status === 'error').length;
-    return { id: g.id, label: g.name, cubes: entry.cubes, built, unbuilt, errored };
+    return { id: g.id, label: g.name, cubes: entry.cubes, built, fromSource, unbuilt, errored };
   });
 
   const result: PreaggReadiness = { games, generatedAt: new Date().toISOString() };

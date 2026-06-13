@@ -50,7 +50,7 @@ describe('mergeSweep — outcome taxonomy', () => {
     const probe = makeProbe([{
       id: 'cfm_vn', label: 'CFM VN',
       cubes: [{ cube: 'active_daily', status: 'built' }],
-      built: 1, unbuilt: 0, errored: 0,
+      built: 1, fromSource: 0, unbuilt: 0, errored: 0,
     }]);
 
     const { items } = mergeSweep(probe, [], META);
@@ -64,7 +64,7 @@ describe('mergeSweep — outcome taxonomy', () => {
     const probe = makeProbe([{
       id: 'cfm_vn', label: 'CFM VN',
       cubes: [{ cube: 'active_daily', status: 'built' }],
-      built: 1, unbuilt: 0, errored: 0,
+      built: 1, fromSource: 0, unbuilt: 0, errored: 0,
     }]);
     const failures = [makeFailure('active_daily.dau_by_ingame_dims_daily_batch')];
 
@@ -78,7 +78,7 @@ describe('mergeSweep — outcome taxonomy', () => {
     const probe = makeProbe([{
       id: 'cfm_vn', label: 'CFM VN',
       cubes: [{ cube: 'ordered_funnel_canonical', status: 'error', message: 'cube not found' }],
-      built: 0, unbuilt: 0, errored: 1,
+      built: 0, fromSource: 0, unbuilt: 0, errored: 1,
     }]);
     const failures = [makeFailure('ordered_funnel_canonical.canonical_daily', 'table-not-found')];
 
@@ -92,13 +92,27 @@ describe('mergeSweep — outcome taxonomy', () => {
     const probe = makeProbe([{
       id: 'jus_vn', label: 'JUS VN',
       cubes: [{ cube: 'mf_users', status: 'unbuilt', message: 'no partition' }],
-      built: 0, unbuilt: 1, errored: 0,
+      built: 0, fromSource: 0, unbuilt: 1, errored: 0,
     }]);
 
     const { items } = mergeSweep(probe, [], META);
     expect(items[0].outcome).toBe('unbuilt');
     expect(items[0].serveable).toBe(false);
     expect(items[0].errorSig).toBeNull();
+  });
+
+  it('from-source: probe=from-source (Trino passthrough) → unbuilt, not serveable', () => {
+    const probe = makeProbe([{
+      id: 'cfm_vn', label: 'CFM VN',
+      cubes: [{ cube: 'active_daily', status: 'from-source' }],
+      built: 0, fromSource: 1, unbuilt: 0, errored: 0,
+    }]);
+
+    const { items } = mergeSweep(probe, [], META);
+    // A 200 served from source is NOT serving warm from a rollup — sweep
+    // history treats it like unbuilt, and it must not read as serveable.
+    expect(items[0].outcome).toBe('unbuilt');
+    expect(items[0].serveable).toBe(false);
   });
 });
 
@@ -116,7 +130,7 @@ describe('mergeSweep — counts', () => {
         { cube: 'mf_users', status: 'unbuilt' },
         { cube: 'ordered_funnel_canonical', status: 'error' },
       ],
-      built: 2, unbuilt: 1, errored: 1,
+      built: 2, fromSource: 0, unbuilt: 1, errored: 1,
     }]);
     const failures = [
       makeFailure('game_key_metrics.kpi_batch'),
@@ -135,12 +149,12 @@ describe('mergeSweep — counts', () => {
       {
         id: 'cfm_vn', label: 'CFM VN',
         cubes: [{ cube: 'active_daily', status: 'built' }, { cube: 'mf_users', status: 'built' }],
-        built: 2, unbuilt: 0, errored: 0,
+        built: 2, fromSource: 0, unbuilt: 0, errored: 0,
       },
       {
         id: 'jus_vn', label: 'JUS VN',
         cubes: [{ cube: 'active_daily', status: 'built' }],
-        built: 1, unbuilt: 0, errored: 0,
+        built: 1, fromSource: 0, unbuilt: 0, errored: 0,
       },
     ]);
 
@@ -160,12 +174,12 @@ describe('mergeSweep — cross-game over-warn', () => {
       {
         id: 'cfm_vn', label: 'CFM VN',
         cubes: [{ cube: 'active_daily', status: 'built' }],
-        built: 1, unbuilt: 0, errored: 0,
+        built: 1, fromSource: 0, unbuilt: 0, errored: 0,
       },
       {
         id: 'jus_vn', label: 'JUS VN',
         cubes: [{ cube: 'active_daily', status: 'built' }],
-        built: 1, unbuilt: 0, errored: 0,
+        built: 1, fromSource: 0, unbuilt: 0, errored: 0,
       },
     ]);
     // One log failure — rollup level, no game context
@@ -185,7 +199,7 @@ describe('mergeSweep — cross-game over-warn', () => {
         { cube: 'active_daily', status: 'built' },
         { cube: 'mf_users', status: 'built' },
       ],
-      built: 2, unbuilt: 0, errored: 0,
+      built: 2, fromSource: 0, unbuilt: 0, errored: 0,
     }]);
     const failures = [makeFailure('active_daily.dau_batch')];
 
@@ -235,7 +249,7 @@ describe('mergeSweep — build stats', () => {
         { cube: 'active_daily', status: 'built' },
         { cube: 'mf_users', status: 'built' },
       ],
-      built: 2, unbuilt: 0, errored: 0,
+      built: 2, fromSource: 0, unbuilt: 0, errored: 0,
     }]);
     const builds = [
       { schemaGame: 'cfm', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 8000, batchDate: '20260101', ts: '2026-06-10T07:01:00.000Z' },
@@ -262,7 +276,7 @@ describe('mergeSweep — build stats', () => {
     const probe = makeProbe([{
       id: 'ballistar', label: 'Ballistar',
       cubes: [{ cube: 'active_daily', status: 'built' }],
-      built: 1, unbuilt: 0, errored: 0,
+      built: 1, fromSource: 0, unbuilt: 0, errored: 0,
     }]);
     const builds = [
       { schemaGame: 'zzz', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, batchDate: null, ts: '2026-06-10T07:01:00.000Z' },
@@ -275,7 +289,7 @@ describe('mergeSweep — build stats', () => {
     const probe = makeProbe([{
       id: 'ballistar', label: 'Ballistar',
       cubes: [{ cube: 'active_daily', status: 'built' }],
-      built: 1, unbuilt: 0, errored: 0,
+      built: 1, fromSource: 0, unbuilt: 0, errored: 0,
     }]);
     const builds = [
       { schemaGame: 'ballistar', cube: 'active_daily', rollup: 'dau_daily_batch', durationMs: 100, batchDate: null, ts: '2026-06-10T07:01:00.000Z' },

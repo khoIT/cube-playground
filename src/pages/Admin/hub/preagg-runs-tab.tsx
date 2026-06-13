@@ -22,6 +22,9 @@ import type { ServeabilityNow } from './preagg-runs-data';
 import { SweepRow } from './preagg-runs-sweep-row';
 import { PreaggReadinessMatrix } from './preagg-readiness-matrix';
 import { BuildProgressPanel } from './preagg-build-progress-panel';
+import { CubestoreStoragePanel } from './cubestore-storage-panel';
+import { CubestoreQueryCacheChecker } from './cubestore-query-cache-checker';
+import { useCubestoreStorage } from './cubestore-data';
 import type { PreaggSweepItem } from '../../../types/preagg-run';
 
 // ---------------------------------------------------------------------------
@@ -73,9 +76,10 @@ function ServeabilityStrip({ data, loading, error, gameFilter }: {
   // probe counts; otherwise show the cross-game totals.
   const g = gameFilter ? data?.games.find((x) => x.id === gameFilter) ?? null : null;
   const built = g ? g.built : data?.summary.built ?? 0;
+  const fromSource = g ? g.fromSource : data?.summary.fromSource ?? 0;
   const unbuilt = g ? g.unbuilt : data?.summary.unbuilt ?? 0;
   const errored = g ? g.errored : data?.summary.errored ?? 0;
-  const total = g ? g.built + g.unbuilt + g.errored : data?.summary.totalRollups ?? 0;
+  const total = g ? g.built + g.fromSource + g.unbuilt + g.errored : data?.summary.totalRollups ?? 0;
   const games = gameFilter ? 1 : data?.summary.gamesCount ?? 0;
   // Serveability "stale" count comes from the most recent sweep (staleCount on
   // the sweep row) rather than the probe, which doesn't distinguish stale vs failed.
@@ -114,6 +118,7 @@ function ServeabilityStrip({ data, loading, error, gameFilter }: {
 
       {/* Pills */}
       <Pill variant="live" label={`${built} serving warm`} />
+      <Pill variant="src"  label={`${fromSource} from source`} />
       <Pill variant="fail" label={`${errored} not serveable`} />
       <Pill variant="unb"  label={`${unbuilt} never built`} />
 
@@ -132,11 +137,12 @@ function ServeabilityStrip({ data, loading, error, gameFilter }: {
 // Pill component
 // ---------------------------------------------------------------------------
 
-type PillVariant = 'live' | 'stale' | 'fail' | 'unb';
+type PillVariant = 'live' | 'stale' | 'src' | 'fail' | 'unb';
 
 const PILL_STYLES: Record<PillVariant, React.CSSProperties> = {
   live:  { background: 'var(--live-badge-bg)',    borderColor: 'var(--live-badge-border)',    color: 'var(--live-badge-text)' },
   stale: { background: 'var(--stale-badge-bg)',   borderColor: 'var(--stale-badge-border)',   color: 'var(--stale-badge-text)' },
+  src:   { background: 'var(--info-soft)',        borderColor: 'var(--info-ink)',             color: 'var(--info-ink)' },
   fail:  { background: 'var(--destructive-soft)', borderColor: 'var(--destructive-ink)',     color: 'var(--destructive-ink)' },
   unb:   { background: 'var(--muted-soft)',        borderColor: 'var(--border-card)',          color: 'var(--muted-ink)' },
 };
@@ -144,6 +150,7 @@ const PILL_STYLES: Record<PillVariant, React.CSSProperties> = {
 const PILL_DOT: Record<PillVariant, React.CSSProperties> = {
   live:  { background: 'var(--live-badge-dot)' },
   stale: { background: 'var(--stale-badge-dot)' },
+  src:   { background: 'var(--info-ink)' },
   fail:  { background: 'var(--danger)' },
   unb:   { background: 'var(--neutral-400)' },
 };
@@ -299,6 +306,10 @@ export function PreaggRunsTab() {
   // the log window), not worker activity — hidden by default so the history
   // reads as "what the worker did".
   const [showSnapshots, setShowSnapshots] = useState(false);
+  // CubeStore storage introspection is a separate, heavier read (MySQL wire to
+  // system.*) — collapsed by default; only fetches when opened.
+  const [cubestoreOpen, setCubestoreOpen] = useState(false);
+  const { data: cubestoreData, loading: cubestoreLoading, error: cubestoreError } = useCubestoreStorage(cubestoreOpen);
   const { sweep: detailSweep, items: detailItems } = useSweepDetail(expandedId);
 
   // Game options for the filter — sourced from the live probe (id + label).
@@ -436,6 +447,33 @@ export function PreaggRunsTab() {
         buildingGame={buildRunning ? triggerStatus?.state.game ?? null : null}
         onBuild={(game) => void handleRebuild(game)}
       />
+
+      {/* CubeStore storage — what's actually materialised + a per-query cache
+          checker. Collapsed by default (heavier system.* read); fetches on open. */}
+      <section style={{ marginBottom: 18 }}>
+        <button
+          type="button"
+          onClick={() => setCubestoreOpen((v) => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+            padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-card)',
+            borderRadius: cubestoreOpen ? 'var(--radius-lg) var(--radius-lg) 0 0' : 'var(--radius-lg)',
+            cursor: 'pointer', fontFamily: 'var(--font-sans)',
+          }}
+        >
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', transform: cubestoreOpen ? 'rotate(90deg)' : 'none', transition: 'transform 120ms' }}>▸</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>CubeStore storage</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>what's materialised · does a query serve from cache</span>
+        </button>
+        {cubestoreOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 14px', border: '1px solid var(--border-card)', borderTop: 'none', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)' }}>
+            <CubestoreStoragePanel data={cubestoreData} loading={cubestoreLoading} error={cubestoreError} />
+            {gameOptions.length > 0 && (
+              <CubestoreQueryCacheChecker games={gameOptions.map((g) => ({ id: g.id, label: g.label }))} />
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Stale banner — only when latest sweep has stale items */}
       {latest && latest.staleCount > 0 && (

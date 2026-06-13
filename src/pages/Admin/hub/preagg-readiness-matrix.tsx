@@ -12,9 +12,10 @@
  * is ~16 columns of mostly empty cells that scroll the game names out of
  * view). Per-game rows keep every game visible while its chips wrap in place:
  *
- *   built   — partition exists, rollup serves
- *   unbuilt — Cube raised partition-not-built; queries on it hard-fail
- *   error   — probe couldn't classify (timeout / auth / cube missing)
+ *   built       — a rollup actually served the probe (usedPreAggregations non-empty)
+ *   from-source — 200 but Cube fell through to Trino; rollup defined, not active
+ *   unbuilt     — Cube raised partition-not-built; queries on it hard-fail
+ *   error       — probe couldn't classify (timeout / auth / cube missing)
  *
  * Each game row carries its own Build button (reuses the scoped worker build
  * trigger) so unbuilt cells can be acted on in place.
@@ -24,9 +25,10 @@ import React from 'react';
 import type { GameReadinessSummary, ProbeCubeResult } from './preagg-runs-data';
 
 const TONE: Record<ProbeCubeResult['status'], { bg: string; ink: string }> = {
-  built:   { bg: 'var(--success-soft)',     ink: 'var(--success-ink)' },
-  unbuilt: { bg: 'var(--muted-soft)',       ink: 'var(--muted-ink)' },
-  error:   { bg: 'var(--destructive-soft)', ink: 'var(--destructive-ink)' },
+  built:         { bg: 'var(--success-soft)',     ink: 'var(--success-ink)' },
+  'from-source': { bg: 'var(--info-soft)',        ink: 'var(--info-ink)' },
+  unbuilt:       { bg: 'var(--muted-soft)',       ink: 'var(--muted-ink)' },
+  error:         { bg: 'var(--destructive-soft)', ink: 'var(--destructive-ink)' },
 };
 
 /** Compact relative age — "3h", "2d" — for the seal timestamp on a chip. */
@@ -85,7 +87,9 @@ function BuildAction({ game, buildingGame, onBuild }: {
   onBuild: (game: string) => void;
 }) {
   const cubes = game.cubes ?? [];
-  const toBuild = game.unbuilt + game.errored;
+  // Anything not actively served by a rollup is a build candidate — unbuilt,
+  // errored, AND from-source (passthrough: rollup defined but not materialised).
+  const toBuild = cubes.length - game.built;
   const isBuilding = buildingGame === game.id;
   const buildRunning = buildingGame != null;
 
@@ -162,6 +166,7 @@ export function PreaggReadinessMatrix({
         </span>
         <span style={{ display: 'inline-flex', gap: 10, marginLeft: 4 }}>
           <LegendDot status="built" label="built" />
+          <LegendDot status="from-source" label="from source" />
           <LegendDot status="unbuilt" label="unbuilt" />
           <LegendDot status="error" label="error" />
         </span>

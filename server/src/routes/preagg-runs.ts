@@ -21,6 +21,8 @@ import { getCollectorStatus } from '../services/preagg-run-collector.js';
 import { isKnownGame } from '../services/games-config-loader.js';
 import { isTriggerEnabled, getTriggerState, startTrigger } from '../services/preagg-trigger.js';
 import { getBuildProgress } from '../services/preagg-build-progress.js';
+import { readCubestoreStorage } from '../services/cubestore-introspect.js';
+import { checkQueryCache } from '../services/cubestore-query-cache-check.js';
 
 export default async function preaggRunsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireRole('admin'));
@@ -63,7 +65,7 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
         generatedAt: new Date().toISOString(),
         note: 'warming — serveability probe is computing; refresh in a few seconds',
         games: [],
-        summary: { gamesCount: 0, totalRollups: 0, built: 0, unbuilt: 0, errored: 0 },
+        summary: { gamesCount: 0, totalRollups: 0, built: 0, fromSource: 0, unbuilt: 0, errored: 0 },
         collector,
         warming: true,
       };
@@ -71,14 +73,16 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
 
     // Flatten probe counts across all games for a quick summary
     let totalBuilt = 0;
+    let totalFromSource = 0;
     let totalUnbuilt = 0;
     let totalErrored = 0;
     for (const g of readiness.games) {
       totalBuilt += g.built;
+      totalFromSource += g.fromSource;
       totalUnbuilt += g.unbuilt;
       totalErrored += g.errored;
     }
-    const totalRollups = totalBuilt + totalUnbuilt + totalErrored;
+    const totalRollups = totalBuilt + totalFromSource + totalUnbuilt + totalErrored;
     const gamesCount = readiness.games.length;
 
     // The probe only classifies built/unbuilt; seal TIMES live in sweep
@@ -103,6 +107,7 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
         gamesCount,
         totalRollups,
         built: totalBuilt,
+        fromSource: totalFromSource,
         unbuilt: totalUnbuilt,
         errored: totalErrored,
       },
@@ -110,6 +115,34 @@ export default async function preaggRunsRoutes(app: FastifyInstance): Promise<vo
       warming: false,
     };
   });
+
+  // ── CubeStore storage introspection ────────────────────────────────────────
+  // Literal paths — registered before /:id so they win over the numeric param.
+  // Returns { enabled:false } (not an error) where introspection is off so the
+  // UI renders a calm note instead of an error card.
+
+  // GET /api/preagg-runs/cubestore/tables — materialised pre-aggs by schema.
+  app.get('/api/preagg-runs/cubestore/tables', async () => {
+    return readCubestoreStorage();
+  });
+
+  // POST /api/preagg-runs/cubestore/query-cache — does this query's rollup serve
+  // from CubeStore? Body: { game, query }.
+  app.post<{ Body: { game?: string; query?: unknown } }>(
+    '/api/preagg-runs/cubestore/query-cache',
+    async (req, reply) => {
+      const { game, query } = req.body ?? {};
+      if (!game || !isKnownGame(game)) {
+        reply.code(400);
+        return { error: 'unknown or missing game' };
+      }
+      if (query == null || typeof query !== 'object') {
+        reply.code(400);
+        return { error: 'missing query object' };
+      }
+      return checkQueryCache(getDefaultWorkspace(), game, query);
+    },
+  );
 
   // ── Build trigger (dev/demo) ───────────────────────────────────────────────
   // Registered before /:id so the literal paths win over the numeric param.

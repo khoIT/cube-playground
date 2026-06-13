@@ -32,6 +32,14 @@ vi.mock('../src/services/games-config-loader.js', () => ({
   })),
 }));
 
+// Force the static PREAGG_REGISTRY fallback so per-game cube counts are
+// deterministic. Without this the probe reads each game's REAL model from
+// cube-dev (ballistar=8 cubes, muaw=7), which makes count assertions depend on
+// the vendored model rather than the classification logic under test.
+vi.mock('../src/services/preagg-model-registry.js', () => ({
+  getModelPreaggRegistry: vi.fn(() => undefined),
+}));
+
 import { loadWithCtx } from '../src/services/cube-client.js';
 import {
   isPartitionNotBuiltError,
@@ -126,13 +134,39 @@ describe('computePreaggReadiness — game_id workspace', () => {
     expect(total).toBe(2 * PREAGG_REGISTRY.length);
   });
 
-  it('classifies a successful /load response as built', async () => {
-    mockLoad.mockResolvedValue({ data: [] });
+  it('classifies a 200 that a rollup served (usedPreAggregations non-empty) as built', async () => {
+    mockLoad.mockResolvedValue({
+      data: [],
+      usedPreAggregations: { 'active_daily.dau_by_country_payer_daily_batch': {} },
+    });
     const result = await computePreaggReadiness(gameIdWorkspace);
     for (const g of result.games) {
       expect(g.built).toBe(PREAGG_REGISTRY.length);
+      expect(g.fromSource).toBe(0);
       expect(g.unbuilt).toBe(0);
       expect(g.errored).toBe(0);
+    }
+  });
+
+  it('classifies a 200 with no rollup (Trino passthrough) as from-source, not built', async () => {
+    // Empty/absent usedPreAggregations = served from source. A bare 200 must
+    // NOT read as built — that was the bug this hardening fixes.
+    mockLoad.mockResolvedValue({ data: [], usedPreAggregations: {} });
+    const result = await computePreaggReadiness(gameIdWorkspace);
+    for (const g of result.games) {
+      expect(g.fromSource).toBe(PREAGG_REGISTRY.length);
+      expect(g.built).toBe(0);
+      expect(g.unbuilt).toBe(0);
+      expect(g.errored).toBe(0);
+    }
+  });
+
+  it('treats a 200 with the usedPreAggregations key absent as from-source', async () => {
+    mockLoad.mockResolvedValue({ data: [] });
+    const result = await computePreaggReadiness(gameIdWorkspace);
+    for (const g of result.games) {
+      expect(g.fromSource).toBe(PREAGG_REGISTRY.length);
+      expect(g.built).toBe(0);
     }
   });
 
@@ -144,6 +178,7 @@ describe('computePreaggReadiness — game_id workspace', () => {
     for (const g of result.games) {
       expect(g.unbuilt).toBe(PREAGG_REGISTRY.length);
       expect(g.built).toBe(0);
+      expect(g.fromSource).toBe(0);
       expect(g.errored).toBe(0);
     }
   });
@@ -154,6 +189,7 @@ describe('computePreaggReadiness — game_id workspace', () => {
     for (const g of result.games) {
       expect(g.errored).toBe(PREAGG_REGISTRY.length);
       expect(g.built).toBe(0);
+      expect(g.fromSource).toBe(0);
       expect(g.unbuilt).toBe(0);
     }
   });

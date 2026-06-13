@@ -148,6 +148,11 @@ services:
   cubestore_dev:
     image: cubejs/cubestore:${CUBESTORE_TAG:-latest}
     container_name: cube-playground-cubestore-dev
+    # Expose the MySQL-protocol port so the host dev server (:3000, tsx-watch)
+    # can run read-only SYSTEM.* introspection for the CubeStore storage panel.
+    # In-stack callers reach it by service name; this map is only for host dev.
+    ports:
+      - "13306:3306"
     environment:
       CUBESTORE_DATA_DIR: /cube/data
     volumes:

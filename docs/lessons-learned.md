@@ -766,6 +766,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A 200 from Cube /load does NOT mean a rollup served — assert usedPreAggregations
+
+- **Rule:** to judge whether a pre-aggregation is actually serving, never treat HTTP 200 as "built". A query that matches no active partition (wrong date/grain, partition not sealed, lambda tail) returns 200 with `usedPreAggregations: []` by **falling through to Trino**. Read `usedPreAggregations` (and `results[].external`) off the `/load` body: rollup-served only when it's non-empty. To know whether a SPECIFIC query's rollup is materialised, use the `/sql` dry-run (`preAggregations[].tableName`) cross-checked against CubeStore `system.partitions.active`, not a /load status code.
+- **Why:** the Pre-agg Runs "Rollup readiness" matrix classified every 200 as green/built. Live, all 53 local rollups read "built" while `usedPreAggregations` was empty on every one — pure Trino passthrough. The green masked that the per-game `preagg_*` tables were *registered but had zero active partitions*. CubeStore introspection confirmed both states coexist: a May date-range query served `materialized` (9 active partitions) while the probe's single-day query hit passthrough on the same cube.
+- **Signal:** "all green" readiness with suspiciously round counts; `/load` returns 200 + 0 rows; flips green/red exactly with Trino reachability (VPN on/off) rather than with builds; `system.partitions` shows `active=false` for tables that `information_schema.tables` lists.
+- **Apply:** the probe now has a 4th state `from-source` (amber) for 200-but-passthrough (`preagg-readiness.ts` `probeOne`). When matching a dry-run `tableName` to a CubeStore base, the dry-run already reports the bare logical name — do NOT re-strip it with the physical-name suffix stripper or it chops 3 real tokens and every verdict degrades to `not-built`. See `docs/cubestore-cache-and-eviction.md` for the introspection queries (lowercase `system.*`, no `SUM(boolean)`/JOIN).
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

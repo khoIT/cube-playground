@@ -26,7 +26,7 @@ export type { PreaggSweep, PreaggSweepItem, BuildProgress };
 /** One probed cube's classification (mirrors ProbeResult in preagg-readiness). */
 export interface ProbeCubeResult {
   cube: string;
-  status: 'built' | 'unbuilt' | 'error';
+  status: 'built' | 'from-source' | 'unbuilt' | 'error';
   message?: string;
   /** Most recent seal observed in sweep history for this game × cube. */
   lastSealedAt?: string | null;
@@ -38,6 +38,8 @@ export interface GameReadinessSummary {
   /** Per-cube probe results — the readiness matrix renders these as cells. */
   cubes?: ProbeCubeResult[];
   built: number;
+  /** 200 but served from Trino — rollup defined, not materialised/active. */
+  fromSource: number;
   unbuilt: number;
   errored: number;
 }
@@ -50,6 +52,7 @@ export interface ServeabilityNow {
     gamesCount: number;
     totalRollups: number;
     built: number;
+    fromSource: number;
     unbuilt: number;
     errored: number;
   };

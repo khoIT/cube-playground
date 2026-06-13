@@ -83,11 +83,15 @@ describe('preagg-runs routes', () => {
   const prevEnv = {
     AUTH_DISABLED: process.env.AUTH_DISABLED,
     JWT_SECRET: process.env.JWT_SECRET,
+    CUBESTORE_INTROSPECT_ENABLED: process.env.CUBESTORE_INTROSPECT_ENABLED,
   };
 
   beforeEach(async () => {
     process.env.AUTH_DISABLED = 'false';
     process.env.JWT_SECRET = JWT_SECRET;
+    // Keep CubeStore introspection off so these tests never touch a live :3306 —
+    // the routes must return enabled:false deterministically.
+    process.env.CUBESTORE_INTROSPECT_ENABLED = 'false';
 
     db = makeMemDb();
     setDb(db);
@@ -114,6 +118,51 @@ describe('preagg-runs routes', () => {
     closeDb();
     process.env.AUTH_DISABLED = prevEnv.AUTH_DISABLED;
     process.env.JWT_SECRET = prevEnv.JWT_SECRET;
+    process.env.CUBESTORE_INTROSPECT_ENABLED = prevEnv.CUBESTORE_INTROSPECT_ENABLED;
+  });
+
+  // ── CubeStore storage introspection ──────────────────────────────────────
+
+  describe('GET /api/preagg-runs/cubestore/tables', () => {
+    it('returns 403 for editor role', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/preagg-runs/cubestore/tables', headers: editorAuth });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('returns enabled:false (200) when introspection is off', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/preagg-runs/cubestore/tables', headers: adminAuth });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.enabled).toBe(false);
+      expect(body.schemas).toEqual([]);
+    });
+  });
+
+  describe('POST /api/preagg-runs/cubestore/query-cache', () => {
+    it('400s on a missing/unknown game', async () => {
+      const res = await app.inject({
+        method: 'POST', url: '/api/preagg-runs/cubestore/query-cache', headers: adminAuth,
+        payload: { game: 'no_such_game', query: { measures: ['x.y'] } },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('400s when the query object is missing', async () => {
+      const res = await app.inject({
+        method: 'POST', url: '/api/preagg-runs/cubestore/query-cache', headers: adminAuth,
+        payload: { game: 'cfm_vn' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('returns enabled:false (200) for a valid request when introspection is off', async () => {
+      const res = await app.inject({
+        method: 'POST', url: '/api/preagg-runs/cubestore/query-cache', headers: adminAuth,
+        payload: { game: 'cfm_vn', query: { measures: ['active_daily.dau'] } },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().enabled).toBe(false);
+    });
   });
 
   // ── GET /api/preagg-runs ─────────────────────────────────────────────────
