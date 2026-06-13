@@ -2,14 +2,14 @@
 
 Significant changes to the cube-playground app, newest first.
 
-## 2026-06-14 — What's New feature-announcement inbox (bundled releases + unread tracking + timeline page)
+## 2026-06-14 — What's New feature-card layout + CS Trino connector fallback (hero-image cards + inbox policy + Cube connector reuse)
 
-Shipped a changelog-timeline feature announcement system. Merged topbar bells (AnomalyBell + chat NotificationBell → single WhatsNewBell). Added `/whats-new` page with announcement timeline and per-user read-state tracking. Drop a markdown file in `src/pages/WhatsNew/releases/` to add a release (no server changes).
+Two ship: (1) redesigned `/whats-new` from timeline to feature cards — each release leads with a full-bleed 21:9 hero SVG so users see what a feature does before opening. Inbox policy: only features reachable by any user (admin-gated features excluded, e.g. Lakehouse Snapshot Inbox dropped). (2) CS lakehouse readers now resolve their Trino connector via a fallback: try profiler (TRINO_PROFILER_*, local-only) → Cube connector (CUBEJS_DB_*, prod-set). Enables Care tab on prod.
 
-- **WhatsNewBell** (`src/pages/WhatsNew/whats-new-bell.tsx`) — single topbar bell replaces former AnomalyBell + chat NotificationBell (files kept on disk; unused). Unread badge computed client-side as (bundled ids − read ids).
-- **Bundled releases** (`src/pages/WhatsNew/releases/*.md`) — markdown frontmatter (id/title/date/kind/area/deepLink/image) parsed via `announcement-frontmatter.ts`. Vite `?raw` glob in `announcements-content.ts`. Adding a release = drop .md file (no backend change).
-- **Per-user read-state** — SQLite migration 052-announcement-reads.sql; gateway route `announcements.ts` POST/GET `/api/announcements/reads` (owner-scoped). Unread = `bundled − read` sets. Idempotent POST.
-- **Shared module** `use-announcements.ts` — keeps bell + page in sync via Zustand. Handles focus/blur for unread refresh.
+- **Feature-card layout** — Replaces `AnnouncementTimelineItem` with `AnnouncementFeatureCard` (commit 87df66b). Cards in a grid, each with a hero SVG. `/public/whats-new/` holds 4 hero SVGs (21:9 aspect): welcome.svg (recut), cube-join-graph.svg, metric-drift-center.svg, segment-care-tab.svg. Release markdown gains `image:` frontmatter field.
+- **Inbox policy (public only)** — Surviving entries (reachable by any user): welcome, metric-drift-center, segment-care-tab, cube-join-graph. Dropped: lakehouse-snapshot-inbox (admin-only `/admin` feature). Only bundled entries with `deepLink` pointing to reachable routes appear.
+- **CS connector fallback** (`server/src/lakehouse/cs-trino-connector.ts`) — Three CS readers (cs-ticket-reader, cs-ticket-detail-reader, cs-recharge-trajectory) now call `resolveCsTrinoConnector()` instead of `getConnector()` directly. Strategy: profiler first → Cube fallback. CS tables fully qualified (iceberg.cs_ticket.*) so session catalog moot. Unblocks Care tab on prod (CUBEJS_DB_* always set; TRINO_PROFILER_* never set).
+- **WhatsNewBell + read-state** — Single topbar bell replaces AnomalyBell + chat NotificationBell. Per-user read-state: migration 052-announcement-reads.sql; routes/announcements.ts POST/GET `/api/announcements/reads` (owner-scoped). Shared module `use-announcements.ts` keeps bell + page in sync.
 
 ## 2026-06-13 — Cube graph readability pass (emphasized names + crow's-foot cardinality + tinted groups + draggable cards)
 

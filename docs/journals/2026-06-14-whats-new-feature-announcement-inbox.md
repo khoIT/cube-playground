@@ -17,15 +17,16 @@ The decision to merge rather than add a third bell came from discovering a compl
 
 **Content Model Decision:**
 - Announcements are BROADCAST (all users see same set), but chat-notifications is per-owner rows (wrong shape for shared content).
-- Chose: markdown files as source of truth (bundled via Vite `?raw` glob import). Adding a release needs no migration or backfill — just drop a .md file in `public/whats-new/`, rebuild, deploy.
+- Chose: markdown files as source of truth (bundled via Vite `?raw` glob import). Adding a release needs no migration or backfill — just drop a .md file + hero SVG in `public/whats-new/`, add frontmatter `image:` field, rebuild, deploy.
+- Inbox policy: only features reachable by any user (admin-gated features excluded). Lakehouse Snapshot Inbox (2026-06-14 entry, under `/admin`) removed from inbox; 4 entries remain (welcome, metric-drift-center, segment-care-tab, cube-join-graph).
 - Read receipts stored in tiny `announcement_reads(owner_id, announcement_id)` table. Unread computed client-side as (bundled_ids − fetched_read_ids). Server stays content-agnostic.
 
 **Deduplication & State Sharing:**
 - Module-level `useSyncExternalStore` hook shares read-state between bell badge + inbox page. Both components subscribe to same store; fetch happens once per session via `GET /api/user/announcement-reads`. No badge/page disagreement possible.
 
 **Design-to-Code:**
-- Designed 3 hi-fi HTML inbox variants in huashu; user selected timeline-changelog layout.
-- Welcome entry gets hand-built SVG hero (`public/whats-new/welcome.svg`) since real screenshots don't exist yet. Entries without images fall back to styled placeholder (light gray box).
+- Designed 3 hi-fi HTML inbox variants in huashu; user selected feature-card layout (Variant B).
+- Each release leads with a full-bleed 21:9 hero SVG (`public/whats-new/*.svg`); cards lift on hover. Welcome + 3 feature cards (cube-join-graph, metric-drift-center, segment-care-tab). Entries without images fall back to styled placeholder (light gray box).
 
 **Blast Radius Control:**
 - Old AnomalyBell files + chat-notifications backend left untouched, unsurfaced. Future dead-code sweep flagged; no rip-and-replace risk now.
