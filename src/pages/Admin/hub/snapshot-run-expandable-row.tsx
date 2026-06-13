@@ -7,7 +7,10 @@
  */
 
 import React, { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, RefreshCw } from 'lucide-react';
+
+/** Reused spin for the live-run indicator — mirrors segment-refresh-row. */
+const SPIN_KEYFRAMES = '@keyframes segsnapshot-spin{to{transform:rotate(360deg)}}';
 
 export interface SnapshotRunError {
   segmentId: string;
@@ -57,38 +60,54 @@ const STATUS_INK: Record<string, string> = {
   started: 'var(--info-ink)',
 };
 
-function SegmentItemLine({ item }: { item: SnapshotRunItem }) {
+/** Shared grid template so every breakdown row aligns into columns regardless
+ *  of name/owner length: status | segment | game | owner | rows | detail. */
+const breakdownGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '58px minmax(120px, 1.4fr) 82px minmax(120px, 1fr) 88px minmax(0, 1.2fr)',
+  gap: 12,
+  alignItems: 'baseline',
+};
+
+const ellipsis: React.CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
+const breakdownHead: React.CSSProperties = {
+  ...breakdownGrid,
+  fontSize: 10,
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  color: 'var(--text-muted)',
+  paddingBottom: 2,
+};
+
+function SegmentItemRow({ item }: { item: SnapshotRunItem }) {
   return (
-    <li style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12, minWidth: 0 }}>
-      <span style={{ color: STATUS_INK[item.status] ?? 'var(--text-muted)', fontWeight: 600, minWidth: 52, flexShrink: 0 }}>
-        {item.status}
-      </span>
-      <span
-        style={{ color: 'var(--text-primary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        title={item.segmentId}
-      >
+    <div style={{ ...breakdownGrid, fontSize: 12 }}>
+      <span style={{ color: STATUS_INK[item.status] ?? 'var(--text-muted)', fontWeight: 600 }}>{item.status}</span>
+      <span style={{ ...ellipsis, color: 'var(--text-primary)', fontWeight: 600 }} title={item.segmentId}>
         {item.name ?? item.segmentId}
       </span>
-      {item.gameId && <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{item.gameId}</span>}
+      <span style={{ ...ellipsis, color: 'var(--text-muted)' }}>{item.gameId ?? '—'}</span>
       {/* Owner — the snapshot lands every owner's segments, so show whose it is. */}
-      {item.owner && (
-        <span style={{ color: 'var(--text-muted)', flexShrink: 0 }} title={`owner: ${item.owner}`}>
-          · {item.owner}
-        </span>
-      )}
-      {item.rowCount != null && (
-        <span style={{ color: 'var(--text-secondary)', flexShrink: 0 }}>{item.rowCount.toLocaleString()} rows</span>
-      )}
-      {item.detail && <span style={{ color: 'var(--text-muted)' }}>— {item.detail}</span>}
-    </li>
+      <span style={{ ...ellipsis, color: 'var(--text-muted)' }} title={item.owner ? `owner: ${item.owner}` : undefined}>
+        {item.owner ?? '—'}
+      </span>
+      <span style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>
+        {item.rowCount != null ? item.rowCount.toLocaleString() : '—'}
+      </span>
+      <span style={{ ...ellipsis, color: 'var(--text-muted)' }} title={item.detail ?? undefined}>{item.detail ?? ''}</span>
+    </div>
   );
 }
 
-export function SnapshotRunExpandableRow({ run }: { run: SnapshotRun }) {
-  const [open, setOpen] = useState(false);
+export function SnapshotRunExpandableRow({ run, live = false }: { run: SnapshotRun; live?: boolean }) {
+  // Auto-open the live run so segments stream into view as they land.
+  const [open, setOpen] = useState(live);
   const expandable = run.items.length > 0;
   return (
     <React.Fragment>
+      {live && <style>{SPIN_KEYFRAMES}</style>}
       <tr>
         <td style={{ ...td, fontWeight: 600, whiteSpace: 'nowrap' }}>
           <button
@@ -111,6 +130,15 @@ export function SnapshotRunExpandableRow({ run }: { run: SnapshotRun }) {
               style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 120ms' }}
             />
           </button>
+          {/* Live indicator — a run is in flight on this gateway; segments are
+              still landing (mirrors the segment-refresh row spinner). */}
+          {live && (
+            <RefreshCw
+              size={12}
+              aria-label="snapshot in progress"
+              style={{ color: 'var(--info-ink)', animation: 'segsnapshot-spin .9s linear infinite', transformOrigin: 'center', marginRight: 6, verticalAlign: 'middle' }}
+            />
+          )}
           {run.snapshotDate}
         </td>
         <td style={td}>{run.startedAt ?? '—'}</td>
@@ -143,11 +171,19 @@ export function SnapshotRunExpandableRow({ run }: { run: SnapshotRun }) {
       {open && expandable && (
         <tr>
           <td colSpan={7} style={{ ...td, background: 'var(--bg-subtle, var(--muted-soft))', padding: '8px 12px 10px 43px' }}>
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+              <div style={breakdownHead}>
+                <span>Status</span>
+                <span>Segment</span>
+                <span>Game</span>
+                <span>Owner</span>
+                <span style={{ textAlign: 'right' }}>Rows</span>
+                <span>Detail</span>
+              </div>
               {run.items.map((item) => (
-                <SegmentItemLine key={item.segmentId} item={item} />
+                <SegmentItemRow key={item.segmentId} item={item} />
               ))}
-            </ul>
+            </div>
           </td>
         </tr>
       )}

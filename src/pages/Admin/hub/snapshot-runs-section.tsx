@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CloudUpload } from 'lucide-react';
 import { apiFetch } from '../../../api/api-client';
 import { SnapshotRunExpandableRow, type SnapshotRun } from './snapshot-run-expandable-row';
+import { SnapshotConfirmDialog } from './snapshot-confirm-dialog';
 
 interface SnapshotRunsPayload {
   enabledHere: boolean;
@@ -66,6 +67,9 @@ export function SnapshotRunsSection() {
   const [data, setData] = useState<SnapshotRunsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
+  // Open when "Snapshot now" would overwrite a partition that already landed
+  // today (likely another gateway's cron) — an explicit operator decision.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // `fresh` bypasses the server's latest-partition TTL cache — used right after
   // a manual trigger and on run completion so the reachability chip + latest
@@ -100,23 +104,7 @@ export function SnapshotRunsSection() {
     prevRunning.current = runningNow;
   }, [runningNow, refetch]);
 
-  const triggerSnapshot = useCallback(() => {
-    // The lakehouse is SHARED and the server's in-flight guard is per-gateway:
-    // if today's partition already landed (likely another gateway's cron), a
-    // re-run rewrites it from THIS gateway's segments — and overlapping a run
-    // still in flight elsewhere would silently duplicate membership rows.
-    // Make that an explicit operator decision, not a stray click.
-    const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
-    if (
-      data?.latestLanded?.snapshotDate === today &&
-      !window.confirm(
-        `Today's partition (${today}) already landed in the lakehouse — likely from another gateway. ` +
-          'Re-snapshotting now rewrites it from THIS gateway\'s segments, and would conflict with a run ' +
-          'still in flight elsewhere. Continue?',
-      )
-    ) {
-      return;
-    }
+  const runSnapshot = useCallback(() => {
     setTriggering(true);
     apiFetch('/api/segment-refresh/snapshot-runs/trigger', { method: 'POST' })
       .catch(() => { /* 409 ALREADY_RUNNING etc. — refetch shows the truth */ })
@@ -125,7 +113,24 @@ export function SnapshotRunsSection() {
       // run-level error + a current reachability probe.
       .then(() => refetch(true))
       .finally(() => setTriggering(false));
-  }, [data?.latestLanded?.snapshotDate, refetch]);
+  }, [refetch]);
+
+  // Today (GMT+7) — the partition a "Snapshot now" would write/overwrite.
+  const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+  const wouldOverwriteToday = data?.latestLanded?.snapshotDate === today;
+
+  const triggerSnapshot = useCallback(() => {
+    // The lakehouse is SHARED and the server's in-flight guard is per-gateway:
+    // if today's partition already landed (likely another gateway's cron), a
+    // re-run rewrites it from THIS gateway's segments — and overlapping a run
+    // still in flight elsewhere would silently duplicate membership rows.
+    // Make that an explicit operator decision, not a stray click.
+    if (wouldOverwriteToday) {
+      setConfirmOpen(true);
+      return;
+    }
+    runSnapshot();
+  }, [wouldOverwriteToday, runSnapshot]);
 
   if (error) {
     return (
@@ -222,12 +227,32 @@ export function SnapshotRunsSection() {
             </tr>
           </thead>
           <tbody>
-            {data.runs.map((run) => (
-              <SnapshotRunExpandableRow key={run.snapshotDate} run={run} />
+            {data.runs.map((run, idx) => (
+              // Newest run (idx 0) is the in-flight one while a run is running
+              // on this gateway — it carries today's __started__ sentinel.
+              <SnapshotRunExpandableRow key={run.snapshotDate} run={run} live={runningNow && idx === 0} />
             ))}
           </tbody>
         </table>
       )}
+
+      <SnapshotConfirmDialog
+        open={confirmOpen}
+        title="Re-snapshot today's partition?"
+        body={
+          <>
+            Today's partition (<strong style={{ color: 'var(--text-primary)' }}>{today}</strong>) already
+            landed in the lakehouse — likely from another gateway. Re-snapshotting now rewrites it from
+            this gateway's segments, and would conflict with a run still in flight elsewhere.
+          </>
+        }
+        confirmLabel="Snapshot anyway"
+        onConfirm={() => {
+          setConfirmOpen(false);
+          runSnapshot();
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </section>
   );
 }
