@@ -51,6 +51,10 @@ export interface SnapshotRun {
   deltaRows: number | null;
   definitionsStatus: string | null; // 'written' | 'error' | null (not run)
   definitionsRows: number | null;
+  /** Run-level failure that aborted before any segment wrote (e.g. the schema /
+   *  tables couldn't be ensured because the lakehouse was unreachable). null on
+   *  a healthy run. Without this a doomed run reads as a silent 0/0/0. */
+  runError: string | null;
   errors: SnapshotRunError[];
   /** Per-segment outcomes in write order (sentinels excluded). */
   items: SnapshotRunItem[];
@@ -117,6 +121,7 @@ export function listSnapshotRuns(limit = 30): SnapshotRun[] {
         deltaRows: null,
         definitionsStatus: null,
         definitionsRows: null,
+        runError: null,
         errors: [],
         items: [],
       };
@@ -135,6 +140,10 @@ export function listSnapshotRuns(limit = 30): SnapshotRun[] {
         run.definitionsStatus = r.status;
         run.definitionsRows = r.row_count;
       }
+      // A run-level abort (e.g. schema/tables couldn't be ensured because the
+      // lakehouse was unreachable) produces no per-segment rows — surface its
+      // detail as a run-level error so the run doesn't read as a silent 0/0/0.
+      if (r.segment_id === '__ensure__' && r.status === 'error') run.runError = r.detail;
       continue;
     }
     run.items.push({
@@ -165,11 +174,14 @@ let latestCache: { at: number; value: LatestLandedPartition | null; error: strin
  * Trino unreachable → { value: null, error } rather than a thrown 500, so the
  * per-instance log still renders.
  */
-export async function readLatestLandedPartition(): Promise<{
+export async function readLatestLandedPartition(fresh = false): Promise<{
   value: LatestLandedPartition | null;
   error: string | null;
 }> {
-  if (latestCache && Date.now() - latestCache.at < LATEST_PARTITION_TTL_MS) {
+  // `fresh` bypasses the TTL cache — the admin UI requests it right after a
+  // manual snapshot (and on run completion) so the reachability chip + latest
+  // partition reflect reality immediately instead of up to a TTL-window later.
+  if (!fresh && latestCache && Date.now() - latestCache.at < LATEST_PARTITION_TTL_MS) {
     return { value: latestCache.value, error: latestCache.error };
   }
   try {
@@ -193,8 +205,8 @@ export async function readLatestLandedPartition(): Promise<{
   return { value: latestCache.value, error: latestCache.error };
 }
 
-export async function collectSnapshotRuns(): Promise<SnapshotRunsPayload> {
-  const latest = await readLatestLandedPartition();
+export async function collectSnapshotRuns(fresh = false): Promise<SnapshotRunsPayload> {
+  const latest = await readLatestLandedPartition(fresh);
   return {
     enabledHere: (process.env.SEGMENT_SNAPSHOT_ENABLED ?? 'false').toLowerCase() === 'true',
     runningNow: isSnapshotRunning(),

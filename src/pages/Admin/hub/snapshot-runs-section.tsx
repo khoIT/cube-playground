@@ -9,7 +9,7 @@
  *  - The runs table is THIS gateway's heartbeat log (empty here ≠ not running).
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CloudUpload } from 'lucide-react';
 import { apiFetch } from '../../../api/api-client';
 import { SnapshotRunExpandableRow, type SnapshotRun } from './snapshot-run-expandable-row';
@@ -49,14 +49,14 @@ function expectedSnapshotDate(): string {
   return new Date(Date.now() + 7 * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
 }
 
-function Chip({ tone, children }: { tone: 'success' | 'warning' | 'muted'; children: React.ReactNode }) {
+function Chip({ tone, title, children }: { tone: 'success' | 'warning' | 'muted'; title?: string; children: React.ReactNode }) {
   const map = {
     success: { bg: 'var(--success-soft)', ink: 'var(--success-ink)' },
     warning: { bg: 'var(--warning-soft)', ink: 'var(--warning-ink)' },
     muted: { bg: 'var(--muted-soft)', ink: 'var(--muted-ink)' },
   } as const;
   return (
-    <span style={{ background: map[tone].bg, color: map[tone].ink, borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: 11.5, fontWeight: 600 }}>
+    <span title={title} style={{ background: map[tone].bg, color: map[tone].ink, borderRadius: 'var(--radius-sm)', padding: '2px 8px', fontSize: 11.5, fontWeight: 600, cursor: title ? 'help' : 'default' }}>
       {children}
     </span>
   );
@@ -67,8 +67,12 @@ export function SnapshotRunsSection() {
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
 
-  const refetch = useCallback(() => {
-    return apiFetch<SnapshotRunsPayload>('/api/segment-refresh/snapshot-runs')
+  // `fresh` bypasses the server's latest-partition TTL cache — used right after
+  // a manual trigger and on run completion so the reachability chip + latest
+  // partition reflect reality at once. Background/in-flight polls stay cached so
+  // a healthy run doesn't re-probe cold Trino every 5s.
+  const refetch = useCallback((fresh = false) => {
+    return apiFetch<SnapshotRunsPayload>(`/api/segment-refresh/snapshot-runs${fresh ? '?fresh=1' : ''}`)
       .then((d) => {
         setData(d);
         setError(null); // a recovered poll must clear a prior blip, not stick on it
@@ -85,6 +89,15 @@ export function SnapshotRunsSection() {
     if (!runningNow) return;
     const t = setInterval(() => void refetch(), 5000);
     return () => clearInterval(t);
+  }, [runningNow, refetch]);
+
+  // When a run finishes (runningNow true→false) do ONE fresh refetch so the
+  // run-level outcome (incl. a lakehouse-unreachable failure) and the chip
+  // update immediately rather than waiting for the cache TTL to lapse.
+  const prevRunning = useRef(false);
+  useEffect(() => {
+    if (prevRunning.current && !runningNow) void refetch(true);
+    prevRunning.current = runningNow;
   }, [runningNow, refetch]);
 
   const triggerSnapshot = useCallback(() => {
@@ -107,7 +120,10 @@ export function SnapshotRunsSection() {
     setTriggering(true);
     apiFetch('/api/segment-refresh/snapshot-runs/trigger', { method: 'POST' })
       .catch(() => { /* 409 ALREADY_RUNNING etc. — refetch shows the truth */ })
-      .then(() => refetch())
+      // Fresh: a fast-failing run (e.g. lakehouse unreachable) may already be
+      // done before the first in-flight poll, so this is the chance to land the
+      // run-level error + a current reachability probe.
+      .then(() => refetch(true))
       .finally(() => setTriggering(false));
   }, [data?.latestLanded?.snapshotDate, refetch]);
 
@@ -136,7 +152,7 @@ export function SnapshotRunsSection() {
               latest landed {latest.snapshotDate}{fresh ? '' : ' — stale'}
             </Chip>
           ) : (
-            <Chip tone="warning">
+            <Chip tone="warning" title={data.latestLandedError ?? undefined}>
               {data.latestLandedError ? 'lakehouse unreachable' : 'no partitions landed yet'}
             </Chip>
           )}

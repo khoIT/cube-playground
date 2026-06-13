@@ -52,9 +52,15 @@ export default async function segmentRefreshOpsRoutes(app: FastifyInstance): Pro
   // Nightly lakehouse membership-snapshot observability: per-instance heartbeat
   // log (this gateway's SQLite) + latest landed partition from shared Trino
   // (cross-instance truth, TTL-cached inside the service).
-  app.get('/api/segment-refresh/snapshot-runs', async () => {
-    return collectSnapshotRuns();
-  });
+  // `?fresh=1` bypasses the latest-partition TTL cache (admin UI uses it right
+  // after a manual snapshot so the reachability chip updates without a delay).
+  app.get<{ Querystring: { fresh?: string } }>(
+    '/api/segment-refresh/snapshot-runs',
+    async (req) => {
+      const fresh = req.query.fresh === '1' || req.query.fresh === 'true';
+      return collectSnapshotRuns(fresh);
+    },
+  );
 
   // ── POST /api/segment-refresh/snapshot-runs/trigger ────────────────────────
   // Operator-triggered lakehouse snapshot for today (GMT+7) on THIS gateway —

@@ -35,6 +35,8 @@ export interface SnapshotRun {
   deltaRows: number | null;
   definitionsStatus: string | null;
   definitionsRows: number | null;
+  /** Run-level failure that aborted before any segment wrote (null = healthy). */
+  runError: string | null;
   errors: SnapshotRunError[];
   items: SnapshotRunItem[];
 }
@@ -121,6 +123,16 @@ export function SnapshotRunExpandableRow({ run }: { run: SnapshotRun }) {
             : '—'}
         </td>
       </tr>
+      {/* A run-level abort (lakehouse unreachable → schema/tables couldn't be
+          ensured) writes no per-segment rows, so it must surface here or the
+          run reads as a silent 0/0/0. Always visible — never behind a chevron. */}
+      {run.runError && (
+        <tr>
+          <td colSpan={7} style={{ ...td, background: 'var(--destructive-soft)', color: 'var(--destructive-ink)', fontSize: 12, fontWeight: 600 }}>
+            run failed: {run.runError}
+          </td>
+        </tr>
+      )}
       {open && expandable && (
         <tr>
           <td colSpan={7} style={{ ...td, background: 'var(--bg-subtle, var(--muted-soft))', padding: '8px 12px 10px 43px' }}>

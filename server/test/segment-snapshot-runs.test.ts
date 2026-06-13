@@ -95,6 +95,25 @@ describe('listSnapshotRuns', () => {
     expect(runs[1].definitionsStatus).toBeNull();
   });
 
+  it('surfaces an __ensure__ failure as a run-level error, not a silent 0/0/0', () => {
+    // A run aborted before any segment wrote (lakehouse unreachable) — only the
+    // started + ensure-error sentinels exist, no per-segment rows.
+    insertLog('2026-06-13', '__started__', 'started', { ts: '2026-06-13 16:15:04' });
+    insertLog('2026-06-13', '__ensure__', 'error', { detail: 'CUBEJS_DB_HOST not set' });
+
+    const [run] = listSnapshotRuns();
+    expect(run.written).toBe(0);
+    expect(run.skipped).toBe(0);
+    expect(run.errored).toBe(0); // sentinel is NOT counted as a segment error
+    expect(run.runError).toBe('CUBEJS_DB_HOST not set');
+    expect(run.items).toEqual([]);
+  });
+
+  it('leaves runError null on a healthy run', () => {
+    insertLog('2026-06-10', 'seg-a', 'written', { rowCount: 5 });
+    expect(listSnapshotRuns()[0].runError).toBeNull();
+  });
+
   it('caps captured errors per run', () => {
     for (let i = 0; i < 15; i++) {
       insertLog('2026-06-10', `seg-${i}`, 'error', { detail: `err ${i}` });
