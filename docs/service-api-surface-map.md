@@ -108,6 +108,13 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | GET | `/api/concepts/:namespace/:id/relations` | none | — | `{concept, edges}` w/ trust/visibility | concept-reverse-index, Cube `/meta` |
 | POST | `/api/concepts/promote` | editor, admin | `authorization` | 201 `{term?, metric?, segment}` IDOR-safe | SQLite glossary/metrics, YAML writer, promote-to-term |
 
+### announcements
+
+| Method | Path | Auth/Roles | Headers | Response | Data sources |
+|---|---|---|---|---|---|
+| GET | `/api/announcements/reads` | none (owner-scoped) | `authorization`/`x-owner` | `{reads: [{id, readAt}]}` | SQLite announcement_reads |
+| POST | `/api/announcements/reads` | none (owner-scoped) | `authorization`/`x-owner`, `{id}` | 204 (idempotent upsert) | SQLite announcement_reads |
+
 ### segments, identity, liveops
 
 | Method | Path | Auth/Roles | Headers | Response | Data sources |

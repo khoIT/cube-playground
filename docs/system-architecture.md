@@ -59,6 +59,8 @@ Auth/identity: pretend-auth `X-Owner` header in dev; Keycloak realm (`keycloak/r
 
 4. **Segment predicate round-trip (2026-06-12).** Three flows: (a) **Deeplink to Playground:** SPA `/segments/:id` "Open in Playground" → `?query=<definition>&edit-segment=<id>` + sessionStorage edit context. The definition is built client-side from the predicate tree (`predicate-tree-to-cube-query.ts`, relative date literals preserved) + sidecar segments + identity dim. (b) **Save-back:** user edits filters in the Playground, clicks "Update <name>" on SegmentsSaveBar → echo filters stripped → `buildPredicateFromRows` produces the new tree → `PATCH /api/segments/:id` with predicate + cube_segments → refresh enqueued. (c) **In-editor authoring:** member picker Select fed by /meta connectedComponent (`use-predicate-member-catalog`), sidecar cube-segment chips (toggleable, owner/admin-gated).
 
+5. **Announcements inbox (2026-06-14).** SPA fetches bundled release markdown + read-state. Client calls `GET /api/announcements/reads` to fetch owner-scoped read IDs; unread computed as `announcementIds − readIds`. User clicks announcement on `/whats-new` or bell icon → `POST /api/announcements/reads` to mark as read. Schema: SQLite table `announcement_reads` (`owner, id, readAt`); migration 052. Gateway route `announcements.ts` enforces owner-scoped auth via `req.owner`.
+
 ### Dev / build
 
 `npm run dev:all` (`scripts/dev-all.mjs`) runs vite + gateway + chat-service + a Cube watchdog under `concurrently`. Each tier builds independently (`build`, `server:build`, `chat:build`); the SPA ships as static `dist/` served behind the same origin as Cube in prod (see [`deployment-guide.md`](./deployment-guide.md)).

@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-14 — What's New feature-announcement inbox (bundled releases + unread tracking + timeline page)
+
+Shipped a changelog-timeline feature announcement system. Merged topbar bells (AnomalyBell + chat NotificationBell → single WhatsNewBell). Added `/whats-new` page with announcement timeline and per-user read-state tracking. Drop a markdown file in `src/pages/WhatsNew/releases/` to add a release (no server changes).
+
+- **WhatsNewBell** (`src/pages/WhatsNew/whats-new-bell.tsx`) — single topbar bell replaces former AnomalyBell + chat NotificationBell (files kept on disk; unused). Unread badge computed client-side as (bundled ids − read ids).
+- **Bundled releases** (`src/pages/WhatsNew/releases/*.md`) — markdown frontmatter (id/title/date/kind/area/deepLink/image) parsed via `announcement-frontmatter.ts`. Vite `?raw` glob in `announcements-content.ts`. Adding a release = drop .md file (no backend change).
+- **Per-user read-state** — SQLite migration 052-announcement-reads.sql; gateway route `announcements.ts` POST/GET `/api/announcements/reads` (owner-scoped). Unread = `bundled − read` sets. Idempotent POST.
+- **Shared module** `use-announcements.ts` — keeps bell + page in sync via Zustand. Handles focus/blur for unread refresh.
+
 ## 2026-06-13 — Cube graph readability pass (emphasized names + crow's-foot cardinality + tinted groups + draggable cards)
 
 Follow-up UX pass on the Data Model graph for first-time readability.
