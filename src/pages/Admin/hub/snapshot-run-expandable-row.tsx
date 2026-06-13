@@ -15,10 +15,11 @@ export interface SnapshotRunError {
   detail: string | null;
 }
 
-/** One segment's outcome within a run (server resolves name; null = deleted). */
+/** One segment's outcome within a run (server resolves name/owner; null = deleted). */
 export interface SnapshotRunItem {
   segmentId: string;
   name: string | null;
+  owner: string | null;
   gameId: string | null;
   rowCount: number | null;
   status: string; // 'written' | 'skipped' | 'error' | 'started'
@@ -69,6 +70,12 @@ function SegmentItemLine({ item }: { item: SnapshotRunItem }) {
         {item.name ?? item.segmentId}
       </span>
       {item.gameId && <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{item.gameId}</span>}
+      {/* Owner — the snapshot lands every owner's segments, so show whose it is. */}
+      {item.owner && (
+        <span style={{ color: 'var(--text-muted)', flexShrink: 0 }} title={`owner: ${item.owner}`}>
+          · {item.owner}
+        </span>
+      )}
       {item.rowCount != null && (
         <span style={{ color: 'var(--text-secondary)', flexShrink: 0 }}>{item.rowCount.toLocaleString()} rows</span>
       )}

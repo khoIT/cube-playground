@@ -30,11 +30,13 @@ export interface SnapshotRunError {
 }
 
 /** One segment's outcome within a snapshot run — the per-segment breakdown an
- *  expanded run row shows. `name` resolves from this instance's segments table
- *  (null when the segment was deleted since the run). */
+ *  expanded run row shows. `name`/`owner` resolve from this instance's segments
+ *  table (null when the segment was deleted since the run). The snapshot lands
+ *  ALL owners' predicate segments, so `owner` is shown for provenance clarity. */
 export interface SnapshotRunItem {
   segmentId: string;
   name: string | null;
+  owner: string | null;
   gameId: string | null;
   rowCount: number | null;
   status: string; // 'written' | 'skipped' | 'error' | 'started' (mid-run)
@@ -100,11 +102,13 @@ export function listSnapshotRuns(limit = 30): SnapshotRun[] {
     )
     .all(limit) as LogRow[];
 
-  // Segment names resolve from this instance's segments table — one query,
-  // applied to every run's items (deleted segments fall back to null/raw id).
-  const names = new Map<string, string>();
-  for (const s of getDb().prepare('SELECT id, name FROM segments').all() as Array<{ id: string; name: string }>) {
-    names.set(s.id, s.name);
+  // Segment name + owner resolve from this instance's segments table — one
+  // query, applied to every run's items (deleted segments fall back to null).
+  const meta = new Map<string, { name: string; owner: string | null }>();
+  for (const s of getDb()
+    .prepare('SELECT id, name, owner FROM segments')
+    .all() as Array<{ id: string; name: string; owner: string | null }>) {
+    meta.set(s.id, { name: s.name, owner: s.owner });
   }
 
   const byDate = new Map<string, SnapshotRun>();
@@ -146,9 +150,11 @@ export function listSnapshotRuns(limit = 30): SnapshotRun[] {
       if (r.segment_id === '__ensure__' && r.status === 'error') run.runError = r.detail;
       continue;
     }
+    const m = meta.get(r.segment_id);
     run.items.push({
       segmentId: r.segment_id,
-      name: names.get(r.segment_id) ?? null,
+      name: m?.name ?? null,
+      owner: m?.owner ?? null,
       gameId: r.game_id,
       rowCount: r.row_count,
       status: r.status,

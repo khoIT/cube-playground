@@ -74,9 +74,10 @@ describe('listSnapshotRuns', () => {
     const [withNames] = listSnapshotRuns();
     expect(withNames.items.map((i) => i.segmentId)).toEqual(['seg-a', 'seg-b', 'seg-c', 'seg-d']);
     expect(withNames.items[0]).toEqual({
-      segmentId: 'seg-a', name: 'Paying cohort', gameId: 'cfm_vn', rowCount: 100, status: 'written', detail: null,
+      segmentId: 'seg-a', name: 'Paying cohort', owner: 'tester', gameId: 'cfm_vn', rowCount: 100, status: 'written', detail: null,
     });
     expect(withNames.items[1].name).toBeNull(); // seg-b not in segments table
+    expect(withNames.items[1].owner).toBeNull();
     expect(withNames.items[3].detail).toBe('boom');
   });
 
