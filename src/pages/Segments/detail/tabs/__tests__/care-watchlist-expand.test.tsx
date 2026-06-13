@@ -1,7 +1,8 @@
 /**
- * CareWatchlist row-expand — the member name links to the Care History 360 page
- * (/care), and clicking a row lazy-fetches that member's CS tickets and renders
- * summary cards (labels + snippet + reopen/security badges). fetchMemberCsTickets
+ * CareWatchlist row-expand — the member name links to the Member 360 page, the
+ * summary cards' "View full care history" link goes to /care, and clicking a row
+ * lazy-fetches that member's CS tickets and renders summary cards (labels +
+ * snippet + reopen/security badges). fetchMemberCsTickets
  * is mocked; the endpoint is covered by server route tests.
  */
 
@@ -83,10 +84,11 @@ const renderList = () =>
 // assertions rely on the (no-call → call) test ordering instead.
 
 describe('CareWatchlist row-expand', () => {
-  it('links the member name to the Care History 360 page', () => {
+  it('links the member name to the Member 360 page (not the Care History page)', () => {
     renderList();
     const href = screen.getByText('Whale_A').closest('a')?.getAttribute('href');
-    expect(href).toContain('/segments/s1/members/111/care');
+    expect(href).toContain('/segments/s1/members/111');
+    expect(href).not.toContain('/care');
   });
 
   it('does not fetch until a row is expanded', () => {

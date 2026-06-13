@@ -2,9 +2,10 @@
  * Risk watchlist — the hero of the Care tab. Contacted whales sorted by risk
  * score (negative sentiment + low rating + open status + high-stakes category +
  * LTV rank). Each row:
- *   - the member NAME links to the Care History 360 page (full transcript);
+ *   - the member NAME links to the Member 360 page (the shared profile view);
  *   - clicking the row toggles an inline expansion that LAZY-fetches the member's
- *     CS tickets and renders compact per-ticket summary cards.
+ *     CS tickets and renders compact per-ticket summary cards, each with a
+ *     "View full care history →" link into the Care History 360 page.
  * "The who-do-I-call-first list" for a CS / VIP-care lead, with a one-click peek.
  */
 
@@ -87,7 +88,7 @@ function WatchlistRow({ segmentId, r }: { segmentId: string; r: CsCareWatchlistE
           />
           <span style={{ overflow: 'hidden' }}>
             <Link
-              to={`/segments/${segmentId}/members/${encodeURIComponent(r.uid)}/care`}
+              to={`/segments/${segmentId}/members/${encodeURIComponent(r.uid)}`}
               onClick={(e) => e.stopPropagation()}
               style={{ fontWeight: 600, color: 'var(--brand)', textDecoration: 'none' }}
             >

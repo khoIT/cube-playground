@@ -19,9 +19,9 @@ interface Props {
   onViewChange: (v: CareView) => void;
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }): ReactElement {
+function Kpi({ label, value, tone, title }: { label: string; value: string; tone?: string; title?: string }): ReactElement {
   return (
-    <div>
+    <div title={title} style={title ? { cursor: 'help' } : undefined}>
       <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em', color: tone ?? 'var(--text-primary)' }}>{value}</div>
     </div>
@@ -49,7 +49,13 @@ export function CareHistoryHeader({ payload, view, onViewChange }: Props): React
             {payload.gameId} · {t('segments.detail.care.title', { defaultValue: 'CS Care History' })}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3 }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand)' }}>{payload.member.name ?? payload.uid}</span>
+            <Link
+              to={`/segments/${payload.segmentId}/members/${encodeURIComponent(payload.uid)}`}
+              title={t('segments.detail.care.openMember360', { defaultValue: 'Open Member 360 profile' })}
+              style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand)', textDecoration: 'none' }}
+            >
+              {payload.member.name ?? payload.uid}
+            </Link>
             {payload.member.name && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{payload.uid}</span>}
           </div>
         </div>
@@ -60,6 +66,19 @@ export function CareHistoryHeader({ payload, view, onViewChange }: Props): React
             <Kpi
               label={t('segments.detail.care.vipTier', { defaultValue: 'VIP tier' })}
               value={`${vip.tierId}${vip.vipGameProportion != null ? ` · ${vip.vipGameProportion}` : ''}`}
+              title={
+                vip.vipGameProportion != null
+                  ? t('segments.detail.care.vipTierHelp', {
+                      defaultValue:
+                        'CS VIP tier {{tier}} (scale 0–5; 5 is highest). The {{pct}}% is vip_game_proportion — the share of this player’s cross-game VIP value that sits in this game. {{pct}}% means this title is their primary game.',
+                      tier: vip.tierId,
+                      pct: Math.round(vip.vipGameProportion * 100),
+                    })
+                  : t('segments.detail.care.vipTierHelpNoProp', {
+                      defaultValue: 'CS VIP tier {{tier}} (scale 0–5; 5 is highest).',
+                      tier: vip.tierId,
+                    })
+              }
             />
           )}
           {delta != null && (
