@@ -279,9 +279,25 @@ Flat KV. ⚠️ = boot-blocking if absent.
 | `TRINO_PROFILER_HOST` / `_PORT` / `_USER` / `_PASS` / `_CATALOG` / `_SSL` / `_WORKSPACE` | cond | onboarding profiler. |
 | `MAIN_SERVER_SERVICE_TOKEN` | cond | chat↔server callback auth (same value both sides). |
 | `LANGFUSE_PUBLIC_KEY` / `_SECRET_KEY` / `_HOST` | cond | observability. |
-| `SEGMENT_SNAPSHOT_ENABLED` | cond | `true` on **exactly ONE** instance (prod) — enables the nightly job landing full segment membership + delta into shared `stag_iceberg.khoitn`. The once-per-day guard is per-instance SQLite, so two enabled instances double-scan shared Trino. Default off; dev machines must not set it. Verify landings via admin → Segment Refreshes → "Lakehouse snapshots" (latest-landed partition is the cross-instance truth). As of 2026-06-12 NOT yet set in prod Vault — only one manual partition (2026-06-10) exists. |
+| `SEGMENT_SNAPSHOT_ENABLED` | compose | `true` on **exactly ONE** instance — enables the nightly job landing full segment membership + delta into the env-scoped lakehouse schema. The once-per-day guard is per-instance SQLite, so two enabled instances double-scan shared Trino. Default off; dev machines must not set it. **Set directly in `docker-compose.prod.yml` `server.environment` (committed, not a secret)** — prod runs a single `server` replica, so one enabled instance is guaranteed. Verify landings via admin → Segment Refreshes → "Lakehouse snapshots". |
+| `LAKEHOUSE_SCHEMA` | compose | Iceberg schema (under `stag_iceberg`) the snapshot tables live in, env-scoped so the shared lakehouse never mixes environments. Prod = `khoitn/prod` (set in `docker-compose.prod.yml`); local-dev default = `khoitn/local`. The slash is a sub-namespace the Iceberg connector accepts but MUST be double-quoted in identifiers (`stag_iceberg."khoitn/prod".segment_membership_daily`); the app's `qualifiedLakehouseTable()` handles this. |
 
 Full secret-free reference lives in `.env.example`.
+
+### Enabling the daily segment-snapshot in prod (runbook)
+
+The code is env-aware and `docker-compose.prod.yml` already sets `SEGMENT_SNAPSHOT_ENABLED=true` + `LAKEHOUSE_SCHEMA=khoitn/prod` on the `server` service. To activate:
+
+1. **Confirm Trino creds reach the server.** The snapshot writers build their Trino connector from `CUBEJS_DB_*` in the Vault-synced prod `.env` (host, port, user, pass, ssl). Verify those keys are present — without `CUBEJS_DB_HOST` the job throws at first tick and logs a warning.
+2. **Deploy.** Redeploy the prod stack (CI sync→vault→deploy, or `docker compose -f docker-compose.prod.yml up -d server`). On boot the job wires its hourly tick; `ensureLakehouseTables()` auto-creates `stag_iceberg."khoitn/prod"` + the 3 tables on first run (idempotent).
+3. **First run.** The tick fires immediately on boot then hourly, daily-guarded (GMT+7). To land today's partition without waiting, use admin → Segment Refreshes → "Lakehouse snapshots" → trigger (bypasses both the enabled and already-ran guards).
+4. **Verify.** Admin "Lakehouse snapshots" shows per-segment written/skipped/errored counts; or query `SELECT count(*), max(snapshot_date) FROM stag_iceberg."khoitn/prod".segment_membership_daily`.
+
+**Single-instance invariant:** never set `SEGMENT_SNAPSHOT_ENABLED=true` on a second instance sharing the same Trino — the SQLite daily guard is per-instance and won't prevent a concurrent full-cohort scan.
+
+**Local↔prod data isolation (done 2026-06-13):** the historical dev rows that accumulated under the bare `stag_iceberg.khoitn` schema were renamed (metadata-only, via `npm run migrate:lakehouse-local`) into `stag_iceberg."khoitn/local"` — 25.19M membership + 16.81M delta + 34 definition rows preserved. Bare `khoitn` is now empty. Prod's `khoitn/prod` starts fresh on first snapshot.
+
+**Dormant serve-layer follow-up:** the Cube model `cube-dev/cube/model/_shared/segment_membership.yml` still hard-codes `sql_table: stag_iceberg.khoitn.segment_membership_daily` (and `build_range_*` SQL). It is **NOT YET LOADED** (the repositoryFactory doesn't sweep `_shared/`), so this is currently dormant. When that cube is activated, its `sql_table` must be pointed at the environment's schema (`stag_iceberg."khoitn/prod"` in prod); a shared submodule can't hold both, so this likely needs per-env templating or a prod-only model variant.
 
 ## Privacy & Retention (Activity Telemetry)
 

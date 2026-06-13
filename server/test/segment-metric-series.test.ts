@@ -21,6 +21,7 @@ import {
   listEligibleMetrics,
   resolveMetricBinding,
 } from '../src/lakehouse/segment-metric-registry.js';
+import { SEGMENT_MEMBERSHIP_DAILY } from '../src/lakehouse/lakehouse-trino-connector.js';
 import type { Connector } from '../src/services/trino-profiler-config.js';
 
 const connector: Connector = {
@@ -66,7 +67,7 @@ describe('current lens', () => {
     runQueryMock.mockResolvedValue({ columns: [], rows: [['2026-06-10', 3968, 1471, 12345.6]] });
     const out = await readMetricSeries(req({ segmentId: "s'1" }), { connector });
     const sql = runQueryMock.mock.calls[0][2] as string;
-    expect(sql).toContain('FROM stag_iceberg.khoitn.segment_membership_daily m');
+    expect(sql).toContain(`FROM ${SEGMENT_MEMBERSHIP_DAILY} m`);
     expect(sql).toContain('LEFT JOIN game_integration.cfm_vn.std_ingame_user_recharge_daily f');
     expect(sql).toContain('f.user_id = m.uid AND f.log_date = m.snapshot_date');
     expect(sql).toContain("m.segment_id = 's''1'");
@@ -145,8 +146,8 @@ describe('stayers lens', () => {
     runQueryMock.mockResolvedValue({ columns: [], rows: [['2026-06-12', 200, 9, 50]] });
     const out = await readMetricSeries(req({ lens: 'stayers', anchor: '2026-06-10' }), { connector });
     const sql = runQueryMock.mock.calls[0][2] as string;
-    expect(sql).toContain('FROM stag_iceberg.khoitn.segment_membership_daily a');
-    expect(sql).toContain('JOIN stag_iceberg.khoitn.segment_membership_daily m');
+    expect(sql).toContain(`FROM ${SEGMENT_MEMBERSHIP_DAILY} a`);
+    expect(sql).toContain(`JOIN ${SEGMENT_MEMBERSHIP_DAILY} m`);
     expect(sql).toContain('m.uid = a.uid');
     expect(sql).toContain("a.snapshot_date = DATE '2026-06-10'");
     expect(out.points[0]).toEqual({ date: '2026-06-12', memberCount: 200, value: 50 });

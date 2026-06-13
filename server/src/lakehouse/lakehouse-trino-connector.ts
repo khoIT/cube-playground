@@ -21,11 +21,32 @@ import type { Connector } from '../services/trino-profiler-config.js';
 import { canonicalGameId, GAME_SCHEMA } from '../services/trino-profiler-config.js';
 import { runQuery } from '../services/trino-rest-client.js';
 
-/** The Iceberg catalog + schema that holds the snapshot tables. */
+/** The Iceberg catalog that holds the snapshot tables. */
 export const LAKEHOUSE_CATALOG = 'stag_iceberg';
-export const LAKEHOUSE_SCHEMA = 'khoitn';
-export const SEGMENT_MEMBERSHIP_DAILY = `${LAKEHOUSE_CATALOG}.${LAKEHOUSE_SCHEMA}.segment_membership_daily`;
-export const SEGMENT_MEMBERSHIP_DELTA = `${LAKEHOUSE_CATALOG}.${LAKEHOUSE_SCHEMA}.segment_membership_delta`;
+
+/**
+ * The Iceberg schema (namespace) the snapshot tables live in, env-scoped so a
+ * shared lakehouse never mixes environments: prod writes to `khoitn/prod`,
+ * local dev to `khoitn/local`. The slash is a sub-namespace this Iceberg
+ * connector accepts (verified: create + cross-schema rename + read), but it
+ * must be DOUBLE-QUOTED wherever it appears in a qualified identifier — bare
+ * `stag_iceberg.khoitn/local.t` does not parse. Default is the local schema so
+ * a dev machine never lands rows in the prod namespace by accident.
+ */
+export const LAKEHOUSE_SCHEMA = process.env.LAKEHOUSE_SCHEMA ?? 'khoitn/local';
+
+/**
+ * Fully-qualified `catalog."schema".table` for a lakehouse table. The schema is
+ * always quoted so a slash sub-namespace (`khoitn/local`) parses; quoting a
+ * plain name (`khoitn`) is harmless.
+ */
+export function qualifiedLakehouseTable(table: string): string {
+  return `${LAKEHOUSE_CATALOG}."${LAKEHOUSE_SCHEMA}".${table}`;
+}
+
+export const SEGMENT_MEMBERSHIP_DAILY = qualifiedLakehouseTable('segment_membership_daily');
+export const SEGMENT_MEMBERSHIP_DELTA = qualifiedLakehouseTable('segment_membership_delta');
+export const SEGMENT_DEFINITION_DAILY = qualifiedLakehouseTable('segment_definition_daily');
 
 /** Cross-catalog INSERT over a full cohort scans raw Trino tables — give it far
  *  more headroom than the 20s profiler cap. */
@@ -129,13 +150,29 @@ export function splitSqlStatements(sql: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+/** Placeholder in the DDL file, replaced with the env-scoped quoted prefix. */
+const DDL_TABLE_PREFIX_TOKEN = '__LAKEHOUSE_TABLE_PREFIX__';
+
 /**
- * Create both lakehouse tables if absent (idempotent via CREATE TABLE IF NOT
- * EXISTS). Statements are fully qualified, so the session schema is irrelevant.
+ * Create the env-scoped schema (if absent) and both lakehouse tables if absent
+ * (idempotent via CREATE TABLE IF NOT EXISTS). The DDL ships with a placeholder
+ * prefix so the same statements target whichever schema LAKEHOUSE_SCHEMA names;
+ * statements stay fully qualified, so the session schema is irrelevant.
  */
 export async function ensureLakehouseTables(connector: Connector): Promise<void> {
+  // The schema may be a slash sub-namespace that doesn't exist yet (prod's
+  // khoitn/prod on first run); create it before the tables.
+  await runQuery(
+    connector,
+    LAKEHOUSE_SCHEMA,
+    `CREATE SCHEMA IF NOT EXISTS ${LAKEHOUSE_CATALOG}."${LAKEHOUSE_SCHEMA}"`,
+    LAKEHOUSE_STATEMENT_TIMEOUT_MS,
+  );
   const ddlPath = join(__dirname, 'segment-membership-ddl.sql');
-  const statements = splitSqlStatements(readFileSync(ddlPath, 'utf8'));
+  const rendered = readFileSync(ddlPath, 'utf8').split(DDL_TABLE_PREFIX_TOKEN).join(
+    `${LAKEHOUSE_CATALOG}."${LAKEHOUSE_SCHEMA}".`,
+  );
+  const statements = splitSqlStatements(rendered);
   for (const stmt of statements) {
     await runQuery(connector, LAKEHOUSE_SCHEMA, stmt, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
   }

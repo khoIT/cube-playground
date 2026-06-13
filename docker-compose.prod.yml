@@ -66,6 +66,14 @@ services:
       # prod worker container named below (the code default is the -dev name).
       PREAGG_COLLECTOR_ENABLED: "true"
       PREAGG_WORKER_CONTAINER: cube-playground-cube-refresh-worker
+      # Daily segment-membership lakehouse snapshot. The job is wired at boot but
+      # only runs when enabled; cross-catalog INSERTs hit a SHARED Trino
+      # lakehouse, so it must run on EXACTLY ONE instance — prod runs a single
+      # `server` replica, so enabling it here is safe. Writes land in the
+      # env-scoped schema so prod data never mixes with dev (khoitn/local).
+      # CUBEJS_DB_* (Trino coordinator + creds) come from the Vault-synced .env.
+      SEGMENT_SNAPSHOT_ENABLED: "true"
+      LAKEHOUSE_SCHEMA: "khoitn/prod"
     volumes:
       - server-data:/data
       # Docker Engine socket for the pre-agg collector (log reads) and build

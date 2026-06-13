@@ -128,7 +128,7 @@ export function SnapshotRunsSection() {
       <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-card)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Lakehouse snapshots</span>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-          nightly membership → stag_iceberg.khoitn
+          {'nightly membership → stag_iceberg."khoitn/{env}"'}
         </span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
           {latest ? (

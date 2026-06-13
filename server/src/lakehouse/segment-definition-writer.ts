@@ -21,11 +21,13 @@ import { toSqlLiteral } from './inline-sql-params.js';
 import {
   lakehouseConnectorFromEnv,
   LAKEHOUSE_SCHEMA,
-  LAKEHOUSE_CATALOG,
   LAKEHOUSE_STATEMENT_TIMEOUT_MS,
+  SEGMENT_DEFINITION_DAILY,
 } from './lakehouse-trino-connector.js';
 
-export const SEGMENT_DEFINITION_DAILY = `${LAKEHOUSE_CATALOG}.${LAKEHOUSE_SCHEMA}.segment_definition_daily`;
+// Re-exported from the connector (single env-scoped source of truth) so existing
+// importers of this symbol keep working.
+export { SEGMENT_DEFINITION_DAILY };
 
 /** Defensive cap for JSON VARCHAR columns. Predicate trees are <10KB in
  *  practice; anything past the cap is truncated with a marker (and logged) so

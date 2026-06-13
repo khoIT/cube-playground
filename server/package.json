@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
     "snapshot": "tsx src/scripts/write-snapshot.ts",
     "check:metric-drift": "tsx --env-file=../.env --env-file=../.env.local src/scripts/check-metric-drift.ts",
+    "migrate:lakehouse-local": "tsx --env-file=../.env --env-file=../.env.local src/scripts/migrate-lakehouse-schema-to-local.ts",
     "test": "vitest run"
   },
   "dependencies": {

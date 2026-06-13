@@ -802,6 +802,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### Shared lakehouse must be env-scoped by SCHEMA; slash sub-namespaces work but must be quoted
+
+- **Rule:** when one Trino/Iceberg catalog (`stag_iceberg`) is shared by both prod and every dev machine, the snapshot tables MUST live in an env-scoped schema (`khoitn/prod` vs `khoitn/local`), never a single shared schema — otherwise a dev run that flips `SEGMENT_SNAPSHOT_ENABLED` lands rows in the same partitions prod reads. Encode the environment in `LAKEHOUSE_SCHEMA` (default `khoitn/local`; prod compose sets `khoitn/prod`). A slash *sub-namespace* (`khoitn/local`) is accepted by this Iceberg connector for CREATE SCHEMA, cross-schema `ALTER TABLE … RENAME`, INSERT, and SELECT — but it MUST be double-quoted everywhere it appears in an identifier: `stag_iceberg."khoitn/local".segment_membership_daily`. Bare `stag_iceberg.khoitn/local.t` does not parse. Centralize this in one helper (`qualifiedLakehouseTable()`), never hand-concatenate.
+- **Why:** the snapshot job originally wrote to a single hardcoded `stag_iceberg.khoitn`. Splitting prod/local needed env-scoping; a literal `khoitn.prod` 3-part path is just `catalog.schema.table` (a table named `prod`), and a nested *dotted* namespace (`"khoitn.prod"`) created OK but never showed in `SHOW SCHEMAS` — unreliable. The slash sub-namespace verified end-to-end (created `"khoitn/probe"`, renamed a table into it, read it back, listed it). The 25.19M existing dev rows moved to `khoitn/local` by metadata-only `ALTER TABLE RENAME` — zero row copy, fully reversible.
+- **Signal:** dev and prod snapshot counts polluting each other; `SHOW SCHEMAS` not listing a schema you "created" (dotted nested namespace — abandon it); a query against a slash schema failing to parse (you forgot the double-quotes, or concatenated the prefix without them).
+- **Apply:** `lakehouse-trino-connector.ts` owns `LAKEHOUSE_SCHEMA` (env-driven) + `qualifiedLakehouseTable()` + the 3 table constants; the DDL ships a `__LAKEHOUSE_TABLE_PREFIX__` token that `ensureLakehouseTables()` (which CREATEs the schema first) substitutes, so the same DDL targets any env schema. The per-game session schema passed to `runQuery` (resolves the membership SELECT's bare `game_integration` refs) is SEPARATE from `LAKEHOUSE_SCHEMA` and unaffected — the INSERT/SELECT targets are fully qualified. One-time moves: `npm run migrate:lakehouse-local`. Tests assert against the imported `SEGMENT_MEMBERSHIP_DAILY` constant, not a hardcoded literal, so they track the env schema. NOTE: the dormant `_shared/segment_membership.yml` Cube model still hard-codes the bare-`khoitn` path; it's not loaded, but activating it needs a per-env `sql_table`.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
