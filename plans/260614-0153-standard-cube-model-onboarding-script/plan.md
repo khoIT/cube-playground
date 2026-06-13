@@ -31,13 +31,18 @@ with a proposed strategy for the agent to confirm/override.
 ## Phases
 | # | Phase | Status | Repo | Depends on |
 |---|-------|--------|------|-----------|
-| 01 | Canonical common-core cube spec (lock cfm-style mf_users) | pending | cube-dev | — |
-| 02 | Per-game gap matrix + prioritization | pending | both (analysis) | 01 |
-| 03 | Onboarding generator script (clean-case emit) | pending | cube-dev (`scripts/`) | 01 |
-| 04 | Anomaly detection + agent-decision flow | pending | cube-dev (script) | 03 |
-| 05 | Layer-2 preset / metric reconciliation | pending | main | 01, 02 |
-| 06 | Per-game rollout w/ fan-out + pre-agg guards | pending | cube-dev + main | 03, 04, 05 |
-| 07 | Tests / validation harness | pending | both | 03, 06 |
+| 01 | Canonical common-core cube spec (lock cfm-style mf_users) | **done** — `reports/canonical-cube-catalog.md` | cube-dev | — |
+| 02 | Per-game gap matrix + prioritization | **done** — `reports/per-game-gap-matrix.md` | both (analysis) | 01 |
+| 03 | Onboarding generator script (clean-case emit) | **done** — `cube-dev/scripts/onboard-game-cube-model.mjs` (reviewed) | cube-dev (`scripts/`) | 01 |
+| 04 | Anomaly detection + agent-decision flow | **done** — dual-identity/role-name/high-scale samplers, verified jus/tf/ptg | cube-dev (script) | 03 |
+| 05 | Layer-2 preset / metric reconciliation | **done** — `reports/metric-availability-reconciliation.md` (no edits needed; data-driven verified) | main | 01, 02 |
+| 06 | Per-game rollout w/ fan-out + pre-agg guards | **pending — HIGH-RISK gate (writes live cubes + serving restart); awaits approval** | cube-dev + main | 03, 04, 05 |
+| 07 | Tests / validation harness | partial — cfm round-trip 14/14 byte-equal + 4-game dry-run verified; formal harness pending | both | 03, 06 |
+
+> **Scope refined 2026-06-14 (during build):** generator emits **14 portable cubes** (Tier A+B) — the 16
+> minus `recharge` + `ordered_funnel_canonical`, which are etl_ingame_*-sourced and NOT column-portable
+> across games (cfm's etl_ingame_recharge has 26 cols cros lacks). Those stay per-game bespoke. The 20
+> net-new core-table cubes remain deferred (user decision: Tier A+B only this round).
 
 ## Key dependencies
 - Phase 03 cannot start before the canonical spec (01) freezes — the script emits that spec.
@@ -62,9 +67,11 @@ with a proposed strategy for the agent to confirm/override.
 - **[user] Generator-as-single-source-of-truth** — re-run to regenerate; document drift risk
   (mirrors the hand-synced-mirror lesson in `preset-bundles-loader.ts:1-10`). No maintained hand-copies.
 
-## Remaining open question (low-risk, resolved in-phase)
-- **`funnel` logical-name mismatch** — 4 cvr_* metrics list `required_cubes: [funnel]` but cubes are named
-  `ordered_event_funnel` / `ordered_funnel_canonical`. Fixed as a concrete task inside Phase 05.
+## Remaining open question — RESOLVED (Phase 05)
+- **`funnel` logical-name mismatch** — NOT a typo. The 4 cvr_* metrics reference AppsFlyer acquisition-funnel
+  measures (`funnel.users_completed_*`, `funnel.users_total`), a distinct not-yet-ingested cube — NOT the
+  in-game `ordered_event_funnel` (which only has `step_count`). No rename; they stay correctly unavailable
+  until an AppsFlyer `funnel` cube is modeled (out of scope). See reconciliation report.
 
 ## Phase files
 - `phase-01-canonical-common-core-cube-spec.md`
