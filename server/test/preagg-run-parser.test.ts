@@ -207,4 +207,27 @@ describe('parseWorkerLog — partition builds', () => {
     const result = parseWorkerLog([BUILD_COMPLETED, SWEEP_START]);
     expect(result[0].builds).toHaveLength(0);
   });
+
+  it('captures a build whose table name arrives only on targetTableName', () => {
+    // Some Cube versions omit newVersionEntry/queryKey on the completed line and
+    // carry the schema-qualified table only in targetTableName. Earlier code
+    // dropped these silently.
+    const targetOnly = makeLine({
+      time: '2026-06-10T07:05:00.000Z',
+      message: 'Performing query completed',
+      duration: '4200',
+      preAggregationId: 'game_key_metrics.key_metrics_by_source_daily_batch',
+      queuePrefix: 'SQL_PRE_AGGREGATIONS_orch_jus_default',
+      targetTableName: 'preagg_jus.game_key_metrics_key_metrics_by_source_daily_batch20260601',
+    });
+    const [sweep] = parseWorkerLog([SWEEP_START, targetOnly]);
+    expect(sweep.builds).toHaveLength(1);
+    expect(sweep.builds[0]).toMatchObject({
+      schemaGame: 'jus',
+      cube: 'game_key_metrics',
+      rollup: 'key_metrics_by_source_daily_batch',
+      durationMs: 4200,
+      batchDate: '20260601',
+    });
+  });
 });

@@ -565,6 +565,23 @@ export function SweepRow({ sweep, items, expanded, onToggle, gameFilter, onRetry
                 probe
               </span>
             )}
+            {sweep.source === 'triggered-build' && (
+              <span
+                title="On-demand build (Build button) — recorded directly from this build's worker logs"
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  padding: '1px 6px',
+                  borderRadius: 'var(--radius-full)',
+                  background: 'var(--brand-soft)',
+                  color: 'var(--brand)',
+                }}
+              >
+                build
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             {fmtDatetime(sweep.startedAt)} GMT+7

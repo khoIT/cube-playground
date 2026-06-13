@@ -2,33 +2,48 @@
  * Pre-aggregation readiness probe service.
  *
  * Probes each known pre-agg-bearing cube per game in a `game_id` workspace by
- * issuing a minimal /load (limit 1, 1-day range) and classifying the result by
- * what ACTUALLY served it (read from the response's `usedPreAggregations`), not
- * merely whether it returned 200:
- *   built       — 200 AND a rollup served it (usedPreAggregations non-empty)
- *   from-source — 200 but no rollup matched; Cube fell through to Trino. The
- *                 rollup is defined in the model but not materialised/active, so
- *                 a 200 here is NOT evidence the cache is serving.
- *   unbuilt     — Cube returned the partition-not-built error before any scan
+ * issuing a minimal /sql DRY-RUN and classifying by where the COMPILED query
+ * routes — cross-checked against what is actually materialised in CubeStore:
+ *   built       — compiled SQL routes to a rollup (external:true, FROM preagg_*)
+ *                 AND that table has active partitions in CubeStore
+ *   from-source — compiled SQL reads the raw source table; no rollup matches the
+ *                 query's members/grain (true Trino passthrough)
+ *   unbuilt     — a rollup is planned but CubeStore holds no active partitions
+ *                 for it (defined-but-not-materialised / registered-not-active)
  *   error       — timeout, auth failure, cube missing, or other unexpected error
  *
- * A bare 200 used to be classified "built", which masked passthrough: a query
- * answered emptily by Trino read as green. Asserting usedPreAggregations is the
- * honest signal — green means a rollup is genuinely active.
+ * Why NOT `usedPreAggregations`: every cube in this model exposes its rollup via
+ * a `rollup_lambda` (`union_with_source_data: true`), and Cube masks
+ * `usedPreAggregations` to EMPTY for lambda unions — the result blends a sealed
+ * CubeStore rollup with a live source tail, so Cube won't attribute it to one
+ * pre-agg. Asserting that field reads EVERY lambda rollup as passthrough no
+ * matter how completely it is built. The compiled-SQL FROM clause is the honest
+ * routing signal (see docs/lessons-learned.md → "Cube model").
+ *
+ * CubeStore verification is gated on `CUBESTORE_INTROSPECT_ENABLED`. When
+ * introspection is off (e.g. prod hosts that can't reach :3306), the probe
+ * degrades to /sql-only: a planned rollup reads `built` on routing alone (it can
+ * no longer prove materialisation), which is still stricter than the old
+ * any-200-is-green behaviour.
  *
  * Non-game_id workspaces (prefix, etc.) short-circuit and return an empty
  * section — they point at an external cube stack where these rollups may differ.
  *
  * Concurrency is hard-capped at 2 in-flight probes (mirrors the fan-out incident
- * documented in lessons-learned: dozens of concurrent /load calls compiling all
+ * documented in lessons-learned: dozens of concurrent calls compiling all
  * tenants at once wedged the cube container during a pre-agg warm phase).
  */
 
-import { loadWithCtx, type WorkspaceCtx } from './cube-client.js';
+import { sqlWithCtx, type WorkspaceCtx } from './cube-client.js';
 import { loadGamesConfig } from './games-config-loader.js';
 import { resolveCubeTokenForWorkspace } from './resolve-cube-token.js';
 import { mapWithConcurrency } from './bounded-concurrency.js';
 import { getModelPreaggRegistry } from './preagg-model-registry.js';
+import { extractPlannedPreaggs } from './cubestore-query-cache-check.js';
+import {
+  findPreaggByTableName,
+  isCubestoreIntrospectEnabled,
+} from './cubestore-introspect.js';
 import type { WorkspaceDef } from './workspaces-config-loader.js';
 
 // ---------------------------------------------------------------------------
@@ -113,26 +128,15 @@ export interface ProbeResult {
   message?: string;
 }
 
-/**
- * Read the rollups that served a /load response. Cube returns
- * `usedPreAggregations` as an object keyed by pre-agg name (empty/absent when
- * the query fell through to source). Tolerant of the unknown body shape.
- */
-function servedByRollup(body: unknown): boolean {
-  const used = (body as { usedPreAggregations?: Record<string, unknown> } | null)
-    ?.usedPreAggregations;
-  return used != null && typeof used === 'object' && Object.keys(used).length > 0;
-}
-
 // ---------------------------------------------------------------------------
 // Single probe
 // ---------------------------------------------------------------------------
 
 /**
  * Build a minimal 1-day probe query for a registry entry.
- * A 1-day range is sufficient: Cube fires the partition-missing error before
- * any data scan, so the exact date doesn't gate the classification.
- * Yesterday is used so an "end of day" partition boundary is safely behind us.
+ * The /sql dry-run is compile-time only (no data scan), so the exact date does
+ * not gate routing — the planner matches a rollup structurally on
+ * measures/dimensions/grain. Yesterday keeps the range plausible.
  */
 function buildProbeQuery(entry: PreaggRegistryEntry): unknown {
   const yesterday = new Date();
@@ -154,13 +158,42 @@ function buildProbeQuery(entry: PreaggRegistryEntry): unknown {
 /**
  * Issue one probe for a single registry entry against the given ctx.
  * Always resolves (never throws) — failures become status:'error'.
+ *
+ * Uses a /sql dry-run (cheap, compile-only — no cold-Trino scan) to read where
+ * the query routes, then verifies materialisation in CubeStore. See file header
+ * for why `usedPreAggregations` from /load is NOT usable in this lambda model.
  */
 async function probeOne(ctx: WorkspaceCtx, entry: PreaggRegistryEntry): Promise<ProbeResult> {
   try {
-    const body = await loadWithCtx(buildProbeQuery(entry), ctx);
-    // Green only when a rollup actually served — a bare 200 that fell through
-    // to Trino is `from-source`, not `built`.
-    return { cube: entry.cube, status: servedByRollup(body) ? 'built' : 'from-source' };
+    const body = await sqlWithCtx(buildProbeQuery(entry), ctx);
+    const planned = extractPlannedPreaggs(body);
+
+    // Compiled SQL reads the raw source — no rollup matches this query's
+    // members/grain. True Trino passthrough.
+    if (planned.length === 0) {
+      return { cube: entry.cube, status: 'from-source' };
+    }
+
+    // A rollup is planned. Without CubeStore introspection we can't prove the
+    // partitions exist, so trust the routing plan (still stricter than any-200).
+    if (!isCubestoreIntrospectEnabled()) {
+      return { cube: entry.cube, status: 'built' };
+    }
+
+    // Introspection on: green only if a planned rollup table is actually
+    // materialised AND active in CubeStore. A plan that points at a
+    // defined-but-unmaterialised rollup is `unbuilt`, not green.
+    for (const p of planned) {
+      const m = await findPreaggByTableName(p.tableName);
+      if (m && m.activePartitions > 0 && m.readyCount > 0) {
+        return { cube: entry.cube, status: 'built' };
+      }
+    }
+    return {
+      cube: entry.cube,
+      status: 'unbuilt',
+      message: `rollup planned (${planned[0].tableName}) but no active partitions in CubeStore`,
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (isPartitionNotBuiltError(msg)) {
@@ -217,9 +250,9 @@ export function __resetPreaggCache(): void {
 /**
  * Non-blocking accessor for the readiness probe.
  *
- * The live probe fans out 40 cube /load calls and takes several seconds on a
- * cold cube — too slow to block an HTTP handler on (a dev proxy in front will
- * error out and the caller sees a 500). This returns whatever is cached
+ * The live probe fans out a /sql dry-run per (game, cube) plus a cached
+ * CubeStore read — fast, but still enough work that we don't block an HTTP
+ * handler on it (a dev proxy in front can error out → 500). This returns cached
  * immediately (even past TTL) and kicks off a single background refresh when
  * the cache is missing or stale. On the very first call, when nothing is
  * cached yet, it returns null so the caller can render a calm "warming" state

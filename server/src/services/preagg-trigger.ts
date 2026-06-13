@@ -32,6 +32,8 @@ import {
 import { buildScopedEnv, buildRestoredEnv, SCOPE_LABEL } from './preagg-worker-scope-env.js';
 import { readWorkerLogsSince } from './docker-log-reader.js';
 import { writeBuildLogSnapshot } from './preagg-build-log-snapshot-ingest.js';
+import { recordTriggeredBuild } from './preagg-triggered-build-record.js';
+import { getDb } from '../db/sqlite.js';
 import { isKnownGame } from './games-config-loader.js';
 
 // ---------------------------------------------------------------------------
@@ -194,10 +196,28 @@ async function runBuildWindow(game: string, minutes: number): Promise<void> {
     state.exitCode = null;
     state.message = err instanceof Error ? err.message : String(err);
   } finally {
+    state.finishedAt = new Date().toISOString();
     if (scoped) {
-      // The scoped container's full history IS the build window — preserve it
-      // so the collector can backfill sweep history with this build's stats.
-      await snapshotWorkerLogs(container, 0, game, 'window');
+      // The scoped container's full history IS the build window. Read it ONCE
+      // before the restore-recreate wipes it, and record a durable history row
+      // directly — this owns the build window (no collector-cadence wait, and no
+      // fragmentary scheduled rows from the scoped 20s sweep intervals). On a
+      // degraded read we get no lines → skip recording rather than write a
+      // false "nothing built".
+      let windowLines: string[] | null = null;
+      try {
+        windowLines = await readWorkerLogsSince(container, scopeStartUnix);
+      } catch {
+        // socket hiccup — the build still ran; we just can't record its stats.
+      }
+      if (windowLines && windowLines.length > 0) {
+        recordTriggeredBuild(getDb(), {
+          game,
+          startedAt: state.startedAt ?? new Date(scopeStartUnix * 1000).toISOString(),
+          finishedAt: state.finishedAt,
+          lines: windowLines,
+        });
+      }
       try {
         await restoreWorker(container);
       } catch (err) {
@@ -208,7 +228,6 @@ async function runBuildWindow(game: string, minutes: number): Promise<void> {
         } — it is still scoped to '${game}'; boot recovery or a redeploy will restore it`;
       }
     }
-    state.finishedAt = new Date().toISOString();
   }
 }
 

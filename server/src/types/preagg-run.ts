@@ -14,8 +14,13 @@
 
 export type Outcome = 'sealed' | 'stale_serving' | 'failed' | 'unbuilt';
 
-/** Where the sweep record originated. */
-export type SweepSource = 'scheduled' | 'probe-snapshot';
+/** Where the sweep record originated.
+ *  - scheduled       — parsed from a refresh-worker sweep window in the logs
+ *  - probe-snapshot  — a serveability-probe sample written when no sweep ran
+ *  - triggered-build — a durable record of one on-demand (Build button) build,
+ *                      captured directly from the build's worker logs at window
+ *                      close (does not wait on the collector cadence) */
+export type SweepSource = 'scheduled' | 'probe-snapshot' | 'triggered-build';
 
 // ---------------------------------------------------------------------------
 // DB input shapes (write path)

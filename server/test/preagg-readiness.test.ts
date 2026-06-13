@@ -1,19 +1,32 @@
 /**
  * Unit tests for the pre-aggregation readiness probe service.
  *
+ * The probe classifies each (game, cube) by where a /sql DRY-RUN routes the
+ * query, cross-checked against CubeStore materialisation. It does NOT read
+ * `usedPreAggregations` — that field is masked to empty by the lambda unions in
+ * this model, so it can never signal "built" here (see service header).
+ *
  * Tests:
- *   - classifyProbe: correct status for each message shape
- *   - non-game_id workspace short-circuit (no /load calls issued)
- *   - bounded concurrency (≤2 in-flight probes)
- *   - cache hit on second call within TTL (zero new /load calls)
+ *   - isPartitionNotBuiltError predicate
+ *   - non-game_id workspace short-circuit (no /sql calls issued)
+ *   - classification: built (routed + materialised), built (routed, introspect
+ *     off), from-source (routed to raw source), unbuilt (routed but not active),
+ *     error (auth/timeout)
+ *   - bounded concurrency (≤2 in-flight)
+ *   - TTL cache (second call issues zero new /sql calls)
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Mock cube-client BEFORE importing the service under test so the module
-// resolver picks up the mock on first import.
+// Mock cube-client BEFORE importing the service so the resolver picks the mock.
 vi.mock('../src/services/cube-client.js', () => ({
-  loadWithCtx: vi.fn(),
+  sqlWithCtx: vi.fn(),
+}));
+
+// Mock CubeStore introspection — the probe verifies materialisation through it.
+vi.mock('../src/services/cubestore-introspect.js', () => ({
+  isCubestoreIntrospectEnabled: vi.fn(() => true),
+  findPreaggByTableName: vi.fn(),
 }));
 
 // Mock resolve-cube-token so tests never need a real JWT secret.
@@ -40,7 +53,11 @@ vi.mock('../src/services/preagg-model-registry.js', () => ({
   getModelPreaggRegistry: vi.fn(() => undefined),
 }));
 
-import { loadWithCtx } from '../src/services/cube-client.js';
+import { sqlWithCtx } from '../src/services/cube-client.js';
+import {
+  isCubestoreIntrospectEnabled,
+  findPreaggByTableName,
+} from '../src/services/cubestore-introspect.js';
 import {
   isPartitionNotBuiltError,
   PARTITION_NOT_BUILT_SUBSTRING,
@@ -50,7 +67,24 @@ import {
 } from '../src/services/preagg-readiness.js';
 import type { WorkspaceDef } from '../src/services/workspaces-config-loader.js';
 
-const mockLoad = loadWithCtx as ReturnType<typeof vi.fn>;
+const mockSql = sqlWithCtx as ReturnType<typeof vi.fn>;
+const mockEnabled = isCubestoreIntrospectEnabled as ReturnType<typeof vi.fn>;
+const mockFind = findPreaggByTableName as ReturnType<typeof vi.fn>;
+
+// A /sql dry-run body that routes to a rollup (the shape extractPlannedPreaggs
+// parses). The tableName carries a schema so findPreaggByTableName is exercised.
+const ROUTED = {
+  sql: {
+    preAggregations: [
+      {
+        preAggregationId: 'active_daily.dau_by_country_payer_daily_batch',
+        tableName: 'preagg_x.active_daily_dau_by_country_payer_daily_batch',
+      },
+    ],
+  },
+};
+// A /sql dry-run body that reads the raw source — no rollup matched.
+const SOURCE_ONLY = { sql: { preAggregations: [] } };
 
 // Representative workspace definitions for branching tests.
 const gameIdWorkspace: WorkspaceDef = {
@@ -70,6 +104,14 @@ const prefixWorkspace: WorkspaceDef = {
   gamePrefixMap: { ballistar: 'bs' },
 };
 
+beforeEach(() => {
+  __resetPreaggCache();
+  mockSql.mockReset();
+  mockFind.mockReset();
+  mockEnabled.mockReset();
+  mockEnabled.mockReturnValue(true);
+});
+
 // ---------------------------------------------------------------------------
 // partition-error predicate
 // ---------------------------------------------------------------------------
@@ -77,22 +119,18 @@ const prefixWorkspace: WorkspaceDef = {
 describe('isPartitionNotBuiltError', () => {
   it('returns true for the exact Cube partition message', () => {
     expect(
-      isPartitionNotBuiltError(
-        `Error: ${PARTITION_NOT_BUILT_SUBSTRING} for active_daily`,
-      ),
+      isPartitionNotBuiltError(`Error: ${PARTITION_NOT_BUILT_SUBSTRING} for active_daily`),
     ).toBe(true);
   });
 
   it('returns true when the substring appears anywhere in the message', () => {
     expect(
-      isPartitionNotBuiltError(
-        `Cube /load → 200: {"error":"${PARTITION_NOT_BUILT_SUBSTRING}"}`,
-      ),
+      isPartitionNotBuiltError(`Cube /load → 200: {"error":"${PARTITION_NOT_BUILT_SUBSTRING}"}`),
     ).toBe(true);
   });
 
   it('returns false for a generic Cube error (auth, timeout, etc.)', () => {
-    expect(isPartitionNotBuiltError('Cube /load → 401: Authorization header missing')).toBe(false);
+    expect(isPartitionNotBuiltError('Cube /sql → 401: Authorization header missing')).toBe(false);
     expect(isPartitionNotBuiltError('Cube request timed out after 15s')).toBe(false);
     expect(isPartitionNotBuiltError('')).toBe(false);
   });
@@ -103,42 +141,29 @@ describe('isPartitionNotBuiltError', () => {
 // ---------------------------------------------------------------------------
 
 describe('computePreaggReadiness — prefix workspace short-circuit', () => {
-  beforeEach(() => {
-    __resetPreaggCache();
-    mockLoad.mockReset();
-  });
-
-  it('returns empty games + note without calling loadWithCtx', async () => {
+  it('returns empty games + note without calling sqlWithCtx', async () => {
     const result = await computePreaggReadiness(prefixWorkspace);
     expect(result.games).toHaveLength(0);
     expect(result.note).toMatch(/n\/a/i);
-    expect(mockLoad).not.toHaveBeenCalled();
+    expect(mockSql).not.toHaveBeenCalled();
   });
 });
 
 // ---------------------------------------------------------------------------
-// happy path — game_id workspace
+// classification — game_id workspace
 // ---------------------------------------------------------------------------
 
 describe('computePreaggReadiness — game_id workspace', () => {
-  beforeEach(() => {
-    __resetPreaggCache();
-    mockLoad.mockReset();
-  });
-
   it('returns one entry per (game × registry cube)', async () => {
-    mockLoad.mockResolvedValue({ data: [] });
+    mockSql.mockResolvedValue(SOURCE_ONLY);
     const result = await computePreaggReadiness(gameIdWorkspace);
-    // 2 games × 5 cubes = 10 entries total.
     const total = result.games.reduce((s, g) => s + g.cubes.length, 0);
     expect(total).toBe(2 * PREAGG_REGISTRY.length);
   });
 
-  it('classifies a 200 that a rollup served (usedPreAggregations non-empty) as built', async () => {
-    mockLoad.mockResolvedValue({
-      data: [],
-      usedPreAggregations: { 'active_daily.dau_by_country_payer_daily_batch': {} },
-    });
+  it('classifies a routed query with active CubeStore partitions as built', async () => {
+    mockSql.mockResolvedValue(ROUTED);
+    mockFind.mockResolvedValue({ activePartitions: 3, readyCount: 3 });
     const result = await computePreaggReadiness(gameIdWorkspace);
     for (const g of result.games) {
       expect(g.built).toBe(PREAGG_REGISTRY.length);
@@ -148,10 +173,20 @@ describe('computePreaggReadiness — game_id workspace', () => {
     }
   });
 
-  it('classifies a 200 with no rollup (Trino passthrough) as from-source, not built', async () => {
-    // Empty/absent usedPreAggregations = served from source. A bare 200 must
-    // NOT read as built — that was the bug this hardening fixes.
-    mockLoad.mockResolvedValue({ data: [], usedPreAggregations: {} });
+  it('trusts the routing plan as built when introspection is disabled', async () => {
+    mockEnabled.mockReturnValue(false);
+    mockSql.mockResolvedValue(ROUTED);
+    const result = await computePreaggReadiness(gameIdWorkspace);
+    for (const g of result.games) {
+      expect(g.built).toBe(PREAGG_REGISTRY.length);
+      expect(g.unbuilt).toBe(0);
+    }
+    // No materialisation check is made in the disabled path.
+    expect(mockFind).not.toHaveBeenCalled();
+  });
+
+  it('classifies a query that routes to raw source as from-source', async () => {
+    mockSql.mockResolvedValue(SOURCE_ONLY);
     const result = await computePreaggReadiness(gameIdWorkspace);
     for (const g of result.games) {
       expect(g.fromSource).toBe(PREAGG_REGISTRY.length);
@@ -161,30 +196,31 @@ describe('computePreaggReadiness — game_id workspace', () => {
     }
   });
 
-  it('treats a 200 with the usedPreAggregations key absent as from-source', async () => {
-    mockLoad.mockResolvedValue({ data: [] });
-    const result = await computePreaggReadiness(gameIdWorkspace);
-    for (const g of result.games) {
-      expect(g.fromSource).toBe(PREAGG_REGISTRY.length);
-      expect(g.built).toBe(0);
-    }
-  });
-
-  it('classifies the partition-not-built error as unbuilt', async () => {
-    mockLoad.mockRejectedValue(
-      new Error(`Cube /load → 200: ${PARTITION_NOT_BUILT_SUBSTRING}`),
-    );
+  it('classifies a routed query with no active partitions as unbuilt', async () => {
+    // Rollup is planned but CubeStore holds it inactive (or absent) → unbuilt,
+    // NOT green. This is the registered-but-dormant trap made legible.
+    mockSql.mockResolvedValue(ROUTED);
+    mockFind.mockResolvedValue({ activePartitions: 0, readyCount: 0 });
     const result = await computePreaggReadiness(gameIdWorkspace);
     for (const g of result.games) {
       expect(g.unbuilt).toBe(PREAGG_REGISTRY.length);
       expect(g.built).toBe(0);
       expect(g.fromSource).toBe(0);
-      expect(g.errored).toBe(0);
+    }
+  });
+
+  it('classifies a routed query whose table is absent from CubeStore as unbuilt', async () => {
+    mockSql.mockResolvedValue(ROUTED);
+    mockFind.mockResolvedValue(null);
+    const result = await computePreaggReadiness(gameIdWorkspace);
+    for (const g of result.games) {
+      expect(g.unbuilt).toBe(PREAGG_REGISTRY.length);
+      expect(g.built).toBe(0);
     }
   });
 
   it('classifies an auth / timeout error as error (not unbuilt)', async () => {
-    mockLoad.mockRejectedValue(new Error('Cube /load → 401: Authorization header missing'));
+    mockSql.mockRejectedValue(new Error('Cube /sql → 401: Authorization header missing'));
     const result = await computePreaggReadiness(gameIdWorkspace);
     for (const g of result.games) {
       expect(g.errored).toBe(PREAGG_REGISTRY.length);
@@ -194,8 +230,17 @@ describe('computePreaggReadiness — game_id workspace', () => {
     }
   });
 
+  it('maps the partition-not-built error to unbuilt', async () => {
+    mockSql.mockRejectedValue(new Error(`Cube /sql → 200: ${PARTITION_NOT_BUILT_SUBSTRING}`));
+    const result = await computePreaggReadiness(gameIdWorkspace);
+    for (const g of result.games) {
+      expect(g.unbuilt).toBe(PREAGG_REGISTRY.length);
+      expect(g.errored).toBe(0);
+    }
+  });
+
   it('never throws when every probe rejects (fail-open)', async () => {
-    mockLoad.mockRejectedValue(new Error('total failure'));
+    mockSql.mockRejectedValue(new Error('total failure'));
     await expect(computePreaggReadiness(gameIdWorkspace)).resolves.toBeDefined();
   });
 });
@@ -205,53 +250,37 @@ describe('computePreaggReadiness — game_id workspace', () => {
 // ---------------------------------------------------------------------------
 
 describe('computePreaggReadiness — concurrency bound', () => {
-  beforeEach(() => {
-    __resetPreaggCache();
-    mockLoad.mockReset();
-  });
-
   it('never exceeds 2 simultaneous in-flight probes', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
 
-    mockLoad.mockImplementation(async () => {
+    mockSql.mockImplementation(async () => {
       inFlight += 1;
       maxInFlight = Math.max(maxInFlight, inFlight);
-      // Yield to event loop so other tasks can start before this one resolves.
       await new Promise<void>((resolve) => setImmediate(resolve));
       inFlight -= 1;
-      return { data: [] };
+      return SOURCE_ONLY;
     });
 
     await computePreaggReadiness(gameIdWorkspace);
-    // With 2 games × 5 cubes = 10 tasks and concurrency cap 2, max in-flight
-    // must never exceed 2.
     expect(maxInFlight).toBeLessThanOrEqual(2);
   });
 });
 
 // ---------------------------------------------------------------------------
-// TTL cache — second call within 60s must issue zero new /load calls
+// TTL cache — second call within 60s must issue zero new /sql calls
 // ---------------------------------------------------------------------------
 
 describe('computePreaggReadiness — TTL cache', () => {
-  beforeEach(() => {
-    __resetPreaggCache();
-    mockLoad.mockReset();
-  });
-
-  it('returns cached result and issues no new /load calls on second call within TTL', async () => {
-    mockLoad.mockResolvedValue({ data: [] });
+  it('returns cached result and issues no new /sql calls on second call within TTL', async () => {
+    mockSql.mockResolvedValue(SOURCE_ONLY);
 
     const first = await computePreaggReadiness(gameIdWorkspace);
-    const callsAfterFirst = mockLoad.mock.calls.length;
+    const callsAfterFirst = mockSql.mock.calls.length;
     expect(callsAfterFirst).toBeGreaterThan(0);
 
-    // Second call — cache should be warm, no new probes.
     const second = await computePreaggReadiness(gameIdWorkspace);
-    expect(mockLoad.mock.calls.length).toBe(callsAfterFirst);
-
-    // Both calls return the same generatedAt timestamp (same object from cache).
+    expect(mockSql.mock.calls.length).toBe(callsAfterFirst);
     expect(second.generatedAt).toBe(first.generatedAt);
   });
 });

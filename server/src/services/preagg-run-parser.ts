@@ -148,7 +148,11 @@ function parseBuildLine(line: LogLine): ParsedBuild | null {
   if (!line.message.includes('Performing query completed')) return null;
   if (!line.preAggregationId) return null;
   if (line.queuePrefix?.includes('_CACHE_')) return null;
-  const table = line.newVersionEntry?.table_name ?? line.queryKey ?? '';
+  // Table source varies by Cube version: the schema-qualified name may arrive on
+  // newVersionEntry.table_name, the CREATE TABLE queryKey, OR targetTableName.
+  // Earlier code omitted the last and silently dropped completion lines that
+  // carried the table only there.
+  const table = line.newVersionEntry?.table_name ?? line.queryKey ?? line.targetTableName ?? '';
   const schema = /(?:^|\s|\[\[')CREATE TABLE preagg_([a-z0-9]+)\./.exec(table)
     ?? /^preagg_([a-z0-9]+)\./.exec(table);
   if (!schema) return null;

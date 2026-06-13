@@ -5,7 +5,7 @@
  */
 
 export type Outcome = 'sealed' | 'stale_serving' | 'failed' | 'unbuilt';
-export type SweepSource = 'scheduled' | 'probe-snapshot';
+export type SweepSource = 'scheduled' | 'probe-snapshot' | 'triggered-build';
 
 /** Compact "what actually built" line on sweep-list headers — names the
  *  games/rollups so the collapsed row is scannable without loading items. */
