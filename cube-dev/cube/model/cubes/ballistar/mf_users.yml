@@ -1,6 +1,19 @@
 cubes:
   - name: mf_users
-    sql_table: mf_users
+    # ingame_name (latest active role name) is attached from mf_ingame_roles for
+    # human-readable member lists. max_by picks the most recently active role;
+    # GROUP BY collapses the one-row-per-role source to one name per user so the
+    # LEFT JOIN cannot fan out mf_users' one-row-per-user grain.
+    sql: >
+      SELECT base.*, latest_role.ingame_name
+      FROM mf_users base
+      LEFT JOIN (
+        SELECT
+          user_id,
+          max_by(ingame_last_active_role_name, ingame_last_active_date) AS ingame_name
+        FROM mf_ingame_roles
+        GROUP BY 1
+      ) latest_role ON base.user_id = latest_role.user_id
     title: Ballistar VN — User Master Profile
     description: |
       Wide feature store with one row per user. Pre-aggregates lifetime metrics (LTV, total active days, max role level) and rolling 30-day metrics (LTV 30d, recharge count 30d). Use this cube whenever a metric is already materialized here — Cube will read a single column instead of scanning event tables.
@@ -22,6 +35,10 @@ cubes:
         type: string
         primary_key: true
         public: true
+      - name: ingame_name
+        sql: ingame_name
+        type: string
+        description: Latest in-game role name (most recently active role, from mf_ingame_roles)
       - name: gds_bundle_code
         sql: gds_bundle_code
         type: string
