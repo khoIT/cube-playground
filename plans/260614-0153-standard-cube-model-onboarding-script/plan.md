@@ -36,7 +36,7 @@ with a proposed strategy for the agent to confirm/override.
 | 03 | Onboarding generator script (clean-case emit) | **done** — `cube-dev/scripts/onboard-game-cube-model.mjs` (reviewed) | cube-dev (`scripts/`) | 01 |
 | 04 | Anomaly detection + agent-decision flow | **done** — dual-identity/role-name/high-scale samplers, verified jus/tf/ptg | cube-dev (script) | 03 |
 | 05 | Layer-2 preset / metric reconciliation | **done** — `reports/metric-availability-reconciliation.md` (no edits needed; data-driven verified) | main | 01, 02 |
-| 06 | Per-game rollout w/ fan-out + pre-agg guards | **pending — HIGH-RISK gate (writes live cubes + serving restart); awaits approval** | cube-dev + main | 03, 04, 05 |
+| 06 | Per-game rollout w/ fan-out + pre-agg guards | **in progress — clean games DONE** (cros+6, ballistar/muaw/pubg+7 each = 27 cubes written, guards green, YAML-valid; serving restart + commit pending). tf/jus/ptg (anomaly games) await per-game agent decision | cube-dev + main | 03, 04, 05 |
 | 07 | Tests / validation harness | partial — cfm round-trip 14/14 byte-equal + 4-game dry-run verified; formal harness pending | both | 03, 06 |
 
 > **Scope refined 2026-06-14 (during build):** generator emits **14 portable cubes** (Tier A+B) — the 16

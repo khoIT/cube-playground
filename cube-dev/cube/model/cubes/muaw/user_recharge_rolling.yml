@@ -1,0 +1,114 @@
+cubes:
+  # ===========================================================================
+  # user_recharge_rolling — per-user rolling spend ratios AS OF the data anchor
+  # (the latest day std_ingame_user_recharge_daily has). Source: that table.
+  #
+  # Powers the "spend spike" / "spend drop" VIP-care playbooks WITHOUT an
+  # app-side trigger engine: the rolling 1d/7d/30d math is pushed into Trino so
+  # the predicate is a plain cohort filter on spike_ratio / drop_ratio.
+  #
+  # Grain = one row per user who recharged in the trailing 30 days, evaluated as
+  # of the anchor day (MAX(log_date)). Trailing sums are computed with CASE-window
+  # SUMs over the 30-day slice, so:
+  #   - spend DROP is visible: a user who spent in days 8-30 but nothing in the
+  #     last 7 has revenue_7d_total = 0 → drop_ratio = 0 (the latest-recharge-day
+  #     grain could never show this — its newest row is always a spend day).
+  #   - spend SPIKE uses a PRIOR-day baseline (excludes the anchor day), so a
+  #     first/only-time recharger has no baseline → NULL → never a false spike.
+  #
+  # Calendar-day averages (÷7, ÷29, ÷30) include implicit zero days. Ratios are
+  # non-additive → no pre-aggregation (per the model's rollup rules).
+  # ===========================================================================
+  - name: user_recharge_rolling
+    sql: >
+      WITH anchor AS (
+        SELECT MAX(CAST(log_date AS DATE)) AS d FROM std_ingame_user_recharge_daily
+      )
+      SELECT
+        r.user_id,
+        a.d AS log_date,
+        SUM(CASE WHEN CAST(r.log_date AS DATE) = a.d
+                 THEN r.ingame_total_recharge_value_vnd ELSE 0 END) AS revenue_1d,
+        SUM(CASE WHEN CAST(r.log_date AS DATE) >= a.d - INTERVAL '6' DAY
+                 THEN r.ingame_total_recharge_value_vnd ELSE 0 END) AS revenue_7d_total,
+        SUM(r.ingame_total_recharge_value_vnd) AS revenue_30d_total
+      FROM std_ingame_user_recharge_daily r
+      CROSS JOIN anchor a
+      WHERE CAST(r.log_date AS DATE) >= a.d - INTERVAL '29' DAY
+      GROUP BY r.user_id, a.d
+    title: MUAW — Rolling Spend Ratios (per user, as of the data anchor)
+    description: >
+      One row per user who recharged in the trailing 30 days, evaluated as of the
+      latest recharge date, carrying the spike/drop ratios used by the spend-spike
+      and spend-drop care playbooks.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: user_id
+        sql: user_id
+        type: string
+        primary_key: true
+        # Primary keys are public:false by default, but the care cohort fetcher
+        # selects user_id as the identity dimension — expose it.
+        public: true
+
+      # Time dimension wrapped to TIMESTAMP (the model's contract — a bare DATE
+      # breaks date-range routing/filters).
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: revenue_1d
+        sql: revenue_1d
+        type: number
+        description: This user's recharge value (VND) on the anchor day
+
+      - name: revenue_7d_total
+        sql: revenue_7d_total
+        type: number
+
+      - name: revenue_30d_total
+        sql: revenue_30d_total
+        type: number
+
+      - name: revenue_30d_avg
+        sql: "CAST({CUBE}.revenue_30d_total AS DOUBLE) / 30.0"
+        type: number
+        description: Average daily spend over the trailing 30 calendar days (zero days included)
+
+      # spike_ratio = anchor-day spend vs the PRIOR-29-day daily average (excludes
+      # the anchor day), so first/only-time rechargers (no prior spend) resolve to
+      # NULL and never match. CAST→DOUBLE for real division; NULLIF guards a zero
+      # baseline.
+      - name: spike_ratio
+        sql: "CAST({CUBE}.revenue_1d AS DOUBLE) / NULLIF((CAST({CUBE}.revenue_30d_total AS DOUBLE) - CAST({CUBE}.revenue_1d AS DOUBLE)) / 29.0, 0)"
+        type: number
+        description: anchor-day spend ÷ prior-29d daily average (≥3 = spend spike)
+
+      # drop_ratio = 7d daily average vs 30d daily average. A user who stopped
+      # spending in the last 7 days has revenue_7d_total = 0 → drop_ratio = 0.
+      - name: drop_ratio
+        sql: "(CAST({CUBE}.revenue_7d_total AS DOUBLE) / 7.0) / NULLIF(CAST({CUBE}.revenue_30d_total AS DOUBLE) / 30.0, 0)"
+        type: number
+        description: 7d daily average ÷ 30d daily average (raw; see qualified_drop_ratio for the care signal)
+
+      # The care "spend drop" signal: drop_ratio scoped to a genuine DECLINE among
+      # engaged spenders. NULL (→ excluded) when the user spent nothing in the last
+      # 7 days (revenue_7d_total = 0 → that's churn, PB14's job, not a spend drop) or
+      # wasn't a meaningful spender (30d < ₫500k). The baseline floor is the
+      # structural qualification; the registry holds the tunable <0.3 cutoff.
+      - name: qualified_drop_ratio
+        sql: "CASE WHEN {CUBE}.revenue_7d_total > 0 AND {CUBE}.revenue_30d_total >= 500000 THEN (CAST({CUBE}.revenue_7d_total AS DOUBLE) / 7.0) / NULLIF(CAST({CUBE}.revenue_30d_total AS DOUBLE) / 30.0, 0) ELSE NULL END"
+        type: number
+        description: drop_ratio for engaged spenders still paying (30d ≥ ₫500k, 7d > 0); NULL otherwise (<0.3 = genuine spend drop worth a CS touch)
+
+    measures:
+      - name: rows
+        type: count

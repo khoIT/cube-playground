@@ -1,0 +1,93 @@
+cubes:
+  # ===========================================================================
+  # user_active_rolling — per-user rolling session-time ratio AS OF the data
+  # anchor (latest day std_ingame_user_active_daily has). Source: that table.
+  #
+  # Powers the "session-time drop" VIP-care playbook without an app-side trigger
+  # engine: rolling 7d/30d session math pushed into Trino so the predicate is a
+  # plain cohort filter on session_ratio.
+  #
+  # Same as-of-anchor grain as user_recharge_rolling: one row per user active in
+  # the trailing 30 days, evaluated at the anchor day. A user active in days 8-30
+  # but not in the last 7 has online_7d_total = 0 → session_ratio = 0, so the
+  # session DROP is visible (the latest-active-day grain could never show it).
+  # Non-additive ratio → no pre-aggregation.
+  # ===========================================================================
+  - name: user_active_rolling
+    sql: >
+      WITH anchor AS (
+        SELECT MAX(CAST(log_date AS DATE)) AS d FROM std_ingame_user_active_daily
+      )
+      SELECT
+        ad.user_id,
+        a.d AS log_date,
+        SUM(CASE WHEN CAST(ad.log_date AS DATE) >= a.d - INTERVAL '6' DAY
+                 THEN ad.total_online_time ELSE 0 END) AS online_7d_total,
+        SUM(ad.total_online_time) AS online_30d_total
+      FROM std_ingame_user_active_daily ad
+      CROSS JOIN anchor a
+      WHERE CAST(ad.log_date AS DATE) >= a.d - INTERVAL '29' DAY
+      GROUP BY ad.user_id, a.d
+    title: PUBG Mobile VN — Rolling Session Ratios (per user, as of the data anchor)
+    description: >
+      One row per user active in the trailing 30 days, evaluated as of the latest
+      active date, carrying the session_ratio used by the session-drop care playbook.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: user_id
+        sql: user_id
+        type: string
+        primary_key: true
+        # Primary keys are public:false by default, but the care cohort fetcher
+        # selects user_id as the identity dimension — expose it.
+        public: true
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: online_7d_total
+        sql: online_7d_total
+        type: number
+
+      - name: online_30d_total
+        sql: online_30d_total
+        type: number
+
+      - name: session_7d_avg
+        sql: "CAST({CUBE}.online_7d_total AS DOUBLE) / 7.0"
+        type: number
+        description: Average daily online seconds over the trailing 7 calendar days
+
+      - name: session_30d_avg
+        sql: "CAST({CUBE}.online_30d_total AS DOUBLE) / 30.0"
+        type: number
+        description: Average daily online seconds over the trailing 30 calendar days
+
+      # session_ratio = 7d daily average vs 30d daily average. A user who went
+      # quiet in the last 7 days has online_7d_total = 0 → session_ratio = 0.
+      - name: session_ratio
+        sql: "(CAST({CUBE}.online_7d_total AS DOUBLE) / 7.0) / NULLIF(CAST({CUBE}.online_30d_total AS DOUBLE) / 30.0, 0)"
+        type: number
+        description: 7d daily average online ÷ 30d daily average (raw; see qualified_session_ratio for the care signal)
+
+      # The care "session drop" signal: session_ratio scoped to a sharp decline among
+      # heavy players. NULL (→ excluded) when the user was idle the last 7 days
+      # (online_7d_total = 0 → churn, PB14) or wasn't a heavy player (30d < 30h).
+      # Session activity is dense/noisy, so the qualification is stricter than spend.
+      - name: qualified_session_ratio
+        sql: "CASE WHEN {CUBE}.online_7d_total > 0 AND {CUBE}.online_30d_total >= 108000 THEN (CAST({CUBE}.online_7d_total AS DOUBLE) / 7.0) / NULLIF(CAST({CUBE}.online_30d_total AS DOUBLE) / 30.0, 0) ELSE NULL END"
+        type: number
+        description: session_ratio for heavy players still active (30d ≥ 30h, 7d > 0); NULL otherwise (<0.2 = sharp session-time drop)
+
+    measures:
+      - name: rows
+        type: count

@@ -1,0 +1,187 @@
+cubes:
+  # ===========================================================================
+  # new_user_retention — NRU cohort retention curves (consolidated).
+  # Source: <schema>.cons_game_new_user_retention_daily
+  #
+  # One row per (report_date × acquisition slice). Carries the new-user count
+  # (nru) plus retained-NRU counts at day 1..1080 (rnru_NN), and the parallel
+  # payer-retention curves: ranpu_NN (retained active-paying) and rpnpu_NN
+  # (retained paying). All counts are additive across slices and across days.
+  #
+  # This complements `game_key_metrics` (which has only a1..a90); use this cube
+  # when you need the full retention curve out to D360+ for cohort charts,
+  # without scanning std_ingame_user_active_daily. Schema-stable across games.
+  # ===========================================================================
+  - name: new_user_retention
+    sql_table: cons_game_new_user_retention_daily
+    title: CROS — New-User Retention Curves (daily cohorts)
+    description: >
+      NRU cohort retention by acquisition slice. rnru_NN = NRU still active N
+      days after acquisition; ranpu_NN / rpnpu_NN = the payer-retention curves.
+      Powers cohort retention charts directly from the consolidated mart.
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: composite_pk
+        sql: >
+          CONCAT(
+            CAST({CUBE}.report_date AS VARCHAR), '__',
+            COALESCE({CUBE}.app_id, ''), '__',
+            COALESCE({CUBE}.platform, ''), '__',
+            COALESCE({CUBE}.country_code, ''), '__',
+            COALESCE({CUBE}.is_paid_install, ''), '__',
+            COALESCE({CUBE}.media_source, ''), '__',
+            COALESCE({CUBE}.campaign_id, ''), '__',
+            COALESCE({CUBE}.adset_id, ''), '__',
+            COALESCE({CUBE}.ad_id, '')
+          )
+        type: string
+        primary_key: true
+        public: false
+
+      - name: report_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.report_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: report_month
+        sql: report_month
+        type: string
+
+      - name: app_id
+        sql: app_id
+        type: string
+
+      - name: platform
+        sql: platform
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: is_paid_install
+        sql: is_paid_install
+        type: string
+
+      - name: media_source
+        sql: media_source
+        type: string
+
+      - name: campaign_id
+        sql: campaign_id
+        type: string
+
+    measures:
+      - name: nru
+        sql: nru
+        type: sum
+        description: New registered users (cohort base)
+      - name: npu
+        sql: npu
+        type: sum
+        description: New paying users (payer-curve base)
+
+      # Retained-active NRU at day N
+      - name: rnru_d1
+        sql: rnru_01
+        type: sum
+      - name: rnru_d3
+        sql: rnru_03
+        type: sum
+      - name: rnru_d7
+        sql: rnru_07
+        type: sum
+      - name: rnru_d14
+        sql: rnru_14
+        type: sum
+      - name: rnru_d30
+        sql: rnru_30
+        type: sum
+      - name: rnru_d60
+        sql: rnru_60
+        type: sum
+      - name: rnru_d90
+        sql: rnru_90
+        type: sum
+      - name: rnru_d180
+        sql: rnru_180
+        type: sum
+      - name: rnru_d360
+        sql: rnru_360
+        type: sum
+
+      # Retained paying users at day N (paying-retention curve)
+      - name: rpnpu_d7
+        sql: rpnpu_07
+        type: sum
+      - name: rpnpu_d30
+        sql: rpnpu_30
+        type: sum
+
+      # Derived retention rates (rnru_N / nru)
+      - name: retention_d1
+        sql: "CAST({rnru_d1} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        format: percent
+      - name: retention_d7
+        sql: "CAST({rnru_d7} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        format: percent
+      - name: retention_d30
+        sql: "CAST({rnru_d30} AS DOUBLE) / NULLIF({nru}, 0)"
+        type: number
+        format: percent
+
+    segments:
+      - name: last_30d
+        sql: "{CUBE}.report_date >= CURRENT_DATE - INTERVAL '30' DAY"
+      - name: last_90d
+        sql: "{CUBE}.report_date >= CURRENT_DATE - INTERVAL '90' DAY"
+
+    pre_aggregations:
+      - name: nru_retention_by_cohort_batch
+        type: rollup
+        measures:
+          - nru
+          - npu
+          - rnru_d1
+          - rnru_d3
+          - rnru_d7
+          - rnru_d14
+          - rnru_d30
+          - rnru_d60
+          - rnru_d90
+          - rnru_d180
+          - rnru_d360
+          - rpnpu_d7
+          - rpnpu_d30
+        dimensions:
+          - report_month
+          - is_paid_install
+          - country_code
+          - media_source
+          - platform
+        time_dimension: report_date
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        # Rolling 120-day build window with monthly partitions: only recent
+        # months materialize to CubeStore (matches recent-skewed demand and
+        # survives source blips since each month seals independently); older
+        # dates fall through to source via the union lambda.
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        build_range_end:
+          sql: "SELECT COALESCE(from_iso8601_timestamp(CAST(MAX(report_date) AS VARCHAR) || 'T00:00:00Z'), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM cons_game_new_user_retention_daily"
+
+      # Lambda union: sealed batch partitions + a live tail straight from source,
+      # so recent rows appear without waiting for a refresh cycle.
+      - name: nru_retention_by_cohort
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.nru_retention_by_cohort_batch
