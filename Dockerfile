@@ -103,9 +103,6 @@ COPY --from=build-server /app/server/node_modules ./node_modules
 COPY --from=build-server /app/server/dist ./dist
 # tsc does NOT emit .sql — the migration runner reads dist/db/migrations/*.sql.
 COPY --from=build-server /app/server/src/db/migrations ./dist/db/migrations
-# Same reason — ensureLakehouseTables() reads dist/lakehouse/segment-membership-ddl.sql
-# at runtime; without this the lakehouse snapshot job ENOENTs on every run.
-COPY --from=build-server /app/server/src/lakehouse/segment-membership-ddl.sql ./dist/lakehouse/segment-membership-ddl.sql
 # tsc does NOT emit .yml either — the business-metrics registry loader and the
 # dashboard-starter-pack loader both readdir dist/presets/**/*.yml at runtime.
 # Without this, the prod image ships an empty dir → the metrics catalog and the

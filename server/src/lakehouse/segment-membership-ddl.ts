@@ -1,16 +1,26 @@
--- Lakehouse fact tables for segment membership snapshots.
--- Target: stag_iceberg.<env-schema> (Trino Iceberg catalog, writable, parallel
--- to game_integration). The schema is env-scoped (khoitn/prod vs khoitn/local);
--- ensureLakehouseTables() replaces the __LAKEHOUSE_TABLE_PREFIX__ token below
--- with the quoted catalog."schema". prefix for the configured environment.
--- Statements are split on ';' and run individually by ensureLakehouseTables().
--- CREATE TABLE IF NOT EXISTS makes this idempotent.
+/**
+ * DDL for the lakehouse segment-membership snapshot tables, inlined as a TS
+ * constant so it compiles into `dist` with the rest of the module.
+ *
+ * It used to live in a sibling `.sql` file read via readFileSync at runtime, but
+ * `tsc` does not emit non-TS assets — so the prod image ENOENT'd on every snapshot
+ * run unless a Dockerfile COPY remembered to stage it into dist. Inlining removes
+ * that fragile build-step dependency entirely: there is nothing to copy.
+ *
+ * `ensureLakehouseTables()` replaces the `__LAKEHOUSE_TABLE_PREFIX__` token with
+ * the env-scoped quoted `catalog."schema".` prefix, splits on `;`, and runs each
+ * statement. CREATE TABLE IF NOT EXISTS keeps it idempotent.
+ */
 
+/** Placeholder replaced with the env-scoped quoted prefix at apply time. */
+export const DDL_TABLE_PREFIX_TOKEN = '__LAKEHOUSE_TABLE_PREFIX__';
+
+export const SEGMENT_MEMBERSHIP_DDL = `
 -- Full membership snapshot: one row per member, per segment, per day.
 -- Partitioned by (snapshot_date, game_id, segment_id) so a single cohort slice
 -- prunes to one partition — the app targets 100s of segments per game and
 -- point-by-segment reads dominate. Sorted by uid for compact per-partition files.
-CREATE TABLE IF NOT EXISTS __LAKEHOUSE_TABLE_PREFIX__segment_membership_daily (
+CREATE TABLE IF NOT EXISTS ${DDL_TABLE_PREFIX_TOKEN}segment_membership_daily (
   snapshot_date DATE,
   game_id       VARCHAR,
   segment_id    VARCHAR,
@@ -23,7 +33,7 @@ CREATE TABLE IF NOT EXISTS __LAKEHOUSE_TABLE_PREFIX__segment_membership_daily (
 
 -- Day-over-day change feed (entered/exited) derived from the daily snapshot.
 -- Same partition grain so a single (day, game, segment) diff prunes cleanly.
-CREATE TABLE IF NOT EXISTS __LAKEHOUSE_TABLE_PREFIX__segment_membership_delta (
+CREATE TABLE IF NOT EXISTS ${DDL_TABLE_PREFIX_TOKEN}segment_membership_delta (
   snapshot_date DATE,
   game_id       VARCHAR,
   segment_id    VARCHAR,
@@ -42,13 +52,13 @@ CREATE TABLE IF NOT EXISTS __LAKEHOUSE_TABLE_PREFIX__segment_membership_delta (
 --   definition_hash != lag(definition_hash) OVER (PARTITION BY segment_id
 --                                                 ORDER BY snapshot_date)
 -- Tiny table (dozens of rows/day) — partition by date only.
-CREATE TABLE IF NOT EXISTS __LAKEHOUSE_TABLE_PREFIX__segment_definition_daily (
+CREATE TABLE IF NOT EXISTS ${DDL_TABLE_PREFIX_TOKEN}segment_definition_daily (
   snapshot_date       DATE,
   game_id             VARCHAR,
   segment_id          VARCHAR,
   definition_hash     VARCHAR,
   name                VARCHAR,
-  cube_name           VARCHAR,  -- 'cube' is reserved in Trino
+  cube_name           VARCHAR,
   type                VARCHAR,
   identity_field      VARCHAR,
   predicate_tree_json VARCHAR,
@@ -57,3 +67,4 @@ CREATE TABLE IF NOT EXISTS __LAKEHOUSE_TABLE_PREFIX__segment_definition_daily (
   partitioning = ARRAY['snapshot_date'],
   format       = 'PARQUET'
 );
+`;

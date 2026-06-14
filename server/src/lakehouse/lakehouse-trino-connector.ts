@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import type { Connector } from '../services/trino-profiler-config.js';
 import { canonicalGameId, GAME_SCHEMA } from '../services/trino-profiler-config.js';
 import { runQuery } from '../services/trino-rest-client.js';
+import { SEGMENT_MEMBERSHIP_DDL, DDL_TABLE_PREFIX_TOKEN } from './segment-membership-ddl.js';
 
 /** The Iceberg catalog that holds the snapshot tables. */
 export const LAKEHOUSE_CATALOG = 'stag_iceberg';
@@ -150,9 +151,6 @@ export function splitSqlStatements(sql: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-/** Placeholder in the DDL file, replaced with the env-scoped quoted prefix. */
-const DDL_TABLE_PREFIX_TOKEN = '__LAKEHOUSE_TABLE_PREFIX__';
-
 /**
  * Create the env-scoped schema (if absent) and both lakehouse tables if absent
  * (idempotent via CREATE TABLE IF NOT EXISTS). The DDL ships with a placeholder
@@ -168,8 +166,7 @@ export async function ensureLakehouseTables(connector: Connector): Promise<void>
     `CREATE SCHEMA IF NOT EXISTS ${LAKEHOUSE_CATALOG}."${LAKEHOUSE_SCHEMA}"`,
     LAKEHOUSE_STATEMENT_TIMEOUT_MS,
   );
-  const ddlPath = join(__dirname, 'segment-membership-ddl.sql');
-  const rendered = readFileSync(ddlPath, 'utf8').split(DDL_TABLE_PREFIX_TOKEN).join(
+  const rendered = SEGMENT_MEMBERSHIP_DDL.split(DDL_TABLE_PREFIX_TOKEN).join(
     `${LAKEHOUSE_CATALOG}."${LAKEHOUSE_SCHEMA}".`,
   );
   const statements = splitSqlStatements(rendered);
