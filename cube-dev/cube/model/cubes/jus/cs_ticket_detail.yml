@@ -81,7 +81,10 @@ cubes:
         type: string
         primary_key: true
 
-      - name: member_user_id
+      # Exposed as user_id (standard member-360 identity key) so member panels
+      # filter it like every other cube. NULL when the filer can't be mapped to
+      # a game member — those tickets stay game-aggregate only.
+      - name: user_id
         sql: member_user_id
         type: string
         description: Resolved game user_id (NULL when the filer can't be mapped)

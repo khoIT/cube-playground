@@ -912,3 +912,128 @@ views:
           - last_90d
           - gains_only
           - losses_only
+
+  # ===========================================================================
+  # Cross-cutting ops panels — iceberg-sourced enrichment joined to mf_users.
+  # Each panel is its own single-cube view (no multi-fact blend → no fan-out).
+  # PII dims (device/email/staff) are public:false on the cubes and excluded here.
+  # ===========================================================================
+
+  - name: user_identity_panel
+    description: >
+      [freshness: lagging] Geo / lifecycle / login-channel profile for one user
+      from the cross-game VGA pipeline (load ~1 month behind — churn-gap includes
+      pipeline lag). Filter by user_id equals for the identity panel of a 360 view.
+    cubes:
+      - join_path: user_identity
+        includes:
+          - user_id
+          - first_country_code
+          - last_country_code
+          - geo_moved
+          - first_os
+          - last_os
+          - first_login_channel
+          - last_login_channel
+          - media_source
+          - campaign_id
+          - install_app_store
+          - user_type
+          - install_date
+          - register_date
+          - last_login_time
+          - last_charge_time
+          - last_active
+          - days_since_last_active
+          - users
+          - moved_country_users
+
+  - name: user_billing_detail_panel
+    description: >
+      [freshness: live] Payment gateway/method/store/item/promo breakdown for one
+      user (gateway-charged cash — enrichment, NOT the authoritative revenue; that
+      stays user_recharge_timeline). Filter by user_id; group by currency before
+      summing amounts (jus is mixed USD+VND). Gross only.
+    cubes:
+      - join_path: billing_detail
+        includes:
+          - user_id
+          - order_date
+          - currency
+          - payment_gateway
+          - payment_method_id
+          - payment_provider_id
+          - store
+          - item_type
+          - promotion_type
+          - txn_count_total
+          - cash_charged_gross
+          - promo_charged_gross
+          - lps_charged_gross
+          - wallet_charged_gross
+          - product_delivered_gross
+          - wallet_delivered_gross
+          - paying_users
+          - last_7d
+          - last_30d
+          - promo_orders
+
+  - name: user_billing_lifetime_panel
+    description: >
+      [freshness: live] Canonical-billing lifetime value per user (cross-check vs
+      ingame LTV — a gap is expected, gateway cash vs ingame delivery). Filter by
+      user_id for the single-user panel, or aggregate for cohort LTV.
+    cubes:
+      - join_path: billing_lifetime
+        includes:
+          - user_id
+          - product_code
+          - first_date
+          - first_month
+          - last_date
+          - last_month
+          - lifetime_txn_count
+          - lifetime_vnd
+          - lifetime_usd
+          - first_amt
+          - payers
+          - lifetime_vnd_total
+          - lifetime_usd_total
+          - lifetime_txn_total
+          - lifetime_arppu_vnd
+
+  - name: user_cs_tickets_panel
+    description: >
+      [freshness: lagging] Support tickets with resolution / CSAT / sentiment /
+      VIP / routing. Game-aggregate metrics are reliable (100% product-scoped);
+      member-level join is best-effort (~23% cfm — most CS is Facebook,
+      unjoinable). Filter by member_user_id for a single member's tickets.
+    cubes:
+      - join_path: cs_ticket_detail
+        includes:
+          - user_id
+          - ticket_id
+          - created_date
+          - ticket_status
+          - status_name
+          - sentiment
+          - sentiment_change
+          - vip_id
+          - dept
+          - pillar
+          - ticket_type
+          - ticket_category
+          - ticket_source
+          - source_group
+          - country_code
+          - ticket_rating
+          - total_tickets
+          - closed_tickets
+          - avg_resolution_time
+          - avg_first_response_time
+          - avg_csat
+          - negative_sentiment_tickets
+          - member_resolved_tickets
+          - unresolved_member_tickets
+          - vip_tickets
+          - open_tickets

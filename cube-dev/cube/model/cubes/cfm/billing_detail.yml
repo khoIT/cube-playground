@@ -176,3 +176,37 @@ cubes:
         sql: "{CUBE}.order_date >= CURRENT_DATE - INTERVAL '30' DAY"
       - name: promo_orders
         sql: "{CUBE}.promotion_type IS NOT NULL AND {CUBE}.promotion_type <> ''"
+
+    pre_aggregations:
+      # Day x payment-breakdown rollup for dashboard aggregates (the 58.6M-row
+      # billing table would full-scan otherwise). Rolling 120-day window with
+      # monthly partitions; older dates fall through to source via the lambda
+      # union. Single-user (member360) queries filter user_id, which this rollup
+      # doesn't carry, so they route to source directly — already fast.
+      - name: billing_detail_daily_batch
+        type: rollup
+        measures:
+          - cash_charged_gross
+          - promo_charged_gross
+          - txn_count_total
+          - paying_users
+        dimensions:
+          - currency
+          - payment_gateway
+          - promotion_type
+        time_dimension: order_date
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        build_range_end:
+          sql: "SELECT COALESCE(max(order_created_datetime), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM iceberg.billing.std_billing_delivery_trans_gds WHERE product_code = 'A49'"
+
+      - name: billing_detail_daily
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.billing_detail_daily_batch
