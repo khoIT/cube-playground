@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Advisor Run Audit Console (admin observability + durable persistence + replay)
+
+Admin observability layer (`/admin/dev/advisor-audit`) for every in-process Advisor agent run. Durably persists to SQLite `segments.db` (4 tables: run/turn/tool-call/event-log); surfaces full turn trace (each tool call's duration + state + error), cost, elapsed time, and append-only SSE stream for replay. Failure modes surfaced distinctly with actionable next-step hints (cold-Trino timeout, budget cap, guardrail denial, max-turns, abort). Retention: lazy once-per-process prune > 30 days.
+
+- **Persistence** (`server/src/advisor/agent/advisor-run-store.ts` + migration `055-advisor-agent-run-audit.sql`) — 4 SQLite tables; one-row-per-session RUN + per-turn TURN + per-call TOOL_CALL (paired by callId) + append-only EVENT_LOG (for SSE replay). Read API: `listRuns()`, `getRunDetail()`, `listEvents()`, `listOwners()`.
+- **Recorder seam** (`server/src/advisor/agent/run-recorder.ts`) — `RunRecorder` interface + `sqliteRunRecorder` (default) + `noopRunRecorder` (tests). Injected via `deps.recorder`. Buffers turn events, flushes in `finally` (never breaks a live turn). Tool inputs + truncated post-redaction outputs thread through normalizer; **stripped at SSE edge** so live client wire unchanged (verified via code-review).
+- **Admin routes** (`server/src/routes/admin-advisor-audit.ts`) — `requireRole('admin') + requireFeature('admin')`: `GET /api/admin/advisor/runs` (filter by game/goal/owner/stopReason), `GET /api/admin/advisor/runs/:sessionId` (full detail), `GET /api/admin/advisor/runs/:sessionId/events` (paginated SSE frame replay), `GET /api/admin/advisor/owners`.
+- **Admin UI** (`src/pages/Admin/hub/advisor-audit-{panel,run-detail,data,failure-hints}.tsx`) — 3-pane: filters / run list with failure badges / detail view. Turn timeline + tool-call rows + lazy SSE replay + failure-hint banner (maps failure enum to actionable guidance).
+
 ## 2026-06-15 — Optimization Advisor in-process AI agent (OAuth-lane isolation, hybrid provenance gate, multi-turn Drive UI, experiment-quality eval)
 
 Live LLM-driven "Guided Drive" investigation mode for the Optimization Advisor. Complements existing deterministic "Explore" simulator. In-process Agent SDK runtime on subscription OAuth lane (never API key); redaction + guardrails (deny-by-default tools, 12-turn cap, 1-USD budget); hybrid provenance gate validates recommendation numbers against deterministic tool results. Five-layer flow: Opportunity → Target → Cause → Lever → Proof. Experiments always draft-status (no auto-launch). Both cfm_vn and jus_vn enabled; quality scoring available offline + smoke-tested live.

@@ -25,7 +25,45 @@ type ContentBlock = {
   id?: string;
   tool_use_id?: string;
   is_error?: boolean;
+  input?: unknown;
+  content?: unknown;
 };
+
+/** Cap on the tool-result digest carried on the wire / persisted. */
+const RESULT_DIGEST_MAX = 4000;
+
+/**
+ * Flatten a tool_result `content` (string | array of text blocks | object) into
+ * a bounded plain-text digest. The content is already redacted by the tool
+ * layer, so this is PII-free; truncation just keeps SSE/audit payloads small.
+ */
+function resultDigest(content: unknown): string | undefined {
+  if (content == null) return undefined;
+  let text: string;
+  if (typeof content === 'string') {
+    text = content;
+  } else if (Array.isArray(content)) {
+    text = content
+      .map((b) => (b && typeof b === 'object' && typeof (b as ContentBlock).text === 'string' ? (b as ContentBlock).text : ''))
+      .filter(Boolean)
+      .join('\n');
+    if (!text) {
+      try {
+        text = JSON.stringify(content);
+      } catch {
+        return undefined;
+      }
+    }
+  } else {
+    try {
+      text = JSON.stringify(content);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!text) return undefined;
+  return text.length > RESULT_DIGEST_MAX ? `${text.slice(0, RESULT_DIGEST_MAX)}…[truncated]` : text;
+}
 
 /** Map an SDK result subtype to our stop reason. */
 export function mapResultSubtype(subtype: string | undefined): AgentStopReason {
@@ -65,7 +103,7 @@ export function normalizeSdkMessage(raw: RawSdkMessage): RuntimeEvent[] {
         if (b.type === 'text' && typeof b.text === 'string' && b.text.length > 0) {
           events.push({ type: 'assistant_delta', text: b.text });
         } else if (b.type === 'tool_use' && typeof b.name === 'string') {
-          events.push({ type: 'tool_call', tool: b.name, callId: b.id });
+          events.push({ type: 'tool_call', tool: b.name, callId: b.id, input: b.input });
         }
       }
       break;
@@ -79,6 +117,7 @@ export function normalizeSdkMessage(raw: RawSdkMessage): RuntimeEvent[] {
             tool: typeof b.name === 'string' ? b.name : 'tool',
             callId: b.tool_use_id,
             ok: b.is_error !== true,
+            resultText: resultDigest(b.content),
           });
         }
       }

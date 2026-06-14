@@ -164,6 +164,15 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 |---|---|---|---|---|---|
 | POST | `/api/advisor/agent/turn` | none (owner req) | `authorization`, `x-cube-workspace`, `x-cube-game`, `x-owner-id` | SSE turn stream; 503 `{code:'oauth_unavailable'}` (no OAuth token) / 409 `{code:'turn_in_progress'}` (turn already running) | agent-runtime, @anthropic-ai/claude-agent-sdk (subscription OAuth lane), deterministic advisor tools |
 
+### optimization advisor — admin audit
+
+| Method | Path | Auth/Roles | Headers | Response | Data sources |
+|---|---|---|---|---|---|
+| GET | `/api/admin/advisor/runs` | admin | `authorization`, `?game,goal,owner,stopReason,q,limit` | `{runs:[{sessionId,scope,goal,owner,model,turnCount,totalCostUsd,finalStopReason,hadError,createdAt}]}` paginated, filterable | SQLite advisor_agent_run |
+| GET | `/api/admin/advisor/runs/:sessionId` | admin | `authorization` | full run detail `{session, turns:[{index,mode,message,narration,stopReason,abortCause,costDelta,elapsedMs}]}` / 404 | SQLite advisor_agent_run + advisor_agent_turn |
+| GET | `/api/admin/advisor/runs/:sessionId/events` | admin | `authorization`, `?turnIndex,cursor,limit` | `{events:[...]}` append-only SSE frame stream (replay) / 404 | SQLite advisor_event_log |
+| GET | `/api/admin/advisor/owners` | admin | `authorization` | `{owners:[{id,displayName,runCount}]}` | SQLite advisor_agent_run |
+
 ---
 
 ### analyses, anomalies, dashboards

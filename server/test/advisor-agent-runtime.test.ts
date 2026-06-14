@@ -12,6 +12,7 @@ import {
   type AdvisorAgentSession,
 } from '../src/advisor/agent/agent-runtime.js';
 import type { SessionOpts, RuntimeEvent } from '../src/advisor/agent/agent-types.js';
+import { noopRunRecorder } from '../src/advisor/agent/run-recorder.js';
 
 type FakeMode = 'ok' | 'hang' | 'expensive';
 
@@ -65,7 +66,7 @@ afterEach(() => {
 describe('createAdvisorAgentSession.runTurn', () => {
   it('streams a happy turn ending in exactly one done', async () => {
     const { queryFn } = makeFake('ok');
-    const s = createAdvisorAgentSession('s1', BASE_OPTS, undefined, { queryFn });
+    const s = createAdvisorAgentSession('s1', BASE_OPTS, undefined, { queryFn, recorder: noopRunRecorder });
     const events = await collect(s.runTurn('why are payers churning?', 'drive'));
     expect(events.filter((e) => e.type === 'done')).toHaveLength(1);
     expect(events.find((e) => e.type === 'done')).toMatchObject({ stopReason: 'end_turn' });
@@ -77,7 +78,7 @@ describe('createAdvisorAgentSession.runTurn', () => {
 
   it('reuses one query across multiple turns', async () => {
     const { queryFn, calls } = makeFake('ok');
-    const s = createAdvisorAgentSession('s2', BASE_OPTS, undefined, { queryFn });
+    const s = createAdvisorAgentSession('s2', BASE_OPTS, undefined, { queryFn, recorder: noopRunRecorder });
     await collect(s.runTurn('q1', 'drive'));
     await collect(s.runTurn('q2', 'steer'));
     expect(calls.count).toBe(1);
@@ -86,7 +87,7 @@ describe('createAdvisorAgentSession.runTurn', () => {
 
   it('timeout interrupts the turn but keeps the session resumable', async () => {
     const { queryFn } = makeFake('hang');
-    const s = createAdvisorAgentSession('s3', { ...BASE_OPTS, caps: { timeoutMs: 15 } }, undefined, { queryFn });
+    const s = createAdvisorAgentSession('s3', { ...BASE_OPTS, caps: { timeoutMs: 15 } }, undefined, { queryFn, recorder: noopRunRecorder });
     const events = await collect(s.runTurn('dig in', 'drive'));
     expect(events.find((e) => e.type === 'error')).toMatchObject({ code: 'timeout' });
     expect(events.find((e) => e.type === 'done')).toMatchObject({ stopReason: 'timeout' });
@@ -95,7 +96,7 @@ describe('createAdvisorAgentSession.runTurn', () => {
 
   it('budget exhaustion closes the session', async () => {
     const { queryFn } = makeFake('expensive');
-    const s = createAdvisorAgentSession('s4', { ...BASE_OPTS, caps: { maxBudgetUsd: 1.0 } }, undefined, { queryFn });
+    const s = createAdvisorAgentSession('s4', { ...BASE_OPTS, caps: { maxBudgetUsd: 1.0 } }, undefined, { queryFn, recorder: noopRunRecorder });
     await collect(s.runTurn('hi', 'drive'));
     expect(s.totalCostUsd).toBe(2.0);
     expect(s.isClosed()).toBe(true);
@@ -103,7 +104,7 @@ describe('createAdvisorAgentSession.runTurn', () => {
 
   it('abort() closes the session; a further turn is refused immediately', async () => {
     const { queryFn } = makeFake('ok');
-    const s: AdvisorAgentSession = createAdvisorAgentSession('s5', BASE_OPTS, undefined, { queryFn });
+    const s: AdvisorAgentSession = createAdvisorAgentSession('s5', BASE_OPTS, undefined, { queryFn, recorder: noopRunRecorder });
     s.abort('evicted');
     expect(s.isClosed()).toBe(true);
     const events = await collect(s.runTurn('hi', 'drive'));
@@ -116,6 +117,6 @@ describe('createAdvisorAgentSession.runTurn', () => {
   it('fails fast (throws) when the OAuth token is absent', () => {
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     const { queryFn } = makeFake('ok');
-    expect(() => createAdvisorAgentSession('s6', BASE_OPTS, undefined, { queryFn })).toThrow();
+    expect(() => createAdvisorAgentSession('s6', BASE_OPTS, undefined, { queryFn, recorder: noopRunRecorder })).toThrow();
   });
 });

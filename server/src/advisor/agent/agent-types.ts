@@ -48,8 +48,12 @@ export type AgentErrorCode =
  */
 export type RuntimeEvent =
   | { type: 'assistant_delta'; text: string }
-  | { type: 'tool_call'; tool: string; callId?: string }
-  | { type: 'tool_result'; tool: string; callId?: string; ok: boolean }
+  // `input` is the agent's own query spec (aggregate, PII-free); optional and
+  // additive — existing SSE consumers ignore it. Used by the run-audit recorder.
+  | { type: 'tool_call'; tool: string; callId?: string; input?: unknown }
+  // `resultText` is a truncated, post-redaction digest of the tool output (also
+  // the error text when ok=false). Optional/additive for the audit recorder.
+  | { type: 'tool_result'; tool: string; callId?: string; ok: boolean; resultText?: string }
   | { type: 'cost'; usd: number }
   | { type: 'done'; usd: number | null; stopReason: AgentStopReason }
   | { type: 'denied'; tool: string; reason: string }

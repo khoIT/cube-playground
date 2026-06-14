@@ -115,10 +115,13 @@ members from every selected cube and de-dupes by qualified name.
 - **`agent-context-pack.ts` / `agent-system-prompt.ts`** — Pure context injection (goal trees, lever taxonomy, playbook index, scope).
 - **`tools/`** — 10 deterministic advisor-engine wrappers: diagnose, recommend, map_levers, check_power, expected_incremental, list_priors, scaffold_draft, cube_query, cube_meta, predicate_compile (names `mcp__advisor__*`). Numbers come from these, never LLM free-text.
 - **`experiment-quality-score.ts`** — Pure quality scorer (power / feasibility / ₫-materiality / provenance / goal-fit) backing offline eval + live smoke.
+- **`advisor-run-store.ts`** — SQLite persistence API for audit: `persistTurn()` (transactional write), `listRuns()`, `getRunDetail()`, `listEvents()`, `listOwners()`, `pruneOlderThan()`. 4 tables: `advisor_agent_run`, `advisor_agent_turn`, `advisor_tool_call`, `advisor_event_log`. Lazy once-per-process prune > `ADVISOR_AUDIT_RETENTION_DAYS` (30 days).
+- **`run-recorder.ts`** — Recorder seam: `RunRecorder` interface + `sqliteRunRecorder` (default, swallows errors) + `noopRunRecorder` (tests). Injected via `deps.recorder`. Buffers events per turn, pairs tool calls by `callId`, flushes in `finally` (never breaks a live turn).
 
-### API route (server/src/routes/advisor.ts)
+### API routes
 
-- **`POST /api/advisor/agent/turn`** — SSE turn stream. Headers: owner/workspace/game/Authorization. Returns 503 `{code:'oauth_unavailable'}` (no OAuth token); 409 `{code:'turn_in_progress'}` (turn already running). Events: session, assistant_delta, tool_call, tool_result, denied, cost, done, error. Also existing (same router): `POST /api/advisor/diagnose`, `POST /api/advisor/recommend`.
+- **`server/src/routes/advisor.ts`** — **`POST /api/advisor/agent/turn`** (SSE turn stream) + existing `POST /api/advisor/diagnose`, `POST /api/advisor/recommend`. Returns 503 `{code:'oauth_unavailable'}` / 409 `{code:'turn_in_progress'}`.
+- **`server/src/routes/admin-advisor-audit.ts`** — Admin audit routes (`requireRole('admin') + requireFeature('admin')`): `GET /api/admin/advisor/runs` (filterable list), `GET /api/admin/advisor/runs/:sessionId` (full detail), `GET /api/admin/advisor/runs/:sessionId/events` (append-only SSE replay), `GET /api/admin/advisor/owners` (owner list). Registered in `src/index.ts` next to `adminChatAuditRoutes`.
 
 ### Frontend wiring (src/pages/Advisor/)
 
@@ -129,6 +132,13 @@ members from every selected cube and de-dupes by qualified name.
 - **`streamAgentTurn` in src/api/advisor.ts** — Client-side SSE consumer, normalizes `RuntimeEvent`s.
 
 Existing simulator ("Explore" posture): `src/pages/Advisor/use-advisor-investigation.ts` `simulateInvestigation` (no LLM).
+
+### Admin audit UI (src/pages/Admin/hub/)
+
+- **`advisor-audit-panel.tsx`** — Tab in `dev-hub-panel.tsx` (3-pane: filters / run list with failure badges / run detail). Responsive to game/owner/stop-reason filters.
+- **`advisor-audit-run-detail.tsx`** — Turn timeline + tool-call rows + lazy paginated SSE replay + failure-hint banner (next-step guidance per failure type).
+- **`advisor-audit-data.ts`** — Client API consumer for audit routes; paginated fetches.
+- **`advisor-failure-hints.ts`** — Pure mapping: failure enum → human-readable hint (e.g. cold-Trino timeout → "warm up query window", budget → "increase cap", aborted → "check guardrails", error/denied → error details).
 
 ---
 

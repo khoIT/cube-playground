@@ -91,6 +91,24 @@ An in-process Claude Agent SDK runtime drives the Advisor's "Guided Drive" inves
 
 **Security:** no raw player PII reaches the model (aggregates + minimal identity allowlist only); gross revenue VND only; draft `status='draft'` always — agent cannot auto-launch experiments. v1 games: cfm_vn, jus_vn.
 
+### Advisor Run Audit Persistence (2026-06-15)
+
+**Admin observability layer** (like `/admin/dev/chat-audit`) over every Advisor agent run: captures every turn, tool call, result, cost, duration. Durably persists to SQLite (`segments.db`); surfaces via admin `/admin/dev/advisor-audit` UI + read-only API.
+
+**Store** (`server/src/advisor/agent/advisor-run-store.ts`): 4 tables in `055-advisor-agent-run-audit.sql`:
+- `advisor_agent_run` — one row per session: scope, goal, owner, model, turn_count, total_cost_usd, final_stop_reason, had_error, created_at.
+- `advisor_agent_turn` — per-turn metadata: mode (investigate/decide), message, narration, stop_reason, abort_cause, cost delta, elapsed_ms.
+- `advisor_tool_call` — per tool call: name, input (recorder-only, stripped at SSE edge), output digest, state (ok/failed/denied), error_message, duration_ms, paired via `callId`.
+- `advisor_event_log` — append-only SSE frame stream for replay.
+
+Retention: lazy once-per-process prune of rows > `ADVISOR_AUDIT_RETENTION_DAYS` (default 30).
+
+**Recorder seam** (`server/src/advisor/agent/run-recorder.ts`): interface + `sqliteRunRecorder` (default, swallows errors gracefully) + `noopRunRecorder` (tests). Injected via `deps.recorder` in agent session factory. Runtime instrumentation threads tool `input` + truncated (4000-char) post-redaction `resultText` through the normalizer; **these fields are recorder-only**, stripped at the SSE edge in `advisor.ts` so the live client wire contract is unchanged (See *lessons-learned.md* → instrumentation that adds optional fields to a normalized event).
+
+An open tool call at turn end (e.g. a cold-Trino timeout) is recorded `failed` with elapsed duration — the core failure mode the console debugs.
+
+**PII guard:** new files pass the existing `advisor-agent-no-pii-surface.test.ts` scan. Only post-redaction tool outputs persist.
+
 ---
 
 ## Chat Disambiguation Memory

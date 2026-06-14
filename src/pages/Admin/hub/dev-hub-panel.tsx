@@ -2,7 +2,8 @@
  * DevHubPanel — the inner shell for the Sys-admin hub "Dev" tab.
  *
  * Splits the Dev area into two sub-tabs (deep-linkable):
- *   Chat-Audit    → /admin/dev/chat-audit   (CrossUserAuditPanel, default)
+ *   Chat-Audit    → /admin/dev/chat-audit    (CrossUserAuditPanel, default)
+ *   Advisor-Audit → /admin/dev/advisor-audit (AdvisorAuditPanel)
  *   Data coverage → /admin/dev/data-coverage (Member360CoveragePanel)
  *
  * Distinct sub-paths (neither prefixes the other) so TabShell's resolveTab +
@@ -15,10 +16,12 @@ import { Route, Switch, Redirect } from 'react-router-dom';
 
 import { TabShell, type TabDef } from '../../../shell/tab-shell';
 import { CrossUserAuditPanel } from './cross-user-audit-panel';
+import { AdvisorAuditPanel } from './advisor-audit-panel';
 import { Member360CoveragePanel } from './member360-coverage-panel';
 
 const DEV_TABS: TabDef[] = [
   { key: 'chat-audit', label: 'Chat-Audit', path: '/admin/dev/chat-audit' },
+  { key: 'advisor-audit', label: 'Advisor-Audit', path: '/admin/dev/advisor-audit' },
   { key: 'data-coverage', label: 'Data coverage', path: '/admin/dev/data-coverage' },
 ];
 
@@ -36,6 +39,9 @@ export function DevHubPanel(): ReactElement {
         </Route>
         <Route path="/admin/dev/chat-audit">
           <CrossUserAuditPanel />
+        </Route>
+        <Route path="/admin/dev/advisor-audit">
+          <AdvisorAuditPanel />
         </Route>
         <Route path="/admin/dev/data-coverage">
           <Member360CoveragePanel />

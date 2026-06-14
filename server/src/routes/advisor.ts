@@ -274,7 +274,19 @@ export default async function advisorRoutes(app: FastifyInstance): Promise<void>
     write('session', { sessionId: live.id });
     try {
       for await (const ev of live.runTurn(message, mode) as AsyncGenerator<RuntimeEvent>) {
-        write(ev.type, ev);
+        // `input` (tool_call) and `resultText` (tool_result) exist only to feed
+        // the durable run-audit recorder, which captures them inside runTurn
+        // before this point. Keep them OFF the live SSE so the client wire
+        // contract is unchanged — the audit console reads them via the store.
+        if (ev.type === 'tool_call') {
+          const { input: _input, ...wire } = ev;
+          write(ev.type, wire);
+        } else if (ev.type === 'tool_result') {
+          const { resultText: _resultText, ...wire } = ev;
+          write(ev.type, wire);
+        } else {
+          write(ev.type, ev);
+        }
       }
     } catch (err) {
       write('error', { code: 'sdk_error', message: err instanceof Error ? err.message : String(err) });

@@ -24,6 +24,8 @@ import { resolveCaps, makeCanUseTool, type ToolDecision } from './agent-guardrai
 import { normalizeSdkMessage } from './agent-event-normalizer.js';
 import { guardInbound } from './agent-inbound-guard.js';
 import { writeTurnAudit, type AuditLogger } from './agent-audit-log.js';
+import { sqliteRunRecorder, type RunRecorder } from './run-recorder.js';
+import type { ToolCallInput, EventInput } from './advisor-run-store.js';
 import { ProvenanceLedger } from './agent-provenance-gate.js';
 import { buildAdvisorToolServer, ADVISOR_SERVER_NAME, ADVISOR_TOOL_ALLOWLIST } from './tools/index.js';
 import type { ToolContext } from './tools/tool-context.js';
@@ -59,9 +61,13 @@ export function createAdvisorAgentSession(
   id: string,
   opts: SessionOpts,
   logger?: AuditLogger,
-  deps?: { queryFn?: AgentQueryFn },
+  deps?: { queryFn?: AgentQueryFn; recorder?: RunRecorder },
 ): AdvisorAgentSession {
   const caps = resolveCaps(opts.caps);
+  // Durable run-audit recorder. Defaults to SQLite; tests inject a fake/no-op.
+  // It never throws (errors are swallowed in the recorder) so it can't break a turn.
+  const recorder: RunRecorder = deps?.recorder ?? sqliteRunRecorder;
+  const model = opts.model ?? process.env.ADVISOR_AGENT_MODEL;
   const env = buildAgentEnv(); // throws OAuthTokenMissingError if absent
   // Anchor every time-based computation to session-creation time (the I/O
   // boundary) so a multi-turn investigation stays internally consistent.
@@ -86,7 +92,7 @@ export function createAdvisorAgentSession(
   function startQuery(): AgentQuery {
     const options = {
       systemPrompt,
-      model: opts.model ?? process.env.ADVISOR_AGENT_MODEL,
+      model,
       env,
       mcpServers: { [ADVISOR_SERVER_NAME]: toolServer },
       allowedTools: ADVISOR_TOOL_ALLOWLIST,
@@ -136,10 +142,74 @@ export function createAdvisorAgentSession(
       session.turnIndex += 1;
       turnAbortCause = undefined; // fresh per turn
       const startedAt = Date.now();
+      const costBefore = session.totalCostUsd;
       const toolCalls: string[] = [];
       let stopReason: AgentStopReason = 'end_turn';
       let sawResult = false;
       let emittedError = false;
+
+      // ── Run-audit buffer (Phase: durable per-turn trace) ──────────────────
+      // Pair tool_call→tool_result by callId for duration/state/error; buffer
+      // every normalized event for SSE replay; accumulate assistant narration.
+      type OpenCall = { callId?: string; tool: string; seq: number; startedAt: number; inputJson?: string };
+      const openCalls: OpenCall[] = [];
+      const recordedToolCalls: ToolCallInput[] = [];
+      const recordedEvents: EventInput[] = [];
+      let narration = '';
+      let seq = 0;
+      let eventIndex = 0;
+      const safeJson = (v: unknown): string | undefined => {
+        if (v === undefined) return undefined;
+        try {
+          return JSON.stringify(v);
+        } catch {
+          return undefined;
+        }
+      };
+      const bufferEvent = (ev: RuntimeEvent): void => {
+        recordedEvents.push({
+          turnIndex: session.turnIndex,
+          eventIndex: eventIndex++,
+          eventType: ev.type,
+          eventJson: safeJson(ev) ?? '{}',
+          ts: Date.now(),
+        });
+        switch (ev.type) {
+          case 'assistant_delta':
+            narration += ev.text;
+            break;
+          case 'tool_call':
+            openCalls.push({ callId: ev.callId, tool: ev.tool, seq: seq++, startedAt: Date.now(), inputJson: safeJson(ev.input) });
+            break;
+          case 'tool_result': {
+            const endedAt = Date.now();
+            const idx = ev.callId ? openCalls.findIndex((c) => c.callId === ev.callId) : openCalls.length ? 0 : -1;
+            const open = idx >= 0 ? openCalls.splice(idx, 1)[0] : undefined;
+            recordedToolCalls.push({
+              callId: ev.callId ?? open?.callId,
+              tool: open?.tool ?? ev.tool,
+              seq: open?.seq ?? seq++,
+              inputJson: open?.inputJson,
+              outputDigest: ev.resultText,
+              state: ev.ok ? 'ok' : 'failed',
+              errorMessage: ev.ok ? undefined : ev.resultText,
+              startedAt: open?.startedAt,
+              endedAt,
+              durationMs: open ? endedAt - open.startedAt : undefined,
+            });
+            break;
+          }
+          case 'denied':
+            // Forward-compat handler for the 'denied' RuntimeEvent. Today the
+            // SDK surfaces canUseTool denials as a tool_result with is_error
+            // (recorded as 'failed' above), so this branch only fires if a
+            // future normalizer emits an explicit 'denied' event.
+            recordedToolCalls.push({ tool: ev.tool, seq: seq++, state: 'denied', errorMessage: ev.reason });
+            break;
+          default:
+            break;
+        }
+      };
 
       const timer = setTimeout(() => session.interruptTurn('timeout'), caps.timeoutMs);
 
@@ -160,6 +230,7 @@ export function createAdvisorAgentSession(
             }
             if (ev.type === 'error') emittedError = true;
             if (ev.type === 'done') stopReason = ev.stopReason;
+            bufferEvent(ev);
             yield ev;
           }
           if (raw.type === 'result') {
@@ -182,19 +253,31 @@ export function createAdvisorAgentSession(
             cause === 'timeout' ? 'timeout' : cause === 'budget' ? 'budget_exceeded' : cause ? 'aborted' : 'sdk_error';
           stopReason =
             code === 'timeout' ? 'timeout' : code === 'budget_exceeded' ? 'budget' : code === 'aborted' ? 'aborted' : 'error';
-          if (!emittedError) yield { type: 'error', code, message: `agent turn ended (${cause ?? 'no result'})` };
-          yield { type: 'done', usd: session.totalCostUsd || null, stopReason };
+          if (!emittedError) {
+            const errEv: RuntimeEvent = { type: 'error', code, message: `agent turn ended (${cause ?? 'no result'})` };
+            bufferEvent(errEv);
+            yield errEv;
+          }
+          const doneEv: RuntimeEvent = { type: 'done', usd: session.totalCostUsd || null, stopReason };
+          bufferEvent(doneEv);
+          yield doneEv;
         }
       } catch (err) {
         stopReason = 'error';
         if (!emittedError) {
-          yield { type: 'error', code: 'sdk_error', message: err instanceof Error ? err.message : String(err) };
+          const errEv: RuntimeEvent = { type: 'error', code: 'sdk_error', message: err instanceof Error ? err.message : String(err) };
+          bufferEvent(errEv);
+          yield errEv;
         }
-        yield { type: 'done', usd: session.totalCostUsd || null, stopReason };
+        const doneEv: RuntimeEvent = { type: 'done', usd: session.totalCostUsd || null, stopReason };
+        bufferEvent(doneEv);
+        yield doneEv;
       } finally {
         clearTimeout(timer);
         session.busy = false;
-        session.lastActiveAt = Date.now();
+        const endedAt = Date.now();
+        session.lastActiveAt = endedAt;
+        const abortCause = turnAbortCause ?? sessionAbortCause;
         writeTurnAudit(
           {
             sessionId: id,
@@ -207,11 +290,67 @@ export function createAdvisorAgentSession(
             stopReason,
             totalCostUsd: session.totalCostUsd,
             startedAt,
-            endedAt: Date.now(),
-            abortCause: turnAbortCause ?? sessionAbortCause,
+            endedAt,
+            abortCause,
           },
           logger,
         );
+
+        // Durable audit trail. Any tool call still open at turn end (e.g. a
+        // cube_query interrupted by the timeout) is recorded as failed with its
+        // elapsed duration, so the failure that stopped the turn is visible.
+        // Fully guarded: persistence must never break a turn or change its SSE.
+        try {
+          for (const open of openCalls) {
+            recordedToolCalls.push({
+              callId: open.callId,
+              tool: open.tool,
+              seq: open.seq,
+              inputJson: open.inputJson,
+              state: 'failed',
+              errorMessage: `interrupted (${abortCause ?? stopReason})`,
+              startedAt: open.startedAt,
+              endedAt,
+              durationMs: endedAt - open.startedAt,
+            });
+          }
+          recorder.flushTurn({
+            run: {
+              sessionId: id,
+              gameId: opts.scope.gameId,
+              segmentId: opts.scope.kind === 'segment' ? opts.scope.segmentId : undefined,
+              scopeKind: opts.scope.kind,
+              goal: opts.goal,
+              mode,
+              owner: opts.owner,
+              model,
+              turnCount: session.turnIndex,
+              totalCostUsd: session.totalCostUsd,
+              finalStopReason: stopReason,
+              hadError: stopReason !== 'end_turn',
+              createdAt: session.createdAt,
+              lastActiveAt: endedAt,
+            },
+            turn: {
+              sessionId: id,
+              turnIndex: session.turnIndex,
+              mode,
+              message,
+              narration: narration || undefined,
+              toolCallCount: recordedToolCalls.length,
+              stopReason,
+              abortCause,
+              costUsd: Math.max(0, session.totalCostUsd - costBefore),
+              startedAt,
+              endedAt,
+              durationMs: endedAt - startedAt,
+            },
+            toolCalls: recordedToolCalls,
+            events: recordedEvents,
+          });
+        } catch {
+          /* recorder is already guarded; this is belt-and-suspenders */
+        }
       }
     },
   };
