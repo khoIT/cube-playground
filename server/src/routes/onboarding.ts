@@ -88,7 +88,7 @@ const CrossGameJoinBody = z.object({
 
 const TestConnectorBody = z.object({
   sourceType: z.string().min(1),
-  fields: z.record(z.unknown()).default({}),
+  fields: z.record(z.string(), z.unknown()).default({}),
 });
 
 const CreateConnectorBody = z.object({
@@ -96,12 +96,12 @@ const CreateConnectorBody = z.object({
   label: z.string().min(1).max(120),
   sourceType: z.string().min(1),
   workspaceId: z.string().min(1).default('local'),
-  fields: z.record(z.unknown()).default({}),
+  fields: z.record(z.string(), z.unknown()).default({}),
 });
 
 const UpdateConnectorBody = z.object({
   label: z.string().min(1).max(120).optional(),
-  fields: z.record(z.unknown()).default({}),
+  fields: z.record(z.string(), z.unknown()).default({}),
 });
 
 /** Map a thrown provisioning error to a route reply (shared create/update). */

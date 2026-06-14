@@ -66,8 +66,8 @@ export const CubeSchema = z.object({
   dimensions: z.array(CubeDimensionSchema),
   measures: z.array(CubeMeasureSchema),
   // Pass-through for authored extras (kept opaque so round-trip is lossless).
-  segments: z.array(z.record(z.unknown())).optional(),
-  pre_aggregations: z.array(z.record(z.unknown())).optional(),
+  segments: z.array(z.record(z.string(), z.unknown())).optional(),
+  pre_aggregations: z.array(z.record(z.string(), z.unknown())).optional(),
 });
 
 export const CubeModelSchema = z.object({

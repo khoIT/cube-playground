@@ -38,13 +38,13 @@ const createBody = z.object({
   status: statusEnum.optional(),
   workspaceIds: z.array(z.string()).optional(),
   // Per-workspace game grants: { [workspaceId]: gameIds[] }.
-  gamesByWorkspace: z.record(z.array(z.string())).optional(),
-  features: z.record(z.boolean()).optional(),
+  gamesByWorkspace: z.record(z.string(), z.array(z.string())).optional(),
+  features: z.record(z.string(), z.boolean()).optional(),
 });
 const patchBody = z.object({ role: roleEnum.optional(), status: statusEnum.optional() });
 const idsBody = z.object({ workspaceIds: z.array(z.string()) });
 const wsGameIdsBody = z.object({ gameIds: z.array(z.string()) });
-const featuresBody = z.object({ features: z.record(z.boolean()) });
+const featuresBody = z.object({ features: z.record(z.string(), z.boolean()) });
 
 /**
  * Games a workspace can expose: a prefix workspace surfaces only its
