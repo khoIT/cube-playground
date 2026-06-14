@@ -76,6 +76,10 @@ export interface FetchCsTicketsOptions {
   sinceDate: string;
   /** Injectable for tests; defaults to the env profiler connector. */
   connector?: Connector;
+  /** Per-call statement timeout. Defaults to CS_READ_TIMEOUT_MS (interactive);
+   *  the background precompute path passes a larger budget so a cold
+   *  warehouse can complete the heavy join once and warm the cache. */
+  timeoutMs?: number;
 }
 
 /** Keep only uids safe to inline — our uids are numeric/alphanumeric ids from
@@ -159,7 +163,7 @@ export async function fetchCsTickets(opts: FetchCsTicketsOptions): Promise<CsTic
   const rows: CsTicketRow[] = [];
   for (const part of chunk(uids, UID_CHUNK)) {
     const sql = buildSql(opts.productId, part, opts.sinceDate);
-    const res = await runQuery(connector, connector.catalog, sql, CS_READ_TIMEOUT_MS);
+    const res = await runQuery(connector, connector.catalog, sql, opts.timeoutMs ?? CS_READ_TIMEOUT_MS);
     for (const r of res.rows) rows.push(mapRow(r));
   }
   return rows;

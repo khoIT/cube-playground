@@ -14,6 +14,7 @@ import { runWedgeWatchdog } from '../services/segment-refresh-ops.js';
 import { pruneRefreshLog, DEFAULT_PRUNE_INTERVAL_MS } from './refresh-log-retention.js';
 import { maybeRunAnomalyDetector } from './anomaly-detector.js';
 import { maybeRunMember360Precompute } from '../services/member360-precompute-scheduler.js';
+import { maybeRunCarePrecompute } from '../services/care-precompute-scheduler.js';
 
 export const TICK_INTERVAL_MS = 60_000;
 
@@ -107,6 +108,11 @@ export async function tick(): Promise<void> {
   await maybeRunMember360Precompute().catch((err) => {
     // eslint-disable-next-line no-console
     console.warn('[member360-precompute] tick failed:', (err as Error).message);
+  });
+  // Nightly Care-tab precompute — self-gates on its window + serial drain.
+  await maybeRunCarePrecompute().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[care-precompute] tick failed:', (err as Error).message);
   });
 }
 

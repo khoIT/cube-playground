@@ -57,6 +57,7 @@ import careCasesRoutes from './routes/care-cases.js';
 import careActivityRoutes from './routes/care-activity.js';
 import careGovernanceRoutes from './routes/care-governance.js';
 import preaggRunsRoutes from './routes/preagg-runs.js';
+import carePrecomputeRoutes from './routes/care-precompute.js';
 import segmentRefreshOpsRoutes from './routes/segment-refresh-ops.js';
 import modelViewRoutes from './routes/model-view.js';
 import announcementsRoutes from './routes/announcements.js';
@@ -147,6 +148,7 @@ export async function buildApp() {
   await app.register(careActivityRoutes);
   await app.register(careGovernanceRoutes);
   await app.register(preaggRunsRoutes);
+  await app.register(carePrecomputeRoutes);
   await app.register(segmentRefreshOpsRoutes);
   await app.register(modelViewRoutes);
   await app.register(announcementsRoutes);

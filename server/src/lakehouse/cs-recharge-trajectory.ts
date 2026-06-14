@@ -52,6 +52,9 @@ export interface ReadRechargeOptions {
   anchors: MemberAnchor[];
   windowDays?: number;
   connector?: Connector;
+  /** Per-call statement timeout. Defaults to RECHARGE_READ_TIMEOUT_MS; the
+   *  background precompute path passes a larger budget for cold warehouses. */
+  timeoutMs?: number;
 }
 
 function sanitizeUid(uid: string): string | null {
@@ -109,7 +112,7 @@ export async function readRechargeAroundAnchors(
     `AND r.log_date <= date_add('day', ${windowDays}, DATE ${toSqlLiteral(scanHi)}) ` +
     `GROUP BY a.uid`;
 
-  const res = await runQuery(connector, connector.catalog, sql, RECHARGE_READ_TIMEOUT_MS);
+  const res = await runQuery(connector, connector.catalog, sql, opts.timeoutMs ?? RECHARGE_READ_TIMEOUT_MS);
   return res.rows.map((r) => ({ uid: String(r[0]), pre: Number(r[1]) || 0, post: Number(r[2]) || 0 }));
 }
 

@@ -27,6 +27,7 @@ import { ObservabilityTab } from './observability-tab';
 import { UserActivityProfile } from './user-activity-profile';
 import { PreaggRunsTab } from './preagg-runs-tab';
 import { SegmentRefreshOpsTab } from './segment-refresh-ops-tab';
+import { CarePrecomputePanel } from './care-precompute-panel';
 import { useSegmentRefreshAlertCount } from './segment-refresh-ops-data';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,7 @@ function buildAdminTabs(pendingCount: number, refreshAlertCount: number): TabDef
       // opening the tab (mirrors the Observability "N pending" badge).
       tag: refreshAlertCount > 0 ? `${refreshAlertCount} alert` : undefined,
     },
+    { key: 'care-precompute', label: 'Care Precompute', path: '/admin/care-precompute' },
   ];
 }
 
@@ -146,6 +148,10 @@ export function AdminHub() {
 
           <Route exact path="/admin/segment-refreshes">
             <SegmentRefreshOpsTab />
+          </Route>
+
+          <Route exact path="/admin/care-precompute">
+            <CarePrecomputePanel />
           </Route>
 
           <Route path="/admin/dev">

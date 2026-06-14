@@ -863,6 +863,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A per-request cross-catalog Trino join with only an in-memory cache hard-fails on a cold warehouse — persist + serve-stale + precompute
+
+- **Rule:** the segment Care tab built its payload with a heavy cross-catalog join (segment members ⋈ CS-ticket history ⋈ recharge trajectory) live on every cache-miss, cached only in an in-process `Map`. On a cold warehouse that join runs ~60s and intermittently exceeds the read timeout → the tab 500s; a process restart wipes the cache so the next viewer eats the full cold cost again. The fix is three independent layers, each worth shipping alone: (1) **persist** the last-good payload in SQLite (`segment_care_cache`), (2) **serve-stale-on-error** — a rebuild failure with a prior payload returns 200 + a `stale` breadcrumb instead of 502, (3) **precompute** nightly in a GMT+7 window via a self-gating cron hook so interactive loads are warm hits. The compute body lives in ONE shared builder the route and the job both call (DRY) and both persist through.
+- **Why:** membership is the slow-moving input but CS data is next-day fresh, so the real recompute driver is **data cadence (nightly)**, not membership change — membership-newer-than-cache is only a secondary trigger. Synchronous compute on a true cold miss is acceptable (it happens once, then it's warm); an async "computing…" UX was not worth building. Both the cron drain and the manual "run now" trigger run on a single serial chain so Care presents as ONE slow client to Trino — parallel passes would hammer a cold warehouse.
+- **Signal:** a tab/endpoint that 500s only intermittently and only when the warehouse is cold; an in-memory `Map` cache (lost on restart) fronting a multi-second cross-catalog join; a handler that returns 502 on any throw with no last-good fallback; a "fix" that works after the first slow load and "breaks" again after a deploy/restart.
+- **Apply:** mirror an existing durable cache with last-good preservation (`segment_card_cache`/card-cache-store) — a failed attempt stamps `last_attempt_at` + `last_error` but NEVER wipes `payload_json`. Reuse the member-360 precompute scheduler's GMT+7 window math + serial-drain + cooldown rather than forking it. Add a run-log table (`segment_care_run`) + an admin board so the nightly pass is observable and an operator can force a warm-up. The two underlying Trino readers were already bounded (365d / ±30d / 5000-uid cap) — the bug was the missing durable cache + 502-on-throw, not the reader scope.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

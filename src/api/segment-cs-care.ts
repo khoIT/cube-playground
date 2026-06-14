@@ -57,6 +57,14 @@ export interface CsCareImpact {
   smallSample: boolean;
 }
 
+/** Present only when the server served a previously-good payload after a fresh
+ *  recompute failed (serve-stale-on-error). Drives the freshness badge. */
+export interface CsCareStaleMeta {
+  computedAt: string;
+  ageMs: number;
+  reason: string;
+}
+
 export interface CsCarePayload {
   segmentId: string;
   gameId: string;
@@ -67,6 +75,7 @@ export interface CsCarePayload {
   issueMix: CsCareIssue[];
   watchlist: CsCareWatchlistEntry[];
   csImpact: CsCareImpact | null;
+  stale?: CsCareStaleMeta;
 }
 
 export function fetchSegmentCsCare(id: string): Promise<CsCarePayload> {

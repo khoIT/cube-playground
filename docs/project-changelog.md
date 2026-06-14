@@ -2,6 +2,18 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Segment Care tab: durable cache + serve-stale + nightly precompute (+ admin board)
+
+The Care tab's heavy cross-catalog Trino join (members ⋈ CS tickets ⋈ recharge) was cached only in an in-memory Map, so a cold-warehouse rebuild (~60s) intermittently 500'd and a restart wiped the cache. Now durable, fault-tolerant, and pre-warmed.
+
+- **Shared builder** (`server/src/services/cs-care-builder.ts`) — the compute body extracted out of the route so the HTTP route AND the nightly job call one function and both persist (DRY). `CsCarePayload` type now lives here (route re-exports for compatibility).
+- **Durable cache** (`segment_care_cache`, migration `057-segment-care-cache.sql` + `server/src/db/segment-care-cache-store.ts`) — last-good `payload_json` preserved on failure; `computed_at` (last success) vs `last_attempt_at` (every attempt). Replaces the in-memory Map.
+- **Serve-stale-on-error** (`server/src/routes/segment-cs-care.ts`) — a rebuild failure with a prior payload returns 200 + `stale` breadcrumb; the Care tab renders an "as of HH:MM" (GMT+7) freshness badge. True cold miss with no prior payload still 502s.
+- **Nightly precompute** (`server/src/services/care-precompute-scheduler.ts`) — cron-tick hook, GMT+7 window (default 03:00–06:00, `CARE_PRECOMPUTE_WINDOW`), serial drain reusing the member-360 scheduler's window math. Due = CS-covered predicate segment whose cache predates the window OR membership refreshed since the last compute. Manual "run now" shares the serial chain (10-min/segment cooldown).
+- **Run log + admin board** (`segment_care_run` migration 057 + `server/src/db/segment-care-run-store.ts`; `server/src/routes/care-precompute.ts`; hub tab `/admin/care-precompute` via `care-precompute-{data,panel}.tsx`) — per-pass history + per-segment freshness + "Run now". Admin-gated.
+- **Background read-timeout budget** — the interactive route keeps the 30s CS statement timeout; the background precompute path uses `CARE_PRECOMPUTE_READ_TIMEOUT_MS` (default 120s), threaded through `buildCsCarePayload` → `fetchCsTickets`/`readRechargeAroundAnchors`. Lets a cold warehouse complete the heavy join once for very large cohorts (e.g. a 7.18M-member segment whose cold query exceeds 30s) so the cache warms; interactive loads then serve the warm hit instantly.
+- **Tests** — 28 new (cache store, run store, scheduler window/due/drain/cooldown/timeout-budget, cs-care route warm-hit/serve-stale/502, admin route gate + trigger).
+
 ## 2026-06-15 — Advisor Run Audit Console (admin observability + durable persistence + replay)
 
 Admin observability layer (`/admin/dev/advisor-audit`) for every in-process Advisor agent run. Durably persists to SQLite `segments.db` (4 tables: run/turn/tool-call/event-log); surfaces full turn trace (each tool call's duration + state + error), cost, elapsed time, and append-only SSE stream for replay. Failure modes surfaced distinctly with actionable next-step hints (cold-Trino timeout, budget cap, guardrail denial, max-turns, abort). Retention: lazy once-per-process prune > 30 days.

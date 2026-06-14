@@ -24,6 +24,21 @@ interface Props {
   segment: Segment;
 }
 
+/** Format the last-good timestamp in GMT+7 (the ops timezone) for the badge. */
+function formatStaleTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('en-GB', {
+      timeZone: 'Asia/Saigon',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 type State =
   | { kind: 'loading' }
   | { kind: 'ready'; data: CsCarePayload }
@@ -87,6 +102,26 @@ export function CareTab({ segment }: Props): ReactElement {
   const { data } = state;
   return (
     <div className={styles.careTab}>
+      {data.stale && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            marginBottom: 12,
+            fontSize: 12,
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--warning-soft)',
+            color: 'var(--warning-ink)',
+          }}
+        >
+          {t('segments.detail.care.stale', {
+            defaultValue: 'Showing last-good data as of {{time}} — a fresh read is temporarily unavailable.',
+            time: formatStaleTime(data.stale.computedAt),
+          })}
+        </div>
+      )}
       <CarePulseStrip coverage={data.coverage} pulse={data.pulse} freshnessDate={data.freshness.csMaxLogDate} />
       <div className={styles.careRail}>
         <CareWatchlist segmentId={segment.id} rows={data.watchlist} />

@@ -611,6 +611,16 @@ A separate scheduler (`member360-precompute-scheduler.ts`) runs nightly 02:00–
 
 **Storage:** `segment_member360_cache(segment_id, uid, panel_id, rows_json, status, error, fetched_at)`. **Cost:** One nightly batch per workspace; subsequent detail views are zero-cost cache hits.
 
+### Segment Care-tab Cache & Nightly Precompute
+
+The Care tab (`GET /api/segments/:id/cs-care`) overlays CS-ticket history + a directional recharge-impact strip onto a segment's members via a heavy cross-catalog Trino join. The compute body lives in one shared builder (`services/cs-care-builder.ts`) called by both the HTTP route and the nightly job. Three durability layers replaced the old in-memory-only Map cache:
+
+1. **Durable cache** (`segment_care_cache`, migration 057) — last-good `payload_json` preserved on failure (mirrors `segment_card_cache`); `computed_at` dates the last success, `last_attempt_at` moves on every attempt.
+2. **Serve-stale-on-error** — when a rebuild throws but a prior payload exists, the route returns 200 + a `stale` breadcrumb (the UI shows a freshness badge) instead of 502. A true cold miss with no prior payload still 502s.
+3. **Nightly precompute** (`care-precompute-scheduler.ts`) — cron-tick hook, self-gates on a GMT+7 window (default 03:00–06:00, `CARE_PRECOMPUTE_WINDOW`), reusing the member-360 scheduler's window math. Due = CS-covered predicate segment whose cache predates the window OR whose membership refreshed since the last care compute (secondary trigger). Both the cron drain and the manual "run now" trigger share a single serial chain so Care is one slow client to Trino. The background reads use a larger statement-timeout budget (`CARE_PRECOMPUTE_READ_TIMEOUT_MS`, default 120s, threaded through `buildCsCarePayload`) than the interactive route's 30s, so a cold warehouse can complete the heavy join once for very large cohorts and warm the cache.
+
+**Observability:** every pass (cron or manual) writes a `segment_care_run` row (migration 057). Admin board at `/admin/care-precompute` (`GET/POST /api/admin/care-precompute/runs`, admin-gated) lists recent runs + per-segment freshness + a "Run now" button (10-min/segment cooldown).
+
 ### Segment Sharing & Owner Labels
 
 Segments now explicitly track visibility (`personal` / `shared` / `org`) via the existing nullable `visibility` column (migration 028). Share/unshare endpoints (`POST /api/segments/:id/share` / `/unshare`) gate access to owners + admins and record `shared_at` timestamp. Human-readable owner labels (`owner_label`, migration 034) preserve "shared by Alice" semantics (stamped at create; fallback to owner sub on read).
