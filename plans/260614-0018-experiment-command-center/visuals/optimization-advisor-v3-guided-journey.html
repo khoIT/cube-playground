@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Optimization Advisor — cube-playground</title>
+<!--
+  HI-FI PROTOTYPE v3 · Optimization Advisor (decision rail in front of the command center)
+  -----------------------------------------------------------------------------------------
+  v3 REBUILD for the GAME BUSINESS-MANAGER persona (P&L owner, not a data analyst).
+  Red-team verdict on v2: it was an analyst console — buried the ₫ lede under percentile/lens/
+  predicate jargon, and the whole "Drive with AI" thesis had zero screen representation.
+  v3 implements the 7 key features the persona test demands:
+    1. Business-hero diagnosis line (₫ at stake + the human cause) ABOVE all machinery.
+    2. One confidence pill + plain "why"; the 9-lens grid demoted behind an expander.
+    3. The visible AI-DRAFT moment — "Review & set up" → an editable on-screen draft (cohort,
+       arms, window, CS queue, holdout, safety) the manager edits BEFORE anything launches.
+    4. Plain-language power ("big enough for a clear answer in 14d") + visible safety checks per card.
+    5. NL "ask anything" box → plain answer rendered in-line near the factor.
+    6. Proven-vs-bet labeling per recommendation (never a color pill alone).
+    7. Working "why do you recommend this?" EXPLODE — card → plain-language evidence.
+  Analyst affordances (percentile bars, peer-axis toggles, predicate classes, compiled SQL) are
+  RETAINED but demoted to "Show the evidence / advanced" tiers — they serve the Explore posture
+  for the analyst beside the manager; they are never the default surface.
+  Same design system as experiment-command-center.html (tokens from src/theme/tokens.css).
+-->
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;--neutral-900:#171717;
+    --orange-50:#fff7ed;--orange-100:#ffedd5;--orange-600:#f05a22;--orange-700:#f54a00;
+    --brand:var(--orange-600);--brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+    --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+    --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5;--muted-ink:#525252;
+    --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.04);--shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+    --positive:#15803d;--negative:#b91c1c;
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}html,body{margin:0;padding:0}
+  body{font-family:var(--font-sans);background:var(--bg-app);color:var(--text-primary);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:var(--radius-full);border:2px solid var(--bg-app)}
+  details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-marker{display:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState}=React;
+
+/* ============ shared primitives (same design system) ============ */
+const card={background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-xs)'};
+const eyebrow={fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-muted)'};
+function Pill({bg,ink,children,onClick,title}){return <span title={title} onClick={onClick} style={{fontSize:11,fontWeight:600,borderRadius:'var(--radius-full)',padding:'2px 9px',background:bg,color:ink,whiteSpace:'nowrap',cursor:onClick?'pointer':'default',display:'inline-block'}}>{children}</span>;}
+function Btn({children,kind='ghost',onClick,sm,disabled}){const base={fontFamily:'inherit',fontSize:sm?12:13.5,fontWeight:600,padding:sm?'6px 12px':'10px 18px',borderRadius:'var(--radius-md)',cursor:disabled?'not-allowed':'pointer',border:'1px solid transparent',opacity:disabled?.5:1};
+  const k={primary:{background:'var(--brand)',color:'#fff'},ghost:{background:'var(--bg-card)',color:'var(--text-secondary)',borderColor:'var(--border-strong)'}};
+  return <button disabled={disabled} style={{...base,...k[kind]}} onClick={disabled?undefined:onClick}>{children}</button>;}
+
+/* status word for a goal-tree factor — plain language, no percentiles */
+const STATUS={
+  healthy:{l:'Healthy',bg:'var(--success-soft)',ink:'var(--success-ink)',dot:'var(--positive)'},
+  slipping:{l:'Slipping',bg:'var(--warning-soft)',ink:'var(--warning-ink)',dot:'var(--warning)'},
+  weak:{l:'Weak — costing you money',bg:'var(--destructive-soft)',ink:'var(--destructive-ink)',dot:'var(--negative)'},
+  na:{l:'Not relevant',bg:'var(--muted-soft)',ink:'var(--muted-ink)',dot:'var(--neutral-400)'},
+};
+
+/* ============ data (cfm_vn · segment "Lapsing whales" · N=2,400) ============ */
+const CTX={game:'cfm_vn',segment:'Lapsing whales',n:'2,400',id:'5ee78131…'};
+
+const HERO={
+  revenue:{money:'≈ 312M₫ / month',
+    line:'Your best whales are slipping away.',
+    cause:'They last paid 27–34 days ago — healthy whales pay every 1–5 days. If they don’t come back this month, that’s the revenue you lose.'},
+  engagement:{money:'≈ 3,100 active days / month',
+    line:'These whales are logging in less and less.',
+    cause:'Sessions dropped from ~5/week to ~2/week over 60 days — the same slide that comes before they stop paying.'},
+};
+
+// Revenue goal tree, plain-language. detail{} holds the analyst evidence (shown only on expand).
+const FACTORS={revenue:[
+  {f:'How many of them pay',plain:'They’re all already payers',status:'na',money:'—',
+   detail:{level:'n/a (segment is payers)',trend:'—',peer:'—'}},
+  {f:'How much each one spends',plain:'Spend per whale is in line with healthy whales (1.18M₫ vs 1.42M₫)',status:'healthy',money:'small upside',
+   detail:{level:'middle of the payer range',trend:'flat',peer:'~17% below healthy — minor'}},
+  {f:'How long they keep paying',plain:'They stop paying far sooner — 34 days between buys vs 112 for healthy whales',status:'weak',money:'≈ 312M₫ / mo',
+   detail:{level:'bottom third of your payers',trend:'getting worse (−26% over 90d)',peer:'31% worse than similar healthy whales'}},
+],engagement:[
+  {f:'How often they play',plain:'Sessions fell from ~5/week to ~2/week',status:'weak',money:'leading signal',
+   detail:{level:'bottom quarter',trend:'declining sharply',peer:'well below healthy peers'}},
+  {f:'How long each session is',plain:'Session length is normal',status:'healthy',money:'—',
+   detail:{level:'mid',trend:'flat',peer:'in line'}},
+  {f:'How long they stay',plain:'Drop-off after 30 days is steep',status:'slipping',money:'leading signal',
+   detail:{level:'low',trend:'declining',peer:'below peers'}},
+]};
+
+// the 9 analyst lenses (DEMOTED — only shown inside "what makes us confident?")
+const LENSES=[
+  {n:'Where they sit',v:'bottom third of payers',agree:true},
+  {n:'Direction',v:'getting worse over 90 days',agree:true},
+  {n:'Vs similar whales',v:'31% worse than healthy peers',agree:true},
+  {n:'Which lever',v:'lifespan is the bottleneck, not spend',agree:true},
+  {n:'Who carries it',v:'broad across the cohort, not 2 outliers',agree:true},
+  {n:'Where they drop',v:'after first lapse, not at signup',agree:true},
+  {n:'New vs real',v:'real — not just new players',agree:true},
+  {n:'What moves it',v:'CS contact ↔ retention link is strong',agree:true},
+  {n:'Sudden shift?',v:'no single event — a steady slide',agree:false},
+];
+
+// provenance — now leads with a PLAIN sentence, analyst detail below
+const PROV={
+  'How long they keep paying':{plain:'We counted how many days pass between purchases for these whales, from our billing records — 2,400 players.',
+    m:'billing_detail.median_days_between_txn',d:'user',flt:'segment=lapsing-whales · product_code=A49',src:'billing_detail → iceberg.billing.std_billing_delivery_trans_gds (live)',rows:'2,400'},
+  'How much each one spends':{plain:'Average spend per paying whale over the last 14 days, from billing — 2,400 players.',
+    m:'billing_detail.arppu_14d',d:'user',flt:'segment=lapsing-whales · A49',src:'billing_detail → iceberg.billing (live)',rows:'2,400'},
+};
+
+const RECS=[
+  {rank:1,name:'Win back your lapsing whales with a CS comeback call',
+   plain:'Have the CS team call these whales with a personal comeback offer.',
+   expect:'About 6 in 100 lapsed whales pay again',
+   proven:true,provenTxt:'We’ve run this on cfm_vn whales before — it worked (+6 in 100). High confidence.',
+   powerOk:true,powerTxt:'Big enough for a clear answer in 14 days',
+   money:'+312M₫',reach:'1,872 of 2,400 reachable',
+   safety:['Won’t contact whales who paid in the last 7 days','Measured against a hold-out group, so we know it’s real','Max 1 contact per player'],
+   why:'how-long'},
+  {rank:2,name:'Re-engagement care touch',
+   plain:'A lighter check-in to get them logging in again (plays into revenue later).',
+   expect:'About +0.4 sessions per week',
+   proven:false,provenTxt:'We haven’t tested this on this cohort — +0.4 is an estimate. Treat it as a bet.',
+   powerOk:true,powerTxt:'Big enough for a clear answer in 14 days',
+   money:'+90M₫ (later)',reach:'1,872 reachable',
+   safety:['Max 1 contact per player','Hold-out measured'],
+   why:'how-long'},
+  {rank:3,name:'Payment-friction recovery assist',
+   plain:'Help whales whose last payment failed to complete it.',
+   expect:'Unknown — too few affected to tell',
+   proven:false,provenTxt:'Estimate only.',
+   powerOk:false,powerTxt:'Too few players to prove it works — grow the group first',
+   money:'?',reach:'~180 affected',
+   safety:['Hold-out measured'],
+   why:'how-long'},
+];
+
+/* ============ provenance drawer (plain line on top, analyst detail below) ============ */
+function ProvenanceDrawer({factor,onClose}){
+  const p=PROV[factor]; if(!p) return null;
+  return <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.25)',zIndex:40,display:'flex',justifyContent:'flex-end'}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:430,maxWidth:'92vw',height:'100%',background:'var(--bg-card)',padding:24,overflowY:'auto',boxShadow:'var(--shadow-lg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <div style={eyebrow}>Where this number comes from</div><Btn sm onClick={onClose}>Close</Btn></div>
+      <h3 style={{fontSize:16,fontWeight:700,margin:'0 0 10px'}}>{factor}</h3>
+      <div style={{padding:'13px 15px',background:'var(--brand-soft)',borderRadius:'var(--radius-md)',fontSize:13.5,lineHeight:1.5,marginBottom:18}}>{p.plain}</div>
+      <div style={{...eyebrow,marginBottom:8}}>For your analyst</div>
+      {[['Measure',p.m],['Grain',p.d],['Filter',p.flt],['Source table',p.src],['Rows',p.rows]].map(([k,v])=>
+        <div key={k} style={{display:'flex',gap:10,padding:'8px 0',borderBottom:'1px solid var(--bg-muted)',fontSize:12.5}}>
+          <span style={{width:90,color:'var(--text-muted)',flexShrink:0}}>{k}</span>
+          <span style={{fontFamily:'var(--font-mono)',fontSize:11.5,wordBreak:'break-word'}}>{v}</span></div>)}
+      <div style={{display:'flex',gap:8,marginTop:18}}>
+        <Btn kind="primary" sm onClick={()=>alert('→ opens this exact query in the Playground (deep-linked state)')}>Open in Playground</Btn>
+        <Btn sm onClick={()=>alert('→ shows the compiled SQL (analyst escape hatch)')}>Compiled SQL</Btn></div>
+    </div>
+  </div>;
+}
+
+/* ============ journey stepper ============ */
+const STEPS=[{k:0,l:'Goal'},{k:1,l:'What’s wrong'},{k:2,l:'Dig in'},{k:3,l:'What to do'},{k:4,l:'Set it up'}];
+function Stepper({step,go,maxStep}){
+  return <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+    {STEPS.map((s,i)=>{const done=s.k<step,cur=s.k===step,reach=s.k<=maxStep;
+      return <React.Fragment key={s.k}>
+        <button onClick={()=>reach&&go(s.k)} style={{fontFamily:'inherit',display:'flex',alignItems:'center',gap:7,border:'none',background:'none',cursor:reach?'pointer':'default',padding:'4px 2px'}}>
+          <span style={{width:22,height:22,borderRadius:'50%',display:'grid',placeItems:'center',fontSize:11.5,fontWeight:700,
+            background:cur?'var(--brand)':done?'var(--success)':'var(--bg-muted)',color:(cur||done)?'#fff':'var(--text-muted)'}}>{done?'✓':i+1}</span>
+          <span style={{fontSize:12.5,fontWeight:cur?700:500,color:cur?'var(--text-primary)':reach?'var(--text-secondary)':'var(--text-muted)'}}>{s.l}</span>
+        </button>
+        {i<STEPS.length-1&&<span style={{width:18,height:1,background:'var(--border-strong)'}}/>}
+      </React.Fragment>;})}
+  </div>;
+}
+
+/* ============ NL ask box → plain in-line answer ============ */
+const NL_ANSWERS={
+  default:'These whales used to buy every few days. Starting about a month ago they slowed right down — most haven’t bought in 27–34 days. Healthy whales of the same age and spend tier still buy every 1–5 days, so this isn’t normal aging — it’s a recoverable slide. A comeback contact from CS is the play that’s worked before.',
+};
+function AskBox(){
+  const [q,setQ]=useState(''),[a,setA]=useState(null);
+  return <div style={{...card,padding:'14px 16px',background:'linear-gradient(0deg,var(--brand-soft),#fff)'}}>
+    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+      <span style={{fontSize:15}}>💬</span>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Ask in plain words — e.g. why are my whales leaving?"
+        onKeyDown={e=>{if(e.key==='Enter')setA(NL_ANSWERS.default);}}
+        style={{flex:1,fontFamily:'inherit',fontSize:13.5,border:'1px solid var(--border-strong)',borderRadius:'var(--radius-md)',padding:'9px 12px',outline:'none'}}/>
+      <Btn kind="primary" sm onClick={()=>setA(NL_ANSWERS.default)}>Ask</Btn>
+    </div>
+    {a&&<div style={{marginTop:12,padding:'13px 15px',background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-md)',fontSize:13.5,lineHeight:1.55}}>
+      <div style={{...eyebrow,marginBottom:6}}>Advisor</div>{a}</div>}
+  </div>;
+}
+
+/* ============ SCREEN 0 · pick the goal ============ */
+function GoalScreen({setGoal,go}){
+  const opts=[
+    {k:'revenue',emoji:'💰',t:'Make more money',d:'Get these whales paying like they used to — recover the revenue that’s slipping.'},
+    {k:'engagement',emoji:'🎮',t:'Keep them playing',d:'Get them logging in and playing more often — the leading signal before they stop paying.'},
+  ];
+  return <div style={{maxWidth:760,margin:'0 auto',paddingTop:24}}>
+    <div style={eyebrow}>Optimization Advisor</div>
+    <h1 style={{fontSize:24,fontWeight:700,margin:'8px 0 6px'}}>You picked <span style={{color:'var(--brand)'}}>{CTX.segment}</span></h1>
+    <p style={{fontSize:15,color:'var(--text-secondary)',margin:'0 0 26px'}}>{CTX.n} players in {CTX.game}. What do you want to do with them?</p>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      {opts.map(o=><button key={o.k} onClick={()=>{setGoal(o.k);go(1);}}
+        style={{fontFamily:'inherit',textAlign:'left',...card,padding:'24px 22px',cursor:'pointer',borderWidth:1,transition:'border-color .1s'}}
+        onMouseEnter={e=>e.currentTarget.style.borderColor='var(--brand)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border-card)'}>
+        <div style={{fontSize:30,marginBottom:10}}>{o.emoji}</div>
+        <div style={{fontSize:18,fontWeight:700,marginBottom:6}}>{o.t}</div>
+        <div style={{fontSize:13.5,color:'var(--text-secondary)',lineHeight:1.5}}>{o.d}</div>
+        <div style={{marginTop:16,fontSize:13,fontWeight:600,color:'var(--brand)'}}>Diagnose this goal →</div>
+      </button>)}
+    </div>
+    <p style={{fontSize:12.5,color:'var(--text-muted)',marginTop:20}}>The Advisor reads this cohort’s real data live and tells you where you’re leaving money on the table — and what to do about it.</p>
+  </div>;
+}
+
+/* ============ SCREEN 1 · diagnosis (business-first) ============ */
+function DiagnosisScreen({goal,go,openProv}){
+  const hero=HERO[goal],factors=FACTORS[goal];
+  const [showEvidence,setShowEvidence]=useState(false);
+  const [showConf,setShowConf]=useState(false);
+  const agree=LENSES.filter(l=>l.agree).length;
+  return <div style={{maxWidth:880,margin:'0 auto'}}>
+    {/* HERO — the lede, in money + human cause, above everything */}
+    <div style={{...card,padding:'24px 26px',borderColor:'var(--brand)',borderWidth:2,marginBottom:18,background:'linear-gradient(180deg,var(--brand-soft),#fff)'}}>
+      <div style={eyebrow}>Here’s what’s wrong</div>
+      <div style={{display:'flex',alignItems:'baseline',gap:14,flexWrap:'wrap',margin:'8px 0 4px'}}>
+        <span style={{fontSize:34,fontWeight:700,color:'var(--brand)',fontVariantNumeric:'tabular-nums'}}>{hero.money}</span>
+        <span style={{fontSize:19,fontWeight:600}}>{hero.line}</span>
+      </div>
+      <p style={{fontSize:14.5,color:'var(--text-secondary)',lineHeight:1.55,margin:'8px 0 0',maxWidth:680}}>{hero.cause}</p>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginTop:16,flexWrap:'wrap'}}>
+        <Pill bg="var(--success-soft)" ink="var(--success-ink)">High confidence</Pill>
+        <span style={{fontSize:13,color:'var(--text-secondary)'}}>{agree} independent checks agree, and we’ve recovered this pattern before.</span>
+        <button onClick={()=>setShowConf(s=>!s)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:12.5,cursor:'pointer'}}>{showConf?'hide':'what makes us confident?'}</button>
+      </div>
+      {showConf&&<div style={{marginTop:12,padding:'13px 15px',background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-md)'}}>
+        <div style={{...eyebrow,marginBottom:8}}>The checks we ran ({agree} of {LENSES.length} agree)</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px 16px'}}>
+          {LENSES.map((l,i)=><div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:12.5,opacity:l.agree?1:.55}}>
+            <span style={{color:l.agree?'var(--positive)':'var(--text-muted)',fontWeight:700}}>{l.agree?'✓':'·'}</span>
+            <span><b style={{fontWeight:600}}>{l.n}:</b> {l.v}</span></div>)}
+        </div>
+      </div>}
+    </div>
+
+    {/* plain factor breakdown — status words, ₫ at stake; NO percentiles by default */}
+    <div style={{...card,marginBottom:18}}>
+      <div style={{padding:'13px 18px',borderBottom:'1px solid var(--border-card)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontWeight:600,fontSize:13.5}}>What’s healthy and what isn’t</span>
+        <button onClick={()=>setShowEvidence(s=>!s)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:12.5,cursor:'pointer'}}>{showEvidence?'hide the detail':'show the evidence'}</button>
+      </div>
+      {factors.map((r,i)=>{const st=STATUS[r.status];return <div key={i} style={{padding:'14px 18px',borderBottom:i<factors.length-1?'1px solid var(--bg-muted)':'none',background:r.status==='weak'?'var(--brand-soft)':'transparent'}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <span style={{width:9,height:9,borderRadius:'50%',background:st.dot,flexShrink:0}}/>
+          <span style={{fontSize:14,fontWeight:r.status==='weak'?700:600,minWidth:200}}>{r.f}</span>
+          <Pill bg={st.bg} ink={st.ink}>{st.l}</Pill>
+          <span style={{flex:1}}/>
+          <span style={{fontSize:13.5,fontWeight:700,color:r.status==='weak'?'var(--negative)':'var(--text-muted)',fontVariantNumeric:'tabular-nums'}}>{r.money}</span>
+          {PROV[r.f]&&<button onClick={()=>openProv(r.f)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:11.5,cursor:'pointer'}}>↗ where from</button>}
+        </div>
+        <div style={{fontSize:13,color:'var(--text-secondary)',marginTop:5,marginLeft:21}}>{r.plain}</div>
+        {showEvidence&&<div style={{marginTop:9,marginLeft:21,display:'flex',gap:18,flexWrap:'wrap',fontSize:11.5,color:'var(--text-muted)'}}>
+          <span><b style={{color:'var(--text-secondary)'}}>Where they sit:</b> {r.detail.level}</span>
+          <span><b style={{color:'var(--text-secondary)'}}>Direction:</b> {r.detail.trend}</span>
+          <span><b style={{color:'var(--text-secondary)'}}>Vs similar whales:</b> {r.detail.peer}</span>
+        </div>}
+      </div>;})}
+    </div>
+
+    {/* NL ask — the persona's most natural mode */}
+    <div style={{marginBottom:18}}><AskBox/></div>
+
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+      <button onClick={()=>go(2)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:13,cursor:'pointer'}}>Want to dig into the numbers / compare against other groups? →</button>
+      <Btn kind="primary" onClick={()=>go(3)}>See what to do about it →</Btn>
+    </div>
+  </div>;
+}
+
+/* ============ SCREEN 2 · Dig in (analyst-leaning Explore — opt-in) ============ */
+const PEER_AXES=[{k:'tenure',l:'Same age (6–18 mo)',cls:'derived'},{k:'tier',l:'Same spend tier (top whales)',cls:'statistical'},{k:'geo',l:'Vietnam',cls:'direct'},{k:'notlapsed',l:'Still active',cls:'derived'}];
+function peerState(axes){let n=14200,gap=-31;if(!axes.tenure){n*=1.9;gap+=5;}if(!axes.tier){n*=1.7;gap+=8;}if(!axes.geo){n*=1.3;gap+=3;}if(!axes.notlapsed){n*=1.25;gap+=13;}return{n:Math.round(n),gap:Math.max(gap,-31)};}
+const PRED_CLS={direct:{l:'a stored fact',ink:'var(--success-ink)'},derived:{l:'worked out from a date',ink:'var(--info-ink)'},statistical:{l:'a ranking (needs a calc)',ink:'var(--warning-ink)'}};
+const SAMPLE={target:[{id:'whale #8f…3a91',last:'27d ago'},{id:'whale #2c…7b04',last:'34d ago'},{id:'whale #1b…40dd',last:'29d ago'}],
+  healthy:[{id:'whale #5a…11c2',last:'3d ago'},{id:'whale #9z…77ee',last:'1d ago'},{id:'whale #3p…22bd',last:'5d ago'}]};
+function DigInScreen({go,openProv}){
+  const [axes,setAxes]=useState({tenure:true,tier:true,geo:true,notlapsed:true});
+  const [sampleOf,setSampleOf]=useState('target');
+  const [adv,setAdv]=useState(false);
+  const ps=peerState(axes);
+  return <div style={{maxWidth:880,margin:'0 auto'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:8}}>
+      <div><div style={eyebrow}>Dig in · compare against other groups</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Who are we comparing your whales against?</h1></div>
+      <Btn sm onClick={()=>go(1)}>← Back</Btn>
+    </div>
+    <p style={{fontSize:13.5,color:'var(--text-secondary)',margin:'0 0 16px',maxWidth:680}}>We compared your lapsing whales to <b>healthy whales just like them</b> — same age in the game, same spend tier, also in Vietnam. That’s the fairest comparison, and it’s why we’re confident the slide is real.</p>
+
+    {/* the ONE insight that matters: the last-pay contrast (member sample leads) */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+      {[['target','Your lapsing whales','var(--negative)'],['healthy','Healthy whales like them','var(--positive)']].map(([k,title,col])=>
+        <div key={k} style={{...card,padding:'15px 17px',borderColor:sampleOf===k?col:'var(--border-card)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <span style={{fontSize:13.5,fontWeight:700}}>{title}</span>
+            <Pill bg={k==='target'?'var(--destructive-soft)':'var(--success-soft)'} ink={col}>last paid</Pill></div>
+          {SAMPLE[k].map((m,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:i<2?'1px solid var(--bg-muted)':'none',fontSize:13}}>
+            <span style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--text-muted)'}}>{m.id}</span>
+            <span style={{fontWeight:700,color:col}}>{m.last}</span></div>)}
+        </div>)}
+    </div>
+    <div style={{...card,padding:'12px 16px',marginBottom:18,fontSize:13.5,background:'var(--brand-soft)'}}>
+      <b>The whole story in one line:</b> your whales last paid 27–34 days ago; the healthy ones paid 1–5 days ago. Same kind of player — very different behaviour. <button onClick={()=>openProv('How long they keep paying')} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,cursor:'pointer'}}>where from ↗</button>
+    </div>
+
+    {/* refine the comparison — framed plainly, with a footgun warning */}
+    <div style={{...card,padding:'15px 17px',marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <span style={{fontSize:13.5,fontWeight:600}}>Change who we compare against</span>
+        <span style={{fontSize:11.5,color:'var(--text-muted)'}}>tightest match = most trustworthy</span></div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
+        {PEER_AXES.map(a=>{const on=axes[a.k];return <button key={a.k} onClick={()=>setAxes({...axes,[a.k]:!on})} title={'Defined as: '+PRED_CLS[a.cls].l}
+          style={{fontFamily:'inherit',display:'inline-flex',alignItems:'center',gap:7,fontSize:12.5,fontWeight:600,padding:'7px 12px',borderRadius:'var(--radius-md)',cursor:'pointer',
+            border:'1px solid '+(on?'var(--brand)':'var(--border-strong)'),background:on?'#fff':'var(--bg-card)',color:on?'var(--brand)':'var(--text-muted)'}}>
+          <span style={{width:15,height:15,borderRadius:4,border:'1.5px solid '+(on?'var(--brand)':'var(--border-strong)'),background:on?'var(--brand)':'#fff',color:'#fff',display:'grid',placeItems:'center',fontSize:10}}>{on?'✓':''}</span>
+          {a.l}</button>;})}
+      </div>
+      <div style={{display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{padding:'7px 14px',background:'var(--bg-muted)',borderRadius:'var(--radius-md)',fontSize:12.5}}>Comparison group: <b style={{fontVariantNumeric:'tabular-nums'}}>{ps.n.toLocaleString()}</b> healthy whales</div>
+        <div style={{padding:'7px 14px',background:ps.gap<=-15?'var(--destructive-soft)':'var(--warning-soft)',borderRadius:'var(--radius-md)',fontSize:12.5,color:ps.gap<=-15?'var(--destructive-ink)':'var(--warning-ink)'}}>Your whales pay <b>{Math.abs(ps.gap)}% less often</b></div>
+        {ps.gap>-15&&<span style={{fontSize:12,color:'var(--warning-ink)'}}>⚠ widening the comparison shrinks the gap — the problem may be broader than this group.</span>}
+      </div>
+    </div>
+
+    {/* advanced — predicate definitions hidden by default (analyst-only) */}
+    <details onToggle={e=>setAdv(e.currentTarget.open)} style={{...card,padding:'12px 16px',marginBottom:18}}>
+      <summary style={{fontSize:12.5,fontWeight:600,color:'var(--text-secondary)'}}>{adv?'▾':'▸'} Advanced: exactly how this group is defined (for your analyst)</summary>
+      <div style={{marginTop:12}}>
+        {[['Vietnam','direct','last_login_country = VN'],['Same age 6–18 mo','derived','worked out from first_login_date'],['Still active','derived','worked out from last_active_date'],['Top spend tier','statistical','top 25% by lifetime spend — needs a ranking calc']].map(([l,cls,m],i)=>
+          <div key={i} style={{display:'flex',gap:10,alignItems:'center',marginBottom:6,fontSize:12.5}}>
+            <Pill bg="var(--bg-muted)" ink={PRED_CLS[cls].ink}>{PRED_CLS[cls].l}</Pill>
+            <span style={{fontWeight:600}}>{l}</span><span style={{color:'var(--text-muted)',fontFamily:'var(--font-mono)',fontSize:11.5}}>{m}</span></div>)}
+        <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:8}}>This comparison group is just a Segment — you can save it or build your own.</div>
+      </div>
+    </details>
+
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <button onClick={()=>go(3)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:13,cursor:'pointer'}}>→ Turn this finding into an experiment</button>
+      <Btn kind="primary" onClick={()=>go(3)}>See what to do about it →</Btn>
+    </div>
+  </div>;
+}
+
+/* ============ SCREEN 3 · recommendations (plain power + safety + proven/bet + explode) ============ */
+function RecCard({r,go,explode}){
+  const [openSafety,setOpenSafety]=useState(false);
+  const top=r.rank===1;
+  return <div style={{...card,padding:'18px 20px',borderColor:top?'var(--brand)':'var(--border-card)',borderWidth:top?2:1,opacity:r.powerOk?1:.82}}>
+    <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+      <span style={{width:26,height:26,borderRadius:'50%',background:top?'var(--brand)':'var(--bg-muted)',color:top?'#fff':'var(--text-muted)',display:'grid',placeItems:'center',fontWeight:700,fontSize:13,flexShrink:0}}>{r.rank}</span>
+      <div style={{flex:1}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'baseline'}}>
+          <span style={{fontSize:15.5,fontWeight:700}}>{r.name}</span>
+          <span style={{fontSize:20,fontWeight:700,color:r.powerOk?'var(--brand)':'var(--text-muted)',fontVariantNumeric:'tabular-nums'}}>{r.money}</span>
+        </div>
+        <p style={{fontSize:13.5,color:'var(--text-secondary)',margin:'5px 0 12px',lineHeight:1.5}}>{r.plain}</p>
+
+        {/* expected result, plain */}
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:10}}>
+          <div style={{padding:'8px 13px',background:'var(--bg-muted)',borderRadius:'var(--radius-md)',fontSize:13}}>Expected result: <b>{r.expect}</b></div>
+          <div style={{padding:'8px 13px',background:'var(--bg-muted)',borderRadius:'var(--radius-md)',fontSize:13}}>{r.reach}</div>
+        </div>
+
+        {/* proven vs bet — explicit one-liner, never just a color */}
+        <div style={{display:'flex',gap:8,alignItems:'flex-start',padding:'9px 13px',borderRadius:'var(--radius-md)',marginBottom:8,
+          background:r.proven?'var(--success-soft)':'var(--warning-soft)'}}>
+          <span style={{fontSize:14}}>{r.proven?'✅':'🎲'}</span>
+          <span style={{fontSize:12.5,color:r.proven?'var(--success-ink)':'var(--warning-ink)',lineHeight:1.45}}>{r.provenTxt}</span>
+        </div>
+
+        {/* plain-language power verdict */}
+        <div style={{display:'flex',gap:8,alignItems:'center',padding:'9px 13px',borderRadius:'var(--radius-md)',marginBottom:8,
+          background:r.powerOk?'var(--info-soft)':'var(--destructive-soft)'}}>
+          <span>{r.powerOk?'📏':'⚠️'}</span>
+          <span style={{fontSize:12.5,color:r.powerOk?'var(--info-ink)':'var(--destructive-ink)',fontWeight:600}}>{r.powerTxt}</span>
+        </div>
+
+        {/* safety checks — visible at the decision point */}
+        <button onClick={()=>setOpenSafety(s=>!s)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--text-secondary)',fontWeight:600,fontSize:12.5,cursor:'pointer',padding:0,marginBottom:openSafety?8:0}}>{openSafety?'▾':'▸'} Safety checks ({r.safety.length})</button>
+        {openSafety&&<div style={{marginBottom:10}}>{r.safety.map((s,i)=><div key={i} style={{fontSize:12.5,color:'var(--text-secondary)',display:'flex',gap:7,marginBottom:4}}><span style={{color:'var(--positive)'}}>✓</span>{s}</div>)}</div>}
+
+        <div style={{display:'flex',gap:10,alignItems:'center',marginTop:6,flexWrap:'wrap'}}>
+          {top&&r.powerOk
+            ? <Btn kind="primary" sm onClick={()=>go(4)}>Review &amp; set up this experiment →</Btn>
+            : r.powerOk
+              ? <Btn sm onClick={()=>go(4)}>Set this up →</Btn>
+              : <Btn sm disabled>Grow the group first</Btn>}
+          <button onClick={()=>explode(r.why)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:12.5,cursor:'pointer'}}>Why do you recommend this?</button>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+function RecsScreen({go,explode}){
+  const [cap,setCap]=useState(60);
+  const runnable=RECS.filter(r=>r.powerOk);
+  const picks=cap>=120?2:cap>=40?1:0;
+  return <div style={{maxWidth:820,margin:'0 auto'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:8}}>
+      <div><div style={eyebrow}>What to do</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Your best moves, ranked by money recovered</h1></div>
+      <Btn sm onClick={()=>go(1)}>← Back to diagnosis</Btn>
+    </div>
+    <p style={{fontSize:13.5,color:'var(--text-secondary)',margin:'0 0 16px'}}>Each one is checked for whether it’ll actually work and whether it’s safe for your whales.</p>
+
+    {/* capacity — plain framing, no "knapsack" */}
+    <div style={{...card,padding:'15px 18px',marginBottom:18,background:'var(--brand-soft)'}}>
+      <div style={{fontSize:13.5,fontWeight:700,marginBottom:4}}>What can we run with the CS team we have?</div>
+      <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+        <input type="range" min="0" max="160" value={cap} onChange={e=>setCap(+e.target.value)} style={{flex:1,minWidth:180,accentColor:'var(--brand)'}}/>
+        <span style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap'}}>{cap} CS contacts / day</span>
+      </div>
+      <div style={{fontSize:13,color:'var(--text-secondary)',marginTop:8}}>
+        {picks===0?'Not enough capacity to run anything meaningfully — even #1 needs ~40/day.'
+        :picks===1?<>With this, run <b>#1</b> (best return, +312M₫). To also run #2 you’d need ~120/day.</>
+        :<>Enough to run <b>#1 and #2</b> together — combined ≈ +402M₫.</>}
+      </div>
+    </div>
+
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      {RECS.map(r=><RecCard key={r.rank} r={r} go={go} explode={explode}/>)}
+    </div>
+  </div>;
+}
+
+/* ============ SCREEN 4 · the AI-DRAFT moment (editable, nothing launches yet) ============ */
+function field(label,val,sub){return <div style={{padding:'13px 15px',background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-md)'}}>
+  <div style={{...eyebrow,marginBottom:5}}>{label}</div><div style={{fontSize:15,fontWeight:700}}>{val}</div>{sub&&<div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:2}}>{sub}</div>}</div>;}
+function DraftScreen({go}){
+  const [split,setSplit]=useState(90);
+  const [launched,setLaunched]=useState(false);
+  if(launched) return <div style={{maxWidth:620,margin:'0 auto',paddingTop:40,textAlign:'center'}}>
+    <div style={{fontSize:40}}>🚀</div>
+    <h1 style={{fontSize:22,fontWeight:700,margin:'12px 0 8px'}}>Draft created in the Command Center</h1>
+    <p style={{fontSize:14.5,color:'var(--text-secondary)',lineHeight:1.55}}>Your win-back experiment is saved as a <b>draft</b> — assignment, CS work queue and scorecard are pre-built. It does <b>not</b> run until you press Launch over in the Command Center. When it finishes, the result comes back here and updates the Advisor’s confidence for next time.</p>
+    <div style={{display:'flex',gap:10,justifyContent:'center',marginTop:20}}>
+      <Btn onClick={()=>setLaunched(false)}>← Back to the draft</Btn>
+      <Btn kind="primary" onClick={()=>alert('→ opens the Experiment Command Center with this draft loaded')}>Open in Command Center →</Btn>
+    </div>
+  </div>;
+  return <div style={{maxWidth:820,margin:'0 auto'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:10}}>
+      <div><div style={eyebrow}>Set it up · the Advisor drafted this for you</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Win-back call for your lapsing whales</h1></div>
+      <Btn sm onClick={()=>go(3)}>← Back</Btn>
+    </div>
+
+    {/* reassurance banner — the trust mechanic */}
+    <div style={{...card,padding:'13px 16px',marginBottom:16,background:'var(--info-soft)',borderColor:'var(--info)',display:'flex',gap:10,alignItems:'center'}}>
+      <span style={{fontSize:18}}>🛟</span>
+      <span style={{fontSize:13.5,color:'var(--info-ink)'}}><b>Nothing launches until you say so.</b> The Advisor filled this in from the diagnosis — change anything below, then send it to the Command Center as a draft.</span>
+    </div>
+
+    <div style={{...eyebrow,marginBottom:8}}>Here’s what the Advisor set up</div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:14}}>
+      {field('Who we’ll contact','1,872 whales','reachable, of 2,400 in the segment')}
+      {field('How long we measure','14 days','enough for a clear answer')}
+      {field('CS workload','≈ 134 / day','over the first 2 weeks')}
+    </div>
+
+    {/* editable: the treatment vs hold-out split */}
+    <div style={{...card,padding:'16px 18px',marginBottom:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}}>
+        <span style={{fontSize:13.5,fontWeight:700}}>Treatment vs hold-out</span>
+        <span style={{fontSize:12.5,color:'var(--text-muted)'}}>the hold-out is how we prove it actually worked</span></div>
+      <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+        <input type="range" min="70" max="95" value={split} onChange={e=>setSplit(+e.target.value)} style={{flex:1,minWidth:200,accentColor:'var(--brand)'}}/>
+        <span style={{fontSize:13.5,fontWeight:700,whiteSpace:'nowrap'}}>{split}% called · {100-split}% held back</span>
+      </div>
+      <div style={{fontSize:12.5,color:'var(--text-secondary)',marginTop:6}}>≈ {Math.round(1872*split/100).toLocaleString()} whales get the call · ≈ {Math.round(1872*(100-split)/100).toLocaleString()} held back for comparison.</div>
+    </div>
+
+    {/* safety baked in */}
+    <div style={{...card,padding:'15px 18px',marginBottom:20}}>
+      <div style={{fontSize:13.5,fontWeight:700,marginBottom:9}}>Safety, already on</div>
+      {['Won’t contact whales who paid in the last 7 days (no discounting people who’d pay anyway)','Hold-out group means we measure the real lift, not a guess','Max 1 contact per player across all running experiments'].map((s,i)=>
+        <div key={i} style={{fontSize:13,color:'var(--text-secondary)',display:'flex',gap:8,marginBottom:5}}><span style={{color:'var(--positive)'}}>✓</span>{s}</div>)}
+    </div>
+
+    <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+      <Btn onClick={()=>go(3)}>Cancel</Btn>
+      <Btn kind="primary" onClick={()=>setLaunched(true)}>Send to Command Center as a draft →</Btn>
+    </div>
+  </div>;
+}
+
+/* ============ shell ============ */
+function App(){
+  const [step,setStep]=useState(0);
+  const [maxStep,setMaxStep]=useState(0);
+  const [goal,setGoal]=useState('revenue');
+  const [prov,setProv]=useState(null);
+  const go=s=>{setStep(s);setMaxStep(m=>Math.max(m,s));};
+  const explode=()=>{go(1);};  // "why recommend this?" → jumps back to the plain-language evidence
+  return <div style={{minHeight:'100vh'}}>
+    {/* top bar: context + journey stepper */}
+    <div style={{position:'sticky',top:0,zIndex:30,background:'var(--bg-card)',borderBottom:'1px solid var(--border-card)',padding:'12px 28px'}}>
+      <div style={{maxWidth:1100,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <span style={{width:26,height:26,borderRadius:'var(--radius-md)',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:13}}>A</span>
+          <div>
+            <div style={{fontSize:13.5,fontWeight:700,lineHeight:1.2}}>Optimization Advisor</div>
+            <div style={{fontSize:11.5,color:'var(--text-muted)'}}>{CTX.game} · {CTX.segment} · {CTX.n} players {step>0&&<>· goal: <b style={{color:'var(--brand)'}}>{goal==='revenue'?'Make more money':'Keep them playing'}</b></>}</div>
+          </div>
+        </div>
+        {step>0&&<Stepper step={step} go={go} maxStep={maxStep}/>}
+      </div>
+    </div>
+    <div style={{padding:'28px 28px 64px'}}>
+      {step===0&&<GoalScreen setGoal={setGoal} go={go}/>}
+      {step===1&&<DiagnosisScreen goal={goal} go={go} openProv={setProv}/>}
+      {step===2&&<DigInScreen go={go} openProv={setProv}/>}
+      {step===3&&<RecsScreen go={go} explode={explode}/>}
+      {step===4&&<DraftScreen go={go}/>}
+    </div>
+    {prov&&<ProvenanceDrawer factor={prov} onClose={()=>setProv(null)}/>}
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

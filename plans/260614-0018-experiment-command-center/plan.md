@@ -21,6 +21,11 @@ via `cs_ticket_logs` as the exposure/compliance signal. Outcome measured on
 Design source: `plans/reports/scout-260613-1854-stag-iceberg-enrichment-and-experimentation-map-report.md` §4.
 Visuals/design reference: `plans/260614-0018-experiment-command-center/visuals/`.
 
+> **This is the EXECUTION rail.** The DECISION rail that decides *what* to run — the Optimization Advisor —
+> is the upstream plan `plans/260614-1813-optimization-advisor/`. The Advisor hands off an editable
+> experiment **draft** into this command center (see that plan's phase-04). Build order: Advisor Phase 0
+> (predicate engine) → this plan's phases 1–3 (data/registry/API) can proceed in parallel → Advisor 1–4 → hand-off.
+
 ## Architecture at a glance
 
 ```
@@ -38,6 +43,7 @@ pattern (compliance reader), Segments cohort (population), Care console (work-qu
 - KISS/YAGNI: one game, one experiment type (CS cold-reach). Path-agnostic so a promo-push exposure plugs in later. No CUPED/sequential testing yet.
 - DRY: reuse `lakehouse-trino-connector`, `trino-rest-client`, `inline-sql-params`, Care/Segments React patterns, design tokens.
 - NO raw PII in product. Target list = game `user_id` + reachability flags only.
+- **Delivery is pluggable; measurement is ours (the hand-off contract).** The system guarantees three things: groups frozen (immutable assignment), outcome measured (`pmt_user_daily`), and **thesis preserved** (the Advisor blueprint + per-stage reasoning travels with the experiment, always reachable so a readout weeks later still makes sense). The TREATMENT is usually delivered *outside* cube-playground (CS calls, LiveOps push, email) — so delivery has two modes: **in-system CS Work Queue** (auto compliance from CS logs) OR **external/manual** (export a no-PII target list, log delivery by hand). Outcome tracking reads billing, not the action, so monitoring + the hold-out comparison work either way. The lifecycle (Draft → Groups frozen → In delivery → Measuring → Readout) never stalls on a capability we don't have. Visual contract: `visuals/optimization-advisor.html` → CommandCenter screen.
 
 ## Phases
 

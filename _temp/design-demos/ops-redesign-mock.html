@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ops Console — Redesign Mock</title>
+<style>
+  :root{
+    --brand:#f05a22; --brand-hover:#f54a00; --brand-soft:#fff7ed;
+    --bg-app:#fafafa; --bg-card:#ffffff; --bg-muted:#f5f5f5;
+    --border-card:#e5e5e5; --border-strong:#d4d4d4;
+    --text-primary:#171717; --text-secondary:#404040; --text-muted:#737373;
+    --success:#059669; --success-soft:#d1fae5; --success-ink:#047857;
+    --warning:#f59e0b; --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --destructive:#ef4444; --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+    --info:#3f8dff; --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --positive:#15803d; --negative:#b91c1c;
+    --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    /* gateway / series palette mirrors use-ops-overview GATEWAY_PALETTE */
+    --c1:var(--brand); --c2:#3f8dff; --c3:#10b981; --c4:#a855f7; --c5:#facc15; --c6:#94a3b8;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-app);font-family:var(--font-sans);color:var(--text-primary);
+       -webkit-font-smoothing:antialiased;padding:0 0 64px;}
+  .wrap{max-width:1320px;margin:0 auto;padding:24px 32px;}
+  .assume{background:#0a0a0a;color:#e5e5e5;font-size:12px;line-height:1.6;padding:14px 18px;border-radius:10px;margin-bottom:22px;}
+  .assume b{color:var(--brand);}
+  .assume code{background:#1f1f1f;padding:1px 5px;border-radius:4px;color:#fdba74;font-size:11px;}
+
+  /* page header */
+  .pghead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;}
+  .titlerow{display:flex;align-items:center;gap:11px;}
+  .titlerow svg{color:var(--brand);}
+  h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em;}
+  .gamechip{font-size:12px;font-weight:600;color:var(--text-secondary);background:var(--bg-muted);padding:4px 10px;border-radius:var(--radius-full);}
+
+  /* window controls */
+  .winrow{display:flex;align-items:center;gap:8px;}
+  .seg{display:inline-flex;gap:2px;padding:3px;background:var(--bg-muted);border-radius:var(--radius-full);}
+  .seg button{padding:5px 14px;border:none;border-radius:var(--radius-full);font-size:12px;font-weight:600;cursor:pointer;
+              background:transparent;color:var(--text-muted);font-family:inherit;}
+  .seg button.on{background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow-sm);}
+  .daterange{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;background:var(--bg-card);border:1px solid var(--border-card);
+             border-radius:var(--radius-full);font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;}
+  .daterange.active{border-color:var(--brand);color:var(--brand);background:var(--brand-soft);}
+  .daterange .cap{font-size:10px;font-weight:500;color:var(--text-muted);}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border-card);margin-bottom:20px;}
+  .tabs button{background:none;border:none;padding:9px 14px;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;
+               border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;}
+  .tabs button.on{color:var(--brand);border-bottom-color:var(--brand);}
+
+  /* KPI cards */
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+  .kpi{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);padding:14px 16px;}
+  .kpi .lbl{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;}
+  .kpi .val{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:6px;}
+  .kpi .sub{font-size:10.5px;color:var(--text-muted);margin-top:4px;}
+  .kpi .delta{font-size:11px;font-weight:700;margin-left:6px;}
+  .up{color:var(--positive);} .down{color:var(--negative);}
+
+  /* chart grid — MAX 2 PER ROW */
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
+  .span2{grid-column:1 / -1;}
+  .card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);overflow:hidden;}
+  .card .chead{display:flex;align-items:center;justify-content:space-between;padding:13px 16px 10px;}
+  .card .ctitle{font-size:13px;font-weight:700;}
+  .card .ctip{font-size:10.5px;color:var(--text-muted);font-weight:500;}
+  .chead .actions{display:flex;align-items:center;gap:8px;}
+  .openpg{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-soft);
+          border:1px solid var(--orange-200,#fed7aa);padding:4px 9px;border-radius:var(--radius-md);cursor:pointer;}
+  .dots{color:var(--text-muted);font-size:16px;letter-spacing:1px;cursor:pointer;padding:0 2px;}
+  .cbody{padding:6px 14px 16px;}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;padding:0 16px 10px;font-size:10.5px;color:var(--text-muted);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block;}
+
+  /* analysis panels */
+  .panel{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);padding:16px;}
+  .panel .phead{display:flex;justify-content:space-between;align-items:baseline;}
+  .panel .ptitle{font-size:12.5px;font-weight:700;}
+  .panel .pnote{font-size:10px;color:var(--text-muted);}
+  .prow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-card);font-size:12.5px;}
+  .prow .k{color:var(--text-muted);} .prow .v{font-weight:700;}
+  .grid-panels{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+
+  /* members table */
+  .mhead{display:flex;align-items:center;justify-content:space-between;margin:6px 0 14px;gap:12px;flex-wrap:wrap;}
+  .searchbox{display:flex;gap:8px;}
+  .searchbox input{padding:8px 12px;font-size:13px;border:1px solid var(--border-card);border-radius:var(--radius-md);width:260px;font-family:inherit;}
+  .searchbox button{padding:8px 14px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius-md);font-size:12.5px;font-weight:600;cursor:pointer;}
+  table{width:100%;border-collapse:collapse;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xl);overflow:hidden;box-shadow:var(--shadow-sm);}
+  thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);text-align:left;padding:11px 14px;background:var(--bg-muted);font-weight:700;}
+  thead th.num{text-align:right;}
+  tbody td{padding:11px 14px;font-size:12.5px;border-top:1px solid var(--border-card);}
+  tbody td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;}
+  tbody tr:hover{background:var(--brand-soft);}
+  .rank{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;font-size:11px;font-weight:700;background:var(--bg-muted);color:var(--text-secondary);}
+  .rank.top{background:var(--brand);color:#fff;}
+  .uid{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--text-secondary);}
+  .name{font-weight:600;}
+  .tier{font-size:10px;font-weight:700;padding:2px 7px;border-radius:var(--radius-full);}
+  .tier.whale{background:var(--brand-soft);color:var(--brand-hover);}
+  .tier.dolphin{background:var(--info-soft);color:var(--info-ink);}
+  .open360{font-size:11px;font-weight:600;color:var(--brand);cursor:pointer;}
+  .sectlbl{font-size:13px;font-weight:700;margin:34px 0 12px;display:flex;align-items:center;gap:8px;}
+  .sectlbl .pill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);background:var(--bg-muted);padding:3px 8px;border-radius:var(--radius-full);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="assume">
+    <b>Junior-designer assumptions — confirm/correct before I build in React:</b><br>
+    1. <b>2 charts per row</b> (was 3). Charts use the existing <code>AssistantChartSection</code> renderer → each keeps type-switch + raw-table + CSV + "Open in Playground".<br>
+    2. <b>Power-up charts added</b> (all on existing measures, no new cubes): Spend-vs-cash (ROAS), ARPPU+conversion trend, CS sentiment+volume trend, purchase hour-of-day heatmap, whale/LTV concentration. <i>You can drop any.</i><br>
+    3. <b>Custom date range</b> chip sits beside the 7d/30d/MTD presets; picker caps span at <code>≤31 days</code> (billing_detail scan guard).<br>
+    4. <b>Members tab</b> = ranked top-payers table (LTV-sorted) <i>plus</i> the existing uid search. Rows click into the member 360.<br>
+    All colors/spacing/radii are the real <code>tokens.css</code> values. Numbers below are representative placeholders, not live data.
+  </div>
+
+  <!-- PAGE HEADER -->
+  <div class="pghead">
+    <div>
+      <div class="eyebrow">Ops · Monetization + Identity</div>
+      <div class="titlerow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 14l4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+        <h1>Ops Console</h1>
+        <span class="gamechip">CrossFire Mobile VN</span>
+      </div>
+    </div>
+    <div class="winrow">
+      <div class="seg">
+        <button>7d</button><button class="on">30d</button><button>MTD</button>
+      </div>
+      <div class="daterange">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Custom <span class="cap">· max 31d</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs"><button class="on">Overview</button><button>Members</button><button>Care</button></div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><div class="lbl">Cash collected</div><div class="val">₫4.82B</div><div class="sub">no Δ on this window</div></div>
+    <div class="kpi"><div class="lbl">Transactions</div><div class="val">182,450</div><div class="sub">no Δ on this window</div></div>
+    <div class="kpi"><div class="lbl">Paying users</div><div class="val">38.1K</div><div class="sub">distinct over window</div></div>
+    <div class="kpi"><div class="lbl">Support tickets</div><div class="val">3,204</div><div class="sub">CSAT 4.3 · ~2d lag</div></div>
+    <div class="kpi"><div class="lbl">Ad spend</div><div class="val">₫1.12B</div><div class="sub">≈4.3× blended ROAS</div></div>
+  </div>
+
+  <!-- CHART GRID: 2 PER ROW -->
+  <div class="grid2">
+
+    <!-- R1 C1: cash daily (area) -->
+    <div class="card">
+      <div class="chead"><div class="ctitle">Cash collected — daily</div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="cbody">
+        <svg width="100%" height="160" viewBox="0 0 560 160" preserveAspectRatio="none">
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".28"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>
+          <path d="M0,120 L40,108 L80,118 L120,92 L160,100 L200,76 L240,84 L280,58 L320,70 L360,46 L400,60 L440,38 L480,52 L520,30 L560,42 L560,160 L0,160 Z" fill="url(#g1)"/>
+          <path d="M0,120 L40,108 L80,118 L120,92 L160,100 L200,76 L240,84 L280,58 L320,70 L360,46 L400,60 L440,38 L480,52 L520,30 L560,42" fill="none" stroke="var(--brand)" stroke-width="2"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- R1 C2: payers vs cash (dual axis) -->
+    <div class="card">
+      <div class="chead"><div class="ctitle">Paying users vs cash — daily</div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="legend"><span><i class="dot" style="background:var(--brand)"></i>Cash (₫, left)</span><span><i class="dot" style="background:var(--c2)"></i>Paying users (right)</span></div>
+      <div class="cbody">
+        <svg width="100%" height="148" viewBox="0 0 560 148" preserveAspectRatio="none">
+          <path d="M0,110 L40,100 L80,108 L120,84 L160,90 L200,68 L240,74 L280,50 L320,60 L360,40 L400,52 L440,32 L480,44 L520,24 L560,34" fill="none" stroke="var(--brand)" stroke-width="2"/>
+          <path d="M0,96 L40,92 L80,100 L120,82 L160,88 L200,78 L240,86 L280,70 L320,80 L360,66 L400,76 L440,60 L480,72 L520,58 L560,64" fill="none" stroke="var(--c2)" stroke-width="2" stroke-dasharray="0"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- R2 C1: gateway mix (stacked) -->
+    <div class="card">
+      <div class="chead"><div class="ctitle">Gateway mix over time</div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="legend"><span><i class="dot" style="background:var(--c1)"></i>Momo</span><span><i class="dot" style="background:var(--c2)"></i>ZaloPay</span><span><i class="dot" style="background:var(--c3)"></i>Card</span><span><i class="dot" style="background:var(--c4)"></i>Bank</span><span><i class="dot" style="background:var(--c6)"></i>Other</span></div>
+      <div class="cbody"><svg width="100%" height="150" viewBox="0 0 560 150">
+        <!-- 14 stacked bars -->
+        <g>
+          <!-- generated-ish stacks -->
+          <!-- bar template: x width 30, gap 10 -->
+          <g transform="translate(6,0)">
+          <!-- use repeated rects -->
+          </g>
+        </g>
+        <!-- simple stacked bars -->
+        <g fill="var(--c1)">
+          <rect x="6"  y="70" width="28" height="80"/><rect x="44" y="64" width="28" height="86"/><rect x="82" y="60" width="28" height="90"/><rect x="120" y="56" width="28" height="94"/><rect x="158" y="50" width="28" height="100"/><rect x="196" y="48" width="28" height="102"/><rect x="234" y="44" width="28" height="106"/><rect x="272" y="40" width="28" height="110"/><rect x="310" y="42" width="28" height="108"/><rect x="348" y="36" width="28" height="114"/><rect x="386" y="38" width="28" height="112"/><rect x="424" y="30" width="28" height="120"/><rect x="462" y="34" width="28" height="116"/><rect x="500" y="26" width="28" height="124"/>
+        </g>
+        <g fill="var(--c2)">
+          <rect x="6"  y="48" width="28" height="22"/><rect x="44" y="44" width="28" height="20"/><rect x="82" y="40" width="28" height="20"/><rect x="120" y="38" width="28" height="18"/><rect x="158" y="32" width="28" height="18"/><rect x="196" y="30" width="28" height="18"/><rect x="234" y="28" width="28" height="16"/><rect x="272" y="24" width="28" height="16"/><rect x="310" y="26" width="28" height="16"/><rect x="348" y="22" width="28" height="14"/><rect x="386" y="24" width="28" height="14"/><rect x="424" y="18" width="28" height="12"/><rect x="462" y="20" width="28" height="14"/><rect x="500" y="14" width="28" height="12"/>
+        </g>
+        <g fill="var(--c3)">
+          <rect x="6"  y="36" width="28" height="12"/><rect x="44" y="32" width="28" height="12"/><rect x="82" y="30" width="28" height="10"/><rect x="120" y="28" width="28" height="10"/><rect x="158" y="24" width="28" height="8"/><rect x="196" y="22" width="28" height="8"/><rect x="234" y="20" width="28" height="8"/><rect x="272" y="16" width="28" height="8"/><rect x="310" y="18" width="28" height="8"/><rect x="348" y="14" width="28" height="8"/><rect x="386" y="16" width="28" height="8"/><rect x="424" y="10" width="28" height="8"/><rect x="462" y="12" width="28" height="8"/><rect x="500" y="8" width="28" height="6"/>
+        </g>
+      </svg></div>
+    </div>
+
+    <!-- R2 C2: spend vs cash (ROAS) -->
+    <div class="card">
+      <div class="chead"><div class="ctitle">Ad spend vs cash — daily <span class="ctip">(ROAS story)</span></div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="legend"><span><i class="dot" style="background:var(--brand)"></i>Cash collected</span><span><i class="dot" style="background:var(--c4)"></i>Ad spend</span></div>
+      <div class="cbody"><svg width="100%" height="148" viewBox="0 0 560 148" preserveAspectRatio="none">
+        <path d="M0,100 L40,92 L80,98 L120,78 L160,84 L200,64 L240,70 L280,48 L320,58 L360,40 L400,50 L440,30 L480,42 L520,24 L560,32" fill="none" stroke="var(--brand)" stroke-width="2"/>
+        <path d="M0,124 L40,120 L80,126 L120,118 L160,122 L200,116 L240,120 L280,112 L320,118 L360,110 L400,116 L440,108 L480,114 L520,106 L560,110" fill="none" stroke="var(--c4)" stroke-width="2"/>
+      </svg></div>
+    </div>
+
+    <!-- R3 C1: ARPPU + conversion -->
+    <div class="card">
+      <div class="chead"><div class="ctitle">ARPPU &amp; payer conversion — daily</div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="legend"><span><i class="dot" style="background:var(--c3)"></i>ARPPU (₫)</span><span><i class="dot" style="background:var(--c5)"></i>Payer %</span></div>
+      <div class="cbody"><svg width="100%" height="148" viewBox="0 0 560 148" preserveAspectRatio="none">
+        <path d="M0,90 L40,86 L80,92 L120,80 L160,84 L200,72 L240,78 L280,64 L320,72 L360,58 L400,66 L440,52 L480,60 L520,46 L560,54" fill="none" stroke="var(--c3)" stroke-width="2"/>
+        <path d="M0,116 L40,112 L80,118 L120,108 L160,114 L200,104 L240,110 L280,98 L320,106 L360,92 L400,100 L440,86 L480,96 L520,82 L560,90" fill="none" stroke="var(--c5)" stroke-width="2"/>
+      </svg></div>
+    </div>
+
+    <!-- R3 C2: CS sentiment + volume -->
+    <div class="card">
+      <div class="chead"><div class="ctitle">Support — volume &amp; sentiment</div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="legend"><span><i class="dot" style="background:var(--c6)"></i>Tickets/day</span><span><i class="dot" style="background:var(--destructive)"></i>Negative</span></div>
+      <div class="cbody"><svg width="100%" height="148" viewBox="0 0 560 148">
+        <g fill="var(--c6)">
+          <rect x="8" y="70" width="26" height="78"/><rect x="46" y="64" width="26" height="84"/><rect x="84" y="74" width="26" height="74"/><rect x="122" y="60" width="26" height="88"/><rect x="160" y="68" width="26" height="80"/><rect x="198" y="56" width="26" height="92"/><rect x="236" y="66" width="26" height="82"/><rect x="274" y="52" width="26" height="96"/><rect x="312" y="62" width="26" height="86"/><rect x="350" y="50" width="26" height="98"/><rect x="388" y="58" width="26" height="90"/><rect x="426" y="48" width="26" height="100"/><rect x="464" y="56" width="26" height="92"/><rect x="502" y="46" width="26" height="102"/>
+        </g>
+        <path d="M21,128 L59,122 L97,130 L135,118 L173,124 L211,114 L249,120 L287,110 L325,116 L363,106 L401,112 L439,102 L477,108 L515,100" fill="none" stroke="var(--destructive)" stroke-width="2"/>
+      </svg></div>
+    </div>
+
+    <!-- R4: hour-of-day heatmap full width -->
+    <div class="card span2">
+      <div class="chead"><div class="ctitle">Purchase intensity — day-of-week × hour <span class="ctip">(when players pay)</span></div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="cbody" id="heat"></div>
+    </div>
+
+    <!-- R5: whale concentration full width -->
+    <div class="card span2">
+      <div class="chead"><div class="ctitle">Revenue concentration — payer tiers <span class="ctip">(whale analysis)</span></div>
+        <div class="actions"><span class="openpg">↗ Open in Playground</span><span class="dots">⋯</span></div></div>
+      <div class="cbody">
+        <div style="display:flex;height:42px;border-radius:8px;overflow:hidden;font-size:11px;font-weight:700;color:#fff;">
+          <div style="width:46%;background:var(--brand);display:flex;align-items:center;justify-content:center;">Top 1% · 46% of cash</div>
+          <div style="width:33%;background:var(--c4);display:flex;align-items:center;justify-content:center;">Next 9% · 33%</div>
+          <div style="width:21%;background:var(--c6);display:flex;align-items:center;justify-content:center;color:#fff;">Remaining 90% · 21%</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10.5px;color:var(--text-muted);">
+          <span>381 whales drive nearly half of ₫4.82B</span><span>Gini 0.71 · concentration HIGH</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ANALYSIS PANELS (kept, 2-col) -->
+  <div class="grid-panels">
+    <div class="panel"><div class="phead"><div class="ptitle">Payment gateway mix</div><div class="pnote">this window</div></div>
+      <div class="prow"><span class="k">Momo</span><span class="v">₫2.21B · 45.8%</span></div>
+      <div class="prow"><span class="k">ZaloPay</span><span class="v">₫1.10B · 22.8%</span></div>
+      <div class="prow"><span class="k">Card</span><span class="v">₫0.83B · 17.2%</span></div>
+      <div class="prow"><span class="k">Bank transfer</span><span class="v">₫0.68B · 14.2%</span></div>
+    </div>
+    <div class="panel"><div class="phead"><div class="ptitle">Support health</div><div class="pnote">cs_ticket_detail · ~2d lag</div></div>
+      <div class="prow"><span class="k">Tickets</span><span class="v">3,204</span></div>
+      <div class="prow"><span class="k">CSAT (avg)</span><span class="v">4.31</span></div>
+      <div class="prow"><span class="k">Negative sentiment</span><span class="v" style="color:var(--destructive-ink)">412</span></div>
+      <div class="prow"><span class="k">Avg resolution</span><span class="v">18.4h</span></div>
+    </div>
+    <div class="panel"><div class="phead"><div class="ptitle">Lifetime reconciliation</div><div class="pnote">snapshot · gross</div></div>
+      <div class="prow"><span class="k">Gateway-charged lifetime</span><span class="v">₫71.2B</span></div>
+      <div class="prow"><span class="k">Ingame-delivered LTV</span><span class="v">₫64.8B</span></div>
+      <div class="prow"><span class="k">Structural wedge</span><span class="v" style="color:var(--warning-ink)">+9.9%</span></div>
+    </div>
+    <div class="panel"><div class="phead"><div class="ptitle">Cross-border signal</div><div class="pnote">mf_users · snapshot</div></div>
+      <div class="prow"><span class="k">Movers (first≠last country)</span><span class="v">5,820</span></div>
+      <div class="prow"><span class="k">Share of all users</span><span class="v">1.32%</span></div>
+      <div class="prow"><span class="k">Mover LTV</span><span class="v">₫2.4B</span></div>
+    </div>
+  </div>
+
+  <!-- MEMBERS TAB MOCK -->
+  <div class="sectlbl">Members tab <span class="pill">ranked top-payers + search</span></div>
+  <div class="mhead">
+    <div style="font-size:12.5px;color:var(--text-muted);">Top payers by lifetime value · click a row to open the member 360</div>
+    <div class="searchbox"><input placeholder="uid or vopenid…"/><button>Open 360 →</button></div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>uid</th><th>Ingame name</th><th>Tier</th><th class="num">LTV</th><th class="num">Txns</th><th class="num">Last seen</th><th></th></tr></thead>
+    <tbody>
+      <tr><td><span class="rank top">1</span></td><td class="uid">10293847@vopenid</td><td class="name">ĐạiGia_CF</td><td><span class="tier whale">Whale</span></td><td class="num">₫284.1M</td><td class="num">1,920</td><td class="num">2h ago</td><td><span class="open360">Open 360 →</span></td></tr>
+      <tr><td><span class="rank top">2</span></td><td class="uid">88471022@vopenid</td><td class="name">SniperKing</td><td><span class="tier whale">Whale</span></td><td class="num">₫241.7M</td><td class="num">1,604</td><td class="num">5h ago</td><td><span class="open360">Open 360 →</span></td></tr>
+      <tr><td><span class="rank top">3</span></td><td class="uid">55012398@vopenid</td><td class="name">HoàngTửCF</td><td><span class="tier whale">Whale</span></td><td class="num">₫198.3M</td><td class="num">1,338</td><td class="num">1d ago</td><td><span class="open360">Open 360 →</span></td></tr>
+      <tr><td><span class="rank">4</span></td><td class="uid">71203944@vopenid</td><td class="name">MưaSao_VN</td><td><span class="tier dolphin">Dolphin</span></td><td class="num">₫92.4M</td><td class="num">744</td><td class="num">3h ago</td><td><span class="open360">Open 360 →</span></td></tr>
+      <tr><td><span class="rank">5</span></td><td class="uid">39281007@vopenid</td><td class="name">BéNaConChim</td><td><span class="tier dolphin">Dolphin</span></td><td class="num">₫81.0M</td><td class="num">688</td><td class="num">6h ago</td><td><span class="open360">Open 360 →</span></td></tr>
+      <tr><td><span class="rank">6</span></td><td class="uid">62094471@vopenid</td><td class="name">VuaSúngLục</td><td><span class="tier dolphin">Dolphin</span></td><td class="num">₫77.6M</td><td class="num">652</td><td class="num">1d ago</td><td><span class="open360">Open 360 →</span></td></tr>
+    </tbody>
+  </table>
+
+</div>
+<script>
+  // build the heatmap (7 days x 24 hours) — schematic intensity
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const host=document.getElementById('heat');
+  const tbl=document.createElement('div');
+  tbl.style.display='grid';
+  tbl.style.gridTemplateColumns='34px repeat(24, 1fr)';
+  tbl.style.gap='2px';
+  tbl.style.alignItems='center';
+  function cellColor(v){ // v 0..1 -> brand alpha
+    return 'rgba(240,90,34,'+(0.08+v*0.85).toFixed(2)+')';
+  }
+  // header row
+  tbl.appendChild(Object.assign(document.createElement('div'),{}));
+  for(let h=0;h<24;h++){const d=document.createElement('div');d.textContent=(h%6===0)?h:'';d.style.fontSize='9px';d.style.color='var(--text-muted)';d.style.textAlign='center';tbl.appendChild(d);}
+  for(let r=0;r<7;r++){
+    const lbl=document.createElement('div');lbl.textContent=days[r];lbl.style.fontSize='10px';lbl.style.color='var(--text-muted)';lbl.style.fontWeight='600';tbl.appendChild(lbl);
+    for(let h=0;h<24;h++){
+      // evening + weekend peaks
+      let base=Math.max(0,Math.sin((h-7)/24*Math.PI*1.3));
+      if(h>=19&&h<=23) base=Math.min(1,base+0.35);
+      if(r>=5) base=Math.min(1,base+0.18);
+      const c=document.createElement('div');
+      c.style.height='15px';c.style.borderRadius='3px';c.style.background=cellColor(Math.min(1,base));
+      tbl.appendChild(c);
+    }
+  }
+  host.appendChild(tbl);
+  const cap=document.createElement('div');
+  cap.textContent='Peak: weekday 20:00–23:00 and weekend afternoons. Useful for timing flash-sales / CS staffing.';
+  cap.style.fontSize='10.5px';cap.style.color='var(--text-muted)';cap.style.marginTop='10px';
+  host.appendChild(cap);
+</script>
+</body>
+</html>

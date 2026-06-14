@@ -1,7 +1,7 @@
 ---
 id: welcome-to-cube-playground
 title: Welcome to cube-playground 👋
-date: 2026-06-15
+date: 2026-06-12
 kind: new
 area: Getting started
 deepLink: /chat

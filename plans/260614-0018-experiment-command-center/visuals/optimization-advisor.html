@@ -3,22 +3,25 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Optimization Advisor — cube-playground</title>
+<title>Optimization Advisor — Experiment Builder</title>
 <!--
-  HI-FI PROTOTYPE · Optimization Advisor (the decision rail in front of the command center)
-  ------------------------------------------------------------------------------------------
-  Same design system as experiment-command-center.html (tokens from src/theme/tokens.css,
-  single orange accent, Inter, anti-slop). This is the UPSTREAM product: given a segment +
-  goal, diagnose the bottleneck via MULTI-ANGLE analysis, then recommend power-checked,
-  impact-ranked experiments that hand off into the command center.
-
-  Locked decisions baked in (2026-06-14):
-  • Baseline = Level(A) + Trajectory(C) + Peer(B), shown as 3 independent signals.
-  • Goal scope = Revenue + Engagement (both trees).
-  • Cold-start = labeled defaults; measured priors tagged "Library".
-  • On-demand live read (a "computed live" indicator marks freshness).
-  • Multi-angle = 9 descriptive lenses triangulated → an opportunity confidence
-    (model-predicted potential is the v2 upgrade, shown greyed as "locked").
+  HI-FI PROTOTYPE v5 · Optimization Advisor — the EXPERIMENT-ANATOMY investigation
+  -----------------------------------------------------------------------------------------
+  Prior versions kept for comparison (same folder):
+    • optimization-advisor-v2-analyst-console.html    — dense analyst console
+    • optimization-advisor-v3-guided-journey.html     — linear persona-first wizard
+    • optimization-advisor-v4-investigation-board.html — board with 4 artifact-type lanes
+  WHY v5 changes the organizing principle (user Q): v4's 4 lanes (Reasoning/Data/Segments/Analyses)
+  were organized by ARTIFACT TYPE — a filing system that doesn't teach how to build an experiment.
+  v5 organizes the investigation by the ANATOMY OF AN EXPERIMENT — a causal chain where each stage
+  produces ONE building block of the final experiment:
+      OPPORTUNITY → TARGET → CAUSE → LEVER → PROOF → (Decide)
+  Each stage has a guiding question + "what a strong answer looks like" (teaches the manager which
+  angle to ask for next). A live EXPERIMENT BLUEPRINT assembles from the findings you KEEP — so the
+  contribution of each stage, and how a chosen angle shapes the final experiment, is literally visible.
+  Adds: (1) engagement goal template alongside revenue; (2) experiment-anatomy stages; (3) top step
+  navigation; (4) the blueprint→experiment mapping made explicit on the Decide page.
+  Same design system / tokens as the command-center prototype (src/theme/tokens.css).
 -->
 <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -27,251 +30,606 @@
 <style>
   :root{
     --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
-    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
-    --neutral-800:#262626;--neutral-900:#171717;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;--neutral-900:#171717;
     --orange-50:#fff7ed;--orange-100:#ffedd5;--orange-600:#f05a22;--orange-700:#f54a00;
-    --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:var(--orange-50);
+    --brand:var(--orange-600);--brand-soft:var(--orange-50);
     --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
     --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
     --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
-    --text-on-brand:#fff;
     --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
     --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
     --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
     --muted-soft:#f5f5f5;--muted-ink:#525252;
-    --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-2xl:16px;--radius-full:9999px;
-    --shadow-xs:0 1px 2px rgba(0,0,0,.04);--shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.04);--shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
     --positive:#15803d;--negative:#b91c1c;
-    --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   *{box-sizing:border-box}html,body{margin:0;padding:0}
   body{font-family:var(--font-sans);background:var(--bg-app);color:var(--text-primary);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
   ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:var(--radius-full);border:2px solid var(--bg-app)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
 const {useState}=React;
+
+/* ============ primitives ============ */
 const card={background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-xs)'};
 const eyebrow={fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-muted)'};
-function Pill({bg,ink,children,title}){return <span title={title} style={{fontSize:11,fontWeight:600,borderRadius:'var(--radius-full)',padding:'2px 9px',background:bg,color:ink,whiteSpace:'nowrap'}}>{children}</span>;}
-function Btn({children,kind='ghost',onClick}){const base={fontFamily:'inherit',fontSize:13,fontWeight:600,padding:'8px 14px',borderRadius:'var(--radius-md)',cursor:'pointer',border:'1px solid transparent'};
+function Pill({bg,ink,children,onClick,title}){return <span title={title} onClick={onClick} style={{fontSize:10.5,fontWeight:600,borderRadius:'var(--radius-full)',padding:'2px 8px',background:bg,color:ink,whiteSpace:'nowrap',cursor:onClick?'pointer':'default',display:'inline-block'}}>{children}</span>;}
+function Btn({children,kind='ghost',onClick,sm,disabled}){const base={fontFamily:'inherit',fontSize:sm?12:13.5,fontWeight:600,padding:sm?'6px 11px':'10px 18px',borderRadius:'var(--radius-md)',cursor:disabled?'not-allowed':'pointer',border:'1px solid transparent',opacity:disabled?.45:1};
   const k={primary:{background:'var(--brand)',color:'#fff'},ghost:{background:'var(--bg-card)',color:'var(--text-secondary)',borderColor:'var(--border-strong)'}};
-  return <button style={{...base,...k[kind]}} onClick={onClick}>{children}</button>;}
+  return <button disabled={disabled} style={{...base,...k[kind]}} onClick={disabled?undefined:onClick}>{children}</button>;}
 
-/* ---------- demo data: cfm_vn lapsing-whale segment ---------- */
-// goal trees — each factor carries the 3 baseline signals (A level pctile, C trend %, B peer delta %)
-const REVENUE_TREE=[
-  {f:'Active payers', val:'2,400', pctile:41, trend:-12, peer:-9},
-  {f:'ARPPU (14d)', val:'1.18M₫', pctile:62, trend:-4, peer:+3},
-  {f:'Payer lifespan / recency', val:'lapsing', pctile:38, trend:-22, peer:-31, weak:true},
-  {f:'Payment success', val:'96%', pctile:70, trend:0, peer:+1},
-];
-const ENGAGE_TREE=[
-  {f:'Session frequency', val:'2.1 / wk', pctile:30, trend:-18, peer:-22, weak:true},
-  {f:'Session length', val:'24 min', pctile:55, trend:-3, peer:-2},
-  {f:'Active lifespan', val:'declining', pctile:44, trend:-14, peer:-12},
-];
-// the 9 lenses for the top opportunity (payer-lifespan / lapsing whales)
-const LENSES=[
-  {n:'Level vs population',tag:'A',verdict:'below',txt:'38th pctile of cfm payers'},
-  {n:'Trajectory',tag:'C',verdict:'declining',txt:'−22% vs this cohort 60d ago'},
-  {n:'Peer / look-alike',tag:'B',verdict:'behind',txt:'−31% vs same tenure+tier cohorts'},
-  {n:'Decomposition',tag:'#4',verdict:'bottleneck',txt:'lifespan is the weak factor; payers & ARPPU hold'},
-  {n:'Concentration',tag:'#5',verdict:'whale-heavy',txt:'71% of rev from top decile → defend, don’t broaden'},
-  {n:'Funnel',tag:'#6',verdict:'leaking',txt:'repeat-purchase 28% → 19%'},
-  {n:'Lifecycle',tag:'#7',verdict:'real',txt:'gap persists controlling for tenure → not structural'},
-  {n:'Cross-signal',tag:'#8',verdict:'signal',txt:'days-since-CS-touch correlates w/ lapse (r≈.41)'},
-  {n:'Anomaly',tag:'#9',verdict:'shift',txt:'step-down after 2026-04 patch'},
-  {n:'Model-predicted',tag:'D',verdict:'locked',txt:'needs Treatment-Effect Library — v2'},
-];
-const RECS=[
-  {rank:1,name:'Lapsing-whale win-back (CS call)',lever:'Win-back',opp:'Payer lifespan',
-   lift:'+6.0pp re-pay',conf:'Library · measured',confTone:'high',n:'2,400',reach:'78%',power:'Powered ≥4pp',
-   money:'+312M₫',feasible:true,lenses:'A C B #4 #5 #8 #9'},
-  {rank:2,name:'Re-engagement care touch',lever:'Re-engage',opp:'Session frequency',
-   lift:'+0.4 sess/wk',conf:'Default · assumption',confTone:'med',n:'2,400',reach:'78%',power:'Powered ≥0.25',
-   money:'+90M₫ (downstream LTV)',feasible:true,lenses:'A C B #6'},
-  {rank:3,name:'Payment-friction recovery assist',lever:'Payment recovery',opp:'Payment success',
-   lift:'+1.5pp success',conf:'Default · assumption',confTone:'low',n:'~90',reach:'—',power:'Underpowered (n too small)',
-   money:'+8M₫',feasible:true,under:true,lenses:'#6'},
+const CTX={game:'cfm_vn',segment:'Lapsing whales',n:'2,400'};
+const CONF={high:{l:'high confidence',bg:'var(--success-soft)',ink:'var(--success-ink)'},med:{l:'an estimate',bg:'var(--warning-soft)',ink:'var(--warning-ink)'}};
+const TRIAGE={keep:{l:'Keep',h:'true & load-bearing → fills the blueprint',bg:'var(--success-soft)',ink:'var(--success-ink)',icon:'✓'},flag:{l:'Flag',h:'interesting but unsure → stays an open question',bg:'var(--warning-soft)',ink:'var(--warning-ink)',icon:'⚑'},dismiss:{l:'Rule out',h:'looked, but it doesn’t change the plan',bg:'var(--muted-soft)',ink:'var(--muted-ink)',icon:'✕'}};
+const FEAS={true:{l:'we can do this',bg:'var(--success-soft)',ink:'var(--success-ink)'},partial:{l:'partly feasible',bg:'var(--warning-soft)',ink:'var(--warning-ink)'},false:{l:'not feasible yet',bg:'var(--destructive-soft)',ink:'var(--destructive-ink)'}};
+
+/* ============ the experiment-anatomy stages (shared) ============
+   Each stage = one building block of the experiment. The guiding question + "good looks like"
+   teach the manager what to ask for. `builds` = the slot it fills in the blueprint sentence. */
+const STAGES=[
+  {key:'opportunity',label:'Opportunity',emoji:'💰',q:'Where’s the gap — and how big?',builds:'the prize & the success metric',good:'A number you’d defend to your boss — plus one obvious alternative ruled out.',slotEmpty:'how big?'},
+  {key:'target',label:'Target',emoji:'🎯',q:'Who exactly — and compared to whom?',builds:'the cohort + a fair comparison group',good:'A look-alike group so nobody can wave the gap away as “just normal”.',slotEmpty:'who?'},
+  {key:'cause',label:'Cause',emoji:'🧠',q:'Why is it happening?',builds:'the hypothesis — the “because”',good:'A reason that rules out the usual suspects: price? a few outliers? a one-off event?',slotEmpty:'why?'},
+  {key:'lever',label:'Lever',emoji:'🛠️',q:'What can we do — that we actually can?',builds:'the treatment (the action CS delivers)',good:'An action matched to the cause AND deliverable today.',slotEmpty:'do what?'},
+  {key:'proof',label:'Proof',emoji:'📏',q:'Will it work, and is it safe?',builds:'expected lift, power check & guardrails',good:'A measured prior, “big enough to tell”, and safety rails.',slotEmpty:'will it work?'},
 ];
 
-/* ---------- mini signal widgets ---------- */
-function PctileBar({p}){const tone=p<45?'var(--negative)':p<60?'var(--warning)':'var(--positive)';
-  return <div title={`${p}th percentile`} style={{display:'flex',alignItems:'center',gap:6}}>
-    <div style={{width:54,height:6,background:'var(--bg-muted)',borderRadius:'var(--radius-full)',overflow:'hidden'}}>
-      <div style={{width:`${p}%`,height:'100%',background:tone}}/></div>
-    <span style={{fontSize:11,color:'var(--text-muted)',fontVariantNumeric:'tabular-nums'}}>P{p}</span></div>;}
-function Trend({v}){const up=v>0,flat=v===0;const tone=flat?'var(--text-muted)':up?'var(--positive)':'var(--negative)';
-  return <span style={{fontSize:12,fontWeight:600,color:tone,fontVariantNumeric:'tabular-nums'}}>{flat?'—':(up?'▲':'▼')+' '+Math.abs(v)+'%'}</span>;}
-function Peer({v}){const up=v>=0;return <span style={{fontSize:12,fontWeight:600,color:up?'var(--positive)':'var(--negative)',fontVariantNumeric:'tabular-nums'}}>{(up?'+':'')+v}%</span>;}
+/* ============ goal templates — SAME stages, different content ============ */
+const GOALS={
+  revenue:{label:'Make more money',tagline:'recover the revenue slipping from these whales',
+    sentence:['Among ','target',' who ','opportunity',', we think the cause is ','cause',' — so we’ll run ','lever',', expecting ','proof','.']},
+  engagement:{label:'Keep them playing',tagline:'get them logging in & playing more — the signal before they stop paying',
+    sentence:['Among ','target',' who ','opportunity',', we think the cause is ','cause',' — so we’ll run ','lever',', expecting ','proof','.']},
+};
 
-function TreeCard({title,rows,note}){
-  return <div style={{...card,padding:'16px 18px',flex:1,minWidth:0}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4}}>
-      <div style={{fontWeight:600,fontSize:13}}>{title}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>{note}</div></div>
-    <table style={{width:'100%',borderCollapse:'collapse'}}>
-      <thead><tr>
-        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}}>Factor</th>
-        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}}>Value</th>
-        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}} title="Level vs population">A · level</th>
-        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}} title="Trajectory vs own past">C · trend</th>
-        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}} title="vs comparable cohorts">B · peer</th>
-      </tr></thead>
-      <tbody>{rows.map((r,i)=><tr key={i} style={{background:r.weak?'var(--brand-soft)':'transparent'}}>
-        <td style={{padding:'9px 4px',fontSize:13,fontWeight:r.weak?600:500,borderBottom:'1px solid var(--bg-muted)'}}>
-          {r.f}{r.weak&&<span style={{marginLeft:8}}><Pill bg="var(--brand)" ink="#fff">opportunity</Pill></span>}</td>
-        <td style={{padding:'9px 4px',fontSize:13,borderBottom:'1px solid var(--bg-muted)',color:'var(--text-secondary)'}}>{r.val}</td>
-        <td style={{padding:'9px 4px',borderBottom:'1px solid var(--bg-muted)'}}><PctileBar p={r.pctile}/></td>
-        <td style={{padding:'9px 4px',borderBottom:'1px solid var(--bg-muted)'}}><Trend v={r.trend}/></td>
-        <td style={{padding:'9px 4px',borderBottom:'1px solid var(--bg-muted)'}}><Peer v={r.peer}/></td>
-      </tr>)}</tbody>
-    </table>
-  </div>;
+/* aspects keyed by goal → list (each carries its stage). slot = short phrase used in the blueprint. */
+const ASPECTS={
+  revenue:[
+    {id:'r-op1',stage:'opportunity',q:'How much money is at stake?',finding:'≈ 312M₫/month if the lapse isn’t reversed. That’s the prize.',slot:'are worth ≈312M₫/mo',conf:'med'},
+    {id:'r-op2',stage:'opportunity',q:'How long since they last paid?',finding:'27–34 days ago vs 1–5 days for healthy whales — the clearest weak signal.',slot:'last paid 27–34 days ago',conf:'high'},
+    {id:'r-op3',stage:'opportunity',q:'Is spend itself the problem?',finding:'No — spend per whale is normal (1.18M₫). Rules out a pricing fix.',slot:'',conf:'high'},
+    {id:'r-tg1',stage:'target',q:'Compare to healthy look-alikes (same age & tier)',finding:'They pay 31% less often than near-identical healthy whales — the fairest comparison, and it confirms the gap.',slot:'2,400 lapsing whales',conf:'high'},
+    {id:'r-tg2',stage:'target',q:'Compare to the whole cfm_vn payer base',finding:'Also below the broad base — but the look-alike comparison is the trustworthy one.',slot:'',conf:'med'},
+    {id:'r-tg3',stage:'target',q:'Whales we already won back in Q1',finding:'A real cohort we moved before — grounds the expected lift and gives us a precedent.',slot:'',conf:'high'},
+    {id:'r-ca1',stage:'cause',q:'Are they leaving over price, or just drifting?',finding:'Drifting — they simply stopped showing up; spend is normal. A nudge fits, not a discount.',slot:'they’re drifting (not price)',conf:'high'},
+    {id:'r-ca2',stage:'cause',q:'A few big whales, or the whole group?',finding:'The whole group slid together — not 2 outliers. Treat it as a cohort.',slot:'',conf:'high'},
+    {id:'r-ca3',stage:'cause',q:'Did a patch or event cause it?',finding:'No single event — a steady 60-day slide. Behavioural, not a shock.',slot:'',conf:'med'},
+    {id:'r-lv1',stage:'lever',q:'Win-back CS comeback call',finding:'Matches a drift cause and CS can deliver it today.',slot:'a CS comeback call',conf:'high',feas:'true'},
+    {id:'r-lv2',stage:'lever',q:'Re-engagement care touch',finding:'A lighter touch; CS can do it, but it’s a weaker fit for a payment lapse.',slot:'a re-engagement touch',conf:'med',feas:'true'},
+    {id:'r-lv3',stage:'lever',q:'Payment-friction recovery assist',finding:'Only ~180 affected — a small side-fix, not the main lever.',slot:'a payment-friction assist',conf:'med',feas:'true'},
+    {id:'r-pf1',stage:'proof',q:'What lift can we expect? (past results)',finding:'+6 in 100 measured on cfm_vn whales before. High-confidence prior.',slot:'+6 in 100 (proven before)',conf:'high'},
+    {id:'r-pf2',stage:'proof',q:'Is the group big enough to prove it?',finding:'Yes — 1,872 reachable gives a clear answer in 14 days.',slot:'',conf:'high'},
+    {id:'r-pf3',stage:'proof',q:'Is it safe for the whales?',finding:'Won’t contact whales who paid in the last 7 days; hold-out measures real lift; max 1 contact/player.',slot:'',conf:'high'},
+  ],
+  engagement:[
+    {id:'e-op1',stage:'opportunity',q:'How much playtime is slipping?',finding:'Logins fell from ~5/week to ~2/week over 60 days — the slide that precedes lapsing and churn.',slot:'play half as often (5→2/wk)',conf:'high'},
+    {id:'e-op2',stage:'opportunity',q:'Is session length the problem?',finding:'No — sessions are normal length. It’s how OFTEN they play, not how long.',slot:'',conf:'high'},
+    {id:'e-op3',stage:'opportunity',q:'Does this lead to lost revenue?',finding:'Yes — this drop precedes a ~312M₫ payment lapse. Engagement is the leading signal of revenue.',slot:'are sliding toward a ≈312M₫ lapse',conf:'med'},
+    {id:'e-tg1',stage:'target',q:'Compare to still-active look-alikes',finding:'Active peers play ~5/week; this group halved. A real, fair gap.',slot:'1,900 sliding whales',conf:'high'},
+    {id:'e-tg2',stage:'target',q:'Compare to the whole base',finding:'Below base too, but the active-look-alike comparison is the one to trust.',slot:'',conf:'med'},
+    {id:'e-tg3',stage:'target',q:'A cohort we re-engaged before',finding:'A Q1 re-engaged group — grounds the expected lift.',slot:'',conf:'high'},
+    {id:'e-ca1',stage:'cause',q:'Have they run out of content?',finding:'Likely — completion rates are high; they’ve exhausted fresh goals.',slot:'are out of fresh content',conf:'med'},
+    {id:'e-ca2',stage:'cause',q:'Are they socially isolated (no guild)?',finding:'~60% are guild-less — a known churn driver in cfm.',slot:'are mostly guild-less',conf:'high'},
+    {id:'e-ca3',stage:'cause',q:'Did the daily habit break?',finding:'Daily-login streaks broke around day 30 — the habit lapsed.',slot:'',conf:'med'},
+    {id:'e-lv1',stage:'lever',q:'Re-engagement care touch',finding:'A CS check-in to restart the play habit. CS can deliver today.',slot:'a re-engagement touch',conf:'med',feas:'true'},
+    {id:'e-lv2',stage:'lever',q:'Guild-matchmaking nudge',finding:'Pair guild-less whales into active guilds — matches the isolation cause, but needs LiveOps support.',slot:'a guild-matchmaking nudge',conf:'med',feas:'partial'},
+    {id:'e-lv3',stage:'lever',q:'Daily-loop reward nudge',finding:'Restart streak rewards — fits the habit cause, but this is a LiveOps lever we can’t push yet.',slot:'a daily-loop nudge',conf:'med',feas:'false'},
+    {id:'e-pf1',stage:'proof',q:'What lift can we expect?',finding:'+0.4 sessions/week — an estimate, untested on this cohort. Treat it as a bet.',slot:'+0.4 sessions/wk (a bet)',conf:'med'},
+    {id:'e-pf2',stage:'proof',q:'Is the group big enough?',finding:'Yes — powered for a clear answer in 14 days.',slot:'',conf:'high'},
+    {id:'e-pf3',stage:'proof',q:'Is it safe?',finding:'Max 1 contact per player; hold-out group measures the real lift.',slot:'',conf:'high'},
+  ],
+};
+
+/* ============ blueprint helpers ============ */
+function blueprintSlots(aspects){ // stage.key → {primary slot text, kept count}
+  const out={};
+  STAGES.forEach(s=>{
+    const kept=aspects.filter(a=>a.stage===s.key&&a.triage==='keep');
+    const withSlot=kept.find(a=>a.slot);
+    out[s.key]={text:withSlot?withSlot.slot:null,kept:kept.length,firstKeptId:kept[0]&&kept[0].id};
+  });
+  return out;
 }
 
-function LensChip({l}){
-  const tone={below:'var(--negative)',declining:'var(--negative)',behind:'var(--negative)',leaking:'var(--negative)',
-    bottleneck:'var(--brand)','whale-heavy':'var(--warning-ink)',real:'var(--text-primary)',signal:'var(--info-ink)',shift:'var(--warning-ink)',locked:'var(--text-muted)'}[l.verdict]||'var(--text-primary)';
-  const locked=l.verdict==='locked';
-  return <div style={{...card,padding:'11px 13px',opacity:locked?.55:1,borderStyle:locked?'dashed':'solid'}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-      <span style={{fontSize:12,fontWeight:600}}>{l.n}</span>
-      <Pill bg="var(--bg-muted)" ink="var(--muted-ink)">{l.tag}</Pill></div>
-    <div style={{fontSize:12,fontWeight:600,color:tone,marginBottom:2,textTransform:'capitalize'}}>{l.verdict}</div>
-    <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45}}>{l.txt}</div>
-  </div>;
+/* ============ custom-angle support ============
+   When the manager types their own question, the Advisor adds it as a live card and
+   "investigates" it. In the real build this is /api/advisor/diagnose scoped to the typed
+   question; here we return an honest stage-aware placeholder (no fabricated metrics). */
+let CID=0; const nextCustomId=()=>'c'+(++CID);
+const CUSTOM_FINDING={
+  opportunity:'Live read on '+CTX.segment+' for your question — there’s a measurable gap here. Size it next to the headline ₫ figure before you trust it.',
+  target:'Built this as a comparison cut. It holds as a fair group — sanity-check the N before leaning on it.',
+  cause:'Checked the data for this driver — plausible contributor. Weigh it against the cause you’ve kept.',
+  lever:'Assessed delivery: CS could action a version of this. Confirm capacity before it becomes the lever.',
+  proof:'Quick power + safety read on your question — factor it into the readout.',
+};
+const CUSTOM_SLOT=q=>{const s=q.trim().replace(/[?.!]+$/,'').toLowerCase();return s.length<=30?s:s.slice(0,28)+'…';};
+const composerInput={width:'100%',fontFamily:'inherit',fontSize:13,border:'1px solid var(--border-strong)',borderRadius:'var(--radius-sm)',padding:'7px 9px',outline:'none',resize:'none',background:'var(--bg-card)',marginTop:8};
+/* some questions can't be answered from game data alone — the Advisor asks for the missing piece */
+const NEEDINFO_RX=/(cost|price|competitor|benchmark|industry|store|portal|refund|budget|capacity|which (server|region|market)|how much should|compared to other game)/i;
+function customResult(stageKey,q){
+  if(NEEDINFO_RX.test(q)) return {state:'needinfo',need:'I can’t source this from the game data alone — it needs context only you have (a figure, the comparison set, or which market/server). Add the missing piece and I’ll retry.'};
+  return {state:'done',finding:CUSTOM_FINDING[stageKey]};
 }
 
-/* ---------- screens ---------- */
-function ContextBar({goal,setGoal}){
-  return <div style={{display:'flex',alignItems:'center',gap:14,padding:'12px 28px',background:'var(--bg-card)',borderBottom:'1px solid var(--border-card)',flexWrap:'wrap'}}>
-    <span style={eyebrow}>Analyzing</span>
-    <Pill bg="var(--bg-muted)" ink="var(--muted-ink)">cfm_vn</Pill>
-    <span style={{fontWeight:600,fontSize:13}}>Segment · Lapsing whales</span>
-    <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)'}}>5ee78131…</span>
-    <span style={{flex:1}}/>
-    <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,color:'var(--success-ink)'}}>
-      <span style={{width:7,height:7,borderRadius:'50%',background:'var(--success)'}}/>computed live</span>
-    <div style={{display:'flex',gap:0,border:'1px solid var(--border-strong)',borderRadius:'var(--radius-md)',overflow:'hidden'}}>
-      {['Revenue','Engagement'].map(g=><div key={g} onClick={()=>setGoal(g)} style={{padding:'6px 13px',fontSize:12.5,fontWeight:600,cursor:'pointer',
-        background:goal===g?'var(--brand)':'var(--bg-card)',color:goal===g?'#fff':'var(--text-secondary)'}}>{g}↑</div>)}
+/* the in-card composer for "add your own angle" */
+function AddAngle({stage,onAdd}){
+  const [open,setOpen]=useState(false),[q,setQ]=useState('');
+  const submit=()=>{const v=q.trim();if(!v)return;onAdd(stage.key,v);setQ('');setOpen(false);};
+  if(!open) return <button onClick={()=>setOpen(true)}
+    style={{fontFamily:'inherit',fontSize:12.5,fontWeight:600,padding:'14px 0',borderRadius:'var(--radius-md)',border:'1px dashed var(--border-strong)',background:'transparent',color:'var(--text-muted)',cursor:'pointer',minHeight:60}}>+ Add your own angle<br/><span style={{fontWeight:400,fontSize:11}}>(a question for “{stage.label}” the Advisor should check)</span></button>;
+  return <div style={{...card,padding:'12px 13px',borderColor:'var(--brand)',background:'var(--brand-soft)'}}>
+    <div style={{...eyebrow,marginBottom:6}}>Ask about “{stage.label}”</div>
+    <textarea autoFocus value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))submit();}} rows={2}
+      placeholder={'e.g. '+stage.q} style={{width:'100%',fontFamily:'inherit',fontSize:13,border:'1px solid var(--border-strong)',borderRadius:'var(--radius-sm)',padding:'7px 9px',outline:'none',resize:'none',background:'var(--bg-card)'}}/>
+    <div style={{display:'flex',gap:6,marginTop:8}}>
+      <Btn sm kind="primary" onClick={submit} disabled={!q.trim()}>✨ Ask the Advisor</Btn>
+      <Btn sm onClick={()=>{setOpen(false);setQ('');}}>Cancel</Btn>
     </div>
   </div>;
 }
 
-function Diagnosis({go,goal}){
-  const agree=LENSES.filter(l=>l.verdict!=='locked'&&!['real'].includes('')&& l.verdict!=='locked').length; // all non-locked
-  const agreeing=9, total=9;
+/* ============ aspect card ============ */
+function AspectCard({a,onWork,onTriage,onToggle,onOpen,onRefine,onResubmit,onCancelEdit,onProvideInfo}){
+  const working=a.state==='working',done=a.state==='done',editing=a.state==='editing',needinfo=a.state==='needinfo';
+  const [draft,setDraft]=useState(a.q),[info,setInfo]=useState('');
+  const borderC=a.triage==='keep'?'var(--success)':a.triage==='flag'?'var(--warning)':needinfo?'var(--warning)':editing?'var(--brand)':'var(--border-card)';
+  return <div style={{...card,padding:'13px 15px',opacity:a.on?1:.5,borderColor:borderC}}>
+    <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
+      <span style={{fontSize:13.5,fontWeight:600,lineHeight:1.35}}>{a.q}</span>
+      <button onClick={()=>onToggle(a.id)} title={a.on?'In scope — Advisor will look at this. Click to skip.':'Skipped — won’t be investigated. Click to put back in scope.'}
+        style={{fontFamily:'inherit',flexShrink:0,width:32,height:18,borderRadius:'var(--radius-full)',border:'none',cursor:'pointer',background:a.on?'var(--brand)':'var(--border-strong)',position:'relative'}}>
+        <span style={{position:'absolute',top:2,left:a.on?16:2,width:14,height:14,borderRadius:'50%',background:'#fff',transition:'left .12s'}}/></button>
+    </div>
+    {a.feas&&<div style={{marginTop:7}}><Pill bg={FEAS[a.feas].bg} ink={FEAS[a.feas].ink}>{FEAS[a.feas].l}</Pill></div>}
+    {!done&&!working&&!editing&&!needinfo&&<button onClick={()=>onWork(a.id)} disabled={!a.on}
+      style={{fontFamily:'inherit',marginTop:11,width:'100%',fontSize:12.5,fontWeight:600,padding:'8px 0',borderRadius:'var(--radius-md)',border:'1px dashed var(--brand)',background:'var(--brand-soft)',color:'var(--brand)',cursor:a.on?'pointer':'not-allowed',opacity:a.on?1:.5}}>✨ Look into this</button>}
+    {working&&<div style={{marginTop:11,fontSize:12.5,color:'var(--brand)',display:'flex',gap:7,alignItems:'center',animation:'pulse 1s infinite'}}><span>✨</span> Advisor is digging…</div>}
+
+    {/* refine: reword your question and re-investigate */}
+    {editing&&<div style={{marginTop:10}}>
+      <div style={{...eyebrow,marginBottom:2}}>Reword & re-ask</div>
+      <textarea autoFocus value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))onResubmit(a.id,a.stage,draft.trim()||a.q);}} rows={2} style={composerInput}/>
+      <div style={{display:'flex',gap:6,marginTop:7}}>
+        <Btn sm kind="primary" onClick={()=>onResubmit(a.id,a.stage,draft.trim()||a.q)}>✨ Re-ask</Btn>
+        <Btn sm onClick={()=>{setDraft(a.q);onCancelEdit(a.id);}}>Cancel</Btn>
+      </div></div>}
+
+    {/* needs-info: Advisor couldn't source it; ask the manager for the missing piece */}
+    {needinfo&&<div style={{marginTop:10}}>
+      <div style={{padding:'10px 12px',background:'var(--warning-soft)',borderRadius:'var(--radius-md)',fontSize:12.5,color:'var(--warning-ink)',lineHeight:1.45,display:'flex',gap:7}}><span>🤔</span><span>{a.need}</span></div>
+      <textarea autoFocus value={info} onChange={e=>setInfo(e.target.value)} rows={2} placeholder="Add the missing context (e.g. “benchmark vs MLBB ARPPU ≈ 95k₫”)…" style={composerInput}/>
+      <div style={{display:'flex',gap:6,marginTop:7,flexWrap:'wrap'}}>
+        <Btn sm kind="primary" onClick={()=>info.trim()&&onProvideInfo(a.id,a.stage,info.trim())} disabled={!info.trim()}>Send & retry</Btn>
+        <Btn sm onClick={()=>{setDraft(a.q);onRefine(a.id);}}>✎ Reword instead</Btn>
+      </div></div>}
+
+    {done&&<div style={{marginTop:10}}>
+      <div onClick={()=>onOpen(a.id)} style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.45,cursor:'pointer'}}>{a.finding}</div>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginTop:9,flexWrap:'wrap'}}>
+        {a.custom&&<Pill bg="var(--info-soft)" ink="var(--info-ink)" title="you asked this">your angle</Pill>}
+        <Pill bg={CONF[a.conf].bg} ink={CONF[a.conf].ink}>{CONF[a.conf].l}</Pill>
+        {a.triage==='keep'&&a.slot&&<Pill bg="var(--brand-soft)" ink="var(--brand)" title="this is what fills the blueprint slot">→ blueprint</Pill>}
+        <button onClick={()=>{setDraft(a.q);onRefine(a.id);}} title="reword & re-investigate — works on the Advisor’s own questions too" style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--text-muted)',fontSize:11.5,fontWeight:600,cursor:'pointer',padding:0}}>✎ refine</button>
+        <span style={{flex:1}}/>
+        {['keep','flag','dismiss'].map(t=>{const on=a.triage===t,T=TRIAGE[t];return <button key={t} title={T.l+' — '+T.h} onClick={()=>onTriage(a.id,on?null:t)}
+          style={{fontFamily:'inherit',width:26,height:26,borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12,
+            border:'1px solid '+(on?T.ink:'var(--border-strong)'),background:on?T.bg:'var(--bg-card)',color:on?T.ink:'var(--text-muted)'}}>{T.icon}</button>;})}
+      </div>
+    </div>}
+  </div>;
+}
+
+/* ============ discovery drawer ============ */
+function DiscoveryDrawer({a,onClose,onTriage}){
+  if(!a) return null; const st=STAGES.find(s=>s.key===a.stage);
+  return <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.25)',zIndex:60,display:'flex',justifyContent:'flex-end'}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:460,maxWidth:'93vw',height:'100%',background:'var(--bg-card)',padding:24,overflowY:'auto',boxShadow:'var(--shadow-lg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <div style={eyebrow}>{st.emoji} {st.label} · discovery</div><Btn sm onClick={onClose}>Close</Btn></div>
+      <h3 style={{fontSize:17,fontWeight:700,margin:'0 0 12px',lineHeight:1.3}}>{a.q}</h3>
+      <div style={{padding:'15px 16px',background:'var(--brand-soft)',borderRadius:'var(--radius-md)',fontSize:14.5,lineHeight:1.55,marginBottom:14}}>{a.finding}</div>
+      <div style={{padding:'10px 14px',background:'var(--bg-muted)',borderRadius:'var(--radius-md)',fontSize:12.5,marginBottom:16}}>
+        <b>What this decides in your experiment:</b> {st.builds}.{a.slot&&<> Keep it and the blueprint reads “…{a.slot}…”.</>}</div>
+      <div style={{...eyebrow,marginBottom:8}}>How sure are we</div>
+      <div style={{fontSize:12.5,color:'var(--text-secondary)',lineHeight:1.55,marginBottom:6}}>3 independent checks point the same way — where they sit, the 90-day direction, and the look-alike comparison.</div>
+      <button onClick={()=>alert('→ opens the exact query in the Playground + compiled SQL (analyst escape hatch)')} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:12.5,cursor:'pointer',padding:0}}>↗ see the numbers in Playground</button>
+      <div style={{...eyebrow,margin:'20px 0 8px'}}>What do you make of it?</div>
+      <div style={{display:'flex',gap:8}}>
+        {['keep','flag','dismiss'].map(t=>{const on=a.triage===t,T=TRIAGE[t];return <button key={t} onClick={()=>onTriage(a.id,on?null:t)}
+          style={{fontFamily:'inherit',flex:1,padding:'9px 0',borderRadius:'var(--radius-md)',cursor:'pointer',fontSize:12.5,fontWeight:600,
+            border:'1px solid '+(on?T.ink:'var(--border-strong)'),background:on?T.bg:'var(--bg-card)',color:on?T.ink:'var(--text-secondary)'}}>{T.icon} {T.l}</button>;})}
+      </div>
+    </div>
+  </div>;
+}
+
+/* ============ blueprint strip — the assembling experiment ============ */
+function Blueprint({goal,slots,onJump,compact}){
+  const tmpl=GOALS[goal].sentence;
+  let si=0;
+  return <div style={{...card,padding:compact?'12px 15px':'15px 18px',background:'linear-gradient(180deg,var(--brand-soft),#fff)'}}>
+    {!compact&&<div style={{...eyebrow,marginBottom:7}}>Your experiment so far — built from what you keep</div>}
+    <div style={{fontSize:compact?14:15.5,lineHeight:1.7}}>
+      {tmpl.map((part,i)=>{
+        const isSlot=STAGES.some(s=>s.key===part);
+        if(!isSlot) return <span key={i}>{part}</span>;
+        const s=STAGES.find(x=>x.key===part),sl=slots[part];
+        return sl.text
+          ? <span key={i} onClick={()=>onJump&&onJump(part)} title={'from '+s.label} style={{fontWeight:700,color:'var(--brand)',cursor:onJump?'pointer':'default',borderBottom:'2px solid var(--brand-soft)'}}>{sl.text}</span>
+          : <button key={i} onClick={()=>onJump&&onJump(part)} title={'Fill from the '+s.label+' step'} style={{fontFamily:'inherit',fontSize:'inherit',fontWeight:600,color:'var(--text-muted)',background:'var(--bg-muted)',border:'1px dashed var(--border-strong)',borderRadius:'var(--radius-sm)',padding:'1px 8px 1px 6px',cursor:onJump?'pointer':'default',whiteSpace:'nowrap'}}><span style={{marginRight:3}}>{s.emoji}</span><span style={{fontSize:'.82em',fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em',opacity:.8}}>{s.label}</span> <span style={{opacity:.75}}>{s.slotEmpty}</span>{onJump&&' →'}</button>;
+      })}
+    </div>
+  </div>;
+}
+
+/* ============ top step navigation ============ */
+function StepNav({goal,active,slots,go,onDecide,decideReady}){
+  return <div style={{display:'flex',alignItems:'center',gap:0,overflowX:'auto',padding:'2px 0'}}>
+    {STAGES.map((s,i)=>{const cur=active===i,filled=slots[s.key].text,touched=slots[s.key].kept>0;
+      return <React.Fragment key={s.key}>
+        <button onClick={()=>go(i)} style={{fontFamily:'inherit',display:'flex',alignItems:'center',gap:7,border:'none',background:'none',cursor:'pointer',padding:'4px 6px',whiteSpace:'nowrap'}}>
+          <span style={{width:24,height:24,borderRadius:'50%',display:'grid',placeItems:'center',fontSize:12,fontWeight:700,
+            background:cur?'var(--brand)':filled?'var(--success)':'var(--bg-muted)',color:(cur||filled)?'#fff':'var(--text-muted)'}}>{filled?'✓':s.emoji}</span>
+          <span style={{display:'flex',flexDirection:'column',lineHeight:1.1}}>
+            <span style={{fontSize:12.5,fontWeight:cur?700:600,color:cur?'var(--text-primary)':'var(--text-secondary)'}}>{s.label}</span>
+            <span style={{fontSize:10,color:filled?'var(--success-ink)':touched?'var(--warning-ink)':'var(--text-muted)'}}>{filled?'kept':touched?'review':'open'}</span>
+          </span>
+        </button>
+        <span style={{width:16,height:1,background:'var(--border-strong)',margin:'0 2px',flexShrink:0}}/>
+      </React.Fragment>;})}
+    <button onClick={onDecide} style={{fontFamily:'inherit',display:'flex',alignItems:'center',gap:7,border:'none',background:'none',cursor:'pointer',padding:'4px 6px',whiteSpace:'nowrap'}}>
+      <span style={{width:24,height:24,borderRadius:'50%',display:'grid',placeItems:'center',fontSize:12,fontWeight:700,background:decideReady?'var(--brand)':'var(--bg-muted)',color:decideReady?'#fff':'var(--text-muted)'}}>🏁</span>
+      <span style={{fontSize:12.5,fontWeight:700,color:decideReady?'var(--brand)':'var(--text-muted)'}}>Decide</span>
+    </button>
+  </div>;
+}
+
+/* ============ stage panel ============ */
+function StagePanel({stage,aspects,handlers,go,active}){
+  const items=aspects.filter(a=>a.stage===stage.key);
+  const kept=items.filter(a=>a.triage==='keep').length;
   return <div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:18}}>
-      <div><div style={eyebrow}>Optimization Advisor · Diagnosis</div>
-        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Where is the opportunity?</h1></div>
-      <Btn kind="primary" onClick={()=>go('recs')}>See recommended experiments →</Btn>
-    </div>
-
-    {/* goal-tree decomposition — lens #4, with A/C/B signals per factor */}
-    <div style={{display:'flex',gap:14,marginBottom:18,alignItems:'stretch'}}>
-      <TreeCard title="Revenue tree — Payers × ARPPU × Lifespan" rows={REVENUE_TREE}
-        note={goal==='Revenue'?'primary goal':'leading → revenue'}/>
-      <TreeCard title="Engagement tree — Frequency × Length × Lifespan" rows={ENGAGE_TREE}
-        note={goal==='Engagement'?'primary goal':'leading indicator'}/>
-    </div>
-
-    {/* multi-angle triangulation for the top opportunity */}
-    <div style={{...card,padding:'18px 20px'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-        <div><div style={eyebrow}>Top opportunity · multi-angle read</div>
-          <div style={{fontSize:16,fontWeight:700,marginTop:4}}>Payer lifespan is collapsing — these are lapsing whales</div></div>
-        <div style={{textAlign:'right'}}>
-          <div style={{fontSize:24,fontWeight:700,color:'var(--positive)'}}>8/9</div>
-          <div style={{fontSize:11,color:'var(--text-muted)'}}>lenses agree · <b style={{color:'var(--positive)'}}>High confidence</b></div></div>
-      </div>
-      <div style={{fontSize:13,color:'var(--text-secondary)',margin:'8px 0 16px',maxWidth:760}}>
-        Confirmed across level, trend and peer baselines, sits on the decomposition bottleneck, and is whale-concentrated —
-        so the play is to <b>defend existing payers</b>, not broaden the base. Estimated <b>~312M₫</b> recoverable if we close a third of the gap.
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10}}>
-        {LENSES.map((l,i)=><LensChip key={i} l={l}/>)}
-      </div>
-    </div>
-  </div>;
-}
-
-function ConfTag({tone}){const m={high:['var(--success-soft)','var(--success-ink)','high conf'],
-  med:['var(--warning-soft)','var(--warning-ink)','med conf'],low:['var(--muted-soft)','var(--muted-ink)','low conf']}[tone];
-  return <Pill bg={m[0]} ink={m[1]}>{m[2]}</Pill>;}
-
-function RecCard({r,go}){
-  return <div style={{...card,padding:'18px 20px',opacity:r.under?.7:1,display:'flex',gap:18,alignItems:'flex-start'}}>
-    <div style={{width:30,height:30,borderRadius:'var(--radius-full)',background:r.under?'var(--bg-muted)':'var(--brand)',color:r.under?'var(--text-muted)':'#fff',
-      display:'grid',placeItems:'center',fontWeight:700,fontSize:14,flexShrink:0}}>{r.rank}</div>
-    <div style={{flex:1,minWidth:0}}>
+    <div style={{...card,padding:'16px 20px',marginBottom:14,background:'linear-gradient(180deg,var(--bg-muted),#fff)'}}>
       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-        <span style={{fontSize:15,fontWeight:700}}>{r.name}</span>
-        <Pill bg="var(--bg-muted)" ink="var(--muted-ink)">{r.lever}</Pill>
-        <Pill bg="var(--brand-soft)" ink="var(--brand)">targets · {r.opp}</Pill>
+        <span style={{fontSize:22}}>{stage.emoji}</span>
+        <h2 style={{fontSize:19,fontWeight:700,margin:0}}>{stage.q}</h2>
+        <Pill bg="var(--brand-soft)" ink="var(--brand)">builds: {stage.builds}</Pill>
       </div>
-      <div style={{fontSize:11.5,color:'var(--text-muted)',margin:'8px 0 0'}}>flagged by lenses · {r.lenses}</div>
-      <div style={{display:'flex',gap:22,marginTop:12,flexWrap:'wrap'}}>
-        <Stat k="Expected lift" v={r.lift} extra={<ConfTag tone={r.confTone}/>}/>
-        <Stat k="Addressable" v={`${r.n}${r.reach!=='—'?' · '+r.reach+' reach':''}`}/>
-        <Stat k="Power" v={r.power} tone={r.under?'var(--negative)':'var(--positive)'}/>
-        <Stat k="Est. incremental" v={r.money} tone={r.under?'var(--text-muted)':'var(--positive)'}/>
-        <Stat k="Feasible now" v={r.feasible?'CS actuator ✓':'no actuator'} tone={r.feasible?'var(--text-primary)':'var(--negative)'}/>
+      <p style={{fontSize:13,color:'var(--text-secondary)',margin:'9px 0 0'}}><b>What a strong answer looks like:</b> {stage.good}</p>
+      <div style={{display:'flex',gap:14,flexWrap:'wrap',marginTop:10,fontSize:11.5,color:'var(--text-muted)'}}>
+        <span><b style={{color:'var(--text-secondary)'}}>Toggle</b> = should we look at this?</span>
+        <span><b style={{color:'var(--success-ink)'}}>✓ Keep</b> fills the blueprint · <b style={{color:'var(--warning-ink)'}}>⚑ Flag</b> = open question · <b style={{color:'var(--muted-ink)'}}>✕ Rule out</b> = looked, doesn’t change the plan</span>
       </div>
     </div>
-    <div style={{flexShrink:0,alignSelf:'center'}}>
-      {r.under? <span style={{fontSize:12,color:'var(--text-muted)'}}>grow cohort first</span>
-       : <Btn kind="primary" onClick={()=>go&&go()}>Launch in Command Center →</Btn>}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,alignItems:'start'}}>
+      {items.map(a=><AspectCard key={a.id} a={a} {...handlers}/>)}
+      <AddAngle stage={stage} onAdd={handlers.onAdd}/>
     </div>
-  </div>;
-}
-function Stat({k,v,extra,tone}){return <div>
-  <div style={{fontSize:10.5,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)'}}>{k}</div>
-  <div style={{fontSize:14,fontWeight:700,marginTop:3,color:tone||'var(--text-primary)',display:'flex',alignItems:'center',gap:7}}>{v}{extra}</div></div>;}
-
-function Recs({go}){
-  return <div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:6}}>
-      <div><div style={eyebrow}>Optimization Advisor · Recommendations</div>
-        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Experiments worth running, ranked by expected ₫</h1></div>
-      <Btn onClick={()=>go('diag')}>← Back to diagnosis</Btn>
-    </div>
-    <div style={{fontSize:12.5,color:'var(--text-muted)',marginBottom:16,maxWidth:760}}>
-      Each candidate maps a diagnosed opportunity → a playbook → a power-checked experiment. Lift from our Treatment-Effect Library where measured, else a labeled default. Underpowered ideas are shown, not hidden.
-    </div>
-    <div style={{display:'flex',flexDirection:'column',gap:12}}>
-      {RECS.map(r=><RecCard key={r.rank} r={r} go={()=>alert('→ hands off to the Experiment Command Center (segment, arms, metric pre-filled)')}/>)}
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:18}}>
+      <Btn sm onClick={()=>go(Math.max(0,active-1))} disabled={active===0}>← {active>0?STAGES[active-1].label:''}</Btn>
+      <span style={{fontSize:12.5,color:kept>0?'var(--success-ink)':'var(--text-muted)'}}>{kept>0?`✓ ${kept} kept for this block`:'Keep at least one finding to fill this block of the experiment'}</span>
+      <Btn kind="primary" sm onClick={()=>go(active+1)}>{active<STAGES.length-1?`${STAGES[active+1].label} →`:'Decide →'}</Btn>
     </div>
   </div>;
 }
 
-/* ---------- shell ---------- */
+/* ============ goal screen ============ */
+const GOAL_CHIPS=['Get my lapsing whales paying again','Where am I losing money in cfm_vn?','Why are these whales playing less?','Grow spend from my top payers'];
+function GoalScreen({onSetup}){
+  const [text,setText]=useState('Get my lapsing whales paying again — and tell me what to do about it');
+  const [goal,setGoal]=useState('revenue');
+  const [filling,setFilling]=useState(false);
+  const run=()=>{setFilling(true);setTimeout(()=>onSetup(goal,text),1000);};
+  return <div style={{maxWidth:720,margin:'0 auto',paddingTop:34}}>
+    <div style={eyebrow}>Optimization Advisor</div>
+    <h1 style={{fontSize:25,fontWeight:700,margin:'8px 0 6px'}}>What are you trying to figure out?</h1>
+    <p style={{fontSize:14.5,color:'var(--text-secondary)',margin:'0 0 18px'}}>Say it in plain words. The Advisor builds an <b>experiment, step by step</b> — first the opportunity, then who, why, what to do, and whether it’ll work. It digs; you keep what matters.</p>
+    <div style={{...card,padding:'6px 6px 6px 16px',display:'flex',alignItems:'center',gap:8,borderColor:'var(--brand)',borderWidth:2}}>
+      <textarea value={text} onChange={e=>setText(e.target.value)} rows={2} style={{flex:1,fontFamily:'inherit',fontSize:15,border:'none',outline:'none',resize:'none',padding:'8px 0',background:'transparent'}}/>
+      <Btn kind="primary" onClick={run} disabled={filling}>{filling?'Setting up…':'Build the experiment →'}</Btn>
+    </div>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:14}}>
+      {GOAL_CHIPS.map(c=><button key={c} onClick={()=>{setText(c);setGoal(/play|engag/i.test(c)?'engagement':'revenue');}} style={{fontFamily:'inherit',fontSize:12.5,padding:'7px 12px',borderRadius:'var(--radius-full)',border:'1px solid var(--border-strong)',background:'var(--bg-card)',color:'var(--text-secondary)',cursor:'pointer'}}>{c}</button>)}
+    </div>
+    <div style={{display:'flex',gap:10,marginTop:20,alignItems:'center'}}>
+      <span style={{fontSize:12.5,color:'var(--text-muted)'}}>Optimising for:</span>
+      {Object.entries(GOALS).map(([k,g])=><button key={k} onClick={()=>setGoal(k)} style={{fontFamily:'inherit',fontSize:12.5,fontWeight:600,padding:'7px 13px',borderRadius:'var(--radius-md)',cursor:'pointer',border:'1px solid '+(goal===k?'var(--brand)':'var(--border-strong)'),background:goal===k?'var(--brand-soft)':'var(--bg-card)',color:goal===k?'var(--brand)':'var(--text-secondary)'}}>{g.label}</button>)}
+    </div>
+    {filling&&<div style={{marginTop:20,padding:'14px 16px',...card,background:'var(--brand-soft)',display:'flex',gap:10,alignItems:'center',animation:'pulse 1s infinite'}}>
+      <span style={{fontSize:16}}>✨</span><span style={{fontSize:13.5}}>Reading {CTX.segment} ({CTX.n} players) · laying out the opportunity, target, cause, lever and proof to check…</span></div>}
+  </div>;
+}
+
+/* ============ decide — blueprint → experiment, each slot traceable ============ */
+function DecideScreen({goal,aspects,go,setOpenId,split,setSplit,onSend}){
+  const slots=blueprintSlots(aspects);
+  const missing=STAGES.filter(s=>!slots[s.key].text);
+  const lever=aspects.find(a=>a.stage==='lever'&&a.triage==='keep');
+  // grade, don't gate: a complete, mostly-measured blueprint = "Strong"; gaps/estimates = "Exploratory"
+  const kept=aspects.filter(a=>a.triage==='keep');
+  const estimates=kept.filter(a=>a.conf==='med').length;
+  const strong=missing.length===0&&estimates<=1;
+  return <div style={{maxWidth:840,margin:'0 auto'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:12}}>
+      <div><div style={eyebrow}>Decide · your investigation, assembled into an experiment</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Here’s the experiment you built</h1></div>
+      <Btn sm onClick={()=>go('board')}>← Back to the board</Btn></div>
+
+    {/* the blueprint, large, traceable */}
+    <div style={{marginBottom:8}}><Blueprint goal={goal} slots={slots} onJump={()=>{}}/></div>
+    {missing.length>0&&<div style={{...card,padding:'11px 15px',marginBottom:10,background:'var(--warning-soft)',borderColor:'var(--warning)',fontSize:12.5,color:'var(--warning-ink)'}}>
+      ⚠ Incomplete: you haven’t kept a finding for <b>{missing.map(m=>m.label).join(', ')}</b>. {missing.some(m=>m.key==='cause')&&'Without a cause, your lever is a guess. '}<button onClick={()=>go('board')} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--warning-ink)',fontWeight:700,cursor:'pointer'}}>go fill it →</button></div>}
+    {/* grade, not gate — name the strength so a guess-built draft isn't sent looking solid */}
+    <div style={{...card,padding:'11px 15px',marginBottom:14,background:strong?'var(--success-soft)':'var(--warning-soft)',borderColor:strong?'var(--success)':'var(--warning)',fontSize:12.5,color:strong?'var(--success-ink)':'var(--warning-ink)',display:'flex',gap:8}}>
+      <span style={{fontWeight:700}}>{strong?'✓ Strong':'◐ Exploratory'}</span>
+      <span>{strong?'every block is filled and mostly measured — a result you can defend.':`built on ${missing.length?missing.length+' gap(s) and ':''}${estimates} estimate(s). You can still run it — you’ll learn — but expect surprises, not a sure thing.`}</span></div>
+
+    {/* slot-by-slot: how each block maps to the experiment */}
+    <div style={{...card,marginBottom:16}}>
+      <div style={{padding:'12px 18px',borderBottom:'1px solid var(--border-card)',fontWeight:600,fontSize:13.5}}>How each step shaped this experiment</div>
+      {STAGES.map((s,i)=>{const sl=slots[s.key];const supporting=aspects.filter(a=>a.stage===s.key&&a.triage==='keep');
+        return <div key={s.key} style={{padding:'12px 18px',borderBottom:i<STAGES.length-1?'1px solid var(--bg-muted)':'none',display:'flex',gap:12,alignItems:'flex-start'}}>
+          <span style={{fontSize:16,width:24,flexShrink:0}}>{s.emoji}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:600,color:'var(--text-muted)'}}>{s.label} → {s.builds}</div>
+            {supporting.length?supporting.map(a=><div key={a.id} onClick={()=>setOpenId(a.id)} style={{fontSize:13,marginTop:3,cursor:'pointer'}}><b style={{color:'var(--brand)'}}>{a.slot||'✓'}</b> <span style={{color:'var(--text-secondary)'}}>— {a.finding}</span></div>)
+              :<div style={{fontSize:12.5,color:'var(--warning-ink)',marginTop:3}}>nothing kept — this block is a guess</div>}
+          </div>
+        </div>;})}
+    </div>
+
+    {/* expected result + safety pulled from PROOF */}
+    <div style={{...card,padding:'16px 20px',borderColor:'var(--brand)',borderWidth:2,marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'baseline'}}>
+        <span style={{fontSize:16,fontWeight:700}}>{lever?lever.q:'(pick a lever first)'}</span>
+        <span style={{fontSize:20,fontWeight:700,color:'var(--brand)'}}>{goal==='revenue'?'+312M₫':'+ playtime → revenue'}</span></div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'12px 0 0'}}>
+        <div style={{padding:'8px 13px',background:'var(--success-soft)',borderRadius:'var(--radius-md)',fontSize:12.5,color:'var(--success-ink)'}}>📏 Big enough for a clear answer in 14 days</div>
+        <div style={{padding:'8px 13px',background:'var(--info-soft)',borderRadius:'var(--radius-md)',fontSize:12.5,color:'var(--info-ink)'}}>🛟 Won’t contact recent payers · hold-out measured · 1 contact/player</div></div>
+    </div>
+
+    <div style={{...card,padding:'16px 18px',marginBottom:18}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}}>
+        <span style={{fontSize:13.5,fontWeight:700}}>Treatment vs hold-out <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:12}}>— nothing launches until you say so</span></span>
+        <span style={{fontSize:13.5,fontWeight:700}}>{split}% / {100-split}%</span></div>
+      <input type="range" min="70" max="85" value={split} onChange={e=>setSplit(+e.target.value)} style={{width:'100%',accentColor:'var(--brand)'}}/>
+      <div style={{fontSize:12.5,color:'var(--text-secondary)',marginTop:6}}>≈ {Math.round(1872*split/100).toLocaleString()} get the action · ≈ {Math.round(1872*(100-split)/100).toLocaleString()} held back for comparison.</div>
+      <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:6,lineHeight:1.45}}>We always hold <b>at least 15%</b> back, untouched, so we can prove the win-back <i>caused</i> the recovery — not the whales who’d have returned anyway. That gap is the lift you can defend to your boss.</div>
+    </div>
+    <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+      <Btn onClick={()=>go('board')}>Back to board</Btn>
+      <Btn kind="primary" onClick={onSend} disabled={!lever}>Send to Command Center as a draft →</Btn></div>
+  </div>;
+}
+
+/* ============ COMMAND CENTER — the hand-off & monitoring surface ============
+   Design stance: the Advisor guarantees groups-frozen + outcome-measured + thesis-preserved.
+   The TREATMENT is usually delivered OUTSIDE this system (CS calls, LiveOps, email), so delivery
+   is pluggable (in-system CS queue OR external/manual) and the flow never stalls on a capability
+   we don't have. Outcome tracking reads billing, not the action, so monitoring works either way. */
+const LIFECYCLE=[
+  {k:'draft',l:'Draft',pill:{bg:'var(--muted-soft)',ink:'var(--muted-ink)'}},
+  {k:'frozen',l:'Groups frozen',pill:{bg:'var(--info-soft)',ink:'var(--info-ink)'}},
+  {k:'delivering',l:'In delivery',pill:{bg:'var(--warning-soft)',ink:'var(--warning-ink)'}},
+  {k:'measuring',l:'Measuring',pill:{bg:'var(--info-soft)',ink:'var(--info-ink)'}},
+  {k:'readout',l:'Readout',pill:{bg:'var(--success-soft)',ink:'var(--success-ink)'}},
+];
+function MiniBars({a,b,labelA,labelB,unit,max}){ // treatment vs holdout comparison
+  const w=v=>Math.max(3,Math.round(v/max*100));
+  return <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:10}}>
+    {[[labelA,a,'var(--brand)'],[labelB,b,'var(--neutral-400)']].map(([l,v,c])=>
+      <div key={l} style={{display:'flex',alignItems:'center',gap:9}}>
+        <span style={{width:78,fontSize:11.5,color:'var(--text-muted)',textAlign:'right',flexShrink:0}}>{l}</span>
+        <div style={{flex:1,height:18,background:'var(--bg-muted)',borderRadius:'var(--radius-sm)',overflow:'hidden'}}><div style={{width:w(v)+'%',height:'100%',background:c,borderRadius:'var(--radius-sm)'}}/></div>
+        <span style={{width:54,fontSize:12,fontWeight:700,flexShrink:0}}>{v}{unit}</span>
+      </div>)}
+  </div>;
+}
+function CommandCenter({goal,aspects,goalText,split,go}){
+  const slots=blueprintSlots(aspects);
+  const lever=aspects.find(a=>a.stage==='lever'&&a.triage==='keep');
+  const [si,setSi]=useState(0); // lifecycle index
+  const [mode,setMode]=useState('cs'); // 'cs' | 'external'
+  const [thesisOpen,setThesisOpen]=useState(true);
+  const st=LIFECYCLE[si].k;
+  const treatN=Math.round(1872*split/100),holdN=1872-treatN;
+  const title=(lever?lever.q:'Experiment')+' · '+CTX.segment;
+  const rev=goal==='revenue';
+  // illustrative outcome by stage (clearly labelled pre-readout; nothing fabricated as final)
+  const contacted=st==='delivering'?Math.round(treatN*0.42):(['measuring','readout'].includes(st)?Math.round(treatN*0.96):0);
+  const advance=()=>setSi(i=>Math.min(LIFECYCLE.length-1,i+1));
+  const CTA={draft:'Confirm & freeze the groups →',frozen:(mode==='cs'?'Start delivery (open CS queue) →':'Mark delivery started →'),delivering:'Mark delivery complete →',measuring:'View readout →',readout:null}[st];
+  return <div style={{maxWidth:1080,margin:'0 auto'}}>
+    {/* sub-header */}
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap',marginBottom:14}}>
+      <div>
+        <div style={eyebrow}>⌂ Command Center · Experiments</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>{title}</h1>
+        <div style={{fontSize:12.5,color:'var(--text-muted)',marginTop:2}}>{CTX.game} · gross revenue · handed off from the Advisor</div>
+      </div>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <Pill bg={LIFECYCLE[si].pill.bg} ink={LIFECYCLE[si].pill.ink}>{LIFECYCLE[si].l}</Pill>
+        <Btn sm onClick={()=>go('decide')}>← Back to Advisor</Btn>
+      </div>
+    </div>
+    {/* lifecycle stepper */}
+    <div style={{...card,padding:'10px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:4,overflowX:'auto'}}>
+      {LIFECYCLE.map((s,i)=><React.Fragment key={s.k}>
+        <div style={{display:'flex',alignItems:'center',gap:6,whiteSpace:'nowrap'}}>
+          <span style={{width:20,height:20,borderRadius:'50%',display:'grid',placeItems:'center',fontSize:10.5,fontWeight:700,background:i<si?'var(--success)':i===si?'var(--brand)':'var(--bg-muted)',color:i<=si?'#fff':'var(--text-muted)'}}>{i<si?'✓':i+1}</span>
+          <span style={{fontSize:12,fontWeight:i===si?700:500,color:i===si?'var(--text-primary)':'var(--text-muted)'}}>{s.l}</span>
+        </div>
+        {i<LIFECYCLE.length-1&&<span style={{width:18,height:1,background:'var(--border-strong)',flexShrink:0}}/>}
+      </React.Fragment>)}
+    </div>
+
+    <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:16,alignItems:'start'}}>
+      {/* MAIN */}
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        {/* THESIS — preserved, always reachable */}
+        <div style={card}>
+          <div onClick={()=>setThesisOpen(o=>!o)} style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',borderBottom:thesisOpen?'1px solid var(--border-card)':'none'}}>
+            <span style={{fontWeight:600,fontSize:13.5}}>📋 The thesis <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:12}}>— why we’re running this</span></span>
+            <span style={{color:'var(--text-muted)',fontSize:12}}>{thesisOpen?'collapse ▲':'expand ▼'}</span>
+          </div>
+          {thesisOpen&&<div style={{padding:'14px 16px'}}>
+            <Blueprint goal={goal} slots={slots} compact/>
+            <div style={{marginTop:12}}>
+              {STAGES.map(s=>{const sup=aspects.filter(a=>a.stage===s.key&&a.triage==='keep');if(!sup.length)return null;
+                return <div key={s.key} style={{display:'flex',gap:9,padding:'5px 0',fontSize:12.5}}>
+                  <span style={{width:20,flexShrink:0}}>{s.emoji}</span>
+                  <span><b style={{color:'var(--brand)'}}>{sup[0].slot||s.label}</b> <span style={{color:'var(--text-secondary)'}}>— {sup[0].finding}</span></span></div>;})}
+            </div>
+            <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:8,fontStyle:'italic'}}>Frozen with the experiment, so the readout still makes sense weeks from now.</div>
+          </div>}
+        </div>
+
+        {/* DELIVERY — the graceful external-action handling */}
+        <div style={card}>
+          <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border-card)',fontWeight:600,fontSize:13.5}}>🚚 Delivery <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:12}}>— who performs the action</span></div>
+          <div style={{padding:'14px 16px'}}>
+            <div style={{display:'flex',gap:8,marginBottom:12}}>
+              {[['cs','CS Work Queue','inside cube-playground'],['external','Delivered elsewhere','LiveOps / email / manual']].map(([k,l,sub])=>
+                <button key={k} onClick={()=>setMode(k)} style={{fontFamily:'inherit',flex:1,textAlign:'left',padding:'10px 12px',borderRadius:'var(--radius-md)',cursor:'pointer',border:'1px solid '+(mode===k?'var(--brand)':'var(--border-strong)'),background:mode===k?'var(--brand-soft)':'var(--bg-card)'}}>
+                  <div style={{fontSize:12.5,fontWeight:700,color:mode===k?'var(--brand)':'var(--text-primary)'}}>{l}</div>
+                  <div style={{fontSize:11,color:'var(--text-muted)',marginTop:1}}>{sub}</div></button>)}
+            </div>
+            {mode==='cs'
+              ? <div style={{fontSize:12.5,color:'var(--text-secondary)',lineHeight:1.5}}>We hand CS a <b>no-PII target list</b> of {treatN.toLocaleString()} (user_id + reachability only). They work it from the Care console; delivery syncs back automatically from CS logs.
+                  {si>=1&&<div style={{marginTop:10}}><Btn sm kind="primary" onClick={()=>alert('→ opens the CS Work Queue with this experiment’s treatment arm')}>Open CS Work Queue →</Btn></div>}</div>
+              : <div style={{fontSize:12.5,color:'var(--text-secondary)',lineHeight:1.5}}>
+                  <div style={{padding:'10px 12px',background:'var(--info-soft)',borderRadius:'var(--radius-md)',color:'var(--info-ink)',marginBottom:10}}>This action runs <b>outside cube-playground</b>. We’ve frozen the two groups and we measure the outcome — your delivery owner runs the action and logs progress here. The hold-out stays untouched so the readout is still valid.</div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    <Btn sm onClick={()=>alert('→ downloads target list: user_id + reachability flags only (no contact PII)')}>⬇ Export target list</Btn>
+                    {si>=1&&si<3&&<Btn sm onClick={advance}>Log delivery progress…</Btn>}
+                  </div>
+                  <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:8}}>Last synced: {si>=2?'manual entry · today':'—'}</div></div>}
+            {/* delivery progress when in/after delivery */}
+            {si>=2&&<div style={{marginTop:14}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:5}}><span style={{color:'var(--text-muted)'}}>Delivered (exposure)</span><span style={{fontWeight:700}}>{contacted.toLocaleString()} / {treatN.toLocaleString()}</span></div>
+              <div style={{height:8,background:'var(--bg-muted)',borderRadius:'var(--radius-full)',overflow:'hidden'}}><div style={{width:Math.round(contacted/treatN*100)+'%',height:'100%',background:'var(--brand)'}}/></div>
+              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6}}>{mode==='cs'?'From CS logs. Member-level uid match is sparse (~23%) — ITT is the primary readout, treated-on-treated is best-effort.':'From your manual log. ITT on the frozen assignment is the primary readout.'}</div>
+            </div>}
+          </div>
+        </div>
+
+        {/* MONITORING — treatment vs hold-out */}
+        <div style={card}>
+          <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border-card)',fontWeight:600,fontSize:13.5}}>📈 Treatment vs hold-out <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:12}}>— measured on {rev?'gross payments':'playtime → payments'}</span></div>
+          <div style={{padding:'14px 16px'}}>
+            {si<2
+              ? <div style={{fontSize:12.5,color:'var(--text-muted)',lineHeight:1.55}}>Groups frozen: <b style={{color:'var(--text-secondary)'}}>{treatN.toLocaleString()} treatment</b> · <b style={{color:'var(--text-secondary)'}}>{holdN.toLocaleString()} hold-out</b>. Outcome tracking begins when the first treatment is delivered. Nothing has run yet.</div>
+              : <>
+                {st!=='readout'&&<Pill bg="var(--warning-soft)" ink="var(--warning-ink)">early — not yet conclusive · illustrative</Pill>}
+                {st==='readout'&&<Pill bg="var(--success-soft)" ink="var(--success-ink)">clear result · day 14</Pill>}
+                {rev
+                  ? <MiniBars a={st==='readout'?22:18} b={st==='readout'?13:14} labelA="Treatment" labelB="Hold-out" unit="%" max={28}/>
+                  : <MiniBars a={st==='readout'?4.6:3.1} b={st==='readout'?2.4:2.6} labelA="Treatment" labelB="Hold-out" unit="/wk" max={6}/>}
+                <div style={{fontSize:12.5,marginTop:12,color:'var(--text-secondary)',lineHeight:1.5}}>
+                  {st==='readout'
+                    ? (rev?<><b style={{color:'var(--positive)'}}>+9 payers in 100</b> vs hold-out — a clear win, beyond chance. ≈ <b>+312M₫</b> if rolled out to the held-back group.</>
+                          :<><b style={{color:'var(--positive)'}}>+2.2 sessions/week</b> vs hold-out — clear lift; revenue follow-through still accruing.</>)
+                    : 'Difference is forming but inside the noise band — keep measuring to day 14.'}</div>
+                {st==='readout'&&<div style={{display:'flex',gap:8,marginTop:14}}>
+                  <Btn sm kind="primary" onClick={()=>alert('→ roll the winning treatment out to the held-back group')}>Roll out to hold-out →</Btn>
+                  <Btn sm onClick={()=>alert('→ archive; result feeds the Treatment-Effect Library')}>Archive & bank the learning</Btn></div>}
+              </>}
+          </div>
+        </div>
+
+        {CTA&&<div style={{display:'flex',justifyContent:'flex-end'}}><Btn kind="primary" onClick={advance}>{CTA}</Btn></div>}
+      </div>
+
+      {/* SIDEBAR */}
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div style={{...card,padding:'14px 16px'}}>
+          <div style={{...eyebrow,marginBottom:9}}>At a glance</div>
+          {[['Cohort',CTX.segment],['Treatment',treatN.toLocaleString()],['Hold-out',holdN.toLocaleString()],['Window','14 days'],['Expected',slots.proof.text||(rev?'+6 in 100 (prior)':'+0.4/wk (bet)')],['Success metric',rev?'gross payment rate':'sessions / week']].map(([k,v])=>
+            <div key={k} style={{display:'flex',justifyContent:'space-between',gap:10,padding:'4px 0',fontSize:12.5}}><span style={{color:'var(--text-muted)'}}>{k}</span><span style={{fontWeight:600,textAlign:'right'}}>{v}</span></div>)}
+        </div>
+        <div style={{...card,padding:'14px 16px'}}>
+          <div style={{...eyebrow,marginBottom:9}}>🛟 Guardrails</div>
+          {['Won’t contact anyone who paid in the last 7 days','Max 1 contact per player','Hold-out is never touched','Gross revenue only (no refund signal)'].map(g=>
+            <div key={g} style={{fontSize:12,color:'var(--text-secondary)',display:'flex',gap:7,padding:'3px 0',lineHeight:1.4}}><span style={{color:'var(--success-ink)'}}>✓</span><span>{g}</span></div>)}
+        </div>
+        <div style={{...card,padding:'14px 16px'}}>
+          <div style={{...eyebrow,marginBottom:9}}>Provenance</div>
+          {[['↗ Open cohort in Segments','the frozen assignment list'],['↗ Outcome query in Playground','treatment vs hold-out SQL'],['↗ Assignment log','immutable, in the lakehouse']].map(([l,sub])=>
+            <button key={l} onClick={()=>alert('→ '+sub)} style={{fontFamily:'inherit',display:'block',textAlign:'left',width:'100%',border:'none',background:'none',cursor:'pointer',padding:'4px 0'}}><div style={{fontSize:12.5,fontWeight:600,color:'var(--info-ink)'}}>{l}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>{sub}</div></button>)}
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ============ shell ============ */
 function App(){
-  const [screen,setScreen]=useState('diag');
-  const [goal,setGoal]=useState('Revenue');
-  const Screen={diag:Diagnosis,recs:Recs}[screen];
-  return <div style={{display:'flex',minHeight:'100vh'}}>
-    <aside style={{width:220,background:'var(--bg-card)',borderRight:'1px solid var(--border-card)',padding:'20px 14px',flexShrink:0}}>
-      <div style={{display:'flex',alignItems:'center',gap:9,padding:'0 8px 18px'}}>
-        <div style={{width:26,height:26,borderRadius:'var(--radius-md)',background:'var(--brand)',display:'grid',placeItems:'center',color:'#fff',fontWeight:700,fontSize:13}}>◎</div>
-        <div style={{fontWeight:700,fontSize:14}}>Advisor</div></div>
-      {[['diag','Diagnosis'],['recs','Recommendations']].map(([k,l])=>
-        <div key={k} onClick={()=>setScreen(k)} style={{padding:'9px 10px',borderRadius:'var(--radius-md)',marginBottom:2,cursor:'pointer',fontSize:13,
-          fontWeight:screen===k?600:500,background:screen===k?'var(--brand-soft)':'transparent',color:screen===k?'var(--brand)':'var(--text-secondary)'}}>{l}</div>)}
-      <div style={{marginTop:24,padding:'0 10px',...eyebrow}}>Then hands off to</div>
-      <div style={{padding:'6px 10px',fontSize:11.5,color:'var(--text-muted)',lineHeight:1.7}}>Experiment Command Center → assign · CS deliver · measure</div>
-      <div style={{marginTop:18,padding:'0 10px',...eyebrow}}>Baseline</div>
-      <div style={{padding:'6px 10px',fontSize:11.5,color:'var(--text-muted)',lineHeight:1.7}}>Level (A) · Trajectory (C) · Peer (B). Model (D) — v2.</div>
-    </aside>
-    <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column'}}>
-      <ContextBar goal={goal} setGoal={setGoal}/>
-      <main style={{padding:'24px 32px',maxWidth:1400,margin:'0 auto',width:'100%'}}><Screen go={setScreen} goal={goal}/></main>
+  const [screen,setScreen]=useState('goal'); // 'goal' | 'board' | 'decide' | 'command'
+  const [goal,setGoal]=useState('revenue');
+  const [goalText,setGoalText]=useState('');
+  const [active,setActive]=useState(0);
+  const [aspects,setAspects]=useState([]);
+  const [openId,setOpenId]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const [split,setSplit]=useState(90);
+  const setup=(g,t)=>{setGoal(g);setGoalText(t);setAspects(ASPECTS[g].map(a=>({...a,state:'idle',triage:null,on:a.feas!=='false'})));setActive(0);setScreen('board');};
+  const setSt=(id,patch)=>setAspects(as=>as.map(a=>a.id===id?{...a,...patch}:a));
+  const handlers={
+    onWork:id=>{setSt(id,{state:'working'});setTimeout(()=>setSt(id,{state:'done'}),700);},
+    onTriage:(id,t)=>setSt(id,{triage:t}),
+    onToggle:id=>setAspects(as=>as.map(a=>a.id===id?{...a,on:!a.on}:a)),
+    onOpen:setOpenId,
+    onAdd:(stageKey,q)=>{const id=nextCustomId();
+      setAspects(as=>[...as,{id,stage:stageKey,q,finding:'',slot:CUSTOM_SLOT(q),conf:'med',custom:true,state:'working',triage:null,on:true}]);
+      setTimeout(()=>{const r=customResult(stageKey,q);setSt(id,r.state==='needinfo'?{state:'needinfo',need:r.need}:{state:'done',finding:r.finding});},900);},
+    onRefine:id=>setSt(id,{state:'editing'}),
+    onCancelEdit:id=>setSt(id,{state:'done'}),
+    onResubmit:(id,stageKey,q)=>{setSt(id,{q,slot:CUSTOM_SLOT(q),state:'working',triage:null,finding:'',need:''});
+      setTimeout(()=>{const r=customResult(stageKey,q);setSt(id,r.state==='needinfo'?{state:'needinfo',need:r.need}:{state:'done',finding:r.finding});},900);},
+    onProvideInfo:(id,stageKey,info)=>{setSt(id,{state:'working'});
+      setTimeout(()=>setSt(id,{state:'done',finding:CUSTOM_FINDING[stageKey]+' (using what you added: “'+info+'”).',conf:'med'}),900);},
+  };
+  const goStage=i=>{ if(i>=STAGES.length){setScreen('decide');return;} setActive(Math.max(0,i)); setScreen('board'); };
+  const investigateStage=()=>{const todo=aspects.filter(a=>a.stage===STAGES[active].key&&a.on&&a.state==='idle');setBusy(true);
+    todo.forEach((a,i)=>{setTimeout(()=>setSt(a.id,{state:'working'}),i*110);setTimeout(()=>{setSt(a.id,{state:'done'});if(i===todo.length-1)setBusy(false);},i*110+700);});};
+  const slots=aspects.length?blueprintSlots(aspects):{};
+  const decideReady=aspects.length&&STAGES.filter(s=>slots[s.key]&&slots[s.key].text).length>=4;
+  const open=aspects.find(a=>a.id===openId);
+  return <div style={{minHeight:'100vh'}}>
+    <div style={{position:'sticky',top:0,zIndex:40,background:'var(--bg-card)',borderBottom:'1px solid var(--border-card)'}}>
+      <div style={{maxWidth:1180,margin:'0 auto',padding:'10px 24px',display:'flex',alignItems:'center',gap:12}}>
+        <span style={{width:26,height:26,borderRadius:'var(--radius-md)',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:13}}>A</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13.5,fontWeight:700,lineHeight:1.2}}>Optimization Advisor <span style={{fontWeight:500,color:'var(--text-muted)',fontSize:12}}>· Experiment Builder</span></div>
+          <div style={{fontSize:11.5,color:'var(--text-muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{screen==='goal'?'Define what to figure out':<>{CTX.game} · {CTX.segment} · {GOALS[goal].label} · “{goalText}”</>}</div>
+        </div>
+        {screen!=='goal'&&<Btn sm onClick={()=>setScreen('goal')}>Restart</Btn>}
+      </div>
+      {screen!=='goal'&&<div style={{borderTop:'1px solid var(--bg-muted)'}}><div style={{maxWidth:1180,margin:'0 auto',padding:'8px 24px'}}>
+        <StepNav goal={goal} active={screen==='board'?active:-1} slots={slots} go={goStage} onDecide={()=>setScreen('decide')} decideReady={decideReady}/></div></div>}
     </div>
+
+    <div style={{padding:'22px 24px 90px'}}>
+      {screen==='goal'&&<GoalScreen onSetup={setup}/>}
+      {screen==='board'&&<div style={{maxWidth:1180,margin:'0 auto'}}>
+        <div style={{display:'flex',gap:10,marginBottom:16,alignItems:'stretch'}}>
+          <div style={{flex:1}}><Blueprint goal={goal} slots={slots} onJump={k=>goStage(STAGES.findIndex(s=>s.key===k))}/></div>
+          <button onClick={investigateStage} disabled={busy} style={{fontFamily:'inherit',...card,padding:'0 16px',cursor:busy?'default':'pointer',fontWeight:600,fontSize:12.5,color:'var(--brand)',background:'var(--bg-card)',whiteSpace:'nowrap'}}>{busy?'✨ …':'✨ Investigate\nthis step'.split('\n').map((l,i)=><div key={i}>{l}</div>)}</button>
+        </div>
+        <StagePanel stage={STAGES[active]} aspects={aspects} handlers={handlers} go={goStage} active={active}/>
+      </div>}
+      {screen==='decide'&&<DecideScreen goal={goal} aspects={aspects} go={s=>s==='board'?setScreen('board'):goStage(s)} setOpenId={setOpenId} split={split} setSplit={setSplit} onSend={()=>setScreen('command')}/>}
+      {screen==='command'&&<CommandCenter goal={goal} aspects={aspects} goalText={goalText} split={split} go={s=>setScreen(s)}/>}
+    </div>
+    {open&&<DiscoveryDrawer a={open} onClose={()=>setOpenId(null)} onTriage={handlers.onTriage}/>}
   </div>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);

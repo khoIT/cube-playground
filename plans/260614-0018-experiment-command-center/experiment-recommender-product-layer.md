@@ -98,6 +98,39 @@ The predictive/uplift model (D) isn't available yet, so the Advisor's power come
 
 Synthesis: each candidate **opportunity** carries a *confidence* = how many lenses agree (level low **and** declining **and** below peers **and** the bottleneck factor = high confidence). The UI shows the triangulation, not just a verdict. (D / model-predicted potential is the v2 upgrade once the Treatment-Effect Library can train it.)
 
+## Glass-box: traceability + refinement (required — the Advisor is not a verdict)
+Analysts won't trust an opaque recommender. Two layers, both reusing existing surfaces:
+
+**Provenance (explain).** Every number traces to a Playground query.
+- Each **factor** → "Open in Playground" deep-link (exact measure + dimensions + segment filter; reuses the existing deep-linkable query state + compiled-SQL preview) + source cube/table (`billing_detail` → `iceberg.billing.std_billing_delivery_trans_gds`) + row count.
+- Each **lens** exposes inputs + method: A → reference population + N; C → the two windows; B → the peer cohort definition.
+
+**Refinement (steer).** The diagnosis is recomputable, not frozen.
+- **Peer cohort is explicit + editable** — show the exact peer set with toggleable match axes. Toggle → B re-runs → **opportunity confidence + ranking recompute**.
+- Same recompute on **baseline window** (30/60/90d), **reference population** (payers vs all), and **in-place segment refinement** (exclude new players, VN-only, split).
+
+**Peer Studio (deep peer comparison).** A dedicated surface for "who are we comparing against?":
+- **A peer cohort IS a segment** — reuse the Segments builder + tokenless ranked-members API; do NOT build a second cohort/predicate language. Fine-grain predicates come for free.
+- **Multiple peers = a small set of NAMED reference roles, not unbounded:** Look-alike-healthy (aspirational ceiling, default primary) · Population norm (is this just where everyone sits?) · A-cohort-we-already-moved (grounds expected lift) · + one custom from Segments. Gap shown vs the primary, **corroborated** by the others — trailing *all* peers ⇒ high confidence; beating one ⇒ the framing is the finding.
+- **Side-by-side profile table** (members, ARPPU, lifespan, repeat rate, D30, sessions, geo, tenure) with the weak factors highlighted.
+- **Member sample** for target + peer (masked ids, reused ranked-members API, no contact PII) — makes "who am I targeting" concrete.
+- Guardrail: Peer Studio justifies/refines the B baseline; free-form exploration stays in the Playground (linked out), not duplicated here.
+
+**Predicate reality (verified 2026-06-14).** Segments filter via a predicate tree of `{member, operator, values}` over Cube members, compiled to Trino SQL (`segment-definition-writer.ts`, `types/predicate-tree.ts`, same shape as `care/threshold-rule.ts`). Peer predicates fall in **three classes** — the engine (reused from Segments) must handle all three:
+1. **Direct** — `last_login_country = 'VN'`, channel, device, os (`cfm/mf_users.yml`). Native Cube filter.
+2. **Derived relative-date** — tenure (from `first_login_date`), recency / "not-lapsed" (from `last_active_date`). Derived dimension or relative-date filter.
+3. **Statistical/relative** — "top-quartile LTV", "above-median". NOT a stored attribute → two-pass: compute the percentile cutoff over the cohort, then threshold (or precompute an `ltv_tier` dimension).
+The demo's four chips glossed these as identical toggles — real UI must distinguish direct vs derived vs statistical.
+
+**RESOLVED (verified 2026-06-14):** the Segments builder supports ONLY 15 scalar operators (`server/src/types/predicate-tree.ts:6-21`; UI `src/pages/Segments/editor/predicate-builder/operators.ts:14-46`) — **no percentile or relative-date-derived operator.** So classes 2 (derived) and 3 (statistical) are a real, concrete gap. Trino + Cube both support `approx_percentile` natively — the gap is the compiler, not the DB. A two-pass percentile pattern already exists for Care playbooks (`server/src/care/threshold-rule.ts:57-71` `PercentileRule` + `server/src/care/calibrate.ts:109-112`) but its cutoff resolution is itself unwired and no seed playbook uses it. → **Closing this is Phase 0 of the Advisor plan: `plans/260614-1813-optimization-advisor/phase-00-predicate-engine-foundation.md`** (generalizes the Care two-pass into the Segments compiler). The prototype's Peer Studio + diagnosis peer editor now render the three classes honestly (direct/derived/statistical color tags + a gap warning).
+
+## Interaction surfaces (product-layer — 3 modes + feedback)
+Beyond "pick a recommendation", the Advisor is a steerable workspace:
+- **Explain** — drill any factor/lens → Playground source.
+- **Refine** — toggle peer axes / windows / reference pop; refine or split the segment in place; NL follow-up ("why is lifespan dropping?") via chat-service.
+- **Decide** — (a) **tune a candidate** (arm split / window / metric / expected-effect) → power+CI+₫ recompute live; (b) **portfolio under CS capacity** (capacity + guardrails → pick the *mix* that maximizes ₫, a knapsack not a single pick); (c) **add a manual hypothesis** → Advisor power-checks + estimates it.
+- **Feedback loop** — **dismiss/pin** an opportunity with a reason (structural / known / not now) → trains future diagnosis; human half of the Treatment-Effect Library.
+
 ## Locked decisions (2026-06-14)
 1. **Baseline = Level + Trajectory + Peer (A+B+C) for v1.** Population percentile (A) = ceiling; cohort's own decline (C) = trigger; within-game peer cohorts (B) = "users like these, doing better". All three shown as independent signals; opportunity confidence = how many agree. B = similar cohorts **within the same game** (same tenure/tier/geo) — NOT similar games; cross-game stays a labeled cold-start prior only. Model-predicted (D) deferred to v2.
 2. **Goal scope v1 = Revenue + Engagement together.** ⇒ engagement measures (session frequency / length / lifespan, from game_integration) must be wired alongside the revenue tree. Diagnosis panel shows both trees; engagement framed as leading indicator of revenue.

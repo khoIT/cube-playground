@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Optimization Advisor — Investigation Workspace</title>
+<!--
+  HI-FI PROTOTYPE v4 · Optimization Advisor — the INVESTIGATION WORKSPACE
+  -----------------------------------------------------------------------------------------
+  Prior versions kept for comparison (same folder):
+    • optimization-advisor-v2-analyst-console.html   — dense analyst console (percentile/lens/predicate-first)
+    • optimization-advisor-v3-guided-journey.html    — linear persona-first wizard (Goal→Diagnose→Recs→Draft)
+  v4 keeps v3's business-plain language but changes the SHAPE from a fixed linear wizard into a
+  FLEXIBLE, AGENT-FILLED INVESTIGATION the manager steers:
+    1. FLEXIBLE GOAL — type the question in plain words; the Advisor fills an investigation TEMPLATE.
+    2. THE TEMPLATE = four lanes the user named: REASONING · DATA ASPECTS · SEGMENTS · ANALYSES.
+       Each lane holds aspect cards the agent proposes.
+    3. COVER · TOGGLE · TRIAGE — a coverage meter turns a big analysis into a checklist; each card can be
+       toggled in/out (scope), handed to the agent ("Look into this" → builds a discovery ARTIFACT), and
+       triaged keep / flag / dismiss. Manager triages; the agent does the heavy lifting.
+    4. REVISIT — every discovery is a persistent artifact, re-openable any time from the board.
+    5. WHERE AGENTS APPEAR (the meaty piece) — at goal setup (fills the template), per-card (builds one
+       artifact), batch ("investigate the rest"), and at synthesis (drafts the experiment from kept findings).
+    6. READY TO DECIDE gate — lights up once enough is triaged → synthesis → editable experiment draft.
+  Same design system / tokens as the command-center prototype (src/theme/tokens.css).
+-->
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;--neutral-900:#171717;
+    --orange-50:#fff7ed;--orange-100:#ffedd5;--orange-600:#f05a22;--orange-700:#f54a00;
+    --brand:var(--orange-600);--brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+    --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+    --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5;--muted-ink:#525252;
+    --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.04);--shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+    --positive:#15803d;--negative:#b91c1c;
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}html,body{margin:0;padding:0}
+  body{font-family:var(--font-sans);background:var(--bg-app);color:var(--text-primary);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:var(--radius-full);border:2px solid var(--bg-app)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState}=React;
+
+/* ============ primitives ============ */
+const card={background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-xs)'};
+const eyebrow={fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-muted)'};
+function Pill({bg,ink,children,onClick,title}){return <span title={title} onClick={onClick} style={{fontSize:10.5,fontWeight:600,borderRadius:'var(--radius-full)',padding:'2px 8px',background:bg,color:ink,whiteSpace:'nowrap',cursor:onClick?'pointer':'default',display:'inline-block'}}>{children}</span>;}
+function Btn({children,kind='ghost',onClick,sm,disabled}){const base={fontFamily:'inherit',fontSize:sm?12:13.5,fontWeight:600,padding:sm?'6px 11px':'10px 18px',borderRadius:'var(--radius-md)',cursor:disabled?'not-allowed':'pointer',border:'1px solid transparent',opacity:disabled?.45:1};
+  const k={primary:{background:'var(--brand)',color:'#fff'},ghost:{background:'var(--bg-card)',color:'var(--text-secondary)',borderColor:'var(--border-strong)'}};
+  return <button disabled={disabled} style={{...base,...k[kind]}} onClick={disabled?undefined:onClick}>{children}</button>;}
+
+const CTX={game:'cfm_vn',segment:'Lapsing whales',n:'2,400'};
+
+/* ============ the TEMPLATE — four lanes the manager named ============
+   Each aspect: a plain question the agent can answer into a discovery artifact.
+   state: 'idle' (proposed, untouched) | 'working' (agent building) | 'done' (artifact ready)
+   triage: null | 'keep' | 'flag' | 'dismiss'   ·   on: included in scope (toggle) */
+const LANES=[
+  {key:'reasoning',label:'Reasoning',emoji:'🧠',hint:'the questions worth answering'},
+  {key:'data',label:'Data aspects',emoji:'📊',hint:'signals to inspect'},
+  {key:'segments',label:'Segments',emoji:'👥',hint:'who to compare against'},
+  {key:'analyses',label:'Analyses',emoji:'🧪',hint:'tests & calculations'},
+];
+const SEED=[
+  // reasoning
+  {id:'r1',lane:'reasoning',q:'Are they leaving over price, or just drifting away?',
+   finding:'Drifting. Spend-per-whale is normal — they simply stopped showing up to buy. A nudge, not a discount, fits.',conf:'high'},
+  {id:'r2',lane:'reasoning',q:'Is this a few big whales, or the whole group?',
+   finding:'The whole group slid together — not 2 outliers dragging the average. Worth treating as a cohort.',conf:'high'},
+  {id:'r3',lane:'reasoning',q:'Did something change recently — a patch or event?',
+   finding:'No single event. A steady 60-day slide, so this is behavioural, not a one-off shock.',conf:'med'},
+  // data aspects
+  {id:'d1',lane:'data',q:'How long since they last paid?',
+   finding:'27–34 days ago, vs 1–5 days for healthy whales. This is the clearest weak signal.',conf:'high'},
+  {id:'d2',lane:'data',q:'Spend per whale vs healthy whales',
+   finding:'1.18M₫ vs 1.42M₫ — slightly lower but healthy. Spend is not the problem.',conf:'high'},
+  {id:'d3',lane:'data',q:'Login frequency trend',
+   finding:'Fell from ~5/week to ~2/week over 60 days — the same slide that precedes lapsing.',conf:'med'},
+  {id:'d4',lane:'data',q:'Payment failures',
+   finding:'Only ~180 affected — too few to be the main story, but a small side-fix.',conf:'med'},
+  // segments
+  {id:'s1',lane:'segments',q:'Compare to healthy whales (same age & tier)',
+   finding:'Your whales pay 31% less often than near-identical healthy whales — the fairest comparison, and it confirms the gap.',conf:'high'},
+  {id:'s2',lane:'segments',q:'Compare to the whole cfm_vn payer base',
+   finding:'Also below the broad base, but the look-alike comparison is the trustworthy one.',conf:'med'},
+  {id:'s3',lane:'segments',q:'Whales we already won back in Q1',
+   finding:'A real cohort we moved before — grounds the expected lift at ~+6 in 100.',conf:'high'},
+  // analyses
+  {id:'a1',lane:'analyses',q:'Win-back call lift (from past experiments)',
+   finding:'Measured before on cfm_vn whales: +6 in 100 pay again. High-confidence prior.',conf:'high'},
+  {id:'a2',lane:'analyses',q:'Is the group big enough to prove it works?',
+   finding:'Yes — 1,872 reachable gives a clear answer in 14 days.',conf:'high'},
+  {id:'a3',lane:'analyses',q:'Money at stake',
+   finding:'≈ 312M₫/month if the lapse isn’t reversed. This is the prize.',conf:'med'},
+];
+const CONF={high:{l:'high confidence',bg:'var(--success-soft)',ink:'var(--success-ink)'},med:{l:'an estimate',bg:'var(--warning-soft)',ink:'var(--warning-ink)'}};
+const TRIAGE={keep:{l:'Keep',bg:'var(--success-soft)',ink:'var(--success-ink)',icon:'✓'},flag:{l:'Flag',bg:'var(--warning-soft)',ink:'var(--warning-ink)',icon:'⚑'},dismiss:{l:'Not relevant',bg:'var(--muted-soft)',ink:'var(--muted-ink)',icon:'✕'}};
+
+/* ============ goal screen — flexible NL goal → agent fills the template ============ */
+const GOAL_CHIPS=['Get my lapsing whales paying again','Where am I losing money in cfm_vn?','Why are these whales playing less?','Grow spend from my top payers'];
+function GoalScreen({onSetup}){
+  const [goal,setGoal]=useState('Get my lapsing whales paying again — and tell me what to do about it');
+  const [filling,setFilling]=useState(false);
+  const run=()=>{setFilling(true);setTimeout(()=>onSetup(goal),1100);};
+  return <div style={{maxWidth:720,margin:'0 auto',paddingTop:36}}>
+    <div style={eyebrow}>Optimization Advisor</div>
+    <h1 style={{fontSize:25,fontWeight:700,margin:'8px 0 6px'}}>What are you trying to figure out?</h1>
+    <p style={{fontSize:14.5,color:'var(--text-secondary)',margin:'0 0 20px'}}>Say it in your own words. The Advisor turns it into an <b>investigation plan</b> — the angles, data, comparison groups and tests worth checking — then does the digging. You stay in charge of what matters.</p>
+    <div style={{...card,padding:'6px 6px 6px 16px',display:'flex',alignItems:'center',gap:8,borderColor:'var(--brand)',borderWidth:2}}>
+      <textarea value={goal} onChange={e=>setGoal(e.target.value)} rows={2}
+        style={{flex:1,fontFamily:'inherit',fontSize:15,border:'none',outline:'none',resize:'none',padding:'8px 0',background:'transparent'}}/>
+      <Btn kind="primary" onClick={run} disabled={filling}>{filling?'Setting up…':'Set up investigation →'}</Btn>
+    </div>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:14}}>
+      {GOAL_CHIPS.map(c=><button key={c} onClick={()=>setGoal(c)} style={{fontFamily:'inherit',fontSize:12.5,padding:'7px 12px',borderRadius:'var(--radius-full)',border:'1px solid var(--border-strong)',background:'var(--bg-card)',color:'var(--text-secondary)',cursor:'pointer'}}>{c}</button>)}
+    </div>
+    {filling&&<div style={{marginTop:22,padding:'14px 16px',...card,background:'var(--brand-soft)',display:'flex',gap:10,alignItems:'center',animation:'pulse 1s infinite'}}>
+      <span style={{fontSize:16}}>✨</span><span style={{fontSize:13.5}}>Reading {CTX.segment} ({CTX.n} players) · drafting the angles, data, segments and tests to check…</span></div>}
+    <p style={{fontSize:12,color:'var(--text-muted)',marginTop:22}}>Scope set to: <b>{CTX.game}</b> · segment <b>{CTX.segment}</b>. The plan is a starting template — you can add your own angles, drop what doesn’t matter, and revisit any finding later.</p>
+  </div>;
+}
+
+/* ============ aspect card — toggle, hand to agent, triage, open ============ */
+function AspectCard({a,onWork,onTriage,onToggle,onOpen}){
+  const working=a.state==='working',done=a.state==='done';
+  return <div style={{...card,padding:'12px 13px',opacity:a.on?1:.5,borderColor:a.triage==='keep'?'var(--success)':a.triage==='flag'?'var(--warning)':'var(--border-card)'}}>
+    <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start'}}>
+      <span style={{fontSize:13,fontWeight:600,lineHeight:1.35}}>{a.q}</span>
+      <button onClick={()=>onToggle(a.id)} title={a.on?'In scope — click to set aside':'Set aside — click to include'}
+        style={{fontFamily:'inherit',flexShrink:0,width:30,height:18,borderRadius:'var(--radius-full)',border:'none',cursor:'pointer',background:a.on?'var(--brand)':'var(--border-strong)',position:'relative'}}>
+        <span style={{position:'absolute',top:2,left:a.on?14:2,width:14,height:14,borderRadius:'50%',background:'#fff',transition:'left .12s'}}/></button>
+    </div>
+    {!done&&!working&&<button onClick={()=>onWork(a.id)} disabled={!a.on}
+      style={{fontFamily:'inherit',marginTop:10,width:'100%',fontSize:12,fontWeight:600,padding:'7px 0',borderRadius:'var(--radius-md)',border:'1px dashed var(--brand)',background:'var(--brand-soft)',color:'var(--brand)',cursor:a.on?'pointer':'not-allowed',opacity:a.on?1:.5}}>✨ Look into this</button>}
+    {working&&<div style={{marginTop:10,fontSize:12,color:'var(--brand)',display:'flex',gap:7,alignItems:'center',animation:'pulse 1s infinite'}}><span>✨</span> Advisor is digging…</div>}
+    {done&&<div style={{marginTop:9}}>
+      <div onClick={()=>onOpen(a.id)} style={{fontSize:12.5,color:'var(--text-secondary)',lineHeight:1.45,cursor:'pointer',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{a.finding}</div>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,flexWrap:'wrap'}}>
+        <Pill bg={CONF[a.conf].bg} ink={CONF[a.conf].ink}>{CONF[a.conf].l}</Pill>
+        <button onClick={()=>onOpen(a.id)} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:11.5,cursor:'pointer',padding:0}}>open</button>
+        <span style={{flex:1}}/>
+        {['keep','flag','dismiss'].map(t=>{const on=a.triage===t,T=TRIAGE[t];return <button key={t} title={T.l} onClick={()=>onTriage(a.id,on?null:t)}
+          style={{fontFamily:'inherit',width:24,height:24,borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:12,
+            border:'1px solid '+(on?T.ink:'var(--border-strong)'),background:on?T.bg:'var(--bg-card)',color:on?T.ink:'var(--text-muted)'}}>{T.icon}</button>;})}
+      </div>
+    </div>}
+  </div>;
+}
+
+/* ============ discovery drawer — revisitable artifact ============ */
+function DiscoveryDrawer({a,onClose,onTriage,go}){
+  if(!a) return null;
+  return <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.25)',zIndex:50,display:'flex',justifyContent:'flex-end'}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:460,maxWidth:'93vw',height:'100%',background:'var(--bg-card)',padding:24,overflowY:'auto',boxShadow:'var(--shadow-lg)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <div style={eyebrow}>Discovery · {LANES.find(l=>l.key===a.lane).label}</div><Btn sm onClick={onClose}>Close</Btn></div>
+      <h3 style={{fontSize:17,fontWeight:700,margin:'0 0 12px',lineHeight:1.3}}>{a.q}</h3>
+      <div style={{padding:'15px 16px',background:'var(--brand-soft)',borderRadius:'var(--radius-md)',fontSize:14.5,lineHeight:1.55,marginBottom:16}}>{a.finding}</div>
+      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:18}}>
+        <Pill bg={CONF[a.conf].bg} ink={CONF[a.conf].ink}>{CONF[a.conf].l}</Pill>
+        <span style={{fontSize:12,color:'var(--text-muted)'}}>computed live from this cohort’s data</span></div>
+      <div style={{...eyebrow,marginBottom:8}}>How sure are we (the evidence)</div>
+      <div style={{fontSize:12.5,color:'var(--text-secondary)',lineHeight:1.55,marginBottom:6}}>3 independent checks point the same way: where they sit in the distribution, the 90-day direction, and the look-alike comparison.</div>
+      <button onClick={()=>alert('→ opens the exact query in the Playground + compiled SQL (analyst escape hatch)')} style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--info-ink)',fontWeight:600,fontSize:12.5,cursor:'pointer',padding:0}}>↗ see the numbers in Playground</button>
+      <div style={{...eyebrow,margin:'20px 0 8px'}}>What do you make of it?</div>
+      <div style={{display:'flex',gap:8,marginBottom:18}}>
+        {['keep','flag','dismiss'].map(t=>{const on=a.triage===t,T=TRIAGE[t];return <button key={t} onClick={()=>onTriage(a.id,on?null:t)}
+          style={{fontFamily:'inherit',flex:1,padding:'9px 0',borderRadius:'var(--radius-md)',cursor:'pointer',fontSize:12.5,fontWeight:600,
+            border:'1px solid '+(on?T.ink:'var(--border-strong)'),background:on?T.bg:'var(--bg-card)',color:on?T.ink:'var(--text-secondary)'}}>{T.icon} {T.l}</button>;})}
+      </div>
+      <Btn kind="primary" onClick={()=>go(2)}>Turn this into an experiment →</Btn>
+    </div>
+  </div>;
+}
+
+/* ============ the board — the meaty piece ============ */
+function Board({aspects,setAspects,go,openId,setOpenId,goal}){
+  const [busy,setBusy]=useState(false);
+  const setState=(id,patch)=>setAspects(as=>as.map(a=>a.id===id?{...a,...patch}:a));
+  const work=id=>{setState(id,{state:'working'});setTimeout(()=>setState(id,{state:'done'}),750);};
+  const triage=(id,t)=>setState(id,{triage:t});
+  const toggle=id=>setAspects(as=>as.map(a=>a.id===id?{...a,on:!a.on}:a));
+  const investigateRest=()=>{setBusy(true);const todo=aspects.filter(a=>a.on&&a.state==='idle');
+    todo.forEach((a,i)=>{setTimeout(()=>setState(a.id,{state:'working'}),i*120);setTimeout(()=>{setState(a.id,{state:'done'});if(i===todo.length-1)setBusy(false);},i*120+750);});};
+  const total=aspects.filter(a=>a.on).length;
+  const done=aspects.filter(a=>a.on&&a.state==='done').length;
+  const kept=aspects.filter(a=>a.triage==='keep').length;
+  const flagged=aspects.filter(a=>a.triage==='flag').length;
+  const dismissed=aspects.filter(a=>a.triage==='dismiss').length;
+  const triaged=aspects.filter(a=>a.on&&a.state==='done'&&a.triage).length;
+  const ready=kept>=3&&done>=Math.ceil(total*0.6);
+  const pct=Math.round(done/total*100);
+  return <div style={{maxWidth:1180,margin:'0 auto'}}>
+    {/* goal + coverage header */}
+    <div style={{...card,padding:'15px 18px',marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:16,flexWrap:'wrap',alignItems:'flex-start'}}>
+        <div style={{flex:1,minWidth:280}}>
+          <div style={eyebrow}>Investigating</div>
+          <div style={{fontSize:15.5,fontWeight:700,margin:'3px 0 2px'}}>“{goal}”</div>
+          <div style={{fontSize:12.5,color:'var(--text-muted)'}}>{CTX.game} · {CTX.segment} · {CTX.n} players · the Advisor proposed {total} things to look at — investigate, set aside, and triage.</div>
+        </div>
+        <Btn onClick={investigateRest} disabled={busy||done===total}>{busy?'✨ Investigating…':'✨ Investigate everything left'}</Btn>
+      </div>
+      {/* coverage meter */}
+      <div style={{marginTop:14}}>
+        <div style={{height:8,background:'var(--bg-muted)',borderRadius:'var(--radius-full)',overflow:'hidden'}}>
+          <div style={{width:pct+'%',height:'100%',background:'var(--brand)',transition:'width .3s'}}/></div>
+        <div style={{display:'flex',gap:16,marginTop:9,flexWrap:'wrap',fontSize:12.5}}>
+          <span><b>{done}/{total}</b> looked at</span>
+          <span style={{color:'var(--success-ink)'}}>✓ {kept} keep</span>
+          <span style={{color:'var(--warning-ink)'}}>⚑ {flagged} flagged</span>
+          <span style={{color:'var(--muted-ink)'}}>✕ {dismissed} set aside</span>
+          <span style={{flex:1}}/>
+          <span style={{color:'var(--text-muted)'}}>{ready?'Enough covered — ready to decide.':`Look at + keep a few more (need ${Math.max(0,3-kept)} more "keep").`}</span>
+        </div>
+      </div>
+    </div>
+
+    {/* four lanes */}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,alignItems:'start'}}>
+      {LANES.map(lane=>{const items=aspects.filter(a=>a.lane===lane.key);
+        return <div key={lane.key}>
+          <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:9,padding:'0 2px'}}>
+            <span style={{fontSize:15}}>{lane.emoji}</span>
+            <span style={{fontSize:13.5,fontWeight:700}}>{lane.label}</span>
+            <span style={{fontSize:11,color:'var(--text-muted)'}}>{items.filter(a=>a.state==='done').length}/{items.length}</span>
+          </div>
+          <div style={{fontSize:11,color:'var(--text-muted)',margin:'-4px 2px 9px'}}>{lane.hint}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {items.map(a=><AspectCard key={a.id} a={a} onWork={work} onTriage={triage} onToggle={toggle} onOpen={setOpenId}/>)}
+            <button onClick={()=>alert('→ type your own angle; the Advisor adds it as a card and investigates it')}
+              style={{fontFamily:'inherit',fontSize:12,fontWeight:600,padding:'9px 0',borderRadius:'var(--radius-md)',border:'1px dashed var(--border-strong)',background:'transparent',color:'var(--text-muted)',cursor:'pointer'}}>+ Add your own angle</button>
+          </div>
+        </div>;})}
+    </div>
+
+    {/* sticky decide bar */}
+    <div style={{position:'sticky',bottom:0,marginTop:18,padding:'13px 18px',...card,borderColor:ready?'var(--brand)':'var(--border-card)',
+      display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',background:ready?'var(--brand-soft)':'var(--bg-card)'}}>
+      <span style={{fontSize:13,color:'var(--text-secondary)'}}>{ready?<>You’ve kept <b>{kept}</b> findings. The Advisor can synthesise them into an experiment.</>:'Triage your findings as you go — keep what matters, set aside what doesn’t.'}</span>
+      <Btn kind="primary" onClick={()=>go(2)} disabled={!ready}>Synthesise &amp; decide →</Btn>
+    </div>
+  </div>;
+}
+
+/* ============ decide — agent synthesises kept findings → experiment draft ============ */
+function DecideScreen({aspects,go}){
+  const kept=aspects.filter(a=>a.triage==='keep');
+  const [split,setSplit]=useState(90),[launched,setLaunched]=useState(false);
+  if(launched) return <div style={{maxWidth:620,margin:'0 auto',paddingTop:40,textAlign:'center'}}>
+    <div style={{fontSize:40}}>🚀</div>
+    <h1 style={{fontSize:22,fontWeight:700,margin:'12px 0 8px'}}>Draft created in the Command Center</h1>
+    <p style={{fontSize:14.5,color:'var(--text-secondary)',lineHeight:1.55}}>Saved as a <b>draft</b> built from the findings you kept. It does <b>not</b> run until you press Launch in the Command Center. The result returns here and updates the Advisor for next time.</p>
+    <div style={{display:'flex',gap:10,justifyContent:'center',marginTop:20}}>
+      <Btn onClick={()=>setLaunched(false)}>← Back</Btn>
+      <Btn kind="primary" onClick={()=>alert('→ opens the Experiment Command Center with this draft loaded')}>Open in Command Center →</Btn></div>
+  </div>;
+  return <div style={{maxWidth:820,margin:'0 auto'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:10}}>
+      <div><div style={eyebrow}>Decide · the Advisor read your kept findings</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Here’s the experiment your investigation points to</h1></div>
+      <Btn sm onClick={()=>go(1)}>← Back to board</Btn>
+    </div>
+
+    {/* synthesis: what the agent used */}
+    <div style={{...card,padding:'15px 18px',marginBottom:16}}>
+      <div style={{...eyebrow,marginBottom:9}}>Built from the {kept.length} findings you kept</div>
+      {kept.map(a=><div key={a.id} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:6,fontSize:13}}>
+        <span style={{color:'var(--success)'}}>✓</span><span><b>{a.q}</b> — {a.finding}</span></div>)}
+      {kept.length===0&&<div style={{fontSize:13,color:'var(--text-muted)'}}>No findings kept yet — go back and keep a few.</div>}
+    </div>
+
+    {/* the recommendation */}
+    <div style={{...card,padding:'18px 20px',borderColor:'var(--brand)',borderWidth:2,marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'baseline'}}>
+        <span style={{fontSize:16,fontWeight:700}}>Win back your lapsing whales with a CS comeback call</span>
+        <span style={{fontSize:20,fontWeight:700,color:'var(--brand)'}}>+312M₫</span></div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'12px 0'}}>
+        <div style={{padding:'8px 13px',background:'var(--success-soft)',borderRadius:'var(--radius-md)',fontSize:12.5,color:'var(--success-ink)'}}>✅ We’ve run this before — it worked (+6 in 100). High confidence.</div>
+        <div style={{padding:'8px 13px',background:'var(--info-soft)',borderRadius:'var(--radius-md)',fontSize:12.5,color:'var(--info-ink)'}}>📏 Big enough for a clear answer in 14 days</div>
+      </div>
+      {['Won’t contact whales who paid in the last 7 days','Hold-out group measures the real lift','Max 1 contact per player'].map((s,i)=>
+        <div key={i} style={{fontSize:12.5,color:'var(--text-secondary)',display:'flex',gap:7,marginBottom:4}}><span style={{color:'var(--positive)'}}>✓</span>{s}</div>)}
+    </div>
+
+    {/* editable draft + reassurance */}
+    <div style={{...card,padding:'13px 16px',marginBottom:14,background:'var(--info-soft)',borderColor:'var(--info)',display:'flex',gap:10,alignItems:'center'}}>
+      <span style={{fontSize:18}}>🛟</span><span style={{fontSize:13.5,color:'var(--info-ink)'}}><b>Nothing launches until you say so.</b> Adjust the split, then send to the Command Center as a draft.</span></div>
+    <div style={{...card,padding:'16px 18px',marginBottom:18}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}}>
+        <span style={{fontSize:13.5,fontWeight:700}}>Treatment vs hold-out</span>
+        <span style={{fontSize:13.5,fontWeight:700}}>{split}% called · {100-split}% held back</span></div>
+      <input type="range" min="70" max="95" value={split} onChange={e=>setSplit(+e.target.value)} style={{width:'100%',accentColor:'var(--brand)'}}/>
+      <div style={{fontSize:12.5,color:'var(--text-secondary)',marginTop:6}}>≈ {Math.round(1872*split/100).toLocaleString()} get the call · ≈ {Math.round(1872*(100-split)/100).toLocaleString()} held back for comparison.</div>
+    </div>
+    <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+      <Btn onClick={()=>go(1)}>Back to board</Btn>
+      <Btn kind="primary" onClick={()=>setLaunched(true)}>Send to Command Center as a draft →</Btn></div>
+  </div>;
+}
+
+/* ============ shell ============ */
+function App(){
+  const [step,setStep]=useState(0);
+  const [goal,setGoal]=useState('');
+  const [aspects,setAspects]=useState([]);
+  const [openId,setOpenId]=useState(null);
+  const setup=g=>{setGoal(g);setAspects(SEED.map(a=>({...a,state:'idle',triage:null,on:true})));setStep(1);};
+  const go=s=>setStep(s);
+  const open=aspects.find(a=>a.id===openId);
+  return <div style={{minHeight:'100vh'}}>
+    <div style={{position:'sticky',top:0,zIndex:40,background:'var(--bg-card)',borderBottom:'1px solid var(--border-card)',padding:'11px 24px'}}>
+      <div style={{maxWidth:1180,margin:'0 auto',display:'flex',alignItems:'center',gap:12}}>
+        <span style={{width:26,height:26,borderRadius:'var(--radius-md)',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:13}}>A</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13.5,fontWeight:700,lineHeight:1.2}}>Optimization Advisor <span style={{fontWeight:500,color:'var(--text-muted)',fontSize:12}}>· Investigation Workspace</span></div>
+          <div style={{fontSize:11.5,color:'var(--text-muted)'}}>{step===0?'Define what to figure out':step===1?'Investigate · toggle · triage':'Decide & set up'}</div>
+        </div>
+        {step>0&&<Btn sm onClick={()=>setStep(0)}>Restart</Btn>}
+      </div>
+    </div>
+    <div style={{padding:'26px 24px 80px'}}>
+      {step===0&&<GoalScreen onSetup={setup}/>}
+      {step===1&&<Board aspects={aspects} setAspects={setAspects} go={go} openId={openId} setOpenId={setOpenId} goal={goal}/>}
+      {step===2&&<DecideScreen aspects={aspects} go={go}/>}
+    </div>
+    {open&&<DiscoveryDrawer a={open} onClose={()=>setOpenId(null)} onTriage={(id,t)=>setAspects(as=>as.map(a=>a.id===id?{...a,triage:t}:a))} go={go}/>}
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
