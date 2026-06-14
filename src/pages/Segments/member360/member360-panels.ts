@@ -45,7 +45,15 @@ export interface Member360Panel {
   view: string;
   identityKey: IdentityKey;
   panelType: Member360PanelType;
-  section: 'core' | 'behavior';
+  /**
+   * 'core'     — mf_users-backed profile panels (precomputed nightly, server-mirrored).
+   * 'behavior' — ingame ETL event panels; held to the cube.js dteventtime ≤31d guardrail.
+   * 'ops'      — cross-cutting ops panels (billing / CS / identity). user_id-keyed
+   *              snapshots or FE-bounded timelines — NOT dteventtime event streams, so
+   *              they are exempt from the event-panel guardrail (bounded by their own
+   *              limit / needsDateRange instead). FE-only, never precomputed.
+   */
+  section: 'core' | 'behavior' | 'ops';
   columns: PanelColumn[];
   /** Time dimension member (timelines + event streams). */
   timeDimension?: string;
@@ -763,9 +771,12 @@ const TF_PANELS: Member360Panel[] = [
 ];
 
 // Cross-cutting ops panels (cfm + jus only — these cubes exist for those games).
-// All lazy / section:'behavior' so they load on expand and are never precomputed
-// (the CS + identity sources lag; billing is live but txn-grain). Behavior panels
-// live only in the FE registry, so they don't touch the server core-parity copy.
+// All lazy / section:'ops' so they load on expand and are never precomputed
+// (the CS + identity sources lag; billing is live but txn-grain). They are
+// user_id-keyed snapshots / FE-bounded timelines, NOT dteventtime event streams,
+// so they sit in their own 'ops' section — exempt from the ETL-event guardrail,
+// bounded instead by their own limit / needsDateRange. FE-registry only, so they
+// don't touch the server core-parity copy.
 function opsPanels(): Member360Panel[] {
   return [
     {
@@ -774,20 +785,17 @@ function opsPanels(): Member360Panel[] {
       view: 'user_identity_panel',
       identityKey: 'user_id',
       panelType: 'detailTable',
-      section: 'behavior',
+      section: 'ops',
       lazy: true,
       limit: 1,
+      // Net-new-vs-mf_users fields only — geo / channels / lifecycle / LTV live in
+      // the mf_users-backed panels (live), so this lagging source is trimmed to
+      // what mf_users genuinely lacks.
       columns: [
-        col('user_identity_panel', 'first_country_code', 'First country'),
-        col('user_identity_panel', 'last_country_code', 'Last country'),
-        col('user_identity_panel', 'geo_moved', 'Moved country?'),
-        col('user_identity_panel', 'first_os', 'First OS'),
+        col('user_identity_panel', 'register_date', 'Registered'),
         col('user_identity_panel', 'last_os', 'Last OS'),
-        col('user_identity_panel', 'first_login_channel', 'First channel'),
-        col('user_identity_panel', 'last_login_channel', 'Last channel'),
-        col('user_identity_panel', 'media_source', 'Acquired via'),
+        col('user_identity_panel', 'install_app_store', 'Install store'),
         col('user_identity_panel', 'user_type', 'User type'),
-        col('user_identity_panel', 'days_since_last_active', 'Days since active (lagging)', 'dimension', 'number'),
       ],
     },
     {
@@ -796,7 +804,7 @@ function opsPanels(): Member360Panel[] {
       view: 'user_billing_detail_panel',
       identityKey: 'user_id',
       panelType: 'dailyTimeline',
-      section: 'behavior',
+      section: 'ops',
       lazy: true,
       needsDateRange: true,
       timeDimension: 'user_billing_detail_panel.order_date',
@@ -817,15 +825,14 @@ function opsPanels(): Member360Panel[] {
       view: 'user_billing_lifetime_panel',
       identityKey: 'user_id',
       panelType: 'detailTable',
-      section: 'behavior',
+      section: 'ops',
       lazy: true,
       limit: 1,
+      // Reconciliation-only: gateway-charged lifetime vs ingame mf_users LTV.
       columns: [
-        col('user_billing_lifetime_panel', 'lifetime_vnd', 'Lifetime (VND)', 'dimension', 'currency'),
-        col('user_billing_lifetime_panel', 'lifetime_usd', 'Lifetime (USD)', 'dimension', 'number'),
-        col('user_billing_lifetime_panel', 'lifetime_txn_count', 'Txns', 'dimension', 'number'),
-        col('user_billing_lifetime_panel', 'first_date', 'First order'),
-        col('user_billing_lifetime_panel', 'last_date', 'Last order'),
+        col('user_billing_lifetime_panel', 'lifetime_vnd', 'Gateway lifetime (VND)', 'dimension', 'currency'),
+        col('user_billing_lifetime_panel', 'lifetime_usd', 'Gateway lifetime (USD)', 'dimension', 'number'),
+        col('user_billing_lifetime_panel', 'lifetime_txn_count', 'Gateway txns', 'dimension', 'number'),
       ],
     },
     {
@@ -834,7 +841,7 @@ function opsPanels(): Member360Panel[] {
       view: 'user_cs_tickets_panel',
       identityKey: 'user_id',
       panelType: 'detailTable',
-      section: 'behavior',
+      section: 'ops',
       lazy: true,
       limit: 50,
       timeDimension: 'user_cs_tickets_panel.created_date',

@@ -66,6 +66,23 @@ describe('member360 panel registry', () => {
       expect(p.identityKey).toBe(expected);
     }
   });
+
+  // Cross-cutting ops panels (billing / CS / identity) are NOT dteventtime event
+  // streams, so they live outside the BEHAVIOR_VIEWS guardrail. They must still be
+  // lazy and self-bounded — a row cap (snapshot) or an explicit date range — and
+  // are user_id-keyed (they join mf_users on the GDS snowflake, never playerid).
+  it('cfm ops panels are lazy, user_id-keyed, and self-bounded (limit or needsDateRange)', () => {
+    const ops = panelsForGame('cfm').filter((p) => p.section === 'ops');
+    expect(ops.length).toBeGreaterThan(0);
+    for (const p of ops) {
+      expect(p.lazy).toBe(true);
+      expect(p.identityKey).toBe('user_id');
+      const bounded = (typeof p.limit === 'number' && p.limit > 0) || p.needsDateRange === true;
+      expect(bounded, `${p.view} must be bounded by a row limit or needsDateRange`).toBe(true);
+      // ops panels intentionally do NOT use the dteventtime event guardrail
+      expect(BEHAVIOR_VIEWS.has(p.view)).toBe(false);
+    }
+  });
 });
 
 describe('buildPanelQuery', () => {

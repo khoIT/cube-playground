@@ -1,47 +1,48 @@
 cubes:
   # ===========================================================================
-  # billing_lifetime — canonical-billing lifetime value, per user.
+  # billing_lifetime — RECONCILIATION-ONLY lens on lifetime value.
   # Source: iceberg.billing.pmt_users_history (cross-catalog, fully-qualified).
   #
   # [freshness: live]  (daily-refreshed)
   #
-  # PURPOSE: a canonical-billing LTV cube to CROSS-CHECK against the ingame
-  # mf_users LTV — NOT to override it. Amounts are pre-normalized into VND and
-  # USD, which matters for jus (mixed-currency payers).
+  # SCOPE: this cube is NOT a new LTV dimension source — mf_users already carries
+  # ltv_vnd / ltv_usd / lifetime_txn_count / first_recharge_date / last_recharge_date
+  # (the authoritative INGAME-DELIVERED lifetime value). The ONLY thing this cube
+  # adds is the GATEWAY-CHARGED lifetime total from the canonical billing pipeline,
+  # so you can reconcile the two: gateway cash vs ingame delivery. Use it to
+  # detect/quantify that gap, NOT as a parallel set of cohort/profile fields.
+  # Cohort dates, first_amt, product_code are deliberately dropped — they duplicate
+  # mf_users and add no reconciliation signal.
   #
-  # GAME ISOLATION is the product_code filter. jus = 'A70'. The
-  # `user_id IN (SELECT user_id FROM mf_users)` semi-join is the real-users
+  # GAME ISOLATION is the product_code filter. jus = 'A70'. jus is mixed-currency
+  # (USD + VND payers); total_amt_vnd / total_amt_usd are both pre-normalized by
+  # the pipeline, so reconcile each currency lens against the matching mf_users LTV.
+  #
+  # The `user_id IN (SELECT user_id FROM mf_users)` semi-join is the real-users
   # filter (direct GDS-snowflake join). Grain: one row per (user, product_code).
   # ===========================================================================
   - name: billing_lifetime
     sql: >
       SELECT
         p.user_id,
-        p.product_code,
-        p.first_date,
-        p.first_month,
-        p.first_amt,
-        p.last_date,
-        p.last_month,
         p.total_trans,
         p.total_amt_vnd,
         p.total_amt_usd
       FROM iceberg.billing.pmt_users_history p
       WHERE p.product_code = 'A70'
         AND p.user_id IN (SELECT user_id FROM mf_users)
-    title: JUS VN — Billing Lifetime (canonical LTV cross-check)
+    title: JUS VN — Billing Lifetime (gateway-charged LTV, reconcile vs mf_users)
     description: >
-      [freshness: live] Canonical-billing lifetime value per user from the
-      payment pipeline (total VND/USD, total transactions, first/last order
-      cohort). Use to CROSS-CHECK / reconcile against the ingame mf_users LTV —
-      a gap is expected (gateway cash vs ingame delivery). Pre-normalized VND
-      and USD (jus is mixed-currency). GROSS only.
+      [freshness: live] RECONCILIATION-ONLY. Gateway-charged lifetime value per
+      user from the payment pipeline (total VND/USD/txns). Compare against the
+      authoritative ingame mf_users LTV — a gap is expected (gateway cash vs ingame
+      delivery). NOT a new dimension source; mf_users owns LTV. GROSS only.
 
     meta:
       freshness: live
       source: iceberg.billing.pmt_users_history
-      purpose: ltv_cross_check_vs_mf_users
-      mixed_currency: true
+      purpose: ltv_reconciliation_vs_mf_users
+      authoritative_ltv: mf_users
 
     joins:
       - name: mf_users
@@ -57,42 +58,20 @@ cubes:
         type: string
         primary_key: true
 
-      - name: product_code
-        sql: product_code
-        type: string
-
-      - name: first_date
-        sql: "from_iso8601_timestamp(CAST({CUBE}.first_date AS VARCHAR) || 'T00:00:00Z')"
-        type: time
-
-      - name: first_month
-        sql: first_month
-        type: string
-
-      - name: last_date
-        sql: "from_iso8601_timestamp(CAST({CUBE}.last_date AS VARCHAR) || 'T00:00:00Z')"
-        type: time
-
-      - name: last_month
-        sql: last_month
-        type: string
-
-      - name: lifetime_txn_count
-        sql: total_trans
-        type: number
-
       - name: lifetime_vnd
         sql: total_amt_vnd
         type: number
-        description: Lifetime gateway-charged value (VND, gross)
+        description: Gateway-charged lifetime VND (gross) — reconcile vs mf_users.ltv_vnd
 
       - name: lifetime_usd
         sql: total_amt_usd
         type: number
+        description: Gateway-charged lifetime USD (gross) — reconcile vs mf_users.ltv_usd
 
-      - name: first_amt
-        sql: first_amt
+      - name: lifetime_txn_count
+        sql: total_trans
         type: number
+        description: Gateway txn count — reconcile vs mf_users.lifetime_txn_count
 
     measures:
       - name: payers
@@ -102,7 +81,7 @@ cubes:
       - name: lifetime_vnd_total
         sql: total_amt_vnd
         type: sum
-        description: Sum of lifetime gateway-charged value (VND, gross)
+        description: Sum of gateway-charged lifetime VND (gross) — reconcile vs ingame
 
       - name: lifetime_usd_total
         sql: total_amt_usd
@@ -115,4 +94,4 @@ cubes:
       - name: lifetime_arppu_vnd
         sql: "CAST({lifetime_vnd_total} AS DOUBLE) / NULLIF({payers}, 0)"
         type: number
-        description: Lifetime ARPPU (VND) = total gateway-charged VND / paying users
+        description: Gateway-charged lifetime ARPPU (VND) = total gateway VND / paying users

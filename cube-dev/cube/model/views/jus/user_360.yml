@@ -308,32 +308,19 @@ views:
 
   - name: user_identity_panel
     description: >
-      [freshness: lagging] Geo / lifecycle / login-channel profile for one user
-      from the cross-game VGA pipeline (load ~1 month behind — churn-gap includes
-      pipeline lag). Filter by user_id equals for the identity panel of a 360 view.
+      [freshness: lagging] The net-new-vs-mf_users identity fields for one user
+      from the cross-game VGA pipeline (load ~1 month behind): account
+      register_date, last OS, install app store, vga user_type. Everything else
+      (geo, channels, LTV, lifecycle) lives in the live mf_users panels above.
     cubes:
       - join_path: user_identity
         includes:
           - user_id
-          - first_country_code
-          - last_country_code
-          - geo_moved
-          - first_os
+          - register_date
           - last_os
-          - first_login_channel
-          - last_login_channel
-          - media_source
-          - campaign_id
           - install_app_store
           - user_type
-          - install_date
-          - register_date
-          - last_login_time
-          - last_charge_time
-          - last_active
-          - days_since_last_active
           - users
-          - moved_country_users
 
   - name: user_billing_detail_panel
     description: >
@@ -367,22 +354,16 @@ views:
 
   - name: user_billing_lifetime_panel
     description: >
-      [freshness: live] Canonical-billing lifetime value per user (cross-check vs
-      ingame LTV — a gap is expected, gateway cash vs ingame delivery). Filter by
-      user_id for the single-user panel, or aggregate for cohort LTV.
+      [freshness: live] RECONCILIATION-ONLY. Gateway-charged lifetime value per
+      user — compare against the authoritative ingame mf_users LTV (a gap is
+      expected, gateway cash vs ingame delivery). NOT a new LTV source.
     cubes:
       - join_path: billing_lifetime
         includes:
           - user_id
-          - product_code
-          - first_date
-          - first_month
-          - last_date
-          - last_month
           - lifetime_txn_count
           - lifetime_vnd
           - lifetime_usd
-          - first_amt
           - payers
           - lifetime_vnd_total
           - lifetime_usd_total

@@ -1,34 +1,54 @@
 cubes:
   # ===========================================================================
-  # user_profile — cross-game identity / geo / lifecycle profile.
-  # Source: iceberg.vga.std_all_game_user_profile (cross-catalog, qualified).
+  # user_identity — the SMALL net-new slice of the cross-game VGA profile that
+  # mf_users does NOT already carry. Source: iceberg.vga.std_all_game_user_profile.
   #
-  # [freshness: lagging]  — load STOPPED ~2026-05-17 (~1 month stale at authoring).
+  # [freshness: lagging] — load STOPPED ~2026-05-17 (~1 month stale at authoring).
   # gds_da.etl_user_profile (the intended LIVE source) lacks jus, so vga is the
-  # only (game_id,user_id) profile source. Churn-gap includes the pipeline lag.
+  # only (game_id,user_id) profile source.
+  #
+  # WHY SO FEW COLUMNS: mf_users is the live (hourly/daily) per-game feature
+  # store and already derives geo (first/last_login_country), channels
+  # (first/last_login_channel), media_source, install_date, days_since_last_active,
+  # LTV, payer_tier, lifecycle_stage — all fresher than this lagging source.
+  # Re-exposing them here would be duplicative and staler. So this cube keeps ONLY
+  # the handful of fields that have NO mf_users equivalent:
+  #   - register_date     (account creation — distinct from install_date)
+  #   - last_os           (mf_users only has a single os_platform, not first/last)
+  #   - install_app_store (App Store / Google Play — mf_users has no store field)
+  #   - user_type         (vga account class — no mf_users equivalent)
+  # PII (device_id / install_id / fb_emails) is intentionally NOT modeled.
   #
   # GAME ISOLATION is the game_id filter ('jus_vn'). Grain 1:1 per user; joins
-  # mf_users on the GDS-snowflake user_id (91.6% matched for jus — unmatched
-  # rows simply have no mf_users attributes). PII public:false.
+  # mf_users on the GDS-snowflake user_id (unmatched rows simply have no mf_users
+  # attributes).
+  #
+  # Named user_identity (NOT user_profile) — `user_profile` is the existing 360
+  # VIEW name in views/<game>/user_360.yml; a cube sharing that name breaks the
+  # whole model compile.
   # ===========================================================================
-  # Named user_identity (NOT user_profile) — `user_profile` is the existing
-  # 360 VIEW name in views/<game>/user_360.yml; a cube sharing that name breaks
-  # the whole model compile.
   - name: user_identity
     sql: >
-      SELECT * FROM iceberg.vga.std_all_game_user_profile
+      SELECT
+        user_id,
+        register_date,
+        last_os,
+        install_app_store,
+        user_type
+      FROM iceberg.vga.std_all_game_user_profile
       WHERE game_id = 'jus_vn'
-    title: JUS VN — User Identity (geo / lifecycle / channels)
+    title: JUS VN — User Identity (register / store / user-type net-new)
     description: >
-      [freshness: lagging] Identity, geo, lifecycle and login-channel profile per
-      user from the cross-game VGA pipeline. Load is ~1 month behind, so
-      churn-gap includes pipeline lag — triage/historical, not live alerting.
-      One row per user.
+      [freshness: lagging] The few identity fields the live mf_users feature store
+      does NOT carry — account register_date, last OS, install app store, and vga
+      user_type. Everything else (geo, channels, LTV, lifecycle) lives in mf_users
+      and is fresher there. Load is ~1 month behind. One row per user.
 
     meta:
       freshness: lagging
       source: iceberg.vga.std_all_game_user_profile
-      lag_note: load stopped ~2026-05-17; churn-gap includes pipeline lag
+      lag_note: load stopped ~2026-05-17
+      scope_note: net-new-vs-mf_users only; mf_users is the live identity backbone
 
     joins:
       - name: mf_users
@@ -44,87 +64,26 @@ cubes:
         type: string
         primary_key: true
 
-      # --- PII: never exported ---
-      - name: device_id
-        sql: device_id
-        type: string
-        public: false
-      - name: install_id
-        sql: install_id
-        type: string
-        public: false
-      - name: fb_emails
-        sql: fb_emails
-        type: string
-        public: false
-
-      # --- geo ---
-      - name: first_country_code
-        sql: first_country_code
-        type: string
-      - name: last_country_code
-        sql: last_country_code
-        type: string
-      - name: geo_moved
-        sql: "CASE WHEN {CUBE}.first_country_code <> {CUBE}.last_country_code THEN true ELSE false END"
-        type: boolean
-        description: True when first and last country differ (possible travel / account sharing / VPN)
-
-      # --- platform / channel ---
-      - name: first_os
-        sql: first_os
-        type: string
-      - name: last_os
-        sql: last_os
-        type: string
-      - name: first_login_channel
-        sql: first_login_channel
-        type: string
-      - name: last_login_channel
-        sql: last_login_channel
-        type: string
-
-      # --- acquisition (vga's own attribution, distinct from mf_users) ---
-      - name: media_source
-        sql: media_source
-        type: string
-      - name: campaign_id
-        sql: campaign_id
-        type: string
-      - name: install_app_store
-        sql: install_app_store
-        type: string
-      - name: user_type
-        sql: user_type
-        type: string
-
-      # --- lifecycle timestamps ---
-      - name: install_date
-        sql: "from_iso8601_timestamp(CAST({CUBE}.install_date AS VARCHAR) || 'T00:00:00Z')"
-        type: time
       - name: register_date
         sql: "from_iso8601_timestamp(CAST({CUBE}.register_date AS VARCHAR) || 'T00:00:00Z')"
         type: time
-      - name: last_login_time
-        sql: last_login_time
-        type: time
-      - name: last_charge_time
-        sql: last_charge_time
-        type: time
-      - name: last_active
-        sql: "from_iso8601_timestamp(CAST({CUBE}.last_active AS VARCHAR) || 'T00:00:00Z')"
-        type: time
+        description: Account creation date (distinct from mf_users install_date)
 
-      - name: days_since_last_active
-        sql: "date_diff('day', {CUBE}.last_active, CURRENT_DATE)"
-        type: number
-        description: Days since last active — NOTE includes ~1 month pipeline lag (source freshness)
+      - name: last_os
+        sql: last_os
+        type: string
+        description: Most-recent OS (mf_users carries only a single os_platform)
+
+      - name: install_app_store
+        sql: install_app_store
+        type: string
+        description: Install store (App Store / Google Play) — no mf_users equivalent
+
+      - name: user_type
+        sql: user_type
+        type: string
+        description: VGA account class — no mf_users equivalent
 
     measures:
       - name: users
         type: count
-      - name: moved_country_users
-        type: count
-        filters:
-          - sql: "{CUBE}.first_country_code <> {CUBE}.last_country_code"
-        description: Users whose first and last country differ
