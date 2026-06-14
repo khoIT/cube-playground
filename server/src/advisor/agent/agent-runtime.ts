@@ -17,7 +17,8 @@
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { AsyncInputQueue } from './agent-input-queue.js';
-import { buildAgentEnv } from './agent-oauth-env.js';
+import { buildAgentEnv, resolveAuthLane } from './agent-oauth-env.js';
+import { scanToolOutputForError } from './tool-output-error-scan.js';
 import { buildBaseSystemPrompt } from './agent-system-prompt.js';
 import { buildContextPack } from './agent-context-pack.js';
 import { resolveCaps, makeCanUseTool, type ToolDecision } from './agent-guardrails.js';
@@ -29,7 +30,7 @@ import type { ToolCallInput, EventInput } from './advisor-run-store.js';
 import { ProvenanceLedger } from './agent-provenance-gate.js';
 import { buildAdvisorToolServer, ADVISOR_SERVER_NAME, ADVISOR_TOOL_ALLOWLIST } from './tools/index.js';
 import type { ToolContext } from './tools/tool-context.js';
-import type { RuntimeEvent, SessionOpts, AgentMode, AgentStopReason, AgentErrorCode } from './agent-types.js';
+import type { RuntimeEvent, SessionOpts, AgentMode, AgentStopReason, AgentErrorCode, TokenUsage } from './agent-types.js';
 
 /** Query object as the runtime uses it: an async generator that can interrupt. */
 type AgentQuery = AsyncGenerator<unknown> & { interrupt?: () => Promise<void> };
@@ -69,6 +70,17 @@ export function createAdvisorAgentSession(
   const recorder: RunRecorder = deps?.recorder ?? sqliteRunRecorder;
   const model = opts.model ?? process.env.ADVISOR_AGENT_MODEL;
   const env = buildAgentEnv(); // throws OAuthTokenMissingError if absent
+  // Credential lane the agent runs on (always subscription OAuth) — recorded per
+  // run so a $0.00 cost reads as "subscription flat-rate", not "free".
+  const authLane = resolveAuthLane();
+  // The model the SDK actually used (from result/assistant messages), and the
+  // run's cumulative token usage — both filled in as turns stream. `model` above
+  // is the *configured* override (often undefined); actualModel wins when known.
+  let actualModel: string | undefined;
+  let cumInputTokens = 0;
+  let cumOutputTokens = 0;
+  let cumCacheReadTokens = 0;
+  let cumCacheCreationTokens = 0;
   // Anchor every time-based computation to session-creation time (the I/O
   // boundary) so a multi-turn investigation stays internally consistent.
   const asOf = new Date();
@@ -147,6 +159,8 @@ export function createAdvisorAgentSession(
       let stopReason: AgentStopReason = 'end_turn';
       let sawResult = false;
       let emittedError = false;
+      // Token usage for THIS turn, captured from the SDK result's `done` event.
+      let turnUsage: TokenUsage | undefined;
 
       // ── Run-audit buffer (Phase: durable per-turn trace) ──────────────────
       // Pair tool_call→tool_result by callId for duration/state/error; buffer
@@ -185,6 +199,10 @@ export function createAdvisorAgentSession(
             const endedAt = Date.now();
             const idx = ev.callId ? openCalls.findIndex((c) => c.callId === ev.callId) : openCalls.length ? 0 : -1;
             const open = idx >= 0 ? openCalls.splice(idx, 1)[0] : undefined;
+            // A clean (ok) tool can still carry an upstream failure folded into
+            // its payload (e.g. a Cube 400 inside a diagnose lens). Flag it so the
+            // semantic failure isn't hidden behind the ok state.
+            const embedded = ev.ok ? scanToolOutputForError(ev.resultText) : null;
             recordedToolCalls.push({
               callId: ev.callId ?? open?.callId,
               tool: open?.tool ?? ev.tool,
@@ -196,6 +214,8 @@ export function createAdvisorAgentSession(
               startedAt: open?.startedAt,
               endedAt,
               durationMs: open ? endedAt - open.startedAt : undefined,
+              embeddedError: embedded != null,
+              embeddedErrorMessage: embedded ?? undefined,
             });
             break;
           }
@@ -223,13 +243,23 @@ export function createAdvisorAgentSession(
           const { value, done } = await q.next();
           if (done) break;
           const raw = value as Record<string, unknown>;
+          // Capture the model the SDK actually used (carried on assistant
+          // messages) — the configured `model` is usually undefined.
+          if (raw.type === 'assistant' && !actualModel) {
+            const m = (raw.message as { model?: string } | undefined)?.model;
+            if (typeof m === 'string' && m) actualModel = m;
+          }
           for (const ev of normalizeSdkMessage(raw)) {
             if (ev.type === 'tool_call') toolCalls.push(ev.tool);
             if ((ev.type === 'cost' || ev.type === 'done') && typeof ev.usd === 'number') {
               session.totalCostUsd = ev.usd;
             }
             if (ev.type === 'error') emittedError = true;
-            if (ev.type === 'done') stopReason = ev.stopReason;
+            if (ev.type === 'done') {
+              stopReason = ev.stopReason;
+              if (ev.usage) turnUsage = ev.usage;
+              if (ev.model && !actualModel) actualModel = ev.model;
+            }
             bufferEvent(ev);
             yield ev;
           }
@@ -314,6 +344,11 @@ export function createAdvisorAgentSession(
               durationMs: endedAt - open.startedAt,
             });
           }
+          // Roll this turn's token usage into the run-level cumulative totals.
+          cumInputTokens += turnUsage?.inputTokens ?? 0;
+          cumOutputTokens += turnUsage?.outputTokens ?? 0;
+          cumCacheReadTokens += turnUsage?.cacheReadTokens ?? 0;
+          cumCacheCreationTokens += turnUsage?.cacheCreationTokens ?? 0;
           recorder.flushTurn({
             run: {
               sessionId: id,
@@ -323,13 +358,19 @@ export function createAdvisorAgentSession(
               goal: opts.goal,
               mode,
               owner: opts.owner,
-              model,
+              model: actualModel ?? model,
               turnCount: session.turnIndex,
               totalCostUsd: session.totalCostUsd,
               finalStopReason: stopReason,
               hadError: stopReason !== 'end_turn',
               createdAt: session.createdAt,
               lastActiveAt: endedAt,
+              authLane: authLane.lane,
+              authSource: authLane.source ?? undefined,
+              inputTokens: cumInputTokens,
+              outputTokens: cumOutputTokens,
+              cacheReadTokens: cumCacheReadTokens,
+              cacheCreationTokens: cumCacheCreationTokens,
             },
             turn: {
               sessionId: id,
@@ -344,6 +385,10 @@ export function createAdvisorAgentSession(
               startedAt,
               endedAt,
               durationMs: endedAt - startedAt,
+              inputTokens: turnUsage?.inputTokens,
+              outputTokens: turnUsage?.outputTokens,
+              cacheReadTokens: turnUsage?.cacheReadTokens,
+              cacheCreationTokens: turnUsage?.cacheCreationTokens,
             },
             toolCalls: recordedToolCalls,
             events: recordedEvents,

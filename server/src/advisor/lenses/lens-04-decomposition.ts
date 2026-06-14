@@ -9,7 +9,7 @@
  * Cube measures used (cfm_vn):
  *   payers    → mf_users.paying_users  (count_distinct paying users)
  *   arppu     → mf_users.arppu_vnd     (lifetime ARPPU in VND)
- *   lifespan  → mf_users.total_active_days (avg total active days for payers)
+ *   lifespan  → mf_users.avg_total_active_days (avg total active days for payers)
  *
  * The segment's three factor values are fetched in one Cube query (single round
  * trip). The game-wide baseline is fetched in a second query with no filters.
@@ -33,7 +33,7 @@ import { scopeToFilters, gameIdFromScope } from '../scope-helpers.js';
 const REVENUE_MEASURES = [
   'mf_users.paying_users',
   'mf_users.arppu_vnd',
-  'mf_users.total_active_days',
+  'mf_users.avg_total_active_days',
 ] as const;
 
 interface DecompositionLensInput {
@@ -77,13 +77,13 @@ export async function runLens04Decomposition(
     const observed: RevenueFactorValues = {
       payers: extractScalar(segResult.rows, 'mf_users.paying_users'),
       arppu: extractScalar(segResult.rows, 'mf_users.arppu_vnd'),
-      lifespan: extractScalar(segResult.rows, 'mf_users.total_active_days'),
+      lifespan: extractScalar(segResult.rows, 'mf_users.avg_total_active_days'),
     };
 
     const baseline: BaselineValues = {
       payers: extractScalar(popResult.rows, 'mf_users.paying_users'),
       arppu: extractScalar(popResult.rows, 'mf_users.arppu_vnd'),
-      lifespan: extractScalar(popResult.rows, 'mf_users.total_active_days'),
+      lifespan: extractScalar(popResult.rows, 'mf_users.avg_total_active_days'),
     };
 
     // Check for empty cohort: all measures null or zero.

@@ -7,7 +7,7 @@
  * events rather than throwing.
  */
 
-import type { RuntimeEvent, AgentStopReason, AgentErrorCode } from './agent-types.js';
+import type { RuntimeEvent, AgentStopReason, AgentErrorCode, TokenUsage } from './agent-types.js';
 
 /** Loose view of an SDK message — we narrow by `type` and guard every field. */
 type RawSdkMessage = {
@@ -15,8 +15,41 @@ type RawSdkMessage = {
   subtype?: string;
   total_cost_usd?: number;
   message?: { content?: unknown };
+  usage?: Record<string, unknown>;
+  modelUsage?: Record<string, unknown>;
   [k: string]: unknown;
 };
+
+/** Read a numeric field if present and finite, else undefined. */
+function num(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+/**
+ * Normalize the SDK result's `usage` into our TokenUsage shape. Returns
+ * undefined when no token field is present so the recorder stores nothing.
+ */
+function extractUsage(usage: Record<string, unknown> | undefined): TokenUsage | undefined {
+  if (!usage || typeof usage !== 'object') return undefined;
+  const out: TokenUsage = {
+    inputTokens: num(usage.input_tokens),
+    outputTokens: num(usage.output_tokens),
+    cacheReadTokens: num(usage.cache_read_input_tokens),
+    cacheCreationTokens: num(usage.cache_creation_input_tokens),
+  };
+  const hasAny = Object.values(out).some((v) => v !== undefined);
+  return hasAny ? out : undefined;
+}
+
+/**
+ * The model(s) the turn actually used. The SDK result keys `modelUsage` by
+ * model name; one key for a single-model turn. Joined when more than one.
+ */
+function extractModel(modelUsage: Record<string, unknown> | undefined): string | undefined {
+  if (!modelUsage || typeof modelUsage !== 'object') return undefined;
+  const keys = Object.keys(modelUsage);
+  return keys.length ? keys.join(', ') : undefined;
+}
 
 type ContentBlock = {
   type?: string;
@@ -136,6 +169,8 @@ export function normalizeSdkMessage(raw: RawSdkMessage): RuntimeEvent[] {
         type: 'done',
         usd: typeof raw.total_cost_usd === 'number' ? raw.total_cost_usd : null,
         stopReason: reason,
+        usage: extractUsage(raw.usage),
+        model: extractModel(raw.modelUsage),
       });
       break;
     }

@@ -467,4 +467,177 @@ describe('CrossUserAuditPanel — session detail', () => {
       expect(screen.getByText('Audit turn text')).toBeDefined();
     });
   });
+
+  it('renders llmAuthLabel badge on assistant turns when present', async () => {
+    stubApiFetchSessions([
+      {
+        id: 'sess-lane-1',
+        title: 'Lane label session',
+        owner_id: 'kc-alice',
+        game_id: 'muaw',
+        created_at: 1717000000000,
+        last_turn_at: 1717001000000,
+        turn_count: 2,
+        status: 'active',
+        deletedAt: null,
+      },
+    ]);
+    stubApiFetchSessionDetail({
+      session: {
+        id: 'sess-lane-1',
+        title: 'Lane label session',
+        owner_id: 'kc-alice',
+        game_id: 'muaw',
+        created_at: 1717000000000,
+        last_turn_at: 1717001000000,
+        turn_count: 2,
+        status: 'active',
+        deletedAt: null,
+      },
+      turns: [
+        {
+          id: 'turn-lane-1',
+          role: 'assistant',
+          text: 'Lane test response',
+          createdAt: new Date(1717000100000).toISOString(),
+          toolCalls: [],
+          legacy: false,
+          llmCallCount: 1,
+          toolInvocationCount: 0,
+          inputTokens: 100,
+          outputTokens: 50,
+          costUsd: 0.001,
+          model: 'claude-test',
+          skill: null,
+          durationMs: 1200,
+          stopReason: 'end_turn',
+          llmAuthLabel: 'primary',
+          cacheCreationTokens: null,
+          cacheReadTokens: null,
+          cacheHit: false,
+          originalTurnId: null,
+          originalSessionId: null,
+        },
+        {
+          id: 'turn-lane-2',
+          role: 'assistant',
+          text: 'Fallback lane response',
+          createdAt: new Date(1717000200000).toISOString(),
+          toolCalls: [],
+          legacy: false,
+          llmCallCount: 1,
+          toolInvocationCount: 0,
+          inputTokens: 80,
+          outputTokens: 40,
+          costUsd: 0.0008,
+          model: 'claude-test',
+          skill: null,
+          durationMs: 900,
+          stopReason: 'end_turn',
+          llmAuthLabel: 'subscription',
+          cacheCreationTokens: null,
+          cacheReadTokens: null,
+          cacheHit: false,
+          originalTurnId: null,
+          originalSessionId: null,
+        },
+      ],
+    });
+
+    render(<CrossUserAuditPanel />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('alice@vng.com'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Lane label session')).toBeDefined();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Lane label session'));
+    });
+
+    await waitFor(() => {
+      // Both lane labels must be visible in the turn rows
+      expect(screen.getByText('primary')).toBeDefined();
+      expect(screen.getByText('subscription')).toBeDefined();
+    });
+  });
+
+  it('renders dash placeholder on turns where llmAuthLabel is null (legacy/cache-hit)', async () => {
+    stubApiFetchSessions([
+      {
+        id: 'sess-null-lane',
+        title: 'Null lane session',
+        owner_id: 'kc-alice',
+        game_id: 'muaw',
+        created_at: 1717000000000,
+        last_turn_at: 1717001000000,
+        turn_count: 1,
+        status: 'active',
+        deletedAt: null,
+      },
+    ]);
+    stubApiFetchSessionDetail({
+      session: {
+        id: 'sess-null-lane',
+        title: 'Null lane session',
+        owner_id: 'kc-alice',
+        game_id: 'muaw',
+        created_at: 1717000000000,
+        last_turn_at: 1717001000000,
+        turn_count: 1,
+        status: 'active',
+        deletedAt: null,
+      },
+      turns: [
+        {
+          id: 'turn-null-lane',
+          role: 'assistant',
+          text: 'Legacy turn text',
+          createdAt: new Date(1717000100000).toISOString(),
+          toolCalls: [],
+          legacy: true,
+          llmCallCount: 0,
+          toolInvocationCount: 0,
+          inputTokens: null,
+          outputTokens: null,
+          costUsd: null,
+          model: null,
+          skill: null,
+          durationMs: null,
+          stopReason: null,
+          llmAuthLabel: null,
+          cacheCreationTokens: null,
+          cacheReadTokens: null,
+          cacheHit: false,
+          originalTurnId: null,
+          originalSessionId: null,
+        },
+      ],
+    });
+
+    render(<CrossUserAuditPanel />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('alice@vng.com'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Null lane session')).toBeDefined();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Null lane session'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Legacy turn text')).toBeDefined();
+      // The "—" placeholder must be rendered for the null auth lane badge.
+      // aria-label is the stable selector — avoids matching other "—" chars.
+      const badge = document.querySelector('[aria-label="auth lane: —"]');
+      expect(badge).not.toBeNull();
+    });
+  });
 });

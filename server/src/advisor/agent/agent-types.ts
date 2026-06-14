@@ -43,6 +43,17 @@ export type AgentErrorCode =
   | 'sdk_error';
 
 /**
+ * Token usage for a turn, normalized from the SDK result's `usage`. All fields
+ * optional — the SDK may omit any of them. Cumulated across a run for the audit.
+ */
+export interface TokenUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+}
+
+/**
  * Normalized stream of runtime events. The SSE bridge serializes each as
  * `event: <type>\ndata: <json>\n\n`.
  */
@@ -55,7 +66,9 @@ export type RuntimeEvent =
   // the error text when ok=false). Optional/additive for the audit recorder.
   | { type: 'tool_result'; tool: string; callId?: string; ok: boolean; resultText?: string }
   | { type: 'cost'; usd: number }
-  | { type: 'done'; usd: number | null; stopReason: AgentStopReason }
+  // `usage` + `model` are recorder-only (like tool_call.input): the SSE edge in
+  // advisor.ts strips them so the live client wire contract stays unchanged.
+  | { type: 'done'; usd: number | null; stopReason: AgentStopReason; usage?: TokenUsage; model?: string }
   | { type: 'denied'; tool: string; reason: string }
   | { type: 'error'; code: AgentErrorCode; message: string };
 

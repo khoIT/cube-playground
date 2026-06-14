@@ -38,7 +38,7 @@ const SEGMENT_ROWS: CubeRow[] = [
   {
     'mf_users.paying_users': 100,
     'mf_users.arppu_vnd': 500_000,
-    'mf_users.total_active_days': 30,
+    'mf_users.avg_total_active_days': 30,
   },
 ];
 
@@ -46,7 +46,7 @@ const POPULATION_ROWS: CubeRow[] = [
   {
     'mf_users.paying_users': 100,
     'mf_users.arppu_vnd': 500_000,
-    'mf_users.total_active_days': 60,
+    'mf_users.avg_total_active_days': 60,
   },
 ];
 
@@ -203,7 +203,7 @@ describe('runLens04Decomposition', () => {
 
   it('returns inconclusive on empty cohort (payers = 0)', async () => {
     const emptyReader = fixedReader([
-      { 'mf_users.paying_users': 0, 'mf_users.arppu_vnd': 0, 'mf_users.total_active_days': 0 },
+      { 'mf_users.paying_users': 0, 'mf_users.arppu_vnd': 0, 'mf_users.avg_total_active_days': 0 },
     ]);
     const result = await runLens04Decomposition({ scope, asOf }, STUB_CTX, emptyReader);
     expect(result.verdict).toBe('inconclusive');
@@ -231,8 +231,8 @@ describe('runLens01Level', () => {
   it('returns weak when segment value is well below population', async () => {
     // Segment lifespan = 10, population lifespan = 60 → ratio ~16% → P16 → weak
     const reader = alternatingReader(
-      [{ 'mf_users.total_active_days': 10 }],
-      [{ 'mf_users.total_active_days': 60 }],
+      [{ 'mf_users.avg_total_active_days': 10 }],
+      [{ 'mf_users.avg_total_active_days': 60 }],
     );
     const result = await runLens01Level({ scope, factor: 'lifespan', asOf }, STUB_CTX, reader);
     expect(result.verdict).toBe('weak');
@@ -242,8 +242,8 @@ describe('runLens01Level', () => {
   it('returns non-weak verdict when segment value is near population', async () => {
     // 55/60 ≈ 91% of population → above weak threshold → ok or strong
     const reader = alternatingReader(
-      [{ 'mf_users.total_active_days': 55 }],
-      [{ 'mf_users.total_active_days': 60 }],
+      [{ 'mf_users.avg_total_active_days': 55 }],
+      [{ 'mf_users.avg_total_active_days': 60 }],
     );
     const result = await runLens01Level({ scope, factor: 'lifespan', asOf }, STUB_CTX, reader);
     expect(result.verdict).not.toBe('weak');
@@ -261,8 +261,8 @@ describe('runLens01Level', () => {
 
   it('provenance carries source label', async () => {
     const reader = alternatingReader(
-      [{ 'mf_users.total_active_days': 10 }],
-      [{ 'mf_users.total_active_days': 60 }],
+      [{ 'mf_users.avg_total_active_days': 10 }],
+      [{ 'mf_users.avg_total_active_days': 60 }],
     );
     const result = await runLens01Level({ scope, factor: 'lifespan', asOf }, STUB_CTX, reader);
     expect(result.provenance.source).toMatch(/cfm_vn/);

@@ -143,6 +143,13 @@ export interface Diagnosis {
   opportunities: Opportunity[];
   /** All lens results (sync + any lazy lenses that were requested). */
   lenses: LensResult[];
+  /**
+   * Set when the spine decomposition could not run because of an upstream
+   * data/model failure (e.g. a Cube query error) — as opposed to legitimately
+   * finding nothing. Distinguishes "couldn't diagnose" from "looks healthy" so
+   * the agent reports the failure instead of probing manually around it.
+   */
+  blocked?: { reason: string };
 }
 
 // ─── Engine input ─────────────────────────────────────────────────────────────

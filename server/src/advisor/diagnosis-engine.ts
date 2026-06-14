@@ -76,9 +76,16 @@ export async function diagnose(
     reader,
   )) as DecompositionLensResult;
 
-  // Short-circuit: empty cohort (no payers at all).
+  // Short-circuit when decomposition produced no bottleneck. Two very different
+  // causes share this shape: a legitimately empty cohort vs. an upstream failure
+  // (the decomposition query errored). Tag the latter as `blocked` so the agent
+  // reports the failure instead of treating it as "healthy" and probing around it.
   if (decomp.bottleneckFactor === null && decomp.verdict === 'inconclusive') {
-    return emptyDiagnosis(decomp);
+    const errored = decomp.provenance.source.includes('error');
+    const reason = errored
+      ? String((decomp.inputs as { reason?: unknown } | undefined)?.reason ?? decomp.method)
+      : undefined;
+    return emptyDiagnosis(decomp, reason ? { reason } : undefined);
   }
 
   // Lenses 1, 2, 3 — run per factor for revenue goal.
@@ -222,10 +229,11 @@ function extractDecompValues(decomp: DecompositionLensResult) {
   };
 }
 
-function emptyDiagnosis(decomp: LensResult): Diagnosis {
+function emptyDiagnosis(decomp: LensResult, blocked?: { reason: string }): Diagnosis {
   return {
     goalTrees: [],
     opportunities: [],
     lenses: [decomp],
+    ...(blocked ? { blocked } : {}),
   };
 }

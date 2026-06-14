@@ -4,7 +4,7 @@
  * Header matches the Dashboards / Access page pattern:
  *   eyebrow "Administration" (11px/600 uppercase) + ShieldCheck icon
  *   + 20px/700 "Sys-admin hub" title + subtitle
- *   padding: 24px 32px, maxWidth: 1200, margin: 0 auto
+ *   padding: 24px 32px, full-width (maxWidth: 100%) — dense audit/ops surface
  *
  * Tabs (via the generic TabShell):
  *   Users & Access → /admin/access
@@ -70,7 +70,10 @@ export function AdminHub() {
     <div
       style={{
         padding: '24px 32px',
-        maxWidth: 1200,
+        // Full-width shell: the admin hub is a dense audit/ops surface (3-pane
+        // run inspectors, wide tables) that benefits from the whole viewport,
+        // unlike the centered list pages. No max cap — width is the workspace.
+        maxWidth: '100%',
         margin: '0 auto',
         fontFamily: 'var(--font-sans)',
       }}

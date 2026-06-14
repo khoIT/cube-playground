@@ -27,6 +27,14 @@ export interface RunRow {
   hadError: boolean;
   createdAt: number;
   lastActiveAt: number;
+  /** Credential lane the agent ran on + the env var that carried the token. */
+  authLane?: string;
+  authSource?: string;
+  /** Cumulative token usage across all turns of the run. */
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
 }
 
 export interface TurnRow {
@@ -42,6 +50,11 @@ export interface TurnRow {
   startedAt: number;
   endedAt: number;
   durationMs: number;
+  /** Per-turn token usage from the SDK result. */
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
 }
 
 export interface ToolCallInput {
@@ -55,6 +68,9 @@ export interface ToolCallInput {
   startedAt?: number;
   endedAt?: number;
   durationMs?: number;
+  /** A failure embedded in an otherwise-ok output (e.g. a Cube 400 in a lens). */
+  embeddedError?: boolean;
+  embeddedErrorMessage?: string;
 }
 
 export interface EventInput {
@@ -90,6 +106,12 @@ export interface RunSummary {
   hadError: boolean;
   createdAt: number;
   lastActiveAt: number;
+  authLane: string | null;
+  authSource: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheCreationTokens: number | null;
 }
 
 export interface ToolCallRecord {
@@ -104,6 +126,8 @@ export interface ToolCallRecord {
   startedAt: number | null;
   endedAt: number | null;
   durationMs: number | null;
+  embeddedError: boolean;
+  embeddedErrorMessage: string | null;
 }
 
 export interface TurnWithToolCalls {
@@ -119,6 +143,10 @@ export interface TurnWithToolCalls {
   startedAt: number;
   endedAt: number;
   durationMs: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheCreationTokens: number | null;
   toolCalls: ToolCallRecord[];
 }
 
@@ -162,6 +190,12 @@ interface RunDbRow {
   had_error: number;
   created_at: number;
   last_active_at: number;
+  auth_lane: string | null;
+  auth_source: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_creation_tokens: number | null;
 }
 
 function toRunSummary(r: RunDbRow): RunSummary {
@@ -180,6 +214,12 @@ function toRunSummary(r: RunDbRow): RunSummary {
     hadError: r.had_error === 1,
     createdAt: r.created_at,
     lastActiveAt: r.last_active_at,
+    authLane: r.auth_lane,
+    authSource: r.auth_source,
+    inputTokens: r.input_tokens,
+    outputTokens: r.output_tokens,
+    cacheReadTokens: r.cache_read_tokens,
+    cacheCreationTokens: r.cache_creation_tokens,
   };
 }
 
@@ -196,15 +236,22 @@ export function persistTurn(flush: TurnFlush): void {
     db.prepare(
       `INSERT INTO advisor_agent_run
          (session_id, game_id, segment_id, scope_kind, goal, mode, owner, model,
-          turn_count, total_cost_usd, final_stop_reason, had_error, created_at, last_active_at)
+          turn_count, total_cost_usd, final_stop_reason, had_error, created_at, last_active_at,
+          auth_lane, auth_source, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens)
        VALUES (@sessionId, @gameId, @segmentId, @scopeKind, @goal, @mode, @owner, @model,
-          @turnCount, @totalCostUsd, @finalStopReason, @hadError, @createdAt, @lastActiveAt)
+          @turnCount, @totalCostUsd, @finalStopReason, @hadError, @createdAt, @lastActiveAt,
+          @authLane, @authSource, @inputTokens, @outputTokens, @cacheReadTokens, @cacheCreationTokens)
        ON CONFLICT(session_id) DO UPDATE SET
-         turn_count        = excluded.turn_count,
-         total_cost_usd    = excluded.total_cost_usd,
-         final_stop_reason = excluded.final_stop_reason,
-         had_error         = excluded.had_error,
-         last_active_at    = excluded.last_active_at`,
+         turn_count            = excluded.turn_count,
+         total_cost_usd        = excluded.total_cost_usd,
+         final_stop_reason     = excluded.final_stop_reason,
+         had_error             = excluded.had_error,
+         last_active_at        = excluded.last_active_at,
+         model                 = COALESCE(excluded.model, advisor_agent_run.model),
+         input_tokens          = excluded.input_tokens,
+         output_tokens         = excluded.output_tokens,
+         cache_read_tokens     = excluded.cache_read_tokens,
+         cache_creation_tokens = excluded.cache_creation_tokens`,
     ).run({
       sessionId: f.run.sessionId,
       gameId: f.run.gameId,
@@ -220,15 +267,23 @@ export function persistTurn(flush: TurnFlush): void {
       hadError: f.run.hadError ? 1 : 0,
       createdAt: f.run.createdAt,
       lastActiveAt: f.run.lastActiveAt,
+      authLane: f.run.authLane ?? null,
+      authSource: f.run.authSource ?? null,
+      inputTokens: f.run.inputTokens ?? null,
+      outputTokens: f.run.outputTokens ?? null,
+      cacheReadTokens: f.run.cacheReadTokens ?? null,
+      cacheCreationTokens: f.run.cacheCreationTokens ?? null,
     });
 
     const turnInfo = db
       .prepare(
         `INSERT INTO advisor_agent_turn
            (session_id, turn_index, mode, message, narration, tool_call_count,
-            stop_reason, abort_cause, cost_usd, started_at, ended_at, duration_ms)
+            stop_reason, abort_cause, cost_usd, started_at, ended_at, duration_ms,
+            input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens)
          VALUES (@sessionId, @turnIndex, @mode, @message, @narration, @toolCallCount,
-            @stopReason, @abortCause, @costUsd, @startedAt, @endedAt, @durationMs)`,
+            @stopReason, @abortCause, @costUsd, @startedAt, @endedAt, @durationMs,
+            @inputTokens, @outputTokens, @cacheReadTokens, @cacheCreationTokens)`,
       )
       .run({
         sessionId: f.turn.sessionId,
@@ -243,15 +298,21 @@ export function persistTurn(flush: TurnFlush): void {
         startedAt: f.turn.startedAt,
         endedAt: f.turn.endedAt,
         durationMs: f.turn.durationMs,
+        inputTokens: f.turn.inputTokens ?? null,
+        outputTokens: f.turn.outputTokens ?? null,
+        cacheReadTokens: f.turn.cacheReadTokens ?? null,
+        cacheCreationTokens: f.turn.cacheCreationTokens ?? null,
       });
     const turnId = Number(turnInfo.lastInsertRowid);
 
     const insTool = db.prepare(
       `INSERT INTO advisor_tool_call
          (session_id, turn_id, call_id, tool, seq, input_json, output_digest,
-          state, error_message, started_at, ended_at, duration_ms)
+          state, error_message, started_at, ended_at, duration_ms,
+          embedded_error, embedded_error_message)
        VALUES (@sessionId, @turnId, @callId, @tool, @seq, @inputJson, @outputDigest,
-          @state, @errorMessage, @startedAt, @endedAt, @durationMs)`,
+          @state, @errorMessage, @startedAt, @endedAt, @durationMs,
+          @embeddedError, @embeddedErrorMessage)`,
     );
     for (const c of f.toolCalls) {
       insTool.run({
@@ -267,6 +328,8 @@ export function persistTurn(flush: TurnFlush): void {
         startedAt: c.startedAt ?? null,
         endedAt: c.endedAt ?? null,
         durationMs: c.durationMs ?? null,
+        embeddedError: c.embeddedError ? 1 : 0,
+        embeddedErrorMessage: c.embeddedErrorMessage ?? null,
       });
     }
 
@@ -348,6 +411,10 @@ export function getRunDetail(sessionId: string): RunDetail | null {
     started_at: number;
     ended_at: number;
     duration_ms: number;
+    input_tokens: number | null;
+    output_tokens: number | null;
+    cache_read_tokens: number | null;
+    cache_creation_tokens: number | null;
   }>;
 
   const toolStmt = db.prepare(
@@ -367,6 +434,8 @@ export function getRunDetail(sessionId: string): RunDetail | null {
       started_at: number | null;
       ended_at: number | null;
       duration_ms: number | null;
+      embedded_error: number | null;
+      embedded_error_message: string | null;
     }>;
     return {
       id: t.id,
@@ -381,6 +450,10 @@ export function getRunDetail(sessionId: string): RunDetail | null {
       startedAt: t.started_at,
       endedAt: t.ended_at,
       durationMs: t.duration_ms,
+      inputTokens: t.input_tokens,
+      outputTokens: t.output_tokens,
+      cacheReadTokens: t.cache_read_tokens,
+      cacheCreationTokens: t.cache_creation_tokens,
       toolCalls: calls.map((c) => ({
         id: c.id,
         callId: c.call_id,
@@ -393,6 +466,8 @@ export function getRunDetail(sessionId: string): RunDetail | null {
         startedAt: c.started_at,
         endedAt: c.ended_at,
         durationMs: c.duration_ms,
+        embeddedError: c.embedded_error === 1,
+        embeddedErrorMessage: c.embedded_error_message,
       })),
     };
   });

@@ -102,6 +102,59 @@ describe('advisor-run-store', () => {
     expect(events.events[0].eventType).toBe('assistant_delta');
   });
 
+  it('round-trips the observability fields: auth lane, token usage, and embedded errors', () => {
+    const now = 1_700_000_000_000;
+    const f = flushFor('obs-run', 1, now);
+    f.run.authLane = 'subscription';
+    f.run.authSource = 'CLAUDE_CODE_OAUTH_TOKEN';
+    f.run.inputTokens = 12_000;
+    f.run.outputTokens = 3_400;
+    f.run.cacheReadTokens = 50_000;
+    f.run.cacheCreationTokens = 8_000;
+    f.turn.inputTokens = 12_000;
+    f.turn.outputTokens = 3_400;
+    // a tool that returned ok but embeds an upstream failure
+    f.toolCalls = [
+      {
+        callId: 'd1',
+        tool: 'diagnose',
+        seq: 0,
+        outputDigest: 'inconclusive: not found for path',
+        state: 'ok',
+        startedAt: now,
+        endedAt: now + 80,
+        durationMs: 80,
+        embeddedError: true,
+        embeddedErrorMessage: "'total_active_days' not found for path",
+      },
+    ];
+    persistTurn(f);
+
+    const run = listRuns({ q: 'obs-run' })[0];
+    expect(run).toMatchObject({
+      authLane: 'subscription',
+      authSource: 'CLAUDE_CODE_OAUTH_TOKEN',
+      inputTokens: 12_000,
+      outputTokens: 3_400,
+      cacheReadTokens: 50_000,
+      cacheCreationTokens: 8_000,
+    });
+
+    const detail = getRunDetail('obs-run')!;
+    expect(detail.turns[0]).toMatchObject({ inputTokens: 12_000, outputTokens: 3_400 });
+    const call = detail.turns[0].toolCalls[0];
+    expect(call.state).toBe('ok');
+    expect(call.embeddedError).toBe(true);
+    expect(call.embeddedErrorMessage).toContain('not found for path');
+  });
+
+  it('defaults embeddedError to false when not flagged', () => {
+    const now = 1_700_000_000_000;
+    persistTurn(flushFor('plain-run', 1, now));
+    const detail = getRunDetail('plain-run')!;
+    expect(detail.turns[0].toolCalls.every((c) => c.embeddedError === false)).toBe(true);
+  });
+
   it('upsert keeps created_at and the same single row across turns', () => {
     const now = 1_700_000_000_000;
     persistTurn(flushFor('sess-2', 1, now));

@@ -26,6 +26,12 @@ export interface AdvisorRunSummary {
   hadError: boolean;
   createdAt: number;
   lastActiveAt: number;
+  authLane: string | null;
+  authSource: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheCreationTokens: number | null;
 }
 
 export interface AdvisorToolCall {
@@ -40,6 +46,8 @@ export interface AdvisorToolCall {
   startedAt: number | null;
   endedAt: number | null;
   durationMs: number | null;
+  embeddedError: boolean;
+  embeddedErrorMessage: string | null;
 }
 
 export interface AdvisorTurn {
@@ -55,6 +63,10 @@ export interface AdvisorTurn {
   startedAt: number;
   endedAt: number;
   durationMs: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cacheReadTokens: number | null;
+  cacheCreationTokens: number | null;
   toolCalls: AdvisorToolCall[];
 }
 
@@ -140,4 +152,35 @@ export function formatUsd(usd: number | null | undefined): string {
 export function scopeLabel(run: Pick<AdvisorRunSummary, 'scopeKind' | 'gameId' | 'segmentId'>): string {
   if (run.scopeKind === 'segment' && run.segmentId) return `${run.gameId} · seg ${run.segmentId.slice(0, 8)}`;
   return run.gameId;
+}
+
+/** Compact token count: 1234 → "1.2k", 980 → "980". */
+export function formatTokens(n: number | null | undefined): string {
+  if (n == null) return '—';
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
+}
+
+/**
+ * Auth lane + token source for the header. The advisor pins the subscription
+ * OAuth lane (cost is therefore always $0); the source env var is shown so an
+ * admin can tell which credential carried the token.
+ */
+export function authLaneLabel(run: Pick<AdvisorRunSummary, 'authLane' | 'authSource'>): string {
+  if (!run.authLane) return '—';
+  return run.authSource ? `${run.authLane} · ${run.authSource}` : run.authLane;
+}
+
+/**
+ * Split a turn's wall-clock into time spent IN tools vs time spent waiting on
+ * the model (think/generation). Makes a "the model was slow, not Trino" turn
+ * obvious — the failure shape behind the headline 120s timeout.
+ */
+export function turnTimeSplit(turn: Pick<AdvisorTurn, 'durationMs' | 'toolCalls'>): {
+  toolMs: number;
+  thinkMs: number;
+} {
+  const toolMs = turn.toolCalls.reduce((sum, c) => sum + (c.durationMs ?? 0), 0);
+  return { toolMs, thinkMs: Math.max(0, turn.durationMs - toolMs) };
 }

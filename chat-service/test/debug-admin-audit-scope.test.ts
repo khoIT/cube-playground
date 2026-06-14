@@ -159,4 +159,80 @@ describe('debug admin audit scope', () => {
     // Restore state for any later assertions.
     chatStore.restoreSession(db, aliceSessionId);
   });
+
+  // -------------------------------------------------------------------------
+  // llmAuthLabel field is exposed in /debug/sessions/:id turn list
+  // -------------------------------------------------------------------------
+
+  it('session detail turns include llmAuthLabel — set value when persisted', async () => {
+    // Create a fresh session with a turn that has a known auth lane.
+    const laneSession = chatStore.createSession(db, { ownerId: 'alice-sub', gameId: 'g1' });
+    chatStore.appendTurn(db, {
+      sessionId: laneSession.id,
+      turnIndex: 0,
+      role: 'assistant',
+      assistantText: 'hello lane',
+      llmAuthLabel: 'primary',
+      startedAt: Date.now(),
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/debug/sessions/${laneSession.id}`,
+      headers: ADMIN,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { turns: Array<{ llmAuthLabel: unknown }> };
+    expect(body.turns).toHaveLength(1);
+    expect(body.turns[0].llmAuthLabel).toBe('primary');
+  });
+
+  it('session detail turns include llmAuthLabel — null for legacy turns without the field', async () => {
+    // Turn appended without llmAuthLabel (simulates a legacy row).
+    const legacySession = chatStore.createSession(db, { ownerId: 'alice-sub', gameId: 'g1' });
+    chatStore.appendTurn(db, {
+      sessionId: legacySession.id,
+      turnIndex: 0,
+      role: 'assistant',
+      assistantText: 'legacy',
+      startedAt: Date.now(),
+      // no llmAuthLabel — deliberately omitted
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/debug/sessions/${legacySession.id}`,
+      headers: ADMIN,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { turns: Array<{ llmAuthLabel: unknown }> };
+    expect(body.turns).toHaveLength(1);
+    // The DTO maps undefined/null → null; must not be absent from the payload.
+    expect(body.turns[0].llmAuthLabel).toBeNull();
+  });
+
+  it('session detail turns include all four valid lane labels without coercion', async () => {
+    const laneLabels = ['primary', 'stg', 'backup', 'subscription'] as const;
+    const multiSession = chatStore.createSession(db, { ownerId: 'alice-sub', gameId: 'g1' });
+    for (let i = 0; i < laneLabels.length; i++) {
+      chatStore.appendTurn(db, {
+        sessionId: multiSession.id,
+        turnIndex: i,
+        role: 'assistant',
+        assistantText: `response from ${laneLabels[i]}`,
+        llmAuthLabel: laneLabels[i],
+        startedAt: Date.now() + i,
+      });
+    }
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/debug/sessions/${multiSession.id}`,
+      headers: ADMIN,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { turns: Array<{ llmAuthLabel: string | null }> };
+    const returnedLabels = body.turns.map((t) => t.llmAuthLabel);
+    expect(returnedLabels).toEqual([...laneLabels]);
+  });
 });

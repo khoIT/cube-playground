@@ -40,8 +40,14 @@ export function makeDiagnoseTool(tctx: ToolContext) {
               `• ${o.factor}: ${o.gapPct.toFixed(1)}% below baseline (confidence ${o.confidence}, lenses ${o.agreeingLenses.join('/')})`,
           )
           .join('\n');
-        const summary =
-          diagnosis.opportunities.length === 0
+        // Fail-fast: a blocked diagnosis (the decomposition query errored) is NOT
+        // a healthy result. Say so explicitly so the agent surfaces the failure
+        // instead of treating it as "nothing wrong" and probing around it.
+        const summary = diagnosis.blocked
+          ? `⚠ Diagnosis could not run: ${diagnosis.blocked.reason}\n` +
+            `This is an upstream data/model failure, not a healthy result. Report this ` +
+            `to the user and stop — do not work around it with manual queries.`
+          : diagnosis.opportunities.length === 0
             ? 'No weak factors found — this scope looks healthy on the diagnosed lenses.'
             : `Top opportunities:\n${top}`;
         return ok(summary, { provenanceId, diagnosis });

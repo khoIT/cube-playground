@@ -7,7 +7,7 @@
  *
  * Data sources:
  *   CS signal  → cs_ticket_detail (total_tickets, avg_csat, negative_sentiment_tickets)
- *   Spend/life → mf_users (ltv_total_vnd, total_active_days)
+ *   Spend/life → mf_users (ltv_total_vnd, avg_total_active_days)
  *
  * Correlation is approximated at the aggregate level (not member-level pairwise)
  * to stay within PII rules — we compare CS-contacted vs non-contacted aggregate
@@ -60,7 +60,7 @@ export async function runLens08CrossSignal(
     // Segment's spend and lifespan.
     const spendResult = await readWithProvenance(
       {
-        measures: ['mf_users.ltv_total_vnd', 'mf_users.total_active_days', 'mf_users.paying_users'],
+        measures: ['mf_users.ltv_total_vnd', 'mf_users.avg_total_active_days', 'mf_users.paying_users'],
         filters: scopeFilters,
       },
       ctx,
@@ -71,7 +71,7 @@ export async function runLens08CrossSignal(
     const totalTickets = extractScalar(csResult.rows, 'cs_ticket_detail.total_tickets');
     const avgCsat = extractScalar(csResult.rows, 'cs_ticket_detail.avg_csat');
     const negSentimentTickets = extractScalar(csResult.rows, 'cs_ticket_detail.negative_sentiment_tickets');
-    const lifespan = extractScalar(spendResult.rows, 'mf_users.total_active_days');
+    const lifespan = extractScalar(spendResult.rows, 'mf_users.avg_total_active_days');
 
     if (totalTickets === null || totalTickets === 0) {
       return inconclusiveResult('No CS tickets available for cross-signal analysis');

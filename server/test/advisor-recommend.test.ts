@@ -23,10 +23,10 @@ const SEGMENT_INPUT: DiagnosisInput = {
 
 // Weak-lifespan whale segment vs a healthier population (lifespan 2× higher).
 const SEGMENT_ROWS: CubeRow[] = [
-  { 'mf_users.paying_users': 100, 'mf_users.arppu_vnd': 500_000, 'mf_users.total_active_days': 30 },
+  { 'mf_users.paying_users': 100, 'mf_users.arppu_vnd': 500_000, 'mf_users.avg_total_active_days': 30 },
 ];
 const POPULATION_ROWS: CubeRow[] = [
-  { 'mf_users.paying_users': 100, 'mf_users.arppu_vnd': 500_000, 'mf_users.total_active_days': 60 },
+  { 'mf_users.paying_users': 100, 'mf_users.arppu_vnd': 500_000, 'mf_users.avg_total_active_days': 60 },
 ];
 
 /** Odd calls → segment rows, even calls → population rows (mirrors lens read order). */
@@ -40,7 +40,7 @@ function alternatingReader(): CubeReaderFn {
 
 /** Empty cohort: zero payers → decomposition short-circuits. */
 function emptyReader(): CubeReaderFn {
-  return async () => [{ 'mf_users.paying_users': 0, 'mf_users.arppu_vnd': 0, 'mf_users.total_active_days': 0 }];
+  return async () => [{ 'mf_users.paying_users': 0, 'mf_users.arppu_vnd': 0, 'mf_users.avg_total_active_days': 0 }];
 }
 
 describe('recommend()', () => {

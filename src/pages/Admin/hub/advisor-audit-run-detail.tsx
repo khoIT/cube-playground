@@ -15,8 +15,12 @@ import {
   formatDuration,
   formatEpochMs,
   formatUsd,
+  formatTokens,
+  authLaneLabel,
+  turnTimeSplit,
   scopeLabel,
   type AdvisorRunDetail as RunDetail,
+  type AdvisorTurn,
   type AdvisorToolCall,
   type AdvisorEvent,
 } from './advisor-audit-data';
@@ -49,6 +53,16 @@ const eyebrow: React.CSSProperties = {
 const mutedText: React.CSSProperties = { fontSize: 12, color: 'var(--text-muted)' };
 const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 11.5 };
 
+/**
+ * Turn header summary: wall-clock with a think-vs-tool split, then cost + stop.
+ * The split makes a model-latency-bound turn (long think, short tools) legible.
+ */
+function turnHeaderMeta(turn: AdvisorTurn): string {
+  const { toolMs, thinkMs } = turnTimeSplit(turn);
+  const split = `${formatDuration(thinkMs)} think · ${formatDuration(toolMs)} tools`;
+  return `${formatDuration(turn.durationMs)} (${split}) · ${formatUsd(turn.costUsd)} · ${turn.stopReason}`;
+}
+
 function StateBadge({ state }: { state: string }) {
   const palette: Record<string, { bg: string; ink: string }> = {
     ok: { bg: 'var(--success-soft)', ink: 'var(--success-ink)' },
@@ -69,6 +83,16 @@ function ToolCallRow({ call }: { call: AdvisorToolCall }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <StateBadge state={call.state} />
         <span style={{ ...mono, color: 'var(--text-primary)', fontWeight: 600 }}>{call.tool}</span>
+        {/* A tool can return ok while its payload carries an upstream failure
+            (e.g. a Cube 400 inside a lens) — surface it so it isn't hidden. */}
+        {call.embeddedError && (
+          <span
+            title="The tool returned successfully but its output embeds an upstream error"
+            style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 'var(--radius-full)', background: 'var(--warning-soft)', color: 'var(--warning-ink)' }}
+          >
+            embedded error
+          </span>
+        )}
         <span style={{ ...mutedText, marginLeft: 'auto' }}>{formatDuration(call.durationMs)}</span>
       </div>
       {call.inputJson && (
@@ -79,6 +103,11 @@ function ToolCallRow({ call }: { call: AdvisorToolCall }) {
       {call.errorMessage && (
         <div style={{ fontSize: 12, color: 'var(--destructive-ink)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {call.errorMessage}
+        </div>
+      )}
+      {call.embeddedError && call.embeddedErrorMessage && (
+        <div style={{ fontSize: 12, color: 'var(--warning-ink)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          {call.embeddedErrorMessage}
         </div>
       )}
     </div>
@@ -179,7 +208,12 @@ export function AdvisorRunDetail({ sessionId }: { sessionId: string }) {
         {[
           ['Owner', run.owner ?? '—'],
           ['Model', run.model ?? '—'],
-          ['Total cost', formatUsd(run.totalCostUsd)],
+          ['Auth / key', authLaneLabel(run)],
+          // Cost is always $0 on the subscription lane, so tokens are the real
+          // spend signal.
+          ['Cost', formatUsd(run.totalCostUsd)],
+          ['Tokens', `${formatTokens(run.inputTokens)} in · ${formatTokens(run.outputTokens)} out`],
+          ['Cache', `${formatTokens(run.cacheReadTokens)} read · ${formatTokens(run.cacheCreationTokens)} write`],
           ['Stop', run.finalStopReason ?? '—'],
           ['Started', formatEpochMs(run.createdAt)],
         ].map(([label, value]) => (
@@ -212,7 +246,7 @@ export function AdvisorRunDetail({ sessionId }: { sessionId: string }) {
           <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'baseline', gap: 8, background: 'var(--bg-muted)' }}>
             <span style={{ ...eyebrow, fontSize: 11 }}>Turn {turn.turnIndex}</span>
             <span style={mutedText}>{turn.mode}</span>
-            <span style={{ ...mutedText, marginLeft: 'auto' }}>{formatDuration(turn.durationMs)} · {formatUsd(turn.costUsd)} · {turn.stopReason}</span>
+            <span style={{ ...mutedText, marginLeft: 'auto' }}>{turnHeaderMeta(turn)}</span>
           </div>
           {turn.message && (
             <div style={{ padding: '8px 14px', fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>

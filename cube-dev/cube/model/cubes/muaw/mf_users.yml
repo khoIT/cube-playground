@@ -268,6 +268,16 @@ cubes:
         sql: '{ltv_total_vnd} * 1.0 / NULLIF({paying_users}, 0)'
         type: number
         description: Average revenue per paying user (lifetime)
+      - name: payer_active_days_total
+        sql: ingame_total_active_days
+        type: sum
+        filters:
+          - sql: '{CUBE}.ingame_total_recharge_value_vnd > 0'
+        description: Sum of lifetime active days across paying users
+      - name: avg_total_active_days
+        sql: '{payer_active_days_total} * 1.0 / NULLIF({paying_users}, 0)'
+        type: number
+        description: Average lifetime active days per paying user (the decomposition lens lifespan factor)
       - name: paying_rate
         # CAST to DOUBLE, not `* 1.0`: the numerator is a count_distinct (bigint),
         # and `bigint * 1.0` yields decimal(_,1). Trino decimal division keeps the

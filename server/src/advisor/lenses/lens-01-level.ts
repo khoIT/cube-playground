@@ -28,7 +28,7 @@ const WEAK_RATIO_PCT = 25;
 const FACTOR_MEASURES: Record<string, string> = {
   payers: 'mf_users.paying_users',
   arppu: 'mf_users.arppu_vnd',
-  lifespan: 'mf_users.total_active_days',
+  lifespan: 'mf_users.avg_total_active_days',
 };
 
 interface LevelLensInput {

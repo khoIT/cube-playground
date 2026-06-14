@@ -23,7 +23,7 @@ import { scopeToFilters, gameIdFromScope } from '../scope-helpers.js';
 const FACTOR_MEASURES: Record<string, string> = {
   payers: 'mf_users.paying_users',
   arppu: 'mf_users.arppu_vnd',
-  lifespan: 'mf_users.total_active_days',
+  lifespan: 'mf_users.avg_total_active_days',
 };
 
 /** Payer tiers available in mf_users.payer_tier dimension. */

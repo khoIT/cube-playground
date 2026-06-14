@@ -56,6 +56,28 @@ export function resolveOAuthToken(source: NodeJS.ProcessEnv = process.env): stri
 }
 
 /**
+ * The credential lane the agent actually ran on, recorded on each run for the
+ * audit console. The advisor pins the Claude subscription OAuth lane (gateway /
+ * API keys are stripped in buildAgentEnv), so `lane` is always 'subscription'
+ * today — but `source` tells WHICH env var carried the token, and recording the
+ * lane explicitly is what lets a $0.00 cost read as "subscription flat-rate"
+ * rather than "free". `source` is null only when no token resolved (the agent
+ * would have failed to start, but the resolver itself never throws).
+ */
+export interface AuthLane {
+  lane: 'subscription';
+  source: (typeof OAUTH_TOKEN_SOURCE_VARS)[number] | null;
+}
+
+export function resolveAuthLane(source: NodeJS.ProcessEnv = process.env): AuthLane {
+  for (const name of OAUTH_TOKEN_SOURCE_VARS) {
+    const v = source[name];
+    if (v && v.trim() !== '') return { lane: 'subscription', source: name };
+  }
+  return { lane: 'subscription', source: null };
+}
+
+/**
  * Produce the clean spawn env. Copies string-valued parent vars, drops the
  * API-key/gateway set, and asserts the OAuth token is present.
  *

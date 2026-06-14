@@ -201,7 +201,7 @@ function TurnRow({ turn }: TurnRowProps) {
         background: isUser ? 'var(--bg-muted)' : 'transparent',
       }}
     >
-      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 4 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 4, flexWrap: 'wrap' }}>
         <span
           style={{
             fontSize: 10.5,
@@ -221,6 +221,24 @@ function TurnRow({ turn }: TurnRowProps) {
         </span>
         {turn.model && (
           <span style={{ ...mutedText, fontSize: 11 }}>{turn.model}</span>
+        )}
+        {/* Auth lane label — non-null only on assistant turns that made an LLM call */}
+        {'llmAuthLabel' in turn && (
+          <span
+            aria-label={`auth lane: ${turn.llmAuthLabel ?? '—'}`}
+            style={{
+              fontSize: 10.5,
+              fontWeight: 600,
+              padding: '1px 7px',
+              borderRadius: 'var(--radius-full)',
+              background: 'var(--muted-soft)',
+              color: 'var(--text-muted)',
+              flexShrink: 0,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {turn.llmAuthLabel ?? '—'}
+          </span>
         )}
       </div>
       <p
