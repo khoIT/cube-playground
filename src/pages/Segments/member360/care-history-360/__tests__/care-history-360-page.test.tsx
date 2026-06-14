@@ -124,4 +124,41 @@ describe('CareHistory360Page', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText(/No joinable CS history/i)).toBeTruthy());
   });
+
+  it('tags the opening staff greeting as Auto-reply and marks a reopen between sessions', async () => {
+    // Form ticket, reopened twice: greeting → player → staff → player(2nd session).
+    const t = ticket({
+      serviceType: 'Form',
+      reopenCount: 2,
+      messages: [
+        { at: '2026-02-05 15:27:13', isCustomer: false, text: 'Greeting from support', attachments: [] },
+        { at: '2026-02-05 15:33:45', isCustomer: true, text: 'First player message', attachments: [] },
+        { at: '2026-02-05 15:43:08', isCustomer: false, text: 'Please send images', attachments: [] },
+        { at: '2026-02-05 16:11:09', isCustomer: true, text: 'Second player message', attachments: [] },
+      ],
+    });
+    fetchMock.mockResolvedValue(payload({ tickets: [t] }));
+    renderPage();
+    await waitFor(() => expect(screen.getByText('First player message')).toBeTruthy());
+    expect(screen.getByText('Auto-reply')).toBeTruthy(); // greeting before any player message
+    // Exactly one session boundary — before the 2nd player message, not the 1st.
+    expect(screen.getAllByText(/^Reopened/)).toHaveLength(1);
+  });
+
+  it('does not mark reopen sessions on non-form tickets', async () => {
+    const t = ticket({
+      serviceType: 'Ingame',
+      reopenCount: 2,
+      messages: [
+        { at: '2026-02-05 15:27:13', isCustomer: false, text: 'Hi there', attachments: [] },
+        { at: '2026-02-05 15:33:45', isCustomer: true, text: 'Player one', attachments: [] },
+        { at: '2026-02-05 15:43:08', isCustomer: false, text: 'Staff two', attachments: [] },
+        { at: '2026-02-05 16:11:09', isCustomer: true, text: 'Player two', attachments: [] },
+      ],
+    });
+    fetchMock.mockResolvedValue(payload({ tickets: [t] }));
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Player two')).toBeTruthy());
+    expect(screen.queryByText(/^Reopened/)).toBeNull();
+  });
 });
