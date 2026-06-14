@@ -104,7 +104,7 @@ const ASPECTS={
     {id:'r-lv1',stage:'lever',q:'Win-back CS comeback call',finding:'Matches a drift cause and CS can deliver it today.',slot:'a CS comeback call',conf:'high',feas:'true'},
     {id:'r-lv2',stage:'lever',q:'Re-engagement care touch',finding:'A lighter touch; CS can do it, but it’s a weaker fit for a payment lapse.',slot:'a re-engagement touch',conf:'med',feas:'true'},
     {id:'r-lv3',stage:'lever',q:'Payment-friction recovery assist',finding:'Only ~180 affected — a small side-fix, not the main lever.',slot:'a payment-friction assist',conf:'med',feas:'true'},
-    {id:'r-pf1',stage:'proof',q:'What lift can we expect? (past results)',finding:'+6 in 100 measured on cfm_vn whales before. High-confidence prior.',slot:'+6 in 100 (proven before)',conf:'high'},
+    {id:'r-pf1',stage:'proof',q:'What lift can we expect? (past results)',finding:'+6 in 100 measured on cfm_vn whales before.',slot:'+6 in 100 (proven before)',conf:'high',basis:'Based on 1 similar test on cfm_vn whales — a strong hint, not a promise.'},
     {id:'r-pf2',stage:'proof',q:'Is the group big enough to prove it?',finding:'Yes — 1,872 reachable gives a clear answer in 14 days.',slot:'',conf:'high'},
     {id:'r-pf3',stage:'proof',q:'Is it safe for the whales?',finding:'Won’t contact whales who paid in the last 7 days; hold-out measures real lift; max 1 contact/player.',slot:'',conf:'high'},
   ],
@@ -119,9 +119,9 @@ const ASPECTS={
     {id:'e-ca2',stage:'cause',q:'Are they socially isolated (no guild)?',finding:'~60% are guild-less — a known churn driver in cfm.',slot:'are mostly guild-less',conf:'high'},
     {id:'e-ca3',stage:'cause',q:'Did the daily habit break?',finding:'Daily-login streaks broke around day 30 — the habit lapsed.',slot:'',conf:'med'},
     {id:'e-lv1',stage:'lever',q:'Re-engagement care touch',finding:'A CS check-in to restart the play habit. CS can deliver today.',slot:'a re-engagement touch',conf:'med',feas:'true'},
-    {id:'e-lv2',stage:'lever',q:'Guild-matchmaking nudge',finding:'Pair guild-less whales into active guilds — matches the isolation cause, but needs LiveOps support.',slot:'a guild-matchmaking nudge',conf:'med',feas:'partial'},
-    {id:'e-lv3',stage:'lever',q:'Daily-loop reward nudge',finding:'Restart streak rewards — fits the habit cause, but this is a LiveOps lever we can’t push yet.',slot:'a daily-loop nudge',conf:'med',feas:'false'},
-    {id:'e-pf1',stage:'proof',q:'What lift can we expect?',finding:'+0.4 sessions/week — an estimate, untested on this cohort. Treat it as a bet.',slot:'+0.4 sessions/wk (a bet)',conf:'med'},
+    {id:'e-lv2',stage:'lever',q:'Guild-matchmaking nudge',finding:'Pair guild-less whales into active guilds — matches the isolation cause.',slot:'a guild-matchmaking nudge',conf:'med',feas:'partial',why:'Needs LiveOps to wire the matchmaking hook.',sub:'a CS re-engagement touch'},
+    {id:'e-lv3',stage:'lever',q:'Daily-loop reward nudge',finding:'Restart streak rewards — fits the habit cause.',slot:'a daily-loop nudge',conf:'med',feas:'false',why:'A LiveOps push channel we can’t trigger from here yet.',sub:'a CS re-engagement touch'},
+    {id:'e-pf1',stage:'proof',q:'What lift can we expect?',finding:'+0.4 sessions/week — an estimate, untested on this cohort.',slot:'+0.4 sessions/wk (a bet)',conf:'med',basis:'No past result for this cohort — running it is how we find out.'},
     {id:'e-pf2',stage:'proof',q:'Is the group big enough?',finding:'Yes — powered for a clear answer in 14 days.',slot:'',conf:'high'},
     {id:'e-pf3',stage:'proof',q:'Is it safe?',finding:'Max 1 contact per player; hold-out group measures the real lift.',slot:'',conf:'high'},
   ],
@@ -159,20 +159,23 @@ function customResult(stageKey,q){
   return {state:'done',finding:CUSTOM_FINDING[stageKey]};
 }
 
-/* the in-card composer for "add your own angle" */
-function AddAngle({stage,onAdd}){
+/* the in-card composer for "add your own angle" — ask the Advisor OR assert your own answer */
+function AddAngle({stage,onAdd,onAssert}){
   const [open,setOpen]=useState(false),[q,setQ]=useState('');
-  const submit=()=>{const v=q.trim();if(!v)return;onAdd(stage.key,v);setQ('');setOpen(false);};
+  const ask=()=>{const v=q.trim();if(!v)return;onAdd(stage.key,v);setQ('');setOpen(false);};
+  const assert=()=>{const v=q.trim();if(!v)return;onAssert(stage.key,v);setQ('');setOpen(false);};
   if(!open) return <button onClick={()=>setOpen(true)}
-    style={{fontFamily:'inherit',fontSize:12.5,fontWeight:600,padding:'14px 0',borderRadius:'var(--radius-md)',border:'1px dashed var(--border-strong)',background:'transparent',color:'var(--text-muted)',cursor:'pointer',minHeight:60}}>+ Add your own angle<br/><span style={{fontWeight:400,fontSize:11}}>(a question for “{stage.label}” the Advisor should check)</span></button>;
+    style={{fontFamily:'inherit',fontSize:12.5,fontWeight:600,padding:'14px 0',borderRadius:'var(--radius-md)',border:'1px dashed var(--border-strong)',background:'transparent',color:'var(--text-muted)',cursor:'pointer',minHeight:60}}>+ Add your own angle<br/><span style={{fontWeight:400,fontSize:11}}>(ask the Advisor — or state what you already believe)</span></button>;
   return <div style={{...card,padding:'12px 13px',borderColor:'var(--brand)',background:'var(--brand-soft)'}}>
-    <div style={{...eyebrow,marginBottom:6}}>Ask about “{stage.label}”</div>
-    <textarea autoFocus value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))submit();}} rows={2}
-      placeholder={'e.g. '+stage.q} style={{width:'100%',fontFamily:'inherit',fontSize:13,border:'1px solid var(--border-strong)',borderRadius:'var(--radius-sm)',padding:'7px 9px',outline:'none',resize:'none',background:'var(--bg-card)'}}/>
-    <div style={{display:'flex',gap:6,marginTop:8}}>
-      <Btn sm kind="primary" onClick={submit} disabled={!q.trim()}>✨ Ask the Advisor</Btn>
+    <div style={{...eyebrow,marginBottom:6}}>About “{stage.label}”</div>
+    <textarea autoFocus value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))ask();}} rows={2}
+      placeholder={'Ask: '+stage.q} style={{width:'100%',fontFamily:'inherit',fontSize:13,border:'1px solid var(--border-strong)',borderRadius:'var(--radius-sm)',padding:'7px 9px',outline:'none',resize:'none',background:'var(--bg-card)'}}/>
+    <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+      <Btn sm kind="primary" onClick={ask} disabled={!q.trim()}>✨ Ask the Advisor</Btn>
+      <Btn sm onClick={assert} disabled={!q.trim()}>✋ I already believe this</Btn>
       <Btn sm onClick={()=>{setOpen(false);setQ('');}}>Cancel</Btn>
     </div>
+    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6,lineHeight:1.4}}>“I already believe this” keeps it as <b>your call</b> (unconfirmed) so a thin-data step still moves forward.</div>
   </div>;
 }
 
@@ -181,14 +184,21 @@ function AspectCard({a,onWork,onTriage,onToggle,onOpen,onRefine,onResubmit,onCan
   const working=a.state==='working',done=a.state==='done',editing=a.state==='editing',needinfo=a.state==='needinfo';
   const [draft,setDraft]=useState(a.q),[info,setInfo]=useState('');
   const borderC=a.triage==='keep'?'var(--success)':a.triage==='flag'?'var(--warning)':needinfo?'var(--warning)':editing?'var(--brand)':'var(--border-card)';
-  return <div style={{...card,padding:'13px 15px',opacity:a.on?1:.5,borderColor:borderC}}>
+  // scope demoted to a quiet "skip" — triage is the one primary decision. Skipped cards collapse.
+  if(!a.on) return <div style={{...card,padding:'10px 14px',opacity:.6,display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+    <span style={{fontSize:12.5,color:'var(--text-muted)',textDecoration:'line-through'}}>{a.q}</span>
+    <button onClick={()=>onToggle(a.id)} style={{fontFamily:'inherit',flexShrink:0,border:'1px solid var(--border-strong)',background:'var(--bg-card)',borderRadius:'var(--radius-sm)',color:'var(--text-secondary)',fontSize:11.5,fontWeight:600,cursor:'pointer',padding:'3px 9px'}}>+ include</button>
+  </div>;
+  return <div style={{...card,padding:'13px 15px',borderColor:borderC}}>
     <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
       <span style={{fontSize:13.5,fontWeight:600,lineHeight:1.35}}>{a.q}</span>
-      <button onClick={()=>onToggle(a.id)} title={a.on?'In scope — Advisor will look at this. Click to skip.':'Skipped — won’t be investigated. Click to put back in scope.'}
-        style={{fontFamily:'inherit',flexShrink:0,width:32,height:18,borderRadius:'var(--radius-full)',border:'none',cursor:'pointer',background:a.on?'var(--brand)':'var(--border-strong)',position:'relative'}}>
-        <span style={{position:'absolute',top:2,left:a.on?16:2,width:14,height:14,borderRadius:'50%',background:'#fff',transition:'left .12s'}}/></button>
+      <button onClick={()=>onToggle(a.id)} title="Set aside — not worth looking at. (Stays available to put back.)"
+        style={{fontFamily:'inherit',flexShrink:0,border:'none',background:'none',color:'var(--text-muted)',fontSize:11,cursor:'pointer',padding:'2px 0'}}>skip</button>
     </div>
-    {a.feas&&<div style={{marginTop:7}}><Pill bg={FEAS[a.feas].bg} ink={FEAS[a.feas].ink}>{FEAS[a.feas].l}</Pill></div>}
+    {a.feas&&<div style={{marginTop:7}}>
+      <Pill bg={FEAS[a.feas].bg} ink={FEAS[a.feas].ink}>{FEAS[a.feas].l}</Pill>
+      {a.feas!=='true'&&a.why&&<div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:6,lineHeight:1.45}}>Why: {a.why}{a.sub&&<><br/><b style={{color:'var(--text-secondary)'}}>Nearest we can do today:</b> {a.sub}.</>}</div>}
+    </div>}
     {!done&&!working&&!editing&&!needinfo&&<button onClick={()=>onWork(a.id)} disabled={!a.on}
       style={{fontFamily:'inherit',marginTop:11,width:'100%',fontSize:12.5,fontWeight:600,padding:'8px 0',borderRadius:'var(--radius-md)',border:'1px dashed var(--brand)',background:'var(--brand-soft)',color:'var(--brand)',cursor:a.on?'pointer':'not-allowed',opacity:a.on?1:.5}}>✨ Look into this</button>}
     {working&&<div style={{marginTop:11,fontSize:12.5,color:'var(--brand)',display:'flex',gap:7,alignItems:'center',animation:'pulse 1s infinite'}}><span>✨</span> Advisor is digging…</div>}
@@ -213,9 +223,11 @@ function AspectCard({a,onWork,onTriage,onToggle,onOpen,onRefine,onResubmit,onCan
 
     {done&&<div style={{marginTop:10}}>
       <div onClick={()=>onOpen(a.id)} style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.45,cursor:'pointer'}}>{a.finding}</div>
+      {a.basis&&<div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:6,lineHeight:1.45}}>📎 {a.basis}</div>}
       <div style={{display:'flex',alignItems:'center',gap:6,marginTop:9,flexWrap:'wrap'}}>
-        {a.custom&&<Pill bg="var(--info-soft)" ink="var(--info-ink)" title="you asked this">your angle</Pill>}
-        <Pill bg={CONF[a.conf].bg} ink={CONF[a.conf].ink}>{CONF[a.conf].l}</Pill>
+        {a.asserted
+          ? <Pill bg="var(--warning-soft)" ink="var(--warning-ink)" title="your assumption — kept so the experiment can move; not yet confirmed in data">✋ your call · unconfirmed</Pill>
+          : <>{a.custom&&<Pill bg="var(--info-soft)" ink="var(--info-ink)" title="you asked this">your angle</Pill>}<Pill bg={CONF[a.conf].bg} ink={CONF[a.conf].ink}>{CONF[a.conf].l}</Pill></>}
         {a.triage==='keep'&&a.slot&&<Pill bg="var(--brand-soft)" ink="var(--brand)" title="this is what fills the blueprint slot">→ blueprint</Pill>}
         <button onClick={()=>{setDraft(a.q);onRefine(a.id);}} title="reword & re-investigate — works on the Advisor’s own questions too" style={{fontFamily:'inherit',border:'none',background:'none',color:'var(--text-muted)',fontSize:11.5,fontWeight:600,cursor:'pointer',padding:0}}>✎ refine</button>
         <span style={{flex:1}}/>
@@ -311,7 +323,7 @@ function StagePanel({stage,aspects,handlers,go,active}){
     </div>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,alignItems:'start'}}>
       {items.map(a=><AspectCard key={a.id} a={a} {...handlers}/>)}
-      <AddAngle stage={stage} onAdd={handlers.onAdd}/>
+      <AddAngle stage={stage} onAdd={handlers.onAdd} onAssert={handlers.onAssert}/>
     </div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:18}}>
       <Btn sm onClick={()=>go(Math.max(0,active-1))} disabled={active===0}>← {active>0?STAGES[active-1].label:''}</Btn>
@@ -326,15 +338,34 @@ const GOAL_CHIPS=['Get my lapsing whales paying again','Where am I losing money 
 function GoalScreen({onSetup}){
   const [text,setText]=useState('Get my lapsing whales paying again — and tell me what to do about it');
   const [goal,setGoal]=useState('revenue');
+  const [phase,setPhase]=useState('ask'); // 'ask' → 'echo' (confirm interpretation) → filling
+  const [cohort,setCohort]=useState('Lapsing whales in cfm_vn');
   const [filling,setFilling]=useState(false);
-  const run=()=>{setFilling(true);setTimeout(()=>onSetup(goal,text),1000);};
+  const dig=()=>{setFilling(true);setTimeout(()=>onSetup(goal,text),1000);};
+  if(phase==='echo') return <div style={{maxWidth:660,margin:'0 auto',paddingTop:40}}>
+    <div style={eyebrow}>Before I dig — did I get this right?</div>
+    <h1 style={{fontSize:22,fontWeight:700,margin:'8px 0 16px'}}>Here’s what I understood</h1>
+    <div style={{...card,padding:'18px 20px',borderColor:'var(--brand)',borderWidth:2}}>
+      <div style={{fontSize:15,lineHeight:1.7}}>Among <input value={cohort} onChange={e=>setCohort(e.target.value)} style={{fontFamily:'inherit',fontSize:15,fontWeight:700,color:'var(--brand)',border:'none',borderBottom:'2px solid var(--brand-soft)',outline:'none',background:'transparent',minWidth:220,width:Math.min(420,cohort.length*9+30)}}/>, find a way to <b style={{color:'var(--brand)'}}>{goal==='revenue'?'grow revenue':'get them playing more'}</b>{goal==='engagement'&&<span style={{color:'var(--text-muted)'}}> (the signal before they stop paying)</span>}.</div>
+      <div style={{fontSize:12,color:'var(--text-muted)',marginTop:10}}>From your words: “{text}”. Optimising for <b>{GOALS[goal].label}</b> — change the toggle below if that’s off.</div>
+      <div style={{display:'flex',gap:8,marginTop:10}}>
+        {Object.entries(GOALS).map(([k,g])=><button key={k} onClick={()=>setGoal(k)} style={{fontFamily:'inherit',fontSize:12,fontWeight:600,padding:'5px 11px',borderRadius:'var(--radius-md)',cursor:'pointer',border:'1px solid '+(goal===k?'var(--brand)':'var(--border-strong)'),background:goal===k?'var(--brand-soft)':'var(--bg-card)',color:goal===k?'var(--brand)':'var(--text-secondary)'}}>{g.label}</button>)}
+      </div>
+    </div>
+    <div style={{display:'flex',gap:10,marginTop:18,alignItems:'center'}}>
+      <Btn kind="primary" onClick={dig} disabled={filling}>{filling?'Digging…':'Looks right — dig in →'}</Btn>
+      <Btn onClick={()=>setPhase('ask')} disabled={filling}>← Fix the goal</Btn>
+    </div>
+    {filling&&<div style={{marginTop:18,padding:'14px 16px',...card,background:'var(--brand-soft)',display:'flex',gap:10,alignItems:'center',animation:'pulse 1s infinite'}}>
+      <span style={{fontSize:16}}>✨</span><span style={{fontSize:13.5}}>Reading {CTX.segment} ({CTX.n} players) · laying out the opportunity, target, cause, lever and proof to check…</span></div>}
+  </div>;
   return <div style={{maxWidth:720,margin:'0 auto',paddingTop:34}}>
     <div style={eyebrow}>Optimization Advisor</div>
     <h1 style={{fontSize:25,fontWeight:700,margin:'8px 0 6px'}}>What are you trying to figure out?</h1>
     <p style={{fontSize:14.5,color:'var(--text-secondary)',margin:'0 0 18px'}}>Say it in plain words. The Advisor builds an <b>experiment, step by step</b> — first the opportunity, then who, why, what to do, and whether it’ll work. It digs; you keep what matters.</p>
     <div style={{...card,padding:'6px 6px 6px 16px',display:'flex',alignItems:'center',gap:8,borderColor:'var(--brand)',borderWidth:2}}>
       <textarea value={text} onChange={e=>setText(e.target.value)} rows={2} style={{flex:1,fontFamily:'inherit',fontSize:15,border:'none',outline:'none',resize:'none',padding:'8px 0',background:'transparent'}}/>
-      <Btn kind="primary" onClick={run} disabled={filling}>{filling?'Setting up…':'Build the experiment →'}</Btn>
+      <Btn kind="primary" onClick={()=>setPhase('echo')}>Build the experiment →</Btn>
     </div>
     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:14}}>
       {GOAL_CHIPS.map(c=><button key={c} onClick={()=>{setText(c);setGoal(/play|engag/i.test(c)?'engagement':'revenue');}} style={{fontFamily:'inherit',fontSize:12.5,padding:'7px 12px',borderRadius:'var(--radius-full)',border:'1px solid var(--border-strong)',background:'var(--bg-card)',color:'var(--text-secondary)',cursor:'pointer'}}>{c}</button>)}
@@ -343,8 +374,6 @@ function GoalScreen({onSetup}){
       <span style={{fontSize:12.5,color:'var(--text-muted)'}}>Optimising for:</span>
       {Object.entries(GOALS).map(([k,g])=><button key={k} onClick={()=>setGoal(k)} style={{fontFamily:'inherit',fontSize:12.5,fontWeight:600,padding:'7px 13px',borderRadius:'var(--radius-md)',cursor:'pointer',border:'1px solid '+(goal===k?'var(--brand)':'var(--border-strong)'),background:goal===k?'var(--brand-soft)':'var(--bg-card)',color:goal===k?'var(--brand)':'var(--text-secondary)'}}>{g.label}</button>)}
     </div>
-    {filling&&<div style={{marginTop:20,padding:'14px 16px',...card,background:'var(--brand-soft)',display:'flex',gap:10,alignItems:'center',animation:'pulse 1s infinite'}}>
-      <span style={{fontSize:16}}>✨</span><span style={{fontSize:13.5}}>Reading {CTX.segment} ({CTX.n} players) · laying out the opportunity, target, cause, lever and proof to check…</span></div>}
   </div>;
 }
 
@@ -486,7 +515,7 @@ function CommandCenter({goal,aspects,goalText,split,go}){
               {STAGES.map(s=>{const sup=aspects.filter(a=>a.stage===s.key&&a.triage==='keep');if(!sup.length)return null;
                 return <div key={s.key} style={{display:'flex',gap:9,padding:'5px 0',fontSize:12.5}}>
                   <span style={{width:20,flexShrink:0}}>{s.emoji}</span>
-                  <span><b style={{color:'var(--brand)'}}>{sup[0].slot||s.label}</b> <span style={{color:'var(--text-secondary)'}}>— {sup[0].finding}</span></span></div>;})}
+                  <span><b style={{color:'var(--brand)'}}>{sup[0].slot||s.label}</b>{sup[0].asserted&&<span style={{color:'var(--warning-ink)',fontWeight:600}}> (assumed)</span>} <span style={{color:'var(--text-secondary)'}}>— {sup[0].finding}</span></span></div>;})}
             </div>
             <div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:8,fontStyle:'italic'}}>Frozen with the experiment, so the readout still makes sense weeks from now.</div>
           </div>}
@@ -516,7 +545,12 @@ function CommandCenter({goal,aspects,goalText,split,go}){
             {si>=2&&<div style={{marginTop:14}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:5}}><span style={{color:'var(--text-muted)'}}>Delivered (exposure)</span><span style={{fontWeight:700}}>{contacted.toLocaleString()} / {treatN.toLocaleString()}</span></div>
               <div style={{height:8,background:'var(--bg-muted)',borderRadius:'var(--radius-full)',overflow:'hidden'}}><div style={{width:Math.round(contacted/treatN*100)+'%',height:'100%',background:'var(--brand)'}}/></div>
-              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6}}>{mode==='cs'?'From CS logs. Member-level uid match is sparse (~23%) — ITT is the primary readout, treated-on-treated is best-effort.':'From your manual log. ITT on the frozen assignment is the primary readout.'}</div>
+              {mode==='cs'
+                ? <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6,lineHeight:1.45}}><b style={{color:'var(--text-secondary)'}}>Confirmed-reach coverage ≈ 23%</b> (we can match that share of CS logs to a uid). This does <b>not</b> change the headline — the result is measured on <b>everyone we assigned</b>; the confirmed-reached subset is just a bonus read.</div>
+                : <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6,lineHeight:1.45,display:'flex',flexDirection:'column',gap:2}}>
+                    <span><b style={{color:'var(--text-secondary)'}}>CS says delivered:</b> {Math.round(treatN*0.98).toLocaleString()}</span>
+                    <span><b style={{color:'var(--text-secondary)'}}>Logged here:</b> {contacted.toLocaleString()} <i>(your log may lag actual delivery)</i></span>
+                    <span>Either way the headline is measured on <b>everyone we assigned</b>.</span></div>}
             </div>}
           </div>
         </div>
@@ -533,11 +567,13 @@ function CommandCenter({goal,aspects,goalText,split,go}){
                 {rev
                   ? <MiniBars a={st==='readout'?22:18} b={st==='readout'?13:14} labelA="Treatment" labelB="Hold-out" unit="%" max={28}/>
                   : <MiniBars a={st==='readout'?4.6:3.1} b={st==='readout'?2.4:2.6} labelA="Treatment" labelB="Hold-out" unit="/wk" max={6}/>}
-                <div style={{fontSize:12.5,marginTop:12,color:'var(--text-secondary)',lineHeight:1.5}}>
+                {st==='readout'&&<div style={{fontSize:13.5,fontWeight:700,marginTop:12}}>Did it work? <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:12}}>— measured on everyone we assigned (the number you can trust)</span></div>}
+                <div style={{fontSize:12.5,marginTop:st==='readout'?5:12,color:'var(--text-secondary)',lineHeight:1.5}}>
                   {st==='readout'
-                    ? (rev?<><b style={{color:'var(--positive)'}}>+9 payers in 100</b> vs hold-out — a clear win, beyond chance. ≈ <b>+312M₫</b> if rolled out to the held-back group.</>
-                          :<><b style={{color:'var(--positive)'}}>+2.2 sessions/week</b> vs hold-out — clear lift; revenue follow-through still accruing.</>)
+                    ? (rev?<><b style={{color:'var(--positive)'}}>Yes — +9 payers in 100</b> vs the hold-out, beyond chance. ≈ <b>+312M₫</b> if rolled out to the held-back group. <span style={{color:'var(--text-muted)'}}>Among those CS confirmed reaching, the lift was stronger.</span></>
+                          :<><b style={{color:'var(--positive)'}}>Yes — +2.2 sessions/week</b> vs the hold-out; revenue follow-through still accruing.</>)
                     : 'Difference is forming but inside the noise band — keep measuring to day 14.'}</div>
+                {st==='readout'&&rev&&<div style={{fontSize:11,color:'var(--text-muted)',marginTop:6}}>Gross payments — before refunds & costs.</div>}
                 {st==='readout'&&<div style={{display:'flex',gap:8,marginTop:14}}>
                   <Btn sm kind="primary" onClick={()=>alert('→ roll the winning treatment out to the held-back group')}>Roll out to hold-out →</Btn>
                   <Btn sm onClick={()=>alert('→ archive; result feeds the Treatment-Effect Library')}>Archive & bank the learning</Btn></div>}
@@ -579,8 +615,8 @@ function App(){
   const [aspects,setAspects]=useState([]);
   const [openId,setOpenId]=useState(null);
   const [busy,setBusy]=useState(false);
-  const [split,setSplit]=useState(90);
-  const setup=(g,t)=>{setGoal(g);setGoalText(t);setAspects(ASPECTS[g].map(a=>({...a,state:'idle',triage:null,on:a.feas!=='false'})));setActive(0);setScreen('board');};
+  const [split,setSplit]=useState(80); // hold-out 20% by default; slider floor keeps it ≥15%
+  const setup=(g,t)=>{setGoal(g);setGoalText(t);setAspects(ASPECTS[g].map(a=>({...a,state:'idle',triage:null,on:true})));setActive(0);setScreen('board');};
   const setSt=(id,patch)=>setAspects(as=>as.map(a=>a.id===id?{...a,...patch}:a));
   const handlers={
     onWork:id=>{setSt(id,{state:'working'});setTimeout(()=>setSt(id,{state:'done'}),700);},
@@ -596,6 +632,8 @@ function App(){
       setTimeout(()=>{const r=customResult(stageKey,q);setSt(id,r.state==='needinfo'?{state:'needinfo',need:r.need}:{state:'done',finding:r.finding});},900);},
     onProvideInfo:(id,stageKey,info)=>{setSt(id,{state:'working'});
       setTimeout(()=>setSt(id,{state:'done',finding:CUSTOM_FINDING[stageKey]+' (using what you added: “'+info+'”).',conf:'med'}),900);},
+    onAssert:(stageKey,q)=>{const id=nextCustomId();
+      setAspects(as=>[...as,{id,stage:stageKey,q,finding:'Your assumption — kept so the experiment can move; not yet confirmed in data. The Command Center will flag it as assumed.',slot:CUSTOM_SLOT(q),conf:'med',custom:true,asserted:true,state:'done',triage:'keep',on:true}]);},
   };
   const goStage=i=>{ if(i>=STAGES.length){setScreen('decide');return;} setActive(Math.max(0,i)); setScreen('board'); };
   const investigateStage=()=>{const todo=aspects.filter(a=>a.stage===STAGES[active].key&&a.on&&a.state==='idle');setBusy(true);

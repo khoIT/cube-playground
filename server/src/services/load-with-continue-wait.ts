@@ -19,6 +19,7 @@ export async function loadWithContinueWait(
   query: unknown,
   tokenOverride: string | undefined,
   timeoutMs: number,
+  ctx?: cubeClient.WorkspaceCtx,
 ): Promise<unknown> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -28,7 +29,11 @@ export async function loadWithContinueWait(
     // and the whole budget is wasted on a guaranteed timeout.
     const remaining = deadline - Date.now();
     try {
-      return await cubeClient.load(query, tokenOverride, Math.max(1, remaining));
+      // Workspace-scoped callers (advisor agent) pass a ctx; legacy server jobs
+      // pass a tokenOverride against the global Cube base URL.
+      return ctx
+        ? await cubeClient.loadWithCtx(query, ctx, Math.max(1, remaining))
+        : await cubeClient.load(query, tokenOverride, Math.max(1, remaining));
     } catch (err) {
       const msg = (err as Error).message;
       if (!CONTINUE_WAIT_RE.test(msg)) throw err;

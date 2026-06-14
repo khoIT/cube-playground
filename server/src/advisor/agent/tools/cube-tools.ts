@@ -19,13 +19,46 @@ import { ok, fail, provenance, type ToolContext } from './tool-context.js';
 /** Cap rows returned to the agent to bound token cost. */
 const MAX_ROWS = 50;
 
+/**
+ * Default trailing window (days) injected when the agent supplies a time
+ * dimension but no dateRange. A wide, un-bounded scan against a cold warehouse
+ * is the most common way a cube_query stalls and burns the turn budget; this
+ * mirrors the trailing windows the deterministic lenses already use. The agent
+ * can still pass an explicit dateRange to widen or narrow it.
+ */
+const DEFAULT_WINDOW_DAYS = 90;
+
+/**
+ * Bound any time dimension the agent left un-dated to a trailing window off the
+ * session anchor (asOf). Uses [start, end] ISO tuples — the same shape the
+ * lenses produce via trailingWindowFilter. Time dimensions that already carry a
+ * dateRange pass through unchanged.
+ */
+function boundTimeDimensions(
+  timeDimensions: AdvisorQuery['timeDimensions'],
+  asOf: Date,
+): AdvisorQuery['timeDimensions'] {
+  if (!timeDimensions?.length) return timeDimensions;
+  const end = asOf.toISOString().slice(0, 10);
+  const start = new Date(asOf.getTime() - DEFAULT_WINDOW_DAYS * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return timeDimensions.map((td) =>
+    td.dateRange == null ? { ...td, dateRange: [start, end] } : td,
+  );
+}
+
 export function makeCubeQueryTool(tctx: ToolContext) {
   return tool(
     'cube_query',
     'Run an aggregate analytics query (measures + optional dimensions/filters/' +
       'time range) against the live data warehouse for this workspace. Returns ' +
       'aggregated rows plus an evidence link. Use for counts, rates, and trends — ' +
-      'never request member identity or contact columns.',
+      'never request member identity or contact columns. Keep it light: bound it ' +
+      'to a recent window (the last 30–90 days, not all-time) — an un-dated time ' +
+      'dimension is auto-capped to the last 90 days. The warehouse is cold until ' +
+      'your first query warms it, so start narrow and widen only if a small ' +
+      'window comes back empty.',
     {
       measures: z.array(z.string()).optional(),
       dimensions: z.array(z.string()).optional(),
@@ -43,7 +76,11 @@ export function makeCubeQueryTool(tctx: ToolContext) {
       limit: z.number().optional(),
     },
     async (args: AdvisorQuery) => {
-      const query: AdvisorQuery = { ...args, limit: Math.min(args.limit ?? MAX_ROWS, MAX_ROWS) };
+      const query: AdvisorQuery = {
+        ...args,
+        timeDimensions: boundTimeDimensions(args.timeDimensions, tctx.asOf),
+        limit: Math.min(args.limit ?? MAX_ROWS, MAX_ROWS),
+      };
       try {
         const { rows, provenance: link } = await readWithProvenance(
           query,

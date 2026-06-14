@@ -73,6 +73,12 @@ export function buildContextPack(scope: ScopeRef): string {
     'You do NOT have the live data catalog or the segment size in this prompt — ' +
       'call cube_meta to see available data, diagnose to get the cohort size and ' +
       'weak factors, and cube_query for any specific aggregate.',
+    '',
+    'The warehouse is COLD until your first query warms it. Keep every cube_query ' +
+      'light: bound it to a recent window (start with the last 30–90 days, not ' +
+      'all-time) and widen only if a narrow window returns nothing. Prefer ' +
+      'diagnose (already bounded) over hand-built broad scans. A wide all-time ' +
+      'query on a cold warehouse times out and burns the investigation budget.',
   ].join('\n');
   return pack.length > CONTEXT_PACK_MAX_CHARS ? `${pack.slice(0, CONTEXT_PACK_MAX_CHARS)}\n…(trimmed)` : pack;
 }

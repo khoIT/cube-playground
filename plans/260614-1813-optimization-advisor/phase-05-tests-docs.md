@@ -1,8 +1,13 @@
 # Phase 05 — Tests + docs
 
+> **SUPERSEDED — folded into [Phase 09](phase-09-guardrails-eval-tests-docs.md).** After the agent reframe
+> (2026-06-14), the deterministic-layer tests + docs below are carried forward into Phase 9 alongside the
+> new agent enforcement/eval tests. Do NOT execute this phase standalone; work Phase 9. Retained for the
+> detailed test specs of the deterministic layer.
+
 ## Overview
 - **Priority:** P1.
-- **Status:** pending.
+- **Status:** superseded → Phase 9.
 - Test the predicate-engine extension, the lens engine, prioritization, and the full
   Explore→Recommend→Drive→Learn loop; document the Advisor in `docs/`.
 

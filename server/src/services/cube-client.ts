@@ -149,9 +149,15 @@ export async function load(
   return cubePost('/load', { query }, tokenOverride, undefined, timeoutMs);
 }
 
-/** Workspace-aware /load. */
-export async function loadWithCtx(query: unknown, ctx: WorkspaceCtx): Promise<unknown> {
-  return cubePost('/load', { query }, undefined, ctx);
+/** Workspace-aware /load. `timeoutMs` overrides the default 15s fetch abort for
+ *  callers that poll Cube's continue-wait window against a cold warehouse (see
+ *  loadWithContinueWait); omit it for interactive callers. */
+export async function loadWithCtx(
+  query: unknown,
+  ctx: WorkspaceCtx,
+  timeoutMs?: number,
+): Promise<unknown> {
+  return cubePost('/load', { query }, undefined, ctx, timeoutMs);
 }
 
 /** Get the SQL for a Cube query (/sql). */

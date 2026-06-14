@@ -5,3 +5,4 @@
 - [Care reset clears before mutex](care-reset-clear-before-mutex.md) — POST /api/care/cases/reset DELETEs before acquiring sweep mutex; 409-busy resweep still wiped data.
 - [Snapshot manual-trigger cross-gateway race](snapshot-manual-trigger-cross-gateway-race.md) — per-process running flag can't serialize shared-Trino DELETE→INSERT; overlap duplicates partition rows.
 - [Live name-resolution regex coupling](live-name-resolution-regex-coupling.md) — resolve-member-names-live NAME_COLUMN_RE dups assembly heuristic; broad /name/i can mis-flag id columns; single name col today.
+- [Write-role gate is prefix-based](write-role-gate-is-prefix-based.md) — viewer write RBAC = central PROTECTED_PREFIXES allowlist; new mutating route families ship writable-by-viewer unless added; no-op in dev/tests so it stays green.

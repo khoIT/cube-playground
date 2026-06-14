@@ -70,13 +70,29 @@ export async function readWithProvenance(
 }
 
 /**
- * Default reader — wraps loadWithCtx and extracts the data array.
- * Throws on Cube errors (callers handle with try/catch and emit
+ * Per-query budget for advisor reads. Larger than the 15s interactive fetch cap
+ * so a cold warehouse can warm its pre-aggregation within Cube's continue-wait
+ * window instead of aborting client-side — one held tool call replaces several
+ * failed agent retries that would otherwise drain the turn budget. Bounded well
+ * under the overall turn timeout so a single query can't starve the rest.
+ */
+const ADVISOR_QUERY_TIMEOUT_MS = (() => {
+  const raw = process.env.ADVISOR_CUBE_QUERY_TIMEOUT_MS;
+  const n = raw == null || raw.trim() === '' ? NaN : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 30_000;
+})();
+
+/**
+ * Default reader — polls Cube's continue-wait window so a cold pre-agg warms
+ * rather than hard-failing at the 15s interactive cap, then extracts the data
+ * array. Throws on Cube errors (callers handle with try/catch and emit
  * verdict='inconclusive').
  */
 async function defaultCubeReader(query: AdvisorQuery, ctx: WorkspaceCtx): Promise<CubeRow[]> {
-  const { loadWithCtx } = await import('../services/cube-client.js');
-  const res = (await loadWithCtx(query, ctx)) as { data?: CubeRow[] };
+  const { loadWithContinueWait } = await import('../services/load-with-continue-wait.js');
+  const res = (await loadWithContinueWait(query, undefined, ADVISOR_QUERY_TIMEOUT_MS, ctx)) as {
+    data?: CubeRow[];
+  };
   return res.data ?? [];
 }
 
