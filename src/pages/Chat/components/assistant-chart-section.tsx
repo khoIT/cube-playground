@@ -67,6 +67,19 @@ interface AssistantChartSectionProps {
    * menu; the standalone surface manages its own.
    */
   overrideEncoding?: ChartSpec['encoding'];
+  /**
+   * Optional element rendered in the standalone header, left of the view menu —
+   * e.g. an "Open in Playground" link on the Ops Console. Undefined (the chat
+   * default) leaves the header visually unchanged. Not rendered in embedded mode.
+   */
+  headerAction?: React.ReactNode;
+  /**
+   * Force the initial view. When unset, the component picks chart vs table from
+   * the data shape (`preferTableView`). Trend surfaces (e.g. the Ops Console)
+   * pass 'chart' so a long daily series opens as a chart, not a table — the menu
+   * still lets the user toggle to the table.
+   */
+  defaultView?: 'chart' | 'table';
 }
 
 export function AssistantChartSection({
@@ -74,11 +87,15 @@ export function AssistantChartSection({
   embedded,
   overrideType: externalOverride,
   overrideEncoding: externalEncoding,
+  headerAction,
+  defaultView,
 }: AssistantChartSectionProps) {
   const { spec, truncated, originalRowCount } = artifact;
   // Table-first for table-shaped results (leaderboards / wide multi-column);
   // small categorical charts stay chart-first.
-  const [view, setView] = useState<'chart' | 'table'>(() => (preferTableView(spec) ? 'table' : 'chart'));
+  const [view, setView] = useState<'chart' | 'table'>(
+    () => defaultView ?? (preferTableView(spec) ? 'table' : 'chart'),
+  );
   const [internalOverride, setInternalOverride] = useState<ChartSpec['type'] | null>(null);
   const [internalEncoding, setInternalEncoding] = useState<ChartSpec['encoding'] | null>(null);
   // Member-ref → label map (from server-resolved columns) for axis/tooltip/header text.
@@ -157,6 +174,9 @@ export function AssistantChartSection({
         >
           {spec.title}
         </div>
+        {headerAction && (
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>{headerAction}</div>
+        )}
         <ChartSectionMenu
           spec={spec}
           view={view}

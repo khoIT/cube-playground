@@ -4,12 +4,16 @@
  * cash / transactions / paying users + daily trends, gateway mix, support health
  * (status-independent), lifetime reconciliation (snapshot), cross-border geo
  * signal, and acquisition spend + blended ROAS. Δ-vs-prior shows on 7d only.
+ *
+ * The interactive trend grid lives in OverviewTrends (this file keeps the hero
+ * KPIs + analysis panels). Accepts an optional custom date range; when set, the
+ * window is 'custom' and there is no Δ-vs-prior (same as 30d/MTD).
  */
 import React from 'react';
-import type { OpsWindow } from './ops-window';
+import type { OpsWindow, OpsRange } from './ops-window';
 import { useOpsOverview } from './use-ops-overview';
 import { OpsStatCard } from './ops-stat-card';
-import { OpsLineTrend, OpsStackedTrend } from './ops-trend-chart';
+import { OverviewTrends } from './overview-trends';
 import { formatVnd, formatInt, formatCompact, formatPct } from './ops-format';
 
 const sectionGap = 20;
@@ -56,11 +60,13 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
 interface OverviewTabProps {
   gameId: string;
   window: OpsWindow;
+  customRange?: OpsRange;
 }
 
-export function OverviewTab({ gameId, window }: OverviewTabProps) {
-  const d = useOpsOverview(gameId, window);
+export function OverviewTab({ gameId, window, customRange }: OverviewTabProps) {
+  const d = useOpsOverview(gameId, window, customRange);
   const loading = d.loading;
+  // Δ-vs-prior is only meaningful on 7d (presets ≥30d and custom have no prior).
   const deltaNote = window === '7d' ? 'Δ vs prior 7d' : 'no Δ on this window';
 
   return (
@@ -123,28 +129,8 @@ export function OverviewTab({ gameId, window }: OverviewTabProps) {
         />
       </div>
 
-      {/* Trends */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        <OpsLineTrend
-          title="Cash collected — daily"
-          dates={d.daily.map((x) => x.date)}
-          series={[{ label: 'cash (₫)', color: 'var(--brand)', values: d.daily.map((x) => x.cash) }]}
-        />
-        <OpsLineTrend
-          title="Paying users vs cash — daily"
-          dates={d.daily.map((x) => x.date)}
-          series={[
-            { label: 'cash (₫)', color: 'var(--brand)', values: d.daily.map((x) => x.cash), axis: 'left' },
-            { label: 'payers', color: '#3f8dff', values: d.daily.map((x) => x.payers), axis: 'right' },
-          ]}
-        />
-        <OpsStackedTrend
-          title="Gateway mix over time"
-          categories={d.gateways}
-          days={d.gatewayDays}
-          dates={d.gatewayDates}
-        />
-      </div>
+      {/* Trends — interactive chart grid (max 2/row + 2 full-width). */}
+      <OverviewTrends d={d} loading={loading} />
 
       {/* Analysis panels */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>

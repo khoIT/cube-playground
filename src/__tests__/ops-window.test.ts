@@ -6,7 +6,13 @@
  * @vitest-environment node
  */
 import { describe, it, expect } from 'vitest';
-import { opsWindowRanges, pctDelta } from '../pages/OpsConsole/ops-window';
+import {
+  opsWindowRanges,
+  pctDelta,
+  isRangeWithinCap,
+  rangeDaysInclusive,
+  OPS_RANGE_MAX_DAYS,
+} from '../pages/OpsConsole/ops-window';
 
 const TODAY = new Date('2026-06-14T09:00:00Z');
 
@@ -55,5 +61,34 @@ describe('pctDelta', () => {
     expect(pctDelta(50, 0)).toBeNull();
     expect(pctDelta(50, null)).toBeNull();
     expect(pctDelta(50, undefined)).toBeNull();
+  });
+});
+
+describe('custom-range cap (billing scan guard)', () => {
+  it('OPS_RANGE_MAX_DAYS is 31', () => {
+    expect(OPS_RANGE_MAX_DAYS).toBe(31);
+  });
+
+  it('rangeDaysInclusive counts both endpoints', () => {
+    expect(rangeDaysInclusive('2026-06-14', '2026-06-14')).toBe(1);
+    expect(rangeDaysInclusive('2026-06-01', '2026-06-07')).toBe(7);
+  });
+
+  it('accepts a 31-day span (boundary) and rejects 32', () => {
+    // 2026-05-15 → 2026-06-14 inclusive = 31 days; +1 day = 32.
+    expect(rangeDaysInclusive('2026-05-15', '2026-06-14')).toBe(31);
+    expect(isRangeWithinCap('2026-05-15', '2026-06-14')).toBe(true);
+    expect(rangeDaysInclusive('2026-05-14', '2026-06-14')).toBe(32);
+    expect(isRangeWithinCap('2026-05-14', '2026-06-14')).toBe(false);
+  });
+
+  it('rejects end-before-start and empty inputs', () => {
+    expect(isRangeWithinCap('2026-06-14', '2026-06-01')).toBe(false);
+    expect(isRangeWithinCap('', '2026-06-14')).toBe(false);
+    expect(isRangeWithinCap('2026-06-14', '')).toBe(false);
+  });
+
+  it('a single day is within the cap', () => {
+    expect(isRangeWithinCap('2026-06-14', '2026-06-14')).toBe(true);
   });
 });

@@ -26,7 +26,8 @@ import { useGameContext } from '../../components/Header/use-game-context';
 import { isOpsGame } from './ops-games';
 import { OpsConsoleTabs, isOpsTab, type OpsTab } from './ops-console-tabs';
 import { OpsWindowToggle } from './ops-window-toggle';
-import type { OpsWindow } from './ops-window';
+import { OpsDateRangePicker } from './ops-date-range-picker';
+import type { OpsWindow, OpsRange } from './ops-window';
 import { OverviewTab } from './overview-tab';
 import { MembersTab } from './members-tab';
 import { CareTab } from './care-tab';
@@ -52,6 +53,17 @@ export function OpsConsolePage() {
     () => readTabParam(location.search) ?? 'overview',
   );
   const [window, setWindow] = React.useState<OpsWindow>('30d');
+  const [customRange, setCustomRange] = React.useState<OpsRange | null>(null);
+
+  // A preset toggle clears any custom range; applying a range switches to custom.
+  const onPreset = React.useCallback((next: OpsWindow) => {
+    setWindow(next);
+    setCustomRange(null);
+  }, []);
+  const onApplyRange = React.useCallback((range: OpsRange) => {
+    setCustomRange(range);
+    setWindow('custom');
+  }, []);
 
   // Keep the active tab in sync with a deep-linked ?tab= (back/forward, paste).
   React.useEffect(() => {
@@ -150,14 +162,25 @@ export function OpsConsolePage() {
           </div>
         </div>
 
-        {/* Window toggle — only meaningful for the Overview tab */}
-        {activeTab === 'overview' && <OpsWindowToggle value={window} onChange={setWindow} />}
+        {/* Window controls — only meaningful for the Overview tab */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <OpsWindowToggle value={window} onChange={onPreset} />
+            <OpsDateRangePicker
+              value={customRange}
+              active={window === 'custom'}
+              onApply={onApplyRange}
+            />
+          </div>
+        )}
       </div>
 
       <OpsConsoleTabs active={activeTab} onChange={onTabChange} />
 
       {/* Inactive tabs unmount (stops the Care 30s poll when away). */}
-      {activeTab === 'overview' && <OverviewTab gameId={gameId} window={window} />}
+      {activeTab === 'overview' && (
+        <OverviewTab gameId={gameId} window={window} customRange={customRange ?? undefined} />
+      )}
       {activeTab === 'members' && <MembersTab gameId={gameId} />}
       {activeTab === 'care' && <CareTab gameId={gameId} />}
     </div>

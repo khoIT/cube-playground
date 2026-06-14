@@ -34,6 +34,8 @@ cubes:
         b.store,
         b.item_type,
         b.promotion_type,
+        EXTRACT(HOUR FROM CAST(b.order_created_datetime AS TIMESTAMP)) AS hour_of_day,
+        EXTRACT(DOW FROM CAST(b.order_created_datetime AS TIMESTAMP)) AS day_of_week,
         count(DISTINCT b.order_number) AS txn_count,
         sum(b.payment_charged_amount) AS charged_amount,
         sum(b.lps_charged_amount) AS lps_charged_amount,
@@ -44,7 +46,7 @@ cubes:
       FROM iceberg.billing.std_billing_delivery_trans_gds b
       WHERE b.product_code = 'A70'
         AND b.user_id IN (SELECT user_id FROM mf_users)
-      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
     title: JUS VN — Billing Detail (gateway / method / promo breakdown)
     description: >
       [freshness: live] Payment-gateway breakdown of JUS VN purchases (payment
@@ -80,7 +82,8 @@ cubes:
             COALESCE({CUBE}.payment_provider_id, ''), '__',
             COALESCE({CUBE}.store, ''), '__',
             COALESCE({CUBE}.item_type, ''), '__',
-            COALESCE({CUBE}.promotion_type, '')
+            COALESCE({CUBE}.promotion_type, ''), '__',
+            CAST({CUBE}.hour_of_day AS VARCHAR)
           )
         type: string
         primary_key: true
@@ -122,6 +125,20 @@ cubes:
       - name: promotion_type
         sql: promotion_type
         type: string
+
+      # Intra-day purchase timing — powers the hour-of-day × day-of-week heatmap
+      # so flash-sale windows and CS staffing peaks are visible. Derived from the
+      # full order timestamp (order_date is date-only), so this dim widens the
+      # cube grain by hour; the day rollup re-aggregates over it and is unaffected.
+      - name: hour_of_day
+        sql: hour_of_day
+        type: number
+        description: Hour the order was created (0–23, server time).
+
+      - name: day_of_week
+        sql: day_of_week
+        type: number
+        description: ISO day-of-week of the order (1=Mon … 7=Sun).
 
     measures:
       - name: rows

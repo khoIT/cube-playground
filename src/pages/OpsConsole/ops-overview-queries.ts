@@ -1,10 +1,13 @@
 /**
- * Cube query builders for the Ops Console Overview — pure functions so Phase 6
- * can statically assert the contracts:
- *  - aggregate-only: NO user_id filter / PII dimension on any query → no PII.
- *  - A1 distinct: the headline (paying_users) query carries NO day granularity
+ * Cube query builders for the Ops Console Overview — pure functions so the test
+ * suite can statically assert the contracts:
+ *  - aggregate-only on the Overview: NO user_id filter / PII dimension on any
+ *    Overview query → no PII. The ONE deliberate exception is `topPayersQuery`,
+ *    which carries `mf_users.user_id` to power the (user-approved) Members-tab
+ *    top-payers list — it is NEVER used on the aggregate Overview surface.
+ *  - distinct: the headline (paying_users) query carries NO day granularity
  *    (count_distinct_approx is non-additive — never summed across days).
- *  - A2 currency: jus billing_detail is mixed USD+VND → jus money queries filter
+ *  - currency: jus billing_detail is mixed USD+VND → jus money queries filter
  *    currency='VND'. cfm is VND-only (no filter).
  *  - billing scans are bounded by the window dateRange (≤31d) — no unbounded scan.
  *
@@ -24,7 +27,7 @@ function vndFilter(gameId: string): Filter[] {
 const range = (r: OpsRange) => [r.start, r.end] as [string, string];
 
 /** Headline: cash + transactions + paying_users over the whole window, NO day
- *  granularity (A1 — paying_users is non-additive). */
+ *  granularity (paying_users is non-additive). */
 export function billingHeadlineQuery(gameId: string, r: OpsRange): Query {
   return {
     measures: [
@@ -68,8 +71,8 @@ export function gatewayTrendQuery(gameId: string, r: OpsRange): Query {
   };
 }
 
-/** Support health — status-independent measures only (closed/open are broken,
- *  A6). created_date bounds the window. ~2d warehouse lag (tag in the UI). */
+/** Support health — status-independent measures only (closed/open are broken).
+ *  created_date bounds the window. ~2d warehouse lag (tag in the UI). */
 export function supportQuery(r: OpsRange): Query {
   return {
     measures: [
@@ -117,5 +120,64 @@ export function acquisitionQuery(r: OpsRange): Query {
       'marketing_cost.clicks',
     ],
     timeDimensions: [{ dimension: 'marketing_cost.log_date', dateRange: range(r) }],
+  };
+}
+
+/** Daily ad spend — overlaid against daily cash for the ROAS-over-time chart.
+ *  cost_vnd is already VND (no currency filter needed). */
+export function spendDailyTrendQuery(r: OpsRange): Query {
+  return {
+    measures: ['marketing_cost.cost_vnd'],
+    timeDimensions: [
+      { dimension: 'marketing_cost.log_date', dateRange: range(r), granularity: 'day' },
+    ],
+    order: { 'marketing_cost.log_date': 'asc' },
+  };
+}
+
+/** Daily active users — the denominator for the payer-conversion trend
+ *  (payers/day ÷ dau/day, joined client-side by date). Separate cube from
+ *  billing_detail, so it's its own query joined on the date key. */
+export function dauDailyQuery(r: OpsRange): Query {
+  return {
+    measures: ['active_daily.dau'],
+    timeDimensions: [{ dimension: 'active_daily.log_date', dateRange: range(r), granularity: 'day' }],
+    order: { 'active_daily.log_date': 'asc' },
+  };
+}
+
+/** Daily support volume + negative-sentiment trend. Both measures are additive
+ *  over days (unlike paying_users). created_date has a ~2d warehouse lag — the
+ *  UI tags it. */
+export function csTrendDailyQuery(r: OpsRange): Query {
+  return {
+    measures: ['cs_ticket_detail.total_tickets', 'cs_ticket_detail.negative_sentiment_tickets'],
+    timeDimensions: [
+      { dimension: 'cs_ticket_detail.created_date', dateRange: range(r), granularity: 'day' },
+    ],
+    order: { 'cs_ticket_detail.created_date': 'asc' },
+  };
+}
+
+/** Payer-tier revenue concentration (whale analysis) — snapshot, no window.
+ *  Groups users by the canonical payer_tier dim; the client turns each tier's
+ *  LTV into a share of total. No per-user dim → still aggregate (no PII). */
+export function payerTierConcentrationQuery(): Query {
+  return {
+    measures: ['mf_users.user_count', 'mf_users.ltv_total_vnd'],
+    dimensions: ['mf_users.payer_tier'],
+  };
+}
+
+/** Purchase-timing heatmap — cash summed per (hour-of-day × day-of-week) over
+ *  the window. NO granularity: each cell is the period total for that hour×dow,
+ *  not a per-day series. Depends on the billing_detail timing dims (deploy-gated).
+ *  jus is mixed-currency → VND filter. */
+export function purchaseHeatmapQuery(gameId: string, r: OpsRange): Query {
+  return {
+    measures: ['billing_detail.cash_charged_gross'],
+    dimensions: ['billing_detail.hour_of_day', 'billing_detail.day_of_week'],
+    timeDimensions: [{ dimension: 'billing_detail.order_date', dateRange: range(r) }],
+    filters: vndFilter(gameId),
   };
 }

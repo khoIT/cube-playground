@@ -164,6 +164,21 @@ export function buildPlaygroundDeeplink(input: DeeplinkInput): DeeplinkResult {
   return { url: `#/build?from-segment=${encodeURIComponent(input.segmentId)}`, via: 'session-storage' };
 }
 
+/**
+ * Encode a raw Cube query into a Playground deeplink (no uid / segment overlay).
+ *
+ * For non-segment surfaces (e.g. the Ops Console trend charts) that want an
+ * "Open in Playground" link pointing at the exact query feeding a chart. The
+ * query builder reads `?query=` and JSON.parses it directly, so the query is
+ * encoded verbatim. Ops queries are small (a few measures + one dimension + a
+ * dateRange), comfortably under the inline URL limit, so there is no
+ * sessionStorage overflow path here (no generic consumer exists for one).
+ */
+export function buildQueryDeeplink(query: Record<string, unknown>): string {
+  const encoded = encodeURIComponent(JSON.stringify(query));
+  return `#/build?query=${encoded}`;
+}
+
 // ── definition deeplink (primary segment button) ──────────────────────────
 
 /**

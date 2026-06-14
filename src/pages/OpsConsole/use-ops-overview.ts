@@ -9,9 +9,17 @@
  * Concurrency is bounded by useMemberCubeQuery's shared semaphore.
  */
 import { useMemo } from 'react';
+import type { Query } from '@cubejs-client/core';
 import { useMemberCubeQuery } from '../Segments/member360/use-member-cube-query';
-import { opsWindowRanges, pctDelta, type OpsWindow } from './ops-window';
+import {
+  opsWindowRanges,
+  pctDelta,
+  type OpsWindow,
+  type OpsPresetWindow,
+  type OpsRange,
+} from './ops-window';
 import { toNum } from './ops-format';
+import { useOpsTrends } from './use-ops-trends';
 import {
   billingHeadlineQuery,
   billingDailyTrendQuery,
@@ -48,6 +56,31 @@ export interface OpsOverviewData {
     payersDelta: number | null;
   };
   daily: { date: string; cash: number; txn: number; payers: number }[];
+  /** Daily ad spend (for the spend-vs-cash ROAS chart). */
+  spendDaily: { date: string; spend: number }[];
+  /** Daily active users (conversion denominator). */
+  dauDaily: { date: string; dau: number }[];
+  /** Daily CS volume + negative-sentiment (own ~2d-lagged date spine). */
+  csDaily: { date: string; tickets: number; negative: number }[];
+  /** Per-date ARPPU (cash/payers) + payer conversion (payers/dau), null-safe. */
+  arppuConversionDaily: { date: string; arppu: number | null; conversionPct: number | null }[];
+  /** Payer tiers with each tier's LTV share (whale concentration). */
+  payerTiers: { tier: string; count: number; ltv: number; ltvPct: number }[];
+  /** Purchase hour×DOW cash grid — empty until billing timing dims deploy. */
+  heatmap: { hour: number; dow: number; cash: number }[];
+  /** The exact Cube queries feeding the trend charts — for per-chart
+   *  "Open in Playground" deeplinks. daily feeds the cash line + the
+   *  cash-vs-payers dual + the ARPPU/conversion derivation; gatewayTrend feeds
+   *  the gateway-mix stack; the rest map 1:1 to their charts. */
+  queries: {
+    daily: Query;
+    gatewayTrend: Query;
+    spend: Query;
+    dau: Query;
+    cs: Query;
+    payerTiers: Query;
+    heatmap: Query;
+  };
   gatewayDays: Record<string, number>[];
   /** Sorted day keys aligned 1:1 with gatewayDays (for the x-axis). */
   gatewayDates: string[];
@@ -73,15 +106,30 @@ export interface OpsOverviewData {
   };
 }
 
-export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewData {
+export function useOpsOverview(
+  gameId: string,
+  window: OpsWindow,
+  customRange?: OpsRange,
+): OpsOverviewData {
   // Daily-stable "today": rolls over at UTC midnight but is constant within a day
   // so the memoised ranges/queries don't refetch every render (a raw new Date()
   // in deps would loop).
   const todayKey = new Date().toISOString().slice(0, 10);
-  const ranges = useMemo(
-    () => opsWindowRanges(window, new Date(`${todayKey}T00:00:00Z`)),
-    [window, todayKey],
-  );
+  // Custom carries its range out-of-band and has no prior period (no Δ — same
+  // rationale as 30d/MTD: a synthetic prior window before billing history is
+  // empty). Presets go through the pure opsWindowRanges.
+  const customStart = customRange?.start;
+  const customEnd = customRange?.end;
+  const ranges = useMemo(() => {
+    if (window === 'custom' && customStart && customEnd) {
+      return { current: { start: customStart, end: customEnd }, prior: null };
+    }
+    const preset: OpsPresetWindow = window === 'custom' ? '30d' : window;
+    return opsWindowRanges(preset, new Date(`${todayKey}T00:00:00Z`));
+  }, [window, customStart, customEnd, todayKey]);
+
+  // Power-up series (spend / dau / cs / payer-tiers / heatmap).
+  const trends = useOpsTrends(gameId, ranges.current);
 
   const q = useMemo(
     () => ({
@@ -177,6 +225,19 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
     // gateway cash is the honest, available numerator for both games.
     const revenue = cash;
 
+    // ARPPU = cash/payers; conversion = payers/dau — derived per day on the
+    // billing daily spine, joined to dau by date. Null (not NaN/Infinity) when a
+    // denominator is 0 or the dau date is missing; the renderer skips nulls.
+    const dauByDate = new Map(trends.dauDaily.map((d) => [d.date, d.dau]));
+    const arppuConversionDaily = dailyRows.map((r) => {
+      const dau = dauByDate.get(r.date);
+      return {
+        date: r.date,
+        arppu: r.payers > 0 ? r.cash / r.payers : null,
+        conversionPct: dau && dau > 0 ? r.payers / dau : null,
+      };
+    });
+
     return {
       loading:
         headline.loading ||
@@ -186,7 +247,8 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
         lifetime.loading ||
         ingameLtv.loading ||
         geo.loading ||
-        acquisition.loading,
+        acquisition.loading ||
+        trends.loading,
       error: Boolean(
         headline.error ||
           daily.error ||
@@ -195,7 +257,8 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
           lifetime.error ||
           ingameLtv.error ||
           geo.error ||
-          acquisition.error,
+          acquisition.error ||
+          trends.error,
       ),
       headline: {
         cash,
@@ -206,6 +269,21 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
         payersDelta: p0 ? pctDelta(payers, toNum(p0[M.payers])) : null,
       },
       daily: dailyRows,
+      spendDaily: trends.spendDaily,
+      dauDaily: trends.dauDaily,
+      csDaily: trends.csDaily,
+      arppuConversionDaily,
+      payerTiers: trends.payerTiers,
+      heatmap: trends.heatmap,
+      queries: {
+        daily: q.daily,
+        gatewayTrend: q.gatewayTrend,
+        spend: trends.queries.spend,
+        dau: trends.queries.dau,
+        cs: trends.queries.cs,
+        payerTiers: trends.queries.payerTiers,
+        heatmap: trends.queries.heatmap,
+      },
       gatewayDays,
       gatewayDates,
       gateways,
@@ -238,6 +316,7 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
       },
     };
   }, [
+    q.daily, q.gatewayTrend,
     headline.rows, headline.loading, headline.error, prior.rows,
     daily.rows, daily.loading, daily.error,
     gatewayTrend.rows, gatewayTrend.loading, gatewayTrend.error,
@@ -246,5 +325,6 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
     ingameLtv.rows, ingameLtv.loading, ingameLtv.error,
     geo.rows, geo.loading, geo.error,
     acquisition.rows, acquisition.loading, acquisition.error,
+    trends,
   ]);
 }
