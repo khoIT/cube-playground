@@ -159,4 +159,53 @@ describe('predicate-to-sql', () => {
       expect(sql).toBe("users.country = 'VN''; DROP TABLE segments--'");
     });
   });
+
+  describe('derived relative-date', () => {
+    it('dateWithinLast → date_diff age <= n against the asOf anchor', () => {
+      const sql = predicateToSql(
+        leaf('first_login_date', 'dateWithinLast', [{ n: 6, unit: 'month' }]),
+        { asOf: '2026-06-14' },
+      );
+      expect(sql).toBe("date_diff('month', first_login_date, DATE '2026-06-14') <= 6");
+    });
+
+    it('dateBeforeLast → date_diff age >= n', () => {
+      const sql = predicateToSql(
+        leaf('last_active_date', 'dateBeforeLast', [{ n: 30, unit: 'day' }]),
+        { asOf: '2026-06-14' },
+      );
+      expect(sql).toBe("date_diff('day', last_active_date, DATE '2026-06-14') >= 30");
+    });
+
+    it('defaults to CURRENT_DATE when no asOf is given', () => {
+      const sql = predicateToSql(leaf('first_login_date', 'dateWithinLast', [{ n: 1, unit: 'week' }]));
+      expect(sql).toBe("date_diff('week', first_login_date, CURRENT_DATE) <= 1");
+    });
+
+    it('throws on a malformed relative value', () => {
+      expect(() => predicateToSql(leaf('c', 'dateWithinLast', [{}]))).toThrow(/requires \{ n, unit \}/);
+    });
+  });
+
+  describe('percentile (inline subquery)', () => {
+    it('percentileGte → col >= approx_percentile subquery over the population', () => {
+      const sql = predicateToSql(
+        leaf('lifetime_vnd', 'percentileGte', [{ p: 75, over: { table: 'cfm.billing_lifetime' } }]),
+      );
+      expect(sql).toBe(
+        'lifetime_vnd >= (SELECT approx_percentile(lifetime_vnd, 0.75) AS cutoff FROM cfm.billing_lifetime)',
+      );
+    });
+
+    it('percentileLte → col <= subquery, honoring over.column', () => {
+      const sql = predicateToSql(
+        leaf('arppu', 'percentileLte', [{ p: 25, over: { table: 't', column: 'arppu_all' } }]),
+      );
+      expect(sql).toBe('arppu <= (SELECT approx_percentile(arppu_all, 0.25) AS cutoff FROM t)');
+    });
+
+    it('throws when no population table is given', () => {
+      expect(() => predicateToSql(leaf('x', 'percentileGte', [{ p: 50 }]))).toThrow(/needs over\.table/);
+    });
+  });
 });

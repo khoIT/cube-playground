@@ -3,6 +3,7 @@ import {
   treeToCubeFilters,
   cubeFiltersToTree,
   UnsupportedOperatorError,
+  PercentileNotResolvedError,
 } from '../src/services/translator.js';
 import type { GroupNode, LeafNode, PredicateNode } from '../src/types/predicate-tree.js';
 
@@ -282,5 +283,54 @@ describe('cubeFiltersToTree', () => {
     const filters = [{ member: 'U.role', operator: 'equals', values: ['a', 'b', 'c'] }];
     const tree = cubeFiltersToTree(filters) as LeafNode;
     expect(tree.op).toBe('in');
+  });
+});
+
+describe('derived relative-date operators', () => {
+  const asOf = new Date('2026-06-14T00:00:00');
+
+  it('dateWithinLast resolves to an absolute afterDate against the anchor', () => {
+    const tree = leaf({ member: 'U.first_login', op: 'dateWithinLast', type: 'time', values: [{ n: 6, unit: 'month' }] });
+    const [f] = treeToCubeFilters(tree, { anchorDate: asOf });
+    expect(f).toEqual({ member: 'U.first_login', operator: 'afterDate', values: ['2025-12-14'] });
+  });
+
+  it('dateBeforeLast resolves to an absolute beforeDate against the anchor', () => {
+    const tree = leaf({ member: 'U.first_login', op: 'dateBeforeLast', type: 'time', values: [{ n: 18, unit: 'month' }] });
+    const [f] = treeToCubeFilters(tree, { anchorDate: asOf });
+    expect(f).toEqual({ member: 'U.first_login', operator: 'beforeDate', values: ['2024-12-14'] });
+  });
+
+  it('a tenure band ANDs before-18mo with within-6mo into a deterministic range', () => {
+    const tree = group('AND', [
+      leaf({ member: 'U.first_login', op: 'dateWithinLast', type: 'time', values: [{ n: 18, unit: 'month' }] }),
+      leaf({ member: 'U.first_login', op: 'dateBeforeLast', type: 'time', values: [{ n: 6, unit: 'month' }] }),
+    ]);
+    const filters = treeToCubeFilters(tree, { anchorDate: asOf });
+    expect(filters).toEqual([
+      { member: 'U.first_login', operator: 'afterDate', values: ['2024-12-14'] },
+      { member: 'U.first_login', operator: 'beforeDate', values: ['2025-12-14'] },
+    ]);
+  });
+});
+
+describe('percentile operators (two-pass)', () => {
+  it('throws PercentileNotResolvedError when no cutoff is supplied', () => {
+    const tree = leaf({ member: 'B.lifetime_vnd', op: 'percentileGte', type: 'number', values: [{ p: 75 }] });
+    expect(() => treeToCubeFilters(tree)).toThrow(PercentileNotResolvedError);
+  });
+
+  it('compiles to a scalar gte against the pre-resolved cutoff', () => {
+    const tree = leaf({ member: 'B.lifetime_vnd', op: 'percentileGte', type: 'number', values: [{ p: 75 }] });
+    const resolved = new Map([['test-id', 5_000_000]]);
+    const [f] = treeToCubeFilters(tree, { resolvedPercentiles: resolved });
+    expect(f).toEqual({ member: 'B.lifetime_vnd', operator: 'gte', values: ['5000000'] });
+  });
+
+  it('percentileLte compiles to a scalar lte', () => {
+    const tree = leaf({ member: 'B.arppu', op: 'percentileLte', type: 'number', values: [{ p: 25 }] });
+    const resolved = new Map([['test-id', 120]]);
+    const [f] = treeToCubeFilters(tree, { resolvedPercentiles: resolved });
+    expect(f).toEqual({ member: 'B.arppu', operator: 'lte', values: ['120'] });
   });
 });

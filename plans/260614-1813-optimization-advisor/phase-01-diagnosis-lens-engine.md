@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P0.
-- **Status:** pending.
+- **Status:** ✅ done (2026-06-14). `server/src/advisor/`: diagnosis-types, goal-tree (revenue + engagement; degrades to revenue-only when session measures absent), cube-read (provenance-recording, injectable reader), scope-helpers, 9 lenses (1–4 sync, 5–9 lazy), lens-synthesis (confidence = # independent lens GROUPS agreeing, 7 groups, de-dups correlated lenses). 25 unit tests w/ stubbed reader; build clean. Lens 1 is an honest ratio-to-population heuristic (NOT a distribution percentile — relabeled). **Live smoke (`diagnose(5ee78131…)` → payer-lifespan weak) deferred to a host with Cube connectivity** (no Trino here); segment-predicate compilation in `attachCompiledFilters` is a `TODO(live-host)`.
 - Given `(segment|game, goal)`, compute the descriptive lenses on-demand against the ops cubes, decompose the
   goal tree, and synthesize ranked **opportunities** each carrying a confidence = # lenses agreeing.
 

@@ -87,9 +87,9 @@ LLM idea-pass (cube-advisor `claude -p`) are reuse.
 
 | # | Phase | Status | Depends on |
 |---|-------|--------|-----------|
-| 0 | [Predicate-engine foundation (derived-date + percentile)](phase-00-predicate-engine-foundation.md) | pending | — |
-| 1 | [Diagnosis lens engine (9 lenses + synthesis)](phase-01-diagnosis-lens-engine.md) | pending | 0 |
-| 2 | [Goal trees → lever map → prioritization + power check + Library](phase-02-lever-mapping-prioritization.md) | pending | 1 |
+| 0 | [Predicate-engine foundation (derived-date + percentile)](phase-00-predicate-engine-foundation.md) | ✅ done | — |
+| 1 | [Diagnosis lens engine (9 lenses + synthesis)](phase-01-diagnosis-lens-engine.md) | ✅ done (live smoke deferred to host) | 0 |
+| 2 | [Goal trees → lever map → prioritization + power check + Library](phase-02-lever-mapping-prioritization.md) | ✅ done (live smoke deferred to host) | 1 |
 | 3 | [Advisor UI — Diagnosis + Peer Studio (Explore surface)](phase-03-advisor-ui-diagnosis-peer-studio.md) | pending | 1, 2 |
 | 4 | [Recommendations + reversible hand-off to Command Center (Drive)](phase-04-recommendations-handoff-bridge.md) | pending | 2, 3, command-center 1–3 |
 | 5 | [Tests + docs](phase-05-tests-docs.md) | pending | 0–4 |

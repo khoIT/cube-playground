@@ -7,7 +7,7 @@
 
 ## Overview
 - **Priority:** P0 (everything peer/baseline downstream needs it).
-- **Status:** pending.
+- **Status:** ✅ done (2026-06-14). 4 operators + value schemas shipped; shared `percentile-cutoff-resolver.ts` (Trino executor, injectable, unit-tested); Cube translator two-pass + derived-date→absolute; SQL `date_diff` + `approx_percentile` inline subquery; Care `calibrate.ts` repointed (dormant, no regression). UI ops + class legend + population/relative-date editors. 63 new unit tests; server+web compile clean. Security: `gateSql` free-text gate removed (population restriction must be a structured sub-predicate).
 - Generalize the existing Care two-pass percentile pattern (`server/src/care/threshold-rule.ts:57-71`,
   `server/src/care/calibrate.ts:109-112`) into the Segments predicate tree so "top-quartile LTV" and
   "tenure 6–18mo" are first-class, not invented demo chips.

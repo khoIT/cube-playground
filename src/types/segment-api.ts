@@ -24,9 +24,33 @@ export type LeafOperator =
   | 'notSet'
   | 'inDateRange'
   | 'beforeDate'
-  | 'afterDate';
+  | 'afterDate'
+  // Derived relative-date (tenure / recency, resolved against an as-of anchor):
+  | 'dateWithinLast'
+  | 'dateBeforeLast'
+  // Statistical / percentile (two-pass cutoff over a reference population):
+  | 'percentileGte'
+  | 'percentileLte';
 
 export type LeafValueType = 'string' | 'number' | 'time' | 'boolean';
+
+/** Value carried by `dateWithinLast` / `dateBeforeLast`. */
+export interface RelativeDateValue {
+  n: number;
+  unit: 'day' | 'week' | 'month';
+}
+
+/** Reference population a percentile cutoff is computed over (not the cohort). */
+export interface PopulationRef {
+  table?: string;
+  column?: string;
+}
+
+/** Value carried by `percentileGte` / `percentileLte`. */
+export interface PercentileValue {
+  p: number;
+  over?: PopulationRef;
+}
 
 export interface LeafNode {
   kind: 'leaf';

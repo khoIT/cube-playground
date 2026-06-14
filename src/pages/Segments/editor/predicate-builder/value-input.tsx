@@ -4,7 +4,12 @@ import { ReactElement } from 'react';
 import { AutoComplete, Input, InputNumber, Select, Switch } from 'antd';
 import { opDef } from './operators';
 import { useDimValueSuggestions } from './use-dim-value-suggestions';
-import type { LeafOperator, LeafValueType } from '../../../../types/segment-api';
+import type {
+  LeafOperator,
+  LeafValueType,
+  PercentileValue,
+  RelativeDateValue,
+} from '../../../../types/segment-api';
 
 interface Props {
   type: LeafValueType;
@@ -20,6 +25,62 @@ export function ValueInput({ type, op, values, onChange, member }: Props): React
   const { fetchSuggestions, suggestions } = useDimValueSuggestions(member ?? null, type, op);
 
   if (!def || !def.takesValue) return null;
+
+  // Statistical: percentile cutoff over a reference population. Stored as a single
+  // structured value { p, over } so the compiler runs the two-pass resolve.
+  if (op === 'percentileGte' || op === 'percentileLte') {
+    const pv = (values[0] ?? {}) as Partial<PercentileValue>;
+    const p = typeof pv.p === 'number' ? pv.p : 25;
+    const update = (next: Partial<PercentileValue>): void =>
+      onChange([{ p, over: pv.over, ...next }]);
+    return (
+      <div style={{ display: 'flex', gap: 8, width: '100%', minWidth: 240 }}>
+        <InputNumber
+          min={1}
+          max={99}
+          value={p}
+          onChange={(v) => update({ p: typeof v === 'number' ? v : 25 })}
+          formatter={(v) => `${v}%`}
+          parser={(v) => Number((v ?? '').replace('%', ''))}
+          style={{ width: 110 }}
+        />
+        <Input
+          value={pv.over?.table ?? ''}
+          onChange={(e) => update({ over: { ...pv.over, table: e.target.value } })}
+          placeholder="over population (table)"
+        />
+      </div>
+    );
+  }
+
+  // Derived relative-date: { n, unit } resolved to an absolute bound at compile time.
+  if (op === 'dateWithinLast' || op === 'dateBeforeLast') {
+    const rv = (values[0] ?? {}) as Partial<RelativeDateValue>;
+    const n = typeof rv.n === 'number' ? rv.n : 6;
+    const unit = rv.unit ?? 'month';
+    const update = (next: Partial<RelativeDateValue>): void =>
+      onChange([{ n, unit, ...next }]);
+    return (
+      <div style={{ display: 'flex', gap: 8, width: '100%', minWidth: 200 }}>
+        <InputNumber
+          min={1}
+          value={n}
+          onChange={(v) => update({ n: typeof v === 'number' ? v : 1 })}
+          style={{ width: 100 }}
+        />
+        <Select
+          value={unit}
+          onChange={(u: RelativeDateValue['unit']) => update({ unit: u })}
+          options={[
+            { value: 'day', label: 'days' },
+            { value: 'week', label: 'weeks' },
+            { value: 'month', label: 'months' },
+          ]}
+          style={{ width: 110 }}
+        />
+      </div>
+    );
+  }
 
   if (def.multiValue) {
     const isDateRange = type === 'time' && op === 'inDateRange';

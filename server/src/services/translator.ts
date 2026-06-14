@@ -13,6 +13,8 @@ import type {
   GroupNode,
   LeafNode,
   LeafOperator,
+  RelativeDateValue,
+  PercentileValue,
   CubeFilter,
   CubeLeafFilter,
   CubeLogicalFilter,
@@ -25,8 +27,23 @@ export class UnsupportedOperatorError extends Error {
   }
 }
 
-// Mapping from our canonical LeafOperator → Cube operator string
-const TREE_TO_CUBE: Record<LeafOperator, string> = {
+/**
+ * Thrown when a percentile leaf reaches the Cube path without a pre-resolved
+ * cutoff. Cube REST can't subquery, so callers must resolve cutoffs first (via
+ * percentile-cutoff-resolver) and pass them in `TranslateOptions.resolvedPercentiles`.
+ */
+export class PercentileNotResolvedError extends Error {
+  constructor(leafId: string, member: string) {
+    super(`Percentile leaf ${leafId} (${member}) needs a resolved cutoff before Cube translation`);
+    this.name = 'PercentileNotResolvedError';
+  }
+}
+
+// Mapping from our canonical LeafOperator → Cube operator string.
+// The derived-date and percentile ops are absent here — they transform their
+// values (relative→absolute date; percentile→resolved scalar) and are handled
+// explicitly in leafToCubeFilter before this lookup.
+const TREE_TO_CUBE: Partial<Record<LeafOperator, string>> = {
   equals: 'equals',
   notEquals: 'notEquals',
   gt: 'gt',
@@ -43,6 +60,23 @@ const TREE_TO_CUBE: Record<LeafOperator, string> = {
   beforeDate: 'beforeDate',
   afterDate: 'afterDate',
 };
+
+/** Days in a relative unit, for resolving derived-date offsets against an anchor. */
+function offsetDate(anchor: Date, n: number, unit: RelativeDateValue['unit']): Date {
+  const d = new Date(anchor);
+  d.setHours(0, 0, 0, 0);
+  if (unit === 'day') d.setDate(d.getDate() - n);
+  else if (unit === 'week') d.setDate(d.getDate() - n * 7);
+  else d.setMonth(d.getMonth() - n);
+  return d;
+}
+
+function isoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
 
 // Reverse map: Cube operator → our canonical operator
 // Some Cube operators map to multiple tree ops; context (single vs multi value) disambiguates
@@ -71,9 +105,49 @@ const CUBE_TO_TREE_BASE: Record<string, LeafOperator> = {
  */
 export interface TranslateOptions {
   anchorDate?: Date;
+  /**
+   * Pre-resolved percentile cutoffs keyed by leaf id. A `percentileGte`/`percentileLte`
+   * leaf compiles to a scalar `gte`/`lte` against its entry. Missing → PercentileNotResolvedError
+   * (resolve via percentile-cutoff-resolver first; Cube REST can't subquery).
+   */
+  resolvedPercentiles?: Map<string, number>;
 }
 
-function leafToCubeFilter(node: LeafNode, anchorDate?: Date): CubeFilter | null {
+function leafToCubeFilter(
+  node: LeafNode,
+  anchorDate?: Date,
+  resolvedPercentiles?: Map<string, number>,
+): CubeFilter | null {
+  // Derived relative-date: resolve to an absolute date against the anchor (today
+  // when none supplied) and emit a plain after/before scalar so it composes with
+  // the rest of the query exactly like a literal date bound.
+  if (node.op === 'dateWithinLast' || node.op === 'dateBeforeLast') {
+    const rel = node.values[0] as RelativeDateValue | undefined;
+    if (!rel || typeof rel.n !== 'number') {
+      console.warn(`[translator] Dropping ${node.op} for ${node.member}: missing {n,unit} value`);
+      return null;
+    }
+    const boundary = isoDate(offsetDate(anchorDate ?? new Date(), rel.n, rel.unit));
+    // "within last n" → col is on/after (anchor − n); "before last n" → on/before it.
+    return {
+      member: node.member,
+      operator: node.op === 'dateWithinLast' ? 'afterDate' : 'beforeDate',
+      values: [boundary],
+    };
+  }
+
+  // Percentile: Cube REST can't subquery, so the cutoff must be resolved upstream
+  // and passed in. Emit a scalar gte/lte against the resolved value.
+  if (node.op === 'percentileGte' || node.op === 'percentileLte') {
+    const cutoff = resolvedPercentiles?.get(node.id);
+    if (cutoff == null) throw new PercentileNotResolvedError(node.id, node.member);
+    return {
+      member: node.member,
+      operator: node.op === 'percentileGte' ? 'gte' : 'lte',
+      values: [String(cutoff)],
+    };
+  }
+
   const cubeOp = TREE_TO_CUBE[node.op];
   if (!cubeOp) throw new UnsupportedOperatorError(node.op, `member=${node.member}`);
 
@@ -133,11 +207,15 @@ function leafToCubeFilter(node: LeafNode, anchorDate?: Date): CubeFilter | null 
   return filter;
 }
 
-function nodeToCubeFilter(node: PredicateNode, anchorDate?: Date): CubeFilter | null {
-  if (node.kind === 'leaf') return leafToCubeFilter(node, anchorDate);
+function nodeToCubeFilter(
+  node: PredicateNode,
+  anchorDate?: Date,
+  resolvedPercentiles?: Map<string, number>,
+): CubeFilter | null {
+  if (node.kind === 'leaf') return leafToCubeFilter(node, anchorDate, resolvedPercentiles);
 
   const childFilters = node.children
-    .map((child) => nodeToCubeFilter(child, anchorDate))
+    .map((child) => nodeToCubeFilter(child, anchorDate, resolvedPercentiles))
     .filter((f): f is CubeFilter => f != null);
   // If all children dropped (e.g. malformed date filters), drop this group too.
   if (childFilters.length === 0) return null;
@@ -154,22 +232,22 @@ function nodeToCubeFilter(node: PredicateNode, anchorDate?: Date): CubeFilter | 
  * are dropped with a warning so the rest of the query still runs.
  */
 export function treeToCubeFilters(tree: PredicateNode, opts: TranslateOptions = {}): CubeFilter[] {
-  const { anchorDate } = opts;
+  const { anchorDate, resolvedPercentiles } = opts;
   if (tree.kind === 'leaf') {
-    const f = leafToCubeFilter(tree, anchorDate);
+    const f = leafToCubeFilter(tree, anchorDate, resolvedPercentiles);
     return f ? [f] : [];
   }
 
   if (tree.op === 'AND') {
     // Root AND: each child becomes a top-level filter entry
     return tree.children
-      .map((child) => nodeToCubeFilter(child, anchorDate))
+      .map((child) => nodeToCubeFilter(child, anchorDate, resolvedPercentiles))
       .filter((f): f is CubeFilter => f != null);
   }
 
   // Root OR: wrap everything in { or: [...] }
   const orChildren = tree.children
-    .map((child) => nodeToCubeFilter(child, anchorDate))
+    .map((child) => nodeToCubeFilter(child, anchorDate, resolvedPercentiles))
     .filter((f): f is CubeFilter => f != null);
   if (orChildren.length === 0) return [];
   return [{ or: orChildren }];

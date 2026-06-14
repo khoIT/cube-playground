@@ -2,6 +2,20 @@
 
 import type { LeafOperator, LeafValueType } from '../../../../types/segment-api';
 
+/**
+ * Predicate class — mirrors the Optimization Advisor Peer Studio legend.
+ *   direct      = native scalar filter (one column vs a literal).
+ *   derived     = relative-date resolved to an absolute bound at query time.
+ *   statistical = two-pass percentile cutoff over a reference population.
+ */
+export type OpClass = 'direct' | 'derived' | 'statistical';
+
+export const OP_CLASS_LABEL: Record<OpClass, string> = {
+  direct: 'Direct',
+  derived: 'Derived date',
+  statistical: 'Statistical',
+};
+
 export interface OpDef {
   id: LeafOperator;
   label: string;
@@ -9,6 +23,8 @@ export interface OpDef {
   takesValue: boolean;
   /** Whether the value field is a list/multi-select. */
   multiValue?: boolean;
+  /** Predicate class for the legend; defaults to 'direct' when omitted. */
+  opClass?: OpClass;
 }
 
 const STRING_OPS: OpDef[] = [
@@ -28,6 +44,8 @@ const NUMBER_OPS: OpDef[] = [
   { id: 'gte',       label: '≥',        takesValue: true },
   { id: 'lt',        label: '<',             takesValue: true },
   { id: 'lte',       label: '≤',        takesValue: true },
+  { id: 'percentileGte', label: 'in top X%',    takesValue: true, opClass: 'statistical' },
+  { id: 'percentileLte', label: 'in bottom X%', takesValue: true, opClass: 'statistical' },
   { id: 'set',       label: 'is set',        takesValue: false },
   { id: 'notSet',    label: 'is not set',    takesValue: false },
 ];
@@ -36,6 +54,8 @@ const TIME_OPS: OpDef[] = [
   { id: 'inDateRange', label: 'in date range', takesValue: true, multiValue: true },
   { id: 'beforeDate',  label: 'before',        takesValue: true },
   { id: 'afterDate',   label: 'after',         takesValue: true },
+  { id: 'dateWithinLast', label: 'within last N', takesValue: true, opClass: 'derived' },
+  { id: 'dateBeforeLast', label: 'before last N', takesValue: true, opClass: 'derived' },
   { id: 'set',         label: 'is set',        takesValue: false },
   { id: 'notSet',      label: 'is not set',    takesValue: false },
 ];

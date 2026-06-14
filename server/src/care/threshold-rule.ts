@@ -20,7 +20,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { LeafOperator, LeafValueType, PredicateNode } from '../types/predicate-tree.js';
+import type { LeafOperator, LeafValueType, PredicateNode, PopulationRef } from '../types/predicate-tree.js';
 
 export interface AbsRule {
   kind: 'abs';
@@ -68,6 +68,13 @@ export interface PercentileRule {
    * calibrated cutoff.
    */
   op?: 'gte' | 'lte';
+  /**
+   * Reference population the cutoff is computed over (physical table/column for
+   * the shared two-pass resolver). When set, the calibration runner resolves the
+   * absolute cutoff via percentile-cutoff-resolver — the same path the Segments
+   * compiler uses. Absent → calibration records cohort size only (legacy).
+   */
+  over?: PopulationRef;
 }
 
 export interface RatioRule {

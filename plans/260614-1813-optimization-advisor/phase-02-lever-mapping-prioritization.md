@@ -2,7 +2,7 @@
 
 ## Overview
 - **Priority:** P0.
-- **Status:** pending.
+- **Status:** ✅ done (2026-06-14). `server/src/advisor/`: candidate-types, lever-map (VIP-Care registry → feasibility CS=feasible / push+pricing=nearest-feasible+substitute / unmapped=infeasible sentinel), power-check (two-proportion MDE solver; worked example powered, tiny-segment underpowered surfaced-not-hidden), money-model (₫/unit TBD → null + ranks by effect×N×confidence), treatment-effect-library + migration `053-treatment-effect-library.sql` (seeded assumption/benchmark priors incl. win-back +6pp), candidate-ranker (deterministic; win-back rank-1), llm-phrasing (cube-advisor `claude -p` default, injectable, template fallback). 44 unit tests; build clean; full 1536-test suite green. **Live LLM phrasing + write-back flywheel (`recordResult`) deferred to host/command-center.**
 - Turn ranked opportunities (Phase 1) into ranked, power-checked, ₫-estimated **experiment candidates**,
   honestly gated by actuator feasibility, with expected-effect priors sourced from a Treatment-Effect Library.
 
@@ -41,13 +41,13 @@ Read: VIP-Care playbook registry + `threshold-rule.ts`; cube-advisor `claude -p`
 6. Compile + a ranking smoke test on the worked example → win-back is rank 1.
 
 ## Todo
-- [ ] `candidate-types.ts` + `lever-map.ts` (feasibility-gated, CS-only)
-- [ ] `power-check.ts` (MDE + verdict)
-- [ ] `money-model.ts` (₫-per-unit, jus per-currency) — needs Q#4
-- [ ] `treatment-effect-library.ts` + migration `053` (labeled defaults)
-- [ ] `candidate-ranker.ts`
-- [ ] LLM phrasing pass (cube-advisor pattern, additive)
-- [ ] ranking smoke test → win-back rank 1 on `5ee78131…`
+- [x] `candidate-types.ts` + `lever-map.ts` (feasibility-gated, CS-only)
+- [x] `power-check.ts` (MDE + verdict)
+- [x] `money-model.ts` (₫-per-unit, jus per-currency) — TBD path implemented; Q#4 still open
+- [x] `treatment-effect-library.ts` + migration `053` (labeled defaults)
+- [x] `candidate-ranker.ts`
+- [x] LLM phrasing pass (cube-advisor pattern, additive; deferred to host)
+- [x] ranking smoke test → win-back rank 1 on `5ee78131…` (candidate-ranker.test.ts)
 
 ## Success criteria
 - `5ee78131…` / Revenue↑ → ranked candidates with win-back rank 1, a `powered` verdict, an expected-incremental-₫ figure, and a labeled prior source.

@@ -25,6 +25,11 @@ import { resolveCubeTokenForWorkspace } from '../services/resolve-cube-token.js'
 import { getGameMembers } from './availability.js';
 import { mergePlaybooks } from './playbook-merge.js';
 import type { CalibrationResult } from './threshold-rule.js';
+import {
+  resolvePercentileCutoff,
+  createTrinoPercentileExecutor,
+} from '../services/percentile-cutoff-resolver.js';
+import { resolveCsTrinoConnector } from '../lakehouse/cs-trino-connector.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', '..', 'data');
@@ -106,11 +111,28 @@ async function main(): Promise<void> {
     const countMeasure = `${gateCube}.count`;
     const filters = treeToCubeFilters(pb.predicate);
     const size = await countCohort(ctx, countMeasure, filters);
-    // NOTE: percentile cutoff resolution (CalibrationResult.cutoff) needs a
-    // percentile measure on the cube and is not yet computed here — only
-    // cohortSize is recorded. No seed playbook uses a percentile rule today;
-    // wiring true cutoff calibration is a Phase-1 follow-up.
-    out[pb.id] = { cohortSize: size, computedAt: now };
+    // Percentile rules resolve their absolute cutoff through the shared two-pass
+    // resolver (the same path the Segments compiler uses) when the rule carries
+    // an explicit population. Cube REST can't subquery, so resolution runs over
+    // Trino. No seed playbook is percentile-with-population today, so this stays
+    // dormant and the cohortSize-only flow below is unchanged.
+    let cutoff: number | undefined;
+    const cond = pb.condition;
+    if (cond.kind === 'percentile' && cond.over?.table) {
+      const connector = resolveCsTrinoConnector();
+      if (connector) {
+        try {
+          cutoff = await resolvePercentileCutoff(
+            cond.of,
+            { p: cond.p, over: cond.over },
+            createTrinoPercentileExecutor(connector),
+          );
+        } catch (err) {
+          console.warn(`  ! percentile cutoff failed for ${pb.id}: ${(err as Error).message}`);
+        }
+      }
+    }
+    out[pb.id] = { cohortSize: size, ...(cutoff != null ? { cutoff } : {}), computedAt: now };
     const flag = size > 0 ? 'ok' : '⚠ EMPTY';
     console.log(`  [${pb.id}] ${pb.name}: cohort=${size} ${flag} (measure=${countMeasure})`);
   }
