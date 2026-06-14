@@ -104,6 +104,10 @@ const DriftCenterPage = loadable(() =>
   import('./pages/DriftCenter').then((m) => ({ default: m.DriftCenterPage }))
 );
 
+const OpsConsolePage = loadable(() =>
+  import('./pages/OpsConsole').then((m) => ({ default: m.OpsConsolePage }))
+);
+
 const DataHubPage = loadable(() =>
   import('./pages/Data').then((m) => ({ default: m.DataHubPage }))
 );
@@ -252,6 +256,7 @@ ReactDOM.render(
                 <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
                 <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
               </Switch>
+              <Route key="ops-console" exact path="/ops" component={OpsConsolePage} />
               <Route key="drift-center" exact path="/drift-center" component={DriftCenterPage} />
               <Route key="data-hub" exact path="/data" component={DataHubPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />

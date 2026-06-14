@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, Heart } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, Heart, Gauge } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -28,6 +28,7 @@ import {
   filterRowsByGame,
 } from '../../pages/Segments/use-segment-ids';
 import { useActiveGameId } from '../../components/Header/use-game-context';
+import { isOpsGame } from '../../pages/OpsConsole/ops-games';
 import { SharedPill } from './shared-pill';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
@@ -221,6 +222,16 @@ export function Sidebar() {
               iconColor="var(--brand)"
               indent
             />
+            {/* Ops Console — only for games whose four ops data layers exist. */}
+            {isOpsGame(gameId) && (
+              <SidebarItem
+                label={t('nav.opsConsole')}
+                to="/ops"
+                icon={Gauge}
+                iconColor="var(--brand)"
+                indent
+              />
+            )}
           </SidebarSection>
         )}
 

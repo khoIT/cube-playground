@@ -24,10 +24,7 @@ import { useGameContext } from '../../../components/Header/use-game-context';
 import { useAuthUser } from '../../../auth/auth-context';
 import { useCarePlaybooks } from './use-care-playbooks';
 import { useCareDataFreshness } from './use-care-data-freshness';
-import { distinctAsOf, formatAsOf } from './data-freshness-format';
-import { PortfolioStrip } from './portfolio-strip';
-import { PlaybookGrid } from './playbook-grid';
-import { CsActivityStrip } from './cs-activity-strip';
+import { CareMonitorBody } from './care-monitor-body';
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
@@ -45,21 +42,11 @@ export function CsMonitorPage() {
   const history = useHistory();
   const user = useAuthUser();
   const canWrite = user?.role === 'editor' || user?.role === 'admin';
-  const { status, playbooks, counts, casesByPlaybook, portfolio, error } =
-    useCarePlaybooks(gameId);
+  const care = useCarePlaybooks(gameId);
+  const { status, counts } = care;
   const { asOfByCube } = useCareDataFreshness(gameId);
 
   const isLoading = status === 'idle' || status === 'loading';
-
-  // Distinct as-of dates across queryable playbooks — flags warehouse lag at the
-  // top of the page (e.g. gameplay marts run weeks behind spend/activity marts).
-  const asOfDates = distinctAsOf(playbooks, asOfByCube);
-  const asOfLabel =
-    asOfDates.length === 1
-      ? `data as of ${formatAsOf(asOfDates[0])}`
-      : asOfDates.length > 1
-      ? `data as of ${formatAsOf(asOfDates[0])} → ${formatAsOf(asOfDates[asOfDates.length - 1])}`
-      : null;
 
   return (
     <div style={pageStyle}>
@@ -144,97 +131,12 @@ export function CsMonitorPage() {
         </div>
       </div>
 
-      {/* Sub-heading */}
-      <p
-        style={{
-          margin: '2px 0 20px',
-          fontSize: 12.5,
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-sans)',
-        }}
-      >
-        VIP player care program monitor.{' '}
-        {status === 'success' && (
-          <>
-            {counts.available} live · {counts.partial} partial · {counts.unavailable} blocked
-            {asOfLabel && (
-              <span
-                title="Behaviour marts lag real time. Each playbook row shows the freshest date its own data source holds."
-              >
-                {' · '}{asOfLabel}
-              </span>
-            )}
-          </>
-        )}
-        {isLoading && 'Loading registry…'}
-      </p>
-
-      {/* Error state */}
-      {status === 'error' && (
-        <div
-          style={{
-            padding: 16,
-            background: 'var(--destructive-soft)',
-            color: 'var(--destructive-ink)',
-            borderRadius: 'var(--radius-md)',
-            fontSize: 13,
-            marginBottom: 20,
-          }}
-        >
-          Failed to load playbook registry: {error}
-        </div>
-      )}
-
-      {/* 24h activity strip — treated / dismissed / resolved counts + recent feed */}
-      <CsActivityStrip gameId={gameId} />
-
-      {/* Portfolio strip — skeleton while loading */}
-      <PortfolioStrip stats={portfolio} loading={isLoading} />
-
-      {/* Playbook grid — empty state or grid */}
-      {status === 'success' && playbooks.length === 0 && (
-        <div
-          style={{
-            padding: 32,
-            textAlign: 'center',
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-card)',
-            borderRadius: 'var(--radius-lg)',
-            color: 'var(--text-muted)',
-            fontSize: 13,
-          }}
-        >
-          No playbooks registered for <strong>{gameId}</strong>.
-        </div>
-      )}
-
-      {(status === 'success' && playbooks.length > 0) && (
-        <PlaybookGrid
-          playbooks={playbooks}
-          casesByPlaybook={casesByPlaybook}
-          gameId={gameId}
-          canWrite={canWrite}
-          asOfByCube={asOfByCube}
-        />
-      )}
-
-      {/* Loading skeleton for grid */}
-      {isLoading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {[1, 2, 3, 4].map((n) => (
-            <div
-              key={n}
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-card)',
-                borderRadius: 'var(--radius-xl)',
-                height: 52,
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            />
-          ))}
-        </div>
-      )}
+      <CareMonitorBody
+        gameId={gameId}
+        care={care}
+        asOfByCube={asOfByCube}
+        canWrite={canWrite}
+      />
     </div>
   );
 }
