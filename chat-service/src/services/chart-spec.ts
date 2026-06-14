@@ -144,11 +144,17 @@ export function truncateTopN(spec: ChartSpec, limit = TOP_N): TruncateResult {
   // taper, so it's never truncated either (funnels are inherently few rows).
   // Heatmap rows are grid cells — dropping any would punch holes in the grid,
   // so it relies on its own (higher) Zod cap instead.
+  // Line/area/multi-line are time-ordered (a continuous trend): value-sorting
+  // and lumping the tail into "Other" would scramble the x-axis and produce a
+  // misleading chart. They keep their natural order, bounded by the Zod max.
   if (
     spec.type === 'pie' ||
     spec.type === 'donut' ||
     spec.type === 'funnel' ||
-    spec.type === 'heatmap'
+    spec.type === 'heatmap' ||
+    spec.type === 'line' ||
+    spec.type === 'area' ||
+    spec.type === 'multi-line'
   ) {
     return { spec, truncated: false, originalRowCount };
   }

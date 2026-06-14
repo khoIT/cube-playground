@@ -21,7 +21,10 @@ import { normalizeCubeDateRanges } from './normalize-cube-date-range.js';
 import {
   ChartSpecSchema,
   buildChartArtifact,
+  MAX_ROWS,
 } from '../services/chart-spec.js';
+import { loadCubeRows } from '../services/load-cube-rows.js';
+import { deriveChartSpec } from '../services/derive-chart-spec.js';
 import type { ToolContext, QueryArtifact } from '../types.js';
 
 export const name = 'emit_query_artifact';
@@ -42,8 +45,11 @@ export const inputSchema = {
     })
     .optional(),
   chart: ChartSpecSchema.optional().describe(
-    'Optional inline chart suggesting how to visualise this query. ' +
-      'Use this instead of a separate emit_chart call when the chart shows the same data the artifact links to.',
+    'Inline chart visualising this query. Strongly prefer attaching it here ' +
+      '(not a separate emit_chart call) whenever the result is chartable: pick the ' +
+      'type from the data shape (time series → line/multi-line, one category → bar, ' +
+      'part-of-whole → stacked-bar/pie). If omitted, the server derives a basic ' +
+      'chart from the query shape, but an explicit, well-typed chart is better.',
   ),
 };
 
@@ -150,23 +156,49 @@ export async function handler(
   // the explicit tuple instead of the ambiguous relative string.
   const deeplink = buildChatDeeplink(normalizedQuery);
 
-  // 4. Build optional embedded chart. Failures here are non-fatal — better to
-  // ship the artifact card without a chart than to stall the agent loop.
+  // 4. Build the embedded chart. The LLM's chart is preferred (it picks a
+  // better-typed visual); when it omits one OR its spec fails to build, the
+  // server derives a chart deterministically from the query shape + result rows
+  // so an artifact ALWAYS carries a chart. All failures here are non-fatal —
+  // better to ship the card without a chart than stall the agent loop.
   let chart: QueryArtifact['chart'] = undefined;
   if (args.chart) {
     try {
       chart = buildChartArtifact(args.chart, { artifactRef: deeplink.artifactId });
-      // Resolve a deterministic descriptor for every column in the chart rows so
-      // the UI labels axes/headers from /meta (not LLM-invented names) and the
-      // column-picker knows which columns are numeric. Keys are Cube member refs.
-      const columnKeys = Object.keys(chart.spec.data[0] ?? {});
-      chart.columns = columnKeys.map((key) => ({ key, ...resolveMemberMeta(meta, key) }));
     } catch (err) {
       console.warn(
-        '[emit_query_artifact] chart build failed; emitting artifact without chart',
+        '[emit_query_artifact] LLM chart build failed; falling back to derived chart',
         err instanceof Error ? err.message : err,
       );
     }
+  }
+
+  // Fallback: only when no LLM chart was attached (absence or build failure).
+  // Keeps the extra /load off the common path where the LLM already supplied a
+  // valid chart. Reuses the cached load executor; never throws.
+  if (!chart) {
+    try {
+      const rows = await loadCubeRows(normalizedQuery, ctx, { maxRows: MAX_ROWS });
+      const derived = deriveChartSpec(normalizedQuery, rows, meta);
+      if (derived) {
+        chart = buildChartArtifact(derived, { artifactRef: deeplink.artifactId });
+        console.info('[emit_query_artifact] attached deterministic fallback chart', derived.type);
+      }
+    } catch (err) {
+      console.warn(
+        '[emit_query_artifact] fallback chart failed; emitting artifact without chart',
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  // Resolve a deterministic descriptor for every column in the chart rows so the
+  // UI labels axes/headers from /meta (not LLM-invented names) and the
+  // column-picker knows which columns are numeric. Applies to both the
+  // LLM-supplied and derived charts. Keys are Cube member refs.
+  if (chart) {
+    const columnKeys = Object.keys(chart.spec.data[0] ?? {});
+    chart.columns = columnKeys.map((key) => ({ key, ...resolveMemberMeta(meta, key) }));
   }
 
   // 5. Build the artifact object — id MUST equal the uuid embedded in the

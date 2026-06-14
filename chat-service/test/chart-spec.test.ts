@@ -307,6 +307,23 @@ describe('truncateTopN', () => {
     expect(last.channel).toBe('Other');
   });
 
+  it('does not truncate line/area/multi-line — preserves time order', () => {
+    const rows = Array.from({ length: 40 }, (_, i) => ({ day: `2026-06-${i + 1}`, revenue: 40 - i }));
+    for (const type of ['line', 'area'] as const) {
+      const spec: ChartSpec = {
+        type,
+        title: 't',
+        data: rows,
+        encoding: { category: 'day', value: 'revenue' },
+      };
+      const result = truncateTopN(spec);
+      expect(result.truncated).toBe(false);
+      expect(result.spec.data).toHaveLength(40);
+      // order preserved (no value-sort)
+      expect(result.spec.data[0].day).toBe('2026-06-1');
+    }
+  });
+
   it('does not truncate pie/donut — pie has its own tighter Zod cap', () => {
     const spec: ChartSpec = {
       type: 'pie',

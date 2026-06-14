@@ -10,10 +10,8 @@
  */
 
 import { z } from 'zod';
-import { config } from '../config.js';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
-import { getCachedLoad, putCachedLoad } from '../cache/load-cache-adapter.js';
-import { normalizeCubeDateRanges } from './normalize-cube-date-range.js';
+import { loadCubeRows } from '../services/load-cube-rows.js';
 import type { ToolContext } from '../types.js';
 
 export const name = 'preview_cube_query';
@@ -95,72 +93,13 @@ export async function handler(
     }
   }
 
+  // Delegate the normalize + cache + /load fetch to the shared executor
+  // (also used by the emit_query_artifact chart fallback). Cap at MAX_LIMIT.
   const limit = Math.min(args.limit ?? 10, MAX_LIMIT);
-  // Convert calendar-aligned "last N week/month/quarter/year" strings to
-  // rolling [ISO, ISO] tuples before Cube parses them. Cube's own date-parser
-  // would otherwise snap the window to completed calendar units and drop the
-  // current period — surprising for chat-driven analytics.
-  const normalizedTds = normalizeCubeDateRanges(args.query.timeDimensions);
-  const query = { ...args.query, timeDimensions: normalizedTds, limit };
-
-  // Cache lookup. Key includes cube_meta_hash so schema changes invalidate
-  // entries naturally; TTL inside the adapter bounds staleness for in-place
-  // data changes. Skip silently when there's no db handle on ctx (unit tests).
-  const metaHash = await cubeMetaCache.getMetaVersion(ctx.gameId, ctx.workspace).catch(() => null);
-  if (ctx.db) {
-    const cached = getCachedLoad(ctx.db, {
-      query,
-      gameId: ctx.gameId,
-      metaHash,
-    });
-    if (cached) {
-      return {
-        rows: cached.slice(0, MAX_LIMIT),
-        rowCount: cached.length,
-        warnings: [],
-      };
-    }
-  }
-
-  // Route through the workspace-aware Fastify proxy. The proxy resolves
-  // auth + base URL from the X-Cube-Workspace header (server-authoritative),
-  // so chat-service neither forwards nor needs to know the cube token here.
-  const url = `${config.serverBaseUrl}/cube-api/v1/load`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-Cube-Workspace': ctx.workspace,
-      'X-Cube-Game': ctx.gameId,
-    },
-    body: JSON.stringify({ query }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Cube /load failed: ${res.status} ${res.statusText} — ${body.slice(0, 200)}`);
-  }
-
-  const data = await res.json() as { data?: Record<string, string | number>[] };
-  const rows = data?.data ?? [];
-
-  // Skip caching empty results. Empty rows are almost always transient (Cube
-  // mid-rebuild, Trino blip, late-arriving data). Caching them for 10 min
-  // freezes a "no data" state in the agent — every retry within the TTL
-  // window returns the same empty payload, and any chart emission fails
-  // because ChartSpec requires data.min(1). Real query results always cache.
-  if (ctx.db && rows.length > 0) {
-    putCachedLoad(ctx.db, {
-      query,
-      gameId: ctx.gameId,
-      metaHash,
-      rows,
-    });
-  }
+  const rows = await loadCubeRows(args.query, ctx, { maxRows: limit });
 
   return {
-    rows: rows.slice(0, MAX_LIMIT),
+    rows,
     rowCount: rows.length,
     warnings: [],
   };
