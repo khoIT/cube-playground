@@ -127,6 +127,24 @@ describe('computeMemberTiers', () => {
     await expect(computeMemberTiers(baseArgs(10_000))).resolves.toBeNull();
   });
 
+  it('keeps top+bottom when only the middle (deep-offset) tier times out', async () => {
+    // The giant-cohort failure: top/bottom (offset 0) return fast; the middle
+    // window's deep OFFSET blows the per-tier timeout. The block must persist
+    // the tiers that succeeded instead of discarding all three.
+    mockLoad.mockImplementation(async (q: unknown) => {
+      const query = q as SentQuery;
+      if (query.offset) throw new Error('Cube request timed out'); // middle
+      if (query.order[LTV] === 'asc') return rows(TIER_SIZE, { uidPrefix: 'bot', ltvStart: 0 });
+      return rows(TIER_SIZE, { uidPrefix: 'top', ltvStart: 99_999 });
+    });
+
+    const result = await computeMemberTiers(baseArgs(7_186_950));
+    expect(result).not.toBeNull();
+    expect(result!.tiers.top).toHaveLength(TIER_SIZE);
+    expect(result!.tiers.bottom).toHaveLength(TIER_SIZE);
+    expect(result!.tiers.middle).toBeUndefined();
+  });
+
   it('returns null on an all-empty result (transient blips must not be cached)', async () => {
     mockLoad.mockResolvedValue({ data: [] } as never);
     expect(await computeMemberTiers(baseArgs(80))).toBeNull();

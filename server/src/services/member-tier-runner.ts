@@ -130,31 +130,56 @@ export async function computeMemberTiers(
     return members;
   }
 
+  // Per-tier isolation: a single tier query that fails (e.g. the deep-offset
+  // middle window on a multi-million-user cohort, whose Trino sort+skip can't
+  // finish inside PER_TIER_TIMEOUT_MS) must NOT discard the tiers that DID
+  // return. Returns null for a failed query so the all-tiers-failed guard can
+  // tell it apart from a genuine empty result.
+  async function settleTier(query: TierQuery): Promise<TierMember[] | null> {
+    try {
+      return await runTierQuery(query);
+    } catch (err) {
+      console.warn(
+        '[member-tier-runner] tier query failed (other tiers kept):',
+        (err as Error).message,
+      );
+      return null;
+    }
+  }
+
   try {
     const tiers: Partial<Record<TierName, TierMember[]>> = {};
 
     if (totalCount <= TIER_SIZE * 3) {
       // Degenerate cohort: everyone fits in one ranked list — no offset games.
-      const all = await runTierQuery(buildQuery('desc', Math.min(totalCount, TIER_SIZE * 3)));
-      if (all.length === 0) return null; // transient empty result — never cache it
+      const all = await settleTier(buildQuery('desc', Math.min(totalCount, TIER_SIZE * 3)));
+      if (!all || all.length === 0) return null; // transient failure/empty — never cache it
       tiers.all = all;
     } else {
       const middleOffset = Math.max(0, Math.floor(totalCount / 2) - Math.floor(TIER_SIZE / 2));
-      const [top, bottom, middle] = [
-        await runTierQuery(buildQuery('desc', TIER_SIZE)),
-        await runTierQuery(buildQuery('asc', TIER_SIZE)),
-        await runTierQuery(buildQuery('desc', TIER_SIZE, middleOffset)),
-      ];
-      if (top.length === 0 && bottom.length === 0 && middle.length === 0) return null;
+      const top = await settleTier(buildQuery('desc', TIER_SIZE));
+      const bottom = await settleTier(buildQuery('asc', TIER_SIZE));
+      const middle = await settleTier(buildQuery('desc', TIER_SIZE, middleOffset));
+      // Only a total wipeout (every tier failed/empty) clears the block — one
+      // expensive tier timing out still lets the cheap ones (top/bottom, ~5s)
+      // persist with their names. Absent tiers simply don't render a tab.
+      if (!top?.length && !bottom?.length && !middle?.length) return null;
 
       // Ranks can't overlap for cohorts >150, but LTV ties at window edges can
       // surface the same uid in two windows. Dedupe by priority
       // top > bottom > middle (drop the dupe from the lower-priority tier).
-      const seen = new Set(top.map((m) => m.uid));
-      tiers.top = top;
-      tiers.bottom = bottom.filter((m) => !seen.has(m.uid));
-      for (const m of tiers.bottom) seen.add(m.uid);
-      tiers.middle = middle.filter((m) => !seen.has(m.uid));
+      const seen = new Set<string>();
+      if (top?.length) {
+        tiers.top = top;
+        for (const m of top) seen.add(m.uid);
+      }
+      if (bottom?.length) {
+        tiers.bottom = bottom.filter((m) => !seen.has(m.uid));
+        for (const m of tiers.bottom) seen.add(m.uid);
+      }
+      if (middle?.length) {
+        tiers.middle = middle.filter((m) => !seen.has(m.uid));
+      }
     }
 
     return {
@@ -163,8 +188,9 @@ export async function computeMemberTiers(
       tiers,
     };
   } catch (err) {
-    // Enhancement-only: log and bail. The refresh continues; the previous
-    // tiers (if any) stay in place with their visible computed_at staleness.
+    // Enhancement-only backstop: a query failure is already handled per-tier in
+    // settleTier; this only catches an unexpected error so the refresh never
+    // breaks. The previous tiers (if any) stay in place with visible staleness.
     console.warn('[member-tier-runner] tier computation failed:', (err as Error).message);
     return null;
   }
