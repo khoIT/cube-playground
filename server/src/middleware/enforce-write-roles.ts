@@ -43,6 +43,9 @@ const PROTECTED_PREFIXES = [
   // and recording dismiss/pin feedback are mutations — gate those sub-paths.
   '/api/advisor/handoff',
   '/api/advisor/feedback',
+  // The agent turn spawns a paid LLM investigation loop — a write-class action,
+  // not a free read like /diagnose. Gate it to write roles.
+  '/api/advisor/agent/turn',
 ];
 
 function authDisabled(): boolean {

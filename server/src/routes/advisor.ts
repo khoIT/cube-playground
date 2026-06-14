@@ -24,6 +24,10 @@ import { recordFeedback, listFeedbackForSegment } from '../advisor/feedback-stor
 import type { ScopeRef, DiagnosisInput } from '../advisor/diagnosis-types.js';
 import type { ExperimentCandidate } from '../advisor/candidate-types.js';
 import type { FeedbackAction } from '../advisor/feedback-store.js';
+import { agentSessions } from '../advisor/agent/agent-session-registry.js';
+import { OAuthTokenMissingError } from '../advisor/agent/agent-oauth-env.js';
+import type { AgentMode } from '../advisor/agent/agent-types.js';
+import type { RuntimeEvent } from '../advisor/agent/agent-types.js';
 
 /** Parse a goal string into the engine's enum; default 'both'. */
 function parseGoal(raw: unknown): DiagnosisInput['goal'] {
@@ -198,5 +202,92 @@ export default async function advisorRoutes(app: FastifyInstance): Promise<void>
   app.get('/api/advisor/feedback/:segmentId', async (req: FastifyRequest) => {
     const { segmentId } = req.params as { segmentId: string };
     return { feedback: listFeedbackForSegment(segmentId) };
+  });
+
+  // ── Agent: interactive Drive turn (SSE) ─────────────────────────────────────────
+  // Streams the in-process agent's investigation as normalized events. One
+  // session per investigation; pass sessionId to continue it (multi-turn
+  // steering). New session → mode defaults to 'drive'; resumed → 'steer'.
+  app.post('/api/advisor/agent/turn', async (req: FastifyRequest, reply) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const scope = parseScope(body.scope);
+    const message = typeof body.message === 'string' ? body.message.trim() : '';
+    if (!scope) return reply.status(400).send({ error: 'invalid scope' });
+    if (message.length === 0 || message.length > 4000) {
+      return reply.status(400).send({ error: 'message is required (1–4000 chars)' });
+    }
+    const goal = parseGoal(body.goal);
+    const sessionId = typeof body.sessionId === 'string' ? body.sessionId : undefined;
+    const mode: AgentMode =
+      body.mode === 'drive' || body.mode === 'steer' || body.mode === 'explore'
+        ? body.mode
+        : sessionId
+          ? 'steer'
+          : 'drive';
+
+    let session = sessionId ? agentSessions.get(sessionId) : undefined;
+    if (!session) {
+      try {
+        session = agentSessions.create(
+          {
+            scope,
+            goal,
+            ctx: introspectionCtx(req),
+            owner: req.user?.username ?? req.user?.email ?? undefined,
+          },
+          req.log,
+        );
+      } catch (err) {
+        if (err instanceof OAuthTokenMissingError) {
+          return reply.status(503).send({ code: 'oauth_unavailable', error: err.message });
+        }
+        throw err;
+      }
+    }
+    if (!session) return reply.status(500).send({ error: 'failed to create session' });
+    const live = session; // narrowed for the deferred handler + turn loop
+    if (live.busy) {
+      return reply
+        .status(409)
+        .send({ code: 'turn_in_progress', error: 'a turn is already running for this session' });
+    }
+    // Claim the in-flight slot synchronously (before any await) so two
+    // concurrent POSTs on one session can't both pass the 409 check.
+    live.busy = true;
+
+    void reply.hijack();
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const write = (event: string, data: unknown): void => {
+      if (reply.raw.writableEnded || reply.raw.destroyed) return;
+      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    // Disconnect aborts the in-flight turn only — the session stays resumable
+    // (the client may reconnect and continue the same investigation).
+    reply.raw.on('close', () => live.interruptTurn('client_disconnect'));
+
+    write('session', { sessionId: live.id });
+    try {
+      for await (const ev of live.runTurn(message, mode) as AsyncGenerator<RuntimeEvent>) {
+        write(ev.type, ev);
+      }
+    } catch (err) {
+      write('error', { code: 'sdk_error', message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      reply.raw.end();
+    }
+  });
+
+  // ── Agent: session status (cost / turns / busy) ─────────────────────────────────
+  app.get('/api/advisor/agent/session/:id', async (req: FastifyRequest, reply) => {
+    const { id } = req.params as { id: string };
+    const status = agentSessions.status(id);
+    if (!status) return reply.status(404).send({ error: 'session not found' });
+    return status;
   });
 }
