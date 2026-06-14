@@ -1,0 +1,134 @@
+cubes:
+  # ===========================================================================
+  # user_profile — cross-game identity / geo / lifecycle profile.
+  # Source: iceberg.vga.std_all_game_user_profile (cross-catalog, qualified).
+  #
+  # [freshness: lagging]  — load STOPPED ~2026-05-17 (~1 month stale at authoring).
+  # The intended LIVE source (gds_da.etl_user_profile) carries only `bum` and
+  # `thiennu3`, NOT cfm/jus, so vga is the only (game_id,user_id) profile source
+  # for these games. Churn-gap dims therefore include the pipeline lag — treat
+  # as triage/historical, never live SLA.
+  #
+  # GAME ISOLATION is the game_id filter ('cfm_vn'), NOT folder placement — the
+  # table holds every game's rows. Grain is 1:1 per (game_id,user_id), joins
+  # mf_users directly on the GDS-snowflake user_id (100% matched for cfm).
+  #
+  # PII is public:false (device_id / install_id / fb_emails) — never exported.
+  # ===========================================================================
+  # Named user_identity (NOT user_profile) — `user_profile` is the existing
+  # 360 VIEW name in views/<game>/user_360.yml; a cube sharing that name breaks
+  # the whole model compile.
+  - name: user_identity
+    sql: >
+      SELECT * FROM iceberg.vga.std_all_game_user_profile
+      WHERE game_id = 'cfm_vn'
+    title: CFM VN — User Identity (geo / lifecycle / channels)
+    description: >
+      [freshness: lagging] Identity, geo, lifecycle and login-channel profile per
+      user from the cross-game VGA pipeline. Load is ~1 month behind, so
+      churn-gap (days since last active) includes pipeline lag — use for triage
+      and historical context, not live alerting. One row per user.
+
+    meta:
+      freshness: lagging
+      source: iceberg.vga.std_all_game_user_profile
+      lag_note: load stopped ~2026-05-17; churn-gap includes pipeline lag
+
+    joins:
+      - name: mf_users
+        relationship: one_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 6 hour
+
+    dimensions:
+      - name: user_id
+        sql: user_id
+        type: string
+        primary_key: true
+
+      # --- PII: never exported ---
+      - name: device_id
+        sql: device_id
+        type: string
+        public: false
+      - name: install_id
+        sql: install_id
+        type: string
+        public: false
+      - name: fb_emails
+        sql: fb_emails
+        type: string
+        public: false
+
+      # --- geo ---
+      - name: first_country_code
+        sql: first_country_code
+        type: string
+      - name: last_country_code
+        sql: last_country_code
+        type: string
+      - name: geo_moved
+        sql: "CASE WHEN {CUBE}.first_country_code <> {CUBE}.last_country_code THEN true ELSE false END"
+        type: boolean
+        description: True when first and last country differ (possible travel / account sharing / VPN)
+
+      # --- platform / channel ---
+      - name: first_os
+        sql: first_os
+        type: string
+      - name: last_os
+        sql: last_os
+        type: string
+      - name: first_login_channel
+        sql: first_login_channel
+        type: string
+      - name: last_login_channel
+        sql: last_login_channel
+        type: string
+
+      # --- acquisition (vga's own attribution, distinct from mf_users) ---
+      - name: media_source
+        sql: media_source
+        type: string
+      - name: campaign_id
+        sql: campaign_id
+        type: string
+      - name: install_app_store
+        sql: install_app_store
+        type: string
+      - name: user_type
+        sql: user_type
+        type: string
+
+      # --- lifecycle timestamps ---
+      - name: install_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.install_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+      - name: register_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.register_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+      - name: last_login_time
+        sql: last_login_time
+        type: time
+      - name: last_charge_time
+        sql: last_charge_time
+        type: time
+      - name: last_active
+        sql: "from_iso8601_timestamp(CAST({CUBE}.last_active AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: days_since_last_active
+        sql: "date_diff('day', {CUBE}.last_active, CURRENT_DATE)"
+        type: number
+        description: Days since last active — NOTE includes ~1 month pipeline lag (source freshness)
+
+    measures:
+      - name: users
+        type: count
+      - name: moved_country_users
+        type: count
+        filters:
+          - sql: "{CUBE}.first_country_code <> {CUBE}.last_country_code"
+        description: Users whose first and last country differ

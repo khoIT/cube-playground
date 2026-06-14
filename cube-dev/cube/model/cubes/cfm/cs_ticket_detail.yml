@@ -1,0 +1,203 @@
+cubes:
+  # ===========================================================================
+  # cs_ticket_detail — modeled CS ticket layer (resolution / CSAT / sentiment /
+  # VIP / routing) for per-game support analytics.
+  # Source: iceberg.cs_ticket.cs_ticket_report (+ customers_v2 for member join).
+  #
+  # [freshness: lagging]  (~1-2 day CS pipeline lag; created max 2026-06-13).
+  #
+  # COEXISTS with server/src/lakehouse/cs-ticket-reader.ts (a raw member-scoped
+  # reader powering the Care tab) — this cube does NOT replace it. The cube's
+  # value is game-AGGREGATE richness (resolution_time, full sentiment lifecycle,
+  # CSAT, VIP, dept/pillar) the reader lacks. Pick ONE source per surface to
+  # avoid showing two CS counts.
+  #
+  # GAME ISOLATION is the product_code filter ('A49' = cfm), 100% reliable —
+  # NOT folder placement. Deduped to one row per ticket_id (the report carries
+  # a few duplicate rows per ticket across partitions).
+  #
+  # MEMBER JOIN coverage is intentionally LOW: ticket -> customer_id ->
+  # customers_v2 (product_id 856) -> user_id -> mf_users resolves only ~23% of
+  # cfm tickets, because ~75% of cfm CS volume is Facebook tickets whose filer
+  # PSID never maps to a game user_id. `unresolved_member_tickets` surfaces this
+  # honestly; game-aggregate metrics are unaffected (they don't need the member).
+  #
+  # Staff identity (staff_id / staff_domain / created_by) is public:false.
+  # ===========================================================================
+  - name: cs_ticket_detail
+    sql: >
+      SELECT
+        r.ticket_id,
+        r.created_date,
+        r.ticket_status,
+        r.status_name,
+        r.resolution_time,
+        r.time_to_first_responsed,
+        r.ticket_rating,
+        r.total_score,
+        r.number_of_rating,
+        r.last_sentiment_status_desc,
+        r.sentiment_change,
+        r.vip_id,
+        r.dept,
+        r.pillar,
+        r.ticket_type,
+        r.ticket_category,
+        r.ticket_source,
+        r.source_group,
+        r.country_code,
+        r.staff_id,
+        r.staff_domain,
+        -- Only treat the filer as a game member when the CS-side user_id is
+        -- actually present in mf_users. customers_v2.user_id exists for ~100%
+        -- of tickets, but only ~23% are real game members (the rest are
+        -- Facebook/off-game filers) — gating here keeps unresolved_member_tickets honest.
+        CASE WHEN c.user_id IN (SELECT user_id FROM mf_users) THEN c.user_id END AS member_user_id
+      FROM (
+        SELECT *, row_number() OVER (PARTITION BY ticket_id ORDER BY updated_time DESC) AS rn
+        FROM iceberg.cs_ticket.cs_ticket_report
+        WHERE product_code = 'A49'
+      ) r
+      LEFT JOIN iceberg.cs_ticket.customers_v2 c
+        ON r.customer_id = c.customer_id AND c.product_id = 856
+      WHERE r.rn = 1
+    title: CFM VN — CS Ticket Detail (resolution / CSAT / sentiment / VIP)
+    description: >
+      [freshness: lagging] Per-game support tickets with resolution time, CSAT,
+      sentiment lifecycle, VIP tier and routing (dept/pillar/type/category). One
+      row per ticket, scoped to cfm by product_code (100% reliable). Member-level
+      join to mf_users is best-effort (~23%; most cfm CS is Facebook, unjoinable)
+      — use game-aggregate metrics for reliability. Coexists with the Care-tab
+      raw reader. 2-day lag — triage/historical, not live SLA.
+
+    meta:
+      freshness: lagging
+      source: iceberg.cs_ticket.cs_ticket_report
+      member_coverage: "~23% (Facebook tickets unjoinable to game uid)"
+      coexists_with: server/src/lakehouse/cs-ticket-reader.ts
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.member_user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 1 hour
+
+    dimensions:
+      - name: ticket_id
+        sql: ticket_id
+        type: string
+        primary_key: true
+
+      - name: member_user_id
+        sql: member_user_id
+        type: string
+        description: Resolved game user_id (NULL when the filer can't be mapped, e.g. Facebook)
+
+      - name: created_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.created_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: ticket_status
+        sql: ticket_status
+        type: string
+      - name: status_name
+        sql: status_name
+        type: string
+
+      - name: sentiment
+        sql: last_sentiment_status_desc
+        type: string
+      - name: sentiment_change
+        sql: sentiment_change
+        type: string
+
+      - name: vip_id
+        sql: vip_id
+        type: number
+        description: VIP tier on the ticket (a tier id, not PII)
+
+      - name: dept
+        sql: dept
+        type: string
+      - name: pillar
+        sql: pillar
+        type: string
+      - name: ticket_type
+        sql: ticket_type
+        type: string
+      - name: ticket_category
+        sql: ticket_category
+        type: string
+      - name: ticket_source
+        sql: ticket_source
+        type: string
+      - name: source_group
+        sql: source_group
+        type: string
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: ticket_rating
+        sql: ticket_rating
+        type: number
+        description: CSAT rating for the ticket (1-5) where rated
+
+      # --- staff identity: never exported ---
+      - name: staff_id
+        sql: staff_id
+        type: string
+        public: false
+      - name: staff_domain
+        sql: staff_domain
+        type: string
+        public: false
+
+    measures:
+      - name: total_tickets
+        type: count
+
+      - name: closed_tickets
+        type: count
+        filters:
+          - sql: "{CUBE}.ticket_status IN ('Closed', 'Rejected')"
+        description: Tickets in a terminal (closed/rejected) state
+
+      - name: avg_resolution_time
+        sql: resolution_time
+        type: avg
+        description: Average resolution time (source units, seconds)
+
+      - name: avg_first_response_time
+        sql: time_to_first_responsed
+        type: avg
+
+      - name: avg_csat
+        sql: ticket_rating
+        type: avg
+        description: Average CSAT (1-5) over rated tickets
+
+      - name: negative_sentiment_tickets
+        type: count
+        filters:
+          - sql: "{CUBE}.last_sentiment_status_desc = 'Negative'"
+
+      - name: member_resolved_tickets
+        type: count
+        filters:
+          - sql: "{CUBE}.member_user_id IS NOT NULL"
+        description: Tickets resolvable to a game member (the ~23% joinable share)
+
+      - name: unresolved_member_tickets
+        type: count
+        filters:
+          - sql: "{CUBE}.member_user_id IS NULL"
+        description: Tickets whose filer can't be mapped to a game member (Facebook/AIHelp etc.)
+
+    segments:
+      - name: vip_tickets
+        sql: "{CUBE}.vip_id > 0"
+      - name: open_tickets
+        sql: "{CUBE}.ticket_status NOT IN ('Closed', 'Rejected')"

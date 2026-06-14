@@ -1,0 +1,178 @@
+cubes:
+  # ===========================================================================
+  # billing_detail — payment-gateway breakdown the ingame revenue cube lacks.
+  # Source: iceberg.billing.std_billing_delivery_trans_gds (cross-catalog,
+  #         fully-qualified; the session catalog is game_integration).
+  #
+  # [freshness: live]  (hourly-refreshed billing source)
+  #
+  # PURPOSE: ADDITIVE enrichment, NOT a revenue replacement. The authoritative
+  # daily revenue stays `user_recharge_daily` (ingame delivery). This cube adds
+  # the gateway/method/store/item/promo breakdown that ingame does not carry, so
+  # ARPU can be decomposed by payment channel and promotion.
+  #
+  # GAME ISOLATION is the product_code filter, NOT folder placement — the
+  # billing table holds every game's rows. cfm = product_code 'A49' only;
+  # the legacy 'cfmobile' code 267 has had zero billing rows since 2020 and is
+  # intentionally excluded (it would only add unmatched orphans).
+  #
+  # The `user_id IN (SELECT user_id FROM mf_users)` semi-join is the
+  # real-users filter: billing.user_id IS the GDS snowflake, so it joins
+  # mf_users directly, but a minority of short/foreign-format ids never match
+  # and would otherwise inflate gross revenue ~100x. The bare `mf_users` table
+  # resolves to this game's schema per-tenant.
+  #
+  # Grain: one row per user × order_date × currency × payment breakdown × promo.
+  # Same-day purchases sharing a breakdown collapse into one summed row.
+  #
+  # GROSS revenue only — no refund/chargeback table exists anywhere in iceberg;
+  # amounts are in the transaction `currency` (group by the currency dim —
+  # jus is mixed USD+VND, cfm A49 is VND-only).
+  # ===========================================================================
+  - name: billing_detail
+    sql: >
+      SELECT
+        b.user_id,
+        CAST(b.order_created_datetime AS DATE) AS order_date,
+        b.currency,
+        b.payment_gateway,
+        b.payment_method_id,
+        b.payment_provider_id,
+        b.store,
+        b.item_type,
+        b.promotion_type,
+        count(DISTINCT b.order_number) AS txn_count,
+        sum(b.payment_charged_amount) AS charged_amount,
+        sum(b.lps_charged_amount) AS lps_charged_amount,
+        sum(b.wallet_charged_amount) AS wallet_charged_amount,
+        sum(b.promotion_charged_amount) AS promotion_charged_amount,
+        sum(b.product_delivered_amount) AS product_delivered_amount,
+        sum(b.wallet_delivered_amount) AS wallet_delivered_amount
+      FROM iceberg.billing.std_billing_delivery_trans_gds b
+      WHERE b.product_code = 'A49'
+        AND b.user_id IN (SELECT user_id FROM mf_users)
+      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+    title: CFM VN — Billing Detail (gateway / method / promo breakdown)
+    description: >
+      [freshness: live] Payment-gateway breakdown of CFM VN purchases (payment
+      method/gateway/provider, store, item type, promotion) at user × day ×
+      breakdown grain, sourced from the canonical billing pipeline. ADDITIVE
+      enrichment — the authoritative daily revenue is `user_recharge_daily`
+      (ingame delivery); these are gateway-charged (cash) amounts and will
+      differ because they measure a different funnel point. GROSS only.
+
+    meta:
+      freshness: live
+      source: iceberg.billing.std_billing_delivery_trans_gds
+      authoritative_revenue: user_recharge_daily
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "{CUBE}.user_id = {mf_users}.user_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: >
+          CONCAT(
+            {CUBE}.user_id, '__',
+            CAST({CUBE}.order_date AS VARCHAR), '__',
+            COALESCE({CUBE}.currency, ''), '__',
+            COALESCE({CUBE}.payment_gateway, ''), '__',
+            COALESCE({CUBE}.payment_method_id, ''), '__',
+            COALESCE({CUBE}.payment_provider_id, ''), '__',
+            COALESCE({CUBE}.store, ''), '__',
+            COALESCE({CUBE}.item_type, ''), '__',
+            COALESCE({CUBE}.promotion_type, '')
+          )
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: order_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.order_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: currency
+        sql: currency
+        type: string
+        description: Transaction currency — group by this before summing amounts (jus is mixed USD+VND)
+
+      - name: payment_gateway
+        sql: payment_gateway
+        type: string
+
+      - name: payment_method_id
+        sql: payment_method_id
+        type: string
+
+      - name: payment_provider_id
+        sql: payment_provider_id
+        type: string
+
+      - name: store
+        sql: store
+        type: string
+
+      - name: item_type
+        sql: item_type
+        type: string
+
+      - name: promotion_type
+        sql: promotion_type
+        type: string
+
+    measures:
+      - name: rows
+        type: count
+
+      - name: txn_count_total
+        sql: txn_count
+        type: sum
+        description: Total billing transactions (gross)
+
+      - name: cash_charged_gross
+        sql: charged_amount
+        type: sum
+        description: Cash charged at the payment gateway (gross, in transaction currency)
+
+      - name: promo_charged_gross
+        sql: promotion_charged_amount
+        type: sum
+        description: Promotion-funded portion of the charge (gross, in transaction currency)
+
+      - name: lps_charged_gross
+        sql: lps_charged_amount
+        type: sum
+
+      - name: wallet_charged_gross
+        sql: wallet_charged_amount
+        type: sum
+
+      - name: product_delivered_gross
+        sql: product_delivered_amount
+        type: sum
+        description: Value delivered in-game (gross, in transaction currency)
+
+      - name: wallet_delivered_gross
+        sql: wallet_delivered_amount
+        type: sum
+
+      - name: paying_users
+        type: count_distinct_approx
+        sql: user_id
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.order_date >= CURRENT_DATE - INTERVAL '7' DAY"
+      - name: last_30d
+        sql: "{CUBE}.order_date >= CURRENT_DATE - INTERVAL '30' DAY"
+      - name: promo_orders
+        sql: "{CUBE}.promotion_type IS NOT NULL AND {CUBE}.promotion_type <> ''"
