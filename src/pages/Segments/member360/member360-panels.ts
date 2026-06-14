@@ -762,16 +762,107 @@ const TF_PANELS: Member360Panel[] = [
   ]),
 ];
 
+// Cross-cutting ops panels (cfm + jus only — these cubes exist for those games).
+// All lazy / section:'behavior' so they load on expand and are never precomputed
+// (the CS + identity sources lag; billing is live but txn-grain). Behavior panels
+// live only in the FE registry, so they don't touch the server core-parity copy.
+function opsPanels(): Member360Panel[] {
+  return [
+    {
+      id: 'ops_identity',
+      title: 'Identity & geo',
+      view: 'user_identity_panel',
+      identityKey: 'user_id',
+      panelType: 'detailTable',
+      section: 'behavior',
+      lazy: true,
+      limit: 1,
+      columns: [
+        col('user_identity_panel', 'first_country_code', 'First country'),
+        col('user_identity_panel', 'last_country_code', 'Last country'),
+        col('user_identity_panel', 'geo_moved', 'Moved country?'),
+        col('user_identity_panel', 'first_os', 'First OS'),
+        col('user_identity_panel', 'last_os', 'Last OS'),
+        col('user_identity_panel', 'first_login_channel', 'First channel'),
+        col('user_identity_panel', 'last_login_channel', 'Last channel'),
+        col('user_identity_panel', 'media_source', 'Acquired via'),
+        col('user_identity_panel', 'user_type', 'User type'),
+        col('user_identity_panel', 'days_since_last_active', 'Days since active (lagging)', 'dimension', 'number'),
+      ],
+    },
+    {
+      id: 'ops_billing_detail',
+      title: 'Billing breakdown',
+      view: 'user_billing_detail_panel',
+      identityKey: 'user_id',
+      panelType: 'dailyTimeline',
+      section: 'behavior',
+      lazy: true,
+      needsDateRange: true,
+      timeDimension: 'user_billing_detail_panel.order_date',
+      limit: 90,
+      columns: [
+        col('user_billing_detail_panel', 'currency', 'Currency'),
+        col('user_billing_detail_panel', 'payment_gateway', 'Gateway'),
+        col('user_billing_detail_panel', 'store', 'Store'),
+        col('user_billing_detail_panel', 'promotion_type', 'Promo'),
+        col('user_billing_detail_panel', 'cash_charged_gross', 'Cash charged', 'measure', 'currency'),
+        col('user_billing_detail_panel', 'promo_charged_gross', 'Promo charged', 'measure', 'currency'),
+        col('user_billing_detail_panel', 'txn_count_total', 'Txns', 'measure', 'number'),
+      ],
+    },
+    {
+      id: 'ops_billing_lifetime',
+      title: 'Lifetime billing',
+      view: 'user_billing_lifetime_panel',
+      identityKey: 'user_id',
+      panelType: 'detailTable',
+      section: 'behavior',
+      lazy: true,
+      limit: 1,
+      columns: [
+        col('user_billing_lifetime_panel', 'lifetime_vnd', 'Lifetime (VND)', 'dimension', 'currency'),
+        col('user_billing_lifetime_panel', 'lifetime_usd', 'Lifetime (USD)', 'dimension', 'number'),
+        col('user_billing_lifetime_panel', 'lifetime_txn_count', 'Txns', 'dimension', 'number'),
+        col('user_billing_lifetime_panel', 'first_date', 'First order'),
+        col('user_billing_lifetime_panel', 'last_date', 'Last order'),
+      ],
+    },
+    {
+      id: 'ops_cs_tickets',
+      title: 'Support tickets',
+      view: 'user_cs_tickets_panel',
+      identityKey: 'user_id',
+      panelType: 'detailTable',
+      section: 'behavior',
+      lazy: true,
+      limit: 50,
+      timeDimension: 'user_cs_tickets_panel.created_date',
+      columns: [
+        col('user_cs_tickets_panel', 'created_date', 'Created'),
+        col('user_cs_tickets_panel', 'ticket_status', 'Status'),
+        col('user_cs_tickets_panel', 'ticket_category', 'Category'),
+        col('user_cs_tickets_panel', 'ticket_source', 'Source'),
+        col('user_cs_tickets_panel', 'sentiment', 'Sentiment'),
+        col('user_cs_tickets_panel', 'ticket_rating', 'CSAT', 'dimension', 'number'),
+        col('user_cs_tickets_panel', 'vip_id', 'VIP', 'dimension', 'number'),
+      ],
+    },
+  ];
+}
+
+const CFM_ALL_PANELS: Member360Panel[] = [...CFM_PANELS, ...opsPanels()];
+const JUS_ALL_PANELS: Member360Panel[] = [...BALLISTAR_PANELS, ...opsPanels()];
+
 const PANELS_BY_GAME: Record<string, Member360Panel[]> = {
-  cfm: CFM_PANELS,
-  cfm_vn: CFM_PANELS,
+  cfm: CFM_ALL_PANELS,
+  cfm_vn: CFM_ALL_PANELS,
   ballistar: BALLISTAR_PANELS,
   ballistar_vn: BALLISTAR_PANELS,
   // jus shares the core-360 view family (user_profile / activity / recharge /
-  // transactions) — its user_360.yml mirrors ballistar's, with no FPS event
-  // panels. Same panel shape, so it reuses BALLISTAR_PANELS.
-  jus: BALLISTAR_PANELS,
-  jus_vn: BALLISTAR_PANELS,
+  // transactions) and adds the cross-cutting ops panels (billing / identity / CS).
+  jus: JUS_ALL_PANELS,
+  jus_vn: JUS_ALL_PANELS,
   // cros / tf expose the full rich view family (sessions + monthly + rollups).
   cros: CROS_PANELS,
   tf: TF_PANELS,

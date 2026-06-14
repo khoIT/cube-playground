@@ -31,6 +31,48 @@ import { triggerMember360Precompute } from '../services/member360-precompute-sch
 import { recordActivity } from '../services/activity-store.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+// Member columns sourced from these cross-cutting cubes carry monetization
+// breakdown, CS, or VIP detail. The members pull is deliberately tokenless, so
+// these columns must never reach an unauthenticated caller (that would be a
+// token-free payer / CS dossier). They are stripped from the response unless
+// the request carries an authenticated user; the served row still keeps uid +
+// non-sensitive columns so the existing CS-tooling contract is unbroken. The
+// pre-existing ltv rank-measure exposure on mf_users is intentionally NOT gated
+// here — gating a shipped behaviour is a separate, explicit decision.
+const SENSITIVE_MEMBER_FIELD =
+  /^(billing_detail|billing_lifetime|cs_ticket_detail|user_billing_detail_panel|user_billing_lifetime_panel|user_cs_tickets_panel)\.|(^|[._])(vip|csat|sentiment|charged|delivered|promotion|resolution_time|ticket_rating|lifetime_vnd|lifetime_usd|arppu)([._]|$)/i;
+
+export function redactSensitiveMembers<
+  T extends { columns?: unknown; members?: unknown[] },
+>(payload: T, authenticated: boolean): T {
+  if (authenticated) return payload;
+  const cols = Array.isArray(payload.columns)
+    ? (payload.columns as Array<Record<string, unknown>>)
+    : [];
+  const sensitive = cols.filter(
+    (c) => typeof c?.field === 'string' && SENSITIVE_MEMBER_FIELD.test(c.field as string),
+  );
+  if (sensitive.length === 0) return payload;
+  const sensitiveKeys = new Set(sensitive.map((c) => String(c.key)));
+  const members = Array.isArray(payload.members)
+    ? payload.members.map((m) => {
+        if (!m || typeof m !== 'object') return m;
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(m as Record<string, unknown>)) {
+          if (!sensitiveKeys.has(k)) out[k] = v;
+        }
+        return out;
+      })
+    : payload.members;
+  return {
+    ...payload,
+    columns: cols.filter((c) => !sensitiveKeys.has(String(c.key))),
+    members,
+    redacted_columns: sensitive.map((c) => String(c.field)),
+    redaction_reason: 'authentication required for monetization/CS/VIP member columns',
+  } as T;
+}
+
 /**
  * Fire-and-forget telemetry for a segment mutation. One `segment_op` event with
  * the action in detail (create/update/delete/refresh/append) keeps the spine
@@ -531,16 +573,21 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       const parsedCursor = Number.parseInt(cursor ?? '', 10);
       const start = Number.isFinite(parsedCursor) ? Math.max(parsedCursor, 0) : 0;
       const page = profiles.rows.slice(start, start + limit);
-      return {
-        ...base,
-        computed_at: profiles.computed_at,
-        rank_measure: profiles.rank_measure,
-        columns: profiles.columns,
-        returned_count: page.length,
-        truncated: trueCount > profiles.rows.length,
-        members: page,
-        next_cursor: start + limit < profiles.rows.length ? String(start + limit) : null,
-      };
+      // Strip monetization/CS/VIP member columns for unauthenticated callers —
+      // the pull is tokenless by design, but those columns are not for it.
+      return redactSensitiveMembers(
+        {
+          ...base,
+          computed_at: profiles.computed_at,
+          rank_measure: profiles.rank_measure,
+          columns: profiles.columns,
+          returned_count: page.length,
+          truncated: trueCount > profiles.rows.length,
+          members: page,
+          next_cursor: start + limit < profiles.rows.length ? String(start + limit) : null,
+        },
+        Boolean(req.user),
+      );
     }
 
     // Fallback — uid-only rows over the materialized list (manual segments,
