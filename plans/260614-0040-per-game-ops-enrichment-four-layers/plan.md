@@ -1,7 +1,7 @@
 ---
 title: "Per-Game Ops Enrichment — Four Cross-Cutting Data Layers (cfm + jus)"
 description: "Add monetization, acquisition, identity/behavior, and CS-depth layers as game-scoped cubes sourced from the iceberg catalog, wired into views/catalog/segments/dashboards/care surfaces — MVP monetization layer ships first."
-status: pending
+status: in-progress
 priority: P2
 effort: ~6d (cfm+jus only; template roll-out to 6 other games deferred)
 branch: main
@@ -114,9 +114,9 @@ Phase-7 consumer) are DEFERRED — see Phase 8 / red-team #15.
 | 3 | [Identity cube](phase-03-identity-behavior-cubes.md) | ✅ DONE (consolidated) | 1 | ONE `user_identity` cube from `vga.std_all_game_user_profile` (etl_user_profile lacks cfm/jus); geo/lifecycle/channels; `[freshness: lagging]`; PII public:false; events cube DEFERRED. |
 | 4 | [CS depth cube](phase-04-cs-depth-cubes.md) | ✅ DONE | 1 | `cs_ticket_detail` from `cs_ticket_report` via product_code (100% game-scope) + customer_id→customers_v2→mf_users member join (gated, honest unresolved_member_tickets); CSAT/sentiment/VIP/resolution; coexists with cs-ticket-reader.ts; lagging. |
 | 5 | [Acquisition best-effort](phase-05-acquisition-best-effort.md) | NO NEW CUBE | 1 | cfm channel→LTV composable today over standardized mf_users + marketing_cost (media_source 99.3% for payers); jus channel→LTV BLOCKED (0 rows with attribution+spend). Realized as view composition in Phase 6 (cfm) + documented blocker (jus). |
-| 6 | [View + catalog wiring + freshness](phase-06-view-catalog-freshness-wiring.md) | pending | 2 (then 3,4,5) | Extend cfm/jus `user_360` view per-layer; confirm catalog auto-discovery; advisory freshness tag + meta (already on cubes). |
-| 7 | [Consumer surfaces](phase-07-consumer-surfaces.md) | pending (HIGH-RISK auth-gate) | 6 | Dashboard cards (design tokens), member360/care hooks; REQUIRED: auth-gate `GET /api/segments/:id/members` before any monetization/CS/VIP dim enters a preset (+ `public:false` PII deny-list). |
-| 8 | [Tests + pre-aggs + validation](phase-08-tests-preaggs-validation.md) | pending | 7 | vitest/playwright; CubeStore pre-aggs (`billing_detail`) w/ date-prune; routing via COMPILED-SQL; big-cube guard test; deploy/rollback; ground-truth WITH real_users_only. |
+| 6 | [View + catalog wiring + freshness](phase-06-view-catalog-freshness-wiring.md) | ✅ DONE | 2 (then 3,4,5) | cfm/jus `user_360` view extended per-layer (4 ops panels + geo_moved); advisory freshness tag + meta on every ops cube; catalog auto-discovers (meta-driven, no allowlist). |
+| 7 | [Consumer surfaces](phase-07-consumer-surfaces.md) | PARTIAL | 6 | DONE: member360 ops panels + Details "Ops" tab; tokenless `GET /api/segments/:id/members` protected via `redactSensitiveMembers` (strips monetization/CS/VIP cols for unauthenticated callers — satisfies red-team #11 PII goal) + `public:false` PII deny-list on cubes. REMAINING: dashboard cards (design-token surfaces); segment-metric-registry live monetization row (needs a new mart or binding path — non-trivial). |
+| 8 | [Tests + pre-aggs + validation](phase-08-tests-preaggs-validation.md) | PARTIAL | 7 | DONE: vitest (member360 data-layer, redaction, ops-tab contract). REMAINING: CubeStore pre-agg build verification for `billing_detail` (date-prune, routing via COMPILED-SQL); big-cube guard test for `billing_detail` in `cube.js`; ground-truth WITH real_users_only; playwright; deploy/rollback (push to `second` → auto-deploy). |
 
 ## Key dependencies / ground truth (verified)
 
