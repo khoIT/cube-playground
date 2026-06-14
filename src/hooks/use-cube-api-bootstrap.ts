@@ -26,7 +26,12 @@ export function useCubeApiBootstrap(): void {
     setContext({
       token: securityContextToken || cubejsToken,
       apiUrl: buildApiUrl(
-        window.location.href.split('#')[0].replace(/\/$/, ''),
+        // Collapse ALL trailing slashes, not just one: a double-slash origin
+        // (e.g. landing on `http://host//#/…`) would otherwise leave one slash
+        // and produce a `//cube-api/v1/…` fetch path, which the dev proxy
+        // (matches the `/cube-api` prefix) skips — the SPA fallback then serves
+        // index.html and meta JSON parsing fails on `<!doctype`.
+        window.location.href.split('#')[0].replace(/\/+$/, ''),
         basePath,
       ),
     });
