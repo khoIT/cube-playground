@@ -123,8 +123,8 @@ the in-process AI agent on top. Phase 5 (original tests/docs) is folded into Pha
 | 4 | [Recommendations + reversible hand-off (Drive)](phase-04-recommendations-handoff-bridge.md) — *tool: scaffoldDraft* | ✅ done (STUB draft store; learn-back deferred) | 2, 3, cc 1–3 |
 | 5 | Tests + docs (original) — **superseded; folded into Phase 9** | merged → 9 | 0–4 |
 | 6 | [Agent runtime foundation (in-process Agent SDK, OAuth lane, SSE, guardrails)](phase-06-agent-runtime-foundation.md) | ✅ done (live OAuth smoke deferred to token-bearing host) | 0–4 |
-| 7 | [Tool surface + omniscient context + hybrid provenance gate + redaction](phase-07-agent-tool-surface-context.md) | pending | 6 |
-| 8 | [Interactive Drive UI (agent fills stages live; steer / kick-back)](phase-08-interactive-drive-ui.md) | pending | 7 |
+| 7 | [Tool surface + omniscient context + hybrid provenance gate + redaction](phase-07-agent-tool-surface-context.md) | ✅ done (segmentMembers member-row tool DEFERRED — agent reasons on aggregates; member drill-through stays on Segments page) | 6 |
+| 8 | [Interactive Drive UI (agent fills stages live; steer / kick-back)](phase-08-interactive-drive-ui.md) | ✅ done (Drive posture added ADDITIVELY alongside Explore simulator; live SSE + stage rail + validated/exploratory badges; full per-aspect stage-card mapping + Playwright deferred to live OAuth smoke) | 7 |
 | 9 | [Guardrails, experiment-quality eval, tests, docs](phase-09-guardrails-eval-tests-docs.md) | pending | 6, 7, 8 |
 
 ## Locked decisions — agent layer (2026-06-14, user-confirmed, do NOT re-derive or reverse)
