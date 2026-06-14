@@ -127,19 +127,22 @@ export function OverviewTab({ gameId, window }: OverviewTabProps) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
         <OpsLineTrend
           title="Cash collected — daily"
-          series={[{ label: 'cash', color: 'var(--brand)', values: d.daily.map((x) => x.cash) }]}
+          dates={d.daily.map((x) => x.date)}
+          series={[{ label: 'cash (₫)', color: 'var(--brand)', values: d.daily.map((x) => x.cash) }]}
         />
         <OpsLineTrend
           title="Paying users vs cash — daily"
+          dates={d.daily.map((x) => x.date)}
           series={[
-            { label: 'payers', color: '#3f8dff', values: d.daily.map((x) => x.payers) },
-            { label: 'cash', color: 'var(--brand)', values: d.daily.map((x) => x.cash) },
+            { label: 'cash (₫)', color: 'var(--brand)', values: d.daily.map((x) => x.cash), axis: 'left' },
+            { label: 'payers', color: '#3f8dff', values: d.daily.map((x) => x.payers), axis: 'right' },
           ]}
         />
         <OpsStackedTrend
           title="Gateway mix over time"
           categories={d.gateways}
           days={d.gatewayDays}
+          dates={d.gatewayDates}
         />
       </div>
 

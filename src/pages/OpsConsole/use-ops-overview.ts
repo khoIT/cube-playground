@@ -49,6 +49,8 @@ export interface OpsOverviewData {
   };
   daily: { date: string; cash: number; txn: number; payers: number }[];
   gatewayDays: Record<string, number>[];
+  /** Sorted day keys aligned 1:1 with gatewayDays (for the x-axis). */
+  gatewayDates: string[];
   gateways: { key: string; color: string }[];
   gatewayMix: { gateway: string; cash: number; pct: number }[];
   support: {
@@ -136,7 +138,8 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
       key,
       color: GATEWAY_PALETTE[i] ?? GATEWAY_PALETTE[GATEWAY_PALETTE.length - 1],
     }));
-    const gatewayDays = [...byDay.keys()].sort().map((d) => byDay.get(d)!);
+    const gatewayDates = [...byDay.keys()].sort();
+    const gatewayDays = gatewayDates.map((d) => byDay.get(d)!);
     const mixTotal = sortedGw.reduce((s, [, v]) => s + v, 0);
     const gatewayMix = sortedGw.map(([gateway, c]) => ({
       gateway,
@@ -204,6 +207,7 @@ export function useOpsOverview(gameId: string, window: OpsWindow): OpsOverviewDa
       },
       daily: dailyRows,
       gatewayDays,
+      gatewayDates,
       gateways,
       gatewayMix,
       support: {
