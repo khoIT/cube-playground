@@ -39,6 +39,11 @@ const TAB_DEFS: TabDef[] = [
   { id: 'ips', label: 'IPs', panelIds: ['ips'] },
   { id: 'activity', label: 'Activity', panelIds: ['activity_timeline', 'activity_monthly'] },
   { id: 'recharge', label: 'Recharge', panelIds: ['recharge_timeline', 'revenue_monthly', 'transactions'] },
+  // Cross-cutting ops enrichment (cfm/jus only): identity net-new, billing
+  // breakdown + lifetime reconciliation, and support tickets. These are
+  // user_id-keyed snapshots / FE-bounded timelines (not dteventtime events), so
+  // they render through the standard panel grid, not EventPanelGrid.
+  { id: 'ops', label: 'Ops', panelIds: ['ops_identity', 'ops_billing_detail', 'ops_billing_lifetime', 'ops_cs_tickets'] },
 ];
 
 // Care tab sentinel — rendered regardless of panel registry. Conditionally

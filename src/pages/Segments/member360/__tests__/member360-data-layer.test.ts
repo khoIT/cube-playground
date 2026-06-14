@@ -83,6 +83,19 @@ describe('member360 panel registry', () => {
       expect(BEHAVIOR_VIEWS.has(p.view)).toBe(false);
     }
   });
+
+  // The Details "Ops" tab (details-tabs.tsx) references these panel ids by hand;
+  // if a registry id is renamed without updating the tab, the panel silently
+  // vanishes from the UI. Lock the contract for both ops-enabled games.
+  it('Ops-tab panel ids all resolve in the cfm + jus registries', () => {
+    const OPS_TAB_PANEL_IDS = ['ops_identity', 'ops_billing_detail', 'ops_billing_lifetime', 'ops_cs_tickets'];
+    for (const game of ['cfm', 'jus']) {
+      const ids = new Set(panelsForGame(game).map((p) => p.id));
+      for (const id of OPS_TAB_PANEL_IDS) {
+        expect(ids.has(id), `${game} registry missing ops panel '${id}'`).toBe(true);
+      }
+    }
+  });
 });
 
 describe('buildPanelQuery', () => {
