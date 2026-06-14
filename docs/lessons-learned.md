@@ -872,6 +872,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### An agentic tool that folds an upstream error into a "successful" result makes the agent flail invisibly — and budget for LLM latency, not tool latency
+
+- **Rule:** the Optimization Advisor timed out on ~100% of runs for two compounding reasons. (1) A deterministic tool returned `ok` while its payload carried an upstream failure: the decomposition lens put a Cube **dimension** (`mf_users.total_active_days`) in `measures[]` → Cube 400, which the lens caught and folded into an `inconclusive` verdict, so the agent saw a clean tool result + empty diagnosis ("looks healthy") and scanned the 52KB metadata catalog hunting for *something* until the turn died. (2) The 120s cap was sized for tool latency, but on the subscription OAuth lane **LLM generation dominates** (~100s think vs ~30s tools across ~7 steps), so even a converging investigation died mid-recommendation. Fixes: add a real aggregating measure (`avg_total_active_days`) + repoint the lens; raise the cap to 240s; make a 0-opportunity result *directive* (design a test on the lead factor / narrow scope — don't scan); plus a second instance of the same ok-hides-error shape — lens-02 querying `billing_detail` over 90 days (that high-volume cube hard-rejects spans > 31 days) — fixed by comparing two equal ≤31-day windows.
+- **Why:** the ok/failed bit hides a *semantic* failure when a tool is defensive (catches an error, returns a degraded-but-valid result). The audit said "10 tools OK" while the real cause was a 400 inside one. Surfacing it needed scanning tool-output digests for embedded error markers (Cube `UserError` / `not found for path` / `→ 4xx`) and a separate `embedded_error` flag. And a turn budget validated against tool latency silently fails on a slow model lane where thinking, not querying, is the long pole.
+- **Signal:** an agent that makes many productive tool calls and still times out; an audit where every tool is "ok" but the run produced nothing useful; a turn whose wall-clock far exceeds the sum of its tool durations (think-time >> tool-time); a "looks healthy" that is a swallowed query error; a high-volume/fact cube that 500s only on wide date spans.
+- **Apply:** in an agent trace, record an embedded-error flag (scan the redacted output for upstream-error markers) and a think-vs-tool time split — both made these root causes jump out. Size agent turn caps against measured end-to-end latency on the *actual* model lane. Make "no problem found" results directive so the agent converges instead of exploring. Verify a member is a usable **measure** (not a dimension) before putting it in `measures[]`, and keep high-volume-cube queries within their max span (`billing_detail` ≤ 31 days). See memory `advisor-now-works-lens-and-budget`.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
