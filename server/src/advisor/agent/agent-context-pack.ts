@@ -70,15 +70,28 @@ export function buildContextPack(scope: ScopeRef): string {
     'VIP-Care playbook index (CS work-queue templates a lever can route to):',
     playbookLines(),
     '',
-    'You do NOT have the live data catalog or the segment size in this prompt — ' +
-      'call cube_meta to see available data, diagnose to get the cohort size and ' +
-      'weak factors, and cube_query for any specific aggregate.',
+    'Start with diagnose — it pulls the cohort size and weak factors for the goal ' +
+      'in one bounded call. Use cube_query for a specific aggregate you still need. ' +
+      'The live data catalog is large; only call cube_meta if you need a cube that ' +
+      'diagnose did not cover — do NOT open with it.',
+    '',
+    'Be decisive — your time budget is limited and each step is slow. A good ' +
+      'investigation is a few targeted calls (diagnose → at most one or two ' +
+      'cube_query → map_levers → recommend), then a clear proposal. Do NOT re-run ' +
+      'diagnose, scan the catalog, or run broad exploratory queries to "look for ' +
+      'something" — if diagnose found no weak factor, design a test on the ' +
+      'highest-leverage factor or narrow to a segment.',
     '',
     'The warehouse is COLD until your first query warms it. Keep every cube_query ' +
-      'light: bound it to a recent window (start with the last 30–90 days, not ' +
-      'all-time) and widen only if a narrow window returns nothing. Prefer ' +
-      'diagnose (already bounded) over hand-built broad scans. A wide all-time ' +
-      'query on a cold warehouse times out and burns the investigation budget.',
+      'light: bound it to a recent window and prefer ≤30 days. High-volume cubes ' +
+      '(e.g. billing_detail) HARD-REJECT any span over 31 days — never query them ' +
+      'across 60/90 days; use ≤30-day windows (or month granularity) instead. A ' +
+      'wide or all-time query on a cold warehouse errors or times out and burns ' +
+      'the budget.',
+    '',
+    'Drafts are segment-scoped: scaffold_draft only works on a SEGMENT scope. On a ' +
+      'whole-game scope, finish with the written recommendation (recommend + power); ' +
+      'do not attempt scaffold_draft.',
   ].join('\n');
   return pack.length > CONTEXT_PACK_MAX_CHARS ? `${pack.slice(0, CONTEXT_PACK_MAX_CHARS)}\n…(trimmed)` : pack;
 }

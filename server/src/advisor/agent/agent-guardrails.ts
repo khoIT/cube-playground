@@ -10,7 +10,13 @@ import type { GuardrailCaps } from './agent-types.js';
 export const DEFAULT_CAPS: GuardrailCaps = {
   maxTurns: 12,
   maxBudgetUsd: 1.0,
-  timeoutMs: 120_000,
+  // A full Guided-Drive investigation (diagnose → levers → recommend → power)
+  // is ~7 agentic steps, and each LLM step on the subscription OAuth lane runs
+  // 15–30s — so a healthy investigation needs ~110s warm and more on a cold
+  // warehouse. 120s left no margin (turns died mid-recommendation); 240s fits a
+  // converged run with headroom while the $1 budget + 12-turn caps still bound
+  // it. Override per-deploy with ADVISOR_AGENT_TIMEOUT_MS.
+  timeoutMs: 240_000,
 };
 
 function envNumber(name: string, fallback: number): number {

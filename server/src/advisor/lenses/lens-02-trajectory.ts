@@ -1,9 +1,10 @@
 /**
  * Lens 2 — Trajectory (C).
  *
- * Measures whether the factor is trending up or down over trailing 30/60/90-day
- * windows. A declining slope signals "weak" even when the absolute level appears
- * acceptable. Direction = (value_30d − value_90d) / value_90d.
+ * Measures whether the factor is trending up or down month-over-month: the last
+ * 30 days vs the preceding 30 days (days 30–60 ago). A declining slope signals
+ * "weak" even when the absolute level appears acceptable.
+ * Direction = (value_recent − value_prior) / value_prior.
  *
  * Source: billing_detail.order_date provides the time dimension for revenue
  * factors. For lifespan/engagement the mf_users cube has no time dimension so
@@ -58,8 +59,12 @@ export async function runLens02Trajectory(
   const scopeFilters = scopeToFilters(input.scope);
 
   try {
-    // Query 30-day and 90-day trailing windows and compare direction.
-    const [result30, result90] = await Promise.all([
+    // Compare two equal-length 30-day windows: the recent one (last 30d) vs the
+    // one before it (days 30–60 ago). Equal lengths keep the comparison
+    // dimensionally honest for additive measures (a 30d-sum vs 90d-sum is not),
+    // and each window stays within the 31-day max span that high-volume cubes
+    // like billing_detail enforce (a 90-day span hard-errors there).
+    const [resultRecent, resultPrior] = await Promise.all([
       readWithProvenance(
         {
           measures: [mapping.measure],
@@ -69,7 +74,7 @@ export async function runLens02Trajectory(
           ],
         },
         ctx,
-        `${mapping.measure} / ${gameId} — trailing 30d`,
+        `${mapping.measure} / ${gameId} — last 30d`,
         reader,
       ),
       readWithProvenance(
@@ -77,23 +82,23 @@ export async function runLens02Trajectory(
           measures: [mapping.measure],
           filters: [
             ...scopeFilters,
-            trailingWindowFilter(mapping.timeDimension, input.asOf, 90),
+            trailingWindowFilter(mapping.timeDimension, input.asOf, 30, 30),
           ],
         },
         ctx,
-        `${mapping.measure} / ${gameId} — trailing 90d`,
+        `${mapping.measure} / ${gameId} — prior 30d (30–60d ago)`,
         reader,
       ),
     ]);
 
-    const val30 = extractScalar(result30.rows, mapping.measure);
-    const val90 = extractScalar(result90.rows, mapping.measure);
+    const valRecent = extractScalar(resultRecent.rows, mapping.measure);
+    const valPrior = extractScalar(resultPrior.rows, mapping.measure);
 
-    if (val30 === null || val90 === null || val90 === 0) {
+    if (valRecent === null || valPrior === null || valPrior === 0) {
       return inconclusiveResult(input.factor, 'Insufficient time-series data');
     }
 
-    const slope = (val30 - val90) / val90;
+    const slope = (valRecent - valPrior) / valPrior;
     const isWeak = slope < DECLINE_THRESHOLD;
     const verdict = isWeak ? 'weak' : slope > 0.05 ? 'strong' : 'ok';
 
@@ -102,9 +107,9 @@ export async function runLens02Trajectory(
       name: 'Trajectory',
       verdict,
       factor: input.factor,
-      inputs: { val30, val90, slopePct: Math.round(slope * 1000) / 10 },
-      method: `${mapping.measure} 30d=${val30} vs 90d=${val90}; slope=${Math.round(slope * 1000) / 10}%`,
-      provenance: result30.provenance,
+      inputs: { valRecent, valPrior, slopePct: Math.round(slope * 1000) / 10 },
+      method: `${mapping.measure} last-30d=${valRecent} vs prior-30d=${valPrior}; slope=${Math.round(slope * 1000) / 10}%`,
+      provenance: resultRecent.provenance,
     };
   } catch (err) {
     return inconclusiveResult(input.factor, (err as Error).message);

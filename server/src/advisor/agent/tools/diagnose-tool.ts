@@ -40,15 +40,30 @@ export function makeDiagnoseTool(tctx: ToolContext) {
               `• ${o.factor}: ${o.gapPct.toFixed(1)}% below baseline (confidence ${o.confidence}, lenses ${o.agreeingLenses.join('/')})`,
           )
           .join('\n');
-        // Fail-fast: a blocked diagnosis (the decomposition query errored) is NOT
-        // a healthy result. Say so explicitly so the agent surfaces the failure
-        // instead of treating it as "nothing wrong" and probing around it.
+        // The decomposition's nominal bottleneck (the highest-leverage factor)
+        // even when no factor is *below baseline* — used to make a 0-opportunity
+        // result actionable instead of an open-ended "looks healthy".
+        const decomp = diagnosis.lenses.find((l) => l.id === 4) as { bottleneckFactor?: string | null } | undefined;
+        const leadFactor = decomp?.bottleneckFactor ?? null;
+
+        // Three distinct end-states, each steering the agent toward convergence:
+        //  - blocked: an upstream failure — report and stop (do not work around it).
+        //  - no opportunities: structurally common at whole-game scope (no narrower
+        //    cohort to compare against). Be directive so the agent designs a test on
+        //    the lead factor or narrows to a segment, instead of scanning the catalog.
+        //  - opportunities: rank them.
         const summary = diagnosis.blocked
           ? `⚠ Diagnosis could not run: ${diagnosis.blocked.reason}\n` +
             `This is an upstream data/model failure, not a healthy result. Report this ` +
             `to the user and stop — do not work around it with manual queries.`
           : diagnosis.opportunities.length === 0
-            ? 'No weak factors found — this scope looks healthy on the diagnosed lenses.'
+            ? `No factor is below its own baseline at this scope — common for a whole-game ` +
+              `scope, where there is no narrower cohort to compare against (it is NOT a ` +
+              `data error). Be decisive: either design a growth experiment on the ` +
+              `highest-leverage factor${leadFactor ? ` (${leadFactor})` : ''} via map_levers + ` +
+              `recommend, or narrow to a specific segment (a payer tier / churn-risk cohort) ` +
+              `to surface a sharper opportunity. Do NOT scan the data catalog or run broad ` +
+              `exploratory queries — go straight to one of those two moves.`
             : `Top opportunities:\n${top}`;
         return ok(summary, { provenanceId, diagnosis });
       } catch (err) {

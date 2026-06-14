@@ -51,17 +51,21 @@ export function gamePrefix(gameId: string): string | null {
 }
 
 /**
- * Return a Cube filter that restricts a time dimension to a trailing window.
- * e.g. trailing30dFilter('billing_detail.order_date', asOf, 30)
- * produces { member, operator:'inDateRange', values:[start, end] }.
+ * Return a Cube filter that restricts a time dimension to a `days`-long window
+ * ending `offsetDays` before asOf. With offsetDays=0 (default) this is the
+ * trailing-`days` window; offsetDays=30 with days=30 is the preceding 30-day
+ * window (days 30–60 ago). Keeping each window ≤ a high-volume cube's max span
+ * (e.g. billing_detail caps at 31 days) is the caller's responsibility.
+ * Produces { member, operator:'inDateRange', values:[start, end] }.
  */
 export function trailingWindowFilter(
   dimension: string,
   asOf: Date,
   days: number,
+  offsetDays = 0,
 ): CubeFilterShape {
-  const end = asOf.toISOString().slice(0, 10);
-  const startMs = asOf.getTime() - days * 24 * 60 * 60 * 1000;
-  const start = new Date(startMs).toISOString().slice(0, 10);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const end = new Date(asOf.getTime() - offsetDays * dayMs).toISOString().slice(0, 10);
+  const start = new Date(asOf.getTime() - (offsetDays + days) * dayMs).toISOString().slice(0, 10);
   return { member: dimension, operator: 'inDateRange', values: [start, end] };
 }
