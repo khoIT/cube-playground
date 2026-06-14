@@ -102,6 +102,36 @@ members from every selected cube and de-dupes by qualified name.
 - `full-page/steps/step-3-column/{column-body,slot-picker}.tsx` — N-slot UI
 - `yaml/generate-measure-yaml.ts` — YAML emitter (single & cross-cube ratio)
 
+## Optimization Advisor In-Process Agent Runtime
+
+### Server-side runtime (server/src/advisor/agent/)
+
+- **`agent-runtime.ts`** — `createAdvisorAgentSession()` factory; one session = multi-turn investigation. Uses `@anthropic-ai/claude-agent-sdk` `query()` in-process; streams `RuntimeEvent`s per turn. Dual stop: `interruptTurn()` (abort in-flight, resumable) vs `abort()` (close).
+- **`agent-oauth-env.ts`** — Subscription OAuth lane isolation. `buildAgentEnv()` strips API-key/gateway vars from long-lived `process.env` before SDK subprocess spawn. Resolves token from `CLAUDE_CODE_OAUTH_TOKEN` OR `ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN` (Vault name), injects canonical. Missing → 503 OAuthTokenMissingError.
+- **`agent-guardrails.ts`** — Deny-by-default `canUseTool` gate (only `mcp__advisor__*` allowed); caps `maxTurns=12`, `maxBudgetUsd=1.0`, `timeoutMs=120000` (env-overridable).
+- **`agent-inbound-guard.ts`** — Redacts emails/PII, defangs prompt-injection/role-impersonation in inbound text.
+- **`agent-provenance-gate.ts`** — Hybrid "free Explore, gated Decide" rule. Per-session `ProvenanceLedger` registers tool results under stable `provenanceId` (`${tool}#${seq}`); `validateDraftNumbers` ensures recommendation cards only cite validated numbers.
+- **`agent-redaction-guard.ts`** — Allow-by-shape: only `user_id` + numeric + reachability columns + Cube keys reach agent; strips contact PII.
+- **`agent-context-pack.ts` / `agent-system-prompt.ts`** — Pure context injection (goal trees, lever taxonomy, playbook index, scope).
+- **`tools/`** — 10 deterministic advisor-engine wrappers: diagnose, recommend, map_levers, check_power, expected_incremental, list_priors, scaffold_draft, cube_query, cube_meta, predicate_compile (names `mcp__advisor__*`). Numbers come from these, never LLM free-text.
+- **`experiment-quality-score.ts`** — Pure quality scorer (power / feasibility / ₫-materiality / provenance / goal-fit) backing offline eval + live smoke.
+
+### API route (server/src/routes/advisor.ts)
+
+- **`POST /api/advisor/agent/turn`** — SSE turn stream. Headers: owner/workspace/game/Authorization. Returns 503 `{code:'oauth_unavailable'}` (no OAuth token); 409 `{code:'turn_in_progress'}` (turn already running). Events: session, assistant_delta, tool_call, tool_result, denied, cost, done, error. Also existing (same router): `POST /api/advisor/diagnose`, `POST /api/advisor/recommend`.
+
+### Frontend wiring (src/pages/Advisor/)
+
+- **`drive-panel.tsx`** — UI for live LLM agent mode ("Guided Drive"); streams agent SSE and renders turns.
+- **`use-drive-session.ts`** — Hook managing session lifecycle + turn request/response cycle.
+- **`investigation-reducer.ts`** — State machine for multi-turn investigation (Opportunity → Target → Cause → Lever → Proof).
+- **`number-badge.tsx`** — Displays validated numbers with provenance indicator.
+- **`streamAgentTurn` in src/api/advisor.ts** — Client-side SSE consumer, normalizes `RuntimeEvent`s.
+
+Existing simulator ("Explore" posture): `src/pages/Advisor/use-advisor-investigation.ts` `simulateInvestigation` (no LLM).
+
+---
+
 ## Unified Concept Fabric (trust registry + reverse index + authoring)
 
 ### Services (server-side)

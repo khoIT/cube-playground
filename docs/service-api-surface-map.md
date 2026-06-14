@@ -158,6 +158,14 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | POST | `/api/liveops/refresh` | none | `{resource,cacheKey}` | forced refresh 200/202 | liveops cache, refresh-liveops |
 | GET | `/api/liveops/cache-status` | none | `?game` (req) | `{kpi_strip,cohort_grid}` | liveops cache |
 
+### optimization advisor (in-process agent)
+
+| Method | Path | Auth/Roles | Headers | Response | Data sources |
+|---|---|---|---|---|---|
+| POST | `/api/advisor/agent/turn` | none (owner req) | `authorization`, `x-cube-workspace`, `x-cube-game`, `x-owner-id` | SSE turn stream; 503 `{code:'oauth_unavailable'}` (no OAuth token) / 409 `{code:'turn_in_progress'}` (turn already running) | agent-runtime, @anthropic-ai/claude-agent-sdk (subscription OAuth lane), deterministic advisor tools |
+
+---
+
 ### analyses, anomalies, dashboards
 
 | Method | Path | Auth/Roles | Headers | Response | Data sources |

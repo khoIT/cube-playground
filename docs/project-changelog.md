@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Optimization Advisor in-process AI agent (OAuth-lane isolation, hybrid provenance gate, multi-turn Drive UI, experiment-quality eval)
+
+Live LLM-driven "Guided Drive" investigation mode for the Optimization Advisor. Complements existing deterministic "Explore" simulator. In-process Agent SDK runtime on subscription OAuth lane (never API key); redaction + guardrails (deny-by-default tools, 12-turn cap, 1-USD budget); hybrid provenance gate validates recommendation numbers against deterministic tool results. Five-layer flow: Opportunity → Target → Cause → Lever → Proof. Experiments always draft-status (no auto-launch). Both cfm_vn and jus_vn enabled; quality scoring available offline + smoke-tested live.
+
+- **Runtime** (`server/src/advisor/agent/`): OAuth-isolated session factory (`agent-runtime.ts`), env var stripping (`agent-oauth-env.ts`), guardrails + caps + inbound redaction (`agent-{guardrails,inbound-guard,redaction-guard,context-pack}.ts`), 10-tool deterministic surface + quality scorer.
+- **Provenance gate** (`agent-provenance-gate.ts`) — hybrid "free Explore, gated Decide": per-session ledger keyed by `${tool}#${seq}`, numbers must cite validated results.
+- **API route** (`POST /api/advisor/agent/turn`, SSE) — 503 oauth_unavailable / 409 turn_in_progress.
+- **Frontend** (`src/pages/Advisor/drive-panel.tsx` + hooks) — multi-turn investigation UI, stream consumer, state machine.
+
 ## 2026-06-14 — What's New feature-card layout + CS Trino connector fallback (hero-image cards + inbox policy + Cube connector reuse)
 
 Two ship: (1) redesigned `/whats-new` from timeline to feature cards — each release leads with a full-bleed 21:9 hero SVG so users see what a feature does before opening. Inbox policy: only features reachable by any user (admin-gated features excluded, e.g. Lakehouse Snapshot Inbox dropped). (2) CS lakehouse readers now resolve their Trino connector via a fallback: try profiler (TRINO_PROFILER_*, local-only) → Cube connector (CUBEJS_DB_*, prod-set). Enables Care tab on prod.

@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildAgentEnv,
+  resolveOAuthToken,
   OAuthTokenMissingError,
   STRIPPED_AUTH_VARS,
   OAUTH_TOKEN_VAR,
@@ -40,5 +41,20 @@ describe('buildAgentEnv', () => {
     const env = buildAgentEnv({ [OAUTH_TOKEN_VAR]: 'tok', ANTHROPIC_API_KEY: 'sk-ant-xyz' });
     expect(env[OAUTH_TOKEN_VAR]).toBe('tok');
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it('accepts the Vault-provisioned ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN and exposes it under the canonical name', () => {
+    const env = buildAgentEnv({ ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN: 'vault-tok', PATH: '/usr/bin' });
+    expect(env[OAUTH_TOKEN_VAR]).toBe('vault-tok');
+  });
+
+  it('prefers the canonical CLAUDE_CODE_OAUTH_TOKEN when both source vars are set', () => {
+    expect(
+      resolveOAuthToken({ [OAUTH_TOKEN_VAR]: 'canonical', ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN: 'vault' }),
+    ).toBe('canonical');
+  });
+
+  it('resolveOAuthToken returns undefined when neither source var is set', () => {
+    expect(resolveOAuthToken({ PATH: '/usr/bin' })).toBeUndefined();
   });
 });

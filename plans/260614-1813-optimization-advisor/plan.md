@@ -1,7 +1,7 @@
 ---
 title: "Optimization Advisor — in-process AI experiment agent"
 description: "An in-process Claude agent that understands the goal, the deterministic tool layer, the Cube data model, and the Segments — and orchestrates, creates, and recommends powerful experiments. Drives the Experiment-Builder live; numbers gated through deterministic tools (provenance-required); glass-box reversible hand-off."
-status: pending
+status: done (all phases 0–9 built; live OAuth + Cube smoke host-gated to a token/Cube-bearing host; member-row tool + learn-back deferred)
 priority: P1
 effort: ~16d
 branch: main
@@ -125,7 +125,7 @@ the in-process AI agent on top. Phase 5 (original tests/docs) is folded into Pha
 | 6 | [Agent runtime foundation (in-process Agent SDK, OAuth lane, SSE, guardrails)](phase-06-agent-runtime-foundation.md) | ✅ done (live OAuth smoke deferred to token-bearing host) | 0–4 |
 | 7 | [Tool surface + omniscient context + hybrid provenance gate + redaction](phase-07-agent-tool-surface-context.md) | ✅ done (segmentMembers member-row tool DEFERRED — agent reasons on aggregates; member drill-through stays on Segments page) | 6 |
 | 8 | [Interactive Drive UI (agent fills stages live; steer / kick-back)](phase-08-interactive-drive-ui.md) | ✅ done (Drive posture added ADDITIVELY alongside Explore simulator; live SSE + stage rail + validated/exploratory badges; full per-aspect stage-card mapping + Playwright deferred to live OAuth smoke) | 7 |
-| 9 | [Guardrails, experiment-quality eval, tests, docs](phase-09-guardrails-eval-tests-docs.md) | pending | 6, 7, 8 |
+| 9 | [Guardrails, experiment-quality eval, tests, docs](phase-09-guardrails-eval-tests-docs.md) | ✅ done (guardrail/injection/provenance/redaction tests + experiment-quality eval harness + no-PII static guard + deterministic-layer tests all green; docs synced; live OAuth smoke is host-gated — runs only where the subscription token is present, UI Playwright deferred to that host) | 6, 7, 8 |
 
 ## Locked decisions — agent layer (2026-06-14, user-confirmed, do NOT re-derive or reverse)
 1. **Runtime = Claude Agent SDK, IN-PROCESS (Node/TypeScript).** NOT a `claude -p` subprocess, NOT extending the external chat-service. Authenticated on the **subscription OAuth token** (`CLAUDE_CODE_OAUTH_TOKEN` lane), explicitly NOT the gateway key (gateway key is sonnet-only; the OAuth lane unlocks the full model + agentic loop). Tools = in-process TS functions; native streaming to the UI.

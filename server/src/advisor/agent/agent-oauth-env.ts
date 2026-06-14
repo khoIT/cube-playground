@@ -19,18 +19,40 @@ export const STRIPPED_AUTH_VARS = [
   'CLAUDE_CODE_USE_VERTEX',
 ] as const;
 
+/** The canonical name the SDK subprocess reads the subscription token from. */
 export const OAUTH_TOKEN_VAR = 'CLAUDE_CODE_OAUTH_TOKEN';
+
+/**
+ * Accepted source names for the subscription token, in precedence order. The
+ * SDK only recognizes CLAUDE_CODE_OAUTH_TOKEN, but Vault provisions the secret
+ * under the more descriptive ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN — so we accept
+ * either at the source and always inject it under the canonical name below.
+ */
+export const OAUTH_TOKEN_SOURCE_VARS = [
+  'CLAUDE_CODE_OAUTH_TOKEN',
+  'ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN',
+] as const;
 
 /** Thrown when no OAuth token is present — the agent cannot run without it. */
 export class OAuthTokenMissingError extends Error {
   readonly code = 'oauth_missing';
   constructor() {
     super(
-      `${OAUTH_TOKEN_VAR} is not set — the advisor agent runs only on the Claude ` +
-        `subscription OAuth lane (gateway/API keys are intentionally disabled).`,
+      `No subscription OAuth token found (looked for ${OAUTH_TOKEN_SOURCE_VARS.join(' / ')}) — ` +
+        `the advisor agent runs only on the Claude subscription OAuth lane ` +
+        `(gateway/API keys are intentionally disabled).`,
     );
     this.name = 'OAuthTokenMissingError';
   }
+}
+
+/** Resolve the token from any accepted source var (first non-empty wins). */
+export function resolveOAuthToken(source: NodeJS.ProcessEnv = process.env): string | undefined {
+  for (const name of OAUTH_TOKEN_SOURCE_VARS) {
+    const v = source[name];
+    if (v && v.trim() !== '') return v;
+  }
+  return undefined;
 }
 
 /**
@@ -40,8 +62,8 @@ export class OAuthTokenMissingError extends Error {
  * @param source defaults to process.env (overridable for tests).
  */
 export function buildAgentEnv(source: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  const token = source[OAUTH_TOKEN_VAR];
-  if (!token || token.trim() === '') {
+  const token = resolveOAuthToken(source);
+  if (!token) {
     throw new OAuthTokenMissingError();
   }
   const stripped = new Set<string>(STRIPPED_AUTH_VARS);
@@ -51,7 +73,9 @@ export function buildAgentEnv(source: NodeJS.ProcessEnv = process.env): Record<s
     if (stripped.has(key)) continue;
     env[key] = value;
   }
-  // Guarantee the token survived (it is not in the stripped set).
+  // Always expose the token under the canonical name the SDK reads, regardless
+  // of which source var (Vault's ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN or the
+  // canonical CLAUDE_CODE_OAUTH_TOKEN) actually carried it.
   env[OAUTH_TOKEN_VAR] = token;
   return env;
 }

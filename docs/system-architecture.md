@@ -67,6 +67,32 @@ Auth/identity: pretend-auth `X-Owner` header in dev; Keycloak realm (`keycloak/r
 
 ---
 
+## Optimization Advisor In-Process AI Agent
+
+An in-process Claude Agent SDK runtime drives the Advisor's "Guided Drive" investigation mode (Opportunity → Target → Cause → Lever → Proof). Two investigative postures: **Explore** (deterministic simulator, no LLM) vs **Drive** (live multi-turn Agent, OAuth-lane isolated). The agent is the *decision rail* sitting atop deterministic advisor engines (the *numbers authority*).
+
+### Runtime (server/src/advisor/agent/)
+
+**Session lifecycle:** `createAdvisorAgentSession()` spins a session; `query()` runs one turn (Agent SDK method); session survives across turns. Two stop levels: `interruptTurn()` (abort mid-turn, resumable) vs `abort()` (close session).
+
+**Streaming:** normalized `RuntimeEvent`s per turn (session, assistant_delta, tool_call, tool_result, denied, cost, done, error). Costs are per-turn (SDK reports input+output tokens). API route `POST /api/advisor/agent/turn` (SSE). Returns `503 {code:'oauth_unavailable'}` if no OAuth token; `409 {code:'turn_in_progress'}` if a turn is already running on the session.
+
+**OAuth-lane isolation:** agent runs ONLY on the subscription OAuth token (never API key or gateway). `buildAgentEnv()` strips every API-key/gateway var from the long-lived server `process.env` before spawning the SDK subprocess, so OAuth token precedence is guaranteed. Resolves token from `CLAUDE_CODE_OAUTH_TOKEN` (canonical) OR `ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN` (Vault name), injecting under the canonical name. Missing token → 503 OAuthTokenMissingError.
+
+**Guardrails:** deny-by-default tool allowlist (only `mcp__advisor__*` tools allowed; filesystem/Bash blocked). Caps: `maxTurns=12`, `maxBudgetUsd=1.0`, `timeoutMs=120000` (env-overridable). Inbound redaction removes emails/PII; defangs prompt-injection. All caps traced to `server/src/advisor/agent/agent-guardrails.ts`.
+
+**Deterministic tool surface:** 10 session-scoped tools wrap the advisor engines: diagnose, recommend, map_levers, check_power, expected_incremental, list_priors, scaffold_draft, cube_query, cube_meta, predicate_compile (all numbers come from these, never from LLM free-text).
+
+**Hybrid provenance gate:** per-session `ProvenanceLedger` registers each tool result under `provenanceId` (`${tool}#${seq}`). Any number in a recommendation/draft must validate against the ledger via `validateDraftNumbers`. v1 coincidence-tolerant (matches any number in cited result, not field-bound — documented tradeoff). Keeps the agent from hallucinating evidence.
+
+**Redaction guard:** allow-by-shape: only `user_id` + numeric + reachability columns reach the agent; matches Cube key names (`mf_users.ingame_name`); strips all contact PII.
+
+**Experiment quality score:** pure scorer (`experiment-quality-score.ts`) evaluates power / feasibility / ₫-materiality / provenance / goal-fit. Backs offline eval harness + live smoke tests.
+
+**Security:** no raw player PII reaches the model (aggregates + minimal identity allowlist only); gross revenue VND only; draft `status='draft'` always — agent cannot auto-launch experiments. v1 games: cfm_vn, jus_vn.
+
+---
+
 ## Chat Disambiguation Memory
 
 The chat assistant learns from user interactions to auto-fill ambiguous slots (metric, dimension, timeRange, filter) in future turns. The system uses a 3-layer cascading memory that trades off latency, durability, and re-resolution freshness.
