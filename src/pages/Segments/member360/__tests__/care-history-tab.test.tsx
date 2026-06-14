@@ -93,6 +93,16 @@ function multiFetch(cases: CareCase[]) {
         text: () => Promise.resolve(JSON.stringify({ uid: 'u1', cases })),
       });
     }
+    // case-aggregate endpoint (useCarePlaybooks fires this alongside the registry)
+    if (url.includes('/api/care/cases/aggregate')) {
+      const agg = { byPlaybook: [], openCases: 0, treatedCases: 0, vipsTriggered: 0 };
+      return Promise.resolve({
+        ok: true, status: 200,
+        headers: { get: () => 'application/json' },
+        json: () => Promise.resolve(agg),
+        text: () => Promise.resolve(JSON.stringify(agg)),
+      });
+    }
     // playbooks endpoint
     return Promise.resolve({
       ok: true, status: 200,

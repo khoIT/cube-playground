@@ -253,7 +253,7 @@ export function useCarePlaybooks(gameId: string): CarePlaybooksState {
         // is a few hundred bytes (server-side GROUP BY) instead of the full case
         // list, so the monitor stays fast on games with tens of thousands of
         // cases. A missing aggregate (no sweep yet / endpoint error) renders 0.
-        const [registry, agg] = await Promise.all([
+        const [registry, aggRaw] = await Promise.all([
           apiFetch<PlaybooksResponse>('/api/care/playbooks', {
             query: { game: gameId },
             signal: controller.signal,
@@ -263,6 +263,11 @@ export function useCarePlaybooks(gameId: string): CarePlaybooksState {
             signal: controller.signal,
           }).catch(() => EMPTY_AGGREGATE),
         ]);
+
+        // A 200 with an unexpected body (missing byPlaybook array) must degrade
+        // to the empty aggregate, same as a rejected fetch — otherwise the whole
+        // registry load crashes and the monitor shows an error for healthy data.
+        const agg = Array.isArray(aggRaw?.byPlaybook) ? aggRaw : EMPTY_AGGREGATE;
 
         const casesByPlaybook = casesByPlaybookFrom(agg);
         const portfolio = buildPortfolio(registry.counts, agg);
