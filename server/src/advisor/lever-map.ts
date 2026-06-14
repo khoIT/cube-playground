@@ -222,6 +222,11 @@ function buildVerdict(family: LeverFamily): FeasibilityVerdict {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+/** The full lever-family taxonomy (read-only) — used to seed the agent context pack. */
+export function listLeverFamilies(): readonly LeverFamily[] {
+  return LEVER_FAMILIES;
+}
+
 export interface MappedLever {
   family: LeverFamily;
   verdict: FeasibilityVerdict;

@@ -40,10 +40,10 @@ export type ToolDecision =
   | { behavior: 'deny'; message: string };
 
 /**
- * Deny-by-default tool gate. Only tools whose exact name is in `allowlist` are
- * permitted; everything else (including any built-in filesystem/Bash tool that
- * slips through) is refused. Phase 7 fills the allowlist with the real wrapped
- * engines; here it is just the echo tool.
+ * Deny-by-default tool gate — the REAL enforcement that no built-in
+ * filesystem/Bash tool (or anything outside the advisor surface) is reachable.
+ * Only tools whose exact name is in `allowlist` are permitted; everything else
+ * is refused. The allowlist is the wrapped advisor engine tools (mcp__advisor__*).
  */
 export function makeCanUseTool(allowlist: readonly string[]) {
   const allowed = new Set(allowlist);

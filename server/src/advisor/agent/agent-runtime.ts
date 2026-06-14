@@ -3,9 +3,10 @@
  *
  * One session == one investigation (multi-turn). The session pins the
  * subscription OAuth lane (clean spawn env), enforces hard caps, and streams
- * normalized RuntimeEvents per turn. No real tools are wired yet — only a
- * trivial echo tool proves the loop end-to-end; the deterministic engine tools
- * attach in the next phase.
+ * normalized RuntimeEvents per turn. The deterministic advisor engines are
+ * wired in as session-scoped SDK tools (they close over this session's
+ * WorkspaceCtx, asOf anchor, and provenance ledger); the tool gate is
+ * deny-by-default and allows only those tool names.
  *
  * Two distinct stop levels:
  *   - interruptTurn(): aborts the IN-FLIGHT turn (timeout / client disconnect)
@@ -14,30 +15,19 @@
  *     generator's return() and closes the input queue.
  */
 
-import { query, tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import { AsyncInputQueue } from './agent-input-queue.js';
 import { buildAgentEnv } from './agent-oauth-env.js';
 import { buildBaseSystemPrompt } from './agent-system-prompt.js';
+import { buildContextPack } from './agent-context-pack.js';
 import { resolveCaps, makeCanUseTool, type ToolDecision } from './agent-guardrails.js';
 import { normalizeSdkMessage } from './agent-event-normalizer.js';
 import { guardInbound } from './agent-inbound-guard.js';
 import { writeTurnAudit, type AuditLogger } from './agent-audit-log.js';
+import { ProvenanceLedger } from './agent-provenance-gate.js';
+import { buildAdvisorToolServer, ADVISOR_SERVER_NAME, ADVISOR_TOOL_ALLOWLIST } from './tools/index.js';
+import type { ToolContext } from './tools/tool-context.js';
 import type { RuntimeEvent, SessionOpts, AgentMode, AgentStopReason, AgentErrorCode } from './agent-types.js';
-
-const SERVER_NAME = 'advisor';
-const ECHO_TOOL = 'echo';
-/** The deny-by-default allowlist for this phase — only the echo health tool. */
-export const ECHO_ALLOWLIST = [`mcp__${SERVER_NAME}__${ECHO_TOOL}`];
-
-const echoTool = tool(
-  ECHO_TOOL,
-  'Health-check only: echoes the given text back. Do not use for analysis.',
-  { text: z.string().describe('text to echo back') },
-  async (args: { text: string }) => ({ content: [{ type: 'text' as const, text: `echo: ${args.text}` }] }),
-);
-
-const echoServer = createSdkMcpServer({ name: SERVER_NAME, version: '0.1.0', tools: [echoTool] });
 
 /** Query object as the runtime uses it: an async generator that can interrupt. */
 type AgentQuery = AsyncGenerator<unknown> & { interrupt?: () => Promise<void> };
@@ -73,7 +63,19 @@ export function createAdvisorAgentSession(
 ): AdvisorAgentSession {
   const caps = resolveCaps(opts.caps);
   const env = buildAgentEnv(); // throws OAuthTokenMissingError if absent
-  const systemPrompt = buildBaseSystemPrompt(opts.scope, opts.goal);
+  // Anchor every time-based computation to session-creation time (the I/O
+  // boundary) so a multi-turn investigation stays internally consistent.
+  const asOf = new Date();
+  const ledger = new ProvenanceLedger();
+  const toolContext: ToolContext = {
+    scope: opts.scope,
+    goal: opts.goal,
+    ctx: opts.ctx,
+    asOf,
+    ledger,
+  };
+  const toolServer = buildAdvisorToolServer(toolContext);
+  const systemPrompt = `${buildBaseSystemPrompt(opts.scope, opts.goal)}\n\n${buildContextPack(opts.scope)}`;
   const inputQueue = new AsyncInputQueue<SdkUserMessage>();
 
   let q: AgentQuery | null = null;
@@ -86,10 +88,12 @@ export function createAdvisorAgentSession(
       systemPrompt,
       model: opts.model ?? process.env.ADVISOR_AGENT_MODEL,
       env,
-      mcpServers: { [SERVER_NAME]: echoServer },
-      allowedTools: ECHO_ALLOWLIST,
-      tools: [] as string[], // no built-in filesystem/Bash tools
-      canUseTool: makeCanUseTool(ECHO_ALLOWLIST) as unknown as (
+      mcpServers: { [ADVISOR_SERVER_NAME]: toolServer },
+      allowedTools: ADVISOR_TOOL_ALLOWLIST,
+      tools: [] as string[], // belt-and-suspenders; the real gate is canUseTool below
+      // Deny-by-default: this is what actually blocks built-in filesystem/Bash
+      // tools and anything outside the advisor surface — not the line above.
+      canUseTool: makeCanUseTool(ADVISOR_TOOL_ALLOWLIST) as unknown as (
         t: string,
         i: Record<string, unknown>,
       ) => Promise<ToolDecision>,
