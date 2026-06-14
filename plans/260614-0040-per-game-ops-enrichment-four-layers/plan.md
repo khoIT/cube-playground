@@ -7,6 +7,7 @@ effort: ~6d (cfm+jus only; template roll-out to 6 other games deferred)
 branch: main
 tags: [cube, enrichment, monetization, identity, cs, acquisition, freshness, per-game, iceberg]
 created: 2026-06-14
+blocks: [260614-1500-ops-console-placement]
 ---
 
 # Per-Game Ops Enrichment — Four Cross-Cutting Data Layers

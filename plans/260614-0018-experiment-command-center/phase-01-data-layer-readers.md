@@ -1,86 +1,87 @@
 # Phase 01 — Data Layer: cohort / outcome / exposure readers
 
+> **CATALOG CORRECTION (2026-06-14).** The original scout sourced `stag_iceberg`, which is write/exploration-scoped and stale. Cross-cutting ops data (monetization / identity / CS) is canonical in the **`iceberg`** catalog. All table refs below are corrected. `stag_iceberg` is used ONLY for our own segment-membership + assignment-log writes (Phase 2). See memory `iceberg-vs-stag-iceberg-source-catalog`.
+>
+> **PREFER THE NEW OPS CUBES.** A sibling effort (`plans/260614-0040-per-game-ops-enrichment-four-layers/`, branch `feat/per-game-ops-enrichment-cubes`) already implements `billing_detail`, `billing_lifetime`, `cs_ticket_detail`, `user_identity` cubes over these exact `iceberg` tables for cfm+jus. **Where a cube already exposes the needed grain, read through Cube (semantic layer) instead of a new raw-Trino reader** — DRY, and it inherits the verified per-game gate + joins. Raw readers below are the fallback for grains the cubes don't expose (e.g. the cohort recency scan).
+
 ## Context links
-- Report §2.1 (monetization tables), §4.1 (two-edge loop), §4.2 (POC).
-- Template: `server/src/lakehouse/cs-ticket-detail-reader.ts` (reader shape: build SQL → `runQuery` → map rows).
-- Connector: `server/src/lakehouse/lakehouse-trino-connector.ts` (`lakehouseConnectorFromEnv`, catalog `game_integration` session; billing/cs are sibling catalogs `stag_iceberg.billing` / `iceberg.cs_ticket`).
+- Sibling plan + verified join map: `plans/260614-0040-per-game-ops-enrichment-four-layers/` + its `reports/bridge-spec-cfm-jus.md`.
+- Reader template: `server/src/lakehouse/cs-ticket-detail-reader.ts` (build SQL → `runQuery` → map rows).
+- Connector: `server/src/lakehouse/lakehouse-trino-connector.ts` (`lakehouseConnectorFromEnv`); cross-catalog 3-part refs work from the `game_integration` session (proven by `cube/model/_shared/segment_membership.yml`).
 - SQL literal helper: `server/src/lakehouse/inline-sql-params.ts` (`toSqlLiteral`).
 
 ## Overview
 - **Priority:** P0 (everything downstream reads these).
 - **Status:** pending.
-- Three read-only Trino readers, each in its own file under `server/src/lakehouse/`. No new connector — reuse `lakehouseConnectorFromEnv()` / `getConnector()` + `runQuery`. Greenfield: `grep pmt_user_daily server/src` returns 0 hits.
+- Read-only access to three signals — cohort, outcome, exposure. First choice: **Cube query** against the new ops cubes. Fallback: raw-Trino reader under `server/src/lakehouse/` reusing `lakehouseConnectorFromEnv()` + `runQuery`.
+
+## Verified sources (iceberg)
+| Signal | Source | Grain | Notes |
+|---|---|---|---|
+| Outcome (re-pay) | `iceberg.billing.std_billing_delivery_trans_gds` (or cube `billing_detail`) | txn, 58.6M, **LIVE hourly** | `user_id` = GDS snowflake → joins game `mf_users.user_id` directly. **Gross only — no refund table anywhere.** |
+| LTV tier (cohort gate) | `iceberg.billing.pmt_users_history` (or cube `billing_lifetime`) | per-user lifetime, 18.5M | lifetime VND/USD/txn; slow-moving. |
+| Per-game gate | `iceberg.mdm.map_product_code` (`product_code → game_id`) | lookup | **cfm = `A49` ONLY** (exclude `267` — dead legacy, tanks match to 78%); jus = `A70`. |
+| Currency | — | — | **cfm A49 = VND-only; jus A70 = MIXED USD+VND** → jus outcome must normalize currency. |
+| Exposure (compliance) | `iceberg.cs_ticket.cs_ticket_info` → `cs_ticket_logs` (action) + `cs_rating_processes` (CSAT) | per-ticket / per-action | Game scope via `cs_ticket_info.customer_id → customers_v2.product_id` = `856`(cfm)/`832`(jus), 99.9%. |
 
 ## Key insights
-- `pmt_user_daily` is the ONLY live (yesterday-fresh) monetization table → use it for BOTH the lapse definition AND the outcome window. This sidesteps the cohort-table 5-month lag risk (don't trust `mf_payment_user_history.last_payment_date` for recency).
-- `mf_payment_user_history` used ONLY for the lifetime-VND tier (LTV quartile) gate — its lag doesn't matter for a slow-moving lifetime sum.
-- Compliance reader mirrors `cs-ticket-detail-reader`: join `cs_ticket_info` (`split_part(user_id,'@',1)`) → `cs_ticket_logs` filtered to the assignment window, return per-uid contacted-flag + action + CSAT.
-- Catalog note: cs tables are `iceberg.cs_ticket.*` (per existing reader `const CS = 'iceberg.cs_ticket'`); billing is `stag_iceberg.billing.*`. Both are fully-qualified, session catalog irrelevant.
+- **Lapse = recency from the LIVE txn table** (`std_billing_delivery_trans_gds`: `MAX(txn_time)` per user 21–60d ago), NOT from a lagging lifetime table. LTV-tier gate from `pmt_users_history` (lag fine for a lifetime sum).
+- **Cohort/outcome share one id namespace** (`user_id` GDS snowflake) → no cross-table id translation; joins straight to game `mf_users`.
+- **Exposure member-match is inherently sparse** (cfm ~23%, jus ~9.5% of tickets resolve to a game uid — ~75% are Facebook PSID tickets that never map; see `cs-facebook-aihelp-uid-unresolvable`). Game-aggregate CS is solid, member-level is sparse. ⇒ **ITT (assigned) is primary and unaffected; treated-on-treated is best-effort.** Whether *outbound* win-back contacts carry a resolvable uid is open-question #8 (ops).
+- **No refund table → "re-pay" = gross `rev_vnd`/`trans`.** This resolves report open-Q1: net revenue is not computable; state "gross" in every readout.
 
 ## Requirements
 Functional:
-1. **Cohort reader** (`payer-cohort-reader.ts`): given gameId + thresholds (LTV quartile floor in VND, lapse window 21–60d), return candidate `user_id` list. LTV gate from `mf_payment_user_history`; lapse gate from `pmt_user_daily` (MAX(day) per user 21–60d ago).
-2. **Outcome reader** (`payment-outcome-reader.ts`): given uid list + assignment date + window (14d), return per-uid post-window `sum(rev_vnd)`, `sum(trans)`, and a `repaid` boolean (trans>0). Also a daily series (uid optional → arm-level cumulative) for the timeseries chart.
-3. **Exposure/compliance reader** (`cs-exposure-reader.ts`): given uid list + window, return per-uid `contacted` flag, first action_code/name, action `log_time`, staff id, CSAT rating.
+1. **Cohort reader** (`payer-cohort-reader.ts`): gameId + thresholds (LTV-VND floor, lapse window 21–60d) → candidate `user_id[]`. LTV gate from `pmt_users_history`; lapse gate from `std_billing_delivery_trans_gds`. Per-game gate via `map_product_code` (cfm→A49).
+2. **Outcome reader** (`payment-outcome-reader.ts`): uid list + assignment date + window (14d) → per-uid post-window `sum(gross_vnd)`, `sum(trans)`, `repaid` bool; plus arm-level daily cumulative series for the chart. jus: normalize USD→VND (or split by currency).
+3. **Exposure reader** (`cs-exposure-reader.ts`): uid list + window → per-uid `contacted` flag, first `action_code`/name, `log_time`, staff id, CSAT. Join via `customer_id → customers_v2.product_id` (NOT split_part).
 
-Non-functional: date-partition pruning on `day`/`log_date` (cost); statement timeout reuse `LAKEHOUSE_STATEMENT_TIMEOUT_MS`; all uid lists sanitized (alphanumeric, like detail reader's `sanitizeUid`).
-
-## Data flow
-```
-gameId+thresholds → cohort-reader → user_id[]  (population)
-user_id[] + assignDate+window → outcome-reader → {uid, revVnd, trans, repaid}[]
-user_id[] + window           → exposure-reader → {uid, contacted, action, csat, staff, at}[]
-```
+Non-functional: date-partition prune; `LAKEHOUSE_STATEMENT_TIMEOUT_MS`; uid sanitize; empty short-circuit.
 
 ## Related code files
-Create:
+Create (only for grains not covered by the ops cubes):
 - `server/src/lakehouse/payer-cohort-reader.ts`
 - `server/src/lakehouse/payment-outcome-reader.ts`
 - `server/src/lakehouse/cs-exposure-reader.ts`
-- `server/src/lakehouse/experiment-reader-types.ts` (shared row interfaces)
+- `server/src/lakehouse/experiment-reader-types.ts`
 
-Read for context (no edit): `cs-ticket-detail-reader.ts`, `cs-ticket-detail-signals.ts`, `lakehouse-trino-connector.ts`, `inline-sql-params.ts`, `services/trino-rest-client.ts`.
+Read for context: the 4 new cubes (`cube/model/.../billing_detail.yml`, `billing_lifetime.yml`, `cs_ticket_detail.yml`, `user_identity.yml`) on branch `feat/per-game-ops-enrichment-cubes`; `cs-ticket-detail-reader.ts`; `lakehouse-trino-connector.ts`; `inline-sql-params.ts`; `cs-product-map.ts` (verify it maps cfm→856/jus→832 for customers_v2; older `267` is wrong).
 
 ## Implementation steps
-1. `experiment-reader-types.ts`: `CohortCandidate`, `OutcomeRow`, `OutcomeSeriesPoint`, `ExposureRow`, plus `ExperimentArm = 'treatment' | 'control'`.
-2. `payer-cohort-reader.ts`:
-   - `buildCohortSql(schema, ltvFloorVnd, lapseMinDays, lapseMaxDays, asOf)` — CTE: `ltv AS (SELECT user_id, sum(cumulative_vnd) FROM stag_iceberg.billing.mf_payment_user_history WHERE … GROUP BY user_id HAVING sum >= ltvFloor)`, `recency AS (SELECT user_id, max(day) FROM stag_iceberg.billing.pmt_user_daily WHERE day <= asOf GROUP BY user_id)` then `WHERE date_diff('day', maxDay, asOf) BETWEEN lapseMin AND lapseMax`.
-   - Confirm exact column names against the live table via `scripts/trino-query.mjs DESCRIBE stag_iceberg.billing.pmt_user_daily` before finalizing SQL (report lists `rev_vnd`,`trans`,`npu`,`dpu`,`first_payment_date`).
-   - `fetchPayerCohort(opts)` → `CohortCandidate[]`.
-3. `payment-outcome-reader.ts`:
-   - `buildOutcomeAggSql(uids, fromDate, toDate)` → per-uid `sum(rev_vnd)`,`sum(trans)`.
-   - `buildOutcomeSeriesSql(uids, fromDate, toDate)` → per-day `sum(rev_vnd)`,`sum(trans)`,`count(distinct user_id where trans>0)`.
-   - uid IN-list chunked (cap ~1000/query; loop+merge if larger — KISS cap, document).
-   - `fetchOutcome(opts)` / `fetchOutcomeSeries(opts)`.
-4. `cs-exposure-reader.ts`:
-   - `buildExposureSql(productId, uids, fromDate, toDate)` — `cs_ticket_info` (`split_part(user_id,'@',1) IN (…)`, `log_date BETWEEN`) join `cs_ticket_logs` on ticket_id (`log_time BETWEEN`), LEFT JOIN `cs_rating_processes` for CSAT. row_number dedup to first action per uid.
-   - Reuse `csProductId(gameId)` from `cs-product-map.ts`.
-   - `fetchExposure(opts)` → `ExposureRow[]`.
-5. Each reader: sanitize uids, short-circuit `[]` on empty input, throw on connector-missing (caller maps to 502).
-6. Compile check: `npm --prefix server run build` (or `tsc --noEmit`).
+1. **Decide cube-vs-raw per signal.** DESCRIBE the cubes' `/meta`; if `billing_detail` exposes per-user daily gross + txn, read outcome via Cube. Cohort recency scan likely needs a raw reader (range scan over txn). Document the decision in `experiment-reader-types.ts` header.
+2. `experiment-reader-types.ts`: `CohortCandidate`, `OutcomeRow`, `OutcomeSeriesPoint`, `ExposureRow`, `ExperimentArm`.
+3. `payer-cohort-reader.ts`:
+   - CTEs: `ltv` from `iceberg.billing.pmt_users_history` (HAVING lifetime_vnd >= floor); `recency` from `iceberg.billing.std_billing_delivery_trans_gds` (`MAX(txn_time)` per user); gate via `iceberg.mdm.map_product_code` (product_code = `A49` for cfm). `WHERE date_diff('day', maxTxn, asOf) BETWEEN lapseMin AND lapseMax`.
+   - **DESCRIBE `iceberg.billing.std_billing_delivery_trans_gds` + `pmt_users_history` + `mdm.map_product_code` via `scripts/trino-query.mjs` before finalizing column names** (the stag_iceberg column names in the old scout are NOT reliable).
+4. `payment-outcome-reader.ts`: agg + daily-series SQL over `std_billing_delivery_trans_gds`, gross VND; jus currency-normalize; uid IN-list chunked (~1000/query).
+5. `cs-exposure-reader.ts`: `cs_ticket_info` (gate `customer_id → customers_v2.product_id = 856/832`, `log_date BETWEEN`) → `cs_ticket_logs` on ticket_id (`log_time BETWEEN`) ⟕ `cs_rating_processes` CSAT; row_number dedup to first action per uid.
+6. Sanitize uids, short-circuit `[]`, throw on connector-missing → 502.
+7. Compile: `npm --prefix server run build`.
 
 ## Todo
+- [ ] cube-vs-raw decision per signal (read `/meta` of the 4 ops cubes)
 - [ ] `experiment-reader-types.ts`
-- [ ] `payer-cohort-reader.ts` (+ verify column names via trino DESCRIBE)
-- [ ] `payment-outcome-reader.ts` (agg + series)
-- [ ] `cs-exposure-reader.ts`
-- [ ] uid sanitize + empty short-circuit in all three
+- [ ] `payer-cohort-reader.ts` (+ DESCRIBE the 3 iceberg tables first)
+- [ ] `payment-outcome-reader.ts` (gross VND; jus currency handling)
+- [ ] `cs-exposure-reader.ts` (customers_v2 join, not split_part)
+- [ ] uid sanitize + empty short-circuit
 - [ ] compile clean
 
 ## Success criteria
-- Each reader callable in isolation; against live Trino, cohort reader returns a non-empty list for `cfm_vn`/`jus_vn` with sane thresholds; outcome reader returns rev/trans for a known recent payer; exposure reader returns contacted flags for a uid with a recent ticket.
-- No contact-PII columns (phone/email/msisdn) selected anywhere — grep the new files to confirm.
+- Cohort reader returns a non-empty `cfm_vn` list (A49, gross VND) for sane thresholds; outcome reader returns gross rev/trans for a known recent payer; exposure reader returns contacted flags for a uid with a recent ticket (accepting sparse member-match).
+- No contact-PII columns selected anywhere (grep the new files).
 
 ## Risks
 | Risk | L×I | Mitigation |
 |---|---|---|
-| Column names differ from report | M×M | DESCRIBE live table before writing SQL; types file is single source. |
-| `pmt_user_daily` 35.5M rows scan cost | M×H | Always date-partition prune (`day` predicate); chunk uid IN-list. |
-| `mf_payment_user_history` lag distorts LTV tier | L×L | Lifetime VND is slow-moving; acceptable. Lapse from live table only. |
-| Identity mismatch (`user_id` form across tables) | M×M | Reuse `split_part(...,'@',1)` for cs join; cohort/outcome both key raw `pmt_user_daily.user_id` — same namespace, no cross-table id translation. |
+| Column names unknown (txn table) | M×M | DESCRIBE `iceberg.billing.*` + `mdm.map_product_code` before SQL; types file = single source. |
+| jus mixed-currency skews outcome | M×H | Normalize USD→VND at query time or report per-currency; cfm (A49 VND-only) is the clean POC game. |
+| Exposure member-match sparse (~23% cfm) | H×M | ITT primary (unaffected); ToT labeled best-effort; surface match-rate in UI. |
+| Txn-table range scan cost (58.6M) | M×H | Partition prune on txn date; chunk uid IN-list. |
+| Including dead product `267` for cfm | L×H | Gate to `A49` ONLY via `map_product_code`. |
 
 ## Security (PII)
-- Readers return `user_id` + numeric metrics + action codes ONLY. NEVER select `msisdn`, `customer_msisdn`, `customer_email`, phone, or email. This is the compliance boundary — enforce at the SQL layer (column allow-list in each `build*Sql`).
+- Readers return `user_id` + numeric metrics + action codes ONLY. NEVER select phone/email/msisdn/customer contact columns. Enforce via column allow-list in each `build*Sql`; covered by the Phase 7 regression test.
 
 ## Next steps
-Phase 2 consumes cohort reader (assignment) + Phase 3 consumes outcome/exposure (scorecard).
+Phase 2 consumes cohort reader (assignment); Phase 3 consumes outcome/exposure (scorecard). The assignment log (Phase 2) writes to `stag_iceberg.khoitn` — that catalog stays correct for our own writes.

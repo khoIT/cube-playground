@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Optimization Advisor — cube-playground</title>
+<!--
+  HI-FI PROTOTYPE · Optimization Advisor (the decision rail in front of the command center)
+  ------------------------------------------------------------------------------------------
+  Same design system as experiment-command-center.html (tokens from src/theme/tokens.css,
+  single orange accent, Inter, anti-slop). This is the UPSTREAM product: given a segment +
+  goal, diagnose the bottleneck via MULTI-ANGLE analysis, then recommend power-checked,
+  impact-ranked experiments that hand off into the command center.
+
+  Locked decisions baked in (2026-06-14):
+  • Baseline = Level(A) + Trajectory(C) + Peer(B), shown as 3 independent signals.
+  • Goal scope = Revenue + Engagement (both trees).
+  • Cold-start = labeled defaults; measured priors tagged "Library".
+  • On-demand live read (a "computed live" indicator marks freshness).
+  • Multi-angle = 9 descriptive lenses triangulated → an opportunity confidence
+    (model-predicted potential is the v2 upgrade, shown greyed as "locked").
+-->
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
+    --neutral-800:#262626;--neutral-900:#171717;
+    --orange-50:#fff7ed;--orange-100:#ffedd5;--orange-600:#f05a22;--orange-700:#f54a00;
+    --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+    --text-on-brand:#fff;
+    --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+    --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5;--muted-ink:#525252;
+    --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-2xl:16px;--radius-full:9999px;
+    --shadow-xs:0 1px 2px rgba(0,0,0,.04);--shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --positive:#15803d;--negative:#b91c1c;
+    --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}html,body{margin:0;padding:0}
+  body{font-family:var(--font-sans);background:var(--bg-app);color:var(--text-primary);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:var(--radius-full);border:2px solid var(--bg-app)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState}=React;
+const card={background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-xl)',boxShadow:'var(--shadow-xs)'};
+const eyebrow={fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'var(--text-muted)'};
+function Pill({bg,ink,children,title}){return <span title={title} style={{fontSize:11,fontWeight:600,borderRadius:'var(--radius-full)',padding:'2px 9px',background:bg,color:ink,whiteSpace:'nowrap'}}>{children}</span>;}
+function Btn({children,kind='ghost',onClick}){const base={fontFamily:'inherit',fontSize:13,fontWeight:600,padding:'8px 14px',borderRadius:'var(--radius-md)',cursor:'pointer',border:'1px solid transparent'};
+  const k={primary:{background:'var(--brand)',color:'#fff'},ghost:{background:'var(--bg-card)',color:'var(--text-secondary)',borderColor:'var(--border-strong)'}};
+  return <button style={{...base,...k[kind]}} onClick={onClick}>{children}</button>;}
+
+/* ---------- demo data: cfm_vn lapsing-whale segment ---------- */
+// goal trees — each factor carries the 3 baseline signals (A level pctile, C trend %, B peer delta %)
+const REVENUE_TREE=[
+  {f:'Active payers', val:'2,400', pctile:41, trend:-12, peer:-9},
+  {f:'ARPPU (14d)', val:'1.18M₫', pctile:62, trend:-4, peer:+3},
+  {f:'Payer lifespan / recency', val:'lapsing', pctile:38, trend:-22, peer:-31, weak:true},
+  {f:'Payment success', val:'96%', pctile:70, trend:0, peer:+1},
+];
+const ENGAGE_TREE=[
+  {f:'Session frequency', val:'2.1 / wk', pctile:30, trend:-18, peer:-22, weak:true},
+  {f:'Session length', val:'24 min', pctile:55, trend:-3, peer:-2},
+  {f:'Active lifespan', val:'declining', pctile:44, trend:-14, peer:-12},
+];
+// the 9 lenses for the top opportunity (payer-lifespan / lapsing whales)
+const LENSES=[
+  {n:'Level vs population',tag:'A',verdict:'below',txt:'38th pctile of cfm payers'},
+  {n:'Trajectory',tag:'C',verdict:'declining',txt:'−22% vs this cohort 60d ago'},
+  {n:'Peer / look-alike',tag:'B',verdict:'behind',txt:'−31% vs same tenure+tier cohorts'},
+  {n:'Decomposition',tag:'#4',verdict:'bottleneck',txt:'lifespan is the weak factor; payers & ARPPU hold'},
+  {n:'Concentration',tag:'#5',verdict:'whale-heavy',txt:'71% of rev from top decile → defend, don’t broaden'},
+  {n:'Funnel',tag:'#6',verdict:'leaking',txt:'repeat-purchase 28% → 19%'},
+  {n:'Lifecycle',tag:'#7',verdict:'real',txt:'gap persists controlling for tenure → not structural'},
+  {n:'Cross-signal',tag:'#8',verdict:'signal',txt:'days-since-CS-touch correlates w/ lapse (r≈.41)'},
+  {n:'Anomaly',tag:'#9',verdict:'shift',txt:'step-down after 2026-04 patch'},
+  {n:'Model-predicted',tag:'D',verdict:'locked',txt:'needs Treatment-Effect Library — v2'},
+];
+const RECS=[
+  {rank:1,name:'Lapsing-whale win-back (CS call)',lever:'Win-back',opp:'Payer lifespan',
+   lift:'+6.0pp re-pay',conf:'Library · measured',confTone:'high',n:'2,400',reach:'78%',power:'Powered ≥4pp',
+   money:'+312M₫',feasible:true,lenses:'A C B #4 #5 #8 #9'},
+  {rank:2,name:'Re-engagement care touch',lever:'Re-engage',opp:'Session frequency',
+   lift:'+0.4 sess/wk',conf:'Default · assumption',confTone:'med',n:'2,400',reach:'78%',power:'Powered ≥0.25',
+   money:'+90M₫ (downstream LTV)',feasible:true,lenses:'A C B #6'},
+  {rank:3,name:'Payment-friction recovery assist',lever:'Payment recovery',opp:'Payment success',
+   lift:'+1.5pp success',conf:'Default · assumption',confTone:'low',n:'~90',reach:'—',power:'Underpowered (n too small)',
+   money:'+8M₫',feasible:true,under:true,lenses:'#6'},
+];
+
+/* ---------- mini signal widgets ---------- */
+function PctileBar({p}){const tone=p<45?'var(--negative)':p<60?'var(--warning)':'var(--positive)';
+  return <div title={`${p}th percentile`} style={{display:'flex',alignItems:'center',gap:6}}>
+    <div style={{width:54,height:6,background:'var(--bg-muted)',borderRadius:'var(--radius-full)',overflow:'hidden'}}>
+      <div style={{width:`${p}%`,height:'100%',background:tone}}/></div>
+    <span style={{fontSize:11,color:'var(--text-muted)',fontVariantNumeric:'tabular-nums'}}>P{p}</span></div>;}
+function Trend({v}){const up=v>0,flat=v===0;const tone=flat?'var(--text-muted)':up?'var(--positive)':'var(--negative)';
+  return <span style={{fontSize:12,fontWeight:600,color:tone,fontVariantNumeric:'tabular-nums'}}>{flat?'—':(up?'▲':'▼')+' '+Math.abs(v)+'%'}</span>;}
+function Peer({v}){const up=v>=0;return <span style={{fontSize:12,fontWeight:600,color:up?'var(--positive)':'var(--negative)',fontVariantNumeric:'tabular-nums'}}>{(up?'+':'')+v}%</span>;}
+
+function TreeCard({title,rows,note}){
+  return <div style={{...card,padding:'16px 18px',flex:1,minWidth:0}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4}}>
+      <div style={{fontWeight:600,fontSize:13}}>{title}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>{note}</div></div>
+    <table style={{width:'100%',borderCollapse:'collapse'}}>
+      <thead><tr>
+        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}}>Factor</th>
+        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}}>Value</th>
+        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}} title="Level vs population">A · level</th>
+        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}} title="Trajectory vs own past">C · trend</th>
+        <th style={{textAlign:'left',fontSize:10,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)',padding:'8px 4px'}} title="vs comparable cohorts">B · peer</th>
+      </tr></thead>
+      <tbody>{rows.map((r,i)=><tr key={i} style={{background:r.weak?'var(--brand-soft)':'transparent'}}>
+        <td style={{padding:'9px 4px',fontSize:13,fontWeight:r.weak?600:500,borderBottom:'1px solid var(--bg-muted)'}}>
+          {r.f}{r.weak&&<span style={{marginLeft:8}}><Pill bg="var(--brand)" ink="#fff">opportunity</Pill></span>}</td>
+        <td style={{padding:'9px 4px',fontSize:13,borderBottom:'1px solid var(--bg-muted)',color:'var(--text-secondary)'}}>{r.val}</td>
+        <td style={{padding:'9px 4px',borderBottom:'1px solid var(--bg-muted)'}}><PctileBar p={r.pctile}/></td>
+        <td style={{padding:'9px 4px',borderBottom:'1px solid var(--bg-muted)'}}><Trend v={r.trend}/></td>
+        <td style={{padding:'9px 4px',borderBottom:'1px solid var(--bg-muted)'}}><Peer v={r.peer}/></td>
+      </tr>)}</tbody>
+    </table>
+  </div>;
+}
+
+function LensChip({l}){
+  const tone={below:'var(--negative)',declining:'var(--negative)',behind:'var(--negative)',leaking:'var(--negative)',
+    bottleneck:'var(--brand)','whale-heavy':'var(--warning-ink)',real:'var(--text-primary)',signal:'var(--info-ink)',shift:'var(--warning-ink)',locked:'var(--text-muted)'}[l.verdict]||'var(--text-primary)';
+  const locked=l.verdict==='locked';
+  return <div style={{...card,padding:'11px 13px',opacity:locked?.55:1,borderStyle:locked?'dashed':'solid'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+      <span style={{fontSize:12,fontWeight:600}}>{l.n}</span>
+      <Pill bg="var(--bg-muted)" ink="var(--muted-ink)">{l.tag}</Pill></div>
+    <div style={{fontSize:12,fontWeight:600,color:tone,marginBottom:2,textTransform:'capitalize'}}>{l.verdict}</div>
+    <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45}}>{l.txt}</div>
+  </div>;
+}
+
+/* ---------- screens ---------- */
+function ContextBar({goal,setGoal}){
+  return <div style={{display:'flex',alignItems:'center',gap:14,padding:'12px 28px',background:'var(--bg-card)',borderBottom:'1px solid var(--border-card)',flexWrap:'wrap'}}>
+    <span style={eyebrow}>Analyzing</span>
+    <Pill bg="var(--bg-muted)" ink="var(--muted-ink)">cfm_vn</Pill>
+    <span style={{fontWeight:600,fontSize:13}}>Segment · Lapsing whales</span>
+    <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)'}}>5ee78131…</span>
+    <span style={{flex:1}}/>
+    <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,color:'var(--success-ink)'}}>
+      <span style={{width:7,height:7,borderRadius:'50%',background:'var(--success)'}}/>computed live</span>
+    <div style={{display:'flex',gap:0,border:'1px solid var(--border-strong)',borderRadius:'var(--radius-md)',overflow:'hidden'}}>
+      {['Revenue','Engagement'].map(g=><div key={g} onClick={()=>setGoal(g)} style={{padding:'6px 13px',fontSize:12.5,fontWeight:600,cursor:'pointer',
+        background:goal===g?'var(--brand)':'var(--bg-card)',color:goal===g?'#fff':'var(--text-secondary)'}}>{g}↑</div>)}
+    </div>
+  </div>;
+}
+
+function Diagnosis({go,goal}){
+  const agree=LENSES.filter(l=>l.verdict!=='locked'&&!['real'].includes('')&& l.verdict!=='locked').length; // all non-locked
+  const agreeing=9, total=9;
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:18}}>
+      <div><div style={eyebrow}>Optimization Advisor · Diagnosis</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Where is the opportunity?</h1></div>
+      <Btn kind="primary" onClick={()=>go('recs')}>See recommended experiments →</Btn>
+    </div>
+
+    {/* goal-tree decomposition — lens #4, with A/C/B signals per factor */}
+    <div style={{display:'flex',gap:14,marginBottom:18,alignItems:'stretch'}}>
+      <TreeCard title="Revenue tree — Payers × ARPPU × Lifespan" rows={REVENUE_TREE}
+        note={goal==='Revenue'?'primary goal':'leading → revenue'}/>
+      <TreeCard title="Engagement tree — Frequency × Length × Lifespan" rows={ENGAGE_TREE}
+        note={goal==='Engagement'?'primary goal':'leading indicator'}/>
+    </div>
+
+    {/* multi-angle triangulation for the top opportunity */}
+    <div style={{...card,padding:'18px 20px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+        <div><div style={eyebrow}>Top opportunity · multi-angle read</div>
+          <div style={{fontSize:16,fontWeight:700,marginTop:4}}>Payer lifespan is collapsing — these are lapsing whales</div></div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:24,fontWeight:700,color:'var(--positive)'}}>8/9</div>
+          <div style={{fontSize:11,color:'var(--text-muted)'}}>lenses agree · <b style={{color:'var(--positive)'}}>High confidence</b></div></div>
+      </div>
+      <div style={{fontSize:13,color:'var(--text-secondary)',margin:'8px 0 16px',maxWidth:760}}>
+        Confirmed across level, trend and peer baselines, sits on the decomposition bottleneck, and is whale-concentrated —
+        so the play is to <b>defend existing payers</b>, not broaden the base. Estimated <b>~312M₫</b> recoverable if we close a third of the gap.
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10}}>
+        {LENSES.map((l,i)=><LensChip key={i} l={l}/>)}
+      </div>
+    </div>
+  </div>;
+}
+
+function ConfTag({tone}){const m={high:['var(--success-soft)','var(--success-ink)','high conf'],
+  med:['var(--warning-soft)','var(--warning-ink)','med conf'],low:['var(--muted-soft)','var(--muted-ink)','low conf']}[tone];
+  return <Pill bg={m[0]} ink={m[1]}>{m[2]}</Pill>;}
+
+function RecCard({r,go}){
+  return <div style={{...card,padding:'18px 20px',opacity:r.under?.7:1,display:'flex',gap:18,alignItems:'flex-start'}}>
+    <div style={{width:30,height:30,borderRadius:'var(--radius-full)',background:r.under?'var(--bg-muted)':'var(--brand)',color:r.under?'var(--text-muted)':'#fff',
+      display:'grid',placeItems:'center',fontWeight:700,fontSize:14,flexShrink:0}}>{r.rank}</div>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <span style={{fontSize:15,fontWeight:700}}>{r.name}</span>
+        <Pill bg="var(--bg-muted)" ink="var(--muted-ink)">{r.lever}</Pill>
+        <Pill bg="var(--brand-soft)" ink="var(--brand)">targets · {r.opp}</Pill>
+      </div>
+      <div style={{fontSize:11.5,color:'var(--text-muted)',margin:'8px 0 0'}}>flagged by lenses · {r.lenses}</div>
+      <div style={{display:'flex',gap:22,marginTop:12,flexWrap:'wrap'}}>
+        <Stat k="Expected lift" v={r.lift} extra={<ConfTag tone={r.confTone}/>}/>
+        <Stat k="Addressable" v={`${r.n}${r.reach!=='—'?' · '+r.reach+' reach':''}`}/>
+        <Stat k="Power" v={r.power} tone={r.under?'var(--negative)':'var(--positive)'}/>
+        <Stat k="Est. incremental" v={r.money} tone={r.under?'var(--text-muted)':'var(--positive)'}/>
+        <Stat k="Feasible now" v={r.feasible?'CS actuator ✓':'no actuator'} tone={r.feasible?'var(--text-primary)':'var(--negative)'}/>
+      </div>
+    </div>
+    <div style={{flexShrink:0,alignSelf:'center'}}>
+      {r.under? <span style={{fontSize:12,color:'var(--text-muted)'}}>grow cohort first</span>
+       : <Btn kind="primary" onClick={()=>go&&go()}>Launch in Command Center →</Btn>}
+    </div>
+  </div>;
+}
+function Stat({k,v,extra,tone}){return <div>
+  <div style={{fontSize:10.5,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase',color:'var(--text-muted)'}}>{k}</div>
+  <div style={{fontSize:14,fontWeight:700,marginTop:3,color:tone||'var(--text-primary)',display:'flex',alignItems:'center',gap:7}}>{v}{extra}</div></div>;}
+
+function Recs({go}){
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:6}}>
+      <div><div style={eyebrow}>Optimization Advisor · Recommendations</div>
+        <h1 style={{fontSize:20,fontWeight:700,margin:'5px 0 0'}}>Experiments worth running, ranked by expected ₫</h1></div>
+      <Btn onClick={()=>go('diag')}>← Back to diagnosis</Btn>
+    </div>
+    <div style={{fontSize:12.5,color:'var(--text-muted)',marginBottom:16,maxWidth:760}}>
+      Each candidate maps a diagnosed opportunity → a playbook → a power-checked experiment. Lift from our Treatment-Effect Library where measured, else a labeled default. Underpowered ideas are shown, not hidden.
+    </div>
+    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+      {RECS.map(r=><RecCard key={r.rank} r={r} go={()=>alert('→ hands off to the Experiment Command Center (segment, arms, metric pre-filled)')}/>)}
+    </div>
+  </div>;
+}
+
+/* ---------- shell ---------- */
+function App(){
+  const [screen,setScreen]=useState('diag');
+  const [goal,setGoal]=useState('Revenue');
+  const Screen={diag:Diagnosis,recs:Recs}[screen];
+  return <div style={{display:'flex',minHeight:'100vh'}}>
+    <aside style={{width:220,background:'var(--bg-card)',borderRight:'1px solid var(--border-card)',padding:'20px 14px',flexShrink:0}}>
+      <div style={{display:'flex',alignItems:'center',gap:9,padding:'0 8px 18px'}}>
+        <div style={{width:26,height:26,borderRadius:'var(--radius-md)',background:'var(--brand)',display:'grid',placeItems:'center',color:'#fff',fontWeight:700,fontSize:13}}>◎</div>
+        <div style={{fontWeight:700,fontSize:14}}>Advisor</div></div>
+      {[['diag','Diagnosis'],['recs','Recommendations']].map(([k,l])=>
+        <div key={k} onClick={()=>setScreen(k)} style={{padding:'9px 10px',borderRadius:'var(--radius-md)',marginBottom:2,cursor:'pointer',fontSize:13,
+          fontWeight:screen===k?600:500,background:screen===k?'var(--brand-soft)':'transparent',color:screen===k?'var(--brand)':'var(--text-secondary)'}}>{l}</div>)}
+      <div style={{marginTop:24,padding:'0 10px',...eyebrow}}>Then hands off to</div>
+      <div style={{padding:'6px 10px',fontSize:11.5,color:'var(--text-muted)',lineHeight:1.7}}>Experiment Command Center → assign · CS deliver · measure</div>
+      <div style={{marginTop:18,padding:'0 10px',...eyebrow}}>Baseline</div>
+      <div style={{padding:'6px 10px',fontSize:11.5,color:'var(--text-muted)',lineHeight:1.7}}>Level (A) · Trajectory (C) · Peer (B). Model (D) — v2.</div>
+    </aside>
+    <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column'}}>
+      <ContextBar goal={goal} setGoal={setGoal}/>
+      <main style={{padding:'24px 32px',maxWidth:1400,margin:'0 auto',width:'100%'}}><Screen go={setScreen} goal={goal}/></main>
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

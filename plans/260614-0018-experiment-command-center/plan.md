@@ -51,19 +51,23 @@ pattern (compliance reader), Segments cohort (population), Care console (work-qu
 | 6 | [Experiment-360 drilldown + command-center home](phase-06-experiment-360-home.md) | pending | 3, 4, 5 |
 | 7 | [Tests + docs](phase-07-tests-docs.md) | pending | 1–6 |
 
-## Key dependencies / external facts (verified, do not re-derive)
-- `billing.pmt_user_daily` — live to yesterday, keyed `user_id`, `rev_vnd`/`trans`/`npu`/`dpu` per day. Outcome source.
-- `billing.mf_payment_user_history` — lifetime VND tiers + `last_payment_date` (lags ~5mo). Cohort source.
-- `cs_ticket.cs_ticket_logs` + `cs_ticket_info` (join via `split_part(user_id,'@',1)`) + `cs_rating_processes`. Exposure/CSAT source.
-- Assignment over `stag_iceberg.khoitn`.`segment_membership_daily` (nightly snapshot already written by `segment-snapshot-writer.ts`).
-- No billing reader exists yet — Phase 1 is greenfield (`grep pmt_user_daily server/src` = 0 hits).
+## Key dependencies / external facts (verified 2026-06-14, do not re-derive)
+> **CATALOG CORRECTION:** cross-cutting ops data is canonical in **`iceberg`**, NOT `stag_iceberg` (stale/write-scoped). The original scout used the wrong catalog. Memory: `iceberg-vs-stag-iceberg-source-catalog`.
+- **Outcome:** `iceberg.billing.std_billing_delivery_trans_gds` — txn grain, 58.6M, LIVE hourly; `user_id` = GDS snowflake → joins game `mf_users` directly. **Gross only (no refund table anywhere).**
+- **Cohort LTV tier:** `iceberg.billing.pmt_users_history` (18.5M lifetime). **Lapse = recency from the LIVE txn table, not this.**
+- **Per-game gate:** `iceberg.mdm.map_product_code` — cfm = `A49` ONLY (exclude dead `267`); jus = `A70`. cfm VND-only; **jus mixed USD+VND**.
+- **Exposure:** `iceberg.cs_ticket.cs_ticket_info` → `cs_ticket_logs` + `cs_rating_processes`; game scope via `customer_id → customers_v2.product_id` = `856`(cfm)/`832`(jus) (99.9%). Member-level uid match is SPARSE (cfm ~23%).
+- **Prefer the new ops cubes** (`billing_detail`/`billing_lifetime`/`cs_ticket_detail`, branch `feat/per-game-ops-enrichment-cubes`, plan `260614-0040`) over raw readers where they expose the grain — DRY + inherits the verified gate/joins.
+- **Assignment log** → `stag_iceberg.khoitn` (correct: that catalog is for our own writes), nightly `segment_membership_daily` via `segment-snapshot-writer.ts`.
 - Latest SQLite migration = `051`; new experiment migration = `052`.
 
 ## Cross-cutting risks
-- **Freshness skew:** cohort table lags ~5mo while outcome is live — `last_payment_date` defines "lapsed" against a stale snapshot. Mitigate: validate recency against live `pmt_user_daily` MAX(day) per uid at assignment time, OR derive lapse from `pmt_user_daily` directly (preferred — see Phase 1).
-- **Compliance blind spot:** outbound CS outreach must create a logged ticket/action, else compliance edge is blind (open question #8 in report). Mitigate: ITT is primary and unaffected; treated-on-treated degrades to "no contacts matched" not a wrong number.
-- **PII:** strictly user_id + aggregate reachability. Enforced server-side; no contact columns ever selected. See per-phase Security sections.
-- **Identity namespaces:** route uid joins through existing `split_part` convention; do NOT hardcode new join logic.
+- **Freshness skew:** RESOLVED — lapse derived from the LIVE txn table (`std_billing_delivery_trans_gds`), lifetime table used only for the slow-moving LTV tier.
+- **Compliance blind spot:** member-level CS match is sparse (cfm ~23%) AND outbound outreach must be logged with a resolvable uid (open Q#8). Mitigate: ITT primary + unaffected; treated-on-treated is best-effort, surface match-rate.
+- **No refund table → gross revenue only.** Every readout must say "gross". (Resolves report Q#1.)
+- **jus mixed-currency:** normalize USD→VND or report per-currency. cfm (A49, VND-only) is the clean POC game.
+- **PII:** strictly user_id + numeric metrics + action codes; no contact columns ever selected. Per-phase Security sections.
+- **Identity namespaces:** CS join via `customer_id → customers_v2.product_id` (99.9%), NOT the old `split_part` (~8%). Cohort/outcome share the GDS-snowflake `user_id` namespace.
 
 ## Unresolved questions
-See each phase's "Risks" + the report §Unresolved questions (#1 refunds, #8 outbound-ticket logging, #9 CS capacity, #10 npu/dpu semantics).
+See each phase's "Risks" + report §Unresolved (#8 outbound-ticket logging, #9 CS capacity, #10 metric semantics). #1 refunds = RESOLVED (none → gross only).

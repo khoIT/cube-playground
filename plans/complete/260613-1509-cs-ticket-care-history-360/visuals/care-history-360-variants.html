@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Care History 360 — layout variants</title>
+<style>
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-700:#404040;--neutral-800:#262626;--neutral-900:#171717;
+    --brand:#f05a22;--orange-50:#fff7ed;--orange-100:#ffedd5;
+    --bg-card:#fff;--bg-muted:#f5f5f5;--border-card:#e5e5e5;
+    --text-primary:#171717;--text-secondary:#404040;--text-muted:#737373;--text-tertiary:#a3a3a3;
+    --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5;--muted-ink:#525252;--positive:#15803d;
+    --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-full:9999px;
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#ededed;font-family:var(--font-sans);color:var(--text-primary);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto;padding:32px 24px 80px}
+  .variant-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--brand);margin:48px 0 4px}
+  .variant-sub{font-size:13px;color:var(--text-muted);margin:0 0 14px}
+  .frame{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+  .pad{padding:24px 28px}
+  a{color:inherit}
+  .eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary)}
+  .h1{font-size:20px;font-weight:700;letter-spacing:-.01em}
+  .mono{font-family:var(--font-mono)}
+  .chip{display:inline-flex;align-items:center;gap:4px;border-radius:var(--radius-full);padding:2px 9px;font-size:11px;font-weight:600;white-space:nowrap}
+  .c-neg{background:var(--destructive-soft);color:var(--destructive-ink)}
+  .c-pos{background:var(--success-soft);color:var(--success-ink)}
+  .c-neu{background:var(--muted-soft);color:var(--muted-ink)}
+  .c-warn{background:var(--warning-soft);color:var(--warning-ink)}
+  .c-info{background:var(--info-soft);color:var(--info-ink)}
+  .c-brand{background:var(--orange-100);color:var(--brand)}
+  .stars{color:var(--warning-ink);letter-spacing:1px;font-size:12px}
+  .stars .off{color:var(--neutral-300)}
+  .muted{color:var(--text-muted)}
+  .sec{color:var(--text-secondary)}
+  .small{font-size:11px}
+  .kpi-val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .kpi-lbl{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)}
+  .bubble{max-width:74%;padding:9px 13px;border-radius:14px;font-size:12.5px;line-height:1.5}
+  .b-staff{background:var(--neutral-100);color:var(--text-primary);border-bottom-left-radius:4px}
+  .b-cust{background:var(--brand);color:#fff;border-bottom-right-radius:4px;margin-left:auto}
+  .row-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .divider{height:1px;background:var(--border-card)}
+  .secbanner{display:flex;align-items:center;gap:10px;background:var(--destructive-soft);border:1px solid var(--destructive-ink);border-radius:var(--radius-md);padding:10px 14px;color:var(--destructive-ink);font-size:12.5px;font-weight:600}
+  .backlink{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-secondary);text-decoration:none;margin-bottom:10px}
+  .tag{font-size:10px;background:var(--bg-muted);color:var(--text-secondary);border-radius:var(--radius-sm);padding:1px 6px}
+  .ticketcard{border:1px solid var(--border-card);border-radius:var(--radius-md);padding:12px 14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p style="font-size:13px;color:#555;margin:0">Care History 360 · <b>/segments/:id/members/:uid/care</b> — drilled from the Care watchlist. Real jus_vn data (Tô Phi · uid 3326386729574596608, ₫91.0M LTV, VIP tier 4). 3 layout directions below — pick one (or mix).</p>
+
+  <!-- ============ VARIANT A · SPLIT INBOX ============ -->
+  <p class="variant-label">Variant A · Split inbox</p>
+  <p class="variant-sub">Email-client feel: ticket list on the left, the selected ticket's full transcript on the right, a thin VIP/signals rail far right. Best for members with many tickets — scan + drill without scrolling.</p>
+  <div class="frame">
+    <div class="pad" style="padding-bottom:16px">
+      <a class="backlink" href="#">← Back to whales · Care</a>
+      <div class="row-line" style="justify-content:space-between">
+        <div>
+          <div class="eyebrow">jus_vn · CS Care History</div>
+          <div class="row-line" style="margin-top:3px">
+            <span class="h1" style="color:var(--brand)">Tô Phi</span>
+            <span class="mono small muted">3326386729574596608</span>
+          </div>
+        </div>
+        <div class="row-line" style="gap:22px">
+          <div><div class="kpi-lbl">LTV</div><div class="kpi-val">₫91.0M</div></div>
+          <div><div class="kpi-lbl">VIP tier</div><div class="kpi-val">4 <span class="small muted" style="font-weight:500">·0.75</span></div></div>
+          <div><div class="kpi-lbl">Recharge 30d</div><div class="kpi-val" style="color:var(--destructive-ink)">−18%</div></div>
+          <div><div class="kpi-lbl">Risk</div><div class="kpi-val" style="color:var(--brand)">88</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div style="display:grid;grid-template-columns:300px 1fr 230px;min-height:430px">
+      <!-- ticket list -->
+      <div style="border-right:1px solid var(--border-card);overflow:auto">
+        <div style="padding:12px 16px;background:var(--neutral-50);border-bottom:1px solid var(--border-card);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)">2 tickets · 365d</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border-card);border-left:3px solid var(--brand);background:var(--orange-50)">
+          <div class="row-line" style="justify-content:space-between"><span class="small sec" style="font-weight:600">2026-02-05</span><span class="chip c-warn">2× reopen</span></div>
+          <div style="font-size:12.5px;font-weight:600;margin:4px 0 5px">Payment · items not received</div>
+          <div class="row-line"><span class="chip c-neg">Negative</span><span class="stars">★<span class="off">★★★★</span></span><span class="chip c-pos">Closed</span></div>
+        </div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border-card)">
+          <div class="row-line" style="justify-content:space-between"><span class="small sec" style="font-weight:600">2025-11-29</span><span class="chip c-warn">3× reopen</span></div>
+          <div style="font-size:12.5px;font-weight:600;margin:4px 0 5px">Gameplay · task blocker</div>
+          <div class="row-line"><span class="chip c-pos">Positive</span><span class="muted small">—</span><span class="chip c-pos">Closed</span></div>
+        </div>
+      </div>
+      <!-- transcript -->
+      <div style="display:flex;flex-direction:column">
+        <div style="padding:12px 18px;border-bottom:1px solid var(--border-card)">
+          <div class="row-line" style="justify-content:space-between">
+            <div class="row-line"><span class="mono small muted">TIC-026530832</span><span class="chip c-brand">Payment_ItemsNotReceived</span><span class="chip c-neu">Gameplay_Question</span></div>
+            <span class="small muted">Web · CTS · khuongnb2 · first reply 23m</span>
+          </div>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;flex:1;overflow:auto">
+          <div class="bubble b-staff">Chào Bạn, Điểm tích lũy trên VNGGames Club sẽ được tính từ lúc game ra mắt ạ…</div>
+          <div class="bubble b-cust">Mình có đăng nhập vào VNGGames Club nhưng ko thấy lịch sử nạp trong 6 tháng gần đây…</div>
+          <div class="bubble b-staff">Trường hợp của bạn vui lòng cung cấp thêm hình ảnh cụ thể để Tiểu Hàn kiểm tra…</div>
+          <div class="bubble b-cust">Mình đính kèm ảnh chụp lịch sử giao dịch… <span style="display:block;margin-top:4px"><span class="tag">📎 Screenshot_2026-02-05.jpg</span> <span class="tag">📎 Screenshot_010635.jpg</span></span></div>
+          <div class="bubble b-staff">Hiện tại do VNGGames Club Nghịch Thủy Hàn vừa được cập nhật hôm nay…</div>
+        </div>
+        <div style="padding:12px 18px;border-top:1px solid var(--border-card);background:var(--neutral-50)">
+          <div class="row-line"><span class="stars">★<span class="off">★★★★</span></span><span class="small" style="font-style:italic;color:var(--text-secondary)">"Instead of copy and paste the template, you should check customer's account probably."</span></div>
+          <div class="row-line" style="margin-top:5px"><span class="tag">Ineffective problem resolution</span><span class="tag">Unclear response content</span></div>
+        </div>
+      </div>
+      <!-- side rail -->
+      <div style="border-left:1px solid var(--border-card);padding:16px;background:var(--neutral-50)">
+        <div class="kpi-lbl" style="margin-bottom:8px">Signals</div>
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:12px">
+          <div class="row-line" style="justify-content:space-between"><span class="muted">Sentiment</span><span>Neutral → <b style="color:var(--destructive-ink)">Negative</b></span></div>
+          <div class="row-line" style="justify-content:space-between"><span class="muted">Reopens</span><span><b>2×</b></span></div>
+          <div class="row-line" style="justify-content:space-between"><span class="muted">First reply</span><span>23m</span></div>
+          <div class="row-line" style="justify-content:space-between"><span class="muted">Channel</span><span>Web</span></div>
+          <div class="row-line" style="justify-content:space-between"><span class="muted">Hashtag</span><span>#NTH-Question</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT B · STACKED DOSSIER ============ -->
+  <p class="variant-label">Variant B · Stacked dossier</p>
+  <p class="variant-sub">Single column that reads top-to-bottom like a case file: header → at-a-glance signal strip → each ticket as a card whose transcript expands inline. Calm, print-like, no panes. Best when tickets are few and you want the whole story in one scroll.</p>
+  <div class="frame pad">
+    <a class="backlink" href="#">← Back to whales · Care</a>
+    <div class="row-line"><span class="h1" style="color:var(--brand)">Tô Phi</span><span class="mono small muted">3326386729574596608</span><span class="chip c-brand" style="margin-left:auto">VIP tier 4</span></div>
+    <div class="secbanner" style="margin:14px 0">🛡 Account-security signal on 1 ticket — the login on TIC-027035926 differs from this member's uid.</div>
+    <!-- signal strip -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:1px solid var(--border-card);border-radius:var(--radius-md);overflow:hidden;margin-bottom:18px">
+      <div style="padding:12px 14px;border-right:1px solid var(--border-card)"><div class="kpi-lbl">LTV</div><div class="kpi-val">₫91.0M</div></div>
+      <div style="padding:12px 14px;border-right:1px solid var(--border-card)"><div class="kpi-lbl">Tickets</div><div class="kpi-val">3</div></div>
+      <div style="padding:12px 14px;border-right:1px solid var(--border-card)"><div class="kpi-lbl">Reopens</div><div class="kpi-val" style="color:var(--warning-ink)">5</div></div>
+      <div style="padding:12px 14px;border-right:1px solid var(--border-card)"><div class="kpi-lbl">Avg rating</div><div class="kpi-val">★1.0</div></div>
+      <div style="padding:12px 14px"><div class="kpi-lbl">Recharge 30d</div><div class="kpi-val" style="color:var(--destructive-ink)">−18%</div></div>
+    </div>
+    <!-- ticket card (expanded) -->
+    <div class="ticketcard" style="margin-bottom:12px">
+      <div class="row-line" style="justify-content:space-between">
+        <div class="row-line"><span style="font-weight:700;font-size:13px">Payment · items not received</span><span class="chip c-neg">Negative</span><span class="stars">★<span class="off">★★★★</span></span><span class="chip c-warn">2× reopen</span></div>
+        <span class="small muted">2026-02-05 · Web · ▾</span>
+      </div>
+      <div class="row-line" style="margin-top:8px"><span class="chip c-brand">Payment_ItemsNotReceived</span><span class="chip c-neu">Gameplay_Question</span><span class="tag">#NTH-Question</span></div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px;padding-left:6px;border-left:2px solid var(--neutral-200)">
+        <div class="bubble b-staff">Chào Bạn, Điểm tích lũy trên VNGGames Club sẽ được tính từ lúc game ra mắt ạ…</div>
+        <div class="bubble b-cust">Mình ko thấy lịch sử nạp trong 6 tháng gần đây dù đã nạp nhiều lần…</div>
+        <div class="bubble b-staff">Vui lòng cung cấp thêm hình ảnh cụ thể để Tiểu Hàn kiểm tra…</div>
+      </div>
+      <div style="margin-top:10px;padding:9px 12px;background:var(--neutral-50);border-radius:var(--radius-sm);font-size:12px;font-style:italic;color:var(--text-secondary)">★1 — "Instead of copy and paste the template, you should check customer's account probably."</div>
+    </div>
+    <!-- ticket card (collapsed) -->
+    <div class="ticketcard">
+      <div class="row-line" style="justify-content:space-between">
+        <div class="row-line"><span style="font-weight:700;font-size:13px">Gameplay · task blocker</span><span class="chip c-pos">Positive</span><span class="chip c-warn">3× reopen</span></div>
+        <span class="small muted">2025-11-29 · Ingame · 8 msg · ▸</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VARIANT C · TIMELINE SPINE ============ -->
+  <p class="variant-label">Variant C · Timeline spine</p>
+  <p class="variant-sub">Chronological vertical spine — every ticket is a node on one timeline, newest first, with sentiment-colored dots; clicking a node opens its transcript inline to the right of the spine. Emphasizes the member's CS journey over time.</p>
+  <div class="frame pad">
+    <a class="backlink" href="#">← Back to whales · Care</a>
+    <div class="row-line" style="justify-content:space-between;margin-bottom:6px">
+      <div class="row-line"><span class="h1" style="color:var(--brand)">Tô Phi</span><span class="mono small muted">3326386729574596608</span></div>
+      <div class="row-line" style="gap:18px"><span class="small"><span class="muted">LTV</span> <b>₫91.0M</b></span><span class="small"><span class="muted">VIP</span> <b>4</b></span><span class="small"><span class="muted">30d Δ</span> <b style="color:var(--destructive-ink)">−18%</b></span><span class="chip c-neg">Risk 88</span></div>
+    </div>
+    <div style="position:relative;margin-top:18px;padding-left:26px">
+      <div style="position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--neutral-200)"></div>
+      <!-- node 1 -->
+      <div style="position:relative;margin-bottom:22px">
+        <span style="position:absolute;left:-26px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--destructive-ink);border:2px solid #fff;box-shadow:0 0 0 1px var(--destructive-ink)"></span>
+        <div class="row-line"><span class="small sec" style="font-weight:700">2026-02-05</span><span class="chip c-neg">Negative</span><span class="stars">★<span class="off">★★★★</span></span><span class="chip c-warn">2× reopen</span><span class="chip c-brand">Payment</span></div>
+        <div style="margin-top:8px;border:1px solid var(--border-card);border-radius:var(--radius-md);padding:12px 14px">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="bubble b-staff">Điểm tích lũy VNGGames Club được tính từ lúc game ra mắt ạ…</div>
+            <div class="bubble b-cust">Mình ko thấy lịch sử nạp trong 6 tháng gần đây…</div>
+            <div class="bubble b-staff">Vui lòng cung cấp thêm hình ảnh cụ thể để kiểm tra…</div>
+          </div>
+          <div style="margin-top:9px;font-size:12px;font-style:italic;color:var(--text-secondary)">★1 — "…you should check customer's account probably."</div>
+        </div>
+      </div>
+      <!-- node 2 -->
+      <div style="position:relative">
+        <span style="position:absolute;left:-26px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--success-ink);border:2px solid #fff;box-shadow:0 0 0 1px var(--success-ink)"></span>
+        <div class="row-line"><span class="small sec" style="font-weight:700">2025-11-29</span><span class="chip c-pos">Positive</span><span class="chip c-warn">3× reopen</span><span class="chip c-neu">Gameplay</span><span class="small muted">8 msg · Ingame · ▸ open transcript</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

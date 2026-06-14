@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Care Tab — design variants</title>
+<style>
+/* ── Real tokens lifted from src/theme/tokens.css (subset used here) ── */
+:root{
+  --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+  --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-700:#404040;--neutral-900:#171717;
+  --orange-50:#fff7ed;--orange-600:#f05a22;--orange-700:#f54a00;
+  --brand:var(--orange-600);--brand-soft:var(--orange-50);
+  --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
+  --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);--text-on-brand:#fff;
+  --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+  --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+  --muted-soft:#f5f5f5;--muted-ink:#525252;
+  --radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-alt:'Geist','Inter',ui-sans-serif,system-ui,sans-serif;
+  --positive:#15803d;--negative:#b91c1c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--neutral-100);font-family:var(--font-sans);color:var(--text-primary);-webkit-font-smoothing:antialiased}
+.canvas{max-width:1320px;margin:0 auto;padding:40px 32px 80px}
+.canvas>h1{font-size:15px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin:0 0 4px}
+.canvas>p.sub{margin:0 0 32px;color:var(--text-secondary);font-size:13px}
+.variant{margin-bottom:48px}
+.variant-label{display:flex;align-items:baseline;gap:10px;margin:0 0 14px}
+.variant-label .tag{font-family:var(--font-alt);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-on-brand);background:var(--neutral-900);padding:3px 8px;border-radius:var(--radius-sm)}
+.variant-label .name{font-size:15px;font-weight:700}
+.variant-label .desc{font-size:12.5px;color:var(--text-muted)}
+/* The page frame mimics the segment-detail content column */
+.page{background:var(--bg-app);border:1px solid var(--border-card);border-radius:var(--radius-xl);padding:20px;box-shadow:var(--shadow-sm)}
+
+/* shared atoms */
+.card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);}
+.card-pad{padding:14px 16px}
+.card-title{font-family:var(--font-alt);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:0 0 12px;display:flex;align-items:center;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-full);line-height:1.5}
+.chip.neg{background:var(--destructive-soft);color:var(--destructive-ink)}
+.chip.pos{background:var(--success-soft);color:var(--success-ink)}
+.chip.neu{background:var(--muted-soft);color:var(--muted-ink)}
+.chip.warn{background:var(--warning-soft);color:var(--warning-ink)}
+.chip.info{background:var(--info-soft);color:var(--info-ink)}
+.stars{color:var(--warning-ink);letter-spacing:1px;font-size:12px}
+.stars .off{color:var(--neutral-300)}
+.muted{color:var(--text-muted)}
+.tip{position:relative;border-bottom:1px dotted var(--neutral-400);cursor:help}
+.money{font-variant-numeric:tabular-nums}
+
+/* KPI tiles */
+.kpiGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:12px 14px}
+.kpi .k-val{font-size:24px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .k-lab{font-size:11.5px;color:var(--text-muted);margin-top:3px}
+.kpi .k-sub{font-size:11px;margin-top:6px;font-weight:600}
+.kpi[data-accent=brand] .k-val{color:var(--brand)}
+.kpi[data-accent=neg] .k-val{color:var(--negative)}
+.kpi[data-accent=warn] .k-val{color:var(--warning-ink)}
+
+/* issue-mix bars */
+.mix-row{display:grid;grid-template-columns:120px 1fr 42px;align-items:center;gap:10px;margin-bottom:9px;font-size:12.5px}
+.mix-row:last-child{margin-bottom:0}
+.mix-lab{font-weight:600;display:flex;align-items:center;gap:6px}
+.mix-track{height:18px;background:var(--neutral-100);border-radius:var(--radius-sm);overflow:hidden}
+.mix-fill{height:100%;border-radius:var(--radius-sm);background:var(--neutral-400)}
+.mix-fill.high{background:var(--brand)}
+.mix-ct{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+/* table */
+.tbl{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);overflow:hidden}
+.thead,.trow{display:grid;grid-template-columns:1.6fr 90px 1.1fr 70px 92px 64px 96px 60px;align-items:center;gap:12px}
+.thead{padding:11px 18px;background:var(--neutral-50);border-bottom:1px solid var(--border-card);font-family:var(--font-alt);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+.trow{padding:11px 18px;border-bottom:1px solid var(--border-card);font-size:12.5px;cursor:pointer}
+.trow:hover{background:rgba(0,0,0,.02)}
+.trow:last-child{border-bottom:0}
+.nm{font-weight:600}
+.risk-b=dge{font-variant-numeric:tabular-nums}
+.risk{display:inline-flex;align-items:center;gap:7px}
+.risk-bar{width:34px;height:5px;border-radius:3px;background:var(--neutral-200);overflow:hidden}
+.risk-bar i{display:block;height:100%;background:var(--brand)}
+.risk-n{font-size:11px;font-weight:700;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+
+/* impact strip */
+.impact{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.coh{padding:10px 0}
+.coh .ch{font-size:11.5px;color:var(--text-muted);margin-bottom:8px;font-weight:600}
+.coh .delta{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.coh .delta.down{color:var(--negative)}
+.coh .delta.flat{color:var(--text-secondary)}
+.spark{display:flex;align-items:flex-end;gap:6px;height:46px;margin-top:10px}
+.spark .b{width:30px;border-radius:3px 3px 0 0}
+.spark .b.pre{background:var(--neutral-300)}
+.spark .b.post{background:var(--brand)}
+.spark .b.post.flat{background:var(--neutral-400)}
+.spark-lab{font-size:10px;color:var(--text-muted);text-align:center;width:30px;margin-top:3px}
+.caption{font-size:11px;color:var(--text-muted);font-style:italic;margin-top:12px;display:flex;align-items:center;gap:6px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.subpills{display:inline-flex;gap:4px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-full);padding:3px}
+.subpill{font-size:12px;font-weight:500;color:var(--text-secondary);padding:4px 12px;border-radius:var(--radius-full)}
+.subpill.on{background:var(--brand);color:var(--text-on-brand)}
+.fresh{font-size:11.5px;color:var(--text-muted)}
+.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;margin-bottom:16px}
+.rail{display:grid;grid-template-columns:1fr 320px;gap:16px}
+.sectionhead{font-size:13px;font-weight:700;margin:0 0 10px}
+</style>
+</head>
+<body>
+<div class="canvas">
+<h1>Care Tab · Whale Segment</h1>
+<p class="sub">3 layout directions for the CS-overlay tab — all built from <code>src/theme/tokens.css</code>, siblings of Insights / Members / Monitor. Real data scale: <b>22 of 276</b> whales contacted (8%), 29 tickets, top issues Payment/Account, 3 negative, 2 ≤2★.</p>
+
+<!-- ══════════════════ VARIANT A — TRIAGE BOARD ══════════════════ -->
+<section class="variant">
+  <div class="variant-label"><span class="tag">A</span><span class="name">Triage board</span><span class="desc">By-the-book. Pulse → mix + impact side-by-side → full-width watchlist. Reads exactly like the Insights tab.</span></div>
+  <div class="page">
+    <div class="toolbar">
+      <div class="subpills"><span class="subpill on">Overview</span><span class="subpill">All tickets</span></div>
+      <span class="fresh">CS data updated 2026-06-13 · next-day fresh</span>
+    </div>
+    <!-- 1 · pulse -->
+    <div class="kpiGrid" style="margin-bottom:16px">
+      <div class="kpi" data-accent="brand"><div class="k-val">22<span style="font-size:15px;color:var(--text-muted)"> / 276</span></div><div class="k-lab"><span class="tip" title="Only in-game/web/phone tickets join by uid; Facebook/AIHelp (~90%) use channel PSID and are excluded.">Contacted members</span></div><div class="k-sub" style="color:var(--text-muted)">8.0% coverage</div></div>
+      <div class="kpi" data-accent="warn"><div class="k-val">7</div><div class="k-lab">Open / unresolved</div><div class="k-sub" style="color:var(--warning-ink)">of 29 tickets</div></div>
+      <div class="kpi" data-accent="neg"><div class="k-val">3</div><div class="k-lab">Negative sentiment</div><div class="k-sub" style="color:var(--negative)">needs outreach</div></div>
+      <div class="kpi" data-accent="neg"><div class="k-val">2</div><div class="k-lab">≤2★ rated</div><div class="k-sub" style="color:var(--text-muted)">low satisfaction</div></div>
+    </div>
+    <!-- 2+4 · mix + impact -->
+    <div class="grid2">
+      <div class="card card-pad">
+        <div class="card-title">Issue mix · by AI label</div>
+        <div class="mix-row"><span class="mix-lab"><span class="dot" style="background:var(--brand)"></span>Payment</span><div class="mix-track"><div class="mix-fill high" style="width:90%"></div></div><span class="mix-ct">11</span></div>
+        <div class="mix-row"><span class="mix-lab"><span class="dot" style="background:var(--brand)"></span>Account</span><div class="mix-track"><div class="mix-fill high" style="width:66%"></div></div><span class="mix-ct">8</span></div>
+        <div class="mix-row"><span class="mix-lab"><span class="dot" style="background:var(--neutral-400)"></span>Gameplay</span><div class="mix-track"><div class="mix-fill" style="width:42%"></div></div><span class="mix-ct">5</span></div>
+        <div class="mix-row"><span class="mix-lab"><span class="dot" style="background:var(--neutral-400)"></span>Security</span><div class="mix-track"><div class="mix-fill high" style="width:25%"></div></div><span class="mix-ct">3</span></div>
+        <div class="mix-row"><span class="mix-lab"><span class="dot" style="background:var(--neutral-300)"></span>Uncategorized</span><div class="mix-track"><div class="mix-fill" style="width:17%"></div></div><span class="mix-ct">2</span></div>
+      </div>
+      <div class="card card-pad">
+        <div class="card-title">CS impact · recharge before → after contact</div>
+        <div class="impact">
+          <div class="coh"><div class="ch">Contacted <span class="muted">(n=22)</span></div><div class="delta down">−31%</div>
+            <div class="spark"><div class="b pre" style="height:42px"></div><div class="b post" style="height:29px"></div></div>
+            <div style="display:flex;gap:6px"><div class="spark-lab">pre 30d</div><div class="spark-lab">post 30d</div></div>
+          </div>
+          <div class="coh"><div class="ch">Not contacted <span class="muted">(n=200)</span></div><div class="delta flat">−6%</div>
+            <div class="spark"><div class="b pre" style="height:40px"></div><div class="b post flat" style="height:37px"></div></div>
+            <div style="display:flex;gap:6px"><div class="spark-lab">pre 30d</div><div class="spark-lab">post 30d</div></div>
+          </div>
+        </div>
+        <div class="caption">◆ Directional, small sample (n=22). Not a significance claim.</div>
+      </div>
+    </div>
+    <!-- 3 · watchlist -->
+    <div class="sectionhead">Risk watchlist <span class="muted" style="font-weight:400;font-size:12px">· sorted by risk score</span></div>
+    <div class="tbl">
+      <div class="thead"><span>Member</span><span>LTV</span><span>Last issue</span><span>Channel</span><span>Sentiment</span><span>Rating</span><span>Status</span><span>Risk</span></div>
+      <div class="trow"><span class="nm">Kiếm_Vô_Tình</span><span class="money">₫184.2M</span><span>Payment</span><span class="muted">Web</span><span><span class="chip neg">Negative</span></span><span class="stars">★<span class="off">★★★★</span></span><span><span class="chip warn">New</span></span><span class="risk"><span class="risk-bar"><i style="width:100%"></i></span><span class="risk-n">95</span></span></div>
+      <div class="trow"><span class="nm">PhongVân_2k3</span><span class="money">₫92.7M</span><span>Account</span><span class="muted">Ingame</span><span><span class="chip neg">Negative</span></span><span class="stars">★★<span class="off">★★★</span></span><span><span class="chip info">Processing</span></span><span class="risk"><span class="risk-bar"><i style="width:82%"></i></span><span class="risk-n">78</span></span></div>
+      <div class="trow"><span class="nm">Đại_Hiệp_VIP</span><span class="money">₫71.0M</span><span>Security</span><span class="muted">Phone</span><span><span class="chip neu">Neutral</span></span><span class="stars">★★★<span class="off">★★</span></span><span><span class="chip warn">Reopen</span></span><span class="risk"><span class="risk-bar"><i style="width:60%"></i></span><span class="risk-n">57</span></span></div>
+      <div class="trow"><span class="nm">Long_Tộc_98</span><span class="money">₫44.5M</span><span>Payment</span><span class="muted">Web</span><span><span class="chip neg">Negative</span></span><span class="stars">★★★★<span class="off">★</span></span><span><span class="chip pos">Closed</span></span><span class="risk"><span class="risk-bar"><i style="width:48%"></i></span><span class="risk-n">45</span></span></div>
+      <div class="trow"><span class="nm">Tuyết_Nhi</span><span class="money">₫38.9M</span><span>Account</span><span class="muted">Ingame</span><span><span class="chip pos">Positive</span></span><span class="stars">★★★★★</span><span><span class="chip pos">Closed</span></span><span class="risk"><span class="risk-bar"><i style="width:22%"></i></span><span class="risk-n">18</span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ VARIANT B — WATCHLIST-FIRST ══════════════════ -->
+<section class="variant">
+  <div class="variant-label"><span class="tag">B</span><span class="name">Watchlist-first</span><span class="desc">Ops-lead view. The actionable list is the hero; pulse is a slim strip; issue-mix + impact ride a right rail.</span></div>
+  <div class="page">
+    <!-- slim pulse strip -->
+    <div class="card card-pad" style="margin-bottom:16px;display:flex;align-items:center;gap:28px;flex-wrap:wrap">
+      <div><span style="font-size:20px;font-weight:700;color:var(--brand)">22</span> <span class="muted" style="font-size:13px">/ 276 contacted</span> <span class="chip neu" style="margin-left:4px">8.0%</span></div>
+      <div style="width:1px;height:26px;background:var(--border-card)"></div>
+      <div><span style="font-size:20px;font-weight:700;color:var(--warning-ink)">7</span> <span class="muted" style="font-size:13px">open</span></div>
+      <div><span style="font-size:20px;font-weight:700;color:var(--negative)">3</span> <span class="muted" style="font-size:13px">negative</span></div>
+      <div><span style="font-size:20px;font-weight:700;color:var(--negative)">2</span> <span class="muted" style="font-size:13px">≤2★</span></div>
+      <div style="margin-left:auto" class="fresh"><span class="tip" title="Only in-game/web/phone tickets join; Facebook/AIHelp excluded.">coverage caveat ⓘ</span> · next-day fresh</div>
+    </div>
+    <div class="rail">
+      <!-- hero watchlist -->
+      <div>
+        <div class="sectionhead">Risk watchlist <span class="muted" style="font-weight:400;font-size:12px">· who to call first</span></div>
+        <div class="tbl">
+          <div class="thead"><span>Member</span><span>LTV</span><span>Last issue</span><span>Channel</span><span>Sentiment</span><span>Rating</span><span>Status</span><span>Risk</span></div>
+          <div class="trow"><span class="nm">Kiếm_Vô_Tình</span><span class="money">₫184.2M</span><span>Payment</span><span class="muted">Web</span><span><span class="chip neg">Negative</span></span><span class="stars">★<span class="off">★★★★</span></span><span><span class="chip warn">New</span></span><span class="risk"><span class="risk-bar"><i style="width:100%"></i></span><span class="risk-n">95</span></span></div>
+          <div class="trow"><span class="nm">PhongVân_2k3</span><span class="money">₫92.7M</span><span>Account</span><span class="muted">Ingame</span><span><span class="chip neg">Negative</span></span><span class="stars">★★<span class="off">★★★</span></span><span><span class="chip info">Processing</span></span><span class="risk"><span class="risk-bar"><i style="width:82%"></i></span><span class="risk-n">78</span></span></div>
+          <div class="trow"><span class="nm">Đại_Hiệp_VIP</span><span class="money">₫71.0M</span><span>Security</span><span class="muted">Phone</span><span><span class="chip neu">Neutral</span></span><span class="stars">★★★<span class="off">★★</span></span><span><span class="chip warn">Reopen</span></span><span class="risk"><span class="risk-bar"><i style="width:60%"></i></span><span class="risk-n">57</span></span></div>
+          <div class="trow"><span class="nm">Long_Tộc_98</span><span class="money">₫44.5M</span><span>Payment</span><span class="muted">Web</span><span><span class="chip neg">Negative</span></span><span class="stars">★★★★<span class="off">★</span></span><span><span class="chip pos">Closed</span></span><span class="risk"><span class="risk-bar"><i style="width:48%"></i></span><span class="risk-n">45</span></span></div>
+          <div class="trow"><span class="nm">Tuyết_Nhi</span><span class="money">₫38.9M</span><span>Account</span><span class="muted">Ingame</span><span><span class="chip pos">Positive</span></span><span class="stars">★★★★★</span><span><span class="chip pos">Closed</span></span><span class="risk"><span class="risk-bar"><i style="width:22%"></i></span><span class="risk-n">18</span></span></div>
+          <div class="trow"><span class="nm">Hỏa_Kỳ_Lân</span><span class="money">₫29.1M</span><span>Gameplay</span><span class="muted">Ingame</span><span><span class="chip neu">Neutral</span></span><span class="stars">★★★★<span class="off">★</span></span><span><span class="chip pos">Closed</span></span><span class="risk"><span class="risk-bar"><i style="width:15%"></i></span><span class="risk-n">12</span></span></div>
+        </div>
+      </div>
+      <!-- right rail -->
+      <div>
+        <div class="card card-pad" style="margin-bottom:16px">
+          <div class="card-title">Issue mix</div>
+          <div class="mix-row" style="grid-template-columns:80px 1fr 30px"><span class="mix-lab" style="font-size:12px"><span class="dot" style="background:var(--brand)"></span>Payment</span><div class="mix-track"><div class="mix-fill high" style="width:90%"></div></div><span class="mix-ct">11</span></div>
+          <div class="mix-row" style="grid-template-columns:80px 1fr 30px"><span class="mix-lab" style="font-size:12px"><span class="dot" style="background:var(--brand)"></span>Account</span><div class="mix-track"><div class="mix-fill high" style="width:66%"></div></div><span class="mix-ct">8</span></div>
+          <div class="mix-row" style="grid-template-columns:80px 1fr 30px"><span class="mix-lab" style="font-size:12px"><span class="dot" style="background:var(--neutral-400)"></span>Gameplay</span><div class="mix-track"><div class="mix-fill" style="width:42%"></div></div><span class="mix-ct">5</span></div>
+          <div class="mix-row" style="grid-template-columns:80px 1fr 30px"><span class="mix-lab" style="font-size:12px"><span class="dot" style="background:var(--brand)"></span>Security</span><div class="mix-track"><div class="mix-fill high" style="width:25%"></div></div><span class="mix-ct">3</span></div>
+        </div>
+        <div class="card card-pad">
+          <div class="card-title">CS impact · recharge</div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-around;gap:8px">
+            <div style="text-align:center"><div class="delta down" style="font-size:18px;font-weight:700;color:var(--negative)">−31%</div><div class="spark" style="justify-content:center"><div class="b pre" style="height:38px;width:22px"></div><div class="b post" style="height:26px;width:22px"></div></div><div class="muted" style="font-size:10.5px;margin-top:5px">Contacted · n=22</div></div>
+            <div style="width:1px;height:60px;background:var(--border-card)"></div>
+            <div style="text-align:center"><div class="delta flat" style="font-size:18px;font-weight:700;color:var(--text-secondary)">−6%</div><div class="spark" style="justify-content:center"><div class="b pre" style="height:36px;width:22px"></div><div class="b post flat" style="height:34px;width:22px"></div></div><div class="muted" style="font-size:10.5px;margin-top:5px">Not · n=200</div></div>
+          </div>
+          <div class="caption" style="margin-top:10px">◆ Directional, small sample.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ VARIANT C — NARRATIVE ══════════════════ -->
+<section class="variant">
+  <div class="variant-label"><span class="tag">C</span><span class="name">Narrative</span><span class="desc">Novel-but-on-system. Sentence-style pulse, single stacked mix bar, watchlist as risk cards, prominent impact.</span></div>
+  <div class="page">
+    <!-- sentence pulse -->
+    <div style="margin-bottom:18px;padding:4px 2px">
+      <div style="font-size:19px;font-weight:600;line-height:1.5;max-width:760px">
+        <span style="color:var(--brand);font-weight:700">22 of 276</span> whales have contacted support
+        <span class="muted" style="font-size:14px">(8% — <span class="tip" title="Only in-game/web/phone tickets join; Facebook/AIHelp ~90% excluded.">in-game/web/phone only</span>)</span>.
+        <span style="color:var(--negative);font-weight:700">3</span> are unhappy and
+        <span style="color:var(--warning-ink);font-weight:700">7</span> tickets are still open.
+      </div>
+    </div>
+    <!-- single stacked mix bar -->
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="card-title">Where the 29 tickets land</div>
+      <div style="display:flex;height:30px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border-card)">
+        <div style="width:38%;background:var(--brand);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600">Payment 11</div>
+        <div style="width:28%;background:var(--orange-700);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600">Account 8</div>
+        <div style="width:17%;background:var(--neutral-400);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600">Game 5</div>
+        <div style="width:10%;background:#b45309;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600">Sec 3</div>
+        <div style="width:7%;background:var(--neutral-300)"></div>
+      </div>
+      <div class="muted" style="font-size:11px;margin-top:8px">Payment + Account + Security = high-stakes families (orange).</div>
+    </div>
+    <!-- impact + risk cards -->
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:16px">
+      <div class="card card-pad">
+        <div class="card-title">Spend after contact</div>
+        <div style="text-align:center;padding:6px 0">
+          <div class="delta down" style="font-size:34px;font-weight:700;color:var(--negative);font-variant-numeric:tabular-nums">−31%</div>
+          <div class="muted" style="font-size:12px;margin-top:2px">contacted whales, 30d before → after</div>
+          <div style="margin-top:14px;display:flex;align-items:flex-end;justify-content:center;gap:14px;height:70px">
+            <div style="text-align:center"><div class="b" style="width:40px;height:60px;background:var(--neutral-300);border-radius:4px 4px 0 0"></div><div class="muted" style="font-size:10px;margin-top:4px">pre</div></div>
+            <div style="text-align:center"><div class="b" style="width:40px;height:41px;background:var(--brand);border-radius:4px 4px 0 0"></div><div class="muted" style="font-size:10px;margin-top:4px">post</div></div>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-card)" class="muted">
+            <span style="font-size:13px">Not-contacted cohort: <b style="color:var(--text-secondary)">−6%</b></span>
+          </div>
+          <div class="caption" style="justify-content:center">◆ Directional · small sample (n=22)</div>
+        </div>
+      </div>
+      <div>
+        <div class="sectionhead">Top of the watchlist</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="card card-pad" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border-left:3px solid var(--negative)">
+            <div><div class="nm" style="font-size:14px">Kiếm_Vô_Tình <span class="muted" style="font-weight:400;font-size:12px">· ₫184.2M LTV</span></div>
+              <div style="margin-top:5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="chip neg">Negative</span><span class="chip warn">New</span><span class="stars">★<span class="off">★★★★</span></span><span class="muted" style="font-size:11.5px">Payment · Web · 4d ago</span></div></div>
+            <div class="risk-n" style="font-size:20px;color:var(--negative)">95</div>
+          </div>
+          <div class="card card-pad" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border-left:3px solid var(--negative)">
+            <div><div class="nm" style="font-size:14px">PhongVân_2k3 <span class="muted" style="font-weight:400;font-size:12px">· ₫92.7M LTV</span></div>
+              <div style="margin-top:5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="chip neg">Negative</span><span class="chip info">Processing</span><span class="stars">★★<span class="off">★★★</span></span><span class="muted" style="font-size:11.5px">Account · Ingame · 9d ago</span></div></div>
+            <div class="risk-n" style="font-size:20px;color:var(--negative)">78</div>
+          </div>
+          <div class="card card-pad" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border-left:3px solid var(--warning-ink)">
+            <div><div class="nm" style="font-size:14px">Đại_Hiệp_VIP <span class="muted" style="font-weight:400;font-size:12px">· ₫71.0M LTV</span></div>
+              <div style="margin-top:5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="chip neu">Neutral</span><span class="chip warn">Reopen</span><span class="stars">★★★<span class="off">★★</span></span><span class="muted" style="font-size:11.5px">Security · Phone · 21d ago</span></div></div>
+            <div class="risk-n" style="font-size:20px;color:var(--warning-ink)">57</div>
+          </div>
+          <div class="muted" style="font-size:12px;text-align:center;padding:4px">+ 19 more contacted members →</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

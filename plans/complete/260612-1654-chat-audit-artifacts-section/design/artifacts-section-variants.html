@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chat-Audit · Artifacts Section — 3 Variants</title>
+<!--
+  DESIGN CANVAS — Artifacts section for chat-audit turn detail.
+
+  ASSUMPTIONS (junior pass):
+  1. Data: QueryArtifact[] already in turn DTO — title, summary, source
+     (business-metric|segment|raw), game, CubeQuery, sourceRef, deeplinkUrl,
+     optional chart. No new backend work.
+  2. "Which artifact when": auditors need ordinal anchoring (Artifact 1/2 within
+     the turn, emit order = array order) + correlation with the
+     emit_query_artifact tool-invocation rows above it.
+  3. Both surfaces get the same section; admin panel uses tokens.css vars,
+     dev audit uses hermes T.* — visually identical in light mode.
+  4. Charts are NOT re-rendered in audit (heavy, needs live Cube). We show a
+     "has chart" indicator + chart type instead. Deeplink opens Playground.
+
+  Palette = real tokens: brand #f05a22, brandSoft #fff7ed, brandBorder #fed7aa,
+  n100 #f5f5f5, n200 #e5e5e5, n400 #a3a3a3, n500 #737373, n600 #525252,
+  n900 #171717, surfaceMuted #fafaf6, surfaceSubtle #f9fafb,
+  info-soft #dbeafe / info-ink #1d4ed8, muted-soft #f5f5f5 / muted-ink #525252.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    background: #ececea;
+    color: #171717;
+    padding: 40px;
+  }
+  .mono { font-family: "Geist Mono", "JetBrains Mono", ui-monospace, Menlo, monospace; }
+
+  .canvas-label {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #525252; margin: 48px 0 6px;
+  }
+  .canvas-sub { font-size: 12.5px; color: #737373; margin-bottom: 14px; max-width: 760px; line-height: 1.5; }
+  .canvas-label:first-of-type { margin-top: 0; }
+
+  /* ---- shared mock turn-card chrome (mirrors turn-detail.tsx) ---- */
+  .turn-card {
+    border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden;
+    background: #fff; max-width: 860px; margin-bottom: 8px;
+  }
+  .turn-header {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: #fafaf6; font-size: 12px; user-select: none;
+  }
+  .turn-idx { color: #a3a3a3; font-size: 11px; min-width: 24px; }
+  .turn-role { font-weight: 600; color: #f05a22; flex: 1; }
+  .turn-stats { color: #737373; font-size: 11px; }
+  .turn-time { color: #a3a3a3; font-size: 11px; }
+  .turn-body { padding: 10px 14px; }
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: #737373; margin: 12px 0 6px;
+  }
+  .dim-section { opacity: 0.45; pointer-events: none; }
+  .tool-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .tool-table td, .tool-table th {
+    padding: 4px 8px; border-bottom: 1px solid #f5f5f5; text-align: left; color: #525252;
+  }
+  .tool-table th { color: #a3a3a3; font-weight: 600; font-size: 10px; text-transform: uppercase; }
+  .ok-dot { color: #16a34a; }
+
+  /* =================== VARIANT A · Mini artifact cards =================== */
+  .va-card {
+    border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden;
+    background: #fff; margin-bottom: 8px;
+  }
+  .va-head {
+    display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+    border-bottom: 1px solid #f5f5f5; background: #fff;
+  }
+  .va-ordinal {
+    font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px;
+    color: #a3a3a3; min-width: 18px;
+  }
+  .va-icon { width: 15px; height: 15px; flex-shrink: 0; }
+  .va-title { font-size: 12.5px; font-weight: 600; color: #171717; flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .src-badge {
+    font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+    letter-spacing: 0.03em; white-space: nowrap;
+  }
+  .src-metric  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+  .src-segment { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .src-raw     { background: #f5f5f5; color: #525252; border: 1px solid #e5e5e5; }
+  .chart-pill {
+    font-size: 10px; color: #525252; background: #f9fafb; border: 1px solid #e5e5e5;
+    border-radius: 4px; padding: 1px 6px; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .va-open {
+    font-size: 11px; padding: 2px 9px; border: 1px solid #fed7aa; border-radius: 4px;
+    background: #fff7ed; color: #f05a22; cursor: pointer; text-decoration: none;
+    white-space: nowrap; font-weight: 500;
+  }
+  .va-meta {
+    display: flex; gap: 14px; padding: 7px 12px 7px 38px; font-size: 11px;
+    color: #737373; align-items: center; flex-wrap: wrap;
+  }
+  .va-meta b { color: #525252; font-weight: 600; }
+  .va-query-toggle {
+    font-size: 10.5px; color: #737373; cursor: pointer; background: none;
+    border: none; padding: 0; text-decoration: underline dotted; font-family: inherit;
+  }
+  .va-query {
+    font-family: "Geist Mono", ui-monospace, monospace; font-size: 10.5px;
+    background: #f9fafb; border-top: 1px solid #f5f5f5; padding: 8px 12px;
+    white-space: pre-wrap; color: #525252; max-height: 220px; overflow-y: auto;
+  }
+
+  /* =================== VARIANT B · Forensic ledger rows =================== */
+  .vb-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .vb-table th {
+    text-align: left; padding: 4px 8px; color: #a3a3a3; font-weight: 600;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .vb-table td { padding: 6px 8px; border-bottom: 1px solid #f5f5f5; color: #525252; vertical-align: top; }
+  .vb-title { font-weight: 600; color: #171717; }
+  .vb-sub { font-size: 10.5px; color: #a3a3a3; margin-top: 1px; }
+  .vb-expand-row td {
+    background: #f9fafb; font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10.5px; white-space: pre-wrap; color: #525252; padding: 8px 12px;
+  }
+  .vb-link { color: #f05a22; text-decoration: none; font-size: 11px; white-space: nowrap; }
+  .vb-caret { cursor: pointer; color: #a3a3a3; background: none; border: none; font-size: 10px; }
+
+  /* =================== VARIANT C · Query-first split panels =================== */
+  .vc-card {
+    border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden;
+    background: #fff; margin-bottom: 8px; display: flex;
+  }
+  .vc-left {
+    width: 252px; flex-shrink: 0; padding: 10px 12px; border-right: 1px solid #f5f5f5;
+    display: flex; flex-direction: column; gap: 7px; background: #fff;
+  }
+  .vc-ordrow { display: flex; align-items: center; gap: 7px; }
+  .vc-title { font-size: 12.5px; font-weight: 600; color: #171717; line-height: 1.35; }
+  .vc-summary { font-size: 11px; color: #737373; line-height: 1.45; }
+  .vc-kv { font-size: 10.5px; color: #a3a3a3; }
+  .vc-kv b { color: #525252; font-weight: 600; }
+  .vc-right { flex: 1; padding: 10px 12px; background: #f9fafb; min-width: 0; }
+  .vc-chiplabel {
+    font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #a3a3a3; margin: 6px 0 3px;
+  }
+  .vc-chiplabel:first-child { margin-top: 0; }
+  .member-chip {
+    display: inline-block; font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10px; padding: 2px 7px; border-radius: 4px; margin: 0 4px 4px 0;
+    background: #fff; border: 1px solid #e5e5e5; color: #525252;
+  }
+  .member-chip.measure { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
+  .member-chip.timedim { border-color: #bfdbfe; background: #dbeafe; color: #1d4ed8; }
+  .vc-rawjson {
+    font-size: 10px; color: #a3a3a3; cursor: pointer; background: none; border: none;
+    padding: 0; text-decoration: underline dotted; font-family: inherit; margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════ VARIANT A ════════════════════════ -->
+<div class="canvas-label">Variant A · Mini artifact cards — “what the user saw”</div>
+<div class="canvas-sub">
+  Reuses the Chat UI's QueryArtifactCard grammar (icon + title + source badge + Open in Playground)
+  shrunk to audit density. Ordinal <span class="mono">A1/A2</span> anchors emit order within the turn.
+  Query JSON collapsed behind a toggle. Strong recognition: an auditor instantly maps this to the card
+  the end-user clicked.
+</div>
+
+<div class="turn-card">
+  <div class="turn-header">
+    <span class="turn-idx mono">#4</span>
+    <span class="turn-role">Assistant</span>
+    <span class="turn-stats mono">12.4k in · 980 out · $0.0312 · 18432ms · sonnet · cache 81%</span>
+    <span class="turn-time">12/06/2026, 14:32:18</span>
+  </div>
+  <div class="turn-body">
+    <div class="dim-section">
+      <div class="section-label">Tool Invocations (3)</div>
+      <table class="tool-table">
+        <tr><th></th><th>Tool</th><th>ms</th><th>Summary</th></tr>
+        <tr><td class="ok-dot">●</td><td class="mono">preview_cube_query</td><td>2140</td><td>30 rows · mf_users.dau by day</td></tr>
+        <tr><td class="ok-dot">●</td><td class="mono">emit_query_artifact</td><td>12</td><td>Daily Active Users — last 30 days</td></tr>
+        <tr><td class="ok-dot">●</td><td class="mono">emit_query_artifact</td><td>9</td><td>Recharge amount by channel — June</td></tr>
+      </table>
+    </div>
+
+    <div class="section-label" style="color:#c2410c;">Artifacts (2)</div>
+
+    <div class="va-card">
+      <div class="va-head">
+        <span class="va-ordinal">A1</span>
+        <svg class="va-icon" viewBox="0 0 24 24" fill="none" stroke="#f05a22" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span class="va-title">Daily Active Users — last 30 days</span>
+        <span class="src-badge src-metric">Metric</span>
+        <span class="chart-pill">📈 line chart</span>
+        <a class="va-open" href="#">Open in Playground ↗</a>
+      </div>
+      <div class="va-meta">
+        <span>game <b>cfm_vn</b></span>
+        <span>ref <b class="mono">mf_users.dau</b></span>
+        <span>30 preview rows</span>
+        <button class="va-query-toggle">▸ Cube query</button>
+      </div>
+    </div>
+
+    <div class="va-card">
+      <div class="va-head">
+        <span class="va-ordinal">A2</span>
+        <svg class="va-icon" viewBox="0 0 24 24" fill="none" stroke="#f05a22" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span class="va-title">Recharge amount by channel — June 2026</span>
+        <span class="src-badge src-raw">Raw Query</span>
+        <a class="va-open" href="#">Open in Playground ↗</a>
+      </div>
+      <div class="va-meta">
+        <span>game <b>cfm_vn</b></span>
+        <span>no chart</span>
+        <button class="va-query-toggle">▾ Cube query</button>
+      </div>
+      <div class="va-query">{
+  "measures": ["user_recharge_daily.total_amount"],
+  "dimensions": ["user_recharge_daily.channel"],
+  "timeDimensions": [{
+    "dimension": "user_recharge_daily.log_date",
+    "dateRange": ["2026-06-01", "2026-06-30"]
+  }],
+  "order": { "user_recharge_daily.total_amount": "desc" }
+}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ VARIANT B ════════════════════════ -->
+<div class="canvas-label">Variant B · Forensic ledger — matches Tool Invocations density</div>
+<div class="canvas-sub">
+  Same table grammar as the LLM Calls / Tool Invocations sections directly above it — one row per
+  artifact, expandable query JSON like args_json. Densest option; scales best for turns that emit
+  4+ artifacts. Less visual resemblance to what the end-user saw.
+</div>
+
+<div class="turn-card">
+  <div class="turn-header">
+    <span class="turn-idx mono">#4</span>
+    <span class="turn-role">Assistant</span>
+    <span class="turn-stats mono">12.4k in · 980 out · $0.0312 · 18432ms · sonnet</span>
+    <span class="turn-time">12/06/2026, 14:32:18</span>
+  </div>
+  <div class="turn-body">
+    <div class="dim-section">
+      <div class="section-label">Tool Invocations (3)</div>
+      <table class="tool-table">
+        <tr><td class="ok-dot">●</td><td class="mono">emit_query_artifact</td><td>12</td><td>Daily Active Users — last 30 days</td></tr>
+      </table>
+    </div>
+
+    <div class="section-label" style="color:#c2410c;">Artifacts (2)</div>
+    <table class="vb-table">
+      <tr>
+        <th style="width:24px;">#</th><th>Title</th><th>Source</th><th>Game</th>
+        <th>Chart</th><th>Query</th><th></th>
+      </tr>
+      <tr>
+        <td class="mono" style="color:#a3a3a3;">1</td>
+        <td>
+          <div class="vb-title">Daily Active Users — last 30 days</div>
+          <div class="vb-sub mono">ref mf_users.dau · 30 preview rows</div>
+        </td>
+        <td><span class="src-badge src-metric">Metric</span></td>
+        <td class="mono">cfm_vn</td>
+        <td>line</td>
+        <td><button class="vb-caret">▸ expand</button></td>
+        <td><a class="vb-link" href="#">Playground ↗</a></td>
+      </tr>
+      <tr>
+        <td class="mono" style="color:#a3a3a3;">2</td>
+        <td>
+          <div class="vb-title">Recharge amount by channel — June 2026</div>
+          <div class="vb-sub">summary: Top-up revenue split across payment channels</div>
+        </td>
+        <td><span class="src-badge src-raw">Raw</span></td>
+        <td class="mono">cfm_vn</td>
+        <td>—</td>
+        <td><button class="vb-caret">▾ collapse</button></td>
+        <td><a class="vb-link" href="#">Playground ↗</a></td>
+      </tr>
+      <tr class="vb-expand-row">
+        <td colspan="7">{
+  "measures": ["user_recharge_daily.total_amount"],
+  "dimensions": ["user_recharge_daily.channel"],
+  "timeDimensions": [{ "dimension": "user_recharge_daily.log_date", "dateRange": ["2026-06-01", "2026-06-30"] }],
+  "order": { "user_recharge_daily.total_amount": "desc" }
+}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════ VARIANT C ════════════════════════ -->
+<div class="canvas-label">Variant C · Query-first split panel — members as chips</div>
+<div class="canvas-sub">
+  Debug-oriented: left pane = identity (ordinal, title, summary, source, game, deeplink); right pane =
+  the CubeQuery decomposed into member chips (measures / dimensions / time grain / filters) — readable
+  at a glance without parsing JSON. Raw JSON still one click away. Tallest per artifact.
+</div>
+
+<div class="turn-card">
+  <div class="turn-header">
+    <span class="turn-idx mono">#4</span>
+    <span class="turn-role">Assistant</span>
+    <span class="turn-stats mono">12.4k in · 980 out · $0.0312 · 18432ms · sonnet</span>
+    <span class="turn-time">12/06/2026, 14:32:18</span>
+  </div>
+  <div class="turn-body">
+    <div class="section-label" style="color:#c2410c;">Artifacts (2)</div>
+
+    <div class="vc-card">
+      <div class="vc-left">
+        <div class="vc-ordrow">
+          <span class="va-ordinal">A1</span>
+          <span class="src-badge src-metric">Metric</span>
+          <span class="chart-pill">line</span>
+        </div>
+        <div class="vc-title">Daily Active Users — last 30 days</div>
+        <div class="vc-summary">Unique logins per day across all servers, VN region.</div>
+        <div class="vc-kv">game <b>cfm_vn</b> · ref <b class="mono">mf_users.dau</b></div>
+        <a class="va-open" style="align-self:flex-start;" href="#">Open in Playground ↗</a>
+      </div>
+      <div class="vc-right">
+        <div class="vc-chiplabel">Measures</div>
+        <span class="member-chip measure">mf_users.dau</span>
+        <div class="vc-chiplabel">Time</div>
+        <span class="member-chip timedim">mf_users.log_date · day · last 30 days</span>
+        <div class="vc-chiplabel">Filters</div>
+        <span class="member-chip">region = VN</span>
+        <button class="vc-rawjson">view raw JSON</button>
+      </div>
+    </div>
+
+    <div class="vc-card">
+      <div class="vc-left">
+        <div class="vc-ordrow">
+          <span class="va-ordinal">A2</span>
+          <span class="src-badge src-segment">Segment</span>
+        </div>
+        <div class="vc-title">High-value churn-risk players</div>
+        <div class="vc-summary">VIP spenders inactive 7+ days — from segment “VIP churn watch”.</div>
+        <div class="vc-kv">game <b>cfm_vn</b> · ref <b class="mono">seg_4f2a</b></div>
+        <a class="va-open" style="align-self:flex-start;" href="#">Open in Playground ↗</a>
+      </div>
+      <div class="vc-right">
+        <div class="vc-chiplabel">Measures</div>
+        <span class="member-chip measure">user_recharge_daily.total_amount</span>
+        <div class="vc-chiplabel">Dimensions</div>
+        <span class="member-chip">mf_users.uid</span>
+        <span class="member-chip">mf_users.ingame_name</span>
+        <div class="vc-chiplabel">Filters</div>
+        <span class="member-chip">vip_level ≥ 5</span>
+        <span class="member-chip">days_since_login &gt; 7</span>
+        <button class="vc-rawjson">view raw JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

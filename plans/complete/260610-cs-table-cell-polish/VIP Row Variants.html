@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIP Row Variants — CS Action Queue</title>
+<style>
+  /* Real cube-playground tokens (light) — copied verbatim from src/theme/tokens.css */
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
+    --neutral-800:#262626;--neutral-900:#171717;--neutral-950:#0a0a0a;
+    --orange-50:#fff7ed;--orange-600:#f05a22;--orange-700:#f54a00;
+    --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:var(--orange-50);
+    --bg-app:var(--neutral-50);--bg-card:#fff;--bg-muted:var(--neutral-100);
+    --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+    --text-on-brand:#fff;
+    --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+    --success-soft:#d1fae5;--success-ink:#047857;--warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;--info-soft:#dbeafe;--info-ink:#1d4ed8;
+    --muted-soft:#f5f5f5;--muted-ink:#525252;
+    --radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  .dark{
+    --brand-soft:rgba(240,90,34,.12);--bg-app:var(--neutral-950);--bg-card:var(--neutral-900);
+    --bg-muted:var(--neutral-800);--border-card:var(--neutral-800);--border-strong:var(--neutral-700);
+    --text-primary:var(--neutral-50);--text-secondary:var(--neutral-300);--text-muted:var(--neutral-500);
+    --success-soft:rgba(16,185,129,.15);--success-ink:#6ee7b7;--warning-soft:rgba(217,119,6,.18);--warning-ink:#fcd34d;
+    --destructive-soft:rgba(220,38,38,.18);--destructive-ink:#fca5a5;--info-soft:rgba(63,141,255,.16);--info-ink:#93c5fd;
+    --muted-soft:#262626;--muted-ink:#a3a3a3;--shadow-sm:0 1px 3px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg-app);font-family:var(--font-sans);color:var(--text-primary);padding:40px 32px 64px}
+  .wrap{max-width:1280px;margin:0 auto}
+  h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0 0 4px}
+  .lead{font-size:13px;color:var(--text-muted);margin:0 0 28px;max-width:760px;line-height:1.55}
+  .variant{margin-bottom:34px}
+  .vlabel{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+  .vlabel .tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--brand-hover);background:var(--brand-soft);padding:3px 9px;border-radius:var(--radius-full)}
+  .vlabel .name{font-size:15px;font-weight:700}
+  .vlabel .desc{font-size:12px;color:var(--text-muted)}
+  .card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);font-weight:600;text-align:left;padding:8px 16px;border-bottom:1px solid var(--border-card);background:var(--bg-card)}
+  tbody td{padding:10px 16px;border-bottom:1px solid var(--border-card);font-size:12.5px;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr.row{cursor:pointer;transition:background .12s}
+  tbody tr.row:hover{background:var(--brand-soft)}
+
+  /* ── VIP identity cell ── */
+  .vip{display:flex;align-items:center;gap:11px;min-width:0}
+  .av{flex-shrink:0;width:32px;height:32px;display:grid;place-items:center;font-size:12px;font-weight:700;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+  /* A — mono dark circle (design-system .avatar) */
+  .av.mono{border-radius:var(--radius-full);background:var(--neutral-800);color:#fff}
+  .dark .av.mono{background:var(--neutral-700)}
+  /* B — tier-tinted circle + ring */
+  .av.tier{border-radius:var(--radius-full)}
+  .av.t4{background:var(--brand-soft);color:var(--brand-hover);box-shadow:inset 0 0 0 1.5px var(--brand)}
+  .av.t3{background:var(--warning-soft);color:var(--warning-ink);box-shadow:inset 0 0 0 1.5px var(--warning)}
+  .av.t2{background:var(--info-soft);color:var(--info-ink);box-shadow:inset 0 0 0 1.5px var(--info)}
+  /* C — rounded-square brand-ghost (.m-av shape) */
+  .av.sq{border-radius:var(--radius-md);background:var(--brand-soft);color:var(--brand-hover)}
+  .vipmeta{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .vipname{display:flex;align-items:center;gap:7px}
+  .vipname b{font-size:13.5px;font-weight:700;color:var(--text-primary);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tbadge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:1px 7px;border-radius:var(--radius-full);white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .tbadge.t4{background:var(--brand-soft);color:var(--brand-hover)}
+  .tbadge.t3{background:var(--warning-soft);color:var(--warning-ink)}
+  .tbadge.t2{background:var(--info-soft);color:var(--info-ink)}
+  .tbadge .thr{opacity:.7;font-weight:600}
+  .submeta{font-size:11.5px;color:var(--text-muted)}
+  .submeta b{color:var(--text-secondary);font-weight:600;font-variant-numeric:tabular-nums}
+  /* C two-line variant keeps churn on its own line */
+  .submeta.two{font-size:11px}
+
+  /* ── shared cell chips ── */
+  .qcase{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:var(--radius-full);background:var(--bg-muted);color:var(--text-secondary);margin-right:5px}
+  .qcase .d{width:7px;height:7px;border-radius:50%}
+  .badge{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:var(--radius-full);white-space:nowrap}
+  .badge.cao{background:var(--destructive-soft);color:var(--destructive-ink)}
+  .badge.tb{background:var(--info-soft);color:var(--info-ink)}
+  .last{color:var(--text-muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+  .last.cap{display:inline-flex;align-items:center;gap:5px;color:var(--warning-ink);font-weight:600}
+  .capdot{width:6px;height:6px;border-radius:50%;background:var(--warning)}
+
+  /* ── action cluster ── */
+  .act{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+  .btn{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 12px;font-size:11.5px;font-weight:600;font-family:inherit;border-radius:var(--radius-md);cursor:pointer;white-space:nowrap;border:1px solid transparent;line-height:1}
+  .btn.ghost{background:transparent;border-color:var(--border-strong);color:var(--text-secondary)}
+  .btn.ghost:hover{background:var(--bg-muted)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-hover)}
+  .btn.disabled{background:var(--bg-card);border-color:var(--border-card);color:var(--text-muted);opacity:.6;cursor:not-allowed}
+  .owner{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--text-muted);background:var(--bg-muted);padding:3px 8px 3px 4px;border-radius:var(--radius-full)}
+  .owner .od{width:18px;height:18px;border-radius:var(--radius-full);background:var(--neutral-800);color:#fff;display:grid;place-items:center;font-size:9px;font-weight:700}
+  .dark .owner .od{background:var(--neutral-700)}
+
+  .modeswitch{position:fixed;top:18px;right:24px;display:flex;gap:0;border:1px solid var(--border-strong);border-radius:var(--radius-md);overflow:hidden;font-size:12px;font-weight:600;z-index:50}
+  .modeswitch button{border:0;background:var(--bg-card);color:var(--text-muted);padding:7px 14px;cursor:pointer;font-family:inherit}
+  .modeswitch button.on{background:var(--brand);color:#fff}
+  .note{font-size:11.5px;color:var(--text-muted);margin:8px 2px 0;line-height:1.5}
+  .sectit{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:40px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border-card)}
+</style>
+</head>
+<body>
+<div class="modeswitch">
+  <button id="lt" class="on" onclick="setMode('light')">Light</button>
+  <button id="dk" onclick="setMode('dark')">Dark</button>
+</div>
+
+<div class="wrap">
+  <h1>VIP Action Queue · row treatments</h1>
+  <p class="lead">Three takes on the locked direction — <b>monogram avatar + name + condensed meta</b> for the VIP cell, and a <b>right-aligned ghost+primary action cluster</b>. Grid is unchanged (rows 10/16, thead 8/16, 12.5px). Differences are the avatar shape/color encoding and how the meta line condenses. Hover a row to see the brand-soft highlight. Mix freely (e.g. "B avatar + A's one-line meta").</p>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="variant">
+    <div class="vlabel"><span class="tag">A</span><span class="name">Mono avatar · one-line meta</span><span class="desc">Most faithful to the design-system <code>.avatar</code> — neutral-800 circle, white initials. Meta collapses to a single muted line.</span></div>
+    <div class="card">
+      <table>
+        <thead><tr><th style="width:24%">VIP</th><th>Open cases (cross-playbook)</th><th>Top priority</th><th>Last contact</th><th style="width:180px"></th></tr></thead>
+        <tbody>
+          <tr class="row">
+            <td><div class="vip"><div class="av mono">BA</div><div class="vipmeta"><div class="vipname"><b>BinhMinh_AK</b><span class="tbadge t4">T4<span class="thr">₫150M</span></span></div><div class="submeta"><b>₫184M</b> · whale · no-pay <b>44d</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--danger)"></span>Spend drop</span><span class="qcase"><span class="d" style="background:var(--warning)"></span>No login</span></td>
+            <td><span class="badge cao">Spend drop</span></td>
+            <td><span class="last">—</span></td>
+            <td><div class="act"><button class="btn ghost">Claim</button><button class="btn primary">Take care →</button></div></td>
+          </tr>
+          <tr class="row">
+            <td><div class="vip"><div class="av mono">RD</div><div class="vipmeta"><div class="vipname"><b>ToxicLord</b><span class="tbadge t3">T3<span class="thr">₫50M</span></span></div><div class="submeta"><b>₫96M</b> · dolphin · no-pay <b>2d</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--danger)"></span>Gacha bad-luck</span><span class="qcase"><span class="d" style="background:var(--success)"></span>VIP tier ✓</span></td>
+            <td><span class="badge cao">Gacha bad-luck</span></td>
+            <td><span class="last cap"><span class="capdot"></span>2h ago · cap</span></td>
+            <td><div class="act"><span class="owner"><span class="od">KT</span>khoitn</span><button class="btn disabled">Deferred</button></div></td>
+          </tr>
+          <tr class="row">
+            <td><div class="vip"><div class="av mono">LA</div><div class="vipmeta"><div class="vipname"><b>ClanMom_Lan</b><span class="tbadge t3">T3<span class="thr">₫50M</span></span></div><div class="submeta"><b>₫61M</b> · dolphin · no-pay <b>—</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--info)"></span>Anniversary 365d</span></td>
+            <td><span class="badge tb">Anniversary</span></td>
+            <td><span class="last">5d ago</span></td>
+            <td><div class="act"><button class="btn ghost">Claim</button><button class="btn primary">Take care →</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Avatar = last-2 of uid or name initials. Single meta line keeps the cell to <b>two text rows</b> → most compact, most "CRM table" feel.</p>
+  </div>
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="variant">
+    <div class="vlabel"><span class="tag">B</span><span class="name">Tier-tinted avatar · one-line meta</span><span class="desc">Avatar color + ring encodes the VIP tier (brand=T4, amber=T3, blue=T2) — tier readable at a glance even before the badge.</span></div>
+    <div class="card">
+      <table>
+        <thead><tr><th style="width:24%">VIP</th><th>Open cases (cross-playbook)</th><th>Top priority</th><th>Last contact</th><th style="width:180px"></th></tr></thead>
+        <tbody>
+          <tr class="row">
+            <td><div class="vip"><div class="av tier t4">BA</div><div class="vipmeta"><div class="vipname"><b>BinhMinh_AK</b><span class="tbadge t4">T4<span class="thr">₫150M</span></span></div><div class="submeta"><b>₫184M</b> · whale · no-pay <b>44d</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--danger)"></span>Spend drop</span><span class="qcase"><span class="d" style="background:var(--warning)"></span>No login</span></td>
+            <td><span class="badge cao">Spend drop</span></td>
+            <td><span class="last">—</span></td>
+            <td><div class="act"><button class="btn ghost">Claim</button><button class="btn primary">Take care →</button></div></td>
+          </tr>
+          <tr class="row">
+            <td><div class="vip"><div class="av tier t3">RD</div><div class="vipmeta"><div class="vipname"><b>ToxicLord</b><span class="tbadge t3">T3<span class="thr">₫50M</span></span></div><div class="submeta"><b>₫96M</b> · dolphin · no-pay <b>2d</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--danger)"></span>Gacha bad-luck</span><span class="qcase"><span class="d" style="background:var(--success)"></span>VIP tier ✓</span></td>
+            <td><span class="badge cao">Gacha bad-luck</span></td>
+            <td><span class="last cap"><span class="capdot"></span>2h ago · cap</span></td>
+            <td><div class="act"><span class="owner"><span class="od">KT</span>khoitn</span><button class="btn disabled">Deferred</button></div></td>
+          </tr>
+          <tr class="row">
+            <td><div class="vip"><div class="av tier t2">LA</div><div class="vipmeta"><div class="vipname"><b>ClanMom_Lan</b><span class="tbadge t2">T2<span class="thr">₫20M</span></span></div><div class="submeta"><b>₫61M</b> · dolphin · no-pay <b>—</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--info)"></span>Anniversary 365d</span></td>
+            <td><span class="badge tb">Anniversary</span></td>
+            <td><span class="last">5d ago</span></td>
+            <td><div class="act"><button class="btn ghost">Claim</button><button class="btn primary">Take care →</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Same footprint as A, but the avatar earns its place as a <b>tier signal</b>, not just an anchor. Falls back to mono (neutral) when LTV/tier is unknown.</p>
+  </div>
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="variant">
+    <div class="vlabel"><span class="tag">C</span><span class="name">Rounded-square avatar · two-line meta</span><span class="desc">Softer rounded-square (the <code>.m-av</code> shape) in brand-ghost. Keeps churn on its own line — most informative, slightly taller.</span></div>
+    <div class="card">
+      <table>
+        <thead><tr><th style="width:24%">VIP</th><th>Open cases (cross-playbook)</th><th>Top priority</th><th>Last contact</th><th style="width:180px"></th></tr></thead>
+        <tbody>
+          <tr class="row">
+            <td><div class="vip"><div class="av sq">BA</div><div class="vipmeta"><div class="vipname"><b>BinhMinh_AK</b><span class="tbadge t4">T4<span class="thr">₫150M</span></span></div><div class="submeta two"><b>₫184M</b> · whale</div><div class="submeta two">no-pay <b>44d</b> · idle <b>32d</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--danger)"></span>Spend drop</span><span class="qcase"><span class="d" style="background:var(--warning)"></span>No login</span></td>
+            <td><span class="badge cao">Spend drop</span></td>
+            <td><span class="last">—</span></td>
+            <td><div class="act"><button class="btn ghost">Claim</button><button class="btn primary">Take care →</button></div></td>
+          </tr>
+          <tr class="row">
+            <td><div class="vip"><div class="av sq">RD</div><div class="vipmeta"><div class="vipname"><b>ToxicLord</b><span class="tbadge t3">T3<span class="thr">₫50M</span></span></div><div class="submeta two"><b>₫96M</b> · dolphin</div><div class="submeta two">no-pay <b>2d</b> · idle <b>1d</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--danger)"></span>Gacha bad-luck</span><span class="qcase"><span class="d" style="background:var(--success)"></span>VIP tier ✓</span></td>
+            <td><span class="badge cao">Gacha bad-luck</span></td>
+            <td><span class="last cap"><span class="capdot"></span>2h ago · cap</span></td>
+            <td><div class="act"><span class="owner"><span class="od">KT</span>khoitn</span><button class="btn disabled">Deferred</button></div></td>
+          </tr>
+          <tr class="row">
+            <td><div class="vip"><div class="av sq">LA</div><div class="vipmeta"><div class="vipname"><b>ClanMom_Lan</b><span class="tbadge t3">T3<span class="thr">₫50M</span></span></div><div class="submeta two"><b>₫61M</b> · dolphin</div><div class="submeta two">no-pay <b>—</b> · idle <b>8d</b></div></div></div></td>
+            <td><span class="qcase"><span class="d" style="background:var(--info)"></span>Anniversary 365d</span></td>
+            <td><span class="badge tb">Anniversary</span></td>
+            <td><span class="last">5d ago</span></td>
+            <td><div class="act"><button class="btn ghost">Claim</button><button class="btn primary">Take care →</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Preserves the full churn line (no-pay + idle) — closest to today's info content, just anchored + aligned. Cell is <b>three text rows</b>, so the row is a touch taller than A/B.</p>
+  </div>
+
+  <div class="sectit">By-Playbook lens — same avatar applied (uses Variant B avatar here)</div>
+  <div class="card">
+    <table>
+      <thead><tr><th style="width:24%">VIP</th><th>Matched Playbook</th><th>State</th><th>Matched</th><th style="width:160px"></th></tr></thead>
+      <tbody>
+        <tr class="row">
+          <td><div class="vip"><div class="av tier t4">WK</div><div class="vipmeta"><div class="vipname"><b>WhaleKing</b><span class="tbadge t4">T4<span class="thr">₫150M</span></span></div><div class="submeta"><b>₫212M</b> · whale · no-pay <b>1d</b></div></div></div></td>
+          <td><span class="badge cao">Top leaderboard fade</span></td>
+          <td><span class="badge" style="background:var(--brand-soft);color:var(--brand-hover);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em">New</span></td>
+          <td><span class="last">12m ago</span></td>
+          <td><div class="act"><button class="btn primary">Open 360 →</button></div></td>
+        </tr>
+        <tr class="row">
+          <td><div class="vip"><div class="av tier t3">TN</div><div class="vipmeta"><div class="vipname"><b>NoScope_Tin</b><span class="tbadge t3">T3<span class="thr">₫50M</span></span></div><div class="submeta"><b>₫48M</b> · dolphin · no-pay <b>5d</b></div></div></div></td>
+          <td><span class="badge cao">Rank drop</span></td>
+          <td><span class="badge" style="background:var(--info-soft);color:var(--info-ink);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em">In review</span></td>
+          <td><span class="last">3h ago</span></td>
+          <td><div class="act"><span class="owner"><span class="od">KT</span>khoitn</span><button class="btn primary">Open 360 →</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">The avatar + cluster carry across both lenses so the two tables read as one system.</p>
+</div>
+
+<script>
+  function setMode(m){
+    document.body.classList.toggle('dark', m==='dark');
+    document.getElementById('lt').classList.toggle('on', m==='light');
+    document.getElementById('dk').classList.toggle('on', m==='dark');
+  }
+  if(location.search.indexOf('dark')>-1) setMode('dark');
+</script>
+</body>
+</html>

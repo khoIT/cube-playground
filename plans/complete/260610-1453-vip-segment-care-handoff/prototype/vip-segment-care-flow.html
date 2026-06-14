@@ -1,0 +1,1013 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIP Segment Care — end-to-end flow prototype (v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<style>
+/* ── Token subset copied verbatim from src/theme/tokens.css (production-faithful) ── */
+:root{
+  --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-150:#ededed; --neutral-200:#e5e5e5;
+  --neutral-300:#d4d4d4; --neutral-400:#a3a3a3; --neutral-500:#737373; --neutral-600:#525252;
+  --neutral-700:#404040; --neutral-800:#262626; --neutral-900:#171717;
+  --orange-50:#fff7ed; --orange-200:#fed7aa; --orange-600:#f05a22; --orange-700:#f54a00; --orange-900:#7c2d12;
+  --brand:var(--orange-600); --brand-hover:var(--orange-700); --brand-soft:var(--orange-50);
+  --bg-app:var(--neutral-50); --bg-card:#ffffff; --bg-muted:var(--neutral-100);
+  --border-card:var(--neutral-200); --border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700); --text-muted:var(--neutral-500);
+  --text-on-brand:#fff;
+  --success:#059669; --warning:#f59e0b; --danger:#ef4444; --info:#3f8dff;
+  --success-soft:#d1fae5; --success-ink:#047857;
+  --warning-soft:#fef3c7; --warning-ink:#92400e;
+  --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+  --info-soft:#dbeafe; --info-ink:#1d4ed8;
+  --muted-soft:#f5f5f5; --muted-ink:#525252;
+  --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-2xl:16px; --radius-full:9999px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --positive:#15803d; --negative:#b91c1c;
+  --header-h:44px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg-app);color:var(--text-primary);font-family:var(--font-sans);
+  font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;cursor:pointer;}
+.tnum{font-variant-numeric:tabular-nums;}
+.row-hover{transition:background .12s ease;}
+.row-hover:hover{background:var(--bg-muted);}
+.lift{transition:box-shadow .12s;}
+.lift:hover{box-shadow:var(--shadow-sm);}
+.btn-primary{background:var(--brand);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:600;transition:background .12s;}
+.btn-primary:hover{background:var(--brand-hover);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.btn-secondary{background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;transition:border-color .12s,color .12s;}
+.btn-secondary:hover{border-color:var(--border-strong);color:var(--text-primary);}
+.btn-secondary:disabled{opacity:.45;cursor:not-allowed;}
+.ghost{background:transparent;border:none;color:var(--text-muted);font-size:12px;padding:4px 8px;border-radius:6px;}
+.ghost:hover{color:var(--text-primary);background:var(--bg-muted);}
+.choice-card{transition:border-color .12s, box-shadow .12s, background .12s;}
+.choice-card:hover{border-color:var(--border-strong);}
+.scroll::-webkit-scrollbar{width:9px;height:9px;}
+.scroll::-webkit-scrollbar-thumb{background:var(--neutral-300);border-radius:9999px;}
+input[type=range]{accent-color:var(--brand);}
+@keyframes slideIn{from{transform:translateX(24px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes pop{0%{transform:scale(.96);opacity:0;}100%{transform:scale(1);opacity:1;}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const {useState, useMemo} = React;
+
+/* ───────────────────────── token helpers ───────────────────────── */
+const T = {
+  text:'var(--text-primary)', sec:'var(--text-secondary)', muted:'var(--text-muted)',
+  card:'var(--bg-card)', app:'var(--bg-app)', mutedBg:'var(--bg-muted)',
+  border:'var(--border-card)', borderStrong:'var(--border-strong)', brand:'var(--brand)',
+};
+const CHIP = {
+  info:{bg:'var(--info-soft)',fg:'var(--info-ink)'},
+  success:{bg:'var(--success-soft)',fg:'var(--success-ink)'},
+  warning:{bg:'var(--warning-soft)',fg:'var(--warning-ink)'},
+  destructive:{bg:'var(--destructive-soft)',fg:'var(--destructive-ink)'},
+  muted:{bg:'var(--muted-soft)',fg:'var(--muted-ink)'},
+  brand:{bg:'var(--brand-soft)',fg:'var(--orange-900)'},
+};
+const PRIORITY = { cao:{chip:'destructive',label:'Cao'}, tb:{chip:'warning',label:'TB'}, thap:{chip:'muted',label:'Thấp'} };
+
+/* sub-case lifecycle states (per-playbook), incl. interim KPI signals */
+const SUB = {
+  new:        {chip:'info',        label:'New'},
+  in_review:  {chip:'warning',     label:'In review'},
+  watching:   {chip:'info',        label:'Watching'},
+  on_track:   {chip:'success',     label:'On track'},
+  at_risk:    {chip:'warning',     label:'At risk'},
+  recovered:  {chip:'success',     label:'Recovered'},
+  missed:     {chip:'destructive', label:'KPI missed'},
+  dismissed:  {chip:'muted',       label:'Dismissed'},
+};
+
+/* ───────────────────────── playbook catalog ───────────────────────── */
+const PB = {
+  pb04:{id:'04', group:'Payment', name:'Spend drop', priority:'cao', metric:'7d spend recovery',
+    cond:'7d daily spend < 30% of 30d avg', kpi:'spend back ≥ 60% baseline in 14d', target:60,
+    action:'Reach out; understand friction, targeted retention offer', channels:['Call','Zalo ZNS'], sla:'24h'},
+  pb14:{id:'14', group:'Churn', name:'Lapse risk', priority:'cao', metric:'return to active',
+    cond:'engaged VIP, no login 7–14d', kpi:'return to active within 7d', target:null,
+    action:'Win-back: personal check-in + comeback reward', channels:['Call','Zalo ZNS'], sla:'24h'},
+  pb12:{id:'12', group:'In-game', name:'Gacha bad-luck', priority:'tb', metric:'satisfaction',
+    cond:'pity counter high, no SSR in N draws', kpi:'satisfaction; no rage-quit', target:null,
+    action:'Goodwill: bonus draw / pity boost + apology note', channels:['In-game','Zalo ZNS'], sla:'12h'},
+};
+
+/* ───────── KPI trajectory model — value = % of personal baseline, target 60 ───────── */
+const CURVE_PTS = {
+  recover:  [[0,0],[3,8],[7,42],[11,62],[14,76]],
+  late:     [[0,0],[5,4],[8,38],[11,58],[14,71]],
+  stall:    [[0,0],[4,10],[8,18],[11,21],[14,24]],   // added to start; never reaches 60 → misses
+  volatile: [[0,0],[2,15],[5,33],[8,55],[11,48],[14,66]],
+};
+function curveVal(archetype, start, d){
+  const pts = CURVE_PTS[archetype] || CURVE_PTS.recover;
+  d = Math.max(0, Math.min(14, d));
+  for(let i=0;i<pts.length-1;i++){
+    const [x0,y0]=pts[i],[x1,y1]=pts[i+1];
+    if(d>=x0 && d<=x1){ const t=(d-x0)/((x1-x0)||1); return Math.round(start + (y0+(y1-y0)*t)); }
+  }
+  return Math.round(start + pts[pts.length-1][1]);
+}
+/* spend-recovery sub-case state from day cursor */
+function spendState(sub, day){
+  if(sub.status==='dismissed') return 'dismissed';
+  if(sub.treatedDay==null) return sub.status;          // new / in_review
+  const d = day - sub.treatedDay;
+  if(d < 0) return sub.status;                          // treated in a future day (scrubbed back)
+  const start = sub.start, val = curveVal(sub.archetype,start,d), fin = curveVal(sub.archetype,start,14);
+  if(d >= 14) return val>=PB.pb04.target ? 'recovered' : 'missed';
+  if(val >= PB.pb04.target) return 'recovered';
+  if(d < 2) return 'watching';
+  return fin >= 58 ? 'on_track' : 'at_risk';
+}
+/* secondary playbooks resolve on a simpler binary, keyed to days-since-treat */
+function softState(sub, day){
+  if(sub.status==='dismissed') return 'dismissed';
+  if(sub.treatedDay==null) return sub.status;
+  const d = day - sub.treatedDay;
+  if(d < 0) return sub.status;
+  if(sub.archetype==='stall') return d>=7 ? 'missed' : 'watching';
+  if(d>=4) return 'recovered';
+  return 'watching';
+}
+function subState(pb, sub, day){ return pb==='pb04' ? spendState(sub,day) : softState(sub,day); }
+
+/* ───────────────────────── synthetic cfm_vn cohort ─────────────────────────
+   Each VIP carries per-playbook sub-cases (matches care_cases unique(playbook,uid)).
+   start = current % of baseline = 100 + drop. archetype fixes the eventual outcome. */
+const fmtVnd = (n)=> n>=1e9? '₫'+(n/1e9).toFixed(2)+'B' : n>=1e6? '₫'+(n/1e6).toFixed(1)+'M' : '₫'+n.toLocaleString();
+const tierLabel = (ltv)=> ltv>=100e6?'Tier 4':ltv>=50e6?'Tier 3':ltv>=20e6?'Tier 2':'Tier 1';
+
+function sc(pb, drop, {status='new', treatedDay=null, archetype='recover', treatment=null}={}){
+  return {pb, status, treatedDay, archetype, start:Math.max(8,100+drop), treatment};
+}
+const SEED = [
+  {uid:'88401273', name:'Nguyễn Văn Hùng', ltv:128_400_000, churn:3, drop:-81,
+    subs:[ sc('pb04',-81,{archetype:'recover'}), sc('pb12',-81,{archetype:'recover'}) ]},
+  {uid:'88407755', name:'Trần Minh Quân', ltv:64_200_000, churn:6, drop:-74,
+    // treated for spend-drop only — lapse-risk left OPEN (the one-vs-all case)
+    subs:[ sc('pb04',-74,{status:'treated',treatedDay:0,archetype:'late',treatment:{channel:'Call',text:'Retention offer + friction call',day:0}}),
+           sc('pb14',-74,{status:'new'}) ]},
+  {uid:'88412980', name:'Lê Hoàng Long', ltv:52_900_000, churn:2, drop:-68,
+    subs:[ sc('pb04',-68,{status:'in_review'}) ], owner:'You'},
+  {uid:'88419002', name:'Phạm Quốc Bảo', ltv:41_100_000, churn:9, drop:-77,
+    subs:[ sc('pb04',-77,{archetype:'recover'}), sc('pb14',-77,{archetype:'recover'}) ]},
+  {uid:'88423641', name:'Vũ Đức Anh', ltv:33_500_000, churn:1, drop:-62,
+    subs:[ sc('pb04',-62,{archetype:'volatile'}), sc('pb12',-62,{archetype:'recover'}) ]},
+  {uid:'88429318', name:'Đỗ Gia Huy', ltv:27_800_000, churn:11, drop:-85,
+    // fully treated (both playbooks), spend recovering
+    subs:[ sc('pb04',-85,{status:'treated',treatedDay:0,archetype:'recover',treatment:{channel:'Call',text:'Comeback reward + retention offer',day:0}}),
+           sc('pb14',-85,{status:'treated',treatedDay:0,archetype:'recover',treatment:{channel:'Call',text:'Comeback reward',day:0}}) ], owner:'You'},
+  {uid:'88433507', name:'Bùi Thanh Tùng', ltv:22_600_000, churn:4, drop:-59,
+    subs:[ sc('pb04',-59,{archetype:'recover'}) ]},
+  {uid:'88440912', name:'Hồ Nhật Nam', ltv:21_300_000, churn:7, drop:-71,
+    // treated but will MISS — drives the re-treat / escalate path
+    subs:[ sc('pb04',-71,{status:'treated',treatedDay:0,archetype:'stall',treatment:{channel:'Zalo ZNS',text:'Discount voucher',day:0}}),
+           sc('pb12',-71,{status:'new'}) ]},
+];
+const topPriority = (subs)=>{ const o={cao:3,tb:2,thap:1};
+  return subs.map(s=>PB[s.pb].priority).sort((a,b)=>o[b]-o[a])[0]; };
+
+/* derive a VIP's overall state + addressed fraction from its sub-cases at a given day */
+function vipRollup(rec, day){
+  const live = rec.subs.filter(s=>s.status!=='dismissed');
+  const states = live.map(s=>({pb:s.pb, st:subState(s.pb,s,day)}));
+  const treatedLike = s=>['watching','on_track','at_risk','recovered','missed'].includes(s);
+  const addressed = states.filter(s=>treatedLike(s.st)).length;
+  const total = live.length;
+  const anyOpen = states.some(s=>['new','in_review'].includes(s.st));
+  const allDone = states.every(s=>['recovered','dismissed'].includes(s.st));
+  const anyMiss = states.some(s=>s.st==='missed');
+  const anyRisk = states.some(s=>s.st==='at_risk');
+  let overall = 'new';
+  if(allDone && total>0) overall='resolved';
+  else if(addressed>0 && anyOpen) overall='partial';
+  else if(addressed>0) overall='treated';
+  else if(states.some(s=>s.st==='in_review')) overall='in_review';
+  return {states, addressed, total, overall, anyMiss, anyRisk, anyOpen};
+}
+
+/* ───────── contact-fatigue governance ─────────
+   Each logged treatment is a "contact". A "Cover all" outreach treats several
+   playbooks at the SAME day+channel → counts as ONE contact (the whole point of
+   bundling). Contactability is derived per VIP from its contacts vs the policy. */
+function contactsOf(rec, day){
+  const seen=new Set(), out=[];
+  rec.subs.forEach(s=>{ if(s.treatment){ const k=s.treatment.day+'|'+s.treatment.channel;
+    if(!seen.has(k)){ seen.add(k); out.push({day:s.treatment.day, channel:s.treatment.channel}); } }});
+  return out.filter(c=>c.day<=day);
+}
+function contactability(rec, day, gov){
+  const contacts=contactsOf(rec,day);
+  const inWin=contacts.filter(c=>(day-c.day)<gov.windowDays);
+  const capped=inWin.length>=gov.maxPerWindow;
+  const nextSlotDay=capped? Math.min(...inWin.map(c=>c.day))+gov.windowDays : null;
+  const channelUntil={};
+  Object.keys(gov.channelCooldownDays).forEach(ch=>{
+    const days=contacts.filter(c=>c.channel===ch).map(c=>c.day);
+    if(days.length){ const u=Math.max(...days)+gov.channelCooldownDays[ch]; if(u>day) channelUntil[ch]=u; }
+  });
+  return {contacts, inWin:inWin.length, capped, nextSlotDay, channelUntil,
+    lastDay: contacts.length? Math.max(...contacts.map(c=>c.day)):null};
+}
+
+/* ───────────────────────── small UI atoms ───────────────────────── */
+function Chip({kind, children, style}){
+  const c = CHIP[kind]||CHIP.muted;
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,background:c.bg,color:c.fg,
+    fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:'var(--radius-full)',lineHeight:1.4,whiteSpace:'nowrap',...style}}>{children}</span>;
+}
+function SubChip({state}){ const m=SUB[state]||SUB.new; return <Chip kind={m.chip}>{m.label}</Chip>; }
+function PbPill({pbKey, dim, onClick}){
+  const p = PB[pbKey]; const c = CHIP[PRIORITY[p.priority].chip];
+  return <span onClick={onClick} title={p.cond}
+    style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,padding:'2px 8px 2px 6px',
+      borderRadius:'var(--radius-md)',whiteSpace:'nowrap',background:c.bg,color:c.fg,opacity:dim?.5:1,cursor:onClick?'pointer':'default'}}>
+    <span style={{fontFamily:'monospace',fontSize:10,opacity:.8}}>{p.id}</span>{p.name}</span>;
+}
+function Eyebrow({children}){ return <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',color:T.muted,marginBottom:6}}>{children}</div>; }
+function Frac({n,d}){
+  const full = n>=d;
+  return <Chip kind={full?'success':'warning'}>{n}/{d} addressed</Chip>;
+}
+/* contactability chip — only render when there's a real constraint or recent contact */
+function ContactBadge({ct}){
+  if(ct.capped) return <Chip kind="destructive">⛔ Contact cap · Day {ct.nextSlotDay}</Chip>;
+  const cooled=Object.keys(ct.channelUntil);
+  if(cooled.length) return <Chip kind="warning">{cooled[0]} cooldown · Day {ct.channelUntil[cooled[0]]}</Chip>;
+  if(ct.lastDay!=null) return <Chip kind="muted">Last contact Day {ct.lastDay}</Chip>;
+  return null;
+}
+
+/* KPI trajectory sparkline — fills in day-by-day, target line at 60 */
+function Sparkline({sub, day, w=132, h=34}){
+  const dsince = sub.treatedDay==null ? -1 : day - sub.treatedDay;
+  const pad=3, x=(d)=>pad + (d/14)*(w-2*pad), y=(v)=>h-pad-(Math.max(0,Math.min(100,v))/100)*(h-2*pad);
+  const full=[], shown=[];
+  for(let d=0;d<=14;d++){ const v=curveVal(sub.archetype,sub.start,d); full.push([x(d),y(v)]); if(d<=dsince) shown.push([x(d),y(v)]); }
+  const tgtY=y(PB.pb04.target);
+  const curVal = dsince>=0 ? curveVal(sub.archetype,sub.start,Math.min(14,dsince)) : null;
+  const good = curVal!=null && curVal>=PB.pb04.target;
+  const line = (pts)=>pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  return (
+    <svg width={w} height={h} style={{display:'block'}}>
+      <line x1={pad} x2={w-pad} y1={tgtY} y2={tgtY} stroke="var(--success)" strokeWidth="1" strokeDasharray="3 3" opacity="0.5"/>
+      <path d={line(full)} fill="none" stroke="var(--neutral-300)" strokeWidth="1.25" strokeDasharray="2 2"/>
+      {shown.length>1 && <path d={line(shown)} fill="none" stroke={good?'var(--success)':'var(--warning)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>}
+      {dsince>=0 && shown.length>0 && <circle cx={shown[shown.length-1][0]} cy={shown[shown.length-1][1]} r="2.6" fill={good?'var(--success)':'var(--warning)'}/>}
+    </svg>
+  );
+}
+
+/* ═══════════════════════════ APP ═══════════════════════════ */
+const STEPS=[{n:1,label:'Seam'},{n:2,label:'Triage'},{n:3,label:'Understand'},{n:4,label:'Act'},{n:5,label:'Outcomes'}];
+function App(){
+  const [route,setRoute]=useState('segment');
+  const [model,setModel]=useState('A');
+  const [lens,setLens]=useState('vip');        // 'vip' | 'watchlist'
+  const [day,setDay]=useState(0);              // 0..14 as-of cursor
+  const [seamOpen,setSeamOpen]=useState(false);
+  const [selUid,setSelUid]=useState(null);
+  const [treatUid,setTreatUid]=useState(null);
+  const [cases,setCases]=useState(()=>SEED.map(s=>({...s,subs:s.subs.map(x=>({...x}))})));
+  const [step,setStep]=useState(1);
+  const [bAction,setBAction]=useState('pb04');
+  // contact-fatigue governance (per-game). maxPerWindow editable in the GovBar so the
+  // demo can show the effect of tightening the cap. Cooldowns are per channel, in days.
+  const [gov,setGov]=useState({maxPerWindow:2, windowDays:7,
+    channelCooldownDays:{'Call':7,'Zalo ZNS':3,'In-game':1,'Push':1}});
+
+  const enterCare=(m)=>{ setModel(m); setSeamOpen(false); setRoute('queue'); setStep(2); };
+  const openMember=(uid)=>{ setSelUid(uid); setStep(s=>Math.max(s,3)); };
+  const claim=(uid)=>setCases(cs=>cs.map(c=>c.uid===uid?{...c,owner:'You',
+    subs:c.subs.map(s=>s.status==='new'?{...s,status:'in_review'}:s)}:c));
+  const treat=(uid, addressedPbs, payload)=>{
+    setCases(cs=>cs.map(c=>c.uid!==uid?c:({...c,owner:'You',
+      subs:c.subs.map(s=> addressedPbs.includes(s.pb)
+        ? {...s,status:'treated',treatedDay:day,treatment:{channel:payload.channel,text:payload.text,day}}
+        : s)})));
+    setTreatUid(null); setStep(5);
+  };
+  const retreat=(uid,pb)=>setCases(cs=>cs.map(c=>c.uid!==uid?c:({...c,
+    subs:c.subs.map(s=> s.pb===pb ? {...s,status:'treated',treatedDay:day,archetype:'recover',
+      start:Math.max(40,s.start+10),treatment:{channel:'Call',text:'Re-treat: escalated retention call',day}} : s)})));
+
+  const sel=cases.find(c=>c.uid===selUid);
+  const treatRec=cases.find(c=>c.uid===treatUid);
+
+  return (
+    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+      <TopBar step={step}/>
+      <div style={{flex:1,display:'flex',justifyContent:'center'}}>
+        <div style={{width:'100%',maxWidth: route==='segment'?900:1320, padding:'24px 32px', margin:'0 auto'}}>
+          {route==='segment'
+            ? <SegmentDetail onSend={()=>setSeamOpen(true)} count={cases.length}/>
+            : <CareQueue cases={cases} model={model} bAction={bAction} day={day} setDay={setDay}
+                lens={lens} setLens={setLens} onOpen={openMember} onModel={setModel} gov={gov} setGov={setGov}
+                onBack={()=>{setRoute('segment');setStep(1);}} onRetreat={retreat}/>}
+        </div>
+      </div>
+      {seamOpen && <SeamModal bAction={bAction} setBAction={setBAction} onClose={()=>setSeamOpen(false)} onConfirm={enterCare} count={cases.length}/>}
+      {sel && <Member360 rec={sel} model={model} bAction={bAction} day={day} gov={gov}
+        onClose={()=>setSelUid(null)} onClaim={()=>claim(sel.uid)} onTreat={()=>setTreatUid(sel.uid)} onRetreat={retreat}/>}
+      {treatRec && <TreatModal rec={treatRec} model={model} bAction={bAction} day={day} gov={gov}
+        onClose={()=>setTreatUid(null)} onConfirm={(pbs,p)=>treat(treatRec.uid,pbs,p)}/>}
+    </div>
+  );
+}
+
+function TopBar({step}){
+  return (
+    <div style={{height:'var(--header-h)',borderBottom:'1px solid var(--border-card)',background:'var(--bg-card)',
+      display:'flex',alignItems:'center',padding:'0 20px',gap:16,position:'sticky',top:0,zIndex:20}}>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{width:18,height:18,borderRadius:5,background:'var(--brand)'}}/>
+        <span style={{fontWeight:700,fontSize:13}}>cube‑playground</span>
+        <span style={{color:T.muted}}>/</span><span style={{color:T.sec,fontSize:12}}>cfm_vn</span>
+      </div>
+      <div style={{flex:1}}/>
+      <div style={{display:'flex',alignItems:'center',gap:4}}>
+        {STEPS.map((s,i)=>(
+          <React.Fragment key={s.n}>
+            {i>0 && <span style={{color:'var(--neutral-300)',fontSize:11}}>›</span>}
+            <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11.5,fontWeight:step===s.n?700:500,
+              color: step===s.n?'var(--brand)':(step>s.n?T.sec:T.muted),padding:'4px 8px',borderRadius:'var(--radius-full)',
+              background: step===s.n?'var(--brand-soft)':'transparent'}}>
+              <span style={{width:16,height:16,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',
+                fontSize:10,fontWeight:700,background: step>=s.n?'var(--brand)':'var(--neutral-200)',color: step>=s.n?'#fff':T.muted}}>{s.n}</span>
+              {s.label}</span>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ BEAT 1 · SEAM ═══════════════ */
+function SegmentDetail({onSend, count}){
+  return (
+    <div style={{animation:'fadeIn .2s ease'}}>
+      <Eyebrow>Segment · cfm_vn</Eyebrow>
+      <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,flex:1}}><IconUsers/>
+          <h1 style={{margin:0,fontSize:20,fontWeight:700,color:T.text}}>VIP · spend‑drop watch</h1></div>
+        <div style={{display:'flex',alignItems:'center',gap:0,background:'var(--bg-card)',border:'1px solid var(--border-strong)',
+          borderRadius:'var(--radius-md)',overflow:'hidden'}}>
+          <button className="ghost" style={{height:28,borderRadius:0}}>Share</button>
+          <span style={{width:1,height:18,background:'var(--border-card)'}}/>
+          <button className="ghost" style={{height:28,borderRadius:0}}>Refresh</button>
+          <span style={{width:1,height:18,background:'var(--border-card)'}}/>
+          <button className="ghost" style={{height:28,borderRadius:0}}>Open in Playground</button>
+        </div>
+        <button className="btn-primary" onClick={onSend} style={{display:'inline-flex',alignItems:'center',gap:7}}><IconSend/> Send to CS Care</button>
+      </div>
+      <p style={{margin:'8px 0 20px',fontSize:13,color:T.muted,maxWidth:'62ch'}}>
+        Built from a natural‑language query in Chat → saved here as a live segment. The metrics store defines
+        <b style={{color:T.sec}}> who</b>; the CS Dashboard supplies <b style={{color:T.sec}}>what to do</b> and tracks whether it worked.</p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12,marginBottom:16}}>
+        <Tile label="Members" value={String(count*10)} sub="live · refreshes daily"/>
+        <Tile label="Median LTV" value="₫38.4M" sub="all ≥ ₫20M (Tier 2+)"/>
+        <Tile label="Avg 7d spend Δ" value="−71%" sub="vs personal 30d baseline" tone="negative"/>
+        <Tile label="At churn risk" value="34%" sub="no login 7–14d" tone="warning"/>
+      </div>
+      <Card style={{marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+          <span style={{fontSize:14,fontWeight:600}}>Definition</span><Chip kind="success">● live</Chip></div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+          <DefPill type="cube">cfm_vn</DefPill><DefPill type="measure">mf_users.ltv_total_vnd</DefPill>
+          <span style={{color:T.muted,fontSize:12}}>≥ 20,000,000</span><span style={{color:'var(--neutral-300)'}}>·</span>
+          <DefPill type="measure">user_recharge_rolling.qualified_drop_ratio</DefPill><span style={{color:T.muted,fontSize:12}}>&lt; 0.30</span></div>
+      </Card>
+      <Card pad0>
+        <div style={{display:'flex',alignItems:'center',gap:8,padding:'14px 16px 10px'}}>
+          <span style={{fontSize:14,fontWeight:600}}>Members</span><span style={{fontSize:12,color:T.muted}}>preview · 8 of {count*10}</span></div>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+          <thead><tr style={{color:T.muted,textAlign:'left',fontSize:11,textTransform:'uppercase',letterSpacing:'0.04em'}}>
+            <th style={{...th,paddingLeft:16}}>Player</th><th style={th}>LTV</th><th style={th}>Tier</th><th style={th}>Last active</th>
+            <th style={{...th,textAlign:'right',paddingRight:16}}>7d spend Δ</th></tr></thead>
+          <tbody>{SEED.map(m=>(
+            <tr key={m.uid} className="row-hover" style={{borderTop:'1px solid var(--border-card)'}}>
+              <td style={{...td,paddingLeft:16}}><b style={{fontWeight:600}}>{m.name}</b>
+                <span style={{color:T.muted,marginLeft:8,fontFamily:'monospace',fontSize:11}}>{m.uid}</span></td>
+              <td style={td} className="tnum">{fmtVnd(m.ltv)}</td>
+              <td style={td}><Chip kind="muted">{tierLabel(m.ltv)}</Chip></td>
+              <td style={td} className="tnum">{m.churn}d ago</td>
+              <td style={{...td,textAlign:'right',paddingRight:16,color:'var(--negative)',fontWeight:600}} className="tnum">{m.drop}%</td>
+            </tr>))}</tbody>
+        </table>
+        <div style={{borderTop:'1px solid var(--border-card)',padding:'10px 16px',color:T.muted,fontSize:12}}>
+          This segment isn't actionable yet — it's a population. <b style={{color:T.brand}}>Send to CS Care</b> turns it into a worklist.</div>
+      </Card>
+    </div>
+  );
+}
+function SeamModal({onClose,onConfirm,count,bAction,setBAction}){
+  const [pick,setPick]=useState('A');
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{width:680,maxWidth:'92vw',background:'var(--bg-card)',borderRadius:'var(--radius-2xl)',boxShadow:'var(--shadow-lg)',padding:24,animation:'pop .16s ease'}}>
+        <Eyebrow>Send to CS Care</Eyebrow>
+        <h2 style={{margin:'2px 0 4px',fontSize:18,fontWeight:700}}>How should this segment be cared for?</h2>
+        <p style={{margin:'0 0 18px',fontSize:13,color:T.muted}}><b style={{color:T.sec}}>VIP · spend‑drop watch</b> · {count*10} members. Choose how the CS Dashboard treats them.</p>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <ChoiceCard active={pick==='A'} onClick={()=>setPick('A')} badge="Recommended"
+            title="Run all playbooks on this cohort"
+            desc="Each member is screened against all 21 care playbooks. Every VIP shows which playbooks they trip, the prescribed action, and the KPI to watch.">
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10}}><PbPill pbKey="pb04"/><PbPill pbKey="pb14"/><PbPill pbKey="pb12"/><Chip kind="muted">+18 more</Chip></div>
+          </ChoiceCard>
+          <ChoiceCard active={pick==='B'} onClick={()=>setPick('B')} title="Attach one action to the whole segment"
+            desc="Treat the segment as a single ad‑hoc playbook with one action applied to all members. Simpler, but no per‑member intelligence.">
+            <div style={{marginTop:10}}><label style={lbl}>Action</label>
+              <select value={bAction} onChange={e=>setBAction(e.target.value)} onClick={e=>e.stopPropagation()}
+                style={{display:'block',width:'100%',marginTop:6,padding:'7px 10px',fontSize:12.5,fontFamily:'inherit',
+                  border:'1px solid var(--border-strong)',borderRadius:'var(--radius-md)',background:'var(--bg-card)',color:T.text}}>
+                <option value="pb04">Spend‑drop retention outreach</option><option value="pb14">Lapse win‑back</option></select></div>
+          </ChoiceCard>
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:20}}>
+          <span style={{fontSize:12,color:T.muted}}>{pick==='A'?'Sweep intersects segment members with each playbook condition.':'One sweep opens a case per member with the chosen action.'}</span>
+          <div style={{display:'flex',gap:8}}><button className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="btn-primary" onClick={()=>onConfirm(pick)}>{pick==='A'?'Run playbooks · open queue':'Open ad‑hoc queue'}</button></div>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+function ChoiceCard({active,onClick,title,desc,badge,children}){
+  return (
+    <div className="choice-card" onClick={onClick} style={{cursor:'pointer',padding:16,borderRadius:'var(--radius-lg)',
+      border:`1.5px solid ${active?'var(--brand)':'var(--border-card)'}`,background:active?'var(--brand-soft)':'var(--bg-card)',position:'relative'}}>
+      {badge && <span style={{position:'absolute',top:12,right:12}}><Chip kind="brand">{badge}</Chip></span>}
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+        <span style={{width:16,height:16,borderRadius:'50%',border:`5px solid ${active?'var(--brand)':'var(--neutral-300)'}`,background:'#fff',boxSizing:'border-box'}}/>
+        <span style={{fontSize:13.5,fontWeight:700}}>{title}</span></div>
+      <p style={{margin:0,fontSize:12,color:T.sec,lineHeight:1.5}}>{desc}</p>{children}
+    </div>
+  );
+}
+
+/* ═══════════════ BEAT 2/5 · CARE QUEUE (with day cursor + lenses) ═══════════════ */
+function CareQueue({cases,model,bAction,day,setDay,lens,setLens,onOpen,onModel,onBack,onRetreat,gov,setGov}){
+  const rolled = useMemo(()=>cases.map(c=>({rec:c, r:vipRollup(c,day)})),[cases,day]);
+  const order={cao:3,tb:2,thap:1};
+  const ranked=[...rolled].sort((a,b)=>order[topPriority(b.rec.subs)]-order[topPriority(a.rec.subs)]||b.rec.ltv-a.rec.ltv);
+
+  // ── Outcomes math (spend-drop sub-cases = headline KPI) ──
+  // Denominator = ALL treated cases (every 14d window eventually closes). So the rate is
+  // a CUMULATIVE recovery share: recovered-so-far / all-treated. It's always defined,
+  // rises monotonically, and can't inflate to 100% on n=1 (the early-resolver trap). It
+  // reads low mid-window because not-yet-recovered cases still count in the denominator,
+  // converging up to the true final rate by day 14. In-flight cases are broken out as
+  // leading indicators. Lift-vs-baseline is only shown once every window has closed,
+  // since a mid-window cumulative rate isn't comparable to a final no-touch baseline.
+  const spendSubs = cases.flatMap(c=>c.subs.filter(s=>s.pb==='pb04').map(s=>({c,s,st:spendState(s,day)})));
+  const treatedSpend = spendSubs.filter(x=>x.s.treatedDay!=null && (day-x.s.treatedDay)>=0);
+  const recoveredAll = treatedSpend.filter(x=>x.st==='recovered');     // met ≥60% (incl. early cross)
+  const missedAll = treatedSpend.filter(x=>x.st==='missed');           // window closed, below target
+  const inFlight = treatedSpend.filter(x=>['watching','on_track','at_risk'].includes(x.st));
+  const onTrack = inFlight.filter(x=>x.st==='on_track');
+  const atRiskFlight = inFlight.filter(x=>x.st==='at_risk');
+  const watchingEarly = inFlight.filter(x=>x.st==='watching'); // too early to read a trend (≤ Day 1)
+  const allClosed = treatedSpend.length>0 && treatedSpend.every(x=>(day-x.s.treatedDay)>=14);
+  const recoveryRate = treatedSpend.length ? Math.round(100*recoveredAll.length/treatedSpend.length) : null;
+  // standup (leading indicators, as-of cursor day)
+  const closingToday = treatedSpend.filter(x=>x.s.treatedDay+14===day);
+  const recoveredToday = treatedSpend.filter(x=>x.st==='recovered' && spendState(x.s,day-1)!=='recovered');
+  const standupAtRisk = atRiskFlight.length + missedAll.length;
+
+  const newCount = rolled.filter(x=>x.r.overall==='new'||x.r.overall==='in_review').length;
+
+  return (
+    <div style={{animation:'fadeIn .2s ease'}}>
+      <button className="ghost" onClick={onBack} style={{marginBottom:8,marginLeft:-8}}>‹ Back to segment</button>
+      <Eyebrow>CS Care · Action queue</Eyebrow>
+      <div style={{display:'flex',alignItems:'center',gap:10}}><IconClipboard/>
+        <h1 style={{margin:0,fontSize:20,fontWeight:700}}>Caring for a VIP segment</h1></div>
+
+      {/* segment banner + model toggle */}
+      <div style={{display:'flex',alignItems:'center',gap:12,marginTop:14,marginBottom:10,padding:'10px 14px',
+        background:'var(--brand-soft)',border:'1px solid var(--orange-200)',borderRadius:'var(--radius-lg)'}}>
+        <IconUsers small/>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,color:'var(--orange-900)'}}>Segment: VIP · spend‑drop watch · {cases.length*10} members</div>
+          <div style={{fontSize:11.5,color:'var(--orange-900)',opacity:.75}}>{model==='A'?'Model A · screened against all 21 playbooks':`Model B · ad‑hoc playbook «${PB[bAction].name}» applied to all`}</div>
+        </div>
+        <ModelToggle model={model} onModel={onModel}/>
+      </div>
+
+      {/* contact-fatigue policy — the cap that prevents over-contacting VIPs */}
+      <GovBar gov={gov} setGov={setGov}/>
+
+      {/* day cursor — the "daily snapshot arriving" spine */}
+      <DayCursor day={day} setDay={setDay}/>
+
+      {/* outcomes standup */}
+      <StandupCard day={day} recoveredToday={recoveredToday.length} closingToday={closingToday.length}
+        atRisk={standupAtRisk} watching={inFlight.length}/>
+
+      {/* cohort recovery rollup */}
+      <CohortRollup rate={recoveryRate} recovered={recoveredAll.length} total={treatedSpend.length}
+        inFlight={inFlight.length} onTrack={onTrack.length} atRisk={atRiskFlight.length}
+        watching={watchingEarly.length} missed={missedAll.length} allClosed={allClosed}/>
+
+      {/* lens toggle + table */}
+      <Card pad0 style={{marginTop:14}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:'1px solid var(--border-card)'}}>
+          <LensToggle lens={lens} setLens={setLens} watchCount={treatedSpend.length}/>
+          <span style={{fontSize:12,color:T.muted}}>{lens==='vip'?'priority‑ranked · one row per player':'treated · window‑closing‑soonest first'}</span>
+          <div style={{flex:1}}/>
+          <span style={{fontSize:11.5,color:T.muted}}>{lens==='vip'?`${newCount*10} awaiting triage`:`${inFlight.length} in flight`}</span>
+        </div>
+        <div className="scroll" style={{maxHeight:520,overflow:'auto'}}>
+          {lens==='vip'
+            ? ranked.map(({rec,r})=><QueueRow key={rec.uid} rec={rec} r={r} model={model} bAction={bAction} day={day} gov={gov} onOpen={()=>onOpen(rec.uid)}/>)
+            : <Watchlist cases={cases} day={day} gov={gov} onOpen={onOpen} onRetreat={onRetreat}/>}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function ModelToggle({model,onModel}){
+  return (
+    <div style={{display:'inline-flex',background:'var(--bg-card)',border:'1px solid var(--border-strong)',borderRadius:'var(--radius-md)',overflow:'hidden',fontSize:11.5,fontWeight:600}}>
+      {['A','B'].map(k=>(<button key={k} onClick={()=>onModel(k)} style={{border:'none',padding:'5px 12px',cursor:'pointer',
+        background:model===k?'var(--brand)':'transparent',color:model===k?'#fff':T.sec}}>Model {k}</button>))}
+    </div>
+  );
+}
+function LensToggle({lens,setLens,watchCount}){
+  const items=[['vip','By VIP'],['watchlist','Watchlist']];
+  return (
+    <div style={{display:'inline-flex',background:'var(--bg-muted)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-md)',padding:2,gap:2}}>
+      {items.map(([k,l])=>(
+        <button key={k} onClick={()=>setLens(k)} style={{border:'none',padding:'4px 12px',borderRadius:'var(--radius-sm)',fontSize:12,fontWeight:600,cursor:'pointer',
+          display:'inline-flex',alignItems:'center',gap:6,background:lens===k?'var(--bg-card)':'transparent',color:lens===k?T.text:T.muted,
+          boxShadow:lens===k?'var(--shadow-xs)':'none'}}>{l}{k==='watchlist'&&watchCount>0 && <span style={{fontSize:10,fontWeight:700,background:'var(--brand)',color:'#fff',borderRadius:'var(--radius-full)',padding:'0 5px'}}>{watchCount}</span>}</button>
+      ))}
+    </div>
+  );
+}
+
+function DayCursor({day,setDay}){
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:14,padding:'10px 14px',background:'var(--bg-card)',
+      border:'1px solid var(--border-card)',borderRadius:'var(--radius-lg)',marginBottom:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,minWidth:150}}>
+        <IconCalendar/>
+        <div><div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',color:T.muted}}>As of</div>
+          <div style={{fontSize:14,fontWeight:700}} className="tnum">Day {day} <span style={{color:T.muted,fontWeight:500,fontSize:12}}>of 14</span></div></div>
+      </div>
+      <button className="ghost" onClick={()=>setDay(Math.max(0,day-1))} disabled={day===0} style={{fontSize:16}}>◀</button>
+      <input type="range" min="0" max="14" value={day} onChange={e=>setDay(Number(e.target.value))} style={{flex:1}}/>
+      <button className="ghost" onClick={()=>setDay(Math.min(14,day+1))} disabled={day===14} style={{fontSize:16}}>▶</button>
+      <span style={{fontSize:11.5,color:T.muted,whiteSpace:'nowrap'}}>KPI window: 14d</span>
+      <button className="btn-secondary" onClick={()=>setDay(0)}>Reset</button>
+      <button className="btn-secondary" onClick={()=>setDay(14)}>Jump to close</button>
+    </div>
+  );
+}
+
+function GovBar({gov,setGov}){
+  const step=(d)=>setGov(g=>({...g,maxPerWindow:Math.max(1,Math.min(5,g.maxPerWindow+d))}));
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 14px',background:'var(--bg-card)',
+      border:'1px solid var(--border-card)',borderRadius:'var(--radius-lg)',marginBottom:10,fontSize:12}}>
+      <IconShield/>
+      <span style={{fontWeight:600}}>Contact policy</span>
+      <span style={{color:T.muted}}>caps outreach so VIPs aren't over‑contacted</span>
+      <div style={{flex:1}}/>
+      <span style={{color:T.sec,display:'inline-flex',alignItems:'center',gap:4}}>Max
+        <button className="ghost" onClick={()=>step(-1)} style={{padding:'2px 7px',fontSize:14,lineHeight:1}}>−</button>
+        <b className="tnum" style={{minWidth:10,textAlign:'center'}}>{gov.maxPerWindow}</b>
+        <button className="ghost" onClick={()=>step(1)} style={{padding:'2px 7px',fontSize:14,lineHeight:1}}>+</button>
+        contacts / {gov.windowDays}d</span>
+      <span style={{color:'var(--neutral-300)'}}>·</span>
+      <span style={{color:T.muted}}>cooldown — Call {gov.channelCooldownDays['Call']}d · Zalo ZNS {gov.channelCooldownDays['Zalo ZNS']}d</span>
+    </div>
+  );
+}
+function StandupCard({day,recoveredToday,closingToday,atRisk,watching}){
+  const items=[
+    {label:'Recovered today', value:recoveredToday, tone:'positive', hint:'KPI met overnight'},
+    {label:'Windows closing', value:closingToday, tone:'warning', hint:'verdict due today'},
+    {label:'At risk', value:atRisk, tone:'negative', hint:'trending to miss — consider re‑treat'},
+    {label:'Still watching', value:watching, tone:'info', hint:'KPI in flight'},
+  ];
+  return (
+    <Card style={{marginBottom:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+        <span style={{fontSize:14,fontWeight:600}}>Outcomes standup</span>
+        <span style={{fontSize:12,color:T.muted}}>what changed · as of Day {day}</span></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+        {items.map(it=>(
+          <div key={it.label} style={{display:'flex',flexDirection:'column',gap:2}}>
+            <span className="tnum" style={{fontSize:24,fontWeight:700,letterSpacing:'-.015em',
+              color: it.tone==='positive'?'var(--positive)':it.tone==='negative'?'var(--negative)':it.tone==='warning'?'var(--warning-ink)':'var(--info-ink)'}}>{it.value}</span>
+            <span style={{fontSize:12,fontWeight:600,color:T.sec}}>{it.label}</span>
+            <span style={{fontSize:11,color:T.muted}}>{it.hint}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function RollupStat({n,label,tone}){
+  const color = tone==='positive'?'var(--positive)':tone==='warning'?'var(--warning-ink)':tone==='negative'?'var(--negative)':'var(--info-ink)';
+  return (
+    <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+      <span className="tnum" style={{fontSize:20,fontWeight:700,color: n>0?color:T.muted,letterSpacing:'-.01em'}}>{n}</span>
+      <span style={{fontSize:12,color:T.sec}}>{label}</span>
+    </div>
+  );
+}
+function CohortRollup({rate,recovered,total,inFlight,onTrack,atRisk,watching,missed,allClosed}){
+  const BASELINE=54;            // labeled assumption — real value needs a no-touch holdout
+  const pct = rate==null?0:rate;
+  // projected final rate assumes on-track cases will recover; at-risk/missed will not.
+  // Until a trend signal exists (everything still early-watching) projection is undefined.
+  const hasSignal = (onTrack+atRisk)>0 || allClosed;
+  const projected = (total && hasSignal) ? Math.round(100*(recovered+onTrack)/total) : null;
+  const liftPos = rate!=null && rate>=BASELINE;
+  return (
+    <Card>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+        <span style={{fontSize:14,fontWeight:600}}>Program impact</span>
+        <span style={{fontSize:12,color:T.muted}}>spend‑drop recovery · treated cohort</span>
+        <div style={{flex:1}}/>
+        {/* lift only once every window has closed — mid-window cumulative ≠ final baseline */}
+        {allClosed && rate!=null
+          ? <Chip kind={liftPos?'success':'warning'}>{(rate-BASELINE>=0?'+':'')+(rate-BASELINE)}pp vs no‑touch</Chip>
+          : <Chip kind="muted">lift at window close</Chip>}
+      </div>
+
+      {/* (a) lead with the lifecycle breakdown — the operator-actionable view */}
+      <div style={{display:'flex',gap:22,marginBottom:14,flexWrap:'wrap'}}>
+        <RollupStat n={recovered} label="recovered" tone="positive"/>
+        <RollupStat n={onTrack} label="on track" tone="info"/>
+        {watching>0 && <RollupStat n={watching} label="watching" tone="muted"/>}
+        <RollupStat n={atRisk} label="at risk" tone="warning"/>
+        <RollupStat n={missed} label="missed" tone="negative"/>
+      </div>
+
+      {/* bar: solid = recovered now; ghost = projected (recovered + on-track); tick = baseline */}
+      <div style={{position:'relative',height:10,background:'var(--bg-muted)',borderRadius:'var(--radius-full)',overflow:'hidden'}}>
+        {!allClosed && projected!=null && <div style={{position:'absolute',top:0,bottom:0,left:0,width:projected+'%',background:'rgba(240,90,34,.22)',borderRadius:'var(--radius-full)',transition:'width .25s'}}/>}
+        <div style={{position:'absolute',top:0,bottom:0,left:0,width:pct+'%',background:allClosed?'var(--success)':'var(--brand)',borderRadius:'var(--radius-full)',transition:'width .25s'}}/>
+      </div>
+      <div style={{position:'relative',height:14,marginTop:2}}>
+        {/* baseline marker + label */}
+        <div style={{position:'absolute',left:BASELINE+'%',top:-13,bottom:0,width:2,background:'var(--text-secondary)'}} title="no-touch baseline (assumption)"/>
+        <span style={{position:'absolute',left:BASELINE+'%',transform:'translateX(-50%)',top:0,fontSize:10,color:T.muted,whiteSpace:'nowrap'}}>baseline 54% · assumption</span>
+        {/* projected marker label */}
+        {!allClosed && projected!=null && <span style={{position:'absolute',left:projected+'%',transform:'translateX(-50%)',top:0,fontSize:10,color:'var(--orange-900)',whiteSpace:'nowrap'}}>proj {projected}%</span>}
+      </div>
+
+      {/* (a) cumulative % shown small, as a caption — not the hero number */}
+      <div style={{marginTop:8,fontSize:11.5,color:T.muted}}>
+        {allClosed
+          ? <><b style={{color:T.sec}}>{rate}% recovered</b> · {recovered} of {total} windows closed</>
+          : <><b style={{color:T.sec}}>{rate}% recovered so far</b> · projected {projected==null?<b style={{color:T.muted}}>pending (Day 2+)</b>:<b style={{color:'var(--orange-900)'}}>{projected}%</b>} at window close · {recovered}/{total} settled, {inFlight} in flight</>}
+      </div>
+    </Card>
+  );
+}
+
+/* By-VIP row — shows addressed fraction + per-playbook chips */
+function QueueRow({rec,r,model,bAction,day,gov,onOpen}){
+  const pri=topPriority(rec.subs);
+  const ct=contactability(rec,day,gov);
+  const pbs = model==='A'? rec.subs.map(s=>s.pb) : [bAction];
+  return (
+    <div className="row-hover" onClick={onOpen} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',cursor:'pointer',borderBottom:'1px solid var(--border-card)'}}>
+      <div style={{width:230,minWidth:230}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}><b style={{fontSize:13,fontWeight:600}}>{rec.name}</b><Chip kind="muted">{tierLabel(rec.ltv)}</Chip></div>
+        <div style={{fontSize:11.5,color:T.muted,marginTop:2}} className="tnum">{fmtVnd(rec.ltv)} LTV · last active {rec.churn}d</div>
+      </div>
+      <div style={{flex:1,display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
+        {(model==='A'?rec.subs:[{pb:bAction}]).map((s,i)=>{
+          const st = model==='A'? r.states.find(x=>x.pb===s.pb)?.st : null;
+          const done = ['recovered'].includes(st), open=['new','in_review'].includes(st);
+          return <PbPill key={i} pbKey={s.pb} dim={done}/>;
+        })}
+      </div>
+      <div style={{width:96,textAlign:'right'}} className="tnum">
+        <div style={{fontSize:13,fontWeight:600,color:'var(--negative)'}}>{rec.drop}%</div>
+        <div style={{fontSize:11,color:T.muted}}>7d spend Δ</div>
+      </div>
+      <div style={{width:168,display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+        <Chip kind={PRIORITY[pri].chip}>{PRIORITY[pri].label}</Chip>
+        {model==='A' && r.total>1 && (r.overall==='partial'||r.overall==='treated'||r.overall==='resolved')
+          ? <Frac n={r.addressed} d={r.total}/>
+          : <SubChip state={overallToSub(r.overall)}/>}
+        {r.anyMiss && <Chip kind="destructive">needs re‑treat</Chip>}
+        {!r.anyMiss && r.anyRisk && <Chip kind="warning">at risk</Chip>}
+        {(ct.capped || Object.keys(ct.channelUntil).length>0) && <ContactBadge ct={ct}/>}
+      </div>
+      <span style={{color:'var(--neutral-300)'}}>›</span>
+    </div>
+  );
+}
+function overallToSub(o){ return o==='resolved'?'recovered':o==='partial'?'in_review':o==='treated'?'watching':o; }
+
+/* Watchlist lens — treated sub-cases with KPI sparklines, soonest-closing first */
+function Watchlist({cases,day,gov,onOpen,onRetreat}){
+  const rows=[];
+  cases.forEach(c=>c.subs.forEach(s=>{
+    if(s.pb!=='pb04' || s.treatedDay==null) return;
+    const dsince=day-s.treatedDay; if(dsince<0) return;
+    rows.push({c,s,st:spendState(s,day),daysLeft:14-dsince,val:curveVal(s.archetype,s.start,Math.min(14,dsince)),ct:contactability(c,day,gov)});
+  }));
+  rows.sort((a,b)=>a.daysLeft-b.daysLeft);
+  if(rows.length===0) return <div style={{padding:'18px 16px',fontSize:12.5,color:T.muted}}>No treated cases yet — treat a VIP (Beat 4) to start watching outcomes here.</div>;
+  return rows.map(({c,s,st,daysLeft,val,ct})=>(
+    <div key={c.uid} className="row-hover" style={{display:'flex',alignItems:'center',gap:14,padding:'12px 16px',borderBottom:'1px solid var(--border-card)',cursor:'pointer'}} onClick={()=>onOpen(c.uid)}>
+      <div style={{width:200,minWidth:200}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}><b style={{fontSize:13,fontWeight:600}}>{c.name}</b><Chip kind="muted">{tierLabel(c.ltv)}</Chip></div>
+        <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>treated Day {s.treatedDay} · {s.treatment?.channel}</div>
+      </div>
+      <PbPill pbKey="pb04"/>
+      <div style={{display:'flex',alignItems:'center',gap:10,flex:1}}>
+        <Sparkline sub={s} day={day}/>
+        <div className="tnum" style={{fontSize:12}}>
+          <div style={{fontWeight:600,color: val>=60?'var(--positive)':'var(--text-primary)'}}>{val}% <span style={{color:T.muted,fontWeight:400}}>of baseline</span></div>
+          <div style={{fontSize:11,color:T.muted}}>target ≥ 60% · {daysLeft>0?`${daysLeft}d left`:'window closed'}</div>
+        </div>
+      </div>
+      <SubChip state={st}/>
+      {(st==='at_risk'||st==='missed')
+        ? <button className="btn-secondary" disabled={ct.capped} title={ct.capped?`Contact cap reached — next slot Day ${ct.nextSlotDay}`:''}
+            onClick={e=>{e.stopPropagation(); if(!ct.capped) onRetreat(c.uid,'pb04');}}>{ct.capped?'Capped':'Re‑treat'}</button>
+        : <span style={{width:74}}/>}
+      <span style={{color:'var(--neutral-300)'}}>›</span>
+    </div>
+  ));
+}
+
+/* ═══════════════ BEAT 3 · MEMBER 360 ═══════════════ */
+function Member360({rec,model,bAction,day,gov,onClose,onClaim,onTreat,onRetreat}){
+  const r=vipRollup(rec,day);
+  const ct=contactability(rec,day,gov);
+  const subs = model==='A'? rec.subs : rec.subs.filter(s=>s.pb===bAction);
+  const anyOpen = r.anyOpen;
+  return (
+    <Overlay onClose={onClose} align="right">
+      <div className="scroll" style={{width:540,maxWidth:'94vw',height:'100vh',overflow:'auto',background:'var(--bg-card)',boxShadow:'var(--shadow-lg)',animation:'slideIn .18s ease',padding:'20px 24px'}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+          <div style={{flex:1}}><Eyebrow>Member 360 · cfm_vn</Eyebrow>
+            <h2 style={{margin:'2px 0 2px',fontSize:18,fontWeight:700}}>{rec.name}</h2>
+            <div style={{fontSize:12,color:T.muted,fontFamily:'monospace'}}>{rec.uid}</div></div>
+          <button className="ghost" onClick={onClose} style={{fontSize:18,lineHeight:1}}>×</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,margin:'16px 0'}}>
+          <Tile label="LTV" value={fmtVnd(rec.ltv)} sub={tierLabel(rec.ltv)} compact/>
+          <Tile label="7d spend Δ" value={rec.drop+'%'} sub="vs 30d baseline" tone="negative" compact/>
+          <Tile label="Last active" value={rec.churn+'d'} sub="ago" tone={rec.churn>=7?'warning':undefined} compact/>
+        </div>
+
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          <span style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',color:T.muted}}>
+            {model==='A'?`Playbook cases (${subs.length})`:'Attached action'}</span>
+          {model==='A'&&r.total>1 && <Frac n={r.addressed} d={r.total}/>}
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
+          {subs.map(s=>{
+            const p=PB[s.pb]; const st=subState(s.pb,s,day);
+            const treated = s.treatedDay!=null && (day-s.treatedDay)>=0;
+            return (
+              <div key={s.pb} style={{border:'1px solid var(--border-card)',borderRadius:'var(--radius-lg)',padding:12}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                  <PbPill pbKey={s.pb}/><Chip kind="muted">{p.group}</Chip><div style={{flex:1}}/><SubChip state={st}/>
+                </div>
+                <div style={{fontSize:12.5,color:T.text,marginBottom:6}}>{s.treatment? <><b style={{color:T.sec}}>Treated:</b> {s.treatment.channel} — {s.treatment.text} <span style={{color:T.muted}}>(Day {s.treatment.day})</span></> : p.action}</div>
+                {s.pb==='pb04' && treated
+                  ? <div style={{display:'flex',alignItems:'center',gap:12,marginTop:8}}>
+                      <Sparkline sub={s} day={day}/>
+                      <div style={{fontSize:11.5,color:T.muted}}><b style={{color:T.sec}}>KPI:</b> {p.kpi}</div>
+                      {(st==='at_risk'||st==='missed') && <button className="btn-secondary" disabled={ct.capped} title={ct.capped?`Contact cap — next slot Day ${ct.nextSlotDay}`:''} onClick={()=>!ct.capped && onRetreat(rec.uid,s.pb)}>{ct.capped?'Capped':'Re‑treat'}</button>}
+                    </div>
+                  : <div style={{display:'flex',gap:14,fontSize:11.5,color:T.muted,flexWrap:'wrap'}}>
+                      <span><b style={{color:T.sec}}>Trigger:</b> {p.cond}</span>
+                      <span><b style={{color:T.sec}}>KPI:</b> {p.kpi}</span>
+                      <span><b style={{color:T.sec}}>SLA:</b> {p.sla}</span></div>}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',color:T.muted,marginBottom:10}}>Care history</div>
+        <Timeline rec={rec} day={day}/>
+
+        <div style={{position:'sticky',bottom:0,background:'var(--bg-card)',paddingTop:12,borderTop:'1px solid var(--border-card)'}}>
+          {(ct.capped || Object.keys(ct.channelUntil).length>0) &&
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,fontSize:11.5,color:T.muted}}>
+              <ContactBadge ct={ct}/>
+              <span>{ct.capped
+                ? `${ct.inWin}/${gov.maxPerWindow} contacts used in ${gov.windowDays}d — next slot Day ${ct.nextSlotDay}`
+                : `${ct.inWin}/${gov.maxPerWindow} contacts used · some channels cooling down`}</span>
+            </div>}
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            {rec.owner==='You'? <Chip kind="info">Assigned to you</Chip> : <button className="btn-secondary" onClick={onClaim}>Claim</button>}
+            <div style={{flex:1}}/>
+            {anyOpen
+              ? <><button className="btn-secondary" onClick={onClose}>Dismiss…</button>
+                  <button className="btn-primary" onClick={onTreat} disabled={ct.capped}
+                    title={ct.capped?`Contact cap reached — next slot Day ${ct.nextSlotDay}`:''}>Treat</button></>
+              : r.anyMiss
+                ? <Chip kind="destructive">KPI missed — re‑treat above</Chip>
+                : <Chip kind="success">✓ All cases addressed</Chip>}
+          </div>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+function Timeline({rec,day}){
+  const evs=[];
+  rec.subs.forEach(s=>{ const p=PB[s.pb];
+    evs.push({sort:0, title:`Matched · ${p.name}`, detail:`${p.cond}`, when:'sweep · Day 0', tone:'default'});
+    if(s.treatedDay!=null && day>=s.treatedDay){
+      evs.push({sort:s.treatedDay+0.1, title:`Treated · ${p.name}`, detail:`${s.treatment?.channel} — ${s.treatment?.text}`, when:`Day ${s.treatedDay}`, tone:'brand'});
+      const st=subState(s.pb,s,day);
+      if(st==='recovered') evs.push({sort:14, title:`KPI met · ${p.name}`, detail:p.kpi, when:`Day ${Math.min(day,s.treatedDay+14)}`, tone:'success'});
+      if(st==='missed') evs.push({sort:14, title:`KPI missed · ${p.name}`, detail:'still below baseline — escalate', when:`Day ${s.treatedDay+14}`, tone:'default'});
+    }
+  });
+  evs.sort((a,b)=>a.sort-b.sort);
+  return (
+    <div style={{position:'relative',paddingLeft:18,marginBottom:18}}>
+      <div style={{position:'absolute',left:5,top:4,bottom:4,width:2,background:'var(--border-card)'}}/>
+      {evs.map((e,i)=>(
+        <div key={i} style={{position:'relative',marginBottom:14}}>
+          <span style={{position:'absolute',left:-18,top:2,width:12,height:12,borderRadius:'50%',
+            background: e.tone==='success'?'var(--success)':e.tone==='brand'?'var(--brand)':'var(--neutral-300)',
+            border:'2px solid var(--bg-card)',boxShadow:'0 0 0 1px var(--border-card)'}}/>
+          <div style={{fontSize:12.5,fontWeight:600,color:T.text}}>{e.title}</div>
+          {e.detail && <div style={{fontSize:12,color:T.sec}}>{e.detail}</div>}
+          <div style={{fontSize:11,color:T.muted}}>{e.when}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════ BEAT 4 · TREAT (multi-playbook tagging + cover-all toggle) ═══════════════ */
+function TreatModal({rec,model,bAction,day,gov,onClose,onConfirm}){
+  const ct=contactability(rec,day,gov);
+  const openSubs = (model==='A'?rec.subs:rec.subs.filter(s=>s.pb===bAction))
+    .filter(s=>['new','in_review'].includes(s.status));
+  const [sel,setSel]=useState(()=>new Set([openSubs[0]?.pb].filter(Boolean)));
+  const [coverAll,setCoverAll]=useState(false);
+  const primary = PB[openSubs[0]?.pb||'pb04'];
+  const ALL_CH=['Call','Zalo ZNS','In-game','Push'];
+  // default to a channel that isn't on cooldown (prefer the playbook's own channels)
+  const firstChan = primary.channels.find(c=>!ct.channelUntil[c]) || ALL_CH.find(c=>!ct.channelUntil[c]) || 'Call';
+  const [channel,setChannel]=useState(firstChan);
+  const [text,setText]=useState(primary.action);
+  const toggle=(pb)=>{ const n=new Set(sel); n.has(pb)?n.delete(pb):n.add(pb); setSel(n); setCoverAll(n.size===openSubs.length); };
+  const setAll=(v)=>{ setCoverAll(v); setSel(v?new Set(openSubs.map(s=>s.pb)):new Set([openSubs[0]?.pb].filter(Boolean))); };
+  const chosen=[...sel];
+
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{width:560,maxWidth:'92vw',background:'var(--bg-card)',borderRadius:'var(--radius-2xl)',boxShadow:'var(--shadow-lg)',padding:24,animation:'pop .16s ease'}}>
+        <Eyebrow>Treat · {rec.name}</Eyebrow>
+        <h2 style={{margin:'2px 0 4px',fontSize:18,fontWeight:700}}>Log a treatment</h2>
+        <p style={{margin:'0 0 16px',fontSize:12.5,color:T.muted}}>
+          This VIP has <b style={{color:T.sec}}>{openSubs.length} open playbook{openSubs.length>1?'s':''}</b>. One outreach can address several — tag which KPIs you expect it to move.</p>
+
+        {/* which playbooks this treatment covers */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+          <label style={lbl}>This treatment addresses</label>
+          {openSubs.length>1 && (
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T.sec,cursor:'pointer'}}>
+              <input type="checkbox" checked={coverAll} onChange={e=>setAll(e.target.checked)} style={{accentColor:'var(--brand)'}}/>
+              Cover all open playbooks</label>
+          )}
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:16}}>
+          {openSubs.map(s=>{
+            const p=PB[s.pb]; const on=sel.has(s.pb);
+            return (
+              <label key={s.pb} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 11px',cursor:'pointer',
+                border:`1px solid ${on?'var(--brand)':'var(--border-card)'}`,borderRadius:'var(--radius-md)',background:on?'var(--brand-soft)':'var(--bg-card)'}}>
+                <input type="checkbox" checked={on} onChange={()=>toggle(s.pb)} style={{marginTop:2,accentColor:'var(--brand)'}}/>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}><PbPill pbKey={s.pb}/><span style={{fontSize:11,color:T.muted}}>via {p.channels.join(' / ')}</span></div>
+                  <div style={{fontSize:11.5,color:T.muted,marginTop:3}}>KPI: {p.kpi}</div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+
+        <label style={lbl}>Channel</label>
+        <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+          {ALL_CH.map(c=>{
+            const cd=ct.channelUntil[c];
+            return (
+              <button key={c} disabled={!!cd} onClick={()=>!cd&&setChannel(c)} title={cd?`cooldown until Day ${cd}`:''}
+                style={{padding:'7px 14px',fontSize:12.5,fontWeight:600,borderRadius:'var(--radius-md)',cursor:cd?'not-allowed':'pointer',opacity:cd?.5:1,
+                  border:`1px solid ${channel===c?'var(--brand)':'var(--border-strong)'}`,background:channel===c?'var(--brand-soft)':'var(--bg-card)',color:channel===c?'var(--orange-900)':T.sec}}>
+                {c}{cd?` · Day ${cd}`:''}</button>
+            );
+          })}
+        </div>
+        <label style={lbl}>Treatment / note</label>
+        <textarea value={text} onChange={e=>setText(e.target.value)} rows={2}
+          style={{width:'100%',marginBottom:8,padding:'9px 11px',fontSize:12.5,fontFamily:'inherit',resize:'vertical',
+            border:'1px solid var(--border-strong)',borderRadius:'var(--radius-md)',background:'var(--bg-card)',color:T.text}}/>
+        <div style={{fontSize:11.5,color:T.muted,marginBottom:18}}>
+          {chosen.length===openSubs.length && openSubs.length>1
+            ? 'Covers all — every open playbook starts watching its KPI from today.'
+            : chosen.length<openSubs.length
+              ? `${openSubs.length-chosen.length} playbook will stay open and unaddressed.`
+              : 'Starts the KPI watch from today (Day '+day+').'}
+          {' '}<span style={{color: ct.capped?'var(--destructive-ink)':T.muted}}>
+            {ct.capped
+              ? `· Contact cap reached (${ct.inWin}/${gov.maxPerWindow} in ${gov.windowDays}d) — next slot Day ${ct.nextSlotDay}.`
+              : `· Contact ${ct.inWin+1} of ${gov.maxPerWindow} in the ${gov.windowDays}d window${chosen.length>1?` — 1 outreach, ${chosen.length} playbooks (still 1 contact)`:''}.`}
+          </span>
+        </div>
+
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+          <button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" disabled={chosen.length===0||ct.capped}
+            title={ct.capped?`Contact cap reached — next slot Day ${ct.nextSlotDay}`:''}
+            onClick={()=>!ct.capped&&onConfirm(chosen,{channel,text})}>
+            Mark treated{chosen.length>1?` · ${chosen.length} playbooks`:''}</button>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
+/* ───────────────────────── shared chrome ───────────────────────── */
+function Overlay({children,onClose,align='center'}){
+  return (
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(23,23,23,.32)',zIndex:50,display:'flex',
+      alignItems: align==='right'?'stretch':'center', justifyContent: align==='right'?'flex-end':'center',animation:'fadeIn .12s ease'}}>
+      <div onClick={e=>e.stopPropagation()} style={{display:'contents'}}>{children}</div>
+    </div>
+  );
+}
+function Card({children,style,pad0}){
+  return <div className="lift" style={{background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-lg)',padding:pad0?0:16,...style}}>{children}</div>;
+}
+function Tile({label,value,sub,tone,compact}){
+  const color=tone==='negative'?'var(--negative)':tone==='positive'?'var(--positive)':tone==='warning'?'var(--warning-ink)':tone==='info'?'var(--info-ink)':T.text;
+  return (
+    <div style={{background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:'var(--radius-lg)',padding:compact?'10px 12px':'14px 14px 12px'}}>
+      <div style={{fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',color:T.muted,marginBottom:6}}>{label}</div>
+      <div className="tnum" style={{fontSize:compact?18:22,fontWeight:700,letterSpacing:'-0.015em',color}}>{value}</div>
+      {sub && <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{sub}</div>}
+    </div>
+  );
+}
+function DefPill({type,children}){
+  const map={cube:{bg:'var(--muted-soft)',fg:'var(--muted-ink)'},measure:{bg:'rgba(225,210,183,.55)',fg:'rgb(126,94,7)'}};
+  const c=map[type]||map.cube;
+  return <span style={{fontFamily:'monospace',fontSize:11.5,background:c.bg,color:c.fg,padding:'3px 8px',borderRadius:'var(--radius-md)',fontWeight:600}}>{children}</span>;
+}
+const th={padding:'6px 8px',fontWeight:600};
+const td={padding:'9px 8px',color:T.text,verticalAlign:'middle'};
+const lbl={display:'block',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',color:'var(--text-muted)',marginBottom:6};
+
+function IconUsers({small}){const s=small?18:22;return(
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);}
+function IconClipboard(){return(
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 12h6M9 16h4"/></svg>);}
+function IconSend(){return(
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>);}
+function IconCalendar(){return(
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>);}
+function IconShield(){return(
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en" data-theme="default">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CS · VIP Care — Variant C · Count Command Console</title>
+<style>
+:root {
+  --neutral-50:#fafafa; --neutral-100:#f5f5f5; --neutral-150:#ededed; --neutral-200:#e5e5e5;
+  --neutral-300:#d4d4d4; --neutral-400:#a3a3a3; --neutral-500:#737373; --neutral-600:#525252;
+  --neutral-700:#404040; --neutral-800:#262626; --neutral-900:#171717; --neutral-950:#0a0a0a;
+  --orange-50:#fff7ed; --orange-600:#f05a22; --orange-700:#f54a00;
+  --brand:var(--orange-600); --brand-hover:var(--orange-700); --brand-soft:var(--orange-50);
+  --bg-app:var(--neutral-50); --bg-card:#ffffff; --bg-muted:var(--neutral-100);
+  --border-card:var(--neutral-200); --border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700);
+  --text-muted:var(--neutral-500); --text-on-brand:#ffffff;
+  --success:#059669; --warning:#f59e0b; --danger:#ef4444; --info:#3f8dff;
+  --success-soft:#d1fae5; --success-ink:#047857;
+  --warning-soft:#fef3c7; --warning-ink:#92400e;
+  --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+  --info-soft:#dbeafe; --info-ink:#1d4ed8;
+  --muted-soft:#f5f5f5; --muted-ink:#525252;
+  --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:12px; --radius-2xl:16px; --radius-full:9999px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg:0 12px 32px rgba(0,0,0,0.12),0 4px 8px rgba(0,0,0,0.06);
+  --font-sans:'Inter','Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --positive:#15803d; --negative:#b91c1c;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; font-family:var(--font-sans); color:var(--text-primary); background:var(--bg-app); }
+body { padding:24px 32px; }
+.page { max-width:1400px; margin:0 auto; }
+
+/* Nav */
+.nav { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+.step { display:inline-flex; align-items:center; gap:8px; padding:5px 6px; border-radius:var(--radius-full); white-space:nowrap; }
+.step.active { background:var(--text-primary); padding:5px 13px 5px 7px; }
+.step .num { width:18px; height:18px; border-radius:var(--radius-full); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.step.active .num { background:var(--brand); color:var(--text-on-brand); }
+.step.todo .num { background:transparent; color:var(--text-muted); border:1.5px solid var(--border-strong); }
+.step .lbl { font-size:12.5px; font-weight:600; }
+.step.active .lbl { color:var(--bg-card); font-weight:700; }
+.step.todo .lbl { color:var(--text-muted); opacity:.65; }
+.chev { color:var(--text-muted); }
+
+/* Header */
+.eyebrow { font-size:10.5px; text-transform:uppercase; letter-spacing:.09em; color:var(--text-muted); font-weight:600; margin-bottom:5px; }
+.headrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.title { display:flex; align-items:center; gap:11px; }
+.title h1 { margin:0; font-size:20px; font-weight:700; letter-spacing:-0.02em; }
+.headactions { display:flex; align-items:center; gap:10px; }
+.btn-primary { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; background:var(--brand); color:#fff; border:none; border-radius:var(--radius-md); font-size:12.5px; font-weight:600; cursor:pointer; font-family:var(--font-sans); }
+.btn-primary:hover { background:var(--brand-hover); }
+.gamebadge { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--text-secondary); background:var(--bg-muted); padding:5px 11px; border-radius:var(--radius-full); }
+.gamebadge .dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+.subhead { margin:2px 0 20px; font-size:12.5px; color:var(--text-muted); }
+
+/* Portfolio strip */
+.strip { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px; }
+.stat { background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-xl); padding:14px 16px; box-shadow:var(--shadow-sm); }
+.stat .l { font-size:11px; color:var(--text-muted); font-weight:500; margin-bottom:7px; }
+.stat .v { font-size:23px; font-weight:700; letter-spacing:-0.02em; line-height:1; font-variant-numeric:tabular-nums; }
+.stat .v small { font-size:12px; font-weight:600; color:var(--text-muted); margin-left:4px; }
+.stat .s { font-size:11px; color:var(--text-muted); margin-top:5px; }
+.v.good { color:var(--success-ink); } .v.warn { color:var(--warning-ink); } .v.bad { color:var(--destructive-ink); }
+
+/* ── Two-pane console ── */
+.console { display:grid; grid-template-columns:232px 1fr; gap:16px; align-items:start; }
+
+/* Left NHÓM rail */
+.rail { background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-xl); box-shadow:var(--shadow-sm); padding:8px; position:sticky; top:24px; }
+.rail .rtitle { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600; padding:8px 10px 6px; }
+.railitem { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--radius-md); cursor:pointer; transition:background .12s; }
+.railitem:hover { background:var(--bg-muted); }
+.railitem.active { background:var(--brand-soft); }
+.railitem .rn { font-size:12.5px; font-weight:600; color:var(--text-primary); }
+.railitem.active .rn { color:var(--brand); }
+.railitem .rsub { font-size:10.5px; color:var(--text-muted); }
+.railitem .rcount { margin-left:auto; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--text-secondary); }
+.railitem.active .rcount { color:var(--brand); }
+.railitem .rdot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.rdot.av { background:var(--success); } .rdot.pa { background:var(--warning); } .rdot.mix { background:var(--info); }
+.rail .raildiv { height:1px; background:var(--border-card); margin:6px 4px; }
+.rail .railtotal { padding:9px 10px; font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; }
+.rail .railtotal b { color:var(--text-primary); font-variant-numeric:tabular-nums; }
+
+/* Right detail */
+.detail { background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-xl); box-shadow:var(--shadow-sm); overflow:hidden; }
+.dhead { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border-card); }
+.dhead .dh-t { font-size:15px; font-weight:700; }
+.dhead .dh-s { font-size:11.5px; color:var(--text-muted); }
+.dhead .dh-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.asofpill { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text-muted); background:var(--bg-muted); padding:4px 10px; border-radius:var(--radius-full); }
+.asofpill b { color:var(--text-secondary); font-weight:600; }
+.btn-ghost { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; background:var(--bg-card); border:1px solid var(--border-card); color:var(--text-secondary); border-radius:var(--radius-md); font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font-sans); }
+.btn-ghost:hover { background:var(--bg-muted); }
+
+/* sort header */
+.sortbar { display:flex; align-items:center; gap:14px; padding:9px 16px; background:var(--bg-muted); border-bottom:1px solid var(--border-card); font-size:11px; color:var(--text-muted); }
+.sortbar .sl { font-weight:600; }
+.sortchip { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:var(--radius-full); cursor:pointer; font-weight:600; }
+.sortchip.on { background:var(--text-primary); color:var(--bg-card); }
+.sortchip:not(.on):hover { background:var(--border-card); }
+
+/* segment list rows */
+.seg { display:grid; grid-template-columns:44px 1fr 200px 168px; align-items:center; gap:14px; padding:13px 16px; border-bottom:1px solid var(--border-card); transition:background .12s; cursor:pointer; }
+.seg:hover { background:var(--brand-soft); }
+.seg:last-child { border-bottom:none; }
+
+/* big count column (col 1 = rank/count) */
+.seg .countbig { text-align:right; }
+.seg .countbig .n { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; line-height:1; color:var(--text-primary); }
+.seg .countbig .n.zero { color:var(--text-muted); font-weight:500; }
+.seg .countbig .cl { font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:600; margin-top:3px; }
+
+/* name + condition */
+.seg .nameblock { min-width:0; }
+.seg .nb-top { display:flex; align-items:center; gap:8px; }
+.seg .pid { font-size:11px; color:var(--text-muted); font-weight:600; font-variant-numeric:tabular-nums; }
+.seg .pn { font-size:13px; font-weight:600; color:var(--text-primary); }
+.seg .cond { font-size:11px; color:var(--text-secondary); margin-top:3px; }
+.seg .cond code { font-family:var(--font-sans); background:var(--bg-muted); border-radius:var(--radius-xs); padding:1px 6px; font-weight:600; color:var(--text-primary); }
+
+.badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; padding:3px 8px; border-radius:var(--radius-full); white-space:nowrap; }
+.b-cao { background:var(--destructive-soft); color:var(--destructive-ink); }
+.b-tb { background:var(--info-soft); color:var(--info-ink); }
+.b-thap { background:var(--muted-soft); color:var(--muted-ink); }
+.b-av { background:var(--success-soft); color:var(--success-ink); }
+.b-pa { background:var(--warning-soft); color:var(--warning-ink); }
+.b-un { background:var(--muted-soft); color:var(--muted-ink); }
+
+/* middle stats column */
+.seg .midstats { display:flex; gap:14px; }
+.seg .midstats .ss { display:flex; flex-direction:column; gap:1px; }
+.seg .midstats .k { font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); font-weight:600; }
+.seg .midstats .vv { font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+.seg .midstats .vv.bad { color:var(--destructive-ink); }
+.seg .midstats .vv.muted { color:var(--text-muted); }
+
+/* actions column */
+.seg .acts { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+.countbtn { display:inline-flex; align-items:center; gap:4px; padding:5px 9px; border:1px solid var(--brand); background:var(--bg-card); border-radius:var(--radius-sm); color:var(--brand); font-size:11px; font-weight:600; cursor:pointer; font-family:var(--font-sans); white-space:nowrap; }
+.countbtn:hover { background:var(--brand-soft); }
+.iconbtn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--border-card); background:var(--bg-card); border-radius:var(--radius-sm); color:var(--text-muted); cursor:pointer; }
+.iconbtn:hover { background:var(--bg-muted); color:var(--text-secondary); }
+.iconbtn.sweep:hover { background:var(--warning-soft); color:var(--warning-ink); border-color:var(--warning-soft); }
+
+/* counting state */
+.counting { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--brand); justify-content:flex-end; }
+.spinner { width:14px; height:14px; border:2px solid var(--orange-50); border-top-color:var(--brand); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* unavailable */
+.seg.unavail { opacity:.5; cursor:not-allowed; background:transparent; }
+.seg.unavail .pn,.seg.unavail .pid,.seg.unavail .cond { color:var(--text-muted); }
+.seg.unavail .cond code { text-decoration:line-through; color:var(--text-muted); background:transparent; }
+.dash { color:var(--text-muted); letter-spacing:.05em; font-variant-numeric:tabular-nums; }
+
+.annot { margin-top:20px; padding:14px 16px; background:var(--info-soft); border:1px solid var(--border-card); border-radius:var(--radius-md); font-size:11.5px; color:var(--info-ink); line-height:1.55; }
+.annot b { font-weight:700; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <nav class="nav">
+    <span class="step active"><span class="num">1</span><span class="lbl">CS Monitor</span></span>
+    <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+    <span class="step todo"><span class="num">2</span><span class="lbl">Case Ledger / Queue</span></span>
+    <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+    <span class="step todo"><span class="num">3</span><span class="lbl">Member-360 Care</span></span>
+  </nav>
+
+  <div class="eyebrow">Dashboards</div>
+  <div class="headrow">
+    <div class="title">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66"/><path d="m18 15-2-2"/><path d="m15 18-2-2"/></svg>
+      <h1>CS · VIP Care</h1>
+    </div>
+    <div class="headactions">
+      <button class="btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>New playbook</button>
+      <span class="gamebadge"><span class="dot"></span>cfm_vn</span>
+    </div>
+  </div>
+  <p class="subhead">VIP player care program monitor. 18 live · 1 partial · 2 blocked</p>
+
+  <div class="strip">
+    <div class="stat"><div class="l">Playbooks live</div><div class="v">19<small>/ 21</small></div><div class="s">available + partial</div></div>
+    <div class="stat"><div class="l">VIPs triggered</div><div class="v warn">3,482</div><div class="s">match across live segments</div></div>
+    <div class="stat"><div class="l">Open cases</div><div class="v warn">214</div><div class="s">new + in review</div></div>
+    <div class="stat"><div class="l">KPI attainment</div><div class="v good">81%</div><div class="s">treated / total closed</div></div>
+    <div class="stat"><div class="l">SLA breaches</div><div class="v bad">12</div><div class="s">open cases past SLA</div></div>
+  </div>
+
+  <!-- Two-pane console -->
+  <div class="console">
+
+    <!-- Left rail -->
+    <aside class="rail">
+      <div class="rtitle">Groups · NHÓM</div>
+      <div class="railitem active">
+        <span class="rdot mix"></span>
+        <span><span class="rn">All segments</span><div class="rsub">21 playbooks</div></span>
+        <span class="rcount">5,016</span>
+      </div>
+      <div class="raildiv"></div>
+      <div class="railitem">
+        <span class="rdot av"></span>
+        <span><span class="rn">NHÓM 1</span><div class="rsub">Payment</div></span>
+        <span class="rcount">1,644</span>
+      </div>
+      <div class="railitem">
+        <span class="rdot mix"></span>
+        <span><span class="rn">NHÓM 2</span><div class="rsub">In-game</div></span>
+        <span class="rcount">3,358</span>
+      </div>
+      <div class="railitem">
+        <span class="rdot av"></span>
+        <span><span class="rn">NHÓM 3</span><div class="rsub">Churn risk</div></span>
+        <span class="rcount">14</span>
+      </div>
+      <div class="railitem">
+        <span class="rdot pa"></span>
+        <span><span class="rn">NHÓM 4</span><div class="rsub">Time & Event</div></span>
+        <span class="rcount">—</span>
+      </div>
+      <div class="raildiv"></div>
+      <div class="railtotal"><span>Open cases</span><b>214</b></div>
+      <div class="railtotal"><span>SLA breaches</span><b style="color:var(--destructive-ink)">12</b></div>
+    </aside>
+
+    <!-- Right detail -->
+    <section class="detail">
+      <div class="dhead">
+        <div>
+          <div class="dh-t">All segments</div>
+          <div class="dh-s">21 playbooks · sorted by live match count</div>
+        </div>
+        <div class="dh-right">
+          <span class="asofpill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>snapshot <b>09:42</b> GMT+7</span>
+          <button class="btn-ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh all</button>
+        </div>
+      </div>
+
+      <!-- sort bar -->
+      <div class="sortbar">
+        <span class="sl">Sort</span>
+        <span class="sortchip on">Match count <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="sortchip">Open cases</span>
+        <span class="sortchip">SLA breach</span>
+        <span class="sortchip">Priority</span>
+        <span style="margin-left:auto;color:var(--text-muted)">Greyed = blocked for cfm_vn</span>
+      </div>
+
+      <!-- rows, descending match count -->
+
+      <div class="seg">
+        <div class="countbig"><div class="n">2,104</div><div class="cl">match</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#7</span><span class="pn">High-engagement spender</span><span class="badge b-thap">Thấp</span><span class="badge b-av">Live</span></div>
+          <div class="cond"><code>playtime ≥ 4h/day · 7d</code> · NHÓM 2</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv">18</span></div><div class="ss"><span class="k">SLA</span><span class="vv muted">0</span></div></div>
+        <div class="acts"><button class="countbtn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <div class="seg">
+        <div class="countbig"><div class="n">1,240</div><div class="cl">match</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#1</span><span class="pn">High-LTV whale watch</span><span class="badge b-cao">Cao</span><span class="badge b-av">Live</span></div>
+          <div class="cond"><code>LTV ≥ ₫50M</code> · NHÓM 1</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv">42</span></div><div class="ss"><span class="k">SLA</span><span class="vv bad">3</span></div></div>
+        <div class="acts"><button class="countbtn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <div class="seg">
+        <div class="countbig"><div class="n">742</div><div class="cl">match</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#6</span><span class="pn">Rank-decay frustration</span><span class="badge b-tb">TB</span><span class="badge b-av">Live</span></div>
+          <div class="cond"><code>3+ rank losses / 24h</code> · NHÓM 2</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv">31</span></div><div class="ss"><span class="k">SLA</span><span class="vv bad">1</span></div></div>
+        <div class="acts"><button class="countbtn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <!-- COUNTING state row -->
+      <div class="seg">
+        <div class="countbig"><div class="counting"><span class="spinner"></span></div><div class="cl" style="color:var(--brand)">counting</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#8</span><span class="pn">Tilt / loss-streak care</span><span class="badge b-tb">TB</span><span class="badge b-pa">Partial</span></div>
+          <div class="cond">fresh live query running · 3.5–15s · <code>5+ losses in a row</code></div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv">7</span></div><div class="ss"><span class="k">SLA</span><span class="vv muted">0</span></div></div>
+        <div class="acts"><button class="countbtn" disabled style="opacity:.5;cursor:wait"><span class="spinner" style="width:11px;height:11px"></span>Running</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <div class="seg">
+        <div class="countbig"><div class="n">318</div><div class="cl">match</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#2</span><span class="pn">Recharge drop-off (7d)</span><span class="badge b-cao">Cao</span><span class="badge b-av">Live</span></div>
+          <div class="cond"><code>spend −60% vs 30d avg</code> · NHÓM 1</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv">28</span></div><div class="ss"><span class="k">SLA</span><span class="vv bad">2</span></div></div>
+        <div class="acts"><button class="countbtn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <div class="seg">
+        <div class="countbig"><div class="n">86</div><div class="cl">match</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#4</span><span class="pn">Failed-payment recovery</span><span class="badge b-tb">TB</span><span class="badge b-av">Live</span></div>
+          <div class="cond"><code>≥ 2 failed charges / 24h</code> · NHÓM 1</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv">9</span></div><div class="ss"><span class="k">SLA</span><span class="vv muted">0</span></div></div>
+        <div class="acts"><button class="countbtn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <div class="seg">
+        <div class="countbig"><div class="n">14</div><div class="cl">match</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#12</span><span class="pn">Sudden silence (churn)</span><span class="badge b-cao">Cao</span><span class="badge b-av">Live</span></div>
+          <div class="cond"><code>no login ≥ 14 days</code> · NHÓM 3</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv">5</span></div><div class="ss"><span class="k">SLA</span><span class="vv bad">3</span></div></div>
+        <div class="acts"><button class="countbtn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <div class="seg">
+        <div class="countbig"><div class="n zero">0</div><div class="cl">match</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#5</span><span class="pn">Lapsed whale win-back</span><span class="badge b-thap">Thấp</span><span class="badge b-av">Live</span></div>
+          <div class="cond"><code>LTV ≥ ₫50M · no spend 30d</code> · NHÓM 1</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="vv muted">0</span></div><div class="ss"><span class="k">SLA</span><span class="vv muted">0</span></div></div>
+        <div class="acts"><button class="countbtn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Count</button><button class="iconbtn" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button><button class="iconbtn sweep" title="Sweep this segment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21v-2a4 4 0 0 1 4-4h.5"/><path d="m14 3 7 7-9 9-7-7Z"/></svg></button></div>
+      </div>
+
+      <!-- UNAVAILABLE row -->
+      <div class="seg unavail">
+        <div class="countbig"><div class="dash">– –</div><div class="cl">blocked</div></div>
+        <div class="nameblock">
+          <div class="nb-top"><span class="pid">#9</span><span class="pn">Clan-leader retention</span><span class="badge b-un">Blocked</span></div>
+          <div class="cond"><code>clan rank ≤ 3 · 14d</code> · needs clan_membership · NHÓM 2</div>
+        </div>
+        <div class="midstats"><div class="ss"><span class="k">Open</span><span class="dash">– –</span></div><div class="ss"><span class="k">SLA</span><span class="dash">– –</span></div></div>
+        <div class="acts"><button class="iconbtn" disabled style="opacity:.4;cursor:not-allowed" title="No data"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button></div>
+      </div>
+
+    </section>
+  </div>
+
+  <div class="annot">
+    <b>Variant C — Count Command Console.</b> Opinionated triage layout: a sticky left <b>NHÓM rail</b> (each group shows its rolled-up live match total + a status dot; "All segments" is the default lens) drives a right <b>detail list sorted by live match count descending</b>, so the biggest live populations float to the top. A <b>sort bar</b> lets the operator re-rank by Match / Open / SLA / Priority. The leftmost column is the count itself (18px tabular) — the page's organising principle. Per row: snapshot count → inline <b>Count</b> (fresh query; #8 shows the spinner/"Running" state), icon-only <b>Edit</b> + <b>Sweep</b>. Snapshot "as of" pill + global Refresh sit in the detail header. Blocked rows greyed with dashed cells, sorted to the bottom, Edit disabled. Best for "where is the action right now" operations.
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="default">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ops data — placement variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --neutral-50:#fafafa;--neutral-100:#f5f5f5;--neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+    --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-700:#404040;--neutral-900:#171717;
+    --brand:#f05a22;--brand-soft:#fff7ed;
+    --bg-app:#fafafa;--bg-card:#fff;--bg-muted:#f5f5f5;
+    --border-card:#e5e5e5;--border-strong:#d4d4d4;
+    --text-primary:#171717;--text-secondary:#404040;--text-muted:#737373;
+    --success:#059669;--success-soft:#d1fae5;--success-ink:#047857;
+    --warning-soft:#fef3c7;--warning-ink:#92400e;
+    --destructive-soft:#fee2e2;--destructive-ink:#991b1b;
+    --info-soft:#dbeafe;--info-ink:#1d4ed8;--muted-soft:#f5f5f5;--muted-ink:#525252;
+    --radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg-app);font-family:var(--font-sans);color:var(--text-primary);
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1340px;margin:0 auto;padding:36px 40px 80px;}
+
+  /* ── canvas heading ─────────────────────────────── */
+  .canvas-eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--brand);}
+  .canvas-title{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:6px 0 4px;}
+  .canvas-sub{font-size:13px;color:var(--text-muted);max-width:760px;line-height:1.5;}
+
+  .section-tag{display:inline-flex;align-items:center;gap:8px;margin:40px 0 14px;
+    font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-secondary);}
+  .section-tag .num{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;
+    background:var(--brand);color:#fff;font-size:11px;}
+  .section-tag .pill{padding:2px 9px;border-radius:var(--radius-full);font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:none;}
+  .pill-good{background:var(--success-soft);color:var(--success-ink);}
+  .pill-warn{background:var(--warning-soft);color:var(--warning-ink);}
+
+  /* ── frame that mimics the in-app page chrome ───── */
+  .frame{background:var(--bg-app);border:1px solid var(--border-card);border-radius:var(--radius-xl);
+    box-shadow:var(--shadow-md);overflow:hidden;}
+  .frame-bar{display:flex;align-items:center;gap:7px;padding:9px 14px;background:#fff;border-bottom:1px solid var(--border-card);}
+  .dot{width:10px;height:10px;border-radius:50%;}
+  .frame-url{margin-left:10px;font-size:11px;color:var(--text-muted);font-family:var(--font-sans);}
+  .frame-body{padding:22px 26px 26px;}
+
+  /* ── page header (matches Dashboards/cs) ────────── */
+  .pg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+  .pg-title{display:flex;align-items:center;gap:11px;}
+  .pg-title h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em;}
+  .ico{color:var(--brand);}
+  .game-chip{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--text-secondary);
+    background:var(--bg-muted);padding:5px 11px;border-radius:var(--radius-full);}
+  .game-chip .gdot{width:7px;height:7px;border-radius:50%;background:var(--success);}
+  .pg-sub{margin:2px 0 18px;font-size:12.5px;color:var(--text-muted);}
+
+  /* ── stat card (exact portfolio-strip idiom) ────── */
+  .strip{display:grid;gap:12px;}
+  .card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xl);
+    padding:14px 16px;box-shadow:var(--shadow-sm);}
+  .card .lbl{font-size:11px;color:var(--text-muted);font-weight:500;margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+  .card .val{font-size:23px;font-weight:700;letter-spacing:-.02em;line-height:1;}
+  .card .val small{font-size:12px;font-weight:600;color:var(--text-muted);margin-left:4px;}
+  .card .sub{font-size:11px;color:var(--text-muted);margin-top:5px;}
+  .v-good{color:var(--success-ink);}.v-warn{color:var(--warning-ink);}.v-bad{color:var(--destructive-ink);}
+
+  /* small section label row */
+  .row-tag{display:flex;align-items:center;gap:8px;margin:18px 0 10px;}
+  .row-tag .t{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);}
+  .row-tag .ln{flex:1;height:1px;background:var(--border-card);}
+
+  /* big hero tile (variant 2) */
+  .hero{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+  .hero .card{padding:16px 18px;}
+  .hero .val{font-size:26px;}
+
+  /* deep cards grid */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .panel{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xl);
+    padding:16px 18px;box-shadow:var(--shadow-sm);}
+  .panel h3{margin:0 0 2px;font-size:13px;font-weight:700;letter-spacing:-.01em;}
+  .panel .ph-sub{font-size:11px;color:var(--text-muted);margin-bottom:13px;}
+
+  /* horizontal bar list */
+  .bars{display:flex;flex-direction:column;gap:9px;}
+  .bar-row{display:grid;grid-template-columns:96px 1fr 40px;align-items:center;gap:8px;font-size:12px;}
+  .bar-row .bn{color:var(--text-secondary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bar-track{height:8px;background:var(--bg-muted);border-radius:var(--radius-full);overflow:hidden;}
+  .bar-fill{height:100%;border-radius:var(--radius-full);background:var(--brand);}
+  .bar-row .bv{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-primary);}
+
+  /* metric pair list */
+  .kv{display:flex;flex-direction:column;gap:10px;}
+  .kv-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+    padding-bottom:9px;border-bottom:1px dashed var(--neutral-200);}
+  .kv-row:last-child{border-bottom:none;padding-bottom:0;}
+  .kv-row .k{font-size:12px;color:var(--text-secondary);}
+  .kv-row .vv{font-size:15px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:var(--radius-full);
+    font-size:10.5px;font-weight:600;}
+
+  /* annotation block (junior-designer reasoning) */
+  .note{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .note .col{background:#fff;border:1px solid var(--border-card);border-left:3px solid var(--brand);
+    border-radius:var(--radius-md);padding:13px 15px;}
+  .note .col.con{border-left-color:var(--neutral-400);}
+  .note h4{margin:0 0 7px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-secondary);}
+  .note ul{margin:0;padding-left:16px;}
+  .note li{font-size:12px;color:var(--text-secondary);line-height:1.55;margin-bottom:4px;}
+  .note li b{color:var(--text-primary);font-weight:600;}
+
+  .foot{margin-top:9px;font-size:10.5px;color:var(--neutral-400);font-style:italic;}
+  .inline-flag{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:3px 10px;border-radius:var(--radius-full);
+    background:var(--warning-soft);color:var(--warning-ink);font-size:11px;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="canvas-eyebrow">Huashu · design exploration</div>
+  <h1 class="canvas-title">Where the new ops data lands — 2 placements</h1>
+  <p class="canvas-sub">
+    Same four ops layers (billing_detail · billing_lifetime · cs_ticket_detail · user_identity + geo_moved),
+    two ways to surface them. Both use the live <b>portfolio-strip StatCard</b> idiom. Headline totals are
+    real (cfm_vn MTD Jun 1–14, from the sealed billing rollup); category breakdowns marked <i>illustrative</i>
+    are placeholders pending live wiring.
+  </p>
+
+  <!-- ════════════ PLACEMENT 1 ════════════ -->
+  <div class="section-tag">
+    <span class="num">1</span> CS-console strip — embedded in /dashboards/cs
+    <span class="pill pill-good">lowest build · cfm/jus-gated</span>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+      <span class="frame-url">localhost:3000/#/dashboards/cs</span>
+    </div>
+    <div class="frame-body">
+      <!-- existing header -->
+      <div class="pg-head">
+        <div class="pg-title">
+          <svg class="ico" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg>
+          <h1>CS · VIP Care</h1>
+        </div>
+        <div class="game-chip"><span class="gdot"></span>cfm_vn</div>
+      </div>
+      <p class="pg-sub">VIP player care program monitor. 14 live · 5 partial · 2 blocked · data as of Jun 14</p>
+
+      <!-- NEW: monetization & support strip (the addition) -->
+      <div class="row-tag"><span class="t">⬇ New · Monetization &amp; support</span></div>
+      <div class="strip" style="grid-template-columns:repeat(6,1fr);margin-bottom:6px;">
+        <div class="card"><div class="lbl">Gateway revenue · MTD</div><div class="val">₫15.37<small>B</small></div><div class="sub">cash + promo · Jun 1–14</div></div>
+        <div class="card"><div class="lbl">Transactions</div><div class="val">74,517</div><div class="sub">billing_detail txns</div></div>
+        <div class="card"><div class="lbl">Paying users</div><div class="val">35,682</div><div class="sub">distinct payers MTD</div></div>
+        <div class="card"><div class="lbl">Promo share</div><div class="val v-warn">18%</div><div class="sub">promo-charged / gross *</div></div>
+        <div class="card"><div class="lbl">Open CS tickets</div><div class="val v-warn">412</div><div class="sub">member-linked, unresolved *</div></div>
+        <div class="card"><div class="lbl">Avg CSAT · 30d</div><div class="val v-good">4.3<small>/5</small></div><div class="sub">neg-sentiment 6% *</div></div>
+      </div>
+      <div style="margin-bottom:18px;">
+        <span class="inline-flag">⚑ geo-moved whales: 23 flagged</span>
+        <span class="inline-flag" style="background:var(--info-soft);color:var(--info-ink);">gateway-vs-ingame gap +12% — 41 accounts to review</span>
+      </div>
+
+      <!-- the existing playbook grid (greyed to show context) -->
+      <div class="row-tag"><span class="t">Existing · playbook grid</span><span class="ln"></span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;opacity:.55;">
+        <div class="panel" style="height:42px;padding:11px 16px;display:flex;align-items:center;font-size:12px;font-weight:600;color:var(--text-muted);">Spend &amp; monetization care · 6 playbooks</div>
+        <div class="panel" style="height:42px;padding:11px 16px;display:flex;align-items:center;font-size:12px;font-weight:600;color:var(--text-muted);">Engagement &amp; retention care · 7 playbooks</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <div class="col">
+      <h4>Why this placement</h4>
+      <ul>
+        <li><b>Zero new nav.</b> CS agents already live here; money + support health sits right above the playbooks they action.</li>
+        <li><b>Cheapest build</b> — one strip reusing <b>StatCard</b>, gated to cfm_vn / jus_vn.</li>
+        <li>Closes the loop: a "negative-sentiment VIP" playbook now shows the spend + CSAT context inline.</li>
+      </ul>
+    </div>
+    <div class="col con">
+      <h4>What it can't do</h4>
+      <ul>
+        <li>No room for deep <b>gateway / promo / identity / geo</b> exploration — only 6 headline numbers.</li>
+        <li>Reconciliation (gateway-vs-ingame LTV) reduced to one flag chip, not a drill-down.</li>
+        <li>Buried under CS — analysts exploring monetization won't think to look here.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ════════════ PLACEMENT 2 ════════════ -->
+  <div class="section-tag">
+    <span class="num">2</span> Dedicated /ops console — new top-level page
+    <span class="pill pill-warn">more build · new surface</span>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+      <span class="frame-url">localhost:3000/#/ops</span>
+    </div>
+    <div class="frame-body">
+      <!-- page header -->
+      <div class="pg-head">
+        <div class="pg-title">
+          <svg class="ico" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          <div>
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">Ops · Monetization + Identity</div>
+            <h1>Ops Console</h1>
+          </div>
+        </div>
+        <div class="game-chip"><span class="gdot"></span>cfm_vn</div>
+      </div>
+      <p class="pg-sub">Full 360 — payment, users, support &amp; acquisition for the active game · data as of Jun 14 · CS lags ~2d · identity lags ~1mo</p>
+
+      <!-- tab bar: aggregate Overview + the two folded-in segment tabs -->
+      <div style="display:flex;gap:4px;border-bottom:1px solid var(--border-card);margin-bottom:18px;">
+        <div style="padding:8px 14px;font-size:13px;font-weight:600;color:var(--brand);border-bottom:2px solid var(--brand);margin-bottom:-1px;">Overview</div>
+        <div style="padding:8px 14px;font-size:13px;font-weight:500;color:var(--text-muted);">Members <span style="font-size:10px;color:var(--neutral-400);">(member360)</span></div>
+        <div style="padding:8px 14px;font-size:13px;font-weight:500;color:var(--text-muted);">Care <span style="font-size:10px;color:var(--neutral-400);">(playbooks)</span></div>
+      </div>
+
+      <!-- hero strip -->
+      <div class="hero">
+        <div class="card"><div class="lbl">Gateway revenue · MTD</div><div class="val">₫15.37<small>B</small></div><div class="sub">gross cash + promo</div></div>
+        <div class="card"><div class="lbl">Transactions</div><div class="val">74,517</div><div class="sub">+8.2% vs prev 14d *</div></div>
+        <div class="card"><div class="lbl">Paying users</div><div class="val">35,682</div><div class="sub">ARPPU ₫431k *</div></div>
+        <div class="card"><div class="lbl">Promo-charged</div><div class="val v-warn">₫2.77<small>B</small></div><div class="sub">18% of gross *</div></div>
+        <div class="card"><div class="lbl">Gateway vs in-game LTV</div><div class="val v-bad">+12%</div><div class="sub">Apple markup ~1.78× *</div></div>
+      </div>
+
+      <!-- deep cards -->
+      <div class="grid3">
+        <!-- A: gateway mix -->
+        <div class="panel">
+          <h3>Payment gateway mix</h3>
+          <div class="ph-sub">share of cash collected · 30d · <b>real</b></div>
+          <div class="bars">
+            <div class="bar-row"><span class="bn" title="VNG aggregator behind shop.vnggames.com — MoMo/ZaloPay/bank/card">VNG Gateway</span><div class="bar-track"><div class="bar-fill" style="width:67%"></div></div><span class="bv">67%</span></div>
+            <div class="bar-row"><span class="bn">Apple IAP</span><div class="bar-track"><div class="bar-fill" style="width:24%"></div></div><span class="bv">24%</span></div>
+            <div class="bar-row"><span class="bn">Google Play</span><div class="bar-track"><div class="bar-fill" style="width:9%"></div></div><span class="bv">9%</span></div>
+            <div class="bar-row"><span class="bn" style="color:var(--text-muted)">User Wallet</span><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><span class="bv" style="color:var(--text-muted)">₫0</span></div>
+          </div>
+          <div class="foot">wallet = recycled balance, no fresh cash · ₫15.37B cash / 30d</div>
+        </div>
+
+        <!-- B: CS health -->
+        <div class="panel">
+          <h3>Support health</h3>
+          <div class="ph-sub">cs_ticket_detail · last 30d *</div>
+          <div class="kv">
+            <div class="kv-row"><span class="k">Open tickets (member-linked)</span><span class="vv v-warn">412</span></div>
+            <div class="kv-row"><span class="k">Avg CSAT</span><span class="vv v-good">4.3 / 5</span></div>
+            <div class="kv-row"><span class="k">Negative sentiment</span><span class="vv">6%</span></div>
+            <div class="kv-row"><span class="k">Avg resolution</span><span class="vv">18.4 h</span></div>
+            <div class="kv-row"><span class="k">VIP tickets</span><span class="vv v-bad">37</span></div>
+          </div>
+        </div>
+
+        <!-- C: reconciliation -->
+        <div class="panel">
+          <h3>Gateway vs in-game reconciliation</h3>
+          <div class="ph-sub">billing_lifetime vs mf_users LTV *</div>
+          <div class="kv">
+            <div class="kv-row"><span class="k">Gateway lifetime (gross)</span><span class="vv">₫612B</span></div>
+            <div class="kv-row"><span class="k">In-game delivered LTV</span><span class="vv">₫547B</span></div>
+            <div class="kv-row"><span class="k">Gap</span><span class="vv v-bad">+12%</span></div>
+            <div class="kv-row"><span class="k">Accounts gateway ≫ ingame</span><span class="vv v-warn">41</span></div>
+          </div>
+          <div class="foot">gross-only — no refund table; gap = store markup + disputes</div>
+        </div>
+
+        <!-- D: promo-aware ARPU -->
+        <div class="panel">
+          <h3>Promo-aware ARPU</h3>
+          <div class="ph-sub">promotion_type breakdown *</div>
+          <div class="kv">
+            <div class="kv-row"><span class="k">Cash ARPPU</span><span class="vv">₫431k</span></div>
+            <div class="kv-row"><span class="k">Promo orders</span><span class="vv">13,402</span></div>
+            <div class="kv-row"><span class="k">Promo-charged share</span><span class="vv v-warn">18%</span></div>
+            <div class="kv-row"><span class="k">Top promo: first-buy 2×</span><span class="vv">₫1.1B</span></div>
+          </div>
+        </div>
+
+        <!-- E: identity / acquisition -->
+        <div class="panel">
+          <h3>Identity &amp; acquisition</h3>
+          <div class="ph-sub">user_identity · 28d new cohort *</div>
+          <div class="bars">
+            <div class="bar-row"><span class="bn">iOS install</span><div class="bar-track"><div class="bar-fill" style="width:38%;background:var(--info-ink)"></div></div><span class="bv">38%</span></div>
+            <div class="bar-row"><span class="bn">Android</span><div class="bar-track"><div class="bar-fill" style="width:59%;background:var(--info-ink)"></div></div><span class="bv">59%</span></div>
+            <div class="bar-row"><span class="bn">Other store</span><div class="bar-track"><div class="bar-fill" style="width:3%;background:var(--info-ink)"></div></div><span class="bv">3%</span></div>
+          </div>
+          <div class="kv" style="margin-top:12px;">
+            <div class="kv-row"><span class="k">New registers (28d)</span><span class="vv">61,204</span></div>
+            <div class="kv-row"><span class="k">user_type: returning</span><span class="vv">22%</span></div>
+          </div>
+        </div>
+
+        <!-- F: geo moved -->
+        <div class="panel">
+          <h3>Cross-border (geo_moved)</h3>
+          <div class="ph-sub">register-country ≠ last-seen-country *</div>
+          <div class="kv">
+            <div class="kv-row"><span class="k">Share of base</span><span class="vv">0.41%</span></div>
+            <div class="kv-row"><span class="k">Whales flagged</span><span class="vv v-warn">23</span></div>
+            <div class="kv-row"><span class="k">Top mover LTV</span><span class="vv">₫84M</span></div>
+            <div class="kv-row"><span class="k">→ to segment / fraud watch</span><span class="badge" style="background:var(--brand-soft);color:var(--brand);">build segment →</span></div>
+          </div>
+        </div>
+
+        <!-- G: marketing / ROAS (already-modelled game_integration data) -->
+        <div class="panel">
+          <h3>Acquisition &amp; ROAS</h3>
+          <div class="ph-sub">marketing_cost (game_integration) ÷ recharge *</div>
+          <div class="kv">
+            <div class="kv-row"><span class="k">Ad spend (30d)</span><span class="vv">₫4.1B</span></div>
+            <div class="kv-row"><span class="k">ROAS (rev ÷ spend)</span><span class="vv v-good">3.7×</span></div>
+            <div class="kv-row"><span class="k">CPI</span><span class="vv">₫11.2k</span></div>
+            <div class="kv-row"><span class="k">CAC (per new payer)</span><span class="vv">₫96k</span></div>
+          </div>
+          <div class="foot">no iceberg needed — campaign/CTR/CPC/CPM already in cube</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <div class="col">
+      <h4>Why this placement</h4>
+      <ul>
+        <li><b>A real home</b> for gateway / promo / identity / geo drill-downs — the analyst's first stop for monetization.</li>
+        <li>Hosts the <b>reconciliation</b> view (gateway-vs-ingame LTV) that the strip can't fit.</li>
+        <li>Each card is <b>pin-to-dashboard</b> ready and links straight into Catalog/Playground for the underlying query.</li>
+        <li>Cards reveal/hide per game readiness — cfm + jus today, more as games onboard.</li>
+      </ul>
+    </div>
+    <div class="col con">
+      <h4>Cost / risk</h4>
+      <ul>
+        <li>New top-level nav entry + route + empty/loading states = <b>most build</b>.</li>
+        <li>Another surface to keep on-design as the system evolves.</li>
+        <li>Overlaps the CS strip if both ship — pick one as the canonical home.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="foot" style="margin-top:26px;font-size:11px;">
+    * Illustrative breakdown — headline ₫/txn/payer totals are the real sealed-rollup MTD figures; gateway %, CSAT,
+    sentiment, promo, identity and reconciliation splits are placeholders until the live queries are wired.
+    No fabricated values shipped to code.
+  </p>
+
+</div>
+</body>
+</html>
