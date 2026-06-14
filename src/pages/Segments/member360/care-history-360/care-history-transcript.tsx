@@ -7,10 +7,10 @@
 
 import { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Paperclip } from 'lucide-react';
 import type { CsTicketDetail, CsTicketMessage } from '../../../../api/segment-cs-care-member';
 import { Stars } from '../../detail/tabs/care/care-ui-atoms';
 import { fmtMsgTime } from './care-history-format';
+import { CareHistoryAttachment } from './care-history-attachment';
 
 function Bubble({ m }: { m: CsTicketMessage }): ReactElement {
   const mine = m.isCustomer;
@@ -33,24 +33,9 @@ function Bubble({ m }: { m: CsTicketMessage }): ReactElement {
       >
         {m.text || '—'}
         {m.attachments.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
-            {m.attachments.map((a) => (
-              <span
-                key={a}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  fontSize: 10,
-                  background: mine ? 'rgba(255,255,255,0.2)' : 'var(--bg-muted)',
-                  color: mine ? '#fff' : 'var(--text-secondary)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '1px 6px',
-                }}
-                title={a}
-              >
-                <Paperclip size={10} aria-hidden /> {a.split('/').pop()}
-              </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 6, marginTop: 6 }}>
+            {m.attachments.map((a, i) => (
+              <CareHistoryAttachment key={`${a}-${i}`} raw={a} mine={mine} />
             ))}
           </div>
         )}

@@ -9,6 +9,7 @@ import type { CsTicketDetail } from '../../../../api/segment-cs-care-member';
 import { CareHistoryTicketList } from './care-history-ticket-list';
 import { CareHistoryTranscript } from './care-history-transcript';
 import { CareHistorySignals } from './care-history-signals';
+import { CareHistoryTicketInfo } from './care-history-ticket-info';
 import styles from './care-history-360.module.css';
 
 interface Props {
@@ -27,13 +28,7 @@ export function CareHistoryInboxView({ tickets, selectedId, onSelect }: Props): 
       <div className={styles.inboxMain}>
         {selected && (
           <>
-            <div style={{ padding: '11px 18px', borderBottom: '1px solid var(--border-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>TIC-{selected.ticketId}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {selected.source}
-                {selected.staffDomain ? ` · ${selected.staffDomain}` : ''}
-              </span>
-            </div>
+            <CareHistoryTicketInfo ticket={selected} />
             <CareHistoryTranscript ticket={selected} />
           </>
         )}

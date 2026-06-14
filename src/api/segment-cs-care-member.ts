@@ -49,7 +49,13 @@ export interface CsTicketDetail {
   uid: string;
   source: string;
   formName: string | null;
+  /** Issue classification (ticket_category), or null. */
+  ticketCategory: string | null;
   openedAt: string;
+  /** Full ticket-created timestamp ISO, or null. */
+  createdAt: string | null;
+  /** Final closure timestamp ISO, or null if still open. */
+  closedAt: string | null;
   status: string | null;
   priority: number | null;
   staffDept: string | null;

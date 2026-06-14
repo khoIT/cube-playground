@@ -80,6 +80,10 @@ export interface ScalarRow {
   tagName: string | null;
   ratingScore: number | null;
   vip: VipProfile | null;
+  /** Final closure time (last_closed_time) ISO, or null if still open. */
+  closedAt: string | null;
+  /** Issue classification from cs_ticket_info.ticket_category. */
+  ticketCategory: string | null;
 }
 
 export interface FlatLabel extends CsTicketLabel {
@@ -141,7 +145,10 @@ export function assembleDetails(
       uid: s.uid,
       source: s.source,
       formName: s.formName,
+      ticketCategory: s.ticketCategory,
       openedAt: s.openedAt,
+      closedAt: s.closedAt,
+      createdAt: s.createdAt,
       status: s.status,
       priority: s.priority,
       staffDept: s.staffDept,

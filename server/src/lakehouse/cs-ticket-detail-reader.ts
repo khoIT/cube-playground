@@ -84,13 +84,14 @@ function buildScalarsSql(productId: number, uid: string, since: string, maxTicke
   return (
     `WITH matched AS (` +
     `SELECT ticket_id, split_part(user_id,'@',1) AS uid, customer_id, ` +
-    `CAST(log_date AS varchar) AS log_date, ticket_source, form_name, ` +
+    `CAST(log_date AS varchar) AS log_date, ticket_source, form_name, ticket_category, ` +
     `row_number() OVER (PARTITION BY ticket_id ORDER BY run_date DESC) AS rn ` +
     `FROM ${CS}.cs_ticket_info ` +
     `WHERE product_id = ${productId} AND log_date >= DATE ${s} AND split_part(user_id,'@',1) = ${u}), ` +
     `master AS (` +
     `SELECT ticket_id, CAST(ticket_created_time AS varchar) created, ` +
-    `CAST(first_responsed_time AS varchar) first_resp, total_reopened_times reopens, ` +
+    `CAST(first_responsed_time AS varchar) first_resp, CAST(last_closed_time AS varchar) closed, ` +
+    `total_reopened_times reopens, ` +
     `first_sentiment_status_desc sent_first, last_sentiment_status_desc sent_last, ` +
     `sentiment_change, ticket_rating, staff_dept, staff_domain, status_id, ` +
     `row_number() OVER (PARTITION BY ticket_id ORDER BY run_date DESC, last_updated_time DESC) AS rn ` +
@@ -100,7 +101,8 @@ function buildScalarsSql(productId: number, uid: string, since: string, maxTicke
     `m.created, m.first_resp, m.reopens, m.sent_first, m.sent_last, m.sentiment_change, ` +
     `m.ticket_rating, m.staff_dept, m.staff_domain, st.status_group, ` +
     `v.priority, v.login_info, tt.value AS tag_name, ` +
-    `c.tier_id, c.vip_game_proportion, c.login_channel, c.gender ` +
+    `c.tier_id, c.vip_game_proportion, c.login_channel, c.gender, ` +
+    `m.closed, i.ticket_category ` +
     `FROM matched i ` +
     `LEFT JOIN master m ON m.ticket_id = i.ticket_id AND m.rn = 1 ` +
     `LEFT JOIN ${CS}.cs_map_status st ON st.status_id = m.status_id ` +
@@ -171,6 +173,8 @@ function mapScalar(r: unknown[]): ScalarRow {
     loginInfo: str(r[16]),
     tagName: str(r[17]),
     vip,
+    closedAt: str(r[22]),
+    ticketCategory: str(r[23]),
   };
 }
 

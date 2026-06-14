@@ -53,8 +53,14 @@ export interface CsTicketDetail {
   /** Ingame / Web / Phone. */
   source: string;
   formName: string | null;
+  /** Issue classification (cs_ticket_info.ticket_category), or null. */
+  ticketCategory: string | null;
   /** Ticket date `YYYY-MM-DD`. */
   openedAt: string;
+  /** Full ticket-created timestamp (ticket_created_time) ISO, or null. */
+  createdAt: string | null;
+  /** Final closure timestamp (last_closed_time) ISO, or null if still open. */
+  closedAt: string | null;
   /** Status group (Closed / Processing / …) or null. */
   status: string | null;
   priority: number | null;
