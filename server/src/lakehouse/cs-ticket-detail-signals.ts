@@ -18,9 +18,12 @@ import type {
   VipProfile,
 } from './cs-ticket-detail-types.js';
 
-/** AI-label categories/names that mark an account-security ticket. One place to
- *  maintain if the label vocabulary shifts (jus_vn/cfm use `Account_Security*`). */
-const SECURITY_LABEL = /account|security|hack|stolen|fraud|ban/i;
+/** AI-label categories/names that mark a genuine account-security ticket. Kept
+ *  narrow on purpose: the CS label taxonomy uses `Account_SecurityIssue` for real
+ *  security cases, while `Account_Management` / `Account_Other` are ordinary
+ *  account requests — matching on the bare word "account" mislabels those (they
+ *  are the bulk of account-labelled tickets). Match security-specific terms only. */
+const SECURITY_LABEL = /security|hacked|hijack|stolen|steal|compromis|takeover|fraud|scam/i;
 
 /** Strip HTML tags + decode the handful of entities CS content uses → plain text. */
 export function stripHtml(html: string | null): string {
@@ -84,6 +87,10 @@ export interface ScalarRow {
   closedAt: string | null;
   /** Issue classification from cs_ticket_info.ticket_category. */
   ticketCategory: string | null;
+  /** Top-level support category (cs_ticket_info.form_group), e.g. "HỖ TRỢ SẢN PHẨM". */
+  formGroup: string | null;
+  /** How the ticket was raised (cs_ticket_info.service_type) — "Form" = web-form-initiated. */
+  serviceType: string | null;
 }
 
 export interface FlatLabel extends CsTicketLabel {
@@ -146,6 +153,8 @@ export function assembleDetails(
       source: s.source,
       formName: s.formName,
       ticketCategory: s.ticketCategory,
+      formGroup: s.formGroup,
+      serviceType: s.serviceType,
       openedAt: s.openedAt,
       closedAt: s.closedAt,
       createdAt: s.createdAt,

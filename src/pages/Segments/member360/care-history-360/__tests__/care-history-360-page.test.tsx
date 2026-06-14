@@ -27,6 +27,8 @@ function ticket(over: Partial<CsTicketDetail> = {}): CsTicketDetail {
     source: 'Web',
     formName: 'Form',
     ticketCategory: 'Payment',
+    formGroup: 'HỖ TRỢ SẢN PHẨM',
+    serviceType: 'Form',
     openedAt: '2026-02-05',
     createdAt: '2026-02-05 15:20:00',
     closedAt: '2026-02-05 16:11:09',

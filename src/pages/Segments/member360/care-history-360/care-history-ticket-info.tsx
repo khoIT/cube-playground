@@ -8,7 +8,7 @@
 
 import { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, FileText } from 'lucide-react';
 import type { CsTicketDetail } from '../../../../api/segment-cs-care-member';
 import { Chip, statusTone } from '../../detail/tabs/care/care-ui-atoms';
 import { fmtDateTime, fmtDuration, fmtLatency, ticketTitle } from './care-history-format';
@@ -42,7 +42,36 @@ export function CareHistoryTicketInfo({ ticket }: { ticket: CsTicketDetail }): R
         )}
       </div>
 
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>{issue}</div>
+      {ticket.formGroup && (
+        <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+          {ticket.formGroup}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>{issue}</span>
+        {ticket.serviceType === 'Form' && (
+          <span
+            title={t('segments.detail.care.formInitiatedHint', {
+              defaultValue: 'Raised via web form — the title is the form the player submitted. The thread opens with an automated reply; the player’s own typed message follows.',
+            })}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              fontSize: 10,
+              fontWeight: 600,
+              color: 'var(--info-ink)',
+              background: 'var(--info-soft)',
+              borderRadius: 'var(--radius-full)',
+              padding: '1px 8px',
+              cursor: 'help',
+            }}
+          >
+            <FileText size={10} aria-hidden /> {t('segments.detail.care.formInitiated', { defaultValue: 'Form-initiated' })}
+          </span>
+        )}
+      </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', fontSize: 11.5 }}>
         <Meta label={t('segments.detail.care.opened', { defaultValue: 'Opened' })} value={fmtDateTime(ticket.createdAt ?? ticket.openedAt)} />

@@ -51,6 +51,10 @@ export interface CsTicketDetail {
   formName: string | null;
   /** Issue classification (ticket_category), or null. */
   ticketCategory: string | null;
+  /** Top-level support category (form_group), or null. */
+  formGroup: string | null;
+  /** How raised (service_type) — "Form" means web-form-initiated. */
+  serviceType: string | null;
   openedAt: string;
   /** Full ticket-created timestamp ISO, or null. */
   createdAt: string | null;

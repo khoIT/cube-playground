@@ -85,6 +85,7 @@ function buildScalarsSql(productId: number, uid: string, since: string, maxTicke
     `WITH matched AS (` +
     `SELECT ticket_id, split_part(user_id,'@',1) AS uid, customer_id, ` +
     `CAST(log_date AS varchar) AS log_date, ticket_source, form_name, ticket_category, ` +
+    `form_group, service_type, ` +
     `row_number() OVER (PARTITION BY ticket_id ORDER BY run_date DESC) AS rn ` +
     `FROM ${CS}.cs_ticket_info ` +
     `WHERE product_id = ${productId} AND log_date >= DATE ${s} AND split_part(user_id,'@',1) = ${u}), ` +
@@ -102,7 +103,7 @@ function buildScalarsSql(productId: number, uid: string, since: string, maxTicke
     `m.ticket_rating, m.staff_dept, m.staff_domain, st.status_group, ` +
     `v.priority, v.login_info, tt.value AS tag_name, ` +
     `c.tier_id, c.vip_game_proportion, c.login_channel, c.gender, ` +
-    `m.closed, i.ticket_category ` +
+    `m.closed, i.ticket_category, i.form_group, i.service_type ` +
     `FROM matched i ` +
     `LEFT JOIN master m ON m.ticket_id = i.ticket_id AND m.rn = 1 ` +
     `LEFT JOIN ${CS}.cs_map_status st ON st.status_id = m.status_id ` +
@@ -175,6 +176,8 @@ function mapScalar(r: unknown[]): ScalarRow {
     vip,
     closedAt: str(r[22]),
     ticketCategory: str(r[23]),
+    formGroup: str(r[24]),
+    serviceType: str(r[25]),
   };
 }
 
