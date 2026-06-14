@@ -24,7 +24,8 @@ import { DecideScreen } from './decide-screen';
 import { CommandCenter } from './command-center';
 import { Recommendations } from './recommendations';
 import { ProvenanceDrawer } from './provenance-drawer';
-import { Divider } from './advisor-primitives';
+import { DrivePanel } from './drive-panel';
+import { Divider, Btn } from './advisor-primitives';
 import type { AdvisorScope, ExperimentDraft } from '../../api/advisor';
 
 /**
@@ -90,9 +91,25 @@ export function AdvisorPage() {
         <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
           · {segmentId ? `segment ${segmentId.slice(0, 8)}…` : gameId}
         </span>
+        {/* Posture toggle: Drive (live AI) is additive to the Explore builder. */}
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {inv.screen === 'drive' ? (
+            <Btn sm onClick={() => inv.setScreen('goal')}>
+              ← Explore
+            </Btn>
+          ) : (
+            <Btn sm kind="primary" onClick={() => inv.setScreen('drive')}>
+              ✨ Drive with AI
+            </Btn>
+          )}
+        </span>
       </header>
 
       {inv.screen === 'goal' && <GoalScreen onSetup={inv.setup} />}
+
+      {inv.screen === 'drive' && (
+        <DrivePanel scope={scope} goal={inv.goal} goalText={inv.goalText} />
+      )}
 
       {inv.screen === 'board' && (
         <>

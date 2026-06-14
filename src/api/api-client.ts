@@ -73,14 +73,17 @@ function buildUrl(path: string, query?: ApiRequestInit['query']): string {
   return qs ? `${path}?${qs}` : path;
 }
 
-export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
-  const { body, query, headers, ...rest } = init;
-  const url = buildUrl(path, query);
-
+/**
+ * Build the standard request headers (owner + workspace + game + bearer) shared
+ * by apiFetch and the streaming clients. Extracted so SSE/EventSource-style
+ * fetches carry identical auth/tenant context. Does NOT set Content-Type — the
+ * caller adds it based on the body.
+ */
+export function buildRequestHeaders(extra?: Record<string, string>): Record<string, string> {
   const finalHeaders: Record<string, string> = {
     Accept: 'application/json',
     'X-Owner': getOwner(),
-    ...((headers as Record<string, string>) ?? {}),
+    ...(extra ?? {}),
   };
 
   // Attach the active workspace id so the server resolves Cube ctx per-request.
@@ -108,6 +111,15 @@ export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Prom
   if (appToken && !finalHeaders.Authorization) {
     finalHeaders.Authorization = `Bearer ${appToken}`;
   }
+
+  return finalHeaders;
+}
+
+export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const { body, query, headers, ...rest } = init;
+  const url = buildUrl(path, query);
+
+  const finalHeaders = buildRequestHeaders(headers as Record<string, string>);
 
   const hasBody = body !== undefined && body !== null;
   if (hasBody && !(body instanceof FormData)) {

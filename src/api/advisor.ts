@@ -10,7 +10,7 @@
  * state rather than fabricating metrics.
  */
 
-import { apiFetch } from './api-client';
+import { apiFetch, buildRequestHeaders } from './api-client';
 
 // ─── Scope + goal ───────────────────────────────────────────────────────────
 
@@ -240,4 +240,129 @@ export function sendFeedback(fb: AdvisorFeedback): Promise<{ ok: true }> {
 /** Read feedback recorded for a segment. */
 export function listFeedback(segmentId: string): Promise<{ feedback: AdvisorFeedbackRow[] }> {
   return apiFetch<{ feedback: AdvisorFeedbackRow[] }>(`/api/advisor/feedback/${encodeURIComponent(segmentId)}`);
+}
+
+// ─── Interactive agent (Drive) — SSE turn stream ──────────────────────────────
+
+export type AgentMode = 'drive' | 'steer' | 'explore';
+
+export type AgentStopReason = 'end_turn' | 'max_turns' | 'budget' | 'timeout' | 'aborted' | 'error';
+
+export type AgentErrorCode =
+  | 'oauth_missing'
+  | 'oauth_unavailable'
+  | 'max_turns'
+  | 'budget_exceeded'
+  | 'timeout'
+  | 'aborted'
+  | 'tool_denied'
+  | 'sdk_error';
+
+/** Normalized runtime events streamed by POST /api/advisor/agent/turn (mirror agent-types.ts). */
+export type AgentRuntimeEvent =
+  | { type: 'session'; sessionId: string }
+  | { type: 'assistant_delta'; text: string }
+  | { type: 'tool_call'; tool: string; callId?: string }
+  | { type: 'tool_result'; tool: string; callId?: string; ok: boolean }
+  | { type: 'cost'; usd: number }
+  | { type: 'done'; usd: number | null; stopReason: AgentStopReason }
+  | { type: 'denied'; tool: string; reason: string }
+  | { type: 'error'; code: AgentErrorCode; message: string };
+
+export interface AgentTurnRequest {
+  sessionId?: string;
+  message: string;
+  scope: AdvisorScope;
+  goal: AdvisorGoal;
+  mode?: AgentMode;
+}
+
+/** Handle to an in-flight turn stream. */
+export interface AgentTurnStream {
+  /** Resolves when the stream ends (done/error/abort). */
+  done: Promise<void>;
+  /** Abort the in-flight turn (aborts the request; session stays resumable server-side). */
+  abort: () => void;
+}
+
+/**
+ * Open an SSE turn against the advisor agent. Each parsed runtime event is
+ * delivered to onEvent in order. The auth/workspace/game headers match apiFetch.
+ */
+export function streamAgentTurn(
+  req: AgentTurnRequest,
+  onEvent: (ev: AgentRuntimeEvent) => void,
+): AgentTurnStream {
+  const controller = new AbortController();
+  const done = runAgentStream(req, onEvent, controller.signal);
+  return { done, abort: () => controller.abort() };
+}
+
+async function runAgentStream(
+  req: AgentTurnRequest,
+  onEvent: (ev: AgentRuntimeEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch('/api/advisor/agent/turn', {
+      method: 'POST',
+      headers: { ...buildRequestHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+      signal,
+    });
+  } catch (err) {
+    if (signal.aborted) return;
+    onEvent({ type: 'error', code: 'sdk_error', message: err instanceof Error ? err.message : String(err) });
+    return;
+  }
+
+  if (!res.ok || !res.body) {
+    // Non-stream error (e.g. 503 oauth_unavailable, 409 turn_in_progress, 400).
+    let code: AgentErrorCode = 'sdk_error';
+    let message = `request failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { code?: string; error?: string };
+      if (body.code === 'oauth_unavailable') code = 'oauth_unavailable';
+      if (body.error) message = body.error;
+    } catch {
+      /* non-JSON body */
+    }
+    onEvent({ type: 'error', code, message });
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    for (;;) {
+      const { value, done: streamDone } = await reader.read();
+      if (streamDone) break;
+      buffer += decoder.decode(value, { stream: true });
+      // SSE frames are separated by a blank line.
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        const ev = parseSseFrame(frame);
+        if (ev) onEvent(ev);
+      }
+    }
+  } catch (err) {
+    if (!signal.aborted) {
+      onEvent({ type: 'error', code: 'sdk_error', message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+}
+
+/** Parse one `event: <type>\ndata: <json>` SSE frame into a runtime event. */
+function parseSseFrame(frame: string): AgentRuntimeEvent | null {
+  const dataLine = frame.split('\n').find((l) => l.startsWith('data:'));
+  if (!dataLine) return null;
+  try {
+    return JSON.parse(dataLine.slice(5).trim()) as AgentRuntimeEvent;
+  } catch {
+    return null;
+  }
 }
