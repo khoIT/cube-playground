@@ -48,6 +48,13 @@ export interface ComputeMemberTiersArgs {
   identityDim: string;
   /** Per-user LTV measure, logical name (physicalized here per `prefix`). */
   ltvMeasure: string;
+  /** Optional per-user name dimension (e.g. mf_users.ingame_name), logical name.
+   *  When set, each TierMember carries its in-game name so the Members tab can
+   *  render the friendly identity without a view-time live query. The caller
+   *  MUST pass null when the game's model doesn't expose the dim — an unknown
+   *  member would 400 the whole tier query. Name is functionally 1:1 with the
+   *  identity dim (one row per user), so grouping by it adds no fan-out. */
+  nameDim?: string | null;
   /** The segment's predicate filters from its stored cube_query_json. */
   segmentFilters: TierFilter[];
   /** Cube-level segments from the same stored query — scope the ranking the
@@ -79,15 +86,17 @@ function toLtv(value: unknown): number | null {
 export async function computeMemberTiers(
   args: ComputeMemberTiersArgs,
 ): Promise<MemberTiers | null> {
-  const { identityDim, ltvMeasure, segmentFilters, cubeSegments, totalCount, tokenOverride, prefix } = args;
+  const { identityDim, ltvMeasure, nameDim, segmentFilters, cubeSegments, totalCount, tokenOverride, prefix } = args;
   if (totalCount <= 0) return null;
 
   // One row per user: group by the identity dim, aggregate the LTV measure.
   // Secondary order on the identity dim keeps tie ranks deterministic so the
-  // middle tier's offset window is stable across runs.
+  // middle tier's offset window is stable across runs. The name dim (when the
+  // caller verified the game models it) rides along in the group-by — 1:1 with
+  // the user, so it adds no fan-out — and is stored on each member.
   function buildQuery(direction: 'asc' | 'desc', limit: number, offset?: number): TierQuery {
     const q: TierQuery = {
-      dimensions: [identityDim],
+      dimensions: nameDim ? [identityDim, nameDim] : [identityDim],
       measures: [ltvMeasure],
       order: { [ltvMeasure]: direction, [identityDim]: 'asc' },
       limit,
@@ -104,13 +113,19 @@ export async function computeMemberTiers(
     // ambiguity regardless of what shape identityDim arrived in.
     const physical = physicalizeQuery(query, prefix);
     const dimKey = physical.dimensions[0];
+    const nameKey = nameDim ? physical.dimensions[1] : null;
     const measureKey = physical.measures[0];
     const raw = await loadWithContinueWait(physical, tokenOverride, PER_TIER_TIMEOUT_MS);
     const members: TierMember[] = [];
     for (const row of extractRows(raw)) {
       const uid = row[dimKey];
       if (uid == null) continue;
-      members.push({ uid: String(uid), ltv: toLtv(row[measureKey]) });
+      const member: TierMember = { uid: String(uid), ltv: toLtv(row[measureKey]) };
+      if (nameKey) {
+        const name = row[nameKey];
+        if (name != null && String(name).trim() !== '') member.name = String(name);
+      }
+      members.push(member);
     }
     return members;
   }

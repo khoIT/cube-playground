@@ -46,10 +46,15 @@ export interface GroupNode {
 
 export type PredicateNode = GroupNode | LeafNode;
 
-/** One member of an LTV tier. `ltv` null = measure cell missing → render "—". */
+/** One member of an LTV tier. `ltv` null = measure cell missing → render "—".
+ *  `name` = refresh-time in-game name (when the game models one), stored with
+ *  the uid so the Members tab shows the friendly identity without a view-time
+ *  live query. Absent on games with no name dim, or on tiers computed before
+ *  this field existed (those fall back to the live dim query, then the uid). */
 export interface TierMember {
   uid: string;
   ltv: number | null;
+  name?: string | null;
 }
 
 /** `all` replaces the trio for degenerate cohorts (≤150 members). */

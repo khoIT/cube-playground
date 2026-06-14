@@ -829,6 +829,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A display field fetched by a view-time live query silently degrades to a worse value on a cold/slow cube — store it at refresh instead
+
+- **Rule:** the Members tab resolved each member's in-game name with a **live Cube query on every page load**. When that query is cold/slow/aborts (cold Trino is 3.5–15s locally; `/load` AbortErrors happen), the rows come back empty, `columnsWithData` drops the now-all-empty name column, and the identity cell falls back to the bare uid — with NO error surfaced. The dim existed and resolved fine; the fragility was the *timing of the fetch*, not the data. For a display-critical field that's already computed at refresh, store it in the refresh-time artifact and render from there; keep the live query only as a background refinement. Names now ride on each `TierMember` (`member.name`), so the tab renders `member.name ?? liveName ?? uid`.
+- **Why:** names were computed at refresh but only landed in `member_profiles_json` — capped at the top-1000 by LTV, so it structurally CANNOT cover the middle/bottom tiers the Members tab samples (a 32k cohort's bottom-50 are nowhere near rank ≤1000). The tier runner, by contrast, already queries exactly the 150 tier uids, so adding the (meta-validated) name dimension there covers every tier. Don't reach for the profiles snapshot to backfill a display field unless its selection set is a superset of what you're rendering — check the cap.
+- **Signal:** a name/label/enrichment shows correctly sometimes and as a raw id other times for the SAME row; the value is fine in an isolated `/load` you run by hand but blank in the UI; the render path is unchanged in git yet "broke" — implicating a runtime cube-latency dependency, not a code regression. Tiers `computed_at` not advancing after a refresh while `member_profiles_json` does = the tier compute hit a transient (it returns null and KEEPS prior tiers by design; the profile step ran later when Trino was warm).
+- **Apply:** add the name dim to the tier query ONLY when `metaSets.dimensions.has(physicalMember(nameDim, prefix))` — an unknown member 400s the whole tier query and a thrown tier compute wipes the sampling for that refresh. Name is 1:1 with the identity dim (one row per user), so it rides in the GROUP BY with no fan-out — but never add a name via a one-to-many join (e.g. `user_roles.last_role_name`), which fans out the member count. Existing tiers predating the field have no `name`; they fall back to live→uid until the next refresh — graceful, no migration. The cross-cube case works: an `active_daily` segment whose identity pivots to `mf_users.user_id` runs the tier query with `mf_users` dims + `active_daily` filters/segments, and Cube joins them (verified live).
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

@@ -229,7 +229,13 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
                 </td>
                 <MemberIdentityCell
                   uid={member.uid}
-                  name={nameField ? ((dimRow?.[nameField] as string | undefined) ?? null) : null}
+                  // Prefer the refresh-time stored name (always present once
+                  // computed, independent of the live dim query); fall back to
+                  // the live value for tiers predating the field, then the uid.
+                  name={
+                    member.name ??
+                    (nameField ? ((dimRow?.[nameField] as string | undefined) ?? null) : null)
+                  }
                   segmentId={segment.id}
                   member360Enabled={member360Enabled}
                   linkTitle={t('segments.member360.openTooltip', { defaultValue: 'Open 360 profile' })}

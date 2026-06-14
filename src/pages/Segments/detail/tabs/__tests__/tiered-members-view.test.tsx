@@ -189,4 +189,16 @@ describe('SampleUsersTab tier branch', () => {
     expect(uids).toHaveLength(25); // PAGE_SIZE slice of the 50-member tier
     expect(uids[0]).toBe('top0');
   });
+
+  it('renders the stored tier name without any live dim data', () => {
+    // The enrichment hook is mocked to return EMPTY rows/columns — i.e. the
+    // live name query is cold/slow/failed. The friendly name must still show
+    // from the refresh-time TierMember.name (the regression: it fell back to
+    // the bare uid whenever the live query produced nothing).
+    const tiers = makeTiers();
+    tiers.tiers.top![0] = { uid: 'top0', ltv: 9_000_000, name: 'VươngĐôngQuân' };
+    renderTab(makeSegment({ member_tiers: tiers }));
+    expect(screen.getByText('VươngĐôngQuân')).toBeTruthy(); // stored name is primary
+    expect(screen.getByText('top0')).toBeTruthy(); // uid demoted to secondary line
+  });
 });

@@ -21,7 +21,7 @@ import { pruneMember360CacheToUids } from '../services/member360-cache-store.js'
 import { tieredUids } from '../services/member360-runner.js';
 import { pickPresetForSegment } from '../presets/registry.js';
 import { resolveGamePrefixForWorkspace } from '../services/resolve-game-prefix.js';
-import { logicalCube } from '../services/cube-member-resolver.js';
+import { logicalCube, physicalMember } from '../services/cube-member-resolver.js';
 import { resolveIdentityDetailed } from '../services/resolve-identity-field.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { loadWithContinueWait } from '../services/load-with-continue-wait.js';
@@ -310,9 +310,26 @@ export async function refreshSegment(segmentId: string, source: RefreshSource = 
     // computed_at makes staleness visible); no rank measure at all clears them
     // so the FE falls back to the random sample.
     if (rankMeasure) {
+      // The friendly in-game name lives on the preset's `name` member column.
+      // Store it on each tier member so the Members tab renders the identity
+      // without a view-time live query (a cold/slow Cube would otherwise blank
+      // the name back to the bare uid). Pass it ONLY when this game's model
+      // actually exposes the dim — an unknown member 400s the whole tier query.
+      const nameColumn = (preset?.memberColumns ?? []).find(
+        (c): c is { id?: unknown; dimension?: unknown } =>
+          !!c && typeof c === 'object' && (c as { id?: unknown }).id === 'name',
+      );
+      const nameDimRaw =
+        nameColumn && typeof nameColumn.dimension === 'string' ? nameColumn.dimension : null;
+      const nameDim =
+        nameDimRaw && (!metaSets || metaSets.dimensions.has(physicalMember(nameDimRaw, prefix)))
+          ? nameDimRaw
+          : null;
+
       const tiers = await computeMemberTiers({
         identityDim: identityField,
         ltvMeasure: rankMeasure,
+        nameDim,
         segmentFilters,
         cubeSegments: cohortCubeSegments,
         totalCount,

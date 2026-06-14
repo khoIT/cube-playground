@@ -20,10 +20,14 @@ export interface Activation {
 }
 
 /** One member of an LTV tier. `ltv` is null when the measure cell was
- *  missing/unparseable — render "—", never NaN. */
+ *  missing/unparseable — render "—", never NaN. `name` is the refresh-time
+ *  in-game name (when the game models one), stored alongside the uid so the
+ *  Members tab renders the friendly identity without a view-time live query —
+ *  absent on games with no name dim, or on tiers computed before this field. */
 export interface TierMember {
   uid: string;
   ltv: number | null;
+  name?: string | null;
 }
 
 /** `all` is used for degenerate cohorts (≤150 members) instead of the trio. */
