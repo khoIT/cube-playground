@@ -38,6 +38,11 @@ const PROTECTED_PREFIXES = [
   // VIP-care: viewers may read the monitor/ledger (GET) but must not mutate the
   // case ledger (PATCH treatment/status) or author playbooks (Phase-6 writes).
   '/api/care',
+  // Advisor: /diagnose + /recommend are read-only POSTs (they carry a body but
+  // mutate nothing) and stay open to viewers. Only scaffolding a hand-off draft
+  // and recording dismiss/pin feedback are mutations — gate those sub-paths.
+  '/api/advisor/handoff',
+  '/api/advisor/feedback',
 ];
 
 function authDisabled(): boolean {

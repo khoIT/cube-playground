@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, Heart, Gauge } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, Heart, Gauge, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -272,6 +272,17 @@ export function Sidebar() {
               />
             ))}
           </SidebarSection>
+        )}
+
+        {showSection('advisor') && (
+          <SidebarSection
+            id="advisor"
+            icon={Lightbulb}
+            label={t('nav.advisor')}
+            to="/advisor"
+            collapsed={collapsed}
+            flat
+          />
         )}
       </nav>
 

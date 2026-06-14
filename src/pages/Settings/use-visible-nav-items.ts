@@ -22,7 +22,8 @@ export type NavItemId =
   | 'metrics-catalog'
   | 'liveops'
   | 'dashboards'
-  | 'segments';
+  | 'segments'
+  | 'advisor';
 
 export interface NavItemDescriptor {
   id: NavItemId;
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItemDescriptor[] = [
   { id: 'liveops', labelKey: 'nav.liveops' },
   { id: 'dashboards', labelKey: 'nav.dashboards' },
   { id: 'segments', labelKey: 'nav.segments' },
+  { id: 'advisor', labelKey: 'nav.advisor' },
 ];
 
 function readHidden(): string[] {

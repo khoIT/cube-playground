@@ -19,6 +19,7 @@ export type FeatureKey =
   | 'liveops'
   | 'dashboards'
   | 'segments'
+  | 'advisor'
   | 'admin';
 
 /**

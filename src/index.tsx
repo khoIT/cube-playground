@@ -112,6 +112,10 @@ const DataHubPage = loadable(() =>
   import('./pages/Data').then((m) => ({ default: m.DataHubPage }))
 );
 
+const AdvisorPage = loadable(() =>
+  import('./pages/Advisor').then((m) => ({ default: m.AdvisorPage }))
+);
+
 // Admin-only route guard. Renders the page only for role 'admin' (matching the
 // server's necessary condition), otherwise bounces to '/'. The server also
 // enforces this on every /api/admin/* call — this guard is convenience only.
@@ -256,6 +260,7 @@ ReactDOM.render(
                 <Route key="dashboards-detail" exact path="/dashboards/:slug" component={DashboardDetailPage} />
                 <Route key="dashboards" exact path="/dashboards" component={DashboardsListPage} />
               </Switch>
+              <Route key="advisor" path="/advisor/:id?" component={AdvisorPage} />
               <Route key="ops-console" exact path="/ops" component={OpsConsolePage} />
               <Route key="drift-center" exact path="/drift-center" component={DriftCenterPage} />
               <Route key="data-hub" exact path="/data" component={DataHubPage} />

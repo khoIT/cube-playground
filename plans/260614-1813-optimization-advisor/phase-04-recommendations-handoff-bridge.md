@@ -6,7 +6,7 @@
 
 ## Overview
 - **Priority:** P0.
-- **Status:** pending.
+- **Status:** ✅ done (2026-06-14, hand-off vs STUB command-center). Backend: `server/src/routes/advisor.ts` (POST `/diagnose` `/recommend` `/handoff` `/feedback` + GET drafts/feedback; registered in `index.ts`); `recommend.ts` (diagnose→rankCandidates orchestration + optional additive LLM phrasing); `handoff-scaffolder.ts` (candidate→editable draft, status ALWAYS 'draft', treatment-share clamped ≤0.85, CS-queue vs external delivery, deterministic idempotent draftId); `command-center-draft-store.ts` + `feedback-store.ts` (SQLite stub stores) + migration `054-advisor-handoff-feedback.sql`. Frontend: `recommendations.tsx` (cards + explode-to-evidence + feedback dismiss/pin), `command-center.tsx` (hand-off screen), live-wired to `src/api/advisor.ts`. Viewer write-gate covers `/api/advisor/handoff` + `/feedback` (read POSTs `/diagnose` `/recommend` stay open). 13 new backend tests; full suite 1549/1549. **DEFERRED: the real Experiment Command Center registry is not built — `/handoff` persists drafts to the STUB store (swap-point documented). Learn-back (`recordResult` write-back on scorecard finalize) deferred with it. STUB stores trust client gameId/segmentId (single default workspace today); the real registry owns multi-tenant scoping.**
 - Render the ranked experiment cards (Phase 2 output), wire the Decide actions (tune / portfolio / manual
   hypothesis), and build the reversible hand-off that scaffolds an editable experiment draft into the
   Experiment Command Center (plan `260614-0018`), then closes the loop by writing results back to the Library.
