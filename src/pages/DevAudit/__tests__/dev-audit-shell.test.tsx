@@ -134,10 +134,10 @@ describe('DevAuditShell — tab nav present', () => {
     expect(screen.getByRole('tablist', { name: 'Chat Audit' })).toBeTruthy();
   });
 
-  it('renders all 4 tabs in the tablist', () => {
+  it('renders all 5 tabs in the tablist', () => {
     renderShell('/dev/chat-audit/sessions');
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(5);
   });
 
   it('shows the game badge in the banner', () => {

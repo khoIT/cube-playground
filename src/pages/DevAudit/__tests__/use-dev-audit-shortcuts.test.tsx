@@ -47,7 +47,15 @@ describe('useDevAuditShortcuts', () => {
     vi.restoreAllMocks();
   });
 
+  // The hook gates the modifier by platform (meta on mac, ctrl elsewhere).
+  // jsdom reports a non-mac platform, so tests that assert the cmd-K (meta) path
+  // fires must stub a mac platform first.
+  function stubMac() {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel');
+  }
+
   it('fires onCmdK when meta+K pressed on /dev/chat-audit/sessions', () => {
+    stubMac();
     const onCmdK = vi.fn();
     renderAt('/dev/chat-audit/sessions', onCmdK);
     fireMetaK();
@@ -55,6 +63,7 @@ describe('useDevAuditShortcuts', () => {
   });
 
   it('fires onCmdK on any /dev/chat-audit/* sub-route', () => {
+    stubMac();
     const onCmdK = vi.fn();
     renderAt('/dev/chat-audit/leaderboard', onCmdK);
     fireMetaK();
@@ -93,6 +102,7 @@ describe('useDevAuditShortcuts', () => {
   });
 
   it('calls preventDefault when cmd-K fires in dev-audit', () => {
+    stubMac();
     const onCmdK = vi.fn();
     renderAt('/dev/chat-audit/sessions', onCmdK);
     const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true });

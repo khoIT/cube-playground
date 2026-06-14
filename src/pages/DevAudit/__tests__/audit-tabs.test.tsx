@@ -1,6 +1,6 @@
 /**
  * Tests for AuditTabs:
- * - Renders all 4 tabs with correct ARIA roles
+ * - Renders all 5 tabs with correct ARIA roles
  * - Correct tab is aria-selected based on current URL
  * - Clicking a tab triggers navigation
  * - ArrowLeft/ArrowRight keyboard cycling
@@ -58,6 +58,10 @@ describe('resolveAuditTab', () => {
     expect(resolveAuditTab('/dev/chat-audit/cache')).toBe('cache');
   });
 
+  it('returns starters for /dev/chat-audit/starters', () => {
+    expect(resolveAuditTab('/dev/chat-audit/starters')).toBe('starters');
+  });
+
   it('defaults to sessions for unrecognised paths', () => {
     expect(resolveAuditTab('/dev/chat-audit')).toBe('sessions');
     expect(resolveAuditTab('/dev/chat-audit/abc-legacy')).toBe('sessions');
@@ -69,10 +73,10 @@ describe('resolveAuditTab', () => {
 // ---------------------------------------------------------------------------
 
 describe('AuditTabs', () => {
-  it('renders 4 tabs with role=tab', () => {
+  it('renders 5 tabs with role=tab', () => {
     renderTabs('/dev/chat-audit/sessions');
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(5);
   });
 
   it('tablist has correct aria-label', () => {
@@ -80,10 +84,10 @@ describe('AuditTabs', () => {
     expect(screen.getByRole('tablist', { name: 'Chat Audit' })).toBeTruthy();
   });
 
-  it('tab labels are Sessions, Search, Leaderboard, Cache', () => {
+  it('tab labels are Sessions, Search, Leaderboard, Cache, Starters', () => {
     renderTabs('/dev/chat-audit/sessions');
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent);
-    expect(tabs).toEqual(['Sessions', 'Search', 'Leaderboard', 'Cache']);
+    expect(tabs).toEqual(['Sessions', 'Search', 'Leaderboard', 'Cache', 'Starters']);
   });
 
   it('Sessions tab is aria-selected at /dev/chat-audit/sessions', () => {
@@ -141,11 +145,11 @@ describe('AuditTabs', () => {
     expect(getPath()).toBe('/dev/chat-audit/search');
   });
 
-  it('ArrowLeft from Sessions wraps to Cache', () => {
+  it('ArrowLeft from Sessions wraps to last tab (Starters)', () => {
     const { getPath } = renderTabs('/dev/chat-audit/sessions');
     const sessionsTab = screen.getByRole('tab', { name: 'Sessions' });
     fireEvent.keyDown(sessionsTab, { key: 'ArrowLeft' });
-    expect(getPath()).toBe('/dev/chat-audit/cache');
+    expect(getPath()).toBe('/dev/chat-audit/starters');
   });
 
   it('Home key navigates to first tab (Sessions)', () => {
@@ -155,10 +159,10 @@ describe('AuditTabs', () => {
     expect(getPath()).toBe('/dev/chat-audit/sessions');
   });
 
-  it('End key navigates to last tab (Cache)', () => {
+  it('End key navigates to last tab (Starters)', () => {
     const { getPath } = renderTabs('/dev/chat-audit/sessions');
     const sessionsTab = screen.getByRole('tab', { name: 'Sessions' });
     fireEvent.keyDown(sessionsTab, { key: 'End' });
-    expect(getPath()).toBe('/dev/chat-audit/cache');
+    expect(getPath()).toBe('/dev/chat-audit/starters');
   });
 });

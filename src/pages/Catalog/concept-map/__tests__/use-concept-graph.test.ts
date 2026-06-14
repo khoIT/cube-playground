@@ -20,6 +20,9 @@ const useConceptsMock = vi.fn();
 const useBusinessMetricsMock = vi.fn();
 const listGlossaryMock = vi.fn();
 const segmentsListMock = vi.fn();
+// The graph scopes app segments to the active game (s.game_id === activeGameId),
+// so the active-game hook must be mocked for the segment fixture to surface.
+const useActiveGameIdMock = vi.fn<() => string | null>();
 
 vi.mock('../../data-model-tab/use-concepts', () => ({
   useConcepts: () => useConceptsMock(),
@@ -32,6 +35,9 @@ vi.mock('../../../../api/glossary-client', () => ({
 }));
 vi.mock('../../../../api/segments-client', () => ({
   segmentsClient: { list: (...args: unknown[]) => segmentsListMock(...args) },
+}));
+vi.mock('../../../../components/Header/use-game-context', () => ({
+  useActiveGameId: () => useActiveGameIdMock(),
 }));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
@@ -81,7 +87,7 @@ const TERM = {
   trust: 'draft',
 } as GlossaryTerm;
 
-const APP_SEGMENT = { id: 'whales', name: 'Whales' } as Segment;
+const APP_SEGMENT = { id: 'whales', name: 'Whales', game_id: 'cfm_vn' } as Segment;
 
 function primeAllSources() {
   useConceptsMock.mockReturnValue({
@@ -98,6 +104,8 @@ function primeAllSources() {
   });
   listGlossaryMock.mockResolvedValue([TERM]);
   segmentsListMock.mockResolvedValue([APP_SEGMENT]);
+  // Active game matches the fixture segment so it survives the game-scope filter.
+  useActiveGameIdMock.mockReturnValue('cfm_vn');
 }
 
 afterEach(() => {
