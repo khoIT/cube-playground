@@ -27,6 +27,7 @@ views:
           - last_login_date
           - last_login_channel
           - last_login_country
+          - geo_moved
           - first_active_date
           - last_active_date
           - total_active_days

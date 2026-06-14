@@ -92,6 +92,19 @@ cubes:
       - name: last_login_country
         sql: sdk_last_login_country_code
         type: string
+      # Derived: first and last login country differ (possible travel / account
+      # sharing / VPN). Only true when BOTH countries are present and differ —
+      # a missing endpoint is "unknown", not "moved".
+      - name: geo_moved
+        sql: >
+          CASE WHEN {CUBE}.sdk_first_login_country_code IS NOT NULL
+                AND {CUBE}.sdk_last_login_country_code IS NOT NULL
+                AND {CUBE}.sdk_first_login_country_code <> ''
+                AND {CUBE}.sdk_last_login_country_code <> ''
+                AND {CUBE}.sdk_first_login_country_code <> {CUBE}.sdk_last_login_country_code
+               THEN true ELSE false END
+        type: boolean
+        description: First and last login country differ (both present) — travel / account-sharing / VPN signal
       - name: first_device_model
         sql: sdk_first_login_device_model
         type: string
