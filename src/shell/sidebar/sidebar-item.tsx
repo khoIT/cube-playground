@@ -1,14 +1,16 @@
 /**
  * SidebarItem — single nav row with icon + label + optional caret.
- * Active state:
- *   - top-level: 3px brand-tinted left bar + semi-bold text
- *   - sub-row (indent): box highlight (no left bar) so it doesn't clash with tree-line
+ * Active state (inset rounded pill — see plans/visuals/sidebar-nav-treatments.html):
+ *   - top-level: soft brand pill + brand-tinted icon + semi-bold brand text
+ *   - sub-row (indent): soft brand pill (no left bar) so it doesn't clash with tree-line
  *   - collapsed: icon-only with hover tooltip
+ * Rows live inside the nav's 8px side gutter; the pill is inset with an 8px radius.
  */
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { T, Icon, type LucideIcon } from '../theme';
+import { useRouteActive } from './use-route-active';
 
 interface SidebarItemProps {
   icon?: LucideIcon;
@@ -40,29 +42,21 @@ interface SidebarItemProps {
   /** Sidebar collapsed mode — render icon-only. */
   collapsed?: boolean;
   /** Header-link half of a split section row. The parent wrapper paints the
-   *  shared row hover background, so this row paints none of its own and shows
-   *  no caret (the separate toggle button owns the caret). */
+   *  shared row hover/active background, so this row paints none of its own and
+   *  shows no caret (the separate toggle button owns the caret). */
   headerLink?: boolean;
+  /** Never render the active highlight even when the route matches. Used by
+   *  "See all…" / empty-state rows, which point at the section's own landing
+   *  route and would otherwise light up whenever that section is active. */
+  neverActive?: boolean;
 }
 
 export function SidebarItem({
   icon, iconColor, label, to, matchPrefix, expandable, expanded,
   primary, onClick, indent, muted, trailing, trailingShowOnHover, collapsed,
-  headerLink,
+  headerLink, neverActive,
 }: SidebarItemProps) {
-  const location = useLocation();
-  const prefixes: string[] = matchPrefix
-    ? Array.isArray(matchPrefix) ? matchPrefix : [matchPrefix]
-    : to ? [to] : [];
-  const fullUrl = location.pathname + location.search;
-  const isActive = prefixes.some(p => {
-    // Hrefs that embed a query string (e.g. /build?query=...) need to match
-    // the search portion too — otherwise every playground recent would look
-    // active simultaneously because they all share the /build pathname.
-    if (p.includes('?')) return fullUrl === p;
-    if (p === '/') return location.pathname === '/';
-    return location.pathname === p || location.pathname.startsWith(p + '/');
-  });
+  const isActive = useRouteActive(to, matchPrefix) && !neverActive;
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = React.useState(false);
@@ -102,45 +96,40 @@ export function SidebarItem({
     ? 'linear-gradient(to right, black 0, black calc(100% - 64px), transparent 100%)'
     : undefined;
 
+  // Active rows wear a soft brand pill; the resting background carries it so
+  // hover never overrides an active row. Header-link rows paint nothing — the
+  // parent section wrapper owns the shared header pill (link half + caret half).
+  const restBg = isActive && !headerLink ? 'var(--shell-nav-active)' : 'transparent';
   const inner = (
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        // Icon'd sub-rows (e.g. CS·VIP Care, Ops Console) start their icon past
-        // the tree-line guide (drawn at x=19) so the glyph doesn't sit on top of
-        // it. Text-only recents keep the tighter inset — their empty icon slot
-        // lets the line pass through cleanly and their label aligns under the
-        // parent's label.
-        padding: indent ? (icon ? '5px 12px 5px 28px' : '5px 12px 5px 16px') : '7px 12px',
+        // Children sit to the RIGHT of the tree spine (drawn at x=18): both
+        // icon'd sub-rows and text-only recents indent their content to 28px so
+        // the label clears the spine instead of straddling it.
+        padding: indent ? '6px 10px 6px 28px' : '7px 10px',
         position: 'relative',
         cursor: 'pointer',
         userSelect: 'none',
-        borderRadius: 0,
-        background: indent && isActive ? 'rgba(0,0,0,0.05)' : 'transparent',
+        borderRadius: 8,
+        background: restBg,
         transition: 'background .12s',
       }}
       onMouseEnter={e => {
         setHovered(true);
-        // Indent (child) rows change text color only — no hover background.
-        // Header-link rows let the parent wrapper paint the shared row bg.
-        if (!indent && !headerLink) e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
+        // Every navigable row gets a hover pill (children included). Active rows
+        // keep their brand pill; header-link rows defer to the parent wrapper.
+        if (!headerLink && !isActive) e.currentTarget.style.background = 'var(--shell-nav-hover)';
       }}
       onMouseLeave={e => {
         setHovered(false);
-        if (!indent && !headerLink) e.currentTarget.style.background = 'transparent';
+        if (!headerLink && !isActive) e.currentTarget.style.background = restBg;
       }}
     >
-      {isActive && !indent && (
-        <div style={{
-          position: 'absolute', left: 0, top: 4, bottom: 4, width: 3,
-          background: 'var(--shell-brand)', borderRadius: '0 2px 2px 0',
-        }} />
-      )}
-
       {primary
         ? <Icon icon={Plus} size={14} color={'var(--shell-text-emphasis)'} />
         : icon
-          ? <Icon icon={icon} size={indent ? 12 : 16} color={iconColor ?? (isActive ? 'var(--shell-text-strong)' : 'var(--shell-text-muted)')} />
+          ? <Icon icon={icon} size={indent ? 12 : 16} color={iconColor ?? (isActive ? 'var(--shell-brand)' : 'var(--shell-text-muted)')} />
           : <span style={{ width: indent ? 12 : 16 }} />
       }
 
@@ -149,11 +138,13 @@ export function SidebarItem({
         fontFamily: T.fSans,
         fontSize: muted ? 12 : 13,
         fontWeight: isActive ? 600 : primary ? 600 : 500,
-        // Child rows brighten muted → foreground on hover (text only). Active
-        // and top-level rows keep their fixed weight/colour.
-        color: muted
-          ? (hovered ? 'var(--shell-text-emphasis)' : 'var(--shell-text-subtle)')
-          : isActive ? 'var(--shell-text-strong)' : (indent && hovered ? 'var(--shell-text-strong)' : 'var(--shell-text-emphasis)'),
+        // Active rows read brand; muted recents brighten on hover; other child
+        // rows brighten muted → foreground on hover; top-level rows stay fixed.
+        color: isActive
+          ? 'var(--shell-brand)'
+          : muted
+            ? (hovered ? 'var(--shell-text-emphasis)' : 'var(--shell-text-subtle)')
+            : (indent && hovered ? 'var(--shell-text-strong)' : 'var(--shell-text-emphasis)'),
         transition: 'color .12s',
         overflow: 'hidden',
         textOverflow: hoverTrailingActive ? 'clip' : 'ellipsis',
@@ -222,21 +213,18 @@ function CollapsedRow({ icon, iconColor, label, primary, isActive }: CollapsedRo
         position: 'relative',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: 32, width: '100%',
-        background: hover && !isActive ? 'rgba(0,0,0,0.04)' : 'transparent',
+        borderRadius: 8,
+        background: isActive
+          ? 'var(--shell-nav-active)'
+          : hover ? 'var(--shell-nav-hover)' : 'transparent',
         cursor: 'pointer',
         transition: 'background .12s',
       }}
     >
-      {isActive && (
-        <div style={{
-          position: 'absolute', left: 0, top: 4, bottom: 4, width: 3,
-          background: 'var(--shell-brand)', borderRadius: '0 2px 2px 0',
-        }} />
-      )}
       {primary
         ? <Icon icon={Plus} size={16} color={'var(--shell-text-emphasis)'} />
         : icon
-          ? <Icon icon={icon} size={18} color={iconColor ?? (isActive ? 'var(--shell-text-strong)' : 'var(--shell-text-muted)')} />
+          ? <Icon icon={icon} size={18} color={iconColor ?? (isActive ? 'var(--shell-brand)' : 'var(--shell-text-muted)')} />
           : null}
       {hover && tipPos && (
         <div

@@ -8,7 +8,8 @@ import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { SidebarItem } from './sidebar-item';
 import { getSectionExpanded, setSectionExpanded } from './sidebar-section-store';
-import { T, Icon, type LucideIcon } from '../theme';
+import { useRouteActive } from './use-route-active';
+import { Icon, type LucideIcon } from '../theme';
 
 interface SidebarSectionProps {
   /** Stable id for persisted expand state. */
@@ -65,12 +66,17 @@ export function SidebarSection({
   const [rowHovered, setRowHovered] = React.useState(false);
   const [arrowHovered, setArrowHovered] = React.useState(false);
 
+  // The whole header row (link half + caret half) shares one inset pill, so the
+  // active match is computed here rather than left to the inner SidebarItem.
+  const headerActive = useRouteActive(to, matchPrefix);
+
   const tree = showChildren && (
     <div style={{ position: 'relative' }}>
-      {/* Tree-guide sits inside the parent icon column so child rows align
-          vertically with the parent label rather than sitting far to its right. */}
+      {/* Short tree spine — sits just right of the parent icon column (x=18) and
+          is inset top/bottom so it spans only the real child rows rather than
+          running the full column past the trailing "See all…" link. */}
       <div style={{
-        position: 'absolute', left: 19, top: 4, bottom: 4, width: 1,
+        position: 'absolute', left: 18, top: 5, bottom: 5, width: 1,
         background: 'rgba(0,0,0,0.08)', pointerEvents: 'none',
       }} />
       {children}
@@ -98,7 +104,13 @@ export function SidebarSection({
         style={{
           display: 'flex',
           alignItems: 'center',
-          background: rowHovered ? 'rgba(0,0,0,0.04)' : 'transparent',
+          // Inset rounded pill shared by both halves of the header row. An
+          // active section wears the soft brand pill; hover is a neutral darken.
+          margin: '1px 0',
+          borderRadius: 8,
+          background: headerActive
+            ? 'var(--shell-nav-active)'
+            : rowHovered ? 'var(--shell-nav-hover)' : 'transparent',
           transition: 'background .12s',
         }}
         onMouseEnter={() => setRowHovered(true)}
@@ -125,11 +137,10 @@ export function SidebarSection({
           style={{
             width: 28, height: 28, marginRight: 4, flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: 'none', borderRadius: 4, cursor: 'pointer', padding: 0,
-            // Picks up the row's light bg on row hover; darkens on direct hover.
-            background: arrowHovered
-              ? 'rgba(0,0,0,0.08)'
-              : rowHovered ? 'rgba(0,0,0,0.04)' : 'transparent',
+            border: 'none', borderRadius: 6, cursor: 'pointer', padding: 0,
+            // Transparent at rest so the shared header pill shows through;
+            // darkens only on direct hover of the caret itself.
+            background: arrowHovered ? 'rgba(0,0,0,0.08)' : 'transparent',
             transition: 'background .12s',
           }}
         >

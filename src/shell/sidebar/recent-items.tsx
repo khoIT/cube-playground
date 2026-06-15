@@ -45,7 +45,7 @@ export function RecentItems({
   const items = filter ? rawItems.filter(i => filter({ id: i.id, title: i.title })) : rawItems;
 
   if (items.length === 0) {
-    return <SidebarItem label={emptyLabel} to={seeAllTo} indent muted />;
+    return <SidebarItem label={emptyLabel} to={seeAllTo} indent muted neverActive />;
   }
 
   const shown = items.slice(0, visible);
@@ -61,7 +61,7 @@ export function RecentItems({
         />
       ))}
       {items.length > visible && (
-        <SidebarItem label={`See all... (${items.length})`} to={seeAllTo} indent muted />
+        <SidebarItem label={`See all... (${items.length})`} to={seeAllTo} indent muted neverActive />
       )}
     </>
   );

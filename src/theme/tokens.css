@@ -84,6 +84,11 @@
   --shell-brand-hover:    #f54a00;
   --shell-brand-soft:     #fff7ed;
   --shell-brand-border:   #fed7aa;
+  /* Sidebar nav row states — translucent so they layer over the parchment
+     surface to a warm tint (the pale solid --shell-brand-soft reads near-white
+     on parchment). Hover is a neutral darken; active is a soft brand pill. */
+  --shell-nav-hover:      rgba(0, 0, 0, 0.045);
+  --shell-nav-active:     rgba(240, 90, 34, 0.10);
   --shell-danger:         #ef4444;
   --shell-danger-strong:  #dc2626;
   --shell-danger-soft:    #fef2f2;
@@ -367,6 +372,8 @@
   --shell-brand-hover:    #f7894e;
   --shell-brand-soft:     #2a1810;
   --shell-brand-border:   #5a3422;
+  --shell-nav-hover:      rgba(255, 255, 255, 0.05);
+  --shell-nav-active:     rgba(240, 107, 58, 0.16);
   --shell-danger:         #ef4444;
   --shell-danger-strong:  #f87171;
   --shell-danger-soft:    #2a1416;

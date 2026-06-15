@@ -117,7 +117,8 @@ export function Sidebar() {
     >
       <WorkspacePill collapsed={collapsed} />
 
-      <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 0 12px' }}>
+      {/* 8px side gutter so the inset row pills float off the sidebar edges. */}
+      <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 8px 12px' }}>
         {showSection('chats') && (
           <SidebarSection
             id="chats"

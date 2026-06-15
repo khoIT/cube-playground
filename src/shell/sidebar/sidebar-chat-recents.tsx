@@ -47,11 +47,11 @@ export function SidebarChatRecents() {
   // with zero own chats should still see what the team has published).
   let ownSection: React.ReactNode;
   if (error) {
-    ownSection = <SidebarItem label="Couldn't load chats" to="/chat" indent muted />;
+    ownSection = <SidebarItem label="Couldn't load chats" to="/chat" indent muted neverActive />;
   } else if (isLoading && sessions.length === 0) {
-    ownSection = <SidebarItem label="Loading…" to="/chat" indent muted />;
+    ownSection = <SidebarItem label="Loading…" to="/chat" indent muted neverActive />;
   } else if (sessions.length === 0) {
-    ownSection = <SidebarItem label="No conversations yet" to="/chat" indent muted />;
+    ownSection = <SidebarItem label="No conversations yet" to="/chat" indent muted neverActive />;
   } else {
     ownSection = (
       <>

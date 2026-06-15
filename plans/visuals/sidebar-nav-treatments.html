@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Left-nav treatments · cube-playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sidebar:#f1e6da;          /* --surface-sidebar */
+    --brand:#f05a22;            /* --shell-brand */
+    --ink-strong:#0a0a0a;       /* --shell-text-strong */
+    --ink:#262626;              /* --shell-text-emphasis */
+    --ink-muted:#525252;        /* --shell-text-muted */
+    --ink-subtle:#737373;       /* --shell-text-subtle */
+    --ink-faint:#a3a3a3;        /* --shell-text-faint */
+    --tree:rgba(0,0,0,.08);
+    --hover:rgba(0,0,0,.045);
+    --active:rgba(0,0,0,.06);
+    --pill-active:rgba(240,90,34,.10);
+    --page:#e4d9c8;
+    font-family:'Inter',-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);padding:40px 32px 64px}
+  h1{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0 0 4px}
+  .sub{font-size:13.5px;color:var(--ink-muted);max-width:760px;line-height:1.55;margin:0 0 32px}
+  .row{display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap}
+  .col{width:300px;flex:0 0 auto}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-bottom:10px}
+  .tag.cur{background:rgba(0,0,0,.06);color:var(--ink-muted)}
+  .tag.rec{background:var(--pill-active);color:var(--brand)}
+  .tag.ia{background:rgba(0,0,0,.06);color:var(--ink-muted)}
+  .ctitle{font-size:14.5px;font-weight:700;margin:0 0 2px}
+  .cnote{font-size:12px;color:var(--ink-muted);line-height:1.5;margin:0 0 14px;min-height:34px}
+
+  /* Sidebar shell */
+  .nav{width:260px;background:var(--sidebar);border-radius:10px;padding:8px 0 12px;
+       box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);overflow:hidden}
+
+  /* a row */
+  .item{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;
+        color:var(--ink);cursor:pointer;position:relative;white-space:nowrap}
+  .item .ic{width:16px;height:16px;flex:0 0 16px;color:var(--ink-muted);display:flex;align-items:center;justify-content:center}
+  .item .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .item .car{width:14px;height:14px;color:var(--ink-faint);flex:0 0 14px}
+  .child{font-size:13px;color:var(--ink-subtle);font-weight:500}
+  .child:hover{color:var(--ink-strong)}
+  .seeall{font-size:12px;color:var(--ink-subtle);font-weight:500}
+
+  /* ---------- Variant A : current (full-bleed square) ---------- */
+  .A .item{padding:7px 12px;border-radius:0}
+  .A .item:hover{background:var(--hover)}
+  .A .head.active{background:var(--active)}
+  .A .head.active::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--brand);border-radius:0 2px 2px 0}
+  .A .head.active .lbl{color:var(--brand);font-weight:600}     /* mimics screenshot */
+  .A .head.active .ic{display:none}                            /* BUG: icon vanishes when active */
+  .A .kids{position:relative}
+  .A .kids::before{content:"";position:absolute;left:19px;top:0;bottom:0;width:1px;background:var(--tree)} /* full-column line */
+  .A .child{padding:6px 12px 6px 30px;border-radius:0}
+  .A .child:hover{background:var(--hover)}
+  .A .seeall{padding:6px 12px 6px 30px;border-radius:0;background:var(--active)} /* BUG: See all highlighted */
+
+  /* ---------- Variant B : recommended (inset pill) ---------- */
+  .B .nav{padding:8px 8px 12px}            /* 8px gutter so pills inset */
+  .B .item{padding:7px 10px;border-radius:8px;margin:1px 0}
+  .B .item:hover{background:var(--hover)}
+  .B .head.active{background:var(--pill-active)}
+  .B .head.active .ic{color:var(--brand)}            /* icon STAYS, tinted */
+  .B .head.active .lbl{color:var(--brand);font-weight:600}
+  .B .kids{position:relative;margin:2px 0 2px 0}
+  .B .kids::before{content:"";position:absolute;left:18px;top:5px;bottom:5px;width:1px;background:var(--tree)} /* short, contained: stops at last child */
+  .B .child{padding:6px 10px 6px 28px;border-radius:8px;margin:1px 0}
+  .B .child:hover{background:var(--hover)}
+  .B .child.active{background:var(--pill-active);color:var(--brand);font-weight:600}
+  .B .seeall{padding:5px 10px 5px 28px;border-radius:8px}      /* no highlight, lives OUTSIDE the spine */
+
+  /* ---------- Variant C : IA policy ---------- */
+  .C .nav{padding:8px 8px 12px}
+  .C .item{padding:7px 10px;border-radius:8px;margin:1px 0}
+  .C .item:hover{background:var(--hover)}
+  .C .head.active{background:var(--pill-active)}
+  .C .head.active .ic{color:var(--brand)}
+  .C .head.active .lbl{color:var(--brand);font-weight:600}
+  .C .kids{position:relative;margin:2px 0}
+  .C .kids::before{content:"";position:absolute;left:18px;top:5px;bottom:5px;width:1px;background:var(--tree)}
+  .C .child{padding:6px 10px 6px 28px;border-radius:8px;margin:1px 0}
+  .C .child:hover{background:var(--hover)}
+  .C .seeall{padding:5px 10px 5px 28px;border-radius:8px}
+  .C .flat .car{color:var(--ink-faint)}      /* reference catalogs: chevron-right, no children */
+
+  .divider{height:1px;background:rgba(0,0,0,.08);margin:8px 14px}
+  .B .divider,.C .divider{margin:8px 6px}
+
+  /* annotation callouts */
+  .anno{margin-top:14px;font-size:12px;line-height:1.55;color:var(--ink-muted)}
+  .anno b{color:var(--ink)}
+  .anno .good{color:#15803d;font-weight:600}
+  .anno .bad{color:#b91c1c;font-weight:600}
+  .anno ul{margin:6px 0 0;padding-left:16px}
+  .anno li{margin:3px 0}
+  .legend{margin-top:8px;font-size:11.5px;color:var(--ink-faint)}
+</style>
+</head>
+<body>
+  <h1>Left-nav treatments — pick a direction</h1>
+  <p class="sub">Three side-by-side sidebars at the real cube-playground tokens (parchment <code>#f1e6da</code>, brand orange <code>#f05a22</code>, Inter). Hover the rows. <b>A</b> = what ships today, <b>B</b> = the recommended polish (matches the “Actioneer” reference), <b>C</b> = the information-architecture question (which sections deserve children).</p>
+
+  <div class="row">
+
+    <!-- ============ A : CURRENT ============ -->
+    <div class="col A">
+      <span class="tag cur">A · Current</span>
+      <div class="ctitle">Full-bleed square highlight</div>
+      <div class="cnote">What ships now — the issues you flagged on Data&nbsp;Model are reproduced here.</div>
+      <div class="nav">
+        <!-- Chat -->
+        <div class="item head"><span class="ic" data-i="chat"></span><span class="lbl">Chat</span><span class="car" data-i="down"></span></div>
+        <div class="kids">
+          <div class="item child"><span class="lbl">whales at risk in the last 30 days</span></div>
+          <div class="item child"><span class="lbl">Online time by OS platform</span></div>
+          <div class="item seeall"><span class="lbl">See all… (2)</span></div>
+        </div>
+        <!-- Data Model (active + expanded) -->
+        <div class="item head active"><span class="ic" data-i="boxes"></span><span class="lbl">Data Model</span><span class="car" data-i="down"></span></div>
+        <div class="kids">
+          <div class="item child"><span class="lbl">active_daily.paying_dau</span></div>
+          <div class="item child"><span class="lbl">mf_users.ingame_name</span></div>
+          <div class="item child"><span class="lbl">recharge.revenue_vnd</span></div>
+          <div class="item seeall"><span class="lbl">See all… (5)</span></div>
+        </div>
+        <!-- others -->
+        <div class="item head"><span class="ic" data-i="chart"></span><span class="lbl">Metrics Catalog</span><span class="car" data-i="right"></span></div>
+        <div class="item head"><span class="ic" data-i="dash"></span><span class="lbl">Dashboards</span><span class="car" data-i="down"></span></div>
+        <div class="item head"><span class="ic" data-i="users"></span><span class="lbl">Segments</span><span class="car" data-i="down"></span></div>
+        <div class="item head"><span class="ic" data-i="bulb"></span><span class="lbl">Advisor</span></div>
+      </div>
+      <div class="anno">
+        <ul>
+          <li><span class="bad">✗</span> highlight runs <b>edge-to-edge, square</b> — feels heavy</li>
+          <li><span class="bad">✗</span> active header <b>hides its icon</b> (icon slot collapses)</li>
+          <li><span class="bad">✗</span> <b>“See all…” is highlighted</b> too (it points at the same route as the header)</li>
+          <li><span class="bad">✗</span> tree line runs the <b>full column</b>, past “See all”</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============ B : RECOMMENDED ============ -->
+    <div class="col B">
+      <span class="tag rec">B · Recommended</span>
+      <div class="ctitle">Inset rounded pill</div>
+      <div class="cnote">Lighter, modern, matches the “Actioneer” reference — same fixes applied.</div>
+      <div class="nav">
+        <div class="item head"><span class="ic" data-i="chat"></span><span class="lbl">Chat</span><span class="car" data-i="down"></span></div>
+        <div class="kids">
+          <div class="item child"><span class="lbl">whales at risk in the last 30 days</span></div>
+          <div class="item child"><span class="lbl">Online time by OS platform</span></div>
+        </div>
+        <div class="item seeall"><span class="lbl">See all… (2)</span></div>
+
+        <div class="item head active"><span class="ic" data-i="boxes"></span><span class="lbl">Data Model</span><span class="car" data-i="down"></span></div>
+        <div class="kids">
+          <div class="item child active"><span class="lbl">active_daily.paying_dau</span></div>
+          <div class="item child"><span class="lbl">mf_users.ingame_name</span></div>
+          <div class="item child"><span class="lbl">recharge.revenue_vnd</span></div>
+        </div>
+        <div class="item seeall"><span class="lbl">See all… (5)</span></div>
+
+        <div class="item head"><span class="ic" data-i="chart"></span><span class="lbl">Metrics Catalog</span><span class="car" data-i="right"></span></div>
+        <div class="item head"><span class="ic" data-i="dash"></span><span class="lbl">Dashboards</span><span class="car" data-i="down"></span></div>
+        <div class="item head"><span class="ic" data-i="users"></span><span class="lbl">Segments</span><span class="car" data-i="down"></span></div>
+        <div class="item head"><span class="ic" data-i="bulb"></span><span class="lbl">Advisor</span></div>
+      </div>
+      <div class="anno">
+        <ul>
+          <li><span class="good">✓</span> pill <b>inset 8px</b> from edges, 8px radius</li>
+          <li><span class="good">✓</span> active <b>icon stays</b>, tinted brand orange</li>
+          <li><span class="good">✓</span> “See all…” sits <b>outside the spine</b>, never highlighted</li>
+          <li><span class="good">✓</span> tree spine is <b>short</b> — only spans real children</li>
+          <li><span class="good">✓</span> active <b>child</b> gets a soft brand pill, not a grey band</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============ C : IA POLICY ============ -->
+    <div class="col C">
+      <span class="tag ia">C · IA policy</span>
+      <div class="ctitle">Catalogs as flat links</div>
+      <div class="cnote">Only surfaces where <b>you create things</b> keep recents. Reference catalogs are single links.</div>
+      <div class="nav">
+        <div class="item head"><span class="ic" data-i="chat"></span><span class="lbl">Chat</span><span class="car" data-i="down"></span></div>
+        <div class="kids">
+          <div class="item child"><span class="lbl">whales at risk in the last 30 days</span></div>
+          <div class="item child"><span class="lbl">Online time by OS platform</span></div>
+        </div>
+        <div class="item seeall"><span class="lbl">See all… (2)</span></div>
+
+        <div class="item head"><span class="ic" data-i="play"></span><span class="lbl">Playground</span><span class="car" data-i="down"></span></div>
+        <div class="kids">
+          <div class="item child"><span class="lbl">Q7: total_online_time × os…</span></div>
+          <div class="item child"><span class="lbl">Q10: user_id</span></div>
+        </div>
+        <div class="item seeall"><span class="lbl">See all… (8)</span></div>
+
+        <div class="divider"></div>
+        <!-- reference catalogs: flat, no children -->
+        <div class="item head flat"><span class="ic" data-i="boxes"></span><span class="lbl">Data Model</span><span class="car" data-i="right"></span></div>
+        <div class="item head flat"><span class="ic" data-i="chart"></span><span class="lbl">Metrics Catalog</span><span class="car" data-i="right"></span></div>
+        <div class="divider"></div>
+
+        <div class="item head"><span class="ic" data-i="dash"></span><span class="lbl">Dashboards</span><span class="car" data-i="down"></span></div>
+        <div class="item head active"><span class="ic" data-i="users"></span><span class="lbl">Segments</span><span class="car" data-i="down"></span></div>
+        <div class="kids">
+          <div class="item child"><span class="lbl">pc online last 30 days</span></div>
+          <div class="item child"><span class="lbl">Whale at_risk · active_30d</span></div>
+          <div class="item child"><span class="lbl">whale at risk june 11</span></div>
+        </div>
+        <div class="item seeall"><span class="lbl">See all… (5)</span></div>
+
+        <div class="item head"><span class="ic" data-i="bulb"></span><span class="lbl">Advisor</span></div>
+      </div>
+      <div class="anno">
+        <b>Policy:</b> a section earns children only if items there are <b>created &amp; revisited by the user</b> (Chat, Playground, Segments). Read-only reference catalogs (Data&nbsp;Model, Metrics) become flat links → the nav is shorter, calmer, and the tree lines carry real meaning.
+        <div class="legend">Uses B’s pill styling — C is about <i>structure</i>, not look.</div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+// Minimal inline lucide-style icons (16px stroke) so the mockup matches the app's iconography.
+const I = {
+  chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  play:'<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
+  boxes:'<path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 1.03 1.75l3 1.65a2 2 0 0 0 1.94 0L10 20v-4l-5-2.75z"/><path d="m7 16.5-4.74-2.85"/><path d="M17 16v4l2.03-.69a2 2 0 0 0 1.94 0v-3.24a2 2 0 0 0-1.03-1.71L19 12.92"/><path d="M12 2 9 3.65 12 5.3 15 3.65z"/>',
+  chart:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  dash:'<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
+  bulb:'<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>',
+  down:'<polyline points="6 9 12 15 18 9"/>',
+  right:'<polyline points="9 6 15 12 9 18"/>',
+};
+document.querySelectorAll('[data-i]').forEach(el=>{
+  const k=el.getAttribute('data-i');
+  el.innerHTML='<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+(I[k]||'')+'</svg>';
+});
+</script>
+</body>
+</html>
