@@ -1,10 +1,11 @@
 ---
 phase: 1
-title: "Token Contract & Safe Aliasing"
-status: pending
+title: Token Contract & Safe Aliasing
+status: completed
 priority: P1
-effort: "1d"
-dependencies: [0]
+effort: 1d
+dependencies:
+  - 0
 ---
 <!-- Updated: Validation Session 1 - depends on Phase 0 gate; add --chart-6..8; gate via visual harness -->
 

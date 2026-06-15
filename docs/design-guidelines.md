@@ -213,3 +213,34 @@ How it stays deterministic:
 - Live-data regions are masked so data churn never fails the **color** gate: `GLOBAL_MASK` (charts/canvas) plus any element marked `data-visual-volatile` (e.g. the cohort retention grid, whose cell colors are a value-driven heatmap, not theme tokens).
 
 **Updating baselines is a deliberate act.** Only run `:update` when a visual change is intended; review the regenerated PNGs before committing, and note the rationale (e.g. "dark-mode surface now correctly adapts after migrating off a literal hex"). A green gate after a refactor step is the proof that step kept the UI intact.
+
+## 11. Token architecture — the three-tier model
+
+The theme is being centralized onto one canonical layer in `src/theme/tokens.css`. The target model:
+
+1. **Primitives (private):** single-meaning raw values — the `--neutral-*` / `--orange-*` scales and bespoke status/cluster hues. A primitive never changes role between light and dark.
+2. **Semantic tokens (the contract components read):** `--bg-app/card/muted`, `--surface-{shell,sidebar,topbar,panel,raised,muted,subtle}`, `--border-card/strong`, `--text-primary/secondary/muted`, status `--*-soft/--*-ink`, `--radius-*`, `--shadow-*`, `--font-*`, `--chart-*` / `--chart-series-*`. Re-pointed per theme in the `:root` / `[data-theme="dark"]` blocks.
+3. **Compat aliases (interim, removed in the enforcement phase):** `--hermes-* : var(--<semantic>)`. The `T.*` proxy in `src/shell/theme.tsx` resolves to these; the shell migrates off them onto the semantic tokens.
+
+### Surface tiers (new)
+
+`--surface-shell / -sidebar / -topbar / -panel / -raised / -muted / -subtle` express the **app-frame** surfaces, intentionally distinct from the content `--bg-*` canvas (the warm two-tone "Actioneer" frame in light; a cooler near-black frame in dark). The `--hermes-surface*/shell/sidebar/topbar/panel` tokens are now pure aliases of these.
+
+### Chart palette
+
+`--chart-1..5` are individual **accent** colors (sparklines, member pills, compare panes). `--chart-series-1..8` are the ordered **categorical series** palette — the source of truth for the `CHART` array in `src/shell/theme.tsx`. `CHART` stays literal hex (mirroring `--chart-series-*`) because its values feed recharts `fill`/`stroke` SVG presentation attributes, where CSS `var()` does not resolve; it is the one allowlisted inline-hex array. (`--chart-series-3` is a distinct green from the teal `--chart-3` accent — both intentional.)
+
+### Shell `T.*` → semantic migration key
+
+| `T.*` member | Value intent | Semantic target |
+| --- | --- | --- |
+| `surface`, `surfaceMuted`, `surfaceSubtle` | raised / muted / subtle frame surface | `--surface-raised` / `--surface-muted` / `--surface-subtle` |
+| `shell`, `sidebar`, `topbar`, `panel` | frame tiers | `--surface-shell` / `-sidebar` / `-topbar` / `-panel` |
+| `brand`, `brandHover`, `brandSoft`, `brandBorder` | brand accent | `--brand` / `--brand-hover` / `--brand-soft` / (brand border) |
+| `n900`, `n950` | strong / max-contrast text | `--text-primary` |
+| `n600`, `n700`, `n800` | secondary text / dividers | `--text-secondary` / borders |
+| `n400`, `n500` | muted text / icons | `--text-muted` |
+| `n200`, `n300` | hairline / strong border | `--border-card` / `--border-strong` |
+| `fSans`, `fMono` | fonts (kept on `T`) | `--font-sans` / `--font-mono` |
+
+**⚠ Divergence — gate-verified migration required.** The `--hermes-*` scale is NOT byte-identical to the content semantic tokens: in light it is cool-grey Tailwind neutral while `--border-card`/muted surfaces were *warmed*; in dark the frame is blue-toned vs the grey content scale. So a `T.nXXX → --semantic` swap is **not** automatically pixel-intact. Each shell batch must run the §10 gate; where it bites, the value is preserved exactly via a surface/shell-scoped token rather than snapped to a near-but-unequal content token. (`n900`/`n950` and light brand already match exactly; the rest must be verified per batch.)

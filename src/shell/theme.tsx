@@ -59,6 +59,11 @@ export const T = {
   fMono: '"Geist Mono", "JetBrains Mono", ui-monospace, Menlo, monospace',
 } as const;
 
+// Ordered categorical chart-series palette. The canonical source of truth lives
+// in src/theme/tokens.css as --chart-series-1..8; these literals MUST mirror it
+// exactly. They stay literal hex (not var()) because the values feed recharts
+// `fill`/`stroke` SVG presentation attributes, where CSS var() does not resolve.
+// The Phase-4 inline-hex lint allowlists this single array for that reason.
 export const CHART: string[] = [
   '#f05a22', '#3f8dff', '#059669', '#f59e0b', '#a855f7', '#ef4444', '#0891b2', '#db2777',
 ];

@@ -40,7 +40,7 @@ The intended **semantic layer** (`--bg-card`, `--border-card`, `--text-primary`,
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | [Visual-Regression Harness (gate, built first)](./phase-00-visual-regression-harness.md) | Completed |
-| 1 | [Token Contract & Safe Aliasing](./phase-01-token-contract-safe-aliasing.md) | Pending |
+| 1 | [Token Contract & Safe Aliasing](./phase-01-token-contract-safe-aliasing.md) | Completed |
 | 2 | [Migrate Shell (T.* + raw neutral)](./phase-02-migrate-shell-t-raw-neutral.md) | Pending |
 | 3 | [Inline-Hex Sweep](./phase-03-inline-hex-sweep.md) | Pending |
 | 4 | [Enforcement & Cleanup](./phase-04-enforcement-cleanup.md) | Pending |
