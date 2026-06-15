@@ -18,13 +18,16 @@ const TZ_OFFSET_MS = 7 * 3600_000;
 const DEFAULT_WINDOW = '02:00-06:00';
 const TRIGGER_COOLDOWN_MS = 10 * 60_000;
 
-interface Window {
+/** A nightly precompute window as minutes-of-day in GMT+7. Exported because the
+ *  Care scheduler defaults a parameter to this type across module boundaries —
+ *  an unexported type can't be named in the emitted declarations (TS4076). */
+export interface PrecomputeWindow {
   startMin: number; // minutes-of-day GMT+7
   endMin: number;
 }
 
 /** Parse "HH:MM-HH:MM"; falls back to the default window on malformed input. */
-export function parsePrecomputeWindow(raw: string | undefined): Window {
+export function parsePrecomputeWindow(raw: string | undefined): PrecomputeWindow {
   const m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec((raw ?? '').trim());
   const src = m ?? /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(DEFAULT_WINDOW)!;
   const startMin = Number(src[1]) * 60 + Number(src[2]);
@@ -38,7 +41,7 @@ function minutesOfDayGmt7(nowMs: number): number {
 }
 
 /** True when `nowMs` is inside the window (handles midnight wrap). */
-export function isInsideWindow(nowMs: number, w: Window): boolean {
+export function isInsideWindow(nowMs: number, w: PrecomputeWindow): boolean {
   const m = minutesOfDayGmt7(nowMs);
   return w.startMin <= w.endMin
     ? m >= w.startMin && m < w.endMin
@@ -47,7 +50,7 @@ export function isInsideWindow(nowMs: number, w: Window): boolean {
 
 /** UTC epoch ms of the CURRENT window's start (assumes nowMs is inside it).
  *  For wrapped windows past midnight, the start was yesterday GMT+7. */
-export function currentWindowStartMs(nowMs: number, w: Window): number {
+export function currentWindowStartMs(nowMs: number, w: PrecomputeWindow): number {
   const local = new Date(nowMs + TZ_OFFSET_MS);
   let dayStartUtc = Date.UTC(
     local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(),
@@ -59,7 +62,7 @@ export function currentWindowStartMs(nowMs: number, w: Window): number {
 
 /** Segments due this window: tiers present AND last run predates window start.
  *  Game-registry eligibility is re-checked inside the runner (JS-side map). */
-export function listDueMember360Segments(nowMs: number, w: Window): string[] {
+export function listDueMember360Segments(nowMs: number, w: PrecomputeWindow): string[] {
   const windowStartIso = new Date(currentWindowStartMs(nowMs, w)).toISOString();
   const db = getDb();
   const rows = db
