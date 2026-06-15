@@ -881,6 +881,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### An exported function defaulting a parameter to a value typed by an unexported type in another module fails the build only under declaration emit (TS4076)
+
+- **Rule:** the Care scheduler's exported `listDueCareSegments(nowMs, window = parseCareWindow())` inferred `window`'s type from `parseCareWindow()`, whose return type was an interface (`Window`) declared but **not exported** in the member-360 scheduler module. `tsc` type-checks fine and the dev server runs fine, but the production image builds with `declaration: true` — and the `.d.ts` for the Care module cannot name a type that lives unexported in another module → `error TS4076 ... cannot be named`, deploy fails. Fix: export the type (and give it a descriptive name — the bare `Window` also shadowed the DOM global). The consumer needed no change because it referenced the type only via `ReturnType<typeof ...>`.
+- **Why:** declaration emit must write a fully-resolvable type for every exported signature. A same-module unexported type is fine (tsc inlines a private decl into that module's `.d.ts`); a *cross-module* unexported type is unnameable. `npm run dev` / a plain `tsc --noEmit` without `declaration` won't surface it — only the build that emits `.d.ts` does.
+- **Signal:** a green local run + red CI/prod build; `error TS4076` naming a type "from external module ... but cannot be named"; the offending symbol is an exported function whose parameter default or return type crosses a module boundary into an unexported interface/type alias.
+- **Apply:** export any type that appears in an exported function's signature — including types reached transitively through a default-value expression or `ReturnType`. When in doubt, run the server's real `build` (`tsc` with `declaration: true`), not just a type-check, before pushing anything that adds cross-module exported signatures.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
