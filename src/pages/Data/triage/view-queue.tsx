@@ -69,7 +69,7 @@ const AcceptBtn = styled.button<{ $on: boolean }>`
   align-items: center;
   gap: 5px;
   background: ${(p) => (p.$on ? 'var(--success-ink)' : 'var(--success-soft)')};
-  color: ${(p) => (p.$on ? 'var(--text-on-brand, #fff)' : 'var(--success-ink)')};
+  color: ${(p) => (p.$on ? 'var(--text-on-brand)' : 'var(--success-ink)')};
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
@@ -83,7 +83,7 @@ const RejectBtn = styled.button<{ $on: boolean }>`
   align-items: center;
   gap: 5px;
   background: ${(p) => (p.$on ? 'var(--destructive-ink)' : 'transparent')};
-  color: ${(p) => (p.$on ? 'var(--text-on-brand, #fff)' : 'var(--destructive-ink)')};
+  color: ${(p) => (p.$on ? 'var(--text-on-brand)' : 'var(--destructive-ink)')};
   border: 1px solid ${(p) => (p.$on ? 'transparent' : 'var(--destructive-soft)')};
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);

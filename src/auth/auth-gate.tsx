@@ -24,8 +24,8 @@ const overlayStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: 16,
-  background: 'var(--bg-app, #fafafa)',
-  color: 'var(--text-primary, #111)',
+  background: 'var(--bg-app)',
+  color: 'var(--text-primary)',
   fontFamily: 'var(--font-sans, Inter, system-ui, sans-serif)',
 };
 
@@ -52,7 +52,7 @@ export function AuthGate({ children }: AuthGateProps) {
           onClick={() => window.location.reload()}
           style={{
             padding: '8px 14px',
-            border: '1px solid var(--border-card, #ccc)',
+            border: '1px solid var(--border-card)',
             borderRadius: 'var(--radius-md, 6px)',
             background: 'transparent',
             cursor: 'pointer',
@@ -77,9 +77,9 @@ export function AuthGate({ children }: AuthGateProps) {
           onClick={() => void logout()}
           style={{
             padding: '10px 18px',
-            border: '1px solid var(--border-card, #ccc)',
+            border: '1px solid var(--border-card)',
             background: 'transparent',
-            color: 'var(--text-primary, #111)',
+            color: 'var(--text-primary)',
             borderRadius: 'var(--radius-md, 6px)',
             fontWeight: 600,
             cursor: 'pointer',
@@ -103,8 +103,8 @@ export function AuthGate({ children }: AuthGateProps) {
           onClick={loginWithKeycloak}
           style={{
             padding: '10px 18px',
-            border: '1px solid var(--brand, #ff6b35)',
-            background: 'var(--brand, #ff6b35)',
+            border: '1px solid var(--brand)',
+            background: 'var(--brand)',
             color: '#fff',
             borderRadius: 'var(--radius-md, 6px)',
             fontWeight: 600,

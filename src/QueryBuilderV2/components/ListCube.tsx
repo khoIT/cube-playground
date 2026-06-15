@@ -62,7 +62,7 @@ export function ListCube({
         qa={`Playground-${name}`}
         icon={
           isMissing ? (
-            <QuestionCircleOutlined style={{ color: 'var(--danger-text-color)' }} />
+            <QuestionCircleOutlined style={{ color: 'var(--danger)' }} />
           ) : type === 'cube' ? (
             <CubeIcon color="#purple" />
           ) : (

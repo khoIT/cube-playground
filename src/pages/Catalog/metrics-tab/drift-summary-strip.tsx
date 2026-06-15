@@ -17,14 +17,14 @@ const Strip = styled.div`
   gap: 10px;
   padding: 6px 16px;
   font-size: 12px;
-  color: var(--text-secondary, #525252);
-  border-bottom: 1px dashed var(--border-card, #e5e5e5);
+  color: var(--text-secondary);
+  border-bottom: 1px dashed var(--border-card);
   background: rgba(0, 0, 0, 0.02);
 `;
 
 const Count = styled.span`
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
 `;
 
 const Action = styled.button`
@@ -32,24 +32,24 @@ const Action = styled.button`
   background: transparent;
   padding: 0;
   font-size: 12px;
-  color: var(--brand, #f05a22);
+  color: var(--brand);
   cursor: pointer;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 
-  &:hover { color: var(--brand-pressed, #f54a00); }
+  &:hover { color: var(--brand-hover); }
 `;
 
 const DriftLink = styled.a`
   margin-left: auto;
   font-size: 12px;
-  color: var(--brand, #f05a22);
+  color: var(--brand);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 
-  &:hover { color: var(--brand-pressed, #f54a00); }
+  &:hover { color: var(--brand-hover); }
 `;
 
 interface Props {

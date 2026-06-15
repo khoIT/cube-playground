@@ -29,7 +29,7 @@ const Input = styled.input`
 `;
 const Btn = styled.button`
   background: var(--brand);
-  color: var(--text-on-brand, #fff);
+  color: var(--text-on-brand);
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);

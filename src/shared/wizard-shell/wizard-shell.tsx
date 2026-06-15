@@ -58,8 +58,8 @@ const Page = styled.div`
 
 const Header = styled.header`
   padding: 18px 24px 12px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-card);
   display: flex;
   align-items: baseline;
   gap: 12px;
@@ -69,15 +69,15 @@ const Title = styled.h1`
   margin: 0;
   font-size: 22px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
 `;
 
 const Breadcrumb = styled.span`
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 
   a {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
     text-decoration: none;
   }
 `;
@@ -86,7 +86,7 @@ const Steps = styled.div`
   display: flex;
   gap: 8px;
   padding: 12px 24px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
+  border-bottom: 1px solid var(--border-card);
 `;
 
 const Step = styled.span<{ $active: boolean; $complete: boolean }>`
@@ -95,7 +95,7 @@ const Step = styled.span<{ $active: boolean; $complete: boolean }>`
   font-size: 12px;
   background: ${(p) =>
     p.$active
-      ? 'var(--brand, #f05a22)'
+      ? 'var(--brand)'
       : p.$complete
       ? 'rgba(240,90,34,0.10)'
       : 'transparent'};
@@ -103,13 +103,13 @@ const Step = styled.span<{ $active: boolean; $complete: boolean }>`
     p.$active
       ? 'white'
       : p.$complete
-      ? 'var(--brand, #f05a22)'
-      : 'var(--text-muted, #737373)'};
+      ? 'var(--brand)'
+      : 'var(--text-muted)'};
   border: 1px solid
     ${(p) =>
       p.$active
-        ? 'var(--brand, #f05a22)'
-        : 'var(--border-card, #e5e5e5)'};
+        ? 'var(--brand)'
+        : 'var(--border-card)'};
 `;
 
 const Body = styled.div`
@@ -126,8 +126,8 @@ const Footer = styled.footer`
   justify-content: space-between;
   gap: 8px;
   padding: 12px 24px;
-  border-top: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
+  border-top: 1px solid var(--border-card);
+  background: var(--bg-card);
 `;
 
 const NavGroup = styled.div`
@@ -139,10 +139,10 @@ const Btn = styled.button<{ $primary?: boolean }>`
   height: 36px;
   padding: 0 16px;
   border: 1px solid
-    ${(p) => (p.$primary ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
+    ${(p) => (p.$primary ? 'var(--brand)' : 'var(--border-card)')};
   border-radius: 6px;
-  background: ${(p) => (p.$primary ? 'var(--brand, #f05a22)' : 'transparent')};
-  color: ${(p) => (p.$primary ? 'white' : 'var(--text-primary, #171717)')};
+  background: ${(p) => (p.$primary ? 'var(--brand)' : 'transparent')};
+  color: ${(p) => (p.$primary ? 'white' : 'var(--text-primary)')};
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;

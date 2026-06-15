@@ -30,7 +30,7 @@ const Modal = styled.div`
   width: min(820px, 90vw);
   max-height: 80vh;
   overflow-y: auto;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
   padding: 24px;
@@ -40,14 +40,14 @@ const Title = styled.h2`
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
 `;
 
 const Subtitle = styled.div`
   margin-top: 4px;
   margin-bottom: 16px;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Cols = styled.div`
@@ -64,7 +64,7 @@ const ColTitle = styled.h4`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Row = styled.div`
@@ -72,7 +72,7 @@ const Row = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 8px 10px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   margin-bottom: 6px;
   font-size: 12px;
@@ -94,7 +94,7 @@ const Actions = styled.div`
 const Button = styled.button`
   height: 34px;
   padding: 0 14px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   background: transparent;
   font-size: 13px;
@@ -102,10 +102,10 @@ const Button = styled.button`
 `;
 
 const Primary = styled(Button)`
-  background: var(--brand, #f05a22);
-  border-color: var(--brand, #f05a22);
+  background: var(--brand);
+  border-color: var(--brand);
   color: white;
-  &:hover { background: var(--brand-pressed, #f54a00); }
+  &:hover { background: var(--brand-hover); }
 `;
 
 const Demo = styled.div`
@@ -120,7 +120,7 @@ const Demo = styled.div`
 
 const Empty = styled.div`
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-style: italic;
 `;
 

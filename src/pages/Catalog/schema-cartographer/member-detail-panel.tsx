@@ -110,7 +110,7 @@ export function MemberDetailPanel({ member, joinableCubes, visibleLayers }: Prop
             display: 'inline-block',
             padding: '8px 14px',
             borderRadius: 8,
-            background: 'var(--brand, #f05a22)',
+            background: 'var(--brand)',
             color: '#fff',
             fontSize: 13,
             fontWeight: 600,

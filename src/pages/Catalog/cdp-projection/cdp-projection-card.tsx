@@ -85,14 +85,14 @@ const Badge = styled.span<{ $tone: 'gray' | 'green' | 'amber' | 'red' }>`
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   background: ${(p) =>
-    p.$tone === 'green' ? 'var(--success-soft, #d4edda)'
-    : p.$tone === 'amber' ? 'var(--warning-soft, #fff3cd)'
-    : p.$tone === 'red' ? 'var(--error-soft, #f8d7da)'
+    p.$tone === 'green' ? 'var(--success-soft)'
+    : p.$tone === 'amber' ? 'var(--warning-soft)'
+    : p.$tone === 'red' ? 'var(--destructive-soft)'
     : 'var(--pill-mono-bg)'};
   color: ${(p) =>
-    p.$tone === 'green' ? 'var(--success, #1e7e34)'
-    : p.$tone === 'amber' ? 'var(--warning, #856404)'
-    : p.$tone === 'red' ? 'var(--error, #842029)'
+    p.$tone === 'green' ? 'var(--success)'
+    : p.$tone === 'amber' ? 'var(--warning)'
+    : p.$tone === 'red' ? 'var(--destructive-ink)'
     : 'var(--text-secondary)'};
 `;
 
@@ -111,12 +111,12 @@ const DiffCell = styled.code<{ $tone?: 'expected' | 'actual' }>`
   white-space: pre-wrap;
   word-break: break-word;
   background: ${(p) =>
-    p.$tone === 'expected' ? 'var(--error-soft, #f8d7da)'
-    : p.$tone === 'actual' ? 'var(--success-soft, #d4edda)'
+    p.$tone === 'expected' ? 'var(--destructive-soft)'
+    : p.$tone === 'actual' ? 'var(--success-soft)'
     : 'transparent'};
   color: ${(p) =>
-    p.$tone === 'expected' ? 'var(--error, #842029)'
-    : p.$tone === 'actual' ? 'var(--success, #1e7e34)'
+    p.$tone === 'expected' ? 'var(--destructive-ink)'
+    : p.$tone === 'actual' ? 'var(--success)'
     : 'var(--text-primary)'};
 `;
 

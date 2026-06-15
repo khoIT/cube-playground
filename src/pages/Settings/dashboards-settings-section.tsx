@@ -40,10 +40,10 @@ const ResetBtn = styled.button`
   margin-top: 16px;
   height: 32px;
   padding: 0 16px;
-  background: var(--brand-soft, #eef2ff);
-  border: 1px solid var(--brand, #6366f1);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand);
   border-radius: 6px;
-  color: var(--brand, #6366f1);
+  color: var(--brand);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -99,7 +99,7 @@ export function DashboardsSettingsSection() {
       </SectionHead>
 
       {loading && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>}
-      {error && <div style={{ color: 'var(--danger,#dc2626)', fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div>}
 
       <Row>
         <RowLabel>Default tile TTL (s)</RowLabel>

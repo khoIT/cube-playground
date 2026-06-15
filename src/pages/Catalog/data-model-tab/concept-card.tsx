@@ -18,16 +18,16 @@ const Card = styled(Link)<{ $selected: boolean }>`
   gap: 6px;
   padding: 12px 14px 12px 38px;
   border: 1px solid
-    ${(p) => (p.$selected ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
+    ${(p) => (p.$selected ? 'var(--brand)' : 'var(--border-card)')};
   border-radius: 10px;
   background: ${(p) =>
-    p.$selected ? 'rgba(240, 90, 34, 0.04)' : 'var(--bg-card, #ffffff)'};
+    p.$selected ? 'rgba(240, 90, 34, 0.04)' : 'var(--bg-card)'};
   text-decoration: none;
   color: inherit;
   transition: border-color 0.12s ease, background 0.12s ease;
 
   &:hover {
-    border-color: var(--brand, #f05a22);
+    border-color: var(--brand);
   }
 `;
 
@@ -41,7 +41,7 @@ const Fqn = styled.code`
   font-family: var(--font-mono, monospace);
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   word-break: break-all;
 `;
 
@@ -49,13 +49,13 @@ const SubRow = styled.div`
   display: flex;
   gap: 10px;
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Description = styled.p`
   margin: 0;
   font-size: 12px;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   line-height: 1.45;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -79,10 +79,10 @@ const UsedBy = styled.span<{ $unreferenced?: boolean }>`
     p.$unreferenced ? 'transparent' : 'rgba(240, 90, 34, 0.10)'};
   color: ${(p) =>
     p.$unreferenced
-      ? 'var(--text-muted, #737373)'
-      : 'var(--brand, #f05a22)'};
+      ? 'var(--text-muted)'
+      : 'var(--brand)'};
   border: ${(p) =>
-    p.$unreferenced ? '1px dashed var(--border-card, #e5e5e5)' : 'none'};
+    p.$unreferenced ? '1px dashed var(--border-card)' : 'none'};
   font-weight: 500;
 `;
 
@@ -90,7 +90,7 @@ const TypeTag = styled.span`
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 interface ConceptCardProps {

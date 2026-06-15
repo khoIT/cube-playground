@@ -86,9 +86,9 @@ const DangerButton = styled.button`
   height: 30px;
   padding: 0 14px;
   background: transparent;
-  border: 1px solid var(--red-500, #ef4444);
+  border: 1px solid var(--danger);
   border-radius: var(--radius-pill);
-  color: var(--red-500, #ef4444);
+  color: var(--danger);
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
@@ -96,21 +96,21 @@ const DangerButton = styled.button`
   transition: background 120ms ease, color 120ms ease;
 
   &:hover:not(:disabled) {
-    background: var(--red-50, #fef2f2);
+    background: var(--destructive-soft);
   }
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
   }
   &:focus-visible {
-    outline: 2px solid var(--red-500, #ef4444);
+    outline: 2px solid var(--danger);
     outline-offset: 1px;
   }
 `;
 
 const StatusMsg = styled.span<{ $error?: boolean }>`
   font-size: 11.5px;
-  color: ${(p) => (p.$error ? 'var(--red-500, #ef4444)' : 'var(--text-muted)')};
+  color: ${(p) => (p.$error ? 'var(--danger)' : 'var(--text-muted)')};
 `;
 
 // ---------------------------------------------------------------------------

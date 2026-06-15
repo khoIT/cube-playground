@@ -26,7 +26,7 @@ const Title = styled.h1`
 const Hint = styled.p`
   margin: 0;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Grid = styled.div`
@@ -36,11 +36,11 @@ const Grid = styled.div`
 `;
 
 const Card = styled.div<{ $channel: 'slack' | 'email' }>`
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-left: 4px solid
     ${(p) => (p.$channel === 'slack' ? '#611f69' : '#2563eb')};
   border-radius: 8px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -52,7 +52,7 @@ const ChannelTag = styled.span`
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Headline = styled.h3`
@@ -61,7 +61,7 @@ const Headline = styled.h3`
   font-weight: 600;
 
   a {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
     text-decoration: none;
   }
 `;
@@ -70,8 +70,8 @@ const Preview = styled.pre`
   margin: 0;
   font-family: var(--font-mono, monospace);
   font-size: 11.5px;
-  color: var(--text-secondary, #525252);
-  background: var(--bg-app, #fafafa);
+  color: var(--text-secondary);
+  background: var(--bg-app);
   border-radius: 6px;
   padding: 8px 10px;
   white-space: pre-wrap;
@@ -80,7 +80,7 @@ const Preview = styled.pre`
 const Empty = styled.div`
   padding: 30px 24px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 

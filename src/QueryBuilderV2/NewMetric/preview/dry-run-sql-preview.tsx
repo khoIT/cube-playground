@@ -26,9 +26,9 @@ const PLACEHOLDER_STYLE: React.CSSProperties = {
 
 const ERROR_STYLE: React.CSSProperties = {
   ...PLACEHOLDER_STYLE,
-  color: 'var(--danger-text, #f5222d)',
-  background: 'var(--danger-bg, #fff2f0)',
-  border: '1px solid var(--danger-border, #ffccc7)',
+  color: 'var(--danger)',
+  background: 'var(--destructive-soft)',
+  border: '1px solid var(--destructive-ink)',
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
   justifyContent: 'flex-start',

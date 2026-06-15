@@ -19,8 +19,8 @@ import { buildConceptExploreUrl } from '../metric-detail/explore-query-builder';
 const Rail = styled.aside`
   width: 240px;
   padding: 16px 14px;
-  border-left: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
+  border-left: 1px solid var(--border-card);
+  background: var(--bg-card);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -29,29 +29,29 @@ const Rail = styled.aside`
 const Button = styled.button`
   height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   background: transparent;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
 
-  &:hover { border-color: var(--brand, #f05a22); }
+  &:hover { border-color: var(--brand); }
   &:disabled {
-    color: var(--text-muted, #737373);
+    color: var(--text-muted);
     cursor: not-allowed;
     border-style: dashed;
   }
 `;
 
 const Primary = styled(Button)`
-  background: var(--brand, #f05a22);
+  background: var(--brand);
   color: white;
-  border-color: var(--brand, #f05a22);
+  border-color: var(--brand);
 
-  &:hover { background: var(--brand-pressed, #f54a00); }
+  &:hover { background: var(--brand-hover); }
 `;
 
 export function RightRailConcept({ concept }: { concept: Concept }) {

@@ -47,11 +47,11 @@ const Main = styled.div`
 const Status = styled.div`
   padding: 60px 24px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 14px;
 
   a {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
     text-decoration: none;
   }
   a:hover { text-decoration: underline; }
@@ -67,7 +67,7 @@ const Suggestions = styled.ul`
   text-align: left;
 
   li code {
-    color: var(--text-secondary, #525252);
+    color: var(--text-secondary);
     font-size: 12px;
   }
 `;

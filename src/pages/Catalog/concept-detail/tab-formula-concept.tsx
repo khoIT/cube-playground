@@ -16,12 +16,12 @@ const Wrap = styled.div`
 const Pre = styled.pre`
   margin: 0;
   padding: 16px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-app, #fafafa);
+  background: var(--bg-app);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
 `;
@@ -29,7 +29,7 @@ const Pre = styled.pre`
 const Note = styled.p`
   margin: 0 0 12px;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 function toYamlIsh(concept: Concept): string {

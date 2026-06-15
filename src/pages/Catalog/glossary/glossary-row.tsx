@@ -131,7 +131,7 @@ const ConceptBadge = styled.span`
   padding: 2px 6px;
   border-radius: 3px;
   background: var(--info-soft, rgba(59,130,246,0.12));
-  color: var(--info-ink, #2563eb);
+  color: var(--info-ink);
 `;
 
 // CatalogChip replaced by the shared ConceptChip component.

@@ -20,7 +20,7 @@ const Group = styled.div`
   display: inline-flex;
   align-items: center;
   height: 34px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   overflow: hidden;
 `;
@@ -35,15 +35,15 @@ const Btn = styled.button<{ $active: boolean }>`
   background: ${(p) =>
     p.$active ? 'rgba(240, 90, 34, 0.10)' : 'transparent'};
   color: ${(p) =>
-    p.$active ? 'var(--brand, #f05a22)' : 'var(--text-muted, #737373)'};
+    p.$active ? 'var(--brand)' : 'var(--text-muted)'};
   cursor: pointer;
 
   &:hover {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
   }
 
   & + & {
-    border-left: 1px solid var(--border-card, #e5e5e5);
+    border-left: 1px solid var(--border-card);
   }
 `;
 

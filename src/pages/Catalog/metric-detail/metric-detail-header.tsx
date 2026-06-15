@@ -15,7 +15,7 @@ import { TrustControl } from './trust-control';
 
 const Header = styled.header`
   padding: 16px 24px 12px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
+  border-bottom: 1px solid var(--border-card);
   background: var(--bg-app, transparent);
 `;
 
@@ -29,12 +29,12 @@ const Title = styled.h1`
   margin: 0;
   font-size: 22px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
 `;
 
 const Synonyms = styled.span`
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-family: var(--font-mono, monospace);
 `;
 
@@ -49,7 +49,7 @@ const BadgeRow = styled.div`
 const Description = styled.p`
   margin: 8px 0 0;
   font-size: 13px;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   max-width: 720px;
 `;
 

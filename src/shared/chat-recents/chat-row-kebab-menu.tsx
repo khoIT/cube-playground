@@ -41,7 +41,7 @@ const DEFAULT_MENU_Z = 1050;
 
 const Shell = styled.div`
   min-width: 220px;
-  background: var(--bg-card, #fff);
+  background: var(--bg-card);
   border: 1px solid var(--border-card, rgba(0, 0, 0, 0.08));
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
@@ -64,7 +64,7 @@ const Row = styled.button<{ $danger?: boolean; $disabled?: boolean }>`
     p.$disabled
       ? 'var(--text-disabled, rgba(0, 0, 0, 0.32))'
       : p.$danger
-      ? 'var(--danger, #e5484d)'
+      ? 'var(--danger)'
       : 'var(--text-primary)'};
   transition: background 100ms ease;
 
@@ -75,7 +75,7 @@ const Row = styled.button<{ $danger?: boolean; $disabled?: boolean }>`
       p.$disabled
         ? 'transparent'
         : p.$danger
-        ? 'var(--danger-soft, #fff1f0)'
+        ? 'var(--destructive-soft)'
         : 'var(--bg-muted, rgba(0, 0, 0, 0.04))'};
   }
 `;

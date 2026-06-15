@@ -26,10 +26,10 @@ const HeaderRow = styled.button`
   background: transparent;
   text-align: left;
   cursor: pointer;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
 
   &:hover {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
   }
 `;
 
@@ -37,7 +37,7 @@ const Chevron = styled.span<{ $collapsed: boolean }>`
   display: inline-flex;
   transform: rotate(${(p) => (p.$collapsed ? '-90deg' : '0deg')});
   transition: transform 0.15s ease;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Label = styled.span`
@@ -49,7 +49,7 @@ const Label = styled.span`
 
 const CountChip = styled.span`
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 `;
@@ -60,7 +60,7 @@ const SelectAllSlot = styled.span`
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 interface GroupHeaderProps {
@@ -124,7 +124,7 @@ const Banner = styled.div`
   padding: 6px 8px 6px 12px;
   border-radius: 999px;
   background: rgba(240, 90, 34, 0.10);
-  color: var(--brand, #f05a22);
+  color: var(--brand);
   font-size: 12px;
   font-weight: 500;
 `;
@@ -178,9 +178,9 @@ const CheckboxWrap = styled.label<{ $active: boolean }>`
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  background: ${(p) => (p.$active ? 'var(--brand, #f05a22)' : 'transparent')};
+  background: ${(p) => (p.$active ? 'var(--brand)' : 'transparent')};
   border: 1px solid
-    ${(p) => (p.$active ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
+    ${(p) => (p.$active ? 'var(--brand)' : 'var(--border-card)')};
   cursor: pointer;
   opacity: ${(p) => (p.$active ? 1 : 0.85)};
 
@@ -188,13 +188,13 @@ const CheckboxWrap = styled.label<{ $active: boolean }>`
     margin: 0;
     width: 14px;
     height: 14px;
-    accent-color: var(--brand, #f05a22);
+    accent-color: var(--brand);
     cursor: pointer;
   }
 
   &:hover {
     opacity: 1;
-    border-color: var(--brand, #f05a22);
+    border-color: var(--brand);
   }
 `;
 

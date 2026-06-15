@@ -26,19 +26,19 @@ const Group = styled.div`
 const Btn = styled.button<{ $active?: boolean }>`
   height: 26px;
   padding: 0 10px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   background: ${(p) => (p.$active ? '#fff7ed' : 'transparent')};
-  color: ${(p) => (p.$active ? '#9a3412' : 'var(--text-primary, #171717)')};
+  color: ${(p) => (p.$active ? '#9a3412' : 'var(--text-primary)')};
   font-size: 11.5px;
   font-weight: 500;
   border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
 
-  &:hover:not(:disabled) { border-color: var(--brand, #f05a22); }
+  &:hover:not(:disabled) { border-color: var(--brand); }
   &:disabled {
     cursor: not-allowed;
-    color: var(--text-muted, #737373);
+    color: var(--text-muted);
     border-style: dashed;
   }
 `;

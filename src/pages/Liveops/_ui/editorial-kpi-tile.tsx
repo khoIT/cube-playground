@@ -48,8 +48,8 @@ const deltaBase: React.CSSProperties = {
 };
 
 function deltaColor(tone: Props['tone']): string {
-  if (tone === 'positive') return 'var(--positive, #15803d)';
-  if (tone === 'negative') return 'var(--negative, #b91c1c)';
+  if (tone === 'positive') return 'var(--positive)';
+  if (tone === 'negative') return 'var(--negative)';
   return 'var(--text-muted)';
 }
 

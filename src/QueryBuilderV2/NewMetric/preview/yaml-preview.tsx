@@ -32,7 +32,7 @@ export function YamlPreview({
       </Text>
 
       {error && (
-        <Text preset="t4" style={{ color: 'var(--danger-text, #f5222d)' }}>
+        <Text preset="t4" style={{ color: 'var(--danger)' }}>
           {error}
         </Text>
       )}

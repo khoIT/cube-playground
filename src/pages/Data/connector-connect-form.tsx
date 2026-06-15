@@ -87,7 +87,7 @@ const PrimaryBtn = styled.button`
   align-items: center;
   gap: 6px;
   background: var(--brand);
-  color: var(--text-on-brand, #fff);
+  color: var(--text-on-brand);
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);

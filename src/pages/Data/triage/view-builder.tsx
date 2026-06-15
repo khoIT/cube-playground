@@ -39,7 +39,7 @@ const Step = styled.button<{ $active: boolean; $done: boolean }>`
   border-radius: var(--radius-pill);
   border: 1px solid ${(p) => (p.$active ? 'transparent' : 'var(--border-card)')};
   background: ${(p) => (p.$active ? 'var(--brand)' : p.$done ? 'var(--success-soft)' : 'var(--bg-card)')};
-  color: ${(p) => (p.$active ? 'var(--text-on-brand, #fff)' : p.$done ? 'var(--success-ink)' : 'var(--text-secondary)')};
+  color: ${(p) => (p.$active ? 'var(--text-on-brand)' : p.$done ? 'var(--success-ink)' : 'var(--text-secondary)')};
   font-family: var(--font-sans);
   font-size: 12.5px;
   font-weight: 600;
@@ -108,7 +108,7 @@ const NavBtn = styled.button<{ $primary?: boolean }>`
   cursor: pointer;
   border: ${(p) => (p.$primary ? 'none' : '1px solid var(--border-card)')};
   background: ${(p) => (p.$primary ? 'var(--brand)' : 'var(--bg-card)')};
-  color: ${(p) => (p.$primary ? 'var(--text-on-brand, #fff)' : 'var(--text-secondary)')};
+  color: ${(p) => (p.$primary ? 'var(--text-on-brand)' : 'var(--text-secondary)')};
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 const Hint = styled.p`

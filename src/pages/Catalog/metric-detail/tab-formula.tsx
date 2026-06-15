@@ -22,9 +22,9 @@ const Wrap = styled.section`
 
 const Card = styled.div`
   padding: 20px 22px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
 `;
 
 const SectionTitle = styled.h4`
@@ -33,12 +33,12 @@ const SectionTitle = styled.h4`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const FormulaCanvas = styled.div`
   padding: 22px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(63, 141, 255, 0.04), transparent);
   display: flex;
@@ -72,7 +72,7 @@ const Token = styled.span<{ tone?: 'blue' | 'green' | 'amber' | 'neutral' }>`
   color: ${({ tone }) => {
     if (tone === 'green') return '#15803d';
     if (tone === 'amber') return '#a16207';
-    if (tone === 'neutral') return 'var(--text-primary, #171717)';
+    if (tone === 'neutral') return 'var(--text-primary)';
     return '#1d4ed8';
   }};
 `;
@@ -91,13 +91,13 @@ const Divider = styled.div`
   width: 60%;
   max-width: 320px;
   height: 1px;
-  background: var(--border-card, #d4d4d4);
+  background: var(--border-card);
 `;
 
 const Op = styled.span`
   font-size: 22px;
   font-weight: 500;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const ExpressionBlock = styled.pre`
@@ -123,12 +123,12 @@ const ParameterRow = styled.div`
   font-size: 13px;
 
   & > dt {
-    color: var(--text-muted, #737373);
+    color: var(--text-muted);
     font-weight: 500;
   }
   & > dd {
     margin: 0;
-    color: var(--text-primary, #171717);
+    color: var(--text-primary);
   }
 `;
 

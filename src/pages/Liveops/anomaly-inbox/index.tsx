@@ -51,7 +51,7 @@ export function AnomalyInboxPage() {
       )}
 
       {!loading && error && (
-        <p style={{ color: 'var(--red-600, #dc2626)', fontSize: 13 }}>
+        <p style={{ color: 'var(--danger)', fontSize: 13 }}>
           Failed to load anomalies: {error}
         </p>
       )}

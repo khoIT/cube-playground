@@ -87,7 +87,7 @@ const Footer = styled.div`
 
 const ErrorLine = styled.div`
   flex: 1;
-  color: var(--text-danger, #c1372f);
+  color: var(--danger);
   font-size: 12px;
   font-family: var(--font-sans);
 `;
@@ -100,7 +100,7 @@ const Btn = styled.button<{ $variant?: 'primary' | 'ghost' | 'danger' }>`
     p.$variant === 'primary'
       ? 'var(--brand-on, white)'
       : p.$variant === 'danger'
-        ? 'var(--text-danger, #c1372f)'
+        ? 'var(--danger)'
         : 'var(--text-primary)'};
   font-size: 13px;
   font-weight: 500;

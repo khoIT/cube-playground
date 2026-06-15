@@ -30,7 +30,7 @@ export function AnomalyBell() {
         width: 32,
         height: 32,
         borderRadius: 8,
-        color: count > 0 ? 'var(--red-600, #dc2626)' : 'var(--text-muted)',
+        color: count > 0 ? 'var(--danger)' : 'var(--text-muted)',
         textDecoration: 'none',
       }}
     >

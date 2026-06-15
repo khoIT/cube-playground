@@ -35,21 +35,21 @@ const RadioCard = styled.label<{ $active: boolean }>`
   flex: 1 1 220px;
   padding: 14px 16px;
   border: 1px solid
-    ${(p) => (p.$active ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
+    ${(p) => (p.$active ? 'var(--brand)' : 'var(--border-card)')};
   border-radius: 8px;
   cursor: pointer;
   background: ${(p) =>
-    p.$active ? 'rgba(240, 90, 34, 0.06)' : 'var(--bg-card, #ffffff)'};
+    p.$active ? 'rgba(240, 90, 34, 0.06)' : 'var(--bg-card)'};
 
   h4 {
     margin: 0 0 4px;
     font-size: 14px;
-    color: var(--text-primary, #171717);
+    color: var(--text-primary);
   }
   p {
     margin: 0;
     font-size: 12px;
-    color: var(--text-muted, #737373);
+    color: var(--text-muted);
   }
   input { display: none; }
 `;
@@ -59,32 +59,32 @@ const Field = styled.label`
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Input = styled.input`
   height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   font-size: 13px;
-  background: var(--bg-card, #ffffff);
-  color: var(--text-primary, #171717);
+  background: var(--bg-card);
+  color: var(--text-primary);
 
   &:focus {
     outline: none;
-    border-color: var(--brand, #f05a22);
+    border-color: var(--brand);
   }
 `;
 
 const Textarea = styled.textarea`
   min-height: 80px;
   padding: 8px 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   font-size: 13px;
-  background: var(--bg-card, #ffffff);
-  color: var(--text-primary, #171717);
+  background: var(--bg-card);
+  color: var(--text-primary);
   font-family: inherit;
   resize: vertical;
 `;
@@ -92,11 +92,11 @@ const Textarea = styled.textarea`
 const Select = styled.select`
   height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   font-size: 13px;
-  background: var(--bg-card, #ffffff);
-  color: var(--text-primary, #171717);
+  background: var(--bg-card);
+  color: var(--text-primary);
 `;
 
 const PickerList = styled.ul`
@@ -105,13 +105,13 @@ const PickerList = styled.ul`
   padding: 0;
   max-height: 240px;
   overflow-y: auto;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
 `;
 
 const PickerRow = styled.li<{ $active: boolean }>`
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
+  border-bottom: 1px solid var(--border-card);
   background: ${(p) => (p.$active ? 'rgba(240,90,34,0.08)' : 'transparent')};
   cursor: pointer;
   font-size: 12px;
@@ -122,7 +122,7 @@ const PickerRow = styled.li<{ $active: boolean }>`
 `;
 
 const Errors = styled.ul`
-  color: var(--danger, #b91c1c);
+  color: var(--danger);
   font-size: 12px;
   padding-left: 18px;
   margin: 4px 0 0;

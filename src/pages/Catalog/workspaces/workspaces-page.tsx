@@ -12,14 +12,14 @@ const Page = styled.div`
 `;
 
 const Card = styled.div`
-  border: 1px dashed var(--border-card, #e5e5e5);
+  border: 1px dashed var(--border-card);
   border-radius: 12px;
   padding: 32px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 
   a {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
     text-decoration: none;
   }
 `;
@@ -28,7 +28,7 @@ export function WorkspacesPage() {
   return (
     <Page>
       <Card>
-        <h2 style={{ margin: '0 0 8px', fontSize: 18, color: 'var(--text-primary, #171717)' }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 18, color: 'var(--text-primary)' }}>
           Workspaces — coming soon
         </h2>
         <p style={{ margin: '0 0 12px', fontSize: 13 }}>

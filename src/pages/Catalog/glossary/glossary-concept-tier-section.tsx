@@ -103,7 +103,7 @@ const ConceptBadgeInline = styled.span`
   padding: 1px 6px;
   border-radius: 3px;
   background: var(--info-soft, rgba(59,130,246,0.12));
-  color: var(--info-ink, #2563eb);
+  color: var(--info-ink);
   margin-left: 4px;
 `;
 
@@ -156,7 +156,7 @@ const Select = styled.select`
 
 const JsonArea = styled.textarea<{ $error?: boolean }>`
   padding: 7px 10px;
-  border: 1px solid ${(p) => (p.$error ? 'var(--destructive-ink, #dc2626)' : 'var(--border-card)')};
+  border: 1px solid ${(p) => (p.$error ? 'var(--destructive-ink)' : 'var(--border-card)')};
   border-radius: var(--radius-sm, 4px);
   background: var(--bg-input, var(--bg-app));
   color: var(--text-primary);
@@ -169,7 +169,7 @@ const JsonArea = styled.textarea<{ $error?: boolean }>`
 
 const ErrorHint = styled.div`
   font-size: 11px;
-  color: var(--destructive-ink, #dc2626);
+  color: var(--destructive-ink);
   font-family: var(--font-sans);
   margin-top: 1px;
 `;

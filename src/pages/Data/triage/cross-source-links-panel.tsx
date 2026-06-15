@@ -181,7 +181,7 @@ export function CrossSourceLinksPanel({ canWrite }: Props): ReactElement {
             type="button"
             onClick={declare}
             disabled={!ready}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--brand)', color: 'var(--text-on-brand, #fff)', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: ready ? 'pointer' : 'not-allowed', opacity: ready ? 1 : 0.5 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--brand)', color: 'var(--text-on-brand)', fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, cursor: ready ? 'pointer' : 'not-allowed', opacity: ready ? 1 : 0.5 }}
           >
             {busy ? <Loader2 size={13} className="spin" /> : <Plus size={13} />} Declare link
           </button>

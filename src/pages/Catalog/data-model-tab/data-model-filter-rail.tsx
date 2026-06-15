@@ -38,8 +38,8 @@ const Container = styled.div`
   flex-direction: column;
   gap: 6px;
   padding: 6px 16px 10px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-card);
 `;
 
 const HeaderRow = styled.button`
@@ -55,11 +55,11 @@ const HeaderRow = styled.button`
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   cursor: pointer;
 
   &:hover {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
   }
 `;
 
@@ -70,7 +70,7 @@ const Chevron = styled.span<{ $collapsed: boolean }>`
 `;
 
 const ActiveCount = styled.span`
-  color: var(--brand, #f05a22);
+  color: var(--brand);
   font-weight: 600;
 `;
 
@@ -87,7 +87,7 @@ const TogglesLabel = styled.span`
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   margin-right: 4px;
 `;
 
@@ -119,8 +119,8 @@ const GroupByContainer = styled.div`
   flex-wrap: wrap;
   gap: 6px;
   padding: 6px 16px 10px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #ffffff);
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-card);
 `;
 
 interface DataModelGroupByBarProps {

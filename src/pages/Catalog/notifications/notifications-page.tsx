@@ -32,16 +32,16 @@ const List = styled.ul`
 `;
 
 const Row = styled.li`
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
   padding: 12px 14px;
   display: flex;
   align-items: center;
   gap: 14px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
 
   a {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
     text-decoration: none;
     font-weight: 500;
   }
@@ -70,7 +70,7 @@ const State = styled.span<{ $state: string }>`
 const Empty = styled.div`
   padding: 28px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 

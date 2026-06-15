@@ -40,14 +40,14 @@ const TopRow = styled.div`
 const Body = styled.div`
   font-size: 13px;
   line-height: 1.55;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
 `;
 
 const Side = styled.aside`
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 10px;
   padding: 14px 16px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   font-size: 12px;
 `;
 
@@ -57,7 +57,7 @@ const SideTitle = styled.h4`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Row = styled.div`
@@ -65,24 +65,24 @@ const Row = styled.div`
   justify-content: space-between;
   gap: 12px;
   padding: 6px 0;
-  border-top: 1px solid var(--border-card, #f0f0f0);
+  border-top: 1px solid var(--border-card);
 
   &:first-of-type { border-top: 0; }
 `;
 
 const Label = styled.span`
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Value = styled.span`
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   font-weight: 500;
   text-align: right;
   word-break: break-word;
 `;
 
 const AkaLabel = styled.span`
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Aka = styled.code`
@@ -90,7 +90,7 @@ const Aka = styled.code`
   background: rgba(0, 0, 0, 0.04);
   padding: 1px 6px;
   border-radius: 4px;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
 `;
 
 export function TabOverview({ metric }: { metric: BusinessMetric }) {

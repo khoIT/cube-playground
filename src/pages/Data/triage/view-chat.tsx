@@ -73,7 +73,7 @@ const Chips = styled.div`
 `;
 const Chip = styled.button<{ $tone: 'accept' | 'reject' }>`
   background: ${(p) => (p.$tone === 'accept' ? 'var(--success-ink)' : 'transparent')};
-  color: ${(p) => (p.$tone === 'accept' ? 'var(--text-on-brand, #fff)' : 'var(--destructive-ink)')};
+  color: ${(p) => (p.$tone === 'accept' ? 'var(--text-on-brand)' : 'var(--destructive-ink)')};
   border: 1px solid ${(p) => (p.$tone === 'accept' ? 'transparent' : 'var(--destructive-soft)')};
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);

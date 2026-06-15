@@ -183,7 +183,7 @@ export function CrossGameJoinPanel({ draftId, currentGame, fromColumns, allowedG
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none',
-          background: 'var(--brand)', color: 'var(--text-on-brand, #fff)',
+          background: 'var(--brand)', color: 'var(--text-on-brand)',
           fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 600,
           cursor: ready ? 'pointer' : 'not-allowed', opacity: ready ? 1 : 0.5,
         }}

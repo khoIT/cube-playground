@@ -61,13 +61,13 @@ const List = styled.div`
 const StatusLine = styled.div<{ $kind: 'info' | 'error' }>`
   padding: 14px 16px;
   font-size: 13px;
-  color: ${(p) => (p.$kind === 'error' ? 'var(--danger, #b91c1c)' : 'var(--text-muted, #737373)')};
+  color: ${(p) => (p.$kind === 'error' ? 'var(--danger)' : 'var(--text-muted)')};
 `;
 
 const Empty = styled.div`
   padding: 40px 0;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 

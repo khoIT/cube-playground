@@ -1153,8 +1153,8 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                     const deltaPctVal = cmpRow != null ? (cmpRow[`${measure}__deltaPct`] as number | null) : null;
                     const tone = getDeltaTone(deltaPctVal);
                     const deltaColor =
-                      tone === 'positive' ? 'var(--success-color, #52c41a)' :
-                      tone === 'negative' ? 'var(--danger-color, #f5222d)' :
+                      tone === 'positive' ? 'var(--success)' :
+                      tone === 'negative' ? 'var(--danger)' :
                       'inherit';
 
                     return [
@@ -1658,7 +1658,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
         position: 'sticky',
         top: 0,
         zIndex: 2,
-        background: 'var(--bg-card, #fafafa)',
+        background: 'var(--bg-card)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

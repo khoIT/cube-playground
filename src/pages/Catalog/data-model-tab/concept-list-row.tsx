@@ -17,15 +17,15 @@ const Row = styled(Link)`
   align-items: center;
   gap: 12px;
   padding: 10px 16px 10px 38px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   text-decoration: none;
   color: inherit;
   transition: border-color 0.12s ease;
 
   &:hover {
-    border-color: var(--brand, #f05a22);
+    border-color: var(--brand);
   }
 `;
 
@@ -33,7 +33,7 @@ const Fqn = styled.code`
   font-family: var(--font-mono, monospace);
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -41,7 +41,7 @@ const Fqn = styled.code`
 
 const Cube = styled.span`
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -49,7 +49,7 @@ const Cube = styled.span`
 
 const Desc = styled.span`
   font-size: 12px;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -64,10 +64,10 @@ const UsedBy = styled.span<{ $unreferenced: boolean }>`
     p.$unreferenced ? 'transparent' : 'rgba(240, 90, 34, 0.10)'};
   color: ${(p) =>
     p.$unreferenced
-      ? 'var(--text-muted, #737373)'
-      : 'var(--brand, #f05a22)'};
+      ? 'var(--text-muted)'
+      : 'var(--brand)'};
   border: ${(p) =>
-    p.$unreferenced ? '1px dashed var(--border-card, #e5e5e5)' : 'none'};
+    p.$unreferenced ? '1px dashed var(--border-card)' : 'none'};
   font-weight: 500;
 `;
 

@@ -26,19 +26,19 @@ const ChipButton = styled.button<{ $active: boolean }>`
   height: 30px;
   padding: 0 10px;
   border: 1px solid
-    ${(p) => (p.$active ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
+    ${(p) => (p.$active ? 'var(--brand)' : 'var(--border-card)')};
   border-radius: 999px;
   background: ${(p) =>
-    p.$active ? 'rgba(240, 90, 34, 0.08)' : 'var(--bg-card, #ffffff)'};
+    p.$active ? 'rgba(240, 90, 34, 0.08)' : 'var(--bg-card)'};
   color: ${(p) =>
-    p.$active ? 'var(--brand, #f05a22)' : 'var(--text-secondary, #525252)'};
+    p.$active ? 'var(--brand)' : 'var(--text-secondary)'};
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
 
   &:hover {
-    border-color: var(--brand, #f05a22);
-    color: var(--brand, #f05a22);
+    border-color: var(--brand);
+    color: var(--brand);
   }
 `;
 
@@ -50,7 +50,7 @@ const ChipBadge = styled.span`
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: var(--brand, #f05a22);
+  background: var(--brand);
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -65,9 +65,9 @@ const Popover = styled.div`
   max-height: 320px;
   overflow-y: auto;
   padding: 8px 4px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 `;
 
@@ -78,7 +78,7 @@ const Option = styled.label`
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 12.5px;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   cursor: pointer;
 
   &:hover {
@@ -89,7 +89,7 @@ const Option = styled.label`
 const EmptyHint = styled.div`
   padding: 8px 10px;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 interface FilterChipProps {
@@ -252,7 +252,7 @@ const PillRowLabel = styled.span`
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   margin-right: 4px;
 `;
 
@@ -264,18 +264,18 @@ const Pill = styled.button<{ $active: boolean }>`
   padding: 0 10px;
   border: 1px solid
     ${(p) =>
-      p.$active ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)'};
+      p.$active ? 'var(--brand)' : 'var(--border-card)'};
   border-radius: 999px;
   background: ${(p) =>
-    p.$active ? 'rgba(240, 90, 34, 0.10)' : 'var(--bg-card, #ffffff)'};
+    p.$active ? 'rgba(240, 90, 34, 0.10)' : 'var(--bg-card)'};
   color: ${(p) =>
-    p.$active ? 'var(--brand, #f05a22)' : 'var(--text-secondary, #525252)'};
+    p.$active ? 'var(--brand)' : 'var(--text-secondary)'};
   font-size: 12px;
   cursor: pointer;
 
   &:hover {
-    border-color: var(--brand, #f05a22);
-    color: var(--brand, #f05a22);
+    border-color: var(--brand);
+    color: var(--brand);
   }
 `;
 

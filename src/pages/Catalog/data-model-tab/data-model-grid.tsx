@@ -21,7 +21,7 @@ const Grid = styled.div`
 const Empty = styled.div`
   padding: 60px 24px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 

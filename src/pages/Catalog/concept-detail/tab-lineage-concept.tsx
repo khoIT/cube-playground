@@ -27,14 +27,14 @@ const ColTitle = styled.h4`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Item = styled.div`
   padding: 10px 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   margin-bottom: 8px;
   font-family: var(--font-mono, monospace);
   font-size: 12px;
@@ -43,9 +43,9 @@ const Item = styled.div`
 const LinkItem = styled(Link)`
   display: block;
   padding: 10px 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   margin-bottom: 8px;
   font-family: var(--font-mono, monospace);
   font-size: 12px;
@@ -59,18 +59,18 @@ const Hub = styled.div`
   align-items: center;
   gap: 4px;
   padding: 14px 16px;
-  border: 2px solid var(--brand, #f05a22);
+  border: 2px solid var(--brand);
   border-radius: 10px;
   background: rgba(240, 90, 34, 0.05);
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   font-family: var(--font-mono, monospace);
 `;
 
 const Empty = styled.div`
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-style: italic;
 `;
 

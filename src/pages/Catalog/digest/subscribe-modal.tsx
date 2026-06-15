@@ -27,8 +27,8 @@ const Backdrop = styled.div`
 
 const Modal = styled.div`
   width: min(420px, 92vw);
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-card, #e5e5e5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.15);
   padding: 18px 20px;
@@ -38,13 +38,13 @@ const Title = styled.h3`
   margin: 0 0 4px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
 `;
 
 const Sub = styled.p`
   margin: 0 0 14px;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Row = styled.div`
@@ -59,7 +59,7 @@ const Label = styled.label`
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   cursor: pointer;
 
@@ -77,9 +77,9 @@ const Btn = styled.button<{ $primary?: boolean }>`
   height: 32px;
   padding: 0 12px;
   border: 1px solid
-    ${(p) => (p.$primary ? 'var(--brand, #f05a22)' : 'var(--border-card, #e5e5e5)')};
-  background: ${(p) => (p.$primary ? 'var(--brand, #f05a22)' : 'transparent')};
-  color: ${(p) => (p.$primary ? 'white' : 'var(--text-primary, #171717)')};
+    ${(p) => (p.$primary ? 'var(--brand)' : 'var(--border-card)')};
+  background: ${(p) => (p.$primary ? 'var(--brand)' : 'transparent')};
+  color: ${(p) => (p.$primary ? 'white' : 'var(--text-primary)')};
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;

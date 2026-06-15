@@ -16,8 +16,8 @@ const Row = styled.div`
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-card, #fafafa);
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-card);
 `;
 
 const SearchBox = styled.div`
@@ -30,15 +30,15 @@ const Input = styled.input`
   width: 100%;
   height: 34px;
   padding: 0 12px 0 32px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
-  background: var(--bg-muted, #f5f5f5);
+  background: var(--bg-muted);
   font-size: 13px;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
 
   &:focus {
     outline: none;
-    border-color: var(--brand, #f05a22);
+    border-color: var(--brand);
   }
 `;
 
@@ -48,7 +48,7 @@ const SearchIcon = styled.span`
   top: 50%;
   transform: translateY(-50%);
   display: inline-flex;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const SmartButton = styled.button`
@@ -57,31 +57,31 @@ const SmartButton = styled.button`
   gap: 6px;
   height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
 
   &:hover {
-    border-color: var(--brand, #f05a22);
-    color: var(--brand, #f05a22);
+    border-color: var(--brand);
+    color: var(--brand);
   }
 `;
 
 const Shortcut = styled.kbd`
   font-family: var(--font-mono, monospace);
   font-size: 10px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 3px;
   padding: 0 4px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Count = styled.span`
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   margin-left: auto;
   font-variant-numeric: tabular-nums;
 `;
@@ -92,16 +92,16 @@ const NewDataModelLink = styled(Link)`
   gap: 6px;
   height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--brand, #f05a22);
+  border: 1px solid var(--brand);
   border-radius: 6px;
-  background: var(--brand, #f05a22);
+  background: var(--brand);
   color: white;
   font-size: 12px;
   font-weight: 500;
   text-decoration: none;
 
   &:hover {
-    background: var(--brand-pressed, #f54a00);
+    background: var(--brand-hover);
   }
 `;
 

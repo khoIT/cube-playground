@@ -35,8 +35,8 @@ const Backdrop = styled.div`
 const Modal = styled.div`
   width: min(640px, 92vw);
   max-height: 70vh;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-card, #e5e5e5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
   display: flex;
@@ -49,7 +49,7 @@ const Header = styled.div`
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
+  border-bottom: 1px solid var(--border-card);
 `;
 
 const Input = styled.input`
@@ -58,16 +58,16 @@ const Input = styled.input`
   outline: none;
   font-size: 15px;
   background: transparent;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
 `;
 
 const Shortcut = styled.kbd`
   font-family: var(--font-mono, monospace);
   font-size: 11px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 4px;
   padding: 1px 6px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const ResultsList = styled.ul`
@@ -83,7 +83,7 @@ const GroupTitle = styled.li`
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Row = styled.li<{ $active: boolean }>`
@@ -101,7 +101,7 @@ const Row = styled.li<{ $active: boolean }>`
 
 const RowLabel = styled.span`
   font-weight: 500;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   font-family: var(--font-mono, monospace);
   font-size: 13px;
 `;
@@ -109,7 +109,7 @@ const RowLabel = styled.span`
 const RowSub = styled.span`
   margin-left: auto;
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-family: var(--font-mono, monospace);
   max-width: 280px;
   overflow: hidden;
@@ -121,7 +121,7 @@ const Empty = styled.div`
   padding: 28px 16px;
   text-align: center;
   font-size: 13px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Footer = styled.div`
@@ -129,14 +129,14 @@ const Footer = styled.div`
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  border-top: 1px solid var(--border-card, #e5e5e5);
-  background: var(--bg-app, #fafafa);
+  border-top: 1px solid var(--border-card);
+  background: var(--bg-app);
   font-size: 11.5px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const FooterStrong = styled.span`
-  color: var(--brand, #f05a22);
+  color: var(--brand);
   font-weight: 500;
 `;
 
@@ -209,7 +209,7 @@ export function SmartSearchOverlay() {
     >
       <Modal onMouseDown={(e) => e.stopPropagation()}>
         <Header>
-          <Search size={16} color="var(--text-muted, #737373)" />
+          <Search size={16} color="var(--text-muted)" />
           <Input
             ref={inputRef}
             value={query}

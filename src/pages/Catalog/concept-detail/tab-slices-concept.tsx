@@ -27,7 +27,7 @@ const Wrap = styled.div`
 const Empty = styled.div`
   padding: 40px 24px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 

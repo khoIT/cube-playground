@@ -24,7 +24,7 @@ const Title = styled.h1`
 const Hint = styled.p`
   margin: 0;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const List = styled.ul`
@@ -40,13 +40,13 @@ const Item = styled.li`
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
   padding: 10px 14px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
 
   a {
-    color: var(--brand, #f05a22);
+    color: var(--brand);
     text-decoration: none;
     font-weight: 500;
   }
@@ -55,8 +55,8 @@ const Item = styled.li`
 const Btn = styled.button`
   margin-left: auto;
   background: transparent;
-  border: 1px solid var(--border-card, #e5e5e5);
-  color: var(--text-muted, #737373);
+  border: 1px solid var(--border-card);
+  color: var(--text-muted);
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 12px;
@@ -66,7 +66,7 @@ const Btn = styled.button`
 const Empty = styled.div`
   padding: 28px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 

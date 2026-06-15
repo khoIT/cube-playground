@@ -121,7 +121,7 @@ const StageBtn = styled.button`
   gap: 6px;
   margin-left: auto;
   background: var(--brand);
-  color: var(--text-on-brand, #fff);
+  color: var(--text-on-brand);
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);

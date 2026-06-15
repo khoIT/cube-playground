@@ -78,7 +78,7 @@ export function LiveopsSettingsSection() {
       </SectionHead>
 
       {loading && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>}
-      {error && <div style={{ color: 'var(--danger,#dc2626)', fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div>}
 
       <Row>
         <RowLabel>KPI strip refresh (s)</RowLabel>

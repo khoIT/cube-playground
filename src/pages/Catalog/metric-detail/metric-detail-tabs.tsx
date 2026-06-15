@@ -11,9 +11,9 @@ const Strip = styled.div`
   display: flex;
   gap: 2px;
   padding: 0 24px;
-  border-top: 1px solid var(--border-card, #e5e5e5);
-  border-bottom: 1px solid var(--border-card, #e5e5e5);
-  background: var(--hermes-sidebar, #f9f6f2);
+  border-top: 1px solid var(--border-card);
+  border-bottom: 1px solid var(--border-card);
+  background: var(--hermes-sidebar);
 `;
 
 const TabBtn = styled.button<{ $active: boolean }>`
@@ -24,20 +24,20 @@ const TabBtn = styled.button<{ $active: boolean }>`
   font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   cursor: pointer;
   border-bottom: 3px solid transparent;
   margin-bottom: -1px;
   white-space: nowrap;
 
-  &:hover { color: var(--text-primary, #171717); }
+  &:hover { color: var(--text-primary); }
 
   ${(p) =>
     p.$active &&
     css`
-      color: var(--text-primary, #171717);
+      color: var(--text-primary);
       font-weight: 600;
-      border-bottom-color: var(--brand, #f05a22);
+      border-bottom-color: var(--brand);
     `}
 `;
 

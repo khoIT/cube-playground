@@ -36,7 +36,7 @@ const ColTitle = styled.h4`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Pill = styled.span`
@@ -44,15 +44,15 @@ const Pill = styled.span`
   padding: 2px 8px;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.05);
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   font-weight: 500;
 `;
 
 const cardStyles = css`
   padding: 12px 14px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 10px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 `;
 
@@ -65,7 +65,7 @@ const UpstreamCube = styled.div`
   font-family: var(--font-mono, monospace);
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   margin-bottom: 4px;
 `;
 
@@ -81,7 +81,7 @@ const UpstreamMembers = styled.ul`
 const UpstreamMember = styled.li`
   font-family: var(--font-mono, monospace);
   font-size: 11.5px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const DownstreamCard = styled(Link)`
@@ -92,7 +92,7 @@ const DownstreamCard = styled(Link)`
   border-left: 3px solid #22c55e;
 
   &:hover {
-    border-color: var(--brand, #f05a22);
+    border-color: var(--brand);
     box-shadow: 0 1px 4px rgba(240, 90, 34, 0.12);
   }
 `;
@@ -100,14 +100,14 @@ const DownstreamCard = styled(Link)`
 const DownstreamLabel = styled.div`
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   margin-bottom: 2px;
 `;
 
 const DownstreamVia = styled.small`
   font-family: var(--font-mono, monospace);
   font-size: 11.5px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const HubWrap = styled.div`
@@ -120,12 +120,12 @@ const HubWrap = styled.div`
 
 const Hub = styled.div`
   padding: 16px 20px;
-  border: 2px solid var(--brand, #f05a22);
+  border: 2px solid var(--brand);
   border-radius: 12px;
   background: rgba(240, 90, 34, 0.06);
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   text-align: center;
   box-shadow: 0 1px 4px rgba(240, 90, 34, 0.12);
 `;
@@ -142,7 +142,7 @@ const HubSub = styled.small`
 
 const Arrow = styled.span<{ direction: 'left' | 'right' }>`
   font-size: 18px;
-  color: var(--text-muted, #b3b3b3);
+  color: var(--text-muted);
   ${({ direction }) => (direction === 'left' ? 'transform: rotate(180deg);' : '')}
 `;
 
@@ -151,15 +151,15 @@ const ConnectorRow = styled.div`
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Empty = styled.div`
   padding: 14px;
-  border: 1px dashed var(--border-card, #d4d4d4);
+  border: 1px dashed var(--border-card);
   border-radius: 10px;
   font-size: 12px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-style: italic;
   text-align: center;
 `;

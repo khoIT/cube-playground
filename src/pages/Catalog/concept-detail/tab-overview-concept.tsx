@@ -24,7 +24,7 @@ const Grid = styled.dl`
   font-size: 13px;
 
   dt {
-    color: var(--text-muted, #737373);
+    color: var(--text-muted);
     text-transform: uppercase;
     font-size: 11px;
     letter-spacing: 0.05em;
@@ -32,7 +32,7 @@ const Grid = styled.dl`
   }
   dd {
     margin: 0;
-    color: var(--text-primary, #171717);
+    color: var(--text-primary);
     font-family: var(--font-mono, monospace);
   }
 `;
@@ -40,7 +40,7 @@ const Grid = styled.dl`
 const Description = styled.p`
   margin: 0;
   font-size: 14px;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   line-height: 1.55;
 `;
 

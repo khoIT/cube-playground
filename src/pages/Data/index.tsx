@@ -57,7 +57,7 @@ const primaryBtn: React.CSSProperties = {
   alignItems: 'center',
   gap: 6,
   background: 'var(--brand)',
-  color: 'var(--text-on-brand, #fff)',
+  color: 'var(--text-on-brand)',
   border: 'none',
   borderRadius: 'var(--radius-sm)',
   padding: '7px 16px',

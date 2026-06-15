@@ -19,9 +19,9 @@ const Wrap = styled.div<{ $disabled: boolean }>`
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 10px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   text-decoration: none;
   color: inherit;
   cursor: ${(p) => (p.$disabled ? 'not-allowed' : 'pointer')};
@@ -29,7 +29,7 @@ const Wrap = styled.div<{ $disabled: boolean }>`
   transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
 
   &:hover {
-    border-color: ${(p) => (p.$disabled ? 'var(--border-card)' : 'var(--brand, #f05a22)')};
+    border-color: ${(p) => (p.$disabled ? 'var(--border-card)' : 'var(--brand)')};
     box-shadow: ${(p) =>
       p.$disabled ? 'none' : '0 1px 6px rgba(0,0,0,0.06)'};
   }
@@ -44,13 +44,13 @@ const TopRow = styled.div`
 const Label = styled.div`
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   flex: 1;
 `;
 
 const Synonyms = styled.div`
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-family: var(--font-mono, monospace);
   white-space: nowrap;
   overflow: hidden;
@@ -61,7 +61,7 @@ const Description = styled.p`
   margin: 0;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -80,12 +80,12 @@ const Footer = styled.div`
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const DisabledTip = styled.div`
   font-size: 11px;
-  color: var(--destructive-ink, #991b1b);
+  color: var(--destructive-ink);
   font-style: italic;
 `;
 
@@ -96,8 +96,8 @@ const ColdBadge = styled.span`
   letter-spacing: 0.04em;
   padding: 2px 6px;
   border-radius: var(--radius-xs, 4px);
-  background: var(--warning-soft, #fef3c7);
-  color: var(--warning-ink, #92400e);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
 `;
 
 interface MetricCardProps {

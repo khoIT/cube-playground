@@ -20,16 +20,16 @@ const Row = styled(Link)<{ $disabled: boolean }>`
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   text-decoration: none;
   color: inherit;
   opacity: ${(p) => (p.$disabled ? 0.55 : 1)};
   transition: border-color 0.12s ease;
 
   &:hover {
-    border-color: var(--brand, #f05a22);
+    border-color: var(--brand);
   }
 `;
 
@@ -43,7 +43,7 @@ const TitleBlock = styled.span`
 const Title = styled.span`
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary, #171717);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -54,13 +54,13 @@ const TitleCodename = styled.span`
   font-family: var(--font-mono, monospace);
   font-size: 11px;
   font-weight: 500;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   margin-left: 8px;
 `;
 
 const Desc = styled.span`
   font-size: 11.5px;
-  color: var(--text-secondary, #525252);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -69,7 +69,7 @@ const Desc = styled.span`
 
 const Meta = styled.span`
   font-size: 11px;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -93,7 +93,7 @@ const TrustChip = styled.span<{ $trust: BusinessMetric['trust'] }>`
       ? '#0f7a3a'
       : p.$trust === 'deprecated'
         ? '#8a5a05'
-        : 'var(--text-muted, #737373)'};
+        : 'var(--text-muted)'};
 `;
 
 const ColdBadge = styled.span`
@@ -104,8 +104,8 @@ const ColdBadge = styled.span`
   letter-spacing: 0.04em;
   padding: 2px 6px;
   border-radius: var(--radius-xs, 4px);
-  background: var(--warning-soft, #fef3c7);
-  color: var(--warning-ink, #92400e);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
 `;
 
 const BadgeCell = styled.span`

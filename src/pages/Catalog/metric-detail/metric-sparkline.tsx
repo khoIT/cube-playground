@@ -25,7 +25,7 @@ const Card = styled.div`
   grid-template-rows: auto auto;
   gap: 4px 16px;
   padding: 14px 16px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(240, 90, 34, 0.03), rgba(240, 90, 34, 0));
   margin-bottom: 18px;
@@ -37,7 +37,7 @@ const Caption = styled.div`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
 `;
 
 const Chip = styled.div<{ tone: 'up' | 'down' | 'flat' }>`
@@ -51,7 +51,7 @@ const Chip = styled.div<{ tone: 'up' | 'down' | 'flat' }>`
   background: ${({ tone }) =>
     tone === 'up' ? 'rgba(34, 197, 94, 0.12)' : tone === 'down' ? 'rgba(220, 38, 38, 0.10)' : 'rgba(0,0,0,0.05)'};
   color: ${({ tone }) =>
-    tone === 'up' ? '#15803d' : tone === 'down' ? '#b91c1c' : 'var(--text-muted, #737373)'};
+    tone === 'up' ? '#15803d' : tone === 'down' ? '#b91c1c' : 'var(--text-muted)'};
 `;
 
 const ChartBox = styled.div`
@@ -79,7 +79,7 @@ const Message = styled.div<{ tone?: 'muted' | 'error' }>`
   align-items: center;
   font-size: 12px;
   font-style: italic;
-  color: ${({ tone }) => (tone === 'error' ? '#b91c1c' : 'var(--text-muted, #737373)')};
+  color: ${({ tone }) => (tone === 'error' ? '#b91c1c' : 'var(--text-muted)')};
 `;
 
 interface Props {
@@ -147,7 +147,7 @@ function renderBody(disabled: boolean, result: SparklineResult) {
           <XAxis dataKey="x" hide />
           <YAxis hide domain={['auto', 'auto']} />
           <Tooltip
-            cursor={{ stroke: 'var(--border-card, #e5e5e5)' }}
+            cursor={{ stroke: 'var(--border-card)' }}
             labelFormatter={(label: string) => formatChartDateTooltip(label)}
             formatter={(value: number) => [formatNumber(value), 'value']}
             contentStyle={{ fontSize: 12, borderRadius: 6 }}
@@ -155,9 +155,9 @@ function renderBody(disabled: boolean, result: SparklineResult) {
           <Line
             type="monotone"
             dataKey="y"
-            stroke="var(--brand, #f05a22)"
+            stroke="var(--brand)"
             strokeWidth={2}
-            dot={showDots ? { r: 2.5, fill: 'var(--brand, #f05a22)' } : false}
+            dot={showDots ? { r: 2.5, fill: 'var(--brand)' } : false}
             isAnimationActive={false}
             connectNulls
           />

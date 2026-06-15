@@ -140,7 +140,7 @@ const Box = styled.span<{ $on: boolean }>`
   border-radius: var(--radius-xs);
   border: 1px solid ${(p) => (p.$on ? 'var(--brand)' : 'var(--border-strong)')};
   background: ${(p) => (p.$on ? 'var(--brand)' : 'transparent')};
-  color: var(--text-on-brand, #fff);
+  color: var(--text-on-brand);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -169,7 +169,7 @@ const PrimaryBtn = styled.button`
   align-items: center;
   gap: 6px;
   background: var(--brand);
-  color: var(--text-on-brand, #fff);
+  color: var(--text-on-brand);
   border: none;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);

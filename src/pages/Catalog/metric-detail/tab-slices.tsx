@@ -9,7 +9,7 @@ const Wrap = styled.section`
 const Empty = styled.div`
   padding: 30px 0;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 12px;
 `;
 
@@ -21,9 +21,9 @@ const Grid = styled.div`
 
 const SliceCard = styled.div`
   padding: 12px;
-  border: 1px solid var(--border-card, #e5e5e5);
+  border: 1px solid var(--border-card);
   border-radius: 8px;
-  background: var(--bg-card, #ffffff);
+  background: var(--bg-card);
   font-family: var(--font-mono, monospace);
   font-size: 12px;
 `;
@@ -31,7 +31,7 @@ const SliceCard = styled.div`
 const Label = styled.div`
   font-size: 11px;
   text-transform: uppercase;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   letter-spacing: 0.05em;
   margin-bottom: 6px;
   font-family: var(--font-sans);

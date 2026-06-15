@@ -44,7 +44,7 @@ const Layout = styled.div`
 const Status = styled.div`
   padding: 60px 24px;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 
@@ -69,7 +69,7 @@ const List = styled.div`
 const Empty = styled.div`
   padding: 40px 0;
   text-align: center;
-  color: var(--text-muted, #737373);
+  color: var(--text-muted);
   font-size: 13px;
 `;
 
