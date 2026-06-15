@@ -31,7 +31,7 @@ export function AskCubeFab({ onClick, panelVisible = false }: AskCubeFabProps) {
         borderRadius: 999,
         border: 'none',
         background: 'var(--shell-brand)',
-        color: '#fff',
+        color: 'var(--text-on-brand)',
         fontFamily: T.fSans,
         fontWeight: 600,
         fontSize: 12.5,
@@ -48,7 +48,7 @@ export function AskCubeFab({ onClick, panelVisible = false }: AskCubeFabProps) {
         (e.currentTarget as HTMLButtonElement).style.background = 'var(--shell-brand)';
       }}
     >
-      <Icon icon={MessageCircle} size={13} color="#fff" />
+      <Icon icon={MessageCircle} size={13} color="var(--text-on-brand)" />
       Ask Cube
     </button>
   );

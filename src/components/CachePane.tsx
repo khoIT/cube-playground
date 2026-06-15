@@ -136,14 +136,14 @@ const CachePane = ({ query }) => (
                     text ? (
                       <CheckOutlined
                         style={{
-                          color: '#52c41a',
+                          color: 'var(--success)',
                           fontSize: '2em',
                         }}
                       />
                     ) : (
                       <CloseOutlined
                         style={{
-                          color: '#c2371b',
+                          color: 'var(--danger)',
                           fontSize: '2em',
                         }}
                       />

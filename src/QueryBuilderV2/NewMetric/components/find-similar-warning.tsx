@@ -26,7 +26,7 @@ const Header = styled.button`
   text-align: left;
   font-size: 13px;
   font-weight: 600;
-  color: #92400e;
+  color: var(--warning-ink);
 `;
 
 const List = styled.ul`

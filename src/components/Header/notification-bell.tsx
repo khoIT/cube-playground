@@ -42,7 +42,7 @@ const UnreadDot = styled.span`
   border-radius: 999px;
   background: var(--danger);
   box-shadow: 0 0 0 2px var(--bg-card);
-  color: #fff;
+  color: var(--text-on-brand);
   font-size: 10px;
   font-weight: 600;
   line-height: 14px;

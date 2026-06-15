@@ -200,10 +200,10 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
             fontFamily: T.fSans,
             fontSize: 12,
             fontWeight: 500,
-            color: '#fff',
+            color: 'var(--text-on-brand)',
           }}
         >
-          <Icon icon={ExternalLink} size={13} color="#fff" />
+          <Icon icon={ExternalLink} size={13} color="var(--text-on-brand)" />
           Open in Playground
         </button>
       </div>

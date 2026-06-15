@@ -98,7 +98,7 @@ export function Stat({ label, value, note, noteTone }: StatProps) {
 
 export function saveBtnStyle(busy: boolean): React.CSSProperties {
   return {
-    background: 'var(--brand)', color: '#fff', border: 'none',
+    background: 'var(--brand)', color: 'var(--text-on-brand)', border: 'none',
     borderRadius: 'var(--radius-sm)', padding: '5px 14px',
     fontSize: 12, fontWeight: 600, cursor: busy ? 'default' : 'pointer',
     opacity: busy ? 0.6 : 1, fontFamily: 'var(--font-sans)',

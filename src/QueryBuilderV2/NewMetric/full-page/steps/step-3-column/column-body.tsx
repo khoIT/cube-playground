@@ -32,7 +32,7 @@ const Warning = styled.div`
   border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 8px;
   font-size: 12.5px;
-  color: #92400e;
+  color: var(--warning-ink);
 `;
 
 export type ColumnBodyProps = {

@@ -63,7 +63,7 @@ export function PreProvisionForm({ onCreated }: PreProvisionFormProps) {
           type="submit"
           disabled={submitting}
           style={{
-            background: 'var(--brand)', color: '#fff', border: 'none',
+            background: 'var(--brand)', color: 'var(--text-on-brand)', border: 'none',
             borderRadius: 'var(--radius-sm)', padding: '7px 16px',
             fontSize: 13, fontWeight: 600, cursor: submitting ? 'default' : 'pointer',
             opacity: submitting ? 0.6 : 1, fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',

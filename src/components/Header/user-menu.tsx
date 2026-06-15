@@ -41,7 +41,7 @@ const ActiveDot = styled.span`
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #10b981;
+  background: var(--success);
   box-shadow: 0 0 0 2px var(--bg-card);
 `;
 

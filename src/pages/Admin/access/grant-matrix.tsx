@@ -104,7 +104,7 @@ export function GrantMatrix({
 
 function saveBtn(saving: boolean): React.CSSProperties {
   return {
-    background: 'var(--brand)', color: '#fff', border: 'none',
+    background: 'var(--brand)', color: 'var(--text-on-brand)', border: 'none',
     borderRadius: 'var(--radius-sm)', padding: '5px 14px',
     fontSize: 12, fontWeight: 600, cursor: saving ? 'default' : 'pointer',
     opacity: saving ? 0.6 : 1, fontFamily: 'var(--font-sans)',

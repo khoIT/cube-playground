@@ -105,7 +105,7 @@ export function AuthGate({ children }: AuthGateProps) {
             padding: '10px 18px',
             border: '1px solid var(--brand)',
             background: 'var(--brand)',
-            color: '#fff',
+            color: 'var(--text-on-brand)',
             borderRadius: 'var(--radius-md, 6px)',
             fontWeight: 600,
             cursor: 'pointer',

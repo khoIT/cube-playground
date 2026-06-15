@@ -12,7 +12,7 @@ interface DryRunSqlPreviewProps {
 
 const PLACEHOLDER_STYLE: React.CSSProperties = {
   padding: '12px',
-  background: 'var(--bg-code, #f5f5f5)',
+  background: 'var(--bg-code)',
   borderRadius: 'var(--radius-card)',
   border: '1px solid var(--border-card)',
   color: 'var(--text-secondary)',

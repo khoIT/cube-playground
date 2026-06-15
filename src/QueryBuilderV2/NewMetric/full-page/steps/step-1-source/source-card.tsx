@@ -61,7 +61,7 @@ const IconTile = styled.div<{ $selected: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: ${(p) => (p.$selected ? '#ffffff' : 'var(--bg-muted)')};
+  background: ${(p) => (p.$selected ? 'var(--bg-card)' : 'var(--bg-muted)')};
   border: 1px solid ${(p) => (p.$selected ? 'var(--orange-200)' : 'var(--border-card)')};
   color: ${(p) => (p.$selected ? 'var(--brand)' : 'var(--text-secondary)')};
 `;
@@ -100,7 +100,7 @@ const SelectedPill = styled.span`
   height: 22px;
   padding: 0 8px;
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--orange-200);
   color: var(--brand);
   font-size: 11.5px;
@@ -116,7 +116,7 @@ const PrimaryPill = styled.span`
   padding: 0 8px;
   border-radius: 999px;
   background: var(--brand);
-  color: #ffffff;
+  color: var(--text-on-brand);
   font-size: 11.5px;
   font-weight: 600;
 `;
@@ -199,7 +199,7 @@ const Tag = styled.span<{ $selected: boolean }>`
   padding: 2px 8px;
   border-radius: 999px;
   font-family: var(--font-mono);
-  background: ${(p) => (p.$selected ? '#ffffff' : 'var(--bg-muted)')};
+  background: ${(p) => (p.$selected ? 'var(--bg-card)' : 'var(--bg-muted)')};
   border: 1px solid ${(p) => (p.$selected ? 'var(--orange-200)' : 'transparent')};
   color: ${(p) => (p.$selected ? 'var(--brand)' : 'var(--text-secondary)')};
 `;

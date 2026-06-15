@@ -34,7 +34,7 @@ export function SessionRowDeleteConfirm({
           border: 'none',
           borderRadius: 4,
           background: 'var(--shell-danger)',
-          color: '#fff',
+          color: 'var(--text-on-brand)',
           fontFamily: T.fSans,
           fontSize: 12,
           cursor: 'pointer',

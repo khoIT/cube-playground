@@ -233,7 +233,7 @@ function CollapsedRow({ icon, iconColor, label, primary, isActive }: CollapsedRo
           style={{
             position: 'fixed', top: tipPos.top, left: tipPos.left,
             transform: 'translateY(-50%)',
-            background: 'var(--shell-text)', color: '#fff',
+            background: 'var(--shell-text)', color: 'var(--text-on-brand)',
             padding: '4px 8px', borderRadius: 4,
             fontFamily: T.fSans, fontSize: 11, fontWeight: 500,
             whiteSpace: 'nowrap', pointerEvents: 'none',

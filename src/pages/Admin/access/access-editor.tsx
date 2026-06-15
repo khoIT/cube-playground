@@ -135,7 +135,7 @@ const select: React.CSSProperties = {
 
 function primaryBtn(busy: boolean): React.CSSProperties {
   return {
-    background: 'var(--brand)', color: '#fff', border: 'none',
+    background: 'var(--brand)', color: 'var(--text-on-brand)', border: 'none',
     borderRadius: 'var(--radius-sm)', padding: '7px 16px',
     fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer',
     opacity: busy ? 0.6 : 1, fontFamily: 'var(--font-sans)',

@@ -51,7 +51,7 @@ const ChipBadge = styled.span`
   padding: 0 5px;
   border-radius: 9px;
   background: var(--brand);
-  color: #fff;
+  color: var(--text-on-brand);
   font-size: 10px;
   font-weight: 600;
 `;

@@ -105,7 +105,7 @@ const Badge = styled.span<{ $tone: 'done' | 'active' | 'pending' }>`
     if (p.$tone === 'done') {
       return css`
         background: var(--brand);
-        color: #fff;
+        color: var(--text-on-brand);
         border: 1px solid var(--brand);
       `;
     }

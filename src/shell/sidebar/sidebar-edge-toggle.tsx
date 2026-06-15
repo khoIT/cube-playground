@@ -121,7 +121,7 @@ export function SidebarEdgeToggle({ collapsed }: SidebarEdgeToggleProps) {
               top: '50%',
               transform: 'translateY(-50%)',
               background: 'var(--shell-text)',
-              color: '#fff',
+              color: 'var(--text-on-brand)',
               padding: '4px 8px',
               borderRadius: 4,
               fontFamily: T.fSans,

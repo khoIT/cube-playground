@@ -30,19 +30,19 @@ const Pill = styled.span<{ $kind: ArtifactKind; $compact: boolean }>`
     p.$kind === 'measure' &&
     css`
       background: rgba(16, 185, 129, 0.12);
-      color: #047857;
+      color: var(--success-ink);
     `}
   ${(p) =>
     p.$kind === 'dimension' &&
     css`
       background: rgba(37, 99, 235, 0.12);
-      color: #1d4ed8;
+      color: var(--info-ink);
     `}
   ${(p) =>
     p.$kind === 'segment' &&
     css`
       background: rgba(139, 92, 246, 0.12);
-      color: #6d28d9;
+      color: var(--cat-purple-ink);
     `}
 `;
 

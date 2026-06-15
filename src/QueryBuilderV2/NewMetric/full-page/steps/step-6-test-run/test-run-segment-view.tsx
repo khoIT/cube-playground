@@ -28,7 +28,7 @@ const Block = styled.pre`
 const Note = styled.div`
   display: flex; gap: 8px; align-items: flex-start;
   padding: 10px 12px; border-radius: 8px;
-  background: rgba(234, 179, 8, 0.10); color: #92400e; font-size: 12.5px;
+  background: rgba(234, 179, 8, 0.10); color: var(--warning-ink); font-size: 12.5px;
   & svg { flex: none; margin-top: 2px; }
 `;
 const Tile = styled.div`

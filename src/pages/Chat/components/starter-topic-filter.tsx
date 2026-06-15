@@ -38,7 +38,7 @@ export function StarterTopicFilter({ value, onChange }: Props) {
         const accent = opt.value !== 'all' ? STARTER_TOPIC_COLORS[opt.value] : null;
         const activeStyle = accent
           ? { border: `1px solid ${accent.ink}`, background: accent.soft, color: accent.ink }
-          : { border: `1px solid var(--shell-text)`, background: 'var(--shell-text)', color: '#fff' };
+          : { border: `1px solid var(--shell-text)`, background: 'var(--shell-text)', color: 'var(--text-on-brand)' };
         return (
           <button
             key={opt.value}

@@ -184,7 +184,7 @@ export function ChatComposer({
             transition: 'background 0.15s',
           }}
         >
-          <Icon icon={ArrowUp} size={compact ? 14 : 16} color="#fff" />
+          <Icon icon={ArrowUp} size={compact ? 14 : 16} color="var(--text-on-brand)" />
         </button>
       </div>
     </div>

@@ -56,7 +56,7 @@ const Callout = styled.div`
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 12.5px;
-  color: #92400e;
+  color: var(--warning-ink);
 `;
 
 function formatNumber(n: number | null): string {

@@ -16,7 +16,7 @@ const Menu = styled(AntdMenu)`
   padding-top: 0;
 
   li.ant-dropdown-menu-item-active {
-    background: #f3f3fb;
+    background: var(--bg-muted);
   }
 `;
 

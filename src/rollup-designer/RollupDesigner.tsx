@@ -58,7 +58,7 @@ const MainBox = styled(Box)`
 
 const RollupQueryBox = styled.div`
   padding: 0 24px 32px;
-  background: #f6f6f8;
+  background: var(--surface-subtle);
 
   & .ant-tabs-nav {
     margin-bottom: 24px;
@@ -659,7 +659,7 @@ export function RollupDesigner({
                   <Typography.Text data-testid="rd-query-tab">
                     Query Compatibility
                     {matching != null ? (
-                      <WarningFilled style={{ color: '#FBBC05' }} />
+                      <WarningFilled style={{ color: 'var(--warning)' }} />
                     ) : null}
                   </Typography.Text>
                 )
