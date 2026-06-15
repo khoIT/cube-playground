@@ -95,9 +95,9 @@ export function WhatsNewBell() {
         {unreadCount > 0 && (
           <span
             style={{
-              position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, padding: '0 3px',
+              position: 'absolute', top: -1, right: -1, minWidth: 14, height: 14, padding: '0 3px',
               borderRadius: 'var(--radius-full)', background: 'var(--brand)', color: 'var(--text-on-brand)',
-              fontSize: 10, fontWeight: 700, lineHeight: '16px', textAlign: 'center',
+              fontSize: 9, fontWeight: 700, lineHeight: '14px', textAlign: 'center',
               boxShadow: '0 0 0 2px var(--bg-card)',
             }}
           >
