@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pre-push gate — blocks pushes that reintroduce theme drift.
+#
+# The repo deploys by pushing the `second` remote (auto-deploy) and has no
+# in-repo CI, so this local hook is the enforceable gate. Activated via the
+# `prepare` script (sets core.hooksPath=scripts/git-hooks).
+#
+# Bypass for an emergency only: `git push --no-verify`.
+
+echo "pre-push: theme-token lint…"
+npm run --silent lint || {
+  echo ""
+  echo "✗ push blocked: theme-token drift (see above)."
+  echo "  Fix the violations, or bypass with --no-verify if intentional."
+  exit 1
+}
