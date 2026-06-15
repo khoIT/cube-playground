@@ -82,7 +82,7 @@ const S = {
     lineHeight: 1.1,
     letterSpacing: '-0.02em',
     // ONLY place where gradient text is allowed per design contract
-    background: `linear-gradient(135deg, var(--hermes-brand) 0%, var(--hermes-brand-hover) 100%)`,
+    background: `linear-gradient(135deg, var(--shell-brand) 0%, var(--shell-brand-hover) 100%)`,
     WebkitBackgroundClip: 'text',
     backgroundClip: 'text',
     color: 'transparent',

@@ -13,7 +13,7 @@ const Strip = styled.div`
   padding: 0 24px;
   border-top: 1px solid var(--border-card);
   border-bottom: 1px solid var(--border-card);
-  background: var(--hermes-sidebar);
+  background: var(--surface-sidebar);
 `;
 
 const TabBtn = styled.button<{ $active: boolean }>`

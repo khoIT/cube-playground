@@ -431,7 +431,7 @@
   border-bottom: 1px solid var(--border-card);
   margin: 4px -32px 0;
   padding: 0 32px;
-  background: var(--hermes-sidebar, #f9f6f2);
+  background: var(--surface-sidebar);
   overflow-x: auto;
 }
 
