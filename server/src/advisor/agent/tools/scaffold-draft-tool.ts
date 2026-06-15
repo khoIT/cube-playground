@@ -14,6 +14,7 @@ import { scaffoldDraft } from '../../handoff-scaffolder.js';
 import { saveDraft } from '../../command-center-draft-store.js';
 import { resolveAddressableN, resolveReachablePct } from '../../cohort-resolver.js';
 import { validateDraftNumbers } from '../agent-provenance-gate.js';
+import { scoreExperiment, resolveScoringGoal } from '../experiment-quality-score.js';
 import type { ExperimentCandidate } from '../../candidate-types.js';
 import { ok, fail, provenance, type ToolContext } from './tool-context.js';
 
@@ -68,10 +69,21 @@ export function makeScaffoldDraftTool(tctx: ToolContext) {
           windowDays: args.windowDays,
           treatmentShare: args.treatmentShare,
         });
+        // Score the draft on the five quality dimensions so Decide can gate the
+        // hand-off (provenance validated against THIS session's ledger).
+        const scoringGoal = resolveScoringGoal(tctx.goal, draft.candidateId);
+        const scorecard = scoreExperiment(draft, scoringGoal, {
+          ledger: tctx.ledger,
+          provenanceId: args.provenanceId,
+        });
+        const scoredDraft = { ...draft, scorecard };
         // Persist so the finished Drive investigation's artifact is retrievable
         // by the client (the SSE edge strips structured tool output).
-        saveDraft(draft);
+        saveDraft(scoredDraft);
         const violations = validateDraftNumbers(draft, args.provenanceId, tctx.ledger);
+        // Register the UN-scored draft: the scorecard's derived 0/0.5/1 numbers
+        // are not a citable source and would only add low-information noise to
+        // the ledger's coincidence-tolerant value match.
         const draftProvenanceId = provenance(tctx, NAME, draft);
         const summary =
           violations.length === 0
@@ -79,7 +91,7 @@ export function makeScaffoldDraftTool(tctx: ToolContext) {
             : `Draft scaffolded (status=draft), but ${violations.length} number(s) do NOT trace to a tool result ` +
               `(${violations.map((v) => `${v.field}:${v.reason}`).join(', ')}). Re-run the tool that ` +
               `produces them and cite its provenanceId before hand-off.`;
-        return ok(summary, { provenanceId: draftProvenanceId, draft, violations });
+        return ok(summary, { provenanceId: draftProvenanceId, draft: scoredDraft, violations, scorecard });
       } catch (err) {
         return fail(err instanceof Error ? err.message : String(err));
       }

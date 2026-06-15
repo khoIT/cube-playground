@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Advisor: quality gate on the Drive → Decide hand-off
+
+"Never auto-launch" guaranteed nothing about experiment *quality* — a finished investigation's draft advanced to set-up regardless of whether it was powered, deliverable, or provenanced. The existing `scoreExperiment()` quality scorer (5 dimensions: power / feasibility / materiality / provenance / goal-fit) was only wired into the offline eval harness; it now gates the live hand-off.
+
+- **Scorecard on the draft** — both scaffold paths attach an `ExperimentScorecard`: the Drive `scaffold_draft` tool scores against the live provenance ledger; the manual `/handoff` route scores with `provenanceResolved: true` (its numbers come from the deterministic recommend engine, not an LLM). `resolveScoringGoal()` narrows a `'both'` goal to the tree containing the candidate's factor so a valid engagement lever isn't marked off-goal.
+- **Gate** (`src/pages/Advisor/experiment-gate.ts`) — pure `experimentGateStatus(scorecard)`: HARD-STOPS only on a failing **critical** dimension (power / feasibility / provenance — the three that make an experiment invalid); non-critical shortfalls (small ₫, off-goal) are advisory **warnings**, not blocks. No scorecard → not blocked (back-compat).
+- **Decide UI** (`decide-drive-view.tsx`) — renders the five dimensions as pass/fail/warn chips; a blocked experiment requires a typed override reason (≥4 chars) to enable "Override & set up anyway", which stamps an auditable `gateOverride` on the handed-off draft.
+- **Scope** — enforced on the Drive → Decide path (where the dead-end was). The manual Explore → Recommendations hand-off carries the same scorecard but does not yet enforce the gate (goes straight to the Command Center stub) — a documented follow-up.
+- **Tests** — scorecard over a scaffolded draft (powered clears criticals; underpowered fails the power gate), `resolveScoringGoal` (`'both'` resolution + unknown-factor default), and the pure gate helper (block on critical, warn on non-critical, back-compat).
+
 ## 2026-06-15 — Advisor: Drive (live AI) converges into Decide with a clear, evidenced experiment
 
 The "Drive with AI" posture dead-ended — when the agent finished investigating there was no way to continue into building the experiment. The manual Explore posture flows Goal → Board → Decide → Command Center; Drive now shares that convergence: Goal → DrivePanel → **Decide** → Command Center.

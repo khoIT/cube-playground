@@ -20,6 +20,7 @@ import { setDb, closeDb } from '../src/db/sqlite.js';
 import { scaffoldDraft } from '../src/advisor/handoff-scaffolder.js';
 import { saveDraft, getDraft, listDraftsForSegment } from '../src/advisor/command-center-draft-store.js';
 import { recordFeedback, listFeedbackForSegment } from '../src/advisor/feedback-store.js';
+import { scoreExperiment, resolveScoringGoal } from '../src/advisor/agent/experiment-quality-score.js';
 import type { ExperimentCandidate } from '../src/advisor/candidate-types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -133,6 +134,42 @@ describe('scaffoldDraft', () => {
     // Hold-out arm share (20%) is echoed in the readout rule.
     expect(draft.readout.holdoutPct).toBe(20);
     expect(draft.readout.decisionRule).toMatch(/Ship if.*4\.2pp.*20% hold-out/);
+  });
+});
+
+describe('quality scorecard over a scaffolded draft (the Decide gate input)', () => {
+  it('a powered + feasible draft clears every CRITICAL dimension', () => {
+    const draft = scaffoldDraft({ candidate: csCandidate(), segmentId: 'seg-1', gameId: 'cfm_vn', addressableN: 2400, reachablePct: 0.78 });
+    const sc = scoreExperiment(draft, 'revenue', { provenanceResolved: true });
+    const criticals = sc.dimensions.filter((d) => d.critical);
+    expect(criticals.every((d) => d.pass)).toBe(true);
+    // money.incrementalVnd is null → materiality is the (non-critical) shortfall.
+    expect(sc.dimensions.find((d) => d.dimension === 'materiality')!.pass).toBe(false);
+    expect(sc.dimensions.find((d) => d.dimension === 'materiality')!.critical).toBe(false);
+  });
+
+  it('an underpowered draft fails the power CRITICAL gate', () => {
+    const under = csCandidate({ power: { status: 'underpowered', mde: 12, detail: 'N too small' } });
+    const draft = scaffoldDraft({ candidate: under, segmentId: 'seg-1', gameId: 'cfm_vn', addressableN: 80, reachablePct: 0.5 });
+    const sc = scoreExperiment(draft, 'revenue', { provenanceResolved: true });
+    const power = sc.dimensions.find((d) => d.dimension === 'power')!;
+    expect(power.critical).toBe(true);
+    expect(power.pass).toBe(false);
+    expect(sc.pass).toBe(false);
+  });
+});
+
+describe('resolveScoringGoal', () => {
+  it('passes an explicit goal through unchanged', () => {
+    expect(resolveScoringGoal('revenue', 'lifespan::win-back')).toBe('revenue');
+    expect(resolveScoringGoal('engagement', 'session_freq::nudge')).toBe('engagement');
+  });
+  it("resolves 'both' to the tree that contains the candidate's factor", () => {
+    expect(resolveScoringGoal('both', 'lifespan::win-back')).toBe('revenue');
+    expect(resolveScoringGoal('both', 'session_freq::nudge')).toBe('engagement');
+  });
+  it("defaults 'both' to revenue for an unknown factor", () => {
+    expect(resolveScoringGoal('both', 'mystery::x')).toBe('revenue');
   });
 });
 

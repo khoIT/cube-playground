@@ -19,6 +19,7 @@
  */
 
 import type { ExperimentCandidate } from './candidate-types.js';
+import type { ExperimentScorecard } from './agent/experiment-quality-score.js';
 
 /** Default treatment/hold-out window in days when the candidate has no window hint. */
 const DEFAULT_WINDOW_DAYS = 14;
@@ -129,6 +130,18 @@ export interface ExperimentDraft {
   blueprint: ExperimentBlueprint;
   /** Pre-registered "what to look for" rule. */
   readout: ReadoutRule;
+  /**
+   * Quality scorecard (power/feasibility/materiality/provenance/goal-fit),
+   * computed at scaffold time. Optional for back-compat with pre-scored drafts.
+   * The Decide hand-off gate hard-stops on a failing CRITICAL dimension.
+   */
+  scorecard?: ExperimentScorecard;
+  /**
+   * Recorded when a manager advances the experiment past a failing quality gate.
+   * Carries the typed justification; persisting it for an audit trail lands with
+   * the Command Center registry (today it rides the in-memory hand-off only).
+   */
+  gateOverride?: { reason: string; at: string };
 }
 
 export interface ScaffoldInput {

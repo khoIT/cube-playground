@@ -163,6 +163,30 @@ export interface ReadoutRule {
   decisionRule: string;
 }
 
+// ─── Quality scorecard (mirror agent/experiment-quality-score.ts) ─────────────
+
+export type QualityDimension = 'power' | 'feasibility' | 'materiality' | 'provenance' | 'goalFit';
+
+export interface DimensionScore {
+  dimension: QualityDimension;
+  /** Continuous 0–1 score. */
+  score: number;
+  /** Whether this dimension clears its gate. */
+  pass: boolean;
+  /** Whether failing this dimension fails the whole experiment outright. */
+  critical: boolean;
+  detail: string;
+}
+
+export interface ExperimentScorecard {
+  draftId: string;
+  dimensions: DimensionScore[];
+  /** Mean of the five dimension scores. */
+  overall: number;
+  /** Passes when every CRITICAL gate clears AND overall ≥ minOverall. */
+  pass: boolean;
+}
+
 export interface ExperimentDraft {
   draftId: string;
   segmentId: string;
@@ -186,6 +210,10 @@ export interface ExperimentDraft {
   blueprint: ExperimentBlueprint;
   /** Pre-registered readout rule. */
   readout: ReadoutRule;
+  /** Quality scorecard; the Decide gate hard-stops on a failing critical dim. */
+  scorecard?: ExperimentScorecard;
+  /** Recorded justification when a manager advances past a failing gate. */
+  gateOverride?: { reason: string; at: string };
 }
 
 // ─── Request params ───────────────────────────────────────────────────────────

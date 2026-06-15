@@ -73,6 +73,21 @@ export function factorOf(candidateId: string): string {
 }
 
 /**
+ * Resolve a (possibly 'both') advisor goal to the single goal tree the goal-fit
+ * dimension is scored against. When the manager asked for 'both', a lever is
+ * on-goal if its factor sits in EITHER tree — so we score against the tree that
+ * contains the candidate's factor (else default revenue). This stops a valid
+ * engagement lever being marked off-goal just because the goal was 'both'.
+ */
+export function resolveScoringGoal(
+  goal: 'revenue' | 'engagement' | 'both',
+  candidateId: string,
+): 'revenue' | 'engagement' {
+  if (goal !== 'both') return goal;
+  return GOAL_FACTOR_KEYS.engagement.includes(factorOf(candidateId)) ? 'engagement' : 'revenue';
+}
+
+/**
  * Score one proposed experiment. `provenanceId`+`ledger` are optional: when
  * supplied, the provenance dimension is validated against the live ledger;
  * when absent (pure-fixture mode) it is scored from a pre-resolved flag.
@@ -117,7 +132,7 @@ export function scoreExperiment(
 
   // 3. ₫-MATERIALITY — incremental above the floor (non-critical: borderline ok).
   const vnd = exp.money.incrementalVnd;
-  const matScore = vnd == null ? 0 : Math.min(1, vnd / t.materialityFloorVnd);
+  const matScore = vnd == null ? 0 : Math.max(0, Math.min(1, vnd / t.materialityFloorVnd));
   const materiality: DimensionScore = {
     dimension: 'materiality',
     score: matScore,

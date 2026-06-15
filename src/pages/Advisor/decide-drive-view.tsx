@@ -11,6 +11,7 @@ import { STAGES } from './advisor-stage-config';
 import { Btn, CARD_STYLE, EYEBROW_STYLE } from './advisor-primitives';
 import type { StageKey } from './advisor-types';
 import type { DriveArtifact } from './drive-artifact';
+import { experimentGateStatus, DIMENSION_LABEL } from './experiment-gate';
 import type { ExperimentDraft } from '../../api/advisor';
 
 /**
@@ -60,6 +61,17 @@ export function DecideDriveView({
   const reachableN = draft.cohort.addressableN;
   const treatN = Math.round(reachableN * (split / 100));
   const holdN = reachableN - treatN;
+
+  // Quality gate: hard-stop on a failing CRITICAL dimension; a reasoned override
+  // lets the manager proceed deliberately (the reason is stamped on the draft).
+  const gate = experimentGateStatus(draft.scorecard);
+  const [overrideReason, setOverrideReason] = useState('');
+  const canOverride = overrideReason.trim().length >= 4;
+
+  function handoff() {
+    const next = withSplit(draft, split);
+    onHandoff(gate.blocked ? { ...next, gateOverride: { reason: overrideReason.trim(), at: new Date().toISOString() } } : next);
+  }
 
   return (
     <div style={{ maxWidth: 840, margin: '0 auto', fontFamily: 'var(--font-sans)' }}>
@@ -138,11 +150,88 @@ export function DecideDriveView({
         🛟 Hold-out measured · won't contact players who paid within {draft.safety.recentPayerGuardDays}d · {draft.safety.contactCapPerPlayer} contact/player · delivery via {draft.delivery === 'cs-queue' ? 'CS work queue' : 'external/manual'}
       </div>
 
+      {/* Quality gate — the scorecard + a hard-stop on failing critical dimensions */}
+      {draft.scorecard && (
+        <div
+          style={{
+            ...CARD_STYLE,
+            padding: '14px 18px',
+            marginBottom: 16,
+            borderColor: gate.blocked ? 'var(--destructive-ink)' : 'var(--border-card)',
+            borderWidth: gate.blocked ? 2 : 1,
+          }}
+        >
+          <div style={EYEBROW_STYLE}>Quality gate · before you set up</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '8px 0 4px' }}>
+            {draft.scorecard.dimensions.map((d) => (
+              <span
+                key={d.dimension}
+                title={d.detail}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '5px 10px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: d.pass ? 'var(--success-soft)' : d.critical ? 'var(--destructive-soft)' : 'var(--warning-soft)',
+                  color: d.pass ? 'var(--success-ink)' : d.critical ? 'var(--destructive-ink)' : 'var(--warning-ink)',
+                }}
+              >
+                {d.pass ? '✓' : d.critical ? '✕' : '!'} {DIMENSION_LABEL[d.dimension]}
+              </span>
+            ))}
+          </div>
+
+          {gate.blocked ? (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--destructive-ink)', lineHeight: 1.5 }}>
+                This experiment fails a quality check that can't be measured around:{' '}
+                {gate.criticalFails.map((d) => d.detail).join(' · ')}. Fix it in the investigation, or record why you're proceeding anyway.
+              </div>
+              <textarea
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="Why set up despite the failing check? (recorded on the experiment)"
+                rows={2}
+                style={{
+                  width: '100%',
+                  marginTop: 8,
+                  padding: '8px 10px',
+                  fontSize: 12.5,
+                  fontFamily: 'var(--font-sans)',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+          ) : gate.warnings.length > 0 ? (
+            <div style={{ fontSize: 12.5, color: 'var(--warning-ink)', marginTop: 4 }}>
+              Worth a look (not blocking): {gate.warnings.map((d) => d.detail).join(' · ')}.
+            </div>
+          ) : (
+            <div style={{ fontSize: 12.5, color: 'var(--success-ink)', marginTop: 4 }}>
+              All quality checks clear — ready to set up.
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         <Btn onClick={onBack}>Back</Btn>
-        <Btn kind="primary" onClick={() => onHandoff(withSplit(draft, split))}>
-          Review &amp; set up experiment →
-        </Btn>
+        {gate.blocked ? (
+          <Btn kind="primary" disabled={!canOverride} onClick={handoff}>
+            Override &amp; set up anyway →
+          </Btn>
+        ) : (
+          <Btn kind="primary" onClick={handoff}>
+            Review &amp; set up experiment →
+          </Btn>
+        )}
       </div>
     </div>
   );

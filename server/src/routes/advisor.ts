@@ -21,6 +21,7 @@ import { recommend, type RecommendParams } from '../advisor/recommend.js';
 import { scaffoldDraft } from '../advisor/handoff-scaffolder.js';
 import { saveDraft, getDraft, listDraftsForSegment } from '../advisor/command-center-draft-store.js';
 import { resolveAddressableN, resolveReachablePct } from '../advisor/cohort-resolver.js';
+import { scoreExperiment, resolveScoringGoal } from '../advisor/agent/experiment-quality-score.js';
 import { recordFeedback, listFeedbackForSegment } from '../advisor/feedback-store.js';
 import type { ScopeRef, DiagnosisInput } from '../advisor/diagnosis-types.js';
 import type { ExperimentCandidate } from '../advisor/candidate-types.js';
@@ -170,9 +171,15 @@ export default async function advisorRoutes(app: FastifyInstance): Promise<void>
       windowDays: typeof body.windowDays === 'number' ? body.windowDays : undefined,
       treatmentShare: typeof body.treatmentShare === 'number' ? body.treatmentShare : undefined,
     });
-    saveDraft(draft);
+    // Score the draft so the Decide gate has the same scorecard as the Drive
+    // path. Manual candidates come from the deterministic recommend engine (not
+    // an LLM), so their numbers are server-trusted — provenance resolves true.
+    const scoringGoal = resolveScoringGoal(parseGoal(body.goal), draft.candidateId);
+    const scorecard = scoreExperiment(draft, scoringGoal, { provenanceResolved: true });
+    const scoredDraft = { ...draft, scorecard };
+    saveDraft(scoredDraft);
     // 201 — a draft was created/updated for inspection; nothing launched.
-    return reply.status(201).send(draft);
+    return reply.status(201).send(scoredDraft);
   });
 
   // ── List drafts for a segment (inspection / command-center screen) ──────────────
