@@ -117,7 +117,9 @@ export function createAdvisorAgentSession(
         i: Record<string, unknown>,
       ) => Promise<ToolDecision>,
       permissionMode: 'default' as const,
-      maxTurns: caps.maxTurns,
+      // Omit maxTurns entirely when disabled (caps.maxTurns <= 0) so the SDK
+      // applies no turn cap — the budget + timeout remain the real bounds.
+      ...(caps.maxTurns > 0 ? { maxTurns: caps.maxTurns } : {}),
       maxBudgetUsd: caps.maxBudgetUsd,
     };
     if (deps?.queryFn) {

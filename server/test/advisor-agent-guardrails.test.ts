@@ -31,6 +31,20 @@ describe('resolveCaps', () => {
     process.env.ADVISOR_AGENT_MAX_TURNS = '5';
     expect(resolveCaps({ maxTurns: 99 }).maxTurns).toBe(99);
   });
+
+  it('turn cap is disabled by default (0 = no cap)', () => {
+    expect(resolveCaps().maxTurns).toBe(0);
+  });
+
+  it('accepts 0 from env to keep the turn cap disabled', () => {
+    process.env.ADVISOR_AGENT_MAX_TURNS = '0';
+    expect(resolveCaps().maxTurns).toBe(0);
+  });
+
+  it('falls back to the default for a negative turn cap', () => {
+    process.env.ADVISOR_AGENT_MAX_TURNS = '-3';
+    expect(resolveCaps().maxTurns).toBe(DEFAULT_CAPS.maxTurns);
+  });
 });
 
 describe('makeCanUseTool (deny-by-default)', () => {

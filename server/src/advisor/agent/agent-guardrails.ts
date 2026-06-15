@@ -8,7 +8,14 @@ import type { GuardrailCaps } from './agent-types.js';
 
 /** Conservative v1 defaults; override per-env. */
 export const DEFAULT_CAPS: GuardrailCaps = {
-  maxTurns: 12,
+  // 0 = turn cap DISABLED. A Drive investigation that also calls propose_cohort
+  // (diagnose → levers → recommend → power → propose_cohort, plus the model's
+  // reasoning turns) routinely exceeds a low integer cap and dies with
+  // error_max_turns mid-recommendation. The $1 budget + 240s timeout are the
+  // genuine guardrails and already bound any runaway loop, so the turn count is
+  // a redundant secondary guard — off by default. Set ADVISOR_AGENT_MAX_TURNS
+  // to a positive integer to re-enable a finite cap.
+  maxTurns: 0,
   maxBudgetUsd: 1.0,
   // A full Guided-Drive investigation (diagnose → levers → recommend → power)
   // is ~7 agentic steps, and each LLM step on the subscription OAuth lane runs
@@ -26,10 +33,21 @@ function envNumber(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+/**
+ * Like envNumber but allows 0 (the "disabled" sentinel for maxTurns). Negative
+ * and non-numeric values fall back; 0 and positive integers pass through.
+ */
+function envCount(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw == null || raw.trim() === '') return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 /** Merge env-configured caps with an optional per-session override. */
 export function resolveCaps(override?: Partial<GuardrailCaps>): GuardrailCaps {
   const base: GuardrailCaps = {
-    maxTurns: envNumber('ADVISOR_AGENT_MAX_TURNS', DEFAULT_CAPS.maxTurns),
+    maxTurns: envCount('ADVISOR_AGENT_MAX_TURNS', DEFAULT_CAPS.maxTurns),
     maxBudgetUsd: envNumber('ADVISOR_AGENT_MAX_BUDGET_USD', DEFAULT_CAPS.maxBudgetUsd),
     timeoutMs: envNumber('ADVISOR_AGENT_TIMEOUT_MS', DEFAULT_CAPS.timeoutMs),
   };
