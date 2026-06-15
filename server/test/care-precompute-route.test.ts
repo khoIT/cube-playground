@@ -110,10 +110,13 @@ describe('care-precompute admin routes (real-auth)', () => {
     expect(second.headers['retry-after']).toBeDefined();
   });
 
-  it('400 on a missing segmentId; 403 for non-admin on trigger', async () => {
-    expect((await app.inject({
+  it('a missing segmentId triggers a full re-warm (202, scope=all); 403 for non-admin', async () => {
+    const all = await app.inject({
       method: 'POST', url: '/api/admin/care-precompute/runs', headers: adminAuth, payload: {},
-    })).statusCode).toBe(400);
+    });
+    expect(all.statusCode).toBe(202);
+    expect(all.json()).toMatchObject({ scope: 'all' }); // count is 0 — no segments seeded here
+
     expect((await app.inject({
       method: 'POST', url: '/api/admin/care-precompute/runs', headers: editorAuth, payload: { segmentId: 'seg-1' },
     })).statusCode).toBe(403);

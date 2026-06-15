@@ -32,8 +32,10 @@ import { buildCsCarePayload } from '../src/services/cs-care-builder.js';
 import {
   parseCareWindow,
   listDueCareSegments,
+  listAllCareSegments,
   maybeRunCarePrecompute,
   triggerCarePrecompute,
+  triggerCareRewarmAll,
   resetCareTriggerState,
 } from '../src/services/care-precompute-scheduler.js';
 import { listCareRuns } from '../src/db/segment-care-run-store.js';
@@ -138,12 +140,36 @@ describe('maybeRunCarePrecompute', () => {
     expect(listCareRuns({ segmentId: 'a' })[0].status).toBe('ok');
   });
 
-  it('passes the larger background read-timeout budget to the builder', async () => {
+  it('passes the larger background read-timeout budget + a stages sink to the builder', async () => {
     seedSegment('a', 'cfm_vn', null);
     await maybeRunCarePrecompute(INSIDE);
     // Second arg carries readTimeoutMs (default 120s) — bigger than the
-    // interactive route's 30s so a cold warehouse can finish the join once.
-    expect(vi.mocked(buildCsCarePayload).mock.calls[0][1]).toEqual({ readTimeoutMs: 120_000 });
+    // interactive route's 30s so a cold warehouse can finish the join once —
+    // plus a stages array the builder appends per-read telemetry to.
+    const opts = vi.mocked(buildCsCarePayload).mock.calls[0][1];
+    expect(opts).toMatchObject({ readTimeoutMs: 120_000 });
+    expect(Array.isArray(opts?.stages)).toBe(true);
+  });
+
+  it('persists the builder per-stage telemetry onto the run row', async () => {
+    seedSegment('a', 'cfm_vn', null);
+    vi.mocked(buildCsCarePayload).mockImplementationOnce(async (_row, opts) => {
+      opts?.stages?.push(
+        { name: 'cs-tickets', status: 'ok', elapsedMs: 2100, rows: 12 },
+        { name: 'recharge-contacted', status: 'timeout', elapsedMs: 30000, error: 'timed out' },
+      );
+      return {
+        segmentId: 'a', gameId: 'cfm_vn', productId: 1,
+        coverage: { totalMembers: 1, contactedMembers: 0, pct: 0, truncated: false },
+        freshness: { csMaxLogDate: null },
+        pulse: { tickets: 12, contacted: 0, openUnresolved: 0, negativeSentiment: 0, lowRating: 0 },
+        issueMix: [], watchlist: [], csImpact: null,
+      };
+    });
+    await maybeRunCarePrecompute(INSIDE);
+    const stages = listCareRuns({ segmentId: 'a' })[0].stages;
+    expect(stages.map((s) => s.name)).toEqual(['cs-tickets', 'recharge-contacted']);
+    expect(stages[1]).toMatchObject({ status: 'timeout' });
   });
 
   it('a failing segment records an error run and preserves the rest of the pass', async () => {
@@ -161,6 +187,42 @@ describe('maybeRunCarePrecompute', () => {
 
   it('window start ISO matches the GMT+7 math used for due selection', () => {
     expect(new Date(WINDOW_START_ISO).getTime()).toBeLessThan(INSIDE);
+  });
+});
+
+describe('rewarm-all', () => {
+  beforeEach(() => {
+    setDb(makeMemDb());
+    resetCareTriggerState();
+    vi.mocked(buildCsCarePayload).mockClear();
+  });
+  afterEach(() => closeDb());
+
+  it('listAllCareSegments returns every CS-covered predicate segment, regardless of freshness', () => {
+    seedSegment('warm', 'cfm_vn', null);
+    seedCache('warm', 'cfm_vn', new Date().toISOString()); // fresh — still included
+    seedSegment('cold', 'jus_vn', null);
+    seedSegment('no-cs', 'ballistar', null); // excluded
+    expect(listAllCareSegments().sort()).toEqual(['cold', 'warm']);
+  });
+
+  it('triggerCareRewarmAll drains all covered segments and rejects a concurrent pass', async () => {
+    seedSegment('a', 'cfm_vn', null);
+    seedSegment('b', 'jus_vn', null);
+
+    const first = triggerCareRewarmAll();
+    const second = triggerCareRewarmAll(); // in-flight → rejected
+    expect(first).toEqual({ accepted: true, count: 2 });
+    expect(second.accepted).toBe(false);
+
+    // Let the serial chain finish the two mocked builds.
+    await new Promise((r) => setTimeout(r, 30));
+    expect(buildCsCarePayload).toHaveBeenCalledTimes(2);
+    expect(readCareCache('a')).not.toBeNull();
+    expect(readCareCache('b')).not.toBeNull();
+
+    // After the pass completes the guard resets — a new pass is accepted.
+    expect(triggerCareRewarmAll().accepted).toBe(true);
   });
 });
 

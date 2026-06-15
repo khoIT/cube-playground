@@ -9,6 +9,7 @@
  */
 
 import { getDb } from './sqlite.js';
+import type { CareStage } from '../services/cs-care-builder.js';
 
 /** Runs retained per segment — a working week at nightly cadence. */
 export const KEEP_RUNS_PER_SEGMENT = 7;
@@ -28,6 +29,8 @@ export interface SegmentCareRun {
   contacted: number | null;
   elapsedMs: number | null;
   runError: string | null;
+  /** Per-Trino-read telemetry for this pass (which query was slow / timed out). */
+  stages: CareStage[];
 }
 
 export interface RecordCareRunInput {
@@ -41,6 +44,7 @@ export interface RecordCareRunInput {
   contacted?: number | null;
   elapsedMs?: number | null;
   runError?: string | null;
+  stages?: CareStage[];
 }
 
 /** Insert one pass record and prune this segment's history to the newest
@@ -50,8 +54,8 @@ export function recordCareRun(input: RecordCareRunInput): void {
   const tx = db.transaction(() => {
     db.prepare(
       `INSERT INTO segment_care_run
-         (segment_id, game_id, source, started_at, finished_at, status, tickets, contacted, elapsed_ms, run_error)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (segment_id, game_id, source, started_at, finished_at, status, tickets, contacted, elapsed_ms, run_error, stages_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       input.segmentId,
       input.gameId,
@@ -63,6 +67,7 @@ export function recordCareRun(input: RecordCareRunInput): void {
       input.contacted ?? null,
       input.elapsedMs ?? null,
       input.runError ?? null,
+      input.stages && input.stages.length > 0 ? JSON.stringify(input.stages) : null,
     );
     db.prepare(
       `DELETE FROM segment_care_run
@@ -90,6 +95,18 @@ interface RawRunRow {
   contacted: number | null;
   elapsed_ms: number | null;
   run_error: string | null;
+  stages_json: string | null;
+}
+
+/** Parse the stored stages array; a corrupt/legacy-null column yields []. */
+function parseStages(raw: string | null): CareStage[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as CareStage[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 function toRun(r: RawRunRow): SegmentCareRun {
@@ -105,6 +122,7 @@ function toRun(r: RawRunRow): SegmentCareRun {
     contacted: r.contacted,
     elapsedMs: r.elapsed_ms,
     runError: r.run_error,
+    stages: parseStages(r.stages_json),
   };
 }
 

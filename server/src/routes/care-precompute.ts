@@ -16,7 +16,11 @@ import { requireRole } from '../middleware/require-role.js';
 import { requireFeature } from '../middleware/require-feature.js';
 import { listCareRuns } from '../db/segment-care-run-store.js';
 import { listCareCacheStatuses } from '../db/segment-care-cache-store.js';
-import { triggerCarePrecompute, parseCareWindow } from '../services/care-precompute-scheduler.js';
+import {
+  triggerCarePrecompute,
+  triggerCareRewarmAll,
+  parseCareWindow,
+} from '../services/care-precompute-scheduler.js';
 
 export default async function carePrecomputeRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireRole('admin'));
@@ -39,15 +43,23 @@ export default async function carePrecomputeRoutes(app: FastifyInstance): Promis
   );
 
   // ── POST /api/admin/care-precompute/runs ─────────────────────────────────
+  // Body { segmentId } warms one segment; an empty/absent segmentId re-warms
+  // EVERY CS-covered segment (full pass, regardless of freshness).
   app.post<{ Body: { segmentId?: string } }>(
     '/api/admin/care-precompute/runs',
     async (req, reply) => {
-      const segmentId = String(req.body?.segmentId ?? '');
+      const segmentId = String(req.body?.segmentId ?? '').trim();
+
       if (!segmentId) {
-        return reply.status(400).send({
-          error: { code: 'BAD_SEGMENT', message: 'segmentId is required' },
-        });
+        const result = triggerCareRewarmAll();
+        if (!result.accepted) {
+          return reply.status(429).send({
+            error: { code: 'RATE_LIMITED', message: 'A full re-warm is already running' },
+          });
+        }
+        return reply.status(202).send({ status: 'precomputing', scope: 'all', count: result.count });
       }
+
       const result = triggerCarePrecompute(segmentId);
       if (!result.accepted) {
         reply.header('retry-after', String(Math.ceil((result.retryAfterMs ?? 0) / 1000)));
@@ -55,7 +67,7 @@ export default async function carePrecomputeRoutes(app: FastifyInstance): Promis
           error: { code: 'RATE_LIMITED', message: 'Care precompute already triggered recently' },
         });
       }
-      return reply.status(202).send({ status: 'precomputing' });
+      return reply.status(202).send({ status: 'precomputing', scope: 'segment' });
     },
   );
 }

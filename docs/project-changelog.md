@@ -2,6 +2,16 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Care Precompute board: per-query telemetry + run history + "Run all"
+
+Follow-up to the Care precompute admin board. An operator could see a pass failed but not WHICH of the builder's Trino reads was slow/timed out, and could only trigger one segment at a time.
+
+- **Per-stage telemetry** (`server/src/services/cs-care-builder.ts` + migration `058-segment-care-run-stages.sql`) — `buildCsCarePayload` accepts an optional `stages` sink; it records each read (`cs-tickets`, `name-resolve`, `recharge-contacted`, `recharge-noncontacted`) with `status` (ok | timeout | error | degraded | skipped) + elapsed + rows. Stored per run in `segment_care_run.stages_json`. Timeout vs generic error is classified from the message.
+- **Per-segment run history** (`care-precompute-panel.tsx`) — each segment row is expandable into its run timeline (the store already keeps 7/segment); each pass shows the per-read breakdown so "which query timed out" is visible at a glance.
+- **"Run all"** (`triggerCareRewarmAll` + route POST with empty body) — re-warms every CS-covered segment regardless of freshness (single-pass in-flight guard, 429 if one is already running), vs per-segment "Run now". A new full pass is accepted once the prior one drains.
+- **name-resolve now fail-soft** — the watchlist name-resolution query previously could throw and fail the whole build despite a "fail-soft" comment; it now degrades (rows keep their uid) and is recorded as a `degraded` stage.
+- **Tests** — run-store stages round-trip; scheduler stage recording + timeout classification; rewarm-all drain + concurrent-reject; route empty-body → 202 scope=all.
+
 ## 2026-06-15 — Segment Care tab: durable cache + serve-stale + nightly precompute (+ admin board)
 
 The Care tab's heavy cross-catalog Trino join (members ⋈ CS tickets ⋈ recharge) was cached only in an in-memory Map, so a cold-warehouse rebuild (~60s) intermittently 500'd and a restart wiped the cache. Now durable, fault-tolerant, and pre-warmed.

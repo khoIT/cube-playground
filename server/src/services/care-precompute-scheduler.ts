@@ -19,7 +19,7 @@
 
 import { getDb } from '../db/sqlite.js';
 import { hasCsCoverage, csProductId } from '../lakehouse/cs-product-map.js';
-import { buildCsCarePayload, type CareBuildRow } from './cs-care-builder.js';
+import { buildCsCarePayload, type CareBuildRow, type CareStage } from './cs-care-builder.js';
 import { writeCareCache, markCareAttempt } from '../db/segment-care-cache-store.js';
 import { recordCareRun, type CareRunSource } from '../db/segment-care-run-store.js';
 import {
@@ -80,6 +80,16 @@ export function parseCareWindow(): ReturnType<typeof parsePrecomputeWindow> {
   return parsePrecomputeWindow(process.env.CARE_PRECOMPUTE_WINDOW ?? DEFAULT_CARE_WINDOW);
 }
 
+/** Every CS-covered predicate segment, regardless of freshness — the set a
+ *  full "re-warm all" pass covers (vs listDueCareSegments, which skips warm
+ *  ones). Used after a logic/schema change when warm payloads must be rebuilt. */
+export function listAllCareSegments(): string[] {
+  const rows = getDb()
+    .prepare(`SELECT id, game_id FROM segments WHERE type = 'predicate'`)
+    .all() as Array<{ id: string; game_id: string }>;
+  return rows.filter((r) => hasCsCoverage(r.game_id) && csProductId(r.game_id) != null).map((r) => r.id);
+}
+
 function loadCareRow(segmentId: string): CareBuildRow | null {
   const row = getDb()
     .prepare(
@@ -120,8 +130,11 @@ async function precomputeOneCareSegment(segmentId: string, source: CareRunSource
   }
   const gameId = String(row.game_id);
   const t0 = Date.now();
+  // Sink the builder appends per-read telemetry to; recorded on BOTH paths so a
+  // failed pass still shows which Trino read (CS-join vs recharge) was at fault.
+  const stages: CareStage[] = [];
   try {
-    const payload = await buildCsCarePayload(row, { readTimeoutMs: READ_TIMEOUT_MS });
+    const payload = await buildCsCarePayload(row, { readTimeoutMs: READ_TIMEOUT_MS, stages });
     writeCareCache(segmentId, gameId, payload);
     recordCareRun({
       segmentId,
@@ -133,6 +146,7 @@ async function precomputeOneCareSegment(segmentId: string, source: CareRunSource
       tickets: payload.pulse.tickets,
       contacted: payload.pulse.contacted,
       elapsedMs: Date.now() - t0,
+      stages,
     });
     // eslint-disable-next-line no-console
     console.log(
@@ -151,6 +165,7 @@ async function precomputeOneCareSegment(segmentId: string, source: CareRunSource
       status: 'error',
       elapsedMs: Date.now() - t0,
       runError: message,
+      stages,
     });
     // eslint-disable-next-line no-console
     console.warn(`[care-precompute] ${source} ${segmentId} failed:`, message);
@@ -194,9 +209,39 @@ export function triggerCarePrecompute(segmentId: string, nowMs: number = Date.no
   return { accepted: true };
 }
 
+// Guards a single full re-warm at a time (a rewarm-all enqueues every covered
+// segment; a second concurrent one would just double the Trino load).
+let rewarmingAll = false;
+
+export interface RewarmAllResult {
+  accepted: boolean;
+  /** Segments enqueued for this pass (only when accepted). */
+  count?: number;
+}
+
+/** Manual "re-warm all": enqueue every CS-covered segment (regardless of
+ *  freshness) onto the shared serial chain. Rejected while a previous full pass
+ *  is still draining. Fire-and-forget — callers respond 202 immediately. */
+export function triggerCareRewarmAll(): RewarmAllResult {
+  if (rewarmingAll) return { accepted: false };
+  const ids = listAllCareSegments();
+  rewarmingAll = true;
+  void (async () => {
+    try {
+      for (const id of ids) {
+        await runSerial(() => precomputeOneCareSegment(id, 'manual'));
+      }
+    } finally {
+      rewarmingAll = false;
+    }
+  })();
+  return { accepted: true, count: ids.length };
+}
+
 /** Test hook — clears the manual-trigger cooldown ledger + resets the chain. */
 export function resetCareTriggerState(): void {
   lastTriggerAt.clear();
   chain = Promise.resolve();
   draining = false;
+  rewarmingAll = false;
 }

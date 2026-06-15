@@ -11,6 +11,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../../api/api-client';
 
+/** Per-Trino-read outcome within a single precompute pass (mirrors the server
+ *  CareStage). Lets the board show which query was slow / timed out. */
+export interface CareStage {
+  name: string;
+  status: 'ok' | 'timeout' | 'error' | 'degraded' | 'skipped';
+  elapsedMs: number;
+  rows?: number;
+  error?: string;
+}
+
 export interface CareRun {
   id: number;
   segmentId: string;
@@ -23,6 +33,7 @@ export interface CareRun {
   contacted: number | null;
   elapsedMs: number | null;
   runError: string | null;
+  stages: CareStage[];
 }
 
 export interface CareCacheStatus {
@@ -78,6 +89,17 @@ export async function triggerCarePrecompute(segmentId: string): Promise<string |
     return null;
   } catch (err) {
     return err instanceof Error ? err.message : 'Failed to trigger precompute';
+  }
+}
+
+/** POST a full re-warm of every CS-covered segment (empty body). Resolves to an
+ *  error string, or null on 202. */
+export async function triggerCareRewarmAll(): Promise<string | null> {
+  try {
+    await apiFetch('/api/admin/care-precompute/runs', { method: 'POST', body: {} });
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : 'Failed to trigger re-warm';
   }
 }
 

@@ -1,0 +1,13 @@
+-- Per-stage telemetry for each Care precompute pass.
+--
+-- segment_care_run previously stored only a single run_error string, so an
+-- operator could not tell WHICH of the builder's Trino reads was slow or timed
+-- out: the heavy CS-ticket cross-catalog join, the watchlist name-resolution
+-- query, or the two directional recharge-impact reads. A timeout on the big
+-- join and a timeout on a recharge read look identical in run_error.
+--
+-- stages_json holds an ordered JSON array of
+--   {name, status, elapsedMs, rows?, error?}
+-- where status is one of ok | timeout | error | degraded | skipped, making each
+-- pass self-explanatory on the status board without tailing logs.
+ALTER TABLE segment_care_run ADD COLUMN stages_json TEXT;

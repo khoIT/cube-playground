@@ -55,6 +55,30 @@ export interface CareStaleMeta {
   reason: string;
 }
 
+/** Outcome of one underlying Trino read inside a Care build.
+ *  - ok        : completed, `rows` populated
+ *  - timeout   : statement-timeout (the read exceeded its budget)
+ *  - error     : other failure (`error` carries the message)
+ *  - degraded  : failed but the build continued without it (impact strip only)
+ *  - skipped   : not run (e.g. no contacted members to anchor recharge on) */
+export type CareStageStatus = 'ok' | 'timeout' | 'error' | 'degraded' | 'skipped';
+
+export interface CareStage {
+  /** Stable read name: cs-tickets | name-resolve | recharge-contacted | recharge-noncontacted */
+  name: string;
+  status: CareStageStatus;
+  elapsedMs: number;
+  /** Row count for an ok read, when meaningful. */
+  rows?: number;
+  /** Failure message for timeout/error/degraded. */
+  error?: string;
+}
+
+/** Classify a thrown read as a statement-timeout vs a generic failure. */
+function isTimeout(err: unknown): boolean {
+  return /timed out|timeout/i.test((err as Error)?.message ?? '');
+}
+
 export interface CsCarePayload {
   segmentId: string;
   gameId: string;
@@ -116,6 +140,10 @@ function parseUids(raw: unknown): string[] {
  *  larger budget so a cold warehouse can complete the heavy join once. */
 export interface BuildCsCareOptions {
   readTimeoutMs?: number;
+  /** Optional sink the builder appends per-read telemetry to (see CareStage).
+   *  The background precompute path passes one so a failed/slow pass records
+   *  WHICH Trino read was at fault, even when the build throws. */
+  stages?: CareStage[];
 }
 
 /**
@@ -138,25 +166,56 @@ export async function buildCsCarePayload(row: CareBuildRow, opts: BuildCsCareOpt
   const sinceDate = isoDaysAgo(LOOKBACK_DAYS);
   const asOf = isoDaysAgo(0);
 
-  const rows = await fetchCsTickets({ productId, uids, sinceDate, timeoutMs: opts.readTimeoutMs });
+  const sink = opts.stages;
+
+  // CS-ticket history is the core cross-catalog join — the heavy read and the
+  // one whose failure fails the whole build. Record it, then rethrow.
+  const tTickets = Date.now();
+  let rows: import('../lakehouse/cs-ticket-reader.js').CsTicketRow[];
+  try {
+    rows = await fetchCsTickets({ productId, uids, sinceDate, timeoutMs: opts.readTimeoutMs });
+    sink?.push({ name: 'cs-tickets', status: 'ok', elapsedMs: Date.now() - tTickets, rows: rows.length });
+  } catch (err) {
+    sink?.push({
+      name: 'cs-tickets',
+      status: isTimeout(err) ? 'timeout' : 'error',
+      elapsedMs: Date.now() - tTickets,
+      error: (err as Error).message,
+    });
+    throw err;
+  }
   const { pulse, issueMix } = summarizeCsTickets(rows);
   const watchlist = buildWatchlist(rows, memberInfo, asOf).slice(0, WATCHLIST_LIMIT);
 
   // Many contacted members rank below the stored top-1000 profile snapshot, so
   // resolveMemberInfo found no name for them. Resolve names for just the
-  // displayed rows via one bounded identity-IN query; fail-soft (keeps uid).
+  // displayed rows via one bounded identity-IN query.
   const missingName = watchlist.filter((w) => !w.name).map((w) => w.uid);
   if (missingName.length > 0) {
-    const liveNames = await resolveMemberNamesLive(
-      { id, cube: typeof row.cube === 'string' ? row.cube : null, game_id: gameId, workspace: String(row.workspace) },
-      missingName,
-    );
-    for (const w of watchlist) {
-      if (!w.name && liveNames.has(w.uid)) w.name = liveNames.get(w.uid) ?? null;
+    const tNames = Date.now();
+    try {
+      const liveNames = await resolveMemberNamesLive(
+        { id, cube: typeof row.cube === 'string' ? row.cube : null, game_id: gameId, workspace: String(row.workspace) },
+        missingName,
+      );
+      for (const w of watchlist) {
+        if (!w.name && liveNames.has(w.uid)) w.name = liveNames.get(w.uid) ?? null;
+      }
+      sink?.push({ name: 'name-resolve', status: 'ok', elapsedMs: Date.now() - tNames, rows: missingName.length });
+    } catch (err) {
+      // Names are cosmetic — degrade (rows keep their uid) rather than fail.
+      sink?.push({
+        name: 'name-resolve',
+        status: 'degraded',
+        elapsedMs: Date.now() - tNames,
+        error: (err as Error).message,
+      });
     }
+  } else {
+    sink?.push({ name: 'name-resolve', status: 'skipped', elapsedMs: 0 });
   }
 
-  const csImpact = await computeCsImpact(gameId, uids, rows, opts.readTimeoutMs);
+  const csImpact = await computeCsImpact(gameId, uids, rows, opts.readTimeoutMs, sink);
 
   return {
     segmentId: id,
@@ -187,39 +246,75 @@ async function computeCsImpact(
   uids: string[],
   rows: import('../lakehouse/cs-ticket-reader.js').CsTicketRow[],
   readTimeoutMs?: number,
+  sink?: CareStage[],
 ): Promise<CsCarePayload['csImpact']> {
-  try {
-    const indexed = indexTicketsByUid(rows);
-    const contactedAnchors = [...indexed.entries()].map(([uid, t]) => ({ uid, anchor: t.firstDate }));
-    if (contactedAnchors.length === 0) return null;
-
-    const median = medianDate(contactedAnchors.map((a) => a.anchor));
-    if (!median) return null;
-    const contactedSet = new Set(indexed.keys());
-    // Comparison cohort: non-contacted members, capped. uid_list is rank-ordered
-    // by the segment's defining measure, so this samples the top of the cohort —
-    // acceptable for a directional/small-sample strip, never a causal claim.
-    const nonContactedAnchors = uids
-      .filter((u) => !contactedSet.has(u))
-      .slice(0, MAX_NONCONTACTED)
-      .map((uid) => ({ uid, anchor: median }));
-
-    const [contactedSums, nonContactedSums] = await Promise.all([
-      readRechargeAroundAnchors({ gameId, anchors: contactedAnchors, timeoutMs: readTimeoutMs }),
-      nonContactedAnchors.length > 0
-        ? readRechargeAroundAnchors({ gameId, anchors: nonContactedAnchors, timeoutMs: readTimeoutMs })
-        : Promise.resolve([]),
-    ]);
-
-    const contacted = summarizeCohortRecharge(contactedSums);
-    const nonContacted = summarizeCohortRecharge(nonContactedSums);
-    return {
-      contacted,
-      nonContacted,
-      windowDays: DEFAULT_WINDOW_DAYS,
-      smallSample: Math.min(contacted.n, nonContacted.n || contacted.n) < SMALL_SAMPLE_THRESHOLD,
-    };
-  } catch {
+  const indexed = indexTicketsByUid(rows);
+  const contactedAnchors = [...indexed.entries()].map(([uid, t]) => ({ uid, anchor: t.firstDate }));
+  if (contactedAnchors.length === 0) {
+    sink?.push({ name: 'recharge-contacted', status: 'skipped', elapsedMs: 0 });
+    sink?.push({ name: 'recharge-noncontacted', status: 'skipped', elapsedMs: 0 });
     return null;
   }
+
+  const median = medianDate(contactedAnchors.map((a) => a.anchor));
+  if (!median) {
+    sink?.push({ name: 'recharge-contacted', status: 'skipped', elapsedMs: 0 });
+    sink?.push({ name: 'recharge-noncontacted', status: 'skipped', elapsedMs: 0 });
+    return null;
+  }
+  const contactedSet = new Set(indexed.keys());
+  // Comparison cohort: non-contacted members, capped. uid_list is rank-ordered
+  // by the segment's defining measure, so this samples the top of the cohort —
+  // acceptable for a directional/small-sample strip, never a causal claim.
+  const nonContactedAnchors = uids
+    .filter((u) => !contactedSet.has(u))
+    .slice(0, MAX_NONCONTACTED)
+    .map((uid) => ({ uid, anchor: median }));
+
+  // Time each read independently so the board can show which recharge query was
+  // slow. The impact strip is non-essential: any read failure degrades the WHOLE
+  // strip to null (the overlay still renders), but each read's status is recorded.
+  const tC = Date.now();
+  let contactedSums: import('../lakehouse/cs-recharge-trajectory.js').RechargeWindowSums[];
+  try {
+    contactedSums = await readRechargeAroundAnchors({ gameId, anchors: contactedAnchors, timeoutMs: readTimeoutMs });
+    sink?.push({ name: 'recharge-contacted', status: 'ok', elapsedMs: Date.now() - tC, rows: contactedSums.length });
+  } catch (err) {
+    sink?.push({
+      name: 'recharge-contacted',
+      status: isTimeout(err) ? 'timeout' : 'degraded',
+      elapsedMs: Date.now() - tC,
+      error: (err as Error).message,
+    });
+    sink?.push({ name: 'recharge-noncontacted', status: 'skipped', elapsedMs: 0 });
+    return null;
+  }
+
+  const tN = Date.now();
+  let nonContactedSums: import('../lakehouse/cs-recharge-trajectory.js').RechargeWindowSums[] = [];
+  if (nonContactedAnchors.length > 0) {
+    try {
+      nonContactedSums = await readRechargeAroundAnchors({ gameId, anchors: nonContactedAnchors, timeoutMs: readTimeoutMs });
+      sink?.push({ name: 'recharge-noncontacted', status: 'ok', elapsedMs: Date.now() - tN, rows: nonContactedSums.length });
+    } catch (err) {
+      sink?.push({
+        name: 'recharge-noncontacted',
+        status: isTimeout(err) ? 'timeout' : 'degraded',
+        elapsedMs: Date.now() - tN,
+        error: (err as Error).message,
+      });
+      return null;
+    }
+  } else {
+    sink?.push({ name: 'recharge-noncontacted', status: 'skipped', elapsedMs: 0 });
+  }
+
+  const contacted = summarizeCohortRecharge(contactedSums);
+  const nonContacted = summarizeCohortRecharge(nonContactedSums);
+  return {
+    contacted,
+    nonContacted,
+    windowDays: DEFAULT_WINDOW_DAYS,
+    smallSample: Math.min(contacted.n, nonContacted.n || contacted.n) < SMALL_SAMPLE_THRESHOLD,
+  };
 }

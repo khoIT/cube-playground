@@ -68,6 +68,25 @@ describe('segment-care-run-store', () => {
     expect(r.runError).toBe('Trino timeout');
   });
 
+  it('round-trips per-stage telemetry; a stageless pass reads back []', () => {
+    run('seg-a', '2026-06-14T03:00:00.000Z', {
+      status: 'error',
+      runError: 'Trino statement timed out after 30s',
+      stages: [
+        { name: 'cs-tickets', status: 'timeout', elapsedMs: 30000, error: 'Trino statement timed out after 30s' },
+        { name: 'name-resolve', status: 'skipped', elapsedMs: 0 },
+        { name: 'recharge-contacted', status: 'ok', elapsedMs: 1200, rows: 50 },
+      ],
+    });
+    const [withStages] = listCareRuns({ segmentId: 'seg-a' });
+    expect(withStages.stages).toHaveLength(3);
+    expect(withStages.stages[0]).toMatchObject({ name: 'cs-tickets', status: 'timeout' });
+    expect(withStages.stages[2]).toMatchObject({ name: 'recharge-contacted', status: 'ok', rows: 50 });
+
+    run('seg-b', '2026-06-14T04:00:00.000Z'); // no stages passed
+    expect(listCareRuns({ segmentId: 'seg-b' })[0].stages).toEqual([]);
+  });
+
   it('lists newest-first and prunes to the retention cap per segment', () => {
     for (let i = 0; i < KEEP_RUNS_PER_SEGMENT + 3; i++) {
       run('seg-a', `2026-06-14T0${i}:00:00.000Z`);
