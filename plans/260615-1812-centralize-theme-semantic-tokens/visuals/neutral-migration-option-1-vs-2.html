@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Neutral migration · Option 1 vs Option 2</title>
+<style>
+  /* ── Real cube-playground token values (from src/theme/tokens.css) ──
+     LIGHT and DARK are scoped per-panel below so we can show both at once. */
+
+  :root{
+    --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    font-family:var(--font);
+    background:#e9e2d6;          /* page mat — neutral warm so both panels read true */
+    color:#2a2a2a;
+    -webkit-font-smoothing:antialiased;
+    padding:40px 28px 80px;
+    line-height:1.5;
+  }
+  .wrap{ max-width:1180px; margin:0 auto; }
+
+  /* ── Header ── */
+  .eyebrow{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#9a7b52; font-weight:600; }
+  h1{ font-size:27px; font-weight:700; margin:6px 0 10px; letter-spacing:-.01em; color:#1f1b16; }
+  .thesis{ font-size:15px; max-width:760px; color:#4a4036; }
+  .thesis b{ color:#1f1b16; }
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; margin:22px 0 6px; font-size:12.5px; color:#5a5046; }
+  .legend span{ display:inline-flex; align-items:center; gap:7px; }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+  /* ── Card per component class ── */
+  .card{
+    background:#fbf7f0; border:1px solid #ddcfb9; border-radius:14px;
+    margin-top:26px; overflow:hidden;
+    box-shadow:0 1px 2px rgba(80,60,30,.06), 0 8px 24px rgba(80,60,30,.05);
+  }
+  .card-head{ padding:16px 20px 14px; border-bottom:1px solid #e7dcc8; }
+  .card-head h2{ margin:0; font-size:16px; font-weight:700; color:#1f1b16; }
+  .card-head p{ margin:5px 0 0; font-size:13px; color:#6a5f51; max-width:840px; }
+  .card-head code{ font-family:var(--mono); font-size:12px; background:#efe6d4; padding:1px 6px; border-radius:5px; color:#7a5a1a; }
+
+  .grid{ display:grid; grid-template-columns: 1fr 2.6fr; }
+  @media (max-width:820px){ .grid{ grid-template-columns:1fr; } }
+
+  .col-light{ padding:18px 20px; border-right:1px solid #e7dcc8; }
+  .col-dark{ padding:18px 20px; }
+  .col-title{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:#8a7c66; margin-bottom:12px; display:flex; align-items:center; gap:8px;}
+  .tag{ font-size:10px; font-weight:700; letter-spacing:.04em; padding:2px 7px; border-radius:20px; text-transform:none; }
+  .tag-same{ background:#e3ece3; color:#3a6b46; }
+  .tag-fix{ background:#dce9f7; color:#2563a8; }
+  .tag-diverge{ background:#f7e6cf; color:#a85f10; }
+
+  .dark-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  @media (max-width:560px){ .dark-row{ grid-template-columns:1fr; } }
+  .variant-label{ font-size:11px; font-weight:700; margin-bottom:7px; display:flex; align-items:center; gap:6px; color:#6a5f51;}
+  .variant-label .pill{ width:8px;height:8px;border-radius:50%; }
+
+  /* theme stage: a mini app surface */
+  .stage{ border-radius:10px; padding:14px; min-height:118px; }
+  .stage.light{ background:#efe9e0; border:1px solid #e1d4c2; }      /* --surface-shell light */
+  .stage.dark{ background:#07090c; border:1px solid #232a36; }       /* --surface-shell dark  */
+
+  .note{ font-size:11px; color:#7d7264; margin-top:8px; }
+  .note.warn{ color:#a85f10; }
+  .note.bad{ color:#b4451f; }
+  .note.good{ color:#3a6b46; }
+
+  /* ── Mock component bits ── */
+  /* watchlist / inset row */
+  .ws{ border-radius:8px; padding:9px 11px; font-size:12px; }
+  .ws .name{ font-weight:600; }
+  .ws .sub{ font-size:11px; opacity:.75; margin-top:2px; }
+
+  /* mini bar chart */
+  .bars{ display:flex; align-items:flex-end; gap:6px; height:46px; }
+  .bars i{ width:13px; border-radius:3px 3px 0 0; display:block; }
+
+  /* progress track */
+  .track{ height:7px; border-radius:5px; overflow:hidden; margin-top:9px; }
+  .track i{ display:block; height:100%; border-radius:5px; }
+
+  /* dot status */
+  .dots{ display:flex; gap:10px; align-items:center; margin-top:12px; font-size:11px; }
+  .sdot{ width:11px;height:11px;border-radius:50%; }
+
+  /* stars */
+  .stars{ font-size:17px; letter-spacing:2px; }
+
+  .foot{ margin-top:34px; font-size:12.5px; color:#6a5f51; border-top:1px solid #ddcfb9; padding-top:18px; }
+  .foot b{ color:#1f1b16; }
+  .rec{ background:#eef4ec; border:1px solid #cfe1cf; color:#2f5d3a; padding:13px 16px; border-radius:11px; margin-top:18px; font-size:13.5px; }
+  .rec b{ color:#1e472a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Theme centralization · Phase 4 decision</div>
+  <h1>Raw <code style="font-family:var(--mono);font-size:20px">--neutral-*</code> migration — Option 1 vs Option 2</h1>
+  <p class="thesis">
+    In <b>light mode every component below is byte-for-byte identical</b> across today, Option 1, and
+    Option 2 — both options preserve light exactly. <b>The entire decision is a dark-mode question.</b>
+    These are the real component shapes with their real token hex values.
+  </p>
+
+  <div class="legend">
+    <span><i class="dot" style="background:#3a6b46"></i> both options behave the same</span>
+    <span><i class="dot" style="background:#2563a8"></i> both options fix a current dark bug</span>
+    <span><i class="dot" style="background:#d2962a"></i> the options diverge (the actual choice)</span>
+  </div>
+
+  <!-- ───────────────────────── CARD 1 · dual-meaning surfaces ───────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <h2>1 · Inset / selected surfaces &nbsp;<span class="tag tag-fix">both fix the bug</span></h2>
+      <p>Care-watchlist expanded rows, chat bubbles, ticket-list headers. Source: <code>--neutral-50</code> /
+        <code>--neutral-100</code> — <b>dual-meaning</b>: warm cream in light, but redefined to near-white in dark
+        (today’s bug — a white panel floating on the dark app shell). Both options map these to a real surface token.</p>
+    </div>
+    <div class="grid">
+      <div class="col-light">
+        <div class="col-title">Light <span class="tag tag-same">identical · all options</span></div>
+        <div class="stage light">
+          <div class="ws" style="background:#f3e9dd; color:#171717; border:1px solid #e1d4c2;">
+            <div class="name">VIP · whale_8821</div>
+            <div class="sub">last seen 2d ago · 3 open tickets</div>
+          </div>
+          <div class="note">#f3e9dd warm cream — correct, unchanged.</div>
+        </div>
+      </div>
+      <div class="col-dark">
+        <div class="col-title">Dark</div>
+        <div class="dark-row">
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#b4451f"></span>Today</div>
+            <div class="stage dark">
+              <div class="ws" style="background:#fafafa; color:#171717; border:1px solid #e5e5e5;">
+                <div class="name">VIP · whale_8821</div>
+                <div class="sub">last seen 2d ago · 3 open</div>
+              </div>
+              <div class="note bad">✗ #fafafa near-white panel on a near-black shell.</div>
+            </div>
+          </div>
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#2563a8"></span>Option 1</div>
+            <div class="stage dark">
+              <div class="ws" style="background:#11161d; color:#f0f3f8; border:1px solid #232a36;">
+                <div class="name">VIP · whale_8821</div>
+                <div class="sub">last seen 2d ago · 3 open</div>
+              </div>
+              <div class="note good">✓ #11161d dark inset surface.</div>
+            </div>
+          </div>
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#3a6b46"></span>Option 2</div>
+            <div class="stage dark">
+              <div class="ws" style="background:#11161d; color:#f0f3f8; border:1px solid #232a36;">
+                <div class="name">VIP · whale_8821</div>
+                <div class="sub">last seen 2d ago · 3 open</div>
+              </div>
+              <div class="note good">✓ same fix — identical to Option 1.</div>
+            </div>
+          </div>
+        </div>
+        <div class="note" style="margin-top:12px">On dual-meaning <i>surfaces</i> the two options produce the <b>same</b> result. No divergence here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── CARD 2 · invariant decorative greys ───────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <h2>2 · Muted fills, dots &amp; progress tracks &nbsp;<span class="tag tag-diverge">⟵ the real choice</span></h2>
+      <p>Care mini-bar charts, anomaly status dots, progress fills. Source: <code>--neutral-400</code> = <code>#a3a3a3</code> —
+        <b>theme-invariant</b> (same mid-grey in both themes today, and it works fine in both).
+        <b>Option 1</b> keeps it fixed; <b>Option 2</b> re-tones it to a dark-adaptive grey — a guess on surfaces with no screenshot gate.</p>
+    </div>
+    <div class="grid">
+      <div class="col-light">
+        <div class="col-title">Light <span class="tag tag-same">identical · all options</span></div>
+        <div class="stage light">
+          <div class="bars">
+            <i style="height:60%;background:#a3a3a3"></i>
+            <i style="height:85%;background:#f05a22"></i>
+            <i style="height:45%;background:#a3a3a3"></i>
+            <i style="height:70%;background:#a3a3a3"></i>
+          </div>
+          <div class="dots">
+            <span class="sdot" style="background:#a3a3a3"></span>idle
+            <span class="sdot" style="background:#f05a22"></span>active
+          </div>
+          <div class="note">#a3a3a3 muted, #f05a22 brand — unchanged.</div>
+        </div>
+      </div>
+      <div class="col-dark">
+        <div class="col-title">Dark</div>
+        <div class="dark-row">
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#8a93a3"></span>Today</div>
+            <div class="stage dark">
+              <div class="bars">
+                <i style="height:60%;background:#a3a3a3"></i>
+                <i style="height:85%;background:#f06b3a"></i>
+                <i style="height:45%;background:#a3a3a3"></i>
+                <i style="height:70%;background:#a3a3a3"></i>
+              </div>
+              <div class="dots" style="color:#b1bac8">
+                <span class="sdot" style="background:#a3a3a3"></span>idle
+                <span class="sdot" style="background:#f06b3a"></span>active
+              </div>
+              <div class="note" style="color:#8a93a3">#a3a3a3 — visible, familiar.</div>
+            </div>
+          </div>
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#2563a8"></span>Option 1</div>
+            <div class="stage dark">
+              <div class="bars">
+                <i style="height:60%;background:#a3a3a3"></i>
+                <i style="height:85%;background:#f06b3a"></i>
+                <i style="height:45%;background:#a3a3a3"></i>
+                <i style="height:70%;background:#a3a3a3"></i>
+              </div>
+              <div class="dots" style="color:#b1bac8">
+                <span class="sdot" style="background:#a3a3a3"></span>idle
+                <span class="sdot" style="background:#f06b3a"></span>active
+              </div>
+              <div class="note good">= #a3a3a3 kept (invariant). Zero change vs today.</div>
+            </div>
+          </div>
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#d2962a"></span>Option 2</div>
+            <div class="stage dark">
+              <div class="bars">
+                <i style="height:60%;background:#525c6b"></i>
+                <i style="height:85%;background:#f06b3a"></i>
+                <i style="height:45%;background:#525c6b"></i>
+                <i style="height:70%;background:#525c6b"></i>
+              </div>
+              <div class="dots" style="color:#b1bac8">
+                <span class="sdot" style="background:#525c6b"></span>idle
+                <span class="sdot" style="background:#f06b3a"></span>active
+              </div>
+              <div class="note warn">⚠ re-toned to #525c6b dark-adaptive — a guess, lower contrast.</div>
+            </div>
+          </div>
+        </div>
+        <div class="note" style="margin-top:12px">Option 2’s “adaptive” grey is a judgement call applied to widgets <b>outside the 12-route visual gate</b> — no screenshot catches a regression.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── CARD 3 · faint decorative (empty stars) ───────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <h2>3 · Faint decorative — empty stars, thin separators &nbsp;<span class="tag tag-diverge">⟵ divergence</span></h2>
+      <p>Care rating empty-stars, hairline separators. Source: <code>--neutral-300</code> (light <code>#d2c2ab</code>, dark <code>#d4d4d4</code> — a light grey in both).
+        <b>Option 1</b> → a fixed faint fill that stays light-grey. <b>Option 2</b> → maps onto an adaptive border token that <i>darkens</i> in dark.</p>
+    </div>
+    <div class="grid">
+      <div class="col-light">
+        <div class="col-title">Light <span class="tag tag-same">identical · all options</span></div>
+        <div class="stage light">
+          <div class="stars"><span style="color:#f59e0b">★★★★</span><span style="color:#d2c2ab">★</span></div>
+          <div class="note">4.0 / 5 · empty star #d2c2ab — unchanged.</div>
+        </div>
+      </div>
+      <div class="col-dark">
+        <div class="col-title">Dark</div>
+        <div class="dark-row">
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#8a93a3"></span>Today</div>
+            <div class="stage dark">
+              <div class="stars"><span style="color:#fbbf24">★★★★</span><span style="color:#d4d4d4">★</span></div>
+              <div class="note" style="color:#8a93a3">empty star #d4d4d4 — clearly readable.</div>
+            </div>
+          </div>
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#2563a8"></span>Option 1</div>
+            <div class="stage dark">
+              <div class="stars"><span style="color:#fbbf24">★★★★</span><span style="color:#d2c2ab">★</span></div>
+              <div class="note good">= #d2c2ab — still clearly readable (sub-perceptual shift).</div>
+            </div>
+          </div>
+          <div>
+            <div class="variant-label"><span class="pill" style="background:#d2962a"></span>Option 2</div>
+            <div class="stage dark">
+              <div class="stars"><span style="color:#fbbf24">★★★★</span><span style="color:#404040">★</span></div>
+              <div class="note warn">⚠ #404040 border-grey — the empty star nearly disappears.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec">
+    <b>Recommendation — Option 1.</b> Both options deliver the entire user-visible win (killing the near-white
+    dark-surface bug, card 1) and are byte-identical in light. Option 2 adds <i>nothing</i> users see in light,
+    and in dark it gambles guessed adaptive values on the exact widgets the visual gate can’t screenshot
+    (cards 2–3) — risking lower-contrast charts and near-invisible empty stars. Option 1 keeps those invariant
+    greys exactly as they render today. Same footgun killed, lower risk.
+  </div>
+
+  <div class="foot">
+    <b>Reading the columns:</b> “Today” = current build. “Option 1” = invariant fills + surface-token fix.
+    “Option 2” = full semantic migration with adaptive dark values. Hex values are the real
+    <code style="font-family:var(--mono)">src/theme/tokens.css</code> definitions; Option 2’s dark greys
+    (<code style="font-family:var(--mono)">#525c6b</code>, <code style="font-family:var(--mono)">#404040</code>)
+    are the principled “adaptive” values the shell scale already uses — shown to make the trade-off concrete, not invented for drama.
+  </div>
+
+</div>
+</body>
+</html>

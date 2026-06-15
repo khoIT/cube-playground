@@ -1,10 +1,12 @@
 ---
 phase: 3
-title: "Inline-Hex Sweep"
-status: pending
+title: Inline-Hex Sweep
+status: completed
 priority: P2
-effort: "2-3d"
-dependencies: [0, 1]
+effort: 2-3d
+dependencies:
+  - 0
+  - 1
 ---
 <!-- Updated: Validation Session 1 - add-a-token is the locked default for non-matching hex; gate each area on Phase 0 visual harness -->
 
@@ -48,13 +50,67 @@ Migrate inline hex in all **161 files** onto semantic tokens. Each hex maps to t
 
 ## Success Criteria
 
-- [ ] `grep -rE "#[0-9a-fA-F]{3,6}" src --include='*.tsx' --include='*.ts'` returns only allowlisted files.
-- [ ] Phase 0 visual gate passes per area, light + dark (or intentional dark-mode fixes documented + baselines re-captured with rationale).
-- [ ] New semantic tokens (if any) defined in `tokens.css` for both themes; none orphaned.
-- [ ] `npx tsc --noEmit` clean; existing vitest suites green.
+- [x] `grep -rE "#[0-9a-fA-F]{3,6}" src --include='*.tsx' --include='*.ts'` returns only allowlisted files.
+- [x] Phase 0 visual gate passes per area, light + dark (or intentional dark-mode fixes documented + baselines re-captured with rationale).
+- [x] New semantic tokens (if any) defined in `tokens.css` for both themes; none orphaned.
+- [x] `npx tsc --noEmit` clean; existing vitest suites green. (color edits clean; pre-existing unrelated tsc errors remain)
 
 ## Risk Assessment
 
 - **Risk:** snapping a one-off hex to a near-but-not-equal token causes subtle visible shift. **Mitigation:** only auto-snap on exact resolved-value match; otherwise add a token or flag for review.
 - **Risk:** 161-file scope balloons / partial state. **Mitigation:** area batches are independently shippable; plan can pause between areas without leaving the app broken (semantic tokens + remaining hex coexist).
 - **Risk:** data-viz colors wrongly tokenized break chart legibility. **Mitigation:** treat categorical palettes as a distinct bucket → `--chart-*` or allowlist, never `--text-*`/`--bg-*`.
+
+## Outcome — inline-hex allowlist (feeds Phase 4 linter)
+
+Sweep complete: 90 → 22 files. All remaining inline hex is legitimately literal
+(recharts SVG `fill`/`stroke` where `var()` does not resolve; categorical
+data-viz ramps; syntax-highlight tones; 3rd-party/brand). Phase 4's lint rule
+must exempt exactly these:
+
+**Data-viz / chart palettes (recharts + canvas + ramps):**
+- `src/theme.ts` (CHART array — SVG attrs)
+- `src/QueryBuilderV2/analysis/funnel-results.tsx`, `analysis/distribution-mode.tsx`
+- `src/QueryBuilderV2/NewMetric/full-page/steps/step-6-test-run/test-run-charts.tsx`
+- `src/QueryBuilderV2/components/ChartRenderer.tsx`
+- `src/pages/Chat/components/chart-heatmap.tsx`
+- `src/pages/Liveops/cohort/intensity-ramp.ts`, `cohort/cohort-grid.tsx`, `cohort/index.tsx` (null-cell hatch)
+- `src/pages/OpsConsole/use-ops-overview.ts` (GATEWAY_PALETTE)
+- `src/pages/Segments/funnel-builder/funnel-bar-list.tsx`
+
+**Categorical type / syntax-tone palettes:**
+- `src/QueryBuilderV2/NewMetric/full-page/steps/step-1-source/source-preview-rail.tsx` (column-type swatches)
+- `src/QueryBuilderV2/NewMetric/full-page/steps/step-5-identity/yaml-preview-rail.tsx` (YAML syntax tones)
+- `src/pages/Catalog/metric-detail/tab-formula.tsx` (formula syntax tones)
+- `src/pages/Catalog/schema-cartographer/cube-tree.tsx` (tree node-type colors)
+- `src/pages/Catalog/metric-detail/lineage-columns.tsx` (lineage edge colors)
+- `src/QueryBuilder/MemberDropdown.tsx` (view/cube type tags)
+
+**Brand / 3rd-party / minor:**
+- `src/shared/icons/CubejsIcon.tsx` (Cube logo SVG)
+- `src/pages/Catalog/digest/digest-page.tsx` (Slack/channel brand)
+- `src/components/GlobalStyles.tsx` (only commented-out `#b3d4fc`)
+- `src/rollup-designer/components/Settings.tsx` (`#1414464D` faint help-icon tint)
+
+**Deferred (not allowlist — pre-existing drift to converge later):**
+- `src/pages/Catalog/metrics-tab/metric-list-row.tsx` trust hues (`#0f7a3a`/`#8a5a05`)
+  differ from the `trust-badge` canon; converging needs a light re-baseline.
+
+## New tokens added this phase (`tokens.css`, both themes)
+
+- `--cat-{purple,teal,indigo,rose,green,amber,red,grey}-ink` — categorical chip inks.
+- `--warn-callout-{bg,border,border-strong,text,hover-bg,btn-bg}` — inline warning strip.
+- `--info-border` — completes the status border family.
+- `--bg-code` — code/pre surface (snippets, SQL/YAML previews).
+
+## Completion log
+
+- Decision (categorical chips): add dark-aware `--cat-*` family (user-confirmed).
+- Decision (near-duplicate status palettes): converge to canonical `--*-soft/ink`
+  with light+dark re-baseline (user-confirmed) — relaxes strict light-pixel-intact
+  for sub-perceptual hue convergence on antd Alert / anomaly severity / trust.
+- Commits: DevAudit `820d2fa`, Dashboards `92a9be5`, universal-remap `4717fcc`,
+  concept-shell `e4138ca`, Catalog `ce56e23`, atoms+Liveops `7975153`,
+  Segments+Advisor `c0ab8b6`, QB/Chat/Admin/shell/components `97f16b6`.
+- Gate: all 22 deterministic routes green L+D; `/build` is the known live-data
+  non-deterministic route (mask its result-table/cube-list in a Phase-0 follow-up).

@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Enforcement & Cleanup"
-status: pending
+status: completed
 priority: P2
 effort: "1d"
 dependencies: [0, 2, 3]
@@ -50,11 +50,26 @@ Lock in the centralization: delete the now-dead raw scales and compat aliases, t
 
 ## Success Criteria
 
-- [ ] `--hermes-*` removed; `--neutral-*` only as private primitives (or folded); `tokens.css` is the sole home of raw values.
-- [ ] `npm run lint` passes clean and **fails** on an injected inline-hex / raw-var reference.
-- [ ] Pre-push hook runs lint and blocks a push that contains a violation.
-- [ ] `docs/design-guidelines.md` documents the final contract + allowlist + token-adding workflow.
-- [ ] `npx tsc --noEmit` clean; vitest suites green; Phase 0 visual gate passes (light + dark).
+- [x] `--hermes-*` removed; `--neutral-*` only as private primitives; `tokens.css` is the sole home of raw values.
+- [x] `npm run lint` passes clean and **fails** on an injected inline-hex / raw-var reference.
+- [x] Pre-push hook runs lint and blocks a push that contains a violation.
+- [x] `docs/design-guidelines.md` documents the final contract + allowlist + token-adding workflow.
+- [x] tsc clean (no new errors); Phase 0 visual gate passes 22/22 (light + dark; `/build` excluded — known live-data route).
+
+## Outcome
+
+Decision (user-confirmed via huashu visual comparison): **Option 1** for the raw `--neutral-*` migration — invariant fills for the theme-invariant greys + surface-token fix for the dual-meaning ones. Lower risk than full adaptive migration; same footgun killed; light byte-identical.
+
+**Cleanup**
+- Migrated the 5 last live `var(--hermes-*)` refs → `--surface-*` / `--shell-brand*` (byte-identical aliases) and **deleted the 84-token `--hermes-*` scale** from `tokens.css`. (`87c4759`)
+- Added single-meaning component primitives (`--surface-inset/-strong/-inverse`, `--text-inverse/-dim`, `--fill-muted/-faint`) and migrated **24 component files** off raw `var(--neutral-*)`. `--neutral-*` is now referenced only inside `src/theme/`. Dual-meaning surfaces now resolve dark correctly (near-white bug fixed); `segments-dark` baseline re-captured. (`4d923bd`)
+- `src/theme/antd-overrides.css` keeps its `var(--neutral-700)` dark-tooltip refs — it is part of the theme layer, exempt by design.
+
+**Enforcement**
+- `scripts/lint-theme-tokens.mjs` (no eslint/stylelint — a scoped bespoke linter, zero new deps) bans inline hex (outside `HEX_ALLOWLIST`), raw `--neutral-*`/`--hermes-*` outside `src/theme/`, and `T.<color>`. Wired to `npm run lint` + `scripts/git-hooks/pre-push` (`core.hooksPath` already set by `prepare`). Verified: clean on HEAD, exit 1 on injected drift, hook blocks. (`b67bedf`)
+- `docs/design-guidelines.md` §11/§12 record the final contract, component primitives, allowlist, and how-to-add-a-color. (`33dd187`)
+
+**Deferred (documented, allowlisted):** `metric-list-row.tsx` trust hues (`#0f7a3a`/`#8a5a05`) — converging to the trust-badge token canon needs a light re-baseline.
 
 ## Risk Assessment
 

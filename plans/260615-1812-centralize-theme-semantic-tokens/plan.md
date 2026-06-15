@@ -4,7 +4,7 @@ description: >-
   Collapse three parallel color systems (--hermes-* via T.*, raw --neutral-*,
   161 files of inline hex) onto one semantic-token contract. UI must stay
   pixel-intact at every step; add lint+CI to stop future drift.
-status: pending
+status: completed
 priority: P2
 branch: main
 tags:
@@ -42,8 +42,8 @@ The intended **semantic layer** (`--bg-card`, `--border-card`, `--text-primary`,
 | 0 | [Visual-Regression Harness (gate, built first)](./phase-00-visual-regression-harness.md) | Completed |
 | 1 | [Token Contract & Safe Aliasing](./phase-01-token-contract-safe-aliasing.md) | Completed |
 | 2 | [Migrate Shell (T.* + raw neutral)](./phase-02-migrate-shell-t-raw-neutral.md) | Completed |
-| 3 | [Inline-Hex Sweep](./phase-03-inline-hex-sweep.md) | Pending |
-| 4 | [Enforcement & Cleanup](./phase-04-enforcement-cleanup.md) | Pending |
+| 3 | [Inline-Hex Sweep](./phase-03-inline-hex-sweep.md) | Completed |
+| 4 | [Enforcement & Cleanup](./phase-04-enforcement-cleanup.md) | Completed |
 
 ## Key Decisions (user-confirmed)
 
@@ -60,12 +60,12 @@ The intended **semantic layer** (`--bg-card`, `--border-card`, `--text-primary`,
 
 ## Success Criteria (whole plan)
 
-- [ ] Phase 0 visual gate (light + dark, major routes) passes against committed baselines and bites on a deliberate color change.
-- [ ] Zero `T.*` color references and zero raw `var(--neutral-*)` / `var(--hermes-*)` in component files (`src/**` excluding `src/theme/tokens.css`).
-- [ ] Zero inline hex in `src/**/*.{ts,tsx}` outside the allowlist; `--chart-1..8` defined and `CHART` reads from them.
-- [ ] `--hermes-*` scale removed; `--neutral-*` retained only as private primitives feeding the semantic layer (or removed if folded).
-- [ ] App is pixel-intact in light + dark vs. pre-refactor on Dashboards, Segments, Ops, Chat, Catalog, Advisor, shell chrome (proven by the Phase 0 gate).
-- [ ] `npm run lint` exists, passes, and fails on a newly introduced raw-token/inline-hex reference; enforced via a pre-push git hook.
+- [x] Phase 0 visual gate (light + dark, major routes) passes against committed baselines and bites on a deliberate color change.
+- [x] Zero `T.*` color references and zero raw `var(--neutral-*)` / `var(--hermes-*)` in component files (`src/**` excluding `src/theme/`).
+- [x] Zero inline hex in `src/**/*.{ts,tsx}` outside the allowlist. (Chart: Phase-1 deviation — `--chart-series-1..8` tokens added; `CHART` stays literal hex as the one allowlisted array because its values feed recharts SVG `fill`/`stroke` where `var()` does not resolve.)
+- [x] `--hermes-*` scale removed; `--neutral-*` retained only as a private primitive feeding the semantic layer (referenced only inside `src/theme/`).
+- [x] App is pixel-intact in light + dark vs. pre-refactor (Phase 0 gate 22/22; `/build` excluded — known live-data route; `segments-dark` re-baselined for the intended dual-meaning dark fix).
+- [x] `npm run lint` exists, passes, and fails on a newly introduced raw-token/inline-hex reference; enforced via the `scripts/git-hooks/pre-push` hook.
 
 ## Validation Log
 
@@ -99,3 +99,15 @@ The intended **semantic layer** (`--bg-card`, `--border-card`, `--text-primary`,
 - **Pre-existing issue noted:** DevAudit `cache-*` files have committed type errors (`TopQueryRow.dollarsSaved/queryKey/snippet`, `CacheEffectivenessResponse.byKind`) unrelated to this refactor (present at HEAD; my diffs are color-only).
 
 **Remaining:** Phase 3 (161-file inline-hex sweep — **collides with the concurrent Advisor/Segments session**, deferred per user) + the 20 raw-`--neutral-*` files; Phase 4 (lint + pre-push hook; `--hermes-*` now fully orphaned → safe to delete then). Stopped here at user's instruction ("stop before 3").
+
+### Session 3 — 2026-06-16 (Phase 3 sweep + Phase 4 — plan complete)
+
+**Phase 3 (done):** Inline-hex sweep 90→22 files; added `--cat-*` categorical chips, `--warn-callout-*`, `--info-border`, `--bg-code`. Catalog / Segments / Advisor / QB / Chat / Admin / shell migrated; 22 deterministic routes green L+D. (8 commits, see phase-03 doc.)
+
+**Phase 4 (done — plan complete):**
+- Retired the orphaned `--hermes-*` scale: migrated the 5 last live refs → `--surface-*`/`--shell-brand*` (byte-identical) and deleted the 84-token block. (`87c4759`)
+- Raw `--neutral-*` migration — **user chose Option 1** after a huashu visual comparison of Option 1 (invariant fills + surface fix) vs Option 2 (full adaptive migration). Added component primitives (`--surface-inset/-strong/-inverse`, `--text-inverse/-dim`, `--fill-muted/-faint`); migrated 24 files; `--neutral-*` now referenced only inside `src/theme/`. Dual-meaning dark near-white bug fixed; `segments-dark` re-baselined. (`4d923bd`)
+- Enforcement: bespoke `scripts/lint-theme-tokens.mjs` (no eslint/stylelint — scoped, zero deps) + `npm run lint` + `scripts/git-hooks/pre-push`; verified bites on injected drift. (`b67bedf`) Docs §11/§12 updated. (`33dd187`)
+- Gate: 22/22 deterministic routes green L+D (`/build` excluded — live-data route, documented gate gap).
+
+**Deferred (allowlisted, documented):** `metric-list-row.tsx` trust hues (`#0f7a3a`/`#8a5a05`) — converging to trust-badge token canon needs a light re-baseline. **Gate-hardening follow-up:** mask `/build`'s live result-table + cube-list so it becomes deterministically gateable.
