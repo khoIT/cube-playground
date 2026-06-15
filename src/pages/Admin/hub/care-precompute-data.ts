@@ -38,6 +38,10 @@ export interface CareRun {
 
 export interface CareCacheStatus {
   segmentId: string;
+  /** Human-readable segment name (NULL if the segment row was deleted). */
+  segmentName: string | null;
+  /** Owner identity — display label if set, else the raw owner sub/email. */
+  owner: string | null;
   gameId: string;
   computedAt: string | null;
   lastAttemptAt: string | null;

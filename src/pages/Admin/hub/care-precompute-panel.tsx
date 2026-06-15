@@ -328,6 +328,7 @@ export function CarePrecomputePanel() {
               <tr>
                 <th style={{ ...th, width: 28 }} />
                 <th style={th}>Segment</th>
+                <th style={th}>Owned by</th>
                 <th style={th}>Game</th>
                 <th style={th}>Status</th>
                 <th style={th}>Computed</th>
@@ -355,7 +356,18 @@ export function CarePrecomputePanel() {
                       <td style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>
                         {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                       </td>
-                      <td style={{ ...td, fontFamily: 'var(--font-mono, monospace)', fontSize: 11.5 }}>{cache.segmentId}</td>
+                      <td style={td}>
+                        <div style={{ fontWeight: 600 }}>{cache.segmentName ?? '(deleted segment)'}</div>
+                        <div
+                          style={{ marginTop: 2, fontFamily: 'var(--font-mono, monospace)', fontSize: 10.5, color: 'var(--text-muted)' }}
+                          title={cache.segmentId}
+                        >
+                          {cache.segmentId}
+                        </div>
+                      </td>
+                      <td style={{ ...td, color: cache.owner ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {cache.owner ?? '—'}
+                      </td>
                       <td style={td}>{cache.gameId}</td>
                       <td style={td}>
                         <StatusPill status={status} />
@@ -390,7 +402,7 @@ export function CarePrecomputePanel() {
                     </tr>
                     {isOpen && (
                       <tr>
-                        <td colSpan={8} style={{ padding: 0, borderBottom: '1px solid var(--border-card)', background: 'var(--bg-elevated, transparent)' }}>
+                        <td colSpan={9} style={{ padding: 0, borderBottom: '1px solid var(--border-card)', background: 'var(--bg-elevated, transparent)' }}>
                           <RunHistory runs={history} />
                         </td>
                       </tr>

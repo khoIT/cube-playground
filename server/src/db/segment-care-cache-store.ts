@@ -102,6 +102,10 @@ export function markCareAttempt(segmentId: string, gameId: string, error: string
 
 export interface CareCacheStatus {
   segmentId: string;
+  /** Human-readable segment name (NULL if the segment row was deleted). */
+  segmentName: string | null;
+  /** Owner identity — display label if set, else the raw owner sub/email. */
+  owner: string | null;
   gameId: string;
   computedAt: string | null;
   lastAttemptAt: string | null;
@@ -110,16 +114,30 @@ export interface CareCacheStatus {
   hasPayload: boolean;
 }
 
-/** All cache rows (freshness only, no payload) — powers the status board. */
+/** All cache rows (freshness only, no payload) — powers the status board. The
+ *  segments LEFT JOIN resolves the human name + owner; cache rows can outlive
+ *  their segment (deleted), so both fall back to NULL rather than dropping. */
 export function listCareCacheStatuses(): CareCacheStatus[] {
   const rows = getDb()
     .prepare(
-      `SELECT segment_id, game_id, payload_json, computed_at, last_attempt_at, last_error, status
-         FROM segment_care_cache`,
+      `SELECT c.segment_id, c.game_id, c.payload_json, c.computed_at,
+              c.last_attempt_at, c.last_error, c.status,
+              s.name AS segment_name, s.owner_label AS owner_label, s.owner AS owner
+         FROM segment_care_cache c
+         LEFT JOIN segments s ON s.id = c.segment_id`,
     )
-    .all() as Array<RawRow & { segment_id: string }>;
+    .all() as Array<
+      RawRow & {
+        segment_id: string;
+        segment_name: string | null;
+        owner_label: string | null;
+        owner: string | null;
+      }
+    >;
   return rows.map((r) => ({
     segmentId: r.segment_id,
+    segmentName: r.segment_name,
+    owner: r.owner_label ?? r.owner,
     gameId: r.game_id,
     computedAt: r.computed_at,
     lastAttemptAt: r.last_attempt_at,

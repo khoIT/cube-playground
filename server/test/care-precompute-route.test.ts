@@ -10,7 +10,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from '../src/index.js';
-import { setDb, closeDb } from '../src/db/sqlite.js';
+import { setDb, closeDb, getDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
 import { upsertUserAccess } from '../src/auth/access-store-mutators.js';
@@ -58,6 +58,11 @@ describe('care-precompute admin routes (real-auth)', () => {
     resetCareTriggerState();
     upsertUserAccess({ email: 'editor@corp.com', role: 'editor', status: 'active' });
     upsertUserAccess({ email: 'admin@corp.com', role: 'admin', status: 'active' });
+    // Segment row so the cache board's JOIN resolves name + owner.
+    getDb().prepare(
+      `INSERT INTO segments (id, name, type, owner, status, uid_list_json, game_id)
+       VALUES ('seg-1', 'care test', 'predicate', 'tester', 'fresh', '[]', 'cfm_vn')`,
+    ).run();
     writeCareCache('seg-1', 'cfm_vn', samplePayload);
     recordCareRun({
       segmentId: 'seg-1', gameId: 'cfm_vn', source: 'cron',
@@ -86,12 +91,15 @@ describe('care-precompute admin routes (real-auth)', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as {
       runs: Array<{ segmentId: string; status: string }>;
-      cache: Array<{ segmentId: string; hasPayload: boolean }>;
+      cache: Array<{ segmentId: string; segmentName: string | null; owner: string | null; hasPayload: boolean }>;
       window: { startMin: number; endMin: number };
     };
     expect(body.runs).toHaveLength(1);
     expect(body.runs[0]).toMatchObject({ segmentId: 'seg-1', status: 'ok' });
-    expect(body.cache.find((c) => c.segmentId === 'seg-1')?.hasPayload).toBe(true);
+    const seg1 = body.cache.find((c) => c.segmentId === 'seg-1');
+    expect(seg1?.hasPayload).toBe(true);
+    // Cache board resolves the human name + owner via the segments JOIN.
+    expect(seg1).toMatchObject({ segmentName: 'care test', owner: 'tester' });
     expect(body.window).toEqual({ startMin: 180, endMin: 360 }); // 03:00-06:00 default
   });
 
