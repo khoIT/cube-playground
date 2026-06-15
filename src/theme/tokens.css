@@ -89,6 +89,10 @@
      on parchment). Hover is a neutral darken; active is a soft brand pill. */
   --shell-nav-hover:      rgba(0, 0, 0, 0.045);
   --shell-nav-active:     rgba(240, 90, 34, 0.10);
+  /* Hairlines (tree spine, group dividers, bottom-row separator). Translucent
+     so it shows on both the parchment (light) and ink (dark) sidebar surfaces —
+     a flat black rgba vanishes against the dark surface. */
+  --shell-nav-line:       rgba(0, 0, 0, 0.08);
   --shell-danger:         #ef4444;
   --shell-danger-strong:  #dc2626;
   --shell-danger-soft:    #fef2f2;
@@ -374,6 +378,7 @@
   --shell-brand-border:   #5a3422;
   --shell-nav-hover:      rgba(255, 255, 255, 0.05);
   --shell-nav-active:     rgba(240, 107, 58, 0.16);
+  --shell-nav-line:       rgba(255, 255, 255, 0.10);
   --shell-danger:         #ef4444;
   --shell-danger-strong:  #f87171;
   --shell-danger-soft:    #2a1416;

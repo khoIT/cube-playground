@@ -24,7 +24,7 @@ export function BottomRow({ collapsed }: BottomRowProps) {
   const isDark = theme === 'dark';
 
   return (
-    <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', padding: '6px 0 8px' }}>
+    <div style={{ borderTop: '1px solid var(--shell-nav-line)', padding: '6px 0 8px' }}>
       {hasFeature('data-model') && (
         <SidebarItem
           icon={Database}

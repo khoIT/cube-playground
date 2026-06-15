@@ -269,5 +269,5 @@ export function Sidebar() {
 
 /** Hairline group separator — inset to align with the row pills' 8px gutter. */
 function NavDivider() {
-  return <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', margin: '8px 6px' }} />;
+  return <div style={{ height: 1, background: 'var(--shell-nav-line)', margin: '8px 6px' }} />;
 }

@@ -77,7 +77,7 @@ export function SidebarSection({
           running the full column past the trailing "See all…" link. */}
       <div style={{
         position: 'absolute', left: 18, top: 5, bottom: 5, width: 1,
-        background: 'rgba(0,0,0,0.08)', pointerEvents: 'none',
+        background: 'var(--shell-nav-line)', pointerEvents: 'none',
       }} />
       {children}
     </div>
@@ -139,8 +139,8 @@ export function SidebarSection({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: 'none', borderRadius: 6, cursor: 'pointer', padding: 0,
             // Transparent at rest so the shared header pill shows through;
-            // darkens only on direct hover of the caret itself.
-            background: arrowHovered ? 'rgba(0,0,0,0.08)' : 'transparent',
+            // gets a theme-aware tint only on direct hover of the caret itself.
+            background: arrowHovered ? 'var(--shell-nav-line)' : 'transparent',
             transition: 'background .12s',
           }}
         >
