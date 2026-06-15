@@ -61,7 +61,7 @@ export function listDraftsForSegment(segmentId: string): ExperimentDraft[] {
   const rows = db
     .prepare(
       `SELECT draft_json FROM advisor_handoff_draft
-        WHERE segment_id = ? ORDER BY updated_at DESC`,
+        WHERE segment_id = ? ORDER BY updated_at DESC, draft_id DESC`,
     )
     .all(segmentId) as Pick<DraftRow, 'draft_json'>[];
   return rows.map((r) => JSON.parse(r.draft_json) as ExperimentDraft);

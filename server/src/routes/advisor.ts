@@ -20,6 +20,7 @@ import { diagnose } from '../advisor/diagnosis-engine.js';
 import { recommend, type RecommendParams } from '../advisor/recommend.js';
 import { scaffoldDraft } from '../advisor/handoff-scaffolder.js';
 import { saveDraft, getDraft, listDraftsForSegment } from '../advisor/command-center-draft-store.js';
+import { resolveAddressableN, resolveReachablePct } from '../advisor/cohort-resolver.js';
 import { recordFeedback, listFeedbackForSegment } from '../advisor/feedback-store.js';
 import type { ScopeRef, DiagnosisInput } from '../advisor/diagnosis-types.js';
 import type { ExperimentCandidate } from '../advisor/candidate-types.js';
@@ -106,7 +107,14 @@ export default async function advisorRoutes(app: FastifyInstance): Promise<void>
       return reply.status(400).send({ error: 'invalid scope' });
     }
     const rawParams = (body.params ?? {}) as Record<string, unknown>;
-    const addressableN = typeof rawParams.addressableN === 'number' ? rawParams.addressableN : 0;
+    // Fall back to the segment's real cohort size when N isn't supplied.
+    const suppliedN = typeof rawParams.addressableN === 'number' ? rawParams.addressableN : 0;
+    const addressableN =
+      suppliedN > 0
+        ? suppliedN
+        : input.scope.kind === 'segment'
+          ? resolveAddressableN(input.scope.segmentId) ?? 0
+          : 0;
     if (addressableN <= 0) {
       return reply.status(400).send({ error: 'params.addressableN (>0) is required to rank candidates' });
     }
@@ -137,11 +145,20 @@ export default async function advisorRoutes(app: FastifyInstance): Promise<void>
     const candidate = body.candidate as ExperimentCandidate | undefined;
     const segmentId = typeof body.segmentId === 'string' ? body.segmentId : null;
     const gameId = typeof body.gameId === 'string' ? body.gameId : null;
-    const addressableN = typeof body.addressableN === 'number' ? body.addressableN : null;
-    const reachablePct = typeof body.reachablePct === 'number' ? body.reachablePct : 0.75;
+    // addressableN/reachablePct fall back to the segment's real cohort facts.
+    const addressableN =
+      typeof body.addressableN === 'number' && body.addressableN > 0
+        ? body.addressableN
+        : segmentId
+          ? resolveAddressableN(segmentId)
+          : null;
+    const reachablePct =
+      typeof body.reachablePct === 'number'
+        ? body.reachablePct
+        : (segmentId ? resolveReachablePct(segmentId) : null) ?? 0.75;
     if (!candidate || !candidate.id || !segmentId || !gameId || addressableN == null) {
       return reply.status(400).send({
-        error: 'handoff requires { candidate, segmentId, gameId, addressableN }',
+        error: 'handoff requires { candidate, segmentId, gameId } and a resolvable addressableN',
       });
     }
     const draft = scaffoldDraft({

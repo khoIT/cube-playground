@@ -114,6 +114,26 @@ describe('scaffoldDraft', () => {
     expect(draft.safety.contactCapPerPlayer).toBeGreaterThanOrEqual(1);
     expect(draft.safety.recentPayerGuardDays).toBeGreaterThan(0);
   });
+
+  it('is self-describing: fills all five blueprint slots from the candidate', () => {
+    const draft = scaffoldDraft({ candidate: csCandidate(), segmentId: 'seg-1', gameId: 'cfm_vn', addressableN: 2400, reachablePct: 0.78 });
+    expect(draft.opportunityFactor).toBe('lifespan');
+    expect(draft.blueprint.opportunity).toContain('lifespan');
+    expect(draft.blueprint.target).toMatch(/2,400 addressable.*78% reachable/);
+    expect(draft.blueprint.cause).toBe(draft.hypothesis);
+    expect(draft.blueprint.lever).toContain('win-back');
+    expect(draft.blueprint.proof).toBe(draft.power.detail);
+  });
+
+  it('pre-registers a readout rule tied to the power story', () => {
+    const draft = scaffoldDraft({ candidate: csCandidate(), segmentId: 'seg-1', gameId: 'cfm_vn', addressableN: 2400, reachablePct: 0.78 });
+    expect(draft.readout.primaryMetric).toBe('lifespan');
+    expect(draft.readout.mde).toBe(4.2);
+    expect(draft.readout.horizonDays).toBe(draft.windowDays);
+    // Hold-out arm share (20%) is echoed in the readout rule.
+    expect(draft.readout.holdoutPct).toBe(20);
+    expect(draft.readout.decisionRule).toMatch(/Ship if.*4\.2pp.*20% hold-out/);
+  });
 });
 
 describe('command-center draft store (stub)', () => {

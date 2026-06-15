@@ -52,6 +52,41 @@ export interface SafetyGuardrails {
 }
 
 /**
+ * The five causal-chain slots, each a self-contained sentence so the draft can
+ * be rendered (in Decide) without re-fetching the source candidate/diagnosis.
+ * This is the contract that makes the draft a complete discovery artifact.
+ */
+export interface ExperimentBlueprint {
+  /** Where the headroom is — the gap the experiment attacks. */
+  opportunity: string;
+  /** Who — the cohort: segment + addressable N + reachable %. */
+  target: string;
+  /** Why the gap exists — the hypothesis the lever is betting on. */
+  cause: string;
+  /** What we change — the concrete intervention the CS team (or system) runs. */
+  lever: string;
+  /** How we'll know — the power story (N, reach, window → detectable effect). */
+  proof: string;
+}
+
+/**
+ * Pre-registered readout rule — "what to look for". Stated BEFORE the experiment
+ * runs so the win/no-win call can't be rationalised after the fact.
+ */
+export interface ReadoutRule {
+  /** The factor the treatment is meant to move. */
+  primaryMetric: string;
+  /** Minimum detectable effect (absolute pp) the design can resolve. */
+  mde: number;
+  /** Measurement horizon in days (= the experiment window). */
+  horizonDays: number;
+  /** Hold-out fraction reserved for the incrementality comparison (0–100). */
+  holdoutPct: number;
+  /** The ship/iterate decision rule, in plain language. */
+  decisionRule: string;
+}
+
+/**
  * The scaffolded draft. This is the contract handed to the command center.
  * status is always 'draft' — the Advisor cannot launch.
  */
@@ -88,6 +123,12 @@ export interface ExperimentDraft {
    */
   delivery: 'cs-queue' | 'external';
   safety: SafetyGuardrails;
+  /** The opportunity factor this experiment attacks (provenance for the cause). */
+  opportunityFactor: string;
+  /** Self-contained 5-slot causal chain for rendering without the candidate. */
+  blueprint: ExperimentBlueprint;
+  /** Pre-registered "what to look for" rule. */
+  readout: ReadoutRule;
 }
 
 export interface ScaffoldInput {
@@ -128,6 +169,34 @@ export function scaffoldDraft(input: ScaffoldInput): ExperimentDraft {
   const delivery: ExperimentDraft['delivery'] =
     candidate.lever.actuator === 'cs' ? 'cs-queue' : 'external';
 
+  // ── Build the self-describing artifact: 5-slot blueprint + readout rule ──────
+  const holdoutPct = Math.round(holdoutShare * 100);
+  const moneyNote =
+    candidate.money.incrementalVnd != null
+      ? ` (≈ ${candidate.money.incrementalVnd.toLocaleString()}${candidate.money.currency ?? '₫'} headroom)`
+      : '';
+  const playbookNote = candidate.playbookId ? ` · playbook ${candidate.playbookId}` : '';
+
+  const blueprint: ExperimentBlueprint = {
+    opportunity: `${candidate.opportunityFactor}${moneyNote}`,
+    target: `${addressableN.toLocaleString()} addressable in this segment · ${Math.round(
+      reachablePct * 100,
+    )}% reachable by the lever's channel`,
+    cause: hypothesis,
+    lever: `${candidate.lever.description} (${candidate.lever.family}${playbookNote})`,
+    proof: candidate.power.detail,
+  };
+
+  const readout: ReadoutRule = {
+    primaryMetric: candidate.opportunityFactor,
+    mde: candidate.power.mde,
+    horizonDays: windowDays,
+    holdoutPct,
+    decisionRule:
+      `Ship if measured lift on "${candidate.opportunityFactor}" is ≥ ${candidate.power.mde}pp vs the ` +
+      `${holdoutPct}% hold-out at ${windowDays}d; otherwise iterate the lever or stop.`,
+  };
+
   return {
     draftId,
     segmentId,
@@ -152,5 +221,8 @@ export function scaffoldDraft(input: ScaffoldInput): ExperimentDraft {
       recentPayerGuardDays: DEFAULT_RECENT_PAYER_GUARD_DAYS,
       holdoutMeasured: true,
     },
+    opportunityFactor: candidate.opportunityFactor,
+    blueprint,
+    readout,
   };
 }

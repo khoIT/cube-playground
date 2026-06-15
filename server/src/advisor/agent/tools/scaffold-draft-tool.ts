@@ -11,6 +11,8 @@
 import { z } from 'zod';
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { scaffoldDraft } from '../../handoff-scaffolder.js';
+import { saveDraft } from '../../command-center-draft-store.js';
+import { resolveAddressableN, resolveReachablePct } from '../../cohort-resolver.js';
 import { validateDraftNumbers } from '../agent-provenance-gate.js';
 import type { ExperimentCandidate } from '../../candidate-types.js';
 import { ok, fail, provenance, type ToolContext } from './tool-context.js';
@@ -48,15 +50,27 @@ export function makeScaffoldDraftTool(tctx: ToolContext) {
         return fail('candidate must be a full ExperimentCandidate object (with id) from recommend');
       }
       try {
+        // Ground the Target in what the platform already knows: fall back to the
+        // segment's real cohort size + CS-reachable fraction when the caller
+        // didn't supply (or supplied a non-positive) value.
+        const addressableN =
+          args.addressableN > 0
+            ? args.addressableN
+            : resolveAddressableN(tctx.scope.segmentId) ?? args.addressableN;
+        const reachablePct =
+          args.reachablePct ?? resolveReachablePct(tctx.scope.segmentId) ?? 0.75;
         const draft = scaffoldDraft({
           candidate,
           segmentId: tctx.scope.segmentId,
           gameId: tctx.scope.gameId,
-          addressableN: args.addressableN,
-          reachablePct: args.reachablePct ?? 0.75,
+          addressableN,
+          reachablePct,
           windowDays: args.windowDays,
           treatmentShare: args.treatmentShare,
         });
+        // Persist so the finished Drive investigation's artifact is retrievable
+        // by the client (the SSE edge strips structured tool output).
+        saveDraft(draft);
         const violations = validateDraftNumbers(draft, args.provenanceId, tctx.ledger);
         const draftProvenanceId = provenance(tctx, NAME, draft);
         const summary =

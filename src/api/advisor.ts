@@ -145,6 +145,24 @@ export interface SafetyGuardrails {
   holdoutMeasured: true;
 }
 
+/** The five causal-chain slots, each self-contained (mirror handoff-scaffolder.ts). */
+export interface ExperimentBlueprint {
+  opportunity: string;
+  target: string;
+  cause: string;
+  lever: string;
+  proof: string;
+}
+
+/** Pre-registered "what to look for" rule (mirror handoff-scaffolder.ts). */
+export interface ReadoutRule {
+  primaryMetric: string;
+  mde: number;
+  horizonDays: number;
+  holdoutPct: number;
+  decisionRule: string;
+}
+
 export interface ExperimentDraft {
   draftId: string;
   segmentId: string;
@@ -162,6 +180,12 @@ export interface ExperimentDraft {
   playbookId?: string;
   delivery: 'cs-queue' | 'external';
   safety: SafetyGuardrails;
+  /** The opportunity factor this experiment attacks. */
+  opportunityFactor: string;
+  /** Self-contained 5-slot causal chain. */
+  blueprint: ExperimentBlueprint;
+  /** Pre-registered readout rule. */
+  readout: ReadoutRule;
 }
 
 // ─── Request params ───────────────────────────────────────────────────────────
@@ -227,7 +251,7 @@ export function handoff(req: {
   return apiFetch<ExperimentDraft>('/api/advisor/handoff', { method: 'POST', body: req });
 }
 
-/** List scaffolded drafts for a segment. */
+/** List scaffolded drafts for a segment (most recent first). */
 export function listDrafts(segmentId: string): Promise<{ drafts: ExperimentDraft[] }> {
   return apiFetch<{ drafts: ExperimentDraft[] }>(`/api/advisor/drafts/${encodeURIComponent(segmentId)}`);
 }

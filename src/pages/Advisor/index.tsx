@@ -10,8 +10,8 @@
  * On a host without Cube the live calls surface an honest error state.
  */
 
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useHistory, useLocation } from 'react-router-dom';
 import { Lightbulb } from 'lucide-react';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { useAdvisorInvestigation } from './use-advisor-investigation';
@@ -21,13 +21,16 @@ import { StepNav } from './step-nav';
 import { StagePanel } from './stage-panel';
 import { Blueprint } from './blueprint';
 import { DecideScreen } from './decide-screen';
+import { DecideDriveView } from './decide-drive-view';
 import { CommandCenter } from './command-center';
 import { Recommendations } from './recommendations';
 import { ProvenanceDrawer } from './provenance-drawer';
 import { DrivePanel } from './drive-panel';
+import { DriveSegmentPicker } from './drive-segment-picker';
 import { RunHistoryPanel } from './run-history-panel';
 import { RunReplay } from './run-replay';
 import { Divider, Btn } from './advisor-primitives';
+import type { DriveArtifact } from './drive-artifact';
 import type { AdvisorScope, ExperimentDraft } from '../../api/advisor';
 
 /**
@@ -55,12 +58,29 @@ export function AdvisorPage() {
     ? { kind: 'segment', segmentId, gameId }
     : { kind: 'game', gameId };
 
+  const history = useHistory();
+  const location = useLocation<{ driveBoot?: boolean; driveSeed?: string } | undefined>();
+
   const inv = useAdvisorInvestigation();
   const [draft, setDraft] = useState<ExperimentDraft | null>(null);
+  // The Drive (live AI) hand-off artifact, when a finished investigation is
+  // carried into Decide. Cleared when leaving the Drive→Decide convergence.
+  const [driveArtifact, setDriveArtifact] = useState<DriveArtifact | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // The goal text from a game-scope drive, carried into the re-scoped segment drive.
+  const [pendingSeed, setPendingSeed] = useState('');
   // Run-history surface: a selected run opens a read-only replay; the reload key
   // bumps when a live run finishes so the history list picks it up.
   const [replaySessionId, setReplaySessionId] = useState<string | null>(null);
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
+
+  // Boot straight into Drive when re-scoped here from a game-scope segment pick.
+  const driveBoot = location.state?.driveBoot === true;
+  const driveSeed = location.state?.driveSeed;
+  useEffect(() => {
+    if (driveBoot && inv.screen !== 'drive') inv.setScreen('drive');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driveBoot]);
 
   const openAspect = inv.openId
     ? inv.aspects.find((a) => a.id === inv.openId) ?? null
@@ -69,6 +89,18 @@ export function AdvisorPage() {
   function handleHandoff(d: ExperimentDraft) {
     setDraft(d);
     inv.setScreen('command');
+  }
+
+  // Drive completion → converge into Decide with the agent's artifact.
+  function handleDriveContinue(artifact: DriveArtifact) {
+    setDriveArtifact(artifact);
+    inv.setScreen('decide');
+  }
+
+  // Game-scope drive → pick a segment, then re-scope the investigation to it.
+  function handlePickSegment(segmentId: string) {
+    setPickerOpen(false);
+    history.push(`/advisor/${segmentId}`, { driveBoot: true, driveSeed: pendingSeed });
   }
 
   // The Command Center screen owns its own full-bleed layout (lifecycle stepper
@@ -116,10 +148,17 @@ export function AdvisorPage() {
       {inv.screen === 'drive' && (
         <>
           <DrivePanel
+            key={scope.kind === 'segment' ? scope.segmentId : 'game'}
             scope={scope}
             goal={inv.goal}
             goalText={inv.goalText}
+            seedMessage={driveBoot ? driveSeed : undefined}
             onSessionComplete={() => setHistoryReloadKey((k) => k + 1)}
+            onContinue={handleDriveContinue}
+            onPickSegment={(message) => {
+              setPickerOpen(true);
+              setPendingSeed(message);
+            }}
           />
           <RunHistoryPanel reloadKey={historyReloadKey} onOpen={setReplaySessionId} />
         </>
@@ -155,7 +194,20 @@ export function AdvisorPage() {
         </>
       )}
 
-      {inv.screen === 'decide' && (
+      {/* Decide is the shared convergence: a Drive artifact renders the agent's
+          experiment; otherwise the manual builder's blueprint + recommendations. */}
+      {inv.screen === 'decide' && driveArtifact && (
+        <DecideDriveView
+          artifact={driveArtifact}
+          onBack={() => {
+            setDriveArtifact(null);
+            inv.setScreen('drive');
+          }}
+          onHandoff={handleHandoff}
+        />
+      )}
+
+      {inv.screen === 'decide' && !driveArtifact && (
         <>
           <DecideScreen
             goal={inv.goal}
@@ -187,6 +239,10 @@ export function AdvisorPage() {
 
       {replaySessionId && (
         <RunReplay sessionId={replaySessionId} onClose={() => setReplaySessionId(null)} />
+      )}
+
+      {pickerOpen && (
+        <DriveSegmentPicker gameId={gameId} onClose={() => setPickerOpen(false)} onPick={handlePickSegment} />
       )}
     </div>
   );

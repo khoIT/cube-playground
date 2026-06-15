@@ -2,6 +2,18 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Advisor: Drive (live AI) converges into Decide with a clear, evidenced experiment
+
+The "Drive with AI" posture dead-ended — when the agent finished investigating there was no way to continue into building the experiment. The manual Explore posture flows Goal → Board → Decide → Command Center; Drive now shares that convergence: Goal → DrivePanel → **Decide** → Command Center.
+
+- **Self-describing draft** (`server/src/advisor/handoff-scaffolder.ts` + client mirror `src/api/advisor.ts`) — `ExperimentDraft` now carries `opportunityFactor`, a 5-slot `blueprint` (Opportunity → Target → Cause → Lever → Proof, each a self-contained sentence), and a pre-registered `readout` rule (primary metric, MDE, horizon, hold-out %, ship/iterate decision rule). The draft is the complete discovery artifact — it renders without re-fetching the candidate.
+- **Real Target facts** (`server/src/advisor/cohort-resolver.ts`) — `addressableN` falls back to the segment's `uid_count`; `reachablePct` comes from the segment's CS Care coverage % when present (was a hardcoded 0.75). Applied in the `scaffold_draft` tool + `/handoff` + `/recommend` routes.
+- **Drive draft persisted** — the `scaffold_draft` agent tool now `saveDraft`s, so a finished investigation's artifact is retrievable (the SSE edge strips structured tool output); the client fetches the newest segment draft on completion.
+- **Drive completion CTA** (`drive-panel.tsx`) — segment scope + scaffolded → "Continue to Decide"; segment scope + no draft → "Draft an experiment from this" (steer turn); game scope → "Pick a segment" (`drive-segment-picker.tsx`) → re-scope the drive to that segment. The run is already saved to history.
+- **Decide renders the artifact** (`decide-drive-view.tsx`) — the agent's blueprint + the "what to look for" readout card + a split slider seeded from the draft; "Review & set up →" hands the (split-adjusted) draft to the Command Center. Manual Decide behavior unchanged.
+- **Out of scope (follow-on):** the execution rail — Run/Deliver (CS-queue actuation, freeze/launch state machine), Measure/Readout (lift vs hold-out), Learn (priors from outcomes) — remains the pending `plans/260614-0018-experiment-command-center/`.
+- **Tests** — scaffolder blueprint/readout; cohort-resolver N/reach; drive-artifact build + goal narrowing.
+
 ## 2026-06-15 — Care Precompute board: per-query telemetry + run history + "Run all"
 
 Follow-up to the Care precompute admin board. An operator could see a pass failed but not WHICH of the builder's Trino reads was slow/timed out, and could only trigger one segment at a time.

@@ -7,11 +7,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Lightbulb, Send, Square } from 'lucide-react';
+import { Lightbulb, Send, Square, ArrowRight, Target, CheckCircle2 } from 'lucide-react';
 import { STAGES } from './advisor-stage-config';
 import { Btn, CARD_STYLE, Eyebrow, PulsingRow } from './advisor-primitives';
 import { NumberBadge } from './number-badge';
 import { useDriveSession } from './use-drive-session';
+import { fetchDriveArtifact, type DriveArtifact } from './drive-artifact';
 import type { AdvisorScope, AdvisorGoal } from '../../api/advisor';
 import type { StageKey } from './advisor-types';
 
@@ -53,21 +54,61 @@ export function DrivePanel({
   scope,
   goal,
   goalText,
+  seedMessage,
   onSessionComplete,
+  onContinue,
+  onPickSegment,
 }: {
   scope: AdvisorScope;
   goal: AdvisorGoal;
   goalText: string;
+  /** Overrides the seeded message (used when a game-scope drive re-scopes to a segment). */
+  seedMessage?: string;
   /** Fired when a turn reaches a terminal state, so the caller can refresh run history. */
   onSessionComplete?: () => void;
+  /** Hand the finished investigation's artifact to Decide. */
+  onContinue?: (artifact: DriveArtifact) => void;
+  /** Game-scope only: ask for a segment to build the experiment for. */
+  onPickSegment?: (message: string) => void;
 }) {
   const { state, run, abort } = useDriveSession(scope, goal);
   const seed =
+    seedMessage?.trim() ||
     goalText.trim() ||
     `Investigate how to ${goal === 'engagement' ? 'grow engagement' : 'grow gross revenue'} here and propose one strong experiment.`;
   const [message, setMessage] = useState(seed);
   const streaming = state.status === 'streaming';
   const hasRun = state.status !== 'idle';
+
+  // Continuation state (segment scope): fetch the agent-scaffolded draft.
+  const [continuing, setContinuing] = useState(false);
+  const [continueErr, setContinueErr] = useState<string | null>(null);
+  const done = state.status === 'done' && !state.error;
+  const isSegment = scope.kind === 'segment';
+  const scaffolded = state.activity.some((a) => a.tool === 'scaffold_draft' && a.validated);
+
+  async function handleContinue() {
+    if (scope.kind !== 'segment') return;
+    setContinuing(true);
+    setContinueErr(null);
+    try {
+      const artifact = await fetchDriveArtifact({
+        segmentId: scope.segmentId,
+        gameId: scope.gameId,
+        goal,
+        sessionId: state.sessionId,
+      });
+      if (!artifact) {
+        setContinueErr('No draft was scaffolded yet — ask the advisor to draft the experiment first.');
+        return;
+      }
+      onContinue?.(artifact);
+    } catch (e) {
+      setContinueErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setContinuing(false);
+    }
+  }
 
   // Notify the parent once per turn when the stream settles (done/error) — the
   // just-finished run is now persisted and should appear in the history list.
@@ -182,6 +223,57 @@ export function DrivePanel({
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completion hand-off — converge into Decide (both postures share it). */}
+      {done && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-card)' }}>
+          {isSegment && scaffolded && (
+            <>
+              <Eyebrow>Your investigation is ready</Eyebrow>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '6px 0 10px', lineHeight: 1.5 }}>
+                Review the experiment the advisor assembled — Opportunity → Target → Cause → Lever → Proof — then set it up.
+              </p>
+              <Btn kind="primary" disabled={continuing} onClick={handleContinue}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {continuing ? 'Loading draft…' : 'Continue to Decide'} <ArrowRight size={14} />
+                </span>
+              </Btn>
+            </>
+          )}
+          {isSegment && !scaffolded && (
+            <>
+              <Eyebrow>Turn this into an experiment</Eyebrow>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '6px 0 10px', lineHeight: 1.5 }}>
+                The advisor hasn't scaffolded a draft yet. Ask it to build one from what it found.
+              </p>
+              <Btn onClick={() => run('Scaffold the experiment draft now using scaffold_draft, with the candidate you recommended.')}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Send size={14} /> Draft an experiment from this
+                </span>
+              </Btn>
+            </>
+          )}
+          {!isSegment && (
+            <>
+              <Eyebrow>Build the experiment</Eyebrow>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '6px 0 10px', lineHeight: 1.5 }}>
+                An experiment runs on a segment cohort. Pick the target segment to assemble it.
+              </p>
+              <Btn kind="primary" onClick={() => onPickSegment?.(message)}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Target size={14} /> Pick a segment to build the experiment
+                </span>
+              </Btn>
+            </>
+          )}
+          {continueErr && (
+            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--destructive-ink)' }}>{continueErr}</div>
+          )}
+          <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text-muted)' }}>
+            <CheckCircle2 size={13} color="var(--positive, var(--success-ink))" /> Saved to your investigations below.
           </div>
         </div>
       )}
