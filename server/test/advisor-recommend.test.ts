@@ -11,7 +11,8 @@ import { describe, it, expect } from 'vitest';
 import type { CubeReaderFn, CubeRow } from '../src/advisor/cube-read.js';
 import type { WorkspaceCtx } from '../src/services/cube-client.js';
 import type { DiagnosisInput } from '../src/advisor/diagnosis-types.js';
-import { recommend } from '../src/advisor/recommend.js';
+import { recommend, pickEvidenceLink } from '../src/advisor/recommend.js';
+import type { Diagnosis } from '../src/advisor/diagnosis-types.js';
 
 const STUB_CTX: WorkspaceCtx = { cubeApiUrl: 'http://stub', token: null };
 
@@ -78,5 +79,49 @@ describe('recommend()', () => {
     const scores = result.candidates.map((c) => c.score);
     const sorted = [...scores].sort((a, b) => b - a);
     expect(scores).toEqual(sorted);
+  });
+
+  it('attaches an evidence query to each candidate whose factor a lens reported', async () => {
+    const result = await recommend(
+      SEGMENT_INPUT,
+      STUB_CTX,
+      { addressableN: 2400, reachablePct: 0.78 },
+      alternatingReader(),
+    );
+    expect(result.candidates.length).toBeGreaterThan(0);
+    // At least one candidate's factor is backed by a lens, so it carries a
+    // re-runnable evidence query (measures + a source label) for its Opportunity.
+    const factorsWithLens = new Set(result.diagnosis.lenses.map((l) => l.factor));
+    for (const c of result.candidates) {
+      if (factorsWithLens.has(c.opportunityFactor)) {
+        expect(c.evidenceLink).toBeDefined();
+        expect(Array.isArray(c.evidenceLink!.measures)).toBe(true);
+        expect(typeof c.evidenceLink!.source).toBe('string');
+      }
+    }
+  });
+});
+
+describe('pickEvidenceLink()', () => {
+  const diagnosis = {
+    goalTrees: [],
+    opportunities: [{ factor: 'lifespan', gapPct: 50, gapValue: 30, confidence: 2, agreeingLenses: [4] }],
+    lenses: [
+      { id: 1, name: 'other', verdict: 'ok', factor: 'arppu', inputs: {}, method: 'm', provenance: { measures: ['a'], source: 'A' } },
+      { id: 4, name: 'decomp', verdict: 'weak', factor: 'lifespan', inputs: {}, method: 'm', provenance: { measures: ['lifespan_m'], source: 'L' } },
+      { id: 7, name: 'fallback', verdict: 'weak', factor: 'lifespan', inputs: {}, method: 'm', provenance: { measures: ['other_m'], source: 'O' } },
+    ],
+  } as unknown as Diagnosis;
+
+  it('prefers a lens the opportunity corroborates (agreeingLenses)', () => {
+    expect(pickEvidenceLink(diagnosis, 'lifespan')?.source).toBe('L');
+  });
+
+  it('falls back to any lens reporting the factor when none corroborate', () => {
+    expect(pickEvidenceLink(diagnosis, 'arppu')?.source).toBe('A');
+  });
+
+  it('returns undefined when no lens carries the factor', () => {
+    expect(pickEvidenceLink(diagnosis, 'session_freq')).toBeUndefined();
   });
 });

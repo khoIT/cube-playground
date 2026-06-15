@@ -76,7 +76,16 @@ export function makeScaffoldDraftTool(tctx: ToolContext) {
           ledger: tctx.ledger,
           provenanceId: args.provenanceId,
         });
-        const scoredDraft = { ...draft, scorecard };
+        // Stamp the tool result the headline numbers trace to, onto the
+        // trace-back receipt (segment + evidence are already set by the
+        // scaffolder). This is what the scorecard's provenance dimension checks.
+        const scoredDraft = {
+          ...draft,
+          scorecard,
+          provenance: args.provenanceId
+            ? { ...draft.provenance!, ledgerProvenanceId: args.provenanceId }
+            : draft.provenance,
+        };
         // Persist so the finished Drive investigation's artifact is retrievable
         // by the client (the SSE edge strips structured tool output).
         saveDraft(scoredDraft);

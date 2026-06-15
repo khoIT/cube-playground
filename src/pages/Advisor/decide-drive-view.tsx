@@ -7,11 +7,13 @@
  */
 
 import React, { useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import { STAGES } from './advisor-stage-config';
 import { Btn, CARD_STYLE, EYEBROW_STYLE } from './advisor-primitives';
 import type { StageKey } from './advisor-types';
 import type { DriveArtifact } from './drive-artifact';
 import { experimentGateStatus, DIMENSION_LABEL } from './experiment-gate';
+import { draftVerifyLinks } from './draft-provenance-links';
 import type { ExperimentDraft } from '../../api/advisor';
 
 /**
@@ -46,7 +48,11 @@ export function DecideDriveView({
   onBack: () => void;
   onHandoff: (draft: ExperimentDraft) => void;
 }) {
+  const history = useHistory();
   const { draft } = artifact;
+  // Per-stage "↗ verify" links back to the real artifact (segment / lens query).
+  const verify = draftVerifyLinks(draft);
+  const goVerify = (href: string) => history.push(href.startsWith('#') ? href.slice(1) : href);
   const slots: Record<StageKey, string> = {
     opportunity: draft.blueprint.opportunity,
     target: draft.blueprint.target,
@@ -109,6 +115,9 @@ export function DecideDriveView({
               <div style={{ fontSize: 13.5, marginTop: 3, color: 'var(--text-primary)' }}>
                 {slots[s.key] || <span style={{ color: 'var(--warning-ink)' }}>not specified</span>}
               </div>
+              {verify[s.key] && (
+                <VerifyLinkButton label={verify[s.key]!.label} onClick={() => goVerify(verify[s.key]!.href)} />
+              )}
             </div>
           </div>
         ))}
@@ -126,6 +135,12 @@ export function DecideDriveView({
           <Chip label="Horizon" value={`${draft.readout.horizonDays} d`} />
           <Chip label="Hold-out" value={`${draft.readout.holdoutPct}%`} />
         </div>
+        {verify.opportunity && (
+          <VerifyLinkButton
+            label={`Re-run "${draft.readout.primaryMetric}" in Playground`}
+            onClick={() => goVerify(verify.opportunity!.href)}
+          />
+        )}
       </div>
 
       {/* Split slider */}
@@ -234,6 +249,29 @@ export function DecideDriveView({
         )}
       </div>
     </div>
+  );
+}
+
+/** Inline "↗ verify" link — traces a draft step back to its real artifact. */
+function VerifyLinkButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontFamily: 'var(--font-sans)',
+        border: 'none',
+        background: 'none',
+        color: 'var(--info-ink)',
+        fontWeight: 600,
+        fontSize: 12,
+        cursor: 'pointer',
+        padding: 0,
+        marginTop: 6,
+        display: 'inline-block',
+      }}
+    >
+      ↗ {label}
+    </button>
   );
 }
 

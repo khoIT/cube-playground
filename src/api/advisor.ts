@@ -124,6 +124,8 @@ export interface ExperimentCandidate {
   score: number;
   rankReason: string;
   hypotheses?: string[];
+  /** Evidence query that diagnosed this candidate's factor weak (lens Cube query). */
+  evidenceLink?: PlaygroundLink;
 }
 
 export interface Recommendation {
@@ -187,6 +189,20 @@ export interface ExperimentScorecard {
   pass: boolean;
 }
 
+/**
+ * Trace-back receipt (mirror handoff-scaffolder.ts). Links each draft step to a
+ * real artifact for the Decide "↗ verify" affordances.
+ */
+export interface DraftProvenance {
+  segment: { segmentId: string; gameId: string };
+  /** Lens Cube query for the opportunity factor — a re-runnable Playground query. */
+  opportunityEvidence?: PlaygroundLink;
+  /** Tool result the headline numbers trace to (Drive path). */
+  ledgerProvenanceId?: string;
+  /** Linked playbook for the lever, when one exists. */
+  playbookId?: string;
+}
+
 export interface ExperimentDraft {
   draftId: string;
   segmentId: string;
@@ -212,6 +228,8 @@ export interface ExperimentDraft {
   readout: ReadoutRule;
   /** Quality scorecard; the Decide gate hard-stops on a failing critical dim. */
   scorecard?: ExperimentScorecard;
+  /** Trace-back receipt — links each step to its verifiable artifact. */
+  provenance?: DraftProvenance;
   /** Recorded justification when a manager advances past a failing gate. */
   gateOverride?: { reason: string; at: string };
 }

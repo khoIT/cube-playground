@@ -148,6 +148,13 @@ export interface ExperimentCandidate {
    * LLM proposes WORDING only; ordering and numbers come from the ranker.
    */
   hypotheses?: string[];
+  /**
+   * Lens evidence behind this candidate's factor — the originating lens's Cube
+   * query. Attached by recommend() (not the ranker) so the draft can carry a
+   * re-runnable Playground link for its Opportunity. Absent when no lens carried
+   * provenance for the factor.
+   */
+  evidenceLink?: import('./diagnosis-types.js').PlaygroundLink;
 }
 
 // ─── Ranker input bundle ──────────────────────────────────────────────────────

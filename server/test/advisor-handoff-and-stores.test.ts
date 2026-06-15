@@ -116,6 +116,27 @@ describe('scaffoldDraft', () => {
     expect(draft.safety.recentPayerGuardDays).toBeGreaterThan(0);
   });
 
+  it('grounds the trace-back receipt to the real segment', () => {
+    const draft = scaffoldDraft({ candidate: csCandidate(), segmentId: 'seg-42', gameId: 'cfm_vn', addressableN: 100, reachablePct: 0.5 });
+    expect(draft.provenance?.segment).toEqual({ segmentId: 'seg-42', gameId: 'cfm_vn' });
+  });
+
+  it('carries the candidate evidence query + playbook on the receipt when present', () => {
+    const c = csCandidate({
+      playbookId: 'pb-winback-01',
+      evidenceLink: { measures: ['mf_users.avg_total_active_days'], source: 'billing_lifetime / cfm_vn' },
+    });
+    const draft = scaffoldDraft({ candidate: c, segmentId: 'seg-1', gameId: 'cfm_vn', addressableN: 100, reachablePct: 0.5 });
+    expect(draft.provenance?.opportunityEvidence?.measures).toContain('mf_users.avg_total_active_days');
+    expect(draft.provenance?.playbookId).toBe('pb-winback-01');
+  });
+
+  it('omits evidence/playbook from the receipt when the candidate has none', () => {
+    const draft = scaffoldDraft({ candidate: csCandidate(), segmentId: 'seg-1', gameId: 'cfm_vn', addressableN: 100, reachablePct: 0.5 });
+    expect(draft.provenance?.opportunityEvidence).toBeUndefined();
+    expect(draft.provenance?.playbookId).toBeUndefined();
+  });
+
   it('is self-describing: fills all five blueprint slots from the candidate', () => {
     const draft = scaffoldDraft({ candidate: csCandidate(), segmentId: 'seg-1', gameId: 'cfm_vn', addressableN: 2400, reachablePct: 0.78 });
     expect(draft.opportunityFactor).toBe('lifespan');

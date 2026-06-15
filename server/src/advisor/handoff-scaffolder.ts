@@ -20,6 +20,7 @@
 
 import type { ExperimentCandidate } from './candidate-types.js';
 import type { ExperimentScorecard } from './agent/experiment-quality-score.js';
+import type { PlaygroundLink } from './diagnosis-types.js';
 
 /** Default treatment/hold-out window in days when the candidate has no window hint. */
 const DEFAULT_WINDOW_DAYS = 14;
@@ -88,6 +89,29 @@ export interface ReadoutRule {
 }
 
 /**
+ * Trace-back receipt — where each step of the draft can be verified. Lets the
+ * Decide screen render "↗ verify" affordances that link a slot back to a real
+ * artifact instead of trusting the blueprint sentence:
+ *   - Target          → the real Segment the cohort is drawn from.
+ *   - Opportunity      → the lens Cube query behind the factor (a re-runnable
+ *                        Playground query).
+ *   - Proof (numbers)  → the tool result the headline numbers trace to; pairs
+ *                        with the scorecard's provenance dimension, which records
+ *                        whether they validated.
+ *   - Lever            → the linked VIP-Care playbook, when one exists.
+ */
+export interface DraftProvenance {
+  /** The real segment the cohort is drawn from. */
+  segment: { segmentId: string; gameId: string };
+  /** Evidence query for the opportunity factor (absent when no lens carried one). */
+  opportunityEvidence?: PlaygroundLink;
+  /** Tool result the headline numbers trace to (Drive path; absent on manual). */
+  ledgerProvenanceId?: string;
+  /** Linked playbook for the lever, when one exists. */
+  playbookId?: string;
+}
+
+/**
  * The scaffolded draft. This is the contract handed to the command center.
  * status is always 'draft' — the Advisor cannot launch.
  */
@@ -136,6 +160,12 @@ export interface ExperimentDraft {
    * The Decide hand-off gate hard-stops on a failing CRITICAL dimension.
    */
   scorecard?: ExperimentScorecard;
+  /**
+   * Trace-back receipt — links each step to the real artifact (segment, lens
+   * query, tool result, playbook) that backs it, for the Decide "↗ verify"
+   * affordances. Optional for back-compat with pre-receipt drafts.
+   */
+  provenance?: DraftProvenance;
   /**
    * Recorded when a manager advances the experiment past a failing quality gate.
    * Carries the typed justification; persisting it for an audit trail lands with
@@ -237,5 +267,13 @@ export function scaffoldDraft(input: ScaffoldInput): ExperimentDraft {
     opportunityFactor: candidate.opportunityFactor,
     blueprint,
     readout,
+    // Deterministic trace-back receipt. The Drive path enriches this with the
+    // ledger provenanceId (the tool result the numbers came from) in its tool
+    // wrapper; segment + evidence + playbook are known here.
+    provenance: {
+      segment: { segmentId, gameId },
+      ...(candidate.evidenceLink ? { opportunityEvidence: candidate.evidenceLink } : {}),
+      ...(candidate.playbookId ? { playbookId: candidate.playbookId } : {}),
+    },
   };
 }

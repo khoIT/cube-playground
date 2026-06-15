@@ -2,6 +2,15 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Advisor: trace-back receipt — every Decide step links to a real query or segment
+
+The Decide screen rendered the experiment as five blueprint sentences + numbers, but a manager couldn't *verify* any of it — the links that prove a claim (the lens Cube query, the real segment) existed upstream at investigation time and were dropped when the draft was scaffolded. Drafts now carry a `DraftProvenance` receipt so each step deep-links back to its real artifact.
+
+- **Receipt on the draft** (`server/src/advisor/handoff-scaffolder.ts` + client mirror `src/api/advisor.ts`) — `ExperimentDraft.provenance` records: the real `segment` the cohort is drawn from (Target), the `opportunityEvidence` lens Cube query (Opportunity), a `ledgerProvenanceId` for the tool result the headline numbers trace to (Proof — pairs with the scorecard's provenance dimension), and the `playbookId` (Lever). All optional → back-compat with pre-receipt drafts.
+- **Evidence query threaded** (`server/src/advisor/recommend.ts`) — new pure `pickEvidenceLink(diagnosis, factor)` attaches each candidate's originating lens query (prefers a lens that corroborates the opportunity; falls back to any lens for the factor). The deterministic scaffolder copies segment + evidence + playbook onto the receipt; the Drive `scaffold_draft` tool adds the ledger id.
+- **"↗ verify" affordances** (`decide-drive-view.tsx` + pure `draft-provenance-links.ts`) — Target row → "Open this segment" (`#/segments/:id`); Opportunity row + readout card → "Re-run … in Playground" (`buildQueryDeeplink` from the lens query). The receipt carries only aggregate query shape (measures/dimensions/filters/source) — no member rows, no contact columns.
+- **Tests** — `pickEvidenceLink` (corroborating-lens preference, factor fallback, none → undefined), scaffolder receipt (segment grounding, evidence/playbook present vs absent), and the pure `draftVerifyLinks` helper (no-receipt → no links, segment + Playground href shapes).
+
 ## 2026-06-15 — Advisor: quality gate on the Drive → Decide hand-off
 
 "Never auto-launch" guaranteed nothing about experiment *quality* — a finished investigation's draft advanced to set-up regardless of whether it was powered, deliverable, or provenanced. The existing `scoreExperiment()` quality scorer (5 dimensions: power / feasibility / materiality / provenance / goal-fit) was only wired into the offline eval harness; it now gates the live hand-off.

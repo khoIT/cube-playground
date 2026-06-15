@@ -12,7 +12,7 @@
 
 import type { WorkspaceCtx } from '../services/cube-client.js';
 import type { CubeReaderFn } from './cube-read.js';
-import type { DiagnosisInput, Diagnosis, Opportunity } from './diagnosis-types.js';
+import type { DiagnosisInput, Diagnosis, Opportunity, PlaygroundLink } from './diagnosis-types.js';
 import type { ExperimentCandidate, RankerInput } from './candidate-types.js';
 import { diagnose } from './diagnosis-engine.js';
 import { rankCandidates } from './candidate-ranker.js';
@@ -70,6 +70,22 @@ function toRankerInputs(
 }
 
 /**
+ * The lens evidence behind a factor — the originating lens's Cube query. Prefer
+ * a lens the opportunity actually corroborates with (agreeingLenses, i.e. one
+ * that found the factor weak); fall back to any lens reporting that factor so an
+ * evidence query is still offered. This is what lets the draft's Opportunity
+ * slot deep-link to a re-runnable Playground query.
+ */
+export function pickEvidenceLink(diagnosis: Diagnosis, factor: string): PlaygroundLink | undefined {
+  const opp = diagnosis.opportunities.find((o) => o.factor === factor);
+  const agreeing = new Set(opp?.agreeingLenses ?? []);
+  const lens =
+    diagnosis.lenses.find((l) => l.factor === factor && agreeing.has(l.id)) ??
+    diagnosis.lenses.find((l) => l.factor === factor);
+  return lens?.provenance;
+}
+
+/**
  * Diagnose then rank into experiment candidates.
  *
  * @param input   Diagnosis input (scope, goal, asOf, options).
@@ -90,6 +106,12 @@ export async function recommend(
   const gameId = input.scope.gameId;
   const rankerInputs = toRankerInputs(diagnosis.opportunities, gameId, params);
   const candidates = rankCandidates(rankerInputs);
+
+  // Attach each candidate's evidence query (the lens that diagnosed its factor
+  // weak) so the scaffolded draft can deep-link its Opportunity to Playground.
+  for (const candidate of candidates) {
+    candidate.evidenceLink = pickEvidenceLink(diagnosis, candidate.opportunityFactor);
+  }
 
   // Optional additive phrasing pass on the top-N — wording only, never reorders.
   if (params.phrase && candidates.length > 0) {
