@@ -133,14 +133,14 @@ export function SidebarItem({
       {isActive && !indent && (
         <div style={{
           position: 'absolute', left: 0, top: 4, bottom: 4, width: 3,
-          background: T.brand, borderRadius: '0 2px 2px 0',
+          background: 'var(--shell-brand)', borderRadius: '0 2px 2px 0',
         }} />
       )}
 
       {primary
-        ? <Icon icon={Plus} size={14} color={T.n800} />
+        ? <Icon icon={Plus} size={14} color={'var(--shell-text-emphasis)'} />
         : icon
-          ? <Icon icon={icon} size={indent ? 12 : 16} color={iconColor ?? (isActive ? T.n950 : T.n600)} />
+          ? <Icon icon={icon} size={indent ? 12 : 16} color={iconColor ?? (isActive ? 'var(--shell-text-strong)' : 'var(--shell-text-muted)')} />
           : <span style={{ width: indent ? 12 : 16 }} />
       }
 
@@ -152,8 +152,8 @@ export function SidebarItem({
         // Child rows brighten muted → foreground on hover (text only). Active
         // and top-level rows keep their fixed weight/colour.
         color: muted
-          ? (hovered ? T.n800 : T.n500)
-          : isActive ? T.n950 : (indent && hovered ? T.n950 : T.n800),
+          ? (hovered ? 'var(--shell-text-emphasis)' : 'var(--shell-text-subtle)')
+          : isActive ? 'var(--shell-text-strong)' : (indent && hovered ? 'var(--shell-text-strong)' : 'var(--shell-text-emphasis)'),
         transition: 'color .12s',
         overflow: 'hidden',
         textOverflow: hoverTrailingActive ? 'clip' : 'ellipsis',
@@ -174,7 +174,7 @@ export function SidebarItem({
         )
       ) : trailing}
       {expandable && (
-        <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} color={T.n400} />
+        <Icon icon={expanded ? ChevronDown : ChevronRight} size={12} color={'var(--shell-text-faint)'} />
       )}
     </div>
   );
@@ -230,20 +230,20 @@ function CollapsedRow({ icon, iconColor, label, primary, isActive }: CollapsedRo
       {isActive && (
         <div style={{
           position: 'absolute', left: 0, top: 4, bottom: 4, width: 3,
-          background: T.brand, borderRadius: '0 2px 2px 0',
+          background: 'var(--shell-brand)', borderRadius: '0 2px 2px 0',
         }} />
       )}
       {primary
-        ? <Icon icon={Plus} size={16} color={T.n800} />
+        ? <Icon icon={Plus} size={16} color={'var(--shell-text-emphasis)'} />
         : icon
-          ? <Icon icon={icon} size={18} color={iconColor ?? (isActive ? T.n950 : T.n600)} />
+          ? <Icon icon={icon} size={18} color={iconColor ?? (isActive ? 'var(--shell-text-strong)' : 'var(--shell-text-muted)')} />
           : null}
       {hover && tipPos && (
         <div
           style={{
             position: 'fixed', top: tipPos.top, left: tipPos.left,
             transform: 'translateY(-50%)',
-            background: T.n900, color: '#fff',
+            background: 'var(--shell-text)', color: '#fff',
             padding: '4px 8px', borderRadius: 4,
             fontFamily: T.fSans, fontSize: 11, fontWeight: 500,
             whiteSpace: 'nowrap', pointerEvents: 'none',

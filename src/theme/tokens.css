@@ -65,6 +65,22 @@
   --surface-muted:   #fafaf6;
   --surface-subtle:  #f9fafb;
 
+  /* Shell text/border ramp — the chrome's tonal ladder (sidebar, topbar, chat
+     overlay). Cool-grey in light, blue-toned in dark — intentionally distinct
+     from the warmed content --text-*/--border-* tokens (the Actioneer two-tone
+     frame). Consumed directly by src/shell/* in place of the retired T.n* proxy. */
+  --shell-text-strong:    #0a0a0a;
+  --shell-text:           #171717;
+  --shell-text-emphasis:  #262626;
+  --shell-text-secondary: #404040;
+  --shell-text-muted:     #525252;
+  --shell-text-subtle:    #737373;
+  --shell-text-faint:     #a3a3a3;
+  --shell-border-strong:  #d4d4d4;
+  --shell-border:         #e5e5e5;
+  --shell-brand:          #f05a22;
+  --shell-brand-hover:    #f54a00;
+
   /* Status */
   --success: #059669;
   --warning: #f59e0b;
@@ -318,6 +334,19 @@
   --surface-raised:  #161c25;
   --surface-muted:   #11161d;
   --surface-subtle:  #1b232f;
+
+  /* Shell text/border ramp — dark (blue-toned chrome; see light block). */
+  --shell-text-strong:    #f8fafc;
+  --shell-text:           #f0f3f8;
+  --shell-text-emphasis:  #e2e7ee;
+  --shell-text-secondary: #cdd4df;
+  --shell-text-muted:     #b1bac8;
+  --shell-text-subtle:    #8a93a3;
+  --shell-text-faint:     #525c6b;
+  --shell-border-strong:  #2f3845;
+  --shell-border:         #232a36;
+  --shell-brand:          #f06b3a;
+  --shell-brand-hover:    #f7894e;
 
   --text-primary-rgb:   250, 250, 250;
   --text-secondary-rgb: 212, 212, 212;

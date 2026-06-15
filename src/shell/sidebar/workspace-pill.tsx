@@ -63,12 +63,12 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
       }}>
         <span style={{
           fontFamily: T.fSans, fontSize: 13, fontWeight: 600,
-          color: T.n900, lineHeight: 1.2,
+          color: 'var(--shell-text)', lineHeight: 1.2,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>Cube Playground</span>
         <span style={{
           fontFamily: T.fSans, fontSize: 10, fontWeight: 500,
-          color: T.n500, lineHeight: 1.3, letterSpacing: '0.01em',
+          color: 'var(--shell-text-subtle)', lineHeight: 1.3, letterSpacing: '0.01em',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           Self-serve data exploration

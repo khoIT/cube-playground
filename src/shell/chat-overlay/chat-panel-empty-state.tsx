@@ -43,7 +43,7 @@ export function ChatPanelEmptyState({ onSuggest }: ChatPanelEmptyStateProps) {
           fontFamily: T.fSans,
           fontWeight: 600,
           fontSize: 14,
-          color: T.n700,
+          color: 'var(--shell-text-secondary)',
           margin: 0,
           textAlign: 'center',
         }}
@@ -60,22 +60,22 @@ export function ChatPanelEmptyState({ onSuggest }: ChatPanelEmptyStateProps) {
             style={{
               padding: '8px 12px',
               borderRadius: 8,
-              border: `1px solid ${T.n200}`,
-              background: T.surface,
+              border: `1px solid var(--shell-border)`,
+              background: 'var(--surface-raised)',
               fontFamily: T.fSans,
               fontSize: 12,
-              color: T.n700,
+              color: 'var(--shell-text-secondary)',
               cursor: 'pointer',
               textAlign: 'left',
               transition: 'background 0.12s, border-color 0.12s',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = T.surfaceSubtle;
-              (e.currentTarget as HTMLButtonElement).style.borderColor = T.n300;
+              (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-subtle)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--shell-border-strong)';
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = T.surface;
-              (e.currentTarget as HTMLButtonElement).style.borderColor = T.n200;
+              (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-raised)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--shell-border)';
             }}
           >
             {text}

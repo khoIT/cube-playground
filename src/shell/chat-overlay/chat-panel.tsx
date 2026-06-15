@@ -139,10 +139,10 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
         // Lighter warm panel matching main: rounded top corners + hairline
         // top/left/right border; the 8px frame-cream gutter to its left
         // separates it from the query-builder panel.
-        background: T.panel,
-        borderTop: `1px solid ${T.n200}`,
-        borderLeft: `1px solid ${T.n200}`,
-        borderRight: `1px solid ${T.n200}`,
+        background: 'var(--surface-panel)',
+        borderTop: `1px solid var(--shell-border)`,
+        borderLeft: `1px solid var(--shell-border)`,
+        borderRight: `1px solid var(--shell-border)`,
         borderTopLeftRadius: 12,
         borderTopRightRadius: 12,
         display: 'flex',

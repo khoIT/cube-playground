@@ -41,7 +41,7 @@ export function ChatPanelHeader({
         display: 'flex',
         alignItems: 'center',
         padding: '0 8px 0 14px',
-        borderBottom: `1px solid ${T.n200}`,
+        borderBottom: `1px solid var(--shell-border)`,
         gap: 4,
       }}
     >
@@ -61,7 +61,7 @@ export function ChatPanelHeader({
           fontFamily: T.fSans,
           fontWeight: 600,
           fontSize: 13,
-          color: T.n900,
+          color: 'var(--shell-text)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -89,7 +89,7 @@ export function ChatPanelHeader({
           border: 'none',
           background: 'none',
           cursor: 'pointer',
-          color: T.n600,
+          color: 'var(--shell-text-muted)',
           flexShrink: 0,
         }}
       >
@@ -112,7 +112,7 @@ export function ChatPanelHeader({
           border: 'none',
           background: 'none',
           cursor: 'pointer',
-          color: T.n600,
+          color: 'var(--shell-text-muted)',
           flexShrink: 0,
         }}
       >

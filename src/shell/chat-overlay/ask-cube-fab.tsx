@@ -30,7 +30,7 @@ export function AskCubeFab({ onClick, panelVisible = false }: AskCubeFabProps) {
         padding: '0 10px',
         borderRadius: 999,
         border: 'none',
-        background: T.brand,
+        background: 'var(--shell-brand)',
         color: '#fff',
         fontFamily: T.fSans,
         fontWeight: 600,
@@ -42,10 +42,10 @@ export function AskCubeFab({ onClick, panelVisible = false }: AskCubeFabProps) {
         transition: 'background 120ms ease, transform 120ms ease',
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = T.brandHover;
+        (e.currentTarget as HTMLButtonElement).style.background = 'var(--shell-brand-hover)';
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = T.brand;
+        (e.currentTarget as HTMLButtonElement).style.background = 'var(--shell-brand)';
       }}
     >
       <Icon icon={MessageCircle} size={13} color="#fff" />

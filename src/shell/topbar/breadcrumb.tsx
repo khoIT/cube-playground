@@ -88,21 +88,21 @@ export function Breadcrumb() {
         const isLeaf = isLast && crumbs.length > 1;
         return (
           <React.Fragment key={`${c.label}-${i}`}>
-            {i > 0 && <Icon icon={ChevronRight} size={12} color={T.n400} />}
+            {i > 0 && <Icon icon={ChevronRight} size={12} color={'var(--shell-text-faint)'} />}
             {isLast || !c.to ? (
               <span style={{
-                color: isLeaf ? T.brand : T.n950, fontWeight: 600, maxWidth: 520,
+                color: isLeaf ? 'var(--shell-brand)' : 'var(--shell-text-strong)', fontWeight: 600, maxWidth: 520,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }} aria-current={isLast ? 'page' : undefined}>
                 {c.label}
               </span>
             ) : (
               <NavLink to={c.to} style={{
-                color: T.n600, fontWeight: 500, textDecoration: 'none', maxWidth: 240,
+                color: 'var(--shell-text-muted)', fontWeight: 500, textDecoration: 'none', maxWidth: 240,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
-              onMouseEnter={e => { (e.target as HTMLElement).style.color = T.n900; }}
-              onMouseLeave={e => { (e.target as HTMLElement).style.color = T.n600; }}>
+              onMouseEnter={e => { (e.target as HTMLElement).style.color = 'var(--shell-text)'; }}
+              onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--shell-text-muted)'; }}>
                 {c.label}
               </NavLink>
             )}

@@ -102,7 +102,7 @@ export function Sidebar() {
         width,
         flexShrink: 0,
         height: '100%',
-        background: T.sidebar,
+        background: 'var(--surface-sidebar)',
         // Edge-to-edge: the sidebar runs flush to the viewport left and against
         // main. No rounding — the seam is the 1px SidebarEdgeToggle sibling.
         borderRadius: 0,

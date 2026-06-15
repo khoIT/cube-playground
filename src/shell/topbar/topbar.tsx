@@ -38,7 +38,7 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
         // Warm + borderless so the topbar merges seamlessly with the sidebar
         // into one continuous warm "L". The inset white panel below provides
         // the only visible divider (its rounded top border).
-        background: T.sidebar,
+        background: 'var(--surface-sidebar)',
         fontFamily: T.fSans,
       }}
     >

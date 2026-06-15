@@ -136,7 +136,7 @@ export function SidebarSection({
           <Icon
             icon={ChevronDown}
             size={14}
-            color={T.n400}
+            color={'var(--shell-text-faint)'}
             style={{
               transition: 'transform .2s',
               transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',

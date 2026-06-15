@@ -82,7 +82,7 @@ export function SidebarEdgeToggle({ collapsed }: SidebarEdgeToggleProps) {
         zIndex: 20,
         // Invisible at rest so the sidebar + topbar read as one continuous warm
         // surface; a faint line + the circle appear only on hover.
-        background: hovered ? T.n200 : 'transparent',
+        background: hovered ? 'var(--shell-border)' : 'transparent',
         transition: 'background 0.12s',
       }}
     >
@@ -99,13 +99,13 @@ export function SidebarEdgeToggle({ collapsed }: SidebarEdgeToggleProps) {
           top: mouseY ?? '50%',
           transform: 'translateY(-50%)',
           borderRadius: '50%',
-          background: T.surface,
-          border: `1px solid ${T.n200}`,
+          background: 'var(--surface-raised)',
+          border: `1px solid var(--shell-border)`,
           boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: T.n700,
+          color: 'var(--shell-text-secondary)',
           opacity: hovered ? 1 : 0,
           pointerEvents: 'none',
           transition: 'opacity 0.15s ease, top 0.05s linear',
@@ -120,7 +120,7 @@ export function SidebarEdgeToggle({ collapsed }: SidebarEdgeToggleProps) {
               left: CIRCLE + 8,
               top: '50%',
               transform: 'translateY(-50%)',
-              background: T.n900,
+              background: 'var(--shell-text)',
               color: '#fff',
               padding: '4px 8px',
               borderRadius: 4,
