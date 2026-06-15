@@ -163,6 +163,7 @@ function CandidateCard({
   onShowEvidence,
 }: CandidateCardProps) {
   const [scaffolding, setScaffolding] = useState(false);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
   const [feedbackTarget, setFeedbackTarget] = useState<'dismiss' | 'pin' | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -174,6 +175,7 @@ function CandidateCard({
 
   const handleHandoff = async () => {
     setScaffolding(true);
+    setHandoffError(null);
     try {
       const draft = await handoff({
         candidate,
@@ -183,9 +185,9 @@ function CandidateCard({
       });
       onHandoff(draft);
     } catch {
-      // Fall back gracefully — surface the error inline
+      // Surface the failure inline (token-styled), not via a native alert.
       setScaffolding(false);
-      alert('Could not create draft — live Cube connection required.');
+      setHandoffError('Could not create draft — live Cube connection required.');
     }
   };
 
@@ -381,6 +383,23 @@ function CandidateCard({
             ✕
           </button>
         </div>
+
+        {handoffError && (
+          <div
+            role="alert"
+            style={{
+              marginTop: 10,
+              padding: '8px 11px',
+              background: 'var(--destructive-soft)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: 12,
+              color: 'var(--destructive-ink)',
+              lineHeight: 1.45,
+            }}
+          >
+            {handoffError}
+          </div>
+        )}
       </div>
     </>
   );
