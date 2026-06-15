@@ -85,3 +85,17 @@ The intended **semantic layer** (`--bg-card`, `--border-card`, `--text-primary`,
 4. Non-matching hex in sweep → **add a new semantic token** (never snap to nearest).
 
 **Propagation:** Phase 0 created; Phases 1–4 dependencies updated to require Phase 0; Phase 1 adds `--chart-6..8`; Phase 2/3 verification reworded to "pass Phase 0 visual gate" instead of ad-hoc manual checks; Phase 3 locks add-a-token default; Phase 4 switches CI→pre-push hook.
+
+### Session 2 — 2026-06-15 (implementation: Phases 0–2 via `/ck:cook --auto`)
+
+**Phase 0 (done, committed `7be2382`):** Extended the harness to a real route gate — `tests/visual/routes.manifest.ts` + `theme-routes.spec.ts`, 10 routes × light+dark, theme forced via `data-theme`, motion frozen, live data masked (`data-visual-volatile` on the cohort grid). 20 baselines committed; gate proven to bite (perturbed `--bg-app` → failed expected light routes). Scripts `test:visual:theme[:update]`. Documented in design-guidelines §10.
+
+**Phase 1 (done, committed `8b9c016`):** Added `--surface-{shell,sidebar,topbar,panel,raised,muted,subtle}` (exact frame values) and aliased the `--hermes-surface*/shell/sidebar/topbar/panel` to them — provable no-op (gate green). Three-tier model + migration key documented in §11.
+- **Decision-3 deviation (chart):** the plan's "promote CHART to `--chart-1..8`, no longer an allowlist exception" was **revised** on technical grounds: (a) pre-existing drift — `--chart-3` (#009688 teal) ≠ `CHART[2]` (#059669 green), distinct consumers, so unifying would regress one side → added a separate `--chart-series-1..8` family; (b) `CHART` feeds recharts `fill`/`stroke` **SVG presentation attributes** where CSS `var()` does NOT resolve, so `CHART` **stays literal hex** and **remains the one Phase-4 lint allowlist entry** (mirrors `--chart-series-*`).
+
+**Phase 2 (done, committed `b362ebf` + `c843937`):** Retired the `T.*` color proxy app-wide; `T` now exposes only fonts. Gate extended with `/chat` + `/dev/chat-audit` (session list masked) → 24/24 green light+dark; 522 unit tests pass.
+- **Scope correction:** `T.<color>` is used by **66 files app-wide** (App, shared, all Chat components, 34 DevAudit), NOT "exclusively src/shell" as the plan stated. The 20-raw-`var(--neutral-*)`-files migration (other half of Phase 2 as written) was **not** in this set and remains for a follow-up.
+- **Strategy:** the `--hermes-*` palette is genuinely distinct from the content palette in BOTH themes (intentional Actioneer two-tone). Honoring pixel-intact, added a full `--shell-*` family (neutral ramp, bg, brand, status) mirroring the exact former hermes values rather than snapping to content `--text-*/--border-*`/status tokens (the latter lack dark variants). Migration is pixel-intact **by construction** + gate-verified.
+- **Pre-existing issue noted:** DevAudit `cache-*` files have committed type errors (`TopQueryRow.dollarsSaved/queryKey/snippet`, `CacheEffectivenessResponse.byKind`) unrelated to this refactor (present at HEAD; my diffs are color-only).
+
+**Remaining:** Phase 3 (161-file inline-hex sweep — **collides with the concurrent Advisor/Segments session**, deferred per user) + the 20 raw-`--neutral-*` files; Phase 4 (lint + pre-push hook; `--hermes-*` now fully orphaned → safe to delete then). Stopped here at user's instruction ("stop before 3").
