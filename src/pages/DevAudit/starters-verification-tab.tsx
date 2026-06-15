@@ -112,7 +112,7 @@ export function StartersVerificationTab() {
                 padding: '3px 10px', borderRadius: 999, fontSize: 12, cursor: 'pointer',
                 border: `1px solid ${g === activeGame ? 'var(--shell-text)' : 'var(--shell-border-strong)'}`,
                 background: g === activeGame ? 'var(--shell-text)' : 'transparent',
-                color: g === activeGame ? '#fff' : 'var(--shell-text-secondary)',
+                color: g === activeGame ? 'var(--text-on-brand)' : 'var(--shell-text-secondary)',
               }}
             >
               {g}

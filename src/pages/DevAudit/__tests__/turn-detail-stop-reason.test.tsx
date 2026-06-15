@@ -69,44 +69,44 @@ describe('StopReasonPill', () => {
     const { container } = render(<StopReasonPill value="end_turn" />);
     const span = container.querySelector('span')!;
     expect(span.textContent).toBe('end_turn');
-    expect(span.style.background).toBe('rgb(220, 252, 231)'); // #dcfce7
+    expect(span.style.background).toBe('var(--success-soft)');
   });
 
   it('renders tool_use with amber background', () => {
     const { container } = render(<StopReasonPill value="tool_use" />);
     const span = container.querySelector('span')!;
-    expect(span.style.background).toBe('rgb(254, 243, 199)'); // #fef3c7
+    expect(span.style.background).toBe('var(--warning-soft)');
   });
 
   it('renders max_tokens with red background', () => {
     const { container } = render(<StopReasonPill value="max_tokens" />);
     const span = container.querySelector('span')!;
-    expect(span.style.background).toBe('rgb(254, 226, 226)'); // #fee2e2
+    expect(span.style.background).toBe('var(--destructive-soft)');
   });
 
   it('renders refusal with red background', () => {
     const { container } = render(<StopReasonPill value="refusal" />);
     const span = container.querySelector('span')!;
-    expect(span.style.background).toBe('rgb(254, 226, 226)');
+    expect(span.style.background).toBe('var(--destructive-soft)');
   });
 
   it('renders pause_turn with red background', () => {
     const { container } = render(<StopReasonPill value="pause_turn" />);
     const span = container.querySelector('span')!;
-    expect(span.style.background).toBe('rgb(254, 226, 226)');
+    expect(span.style.background).toBe('var(--destructive-soft)');
   });
 
   it('renders null as — with neutral background', () => {
     const { container } = render(<StopReasonPill value={null} />);
     const span = container.querySelector('span')!;
     expect(span.textContent).toBe('—');
-    expect(span.style.background).toBe('rgb(243, 244, 246)'); // #f3f4f6
+    expect(span.style.background).toBe('var(--bg-muted)');
   });
 
   it('renders unknown value with neutral background', () => {
     const { container } = render(<StopReasonPill value="stop_sequence" />);
     const span = container.querySelector('span')!;
-    expect(span.style.background).toBe('rgb(243, 244, 246)');
+    expect(span.style.background).toBe('var(--bg-muted)');
   });
 });
 

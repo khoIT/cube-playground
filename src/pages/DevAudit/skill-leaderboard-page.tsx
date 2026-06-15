@@ -54,7 +54,7 @@ const S = {
   } as React.CSSProperties,
   error: {
     padding: 16,
-    color: '#c00',
+    color: 'var(--destructive-ink)',
     fontSize: 13,
   } as React.CSSProperties,
   spinner: {

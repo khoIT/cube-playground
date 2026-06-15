@@ -15,10 +15,10 @@ import React from 'react';
 type PillVariant = 'green' | 'amber' | 'red' | 'neutral';
 
 const PILL_COLORS: Record<PillVariant, { bg: string; color: string; border: string }> = {
-  green:   { bg: '#dcfce7', color: '#166534', border: '#86efac' },
-  amber:   { bg: '#fef3c7', color: '#92400e', border: '#fcd34d' },
-  red:     { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
-  neutral: { bg: '#f3f4f6', color: '#6b7280', border: '#d1d5db' },
+  green:   { bg: 'var(--success-soft)', color: 'var(--success-ink)', border: 'var(--success-border)' },
+  amber:   { bg: 'var(--warning-soft)', color: 'var(--warning-ink)', border: 'var(--warning-border)' },
+  red:     { bg: 'var(--destructive-soft)', color: 'var(--destructive-ink)', border: 'var(--destructive-border)' },
+  neutral: { bg: 'var(--bg-muted)', color: 'var(--text-muted)', border: 'var(--border-card)' },
 };
 
 function getVariant(stopReason: string | null): PillVariant {

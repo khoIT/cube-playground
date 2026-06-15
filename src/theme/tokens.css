@@ -123,6 +123,11 @@
   --info-ink:     #1d4ed8;
   --muted-soft:   #efe3d4;
   --muted-ink:    #525252;
+  /* Status-pill mid-tone borders (the 300-level hue between soft bg and ink
+     text). Light = the literal pill borders; dark pairs sit in the dark block. */
+  --success-border:     #86efac;
+  --warning-border:     #fcd34d;
+  --destructive-border: #fca5a5;
 
   /* Radii / shadows */
   --radius-xs:   4px;
@@ -484,6 +489,10 @@
   --info-ink:     #93c5fd;
   --muted-soft:   var(--neutral-800);
   --muted-ink:    var(--neutral-300);
+  /* Status-pill borders — dark (translucent hue, mirrors the badge-border pattern). */
+  --success-border:     rgba(16, 185, 129, 0.4);
+  --warning-border:     rgba(217, 119, 6, 0.45);
+  --destructive-border: rgba(220, 38, 38, 0.4);
 
   --table-header-bg: rgba(240, 90, 34, 0.10);
 

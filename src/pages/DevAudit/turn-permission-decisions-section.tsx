@@ -19,9 +19,9 @@ const td: React.CSSProperties = {
 const decisionPill = (decision: string): React.CSSProperties => ({
   display: 'inline-block', padding: '1px 7px', borderRadius: 10,
   fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap',
-  background: decision === 'denied' ? '#fee2e2' : '#dcfce7',
-  color: decision === 'denied' ? '#991b1b' : '#166534',
-  border: `1px solid ${decision === 'denied' ? '#fca5a5' : '#86efac'}`,
+  background: decision === 'denied' ? 'var(--destructive-soft)' : 'var(--success-soft)',
+  color: decision === 'denied' ? 'var(--destructive-ink)' : 'var(--success-ink)',
+  border: `1px solid ${decision === 'denied' ? 'var(--destructive-border)' : 'var(--success-border)'}`,
 });
 
 interface PermissionDecisionsSectionProps {
