@@ -25,6 +25,8 @@ import { CommandCenter } from './command-center';
 import { Recommendations } from './recommendations';
 import { ProvenanceDrawer } from './provenance-drawer';
 import { DrivePanel } from './drive-panel';
+import { RunHistoryPanel } from './run-history-panel';
+import { RunReplay } from './run-replay';
 import { Divider, Btn } from './advisor-primitives';
 import type { AdvisorScope, ExperimentDraft } from '../../api/advisor';
 
@@ -55,6 +57,10 @@ export function AdvisorPage() {
 
   const inv = useAdvisorInvestigation();
   const [draft, setDraft] = useState<ExperimentDraft | null>(null);
+  // Run-history surface: a selected run opens a read-only replay; the reload key
+  // bumps when a live run finishes so the history list picks it up.
+  const [replaySessionId, setReplaySessionId] = useState<string | null>(null);
+  const [historyReloadKey, setHistoryReloadKey] = useState(0);
 
   const openAspect = inv.openId
     ? inv.aspects.find((a) => a.id === inv.openId) ?? null
@@ -108,7 +114,15 @@ export function AdvisorPage() {
       {inv.screen === 'goal' && <GoalScreen onSetup={inv.setup} />}
 
       {inv.screen === 'drive' && (
-        <DrivePanel scope={scope} goal={inv.goal} goalText={inv.goalText} />
+        <>
+          <DrivePanel
+            scope={scope}
+            goal={inv.goal}
+            goalText={inv.goalText}
+            onSessionComplete={() => setHistoryReloadKey((k) => k + 1)}
+          />
+          <RunHistoryPanel reloadKey={historyReloadKey} onOpen={setReplaySessionId} />
+        </>
       )}
 
       {inv.screen === 'board' && (
@@ -170,6 +184,10 @@ export function AdvisorPage() {
         onClose={() => inv.setOpenId(null)}
         onTriage={inv.handlers.onTriage}
       />
+
+      {replaySessionId && (
+        <RunReplay sessionId={replaySessionId} onClose={() => setReplaySessionId(null)} />
+      )}
     </div>
   );
 }

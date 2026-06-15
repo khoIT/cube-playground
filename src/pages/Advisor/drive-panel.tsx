@@ -6,7 +6,7 @@
  * Steering = a follow-up turn on the same session.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Lightbulb, Send, Square } from 'lucide-react';
 import { STAGES } from './advisor-stage-config';
 import { Btn, CARD_STYLE, Eyebrow, PulsingRow } from './advisor-primitives';
@@ -53,10 +53,13 @@ export function DrivePanel({
   scope,
   goal,
   goalText,
+  onSessionComplete,
 }: {
   scope: AdvisorScope;
   goal: AdvisorGoal;
   goalText: string;
+  /** Fired when a turn reaches a terminal state, so the caller can refresh run history. */
+  onSessionComplete?: () => void;
 }) {
   const { state, run, abort } = useDriveSession(scope, goal);
   const seed =
@@ -65,6 +68,19 @@ export function DrivePanel({
   const [message, setMessage] = useState(seed);
   const streaming = state.status === 'streaming';
   const hasRun = state.status !== 'idle';
+
+  // Notify the parent once per turn when the stream settles (done/error) — the
+  // just-finished run is now persisted and should appear in the history list.
+  const prevStatus = useRef(state.status);
+  useEffect(() => {
+    if (
+      prevStatus.current === 'streaming' &&
+      (state.status === 'done' || state.status === 'error')
+    ) {
+      onSessionComplete?.();
+    }
+    prevStatus.current = state.status;
+  }, [state.status, onSessionComplete]);
 
   return (
     <div style={{ ...CARD_STYLE, padding: 20, marginTop: 16 }}>
