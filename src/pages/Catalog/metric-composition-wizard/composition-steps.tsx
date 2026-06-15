@@ -212,7 +212,7 @@ function MeasurePicker({
           >
             {c.fqn}
             {c.description && (
-              <div style={{ color: '#737373', marginTop: 2, fontSize: 11 }}>
+              <div style={{ color: 'var(--text-muted)', marginTop: 2, fontSize: 11 }}>
                 {c.description}
               </div>
             )}

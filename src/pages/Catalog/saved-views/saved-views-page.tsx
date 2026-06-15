@@ -83,7 +83,7 @@ export function SavedViewsPage() {
           {views.map((v) => (
             <Item key={v.id}>
               <Link to={v.routeTo}>{v.label}</Link>
-              <span style={{ fontSize: 11, color: '#737373' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 {new Date(v.createdAt).toLocaleDateString()}
               </span>
               <Btn onClick={() => remove(v.id)}>Remove</Btn>

@@ -51,7 +51,7 @@ const Chip = styled.div<{ tone: 'up' | 'down' | 'flat' }>`
   background: ${({ tone }) =>
     tone === 'up' ? 'rgba(34, 197, 94, 0.12)' : tone === 'down' ? 'rgba(220, 38, 38, 0.10)' : 'rgba(0,0,0,0.05)'};
   color: ${({ tone }) =>
-    tone === 'up' ? '#15803d' : tone === 'down' ? '#b91c1c' : 'var(--text-muted)'};
+    tone === 'up' ? 'var(--positive)' : tone === 'down' ? 'var(--negative)' : 'var(--text-muted)'};
 `;
 
 const ChartBox = styled.div`
@@ -79,7 +79,7 @@ const Message = styled.div<{ tone?: 'muted' | 'error' }>`
   align-items: center;
   font-size: 12px;
   font-style: italic;
-  color: ${({ tone }) => (tone === 'error' ? '#b91c1c' : 'var(--text-muted)')};
+  color: ${({ tone }) => (tone === 'error' ? 'var(--negative)' : 'var(--text-muted)')};
 `;
 
 interface Props {

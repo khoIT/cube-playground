@@ -40,7 +40,7 @@ const ErrorStatus = styled.div`
   margin-top: 12px;
   border-radius: 6px;
   background: rgba(239, 68, 68, 0.1);
-  color: #b91c1c;
+  color: var(--cat-red-ink);
   font-size: 12px;
 `;
 

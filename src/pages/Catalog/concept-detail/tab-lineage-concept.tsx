@@ -91,7 +91,7 @@ export function TabLineageConcept({ concept, businessMetrics }: TabLineageConcep
         <Item>
           <div>{concept.cube}</div>
           {concept.meta?.source && (
-            <small style={{ color: '#737373' }}>{concept.meta.source}</small>
+            <small style={{ color: 'var(--text-muted)' }}>{concept.meta.source}</small>
           )}
         </Item>
       </Col>
@@ -107,7 +107,7 @@ export function TabLineageConcept({ concept, businessMetrics }: TabLineageConcep
           downstream.map((m) => (
             <LinkItem key={m.id} to={`/catalog/metric/${m.id}`}>
               <div>{m.label}</div>
-              <small style={{ color: '#737373' }}>{m.id}</small>
+              <small style={{ color: 'var(--text-muted)' }}>{m.id}</small>
             </LinkItem>
           ))
         )}

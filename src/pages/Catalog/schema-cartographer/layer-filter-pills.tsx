@@ -40,7 +40,7 @@ function pillStyle(on: boolean): React.CSSProperties {
     borderRadius: 'var(--radius-full)',
     border: on ? '1px solid var(--brand)' : '1px solid var(--border-card)',
     background: on ? 'var(--brand)' : 'var(--bg-card)',
-    color: on ? '#fff' : 'var(--text-secondary)',
+    color: on ? 'var(--text-on-brand)' : 'var(--text-secondary)',
     fontFamily: 'var(--font-sans)',
     fontSize: 12,
     fontWeight: 500,

@@ -27,8 +27,8 @@ const Btn = styled.button<{ $active?: boolean }>`
   height: 26px;
   padding: 0 10px;
   border: 1px solid var(--border-card);
-  background: ${(p) => (p.$active ? '#fff7ed' : 'transparent')};
-  color: ${(p) => (p.$active ? '#9a3412' : 'var(--text-primary)')};
+  background: ${(p) => (p.$active ? 'var(--shell-brand-soft)' : 'transparent')};
+  color: ${(p) => (p.$active ? 'var(--orange-800)' : 'var(--text-primary)')};
   font-size: 11.5px;
   font-weight: 500;
   border-radius: 4px;

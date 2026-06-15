@@ -111,7 +111,7 @@ export function MemberDetailPanel({ member, joinableCubes, visibleLayers }: Prop
             padding: '8px 14px',
             borderRadius: 8,
             background: 'var(--brand)',
-            color: '#fff',
+            color: 'var(--text-on-brand)',
             fontSize: 13,
             fontWeight: 600,
             textDecoration: 'none',

@@ -60,10 +60,10 @@ const State = styled.span<{ $state: string }>`
     return 'rgba(115,115,115,0.10)';
   }};
   color: ${(p) => {
-    if (p.$state === 'high') return '#b91c1c';
-    if (p.$state === 'low') return '#b45309';
-    if (p.$state === 'trend') return '#7e22ce';
-    return '#525252';
+    if (p.$state === 'high') return 'var(--cat-red-ink)';
+    if (p.$state === 'low') return 'var(--cat-amber-ink)';
+    if (p.$state === 'trend') return 'var(--cat-purple-ink)';
+    return 'var(--cat-grey-ink)';
   }};
 `;
 
@@ -97,7 +97,7 @@ export function NotificationsPage() {
                 <State $state={a.state}>{a.state}</State>
                 <Link to={`/catalog/metric/${metricId}`}>{m?.label ?? metricId}</Link>
                 {a.deltaPct !== undefined && (
-                  <span style={{ fontSize: 12, color: '#737373' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {a.deltaPct >= 0 ? '+' : ''}{a.deltaPct.toFixed(1)}%
                     {a.period ? ` · ${a.period}` : ''}
                   </span>
