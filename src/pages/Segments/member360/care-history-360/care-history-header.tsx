@@ -106,7 +106,7 @@ export function CareHistoryHeader({ payload, view, onViewChange }: Props): React
                   cursor: 'pointer',
                   fontFamily: 'var(--font-sans)',
                   background: view === v ? 'var(--brand)' : 'transparent',
-                  color: view === v ? '#fff' : 'var(--text-secondary)',
+                  color: view === v ? 'var(--text-on-brand)' : 'var(--text-secondary)',
                 }}
               >
                 {v === 'inbox'

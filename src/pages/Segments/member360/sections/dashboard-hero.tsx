@@ -21,7 +21,7 @@ const chipStyle: React.CSSProperties = {
   gap: 5,
   fontSize: 12,
   fontWeight: 600,
-  color: '#fff',
+  color: 'var(--text-on-brand)',
   background: 'rgba(255,255,255,0.18)',
   padding: '3px 10px',
   borderRadius: 999,
@@ -81,7 +81,7 @@ export function DashboardHero({ uid, sections, row }: Props): ReactElement {
           style={{
             fontSize: 22,
             fontWeight: 700,
-            color: '#fff',
+            color: 'var(--text-on-brand)',
             fontFamily: 'var(--font-mono)',
             wordBreak: 'break-all',
             marginBottom: 8,
@@ -115,7 +115,7 @@ export function DashboardHero({ uid, sections, row }: Props): ReactElement {
               {p.label}
             </div>
             <div
-              style={{ fontSize: 17, fontWeight: 700, color: '#fff', cursor: row && formatCellExact(row[qualify(p.field)], p.format) ? 'help' : undefined }}
+              style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-on-brand)', cursor: row && formatCellExact(row[qualify(p.field)], p.format) ? 'help' : undefined }}
               title={row ? formatCellExact(row[qualify(p.field)], p.format) ?? undefined : undefined}
             >
               {row ? formatCell(row[qualify(p.field)], p.format) : '—'}

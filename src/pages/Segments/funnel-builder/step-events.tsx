@@ -177,9 +177,9 @@ export function StepEvents({ cubeName, events, onChange, onApplyTemplate }: Prop
               type="button"
               onClick={() => applyTemplate(tmpl)}
               style={{
-                background: 'var(--brand-soft, #eef2ff)',
-                color: 'var(--brand, #6366f1)',
-                border: '1px solid var(--brand, #6366f1)',
+                background: 'var(--brand-soft)',
+                color: 'var(--brand)',
+                border: '1px solid var(--brand)',
                 borderRadius: 6,
                 padding: '6px 12px',
                 fontSize: 12,

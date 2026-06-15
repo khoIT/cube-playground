@@ -56,7 +56,7 @@ function Bubble({ m, auto, sender }: { m: CsTicketMessage; auto: boolean; sender
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           background: mine ? 'var(--brand)' : auto ? 'transparent' : 'var(--neutral-100)',
-          color: mine ? '#fff' : auto ? 'var(--text-secondary)' : 'var(--text-primary)',
+          color: mine ? 'var(--text-on-brand)' : auto ? 'var(--text-secondary)' : 'var(--text-primary)',
           border: auto ? '1px dashed var(--border-card)' : 'none',
           borderBottomRightRadius: mine ? 4 : 14,
           borderBottomLeftRadius: mine ? 14 : 4,

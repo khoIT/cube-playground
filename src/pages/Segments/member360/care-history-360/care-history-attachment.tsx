@@ -41,7 +41,7 @@ function chipStyle(mine: boolean): React.CSSProperties {
     maxWidth: '100%',
     fontSize: 10,
     background: mine ? 'rgba(255,255,255,0.2)' : 'var(--bg-muted)',
-    color: mine ? '#fff' : 'var(--text-secondary)',
+    color: mine ? 'var(--text-on-brand)' : 'var(--text-secondary)',
     borderRadius: 'var(--radius-sm)',
     padding: '2px 7px',
     textDecoration: 'none',

@@ -134,7 +134,7 @@ export function CardShell({
           {loading ? (
             <CardSkeleton shape={skeletonShape} />
           ) : error ? (
-            <div style={{ fontSize: 12, color: 'var(--text-danger, #c0392b)' }}>{error.message}</div>
+            <div style={{ fontSize: 12, color: 'var(--danger)' }}>{error.message}</div>
           ) : (
             children
           )}

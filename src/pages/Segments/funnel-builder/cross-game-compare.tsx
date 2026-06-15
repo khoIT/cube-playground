@@ -81,7 +81,7 @@ export function CrossGameCompare({
   const others = candidateGames.filter((g) => g.id !== baseGameId);
 
   return (
-    <div style={{ marginTop: 16, padding: '12px 14px', border: '1px solid var(--border-card, #e5e7eb)', borderRadius: 8 }}>
+    <div style={{ marginTop: 16, padding: '12px 14px', border: '1px solid var(--border-card)', borderRadius: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         <span style={{ fontSize: 13, fontWeight: 600 }}>Compare with</span>
         <select
@@ -96,7 +96,7 @@ export function CrossGameCompare({
         </select>
         {warming && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Warming cache…</span>}
         {loading && !warming && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Loading…</span>}
-        {error && <span style={{ fontSize: 11, color: 'var(--danger,#dc2626)' }}>{error}</span>}
+        {error && <span style={{ fontSize: 11, color: 'var(--danger)' }}>{error}</span>}
       </div>
 
       {other && (
@@ -125,7 +125,7 @@ export function CrossGameCompare({
                   </td>
                   <td style={{
                     padding: '4px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums',
-                    color: delta > 0 ? 'var(--positive,#15803d)' : delta < 0 ? 'var(--negative,#b91c1c)' : 'var(--text-muted)',
+                    color: delta > 0 ? 'var(--positive)' : delta < 0 ? 'var(--negative)' : 'var(--text-muted)',
                   }}>
                     {delta === 0 ? '0%' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
                   </td>

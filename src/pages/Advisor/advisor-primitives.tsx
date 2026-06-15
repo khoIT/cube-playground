@@ -62,7 +62,7 @@ export function Btn({ children, kind = 'ghost', onClick, sm, disabled, title, ty
     lineHeight: 1.4,
   };
   const variants: Record<string, React.CSSProperties> = {
-    primary: { background: 'var(--brand)', color: '#fff', borderColor: 'var(--brand)' },
+    primary: { background: 'var(--brand)', color: 'var(--text-on-brand)', borderColor: 'var(--brand)' },
     ghost: {
       background: 'var(--bg-card)',
       color: 'var(--text-secondary)',
@@ -193,7 +193,7 @@ export function MiniBars({ a, b, labelA, labelB, unit, max }: MiniBarsProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
       <MiniBar label={labelA} value={a} max={max} color="var(--brand)" unit={unit} />
-      <MiniBar label={labelB} value={b} max={max} color="var(--neutral-400, #a3a3a3)" unit={unit} />
+      <MiniBar label={labelB} value={b} max={max} color="var(--neutral-400)" unit={unit} />
     </div>
   );
 }

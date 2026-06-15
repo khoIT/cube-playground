@@ -320,7 +320,7 @@ function TreatmentForm({ caseId, onDone, availableChannels }: TreatmentFormProps
           disabled={saving}
           style={{
             background: saving ? 'var(--bg-muted)' : 'var(--brand)',
-            color: saving ? 'var(--text-muted)' : '#fff',
+            color: saving ? 'var(--text-muted)' : 'var(--text-on-brand)',
             border: 'none',
             borderRadius: 'var(--radius-md)',
             padding: '6px 16px',

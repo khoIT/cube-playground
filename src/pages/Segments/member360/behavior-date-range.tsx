@@ -46,7 +46,7 @@ export function BehaviorDateRange({ activeId, onChange }: Props): ReactElement {
                 fontSize: 12,
                 cursor: 'pointer',
                 background: active ? 'var(--brand)' : 'transparent',
-                color: active ? '#fff' : 'var(--text-secondary)',
+                color: active ? 'var(--text-on-brand)' : 'var(--text-secondary)',
               }}
             >
               {p.label}

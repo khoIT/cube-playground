@@ -111,7 +111,7 @@ export function DetailsTabs({ gameId, uid, cachedSource, showCareTab = false }: 
                 fontWeight: 600,
                 cursor: 'pointer',
                 background: isActive ? 'var(--brand)' : 'var(--bg-muted)',
-                color: isActive ? '#fff' : 'var(--text-secondary)',
+                color: isActive ? 'var(--text-on-brand)' : 'var(--text-secondary)',
               }}
             >
               {t(`segments.member360.tab.${tab.id}`, { defaultValue: tab.label })}

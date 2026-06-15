@@ -49,8 +49,8 @@ export function PredicateGroup(props: Props): ReactElement {
           onClick={() => toggleConj(path)}
           style={{
             border: 0,
-            background: node.op === 'AND' ? 'var(--brand)' : 'var(--accent, #f59e0b)',
-            color: '#fff',
+            background: node.op === 'AND' ? 'var(--brand)' : 'var(--warning)',
+            color: 'var(--text-on-brand)',
             padding: '2px 12px',
             borderRadius: 999,
             fontWeight: 600,

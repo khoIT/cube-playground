@@ -75,7 +75,7 @@ export function StepNav({
                     : filled
                       ? 'var(--success)'
                       : 'var(--bg-muted)',
-                  color: isCurrent || filled ? '#fff' : 'var(--text-muted)',
+                  color: isCurrent || filled ? 'var(--text-on-brand)' : 'var(--text-muted)',
                   flexShrink: 0,
                 }}
               >
@@ -144,7 +144,7 @@ export function StepNav({
             fontSize: 12,
             fontWeight: 700,
             background: decideReady ? 'var(--brand)' : 'var(--bg-muted)',
-            color: decideReady ? '#fff' : 'var(--text-muted)',
+            color: decideReady ? 'var(--text-on-brand)' : 'var(--text-muted)',
             flexShrink: 0,
           }}
         >

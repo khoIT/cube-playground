@@ -314,7 +314,7 @@ export function CommandCenter({
                       : i === lifecycleIdx
                         ? 'var(--brand)'
                         : 'var(--bg-muted)',
-                  color: i <= lifecycleIdx ? '#fff' : 'var(--text-muted)',
+                  color: i <= lifecycleIdx ? 'var(--text-on-brand)' : 'var(--text-muted)',
                   flexShrink: 0,
                 }}
               >

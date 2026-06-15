@@ -52,13 +52,13 @@ const Row = styled.button<{ $danger?: boolean }>`
   text-align: left;
   cursor: pointer;
   font-size: 13px;
-  color: ${(p) => (p.$danger ? 'var(--danger, #d4380d)' : 'var(--text-primary)')};
+  color: ${(p) => (p.$danger ? 'var(--danger)' : 'var(--text-primary)')};
   transition: background 100ms ease;
 
   &:hover,
   &:focus-visible {
     outline: none;
-    background: ${(p) => (p.$danger ? 'var(--danger-soft, #fff1f0)' : 'var(--bg-muted)')};
+    background: ${(p) => (p.$danger ? 'var(--destructive-soft)' : 'var(--bg-muted)')};
   }
 `;
 

@@ -38,7 +38,7 @@ function deltaLine(current: number | null, saved: number | null | undefined): {
 
 const TONE_COLOR: Record<'positive' | 'negative' | 'neutral', string> = {
   positive: 'var(--success)',
-  negative: 'var(--danger, #c0392b)',
+  negative: 'var(--danger)',
   neutral: 'var(--text-muted)',
 };
 
@@ -72,7 +72,7 @@ export function ResolvedCohortCard({
           {delta.text}
         </span>
       )}
-      {error && <span style={{ fontSize: 11, color: 'var(--text-danger, #c0392b)' }}>{error}</span>}
+      {error && <span style={{ fontSize: 11, color: 'var(--danger)' }}>{error}</span>}
       {(ringBuffer.length > 1 || (savedTrend && savedTrend.length > 1)) && (
         <div style={{ marginTop: 6 }}>
           <DualSparkline saved={savedTrend ?? []} projected={ringBuffer} />
