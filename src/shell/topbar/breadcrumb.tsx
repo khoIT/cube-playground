@@ -31,6 +31,9 @@ const STATIC: Array<{ prefix: string; label: string; to: string }> = [
   { prefix: '/catalog/glossary',      label: 'Glossary',          to: '/catalog/glossary' },
   { prefix: '/segments/identity-map', label: 'Identity Map',      to: '/segments/identity-map' },
   { prefix: '/segments',              label: 'Segments',          to: '/segments' },
+  { prefix: '/dashboards/cs',         label: 'CS · VIP Care',     to: '/dashboards/cs' },
+  { prefix: '/dashboards',            label: 'Dashboards',        to: '/dashboards' },
+  { prefix: '/ops',                   label: 'Ops Console',       to: '/ops' },
   { prefix: '/chat',                  label: 'Chat',              to: '/chat' },
   { prefix: '/catalog',               label: 'Catalog',           to: '/catalog/data-model' },
 ];

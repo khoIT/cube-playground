@@ -38,7 +38,7 @@ function TrendPlaceholder({ title, empty, message }: { title: string; empty?: bo
         textAlign: 'center',
         padding: '0 16px',
         background: 'var(--bg-card)',
-        border: '1px solid var(--border-card)',
+        border: '1px solid var(--border-strong)',
         borderRadius: 12,
         color: 'var(--text-muted)',
         fontFamily: 'var(--font-sans)',

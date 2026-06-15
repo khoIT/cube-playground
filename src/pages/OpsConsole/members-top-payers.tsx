@@ -61,7 +61,7 @@ export function MembersTopPayers({ gameId, onOpen, limit = 50 }: MembersTopPayer
 
   const card: React.CSSProperties = {
     background: 'var(--bg-card)',
-    border: '1px solid var(--border-card)',
+    border: '1px solid var(--border-strong)',
     borderRadius: 'var(--radius-xl)',
     boxShadow: 'var(--shadow-sm)',
     overflow: 'hidden',

@@ -44,7 +44,7 @@ export function OpsStatCard({
     <div
       style={{
         background: 'var(--bg-card)',
-        border: '1px solid var(--border-card)',
+        border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-xl)',
         padding: '14px 16px',
         boxShadow: 'var(--shadow-sm)',

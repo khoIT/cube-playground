@@ -23,7 +23,7 @@ function Panel({ title, note, children }: { title: string; note?: string; childr
     <div
       style={{
         background: 'var(--bg-card)',
-        border: '1px solid var(--border-card)',
+        border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-xl)',
         boxShadow: 'var(--shadow-sm)',
         padding: 16,
