@@ -119,18 +119,45 @@ function cooldownMs(): number {
   return config.anthropicKeyRetryCooldownMs ?? DEFAULT_RETRY_COOLDOWN_MS;
 }
 
-/** Number of mode-permitted keys — the upper bound on per-turn retry attempts. */
-export function anthropicKeyCount(): number {
-  return getEffectiveSlots().length;
+/** True when the gateway key is provisioned to serve this model. Models outside
+ *  the grant 403 on every gateway key, so they must run on the OAuth lane. */
+function gatewayCanServe(model: string): boolean {
+  const list = config.gatewayServableModels;
+  // Unconfigured (real config always sets it; only a partial test mock omits
+  // it) → don't reroute: preserve the gateway-first ladder. An explicit empty
+  // list means "gateway serves nothing" and is honoured.
+  if (!Array.isArray(list)) return true;
+  return list.includes(model);
 }
 
 /**
- * The key the next LLM call should use: the highest-priority mode-permitted
- * key whose exhausted mark is absent or has cooled down. All exhausted → the
- * least-recently-failed one (a key must always be returned).
+ * Slots eligible to serve `model`, narrowing the mode-permitted set when the
+ * model can't run on the gateway. A gateway-unservable model (e.g. opus, while
+ * the gateway key is sonnet-only) is restricted to OAuth slots so we never hand
+ * a caller a key that's guaranteed to 403. When no OAuth slot exists (e.g. forced
+ * 'gateway' mode, or no subscription token configured) the mode-permitted set is
+ * returned unchanged — the request will 403 loudly rather than silently downgrade.
  */
-export function getActiveAnthropicKey(): ActiveAnthropicKey {
-  const all = getEffectiveSlots();
+function eligibleSlots(model?: string): KeySlot[] {
+  const base = getEffectiveSlots();
+  if (!model || gatewayCanServe(model)) return base;
+  const oauth = base.filter((s) => s.authKind === 'oauth-token');
+  return oauth.length > 0 ? oauth : base;
+}
+
+/** Number of eligible keys for `model` — the upper bound on per-turn retry attempts. */
+export function anthropicKeyCount(model?: string): number {
+  return eligibleSlots(model).length;
+}
+
+/**
+ * The key the next LLM call should use: the highest-priority eligible key whose
+ * exhausted mark is absent or has cooled down. All exhausted → the
+ * least-recently-failed one (a key must always be returned). Pass the turn's
+ * model so a gateway-unservable model is routed to the OAuth lane.
+ */
+export function getActiveAnthropicKey(model?: string): ActiveAnthropicKey {
+  const all = eligibleSlots(model);
   if (all.length === 0) {
     // config.ts requires ANTHROPIC_API_KEY, so this only fires under broken
     // test mocks — fail loud rather than sending an empty key to the gateway.
@@ -174,11 +201,12 @@ export interface KeyRotationResult {
  * available. Keyed by the actual key string (not label) so a stale caller that
  * raced a rotation can't knock out the freshly promoted key.
  */
-export function reportKeyBalanceExhausted(usedKey: string): KeyRotationResult {
+export function reportKeyBalanceExhausted(usedKey: string, model?: string): KeyRotationResult {
   // Mark against the FULL slot list (an out-of-mode key can still be reported
   // by a racing caller after a mode flip), but compute "a healthy key remains"
-  // within the mode-permitted slots only — rotation must not point callers at
-  // a lane the admin has switched off.
+  // within the slots eligible for this model only — rotation must not point
+  // callers at a lane the admin switched off, nor at a gateway key that can't
+  // serve the model.
   const slot = getSlots().find((s) => s.key === usedKey);
   if (!slot) return { rotated: false };
   slot.exhaustedAt = Date.now();
@@ -187,7 +215,7 @@ export function reportKeyBalanceExhausted(usedKey: string): KeyRotationResult {
   // failed one, but retrying it immediately is futile; report no rotation so
   // callers surface the error instead of burning attempts.
   const now = Date.now();
-  const healthy = getEffectiveSlots().find(
+  const healthy = eligibleSlots(model).find(
     (s) => s.exhaustedAt === undefined || now - s.exhaustedAt > cooldownMs(),
   );
   if (!healthy || healthy.key === usedKey) return { rotated: false };

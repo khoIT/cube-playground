@@ -162,6 +162,15 @@ export interface Config {
    */
   allowedModels: string[];
   /**
+   * Models the LLM gateway key is provisioned to serve. The gateway (LiteLLM)
+   * key is locked to a server-side model allow-list; requesting anything else
+   * returns a 403 `key_model_access_denied` — which is NOT a balance error, so
+   * it never triggers key failover. Any model outside this set is routed to the
+   * subscription OAuth lane instead (it talks direct to api.anthropic.com).
+   * Keep in sync with the gateway key's actual grant.
+   */
+  gatewayServableModels: string[];
+  /**
    * Active SDK query-options preset. `'standard'` matches behaviour shipped
    * before phase 00; `'research-safe'` is a placeholder for phase 06. Closed
    * enum — unknown values throw at boot via buildQueryOptions().
@@ -307,8 +316,12 @@ export const config: Config = {
   anthropicPromptCacheEnabled: optional('ANTHROPIC_PROMPT_CACHE_ENABLED', 'true') === 'true',
   allowedModels: optional(
     'ALLOWED_MODELS',
-    'claude-sonnet-4-6,claude-haiku-4-5,claude-opus-4-6,claude-opus-4-7',
+    'claude-sonnet-4-6,claude-haiku-4-5,claude-opus-4-6,claude-opus-4-7,claude-opus-4-8',
   )
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+  gatewayServableModels: optional('GATEWAY_SERVABLE_MODELS', 'claude-sonnet-4-6')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),

@@ -451,6 +451,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         systemPrompt,
         allowedToolNames,
         message: body.message,
+        model: resolvedModel,
         tools,
         toolContext,
         observer,

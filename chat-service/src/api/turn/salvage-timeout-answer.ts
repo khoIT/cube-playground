@@ -95,7 +95,8 @@ function defaultDeps(model: string): SalvageDeps {
   return {
     callLlm: async (prompt) => {
       const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
-      const activeKey = getActiveAnthropicKey();
+      // Salvage runs on the turn's model — route to the lane that can serve it.
+      const activeKey = getActiveAnthropicKey(model);
       let result = '';
       for await (const msg of sdkQuery({
         prompt,
@@ -117,7 +118,7 @@ function defaultDeps(model: string): SalvageDeps {
         if (m.type === 'result') {
           if (m.subtype && m.subtype !== 'success') {
             if (isBalanceExhaustedError(m.result ?? '')) {
-              reportKeyBalanceExhausted(activeKey.key);
+              reportKeyBalanceExhausted(activeKey.key, model);
             }
             return ''; // empty → caller falls back to the deterministic notice
           }

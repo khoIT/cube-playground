@@ -12,6 +12,7 @@ export const CHAT_MODELS = [
   'claude-haiku-4-5',
   'claude-opus-4-6',
   'claude-opus-4-7',
+  'claude-opus-4-8',
 ] as const;
 
 interface ChatServiceModelSelectProps {
@@ -72,7 +73,8 @@ export function ChatServiceModelSelect({ value, onChange }: ChatServiceModelSele
       </Select>
       <Hint>
         Overrides the server default for every /turn request. Changes apply from the next
-        message you send.
+        message you send. Non-Sonnet models (Opus, Haiku) run on the subscription lane —
+        the gateway key serves Sonnet only.
       </Hint>
     </Wrapper>
   );

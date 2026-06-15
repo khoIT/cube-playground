@@ -140,6 +140,13 @@ export interface RunParams {
   /** Tool names permitted for this turn (from skill frontmatter). Empty = allow all. */
   allowedToolNames: string[];
   message: string;
+  /**
+   * Model id for this turn (resolved from the X-Model header against the
+   * allowlist; defaults to config.chatModel). Threaded to the SDK AND to key
+   * selection: a gateway-unservable model (e.g. opus, while the gateway key is
+   * sonnet-only) is routed to the OAuth lane by getActiveAnthropicKey(model).
+   */
+  model?: string;
   tools: ToolDefinition[];
   toolContext: ToolContext;
   /**
@@ -190,6 +197,8 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   await ensureClaudeHome();
 
   const { sessionId, turnId, systemPrompt, allowedToolNames, message, tools, toolContext, observer, tracer, resumeId, signal, webSearchEnabled } = params;
+  // Per-turn model; drives both the SDK call and the auth-lane routing below.
+  const turnModel = params.model ?? config.chatModel;
 
   // Filter tools to only those permitted by the active skill's frontmatter.
   // An empty allowedToolNames list means no restriction (pass-through all tools).
@@ -256,14 +265,14 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   // and transparently re-run the turn — but only while nothing user-visible
   // has been yielded yet (a mid-stream retry would duplicate output).
   let meaningfulYielded = false;
-  const maxAttempts = Math.max(1, anthropicKeyCount());
+  const maxAttempts = Math.max(1, anthropicKeyCount(turnModel));
 
   attempts: for (let attempt = 1; attempt <= maxAttempts; attempt++) {
   // Already aborted (timeout/cancel landed between events): don't start —
   // or announce — another attempt.
   if (signal?.aborted) break;
 
-  const activeKey = getActiveAnthropicKey();
+  const activeKey = getActiveAnthropicKey(turnModel);
 
   // Server-internal: announce which auth lane this attempt runs on so the
   // turn handler can persist chat_turns.llm_auth_label. On a key-failover
@@ -277,7 +286,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
   const options = buildQueryOptions(
     config.chatQueryPreset ?? 'standard',
     {
-      model: config.chatModel,
+      model: turnModel,
       systemPrompt: finalSystemPrompt,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mcpServers: { 'cube-playground-tools': mcpServer as any },
@@ -365,7 +374,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
       if (msg.type === 'result') {
         // Always mark the key drained — even when a same-turn retry isn't
         // possible, the NEXT turn must start on a fallback key.
-        const rotation = reportKeyBalanceExhausted(activeKey.key);
+        const rotation = reportKeyBalanceExhausted(activeKey.key, turnModel);
         if (rotation.rotated && !meaningfulYielded && attempt < maxAttempts) {
           console.warn(
             `[claude-runner] turn ${turnId}: '${activeKey.label}' key exhausted — retrying with '${rotation.nextLabel}' (attempt ${attempt + 1}/${maxAttempts})`,
@@ -403,7 +412,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     if (observer && msg.type === 'assistant') {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        lastBoundary = emitLlmCall(observer, turnId, stepIndex++, config.chatModel, lastBoundary, msg as any, pendingTools);
+        lastBoundary = emitLlmCall(observer, turnId, stepIndex++, turnModel, lastBoundary, msg as any, pendingTools);
       } catch (err) { console.warn('[observer] onLlmCall threw:', err); }
     }
 
@@ -443,7 +452,7 @@ export async function* run(params: RunParams): AsyncIterable<SseEvent> {
     // retry this turn only before anything user-visible streamed and while
     // another key remains.
     if (isBalanceExhaustedError(full)) {
-      const rotation = reportKeyBalanceExhausted(activeKey.key);
+      const rotation = reportKeyBalanceExhausted(activeKey.key, turnModel);
       if (rotation.rotated && !meaningfulYielded && attempt < maxAttempts) {
         console.warn(
           `[claude-runner] turn ${turnId}: '${activeKey.label}' key exhausted (thrown) — retrying with '${rotation.nextLabel}' (attempt ${attempt + 1}/${maxAttempts})`,

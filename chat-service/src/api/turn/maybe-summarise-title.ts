@@ -56,7 +56,9 @@ export function maybeSummariseTitle(args: Args): void {
           // exhausted so the next caller rotates — no retry here, the title
           // pass is fire-and-forget.
           const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
-          const activeKey = getActiveAnthropicKey();
+          // titleModel is haiku — gateway-unservable on a sonnet-only key, so
+          // pass it to route this call to the OAuth lane.
+          const activeKey = getActiveAnthropicKey(config.titleModel);
           let result = '';
           for await (const msg of sdkQuery({
             prompt,
@@ -78,7 +80,7 @@ export function maybeSummariseTitle(args: Args): void {
             const m = msg as any;
             if (m.type === 'result') {
               if (m.subtype && m.subtype !== 'success' && isBalanceExhaustedError(m.result ?? '')) {
-                reportKeyBalanceExhausted(activeKey.key);
+                reportKeyBalanceExhausted(activeKey.key, config.titleModel);
                 return ''; // empty title → caller skips the update
               }
               result = m.result ?? '';

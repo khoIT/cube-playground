@@ -40,7 +40,7 @@ interface BriefBody {
 /** One-shot, tool-less SDK completion on the failover-aware active key. */
 async function defaultCallLlm(prompt: string): Promise<string> {
   const { query: sdkQuery } = await import('@anthropic-ai/claude-agent-sdk');
-  const activeKey = getActiveAnthropicKey();
+  const activeKey = getActiveAnthropicKey(config.briefModel);
   let result = '';
   for await (const msg of sdkQuery({
     prompt,
@@ -61,7 +61,7 @@ async function defaultCallLlm(prompt: string): Promise<string> {
     const m = msg as any;
     if (m.type === 'result') {
       if (m.subtype && m.subtype !== 'success' && isBalanceExhaustedError(m.result ?? '')) {
-        reportKeyBalanceExhausted(activeKey.key);
+        reportKeyBalanceExhausted(activeKey.key, config.briefModel);
         throw new Error('llm_balance_exhausted');
       }
       result = m.result ?? '';

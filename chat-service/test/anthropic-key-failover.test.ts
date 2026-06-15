@@ -15,6 +15,7 @@ vi.mock('../src/config.js', () => ({
     anthropicSubscriptionOauthToken: 'sk-ant-oat-subscription',
     anthropicKeyRetryCooldownMs: 600_000,
     anthropicBaseUrl: 'https://gateway.example.test',
+    gatewayServableModels: ['claude-sonnet-4-6'],
   },
   isLangfuseEnabled: () => false,
 }));
@@ -134,6 +135,44 @@ describe('key rotation', () => {
     });
     expect(JSON.stringify(s)).not.toContain('key-');
     expect(JSON.stringify(s)).not.toContain('sk-ant-oat');
+  });
+});
+
+describe('model-aware lane routing', () => {
+  beforeEach(() => {
+    __resetKeyFailoverForTests();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    __resetKeyFailoverForTests();
+  });
+
+  it('a gateway-servable model (sonnet) uses the gateway-first ladder', () => {
+    expect(anthropicKeyCount('claude-sonnet-4-6')).toBe(4);
+    expect(getActiveAnthropicKey('claude-sonnet-4-6').label).toBe('primary');
+  });
+
+  it('a gateway-unservable model (opus) routes straight to the OAuth lane', () => {
+    // Gateway key is sonnet-only, so opus must skip all gateway slots and run
+    // on the subscription OAuth token — no wasted 403s, no failover needed.
+    expect(anthropicKeyCount('claude-opus-4-8')).toBe(1);
+    expect(getActiveAnthropicKey('claude-opus-4-8')).toEqual({
+      key: 'sk-ant-oat-subscription',
+      label: 'subscription',
+      authKind: 'oauth-token',
+    });
+  });
+
+  it('no model arg preserves the legacy gateway-first behaviour', () => {
+    expect(getActiveAnthropicKey().label).toBe('primary');
+  });
+
+  it('exhausting the OAuth lane for an opus turn reports no rotation (no gateway fallback)', () => {
+    // The subscription slot draining must NOT point an opus turn back at a
+    // gateway key that can only 403 it.
+    const r = reportKeyBalanceExhausted('sk-ant-oat-subscription', 'claude-opus-4-8');
+    expect(r.rotated).toBe(false);
   });
 });
 
