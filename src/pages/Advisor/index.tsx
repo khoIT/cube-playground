@@ -25,6 +25,8 @@ import { DecideDriveView } from './decide-drive-view';
 import { CommandCenter } from './command-center';
 import { Recommendations } from './recommendations';
 import { ProvenanceDrawer } from './provenance-drawer';
+import { ExperimentGatePrompt } from './experiment-gate-prompt';
+import { experimentGateStatus } from './experiment-gate';
 import { DrivePanel } from './drive-panel';
 import { DriveSegmentPicker } from './drive-segment-picker';
 import { RunHistoryPanel } from './run-history-panel';
@@ -73,6 +75,10 @@ export function AdvisorPage() {
   // bumps when a live run finishes so the history list picks it up.
   const [replaySessionId, setReplaySessionId] = useState<string | null>(null);
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
+  // A draft blocked by the quality gate, awaiting a typed override before it can
+  // advance to the Command Center (manual Explore path; the Drive view collects
+  // its own override inline).
+  const [gateDraft, setGateDraft] = useState<ExperimentDraft | null>(null);
 
   // Boot straight into Drive when re-scoped here from a game-scope segment pick.
   const driveBoot = location.state?.driveBoot === true;
@@ -86,9 +92,22 @@ export function AdvisorPage() {
     ? inv.aspects.find((a) => a.id === inv.openId) ?? null
     : null;
 
-  function handleHandoff(d: ExperimentDraft) {
+  function proceedToCommand(d: ExperimentDraft) {
+    setGateDraft(null);
     setDraft(d);
     inv.setScreen('command');
+  }
+
+  // Single choke point into the Command Center for BOTH postures. Hard-stop a
+  // draft that fails a critical quality dimension unless it carries a reasoned
+  // override (the Drive view stamps one inline; the manual path collects one via
+  // the gate prompt). This guarantees the gate can't be bypassed by entry path.
+  function handleHandoff(d: ExperimentDraft) {
+    if (experimentGateStatus(d.scorecard).blocked && !d.gateOverride) {
+      setGateDraft(d);
+      return;
+    }
+    proceedToCommand(d);
   }
 
   // Drive completion → converge into Decide with the agent's artifact.
@@ -243,6 +262,16 @@ export function AdvisorPage() {
 
       {pickerOpen && (
         <DriveSegmentPicker gameId={gameId} onClose={() => setPickerOpen(false)} onPick={handlePickSegment} />
+      )}
+
+      {gateDraft && (
+        <ExperimentGatePrompt
+          scorecard={gateDraft.scorecard}
+          onCancel={() => setGateDraft(null)}
+          onProceed={(reason) =>
+            proceedToCommand({ ...gateDraft, gateOverride: { reason, at: new Date().toISOString() } })
+          }
+        />
       )}
     </div>
   );

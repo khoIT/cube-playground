@@ -1,10 +1,10 @@
 /**
  * Experiment hand-off gate — the "is this experiment good enough to set up" rule
- * the Drive → Decide hand-off (decide-drive-view) enforces before the Command
- * Center. The manual Explore → Recommendations hand-off carries the same
- * scorecard on its draft but does NOT yet enforce this gate (deferred — it goes
- * straight to the Command Center stub); wiring the manual path through here is a
- * follow-up. This helper is pure so either path can adopt it without change.
+ * enforced before the Command Center. BOTH postures funnel through it: the
+ * Drive → Decide view (decide-drive-view) shows it inline, and the manual
+ * Explore → Recommendations hand-off is stopped at the shared choke point
+ * (AdvisorPage.handleHandoff → ExperimentGatePrompt). This helper is pure so
+ * either surface gates identically.
  *
  * It reads the server-computed quality scorecard and HARD-STOPS only on a
  * failing CRITICAL dimension (power / feasibility / provenance) — the three that

@@ -20,6 +20,7 @@ export const FEATURE_KEYS = [
   'liveops',
   'dashboards',
   'segments',
+  'advisor',
   'admin',
 ] as const;
 
@@ -28,9 +29,10 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 /**
  * Features that are denied unless explicitly granted (default-deny per key).
  * Everything else is allowed by default for active users — the gate only
- * needs to enumerate the sensitive surfaces.
+ * needs to enumerate the sensitive surfaces. `advisor` is restricted because it
+ * drives experiment proposals against real cohorts; access is granted per user.
  */
-export const DEFAULT_OFF_FEATURES: ReadonlySet<FeatureKey> = new Set<FeatureKey>(['admin']);
+export const DEFAULT_OFF_FEATURES: ReadonlySet<FeatureKey> = new Set<FeatureKey>(['advisor', 'admin']);
 
 export function isFeatureKey(value: string): value is FeatureKey {
   return (FEATURE_KEYS as readonly string[]).includes(value);

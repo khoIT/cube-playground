@@ -40,6 +40,7 @@ export function featureForPath(pathname: string): FeatureKey | null {
     ['/liveops', 'liveops'],
     ['/dashboards', 'dashboards'],
     ['/segments', 'segments'],
+    ['/advisor', 'advisor'],
     ['/admin', 'admin'],
   ];
   for (const [prefix, key] of prefixMatch) {

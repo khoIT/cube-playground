@@ -2,6 +2,14 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-15 — Advisor: gate the manual hand-off too + restrict the surface to granted users
+
+Two gaps closed: the quality gate only fired on the Drive path, and the Advisor was visible to everyone.
+
+- **Gate on both paths** — the quality gate now sits at a single choke point (`AdvisorPage.handleHandoff`) that BOTH postures funnel through. The Drive → Decide view still shows it inline; the manual Explore → Recommendations hand-off (which went straight to the Command Center) is now stopped by `ExperimentGatePrompt` (`src/pages/Advisor/experiment-gate-prompt.tsx`) — a modal that shows the scorecard and requires a typed override reason (≥4 chars) before a draft failing a critical dimension can advance. A draft that already carries a `gateOverride` (Drive stamps one inline) is not re-prompted. The demo blueprint "set up" path has no scored draft, so there's nothing to gate.
+- **Advisor is now a restricted, granted-per-user feature** — `advisor` is default-OFF like `admin` (`server/src/auth/feature-keys.ts` + client mirror `src/auth/feature-access.ts`). The server is the authority: `requireFeature('advisor')` gates every endpoint in `routes/advisor.ts` (diagnose / recommend / handoff / feedback / drafts / the agent SSE drive) and `routes/advisor-run-history.ts`. The FE hides the nav (`showSection('advisor')`) and `FeatureRouteGuard` redirects direct `/advisor` URLs to `/settings`. Admins grant it per user in the hub's Feature access panel (now a "Restricted — granted per user" group alongside `admin`).
+- **Tests** — manual-path gate reuses the existing pure `experimentGateStatus` (already covered); feature gate adds: client `advisor` default-off + `/advisor` route mapping, admin `groupFeatures` advisor-as-restricted + grant override, and a server `403`-without-grant case on the run-history route.
+
 ## 2026-06-15 — Advisor: trace-back receipt — every Decide step links to a real query or segment
 
 The Decide screen rendered the experiment as five blueprint sentences + numbers, but a manager couldn't *verify* any of it — the links that prove a claim (the lens Cube query, the real segment) existed upstream at investigation time and were dropped when the draft was scaffolded. Drafts now carry a `DraftProvenance` receipt so each step deep-links back to its real artifact.

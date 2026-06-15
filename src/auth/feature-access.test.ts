@@ -24,9 +24,14 @@ describe('featureEnabled', () => {
     expect(featureEnabled(user(), 'admin')).toBe(false);
   });
 
+  it('defaults OFF for the restricted advisor surface', () => {
+    expect(featureEnabled(user(), 'advisor')).toBe(false);
+  });
+
   it('an explicit flag wins over the default (both directions)', () => {
     expect(featureEnabled(user({ liveops: false }), 'liveops')).toBe(false);
     expect(featureEnabled(user({ admin: true }), 'admin')).toBe(true);
+    expect(featureEnabled(user({ advisor: true }), 'advisor')).toBe(true);
   });
 
   it('a null user (still bootstrapping) is treated as enabled', () => {
@@ -64,6 +69,8 @@ describe('featureForRoute', () => {
     expect(featureForRoute('/liveops/cohort')).toBe('liveops');
     expect(featureForRoute('/dashboards/x')).toBe('dashboards');
     expect(featureForRoute('/segments')).toBe('segments');
+    expect(featureForRoute('/advisor')).toBe('advisor');
+    expect(featureForRoute('/advisor/seg-123')).toBe('advisor');
   });
 
   it('returns null for non-gated routes (settings, glossary, drift, admin)', () => {

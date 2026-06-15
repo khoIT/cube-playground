@@ -13,7 +13,7 @@ import { useAuthUser, type AuthUser } from './auth-context';
 import type { FeatureKey } from '../api/feature-open-beacon';
 
 /** Default-off surfaces (must be explicitly granted). Mirrors the server. */
-const DEFAULT_OFF_FEATURES: ReadonlySet<FeatureKey> = new Set<FeatureKey>(['admin']);
+const DEFAULT_OFF_FEATURES: ReadonlySet<FeatureKey> = new Set<FeatureKey>(['advisor', 'admin']);
 
 export function featureEnabled(user: AuthUser | null, key: FeatureKey): boolean {
   // No resolved user (still bootstrapping) → don't hide. AuthGate blocks the
@@ -62,6 +62,7 @@ export function featureForRoute(pathname: string): Exclude<FeatureKey, 'admin'> 
     ['/liveops', 'liveops'],
     ['/dashboards', 'dashboards'],
     ['/segments', 'segments'],
+    ['/advisor', 'advisor'],
   ];
   for (const [prefix, key] of rules) {
     if (p === prefix || p.startsWith(`${prefix}/`)) return key;

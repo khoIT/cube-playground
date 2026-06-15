@@ -15,6 +15,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { requireFeature } from '../middleware/require-feature.js';
 import { listRuns, getRunDetail, type RunSummary } from '../advisor/agent/advisor-run-store.js';
 
 /** Max runs returned in the history list (newest first). */
@@ -78,6 +79,9 @@ function toListItem(r: RunSummary): RunListItem {
 }
 
 export default async function advisorRunHistoryRoutes(app: FastifyInstance): Promise<void> {
+  // Same restricted-surface gate as the main advisor routes.
+  app.addHook('preHandler', requireFeature('advisor'));
+
   // --- GET /api/advisor/runs — the caller's own recent runs ---
   app.get('/api/advisor/runs', async (req: FastifyRequest) => {
     const owner = resolveRunOwner(req);

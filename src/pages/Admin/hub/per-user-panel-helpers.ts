@@ -5,8 +5,9 @@
  * by the panel component without circular deps.
  *
  * Feature grouping mirrors feature-keys.ts policy:
- *   - "Analyst surfaces" = everything except 'admin', default ON for active users.
- *   - "Admin / governance" = ['admin'], default OFF.
+ *   - "Analyst surfaces" = default-ON surfaces for active users.
+ *   - "Restricted — granted per user" = the default-OFF keys ('advisor', 'admin'),
+ *     which resolve off unless an explicit grant turns them on.
  *
  * An explicit per-user features[k] entry (regardless of value) constitutes an
  * "override" — it takes precedence over the group default and renders a badge.
@@ -66,19 +67,24 @@ export interface FeatureGroup {
   entries: FeatureEntry[];
 }
 
-/** Keys that belong to the Admin/governance group (default off). */
-const GOVERNANCE_KEYS = new Set(['admin']);
+/**
+ * Default-off keys (mirrors server feature-keys.ts DEFAULT_OFF_FEATURES). These
+ * resolve OFF unless an explicit per-user grant turns them on, so they render in
+ * the "Restricted — granted per user" group.
+ */
+const DEFAULT_OFF_KEYS = new Set(['advisor', 'admin']);
 
 /**
- * Groups feature keys from the registry into Analyst surfaces / Admin governance.
- * Resolves effective on/off per entry considering explicit user overrides.
+ * Groups feature keys from the registry into Analyst surfaces (default on) and
+ * the restricted, granted-per-user surfaces (default off). Resolves effective
+ * on/off per entry considering explicit user overrides.
  */
 export function groupFeatures(
   registry: AdminRegistry,
   user: AdminUser,
 ): FeatureGroup[] {
-  const analystKeys = registry.featureKeys.filter((k) => !GOVERNANCE_KEYS.has(k));
-  const govKeys = registry.featureKeys.filter((k) => GOVERNANCE_KEYS.has(k));
+  const analystKeys = registry.featureKeys.filter((k) => !DEFAULT_OFF_KEYS.has(k));
+  const restrictedKeys = registry.featureKeys.filter((k) => DEFAULT_OFF_KEYS.has(k));
 
   function toEntry(key: string, defaultOn: boolean): FeatureEntry {
     const explicit = user.features[key];
@@ -95,9 +101,9 @@ export function groupFeatures(
       entries: analystKeys.map((k) => toEntry(k, true)),
     },
     {
-      area: 'Admin / governance',
+      area: 'Restricted — granted per user',
       defaultOn: false,
-      entries: govKeys.map((k) => toEntry(k, false)),
+      entries: restrictedKeys.map((k) => toEntry(k, false)),
     },
   ];
 }
@@ -114,6 +120,7 @@ export const FEATURE_LABEL: Record<string, string> = {
   liveops: 'LiveOps',
   dashboards: 'Dashboards',
   segments: 'Segments',
+  advisor: 'Optimization Advisor',
   admin: 'Admin hub',
 };
 

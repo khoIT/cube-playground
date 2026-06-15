@@ -15,6 +15,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { requireFeature } from '../middleware/require-feature.js';
 import { introspectionCtx } from './identity-map.js';
 import { diagnose } from '../advisor/diagnosis-engine.js';
 import { recommend, type RecommendParams } from '../advisor/recommend.js';
@@ -81,6 +82,11 @@ function buildDiagnosisInput(body: Record<string, unknown>): DiagnosisInput | nu
 }
 
 export default async function advisorRoutes(app: FastifyInstance): Promise<void> {
+  // Feature-gated: the Advisor is a restricted surface (it proposes experiments
+  // against real cohorts), granted per user. The FE also hides the nav, but this
+  // is the enforcing gate. Skipped under AUTH_DISABLED (dev synth admin).
+  app.addHook('preHandler', requireFeature('advisor'));
+
   // ── Diagnose ────────────────────────────────────────────────────────────────
   app.post('/api/advisor/diagnose', async (req: FastifyRequest, reply) => {
     const body = (req.body ?? {}) as Record<string, unknown>;

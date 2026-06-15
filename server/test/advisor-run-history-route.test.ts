@@ -14,7 +14,7 @@ import { buildApp } from '../src/index.js';
 import { setDb, closeDb } from '../src/db/sqlite.js';
 import { signAppJwt } from '../src/services/app-jwt.js';
 import { __resetAccessCache } from '../src/auth/access-store.js';
-import { upsertUserAccess } from '../src/auth/access-store-mutators.js';
+import { upsertUserAccess, setFeatures } from '../src/auth/access-store-mutators.js';
 import { persistTurn, type TurnFlush, type ToolCallInput } from '../src/advisor/agent/advisor-run-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -87,6 +87,10 @@ describe('advisor-run-history routes (owner-scoped)', () => {
     __resetAccessCache();
     upsertUserAccess({ email: 'alice@corp.com', role: 'editor', status: 'active' });
     upsertUserAccess({ email: 'bob@corp.com', role: 'editor', status: 'active' });
+    // Advisor is a restricted (default-off) feature — grant it to both users so
+    // the run-history routes (now feature-gated) are reachable in these tests.
+    setFeatures('alice@corp.com', { advisor: true });
+    setFeatures('bob@corp.com', { advisor: true });
     // Owner is recorded as `username` by the live run — match that form.
     seed({ sessionId: 'alice-1', owner: 'alice', createdAt: 1_700_000_000_000 });
     seed({ sessionId: 'alice-2', owner: 'alice', createdAt: 1_700_000_100_000, stop: 'timeout' });
@@ -114,6 +118,13 @@ describe('advisor-run-history routes (owner-scoped)', () => {
     const res = await app.inject({ method: 'GET', url: '/api/advisor/runs', headers: bobAuth });
     const runs = (res.json() as { runs: Array<{ sessionId: string }> }).runs;
     expect(runs.map((r) => r.sessionId)).toEqual(['bob-1']);
+  });
+
+  it('403s a user who lacks the restricted advisor feature', async () => {
+    setFeatures('alice@corp.com', { advisor: false });
+    const res = await app.inject({ method: 'GET', url: '/api/advisor/runs', headers: aliceAuth });
+    expect(res.statusCode).toBe(403);
+    expect((res.json() as { error: { feature: string } }).error.feature).toBe('advisor');
   });
 
   it('replay returns the run’s turns for an own run', async () => {
