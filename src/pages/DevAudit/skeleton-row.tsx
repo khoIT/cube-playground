@@ -41,7 +41,7 @@ ensureKeyframes();
 // ── shared sweep style ────────────────────────────────────────────────────────
 
 const sweepStyle: React.CSSProperties = {
-  background: `linear-gradient(90deg, ${T.n100} 25%, ${T.n200} 50%, ${T.n100} 75%)`,
+  background: `linear-gradient(90deg, var(--shell-bg-subtle) 25%, var(--shell-border) 50%, var(--shell-bg-subtle) 75%)`,
   backgroundSize: '200% 100%',
   animation: 'skel-sweep 1.6s ease-in-out infinite',
   borderRadius: 4,

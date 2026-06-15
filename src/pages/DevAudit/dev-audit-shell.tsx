@@ -28,7 +28,7 @@ const S = {
     flexDirection: 'column' as const,
     height: '100%',
     fontFamily: T.fSans,
-    background: T.surface,
+    background: 'var(--surface-raised)',
     overflow: 'hidden',
   } as React.CSSProperties,
 
@@ -38,16 +38,16 @@ const S = {
     top: 0,
     zIndex: 10,
     flexShrink: 0,
-    background: T.surface,
-    borderBottom: `1px solid ${T.n200}`,
+    background: 'var(--surface-raised)',
+    borderBottom: `1px solid var(--shell-border)`,
   } as React.CSSProperties,
 
   banner: {
     padding: '6px 16px',
-    background: T.surfaceSubtle,
-    borderBottom: `1px solid ${T.n200}`,
+    background: 'var(--surface-subtle)',
+    borderBottom: `1px solid var(--shell-border)`,
     fontSize: 11,
-    color: T.n600,
+    color: 'var(--shell-text-muted)',
     display: 'flex',
     alignItems: 'center',
     gap: 12,
@@ -55,7 +55,7 @@ const S = {
 
   gameBadge: {
     marginLeft: 'auto',
-    color: T.n500,
+    color: 'var(--shell-text-subtle)',
     fontFamily: T.fMono,
   } as React.CSSProperties,
 

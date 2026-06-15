@@ -25,9 +25,9 @@ function chipStyle(active: boolean): React.CSSProperties {
     fontSize: 11,
     fontFamily: T.fSans,
     fontWeight: 500,
-    border: active ? `1px solid ${T.n900}` : `1px solid ${T.n200}`,
-    background: active ? T.n900 : T.surfaceSubtle,
-    color: active ? T.n50 : T.n700,
+    border: active ? `1px solid var(--shell-text)` : `1px solid var(--shell-border)`,
+    background: active ? 'var(--shell-text)' : 'var(--surface-subtle)',
+    color: active ? 'var(--shell-bg)' : 'var(--shell-text-secondary)',
     cursor: 'pointer',
     outline: 'none',
     // keep consistent height so layout doesn't shift on selection

@@ -272,10 +272,10 @@ export function ChartSectionMenu({
           gap: 6,
           height: 28,
           padding: '0 10px',
-          background: T.surface,
-          border: `1px solid ${T.n200}`,
+          background: 'var(--surface-raised)',
+          border: `1px solid var(--shell-border)`,
           borderRadius: 999,
-          color: T.n900,
+          color: 'var(--shell-text)',
           fontFamily: T.fSans,
           fontSize: 12.5,
           fontWeight: 500,
@@ -283,9 +283,9 @@ export function ChartSectionMenu({
           cursor: 'pointer',
         }}
       >
-        <Icon icon={triggerIcon} size={13} color={T.n600} />
+        <Icon icon={triggerIcon} size={13} color={'var(--shell-text-muted)'} />
         {triggerLabel}
-        <Icon icon={ChevronDown} size={13} color={T.n500} />
+        <Icon icon={ChevronDown} size={13} color={'var(--shell-text-subtle)'} />
       </button>
 
       {open && (
@@ -298,8 +298,8 @@ export function ChartSectionMenu({
             zIndex: 30,
             minWidth: 180,
             padding: 4,
-            background: T.surface,
-            border: `1px solid ${T.n200}`,
+            background: 'var(--surface-raised)',
+            border: `1px solid var(--shell-border)`,
             borderRadius: 10,
             boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
             fontFamily: T.fSans,
@@ -316,7 +316,7 @@ export function ChartSectionMenu({
                   key={t}
                   icon={chartTypeIcon(t)}
                   label={TYPE_LABEL[t]}
-                  trailing={t === activeType ? <Icon icon={Check} size={13} color={T.brand} /> : null}
+                  trailing={t === activeType ? <Icon icon={Check} size={13} color={'var(--shell-brand)'} /> : null}
                   onClick={() => { onChangeType(t); setOpen(false); }}
                 />
               ))}
@@ -417,7 +417,7 @@ interface AxisSelectProps {
 function AxisSelect({ label, value, options, labels, allowNone, onChange }: AxisSelectProps) {
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: T.fSans, fontSize: 12.5 }}>
-      <span style={{ width: 46, color: T.n500, flexShrink: 0 }}>{label}</span>
+      <span style={{ width: 46, color: 'var(--shell-text-subtle)', flexShrink: 0 }}>{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -426,10 +426,10 @@ function AxisSelect({ label, value, options, labels, allowNone, onChange }: Axis
           minWidth: 0,
           height: 26,
           padding: '0 6px',
-          background: T.surface,
-          border: `1px solid ${T.n200}`,
+          background: 'var(--surface-raised)',
+          border: `1px solid var(--shell-border)`,
           borderRadius: 6,
-          color: T.n900,
+          color: 'var(--shell-text)',
           fontFamily: T.fSans,
           fontSize: 12.5,
           cursor: 'pointer',
@@ -468,17 +468,17 @@ function MenuItem({ icon, label, onClick, trailing }: MenuItemProps) {
         gap: 8,
         width: '100%',
         padding: '6px 10px',
-        background: hover ? T.n100 : 'transparent',
+        background: hover ? 'var(--shell-bg-subtle)' : 'transparent',
         border: 'none',
         borderRadius: 6,
-        color: T.n900,
+        color: 'var(--shell-text)',
         fontFamily: T.fSans,
         fontSize: 13,
         cursor: 'pointer',
         textAlign: 'left',
       }}
     >
-      <Icon icon={icon} size={14} color={T.n600} />
+      <Icon icon={icon} size={14} color={'var(--shell-text-muted)'} />
       <span style={{ flex: 1 }}>{label}</span>
       {trailing}
     </button>
@@ -493,7 +493,7 @@ function MenuLabel({ children }: { children: React.ReactNode }) {
         fontFamily: T.fSans,
         fontSize: 11,
         fontWeight: 600,
-        color: T.n500,
+        color: 'var(--shell-text-subtle)',
         textTransform: 'uppercase',
         letterSpacing: '0.04em',
       }}
@@ -504,5 +504,5 @@ function MenuLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: T.n200, margin: '4px 0' }} />;
+  return <div style={{ height: 1, background: 'var(--shell-border)', margin: '4px 0' }} />;
 }

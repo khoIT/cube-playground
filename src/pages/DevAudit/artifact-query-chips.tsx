@@ -32,28 +32,28 @@ interface CubeQueryShape {
 const chipBase: React.CSSProperties = {
   display: 'inline-block', fontFamily: T.fMono, fontSize: 10,
   padding: '2px 7px', borderRadius: 4, margin: '0 4px 4px 0',
-  background: T.surface, border: `1px solid ${T.n200}`, color: T.n600,
+  background: 'var(--surface-raised)', border: `1px solid var(--shell-border)`, color: 'var(--shell-text-muted)',
 };
 const chipMeasure: React.CSSProperties = {
-  ...chipBase, background: T.brandSoft, border: `1px solid ${T.brandBorder}`, color: T.brand,
+  ...chipBase, background: 'var(--shell-brand-soft)', border: `1px solid var(--shell-brand-border)`, color: 'var(--shell-brand)',
 };
 const chipTime: React.CSSProperties = {
   ...chipBase, background: 'var(--info-soft)', border: '1px solid var(--info-soft)', color: 'var(--info-ink)',
 };
 const groupLabelStyle: React.CSSProperties = {
   fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase',
-  letterSpacing: '0.05em', color: T.n400, margin: '6px 0 3px',
+  letterSpacing: '0.05em', color: 'var(--shell-text-faint)', margin: '6px 0 3px',
 };
 const rawToggleStyle: React.CSSProperties = {
-  fontSize: 10, color: T.n400, cursor: 'pointer', background: 'none',
+  fontSize: 10, color: 'var(--shell-text-faint)', cursor: 'pointer', background: 'none',
   border: 'none', padding: 0, textDecoration: 'underline dotted',
   fontFamily: T.fSans, marginTop: 4, display: 'block',
 };
 const rawPreStyle: React.CSSProperties = {
   fontFamily: T.fMono, fontSize: 10.5, whiteSpace: 'pre-wrap',
   wordBreak: 'break-all', maxHeight: 240, overflowY: 'auto',
-  background: T.surface, padding: '8px 10px', borderRadius: 4,
-  border: `1px solid ${T.n200}`, color: T.n600, marginTop: 6,
+  background: 'var(--surface-raised)', padding: '8px 10px', borderRadius: 4,
+  border: `1px solid var(--shell-border)`, color: 'var(--shell-text-muted)', marginTop: 6,
 };
 
 function formatTimeDimension(td: TimeDimensionShape): string {
@@ -91,7 +91,7 @@ export function ArtifactQueryChips({ query }: { query: unknown }) {
   return (
     <div>
       {groups.length === 0 && (
-        <span style={{ fontSize: 11, color: T.n400 }}>Empty query — see raw JSON.</span>
+        <span style={{ fontSize: 11, color: 'var(--shell-text-faint)' }}>Empty query — see raw JSON.</span>
       )}
       {groups.map((g) => (
         <div key={g.label}>

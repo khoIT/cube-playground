@@ -33,7 +33,7 @@ export function ComposerToolToggle({
   const TRACK_W = compact ? 32 : 38;
   const TRACK_H = compact ? 18 : 22;
   const KNOB = compact ? 14 : 18;
-  const trackBg = active ? T.n900 : T.n200;
+  const trackBg = active ? 'var(--shell-text)' : 'var(--shell-border)';
 
   return (
     <button
@@ -50,7 +50,7 @@ export function ComposerToolToggle({
         background: 'transparent',
         padding: 0,
         cursor: 'pointer',
-        color: T.n800,
+        color: 'var(--shell-text-emphasis)',
         fontFamily: T.fSans,
         fontSize: compact ? 12.5 : 14,
         whiteSpace: 'nowrap',

@@ -36,7 +36,7 @@ const SOURCE_LABEL: Record<QueryArtifact['source'], string> = {
 // info / muted) rather than raw hermes scale values — the previous blue500 /
 // purple500 weren't part of the system and read as off-brand in chat.
 const SOURCE_COLOR: Record<QueryArtifact['source'], string> = {
-  'business-metric': T.brand,
+  'business-metric': 'var(--shell-brand)',
   segment: 'var(--info-ink)',
   raw: 'var(--muted-ink)',
 };
@@ -56,7 +56,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
     onClick?.();
   }
 
-  const sourceColor = SOURCE_COLOR[artifact.source] ?? T.n400;
+  const sourceColor = SOURCE_COLOR[artifact.source] ?? 'var(--shell-text-faint)';
   const sourceLabel = SOURCE_LABEL[artifact.source] ?? artifact.source;
   const chart = artifact.chart;
   // Mirror the embedded section's derived default so the menu shows the
@@ -74,7 +74,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
         // the stronger warm border plus a soft shadow lift it off the surface.
         border: `1px solid var(--border-strong)`,
         borderRadius: 12,
-        background: T.surface,
+        background: 'var(--surface-raised)',
         boxShadow: 'var(--shadow-sm)',
         overflow: 'hidden',
         width: '100%',
@@ -88,17 +88,17 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
           alignItems: 'center',
           gap: 8,
           padding: '12px 24px',
-          borderBottom: `1px solid ${T.n100}`,
+          borderBottom: `1px solid var(--shell-bg-subtle)`,
         }}
       >
-        <Icon icon={BarChart2} size={16} color={T.brand} />
+        <Icon icon={BarChart2} size={16} color={'var(--shell-brand)'} />
         <span
           style={{
             flex: 1,
             fontFamily: T.fSans,
             fontSize: 14,
             fontWeight: 600,
-            color: T.n900,
+            color: 'var(--shell-text)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -152,7 +152,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
             padding: '12px 24px',
             fontFamily: T.fSans,
             fontSize: 13,
-            color: T.n600,
+            color: 'var(--shell-text-muted)',
             lineHeight: 1.5,
           }}
         >
@@ -182,7 +182,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
           padding: '12px 24px',
           display: 'flex',
           justifyContent: 'flex-end',
-          borderTop: artifact.summary || chart ? `1px solid ${T.n100}` : undefined,
+          borderTop: artifact.summary || chart ? `1px solid var(--shell-bg-subtle)` : undefined,
         }}
       >
         <button
@@ -194,7 +194,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
             gap: 5,
             padding: '6px 14px',
             borderRadius: 6,
-            background: T.brand,
+            background: 'var(--shell-brand)',
             border: 'none',
             cursor: 'pointer',
             fontFamily: T.fSans,

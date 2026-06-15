@@ -29,7 +29,7 @@ export function CacheSparkline({ data, width = 200, height = 40 }: Props) {
         aria-hidden="true"
         data-testid="cache-sparkline"
       >
-        <line x1={0} y1={height - 1} x2={width} y2={height - 1} stroke={T.n300} strokeWidth={1} opacity={0.4} />
+        <line x1={0} y1={height - 1} x2={width} y2={height - 1} stroke={'var(--shell-border-strong)'} strokeWidth={1} opacity={0.4} />
       </svg>
     );
   }
@@ -65,7 +65,7 @@ export function CacheSparkline({ data, width = 200, height = 40 }: Props) {
               y={hitY}
               width={barW}
               height={hitH}
-              fill={T.brand}
+              fill={'var(--shell-brand)'}
               rx={1}
               data-testid="bar-hits"
             />
@@ -76,7 +76,7 @@ export function CacheSparkline({ data, width = 200, height = 40 }: Props) {
                 y={missY}
                 width={barW}
                 height={missH}
-                fill={T.n300}
+                fill={'var(--shell-border-strong)'}
                 rx={1}
                 data-testid="bar-misses"
               />

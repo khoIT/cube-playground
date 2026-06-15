@@ -38,7 +38,7 @@ export function StarterTopicFilter({ value, onChange }: Props) {
         const accent = opt.value !== 'all' ? STARTER_TOPIC_COLORS[opt.value] : null;
         const activeStyle = accent
           ? { border: `1px solid ${accent.ink}`, background: accent.soft, color: accent.ink }
-          : { border: `1px solid ${T.n900}`, background: T.n900, color: '#fff' };
+          : { border: `1px solid var(--shell-text)`, background: 'var(--shell-text)', color: '#fff' };
         return (
           <button
             key={opt.value}
@@ -56,7 +56,7 @@ export function StarterTopicFilter({ value, onChange }: Props) {
               transition: 'background 0.15s, color 0.15s, border-color 0.15s',
               ...(active
                 ? activeStyle
-                : { border: `1px solid ${T.n300}`, background: 'transparent', color: T.n700 }),
+                : { border: `1px solid var(--shell-border-strong)`, background: 'transparent', color: 'var(--shell-text-secondary)' }),
             }}
           >
             {opt.label}

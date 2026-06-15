@@ -11,10 +11,10 @@ import type { PermissionDecision } from './use-debug-api';
 
 const th: React.CSSProperties = {
   textAlign: 'left', padding: '3px 6px',
-  borderBottom: `1px solid ${T.n200}`, color: T.n500, fontWeight: 600,
+  borderBottom: `1px solid var(--shell-border)`, color: 'var(--shell-text-subtle)', fontWeight: 600,
 };
 const td: React.CSSProperties = {
-  padding: '3px 6px', borderBottom: `1px solid ${T.n100}`, verticalAlign: 'top',
+  padding: '3px 6px', borderBottom: `1px solid var(--shell-bg-subtle)`, verticalAlign: 'top',
 };
 const decisionPill = (decision: string): React.CSSProperties => ({
   display: 'inline-block', padding: '1px 7px', borderRadius: 10,
@@ -47,8 +47,8 @@ export function PermissionDecisionsSection({ decisions }: PermissionDecisionsSec
             <td style={td}>
               <span style={decisionPill(d.decision)}>{d.decision}</span>
             </td>
-            <td style={{ ...td, color: T.n500 }}>{d.reason ?? '—'}</td>
-            <td style={{ ...td, fontFamily: T.fMono, color: T.n400 }}>
+            <td style={{ ...td, color: 'var(--shell-text-subtle)' }}>{d.reason ?? '—'}</td>
+            <td style={{ ...td, fontFamily: T.fMono, color: 'var(--shell-text-faint)' }}>
               {new Date(d.at).toLocaleTimeString()}
             </td>
           </tr>

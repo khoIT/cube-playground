@@ -41,9 +41,9 @@ export function FollowupChips({ chips, onPick }: Props) {
           style={{
             padding: '6px 12px',
             borderRadius: 999,
-            border: `1px solid ${T.n300}`,
-            background: T.surface,
-            color: T.n800,
+            border: `1px solid var(--shell-border-strong)`,
+            background: 'var(--surface-raised)',
+            color: 'var(--shell-text-emphasis)',
             cursor: 'pointer',
             fontFamily: T.fSans,
             fontSize: 12.5,

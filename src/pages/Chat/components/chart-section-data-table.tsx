@@ -40,7 +40,7 @@ export function ChartSectionDataTable({ rows, spec, labels = {} }: ChartSectionD
         style={{
           fontFamily: T.fSans,
           fontSize: 13,
-          color: T.n500,
+          color: 'var(--shell-text-subtle)',
           padding: '12px 0',
         }}
       >
@@ -75,7 +75,7 @@ export function ChartSectionDataTable({ rows, spec, labels = {} }: ChartSectionD
           borderCollapse: 'collapse',
           fontFamily: T.fSans,
           fontSize: 13,
-          color: T.n900,
+          color: 'var(--shell-text)',
         }}
       >
         <thead>
@@ -86,9 +86,9 @@ export function ChartSectionDataTable({ rows, spec, labels = {} }: ChartSectionD
                 style={{
                   textAlign: 'left',
                   padding: '8px 12px',
-                  borderBottom: `1px solid ${T.n200}`,
+                  borderBottom: `1px solid var(--shell-border)`,
                   fontWeight: 600,
-                  color: T.n600,
+                  color: 'var(--shell-text-muted)',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -108,7 +108,7 @@ export function ChartSectionDataTable({ rows, spec, labels = {} }: ChartSectionD
                     key={c}
                     style={{
                       padding: '8px 12px',
-                      borderBottom: `1px solid ${T.n100}`,
+                      borderBottom: `1px solid var(--shell-bg-subtle)`,
                       textAlign: isNumeric ? 'right' : 'left',
                       whiteSpace: 'nowrap',
                       fontVariantNumeric: isNumeric ? 'tabular-nums' : undefined,

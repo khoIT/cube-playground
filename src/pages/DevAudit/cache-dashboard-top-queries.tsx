@@ -49,7 +49,7 @@ function fmtDollars(n: number): string {
 const S = {
   sectionTitle: {
     fontSize: 13,
-    color: T.n900,
+    color: 'var(--shell-text)',
     fontWeight: 600,
     margin: '16px 0 8px',
     display: 'flex',
@@ -58,29 +58,29 @@ const S = {
   } as React.CSSProperties,
   sectionSub: {
     fontSize: 11,
-    color: T.n500,
+    color: 'var(--shell-text-subtle)',
     fontWeight: 400,
     fontFamily: T.fMono,
   } as React.CSSProperties,
   table: {
     width: '100%',
     borderCollapse: 'collapse' as const,
-    background: T.surface,
-    border: `1px solid ${T.n200}`,
+    background: 'var(--surface-raised)',
+    border: `1px solid var(--shell-border)`,
     borderRadius: 8,
     overflow: 'hidden',
   } as React.CSSProperties,
   th: {
     textAlign: 'left' as const,
     fontSize: 10.5,
-    color: T.n500,
+    color: 'var(--shell-text-subtle)',
     fontWeight: 500,
     padding: '8px 12px',
-    borderBottom: `1px solid ${T.n200}`,
+    borderBottom: `1px solid var(--shell-border)`,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.06em',
     fontFamily: T.fMono,
-    background: T.surfaceSubtle,
+    background: 'var(--surface-subtle)',
     cursor: 'default',
     whiteSpace: 'nowrap' as const,
   } as React.CSSProperties,
@@ -91,29 +91,29 @@ const S = {
   thR: { textAlign: 'right' as const } as React.CSSProperties,
   td: {
     padding: '8px 12px',
-    borderBottom: `1px solid ${T.n100}`,
+    borderBottom: `1px solid var(--shell-bg-subtle)`,
     fontSize: 12,
-    color: T.n800,
+    color: 'var(--shell-text-emphasis)',
     verticalAlign: 'top',
   } as React.CSSProperties,
   tdMono: {
     fontFamily: T.fMono,
     whiteSpace: 'nowrap' as const,
-    color: T.n700,
+    color: 'var(--shell-text-secondary)',
   } as React.CSSProperties,
-  tdBrand: { color: T.brand } as React.CSSProperties,
+  tdBrand: { color: 'var(--shell-brand)' } as React.CSSProperties,
   tdR: { textAlign: 'right' as const } as React.CSSProperties,
-  snippet: { color: T.n800 } as React.CSSProperties,
+  snippet: { color: 'var(--shell-text-emphasis)' } as React.CSSProperties,
   snippetMeta: {
     fontFamily: T.fMono,
     fontSize: 10.5,
-    color: T.n500,
+    color: 'var(--shell-text-subtle)',
     marginTop: 2,
   } as React.CSSProperties,
   emptyCell: {
     padding: 32,
     textAlign: 'center' as const,
-    color: T.n500,
+    color: 'var(--shell-text-subtle)',
     fontFamily: T.fMono,
     fontSize: 12,
   } as React.CSSProperties,
@@ -121,7 +121,7 @@ const S = {
     display: 'block',
     marginTop: 4,
     fontSize: 11,
-    color: T.n400,
+    color: 'var(--shell-text-faint)',
   } as React.CSSProperties,
 };
 
@@ -163,7 +163,7 @@ export function CacheDashboardTopQueries({ rows, topN }: Props) {
   const thStyle = (col: SortCol) => ({
     ...S.th,
     ...S.thSortable,
-    ...(col === sortCol ? { color: T.n800 } : {}),
+    ...(col === sortCol ? { color: 'var(--shell-text-emphasis)' } : {}),
   });
 
   return (

@@ -97,7 +97,7 @@ export function ChatEmptyHero({ composerValue, onChange, onSubmit, onSubmitText,
         <CubeLogoBlock />
         <p
           style={{
-            fontFamily: T.fSans, fontSize: 15, color: T.n500,
+            fontFamily: T.fSans, fontSize: 15, color: 'var(--shell-text-subtle)',
             margin: '20px 0 36px', textAlign: 'center', maxWidth: 560,
             lineHeight: 1.5,
           }}
@@ -145,7 +145,7 @@ function CubeLogoBlock() {
         style={{
           fontFamily: T.fDisp, fontSize: 48, fontWeight: 400,
           letterSpacing: '0.03em', textTransform: 'uppercase',
-          color: T.n950, margin: '20px 0 0', textAlign: 'center', lineHeight: 1,
+          color: 'var(--shell-text-strong)', margin: '20px 0 0', textAlign: 'center', lineHeight: 1,
         }}
       >
         Cube

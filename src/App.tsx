@@ -216,7 +216,7 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
       height: '100vh', overflow: 'hidden',
       // Warm frame cream. Backs the panels and shows through as the gutter
       // between the query-builder panel and the chat (panels are a step lighter).
-      background: T.sidebar,
+      background: 'var(--surface-sidebar)',
       display: 'flex', flexDirection: 'row', alignItems: 'stretch',
       padding: 0, gap: 0, boxSizing: 'border-box',
     }}>
@@ -228,7 +228,7 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
       <div style={{
         flex: 1, minWidth: 0, minHeight: 0,
         display: 'flex', flexDirection: 'column',
-        background: T.sidebar, overflow: 'hidden',
+        background: 'var(--surface-sidebar)', overflow: 'hidden',
       }}>
         <Topbar
           onSearchOpen={smartSearch.open}
@@ -251,10 +251,10 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
             // Lighter warm content panel (a step lighter than the frame cream):
             // rounded top corners + hairline top/left/right border separate it
             // from the frame; the gutter shows the frame cream.
-            background: T.panel,
-            borderTop: `1px solid ${T.n200}`,
-            borderLeft: `1px solid ${T.n200}`,
-            borderRight: `1px solid ${T.n200}`,
+            background: 'var(--surface-panel)',
+            borderTop: `1px solid var(--shell-border)`,
+            borderLeft: `1px solid var(--shell-border)`,
+            borderRight: `1px solid var(--shell-border)`,
             borderTopLeftRadius: 12,
             borderTopRightRadius: 12,
             overflow: 'hidden',

@@ -33,8 +33,8 @@ export function SessionRowMenuDropdown({ onRename, onDelete }: SessionRowMenuDro
         right: 0,
         top: '100%',
         zIndex: 100,
-        background: T.surface,
-        border: `1px solid ${T.n200}`,
+        background: 'var(--surface-raised)',
+        border: `1px solid var(--shell-border)`,
         borderRadius: 6,
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
         minWidth: 120,
@@ -45,8 +45,8 @@ export function SessionRowMenuDropdown({ onRename, onDelete }: SessionRowMenuDro
         type="button"
         data-testid="session-row-menu-rename"
         onClick={onRename}
-        style={{ ...itemBase, color: T.n800 }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = T.surfaceSubtle; }}
+        style={{ ...itemBase, color: 'var(--shell-text-emphasis)' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-subtle)'; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
       >
         <Pencil size={13} />
@@ -56,8 +56,8 @@ export function SessionRowMenuDropdown({ onRename, onDelete }: SessionRowMenuDro
         type="button"
         data-testid="session-row-menu-delete"
         onClick={onDelete}
-        style={{ ...itemBase, color: T.red600 }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = T.redSoft; }}
+        style={{ ...itemBase, color: 'var(--shell-danger-strong)' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--shell-danger-soft)'; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
       >
         <Trash2 size={13} />

@@ -35,13 +35,13 @@ const S = {
     minWidth: 280,
     display: 'flex',
     flexDirection: 'column' as const,
-    borderRight: `1px solid ${T.n200}`,
+    borderRight: `1px solid var(--shell-border)`,
     height: '100%',
     overflow: 'hidden',
   } as React.CSSProperties,
   searchWrap: {
     padding: '10px 12px',
-    borderBottom: `1px solid ${T.n200}`,
+    borderBottom: `1px solid var(--shell-border)`,
     flexShrink: 0,
     display: 'flex',
     flexDirection: 'column' as const,
@@ -51,20 +51,20 @@ const S = {
     width: '100%',
     boxSizing: 'border-box' as const,
     padding: '5px 10px',
-    border: `1px solid ${T.n300}`,
+    border: `1px solid var(--shell-border-strong)`,
     borderRadius: 6,
     fontSize: 12,
     fontFamily: T.fSans,
     outline: 'none',
-    background: T.surface,
-    color: T.n800,
+    background: 'var(--surface-raised)',
+    color: 'var(--shell-text-emphasis)',
   } as React.CSSProperties,
   toggleRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     fontSize: 11,
-    color: T.n600,
+    color: 'var(--shell-text-muted)',
   } as React.CSSProperties,
   toggleLabel: {
     display: 'flex',
@@ -77,11 +77,11 @@ const S = {
   errorBanner: {
     margin: '8px 12px',
     padding: '6px 10px',
-    background: T.redSoft,
-    border: `1px solid ${T.red500}`,
+    background: 'var(--shell-danger-soft)',
+    border: `1px solid var(--shell-danger)`,
     borderRadius: 5,
     fontSize: 11,
-    color: T.red600,
+    color: 'var(--shell-danger-strong)',
   } as React.CSSProperties,
 };
 
@@ -174,7 +174,9 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope, 
   }, [selectedDeletedIds, clearSelection]);
 
   return (
-    <div style={S.root}>
+    // data-visual-volatile: live session titles + relative timestamps ("1d ago")
+    // shift over time, so the visual-regression gate masks this panel.
+    <div data-visual-volatile style={S.root}>
       <div style={S.searchWrap}>
         <input
           type="search"

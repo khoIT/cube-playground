@@ -142,7 +142,7 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
             key={String(x)}
             style={{
               fontSize: 10,
-              color: T.n500,
+              color: 'var(--shell-text-subtle)',
               textAlign: 'center',
               padding: '2px 1px',
               overflow: 'hidden',
@@ -161,7 +161,7 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
             <div
               style={{
                 fontSize: 11,
-                color: T.n600,
+                color: 'var(--shell-text-muted)',
                 padding: '0 8px 0 0',
                 display: 'flex',
                 alignItems: 'center',
@@ -182,7 +182,7 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
                   <div
                     key={String(x)}
                     title={`${String(y)} × ${String(x)}: no data in this result`}
-                    style={{ background: T.n100, borderRadius: 3, minHeight: 24 }}
+                    style={{ background: 'var(--shell-bg-subtle)', borderRadius: 3, minHeight: 24 }}
                   />
                 );
               }

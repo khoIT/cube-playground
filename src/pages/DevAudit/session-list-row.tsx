@@ -23,13 +23,13 @@ const S = {
     alignItems: 'flex-start',
     padding: '10px 14px',
     gap: 8,
-    borderBottom: `1px solid ${T.n100}`,
+    borderBottom: `1px solid var(--shell-bg-subtle)`,
     cursor: 'pointer',
-    background: active ? T.brandSoft : deleted ? T.redSoft : 'transparent',
+    background: active ? 'var(--shell-brand-soft)' : deleted ? 'var(--shell-danger-soft)' : 'transparent',
     borderLeft: active
-      ? `3px solid ${T.brand}`
+      ? `3px solid var(--shell-brand)`
       : deleted
-        ? `3px solid ${T.red500}`
+        ? `3px solid var(--shell-danger)`
         : '3px solid transparent',
     opacity: deleted ? 0.85 : 1,
   }),
@@ -38,7 +38,7 @@ const S = {
   title: {
     fontSize: 12,
     fontWeight: 600,
-    color: T.n800,
+    color: 'var(--shell-text-emphasis)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
@@ -48,16 +48,16 @@ const S = {
     fontWeight: 700,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.05em',
-    color: T.red600,
-    background: T.redSoft,
-    border: `1px solid ${T.red500}`,
+    color: 'var(--shell-danger-strong)',
+    background: 'var(--shell-danger-soft)',
+    border: `1px solid var(--shell-danger)`,
     borderRadius: 3,
     padding: '1px 4px',
     flexShrink: 0,
   } as React.CSSProperties,
   meta: {
     fontSize: 11,
-    color: T.n500,
+    color: 'var(--shell-text-subtle)',
     marginTop: 2,
     display: 'flex',
     gap: 10,
@@ -113,17 +113,17 @@ export function SessionListRow({
           {showOwner && (
             // Owner subs are emails in dev mode / KC UUIDs in real auth — show
             // the local-part for emails, a short prefix otherwise.
-            <span style={{ color: T.n600, fontWeight: 600 }} title={session.owner_id}>
+            <span style={{ color: 'var(--shell-text-muted)', fontWeight: 600 }} title={session.owner_id}>
               {session.owner_id.includes('@') ? session.owner_id.split('@')[0] : session.owner_id.slice(0, 8)}
             </span>
           )}
           <span>{session.turn_count} turn{session.turn_count !== 1 ? 's' : ''}</span>
           <span>{relativeTime(session.last_turn_at ?? session.created_at)}</span>
           {session.status !== 'active' && !isDeleted && (
-            <span style={{ color: T.n400 }}>{session.status}</span>
+            <span style={{ color: 'var(--shell-text-faint)' }}>{session.status}</span>
           )}
           {isDeleted && (
-            <span style={{ color: T.red600 }}>deleted {relativeTime(session.deletedAt)}</span>
+            <span style={{ color: 'var(--shell-danger-strong)' }}>deleted {relativeTime(session.deletedAt)}</span>
           )}
         </div>
       </div>

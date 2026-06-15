@@ -88,13 +88,13 @@ function StarterCard({
       style={{
         textAlign: 'left',
         padding: '12px 14px',
-        border: `1px solid ${T.n300}`,
+        border: `1px solid var(--shell-border-strong)`,
         borderRadius: 12,
-        background: T.surface,
+        background: 'var(--surface-raised)',
         cursor: 'pointer',
         fontFamily: T.fSans,
         fontSize: 13,
-        color: T.n800,
+        color: 'var(--shell-text-emphasis)',
         lineHeight: 1.45,
         display: 'flex',
         flexDirection: 'column',
@@ -103,13 +103,13 @@ function StarterCard({
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.background = T.surfaceSubtle;
-        el.style.borderColor = T.n400;
+        el.style.background = 'var(--surface-subtle)';
+        el.style.borderColor = 'var(--shell-text-faint)';
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLButtonElement;
-        el.style.background = T.surface;
-        el.style.borderColor = T.n300;
+        el.style.background = 'var(--surface-raised)';
+        el.style.borderColor = 'var(--shell-border-strong)';
       }}
       onMouseDown={(e) => {
         (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
@@ -167,7 +167,7 @@ function StarterCard({
         <span
           title={OUTPUT_HINT_LABELS[hint]}
           aria-label={OUTPUT_HINT_LABELS[hint]}
-          style={{ marginLeft: 'auto', display: 'inline-flex', color: T.n500 }}
+          style={{ marginLeft: 'auto', display: 'inline-flex', color: 'var(--shell-text-subtle)' }}
         >
           <HintIcon size={14} strokeWidth={1.8} />
         </span>

@@ -29,13 +29,13 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: T.n400,
+    color: 'var(--shell-text-faint)',
     fontSize: 13,
     fontFamily: T.fSans,
   } as React.CSSProperties,
   header: {
     padding: '12px 20px',
-    borderBottom: `1px solid ${T.n200}`,
+    borderBottom: `1px solid var(--shell-border)`,
     flexShrink: 0,
   } as React.CSSProperties,
   titleRow: {
@@ -47,7 +47,7 @@ const S = {
   title: {
     fontSize: 15,
     fontWeight: 700,
-    color: T.n900,
+    color: 'var(--shell-text)',
     flex: 1,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -58,10 +58,10 @@ const S = {
     gridTemplateColumns: 'auto 1fr auto 1fr',
     gap: '2px 12px',
     fontSize: 11,
-    color: T.n600,
+    color: 'var(--shell-text-muted)',
   } as React.CSSProperties,
-  metaKey: { color: T.n400, fontWeight: 600 } as React.CSSProperties,
-  metaVal: { fontFamily: T.fMono, color: T.n700 } as React.CSSProperties,
+  metaKey: { color: 'var(--shell-text-faint)', fontWeight: 600 } as React.CSSProperties,
+  metaVal: { fontFamily: T.fMono, color: 'var(--shell-text-secondary)' } as React.CSSProperties,
   timeline: {
     flex: 1,
     overflowY: 'auto' as const,
@@ -69,17 +69,17 @@ const S = {
   } as React.CSSProperties,
   loading: {
     padding: '24px 20px',
-    color: T.n400,
+    color: 'var(--shell-text-faint)',
     fontSize: 12,
   } as React.CSSProperties,
   errorBanner: {
     margin: '12px 20px',
     padding: '8px 12px',
-    background: T.redSoft,
-    border: `1px solid ${T.red500}`,
+    background: 'var(--shell-danger-soft)',
+    border: `1px solid var(--shell-danger)`,
     borderRadius: 6,
     fontSize: 12,
-    color: T.red600,
+    color: 'var(--shell-danger-strong)',
   } as React.CSSProperties,
 };
 
@@ -113,11 +113,11 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                 gap: 10,
                 marginBottom: 8,
                 padding: '6px 10px',
-                background: T.redSoft,
-                border: `1px solid ${T.red500}`,
+                background: 'var(--shell-danger-soft)',
+                border: `1px solid var(--shell-danger)`,
                 borderRadius: 6,
               }}>
-                <span style={{ fontSize: 11, color: T.red600, flex: 1 }}>
+                <span style={{ fontSize: 11, color: 'var(--shell-danger-strong)', flex: 1 }}>
                   This session was soft-deleted and is pending purge.
                 </span>
                 <button
@@ -128,9 +128,9 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                     fontWeight: 600,
                     padding: '3px 10px',
                     borderRadius: 4,
-                    border: `1px solid ${T.brand}`,
-                    background: T.brandSoft,
-                    color: T.brand,
+                    border: `1px solid var(--shell-brand)`,
+                    background: 'var(--shell-brand-soft)',
+                    color: 'var(--shell-brand)',
                     cursor: isRestoring ? 'not-allowed' : 'pointer',
                     opacity: isRestoring ? 0.6 : 1,
                   }}
@@ -140,7 +140,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
               </div>
             )}
             {restoreError && (
-              <div style={{ fontSize: 11, color: T.red600, marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: 'var(--shell-danger-strong)', marginBottom: 6 }}>
                 Restore failed: {restoreError}
               </div>
             )}
@@ -149,7 +149,7 @@ export function SessionDetail({ sessionId }: SessionDetailProps) {
                 {data.session.title || `Session ${data.session.id.slice(0, 12)}…`}
               </div>
               <AuthLanePill turns={data.turns} />
-              <span style={{ fontSize: 11, color: T.n400 }}>
+              <span style={{ fontSize: 11, color: 'var(--shell-text-faint)' }}>
                 {data.turns.length} turn{data.turns.length !== 1 ? 's' : ''}
               </span>
             </div>

@@ -56,7 +56,7 @@ const SUP_STYLE: React.CSSProperties = {
   fontSize: 10,
   fontWeight: 600,
   letterSpacing: '0.02em',
-  color: T.brand,
+  color: 'var(--shell-brand)',
   verticalAlign: 'super',
   lineHeight: 1,
   cursor: 'pointer',

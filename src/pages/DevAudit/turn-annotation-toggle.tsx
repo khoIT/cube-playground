@@ -25,16 +25,16 @@ const S = {
   starBtn: (starred: boolean): React.CSSProperties => ({
     background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
     fontSize: 15, lineHeight: 1,
-    color: starred ? T.amber500 : T.n300,
+    color: starred ? 'var(--shell-warning)' : 'var(--shell-border-strong)',
     transition: 'color 0.1s',
   }),
   flagSelect: {
     fontSize: 11, padding: '1px 4px', borderRadius: 4,
-    border: `1px solid ${T.n300}`, background: T.surface, color: T.n700,
+    border: `1px solid var(--shell-border-strong)`, background: 'var(--surface-raised)', color: 'var(--shell-text-secondary)',
     cursor: 'pointer', fontFamily: 'inherit',
   } as React.CSSProperties,
   noteToggle: {
-    fontSize: 10, color: T.n400, background: 'none', border: 'none',
+    fontSize: 10, color: 'var(--shell-text-faint)', background: 'none', border: 'none',
     cursor: 'pointer', padding: '0 2px', textDecoration: 'underline',
   } as React.CSSProperties,
   noteWrap: {
@@ -42,13 +42,13 @@ const S = {
   } as React.CSSProperties,
   noteArea: {
     fontSize: 11, fontFamily: 'inherit', padding: '4px 6px',
-    border: `1px solid ${T.n300}`, borderRadius: 4,
-    background: T.surface, color: T.n800, resize: 'vertical' as const,
+    border: `1px solid var(--shell-border-strong)`, borderRadius: 4,
+    background: 'var(--surface-raised)', color: 'var(--shell-text-emphasis)', resize: 'vertical' as const,
     width: '100%', boxSizing: 'border-box' as const, minHeight: 48,
   } as React.CSSProperties,
   saveBtn: {
     fontSize: 11, padding: '2px 8px', borderRadius: 4,
-    border: `1px solid ${T.n300}`, background: T.surfaceSubtle, color: T.n700,
+    border: `1px solid var(--shell-border-strong)`, background: 'var(--surface-subtle)', color: 'var(--shell-text-secondary)',
     cursor: 'pointer', alignSelf: 'flex-end' as const,
   } as React.CSSProperties,
 };

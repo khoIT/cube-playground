@@ -41,7 +41,7 @@ export function TypingDots() {
             width: 6,
             height: 6,
             borderRadius: '50%',
-            background: T.n400,
+            background: 'var(--shell-text-faint)',
             animation: `chat-blink 1.2s ease-in-out ${i * 0.2}s infinite`,
           }}
         />

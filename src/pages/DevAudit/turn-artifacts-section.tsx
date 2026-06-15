@@ -27,28 +27,28 @@ const SOURCE_LABEL: Record<QueryArtifact['source'], string> = {
 
 // Source badge palettes — semantic soft/ink pairs that adapt to dark mode.
 const SOURCE_BADGE: Record<QueryArtifact['source'], React.CSSProperties> = {
-  'business-metric': { background: T.brandSoft, color: T.brand, border: `1px solid ${T.brandBorder}` },
+  'business-metric': { background: 'var(--shell-brand-soft)', color: 'var(--shell-brand)', border: `1px solid var(--shell-brand-border)` },
   segment: { background: 'var(--info-soft)', color: 'var(--info-ink)', border: '1px solid var(--info-soft)' },
-  raw: { background: 'var(--muted-soft)', color: 'var(--muted-ink)', border: `1px solid ${T.n200}` },
+  raw: { background: 'var(--muted-soft)', color: 'var(--muted-ink)', border: `1px solid var(--shell-border)` },
 };
 
 const S = {
   sectionLabel: {
     fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
-    textTransform: 'uppercase' as const, color: T.brand, margin: '12px 0 6px',
+    textTransform: 'uppercase' as const, color: 'var(--shell-brand)', margin: '12px 0 6px',
   } as React.CSSProperties,
   card: {
-    border: `1px solid ${T.n200}`, borderRadius: 10, overflow: 'hidden',
-    background: T.surface, marginBottom: 8,
+    border: `1px solid var(--shell-border)`, borderRadius: 10, overflow: 'hidden',
+    background: 'var(--surface-raised)', marginBottom: 8,
   } as React.CSSProperties,
   head: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
   } as React.CSSProperties,
   ordinal: {
-    fontFamily: T.fMono, fontSize: 10, color: T.n400, minWidth: 18,
+    fontFamily: T.fMono, fontSize: 10, color: 'var(--shell-text-faint)', minWidth: 18,
   } as React.CSSProperties,
   title: {
-    fontSize: 12.5, fontWeight: 600, color: T.n900, flex: 1, minWidth: 0,
+    fontSize: 12.5, fontWeight: 600, color: 'var(--shell-text)', flex: 1, minWidth: 0,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
   } as React.CSSProperties,
   badge: {
@@ -56,26 +56,26 @@ const S = {
     letterSpacing: '0.03em', whiteSpace: 'nowrap' as const,
   } as React.CSSProperties,
   chartPill: {
-    fontSize: 10, color: T.n600, background: T.surfaceSubtle,
-    border: `1px solid ${T.n200}`, borderRadius: 4, padding: '1px 6px',
+    fontSize: 10, color: 'var(--shell-text-muted)', background: 'var(--surface-subtle)',
+    border: `1px solid var(--shell-border)`, borderRadius: 4, padding: '1px 6px',
     whiteSpace: 'nowrap' as const,
   } as React.CSSProperties,
   openBtn: {
-    fontSize: 11, padding: '2px 9px', border: `1px solid ${T.brandBorder}`,
-    borderRadius: 4, background: T.brandSoft, color: T.brand, cursor: 'pointer',
+    fontSize: 11, padding: '2px 9px', border: `1px solid var(--shell-brand-border)`,
+    borderRadius: 4, background: 'var(--shell-brand-soft)', color: 'var(--shell-brand)', cursor: 'pointer',
     whiteSpace: 'nowrap' as const, fontWeight: 500, fontFamily: T.fSans,
   } as React.CSSProperties,
   metaRow: {
     display: 'flex', gap: 14, padding: '0 12px 8px 38px', fontSize: 11,
-    color: T.n500, alignItems: 'center', flexWrap: 'wrap' as const,
+    color: 'var(--shell-text-subtle)', alignItems: 'center', flexWrap: 'wrap' as const,
   } as React.CSSProperties,
-  metaStrong: { color: T.n600, fontWeight: 600 } as React.CSSProperties,
+  metaStrong: { color: 'var(--shell-text-muted)', fontWeight: 600 } as React.CSSProperties,
   queryToggle: {
-    fontSize: 10.5, color: T.n500, cursor: 'pointer', background: 'none',
+    fontSize: 10.5, color: 'var(--shell-text-subtle)', cursor: 'pointer', background: 'none',
     border: 'none', padding: 0, textDecoration: 'underline dotted', fontFamily: T.fSans,
   } as React.CSSProperties,
   queryPanel: {
-    borderTop: `1px solid ${T.n100}`, background: T.surfaceSubtle, padding: '8px 12px',
+    borderTop: `1px solid var(--shell-bg-subtle)`, background: 'var(--surface-subtle)', padding: '8px 12px',
   } as React.CSSProperties,
 };
 
@@ -89,7 +89,7 @@ function ArtifactCard({ artifact, ordinal }: { artifact: QueryArtifact; ordinal:
     <div style={S.card}>
       <div style={S.head}>
         <span style={S.ordinal}>A{ordinal}</span>
-        <Icon icon={BarChart2} size={15} color={T.brand} />
+        <Icon icon={BarChart2} size={15} color={'var(--shell-brand)'} />
         <span style={S.title} title={artifact.summary || artifact.title}>{artifact.title}</span>
         <span style={{ ...S.badge, ...badgeStyle }}>{sourceLabel}</span>
         {artifact.chart && <span style={S.chartPill}>{artifact.chart.spec.type} chart</span>}
@@ -151,7 +151,7 @@ export function ArtifactCountBadge({ count }: { count: number }) {
     <span
       style={{
         fontSize: 10, padding: '1px 6px', borderRadius: 4, fontWeight: 600,
-        background: T.brandSoft, color: T.brand, border: `1px solid ${T.brandBorder}`,
+        background: 'var(--shell-brand-soft)', color: 'var(--shell-brand)', border: `1px solid var(--shell-brand-border)`,
         letterSpacing: '0.04em', whiteSpace: 'nowrap',
       }}
       title={`This turn emitted ${count} query artifact${count !== 1 ? 's' : ''}`}

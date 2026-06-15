@@ -105,9 +105,9 @@ export function ChatComposer({
     <div
       style={{
         width: '100%',
-        border: `1px solid ${T.n300}`,
+        border: `1px solid var(--shell-border-strong)`,
         borderRadius: radius,
-        background: disabled ? T.surfaceMuted : compact ? T.sidebar : T.surface,
+        background: disabled ? 'var(--surface-muted)' : compact ? 'var(--surface-sidebar)' : 'var(--surface-raised)',
         padding: `${padBlock}px ${padInline}px`,
         display: 'flex',
         flexDirection: 'column',
@@ -127,7 +127,7 @@ export function ChatComposer({
           width: '100%',
           border: 'none', outline: 'none', resize: 'none',
           background: 'transparent',
-          fontFamily: T.fSans, fontSize, color: T.n900,
+          fontFamily: T.fSans, fontSize, color: 'var(--shell-text)',
           lineHeight: 1.5, padding: 0,
           minHeight: MIN_HEIGHT, maxHeight: MAX_HEIGHT,
           overflowY: 'auto',
@@ -158,10 +158,10 @@ export function ChatComposer({
             style={{
               fontSize: compact ? 10 : 11,
               padding: '2px 8px',
-              border: `1px solid ${bypassCache ? T.brand : T.n300}`,
+              border: `1px solid ${bypassCache ? 'var(--shell-brand)' : 'var(--shell-border-strong)'}`,
               borderRadius: 4,
-              background: bypassCache ? T.brandSoft : 'transparent',
-              color: bypassCache ? T.brand : T.n500,
+              background: bypassCache ? 'var(--shell-brand-soft)' : 'transparent',
+              color: bypassCache ? 'var(--shell-brand)' : 'var(--shell-text-subtle)',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
@@ -178,7 +178,7 @@ export function ChatComposer({
           style={{
             width: sendSize, height: sendSize, borderRadius: sendSize / 2,
             border: 'none',
-            background: canSubmit ? T.n900 : T.n300,
+            background: canSubmit ? 'var(--shell-text)' : 'var(--shell-border-strong)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: canSubmit ? 'pointer' : 'default',
             transition: 'background 0.15s',

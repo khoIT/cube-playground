@@ -21,7 +21,7 @@ export function SessionRowDeleteConfirm({
       onClick={(e) => e.stopPropagation()}
       style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}
     >
-      <span style={{ fontFamily: T.fSans, fontSize: 12, color: T.n600, whiteSpace: 'nowrap' }}>
+      <span style={{ fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-muted)', whiteSpace: 'nowrap' }}>
         Delete?
       </span>
       <button
@@ -33,7 +33,7 @@ export function SessionRowDeleteConfirm({
           padding: '2px 8px',
           border: 'none',
           borderRadius: 4,
-          background: T.red500,
+          background: 'var(--shell-danger)',
           color: '#fff',
           fontFamily: T.fSans,
           fontSize: 12,
@@ -47,13 +47,13 @@ export function SessionRowDeleteConfirm({
         onClick={onCancel}
         style={{
           padding: '2px 8px',
-          border: `1px solid ${T.n300}`,
+          border: `1px solid var(--shell-border-strong)`,
           borderRadius: 4,
           background: 'none',
           fontFamily: T.fSans,
           fontSize: 12,
           cursor: 'pointer',
-          color: T.n600,
+          color: 'var(--shell-text-muted)',
         }}
       >
         Cancel

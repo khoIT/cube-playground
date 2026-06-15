@@ -27,9 +27,9 @@ const S = {
   th: {
     padding: '6px 12px',
     textAlign: 'left' as const,
-    background: T.surfaceSubtle,
-    borderBottom: `1px solid ${T.n200}`,
-    color: T.n600,
+    background: 'var(--surface-subtle)',
+    borderBottom: `1px solid var(--shell-border)`,
+    color: 'var(--shell-text-muted)',
     cursor: 'pointer',
     userSelect: 'none' as const,
     whiteSpace: 'nowrap' as const,
@@ -43,9 +43,9 @@ const S = {
   thStatic: {
     padding: '6px 12px',
     textAlign: 'left' as const,
-    background: T.surfaceSubtle,
-    borderBottom: `1px solid ${T.n200}`,
-    color: T.n600,
+    background: 'var(--surface-subtle)',
+    borderBottom: `1px solid var(--shell-border)`,
+    color: 'var(--shell-text-muted)',
     whiteSpace: 'nowrap' as const,
     fontFamily: T.fMono,
     fontSize: 10.5,
@@ -55,12 +55,12 @@ const S = {
   },
   /** Active sort column header — brand accent */
   thActive: {
-    color: T.brand,
+    color: 'var(--shell-brand)',
   },
   td: {
     padding: '6px 12px',
-    borderBottom: `1px solid ${T.n100}`,
-    color: T.n700,
+    borderBottom: `1px solid var(--shell-bg-subtle)`,
+    color: 'var(--shell-text-secondary)',
     fontFamily: T.fMono,
     fontSize: 11,
     textAlign: 'right' as const,
@@ -68,8 +68,8 @@ const S = {
   },
   tdSkill: {
     padding: '6px 12px',
-    borderBottom: `1px solid ${T.n100}`,
-    color: T.n800,
+    borderBottom: `1px solid var(--shell-bg-subtle)`,
+    color: 'var(--shell-text-emphasis)',
     fontFamily: T.fSans,
     fontWeight: 500,
     fontSize: 12.5,
@@ -77,13 +77,13 @@ const S = {
   },
   tdTrend: {
     padding: '4px 12px',
-    borderBottom: `1px solid ${T.n100}`,
+    borderBottom: `1px solid var(--shell-bg-subtle)`,
     textAlign: 'left' as const,
   },
   empty: {
     padding: 24,
     textAlign: 'center' as const,
-    color: T.n500,
+    color: 'var(--shell-text-subtle)',
     fontFamily: T.fSans,
     fontSize: 13,
   },
@@ -194,7 +194,7 @@ export function SkillLeaderboardTable({ rows, onSkillClick }: Props) {
                       border: 'none',
                       padding: 0,
                       cursor: 'pointer',
-                      color: T.brand,
+                      color: 'var(--shell-brand)',
                       fontFamily: T.fSans,
                       fontWeight: 500,
                       fontSize: 12.5,
@@ -217,7 +217,7 @@ export function SkillLeaderboardTable({ rows, onSkillClick }: Props) {
                 {row.legacyCount > 0 && (
                   <span
                     title={`${row.legacyCount} turn(s) predate stop_reason tracking`}
-                    style={{ marginLeft: 4, color: T.n400, fontSize: 10 }}
+                    style={{ marginLeft: 4, color: 'var(--shell-text-faint)', fontSize: 10 }}
                   >
                     ({row.legacyCount} legacy)
                   </span>

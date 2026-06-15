@@ -143,8 +143,8 @@ export function AssistantChartSection({
       style={{
         width: '100%',
         marginBlock: 16,
-        background: T.surface,
-        border: `1px solid ${T.n200}`,
+        background: 'var(--surface-raised)',
+        border: `1px solid var(--shell-border)`,
         borderRadius: 12,
         overflow: 'hidden',
       }}
@@ -156,7 +156,7 @@ export function AssistantChartSection({
           alignItems: 'center',
           gap: 12,
           padding: '12px 24px',
-          borderBottom: `1px solid ${T.n100}`,
+          borderBottom: `1px solid var(--shell-bg-subtle)`,
         }}
       >
         <div
@@ -166,7 +166,7 @@ export function AssistantChartSection({
             fontFamily: T.fSans,
             fontSize: 14,
             fontWeight: 600,
-            color: T.n900,
+            color: 'var(--shell-text)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -229,7 +229,7 @@ function Footer({ spec, truncated, originalRowCount }: FooterProps) {
       style={{
         fontFamily: T.fSans,
         fontSize: 12,
-        color: T.n500,
+        color: 'var(--shell-text-subtle)',
         marginTop: 8,
         lineHeight: 1.5,
       }}
@@ -300,14 +300,14 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
     value: valueLabel,
     angle: -90 as const,
     position: 'insideLeft' as const,
-    style: { textAnchor: 'middle' as const, fill: T.n500, fontSize: 11 },
+    style: { textAnchor: 'middle' as const, fill: 'var(--shell-text-subtle)', fontSize: 11 },
   };
   // Horizontal bar puts the value on the X axis, so its label sits at the bottom.
   const valueXAxisLabel = {
     value: valueLabel,
     position: 'insideBottom' as const,
     offset: -2,
-    style: { textAnchor: 'middle' as const, fill: T.n500, fontSize: 11 },
+    style: { textAnchor: 'middle' as const, fill: 'var(--shell-text-subtle)', fontSize: 11 },
   };
   // Left margin reserves room for the rotated Y-axis label.
   const cartesianMargin = { top: 8, right: 16, left: 16, bottom: 4 };
@@ -325,9 +325,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
     case 'bar':
       return (
         <BarChart data={spec.data} margin={cartesianMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+          <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Bar dataKey={spec.encoding.value} fill={CHART[0]} />
         </BarChart>
@@ -336,10 +336,10 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
     case 'horizontal-bar':
       return (
         <BarChart data={spec.data} layout="vertical" margin={cartesianMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
           <XAxis
             type="number"
-            stroke={T.n500}
+            stroke={'var(--shell-text-subtle)'}
             fontSize={11}
             tickFormatter={axisTick}
             label={valueXAxisLabel}
@@ -347,7 +347,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
           <YAxis
             dataKey={spec.encoding.category}
             type="category"
-            stroke={T.n500}
+            stroke={'var(--shell-text-subtle)'}
             fontSize={11}
             width={120}
             tickFormatter={categoryTick}
@@ -362,9 +362,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
       return (
         <BarChart data={wide} margin={cartesianMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+          <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
@@ -382,9 +382,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
       return (
         <BarChart data={wide} margin={cartesianMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+          <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
@@ -397,9 +397,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
     case 'line':
       return (
         <LineChart data={spec.data} margin={cartesianMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+          <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Line
             type="monotone"
@@ -416,9 +416,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
       return (
         <LineChart data={wide} margin={cartesianMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+          <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
           {seriesKeys.map((s, i) => (
@@ -438,9 +438,9 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
     case 'area':
       return (
         <AreaChart data={spec.data} margin={cartesianMargin}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={T.n500} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+          <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Area
             type="monotone"
@@ -491,22 +491,22 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       };
       return (
         <ComposedChart data={spec.data} margin={{ top: 8, right: 20, left: 16, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
-          <XAxis dataKey={spec.encoding.category} stroke={T.n500} fontSize={11} tickFormatter={categoryTick} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+          <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
           <YAxis
             yAxisId="left"
-            stroke={T.n500}
+            stroke={'var(--shell-text-subtle)'}
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, leftUnit, leftScale)}
-            label={{ value: labelOf(labels, leftCol), angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
+            label={{ value: labelOf(labels, leftCol), angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'var(--shell-text-subtle)', fontSize: 11 } }}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
-            stroke={T.n500}
+            stroke={'var(--shell-text-subtle)'}
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, rightUnit, rightScale)}
-            label={{ value: labelOf(labels, rightCol), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 } }}
+            label={{ value: labelOf(labels, rightCol), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: 'var(--shell-text-subtle)', fontSize: 11 } }}
           />
           <Tooltip formatter={comboTooltip} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />
@@ -536,41 +536,41 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
       };
       return (
         <ScatterChart margin={{ top: 12, right: 20, left: 16, bottom: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.n200} />
+          <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
           <XAxis
             dataKey={spec.encoding.category}
             type="number"
             // Zoom to the data range (with padding) instead of anchoring at 0 —
             // a cluster of like-valued points spreads out and reads clearly.
             domain={['auto', 'auto']}
-            stroke={T.n500}
+            stroke={'var(--shell-text-subtle)'}
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, xUnit, xScale)}
             label={{
               value: labelOf(labels, spec.encoding.category),
               position: 'insideBottom',
               offset: -8,
-              style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 },
+              style: { textAnchor: 'middle', fill: 'var(--shell-text-subtle)', fontSize: 11 },
             }}
           />
           <YAxis
             dataKey={spec.encoding.value}
             type="number"
             domain={['auto', 'auto']}
-            stroke={T.n500}
+            stroke={'var(--shell-text-subtle)'}
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, yUnit, yScale)}
             label={{
               value: labelOf(labels, spec.encoding.value),
               angle: -90,
               position: 'insideLeft',
-              style: { textAnchor: 'middle', fill: T.n500, fontSize: 11 },
+              style: { textAnchor: 'middle', fill: 'var(--shell-text-subtle)', fontSize: 11 },
             }}
           />
           <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={scatterTooltip} />
           <Scatter data={spec.data} fill={CHART[0]}>
             {labelKey && (
-              <LabelList dataKey={labelKey} position="top" style={{ fill: T.n600, fontSize: 10 }} />
+              <LabelList dataKey={labelKey} position="top" style={{ fill: 'var(--shell-text-muted)', fontSize: 10 }} />
             )}
           </Scatter>
         </ScatterChart>
@@ -607,14 +607,14 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
               position="right"
               dataKey={spec.encoding.category}
               stroke="none"
-              fill={T.n900}
+              fill={'var(--shell-text)'}
               fontSize={12}
             />
             <LabelList
               position="left"
               dataKey={spec.encoding.value}
               stroke="none"
-              fill={T.n500}
+              fill={'var(--shell-text-subtle)'}
               fontSize={11}
               formatter={readable}
             />

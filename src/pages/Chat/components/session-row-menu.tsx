@@ -128,10 +128,10 @@ export function SessionRowMenu({ session, onRenamed, onDeleted }: SessionRowMenu
           borderRadius: 4,
           background: 'none',
           cursor: 'pointer',
-          color: T.n500,
+          color: 'var(--shell-text-subtle)',
           padding: 0,
         }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = T.surfaceSubtle; }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-subtle)'; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
       >
         <MoreVertical size={14} />

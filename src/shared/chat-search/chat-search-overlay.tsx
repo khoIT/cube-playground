@@ -109,7 +109,7 @@ function OverlayBody() {
         onKeyDown={onKeyDown}
         style={{
           width: 'min(720px, 92vw)', maxHeight: '70vh',
-          background: T.sidebar, border: `1px solid ${T.n200}`, borderRadius: 16,
+          background: 'var(--surface-sidebar)', border: `1px solid var(--shell-border)`, borderRadius: 16,
           boxShadow: '0 24px 56px rgba(0,0,0,0.22)',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}
@@ -147,7 +147,7 @@ function SearchInput({
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
-      padding: '16px 20px', borderBottom: `1px solid ${T.n200}`,
+      padding: '16px 20px', borderBottom: `1px solid var(--shell-border)`,
     }}>
       <input
         ref={inputRef}
@@ -157,10 +157,10 @@ function SearchInput({
         placeholder="Search…"
         style={{
           flex: 1, border: 'none', outline: 'none', background: 'transparent',
-          fontFamily: T.fSans, fontSize: 15, color: T.n900,
+          fontFamily: T.fSans, fontSize: 15, color: 'var(--shell-text)',
         }}
       />
-      <Icon icon={Search} size={18} color={T.n500} />
+      <Icon icon={Search} size={18} color={'var(--shell-text-subtle)'} />
     </div>
   );
 }
@@ -185,7 +185,7 @@ function GroupedList({
           <div key={g.key}>
             <div style={{
               padding: '14px 20px 6px', fontFamily: T.fSans, fontSize: 11,
-              fontWeight: 600, letterSpacing: '0.06em', color: T.n500,
+              fontWeight: 600, letterSpacing: '0.06em', color: 'var(--shell-text-subtle)',
             }}>
               {g.label}
             </div>
@@ -210,16 +210,16 @@ function GroupedList({
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     width: '100%', padding: '12px 20px',
-                    background: active ? T.surfaceSubtle : 'transparent',
+                    background: active ? 'var(--surface-subtle)' : 'transparent',
                     cursor: 'pointer', textAlign: 'left',
                   }}
                 >
                   <span style={{
-                    flex: 1, minWidth: 0, fontFamily: T.fSans, fontSize: 14, color: T.n900,
+                    flex: 1, minWidth: 0, fontFamily: T.fSans, fontSize: 14, color: 'var(--shell-text)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{s.title || 'Untitled'}</span>
                   <span style={{
-                    flexShrink: 0, fontFamily: T.fSans, fontSize: 12, color: T.n500,
+                    flexShrink: 0, fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-subtle)',
                   }}>{formatTimeAgoLong(s.updatedAt ?? s.createdAt)}</span>
                   {active && (
                     <ChatRowKebabMenu
@@ -242,7 +242,7 @@ function GroupedList({
 function Empty({ label }: { label: string }) {
   return (
     <div style={{
-      padding: '32px 20px', textAlign: 'center', color: T.n500,
+      padding: '32px 20px', textAlign: 'center', color: 'var(--shell-text-subtle)',
       fontFamily: T.fSans, fontSize: 13,
     }}>
       {label}
@@ -254,9 +254,9 @@ function Footer() {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 16, padding: '10px 16px',
-      borderTop: `1px solid ${T.n200}`, fontFamily: T.fSans, fontSize: 12, color: T.n500,
+      borderTop: `1px solid var(--shell-border)`, fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-subtle)',
     }}>
-      <Icon icon={Maximize2} size={14} color={T.n500} />
+      <Icon icon={Maximize2} size={14} color={'var(--shell-text-subtle)'} />
       <span style={{ flex: 1 }} />
       <FooterHint label="Navigate" keys={['↑', '↓']} />
       <FooterHint label="Open" keys={['↵']} />
@@ -271,8 +271,8 @@ function FooterHint({ label, keys }: { label: string; keys: string[] }) {
       {label}
       {keys.map((k) => (
         <kbd key={k} style={{
-          fontFamily: T.fMono, fontSize: 11, color: T.n700,
-          border: `1px solid ${T.n200}`, borderRadius: 4, padding: '1px 6px', background: T.surface,
+          fontFamily: T.fMono, fontSize: 11, color: 'var(--shell-text-secondary)',
+          border: `1px solid var(--shell-border)`, borderRadius: 4, padding: '1px 6px', background: 'var(--surface-raised)',
         }}>{k}</kbd>
       ))}
     </span>

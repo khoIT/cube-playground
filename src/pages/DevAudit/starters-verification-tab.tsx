@@ -95,10 +95,10 @@ export function StartersVerificationTab() {
     <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', fontFamily: T.fSans }}>
       {/* Run header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: T.n800 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--shell-text-emphasis)' }}>
           Verification run <code style={{ fontFamily: T.fMono }}>{report.version}</code>
         </span>
-        <span style={{ fontSize: 12, color: T.n500 }}>
+        <span style={{ fontSize: 12, color: 'var(--shell-text-subtle)' }}>
           {new Date(report.generatedAt).toLocaleString()} · workspace {report.workspace} ·{' '}
           {kept}/{entries.length} candidates shipped
         </span>
@@ -110,9 +110,9 @@ export function StartersVerificationTab() {
               onClick={() => setActiveGame(g)}
               style={{
                 padding: '3px 10px', borderRadius: 999, fontSize: 12, cursor: 'pointer',
-                border: `1px solid ${g === activeGame ? T.n900 : T.n300}`,
-                background: g === activeGame ? T.n900 : 'transparent',
-                color: g === activeGame ? '#fff' : T.n700,
+                border: `1px solid ${g === activeGame ? 'var(--shell-text)' : 'var(--shell-border-strong)'}`,
+                background: g === activeGame ? 'var(--shell-text)' : 'transparent',
+                color: g === activeGame ? '#fff' : 'var(--shell-text-secondary)',
               }}
             >
               {g}
@@ -127,7 +127,7 @@ export function StartersVerificationTab() {
         if (rows.length === 0) return null;
         return (
           <section key={topic} style={{ marginBottom: 20 }}>
-            <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: T.n500, margin: '0 0 8px' }}>
+            <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--shell-text-subtle)', margin: '0 0 8px' }}>
               {TOPIC_LABELS[topic]} — {rows.filter((r) => r.kept).length} shipped / {rows.length} candidates
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -157,10 +157,10 @@ function EntryRow({ entry }: { entry: ReportEntry }) {
       style={{
         display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
         padding: '8px 12px', borderRadius: 8,
-        border: `1px solid ${T.n200}`,
-        background: entry.kept ? T.surface : T.surfaceSubtle,
+        border: `1px solid var(--shell-border)`,
+        background: entry.kept ? 'var(--surface-raised)' : 'var(--surface-subtle)',
         opacity: entry.kept ? 1 : 0.75,
-        fontSize: 13, color: T.n800,
+        fontSize: 13, color: 'var(--shell-text-emphasis)',
       }}
     >
       <Pill
@@ -177,25 +177,25 @@ function EntryRow({ entry }: { entry: ReportEntry }) {
         />
       )}
       <span style={{ flex: 1, minWidth: 240 }}>{entry.text}</span>
-      <span style={{ fontSize: 11, color: T.n500, fontFamily: T.fMono, whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 11, color: 'var(--shell-text-subtle)', fontFamily: T.fMono, whiteSpace: 'nowrap' }}>
         {entry.tier1.rowCount != null && `rows ${entry.tier1.rowCount}`}
         {t2?.ok && ` · ${Math.round((t2.ms ?? 0) / 1000)}s · ${t2.artifactCount} artifact`}
       </span>
       {t2?.sessionId && (
         <Link
           to={`/dev/chat-audit/sessions/${t2.sessionId}`}
-          style={{ fontSize: 12, color: T.n600, whiteSpace: 'nowrap' }}
+          style={{ fontSize: 12, color: 'var(--shell-text-muted)', whiteSpace: 'nowrap' }}
         >
           transcript →
         </Link>
       )}
       {entry.query != null && (
         <details style={{ width: '100%' }}>
-          <summary style={{ fontSize: 11, color: T.n500, cursor: 'pointer' }}>pass-through query</summary>
+          <summary style={{ fontSize: 11, color: 'var(--shell-text-subtle)', cursor: 'pointer' }}>pass-through query</summary>
           <pre
             style={{
               margin: '6px 0 0', padding: 10, borderRadius: 8, overflow: 'auto',
-              background: T.surfaceSubtle, fontSize: 11, fontFamily: T.fMono, color: T.n700,
+              background: 'var(--surface-subtle)', fontSize: 11, fontFamily: T.fMono, color: 'var(--shell-text-secondary)',
             }}
           >
             {JSON.stringify(entry.query, null, 2)}
@@ -227,7 +227,7 @@ function Pill({ text, soft, ink }: { text: string; soft: string; ink: string }) 
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.n500, fontSize: 13, fontFamily: T.fSans, padding: 24 }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--shell-text-subtle)', fontSize: 13, fontFamily: T.fSans, padding: 24 }}>
       <span>{children}</span>
     </div>
   );

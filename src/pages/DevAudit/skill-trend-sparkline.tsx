@@ -20,7 +20,7 @@ export function SkillTrendSparkline({
   data,
   width = 60,
   height = 18,
-  color = T.brand,
+  color = 'var(--shell-brand)',
 }: Props) {
   // Guard: empty data → flat baseline
   if (data.length === 0) {

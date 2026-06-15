@@ -19,11 +19,11 @@ export function DisconnectBanner({ onReconnect }: DisconnectBannerProps) {
       data-testid="disconnect-banner"
       style={{
         padding: '8px 16px',
-        background: T.amberSoft,
-        borderBottom: `1px solid ${T.amber500}`,
+        background: 'var(--shell-warning-soft)',
+        borderBottom: `1px solid var(--shell-warning)`,
         fontFamily: T.fSans,
         fontSize: 13,
-        color: T.n800,
+        color: 'var(--shell-text-emphasis)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -36,13 +36,13 @@ export function DisconnectBanner({ onReconnect }: DisconnectBannerProps) {
         onClick={onReconnect}
         style={{
           background: 'none',
-          border: `1px solid ${T.amber500}`,
+          border: `1px solid var(--shell-warning)`,
           borderRadius: 4,
           padding: '2px 10px',
           cursor: 'pointer',
           fontFamily: T.fSans,
           fontSize: 13,
-          color: T.n800,
+          color: 'var(--shell-text-emphasis)',
         }}
       >
         Refresh
@@ -66,11 +66,11 @@ export function RateLimitedBanner({ retryAfterMs }: RateLimitedBannerProps) {
       data-testid="rate-limited-banner"
       style={{
         padding: '8px 16px',
-        background: T.amberSoft,
-        borderBottom: `1px solid ${T.amber500}`,
+        background: 'var(--shell-warning-soft)',
+        borderBottom: `1px solid var(--shell-warning)`,
         fontFamily: T.fSans,
         fontSize: 13,
-        color: T.n800,
+        color: 'var(--shell-text-emphasis)',
       }}
     >
       Slow down — try again in {secs} second{secs !== 1 ? 's' : ''}.
@@ -100,11 +100,11 @@ export function ErrorBanner({ onDismiss, title, hint, detail }: ErrorBannerProps
       data-testid="error-banner"
       style={{
         padding: '10px 16px',
-        background: T.redSoft,
-        borderTop: `1px solid ${T.red500}`,
+        background: 'var(--shell-danger-soft)',
+        borderTop: `1px solid var(--shell-danger)`,
         fontFamily: T.fSans,
         fontSize: 13,
-        color: T.red600,
+        color: 'var(--shell-danger-strong)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
@@ -114,14 +114,14 @@ export function ErrorBanner({ onDismiss, title, hint, detail }: ErrorBannerProps
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
         <span style={{ fontWeight: 600 }}>{headline}</span>
         {hint && (
-          <span style={{ color: T.n700 }}>
+          <span style={{ color: 'var(--shell-text-secondary)' }}>
             <strong style={{ fontWeight: 600 }}>Where to fix:</strong> {hint}
           </span>
         )}
         {detail && (
           <span
             style={{
-              color: T.n500,
+              color: 'var(--shell-text-subtle)',
               fontSize: 12,
               fontFamily: T.fMono ?? 'monospace',
               wordBreak: 'break-word',
@@ -134,7 +134,7 @@ export function ErrorBanner({ onDismiss, title, hint, detail }: ErrorBannerProps
       <button
         type="button"
         onClick={onDismiss}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.red600, fontFamily: T.fSans, fontSize: 13, flexShrink: 0 }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--shell-danger-strong)', fontFamily: T.fSans, fontSize: 13, flexShrink: 0 }}
       >
         Dismiss
       </button>
@@ -153,12 +153,12 @@ export function CompactWarningChip() {
       style={{
         margin: '4px 16px',
         padding: '4px 10px',
-        background: T.blueSoft,
-        border: `1px solid ${T.blue500}`,
+        background: 'var(--shell-info-soft)',
+        border: `1px solid var(--shell-info-alt)`,
         borderRadius: 12,
         fontFamily: T.fSans,
         fontSize: 12,
-        color: T.blue600,
+        color: 'var(--shell-info)',
         alignSelf: 'center',
       }}
     >

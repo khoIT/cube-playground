@@ -37,7 +37,7 @@ export function ToolCallGroup({ calls }: ToolCallGroupProps) {
   return (
     <div
       style={{
-        borderLeft: `2px solid ${T.n200}`,
+        borderLeft: `2px solid var(--shell-border)`,
         marginLeft: 2,
         marginTop: 4,
         marginBottom: 4,
@@ -55,7 +55,7 @@ export function ToolCallGroup({ calls }: ToolCallGroupProps) {
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          color: T.n400,
+          color: 'var(--shell-text-faint)',
           fontFamily: T.fSans,
           fontSize: 12,
           fontWeight: 500,
@@ -63,20 +63,20 @@ export function ToolCallGroup({ calls }: ToolCallGroupProps) {
         }}
         aria-expanded={open}
       >
-        <Icon icon={Wrench} size={12} color={T.n400} />
+        <Icon icon={Wrench} size={12} color={'var(--shell-text-faint)'} />
         <span>Tool calls ({calls.length})</span>
         {pending ? (
           <>
             <span
               style={{ animation: 'chat-spin 1s linear infinite', display: 'inline-flex' }}
             >
-              <Icon icon={Loader} size={12} color={T.n400} />
+              <Icon icon={Loader} size={12} color={'var(--shell-text-faint)'} />
             </span>
             <span
               style={{
                 fontFamily: T.fMono,
                 fontWeight: 400,
-                color: T.n500,
+                color: 'var(--shell-text-subtle)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -89,17 +89,17 @@ export function ToolCallGroup({ calls }: ToolCallGroupProps) {
         ) : (
           <>
             {errorCount > 0 && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: T.red500 }}>
-                <Icon icon={XCircle} size={12} color={T.red500} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--shell-danger)' }}>
+                <Icon icon={XCircle} size={12} color={'var(--shell-danger)'} />
                 {errorCount} failed
               </span>
             )}
             {totalMs > 0 && (
-              <span style={{ fontWeight: 400, color: T.n400 }}>· {formatTotalMs(totalMs)}</span>
+              <span style={{ fontWeight: 400, color: 'var(--shell-text-faint)' }}>· {formatTotalMs(totalMs)}</span>
             )}
           </>
         )}
-        <Icon icon={open ? ChevronDown : ChevronRight} size={12} color={T.n400} />
+        <Icon icon={open ? ChevronDown : ChevronRight} size={12} color={'var(--shell-text-faint)'} />
       </button>
 
       {open && (

@@ -21,30 +21,30 @@ import { TurnArtifactsSection, ArtifactCountBadge } from './turn-artifacts-secti
 const LANGFUSE_HOST = (import.meta as Record<string, any>).env?.VITE_LANGFUSE_HOST as string | undefined;
 
 const S = {
-  card: { border: `1px solid ${T.n200}`, borderRadius: 8, marginBottom: 8, overflow: 'hidden' } as React.CSSProperties,
+  card: { border: `1px solid var(--shell-border)`, borderRadius: 8, marginBottom: 8, overflow: 'hidden' } as React.CSSProperties,
   header: {
     display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 12px', background: T.surfaceMuted,
+    padding: '8px 12px', background: 'var(--surface-muted)',
     cursor: 'pointer', userSelect: 'none' as const, fontSize: 12,
   } as React.CSSProperties,
   body: { padding: '10px 14px' } as React.CSSProperties,
   sectionLabel: {
     fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
-    textTransform: 'uppercase' as const, color: T.n500, marginBottom: 6, marginTop: 12,
+    textTransform: 'uppercase' as const, color: 'var(--shell-text-subtle)', marginBottom: 6, marginTop: 12,
   } as React.CSSProperties,
   pre: {
     fontFamily: T.fMono, fontSize: 11, whiteSpace: 'pre-wrap' as const,
     wordBreak: 'break-all' as const, maxHeight: 300, overflowY: 'auto' as const,
-    background: T.surfaceSubtle, padding: '8px 10px', borderRadius: 4,
-    border: `1px solid ${T.n200}`,
+    background: 'var(--surface-subtle)', padding: '8px 10px', borderRadius: 4,
+    border: `1px solid var(--shell-border)`,
   } as React.CSSProperties,
   outlineBtn: {
-    fontSize: 11, padding: '2px 8px', border: `1px solid ${T.n300}`,
-    borderRadius: 4, background: T.surfaceSubtle, color: T.n600, cursor: 'pointer',
+    fontSize: 11, padding: '2px 8px', border: `1px solid var(--shell-border-strong)`,
+    borderRadius: 4, background: 'var(--surface-subtle)', color: 'var(--shell-text-muted)', cursor: 'pointer',
   } as React.CSSProperties,
   langfuseBtn: {
-    fontSize: 11, padding: '2px 8px', border: `1px solid ${T.brandBorder}`,
-    borderRadius: 4, background: T.brandSoft, color: T.brand,
+    fontSize: 11, padding: '2px 8px', border: `1px solid var(--shell-brand-border)`,
+    borderRadius: 4, background: 'var(--shell-brand-soft)', color: 'var(--shell-brand)',
     cursor: 'pointer', textDecoration: 'none', display: 'inline-block',
   } as React.CSSProperties,
 };
@@ -70,8 +70,8 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
         style={{ ...S.header, cursor: isAssistant ? 'pointer' : 'default' }}
         onClick={() => isAssistant && setExpanded((v) => !v)}
       >
-        <span style={{ color: T.n400, fontFamily: T.fMono, fontSize: 11, minWidth: 24 }}>#{index + 1}</span>
-        <span style={{ fontWeight: 600, color: isAssistant ? T.brand : T.n700, flex: 1 }}>
+        <span style={{ color: 'var(--shell-text-faint)', fontFamily: T.fMono, fontSize: 11, minWidth: 24 }}>#{index + 1}</span>
+        <span style={{ fontWeight: 600, color: isAssistant ? 'var(--shell-brand)' : 'var(--shell-text-secondary)', flex: 1 }}>
           {turn.role === 'user' ? 'User' : 'Assistant'}
         </span>
         {turn.legacy && <LegacyTurnBadge />}
@@ -79,13 +79,13 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
         {isAssistant && <ArtifactCountBadge count={turn.artifacts?.length ?? 0} />}
         {stats && (
           <span
-            style={{ color: T.n500, fontFamily: T.fMono, fontSize: 11 }}
+            style={{ color: 'var(--shell-text-subtle)', fontFamily: T.fMono, fontSize: 11 }}
             title="aggregate from final SDK result message · cache%: cache_read/(cache_read+cache_creation) · io: output/input ratio"
           >
             {stats}
           </span>
         )}
-        <span style={{ color: T.n400, fontSize: 11 }}>{new Date(turn.createdAt).toLocaleString()}</span>
+        <span style={{ color: 'var(--shell-text-faint)', fontSize: 11 }}>{new Date(turn.createdAt).toLocaleString()}</span>
         {/* Phase-04: annotation toggle — available once turn detail is expanded */}
         {isAssistant && data && (
           <TurnAnnotationToggle turnId={turn.id} initial={data.annotation ?? null} />
@@ -101,13 +101,13 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
             Open in Langfuse
           </a>
         )}
-        {isAssistant && <span style={{ color: T.n400, fontSize: 10 }}>{expanded ? '▲' : '▼'}</span>}
+        {isAssistant && <span style={{ color: 'var(--shell-text-faint)', fontSize: 10 }}>{expanded ? '▲' : '▼'}</span>}
       </div>
 
       {/* User turn: always show text inline */}
       {!isAssistant && (
-        <div style={{ ...S.body, fontFamily: T.fSans, fontSize: 12, color: T.n800 }}>
-          {turn.text || <span style={{ color: T.n400 }}>(no text)</span>}
+        <div style={{ ...S.body, fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-emphasis)' }}>
+          {turn.text || <span style={{ color: 'var(--shell-text-faint)' }}>(no text)</span>}
         </div>
       )}
 
@@ -118,7 +118,7 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
               turns with persisted artifacts_json still show them. */}
           <TurnArtifactsSection artifacts={turn.artifacts} />
           {turn.legacy ? (
-            <div style={{ color: T.n500, fontSize: 12, padding: '8px 0' }}>
+            <div style={{ color: 'var(--shell-text-subtle)', fontSize: 12, padding: '8px 0' }}>
               No per-step observability data captured for this turn — predates the observability feature.
             </div>
           ) : (
@@ -131,8 +131,8 @@ export function TurnDetail({ turn, index }: TurnDetailProps) {
               </div>
               {showPrompt && <pre style={S.pre}>{turn.text || '(no content)'}</pre>}
 
-              {isLoading && <div style={{ color: T.n400, fontSize: 11, marginTop: 8 }}>Loading turn detail…</div>}
-              {error && <div style={{ color: T.red500, fontSize: 11, marginTop: 8 }}>Error: {error}</div>}
+              {isLoading && <div style={{ color: 'var(--shell-text-faint)', fontSize: 11, marginTop: 8 }}>Loading turn detail…</div>}
+              {error && <div style={{ color: 'var(--shell-danger)', fontSize: 11, marginTop: 8 }}>Error: {error}</div>}
 
               {data && (
                 <>
@@ -176,10 +176,10 @@ function CacheHitBadge({ originalTurnId, originalSessionId }: CacheHitBadgeProps
   const badgeStyle: React.CSSProperties = {
     fontSize: 10,
     padding: '1px 6px',
-    border: `1px solid ${T.brand}`,
+    border: `1px solid var(--shell-brand)`,
     borderRadius: 4,
-    background: T.brandSoft,
-    color: T.brand,
+    background: 'var(--shell-brand-soft)',
+    color: 'var(--shell-brand)',
     fontWeight: 600,
     letterSpacing: '0.04em',
     whiteSpace: 'nowrap',

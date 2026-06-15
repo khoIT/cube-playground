@@ -29,26 +29,26 @@ const S = {
   searchBar: {
     flexShrink: 0,
     padding: '6px 16px',
-    background: T.surfaceSubtle,
-    borderBottom: `1px solid ${T.n200}`,
+    background: 'var(--surface-subtle)',
+    borderBottom: `1px solid var(--shell-border)`,
     display: 'flex',
     alignItems: 'center',
     gap: 8,
     fontSize: 11,
-    color: T.n600,
+    color: 'var(--shell-text-muted)',
   } as React.CSSProperties,
 
   searchInput: {
     flex: 1,
     maxWidth: 320,
     padding: '3px 10px',
-    border: `1px solid ${T.n300}`,
+    border: `1px solid var(--shell-border-strong)`,
     borderRadius: 6,
     fontSize: 12,
     fontFamily: T.fSans,
     outline: 'none',
-    background: T.surface,
-    color: T.n800,
+    background: 'var(--surface-raised)',
+    color: 'var(--shell-text-emphasis)',
   } as React.CSSProperties,
 
   body: {
@@ -64,7 +64,7 @@ const S = {
     minWidth: 280,
     display: 'flex',
     flexDirection: 'column' as const,
-    borderRight: `1px solid ${T.n200}`,
+    borderRight: `1px solid var(--shell-border)`,
     height: '100%',
     overflow: 'hidden',
   } as React.CSSProperties,
@@ -146,10 +146,10 @@ export function SessionsTab() {
                 style={{
                   fontSize: 11,
                   padding: '2px 10px',
-                  border: `1px solid ${scope === s ? T.brand : T.n300}`,
+                  border: `1px solid ${scope === s ? 'var(--shell-brand)' : 'var(--shell-border-strong)'}`,
                   borderRadius: 5,
-                  background: scope === s ? T.brandSoft : T.surface,
-                  color: scope === s ? T.brand : T.n600,
+                  background: scope === s ? 'var(--shell-brand-soft)' : 'var(--surface-raised)',
+                  color: scope === s ? 'var(--shell-brand)' : 'var(--shell-text-muted)',
                   fontWeight: scope === s ? 600 : 400,
                   cursor: 'pointer',
                 }}
@@ -170,10 +170,10 @@ export function SessionsTab() {
               fontFamily: T.fSans,
               padding: '2px 6px',
               maxWidth: 220,
-              border: `1px solid ${ownerFilter ? T.brand : T.n300}`,
+              border: `1px solid ${ownerFilter ? 'var(--shell-brand)' : 'var(--shell-border-strong)'}`,
               borderRadius: 5,
-              background: T.surface,
-              color: ownerFilter ? T.brand : T.n700,
+              background: 'var(--surface-raised)',
+              color: ownerFilter ? 'var(--shell-brand)' : 'var(--shell-text-secondary)',
               cursor: 'pointer',
             }}
           >
@@ -186,7 +186,7 @@ export function SessionsTab() {
           </select>
         )}
         {ownersEnabled && (
-          <span data-testid="session-count" style={{ color: T.n500, whiteSpace: 'nowrap' }}>
+          <span data-testid="session-count" style={{ color: 'var(--shell-text-subtle)', whiteSpace: 'nowrap' }}>
             {selectedCount} session{selectedCount === 1 ? '' : 's'}
           </span>
         )}

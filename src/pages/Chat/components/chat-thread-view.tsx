@@ -67,7 +67,7 @@ export function ChatThreadView({
         padding: '12px 0 20px',
         position: 'sticky',
         bottom: 0,
-        background: T.surface,
+        background: 'var(--surface-raised)',
         marginTop: 'auto',
       };
 

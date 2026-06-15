@@ -15,7 +15,7 @@ interface RawEventsAccordionProps {
 const styles = {
   root: {
     marginTop: 8,
-    border: `1px solid ${T.n200}`,
+    border: `1px solid var(--shell-border)`,
     borderRadius: 6,
     overflow: 'hidden',
   } as React.CSSProperties,
@@ -24,12 +24,12 @@ const styles = {
     alignItems: 'center',
     gap: 8,
     padding: '6px 12px',
-    background: T.surfaceMuted,
+    background: 'var(--surface-muted)',
     cursor: 'pointer',
     userSelect: 'none' as const,
     fontSize: 12,
     fontWeight: 600,
-    color: T.n600,
+    color: 'var(--shell-text-muted)',
   } as React.CSSProperties,
   body: {
     padding: '8px 12px',
@@ -41,15 +41,15 @@ const styles = {
     gridTemplateColumns: '40px 140px 1fr',
     gap: 8,
     padding: '3px 0',
-    borderBottom: `1px solid ${T.n100}`,
+    borderBottom: `1px solid var(--shell-bg-subtle)`,
     fontSize: 11,
     fontFamily: T.fMono,
     alignItems: 'start',
   } as React.CSSProperties,
-  seqCell: { color: T.n400, textAlign: 'right' as const },
-  typeCell: { color: T.brand, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
+  seqCell: { color: 'var(--shell-text-faint)', textAlign: 'right' as const },
+  typeCell: { color: 'var(--shell-brand)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
   payloadCell: {
-    color: T.n700,
+    color: 'var(--shell-text-secondary)',
     whiteSpace: 'pre-wrap' as const,
     wordBreak: 'break-all' as const,
     maxHeight: 120,
@@ -59,14 +59,14 @@ const styles = {
     display: 'inline-block',
     marginTop: 8,
     padding: '4px 10px',
-    background: T.surfaceSubtle,
-    border: `1px solid ${T.n300}`,
+    background: 'var(--surface-subtle)',
+    border: `1px solid var(--shell-border-strong)`,
     borderRadius: 4,
     fontSize: 11,
     cursor: 'pointer',
-    color: T.n700,
+    color: 'var(--shell-text-secondary)',
   } as React.CSSProperties,
-  err: { color: T.red500, fontSize: 11, padding: '4px 0' } as React.CSSProperties,
+  err: { color: 'var(--shell-danger)', fontSize: 11, padding: '4px 0' } as React.CSSProperties,
 };
 
 export function RawEventsAccordion({ turnId }: RawEventsAccordionProps) {
@@ -96,16 +96,16 @@ export function RawEventsAccordion({ turnId }: RawEventsAccordionProps) {
       <div style={styles.header} onClick={handleOpen} role="button" aria-expanded={open}>
         <span style={{ transform: open ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 150ms' }}>▶</span>
         Raw SDK Events
-        {events.length > 0 && <span style={{ color: T.n400, fontWeight: 400 }}>({events.length})</span>}
+        {events.length > 0 && <span style={{ color: 'var(--shell-text-faint)', fontWeight: 400 }}>({events.length})</span>}
       </div>
 
       {open && (
         <div style={styles.body}>
           {events.length === 0 && isLoading && (
-            <div style={{ color: T.n400, fontSize: 11 }}>Loading events…</div>
+            <div style={{ color: 'var(--shell-text-faint)', fontSize: 11 }}>Loading events…</div>
           )}
           {events.length === 0 && !isLoading && !error && (
-            <div style={{ color: T.n400, fontSize: 11 }}>No events recorded.</div>
+            <div style={{ color: 'var(--shell-text-faint)', fontSize: 11 }}>No events recorded.</div>
           )}
           {error && <div style={styles.err}>Error: {error}</div>}
 
@@ -125,7 +125,7 @@ export function RawEventsAccordion({ turnId }: RawEventsAccordionProps) {
             <button style={styles.btn} onClick={loadMore}>Load more</button>
           )}
           {isLoading && events.length > 0 && (
-            <div style={{ color: T.n400, fontSize: 11, marginTop: 4 }}>Loading…</div>
+            <div style={{ color: 'var(--shell-text-faint)', fontSize: 11, marginTop: 4 }}>Loading…</div>
           )}
         </div>
       )}

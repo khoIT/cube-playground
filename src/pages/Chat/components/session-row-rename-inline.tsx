@@ -50,11 +50,11 @@ export function SessionRowRenameInline({
           fontFamily: T.fSans,
           fontSize: 13,
           padding: '2px 6px',
-          border: `1px solid ${T.brandBorder}`,
+          border: `1px solid var(--shell-brand-border)`,
           borderRadius: 4,
           outline: 'none',
-          background: T.surface,
-          color: T.n800,
+          background: 'var(--surface-raised)',
+          color: 'var(--shell-text-emphasis)',
         }}
       />
     </div>

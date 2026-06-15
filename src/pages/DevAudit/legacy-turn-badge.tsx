@@ -17,9 +17,9 @@ export function LegacyTurnBadge() {
         fontWeight: 600,
         letterSpacing: '0.03em',
         textTransform: 'uppercase',
-        background: T.amberSoft,
-        color: T.amber500,
-        border: `1px solid ${T.amber500}`,
+        background: 'var(--shell-warning-soft)',
+        color: 'var(--shell-warning)',
+        border: `1px solid var(--shell-warning)`,
         lineHeight: '18px',
         flexShrink: 0,
       }}

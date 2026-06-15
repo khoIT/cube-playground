@@ -21,16 +21,16 @@ const S = {
     flexDirection: 'column' as const,
     height: '100%',
     fontFamily: T.fSans,
-    background: T.surface,
+    background: 'var(--surface-raised)',
     overflow: 'hidden',
   } as React.CSSProperties,
   banner: {
     flexShrink: 0,
     padding: '6px 16px',
-    background: T.surfaceSubtle,
-    borderBottom: `1px solid ${T.n200}`,
+    background: 'var(--surface-subtle)',
+    borderBottom: `1px solid var(--shell-border)`,
     fontSize: 11,
-    color: T.n600,
+    color: 'var(--shell-text-muted)',
     display: 'flex',
     alignItems: 'center',
     gap: 8,
@@ -39,13 +39,13 @@ const S = {
     flex: 1,
     maxWidth: 320,
     padding: '3px 10px',
-    border: `1px solid ${T.n300}`,
+    border: `1px solid var(--shell-border-strong)`,
     borderRadius: 6,
     fontSize: 12,
     fontFamily: T.fSans,
     outline: 'none',
-    background: T.surface,
-    color: T.n800,
+    background: 'var(--surface-raised)',
+    color: 'var(--shell-text-emphasis)',
   } as React.CSSProperties,
   body: {
     flex: 1,
@@ -59,7 +59,7 @@ const S = {
     minWidth: 280,
     display: 'flex',
     flexDirection: 'column' as const,
-    borderRight: `1px solid ${T.n200}`,
+    borderRight: `1px solid var(--shell-border)`,
     height: '100%',
     overflow: 'hidden',
   } as React.CSSProperties,
@@ -102,7 +102,7 @@ export function DevAuditPage() {
         {/* Phase-05: leaderboard nav link */}
         <Link
           to="/dev/chat-audit/leaderboard"
-          style={{ color: T.brand, textDecoration: 'none', fontWeight: 500, fontSize: 12 }}
+          style={{ color: 'var(--shell-brand)', textDecoration: 'none', fontWeight: 500, fontSize: 12 }}
         >
           Leaderboard
         </Link>
@@ -116,7 +116,7 @@ export function DevAuditPage() {
           aria-label="Search turns"
           data-testid="turn-search-input"
         />
-        <span style={{ marginLeft: 'auto', color: T.n500, fontFamily: T.fMono }}>
+        <span style={{ marginLeft: 'auto', color: 'var(--shell-text-subtle)', fontFamily: T.fMono }}>
           game: {gameId}
         </span>
       </div>

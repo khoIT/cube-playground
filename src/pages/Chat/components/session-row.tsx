@@ -64,7 +64,7 @@ export function SessionRow({ session, active = false, onChange }: SessionRowProp
         padding: '8px 12px',
         border: 'none',
         borderRadius: 8,
-        background: active ? T.brandSoft : hovered ? T.surfaceSubtle : 'none',
+        background: active ? 'var(--shell-brand-soft)' : hovered ? 'var(--surface-subtle)' : 'none',
         cursor: 'pointer',
         textAlign: 'left',
         gap: 8,
@@ -78,7 +78,7 @@ export function SessionRow({ session, active = false, onChange }: SessionRowProp
           minWidth: 0,
           fontFamily: T.fSans,
           fontSize: 13,
-          color: active ? T.brand : T.n800,
+          color: active ? 'var(--shell-brand)' : 'var(--shell-text-emphasis)',
           fontWeight: active ? 600 : 400,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -100,7 +100,7 @@ export function SessionRow({ session, active = false, onChange }: SessionRowProp
             flexShrink: 0,
             fontFamily: T.fSans,
             fontSize: 11,
-            color: T.n400,
+            color: 'var(--shell-text-faint)',
             whiteSpace: 'nowrap',
           }}
         >

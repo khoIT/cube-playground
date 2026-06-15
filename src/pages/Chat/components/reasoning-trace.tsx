@@ -16,7 +16,7 @@ export function ReasoningTrace({ text }: ReasoningTraceProps) {
   return (
     <div
       style={{
-        borderLeft: `2px solid ${T.n200}`,
+        borderLeft: `2px solid var(--shell-border)`,
         marginLeft: 2,
         marginTop: 4,
         marginBottom: 4,
@@ -33,7 +33,7 @@ export function ReasoningTrace({ text }: ReasoningTraceProps) {
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          color: T.n400,
+          color: 'var(--shell-text-faint)',
           fontFamily: T.fSans,
           fontSize: 12,
           fontWeight: 500,
@@ -41,16 +41,16 @@ export function ReasoningTrace({ text }: ReasoningTraceProps) {
         }}
         aria-expanded={open}
       >
-        <Icon icon={Brain} size={12} color={T.n400} />
+        <Icon icon={Brain} size={12} color={'var(--shell-text-faint)'} />
         <span>Reasoning</span>
-        <Icon icon={open ? ChevronDown : ChevronRight} size={12} color={T.n400} />
+        <Icon icon={open ? ChevronDown : ChevronRight} size={12} color={'var(--shell-text-faint)'} />
       </button>
 
       {open && (
         <div
           style={{
             padding: '6px 10px 8px',
-            color: T.n500,
+            color: 'var(--shell-text-subtle)',
             fontFamily: T.fMono,
             fontSize: 12,
             lineHeight: 1.6,

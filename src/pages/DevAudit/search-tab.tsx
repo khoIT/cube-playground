@@ -76,18 +76,18 @@ const S = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: 8,
-    borderBottom: `1px solid ${T.n200}`,
+    borderBottom: `1px solid var(--shell-border)`,
   } as React.CSSProperties,
 
   input: {
     width: '100%',
     padding: '8px 12px',
-    border: `1px solid ${T.n300}`,
+    border: `1px solid var(--shell-border-strong)`,
     borderRadius: 6,
     fontSize: 13,
     fontFamily: T.fSans,
-    background: T.surface,
-    color: T.n800,
+    background: 'var(--surface-raised)',
+    color: 'var(--shell-text-emphasis)',
     outline: 'none',
     boxSizing: 'border-box' as const,
   } as React.CSSProperties,
@@ -99,7 +99,7 @@ const S = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    color: T.n400,
+    color: 'var(--shell-text-faint)',
     fontSize: 12,
     fontFamily: T.fSans,
     padding: 32,
@@ -109,7 +109,7 @@ const S = {
   emptyLabel: {
     fontFamily: T.fMono,
     fontSize: 10.5,
-    color: T.n400,
+    color: 'var(--shell-text-faint)',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.06em',
   } as React.CSSProperties,
@@ -207,11 +207,11 @@ export function SearchTab() {
           data-testid="unified-search-input"
           onFocus={(e) => {
             // Highlight brand border on focus — inline style toggle
-            e.currentTarget.style.borderColor = T.brand;
-            e.currentTarget.style.boxShadow = `0 0 0 2px ${T.brandBorder}`;
+            e.currentTarget.style.borderColor = 'var(--shell-brand)';
+            e.currentTarget.style.boxShadow = `0 0 0 2px var(--shell-brand-border)`;
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = T.n300;
+            e.currentTarget.style.borderColor = 'var(--shell-border-strong)';
             e.currentTarget.style.boxShadow = 'none';
           }}
         />

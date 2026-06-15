@@ -56,8 +56,8 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
   fontSize: '0.92em',
   padding: '0 4px',
   borderRadius: 3,
-  background: T.brandSoft,
-  color: T.n900,
+  background: 'var(--shell-brand-soft)',
+  color: 'var(--shell-text)',
 };
 
 /**
@@ -229,7 +229,7 @@ const P_STYLE: React.CSSProperties = {
   margin: '0 0 8px',
   fontFamily: T.fSans,
   fontSize: 14,
-  color: T.n800,
+  color: 'var(--shell-text-emphasis)',
   lineHeight: 1.6,
   wordBreak: 'break-word',
 };
@@ -239,7 +239,7 @@ const LIST_STYLE: React.CSSProperties = {
   paddingLeft: 20,
   fontFamily: T.fSans,
   fontSize: 14,
-  color: T.n800,
+  color: 'var(--shell-text-emphasis)',
   lineHeight: 1.6,
 };
 
@@ -249,7 +249,7 @@ const H_STYLE: React.CSSProperties = {
   margin: '12px 0 6px',
   fontFamily: T.fSans,
   fontWeight: 600,
-  color: T.n900,
+  color: 'var(--shell-text)',
   lineHeight: 1.3,
 };
 
@@ -259,20 +259,20 @@ const BLOCKQUOTE_STYLE: React.CSSProperties = {
   // rounded block so it stands apart from the surrounding cream message body.
   padding: '8px 14px',
   background: 'var(--bg-muted)',
-  borderLeft: `3px solid ${T.brand}`,
+  borderLeft: `3px solid var(--shell-brand)`,
   borderRadius: 8,
-  color: T.n700,
+  color: 'var(--shell-text-secondary)',
   fontStyle: 'italic',
 };
 
 const HR_STYLE: React.CSSProperties = {
   border: 'none',
-  borderTop: `1px solid ${T.n200}`,
+  borderTop: `1px solid var(--shell-border)`,
   margin: '12px 0',
 };
 
 const A_STYLE: React.CSSProperties = {
-  color: T.brand,
+  color: 'var(--shell-brand)',
   textDecoration: 'underline',
   textUnderlineOffset: 2,
 };
@@ -281,8 +281,8 @@ const PRE_STYLE: React.CSSProperties = {
   margin: '0 0 8px',
   padding: 10,
   borderRadius: 6,
-  background: T.n100,
-  color: T.n900,
+  background: 'var(--shell-bg-subtle)',
+  color: 'var(--shell-text)',
   fontFamily: T.fMono,
   fontSize: 12,
   lineHeight: 1.5,
@@ -298,26 +298,26 @@ const TABLE_STYLE: React.CSSProperties = {
   borderCollapse: 'collapse',
   fontFamily: T.fSans,
   fontSize: 13,
-  color: T.n800,
+  color: 'var(--shell-text-emphasis)',
   minWidth: '100%',
 };
 
 const THEAD_STYLE: React.CSSProperties = {
-  background: T.n100,
+  background: 'var(--shell-bg-subtle)',
 };
 
 const TH_STYLE: React.CSSProperties = {
   textAlign: 'left',
   padding: '6px 10px',
-  border: `1px solid ${T.n200}`,
+  border: `1px solid var(--shell-border)`,
   fontWeight: 600,
-  color: T.n900,
+  color: 'var(--shell-text)',
   whiteSpace: 'nowrap',
 };
 
 const TD_STYLE: React.CSSProperties = {
   padding: '6px 10px',
-  border: `1px solid ${T.n200}`,
+  border: `1px solid var(--shell-border)`,
   verticalAlign: 'top',
 };
 
@@ -350,7 +350,7 @@ function TextParagraph({ text }: { text: string }) {
 const MARKDOWN_ROOT_STYLE: React.CSSProperties = {
   fontFamily: T.fSans,
   fontSize: 14,
-  color: T.n800,
+  color: 'var(--shell-text-emphasis)',
   lineHeight: 1.6,
 };
 
@@ -514,7 +514,7 @@ function AssistantMessageImpl({
             fontFamily: T.fSans,
             fontSize: 12,
             fontWeight: 600,
-            color: T.n600,
+            color: 'var(--shell-text-muted)',
             letterSpacing: '0.03em',
             textTransform: 'uppercase',
           }}
@@ -527,7 +527,7 @@ function AssistantMessageImpl({
             style={{
               fontFamily: T.fSans,
               fontSize: 11,
-              color: T.n400,
+              color: 'var(--shell-text-faint)',
               marginLeft: cacheHit ? 0 : undefined,
             }}
             title={ts}

@@ -73,7 +73,7 @@ export function ChatMessageList({ messages, streaming, onFollowupPick, onDisambi
           justifyContent: 'center',
           fontFamily: T.fSans,
           fontSize: 14,
-          color: T.n400,
+          color: 'var(--shell-text-faint)',
         }}
       >
         Ask anything about your data…

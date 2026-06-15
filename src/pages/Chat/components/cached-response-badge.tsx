@@ -35,12 +35,12 @@ export function CachedResponseBadge({ freshness }: CachedResponseBadgeProps) {
         gap: 3,
         fontFamily: T.fSans,
         fontSize: 11,
-        color: T.n500,
+        color: 'var(--shell-text-subtle)',
         letterSpacing: '0.02em',
         whiteSpace: 'nowrap',
       }}
     >
-      <Icon icon={Zap} size={11} color={refreshed ? T.green600 : T.n500} />
+      <Icon icon={Zap} size={11} color={refreshed ? 'var(--shell-success)' : 'var(--shell-text-subtle)'} />
       <span>{label}</span>
     </span>
   );

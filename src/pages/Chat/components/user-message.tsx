@@ -44,7 +44,7 @@ function UserMessageImpl({ text, ts, compact }: UserMessageProps) {
           fontSize: compact ? 17 : 22,
           fontWeight: 700,
           lineHeight: 1.3,
-          color: T.n900,
+          color: 'var(--shell-text)',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
         }}
@@ -58,7 +58,7 @@ function UserMessageImpl({ text, ts, compact }: UserMessageProps) {
             marginTop: 4,
             fontFamily: T.fSans,
             fontSize: 11,
-            color: T.n500,
+            color: 'var(--shell-text-subtle)',
           }}
         >
           {tsLabel.display}

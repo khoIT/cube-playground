@@ -48,4 +48,9 @@ export const VISUAL_ROUTES: VisualRoute[] = [
   { id: 'settings', hash: '/settings' },
   { id: 'build', hash: '/build' },
   { id: 'whats-new', hash: '/whats-new' },
+  // Chat + DevAudit added to cover the T.* -> semantic shell-token migration on
+  // those surfaces. Chat empty-state is deterministic (static starters/composer);
+  // DevAudit chrome is tokenized while its live session/cache data is masked.
+  { id: 'chat', hash: '/chat' },
+  { id: 'dev-audit', hash: '/dev/chat-audit' },
 ];

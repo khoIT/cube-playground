@@ -33,9 +33,9 @@ interface ToolCallChipProps {
 }
 
 const STATUS_COLOR: Record<ToolCallChipProps['status'], string> = {
-  pending: T.n400,
-  ok: T.green600,
-  error: T.red500,
+  pending: 'var(--shell-text-faint)',
+  ok: 'var(--shell-success)',
+  error: 'var(--shell-danger)',
 };
 
 export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
@@ -49,7 +49,7 @@ export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
         display: 'inline-flex',
         flexDirection: 'column',
         maxWidth: '100%',
-        border: `1px solid ${T.n200}`,
+        border: `1px solid var(--shell-border)`,
         borderRadius: 8,
         overflow: 'hidden',
         fontFamily: T.fMono,
@@ -65,12 +65,12 @@ export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
           alignItems: 'center',
           gap: 6,
           padding: '4px 10px',
-          background: T.surfaceSubtle,
+          background: 'var(--surface-subtle)',
           border: 'none',
           cursor: 'pointer',
           fontFamily: T.fMono,
           fontSize: 12,
-          color: T.n700,
+          color: 'var(--shell-text-secondary)',
           textAlign: 'left',
         }}
         aria-expanded={expanded}
@@ -83,17 +83,17 @@ export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
         {status === 'ok' && <Icon icon={CheckCircle} size={13} color={color} />}
         {status === 'error' && <Icon icon={XCircle} size={13} color={color} />}
 
-        <span style={{ color: T.n800 }}>{name}</span>
+        <span style={{ color: 'var(--shell-text-emphasis)' }}>{name}</span>
 
         {ms !== undefined && (
-          <span style={{ color: T.n400, fontSize: 11 }}>{ms}ms</span>
+          <span style={{ color: 'var(--shell-text-faint)', fontSize: 11 }}>{ms}ms</span>
         )}
 
         {summary && (
           <Icon
             icon={expanded ? ChevronDown : ChevronRight}
             size={12}
-            color={T.n400}
+            color={'var(--shell-text-faint)'}
             style={{ marginLeft: 'auto' }}
           />
         )}
@@ -104,9 +104,9 @@ export function ToolCallChip({ name, status, ms, summary }: ToolCallChipProps) {
         <div
           style={{
             padding: '6px 10px',
-            background: T.surface,
-            borderTop: `1px solid ${T.n100}`,
-            color: T.n600,
+            background: 'var(--surface-raised)',
+            borderTop: `1px solid var(--shell-bg-subtle)`,
+            color: 'var(--shell-text-muted)',
             fontFamily: T.fMono,
             fontSize: 12,
             lineHeight: 1.5,

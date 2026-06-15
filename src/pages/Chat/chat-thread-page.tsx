@@ -343,7 +343,7 @@ export function ChatThreadPage() {
   // Loading splash for direct visits to an existing /chat/:id before the
   // session payload arrives. Skip for new threads (no fetch happening).
   if (!isNew && isLoading && committedMessages.length === 0) {
-    return <div style={{ padding: 32, fontFamily: T.fSans, fontSize: 13, color: T.n400 }}>Loading conversation…</div>;
+    return <div style={{ padding: 32, fontFamily: T.fSans, fontSize: 13, color: 'var(--shell-text-faint)' }}>Loading conversation…</div>;
   }
 
   // 403 — session exists but caller has no access (private, not their session).
@@ -358,21 +358,21 @@ export function ChatThreadPage() {
           height: '100%',
           gap: 8,
           fontFamily: T.fSans,
-          color: T.n500,
+          color: 'var(--shell-text-subtle)',
           padding: '48px 32px',
           textAlign: 'center',
         }}
       >
         <span style={{ fontSize: 32, lineHeight: 1 }}>🔒</span>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: T.n800 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--shell-text-emphasis)' }}>
           No access
         </p>
-        <p style={{ margin: 0, fontSize: 13, color: T.n500 }}>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--shell-text-subtle)' }}>
           This conversation is private or doesn't exist.
         </p>
         <Link
           to="/chat"
-          style={{ marginTop: 8, fontSize: 13, color: T.brand, textDecoration: 'none', fontFamily: T.fSans }}
+          style={{ marginTop: 8, fontSize: 13, color: 'var(--shell-brand)', textDecoration: 'none', fontFamily: T.fSans }}
         >
           Start a new chat
         </Link>
@@ -406,7 +406,7 @@ export function ChatThreadPage() {
         height: '100%',
         display: 'flex',
         flexDirection: 'row',
-        background: T.surface,
+        background: 'var(--surface-raised)',
         overflow: 'hidden',
       }}
     >
@@ -448,7 +448,7 @@ export function ChatThreadPage() {
             {showDebugLink && (
               <Link
                 to={`/dev/chat-audit/sessions/${activeSessionId}`}
-                style={{ fontSize: 11, color: T.n400, textDecoration: 'none', fontFamily: T.fSans }}
+                style={{ fontSize: 11, color: 'var(--shell-text-faint)', textDecoration: 'none', fontFamily: T.fSans }}
               >
                 Debug
               </Link>

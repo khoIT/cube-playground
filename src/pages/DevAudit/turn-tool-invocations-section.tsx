@@ -5,16 +5,16 @@ import React, { useState } from 'react';
 import { T } from '../../shell/theme';
 import type { ToolInvocation } from './use-debug-api';
 
-const td: React.CSSProperties = { padding: '3px 6px', borderBottom: `1px solid ${T.n100}`, verticalAlign: 'top' };
-const th: React.CSSProperties = { textAlign: 'left', padding: '3px 6px', borderBottom: `1px solid ${T.n200}`, color: T.n500, fontWeight: 600 };
+const td: React.CSSProperties = { padding: '3px 6px', borderBottom: `1px solid var(--shell-bg-subtle)`, verticalAlign: 'top' };
+const th: React.CSSProperties = { textAlign: 'left', padding: '3px 6px', borderBottom: `1px solid var(--shell-border)`, color: 'var(--shell-text-subtle)', fontWeight: 600 };
 const pre: React.CSSProperties = {
   fontFamily: T.fMono, fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-  maxHeight: 300, overflowY: 'auto', background: T.surfaceSubtle,
-  padding: '8px 10px', borderRadius: 4, border: `1px solid ${T.n200}`,
+  maxHeight: 300, overflowY: 'auto', background: 'var(--surface-subtle)',
+  padding: '8px 10px', borderRadius: 4, border: `1px solid var(--shell-border)`,
 };
 const toggleBtn: React.CSSProperties = {
-  fontSize: 11, padding: '2px 8px', border: `1px solid ${T.n300}`,
-  borderRadius: 4, background: T.surfaceSubtle, color: T.n600, cursor: 'pointer',
+  fontSize: 11, padding: '2px 8px', border: `1px solid var(--shell-border-strong)`,
+  borderRadius: 4, background: 'var(--surface-subtle)', color: 'var(--shell-text-muted)', cursor: 'pointer',
 };
 
 function prettyJson(raw: string): string {
@@ -29,7 +29,7 @@ export function ToolInvocationsSection({ invocations }: ToolInvocationsSectionPr
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (invocations.length === 0) {
-    return <div style={{ color: T.n400, fontSize: 11 }}>No tool invocations recorded.</div>;
+    return <div style={{ color: 'var(--shell-text-faint)', fontSize: 11 }}>No tool invocations recorded.</div>;
   }
 
   return (
@@ -50,8 +50,8 @@ export function ToolInvocationsSection({ invocations }: ToolInvocationsSectionPr
                 <span style={{
                   display: 'inline-block', padding: '1px 5px', borderRadius: 4,
                   fontSize: 10, fontWeight: 700,
-                  background: t.ok ? T.greenSoft : T.redSoft,
-                  color: t.ok ? T.green600 : T.red600,
+                  background: t.ok ? 'var(--shell-success-soft)' : 'var(--shell-danger-soft)',
+                  color: t.ok ? 'var(--shell-success)' : 'var(--shell-danger-strong)',
                 }}>
                   {t.ok ? 'ok' : 'err'}
                 </span>
