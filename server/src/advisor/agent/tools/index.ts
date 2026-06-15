@@ -19,6 +19,7 @@ import {
 import { makeScaffoldDraftTool } from './scaffold-draft-tool.js';
 import { makeCubeQueryTool, makeCubeMetaTool } from './cube-tools.js';
 import { makePredicateCompileTool } from './segment-tools.js';
+import { makeProposeCohortTool } from './propose-cohort-tool.js';
 import type { ToolContext } from './tool-context.js';
 
 export const ADVISOR_SERVER_NAME = 'advisor';
@@ -35,6 +36,7 @@ const TOOL_NAMES = [
   'cube_query',
   'cube_meta',
   'predicate_compile',
+  'propose_cohort',
 ] as const;
 
 /** Fully-qualified allowlist the runtime gates on. */
@@ -58,6 +60,7 @@ export function buildAdvisorToolServer(tctx: ToolContext): ReturnType<typeof cre
       makeCubeQueryTool(tctx),
       makeCubeMetaTool(tctx),
       makePredicateCompileTool(tctx),
+      makeProposeCohortTool(tctx),
     ],
   });
 }

@@ -116,10 +116,15 @@ export function AdvisorPage() {
     inv.setScreen('decide');
   }
 
-  // Game-scope drive → pick a segment, then re-scope the investigation to it.
-  function handlePickSegment(segmentId: string) {
+  // Game-scope drive → a segment is set (created from the proposal OR picked),
+  // then re-scope the investigation to it. Seed the scoped run to BUILD +
+  // SCAFFOLD a draft (not just narrate), so the panel auto-advances to a
+  // "Continue to Decide" instead of dead-ending.
+  function reScopeToSegment(segmentId: string, seedBase: string) {
     setPickerOpen(false);
-    history.push(`/advisor/${segmentId}`, { driveBoot: true, driveSeed: pendingSeed });
+    const base = seedBase.trim();
+    const driveSeed = `${base ? `${base}\n\n` : ''}Now scoped to this segment — build the experiment and scaffold the editable draft for it.`;
+    history.push(`/advisor/${segmentId}`, { driveBoot: true, driveSeed });
   }
 
   // The Command Center screen owns its own full-bleed layout (lifecycle stepper
@@ -167,6 +172,9 @@ export function AdvisorPage() {
       {inv.screen === 'drive' && (
         <>
           <DrivePanel
+            // Keying by scope forces a fresh mount on re-scope — which resets
+            // DrivePanel's one-shot auto-run guard. Don't drop this key, or the
+            // re-scoped investigation won't auto-start.
             key={scope.kind === 'segment' ? scope.segmentId : 'game'}
             scope={scope}
             goal={inv.goal}
@@ -178,6 +186,7 @@ export function AdvisorPage() {
               setPickerOpen(true);
               setPendingSeed(message);
             }}
+            onCohortCreated={(segmentId, message) => reScopeToSegment(segmentId, message)}
           />
           <RunHistoryPanel reloadKey={historyReloadKey} onOpen={setReplaySessionId} />
         </>
@@ -261,7 +270,11 @@ export function AdvisorPage() {
       )}
 
       {pickerOpen && (
-        <DriveSegmentPicker gameId={gameId} onClose={() => setPickerOpen(false)} onPick={handlePickSegment} />
+        <DriveSegmentPicker
+          gameId={gameId}
+          onClose={() => setPickerOpen(false)}
+          onPick={(segmentId) => reScopeToSegment(segmentId, pendingSeed)}
+        />
       )}
 
       {gateDraft && (

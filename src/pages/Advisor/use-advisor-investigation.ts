@@ -221,7 +221,7 @@ export function useAdvisorInvestigation(): InvestigationState {
             stage: stageKey,
             q,
             finding:
-              'Your assumption — kept so the experiment can move; not yet confirmed in data. The Command Center will flag it as assumed.',
+              'Your assumption — kept so the experiment can move; not yet confirmed in data. The monitoring screen will flag it as assumed.',
             slot: slotFromQuestion(q),
             conf: 'med',
             custom: true,

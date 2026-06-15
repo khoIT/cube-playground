@@ -15,6 +15,7 @@ import {
   type AdvisorReplayTurn,
 } from '../../api/advisor-run-history';
 import { runOutcome, outcomeColors, goalLabel, scopeLabel } from './run-outcome';
+import { AdvisorMarkdown } from './advisor-markdown';
 
 function TurnBlock({ turn }: { turn: AdvisorReplayTurn }) {
   return (
@@ -40,15 +41,8 @@ function TurnBlock({ turn }: { turn: AdvisorReplayTurn }) {
       )}
 
       {turn.narration && (
-        <div
-          style={{
-            fontSize: 13.5,
-            lineHeight: 1.55,
-            color: 'var(--text-primary)',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {turn.narration}
+        <div style={{ fontSize: 13.5, color: 'var(--text-primary)' }}>
+          <AdvisorMarkdown>{turn.narration}</AdvisorMarkdown>
         </div>
       )}
 

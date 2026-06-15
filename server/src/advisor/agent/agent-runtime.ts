@@ -86,6 +86,7 @@ export function createAdvisorAgentSession(
   const asOf = new Date();
   const ledger = new ProvenanceLedger();
   const toolContext: ToolContext = {
+    sessionId: id,
     scope: opts.scope,
     goal: opts.goal,
     ctx: opts.ctx,

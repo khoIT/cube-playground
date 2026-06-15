@@ -15,6 +15,9 @@ import type { ProvenanceLedger } from '../agent-provenance-gate.js';
 
 /** Everything a tool adapter needs, fixed for the life of one session. */
 export interface ToolContext {
+  /** The investigation session id — keys session-scoped artifacts (e.g. a
+   *  game-scope cohort proposal, which has no segment to key on yet). */
+  sessionId: string;
   scope: ScopeRef;
   goal: AdvisorGoal;
   ctx: WorkspaceCtx;

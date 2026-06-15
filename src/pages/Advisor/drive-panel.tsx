@@ -12,8 +12,10 @@ import { STAGES } from './advisor-stage-config';
 import { Btn, CARD_STYLE, Eyebrow, PulsingRow } from './advisor-primitives';
 import { NumberBadge } from './number-badge';
 import { useDriveSession } from './use-drive-session';
+import { AdvisorMarkdown } from './advisor-markdown';
 import { fetchDriveArtifact, type DriveArtifact } from './drive-artifact';
-import type { AdvisorScope, AdvisorGoal } from '../../api/advisor';
+import { fetchCohortProposal, type CohortProposal, type AdvisorScope, type AdvisorGoal } from '../../api/advisor';
+import { segmentsClient } from '../../api/segments-client';
 import type { StageKey } from './advisor-types';
 
 const ERROR_COPY: Record<string, string> = {
@@ -58,6 +60,7 @@ export function DrivePanel({
   onSessionComplete,
   onContinue,
   onPickSegment,
+  onCohortCreated,
 }: {
   scope: AdvisorScope;
   goal: AdvisorGoal;
@@ -70,6 +73,8 @@ export function DrivePanel({
   onContinue?: (artifact: DriveArtifact) => void;
   /** Game-scope only: ask for a segment to build the experiment for. */
   onPickSegment?: (message: string) => void;
+  /** Game-scope only: a cohort proposal was approved → a new segment was created. */
+  onCohortCreated?: (segmentId: string, message: string) => void;
 }) {
   const { state, run, abort } = useDriveSession(scope, goal);
   const seed =
@@ -86,6 +91,41 @@ export function DrivePanel({
   const done = state.status === 'done' && !state.error;
   const isSegment = scope.kind === 'segment';
   const scaffolded = state.activity.some((a) => a.tool === 'scaffold_draft' && a.validated);
+
+  // Game-scope hand-off: the agent may have PROPOSED a cohort (propose_cohort) the
+  // manager can turn into a Segment in one click. Fetch it once the run settles;
+  // null → fall back to picking an existing segment (the hybrid bridge).
+  const [proposal, setProposal] = useState<CohortProposal | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!done || isSegment || !state.sessionId) return;
+    let alive = true;
+    fetchCohortProposal(state.sessionId).then((p) => alive && setProposal(p));
+    return () => {
+      alive = false;
+    };
+  }, [done, isSegment, state.sessionId]);
+
+  async function handleCreateFromProposal() {
+    if (!proposal) return;
+    setCreating(true);
+    setCreateErr(null);
+    try {
+      const segment = await segmentsClient.create({
+        name: proposal.name,
+        type: 'predicate',
+        cube: proposal.primaryCube,
+        predicate_tree: proposal.predicateTree,
+        game_id: proposal.gameId,
+      });
+      onCohortCreated?.(segment.id, message);
+    } catch (e) {
+      setCreateErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCreating(false);
+    }
+  }
 
   async function handleContinue() {
     if (scope.kind !== 'segment') return;
@@ -109,6 +149,19 @@ export function DrivePanel({
       setContinuing(false);
     }
   }
+
+  // Auto-run once when re-scoped here from a segment pick / cohort create
+  // (seedMessage set). Picking a segment used to dead-end on a blank panel; now
+  // the scoped investigation kicks off immediately — the click WAS the intent to
+  // proceed. Guarded so a re-render never re-fires it.
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (seedMessage && !autoRan.current && state.status === 'idle') {
+      autoRan.current = true;
+      run(message.trim());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedMessage, state.status]);
 
   // Notify the parent once per turn when the stream settles (done/error) — the
   // just-finished run is now persisted and should appear in the history list.
@@ -187,16 +240,8 @@ export function DrivePanel({
       )}
 
       {state.narration && (
-        <div
-          style={{
-            marginTop: 14,
-            fontSize: 13.5,
-            lineHeight: 1.55,
-            color: 'var(--text-primary)',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {state.narration}
+        <div style={{ marginTop: 14, fontSize: 13.5, color: 'var(--text-primary)' }}>
+          <AdvisorMarkdown>{state.narration}</AdvisorMarkdown>
           {streaming && <span style={{ color: 'var(--brand)' }}>▋</span>}
         </div>
       )}
@@ -256,7 +301,47 @@ export function DrivePanel({
               </Btn>
             </>
           )}
-          {!isSegment && (
+          {!isSegment && proposal && (
+            <>
+              <Eyebrow>Create the cohort, then build the experiment</Eyebrow>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '6px 0 4px', lineHeight: 1.5 }}>
+                The advisor proposed a target cohort. Create it as a segment and the experiment is
+                assembled on it automatically.
+              </p>
+              <div
+                style={{
+                  margin: '8px 0 10px',
+                  padding: '10px 12px',
+                  background: 'var(--bg-muted)',
+                  borderRadius: 'var(--radius-md)',
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{proposal.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3, lineHeight: 1.45 }}>
+                  {proposal.rationale}
+                  {proposal.addressableN != null && (
+                    <> · ≈ {proposal.addressableN.toLocaleString()} players</>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Btn kind="primary" disabled={creating} onClick={handleCreateFromProposal}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Target size={14} /> {creating ? 'Creating segment…' : `Approve & create “${proposal.name}”`}
+                  </span>
+                </Btn>
+                <Btn disabled={creating} onClick={() => onPickSegment?.(message)}>
+                  Pick an existing segment instead
+                </Btn>
+              </div>
+              {createErr && (
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--destructive-ink)' }}>
+                  Couldn't create the segment: {createErr}
+                </div>
+              )}
+            </>
+          )}
+          {!isSegment && !proposal && (
             <>
               <Eyebrow>Build the experiment</Eyebrow>
               <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '6px 0 10px', lineHeight: 1.5 }}>
@@ -280,7 +365,7 @@ export function DrivePanel({
 
       <p style={{ marginTop: 16, fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
         Numbers from a tool show <NumberBadge variant="validated" /> and are safe to act on. The advisor never launches
-        anything — its output is an editable draft you review in the Command Center. Hand-off stays disabled until the
+        anything — its output is an editable draft you review and set up. Hand-off stays disabled until the
         draft's numbers are validated.
       </p>
     </div>

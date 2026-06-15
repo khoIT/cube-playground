@@ -18,6 +18,7 @@ const SCOPE: ScopeRef = { kind: 'segment', segmentId: 'seg-x', gameId: 'cfm_vn' 
 
 function makeCtx(ledger: ProvenanceLedger): ToolContext {
   return {
+    sessionId: 'sess-x',
     scope: SCOPE,
     goal: 'revenue',
     ctx: { cubeApiUrl: 'http://stub', token: null },
@@ -44,8 +45,8 @@ function toolHandler(server: ReturnType<typeof buildAdvisorToolServer>, name: st
 }
 
 describe('advisor tool allowlist', () => {
-  it('exposes exactly the 10 advisor tools, all mcp__advisor__-prefixed', () => {
-    expect(ADVISOR_TOOL_ALLOWLIST).toHaveLength(10);
+  it('exposes exactly the 11 advisor tools, all mcp__advisor__-prefixed', () => {
+    expect(ADVISOR_TOOL_ALLOWLIST).toHaveLength(11);
     expect(ADVISOR_TOOL_ALLOWLIST.every((n) => n.startsWith(`mcp__${ADVISOR_SERVER_NAME}__`))).toBe(true);
   });
 

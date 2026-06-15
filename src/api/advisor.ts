@@ -11,6 +11,7 @@
  */
 
 import { apiFetch, buildRequestHeaders } from './api-client';
+import type { PredicateNode } from '../types/segment-api';
 
 // ─── Scope + goal ───────────────────────────────────────────────────────────
 
@@ -300,6 +301,37 @@ export function handoff(req: {
 /** List scaffolded drafts for a segment (most recent first). */
 export function listDrafts(segmentId: string): Promise<{ drafts: ExperimentDraft[] }> {
   return apiFetch<{ drafts: ExperimentDraft[] }>(`/api/advisor/drafts/${encodeURIComponent(segmentId)}`);
+}
+
+// ─── Cohort proposal (game-scope bridge → create a Segment) ───────────────────
+
+/**
+ * What a game-scope Drive proposes when it can't scaffold a draft yet: a named,
+ * predicate-tree cohort the manager turns into a Segment with one click. Mirrors
+ * the server's cohort-proposal-store.CohortProposal.
+ */
+export interface CohortProposal {
+  sessionId: string;
+  gameId: string;
+  name: string;
+  primaryCube: string;
+  predicateTree: PredicateNode;
+  rationale: string;
+  addressableN?: number;
+  createdAt?: string;
+}
+
+/**
+ * Fetch the cohort the agent proposed during a Drive session. Resolves null when
+ * none was proposed (404) — the caller then falls back to picking an existing
+ * segment (the hybrid bridge).
+ */
+export async function fetchCohortProposal(sessionId: string): Promise<CohortProposal | null> {
+  try {
+    return await apiFetch<CohortProposal>(`/api/advisor/cohort-proposal/${encodeURIComponent(sessionId)}`);
+  } catch {
+    return null;
+  }
 }
 
 /** Record dismiss/pin feedback with a reason. */

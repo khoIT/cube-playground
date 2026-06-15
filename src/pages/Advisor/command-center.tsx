@@ -1,9 +1,13 @@
 /**
- * CommandCenter — hand-off and monitoring surface for a scaffolded experiment draft.
+ * Live monitoring — the final step of the linear advisor→experiment flow: review
+ * the experiment, then watch treatment vs hold-out as it runs. Reached after the
+ * Decide screen hands off a scaffolded draft.
  *
  * Design stance:
  *   - status=draft until the manager explicitly freezes groups
- *   - Delivery is pluggable: in-system CS queue OR external/manual
+ *   - Delivery is owner-run (CS calls / LiveOps / email); the in-system CS work
+ *     queue is a later, per-experiment-customizable path and is intentionally not
+ *     wired here yet
  *   - Outcome tracking reads billing — monitoring works regardless of delivery path
  *   - "Did it work?" leads the readout; UID match rate is framed as confirmed-reach
  *     coverage (not "tool lost track")
@@ -11,6 +15,8 @@
  * In this build the ExperimentDraft from /api/advisor/handoff populates the sidebar
  * "At a glance" panel. If handoff hasn't completed yet (e.g. no live Cube) the
  * screen degrades gracefully showing the investigation-derived values instead.
+ * Monitoring bars are illustrative (clearly labeled) until the real outcome-query
+ * wiring lands.
  */
 import React, { useState } from 'react';
 import type { Aspect, GoalKey, BlueprintSlots } from './advisor-types';
@@ -55,7 +61,6 @@ export function CommandCenter({
   onBackToAdvisor,
 }: CommandCenterProps) {
   const [lifecycleIdx, setLifecycleIdx] = useState(0);
-  const [deliveryMode, setDeliveryMode] = useState<'cs' | 'external'>('cs');
   const [thesisOpen, setThesisOpen] = useState(true);
 
   const currentLifecycle = LIFECYCLE[lifecycleIdx];
@@ -85,8 +90,7 @@ export function CommandCenter({
 
   const ctaLabel: Record<LifecycleKey, string | null> = {
     draft: 'Confirm & freeze the groups →',
-    frozen:
-      deliveryMode === 'cs' ? 'Start delivery (open CS queue) →' : 'Mark delivery started →',
+    frozen: 'Mark delivery started →',
     delivering: 'Mark delivery complete →',
     measuring: 'View readout →',
     readout: null,
@@ -106,7 +110,7 @@ export function CommandCenter({
         }}
       >
         <div>
-          <div style={EYEBROW_STYLE}>⌂ Command Center · Experiments</div>
+          <div style={EYEBROW_STYLE}>📡 Live monitoring · Experiment</div>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: '5px 0 0', lineHeight: 1.2 }}>
             {title}
           </h1>
@@ -292,99 +296,38 @@ export function CommandCenter({
               </span>
             </div>
             <div style={{ padding: '14px 16px' }}>
-              {/* Mode toggle */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                {(
-                  [
-                    ['cs', 'CS Work Queue', 'inside cube-playground'],
-                    ['external', 'Delivered elsewhere', 'LiveOps / email / manual'],
-                  ] as const
-                ).map(([k, label, sub]) => (
-                  <button
-                    key={k}
-                    onClick={() => setDeliveryMode(k)}
-                    style={{
-                      fontFamily: 'var(--font-sans)',
-                      flex: 1,
-                      textAlign: 'left',
-                      padding: '10px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer',
-                      border: `1px solid ${deliveryMode === k ? 'var(--brand)' : 'var(--border-strong)'}`,
-                      background: deliveryMode === k ? 'var(--bg-muted)' : 'var(--bg-card)',
-                    }}
+              {/* Delivery is owner-run for now — the in-system CS work queue is a
+                  later, per-experiment-customizable path, so it's deliberately not
+                  wired here. We freeze the groups and measure the outcome; the
+                  delivery owner runs the action and logs progress. */}
+              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    background: 'var(--info-soft)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--info-ink)',
+                    marginBottom: 10,
+                  }}
+                >
+                  We've frozen the two groups and we measure the outcome — your delivery owner
+                  runs the action (CS calls, LiveOps, email) and logs progress here. The hold-out
+                  stays untouched so the readout is still valid.
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Btn
+                    sm
+                    onClick={() =>
+                      alert('→ downloads target list: user_id + reachability flags only (no contact PII)')
+                    }
                   >
-                    <div
-                      style={{
-                        fontSize: 12.5,
-                        fontWeight: 700,
-                        color: deliveryMode === k ? 'var(--brand)' : 'var(--text-primary)',
-                      }}
-                    >
-                      {label}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-                      {sub}
-                    </div>
-                  </button>
-                ))}
+                    ⬇ Export target list
+                  </Btn>
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>
+                  Last synced: {lifecycleIdx >= 2 ? 'manual entry · today' : '—'}
+                </div>
               </div>
-
-              {deliveryMode === 'cs' ? (
-                <div
-                  style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}
-                >
-                  We hand CS a <b>no-PII target list</b> of {treatN.toLocaleString()} (user_id +
-                  reachability only). They work it from the Care console; delivery syncs back
-                  automatically from CS logs.
-                  {lifecycleIdx >= 1 && (
-                    <div style={{ marginTop: 10 }}>
-                      <Btn
-                        sm
-                        kind="primary"
-                        onClick={() =>
-                          alert(`→ opens the CS Work Queue with this experiment's treatment arm`)
-                        }
-                      >
-                        Open CS Work Queue →
-                      </Btn>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div
-                  style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}
-                >
-                  <div
-                    style={{
-                      padding: '10px 12px',
-                      background: 'var(--info-soft)',
-                      borderRadius: 'var(--radius-md)',
-                      color: 'var(--info-ink)',
-                      marginBottom: 10,
-                    }}
-                  >
-                    This action runs <b>outside cube-playground</b>. We've frozen the two groups
-                    and we measure the outcome — your delivery owner runs the action and logs
-                    progress here. The hold-out stays untouched so the readout is still valid.
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Btn
-                      sm
-                      onClick={() =>
-                        alert('→ downloads target list: user_id + reachability flags only (no contact PII)')
-                      }
-                    >
-                      ⬇ Export target list
-                    </Btn>
-                  </div>
-                  <div
-                    style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}
-                  >
-                    Last synced: {lifecycleIdx >= 2 ? 'manual entry · today' : '—'}
-                  </div>
-                </div>
-              )}
 
               {/* Delivery progress */}
               {lifecycleIdx >= 2 && (
@@ -418,50 +361,26 @@ export function CommandCenter({
                       }}
                     />
                   </div>
-                  {deliveryMode === 'cs' ? (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--text-muted)',
-                        marginTop: 6,
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      <b style={{ color: 'var(--text-secondary)' }}>
-                        Confirmed-reach coverage ≈ 23%
-                      </b>{' '}
-                      (we can match that share of CS logs to a uid). This does <b>not</b> change
-                      the headline — the result is measured on{' '}
-                      <b>everyone we assigned</b>; the confirmed-reached subset is just a bonus
-                      read.
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--text-muted)',
-                        marginTop: 6,
-                        lineHeight: 1.45,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 2,
-                      }}
-                    >
-                      <span>
-                        <b style={{ color: 'var(--text-secondary)' }}>CS says delivered:</b>{' '}
-                        {Math.round(treatN * 0.98).toLocaleString()}
-                      </span>
-                      <span>
-                        <b style={{ color: 'var(--text-secondary)' }}>Logged here:</b>{' '}
-                        {contacted.toLocaleString()}{' '}
-                        <i>(your log may lag actual delivery)</i>
-                      </span>
-                      <span>
-                        Either way the headline is measured on{' '}
-                        <b>everyone we assigned</b>.
-                      </span>
-                    </div>
-                  )}
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      marginTop: 6,
+                      lineHeight: 1.45,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                    }}
+                  >
+                    <span>
+                      <b style={{ color: 'var(--text-secondary)' }}>Logged here:</b>{' '}
+                      {contacted.toLocaleString()}{' '}
+                      <i>(your log may lag actual delivery)</i>
+                    </span>
+                    <span>
+                      Either way the headline is measured on <b>everyone we assigned</b>.
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

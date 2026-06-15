@@ -21,6 +21,7 @@ import { diagnose } from '../advisor/diagnosis-engine.js';
 import { recommend, type RecommendParams } from '../advisor/recommend.js';
 import { scaffoldDraft } from '../advisor/handoff-scaffolder.js';
 import { saveDraft, getDraft, listDraftsForSegment } from '../advisor/command-center-draft-store.js';
+import { getCohortProposal } from '../advisor/cohort-proposal-store.js';
 import { resolveAddressableN, resolveReachablePct } from '../advisor/cohort-resolver.js';
 import { scoreExperiment, resolveScoringGoal } from '../advisor/agent/experiment-quality-score.js';
 import { recordFeedback, listFeedbackForSegment } from '../advisor/feedback-store.js';
@@ -201,6 +202,18 @@ export default async function advisorRoutes(app: FastifyInstance): Promise<void>
     const draft = getDraft(decodeURIComponent(draftId ?? ''));
     if (!draft) return reply.status(404).send({ error: 'draft not found' });
     return draft;
+  });
+
+  // ── Cohort proposal (game-scope bridge → create a Segment) ──────────────────────
+  // A game-scope Drive can't scaffold a draft; instead the agent may propose a
+  // cohort (propose_cohort tool) the manager turns into a Segment with one click.
+  // PII-free (a predicate definition only) → gated by the advisor feature alone.
+  app.get('/api/advisor/cohort-proposal/:sessionId', async (req: FastifyRequest, reply) => {
+    const { sessionId } = req.params as { sessionId: string };
+    if (!sessionId) return reply.status(400).send({ error: 'sessionId required' });
+    const proposal = getCohortProposal(decodeURIComponent(sessionId));
+    if (!proposal) return reply.status(404).send({ error: 'no cohort proposal for this session' });
+    return proposal;
   });
 
   // ── Feedback (dismiss/pin with reason) ──────────────────────────────────────────

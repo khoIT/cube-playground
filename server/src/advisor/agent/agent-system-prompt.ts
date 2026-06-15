@@ -34,6 +34,28 @@ function describeGoal(goal: AdvisorGoal): string {
   return 'grow revenue (gross VND) and/or engagement';
 }
 
+/**
+ * Game-scope only: an experiment runs on a cohort (a Segment), but a whole-game
+ * investigation has no segment yet. Once the agent knows WHO to target, it should
+ * propose that cohort so the manager can create it in one click and continue —
+ * instead of dead-ending on prose. Omitted at segment scope (scaffold_draft works
+ * directly there).
+ */
+function gameScopeCohortGuidance(scope: ScopeRef): string[] {
+  if (scope.kind !== 'game') return [];
+  return [
+    '',
+    'Because this is a whole-game investigation, you cannot scaffold an experiment',
+    'draft directly (a draft needs a cohort = a Segment). Once you have settled on',
+    'WHO the experiment should target, call propose_cohort with a short name, the',
+    'primary cube, a predicate tree defining that cohort (relative-date and',
+    'percentile operators are supported — e.g. paid in the prior 30d but not the',
+    'last 30d), and a one-line rationale. That lets the manager create the segment',
+    'in one click and continue into the scoped flow. Do this rather than only',
+    'describing the cohort in prose.',
+  ];
+}
+
 export function buildBaseSystemPrompt(scope: ScopeRef, goal: AdvisorGoal): string {
   return [
     'You are the Optimization Advisor — an experiment-design partner for a game',
@@ -66,5 +88,6 @@ export function buildBaseSystemPrompt(scope: ScopeRef, goal: AdvisorGoal): strin
     '',
     'Use gross revenue in VND for money. Never reveal individual player identities',
     'or contact details — work in counts, rates, and aggregates only.',
+    ...gameScopeCohortGuidance(scope),
   ].join('\n');
 }
