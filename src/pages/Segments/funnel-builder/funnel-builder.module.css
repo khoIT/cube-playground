@@ -92,7 +92,7 @@
   border-radius: var(--radius-full);
   font-size: 10.5px;
   font-weight: 700;
-  background: var(--neutral-200, #e5e7eb);
+  background: var(--border-card);
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -265,7 +265,7 @@
 }
 
 .typeaheadOption:hover,
-.typeaheadOptionActive { background: var(--neutral-100, #f3f4f6); }
+.typeaheadOptionActive { background: var(--surface-inset-strong); }
 
 .typeaheadEmpty {
   padding: 10px 12px;
@@ -389,7 +389,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 0 6px 8px;
-  border-left: 2px solid var(--neutral-200, #e5e7eb);
+  border-left: 2px solid var(--border-card);
   margin-left: 14px;
 }
 

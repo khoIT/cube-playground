@@ -56,7 +56,7 @@ export function Stars({ rating }: { rating: number | null }): ReactElement {
   return (
     <span style={{ color: 'var(--warning-ink)', letterSpacing: 1, fontSize: 12 }} title={`${rating.toFixed(1)} / 5`}>
       {'★'.repeat(full)}
-      <span style={{ color: 'var(--neutral-300)' }}>{'★'.repeat(Math.max(0, 5 - full))}</span>
+      <span style={{ color: 'var(--fill-faint)' }}>{'★'.repeat(Math.max(0, 5 - full))}</span>
     </span>
   );
 }

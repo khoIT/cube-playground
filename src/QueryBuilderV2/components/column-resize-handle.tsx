@@ -30,7 +30,7 @@ const Handle = styled.div<{ $active: boolean }>`
   }
 
   &:hover::after {
-    background: ${(p) => (p.$active ? 'var(--brand)' : 'var(--neutral-300)')};
+    background: ${(p) => (p.$active ? 'var(--brand)' : 'var(--fill-faint)')};
   }
 `;
 

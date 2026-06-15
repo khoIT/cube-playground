@@ -50,7 +50,7 @@ export function LineChart({ data, height = 120, color = 'var(--brand)', areaFill
         <CartesianGrid
           strokeDasharray="0"
           vertical={false}
-          stroke="var(--neutral-100)"
+          stroke="var(--surface-inset-strong)"
         />
         <XAxis
           dataKey="x"

@@ -84,7 +84,7 @@ export function AnomalyInboxPage() {
             gap: 12,
             padding: '8px 16px',
             borderBottom: '1px solid var(--border-card)',
-            background: 'var(--bg-subtle, var(--neutral-50))',
+            background: 'var(--surface-inset)',
           }}>
             {['Severity', 'Metric', 'Date', 'Game', 'Actions'].map((h) => (
               <span key={h} style={{

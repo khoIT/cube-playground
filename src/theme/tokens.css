@@ -65,6 +65,17 @@
   --surface-muted:   #fafaf6;
   --surface-subtle:  #f9fafb;
 
+  /* Component primitives migrated off the dual-meaning raw --neutral-* scale.
+     Inset surfaces carry one meaning per theme (fixing the former dark
+     near-white bug); fills + inverse are theme-invariant (one value both modes). */
+  --surface-inset:        #f3e9dd;   /* warm inset/selected-row surface */
+  --surface-inset-strong: #ecdfce;   /* deeper inset: tracks, hover, shimmer */
+  --surface-inverse:      #171717;   /* always-dark surface: tooltips, code blocks */
+  --text-inverse:         #fafafa;   /* primary text on --surface-inverse */
+  --text-inverse-dim:     #d4d4d4;   /* secondary text on --surface-inverse */
+  --fill-muted:           #a3a3a3;   /* muted decorative fill: bars, dots */
+  --fill-faint:           #d2c2ab;   /* faint decorative: empty stars, handles */
+
   /* Shell text/border ramp — the chrome's tonal ladder (sidebar, topbar, chat
      overlay). Cool-grey in light, blue-toned in dark — intentionally distinct
      from the warmed content --text-*/--border-* tokens (the Actioneer two-tone
@@ -391,6 +402,16 @@
   --surface-raised:  #161c25;
   --surface-muted:   #11161d;
   --surface-subtle:  #1b232f;
+
+  /* Component primitives — dark. Inset surfaces flip to dark (fixing the former
+     near-white bug); fills + inverse stay invariant (same value as light). */
+  --surface-inset:        #11161d;
+  --surface-inset-strong: #161c25;
+  --surface-inverse:      #171717;
+  --text-inverse:         #fafafa;
+  --text-inverse-dim:     #d4d4d4;
+  --fill-muted:           #a3a3a3;
+  --fill-faint:           #d2c2ab;
 
   /* Shell text/border ramp — dark (blue-toned chrome; see light block). */
   --shell-text-strong:    #f8fafc;

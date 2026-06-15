@@ -43,7 +43,7 @@ const OUTCOME_DOT: Record<Outcome, React.CSSProperties> = {
   sealed:        { background: 'var(--success)' },
   stale_serving: { background: 'var(--stale-badge-dot)' },
   failed:        { background: 'var(--danger)' },
-  unbuilt:       { background: 'var(--neutral-400)' },
+  unbuilt:       { background: 'var(--fill-muted)' },
 };
 
 const OUTCOME_LABEL: Record<Outcome, string> = {
@@ -257,7 +257,7 @@ function ItemRow({ item, onRetry, retryDisabled }: {
         alignItems: 'center',
         gap: 12,
         padding: '8px 0',
-        borderBottom: '1px dashed var(--neutral-200)',
+        borderBottom: '1px dashed var(--border-card)',
       }}
     >
       {/* Game — its own column. The id maps to the cube-dev model folder

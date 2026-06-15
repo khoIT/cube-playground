@@ -245,7 +245,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            background: 'var(--neutral-900)',
+            background: 'var(--surface-inverse)',
             borderRadius: 'var(--radius-md)',
             padding: '10px 12px',
             fontFamily: 'var(--font-mono)',

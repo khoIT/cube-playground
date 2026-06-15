@@ -43,7 +43,7 @@ const InlineChipsContainer = styled.div`
   }
 
   & > *:not(:first-child) {
-    border-top: 1px dashed var(--neutral-100);
+    border-top: 1px dashed var(--qrow-divider);
     margin-top: 4px;
     padding-top: 4px;
   }

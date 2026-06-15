@@ -187,7 +187,7 @@ export function AnomalyRow({ anomaly, onAck, onSnooze }: AnomalyRowProps) {
       {/* Game chip */}
       <span style={{
         fontSize: 11, padding: '2px 6px', borderRadius: 4,
-        background: 'var(--neutral-100)', color: 'var(--text-muted)',
+        background: 'var(--surface-inset-strong)', color: 'var(--text-muted)',
       }}>
         {anomaly.game}
       </span>

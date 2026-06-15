@@ -55,7 +55,7 @@ function Bubble({ m, auto, sender }: { m: CsTicketMessage; auto: boolean; sender
           lineHeight: 1.5,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
-          background: mine ? 'var(--brand)' : auto ? 'transparent' : 'var(--neutral-100)',
+          background: mine ? 'var(--brand)' : auto ? 'transparent' : 'var(--surface-inset-strong)',
           color: mine ? 'var(--text-on-brand)' : auto ? 'var(--text-secondary)' : 'var(--text-primary)',
           border: auto ? '1px dashed var(--border-card)' : 'none',
           borderBottomRightRadius: mine ? 4 : 14,
@@ -141,7 +141,7 @@ export function CareHistoryTranscript({ ticket }: { ticket: CsTicketDetail }): R
         )}
       </div>
       {ticket.rating && (ticket.rating.rating != null || ticket.rating.feedback) && (
-        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border-card)', background: 'var(--neutral-50)' }}>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border-card)', background: 'var(--surface-inset)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <Stars rating={ticket.rating.rating} />
             {ticket.rating.feedback && (

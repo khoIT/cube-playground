@@ -67,7 +67,7 @@ export function CarePulseStrip({ coverage, pulse, freshnessDate }: Props): React
       <Stat value={pulse.lowRating} label={t('segments.detail.care.lowRating', { defaultValue: '≤2★' })} color="var(--negative)" />
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span
-          style={{ fontSize: 11.5, color: 'var(--text-muted)', borderBottom: '1px dotted var(--neutral-400)', cursor: 'help' }}
+          style={{ fontSize: 11.5, color: 'var(--text-muted)', borderBottom: '1px dotted var(--fill-muted)', cursor: 'help' }}
           title={coverageCaveat}
         >
           {t('segments.detail.care.coverageInfo', { defaultValue: 'coverage caveat' })}

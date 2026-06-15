@@ -59,7 +59,7 @@ function CellTooltip({ label, visible, x, y }: TooltipProps) {
         position: 'fixed',
         left: x + 12,
         top: y - 8,
-        background: 'var(--neutral-900)',
+        background: 'var(--surface-inverse)',
         color: 'var(--text-on-brand)',
         fontSize: 12,
         lineHeight: 1.5,

@@ -32,12 +32,12 @@ function Cohort({ label, stats }: { label: string; stats: CsCareCohortStats }): 
         {fmtPct(stats.deltaPct)}
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 44, marginTop: 8 }}>
-        <span style={{ width: 22, height: h(stats.avgRevPre), background: 'var(--neutral-300)', borderRadius: '3px 3px 0 0' }} />
+        <span style={{ width: 22, height: h(stats.avgRevPre), background: 'var(--fill-faint)', borderRadius: '3px 3px 0 0' }} />
         <span
           style={{
             width: 22,
             height: h(stats.avgRevPost),
-            background: negative ? 'var(--brand)' : 'var(--neutral-400)',
+            background: negative ? 'var(--brand)' : 'var(--fill-muted)',
             borderRadius: '3px 3px 0 0',
           }}
         />

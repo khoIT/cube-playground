@@ -16,8 +16,8 @@ const Pop = styled.div<{ $visible: boolean }>`
   min-width: 220px;
   max-width: 320px;
   padding: 10px 12px;
-  background: var(--neutral-950);
-  color: var(--neutral-50);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
   font-size: 12px;
   line-height: 1.4;
   border-radius: var(--radius-card);
@@ -34,7 +34,7 @@ const Title = styled.div`
 `;
 
 const Description = styled.div`
-  color: var(--neutral-300);
+  color: var(--text-inverse-dim);
   margin-bottom: 6px;
 `;
 
@@ -47,7 +47,7 @@ const Meta = styled.div`
 
 const Hint = styled.span`
   font-size: 10.5px;
-  color: var(--neutral-400);
+  color: var(--fill-muted);
 `;
 
 interface MeasureTooltipProps {

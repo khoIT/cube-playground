@@ -97,7 +97,7 @@
   align-items: center;
   gap: 16px;
   padding: 12px 20px;
-  background: var(--neutral-50, #fafafa);
+  background: var(--surface-inset);
   border-bottom: 1px solid var(--border-card);
   font-family: var(--font-alt, var(--font-sans));
   font-size: 11px;
@@ -164,7 +164,7 @@
   border-radius: 6px;
   font-size: 11.5px;
   font-weight: 500;
-  background: var(--neutral-100, rgba(0,0,0,0.05));
+  background: var(--surface-inset-strong);
   color: var(--text-secondary);
 }
 
@@ -280,7 +280,7 @@
   cursor: pointer;
 }
 .tagSuggestionBtn:hover {
-  background: var(--neutral-100, rgba(0, 0, 0, 0.04));
+  background: var(--surface-inset-strong);
   color: var(--text-primary);
 }
 
@@ -318,7 +318,7 @@
 
 .skeletonRow {
   height: 20px;
-  background: var(--neutral-100, rgba(0,0,0,0.05));
+  background: var(--surface-inset-strong);
   border-radius: 4px;
   margin: 6px 0;
   animation: pulse 1.4s ease-in-out infinite;
@@ -420,7 +420,7 @@
   border-radius: 6px;
   font-size: 11.5px;
   font-family: var(--font-mono);
-  background: var(--neutral-100, rgba(0,0,0,0.05));
+  background: var(--surface-inset-strong);
   color: var(--text-secondary);
 }
 
@@ -586,7 +586,7 @@
 .cardSkeletonBar {
   height: 14px;
   border-radius: 4px;
-  background: var(--neutral-100, rgba(0,0,0,0.05));
+  background: var(--surface-inset-strong);
   animation: pulse 1.4s ease-in-out infinite;
 }
 .cardSkeletonDonut {
@@ -594,8 +594,8 @@
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  border: 14px solid var(--neutral-100, rgba(0,0,0,0.05));
-  border-top-color: var(--neutral-200, rgba(0,0,0,0.09));
+  border: 14px solid var(--surface-inset-strong);
+  border-top-color: var(--border-card);
   animation: pulse 1.4s ease-in-out infinite;
 }
 .cardSkeletonLine {
@@ -605,15 +605,15 @@
     180deg,
     transparent 0%,
     transparent 60%,
-    var(--neutral-100, rgba(0,0,0,0.05)) 60%,
-    var(--neutral-100, rgba(0,0,0,0.05)) 100%
+    var(--surface-inset-strong) 60%,
+    var(--surface-inset-strong) 100%
   );
   animation: pulse 1.4s ease-in-out infinite;
 }
 .cardSkeletonBlock {
   height: 100%;
   border-radius: 6px;
-  background: var(--neutral-100, rgba(0,0,0,0.05));
+  background: var(--surface-inset-strong);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
@@ -675,7 +675,7 @@
 
 .modalTabs {
   display: inline-flex;
-  background: var(--neutral-100, rgba(0,0,0,0.04));
+  background: var(--surface-inset-strong);
   border-radius: 8px;
   padding: 2px;
   align-self: flex-start;
@@ -862,7 +862,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px;
-  background: var(--neutral-100, rgba(0, 0, 0, 0.04));
+  background: var(--surface-inset-strong);
   border-radius: var(--radius-pill, 999px);
 }
 
@@ -914,12 +914,12 @@
   height: 6px;
   border-radius: var(--radius-pill, 999px);
   flex-shrink: 0;
-  background: var(--neutral-400, #a3a3a3);
+  background: var(--fill-muted);
 }
 
 .filterPillDot[data-tone='success'] { background: var(--success); }
 .filterPillDot[data-tone='destructive'] { background: var(--danger, var(--destructive-ink)); }
-.filterPillDot[data-tone='muted'] { background: var(--neutral-400, #a3a3a3); }
+.filterPillDot[data-tone='muted'] { background: var(--fill-muted); }
 
 /* ── Pill-shaped search / sort / icon-button ─────────────────── */
 .searchPill {
@@ -959,7 +959,7 @@
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 11px;
   color: var(--text-muted);
-  background: var(--neutral-100, rgba(0, 0, 0, 0.05));
+  background: var(--surface-inset-strong);
   border: 1px solid var(--border-card);
   border-radius: 4px;
   padding: 1px 5px;
@@ -1009,7 +1009,7 @@
 }
 
 .identityIconBtn:hover {
-  background: var(--neutral-100, rgba(0, 0, 0, 0.04));
+  background: var(--surface-inset-strong);
   color: var(--text-primary);
   border-color: var(--border-strong);
 }
@@ -1027,13 +1027,13 @@
   height: 8px;
   border-radius: var(--radius-pill);
   flex-shrink: 0;
-  background: var(--neutral-400);
+  background: var(--fill-muted);
 }
 
 .healthCell[data-tone='success'] .healthDot { background: var(--success); }
 .healthCell[data-tone='warning'] .healthDot { background: var(--warning); }
 .healthCell[data-tone='destructive'] .healthDot { background: var(--danger); }
-.healthCell[data-tone='muted'] .healthDot { background: var(--neutral-400); }
+.healthCell[data-tone='muted'] .healthDot { background: var(--fill-muted); }
 
 .healthStack {
   display: inline-flex;

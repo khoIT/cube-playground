@@ -77,7 +77,7 @@ function WatchlistRow({ segmentId, r }: { segmentId: string; r: CsCareWatchlistE
           padding: '11px 18px',
           fontSize: 12.5,
           cursor: 'pointer',
-          background: expanded ? 'var(--neutral-50)' : 'transparent',
+          background: expanded ? 'var(--surface-inset)' : 'transparent',
         }}
       >
         <span style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -108,7 +108,7 @@ function WatchlistRow({ segmentId, r }: { segmentId: string; r: CsCareWatchlistE
         <span><Stars rating={r.rating} /></span>
         <span>{r.statusGroup ? <Chip tone={statusTone(r.statusGroup)}>{r.statusGroup}</Chip> : <span style={{ color: 'var(--text-muted)' }}>—</span>}</span>
         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 7 }}>
-          <span style={{ width: 30, height: 5, borderRadius: 3, background: 'var(--neutral-200)', overflow: 'hidden' }}>
+          <span style={{ width: 30, height: 5, borderRadius: 3, background: 'var(--border-card)', overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', width: `${Math.min(100, r.riskScore)}%`, background: 'var(--brand)' }} />
           </span>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{r.riskScore}</span>
@@ -116,7 +116,7 @@ function WatchlistRow({ segmentId, r }: { segmentId: string; r: CsCareWatchlistE
       </div>
 
       {expanded && (
-        <div style={{ padding: '4px 18px 14px 38px', background: 'var(--neutral-50)' }}>
+        <div style={{ padding: '4px 18px 14px 38px', background: 'var(--surface-inset)' }}>
           {state === 'loading' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[1, 2].map((n) => (
@@ -166,7 +166,7 @@ export function CareWatchlist({ segmentId, rows }: Props): ReactElement {
           alignItems: 'center',
           gap: 12,
           padding: '11px 18px',
-          background: 'var(--neutral-50)',
+          background: 'var(--surface-inset)',
           borderBottom: '1px solid var(--border-card)',
           fontFamily: 'var(--font-alt)',
           fontSize: 10.5,

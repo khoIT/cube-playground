@@ -30,7 +30,7 @@ export function MiniBarChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ReBarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 38 }}>
-        <CartesianGrid strokeDasharray="0" vertical={false} stroke="var(--neutral-100)" />
+        <CartesianGrid strokeDasharray="0" vertical={false} stroke="var(--surface-inset-strong)" />
         <XAxis
           dataKey="x"
           tick={{ fontSize: 10, fill: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}

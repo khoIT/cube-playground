@@ -20,7 +20,7 @@ interface Props {
 function dotColor(sentiment: string | null): string {
   if (sentiment === 'Negative') return 'var(--destructive-ink)';
   if (sentiment === 'Positive') return 'var(--success-ink)';
-  return 'var(--neutral-400)';
+  return 'var(--fill-muted)';
 }
 
 export function CareHistoryTimelineView({ tickets, selectedId, onSelect }: Props): ReactElement {
@@ -36,7 +36,7 @@ export function CareHistoryTimelineView({ tickets, selectedId, onSelect }: Props
         padding: '20px 24px 20px 46px',
       }}
     >
-      <div style={{ position: 'absolute', left: 26, top: 24, bottom: 24, width: 2, background: 'var(--neutral-200)' }} />
+      <div style={{ position: 'absolute', left: 26, top: 24, bottom: 24, width: 2, background: 'var(--border-card)' }} />
       {ordered.map((tk) => {
         const open = tk.ticketId === selectedId;
         return (

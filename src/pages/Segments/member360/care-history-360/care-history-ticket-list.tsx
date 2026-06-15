@@ -21,7 +21,7 @@ export function CareHistoryTicketList({ tickets, selectedId, onSelect }: Props):
   const { t } = useTranslation();
   return (
     <div>
-      <div style={{ padding: '12px 16px', background: 'var(--neutral-50)', borderBottom: '1px solid var(--border-card)', fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+      <div style={{ padding: '12px 16px', background: 'var(--surface-inset)', borderBottom: '1px solid var(--border-card)', fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
         {t('segments.detail.care.ticketCount', { defaultValue: '{{n}} tickets · 365d', n: tickets.length })}
       </div>
       {tickets.map((tk) => {
@@ -39,7 +39,7 @@ export function CareHistoryTicketList({ tickets, selectedId, onSelect }: Props):
               border: 'none',
               borderBottom: '1px solid var(--border-card)',
               borderLeft: sel ? '3px solid var(--brand)' : '3px solid transparent',
-              background: sel ? 'var(--orange-50, var(--neutral-50))' : 'transparent',
+              background: sel ? 'var(--orange-50)' : 'transparent',
               cursor: 'pointer',
               fontFamily: 'var(--font-sans)',
             }}

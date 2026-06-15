@@ -193,7 +193,7 @@ export function MiniBars({ a, b, labelA, labelB, unit, max }: MiniBarsProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
       <MiniBar label={labelA} value={a} max={max} color="var(--brand)" unit={unit} />
-      <MiniBar label={labelB} value={b} max={max} color="var(--neutral-400)" unit={unit} />
+      <MiniBar label={labelB} value={b} max={max} color="var(--fill-muted)" unit={unit} />
     </div>
   );
 }

@@ -68,13 +68,13 @@ export function CareIssueMix({ issueMix }: Props): ReactElement {
               >
                 {issue.category}
               </span>
-              <span style={{ height: 16, background: 'var(--neutral-100)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+              <span style={{ height: 16, background: 'var(--surface-inset-strong)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
                 <span
                   style={{
                     display: 'block',
                     height: '100%',
                     width: `${(issue.tickets / max) * 100}%`,
-                    background: high ? 'var(--brand)' : 'var(--neutral-400)',
+                    background: high ? 'var(--brand)' : 'var(--fill-muted)',
                     borderRadius: 'var(--radius-sm)',
                   }}
                 />

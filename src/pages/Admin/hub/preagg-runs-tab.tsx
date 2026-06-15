@@ -152,7 +152,7 @@ const PILL_DOT: Record<PillVariant, React.CSSProperties> = {
   stale: { background: 'var(--stale-badge-dot)' },
   src:   { background: 'var(--info-ink)' },
   fail:  { background: 'var(--danger)' },
-  unb:   { background: 'var(--neutral-400)' },
+  unb:   { background: 'var(--fill-muted)' },
 };
 
 function Pill({ variant, label, pulse }: { variant: PillVariant; label: string; pulse?: boolean }) {

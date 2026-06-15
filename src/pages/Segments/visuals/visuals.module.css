@@ -82,7 +82,7 @@
   padding: 0 7px;
   font-size: 11px;
   border-radius: var(--radius-full);
-  background: var(--neutral-100);
+  background: var(--surface-inset-strong);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -108,7 +108,7 @@
   position: sticky;
   bottom: 16px;
   margin: 16px auto 0;
-  background: var(--neutral-900);
+  background: var(--surface-inverse);
   color: white;
   border-radius: 12px;
   padding: 8px 8px 8px 16px;
@@ -311,7 +311,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: var(--neutral-900);
+  background: var(--surface-inverse);
   color: white;
   border-radius: var(--radius-full);
   font-size: 12px;
@@ -350,7 +350,7 @@
 
 .barListTrack {
   height: 8px;
-  background: var(--neutral-100);
+  background: var(--surface-inset-strong);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -442,7 +442,7 @@
   height: 28px;
   border-radius: 6px;
   overflow: hidden;
-  background: var(--neutral-100, rgba(0,0,0,0.04));
+  background: var(--surface-inset-strong);
   isolation: isolate;
 }
 

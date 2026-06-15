@@ -31,7 +31,7 @@
 
 .inboxRail {
   border-left: 1px solid var(--border-card);
-  background: var(--neutral-50);
+  background: var(--surface-inset);
   padding: 16px;
 }
 
