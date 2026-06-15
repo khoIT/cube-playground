@@ -25,12 +25,12 @@ const Wrap = styled.span<{ $kind: ConceptKind }>`
       : 'rgba(20,184,166,0.12)'};
   color: ${(p) =>
     p.$kind === 'business-metric'
-      ? '#f05a22'
+      ? 'var(--orange-600)'
       : p.$kind === 'measure'
-      ? '#1d4ed8'
+      ? 'var(--info-ink)'
       : p.$kind === 'dimension'
-      ? '#7e22ce'
-      : '#0f766e'};
+      ? 'var(--cat-purple-ink)'
+      : 'var(--cat-teal-ink)'};
 `;
 
 const ICONS: Record<ConceptKind, typeof BarChart3> = {

@@ -8,9 +8,9 @@ import styled from 'styled-components';
 export type FreshnessState = 'fresh' | 'stale' | 'unknown';
 
 const STYLES: Record<FreshnessState, { label: string; bg: string; fg: string }> = {
-  fresh:   { label: 'Fresh',   bg: 'rgba(16,185,129,0.10)', fg: '#059669' },
-  stale:   { label: 'Stale',   bg: 'rgba(245,158,11,0.12)', fg: '#b45309' },
-  unknown: { label: 'Unknown', bg: 'rgba(115,115,115,0.08)', fg: '#525252' },
+  fresh:   { label: 'Fresh',   bg: 'rgba(16,185,129,0.10)', fg: 'var(--cat-green-ink)' },
+  stale:   { label: 'Stale',   bg: 'rgba(245,158,11,0.12)', fg: 'var(--cat-amber-ink)' },
+  unknown: { label: 'Unknown', bg: 'rgba(115,115,115,0.08)', fg: 'var(--cat-grey-ink)' },
 };
 
 const Chip = styled.span<{ $bg: string; $fg: string }>`

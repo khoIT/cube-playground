@@ -16,19 +16,19 @@ const STYLES: Record<
   certified: {
     label: 'Certified',
     bg: 'rgba(16, 185, 129, 0.12)',
-    fg: '#059669',
+    fg: 'var(--cat-green-ink)',
     border: 'rgba(16, 185, 129, 0.32)',
   },
   draft: {
     label: 'Draft',
     bg: 'rgba(115, 115, 115, 0.10)',
-    fg: '#525252',
+    fg: 'var(--cat-grey-ink)',
     border: 'rgba(115, 115, 115, 0.28)',
   },
   deprecated: {
     label: 'Deprecated',
     bg: 'rgba(245, 158, 11, 0.12)',
-    fg: '#b45309',
+    fg: 'var(--cat-amber-ink)',
     border: 'rgba(245, 158, 11, 0.32)',
   },
 };

@@ -19,9 +19,9 @@ const STYLES: Record<
   Exclude<BusinessMetricAnomalyState, 'none'>,
   { label: string; bg: string; fg: string }
 > = {
-  low:   { label: 'Anomaly · low',   bg: 'rgba(245,158,11,0.14)', fg: '#b45309' },
-  high:  { label: 'Anomaly · high',  bg: 'rgba(239,68,68,0.14)',  fg: '#b91c1c' },
-  trend: { label: 'Trend shift',     bg: 'rgba(168,85,247,0.14)', fg: '#7e22ce' },
+  low:   { label: 'Anomaly · low',   bg: 'rgba(245,158,11,0.14)', fg: 'var(--cat-amber-ink)' },
+  high:  { label: 'Anomaly · high',  bg: 'rgba(239,68,68,0.14)',  fg: 'var(--cat-red-ink)' },
+  trend: { label: 'Trend shift',     bg: 'rgba(168,85,247,0.14)', fg: 'var(--cat-purple-ink)' },
 };
 
 const Chip = styled.button<{ $bg: string; $fg: string }>`

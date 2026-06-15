@@ -81,7 +81,7 @@ const Row = styled.div`
 const Delta = styled.span<{ $negative: boolean }>`
   font-family: var(--font-mono, monospace);
   font-weight: 600;
-  color: ${(p) => (p.$negative ? '#b91c1c' : '#047857')};
+  color: ${(p) => (p.$negative ? 'var(--cat-red-ink)' : 'var(--success-ink)')};
 `;
 
 const Actions = styled.div`
@@ -114,7 +114,7 @@ const Demo = styled.div`
   background: rgba(245, 158, 11, 0.10);
   border: 1px solid rgba(245, 158, 11, 0.30);
   border-radius: 6px;
-  color: #92400e;
+  color: var(--warning-ink);
   font-size: 11px;
 `;
 

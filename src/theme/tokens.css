@@ -129,6 +129,29 @@
   --warning-border:     #fcd34d;
   --destructive-border: #fca5a5;
 
+  /* Categorical chip inks — fixed hue taxonomy for domain/freshness/trust/anomaly
+     chips. Hues that match a semantic *-ink token reuse it (revenue→success-ink,
+     engagement→info-ink, payments→warning-ink); only the bespoke hues live here.
+     Dark pairs (in the dark block) brighten each hue so saturated text stays
+     legible on the alpha-tinted chip backgrounds. */
+  --cat-purple-ink: #7e22ce;
+  --cat-teal-ink:   #0f766e;
+  --cat-indigo-ink: #3730a3;
+  --cat-rose-ink:   #9d174d;
+  --cat-green-ink:  #059669;
+  --cat-amber-ink:  #b45309;
+  --cat-red-ink:    #b91c1c;
+  --cat-grey-ink:   #525252;
+
+  /* Inline warning callout (warm amber on cream) — distinct from the status
+     warning family; its own light/dark pair keeps the soft-amber surface intact. */
+  --warn-callout-bg:            #fff8e1;
+  --warn-callout-border:        #f0c674;
+  --warn-callout-border-strong: #c89a3a;
+  --warn-callout-text:          #6b4f0a;
+  --warn-callout-hover-bg:      #fdf3d2;
+  --warn-callout-btn-bg:        #ffffff;
+
   /* Radii / shadows */
   --radius-xs:   4px;
   --radius-sm:   6px;
@@ -493,6 +516,25 @@
   --success-border:     rgba(16, 185, 129, 0.4);
   --warning-border:     rgba(217, 119, 6, 0.45);
   --destructive-border: rgba(220, 38, 38, 0.4);
+
+  /* Categorical chip inks — dark (brightened ~300-level so saturated text reads
+     on the alpha-tinted chip backgrounds). */
+  --cat-purple-ink: #d8b4fe;
+  --cat-teal-ink:   #5eead4;
+  --cat-indigo-ink: #a5b4fc;
+  --cat-rose-ink:   #f9a8d4;
+  --cat-green-ink:  #34d399;
+  --cat-amber-ink:  #fdba74;
+  --cat-red-ink:    #fca5a5;
+  --cat-grey-ink:   #b1bac8;
+
+  /* Inline warning callout — dark (deep amber surface, warm-amber text). */
+  --warn-callout-bg:            #2a1f0a;
+  --warn-callout-border:        #5a4a18;
+  --warn-callout-border-strong: #6b5520;
+  --warn-callout-text:          #fcd34d;
+  --warn-callout-hover-bg:      #332710;
+  --warn-callout-btn-bg:        var(--surface-raised);
 
   --table-header-bg: rgba(240, 90, 34, 0.10);
 

@@ -18,11 +18,11 @@ const Strip = styled.div`
   gap: 10px;
   padding: 10px 12px;
   margin-bottom: 10px;
-  border: 1px solid #f0c674;
-  background: #fff8e1;
+  border: 1px solid var(--warn-callout-border);
+  background: var(--warn-callout-bg);
   border-radius: 6px;
   font-size: 12px;
-  color: #6b4f0a;
+  color: var(--warn-callout-text);
   line-height: 1.45;
 `;
 
@@ -48,15 +48,15 @@ const RunAnyway = styled.button`
   flex: 0 0 auto;
   height: 26px;
   padding: 0 10px;
-  border: 1px solid #c89a3a;
-  background: #fff;
+  border: 1px solid var(--warn-callout-border-strong);
+  background: var(--warn-callout-btn-bg);
   border-radius: 4px;
   font-size: 11.5px;
   font-weight: 500;
-  color: #6b4f0a;
+  color: var(--warn-callout-text);
   cursor: pointer;
 
-  &:hover { background: #fdf3d2; }
+  &:hover { background: var(--warn-callout-hover-bg); }
 `;
 
 interface Props {

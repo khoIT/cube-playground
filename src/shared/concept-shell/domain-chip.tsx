@@ -8,13 +8,13 @@ import styled from 'styled-components';
 import type { BusinessMetricDomain } from '../../pages/Catalog/metrics-tab/business-metric-types';
 
 const STYLES: Record<BusinessMetricDomain, { label: string; bg: string; fg: string }> = {
-  revenue:     { label: 'Revenue',     bg: 'rgba(16,185,129,0.10)', fg: '#047857' },
-  engagement:  { label: 'Engagement',  bg: 'rgba(63,141,255,0.10)', fg: '#1d4ed8' },
-  acquisition: { label: 'Acquisition', bg: 'rgba(168,85,247,0.10)', fg: '#7e22ce' },
-  retention:   { label: 'Retention',   bg: 'rgba(20,184,166,0.10)', fg: '#0f766e' },
-  payments:    { label: 'Payments',    bg: 'rgba(217,119,6,0.10)',  fg: '#92400e' },
-  concurrency: { label: 'Concurrency', bg: 'rgba(99,102,241,0.10)', fg: '#3730a3' },
-  marketing:   { label: 'Marketing',   bg: 'rgba(236,72,153,0.10)', fg: '#9d174d' },
+  revenue:     { label: 'Revenue',     bg: 'rgba(16,185,129,0.10)', fg: 'var(--success-ink)' },
+  engagement:  { label: 'Engagement',  bg: 'rgba(63,141,255,0.10)', fg: 'var(--info-ink)' },
+  acquisition: { label: 'Acquisition', bg: 'rgba(168,85,247,0.10)', fg: 'var(--cat-purple-ink)' },
+  retention:   { label: 'Retention',   bg: 'rgba(20,184,166,0.10)', fg: 'var(--cat-teal-ink)' },
+  payments:    { label: 'Payments',    bg: 'rgba(217,119,6,0.10)',  fg: 'var(--warning-ink)' },
+  concurrency: { label: 'Concurrency', bg: 'rgba(99,102,241,0.10)', fg: 'var(--cat-indigo-ink)' },
+  marketing:   { label: 'Marketing',   bg: 'rgba(236,72,153,0.10)', fg: 'var(--cat-rose-ink)' },
 };
 
 const Chip = styled.span<{ $bg: string; $fg: string }>`
