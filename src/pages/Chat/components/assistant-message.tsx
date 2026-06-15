@@ -255,8 +255,12 @@ const H_STYLE: React.CSSProperties = {
 
 const BLOCKQUOTE_STYLE: React.CSSProperties = {
   margin: '0 0 8px',
-  padding: '4px 12px',
-  borderLeft: `3px solid ${T.brandSoft}`,
+  // Notice/clarification callout: a slightly different warm recessed fill +
+  // rounded block so it stands apart from the surrounding cream message body.
+  padding: '8px 14px',
+  background: 'var(--bg-muted)',
+  borderLeft: `3px solid ${T.brand}`,
+  borderRadius: 8,
   color: T.n700,
   fontStyle: 'italic',
 };

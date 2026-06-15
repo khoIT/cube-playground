@@ -80,6 +80,8 @@ export function SidebarEdgeToggle({ collapsed }: SidebarEdgeToggleProps) {
         alignSelf: 'stretch',
         cursor: 'pointer',
         zIndex: 20,
+        // Invisible at rest so the sidebar + topbar read as one continuous warm
+        // surface; a faint line + the circle appear only on hover.
         background: hovered ? T.n200 : 'transparent',
         transition: 'background 0.12s',
       }}

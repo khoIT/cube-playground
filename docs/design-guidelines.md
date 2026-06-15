@@ -148,14 +148,21 @@ year boundaries; tooltips "Apr 7, 2026") — never render raw ISO timestamps on 
 
 ## 6b. Left nav bar (shell sidebar)
 
-The left sidebar (`src/shell/sidebar/`) sits **flush** against the main content —
-not as a floating card with a gap. The seam between them is a single 1px element
-(`SidebarEdgeToggle`), not a CSS border:
+The shell is a **warm "L" frame with an inset white content panel** (edge-to-edge —
+no outer gutter). The sidebar (`src/shell/sidebar/`) and the topbar share one warm
+color (`T.sidebar` `#f9f6f2`) and connect **seamlessly with no divider** — together
+they form a continuous warm L down the left and across the top. The main content
+`<main>` and the chat panel are **inset white cards** (`T.surface`) with a rounded
+top-left corner (`borderTopLeftRadius: 12`) and a hairline top + left border
+(`T.n200`); they sit flush to the viewport right/bottom. `ShellLayout` uses
+`padding: 0` / `gap: 0`. Topbar is `background: T.sidebar` with **no** bottom border.
+Do not reintroduce the floating-card frame, and do not put a divider between sidebar
+and topbar.
 
-- **Flush seam:** the sidebar's right corners and main's left corners are squared
-  (`borderRadius: '18px 0 0 18px'` / `'0 18px 18px 0'`); the shell flex row uses
-  `gap: 0`. The outer 10px `T.shell` frame is kept.
-- **Collapse toggle:** invisible 1px seam at rest; on hover it tints (`T.n200`) and
+- **Seam = invisible at rest:** the `SidebarEdgeToggle` element is transparent at
+  rest (so sidebar + topbar read as one warm surface); a faint line (`T.n200`) and
+  the collapse circle appear only on hover.
+- **Collapse toggle:** on hover the seam tints and
   a 36px circle appears straddling the seam, **tracking the cursor's Y** and sliding
   with it. Icon = `ChevronLeft` (expanded) / `ChevronRight` (collapsed). Clicking
   anywhere along the seam toggles. Do not revert this to a fixed centered button.

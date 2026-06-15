@@ -73,6 +73,15 @@ export const StyledTabs = styled(Tabs)`
 
   & .ant-tabs-tab {
     border-radius: var(--radius) var(--radius) 0 0 !important;
+    /* editable-card tabs default to antd's cool grey fill / white active tab.
+       Warm both: inactive sits a step recessed, the active tab matches the
+       cream strip and is set apart by the brand underline below. */
+    background: var(--bg-muted) !important;
+    border-color: var(--border-card) !important;
+  }
+
+  & .ant-tabs-tab.ant-tabs-tab-active {
+    background: var(--bg-card) !important;
   }
 
   & .ant-tabs-tab.ant-tabs-tab-active::after {

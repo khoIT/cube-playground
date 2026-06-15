@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Grid, Radio, LayoutGrid, Heart, Gauge, Lightbulb } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Boxes, Radio, LayoutTemplate, Heart, Gauge, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -103,10 +103,9 @@ export function Sidebar() {
         flexShrink: 0,
         height: '100%',
         background: T.sidebar,
-        // Right corners are squared so the sidebar sits flush against the main
-        // card; the seam between them is the SidebarEdgeToggle (rendered as a
-        // sibling in the shell layout), not a gap or border.
-        borderRadius: '18px 0 0 18px',
+        // Edge-to-edge: the sidebar runs flush to the viewport left and against
+        // main. No rounding — the seam is the 1px SidebarEdgeToggle sibling.
+        borderRadius: 0,
         display: 'flex',
         flexDirection: 'column',
         fontFamily: T.fSans,
@@ -150,7 +149,7 @@ export function Sidebar() {
         {showSection('data-model') && (
           <SidebarSection
             id="data-model"
-            icon={Grid}
+            icon={Boxes}
             label={t('nav.dataModel')}
             to="/catalog/data-model"
             // Concept detail pages live under /catalog/concept/:type/:fqn —
@@ -212,7 +211,7 @@ export function Sidebar() {
         {showSection('dashboards') && (
           <SidebarSection
             id="dashboards"
-            icon={LayoutGrid}
+            icon={LayoutTemplate}
             label={t('nav.dashboards')}
             to="/dashboards"
             collapsed={collapsed}

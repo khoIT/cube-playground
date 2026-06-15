@@ -36,12 +36,12 @@ export function SearchTrigger({ onOpen }: SearchTriggerProps) {
         flex: '0 1 120px',
         display: 'flex', alignItems: 'center', gap: 8,
         height: 28, padding: '0 12px',
-        background: T.surface, border: `1px solid ${T.n200}`, borderRadius: 999,
+        background: T.panel, border: `1px solid ${T.n300}`, borderRadius: 999,
         cursor: 'pointer', textAlign: 'left',
         fontFamily: T.fSans,
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = T.n300; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = T.n200; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = T.n400; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = T.n300; }}
     >
       <Icon icon={Search} size={13} color={T.n500} />
       <span style={{ flex: 1, color: T.n500, fontSize: 12.5, lineHeight: 1 }}>Search</span>

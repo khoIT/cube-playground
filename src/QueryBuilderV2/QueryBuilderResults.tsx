@@ -1044,7 +1044,9 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: '#ffffff',
+                    // Match the warm card surface (adapts in dark) — a literal
+                    // white read as a cool stripe down the result's left edge.
+                    background: 'var(--bg-card)',
                     padding: 0,
                     minWidth: 0,
                   }}

@@ -26,7 +26,7 @@ const Chip = styled.button`
   gap: 8px;
   height: 28px;
   padding: 0 10px;
-  background: var(--bg-card);
+  background: var(--hermes-panel);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
   color: var(--text-primary);

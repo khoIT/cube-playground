@@ -62,6 +62,9 @@
   border-radius: var(--radius-input) !important;
   font-family: var(--font-sans);
   border-color: var(--border-strong) !important;
+  /* Warm fill — antd defaults inputs to flat white, which reads as a cool
+     patch on the cream cards. --bg-card adapts per theme. */
+  background-color: var(--bg-card) !important;
 }
 .ant-input:hover,
 .ant-input-affix-wrapper:hover,
@@ -423,6 +426,33 @@
   background-color: var(--bg-card) !important;
   color: var(--text-primary) !important;
   border-color: var(--brand) !important;
+}
+
+/*
+ * Webkit scrollbar — light mode. Transparent track so the bar blends into
+ * whatever warm pane it sits in (no grey gutter). `:root:not([data-theme=...])`
+ * matches ui-kit's class specificity so the !important rules win.
+ */
+:root:not([data-theme="dark"]) ::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+  background: transparent !important;
+}
+:root:not([data-theme="dark"]) ::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+:root:not([data-theme="dark"]) ::-webkit-scrollbar-thumb {
+  background: var(--border-strong) !important;
+  border-radius: 6px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+:root:not([data-theme="dark"]) ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted) !important;
+  background-clip: padding-box !important;
+}
+:root:not([data-theme="dark"]) ::-webkit-scrollbar-corner {
+  background: transparent !important;
 }
 
 /*

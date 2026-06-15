@@ -5,8 +5,7 @@
  */
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
-import { T, Icon } from '../theme';
+import { T } from '../theme';
 
 interface WorkspacePillProps {
   collapsed?: boolean;
@@ -49,11 +48,8 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
         background: 'transparent', border: 'none',
         cursor: 'pointer',
         textAlign: 'left',
-        borderRadius: '18px 18px 0 0',
-        transition: 'background .12s',
+        borderRadius: 0,
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
     >
       <img
         src="/apple-touch-icon.png"
@@ -78,7 +74,6 @@ export function WorkspacePill({ collapsed }: WorkspacePillProps) {
           Self-serve data exploration
         </span>
       </span>
-      <Icon icon={ChevronDown} size={14} color={T.n400} />
     </button>
   );
 }

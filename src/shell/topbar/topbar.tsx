@@ -35,10 +35,10 @@ export function Topbar({ onSearchOpen, fixedTrailing }: TopbarProps) {
         position: 'sticky', top: 0, zIndex: 20,
         height: 56, padding: '0 24px',
         display: 'flex', alignItems: 'center', gap: 10,
-        background: T.topbar,
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        borderBottom: `1px solid ${T.n200}`,
+        // Warm + borderless so the topbar merges seamlessly with the sidebar
+        // into one continuous warm "L". The inset white panel below provides
+        // the only visible divider (its rounded top border).
+        background: T.sidebar,
         fontFamily: T.fSans,
       }}
     >

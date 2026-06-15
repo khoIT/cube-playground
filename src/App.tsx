@@ -214,20 +214,21 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
   return (
     <div style={{
       height: '100vh', overflow: 'hidden',
-      background: T.shell,
-      // No gap: the sidebar sits flush against main, with the 1px
-      // SidebarEdgeToggle as the seam between them. ChatPanel keeps its own
-      // left margin so it stays detached from main.
+      // Warm frame cream. Backs the panels and shows through as the gutter
+      // between the query-builder panel and the chat (panels are a step lighter).
+      background: T.sidebar,
       display: 'flex', flexDirection: 'row', alignItems: 'stretch',
-      padding: 10, gap: 0, boxSizing: 'border-box',
+      padding: 0, gap: 0, boxSizing: 'border-box',
     }}>
       <Sidebar />
+      {/* Seam is invisible at rest so the sidebar + topbar read as one warm
+          surface; the collapse circle only appears on hover. */}
       <SidebarEdgeToggle collapsed={collapsed} />
-      <main style={{
+      {/* Right column: warm topbar stacked over the content row. */}
+      <div style={{
         flex: 1, minWidth: 0, minHeight: 0,
         display: 'flex', flexDirection: 'column',
-        // Left corners squared so main sits flush against the sidebar seam.
-        background: T.surface, borderRadius: '0 18px 18px 0', overflow: 'hidden',
+        background: T.sidebar, overflow: 'hidden',
       }}>
         <Topbar
           onSearchOpen={smartSearch.open}
@@ -238,21 +239,44 @@ function ShellLayout({ fatalError, children }: ShellLayoutProps) {
             </>
           }
         />
-        <CubeApiBanner />
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto' }}>
-          {fatalError ? (
-            <Alert
-              message="Error occured while rendering"
-              description={fatalError.stack || ''}
-              type="error"
-            />
-          ) : (
-            children
-          )}
+        {/* Content row: query-builder panel + chat panel start below the topbar.
+            The 8px gap shows the darker shell tone as a gutter between them. */}
+        <div style={{
+          flex: 1, minWidth: 0, minHeight: 0,
+          display: 'flex', flexDirection: 'row', gap: 8,
+        }}>
+          <main style={{
+            flex: 1, minWidth: 0, minHeight: 0,
+            display: 'flex', flexDirection: 'column',
+            // Lighter warm content panel (a step lighter than the frame cream):
+            // rounded top corners + hairline top/left/right border separate it
+            // from the frame; the gutter shows the frame cream.
+            background: T.panel,
+            borderTop: `1px solid ${T.n200}`,
+            borderLeft: `1px solid ${T.n200}`,
+            borderRight: `1px solid ${T.n200}`,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+            overflow: 'hidden',
+          }}>
+            <CubeApiBanner />
+            <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto' }}>
+              {fatalError ? (
+                <Alert
+                  message="Error occured while rendering"
+                  description={fatalError.stack || ''}
+                  type="error"
+                />
+              ) : (
+                children
+              )}
+            </div>
+          </main>
+          {/* Chat panel is a flex sibling of <main> (not full shell height) so it
+              pushes main content and starts where the content panel starts. */}
+          {panelVisible && <ChatPanel onClose={() => setOpen(false)} />}
         </div>
-      </main>
-      {/* Chat panel is a flex sibling so it pushes main content (not an overlay). */}
-      {panelVisible && <ChatPanel onClose={() => setOpen(false)} />}
+      </div>
       {/* Side-effect host: listens for game-change to close the panel. */}
       <ChatOverlay />
     </div>

@@ -50,6 +50,9 @@ export const T = {
   shell:    'var(--hermes-shell)',
   sidebar:  'var(--hermes-sidebar)',
   topbar:   'var(--hermes-topbar)',
+  // Lighter warm than the frame — the content panels (main pane, chat panel)
+  // and warm controls sit a step lighter than the sidebar/topbar cream.
+  panel:    'var(--hermes-panel)',
 
   fDisp: '"League Gothic", "Inter", sans-serif',
   fSans: '"Inter", ui-sans-serif, system-ui, sans-serif',

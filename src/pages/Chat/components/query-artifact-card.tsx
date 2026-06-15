@@ -70,9 +70,12 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
   return (
     <div
       style={{
-        border: `1px solid ${T.n200}`,
+        // The card shares the page's cream, so a hairline alone reads blurry —
+        // the stronger warm border plus a soft shadow lift it off the surface.
+        border: `1px solid var(--border-strong)`,
         borderRadius: 12,
         background: T.surface,
+        boxShadow: 'var(--shadow-sm)',
         overflow: 'hidden',
         width: '100%',
         margin: '12px 0',

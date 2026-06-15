@@ -106,7 +106,12 @@ export function SidebarItem({
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: indent ? '5px 12px 5px 16px' : '7px 12px',
+        // Icon'd sub-rows (e.g. CS·VIP Care, Ops Console) start their icon past
+        // the tree-line guide (drawn at x=19) so the glyph doesn't sit on top of
+        // it. Text-only recents keep the tighter inset — their empty icon slot
+        // lets the line pass through cleanly and their label aligns under the
+        // parent's label.
+        padding: indent ? (icon ? '5px 12px 5px 28px' : '5px 12px 5px 16px') : '7px 12px',
         position: 'relative',
         cursor: 'pointer',
         userSelect: 'none',

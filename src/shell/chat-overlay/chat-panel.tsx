@@ -136,13 +136,15 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
         width: getWidth(),
         flexShrink: 0,
         height: '100%',
-        // The shell flex row no longer sets a gap (sidebar↔main is now a flush
-        // seam), so keep the panel visually detached from main with its own
-        // left margin.
-        marginLeft: 8,
-        background: T.sidebar,
+        // Lighter warm panel matching main: rounded top corners + hairline
+        // top/left/right border; the 8px frame-cream gutter to its left
+        // separates it from the query-builder panel.
+        background: T.panel,
+        borderTop: `1px solid ${T.n200}`,
         borderLeft: `1px solid ${T.n200}`,
-        borderRadius: 18,
+        borderRight: `1px solid ${T.n200}`,
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',

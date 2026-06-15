@@ -91,7 +91,7 @@ export function WhatsNewBell() {
           background: 'transparent', color: unreadCount > 0 ? 'var(--brand)' : 'var(--text-secondary)', cursor: 'pointer',
         }}
       >
-        <Bell size={18} />
+        <Bell size={21} />
         {unreadCount > 0 && (
           <span
             style={{
