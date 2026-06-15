@@ -65,7 +65,7 @@ export function CodeSnippet({
   return (
     <ThemeProvider
       theme={{
-        background: theme === 'dark' ? '#F6F6F8' : '#FFFFFF',
+        background: 'var(--bg-code)',
       }}
     >
       <StyledCodeSnippet style={style}>

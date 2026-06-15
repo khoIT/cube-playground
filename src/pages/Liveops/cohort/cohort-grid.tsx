@@ -60,7 +60,7 @@ function CellTooltip({ label, visible, x, y }: TooltipProps) {
         left: x + 12,
         top: y - 8,
         background: 'var(--neutral-900)',
-        color: '#fff',
+        color: 'var(--text-on-brand)',
         fontSize: 12,
         lineHeight: 1.5,
         padding: '6px 10px',

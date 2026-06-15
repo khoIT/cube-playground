@@ -155,7 +155,7 @@ export function CohortRetentionPage() {
                   border: '1px solid var(--border-card)',
                   borderRadius: 'var(--radius-sm)',
                   background: cohortWindow === w ? 'var(--brand)' : 'var(--bg-card)',
-                  color: cohortWindow === w ? '#fff' : 'var(--text-secondary)',
+                  color: cohortWindow === w ? 'var(--text-on-brand)' : 'var(--text-secondary)',
                   cursor: 'pointer',
                   transition: 'background 0.15s',
                 }}

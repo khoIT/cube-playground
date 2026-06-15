@@ -12,9 +12,9 @@ import { buildPlaygroundUrl } from './open-in-playground';
 // ── Severity badge ────────────────────────────────────────────────────────────
 
 const SEVERITY_COLOR: Record<AnomalySeverity, { bg: string; text: string; label: string }> = {
-  high: { bg: '#fee2e2', text: '#dc2626', label: 'HIGH' },
-  med:  { bg: '#fef3c7', text: '#d97706', label: 'MED'  },
-  low:  { bg: '#f0f9ff', text: '#0284c7', label: 'LOW'  },
+  high: { bg: 'var(--destructive-soft)', text: 'var(--destructive-ink)', label: 'HIGH' },
+  med:  { bg: 'var(--warning-soft)', text: 'var(--warning-ink)', label: 'MED'  },
+  low:  { bg: 'var(--info-soft)', text: 'var(--info-ink)', label: 'LOW'  },
 };
 
 function SeverityBadge({ severity }: { severity: AnomalySeverity }) {

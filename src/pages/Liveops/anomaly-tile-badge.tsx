@@ -7,9 +7,9 @@ import { useHistory } from 'react-router-dom';
 import type { AnomalySeverity } from './anomaly-inbox/use-anomalies';
 
 const SEVERITY_DOT: Record<AnomalySeverity, string> = {
-  high: '#dc2626',
-  med:  '#d97706',
-  low:  '#0284c7',
+  high: 'var(--danger)',
+  med:  'var(--warning)',
+  low:  'var(--info)',
 };
 
 interface AnomalyTileBadgeProps {

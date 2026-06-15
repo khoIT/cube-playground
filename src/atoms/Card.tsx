@@ -7,7 +7,7 @@ const StyledCard = styled(AntdCard)`
     border: none;
 
     .ant-card-head {
-      border-bottom: 1px solid #d7d7f488;
+      border-bottom: 1px solid var(--border-card);
       padding: 8px 16px;
     }
 
