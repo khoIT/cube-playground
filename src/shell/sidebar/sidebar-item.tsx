@@ -1,6 +1,6 @@
 /**
  * SidebarItem — single nav row with icon + label + optional caret.
- * Active state (inset rounded pill — see plans/visuals/sidebar-nav-treatments.html):
+ * Active state (inset rounded pill):
  *   - top-level: soft brand pill + brand-tinted icon + semi-bold brand text
  *   - sub-row (indent): soft brand pill (no left bar) so it doesn't clash with tree-line
  *   - collapsed: icon-only with hover tooltip

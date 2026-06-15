@@ -19,8 +19,6 @@ import { getCollapsed, onCollapsedChange } from './sidebar-collapsed-store';
 import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-store';
 import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
 import { useHasFeature } from '../../auth/feature-access';
-import { useBusinessMetrics } from '../../pages/Catalog/metrics-tab/use-business-metrics';
-import { useConcepts } from '../../pages/Catalog/data-model-tab/use-concepts';
 import {
   useSegmentRows,
   selectSharedSegments,
@@ -43,11 +41,6 @@ export function Sidebar() {
   // are 1:1 with feature keys, so the id doubles as the feature key.
   const showSection = (id: Parameters<typeof isVisible>[0]) => isVisible(id) && hasFeature(id);
 
-  // Pull the live registries so recents that point at deleted artifacts are
-  // hidden from the tray. While loading we leave the filter pass-through to
-  // avoid flashing items out and back in on first paint.
-  const { metrics, loading: metricsLoading } = useBusinessMetrics();
-  const { concepts, loading: conceptsLoading } = useConcepts();
   // One fetch feeds both the recents-pruning id set and the shared-with-me
   // group below the recents (teammates' shared/org segments). Rows are
   // narrowed to the ACTIVE game before any selector runs: segments belong to
@@ -74,15 +67,6 @@ export function Sidebar() {
     () => new Set(selectSharedSegments(gameSegmentRows, Infinity).map((s) => s.id)),
     [gameSegmentRows],
   );
-  const metricIds = React.useMemo(
-    () => (metricsLoading ? null : new Set(metrics.map((m) => m.id))),
-    [metrics, metricsLoading],
-  );
-  const conceptFqns = React.useMemo(
-    () => (conceptsLoading ? null : new Set(concepts.map((c) => c.fqn))),
-    [concepts, conceptsLoading],
-  );
-
   React.useEffect(() => onCollapsedChange(setCollapsedState), []);
 
   // Auto-expand the matching section when the route changes.
@@ -147,6 +131,14 @@ export function Sidebar() {
           </SidebarSection>
         )}
 
+        {/* Reference catalogs — browsed, not built. Unlike Chat / Playground /
+            Segments (where the user creates artifacts worth revisiting), the
+            Data Model and Metrics catalogs are read-only registries, so they're
+            flat links rather than recents-bearing sections. Fenced by hairlines
+            to read as one reference group. */}
+        {(showSection('data-model') || showSection('metrics-catalog')) && !collapsed && (
+          <NavDivider />
+        )}
         {showSection('data-model') && (
           <SidebarSection
             id="data-model"
@@ -157,22 +149,8 @@ export function Sidebar() {
             // include them so the parent stays highlighted from a child click.
             matchPrefix={['/catalog/data-model', '/catalog/concept']}
             collapsed={collapsed}
-          >
-            <RecentItems
-              module="data-model"
-              seeAllTo="/catalog/data-model"
-              hrefFor={(id) => `/catalog/data-model/${id}`}
-              // Drop legacy entries written before concept-only filtering — the
-              // sub-tab routes `/catalog/data-model/cubes` and `…/models` used to
-              // get pushed as literal id strings. Also hide ids no longer present
-              // in /meta (concept removed from yaml).
-              filter={(item) =>
-                item.id !== 'cubes' &&
-                item.id !== 'models' &&
-                (conceptFqns === null || conceptFqns.has(item.id))
-              }
-            />
-          </SidebarSection>
+            flat
+          />
         )}
 
         {showSection('metrics-catalog') && (
@@ -185,15 +163,11 @@ export function Sidebar() {
             // include them so the parent stays highlighted from a child click.
             matchPrefix={['/catalog/metrics', '/catalog/metric']}
             collapsed={collapsed}
-          >
-            <RecentItems
-              module="metrics-catalog"
-              seeAllTo="/catalog/metrics"
-              // Hide ids no longer in the business-metrics registry (metric
-              // removed/renamed in yaml or via API).
-              filter={(item) => metricIds === null || metricIds.has(item.id)}
-            />
-          </SidebarSection>
+            flat
+          />
+        )}
+        {(showSection('data-model') || showSection('metrics-catalog')) && !collapsed && (
+          <NavDivider />
         )}
 
         {showSection('liveops') && (
@@ -291,4 +265,9 @@ export function Sidebar() {
       <BottomRow collapsed={collapsed} />
     </aside>
   );
+}
+
+/** Hairline group separator — inset to align with the row pills' 8px gutter. */
+function NavDivider() {
+  return <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', margin: '8px 6px' }} />;
 }
