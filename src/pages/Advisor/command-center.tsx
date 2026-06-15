@@ -26,6 +26,7 @@ import { STAGES } from './advisor-stage-config';
 import { Blueprint } from './blueprint';
 import { Btn, CARD_STYLE, EYEBROW_STYLE, MiniBars } from './advisor-primitives';
 import { useExperimentMonitor } from './use-experiment-monitor';
+import { segmentsClient } from '../../api/segments-client';
 
 // ── Lifecycle steps ──────────────────────────────────────────────────────────
 
@@ -118,6 +119,59 @@ export function CommandCenter({
   const cohortLabel = exp?.segmentName ?? 'Lapsing whales';
   const cohortSegmentId = exp?.segmentId ?? segmentId;
   const hasInvestigationThesis = aspects.some((a) => a.triage === 'keep');
+
+  // Edit the cohort of an existing experiment. A frozen experiment's arms are
+  // immutable (the A/B contract), so editing CLONES: open the editor seeded with
+  // a copy of the cohort predicate → save creates a new segment → land on the
+  // monitor for a fresh experiment on it. A still-draft experiment edits its
+  // segment in place and returns to the same draft. Reuses the Segments builder.
+  const isFrozenExp = !!monitor.state.assignment;
+  async function editCohort() {
+    if (!cohortSegmentId) return;
+    let seg;
+    try {
+      seg = await segmentsClient.get(cohortSegmentId);
+    } catch {
+      history.push(`/segments/${cohortSegmentId}`);
+      return;
+    }
+    if (isFrozenExp) {
+      // Clone: new segment (copy) → new experiment, original left comparable.
+      history.push('/segments/new', {
+        advisorPrefill: { name: `${seg.name} v2`, cube: seg.cube, predicateTree: seg.predicate_tree },
+        returnTo: { pathTemplate: '/advisor/:id', state: { monitorBoot: true } },
+      });
+    } else {
+      // Draft: edit the segment in place, return to this same draft's monitor.
+      const ret = exp?.id
+        ? `/advisor/${cohortSegmentId}?experiment=${exp.id}`
+        : `/advisor/${cohortSegmentId}`;
+      history.push(`/segments/${cohortSegmentId}/edit`, {
+        returnTo: { pathTemplate: ret },
+      });
+    }
+  }
+
+  // Cohort drift: how far the live segment has moved from the frozen arm total.
+  const frozenTotal = monitor.state.assignment
+    ? monitor.state.assignment.treatment + monitor.state.assignment.control
+    : null;
+  const liveCount = monitor.state.segmentLiveCount;
+  const drift = frozenTotal != null && liveCount != null ? liveCount - frozenTotal : null;
+  const showDrift = isFrozenExp && drift != null;
+
+  // Re-freeze the arms to current membership. Destructive (resets split +
+  // restarts the window) → confirm first.
+  async function resyncCohort() {
+    const now = liveCount != null ? liveCount.toLocaleString() : 'current';
+    const ok = window.confirm(
+      `Re-freeze the arms to the segment's current ${now} members?\n\n` +
+        `This resets the treatment/hold-out split and restarts the outcome window — ` +
+        `the current arms and any measurement so far are discarded.`,
+    );
+    if (!ok) return;
+    await monitor.refreeze();
+  }
 
   // Load the real scorecard once the split is frozen.
   useEffect(() => {
@@ -787,6 +841,46 @@ export function CommandCenter({
             ))}
           </div>
 
+          {/* Cohort drift — live segment size vs the frozen arms. Re-sync
+              re-freezes to current membership (destructive). Frozen exp only. */}
+          {showDrift && (
+            <div style={{ ...CARD_STYLE, padding: '14px 16px' }}>
+              <div style={{ ...EYEBROW_STYLE, marginBottom: 9 }}>↻ Cohort drift</div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Frozen cohort</span>
+                  <span style={{ fontWeight: 600 }}>{frozenTotal!.toLocaleString()}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Segment now</span>
+                  <span style={{ fontWeight: 600 }}>{liveCount!.toLocaleString()}</span>
+                </div>
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: drift === 0 ? 'var(--text-muted)' : 'var(--warning-ink)',
+                  }}
+                >
+                  {drift === 0
+                    ? 'In sync with the live segment'
+                    : `drifted ${drift! > 0 ? '+' : ''}${drift!.toLocaleString()} since freeze`}
+                </div>
+              </div>
+              {drift !== 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <Btn sm onClick={resyncCohort} disabled={monitor.state.busy}>
+                    {monitor.state.busy ? 'Re-freezing…' : 'Re-freeze arms to current →'}
+                  </Btn>
+                </div>
+              )}
+              <div style={{ marginTop: 8, fontSize: 10.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Scorecard reads the frozen arms. Re-freezing resets the split and restarts the window.
+              </div>
+            </div>
+          )}
+
           {/* Guardrails */}
           <div style={{ ...CARD_STYLE, padding: '14px 16px' }}>
             <div style={{ ...EYEBROW_STYLE, marginBottom: 9 }}>🛟 Guardrails</div>
@@ -824,6 +918,19 @@ export function CommandCenter({
                   ? () => history.push(`/segments/${cohortSegmentId}`)
                   : undefined,
               },
+              // Edit the cohort: frozen → clone to a new experiment; draft → edit
+              // in place. Only when this board is backed by a real experiment.
+              ...(monitor.state.adopted && cohortSegmentId
+                ? [
+                    {
+                      label: isFrozenExp ? '✎ Edit cohort → new experiment' : '✎ Edit cohort',
+                      sub: isFrozenExp
+                        ? 'arms are frozen — edits clone to a fresh experiment'
+                        : 'still a draft — edits this segment in place',
+                      onClick: editCohort,
+                    },
+                  ]
+                : []),
               { label: '↗ Outcome query in Playground', sub: 'treatment vs hold-out SQL' },
               { label: '↗ Assignment log', sub: 'immutable, in the lakehouse' },
             ].map(({ label, sub, onClick }) => (

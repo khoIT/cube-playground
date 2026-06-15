@@ -25,6 +25,7 @@ import { usePreview } from './hooks/use-preview';
 import { WorkspaceRail } from './workspace-rail';
 import { WorkspacePreview } from './workspace-preview';
 import { EditorStep, STEP_ORDER, useStep } from './use-step';
+import { resolveReturnPath, type EditorLocationState } from './editor-route-state';
 import type { Segment, SegmentType, SegmentVisibility, PredicateNode } from '../../../types/segment-api';
 import styles from '../segments.module.css';
 
@@ -114,6 +115,18 @@ export function EditorView(): ReactElement {
     };
   }, [id]);
 
+  // Pre-seed the builder when opened from another surface (the Advisor pushes a
+  // proposed cohort here for review/edit before approving the experiment). New
+  // mode only — an existing segment's own load wins. Runs once on mount.
+  const advisorPrefill = (history.location.state as EditorLocationState | undefined)?.advisorPrefill;
+  useEffect(() => {
+    if (id || !advisorPrefill) return;
+    if (advisorPrefill.name) setName(advisorPrefill.name);
+    if (advisorPrefill.cube) setCube(advisorPrefill.cube);
+    if (advisorPrefill.predicateTree) predicate.replaceTree(simplifyPredicate(advisorPrefill.predicateTree));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const validIdentity = name.trim().length > 0 && cube != null;
   const validPredicate = isTreeValid(predicate.tree);
   const valid = validIdentity && (type === 'manual' || validPredicate);
@@ -150,15 +163,21 @@ export function EditorView(): ReactElement {
         // the updated chip set. Empty array explicitly clears the sidecar.
         cube_segments: type === 'predicate' ? cubeSegments : undefined,
       };
+      // Return target (e.g. the Advisor's cohort review / draft-cohort edit) →
+      // go back there scoped to the saved segment; else the segment detail page.
+      const returnTo = (history.location.state as EditorLocationState | undefined)?.returnTo;
       if (id) {
         await segmentsClient.update(id, payload);
         message.success(t('segments.editor.success.updated', { defaultValue: 'Segment updated.' }));
-        history.push(`/segments/${id}`);
+        history.push(returnTo ? resolveReturnPath(returnTo, id) : `/segments/${id}`, returnTo?.state);
       } else {
         const created = await segmentsClient.create(payload);
         invalidateSegmentIds();
         message.success(t('segments.editor.success.created', { defaultValue: 'Segment created.' }));
-        history.push(`/segments/${created.id}`);
+        history.push(
+          returnTo ? resolveReturnPath(returnTo, created.id) : `/segments/${created.id}`,
+          returnTo?.state,
+        );
       }
     } catch (err) {
       message.error(err instanceof SegmentApiError ? err.message : (err as Error).message);

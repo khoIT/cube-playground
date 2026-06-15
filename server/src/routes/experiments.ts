@@ -159,8 +159,11 @@ export default async function experimentsRoutes(app: FastifyInstance): Promise<v
   app.post('/api/experiments/:id/assign', async (req, reply) => {
     const exp = inScope(req, (req.params as { id: string }).id);
     if (!exp) return err(reply, 404, 'experiment not found');
+    // `resync: true` re-freezes a running experiment against the segment's
+    // current membership (new window). Absent/false = the original first-freeze.
+    const resync = (req.body as { resync?: boolean } | undefined)?.resync === true;
     try {
-      const result = assignExperiment(exp.id, new Date().toISOString());
+      const result = assignExperiment(exp.id, new Date().toISOString(), { resync });
       scorecardCache.delete(exp.id); // arms changed → drop stale scorecard
       return { assignment: result };
     } catch (e) {

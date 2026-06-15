@@ -63,7 +63,9 @@ export function AdvisorPage() {
     : { kind: 'game', gameId };
 
   const history = useHistory();
-  const location = useLocation<{ driveBoot?: boolean; driveSeed?: string } | undefined>();
+  const location = useLocation<
+    { driveBoot?: boolean; driveSeed?: string; monitorBoot?: boolean } | undefined
+  >();
 
   const inv = useAdvisorInvestigation();
   const [draft, setDraft] = useState<ExperimentDraft | null>(null);
@@ -97,6 +99,15 @@ export function AdvisorPage() {
     if (viewExperimentId && inv.screen !== 'command') inv.setScreen('command');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewExperimentId]);
+
+  // Returning from the cohort editor after a clone: land on the monitor for a
+  // fresh experiment on the just-created segment (no experiment id yet — the
+  // board creates the draft from this segment scope on mount).
+  const monitorBoot = location.state?.monitorBoot === true;
+  useEffect(() => {
+    if (monitorBoot && inv.screen !== 'command') inv.setScreen('command');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monitorBoot]);
 
   const openAspect = inv.openId
     ? inv.aspects.find((a) => a.id === inv.openId) ?? null

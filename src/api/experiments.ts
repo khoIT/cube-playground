@@ -130,10 +130,18 @@ export async function createExperiment(input: CreateExperimentInput): Promise<Ex
   return res.experiment;
 }
 
-export async function assignExperiment(id: string): Promise<AssignmentResult> {
+/**
+ * Freeze the split. `resync: true` re-freezes an already-running experiment
+ * against the cohort segment's CURRENT membership, restarting the outcome
+ * window (destructive — the prior arms are discarded).
+ */
+export async function assignExperiment(
+  id: string,
+  opts?: { resync?: boolean },
+): Promise<AssignmentResult> {
   const res = await apiFetch<{ assignment: AssignmentResult }>(
     `/api/experiments/${encodeURIComponent(id)}/assign`,
-    { method: 'POST' },
+    { method: 'POST', body: { resync: opts?.resync === true } },
   );
   return res.assignment;
 }

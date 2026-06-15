@@ -22,6 +22,7 @@ import {
   type PrimaryMetric,
 } from '../../api/experiments';
 import type { ExperimentDraft } from '../../api/advisor';
+import { segmentsClient } from '../../api/segments-client';
 
 interface MonitorOpts {
   gameId: string;
@@ -51,6 +52,10 @@ export interface MonitorState {
   experimentId: string | null;
   assignment: AssignmentResult | null;
   scorecard: ScorecardResponse | null;
+  /** The cohort segment's CURRENT live member count (drifts as the segment
+   *  refreshes); compared against the frozen arm total to surface cohort drift.
+   *  null until loaded / when there's no segment scope. */
+  segmentLiveCount: number | null;
   busy: boolean;
   error: string | null;
 }
@@ -75,6 +80,7 @@ export function useExperimentMonitor(opts: MonitorOpts) {
     experimentId: null,
     assignment: null,
     scorecard: null,
+    segmentLiveCount: null,
     busy: false,
     error: null,
   });
@@ -155,6 +161,21 @@ export function useExperimentMonitor(opts: MonitorOpts) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canRunReal, gameId, segmentId, viewExperimentId]);
 
+  // The cohort segment's live size — fetched alongside the experiment so the
+  // board can show how far the segment has drifted from the frozen arms. Best-
+  // effort; a failure just leaves the drift badge hidden.
+  useEffect(() => {
+    if (!segmentId) return;
+    let alive = true;
+    segmentsClient
+      .get(segmentId)
+      .then((seg) => alive && setState((s) => ({ ...s, segmentLiveCount: seg.uid_count })))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [segmentId]);
+
   /** Freeze the split (draft → running). Returns true on success. */
   const freeze = useCallback(async (): Promise<boolean> => {
     if (!state.experimentId) return true; // illustrative: nothing to freeze
@@ -169,6 +190,38 @@ export function useExperimentMonitor(opts: MonitorOpts) {
     }
   }, [state.experimentId]);
 
+  /** Re-freeze the arms against the segment's CURRENT membership (restarts the
+   *  outcome window). Destructive — the caller confirms first. Clears the
+   *  scorecard so it reloads for the new arms/window. Returns true on success. */
+  const refreeze = useCallback(async (): Promise<boolean> => {
+    if (!state.experimentId) return false;
+    setState((s) => ({ ...s, busy: true, error: null }));
+    try {
+      const assignment = await assignExperiment(state.experimentId, { resync: true });
+      // Re-read the live count so the drift badge reflects post-resync truth
+      // immediately (the arms are now in sync with current membership).
+      let liveCount: number | null = null;
+      if (segmentId) {
+        try {
+          liveCount = (await segmentsClient.get(segmentId)).uid_count;
+        } catch {
+          /* keep the prior count */
+        }
+      }
+      setState((s) => ({
+        ...s,
+        assignment,
+        scorecard: null,
+        segmentLiveCount: liveCount ?? s.segmentLiveCount,
+        busy: false,
+      }));
+      return true;
+    } catch (e) {
+      setState((s) => ({ ...s, busy: false, error: errMsg(e) }));
+      return false;
+    }
+  }, [state.experimentId, segmentId]);
+
   /** Load (or refresh) the real scorecard. No-op when not assigned yet. */
   const loadScorecard = useCallback(async (): Promise<void> => {
     if (!state.experimentId || !state.assignment) return;
@@ -181,7 +234,7 @@ export function useExperimentMonitor(opts: MonitorOpts) {
     }
   }, [state.experimentId, state.assignment]);
 
-  return { state, freeze, loadScorecard };
+  return { state, freeze, refreeze, loadScorecard };
 }
 
 function errMsg(e: unknown): string {

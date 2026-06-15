@@ -38,15 +38,28 @@ export class ExperimentNotFoundError extends Error {}
 /**
  * Assign (freeze) the experiment. `assignedAt` is injected (ISO) so the caller
  * controls the clock and the result is reproducible in tests.
+ *
+ * `opts.resync` re-freezes an already-running experiment against the segment's
+ * CURRENT membership: it re-reads the cohort, re-splits, and stamps a fresh
+ * `assignedAt` (so the outcome window restarts). The deterministic split keys on
+ * the experiment id, so a uid present in both the old and new membership keeps
+ * its arm; only added/removed uids change. This is an explicit, destructive user
+ * action — the prior arms and outcome window are discarded.
  */
-export function assignExperiment(experimentId: string, assignedAt: string): AssignmentResult {
+export function assignExperiment(
+  experimentId: string,
+  assignedAt: string,
+  opts: { resync?: boolean } = {},
+): AssignmentResult {
   const exp = getExperiment(experimentId);
   if (!exp) throw new ExperimentNotFoundError(experimentId);
 
-  // Already frozen → idempotent: return the existing arm counts, don't re-split.
-  // `capped` is recomputed from the source size vs the cap (not hardcoded), so a
-  // re-freeze reports the same truncation state as the original assignment.
-  if (exp.status === 'running' && exp.assignedAt) {
+  // Already frozen (running OR completed/archived — `assignedAt` is the truth, not
+  // status) → idempotent: return the existing arm counts, don't re-split. `capped`
+  // is recomputed from the source size vs the cap (not hardcoded), so a re-freeze
+  // reports the same truncation state as the original assignment. Only an explicit
+  // resync skips this short-circuit to re-split current membership.
+  if (!opts.resync && exp.assignedAt) {
     const counts = armCounts(experimentId);
     return {
       experimentId,

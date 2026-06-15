@@ -7,7 +7,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Lightbulb, Send, Square, ArrowRight, Target, CheckCircle2 } from 'lucide-react';
+import { useHistory } from 'react-router-dom';
+import { Lightbulb, Send, Square, ArrowRight, Target, CheckCircle2, Pencil, Plus } from 'lucide-react';
 import { STAGES } from './advisor-stage-config';
 import { Btn, CARD_STYLE, Eyebrow, PulsingRow } from './advisor-primitives';
 import { NumberBadge } from './number-badge';
@@ -16,6 +17,7 @@ import { AdvisorMarkdown } from './advisor-markdown';
 import { fetchDriveArtifact, type DriveArtifact } from './drive-artifact';
 import { fetchCohortProposal, type CohortProposal, type AdvisorScope, type AdvisorGoal } from '../../api/advisor';
 import { segmentsClient } from '../../api/segments-client';
+import type { EditorReturnTo } from '../Segments/editor/editor-route-state';
 import type { StageKey } from './advisor-types';
 
 const ERROR_COPY: Record<string, string> = {
@@ -77,6 +79,7 @@ export function DrivePanel({
   onCohortCreated?: (segmentId: string, message: string) => void;
 }) {
   const { state, run, abort } = useDriveSession(scope, goal);
+  const history = useHistory();
   const seed =
     seedMessage?.trim() ||
     goalText.trim() ||
@@ -106,6 +109,34 @@ export function DrivePanel({
       alive = false;
     };
   }, [done, isSegment, state.sessionId]);
+
+  // Round-trip into the canonical Segments editor so the manager can review /
+  // edit the proposed cohort (or build a fresh one) before the experiment is
+  // assembled. On save the editor sends them back here scoped to the new
+  // segment — the same `driveBoot` path "Approve & create" takes, just with a
+  // human-reviewed cohort. Reuses the proven builder (cube picker, live count,
+  // predicate validation) instead of an inline mini-editor.
+  function buildReturnTo(): EditorReturnTo {
+    const base = message.trim();
+    const driveSeed = `${base ? `${base}\n\n` : ''}Now scoped to this segment — build the experiment and scaffold the editable draft for it.`;
+    return { pathTemplate: '/advisor/:id', state: { driveBoot: true, driveSeed } };
+  }
+
+  function reviewProposalInEditor() {
+    if (!proposal) return;
+    history.push('/segments/new', {
+      advisorPrefill: {
+        name: proposal.name,
+        cube: proposal.primaryCube,
+        predicateTree: proposal.predicateTree,
+      },
+      returnTo: buildReturnTo(),
+    });
+  }
+
+  function buildNewCohort() {
+    history.push('/segments/new', { advisorPrefill: null, returnTo: buildReturnTo() });
+  }
 
   async function handleCreateFromProposal() {
     if (!proposal) return;
@@ -330,8 +361,18 @@ export function DrivePanel({
                     <Target size={14} /> {creating ? 'Creating segment…' : `Approve & create “${proposal.name}”`}
                   </span>
                 </Btn>
+                <Btn disabled={creating} onClick={reviewProposalInEditor}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Pencil size={13} /> Review / edit cohort first
+                  </span>
+                </Btn>
                 <Btn disabled={creating} onClick={() => onPickSegment?.(message)}>
                   Pick an existing segment instead
+                </Btn>
+                <Btn disabled={creating} onClick={buildNewCohort}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Plus size={13} /> Build a new cohort
+                  </span>
                 </Btn>
               </div>
               {createErr && (
@@ -347,11 +388,18 @@ export function DrivePanel({
               <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '6px 0 10px', lineHeight: 1.5 }}>
                 An experiment runs on a segment cohort. Pick the target segment to assemble it.
               </p>
-              <Btn kind="primary" onClick={() => onPickSegment?.(message)}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <Target size={14} /> Pick a segment to build the experiment
-                </span>
-              </Btn>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Btn kind="primary" onClick={() => onPickSegment?.(message)}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Target size={14} /> Pick a segment to build the experiment
+                  </span>
+                </Btn>
+                <Btn onClick={buildNewCohort}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Plus size={13} /> Build a new cohort
+                  </span>
+                </Btn>
+              </div>
             </>
           )}
           {continueErr && (

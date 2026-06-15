@@ -131,6 +131,38 @@ describe('experiments routes', () => {
     expect(body.scorecard.repayRate.liftPp).toBeGreaterThan(0);
   });
 
+  it('resync re-freezes to current membership; plain re-assign stays idempotent', async () => {
+    const exp = (await createExp({ game: 'cfm_vn', name: 'Resync test', segmentId: 'seg-1', splitPct: 50 })).json() as {
+      experiment: { id: string };
+    };
+    const id = exp.experiment.id;
+
+    const first = (await app.inject({ method: 'POST', url: `/api/experiments/${id}/assign` })).json() as {
+      assignment: { total: number };
+    };
+    expect(first.assignment.total).toBe(400);
+
+    // Segment grows (its refresh added members) — arms are still frozen at 400.
+    getDb()
+      .prepare('UPDATE segments SET uid_count = ?, uid_list_json = ? WHERE id = ?')
+      .run(500, JSON.stringify(Array.from({ length: 500 }, (_, i) => `u${i}`)), 'seg-1');
+
+    // Plain re-assign is idempotent → still the originally frozen 400.
+    const again = (await app.inject({ method: 'POST', url: `/api/experiments/${id}/assign` })).json() as {
+      assignment: { total: number };
+    };
+    expect(again.assignment.total).toBe(400);
+
+    // Resync re-splits against the current 500 members.
+    const resync = await app.inject({
+      method: 'POST',
+      url: `/api/experiments/${id}/assign`,
+      payload: { resync: true },
+    });
+    expect(resync.statusCode).toBe(200);
+    expect((resync.json() as { assignment: { total: number } }).assignment.total).toBe(500);
+  });
+
   it('404 for an unknown experiment id', async () => {
     expect((await app.inject({ method: 'GET', url: '/api/experiments/nope' })).statusCode).toBe(404);
   });
