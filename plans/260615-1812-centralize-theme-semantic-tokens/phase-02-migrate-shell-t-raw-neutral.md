@@ -1,10 +1,12 @@
 ---
 phase: 2
-title: "Migrate Shell (T.* + raw neutral)"
-status: pending
+title: Migrate Shell (T.* + raw neutral)
+status: completed
 priority: P1
-effort: "1.5d"
-dependencies: [0, 1]
+effort: 1.5d
+dependencies:
+  - 0
+  - 1
 ---
 <!-- Updated: Validation Session 1 - gate each batch on Phase 0 visual harness (light + dark) -->
 
