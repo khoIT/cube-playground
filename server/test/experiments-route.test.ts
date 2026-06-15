@@ -79,6 +79,30 @@ describe('experiments routes', () => {
     expect((list.json() as { experiments: unknown[] }).experiments).toHaveLength(1);
   });
 
+  it('list carries per-row arm counts and supports a segment filter', async () => {
+    seedSegment('seg-2', 'cfm_vn', 100);
+    const a = (await createExp({ game: 'cfm_vn', name: 'On seg-1', segmentId: 'seg-1', splitPct: 50 })).json() as {
+      experiment: { id: string };
+    };
+    await createExp({ game: 'cfm_vn', name: 'On seg-2', segmentId: 'seg-2', splitPct: 50 });
+    // Freeze the first so it has real arm counts.
+    await app.inject({ method: 'POST', url: `/api/experiments/${a.experiment.id}/assign` });
+
+    const all = (await app.inject({ method: 'GET', url: '/api/experiments?game=cfm_vn' })).json() as {
+      experiments: { segmentId: string; arms: { treatment: number; control: number } }[];
+    };
+    expect(all.experiments).toHaveLength(2);
+    const frozen = all.experiments.find((e) => e.segmentId === 'seg-1')!;
+    expect(frozen.arms.treatment + frozen.arms.control).toBe(400);
+
+    // Segment filter narrows to one segment's experiments.
+    const filtered = (await app.inject({ method: 'GET', url: '/api/experiments?game=cfm_vn&segment=seg-2' })).json() as {
+      experiments: { segmentId: string }[];
+    };
+    expect(filtered.experiments).toHaveLength(1);
+    expect(filtered.experiments[0].segmentId).toBe('seg-2');
+  });
+
   it('400 on unknown game, 404 on missing segment, 400 on cross-game segment', async () => {
     expect((await createExp({ game: 'nope_game', name: 'X test', segmentId: 'seg-1' })).statusCode).toBe(400);
     expect((await createExp({ game: 'cfm_vn', name: 'X test', segmentId: 'ghost' })).statusCode).toBe(404);

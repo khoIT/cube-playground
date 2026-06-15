@@ -23,6 +23,8 @@ import { Blueprint } from './blueprint';
 import { DecideScreen } from './decide-screen';
 import { DecideDriveView } from './decide-drive-view';
 import { CommandCenter } from './command-center';
+import { ExperimentsList } from './experiments-list';
+import type { ExperimentSummary } from '../../api/experiments';
 import { Recommendations } from './recommendations';
 import { ProvenanceDrawer } from './provenance-drawer';
 import { ExperimentGatePrompt } from './experiment-gate-prompt';
@@ -88,6 +90,14 @@ export function AdvisorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driveBoot]);
 
+  // Deep link `/advisor/{segmentId}?experiment={id}` (from the experiments list)
+  // jumps straight to the monitor board for that existing experiment.
+  const viewExperimentId = new URLSearchParams(location.search).get('experiment');
+  useEffect(() => {
+    if (viewExperimentId && inv.screen !== 'command') inv.setScreen('command');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewExperimentId]);
+
   const openAspect = inv.openId
     ? inv.aspects.find((a) => a.id === inv.openId) ?? null
     : null;
@@ -120,6 +130,18 @@ export function AdvisorPage() {
   // then re-scope the investigation to it. Seed the scoped run to BUILD +
   // SCAFFOLD a draft (not just narrate), so the panel auto-advances to a
   // "Continue to Decide" instead of dead-ending.
+  // Open an existing experiment in the monitor board (deep link carries the id).
+  function openExperiment(exp: ExperimentSummary) {
+    history.push(`/advisor/${exp.segmentId}?experiment=${exp.id}`);
+  }
+
+  // Leave a viewed experiment: drop the `?experiment=` param (else the deep-link
+  // effect bounces straight back to the monitor) and return to the list.
+  function backToExperimentsList() {
+    if (segmentId) history.replace(`/advisor/${segmentId}`);
+    inv.setScreen('experiments');
+  }
+
   function reScopeToSegment(segmentId: string, seedBase: string) {
     setPickerOpen(false);
     const base = seedBase.trim();
@@ -137,6 +159,9 @@ export function AdvisorPage() {
       new URLSearchParams(location.search).get('illustrative') === '1';
     return (
       <CommandCenter
+        // Remount when the opened experiment changes so the monitor re-adopts
+        // the new one (the create/adopt guard is per-mount).
+        key={viewExperimentId ?? segmentId ?? 'cmd'}
         goal={inv.goal}
         aspects={inv.aspects}
         goalText={inv.goalText}
@@ -146,7 +171,8 @@ export function AdvisorPage() {
         gameId={gameId}
         segmentId={segmentId}
         forceIllustrative={forceIllustrative}
-        onBackToAdvisor={() => inv.setScreen('decide')}
+        viewExperimentId={viewExperimentId}
+        onBackToAdvisor={() => (viewExperimentId ? backToExperimentsList() : inv.setScreen('decide'))}
       />
     );
   }
@@ -163,6 +189,15 @@ export function AdvisorPage() {
         </span>
         {/* Posture toggle: Drive (live AI) is additive to the Explore builder. */}
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {inv.screen === 'experiments' ? (
+            <Btn sm onClick={() => inv.setScreen('goal')}>
+              ← Explore
+            </Btn>
+          ) : (
+            <Btn sm onClick={() => inv.setScreen('experiments')}>
+              📊 Experiments
+            </Btn>
+          )}
           {inv.screen === 'drive' ? (
             <Btn sm onClick={() => inv.setScreen('goal')}>
               ← Explore
@@ -176,6 +211,10 @@ export function AdvisorPage() {
       </header>
 
       {inv.screen === 'goal' && <GoalScreen onSetup={inv.setup} />}
+
+      {inv.screen === 'experiments' && (
+        <ExperimentsList gameId={gameId} onOpen={openExperiment} onBack={() => inv.setScreen('goal')} />
+      )}
 
       {inv.screen === 'drive' && (
         <>

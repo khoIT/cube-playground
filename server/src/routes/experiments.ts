@@ -72,6 +72,14 @@ function ctxForGame(req: FastifyRequest, game: string): WorkspaceCtx {
   return req.buildIntrospectionCtxForGame ? req.buildIntrospectionCtxForGame(game) : req.cubeCtx;
 }
 
+/** The cohort segment's display name, or null if it no longer exists. */
+function segmentNameOf(segmentId: string): string | null {
+  const row = getDb()
+    .prepare('SELECT name FROM segments WHERE id = ?')
+    .get(segmentId) as { name: string } | undefined;
+  return row?.name ?? null;
+}
+
 // ── Scorecard cache (mirror segment-cs-tickets) ──────────────────────────────
 interface CacheEntry {
   at: number;
@@ -88,9 +96,22 @@ export function __clearScorecardCache(): void {
 
 export default async function experimentsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/experiments', async (req, reply) => {
-    const scope = resolveGameScope(req.workspace, (req.query as { game?: string })?.game);
+    const q = req.query as { game?: string; segment?: string };
+    const scope = resolveGameScope(req.workspace, q?.game);
     if (!scope.ok) return err(reply, 400, 'unknown or missing game');
-    return { experiments: listExperiments((req.query as { game: string }).game.trim()) };
+    // Optional `segment` filter powers the monitor's reuse-on-revisit lookup
+    // ("is there already a running experiment for this cohort?"). Each row
+    // carries its frozen arm counts so the list renders without N+1 fetches.
+    const list = listExperiments(q.game!.trim(), {
+      segmentId: q.segment?.trim() || undefined,
+    });
+    return {
+      experiments: list.map((e) => ({
+        ...e,
+        arms: armCounts(e.id),
+        segmentName: segmentNameOf(e.segmentId),
+      })),
+    };
   });
 
   app.post('/api/experiments', async (req, reply) => {
@@ -124,7 +145,7 @@ export default async function experimentsRoutes(app: FastifyInstance): Promise<v
   app.get('/api/experiments/:id', async (req, reply) => {
     const exp = inScope(req, (req.params as { id: string }).id);
     if (!exp) return err(reply, 404, 'experiment not found');
-    return { experiment: exp, arms: armCounts(exp.id) };
+    return { experiment: exp, arms: armCounts(exp.id), segmentName: segmentNameOf(exp.segmentId) };
   });
 
   app.patch('/api/experiments/:id', async (req, reply) => {

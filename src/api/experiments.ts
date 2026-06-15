@@ -27,6 +27,15 @@ export interface Experiment {
   updatedAt: string;
 }
 
+export interface ArmCounts {
+  treatment: number;
+  control: number;
+}
+
+/** A registry row plus its frozen arm counts + cohort name — what the list and
+ *  get endpoints return. `segmentName` is null if the cohort was deleted. */
+export type ExperimentSummary = Experiment & { arms: ArmCounts; segmentName: string | null };
+
 export interface CreateExperimentInput {
   game: string;
   name: string;
@@ -92,6 +101,25 @@ export interface ScorecardResponse {
   arms: ArmOutcome[];
   series: OutcomeSeriesPoint[];
   scorecard: Scorecard;
+}
+
+/** List experiments for a game, newest first; optionally only one segment's. */
+export async function listExperiments(
+  game: string,
+  segmentId?: string,
+): Promise<ExperimentSummary[]> {
+  const qs = new URLSearchParams({ game });
+  if (segmentId) qs.set('segment', segmentId);
+  const res = await apiFetch<{ experiments: ExperimentSummary[] }>(`/api/experiments?${qs}`);
+  return res.experiments;
+}
+
+/** Fetch one experiment with its frozen arm counts + cohort name. */
+export async function getExperiment(id: string): Promise<ExperimentSummary> {
+  const res = await apiFetch<{ experiment: Experiment; arms: ArmCounts; segmentName: string | null }>(
+    `/api/experiments/${encodeURIComponent(id)}`,
+  );
+  return { ...res.experiment, arms: res.arms, segmentName: res.segmentName };
 }
 
 export async function createExperiment(input: CreateExperimentInput): Promise<Experiment> {

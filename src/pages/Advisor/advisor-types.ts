@@ -66,7 +66,7 @@ export type BlueprintSlots = Record<
 >;
 
 /** Which screen the advisor shell is showing. */
-export type AdvisorScreen = 'goal' | 'board' | 'decide' | 'command' | 'drive';
+export type AdvisorScreen = 'goal' | 'board' | 'decide' | 'command' | 'drive' | 'experiments';
 
 /** The goal the manager selected. */
 export type GoalKey = 'revenue' | 'engagement';

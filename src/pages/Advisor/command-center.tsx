@@ -19,6 +19,7 @@
  * wiring lands.
  */
 import React, { useEffect, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import type { Aspect, GoalKey, BlueprintSlots } from './advisor-types';
 import type { ExperimentDraft } from '../../api/advisor';
 import { STAGES } from './advisor-stage-config';
@@ -54,6 +55,9 @@ interface CommandCenterProps {
   segmentId: string | null;
   /** URL `?illustrative=1` — force the demo bars regardless of scope. */
   forceIllustrative: boolean;
+  /** Open a specific existing experiment (deep-linked from the experiments
+   *  list) instead of creating a fresh draft for the segment. */
+  viewExperimentId?: string | null;
   onBackToAdvisor: () => void;
 }
 
@@ -77,16 +81,16 @@ export function CommandCenter({
   gameId,
   segmentId,
   forceIllustrative,
+  viewExperimentId,
   onBackToAdvisor,
 }: CommandCenterProps) {
+  const history = useHistory();
   const [lifecycleIdx, setLifecycleIdx] = useState(0);
   const [thesisOpen, setThesisOpen] = useState(true);
 
   const currentLifecycle = LIFECYCLE[lifecycleIdx];
   const isRevenue = goal === 'revenue';
   const lever = aspects.find((a) => a.stage === 'lever' && a.triage === 'keep');
-
-  const title = `${lever?.q ?? 'Experiment'} · investigation`;
 
   // Real experiment lifecycle: create a draft from the segment, freeze on the
   // groups-freeze action, then fetch the real treatment-vs-hold-out scorecard.
@@ -101,15 +105,33 @@ export function CommandCenter({
     primaryMetric: isRevenue ? 'gross_payment_rate' : 'sessions_per_week',
     experimentName: lever?.q ?? `${gameId} experiment`,
     forceIllustrative,
+    viewExperimentId,
   });
   const sc = monitor.state.scorecard;
   const live = monitor.state.live && !!sc;
+
+  // An adopted experiment (opened from the list / reuse-on-revisit) carries its
+  // own name, hypothesis, and cohort — use them so the thesis + segment aren't
+  // blank when entered outside the investigation flow.
+  const exp = monitor.state.experiment;
+  const title = exp ? exp.name : `${lever?.q ?? 'Experiment'} · investigation`;
+  const cohortLabel = exp?.segmentName ?? 'Lapsing whales';
+  const cohortSegmentId = exp?.segmentId ?? segmentId;
+  const hasInvestigationThesis = aspects.some((a) => a.triage === 'keep');
 
   // Load the real scorecard once the split is frozen.
   useEffect(() => {
     if (monitor.state.assignment && !monitor.state.scorecard) void monitor.loadScorecard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monitor.state.assignment]);
+
+  // Adopting an already-running experiment (reuse-on-revisit or opened from the
+  // list) skips the draft→freeze steps — jump straight to the monitoring stage
+  // so the real treatment-vs-hold-out bars render without re-freezing.
+  useEffect(() => {
+    if (monitor.state.adopted && lifecycleIdx < 2) setLifecycleIdx(2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monitor.state.adopted]);
 
   // Cohort sizes — real arm counts when live, else draft, else illustrative demo.
   const treatArm = sc?.arms.find((a) => a.arm === 'treatment');
@@ -302,7 +324,45 @@ export function CommandCenter({
                 {thesisOpen ? 'collapse ▲' : 'expand ▼'}
               </span>
             </div>
-            {thesisOpen && (
+            {thesisOpen && !hasInvestigationThesis && exp && (
+              <div style={{ padding: '14px 16px', fontSize: 12.5, lineHeight: 1.55 }}>
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  {exp.hypothesis?.trim()
+                    ? exp.hypothesis
+                    : 'No hypothesis was recorded for this experiment.'}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 14,
+                    marginTop: 10,
+                    color: 'var(--text-muted)',
+                    fontSize: 11.5,
+                  }}
+                >
+                  <span>
+                    Cohort: <b style={{ color: 'var(--text-secondary)' }}>{cohortLabel}</b>
+                  </span>
+                  <span>
+                    Split: <b style={{ color: 'var(--text-secondary)' }}>{exp.splitPct}% treatment</b>
+                  </span>
+                  <span>
+                    Window: <b style={{ color: 'var(--text-secondary)' }}>{exp.windowDays} days</b>
+                  </span>
+                  <span>
+                    Metric:{' '}
+                    <b style={{ color: 'var(--text-secondary)' }}>
+                      {exp.primaryMetric === 'gross_payment_rate' ? 'gross payment rate' : 'sessions / week'}
+                    </b>
+                  </span>
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8, fontStyle: 'italic' }}>
+                  Frozen with the experiment, so the readout still makes sense weeks from now.
+                </div>
+              </div>
+            )}
+            {thesisOpen && (hasInvestigationThesis || !exp) && (
               <div style={{ padding: '14px 16px' }}>
                 <Blueprint goal={goal} slots={blueprintSlots} compact />
                 <div style={{ marginTop: 12 }}>
@@ -704,7 +764,7 @@ export function CommandCenter({
           <div style={{ ...CARD_STYLE, padding: '14px 16px' }}>
             <div style={{ ...EYEBROW_STYLE, marginBottom: 9 }}>At a glance</div>
             {[
-              ['Cohort', 'Lapsing whales'],
+              ['Cohort', cohortLabel],
               ['Treatment', treatN.toLocaleString()],
               ['Hold-out', holdN.toLocaleString()],
               ['Window', `${windowDays} days`],
@@ -757,13 +817,19 @@ export function CommandCenter({
           <div style={{ ...CARD_STYLE, padding: '14px 16px' }}>
             <div style={{ ...EYEBROW_STYLE, marginBottom: 9 }}>Provenance</div>
             {[
-              ['↗ Open cohort in Segments', 'the frozen assignment list'],
-              ['↗ Outcome query in Playground', 'treatment vs hold-out SQL'],
-              ['↗ Assignment log', 'immutable, in the lakehouse'],
-            ].map(([label, sub]) => (
+              {
+                label: '↗ Open cohort in Segments',
+                sub: cohortSegmentId ? `${cohortLabel} — the source cohort` : 'the frozen assignment list',
+                onClick: cohortSegmentId
+                  ? () => history.push(`/segments/${cohortSegmentId}`)
+                  : undefined,
+              },
+              { label: '↗ Outcome query in Playground', sub: 'treatment vs hold-out SQL' },
+              { label: '↗ Assignment log', sub: 'immutable, in the lakehouse' },
+            ].map(({ label, sub, onClick }) => (
               <button
                 key={label}
-                onClick={() => alert(`→ ${sub} (requires live Cube connection)`)}
+                onClick={onClick ?? (() => alert(`→ ${sub} (requires live Cube connection)`))}
                 style={{
                   fontFamily: 'var(--font-sans)',
                   display: 'block',

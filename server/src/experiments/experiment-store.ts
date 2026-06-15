@@ -86,10 +86,19 @@ export function getExperiment(id: string): Experiment | null {
   return row ? rowToExperiment(row) : null;
 }
 
-export function listExperiments(gameId: string): Experiment[] {
+export function listExperiments(
+  gameId: string,
+  opts: { segmentId?: string } = {},
+): Experiment[] {
+  const where = ['game_id = ?'];
+  const args: unknown[] = [gameId];
+  if (opts.segmentId) {
+    where.push('segment_id = ?');
+    args.push(opts.segmentId);
+  }
   const rows = getDb()
-    .prepare('SELECT * FROM experiments WHERE game_id = ? ORDER BY created_at DESC')
-    .all(gameId) as ExperimentRow[];
+    .prepare(`SELECT * FROM experiments WHERE ${where.join(' AND ')} ORDER BY created_at DESC`)
+    .all(...args) as ExperimentRow[];
   return rows.map(rowToExperiment);
 }
 
