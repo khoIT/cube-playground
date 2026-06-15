@@ -276,7 +276,7 @@ const primaryBtn: React.CSSProperties = {
   ...actionBtnBase,
   background: 'var(--brand)',
   borderColor: 'var(--brand)',
-  color: '#fff',
+  color: 'var(--text-on-brand)',
 };
 
 const disabledBtn: React.CSSProperties = {

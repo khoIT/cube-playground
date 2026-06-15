@@ -96,7 +96,7 @@ export function TreatForm({ onSubmit, onCancel }: TreatFormProps) {
       </div>
       {error && <div style={{ fontSize: 11.5, color: 'var(--destructive-ink)', background: 'var(--destructive-soft)', padding: '6px 10px', borderRadius: 'var(--radius-md)' }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={handleSubmit} disabled={!canSubmit} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-sans)', padding: '10px 14px', borderRadius: 'var(--radius-md)', color: '#fff', background: canSubmit ? 'var(--brand)' : 'var(--border-strong)', border: 0, cursor: canSubmit ? 'pointer' : 'not-allowed', opacity: canSubmit ? 1 : 0.7 }}>
+        <button type="button" onClick={handleSubmit} disabled={!canSubmit} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-sans)', padding: '10px 14px', borderRadius: 'var(--radius-md)', color: 'var(--text-on-brand)', background: canSubmit ? 'var(--brand)' : 'var(--border-strong)', border: 0, cursor: canSubmit ? 'pointer' : 'not-allowed', opacity: canSubmit ? 1 : 0.7 }}>
           {pending ? 'Logging…' : 'Log treatment'} {!pending && <ArrowRight size={14} />}
         </button>
         <button type="button" onClick={onCancel} disabled={pending} title="Cancel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-muted)', border: '1px solid var(--border-card)', color: 'var(--text-muted)', cursor: 'pointer' }}>

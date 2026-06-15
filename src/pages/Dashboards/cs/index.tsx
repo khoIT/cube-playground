@@ -87,7 +87,7 @@ export function CsMonitorPage() {
                 gap: 6,
                 padding: '7px 14px',
                 background: 'var(--brand)',
-                color: '#fff',
+                color: 'var(--text-on-brand)',
                 border: 'none',
                 borderRadius: 'var(--radius-md)',
                 fontSize: 12.5,

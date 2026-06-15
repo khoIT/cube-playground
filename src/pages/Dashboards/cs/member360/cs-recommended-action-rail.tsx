@@ -165,7 +165,7 @@ export function CsRecommendedActionRail({
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
                   padding: '7px 13px', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                  color: i === 0 ? '#fff' : 'var(--text-primary)',
+                  color: i === 0 ? 'var(--text-on-brand)' : 'var(--text-primary)',
                   background: i === 0 ? 'var(--brand)' : 'var(--bg-card)',
                   border: `1px solid ${i === 0 ? 'var(--brand)' : 'var(--border-card)'}`,
                 }}
@@ -270,7 +270,7 @@ export function CsRecommendedActionRail({
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-sans)',
                     padding: '11px 14px', borderRadius: 'var(--radius-md)',
-                    color: '#fff', background: canWrite ? 'var(--brand)' : 'var(--border-strong)',
+                    color: 'var(--text-on-brand)', background: canWrite ? 'var(--brand)' : 'var(--border-strong)',
                     border: 0, cursor: canWrite ? 'pointer' : 'not-allowed', opacity: canWrite ? 1 : 0.7,
                   }}
                 >

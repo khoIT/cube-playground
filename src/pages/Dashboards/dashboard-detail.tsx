@@ -44,7 +44,7 @@ const titleInputStyle: React.CSSProperties = {
   outline: 'none',
   cursor: 'text',
   padding: '0 2px',
-  color: 'var(--text-primary, #111)',
+  color: 'var(--text-primary)',
   minWidth: 120,
 };
 
@@ -117,7 +117,7 @@ export function DashboardDetailPage() {
         >
           <ArrowLeft size={14} /> Back to dashboards
         </button>
-        <div style={{ color: 'var(--danger, #dc2626)', fontSize: 14 }}>
+        <div style={{ color: 'var(--danger)', fontSize: 14 }}>
           {error ?? 'Dashboard not found.'}
         </div>
       </div>
@@ -135,7 +135,7 @@ export function DashboardDetailPage() {
           <ArrowLeft size={18} />
         </button>
 
-        <LayoutGrid size={20} style={{ color: 'var(--brand, #6366f1)', flexShrink: 0 }} />
+        <LayoutGrid size={20} style={{ color: 'var(--brand)', flexShrink: 0 }} />
 
         {editingTitle ? (
           <input

@@ -18,12 +18,12 @@ interface DashboardCreateInlineFormProps {
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '6px 10px', borderRadius: 6,
-  border: '1px solid var(--border-card, #d1d5db)', fontSize: 13, boxSizing: 'border-box',
+  border: '1px solid var(--border-card)', fontSize: 13, boxSizing: 'border-box',
 };
 
 const btnPrimary: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
-  background: 'var(--brand, #6366f1)', color: '#fff', border: 'none',
+  background: 'var(--brand)', color: 'var(--text-on-brand)', border: 'none',
   borderRadius: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
 };
 
@@ -40,7 +40,7 @@ export function DashboardCreateInlineForm({
   }
 
   return (
-    <div style={{ background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,#e5e7eb)', borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <span style={{ fontWeight: 600, fontSize: 14 }}>New dashboard</span>
       <div>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Title</label>
@@ -52,10 +52,10 @@ export function DashboardCreateInlineForm({
         <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginTop: 2 }}>/dashboards/{slug || 'my-dashboard'}</span>
       </div>
       {error && (
-        <div style={{ fontSize: 12, color: 'var(--danger,#dc2626)', background: 'var(--bg-danger,#fef2f2)', borderRadius: 6, padding: '5px 10px' }}>{error}</div>
+        <div style={{ fontSize: 12, color: 'var(--danger)', background: 'var(--destructive-soft)', borderRadius: 6, padding: '5px 10px' }}>{error}</div>
       )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button onClick={onCancel} style={{ background: 'transparent', border: '1px solid var(--border-card,#d1d5db)', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer' }}>
+        <button onClick={onCancel} style={{ background: 'transparent', border: '1px solid var(--border-card)', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer' }}>
           Cancel
         </button>
         <button style={{ ...btnPrimary, opacity: submitting ? 0.6 : 1 }} disabled={submitting}

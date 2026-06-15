@@ -467,7 +467,7 @@ function ChannelMultiSelect({
               cursor: disabled ? 'not-allowed' : 'pointer',
               border: '1px solid',
               borderColor: active ? 'var(--brand)' : 'var(--border-card)',
-              background: active ? 'var(--brand-soft, #eff6ff)' : 'var(--bg-card)',
+              background: active ? 'var(--brand-soft)' : 'var(--bg-card)',
               color: active ? 'var(--brand)' : 'var(--text-secondary)',
               fontFamily: 'var(--font-sans)',
               transition: 'all 0.1s',

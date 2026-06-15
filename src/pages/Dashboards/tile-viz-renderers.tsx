@@ -87,7 +87,7 @@ interface TileBodyProps {
 
 const cellStyle: React.CSSProperties = {
   padding: '2px 6px',
-  borderBottom: '1px solid var(--border-card, #e5e7eb)',
+  borderBottom: '1px solid var(--border-card)',
 };
 
 export function TileVizBody({ vizType, title, resultSet }: TileBodyProps) {

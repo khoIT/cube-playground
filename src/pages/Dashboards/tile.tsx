@@ -27,9 +27,9 @@ interface TileProps {
 }
 
 const tileStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #fff)',
+  background: 'var(--bg-card)',
   borderRadius: 10,
-  border: '1px solid var(--border-card, #e5e7eb)',
+  border: '1px solid var(--border-card)',
   padding: '12px 14px',
   display: 'flex',
   flexDirection: 'column',
@@ -49,7 +49,7 @@ const headerStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
-  color: 'var(--text-primary, #111)',
+  color: 'var(--text-primary)',
   flex: 1,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -261,7 +261,7 @@ export function Tile({ tile, slug, gameId, onDelete, onTitleChange }: TileProps)
       >
         {isWarming && <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Refreshing…</div>}
         {!isWarming && isBroken && (
-          <div style={{ color: 'var(--danger, #dc2626)', fontSize: 11 }}>
+          <div style={{ color: 'var(--danger)', fontSize: 11 }}>
             {cache?.error_msg ?? 'Tile data unavailable.'}
           </div>
         )}

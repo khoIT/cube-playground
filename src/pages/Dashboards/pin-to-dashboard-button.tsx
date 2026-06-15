@@ -52,17 +52,17 @@ export function PinToDashboardButton() {
           alignItems: 'center',
           gap: 5,
           background: 'transparent',
-          border: '1px solid var(--border-card, #d1d5db)',
+          border: '1px solid var(--border-card)',
           borderRadius: 6,
           padding: '4px 10px',
           fontSize: 12,
           fontWeight: 500,
           cursor: canPin ? 'pointer' : 'not-allowed',
-          color: canPin ? 'var(--text-primary, #111)' : 'var(--text-muted, #9ca3af)',
+          color: canPin ? 'var(--text-primary)' : 'var(--text-muted)',
           transition: 'border-color 0.15s, background 0.15s',
         }}
         onMouseEnter={(e) => {
-          if (canPin) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover, #f3f4f6)';
+          if (canPin) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-muted)';
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLButtonElement).style.background = 'transparent';

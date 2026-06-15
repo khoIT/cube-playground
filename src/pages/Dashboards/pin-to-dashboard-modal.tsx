@@ -32,23 +32,23 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 const dialogStyle: React.CSSProperties = {
-  background: 'var(--bg-card, #fff)', borderRadius: 12,
+  background: 'var(--bg-card)', borderRadius: 12,
   boxShadow: '0 8px 32px rgba(0,0,0,0.18)', width: 440,
   maxWidth: '95vw', maxHeight: '85vh', overflowY: 'auto',
   padding: 24, display: 'flex', flexDirection: 'column', gap: 16,
 };
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '6px 10px', borderRadius: 6,
-  border: '1px solid var(--border-card, #d1d5db)', fontSize: 13,
+  border: '1px solid var(--border-card)', fontSize: 13,
   boxSizing: 'border-box', outline: 'none',
 };
 const btnPrimary: React.CSSProperties = {
-  background: 'var(--brand, #6366f1)', color: '#fff', border: 'none',
+  background: 'var(--brand)', color: 'var(--text-on-brand)', border: 'none',
   borderRadius: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
 };
 const btnSecondary: React.CSSProperties = {
-  background: 'transparent', color: 'var(--text-primary, #111)',
-  border: '1px solid var(--border-card, #d1d5db)', borderRadius: 6,
+  background: 'transparent', color: 'var(--text-primary)',
+  border: '1px solid var(--border-card)', borderRadius: 6,
   padding: '7px 16px', fontSize: 13, cursor: 'pointer',
 };
 
@@ -144,7 +144,7 @@ export function PinToDashboardModal({
         {/* Viz type (read-only — inferred from query context) */}
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Visualization</label>
-          <select style={{ ...inputStyle, background: 'var(--bg-card, #fff)' }} value={vizType} disabled>
+          <select style={{ ...inputStyle, background: 'var(--bg-card)' }} value={vizType} disabled>
             <option value="table">Table</option>
             <option value="kpi">KPI</option>
             <option value="line">Line chart</option>
@@ -156,10 +156,10 @@ export function PinToDashboardModal({
         </div>
 
         {/* Mode tabs */}
-        <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-card,#e5e7eb)', paddingBottom: 8 }}>
+        <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-card)', paddingBottom: 8 }}>
           {(['pick', 'create'] as const).map((m) => (
             <button key={m}
-              style={{ ...btnSecondary, borderBottom: mode === m ? '2px solid var(--brand,#6366f1)' : undefined, fontWeight: mode === m ? 700 : 400 }}
+              style={{ ...btnSecondary, borderBottom: mode === m ? '2px solid var(--brand)' : undefined, fontWeight: mode === m ? 700 : 400 }}
               onClick={() => { setMode(m); setError(null); }}>
               {m === 'pick' ? 'Existing dashboard' : 'Create new…'}
             </button>
@@ -191,7 +191,7 @@ export function PinToDashboardModal({
 
         {/* Error */}
         {error && (
-          <div style={{ fontSize: 12, color: 'var(--danger,#dc2626)', background: 'var(--bg-danger,#fef2f2)', borderRadius: 6, padding: '6px 10px' }}>
+          <div style={{ fontSize: 12, color: 'var(--danger)', background: 'var(--destructive-soft)', borderRadius: 6, padding: '6px 10px' }}>
             {error}
           </div>
         )}

@@ -201,7 +201,7 @@ export function PlaybookFilterBar({ gameId, selected, onToggle }: PlaybookFilter
                         width: 16, height: 16, flexShrink: 0, borderRadius: 4,
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         border: `1.5px solid ${on ? 'var(--brand)' : 'var(--border-strong)'}`,
-                        background: on ? 'var(--brand)' : 'transparent', color: '#fff',
+                        background: on ? 'var(--brand)' : 'transparent', color: 'var(--text-on-brand)',
                       }}
                     >
                       {on && <Check size={11} strokeWidth={3} />}
