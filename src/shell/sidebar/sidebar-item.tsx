@@ -75,7 +75,7 @@ export function SidebarItem({
     }
     return (
       <div ref={scrollRef}>
-        <NavLink to={to} onClick={onClick} style={{ textDecoration: 'none', display: 'block' }}>
+        <NavLink to={to} onClick={onClick} style={{ textDecoration: 'none', display: 'block', color: 'var(--shell-text-emphasis)' }}>
           {inner}
         </NavLink>
       </div>
@@ -144,7 +144,9 @@ export function SidebarItem({
           ? 'var(--shell-brand)'
           : muted
             ? (hovered ? 'var(--shell-text-emphasis)' : 'var(--shell-text-subtle)')
-            : (indent && hovered ? 'var(--shell-text-strong)' : 'var(--shell-text-emphasis)'),
+            // Fallback to --shell-text-emphasis (theme-safe) rather than letting an
+            // unresolved var inherit antd's global anchor purple from antd.min.css.
+            : (indent && hovered ? 'var(--shell-text-strong, var(--shell-text-emphasis))' : 'var(--shell-text-emphasis)'),
         transition: 'color .12s',
         overflow: 'hidden',
         textOverflow: hoverTrailingActive ? 'clip' : 'ellipsis',
@@ -175,7 +177,7 @@ export function SidebarItem({
   }
   return (
     <div ref={scrollRef}>
-      <NavLink to={to} onClick={onClick} style={{ textDecoration: 'none', display: 'block' }}>
+      <NavLink to={to} onClick={onClick} style={{ textDecoration: 'none', display: 'block', color: 'var(--shell-text-emphasis)' }}>
         {inner}
       </NavLink>
     </div>
