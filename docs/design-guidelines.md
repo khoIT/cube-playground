@@ -194,3 +194,22 @@ Dark mode is real — every soft/ink + raw color token has a dark-mode equivalen
 - Inlining `box-shadow`, `borderRadius`, and `padding` with raw numbers when tokens exist.
 
 Drift from this doc is a bug; fix at the surface that drifted, then ensure tokens are sufficient.
+
+## 10. Theme visual-regression gate
+
+A Playwright gate pins the UI pixel-intact in **both light and dark** while the theme is centralized onto semantic tokens. It captures the major routes (`tests/visual/routes.manifest.ts`) in each theme and diffs against committed baselines under `tests/visual/theme-routes.spec.ts-snapshots/`.
+
+**Run the gate** (requires the local dev stack up — vite `:3000` → fastify `:3004` → cube `:4000`, auth bypassed as bootstrap admin):
+
+```bash
+npm run test:visual:theme          # diff current UI against committed baselines
+npm run test:visual:theme:update   # re-capture baselines (intentional change only)
+```
+
+How it stays deterministic:
+
+- Theme is seeded pre-boot (localStorage mirror `gds-cube:theme`) and re-asserted on `documentElement[data-theme]` after hydration — the CSS keys off that attribute.
+- Transitions/animations/caret are frozen via an injected stylesheet.
+- Live-data regions are masked so data churn never fails the **color** gate: `GLOBAL_MASK` (charts/canvas) plus any element marked `data-visual-volatile` (e.g. the cohort retention grid, whose cell colors are a value-driven heatmap, not theme tokens).
+
+**Updating baselines is a deliberate act.** Only run `:update` when a visual change is intended; review the regenerated PNGs before committing, and note the rationale (e.g. "dark-mode surface now correctly adapts after migrating off a literal hex"). A green gate after a refactor step is the proof that step kept the UI intact.

@@ -109,7 +109,9 @@ export function CohortGrid({ rows }: CohortGridProps) {
   };
 
   return (
-    <div style={{ overflowX: 'auto', position: 'relative' }}>
+    // data-visual-volatile: cells are live retention data + a value-driven
+    // heatmap (not theme tokens), so the visual-regression gate masks this grid.
+    <div data-visual-volatile style={{ overflowX: 'auto', position: 'relative' }}>
       <div
         style={{
           display: 'grid',

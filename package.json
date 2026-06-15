@@ -27,6 +27,8 @@
     "stack:env-sync": "node scripts/sync-docker-env-from-dev.mjs",
     "test:visual": "playwright test --config=tests/visual/playwright.config.ts",
     "test:visual:update": "playwright test --config=tests/visual/playwright.config.ts --update-snapshots",
+    "test:visual:theme": "playwright test --config=tests/visual/playwright.config.ts --project=desktop-1440x900 theme-routes.spec.ts",
+    "test:visual:theme:update": "playwright test --config=tests/visual/playwright.config.ts --project=desktop-1440x900 theme-routes.spec.ts --update-snapshots",
     "visual:capture-baselines": "tsx tests/visual/capture-baselines.ts"
   },
   "dependencies": {
