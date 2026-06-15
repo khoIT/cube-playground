@@ -220,11 +220,24 @@ The theme is being centralized onto one canonical layer in `src/theme/tokens.css
 
 1. **Primitives (private):** single-meaning raw values — the `--neutral-*` / `--orange-*` scales and bespoke status/cluster hues. A primitive never changes role between light and dark.
 2. **Semantic tokens (the contract components read):** `--bg-app/card/muted`, `--surface-{shell,sidebar,topbar,panel,raised,muted,subtle}`, `--border-card/strong`, `--text-primary/secondary/muted`, status `--*-soft/--*-ink`, `--radius-*`, `--shadow-*`, `--font-*`, `--chart-*` / `--chart-series-*`. Re-pointed per theme in the `:root` / `[data-theme="dark"]` blocks.
-3. **Compat aliases (interim, removed in the enforcement phase):** `--hermes-* : var(--<semantic>)`. The `T.*` proxy in `src/shell/theme.tsx` resolves to these; the shell migrates off them onto the semantic tokens.
+3. ~~**Compat aliases:** `--hermes-*`~~ — **removed.** The `--hermes-*` scale and the `T.*` color proxy are deleted; `T` exposes fonts only. Components read tier-2 semantic tokens directly.
+
+The migration is complete: zero `T.<color>` references, zero raw `var(--neutral-*)` / `var(--hermes-*)` outside `src/theme/`. The `--neutral-*` scale survives **only as a private primitive** feeding the tier-2 tokens inside `tokens.css`.
 
 ### Surface tiers (new)
 
-`--surface-shell / -sidebar / -topbar / -panel / -raised / -muted / -subtle` express the **app-frame** surfaces, intentionally distinct from the content `--bg-*` canvas (the warm two-tone "Actioneer" frame in light; a cooler near-black frame in dark). The `--hermes-surface*/shell/sidebar/topbar/panel` tokens are now pure aliases of these.
+`--surface-shell / -sidebar / -topbar / -panel / -raised / -muted / -subtle` express the **app-frame** surfaces, intentionally distinct from the content `--bg-*` canvas (the warm two-tone "Actioneer" frame in light; a cooler near-black frame in dark).
+
+### Component primitives (migrated off the raw `--neutral-*` scale)
+
+The dual-meaning `--neutral-50..300` (warm cream in light, redefined near-white in dark) was a footgun when read directly by components. These single-meaning tokens replace those uses:
+
+| Token | Role | Light → Dark |
+| --- | --- | --- |
+| `--surface-inset` / `--surface-inset-strong` | inset/selected-row + deeper track/hover/shimmer surfaces | warm cream → proper dark surface (fixes the former near-white-in-dark bug) |
+| `--surface-inverse` | always-dark surface (tooltips, code blocks) | `#171717` (invariant) |
+| `--text-inverse` / `--text-inverse-dim` | text on `--surface-inverse` | invariant |
+| `--fill-muted` / `--fill-faint` | muted/faint **decorative** fills (bars, dots, empty stars, handles) | invariant grey (same both modes by design) |
 
 ### Chart palette
 
@@ -243,4 +256,19 @@ The theme is being centralized onto one canonical layer in `src/theme/tokens.css
 | `n200`, `n300` | hairline / strong border | `--border-card` / `--border-strong` |
 | `fSans`, `fMono` | fonts (kept on `T`) | `--font-sans` / `--font-mono` |
 
-**⚠ Divergence — gate-verified migration required.** The `--hermes-*` scale is NOT byte-identical to the content semantic tokens: in light it is cool-grey Tailwind neutral while `--border-card`/muted surfaces were *warmed*; in dark the frame is blue-toned vs the grey content scale. So a `T.nXXX → --semantic` swap is **not** automatically pixel-intact. Each shell batch must run the §10 gate; where it bites, the value is preserved exactly via a surface/shell-scoped token rather than snapped to a near-but-unequal content token. (`n900`/`n950` and light brand already match exactly; the rest must be verified per batch.)
+**⚠ Divergence note (historical).** The retired `--hermes-*` scale was NOT byte-identical to the content semantic tokens: in light it was cool-grey Tailwind neutral while `--border-card`/muted surfaces were *warmed*; in dark the frame was blue-toned vs the grey content scale. So the shell migration preserved each value via a surface/shell-scoped token rather than snapping to a near-but-unequal content token, gate-verified per batch.
+
+## 12. Enforcement — keep the contract from drifting
+
+The single-token contract is guarded by a linter + pre-push gate (there is no in-repo CI; deploy is a push to the `second` remote).
+
+- **`npm run lint`** → `scripts/lint-theme-tokens.mjs`. Fails on: (1) inline hex in `src/**/*.{ts,tsx}`, (2) raw `var(--neutral-*)` / `var(--hermes-*)` anywhere outside `src/theme/`, (3) the retired `T.<color>` proxy. The theme layer (`src/theme/`) and test files are exempt.
+- **Pre-push hook** → `scripts/git-hooks/pre-push` runs `npm run lint` and blocks the push on violations (activated by the `prepare` script: `core.hooksPath=scripts/git-hooks`). Emergency bypass: `git push --no-verify`.
+- **Inline-hex allowlist** (in the linter's `HEX_ALLOWLIST`): chart-series / data-viz palettes and recharts SVG `fill`/`stroke` (CSS `var()` does not resolve in SVG attrs), categorical type/syntax-tone palettes, and 3rd-party brand marks. One tracked exception: `metric-list-row.tsx` trust hues (deferred — converging needs a light re-baseline).
+
+### How to add a color
+
+1. **Need a new color?** Define it in `src/theme/tokens.css` for **both** themes (a semantic token if it has meaning; a component primitive like `--fill-*` / `--surface-inset` if it's a single-meaning decorative/surface value). Never inline a hex in a component.
+2. **Reference it** from the component as `var(--your-token)`.
+3. **Genuinely literal hex** (a new chart palette / SVG attr / brand mark)? Add the file path to `HEX_ALLOWLIST` in `scripts/lint-theme-tokens.mjs` with a one-line reason.
+4. Run the §10 visual gate (light + dark). New dark surfaces that fix a prior bug → re-baseline dark with rationale; light must stay pixel-intact.
