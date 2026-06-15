@@ -899,6 +899,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A cube read that filters a large, un-pre-aggregated source by an ad-hoc key list must poll Cube's "Continue wait" — a single-shot load 502s cold
+
+- **Rule:** the experiment scorecard read per-arm gross from the `billing_detail` cube with a uid IN-list filter + date window. On a cold warehouse this scan exceeds 15s and Cube replies HTTP 200 `{error:"Continue wait"}` (async pre-agg/compute window); a single-shot `loadWithCtx` (even at 30s) throws on that and the whole scorecard 502s. The query has no pre-agg to hit because the uid set is arbitrary per experiment, so it's always a live scan. Fix: read through `loadWithContinueWait(query, undefined, budget, ctx)` (polls the continue-wait, giving each retry the remaining budget) with a generous budget (90s), not a bare `loadWithCtx`. After the fix the same scorecard returned real per-arm gross in ~15s.
+- **Why:** "Continue wait" is a normal cold-path signal, not an error — but `cube-client` surfaces it as a thrown `Error` so naive callers treat a still-warming query as a hard failure. Pre-aggregated/cached reads rarely hit it; a large fact source filtered by an unbounded ad-hoc key list (so no rollup applies) hits it routinely on the first cold call.
+- **Signal:** a server read that 502s/throws "timed out after 15s" cold but works once warm; a Cube-backed feature whose query can't match any pre-agg (arbitrary IN-list, wide filter); a single-shot `load`/`loadWithCtx` on a high-volume source with no continue-wait loop while sibling batch jobs (segment refresh, card precompute) use `loadWithContinueWait`.
+- **Apply:** for any server-side Cube read over a large un-aggregated source with caller-supplied filters, use `loadWithContinueWait` with a budget sized to the cold scan, not a bare `load*`. Reserve single-shot `loadWithCtx` for interactive reads that hit a pre-agg/cache. Degrade to an honest UI banner if the budget elapses; never silently show demo data for a real, failed live read.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

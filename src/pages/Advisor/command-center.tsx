@@ -18,12 +18,13 @@
  * Monitoring bars are illustrative (clearly labeled) until the real outcome-query
  * wiring lands.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Aspect, GoalKey, BlueprintSlots } from './advisor-types';
 import type { ExperimentDraft } from '../../api/advisor';
 import { STAGES } from './advisor-stage-config';
 import { Blueprint } from './blueprint';
 import { Btn, CARD_STYLE, EYEBROW_STYLE, MiniBars } from './advisor-primitives';
+import { useExperimentMonitor } from './use-experiment-monitor';
 
 // ── Lifecycle steps ──────────────────────────────────────────────────────────
 
@@ -46,7 +47,22 @@ interface CommandCenterProps {
   blueprintSlots: BlueprintSlots;
   split: number;
   draft: ExperimentDraft | null;
+  /** Active game — needed to create the real experiment. */
+  gameId: string;
+  /** The cohort segment when the board is backed by a real experiment; null on
+   *  the manual/demo path (then the board stays illustrative). */
+  segmentId: string | null;
+  /** URL `?illustrative=1` — force the demo bars regardless of scope. */
+  forceIllustrative: boolean;
   onBackToAdvisor: () => void;
+}
+
+/** Format a VND amount compactly (e.g. 312_000_000 → "312M₫"). */
+function fmtVnd(v: number): string {
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B₫`;
+  if (v >= 1e6) return `${Math.round(v / 1e6)}M₫`;
+  if (v >= 1e3) return `${Math.round(v / 1e3)}K₫`;
+  return `${Math.round(v)}₫`;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -58,6 +74,9 @@ export function CommandCenter({
   blueprintSlots,
   split,
   draft,
+  gameId,
+  segmentId,
+  forceIllustrative,
   onBackToAdvisor,
 }: CommandCenterProps) {
   const [lifecycleIdx, setLifecycleIdx] = useState(0);
@@ -67,15 +86,58 @@ export function CommandCenter({
   const isRevenue = goal === 'revenue';
   const lever = aspects.find((a) => a.stage === 'lever' && a.triage === 'keep');
 
-  // Cohort sizes — prefer draft values, fall back to illustrative demo numbers
+  const title = `${lever?.q ?? 'Experiment'} · investigation`;
+
+  // Real experiment lifecycle: create a draft from the segment, freeze on the
+  // groups-freeze action, then fetch the real treatment-vs-hold-out scorecard.
+  // Falls back to illustrative bars when there's no segment / `?illustrative=1`.
+  const monitor = useExperimentMonitor({
+    gameId,
+    segmentId,
+    draft,
+    splitPct: draft?.arms.find((a) => a.key === 'treatment')?.share
+      ? Math.round((draft.arms.find((a) => a.key === 'treatment')!.share as number) * 100)
+      : split,
+    primaryMetric: isRevenue ? 'gross_payment_rate' : 'sessions_per_week',
+    experimentName: lever?.q ?? `${gameId} experiment`,
+    forceIllustrative,
+  });
+  const sc = monitor.state.scorecard;
+  const live = monitor.state.live && !!sc;
+
+  // Load the real scorecard once the split is frozen.
+  useEffect(() => {
+    if (monitor.state.assignment && !monitor.state.scorecard) void monitor.loadScorecard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monitor.state.assignment]);
+
+  // Cohort sizes — real arm counts when live, else draft, else illustrative demo.
+  const treatArm = sc?.arms.find((a) => a.arm === 'treatment');
+  const ctrlArm = sc?.arms.find((a) => a.arm === 'control');
+  const assignment = monitor.state.assignment;
   const reachableN = draft?.cohort.addressableN ?? 1872;
-  const treatN = draft
-    ? Math.round(reachableN * ((draft.arms.find((a) => a.key === 'treatment')?.share ?? split / 100)))
-    : Math.round(reachableN * (split / 100));
-  const holdN = reachableN - treatN;
+  const treatN = live
+    ? (treatArm?.assigned ?? 0)
+    : assignment
+      ? assignment.treatment
+      : draft
+        ? Math.round(reachableN * ((draft.arms.find((a) => a.key === 'treatment')?.share ?? split / 100)))
+        : Math.round(reachableN * (split / 100));
+  const holdN = live
+    ? (ctrlArm?.assigned ?? 0)
+    : assignment
+      ? assignment.control
+      : reachableN - treatN;
   const windowDays = draft?.windowDays ?? 14;
 
-  const title = `${lever?.q ?? 'Experiment'} · investigation`;
+  // Real readout values (live only) — re-pay rates per arm + roll-out projection.
+  const treatRatePct = (sc?.scorecard.repayRate.treatmentRate ?? 0) * 100;
+  const ctrlRatePct = (sc?.scorecard.repayRate.controlRate ?? 0) * 100;
+  const liftPp = sc?.scorecard.repayRate.liftPp ?? 0;
+  const verdict = sc?.scorecard.verdict ?? 'inconclusive';
+  // Projected VND if the per-member gross lift were rolled out to the hold-out.
+  const rolloutVnd = (sc?.scorecard.grossPerMember.liftAbs ?? 0) * holdN;
+  const barMax = Math.max(4, Math.ceil(Math.max(treatRatePct, ctrlRatePct, 1) * 1.3));
 
   // Illustrative contact progress (only shown in delivering/measuring/readout)
   const contacted =
@@ -85,8 +147,15 @@ export function CommandCenter({
         ? Math.round(treatN * 0.96)
         : 0;
 
-  const advance = () =>
+  // Advancing FROM draft freezes the real split first; only advance on success
+  // (illustrative mode resolves true immediately, so the demo flow is unchanged).
+  const advance = async () => {
+    if (currentLifecycle.key === 'draft') {
+      const ok = await monitor.freeze();
+      if (!ok) return;
+    }
     setLifecycleIdx((i) => Math.min(LIFECYCLE.length - 1, i + 1));
+  };
 
   const ctaLabel: Record<LifecycleKey, string | null> = {
     draft: 'Confirm & freeze the groups →',
@@ -419,7 +488,47 @@ export function CommandCenter({
                 </div>
               ) : (
                 <>
-                  {currentLifecycle.key !== 'readout' && (
+                  {/* Live scorecard pending / failed — surface it instead of
+                      quietly showing demo bars for a real experiment. */}
+                  {monitor.state.experimentId && monitor.state.assignment && !sc && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: monitor.state.error ? 'var(--destructive-ink)' : 'var(--text-muted)',
+                        background: monitor.state.error
+                          ? 'var(--destructive-soft)'
+                          : 'var(--bg-muted)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '8px 10px',
+                        marginBottom: 10,
+                      }}
+                    >
+                      {monitor.state.busy
+                        ? 'Loading real treatment-vs-hold-out outcomes…'
+                        : monitor.state.error
+                          ? `Couldn't load live outcomes: ${monitor.state.error}. Bars below are illustrative.`
+                          : 'Live outcomes not loaded yet.'}
+                    </div>
+                  )}
+                  {/* Status pill — real significance verdict when live, else the
+                      illustrative/early labels for the demo walkthrough. */}
+                  {live ? (
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        borderRadius: 'var(--radius-full)',
+                        padding: '2px 8px',
+                        background:
+                          verdict === 'win' ? 'var(--success-soft)' : 'var(--warning-soft)',
+                        color: verdict === 'win' ? 'var(--success-ink)' : 'var(--warning-ink)',
+                      }}
+                    >
+                      {verdict === 'win'
+                        ? `significant · day ${windowDays}`
+                        : 'measured — not yet significant'}
+                    </span>
+                  ) : currentLifecycle.key !== 'readout' ? (
                     <span
                       style={{
                         fontSize: 10.5,
@@ -432,8 +541,7 @@ export function CommandCenter({
                     >
                       early — not yet conclusive · illustrative
                     </span>
-                  )}
-                  {currentLifecycle.key === 'readout' && (
+                  ) : (
                     <span
                       style={{
                         fontSize: 10.5,
@@ -444,10 +552,20 @@ export function CommandCenter({
                         color: 'var(--success-ink)',
                       }}
                     >
-                      clear result · day {windowDays}
+                      clear result · day {windowDays} · illustrative
                     </span>
                   )}
-                  {isRevenue ? (
+
+                  {live ? (
+                    <MiniBars
+                      a={Number(treatRatePct.toFixed(2))}
+                      b={Number(ctrlRatePct.toFixed(2))}
+                      labelA="Treatment"
+                      labelB="Hold-out"
+                      unit="%"
+                      max={barMax}
+                    />
+                  ) : isRevenue ? (
                     <MiniBars
                       a={currentLifecycle.key === 'readout' ? 22 : 18}
                       b={currentLifecycle.key === 'readout' ? 13 : 14}
@@ -466,27 +584,51 @@ export function CommandCenter({
                       max={6}
                     />
                   )}
-                  {currentLifecycle.key === 'readout' && (
-                    <div
-                      style={{ fontSize: 13.5, fontWeight: 700, marginTop: 12 }}
-                    >
+
+                  {(live || currentLifecycle.key === 'readout') && (
+                    <div style={{ fontSize: 13.5, fontWeight: 700, marginTop: 12 }}>
                       Did it work?{' '}
                       <span
                         style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}
                       >
-                        — measured on everyone we assigned (the number you can trust)
+                        — re-pay rate, measured on everyone we assigned (the number you can trust)
                       </span>
                     </div>
                   )}
                   <div
                     style={{
                       fontSize: 12.5,
-                      marginTop: currentLifecycle.key === 'readout' ? 5 : 12,
+                      marginTop: live || currentLifecycle.key === 'readout' ? 5 : 12,
                       color: 'var(--text-secondary)',
                       lineHeight: 1.5,
                     }}
                   >
-                    {currentLifecycle.key === 'readout' ? (
+                    {live ? (
+                      verdict === 'win' ? (
+                        <>
+                          <b style={{ color: 'var(--positive, var(--success))' }}>
+                            Yes — +{liftPp.toFixed(1)} payers in 100
+                          </b>{' '}
+                          vs the hold-out, beyond chance (p&lt;0.05).
+                          {rolloutVnd > 0 && (
+                            <>
+                              {' '}≈ <b>{fmtVnd(rolloutVnd)}</b> if the lift held when rolled out to
+                              the held-back group.
+                            </>
+                          )}
+                        </>
+                      ) : liftPp > 0 ? (
+                        <>
+                          <b>+{liftPp.toFixed(1)} payers in 100</b> vs the hold-out, but inside the
+                          noise band — keep measuring to day {windowDays}.
+                        </>
+                      ) : (
+                        <>
+                          No positive difference vs the hold-out so far ({liftPp.toFixed(1)} pp) —
+                          keep measuring to day {windowDays}.
+                        </>
+                      )
+                    ) : currentLifecycle.key === 'readout' ? (
                       isRevenue ? (
                         <>
                           <b style={{ color: 'var(--positive, var(--success))' }}>
@@ -512,9 +654,12 @@ export function CommandCenter({
                       '.'
                     )}
                   </div>
-                  {currentLifecycle.key === 'readout' && isRevenue && (
+                  {(live || (currentLifecycle.key === 'readout' && isRevenue)) && (
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                      Gross payments — before refunds & costs.
+                      Gross payments{live && sc!.currencies.length > 1
+                        ? ` (${sc!.currencies.join('+')}, normalized to VND)`
+                        : ''}{' '}
+                      — before refunds & costs.
                     </div>
                   )}
                   {currentLifecycle.key === 'readout' && (

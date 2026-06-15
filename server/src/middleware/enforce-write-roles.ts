@@ -46,6 +46,10 @@ const PROTECTED_PREFIXES = [
   // The agent turn spawns a paid LLM investigation loop — a write-class action,
   // not a free read like /diagnose. Gate it to write roles.
   '/api/advisor/agent/turn',
+  // Experiments are durable shared artifacts: create/patch a draft and freezing
+  // the arm assignment are write-class. Viewers may read the list/scorecard (GET)
+  // but must not create or freeze an experiment.
+  '/api/experiments',
 ];
 
 function authDisabled(): boolean {

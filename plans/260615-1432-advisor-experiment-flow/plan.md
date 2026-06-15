@@ -48,7 +48,7 @@ flag rather than re-deriving readers.
 |---|-------|-------|---------|--------|
 | A | Linear flow reframe | Frontend only. Strip Command Center chrome + CS-queue; present review→split→monitor linearly. Reuse the arms board (illustrative, labeled). | markdown done | ✅ done |
 | B | Cohort→segment bridge + kill dead-end | Agent emits a cohort predicate at game scope (`propose_cohort`, compile-validated); "Approve & create segment" → create → auto-run-scaffold → auto-advance to review. Else fall back to pick-existing, also auto-advancing. | A | ✅ done (deterministic) — live agent smoke pending |
-| C | Real outcomes wiring | Activate experiment-command-center phases 1–3 (readers, assignment registry, routes); feed the monitor board. `?illustrative=1` forces demo bars. | A, B + existing plan | scheduled separately |
+| C | Real outcomes wiring | Cube-first (billing_detail) outcome reader + experiment registry/assignment (SQLite) + routes; monitor board shows real treatment-vs-hold-out; `?illustrative=1` forces demo bars. cfm_vn + jus_vn. | A, B | ✅ done — live-verified on real cube data |
 
 ## Phase A — what shipped
 - `command-center.tsx` reframed to "📡 Live monitoring", CS-queue delivery toggle removed

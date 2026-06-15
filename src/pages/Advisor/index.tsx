@@ -130,6 +130,11 @@ export function AdvisorPage() {
   // The Command Center screen owns its own full-bleed layout (lifecycle stepper
   // + monitoring), so it renders outside the standard page wrapper.
   if (inv.screen === 'command') {
+    // `?illustrative=1` forces the demo bars (no-Cube hosts / walkthroughs);
+    // otherwise a real segment scope drives the live treatment-vs-hold-out
+    // scorecard. With HashRouter the query lives in location.search.
+    const forceIllustrative =
+      new URLSearchParams(location.search).get('illustrative') === '1';
     return (
       <CommandCenter
         goal={inv.goal}
@@ -138,6 +143,9 @@ export function AdvisorPage() {
         blueprintSlots={inv.blueprintSlots}
         split={inv.split}
         draft={draft}
+        gameId={gameId}
+        segmentId={segmentId}
+        forceIllustrative={forceIllustrative}
         onBackToAdvisor={() => inv.setScreen('decide')}
       />
     );
