@@ -146,6 +146,26 @@ adds info beyond the title. No subtitle lines. Chart x-axis datetimes go through
 `src/utils/format-chart-datetime-label.ts` ("Apr 7", hour grain "Apr 7 14:00", year on
 year boundaries; tooltips "Apr 7, 2026") — never render raw ISO timestamps on an axis.
 
+## 6b. Left nav bar (shell sidebar)
+
+The left sidebar (`src/shell/sidebar/`) sits **flush** against the main content —
+not as a floating card with a gap. The seam between them is a single 1px element
+(`SidebarEdgeToggle`), not a CSS border:
+
+- **Flush seam:** the sidebar's right corners and main's left corners are squared
+  (`borderRadius: '18px 0 0 18px'` / `'0 18px 18px 0'`); the shell flex row uses
+  `gap: 0`. The outer 10px `T.shell` frame is kept.
+- **Collapse toggle:** invisible 1px seam at rest; on hover it tints (`T.n200`) and
+  a 36px circle appears straddling the seam, **tracking the cursor's Y** and sliding
+  with it. Icon = `ChevronLeft` (expanded) / `ChevronRight` (collapsed). Clicking
+  anywhere along the seam toggles. Do not revert this to a fixed centered button.
+- **Section header = two hit targets:** the icon+label **navigates**; a separate
+  arrow button **toggles** the child list (rotates `-90°`→`0°`). The row shares one
+  hover bg; the arrow darkens on direct hover. Never merge these back into one
+  navigate-and-toggle row.
+- **Child rows:** text color brightens on hover (muted → foreground); **no** hover
+  background.
+
 ## 7. Dark mode
 
 Dark mode is real — every soft/ink + raw color token has a dark-mode equivalent in `:root[data-theme="dark"]`. If a surface relies on raw hex it will break in dark mode. Use semantic tokens.

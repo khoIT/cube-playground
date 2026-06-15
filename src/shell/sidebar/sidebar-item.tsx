@@ -39,11 +39,16 @@ interface SidebarItemProps {
   trailingShowOnHover?: boolean;
   /** Sidebar collapsed mode — render icon-only. */
   collapsed?: boolean;
+  /** Header-link half of a split section row. The parent wrapper paints the
+   *  shared row hover background, so this row paints none of its own and shows
+   *  no caret (the separate toggle button owns the caret). */
+  headerLink?: boolean;
 }
 
 export function SidebarItem({
   icon, iconColor, label, to, matchPrefix, expandable, expanded,
   primary, onClick, indent, muted, trailing, trailingShowOnHover, collapsed,
+  headerLink,
 }: SidebarItemProps) {
   const location = useLocation();
   const prefixes: string[] = matchPrefix
@@ -111,11 +116,13 @@ export function SidebarItem({
       }}
       onMouseEnter={e => {
         setHovered(true);
-        if (!(indent && isActive)) e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
+        // Indent (child) rows change text color only — no hover background.
+        // Header-link rows let the parent wrapper paint the shared row bg.
+        if (!indent && !headerLink) e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
       }}
       onMouseLeave={e => {
         setHovered(false);
-        e.currentTarget.style.background = indent && isActive ? 'rgba(0,0,0,0.05)' : 'transparent';
+        if (!indent && !headerLink) e.currentTarget.style.background = 'transparent';
       }}
     >
       {isActive && !indent && (
@@ -137,7 +144,12 @@ export function SidebarItem({
         fontFamily: T.fSans,
         fontSize: muted ? 12 : 13,
         fontWeight: isActive ? 600 : primary ? 600 : 500,
-        color: muted ? T.n500 : isActive ? T.n950 : T.n800,
+        // Child rows brighten muted → foreground on hover (text only). Active
+        // and top-level rows keep their fixed weight/colour.
+        color: muted
+          ? (hovered ? T.n800 : T.n500)
+          : isActive ? T.n950 : (indent && hovered ? T.n950 : T.n800),
+        transition: 'color .12s',
         overflow: 'hidden',
         textOverflow: hoverTrailingActive ? 'clip' : 'ellipsis',
         whiteSpace: 'nowrap',

@@ -15,7 +15,6 @@ import { RecentItems } from './recent-items';
 import { SidebarChatRecents } from './sidebar-chat-recents';
 import { WorkspacePill } from './workspace-pill';
 import { BottomRow } from './bottom-row';
-import { CollapseToggle } from './collapse-toggle';
 import { getCollapsed, onCollapsedChange } from './sidebar-collapsed-store';
 import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-store';
 import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
@@ -104,11 +103,14 @@ export function Sidebar() {
         flexShrink: 0,
         height: '100%',
         background: T.sidebar,
-        borderRadius: 18,
+        // Right corners are squared so the sidebar sits flush against the main
+        // card; the seam between them is the SidebarEdgeToggle (rendered as a
+        // sibling in the shell layout), not a gap or border.
+        borderRadius: '18px 0 0 18px',
         display: 'flex',
         flexDirection: 'column',
         fontFamily: T.fSans,
-        overflow: 'visible',
+        overflow: 'hidden',
         position: 'relative',
         transition: 'width 0.16s ease',
         willChange: 'width',
@@ -287,7 +289,6 @@ export function Sidebar() {
       </nav>
 
       <BottomRow collapsed={collapsed} />
-      <CollapseToggle collapsed={collapsed} />
     </aside>
   );
 }

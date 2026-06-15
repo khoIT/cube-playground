@@ -3,7 +3,7 @@ import '@ant-design/compatible/assets/index.css';
 import './theme/tokens.css';
 import './theme/antd-overrides.css';
 import { Alert } from 'antd';
-import { Component, PropsWithChildren, useEffect } from 'react';
+import { Component, PropsWithChildren, useEffect, useState } from 'react';
 import { RouteComponentProps, useLocation, withRouter } from 'react-router-dom';
 import { Root } from '@cube-dev/ui-kit';
 
@@ -31,6 +31,8 @@ import { useServerPrefsBootstrap } from './hooks/use-server-pref';
 import { useAuthUser } from './auth/auth-context';
 import { QUERY_BUILDER_COLOR_TOKENS } from './QueryBuilderV2';
 import { Sidebar } from './shell/sidebar/sidebar';
+import { SidebarEdgeToggle } from './shell/sidebar/sidebar-edge-toggle';
+import { getCollapsed, onCollapsedChange } from './shell/sidebar/sidebar-collapsed-store';
 import { T } from './shell/theme';
 import { Topbar } from './shell/topbar/topbar';
 import { ChatOverlay } from './shell/chat-overlay/chat-overlay';
@@ -203,19 +205,29 @@ type ShellLayoutProps = PropsWithChildren<{
 function ShellLayout({ fatalError, children }: ShellLayoutProps) {
   const smartSearch = useSmartSearch();
   const { panelVisible } = useChatSurfaces();
+  // Mirror the sidebar's collapse state so the edge toggle's chevron points the
+  // right way. Read synchronously on mount (no width flash) and subscribe to the
+  // shared store event so both this and <Sidebar/> stay in sync.
+  const [collapsed, setCollapsedState] = useState<boolean>(() => getCollapsed());
+  useEffect(() => onCollapsedChange(setCollapsedState), []);
 
   return (
     <div style={{
       height: '100vh', overflow: 'hidden',
       background: T.shell,
+      // No gap: the sidebar sits flush against main, with the 1px
+      // SidebarEdgeToggle as the seam between them. ChatPanel keeps its own
+      // left margin so it stays detached from main.
       display: 'flex', flexDirection: 'row', alignItems: 'stretch',
-      padding: 10, gap: 8, boxSizing: 'border-box',
+      padding: 10, gap: 0, boxSizing: 'border-box',
     }}>
       <Sidebar />
+      <SidebarEdgeToggle collapsed={collapsed} />
       <main style={{
         flex: 1, minWidth: 0, minHeight: 0,
         display: 'flex', flexDirection: 'column',
-        background: T.surface, borderRadius: 18, overflow: 'hidden',
+        // Left corners squared so main sits flush against the sidebar seam.
+        background: T.surface, borderRadius: '0 18px 18px 0', overflow: 'hidden',
       }}>
         <Topbar
           onSearchOpen={smartSearch.open}

@@ -136,6 +136,10 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
         width: getWidth(),
         flexShrink: 0,
         height: '100%',
+        // The shell flex row no longer sets a gap (sidebar↔main is now a flush
+        // seam), so keep the panel visually detached from main with its own
+        // left margin.
+        marginLeft: 8,
         background: T.sidebar,
         borderLeft: `1px solid ${T.n200}`,
         borderRadius: 18,
