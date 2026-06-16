@@ -38,9 +38,29 @@ import {
 const TICK_INTERVAL_MS = 3_600_000; // hourly; daily-guarded inside the tick
 const TZ_OFFSET_MS = 7 * 3_600_000; // GMT+7 (Asia/Saigon) — the ops timezone
 
+/**
+ * Cron only attempts the daily run during waking hours [08:00, 24:00) GMT+7 —
+ * the window the operator's laptop is likely open. Outside it the hourly tick
+ * is a no-op; the daily guard still ensures at most one run per GMT+7 date once
+ * inside the window. Manual trigger bypasses this (explicit human action).
+ */
+const WINDOW_START_HOUR = 8;
+const WINDOW_END_HOUR = 24;
+
 /** Current calendar date in GMT+7 as 'YYYY-MM-DD'. */
 export function gmt7DateString(nowMs: number = Date.now()): string {
   return new Date(nowMs + TZ_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** Hour-of-day (0–23) in GMT+7. */
+export function gmt7Hour(nowMs: number = Date.now()): number {
+  return new Date(nowMs + TZ_OFFSET_MS).getUTCHours();
+}
+
+/** True when `nowMs` falls in the cron's GMT+7 attempt window [08:00, 24:00). */
+export function isWithinSnapshotWindow(nowMs: number = Date.now()): boolean {
+  const h = gmt7Hour(nowMs);
+  return h >= WINDOW_START_HOUR && h < WINDOW_END_HOUR;
 }
 
 function isEnabled(): boolean {
@@ -250,6 +270,9 @@ export function triggerManualSnapshot(nowMs: number = Date.now()): { started: bo
 
 export async function snapshotSegmentMembershipTick(nowMs: number = Date.now()): Promise<void> {
   if (!isEnabled() || running) return;
+  // Only attempt during waking hours — outside [08:00, 24:00) GMT+7 the tick is
+  // a no-op (laptop likely asleep; a 03:00 run isn't wanted).
+  if (!isWithinSnapshotWindow(nowMs)) return;
   const date = gmt7DateString(nowMs);
   if (alreadyRanToday(date)) return;
   running = true;

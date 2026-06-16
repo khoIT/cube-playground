@@ -45,6 +45,27 @@ export interface SnapshotRun {
   items: SnapshotRunItem[];
 }
 
+/**
+ * Format the run's started timestamp into the ops timezone. The source is the
+ * SQLite heartbeat `ts` (datetime('now') = UTC, "YYYY-MM-DD HH:MM:SS", no tz
+ * suffix), so it must be parsed AS UTC — appending 'Z' avoids JS parsing the
+ * space-form as browser-local — then rendered in Asia/Saigon. → "Jun 16, 17:36 GMT+7".
+ */
+function fmtStartedAtGmt7(ts: string | null): string {
+  if (!ts) return '—';
+  const d = new Date(`${ts.replace(' ', 'T')}Z`);
+  if (Number.isNaN(d.getTime())) return ts;
+  const at = d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Saigon',
+  });
+  return `${at} GMT+7`;
+}
+
 const td: React.CSSProperties = {
   padding: '8px 12px',
   fontSize: 12.5,
@@ -141,7 +162,7 @@ export function SnapshotRunExpandableRow({ run, live = false }: { run: SnapshotR
           )}
           {run.snapshotDate}
         </td>
-        <td style={td}>{run.startedAt ?? '—'}</td>
+        <td style={td}>{fmtStartedAtGmt7(run.startedAt)}</td>
         <td style={td}>{run.written}</td>
         <td style={td}>{run.skipped}</td>
         <td style={{ ...td, color: run.errored > 0 ? 'var(--destructive-ink)' : 'var(--text-primary)', fontWeight: run.errored > 0 ? 700 : 400 }}>

@@ -27,6 +27,7 @@ import { parseWorkerLog } from './preagg-run-parser.js';
 import type { ParsedSweep } from '../types/preagg-run.js';
 import { mergeSweep } from './preagg-run-merge.js';
 import { computePreaggReadiness } from './preagg-readiness.js';
+import { maybeTriggerAutoBuild } from './preagg-auto-build.js';
 import { getDefaultWorkspace } from './workspaces-config-loader.js';
 import { upsertSweep, pruneOlderThan, getLatestSweep } from '../db/preagg-run-store.js';
 import { getDb } from '../db/sqlite.js';
@@ -95,6 +96,11 @@ async function runPass(container: string): Promise<void> {
 
   // ── Step B: serveability probe ─────────────────────────────────────────────
   const probe = await computePreaggReadiness(workspace);
+
+  // ── Step B2: auto-build newly-discovered unbuilt rollups ───────────────────
+  // No-op unless PREAGG_AUTO_BUILD_ENABLED=true. Single-flight + per-game
+  // cooldown live inside the helper; never throws.
+  maybeTriggerAutoBuild(probe);
 
   // ── Step C: persist ────────────────────────────────────────────────────────
   if (parsedSweeps.length > 0) {
