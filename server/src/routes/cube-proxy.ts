@@ -19,7 +19,12 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { gamePrefixFor, filterMetaToGamePrefix } from '../services/prefix-meta-filter.js';
 import { recordActivity, projectQueryShape } from '../services/activity-store.js';
 
-const CUBE_FETCH_TIMEOUT_MS = 15_000;
+// Browser query-builder queries on per-user dimensions (e.g. mf_users.user_id
+// with a date range) bypass pre-aggregations and read raw from Trino; a cold
+// Trino read can run past 15s. Give the upstream fetch a 30s ceiling so those
+// queries return data instead of a 504 the user reads as "timeout". nginx
+// (`proxy_read_timeout 120s`) already sits above this in prod.
+const CUBE_FETCH_TIMEOUT_MS = 30_000;
 
 // Header carrying the active game (mirrors workspace-header.ts GAME_HEADER).
 const GAME_HEADER = 'x-cube-game';
