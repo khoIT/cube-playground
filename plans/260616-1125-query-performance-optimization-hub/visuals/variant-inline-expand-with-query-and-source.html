@@ -1,0 +1,54 @@
+<!doctype html>
+<!-- Inline-expand panel ENHANCED: a "Used in" meta line (artifact/source from
+     Referer) + a collapsible "Query" code block (verbatim query, admin-only)
+     blended above the verdict → remedy → draft YAML flow. Shown as it renders
+     inside an expanded failure row (surface-inset background). -->
+<html lang="en"><head><meta charset="utf-8"><title>Inline expand — used-in + query</title>
+<style>
+  :root{
+    --bg-card:#f8efe5; --surface-inset:#f3e9dd; --border-card:#e7e0d4; --border-strong:#d8cdba;
+    --text-primary:#171717; --text-secondary:#404040; --text-muted:#737373; --brand:#f05a22;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b; --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e; --muted-soft:#efe3d4; --muted-ink:#525252;
+    --surface-inverse:#171717; --text-inverse:#fafafa; --font-sans:'Inter',system-ui,sans-serif;
+  }
+  body{margin:0;background:#efe3d4;font-family:var(--font-sans);color:var(--text-primary);padding:24px}
+  .expand{background:var(--surface-inset);border-radius:8px;padding:14px 16px;max-width:760px}
+  .usedin{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);margin-bottom:10px}
+  .usedin .ico{width:14px;height:14px;color:var(--text-muted)}
+  .usedin b{color:var(--text-primary)}
+  .usedin .meth{margin-left:auto;font-size:11px;color:var(--text-muted);background:var(--bg-card);border:1px solid var(--border-card);border-radius:6px;padding:1px 7px;font-variant:all-small-caps}
+  .verdict{font-size:12px;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:9px 12px}
+  .lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:16px 0 6px;display:flex;align-items:center;gap:6px;cursor:pointer}
+  .lab .chev{color:var(--text-muted)}
+  pre{background:var(--surface-inverse);color:var(--text-inverse);border-radius:8px;padding:12px;font-size:11.5px;line-height:1.5;overflow:auto;margin:6px 0}
+  .k{color:#93c5fd} .s{color:#fcd34d} .c{color:#9ca3af}
+  .remedy{font-size:13px;font-weight:600}
+  .steps{font-size:12px;color:var(--text-secondary);padding-left:16px;margin:6px 0}
+</style></head>
+<body>
+  <div class="expand">
+    <div class="usedin">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+      Used in <b>Dashboards › 123</b>
+      <span class="meth">POST</span>
+    </div>
+
+    <div class="verdict"><b>unmatchable · miss</b> — per-user dimension "mf_users.user_id" → no aggregate rollup possible; raw Trino read.</div>
+
+    <div class="lab"><span class="chev">▾</span> Query <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">· verbatim (admin-only)</span></div>
+    <pre><span class="c">// exactly as sent — values included</span>
+{
+  <span class="k">"dimensions"</span>: [<span class="s">"mf_users.user_id"</span>],
+  <span class="k">"filters"</span>: [{ <span class="k">"member"</span>:<span class="s">"mf_users.ltv_30d_vnd"</span>,
+                <span class="k">"operator"</span>:<span class="s">"gt"</span>, <span class="k">"values"</span>:[<span class="s">"1000000"</span>] }],
+  <span class="k">"timeDimensions"</span>: [{ <span class="k">"dimension"</span>:<span class="s">"mf_users.last_active_date"</span>,
+      <span class="k">"dateRange"</span>:[<span class="s">"2026-04-19"</span>,<span class="s">"2026-05-19"</span>] }],
+  <span class="k">"limit"</span>: 100
+}</pre>
+
+    <div class="lab" style="cursor:default">Best remedy</div>
+    <div class="remedy">Materialize as a membership snapshot</div>
+    <ol class="steps"><li>Map the listing to a segment.</li><li>Read per-user rows from the nightly snapshot, not a live /load.</li><li>If a live cut is needed, scope by predicate (not a UID IN-list).</li></ol>
+  </div>
+</body></html>

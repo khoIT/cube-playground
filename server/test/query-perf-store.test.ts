@@ -79,6 +79,25 @@ describe('insertQueryPerf + queryPerf', () => {
     expect(json).not.toContain('secret-uid');
   });
 
+  it('query_full persists the VERBATIM query (values/dateRange/UIDs) + source; shape stays names-only', () => {
+    const query = {
+      dimensions: ['mf_users.user_id'],
+      filters: [{ member: 'mf_users.ltv_30d_vnd', operator: 'gt', values: ['1000000'] }],
+      timeDimensions: [{ dimension: 'mf_users.last_active_date', dateRange: ['2026-04-19', '2026-05-19'] }],
+      uid_list: ['secret-uid-1'],
+    };
+    insertQueryPerf(db, base({ query, source: '/dashboards/123' }));
+    const [read] = queryPerf(db, {});
+    // queryFull is the admin-only verbatim copy — values present here by design.
+    expect(JSON.stringify(read.queryFull)).toContain('1000000');
+    expect(JSON.stringify(read.queryFull)).toContain('2026-04-19');
+    expect(JSON.stringify(read.queryFull)).toContain('secret-uid-1');
+    expect(read.source).toBe('/dashboards/123');
+    // shape remains the names-only projection (no values).
+    expect(JSON.stringify(read.shape)).not.toContain('1000000');
+    expect(JSON.stringify(read.shape)).not.toContain('secret-uid');
+  });
+
   it('stores used_preaggs raw (incl. empty array for lambda)', () => {
     insertQueryPerf(db, base({ usedPreaggs: [] }));
     insertQueryPerf(db, base({ ts: 1_000_001, usedPreaggs: ['mf_users.main'] }));

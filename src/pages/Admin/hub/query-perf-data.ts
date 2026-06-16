@@ -34,6 +34,10 @@ export interface QueryPerfRowDto {
   reason: string;
   shape: QueryShape | null;
   errorExcerpt: string | null;
+  /** Verbatim query (incl. values/dateRange) — admin-only. */
+  queryFull: unknown | null;
+  /** Originating app route, e.g. "/dashboards/123"; null for API callers. */
+  source: string | null;
 }
 
 export interface QueryPerfSummaryDto {

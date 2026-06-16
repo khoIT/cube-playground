@@ -11,7 +11,7 @@ completed: 2026-06-16
 ---
 
 > **Implemented 2026-06-16.** All 6 phases shipped + the huashu UI gate.
-> huashu pick: **base = Variant A (triage table)** + **Variant C master-detail Optimize panel on row-click** (user direction "combine with C when click on a row"). Variants in `visuals/`.
+> huashu pick: **base = Variant A (triage table)**. Variants in `visuals/`. Initial build used a Variant C master-detail panel; superseded per user direction to an **inline expandable row** — clicking a failure row expands a recommendation panel in place (verdict + best remedy + draft YAML + LLM affordance). The explicit **"Optimize" action button is deferred** until a real fix-activation flow exists (today the panel is advisory/read-only).
 > 95 tests pass (53 new + 42 regression); tsc clean on all new files; code-review = production-ready (no critical/high). Review L1/L2 applied (server-surfaced `slowMs`; neutral Optimize-button border). M1 (slow rollup-backed empty-array → `miss`) kept — it is phase-03's specified "actionable case", not a deviation.
 
 # Query Performance & Optimization Hub
@@ -40,7 +40,7 @@ Per-user query-builder queries (`mf_users.user_id` + date range, optionally `ltv
 - P4 → P6 (LLM only fires when no playbook matches). P5 ∥ P6 share the action panel (P5 ships panel skeleton; P6 adds the LLM affordance — sequence P5 before P6).
 
 ## Cross-cutting invariants
-- **PII gate preserved:** only member NAMES persisted (`projectQueryShape`, `activity-store.ts:86-120`). No filter values, dateRange bounds, or UID lists — ever.
+- **PII gate (amended 2026-06-16 by explicit user decision):** the `query_shape` column + the `activity_events` spine stay names-only (`projectQueryShape`). The admin `query_perf` table ALSO stores the **verbatim query** (`query_full` — filter values, dateRange, any UID list) so an admin can reproduce a slow/failed query. This was a conscious reversal, accepted with the privacy trade-off in view; exposure is bounded by admin-only read routes + 30d retention. A `source` column captures the originating route from the browser Referer (app path, not PII).
 - **Hot-path safety:** capture is fire-and-forget off the proxy response path (mirror `recordActivity`, `activity-store.ts:195`). Capture ALL non-200s; sample 200s (P1 §sampling).
 - **Routing proof = compiled SQL FROM clause, NOT `usedPreAggregations`** (lambda rollups report `[]` even when sealed partitions serve — lessons-learned.md:61,69-73). P3 combines signals.
 - **Admin-gated:** every new route uses `requireRole('admin')` + `requireFeature('admin')` (preagg-runs.ts:28-29); UI behind `AdminHubRoute` (index.tsx:132-136).

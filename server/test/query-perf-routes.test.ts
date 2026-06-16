@@ -71,8 +71,8 @@ describe('query-perf routes', () => {
     insertQueryPerf(db, {
       actorSub: 'admin-sub', actorEmail: 'admin@corp.com', workspace: 'local', game: 'cfm_vn',
       method: 'POST', status: 504, latencyMs: 30500,
-      query: { dimensions: ['mf_users.user_id'], measures: ['mf_users.count'] },
-      errorBody: { error: 'Cube request timed out after 30s' }, ts: 2000,
+      query: { dimensions: ['mf_users.user_id'], measures: ['mf_users.count'], filters: [{ member: 'mf_users.ltv_30d_vnd', operator: 'gt', values: ['1000000'] }] },
+      errorBody: { error: 'Cube request timed out after 30s' }, source: '/segments/45', ts: 2000,
     });
     insertQueryPerf(db, {
       actorSub: 'admin-sub', actorEmail: 'admin@corp.com', workspace: 'local', game: 'cfm_vn',
@@ -99,6 +99,9 @@ describe('query-perf routes', () => {
     expect(rows[0].latencyMs).toBe(30500);
     expect(rows[0].errorExcerpt).toContain('timed out');
     expect(rows[0].shape.dimensions).toContain('mf_users.user_id');
+    // verbatim query + source surface for the admin panel
+    expect(rows[0].source).toBe('/segments/45');
+    expect(JSON.stringify(rows[0].queryFull)).toContain('1000000');
   });
 
   it('recent returns only the 200 with used pre-aggs', async () => {

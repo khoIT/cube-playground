@@ -7,10 +7,13 @@
  * a telemetry failure can never poison the real request. Disk-exhaustion errors
  * log at WARN (a full volume must be visible); everything else logs at debug.
  *
- * PII boundary: `query_shape` is produced by `projectQueryShape` (imported from
- * activity-store — DRY, one PII gate) and holds member NAMES only. No filter
- * values, dateRange bounds, or UID lists are ever persisted. `error_excerpt`
- * is a truncated upstream error MESSAGE, not a query payload.
+ * PII boundary: `query_shape` is the names-only projection (`projectQueryShape`,
+ * imported from activity-store — DRY, one gate) used by the classifier/summary.
+ * `query_full` (migration 062) ADDITIONALLY stores the COMPLETE query verbatim —
+ * filter values, dateRange, any UID list — a deliberate admin-only posture so an
+ * operator can reproduce the exact slow/failed query; exposure is bounded by the
+ * admin-only read routes + 30d prune. `error_excerpt` is a truncated upstream
+ * error MESSAGE, not a query payload.
  *
  * Sampling: ALL non-200s are captured (the actionable failures); 200s are
  * sampled to bound write volume (see `shouldCapture`).
@@ -36,6 +39,8 @@ export interface QueryPerfInput {
   usedPreaggs?: unknown;
   /** Upstream error body for non-200; truncated + sanitised before persist. */
   errorBody?: unknown;
+  /** Sanitized originating route (browser Referer path); null for API callers. */
+  source?: string | null;
   /** Defaults to Date.now(); injectable for tests. */
   ts?: number;
 }
@@ -54,6 +59,10 @@ export interface QueryPerfRow {
   preaggHit: number | null;
   shape: QueryShape | null;
   errorExcerpt: string | null;
+  /** Complete query verbatim (parsed) — includes values/dateRange. Admin-only. */
+  queryFull: unknown | null;
+  /** Originating route (e.g. /dashboards/123), or null for API callers. */
+  source: string | null;
 }
 
 interface RawRow {
@@ -70,6 +79,13 @@ interface RawRow {
   preagg_hit: number | null;
   query_shape: string | null;
   error_excerpt: string | null;
+  query_full: string | null;
+  source: string | null;
+}
+
+function parseJson(json: string | null): unknown | null {
+  if (!json) return null;
+  try { return JSON.parse(json); } catch { return null; }
 }
 
 function rowFromRaw(r: RawRow): QueryPerfRow {
@@ -87,8 +103,13 @@ function rowFromRaw(r: RawRow): QueryPerfRow {
     preaggHit: r.preagg_hit,
     shape: parseQueryShape(r.query_shape),
     errorExcerpt: r.error_excerpt,
+    queryFull: parseJson(r.query_full),
+    source: r.source,
   };
 }
+
+/** Bound the stored verbatim query so a pathological payload can't bloat a row. */
+const QUERY_FULL_MAX = 16_000;
 
 /** Default slow-200 threshold (ms): a 200 above this is always captured. */
 export const SLOW_MS = Number(process.env.PERF_SLOW_MS) || 3000;
@@ -141,13 +162,20 @@ export function insertQueryPerf(db: Database.Database, input: QueryPerfInput): Q
   const usedPreaggs =
     input.usedPreaggs != null ? JSON.stringify(input.usedPreaggs) : null;
   const errorExcerpt = input.status === 200 ? null : errorExcerptOf(input.errorBody);
+  // Verbatim query (incl. values/dateRange/UIDs) — admin-only, bounded length.
+  let queryFull: string | null = null;
+  if (input.query != null) {
+    const raw = JSON.stringify(input.query);
+    queryFull = raw.length > QUERY_FULL_MAX ? raw.slice(0, QUERY_FULL_MAX) : raw;
+  }
+  const source = input.source ?? null;
 
   const info = db
     .prepare(
       `INSERT INTO query_perf
          (ts, actor_sub, actor_email, workspace, game, method, status, latency_ms,
-          used_preaggs, preagg_hit, query_shape, error_excerpt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+          used_preaggs, preagg_hit, query_shape, error_excerpt, query_full, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
     )
     .run(
       ts,
@@ -161,6 +189,8 @@ export function insertQueryPerf(db: Database.Database, input: QueryPerfInput): Q
       usedPreaggs,
       shapeJson,
       errorExcerpt,
+      queryFull,
+      source,
     );
 
   return {
@@ -177,6 +207,8 @@ export function insertQueryPerf(db: Database.Database, input: QueryPerfInput): Q
     preaggHit: null,
     shape,
     errorExcerpt,
+    queryFull: parseJson(queryFull),
+    source,
   };
 }
 
@@ -248,7 +280,8 @@ export function queryPerf(db: Database.Database, opts: QueryPerfOpts = {}): Quer
   const rows = db
     .prepare(
       `SELECT id, ts, actor_sub, actor_email, workspace, game, method, status,
-              latency_ms, used_preaggs, preagg_hit, query_shape, error_excerpt
+              latency_ms, used_preaggs, preagg_hit, query_shape, error_excerpt,
+              query_full, source
          FROM query_perf
          ${where}
         ORDER BY ts DESC, id DESC
@@ -264,7 +297,8 @@ export function getQueryPerfById(db: Database.Database, id: number): QueryPerfRo
   const r = db
     .prepare(
       `SELECT id, ts, actor_sub, actor_email, workspace, game, method, status,
-              latency_ms, used_preaggs, preagg_hit, query_shape, error_excerpt
+              latency_ms, used_preaggs, preagg_hit, query_shape, error_excerpt,
+              query_full, source
          FROM query_perf WHERE id = ?`,
     )
     .get(id) as RawRow | undefined;

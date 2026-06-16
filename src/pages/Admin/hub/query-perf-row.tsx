@@ -3,11 +3,14 @@
  *
  * Status pill (504/502/400 → destructive, slow-200 → warning, 200 → success),
  * latency (red past the slow threshold), a routing badge (hit / miss / lambda?),
- * the NAMES-only query shape as chips, and the "Optimize →" affordance that
- * selects the row to open the master-detail panel. Tokens only — no inline hex.
+ * and the NAMES-only query shape as chips. Failure rows are expandable: a leading
+ * chevron toggles an inline recommendation panel (rendered by the parent table).
+ * No "Optimize" action button yet — that affordance is reserved for when a real
+ * fix-activation flow is wired in.
  */
 
 import React from 'react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import type { QueryPerfRowDto } from './query-perf-data';
 
 /** Fallback slow threshold (ms) when the server summary hasn't loaded yet. */
@@ -62,46 +65,41 @@ function ShapeChips({ row }: { row: QueryPerfRowDto }) {
 }
 
 export function QueryPerfRow({
-  row, selected, onSelect, showOptimize = true, slowMs = DEFAULT_SLOW_MS,
+  row, expanded = false, onToggle, expandable = true, slowMs = DEFAULT_SLOW_MS,
 }: {
   row: QueryPerfRowDto;
-  selected?: boolean;
-  onSelect?: (id: number) => void;
-  showOptimize?: boolean;
+  expanded?: boolean;
+  onToggle?: (id: number) => void;
+  /** Failure rows expand to a recommendation; success rows don't. */
+  expandable?: boolean;
   slowMs?: number;
 }) {
   const slow = row.status === 200 && row.latencyMs >= slowMs;
   const latBad = row.status >= 400 || slow;
   return (
     <tr
-      onClick={() => onSelect?.(row.id)}
+      onClick={() => expandable && onToggle?.(row.id)}
       style={{
-        cursor: onSelect ? 'pointer' : 'default',
-        background: selected ? 'var(--surface-inset)' : undefined,
+        cursor: expandable ? 'pointer' : 'default',
+        background: expanded ? 'var(--surface-inset)' : undefined,
         borderBottom: '1px solid var(--border-card)',
       }}
       data-testid={`qp-row-${row.id}`}
     >
-      <td style={{ padding: '11px 14px' }}><StatusPill row={row} slowMs={slowMs} /></td>
+      <td style={{ padding: '11px 14px', whiteSpace: 'nowrap' }}>
+        {expandable && (
+          <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 6, color: 'var(--text-muted)' }}>
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+        )}
+        <StatusPill row={row} slowMs={slowMs} />
+      </td>
       <td style={{ padding: '11px 14px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: latBad ? 'var(--destructive-ink)' : 'var(--text-primary)' }}>
         {(row.latencyMs / 1000).toFixed(1)}s
       </td>
       <td style={{ padding: '11px 14px' }}><RoutingBadge row={row} /></td>
       <td style={{ padding: '11px 14px' }}><ShapeChips row={row} /></td>
       <td style={{ padding: '11px 14px', fontSize: 12, color: 'var(--text-secondary)' }}>{row.game ?? '—'}</td>
-      {showOptimize && (
-        <td style={{ padding: '11px 14px', textAlign: 'right' }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); onSelect?.(row.id); }}
-            style={{
-              fontSize: 12, fontWeight: 600, color: 'var(--brand)', background: 'none',
-              border: '1px solid var(--border-strong)', borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
-            }}
-          >
-            Optimize →
-          </button>
-        </td>
-      )}
     </tr>
   );
 }

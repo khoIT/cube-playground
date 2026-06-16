@@ -36,6 +36,25 @@ function gameIdOf(req: FastifyRequest): string | null {
 }
 
 /**
+ * The originating app route, derived from the browser Referer — e.g.
+ * `/dashboards/123`, `/segments/45`, `/playground`. Path only (querystring
+ * stripped so no stray values ride along); it is an app route, not PII.
+ * Server-to-server callers (chat-service) send no Referer → null (shown as
+ * "api" in the admin UI). Bounded length so a hostile header can't bloat a row.
+ */
+function sourceOf(req: FastifyRequest): string | null {
+  const raw = req.headers.referer ?? req.headers.referrer;
+  const ref = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof ref !== 'string' || !ref) return null;
+  try {
+    return new URL(ref).pathname.slice(0, 200);
+  } catch {
+    // Not an absolute URL — keep the path portion only, drop any querystring.
+    return ref.split('?')[0].slice(0, 200) || null;
+  }
+}
+
+/**
  * Fire-and-forget telemetry for a successful Cube query. `query` is the raw
  * Cube payload — `projectQueryShape` strips it to member names before it is
  * ever persisted (no filter values, no UIDs). Only emitted on a 200 so failed
@@ -87,6 +106,7 @@ function emitQueryPerf(
     query,
     usedPreaggs,
     errorBody: ok ? undefined : body,
+    source: sourceOf(req),
   });
 }
 

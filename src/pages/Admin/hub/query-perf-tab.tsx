@@ -50,13 +50,20 @@ const TH: React.CSSProperties = {
   textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid var(--border-card)', fontWeight: 600,
 };
 
+const COL_COUNT = 5;
+
+/**
+ * Failure/success table. Failure rows are expandable: clicking a row toggles an
+ * inline recommendation row beneath it (verdict + remedy + draft YAML). Success
+ * rows aren't expandable (no remedy to show).
+ */
 function RowTable({
-  rows, selectedId, onSelect, showOptimize, slowMs,
+  rows, expandedId, onToggle, expandable, slowMs,
 }: {
   rows: QueryPerfRowDto[];
-  selectedId: number | null;
-  onSelect: (id: number) => void;
-  showOptimize: boolean;
+  expandedId: number | null;
+  onToggle: (id: number) => void;
+  expandable: boolean;
   slowMs?: number;
 }) {
   return (
@@ -64,12 +71,27 @@ function RowTable({
       <thead>
         <tr>
           <th style={TH}>Status</th><th style={TH}>Latency</th><th style={TH}>Routing</th>
-          <th style={TH}>Query shape</th><th style={TH}>Game</th>{showOptimize && <th style={TH}></th>}
+          <th style={TH}>Query shape</th><th style={TH}>Game</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((r) => (
-          <QueryPerfRow key={r.id} row={r} selected={r.id === selectedId} onSelect={onSelect} showOptimize={showOptimize} slowMs={slowMs} />
+          <React.Fragment key={r.id}>
+            <QueryPerfRow
+              row={r}
+              expandable={expandable}
+              expanded={expandable && r.id === expandedId}
+              onToggle={onToggle}
+              slowMs={slowMs}
+            />
+            {expandable && r.id === expandedId && (
+              <tr data-testid={`qp-expand-${r.id}`}>
+                <td colSpan={COL_COUNT} style={{ padding: '0 14px 14px', background: 'var(--surface-inset)' }}>
+                  <QueryPerfOptimizePanel row={r} />
+                </td>
+              </tr>
+            )}
+          </React.Fragment>
         ))}
       </tbody>
     </table>
@@ -98,7 +120,7 @@ function SuccessSection() {
       </div>
       {open && rows.length > 0 && (
         <div style={{ marginTop: 10 }}>
-          <RowTable rows={rows} selectedId={null} onSelect={() => {}} showOptimize={false} />
+          <RowTable rows={rows} expandedId={null} onToggle={() => {}} expandable={false} />
         </div>
       )}
     </div>
@@ -108,8 +130,8 @@ function SuccessSection() {
 export function QueryPerfTab() {
   const { summary } = useQueryPerfSummary();
   const { rows, loading, error } = useQueryPerfFailures();
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selectedRow = rows.find((r) => r.id === selectedId) ?? null;
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const toggle = (id: number) => setExpandedId((cur) => (cur === id ? null : id));
 
   return (
     <div role="tabpanel" id="hub-tab-panel-query-perf" aria-labelledby="hub-tab-query-perf" style={{ fontFamily: 'var(--font-sans)' }}>
@@ -138,10 +160,7 @@ export function QueryPerfTab() {
       )}
 
       {rows.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedRow ? 'minmax(420px, 1fr) 1.1fr' : '1fr', gap: 16, alignItems: 'start' }}>
-          <RowTable rows={rows} selectedId={selectedId} onSelect={setSelectedId} showOptimize slowMs={summary?.slowMs} />
-          {selectedRow && <QueryPerfOptimizePanel row={selectedRow} onClose={() => setSelectedId(null)} />}
-        </div>
+        <RowTable rows={rows} expandedId={expandedId} onToggle={toggle} expandable slowMs={summary?.slowMs} />
       )}
 
       <SuccessSection />

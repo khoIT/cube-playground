@@ -177,7 +177,7 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 
 | Method | Path | Auth/Roles | Headers | Response | Data sources |
 |---|---|---|---|---|---|
-| GET | `/api/query-perf/failures` | admin | `authorization`, `?since,limit` | `{rows:[{id,ts,actorEmail,workspace,game,method,status,latencyMs,usedPreaggs[],preaggHit,matchability,reason,shape,errorExcerpt}]}` newest-first (non-200 queries, 30d default window) | SQLite query_perf |
+| GET | `/api/query-perf/failures` | admin | `authorization`, `?since,limit` | `{rows:[{id,ts,actorEmail,workspace,game,method,status,latencyMs,usedPreaggs[],preaggHit,matchability,reason,shape,errorExcerpt,queryFull,source}]}` newest-first (non-200 queries, 30d window). **`queryFull`** = verbatim query incl. values/dateRange (admin-only); **`source`** = originating route from Referer | SQLite query_perf |
 | GET | `/api/query-perf/recent` | admin | `authorization`, `?since,limit` | `{rows:[...]}` 200-status queries (success list) | SQLite query_perf |
 | GET | `/api/query-perf/summary` | admin | `authorization`, `?since` | `{total,failures,slow,fallthrough,p50LatencyMs,p95LatencyMs,slowMs}` KPI rollups | SQLite query_perf |
 | GET | `/api/query-perf/:id/suggestion` | admin | `authorization` | `{verdict,playbooks:[{id,title,rationale,steps,scaffolds}],best,needsLlm}` deterministic classifier→playbook match (no LLM) / 404 | query-perf-classifier, optimization-playbook-matcher |

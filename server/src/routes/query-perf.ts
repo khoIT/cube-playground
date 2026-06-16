@@ -66,6 +66,9 @@ function toDto(r: QueryPerfRow, viewCache: Map<string, RegistryView>) {
     reason: verdict.reason,
     shape: r.shape,
     errorExcerpt: r.errorExcerpt,
+    // Admin-only: the verbatim query (incl. values/dateRange) + originating route.
+    queryFull: r.queryFull,
+    source: r.source,
   };
 }
 

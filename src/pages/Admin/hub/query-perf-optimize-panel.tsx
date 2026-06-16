@@ -1,14 +1,15 @@
 /**
- * Master-detail Optimize panel — opens when an admin selects a failure row.
+ * Recommendation panel — rendered INLINE inside an expanded failure row.
  *
  * Shows the classifier verdict, the best optimization playbook (+ alternatives),
  * the DRAFT rollup YAML when the remedy scaffolds one (copy-able, with warnings),
  * and — only when no playbook fits (needsLlm) — an on-demand "Generate via LLM"
- * affordance. Read-only/advisory: nothing is applied server-side. Tokens only.
+ * affordance. Read-only/advisory: nothing is applied server-side (no fix-
+ * activation flow yet). Tokens only.
  */
 
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { LayoutGrid, ChevronRight, ChevronDown } from 'lucide-react';
 import {
   useQueryPerfSuggestion,
   useLlmSuggest,
@@ -19,6 +20,36 @@ const lab: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
   color: 'var(--text-muted)', margin: '16px 0 6px',
 };
+
+const codePre: React.CSSProperties = {
+  background: 'var(--surface-inverse)', color: 'var(--text-inverse)', borderRadius: 8,
+  padding: 12, fontSize: 11.5, lineHeight: 1.5, overflow: 'auto', margin: '6px 0',
+};
+
+/** Humanize a Referer route into a readable "Section › id" label. */
+function sourceLabel(source: string | null): string {
+  if (!source) return 'API / server';
+  const parts = source.split('/').filter(Boolean);
+  if (parts.length === 0) return 'App';
+  const section = parts[0].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return parts.length > 1 ? `${section} › ${parts.slice(1).join('/')}` : section;
+}
+
+/** The verbatim query (admin-only) — collapsible since it can be long. */
+function QueryBlock({ query }: { query: unknown }) {
+  const [open, setOpen] = useState(false);
+  if (query == null) return null;
+  return (
+    <>
+      <div style={{ ...lab, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => setOpen((o) => !o)}>
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        Query
+        <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>· verbatim (admin-only)</span>
+      </div>
+      {open && <pre style={codePre}>{JSON.stringify(query, null, 2)}</pre>}
+    </>
+  );
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -35,38 +66,36 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function QueryPerfOptimizePanel({ row, onClose }: { row: QueryPerfRowDto; onClose: () => void }) {
+export function QueryPerfOptimizePanel({ row }: { row: QueryPerfRowDto }) {
   const { suggestion, scaffold, loading, error } = useQueryPerfSuggestion(row.id);
   const llm = useLlmSuggest();
-
-  const shapeTitle = row.shape
-    ? [row.shape.cubes[0], ...row.shape.measures, ...row.shape.dimensions]
-        .filter(Boolean)
-        .map((m) => (m?.includes('.') ? m.slice(m.indexOf('.') + 1) : m))
-        .join(' · ')
-    : `query #${row.id}`;
 
   return (
     <div
       style={{
-        background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: 10,
-        padding: '16px 18px', position: 'sticky', top: 16, fontFamily: 'var(--font-sans)',
+        background: 'var(--surface-inset)', borderRadius: 8,
+        padding: '14px 16px', fontFamily: 'var(--font-sans)',
       }}
       data-testid="qp-optimize-panel"
     >
-      <div style={{ display: 'flex', alignItems: 'start', gap: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)', flex: 1, wordBreak: 'break-word' }}>{shapeTitle}</h3>
-        <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-          <X size={16} />
-        </button>
+      {/* Where the query came from (Referer-derived route) + HTTP method. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
+        <LayoutGrid size={14} style={{ color: 'var(--text-muted)' }} />
+        Used in <b style={{ color: 'var(--text-primary)' }}>{sourceLabel(row.source)}</b>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: 6, padding: '1px 7px' }}>
+          {row.method}
+        </span>
       </div>
 
-      {loading && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Analyzing…</p>}
+      {/* Verbatim query (admin-only), collapsible. */}
+      <QueryBlock query={row.queryFull} />
+
+      {loading && <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Analyzing…</p>}
       {error && <p style={{ fontSize: 13, color: 'var(--destructive-ink)' }}>{error}</p>}
 
       {suggestion && (
         <>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '8px 0 0', background: 'var(--surface-inset)', borderRadius: 8, padding: '9px 12px' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: 8, padding: '9px 12px' }}>
             <b>{suggestion.verdict.matchability} · {suggestion.verdict.preaggHit}</b> — {suggestion.verdict.reason}
           </div>
 
