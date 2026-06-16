@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-radius="standard">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VNGG Hub UI → cube-playground · Adoption Map</title>
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   PAGE SHELL — neutral documentation canvas so both product samples read clean.
+   Not cream, not VNGG-grey: a third, quiet shell. Inter, brand #f05a22 accent.
+   ───────────────────────────────────────────────────────────────────────── */
+:root{
+  --brand:#f05a22; --brand-ink:#d44501;
+  --pg:#f4f5f7; --pg-card:#ffffff; --pg-bd:#e4e6ea; --pg-bd2:#eef0f3;
+  --pg-tx:#16181d; --pg-tx2:#54585f; --pg-tx3:#878d96;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --shadow:0 1px 2px rgba(16,18,23,.06),0 4px 16px rgba(16,18,23,.05);
+}
+[data-theme="dark"]{
+  --pg:#0e0f12; --pg-card:#16181c; --pg-bd:#272a30; --pg-bd2:#1d2024;
+  --pg-tx:#f3f4f6; --pg-tx2:#a6abb3; --pg-tx3:#6d727b;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 22px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:var(--sans); background:var(--pg); color:var(--pg-tx);
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  text-wrap:pretty;
+}
+.wrap{max-width:1240px; margin:0 auto; padding:0 32px 120px}
+code,.mono{font-family:var(--mono); font-size:.86em}
+h1,h2,h3{letter-spacing:-.02em; line-height:1.15; margin:0}
+a{color:var(--brand-ink)}
+
+/* ── top bar ── */
+.topbar{position:sticky; top:0; z-index:50; background:color-mix(in srgb,var(--pg) 86%,transparent);
+  backdrop-filter:blur(12px); border-bottom:1px solid var(--pg-bd); margin-bottom:40px}
+.topbar .row{max-width:1240px; margin:0 auto; padding:13px 32px; display:flex; align-items:center; gap:16px}
+.dot{width:22px;height:22px;border-radius:6px;background:var(--brand);display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;flex:none}
+.topbar b{font-weight:700;font-size:14.5px;letter-spacing:-.01em}
+.topbar .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--pg-bd);border-radius:8px;overflow:hidden;background:var(--pg-card)}
+.seg button{border:0;background:transparent;color:var(--pg-tx2);font:600 12px/1 var(--sans);padding:7px 11px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
+.seg button+button{border-left:1px solid var(--pg-bd)}
+.tlabel{font-size:11px;color:var(--pg-tx3);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+
+/* ── hero ── */
+.hero{padding:14px 0 8px}
+.eyebrow{font-size:12px;font-weight:700;color:var(--brand-ink);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px}
+.hero h1{font-size:40px;font-weight:800;max-width:18ch}
+.hero p.lede{font-size:17px;color:var(--pg-tx2);max-width:62ch;margin-top:18px;line-height:1.55}
+.thesis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:30px}
+.thesis div{background:var(--pg-card);border:1px solid var(--pg-bd);border-radius:12px;padding:16px 18px}
+.thesis h4{font-size:13px;font-weight:700;margin-bottom:5px;display:flex;gap:8px;align-items:center}
+.thesis p{font-size:12.5px;color:var(--pg-tx2);margin:0}
+.thesis .n{width:18px;height:18px;border-radius:5px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800;flex:none}
+
+/* ── section scaffolding ── */
+section{margin-top:64px}
+.shead{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.snum{font-family:var(--mono);font-size:12px;color:var(--brand-ink);font-weight:600;padding-top:4px}
+.shead h2{font-size:25px;font-weight:800}
+.sdesc{color:var(--pg-tx2);font-size:14px;max-width:74ch;margin:8px 0 26px}
+
+/* ── three-column comparison frame ── */
+.cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.pane{background:var(--pg-card);border:1px solid var(--pg-bd);border-radius:13px;overflow:hidden}
+.pane>.cap{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--pg-bd2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.cap .pill{font-size:9.5px;padding:2px 7px;border-radius:999px;font-weight:700;letter-spacing:.04em}
+.cap.now .pill{background:#f8efe5;color:#9a5b2c;border:1px solid #e1d4c2}
+.cap.vngg .pill{background:#fff1ea;color:#d44501;border:1px solid #ffd7c6}
+.cap.conv .pill{background:#e8f6ee;color:#15803d;border:1px solid #bbe9cc}
+[data-theme=dark] .cap.now .pill{background:#2a241c;color:#d9a878;border-color:#46402f}
+[data-theme=dark] .cap.vngg .pill{background:#2a1a12;color:#fca78b;border-color:#5a3322}
+[data-theme=dark] .cap.conv .pill{background:#10241a;color:#6ee7a8;border-color:#1f5037}
+.cap small{color:var(--pg-tx3);font-weight:600;letter-spacing:0;text-transform:none;font-size:10.5px}
+.stage{padding:22px 18px;min-height:120px;display:flex;flex-direction:column;gap:13px;align-items:flex-start;justify-content:center}
+.stage.center{align-items:center}
+
+/* component row meta */
+.crow{margin-bottom:30px}
+.crow .ctitle{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+.crow .ctitle h3{font-size:16px;font-weight:700}
+.tag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.02em}
+.tag.token{background:#e8f6ee;color:#15803d}
+.tag.mirror{background:#fef3e2;color:#b45309}
+.tag.skip{background:#eef0f3;color:#6b7280}
+.tag.eff{background:transparent;border:1px dashed var(--pg-bd);color:var(--pg-tx3)}
+[data-theme=dark] .tag.token{background:#10241a;color:#6ee7a8}
+[data-theme=dark] .tag.mirror{background:#2a1f0e;color:#fbbf24}
+[data-theme=dark] .tag.skip{background:#1d2024;color:#9aa0a8}
+.crow .note{font-size:12.5px;color:var(--pg-tx2);margin:0 0 12px;max-width:96ch}
+.crow .note b{color:var(--pg-tx)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SAMPLE SYSTEMS — each renders with its OWN token values (real hex).
+   .s-now  = cube-playground today (warm cream, flat status pairs, Ant-ish)
+   .s-vngg = VNGG Hub UI (cool grey, Radix scales, state-aware fills, tv())
+   .s-conv = converged: cube's stack adopting VNGG's token taxonomy
+   ═══════════════════════════════════════════════════════════════════════════ */
+.s{ /* shared sample scaffolding; per-system vars below */
+  --r:8px;
+}
+.s,.s *{font-family:var(--sans)}
+
+/* cube-playground NOW — warm cream Actioneer two-tone */
+.s-now{
+  --bg:#f8efe5; --card:#f8efe5; --raised:#fffdf9; --bd:#e1d4c2; --bd2:#d8c8b2;
+  --tx:#1c1a17; --tx2:#6b6151; --tx3:#9a8f7c;
+  --br:#f05a22; --br-h:#df5018; --br-press:#d44501;
+  --r:8px;
+  --ok-soft:#d1fae5; --ok-ink:#047857; --warn-soft:#fef3c7; --warn-ink:#92400e;
+  --bad-soft:#fee2e2; --bad-ink:#991b1b; --info-soft:#dbeafe; --info-ink:#1d4ed8;
+}
+[data-theme=dark] .s-now{
+  --bg:#1a1815; --card:#211e1a; --raised:#272320; --bd:#3a342b; --bd2:#4a4236;
+  --tx:#faf7f2; --tx2:#b8ac99; --tx3:#7e7565;
+  --ok-soft:rgba(16,185,129,.15); --ok-ink:#6ee7b7; --warn-soft:rgba(217,119,6,.18); --warn-ink:#fcd34d;
+  --bad-soft:rgba(220,38,38,.18); --bad-ink:#fca5a5; --info-soft:rgba(63,141,255,.18); --info-ink:#93c5fd;
+}
+/* VNGG Hub UI — cool neutral, Radix 12-step */
+.s-vngg{
+  --bg:#f9f9f9; --card:#ffffff; --raised:#ffffff; --bd:#e3e3e3; --bd2:#ededed;
+  --tx:#141414; --tx2:#616161; --tx3:#8d8d8d;
+  --br:#f05a22; --br-h:#df5018; --br-press:#d44501;
+  --r:8px;
+  /* state-aware accent fills */
+  --acc-solid:#f05a22; --acc-solid-h:#df5018; --acc-solid-press:#d44501;
+  --acc-subtle:#fff1ea; --acc-subtle-h:#ffe3d6; --acc-content:#d44501;
+  --acc-ghost-h:#fff6f2;
+  --ok-soft:#e6f6ec; --ok-ink:#1a7f4b; --warn-soft:#fdf3e3; --warn-ink:#a8620a;
+  --bad-soft:#fdecec; --bad-ink:#c2362f; --info-soft:#eaf2ff; --info-ink:#2563d6;
+}
+[data-theme=dark] .s-vngg{
+  --bg:#0f0f0f; --card:#181818; --raised:#1f1f1f; --bd:#2a2a2a; --bd2:#222;
+  --tx:#fcfcfc; --tx2:#a0a0a0; --tx3:#6f6f6f;
+  --acc-subtle:#2a1812; --acc-subtle-h:#3a2016; --acc-content:#fca78b; --acc-ghost-h:#21140e;
+  --ok-soft:rgba(34,180,110,.16); --ok-ink:#5fd39a; --warn-soft:rgba(200,130,20,.18); --warn-ink:#f2c14e;
+  --bad-soft:rgba(220,60,52,.18); --bad-ink:#f08a82; --info-soft:rgba(60,120,240,.18); --info-ink:#86b3ff;
+}
+/* CONVERGED — VNGG taxonomy, but signalling it lives in cube's stack.
+   Keeps a hair of warmth on the canvas; full state-aware fills. */
+.s-conv{
+  --bg:#fbfbfa; --card:#ffffff; --raised:#ffffff; --bd:#e6e4e1; --bd2:#efeeec;
+  --tx:#15140f; --tx2:#5d5b54; --tx3:#8c897f;
+  --br:#f05a22; --br-h:#df5018; --br-press:#d44501;
+  --r:8px;
+  --acc-solid:#f05a22; --acc-solid-h:#df5018; --acc-solid-press:#d44501;
+  --acc-subtle:#fff1ea; --acc-subtle-h:#ffe3d6; --acc-content:#d44501; --acc-ghost-h:#fff6f2;
+  --ok-soft:#e6f6ec; --ok-ink:#1a7f4b; --warn-soft:#fdf3e3; --warn-ink:#a8620a;
+  --bad-soft:#fdecec; --bad-ink:#c2362f; --info-soft:#eaf2ff; --info-ink:#2563d6;
+}
+[data-theme=dark] .s-conv{
+  --bg:#121210; --card:#1a1a17; --raised:#201f1c; --bd:#2c2a26; --bd2:#222;
+  --tx:#f7f6f2; --tx2:#a3a098; --tx3:#706d64;
+  --acc-subtle:#2a1812; --acc-subtle-h:#3a2016; --acc-content:#fca78b; --acc-ghost-h:#21140e;
+  --ok-soft:rgba(34,180,110,.16); --ok-ink:#5fd39a; --warn-soft:rgba(200,130,20,.18); --warn-ink:#f2c14e;
+  --bad-soft:rgba(220,60,52,.18); --bad-ink:#f08a82; --info-soft:rgba(60,120,240,.18); --info-ink:#86b3ff;
+}
+
+/* radius axis (VNGG + converged respond to data-radius; cube NOW is fixed) */
+[data-radius="rounded"] .s-vngg,[data-radius="rounded"] .s-conv{--r:14px}
+[data-radius="standard"] .s-vngg,[data-radius="standard"] .s-conv{--r:8px}
+[data-radius="smooth"] .s-vngg,[data-radius="smooth"] .s-conv{--r:4px}
+[data-radius="luxury"] .s-vngg,[data-radius="luxury"] .s-conv{--r:20px}
+
+.stage{background:var(--bg)}
+.stage .surf{background:var(--card)}
+
+/* ── BUTTONS ── */
+.btn{font:600 13px/1 var(--sans);padding:9px 15px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;transition:background .15s,box-shadow .15s;display:inline-flex;align-items:center;gap:7px}
+.btn-row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+/* NOW: Ant-ish — solid brand, light secondary, text tertiary */
+.s-now .btn.pri{background:var(--br);color:#fff}
+.s-now .btn.pri:hover{background:var(--br-h)}
+.s-now .btn.sec{background:var(--raised);color:var(--tx);border-color:var(--bd2)}
+.s-now .btn.ter{background:transparent;color:var(--br);}
+.s-now .btn.dis{background:#e7ddd0;color:#b3a48f;cursor:not-allowed}
+/* VNGG + conv: state-aware fill ladder */
+.s-vngg .btn.pri,.s-conv .btn.pri{background:var(--acc-solid);color:#fff}
+.s-vngg .btn.pri:hover,.s-conv .btn.pri:hover{background:var(--acc-solid-h)}
+.s-vngg .btn.sec,.s-conv .btn.sec{background:var(--acc-subtle);color:var(--acc-content)}
+.s-vngg .btn.sec:hover,.s-conv .btn.sec:hover{background:var(--acc-subtle-h)}
+.s-vngg .btn.ter,.s-conv .btn.ter{background:transparent;color:var(--tx);border-color:var(--bd)}
+.s-vngg .btn.ter:hover,.s-conv .btn.ter:hover{background:var(--acc-ghost-h)}
+.s-vngg .btn.gho,.s-conv .btn.gho{background:transparent;color:var(--tx2)}
+.s-vngg .btn.gho:hover,.s-conv .btn.gho:hover{background:var(--acc-ghost-h);color:var(--tx)}
+.s-vngg .btn.dis,.s-conv .btn.dis{background:var(--bd2);color:var(--tx3);cursor:not-allowed}
+.bcaption{font-size:10px;color:var(--tx3);font-weight:600;letter-spacing:.02em;margin-top:2px}
+
+/* ── BADGES / TAGS / CHIPS ── */
+.badge{font:600 11px/1 var(--sans);padding:4px 9px;border-radius:999px;display:inline-flex;gap:5px;align-items:center}
+.s-now .badge.ok{background:var(--ok-soft);color:var(--ok-ink)}
+.s-now .badge.wa{background:var(--warn-soft);color:var(--warn-ink)}
+.s-now .badge.ba{background:var(--bad-soft);color:var(--bad-ink)}
+.s-now .badge.inf{background:var(--info-soft);color:var(--info-ink)}
+.s-vngg .badge.ok,.s-conv .badge.ok{background:var(--ok-soft);color:var(--ok-ink)}
+.s-vngg .badge.wa,.s-conv .badge.wa{background:var(--warn-soft);color:var(--warn-ink)}
+.s-vngg .badge.ba,.s-conv .badge.ba{background:var(--bad-soft);color:var(--bad-ink)}
+.s-vngg .badge.inf,.s-conv .badge.inf{background:var(--info-soft);color:var(--info-ink)}
+.badge.solid{background:var(--br)!important;color:#fff!important}
+.chip{font:600 12px/1 var(--sans);padding:6px 11px 6px 9px;border-radius:var(--r);border:1px solid var(--bd);background:var(--raised);color:var(--tx);display:inline-flex;gap:6px;align-items:center}
+.chip .x{color:var(--tx3);font-weight:700}
+.dotmark{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+
+/* ── INPUTS ── */
+.field{display:flex;flex-direction:column;gap:5px;width:100%;max-width:230px}
+.field label{font-size:11px;font-weight:600;color:var(--tx2)}
+.inp{font:500 13px/1 var(--sans);padding:9px 11px;border-radius:var(--r);border:1px solid var(--bd);background:var(--raised);color:var(--tx);width:100%}
+.s-now .inp{border-color:var(--bd2)}
+.inp.focus{border-color:var(--br);box-shadow:0 0 0 3px color-mix(in srgb,var(--br) 18%,transparent)}
+.s-vngg .inp.focus,.s-conv .inp.focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--br) 22%,transparent)}
+.sel{display:flex;align-items:center;justify-content:space-between}
+.sel .car{color:var(--tx3)}
+
+/* ── SEGMENTED ── */
+.segc{display:inline-flex;background:var(--bd2);padding:3px;border-radius:var(--r);gap:2px}
+.segc button{border:0;background:transparent;font:600 12px/1 var(--sans);color:var(--tx2);padding:6px 12px;border-radius:calc(var(--r) - 3px);cursor:pointer}
+.segc button.on{background:var(--raised);color:var(--tx);box-shadow:var(--shadow)}
+.s-vngg .segc button.on,.s-conv .segc button.on{background:var(--card);color:var(--acc-content)}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);width:100%}
+.tabs button{border:0;background:transparent;font:600 13px/1 var(--sans);color:var(--tx2);padding:10px 13px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--br);border-bottom-color:var(--br)}
+.s-now .tabs button.on{color:var(--tx);border-bottom-color:var(--br)}
+
+/* ── TABLE ── */
+table.tbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);border-radius:var(--r);overflow:hidden;border:1px solid var(--bd)}
+.tbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--bd)}
+.tbl td{padding:9px 12px;color:var(--tx);border-bottom:1px solid var(--bd2)}
+.tbl tr:last-child td{border-bottom:0}
+.s-vngg .tbl tbody tr:nth-child(even),.s-conv .tbl tbody tr:nth-child(even){background:var(--bg)}
+.s-now .tbl tbody tr:hover{background:#fffdf9}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ── METRIC CARD ── */
+.metric{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;min-width:180px}
+.s-now .metric{border-color:var(--bd2)}
+.metric .k{font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em}
+.metric .v{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:7px 0 6px;font-variant-numeric:tabular-nums}
+.metric .d{font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.metric .d.up{color:var(--ok-ink)} .metric .d.dn{color:var(--bad-ink)}
+
+/* ── LIST ITEM ── */
+.li{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:var(--r);width:100%;background:var(--card);border:1px solid var(--bd2)}
+.li .av{width:30px;height:30px;border-radius:8px;background:var(--acc-subtle,var(--info-soft));color:var(--acc-content,var(--info-ink));display:grid;place-items:center;font-weight:800;font-size:12px;flex:none}
+.li .t{font-weight:600;font-size:13px}.li .s{font-size:11.5px;color:var(--tx3)}
+.li .meta{margin-left:auto;font-size:11px;color:var(--tx3);font-family:var(--mono)}
+
+/* ── SIDEBAR NAV ── */
+.nav{width:100%;max-width:210px;background:var(--card);border:1px solid var(--bd2);border-radius:var(--r);padding:7px}
+.nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:calc(var(--r) - 2px);font-size:12.5px;font-weight:600;color:var(--tx2);text-decoration:none;margin-bottom:2px}
+.nav a .ic{width:15px;height:15px;border-radius:4px;background:currentColor;opacity:.55;flex:none}
+.nav a.on{background:var(--acc-subtle,var(--info-soft));color:var(--acc-content,var(--br))}
+.s-now .nav a.on{background:#fff1ea;color:var(--br)}
+.nav a:hover:not(.on){background:var(--bd2);color:var(--tx)}
+
+/* ── DIALOG ── */
+.dlg{background:var(--card);border:1px solid var(--bd);border-radius:calc(var(--r) + 2px);box-shadow:var(--shadow);width:100%;max-width:300px;overflow:hidden}
+.dlg .h{padding:15px 17px 0;font-weight:700;font-size:15px}
+.dlg .b{padding:8px 17px 16px;font-size:12.5px;color:var(--tx2)}
+.dlg .f{display:flex;gap:8px;justify-content:flex-end;padding:0 17px 16px}
+
+/* ── TOOLTIP / POPOVER ── */
+.tip{background:#1c1a17;color:#fff;font-size:11.5px;font-weight:500;padding:6px 10px;border-radius:7px;position:relative}
+.s-vngg .tip,.s-conv .tip{background:var(--tx)}
+.s-vngg .tip{color:var(--card)} .s-conv .tip{color:var(--card)}
+.pop{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:11px 13px;font-size:12px;color:var(--tx);max-width:200px}
+
+/* ── TOAST ── */
+.toast{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--bd);border-left:3px solid var(--ok-ink);border-radius:var(--r);box-shadow:var(--shadow);padding:11px 13px;max-width:280px}
+.s-vngg .toast,.s-conv .toast{border-left-color:transparent;border:1px solid var(--bd)}
+.s-vngg .toast .ic,.s-conv .toast .ic{background:var(--ok-soft);color:var(--ok-ink)}
+.toast .ic{width:22px;height:22px;border-radius:7px;background:var(--ok-soft);color:var(--ok-ink);display:grid;place-items:center;font-weight:800;font-size:12px;flex:none}
+.toast .tt{font-weight:700;font-size:12.5px}.toast .ts{font-size:11.5px;color:var(--tx2)}
+
+/* ── INLINE MESSAGE / ALERT BANNER ── */
+.alert{display:flex;gap:10px;align-items:flex-start;border-radius:var(--r);padding:11px 13px;width:100%;font-size:12.5px}
+.alert.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.alert .ic{font-weight:800;flex:none}
+.s-vngg .alert.warn,.s-conv .alert.warn{border:1px solid color-mix(in srgb,var(--warn-ink) 22%,transparent)}
+
+/* ── PROGRESS ── */
+.prog{width:100%;height:7px;border-radius:999px;background:var(--bd2);overflow:hidden}
+.prog i{display:block;height:100%;width:62%;background:var(--br);border-radius:999px}
+.s-vngg .prog i,.s-conv .prog i{background:var(--acc-solid)}
+
+/* ── BREADCRUMB ── */
+.crumb{display:flex;gap:7px;align-items:center;font-size:12.5px;color:var(--tx3);flex-wrap:wrap}
+.crumb a{color:var(--tx2);text-decoration:none;font-weight:600}
+.crumb b{color:var(--tx);font-weight:700}
+.crumb .sep{opacity:.5}
+
+/* ── PAGINATION ── */
+.pag{display:flex;gap:5px;align-items:center}
+.pag button{min-width:30px;height:30px;border-radius:calc(var(--r) - 1px);border:1px solid var(--bd);background:var(--card);color:var(--tx2);font:600 12px/1 var(--sans);cursor:pointer}
+.pag button.on{background:var(--br);color:#fff;border-color:var(--br)}
+.s-vngg .pag button.on,.s-conv .pag button.on{background:var(--acc-solid);border-color:var(--acc-solid)}
+
+/* ── STEPPER ── */
+.step{display:flex;align-items:center;gap:0;width:100%}
+.step .s{display:flex;align-items:center;gap:8px}
+.step .c{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--bd2);color:var(--tx3)}
+.step .c.done{background:var(--br);color:#fff}.step .c.now{background:var(--acc-subtle,var(--info-soft));color:var(--br);border:2px solid var(--br)}
+.s-vngg .step .c.done,.s-conv .step .c.done{background:var(--acc-solid)}
+.step .lab{font-size:11.5px;font-weight:600;color:var(--tx2)}
+.step .bar{flex:1;height:2px;background:var(--bd2);margin:0 9px}
+.step .bar.done{background:var(--br)}
+
+/* ── foundation swatches ── */
+.scale{display:flex;border-radius:10px;overflow:hidden;border:1px solid var(--pg-bd)}
+.scale i{flex:1;height:46px;display:grid;place-items:end center;padding-bottom:4px;font-size:8.5px;font-family:var(--mono);color:rgba(0,0,0,.45)}
+.swrow{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:center;margin-bottom:13px}
+.swrow .lab{font-size:12px;font-weight:600;color:var(--pg-tx2)}
+.swrow .lab small{display:block;color:var(--pg-tx3);font-weight:500;font-size:10.5px;margin-top:2px}
+.canv{display:flex;gap:12px}
+.canv .c{flex:1;border:1px solid var(--pg-bd);border-radius:10px;overflow:hidden}
+.canv .c .top{height:54px} .canv .c .bot{padding:8px 11px;font-size:11px;font-weight:600}
+.canv .c .bot small{display:block;font-family:var(--mono);color:var(--pg-tx3);font-weight:500;font-size:10px}
+.statline{display:flex;gap:8px;flex-wrap:wrap}
+.statline .b{font:600 11px/1 var(--sans);padding:6px 11px;border-radius:999px}
+
+/* token matrix */
+.matrix{display:grid;grid-template-columns:auto repeat(4,1fr);gap:7px;align-items:center;background:var(--pg-card);border:1px solid var(--pg-bd);border-radius:13px;padding:18px}
+.matrix .hd{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--pg-tx3);text-align:center}
+.matrix .rh{font-size:11.5px;font-weight:700;color:var(--pg-tx)}
+.mx{height:38px;border-radius:8px;display:grid;place-items:center;font-size:10px;font-weight:700;font-family:var(--mono)}
+.flatbox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--pg-card);border:1px dashed var(--pg-bd);border-radius:13px;padding:18px;margin-bottom:14px}
+.arrowrow{display:flex;align-items:center;gap:14px;color:var(--pg-tx3);font-size:12px;font-weight:600;margin:14px 0}
+.arrowrow .ar{font-size:20px;color:var(--brand)}
+
+/* roadmap */
+.tier{display:grid;grid-template-columns:36px 1fr auto;gap:14px;align-items:start;background:var(--pg-card);border:1px solid var(--pg-bd);border-radius:13px;padding:15px 17px;margin-bottom:11px}
+.tier .n{width:30px;height:30px;border-radius:9px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800}
+.tier h4{font-size:14.5px;font-weight:700}.tier p{font-size:12.5px;color:var(--pg-tx2);margin:5px 0 0;max-width:80ch}
+.tier .ef{font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;height:fit-content}
+.ef.lo{background:#e8f6ee;color:#15803d}.ef.md{background:#fef3e2;color:#b45309}.ef.hi{background:#fdecec;color:#c2362f}
+[data-theme=dark] .ef.lo{background:#10241a;color:#6ee7a8}[data-theme=dark] .ef.md{background:#2a1f0e;color:#fbbf24}[data-theme=dark] .ef.hi{background:#2a1212;color:#f08a82}
+.q{background:var(--pg-card);border:1px solid var(--pg-bd);border-left:3px solid var(--brand);border-radius:10px;padding:13px 16px;margin-bottom:9px;font-size:13px}
+.q b{font-weight:700}
+
+/* skip table */
+.skiptbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--pg-card);border:1px solid var(--pg-bd);border-radius:13px;overflow:hidden}
+.skiptbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--pg-tx3);padding:11px 14px;border-bottom:1px solid var(--pg-bd)}
+.skiptbl td{padding:10px 14px;border-bottom:1px solid var(--pg-bd2);color:var(--pg-tx2);vertical-align:top}
+.skiptbl td:first-child{color:var(--pg-tx);font-weight:600}
+.skiptbl tr:last-child td{border-bottom:0}
+
+.foot{margin-top:60px;padding-top:22px;border-top:1px solid var(--pg-bd);color:var(--pg-tx3);font-size:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:18px 0 26px;font-size:12px;color:var(--pg-tx2)}
+.legend span{display:inline-flex;gap:7px;align-items:center}
+@media(max-width:900px){.cols3,.thesis{grid-template-columns:1fr}.matrix{grid-template-columns:auto repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="row">
+  <div class="dot">V</div>
+  <b>VNGG Hub UI → cube-playground</b>
+  <span class="tlabel">Adoption Map</span>
+  <span class="sp"></span>
+  <span class="tlabel">radius</span>
+  <div class="seg" id="rseg">
+    <button data-r="smooth">smooth</button>
+    <button data-r="standard" aria-pressed="true">standard</button>
+    <button data-r="rounded">rounded</button>
+    <button data-r="luxury">luxury</button>
+  </div>
+  <span class="tlabel">theme</span>
+  <div class="seg" id="tseg">
+    <button data-t="light" aria-pressed="true">light</button>
+    <button data-t="dark">dark</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Design-system research · grounded in @vnggh/vnggh-cli@0.10.2 source</div>
+    <h1>Same brand, same font — opposite stacks. Converge at the token layer.</h1>
+    <p class="lede">cube-playground and VNGG Hub UI already share the exact brand orange <code>#f05a22</code>, Inter, and a <code>data-theme</code> light/dark model. But Hub UI ships as <b>Tailwind v4 + tailwind-variants + shadcn-style copy-in</b>, while cube-playground is <b>Ant Design + cube ui-kit + inline <code>style={{var()}}</code></b> with no Tailwind. So full adoption is a stack migration. The high-leverage move is to <b>converge the token contract</b> and <b>mirror component anatomy</b> — not lift-and-shift.</p>
+    <div class="thesis">
+      <div><h4><span class="n">1</span> Foundation is already shared</h4><p>Brand #f05a22 + Inter + data-theme are identical. Convergence starts from agreement, not a rewrite.</p></div>
+      <div><h4><span class="n">2</span> Token taxonomy is the gap</h4><p>cube uses flat <code>soft/ink</code> status pairs; VNGG uses a state-aware <code>fill</code> matrix (intent × variant × state). Adopt the structure.</p></div>
+      <div><h4><span class="n">3</span> Mirror, don't import</h4><p>The CLI hard-requires Tailwind v4. Replicate component specs in cube's inline-var stack; reserve real adoption for greenfield.</p></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="tag token">adopt-as-token</span> structure portable as pure CSS vars</span>
+    <span><span class="tag mirror">mirror-anatomy</span> rebuild spec in cube's stack</span>
+    <span><span class="tag skip">skip / defer</span> not worth swapping now</span>
+    <span style="margin-left:auto">Use the <b>radius</b> + <b>theme</b> toggles ↗ — the VNGG &amp; converged samples respond live.</span>
+  </div>
+
+  <!-- ── 1. FOUNDATION ── -->
+  <section>
+    <div class="shead"><span class="snum">01</span><h2>Foundation — where the two systems already meet</h2></div>
+    <p class="sdesc">The brand ramp and body font are identical today. The one real visual fork is the <b>canvas</b>: cube-playground runs a warm cream Actioneer two-tone (<code>#f8efe5</code>); VNGG runs a cool neutral grey (<code>#f9f9f9</code>). Converging means choosing — keep warmth as cube's signature, or align to the org-neutral grey.</p>
+
+    <div style="background:var(--pg-card);border:1px solid var(--pg-bd);border-radius:14px;padding:22px 24px">
+      <div class="swrow"><div class="lab">Brand ramp<small>VNGG vngg-1…12</small></div>
+        <div class="scale">
+          <i style="background:#fefcfb">1</i><i style="background:#fff6f2">2</i><i style="background:#ffd7c6">4</i><i style="background:#ffb99e">6</i><i style="background:#f18e6e">8</i><i style="background:#f05a22;color:#fff">9</i><i style="background:#df5018;color:#fff">10</i><i style="background:#d44501;color:#fff">11</i><i style="background:#592c1d;color:#fff">12</i>
+        </div></div>
+      <div class="swrow"><div class="lab">Brand today<small>cube --brand</small></div>
+        <div class="scale"><i style="background:#f05a22;color:#fff;flex:0 0 90px">#f05a22</i><i style="background:transparent;color:var(--pg-tx3);flex:3;border:0;justify-items:start;place-items:center;justify-content:flex-start;padding-left:12px">identical primary — cube uses the single token, VNGG exposes the full 12-step ramp + alpha variants</i></div></div>
+      <div class="swrow"><div class="lab">Neutral ramp<small>VNGG gray-1…12</small></div>
+        <div class="scale">
+          <i style="background:#fcfcfc">1</i><i style="background:#f9f9f9">2</i><i style="background:#ededed">3</i><i style="background:#e0e0e0">5</i><i style="background:#c4c4c4">7</i><i style="background:#8d8d8d;color:#fff">9</i><i style="background:#616161;color:#fff">11</i><i style="background:#141414;color:#fff">12</i>
+        </div></div>
+      <div class="swrow" style="margin-bottom:0"><div class="lab">Canvas — the fork<small>bg-app / bg-card</small></div>
+        <div class="canv">
+          <div class="c"><div class="top" style="background:#f8efe5"></div><div class="bot">cube NOW · warm cream<small>#f8efe5</small></div></div>
+          <div class="c"><div class="top" style="background:#f9f9f9"></div><div class="bot">VNGG · cool grey<small>#f9f9f9</small></div></div>
+          <div class="c"><div class="top" style="background:#fbfbfa"></div><div class="bot">converged · near-neutral<small>#fbfbfa (keeps a hair of warmth)</small></div></div>
+        </div></div>
+    </div>
+  </section>
+
+  <!-- ── 2. TOKEN TAXONOMY ── -->
+  <section>
+    <div class="shead"><span class="snum">02</span><h2>Token taxonomy — flat pairs → state-aware fill matrix</h2></div>
+    <p class="sdesc">cube-playground status colors are <b>flat 2-token pairs</b> (<code>--success-soft</code> / <code>--success-ink</code>). VNGG generates a <b>3-axis matrix</b>: <code>--color-bg-fill-{intent}-{variant}-{state}</code>. The same intent renders solid / subtle / ghost / flat across default / hover / pressed — so a button, a chip, and a banner all draw from one coherent ladder. This is the single most portable thing to adopt: it's pure CSS variables, no Tailwind required.</p>
+
+    <div class="flatbox">
+      <span style="font-size:11px;font-weight:700;color:var(--pg-tx3);text-transform:uppercase;letter-spacing:.05em">cube today — flat pairs</span>
+      <span class="badge ok" style="background:#d1fae5;color:#047857">success soft/ink</span>
+      <span class="badge wa" style="background:#fef3c7;color:#92400e">warning soft/ink</span>
+      <span class="badge ba" style="background:#fee2e2;color:#991b1b">destructive soft/ink</span>
+      <span class="badge inf" style="background:#dbeafe;color:#1d4ed8">info soft/ink</span>
+    </div>
+    <div class="arrowrow"><span class="ar">↓</span> same intents, re-expressed as a variant × state ladder (VNGG)</div>
+
+    <div class="matrix">
+      <div></div><div class="hd">solid</div><div class="hd">subtle</div><div class="hd">ghost</div><div class="hd">flat</div>
+      <div class="rh">accent</div>
+        <div class="mx" style="background:#f05a22;color:#fff">default</div>
+        <div class="mx" style="background:#fff1ea;color:#d44501">subtle</div>
+        <div class="mx" style="background:#fff6f2;color:#d44501">ghost</div>
+        <div class="mx" style="background:transparent;color:#d44501;border:1px solid #ffd7c6">flat</div>
+      <div class="rh">positive</div>
+        <div class="mx" style="background:#1a7f4b;color:#fff">solid</div>
+        <div class="mx" style="background:#e6f6ec;color:#1a7f4b">subtle</div>
+        <div class="mx" style="background:#f1faf4;color:#1a7f4b">ghost</div>
+        <div class="mx" style="background:transparent;color:#1a7f4b;border:1px solid #bbe9cc">flat</div>
+      <div class="rh">negative</div>
+        <div class="mx" style="background:#c2362f;color:#fff">solid</div>
+        <div class="mx" style="background:#fdecec;color:#c2362f">subtle</div>
+        <div class="mx" style="background:#fdf4f4;color:#c2362f">ghost</div>
+        <div class="mx" style="background:transparent;color:#c2362f;border:1px solid #f5c6c3">flat</div>
+      <div class="rh">warning</div>
+        <div class="mx" style="background:#a8620a;color:#fff">solid</div>
+        <div class="mx" style="background:#fdf3e3;color:#a8620a">subtle</div>
+        <div class="mx" style="background:#fef9f0;color:#a8620a">ghost</div>
+        <div class="mx" style="background:transparent;color:#a8620a;border:1px solid #f5dcb0">flat</div>
+    </div>
+    <p class="sdesc" style="margin-top:14px">Each cell maps from a 12-step scale + alpha (e.g. <code>subtle = --color-brand-alpha-3</code>, <code>solid = --color-brand-9</code>). cube's existing <code>soft/ink</code> tokens slot in as the <code>subtle</code> column — so adoption is additive, not a rip-out.</p>
+  </section>
+
+  <!-- ── 3. COMPONENT BY COMPONENT ── -->
+  <section>
+    <div class="shead"><span class="snum">03</span><h2>Component by component — cube now · VNGG · converged</h2></div>
+    <p class="sdesc">Each row renders three live versions with real token values. <b>Left</b> = how it looks in cube-playground today. <b>Middle</b> = VNGG Hub UI's spec. <b>Right</b> = the converged target, achievable in cube's inline-var stack (no Tailwind). Toggle radius/theme above to see the VNGG &amp; converged samples respond.</p>
+
+    <!-- BUTTON -->
+    <div class="crow">
+      <div class="ctitle"><h3>Button</h3><span class="tag mirror">mirror-anatomy</span><span class="tag eff">effort: M</span></div>
+      <p class="note"><b>Gap:</b> cube has solid / light / text variants. VNGG defines a fuller ladder — primary (solid) · secondary (subtle) · tertiary (outline-ghost) · ghost — each with default/hover/pressed/disabled from the fill matrix. <b>Move:</b> rebuild cube's Button variants on the §02 ladder.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span><small>Ant-ish, 3 variants</small></div>
+          <div class="stage s s-now"><div class="btn-row"><button class="btn pri">Primary</button><button class="btn sec">Secondary</button><button class="btn ter">Text</button></div><div class="btn-row"><button class="btn dis">Disabled</button></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span><small>4 variants × states</small></div>
+          <div class="stage s s-vngg"><div class="btn-row"><button class="btn pri">Primary</button><button class="btn sec">Secondary</button></div><div class="btn-row"><button class="btn ter">Tertiary</button><button class="btn gho">Ghost</button><button class="btn dis">Disabled</button></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span><small>same ladder, cube stack</small></div>
+          <div class="stage s s-conv"><div class="btn-row"><button class="btn pri">Primary</button><button class="btn sec">Secondary</button></div><div class="btn-row"><button class="btn ter">Tertiary</button><button class="btn gho">Ghost</button><button class="btn dis">Disabled</button></div></div></div>
+      </div>
+    </div>
+
+    <!-- BADGE / TAG / CHIP -->
+    <div class="crow">
+      <div class="ctitle"><h3>Badge · Tag · Chip</h3><span class="tag token">adopt-as-token</span><span class="tag eff">effort: S</span></div>
+      <p class="note"><b>Gap:</b> cube badges already use semantic soft/ink — the closest match. VNGG adds <code>solid</code> badges + a categorical palette (blue/green/crimson/indigo…). <b>Move:</b> keep cube's badges, add the solid variant + map the categorical set to <code>--cat-*</code> tokens that already exist.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span><small>soft/ink only</small></div>
+          <div class="stage s s-now"><div class="btn-row"><span class="badge ok"><span class="dotmark"></span>Active</span><span class="badge wa">Stale</span><span class="badge ba">Failed</span><span class="badge inf">Info</span></div><div class="btn-row"><span class="chip">cfm_vn <span class="x">×</span></span><span class="chip">jus_vn <span class="x">×</span></span></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span><small>solid + subtle + cat</small></div>
+          <div class="stage s s-vngg"><div class="btn-row"><span class="badge solid">Solid</span><span class="badge ok"><span class="dotmark"></span>Active</span><span class="badge wa">Stale</span><span class="badge ba">Failed</span></div><div class="btn-row"><span class="chip">cfm_vn <span class="x">×</span></span><span class="chip">jus_vn <span class="x">×</span></span></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span><small>cube + solid variant</small></div>
+          <div class="stage s s-conv"><div class="btn-row"><span class="badge solid">Solid</span><span class="badge ok"><span class="dotmark"></span>Active</span><span class="badge wa">Stale</span><span class="badge ba">Failed</span></div><div class="btn-row"><span class="chip">cfm_vn <span class="x">×</span></span><span class="chip">jus_vn <span class="x">×</span></span></div></div></div>
+      </div>
+    </div>
+
+    <!-- INPUT + SELECT -->
+    <div class="crow">
+      <div class="ctitle"><h3>Input field · Select</h3><span class="tag mirror">mirror-anatomy</span><span class="tag eff">effort: M</span></div>
+      <p class="note"><b>Gap:</b> mostly identical anatomy; the tell is the focus ring (cube draws a soft brand glow; VNGG uses <code>--color-border-focused-accent</code> at higher contrast). <b>Move:</b> align focus-ring token + field radius to the §02 ladder.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now"><div class="field"><label>Segment name</label><input class="inp focus" value="VIP whales · cfm_vn"></div><div class="field"><label>Game</label><div class="inp sel"><span>cfm_vn</span><span class="car">▾</span></div></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span></div>
+          <div class="stage s s-vngg"><div class="field"><label>Segment name</label><input class="inp focus" value="VIP whales · cfm_vn"></div><div class="field"><label>Game</label><div class="inp sel"><span>cfm_vn</span><span class="car">▾</span></div></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv"><div class="field"><label>Segment name</label><input class="inp focus" value="VIP whales · cfm_vn"></div><div class="field"><label>Game</label><div class="inp sel"><span>cfm_vn</span><span class="car">▾</span></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- SEGMENTED + TABS -->
+    <div class="crow">
+      <div class="ctitle"><h3>Segmented control · Tabs</h3><span class="tag mirror">mirror-anatomy</span><span class="tag eff">effort: S</span></div>
+      <p class="note"><b>Gap:</b> cube already ships both across Ops/Catalog. VNGG's active segment uses an accent-tinted content color rather than plain ink. <b>Move:</b> trivial token swap on the active state.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now center"><div class="segc"><button class="on">Chart</button><button>Table</button><button>SQL</button></div><div class="tabs"><button class="on">Overview</button><button>Care</button><button>Members</button></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span></div>
+          <div class="stage s s-vngg center"><div class="segc"><button class="on">Chart</button><button>Table</button><button>SQL</button></div><div class="tabs"><button class="on">Overview</button><button>Care</button><button>Members</button></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv center"><div class="segc"><button class="on">Chart</button><button>Table</button><button>SQL</button></div><div class="tabs"><button class="on">Overview</button><button>Care</button><button>Members</button></div></div></div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="crow">
+      <div class="ctitle"><h3>Table</h3><span class="tag mirror">mirror-anatomy</span><span class="tag eff">effort: M</span></div>
+      <p class="note"><b>Gap:</b> cube tables hover-highlight on cream; VNGG uses zebra striping off the canvas token + uppercase micro-headers. <b>Move:</b> align header type-scale + row tokens; keep cube's density.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now"><table class="tbl"><thead><tr><th>Segment</th><th>Game</th><th class="num">Members</th></tr></thead><tbody><tr><td>VIP whales</td><td>cfm_vn</td><td class="num">12,408</td></tr><tr><td>Churn risk</td><td>jus_vn</td><td class="num">3,902</td></tr><tr><td>New payers</td><td>cfm_vn</td><td class="num">8,150</td></tr></tbody></table></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span><small>zebra</small></div>
+          <div class="stage s s-vngg"><table class="tbl"><thead><tr><th>Segment</th><th>Game</th><th class="num">Members</th></tr></thead><tbody><tr><td>VIP whales</td><td>cfm_vn</td><td class="num">12,408</td></tr><tr><td>Churn risk</td><td>jus_vn</td><td class="num">3,902</td></tr><tr><td>New payers</td><td>cfm_vn</td><td class="num">8,150</td></tr></tbody></table></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv"><table class="tbl"><thead><tr><th>Segment</th><th>Game</th><th class="num">Members</th></tr></thead><tbody><tr><td>VIP whales</td><td>cfm_vn</td><td class="num">12,408</td></tr><tr><td>Churn risk</td><td>jus_vn</td><td class="num">3,902</td></tr><tr><td>New payers</td><td>cfm_vn</td><td class="num">8,150</td></tr></tbody></table></div></div>
+      </div>
+    </div>
+
+    <!-- METRIC CARD -->
+    <div class="crow">
+      <div class="ctitle"><h3>Metric card</h3><span class="tag mirror">mirror-anatomy</span><span class="tag eff">effort: S</span></div>
+      <p class="note"><b>High overlap:</b> cube already has these all over Dashboards/Ops. VNGG's <code>metric-card</code> formalizes the big-number + delta + label rhythm. <b>Move:</b> standardize cube's variants against VNGG's spec — same tokens, shared anatomy.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now center"><div class="metric"><div class="k">Revenue (VND)</div><div class="v">4.82B</div><div class="d up">▲ 12.4% WoW</div></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span></div>
+          <div class="stage s s-vngg center"><div class="metric"><div class="k">Revenue (VND)</div><div class="v">4.82B</div><div class="d up">▲ 12.4% WoW</div></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv center"><div class="metric"><div class="k">Revenue (VND)</div><div class="v">4.82B</div><div class="d up">▲ 12.4% WoW</div></div></div></div>
+      </div>
+    </div>
+
+    <!-- LIST ITEM + SIDEBAR -->
+    <div class="crow">
+      <div class="ctitle"><h3>List item · Sidebar nav</h3><span class="tag mirror">mirror-anatomy</span><span class="tag eff">effort: M</span></div>
+      <p class="note"><b>Gap:</b> cube's left-nav active state uses a brand-tinted pill; VNGG drives the same from <code>--color-bg-fill-accent-subtle</code> + accent content. Identical pattern, just routed through the matrix. <b>Move:</b> token alignment.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now"><div class="li"><div class="av">VW</div><div><div class="t">VIP whales</div><div class="s">cfm_vn · refreshed 2h ago</div></div><div class="meta">12,408</div></div><nav class="nav"><a class="on"><span class="ic"></span>Dashboards</a><a><span class="ic"></span>Segments</a><a><span class="ic"></span>Catalog</a></nav></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span></div>
+          <div class="stage s s-vngg"><div class="li"><div class="av">VW</div><div><div class="t">VIP whales</div><div class="s">cfm_vn · refreshed 2h ago</div></div><div class="meta">12,408</div></div><nav class="nav"><a class="on"><span class="ic"></span>Dashboards</a><a><span class="ic"></span>Segments</a><a><span class="ic"></span>Catalog</a></nav></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv"><div class="li"><div class="av">VW</div><div><div class="t">VIP whales</div><div class="s">cfm_vn · refreshed 2h ago</div></div><div class="meta">12,408</div></div><nav class="nav"><a class="on"><span class="ic"></span>Dashboards</a><a><span class="ic"></span>Segments</a><a><span class="ic"></span>Catalog</a></nav></div></div>
+      </div>
+    </div>
+
+    <!-- DIALOG + TOOLTIP/POPOVER -->
+    <div class="crow">
+      <div class="ctitle"><h3>Dialog / Modal · Tooltip · Popover</h3><span class="tag mirror">mirror-anatomy</span><span class="tag eff">effort: M</span></div>
+      <p class="note"><b>Gap:</b> cube uses Ant's Modal; VNGG ships its own (floating-ui based) with token-driven elevation. <b>Move:</b> keep Ant Modal but skin via tokens; adopt VNGG's tooltip/popover tokens for consistency.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now center"><div class="dlg"><div class="h">Delete segment?</div><div class="b">This removes the lakehouse snapshot for “VIP whales”. This can't be undone.</div><div class="f"><button class="btn sec">Cancel</button><button class="btn pri" style="background:var(--bad-ink)">Delete</button></div></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span></div>
+          <div class="stage s s-vngg center"><div class="dlg"><div class="h">Delete segment?</div><div class="b">This removes the lakehouse snapshot for “VIP whales”. This can't be undone.</div><div class="f"><button class="btn ter">Cancel</button><button class="btn pri" style="background:var(--bad-ink)">Delete</button></div></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv center"><div style="display:flex;gap:10px;align-items:center"><span class="tip">Refreshed 2h ago</span><span class="pop"><b style="font-size:11.5px">Pre-agg status</b><br>4 sealed · 1 unbuilt</span></div></div></div>
+      </div>
+    </div>
+
+    <!-- TOAST + ALERT -->
+    <div class="crow">
+      <div class="ctitle"><h3>Toast · Inline message / Alert banner</h3><span class="tag token">adopt-as-token</span><span class="tag eff">effort: S</span></div>
+      <p class="note"><b>Gap:</b> cube's alerts use a left-accent border (the §6 "left border accent" pattern); VNGG uses a token-tinted icon chip + full-bleed intent background. <b>Move:</b> route both off the intent fills; drop the left-border tell.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now"><div class="toast"><div class="ic">✓</div><div><div class="tt">Snapshot landed</div><div class="ts">12,408 members written · cfm_vn</div></div></div><div class="alert warn"><span class="ic">!</span><div>1 rollup is unbuilt — auto-build queued for cfm_vn.</div></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span></div>
+          <div class="stage s s-vngg"><div class="toast"><div class="ic">✓</div><div><div class="tt">Snapshot landed</div><div class="ts">12,408 members written · cfm_vn</div></div></div><div class="alert warn"><span class="ic">!</span><div>1 rollup is unbuilt — auto-build queued for cfm_vn.</div></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv"><div class="toast"><div class="ic">✓</div><div><div class="tt">Snapshot landed</div><div class="ts">12,408 members written · cfm_vn</div></div></div><div class="alert warn"><span class="ic">!</span><div>1 rollup is unbuilt — auto-build queued for cfm_vn.</div></div></div></div>
+      </div>
+    </div>
+
+    <!-- PROGRESS + BREADCRUMB + PAGINATION + STEPPER -->
+    <div class="crow">
+      <div class="ctitle"><h3>Progress · Breadcrumb · Pagination · Stepper</h3><span class="tag token">adopt-as-token</span><span class="tag eff">effort: S</span></div>
+      <p class="note"><b>Gap:</b> small structural utilities; cube has ad-hoc versions. All four are pure token + radius consumers — they fall out of §01/§02 for free. <b>Move:</b> standardize once, reuse.</p>
+      <div class="cols3">
+        <div class="pane"><div class="cap now"><span class="pill">CUBE NOW</span></div>
+          <div class="stage s s-now"><div class="prog"><i></i></div><div class="crumb"><a>Catalog</a><span class="sep">/</span><a>Metrics</a><span class="sep">/</span><b>DAU</b></div><div class="pag"><button>‹</button><button class="on">1</button><button>2</button><button>3</button><button>›</button></div></div></div>
+        <div class="pane"><div class="cap vngg"><span class="pill">VNGG</span></div>
+          <div class="stage s s-vngg"><div class="prog"><i></i></div><div class="crumb"><a>Catalog</a><span class="sep">/</span><a>Metrics</a><span class="sep">/</span><b>DAU</b></div><div class="step"><div class="s"><span class="c done">✓</span><span class="lab">Source</span></div><span class="bar done"></span><div class="s"><span class="c now">2</span><span class="lab">Shape</span></div><span class="bar"></span><div class="s"><span class="c">3</span></div></div></div></div>
+        <div class="pane"><div class="cap conv"><span class="pill">CONVERGED</span></div>
+          <div class="stage s s-conv"><div class="prog"><i></i></div><div class="crumb"><a>Catalog</a><span class="sep">/</span><a>Metrics</a><span class="sep">/</span><b>DAU</b></div><div class="step"><div class="s"><span class="c done">✓</span><span class="lab">Source</span></div><span class="bar done"></span><div class="s"><span class="c now">2</span><span class="lab">Shape</span></div><span class="bar"></span><div class="s"><span class="c">3</span></div></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. MULTI-AXIS THEMING ── -->
+  <section>
+    <div class="shead"><span class="snum">04</span><h2>The free upgrade — multi-axis theming knobs</h2></div>
+    <p class="sdesc">cube-playground already ships <code>data-theme</code>. VNGG layers more product-wide knobs on the same mechanism: <code>data-radius</code> (rounded / standard / smooth / luxury), <code>data-emphasis</code> (medium / strong), <code>data-component-theme</code> (brand / neutral). Each is a global restyle with zero component edits. <b>Use the radius toggle in the header</b> — every VNGG &amp; converged sample on this page reshapes live. That's the payoff of a token-driven contract.</p>
+    <div class="cols3">
+      <div class="pane"><div class="cap conv"><span class="pill">LIVE</span><small>current radius applied</small></div>
+        <div class="stage s s-conv center"><button class="btn pri">Primary</button><div class="metric" style="min-width:0"><div class="k">DAU</div><div class="v" style="font-size:24px">182K</div><div class="d up">▲ 4.1%</div></div><span class="chip">cfm_vn</span></div></div>
+      <div class="pane"><div class="cap conv"><span class="pill">data-emphasis</span><small>medium → strong</small></div>
+        <div class="stage s s-conv center" style="gap:10px"><span style="font-size:12px;color:var(--tx2)">Emphasis shifts content/border contrast — e.g. denser ops grids read “strong”, calm dashboards read “medium”. One attribute, whole app.</span><div class="btn-row"><button class="btn sec">Secondary</button><button class="btn ter">Tertiary</button></div></div></div>
+      <div class="pane"><div class="cap conv"><span class="pill">data-component-theme</span><small>brand ↔ neutral</small></div>
+        <div class="stage s s-conv center" style="gap:10px"><span style="font-size:12px;color:var(--tx2)">Flip a subtree to a neutral palette (e.g. an embedded admin panel) without touching component code.</span><div class="btn-row"><span class="badge solid">brand</span><span class="badge" style="background:#e5e5e5;color:#414141">neutral</span></div></div></div>
+    </div>
+  </section>
+
+  <!-- ── 5. ROADMAP ── -->
+  <section>
+    <div class="shead"><span class="snum">05</span><h2>Adoption roadmap — leverage ÷ effort</h2></div>
+    <p class="sdesc">Layered, not lift-and-shift. Tiers 1–2 are pure CSS and bank most of the visual consistency; Tier 3 is the bulk of component work; Tiers 4–5 are policy.</p>
+    <div class="tier"><div class="n">1</div><div><h4>Converge the token taxonomy</h4><p>Re-express cube's semantic tokens in VNGG's structure (<code>--color-content-*</code>, <code>--color-bg-fill-{intent}-{variant}-{state}</code>, 12-step scales). Brand + font already match; <code>soft/ink</code> slots in as the <code>subtle</code> column. Pure CSS — the recent single-token-layer refactor makes this a contained remap.</p></div><div class="ef lo">low · CSS only</div></div>
+    <div class="tier"><div class="n">2</div><div><h4>Adopt the extra theming axes</h4><p>Add <code>data-radius</code> / <code>data-emphasis</code> alongside the existing <code>data-theme</code>. Product-wide restyle knobs, no component edits.</p></div><div class="ef lo">low</div></div>
+    <div class="tier"><div class="n">3</div><div><h4>Mirror component anatomy (~18 overlapping)</h4><p>Rebuild the spec for Button, Table, Metric-card, Tabs, Segmented, Dialog, Toast, Alert, etc. in cube's inline-var stack — same variants/states/sizing, no Tailwind. Gate each on the existing visual-regression suite.</p></div><div class="ef md">medium · iterative</div></div>
+    <div class="tier"><div class="n">4</div><div><h4>Greenfield rule</h4><p>Any NEW standalone app / micro-frontend starts on VNGG Hub UI directly (org standard, real component adoption + MCP scaffolding) — not cube's bespoke stack.</p></div><div class="ef lo">policy</div></div>
+    <div class="tier"><div class="n">5</div><div><h4>Don't swap now</h4><p>recharts (fine as-is), Ant Design wholesale (too costly), and the Tailwind-v4 requirement (blocker for in-place adoption) all stay. Re-evaluate only if the org mandates standardization.</p></div><div class="ef hi">hold</div></div>
+
+    <h3 style="font-size:16px;margin:30px 0 14px">Open questions before committing</h3>
+    <div class="q"><b>1 · Mandate or opt-in?</b> Is there an org directive to standardize on Hub UI, or is convergence discretionary? Decides whether Tier 1 is “nice-to-have” or “required”.</div>
+    <div class="q"><b>2 · Tailwind appetite?</b> Willing to introduce Tailwind v4 alongside Ant (unlocks real component <code>vngghui add</code>), or stay inline-var + mirror (Tier 3)?</div>
+    <div class="q"><b>3 · Canvas identity?</b> Keep cube's warm cream as a deliberate signature, or align to VNGG's cool neutral grey for cross-app consistency?</div>
+  </section>
+
+  <!-- ── SKIP / DEFER ── -->
+  <section>
+    <div class="shead"><span class="snum">06</span><h2>Skip / defer — full mockups not warranted</h2></div>
+    <table class="skiptbl">
+      <thead><tr><th style="width:30%">Hub UI components</th><th style="width:14%">Disposition</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>bar / line / pie / funnel / gauge / heatmap / radar / chart</td><td>skip</td><td>cube-playground standardizes on recharts (+ a shared chart renderer reused by chat &amp; ops). VNGG's chart components assume Tailwind + their own primitives; no payoff in swapping a working viz layer.</td></tr>
+        <tr><td>bottom-navigation · bottom-sheet · top-navigation-mobile</td><td>skip</td><td>cube-playground is a desktop analytics console; mobile-shell components are out of scope.</td></tr>
+        <tr><td>calendar · event-calendar · date-picker · time-picker</td><td>defer</td><td>Low usage today (date-range picker already exists in Ops). Adopt as tokens if/when a scheduling surface needs them.</td></tr>
+        <tr><td>rich-text-editor · file-uploader · rating</td><td>defer</td><td>No current surface. Pull in on demand via the mirror-anatomy pattern.</td></tr>
+        <tr><td>avatar · code · divider · number-field · slider · accordion · field-shell · input-heading</td><td>token</td><td>Small primitives — fall out of the §01/§02 token convergence automatically; no dedicated design work.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="foot">
+    <span class="dot" style="width:18px;height:18px;font-size:10px">V</span>
+    <span>Sourced from <code>@vnggh/vnggh-cli@0.10.2</code> registry + cube-playground <code>src/theme/tokens.css</code>. Companion report: <code>plans/reports/from-research-to-design-260616-1141-vngg-hub-ui-adoption-map-report.md</code>.</span>
+    <span style="margin-left:auto;font-family:var(--mono)">illustration · not production code</span>
+  </div>
+
+</div>
+
+<script>
+  const root=document.documentElement;
+  document.getElementById('tseg').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    root.setAttribute('data-theme',b.dataset.t);
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  });
+  document.getElementById('rseg').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    root.setAttribute('data-radius',b.dataset.r);
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+  });
+</script>
+</body>
+</html>
