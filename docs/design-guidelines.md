@@ -262,9 +262,10 @@ The dual-meaning `--neutral-50..300` (warm cream in light, redefined near-white 
 
 The single-token contract is guarded by a linter + pre-push gate (there is no in-repo CI; deploy is a push to the `second` remote).
 
-- **`npm run lint`** → `scripts/lint-theme-tokens.mjs`. Fails on: (1) inline hex in `src/**/*.{ts,tsx}`, (2) raw `var(--neutral-*)` / `var(--hermes-*)` anywhere outside `src/theme/`, (3) the retired `T.<color>` proxy. The theme layer (`src/theme/`) and test files are exempt.
+- **`npm run lint`** → `scripts/lint-theme-tokens.mjs`. Fails on: (1) inline hex in `src/**/*.{ts,tsx}`, (2) raw `var(--neutral-*)` / `var(--hermes-*)` anywhere outside `src/theme/`, (3) the retired `T.<color>` proxy, (4) opaque `rgb()` / `hsl()` solid colors in `.ts/.tsx/.css` (a hex by another spelling). The theme layer (`src/theme/`) and test files are exempt.
 - **Pre-push hook** → `scripts/git-hooks/pre-push` runs `npm run lint` and blocks the push on violations (activated by the `prepare` script: `core.hooksPath=scripts/git-hooks`). Emergency bypass: `git push --no-verify`.
-- **Inline-hex allowlist** (in the linter's `HEX_ALLOWLIST`): chart-series / data-viz palettes and recharts SVG `fill`/`stroke` (CSS `var()` does not resolve in SVG attrs), categorical type/syntax-tone palettes, and 3rd-party brand marks. One tracked exception: `metric-list-row.tsx` trust hues (deferred — converging needs a light re-baseline).
+- **Two intentional gaps** (not linted): translucent `rgba()` / `hsla()` — scrims, shadows, hover-veils have no token today, so they stay literal until scrim/veil alpha tokens land (~80-file migration, deferred); and a hex/rgb sitting in a `var(--token, #fallback)` fallback — the token drives the value, so the fallback is fine.
+- **Inline-hex / opaque-fn allowlist** (the linter's `HEX_ALLOWLIST`): chart-series / data-viz palettes and recharts SVG `fill`/`stroke` (CSS `var()` does not resolve in SVG attrs), categorical type/syntax-tone palettes, the legacy ui-kit `variables.ts` rgb-triple palette, and 3rd-party brand marks. Tracked deferrals: `metric-list-row.tsx` trust hues and `Tabs.tsx` ui-kit greys (both need a light re-baseline to converge).
 
 ### How to add a color
 

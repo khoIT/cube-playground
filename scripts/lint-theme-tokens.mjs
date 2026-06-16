@@ -8,10 +8,20 @@
  *   2. Raw scale refs — var(--neutral-*) / var(--hermes-*) — anywhere outside
  *      the theme layer (those primitives are private to src/theme/).
  *   3. The retired T.<color> proxy (T now exposes fonts only).
+ *   4. Opaque rgb()/hsl() solid colors in .ts/.tsx/.css — a hex by another
+ *      spelling; should be a token. Allowlist-aware (same data-viz files).
+ *
+ * Intentional gaps (NOT linted — documented in design-guidelines §12):
+ *   - Translucent rgba()/hsla(): scrims, shadows and hover-veils have no token
+ *     equivalent today (the contract covers solid surfaces, not alpha layers).
+ *     Banning them is a separate ~80-file migration (add scrim / veil alpha
+ *     tokens first), not a lint rule. Allowed everywhere for now.
+ *   - Hex inside a var(--token, #fallback): the hex is a graceful fallback, not
+ *     drift — the token still drives the value. Allowed.
  *
  * Why a bespoke script instead of eslint/stylelint: the repo has no lint
  * tooling, and standing up a full ruleset would flag mountains of unrelated
- * pre-existing issues. This is scoped to exactly the three drift patterns,
+ * pre-existing issues. This is scoped to exactly these drift patterns,
  * runs in well under a second, and needs zero new dependencies.
  *
  * Wired to `npm run lint` and the pre-push hook (scripts/git-hooks/pre-push).
@@ -37,6 +47,8 @@ const THEME_LAYER = 'src/theme/';
 const HEX_ALLOWLIST = new Set([
   // chart series / data-viz palettes (SVG attrs + categorical ramps)
   'src/theme.ts',
+  'src/variables.ts', // legacy cube ui-kit palette (rgb-triple primitives)
+  'src/QueryBuilderV2/utils/chart-colors.ts', // recharts series ramp (rgb())
   'src/shell/theme.tsx',
   'src/QueryBuilderV2/analysis/funnel-results.tsx',
   'src/QueryBuilderV2/analysis/distribution-mode.tsx',
@@ -63,9 +75,18 @@ const HEX_ALLOWLIST = new Set([
   // DEFERRED: trust hues (#0f7a3a / #8a5a05) differ from the trust-badge
   // token canon; converging needs a light-mode re-baseline. Tracked exception.
   'src/pages/Catalog/metrics-tab/metric-list-row.tsx',
+  // DEFERRED: cube ui-kit `tasty` local CSS vars set to opaque rgb() greys
+  // (rgb(234,234,238) ≠ --border-card #e1d4c2) — swapping shifts pixels, needs
+  // a re-baseline. Tracked exception (migrate when the QB tabs get a re-skin).
+  'src/QueryBuilderV2/components/Tabs/Tabs.tsx',
 ]);
 
 const HEX_RE = /#[0-9a-fA-F]{3,8}\b/;
+// Opaque rgb()/hsl() only — the trailing-paren guard means rgba(/hsla( (the
+// allowed translucent forms) never match (they have a letter before the paren).
+const OPAQUE_FN_RE = /\b(?:rgb|hsl)\(/i;
+// A hex/rgb literal sitting in a `var(--token, …)` fallback is not drift.
+const VAR_FALLBACK_RE = /var\(\s*--[\w-]+\s*,/;
 const RAW_SCALE_RE = /var\(\s*--(?:neutral|hermes)-/;
 const T_COLOR_RE = /\bT\.(?:colors?|bg|fg|border|text|surface|brand|accent|danger|success|warning|info|muted|positive|negative)\b/;
 
@@ -113,9 +134,16 @@ for (const file of walk(SRC)) {
       violations.push(`${rel}:${ln}  retired T.<color> proxy: ${line.trim()}`);
     }
 
-    // Rule 1: inline hex in .ts/.tsx — allowlisted data-viz files exempt
-    if (isTsx && HEX_RE.test(line) && !HEX_ALLOWLIST.has(rel)) {
+    // Rule 1: inline hex in .ts/.tsx — allowlisted data-viz files exempt;
+    // hex used as a var(--token, #fallback) is the token's fallback, not drift.
+    if (isTsx && HEX_RE.test(line) && !VAR_FALLBACK_RE.test(line) && !HEX_ALLOWLIST.has(rel)) {
       violations.push(`${rel}:${ln}  inline hex (use a token, or add to allowlist if data-viz): ${line.trim()}`);
+    }
+
+    // Rule 4: opaque rgb()/hsl() in code or css — same allowlist + fallback
+    // carve-out as hex (rgba()/hsla() translucent layers are intentionally allowed).
+    if (isStyleOrCode && OPAQUE_FN_RE.test(line) && !VAR_FALLBACK_RE.test(line) && !HEX_ALLOWLIST.has(rel)) {
+      violations.push(`${rel}:${ln}  opaque rgb()/hsl() (use a token; rgba()/hsla() veils are exempt): ${line.trim()}`);
     }
   });
 }
