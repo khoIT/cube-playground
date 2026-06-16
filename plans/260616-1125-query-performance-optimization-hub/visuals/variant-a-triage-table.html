@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- Variant A — "Triage table". Mirrors preagg-runs-tab exactly: KPI strip on top,
+     a dense Failures TABLE (the actionable list), then a default-CLOSED collapsible
+     Successful-queries section. Most consistent with the existing admin hub. -->
+<html lang="en"><head><meta charset="utf-8"><title>Query Performance — Variant A</title>
+<style>
+  :root{
+    --bg-app:#f8efe5; --bg-card:#f8efe5; --bg-muted:#efe3d4; --surface-inset:#f3e9dd;
+    --border-card:#e7e0d4; --border-strong:#d8cdba; --text-primary:#171717;
+    --text-secondary:#404040; --text-muted:#737373; --brand:#f05a22;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b; --destructive-border:#fca5a5;
+    --warning-soft:#fef3c7; --warning-ink:#92400e; --success-soft:#d1fae5; --success-ink:#047857;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8; --muted-soft:#efe3d4; --muted-ink:#525252;
+    --radius-md:10px; --font-sans:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg-app);color:var(--text-primary);font-family:var(--font-sans)}
+  .page{max-width:1280px;margin:0 auto;padding:24px 32px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+  .h1{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;margin:4px 0 2px}
+  .h1 .ico{width:22px;height:22px;color:var(--brand)}
+  .sub{color:var(--text-secondary);font-size:13px;margin-bottom:20px}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+  .kpi{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:14px 16px}
+  .kpi .lab{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
+  .kpi .val{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:6px}
+  .kpi.bad .val{color:var(--destructive-ink)}
+  .section-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin:0 0 10px}
+  .badge{font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--destructive-soft);color:var(--destructive-ink)}
+  table{width:100%;border-collapse:collapse;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);overflow:hidden}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border-card);font-weight:600}
+  td{padding:11px 14px;border-bottom:1px solid var(--border-card);font-size:13px;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+  .pill.err{background:var(--destructive-soft);color:var(--destructive-ink)}
+  .pill.warn{background:var(--warning-soft);color:var(--warning-ink)}
+  .lat{font-variant-numeric:tabular-nums;font-weight:600}
+  .lat.bad{color:var(--destructive-ink)}
+  .chips{display:flex;flex-wrap:wrap;gap:4px}
+  .chip{font-size:11px;background:var(--surface-inset);border:1px solid var(--border-card);border-radius:6px;padding:1px 6px;color:var(--text-secondary)}
+  .hitbadge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+  .hitbadge.miss{background:var(--muted-soft);color:var(--muted-ink)}
+  .hitbadge.unknown{background:var(--info-soft);color:var(--info-ink)}
+  .opt{font-size:12px;font-weight:600;color:var(--brand);background:none;border:1px solid var(--destructive-border);border-radius:8px;padding:4px 10px;cursor:pointer}
+  .success-h{margin-top:26px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text-secondary)}
+  .success-h .chev{margin-left:auto;color:var(--text-muted)}
+</style></head>
+<body><div class="page">
+  <div class="eyebrow">Administration</div>
+  <div class="h1"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 12l3 3"/><circle cx="12" cy="12" r="9"/></svg>Query Performance</div>
+  <div class="sub">Live Cube query latency, status, and pre-aggregation routing. Failures are never sampled.</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lab">Total (24h)</div><div class="val">3,184</div></div>
+    <div class="kpi bad"><div class="lab">Failures</div><div class="val">12</div></div>
+    <div class="kpi"><div class="lab">p95 latency</div><div class="val">8.4s</div></div>
+    <div class="kpi"><div class="lab">Trino fallthrough</div><div class="val">214</div></div>
+    <div class="kpi"><div class="lab">Slow &gt;3s</div><div class="val">47</div></div>
+  </div>
+
+  <div class="section-h">Failures &amp; slow queries <span class="badge">12 failing</span></div>
+  <table>
+    <thead><tr><th>Status</th><th>Latency</th><th>Routing</th><th>Query shape</th><th>Game</th><th></th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="pill err">504</span></td>
+        <td class="lat bad">30.5s</td>
+        <td><span class="hitbadge miss">raw Trino</span></td>
+        <td><div class="chips"><span class="chip">mf_users</span><span class="chip">·count</span><span class="chip">·user_id</span><span class="chip">·last_active_date</span></div></td>
+        <td>cfm_vn</td>
+        <td><button class="opt">Optimize →</button></td>
+      </tr>
+      <tr>
+        <td><span class="pill err">504</span></td>
+        <td class="lat bad">31.0s</td>
+        <td><span class="hitbadge miss">raw Trino</span></td>
+        <td><div class="chips"><span class="chip">user_recharge_daily</span><span class="chip">·user_id</span><span class="chip">·log_date</span></div></td>
+        <td>cfm_vn</td>
+        <td><button class="opt">Optimize →</button></td>
+      </tr>
+      <tr>
+        <td><span class="pill warn">slow 200</span></td>
+        <td class="lat bad">6.2s</td>
+        <td><span class="hitbadge unknown">lambda?</span></td>
+        <td><div class="chips"><span class="chip">active_daily</span><span class="chip">·dau</span><span class="chip">·dteventtime</span></div></td>
+        <td>jus_vn</td>
+        <td><button class="opt">Optimize →</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="success-h">▸ Successful queries (3,172) <span class="chev">expand to load ▾</span></div>
+</div></body></html>

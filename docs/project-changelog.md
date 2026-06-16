@@ -2,6 +2,10 @@
 
 Significant changes to the cube-playground app, newest first.
 
+## 2026-06-16 — Query Performance & Optimization Hub — admin query telemetry + rollup-suggestion engine
+
+Live Cube query monitoring console at `/admin/query-perf`. Gateway `/load` handler captures latency/status/rollup routing for every request (200-sampling, 30d retention). Admin UI: KPI strip (total/failures/p95/fallthrough/slow) → failures triage table → master-detail Optimize panel. Suggestions via deterministic classifier→playbook-matching (always available) + optional on-demand LLM analysis (per-admin rate-limit, per-id cache, hard timeout, sonnet-pinned; gated on `needsLlm`, 409 when a playbook already fits). Pre-agg YAML scaffolder generates drafts from query shape. Routes: `GET /api/query-perf/{failures,recent,summary}`, `GET /api/query-perf/:id/{suggestion,scaffold}`, `POST /api/query-perf/:id/llm-suggest`. Service layer: store (fire-and-forget to SQLite), classifier (tri-state verdict), playbooks + scaffolder (deterministic), LLM suggester (on-demand cached). Background job prunes rows >30 days old.
+
 ## 2026-06-15 — Advisor: gate the manual hand-off too + restrict the surface to granted users
 
 Two gaps closed: the quality gate only fired on the Drive path, and the Advisor was visible to everyone.

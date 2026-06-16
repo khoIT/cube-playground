@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- Variant B — "Card feed". Failures are expandable CARDS: each row shows the
+     classifier verdict reason inline + the best remedy as a one-line teaser, with
+     a prominent Optimize CTA. KPIs are compact inline chips, not a heavy strip.
+     More scannable / explanatory than the table; slightly less dense. -->
+<html lang="en"><head><meta charset="utf-8"><title>Query Performance — Variant B</title>
+<style>
+  :root{
+    --bg-app:#f8efe5; --bg-card:#f8efe5; --bg-muted:#efe3d4; --surface-inset:#f3e9dd;
+    --border-card:#e7e0d4; --border-strong:#d8cdba; --text-primary:#171717;
+    --text-secondary:#404040; --text-muted:#737373; --brand:#f05a22;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b; --destructive-border:#fca5a5;
+    --warning-soft:#fef3c7; --warning-ink:#92400e; --success-soft:#d1fae5; --success-ink:#047857;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8; --muted-soft:#efe3d4; --muted-ink:#525252;
+    --radius-md:10px; --font-sans:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg-app);color:var(--text-primary);font-family:var(--font-sans)}
+  .page{max-width:1000px;margin:0 auto;padding:24px 32px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+  .h1{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;margin:4px 0 2px}
+  .h1 .ico{width:22px;height:22px;color:var(--brand)}
+  .kpibar{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px}
+  .kc{display:flex;align-items:baseline;gap:6px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--text-secondary)}
+  .kc b{font-size:14px;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+  .kc.bad b{color:var(--destructive-ink)}
+  .section-h{font-size:13px;font-weight:700;margin:0 0 12px;display:flex;gap:8px;align-items:center}
+  .badge{font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--destructive-soft);color:var(--destructive-ink)}
+  .card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:10px}
+  .card.fail{border-left:3px solid var(--destructive-border)}
+  .card-top{display:flex;align-items:center;gap:10px}
+  .pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+  .pill.err{background:var(--destructive-soft);color:var(--destructive-ink)}
+  .pill.warn{background:var(--warning-soft);color:var(--warning-ink)}
+  .lat{font-variant-numeric:tabular-nums;font-weight:700;color:var(--destructive-ink)}
+  .chips{display:flex;flex-wrap:wrap;gap:4px;margin-left:auto}
+  .chip{font-size:11px;background:var(--surface-inset);border:1px solid var(--border-card);border-radius:6px;padding:1px 6px;color:var(--text-secondary)}
+  .reason{font-size:12px;color:var(--text-secondary);margin:10px 0 0;padding-left:2px}
+  .remedy{margin-top:10px;background:var(--surface-inset);border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px;font-size:12px}
+  .remedy .tag{font-weight:700;color:var(--success-ink);background:var(--success-soft);border-radius:6px;padding:1px 8px;font-size:11px}
+  .opt{margin-left:auto;font-size:12px;font-weight:600;color:#fff;background:var(--brand);border:none;border-radius:8px;padding:6px 14px;cursor:pointer}
+  .success-h{margin-top:24px;border:1px dashed var(--border-strong);border-radius:var(--radius-md);padding:12px 16px;display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:600;font-size:13px;color:var(--text-secondary)}
+</style></head>
+<body><div class="page">
+  <div class="eyebrow">Administration</div>
+  <div class="h1"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 12l3 3"/><circle cx="12" cy="12" r="9"/></svg>Query Performance</div>
+
+  <div class="kpibar">
+    <span class="kc"><b>3,184</b> total 24h</span>
+    <span class="kc bad"><b>12</b> failures</span>
+    <span class="kc"><b>8.4s</b> p95</span>
+    <span class="kc"><b>214</b> Trino fallthrough</span>
+    <span class="kc"><b>47</b> slow &gt;3s</span>
+  </div>
+
+  <div class="section-h">Failures &amp; slow queries <span class="badge">12 failing</span></div>
+
+  <div class="card fail">
+    <div class="card-top">
+      <span class="pill err">504</span><span class="lat">30.5s</span>
+      <div class="chips"><span class="chip">mf_users·count</span><span class="chip">·user_id</span><span class="chip">·last_active_date</span><span class="chip">cfm_vn</span></div>
+    </div>
+    <p class="reason">⚠ Per-user dimension <b>user_id</b> → no aggregate rollup possible; raw Trino read.</p>
+    <div class="remedy"><span class="tag">BEST</span> Materialize as a membership snapshot — serve per-user rows from the nightly snapshot, not a live scan. <button class="opt">Optimize →</button></div>
+  </div>
+
+  <div class="card fail">
+    <div class="card-top">
+      <span class="pill warn">slow 200</span><span class="lat">6.2s</span>
+      <div class="chips"><span class="chip">active_daily·dau</span><span class="chip">·dteventtime</span><span class="chip">jus_vn</span></div>
+    </div>
+    <p class="reason">Additive shape; rollup keyed on log_date but query binds dteventtime → time-dim mismatch.</p>
+    <div class="remedy"><span class="tag">BEST</span> Add a pre-aggregation on the query's time dim. <button class="opt">Optimize →</button></div>
+  </div>
+
+  <div class="success-h">▸ Successful queries (3,172) — expand to load ▾</div>
+</div></body></html>

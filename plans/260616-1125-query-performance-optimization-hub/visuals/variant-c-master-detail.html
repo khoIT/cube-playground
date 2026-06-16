@@ -1,0 +1,82 @@
+<!doctype html>
+<!-- Variant C — "Master-detail rail". Left: compact failures list. Right: a docked
+     Optimize panel that's ALWAYS visible (verdict + best remedy + draft rollup YAML
+     + Generate-via-LLM). The P5 action panel is first-class, not a drawer. Densest
+     workflow for an admin who triages many queries in one sitting. -->
+<html lang="en"><head><meta charset="utf-8"><title>Query Performance — Variant C</title>
+<style>
+  :root{
+    --bg-app:#f8efe5; --bg-card:#f8efe5; --bg-muted:#efe3d4; --surface-inset:#f3e9dd;
+    --border-card:#e7e0d4; --border-strong:#d8cdba; --text-primary:#171717;
+    --text-secondary:#404040; --text-muted:#737373; --brand:#f05a22;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b; --destructive-border:#fca5a5;
+    --warning-soft:#fef3c7; --warning-ink:#92400e; --success-soft:#d1fae5; --success-ink:#047857;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8; --muted-soft:#efe3d4; --muted-ink:#525252;
+    --surface-inverse:#171717; --text-inverse:#fafafa; --radius-md:10px; --font-sans:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg-app);color:var(--text-primary);font-family:var(--font-sans)}
+  .page{max-width:1400px;margin:0 auto;padding:24px 32px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+  .h1{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;margin:4px 0 12px}
+  .h1 .ico{width:22px;height:22px;color:var(--brand)}
+  .kpis{display:flex;gap:10px;margin-bottom:18px}
+  .kpi{flex:1;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:10px 14px}
+  .kpi .lab{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em}
+  .kpi .val{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:4px}
+  .kpi.bad .val{color:var(--destructive-ink)}
+  .split{display:grid;grid-template-columns:minmax(380px,1fr) 1.1fr;gap:16px;align-items:start}
+  .list{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);overflow:hidden}
+  .list-h{font-size:12px;font-weight:700;padding:10px 14px;border-bottom:1px solid var(--border-card);display:flex;gap:8px;align-items:center}
+  .badge{font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--destructive-soft);color:var(--destructive-ink)}
+  .row{padding:11px 14px;border-bottom:1px solid var(--border-card);cursor:pointer;display:flex;align-items:center;gap:8px}
+  .row.sel{background:var(--surface-inset)}
+  .row:last-child{border-bottom:none}
+  .pill{font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px}
+  .pill.err{background:var(--destructive-soft);color:var(--destructive-ink)}
+  .pill.warn{background:var(--warning-soft);color:var(--warning-ink)}
+  .lat{font-variant-numeric:tabular-nums;font-weight:600;color:var(--destructive-ink);font-size:12px}
+  .mini{font-size:11px;color:var(--text-secondary);margin-left:auto;text-align:right}
+  .panel{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:16px 18px;position:sticky;top:16px}
+  .panel h3{margin:0 0 2px;font-size:14px}
+  .verdict{font-size:12px;color:var(--text-secondary);margin:8px 0 14px;background:var(--surface-inset);border-radius:8px;padding:9px 12px}
+  .lab2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:14px 0 6px}
+  .remedy{font-size:13px;font-weight:600}
+  .steps{font-size:12px;color:var(--text-secondary);padding-left:16px;margin:6px 0}
+  pre{background:var(--surface-inverse);color:var(--text-inverse);border-radius:8px;padding:12px;font-size:11.5px;overflow:auto;margin:6px 0}
+  .warn-list{font-size:11px;color:var(--warning-ink);background:var(--warning-soft);border-radius:8px;padding:8px 10px;margin-top:6px}
+  .btnrow{display:flex;gap:8px;margin-top:12px}
+  .btn{font-size:12px;font-weight:600;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card)}
+  .btn.pri{background:var(--brand);color:#fff;border:none}
+</style></head>
+<body><div class="page">
+  <div class="eyebrow">Administration</div>
+  <div class="h1"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 12l3 3"/><circle cx="12" cy="12" r="9"/></svg>Query Performance</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lab">Total 24h</div><div class="val">3,184</div></div>
+    <div class="kpi bad"><div class="lab">Failures</div><div class="val">12</div></div>
+    <div class="kpi"><div class="lab">p95</div><div class="val">8.4s</div></div>
+    <div class="kpi"><div class="lab">Fallthrough</div><div class="val">214</div></div>
+    <div class="kpi"><div class="lab">Slow &gt;3s</div><div class="val">47</div></div>
+  </div>
+
+  <div class="split">
+    <div class="list">
+      <div class="list-h">Failures &amp; slow <span class="badge">12</span></div>
+      <div class="row sel"><span class="pill err">504</span><span class="lat">30.5s</span><span class="mini">mf_users · user_id<br>cfm_vn</span></div>
+      <div class="row"><span class="pill err">504</span><span class="lat">31.0s</span><span class="mini">user_recharge_daily<br>cfm_vn</span></div>
+      <div class="row"><span class="pill warn">slow</span><span class="lat">6.2s</span><span class="mini">active_daily · dau<br>jus_vn</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>mf_users · count · user_id · last_active_date</h3>
+      <div class="verdict"><b>unmatchable · miss</b> — per-user dimension <b>user_id</b> → no aggregate rollup possible; raw Trino read.</div>
+      <div class="lab2">Best remedy</div>
+      <div class="remedy">Materialize as a membership snapshot</div>
+      <ol class="steps"><li>Map the listing to a segment.</li><li>Read per-user rows from the nightly snapshot, not a live /load.</li><li>If a live cut is needed, scope by predicate (not a UID IN-list).</li></ol>
+      <div class="lab2">Draft rollup</div>
+      <div class="warn-list">This query cannot be served by a rollup (per-user row listing). No draft emitted.</div>
+      <div class="btnrow"><button class="btn pri" disabled>Copy YAML</button><button class="btn">Generate via LLM (soon)</button></div>
+    </div>
+  </div>
+</div></body></html>

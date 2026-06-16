@@ -26,6 +26,7 @@ import { DevHubPanel } from './dev-hub-panel';
 import { ObservabilityTab } from './observability-tab';
 import { UserActivityProfile } from './user-activity-profile';
 import { PreaggRunsTab } from './preagg-runs-tab';
+import { QueryPerfTab } from './query-perf-tab';
 import { SegmentRefreshOpsTab } from './segment-refresh-ops-tab';
 import { CarePrecomputePanel } from './care-precompute-panel';
 import { useSegmentRefreshAlertCount } from './segment-refresh-ops-data';
@@ -46,6 +47,7 @@ function buildAdminTabs(pendingCount: number, refreshAlertCount: number): TabDef
     },
     { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev', tag: 'relocated' },
     { key: 'preagg-runs', label: 'Pre-agg Runs', path: '/admin/preagg-runs' },
+    { key: 'query-perf', label: 'Query Performance', path: '/admin/query-perf' },
     {
       key: 'segment-refreshes',
       label: 'Segment Refreshes',
@@ -144,6 +146,10 @@ export function AdminHub() {
 
           <Route exact path="/admin/preagg-runs">
             <PreaggRunsTab />
+          </Route>
+
+          <Route exact path="/admin/query-perf">
+            <QueryPerfTab />
           </Route>
 
           <Route exact path="/admin/segment-refreshes">

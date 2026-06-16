@@ -443,6 +443,43 @@ All care routes in `PROTECTED_PREFIXES` — editor/admin write-gated, viewers re
 
 ---
 
+## Query Performance & Optimization Hub (2026-06-16)
+
+Admin-only Cube query telemetry surface + optimization-suggestion engine. Captures gateway `/load` handler latency, status, and rollup routing (query-perf table, 30d retention via background prune job). Admin triage UI at `/admin/query-perf` lets operators drill failed/slow queries, view optimization recommendations (deterministic playbook-matching + optional LLM-driven suggestions), and scaffold pre-aggregation YAML drafts.
+
+### Services (server-side)
+
+- **Query perf capture** — `server/src/services/query-perf-store.ts`. Fire-and-forget log to `query_perf` SQLite table (migration 061): 200-sampling (captures all non-200, 1-in-5 of 200s), PII-gated via allowlist `projectQueryShape` (measure/dimension names only, no values), 30d retention. Populated from `/load` handler in `cube-proxy.ts` with latency timing.
+- **Query perf classifier** — `server/src/services/query-perf-classifier.ts`. Read-time tri-state verdict: pre-agg-hit status (yes / no / unknown), rollup matchability (matchable / not-matchable / unmatchable-by-design), human-readable reason. Evaluates `usedPreAggregations` against per-game registry view (Cube /meta structure).
+- **Optimization playbooks** — `server/src/services/optimization-playbooks.ts`. 5 seed remedies, each a pure `appliesWhen(verdict)` predicate: `materialize-snapshot` (per-user listing — unmatchable), `add-rollup` (matchable miss; scaffolds YAML), `remodel-non-additive`, `narrow-time-grain`, `accept-or-raise-timeout` (universal fallback). `optimization-playbook-matcher.ts` is pure/deterministic; `needsLlm` is true only when the sole match is the generic fallback (the LLM gate).
+- **Rollup YAML scaffolder** — `server/src/services/rollup-yaml-scaffolder.ts`. Pure draft generation from the query shape: additive-only measures, identity dims dropped (with warnings), time_dimension copied from the query's bound dim, `build_range_end` LEAST cap for timestamp time-dims. Returns a string to copy — no file write, no Cube call, no auto-apply.
+- **LLM suggester** — `server/src/services/query-perf-llm-suggester.ts`. On-demand only (never auto-runs on capture); per-id in-memory cache + per-admin token-bucket rate-limit (default 5/min) + hard timeout (default 60s); sonnet-pinned LiteLLM gateway one-shot. NAMES-only prompt. Returns `{suggestion, lane}` or `{error}` (never throws). Playbook match is always available regardless.
+
+### Routes (server-side)
+
+- **`GET /api/query-perf/failures`** — non-200 queries (failure triage). Params: `?since` (epoch-ms), `?limit` (capped 100). Newest-first. Response: `{rows: [{id, ts, actorEmail, workspace, game, method, status, latencyMs, usedPreaggs, preaggHit, matchability, reason, shape, errorExcerpt}]}`. Admin-gated.
+- **`GET /api/query-perf/recent`** — 200-status queries (success list, default closed). Params: `?since`, `?limit`.
+- **`GET /api/query-perf/summary`** — KPI rollups (total count, failures, slow count, Trino fallthrough, p50/p95 latency, slow threshold). Params: `?since`. Response: `{total, failures, slow, fallthrough, p50LatencyMs, p95LatencyMs, slowMs}`.
+- **`GET /api/query-perf/:id/suggestion`** — Deterministic classifier→playbook match (NO LLM). Response: `{verdict: {preaggHit, matchability, reason}, playbooks: [{id, title, rationale, steps, scaffolds}], best, needsLlm}`. 404 if row gone.
+- **`GET /api/query-perf/:id/scaffold`** — Pure draft pre-agg YAML. Response: `{yaml: string|null, warnings: [], verdict}` (yaml null when the shape is unmatchable). 404 / 422 (no shape).
+- **`POST /api/query-perf/:id/llm-suggest`** — On-demand LLM remedy, gated on `needsLlm`. Returns `{suggestion, lane}` or `{error}` (200, non-blocking). **409** when a playbook already fits (LLM reserved for the genuine gap). Per-admin rate-limit + per-id cache + hard timeout.
+
+### Jobs
+
+- **Prune query-perf** — `server/src/jobs/prune-query-perf.ts`. Daily, deletes rows older than 30 days. Logs count.
+
+### Migrations
+
+- **061-query-perf.sql** — `query_perf` table (`id, ts, actorEmail, workspace, game, method, status, latencyMs, shape, usedPreaggs, errorExcerpt`). Index on `(workspace, game, ts)`.
+
+### Frontend (Admin Hub)
+
+- **Query Performance tab** — `src/pages/Admin/hub/query-perf-tab.tsx`. KPI strip (total, failures, p95 latency, Trino fallthrough, slow count) + Failures table (triage, newest-first) + collapsible Successful queries section (lazy-fetched). Table columns: timestamp, actor, game, status, latency, pre-agg verdict (tri-state), matchability. Row-click opens detail panel.
+- **Optimize panel** — `src/pages/Admin/hub/query-perf-optimize-panel.tsx`. Right-docked master-detail: query shape (YAML), used-preggs list, error excerpt (if failed), "Suggestion" card (playbook + LLM options), "Scaffold pre-agg" card (YAML preview, copy-able). Actions: "Load suggestion", "Live LLM suggest", "Copy YAML".
+- **Data client** — `src/pages/Admin/hub/query-perf-data.ts` (typed hooks: `useQueryPerfSummary`, `useQueryPerfFailures`, `useQueryPerfRecent`).
+
+---
+
 ## Segment Metric-Movement Lakehouse (2026-06-12)
 
 Nightly snapshot of segment definitions + membership deltas into Trino Iceberg (`stag_iceberg.khoitn`), powering per-segment cohort trajectory (size + entered/exited flow) and metric series (revenue, active members) by lens (current, entry, stayers) with optional survivorship bias.

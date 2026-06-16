@@ -18,6 +18,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { gamePrefixFor, filterMetaToGamePrefix } from '../services/prefix-meta-filter.js';
 import { recordActivity, projectQueryShape } from '../services/activity-store.js';
+import { recordQueryPerf, shouldCapture } from '../services/query-perf-store.js';
 
 // Browser query-builder queries on per-user dimensions (e.g. mf_users.user_id
 // with a date range) bypass pre-aggregations and read raw from Trino; a cold
@@ -47,6 +48,45 @@ function emitQueryRun(req: FastifyRequest, status: number, query: unknown): void
     workspace: req.workspace.id,
     game: gameIdOf(req),
     detail: projectQueryShape(query),
+  });
+}
+
+// Monotonic per-process counter for the fast-200 sampling decision. Kept here
+// (not on the request) so a single fast-query storm samples deterministically.
+let perfSeq = 0;
+
+/**
+ * Fire-and-forget performance telemetry for a `/load` query — captured for ALL
+ * statuses (failures are never sampled; fast 200s are sampled — see
+ * `shouldCapture`). Records latency, status, used pre-aggregations, and the
+ * NAMES-only query shape. Never awaited; called after the reply is queued so it
+ * stays off the hot path. A 200 body carries `usedPreAggregations` (raw, may be
+ * '[]' for lambda rollups); non-200 bodies carry an error message excerpt only.
+ */
+function emitQueryPerf(
+  req: FastifyRequest,
+  method: 'GET' | 'POST',
+  status: number,
+  latencyMs: number,
+  query: unknown,
+  body: unknown,
+): void {
+  if (!shouldCapture(status, latencyMs, perfSeq++)) return;
+  const ok = status === 200;
+  const usedPreaggs = ok
+    ? (body as { usedPreAggregations?: unknown } | null)?.usedPreAggregations ?? []
+    : undefined;
+  recordQueryPerf({
+    actorSub: req.principal.sub,
+    actorEmail: req.principal.email,
+    workspace: req.workspace.id,
+    game: gameIdOf(req),
+    method,
+    status,
+    latencyMs,
+    query,
+    usedPreaggs,
+    errorBody: ok ? undefined : body,
   });
 }
 
@@ -139,14 +179,22 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
   // resolved upstream.
   app.get('/cube-api/v1/load', async (req, reply) => {
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
+    const started = performance.now();
     const { status, body } = await forward(req.cubeCtx, 'GET', '/load', search, undefined);
-    emitQueryRun(req, status, parseGetQuery(req));
+    const latencyMs = performance.now() - started;
+    const query = parseGetQuery(req);
+    emitQueryRun(req, status, query);
+    emitQueryPerf(req, 'GET', status, latencyMs, query, body);
     return reply.status(status).send(body);
   });
 
   app.post('/cube-api/v1/load', async (req, reply) => {
+    const started = performance.now();
     const { status, body } = await forward(req.cubeCtx, 'POST', '/load', '', req.body);
-    emitQueryRun(req, status, (req.body as { query?: unknown } | undefined)?.query);
+    const latencyMs = performance.now() - started;
+    const query = (req.body as { query?: unknown } | undefined)?.query;
+    emitQueryRun(req, status, query);
+    emitQueryPerf(req, 'POST', status, latencyMs, query, body);
     return reply.status(status).send(body);
   });
 

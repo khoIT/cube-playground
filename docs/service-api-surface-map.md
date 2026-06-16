@@ -173,6 +173,17 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | GET | `/api/admin/advisor/runs/:sessionId/events` | admin | `authorization`, `?turnIndex,cursor,limit` | `{events:[...]}` append-only SSE frame stream (replay) / 404 | SQLite advisor_event_log |
 | GET | `/api/admin/advisor/owners` | admin | `authorization` | `{owners:[{id,displayName,runCount}]}` | SQLite advisor_agent_run |
 
+### query performance & optimization hub
+
+| Method | Path | Auth/Roles | Headers | Response | Data sources |
+|---|---|---|---|---|---|
+| GET | `/api/query-perf/failures` | admin | `authorization`, `?since,limit` | `{rows:[{id,ts,actorEmail,workspace,game,method,status,latencyMs,usedPreaggs[],preaggHit,matchability,reason,shape,errorExcerpt}]}` newest-first (non-200 queries, 30d default window) | SQLite query_perf |
+| GET | `/api/query-perf/recent` | admin | `authorization`, `?since,limit` | `{rows:[...]}` 200-status queries (success list) | SQLite query_perf |
+| GET | `/api/query-perf/summary` | admin | `authorization`, `?since` | `{total,failures,slow,fallthrough,p50LatencyMs,p95LatencyMs,slowMs}` KPI rollups | SQLite query_perf |
+| GET | `/api/query-perf/:id/suggestion` | admin | `authorization` | `{verdict,playbooks:[{id,title,rationale,steps,scaffolds}],best,needsLlm}` deterministic classifier→playbook match (no LLM) / 404 | query-perf-classifier, optimization-playbook-matcher |
+| GET | `/api/query-perf/:id/scaffold` | admin | `authorization` | `{yaml:string\|null,warnings:[],verdict}` pure draft pre-agg YAML (null when shape unmatchable) / 404 / 422 | rollup-yaml-scaffolder (pure) |
+| POST | `/api/query-perf/:id/llm-suggest` | admin | `authorization` | `{suggestion,lane}` or `{error}` (200, non-blocking) on-demand LLM remedy; **409** when a playbook already fits; per-admin rate-limit + per-id cache + hard timeout | query-perf-llm-suggester (sonnet-pinned gateway) |
+
 ---
 
 ### analyses, anomalies, dashboards

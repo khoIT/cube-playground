@@ -57,6 +57,7 @@ import careCasesRoutes from './routes/care-cases.js';
 import careActivityRoutes from './routes/care-activity.js';
 import careGovernanceRoutes from './routes/care-governance.js';
 import preaggRunsRoutes from './routes/preagg-runs.js';
+import queryPerfRoutes from './routes/query-perf.js';
 import carePrecomputeRoutes from './routes/care-precompute.js';
 import segmentRefreshOpsRoutes from './routes/segment-refresh-ops.js';
 import modelViewRoutes from './routes/model-view.js';
@@ -81,6 +82,7 @@ import {
 } from './services/business-metrics-loader.js';
 import { startAnomalyDetector } from './jobs/anomaly-detector.js';
 import { startActivityPruneCron } from './jobs/prune-activity-events.js';
+import { startQueryPerfPruneCron } from './jobs/prune-query-perf.js';
 import { startCareSweepPruneCron } from './jobs/prune-care-sweep-membership.js';
 import { startCareAutoSweepCron } from './jobs/care-auto-sweep.js';
 import { startSegmentMembershipSnapshotCron } from './jobs/snapshot-segment-membership.js';
@@ -150,6 +152,7 @@ export async function buildApp() {
   await app.register(careActivityRoutes);
   await app.register(careGovernanceRoutes);
   await app.register(preaggRunsRoutes);
+  await app.register(queryPerfRoutes);
   await app.register(carePrecomputeRoutes);
   await app.register(segmentRefreshOpsRoutes);
   await app.register(modelViewRoutes);
@@ -266,6 +269,7 @@ if (isMain || process.env.START_SERVER === '1') {
       startLiveopsCacheCron();
       startDashboardTileCacheCron();
       startActivityPruneCron();
+      startQueryPerfPruneCron();
       startCareSweepPruneCron();
       startCareAutoSweepCron();
       // Lakehouse daily segment-membership snapshot — only fires when
