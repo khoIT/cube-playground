@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Why orient → measure → suggest</title>
+<style>
+  :root{
+    --cream:#f4ede4;--ink:#2b2622;--muted:#7a7066;--faint:#a59a8c;
+    --brand:#e8722c;--brand-ink:#b4541a;--chip-fill:#fbe6d4;--chip-border:#e8a877;
+    --panel:#fbf7f1;--panel-border:#e7dccd;
+    --good:#3f9460;--good-soft:#e3f0e7;--bad:#cf6b4a;--bad-soft:#f6e2da;
+    --grid:#ece2d3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    padding:30px 30px 34px;display:flex;flex-direction:column;align-items:center}
+  .wrap{max-width:1180px;width:100%}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+  h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .sub{font-size:13px;color:var(--muted);margin:6px 0 0;max-width:78ch;line-height:1.5}
+
+  /* pipeline */
+  .pipe{display:flex;align-items:stretch;gap:0;margin:20px 0 22px}
+  .stage{flex:1;background:var(--panel);border:1px solid var(--panel-border);padding:13px 16px;position:relative}
+  .stage:first-child{border-radius:12px 0 0 12px}
+  .stage:last-child{border-radius:0 12px 12px 0}
+  .stage + .stage{border-left:none}
+  .stage .n{font-size:11px;font-weight:700;color:var(--brand-ink);letter-spacing:.04em}
+  .stage h3{margin:3px 0 3px;font-size:15px;font-weight:700}
+  .stage p{margin:0;font-size:12px;color:var(--muted);line-height:1.45}
+  .arrow{display:flex;align-items:center;justify-content:center;width:30px;color:var(--brand);font-size:18px;font-weight:700;flex:0 0 auto}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+  .chead{padding:12px 16px;border-bottom:1px solid var(--panel-border);display:flex;align-items:center;gap:8px}
+  .chead .dot{width:8px;height:8px;border-radius:999px;flex:0 0 auto}
+  .chead.bad{background:var(--bad-soft)} .chead.bad .dot{background:var(--bad)}
+  .chead.good{background:var(--good-soft)} .chead.good .dot{background:var(--good)}
+  .chead b{font-size:13.5px;font-weight:700}
+  .chead span{font-size:11px;color:var(--muted);margin-left:auto;font-weight:600}
+  .cbody{padding:15px 16px 16px;font-size:13px;line-height:1.55;flex:1}
+
+  .q{font-size:13px;font-weight:700;margin:0 0 10px;color:var(--ink)}
+  /* fake metric-dictionary table (the 'orient-only' answer) */
+  table{border-collapse:collapse;width:100%;font-size:11.5px;margin:2px 0 12px}
+  th,td{border:1px solid var(--grid);padding:5px 8px;text-align:left;color:var(--muted)}
+  th{background:#f0e7d8;color:var(--ink);font-weight:600}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--brand-ink)}
+  .proseq{font-size:11.5px;color:var(--faint);margin:0;line-height:1.6}
+  .stamp{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+    padding:2px 8px;border-radius:999px;margin-top:12px}
+  .stamp.bad{background:var(--bad-soft);color:var(--bad)}
+  .stamp.good{background:var(--good-soft);color:var(--good)}
+
+  /* the 'good' answer */
+  .lead{margin:0 0 12px;font-size:13px}
+  .kpis{display:flex;gap:10px;margin:0 0 12px}
+  .kpi{flex:1;background:#fff;border:1px solid var(--panel-border);border-radius:9px;padding:9px 11px}
+  .kpi .lbl{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .kpi .val{font-size:21px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:2px}
+  .kpi .dlt{font-size:11px;font-weight:600;margin-top:1px}
+  .kpi .dlt.up{color:var(--good)} .kpi .dlt.down{color:var(--bad)}
+  .chartbox{background:#fff;border:1px solid var(--panel-border);border-radius:9px;padding:10px 12px 6px;margin:0 0 13px}
+  .chartbox .ct{font-size:11px;font-weight:600;color:var(--muted);margin:0 0 4px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+  .nbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;
+    border:1px solid var(--chip-border);background:var(--chip-fill);color:var(--brand-ink);
+    font-size:11.5px;font-weight:600;cursor:default}
+  .nbtn .pl{font-size:13px;line-height:1}
+  .suggh{font-size:11px;font-weight:600;color:var(--muted);margin:2px 0 7px;letter-spacing:.02em}
+
+  /* why-superior strip */
+  .why{margin-top:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .why .w{background:var(--panel);border:1px solid var(--panel-border);border-radius:11px;padding:13px 15px}
+  .why .tag{font-size:10.5px;font-weight:700;color:var(--brand-ink);letter-spacing:.04em;text-transform:uppercase}
+  .why h4{margin:5px 0 4px;font-size:13.5px;font-weight:700}
+  .why p{margin:0;font-size:11.5px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Chat answer pattern · situational questions</p>
+  <h1>Why orient → measure → suggest beats a metric dictionary</h1>
+  <p class="sub">Same question, same data model. Today the agent stops after “orient.” Adding a required measure step and a clickable suggest step turns a glossary read into a decision.</p>
+
+  <div class="pipe">
+    <div class="stage"><div class="n">STEP 1</div><h3>Orient</h3><p>1–2 framing lines from the knowledge bank — which metrics matter & why. The trustworthy intro.</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><div class="n">STEP 2 · the missing one</div><h3>Measure</h3><p>Fetch the metrics it just named. Real values + a trend chart. Answers the actual question.</p></div>
+    <div class="arrow">→</div>
+    <div class="stage"><div class="n">STEP 3</div><h3>Suggest</h3><p>2–4 one-click next questions, picked from the verified bank & ranked to what was just shown.</p></div>
+  </div>
+
+  <div class="grid2">
+    <!-- BEFORE: orient-only -->
+    <div class="card">
+      <div class="chead bad"><span class="dot"></span><b>Today — orient only</b><span>0 numbers · dead-end</span></div>
+      <div class="cbody">
+        <p class="q">“What should I know about churn for this game?”</p>
+        <table>
+          <tr><th>Metric</th><th>Why it matters</th></tr>
+          <tr><td><code>active_daily.dau</code></td><td>baseline health</td></tr>
+          <tr><td><code>active_daily.trailing_wau</code></td><td>removes weekday noise</td></tr>
+          <tr><td><code>etl_logout.avg_session_sec</code></td><td>leading churn indicator</td></tr>
+        </table>
+        <p class="proseq"><b>Questions you can ask:</b> “WAU vs trailing WAU last 30d” · “DAU/MAU by platform” · “paying vs total DAU”… <i>(plain text — not clickable)</i></p>
+        <span class="stamp bad">reads like a glossary · user still has to ask again</span>
+      </div>
+    </div>
+
+    <!-- AFTER: orient → measure → suggest -->
+    <div class="card">
+      <div class="chead good"><span class="dot"></span><b>Orient → measure → suggest</b><span>charted · decision-ready</span></div>
+      <div class="cbody">
+        <p class="lead"><b>Churn is concentrated in week 1.</b> DAU holds but trailing WAU is sliding — early soft-churn. Here’s the live picture:</p>
+        <div class="kpis">
+          <div class="kpi"><div class="lbl">D30 churn</div><div class="val">31.9%</div><div class="dlt up">▲ 2.4pp vs last cohort</div></div>
+          <div class="kpi"><div class="lbl">Trailing WAU</div><div class="val">18.7k</div><div class="dlt down">▼ 6% / 30d</div></div>
+        </div>
+        <div class="chartbox">
+          <p class="ct">Trailing WAU — last 30 days</p>
+          <svg viewBox="0 0 320 70" width="100%" height="64" preserveAspectRatio="none">
+            <polyline fill="none" stroke="#e8722c" stroke-width="2.5"
+              points="4,16 40,18 76,15 112,22 148,26 184,30 220,34 256,40 292,46 316,52"/>
+            <circle cx="316" cy="52" r="3.2" fill="#e8722c"/>
+          </svg>
+        </div>
+        <p class="suggh">Next — one click runs it:</p>
+        <div class="chips">
+          <span class="nbtn"><span class="pl">↗</span>iOS vs Android stickiness</span>
+          <span class="nbtn"><span class="pl">↗</span>Do payers churn first?</span>
+          <span class="nbtn"><span class="pl">↗</span>D1/D7/D30 by cohort</span>
+        </div>
+        <span class="stamp good">answers it now · next step is one tap</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="why">
+    <div class="w"><div class="tag">Trust</div><h4>Grounded, not generic</h4><p>Orient keeps the knowledge-bank framing — the answer is still anchored to what this game’s model can prove.</p></div>
+    <div class="w"><div class="tag">Answers the ask</div><h4>Numbers, not a menu</h4><p>Measure fetches the metrics it named. “What should I know” gets the actual state + trend, not a list to go ask yourself.</p></div>
+    <div class="w"><div class="tag">Momentum</div><h4>Next step is one tap</h4><p>Suggest emits clickable <code>offer_choices</code> instead of dead prose — no retyping, no dead-end.</p></div>
+    <div class="w"><div class="tag">Relevance</div><h4>Contextual follow-ups</h4><p>Suggestions rank to what was just shown (WAU sliding → ask the platform split), not a fixed generic five.</p></div>
+  </div>
+</div>
+</body>
+</html>

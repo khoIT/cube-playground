@@ -1,6 +1,23 @@
 # Plan — Situational chat answers (real numbers + structured tokens) & churn reach
 
-Status: DRAFT (planning only). Owner: khoitn. Created 2026-06-17.
+Status: Task 4 DONE; Task 5 step1/step2 VERIFIED; Task 5 step3 (rollup) DEFERRED.
+Owner: khoitn. Created 2026-06-17. Last updated 2026-06-17.
+
+## Progress
+- **Task 4 — DONE** (explore/SKILL.md orient→measure→suggest branch; mode-prompts.ts
+  FIELD_CHIP table-cell rule + negative example; snapshots regenerated). Tests 1199/1199
+  green, typecheck clean. Live re-ask smoke pending a chat-service restart (deferred,
+  same posture as the smart-asking N-run smoke).
+- **Task 5 step 1 — VERIFIED.** `retention.churned_d30` + `retention.cohort_size` resolve
+  live on cfm_vn AND jus_vn (dev cube :4000 — the instance chat-service targets). No model
+  gap. Note: the 5-day serving instance :17001 is stale (lacks churned_d30) — needs a
+  restart to pick up the model; ops action, not a code gap.
+- **Task 5 step 2 — VERIFIED (reach).** churn_rate is certified, required_cubes:[retention]
+  present on both games → not availability-gated; reachable via list_business_metrics.
+  No churn topic in the knowledge bank (topics = liveops/user_acquisition/monetization);
+  reach is via list_business_metrics + the new Task-4 measure requirement, not topic-knowledge.
+- **Task 5 step 3 — DEFERRED.** Retention pre-agg rollup is a separate high-risk build/verify
+  loop (cubestore future-seal/log_date pitfalls). To be authored as a follow-up.
 
 ## Origin
 Chat answer to "what should I know about churn users situation" returned a **qualitative

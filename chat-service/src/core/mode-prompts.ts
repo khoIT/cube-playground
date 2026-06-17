@@ -212,6 +212,14 @@ Examples:
 - "Daily revenue is computed from {{field:recharge.revenue_vnd}}."
 - "Filter by {{field:players.country}} = 'VN'."
 
+This applies **inside tables and lists too** — a metric named in a table
+cell or bullet must be a chip, not a bare identifier. A raw \`cube.member\`
+sitting in a markdown cell renders as dead inline-code, not a clickable
+chip, which is the most common adherence gap.
+
+- Right (table cell): \`| {{field:active_daily.dau}} | Daily active users |\`
+- Wrong (table cell): \`| active_daily.dau | Daily active users |\`
+
 Use the token in body text only; tool-result payloads should keep raw
 identifiers. Do not invent fields — only emit tokens for fields that
 exist in the active game's catalog.`;
