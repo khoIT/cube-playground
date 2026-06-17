@@ -20,8 +20,19 @@
  */
 
 import type { GlossaryFilter } from '../../../api/glossary-client';
+import { hasKnownMetrics, isKnownMetricSlug } from './known-metrics-registry';
 
 const BUSINESS_METRIC_PREFIX = 'business_metrics/';
+
+/**
+ * A `business_metrics/<slug>` ref should only route to the metric detail page
+ * when that metric actually exists — otherwise the link 404s. We can only know
+ * the metric universe once the registry has loaded; until then, fail open
+ * (route to the metric) so a valid link is never degraded during first load.
+ */
+export function metricSlugResolves(slug: string): boolean {
+  return !hasKnownMetrics() || isKnownMetricSlug(slug);
+}
 
 export interface ResolvableTerm {
   id: string;
@@ -74,7 +85,12 @@ export function resolveGlossaryHref(term: ResolvableTerm): string {
   const pid = term.primaryCatalogId;
   if (pid && pid.startsWith(BUSINESS_METRIC_PREFIX)) {
     const slug = pid.slice(BUSINESS_METRIC_PREFIX.length);
-    if (slug.length > 0) return `/catalog/metric/${encodeURIComponent(slug)}`;
+    // Only route to the metric page when the metric resolves; a dangling ref
+    // falls through to the measure deep-link or the term's glossary row so the
+    // chip never lands on a "no metric found" dead end.
+    if (slug.length > 0 && metricSlugResolves(slug)) {
+      return `/catalog/metric/${encodeURIComponent(slug)}`;
+    }
   }
   if (term.defaultMeasureRef) {
     return buildExploreHref(term);

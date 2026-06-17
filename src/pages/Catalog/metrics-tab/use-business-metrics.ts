@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { BusinessMetric } from './business-metric-types';
 import { onWorkspaceChange } from '../../../shared/workspace-cache-bus';
+import { registerKnownMetricSlugs } from '../glossary/known-metrics-registry';
 
 type RegistryResponse = { metrics: BusinessMetric[] };
 
@@ -71,6 +72,9 @@ async function fetchOnce(key: string): Promise<BusinessMetric[]> {
       const json = (await resp.json()) as RegistryResponse;
       const metrics = json.metrics ?? [];
       cache.set(key, metrics);
+      // Feed the link resolver's known-slug set so glossary chips never link to
+      // a metric that isn't in the registry (accumulates across games).
+      registerKnownMetricSlugs(metrics.map((m) => m.id));
       notify(key, metrics);
       return metrics;
     } catch (err) {

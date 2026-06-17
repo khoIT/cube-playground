@@ -22,7 +22,7 @@ import {
 } from './glossary-row-mapper.js';
 import { deriveMeasureRef } from './glossary-measure-ref-resolver.js';
 import { getById as getMetricById } from '../services/business-metrics-loader.js';
-import { parseRef } from '../services/trust-mapping.js';
+import { danglingRefs, auditGlossaryRefs } from '../services/catalog-ref-integrity.js';
 import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
 import { requireRole } from '../middleware/require-role.js';
 import {
@@ -64,28 +64,6 @@ function enrichTerm(term: GlossaryTerm): GlossaryTerm {
   };
 }
 
-/**
- * Returns the subset of typed refs that point at a non-existent target.
- * business_metrics → metric registry; segments → segments table. data_model
- * refs are grammar-only here (live /meta membership is covered by the scheduled
- * metric-coverage check, not on every glossary write).
- */
-function danglingRefs(refs: string[] | undefined): string[] {
-  if (!refs?.length) return [];
-  const bad: string[] = [];
-  for (const ref of refs) {
-    const parsed = parseRef(ref);
-    if (!parsed) { bad.push(ref); continue; }
-    if (parsed.namespace === 'business_metrics') {
-      if (!getMetricById(parsed.id)) bad.push(ref);
-    } else if (parsed.namespace === 'segments') {
-      const row = getDb().prepare('SELECT 1 FROM segments WHERE id = ?').get(parsed.id);
-      if (!row) bad.push(ref);
-    }
-  }
-  return bad;
-}
-
 export default async function glossaryRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/glossary', async (req, reply) => {
     const parsed = ListQuerySchema.safeParse(req.query ?? {});
@@ -108,6 +86,14 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
     return reply.header('etag', etag).send({ terms: rows.map(rowToTerm).map(enrichTerm) });
   });
 
+  // Link-integrity audit: every glossary term's catalog refs that no longer
+  // resolve (e.g. a term whose primary_catalog_id points at a deleted/never-
+  // created metric). Powers the Settings "Glossary link integrity" panel.
+  // Static route registered before `/:id` so find-my-way matches it first.
+  app.get('/api/glossary/integrity', async () => {
+    return { dangling: auditGlossaryRefs(), generatedAt: new Date().toISOString() };
+  });
+
   app.get<{ Params: { id: string } }>('/api/glossary/:id', async (req, reply) => {
     const row = getRowById(req.params.id);
     if (!row) return reply.status(404).send({ code: 'not_found' });
@@ -124,7 +110,7 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
 
     if (getRowById(id)) return reply.status(409).send({ code: 'conflict', message: 'id exists' });
 
-    const dangling = danglingRefs(input.secondaryCatalogIds);
+    const dangling = danglingRefs([input.primaryCatalogId, ...(input.secondaryCatalogIds ?? [])]);
     if (dangling.length) {
       return reply.status(400).send({ code: 'dangling_ref', message: 'unknown ref target(s)', refs: dangling });
     }
@@ -147,7 +133,10 @@ export default async function glossaryRoutes(app: FastifyInstance): Promise<void
     const parsed = UpdateTermSchema.safeParse(req.body ?? {});
     if (!parsed.success) return reply.status(400).send({ code: 'bad_request', issues: parsed.error.issues });
 
-    const dangling = danglingRefs(parsed.data.secondaryCatalogIds);
+    const dangling = danglingRefs([
+      parsed.data.primaryCatalogId,
+      ...(parsed.data.secondaryCatalogIds ?? []),
+    ]);
     if (dangling.length) {
       return reply.status(400).send({ code: 'dangling_ref', message: 'unknown ref target(s)', refs: dangling });
     }

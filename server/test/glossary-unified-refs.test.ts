@@ -86,6 +86,40 @@ describe('glossary — unified trust/visibility + typed refs', () => {
     expect((res.json() as { code: string }).code).toBe('dangling_ref');
   });
 
+  it('rejects a dangling PRIMARY business_metrics ref (symmetric with secondary)', async () => {
+    // The dead-chat-chip-link class: a term whose primary_catalog_id points at a
+    // metric that doesn't exist. Primary refs drive the click target, so they
+    // must be existence-checked on write just like secondary refs.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/glossary',
+      payload: { label: 'Churny', description: 'x', primaryCatalogId: 'business_metrics/__nope__' },
+    });
+    expect(res.statusCode).toBe(400);
+    const body = res.json() as { code: string; refs: string[] };
+    expect(body.code).toBe('dangling_ref');
+    expect(body.refs).toContain('business_metrics/__nope__');
+  });
+
+  it('accepts an untyped (bare cube member) primary ref — grammar-only, not existence-checked', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/glossary',
+      payload: { label: 'Bare Member', description: 'x', primaryCatalogId: 'mf_users.country' },
+    });
+    expect(res.statusCode).toBe(201);
+  });
+
+  it('/api/glossary/integrity reports dangling refs in seeded terms', async () => {
+    // churn_rate is seeded with primary business_metrics/churn_rate; with the
+    // metric registry cache empty in this harness, it surfaces as dangling.
+    const res = await app.inject({ method: 'GET', url: '/api/glossary/integrity' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { dangling: Array<{ termId: string; slot: string; ref: string }> };
+    expect(Array.isArray(body.dangling)).toBe(true);
+    expect(body.dangling.some((d) => d.termId === 'churn_rate' && d.slot === 'primary')).toBe(true);
+  });
+
   it('?trust=certified aliases ?status=official', async () => {
     const certified = await app.inject({ method: 'GET', url: '/api/glossary?trust=certified' });
     const official = await app.inject({ method: 'GET', url: '/api/glossary?status=official' });

@@ -1,0 +1,34 @@
+id: churn_rate
+label: Churn rate
+description: >-
+  Day-30 churn — share of a new-user cohort that did NOT return on day 30. The complement of D30
+  retention (1 − RR30).
+synonyms:
+  - churn
+  - churn_rate
+tier: 2
+domain: retention
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: retention.churned_d30
+  denominator: retention.cohort_size
+game_compatibility:
+  required_cubes:
+    - retention
+format: percent
+meta:
+  game_id: cfm_vn
+  serving:
+    - game: cfm_vn
+      latency: cold
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        retention cube is a SQL-derived two-pass self-join with no pre_aggregations block; cold scan
+        ~14s (same path as rr30).
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T05:54:33.873Z'
+      actor: khoitn@vng.com.vn
+      note: D30 churn = 1 - RR30; refs resolve vs cfm_vn /meta after churned_d30 measure added

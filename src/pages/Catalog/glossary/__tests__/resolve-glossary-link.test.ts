@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { resolveGlossaryHref } from '../resolve-glossary-link';
+import {
+  registerKnownMetricSlugs,
+  __resetKnownMetrics,
+} from '../known-metrics-registry';
 
 describe('resolveGlossaryHref', () => {
   it('routes business_metrics/<slug> terms to /catalog/metric/<slug>', () => {
@@ -118,5 +122,41 @@ describe('resolveGlossaryHref', () => {
         values: ['1000000'],
       });
     }
+  });
+});
+
+describe('resolveGlossaryHref — known-metric guard', () => {
+  afterEach(() => __resetKnownMetrics());
+
+  it('still routes to the metric when the registry is loaded AND the slug exists', () => {
+    registerKnownMetricSlugs(['dau', 'churn_rate']);
+    expect(
+      resolveGlossaryHref({ id: 'churn_rate', primaryCatalogId: 'business_metrics/churn_rate' }),
+    ).toBe('/catalog/metric/churn_rate');
+  });
+
+  it('falls through to the glossary row when the registry is loaded but the slug is absent', () => {
+    // The bug: a glossary term points at a metric that does not exist. Once the
+    // registry is known, the dead link degrades to the term's definition row.
+    registerKnownMetricSlugs(['dau', 'mau']);
+    expect(
+      resolveGlossaryHref({ id: 'churn_rate', primaryCatalogId: 'business_metrics/churn_rate' }),
+    ).toBe('/catalog/glossary#churn_rate');
+  });
+
+  it('falls through to the measure deep-link when the metric is absent but a measure ref exists', () => {
+    registerKnownMetricSlugs(['dau']);
+    const href = resolveGlossaryHref({
+      id: 'churn_rate',
+      primaryCatalogId: 'business_metrics/churn_rate',
+      defaultMeasureRef: 'retention.churned_d30',
+    });
+    expect(href.startsWith('/build?')).toBe(true);
+  });
+
+  it('fails open (routes to metric) while the registry is still empty', () => {
+    expect(
+      resolveGlossaryHref({ id: 'churn_rate', primaryCatalogId: 'business_metrics/churn_rate' }),
+    ).toBe('/catalog/metric/churn_rate');
   });
 });

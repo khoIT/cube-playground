@@ -19,6 +19,7 @@ import { ChatServiceTab } from './ChatService/chat-service-tab';
 import { LiveopsSettingsSection } from './liveops-settings-section';
 import { DashboardsSettingsSection } from './dashboards-settings-section';
 import { MetricCoverageSection } from './metric-coverage-section';
+import { GlossaryIntegritySection } from './glossary-integrity-section';
 import { WorkspaceReadinessSection } from './workspace-readiness-section';
 import { ApiSettingsSection } from './api-settings-section';
 import { DriftCenterPage } from '../DriftCenter';
@@ -233,7 +234,12 @@ export function SettingsPage(): ReactElement {
       case 'dashboards':
         return <DashboardsSettingsSection />;
       case 'coverage':
-        return <MetricCoverageSection />;
+        return (
+          <>
+            <MetricCoverageSection />
+            <GlossaryIntegritySection />
+          </>
+        );
       case 'workspace':
         return <WorkspaceReadinessSection />;
       case 'drift':

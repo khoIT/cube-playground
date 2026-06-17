@@ -69,6 +69,7 @@ import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
 import { migrateGlossarySeed } from './db/glossary-migrate.js';
+import { auditGlossaryRefs } from './services/catalog-ref-integrity.js';
 import { seedEnvConnectorIntoDb } from './services/connector-bootstrap.js';
 import { hydrateFromSnapshot, getSyncStatus } from './db/snapshot-store.js';
 import { startCron } from './jobs/cron-runner.js';
@@ -223,6 +224,23 @@ export async function buildApp() {
     startBusinessMetricsWatcher((info) =>
       app.log.info(`[business-metrics] reloaded: ${info.loaded} loaded, ${info.skipped} skipped`),
     );
+  }
+
+  // Glossary link-integrity audit: warn if any seeded/user term points at a
+  // catalog target that doesn't exist (the dead chat-chip-link class). Runs
+  // after both registries are hydrated so existence checks are accurate.
+  try {
+    const dangling = auditGlossaryRefs();
+    if (dangling.length) {
+      app.log.warn(
+        `[glossary] ${dangling.length} dangling catalog ref(s): ` +
+          dangling.map((d) => `${d.termId}(${d.slot})→${d.ref}`).join(', '),
+      );
+    } else {
+      app.log.info('[glossary] all catalog refs resolve');
+    }
+  } catch (err) {
+    app.log.warn(`[glossary] integrity audit failed: ${(err as Error).message}`);
   }
 
   // Dev-only fixture seed endpoint for visual regression tests.

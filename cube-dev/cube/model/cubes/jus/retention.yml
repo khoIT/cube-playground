@@ -70,3 +70,10 @@ cubes:
       - name: retained_d30
         sql: retained_d30
         type: sum
+
+      # D30 churn complement: cohort members who did NOT return on day 30.
+      # SUM is additive (SUM(cohort_size) - SUM(retained_d30)); churn_rate metric
+      # divides this by cohort_size client-side, mirroring the rr30 ratio.
+      - name: churned_d30
+        sql: cohort_size - retained_d30
+        type: sum

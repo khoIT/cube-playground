@@ -17,6 +17,7 @@
 
 import {
   resolveGlossaryHref,
+  metricSlugResolves,
   toCubeFilter,
   type ResolvableTerm,
 } from './resolve-glossary-link';
@@ -80,7 +81,9 @@ export function conceptTypedActions(term: ResolvableTerm & { description?: strin
   const pid = term.primaryCatalogId;
   if (pid && pid.startsWith(BUSINESS_METRIC_PREFIX)) {
     const slug = pid.slice(BUSINESS_METRIC_PREFIX.length);
-    if (slug.length > 0) {
+    // Drop the dead action when the metric doesn't resolve (same guard the
+    // primary href uses) — never offer "See metric" for a non-existent metric.
+    if (slug.length > 0 && metricSlugResolves(slug)) {
       actions.push({
         kind: 'metric',
         label: 'See metric',
