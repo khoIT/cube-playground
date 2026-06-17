@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
     "snapshot": "tsx src/scripts/write-snapshot.ts",
     "check:metric-drift": "tsx --env-file=../.env --env-file=../.env.local src/scripts/check-metric-drift.ts",
+    "audit:metric-trust": "tsx --env-file=../.env --env-file=../.env.local src/scripts/audit-and-promote-metric-trust.ts",
     "migrate:lakehouse-local": "tsx --env-file=../.env --env-file=../.env.local src/scripts/migrate-lakehouse-schema-to-local.ts",
     "load:game-test-data": "tsx --env-file=../.env --env-file=../.env.local src/scripts/load-game-test-data-range.ts",
     "relocate:test-data": "tsx --env-file=../.env --env-file=../.env.local src/scripts/relocate-test-data-into-khoitn-schema.ts",
