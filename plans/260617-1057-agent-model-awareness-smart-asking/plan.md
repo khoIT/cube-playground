@@ -36,9 +36,9 @@ just prompt guidance.
 ## Phases
 | # | Phase | Surface | Status |
 |---|-------|---------|--------|
-| 0 | [Foundations + contracts](phase-00-foundations-and-contracts.md) | shared types | ☐ |
-| 1 | [Server-side model-graph digest + injection](phase-01-model-graph-digest.md) | BE | ☐ |
-| 2 | [Resolved-context injection + continuity enforcement](phase-02-resolved-context-injection.md) | BE | ☐ |
+| 0 | [Foundations + contracts](phase-00-foundations-and-contracts.md) | shared types | ✅ done (2026-06-17) |
+| 1 | [Server-side model-graph digest + injection](phase-01-model-graph-digest.md) | BE | ✅ done (2026-06-17) |
+| 2 | [Resolved-context injection + continuity enforcement](phase-02-resolved-context-injection.md) | BE | ✅ done (2026-06-17) |
 | 3 | [Smart-default / ask-frugal policy](phase-03-smart-default-policy.md) | BE | ☐ |
 | 4 | [Make the disambiguation toggle govern the agent](phase-04-disambiguation-toggle-rework.md) | FE+BE | ☐ |
 | 5 | [Route resolution through the deterministic engine](phase-05-engine-routing-grain-gate.md) | BE | ☐ |

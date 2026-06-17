@@ -264,6 +264,39 @@ export interface Config {
    * Default false — zero behaviour change when off.
    */
   chatEnableResearchMode: boolean;
+  /**
+   * Inject a compact per-game model-graph digest (user hub + join clusters +
+   * isolated cubes) into the cacheable system-prompt prefix so the agent
+   * triages "which cube holds this metric / what joins to the user" without an
+   * on-demand /meta round-trip. Stable per game → lands in the prompt cache.
+   * Default false until the eval gates a ramp.
+   */
+  agentModelDigestEnabled: boolean;
+  /**
+   * Inject a "Resolved so far" block (entity / metric / time the session has
+   * already pinned) so the agent stops re-asking what is settled, and only
+   * changes it on a genuine rephrase. Reads the same disambiguation memory the
+   * deterministic engine writes. Default false.
+   */
+  agentResolvedContextEnabled: boolean;
+  /**
+   * Apply the smart-default / ask-frugal asking posture (default + state
+   * assumption + offer one-click correction; block-ask only for high-impact
+   * ambiguity). Default false. (Wired in a later phase.)
+   */
+  agentSmartDefaultsEnabled: boolean;
+  /**
+   * Let the user-facing disambiguation toggle (targeted/aggressive) govern the
+   * agent's asking posture, not just the deterministic engine gate. Default
+   * false. (Wired in a later phase.)
+   */
+  agentModeGovernsPosture: boolean;
+  /**
+   * Route the agent's final resolution through the deterministic NL→query
+   * engine grain gate (block wrong-grain ranking choices in code, not just
+   * guidance). Default false. (Wired in a later phase.)
+   */
+  agentEngineRouting: boolean;
 }
 
 function parsePreset(raw: string): QueryOptionsPreset {
@@ -339,6 +372,11 @@ export const config: Config = {
   chatTurnProfilingEnabled: optional('CHAT_TURN_PROFILING', 'false') === 'true',
   chatEnableWebSearch: optional('CHAT_ENABLE_WEB_SEARCH', 'false') === 'true',
   chatEnableResearchMode: optional('CHAT_ENABLE_RESEARCH_MODE', 'false') === 'true',
+  agentModelDigestEnabled: optional('AGENT_MODEL_DIGEST_ENABLED', 'false') === 'true',
+  agentResolvedContextEnabled: optional('AGENT_RESOLVED_CONTEXT_ENABLED', 'false') === 'true',
+  agentSmartDefaultsEnabled: optional('AGENT_SMART_DEFAULTS_ENABLED', 'false') === 'true',
+  agentModeGovernsPosture: optional('AGENT_MODE_GOVERNS_POSTURE', 'false') === 'true',
+  agentEngineRouting: optional('AGENT_ENGINE_ROUTING', 'false') === 'true',
 };
 
 /** True only when both Langfuse credentials are present in the environment. */

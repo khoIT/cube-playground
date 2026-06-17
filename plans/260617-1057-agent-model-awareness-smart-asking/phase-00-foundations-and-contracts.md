@@ -41,16 +41,37 @@ flag plumbing every later phase depends on, with zero behavior change.
 4. No injection yet — just the contracts compile and are imported nowhere behavioral.
 
 ## Todo
-- [ ] Move builder to shared, re-point FE, FE tests green
-- [ ] Add `ModelGraphDigest` + `ResolvedContext` types
-- [ ] Add 5 feature flags (default off) + env wiring
-- [ ] `tsc --noEmit` clean both packages
+- [x] Make builder framework-free; vendor byte-identical twin into chat-service; FE untouched, FE cube-graph tests green (33/33)
+- [x] Add `ModelGraphDigest` + `ResolvedContext` types (`chat-service/src/core/agent-context-types.ts`)
+- [x] Add 5 feature flags (default off) + env wiring (`config.ts`)
+- [x] `tsc --noEmit` clean both packages (chat-service exit 0; FE only pre-existing unrelated errors)
 
 ## Success criteria
-- Both packages typecheck; FE cube-graph renders identically; all flags off = no behavior change.
+- Both packages typecheck; FE cube-graph renders identically; all flags off = no behavior change. ✅
 
-## Risks
-- Moving the builder breaks FE import paths → mitigate with a barrel re-export + run FE tests.
+## Done (2026-06-17) — architecture deviation from the plan default
+The plan's default home (`shared/cube-model-graph/` at repo root, imported by BOTH
+packages) is **infeasible** given the verified build topology and was NOT used:
+- chat-service `tsconfig.json` has `rootDir: src` + `tsc` emit → a top-level
+  `shared/` import fails TS6059 ("not under rootDir").
+- the root `Dockerfile` builds chat-service in a stage that copies only
+  `chat-service/` and ships a runtime image with **no FE `src/`** — so a single
+  cross-package import would break the standalone build.
+**Chosen instead:** the FE builder was made framework-free (removed its only FE
+import, `CatalogCube`; added a self-contained `JoinGraphInputCube` and widened the
+`buildJoinGraph` param — FE callers unaffected by structural typing), and a
+**byte-identical twin** lives at `chat-service/src/shared/cube-model-graph/`. A
+deterministic **drift-guard test** (`chat-service/test/cube-model-graph-drift.test.ts`)
+fails if the two copies diverge — the "no drift" enforcement the plan asked for,
+delivered without a cross-package import. FE import sites were left 100% unchanged
+(lowest regression risk).
+
+## Risks (closed)
+- Moving the builder would break FE import paths → AVOIDED: FE file kept in place,
+  only its input type was widened; no FE import re-pointing needed.
 
 ## Open questions
-- Final home for the shared module (`shared/` vs a small npm-workspace pkg)? Default: `shared/cube-model-graph/`.
+- RESOLVED: shared-module home = byte-identical vendored copy + drift guard (the
+  `shared/` default was infeasible per build topology above; npm-workspace pkg was
+  heavier than warranted). New module reuse should follow the same vendor+guard
+  pattern until/unless a workspace package is justified.

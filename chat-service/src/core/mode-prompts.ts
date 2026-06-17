@@ -49,6 +49,21 @@ export interface ComposeParams {
    * the model never has to infer the language itself.
    */
   language?: TurnLanguage;
+  /**
+   * Optional pre-rendered model-graph digest (user hub + join clusters +
+   * isolated cubes). Stable per game, so it is placed in the cacheable prefix
+   * (right after the active-game line, before any per-turn-variable content).
+   * Caller gates on `agentModelDigestEnabled`; pass undefined/empty to skip.
+   */
+  modelDigest?: string;
+  /**
+   * Optional pre-rendered "Resolved so far" block (entity / metric / time the
+   * session has already pinned). Unlike the digest this is per-turn-variable
+   * (memory changes as slots resolve), so it goes in the volatile tail beside
+   * focus — never in the cacheable prefix. Caller gates on
+   * `agentResolvedContextEnabled`; pass undefined/empty to skip.
+   */
+  resolvedContext?: string;
 }
 
 export interface ComposeResult {
@@ -87,6 +102,12 @@ export function compose(params: ComposeParams): ComposeResult {
 
   parts.push(`## Active game\n\n${params.game}`);
 
+  // Model-graph digest — stable per game, so it sits in the cacheable prefix
+  // (before any per-turn-variable content like language / focus / context).
+  if (params.modelDigest && params.modelDigest.trim()) {
+    parts.push(params.modelDigest.trim());
+  }
+
   parts.push(FIELD_CHIP_TOKEN_GUIDANCE);
 
   // Reinforce the turn-ending choice-chip contract for skills that expose the
@@ -113,6 +134,13 @@ export function compose(params: ComposeParams): ComposeResult {
   if (params.focus) {
     const focusBlock = renderFocusPreamble(params.focus);
     if (focusBlock) parts.push(focusBlock);
+  }
+
+  // Resolved-context block — per-turn-variable (memory changes as slots
+  // resolve), so it lives in the volatile tail with focus, not the cacheable
+  // prefix. Caller gates on the flag; only injected when non-empty.
+  if (params.resolvedContext && params.resolvedContext.trim()) {
+    parts.push(params.resolvedContext.trim());
   }
 
   if (params.contextPreamble) {

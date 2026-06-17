@@ -23,6 +23,8 @@ import * as chatStore from '../db/chat-store.js';
 import * as sessionManager from '../core/session-manager.js';
 import { routeIntent } from '../core/intent-router.js';
 import { compose } from '../core/mode-prompts.js';
+import { getModelDigestText } from '../core/model-graph-digest.js';
+import { readResolvedContext, renderResolvedContext } from '../core/resolved-context.js';
 import { resolveTurnLanguage } from '../core/turn-language.js';
 import * as claudeRunner from '../core/claude-runner.js';
 import { buildSdkTools } from '../tools/registry.js';
@@ -299,12 +301,30 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         .map((t) => t.user_text as string),
     );
 
+    // Model-graph digest — compact per-game join map injected into the
+    // cacheable prompt prefix. Resolver memoises on the meta-version hash and
+    // returns '' on any failure, so this never blocks or slows a turn beyond a
+    // cold /meta fetch. `undefined` when the flag is off keeps the prompt
+    // byte-identical to pre-digest behaviour.
+    const modelDigest = config.agentModelDigestEnabled
+      ? await getModelDigestText(body.game, workspace)
+      : undefined;
+
+    // Resolved-context block — what the session has already pinned, read from
+    // the same disambiguation memory the engine writes. `undefined` when the
+    // flag is off keeps the prompt byte-identical to pre-P2 behaviour.
+    const resolvedContext = config.agentResolvedContextEnabled
+      ? renderResolvedContext(readResolvedContext(opts.db, sessionId))
+      : undefined;
+
     const { systemPrompt, allowedToolNames, skillMeta } = compose({
       skill: intent.skill,
       game: body.game,
       contextPreamble: body.context ? JSON.stringify(body.context) : undefined,
       focus: priorFocus,
       language: turnLanguage,
+      modelDigest,
+      resolvedContext,
     });
     timer.mark('compose');
 

@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderDigest > renders a terse, prompt-sized block 1`] = `
+"## Data model (cfm_vn)
+
+Use this map to pick the right cube and join path before fetching /meta. Per-entity facts hang off the user hub; join other cubes to it on the hub key.
+
+Hub: mf_users (pk user_id).
+Joins to the hub (N:1 on user_id): active_performance_daily, etl_login, user_recharge_daily, user_roles.
+Clusters: activity {active_performance_daily}; behavior {etl_game_detail}; bridge {user_roles}; other {game_key_metrics}; recharge {user_recharge_daily}; session {etl_login}.
+Isolated (no join to the user — query standalone): game_key_metrics."
+`;

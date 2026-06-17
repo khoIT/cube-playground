@@ -15,6 +15,8 @@ import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { cubeHasTimeDimension, cubeNameOf, resolveMemberMeta } from '../core/cube-meta-capability.js';
 import { getResolutions, mergeResolution } from '../cache/disambig-memory-adapter.js';
+import type { DisambigResolutions, TimeRangeValue } from '../cache/disambig-memory-adapter.js';
+import { config } from '../config.js';
 import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
 import { normalizeCubeDateRanges } from './normalize-cube-date-range.js';
@@ -226,10 +228,56 @@ export async function handler(
   // a follow-up "add in X" extends THIS query (incl. any agent tweaks the
   // disambiguator never saw). No-op without a db handle (unit tests).
   if (ctx.db) {
-    mergeResolution(ctx.db, ctx.sessionId, ctx.ownerId, {
+    const partial: DisambigResolutions = {
       lastQuery: { value: JSON.stringify(normalizedQuery), phrase: args.title },
-    });
+    };
+    // Continuity write-back (P2, flag-gated): the free-form agent path resolves
+    // a metric/window by emitting an artifact, but only the deterministic
+    // engine wrote those structured slots — so the next turn re-asked. Persist
+    // the unambiguous ones (single measure, an explicit time window) here so
+    // the "Resolved so far" injection reflects what the agent just answered.
+    // Entity grain inference is deferred to the engine-routing phase. The
+    // read-side rephrase gate guards against stale reuse.
+    if (config.agentResolvedContextEnabled) {
+      Object.assign(partial, deriveResolvedSlots(normalizedQuery));
+    }
+    mergeResolution(ctx.db, ctx.sessionId, ctx.ownerId, partial);
   }
 
   return { ok: true, id: artifact.id, deeplinkUrl: deeplink.url };
+}
+
+/**
+ * Derive the structured slots a continuity injection cares about from an
+ * executed query, conservatively: a metric only when the query has exactly one
+ * measure (unambiguous), a time window only when an explicit dateRange is set.
+ * Returns a partial resolution bag to merge alongside `lastQuery`.
+ */
+function deriveResolvedSlots(query: {
+  measures?: string[];
+  timeDimensions?: Array<{ granularity?: string; dateRange?: string | [string, string] }>;
+}): DisambigResolutions {
+  const partial: DisambigResolutions = {};
+  const measures = query.measures ?? [];
+  if (measures.length === 1) {
+    partial.metric = { value: measures[0] };
+  }
+  // Persisted without a `phrase`, so the engine's read path treats it as a
+  // fixed window (no clock re-resolution) — correct for an explicitly-dated
+  // query the agent already resolved to concrete dates.
+  const td = query.timeDimensions?.find((t) => t.dateRange != null);
+  if (td?.dateRange != null) {
+    const value: TimeRangeValue = { dateRange: td.dateRange };
+    if (
+      td.granularity === 'day' ||
+      td.granularity === 'week' ||
+      td.granularity === 'month' ||
+      td.granularity === 'quarter' ||
+      td.granularity === 'year'
+    ) {
+      value.granularity = td.granularity;
+    }
+    partial.timeRange = { value };
+  }
+  return partial;
 }

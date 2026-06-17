@@ -43,11 +43,21 @@ model so it stops guessing where metrics live and stops over-fetching `/meta`.
 5. Manual: enable flag, run a "which cube has revenue" style turn, confirm fewer `get_cube_meta` calls.
 
 ## Todo
-- [ ] `buildDigest` + unit tests (hub/cardinality/isolated)
-- [ ] `renderDigest` + snapshot
-- [ ] `compose()` injection behind flag + snapshot
-- [ ] `turn.ts` resolve + memoize + cache invalidation
-- [ ] Manual smoke: meta-fetch count drops
+- [x] `buildDigest` + unit tests (hub/cardinality/isolated) — `model-graph-digest.ts` + `test/core/model-graph-digest.test.ts`
+- [x] `renderDigest` + snapshot
+- [x] `compose()` injection in the cacheable prefix behind `agentModelDigestEnabled` + placement test
+- [x] `turn.ts` resolve + memoize (keyed on meta-version, recomputes on schema change) + never-throws-into-turn
+- [ ] Manual smoke: meta-fetch count drops (deferred — needs the flag on against a live cube; gated by P6 eval)
+
+## Done (2026-06-17)
+`getModelDigestText(game, workspace)` memoises rendered text on the meta-version
+hash (recomputes only on schema change), returns '' on any error (never blocks a
+turn), and is awaited in `turn.ts` ONLY when `agentModelDigestEnabled` is on. The
+digest is placed right after the `## Active game` line (stable per game → lands in
+the prompt-cached prefix). buildDigest output is fully sorted (deterministic; PK
+fallback uses the most-common hub join column, order-independent). All flags off =
+byte-identical prompt (verified by the existing mode-prompts snapshot suite staying
+green). Code review: no Critical/Major.
 
 ## Success criteria
 - Digest reflects the real join topology for cfm_vn/jus_vn/ballistar; injected block < 400 tokens;

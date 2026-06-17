@@ -45,11 +45,28 @@ re-asking, and enforce that those only change on a genuine rephrase.
 5. Test: locked entity not re-asked next turn; rephrase (`hasSubstantialUnresolvedText`) clears it.
 
 ## Todo
-- [ ] `readResolvedContext` + tests
-- [ ] `renderResolvedContext` + snapshot
-- [ ] compose injection behind flag
-- [ ] Close agent-path write-back gap (if present)
-- [ ] Continuity tests: keep-until-rephrase
+- [x] `readResolvedContext` + tests (`resolved-context.ts` + `test/core/resolved-context.test.ts`)
+- [x] `renderResolvedContext` (terse block + still-open hint) + tests
+- [x] compose injection in the VOLATILE tail (beside focus, NOT the cacheable prefix) behind `agentResolvedContextEnabled`
+- [x] Close agent-path write-back gap (present) — see Done note
+- [x] Continuity tests: keep-until-rephrase via the SHARED `hasSubstantialUnresolvedText` gate
+
+## Done (2026-06-17)
+Gap confirmed: only the deterministic `disambiguate_query` wrote structured
+slots; the free-form agent path's `emit_query_artifact` persisted only
+`lastQuery`. Closed conservatively + flag-gated: `deriveResolvedSlots` now also
+persists metric (only when the query has exactly ONE measure) and time window
+(only when an explicit `dateRange` is set) — entity grain inference is
+**deferred to P5** (engine routing), the principled write path, to avoid wrong-
+slot pollution. Staleness is guarded by the SAME read-side rephrase gate the
+engine uses (`hasSubstantialUnresolvedText`, ≥3 unresolved words) — no second
+policy. `resolvedContext` sits in the volatile prompt tail (it changes per turn;
+keeping it out of the cacheable prefix preserves the prompt cache). Code review:
+no Critical/Major.
+
+## Remaining for later phases (not this round)
+- Entity write-back from the free-form path → P5 (needs the grain gate).
+- Make the toggle govern posture → P4; smart-default policy → P3.
 
 ## Success criteria
 - Within a session, entity/metric/time resolved once are never re-asked unless the user rephrases;
