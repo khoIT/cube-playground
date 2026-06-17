@@ -84,6 +84,35 @@ cube (:4000), segment "Risk whale last 30d" (344 real cfm_vn uids):
   token absent in this shell). The monitor's real-data RENDERING is verified by the route
   integration test (create→assign→scorecard) + the live API run above — not by a pixel.
 
+## Live verification (2026-06-17) — monitor-board pixel + auto-create reliability
+Closed the open pixel item and stress-tested the auto-create path on the running
+dev stack (backend :3004, live `billing_detail` cube :4000, FE :3000, subscription
+OAuth lane):
+- **Agent → propose_cohort (host-gated live vitest): PASS.** Real Drive turn on the
+  OAuth+Cube lane (`claude-sonnet-4-6`, $0.36, 123s) ran
+  `diagnose → cube_query → propose_cohort → predicate_compile ×5 → propose_cohort`,
+  `end_turn`, and persisted a cohort whose predicate compiles (≠ `1=1`).
+- **Segment actually created (this session): PASS.** A fresh predicate segment
+  ("Win-back lapsed whales") materialized **369 real cfm_vn uids** from the live
+  cube; experiment frozen → **treatment 199 / hold-out 170** (deterministic split).
+- **Monitor-board pixels captured (the previously-open item):**
+  `visuals/monitor-board-live-frozen.png` (fresh freeze, forward window → honest
+  0% / flat, no post-assignment billing yet) and
+  `visuals/monitor-board-live-real-gross.png` (window backdated to a billing-rich
+  period → **real per-arm repay 15.56% vs 13.7%** from `billing_detail`, "+2/100 but
+  inside the noise band" — the correct A/A result for an untreated random split).
+- **Auto-create reliability is VARIABLE (real finding).** A second live Drive
+  (same prompt, via the running backend) **timed out at 240s** after the model
+  wandered to a non-existent cube (`pmt_user_daily`) and then fought the predicate
+  schema for 8 tool calls. Root cause of the death-spiral: `predicate_compile`
+  surfaced an opaque `Cannot read properties of undefined (reading 'length')` from
+  `predicateToSql` (a malformed-node TypeError) instead of an actionable message,
+  so the agent couldn't self-correct and exhausted its budget right after a compile
+  finally passed. **Fix:** hardened `predicateToSql` to reject malformed nodes
+  (missing `kind` / missing `children` array / non-object) with descriptive errors
+  + 4 regression tests. The pick-existing fallback already guarantees no dead-end
+  regardless; this fix should reduce the auto-create timeout rate.
+
 ## Success criteria
 - Pure modules: split deterministic + within ±2pp of split over 1000 uids; z-test/CI match
   hand-computed fixtures.

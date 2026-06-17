@@ -908,6 +908,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A shared compiler that throws a low-level TypeError on malformed input sends an agent into a budget-burning self-correction spiral
+
+- **Rule:** the advisor's `predicate_compile` / `propose_cohort` tools hand the model's predicate tree straight to `predicateToSql`. On a malformed node (missing `kind`, or a group missing its `children` array) the compiler fell through to `groupToSql` and crashed on `group.children.length` → the tool surfaced a raw `Cannot read properties of undefined (reading 'length')`. The agent can't act on that, so it retried with new-but-still-malformed trees ~6 times and **timed out at 240s** right after a compile finally passed — never re-calling `propose_cohort` to persist the cohort. Fix: harden `predicateToSql` to reject malformed nodes (non-object / unknown `kind` / missing `children`) with descriptive messages ("a group node requires a children array", `node kind must be "leaf" or "group"`), so the next retry is informed. `propose_cohort` already had a shapeError guard; `predicate_compile` did not, and the shared compiler is the right place to fix it once for both.
+- **Why:** an opaque internal error is fine for a human reading a stack trace but useless to an LLM that only sees the message string — it can't infer "add a children array" from "undefined.length". A tool's error text is part of its contract when an agent is the caller. The same input also revealed the agent guessing a non-existent cube (`pmt_user_daily`), which compounded the wasted budget; model-awareness is a separate, larger gap (the pick-existing fallback guarantees no dead-end meanwhile).
+- **Signal:** an agent that makes many tool calls against one tool and times out; repeated identical tool errors that are clearly internal crashes (`Cannot read properties of undefined`, `is not a function`) rather than validation messages; an auto-create/auto-build path that succeeds sometimes and times out other times on the same prompt (variance driven by how fast the model stumbles into a clean error).
+- **Apply:** any compiler/validator an agent calls in a retry loop must return actionable validation errors for *every* malformed-input branch — never let a raw TypeError escape. Fix shape-validation in the shared core, not per-tool, so all callers (and the API boundary) benefit. When triaging an agent timeout, read the per-tool error strings in the run audit (`advisor_tool_call`) — a wall of identical opaque errors is the tell.
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.

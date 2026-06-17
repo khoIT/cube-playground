@@ -208,4 +208,28 @@ describe('predicate-to-sql', () => {
       expect(() => predicateToSql(leaf('x', 'percentileGte', [{ p: 50 }]))).toThrow(/needs over\.table/);
     });
   });
+
+  describe('malformed input → actionable errors (not opaque TypeErrors)', () => {
+    it('a node with an unknown kind names the bad kind instead of crashing', () => {
+      expect(() => predicateToSql({ kind: 'bogus' } as unknown as PredicateNode)).toThrow(
+        /node kind must be "leaf" or "group"/,
+      );
+    });
+
+    it('a node missing kind reports the shape error (used to crash on undefined.length)', () => {
+      expect(() => predicateToSql({ op: 'AND' } as unknown as PredicateNode)).toThrow(
+        /node kind must be "leaf" or "group"/,
+      );
+    });
+
+    it('a group missing its children array reports it instead of crashing', () => {
+      expect(() => predicateToSql({ kind: 'group', op: 'AND' } as unknown as PredicateNode)).toThrow(
+        /group node requires a "children" array/,
+      );
+    });
+
+    it('a null/non-object node is rejected with a descriptive message', () => {
+      expect(() => predicateToSql(null as unknown as PredicateNode)).toThrow(/must be an object/);
+    });
+  });
 });
