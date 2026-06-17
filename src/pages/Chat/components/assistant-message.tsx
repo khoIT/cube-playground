@@ -3,7 +3,7 @@
  *
  * Section types:
  *   text         — plain text paragraph
- *   reasoning    — collapsible ReasoningTrace
+ *   reasoning    — lifted to a collapsible disclosure on the agent header row
  *   tool_call    — pending ToolCallChip (no result yet)
  *   tool_result  — ToolCallChip with status + ms + summary (merged with matching tool_call)
  *   query_artifact — QueryArtifactCard
@@ -11,11 +11,11 @@
 import React from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { T } from '../../../shell/theme';
+import { ChevronDown, ChevronRight, Brain } from 'lucide-react';
+import { T, Icon } from '../../../shell/theme';
 import { useTheme } from '../../../theme/use-theme';
 import cubeLogoLight from '../../../assets/brand/cube-logo-light.png';
 import cubeLogoDark from '../../../assets/brand/cube-logo-dark.png';
-import { ReasoningTrace } from './reasoning-trace';
 import { ToolCallChip } from './tool-call-chip';
 import { ToolCallGroup } from './tool-call-group';
 import { CachedResponseBadge } from './cached-response-badge';
@@ -511,8 +511,19 @@ function AssistantMessageImpl({
   // Dark theme → light logo (visible on dark bg), light theme → dark logo.
   const logoSrc = theme === 'dark' ? cubeLogoLight : cubeLogoDark;
 
+  // Reasoning is lifted out of the body and shown as a compact disclosure on the
+  // right of the agent header row (collapsed by default). All reasoning blocks
+  // in the turn collapse into one trace; the body renders everything else.
+  const [reasoningOpen, setReasoningOpen] = React.useState(false);
+  const reasoningText = merged
+    .filter((s): s is ReasoningSection => s.type === 'reasoning')
+    .map((s) => s.text)
+    .join('\n\n')
+    .trim();
+  const bodyUnits = merged.filter((s) => s.type !== 'reasoning');
+
   const followupChips: FollowupChip[] = showFollowups
-    ? suggestFollowups(extractFollowupContext(merged))
+    ? suggestFollowups(extractFollowupContext(bodyUnits))
     : [];
 
   // Explicit options (engine disambiguation or agent-authored choices) take
@@ -523,16 +534,19 @@ function AssistantMessageImpl({
     // Horizontal gutter matches UserMessage (16 compact / 24 full) so the reply
     // shares the question's left rail. Top padding 0 keeps the "Cube" header
     // tucked under its question; the user heading's bottom padding is the gap.
-    <div style={{ padding: compact ? '0 16px 4px' : '0 24px 8px' }}>
-      {/* Agent header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 7,
-          marginBottom: 8,
-        }}
-      >
+    <div style={{ padding: compact ? '0 16px 8px' : '0 24px 14px' }}>
+      {/* Answer block — the CUBE reply sits flush beneath its question heading;
+          no rail or card, the agent header + spacing carry the separation. */}
+      <div>
+        {/* Agent header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            marginBottom: compact ? 10 : 12,
+          }}
+        >
         <img
           src={logoSrc}
           alt=""
@@ -571,13 +585,63 @@ function AssistantMessageImpl({
             · {formatTurnTs(ts)}
           </span>
         )}
+        {/* Reasoning disclosure — right-aligned on the header row, collapsed by
+            default; expands to a full-width panel below the header. */}
+        {reasoningText && (
+          <button
+            type="button"
+            onClick={() => setReasoningOpen((v) => !v)}
+            aria-expanded={reasoningOpen}
+            style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '3px 9px',
+              background: 'none',
+              border: '1px solid var(--shell-border)',
+              borderRadius: 'var(--radius-pill)',
+              cursor: 'pointer',
+              color: 'var(--shell-text-faint)',
+              fontFamily: T.fSans,
+              fontSize: 11.5,
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            <Icon icon={Brain} size={12} color={'var(--shell-text-faint)'} />
+            <span>Reasoning</span>
+            <Icon
+              icon={reasoningOpen ? ChevronDown : ChevronRight}
+              size={12}
+              color={'var(--shell-text-faint)'}
+            />
+          </button>
+        )}
       </div>
 
-      {/* Sections — hanging-indent under the agent label (logo width + gap), so
-          the answer body aligns with "Cube" while the logo shares the outer left
-          rail with the question heading above. Matches the reference layout. */}
-      <div style={{ paddingLeft: 31 }}>
-        {groupToolCallRuns(merged).map((unit, i) =>
+      {reasoningText && reasoningOpen && (
+        <div
+          style={{
+            marginBottom: 10,
+            padding: '8px 12px',
+            borderLeft: '2px solid var(--shell-border)',
+            color: 'var(--shell-text-subtle)',
+            fontFamily: T.fMono,
+            fontSize: 12,
+            lineHeight: 1.6,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {reasoningText}
+        </div>
+      )}
+
+      {/* Sections — flush within the card padding (the card edge is now the
+          left rail, so the old hanging indent under the logo is unnecessary). */}
+      <div>
+        {groupToolCallRuns(bodyUnits).map((unit, i) =>
           unit.kind === 'tool_run' ? (
             unit.calls.length === 1 ? (
               <SectionRenderer key={i} section={unit.calls[0]} />
@@ -606,6 +670,7 @@ function AssistantMessageImpl({
             onPick={(chip) => onFollowupPick?.(chip.text)}
           />
         ) : null}
+        </div>
       </div>
     </div>
   );
@@ -693,8 +758,10 @@ function SectionRenderer({ section }: { section: AssistantSection }) {
     case 'text':
       return <TextParagraph text={section.text} />;
 
+    // 'reasoning' is handled in the header (lifted out of bodyUnits), so it
+    // never reaches the body renderer.
     case 'reasoning':
-      return <ReasoningTrace text={section.text} />;
+      return null;
 
     case 'tool_call':
       return (

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Variation B — Reference Transfer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-app: #f8efe5;
+    --bg-card: #f8efe5;
+    --bg-muted: #efe3d4;
+    --surface-subtle: #f9fafb;
+    --text-primary: #171717;
+    --text-secondary: #404040;
+    --text-emphasis: #262626;
+    --text-subtle: #737373;
+    --brand: #f05a22;
+    --brand-hover: #c2410c;
+    --brand-soft: #fff7ed;
+    --brand-border: #fed7aa;
+    --info-soft: #dbeafe;
+    --info-ink: #1d4ed8;
+    --border: #e5e5e5;
+    --border-strong: #d4d4d4;
+    --success-soft: #ecfdf5;
+    --success-ink: #047857;
+    --destructive-soft: #fee2e2;
+    --destructive-ink: #991b1b;
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-card: 12px;
+    --radius-pill: 9999px;
+    --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* term-mark tint: orange diluted into the cream so it reads as a citation, not a button */
+    --term-bg: rgba(240, 90, 34, 0.09);
+    --term-bg-hover: rgba(240, 90, 34, 0.16);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ---------- reviewer label (fixed) ---------- */
+  .variation-label {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 50;
+    max-width: 280px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    box-shadow: 0 4px 14px rgba(45, 25, 10, 0.10);
+  }
+  .variation-label strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--brand);
+    letter-spacing: 0.02em;
+    margin-bottom: 3px;
+  }
+  .variation-label span {
+    display: block;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-subtle);
+  }
+
+  /* ---------- layout ---------- */
+  .thread {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 80px 24px 48px;
+  }
+
+  /* ============================================================
+     ANSWER BLOCK  (Perplexity answer-card rhythm, cream-adapted)
+     - user question = the "query" header sitting above the card
+     - CUBE answer = a bordered card with a clear identity header row
+     ============================================================ */
+
+  .turn {
+    margin-bottom: 32px;
+  }
+  .turn:last-child { margin-bottom: 0; }
+
+  /* user query line — large, the thing being answered */
+  .query {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 0 4px 14px;
+  }
+  .query h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  .query .ts {
+    flex: none;
+    font-size: 12px;
+    color: var(--text-subtle);
+    font-weight: 500;
+  }
+
+  /* the answer card */
+  .answer {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 1px 2px rgba(45, 25, 10, 0.04), 0 6px 18px rgba(45, 25, 10, 0.05);
+    overflow: hidden;
+  }
+
+  /* identity header row (the "source" row of a Perplexity card) */
+  .answer-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .agent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text-emphasis);
+  }
+  .agent-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    background: var(--brand);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .answer-head .ts {
+    font-size: 12px;
+    color: var(--text-subtle);
+    font-weight: 500;
+  }
+  .answer-head .spacer { flex: 1; }
+
+  /* reasoning disclosure — a quiet ghost chip, right aligned */
+  .reasoning {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-subtle);
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .reasoning:hover {
+    background: var(--bg-muted);
+    color: var(--text-secondary);
+    border-color: var(--border);
+  }
+  .reasoning .chev { font-size: 11px; opacity: 0.8; }
+
+  /* answer body — generous internal padding (the card's prose) */
+  .answer-body {
+    padding: 20px 24px 8px;
+  }
+  .answer-body > *:first-child { margin-top: 0; }
+
+  p.prose {
+    margin: 0 0 14px;
+    font-size: 14px;
+    /* P1 FIX: line-height 1.85 → line boxes ~26px, comfortably taller than
+       the 22px term mark, so wrapped marks on adjacent rows never collide */
+    line-height: 1.85;
+    color: var(--text-secondary);
+  }
+  p.prose strong, li strong { color: var(--text-emphasis); font-weight: 600; }
+
+  ul.answer-list {
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+  }
+  ul.answer-list li {
+    position: relative;
+    padding-left: 20px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    line-height: 1.85; /* same generous rhythm so wrapped marks breathe */
+    color: var(--text-secondary);
+  }
+  ul.answer-list li:last-child { margin-bottom: 0; }
+  ul.answer-list li::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 11px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--brand-border);
+  }
+
+  /* ---------- INLINE TERM MARK (Perplexity / Notion citation transfer) ----
+     low-profile tinted highlight with rounded ends, NO border, baseline-aligned,
+     tiny leading type-icon. Reads as a trustworthy inline link, not a button. */
+  .term {
+    display: inline;                 /* flows with text → wraps mid-word-group cleanly */
+    background: var(--term-bg);
+    color: var(--brand-hover);
+    border-radius: var(--radius-xs);
+    padding: 1px 5px 1px 4px;
+    margin: 0 0.5px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    box-decoration-break: clone;     /* tint stays rounded on both line fragments when it wraps */
+    -webkit-box-decoration-break: clone;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .term .ico {
+    font-size: 9px;
+    opacity: 0.65;
+    margin-right: 2px;
+    vertical-align: 1px;
+    font-style: normal;
+  }
+  .term:hover {
+    background: var(--term-bg-hover);
+    color: var(--brand);
+  }
+  .term:hover .ico { opacity: 0.9; }
+
+  /* mono field reference */
+  code.ref {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 0.5px 5px;
+    color: var(--text-emphasis);
+    white-space: nowrap;
+  }
+
+  /* muted prompt echo — a quiet quote inside the card */
+  .prompt-echo {
+    margin: 4px 0 16px;
+    padding: 10px 14px;
+    border-left: 2px solid var(--border-strong);
+    background: var(--bg-muted);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-subtle);
+    font-style: italic;
+  }
+
+  /* ============================================================
+     ACTION CHIP ROW (a distinct "suggested next step" register)
+     separated from prose by a divider + label, strong ▸ arrow, hover lift
+     ============================================================ */
+  .next-steps {
+    border-top: 1px solid var(--border);
+    background: linear-gradient(0deg, var(--bg-muted) 0%, transparent 140%);
+    padding: 14px 24px 16px;
+  }
+  .next-steps .ns-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    margin-bottom: 10px;
+  }
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--brand-hover);
+    background: var(--brand-soft);
+    border: 1px solid var(--brand-border);
+    border-radius: var(--radius-md);
+    padding: 8px 16px 8px 13px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(45, 25, 10, 0.05);
+    transition: transform 0.13s ease, box-shadow 0.13s ease, background 0.13s ease, border-color 0.13s ease, color 0.13s ease;
+  }
+  .chip .arrow {
+    font-size: 15px;          /* confident, legible ▸ (was a faint dot) */
+    line-height: 1;
+    color: var(--brand);
+    transition: transform 0.13s ease;
+  }
+  .chip:hover {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(240, 90, 34, 0.28);
+  }
+  .chip:hover .arrow { color: #fff; transform: translateX(2px); }
+  .chip:active { transform: translateY(0); box-shadow: 0 1px 3px rgba(240, 90, 34, 0.3); }
+
+  /* ---------- chart card stub ---------- */
+  .chart-card {
+    margin: 4px 0 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-card);
+  }
+  .chart-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-subtle);
+  }
+  .chart-card-head .title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-emphasis);
+  }
+  .chart-card-head .spacer { flex: 1; }
+  .chart-card-head a.raw {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--brand-hover);
+    text-decoration: none;
+  }
+  .chart-card-head a.raw:hover { text-decoration: underline; }
+  .chart-card-head .select {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 4px 9px;
+    background: var(--bg-card);
+    cursor: pointer;
+  }
+  .chart-card-body {
+    height: 140px;
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    padding: 18px 20px 0;
+  }
+  .bar {
+    flex: 1;
+    background: var(--brand-border);
+    border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+    position: relative;
+  }
+  .bar.lead { background: var(--brand); }
+  .bar span {
+    position: absolute;
+    top: -18px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-subtle);
+    font-weight: 500;
+  }
+  .bar::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: -22px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-subtle);
+    font-weight: 600;
+  }
+  .chart-card .axis { height: 28px; }
+
+  /* ---------- composer ---------- */
+  .composer {
+    max-width: 860px;
+    margin: 40px auto 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    box-shadow: 0 2px 4px rgba(45, 25, 10, 0.05), 0 10px 28px rgba(45, 25, 10, 0.07);
+    padding: 16px 18px 14px;
+  }
+  .composer textarea {
+    width: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+  .composer textarea::placeholder { color: var(--text-subtle); }
+  .composer-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 6px 12px;
+    cursor: pointer;
+    background: var(--bg-card);
+    transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease;
+  }
+  .toggle:hover { background: var(--bg-muted); border-color: var(--border-strong); }
+  .toggle .ico { font-size: 13px; opacity: 0.7; }
+  .composer-bar .spacer { flex: 1; }
+  .bypass {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-subtle);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-pill);
+    padding: 5px 11px;
+    cursor: pointer;
+    background: transparent;
+    transition: color 0.13s ease, border-color 0.13s ease;
+  }
+  .bypass:hover { color: var(--brand-hover); border-color: var(--brand-border); }
+  .send {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: var(--brand);
+    color: #fff;
+    font-size: 17px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(240, 90, 34, 0.32);
+    transition: background 0.13s ease, transform 0.13s ease;
+  }
+  .send:hover { background: var(--brand-hover); transform: scale(1.05); }
+  .send:active { transform: scale(0.96); }
+</style>
+</head>
+<body>
+  <div class="variation-label">
+    <strong>Variation B · Reference Transfer</strong>
+    <span>Inline terms = Perplexity/Notion citation marks (tinted, borderless, lh 1.85 — no wrap collision). Turns = bordered answer cards w/ identity header. Chips = bold ▸ next-step buttons w/ hover lift.</span>
+  </div>
+
+  <main class="thread">
+
+    <!-- ============ TURN 1 ============ -->
+    <section class="turn">
+      <div class="query">
+        <h2>Top 20 VIP players</h2>
+        <span class="ts">4 hours ago</span>
+      </div>
+      <div class="answer">
+        <div class="answer-head">
+          <span class="agent-badge"><span class="agent-dot">C</span>CUBE</span>
+          <span class="ts">· 14:40</span>
+          <span class="spacer"></span>
+          <span class="reasoning">⊙ Reasoning <span class="chev">›</span></span>
+        </div>
+        <div class="answer-body">
+          <p class="prose">Ranking individual players — which metric should I rank the top 20 VIP players by?</p>
+          <div class="prompt-echo">Ranking individual players — which metric should I rank the top 20 VIP players by?</div>
+        </div>
+        <div class="next-steps">
+          <div class="ns-label">Suggested next step</div>
+          <div class="chip-row">
+            <button class="chip"><span class="arrow">▸</span>Revenue</button>
+            <button class="chip"><span class="arrow">▸</span>LTV</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TURN 2 — showcase wrap ============ -->
+    <section class="turn">
+      <div class="query">
+        <h2>Rank the top 20 players by ARPU</h2>
+        <span class="ts">4 hours ago</span>
+      </div>
+      <div class="answer">
+        <div class="answer-head">
+          <span class="agent-badge"><span class="agent-dot">C</span>CUBE</span>
+          <span class="ts">· 14:40</span>
+          <span class="spacer"></span>
+          <span class="reasoning">⊙ Reasoning <span class="chev">›</span></span>
+        </div>
+        <div class="answer-body">
+          <ul class="answer-list">
+            <li><a class="term"><i class="ico">◆</i>Revenue</a> — each player's total recharge amount (the numerator of <a class="term"><i class="ico">∑</i>ARPU</a>, per person). This is what most "top <a class="term"><i class="ico">◆</i>spenders</a>" leaderboards use.</li>
+            <li><strong>LTV</strong> — each player's <a class="term"><i class="ico">∑</i>lifetime value</a>, which captures cumulative spend across their entire history.</li>
+          </ul>
+          <div class="prompt-echo">Which per-player metric should I rank the top 20 players by instead?</div>
+        </div>
+        <div class="next-steps">
+          <div class="ns-label">Suggested next step</div>
+          <div class="chip-row">
+            <button class="chip"><span class="arrow">▸</span>Revenue</button>
+            <button class="chip"><span class="arrow">▸</span>LTV</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TURN 3 ============ -->
+    <section class="turn">
+      <div class="query">
+        <h2>Top 10 countries by ARPU last 30 days</h2>
+        <span class="ts">4 hours ago</span>
+      </div>
+      <div class="answer">
+        <div class="answer-head">
+          <span class="agent-badge"><span class="agent-dot">C</span>CUBE</span>
+          <span class="ts">· 14:41</span>
+          <span class="spacer"></span>
+          <span class="reasoning">⊙ Reasoning <span class="chev">›</span></span>
+        </div>
+        <div class="answer-body">
+          <p class="prose">Only 5 distinct countries exist in this game's user base — no "top 10" to fill. A few things to note:</p>
+          <ul class="answer-list">
+            <li><strong>OT (~362K VND)</strong> — the "Other" catch-all code, anomalously high; likely test accounts or VPN-routed users, not a real market.</li>
+            <li><strong>VN (~43,323 VND)</strong> — the primary market, as expected for CFM VN.</li>
+            <li><strong>PH &amp; ID</strong> — registered users but zero <a class="term"><i class="ico">∑</i>ARPU</a>; no paying activity.</li>
+          </ul>
+          <p class="prose"><strong>Why "last 30 days" didn't apply:</strong> <code class="ref">mf_users.arpu_vnd</code> lives in <code class="ref">mf_users</code>, a per-user snapshot with no date dimension. The number reflects <strong>lifetime</strong> ARPU, not a rolling 30-day window.</p>
+          <p class="prose">For a true <strong>30-day ARPU by</strong> <a class="term"><i class="ico">◇</i>country</a>, I'd need to query <code class="ref">user_recharge_daily</code> (which has a daily date dimension) joined to <code class="ref">mf_users.country</code>. Want me to run that instead?</p>
+
+          <div class="chart-card">
+            <div class="chart-card-head">
+              <span class="title">📊 Lifetime ARPU by Country</span>
+              <span class="spacer"></span>
+              <a class="raw" href="#">Raw Query</a>
+              <span class="select">Bar ⌄</span>
+            </div>
+            <div class="chart-card-body">
+              <div class="bar lead" style="height:100%" data-label="OT"><span>362K</span></div>
+              <div class="bar" style="height:18%" data-label="VN"><span>43.3K</span></div>
+              <div class="bar" style="height:4%" data-label="PH"><span>0</span></div>
+              <div class="bar" style="height:4%" data-label="ID"><span>0</span></div>
+              <div class="bar" style="height:6%" data-label="SG"><span>—</span></div>
+            </div>
+            <div class="axis"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ composer ============ -->
+  <div class="composer">
+    <textarea rows="1" placeholder="What do you want to know?"></textarea>
+    <div class="composer-bar">
+      <button class="toggle"><span class="ico">🌐</span>Web Search</button>
+      <button class="toggle"><span class="ico">✦</span>DeepThink</button>
+      <span class="spacer"></span>
+      <button class="bypass">Bypass cache</button>
+      <button class="send">↑</button>
+    </div>
+  </div>
+</body>
+</html>

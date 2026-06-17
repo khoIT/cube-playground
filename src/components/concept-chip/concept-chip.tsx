@@ -98,17 +98,81 @@ export function ConceptChip({ kind, label, to, trust, onClick, className, title,
   const { Icon, bg, ink, mono } = KIND_META[kind];
   const brandTone = tone === 'brand';
 
+  // Brand tone (chat answers only) renders as a baseline underline-accent woven
+  // into the running sentence — NOT a bordered inline-flex pill. Two reasons:
+  //  1. it adds zero box height, so when prose wraps, a highlighted term that
+  //     lands on the next row can never collide with the row above (a bordered
+  //     pill is taller than the line box and overlaps on wrap);
+  //  2. no leading icon — the highlight should blend into the text, not
+  //     punctuate every term with a glyph. The underline grows into a soft fill
+  //     on hover so the term still feels alive/clickable.
+  const [hovered, setHovered] = React.useState(false);
+  if (brandTone) {
+    const underlineStyle: React.CSSProperties = {
+      // `inline` (not inline-flex) so the term flows and wraps like a word.
+      display: 'inline',
+      // Shell-family tokens throughout so the term adapts in dark mode (the
+      // accent line uses --shell-brand-border; keep the hover ink in-family).
+      color: hovered ? 'var(--shell-brand-hover)' : 'var(--text-primary)',
+      fontWeight: 600,
+      fontFamily: 'var(--font-sans)',
+      textDecoration: 'none',
+      cursor: 'pointer',
+      // Soft-orange baseline accent painted via background-image (not border or
+      // text-decoration) so it adds no layout height and survives line wraps:
+      // a 2px underline at rest that grows to a full soft fill on hover.
+      backgroundImage:
+        'linear-gradient(var(--shell-brand-border), var(--shell-brand-border))',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: '0 100%',
+      backgroundSize: hovered ? '100% 100%' : '100% 2px',
+      backgroundColor: hovered ? 'var(--brand-soft)' : 'transparent',
+      padding: '0 1px',
+      borderRadius: 2,
+      transition: 'background-size .18s ease, background-color .18s ease, color .18s ease',
+    };
+    const hoverHandlers = {
+      onMouseEnter: () => setHovered(true),
+      onMouseLeave: () => setHovered(false),
+      onFocus: () => setHovered(true),
+      onBlur: () => setHovered(false),
+    };
+    if (to) {
+      return (
+        <Link
+          to={to}
+          style={underlineStyle}
+          onClick={onClick as React.MouseEventHandler<HTMLAnchorElement>}
+          className={className}
+          title={title}
+          {...hoverHandlers}
+        >
+          {label}
+        </Link>
+      );
+    }
+    return (
+      <button
+        type="button"
+        style={underlineStyle}
+        onClick={onClick as React.MouseEventHandler<HTMLButtonElement>}
+        className={className}
+        title={title}
+        {...hoverHandlers}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  // Reached only for non-brand tones (brand returns above): the typed-pill
+  // vocabulary shared with the catalog/builder — per-kind fill + icon.
   const chipStyle: React.CSSProperties = {
     ...BASE_STYLE,
-    // Brand tone: soft brand fill with a brand border so the pill reads as a
-    // distinct highlight on the warm page (a borderless soft fill would blend
-    // into the cream canvas). The border also distinguishes it from the plain
-    // type-vocabulary chips elsewhere.
-    background: brandTone ? 'var(--brand-soft)' : bg,
-    color: brandTone ? 'var(--brand)' : ink,
-    border: brandTone ? '1px solid var(--brand)' : BASE_STYLE.border,
-    fontFamily: mono && !brandTone ? 'var(--font-mono)' : 'var(--font-sans)',
-    fontSize: mono && !brandTone ? 12 : 12.5,
+    background: bg,
+    color: ink,
+    fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
+    fontSize: mono ? 12 : 12.5,
   };
 
   const inner = (

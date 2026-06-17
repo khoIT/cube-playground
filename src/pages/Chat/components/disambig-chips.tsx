@@ -37,24 +37,40 @@ interface Props {
 // can't express :hover, so we inject the rule once (mirrors the pattern used
 // by ConceptHoverCard). Tokens only — adapts for dark mode.
 const CHOICE_CHIP_CLASS = 'disambig-choice-chip';
+const CHOICE_ARROW_CLASS = 'disambig-choice-arrow';
 const CHOICE_CHIP_CSS = `
 .${CHOICE_CHIP_CLASS} {
-  background: var(--brand-soft);
-  border: 1px solid var(--brand);
-  color: var(--brand-hover);
+  background: var(--shell-brand-soft);
+  border: 1px solid var(--shell-brand-border);
+  color: var(--shell-brand-hover);
+  box-shadow: 0 1px 2px rgba(var(--brand-rgb), 0.06);
 }
+/* Hover/focus lifts the chip with a soft brand glow and fills it solid — reads
+   as the primary next-step affordance of the turn. */
 .${CHOICE_CHIP_CLASS}:hover,
 .${CHOICE_CHIP_CLASS}:focus-visible {
   background: var(--brand);
+  border-color: var(--brand);
   color: var(--text-on-brand);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--brand-rgb), 0.28);
   outline: none;
+}
+.${CHOICE_CHIP_CLASS}:active { transform: translateY(0); }
+.${CHOICE_ARROW_CLASS} { transition: transform .13s ease, color .13s ease; }
+.${CHOICE_CHIP_CLASS}:hover .${CHOICE_ARROW_CLASS},
+.${CHOICE_CHIP_CLASS}:focus-visible .${CHOICE_ARROW_CLASS} {
+  color: var(--text-on-brand);
+  transform: translateX(2px);
 }
 /* Already-picked choice chip: rests in the filled (solid brand) state so the
    prior selection reads at a glance, while remaining clickable to re-pick. */
 .${CHOICE_CHIP_CLASS}--selected {
   background: var(--brand);
+  border-color: var(--brand);
   color: var(--text-on-brand);
 }
+.${CHOICE_CHIP_CLASS}--selected .${CHOICE_ARROW_CLASS} { color: var(--text-on-brand); }
 `;
 
 export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }: Props) {
@@ -63,19 +79,30 @@ export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }
   const isChoice = slot === 'choice';
 
   return (
-    <div data-testid="disambig-chips" data-slot={slot} style={{ marginTop: 10 }}>
+    <div
+      data-testid="disambig-chips"
+      data-slot={slot}
+      style={
+        // Choice (agent-authored next steps) reads as a distinct "suggested
+        // next step" register: a top divider separates the CTAs from the prose
+        // above. Engine slots stay a quiet inline clarification.
+        isChoice
+          ? { marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--shell-border)' }
+          : { marginTop: 10 }
+      }
+    >
       {isChoice && <style>{CHOICE_CHIP_CSS}</style>}
       <div
         style={{
           fontSize: 11,
           color: 'var(--shell-text-subtle)',
-          marginBottom: 6,
+          marginBottom: isChoice ? 10 : 6,
           fontFamily: T.fSans,
         }}
       >
         {prompt}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: isChoice ? 10 : 8 }}>
         {options.map((opt, idx) => {
           const isSelected = !!selectedPinText && opt.pinText === selectedPinText;
           const choiceClass = isChoice
@@ -109,14 +136,15 @@ export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }
                   ? {
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: 6,
-                      padding: '6px 13px',
-                      borderRadius: 999,
+                      gap: 8,
+                      padding: '8px 16px 8px 13px',
+                      borderRadius: 'var(--radius-md)',
                       cursor: 'pointer',
                       fontFamily: T.fSans,
-                      fontSize: 12.5,
+                      fontSize: 13.5,
                       fontWeight: 600,
-                      transition: 'background 0.12s ease, color 0.12s ease',
+                      transition:
+                        'background .13s ease, color .13s ease, transform .13s ease, box-shadow .13s ease, border-color .13s ease',
                     }
                   : {
                       padding: '6px 12px',
@@ -132,7 +160,11 @@ export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }
               }
             >
               {isChoice && (
-                <span aria-hidden style={{ fontSize: 15, lineHeight: 1, opacity: 0.9 }}>
+                <span
+                  aria-hidden
+                  className={CHOICE_ARROW_CLASS}
+                  style={{ fontSize: 15, lineHeight: 1, color: 'var(--brand)' }}
+                >
                   {isSelected ? '✓' : '▸'}
                 </span>
               )}

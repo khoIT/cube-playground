@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cube — Chat redesign · Variation C (Expressive Editorial)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-app: #f8efe5;
+    --bg-muted: #efe3d4;
+    --surface-subtle: #f9fafb;
+    --text-primary: #171717;
+    --text-secondary: #404040;
+    --text-emphasis: #262626;
+    --text-subtle: #737373;
+    --brand: #f05a22;
+    --brand-hover: #c2410c;
+    --brand-soft: #fff7ed;
+    --brand-border: #fed7aa;
+    --border: #e5e5e5;
+    --border-strong: #d4d4d4;
+    --success-soft: #ecfdf5; --success-ink: #047857;
+    --destructive-soft: #fee2e2; --destructive-ink: #991b1b;
+    --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px;
+    --radius-lg: 10px; --radius-card: 12px; --radius-pill: 9999px;
+    --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background:
+      radial-gradient(circle at 18% -5%, rgba(240, 90, 34, 0.05), transparent 42%),
+      var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ---------- Variation label (fixed) ---------- */
+  .var-label {
+    position: fixed;
+    top: 16px; left: 16px;
+    z-index: 50;
+    max-width: 280px;
+    background: var(--bg-app);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--brand);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 16px -8px rgba(23,23,23,0.25);
+    padding: 10px 14px;
+  }
+  .var-label b { font-size: 12px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary); }
+  .var-label span { display: block; margin-top: 4px; font-size: 11px; line-height: 1.5; color: var(--text-subtle); }
+
+  /* ---------- Thread column ---------- */
+  .thread {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 80px 24px 48px;
+  }
+
+  /* ---------- Turn block ---------- */
+  .turn { margin-bottom: 32px; }
+
+  /* User question heading */
+  .q-head { margin-bottom: 14px; }
+  .q-head .q-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    margin-bottom: 6px;
+  }
+  .q-head .q-eyebrow::before {
+    content: ""; width: 6px; height: 6px; border-radius: 9999px;
+    background: var(--brand); display: inline-block;
+  }
+  .q-head h2 {
+    font-size: 20px; font-weight: 700; line-height: 1.3;
+    letter-spacing: -0.02em; color: var(--text-primary);
+  }
+  .q-head .q-time {
+    margin-top: 4px; font-size: 12px; color: var(--text-subtle); font-weight: 500;
+  }
+
+  /* ---------- CUBE answer block: confident left rail ---------- */
+  .answer {
+    position: relative;
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--brand);
+    border-radius: var(--radius-card);
+    padding: 20px 24px 20px 22px;
+    box-shadow: 0 1px 0 rgba(23,23,23,0.02), 0 8px 24px -18px rgba(23,23,23,0.28);
+  }
+
+  /* Agent header row */
+  .agent-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .agent-mark {
+    width: 26px; height: 26px; border-radius: var(--radius-md);
+    background: var(--brand-soft);
+    border: 1px solid var(--brand-border);
+    display: grid; place-items: center;
+    color: var(--brand); font-weight: 800; font-size: 11px;
+    letter-spacing: 0.02em; flex: none;
+  }
+  .agent-name {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
+    color: var(--text-emphasis);
+  }
+  .agent-time { font-size: 12px; color: var(--text-subtle); font-weight: 500; }
+  .agent-dot { color: var(--border-strong); font-size: 11px; }
+
+  /* Reasoning disclosure */
+  .reasoning {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500; color: var(--text-subtle);
+    border: 1px solid var(--border);
+    background: var(--bg-app);
+    border-radius: var(--radius-pill);
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .reasoning:hover { color: var(--text-secondary); border-color: var(--border-strong); background: var(--bg-muted); }
+  .reasoning .r-icon { color: var(--brand); font-size: 13px; }
+  .reasoning .r-caret { font-size: 11px; opacity: .7; }
+
+  /* ---------- Prose ---------- */
+  .prose { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+  .prose p { margin-bottom: 10px; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong { color: var(--text-primary); font-weight: 700; }
+
+  /* Airy bullet grid */
+  .prose ul { list-style: none; display: grid; gap: 10px; margin: 4px 0 12px; }
+  .prose ul li {
+    position: relative; padding-left: 20px;
+    font-size: 14px; line-height: 1.6; color: var(--text-secondary);
+  }
+  .prose ul li::before {
+    content: ""; position: absolute; left: 2px; top: 9px;
+    width: 6px; height: 6px; border-radius: 9999px;
+    background: var(--brand-border);
+    box-shadow: inset 0 0 0 1.5px var(--brand);
+  }
+
+  /* ---------- P1: baseline-anchored term mark (signature move) ---------- */
+  /* Zero added height: terms are pure inline text + an orange underline-accent.
+     They can wrap freely and NEVER collide because they add no box height. */
+  .term {
+    position: relative;
+    color: var(--text-primary);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    /* the signature: a thick, soft orange baseline underline */
+    background-image: linear-gradient(var(--brand-border), var(--brand-border));
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 100% 2px;
+    padding: 0 1px;
+    border-radius: 2px;
+    transition: background-size .18s ease, background-color .18s ease, color .18s ease;
+  }
+  .term .term-icon {
+    font-size: 9px; color: var(--brand);
+    vertical-align: 0.06em; margin-left: 1px;
+    opacity: .85; transition: opacity .18s ease;
+  }
+  /* hover: underline thickens into a soft fill + icon brightens — feels alive */
+  .term:hover {
+    color: var(--brand-hover);
+    background-color: var(--brand-soft);
+    background-size: 100% 100%;
+  }
+  .term:hover .term-icon { opacity: 1; }
+
+  /* Mono field references */
+  .field {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text-emphasis);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+
+  /* Muted prompt echo */
+  .prompt-echo {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-muted);
+    font-size: 13px; line-height: 1.55; color: var(--text-subtle);
+    font-weight: 500;
+  }
+
+  /* ---------- P2: action chips as hero CTA ---------- */
+  .chips-label {
+    margin-top: 16px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-subtle);
+    margin-bottom: 8px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-sans);
+    font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em;
+    color: #fff;
+    background: var(--brand);
+    border: 1px solid var(--brand);
+    border-radius: var(--radius-pill);
+    padding: 9px 18px 9px 15px;
+    cursor: pointer;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 6px 16px -10px rgba(240,90,34,0.85);
+    transition: transform .14s ease, background .15s ease, box-shadow .15s ease;
+  }
+  .chip .chip-arrow {
+    font-size: 15px; line-height: 1; font-weight: 700;
+    transition: transform .15s ease;
+  }
+  .chip:hover {
+    background: var(--brand-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.2) inset, 0 10px 22px -10px rgba(194,65,12,0.9);
+  }
+  .chip:hover .chip-arrow { transform: translateX(3px); }
+  .chip:active { transform: translateY(0); }
+
+  /* ---------- Chart card stub ---------- */
+  .chart-card {
+    margin-top: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface-subtle);
+    overflow: hidden;
+  }
+  .chart-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chart-title { font-size: 13px; font-weight: 700; color: var(--text-emphasis); }
+  .chart-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .chart-link {
+    font-size: 12px; font-weight: 600; color: var(--brand);
+    cursor: pointer; text-decoration: none;
+  }
+  .chart-link:hover { color: var(--brand-hover); text-decoration: underline; }
+  .chart-select {
+    font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    background: var(--bg-app); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); padding: 4px 9px; cursor: pointer;
+  }
+  .chart-body { padding: 16px; display: grid; gap: 9px; }
+  .bar-row { display: grid; grid-template-columns: 44px 1fr 84px; align-items: center; gap: 10px; }
+  .bar-row .bar-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .bar-track { height: 14px; background: var(--bg-muted); border-radius: var(--radius-pill); overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--brand); border-radius: var(--radius-pill); }
+  .bar-row .bar-val { font-size: 12px; color: var(--text-subtle); font-family: var(--font-mono); text-align: right; }
+
+  /* ---------- Composer ---------- */
+  .composer {
+    max-width: 860px;
+    margin: 8px auto 0;
+    padding: 0 24px;
+  }
+  .composer-card {
+    background: var(--bg-app);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    box-shadow: 0 10px 30px -18px rgba(23,23,23,0.3);
+    padding: 14px 16px;
+  }
+  .composer-input {
+    font-size: 14px; color: var(--text-subtle); font-weight: 500;
+    padding: 4px 2px 12px;
+  }
+  .composer-bar { display: flex; align-items: center; gap: 8px; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    border: 1px solid var(--border); background: var(--bg-app);
+    border-radius: var(--radius-pill); padding: 5px 11px; cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .toggle:hover { border-color: var(--border-strong); background: var(--bg-muted); }
+  .toggle .t-dot { width: 7px; height: 7px; border-radius: 9999px; background: var(--border-strong); }
+  .toggle.on { color: var(--brand-hover); border-color: var(--brand-border); background: var(--brand-soft); }
+  .toggle.on .t-dot { background: var(--brand); }
+  .chip-cache {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500; color: var(--text-subtle);
+    border: 1px dashed var(--border-strong); border-radius: var(--radius-pill);
+    padding: 5px 11px; cursor: pointer;
+  }
+  .chip-cache:hover { color: var(--text-secondary); }
+  .send {
+    margin-left: auto; width: 36px; height: 36px; border-radius: 9999px;
+    background: var(--brand); border: none; color: #fff;
+    display: grid; place-items: center; cursor: pointer; flex: none;
+    box-shadow: 0 6px 16px -8px rgba(240,90,34,0.9);
+    transition: background .15s ease, transform .14s ease;
+  }
+  .send:hover { background: var(--brand-hover); transform: translateY(-1px); }
+  .send svg { width: 16px; height: 16px; }
+
+  /* turn divider between question groups */
+  .turn + .turn { padding-top: 4px; }
+</style>
+</head>
+<body>
+
+  <div class="var-label">
+    <b>Variation C · Expressive Editorial</b>
+    <span>P1: terms are baseline underline-marks (zero box height → can't collide on wrap; hover fills soft-orange). P2: turns get a brand left-rail block; action chips are solid hero pills with a bold ▸ arrow.</span>
+  </div>
+
+  <main class="thread">
+
+    <!-- ============ TURN 1 ============ -->
+    <section class="turn">
+      <div class="q-head">
+        <div class="q-eyebrow">You asked</div>
+        <h2>Top 20 VIP players</h2>
+        <div class="q-time">4 hours ago</div>
+      </div>
+
+      <div class="answer">
+        <div class="agent-head">
+          <div class="agent-mark">CB</div>
+          <span class="agent-name">CUBE</span>
+          <span class="agent-dot">·</span>
+          <span class="agent-time">14:40</span>
+          <button class="reasoning"><span class="r-icon">⊙</span> Reasoning <span class="r-caret">›</span></button>
+        </div>
+
+        <div class="prose">
+          <p>Ranking individual players — which metric should I rank the top 20 VIP players by?</p>
+        </div>
+
+        <div class="prompt-echo">Ranking individual players — which metric should I rank the top 20 VIP players by?</div>
+
+        <div class="chips-label">Pick a metric</div>
+        <div class="chips">
+          <button class="chip"><span class="chip-arrow">▸</span> Revenue</button>
+          <button class="chip"><span class="chip-arrow">▸</span> LTV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TURN 2 — showcase: wrapping term marks ============ -->
+    <section class="turn">
+      <div class="q-head">
+        <div class="q-eyebrow">You asked</div>
+        <h2>Rank the top 20 players by ARPU</h2>
+        <div class="q-time">4 hours ago</div>
+      </div>
+
+      <div class="answer">
+        <div class="agent-head">
+          <div class="agent-mark">CB</div>
+          <span class="agent-name">CUBE</span>
+          <span class="agent-dot">·</span>
+          <span class="agent-time">14:40</span>
+          <button class="reasoning"><span class="r-icon">⊙</span> Reasoning <span class="r-caret">›</span></button>
+        </div>
+
+        <div class="prose">
+          <ul>
+            <li>
+              <a class="term">Revenue<span class="term-icon">ⓘ</span></a> — each player's total recharge amount (the numerator of
+              <a class="term">ARPU<span class="term-icon">ⓘ</span></a>, per person). This is what most "top
+              <a class="term">spenders<span class="term-icon">ⓘ</span></a>" leaderboards use.
+            </li>
+            <li>
+              <strong>LTV</strong> — each player's <a class="term">lifetime value<span class="term-icon">ⓘ</span></a>, which captures cumulative spend across their entire history.
+            </li>
+          </ul>
+        </div>
+
+        <div class="prompt-echo">Which per-player metric should I rank the top 20 players by instead?</div>
+
+        <div class="chips-label">Pick a metric</div>
+        <div class="chips">
+          <button class="chip"><span class="chip-arrow">▸</span> Revenue</button>
+          <button class="chip"><span class="chip-arrow">▸</span> LTV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TURN 3 ============ -->
+    <section class="turn">
+      <div class="q-head">
+        <div class="q-eyebrow">You asked</div>
+        <h2>Top 10 countries by ARPU last 30 days</h2>
+        <div class="q-time">4 hours ago</div>
+      </div>
+
+      <div class="answer">
+        <div class="agent-head">
+          <div class="agent-mark">CB</div>
+          <span class="agent-name">CUBE</span>
+          <span class="agent-dot">·</span>
+          <span class="agent-time">14:41</span>
+          <button class="reasoning"><span class="r-icon">⊙</span> Reasoning <span class="r-caret">›</span></button>
+        </div>
+
+        <div class="prose">
+          <p>Only 5 distinct countries exist in this game's user base — no "top 10" to fill. A few things to note:</p>
+          <ul>
+            <li><strong>OT (~362K VND)</strong> — the "Other" catch-all code, anomalously high; likely test accounts or VPN-routed users, not a real market.</li>
+            <li><strong>VN (~43,323 VND)</strong> — the primary market, as expected for CFM VN.</li>
+            <li><strong>PH &amp; ID</strong> — registered users but zero <a class="term">ARPU<span class="term-icon">ⓘ</span></a>; no paying activity.</li>
+          </ul>
+          <p><strong>Why "last 30 days" didn't apply:</strong> <span class="field">mf_users.arpu_vnd</span> lives in <span class="field">mf_users</span>, a per-user snapshot with no date dimension. The number reflects <strong>lifetime</strong> ARPU, not a rolling 30-day window.</p>
+          <p>For a true <strong>30-day ARPU by</strong> <a class="term">country<span class="term-icon">ⓘ</span></a>, I'd need to query <span class="field">user_recharge_daily</span> (which has a daily date dimension) joined to <span class="field">mf_users.country</span>. Want me to run that instead?</p>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-title">📊 Lifetime ARPU by Country</span>
+            <div class="chart-actions">
+              <a class="chart-link">Raw Query</a>
+              <button class="chart-select">Bar ⌄</button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <div class="bar-row"><span class="bar-label">OT</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-val">362,104</span></div>
+            <div class="bar-row"><span class="bar-label">VN</span><div class="bar-track"><div class="bar-fill" style="width:12%"></div></div><span class="bar-val">43,323</span></div>
+            <div class="bar-row"><span class="bar-label">PH</span><div class="bar-track"><div class="bar-fill" style="width:1%"></div></div><span class="bar-val">0</span></div>
+            <div class="bar-row"><span class="bar-label">ID</span><div class="bar-track"><div class="bar-fill" style="width:1%"></div></div><span class="bar-val">0</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ Composer ============ -->
+  <div class="composer">
+    <div class="composer-card">
+      <div class="composer-input">What do you want to know?</div>
+      <div class="composer-bar">
+        <button class="toggle"><span class="t-dot"></span> Web Search</button>
+        <button class="toggle on"><span class="t-dot"></span> DeepThink</button>
+        <button class="chip-cache">Bypass cache</button>
+        <button class="send" aria-label="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:48px"></div>
+</body>
+</html>

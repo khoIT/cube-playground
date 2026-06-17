@@ -72,15 +72,20 @@ describe('ConceptChip', () => {
     expect(screen.queryByText('deprecated')).toBeNull();
   });
 
-  // Brand tone overrides the per-kind type color with the brand accent so the
-  // chat glossary highlight pops on the warm page. Default tone keeps the
-  // type-vocabulary color (blue info fill) used by the catalog/builder.
-  it('uses the brand fill + border when tone="brand"', () => {
-    renderChip(<ConceptChip kind="concept" label="Revenue" tone="brand" />);
+  // Brand tone (chat glossary highlight) renders as a baseline underline-accent
+  // woven into the prose — inline, no leading icon, no bordered pill — so the
+  // term blends into the sentence AND adds zero box height (wrapped terms can't
+  // collide with the row above). Default tone keeps the type-vocabulary pill.
+  it('renders tone="brand" as an inline underline-accent with no icon', () => {
+    const { container } = renderChip(<ConceptChip kind="concept" label="Revenue" tone="brand" />);
     const el = screen.getByRole('button');
-    expect(el.style.background).toBe('var(--brand-soft)');
-    expect(el.style.color).toBe('var(--brand)');
-    expect(el.style.border).toContain('var(--brand)');
+    expect(el.style.display).toBe('inline');
+    // Underline painted via background-image (not a border) so it adds no height.
+    expect(el.style.backgroundImage).toContain('linear-gradient');
+    expect(el.style.border).toBe('');
+    // The blend-in intent: no lucide type-icon punctuating the term.
+    expect(container.querySelector('svg')).toBeNull();
+    expect(screen.getByText('Revenue')).toBeTruthy();
   });
 
   it('keeps the info-blue type color at the default tone', () => {

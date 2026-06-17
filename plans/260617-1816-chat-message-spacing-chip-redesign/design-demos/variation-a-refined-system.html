@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Variation A — Refined house system</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg-app:#f8efe5;
+    --bg-card:#f8efe5;
+    --bg-muted:#efe3d4;
+    --surface-subtle:#f9fafb;
+    --text-primary:#171717;
+    --text-secondary:#404040;
+    --text-emphasis:#262626;
+    --text-subtle:#737373;
+    --brand:#f05a22;
+    --brand-hover:#c2410c;
+    --brand-soft:#fff7ed;
+    --brand-border:#fed7aa;
+    --info-soft:#dbeafe;
+    --info-ink:#1d4ed8;
+    --border:#e5e5e5;
+    --border-strong:#d4d4d4;
+    --success-soft:#ecfdf5;
+    --success-ink:#047857;
+    --destructive-soft:#fee2e2;
+    --destructive-ink:#991b1b;
+    --radius-xs:4px;
+    --radius-sm:6px;
+    --radius-md:8px;
+    --radius-lg:10px;
+    --radius-card:12px;
+    --radius-pill:9999px;
+    --font-sans:'Inter',-apple-system,system-ui,sans-serif;
+    --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    /* shadows tuned for cream — barely-there elevation */
+    --shadow-card:0 1px 2px rgba(64,46,30,0.05), 0 1px 1px rgba(64,46,30,0.04);
+    --shadow-pop:0 2px 8px rgba(64,46,30,0.10);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg-app);
+    color:var(--text-primary);
+    font-family:var(--font-sans);
+    font-size:14px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- variation label ---------- */
+  .var-label{
+    position:fixed;
+    top:16px;left:16px;
+    z-index:50;
+    max-width:320px;
+    background:rgba(248,239,229,0.92);
+    backdrop-filter:blur(6px);
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius-md);
+    padding:10px 12px;
+    box-shadow:var(--shadow-card);
+  }
+  .var-label .name{
+    font-size:12px;font-weight:700;letter-spacing:.02em;
+    color:var(--text-primary);
+    display:flex;align-items:center;gap:6px;
+  }
+  .var-label .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);}
+  .var-label .note{
+    margin-top:4px;font-size:11px;line-height:1.5;color:var(--text-subtle);
+  }
+
+  /* ---------- thread layout ---------- */
+  .thread{
+    max-width:860px;
+    margin:0 auto;
+    padding:48px 24px 32px;
+  }
+
+  /* a "turn" = one user question + the CUBE answer beneath it */
+  .turn{
+    position:relative;
+    padding:24px 0 24px 20px;
+  }
+  .turn + .turn{
+    border-top:1px solid var(--border);
+  }
+  /* quiet left-rail makes each turn read as a distinct block */
+  .turn::before{
+    content:"";
+    position:absolute;
+    left:0;top:28px;bottom:28px;
+    width:2px;border-radius:var(--radius-pill);
+    background:var(--border-strong);
+  }
+  .turn:hover::before{background:var(--brand-border);}
+
+  /* ---------- user question heading ---------- */
+  .q-head{
+    display:flex;align-items:baseline;gap:12px;
+    flex-wrap:wrap;
+  }
+  .q-title{
+    font-size:20px;font-weight:700;line-height:1.3;
+    color:var(--text-primary);
+    margin:0;
+  }
+  .q-time{
+    font-size:12px;color:var(--text-subtle);font-weight:500;
+    white-space:nowrap;
+  }
+
+  /* ---------- CUBE answer block ---------- */
+  .answer{
+    margin-top:14px;
+  }
+  .answer-meta{
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:10px;
+  }
+  .cube-tag{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:11px;font-weight:700;letter-spacing:.06em;
+    color:var(--brand);
+    text-transform:uppercase;
+  }
+  .cube-tag .glyph{
+    width:16px;height:16px;border-radius:var(--radius-xs);
+    background:var(--brand);color:#fff;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:10px;line-height:1;
+  }
+  .meta-time{font-size:12px;color:var(--text-subtle);}
+  .meta-sep{color:var(--border-strong);}
+
+  .reasoning{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;color:var(--text-secondary);
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:var(--radius-pill);
+    padding:3px 10px;
+    cursor:pointer;
+    transition:background .14s ease,border-color .14s ease,color .14s ease;
+  }
+  .reasoning:hover{
+    background:var(--bg-muted);
+    border-color:var(--border-strong);
+    color:var(--text-primary);
+  }
+  .reasoning .caret{color:var(--text-subtle);font-size:11px;transition:transform .14s ease;}
+  .reasoning:hover .caret{color:var(--text-secondary);}
+
+  /* ---------- answer prose ---------- */
+  .prose{
+    color:var(--text-secondary);
+    /* P1: generous line-height so wrapped term pills never collide */
+    line-height:2.0;
+    font-size:14px;
+  }
+  .prose p{margin:0 0 10px;}
+  .prose p:last-child{margin-bottom:0;}
+  .prose strong{color:var(--text-emphasis);font-weight:600;}
+
+  .answer-list{
+    list-style:none;margin:0 0 12px;padding:0;
+  }
+  .answer-list li{
+    position:relative;
+    padding-left:18px;
+    line-height:2.0;
+    margin-bottom:6px;
+    color:var(--text-secondary);
+  }
+  .answer-list li::before{
+    content:"";
+    position:absolute;left:2px;top:0.94em;
+    width:5px;height:5px;border-radius:50%;
+    background:var(--brand-border);
+  }
+  .answer-list li strong{color:var(--text-emphasis);font-weight:600;}
+
+  /* muted prompt echo */
+  .prompt-echo{
+    color:var(--text-subtle);
+    font-size:13px;
+    line-height:1.6;
+    margin:10px 0 14px;
+    padding-left:12px;
+    border-left:2px solid var(--border);
+  }
+
+  /* ---------- P1: glossary term pill (lighter, woven-in treatment) ----------
+     Soft fill, NO hard border. Contained height + tiny vertical margin
+     so wrapped pills on different rows never touch and still read inline. */
+  .term{
+    display:inline-flex;align-items:center;gap:4px;
+    height:20px;                 /* contained height < line-box (28px) */
+    margin:1px 0;                /* vertical breathing room on wrap */
+    padding:0 7px;
+    border-radius:var(--radius-sm);
+    background:var(--brand-soft);
+    color:var(--brand-hover);
+    font-weight:500;
+    font-size:13.5px;
+    line-height:1;
+    text-decoration:none;
+    cursor:pointer;
+    vertical-align:baseline;
+    transition:background .14s ease,color .14s ease,box-shadow .14s ease;
+  }
+  .term .ti{
+    font-size:10px;
+    opacity:.7;
+    transition:opacity .14s ease;
+  }
+  .term:hover{
+    background:var(--brand);
+    color:#fff;
+    box-shadow:var(--shadow-card);
+  }
+  .term:hover .ti{opacity:1;}
+
+  /* mono field reference — distinct register from terms */
+  .field{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    background:var(--bg-muted);
+    color:var(--text-emphasis);
+    border-radius:var(--radius-xs);
+    padding:1px 5px;
+    white-space:nowrap;
+  }
+
+  /* ---------- P2: action chips = clear brand buttons ---------- */
+  .chip-row{
+    display:flex;flex-wrap:wrap;gap:10px;
+    margin-top:16px;
+  }
+  .chip-label{
+    width:100%;
+    font-size:11px;font-weight:600;letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--text-subtle);
+    margin-bottom:-2px;
+  }
+  .chip{
+    display:inline-flex;align-items:center;gap:8px;
+    height:34px;
+    padding:0 16px 0 14px;
+    border-radius:var(--radius-md);
+    font-size:14px;font-weight:600;
+    cursor:pointer;
+    border:1px solid var(--brand-border);
+    background:var(--brand-soft);
+    color:var(--brand-hover);
+    transition:background .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease,transform .04s ease;
+  }
+  .chip .arrow{
+    font-size:15px;line-height:1;
+    color:var(--brand);
+    transition:transform .14s ease,color .14s ease;
+  }
+  .chip:hover{
+    background:var(--brand);
+    border-color:var(--brand);
+    color:#fff;
+    box-shadow:var(--shadow-pop);
+  }
+  .chip:hover .arrow{color:#fff;transform:translateX(2px);}
+  .chip:active{transform:translateY(1px);}
+  /* the first chip reads as the primary recommendation */
+  .chip.primary{
+    background:var(--brand);
+    border-color:var(--brand);
+    color:#fff;
+  }
+  .chip.primary .arrow{color:#fff;}
+  .chip.primary:hover{background:var(--brand-hover);border-color:var(--brand-hover);}
+
+  /* ---------- chart-card stub ---------- */
+  .chart-card{
+    margin-top:18px;
+    border:1px solid var(--border);
+    border-radius:var(--radius-card);
+    background:var(--bg-card);
+    box-shadow:var(--shadow-card);
+    overflow:hidden;
+  }
+  .chart-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  .chart-title{
+    display:flex;align-items:center;gap:8px;
+    font-size:14px;font-weight:600;color:var(--text-emphasis);
+  }
+  .chart-actions{display:flex;align-items:center;gap:12px;}
+  .raw-link{
+    font-size:12px;color:var(--brand);font-weight:500;
+    text-decoration:none;cursor:pointer;
+  }
+  .raw-link:hover{color:var(--brand-hover);text-decoration:underline;}
+  .chart-select{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;color:var(--text-secondary);
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm);
+    padding:4px 8px;cursor:pointer;background:var(--bg-card);
+    transition:border-color .14s ease,background .14s ease;
+  }
+  .chart-select:hover{border-color:var(--brand-border);background:var(--brand-soft);}
+  .chart-body{
+    padding:18px 16px;
+    display:flex;align-items:flex-end;gap:14px;height:130px;
+  }
+  .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end;height:100%;}
+  .bar{width:100%;max-width:46px;border-radius:var(--radius-xs) var(--radius-xs) 0 0;background:var(--brand);}
+  .bar.alt{background:var(--brand-border);}
+  .bar-label{font-size:11px;color:var(--text-subtle);}
+
+  /* ---------- composer ---------- */
+  .composer{
+    max-width:860px;margin:8px auto 0;padding:0 24px 40px;
+  }
+  .composer-card{
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius-card);
+    background:var(--bg-card);
+    box-shadow:var(--shadow-card);
+    padding:14px 16px;
+  }
+  .composer-input{
+    font-size:15px;color:var(--text-subtle);
+    padding:2px 0 12px;
+  }
+  .composer-foot{
+    display:flex;align-items:center;gap:10px;
+    border-top:1px solid var(--border);
+    padding-top:12px;
+  }
+  .toggle{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12.5px;color:var(--text-secondary);font-weight:500;
+    border:1px solid var(--border);
+    border-radius:var(--radius-pill);
+    padding:5px 12px;cursor:pointer;
+    transition:background .14s ease,border-color .14s ease,color .14s ease;
+  }
+  .toggle:hover{background:var(--bg-muted);border-color:var(--border-strong);color:var(--text-primary);}
+  .toggle .sw{width:7px;height:7px;border-radius:50%;background:var(--border-strong);}
+  .cache-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:500;
+    color:var(--brand-hover);
+    background:var(--brand-soft);
+    border:1px solid var(--brand-border);
+    border-radius:var(--radius-pill);
+    padding:5px 12px;cursor:pointer;
+    transition:background .14s ease;
+  }
+  .cache-chip:hover{background:#ffeede;}
+  .send{
+    margin-left:auto;
+    width:36px;height:36px;border-radius:50%;
+    background:var(--brand);color:#fff;
+    border:none;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:16px;
+    box-shadow:var(--shadow-card);
+    transition:background .14s ease,transform .04s ease;
+  }
+  .send:hover{background:var(--brand-hover);}
+  .send:active{transform:translateY(1px);}
+</style>
+</head>
+<body>
+
+  <div class="var-label">
+    <div class="name"><span class="dot"></span>Variation A — Refined house system</div>
+    <div class="note">Borderless soft-fill term pills (20px, +1px margin) on 2.0 line-height; solid/soft brand action buttons w/ 15px ▸; turns split by 2px left-rail + divider rhythm.</div>
+  </div>
+
+  <main class="thread">
+
+    <!-- ============ TURN 1 ============ -->
+    <section class="turn">
+      <div class="q-head">
+        <h2 class="q-title">Top 20 VIP players</h2>
+        <span class="q-time">4 hours ago</span>
+      </div>
+
+      <div class="answer">
+        <div class="answer-meta">
+          <span class="cube-tag"><span class="glyph">◆</span>Cube</span>
+          <span class="meta-time">14:40</span>
+          <span class="meta-sep">·</span>
+          <span class="reasoning">⊙ Reasoning <span class="caret">›</span></span>
+        </div>
+
+        <div class="prose">
+          <p>Ranking individual players — which metric should I rank the top 20 VIP players by?</p>
+        </div>
+
+        <div class="prompt-echo">Ranking individual players — which metric should I rank the top 20 VIP players by?</div>
+
+        <div class="chip-row">
+          <span class="chip-label">Choose a metric</span>
+          <button class="chip primary"><span class="arrow">▸</span>Revenue</button>
+          <button class="chip"><span class="arrow">▸</span>LTV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TURN 2 (showcase: wrapping term pills) ============ -->
+    <section class="turn">
+      <div class="q-head">
+        <h2 class="q-title">Rank the top 20 players by ARPU</h2>
+        <span class="q-time">4 hours ago</span>
+      </div>
+
+      <div class="answer">
+        <div class="answer-meta">
+          <span class="cube-tag"><span class="glyph">◆</span>Cube</span>
+          <span class="meta-time">14:40</span>
+          <span class="meta-sep">·</span>
+          <span class="reasoning">⊙ Reasoning <span class="caret">›</span></span>
+        </div>
+
+        <ul class="answer-list">
+          <li><a class="term" href="#">Revenue <span class="ti">ⓘ</span></a> — each player's total recharge amount (the numerator of <a class="term" href="#">ARPU <span class="ti">ⓘ</span></a>, per person). This is what most "top <a class="term" href="#">spenders <span class="ti">ⓘ</span></a>" leaderboards use.</li>
+          <li><strong>LTV</strong> — each player's <a class="term" href="#">lifetime value <span class="ti">ⓘ</span></a>, which captures cumulative spend across their entire history.</li>
+        </ul>
+
+        <div class="prompt-echo">Which per-player metric should I rank the top 20 players by instead?</div>
+
+        <div class="chip-row">
+          <span class="chip-label">Choose a metric</span>
+          <button class="chip primary"><span class="arrow">▸</span>Revenue</button>
+          <button class="chip"><span class="arrow">▸</span>LTV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TURN 3 ============ -->
+    <section class="turn">
+      <div class="q-head">
+        <h2 class="q-title">Top 10 countries by ARPU last 30 days</h2>
+        <span class="q-time">4 hours ago</span>
+      </div>
+
+      <div class="answer">
+        <div class="answer-meta">
+          <span class="cube-tag"><span class="glyph">◆</span>Cube</span>
+          <span class="meta-time">14:41</span>
+          <span class="meta-sep">·</span>
+          <span class="reasoning">⊙ Reasoning <span class="caret">›</span></span>
+        </div>
+
+        <div class="prose">
+          <p>Only 5 distinct countries exist in this game's user base — no "top 10" to fill. A few things to note:</p>
+        </div>
+
+        <ul class="answer-list">
+          <li><strong>OT (~362K VND)</strong> — the "Other" catch-all code, anomalously high; likely test accounts or VPN-routed users, not a real market.</li>
+          <li><strong>VN (~43,323 VND)</strong> — the primary market, as expected for CFM VN.</li>
+          <li><strong>PH &amp; ID</strong> — registered users but zero <a class="term" href="#">ARPU <span class="ti">ⓘ</span></a>; no paying activity.</li>
+        </ul>
+
+        <div class="prose">
+          <p><strong>Why "last 30 days" didn't apply:</strong> <span class="field">mf_users.arpu_vnd</span> lives in <span class="field">mf_users</span>, a per-user snapshot with no date dimension. The number reflects <strong>lifetime</strong> ARPU, not a rolling 30-day window.</p>
+          <p>For a true <strong>30-day ARPU by</strong> <a class="term" href="#">country <span class="ti">ⓘ</span></a>, I'd need to query <span class="field">user_recharge_daily</span> (which has a daily date dimension) joined to <span class="field">mf_users.country</span>. Want me to run that instead?</p>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title">📊 Lifetime ARPU by Country</div>
+            <div class="chart-actions">
+              <a class="raw-link" href="#">Raw Query</a>
+              <span class="chart-select">Bar <span style="font-size:10px;">⌄</span></span>
+            </div>
+          </div>
+          <div class="chart-body">
+            <div class="bar-wrap"><div class="bar" style="height:100%;"></div><span class="bar-label">OT</span></div>
+            <div class="bar-wrap"><div class="bar" style="height:22%;"></div><span class="bar-label">VN</span></div>
+            <div class="bar-wrap"><div class="bar alt" style="height:4%;"></div><span class="bar-label">PH</span></div>
+            <div class="bar-wrap"><div class="bar alt" style="height:4%;"></div><span class="bar-label">ID</span></div>
+            <div class="bar-wrap"><div class="bar alt" style="height:3%;"></div><span class="bar-label">—</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ composer ============ -->
+  <div class="composer">
+    <div class="composer-card">
+      <div class="composer-input">What do you want to know?</div>
+      <div class="composer-foot">
+        <span class="toggle"><span class="sw"></span>Web Search</span>
+        <span class="toggle"><span class="sw"></span>DeepThink</span>
+        <span class="cache-chip">⚡ Bypass cache</span>
+        <button class="send" aria-label="Send">↑</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
