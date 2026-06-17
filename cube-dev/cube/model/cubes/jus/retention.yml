@@ -77,3 +77,43 @@ cubes:
       - name: churned_d30
         sql: cohort_size - retained_d30
         type: sum
+
+    pre_aggregations:
+      # Cohort retention rollup — what churn_rate (churned_d30 / cohort_size)
+      # rides on. Without it the metric is a cold ~14s two-pass self-join over
+      # std_ingame_user_active_daily. Every measure here is an additive sum, so
+      # the rollup serves day/week/month/total queries on install_date exactly.
+      - name: cohort_retention_batch
+        type: rollup
+        measures:
+          - cohort_size
+          - retained_d1
+          - retained_d3
+          - retained_d7
+          - retained_d14
+          - retained_d30
+          - churned_d30
+        time_dimension: install_date
+        granularity: day
+        partition_granularity: month
+        refresh_key:
+          every: 1 hour
+          incremental: true
+        # Rolling 120-day window with monthly partitions: recent cohorts seal
+        # independently and keep maturing (retained_d30 needs 30 days, well
+        # inside the window); older cohorts fall through to source via the lambda.
+        build_range_start:
+          sql: "SELECT date_add('day', -120, current_timestamp)"
+        # install_date = MIN(log_date) per user, so the latest cohort can never
+        # post-date the latest source row; cap at MAX(log_date) to avoid sealing
+        # empty future partitions (a known cubestore future-seal pitfall).
+        build_range_end:
+          sql: "SELECT COALESCE(from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z'), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM std_ingame_user_active_daily"
+
+      # Lambda union: sealed batch partitions + a live tail straight from source,
+      # so recent install cohorts appear without waiting for a refresh cycle.
+      - name: cohort_retention
+        type: rollup_lambda
+        union_with_source_data: true
+        rollups:
+          - CUBE.cohort_retention_batch

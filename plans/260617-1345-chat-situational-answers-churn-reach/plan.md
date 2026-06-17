@@ -1,6 +1,6 @@
 # Plan — Situational chat answers (real numbers + structured tokens) & churn reach
 
-Status: Task 4 DONE; Task 5 step1/step2 VERIFIED; Task 5 step3 (rollup) DEFERRED.
+Status: Task 4 DONE; Task 5 step1/step2 VERIFIED; Task 5 step3 (rollup) DONE.
 Owner: khoitn. Created 2026-06-17. Last updated 2026-06-17.
 
 ## Progress
@@ -16,8 +16,16 @@ Owner: khoitn. Created 2026-06-17. Last updated 2026-06-17.
   present on both games → not availability-gated; reachable via list_business_metrics.
   No churn topic in the knowledge bank (topics = liveops/user_acquisition/monetization);
   reach is via list_business_metrics + the new Task-4 measure requirement, not topic-knowledge.
-- **Task 5 step 3 — DEFERRED.** Retention pre-agg rollup is a separate high-risk build/verify
-  loop (cubestore future-seal/log_date pitfalls). To be authored as a follow-up.
+- **Task 5 step 3 — DONE.** Added a `cohort_retention_batch` (rollup) + `cohort_retention`
+  (rollup_lambda, union_with_source_data) pre-agg to cfm/retention.yml + jus/retention.yml,
+  mirroring the new_user_retention lambda+batch template. Additive sums; time_dimension
+  install_date (already CAST AS TIMESTAMP → no log_date DATE seal bug); 120-day rolling
+  window, monthly partitions, build_range_end capped at MAX(log_date). Built + sealed via
+  cube-dev/scripts/trigger-preagg-build.sh; churn query routes to
+  `preagg_<game>.retention_cohort_retention_batch` on BOTH cfm_vn + jus_vn (verified by
+  compiled SQL — lambda hides usedPreAggregations; 0.2s vs ~14s cold). Prod auto-builds:
+  the cube_refresh_worker picks it up on its 5-min sweep after a deploy/restart (refresh_key
+  every 1h incremental); no manual trigger. Port to other games' retention.yml = follow-up.
 
 ## Origin
 Chat answer to "what should I know about churn users situation" returned a **qualitative
