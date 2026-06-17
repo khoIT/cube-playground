@@ -1,16 +1,25 @@
 id: impressions
 label: Impressions
 description: >-
-  Total ad impressions in the selected period — the number of times an ad is
-  shown on a user's screen, regardless of interaction.
-synonyms: [ad_impressions, ad_views]
+  Total ad impressions in the selected period — the number of times an ad is shown on a user's
+  screen, regardless of interaction.
+synonyms:
+  - ad_impressions
+  - ad_views
 tier: 2
 domain: marketing
 owner: marketing-ops@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: game_key_metrics.impressions
-format: compact
 game_compatibility:
-  required_cubes: [game_key_metrics]
+  required_cubes:
+    - game_key_metrics
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:57.760Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

@@ -1,17 +1,26 @@
 id: diamond_net_delta
 label: Diamond net delta
 description: >-
-  Net change in diamond balance across all users in the period — total inflow
-  minus total outflow for diamond currency. Apply segment: diamond_only at
-  query time to filter etl_money_flow to diamond transactions.
-synonyms: [diamond_balance_delta, diamond_net_change]
+  Net change in diamond balance across all users in the period — total inflow minus total outflow
+  for diamond currency. Apply segment: diamond_only at query time to filter etl_money_flow to
+  diamond transactions.
+synonyms:
+  - diamond_balance_delta
+  - diamond_net_change
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: etl_money_flow.total_delta
-format: compact
 game_compatibility:
-  required_cubes: [etl_money_flow]
+  required_cubes:
+    - etl_money_flow
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:55.483Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

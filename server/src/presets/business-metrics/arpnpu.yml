@@ -1,19 +1,26 @@
 id: arpnpu
 label: ARPNPU
 description: >-
-  Average revenue per new paying user (RevNPU / NPU). After repoint to
-  game_key_metrics, numerator is total cohort revenue (not NPU-only) —
-  best available single-mart approximation.
-synonyms: [avg_revenue_per_new_payer]
+  Average revenue per new paying user (RevNPU / NPU). After repoint to game_key_metrics, numerator
+  is total cohort revenue (not NPU-only) — best available single-mart approximation.
+synonyms:
+  - avg_revenue_per_new_payer
 tier: 2
 domain: revenue
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: ratio
   numerator: game_key_metrics.rev
   denominator: game_key_metrics.npu
+game_compatibility:
+  required_cubes:
+    - game_key_metrics
 unit: VND
 format: currency
-game_compatibility:
-  required_cubes: [game_key_metrics]
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:55.074Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

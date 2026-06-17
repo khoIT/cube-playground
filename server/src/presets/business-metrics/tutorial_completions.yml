@@ -1,16 +1,25 @@
 id: tutorial_completions
 label: Tutorial completions
 description: >-
-  Total tutorial completion events in the period — the count of distinct
-  players who reached the final tutorial step (etl_newbie_tutorial.completed_count).
-synonyms: [tutorial_completed, onboarding_completions]
+  Total tutorial completion events in the period — the count of distinct players who reached the
+  final tutorial step (etl_newbie_tutorial.completed_count).
+synonyms:
+  - tutorial_completed
+  - onboarding_completions
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: etl_newbie_tutorial.completed_count
-format: compact
 game_compatibility:
-  required_cubes: [etl_newbie_tutorial]
+  required_cubes:
+    - etl_newbie_tutorial
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:02.186Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

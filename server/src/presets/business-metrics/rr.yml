@@ -1,31 +1,51 @@
 id: rr
 label: New-user retention (day n)
 description: >-
-  Classic exact-day new-user retention rate — Ruser(n) / NRU on D0.
-  Canonical parameterized retention; concrete fixed variants (rr01, rr07, rr30)
-  are equivalent projections.
-synonyms: [retention_rate, rr_dn, new_user_retention]
+  Classic exact-day new-user retention rate — Ruser(n) / NRU on D0. Canonical parameterized
+  retention; concrete fixed variants (rr01, rr07, rr30) are equivalent projections.
+synonyms:
+  - retention_rate
+  - rr_dn
+  - new_user_retention
 tier: 1
 domain: retention
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: ratio
   numerator: retention.retained_d7
   denominator: retention.cohort_size
-format: percent
 game_compatibility:
-  required_cubes: [retention]
+  required_cubes:
+    - retention
 parameter:
-  name: n
+  name: 'n'
   label: Day (n)
-  options: [1, 2, 3, 4, 5, 6, 7, 14, 21, 30, 60, 90]
+  options:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 14
+    - 21
+    - 30
+    - 60
+    - 90
   default: 7
+format: percent
 meta:
   serving:
     - game: cfm_vn
       latency: cold
-      at: "2026-06-10T00:00:00.000Z"
+      at: '2026-06-10T00:00:00.000Z'
       note: >-
-        retention cube is a SQL-derived two-pass self-join with no
-        pre_aggregations block; cold scan ~14s.
+        retention cube is a SQL-derived two-pass self-join with no pre_aggregations block; cold scan
+        ~14s.
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:01.512Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

@@ -1,19 +1,27 @@
 id: roas_07
 label: ROAS Day 7
 description: >-
-  Period ROAS (not D7-cohort) — revenue in the query window divided by
-  marketing cost in the same window. D7-cohort ROAS (install-day revenue
-  accumulated to D7) is not yet available in game_key_metrics and requires a
-  cohort-window join against new_user_retention.
-synonyms: [roas7, return_on_ad_spend_d7]
+  Period ROAS (not D7-cohort) — revenue in the query window divided by marketing cost in the same
+  window. D7-cohort ROAS (install-day revenue accumulated to D7) is not yet available in
+  game_key_metrics and requires a cohort-window join against new_user_retention.
+synonyms:
+  - roas7
+  - return_on_ad_spend_d7
 tier: 1
 domain: marketing
 owner: marketing-ops@vng
-trust: draft
+trust: certified
 formula:
   type: ratio
   numerator: game_key_metrics.rev
   denominator: game_key_metrics.cost_vnd
-format: percent
 game_compatibility:
-  required_cubes: [game_key_metrics]
+  required_cubes:
+    - game_key_metrics
+format: percent
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:01.321Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

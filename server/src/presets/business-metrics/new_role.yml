@@ -1,24 +1,32 @@
 id: new_role
 label: New role
 description: >-
-  Unique game characters/roles created and first-time-active in the period.
-  Each role counts once at creation.
-synonyms: [new_character, new_roles]
+  Unique game characters/roles created and first-time-active in the period. Each role counts once at
+  creation.
+synonyms:
+  - new_character
+  - new_roles
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
-  ref: mf_users.new_roles
-format: compact
+  ref: user_roles.new_roles
 game_compatibility:
-  required_cubes: [mf_users]
+  required_cubes:
+    - user_roles
+format: compact
 meta:
   applicability:
     - game: cfm_vn
-      applicable: false
-      at: "2026-06-10T00:00:00.000Z"
+      applicable: true
+      at: '2026-06-17T00:00:00.000Z'
       note: >-
-        cfm_vn uses a single-character model; per-role metrics are structurally
-        not applicable.
+        cfm_vn has multi-role identity (user_roles is one row per user×server×role); new_roles
+        counts distinct roles whose first_active_date falls in the window.
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:24:14.712Z'
+      actor: khoitn@vng.com.vn
+      note: role-grain measures added to user_roles cube; refs resolve vs cfm_vn /meta

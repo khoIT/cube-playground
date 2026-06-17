@@ -1,17 +1,26 @@
 id: diamond_spend_events
 label: Diamond spend events
 description: >-
-  Total diamond-spend transaction events in the period. Counts outflow events
-  from etl_money_flow filtered to diamond currency and spend-type transactions
-  only (apply segments: diamond_only + spends_only at query time).
-synonyms: [diamond_outflow_events, diamond_spend_count]
+  Total diamond-spend transaction events in the period. Counts outflow events from etl_money_flow
+  filtered to diamond currency and spend-type transactions only (apply segments: diamond_only +
+  spends_only at query time).
+synonyms:
+  - diamond_outflow_events
+  - diamond_spend_count
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: etl_money_flow.out_events
-format: compact
 game_compatibility:
-  required_cubes: [etl_money_flow]
+  required_cubes:
+    - etl_money_flow
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:56.314Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

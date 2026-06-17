@@ -1,23 +1,31 @@
 id: rr30
 label: D30 retention
 description: Day-30 new-user retention rate — exact-day retention at D30.
-synonyms: [retention_d30, r30]
+synonyms:
+  - retention_d30
+  - r30
 tier: 2
 domain: retention
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: ratio
   numerator: retention.retained_d30
   denominator: retention.cohort_size
-format: percent
 game_compatibility:
-  required_cubes: [retention]
+  required_cubes:
+    - retention
+format: percent
 meta:
   serving:
     - game: cfm_vn
       latency: cold
-      at: "2026-06-10T00:00:00.000Z"
+      at: '2026-06-10T00:00:00.000Z'
       note: >-
-        retention cube is a SQL-derived two-pass self-join with no
-        pre_aggregations block; cold scan ~14s.
+        retention cube is a SQL-derived two-pass self-join with no pre_aggregations block; cold scan
+        ~14s.
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:14.373Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

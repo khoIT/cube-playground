@@ -1,16 +1,25 @@
 id: gacha_players
 label: Gacha players
 description: >-
-  Distinct players who performed at least one gacha pull in the period.
-  Deduplicated by player_id within etl_lottery_shoot.
-synonyms: [lottery_players, gacha_unique_players]
+  Distinct players who performed at least one gacha pull in the period. Deduplicated by player_id
+  within etl_lottery_shoot.
+synonyms:
+  - lottery_players
+  - gacha_unique_players
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: etl_lottery_shoot.distinct_players
-format: compact
 game_compatibility:
-  required_cubes: [etl_lottery_shoot]
+  required_cubes:
+    - etl_lottery_shoot
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:13.795Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

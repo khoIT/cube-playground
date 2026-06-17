@@ -1,16 +1,25 @@
 id: trailing_mau
 label: Trailing MAU
 description: >-
-  Trailing monthly active users — unique active users from the 1st of the
-  current month through the selected timestamp.
-synonyms: [tmau, mtd_active_users]
+  Trailing monthly active users — unique active users from the 1st of the current month through the
+  selected timestamp.
+synonyms:
+  - tmau
+  - mtd_active_users
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: active_daily.trailing_mau
-format: compact
 game_compatibility:
-  required_cubes: [active_daily]
+  required_cubes:
+    - active_daily
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:01.730Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

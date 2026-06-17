@@ -1,17 +1,25 @@
 id: tutorial_starters
 label: Tutorial starters
 description: >-
-  Distinct players who started the tutorial in the period
-  (etl_newbie_tutorial.distinct_players — counts players with at least one
-  tutorial event, both starters and completers).
-synonyms: [onboarding_starters, tutorial_started]
+  Distinct players who started the tutorial in the period (etl_newbie_tutorial.distinct_players —
+  counts players with at least one tutorial event, both starters and completers).
+synonyms:
+  - onboarding_starters
+  - tutorial_started
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: etl_newbie_tutorial.distinct_players
-format: compact
 game_compatibility:
-  required_cubes: [etl_newbie_tutorial]
+  required_cubes:
+    - etl_newbie_tutorial
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:02.641Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

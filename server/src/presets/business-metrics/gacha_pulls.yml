@@ -1,16 +1,25 @@
 id: gacha_pulls
 label: Gacha pulls
 description: >-
-  Total gacha (lottery) pull attempts in the period across all lottery box
-  types. Sourced from etl_lottery_shoot.
-synonyms: [lottery_pulls, gacha_attempts]
+  Total gacha (lottery) pull attempts in the period across all lottery box types. Sourced from
+  etl_lottery_shoot.
+synonyms:
+  - lottery_pulls
+  - gacha_attempts
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: etl_lottery_shoot.pulls
-format: compact
 game_compatibility:
-  required_cubes: [etl_lottery_shoot]
+  required_cubes:
+    - etl_lottery_shoot
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:56.900Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

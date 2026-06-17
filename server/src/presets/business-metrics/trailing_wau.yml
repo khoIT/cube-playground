@@ -1,16 +1,25 @@
 id: trailing_wau
 label: Trailing WAU
 description: >-
-  Trailing weekly active users — unique active users from the start of the
-  current ISO week (Monday) through the selected timestamp.
-synonyms: [twau, wtd_active_users]
+  Trailing weekly active users — unique active users from the start of the current ISO week (Monday)
+  through the selected timestamp.
+synonyms:
+  - twau
+  - wtd_active_users
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: active_daily.trailing_wau
-format: compact
 game_compatibility:
-  required_cubes: [active_daily]
+  required_cubes:
+    - active_daily
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:01.902Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

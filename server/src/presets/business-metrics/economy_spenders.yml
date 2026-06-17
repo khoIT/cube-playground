@@ -1,16 +1,25 @@
 id: economy_spenders
 label: Economy spenders
 description: >-
-  Distinct players who spent any in-game currency in the period. Apply segment:
-  spends_only at query time to filter etl_money_flow to outflow events only.
-synonyms: [currency_spenders, in_game_spenders]
+  Distinct players who spent any in-game currency in the period. Apply segment: spends_only at query
+  time to filter etl_money_flow to outflow events only.
+synonyms:
+  - currency_spenders
+  - in_game_spenders
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: etl_money_flow.distinct_players
-format: compact
 game_compatibility:
-  required_cubes: [etl_money_flow]
+  required_cubes:
+    - etl_money_flow
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:56.414Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

@@ -1,16 +1,24 @@
 id: avg_online_time_min_per_dau
 label: Avg online time / DAU (min)
-description: >-
-  Average online time per daily active user in minutes.
-synonyms: [avg_playtime_per_dau, avg_session_min_per_dau]
+description: Average online time per daily active user in minutes.
+synonyms:
+  - avg_playtime_per_dau
+  - avg_session_min_per_dau
 tier: 3
 domain: engagement
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: active_daily.avg_online_time_min_per_dau
+game_compatibility:
+  required_cubes:
+    - active_daily
 unit: minutes
 format: compact
-game_compatibility:
-  required_cubes: [active_daily]
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:55.113Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

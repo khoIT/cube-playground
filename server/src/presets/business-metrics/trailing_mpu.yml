@@ -1,16 +1,25 @@
 id: trailing_mpu
 label: Trailing MPU
 description: >-
-  Trailing monthly paying users — unique paying users from the 1st of the
-  current month through the selected timestamp.
-synonyms: [tmpu, mtd_paying_users]
+  Trailing monthly paying users — unique paying users from the 1st of the current month through the
+  selected timestamp.
+synonyms:
+  - tmpu
+  - mtd_paying_users
 tier: 3
 domain: payments
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
   ref: user_recharge_daily.trailing_mpu
-format: compact
 game_compatibility:
-  required_cubes: [user_recharge_daily]
+  required_cubes:
+    - user_recharge_daily
+format: compact
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:01.777Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

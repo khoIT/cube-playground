@@ -1,23 +1,44 @@
 id: roas
 label: ROAS (day n)
 description: >-
-  Return on ad spend at day n — cumulative revenue per install (RevRPI(n))
-  divided by marketing cost on the report date. Canonical parameterized ROAS;
-  concrete fixed variants (e.g. roas_07) are equivalent projections.
-synonyms: [return_on_ad_spend, roas_dn]
+  Return on ad spend at day n — cumulative revenue per install (RevRPI(n)) divided by marketing cost
+  on the report date. Canonical parameterized ROAS; concrete fixed variants (e.g. roas_07) are
+  equivalent projections.
+synonyms:
+  - return_on_ad_spend
+  - roas_dn
 tier: 1
 domain: marketing
 owner: marketing-ops@vng
-trust: draft
+trust: certified
 formula:
   type: ratio
   numerator: game_key_metrics.rev
   denominator: game_key_metrics.cost_vnd
-format: percent
 game_compatibility:
-  required_cubes: [game_key_metrics]
+  required_cubes:
+    - game_key_metrics
 parameter:
-  name: n
+  name: 'n'
   label: Day (n)
-  options: [0, 1, 3, 7, 14, 21, 30, 60, 90, 120, 150, 180]
+  options:
+    - 0
+    - 1
+    - 3
+    - 7
+    - 14
+    - 21
+    - 30
+    - 60
+    - 90
+    - 120
+    - 150
+    - 180
   default: 7
+format: percent
+meta:
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:12:01.267Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

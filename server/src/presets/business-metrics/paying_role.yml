@@ -18,5 +18,6 @@ meta:
       applicable: false
       at: "2026-06-10T00:00:00.000Z"
       note: >-
-        cfm_vn uses a single-character model; per-role metrics are structurally
-        not applicable.
+        role-grain identity exists for cfm_vn (user_roles), but per-role recharge
+        columns are not populated upstream — paying-role counts would be 0 until
+        ETL backfills. Use user-grain paying_users meanwhile.

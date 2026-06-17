@@ -1,32 +1,25 @@
 id: ltv_30
 label: LTV Day 30
 description: >-
-  Daily cohort LTV at D30 (rev/NRU on report_date) — total revenue on
-  report_date divided by NRU on that date. Not a D0..D30 cumulative LTV: true
-  30-day cohort LTV requires summing revenue attributed to the cohort from D0
-  to D30, which needs a cohort-window join not yet available. Kept draft until
-  semantics are confirmed.
-synonyms: [lifetime_value_d30]
+  Daily cohort LTV at D30 (rev/NRU on report_date) — total revenue on report_date divided by NRU on
+  that date. Not a D0..D30 cumulative LTV: true 30-day cohort LTV requires summing revenue
+  attributed to the cohort from D0 to D30, which needs a cohort-window join not yet available. Kept
+  draft until semantics are confirmed.
+synonyms:
+  - lifetime_value_d30
 tier: 1
 domain: retention
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: ratio
   numerator: game_key_metrics.rev
   denominator: game_key_metrics.nru
+game_compatibility:
+  required_cubes:
+    - game_key_metrics
 unit: VND
 format: currency
-game_compatibility:
-  required_cubes: [game_key_metrics]
-meta:
-  serving:
-    - game: cfm_vn
-      latency: cold
-      at: "2026-06-10T00:00:00.000Z"
-      note: >-
-        Draft pending semantics review; query scans game_key_metrics source
-        when no rollup partition covers the requested date range.
 anomaly:
   state: trend
   deltaPct: 7.8
@@ -36,7 +29,7 @@ anomaly:
       - label: VN
         deltaPct: 11.4
       - label: TH
-        deltaPct: 6.0
+        deltaPct: 6
       - label: ID
         deltaPct: 3.2
     channel:
@@ -46,3 +39,16 @@ anomaly:
         deltaPct: 8.1
       - label: organic
         deltaPct: 2.5
+meta:
+  serving:
+    - game: cfm_vn
+      latency: cold
+      at: '2026-06-10T00:00:00.000Z'
+      note: >-
+        Draft pending semantics review; query scans game_key_metrics source when no rollup partition
+        covers the requested date range.
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:59.143Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts

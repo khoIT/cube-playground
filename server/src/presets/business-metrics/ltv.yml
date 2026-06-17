@@ -1,33 +1,53 @@
 id: ltv
 label: LTV (cohort, day n)
 description: >-
-  Daily cohort LTV (rev/NRU on report_date) — total revenue on report_date
-  divided by NRU on that date. Not a lifetime NPV cohort: true D0..Dn
-  cumulative LTV requires a cohort-window join not yet available in a single
-  mart. Kept draft until semantics are confirmed with product.
-synonyms: [lifetime_value, ltv_cohort, ltv_dn]
+  Daily cohort LTV (rev/NRU on report_date) — total revenue on report_date divided by NRU on that
+  date. Not a lifetime NPV cohort: true D0..Dn cumulative LTV requires a cohort-window join not yet
+  available in a single mart. Kept draft until semantics are confirmed with product.
+synonyms:
+  - lifetime_value
+  - ltv_cohort
+  - ltv_dn
 tier: 1
 domain: retention
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: ratio
   numerator: game_key_metrics.rev
   denominator: game_key_metrics.nru
+game_compatibility:
+  required_cubes:
+    - game_key_metrics
+parameter:
+  name: 'n'
+  label: Day (n)
+  options:
+    - 0
+    - 1
+    - 3
+    - 7
+    - 14
+    - 21
+    - 30
+    - 60
+    - 90
+    - 120
+    - 150
+    - 180
+  default: 30
 unit: VND
 format: currency
-game_compatibility:
-  required_cubes: [game_key_metrics]
-parameter:
-  name: n
-  label: Day (n)
-  options: [0, 1, 3, 7, 14, 21, 30, 60, 90, 120, 150, 180]
-  default: 30
 meta:
   serving:
     - game: cfm_vn
       latency: cold
-      at: "2026-06-10T00:00:00.000Z"
+      at: '2026-06-10T00:00:00.000Z'
       note: >-
-        Draft pending semantics review; query scans game_key_metrics source
-        when no rollup partition covers the requested date range.
+        Draft pending semantics review; query scans game_key_metrics source when no rollup partition
+        covers the requested date range.
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:11:58.153Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; bulk promotion of resolvable drafts
