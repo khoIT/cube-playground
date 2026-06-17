@@ -132,7 +132,7 @@ export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }
               }
             >
               {isChoice && (
-                <span aria-hidden style={{ fontSize: 11, opacity: 0.9 }}>
+                <span aria-hidden style={{ fontSize: 15, lineHeight: 1, opacity: 0.9 }}>
                   {isSelected ? '✓' : '▸'}
                 </span>
               )}
